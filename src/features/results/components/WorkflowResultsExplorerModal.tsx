@@ -675,6 +675,7 @@ export default function WorkflowResultsExplorerModal({ trace, onClose, importedF
               selectedIteration={selectedIteration}
               selectedNodeId={selectedNodeId}
               onNodeClick={handleNodeClick}
+              onDrillDown={handleDrillDown}
               searchQuery={searchQuery}
               stateFilter={stateFilter}
             />

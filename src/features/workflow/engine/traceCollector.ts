@@ -36,7 +36,7 @@ export class TraceCollector {
     const startTime = this.nodeStartTimes.get(nodeId) ?? Date.now();
     
     const nodeType = node.type;
-    const hasOwnTiming = nodeType === 'http' || nodeType === 'correlationWait';
+    const hasOwnTiming = nodeType === 'http' || nodeType === 'correlationWait' || nodeType === 'subWorkflow';
     
     let durationMs: number | undefined;
     if (hasOwnTiming) {
@@ -44,6 +44,8 @@ export class TraceCollector {
         durationMs = details.responseTimeMs;
       } else if (nodeType === 'correlationWait' && details?.waitDurationMs !== undefined) {
         durationMs = details.waitDurationMs;
+      } else if (nodeType === 'subWorkflow' && details?.subWorkflowTrace?.totalDurationMs !== undefined) {
+        durationMs = details.subWorkflowTrace.totalDurationMs;
       } else {
         const endTime = Date.now();
         durationMs = endTime - startTime;

@@ -129,6 +129,53 @@ describe('TraceCollector', () => {
       expect(events[0].durationMs).toBeDefined();
     });
 
+    it('uses subWorkflowTrace.totalDurationMs for sub-workflow nodes', () => {
+      const nodesWithSub: WorkflowNode[] = [
+        { id: 'sw1', type: 'subWorkflow', data: { label: 'Run Child' }, position: { x: 0, y: 0 } },
+      ];
+      const subCollector = new TraceCollector(nodesWithSub);
+
+      subCollector.onNodeStart('sw1');
+      subCollector.onNodeComplete('sw1', 'pass', {
+        subWorkflowId: 'child-wf',
+        subWorkflowPassed: true,
+        subWorkflowTrace: {
+          iterations: [],
+          traversedEdges: [],
+          workflowSnapshot: { nodes: [], edges: [] },
+          workflowId: 'child-wf',
+          workflowName: 'Child',
+          totalIterations: 1,
+          totalDurationMs: 350,
+        },
+      });
+
+      const events = subCollector.getEvents();
+      expect(events[0].durationMs).toBe(350);
+    });
+
+    it('falls back to wall-clock duration for sub-workflow without trace', () => {
+      const nodesWithSub: WorkflowNode[] = [
+        { id: 'sw1', type: 'subWorkflow', data: { label: 'Run Child' }, position: { x: 0, y: 0 } },
+      ];
+      const subCollector = new TraceCollector(nodesWithSub);
+
+      vi.useFakeTimers();
+      vi.setSystemTime(Date.now());
+
+      subCollector.onNodeStart('sw1');
+      vi.advanceTimersByTime(200);
+      subCollector.onNodeComplete('sw1', 'pass', {
+        subWorkflowId: 'child-wf',
+        subWorkflowPassed: true,
+      });
+
+      const events = subCollector.getEvents();
+      expect(events[0].durationMs).toBe(200);
+
+      vi.useRealTimers();
+    });
+
     it('uses waitDurationMs from details for correlationWait nodes', () => {
       const nodesWithWait: WorkflowNode[] = [
         { id: 'cw1', type: 'correlationWait', data: { label: 'Wait for callback' }, position: { x: 0, y: 0 } },

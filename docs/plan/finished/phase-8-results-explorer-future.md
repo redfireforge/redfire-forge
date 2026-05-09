@@ -1,8 +1,8 @@
 # Phase 8: Results Explorer — Future Enhancements
 
-> **Status**: 🛠️ In Progress (8a, 8b, 8c complete — 8d not started)  
+> **Status**: ✅ Complete (8a, 8b, 8c, 8d all complete)  
 > **Priority**: Low–Medium  
-> **Effort**: Large (~31–38 hours total across 4 features)  
+> **Effort**: Large (~30–36 hours total across 4 features)  
 > **Dependencies**: Phase 7e (Visual Execution Replay) — ✅ Complete  
 > **Origin**: Identified during Phase 7e development (Q2, Q3, Q4 decisions)
 
@@ -17,7 +17,7 @@ Four enhancements to the Results Explorer. The first three were identified durin
 | 8a | Timeline View / Gantt Chart | Large (~16h) | Medium | ✅ Complete |
 | 8b | Sub-Workflow Drill-Down | Medium (6–8h) | Low | ✅ Complete |
 | 8c | Parallel Execution Visualization | Medium (6–10h) | Low | ✅ Complete |
-| 8d | Sub-Workflow Timeline Enhancements | Small (~3–4h) | Low | Not Started |
+| 8d | Sub-Workflow Timeline Enhancements | Small (~1.5–2h) | Low | ✅ Complete |
 
 ---
 
@@ -362,86 +362,138 @@ Add **swim-lane grouping** for fork/join branches on the ReactFlow canvas, plus 
 
 > **Origin**: Phase 8b implementation — sub-workflow nodes appear as empty bars in the Timeline View  
 > **Priority**: Low  
-> **Effort**: Small (~3–4 hours)
+> **Effort**: Small (~1.5–2 hours)
 
 ### Problem
 
-In the Timeline View (Gantt chart), sub-workflow nodes are rendered identically to HTTP request nodes — a single solid bar. However:
+In the Timeline View (Gantt chart), sub-workflow nodes are rendered identically to HTTP request nodes. Two issues:
 
-- **The bar appears empty** because sub-workflow nodes have overall duration but no HTTP-specific details, making them visually indistinguishable from a simple request
-- **No visual cue** that this node represents an entire child workflow containing multiple internal steps
-- **No drill-down** — clicking a sub-workflow bar in the timeline doesn't offer a way to view the child workflow's timeline
-- **Internal timing is hidden** — the sub-workflow bar shows total duration but not the time distribution of its internal nodes
+1. **Bug — missing duration**: `subWorkflow` is not in `traceCollector.ts`'s `hasOwnTiming` set, so `durationMs` is `undefined` on sub-workflow `ExecutionEvent`s. The timeline renders these as 1ms-wide bars instead of showing the actual child execution duration. This is a pre-requisite bug fix.
 
-### Proposed Enhancements
+2. **No visual distinction**: After fixing the duration, sub-workflow bars look identical to HTTP bars — same colors, same labels. Users can't tell at a glance which rows represent child workflows vs. regular API calls.
+
+### Design Evaluation (2026-05-09)
+
+The original plan proposed 5 enhancements. After thorough code analysis, 2 were dropped:
+
+| Original Enhancement | Verdict | Reason |
+|---------------------|---------|--------|
+| 1. Distinct Color | **Keep** | Indigo hue distinguishes sub-workflows from HTTP nodes |
+| 2. Striped SVG Pattern | **Drop** | Redundant when combined with distinct color; SVG patterns add rendering complexity and look noisy at small zoom |
+| 3. Label Badge | **Keep** | Low effort, high clarity — "SUB" pill next to node name |
+| 4. Inline Child Timeline | **Drop** | High complexity, low value — bars are too narrow for useful mini-bars at normal zoom; iteration mismatch in aggregate mode; `subWorkflowTrace` is stripped from `TimelineBar` (requires significant plumbing); 8b drill-down already provides a full-size child timeline |
+| 5. Double-click Drill-Down | **Simplify** | Double-click requires click/double-click disambiguation (delayed handlers). Instead, add a small drill-down icon on the bar that triggers drill-down directly |
+
+### Pre-Requisite Bug Fix
+
+**`durationMs` not captured for sub-workflow nodes**
+
+- **Root cause**: `traceCollector.ts` → `hasOwnTiming` set does not include `'subWorkflow'`, so the collector never computes duration from start/end timestamps
+- **Fix**: Either add `'subWorkflow'` to `hasOwnTiming`, or compute duration in `graphRunnerSubWorkflowHandler.ts` from child execution total time and set it on the event details before `traceCollector.onNodeComplete`
+- **Validation**: After fix, sub-workflow bars should render at correct width proportional to child execution time
+
+### Revised Enhancements
 
 #### Enhancement 1: Distinct Color for Sub-Workflow Bars
-- Use a **different hue** (e.g., indigo/purple `#6366f1`) for sub-workflow bars to distinguish them from HTTP request bars (green/red)
-- Keeps pass/fail semantics: indigo for pass, red for fail, gray for skipped
-- Helps users instantly identify which timeline rows represent sub-workflows vs. regular nodes
+- Use **indigo** (`#6366f1`) as the base hue for sub-workflow bars
+- Pass state: indigo (`#6366f1`), fail state: rose (`#e11d48`), skipped: gray (`#64748b`)
+- Dimmed variants for aggregate mode at 30% opacity
+- Tooltip already shows `nodeType` — no legend update needed
 
-#### Enhancement 2: Striped / Hatched Bar Pattern
-- Apply a **diagonal stripe or hatched SVG pattern** to sub-workflow bars
-- Conveys "this bar contains internal structure" at a glance, even without color
-- Combine with distinct color for maximum visual differentiation
+#### Enhancement 2: Label Badge
+- Detect `nodeType === 'subWorkflow'` in the label column
+- Render a small **"SUB"** pill badge next to the node name
+- Style: muted indigo background, white text, rounded corners
 
-#### Enhancement 3: Label Badge
-- Add a small **"SUB" badge** or **"🔗" icon** next to the node name in the label column
-- Consistent with how the diagram view shows node type icons
-- Provides a clear textual/iconic indicator alongside the visual bar styling
+#### Enhancement 3: Drill-Down Icon on Bar
+- Add a small **▶** or **⤵** icon overlay on sub-workflow bars (visible on hover)
+- Click the icon → triggers `onDrillDown` directly (skips detail panel)
+- Requires new `onDrillDown` prop on `ExecutionTimeline`
+- Non-icon area of bar still triggers normal `onNodeClick` (detail panel)
 
-#### Enhancement 4: Inline Child Timeline (Nested Bars)
-- Render the **child workflow's internal nodes as mini-bars inside** the sub-workflow's bar
-- Shows time distribution within the sub-workflow at a glance
-- Each mini-bar uses standard pass/fail colors
-- Clicking a mini-bar could open the detail panel for that child node
+### Implementation Summary
 
-#### Enhancement 5: Clickable Drill-Down from Timeline
-- **Single-click** a sub-workflow bar → opens detail panel with "View Sub-Workflow" button (existing)
-- **Double-click** a sub-workflow bar → directly drills into the child workflow's timeline
-- Timeline view switches to show the child workflow's nodes
-- Breadcrumb (from 8b) appears for navigation back to parent
+All 4 tasks completed:
 
-### Implementation Tasks
+#### Task 8d.0: Fix durationMs Bug ✅
+- Added `'subWorkflow'` to `hasOwnTiming` set in `traceCollector.ts`
+- Duration sourced from `details.subWorkflowTrace.totalDurationMs` (preferred) with wall-clock fallback
+- 2 unit tests added to `traceCollector.test.ts`
 
-#### Task 8d.1: Distinct Color + Pattern (~1h)
-- [ ] Define sub-workflow color constants in timeline layout utils
-- [ ] Create SVG `<pattern>` definition for diagonal stripes
-- [ ] Apply distinct fill + pattern to sub-workflow bars in `ExecutionTimeline.tsx`
-- [ ] Update legend/tooltip to explain the visual distinction
+#### Task 8d.1: Distinct Color ✅
+- Added `COLOR_SUB_PASS` (`#818cf8` — indigo-400) and dimmed variant `COLOR_SUB_PASS_DIM` to `ExecutionTimeline.tsx`
+- `barColor()` and `barColorDim()` accept optional `nodeType` param — return indigo for `'subWorkflow'`
+- Failed sub-workflows still render red; skipped still render gray
 
-#### Task 8d.2: Label Badge (~0.5h)
-- [ ] Detect `nodeType === 'subWorkflow'` in the label column
-- [ ] Render "SUB" badge or icon next to node name
-- [ ] Style badge with CSS (small, pill-shaped, muted color)
+#### Task 8d.2: Label Badge ✅
+- Label column dot uses `.timeline-dot-subworkflow` class (indigo) for sub-workflow nodes
+- "SUB" pill badge rendered next to node name via `.timeline-sub-badge` CSS class
+- Badge styled with indigo text on subtle indigo-tint background
 
-#### Task 8d.3: Inline Child Timeline (~1.5h)
-- [ ] Extract child workflow events from `subWorkflowTrace` for the selected iteration
-- [ ] Calculate relative positions of child events within the parent bar's time range
-- [ ] Render mini `<rect>` elements inside the parent bar
-- [ ] Apply pass/fail/skipped colors to mini-bars
-- [ ] Handle overflow (many child nodes in a short parent bar)
+#### Task 8d.3: Drill-Down Icon ✅
+- Added `onDrillDown` prop to `ExecutionTimeline` component
+- Small ⤵ icon (white circle, indigo arrow) overlaid at right end of sub-workflow bars
+- Click triggers `onDrillDown(subWorkflowTrace, nodeId)` — resolves trace from current iteration events
+- `WorkflowResultsExplorerModal` passes `handleDrillDown` to `ExecutionTimeline`
+- Icon only appears in single-iteration mode (not aggregate)
 
-#### Task 8d.4: Double-Click Drill-Down (~0.5h)
-- [ ] Add `onDoubleClick` handler to sub-workflow bars
-- [ ] Trigger `onDrillDown` callback (reuse from 8b)
-- [ ] Cursor/hover hint indicating drill-down is available
+### Files Modified
 
-#### Task 8d.5: Tests (~1h)
-- [ ] Unit tests for sub-workflow bar styling (color, pattern)
-- [ ] Unit tests for label badge rendering
-- [ ] Unit tests for inline child bar positions
-- [ ] Unit test for double-click drill-down callback
-- [ ] E2E test for visual distinction in timeline
+| File | Change |
+|------|--------|
+| `src/features/workflow/engine/traceCollector.ts` | Added `'subWorkflow'` to `hasOwnTiming`; duration from `subWorkflowTrace.totalDurationMs` |
+| `src/features/workflow/engine/traceCollector.test.ts` | 2 new tests for sub-workflow duration capture |
+| `src/features/results/components/ExecutionTimeline.tsx` | Indigo color constants, `barColor`/`barColorDim` nodeType param, SUB badge, drill-down icon, `onDrillDown` prop |
+| `src/features/results/components/ExecutionTimeline.test.tsx` | Tests for indigo color, SUB badge, drill-down icon rendering and click |
+| `src/features/results/components/WorkflowResultsExplorerModal.tsx` | Passed `onDrillDown={handleDrillDown}` to `ExecutionTimeline` |
+| `src/styles/results-explorer.css` | `.timeline-dot-subworkflow`, `.timeline-sub-badge`, `.timeline-drilldown-icon` styles |
 
 ### Success Criteria
 
-- [ ] Sub-workflow bars are visually distinct from HTTP request bars (color + pattern)
-- [ ] Label column shows "SUB" badge for sub-workflow nodes
-- [ ] Internal child nodes rendered as mini-bars within the parent bar
-- [ ] Double-click drills into child workflow timeline
-- [ ] Breadcrumb navigation works from timeline drill-down
-- [ ] >90% unit test coverage
+- [x] Sub-workflow bars render at correct width (duration bug fixed)
+- [x] Sub-workflow bars use distinct indigo color
+- [x] Label column shows "SUB" badge for sub-workflow nodes
+- [x] Drill-down icon on sub-workflow bars triggers drill-down
+- [x] Existing 8b breadcrumb navigation works from timeline drill-down
+- [x] >90% unit test coverage
+
+---
+
+## Phase 8 Documentation
+
+A documentation audit across all four completed phases identified gaps and produced the following:
+
+### New Training Manuals
+
+| Manual | File | Covers |
+|--------|------|--------|
+| Timeline View (Gantt Chart) | `docs/training-manuals/workflow/runner/results-explorer-timeline-medium.html` | 8a — switching views, anatomy, bar colors, aggregate/single mode, Avg/P95 markers, zoom, search/filter, sub-workflow indicators, shortcuts |
+| Sub-Workflow Drill-Down | `docs/training-manuals/workflow/runner/results-explorer-drilldown-medium.html` | 8b + 8d — how to drill down (Diagram & Timeline), breadcrumbs, visual cues (indigo bars, SUB badge, ⤵ icon), multi-level nesting, sample workflows |
+
+### Updated Training Manual
+
+| Manual | File | Changes |
+|--------|------|---------|
+| Results Explorer | `docs/training-manuals/workflow/runner/results-explorer-medium.html` | Added 3 sections (Timeline View, Sub-Workflow Drill-Down, Parallel Swim Lanes & Critical Path), updated TOC, cover description, layout diagram, feature grid, keyboard shortcuts (`T`), Related Training links |
+
+### Registration
+
+| File | Change |
+|------|--------|
+| `src/data/galleries/trainingPaths/workflowPaths.ts` | Added 2 new manual entries in "Results Analysis" phase; updated Results Explorer description |
+| `src/data/galleries/trainingPaths/manualMetadata.ts` | Added 2 new entries; added `updatedAt`/`changeNote` on existing Results Explorer entry |
+
+### Gallery Samples
+
+No new gallery samples needed — existing samples already cover all Phase 8 features:
+
+| Sample | Relevant Phases |
+|--------|----------------|
+| Sub-Workflow Orchestrator | 8b, 8d (drill-down, indigo bars) |
+| Order Pipeline with Sub-Workflow | 8b, 8d (conditional sub-workflows) |
+| Multi-Region Deploy Orchestrator | 8b, 8c, 8d (fork/join + sub-workflows) |
+| Parallel Showcase (3 Branches) | 8c (swim lanes, critical path) |
+| Perf: Bottleneck Analysis Demo | 8a (timeline view) |
 
 ---
 
@@ -458,3 +510,7 @@ In the Timeline View (Gantt chart), sub-workflow nodes are rendered identically 
 | 2026-05-09 | AI Assistant | 8c gallery: added Parallel Showcase (3 Branches) sample workflow + training manual for swim lanes & critical path. |
 | 2026-05-09 | AI Assistant | Added 8d: Sub-Workflow Timeline Enhancements plan (distinct color, striped pattern, label badge, inline child timeline, double-click drill-down). |
 | 2026-05-09 | AI Assistant | Consolidated all unmerged feature branches (sub-workflow-drilldown, fix-progress-counter, training-ppt) into feature/parallel-visualization. Updated 8b to reflect completed status with implementation details. |
+| 2026-05-09 | AI Assistant | Re-evaluated 8d: dropped striped pattern (redundant) and inline child timeline (high complexity, redundant with 8b drill-down). Simplified to 3 enhancements + 1 bug fix. Effort reduced from 3–4h to 1.5–2h. |
+| 2026-05-09 | AI Assistant | Completed 8d: all 4 tasks done — durationMs bug fix, indigo color (#818cf8), SUB badge, drill-down icon (⤵). Phase 8 fully complete. |
+| 2026-05-09 | AI Assistant | Documentation audit: added Timeline View training manual (8a), Sub-Workflow Drill-Down training manual (8b+8d), updated Results Explorer manual with Phase 8 features (timeline, drill-down, swim lanes). |
+| 2026-05-09 | AI Assistant | Added Phase 8 Documentation section. Moved plan to `docs/plan/finished/`. Phase 8 fully complete. |

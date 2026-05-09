@@ -383,7 +383,7 @@ export default function TestEditorModal({
       const blob = new Blob([JSON.stringify(json, null, 2)], { type: 'application/json' });
       void saveFile(blob, { filename: `${cur.name || 'data-source'}.json`, mimeType: 'application/json', description: 'JSON file' });
     }
-  }, []);
+  }, [onExportTest]);
 
   return (
     <>

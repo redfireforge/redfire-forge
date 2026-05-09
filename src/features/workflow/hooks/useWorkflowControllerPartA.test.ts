@@ -6,12 +6,24 @@ import { renderHook, act } from '@testing-library/react';
 import { useWorkflowKeyboardShortcuts } from './useWorkflowKeyboardShortcuts';
 import { useWorkflowDesignerControllerPartA } from './useWorkflowDesignerControllerPartA';
 import type { WorkflowDesignerProps } from '../utils/workflowDesignerShellTypes';
-import type { Workflow, WorkflowVersion, WorkflowNode } from '../types/workflow';
+import type { Workflow, WorkflowVersion, WorkflowNode, WorkflowService } from '../types/workflow';
 import type { WorkflowRFNode } from '../utils/workflowNodeFactory';
 
-const { mockRf, persistFn, undoRedoApi, mockLayout, nodesSeed, versioningCb, consoleOpts } = vi.hoisted(() => {
+const {
+  mockRf, persistFn, undoRedoApi, undoRedoCaptured, clipboardCaptured,
+  mockLayout, nodesSeed, versioningCb, consoleOpts,
+} = vi.hoisted(() => {
   const persistFn = vi.fn();
   const undoRedoApi = { takeSnapshot: vi.fn(), clear: vi.fn() };
+  const undoRedoCaptured = {
+    getNodes: undefined as (() => unknown) | undefined,
+    getEdges: undefined as (() => unknown) | undefined,
+    setNodes: undefined as ((nodes: unknown) => void) | undefined,
+    setEdges: undefined as ((edges: unknown) => void) | undefined,
+  };
+  const clipboardCaptured = {
+    getNodes: undefined as (() => unknown) | undefined,
+  };
   const mockRf = {
     fitView: vi.fn(),
     getNodes: vi.fn(() => []),
@@ -21,9 +33,16 @@ const { mockRf, persistFn, undoRedoApi, mockLayout, nodesSeed, versioningCb, con
   const versioningCb = {
     applyToCanvas: undefined as ((v: WorkflowVersion) => void) | undefined,
     persistRestore: undefined as ((v: WorkflowVersion) => void) | undefined,
+    takeSnapshot: undefined as ((label?: string) => void) | undefined,
+    closeServicePanel: undefined as (() => void) | undefined,
+    deselectNode: undefined as (() => void) | undefined,
+    versionUpdate: undefined as ((id: string, patch: Record<string, unknown>) => void) | undefined,
   };
   const consoleOpts = { lastHasWebhook: undefined as boolean | undefined };
-  return { mockRf, persistFn, undoRedoApi, mockLayout, nodesSeed, versioningCb, consoleOpts };
+  return {
+    mockRf, persistFn, undoRedoApi, undoRedoCaptured, clipboardCaptured,
+    mockLayout, nodesSeed, versioningCb, consoleOpts,
+  };
 });
 
 vi.mock('@xyflow/react', async () => {
@@ -69,11 +88,19 @@ vi.mock('./useWorkflowPersistence', () => ({
 
 vi.mock('./useWorkflowVersioning', () => ({
   useWorkflowVersioning: (params: {
+    update: (id: string, patch: Record<string, unknown>) => void;
+    takeSnapshot: (label?: string) => void;
     applyToCanvas: (v: WorkflowVersion) => void;
     persistRestore: (v: WorkflowVersion) => void;
+    closeServicePanel: () => void;
+    deselectNode: () => void;
   }) => {
+    versioningCb.versionUpdate = params.update;
     versioningCb.applyToCanvas = params.applyToCanvas;
     versioningCb.persistRestore = params.persistRestore;
+    versioningCb.takeSnapshot = params.takeSnapshot;
+    versioningCb.closeServicePanel = params.closeServicePanel;
+    versioningCb.deselectNode = params.deselectNode;
     return {
       versionPanelOpen: false,
       versionDiffState: null,
@@ -136,11 +163,26 @@ vi.mock('../../../shared/hooks/useToast', () => ({
 }));
 
 vi.mock('./useUndoRedo', () => ({
-  useUndoRedo: () => undoRedoApi,
+  useUndoRedo: (
+    getNodes: () => unknown,
+    getEdges: () => unknown,
+    setNodes: (nodes: unknown) => void,
+    setEdges: (edges: unknown) => void,
+    _workflowId?: unknown,
+  ) => {
+    undoRedoCaptured.getNodes = getNodes;
+    undoRedoCaptured.getEdges = getEdges;
+    undoRedoCaptured.setNodes = setNodes;
+    undoRedoCaptured.setEdges = setEdges;
+    return undoRedoApi;
+  },
 }));
 
 vi.mock('./useNodeClipboard', () => ({
-  useNodeClipboard: () => ({}),
+  useNodeClipboard: (opts: { getNodes: () => unknown }) => {
+    clipboardCaptured.getNodes = opts.getNodes;
+    return {};
+  },
 }));
 
 const wf = (): Workflow => ({
@@ -187,7 +229,16 @@ describe('useWorkflowDesignerControllerPartA', () => {
     nodesSeed.current = null;
     versioningCb.applyToCanvas = undefined;
     versioningCb.persistRestore = undefined;
+    versioningCb.takeSnapshot = undefined;
+    versioningCb.closeServicePanel = undefined;
+    versioningCb.deselectNode = undefined;
+    versioningCb.versionUpdate = undefined;
     consoleOpts.lastHasWebhook = undefined;
+    undoRedoCaptured.getNodes = undefined;
+    undoRedoCaptured.getEdges = undefined;
+    undoRedoCaptured.setNodes = undefined;
+    undoRedoCaptured.setEdges = undefined;
+    clipboardCaptured.getNodes = undefined;
   });
 
   afterEach(() => {
@@ -320,5 +371,209 @@ describe('useWorkflowDesignerControllerPartA', () => {
       nodes: version.nodes,
       variables: version.variables,
     }));
+  });
+
+  it('takeSnapshot forwards undefined label as Snapshot to undo/redo', () => {
+    const props = makeProps();
+    renderHook(() => useWorkflowDesignerControllerPartA(props));
+    act(() => {
+      versioningCb.takeSnapshot?.();
+    });
+    expect(undoRedoApi.takeSnapshot).toHaveBeenCalledWith('Snapshot');
+  });
+
+  it('takeSnapshot forwards explicit label to undo/redo', () => {
+    const props = makeProps();
+    renderHook(() => useWorkflowDesignerControllerPartA(props));
+    act(() => {
+      versioningCb.takeSnapshot?.('Restore version');
+    });
+    expect(undoRedoApi.takeSnapshot).toHaveBeenCalledWith('Restore version');
+  });
+
+  it('takeSnapshot forwards empty string labels without coercing to Snapshot', () => {
+    const props = makeProps();
+    renderHook(() => useWorkflowDesignerControllerPartA(props));
+    act(() => {
+      versioningCb.takeSnapshot?.('');
+    });
+    expect(undoRedoApi.takeSnapshot).toHaveBeenCalledWith('');
+  });
+
+  it('versionUpdate wrapper delegates to wfHook.update', () => {
+    const update = vi.fn();
+    const base = wf();
+    const props = makeProps({
+      wfHook: {
+        workflows: [base],
+        selected: base,
+        create: vi.fn(),
+        update,
+        select: vi.fn(),
+      },
+    });
+    renderHook(() => useWorkflowDesignerControllerPartA(props));
+
+    act(() => {
+      versioningCb.versionUpdate?.(base.id, { name: 'Renamed' });
+    });
+
+    expect(update).toHaveBeenCalledWith(base.id, { name: 'Renamed' });
+  });
+
+  it('useNodeClipboard receives live nodesRef snapshot accessor', () => {
+    renderHook(() => useWorkflowDesignerControllerPartA(makeProps()));
+    expect(clipboardCaptured.getNodes?.()).toEqual([]);
+  });
+
+  it('applyToCanvas omits services when version has none', () => {
+    const props = makeProps();
+    const { result } = renderHook(() => useWorkflowDesignerControllerPartA(props));
+    expect(result.current.workflowServices).toEqual([]);
+    const version: WorkflowVersion = {
+      id: 'v-ns',
+      timestamp: Date.now(),
+      fingerprint: 'fp',
+      nodeCount: 0,
+      edgeCount: 0,
+      nodes: [],
+      edges: [],
+      variables: {},
+    };
+    act(() => {
+      versioningCb.applyToCanvas?.(version);
+    });
+    expect(result.current.workflowServices).toEqual([]);
+  });
+
+  it('applyToCanvas applies workflow services when present', () => {
+    const props = makeProps();
+    const { result } = renderHook(() => useWorkflowDesignerControllerPartA(props));
+    const svcs: WorkflowService[] = [{ id: 's1', name: 'S', endpoints: [] }];
+    const version: WorkflowVersion = {
+      id: 'v-s',
+      timestamp: Date.now(),
+      fingerprint: 'fp',
+      nodeCount: 0,
+      edgeCount: 0,
+      nodes: [],
+      edges: [],
+      variables: {},
+      services: svcs,
+    };
+    act(() => {
+      versioningCb.applyToCanvas?.(version);
+    });
+    expect(result.current.workflowServices).toEqual(svcs);
+  });
+
+  it('persistRestore is a no-op when no workflow is selected', () => {
+    const update = vi.fn();
+    const props = makeProps({
+      wfHook: {
+        workflows: [wf()],
+        selected: null,
+        create: vi.fn(),
+        update,
+        select: vi.fn(),
+      },
+    });
+    renderHook(() => useWorkflowDesignerControllerPartA(props));
+    const version: WorkflowVersion = {
+      id: 'v-x',
+      timestamp: Date.now(),
+      fingerprint: 'fp',
+      nodeCount: 0,
+      edgeCount: 0,
+      nodes: [],
+      edges: [],
+      variables: {},
+    };
+    act(() => {
+      versioningCb.persistRestore?.(version);
+    });
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it('persistRestore falls back workflow services when version omits services', () => {
+    const update = vi.fn();
+    const base = wf();
+    const baseSvcs: WorkflowService[] = [{ id: 'keep', name: 'K', endpoints: [] }];
+    const stored = { ...base, services: baseSvcs };
+    const props = makeProps({
+      wfHook: {
+        workflows: [stored],
+        selected: stored,
+        create: vi.fn(),
+        update,
+        select: vi.fn(),
+      },
+    });
+    renderHook(() => useWorkflowDesignerControllerPartA(props));
+    const version: WorkflowVersion = {
+      id: 'v-nosvc',
+      timestamp: Date.now(),
+      fingerprint: 'fp',
+      nodeCount: 0,
+      edgeCount: 0,
+      nodes: [],
+      edges: [],
+      variables: {},
+    };
+    act(() => {
+      versioningCb.persistRestore?.(version);
+    });
+    expect(update).toHaveBeenCalledWith(stored.id, expect.objectContaining({
+      services: baseSvcs,
+    }));
+  });
+
+  it('quick-test refs are callable before Part B wires execution handlers', () => {
+    const { result } = renderHook(() => useWorkflowDesignerControllerPartA(makeProps()));
+
+    act(() => {
+      result.current.handleQuickTestRef.current();
+      result.current.handleDebugQuickTestRef.current();
+    });
+  });
+
+  it('exposes getter/setter callbacks to undo/redo so graph state hooks stay wired', () => {
+    const rfNode: WorkflowRFNode = {
+      id: 'u1',
+      type: 'start',
+      position: { x: 0, y: 0 },
+      data: { label: 'S' } as WorkflowRFNode['data'],
+    };
+    renderHook(() => useWorkflowDesignerControllerPartA(makeProps()));
+
+    expect(undoRedoCaptured.getNodes?.()).toEqual([]);
+    expect(undoRedoCaptured.getEdges?.()).toEqual([]);
+
+    act(() => {
+      undoRedoCaptured.setNodes?.([rfNode]);
+      undoRedoCaptured.setEdges?.([]);
+    });
+
+    expect(undoRedoCaptured.getNodes?.()).toEqual([rfNode]);
+    expect(undoRedoCaptured.setNodes).toBeDefined();
+    expect(undoRedoCaptured.setEdges).toBeDefined();
+  });
+
+  it('closeServicePanel and deselectNode from versioning params update UI state', () => {
+    const props = makeProps();
+    const { result } = renderHook(() => useWorkflowDesignerControllerPartA(props));
+
+    act(() => {
+      result.current.setServiceRegistryMode('panel');
+      result.current.setSelectedNodeId('nx');
+    });
+
+    act(() => {
+      versioningCb.closeServicePanel?.();
+      versioningCb.deselectNode?.();
+    });
+
+    expect(result.current.serviceRegistryMode).toBe('closed');
+    expect(result.current.selectedNodeId).toBe(null);
   });
 });

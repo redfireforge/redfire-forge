@@ -70,4 +70,36 @@ describe('suppressResizeObserverError', () => {
     window.dispatchEvent(event);
     expect(event.defaultPrevented).toBe(false);
   });
+
+  it('swallows ErrorEvent where error.message contains ResizeObserver (empty message)', () => {
+    const event = new ErrorEvent('error', { cancelable: true });
+    Object.defineProperty(event, 'error', { value: new Error('ResizeObserver loop completed') });
+    Object.defineProperty(event, 'message', { value: '' });
+    const prevented = !window.dispatchEvent(event);
+    expect(prevented).toBe(true);
+  });
+
+  it('swallows ErrorEvent where error is a non-Error string containing ResizeObserver', () => {
+    const event = new ErrorEvent('error', { cancelable: true });
+    Object.defineProperty(event, 'error', { value: 'ResizeObserver loop' });
+    Object.defineProperty(event, 'message', { value: '' });
+    const prevented = !window.dispatchEvent(event);
+    expect(prevented).toBe(true);
+  });
+
+  it('does not swallow ErrorEvent with null error and empty message', () => {
+    const event = new ErrorEvent('error', { cancelable: true });
+    Object.defineProperty(event, 'error', { value: null });
+    Object.defineProperty(event, 'message', { value: '' });
+    window.dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(false);
+  });
+
+  it('handles undefined reason in unhandledrejection', () => {
+    const event = new Event('unhandledrejection', { cancelable: true });
+    Object.defineProperty(event, 'type', { value: 'unhandledrejection' });
+    Object.defineProperty(event, 'reason', { value: undefined });
+    window.dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(false);
+  });
 });
