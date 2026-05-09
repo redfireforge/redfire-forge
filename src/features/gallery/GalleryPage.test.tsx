@@ -29,7 +29,7 @@ vi.mock('../../data/galleries/catalog-specs', async (importOriginal) => {
   };
 });
 
-import { GalleryPage } from './GalleryPage';
+import { GalleryPage, LOADED_SENTINEL } from './GalleryPage';
 import { gallerySampleHash } from '../../shared/utils/gallerySampleHash';
 import { testSampleCatalog } from '../../data/galleries/tests';
 
@@ -236,6 +236,24 @@ describe('GalleryPage', () => {
     expect(container.querySelector('.gallery-detail-preview')).toBeTruthy();
   });
 
+  it('treats LOADED_SENTINEL as imported without comparing factory hashes', () => {
+    const firstTest = testSampleCatalog[0];
+    const importedSamples = { [firstTest.id]: LOADED_SENTINEL };
+    const onNavigateTo = vi.fn();
+    const { container } = render(
+      <GalleryPage onImportTest={vi.fn()} onNavigateTo={onNavigateTo} importedSamples={importedSamples} />,
+    );
+    const domainBtns = container.querySelectorAll('.gallery-domain-btn');
+    const testBtn = Array.from(domainBtns).find(btn => btn.textContent?.includes('Tests'));
+    fireEvent.click(testBtn!);
+    fireEvent.click(screen.getByText(firstTest.name));
+    expect(
+      container.querySelector('.gallery-detail-btn-primary')?.textContent,
+    ).toContain('✓ Loaded');
+    fireEvent.click(container.querySelector('.gallery-detail-btn-primary') as HTMLElement);
+    expect(onNavigateTo).toHaveBeenCalledWith(expect.objectContaining({ id: firstTest.id }));
+  });
+
   it('treats legacy __name: imports as imported without sample id', () => {
     const firstTest = testSampleCatalog[0];
     const importedSamples = { [`__name:${firstTest.name}`]: 'legacy' };
@@ -277,6 +295,17 @@ describe('GalleryPage', () => {
     fireEvent.click(container.querySelector('.gallery-card') as HTMLElement);
     const pre = container.querySelector('.gallery-detail-preview-pre');
     expect(pre?.textContent).toContain('[object Object]');
+  });
+
+  it('passes Request label when expanding default request tab', () => {
+    const { container } = render(<GalleryPage />);
+    const reqBtn = Array.from(container.querySelectorAll('.gallery-domain-btn')).find(btn =>
+      btn.textContent?.includes('Requests'),
+    );
+    fireEvent.click(reqBtn!);
+    fireEvent.click(container.querySelector('.gallery-card') as HTMLElement);
+    fireEvent.click(container.querySelector('.gallery-tab-expand-btn') as HTMLElement);
+    expect(screen.getByText(/\s—\sRequest$/)).toBeTruthy();
   });
 
   it('passes Response label when expanding response tab after fetch', async () => {

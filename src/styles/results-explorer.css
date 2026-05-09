@@ -2752,6 +2752,28 @@
 .timeline-dot-pass { background: #22c55e; }
 .timeline-dot-fail { background: #ef4444; }
 .timeline-dot-skipped { background: #64748b; }
+.timeline-dot-subworkflow { background: #818cf8; }
+
+.timeline-sub-badge {
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: rgba(129, 140, 248, 0.18);
+  color: #818cf8;
+  letter-spacing: 0.5px;
+  flex-shrink: 0;
+  margin-left: 4px;
+}
+
+.timeline-drilldown-icon {
+  opacity: 0.7;
+  transition: opacity 0.15s;
+}
+.timeline-drilldown-icon:hover {
+  opacity: 1;
+}
 
 /* Chart area */
 .timeline-chart-scroll {

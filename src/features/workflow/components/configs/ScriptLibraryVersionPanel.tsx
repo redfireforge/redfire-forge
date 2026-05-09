@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { formatRelativeTime, formatTimestamp } from '../../../../shared/utils/formatRelativeTime';
 import type { ScriptLibrary, ScriptLibraryVersion } from '../../engine/scriptLibraries';
 import { restoreFromVersion, deleteVersion, renameVersion, computeSnapshotDiff } from '../../engine/scriptLibraryVersioning';
 import type { LibraryUsage } from '../../engine/scriptLibraryVersioning';
@@ -17,7 +18,7 @@ export default function ScriptLibraryVersionPanel({
   usages,
   onClose,
 }: Props) {
-  const versions = library.versions ?? [];
+  const versions = useMemo(() => library.versions ?? [], [library.versions]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editLabel, setEditLabel] = useState('');
@@ -171,5 +172,3 @@ export default function ScriptLibraryVersionPanel({
     </div>
   );
 }
-
-import { formatRelativeTime, formatTimestamp } from '../../../../shared/utils/formatRelativeTime';
