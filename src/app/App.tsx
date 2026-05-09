@@ -151,7 +151,7 @@ export default function App() {
       setTheme(initialTheme);
        
     }
-  }, [loading, initialTheme, initialTestRuns]);
+  }, [loading, initialTheme, initialTestRuns, setTheme]);
 
   // Keep ?tab= in sync so refresh restores Workflow / Catalog / Harness / etc.
   useEffect(() => {
@@ -227,7 +227,7 @@ export default function App() {
   });
 
   const gallery = useGalleryImport({
-    wb, featureGroups, environments, microservices,
+    wb, featureGroups, environments, microservices, previewWorkflow, workflows: wfHook.workflows,
     setActiveTab, setPreviewRequest, setPreviewWorkflow,
     setCatalogInitialSpec, setShowCatalogImport,
     setFeatureGroups, setEnvironments, setMicroservices,
@@ -621,7 +621,8 @@ export default function App() {
               previewWorkflow={previewWorkflow}
               onClearPreview={() => { setPreviewWorkflow(null); savePreviewSampleId(null); }}
               onUseAsTemplate={(wf) => {
-                const copy = { ...structuredClone(wf), id: crypto.randomUUID(), name: wf.name.replace(/^Sample: /, ''), createdAt: Date.now(), updatedAt: Date.now() };
+                const gallerySampleId = sampleWorkflowCatalog.find(e => e.id === wf.id)?.id;
+                const copy = { ...structuredClone(wf), id: crypto.randomUUID(), name: wf.name.replace(/^Sample: /, ''), gallerySampleId, createdAt: Date.now(), updatedAt: Date.now() };
                 // If this sample has companion workflows (e.g. child sub-workflows), insert them too
                 const catalogEntry = sampleWorkflowCatalog.find(e => e.id === wf.id);
                 if (catalogEntry?.companionFactories) {
@@ -648,6 +649,7 @@ export default function App() {
                 onImportCatalog={gallery.onImportCatalog}
                 onImportTest={gallery.onImportTest}
                 onImportWorkflow={gallery.onImportWorkflow}
+                onNavigateTo={gallery.onNavigateTo}
               />
             </div>
           )}

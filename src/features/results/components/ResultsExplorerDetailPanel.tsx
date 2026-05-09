@@ -1,9 +1,16 @@
 import { useMemo, useState } from 'react';
-import type { ExecutionEvent, WorkflowIterationTrace } from '../../../shared/types';
+import type { ExecutionEvent, WorkflowIterationTrace, WorkflowExecutionTrace } from '../../../shared/types';
 import JsonTreeViewer from '../../../shared/components/JsonTreeViewer';
 import { formatDurationMs } from '../../../shared/utils/formatDuration';
 import { truncate } from '../../../shared/utils/helpers';
 import { computeHistogramBins } from '../utils/responseTimeHistogram';
+import {
+  computeBranchStats,
+  BRANCH_COLORS,
+  BRANCH_BORDER_COLORS,
+  type ForkJoinPair,
+  type ForkJoinTopology,
+} from '../utils/forkJoinDetection';
 
 type TabId = 'overview' | 'request' | 'response' | 'variables' | 'assertions';
 
@@ -17,10 +24,13 @@ interface Props {
   onIterationChange: (iteration: number | undefined) => void;
   onClose: () => void;
   fullTraceCaptured?: boolean;
+  /** Fork/join topology for branch comparison display */
+  forkJoinTopology?: ForkJoinTopology;
+  onDrillDown?: (childTrace: WorkflowExecutionTrace, parentNodeId: string) => void;
 }
 
 export default function ResultsExplorerDetailPanel({
-  nodeId: _nodeId,
+  nodeId,
   nodeType,
   nodeLabel,
   events,
@@ -29,6 +39,8 @@ export default function ResultsExplorerDetailPanel({
   onIterationChange,
   onClose,
   fullTraceCaptured,
+  forkJoinTopology,
+  onDrillDown,
 }: Props) {
   const [activeTab, setActiveTab] = useState<TabId>('overview');
 
@@ -123,6 +135,34 @@ export default function ResultsExplorerDetailPanel({
         )}
       </div>
 
+      {/* Sub-workflow drill-down CTA */}
+      {nodeType === 'subWorkflow' && currentEvent?.details?.subWorkflowTrace && onDrillDown && (
+        <button
+          type="button"
+          className="sub-workflow-drilldown-btn"
+          onClick={() => onDrillDown(currentEvent.details!.subWorkflowTrace!, nodeId)}
+          data-testid="sub-workflow-drilldown-btn"
+        >
+          <span className="drilldown-icon">↳</span>
+          View Sub-Workflow: {currentEvent.details.subWorkflowTrace.workflowName}
+          <span className="drilldown-meta">
+            {currentEvent.details.subWorkflowTrace.totalIterations} iter
+            {currentEvent.details.subWorkflowTrace.totalIterations !== 1 ? 's' : ''}
+            {' · '}
+            {formatDurationMs(currentEvent.details.subWorkflowTrace.totalDurationMs)}
+          </span>
+        </button>
+      )}
+      {nodeType === 'subWorkflow' && currentEvent && !currentEvent.details?.subWorkflowTrace && (
+        <div className="sub-workflow-no-trace" data-testid="sub-workflow-no-trace">
+          <span className="drilldown-icon">↳</span>
+          Sub-workflow trace not captured
+          {currentEvent.details?.subWorkflowId && (
+            <span className="drilldown-meta"> ({currentEvent.details.subWorkflowId})</span>
+          )}
+        </div>
+      )}
+
       {/* Tabs */}
       <div className="explorer-detail-tabs">
         <button
@@ -169,13 +209,23 @@ export default function ResultsExplorerDetailPanel({
       {/* Tab Content */}
       <div className="explorer-detail-content">
         {activeTab === 'overview' && (
-          <OverviewTab
-            events={events}
-            stats={stats}
-            currentEvent={currentEvent}
-            selectedIteration={selectedIteration}
-            onIterationClick={(i) => onIterationChange(i)}
-          />
+          <>
+            <OverviewTab
+              events={events}
+              stats={stats}
+              currentEvent={currentEvent}
+              selectedIteration={selectedIteration}
+              onIterationClick={(i) => onIterationChange(i)}
+            />
+            {(nodeType === 'fork' || nodeType === 'join') && forkJoinTopology && (
+              <BranchComparisonSection
+                nodeId={nodeId}
+                nodeType={nodeType}
+                topology={forkJoinTopology}
+                iterations={iterations}
+              />
+            )}
+          </>
         )}
         {activeTab === 'request' && currentEvent && (
           <RequestTab event={currentEvent} hasFullTrace={!!hasFullTrace} />
@@ -190,6 +240,99 @@ export default function ResultsExplorerDetailPanel({
           <AssertionsTab event={currentEvent} />
         )}
       </div>
+    </div>
+  );
+}
+
+// ─── Branch Comparison (Fork/Join) ───────────────────────────────────────────
+
+interface BranchComparisonProps {
+  nodeId: string;
+  nodeType: string;
+  topology: ForkJoinTopology;
+  iterations: WorkflowIterationTrace[];
+}
+
+function BranchComparisonSection({ nodeId, nodeType, topology, iterations }: BranchComparisonProps) {
+  const pair: ForkJoinPair | undefined = useMemo(() => {
+    return topology.pairs.find(
+      p => (nodeType === 'fork' && p.forkId === nodeId) ||
+           (nodeType === 'join' && p.joinId === nodeId),
+    );
+  }, [topology.pairs, nodeId, nodeType]);
+
+  const nodeLabelMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const iter of iterations) {
+      for (const ev of iter.events) {
+        if (ev.nodeLabel && !map.has(ev.nodeId)) {
+          map.set(ev.nodeId, ev.nodeLabel);
+        }
+      }
+    }
+    return map;
+  }, [iterations]);
+
+  const branchStats = useMemo(() => {
+    if (!pair) return [];
+    return computeBranchStats(pair, iterations, nodeLabelMap);
+  }, [pair, iterations, nodeLabelMap]);
+
+  if (!pair || branchStats.length === 0) return null;
+
+  return (
+    <div className="branch-comparison-section" data-testid="branch-comparison">
+      <div className="branch-comparison-title">
+        Parallel Branches
+        <span className="branch-comparison-count">{branchStats.length} branches</span>
+      </div>
+      <table className="branch-comparison-table" data-testid="branch-comparison-table">
+        <thead>
+          <tr>
+            <th>Branch</th>
+            <th>Nodes</th>
+            <th>Avg Time</th>
+            <th>Pass Rate</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {branchStats.map((stat) => {
+            const colorIdx = stat.branchIndex % BRANCH_COLORS.length;
+            return (
+              <tr
+                key={stat.branchIndex}
+                className={stat.isCriticalPath ? 'branch-row-critical' : ''}
+                data-testid={`branch-row-${stat.branchIndex}`}
+              >
+                <td>
+                  <span
+                    className="branch-color-dot"
+                    style={{
+                      background: BRANCH_BORDER_COLORS[colorIdx],
+                    }}
+                  />
+                  {stat.label}
+                </td>
+                <td>{stat.nodeCount}</td>
+                <td>{formatDurationMs(stat.totalDurationMs)}</td>
+                <td>
+                  <span
+                    style={{ color: stat.passRate === 100 ? '#22c55e' : stat.passRate >= 80 ? '#f59e0b' : '#ef4444' }}
+                  >
+                    {stat.passRate.toFixed(0)}%
+                  </span>
+                </td>
+                <td>
+                  {stat.isCriticalPath && (
+                    <span className="branch-critical-badge" data-testid="critical-path-badge">⏱ Critical</span>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
     </div>
   );
 }

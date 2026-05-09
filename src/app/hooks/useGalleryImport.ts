@@ -7,6 +7,7 @@ import { saveSharedDataSources, loadSharedDataSources } from '../../shared/utils
 import type { Workflow } from '../../features/workflow/types/workflow';
 import type { PreviewRequest } from '../../features/requests/Requests';
 import { gallerySampleHash } from '../../shared/utils/gallerySampleHash';
+import { LOADED_SENTINEL } from '../../features/gallery/GalleryPage';
 import { getAutoLayoutNodes } from '../../features/workflow/utils/workflowAutoLayout';
 import { savePreviewSampleId } from '../../shared/utils/storage';
 
@@ -20,6 +21,10 @@ export interface UseGalleryImportDeps {
   featureGroups: FeatureGroup[];
   environments: Environment[];
   microservices: Microservice[];
+  /** Currently-previewed workflow (used to show "✓ Loaded" badge when active). */
+  previewWorkflow: Workflow | null;
+  /** User's saved workflows (used to detect gallery samples that were "Use as Template"'d). */
+  workflows: Workflow[];
   setActiveTab: (tab: 'environments' | 'preferences' | 'requests' | 'catalog' | 'workflow' | 'workflow-executions' | 'webhook-deliveries' | 'gallery' | 'scenarios' | 'runner' | 'results') => void;
   setPreviewRequest: (req: PreviewRequest | null) => void;
   setPreviewWorkflow: (wf: Workflow | null) => void;
@@ -34,7 +39,7 @@ export interface UseGalleryImportDeps {
 
 export function useGalleryImport(deps: UseGalleryImportDeps) {
   const {
-    wb, featureGroups, environments, microservices,
+    wb, featureGroups, environments, microservices, previewWorkflow, workflows,
     setActiveTab, setPreviewRequest, setPreviewWorkflow,
     setCatalogInitialSpec, setShowCatalogImport,
     setFeatureGroups, setEnvironments, setMicroservices,
@@ -56,8 +61,18 @@ export function useGalleryImport(deps: UseGalleryImportDeps) {
         }
       }
     }
+    // Track saved workflows that were imported from gallery samples.
+    for (const wf of workflows) {
+      if (wf.gallerySampleId) {
+        map[wf.gallerySampleId] = LOADED_SENTINEL;
+      }
+    }
+    // Track the currently-previewed workflow sample (active but not yet saved).
+    if (previewWorkflow?.id) {
+      map[previewWorkflow.id] = LOADED_SENTINEL;
+    }
     return map;
-  }, [featureGroups]);
+  }, [featureGroups, workflows, previewWorkflow]);
 
   const onImportRequest = useCallback((entry: GalleryEntry<unknown>) => {
     const scenario = entry.factory() as Scenario;
@@ -184,6 +199,22 @@ export function useGalleryImport(deps: UseGalleryImportDeps) {
     setActiveTab('workflow');
   }, [setPreviewWorkflow, setActiveTab]);
 
+  /**
+   * Navigate to wherever an already-imported sample lives, without re-importing.
+   * Tests → scenarios tab, workflows → workflow tab, requests → requests tab,
+   * catalog → catalog tab.
+   */
+  const onNavigateTo = useCallback((entry: GalleryEntry<unknown>) => {
+    const domainTabMap: Partial<Record<typeof entry.domain, Parameters<typeof setActiveTab>[0]>> = {
+      tests: 'scenarios',
+      workflows: 'workflow',
+      requests: 'requests',
+      catalog: 'catalog',
+    };
+    const tab = domainTabMap[entry.domain];
+    if (tab) setActiveTab(tab);
+  }, [setActiveTab]);
+
   return {
     importedSamples,
     onImportRequest,
@@ -191,5 +222,6 @@ export function useGalleryImport(deps: UseGalleryImportDeps) {
     onImportCatalog,
     onImportTest,
     onImportWorkflow,
+    onNavigateTo,
   };
 }

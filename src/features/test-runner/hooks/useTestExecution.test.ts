@@ -212,7 +212,8 @@ describe('useTestExecution', () => {
         config,
         scenarios,
         expect.any(Function),
-        expect.any(Object),
+        expect.anything(),
+        undefined,
         undefined
       );
     });
@@ -241,8 +242,9 @@ describe('useTestExecution', () => {
         config,
         scenarios,
         expect.any(Function),
-        expect.any(Object),
-        workflow
+        expect.anything(),
+        workflow,
+        undefined
       );
     });
 
@@ -413,7 +415,7 @@ describe('useTestExecution', () => {
       });
     });
 
-    it('keeps total at -1 after load-profile run completes', async () => {
+    it('sets total to results count after load-profile run completes', async () => {
       const config = { ...createMockConfig(), executionMode: 'load-profile' as const };
       mockRunTest.mockResolvedValue({ results: [createMockResult()] });
 
@@ -423,11 +425,11 @@ describe('useTestExecution', () => {
         await result.current.execute(config, [createMockScenario()]);
       });
 
-      expect(result.current.total).toBe(-1);
+      expect(result.current.total).toBe(1);
       expect(result.current.completed).toBe(1);
     });
 
-    it('keeps total at -1 on load-profile quota error', async () => {
+    it('sets total to results count on load-profile quota error', async () => {
       const config = { ...createMockConfig(), executionMode: 'load-profile' as const };
       mockRunTest.mockResolvedValue({ results: [createMockResult()] });
       mockSaveTestRun.mockResolvedValue({ ok: false, quotaError: true });
@@ -438,7 +440,7 @@ describe('useTestExecution', () => {
         await result.current.execute(config, [createMockScenario()]);
       });
 
-      expect(result.current.total).toBe(-1);
+      expect(result.current.total).toBe(1);
       expect(result.current.pendingRun).not.toBeNull();
     });
   });
