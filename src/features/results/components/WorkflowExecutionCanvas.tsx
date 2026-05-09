@@ -327,11 +327,11 @@ export default function WorkflowExecutionCanvas({
     })
   );
 
-  // Reset nodes when trace changes (e.g. sub-workflow drill-down)
-  const prevWorkflowIdRef = useRef(trace.workflowId);
+  // Reset nodes when trace changes (e.g. sub-workflow drill-down or navigating back)
+  const prevSnapshotRef = useRef(trace.workflowSnapshot.nodes);
   useEffect(() => {
-    if (trace.workflowId !== prevWorkflowIdRef.current) {
-      prevWorkflowIdRef.current = trace.workflowId;
+    if (trace.workflowSnapshot.nodes !== prevSnapshotRef.current) {
+      prevSnapshotRef.current = trace.workflowSnapshot.nodes;
       const layout = loadLayoutFromStorage(trace.workflowId);
       setRfNodes(
         (trace.workflowSnapshot.nodes as Node[]).map((node) => {
