@@ -2867,3 +2867,104 @@
   white-space: nowrap;
   letter-spacing: 0.02em;
 }
+
+/* ─── Sub-Workflow Breadcrumb ─────────────────────────────────────────────── */
+
+.sub-workflow-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 16px;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(99, 102, 241, 0.06));
+  border-bottom: 1px solid rgba(99, 102, 241, 0.2);
+  font-size: 0.82rem;
+  flex-shrink: 0;
+}
+
+.breadcrumb-sep {
+  color: #64748b;
+  margin: 0 4px;
+  font-weight: 300;
+}
+
+.breadcrumb-link {
+  background: none;
+  border: none;
+  color: #818cf8;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: inherit;
+  transition: background 0.15s, color 0.15s;
+}
+
+.breadcrumb-link:hover {
+  background: rgba(99, 102, 241, 0.15);
+  color: #a5b4fc;
+}
+
+.breadcrumb-current {
+  color: #e2e8f0;
+  font-weight: 600;
+  padding: 2px 6px;
+}
+
+/* ─── Sub-Workflow Drill-Down Button ──────────────────────────────────────── */
+
+.sub-workflow-drilldown-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 14px;
+  margin: 0;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(99, 102, 241, 0.08));
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  border-left: none;
+  border-right: none;
+  color: #c7d2fe;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  text-align: left;
+}
+
+.sub-workflow-drilldown-btn:hover {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.25), rgba(99, 102, 241, 0.12));
+  border-color: rgba(99, 102, 241, 0.4);
+  color: #e0e7ff;
+}
+
+.sub-workflow-drilldown-btn .drilldown-icon {
+  font-size: 1.1em;
+  color: #818cf8;
+}
+
+.sub-workflow-drilldown-btn .drilldown-meta {
+  margin-left: auto;
+  color: #94a3b8;
+  font-size: 0.8em;
+  font-weight: 400;
+}
+
+.sub-workflow-no-trace {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: rgba(100, 116, 139, 0.08);
+  border-bottom: 1px solid #334155;
+  color: #64748b;
+  font-size: 0.82rem;
+  font-style: italic;
+}
+
+.sub-workflow-no-trace .drilldown-icon {
+  color: #475569;
+}
+
+.sub-workflow-no-trace .drilldown-meta {
+  color: #475569;
+  font-size: 0.9em;
+}
