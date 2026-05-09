@@ -231,7 +231,7 @@ export function useTestExecution() {
     });
 
     let lastTrackedCount = 0;
-    const useWorker = supportsWorkers();
+    const useWorker = supportsWorkers() && !resolveSubWorkflow;
 
     const onProgress = (completed: number, total: number, allResults: RequestResult[], profileMeta?: ProgressMeta) => {
       for (let i = lastTrackedCount; i < allResults.length; i++) {
