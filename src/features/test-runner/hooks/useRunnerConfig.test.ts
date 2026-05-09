@@ -33,7 +33,7 @@ describe('useRunnerConfig', () => {
     });
 
     expect(result.current.concurrency).toBe(1);
-    expect(result.current.totalTransactions).toBe(1);
+    expect(result.current.iterations).toBe(1);
     expect(result.current.selectedScenarios.size).toBe(0);
     expect(result.current.weights).toEqual({});
     expect(result.current.skipValidation).toBe(false);
@@ -55,7 +55,7 @@ describe('useRunnerConfig', () => {
   it('restores saved config from storage', async () => {
     mockLoadRunnerConfig.mockResolvedValueOnce({
       concurrency: 5,
-      totalTransactions: 100,
+      iterations: 100,
       selectedScenarios: ['s1', 's2'],
       weights: { s1: 70, s2: 30 },
       skipValidation: true,
@@ -81,7 +81,7 @@ describe('useRunnerConfig', () => {
     });
 
     expect(result.current.concurrency).toBe(5);
-    expect(result.current.totalTransactions).toBe(100);
+    expect(result.current.iterations).toBe(100);
     expect(result.current.selectedScenarios).toEqual(new Set(['s1', 's2']));
     expect(result.current.weights).toEqual({ s1: 70, s2: 30 });
     expect(result.current.skipValidation).toBe(true);
@@ -96,7 +96,7 @@ describe('useRunnerConfig', () => {
   it('restores markdown auto-report format when saved', async () => {
     mockLoadRunnerConfig.mockResolvedValueOnce({
       concurrency: 1,
-      totalTransactions: 1,
+      iterations: 1,
       selectedScenarios: [],
       weights: {},
       autoReport: true,
@@ -178,7 +178,7 @@ describe('useRunnerConfig', () => {
 
     mockLoadRunnerConfig.mockResolvedValueOnce({
       concurrency: 20,
-      totalTransactions: 50,
+      iterations: 50,
       selectedScenarios: [],
       weights: {},
     });
@@ -195,7 +195,7 @@ describe('useRunnerConfig', () => {
   it('omits persisted loadProfile and thinkTime when absent on saved blob', async () => {
     mockLoadRunnerConfig.mockResolvedValueOnce({
       concurrency: 5,
-      totalTransactions: 3,
+      iterations: 3,
       selectedScenarios: [],
       weights: {},
       executionMode: 'batch',
@@ -216,7 +216,7 @@ describe('useRunnerConfig', () => {
   it('fills default values for fields missing from sparse saved config', async () => {
     mockLoadRunnerConfig.mockResolvedValueOnce({
       concurrency: 7,
-      totalTransactions: 11,
+      iterations: 11,
       selectedScenarios: ['a'],
       weights: { a: 100 },
       skipValidation: true,
@@ -248,14 +248,14 @@ describe('useRunnerConfig', () => {
     });
 
     expect(result.current.concurrency).toBe(1);
-    expect(result.current.totalTransactions).toBe(1);
+    expect(result.current.iterations).toBe(1);
     expect(result.current.timeoutSec).toBe(10);
   });
 
   it('treats null auto-report fields as unset defaults', async () => {
     mockLoadRunnerConfig.mockResolvedValueOnce({
       concurrency: 2,
-      totalTransactions: 2,
+      iterations: 2,
       selectedScenarios: [],
       weights: {},
       autoReport: null,
@@ -289,7 +289,7 @@ describe('useRunnerConfig', () => {
 
     // Verify all setters are functions
     expect(typeof result.current.setConcurrency).toBe('function');
-    expect(typeof result.current.setTotalTransactions).toBe('function');
+    expect(typeof result.current.setIterations).toBe('function');
     expect(typeof result.current.setSelectedScenarios).toBe('function');
     expect(typeof result.current.setWeights).toBe('function');
     expect(typeof result.current.setSkipValidation).toBe('function');

@@ -49,7 +49,7 @@ function makeRun(id: string, summaryOverrides: Partial<TestRun['summary']> = {},
     config: {
       scenarios: [],
       concurrency: 5,
-      totalTransactions: 100,
+      iterations: 100,
       executionMode: 'pool' as const,
     } as TestRun['config'],
     summary: makeSummary(summaryOverrides),

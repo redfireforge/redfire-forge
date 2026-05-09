@@ -227,7 +227,7 @@ describe('runTest', () => {
   function makeConfig(overrides: Partial<TestConfig> = {}): TestConfig {
     return {
       concurrency: 1,
-      totalTransactions: 2,
+      iterations: 2,
       scenarioWeights: [{ scenarioId: 's1', weight: 1 }],
       executionMode: 'sequential',
       ...overrides,
@@ -252,7 +252,7 @@ describe('runTest', () => {
 
   it('runs test with pool mode', async () => {
     const s = makeScenario();
-    const config = makeConfig({ executionMode: 'pool', concurrency: 2, totalTransactions: 3 });
+    const config = makeConfig({ executionMode: 'pool', concurrency: 2, iterations: 3 });
     const { results } = await runTest(config, [s], vi.fn());
     expect(results.length).toBe(3);
   });
@@ -261,37 +261,37 @@ describe('runTest', () => {
     const s = makeScenario();
     const config = makeConfig({
       executionMode: 'load-profile',
-      totalTransactions: 1,
+      iterations: 1,
       loadProfile: { type: 'sustained', durationSec: 0.08, maxConcurrency: 1 },
     });
     const { results } = await runTest(config, [s], vi.fn());
     expect(results.length).toBeGreaterThanOrEqual(0);
   });
 
-  it('distributes scenarios by weight', async () => {
+  it('runs each active scenario the configured iterations times', async () => {
     const s1 = makeScenario({ id: 's1', name: 'Scenario1' });
     const s2 = makeScenario({ id: 's2', name: 'Scenario2' });
     const config = makeConfig({
-      totalTransactions: 10,
+      iterations: 5,
       scenarioWeights: [
         { scenarioId: 's1', weight: 7 },
         { scenarioId: 's2', weight: 3 },
       ],
     });
     const { results } = await runTest(config, [s1, s2], vi.fn());
-    expect(results.length).toBe(10);
+    expect(results.length).toBe(10); // 5 per test × 2 tests
     const s1Count = results.filter(r => r.scenarioName === 'Scenario1').length;
     const s2Count = results.filter(r => r.scenarioName === 'Scenario2').length;
-    expect(s1Count).toBeGreaterThan(0);
-    expect(s2Count).toBeGreaterThan(0);
+    expect(s1Count).toBe(5);
+    expect(s2Count).toBe(5);
   });
 
-  it('handles fewer transactions than scenarios', async () => {
+  it('iterations means per-test count even with many scenarios', async () => {
     const s1 = makeScenario({ id: 's1' });
     const s2 = makeScenario({ id: 's2' });
     const s3 = makeScenario({ id: 's3' });
     const config = makeConfig({
-      totalTransactions: 2,
+      iterations: 2,
       scenarioWeights: [
         { scenarioId: 's1', weight: 3 },
         { scenarioId: 's2', weight: 2 },
@@ -299,24 +299,21 @@ describe('runTest', () => {
       ],
     });
     const { results } = await runTest(config, [s1, s2, s3], vi.fn());
-    expect(results.length).toBe(2);
+    expect(results.length).toBe(6); // 2 per test × 3 tests
   });
 
-  it('breaks equal scenario weights with Math.random when undersampling', async () => {
-    const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0.25);
+  it('single iteration with two scenarios produces two results', async () => {
     const s1 = makeScenario({ id: 's1', name: 'Eq1' });
     const s2 = makeScenario({ id: 's2', name: 'Eq2' });
     const config = makeConfig({
-      totalTransactions: 1,
+      iterations: 1,
       scenarioWeights: [
         { scenarioId: 's1', weight: 4 },
         { scenarioId: 's2', weight: 4 },
       ],
     });
     const { results } = await runTest(config, [s1, s2], vi.fn());
-    randomSpy.mockRestore();
-    expect(results).toHaveLength(1);
-    expect(['Eq1', 'Eq2']).toContain(results[0].scenarioName);
+    expect(results).toHaveLength(2); // 1 per test × 2 tests
   });
 
   it('applies timeout config', async () => {
@@ -330,7 +327,7 @@ describe('runTest', () => {
     const s1 = makeScenario({ id: 's1', name: 'Active' });
     const s2 = makeScenario({ id: 's2', name: 'Inactive' });
     const config = makeConfig({
-      totalTransactions: 3,
+      iterations: 3,
       scenarioWeights: [
         { scenarioId: 's1', weight: 1 },
         { scenarioId: 's2', weight: 0 },
@@ -365,7 +362,7 @@ describe('runTest', () => {
     const config = makeConfig({
       executionMode: 'pool',
       concurrency: 2,
-      totalTransactions: 3,
+      iterations: 3,
       thinkTime: { mode: 'gaussian', meanMs: 0, stdDevMs: 0 },
     });
     const { results } = await runTest(config, [s], vi.fn());
@@ -387,17 +384,21 @@ describe('runTest', () => {
     expect(results.length).toBe(2);
   });
 
-  it('caps expanded data-source queue at totalTransactions', async () => {
+  it('expands data-source fully without capping', async () => {
     const s = makeScenarioWithDataRows(3);
-    const config = makeConfig({ totalTransactions: 2, executionMode: 'sequential' });
+    const config = makeConfig({
+      iterations: 2,
+      executionMode: 'sequential',
+      scenarioWeights: [{ scenarioId: 'ds1', weight: 1 }],
+    });
     const { results } = await runTest(config, [s], vi.fn());
-    expect(results.length).toBe(2);
+    expect(results.length).toBe(6); // 2 iterations × 3 rows
   });
 
   it('uses runWorkflow for workflow mode with a single iteration', async () => {
     const { runWorkflow } = await import('../features/workflow/engine');
     const s = makeScenario();
-    const config = makeConfig({ executionMode: 'workflow', totalTransactions: 1, concurrency: 1 });
+    const config = makeConfig({ executionMode: 'workflow', iterations: 1, concurrency: 1 });
     await runTest(config, [s], vi.fn());
     expect(vi.mocked(runWorkflow)).toHaveBeenCalled();
   });
@@ -405,7 +406,7 @@ describe('runTest', () => {
   it('uses runWorkflowLoad for workflow mode with multiple iterations', async () => {
     const { runWorkflowLoad } = await import('../features/workflow/engine');
     const s = makeScenario();
-    const config = makeConfig({ executionMode: 'workflow', totalTransactions: 4, concurrency: 2 });
+    const config = makeConfig({ executionMode: 'workflow', iterations: 4, concurrency: 2 });
     await runTest(config, [s], vi.fn());
     expect(vi.mocked(runWorkflowLoad)).toHaveBeenCalled();
   });
@@ -416,20 +417,20 @@ describe('runTest', () => {
     const config = makeConfig({
       executionMode: 'workflow',
       workflowId: 'w1',
-      totalTransactions: 3,
+      iterations: 3,
       concurrency: 2,
     });
     await runTest(config, [s], vi.fn(), undefined, minimalWorkflow('w1'));
     expect(vi.mocked(runGraphLoad)).toHaveBeenCalled();
   });
 
-  it('uses runGraphLoad with iterations 1 when totalTransactions is 0', async () => {
+  it('uses runGraphLoad with iterations 1 when iterations is 0', async () => {
     const { runGraphLoad } = await import('../features/workflow/engine');
     const s = makeScenario();
     const config = makeConfig({
       executionMode: 'workflow',
       workflowId: 'w1',
-      totalTransactions: 0,
+      iterations: 0,
       concurrency: 1,
     });
     await runTest(config, [s], vi.fn(), undefined, minimalWorkflow('w1'));
@@ -442,7 +443,7 @@ describe('runTest', () => {
   it('uses runWorkflow when workflowId is set but workflow definition is missing', async () => {
     const { runWorkflow, runGraphLoad } = await import('../features/workflow/engine');
     const s = makeScenario();
-    const config = makeConfig({ executionMode: 'workflow', workflowId: 'missing', totalTransactions: 1 });
+    const config = makeConfig({ executionMode: 'workflow', workflowId: 'missing', iterations: 1 });
     await runTest(config, [s], vi.fn(), undefined, undefined);
     expect(vi.mocked(runWorkflow)).toHaveBeenCalled();
     expect(vi.mocked(runGraphLoad)).not.toHaveBeenCalled();
@@ -452,7 +453,7 @@ describe('runTest', () => {
     const s = makeScenario();
     const config = {
       concurrency: 1,
-      totalTransactions: 2,
+      iterations: 2,
       scenarioWeights: [{ scenarioId: 's1', weight: 1 }],
     } as TestConfig;
     const { results } = await runTest(config, [s], vi.fn());
@@ -462,7 +463,7 @@ describe('runTest', () => {
   it('fills queue from first scenario when active weights reference missing ids', async () => {
     const s = makeScenario({ id: 's1' });
     const config = makeConfig({
-      totalTransactions: 3,
+      iterations: 3,
       scenarioWeights: [
         { scenarioId: 'ghost', weight: 1 },
         { scenarioId: 's1', weight: 1 },
@@ -478,7 +479,7 @@ describe('runTest', () => {
     const config = makeConfig({
       executionMode: 'workflow',
       workflowId: 'orphan',
-      totalTransactions: 4,
+      iterations: 4,
       concurrency: 2,
     });
     await runTest(config, [s], vi.fn(), undefined, undefined);
@@ -489,7 +490,7 @@ describe('runTest', () => {
   it('undersampling skips weight ids that are missing from scenarios list', async () => {
     const s1 = makeScenario({ id: 's1', name: 'Only' });
     const config = makeConfig({
-      totalTransactions: 1,
+      iterations: 1,
       scenarioWeights: [
         { scenarioId: 'missing', weight: 5 },
         { scenarioId: 's1', weight: 1 },
@@ -499,11 +500,11 @@ describe('runTest', () => {
     expect(results.every(r => r.scenarioName === 'Only')).toBe(true);
   });
 
-  it('applies proportional extra counts when total exceeds weight slots', async () => {
+  it('gives each scenario equal iterations regardless of weight values', async () => {
     const s1 = makeScenario({ id: 's1' });
     const s2 = makeScenario({ id: 's2', name: 'S2' });
     const config = makeConfig({
-      totalTransactions: 12,
+      iterations: 12,
       scenarioWeights: [
         { scenarioId: 's1', weight: 3 },
         { scenarioId: 's2', weight: 1 },
@@ -511,6 +512,6 @@ describe('runTest', () => {
       executionMode: 'sequential',
     });
     const { results } = await runTest(config, [s1, s2], vi.fn());
-    expect(results.length).toBe(12);
+    expect(results.length).toBe(24); // 12 per test × 2 tests
   });
 });

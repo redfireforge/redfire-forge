@@ -1,4 +1,5 @@
 import type { TestRun, RequestResult, FeatureGroup, Environment, Microservice, GlobalAuthProfile, RequestsData, SharedDataSource, DataSource } from '../types';
+import { migrateScenarioKinds } from './scenarioMigration';
 import type { CatalogEntry, SavedEndpointValues } from '../../features/catalog/types/catalog';
 import { isTauri } from './platform';
 import * as tauriStore from './tauriStore';
@@ -454,6 +455,19 @@ export async function loadFeatureGroups(): Promise<FeatureGroup[]> {
     }
   }
   if (migrated) await saveFeatureGroups(fgs);
+
+  // Migrate: add `kind` to scenarios that don't have it; split mixed scenarios
+  const kindResult = migrateScenarioKinds(fgs);
+  if (kindResult.migrated) {
+    fgs = kindResult.groups;
+    await saveFeatureGroups(fgs);
+  }
+
+  // Store migration metadata for notification banner
+  if (kindResult.migrated && kindResult.splitCount > 0) {
+    try { await writeKey('migration-v4-split-count', String(kindResult.splitCount)); } catch { /* best effort */ }
+  }
+
   return fgs;
 }
 
@@ -694,7 +708,14 @@ export async function loadRunnerConfig(contextKey?: string): Promise<unknown | n
     const key = contextKey ? `${RUNNER_CONFIG_KEY}:${contextKey}` : RUNNER_CONFIG_KEY;
     const raw = await readKey(key);
     if (!raw) return null;
-    return JSON.parse(raw);
+    const parsed = JSON.parse(raw);
+    // Migrate legacy totalTransactions → iterations
+    if (parsed && typeof parsed === 'object' && 'totalTransactions' in parsed && !('iterations' in parsed)) {
+      (parsed as Record<string, unknown>).iterations = (parsed as Record<string, unknown>).totalTransactions;
+      delete (parsed as Record<string, unknown>).totalTransactions;
+      await saveRunnerConfig(parsed, contextKey);
+    }
+    return parsed;
   } catch { return null; }
 }
 

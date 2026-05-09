@@ -23,7 +23,7 @@ describe('useWorkflowRunnerConfig', () => {
     await waitFor(() => expect(result.current.configLoaded).toBe(true));
     
     expect(result.current.concurrency).toBe(1);
-    expect(result.current.totalTransactions).toBe(1);
+    expect(result.current.iterations).toBe(1);
     expect(result.current.executionMode).toBe('batch');
     expect(result.current.timeoutSec).toBe(10);
     expect(result.current.retryCount).toBe(0);
@@ -42,16 +42,16 @@ describe('useWorkflowRunnerConfig', () => {
     expect(result.current.concurrency).toBe(5);
   });
 
-  it('allows updating totalTransactions', async () => {
+  it('allows updating iterations', async () => {
     const { result } = renderHook(() => useWorkflowRunnerConfig());
     
     await waitFor(() => expect(result.current.configLoaded).toBe(true));
     
     act(() => {
-      result.current.setTotalTransactions(100);
+      result.current.setIterations(100);
     });
     
-    expect(result.current.totalTransactions).toBe(100);
+    expect(result.current.iterations).toBe(100);
   });
 
   it('allows updating execution mode', async () => {
@@ -131,7 +131,7 @@ describe('useWorkflowRunnerConfig', () => {
   it('restores saved config from storage on mount', async () => {
     mockLoad.mockResolvedValueOnce({
       concurrency: 8,
-      totalTransactions: 200,
+      iterations: 200,
       executionMode: 'load-profile',
       loadProfile: { durationSec: 60, stages: [] },
       thinkTime: { mode: 'constant', constantMs: 250 },
@@ -148,7 +148,7 @@ describe('useWorkflowRunnerConfig', () => {
     await waitFor(() => expect(result.current.configLoaded).toBe(true));
 
     expect(result.current.concurrency).toBe(8);
-    expect(result.current.totalTransactions).toBe(200);
+    expect(result.current.iterations).toBe(200);
     expect(result.current.executionMode).toBe('load-profile');
     expect(result.current.loadProfile.durationSec).toBe(60);
     expect(result.current.thinkTime.mode).toBe('constant');
@@ -200,7 +200,7 @@ describe('useWorkflowRunnerConfig', () => {
   it('sanitizes disallowed workflow execution mode to batch', async () => {
     mockLoad.mockResolvedValueOnce({
       concurrency: 2,
-      totalTransactions: 3,
+      iterations: 3,
       executionMode: 'workflow',
     });
 
@@ -209,13 +209,13 @@ describe('useWorkflowRunnerConfig', () => {
 
     expect(result.current.executionMode).toBe('batch');
     expect(result.current.concurrency).toBe(2);
-    expect(result.current.totalTransactions).toBe(3);
+    expect(result.current.iterations).toBe(3);
   });
 
   it('sanitizes other invalid execution modes to batch', async () => {
     mockLoad.mockResolvedValueOnce({
       concurrency: 1,
-      totalTransactions: 1,
+      iterations: 1,
       executionMode: 'weighted',
     });
 
@@ -228,7 +228,7 @@ describe('useWorkflowRunnerConfig', () => {
   it('keeps sequential mode when persisted', async () => {
     mockLoad.mockResolvedValueOnce({
       concurrency: 1,
-      totalTransactions: 1,
+      iterations: 1,
       executionMode: 'sequential',
     });
 
@@ -241,7 +241,7 @@ describe('useWorkflowRunnerConfig', () => {
   it('defaults selectedWorkflowId to null when missing in storage', async () => {
     mockLoad.mockResolvedValueOnce({
       concurrency: 1,
-      totalTransactions: 1,
+      iterations: 1,
       executionMode: 'batch',
     });
 

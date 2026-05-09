@@ -144,7 +144,7 @@ const mockedHttpFetch = vi.mocked(httpFetch);
 const mockedIsTauri = vi.mocked(isTauri);
 
 function cfg(): TestConfig {
-  return { concurrency: 2, totalTransactions: 5, scenarioWeights: [], executionMode: 'batch' };
+  return { concurrency: 2, iterations: 5, scenarioWeights: [], executionMode: 'batch' };
 }
 function sc(): Scenario[] {
   return [{ id: 's1', name: 'S', url: 'http://x.com', method: 'GET', headers: [], body: '', auth: { type: 'none' }, validation: { mode: 'none' } }];

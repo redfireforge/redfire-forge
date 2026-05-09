@@ -26,7 +26,7 @@ function makeReplayTestRun() {
   return {
     id: 'run-replay-e2e',
     timestamp: now,
-    config: { executionMode: 'workflow', totalTransactions: 1, concurrency: 1, scenarioWeights: [] },
+    config: { executionMode: 'workflow', iterations: 1, concurrency: 1, scenarioWeights: [] },
     summary: {
       totalRequests: 1, successfulRequests: 1, failedRequests: 0,
       totalDurationMs: 500, tps: 2, avgResponseTime: 120,
