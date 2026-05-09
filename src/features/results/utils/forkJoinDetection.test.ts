@@ -458,6 +458,39 @@ describe('computeBranchStats', () => {
     expect(critical!.branchIndex).toBe(1);
   });
 
+  it('does NOT mark critical path when branches have equal duration', () => {
+    const iterations = [
+      {
+        events: [
+          { nodeId: 'a1', state: 'pass' as const, durationMs: 50, timestamp: 1000 },
+          { nodeId: 'a2', state: 'pass' as const, durationMs: 50, timestamp: 1050 },
+          { nodeId: 'b1', state: 'pass' as const, durationMs: 100, timestamp: 1000 },
+        ],
+      },
+    ];
+
+    const stats = computeBranchStats(pair, iterations);
+    const critical = stats.find(s => s.isCriticalPath);
+    expect(critical).toBeUndefined();
+  });
+
+  it('does NOT mark critical path when difference is below threshold', () => {
+    const iterations = [
+      {
+        events: [
+          { nodeId: 'a1', state: 'pass' as const, durationMs: 100, timestamp: 1000 },
+          { nodeId: 'a2', state: 'pass' as const, durationMs: 0, timestamp: 1100 },
+          { nodeId: 'b1', state: 'pass' as const, durationMs: 102, timestamp: 1000 },
+        ],
+      },
+    ];
+
+    // 2ms difference on 100ms base = 2% → below 10% threshold AND below 5ms absolute
+    const stats = computeBranchStats(pair, iterations);
+    const critical = stats.find(s => s.isCriticalPath);
+    expect(critical).toBeUndefined();
+  });
+
   it('computes pass rate per branch', () => {
     const iterations = [
       {
