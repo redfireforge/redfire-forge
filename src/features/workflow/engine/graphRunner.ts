@@ -81,6 +81,7 @@ export async function runGraph(
   
   // Initialize map for capturing HTTP details when full trace is enabled
   const capturedHttpDetails = new Map<string, import('./graphRunnerNodeHandlerContext').CapturedHttpNodeDetails>();
+  const capturedSubWorkflowTraces = new Map<string, import('../../../shared/types').WorkflowExecutionTrace>();
 
   const log = (line: { prefix: string; text: string }) => {
     callbacks.onLog?.({ ...line, ts: Date.now() });
@@ -186,6 +187,7 @@ export async function runGraph(
       traceCollector,
       traceOptions,
       capturedHttpDetails,
+      capturedSubWorkflowTraces,
     };
 
     // Phase 7e: Record node execution start
@@ -306,6 +308,13 @@ export async function runGraph(
         };
         ctx.delete('__cwWebhookPayload');
         ctx.delete('__cwWaitDurationMs');
+      } else if (node.type === 'subWorkflow') {
+        const swData = node.data as import('../types/workflow').SubWorkflowNodeData;
+        eventDetails = {
+          subWorkflowId: swData.workflowId,
+          subWorkflowPassed: passedFlag.value,
+          subWorkflowTrace: capturedSubWorkflowTraces.get(nodeId),
+        };
       }
       traceCollector.onNodeComplete(nodeId, passedFlag.value ? 'pass' : 'fail', eventDetails);
     } catch (err) {

@@ -143,7 +143,7 @@ export default function DataSourceRowDetailModal({
     } finally {
       setFetching(false);
     }
-  }, [draft, dataTable.columns, editedValues, row, rowIndex, validateColumns, expectedFields]);
+  }, [draft, dataTable.columns, dataTable.validationContract, editedValues, row, rowIndex, validateColumns, expectedFields, onFetchRow]);
 
   // ─── Fetch confirmation handlers ──────────────────────────
 

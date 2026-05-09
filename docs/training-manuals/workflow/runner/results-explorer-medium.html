@@ -102,8 +102,9 @@
     <span class="badge badge-medium">Medium</span>
   </p>
   <p style="max-width: 560px; color: #495057; font-size: 14px;">
-    A three-panel modal for digging into workflow load-test results: inspect the execution graph,
-    drill into any node&rsquo;s request, response, variables, and assertions, and scan iteration-by-iteration
+    A three-panel modal for digging into workflow load-test results: inspect the execution graph or
+    switch to a Gantt-chart timeline, drill into any node&rsquo;s request, response, variables, and assertions,
+    navigate into sub-workflow child traces, visualize parallel swim lanes, and scan iteration-by-iteration
     timing in the matrix. Built for aggregate trends and single-iteration forensics.
   </p>
   <div class="meta">
@@ -131,6 +132,9 @@
   <li><a href="#iteration-nav">Iteration Navigation</a></li>
   <li><a href="#export">Export &amp; Import</a></li>
   <li><a href="#bottleneck">Bottleneck Analysis Panel</a></li>
+  <li><a href="#timeline">Timeline View (Gantt Chart)</a></li>
+  <li><a href="#drilldown">Sub-Workflow Drill-Down</a></li>
+  <li><a href="#swim-lanes">Parallel Swim Lanes &amp; Critical Path</a></li>
   <li><a href="#shortcuts">Keyboard Shortcuts</a></li>
   <li><a href="#tips">Tips &amp; Best Practices</a></li>
   <li><a href="#related">Related Training</a></li>
@@ -146,10 +150,13 @@
   It combines three synchronized views:
 </p>
 <ul>
-  <li><strong>Workflow diagram (left)</strong> &mdash; The same graph you design in the editor, overlaid with pass/fail/skip state,
-    optional heatmap coloring by average duration, edge traversal cues, and bottleneck highlights.</li>
+  <li><strong>Workflow diagram or timeline (left)</strong> &mdash; Toggle between a <strong>graph view</strong> (the same DAG
+    you design in the editor, overlaid with execution state, heatmap, swim lanes, and bottleneck highlights) and a
+    <strong>timeline/Gantt view</strong> (horizontal bars on a time axis showing when and how long each node ran).
+    Press <code>T</code> to switch.</li>
   <li><strong>Detail panel (right)</strong> &mdash; Tabs for overview stats, HTTP request/response, variables, and assertion results
-    for the node you select. When nothing is selected, this area can show aggregate bottleneck insights.</li>
+    for the node you select. For sub-workflow nodes, a <strong>Drill Down</strong> button navigates into the child trace.
+    When nothing is selected, this area shows aggregate bottleneck insights.</li>
   <li><strong>Iteration matrix (bottom, collapsible)</strong> &mdash; A table of iterations versus nodes: click a cell to jump that
     iteration and node, sort and filter the grid, and scan for errors or slow steps.</li>
 </ul>
@@ -206,10 +213,11 @@
 ┌─────────────────────────────────────────────────────────────────┐
 │  Toolbar: iteration controls, export/import, matrix toggle      │
 ├──────────────────────────────┬──────────────────────────────────┤
-│                              │                                   │
-│   Workflow diagram           │   Detail panel (tabs)            │
-│   (React Flow canvas)        │   Overview | Request | Response  │
+│  [Diagram] [Timeline]        │                                   │
+│                              │   Detail panel (tabs)            │
+│   Workflow diagram / Gantt   │   Overview | Request | Response  │
 │   Search + state filters     │   | Variables | Assertions        │
+│   Swim lanes (fork/join)     │   + Drill Down (sub-workflows)   │
 │                              │                                   │
 ├──────────────────────────────┴──────────────────────────────────┤
 │   Iteration matrix (collapsible): iterations x nodes              │
@@ -218,8 +226,8 @@
 
 <div class="feature-grid">
   <div class="feature-card">
-    <strong>Diagram (left)</strong>
-    <p>Graph layout with execution overlay, heatmap, edge animation, traversal percentages on branches, and bottleneck borders.</p>
+    <strong>Diagram / Timeline (left)</strong>
+    <p>Graph layout with execution overlay, heatmap, swim lanes, bottleneck borders &mdash; or Gantt chart with time-axis bars, zoom, and aggregate markers. Press <code>T</code> to toggle.</p>
   </div>
   <div class="feature-card">
     <strong>Detail panel (right)</strong>
@@ -469,11 +477,104 @@
 </p>
 
 <!-- ════════════════════════════════════════════ -->
+<!-- TIMELINE VIEW                               -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="timeline">Timeline View (Gantt Chart)</h2>
+<p>
+  The Results Explorer offers two visualization modes for the left panel: <strong>Diagram</strong> (the default
+  graph view) and <strong>Timeline</strong> (a horizontal Gantt chart). Toggle between them using the buttons
+  at the top of the panel, or press <code>T</code>.
+</p>
+<h3>What the Timeline shows</h3>
+<ul>
+  <li>Each workflow node becomes a <strong>horizontal bar</strong> on a time axis, positioned by start time and sized by duration.</li>
+  <li>A <strong>label column</strong> on the left lists nodes in topological order with colored status dots.</li>
+  <li><strong>Sub-workflow bars</strong> render in <strong>indigo</strong> with a &ldquo;SUB&rdquo; badge, distinct from green HTTP bars.</li>
+  <li>In <strong>aggregate mode</strong>, bars from all iterations overlay at 50% opacity, with <strong>Avg</strong> and <strong>P95</strong> vertical markers.</li>
+</ul>
+<h3>Key interactions</h3>
+<ul>
+  <li>Click a bar or label to select the node (same detail panel as Diagram).</li>
+  <li>Hover a bar for a tooltip with node name, duration, and status code.</li>
+  <li>Zoom in/out for detail on fast nodes; horizontal scroll when zoomed.</li>
+  <li>Search and state filters work identically to Diagram mode.</li>
+</ul>
+<div class="callout callout-tip">
+  <strong>Tip:</strong>
+  Use Diagram to understand <em>structure</em>, Timeline to understand <em>timing</em>. The two complement
+  each other &mdash; your selection syncs across both.
+</div>
+<p>
+  <strong>Full guide:</strong> See <a href="./results-explorer-timeline-medium.html">Timeline View (Gantt Chart)</a> for zoom controls,
+  aggregate markers, sub-workflow drill-down from timeline, and more.
+</p>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- SUB-WORKFLOW DRILL-DOWN                     -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="drilldown">Sub-Workflow Drill-Down</h2>
+<p>
+  When a workflow contains <strong>Sub-Workflow nodes</strong>, you can navigate into the child workflow&rsquo;s
+  full execution trace without leaving the Results Explorer.
+</p>
+<h3>How to drill down</h3>
+<ul>
+  <li><strong>From Diagram:</strong> Select the sub-workflow node, then click <strong>Drill Down</strong> in the detail panel&rsquo;s Overview tab.</li>
+  <li><strong>From Timeline:</strong> Click the <strong>&#x2935; drill-down icon</strong> at the right end of the indigo sub-workflow bar.</li>
+</ul>
+<h3>Breadcrumb navigation</h3>
+<p>
+  After drilling down, a <strong>breadcrumb bar</strong> appears at the top:
+  <code>Parent Workflow &rsaquo; Child Workflow</code>. Click any breadcrumb segment to jump back to that level.
+  Multi-level nesting is fully supported.
+</p>
+<div class="callout">
+  <strong>Requirement:</strong> Drill-down requires <strong>Capture Full Trace</strong> enabled and a
+  <strong>specific iteration</strong> selected (not aggregate mode).
+</div>
+<p>
+  <strong>Full guide:</strong> See <a href="./results-explorer-drilldown-medium.html">Sub-Workflow Drill-Down</a> for
+  visual cues, multi-level nesting, and sample workflows to practice.
+</p>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- PARALLEL SWIM LANES & CRITICAL PATH         -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="swim-lanes">Parallel Swim Lanes &amp; Critical Path</h2>
+<p>
+  Workflows with <strong>Fork/Join</strong> patterns (parallel branches) get automatic visual enhancements
+  in the Diagram view:
+</p>
+<h3>Swim-lane overlay</h3>
+<ul>
+  <li>Each parallel branch is enclosed in a <strong>colored swim lane</strong> with a tab-style label above it.</li>
+  <li>Labels use <strong>descriptive branch names</strong> derived from the first node in each branch.</li>
+  <li>Colors are assigned automatically from a palette to distinguish branches visually.</li>
+</ul>
+<h3>Critical path detection</h3>
+<ul>
+  <li>The <strong>slowest branch</strong> (by average duration) is marked with a <strong>&ldquo;&#x23F1; Critical Path&rdquo;</strong>
+    badge on its swim-lane tab. A threshold of &ge;10% or &ge;5ms difference is required.</li>
+  <li>This tells you which parallel branch is the bottleneck &mdash; optimizing faster branches won&rsquo;t reduce total time.</li>
+</ul>
+<h3>Branch comparison table</h3>
+<p>
+  Select a <strong>Fork</strong> or <strong>Join</strong> node and the detail panel shows a <strong>branch comparison
+  table</strong> with columns: branch name, node count, average time, pass rate, and critical path indicator.
+</p>
+<p>
+  <strong>Full guide:</strong> See <a href="../../api-patterns/parallel-showcase-medium.html">Parallel Showcase: Swim Lanes &amp; Critical Path</a>
+  for a hands-on walkthrough with the 3-branch showcase sample.
+</p>
+
+<!-- ════════════════════════════════════════════ -->
 <!-- KEYBOARD SHORTCUTS                          -->
 <!-- ════════════════════════════════════════════ -->
 <h2 id="shortcuts">Keyboard Shortcuts</h2>
 <table>
   <tr><th>Key</th><th>Action</th></tr>
+  <tr><td><code>T</code></td><td>Toggle between Diagram and Timeline view.</td></tr>
   <tr><td><code>&larr;</code> / <code>&rarr;</code></td><td>Move to previous / next iteration (multi-iteration runs only).</td></tr>
   <tr><td><code>1</code> &ndash; <code>9</code></td><td>Jump to iteration 1 &ndash; 9 when that iteration exists.</td></tr>
   <tr><td><code>Space</code></td><td>Toggle between aggregate view and iteration 1.</td></tr>
@@ -502,6 +603,9 @@
 <div class="page-break"></div>
 <h2 id="related">Related Training</h2>
 <ul>
+  <li><a href="./results-explorer-timeline-medium.html">Timeline View (Gantt Chart)</a> &mdash; full guide to the time-axis visualization.</li>
+  <li><a href="./results-explorer-drilldown-medium.html">Sub-Workflow Drill-Down</a> &mdash; navigating into nested workflow executions.</li>
+  <li><a href="../../api-patterns/parallel-showcase-medium.html">Parallel Showcase: Swim Lanes &amp; Critical Path</a> &mdash; parallel branch visualization.</li>
   <li><a href="./workflow-runner-basics-easy.html">Workflow Runner Basics</a> &mdash; configuring runs, iterations, and trace capture.</li>
   <li><a href="../../edge-traversal-percentages-guide.html">Edge Traversal Percentages</a> &mdash; deep dive on branch labels in aggregate view.</li>
   <li><a href="./workflow-runner-results-medium.html">Workflow Results</a> &mdash; dashboard concepts before opening the explorer.</li>

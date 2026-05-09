@@ -167,10 +167,10 @@ describe('manual counts per path', () => {
     expect(countManuals(path)).toBe(6);
   });
 
-  it('wf-api-patterns has 5 manuals (2 phases)', () => {
+  it('wf-api-patterns has 6 manuals (2 phases)', () => {
     const path = trainingPaths.find(p => p.id === 'wf-api-patterns')!;
     expect(path.phases).toHaveLength(2);
-    expect(countManuals(path)).toBe(5);
+    expect(countManuals(path)).toBe(6);
   });
 
   it('wf-diverse-apis has 5 manuals (2 phases)', () => {

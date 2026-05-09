@@ -56,7 +56,8 @@ export default function ColumnOrderPopover<T extends OrderableItem>({ items, onA
       if (initialRender.current) { initialRender.current = false; return; }
       onApply(orderedItems);
     }
-  }, [autoApply, orderedItems]); // intentionally omit onApply to avoid loops
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- onApply omitted: unstable parent identity would retrigger; orderedItems is the intentional driver
+  }, [autoApply, orderedItems]);
 
   // Detect if indexed array columns exist (for quick-sort shortcuts)
   const hasIndexedCols = useMemo(
