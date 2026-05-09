@@ -3,8 +3,10 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, fireEvent } from '@testing-library/react';
+import type { MouseEvent, ReactNode } from 'react';
 import '@testing-library/jest-dom';
 import * as XyflowReact from '@xyflow/react';
+import type { Edge, Node, NodeChange } from '@xyflow/react';
 import WorkflowExecutionCanvas from './WorkflowExecutionCanvas';
 import type { WorkflowExecutionTrace } from '../../../shared/types';
 
@@ -16,8 +18,8 @@ const { flowApi, applyNodeChangesStub } = vi.hoisted(() => {
   };
 
   function stub(
-    changes: Array<{ type: string; id?: string; position?: { x: number; y: number }; item?: any }>,
-    nodes: Array<{ id: string; position?: { x: number; y: number } }>
+    changes: import('@xyflow/react').NodeChange[],
+    nodes: import('@xyflow/react').Node[],
   ) {
     let next = [...nodes];
     for (const c of changes) {
@@ -36,10 +38,28 @@ const { flowApi, applyNodeChangesStub } = vi.hoisted(() => {
 
 // Mock ReactFlow
 vi.mock('@xyflow/react', () => ({
-  ReactFlow: vi.fn(({ nodes, edges, children, onNodeClick, onPaneClick, onNodesChange, onNodeMouseEnter, onNodeMouseLeave }: any) => (
+  ReactFlow: vi.fn(({
+    nodes,
+    edges,
+    children,
+    onNodeClick,
+    onPaneClick,
+    onNodesChange,
+    onNodeMouseEnter,
+    onNodeMouseLeave,
+  }: {
+    nodes?: Node[];
+    edges?: Edge[];
+    children?: ReactNode;
+    onNodeClick?: (event: MouseEvent, node: Node) => void;
+    onPaneClick?: () => void;
+    onNodesChange?: (changes: NodeChange[]) => void;
+    onNodeMouseEnter?: (event: MouseEvent, node: Node) => void;
+    onNodeMouseLeave?: (event: MouseEvent, node: Node) => void;
+  }) => (
     <div data-testid="react-flow">
       <div data-testid="flow-pane" onClick={() => onPaneClick?.()}>
-        {nodes?.map((node: any) => (
+        {nodes?.map((node: Node) => (
           <div
             key={node.id}
             role="button"
@@ -55,7 +75,7 @@ vi.mock('@xyflow/react', () => ({
           />
         ))}
       </div>
-      {edges?.map((edge: any) => (
+      {edges?.map((edge: Edge) => (
         <div
           key={edge.id}
           data-testid={`edge-${edge.id}`}
@@ -1115,7 +1135,7 @@ describe('WorkflowExecutionCanvas', () => {
         workflowSnapshot: {
           ...trace.workflowSnapshot,
           nodes: [
-            ...trace.workflowSnapshot.nodes as any[],
+            ...trace.workflowSnapshot.nodes,
             { id: 'n3', type: 'http', position: { x: 100, y: 0 }, data: { label: 'Skipped' } },
           ],
         },

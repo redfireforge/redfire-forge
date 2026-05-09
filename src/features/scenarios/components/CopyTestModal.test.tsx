@@ -9,7 +9,7 @@ import type { Scenario, FeatureGroup } from '../../../shared/types';
 
 vi.mock('../../../shared/components/PopupModal', () => ({
   __esModule: true,
-  default: ({ title, onClose, children, footer }: {
+  default: ({ title, onClose: _onClose, children, footer }: {
     title: React.ReactNode; onClose: () => void; children: React.ReactNode; footer?: React.ReactNode;
   }) => (
     <div data-testid="popup-modal">

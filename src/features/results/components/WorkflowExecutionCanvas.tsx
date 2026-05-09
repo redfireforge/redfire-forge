@@ -9,6 +9,7 @@ import {
   useViewport,
   type Node,
   type Edge,
+  type ReactFlowInstance,
   type NodeMouseHandler,
   type OnNodesChange,
   applyNodeChanges,
@@ -17,6 +18,13 @@ import '@xyflow/react/dist/style.css';
 import type { WorkflowExecutionTrace } from '../../../shared/types';
 import { nodeTypes } from '../../workflow/utils/workflowNodeFactory';
 import { identifyBottlenecks, getBottleneckNodeIds, type BottleneckInsight } from '../utils/bottleneckAnalysis';
+import { captureCanvasScreenshot, captureCanvasSvg } from '../utils/canvasScreenshot';
+
+type ReplaySnapshotEdge = {
+  id: string;
+  source: string;
+  target: string;
+};
 
 /** Maps 0–1 intensity to a green→yellow→orange→red color string */
 function heatmapColor(t: number): string {
@@ -40,6 +48,9 @@ function heatmapColor(t: number): string {
 
 export type NodeStateFilter = 'all' | 'pass' | 'fail' | 'skipped';
 
+export type CanvasScreenshotFn = () => Promise<string>;
+export type CanvasSvgFn = () => Promise<string>;
+
 interface Props {
   trace: WorkflowExecutionTrace;
   selectedNodeId?: string;
@@ -53,6 +64,10 @@ interface Props {
   searchQuery?: string;
   /** State filter — nodes not matching this state are dimmed */
   stateFilter?: NodeStateFilter;
+  /** Called with a screenshot capture function so the parent can trigger PNG export */
+  onScreenshotReady?: (fn: CanvasScreenshotFn) => void;
+  /** Called with an SVG capture function so the parent can trigger SVG export */
+  onSvgReady?: (fn: CanvasSvgFn) => void;
 }
 
 const LAYOUT_STORAGE_PREFIX = 'replayLayout:';
@@ -214,10 +229,12 @@ export default function WorkflowExecutionCanvas({
   onBottlenecksComputed,
   searchQuery = '',
   stateFilter = 'all',
+  onScreenshotReady,
+  onSvgReady,
 }: Props) {
   const [layoutKey, setLayoutKey] = useState(0);
   const hasFittedAfterMeasure = useRef(false);
-  const rfInstanceRef = useRef<{ fitView: (opts?: Record<string, unknown>) => void } | null>(null);
+  const rfInstanceRef = useRef<ReactFlowInstance<Node, Edge> | null>(null);
 
   useEffect(() => {
     if (fitViewTrigger) {
@@ -298,7 +315,7 @@ export default function WorkflowExecutionCanvas({
 
   // Managed node state - initialized once, updated via onNodesChange for dragging
   const [rfNodes, setRfNodes] = useState<Node[]>(() =>
-    (trace.workflowSnapshot.nodes as Array<any>).map((node) => {
+    (trace.workflowSnapshot.nodes as Node[]).map((node) => {
       const saved = savedLayout?.[node.id];
       return {
         ...node,
@@ -412,7 +429,7 @@ export default function WorkflowExecutionCanvas({
   // Transform workflow edges with traversal highlighting and percentage labels
   const edges: Edge[] = useMemo(() => {
     const traversedSet = new Set(trace.traversedEdges);
-    return (trace.workflowSnapshot.edges as Array<any>).map((edge) => {
+    return (trace.workflowSnapshot.edges as ReplaySnapshotEdge[]).map((edge) => {
       const isTraversed = traversedSet.has(edge.id);
 
       return {
@@ -454,7 +471,7 @@ export default function WorkflowExecutionCanvas({
     }
 
     const badges: EdgePercentageBadge[] = [];
-    for (const edge of trace.workflowSnapshot.edges as Array<any>) {
+    for (const edge of trace.workflowSnapshot.edges as ReplaySnapshotEdge[]) {
       if (!branchingEdges.has(edge.id)) continue;
       const count = counts.get(edge.id) || 0;
       const pct = Math.round((count / totalIterations) * 100);
@@ -526,6 +543,25 @@ export default function WorkflowExecutionCanvas({
     setHoveredNode(null);
   }, []);
 
+  // Register screenshot capture functions for parent
+  useEffect(() => {
+    if (!onScreenshotReady) return;
+    const captureFn = async () => {
+      if (!containerRef.current) throw new Error('Canvas container not mounted');
+      return captureCanvasScreenshot(containerRef.current, displayNodes);
+    };
+    onScreenshotReady(captureFn);
+  }, [onScreenshotReady, displayNodes]);
+
+  useEffect(() => {
+    if (!onSvgReady) return;
+    const captureFn = async () => {
+      if (!containerRef.current) throw new Error('Canvas container not mounted');
+      return captureCanvasSvg(containerRef.current, displayNodes);
+    };
+    onSvgReady(captureFn);
+  }, [onSvgReady, displayNodes]);
+
   const tooltipData = useMemo(() => {
     if (!hoveredNode) return null;
     const state = nodeStates.get(hoveredNode.id);
@@ -553,7 +589,7 @@ export default function WorkflowExecutionCanvas({
         nodeTypes={nodeTypes}
         fitView
         fitViewOptions={{ padding: 0.05 }}
-        onInit={(instance) => { rfInstanceRef.current = instance as any; }}
+        onInit={(instance) => { rfInstanceRef.current = instance; }}
         nodesDraggable={true}
         nodesConnectable={false}
         elementsSelectable={true}

@@ -3,7 +3,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, fireEvent } from '@testing-library/react';
 import { RunComparisonPanel, TrendChart } from './RunComparisonPanel';
 import type { TestRun, RequestResult } from '../../../shared/types';
-import type { BaselineMark } from '../utils/runBaselines';
+import type { BaselineMark, RunComparison } from '../utils/runBaselines';
 import * as runBaselines from '../utils/runBaselines';
 
 vi.mock('./ResponseTimeHistogram', () => ({
@@ -229,7 +229,7 @@ describe('RunComparisonPanel', () => {
       }],
       scenarioDeltas: [],
       regressions: [],
-    } as any);
+    } as RunComparison);
     const baseline = makeRun('b');
     const current = makeRun('c');
     const { container } = render(<RunComparisonPanel baselineRun={baseline} currentRun={current} />);
@@ -359,7 +359,7 @@ describe('RunComparisonPanel - edge cases', () => {
       metricDeltas: [{ metric: 'TPS', baselineValue: 1, currentValue: 2, delta: 1, deltaPercent: 100, regressed: false, improved: true }],
       scenarioDeltas: [],
       regressions: [{ severity: 'warning' as const, metric: 'Ghost' }],
-    } as any);
+    } as RunComparison);
     const baseline = makeRun('b');
     const current = makeRun('c');
     const { container } = render(<RunComparisonPanel baselineRun={baseline} currentRun={current} />);

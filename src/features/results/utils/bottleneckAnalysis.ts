@@ -1,4 +1,4 @@
-import type { WorkflowExecutionTrace, ExecutionEvent } from '../../../shared/types';
+import type { WorkflowExecutionTrace } from '../../../shared/types';
 
 export interface BottleneckInsight {
   nodeId: string;

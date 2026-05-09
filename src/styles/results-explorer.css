@@ -3,6 +3,11 @@
    ══════════════════════════════════════════════════════════════════════════════ */
 
 /* ── Header ── */
+.ram-header:has(.results-explorer-header) h3 {
+  overflow: visible;
+  white-space: normal;
+  text-overflow: unset;
+}
 .results-explorer-header {
   display: flex;
   flex-direction: column;
@@ -40,14 +45,8 @@
 }
 
 .results-explorer-full-trace-badge {
-  background: linear-gradient(135deg, #2563eb, #3b82f6);
-  color: #fff;
-  padding: 3px 10px;
-  border-radius: 5px;
-  font-size: 0.75em;
+  color: #60a5fa;
   font-weight: 600;
-  box-shadow: 0 1px 4px rgba(37, 99, 235, 0.3);
-  letter-spacing: 0.02em;
 }
 
 .results-explorer-sampled-badge {
@@ -73,7 +72,12 @@
   white-space: nowrap;
 }
 
-.results-explorer-export-btn {
+/* ── Export Dropdown ── */
+.export-dropdown {
+  position: relative;
+  display: inline-block;
+}
+.export-dropdown-trigger {
   background: linear-gradient(135deg, #6366f1, #8b5cf6);
   color: #fff;
   border: none;
@@ -85,37 +89,77 @@
   transition: background 0.15s, transform 0.1s, box-shadow 0.15s;
   box-shadow: 0 1px 4px rgba(99, 102, 241, 0.3);
 }
-.results-explorer-export-btn:hover {
+.export-dropdown-trigger:hover {
   background: linear-gradient(135deg, #818cf8, #a78bfa);
   transform: translateY(-1px);
   box-shadow: 0 3px 8px rgba(99, 102, 241, 0.4);
 }
-.results-explorer-export-btn:active {
+.export-dropdown-trigger:active {
   transform: translateY(0);
-  box-shadow: 0 1px 3px rgba(99, 102, 241, 0.25);
 }
-
-.results-explorer-export-csv-btn {
-  background: linear-gradient(135deg, #059669, #10b981);
-  color: #fff;
+.export-dropdown-trigger:disabled {
+  opacity: 0.6;
+  cursor: wait;
+  transform: none;
+}
+.export-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 240px;
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  z-index: 100;
+  padding: 4px 0;
+  animation: exportMenuIn 0.12s ease-out;
+}
+@keyframes exportMenuIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.export-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 14px;
   border: none;
-  padding: 4px 14px;
-  border-radius: 5px;
-  font-size: 0.8em;
-  font-weight: 600;
+  background: transparent;
+  color: #e2e8f0;
+  font-size: 0.85em;
   cursor: pointer;
-  margin-left: 6px;
-  transition: background 0.15s, transform 0.1s, box-shadow 0.15s;
-  box-shadow: 0 1px 4px rgba(5, 150, 105, 0.3);
+  text-align: left;
+  transition: background 0.1s;
 }
-.results-explorer-export-csv-btn:hover {
-  background: linear-gradient(135deg, #10b981, #34d399);
-  transform: translateY(-1px);
-  box-shadow: 0 3px 8px rgba(5, 150, 105, 0.4);
+.export-dropdown-item:hover {
+  background: rgba(99, 102, 241, 0.15);
 }
-.results-explorer-export-csv-btn:active {
-  transform: translateY(0);
-  box-shadow: 0 1px 3px rgba(5, 150, 105, 0.25);
+.export-dropdown-item:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+.export-dropdown-icon {
+  flex-shrink: 0;
+  font-size: 1.1em;
+  width: 20px;
+  text-align: center;
+}
+.export-dropdown-label {
+  font-weight: 600;
+  white-space: nowrap;
+}
+.export-dropdown-desc {
+  margin-left: auto;
+  font-size: 0.8em;
+  color: #94a3b8;
+  white-space: nowrap;
+}
+.export-dropdown-divider {
+  height: 1px;
+  background: #334155;
+  margin: 4px 10px;
 }
 
 /* ── Body Layout ── */
@@ -1408,6 +1452,7 @@
 
 .matrix-table tbody tr.selected-row {
   background: rgba(59, 130, 246, 0.1);
+  transition: background 0.25s ease;
 }
 
 .matrix-table tbody tr.not-sampled-row {
@@ -2519,4 +2564,26 @@
 .results-explorer-flow .replay-node-dimmed:hover {
   opacity: 0.5 !important;
   filter: grayscale(0.4);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   Smooth Iteration Transitions
+   Cross-fade animation when switching between iterations in the Results Explorer.
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+@keyframes iterationFadeIn {
+  from { opacity: 0.4; }
+  to   { opacity: 1; }
+}
+
+.results-explorer-detail.iteration-transitioning {
+  animation: iterationFadeIn 0.25s ease-out;
+}
+
+.results-explorer-diagram.iteration-transitioning {
+  animation: iterationFadeIn 0.2s ease-out;
+}
+
+.results-explorer-footer-info.iteration-transitioning {
+  animation: iterationFadeIn 0.2s ease-out;
 }

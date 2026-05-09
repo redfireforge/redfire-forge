@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import {
   createSnapshot,
   computeSnapshotFingerprint,
@@ -12,7 +12,7 @@ import {
   stripDefinitionVersions,
   hasDefinitionVersions,
 } from './testDefinitionVersioning';
-import type { Scenario, TestDefinitionVersion, TestDefinitionSnapshot } from '../../../shared/types';
+import type { Scenario, TestDefinitionVersion } from '../../../shared/types';
 
 const baseScenario: Scenario = {
   id: 'test-1',
@@ -380,7 +380,7 @@ describe('computeSnapshotDiff', () => {
 
   it('detects auth change', () => {
     const old = createSnapshot(baseScenario);
-    const newer = createSnapshot(mkScenario({ auth: { type: 'bearer', token: 'abc' } as any }));
+    const newer = createSnapshot(mkScenario({ auth: { type: 'bearer', token: 'abc' } }));
     expect(computeSnapshotDiff(old, newer).authChanged).toBe(true);
   });
 

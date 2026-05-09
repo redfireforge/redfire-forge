@@ -14,7 +14,7 @@ import {
   loadTestRunsLite,
   loadTheme,
 } from '../../../shared/utils/storage';
-import { isCustomThemeId, findSavedTheme, applyCustomTheme } from '../../../app/ThemeCustomizer';
+import { isCustomThemeId, findSavedTheme, applyCustomTheme } from '../../../app/themeCustomizerUtils';
 
 export interface UseProjectsReturn {
   loading: boolean;

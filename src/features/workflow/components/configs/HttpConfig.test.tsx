@@ -71,8 +71,6 @@ function makeHttpData(overrides: Partial<HttpNodeData> = {}): HttpNodeData {
   } as HttpNodeData;
 }
 
-const noop = vi.fn();
-
 const defaultProps = {
   data: makeHttpData(),
   onChange: vi.fn() as ReturnType<typeof vi.fn>,

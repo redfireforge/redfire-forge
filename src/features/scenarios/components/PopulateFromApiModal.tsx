@@ -11,7 +11,6 @@
  */
 import { createPortal } from 'react-dom';
 import type { Scenario, DataSource, DataSourceColumn, DataSourceRow } from '../../../shared/types';
-import type { HttpResponse } from '../../../shared/utils/httpClient';
 import AppModalFrame from '../../../shared/components/AppModalFrame';
 import { usePopulateFromApi, type ExtendedHttpResponse } from '../hooks/usePopulateFromApi';
 import PopulateFetchStep from './PopulateFetchStep';

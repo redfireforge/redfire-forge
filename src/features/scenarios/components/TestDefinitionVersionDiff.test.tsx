@@ -10,7 +10,7 @@ vi.mock('json-diff-kit', () => ({
   Differ: class {
     diff(a: unknown, b: unknown) { return [[{ type: 0, text: JSON.stringify(a) }, { type: 0, text: JSON.stringify(b) }]]; }
   },
-  Viewer: ({ diff }: { diff: unknown }) => <div data-testid="json-diff-viewer">diff viewer</div>,
+  Viewer: ({ diff: _diff }: { diff: unknown }) => <div data-testid="json-diff-viewer">diff viewer</div>,
 }));
 
 vi.mock('json-diff-kit/dist/viewer.css', () => ({}));

@@ -15,6 +15,7 @@ vi.mock('./scriptLibraries', () => ({
 
 import { handleSubWorkflowNode } from './graphRunnerSubWorkflowHandler';
 import type { RequestResult } from '../../../shared/types';
+import type { GraphRunCallbacks } from './graphRunnerInterfaces';
 import {
   getMockFetch,
   makeCtx,
@@ -98,9 +99,9 @@ describe('handleSubWorkflowNode', () => {
 
     const mockRunGraph = vi.fn().mockResolvedValue([]);
     // Simulate child completing with output
-    mockRunGraph.mockImplementation(async (_n: unknown, _e: unknown, _v: unknown, cb: { onVariablesChange: (v: Record<string,string>) => void; onComplete: (r: unknown[], p: boolean) => void }) => {
+    mockRunGraph.mockImplementation(async (_n: unknown, _e: unknown, _v: unknown, cb: GraphRunCallbacks) => {
       cb.onVariablesChange({ childOutput: 'result-value' });
-      cb.onComplete([], true);
+      cb.onComplete([], true, 0);
       return [];
     });
     const passed = makePassedFlag();
@@ -130,9 +131,9 @@ describe('handleSubWorkflowNode', () => {
       outputMappings: [{ sourceVariable: 'nosuch', targetVariable: 'parentEmpty' }],
       onChildFailure: 'fail',
     });
-    const mockRunGraph = vi.fn().mockImplementation(async (_n: unknown, _e: unknown, _v: unknown, cb: { onVariablesChange: (v: Record<string,string>) => void; onComplete: (r: unknown[], p: boolean) => void }) => {
+    const mockRunGraph = vi.fn().mockImplementation(async (_n: unknown, _e: unknown, _v: unknown, cb: GraphRunCallbacks) => {
       cb.onVariablesChange({ other: 'x' });
-      cb.onComplete([], true);
+      cb.onComplete([], true, 0);
       return [];
     });
     await handleSubWorkflowNode('sub1', node, hCtx, makePassedFlag(), mockRunGraph as never);
@@ -159,9 +160,9 @@ describe('handleSubWorkflowNode', () => {
       outputMappings: [],
     });
     const failResult = { passed: false, httpStatus: 500 };
-    const mockRunGraph = vi.fn().mockImplementation(async (_n: unknown, _e: unknown, _v: unknown, cb: any) => {
+    const mockRunGraph = vi.fn().mockImplementation(async (_n: unknown, _e: unknown, _v: unknown, cb: GraphRunCallbacks) => {
       cb.onVariablesChange({});
-      cb.onComplete([failResult], false);
+      cb.onComplete([failResult], false, 0);
       return [failResult];
     });
     await handleSubWorkflowNode('sub1', node, hCtx, makePassedFlag(true), mockRunGraph as never);
@@ -187,9 +188,9 @@ describe('handleSubWorkflowNode', () => {
       outputMappings: [],
       onChildFailure: 'fail',
     });
-    const mockRunGraph = vi.fn().mockImplementation(async (_n: unknown, _e: unknown, _v: unknown, cb: any) => {
+    const mockRunGraph = vi.fn().mockImplementation(async (_n: unknown, _e: unknown, _v: unknown, cb: GraphRunCallbacks) => {
       cb.onVariablesChange({});
-      cb.onComplete([], true);
+      cb.onComplete([], true, 0);
       return [
         { passed: true, httpStatus: 200 },
         { passed: false, httpStatus: 500 },
@@ -287,9 +288,9 @@ describe('handleSubWorkflowNode', () => {
       },
       onChildFailure: 'fail',
     });
-    const mockRunGraph = vi.fn().mockImplementation(async (_n: unknown, _e: unknown, _v: unknown, cb: { onVariablesChange: (v: Record<string,string>) => void; onComplete: (r: unknown[], p: boolean) => void }) => {
+    const mockRunGraph = vi.fn().mockImplementation(async (_n: unknown, _e: unknown, _v: unknown, cb: GraphRunCallbacks) => {
       cb.onVariablesChange({});
-      cb.onComplete([], true);
+      cb.onComplete([], true, 0);
       return [];
     });
     const passed = makePassedFlag();
@@ -325,9 +326,9 @@ describe('handleSubWorkflowNode', () => {
       },
       onChildFailure: 'fail',
     });
-    const mockRunGraph = vi.fn().mockImplementation(async (_n: unknown, _e: unknown, _v: unknown, cb: { onVariablesChange: (v: Record<string,string>) => void; onComplete: (r: unknown[], p: boolean) => void }) => {
+    const mockRunGraph = vi.fn().mockImplementation(async (_n: unknown, _e: unknown, _v: unknown, cb: GraphRunCallbacks) => {
       cb.onVariablesChange({});
-      cb.onComplete([], true);
+      cb.onComplete([], true, 0);
       return [];
     });
     const passed = makePassedFlag();
@@ -358,9 +359,9 @@ describe('handleSubWorkflowNode', () => {
       onChildFailure: 'continue',
     });
     const failResult = { passed: false, httpStatus: 500 };
-    const mockRunGraph = vi.fn().mockImplementation(async (_n: unknown, _e: unknown, _v: unknown, cb: { onVariablesChange: (v: Record<string,string>) => void; onComplete: (r: unknown[], p: boolean) => void }) => {
+    const mockRunGraph = vi.fn().mockImplementation(async (_n: unknown, _e: unknown, _v: unknown, cb: GraphRunCallbacks) => {
       cb.onVariablesChange({});
-      cb.onComplete([failResult], false);
+      cb.onComplete([failResult], false, 0);
       return [failResult];
     });
     const passed = makePassedFlag();
@@ -391,9 +392,9 @@ describe('handleSubWorkflowNode', () => {
       propagateAllOutputs: true,
       onChildFailure: 'fail',
     });
-    const mockRunGraph = vi.fn().mockImplementation(async (_n: unknown, _e: unknown, _v: unknown, cb: { onVariablesChange: (v: Record<string,string>) => void; onComplete: (r: unknown[], p: boolean) => void }) => {
+    const mockRunGraph = vi.fn().mockImplementation(async (_n: unknown, _e: unknown, _v: unknown, cb: GraphRunCallbacks) => {
       cb.onVariablesChange({ result: '42', __internal: 'skip' });
-      cb.onComplete([], true);
+      cb.onComplete([], true, 0);
       return [];
     });
     const passed = makePassedFlag();
@@ -424,9 +425,9 @@ describe('handleSubWorkflowNode', () => {
       outputMappings: [],
       onChildFailure: 'fail',
     });
-    const mockRunGraph = vi.fn().mockImplementation(async (_n: unknown, _e: unknown, _v: unknown, cb: { onVariablesChange: (v: Record<string, string>) => void; onComplete: (r: unknown[], p: boolean) => void }) => {
+    const mockRunGraph = vi.fn().mockImplementation(async (_n: unknown, _e: unknown, _v: unknown, cb: GraphRunCallbacks) => {
       cb.onVariablesChange({});
-      cb.onComplete([], true);
+      cb.onComplete([], true, 0);
       return [];
     });
     const passed = makePassedFlag();
@@ -480,9 +481,9 @@ describe('handleSubWorkflowNode', () => {
       onChildFailure: 'fail',
     });
     const fail = { passed: false, httpStatus: 500 };
-    const mockRunGraph = vi.fn().mockImplementation(async (_n: unknown, _e: unknown, _v: unknown, cb: { onVariablesChange: (v: Record<string, string>) => void; onComplete: (r: unknown[], p: boolean) => void }) => {
+    const mockRunGraph = vi.fn().mockImplementation(async (_n: unknown, _e: unknown, _v: unknown, cb: GraphRunCallbacks) => {
       cb.onVariablesChange({});
-      cb.onComplete([fail], false);
+      cb.onComplete([fail], false, 0);
       return [fail];
     });
     const passed = makePassedFlag(true);
@@ -505,14 +506,14 @@ describe('handleSubWorkflowNode', () => {
     });
     const fail = { passed: false, httpStatus: 500 };
     const mockRunGraph = vi.fn()
-      .mockImplementationOnce(async (_n: unknown, _e: unknown, _v: unknown, cb: { onVariablesChange: (v: Record<string, string>) => void; onComplete: (r: unknown[], p: boolean) => void }) => {
+      .mockImplementationOnce(async (_n: unknown, _e: unknown, _v: unknown, cb: GraphRunCallbacks) => {
         cb.onVariablesChange({});
-        cb.onComplete([fail], false);
+        cb.onComplete([fail], false, 0);
         return [fail];
       })
-      .mockImplementationOnce(async (_n: unknown, _e: unknown, _v: unknown, cb: { onVariablesChange: (v: Record<string, string>) => void; onComplete: (r: unknown[], p: boolean) => void }) => {
+      .mockImplementationOnce(async (_n: unknown, _e: unknown, _v: unknown, cb: GraphRunCallbacks) => {
         cb.onVariablesChange({});
-        cb.onComplete([], true);
+        cb.onComplete([], true, 0);
         return [];
       });
     await handleSubWorkflowNode('sub1', node, hCtx, makePassedFlag(true), mockRunGraph as never);
@@ -532,9 +533,9 @@ describe('handleSubWorkflowNode', () => {
       outputMappings: [],
       onChildFailure: 'fail',
     });
-    const mockRunGraph = vi.fn().mockImplementation(async (_n: unknown, _e: unknown, _v: unknown, cb: { onVariablesChange: (v: Record<string, string>) => void; onComplete: (r: unknown[], p: boolean) => void }) => {
+    const mockRunGraph = vi.fn().mockImplementation(async (_n: unknown, _e: unknown, _v: unknown, cb: GraphRunCallbacks) => {
       cb.onVariablesChange({});
-      cb.onComplete([], true);
+      cb.onComplete([], true, 0);
       return [];
     });
     await handleSubWorkflowNode('sub1', node, hCtx, makePassedFlag(), mockRunGraph as never);
@@ -557,10 +558,10 @@ describe('handleSubWorkflowNode', () => {
       outputMappings: [],
       onChildFailure: 'fail',
     });
-    const mockRunGraph = vi.fn().mockImplementation(async (_n: unknown, _e: unknown, _v: unknown, cb: { onVariablesChange: (v: Record<string, string>) => void; onComplete: (r: unknown[], p: boolean) => void; onLog?: (line: { text: string }) => void }) => {
+    const mockRunGraph = vi.fn().mockImplementation(async (_n: unknown, _e: unknown, _v: unknown, cb: GraphRunCallbacks) => {
       cb.onLog?.({ text: 'hello' });
       cb.onVariablesChange({});
-      cb.onComplete([], true);
+      cb.onComplete([], true, 0);
       return [];
     });
     await handleSubWorkflowNode('sub1', node, hCtx, makePassedFlag(), mockRunGraph as never);
@@ -592,14 +593,14 @@ describe('handleSubWorkflowNode', () => {
     });
     const fail = { passed: false, httpStatus: 500 };
     const mockRunGraph = vi.fn()
-      .mockImplementationOnce(async (_n: unknown, _e: unknown, _v: unknown, cb: any) => {
+      .mockImplementationOnce(async (_n: unknown, _e: unknown, _v: unknown, cb: GraphRunCallbacks) => {
         cb.onVariablesChange({});
-        cb.onComplete([fail], false);
+        cb.onComplete([fail], false, 0);
         return [fail];
       })
-      .mockImplementationOnce(async (_n: unknown, _e: unknown, _v: unknown, cb: any) => {
+      .mockImplementationOnce(async (_n: unknown, _e: unknown, _v: unknown, cb: GraphRunCallbacks) => {
         cb.onVariablesChange({});
-        cb.onComplete([], true);
+        cb.onComplete([], true, 0);
         return [];
       });
     await handleSubWorkflowNode('sub1', node, hCtx, makePassedFlag(true), mockRunGraph as never);
@@ -632,10 +633,10 @@ describe('handleSubWorkflowNode', () => {
       },
       onChildFailure: 'fail',
     });
-    const mockRunGraph = vi.fn().mockImplementation(async (_n: unknown, _e: unknown, _v: unknown, cb: any) => {
+    const mockRunGraph = vi.fn().mockImplementation(async (_n: unknown, _e: unknown, _v: unknown, cb: GraphRunCallbacks) => {
       cb.onNodeStateChange('h1', { state: 'running', statusCode: 0, responseTimeMs: 1 });
       cb.onVariablesChange({});
-      cb.onComplete([], true);
+      cb.onComplete([], true, 0);
       return [];
     });
     await handleSubWorkflowNode('sub1', node, hCtx, makePassedFlag(), mockRunGraph as never);
@@ -671,12 +672,12 @@ describe('handleSubWorkflowNode', () => {
       },
       onChildFailure: 'fail',
     });
-    const mockRunGraph = vi.fn().mockImplementation(async (_n: unknown, _e: unknown, _v: unknown, cb: any) => {
+    const mockRunGraph = vi.fn().mockImplementation(async (_n: unknown, _e: unknown, _v: unknown, cb: GraphRunCallbacks) => {
       cb.onNodeStateChange('h1', { state: 'pass', statusCode: 200, responseTimeMs: 5 });
       cb.onNodeStateChange('h2', { state: 'fail', statusCode: 500, responseTimeMs: 6, error: 'e' });
       cb.onNodeStateChange('h3', { state: 'pass', statusCode: 201, responseTimeMs: 7 });
       cb.onVariablesChange({});
-      cb.onComplete([], true);
+      cb.onComplete([], true, 0);
       return [];
     });
     await handleSubWorkflowNode('sub1', node, hCtx, makePassedFlag(), mockRunGraph as never);
@@ -712,9 +713,9 @@ describe('handleSubWorkflowNode', () => {
       },
       onChildFailure: 'fail',
     });
-    const mockRunGraph = vi.fn().mockImplementation(async (_n: unknown, _e: unknown, _v: unknown, cb: any) => {
+    const mockRunGraph = vi.fn().mockImplementation(async (_n: unknown, _e: unknown, _v: unknown, cb: GraphRunCallbacks) => {
       cb.onVariablesChange({});
-      cb.onComplete([], true);
+      cb.onComplete([], true, 0);
       return [];
     });
     await handleSubWorkflowNode('sub1', node, hCtx, makePassedFlag(), mockRunGraph as never);
@@ -746,9 +747,9 @@ describe('handleSubWorkflowNode', () => {
       timeoutMs: 5000,
       onChildFailure: 'fail',
     });
-    const mockRunGraph = vi.fn().mockImplementation(async (_n: unknown, _e: unknown, _v: unknown, cb: any) => {
+    const mockRunGraph = vi.fn().mockImplementation(async (_n: unknown, _e: unknown, _v: unknown, cb: GraphRunCallbacks) => {
       cb.onVariablesChange({});
-      cb.onComplete([], true);
+      cb.onComplete([], true, 0);
       return [];
     });
     await handleSubWorkflowNode('sub1', node, hCtx, makePassedFlag(), mockRunGraph as never);
@@ -778,9 +779,9 @@ describe('handleSubWorkflowNode', () => {
       timeoutMs: 5000,
       onChildFailure: 'fail',
     });
-    const mockRunGraph = vi.fn().mockImplementation(async (_n: unknown, _e: unknown, _v: unknown, cb: any) => {
+    const mockRunGraph = vi.fn().mockImplementation(async (_n: unknown, _e: unknown, _v: unknown, cb: GraphRunCallbacks) => {
       cb.onVariablesChange({});
-      cb.onComplete([], true);
+      cb.onComplete([], true, 0);
       return [];
     });
     await handleSubWorkflowNode('sub1', node, hCtx, makePassedFlag(), mockRunGraph as never);
@@ -810,14 +811,14 @@ describe('handleSubWorkflowNode', () => {
       });
       const fail = { passed: false, httpStatus: 500 };
       const mockRunGraph = vi.fn()
-        .mockImplementationOnce(async (_n: unknown, _e: unknown, _v: unknown, cb: any) => {
+        .mockImplementationOnce(async (_n: unknown, _e: unknown, _v: unknown, cb: GraphRunCallbacks) => {
           cb.onVariablesChange({});
-          cb.onComplete([fail], false);
+          cb.onComplete([fail], false, 0);
           return [fail];
         })
-        .mockImplementationOnce(async (_n: unknown, _e: unknown, _v: unknown, cb: any) => {
+        .mockImplementationOnce(async (_n: unknown, _e: unknown, _v: unknown, cb: GraphRunCallbacks) => {
           cb.onVariablesChange({});
-          cb.onComplete([], true);
+          cb.onComplete([], true, 0);
           return [];
         });
       const p = handleSubWorkflowNode('sub1', node, hCtx, makePassedFlag(true), mockRunGraph as never);
@@ -927,9 +928,9 @@ describe('handleSubWorkflowNode', () => {
       },
       onChildFailure: 'fail',
     });
-    const mockRunGraph = vi.fn().mockImplementation(async (_n: unknown, _e: unknown, _v: unknown, cb: any) => {
+    const mockRunGraph = vi.fn().mockImplementation(async (_n: unknown, _e: unknown, _v: unknown, cb: GraphRunCallbacks) => {
       cb.onVariablesChange({});
-      cb.onComplete([], true);
+      cb.onComplete([], true, 0);
       return [];
     });
     await handleSubWorkflowNode('sub1', node, hCtx, makePassedFlag(), mockRunGraph as never);
@@ -949,10 +950,10 @@ describe('handleSubWorkflowNode', () => {
       outputMappings: [],
       onChildFailure: 'fail',
     });
-    const mockRunGraph = vi.fn().mockImplementation(async (_n: unknown, _e: unknown, _v: unknown, cb: any) => {
+    const mockRunGraph = vi.fn().mockImplementation(async (_n: unknown, _e: unknown, _v: unknown, cb: GraphRunCallbacks) => {
       expect(cb.onLog).toBeUndefined();
       cb.onVariablesChange({});
-      cb.onComplete([], true);
+      cb.onComplete([], true, 0);
       return [];
     });
     await handleSubWorkflowNode('sub1', node, hCtx, makePassedFlag(), mockRunGraph as never);

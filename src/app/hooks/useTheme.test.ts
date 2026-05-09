@@ -10,8 +10,7 @@ vi.mock('../../shared/utils/storage', () => ({
   saveTheme: vi.fn(),
 }));
 
-// Mock ThemeCustomizer
-vi.mock('../ThemeCustomizer', () => ({
+vi.mock('../themeCustomizerUtils', () => ({
   loadSavedThemes: vi.fn().mockReturnValue([]),
   isCustomThemeId: vi.fn((id: string) => id.startsWith('custom:')),
   findSavedTheme: vi.fn().mockReturnValue(null),
@@ -20,7 +19,7 @@ vi.mock('../ThemeCustomizer', () => ({
 }));
 
 import { saveTheme } from '../../shared/utils/storage';
-import { loadSavedThemes, isCustomThemeId, findSavedTheme, applyCustomTheme, clearCustomOverrides } from '../ThemeCustomizer';
+import { loadSavedThemes, isCustomThemeId, findSavedTheme, applyCustomTheme, clearCustomOverrides } from '../themeCustomizerUtils';
 
 const mockSaveTheme = vi.mocked(saveTheme);
 const mockLoadSavedThemes = vi.mocked(loadSavedThemes);

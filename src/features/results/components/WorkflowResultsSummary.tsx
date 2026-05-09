@@ -137,7 +137,6 @@ export function WorkflowIterationChart({ iterations, maxHeight = 200 }: Iteratio
 
     const rect = canvas.getBoundingClientRect();
     const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
 
     const padding = { top: 20, right: 20, bottom: 40, left: 60 };
     const chartWidth = container.clientWidth - padding.left - padding.right;

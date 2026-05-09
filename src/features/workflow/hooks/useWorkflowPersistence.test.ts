@@ -1,4 +1,3 @@
-/// <reference types="vitest" />
 /**
  * @vitest-environment jsdom
  */
@@ -63,7 +62,7 @@ function makeOpts(overrides: Partial<Parameters<typeof useWorkflowPersistence>[0
       undoRedo,
       toast,
       ...overrides,
-    } as Omit<Parameters<typeof useWorkflowPersistence>[0], 'nodeInitialVarsRef' | 'nodesRef' | 'nextNodeY' | 'workflowVariablesRef'>,
+    } as Omit<Parameters<typeof useWorkflowPersistence>[0], 'nodeInitialVarsRef' | 'nodesRef' | 'nextNodeYRef' | 'workflowVariablesRef'>,
   };
 }
 
@@ -71,13 +70,13 @@ function renderPersistence(opts: ReturnType<typeof makeOpts>['opts'], initialVar
   return renderHook(() => {
     const nodeInitialVarsRef = useRef(initialVars);
     const nodesRef = useRef(opts.nodes);
-    const nextNodeY = useRef(100);
+    const nextNodeYRef = useRef(100);
     const workflowVariablesRef = useRef(opts.workflowVariables);
     return useWorkflowPersistence({
       ...opts,
       nodeInitialVarsRef,
       nodesRef,
-      nextNodeY,
+      nextNodeYRef,
       workflowVariablesRef,
     });
   });
@@ -217,7 +216,7 @@ describe('useWorkflowPersistence hook', () => {
     }));
   });
 
-  it('handlePasteNode advances nextNodeY and pushes snapshot', () => {
+  it('handlePasteNode advances nextNodeYRef and pushes snapshot', () => {
     const { handles, opts } = makeOpts();
     const { result } = renderPersistence(opts);
     act(() => { result.current.handlePasteNode(); });

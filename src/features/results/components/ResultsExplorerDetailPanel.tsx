@@ -20,7 +20,7 @@ interface Props {
 }
 
 export default function ResultsExplorerDetailPanel({
-  nodeId,
+  nodeId: _nodeId,
   nodeType,
   nodeLabel,
   events,
