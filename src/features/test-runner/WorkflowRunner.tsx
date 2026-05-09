@@ -13,6 +13,7 @@ import MultiWebhookTestingPanel, { type WebhookScenario } from './components/Mul
 import { type PersistedProgress, saveProgress, loadProgress, clearProgress } from './utils/runnerProgressStorage';
 import { runWebhookLoadTest, calculateTotalRequests } from '../workflow/engine/webhookLoadDriver';
 import { loadWebhookScenarios, saveWebhookScenario, deleteWebhookScenario, fireWebhook, buildPayloadWithCorrelationId } from './utils/webhookScenarioStorage';
+import { sampleWorkflowCatalog } from '../../data/galleries/workflows';
 
 interface Props {
   workflows: Workflow[];
@@ -252,7 +253,21 @@ export default function WorkflowRunner({ workflows, onComplete, initialWorkflowI
     };
 
     saveWorkflowRunConfig({ workflowId: selectedWorkflowId!, variables: workflowVariables });
-    execute(config, [], { projectName: selectedWorkflow.name }, selectedWorkflow, workflows);
+
+    const resolveSubWorkflow = (id: string) => {
+      const found = workflows.find(w => w.id === id);
+      if (found) return found;
+      const catalogEntry = sampleWorkflowCatalog.find(e => e.id === selectedWorkflow.id);
+      if (catalogEntry?.companionFactories) {
+        for (const cf of catalogEntry.companionFactories) {
+          const companion = cf();
+          if (companion.id === id) return companion;
+        }
+      }
+      return undefined;
+    };
+
+    execute(config, [], { projectName: selectedWorkflow.name }, selectedWorkflow, resolveSubWorkflow);
   };
 
   // Webhook load test execution (Phase 7c)
