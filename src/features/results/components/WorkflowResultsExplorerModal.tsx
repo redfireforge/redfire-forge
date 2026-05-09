@@ -4,6 +4,7 @@ import type { Node } from '@xyflow/react';
 import type { WorkflowExecutionTrace, WorkflowIterationTrace, ExecutionEvent } from '../../../shared/types';
 import FullPanelModal from '../../../shared/components/FullPanelModal';
 import WorkflowExecutionCanvas, { type NodeStateFilter, type CanvasScreenshotFn, type CanvasSvgFn } from './WorkflowExecutionCanvas';
+import ExecutionTimeline from './ExecutionTimeline';
 import ResultsExplorerDetailPanel from './ResultsExplorerDetailPanel';
 import IterationMatrixTable from './IterationMatrixTable';
 import IterationPicker from './IterationPicker';
@@ -57,6 +58,8 @@ export default function WorkflowResultsExplorerModal({ trace, onClose, importedF
   const [fitViewTrigger, setFitViewTrigger] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [stateFilter, setStateFilter] = useState<NodeStateFilter>('all');
+  const [viewMode, setViewMode] = useState<'diagram' | 'timeline'>('diagram');
+  const [detailCollapsed, setDetailCollapsed] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const sampledCount = useMemo(
@@ -206,6 +209,14 @@ export default function WorkflowResultsExplorerModal({ trace, onClose, importedF
         if (active?.tagName === 'INPUT' || active?.tagName === 'TEXTAREA') return;
         e.preventDefault();
         searchInputRef.current?.focus();
+      } else if ((e.key === 't' || e.key === 'T') && !e.ctrlKey && !e.metaKey) {
+        const active = document.activeElement;
+        if (active?.tagName === 'INPUT' || active?.tagName === 'TEXTAREA') return;
+        setViewMode(prev => prev === 'diagram' ? 'timeline' : 'diagram');
+      } else if ((e.key === 'd' || e.key === 'D') && !e.ctrlKey && !e.metaKey) {
+        const active = document.activeElement;
+        if (active?.tagName === 'INPUT' || active?.tagName === 'TEXTAREA') return;
+        setDetailCollapsed(prev => !prev);
       }
     };
 
@@ -342,6 +353,9 @@ export default function WorkflowResultsExplorerModal({ trace, onClose, importedF
   const timestamp = new Date(trace.iterations[0]?.events[0]?.timestamp || Date.now()).toLocaleString();
   const passedCount = trace.iterations.filter(i => i.passed).length;
   const passRate = trace.totalIterations > 0 ? (passedCount / trace.totalIterations * 100).toFixed(0) : 0;
+  const totalNodes = nodeStateCounts.pass + nodeStateCounts.fail + nodeStateCounts.skipped;
+  const nodesOk = nodeStateCounts.pass;
+  const executedNodes = nodeStateCounts.pass + nodeStateCounts.fail;
 
   return (
     <FullPanelModal
@@ -350,6 +364,24 @@ export default function WorkflowResultsExplorerModal({ trace, onClose, importedF
           <div className="results-explorer-title">
             <span className="results-explorer-name">{trace.workflowName}</span>
             <span className="results-explorer-subtitle">Results Explorer</span>
+          </div>
+          <div className="results-explorer-view-toggle" data-testid="view-mode-toggle">
+            <button
+              className={`view-toggle-btn ${viewMode === 'diagram' ? 'view-toggle-active' : ''}`}
+              onClick={() => setViewMode('diagram')}
+              title="Diagram view (T)"
+              data-testid="view-toggle-diagram"
+            >
+              📊 Diagram
+            </button>
+            <button
+              className={`view-toggle-btn ${viewMode === 'timeline' ? 'view-toggle-active' : ''}`}
+              onClick={() => setViewMode('timeline')}
+              title="Timeline view (T)"
+              data-testid="view-toggle-timeline"
+            >
+              📈 Timeline
+            </button>
           </div>
           <div className="results-explorer-meta">
             {trace.totalIterations > 1 && (
@@ -367,8 +399,16 @@ export default function WorkflowResultsExplorerModal({ trace, onClose, importedF
             <span className="results-explorer-meta-sep">•</span>
             <span>{trace.totalIterations} iteration{trace.totalIterations !== 1 ? 's' : ''}</span>
             <span className="results-explorer-meta-sep">•</span>
-            <span style={{ color: passRate === '100' ? '#22c55e' : Number(passRate) === 0 ? '#ef4444' : '#f59e0b' }}>
+            <span
+              style={{ color: passRate === '100' ? '#22c55e' : Number(passRate) === 0 ? '#ef4444' : '#f59e0b' }}
+              title={`${passedCount} of ${trace.totalIterations} iterations passed (all nodes OK). ${nodesOk} of ${executedNodes} executed nodes passed.`}
+            >
               {passRate}% pass
+              {Number(passRate) < 100 && executedNodes > 0 && (
+                <span style={{ color: '#94a3b8', fontSize: '0.85em', marginLeft: 4 }}>
+                  ({nodesOk}/{executedNodes} nodes OK)
+                </span>
+              )}
             </span>
             {trace.fullTraceCaptured && (
               <>
@@ -484,7 +524,7 @@ export default function WorkflowResultsExplorerModal({ trace, onClose, importedF
           </div>
           <div className="results-explorer-footer-actions">
             <span className="results-explorer-shortcuts">
-              ← → iterate • 1-9 jump • Space toggle • A all • M matrix • / search • Esc close
+              ← → iterate • 1-9 jump • Space toggle • A all • M matrix • D detail • / search • Esc close
             </span>
             <button className="cat-btn" onClick={onClose}>
               Close
@@ -520,109 +560,152 @@ export default function WorkflowResultsExplorerModal({ trace, onClose, importedF
                 >×</button>
               )}
             </div>
-            <div className="node-filter-btns">
-              {(['all', 'pass', 'fail', 'skipped'] as const).map((f) => (
-                <button
-                  key={f}
-                  type="button"
-                  className={`node-filter-btn node-filter-btn-${f}${stateFilter === f ? ' active' : ''}`}
-                  onClick={() => setStateFilter(stateFilter === f ? 'all' : f)}
-                  data-testid={`node-filter-${f}`}
-                >
-                  {f === 'all' ? 'All' : f === 'pass' ? `Pass (${nodeStateCounts.pass})` : f === 'fail' ? `Fail (${nodeStateCounts.fail})` : `Skip (${nodeStateCounts.skipped})`}
-                </button>
-              ))}
+            <div className="node-filter-btns" data-testid="node-filter-btns">
+              <span
+                className="node-filter-label"
+                title="These counts are NODES (parts of one workflow) — not iterations (workflow runs)."
+              >
+                NODES:
+              </span>
+              {(['all', 'pass', 'fail', 'skipped'] as const).map((f) => {
+                const totalNodes = nodeStateCounts.pass + nodeStateCounts.fail + nodeStateCounts.skipped;
+                const label =
+                  f === 'all' ? 'All' :
+                  f === 'pass' ? `Pass (${nodeStateCounts.pass})` :
+                  f === 'fail' ? `Fail (${nodeStateCounts.fail})` :
+                  `Skip (${nodeStateCounts.skipped})`;
+                const tooltip =
+                  f === 'all' ? `${totalNodes} node${totalNodes === 1 ? '' : 's'} total in this workflow.` :
+                  f === 'pass' ? `${nodeStateCounts.pass} of ${totalNodes} nodes passed in every iteration they ran.` :
+                  f === 'fail' ? `${nodeStateCounts.fail} of ${totalNodes} nodes failed in at least one iteration. (Not the iteration count — see the iteration picker for that.)` :
+                  `${nodeStateCounts.skipped} of ${totalNodes} nodes were never executed (e.g. condition branch never taken).`;
+                return (
+                  <button
+                    key={f}
+                    type="button"
+                    className={`node-filter-btn node-filter-btn-${f}${stateFilter === f ? ' active' : ''}`}
+                    onClick={() => setStateFilter(stateFilter === f ? 'all' : f)}
+                    data-testid={`node-filter-${f}`}
+                    title={tooltip}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
             </div>
           </div>
-          <ReactFlowProvider>
-            <WorkflowExecutionCanvas
-              trace={canvasTrace}
+          {viewMode === 'diagram' ? (
+            <ReactFlowProvider>
+              <WorkflowExecutionCanvas
+                trace={canvasTrace}
+                selectedNodeId={selectedNodeId}
+                onNodeClick={handleNodeClick}
+                showMinimap={showMinimap}
+                onToggleMinimap={() => setShowMinimap(!showMinimap)}
+                fitViewTrigger={fitViewTrigger}
+                onBottlenecksComputed={handleBottlenecksComputed}
+                searchQuery={searchQuery}
+                stateFilter={stateFilter}
+                onScreenshotReady={handleScreenshotReady}
+                onSvgReady={handleSvgReady}
+              />
+            </ReactFlowProvider>
+          ) : (
+            <ExecutionTimeline
+              trace={trace}
+              selectedIteration={selectedIteration}
               selectedNodeId={selectedNodeId}
               onNodeClick={handleNodeClick}
-              showMinimap={showMinimap}
-              onToggleMinimap={() => setShowMinimap(!showMinimap)}
-              fitViewTrigger={fitViewTrigger}
-              onBottlenecksComputed={handleBottlenecksComputed}
               searchQuery={searchQuery}
               stateFilter={stateFilter}
-              onScreenshotReady={handleScreenshotReady}
-              onSvgReady={handleSvgReady}
             />
-          </ReactFlowProvider>
-        </div>
-
-        {/* Right Panel: Node Detail */}
-        <div className={`results-explorer-detail${iterationTransitioning ? ' iteration-transitioning' : ''}`}>
-          {selectedNode ? (
-            <ResultsExplorerDetailPanel
-              nodeId={selectedNode.id}
-              nodeType={selectedNode.type}
-              nodeLabel={selectedNode.label}
-              events={selectedNodeEvents}
-              iterations={trace.iterations}
-              selectedIteration={selectedIteration}
-              onIterationChange={setSelectedIteration}
-              onClose={() => setSelectedNodeId(undefined)}
-              fullTraceCaptured={trace.fullTraceCaptured}
-            />
-          ) : (
-            <div className="results-explorer-empty-detail">
-              <div className="results-explorer-empty-icon">📊</div>
-              <div className="results-explorer-empty-title">Select a Node</div>
-              <div className="results-explorer-empty-text">
-                Click on a node in the diagram to view its execution details
-              </div>
-              <div className="results-explorer-summary-stats">
-                <div className="summary-stat">
-                  <span className="summary-stat-value">{trace.totalIterations}</span>
-                  <span className="summary-stat-label">Iterations</span>
-                </div>
-                <div className="summary-stat">
-                  <span className="summary-stat-value" style={{ color: '#22c55e' }}>{passedCount}</span>
-                  <span className="summary-stat-label">Passed</span>
-                </div>
-                <div className="summary-stat">
-                  <span className="summary-stat-value" style={{ color: failedIterationCount > 0 ? '#ef4444' : '#64748b' }}>
-                    {failedIterationCount}
-                  </span>
-                  <span className="summary-stat-label">Failed</span>
-                </div>
-                <div className="summary-stat">
-                  <span className="summary-stat-value">{formatDurationMs(trace.totalDurationMs / trace.totalIterations)}</span>
-                  <span className="summary-stat-label">Avg Duration</span>
-                </div>
-              </div>
-              {bottleneckInsights.length > 0 && (
-                <div className="bottleneck-insights-panel" data-testid="bottleneck-insights">
-                  <div className="bottleneck-insights-title">Bottleneck Analysis</div>
-                  {bottleneckInsights.map((insight, i) => (
-                    <button
-                      key={`${insight.nodeId}-${i}`}
-                      className={`bottleneck-insight-card bottleneck-insight-${insight.severity}`}
-                      onClick={() => handleNodeClick(insight.nodeId)}
-                      data-testid={`bottleneck-insight-${i}`}
-                    >
-                      <div className="bottleneck-insight-header">
-                        <span className="bottleneck-insight-icon">
-                          {insight.severity === 'critical' ? '🔥' : insight.severity === 'warning' ? '⚠️' : 'ℹ️'}
-                        </span>
-                        <span className="bottleneck-insight-node">{insight.nodeLabel}</span>
-                        <span className={`bottleneck-insight-severity bottleneck-severity-${insight.severity}`}>
-                          {insight.severity}
-                        </span>
-                      </div>
-                      <div className="bottleneck-insight-message">{insight.message}</div>
-                      <div className="bottleneck-insight-suggestion">{insight.suggestion}</div>
-                      <div className="bottleneck-insight-metric">
-                        {insight.metric.label}: <strong>{insight.metric.value}</strong>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
           )}
         </div>
+
+        {/* Detail Panel Toggle */}
+        <button
+          className="detail-panel-toggle"
+          onClick={() => setDetailCollapsed(prev => !prev)}
+          title={detailCollapsed ? 'Show detail panel (D)' : 'Hide detail panel (D)'}
+          data-testid="detail-panel-toggle"
+        >
+          {detailCollapsed ? '◀' : '▶'}
+        </button>
+
+        {/* Right Panel: Node Detail */}
+        {!detailCollapsed && (
+          <div className={`results-explorer-detail${iterationTransitioning ? ' iteration-transitioning' : ''}`}>
+            {selectedNode ? (
+              <ResultsExplorerDetailPanel
+                nodeId={selectedNode.id}
+                nodeType={selectedNode.type}
+                nodeLabel={selectedNode.label}
+                events={selectedNodeEvents}
+                iterations={trace.iterations}
+                selectedIteration={selectedIteration}
+                onIterationChange={setSelectedIteration}
+                onClose={() => setSelectedNodeId(undefined)}
+                fullTraceCaptured={trace.fullTraceCaptured}
+              />
+            ) : (
+              <div className="results-explorer-empty-detail">
+                <div className="results-explorer-empty-icon">📊</div>
+                <div className="results-explorer-empty-title">Select a Node</div>
+                <div className="results-explorer-empty-text">
+                  Click on a node in the diagram to view its execution details
+                </div>
+                <div className="results-explorer-summary-stats">
+                  <div className="summary-stat">
+                    <span className="summary-stat-value">{trace.totalIterations}</span>
+                    <span className="summary-stat-label">Iterations</span>
+                  </div>
+                  <div className="summary-stat">
+                    <span className="summary-stat-value" style={{ color: '#22c55e' }}>{passedCount}</span>
+                    <span className="summary-stat-label">Passed</span>
+                  </div>
+                  <div className="summary-stat">
+                    <span className="summary-stat-value" style={{ color: failedIterationCount > 0 ? '#ef4444' : '#64748b' }}>
+                      {failedIterationCount}
+                    </span>
+                    <span className="summary-stat-label">Failed</span>
+                  </div>
+                  <div className="summary-stat">
+                    <span className="summary-stat-value">{formatDurationMs(trace.totalDurationMs / trace.totalIterations)}</span>
+                    <span className="summary-stat-label">Avg Duration</span>
+                  </div>
+                </div>
+                {bottleneckInsights.length > 0 && (
+                  <div className="bottleneck-insights-panel" data-testid="bottleneck-insights">
+                    <div className="bottleneck-insights-title">Bottleneck Analysis</div>
+                    {bottleneckInsights.map((insight, i) => (
+                      <button
+                        key={`${insight.nodeId}-${i}`}
+                        className={`bottleneck-insight-card bottleneck-insight-${insight.severity}`}
+                        onClick={() => handleNodeClick(insight.nodeId)}
+                        data-testid={`bottleneck-insight-${i}`}
+                      >
+                        <div className="bottleneck-insight-header">
+                          <span className="bottleneck-insight-icon">
+                            {insight.severity === 'critical' ? '🔥' : insight.severity === 'warning' ? '⚠️' : 'ℹ️'}
+                          </span>
+                          <span className="bottleneck-insight-node">{insight.nodeLabel}</span>
+                          <span className={`bottleneck-insight-severity bottleneck-severity-${insight.severity}`}>
+                            {insight.severity}
+                          </span>
+                        </div>
+                        <div className="bottleneck-insight-message">{insight.message}</div>
+                        <div className="bottleneck-insight-suggestion">{insight.suggestion}</div>
+                        <div className="bottleneck-insight-metric">
+                          {insight.metric.label}: <strong>{insight.metric.value}</strong>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Bottom Panel: Iteration Matrix */}

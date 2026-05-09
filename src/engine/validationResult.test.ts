@@ -48,6 +48,51 @@ describe('buildValidationResult', () => {
     expect(result.failureDetails[0]).toMatchObject({ path: '(http)' });
   });
 
+  it('fails on HTTP 4xx even when errorMessage is undefined (workflow engine path)', () => {
+    // Reproduces the pre-fix bug: workflow engine does not pre-extract errorMessage
+    // from response body the way the runner does. Without this guard, a 404 from
+    // jsonplaceholder.typicode.com/posts/999999 (body "{}") was reported as PASS.
+    const result = buildValidationResult(makeInput({
+      httpStatus: 404,
+      errorMessage: undefined,
+    }));
+    expect(result.passed).toBe(false);
+    expect(result.failureDetails).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ path: '(http)', expected: '2xx', actual: 'HTTP 404' }),
+      ]),
+    );
+  });
+
+  it('fails on network error (status 0) even when errorMessage is undefined', () => {
+    const result = buildValidationResult(makeInput({
+      httpStatus: 0,
+      errorMessage: undefined,
+    }));
+    expect(result.passed).toBe(false);
+    expect(result.failureDetails).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ path: '(http)', expected: '2xx', actual: 'network error' }),
+      ]),
+    );
+  });
+
+  it('legacy assertion format ({path, operator, expected}) is silently ignored — node falls back to HTTP status', () => {
+    // Documents existing engine behaviour: assertions without a `type` field are not
+    // matched by evaluateAssertions and so do not contribute to pass/fail. Without the
+    // HTTP guard above, the node would mistakenly pass.
+    type LegacyAssertion = { path: string; operator: string; expected: string };
+    const legacy = [{ path: '$.status', operator: 'equals', expected: '200' }] as unknown as LegacyAssertion[];
+    const result = buildValidationResult(makeInput({
+      httpStatus: 404,
+      errorMessage: undefined,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      assertions: legacy as any,
+    }));
+    expect(result.passed).toBe(false);
+    expect(result.failureDetails[0]).toMatchObject({ path: '(http)', actual: 'HTTP 404' });
+  });
+
   it('passes when status assertion matches', () => {
     const result = buildValidationResult(makeInput({
       httpStatus: 201,
