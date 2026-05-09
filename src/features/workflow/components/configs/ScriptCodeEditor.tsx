@@ -47,7 +47,7 @@ export default function ScriptCodeEditor({
     // Register completion provider for `input.` and `output.` properties
     completionDisposableRef.current = monaco.languages.registerCompletionItemProvider('javascript', {
       triggerCharacters: ['.'],
-      provideCompletionItems(model: any, position: any) {
+      provideCompletionItems(model: MonacoEditor.ITextModel, position: MonacoEditor.Position) {
         const textUntilPosition = model.getValueInRange({
           startLineNumber: position.lineNumber,
           startColumn: 1,

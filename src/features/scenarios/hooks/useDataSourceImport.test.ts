@@ -5,7 +5,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useDataSourceImport } from './useDataSourceImport';
 import type { Scenario, DataSource, DataSourceColumn, DataSourceRow } from '../../../shared/types';
-import { parseJsonImport, buildColumnsAndRowsFromParseResult, parseExcelSimple } from '../utils/dataSourceImport';
+import type { CsvParseResult } from '../utils/csvTemplateTypes';
+import { parseJsonImport, parseExcelSimple } from '../utils/dataSourceImport';
 import { parseExcelToScenarios } from '../utils/csvTemplateExcel';
 
 // Mock dependencies
@@ -27,7 +28,16 @@ vi.mock('../utils/dataSourceImport', () => ({
 }));
 
 vi.mock('../utils/csvTemplateExcel', () => ({
-  parseExcelToScenarios: vi.fn(() => ({ fileErrors: [], scenarios: [] })),
+  parseExcelToScenarios: vi.fn((): CsvParseResult => ({
+    fileErrors: [],
+    rows: [],
+    columns: [],
+    totalRows: 0,
+    validRows: 0,
+    errorRows: 0,
+    meta: null,
+    warnings: [],
+  })),
 }));
 
 vi.mock('../utils/dataSourceUtils', () => ({
@@ -206,7 +216,16 @@ describe('useDataSourceImport', () => {
   });
 
   it('falls back to parseExcelSimple on file errors', async () => {
-    vi.mocked(parseExcelToScenarios).mockReturnValue({ fileErrors: ['bad format'], scenarios: [] } as any);
+    vi.mocked(parseExcelToScenarios).mockReturnValue({
+      fileErrors: ['bad format'],
+      rows: [],
+      columns: [],
+      totalRows: 0,
+      validRows: 0,
+      errorRows: 0,
+      meta: null,
+      warnings: [],
+    });
     mockFilePicker(makeExcelFile());
 
     const ds = makeDataSource();

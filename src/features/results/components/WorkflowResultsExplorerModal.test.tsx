@@ -5,6 +5,9 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, cleanup, fireEvent, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
+import type { Edge, Node } from '@xyflow/react';
+import type { WorkflowExecutionTrace } from '../../../shared/types';
+import type { BottleneckInsight } from '../utils/bottleneckAnalysis';
 
 // Mock ResizeObserver for jsdom (needed by ReactFlow)
 class MockResizeObserver {
@@ -12,7 +15,7 @@ class MockResizeObserver {
   unobserve() {}
   disconnect() {}
 }
-globalThis.ResizeObserver = MockResizeObserver as any;
+globalThis.ResizeObserver = MockResizeObserver as unknown as typeof ResizeObserver;
 
 // Mock ReactFlow to avoid complexity
 vi.mock('@xyflow/react', () => ({
@@ -22,18 +25,37 @@ vi.mock('@xyflow/react', () => ({
   MiniMap: () => <div data-testid="mock-minimap" />,
   Background: () => <div data-testid="mock-background" />,
   useReactFlow: () => ({ fitView: vi.fn(), getViewport: () => ({ x: 0, y: 0, zoom: 1 }) }),
-  useNodesState: (initial: any) => [initial, vi.fn(), vi.fn()],
-  useEdgesState: (initial: any) => [initial, vi.fn()],
+  useNodesState: (initial: Node[]) => [initial, vi.fn(), vi.fn()],
+  useEdgesState: (initial: Edge[]) => [initial, vi.fn()],
   MarkerType: { ArrowClosed: 'arrowclosed' },
 }));
 
-const lastCanvasTrace = vi.hoisted(() => ({ current: null as any }));
-const lastBottleneckCallback = vi.hoisted(() => ({ current: null as ((insights: any[]) => void) | null }));
+const lastCanvasTrace = vi.hoisted<{ current: WorkflowExecutionTrace | null }>(() => ({ current: null }));
+const lastBottleneckCallback = vi.hoisted<{
+  current: ((insights: BottleneckInsight[]) => void) | null;
+}>(() => ({ current: null }));
+
+const mockCaptureScreenshot = vi.fn(() => Promise.resolve('data:image/png;base64,mockdata'));
+const mockCaptureSvg = vi.fn(() => Promise.resolve('data:image/svg+xml;charset=utf-8,%3Csvg%3E%3C/svg%3E'));
 
 vi.mock('./WorkflowExecutionCanvas', () => ({
-  default: (props: any) => {
+  default: (props: {
+    trace: import('../../../shared/types').WorkflowExecutionTrace;
+    fitViewTrigger?: number;
+    onNodeClick?: (nodeId: string) => void;
+    onToggleMinimap?: () => void;
+    onBottlenecksComputed?: (insights: import('../utils/bottleneckAnalysis').BottleneckInsight[]) => void;
+    onScreenshotReady?: (fn: () => Promise<string>) => void;
+    onSvgReady?: (fn: () => Promise<string>) => void;
+  }) => {
     lastCanvasTrace.current = props.trace;
     lastBottleneckCallback.current = props.onBottlenecksComputed || null;
+    if (props.onScreenshotReady) {
+      props.onScreenshotReady(mockCaptureScreenshot);
+    }
+    if (props.onSvgReady) {
+      props.onSvgReady(mockCaptureSvg);
+    }
     return (
       <div data-testid="mock-wf-canvas">
         <span data-testid="canvas-fit-trigger">{props.fitViewTrigger}</span>
@@ -106,6 +128,8 @@ vi.mock('./IterationMatrixTable', () => ({
 
 const mockSaveJsonFile = vi.fn();
 const mockSaveCsvFile = vi.fn();
+const mockSavePngFile = vi.fn();
+const mockSaveSvgFile = vi.fn();
 const mockBuildExportFilename = vi.fn(({ level, name, ext }: { level: string; name?: string; ext?: string }) =>
   `${level}-${name || 'unknown'}.${ext || 'json'}`,
 );
@@ -113,11 +137,12 @@ const mockBuildExportFilename = vi.fn(({ level, name, ext }: { level: string; na
 vi.mock('../../../shared/utils/fileSaver', () => ({
   saveJsonFile: (...args: unknown[]) => mockSaveJsonFile(...args),
   saveCsvFile: (...args: unknown[]) => mockSaveCsvFile(...args),
+  savePngFile: (...args: unknown[]) => mockSavePngFile(...args),
+  saveSvgFile: (...args: unknown[]) => mockSaveSvgFile(...args),
   buildExportFilename: (...args: unknown[]) => mockBuildExportFilename(...args),
 }));
 
 import WorkflowResultsExplorerModal from './WorkflowResultsExplorerModal';
-import type { WorkflowExecutionTrace } from '../../../shared/types';
 
 const mockTrace: WorkflowExecutionTrace = {
   workflowId: 'wf-1',
@@ -170,6 +195,11 @@ const mockTrace: WorkflowExecutionTrace = {
 
 describe('WorkflowResultsExplorerModal', () => {
   const mockOnClose = vi.fn();
+
+  /** Open the export dropdown so menu items become visible */
+  function openExportMenu() {
+    fireEvent.click(screen.getByTestId('export-dropdown-trigger'));
+  }
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -568,14 +598,44 @@ describe('WorkflowResultsExplorerModal', () => {
     expect(mockOnClose).toHaveBeenCalledTimes(1);
   });
 
-  describe('export trace as JSON', () => {
-    it('renders the export button', () => {
+  describe('export dropdown', () => {
+    it('renders the export dropdown trigger', () => {
       render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      expect(screen.getByTestId('export-dropdown-trigger')).toBeInTheDocument();
+      expect(screen.getByTestId('export-dropdown-trigger')).toHaveTextContent('Export');
+    });
+
+    it('opens menu on trigger click', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      expect(screen.queryByTestId('export-dropdown-menu')).not.toBeInTheDocument();
+      openExportMenu();
+      expect(screen.getByTestId('export-dropdown-menu')).toBeInTheDocument();
+    });
+
+    it('closes menu on second trigger click', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      openExportMenu();
+      expect(screen.getByTestId('export-dropdown-menu')).toBeInTheDocument();
+      fireEvent.click(screen.getByTestId('export-dropdown-trigger'));
+      expect(screen.queryByTestId('export-dropdown-menu')).not.toBeInTheDocument();
+    });
+
+    it('hides dropdown for imported traces', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} importedFileName="test.json" />);
+      expect(screen.queryByTestId('export-dropdown-trigger')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('export trace as JSON', () => {
+    it('renders the export JSON item in dropdown', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      openExportMenu();
       expect(screen.getByTestId('export-trace-btn')).toBeInTheDocument();
     });
 
     it('calls saveJsonFile with trace data when clicked', () => {
       render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      openExportMenu();
       fireEvent.click(screen.getByTestId('export-trace-btn'));
       expect(mockSaveJsonFile).toHaveBeenCalledTimes(1);
       expect(mockSaveJsonFile).toHaveBeenCalledWith(mockTrace, expect.any(String));
@@ -583,6 +643,7 @@ describe('WorkflowResultsExplorerModal', () => {
 
     it('builds filename with workflow name and level "trace"', () => {
       render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      openExportMenu();
       fireEvent.click(screen.getByTestId('export-trace-btn'));
       expect(mockBuildExportFilename).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -595,8 +656,16 @@ describe('WorkflowResultsExplorerModal', () => {
     it('uses the generated filename for saveJsonFile', () => {
       mockBuildExportFilename.mockReturnValueOnce('trace-my-workflow.json');
       render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      openExportMenu();
       fireEvent.click(screen.getByTestId('export-trace-btn'));
       expect(mockSaveJsonFile).toHaveBeenCalledWith(mockTrace, 'trace-my-workflow.json');
+    });
+
+    it('closes dropdown after clicking export JSON', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      openExportMenu();
+      fireEvent.click(screen.getByTestId('export-trace-btn'));
+      expect(screen.queryByTestId('export-dropdown-menu')).not.toBeInTheDocument();
     });
   });
 
@@ -608,14 +677,14 @@ describe('WorkflowResultsExplorerModal', () => {
       expect(badge.textContent).toContain('my-trace.json');
     });
 
-    it('hides export button when importedFileName is set', () => {
+    it('hides export dropdown when importedFileName is set', () => {
       render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} importedFileName="my-trace.json" />);
-      expect(screen.queryByTestId('export-trace-btn')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('export-dropdown-trigger')).not.toBeInTheDocument();
     });
 
-    it('shows export button when importedFileName is not set', () => {
+    it('shows export dropdown when importedFileName is not set', () => {
       render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
-      expect(screen.getByTestId('export-trace-btn')).toBeInTheDocument();
+      expect(screen.getByTestId('export-dropdown-trigger')).toBeInTheDocument();
       expect(screen.queryByTestId('imported-badge')).not.toBeInTheDocument();
     });
   });
@@ -664,13 +733,15 @@ describe('WorkflowResultsExplorerModal', () => {
   });
 
   describe('export CSV', () => {
-    it('renders the CSV export button', () => {
+    it('renders the CSV export item in dropdown', () => {
       render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      openExportMenu();
       expect(screen.getByTestId('export-csv-btn')).toBeInTheDocument();
     });
 
     it('calls saveCsvFile with CSV content on click', () => {
       render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      openExportMenu();
       fireEvent.click(screen.getByTestId('export-csv-btn'));
       expect(mockSaveCsvFile).toHaveBeenCalledTimes(1);
       const csvContent = mockSaveCsvFile.mock.calls[0][0] as string;
@@ -681,6 +752,7 @@ describe('WorkflowResultsExplorerModal', () => {
 
     it('includes HTTP node data in CSV', () => {
       render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      openExportMenu();
       fireEvent.click(screen.getByTestId('export-csv-btn'));
       const csvContent = mockSaveCsvFile.mock.calls[0][0] as string;
       expect(csvContent).toContain('Get Users');
@@ -689,15 +761,16 @@ describe('WorkflowResultsExplorerModal', () => {
 
     it('builds filename with level "metrics" and ext "csv"', () => {
       render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      openExportMenu();
       fireEvent.click(screen.getByTestId('export-csv-btn'));
       expect(mockBuildExportFilename).toHaveBeenCalledWith(
         expect.objectContaining({ level: 'metrics', name: 'Test Workflow', ext: 'csv' }),
       );
     });
 
-    it('hides CSV export button when importedFileName is set', () => {
+    it('hides CSV export when importedFileName is set', () => {
       render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} importedFileName="my-trace.json" />);
-      expect(screen.queryByTestId('export-csv-btn')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('export-dropdown-trigger')).not.toBeInTheDocument();
     });
   });
 
@@ -767,8 +840,8 @@ describe('WorkflowResultsExplorerModal', () => {
     const sampledTrace: WorkflowExecutionTrace = {
       ...mockTrace,
       iterations: [
-        { ...mockTrace.iterations[0], sampled: true as any },
-        { ...mockTrace.iterations[1], sampled: false as any },
+        { ...mockTrace.iterations[0], sampled: true },
+        { ...mockTrace.iterations[1], sampled: false },
       ],
     };
 
@@ -992,8 +1065,269 @@ describe('WorkflowResultsExplorerModal', () => {
         totalIterations: 1,
       };
       render(<WorkflowResultsExplorerModal trace={noTimestampTrace} onClose={mockOnClose} />);
+      openExportMenu();
       fireEvent.click(screen.getByTestId('export-trace-btn'));
       expect(mockSaveJsonFile).toHaveBeenCalled();
+    });
+  });
+
+  describe('export PNG', () => {
+    it('renders Export PNG item in dropdown', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      openExportMenu();
+      expect(screen.getByTestId('export-png-btn')).toBeInTheDocument();
+      expect(screen.getByTestId('export-png-btn')).toHaveTextContent('Export PNG');
+    });
+
+    it('calls savePngFile when Export PNG is clicked', async () => {
+      mockCaptureScreenshot.mockResolvedValue('data:image/png;base64,testdata');
+      mockSavePngFile.mockResolvedValue(undefined);
+
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      openExportMenu();
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('export-png-btn'));
+      });
+
+      expect(mockCaptureScreenshot).toHaveBeenCalled();
+      expect(mockSavePngFile).toHaveBeenCalledWith(
+        'data:image/png;base64,testdata',
+        expect.stringContaining('png'),
+      );
+    });
+
+    it('shows busy state on trigger during export', async () => {
+      let resolvePng!: (v: string) => void;
+      mockCaptureScreenshot.mockReturnValue(new Promise<string>((resolve) => { resolvePng = resolve; }));
+
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      openExportMenu();
+
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('export-png-btn'));
+      });
+
+      expect(screen.getByTestId('export-dropdown-trigger')).toBeDisabled();
+      expect(screen.getByTestId('export-dropdown-trigger')).toHaveTextContent('Exporting…');
+
+      await act(async () => {
+        resolvePng('data:image/png;base64,done');
+      });
+
+      expect(screen.getByTestId('export-dropdown-trigger')).not.toBeDisabled();
+      expect(screen.getByTestId('export-dropdown-trigger')).toHaveTextContent('Export');
+    });
+
+    it('does not show Export PNG for imported traces', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} importedFileName="test.json" />);
+      expect(screen.queryByTestId('export-dropdown-trigger')).not.toBeInTheDocument();
+    });
+
+    it('handles screenshot capture errors gracefully', async () => {
+      mockCaptureScreenshot.mockRejectedValue(new Error('Canvas tainted'));
+
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      openExportMenu();
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('export-png-btn'));
+      });
+
+      expect(screen.getByTestId('export-dropdown-trigger')).not.toBeDisabled();
+      expect(mockSavePngFile).not.toHaveBeenCalled();
+    });
+
+    it('uses screenshot level and png extension in filename', async () => {
+      mockCaptureScreenshot.mockResolvedValue('data:image/png;base64,x');
+      mockSavePngFile.mockResolvedValue(undefined);
+
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      openExportMenu();
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('export-png-btn'));
+      });
+
+      expect(mockBuildExportFilename).toHaveBeenCalledWith(
+        expect.objectContaining({ level: 'screenshot', ext: 'png' }),
+      );
+    });
+  });
+
+  describe('export SVG', () => {
+    it('renders Export SVG item in dropdown', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      openExportMenu();
+      expect(screen.getByTestId('export-svg-btn')).toBeInTheDocument();
+      expect(screen.getByTestId('export-svg-btn')).toHaveTextContent('Export SVG');
+    });
+
+    it('calls saveSvgFile when Export SVG is clicked', async () => {
+      mockCaptureSvg.mockResolvedValue('data:image/svg+xml;charset=utf-8,%3Csvg%3E%3C/svg%3E');
+      mockSaveSvgFile.mockResolvedValue(undefined);
+
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      openExportMenu();
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('export-svg-btn'));
+      });
+
+      expect(mockCaptureSvg).toHaveBeenCalled();
+      expect(mockSaveSvgFile).toHaveBeenCalledWith(
+        'data:image/svg+xml;charset=utf-8,%3Csvg%3E%3C/svg%3E',
+        expect.stringContaining('svg'),
+      );
+    });
+
+    it('shows busy state on trigger during SVG export', async () => {
+      let resolveSvg!: (v: string) => void;
+      mockCaptureSvg.mockReturnValue(new Promise<string>((resolve) => { resolveSvg = resolve; }));
+
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      openExportMenu();
+
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('export-svg-btn'));
+      });
+
+      expect(screen.getByTestId('export-dropdown-trigger')).toBeDisabled();
+      expect(screen.getByTestId('export-dropdown-trigger')).toHaveTextContent('Exporting…');
+
+      await act(async () => {
+        resolveSvg('data:image/svg+xml;charset=utf-8,%3Csvg%3E%3C/svg%3E');
+      });
+
+      expect(screen.getByTestId('export-dropdown-trigger')).not.toBeDisabled();
+      expect(screen.getByTestId('export-dropdown-trigger')).toHaveTextContent('Export');
+    });
+
+    it('does not show Export SVG for imported traces', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} importedFileName="test.json" />);
+      expect(screen.queryByTestId('export-dropdown-trigger')).not.toBeInTheDocument();
+    });
+
+    it('handles SVG capture errors gracefully', async () => {
+      mockCaptureSvg.mockRejectedValue(new Error('SVG render failed'));
+
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      openExportMenu();
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('export-svg-btn'));
+      });
+
+      expect(screen.getByTestId('export-dropdown-trigger')).not.toBeDisabled();
+      expect(mockSaveSvgFile).not.toHaveBeenCalled();
+    });
+
+    it('uses diagram level and svg extension in filename', async () => {
+      mockCaptureSvg.mockResolvedValue('data:image/svg+xml;charset=utf-8,%3Csvg%3E%3C/svg%3E');
+      mockSaveSvgFile.mockResolvedValue(undefined);
+
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      openExportMenu();
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('export-svg-btn'));
+      });
+
+      expect(mockBuildExportFilename).toHaveBeenCalledWith(
+        expect.objectContaining({ level: 'diagram', ext: 'svg' }),
+      );
+    });
+  });
+
+  describe('smooth iteration transitions', () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    it('adds iteration-transitioning class to diagram panel when switching iterations', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+
+      act(() => { fireEvent.keyDown(window, { key: 'ArrowRight' }); });
+
+      const diagram = document.querySelector('.results-explorer-diagram');
+      expect(diagram?.classList.contains('iteration-transitioning')).toBe(true);
+    });
+
+    it('adds iteration-transitioning class to detail panel when switching iterations', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+
+      act(() => { fireEvent.keyDown(window, { key: 'ArrowRight' }); });
+
+      const detail = document.querySelector('.results-explorer-detail');
+      expect(detail?.classList.contains('iteration-transitioning')).toBe(true);
+    });
+
+    it('adds iteration-transitioning class to footer info when switching iterations', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+
+      act(() => { fireEvent.keyDown(window, { key: 'ArrowRight' }); });
+
+      const footer = document.querySelector('.results-explorer-footer-info');
+      expect(footer?.classList.contains('iteration-transitioning')).toBe(true);
+    });
+
+    it('removes iteration-transitioning class after timeout', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+
+      act(() => { fireEvent.keyDown(window, { key: 'ArrowRight' }); });
+      expect(document.querySelector('.results-explorer-diagram')?.classList.contains('iteration-transitioning')).toBe(true);
+
+      act(() => { vi.advanceTimersByTime(300); });
+      expect(document.querySelector('.results-explorer-diagram')?.classList.contains('iteration-transitioning')).toBe(false);
+    });
+
+    it('does not add transition class on initial render', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+
+      const diagram = document.querySelector('.results-explorer-diagram');
+      expect(diagram?.classList.contains('iteration-transitioning')).toBe(false);
+    });
+
+    it('triggers transition on Space toggle (aggregate ↔ iteration)', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+
+      act(() => { fireEvent.keyDown(window, { key: ' ' }); });
+
+      const diagram = document.querySelector('.results-explorer-diagram');
+      expect(diagram?.classList.contains('iteration-transitioning')).toBe(true);
+
+      act(() => { vi.advanceTimersByTime(300); });
+      expect(diagram?.classList.contains('iteration-transitioning')).toBe(false);
+    });
+
+    it('triggers transition when selecting iteration via number key', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+
+      act(() => { fireEvent.keyDown(window, { key: '2' }); });
+
+      const detail = document.querySelector('.results-explorer-detail');
+      expect(detail?.classList.contains('iteration-transitioning')).toBe(true);
+
+      act(() => { vi.advanceTimersByTime(300); });
+      expect(detail?.classList.contains('iteration-transitioning')).toBe(false);
+    });
+
+    it('triggers transition when using matrix iteration select', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+
+      fireEvent.keyDown(window, { key: 'm' });
+      fireEvent.click(screen.getByTestId('matrix-select-iter-0'));
+
+      const diagram = document.querySelector('.results-explorer-diagram');
+      expect(diagram?.classList.contains('iteration-transitioning')).toBe(true);
+    });
+
+    it('cleans up previous timer when switching iterations rapidly', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+
+      act(() => { fireEvent.keyDown(window, { key: 'ArrowRight' }); });
+      act(() => { vi.advanceTimersByTime(100); });
+      act(() => { fireEvent.keyDown(window, { key: 'a' }); });
+
+      const diagram = document.querySelector('.results-explorer-diagram');
+      expect(diagram?.classList.contains('iteration-transitioning')).toBe(true);
+
+      act(() => { vi.advanceTimersByTime(300); });
+      expect(diagram?.classList.contains('iteration-transitioning')).toBe(false);
     });
   });
 });

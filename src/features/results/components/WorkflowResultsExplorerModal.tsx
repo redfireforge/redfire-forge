@@ -1,14 +1,37 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ReactFlowProvider } from '@xyflow/react';
+import type { Node } from '@xyflow/react';
 import type { WorkflowExecutionTrace, WorkflowIterationTrace, ExecutionEvent } from '../../../shared/types';
 import FullPanelModal from '../../../shared/components/FullPanelModal';
-import WorkflowExecutionCanvas, { type NodeStateFilter } from './WorkflowExecutionCanvas';
+import WorkflowExecutionCanvas, { type NodeStateFilter, type CanvasScreenshotFn, type CanvasSvgFn } from './WorkflowExecutionCanvas';
 import ResultsExplorerDetailPanel from './ResultsExplorerDetailPanel';
 import IterationMatrixTable from './IterationMatrixTable';
 import IterationPicker from './IterationPicker';
-import { saveJsonFile, saveCsvFile, buildExportFilename } from '../../../shared/utils/fileSaver';
+import { saveJsonFile, saveCsvFile, savePngFile, saveSvgFile, buildExportFilename } from '../../../shared/utils/fileSaver';
 import { formatDurationMs } from '../../../shared/utils/formatDuration';
 import type { BottleneckInsight } from '../utils/bottleneckAnalysis';
+
+type ReplaySnapshotNode = {
+  id: string;
+  type?: string;
+  data?: { label?: string; name?: string };
+};
+
+function useIterationTransition(selectedIteration: number | undefined) {
+  const [transitioning, setTransitioning] = useState(false);
+  const prevIterRef = useRef(selectedIteration);
+
+  useEffect(() => {
+    if (prevIterRef.current !== selectedIteration) {
+      prevIterRef.current = selectedIteration;
+      setTransitioning(true);
+      const timer = setTimeout(() => setTransitioning(false), 280);
+      return () => clearTimeout(timer);
+    }
+  }, [selectedIteration]);
+
+  return transitioning;
+}
 
 interface Props {
   trace: WorkflowExecutionTrace;
@@ -51,6 +74,8 @@ export default function WorkflowResultsExplorerModal({ trace, onClose, importedF
   const isSelectedIterationSampled = selectedIteration !== undefined
     && trace.iterations[selectedIteration]?.sampled !== false;
 
+  const iterationTransitioning = useIterationTransition(selectedIteration);
+
   const [bottleneckInsights, setBottleneckInsights] = useState<BottleneckInsight[]>([]);
 
   const handleBottlenecksComputed = useCallback((insights: BottleneckInsight[]) => {
@@ -73,7 +98,7 @@ export default function WorkflowResultsExplorerModal({ trace, onClose, importedF
   // Get selected node info
   const selectedNode = useMemo(() => {
     if (!selectedNodeId) return null;
-    const node = (trace.workflowSnapshot.nodes as Array<any>).find(n => n.id === selectedNodeId);
+    const node = (trace.workflowSnapshot.nodes as ReplaySnapshotNode[]).find(n => n.id === selectedNodeId);
     if (!node) return null;
     return {
       id: node.id,
@@ -213,8 +238,8 @@ export default function WorkflowResultsExplorerModal({ trace, onClose, importedF
   }, [trace]);
 
   const handleExportCsv = useCallback(() => {
-    const httpNodes = (trace.workflowSnapshot.nodes as Array<any>).filter(
-      (n: any) => n.type === 'http',
+    const httpNodes = (trace.workflowSnapshot.nodes as ReplaySnapshotNode[]).filter(
+      (n) => n.type === 'http',
     );
     const rows: string[][] = [];
     rows.push(['Node', 'Executions', 'Pass Rate (%)', 'Avg (ms)', 'Min (ms)', 'Max (ms)', 'P95 (ms)']);
@@ -251,6 +276,68 @@ export default function WorkflowResultsExplorerModal({ trace, onClose, importedF
     const filename = buildExportFilename({ level: 'metrics', name: trace.workflowName, date, ext: 'csv' });
     saveCsvFile(csv, filename);
   }, [trace]);
+
+  const screenshotFnRef = useRef<CanvasScreenshotFn | null>(null);
+  const [screenshotBusy, setScreenshotBusy] = useState(false);
+
+  const handleScreenshotReady = useCallback((fn: CanvasScreenshotFn) => {
+    screenshotFnRef.current = fn;
+  }, []);
+
+  const handleExportPng = useCallback(async () => {
+    if (!screenshotFnRef.current || screenshotBusy) return;
+    setScreenshotBusy(true);
+    try {
+      const dataUrl = await screenshotFnRef.current();
+      const date = new Date(trace.iterations[0]?.events[0]?.timestamp || Date.now())
+        .toISOString().replace(/[:.]/g, '-').slice(0, 19);
+      const filename = buildExportFilename({ level: 'screenshot', name: trace.workflowName, date, ext: 'png' });
+      await savePngFile(dataUrl, filename);
+    } catch {
+      // capture may fail in some environments (e.g. cross-origin)
+    } finally {
+      setScreenshotBusy(false);
+    }
+  }, [trace, screenshotBusy]);
+
+  const svgFnRef = useRef<CanvasSvgFn | null>(null);
+  const [svgBusy, setSvgBusy] = useState(false);
+
+  const handleSvgReady = useCallback((fn: CanvasSvgFn) => {
+    svgFnRef.current = fn;
+  }, []);
+
+  const handleExportSvg = useCallback(async () => {
+    if (!svgFnRef.current || svgBusy) return;
+    setSvgBusy(true);
+    try {
+      const dataUrl = await svgFnRef.current();
+      const date = new Date(trace.iterations[0]?.events[0]?.timestamp || Date.now())
+        .toISOString().replace(/[:.]/g, '-').slice(0, 19);
+      const filename = buildExportFilename({ level: 'diagram', name: trace.workflowName, date, ext: 'svg' });
+      await saveSvgFile(dataUrl, filename);
+    } catch {
+      // capture may fail in some environments (e.g. cross-origin)
+    } finally {
+      setSvgBusy(false);
+    }
+  }, [trace, svgBusy]);
+
+  const [exportMenuOpen, setExportMenuOpen] = useState(false);
+  const exportMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!exportMenuOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (exportMenuRef.current && !exportMenuRef.current.contains(e.target as Node)) {
+        setExportMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [exportMenuOpen]);
+
+  const exportBusy = screenshotBusy || svgBusy;
 
   const timestamp = new Date(trace.iterations[0]?.events[0]?.timestamp || Date.now()).toLocaleString();
   const passedCount = trace.iterations.filter(i => i.passed).length;
@@ -308,22 +395,59 @@ export default function WorkflowResultsExplorerModal({ trace, onClose, importedF
             {!importedFileName && (
               <>
                 <span className="results-explorer-meta-sep">•</span>
-                <button
-                  className="results-explorer-export-btn"
-                  onClick={handleExportTrace}
-                  title="Export execution trace as JSON"
-                  data-testid="export-trace-btn"
-                >
-                  ⬇ Export JSON
-                </button>
-                <button
-                  className="results-explorer-export-csv-btn"
-                  onClick={handleExportCsv}
-                  title="Export per-node aggregate metrics as CSV"
-                  data-testid="export-csv-btn"
-                >
-                  📊 Export CSV
-                </button>
+                <div className="export-dropdown" ref={exportMenuRef} data-testid="export-dropdown">
+                  <button
+                    className="export-dropdown-trigger"
+                    onClick={() => setExportMenuOpen(prev => !prev)}
+                    disabled={exportBusy}
+                    data-testid="export-dropdown-trigger"
+                  >
+                    {exportBusy ? '⏳ Exporting…' : '⬇ Export ▾'}
+                  </button>
+                  {exportMenuOpen && (
+                    <div className="export-dropdown-menu" data-testid="export-dropdown-menu">
+                      <button
+                        className="export-dropdown-item"
+                        onClick={() => { setExportMenuOpen(false); handleExportTrace(); }}
+                        data-testid="export-trace-btn"
+                      >
+                        <span className="export-dropdown-icon">📄</span>
+                        <span className="export-dropdown-label">Export JSON</span>
+                        <span className="export-dropdown-desc">Full execution trace</span>
+                      </button>
+                      <button
+                        className="export-dropdown-item"
+                        onClick={() => { setExportMenuOpen(false); handleExportCsv(); }}
+                        data-testid="export-csv-btn"
+                      >
+                        <span className="export-dropdown-icon">📊</span>
+                        <span className="export-dropdown-label">Export CSV</span>
+                        <span className="export-dropdown-desc">Per-node aggregate metrics</span>
+                      </button>
+                      <div className="export-dropdown-divider" />
+                      <button
+                        className="export-dropdown-item"
+                        onClick={() => { setExportMenuOpen(false); handleExportPng(); }}
+                        disabled={screenshotBusy}
+                        data-testid="export-png-btn"
+                      >
+                        <span className="export-dropdown-icon">🖼</span>
+                        <span className="export-dropdown-label">Export PNG</span>
+                        <span className="export-dropdown-desc">High-res raster image</span>
+                      </button>
+                      <button
+                        className="export-dropdown-item"
+                        onClick={() => { setExportMenuOpen(false); handleExportSvg(); }}
+                        disabled={svgBusy}
+                        data-testid="export-svg-btn"
+                      >
+                        <span className="export-dropdown-icon">🔷</span>
+                        <span className="export-dropdown-label">Export SVG</span>
+                        <span className="export-dropdown-desc">Scalable vector diagram</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
               </>
             )}
           </div>
@@ -333,7 +457,7 @@ export default function WorkflowResultsExplorerModal({ trace, onClose, importedF
       bodyScrollable={false}
       footer={
         <div className="results-explorer-footer">
-          <div className="results-explorer-footer-info">
+          <div className={`results-explorer-footer-info${iterationTransitioning ? ' iteration-transitioning' : ''}`}>
             {selectedIteration !== undefined
               ? (isSelectedIterationSampled
                 ? `Iteration #${selectedIteration + 1} — ${currentIterationTrace?.passed ? 'Passed' : 'Failed'} — ${formatDurationMs(currentIterationTrace?.durationMs)}`
@@ -371,7 +495,7 @@ export default function WorkflowResultsExplorerModal({ trace, onClose, importedF
     >
       <div className="results-explorer-body">
         {/* Left Panel: Workflow Diagram */}
-        <div className="results-explorer-diagram">
+        <div className={`results-explorer-diagram${iterationTransitioning ? ' iteration-transitioning' : ''}`}>
           <div className="node-search-bar" data-testid="node-search-bar">
             <div className="node-search-input-wrap">
               <svg className="node-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -421,12 +545,14 @@ export default function WorkflowResultsExplorerModal({ trace, onClose, importedF
               onBottlenecksComputed={handleBottlenecksComputed}
               searchQuery={searchQuery}
               stateFilter={stateFilter}
+              onScreenshotReady={handleScreenshotReady}
+              onSvgReady={handleSvgReady}
             />
           </ReactFlowProvider>
         </div>
 
         {/* Right Panel: Node Detail */}
-        <div className="results-explorer-detail">
+        <div className={`results-explorer-detail${iterationTransitioning ? ' iteration-transitioning' : ''}`}>
           {selectedNode ? (
             <ResultsExplorerDetailPanel
               nodeId={selectedNode.id}
@@ -516,7 +642,7 @@ export default function WorkflowResultsExplorerModal({ trace, onClose, importedF
           {!matrixCollapsed && (
             <IterationMatrixTable
               iterations={trace.iterations}
-              nodes={trace.workflowSnapshot.nodes as any[]}
+              nodes={trace.workflowSnapshot.nodes as Node[]}
               selectedIteration={selectedIteration}
               selectedNodeId={selectedNodeId}
               onIterationSelect={handleIterationSelect}

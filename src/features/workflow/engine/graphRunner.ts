@@ -1,6 +1,6 @@
 import type { WorkflowNode, WorkflowEdge, HttpNodeData, WorkflowErrorConfig, Workflow } from '../types/workflow';
 import { isHttpWorkflowNode } from '../utils/workflowVariableHints';
-import type { RequestResult, Scenario, ExecutionEvent, ExecutionEventDetails } from '../../../shared/types';
+import type { RequestResult, Scenario } from '../../../shared/types';
 import { TokenManager } from '../../../engine/tokenManager';
 import { VariableContext } from './variableContext';
 import { summarizeRequestFailure } from '../utils/workflowRunErrors';

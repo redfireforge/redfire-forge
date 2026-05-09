@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { buildScenarioInheritHint, resolveScenarioInheritedAuth } from './scenarioAuth';
-import type { FeatureGroup, GlobalAuthProfile } from '../../../shared/types';
+import type { AuthConfig, FeatureGroup, GlobalAuthProfile } from '../../../shared/types';
 
 function makeFg(overrides: Partial<FeatureGroup> = {}): FeatureGroup {
   return {
@@ -32,27 +32,27 @@ describe('buildScenarioInheritHint', () => {
   });
 
   it('returns feature-level hint for direct auth', () => {
-    const hint = buildScenarioInheritHint(makeFg({ auth: { type: 'bearer', token: 'x' } as any }), []);
+    const hint = buildScenarioInheritHint(makeFg({ auth: { type: 'bearer', token: 'x' } }), []);
     expect(hint).toContain('feature-level');
     expect(hint).toContain('Bearer Token');
   });
 
   it('returns global profile hint when inherit + profile found', () => {
     const profile = makeProfile();
-    const fg = makeFg({ auth: { type: 'inherit' } as any, globalAuthProfileId: 'prof1' });
+    const fg = makeFg({ auth: { type: 'inherit' }, globalAuthProfileId: 'prof1' });
     const hint = buildScenarioInheritHint(fg, [profile]);
     expect(hint).toContain('My Profile');
     expect(hint).toContain('Bearer Token');
   });
 
   it('returns missing profile hint when inherit + profile not found', () => {
-    const fg = makeFg({ auth: { type: 'inherit' } as any, globalAuthProfileId: 'missing' });
+    const fg = makeFg({ auth: { type: 'inherit' }, globalAuthProfileId: 'missing' });
     const hint = buildScenarioInheritHint(fg, []);
     expect(hint).toContain('missing global profile');
   });
 
   it('handles unknown auth type with fallback', () => {
-    const hint = buildScenarioInheritHint(makeFg({ auth: { type: 'custom' } as any }), []);
+    const hint = buildScenarioInheritHint(makeFg({ auth: { type: 'custom' } as unknown as AuthConfig }), []);
     expect(hint).toContain('feature-level');
     expect(hint).toContain('custom');
   });
@@ -69,26 +69,26 @@ describe('resolveScenarioInheritedAuth', () => {
 
   it('returns feature auth directly for non-inherit types', () => {
     const auth = { type: 'bearer' as const, token: 'x' };
-    const result = resolveScenarioInheritedAuth(makeFg({ auth: auth as any }), []);
+    const result = resolveScenarioInheritedAuth(makeFg({ auth }), []);
     expect(result).toEqual({ auth, label: 'feature' });
   });
 
   it('resolves global profile for inherit type', () => {
     const profile = makeProfile();
-    const fg = makeFg({ auth: { type: 'inherit' } as any, globalAuthProfileId: 'prof1' });
+    const fg = makeFg({ auth: { type: 'inherit' }, globalAuthProfileId: 'prof1' });
     const result = resolveScenarioInheritedAuth(fg, [profile]);
     expect(result?.auth).toEqual(profile.auth);
     expect(result?.label).toBe('My Profile');
   });
 
   it('returns null when inherit but profile not found', () => {
-    const fg = makeFg({ auth: { type: 'inherit' } as any, globalAuthProfileId: 'missing' });
+    const fg = makeFg({ auth: { type: 'inherit' }, globalAuthProfileId: 'missing' });
     expect(resolveScenarioInheritedAuth(fg, [])).toBeNull();
   });
 
   it('returns null when resolved auth is none', () => {
     const profile: GlobalAuthProfile = { id: 'prof1', name: 'None Prof', auth: { type: 'none' } };
-    const fg = makeFg({ auth: { type: 'inherit' } as any, globalAuthProfileId: 'prof1' });
+    const fg = makeFg({ auth: { type: 'inherit' }, globalAuthProfileId: 'prof1' });
     expect(resolveScenarioInheritedAuth(fg, [profile])).toBeNull();
   });
 });

@@ -5,7 +5,8 @@ import type { CatalogEntry, SavedEndpointValues } from '../features/catalog/type
 import { buildCatalogExport } from '../features/catalog/utils/catalogExport';
 import { useGalleryImport } from './hooks/useGalleryImport';
 import { findFolderDeep } from '../features/requests/utils/requestTree';
-import ThemeCustomizer, { isCustomThemeId, findSavedTheme } from './ThemeCustomizer';
+import ThemeCustomizer from './ThemeCustomizer';
+import { isCustomThemeId, findSavedTheme } from './themeCustomizerUtils';
 import { loadCatalogEndpointValues, loadPreviewSampleId, savePreviewSampleId } from '../shared/utils/storage';
 import { saveFile } from '../shared/utils/fileSaver';
 import { mergeById } from '../shared/utils/helpers';

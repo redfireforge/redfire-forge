@@ -135,13 +135,15 @@ describe('expressionFunctions/helpers', () => {
 
   describe('edge cases', () => {
     it('s handles circular reference safely', () => {
-      const obj: any = { a: 1 };
+      type Circular = Record<string, unknown> & { self?: Circular };
+      const obj: Circular = { a: 1 };
       obj.self = obj;
       expect(() => s(obj)).not.toThrow();
     });
 
     it('n handles circular reference safely', () => {
-      const obj: any = { a: 1 };
+      type Circular = Record<string, unknown> & { self?: Circular };
+      const obj: Circular = { a: 1 };
       obj.self = obj;
       expect(n(obj)).toBe(0);
     });

@@ -5,10 +5,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useSharedDsFetchConfig } from './useSharedDsFetchConfig';
 import { parseCurl } from '../../../shared/utils/curlParser';
-import type { SharedDataSource, DataSource } from '../../../shared/types';
+import type { SharedDataSource, DataSource, Scenario } from '../../../shared/types';
 
 vi.mock('../../../shared/utils/curlParser', () => ({
-  parseCurl: vi.fn((input: string) => ({
+  parseCurl: vi.fn((_input: string) => ({
     url: 'https://parsed.example.com',
     method: 'GET',
     headers: [{ key: 'X-Test', value: 'parsed' }],
@@ -151,7 +151,7 @@ describe('useSharedDsFetchConfig', () => {
       headers: [{ key: 'Accept', value: 'json' }],
       body: undefined,
       bodyType: undefined,
-      auth: { type: 'basic', username: 'alice', password: 'secret' } as any,
+      auth: { type: 'basic', username: 'alice', password: 'secret' },
     });
     const { result } = renderHook(() => useSharedDsFetchConfig(sources[0], sources, onUpdate));
     act(() => result.current.handleCurlInputChange('curl -u alice:secret https://auth.example'));
@@ -171,7 +171,7 @@ describe('useSharedDsFetchConfig', () => {
       body: '',
       bodyType: undefined,
       auth: undefined,
-    } as any);
+    } satisfies Partial<Scenario>);
     const { result } = renderHook(() => useSharedDsFetchConfig(sources[0], sources, onUpdate));
     act(() => result.current.handleCurlInputChange('curl ambiguous'));
     act(() => result.current.handleImportCurl());
@@ -379,11 +379,11 @@ describe('useSharedDsFetchConfig', () => {
     vi.mocked(parseCurl).mockReturnValueOnce({
       url: 'https://no-headers.example',
       method: 'GET',
-      headers: undefined as any,
+      headers: undefined,
       body: undefined,
       bodyType: undefined,
-      auth: { type: 'basic', username: 'a', password: 'b' } as any,
-    });
+      auth: { type: 'basic', username: 'a', password: 'b' },
+    } satisfies Partial<Scenario>);
     const { result } = renderHook(() => useSharedDsFetchConfig(sources[0], sources, onUpdate));
     act(() => result.current.handleCurlInputChange('curl https://no-headers.example'));
     act(() => result.current.handleImportCurl());
@@ -533,11 +533,11 @@ describe('useSharedDsFetchConfig', () => {
     vi.mocked(parseCurl).mockReturnValueOnce({
       url: 'https://h.example',
       method: 'GET',
-      headers: undefined as any,
+      headers: undefined,
       body: undefined,
       bodyType: undefined,
       auth: undefined,
-    });
+    } satisfies Partial<Scenario>);
     const { result } = renderHook(() => useSharedDsFetchConfig(ds, [ds], onUpdate));
     act(() => result.current.handleCurlInputChange('curl https://h.example'));
     act(() => result.current.handleImportCurl());
@@ -568,7 +568,7 @@ describe('useSharedDsFetchConfig', () => {
       body: undefined,
       bodyType: undefined,
       auth: undefined,
-    } as any);
+    } satisfies Partial<Scenario>);
     const { result } = renderHook(() => useSharedDsFetchConfig(ds, [ds], onUpdate));
     act(() => result.current.handleCurlInputChange('curl'));
     act(() => result.current.handleImportCurl());

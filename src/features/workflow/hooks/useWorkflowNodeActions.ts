@@ -43,7 +43,7 @@ interface UseWorkflowNodeActionsOpts {
   create: (name: string) => void;
   toast: ToastApi;
   /** Shared Y-cursor ref for placing newly-added nodes; provided by parent so other hooks can read/advance it. */
-  nextNodeY: React.MutableRefObject<number>;
+  nextNodeYRef: React.MutableRefObject<number>;
 }
 
 export function useWorkflowNodeActions({
@@ -70,14 +70,14 @@ export function useWorkflowNodeActions({
   workflows,
   create,
   toast,
-  nextNodeY,
+  nextNodeYRef,
 }: UseWorkflowNodeActionsOpts) {
 
   const addNodeToCanvas = useCallback((type: WorkflowNodeType, data?: WorkflowNodeData) => {
     if (!selected) return;
     undoRedo.takeSnapshot('Add node');
-    const y = nextNodeY.current;
-    nextNodeY.current += 120;
+    const y = nextNodeYRef.current;
+    nextNodeYRef.current += 120;
     const newNode: WorkflowRFNode = {
       id: uuidv4(),
       type,
@@ -225,7 +225,7 @@ export function useWorkflowNodeActions({
   }, [selected, serializeNodes, serializeEdges, workflows, create, update, setNodes, setEdges, persistWorkflow, toast, nodesRef, edgesRef, undoRedo]);
 
   return {
-    nextNodeY,
+    nextNodeYRef,
     addNodeToCanvas,
     handleAddNode,
     handleAddFromRequest,

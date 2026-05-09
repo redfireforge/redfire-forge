@@ -265,7 +265,7 @@ export default function MultiWebhookTestingPanel({
   onDeleteScenario,
   onLoadScenario,
 }: Props) {
-  const [pausedCorrelations, setPausedCorrelations] = useState<PausedCorrelation[]>([]);
+  const [_pausedCorrelations, setPausedCorrelations] = useState<PausedCorrelation[]>([]);
   const [loadingPaused, setLoadingPaused] = useState(false);
   const [nodeStates, setNodeStates] = useState<Map<string, NodeStateInfo>>(new Map());
   const [editingPayloads, setEditingPayloads] = useState<Map<string, Record<string, unknown>>>(new Map());
