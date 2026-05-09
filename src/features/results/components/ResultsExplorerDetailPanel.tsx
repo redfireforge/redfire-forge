@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import type { ExecutionEvent, WorkflowIterationTrace } from '../../../shared/types';
+import type { ExecutionEvent, WorkflowIterationTrace, WorkflowExecutionTrace } from '../../../shared/types';
 import JsonTreeViewer from '../../../shared/components/JsonTreeViewer';
 import { formatDurationMs } from '../../../shared/utils/formatDuration';
 import { truncate } from '../../../shared/utils/helpers';
@@ -26,10 +26,11 @@ interface Props {
   fullTraceCaptured?: boolean;
   /** Fork/join topology for branch comparison display */
   forkJoinTopology?: ForkJoinTopology;
+  onDrillDown?: (childTrace: WorkflowExecutionTrace, parentNodeId: string) => void;
 }
 
 export default function ResultsExplorerDetailPanel({
-  nodeId: _nodeId,
+  nodeId,
   nodeType,
   nodeLabel,
   events,
@@ -39,6 +40,7 @@ export default function ResultsExplorerDetailPanel({
   onClose,
   fullTraceCaptured,
   forkJoinTopology,
+  onDrillDown,
 }: Props) {
   const [activeTab, setActiveTab] = useState<TabId>('overview');
 
@@ -133,6 +135,34 @@ export default function ResultsExplorerDetailPanel({
         )}
       </div>
 
+      {/* Sub-workflow drill-down CTA */}
+      {nodeType === 'subWorkflow' && currentEvent?.details?.subWorkflowTrace && onDrillDown && (
+        <button
+          type="button"
+          className="sub-workflow-drilldown-btn"
+          onClick={() => onDrillDown(currentEvent.details!.subWorkflowTrace!, nodeId)}
+          data-testid="sub-workflow-drilldown-btn"
+        >
+          <span className="drilldown-icon">↳</span>
+          View Sub-Workflow: {currentEvent.details.subWorkflowTrace.workflowName}
+          <span className="drilldown-meta">
+            {currentEvent.details.subWorkflowTrace.totalIterations} iter
+            {currentEvent.details.subWorkflowTrace.totalIterations !== 1 ? 's' : ''}
+            {' · '}
+            {formatDurationMs(currentEvent.details.subWorkflowTrace.totalDurationMs)}
+          </span>
+        </button>
+      )}
+      {nodeType === 'subWorkflow' && currentEvent && !currentEvent.details?.subWorkflowTrace && (
+        <div className="sub-workflow-no-trace" data-testid="sub-workflow-no-trace">
+          <span className="drilldown-icon">↳</span>
+          Sub-workflow trace not captured
+          {currentEvent.details?.subWorkflowId && (
+            <span className="drilldown-meta"> ({currentEvent.details.subWorkflowId})</span>
+          )}
+        </div>
+      )}
+
       {/* Tabs */}
       <div className="explorer-detail-tabs">
         <button
@@ -189,7 +219,7 @@ export default function ResultsExplorerDetailPanel({
             />
             {(nodeType === 'fork' || nodeType === 'join') && forkJoinTopology && (
               <BranchComparisonSection
-                nodeId={_nodeId}
+                nodeId={nodeId}
                 nodeType={nodeType}
                 topology={forkJoinTopology}
                 iterations={iterations}

@@ -1342,4 +1342,118 @@ describe('ResultsExplorerDetailPanel', () => {
       expect(rows).toHaveLength(2);
     });
   });
+
+  describe('Sub-workflow drill-down', () => {
+    const childTrace = {
+      iterations: [{ index: 0, passed: true, durationMs: 50, events: [], finalVariables: {}, traversedEdges: [] }],
+      traversedEdges: [],
+      workflowSnapshot: { nodes: [], edges: [] },
+      workflowId: 'child-wf-1',
+      workflowName: 'Child Workflow',
+      totalIterations: 1,
+      totalDurationMs: 50,
+    };
+
+    const subWorkflowEvents: ExecutionEvent[] = [{
+      nodeId: 'sub1',
+      nodeType: 'subWorkflow',
+      nodeLabel: 'Run Child',
+      timestamp: 1000,
+      state: 'pass',
+      durationMs: 50,
+      details: {
+        subWorkflowId: 'child-wf-1',
+        subWorkflowPassed: true,
+        subWorkflowTrace: childTrace,
+      },
+    }];
+
+    it('shows drill-down button when node is subWorkflow with trace', () => {
+      const onDrillDown = vi.fn();
+      render(
+        <ResultsExplorerDetailPanel
+          nodeId="sub1"
+          nodeType="subWorkflow"
+          nodeLabel="Run Child"
+          events={subWorkflowEvents}
+          iterations={[{ index: 0, passed: true, durationMs: 50, events: subWorkflowEvents, finalVariables: {}, traversedEdges: [] }]}
+          onIterationChange={mockOnIterationChange}
+          onClose={mockOnClose}
+          onDrillDown={onDrillDown}
+        />
+      );
+
+      const btn = screen.getByTestId('sub-workflow-drilldown-btn');
+      expect(btn).toBeInTheDocument();
+      expect(btn).toHaveTextContent('View Sub-Workflow: Child Workflow');
+    });
+
+    it('calls onDrillDown with child trace and nodeId when clicked', () => {
+      const onDrillDown = vi.fn();
+      render(
+        <ResultsExplorerDetailPanel
+          nodeId="sub1"
+          nodeType="subWorkflow"
+          nodeLabel="Run Child"
+          events={subWorkflowEvents}
+          iterations={[{ index: 0, passed: true, durationMs: 50, events: subWorkflowEvents, finalVariables: {}, traversedEdges: [] }]}
+          onIterationChange={mockOnIterationChange}
+          onClose={mockOnClose}
+          onDrillDown={onDrillDown}
+        />
+      );
+
+      fireEvent.click(screen.getByTestId('sub-workflow-drilldown-btn'));
+      expect(onDrillDown).toHaveBeenCalledWith(childTrace, 'sub1');
+    });
+
+    it('shows "trace not captured" when subWorkflow node has no trace', () => {
+      const noTraceEvents: ExecutionEvent[] = [{
+        nodeId: 'sub2',
+        nodeType: 'subWorkflow',
+        nodeLabel: 'Run Missing',
+        timestamp: 1000,
+        state: 'fail',
+        durationMs: 10,
+        details: {
+          subWorkflowId: 'missing-wf',
+          subWorkflowPassed: false,
+        },
+      }];
+
+      render(
+        <ResultsExplorerDetailPanel
+          nodeId="sub2"
+          nodeType="subWorkflow"
+          nodeLabel="Run Missing"
+          events={noTraceEvents}
+          iterations={[{ index: 0, passed: false, durationMs: 10, events: noTraceEvents, finalVariables: {}, traversedEdges: [] }]}
+          onIterationChange={mockOnIterationChange}
+          onClose={mockOnClose}
+          onDrillDown={vi.fn()}
+        />
+      );
+
+      expect(screen.getByTestId('sub-workflow-no-trace')).toBeInTheDocument();
+      expect(screen.queryByTestId('sub-workflow-drilldown-btn')).not.toBeInTheDocument();
+    });
+
+    it('does not show drill-down button for non-subWorkflow nodes', () => {
+      render(
+        <ResultsExplorerDetailPanel
+          nodeId="http-1"
+          nodeType="http"
+          nodeLabel="Get Users"
+          events={mockEvents}
+          iterations={mockIterations}
+          onIterationChange={mockOnIterationChange}
+          onClose={mockOnClose}
+          onDrillDown={vi.fn()}
+        />
+      );
+
+      expect(screen.queryByTestId('sub-workflow-drilldown-btn')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('sub-workflow-no-trace')).not.toBeInTheDocument();
+    });
+  });
 });
