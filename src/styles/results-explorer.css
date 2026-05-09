@@ -2851,6 +2851,119 @@
   pointer-events: none;
 }
 
+/* ── Swim Lane Overlay (Fork/Join Parallel Branches) ── */
+
+.swim-lane {
+  border-radius: 8px;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+  z-index: 0;
+}
+
+.swim-lane-critical {
+  z-index: 1;
+}
+
+.swim-lane-label {
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  opacity: 0.85;
+  pointer-events: none;
+}
+
+.swim-lane-critical-badge {
+  background: rgba(245, 158, 11, 0.2);
+  color: #f59e0b;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  vertical-align: middle;
+}
+
+/* ── Branch Comparison Table (Fork/Join Detail Panel) ── */
+
+.branch-comparison-section {
+  margin-top: 16px;
+  padding: 12px;
+  background: rgba(30, 41, 59, 0.5);
+  border-radius: 8px;
+  border: 1px solid #334155;
+}
+
+.branch-comparison-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #e2e8f0;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.branch-comparison-count {
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: #94a3b8;
+  background: rgba(100, 116, 139, 0.2);
+  padding: 1px 8px;
+  border-radius: 10px;
+}
+
+.branch-comparison-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+
+.branch-comparison-table th {
+  text-align: left;
+  padding: 6px 8px;
+  color: #94a3b8;
+  font-weight: 500;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid #334155;
+}
+
+.branch-comparison-table td {
+  padding: 8px;
+  color: #e2e8f0;
+  border-bottom: 1px solid rgba(51, 65, 85, 0.5);
+  vertical-align: middle;
+}
+
+.branch-comparison-table tr:last-child td {
+  border-bottom: none;
+}
+
+.branch-row-critical {
+  background: rgba(245, 158, 11, 0.06);
+}
+
+.branch-color-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+.branch-critical-badge {
+  font-size: 0.68rem;
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.15);
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+
 /* No matches overlay */
 .timeline-no-matches {
   position: absolute;

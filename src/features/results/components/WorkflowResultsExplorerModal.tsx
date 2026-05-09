@@ -11,6 +11,7 @@ import IterationPicker from './IterationPicker';
 import { saveJsonFile, saveCsvFile, savePngFile, saveSvgFile, buildExportFilename } from '../../../shared/utils/fileSaver';
 import { formatDurationMs } from '../../../shared/utils/formatDuration';
 import type { BottleneckInsight } from '../utils/bottleneckAnalysis';
+import type { ForkJoinTopology } from '../utils/forkJoinDetection';
 
 type ReplaySnapshotNode = {
   id: string;
@@ -80,9 +81,14 @@ export default function WorkflowResultsExplorerModal({ trace, onClose, importedF
   const iterationTransitioning = useIterationTransition(selectedIteration);
 
   const [bottleneckInsights, setBottleneckInsights] = useState<BottleneckInsight[]>([]);
+  const [forkJoinTopology, setForkJoinTopology] = useState<ForkJoinTopology | undefined>();
 
   const handleBottlenecksComputed = useCallback((insights: BottleneckInsight[]) => {
     setBottleneckInsights(insights);
+  }, []);
+
+  const handleForkJoinDetected = useCallback((topology: ForkJoinTopology) => {
+    setForkJoinTopology(topology);
   }, []);
 
   // Build a per-iteration trace for canvas display
@@ -353,7 +359,6 @@ export default function WorkflowResultsExplorerModal({ trace, onClose, importedF
   const timestamp = new Date(trace.iterations[0]?.events[0]?.timestamp || Date.now()).toLocaleString();
   const passedCount = trace.iterations.filter(i => i.passed).length;
   const passRate = trace.totalIterations > 0 ? (passedCount / trace.totalIterations * 100).toFixed(0) : 0;
-  const totalNodes = nodeStateCounts.pass + nodeStateCounts.fail + nodeStateCounts.skipped;
   const nodesOk = nodeStateCounts.pass;
   const executedNodes = nodeStateCounts.pass + nodeStateCounts.fail;
 
@@ -608,6 +613,7 @@ export default function WorkflowResultsExplorerModal({ trace, onClose, importedF
                 stateFilter={stateFilter}
                 onScreenshotReady={handleScreenshotReady}
                 onSvgReady={handleSvgReady}
+                onForkJoinDetected={handleForkJoinDetected}
               />
             </ReactFlowProvider>
           ) : (
@@ -646,6 +652,7 @@ export default function WorkflowResultsExplorerModal({ trace, onClose, importedF
                 onIterationChange={setSelectedIteration}
                 onClose={() => setSelectedNodeId(undefined)}
                 fullTraceCaptured={trace.fullTraceCaptured}
+                forkJoinTopology={forkJoinTopology}
               />
             ) : (
               <div className="results-explorer-empty-detail">

@@ -19,6 +19,14 @@ import type { WorkflowExecutionTrace } from '../../../shared/types';
 import { nodeTypes } from '../../workflow/utils/workflowNodeFactory';
 import { identifyBottlenecks, getBottleneckNodeIds, type BottleneckInsight } from '../utils/bottleneckAnalysis';
 import { captureCanvasScreenshot, captureCanvasSvg } from '../utils/canvasScreenshot';
+import {
+  detectForkJoinTopology,
+  computeBranchBounds,
+  BRANCH_COLORS,
+  BRANCH_BORDER_COLORS,
+  BRANCH_LABELS,
+  type ForkJoinTopology,
+} from '../utils/forkJoinDetection';
 
 type ReplaySnapshotEdge = {
   id: string;
@@ -68,6 +76,8 @@ interface Props {
   onScreenshotReady?: (fn: CanvasScreenshotFn) => void;
   /** Called with an SVG capture function so the parent can trigger SVG export */
   onSvgReady?: (fn: CanvasSvgFn) => void;
+  /** Called when fork/join topology is detected, so parent can show branch comparison */
+  onForkJoinDetected?: (topology: ForkJoinTopology) => void;
 }
 
 const LAYOUT_STORAGE_PREFIX = 'replayLayout:';
@@ -208,6 +218,84 @@ function EdgePercentageOverlay({ badges }: { badges: EdgePercentageBadge[] }) {
   );
 }
 
+interface SwimLaneBound {
+  branchIndex: number;
+  label: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  isCriticalPath: boolean;
+}
+
+function SwimLaneOverlay({ lanes }: { lanes: SwimLaneBound[] }) {
+  const { x, y, zoom } = useViewport();
+  if (lanes.length === 0) return null;
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        width: '100%',
+        height: '100%',
+        pointerEvents: 'none',
+        overflow: 'hidden',
+      }}
+      data-testid="swim-lane-overlay"
+    >
+      {lanes.map((lane) => {
+        const screenX = lane.x * zoom + x;
+        const screenY = lane.y * zoom + y;
+        const screenW = lane.width * zoom;
+        const screenH = lane.height * zoom;
+        const colorIdx = lane.branchIndex % BRANCH_COLORS.length;
+        const labelScale = Math.max(0.6, Math.min(1, zoom));
+
+        return (
+          <div
+            key={`lane-${lane.branchIndex}`}
+            className={`swim-lane${lane.isCriticalPath ? ' swim-lane-critical' : ''}`}
+            style={{
+              position: 'absolute',
+              left: screenX,
+              top: screenY,
+              width: screenW,
+              height: screenH,
+              background: BRANCH_COLORS[colorIdx],
+              border: `1.5px ${lane.isCriticalPath ? 'solid' : 'dashed'} ${BRANCH_BORDER_COLORS[colorIdx]}`,
+              borderRadius: 8 * zoom,
+            }}
+            data-testid={`swim-lane-${lane.branchIndex}`}
+          >
+            <span
+              className="swim-lane-label"
+              style={{
+                position: 'absolute',
+                top: 4 * zoom,
+                left: 8 * zoom,
+                fontSize: `${11 * labelScale}px`,
+                color: BRANCH_BORDER_COLORS[colorIdx].replace('0.4)', '0.9)'),
+                fontWeight: lane.isCriticalPath ? 700 : 500,
+                letterSpacing: '0.03em',
+                userSelect: 'none',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {lane.label}
+              {lane.isCriticalPath && (
+                <span className="swim-lane-critical-badge" style={{ marginLeft: 6 * labelScale, fontSize: `${9 * labelScale}px` }}>
+                  ⏱ Critical Path
+                </span>
+              )}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 interface NodeExecutionState {
   state: 'pass' | 'fail' | 'skipped';
   avgDuration?: number;
@@ -231,6 +319,7 @@ export default function WorkflowExecutionCanvas({
   stateFilter = 'all',
   onScreenshotReady,
   onSvgReady,
+  onForkJoinDetected,
 }: Props) {
   const [layoutKey, setLayoutKey] = useState(0);
   const hasFittedAfterMeasure = useRef(false);
@@ -562,6 +651,68 @@ export default function WorkflowExecutionCanvas({
     onSvgReady(captureFn);
   }, [onSvgReady, displayNodes]);
 
+  // Fork/join topology detection for swim lanes
+  const forkJoinTopology: ForkJoinTopology = useMemo(
+    () => detectForkJoinTopology(
+      trace.workflowSnapshot.nodes as Array<{ id: string; type?: string }>,
+      trace.workflowSnapshot.edges as Array<{ id: string; source: string; target: string }>,
+    ),
+    [trace.workflowSnapshot.nodes, trace.workflowSnapshot.edges],
+  );
+
+  useEffect(() => {
+    onForkJoinDetected?.(forkJoinTopology);
+  }, [forkJoinTopology, onForkJoinDetected]);
+
+  // Compute swim-lane bounds from node positions
+  const swimLanes: SwimLaneBound[] = useMemo(() => {
+    if (forkJoinTopology.pairs.length === 0) return [];
+
+    const nodePositions = new Map<string, { x: number; y: number }>();
+    for (const node of rfNodes) {
+      nodePositions.set(node.id, node.position);
+    }
+
+    const lanes: SwimLaneBound[] = [];
+
+    for (const pair of forkJoinTopology.pairs) {
+      // Find critical path: branch with longest total avg duration
+      let maxAvgDuration = -1;
+      let criticalBranchIdx = 0;
+
+      for (let i = 0; i < pair.branches.length; i++) {
+        const branchNodeIds = new Set(pair.branches[i]);
+        let totalDuration = 0;
+        let totalExec = 0;
+        for (const iter of trace.iterations) {
+          for (const ev of iter.events) {
+            if (!branchNodeIds.has(ev.nodeId)) continue;
+            totalDuration += ev.durationMs ?? 0;
+            totalExec++;
+          }
+        }
+        const avg = totalExec > 0 ? totalDuration / trace.totalIterations : 0;
+        if (avg > maxAvgDuration) {
+          maxAvgDuration = avg;
+          criticalBranchIdx = i;
+        }
+      }
+
+      for (let i = 0; i < pair.branches.length; i++) {
+        const bounds = computeBranchBounds(pair.branches[i], nodePositions);
+        if (!bounds) continue;
+        lanes.push({
+          branchIndex: i,
+          label: BRANCH_LABELS[i % BRANCH_LABELS.length],
+          ...bounds,
+          isCriticalPath: i === criticalBranchIdx,
+        });
+      }
+    }
+
+    return lanes;
+  }, [forkJoinTopology, rfNodes, trace.iterations, trace.totalIterations]);
+
   const tooltipData = useMemo(() => {
     if (!hoveredNode) return null;
     const state = nodeStates.get(hoveredNode.id);
@@ -599,6 +750,7 @@ export default function WorkflowExecutionCanvas({
         maxZoom={2.0}
       >
         <Background />
+        <SwimLaneOverlay lanes={swimLanes} />
         <EdgePercentageOverlay badges={edgePctBadges} />
         {showMinimap && (
           <MiniMap

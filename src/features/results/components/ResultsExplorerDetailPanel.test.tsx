@@ -1195,4 +1195,151 @@ describe('ResultsExplorerDetailPanel', () => {
       expect(failBars.length).toBeGreaterThan(0);
     });
   });
+
+  describe('branch comparison (fork/join)', () => {
+    const forkJoinTopology = {
+      pairs: [{
+        forkId: 'fork-1',
+        joinId: 'join-1',
+        branches: [['a1', 'a2'], ['b1']],
+      }],
+      assignments: new Map([
+        ['a1', { forkId: 'fork-1', joinId: 'join-1', branchIndex: 0 }],
+        ['a2', { forkId: 'fork-1', joinId: 'join-1', branchIndex: 0 }],
+        ['b1', { forkId: 'fork-1', joinId: 'join-1', branchIndex: 1 }],
+      ]),
+    };
+
+    const forkEvents: ExecutionEvent[] = [
+      { nodeId: 'fork-1', nodeType: 'fork', nodeLabel: 'Fork', timestamp: 1000, state: 'pass' },
+    ];
+
+    const forkIterations: WorkflowIterationTrace[] = [
+      {
+        index: 0,
+        passed: true,
+        durationMs: 300,
+        traversedEdges: [],
+        events: [
+          { nodeId: 'fork-1', nodeType: 'fork', nodeLabel: 'Fork', timestamp: 1000, state: 'pass' },
+          { nodeId: 'a1', nodeType: 'http', nodeLabel: 'A1', timestamp: 1010, state: 'pass', durationMs: 100 },
+          { nodeId: 'a2', nodeType: 'http', nodeLabel: 'A2', timestamp: 1110, state: 'pass', durationMs: 50 },
+          { nodeId: 'b1', nodeType: 'http', nodeLabel: 'B1', timestamp: 1010, state: 'pass', durationMs: 200 },
+        ],
+        finalVariables: {},
+      },
+    ];
+
+    it('shows branch comparison table for fork node', () => {
+      render(
+        <ResultsExplorerDetailPanel
+          nodeId="fork-1"
+          nodeType="fork"
+          nodeLabel="Parallel Fork"
+          events={forkEvents}
+          iterations={forkIterations}
+          onIterationChange={mockOnIterationChange}
+          onClose={mockOnClose}
+          forkJoinTopology={forkJoinTopology}
+        />
+      );
+
+      expect(screen.getByTestId('branch-comparison')).toBeInTheDocument();
+      expect(screen.getByTestId('branch-comparison-table')).toBeInTheDocument();
+      expect(screen.getByText('Parallel Branches')).toBeInTheDocument();
+      expect(screen.getByText('2 branches')).toBeInTheDocument();
+    });
+
+    it('shows branch comparison table for join node', () => {
+      const joinEvents: ExecutionEvent[] = [
+        { nodeId: 'join-1', nodeType: 'join', nodeLabel: 'Join', timestamp: 1300, state: 'pass' },
+      ];
+
+      render(
+        <ResultsExplorerDetailPanel
+          nodeId="join-1"
+          nodeType="join"
+          nodeLabel="Join"
+          events={joinEvents}
+          iterations={forkIterations}
+          onIterationChange={mockOnIterationChange}
+          onClose={mockOnClose}
+          forkJoinTopology={forkJoinTopology}
+        />
+      );
+
+      expect(screen.getByTestId('branch-comparison')).toBeInTheDocument();
+    });
+
+    it('marks the critical path branch', () => {
+      render(
+        <ResultsExplorerDetailPanel
+          nodeId="fork-1"
+          nodeType="fork"
+          nodeLabel="Fork"
+          events={forkEvents}
+          iterations={forkIterations}
+          onIterationChange={mockOnIterationChange}
+          onClose={mockOnClose}
+          forkJoinTopology={forkJoinTopology}
+        />
+      );
+
+      expect(screen.getByTestId('critical-path-badge')).toBeInTheDocument();
+    });
+
+    it('does not show branch comparison for non-fork/join nodes', () => {
+      render(
+        <ResultsExplorerDetailPanel
+          nodeId="http-1"
+          nodeType="http"
+          nodeLabel="Get Users"
+          events={mockEvents}
+          iterations={mockIterations}
+          onIterationChange={mockOnIterationChange}
+          onClose={mockOnClose}
+          forkJoinTopology={forkJoinTopology}
+        />
+      );
+
+      expect(screen.queryByTestId('branch-comparison')).not.toBeInTheDocument();
+    });
+
+    it('does not show branch comparison when topology is not provided', () => {
+      render(
+        <ResultsExplorerDetailPanel
+          nodeId="fork-1"
+          nodeType="fork"
+          nodeLabel="Fork"
+          events={forkEvents}
+          iterations={forkIterations}
+          onIterationChange={mockOnIterationChange}
+          onClose={mockOnClose}
+        />
+      );
+
+      expect(screen.queryByTestId('branch-comparison')).not.toBeInTheDocument();
+    });
+
+    it('shows branch labels and node counts', () => {
+      render(
+        <ResultsExplorerDetailPanel
+          nodeId="fork-1"
+          nodeType="fork"
+          nodeLabel="Fork"
+          events={forkEvents}
+          iterations={forkIterations}
+          onIterationChange={mockOnIterationChange}
+          onClose={mockOnClose}
+          forkJoinTopology={forkJoinTopology}
+        />
+      );
+
+      expect(screen.getByText('Branch A')).toBeInTheDocument();
+      expect(screen.getByText('Branch B')).toBeInTheDocument();
+      // Branch A has 2 nodes, Branch B has 1
+      const rows = screen.getAllByTestId(/branch-row-/);
+      expect(rows).toHaveLength(2);
+    });
+  });
 });

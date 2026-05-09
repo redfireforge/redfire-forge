@@ -1,6 +1,6 @@
 # Phase 8: Results Explorer — Future Enhancements
 
-> **Status**: 🛠️ In Progress (8a complete)  
+> **Status**: 🛠️ In Progress (8a, 8c complete)  
 > **Priority**: Low–Medium  
 > **Effort**: Large (~28–34 hours total across 3 features)  
 > **Dependencies**: Phase 7e (Visual Execution Replay) — ✅ Complete  
@@ -16,7 +16,7 @@ Three independent enhancements to the Results Explorer were identified during Ph
 |---|---------|------|----------|--------|
 | 8a | Timeline View / Gantt Chart | Large (~16h) | Medium | ✅ Complete |
 | 8b | Sub-Workflow Drill-Down | Medium (6–8h) | Low | Not Started |
-| 8c | Parallel Execution Visualization | Medium (6–10h) | Low | Not Started |
+| 8c | Parallel Execution Visualization | Medium (6–10h) | Low | ✅ Complete |
 
 ---
 
@@ -235,7 +235,8 @@ Add a **"View Sub-Workflow"** button in the detail panel when a sub-workflow nod
 
 > **Origin**: Phase 7e Q4 — "How to handle workflows with parallel execution (Fork/Join)?"  
 > **Priority**: Low  
-> **Effort**: Medium (~6–10 hours)
+> **Effort**: Medium (~6–10 hours)  
+> **Status**: ✅ Complete (2026-05-09)
 
 ### Problem
 
@@ -250,39 +251,63 @@ Fork/Join workflows execute multiple branches in parallel. The current diagram s
 
 Add **swim-lane grouping** for fork/join branches on the ReactFlow canvas, plus a **branch comparison table** in the detail panel for fork/join nodes.
 
-### Implementation Tasks
+### Implementation Summary
 
-#### Task 8c.1: Fork/Join Topology Detection (~2h)
-- [ ] Create `src/features/results/utils/forkJoinDetection.ts`
-- [ ] Detect fork/join pairs from graph topology (fork node = multiple outgoing edges to distinct paths, join node = multiple incoming edges converging)
-- [ ] Map each node to its branch (branch 0, branch 1, etc.)
-- [ ] Handle nested fork/join (fork inside a fork branch)
+#### Task 8c.1: Fork/Join Topology Detection ✅
+- [x] Created `src/features/results/utils/forkJoinDetection.ts`
+- [x] Detect fork/join pairs from graph topology (fork = multiple outgoing edges, join = multiple incoming edges)
+- [x] Map each node to its branch (branch 0, branch 1, etc.) via `BranchAssignment`
+- [x] Handle nested fork/join (recursive detection and skip logic)
+- [x] Compute per-branch execution stats (avg duration, pass rate, critical path)
+- [x] Compute branch bounding boxes for swim-lane rendering
 
-#### Task 8c.2: Swim-Lane Rendering (~3h)
-- [ ] Add colored semi-transparent background regions behind each branch
-- [ ] Label each lane ("Branch A", "Branch B", etc.)
-- [ ] Position lanes based on node positions (auto-layout or manual)
-- [ ] Highlight critical path branch (thicker border or different shade)
+#### Task 8c.2: Swim-Lane Rendering ✅
+- [x] Added `SwimLaneOverlay` component with colored semi-transparent background regions
+- [x] Labels each lane ("Branch A", "Branch B", etc.) with color-coded text
+- [x] Positions lanes based on node positions using `computeBranchBounds`
+- [x] Critical path branch: solid border, "⏱ Critical Path" badge, bolder label
+- [x] Non-critical branches: dashed border, lighter label
+- [x] 8-color palette for up to 8 parallel branches
 
-#### Task 8c.3: Branch Comparison in Detail Panel (~2h)
-- [ ] Update `ResultsExplorerDetailPanel` for fork/join node types
-- [ ] Show branch comparison table: branch name, total time, node count, pass rate
-- [ ] Highlight critical path branch
-- [ ] Show per-branch timing breakdown
+#### Task 8c.3: Branch Comparison in Detail Panel ✅
+- [x] Added `BranchComparisonSection` component to `ResultsExplorerDetailPanel`
+- [x] Shows branch comparison table: branch name, node count, avg time, pass rate
+- [x] Critical path row highlighted with amber background and "⏱ Critical" badge
+- [x] Color dots match swim-lane colors for visual consistency
+- [x] Appears for both fork and join nodes (same pair)
+- [x] `forkJoinTopology` prop piped from Canvas → Modal → DetailPanel
 
-#### Task 8c.4: Tests (~2h)
-- [ ] Unit tests for fork/join detection algorithm
-- [ ] Unit tests for branch comparison calculations
-- [ ] Unit tests for swim-lane class application
-- [ ] E2E test for parallel visualization
+#### Task 8c.4: Tests ✅
+- [x] 31 unit tests for fork/join detection (topology, stats, bounds, edge cases)
+- [x] 100% line coverage, 97.63% statement coverage on `forkJoinDetection.ts`
+- [x] 6 unit tests for branch comparison in detail panel
+- [x] 5 Playwright E2E tests for parallel visualization
+
+### Bugs Found & Fixed During Implementation
+
+- **Pre-existing ESLint error**: `totalNodes` unused variable in `WorkflowResultsExplorerModal.tsx` — removed redundant declaration.
+
+### Files Modified
+
+| File | Change |
+|------|--------|
+| `src/features/results/utils/forkJoinDetection.ts` | **NEW** — topology detection, branch stats, bounds, color palette |
+| `src/features/results/utils/forkJoinDetection.test.ts` | **NEW** — 31 unit tests |
+| `src/features/results/components/WorkflowExecutionCanvas.tsx` | Added `SwimLaneOverlay`, topology detection, `onForkJoinDetected` prop |
+| `src/features/results/components/ResultsExplorerDetailPanel.tsx` | Added `BranchComparisonSection`, `forkJoinTopology` prop |
+| `src/features/results/components/WorkflowResultsExplorerModal.tsx` | Piped topology state from Canvas to DetailPanel |
+| `src/features/results/components/ResultsExplorerDetailPanel.test.tsx` | 6 new branch comparison tests |
+| `src/styles/results-explorer.css` | Swim-lane and branch comparison CSS |
+| `e2e/parallel-visualization.spec.ts` | **NEW** — 5 E2E tests |
 
 ### Success Criteria
 
-- [ ] Fork/Join branches visually grouped with colored lanes
-- [ ] Critical path branch highlighted
-- [ ] Branch comparison table in detail panel
-- [ ] Works with nested fork/join
-- [ ] >90% unit test coverage
+- [x] Fork/Join branches visually grouped with colored lanes ✅
+- [x] Critical path branch highlighted ✅
+- [x] Branch comparison table in detail panel ✅
+- [x] Works with nested fork/join ✅
+- [x] >90% unit test coverage ✅ (100% lines, 97.63% statements)
+- [x] 5 Playwright E2E tests passing ✅
 
 ---
 
@@ -294,3 +319,4 @@ Add **swim-lane grouping** for fork/join branches on the ReactFlow canvas, plus 
 | 2026-05-08 | AI Assistant | Expanded 8a with detailed 9-step implementation plan, data model, file structure; decided on pure SVG (no external lib) |
 | 2026-05-08 | AI Assistant | Completed 8a Steps 1–2 + 4–9: core timeline component, layout engine, CSS, 49 tests. Only Step 3 (view mode toggle) remains. |
 | 2026-05-08 | AI Assistant | Completed 8a Step 3: view mode toggle, collapsible detail panel, topological node ordering, responsive layout, time axis polish. 56 tests, all passing. 8a is fully complete. |
+| 2026-05-09 | AI Assistant | Completed 8c: Parallel Execution Visualization — swim-lane overlay, branch comparison table, topology detection. 31+6 unit tests (100% line coverage), 5 E2E tests. |
