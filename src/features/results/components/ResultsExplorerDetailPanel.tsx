@@ -231,10 +231,22 @@ function BranchComparisonSection({ nodeId, nodeType, topology, iterations }: Bra
     );
   }, [topology.pairs, nodeId, nodeType]);
 
+  const nodeLabelMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const iter of iterations) {
+      for (const ev of iter.events) {
+        if (ev.nodeLabel && !map.has(ev.nodeId)) {
+          map.set(ev.nodeId, ev.nodeLabel);
+        }
+      }
+    }
+    return map;
+  }, [iterations]);
+
   const branchStats = useMemo(() => {
     if (!pair) return [];
-    return computeBranchStats(pair, iterations);
-  }, [pair, iterations]);
+    return computeBranchStats(pair, iterations, nodeLabelMap);
+  }, [pair, iterations, nodeLabelMap]);
 
   if (!pair || branchStats.length === 0) return null;
 

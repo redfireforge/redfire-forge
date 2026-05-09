@@ -3,6 +3,7 @@ import {
   detectForkJoinTopology,
   computeBranchStats,
   computeBranchBounds,
+  buildBranchLabel,
   BRANCH_COLORS,
   BRANCH_BORDER_COLORS,
   BRANCH_LABELS,
@@ -480,10 +481,17 @@ describe('computeBranchStats', () => {
     expect(stats[0].passRate).toBe(100);
   });
 
-  it('uses correct branch labels', () => {
+  it('uses fallback branch labels when no label map provided', () => {
     const stats = computeBranchStats(pair, []);
     expect(stats[0].label).toBe('Branch A');
     expect(stats[1].label).toBe('Branch B');
+  });
+
+  it('uses node labels when label map is provided', () => {
+    const labelMap = new Map([['a1', 'Get Users'], ['a2', 'Process'], ['b1', 'Get Posts']]);
+    const stats = computeBranchStats(pair, [], labelMap);
+    expect(stats[0].label).toBe('Get Users → Process');
+    expect(stats[1].label).toBe('Get Posts');
   });
 
   it('tracks node count per branch', () => {
@@ -552,6 +560,40 @@ describe('computeBranchBounds', () => {
     expect(bounds).not.toBeNull();
     expect(bounds!.x).toBe(-20);
     expect(bounds!.y).toBe(-20);
+  });
+});
+
+// ── buildBranchLabel ──
+
+describe('buildBranchLabel', () => {
+  it('returns fallback when no label map', () => {
+    expect(buildBranchLabel(0, ['a', 'b'])).toBe('Branch A');
+    expect(buildBranchLabel(1, ['c'])).toBe('Branch B');
+  });
+
+  it('returns single node label for one-node branch', () => {
+    const map = new Map([['a', 'Get Users']]);
+    expect(buildBranchLabel(0, ['a'], map)).toBe('Get Users');
+  });
+
+  it('returns "first → last" for two-node branch', () => {
+    const map = new Map([['a', 'Get Users'], ['b', 'Process']]);
+    expect(buildBranchLabel(0, ['a', 'b'], map)).toBe('Get Users → Process');
+  });
+
+  it('returns "first → … → last" for three+ node branch', () => {
+    const map = new Map([['a', 'A'], ['b', 'B'], ['c', 'C']]);
+    expect(buildBranchLabel(0, ['a', 'b', 'c'], map)).toBe('A → … → C');
+  });
+
+  it('returns fallback when labels not found in map', () => {
+    const map = new Map<string, string>();
+    expect(buildBranchLabel(2, ['x', 'y'], map)).toBe('Branch C');
+  });
+
+  it('returns fallback for empty node list', () => {
+    const map = new Map([['a', 'A']]);
+    expect(buildBranchLabel(0, [], map)).toBe('Branch A');
   });
 });
 
