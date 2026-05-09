@@ -679,8 +679,7 @@ export default function WorkflowExecutionCanvas({
     const lanes: SwimLaneBound[] = [];
 
     for (const pair of forkJoinTopology.pairs) {
-      let maxAvgDuration = -1;
-      let criticalBranchIdx = 0;
+      const branchAvgs: number[] = [];
 
       for (let i = 0; i < pair.branches.length; i++) {
         const branchNodeIds = new Set(pair.branches[i]);
@@ -693,10 +692,17 @@ export default function WorkflowExecutionCanvas({
             totalExec++;
           }
         }
-        const avg = totalExec > 0 ? totalDuration / trace.totalIterations : 0;
-        if (avg > maxAvgDuration) {
-          maxAvgDuration = avg;
-          criticalBranchIdx = i;
+        branchAvgs.push(totalExec > 0 ? totalDuration / trace.totalIterations : 0);
+      }
+
+      // Only mark critical path when meaningfully slower (same threshold as computeBranchStats)
+      let criticalBranchIdx = -1;
+      if (branchAvgs.length >= 2) {
+        const sorted = [...branchAvgs].map((v, i) => ({ v, i })).sort((a, b) => b.v - a.v);
+        const absDiff = sorted[0].v - sorted[1].v;
+        const relDiff = sorted[1].v > 0 ? absDiff / sorted[1].v : (sorted[0].v > 0 ? 1 : 0);
+        if (absDiff >= 5 || relDiff >= 0.1) {
+          criticalBranchIdx = sorted[0].i;
         }
       }
 
