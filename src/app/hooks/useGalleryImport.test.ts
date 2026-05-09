@@ -16,6 +16,8 @@ import * as storage from '../../shared/utils/storage';
 import { useGalleryImport } from './useGalleryImport';
 import type { GalleryEntry, GalleryDomain } from '../../data/galleries/types';
 import type { Environment, Microservice, RequestCollection } from '../../shared/types';
+import { LOADED_SENTINEL } from '../../features/gallery/GalleryPage';
+import type { Workflow } from '../../features/workflow/types/workflow';
 
 function makeDeps(overrides = {}) {
   return {
@@ -28,6 +30,8 @@ function makeDeps(overrides = {}) {
     featureGroups: [],
     environments: [],
     microservices: [],
+    previewWorkflow: null as Workflow | null,
+    workflows: [] as Workflow[],
     setActiveTab: vi.fn(),
     setPreviewRequest: vi.fn(),
     setPreviewWorkflow: vi.fn(),
@@ -134,6 +138,40 @@ describe('useGalleryImport', () => {
       });
       const { result } = renderHook(() => useGalleryImport(deps));
       expect(result.current.importedSamples).toEqual({});
+    });
+
+    it('includes currently-previewed workflow id with LOADED_SENTINEL', () => {
+      const deps = makeDeps({
+        previewWorkflow: { id: 'sample-workflow-parallel', name: 'WF', nodes: [], edges: [], variables: {}, createdAt: 0, updatedAt: 0 } as Workflow,
+      });
+      const { result } = renderHook(() => useGalleryImport(deps));
+      expect(result.current.importedSamples['sample-workflow-parallel']).toBe(LOADED_SENTINEL);
+    });
+
+    it('does not add a workflow entry when previewWorkflow is null', () => {
+      const deps = makeDeps({ previewWorkflow: null });
+      const { result } = renderHook(() => useGalleryImport(deps));
+      expect(Object.keys(result.current.importedSamples)).toHaveLength(0);
+    });
+
+    it('tracks saved workflows that have a gallerySampleId', () => {
+      const deps = makeDeps({
+        workflows: [
+          { id: 'wf-saved', name: 'Saved WF', gallerySampleId: 'sample-workflow-parallel', nodes: [], edges: [], variables: {}, createdAt: 0, updatedAt: 0 } as Workflow,
+        ],
+      });
+      const { result } = renderHook(() => useGalleryImport(deps));
+      expect(result.current.importedSamples['sample-workflow-parallel']).toBe(LOADED_SENTINEL);
+    });
+
+    it('does not track saved workflows without gallerySampleId', () => {
+      const deps = makeDeps({
+        workflows: [
+          { id: 'wf-manual', name: 'Manual WF', nodes: [], edges: [], variables: {}, createdAt: 0, updatedAt: 0 } as Workflow,
+        ],
+      });
+      const { result } = renderHook(() => useGalleryImport(deps));
+      expect(Object.keys(result.current.importedSamples)).toHaveLength(0);
     });
   });
 

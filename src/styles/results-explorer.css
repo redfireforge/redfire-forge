@@ -2865,18 +2865,15 @@
 }
 
 .swim-lane-label {
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  opacity: 0.85;
   pointer-events: none;
 }
 
 .swim-lane-critical-badge {
-  background: rgba(245, 158, 11, 0.2);
-  color: #f59e0b;
+  background: rgba(0, 0, 0, 0.35);
+  color: #fde68a;
   padding: 1px 6px;
   border-radius: 3px;
-  font-weight: 600;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   vertical-align: middle;

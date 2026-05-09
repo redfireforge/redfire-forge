@@ -245,12 +245,15 @@ function SwimLaneOverlay({ lanes }: { lanes: SwimLaneBound[] }) {
       data-testid="swim-lane-overlay"
     >
       {lanes.map((lane) => {
-        const screenX = lane.x * zoom + x;
-        const screenY = lane.y * zoom + y;
-        const screenW = lane.width * zoom;
-        const screenH = lane.height * zoom;
         const colorIdx = lane.branchIndex % BRANCH_COLORS.length;
         const labelScale = Math.max(0.6, Math.min(1, zoom));
+        const tabH = 20 * zoom;
+        const screenX = lane.x * zoom + x;
+        const screenY = lane.y * zoom + y - tabH;
+        const screenW = lane.width * zoom;
+        const screenH = lane.height * zoom + tabH;
+        const borderColor = BRANCH_BORDER_COLORS[colorIdx];
+        const tabBg = borderColor.replace('0.4)', '0.85)');
 
         return (
           <div
@@ -262,33 +265,56 @@ function SwimLaneOverlay({ lanes }: { lanes: SwimLaneBound[] }) {
               top: screenY,
               width: screenW,
               height: screenH,
-              background: BRANCH_COLORS[colorIdx],
-              border: `1.5px ${lane.isCriticalPath ? 'solid' : 'dashed'} ${BRANCH_BORDER_COLORS[colorIdx]}`,
-              borderRadius: 8 * zoom,
             }}
             data-testid={`swim-lane-${lane.branchIndex}`}
           >
-            <span
+            {/* Tab label sitting on top edge */}
+            <div
               className="swim-lane-label"
               style={{
                 position: 'absolute',
-                top: 4 * zoom,
-                left: 8 * zoom,
-                fontSize: `${11 * labelScale}px`,
-                color: BRANCH_BORDER_COLORS[colorIdx].replace('0.4)', '0.9)'),
-                fontWeight: lane.isCriticalPath ? 700 : 500,
-                letterSpacing: '0.03em',
+                top: 0,
+                left: 0,
+                height: tabH,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6 * labelScale,
+                padding: `0 ${8 * zoom}px`,
+                fontSize: `${10 * labelScale}px`,
+                fontWeight: 600,
+                color: '#fff',
+                background: tabBg,
+                borderRadius: `${6 * zoom}px ${6 * zoom}px 0 0`,
+                letterSpacing: '0.04em',
+                textTransform: 'uppercase',
                 userSelect: 'none',
                 whiteSpace: 'nowrap',
+                maxWidth: screenW,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
               }}
             >
-              {lane.label}
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{lane.label}</span>
               {lane.isCriticalPath && (
-                <span className="swim-lane-critical-badge" style={{ marginLeft: 6 * labelScale, fontSize: `${9 * labelScale}px` }}>
+                <span className="swim-lane-critical-badge" style={{ fontSize: `${9 * labelScale}px`, flexShrink: 0 }}>
                   ⏱ Critical Path
                 </span>
               )}
-            </span>
+            </div>
+            {/* Body area */}
+            <div
+              style={{
+                position: 'absolute',
+                top: tabH,
+                left: 0,
+                width: '100%',
+                height: screenH - tabH,
+                background: BRANCH_COLORS[colorIdx],
+                border: `2px ${lane.isCriticalPath ? 'solid' : 'dashed'} ${borderColor}`,
+                borderTop: 'none',
+                borderRadius: `0 ${6 * zoom}px ${6 * zoom}px ${6 * zoom}px`,
+              }}
+            />
           </div>
         );
       })}

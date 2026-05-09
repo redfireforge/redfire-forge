@@ -1153,6 +1153,7 @@ describe('WorkflowRunner', () => {
         projectName: 'Perf: Simple POST → GET',
       }),
       expect.any(Object),
+      expect.any(Function),
     );
   });
 });
