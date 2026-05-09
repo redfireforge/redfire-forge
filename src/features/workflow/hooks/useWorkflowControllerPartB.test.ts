@@ -1,0 +1,377 @@
+/**
+ * @vitest-environment jsdom
+ */
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { renderHook, act } from '@testing-library/react';
+import { useWorkflowDesignerControllerPartB } from './useWorkflowDesignerControllerPartB';
+import type { WorkflowDesignerProps } from '../utils/workflowDesignerShellTypes';
+import type { Workflow } from '../types/workflow';
+import type { WorkflowRFNode } from '../utils/workflowNodeFactory';
+import type { WorkflowDesignerControllerPartA } from './useWorkflowDesignerControllerPartA';
+
+const { reactFlowInitStub, dragDropStub } = vi.hoisted(() => ({
+  reactFlowInitStub: vi.fn(() => vi.fn()),
+  dragDropStub: vi.fn(() => ({
+    isDragOver: false,
+    dropTargetEdgeId: null,
+    canvasAreaRef: { current: null },
+    handleCanvasDragOver: vi.fn(),
+    handleCanvasDragLeave: vi.fn(),
+    handleCanvasDrop: vi.fn(),
+  })),
+}));
+
+vi.mock('./useWorkflowPreviewReactFlowInit', () => ({
+  useWorkflowPreviewReactFlowInit: (...args: unknown[]) => reactFlowInitStub(...args),
+}));
+
+vi.mock('./useWorkflowDragDrop', () => ({
+  useWorkflowDragDrop: (...args: unknown[]) => dragDropStub(...args),
+}));
+
+vi.mock('./useWorkflowNodeActions', () => ({
+  useWorkflowNodeActions: () => ({
+    addNodeToCanvas: vi.fn(),
+    handleAddNode: vi.fn(),
+    handleAddFromRequest: vi.fn(),
+    handleAddFromCatalog: vi.fn(),
+    handleUpdateNode: vi.fn(),
+    handleDeleteNode: vi.fn(),
+    handleExtractToSubWorkflow: vi.fn(),
+  }),
+}));
+
+vi.mock('./useWorkflowResolvers', () => ({
+  useWorkflowResolvers: () => ({
+    handleEnvSelect: vi.fn(),
+    resolveHttpBaseUrlForGraph: vi.fn(),
+    resolveHttpAuthForGraph: vi.fn(),
+  }),
+}));
+
+vi.mock('./useWorkflowExecution', () => ({
+  useWorkflowExecution: () => ({
+    isRunning: false,
+    setIsRunning: vi.fn(),
+    isDebugMode: false,
+    setIsDebugMode: vi.fn(),
+    debugControllerRef: { current: null },
+    abortRef: { current: null },
+    runProgress: null,
+    failedStepLabel: null,
+    lastQuickTestRequestUrl: null,
+    handleQuickTest: vi.fn(),
+    handleDebugQuickTest: vi.fn(),
+    handleDebugStep: vi.fn(),
+    handleDebugStop: vi.fn(),
+    handleResetRunStatus: vi.fn(),
+  }),
+}));
+
+vi.mock('./useWorkflowCanvasSync', () => ({
+  useWorkflowCanvasSync: vi.fn(),
+  useWorkflowVariableHints: () => ({
+    selectedNode: null,
+    conditionVariableHints: [],
+    httpVariableHints: [],
+  }),
+}));
+
+vi.mock('./useWorkflowDetailModal', () => ({
+  useWorkflowDetailModal: () => ({
+    detailModal: null,
+    setDetailModal: vi.fn(),
+    variableDetailDraft: null,
+    setVariableDetailDraft: vi.fn(),
+    configModalNodeId: null,
+    setConfigModalNodeId: vi.fn(),
+    extractionSampleJson: null,
+    setExtractionSampleJson: vi.fn(),
+    extractionFetching: false,
+    setExtractionFetching: vi.fn(),
+    extractionFetchError: null,
+    setExtractionFetchError: vi.fn(),
+    openStepDetail: vi.fn(),
+    openVariableDetail: vi.fn(),
+    openRunErrorDetail: vi.fn(),
+    openNodeConfig: vi.fn(),
+    handleApplyVariableDetail: vi.fn(),
+    stepDetailMeta: null,
+  }),
+}));
+
+vi.mock('./useWorkflowExtractionSample', () => ({
+  useWorkflowExtractionSample: () => ({
+    handleExtractionFetchSample: vi.fn(),
+  }),
+}));
+
+vi.mock('./useWorkflowNavigation', () => ({
+  useWorkflowNavigation: () => ({
+    navStack: [],
+    setNavStack: vi.fn(),
+    navigateToWorkflow: vi.fn(),
+    handleBreadcrumbNavigate: vi.fn(),
+  }),
+}));
+
+vi.mock('./useWorkflowDesignerInspectActions', () => ({
+  useWorkflowDesignerInspectActions: () => ({}),
+}));
+
+vi.mock('./useWorkflowEdgeOps', () => ({
+  useWorkflowEdgeOps: () => ({
+    onConnect: vi.fn(),
+    onReconnect: vi.fn(),
+  }),
+}));
+
+const wf = (): Workflow => ({
+  id: 'wf-b',
+  name: 'B',
+  schemaVersion: 6,
+  variables: {},
+  hostProfiles: [],
+  authProfiles: [],
+  services: [],
+  nodes: [],
+  edges: [],
+  createdAt: 0,
+  updatedAt: 0,
+});
+
+const httpNode: WorkflowRFNode = {
+  id: 'n1',
+  type: 'http',
+  position: { x: 0, y: 0 },
+  data: { label: 'API', scenario: {} as never, sourceType: 'requests', sourceId: 'x' },
+};
+
+const makeDesignerProps = (): WorkflowDesignerProps => ({
+  collections: [],
+  catalogEntries: [],
+  wfHook: {
+    workflows: [wf()],
+    selected: wf(),
+    create: vi.fn(),
+    update: vi.fn(),
+    select: vi.fn(),
+  },
+  environments: [],
+  microservices: [],
+  globalAuthProfiles: [],
+  selectedEnvId: 'e1',
+  selectedSvcId: 's1',
+  onEnvSelect: vi.fn(),
+  onSvcSelect: vi.fn(),
+  resolvedBaseUrl: 'http://localhost',
+  previewWorkflow: null,
+  onClearPreview: vi.fn(),
+  onUseAsTemplate: vi.fn(),
+});
+
+const makePartA = (): WorkflowDesignerControllerPartA => {
+  const w = wf();
+  return {
+    workflows: [w],
+    selectedWorkflow: w,
+    selected: w,
+    create: vi.fn(),
+    update: vi.fn(),
+    select: vi.fn(),
+    previewWorkflow: null,
+    onClearPreview: vi.fn(),
+    onUseAsTemplate: vi.fn(),
+    onRunInHarness: vi.fn(),
+    paletteWidth: 200,
+    startDrag: vi.fn(),
+    nodes: [httpNode],
+    setNodes: vi.fn(),
+    edges: [],
+    setEdges: vi.fn(),
+    onNodesChange: vi.fn(),
+    onEdgesChange: vi.fn(),
+    layoutVersion: 0,
+    setLayoutVersion: vi.fn(),
+    laidOutId: null,
+    setLaidOutId: vi.fn(),
+    nodesRef: { current: [httpNode] },
+    edgesRef: { current: [] },
+    selectedNodeId: 'n1',
+    setSelectedNodeId: vi.fn(),
+    showDefaultsModal: false,
+    setShowDefaultsModal: vi.fn(),
+    nodeStatuses: {},
+    setNodeStatuses: vi.fn(),
+    lastRunStatus: 'idle',
+    setLastRunStatus: vi.fn(),
+    lastRunTime: undefined,
+    setLastRunTime: vi.fn(),
+    lastRunError: null,
+    setLastRunError: vi.fn(),
+    runVariableSnapshot: null,
+    setRunVariableSnapshot: vi.fn(),
+    runHistory: [{ stepSummaries: [{ nodeId: 'n1', label: 's', state: 'pass' }] } as never],
+    pushRunHistory: vi.fn(),
+    restoreRunFromHistory: vi.fn(),
+    deleteRunHistoryEntry: vi.fn(),
+    clearRunHistory: vi.fn(),
+    consoleLines: [],
+    pushConsoleLine: vi.fn(),
+    clearConsole: vi.fn(),
+    consoleOpen: false,
+    consoleOpenRef: { current: false },
+    consoleRunBehavior: 'continue',
+    consoleRunBehaviorRef: { current: 'continue' },
+    setConsoleRunBehavior: vi.fn(),
+    handleToggleConsole: vi.fn(),
+    handleCloseConsole: vi.fn(),
+    consoleLinesRef: { current: [] },
+    nodeInitialVars: {},
+    setNodeInitialVars: vi.fn(),
+    nodeInitialVarsRef: { current: {} },
+    workflowVariables: { A: '1' },
+    setWorkflowVariables: vi.fn(),
+    workflowHostProfiles: [],
+    setWorkflowHostProfiles: vi.fn(),
+    workflowAuthProfiles: [],
+    setWorkflowAuthProfiles: vi.fn(),
+    workflowServices: [],
+    setWorkflowServices: vi.fn(),
+    workflowErrorConfig: undefined,
+    setWorkflowErrorConfig: vi.fn(),
+    serviceRegistryMode: 'closed',
+    setServiceRegistryMode: vi.fn(),
+    workflowVariablesRef: { current: {} },
+    activeRunHistoryId: null,
+    setActiveRunHistoryId: vi.fn(),
+    nodeCtxMenu: null,
+    setNodeCtxMenu: vi.fn(),
+    showMinimap: true,
+    setShowMinimap: vi.fn(),
+    nextNodeYRef: { current: 100 },
+    toast: { show: vi.fn(), dismiss: vi.fn() },
+    showShortcuts: false,
+    setShowShortcuts: vi.fn(),
+    showCommandPalette: false,
+    setShowCommandPalette: vi.fn(),
+    rfInstance: { fitView: vi.fn() } as never,
+    undoRedo: { takeSnapshot: vi.fn(), clear: vi.fn() },
+    handleQuickTestRef: { current: vi.fn() },
+    handleDebugQuickTestRef: { current: vi.fn() },
+    serializeNodes: (n) => n as never,
+    serializeEdges: (e) => e as never,
+    persistWorkflow: vi.fn(),
+    insertNodeAndPersist: vi.fn(),
+    saveAcknowledged: false,
+    handleCopyNode: vi.fn(),
+    handlePasteNode: vi.fn(),
+    handleDuplicateNode: vi.fn(),
+    handleUndoAction: vi.fn(),
+    handleRedoAction: vi.fn(),
+    handleSave: vi.fn(),
+    handleUpdateWorkflowVariables: vi.fn(),
+    versioning: { closeVersionPanel: vi.fn() } as WorkflowDesignerControllerPartA['versioning'] & { closeVersionPanel: ReturnType<typeof vi.fn> },
+    handleAutoLayout: vi.fn(),
+    clipboard: {} as never,
+  } as WorkflowDesignerControllerPartA;
+};
+
+describe('useWorkflowDesignerControllerPartB', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('creates a new workflow when handleNew receives a name', () => {
+    vi.stubGlobal('prompt', vi.fn(() => '  My Flow  '));
+    const props = makeDesignerProps();
+    const a = makePartA();
+    const { result } = renderHook(() => useWorkflowDesignerControllerPartB(props, a));
+
+    act(() => result.current.handleNew());
+
+    expect(a.create).toHaveBeenCalledWith('My Flow');
+    expect(props.onClearPreview).toHaveBeenCalled();
+    vi.unstubAllGlobals();
+  });
+
+  it('handleSelect clears preview and navigates', () => {
+    const props = makeDesignerProps();
+    const a = makePartA();
+    const { result } = renderHook(() => useWorkflowDesignerControllerPartB(props, a));
+
+    act(() => result.current.handleSelect('wf-b'));
+
+    expect(props.onClearPreview).toHaveBeenCalled();
+    expect(a.select).toHaveBeenCalledWith('wf-b');
+  });
+
+  it('handleNodeClick selects node and closes version panel', () => {
+    const props = makeDesignerProps();
+    const a = makePartA();
+    const { result } = renderHook(() => useWorkflowDesignerControllerPartB(props, a));
+
+    act(() => result.current.handleNodeClick({} as never, httpNode));
+
+    expect(a.setSelectedNodeId).toHaveBeenCalledWith('n1');
+    expect(a.versioning.closeVersionPanel).toHaveBeenCalled();
+    expect(a.setServiceRegistryMode).toHaveBeenCalled();
+  });
+
+  it('handlePaneClick clears selection and context menu', () => {
+    const props = makeDesignerProps();
+    const a = makePartA();
+    const { result } = renderHook(() => useWorkflowDesignerControllerPartB(props, a));
+
+    act(() => result.current.handlePaneClick());
+
+    expect(a.setSelectedNodeId).toHaveBeenCalledWith(null);
+    expect(a.setNodeCtxMenu).toHaveBeenCalledWith(null);
+  });
+
+  it('handleNodeContextMenu positions menu and selects node', () => {
+    const props = makeDesignerProps();
+    const a = makePartA();
+    const { result } = renderHook(() => useWorkflowDesignerControllerPartB(props, a));
+    const ev = { preventDefault: vi.fn(), stopPropagation: vi.fn(), clientX: 12, clientY: 34 } as unknown as React.MouseEvent;
+
+    act(() => result.current.handleNodeContextMenu(ev, httpNode));
+
+    expect(ev.preventDefault).toHaveBeenCalled();
+    expect(a.setSelectedNodeId).toHaveBeenCalledWith('n1');
+    expect(a.setNodeCtxMenu).toHaveBeenCalledWith({ x: 12, y: 34, nodeId: 'n1' });
+  });
+
+  it('handleServiceRegistryApply syncs labels and persists', () => {
+    const props = makeDesignerProps();
+    const a = makePartA();
+    const { result } = renderHook(() => useWorkflowDesignerControllerPartB(props, a));
+    const svc = [{ id: 'svc', label: 'API', baseUrlKey: '', authProfileId: '', microserviceId: '' } as never];
+
+    act(() => result.current.handleServiceRegistryApply(svc));
+
+    expect(a.setWorkflowServices).toHaveBeenCalledWith(svc);
+    expect(a.setNodes).toHaveBeenCalled();
+    expect(a.persistWorkflow).toHaveBeenCalled();
+  });
+
+  it('exposes drag/drop and react-flow init from delegated hooks', () => {
+    const props = makeDesignerProps();
+    const a = makePartA();
+    const { result } = renderHook(() => useWorkflowDesignerControllerPartB(props, a));
+
+    expect(dragDropStub).toHaveBeenCalled();
+    expect(reactFlowInitStub).toHaveBeenCalledWith(null, a.setLaidOutId);
+    expect(result.current.handleCanvasDragOver).toBeDefined();
+    expect(result.current.handleReactFlowInit).toBeDefined();
+  });
+
+  it('computes variableCount and latestStepSummaries', () => {
+    const props = makeDesignerProps();
+    const a = makePartA();
+    const { result } = renderHook(() => useWorkflowDesignerControllerPartB(props, a));
+
+    expect(result.current.latestStepSummaries.length).toBeGreaterThan(0);
+    expect(result.current.variableCount).toBeGreaterThanOrEqual(0);
+  });
+});
