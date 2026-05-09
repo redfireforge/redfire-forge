@@ -126,7 +126,16 @@ export const manualMetadata: ManualMetadata[] = [
   { manualPath: 'edge-traversal-percentages-guide.html', addedAt: date('2026-05-07') },
 
   // Results Explorer
-  { manualPath: 'workflow/runner/results-explorer-medium.html', addedAt: date('2026-05-08') },
+  { manualPath: 'workflow/runner/results-explorer-medium.html', addedAt: date('2026-05-08'), updatedAt: date('2026-05-09'), changeNote: 'Added Timeline view, sub-workflow drill-down, and parallel swim lanes sections' },
+
+  // Results Explorer — Timeline View
+  { manualPath: 'workflow/runner/results-explorer-timeline-medium.html', addedAt: date('2026-05-09') },
+
+  // Results Explorer — Sub-Workflow Drill-Down
+  { manualPath: 'workflow/runner/results-explorer-drilldown-medium.html', addedAt: date('2026-05-09') },
+
+  // Parallel Showcase (Swim Lanes & Critical Path)
+  { manualPath: 'workflow/api-patterns/parallel-showcase-medium.html', addedAt: date('2026-05-09') },
 ];
 
 /** Map of manualPath -> ManualMetadata for fast lookup */

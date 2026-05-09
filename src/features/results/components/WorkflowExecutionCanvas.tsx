@@ -19,6 +19,14 @@ import type { WorkflowExecutionTrace } from '../../../shared/types';
 import { nodeTypes } from '../../workflow/utils/workflowNodeFactory';
 import { identifyBottlenecks, getBottleneckNodeIds, type BottleneckInsight } from '../utils/bottleneckAnalysis';
 import { captureCanvasScreenshot, captureCanvasSvg } from '../utils/canvasScreenshot';
+import {
+  detectForkJoinTopology,
+  computeBranchBounds,
+  BRANCH_COLORS,
+  BRANCH_BORDER_COLORS,
+  buildBranchLabel,
+  type ForkJoinTopology,
+} from '../utils/forkJoinDetection';
 
 type ReplaySnapshotEdge = {
   id: string;
@@ -68,6 +76,8 @@ interface Props {
   onScreenshotReady?: (fn: CanvasScreenshotFn) => void;
   /** Called with an SVG capture function so the parent can trigger SVG export */
   onSvgReady?: (fn: CanvasSvgFn) => void;
+  /** Called when fork/join topology is detected, so parent can show branch comparison */
+  onForkJoinDetected?: (topology: ForkJoinTopology) => void;
 }
 
 const LAYOUT_STORAGE_PREFIX = 'replayLayout:';
@@ -208,6 +218,110 @@ function EdgePercentageOverlay({ badges }: { badges: EdgePercentageBadge[] }) {
   );
 }
 
+interface SwimLaneBound {
+  branchIndex: number;
+  label: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  isCriticalPath: boolean;
+}
+
+function SwimLaneOverlay({ lanes }: { lanes: SwimLaneBound[] }) {
+  const { x, y, zoom } = useViewport();
+  if (lanes.length === 0) return null;
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        width: '100%',
+        height: '100%',
+        pointerEvents: 'none',
+        overflow: 'hidden',
+      }}
+      data-testid="swim-lane-overlay"
+    >
+      {lanes.map((lane) => {
+        const colorIdx = lane.branchIndex % BRANCH_COLORS.length;
+        const labelScale = Math.max(0.6, Math.min(1, zoom));
+        const tabH = 20 * zoom;
+        const screenX = lane.x * zoom + x;
+        const screenY = lane.y * zoom + y - tabH;
+        const screenW = lane.width * zoom;
+        const screenH = lane.height * zoom + tabH;
+        const borderColor = BRANCH_BORDER_COLORS[colorIdx];
+        const tabBg = borderColor.replace('0.4)', '0.85)');
+
+        return (
+          <div
+            key={`lane-${lane.branchIndex}`}
+            className={`swim-lane${lane.isCriticalPath ? ' swim-lane-critical' : ''}`}
+            style={{
+              position: 'absolute',
+              left: screenX,
+              top: screenY,
+              width: screenW,
+              height: screenH,
+            }}
+            data-testid={`swim-lane-${lane.branchIndex}`}
+          >
+            {/* Tab label sitting on top edge */}
+            <div
+              className="swim-lane-label"
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                height: tabH,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6 * labelScale,
+                padding: `0 ${8 * zoom}px`,
+                fontSize: `${10 * labelScale}px`,
+                fontWeight: 600,
+                color: '#fff',
+                background: tabBg,
+                borderRadius: `${6 * zoom}px ${6 * zoom}px 0 0`,
+                letterSpacing: '0.04em',
+                textTransform: 'uppercase',
+                userSelect: 'none',
+                whiteSpace: 'nowrap',
+                maxWidth: screenW,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+            >
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{lane.label}</span>
+              {lane.isCriticalPath && (
+                <span className="swim-lane-critical-badge" style={{ fontSize: `${9 * labelScale}px`, flexShrink: 0 }}>
+                  ⏱ Critical Path
+                </span>
+              )}
+            </div>
+            {/* Body area */}
+            <div
+              style={{
+                position: 'absolute',
+                top: tabH,
+                left: 0,
+                width: '100%',
+                height: screenH - tabH,
+                background: BRANCH_COLORS[colorIdx],
+                border: `2px ${lane.isCriticalPath ? 'solid' : 'dashed'} ${borderColor}`,
+                borderTop: 'none',
+                borderRadius: `0 ${6 * zoom}px ${6 * zoom}px ${6 * zoom}px`,
+              }}
+            />
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 interface NodeExecutionState {
   state: 'pass' | 'fail' | 'skipped';
   avgDuration?: number;
@@ -231,6 +345,7 @@ export default function WorkflowExecutionCanvas({
   stateFilter = 'all',
   onScreenshotReady,
   onSvgReady,
+  onForkJoinDetected,
 }: Props) {
   const [layoutKey, setLayoutKey] = useState(0);
   const hasFittedAfterMeasure = useRef(false);
@@ -326,6 +441,27 @@ export default function WorkflowExecutionCanvas({
       };
     })
   );
+
+  // Reset nodes when trace changes (e.g. sub-workflow drill-down or navigating back)
+  const prevSnapshotRef = useRef(trace.workflowSnapshot.nodes);
+  useEffect(() => {
+    if (trace.workflowSnapshot.nodes !== prevSnapshotRef.current) {
+      prevSnapshotRef.current = trace.workflowSnapshot.nodes;
+      const layout = loadLayoutFromStorage(trace.workflowId);
+      setRfNodes(
+        (trace.workflowSnapshot.nodes as Node[]).map((node) => {
+          const saved = layout?.[node.id];
+          return {
+            ...node,
+            ...(saved ? { position: { x: saved.x, y: saved.y } } : {}),
+            draggable: true,
+            connectable: false,
+            selectable: true,
+          };
+        })
+      );
+    }
+  }, [trace.workflowId, trace.workflowSnapshot.nodes]);
 
   const handleSaveLayout = useCallback(() => {
     const positions: Record<string, { x: number; y: number }> = {};
@@ -562,6 +698,76 @@ export default function WorkflowExecutionCanvas({
     onSvgReady(captureFn);
   }, [onSvgReady, displayNodes]);
 
+  // Fork/join topology detection for swim lanes
+  const forkJoinTopology: ForkJoinTopology = useMemo(
+    () => detectForkJoinTopology(
+      trace.workflowSnapshot.nodes as Array<{ id: string; type?: string }>,
+      trace.workflowSnapshot.edges as Array<{ id: string; source: string; target: string }>,
+    ),
+    [trace.workflowSnapshot.nodes, trace.workflowSnapshot.edges],
+  );
+
+  useEffect(() => {
+    onForkJoinDetected?.(forkJoinTopology);
+  }, [forkJoinTopology, onForkJoinDetected]);
+
+  // Compute swim-lane bounds from node positions
+  const swimLanes: SwimLaneBound[] = useMemo(() => {
+    if (forkJoinTopology.pairs.length === 0) return [];
+
+    const nodePositions = new Map<string, { x: number; y: number }>();
+    const nodeLabelMap = new Map<string, string>();
+    for (const node of rfNodes) {
+      nodePositions.set(node.id, node.position);
+      const label = (node.data as Record<string, unknown>)?.label;
+      if (typeof label === 'string') nodeLabelMap.set(node.id, label);
+    }
+
+    const lanes: SwimLaneBound[] = [];
+
+    for (const pair of forkJoinTopology.pairs) {
+      const branchAvgs: number[] = [];
+
+      for (let i = 0; i < pair.branches.length; i++) {
+        const branchNodeIds = new Set(pair.branches[i]);
+        let totalDuration = 0;
+        let totalExec = 0;
+        for (const iter of trace.iterations) {
+          for (const ev of iter.events) {
+            if (!branchNodeIds.has(ev.nodeId)) continue;
+            totalDuration += ev.durationMs ?? 0;
+            totalExec++;
+          }
+        }
+        branchAvgs.push(totalExec > 0 ? totalDuration / trace.totalIterations : 0);
+      }
+
+      // Only mark critical path when meaningfully slower (same threshold as computeBranchStats)
+      let criticalBranchIdx = -1;
+      if (branchAvgs.length >= 2) {
+        const sorted = [...branchAvgs].map((v, i) => ({ v, i })).sort((a, b) => b.v - a.v);
+        const absDiff = sorted[0].v - sorted[1].v;
+        const relDiff = sorted[1].v > 0 ? absDiff / sorted[1].v : (sorted[0].v > 0 ? 1 : 0);
+        if (absDiff >= 5 || relDiff >= 0.1) {
+          criticalBranchIdx = sorted[0].i;
+        }
+      }
+
+      for (let i = 0; i < pair.branches.length; i++) {
+        const bounds = computeBranchBounds(pair.branches[i], nodePositions);
+        if (!bounds) continue;
+        lanes.push({
+          branchIndex: i,
+          label: buildBranchLabel(i, pair.branches[i], nodeLabelMap),
+          ...bounds,
+          isCriticalPath: i === criticalBranchIdx,
+        });
+      }
+    }
+
+    return lanes;
+  }, [forkJoinTopology, rfNodes, trace.iterations, trace.totalIterations]);
+
   const tooltipData = useMemo(() => {
     if (!hoveredNode) return null;
     const state = nodeStates.get(hoveredNode.id);
@@ -599,6 +805,7 @@ export default function WorkflowExecutionCanvas({
         maxZoom={2.0}
       >
         <Background />
+        <SwimLaneOverlay lanes={swimLanes} />
         <EdgePercentageOverlay badges={edgePctBadges} />
         {showMinimap && (
           <MiniMap

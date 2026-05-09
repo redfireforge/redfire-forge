@@ -25,19 +25,23 @@ const MIN_VISIBLE_BAR_PX = 14;
 const COLOR_PASS = '#22c55e';
 const COLOR_FAIL = '#ef4444';
 const COLOR_SKIPPED = '#64748b';
+const COLOR_SUB_PASS = '#818cf8';
 const COLOR_PASS_DIM = 'rgba(34, 197, 94, 0.4)';
 const COLOR_FAIL_DIM = 'rgba(239, 68, 68, 0.4)';
 const COLOR_SKIPPED_DIM = 'rgba(100, 116, 139, 0.4)';
+const COLOR_SUB_PASS_DIM = 'rgba(129, 140, 248, 0.4)';
 
-function barColor(state: 'pass' | 'fail' | 'skipped'): string {
+function barColor(state: 'pass' | 'fail' | 'skipped', nodeType?: string): string {
   if (state === 'fail') return COLOR_FAIL;
   if (state === 'skipped') return COLOR_SKIPPED;
+  if (nodeType === 'subWorkflow') return COLOR_SUB_PASS;
   return COLOR_PASS;
 }
 
-function barColorDim(state: 'pass' | 'fail' | 'skipped'): string {
+function barColorDim(state: 'pass' | 'fail' | 'skipped', nodeType?: string): string {
   if (state === 'fail') return COLOR_FAIL_DIM;
   if (state === 'skipped') return COLOR_SKIPPED_DIM;
+  if (nodeType === 'subWorkflow') return COLOR_SUB_PASS_DIM;
   return COLOR_PASS_DIM;
 }
 
@@ -46,6 +50,7 @@ interface Props {
   selectedIteration: number | undefined;
   selectedNodeId?: string;
   onNodeClick?: (nodeId: string) => void;
+  onDrillDown?: (childTrace: WorkflowExecutionTrace, parentNodeId: string) => void;
   searchQuery?: string;
   stateFilter?: 'all' | 'pass' | 'fail' | 'skipped';
 }
@@ -55,6 +60,7 @@ export default function ExecutionTimeline({
   selectedIteration,
   selectedNodeId,
   onNodeClick,
+  onDrillDown,
   searchQuery = '',
   stateFilter = 'all',
 }: Props) {
@@ -281,7 +287,7 @@ export default function ExecutionTimeline({
     const y = AXIS_HEIGHT + PADDING_TOP + rowIdx * ROW_HEIGHT;
     const isSelected = bar.nodeId === selectedNodeId;
 
-    const color = opacity < 1 ? barColorDim(bar.state) : barColor(bar.state);
+    const color = opacity < 1 ? barColorDim(bar.state, bar.nodeType) : barColor(bar.state, bar.nodeType);
 
     return (
       <rect
@@ -306,6 +312,54 @@ export default function ExecutionTimeline({
     );
   }, [msToX, nodeRowIndex, selectedNodeId, handleBarClick, handleBarMouseEnter, handleBarMouseLeave]);
 
+  const handleDrillDownClick = useCallback((bar: TimelineBar, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!onDrillDown || bar.nodeType !== 'subWorkflow') return;
+    const iter = currentIteration ?? trace.iterations[0];
+    if (!iter) return;
+    const ev = iter.events.find(ev => ev.nodeId === bar.nodeId);
+    const childTrace = ev?.details?.subWorkflowTrace;
+    if (childTrace) onDrillDown(childTrace, bar.nodeId);
+  }, [onDrillDown, currentIteration, trace.iterations]);
+
+  const renderDrillDownIcon = useCallback((bar: TimelineBar) => {
+    if (bar.nodeType !== 'subWorkflow' || !onDrillDown) return null;
+    const rowIdx = nodeRowIndex.get(bar.nodeId) ?? 0;
+    const x = msToX(bar.startMs);
+    const rawWidth = msToX(bar.startMs + bar.durationMs) - x;
+    const width = Math.max(rawWidth, MIN_VISIBLE_BAR_PX);
+    const y = AXIS_HEIGHT + PADDING_TOP + rowIdx * ROW_HEIGHT;
+    const iconSize = 14;
+    const iconX = x + width - iconSize - 3;
+    const iconY = y + (BAR_HEIGHT - iconSize) / 2;
+
+    return (
+      <g
+        key={`drill-${bar.nodeId}`}
+        className="timeline-drilldown-icon"
+        onClick={(e) => handleDrillDownClick(bar, e)}
+        style={{ cursor: 'pointer' }}
+        data-testid={`timeline-drilldown-${bar.nodeId}`}
+      >
+        <circle
+          cx={iconX + iconSize / 2}
+          cy={iconY + iconSize / 2}
+          r={iconSize / 2}
+          fill="rgba(255,255,255,0.85)"
+        />
+        <text
+          x={iconX + iconSize / 2}
+          y={iconY + iconSize / 2 + 1}
+          textAnchor="middle"
+          dominantBaseline="central"
+          fontSize="9"
+          fontWeight="700"
+          fill="#4f46e5"
+        >⤵</text>
+      </g>
+    );
+  }, [nodeRowIndex, msToX, onDrillDown, handleDrillDownClick]);
+
   if (bars.length === 0 && !isAggregate) {
     return (
       <div className="timeline-empty" data-testid="timeline-empty">
@@ -325,11 +379,13 @@ export default function ExecutionTimeline({
           const aggState = nodeAggregateState.get(bar.nodeId) ?? bar.state;
           const executed = aggState !== 'skipped';
 
-          // Universal rule: executed → green + bold + full; not executed → gray + normal + dim
-          const dotClass = executed ? 'pass' : 'skipped';
+          const isSubWorkflow = bar.nodeType === 'subWorkflow';
+          const dotClass = !executed ? 'skipped' : isSubWorkflow ? 'subworkflow' : 'pass';
           const bold = executed;
-          const labelOpacity = executed ? 1 : 0.3;
+          const baseOpacity = executed ? 1 : 0.3;
           const isMatched = filterActive && matchingNodeIds.has(bar.nodeId);
+          const searchActive = searchQuery.trim() !== '';
+          const labelOpacity = searchActive && !matchingNodeIds.has(bar.nodeId) ? 0.3 : baseOpacity;
 
           const classes = ['timeline-label-row'];
           if (bar.nodeId === selectedNodeId) classes.push('timeline-label-selected');
@@ -347,6 +403,7 @@ export default function ExecutionTimeline({
               <span className="timeline-label-text" title={bar.nodeLabel}>
                 {bar.nodeLabel}
               </span>
+              {isSubWorkflow && <span className="timeline-sub-badge">SUB</span>}
             </div>
           );
         })}
@@ -473,6 +530,9 @@ export default function ExecutionTimeline({
               )
             : bars.map(bar => renderBar(bar))
           }
+
+          {/* Drill-down icons on sub-workflow bars */}
+          {!isAggregate && bars.map(bar => renderDrillDownIcon(bar))}
         </svg>
       </div>
 

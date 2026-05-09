@@ -2752,6 +2752,28 @@
 .timeline-dot-pass { background: #22c55e; }
 .timeline-dot-fail { background: #ef4444; }
 .timeline-dot-skipped { background: #64748b; }
+.timeline-dot-subworkflow { background: #818cf8; }
+
+.timeline-sub-badge {
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: rgba(129, 140, 248, 0.18);
+  color: #818cf8;
+  letter-spacing: 0.5px;
+  flex-shrink: 0;
+  margin-left: 4px;
+}
+
+.timeline-drilldown-icon {
+  opacity: 0.7;
+  transition: opacity 0.15s;
+}
+.timeline-drilldown-icon:hover {
+  opacity: 1;
+}
 
 /* Chart area */
 .timeline-chart-scroll {
@@ -2851,6 +2873,116 @@
   pointer-events: none;
 }
 
+/* ── Swim Lane Overlay (Fork/Join Parallel Branches) ── */
+
+.swim-lane {
+  border-radius: 8px;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+  z-index: 0;
+}
+
+.swim-lane-critical {
+  z-index: 1;
+}
+
+.swim-lane-label {
+  pointer-events: none;
+}
+
+.swim-lane-critical-badge {
+  background: rgba(0, 0, 0, 0.35);
+  color: #fde68a;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  vertical-align: middle;
+}
+
+/* ── Branch Comparison Table (Fork/Join Detail Panel) ── */
+
+.branch-comparison-section {
+  margin-top: 16px;
+  padding: 12px;
+  background: rgba(30, 41, 59, 0.5);
+  border-radius: 8px;
+  border: 1px solid #334155;
+}
+
+.branch-comparison-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #e2e8f0;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.branch-comparison-count {
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: #94a3b8;
+  background: rgba(100, 116, 139, 0.2);
+  padding: 1px 8px;
+  border-radius: 10px;
+}
+
+.branch-comparison-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+
+.branch-comparison-table th {
+  text-align: left;
+  padding: 6px 8px;
+  color: #94a3b8;
+  font-weight: 500;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid #334155;
+}
+
+.branch-comparison-table td {
+  padding: 8px;
+  color: #e2e8f0;
+  border-bottom: 1px solid rgba(51, 65, 85, 0.5);
+  vertical-align: middle;
+}
+
+.branch-comparison-table tr:last-child td {
+  border-bottom: none;
+}
+
+.branch-row-critical {
+  background: rgba(245, 158, 11, 0.06);
+}
+
+.branch-color-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+.branch-critical-badge {
+  font-size: 0.68rem;
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.15);
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+
 /* No matches overlay */
 .timeline-no-matches {
   position: absolute;
@@ -2866,4 +2998,105 @@
   pointer-events: none;
   white-space: nowrap;
   letter-spacing: 0.02em;
+}
+
+/* ─── Sub-Workflow Breadcrumb ─────────────────────────────────────────────── */
+
+.sub-workflow-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 16px;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(99, 102, 241, 0.06));
+  border-bottom: 1px solid rgba(99, 102, 241, 0.2);
+  font-size: 0.82rem;
+  flex-shrink: 0;
+}
+
+.breadcrumb-sep {
+  color: #64748b;
+  margin: 0 4px;
+  font-weight: 300;
+}
+
+.breadcrumb-link {
+  background: none;
+  border: none;
+  color: #818cf8;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: inherit;
+  transition: background 0.15s, color 0.15s;
+}
+
+.breadcrumb-link:hover {
+  background: rgba(99, 102, 241, 0.15);
+  color: #a5b4fc;
+}
+
+.breadcrumb-current {
+  color: #e2e8f0;
+  font-weight: 600;
+  padding: 2px 6px;
+}
+
+/* ─── Sub-Workflow Drill-Down Button ──────────────────────────────────────── */
+
+.sub-workflow-drilldown-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 14px;
+  margin: 0;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(99, 102, 241, 0.08));
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  border-left: none;
+  border-right: none;
+  color: #c7d2fe;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  text-align: left;
+}
+
+.sub-workflow-drilldown-btn:hover {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.25), rgba(99, 102, 241, 0.12));
+  border-color: rgba(99, 102, 241, 0.4);
+  color: #e0e7ff;
+}
+
+.sub-workflow-drilldown-btn .drilldown-icon {
+  font-size: 1.1em;
+  color: #818cf8;
+}
+
+.sub-workflow-drilldown-btn .drilldown-meta {
+  margin-left: auto;
+  color: #94a3b8;
+  font-size: 0.8em;
+  font-weight: 400;
+}
+
+.sub-workflow-no-trace {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: rgba(100, 116, 139, 0.08);
+  border-bottom: 1px solid #334155;
+  color: #64748b;
+  font-size: 0.82rem;
+  font-style: italic;
+}
+
+.sub-workflow-no-trace .drilldown-icon {
+  color: #475569;
+}
+
+.sub-workflow-no-trace .drilldown-meta {
+  color: #475569;
+  font-size: 0.9em;
 }

@@ -34,7 +34,15 @@ vi.mock('./platform', () => ({
 }));
 
 import { isTauri } from './platform';
-import { buildExportFilename, saveFile, saveJsonFile, saveCsvFile, openJsonFile } from './fileSaver';
+import {
+  buildExportFilename,
+  saveFile,
+  saveJsonFile,
+  saveCsvFile,
+  savePngFile,
+  saveSvgFile,
+  openJsonFile,
+} from './fileSaver';
 
 describe('buildExportFilename', () => {
   it('builds filename with all segments', () => {
@@ -389,6 +397,51 @@ describe('saveFile (Tauri)', () => {
   });
 });
 
+describe('savePngFile and saveSvgFile (browser via anchor fallback)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    URL.createObjectURL = vi.fn(() => 'blob:png-test');
+    URL.revokeObjectURL = vi.fn();
+    vi.spyOn(document.body, 'appendChild').mockImplementation(vi.fn());
+    vi.spyOn(document.body, 'removeChild').mockImplementation(vi.fn());
+    vi.spyOn(document, 'createElement').mockReturnValue({
+      click: vi.fn(),
+      href: '',
+      download: '',
+    } as unknown as HTMLAnchorElement);
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        blob: () => Promise.resolve(new Blob(['\x89PNG'], { type: 'image/png' })),
+      }),
+    );
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('fetches PNG data URLs before saving through the blob path', async () => {
+    await savePngFile('data:image/png;base64,AA==', 'chart.png');
+
+    expect(vi.mocked(fetch)).toHaveBeenCalledWith('data:image/png;base64,AA==');
+    expect(URL.createObjectURL).toHaveBeenCalled();
+  });
+
+  it('decodes svg+xml comma payloads before creating the blob', async () => {
+    const payload = encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg"/>');
+    await saveSvgFile('data:image/svg+xml;charset=utf-8,' + payload, 'chart.svg');
+
+    expect(URL.createObjectURL).toHaveBeenCalled();
+  });
+
+  it('treats bare svg MIME prefixes as empty payloads', async () => {
+    await saveSvgFile('data:image/svg+xml', 'empty.svg');
+
+    expect(URL.createObjectURL).toHaveBeenCalled();
+  });
+});
+
 describe('saveJsonFile and saveCsvFile (Tauri)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -487,6 +540,31 @@ describe('openJsonFile (Tauri)', () => {
       expect.objectContaining({
         defaultPath: undefined,
       }),
+    );
+  });
+});
+
+describe('getDefaultExportDir failure paths (Tauri)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(isTauri).mockReturnValue(true);
+    tauriMocks.documentDir.mockResolvedValue('/Users/docs');
+    tauriMocks.save.mockResolvedValue('/out/chosen.txt');
+    tauriMocks.writeTextFile.mockResolvedValue(undefined);
+  });
+
+  afterEach(() => {
+    vi.mocked(isTauri).mockReturnValue(false);
+  });
+
+  it('falls back to filename-only defaultPath when exists() throws', async () => {
+    tauriMocks.exists.mockRejectedValueOnce(new Error('perm'));
+
+    const blob = new Blob(['x'], { type: 'text/plain' });
+    await saveFile(blob, { filename: 'fallback.txt', mimeType: 'text/plain' });
+
+    expect(tauriMocks.save).toHaveBeenCalledWith(
+      expect.objectContaining({ defaultPath: 'fallback.txt' }),
     );
   });
 });
