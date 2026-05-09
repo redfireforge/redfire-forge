@@ -127,6 +127,9 @@ export const manualMetadata: ManualMetadata[] = [
 
   // Results Explorer
   { manualPath: 'workflow/runner/results-explorer-medium.html', addedAt: date('2026-05-08') },
+
+  // Parallel Showcase (Swim Lanes & Critical Path)
+  { manualPath: 'workflow/api-patterns/parallel-showcase-medium.html', addedAt: date('2026-05-09') },
 ];
 
 /** Map of manualPath -> ManualMetadata for fast lookup */

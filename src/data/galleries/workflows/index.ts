@@ -7,6 +7,7 @@ import { createSubWorkflowOrchestrator, createSubWorkflowChild, createOrderPipel
 import { createPaymentCallbackEasyWorkflow, createApprovalWorkflowMediumWorkflow, createParallelPaymentAdvancedWorkflow, createPaymentCallbackSimulatorWorkflow, createApprovalSimulatorWorkflow, createParallelPaymentSimulatorWorkflow } from './asyncCorrelation';
 import { createPokemonEvolutionWorkflow, createCountryCurrencyWorkflow, createProductCartWorkflow, createBookSearchWorkflow, createMultiApiDashboardWorkflow } from './diverseApis';
 import { createPerfSimpleWorkflow, createPerfBranchingWorkflow, createPerfParallelWorkflow, createPerfEdgePercentageWorkflow, createPerfBottleneckDemoWorkflow } from './performance';
+import { createParallelShowcaseWorkflow } from './parallelShowcase';
 import type { SampleWorkflowEntry } from './types';
 
 // Re-export all factory functions
@@ -17,6 +18,7 @@ export { createSubWorkflowOrchestrator, createSubWorkflowChild, createOrderPipel
 export { createPaymentCallbackEasyWorkflow, createApprovalWorkflowMediumWorkflow, createParallelPaymentAdvancedWorkflow, createPaymentCallbackSimulatorWorkflow, createApprovalSimulatorWorkflow, createParallelPaymentSimulatorWorkflow } from './asyncCorrelation';
 export { createPokemonEvolutionWorkflow, createCountryCurrencyWorkflow, createProductCartWorkflow, createBookSearchWorkflow, createMultiApiDashboardWorkflow } from './diverseApis';
 export { createPerfSimpleWorkflow, createPerfBranchingWorkflow, createPerfParallelWorkflow, createPerfEdgePercentageWorkflow } from './performance';
+export { createParallelShowcaseWorkflow } from './parallelShowcase';
 
 /** All available sample workflows. */
 export const sampleWorkflowCatalog: SampleWorkflowEntry[] = [
@@ -559,5 +561,20 @@ export const sampleWorkflowCatalog: SampleWorkflowEntry[] = [
     primaryNodes: ['Condition', 'SetVariable'],
     secondaryNodes: ['HTTP'],
     factory: createPerfEdgePercentageWorkflow,
+  },
+  {
+    id: 'sample-workflow-parallel-showcase',
+    name: 'Sample: Parallel Showcase (3 Branches)',
+    description: 'Three parallel branches with different depths — demonstrates swim-lane grouping, critical path detection, and branch comparison table in the Results Explorer.',
+    domain: 'workflows',
+    tags: ['fork-join', 'parallel', 'swim-lane', 'critical-path', 'results-explorer', 'tutorial'],
+    liveApis: ['jsonplaceholder.typicode.com'],
+    category: 'api-patterns',
+    difficulty: 'medium',
+    icon: '🏊',
+    nodeCount: 11,
+    primaryNodes: ['Fork', 'Join'],
+    secondaryNodes: ['HTTP'],
+    factory: createParallelShowcaseWorkflow,
   },
 ];

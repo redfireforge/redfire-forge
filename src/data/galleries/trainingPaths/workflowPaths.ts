@@ -102,6 +102,13 @@ export const workflowPaths: TrainingPath[] = [
             sampleId: 'sample-workflow-parallel',
             manualPath: 'workflow/api-patterns/parallel-api-calls-easy.html',
           },
+          {
+            title: 'Parallel Showcase: Swim Lanes & Critical Path',
+            description: 'Three uneven parallel branches demonstrating swim-lane grouping, critical path detection, and branch comparison in the Results Explorer.',
+            difficulty: 'medium',
+            sampleId: 'sample-workflow-parallel-showcase',
+            manualPath: 'workflow/api-patterns/parallel-showcase-medium.html',
+          },
         ],
       },
       {
