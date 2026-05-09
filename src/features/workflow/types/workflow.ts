@@ -470,6 +470,8 @@ export interface Workflow {
   versions?: WorkflowVersion[];
   /** Last environment selected when this workflow was active. */
   lastSelectedEnvId?: string;
+  /** Gallery catalog entry ID this workflow was imported from (via "Use as Template"). */
+  gallerySampleId?: string;
   createdAt: number;
   updatedAt: number;
 }
