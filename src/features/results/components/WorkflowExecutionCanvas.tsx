@@ -24,7 +24,7 @@ import {
   computeBranchBounds,
   BRANCH_COLORS,
   BRANCH_BORDER_COLORS,
-  BRANCH_LABELS,
+  buildBranchLabel,
   type ForkJoinTopology,
 } from '../utils/forkJoinDetection';
 
@@ -669,14 +669,16 @@ export default function WorkflowExecutionCanvas({
     if (forkJoinTopology.pairs.length === 0) return [];
 
     const nodePositions = new Map<string, { x: number; y: number }>();
+    const nodeLabelMap = new Map<string, string>();
     for (const node of rfNodes) {
       nodePositions.set(node.id, node.position);
+      const label = (node.data as Record<string, unknown>)?.label;
+      if (typeof label === 'string') nodeLabelMap.set(node.id, label);
     }
 
     const lanes: SwimLaneBound[] = [];
 
     for (const pair of forkJoinTopology.pairs) {
-      // Find critical path: branch with longest total avg duration
       let maxAvgDuration = -1;
       let criticalBranchIdx = 0;
 
@@ -703,7 +705,7 @@ export default function WorkflowExecutionCanvas({
         if (!bounds) continue;
         lanes.push({
           branchIndex: i,
-          label: BRANCH_LABELS[i % BRANCH_LABELS.length],
+          label: buildBranchLabel(i, pair.branches[i], nodeLabelMap),
           ...bounds,
           isCriticalPath: i === criticalBranchIdx,
         });

@@ -136,15 +136,15 @@ test.describe('Parallel Execution Visualization (Phase 8c)', () => {
     await page.waitForLoadState('domcontentloaded');
   });
 
-  test('swim lanes are rendered for fork/join branches', async ({ page }) => {
+  test('swim lanes are rendered with node names as labels', async ({ page }) => {
     await openResultsExplorer(page);
 
-    // Swim lane labels should be visible — search for "Branch A" and "Branch B" text
-    const branchA = page.locator('.swim-lane-label').filter({ hasText: 'Branch A' });
-    await expect(branchA).toBeVisible({ timeout: 5000 });
+    // Swim lane labels should show actual node names, not generic "Branch A/B"
+    const laneA = page.locator('.swim-lane-label').filter({ hasText: 'Branch A: Users' });
+    await expect(laneA).toBeVisible({ timeout: 5000 });
 
-    const branchB = page.locator('.swim-lane-label').filter({ hasText: 'Branch B' });
-    await expect(branchB).toBeVisible({ timeout: 5000 });
+    const laneB = page.locator('.swim-lane-label').filter({ hasText: 'Branch B: Posts' });
+    await expect(laneB).toBeVisible({ timeout: 5000 });
 
     // Should have 2 swim lanes
     const lanes = page.locator('.swim-lane');
