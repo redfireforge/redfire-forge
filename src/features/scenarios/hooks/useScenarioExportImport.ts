@@ -157,9 +157,11 @@ export function useScenarioExportImport({
 
     if (fgId.startsWith('__new_fg__:')) {
       const fgName = fgId.slice('__new_fg__:'.length);
+      const importedKind = tests.some(t => t.dataSource || t.sharedDataSourceId) ? 'parameterized' as const : 'standard' as const;
       const newScenario: TestScenario = {
         id: uuidv4(),
         name: scenName || 'Imported Tests',
+        kind: importedKind,
         tests,
       };
       const newFg: FeatureGroup = {
@@ -176,9 +178,11 @@ export function useScenarioExportImport({
       if (fg.id !== fgId) return fg;
 
       if (scenName) {
+        const importKind = tests.some(t => t.dataSource || t.sharedDataSourceId) ? 'parameterized' as const : 'standard' as const;
         const newScenario: TestScenario = {
           id: uuidv4(),
           name: scenName,
+          kind: importKind,
           tests,
         };
         return { ...fg, scenarios: [...fg.scenarios, newScenario] };

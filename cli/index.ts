@@ -126,7 +126,7 @@ program
       });
 
       if (!opts.quiet) {
-        console.log(`  Mode:    ${config.executionMode} (C:${config.concurrency} T:${config.totalTransactions})`);
+        console.log(`  Mode:    ${config.executionMode} (C:${config.concurrency} I:${config.iterations})`);
         const paramTests = scenarios.filter(s => s.dataSource && s.dataSource.rows.length > 0);
         if (paramTests.length > 0) {
           const totalRows = paramTests.reduce((n, s) => n + (s.dataSource?.rows.length ?? 0), 0);
@@ -324,7 +324,7 @@ program
       if (opts.output) {
         const report = buildJsonReport(results, summary, {
           concurrency,
-          totalTransactions: iterations,
+          iterations,
           executionMode: 'workflow',
           workflowId: workflow.id,
           workflowName: workflow.name,

@@ -11,7 +11,7 @@ export type HostMode = 'hardcoded' | 'settings' | 'custom';
 
 export interface RunnerConfig {
   concurrency: number;
-  totalTransactions: number;
+  iterations: number;
   selectedScenarios: string[];
   weights: Record<string, number>;
   skipValidation: boolean;
@@ -45,7 +45,7 @@ export const defaultLoadProfile: LoadProfileConfig = {
 export const defaultThinkTime: ThinkTimeConfig = { mode: 'none' };
 
 const defaultConfig: RunnerConfig = {
-  concurrency: 1, totalTransactions: 1, selectedScenarios: [], weights: {},
+  concurrency: 1, iterations: 1, selectedScenarios: [], weights: {},
   skipValidation: false, validationOverride: 'default', forceUnordered: false,
   hostMode: 'settings', customBaseUrl: '', executionMode: 'batch',
 };
@@ -53,8 +53,8 @@ const defaultConfig: RunnerConfig = {
 export interface UseRunnerConfigResult {
   concurrency: number;
   setConcurrency: React.Dispatch<React.SetStateAction<number>>;
-  totalTransactions: number;
-  setTotalTransactions: React.Dispatch<React.SetStateAction<number>>;
+  iterations: number;
+  setIterations: React.Dispatch<React.SetStateAction<number>>;
   selectedScenarios: Set<string>;
   setSelectedScenarios: React.Dispatch<React.SetStateAction<Set<string>>>;
   weights: Record<string, number>;
@@ -100,7 +100,7 @@ export interface UseRunnerConfigResult {
  */
 export function useRunnerConfig(configContextKey: string | undefined): UseRunnerConfigResult {
   const [concurrency, setConcurrency] = useState(defaultConfig.concurrency);
-  const [totalTransactions, setTotalTransactions] = useState(defaultConfig.totalTransactions);
+  const [iterations, setIterations] = useState(defaultConfig.iterations);
   const [selectedScenarios, setSelectedScenarios] = useState<Set<string>>(new Set());
   const [weights, setWeights] = useState<Record<string, number>>({});
   const [skipValidation, setSkipValidation] = useState(false);
@@ -128,7 +128,7 @@ export function useRunnerConfig(configContextKey: string | undefined): UseRunner
       if (raw) {
         const saved = raw as RunnerConfig;
         setConcurrency(saved.concurrency ?? defaultConfig.concurrency);
-        setTotalTransactions(saved.totalTransactions ?? defaultConfig.totalTransactions);
+        setIterations(saved.iterations ?? defaultConfig.iterations);
         setSelectedScenarios(new Set(saved.selectedScenarios ?? []));
         setWeights(saved.weights ?? {});
         setSkipValidation(saved.skipValidation ?? false);
@@ -149,7 +149,7 @@ export function useRunnerConfig(configContextKey: string | undefined): UseRunner
         setAutoReportFormat(saved.autoReportFormat ?? 'html');
       } else {
         setConcurrency(defaultConfig.concurrency);
-        setTotalTransactions(defaultConfig.totalTransactions);
+        setIterations(defaultConfig.iterations);
         setSelectedScenarios(new Set());
         setWeights({});
         setSkipValidation(defaultConfig.skipValidation);
@@ -178,7 +178,7 @@ export function useRunnerConfig(configContextKey: string | undefined): UseRunner
     if (!configLoaded) return;
     void saveRunnerConfig({
       concurrency,
-      totalTransactions,
+      iterations,
       selectedScenarios: Array.from(selectedScenarios),
       weights,
       skipValidation,
@@ -198,14 +198,14 @@ export function useRunnerConfig(configContextKey: string | undefined): UseRunner
       autoReport,
       autoReportFormat,
     }, configContextKey);
-  }, [configLoaded, configContextKey, concurrency, totalTransactions, selectedScenarios, weights,
+  }, [configLoaded, configContextKey, concurrency, iterations, selectedScenarios, weights,
     skipValidation, validationOverride, forceUnordered, hostMode, customBaseUrl, executionMode,
     loadProfile, thinkTime, timeoutSec, retryCount, retryDelayMs, errorPolicy, maxErrors,
     maxErrorRate, autoReport, autoReportFormat]);
 
   return {
     concurrency, setConcurrency,
-    totalTransactions, setTotalTransactions,
+    iterations, setIterations,
     selectedScenarios, setSelectedScenarios,
     weights, setWeights,
     skipValidation, setSkipValidation,
