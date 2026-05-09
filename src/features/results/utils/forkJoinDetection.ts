@@ -296,17 +296,20 @@ export function computeBranchStats(
     stats[i].passRate = totalExec > 0 ? Math.round((passCount / totalExec) * 10000) / 100 : 100;
   }
 
-  // Mark the critical path (slowest branch)
-  let maxDuration = -1;
-  let criticalIdx = 0;
-  for (let i = 0; i < stats.length; i++) {
-    if (stats[i].totalDurationMs > maxDuration) {
-      maxDuration = stats[i].totalDurationMs;
-      criticalIdx = i;
+  // Mark the critical path (slowest branch), but only when meaningfully slower.
+  // "Meaningful" = at least 10% slower than the next-slowest OR 5ms absolute gap.
+  if (stats.length >= 2) {
+    const sorted = [...stats].sort((a, b) => b.totalDurationMs - a.totalDurationMs);
+    const slowest = sorted[0];
+    const secondSlowest = sorted[1];
+    const absDiff = slowest.totalDurationMs - secondSlowest.totalDurationMs;
+    const relDiff = secondSlowest.totalDurationMs > 0
+      ? absDiff / secondSlowest.totalDurationMs
+      : (slowest.totalDurationMs > 0 ? 1 : 0);
+
+    if (absDiff >= 5 || relDiff >= 0.1) {
+      stats[slowest.branchIndex].isCriticalPath = true;
     }
-  }
-  if (stats.length > 0) {
-    stats[criticalIdx].isCriticalPath = true;
   }
 
   return stats;
