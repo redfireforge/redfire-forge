@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { migrateWorkflowSchema, migrateV1ToV2, migrateV2ToV3, migrateV3ToV4, migrateV4ToV5, migrateV5ToV6 } from './workflowMigrations';
-import type { Workflow, HttpNodeData, WorkflowNode, SubWorkflowNodeData, WorkflowNodeType, WorkflowNodeData } from '../types/workflow';
+import type { Workflow, HttpNodeData, WorkflowNode, SubWorkflowNodeData, WorkflowNodeType, WorkflowNodeData, WorkflowService, WorkflowHostProfile } from '../types/workflow';
 
 // Deterministic UUID for tests
 let uuidCounter = 0;
@@ -175,7 +175,7 @@ describe('migrateWorkflowSchema – additional edge cases', () => {
       schemaVersion: 5,
       services: [{
         id: 'svc1', name: 'Adhoc',
-        urlMode: 'adhoc' as any,
+        urlMode: 'adhoc',
         adhocUrl: 'https://adhoc.example.com',
         endpoints: [],
       }],
@@ -299,7 +299,7 @@ describe('migrateWorkflowSchema – additional edge cases', () => {
     const result = migrateWorkflowSchema(wf);
     // Same origin, should NOT split
     const httpNodes = result.nodes.filter(n => n.type === 'http');
-    const svcIds = new Set(httpNodes.map(n => (n.data as any).serviceId));
+    const svcIds = new Set(httpNodes.map(n => (n.data as HttpNodeData).serviceId));
     expect(svcIds.size).toBe(1);
   });
 
@@ -439,7 +439,7 @@ describe('migrateWorkflowSchema – additional edge cases', () => {
       schemaVersion: 5,
       services: [{
         id: 'svc-ad', name: 'Ad',
-        urlMode: 'adhoc' as any,
+        urlMode: 'adhoc',
         adhocUrl: '',
         endpoints: [],
       }],
@@ -544,7 +544,7 @@ describe('migrateWorkflowSchema – additional edge cases', () => {
         id: 'svc-d', name: 'D',
         auth: { type: 'bearer', token: 'x' },
         endpoints: [],
-      } as any],
+      } as unknown as WorkflowService],
     });
     const result = migrateWorkflowSchema(wf);
     const svc = result.services!.find(s => s.id === 'svc-d');
@@ -567,7 +567,7 @@ describe('migrateWorkflowSchema – additional edge cases', () => {
   it('v2 hostProfile uses numbered name when profile name omitted', () => {
     const wf = makeWorkflow({
       schemaVersion: 2,
-      hostProfiles: [{ id: 'hp1', name: undefined as unknown as string, hostBaseUrl: 'https://undef-name.example' } as any],
+      hostProfiles: [{ id: 'hp1', name: undefined as unknown as string, hostBaseUrl: 'https://undef-name.example' } as unknown as WorkflowHostProfile],
       authProfiles: [],
       nodes: [httpNode('n1', 'Same', { hostProfileId: 'hp1' })],
     });
@@ -584,7 +584,7 @@ describe('migrateWorkflowSchema – additional edge cases', () => {
         id: 'svc-ne', name: 'NoBase',
         urlMode: 'multi-env',
         endpoints: [],
-      } as any],
+      } as unknown as WorkflowService],
     });
     const result = migrateWorkflowSchema(wf);
     expect(result.services!.find(s => s.id === 'svc-ne')!.endpoints).toEqual([]);
@@ -598,7 +598,7 @@ describe('migrateWorkflowSchema – additional edge cases', () => {
         urlMode: 'multi-env',
         baseUrls: { empty: null as unknown as string, blank: '' },
         endpoints: [],
-      } as any],
+      } as unknown as WorkflowService],
     });
     const result = migrateWorkflowSchema(wf);
     expect(result.services!.find(s => s.id === 'svc-sk')!.endpoints).toEqual([]);
@@ -609,7 +609,7 @@ describe('migrateWorkflowSchema – additional edge cases', () => {
       schemaVersion: 5,
       services: [{
         id: 'svc-unk', name: 'U',
-        urlMode: 'other' as any,
+        urlMode: 'other' as unknown as WorkflowService['urlMode'],
         endpoints: [],
       }],
     });
@@ -624,9 +624,9 @@ describe('migrateWorkflowSchema – additional edge cases', () => {
         id: 'svc-nd',
         name: 'N',
         auth: { type: 'bearer', token: 'z' },
-        defaultAuth: null as any,
+        defaultAuth: null as unknown as WorkflowService['defaultAuth'],
         endpoints: [],
-      } as any],
+      } as unknown as WorkflowService],
     });
     const result = migrateWorkflowSchema(wf);
     const svc = result.services!.find(s => s.id === 'svc-nd');

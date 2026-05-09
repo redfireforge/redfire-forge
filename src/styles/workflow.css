@@ -6370,6 +6370,12 @@
 }
 
 /* ReactFlow Node Execution State Classes */
+.replay-node-pass,
+.replay-node-fail,
+.replay-node-skipped {
+  transition: border-color 0.3s ease, background 0.3s ease, box-shadow 0.3s ease, opacity 0.3s ease;
+}
+
 .replay-node-pass {
   border: 2px solid #22c55e !important;
   background: linear-gradient(135deg, #16a34a22, #22c55e11) !important;
@@ -6393,6 +6399,7 @@
   border-color: var(--accent, #7c3aed) !important;
   transform: scale(1.05);
   z-index: 1000;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
 }
 
 /* Heatmap: colored bar at bottom + tinted background */
@@ -6469,6 +6476,16 @@
 }
 
 /* Edge Traversal States */
+.replay-edge-traversed,
+.replay-edge-not-traversed {
+  transition: opacity 0.3s ease;
+}
+
+.replay-edge-traversed path,
+.replay-edge-not-traversed path {
+  transition: stroke 0.3s ease, stroke-width 0.3s ease, opacity 0.3s ease;
+}
+
 .replay-edge-traversed {
   stroke: #a78bfa !important;
   stroke-width: 2.5px !important;
@@ -6734,7 +6751,6 @@
 .replay-node-fail:hover,
 .replay-node-skipped:hover {
   transform: scale(1.02);
-  transition: transform 0.15s ease-out;
 }
 
 /* Accessibility: Focus States */

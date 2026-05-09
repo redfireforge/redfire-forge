@@ -3,7 +3,8 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import JsonPathPicker, { extractJsonPaths } from './JsonPathPicker';
+import JsonPathPicker from './JsonPathPicker';
+import { extractJsonPaths } from './jsonPathPickerUtils';
 
 describe('extractJsonPaths', () => {
   it('returns empty array for invalid JSON', () => {

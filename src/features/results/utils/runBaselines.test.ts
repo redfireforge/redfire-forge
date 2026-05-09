@@ -12,14 +12,12 @@ vi.mock('../../../shared/utils/storage', () => {
 
 import {
   loadBaselines,
-  saveBaselines,
   markAsBaseline,
   unmarkBaseline,
   renameBaseline,
   isBaseline,
   compareRuns,
   computeTrend,
-  DEFAULT_THRESHOLDS,
   type BaselineMark,
 } from './runBaselines';
 import type { TestRun } from '../../../shared/types';

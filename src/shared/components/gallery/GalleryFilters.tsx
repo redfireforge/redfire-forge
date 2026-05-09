@@ -2,37 +2,19 @@ import { useState } from 'react';
 import type { GalleryDifficulty, GalleryDomain } from '../../../data/galleries/types';
 import type { GalleryDomainConfig } from '../../../data/galleries/registry';
 import type { TrainingPath } from '../../../data/galleries/trainingPaths';
-
-export type GalleryMode = 'samples' | 'paths';
-
-export interface GalleryFilterState {
-  domain: GalleryDomain | 'all';
-  category: string;
-  difficulty: GalleryDifficulty | 'all';
-  liveApi: string;
-  tag: string;
-  search: string;
-}
+import type { GalleryFilterState, GalleryMode } from './galleryFiltersUtils';
 
 interface GalleryFiltersProps {
   domains: GalleryDomainConfig[];
-  /** All unique categories across the currently visible entries. */
   categories: string[];
-  /** All unique live-API hostnames across the currently visible entries. */
   liveApis: string[];
-  /** All unique tags across the currently visible entries. */
   tags: string[];
   value: GalleryFilterState;
   onChange: (next: GalleryFilterState) => void;
-  /** Current gallery mode. */
   mode: GalleryMode;
-  /** Called when the user switches modes. */
   onModeChange: (mode: GalleryMode) => void;
-  /** Training paths to render in the sidebar. */
   trainingPaths: TrainingPath[];
-  /** Currently selected training path ID (if any). */
   activePathId?: string;
-  /** Called when a training path is clicked in the sidebar. */
   onSelectPath?: (pathId: string) => void;
 }
 
@@ -43,9 +25,6 @@ const DIFFICULTY_OPTIONS: Array<{ value: GalleryDifficulty | 'all'; label: strin
   { value: 'advanced', label: 'Advanced' },
 ];
 
-/**
- * Gallery sidebar filters: domain tabs, category, difficulty, live-API, search.
- */
 export function GalleryFilters({
   domains,
   categories,
@@ -76,7 +55,6 @@ export function GalleryFilters({
 
   return (
     <aside className="gallery-filters">
-      {/* Domain selector */}
       <div className="gallery-filter-section">
         <div className="gallery-filter-heading">Domains</div>
         <button
@@ -98,7 +76,6 @@ export function GalleryFilters({
         ))}
       </div>
 
-      {/* Training Paths */}
       <div className="gallery-filter-section">
         <div className="gallery-filter-divider" />
         <div className="gallery-filter-heading">Training Paths</div>
@@ -121,11 +98,9 @@ export function GalleryFilters({
         })}
       </div>
 
-      {/* Filters (dimmed in paths mode) */}
       <div className={`gallery-filter-controls${filtersDisabled ? ' gallery-filter-controls-dimmed' : ''}`}>
         <div className="gallery-filter-divider" />
 
-      {/* Category */}
       <div className="gallery-filter-section">
         <div className="gallery-filter-heading">Category</div>
         <select
@@ -141,7 +116,6 @@ export function GalleryFilters({
         </select>
       </div>
 
-      {/* Difficulty */}
       <div className="gallery-filter-section">
         <div className="gallery-filter-heading">Difficulty</div>
         <select
@@ -156,7 +130,6 @@ export function GalleryFilters({
         </select>
       </div>
 
-      {/* Live API */}
       {liveApis.length > 0 && (
         <div className="gallery-filter-section">
           <div className="gallery-filter-heading">Live API</div>
@@ -174,7 +147,6 @@ export function GalleryFilters({
         </div>
       )}
 
-      {/* Tag (searchable) */}
       {tags.length > 0 && (
         <div className="gallery-filter-section">
           <div className="gallery-filter-heading">Tag</div>
@@ -186,13 +158,12 @@ export function GalleryFilters({
         </div>
       )}
 
-      </div>{/* end gallery-filter-controls */}
+      </div>
 
     </aside>
   );
 }
 
-/** Searchable tag list — always visible, scrollable, with search input to filter. */
 function TagCombobox({ tags, value, onChange }: { tags: string[]; value: string; onChange: (v: string) => void }) {
   const [query, setQuery] = useState('');
 
@@ -243,17 +214,4 @@ function TagCombobox({ tags, value, onChange }: { tags: string[]; value: string;
       </ul>
     </div>
   );
-}
-
-/** Default (empty) filter state. */
-export function defaultFilterState(): GalleryFilterState {
-  return { domain: 'all', category: '', difficulty: 'all', liveApi: '', tag: '', search: '' };
-}
-
-/** Extract hostname from a URL string, with fallback. */
-export function apiHostname(url: string): string {
-  try {
-    const h = new URL(url).hostname;
-    return h || url;
-  } catch { return url; }
 }

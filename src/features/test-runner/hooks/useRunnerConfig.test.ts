@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import { useRunnerConfig, defaultLoadProfile, defaultThinkTime } from './useRunnerConfig';
+import { useRunnerConfig, defaultLoadProfile, defaultThinkTime, type RunnerConfig } from './useRunnerConfig';
 
 // ── Mocks ──
 
@@ -258,9 +258,9 @@ describe('useRunnerConfig', () => {
       totalTransactions: 2,
       selectedScenarios: [],
       weights: {},
-      autoReport: null as any,
-      autoReportFormat: null as any,
-    });
+      autoReport: null,
+      autoReportFormat: null,
+    } as unknown as RunnerConfig);
 
     const { result } = renderHook(() => useRunnerConfig('null-auto'));
 

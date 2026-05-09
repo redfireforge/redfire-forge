@@ -3,7 +3,7 @@ import { trainingPaths } from './index';
 import { corePaths } from './corePaths';
 import { contentPaths } from './contentPaths';
 import { workflowPaths } from './workflowPaths';
-import type { TrainingPath, TrainingPhase, TrainingManual } from './types';
+import type { TrainingPath, TrainingManual } from './types';
 
 /* ── Structural Integrity ── */
 

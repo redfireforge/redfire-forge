@@ -2,27 +2,56 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, vi } from 'vitest';
+import type { SetStateAction } from 'react';
 import { renderHook, act } from '@testing-library/react';
+import type { FeatureGroup, Scenario, TestDefinitionVersion, TestDefinitionSnapshot, ExpectedField, TestScenario } from '../../../shared/types';
 
 vi.mock('../utils/structureChangeLog', () => ({
-  logScenarioAdded: vi.fn((...args: any[]) => args[0]),
-  logScenarioRemoved: vi.fn((...args: any[]) => args[0]),
-  logScenarioRenamed: vi.fn((...args: any[]) => args[0]),
-  logTestAdded: vi.fn((...args: any[]) => args[0]),
-  logTestRemoved: vi.fn((...args: any[]) => args[0]),
-  logTestCopied: vi.fn((...args: any[]) => args[0]),
-  logFgRenamed: vi.fn((...args: any[]) => args[0]),
-  logTestRenamed: vi.fn((...args: any[]) => args[0]),
+  logScenarioAdded: vi.fn((fg: FeatureGroup, _scenarioName: string) => fg),
+  logScenarioRemoved: vi.fn((fg: FeatureGroup, _scenarioName: string) => fg),
+  logScenarioRenamed: vi.fn((fg: FeatureGroup, _oldName: string, _newName: string) => fg),
+  logTestAdded: vi.fn((fg: FeatureGroup, _testName: string, _scenarioName: string) => fg),
+  logTestRemoved: vi.fn((fg: FeatureGroup, _testName: string, _scenarioName: string) => fg),
+  logTestCopied: vi.fn((fg: FeatureGroup, _testName: string, _scenarioName: string) => fg),
+  logFgRenamed: vi.fn((fg: FeatureGroup, _oldName: string, _newName: string) => fg),
+  logTestRenamed: vi.fn((fg: FeatureGroup, _oldName: string, _newName: string, _scenarioName: string) => fg),
 }));
 
 vi.mock('../utils/testDefinitionVersioning', () => ({
-  autoSaveVersion: vi.fn((t: any) => t),
+  autoSaveVersion: vi.fn((t: Scenario) => t as unknown as TestDefinitionVersion[] | null),
 }));
 
 import { useScenarioMutations } from './useScenarioMutations';
 import { autoSaveVersion } from '../utils/testDefinitionVersioning';
 import { logFgRenamed, logScenarioRenamed, logTestAdded, logTestRenamed } from '../utils/structureChangeLog';
-import type { FeatureGroup } from '../../../shared/types';
+
+function emptySnapshot(): TestDefinitionSnapshot {
+  return {
+    name: '',
+    url: '',
+    method: 'GET',
+    headers: [],
+    body: '',
+    auth: { type: 'none' },
+  };
+}
+
+function scenarioFixture(overrides: Partial<Scenario> = {}): Scenario {
+  return {
+    id: 't-1',
+    name: 'Test',
+    url: '/api',
+    method: 'GET',
+    headers: [],
+    body: '',
+    bodyType: 'none',
+    bodyForm: [],
+    auth: { type: 'none' },
+    validation: { mode: 'none', expectedFields: [] },
+    extractions: [],
+    ...overrides,
+  };
+}
 
 function makeFg(overrides: Partial<FeatureGroup> = {}): FeatureGroup {
   return {
@@ -38,7 +67,7 @@ function makeFg(overrides: Partial<FeatureGroup> = {}): FeatureGroup {
 function setupWithoutEnv(initialFgs: FeatureGroup[] = []) {
   const clearAuthVerifyResult = vi.fn();
   let fgs = initialFgs;
-  const setFeatureGroups = vi.fn((updater: any) => {
+  const setFeatureGroups = vi.fn((updater: SetStateAction<FeatureGroup[]>) => {
     fgs = typeof updater === 'function' ? updater(fgs) : updater;
   });
   const hookResult = renderHook(() =>
@@ -57,7 +86,7 @@ function setupWithoutEnv(initialFgs: FeatureGroup[] = []) {
 function setup(initialFgs: FeatureGroup[] = [], unassociated: FeatureGroup[] = []) {
   const clearAuthVerifyResult = vi.fn();
   let fgs = initialFgs;
-  const setFeatureGroups = vi.fn((updater: any) => {
+  const setFeatureGroups = vi.fn((updater: SetStateAction<FeatureGroup[]>) => {
     fgs = typeof updater === 'function' ? updater(fgs) : updater;
   });
   const hookResult = renderHook(() =>
@@ -79,7 +108,7 @@ function setupSelectable(
 ) {
   const clearAuthVerifyResult = opts.omitClearAuth ? undefined : vi.fn();
   let fgs = initialFgs;
-  const setFeatureGroups = vi.fn((updater: any) => {
+  const setFeatureGroups = vi.fn((updater: SetStateAction<FeatureGroup[]>) => {
     fgs = typeof updater === 'function' ? updater(fgs) : updater;
   });
   const hookResult = renderHook(() =>
@@ -128,7 +157,7 @@ describe('useScenarioMutations', () => {
         scenarios: [{
           id: 'sc-1',
           name: 'Sc',
-          tests: [{ id: 't-1', name: 'T', url: '/', method: 'GET', headers: [], body: '', bodyType: 'none', bodyForm: [], auth: { type: 'none' }, validation: { statusCode: 200 }, extractions: [] } as any],
+          tests: [scenarioFixture({ id: 't-1', name: 'T', url: '/' })],
         }],
       });
       const { result } = setup([fg]);
@@ -147,7 +176,7 @@ describe('useScenarioMutations', () => {
 
     it('removeFeatureGroup sets confirm dialog', () => {
       const fg = makeFg();
-      const { result, getFeatureGroups } = setup([fg]);
+      const { result } = setup([fg]);
       act(() => { result.current.removeFeatureGroup('fg-1'); });
       expect(result.current.confirmDialog).not.toBeNull();
       expect(result.current.confirmDialog!.title).toBe('Delete Feature Group');
@@ -177,7 +206,7 @@ describe('useScenarioMutations', () => {
 
     it('removeScenario sets confirm dialog', () => {
       const fg = makeFg({ scenarios: [{ id: 'sc-1', name: 'Sc', tests: [] }] });
-      const { result, getFeatureGroups } = setup([fg]);
+      const { result } = setup([fg]);
       act(() => { result.current.removeScenario('fg-1', 'sc-1'); });
       expect(result.current.confirmDialog!.title).toBe('Delete Scenario');
     });
@@ -193,7 +222,7 @@ describe('useScenarioMutations', () => {
 
   describe('test CRUD', () => {
     it('startNewTest sets editing state', () => {
-      const { result, getFeatureGroups, clearAuthVerifyResult } = setup();
+      const { result, clearAuthVerifyResult } = setup();
       act(() => { result.current.startNewTest('fg-1', 'sc-1'); });
       expect(result.current.editingTest).toEqual({ featureId: 'fg-1', scenarioId: 'sc-1', testId: 'new' });
       expect(result.current.inputMode).toBe('builder');
@@ -201,24 +230,29 @@ describe('useScenarioMutations', () => {
     });
 
     it('startEditTest populates draft', () => {
-      const test = { id: 't-1', name: 'Test', url: '/api', method: 'GET' as const, headers: [], body: '', bodyType: 'none' as const, bodyForm: [], auth: { type: 'none' as const }, validation: { statusCode: 200, expectedFields: [] }, extractions: [] };
-      const { result, getFeatureGroups } = setup();
-      act(() => { result.current.startEditTest('fg-1', 'sc-1', test as any); });
+      const test = scenarioFixture({
+        id: 't-1',
+        name: 'Test',
+        url: '/api',
+        validation: { mode: 'none', expectedFields: [] },
+      });
+      const { result } = setup();
+      act(() => { result.current.startEditTest('fg-1', 'sc-1', test); });
       expect(result.current.editingTest?.testId).toBe('t-1');
       expect(result.current.draft.name).toBe('Test');
     });
 
     it('saveTest does nothing if no editing or missing name', () => {
-      const { result, getFeatureGroups } = setup();
+      const { result } = setup();
       act(() => { result.current.saveTest(); });
       expect(result.current.editingTest).toBeNull();
     });
 
     it('removeTest sets confirm dialog', () => {
       const fg = makeFg({
-        scenarios: [{ id: 'sc-1', name: 'Sc', tests: [{ id: 't-1', name: 'T', url: '/a', method: 'GET', headers: [], body: '', bodyType: 'none', bodyForm: [], auth: { type: 'none' }, validation: { statusCode: 200 }, extractions: [] } as any] }],
+        scenarios: [{ id: 'sc-1', name: 'Sc', tests: [scenarioFixture({ id: 't-1', name: 'T', url: '/a' })] }],
       });
-      const { result, getFeatureGroups } = setup([fg]);
+      const { result } = setup([fg]);
       act(() => { result.current.removeTest('fg-1', 'sc-1', 't-1'); });
       expect(result.current.confirmDialog!.title).toBe('Delete Test');
     });
@@ -227,7 +261,7 @@ describe('useScenarioMutations', () => {
   describe('auth', () => {
     it('toggleFeatureAuth calls clearAuthVerifyResult', () => {
       const fg = makeFg();
-      const { result, getFeatureGroups, clearAuthVerifyResult } = setup([fg]);
+      const { result, clearAuthVerifyResult } = setup([fg]);
       act(() => { result.current.toggleFeatureAuth('fg-1'); });
       expect(clearAuthVerifyResult).toHaveBeenCalled();
       expect(result.current.editingFeatureAuth).toBe('fg-1');
@@ -235,7 +269,7 @@ describe('useScenarioMutations', () => {
 
     it('toggleScenarioAuth calls clearAuthVerifyResult', () => {
       const fg = makeFg({ scenarios: [{ id: 'sc-1', name: 'Sc', tests: [] }] });
-      const { result, getFeatureGroups, clearAuthVerifyResult } = setup([fg]);
+      const { result, clearAuthVerifyResult } = setup([fg]);
       act(() => { result.current.toggleScenarioAuth('fg-1', 'sc-1'); });
       expect(clearAuthVerifyResult).toHaveBeenCalled();
       expect(result.current.editingScenarioAuth).toBe('sc-1');
@@ -251,7 +285,7 @@ describe('useScenarioMutations', () => {
 
   describe('toggle helpers', () => {
     it('toggleFeature expands/collapses', () => {
-      const { result, getFeatureGroups } = setup();
+      const { result } = setup();
       act(() => { result.current.toggleFeature('fg-1'); });
       expect(result.current.expandedFeatures.has('fg-1')).toBe(true);
       act(() => { result.current.toggleFeature('fg-1'); });
@@ -259,7 +293,7 @@ describe('useScenarioMutations', () => {
     });
 
     it('toggleScenario expands/collapses', () => {
-      const { result, getFeatureGroups } = setup();
+      const { result } = setup();
       act(() => { result.current.toggleScenario('sc-1'); });
       expect(result.current.expandedScenarios.has('sc-1')).toBe(true);
       act(() => { result.current.toggleScenario('sc-1'); });
@@ -269,11 +303,11 @@ describe('useScenarioMutations', () => {
 
   describe('version handlers', () => {
     it('handleVersionDelete removes version from draft', () => {
-      const { result, getFeatureGroups } = setup();
+      const { result } = setup();
       act(() => {
         result.current.setDraft({
           ...result.current.draft,
-          definitionVersions: [{ id: 'v1', label: 'V1', timestamp: 0, snapshot: {} as any }],
+          definitionVersions: [{ id: 'v1', label: 'V1', timestamp: 0, snapshot: emptySnapshot() }],
         });
       });
       act(() => { result.current.handleVersionDelete('v1'); });
@@ -288,11 +322,11 @@ describe('useScenarioMutations', () => {
     });
 
     it('handleVersionRename updates label', () => {
-      const { result, getFeatureGroups } = setup();
+      const { result } = setup();
       act(() => {
         result.current.setDraft({
           ...result.current.draft,
-          definitionVersions: [{ id: 'v1', label: 'Old', timestamp: 0, snapshot: {} as any }],
+          definitionVersions: [{ id: 'v1', label: 'Old', timestamp: 0, snapshot: emptySnapshot() }],
         });
       });
       act(() => { result.current.handleVersionRename('v1', 'New Label'); });
@@ -304,7 +338,7 @@ describe('useScenarioMutations', () => {
       act(() => {
         result.current.setDraft({
           ...result.current.draft,
-          definitionVersions: [{ id: 'v1', label: 'A', timestamp: 0, snapshot: {} as any }],
+          definitionVersions: [{ id: 'v1', label: 'A', timestamp: 0, snapshot: emptySnapshot() }],
         });
       });
       act(() => { result.current.handleVersionRename('missing', 'B'); });
@@ -314,7 +348,13 @@ describe('useScenarioMutations', () => {
 
   describe('copy test', () => {
     it('startCopyTest and confirmCopyTest', () => {
-      const test = { id: 't-1', name: 'Test', url: '/api', method: 'GET', headers: [{ key: 'k', value: 'v' }], body: '', bodyType: 'none', bodyForm: [], auth: { type: 'none' }, validation: { statusCode: 200, expectedFields: [] }, extractions: [] } as any;
+      const test = scenarioFixture({
+        id: 't-1',
+        name: 'Test',
+        url: '/api',
+        headers: [{ key: 'k', value: 'v' }],
+        validation: { mode: 'none', expectedFields: [] },
+      });
       const fg = makeFg({ scenarios: [{ id: 'sc-1', name: 'Sc', tests: [] }] });
       const { result, getFeatureGroups } = setup([fg]);
       act(() => { result.current.startCopyTest('fg-1', 'sc-1', test); });
@@ -325,19 +365,12 @@ describe('useScenarioMutations', () => {
     });
 
     it('confirmCopyTest copies scenario without validation.expectedFields array', () => {
-      const test = {
+      const test = scenarioFixture({
         id: 't-1',
         name: 'Bare',
         url: '/api',
-        method: 'GET',
-        headers: [],
-        body: '',
-        bodyType: 'none',
-        bodyForm: [],
-        auth: { type: 'none' },
-        validation: { statusCode: 200 },
-        extractions: [],
-      } as any;
+        validation: { mode: 'none' },
+      });
       const fg = makeFg({ scenarios: [{ id: 'sc-1', name: 'Sc', tests: [] }] });
       const { result, getFeatureGroups } = setup([fg]);
       act(() => { result.current.startCopyTest('fg-1', 'sc-1', test); });
@@ -346,19 +379,15 @@ describe('useScenarioMutations', () => {
     });
 
     it('confirmCopyTest clones validation.expectedFields when present', () => {
-      const test = {
+      const test = scenarioFixture({
         id: 't-1',
         name: 'V',
         url: '/api',
-        method: 'GET',
-        headers: [],
-        body: '',
-        bodyType: 'none',
-        bodyForm: [],
-        auth: { type: 'none' },
-        validation: { statusCode: 200, expectedFields: [{ path: '$.id', expected: '1' }] },
-        extractions: [],
-      } as any;
+        validation: {
+          mode: 'none',
+          expectedFields: [{ path: '$.id', expected: '1' } as unknown as ExpectedField],
+        },
+      });
       const fg = makeFg({ scenarios: [{ id: 'sc-1', name: 'Sc', tests: [] }] });
       const { result, getFeatureGroups } = setup([fg]);
       act(() => { result.current.startCopyTest('fg-1', 'sc-1', test); });
@@ -369,19 +398,12 @@ describe('useScenarioMutations', () => {
     });
 
     it('confirmCopyTest does nothing when target scenario cannot be found', () => {
-      const test = {
+      const test = scenarioFixture({
         id: 't-1',
         name: 'Orphan',
         url: '/api',
-        method: 'GET',
-        headers: [],
-        body: '',
-        bodyType: 'none',
-        bodyForm: [],
-        auth: { type: 'none' },
-        validation: { statusCode: 200 },
-        extractions: [],
-      } as any;
+        validation: { mode: 'none' },
+      });
       const fg = makeFg({ scenarios: [{ id: 'sc-1', name: 'Sc', tests: [] }] });
       const { result, getFeatureGroups } = setup([fg]);
       act(() => { result.current.startCopyTest('fg-1', 'sc-1', test); });
@@ -390,19 +412,12 @@ describe('useScenarioMutations', () => {
     });
 
     it('confirmCopyTest does nothing when target feature group id is unknown', () => {
-      const test = {
+      const test = scenarioFixture({
         id: 't-2',
         name: 'Misroute',
         url: '/api',
-        method: 'GET',
-        headers: [],
-        body: '',
-        bodyType: 'none',
-        bodyForm: [],
-        auth: { type: 'none' },
-        validation: { statusCode: 200 },
-        extractions: [],
-      } as any;
+        validation: { mode: 'none' },
+      });
       const fg = makeFg({ scenarios: [{ id: 'sc-1', name: 'Sc', tests: [] }] });
       const { result, getFeatureGroups } = setup([fg]);
       act(() => { result.current.startCopyTest('fg-1', 'sc-1', test); });
@@ -420,12 +435,32 @@ describe('useScenarioMutations', () => {
 
   describe('version restore', () => {
     it('handleVersionRestore replaces draft fields from snapshot', () => {
-      const test = { id: 't-1', name: 'Old', url: '/old', method: 'GET', headers: [], body: '', bodyType: 'none', bodyForm: [], auth: { type: 'none' }, validation: { statusCode: 200 }, extractions: [], definitionVersions: [] } as any;
+      const test = scenarioFixture({
+        id: 't-1',
+        name: 'Old',
+        url: '/old',
+        definitionVersions: [],
+      });
       const fg = makeFg({ scenarios: [{ id: 'sc-1', name: 'Sc', tests: [test] }] });
-      const { result, getFeatureGroups } = setup([fg]);
+      const { result } = setup([fg]);
       act(() => { result.current.startEditTest('fg-1', 'sc-1', test); });
-      const version = { id: 'v1', label: 'v1', createdAt: 0, snapshot: { name: 'New', url: '/new', method: 'POST', headers: [{ key: 'h', value: 'v' }], body: '{}', bodyType: 'json', bodyForm: [], auth: { type: 'bearer' }, extractions: [] } };
-      act(() => { result.current.handleVersionRestore(version as any); });
+      const version: TestDefinitionVersion = {
+        id: 'v1',
+        label: 'v1',
+        timestamp: 0,
+        snapshot: {
+          name: 'New',
+          url: '/new',
+          method: 'POST',
+          headers: [{ key: 'h', value: 'v' }],
+          body: '{}',
+          bodyType: 'json',
+          bodyForm: [],
+          auth: { type: 'bearer', token: 't' },
+          extractions: [],
+        },
+      };
+      act(() => { result.current.handleVersionRestore(version); });
       expect(result.current.draft.name).toBe('New');
       expect(result.current.draft.url).toBe('/new');
       expect(result.current.draft.method).toBe('POST');
@@ -434,7 +469,7 @@ describe('useScenarioMutations', () => {
 
   describe('removeTest', () => {
     it('removeTest sets confirm dialog and onConfirm deletes test', () => {
-      const test = { id: 't-1', name: 'Test', url: '/api', method: 'GET', headers: [], body: '', bodyType: 'none', bodyForm: [], auth: { type: 'none' }, validation: { statusCode: 200 }, extractions: [] } as any;
+      const test = scenarioFixture({ id: 't-1', name: 'Test', url: '/api', validation: { mode: 'none' } });
       const fg = makeFg({ scenarios: [{ id: 'sc-1', name: 'Sc', tests: [test] }] });
       const { result, getFeatureGroups } = setup([fg]);
       act(() => { result.current.removeTest('fg-1', 'sc-1', 't-1'); });
@@ -445,19 +480,12 @@ describe('useScenarioMutations', () => {
     });
 
     it('removeTest confirm leaves tests unchanged when deleting an unknown id in the scenario', () => {
-      const test = {
+      const test = scenarioFixture({
         id: 't-kept',
         name: 'Keep',
         url: '/api',
-        method: 'GET',
-        headers: [],
-        body: '',
-        bodyType: 'none',
-        bodyForm: [],
-        auth: { type: 'none' },
-        validation: { statusCode: 200 },
-        extractions: [],
-      } as any;
+        validation: { mode: 'none' },
+      });
       const fg = makeFg({
         scenarios: [{ id: 'sc-1', name: 'Sc', tests: [test] }],
       });
@@ -470,7 +498,7 @@ describe('useScenarioMutations', () => {
     });
 
     it('removeTest confirm is a global no-op when feature id is unknown', () => {
-      const test = { id: 't-1', name: 'Lonely', url: '/api', method: 'GET', headers: [], body: '', bodyType: 'none', bodyForm: [], auth: { type: 'none' }, validation: { statusCode: 200 }, extractions: [] } as any;
+      const test = scenarioFixture({ id: 't-1', name: 'Lonely', url: '/api', validation: { mode: 'none' } });
       const fg = makeFg({ scenarios: [{ id: 'sc-1', name: 'Sc', tests: [test] }] });
       const { result, getFeatureGroups } = setup([fg]);
       act(() => { result.current.removeTest('wrong-fg', 'sc-1', 't-1'); });
@@ -481,12 +509,18 @@ describe('useScenarioMutations', () => {
 
   describe('saveTest', () => {
     it('saveTest updates existing test in featureGroups', () => {
-      const test = { id: 't-1', name: 'Test', url: '/api', method: 'GET', headers: [], body: '', bodyType: 'none', bodyForm: [], auth: { type: 'none' }, validation: { statusCode: 200 }, extractions: [], definitionVersions: [] } as any;
+      const test = scenarioFixture({
+        id: 't-1',
+        name: 'Test',
+        url: '/api',
+        definitionVersions: [],
+        validation: { mode: 'none' },
+      });
       const fg = makeFg({ scenarios: [{ id: 'sc-1', name: 'Sc', tests: [test] }] });
       const { result, getFeatureGroups } = setup([fg]);
       act(() => { result.current.startEditTest('fg-1', 'sc-1', test); });
       act(() => {
-        result.current.setDraft((prev: any) => ({ ...prev, name: 'Updated', url: '/updated' }));
+        result.current.setDraft((prev: Scenario) => ({ ...prev, name: 'Updated', url: '/updated' }));
       });
       act(() => { result.current.saveTest(); });
       expect(getFeatureGroups()[0].scenarios[0].tests[0].name).toBe('Updated');
@@ -498,7 +532,7 @@ describe('useScenarioMutations', () => {
       const { result, getFeatureGroups } = setup([fg]);
       act(() => { result.current.startNewTest('fg-1', 'sc-1'); });
       act(() => {
-        result.current.setDraft((prev: any) => ({ ...prev, name: 'New Test', url: '/new' }));
+        result.current.setDraft((prev: Scenario) => ({ ...prev, name: 'New Test', url: '/new' }));
       });
       act(() => { result.current.saveTest(); });
       expect(getFeatureGroups()[0].scenarios[0].tests.length).toBe(1);
@@ -507,50 +541,36 @@ describe('useScenarioMutations', () => {
 
     it('saveTest skips versioning when autoSaveVersion returns null', () => {
       vi.mocked(autoSaveVersion).mockReturnValueOnce(null);
-      const test = {
+      const test = scenarioFixture({
         id: 't-1',
         name: 'Test',
         url: '/api',
-        method: 'GET',
-        headers: [],
-        body: '',
-        bodyType: 'none',
-        bodyForm: [],
-        auth: { type: 'none' },
-        validation: { statusCode: 200 },
-        extractions: [],
         definitionVersions: [],
-      } as any;
+        validation: { mode: 'none' },
+      });
       const fg = makeFg({ scenarios: [{ id: 'sc-1', name: 'Sc', tests: [test] }] });
       const { result, getFeatureGroups } = setup([fg]);
       act(() => { result.current.startEditTest('fg-1', 'sc-1', test); });
       act(() => {
-        result.current.setDraft((prev: any) => ({ ...prev, name: 'Test', url: '/api-updated' }));
+        result.current.setDraft((prev: Scenario) => ({ ...prev, name: 'Test', url: '/api-updated' }));
       });
       act(() => { result.current.saveTest(); });
       expect(getFeatureGroups()[0].scenarios[0].tests[0].url).toBe('/api-updated');
     });
 
     it('saveTest merges definition versions returned by autoSaveVersion', () => {
-      vi.mocked(autoSaveVersion).mockReturnValueOnce([{ id: 'v-auto', label: 'auto', timestamp: 0, snapshot: {} as any }] as any);
-      const test = {
+      vi.mocked(autoSaveVersion).mockReturnValueOnce([{ id: 'v-auto', label: 'auto', timestamp: 0, snapshot: emptySnapshot() }]);
+      const test = scenarioFixture({
         id: 't-1',
         name: 'Test',
         url: '/api',
-        method: 'GET',
-        headers: [],
-        body: '',
-        bodyType: 'none',
-        bodyForm: [],
-        auth: { type: 'none' },
-        validation: { statusCode: 200 },
-        extractions: [],
-      } as any;
+        validation: { mode: 'none' },
+      });
       const fg = makeFg({ scenarios: [{ id: 'sc-1', name: 'Sc', tests: [test] }] });
       const { result, getFeatureGroups } = setup([fg]);
       act(() => { result.current.startEditTest('fg-1', 'sc-1', test); });
       act(() => {
-        result.current.setDraft((prev: any) => ({ ...prev, name: 'Test', url: '/v2' }));
+        result.current.setDraft((prev: Scenario) => ({ ...prev, name: 'Test', url: '/v2' }));
       });
       act(() => { result.current.saveTest(); });
       expect(getFeatureGroups()[0].scenarios[0].tests[0].definitionVersions).toEqual(
@@ -560,12 +580,12 @@ describe('useScenarioMutations', () => {
 
     it('saveTest logs rename when updating existing test title', () => {
       vi.mocked(logTestRenamed).mockClear();
-      const test = { id: 't-1', name: 'Old', url: '/a', method: 'GET', headers: [], body: '', bodyType: 'none', bodyForm: [], auth: { type: 'none' }, validation: { statusCode: 200 }, extractions: [] } as any;
+      const test = scenarioFixture({ id: 't-1', name: 'Old', url: '/a', validation: { mode: 'none' } });
       const fg = makeFg({ scenarios: [{ id: 'sc-1', name: 'Sc', tests: [test] }] });
-      const { result, getFeatureGroups } = setup([fg]);
+      const { result } = setup([fg]);
       act(() => { result.current.startEditTest('fg-1', 'sc-1', test); });
       act(() => {
-        result.current.setDraft((prev: any) => ({ ...prev, name: 'New Title', url: '/a' }));
+        result.current.setDraft((prev: Scenario) => ({ ...prev, name: 'New Title', url: '/a' }));
       });
       act(() => { result.current.saveTest(); });
       expect(vi.mocked(logTestRenamed)).toHaveBeenCalled();
@@ -573,12 +593,12 @@ describe('useScenarioMutations', () => {
 
     it('saveTest skips rename log when saving same test name', () => {
       vi.mocked(logTestRenamed).mockClear();
-      const test = { id: 't-1', name: 'Same', url: '/a', method: 'GET', headers: [], body: '', bodyType: 'none', bodyForm: [], auth: { type: 'none' }, validation: { statusCode: 200 }, extractions: [] } as any;
+      const test = scenarioFixture({ id: 't-1', name: 'Same', url: '/a', validation: { mode: 'none' } });
       const fg = makeFg({ scenarios: [{ id: 'sc-1', name: 'Sc', tests: [test] }] });
       const { result, getFeatureGroups } = setup([fg]);
       act(() => { result.current.startEditTest('fg-1', 'sc-1', test); });
       act(() => {
-        result.current.setDraft((prev: any) => ({ ...prev, name: 'Same', url: '/b' }));
+        result.current.setDraft((prev: Scenario) => ({ ...prev, name: 'Same', url: '/b' }));
       });
       act(() => { result.current.saveTest(); });
       expect(getFeatureGroups()[0].scenarios[0].tests[0].url).toBe('/b');
@@ -590,7 +610,7 @@ describe('useScenarioMutations', () => {
       const { result, getFeatureGroups } = setup([fg]);
       act(() => { result.current.startNewTest('fg-1', 'sc-1'); });
       act(() => {
-        result.current.setDraft((prev: any) => ({
+        result.current.setDraft((prev: Scenario) => ({
           ...prev,
           name: 'Validation Test',
           url: '/v',
@@ -604,7 +624,16 @@ describe('useScenarioMutations', () => {
 
   describe('createParameterizedCopy', () => {
     it('creates a copy with parameterized flag', () => {
-      const source = { id: 't-1', name: 'Base Test', url: '/api', method: 'GET', headers: [{ key: 'h', value: 'v' }], body: '', bodyType: 'none', bodyForm: [], auth: { type: 'none' }, validation: { statusCode: 200, expectedFields: [{ path: '$.x' }] }, extractions: [] } as any;
+      const source = scenarioFixture({
+        id: 't-1',
+        name: 'Base Test',
+        url: '/api',
+        headers: [{ key: 'h', value: 'v' }],
+        validation: {
+          mode: 'none',
+          expectedFields: [{ path: '$.x' } as unknown as ExpectedField],
+        },
+      });
       const fg = makeFg({ scenarios: [{ id: 'sc-1', name: 'Sc', tests: [source] }] });
       const { result, clearAuthVerifyResult } = setup([fg]);
       act(() => { result.current.createParameterizedCopy('fg-1', 'sc-1', source); });
@@ -617,7 +646,12 @@ describe('useScenarioMutations', () => {
     });
 
     it('clones validation when expectedFields undefined', () => {
-      const source = { id: 't-na', name: 'No EF', url: '/api', method: 'GET', headers: [], body: '', bodyType: 'none', bodyForm: [], auth: { type: 'none' }, validation: { statusCode: 201 }, extractions: [] } as any;
+      const source = scenarioFixture({
+        id: 't-na',
+        name: 'No EF',
+        url: '/api',
+        validation: { mode: 'none', statusCode: 201 } as unknown as Scenario['validation'],
+      });
       const fg = makeFg({ scenarios: [{ id: 'sc-1', name: 'Sc', tests: [source] }] });
       const { result } = setup([fg]);
       act(() => { result.current.createParameterizedCopy('fg-1', 'sc-1', source); });
@@ -721,7 +755,7 @@ describe('useScenarioMutations', () => {
 
   describe('confirm dialog execution', () => {
     it('removeFeatureGroup confirm removes the group', () => {
-      const fg = makeFg({ scenarios: [{ id: 'sc-1', name: 'Sc', tests: [{ id: 't-1', name: 'T', url: '/' } as any] }] });
+      const fg = makeFg({ scenarios: [{ id: 'sc-1', name: 'Sc', tests: [scenarioFixture({ id: 't-1', name: 'T', url: '/' })] }] });
       const { result, getFeatureGroups } = setup([fg]);
       act(() => { result.current.removeFeatureGroup('fg-1'); });
       act(() => { result.current.confirmDialog!.onConfirm(); });
@@ -736,7 +770,7 @@ describe('useScenarioMutations', () => {
     });
 
     it('removeScenario confirm removes the scenario', () => {
-      const fg = makeFg({ scenarios: [{ id: 'sc-1', name: 'Sc', tests: [{ id: 't-1', name: 'T', url: '/' } as any] }] });
+      const fg = makeFg({ scenarios: [{ id: 'sc-1', name: 'Sc', tests: [scenarioFixture({ id: 't-1', name: 'T', url: '/' })] }] });
       const { result, getFeatureGroups } = setup([fg]);
       act(() => { result.current.removeScenario('fg-1', 'sc-1'); });
       act(() => { result.current.confirmDialog!.onConfirm(); });
@@ -798,8 +832,8 @@ describe('useScenarioMutations', () => {
   });
 
   describe('branch coverage — multi-entity map paths and guards', () => {
-    const minimalTest = (id: string, name: string, url = '/a') =>
-      ({ id, name, url, method: 'GET', headers: [], body: '', bodyType: 'none', bodyForm: [], auth: { type: 'none' }, validation: { statusCode: 200 }, extractions: [] }) as any;
+    const minimalTest = (id: string, name: string, url = '/a'): Scenario =>
+      scenarioFixture({ id, name, url });
 
     it('assignFeatureGroup is a no-op when id does not match', () => {
       const a = makeFg({ id: 'fg-a', name: 'A' });
@@ -849,7 +883,7 @@ describe('useScenarioMutations', () => {
     });
 
     it('updateScenarioAuth ignores non-matching feature groups', () => {
-      const sa = (id: string) => ({ id, name: id, tests: [] as any[] });
+      const sa = (id: string): TestScenario => ({ id, name: id, tests: [] });
       const a = makeFg({ id: 'fg-a', scenarios: [sa('sc-a')] });
       const b = makeFg({ id: 'fg-b', scenarios: [sa('sc-b')] });
       const { result, getFeatureGroups } = setup([a, b]);
@@ -859,7 +893,7 @@ describe('useScenarioMutations', () => {
     });
 
     it('removeScenario confirm only updates the matching feature group', () => {
-      const s = (id: string) => ({ id, name: id, tests: [] as any[] });
+      const s = (id: string): TestScenario => ({ id, name: id, tests: [] });
       const a = makeFg({ id: 'fg-a', scenarios: [s('sc-a')] });
       const b = makeFg({ id: 'fg-b', scenarios: [s('sc-b')] });
       const { result, getFeatureGroups } = setup([a, b]);
@@ -925,7 +959,7 @@ describe('useScenarioMutations', () => {
       const b = makeFg({ id: 'fg-b', scenarios: [{ id: 'sc-b', name: 'SB', tests: [] }] });
       const { result, getFeatureGroups } = setup([a, b]);
       act(() => { result.current.startNewTest('fg-b', 'sc-b'); });
-      act(() => { result.current.setDraft((p: any) => ({ ...p, name: 'New', url: '/n' })); });
+      act(() => { result.current.setDraft((p: Scenario) => ({ ...p, name: 'New', url: '/n' })); });
       act(() => { result.current.saveTest(); });
       expect(getFeatureGroups().find(f => f.id === 'fg-a')!.scenarios[0].tests).toHaveLength(1);
       expect(getFeatureGroups().find(f => f.id === 'fg-b')!.scenarios[0].tests[0].name).toBe('New');
@@ -940,7 +974,7 @@ describe('useScenarioMutations', () => {
       });
       const { result, getFeatureGroups } = setup([fg]);
       act(() => { result.current.startNewTest('fg-1', 'sc-b'); });
-      act(() => { result.current.setDraft((p: any) => ({ ...p, name: 'Only B', url: '/b' })); });
+      act(() => { result.current.setDraft((p: Scenario) => ({ ...p, name: 'Only B', url: '/b' })); });
       act(() => { result.current.saveTest(); });
       expect(getFeatureGroups()[0].scenarios[0].tests).toHaveLength(0);
       expect(getFeatureGroups()[0].scenarios[1].tests[0].name).toBe('Only B');
@@ -952,7 +986,7 @@ describe('useScenarioMutations', () => {
       const fg = makeFg({ scenarios: [{ id: 'sc-1', name: 'Sc', tests: [tKeep, tEdit] }] });
       const { result, getFeatureGroups } = setup([fg]);
       act(() => { result.current.startEditTest('fg-1', 'sc-1', tEdit); });
-      act(() => { result.current.setDraft((p: any) => ({ ...p, name: 'Edited', url: '/e2' })); });
+      act(() => { result.current.setDraft((p: Scenario) => ({ ...p, name: 'Edited', url: '/e2' })); });
       act(() => { result.current.saveTest(); });
       const tests = getFeatureGroups()[0].scenarios[0].tests;
       expect(tests.find(t => t.id === 't-keep')).toMatchObject({ name: 'Keep', url: '/k' });
@@ -964,7 +998,7 @@ describe('useScenarioMutations', () => {
       const fg = makeFg({ scenarios: [{ id: 'sc-real', name: 'Real', tests: [] }] });
       const { result, getFeatureGroups } = setup([fg]);
       act(() => { result.current.startNewTest('fg-1', 'sc-ghost'); });
-      act(() => { result.current.setDraft((p: any) => ({ ...p, name: 'Orphan try', url: '/o' })); });
+      act(() => { result.current.setDraft((p: Scenario) => ({ ...p, name: 'Orphan try', url: '/o' })); });
       act(() => { result.current.saveTest(); });
       expect(getFeatureGroups()[0].scenarios[0].tests).toHaveLength(0);
       expect(vi.mocked(logTestAdded)).toHaveBeenCalled();
@@ -976,7 +1010,7 @@ describe('useScenarioMutations', () => {
       const fg = makeFg({ scenarios: [{ id: 'sc-1', name: 'Sc', tests: [t] }] });
       const { result, getFeatureGroups } = setup([fg]);
       act(() => { result.current.startEditTest('fg-1', 'sc-1', t); });
-      act(() => { result.current.setDraft((p: any) => ({ ...p, id: 'ghost-id', name: 'N', url: '/b' })); });
+      act(() => { result.current.setDraft((p: Scenario) => ({ ...p, id: 'ghost-id', name: 'N', url: '/b' })); });
       act(() => { result.current.saveTest(); });
       expect(vi.mocked(logTestRenamed)).not.toHaveBeenCalled();
       expect(getFeatureGroups()[0].scenarios[0].tests).toHaveLength(1);

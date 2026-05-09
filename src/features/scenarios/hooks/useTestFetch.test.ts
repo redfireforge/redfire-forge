@@ -184,7 +184,7 @@ describe('buildRulesVersion', () => {
     expect(version.timestamp).toBeGreaterThan(0);
     expect(version.validationMode).toBe('selective');
     expect(version.expectedFields).toEqual([{ path: '$.status', op: 'equals', value: 'active' }]);
-    expect((version as any).json).toBeUndefined(); // rules version has no json
+    expect(Object.hasOwn(version, 'json')).toBe(false);
   });
 
   it('handles empty expectedFields', () => {

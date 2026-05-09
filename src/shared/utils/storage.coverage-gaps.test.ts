@@ -115,7 +115,7 @@ import {
   loadPreviewSampleId,
   savePreviewSampleId,
 } from './storage';
-import type { FeatureGroup, SharedDataSource, TestRun } from '../types';
+import type { SharedDataSource, TestRun } from '../types';
 import {
   idbSaveTestRun,
   idbLoadTestRuns,

@@ -319,49 +319,49 @@ describe('validateTrace', () => {
 
   it('rejects missing workflowId', () => {
     const trace = createMockTrace();
-    delete (trace as any).workflowId;
+    delete (trace as Partial<WorkflowExecutionTrace>).workflowId;
     expect(() => validateTrace(trace)).toThrow('workflowId');
   });
 
   it('rejects empty workflowId', () => {
     const trace = createMockTrace();
-    (trace as any).workflowId = '';
+    trace.workflowId = '';
     expect(() => validateTrace(trace)).toThrow('workflowId');
   });
 
   it('rejects missing workflowName', () => {
     const trace = createMockTrace();
-    delete (trace as any).workflowName;
+    delete (trace as Partial<WorkflowExecutionTrace>).workflowName;
     expect(() => validateTrace(trace)).toThrow('workflowName');
   });
 
   it('rejects non-array iterations', () => {
     const trace = createMockTrace();
-    (trace as any).iterations = 'not-array';
+    (trace as Record<string, unknown>).iterations = 'not-array';
     expect(() => validateTrace(trace)).toThrow('iterations');
   });
 
   it('rejects non-array traversedEdges', () => {
     const trace = createMockTrace();
-    (trace as any).traversedEdges = {};
+    (trace as Record<string, unknown>).traversedEdges = {};
     expect(() => validateTrace(trace)).toThrow('traversedEdges');
   });
 
   it('rejects missing workflowSnapshot', () => {
     const trace = createMockTrace();
-    delete (trace as any).workflowSnapshot;
+    delete (trace as Partial<WorkflowExecutionTrace>).workflowSnapshot;
     expect(() => validateTrace(trace)).toThrow('workflowSnapshot');
   });
 
   it('rejects workflowSnapshot without nodes array', () => {
     const trace = createMockTrace();
-    (trace as any).workflowSnapshot = { edges: [] };
+    trace.workflowSnapshot = { edges: [] } as WorkflowExecutionTrace['workflowSnapshot'];
     expect(() => validateTrace(trace)).toThrow('nodes');
   });
 
   it('rejects workflowSnapshot without edges array', () => {
     const trace = createMockTrace();
-    (trace as any).workflowSnapshot = { nodes: [] };
+    trace.workflowSnapshot = { nodes: [] } as WorkflowExecutionTrace['workflowSnapshot'];
     expect(() => validateTrace(trace)).toThrow('edges');
   });
 });
