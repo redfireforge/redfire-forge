@@ -252,7 +252,7 @@ export default function WorkflowRunner({ workflows, onComplete, initialWorkflowI
     };
 
     saveWorkflowRunConfig({ workflowId: selectedWorkflowId!, variables: workflowVariables });
-    execute(config, [], { projectName: selectedWorkflow.name }, selectedWorkflow);
+    execute(config, [], { projectName: selectedWorkflow.name }, selectedWorkflow, workflows);
   };
 
   // Webhook load test execution (Phase 7c)

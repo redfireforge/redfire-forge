@@ -78,6 +78,8 @@ export async function runTest(
   abortSignal?: AbortSignal,
   /** Optional workflow for graph-based execution (when config.workflowId is set). */
   workflow?: Workflow,
+  /** All workflows available for sub-workflow node resolution. */
+  allWorkflows?: Workflow[],
 ): Promise<TestResult> {
   const tokenManager = new TokenManager();
   const timeoutMs = (config.timeoutSec ?? 0) > 0 ? (config.timeoutSec! * 1000) : undefined;
@@ -158,6 +160,7 @@ export async function runTest(
         maxConcurrentPolls: config.maxConcurrentPolls,
         traceOptions: config.traceOptions,
         environmentLayer: envLayer,
+        allWorkflows,
       });
     }
     const ctx = new VariableContext(config.workflowVariables);
