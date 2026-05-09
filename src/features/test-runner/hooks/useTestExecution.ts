@@ -202,7 +202,7 @@ export function useTestExecution() {
     lastFlushRef.current = now;
   }, []);
 
-  const execute = useCallback(async (config: TestConfig, scenarios: Scenario[], meta?: { projectName?: string; envName?: string; svcName?: string; baseUrl?: string }, workflow?: Workflow) => {
+  const execute = useCallback(async (config: TestConfig, scenarios: Scenario[], meta?: { projectName?: string; envName?: string; svcName?: string; baseUrl?: string }, workflow?: Workflow, resolveSubWorkflow?: (id: string) => Workflow | undefined) => {
     abortRef.current = new AbortController();
     startTimeRef.current = performance.now();
     lastSnapshotRef.current = 0;
@@ -231,7 +231,7 @@ export function useTestExecution() {
     });
 
     let lastTrackedCount = 0;
-    const useWorker = supportsWorkers();
+    const useWorker = supportsWorkers() && !resolveSubWorkflow;
 
     const onProgress = (completed: number, total: number, allResults: RequestResult[], profileMeta?: ProgressMeta) => {
       for (let i = lastTrackedCount; i < allResults.length; i++) {
@@ -261,7 +261,7 @@ export function useTestExecution() {
     try {
       const testResult = useWorker
         ? await runTestInWorker(config, scenarios, onProgress, abortRef.current.signal, workflow)
-        : await runTest(config, scenarios, onProgress, abortRef.current.signal, workflow);
+        : await runTest(config, scenarios, onProgress, abortRef.current.signal, workflow, resolveSubWorkflow);
 
       if (flushTimerRef.current) {
         clearTimeout(flushTimerRef.current);

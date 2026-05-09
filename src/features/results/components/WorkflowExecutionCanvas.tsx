@@ -416,6 +416,27 @@ export default function WorkflowExecutionCanvas({
     })
   );
 
+  // Reset nodes when trace changes (e.g. sub-workflow drill-down or navigating back)
+  const prevSnapshotRef = useRef(trace.workflowSnapshot.nodes);
+  useEffect(() => {
+    if (trace.workflowSnapshot.nodes !== prevSnapshotRef.current) {
+      prevSnapshotRef.current = trace.workflowSnapshot.nodes;
+      const layout = loadLayoutFromStorage(trace.workflowId);
+      setRfNodes(
+        (trace.workflowSnapshot.nodes as Node[]).map((node) => {
+          const saved = layout?.[node.id];
+          return {
+            ...node,
+            ...(saved ? { position: { x: saved.x, y: saved.y } } : {}),
+            draggable: true,
+            connectable: false,
+            selectable: true,
+          };
+        })
+      );
+    }
+  }, [trace.workflowId, trace.workflowSnapshot.nodes]);
+
   const handleSaveLayout = useCallback(() => {
     const positions: Record<string, { x: number; y: number }> = {};
     for (const node of rfNodes) {

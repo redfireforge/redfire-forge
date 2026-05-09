@@ -565,6 +565,8 @@ export interface ExecutionEventDetails {
   // Sub-workflow nodes
   subWorkflowId?: string;
   subWorkflowPassed?: boolean;
+  /** Full execution trace of the child workflow (for drill-down in Results Explorer). */
+  subWorkflowTrace?: WorkflowExecutionTrace;
 
   // Variables
   inputVariables?: Record<string, string>;
