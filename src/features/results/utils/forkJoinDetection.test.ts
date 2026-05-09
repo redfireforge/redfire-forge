@@ -385,6 +385,115 @@ describe('detectForkJoinTopology', () => {
     expect(deepPair!.joinId).toBe('deep-join');
   });
 
+  it('handles branch walk when nested fork has no matching join (still pairs using sibling branch join)', () => {
+    const nodes = [
+      n('fork', 'fork'),
+      n('alive', 'http'),
+      n('orphan-inner', 'fork'),
+      n('lost-a', 'http'),
+      n('lost-b', 'http'),
+      n('join', 'join'),
+    ];
+    const edges = [
+      e('e1', 'fork', 'alive'),
+      e('e2', 'alive', 'join'),
+      e('e3', 'fork', 'orphan-inner'),
+      e('e4', 'orphan-inner', 'lost-a'),
+      e('e5', 'orphan-inner', 'lost-b'),
+    ];
+
+    const result = detectForkJoinTopology(nodes, edges);
+    expect(result).toBeDefined();
+    expect(result.pairs.length).toBe(1);
+    expect(result.pairs[0].branches.some(br => br.includes('orphan-inner'))).toBe(true);
+  });
+
+
+
+  it('findMatchingJoin returns undefined when fork subtrees terminate without joins', () => {
+    const nodes = [
+      n('outer-fork', 'fork'),
+      n('trunk', 'http'),
+      n('dead-fork', 'fork'),
+      n('leaf-a', 'http'),
+      n('leaf-b', 'http'),
+      n('junction', 'join'),
+    ];
+    const edges = [
+      e('e1', 'outer-fork', 'trunk'),
+      e('e2', 'trunk', 'junction'),
+      e('e3', 'outer-fork', 'dead-fork'),
+      e('e4', 'dead-fork', 'leaf-a'),
+      e('e5', 'dead-fork', 'leaf-b'),
+    ];
+
+    const result = detectForkJoinTopology(nodes, edges);
+    expect(result.pairs.some(p => p.forkId === 'outer-fork')).toBe(true);
+  });
+
+  it('hits nested join with no successors (nested outgoing empty)', () => {
+    const nodes = [
+      n('outer-fork', 'fork'),
+      n('trunk', 'http'),
+      n('nested-fork', 'fork'),
+      n('lx', 'http'),
+      n('ly', 'http'),
+      n('nested-join', 'join'),
+      n('outer-join', 'join'),
+    ];
+    const edges = [
+      e('e1', 'outer-fork', 'trunk'),
+      e('e2', 'trunk', 'outer-join'),
+      e('e3', 'outer-fork', 'nested-fork'),
+      e('e4', 'nested-fork', 'lx'),
+      e('e5', 'nested-fork', 'ly'),
+      e('e6', 'lx', 'nested-join'),
+      e('e7', 'ly', 'nested-join'),
+    ];
+
+    const result = detectForkJoinTopology(nodes, edges);
+    const outerPair = result.pairs.find(p => p.forkId === 'outer-fork');
+    expect(outerPair).toBeDefined();
+    expect(outerPair!.joinId).toBe('outer-join');
+    const nestedBranch = outerPair!.branches.find(br => br.includes('nested-fork'));
+    expect(nestedBranch?.length ?? 0).toBeGreaterThan(0);
+  });
+
+  it('findMatchingJoin BFS de-duplicates via visited when parallel edges converge', () => {
+    const nodes = [
+      n('main-fork', 'fork'),
+      n('meet', 'http'),
+      n('fj', 'join'),
+      n('end', 'http'),
+    ];
+    const edges = [
+      e('dup-a', 'main-fork', 'meet'),
+      e('dup-b', 'main-fork', 'meet'),
+      e('meet-join', 'meet', 'fj'),
+      e('fj-out', 'fj', 'end'),
+    ];
+
+    const result = detectForkJoinTopology(nodes, edges);
+    expect(result.pairs.some(p => p.forkId === 'main-fork')).toBe(true);
+  });
+
+  it('silent nested fork triggers findMatchingJoin with zero outgoing forks', () => {
+    const nodes = [
+      n('outer-fork', 'fork'),
+      n('trunk', 'http'),
+      n('silent-fork', 'fork'),
+      n('fj', 'join'),
+    ];
+    const edges = [
+      e('t1', 'outer-fork', 'trunk'),
+      e('t2', 'trunk', 'fj'),
+      e('s1', 'outer-fork', 'silent-fork'),
+    ];
+
+    const result = detectForkJoinTopology(nodes, edges);
+    expect(result.pairs.some(p => p.forkId === 'outer-fork')).toBe(true);
+  });
+
   it('handles cycle prevention in branches', () => {
     const nodes = [
       n('fork', 'fork'),
@@ -400,7 +509,6 @@ describe('detectForkJoinTopology', () => {
       e('e5', 'b', 'join'),
     ];
 
-    // Should not infinite loop
     const result = detectForkJoinTopology(nodes, edges);
     expect(result).toBeDefined();
   });
@@ -548,6 +656,72 @@ describe('computeBranchStats', () => {
     expect(stats[0].totalDurationMs).toBe(0);
     expect(stats[1].totalDurationMs).toBe(50);
   });
+
+  it('marks critical path strictly by relative slowdown when gaps exceed 10%', () => {
+    const iterations = [
+      {
+        events: [
+          { nodeId: 'a1', state: 'pass' as const, durationMs: 100, timestamp: 1 },
+          { nodeId: 'a2', state: 'pass' as const, durationMs: 5, timestamp: 2 },
+          // branch totals: a=105, b=50 → absDiff 55 exceeds relative threshold vs 50
+          { nodeId: 'b1', state: 'pass' as const, durationMs: 50, timestamp: 1 },
+        ],
+      },
+    ];
+
+    const stats = computeBranchStats(pair, iterations);
+    const critical = stats.find(s => s.isCriticalPath);
+    expect(critical?.branchIndex).toBe(0);
+  });
+
+  it('marks critical path when slower branch dominates and other branch has zero time', () => {
+    const singleBranchPair: ForkJoinPair = {
+      forkId: 'f',
+      joinId: 'j',
+      branches: [['a1'], ['b1']],
+    };
+    const iterations = [
+      {
+        events: [
+          { nodeId: 'a1', state: 'pass' as const, durationMs: 20, timestamp: 1 },
+          // b1 never executes → totalDuration stays 0
+        ],
+      },
+    ];
+
+    const stats = computeBranchStats(singleBranchPair, iterations);
+    expect(stats.find(s => s.branchIndex === 0)?.totalDurationMs).toBe(20);
+    expect(stats.find(s => s.branchIndex === 1)?.totalDurationMs).toBe(0);
+
+    expect(stats.some(s => s.isCriticalPath)).toBe(true);
+  });
+
+  it('does nothing for critical-path when only one statistical branch exists', () => {
+    const solo: ForkJoinPair = {
+      forkId: 'f',
+      joinId: 'j',
+      branches: [['only']],
+    };
+    const stats = computeBranchStats(solo, [
+      { events: [{ nodeId: 'only', state: 'pass' as const, durationMs: 99, timestamp: 1 }] },
+    ]);
+    expect(stats.some(s => s.isCriticalPath)).toBe(false);
+  });
+
+  it('does not bump passCount for skipped node events but still totals executions', () => {
+    const iterations = [
+      {
+        events: [
+          { nodeId: 'a1', state: 'skipped' as const, durationMs: 10, timestamp: 1 },
+          { nodeId: 'b1', state: 'pass' as const, durationMs: 10, timestamp: 1 },
+        ],
+      },
+    ];
+
+    const stats = computeBranchStats(pair, iterations);
+    expect(stats[0].passRate).toBe(0);
+    expect(stats[1].passRate).toBe(100);
+  });
 });
 
 // ── computeBranchBounds ──
@@ -617,6 +791,14 @@ describe('buildBranchLabel', () => {
   it('returns "first → … → last" for three+ node branch', () => {
     const map = new Map([['a', 'A'], ['b', 'B'], ['c', 'C']]);
     expect(buildBranchLabel(0, ['a', 'b', 'c'], map)).toBe('A → … → C');
+  });
+
+  it('drops nodes without tracked positions before computing extents', () => {
+    const positions = new Map([['known', { x: 40, y: 10 }]]);
+    const bounds = computeBranchBounds(['known', 'ghost'], positions, 220, 60, 4);
+    expect(bounds).not.toBeNull();
+    expect(bounds!.x).toBe(36);
+    expect(bounds!.width).toBeGreaterThanOrEqual(220 + 8);
   });
 
   it('returns fallback when labels not found in map', () => {

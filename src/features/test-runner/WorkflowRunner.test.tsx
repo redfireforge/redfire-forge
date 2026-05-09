@@ -137,6 +137,15 @@ vi.mock('./components/MultiWebhookTestingPanel', () => ({
         >
           fire-webhook
         </button>
+        <button
+          type="button"
+          data-testid="stub-fire-webhook-unknown-node"
+          onClick={() => {
+            void props.onFireWebhook?.('definitely-unknown-node-id', 'c', {}).catch(() => {});
+          }}
+        >
+          fire-webhook-unknown
+        </button>
       </div>
     );
   },
@@ -329,6 +338,28 @@ const wfWebhookMid: Workflow = {
   variables: {},
 };
 
+/** Start fans out to both webhook and HTTP — webhook must not register as harness trigger */
+const wfWebhookBranchingStart: Workflow = {
+  id: 'wf-wh-branch',
+  name: 'Branching Start + Webhook',
+  nodes: [
+    { id: 's-multi', type: 'start', position: { x: 0, y: 0 }, data: { label: 'Split' } },
+    {
+      id: 'wh-branch',
+      type: 'webhook',
+      position: { x: 0, y: 50 },
+      data: { label: 'W', method: 'POST', path: '/', samplePayload: '{}' },
+    },
+    { id: 'hx-split', type: 'http', position: { x: 120, y: 0 }, data: { label: 'Other' } },
+  ],
+  edges: [
+    { id: 'eb1', source: 's-multi', target: 'wh-branch' },
+    { id: 'eb2', source: 's-multi', target: 'hx-split' },
+    { id: 'eb3', source: 'wh-branch', target: 'hx-split' },
+  ],
+  variables: {},
+};
+
 const wfCorr: Workflow = {
   id: 'wf-corr',
   name: 'Correlation Flow',
@@ -374,7 +405,7 @@ const wfPoll: Workflow = {
   variables: {},
 };
 
-const allWorkflowVariants: Workflow[] = [...mockWorkflows, wfWebhookStart, wfWebhookMid, wfCorr, wfPoll];
+const allWorkflowVariants: Workflow[] = [...mockWorkflows, wfWebhookStart, wfWebhookMid, wfWebhookBranchingStart, wfCorr, wfPoll];
 
 function ImportSampleHarness(): JSX.Element {
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
@@ -963,6 +994,10 @@ describe('WorkflowRunner', () => {
       ),
     );
 
+    webhookScenarioMocks.fireWebhook.mockClear();
+    fireEvent.click(screen.getByTestId('stub-fire-webhook-unknown-node'));
+    await waitFor(() => expect(webhookScenarioMocks.fireWebhook).not.toHaveBeenCalled());
+
     webhookScenarioMocks.loadWebhookScenarios.mockClear();
 
     fireEvent.change(screen.getByRole('combobox'), { target: { value: 'wf1' } });
@@ -1155,5 +1190,132 @@ describe('WorkflowRunner', () => {
       expect.any(Object),
       expect.any(Function),
     );
+  });
+
+  it('passes resolvedBaseUrl when workflow omits baseUrl variable', async () => {
+    render(
+      <WorkflowRunner workflows={mockWorkflows} onComplete={vi.fn()} resolvedBaseUrl="https://env-host.example" />,
+    );
+
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'wf2' } });
+    await waitFor(() => expect(screen.getByText('▶ Run Workflow')).toBeInTheDocument());
+
+    testExec.execute.mockClear();
+    fireEvent.click(screen.getByText('▶ Run Workflow'));
+
+    const cfg = testExec.execute.mock.calls[0][0] as { workflowBaseUrl?: string };
+    expect(cfg.workflowBaseUrl).toBe('https://env-host.example');
+  });
+
+  it('resolveSubWorkflow callback resolves gallery companion workflows by id', async () => {
+    render(
+      <WorkflowRunner workflows={mockWorkflows} onComplete={vi.fn()} initialWorkflowId="wf1" onClearInitialWorkflowId={vi.fn()} />,
+    );
+    await waitFor(() => expect(screen.getByText('▶ Run Workflow')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByText('▶ Run Workflow'));
+
+    const resolveSubWorkflow = testExec.execute.mock.calls[0][4] as ((id: string) => Workflow | undefined) | undefined;
+    expect(resolveSubWorkflow).toBeTypeOf('function');
+    const child = resolveSubWorkflow!('sample-subwf-child');
+    expect(child?.id).toBe('sample-subwf-child');
+    expect(child?.name).toContain('Child');
+    expect(resolveSubWorkflow!('__no_such_workflow__')).toBeUndefined();
+  });
+
+  it('does not classify webhooks as entry triggers when start fans out beyond the webhook', async () => {
+    render(<WorkflowRunner workflows={allWorkflowVariants} onComplete={vi.fn()} />);
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'wf-wh-branch' } });
+
+    await waitFor(() => expect(screen.getByText('▶ Run Workflow')).toBeInTheDocument());
+    expect(screen.queryByText('Run Mode:')).not.toBeInTheDocument();
+  });
+
+  it('surface non-network registration errors during webhook load startup', async () => {
+    vi.mocked(fetch).mockRejectedValueOnce(new Error('TLS handshake failed'));
+
+    const fail = vi.fn();
+    testExec.startExternalExecution.mockImplementation(() => ({
+      reportProgress: vi.fn(),
+      complete: vi.fn(),
+      fail,
+      abortSignal: new AbortController().signal,
+    }));
+
+    render(<WorkflowRunner workflows={allWorkflowVariants} onComplete={vi.fn()} />);
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'wf-wh' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Load Test' }));
+    fireEvent.click(screen.getByRole('button', { name: /Run Webhook Load Test/ }));
+
+    await waitFor(() => {
+      expect(fail).toHaveBeenCalledWith(expect.stringContaining('TLS handshake failed'));
+    });
+    expect(webhookDriverMocks.runWebhookLoadTest).not.toHaveBeenCalled();
+  });
+
+  it('defaults poll concurrency back to twenty when spinner value is emptied', async () => {
+    render(<WorkflowRunner workflows={allWorkflowVariants} onComplete={vi.fn()} />);
+
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'wf-poll' } });
+    await waitFor(() => expect(screen.getByText('Poll limit')).toBeInTheDocument());
+
+    const pollWrap = screen.getByText('Poll limit').closest('.wf-inline-option')!;
+    const pollSpinner = within(pollWrap as HTMLElement).getByRole('spinbutton');
+    fireEvent.change(pollSpinner, { target: { value: '' } });
+
+    testExec.execute.mockClear();
+    fireEvent.click(screen.getByText('▶ Run Workflow'));
+
+    const dispatched = testExec.execute.mock.calls[0][0] as { maxConcurrentPolls?: number };
+    expect(dispatched.maxConcurrentPolls).toBe(20);
+  });
+
+  it('snapshots invalid sampling thresholds to the fifty-iteration safeguard', async () => {
+    render(<WorkflowRunner workflows={mockWorkflows} onComplete={vi.fn()} />);
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'wf1' } });
+    fireEvent.click(screen.getByRole('checkbox', { name: /full trace/i }));
+    fireEvent.change(await screen.findByRole('spinbutton', { name: /Threshold/i }), {
+      target: { value: 'not-a-number' },
+    });
+
+    testExec.execute.mockClear();
+    fireEvent.click(screen.getByText('▶ Run Workflow'));
+
+    expect(testExec.execute.mock.calls[0][0]).toMatchObject({
+      traceOptions: expect.objectContaining({ samplingThreshold: 50 }),
+    });
+  });
+
+  it('respects disabled trace sampling checkbox in execute options', async () => {
+    render(<WorkflowRunner workflows={mockWorkflows} onComplete={vi.fn()} />);
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'wf1' } });
+    await waitFor(() => expect(screen.getByRole('checkbox', { name: /full trace/i })).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('checkbox', { name: /full trace/i }));
+    const sampling = await screen.findByRole('checkbox', { name: /trace sampling/i });
+    fireEvent.click(sampling);
+
+    testExec.execute.mockClear();
+    fireEvent.click(screen.getByText('▶ Run Workflow'));
+
+    expect(testExec.execute.mock.calls[0][0]).toMatchObject({
+      traceOptions: expect.objectContaining({
+        captureFullTrace: true,
+        samplingEnabled: false,
+      }),
+    });
+  });
+
+  it('allows editing trace sampling threshold when sampling stays enabled', async () => {
+    render(<WorkflowRunner workflows={mockWorkflows} onComplete={vi.fn()} />);
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'wf1' } });
+
+    fireEvent.click(screen.getByRole('checkbox', { name: /full trace/i }));
+    expect(await screen.findByRole('spinbutton', { name: /Threshold/i })).toHaveValue(50);
+    fireEvent.change(screen.getByRole('spinbutton', { name: /Threshold/i }), {
+      target: { value: '90' },
+    });
+
+    expect(screen.getByRole('spinbutton', { name: /Threshold/i })).toHaveValue(90);
   });
 });

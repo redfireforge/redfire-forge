@@ -3,13 +3,22 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
+import type { SetStateAction } from 'react';
 import { useWorkflowDesignerControllerPartB } from './useWorkflowDesignerControllerPartB';
 import type { WorkflowDesignerProps } from '../utils/workflowDesignerShellTypes';
 import type { Workflow } from '../types/workflow';
-import type { WorkflowRFNode } from '../utils/workflowNodeFactory';
+import { enrichNodeData, type WorkflowRFNode } from '../utils/workflowNodeFactory';
 import type { WorkflowDesignerControllerPartA } from './useWorkflowDesignerControllerPartA';
 
-const { reactFlowInitStub, dragDropStub } = vi.hoisted(() => ({
+type ServiceRegistryMode = 'closed' | 'panel' | 'fullscreen';
+
+const {
+  reactFlowInitStub,
+  dragDropStub,
+  partBMutable,
+  navMocks,
+  resolveHttpNodeBaseUrlSpy,
+} = vi.hoisted(() => ({
   reactFlowInitStub: vi.fn(() => vi.fn()),
   dragDropStub: vi.fn(() => ({
     isDragOver: false,
@@ -19,6 +28,20 @@ const { reactFlowInitStub, dragDropStub } = vi.hoisted(() => ({
     handleCanvasDragLeave: vi.fn(),
     handleCanvasDrop: vi.fn(),
   })),
+  partBMutable: {
+    configModalNodeId: null as string | null,
+    selectedHintNode: null as WorkflowRFNode | null,
+  },
+  navMocks: {
+    setNavStack: vi.fn(),
+    navigateToWorkflow: vi.fn(),
+    handleBreadcrumbNavigate: vi.fn(),
+  },
+  resolveHttpNodeBaseUrlSpy: vi.fn(),
+}));
+
+vi.mock('../utils/workflowHostResolve', () => ({
+  resolveHttpNodeBaseUrl: (...args: unknown[]) => resolveHttpNodeBaseUrlSpy(...args),
 }));
 
 vi.mock('./useWorkflowPreviewReactFlowInit', () => ({
@@ -71,7 +94,7 @@ vi.mock('./useWorkflowExecution', () => ({
 vi.mock('./useWorkflowCanvasSync', () => ({
   useWorkflowCanvasSync: vi.fn(),
   useWorkflowVariableHints: () => ({
-    selectedNode: null,
+    selectedNode: partBMutable.selectedHintNode,
     conditionVariableHints: [],
     httpVariableHints: [],
   }),
@@ -83,7 +106,9 @@ vi.mock('./useWorkflowDetailModal', () => ({
     setDetailModal: vi.fn(),
     variableDetailDraft: null,
     setVariableDetailDraft: vi.fn(),
-    configModalNodeId: null,
+    get configModalNodeId() {
+      return partBMutable.configModalNodeId;
+    },
     setConfigModalNodeId: vi.fn(),
     extractionSampleJson: null,
     setExtractionSampleJson: vi.fn(),
@@ -109,9 +134,9 @@ vi.mock('./useWorkflowExtractionSample', () => ({
 vi.mock('./useWorkflowNavigation', () => ({
   useWorkflowNavigation: () => ({
     navStack: [],
-    setNavStack: vi.fn(),
-    navigateToWorkflow: vi.fn(),
-    handleBreadcrumbNavigate: vi.fn(),
+    setNavStack: navMocks.setNavStack,
+    navigateToWorkflow: navMocks.navigateToWorkflow,
+    handleBreadcrumbNavigate: navMocks.handleBreadcrumbNavigate,
   }),
 }));
 
@@ -277,9 +302,30 @@ const makePartA = (): WorkflowDesignerControllerPartA => {
   } as WorkflowDesignerControllerPartA;
 };
 
+/** Track functional `setServiceRegistryMode` updates the way React does. */
+function makePartATracked(initial: ServiceRegistryMode): {
+  tracked: WorkflowDesignerControllerPartA;
+  getSrvMode: () => ServiceRegistryMode;
+} {
+  let srvMode: ServiceRegistryMode = initial;
+  const base = makePartA();
+  return {
+    tracked: {
+      ...base,
+      serviceRegistryMode: initial,
+      setServiceRegistryMode: vi.fn((u: SetStateAction<ServiceRegistryMode>) => {
+        srvMode = typeof u === 'function' ? u(srvMode) : u;
+      }) as WorkflowDesignerControllerPartA['setServiceRegistryMode'],
+    },
+    getSrvMode: () => srvMode,
+  };
+}
+
 describe('useWorkflowDesignerControllerPartB', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    partBMutable.configModalNodeId = null;
+    partBMutable.selectedHintNode = null;
   });
 
   it('creates a new workflow when handleNew receives a name', () => {
@@ -295,6 +341,30 @@ describe('useWorkflowDesignerControllerPartB', () => {
     vi.unstubAllGlobals();
   });
 
+  it('handleNew skips create when trimmed name empty', () => {
+    vi.stubGlobal('prompt', vi.fn(() => '   '));
+    const props = makeDesignerProps();
+    const a = makePartA();
+    const { result } = renderHook(() => useWorkflowDesignerControllerPartB(props, a));
+
+    act(() => result.current.handleNew());
+
+    expect(a.create).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
+  });
+
+  it('handleNew skips create when prompt is dismissed', () => {
+    vi.stubGlobal('prompt', vi.fn(() => null));
+    const props = makeDesignerProps();
+    const a = makePartA();
+    const { result } = renderHook(() => useWorkflowDesignerControllerPartB(props, a));
+
+    act(() => result.current.handleNew());
+
+    expect(a.create).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
+  });
+
   it('handleSelect clears preview and navigates', () => {
     const props = makeDesignerProps();
     const a = makePartA();
@@ -303,6 +373,7 @@ describe('useWorkflowDesignerControllerPartB', () => {
     act(() => result.current.handleSelect('wf-b'));
 
     expect(props.onClearPreview).toHaveBeenCalled();
+    expect(navMocks.setNavStack).toHaveBeenCalledWith([]);
     expect(a.select).toHaveBeenCalledWith('wf-b');
   });
 
@@ -316,6 +387,26 @@ describe('useWorkflowDesignerControllerPartB', () => {
     expect(a.setSelectedNodeId).toHaveBeenCalledWith('n1');
     expect(a.versioning.closeVersionPanel).toHaveBeenCalled();
     expect(a.setServiceRegistryMode).toHaveBeenCalled();
+  });
+
+  it('handleNodeClick closes service registry panel when it is panel mode', () => {
+    const props = makeDesignerProps();
+    const { tracked, getSrvMode } = makePartATracked('panel');
+    const { result } = renderHook(() => useWorkflowDesignerControllerPartB(props, tracked));
+
+    act(() => result.current.handleNodeClick({} as never, httpNode));
+
+    expect(getSrvMode()).toBe('closed');
+  });
+
+  it('handleNodeClick preserves fullscreen service registry mode', () => {
+    const props = makeDesignerProps();
+    const { tracked, getSrvMode } = makePartATracked('fullscreen');
+    const { result } = renderHook(() => useWorkflowDesignerControllerPartB(props, tracked));
+
+    act(() => result.current.handleNodeClick({} as never, httpNode));
+
+    expect(getSrvMode()).toBe('fullscreen');
   });
 
   it('handlePaneClick clears selection and context menu', () => {
@@ -373,5 +464,73 @@ describe('useWorkflowDesignerControllerPartB', () => {
 
     expect(result.current.latestStepSummaries.length).toBeGreaterThan(0);
     expect(result.current.variableCount).toBeGreaterThanOrEqual(0);
+  });
+
+  it('effectiveQuickTestBaseUrl prefers resolver value for HTTP selections', () => {
+    partBMutable.selectedHintNode = httpNode;
+    resolveHttpNodeBaseUrlSpy.mockReturnValue('https://custom-http');
+    const props = makeDesignerProps();
+    const a = makePartA();
+    const { result } = renderHook(() => useWorkflowDesignerControllerPartB(props, a));
+
+    expect(result.current.effectiveQuickTestBaseUrl).toBe('https://custom-http');
+    expect(resolveHttpNodeBaseUrlSpy).toHaveBeenCalled();
+  });
+
+  it('effectiveQuickTestBaseUrl falls back when resolver yields no URL', () => {
+    partBMutable.selectedHintNode = httpNode;
+    resolveHttpNodeBaseUrlSpy.mockReturnValue(undefined);
+    const props = makeDesignerProps();
+    const a = makePartA();
+    const { result } = renderHook(() => useWorkflowDesignerControllerPartB(props, a));
+
+    expect(result.current.effectiveQuickTestBaseUrl).toBe('http://localhost');
+  });
+
+  it('effectiveQuickTestBaseUrl uses harness resolved URL without HTTP hints', () => {
+    partBMutable.selectedHintNode = null;
+    resolveHttpNodeBaseUrlSpy.mockClear();
+    const props = makeDesignerProps();
+    const a = makePartA();
+    const { result } = renderHook(() => useWorkflowDesignerControllerPartB(props, a));
+
+    expect(result.current.effectiveQuickTestBaseUrl).toBe(props.resolvedBaseUrl);
+    expect(resolveHttpNodeBaseUrlSpy).not.toHaveBeenCalled();
+  });
+
+  it('latestStepSummaries is empty without run history', () => {
+    const props = makeDesignerProps();
+    const a = { ...makePartA(), runHistory: [] satisfies WorkflowDesignerControllerPartA['runHistory'] };
+    const { result } = renderHook(() => useWorkflowDesignerControllerPartB(props, a));
+
+    expect(result.current.latestStepSummaries).toEqual([]);
+  });
+
+  it('latestStepSummaries falls back when head entry has no summaries', () => {
+    type H = WorkflowDesignerControllerPartA['runHistory'];
+    const props = makeDesignerProps();
+    const blankHead = {} as H extends Array<infer E> ? E : never;
+    const a = { ...makePartA(), runHistory: [blankHead] };
+    const { result } = renderHook(() => useWorkflowDesignerControllerPartB(props, a));
+
+    expect(result.current.latestStepSummaries).toEqual([]);
+  });
+
+  it('returns null configModalNode when modal id misses canvas nodes', () => {
+    partBMutable.configModalNodeId = 'missing-id';
+    const props = makeDesignerProps();
+    const a = makePartA();
+    const { result } = renderHook(() => useWorkflowDesignerControllerPartB(props, a));
+
+    expect(result.current.configModalNode).toBe(null);
+  });
+
+  it('resolves configModalNode by enriching the modal target node', () => {
+    partBMutable.configModalNodeId = httpNode.id;
+    const props = makeDesignerProps();
+    const a = makePartA();
+    const { result } = renderHook(() => useWorkflowDesignerControllerPartB(props, a));
+
+    expect(result.current.configModalNode).toEqual(enrichNodeData(httpNode, a.nodeInitialVars));
   });
 });

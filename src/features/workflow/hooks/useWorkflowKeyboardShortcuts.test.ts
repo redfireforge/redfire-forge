@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
+import { renderHook } from '@testing-library/react';
 import { useWorkflowKeyboardShortcuts } from './useWorkflowKeyboardShortcuts';
 import type { Workflow } from '../types/workflow';
 import type { ToastApi } from '../components/WorkflowToastProvider';
@@ -221,6 +221,38 @@ describe('useWorkflowKeyboardShortcuts', () => {
     wrap.className = 'monaco-editor';
     press('z', { metaKey: true, target: wrap });
     expect(opts.handleUndoAction).not.toHaveBeenCalled();
+  });
+
+  it('ignores ? when target reports contentEditable', () => {
+    const opts = makeOpts();
+    renderHook(() => useWorkflowKeyboardShortcuts(opts));
+    const el = document.createElement('div');
+    Object.defineProperty(el, 'isContentEditable', { value: true, configurable: true });
+    document.body.appendChild(el);
+    press('?', { target: el });
+    expect(opts.setShowShortcuts).not.toHaveBeenCalled();
+    document.body.removeChild(el);
+  });
+
+  it('ignores Cmd+M when focus is in an input', () => {
+    const opts = makeOpts();
+    renderHook(() => useWorkflowKeyboardShortcuts(opts));
+    press('m', { metaKey: true, target: document.createElement('input') });
+    expect(opts.setShowMinimap).not.toHaveBeenCalled();
+  });
+
+  it('ignores Cmd+0 when focus is in an input', () => {
+    const opts = makeOpts();
+    renderHook(() => useWorkflowKeyboardShortcuts(opts));
+    press('0', { metaKey: true, target: document.createElement('input') });
+    expect(fitView).not.toHaveBeenCalled();
+  });
+
+  it('ignores Cmd+V when focus is in textarea', () => {
+    const opts = makeOpts();
+    renderHook(() => useWorkflowKeyboardShortcuts(opts));
+    press('v', { metaKey: true, target: document.createElement('textarea') });
+    expect(opts.handlePasteNode).not.toHaveBeenCalled();
   });
 
   it('uses Ctrl on non-mac meta key path via ctrlKey', () => {

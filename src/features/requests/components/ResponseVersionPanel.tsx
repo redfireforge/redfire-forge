@@ -105,10 +105,10 @@ export default function ResponseVersionPanel({ versions, currentJson, currentVal
     return d.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' });
   };
 
-  const getVersionLabel = (v: ResponseVersion, idx: number) => {
+  const getVersionLabel = useCallback((v: ResponseVersion, idx: number) => {
     const num = sorted.length - idx;
     return v.label || `v${num}`;
-  };
+  }, [sorted]);
 
 
   /** Check ALL versions for a duplicate (not just latest). Returns matching version label or null. */
@@ -167,7 +167,7 @@ export default function ResponseVersionPanel({ versions, currentJson, currentVal
       if (rulesSame) return getVersionLabel(ver, i);
     }
     return null;
-  }, [sorted, currentJson, excludedPaths, currentValidation]);
+  }, [sorted, currentJson, excludedPaths, currentValidation, getVersionLabel]);
 
   const handleSaveClick = useCallback(() => {
     if (duplicateOfLabel) {

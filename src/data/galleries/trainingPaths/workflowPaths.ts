@@ -507,10 +507,24 @@ export const workflowPaths: TrainingPath[] = [
           },
           {
             title: 'Results Explorer',
-            description: 'Visual execution analysis — interactive diagram, detail panel, iteration matrix, search/filter, heatmap, bottleneck insights, and export.',
+            description: 'Visual execution analysis — diagram/timeline views, detail panel, iteration matrix, search/filter, heatmap, bottleneck insights, swim lanes, sub-workflow drill-down, and export.',
             difficulty: 'medium',
             sampleId: 'perf-workflow-bottleneck',
             manualPath: 'workflow/runner/results-explorer-medium.html',
+          },
+          {
+            title: 'Timeline View (Gantt Chart)',
+            description: 'Visualize workflow execution as a horizontal Gantt chart — time axis, bar colors, aggregate markers, zoom, and sub-workflow indicators.',
+            difficulty: 'medium',
+            sampleId: 'perf-workflow-bottleneck',
+            manualPath: 'workflow/runner/results-explorer-timeline-medium.html',
+          },
+          {
+            title: 'Sub-Workflow Drill-Down',
+            description: 'Navigate into nested workflow executions from the Results Explorer — breadcrumb navigation, visual cues, and timeline drill-down.',
+            difficulty: 'medium',
+            sampleId: 'sample-workflow-sub-workflow',
+            manualPath: 'workflow/runner/results-explorer-drilldown-medium.html',
           },
           {
             title: 'Edge Traversal Percentages',

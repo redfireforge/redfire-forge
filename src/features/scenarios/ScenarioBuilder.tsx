@@ -212,7 +212,7 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, share
   // ── Export / Import (extracted hook) ──
   const showConfirm = useCallback((title: string, message: string, onConfirm: () => void) => {
     setConfirmDialog({ title, message, onConfirm: () => { onConfirm(); setConfirmDialog(null); } });
-  }, []);
+  }, [setConfirmDialog]);
   const {
     exportAll, importAll, handleCsvImport,
     exportFeatureGroup, importScenariosInto,

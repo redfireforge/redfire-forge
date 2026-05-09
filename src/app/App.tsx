@@ -151,7 +151,7 @@ export default function App() {
       setTheme(initialTheme);
        
     }
-  }, [loading, initialTheme, initialTestRuns]);
+  }, [loading, initialTheme, initialTestRuns, setTheme]);
 
   // Keep ?tab= in sync so refresh restores Workflow / Catalog / Harness / etc.
   useEffect(() => {
