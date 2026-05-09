@@ -4,6 +4,13 @@ import JsonTreeViewer from '../../../shared/components/JsonTreeViewer';
 import { formatDurationMs } from '../../../shared/utils/formatDuration';
 import { truncate } from '../../../shared/utils/helpers';
 import { computeHistogramBins } from '../utils/responseTimeHistogram';
+import {
+  computeBranchStats,
+  BRANCH_COLORS,
+  BRANCH_BORDER_COLORS,
+  type ForkJoinPair,
+  type ForkJoinTopology,
+} from '../utils/forkJoinDetection';
 
 type TabId = 'overview' | 'request' | 'response' | 'variables' | 'assertions';
 
@@ -17,6 +24,8 @@ interface Props {
   onIterationChange: (iteration: number | undefined) => void;
   onClose: () => void;
   fullTraceCaptured?: boolean;
+  /** Fork/join topology for branch comparison display */
+  forkJoinTopology?: ForkJoinTopology;
 }
 
 export default function ResultsExplorerDetailPanel({
@@ -29,6 +38,7 @@ export default function ResultsExplorerDetailPanel({
   onIterationChange,
   onClose,
   fullTraceCaptured,
+  forkJoinTopology,
 }: Props) {
   const [activeTab, setActiveTab] = useState<TabId>('overview');
 
@@ -169,13 +179,23 @@ export default function ResultsExplorerDetailPanel({
       {/* Tab Content */}
       <div className="explorer-detail-content">
         {activeTab === 'overview' && (
-          <OverviewTab
-            events={events}
-            stats={stats}
-            currentEvent={currentEvent}
-            selectedIteration={selectedIteration}
-            onIterationClick={(i) => onIterationChange(i)}
-          />
+          <>
+            <OverviewTab
+              events={events}
+              stats={stats}
+              currentEvent={currentEvent}
+              selectedIteration={selectedIteration}
+              onIterationClick={(i) => onIterationChange(i)}
+            />
+            {(nodeType === 'fork' || nodeType === 'join') && forkJoinTopology && (
+              <BranchComparisonSection
+                nodeId={_nodeId}
+                nodeType={nodeType}
+                topology={forkJoinTopology}
+                iterations={iterations}
+              />
+            )}
+          </>
         )}
         {activeTab === 'request' && currentEvent && (
           <RequestTab event={currentEvent} hasFullTrace={!!hasFullTrace} />
@@ -190,6 +210,87 @@ export default function ResultsExplorerDetailPanel({
           <AssertionsTab event={currentEvent} />
         )}
       </div>
+    </div>
+  );
+}
+
+// ─── Branch Comparison (Fork/Join) ───────────────────────────────────────────
+
+interface BranchComparisonProps {
+  nodeId: string;
+  nodeType: string;
+  topology: ForkJoinTopology;
+  iterations: WorkflowIterationTrace[];
+}
+
+function BranchComparisonSection({ nodeId, nodeType, topology, iterations }: BranchComparisonProps) {
+  const pair: ForkJoinPair | undefined = useMemo(() => {
+    return topology.pairs.find(
+      p => (nodeType === 'fork' && p.forkId === nodeId) ||
+           (nodeType === 'join' && p.joinId === nodeId),
+    );
+  }, [topology.pairs, nodeId, nodeType]);
+
+  const branchStats = useMemo(() => {
+    if (!pair) return [];
+    return computeBranchStats(pair, iterations);
+  }, [pair, iterations]);
+
+  if (!pair || branchStats.length === 0) return null;
+
+  return (
+    <div className="branch-comparison-section" data-testid="branch-comparison">
+      <div className="branch-comparison-title">
+        Parallel Branches
+        <span className="branch-comparison-count">{branchStats.length} branches</span>
+      </div>
+      <table className="branch-comparison-table" data-testid="branch-comparison-table">
+        <thead>
+          <tr>
+            <th>Branch</th>
+            <th>Nodes</th>
+            <th>Avg Time</th>
+            <th>Pass Rate</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {branchStats.map((stat) => {
+            const colorIdx = stat.branchIndex % BRANCH_COLORS.length;
+            return (
+              <tr
+                key={stat.branchIndex}
+                className={stat.isCriticalPath ? 'branch-row-critical' : ''}
+                data-testid={`branch-row-${stat.branchIndex}`}
+              >
+                <td>
+                  <span
+                    className="branch-color-dot"
+                    style={{
+                      background: BRANCH_BORDER_COLORS[colorIdx],
+                    }}
+                  />
+                  {stat.label}
+                </td>
+                <td>{stat.nodeCount}</td>
+                <td>{formatDurationMs(stat.totalDurationMs)}</td>
+                <td>
+                  <span
+                    style={{ color: stat.passRate === 100 ? '#22c55e' : stat.passRate >= 80 ? '#f59e0b' : '#ef4444' }}
+                  >
+                    {stat.passRate.toFixed(0)}%
+                  </span>
+                </td>
+                <td>
+                  {stat.isCriticalPath && (
+                    <span className="branch-critical-badge" data-testid="critical-path-badge">⏱ Critical</span>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
     </div>
   );
 }
