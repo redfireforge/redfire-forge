@@ -22,7 +22,7 @@ function makeRun(id: string, timestamp: number): TestRun {
   return {
     id,
     timestamp,
-    config: { concurrency: 1, totalTransactions: 1, executionMode: 'sequential', scenarioWeights: [] },
+    config: { concurrency: 1, iterations: 1, executionMode: 'sequential', scenarioWeights: [] },
     results: [],
   } as unknown as TestRun;
 }
@@ -30,7 +30,7 @@ function makeRun(id: string, timestamp: number): TestRun {
 function makeRunSansTimestamp(id: string): TestRun {
   return {
     id,
-    config: { concurrency: 1, totalTransactions: 1, executionMode: 'sequential', scenarioWeights: [] },
+    config: { concurrency: 1, iterations: 1, executionMode: 'sequential', scenarioWeights: [] },
     results: [],
   } as unknown as TestRun;
 }

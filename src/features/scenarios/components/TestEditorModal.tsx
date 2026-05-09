@@ -44,6 +44,7 @@ export interface TestEditorModalProps {
   onCancel: () => void;
   isNew: boolean;
   isParameterized?: boolean;
+  scenarioKind?: import('../../../shared/types').ScenarioKind;
   inputMode: TestEditorInputMode;
   onInputModeChange: (mode: TestEditorInputMode) => void;
   activeTab: TestEditorTab;
@@ -79,6 +80,7 @@ export default function TestEditorModal({
   onCancel,
   isNew,
   isParameterized,
+  scenarioKind,
   inputMode,
   onInputModeChange,
   activeTab,
@@ -585,12 +587,12 @@ export default function TestEditorModal({
                   Extract {(draft.extractions?.length ?? 0) > 0 && <span className="tab-badge">{draft.extractions!.length}</span>}
                 </button>
               )}
-              {!draft.dataSource && (
+              {scenarioKind !== 'standard' && !draft.dataSource && (
                 <button type="button" className={`builder-tab ${activeTab === 'data' ? 'active' : ''}`} onClick={() => onActiveTabChange('data')}>
                   Parameterize
                 </button>
               )}
-              {draft.dataSource && (
+              {scenarioKind !== 'standard' && draft.dataSource && (
                 <button type="button" className={`builder-tab ${activeTab === 'data' ? 'active' : ''}`} onClick={() => onActiveTabChange('data')}>
                   Data Source {(draft.dataSource.rows.filter(r => r.enabled).length ?? 0) > 0 && <span className="tab-badge">{draft.dataSource.rows.filter(r => r.enabled).length}</span>}
                 </button>

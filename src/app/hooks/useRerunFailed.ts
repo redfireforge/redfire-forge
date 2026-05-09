@@ -87,7 +87,7 @@ export function useRerunFailed({
 
       const rerunConfig: TestConfig = {
         concurrency: 1,
-        totalTransactions: expandedScenarios.length,
+        iterations: expandedScenarios.length,
         executionMode: 'sequential',
         scenarioWeights: expandedScenarios.map(s => ({ scenarioId: s.id, weight: 1 })),
         timeoutSec: run.config.timeoutSec,

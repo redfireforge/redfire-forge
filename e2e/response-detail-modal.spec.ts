@@ -34,7 +34,7 @@ test.describe('Response Detail Modal', () => {
         id: 'run-e2e-1', timestamp: Date.now(),
         envName: 't01', svcName: 'test-service',
         baseUrl: 'http://localhost:5173',
-        config: { concurrency: 1, totalTransactions: 3, scenarioWeights: [], executionMode: 'sequential' },
+        config: { concurrency: 1, iterations: 3, scenarioWeights: [], executionMode: 'sequential' },
         summary: {
           tps: 10, avgResponseTime: 50, minResponseTime: 20, maxResponseTime: 80,
           p95ResponseTime: 75, p99ResponseTime: 79, errorRate: 0,

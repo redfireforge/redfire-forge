@@ -137,7 +137,7 @@ async function addScenarioViaUI(page: import('@playwright/test').Page, fgName: s
   const fgCard = page.locator('.feature-group-card', { hasText: fgName });
   await fgCard.locator('.feature-group-actions button', { hasText: '+ Scenario' }).click();
   await page.waitForTimeout(200);
-  const nameInput = fgCard.locator('.inline-name-form input');
+  const nameInput = fgCard.locator('.inline-name-form input[placeholder]');
   await nameInput.fill(scenarioName);
   await nameInput.press('Enter');
   await page.waitForTimeout(500);

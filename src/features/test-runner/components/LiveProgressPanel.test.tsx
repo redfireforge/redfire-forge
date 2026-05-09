@@ -183,6 +183,28 @@ describe('LiveProgressPanel', () => {
     expect(progressText?.textContent).toMatch(/3\s*\/\s*5.*iterations/);
   });
 
+  it('shows both iterations and request counts in workflow mode when summary available', () => {
+    const workflowSummary = {
+      tps: 10, avgResponseTime: 50, minResponseTime: 10, maxResponseTime: 200,
+      p50ResponseTime: 45, p95ResponseTime: 180, p99ResponseTime: 195,
+      errorRate: 5, errorsByStatus: { 500: 2 },
+      totalRequests: 40, successfulRequests: 38, failedRequests: 2, failedValidations: 0,
+      totalDurationMs: 5000,
+    };
+    const { container } = render(
+      <LiveProgressPanel
+        {...baseProps}
+        executionMode="workflow"
+        total={10}
+        completed={10}
+        summary={workflowSummary}
+      />
+    );
+    const progressText = container.querySelector('.progress-text');
+    expect(progressText?.textContent).toMatch(/10\s*\/\s*10.*iterations/);
+    expect(progressText?.textContent).toMatch(/38\s*\/\s*40.*requests.*95%/);
+  });
+
   it('shows 0s and loadProfile duration when load-profile has null profileMeta', () => {
     const { container } = render(
       <LiveProgressPanel

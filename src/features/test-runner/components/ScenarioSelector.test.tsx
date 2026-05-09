@@ -424,18 +424,17 @@ describe('ScenarioSelector', () => {
     expect(screen.getByText(/Selecting gallery tests will deselect/)).toBeInTheDocument();
   });
 
-  it('select all gallery button works', () => {
+  it('select all button selects both user and gallery scenarios', () => {
     const galleryFgs: FeatureGroup[] = [
       { id: 'fg-user', name: 'User Tests', scenarios: [{ id: 'sc-u', name: 'U', tests: [{ id: 't1', name: 'T', method: 'GET', url: '/', headers: [], validation: { mode: 'none' }, auth: { type: 'none' } }] }] },
       { id: 'fg-gal', name: 'Gallery', source: 'gallery', scenarios: [{ id: 'sc-g', name: 'G', tests: [{ id: 't2', name: 'T2', method: 'GET', url: '/', headers: [], validation: { mode: 'none' }, auth: { type: 'none' } }] }] },
     ];
     const onSelectedScenariosChange = vi.fn();
     render(<ScenarioSelector {...defaultProps} featureGroups={galleryFgs} onSelectedScenariosChange={onSelectedScenariosChange} />);
-    const selectAllBtns = screen.getAllByText('Select All');
-    // The second Select All is for gallery
-    fireEvent.click(selectAllBtns[1]);
+    fireEvent.click(screen.getByText('Select All'));
     expect(onSelectedScenariosChange).toHaveBeenCalled();
     const newSelection = onSelectedScenariosChange.mock.calls[0][0] as Set<string>;
+    expect(newSelection.has('sc-u')).toBe(true);
     expect(newSelection.has('sc-g')).toBe(true);
   });
 
@@ -459,6 +458,47 @@ describe('ScenarioSelector', () => {
     render(<ScenarioSelector {...defaultProps} featureGroups={fgs} />);
     expect(screen.queryByText('Empty Scenario')).not.toBeInTheDocument();
     expect(screen.getByText('Real Scenario')).toBeInTheDocument();
+  });
+
+  describe('kind filter', () => {
+    const mixedFgs: FeatureGroup[] = [
+      {
+        id: 'fg1',
+        name: 'Mixed Group',
+        scenarios: [
+          { id: 'sc-std', name: 'Standard Scenario', kind: 'standard', tests: [{ id: 't1', name: 'Normal', method: 'GET', url: '/', headers: [], validation: { mode: 'none' }, auth: { type: 'none' } }] },
+          { id: 'sc-param', name: 'Param Scenario', kind: 'parameterized', tests: [{ id: 't2', name: 'Data', method: 'POST', url: '/', headers: [], validation: { mode: 'none' }, auth: { type: 'none' }, dataSource: { columns: [{ id: 'c1', name: 'col' }], rows: [{ id: 'r1', values: { c1: 'v1' }, enabled: true }] } }] },
+        ],
+      },
+    ];
+
+    it('shows all scenarios when kind is undefined', () => {
+      render(<ScenarioSelector {...defaultProps} featureGroups={mixedFgs} />);
+      expect(screen.getByText('Standard Scenario')).toBeInTheDocument();
+      expect(screen.getByText('Param Scenario')).toBeInTheDocument();
+    });
+
+    it('shows only standard scenarios when kind is standard', () => {
+      render(<ScenarioSelector {...defaultProps} featureGroups={mixedFgs} kind="standard" />);
+      expect(screen.getByText('Standard Scenario')).toBeInTheDocument();
+      expect(screen.queryByText('Param Scenario')).not.toBeInTheDocument();
+    });
+
+    it('shows only parameterized scenarios when kind is parameterized', () => {
+      render(<ScenarioSelector {...defaultProps} featureGroups={mixedFgs} kind="parameterized" />);
+      expect(screen.queryByText('Standard Scenario')).not.toBeInTheDocument();
+      expect(screen.getByText('Param Scenario')).toBeInTheDocument();
+    });
+
+    it('hides feature group entirely when all its scenarios are filtered out', () => {
+      const fgs: FeatureGroup[] = [
+        { id: 'fg1', name: 'Only Standard', scenarios: [
+          { id: 'sc1', name: 'Std', kind: 'standard', tests: [{ id: 't1', name: 'T', method: 'GET', url: '/', headers: [], validation: { mode: 'none' }, auth: { type: 'none' } }] },
+        ]},
+      ];
+      render(<ScenarioSelector {...defaultProps} featureGroups={fgs} kind="parameterized" />);
+      expect(screen.queryByText('Only Standard')).not.toBeInTheDocument();
+    });
   });
 });
 

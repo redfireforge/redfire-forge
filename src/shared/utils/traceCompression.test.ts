@@ -58,7 +58,7 @@ function createMockTestRun(overrides: Partial<TestRun> = {}): TestRun {
   return {
     id: 'run-1',
     timestamp: Date.now(),
-    config: { concurrency: 1, totalTransactions: 1, executionMode: 'workflow' } as TestRun['config'],
+    config: { concurrency: 1, iterations: 1, executionMode: 'workflow' } as TestRun['config'],
     summary: { total: 10, passed: 9, failed: 1 } as TestRun['summary'],
     results: [],
     ...overrides,

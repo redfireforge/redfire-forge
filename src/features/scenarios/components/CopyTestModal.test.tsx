@@ -180,8 +180,7 @@ describe('CopyTestModal', () => {
     fireEvent.change(fgSelect, {
       target: { value: 'fg-empty' },
     });
-    const scSelect = screen.getAllByRole('combobox')[1] as HTMLSelectElement;
-    expect(scSelect.value).toBe('');
+    expect(screen.getByText('No scenarios in this feature group')).toBeInTheDocument();
   });
 
   it('shows No scenarios when initial feature id does not match any group', () => {
@@ -189,7 +188,7 @@ describe('CopyTestModal', () => {
       sourceFeatureId: 'missing-fg',
       sourceScenarioId: 'sc-1',
     });
-    expect(screen.getByRole('option', { name: 'No scenarios' })).toBeInTheDocument();
+    expect(screen.getByText('No scenarios in this feature group')).toBeInTheDocument();
   });
 });
 

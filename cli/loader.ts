@@ -243,7 +243,7 @@ export function buildTestConfig(
 
   return {
     concurrency,
-    totalTransactions: transactions,
+    iterations: transactions,
     scenarioWeights: scenarios.map(s => ({
       scenarioId: s.id,
       weight: file.tests.find(t => t.name === s.name)?.weight ?? 1,
