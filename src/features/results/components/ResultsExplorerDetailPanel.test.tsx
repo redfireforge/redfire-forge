@@ -1335,9 +1335,9 @@ describe('ResultsExplorerDetailPanel', () => {
         />
       );
 
-      expect(screen.getByText('Branch A')).toBeInTheDocument();
-      expect(screen.getByText('Branch B')).toBeInTheDocument();
-      // Branch A has 2 nodes, Branch B has 1
+      // Branch labels derived from node labels: "A1 → A2" and "B1"
+      expect(screen.getByText('A1 → A2')).toBeInTheDocument();
+      expect(screen.getByText('B1')).toBeInTheDocument();
       const rows = screen.getAllByTestId(/branch-row-/);
       expect(rows).toHaveLength(2);
     });

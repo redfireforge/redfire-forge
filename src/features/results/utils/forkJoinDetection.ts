@@ -230,16 +230,41 @@ interface TraceIteration {
 }
 
 /**
+ * Build a human-readable branch label from node names.
+ * Single-node branch: use that node's label.
+ * Multi-node branch: "first → … → last" (up to 2 names shown).
+ * Fallback to generic "Branch A/B/…" if no labels available.
+ */
+export function buildBranchLabel(
+  branchIndex: number,
+  nodeIds: string[],
+  nodeLabelMap?: Map<string, string>,
+): string {
+  const fallback = BRANCH_LABELS[branchIndex % BRANCH_LABELS.length];
+  if (!nodeLabelMap || nodeIds.length === 0) return fallback;
+
+  const labels = nodeIds
+    .map(id => nodeLabelMap.get(id))
+    .filter((l): l is string => !!l);
+
+  if (labels.length === 0) return fallback;
+  if (labels.length === 1) return labels[0];
+  if (labels.length === 2) return `${labels[0]} → ${labels[1]}`;
+  return `${labels[0]} → … → ${labels[labels.length - 1]}`;
+}
+
+/**
  * Compute per-branch execution statistics from trace data.
  * The "critical path" is the slowest branch (determines fork/join total time).
  */
 export function computeBranchStats(
   pair: ForkJoinPair,
   iterations: TraceIteration[],
+  nodeLabelMap?: Map<string, string>,
 ): BranchExecutionStats[] {
   const stats: BranchExecutionStats[] = pair.branches.map((nodeIds, i) => ({
     branchIndex: i,
-    label: BRANCH_LABELS[i % BRANCH_LABELS.length],
+    label: buildBranchLabel(i, nodeIds, nodeLabelMap),
     nodeIds,
     totalDurationMs: 0,
     nodeCount: nodeIds.length,
