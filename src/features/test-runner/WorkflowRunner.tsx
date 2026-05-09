@@ -257,9 +257,9 @@ export default function WorkflowRunner({ workflows, onComplete, initialWorkflowI
     const resolveSubWorkflow = (id: string) => {
       const found = workflows.find(w => w.id === id);
       if (found) return found;
-      const catalogEntry = sampleWorkflowCatalog.find(e => e.id === selectedWorkflow.id);
-      if (catalogEntry?.companionFactories) {
-        for (const cf of catalogEntry.companionFactories) {
+      for (const entry of sampleWorkflowCatalog) {
+        if (!entry.companionFactories) continue;
+        for (const cf of entry.companionFactories) {
           const companion = cf();
           if (companion.id === id) return companion;
         }
