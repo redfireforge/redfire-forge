@@ -195,6 +195,29 @@
 }
 
 
+/* ── Detail Panel Toggle ── */
+.detail-panel-toggle {
+  position: relative;
+  z-index: 5;
+  width: 20px;
+  min-width: 20px;
+  padding: 0;
+  border: none;
+  border-left: 1px solid var(--border);
+  background: var(--bg-secondary);
+  color: #94a3b8;
+  font-size: 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s;
+}
+.detail-panel-toggle:hover {
+  background: var(--bg-tertiary, #1e293b);
+  color: #e2e8f0;
+}
+
 .results-explorer-detail {
   width: 480px;
   min-width: 440px;
@@ -2515,7 +2538,22 @@
 
 .node-filter-btns {
   display: flex;
+  align-items: center;
   gap: 2px;
+}
+
+/* "NODES:" prefix label clarifies that these counts are nodes (parts of one
+ * workflow), not iterations (workflow runs). Without this, users confused
+ * `Fail(1)` (1 node failed) with `Failed (6)` in the iteration picker
+ * (6 iterations failed). */
+.node-filter-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--color-text-secondary, #94a3b8);
+  margin-right: 6px;
+  user-select: none;
+  cursor: help;
 }
 
 .node-filter-btn {
@@ -2586,4 +2624,246 @@
 
 .results-explorer-footer-info.iteration-transitioning {
   animation: iterationFadeIn 0.2s ease-out;
+}
+
+/* ─── View Mode Toggle ───────────────────────────────────────── */
+
+.results-explorer-view-toggle {
+  display: flex;
+  gap: 0;
+  margin-right: 12px;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid #334155;
+}
+
+.view-toggle-btn {
+  background: transparent;
+  color: #94a3b8;
+  border: none;
+  padding: 4px 12px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+
+.view-toggle-btn:hover {
+  background: #1e293b;
+  color: #cbd5e1;
+}
+
+.view-toggle-active {
+  background: #334155;
+  color: #f1f5f9;
+  font-weight: 600;
+}
+
+/* ─── Timeline View ──────────────────────────────────────────── */
+
+.timeline-container {
+  display: flex;
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 200px;
+  background: #0f172a;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.timeline-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  color: #64748b;
+  font-size: 0.9rem;
+}
+
+/* Label column */
+.timeline-labels {
+  flex-shrink: 0;
+  border-right: 1px solid #1e293b;
+  overflow-y: auto;
+  background: #0f172a;
+  z-index: 2;
+}
+
+.timeline-label-header {
+  display: flex;
+  align-items: flex-end;
+  padding: 0 12px 6px;
+  font-size: 0.7rem;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+  border-bottom: 1px solid #334155;
+}
+
+.timeline-label-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px;
+  cursor: pointer;
+  transition: background 0.15s;
+  border-bottom: 1px solid #1e293b08;
+}
+
+.timeline-label-row:hover {
+  background: #1e293b;
+}
+
+.timeline-label-selected {
+  background: #1e293b;
+}
+
+/* Filter-match highlight: subtle indigo tint + left accent bar.
+ * Stays on the label row regardless of the universal executed/skipped visual,
+ * so users can see at a glance which rows the active filter matches without
+ * any change to dot color, weight, or label opacity. */
+.timeline-label-matched {
+  background: rgba(99, 102, 241, 0.15);
+  box-shadow: inset 3px 0 0 #818cf8;
+}
+
+.timeline-label-matched.timeline-label-selected {
+  background: rgba(99, 102, 241, 0.28);
+}
+
+.timeline-label-text {
+  font-size: 0.78rem;
+  color: #cbd5e1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.timeline-node-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.timeline-dot-pass { background: #22c55e; }
+.timeline-dot-fail { background: #ef4444; }
+.timeline-dot-skipped { background: #64748b; }
+
+/* Chart area */
+.timeline-chart-scroll {
+  flex: 1;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.timeline-svg {
+  display: block;
+}
+
+.timeline-tick-label {
+  fill: #94a3b8;
+  font-size: 10px;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+}
+
+.timeline-bar {
+  transition: opacity 0.15s, filter 0.15s;
+}
+
+.timeline-bar:hover {
+  filter: brightness(1.3);
+}
+
+/* Aggregate markers */
+.timeline-marker-label {
+  font-size: 10px;
+  font-weight: 600;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+}
+
+.timeline-marker-avg { fill: #60a5fa; }
+.timeline-marker-p95 { fill: #f59e0b; }
+
+/* Tooltip */
+.timeline-tooltip {
+  position: absolute;
+  z-index: 20;
+  background: #1e293bee;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  padding: 10px 14px;
+  min-width: 160px;
+  pointer-events: none;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  animation: timelineTooltipIn 0.12s ease-out;
+}
+
+@keyframes timelineTooltipIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.timeline-tooltip-title {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #f1f5f9;
+  margin-bottom: 6px;
+  white-space: nowrap;
+}
+
+.timeline-tooltip-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 0.75rem;
+  line-height: 1.6;
+}
+
+.timeline-tooltip-key {
+  color: #64748b;
+}
+
+.timeline-tooltip-val {
+  color: #cbd5e1;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 0.72rem;
+}
+
+.timeline-tooltip-pass { color: #22c55e; font-weight: 600; }
+.timeline-tooltip-fail { color: #ef4444; font-weight: 600; }
+.timeline-tooltip-skipped { color: #64748b; }
+
+/* Zoom badge */
+.timeline-zoom-badge {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  background: #334155;
+  color: #94a3b8;
+  font-size: 0.7rem;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  padding: 2px 8px;
+  border-radius: 4px;
+  pointer-events: none;
+}
+
+/* No matches overlay */
+.timeline-no-matches {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(30, 41, 59, 0.9);
+  color: #94a3b8;
+  font-size: 0.9rem;
+  padding: 10px 24px;
+  border-radius: 8px;
+  border: 1px solid #475569;
+  pointer-events: none;
+  white-space: nowrap;
+  letter-spacing: 0.02em;
 }
