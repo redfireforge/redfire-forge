@@ -133,6 +133,7 @@ export default function IterationPicker({ iterations, selectedIteration, onSelec
               className={`iter-picker-filter ${filter === 'all' ? 'active' : ''}`}
               onClick={() => setFilter('all')}
               data-testid="iter-filter-all"
+              title={`Show all ${iterations.length} iteration${iterations.length === 1 ? '' : 's'} (each = one full workflow run).`}
             >
               All ({iterations.length})
             </button>
@@ -141,6 +142,7 @@ export default function IterationPicker({ iterations, selectedIteration, onSelec
               onClick={() => setFilter('failed')}
               disabled={failedCount === 0}
               data-testid="iter-filter-failed"
+              title={`${failedCount} of ${iterations.length} iteration${iterations.length === 1 ? '' : 's'} failed (had at least one failing node).`}
             >
               Failed ({failedCount})
             </button>
@@ -148,6 +150,7 @@ export default function IterationPicker({ iterations, selectedIteration, onSelec
               className={`iter-picker-filter ${filter === 'slowest' ? 'active' : ''}`}
               onClick={() => setFilter('slowest')}
               data-testid="iter-filter-slowest"
+              title={`Slowest ${slowestCount} iteration${slowestCount === 1 ? '' : 's'} by total duration.`}
             >
               Slowest ({slowestCount})
             </button>

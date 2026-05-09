@@ -45,9 +45,15 @@ export function buildValidationResult(input: ValidationInput): ValidationOutput 
 
   let failureDetails = [...assertionFailures, ...jsonFailures];
 
+  // HTTP failure: status >= 400 or network error (status 0), AND no status assertion
+  // explicitly accepted it. Always record this — independent of whether `errorMessage`
+  // was supplied — so the workflow engine and the runner agree on pass/fail (the runner
+  // pre-populates `errorMessage` from the response body, the workflow engine does not).
   const httpFailed = !statusAsserted && (httpStatus >= 400 || httpStatus === 0);
-  if (httpFailed && errorMessage) {
-    failureDetails = [{ path: '(http)', expected: '2xx', actual: errorMessage }, ...assertionFailures];
+  if (httpFailed) {
+    const actual = errorMessage
+      || (httpStatus === 0 ? 'network error' : `HTTP ${httpStatus}`);
+    failureDetails = [{ path: '(http)', expected: '2xx', actual }, ...assertionFailures];
   }
 
   const networkError = httpStatus === 0 && !statusAsserted;
