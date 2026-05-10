@@ -116,7 +116,7 @@ export default function App() {
     showWbCollectionModal, setShowWbCollectionModal,
     editingWbCollection, setEditingWbCollection,
     editingSubCol, setEditingSubCol,
-    newColMode, subColForEdit,
+    newColMode, setNewColMode, setNewColGroupId, subColForEdit,
     handleWbNewCollection, handleWbEditCollection, handleWbSaveCollection,
     handleWbNewRequest, handleEditSubCollection,
   } = wbActions;

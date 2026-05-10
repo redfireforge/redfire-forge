@@ -3,9 +3,13 @@
  * Each returns a FeatureGroup with pre-configured TestScenarios hitting real public APIs.
  */
 
-import type { FeatureGroup, Scenario, Assertion } from '../../../shared/types';
+import type { FeatureGroup, Scenario, Assertion, TestScenario } from '../../../shared/types';
 
 const noAuth = { type: 'none' as const };
+
+function ts(partial: Omit<TestScenario, 'kind'>): TestScenario {
+  return { ...partial, kind: 'standard' };
+}
 
 function s(partial: Pick<Scenario, 'id' | 'name' | 'url' | 'method'> & { assertions?: Assertion[]; body?: string; bodyType?: Scenario['bodyType']; headers?: Scenario['headers'] }): Scenario {
   return {
@@ -41,7 +45,7 @@ export function createUserApiSmokeTest(): FeatureGroup {
     id: 'test-user-api-smoke',
     name: 'User API Smoke Test',
     scenarios: [
-      {
+      ts({
         id: 'ts-users-list',
         name: 'List Users',
         tests: [
@@ -56,8 +60,8 @@ export function createUserApiSmokeTest(): FeatureGroup {
             ],
           }),
         ],
-      },
-      {
+      }),
+      ts({
         id: 'ts-users-single',
         name: 'Get Single User',
         tests: [
@@ -73,8 +77,8 @@ export function createUserApiSmokeTest(): FeatureGroup {
             ],
           }),
         ],
-      },
-      {
+      }),
+      ts({
         id: 'ts-users-posts',
         name: 'User Posts',
         tests: [
@@ -89,7 +93,7 @@ export function createUserApiSmokeTest(): FeatureGroup {
             ],
           }),
         ],
-      },
+      }),
     ],
   };
 }
@@ -101,7 +105,7 @@ export function createProductListingTest(): FeatureGroup {
     id: 'test-product-listing',
     name: 'Product Listing Check',
     scenarios: [
-      {
+      ts({
         id: 'ts-products-all',
         name: 'All Products',
         tests: [
@@ -117,8 +121,8 @@ export function createProductListingTest(): FeatureGroup {
             ],
           }),
         ],
-      },
-      {
+      }),
+      ts({
         id: 'ts-products-single',
         name: 'Single Product',
         tests: [
@@ -134,7 +138,7 @@ export function createProductListingTest(): FeatureGroup {
             ],
           }),
         ],
-      },
+      }),
     ],
   };
 }
@@ -146,7 +150,7 @@ export function createPaginatedRegressionTest(): FeatureGroup {
     id: 'test-paginated-regression',
     name: 'Paginated API Regression',
     scenarios: [
-      {
+      ts({
         id: 'ts-page1',
         name: 'Page 1',
         tests: [
@@ -162,8 +166,8 @@ export function createPaginatedRegressionTest(): FeatureGroup {
             ],
           }),
         ],
-      },
-      {
+      }),
+      ts({
         id: 'ts-page2',
         name: 'Page 2',
         tests: [
@@ -179,8 +183,8 @@ export function createPaginatedRegressionTest(): FeatureGroup {
             ],
           }),
         ],
-      },
-      {
+      }),
+      ts({
         id: 'ts-page-beyond',
         name: 'Page Beyond Range',
         tests: [
@@ -195,8 +199,8 @@ export function createPaginatedRegressionTest(): FeatureGroup {
             ],
           }),
         ],
-      },
-      {
+      }),
+      ts({
         id: 'ts-total-consistency',
         name: 'Total Consistency',
         tests: [
@@ -212,7 +216,7 @@ export function createPaginatedRegressionTest(): FeatureGroup {
             ],
           }),
         ],
-      },
+      }),
     ],
   };
 }
@@ -224,7 +228,7 @@ export function createPokemonContractTest(): FeatureGroup {
     id: 'test-pokemon-contract',
     name: 'Pokémon Data Contract',
     scenarios: [
-      {
+      ts({
         id: 'ts-pokemon-pikachu',
         name: 'Pikachu Contract',
         tests: [
@@ -241,8 +245,8 @@ export function createPokemonContractTest(): FeatureGroup {
             ],
           }),
         ],
-      },
-      {
+      }),
+      ts({
         id: 'ts-pokemon-types',
         name: 'Type List Contract',
         tests: [
@@ -257,8 +261,8 @@ export function createPokemonContractTest(): FeatureGroup {
             ],
           }),
         ],
-      },
-      {
+      }),
+      ts({
         id: 'ts-pokemon-404',
         name: 'Not Found Contract',
         tests: [
@@ -272,7 +276,7 @@ export function createPokemonContractTest(): FeatureGroup {
             ],
           }),
         ],
-      },
+      }),
     ],
   };
 }
@@ -284,7 +288,7 @@ export function createCountrySearchTest(): FeatureGroup {
     id: 'test-country-search',
     name: 'Country Search Suite',
     scenarios: [
-      {
+      ts({
         id: 'ts-country-name',
         name: 'Search by Name',
         tests: [
@@ -299,8 +303,8 @@ export function createCountrySearchTest(): FeatureGroup {
             ],
           }),
         ],
-      },
-      {
+      }),
+      ts({
         id: 'ts-country-code',
         name: 'Search by Code',
         tests: [
@@ -315,8 +319,8 @@ export function createCountrySearchTest(): FeatureGroup {
             ],
           }),
         ],
-      },
-      {
+      }),
+      ts({
         id: 'ts-country-region',
         name: 'Search by Region',
         tests: [
@@ -331,8 +335,8 @@ export function createCountrySearchTest(): FeatureGroup {
             ],
           }),
         ],
-      },
-      {
+      }),
+      ts({
         id: 'ts-country-not-found',
         name: 'Not Found',
         tests: [
@@ -346,7 +350,7 @@ export function createCountrySearchTest(): FeatureGroup {
             ],
           }),
         ],
-      },
+      }),
     ],
   };
 }
@@ -358,7 +362,7 @@ export function createAuthFlowTest(): FeatureGroup {
     id: 'test-auth-flow',
     name: 'Auth Flow Validation',
     scenarios: [
-      {
+      ts({
         id: 'ts-auth-login-success',
         name: 'Login Success',
         tests: [
@@ -376,8 +380,8 @@ export function createAuthFlowTest(): FeatureGroup {
             ],
           }),
         ],
-      },
-      {
+      }),
+      ts({
         id: 'ts-auth-login-fail',
         name: 'Login Failure',
         tests: [
@@ -394,8 +398,8 @@ export function createAuthFlowTest(): FeatureGroup {
             ],
           }),
         ],
-      },
-      {
+      }),
+      ts({
         id: 'ts-auth-get-profile',
         name: 'Get Auth Profile',
         tests: [
@@ -411,7 +415,7 @@ export function createAuthFlowTest(): FeatureGroup {
             ],
           }),
         ],
-      },
+      }),
     ],
   };
 }
@@ -423,7 +427,7 @@ export function createEcommerceFullSuiteTest(): FeatureGroup {
     id: 'test-ecommerce-full',
     name: 'E-Commerce Full Suite',
     scenarios: [
-      {
+      ts({
         id: 'ts-ecom-products',
         name: 'Product Listing',
         tests: [
@@ -439,8 +443,8 @@ export function createEcommerceFullSuiteTest(): FeatureGroup {
             ],
           }),
         ],
-      },
-      {
+      }),
+      ts({
         id: 'ts-ecom-search',
         name: 'Product Search',
         tests: [
@@ -455,8 +459,8 @@ export function createEcommerceFullSuiteTest(): FeatureGroup {
             ],
           }),
         ],
-      },
-      {
+      }),
+      ts({
         id: 'ts-ecom-categories',
         name: 'Categories',
         tests: [
@@ -471,8 +475,8 @@ export function createEcommerceFullSuiteTest(): FeatureGroup {
             ],
           }),
         ],
-      },
-      {
+      }),
+      ts({
         id: 'ts-ecom-single',
         name: 'Single Product Detail',
         tests: [
@@ -489,8 +493,8 @@ export function createEcommerceFullSuiteTest(): FeatureGroup {
             ],
           }),
         ],
-      },
-      {
+      }),
+      ts({
         id: 'ts-ecom-add-cart',
         name: 'Add to Cart',
         tests: [
@@ -508,8 +512,8 @@ export function createEcommerceFullSuiteTest(): FeatureGroup {
             ],
           }),
         ],
-      },
-      {
+      }),
+      ts({
         id: 'ts-ecom-users',
         name: 'User Listing',
         tests: [
@@ -525,7 +529,7 @@ export function createEcommerceFullSuiteTest(): FeatureGroup {
             ],
           }),
         ],
-      },
+      }),
     ],
   };
 }
@@ -537,7 +541,7 @@ export function createMultiApiLoadTest(): FeatureGroup {
     id: 'test-multi-api-load',
     name: 'Multi-API Load Profile',
     scenarios: [
-      {
+      ts({
         id: 'ts-load-jsonplaceholder',
         name: 'JSONPlaceholder Load',
         tests: [
@@ -552,8 +556,8 @@ export function createMultiApiLoadTest(): FeatureGroup {
             ],
           }),
         ],
-      },
-      {
+      }),
+      ts({
         id: 'ts-load-fakestore',
         name: 'FakeStore Load',
         tests: [
@@ -568,8 +572,8 @@ export function createMultiApiLoadTest(): FeatureGroup {
             ],
           }),
         ],
-      },
-      {
+      }),
+      ts({
         id: 'ts-load-dummyjson',
         name: 'DummyJSON Load',
         tests: [
@@ -584,8 +588,8 @@ export function createMultiApiLoadTest(): FeatureGroup {
             ],
           }),
         ],
-      },
-      {
+      }),
+      ts({
         id: 'ts-load-dog',
         name: 'Dog CEO Load',
         tests: [
@@ -600,8 +604,8 @@ export function createMultiApiLoadTest(): FeatureGroup {
             ],
           }),
         ],
-      },
-      {
+      }),
+      ts({
         id: 'ts-load-countries',
         name: 'REST Countries Load',
         tests: [
@@ -616,7 +620,7 @@ export function createMultiApiLoadTest(): FeatureGroup {
             ],
           }),
         ],
-      },
+      }),
     ],
   };
 }

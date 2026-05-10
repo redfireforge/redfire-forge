@@ -4,9 +4,13 @@
  * hitting real public APIs so they work out-of-the-box.
  */
 
-import type { FeatureGroup, DataSource, DataSourceColumn, DataSourceRow } from '../../../shared/types';
+import type { FeatureGroup, DataSource, DataSourceColumn, DataSourceRow, TestScenario } from '../../../shared/types';
 
 const noAuth = { type: 'none' as const };
+
+function ts(partial: Omit<TestScenario, 'kind'>): TestScenario {
+  return { ...partial, kind: 'parameterized' };
+}
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -54,7 +58,7 @@ export function createUserLookupSweepTest(): FeatureGroup {
     id: 'test-param-user-sweep',
     name: 'User Lookup Sweep',
     source: 'gallery',
-    scenarios: [{
+    scenarios: [ts({
       id: 'sc-param-user-sweep',
       name: 'Sweep User IDs 1–10',
       tests: [{
@@ -68,7 +72,7 @@ export function createUserLookupSweepTest(): FeatureGroup {
         validation: { mode: 'full', assertions: [{ type: 'status', expected: '200' }] },
         dataSource: ds('ds-user-sweep', columns, rows, 'https://jsonplaceholder.typicode.com/users/{{id}}'),
       }],
-    }],
+    })],
   };
 }
 
@@ -91,7 +95,7 @@ export function createProductSearchMatrixTest(): FeatureGroup {
     id: 'test-param-product-search',
     name: 'Product Search Matrix',
     source: 'gallery',
-    scenarios: [{
+    scenarios: [ts({
       id: 'sc-param-product-search',
       name: 'Search Products by Keyword',
       tests: [{
@@ -108,7 +112,7 @@ export function createProductSearchMatrixTest(): FeatureGroup {
         ]},
         dataSource: ds('ds-product-search', columns, rows),
       }],
-    }],
+    })],
   };
 }
 
@@ -135,7 +139,7 @@ export function createCountryValidationSuiteTest(): FeatureGroup {
     id: 'test-param-country-validation',
     name: 'Country Validation Suite',
     source: 'gallery',
-    scenarios: [{
+    scenarios: [ts({
       id: 'sc-param-country-validation',
       name: 'Validate Country Capitals & Regions',
       tests: [{
@@ -149,7 +153,7 @@ export function createCountryValidationSuiteTest(): FeatureGroup {
         validation: { mode: 'full', assertions: [{ type: 'status', expected: '200' }] },
         dataSource: ds('ds-country-validation', columns, rows, 'https://restcountries.com/v3.1/name/{{name}}'),
       }],
-    }],
+    })],
   };
 }
 
@@ -178,7 +182,7 @@ export function createPokemonContractSweepTest(): FeatureGroup {
     id: 'test-param-pokemon-contract',
     name: 'Pokémon Contract Sweep',
     source: 'gallery',
-    scenarios: [{
+    scenarios: [ts({
       id: 'sc-param-pokemon-contract',
       name: 'Verify Pokémon Types & IDs',
       tests: [{
@@ -192,7 +196,7 @@ export function createPokemonContractSweepTest(): FeatureGroup {
         validation: { mode: 'full', assertions: [{ type: 'status', expected: '200' }] },
         dataSource: ds('ds-pokemon-contract', columns, rows, 'https://pokeapi.co/api/v2/pokemon/{{name}}'),
       }],
-    }],
+    })],
   };
 }
 
@@ -256,7 +260,7 @@ export function createMultiEndpointRegressionTest(): FeatureGroup {
     name: 'Multi-Endpoint Regression',
     source: 'gallery',
     scenarios: [
-      {
+      ts({
         id: 'sc-param-multi-users',
         name: 'Users Sweep',
         tests: [{
@@ -270,8 +274,8 @@ export function createMultiEndpointRegressionTest(): FeatureGroup {
           validation: { mode: 'full', assertions: [{ type: 'status', expected: '200' }] },
           dataSource: ds('ds-multi-users', userCols, userRows, 'https://dummyjson.com/users/{{id}}'),
         }],
-      },
-      {
+      }),
+      ts({
         id: 'sc-param-multi-products',
         name: 'Products Sweep',
         tests: [{
@@ -285,8 +289,8 @@ export function createMultiEndpointRegressionTest(): FeatureGroup {
           validation: { mode: 'full', assertions: [{ type: 'status', expected: '200' }] },
           dataSource: ds('ds-multi-products', prodCols, prodRows, 'https://dummyjson.com/products/{{id}}'),
         }],
-      },
-      {
+      }),
+      ts({
         id: 'sc-param-multi-recipes',
         name: 'Recipes Sweep',
         tests: [{
@@ -300,8 +304,8 @@ export function createMultiEndpointRegressionTest(): FeatureGroup {
           validation: { mode: 'full', assertions: [{ type: 'status', expected: '200' }] },
           dataSource: ds('ds-multi-recipes', recipeCols, recipeRows, 'https://dummyjson.com/recipes/{{id}}'),
         }],
-      },
-      {
+      }),
+      ts({
         id: 'sc-param-multi-quotes',
         name: 'Quotes Sweep',
         tests: [{
@@ -315,7 +319,7 @@ export function createMultiEndpointRegressionTest(): FeatureGroup {
           validation: { mode: 'full', assertions: [{ type: 'status', expected: '200' }] },
           dataSource: ds('ds-multi-quotes', quoteCols, quoteRows, 'https://dummyjson.com/quotes/{{id}}'),
         }],
-      },
+      }),
     ],
   };
 }
@@ -342,7 +346,7 @@ export function createRowTagsDemoTest(): FeatureGroup {
     id: 'test-param-row-tags',
     name: 'Row Tags Demo',
     source: 'gallery',
-    scenarios: [{
+    scenarios: [ts({
       id: 'sc-param-row-tags',
       name: 'Posts with Categorized Rows',
       tests: [{
@@ -356,7 +360,7 @@ export function createRowTagsDemoTest(): FeatureGroup {
         validation: { mode: 'full', assertions: [{ type: 'status', expected: '200' }] },
         dataSource: ds('ds-row-tags', columns, rows, 'https://jsonplaceholder.typicode.com/posts/{{id}}'),
       }],
-    }],
+    })],
   };
 }
 
@@ -381,7 +385,7 @@ export function createAuthTokenRotationTest(): FeatureGroup {
     id: 'test-param-auth-rotation',
     name: 'Auth Token Rotation',
     source: 'gallery',
-    scenarios: [{
+    scenarios: [ts({
       id: 'sc-param-auth-rotation',
       name: 'Login Multiple Users',
       tests: [{
@@ -399,6 +403,6 @@ export function createAuthTokenRotationTest(): FeatureGroup {
         ]},
         dataSource: ds('ds-auth-rotation', columns, rows),
       }],
-    }],
+    })],
   };
 }

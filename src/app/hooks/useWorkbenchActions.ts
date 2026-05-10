@@ -55,7 +55,7 @@ export function useWorkbenchActions({ wb, activeTab, setActiveTab }: UseWorkbenc
     showWbCollectionModal, setShowWbCollectionModal,
     editingWbCollection, setEditingWbCollection,
     editingSubCol, setEditingSubCol,
-    newColGroupId, newColMode,
+    newColGroupId, newColMode, setNewColGroupId, setNewColMode,
     subColForEdit,
     handleWbNewCollection, handleWbEditCollection, handleWbSaveCollection,
     handleWbNewRequest, handleEditSubCollection,
