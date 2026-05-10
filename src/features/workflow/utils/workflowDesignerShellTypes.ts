@@ -1,6 +1,6 @@
 import type { RequestCollection, Environment, Microservice, GlobalAuthProfile } from '../../../shared/types';
 import type { CatalogEntry } from '../../catalog/types/catalog';
-import type { Workflow } from '../types/workflow';
+import type { Workflow, WorkflowFolder } from '../types/workflow';
 import type { WorkflowHook } from '../hooks/useWorkflows';
 
 export interface WorkflowDesignerProps {
@@ -19,6 +19,8 @@ export interface WorkflowDesignerProps {
   onEnvSelect: (id: string) => void;
   onSvcSelect: (id: string) => void;
   resolvedBaseUrl: string;
+  /** Workflow folder hierarchy for grouped display. */
+  folders: WorkflowFolder[];
   /** Read-only sample workflow preview (not persisted). */
   previewWorkflow: Workflow | null;
   onClearPreview: () => void;

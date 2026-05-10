@@ -3,10 +3,31 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, fireEvent } from '@testing-library/react';
+import React, { useEffect } from 'react';
+import type { MouseEvent, ReactNode } from 'react';
 import '@testing-library/jest-dom';
 import * as XyflowReact from '@xyflow/react';
-import WorkflowExecutionCanvas from './WorkflowExecutionCanvas';
+import type { Edge, Node, NodeChange, ReactFlowInstance } from '@xyflow/react';
+import WorkflowExecutionCanvas, {
+  type CanvasScreenshotFn,
+  type CanvasSvgFn,
+} from './WorkflowExecutionCanvas';
 import type { WorkflowExecutionTrace } from '../../../shared/types';
+import { captureCanvasScreenshot, captureCanvasSvg } from '../utils/canvasScreenshot';
+
+const mockedCaptureScreenshot = vi.mocked(captureCanvasScreenshot);
+const mockedCaptureSvg = vi.mocked(captureCanvasSvg);
+
+const viewportState = vi.hoisted(() => ({
+  x: 0,
+  y: 0,
+  zoom: 1,
+}));
+
+vi.mock('../utils/canvasScreenshot', () => ({
+  captureCanvasScreenshot: vi.fn().mockResolvedValue('data:image/png;base64,xx'),
+  captureCanvasSvg: vi.fn().mockResolvedValue('<svg xmlns="http://www.w3.org/2000/svg"/>'),
+}));
 
 const { flowApi, applyNodeChangesStub } = vi.hoisted(() => {
   const api = {
@@ -16,15 +37,24 @@ const { flowApi, applyNodeChangesStub } = vi.hoisted(() => {
   };
 
   function stub(
-    changes: Array<{ type: string; id?: string; position?: { x: number; y: number }; item?: any }>,
-    nodes: Array<{ id: string; position?: { x: number; y: number } }>
+    changes: import('@xyflow/react').NodeChange[],
+    nodes: import('@xyflow/react').Node[],
   ) {
     let next = [...nodes];
     for (const c of changes) {
-      if (c.type === 'position' && c.id && c.position) {
-        next = next.map((n) => (n.id === c.id ? { ...n, position: { ...c.position } } : n));
+      if (c.type === 'position' && c.id && 'position' in c && c.position) {
+        next = next.map((n) =>
+          n.id === c.id ? { ...n, position: { ...c.position }, positionAbsolute: undefined } : n,
+        );
       }
-      if (c.type === 'add' && c.item) {
+      if (c.type === 'dimensions' && c.id) {
+        next = next.map((n) =>
+          n.id === c.id
+            ? { ...n, measured: ('dimensions' in c && c.dimensions) ? c.dimensions : n.measured }
+            : n,
+        );
+      }
+      if (c.type === 'add' && 'item' in c && c.item) {
         next = [...next, c.item];
       }
     }
@@ -36,10 +66,35 @@ const { flowApi, applyNodeChangesStub } = vi.hoisted(() => {
 
 // Mock ReactFlow
 vi.mock('@xyflow/react', () => ({
-  ReactFlow: vi.fn(({ nodes, edges, children, onNodeClick, onPaneClick, onNodesChange, onNodeMouseEnter, onNodeMouseLeave }: any) => (
+  ReactFlow: vi.fn(({
+    nodes,
+    edges,
+    children,
+    onInit,
+    onNodeClick,
+    onPaneClick,
+    onNodesChange,
+    onNodeMouseEnter,
+    onNodeMouseLeave,
+  }: {
+    nodes?: Node[];
+    edges?: Edge[];
+    children?: ReactNode;
+    onInit?: (instance: ReactFlowInstance<Node, Edge>) => void;
+    onNodeClick?: (event: MouseEvent, node: Node) => void;
+    onPaneClick?: () => void;
+    onNodesChange?: (changes: NodeChange[]) => void;
+    onNodeMouseEnter?: (event: MouseEvent, node: Node) => void;
+    onNodeMouseLeave?: (event: MouseEvent, node: Node) => void;
+  }) => {
+    useEffect(() => {
+      const instance = { fitView: flowApi.fitView } as unknown as ReactFlowInstance<Node, Edge>;
+      onInit?.(instance);
+    }, [onInit]);
+    return (
     <div data-testid="react-flow">
       <div data-testid="flow-pane" onClick={() => onPaneClick?.()}>
-        {nodes?.map((node: any) => (
+        {nodes?.map((node: Node) => (
           <div
             key={node.id}
             role="button"
@@ -55,7 +110,7 @@ vi.mock('@xyflow/react', () => ({
           />
         ))}
       </div>
-      {edges?.map((edge: any) => (
+      {edges?.map((edge: Edge) => (
         <div
           key={edge.id}
           data-testid={`edge-${edge.id}`}
@@ -68,6 +123,22 @@ vi.mock('@xyflow/react', () => ({
       ))}
       <button type="button" data-testid="trigger-nodes-change" onClick={() => onNodesChange?.([{ type: 'position', id: 'n1', position: { x: 99, y: 88 } }])}>
         apply node change
+      </button>
+      <button
+        type="button"
+        data-testid="trigger-dimensions-change"
+        onClick={() =>
+          onNodesChange?.([
+            {
+              type: 'dimensions',
+              id: 'n1',
+              dimensions: { width: 200, height: 60 },
+              setAttributes: true,
+            },
+          ])
+        }
+      >
+        apply dimensions change
       </button>
       <button
         type="button"
@@ -93,7 +164,8 @@ vi.mock('@xyflow/react', () => ({
       </button>
       {children}
     </div>
-  )),
+    );
+  }),
   Background: () => <div data-testid="background" />,
   Controls: () => <div data-testid="controls" />,
   MiniMap: ({ nodeColor }: { nodeColor?: (node: { id: string }) => string }) => {
@@ -114,7 +186,7 @@ vi.mock('@xyflow/react', () => ({
   },
   Position: { Top: 'top', Right: 'right', Bottom: 'bottom', Left: 'left' },
   useReactFlow: () => flowApi,
-  useViewport: () => ({ x: 0, y: 0, zoom: 1 }),
+  useViewport: () => ({ x: viewportState.x, y: viewportState.y, zoom: viewportState.zoom }),
   applyNodeChanges: applyNodeChangesStub,
 }));
 
@@ -187,6 +259,51 @@ function createEmptyWorkflowTrace(): WorkflowExecutionTrace {
   };
 }
 
+function createBranchingTrace(): WorkflowExecutionTrace {
+  return {
+    workflowId: 'wf-branch',
+    workflowName: 'Branching Workflow',
+    totalIterations: 4,
+    totalDurationMs: 4000,
+    iterations: [
+      { index: 0, passed: true, durationMs: 1000, events: [
+        { nodeId: 'n1', nodeType: 'http', nodeLabel: 'Request', timestamp: 0, state: 'pass', durationMs: 100 },
+        { nodeId: 'n2', nodeType: 'condition', nodeLabel: 'Check', timestamp: 100, state: 'pass', durationMs: 1 },
+        { nodeId: 'n3', nodeType: 'http', nodeLabel: 'Yes Path', timestamp: 101, state: 'pass', durationMs: 50 },
+      ], finalVariables: {}, traversedEdges: ['e1', 'e2'] },
+      { index: 1, passed: true, durationMs: 1000, events: [
+        { nodeId: 'n1', nodeType: 'http', nodeLabel: 'Request', timestamp: 0, state: 'pass', durationMs: 100 },
+        { nodeId: 'n2', nodeType: 'condition', nodeLabel: 'Check', timestamp: 100, state: 'pass', durationMs: 1 },
+        { nodeId: 'n3', nodeType: 'http', nodeLabel: 'Yes Path', timestamp: 101, state: 'pass', durationMs: 50 },
+      ], finalVariables: {}, traversedEdges: ['e1', 'e2'] },
+      { index: 2, passed: true, durationMs: 1000, events: [
+        { nodeId: 'n1', nodeType: 'http', nodeLabel: 'Request', timestamp: 0, state: 'pass', durationMs: 100 },
+        { nodeId: 'n2', nodeType: 'condition', nodeLabel: 'Check', timestamp: 100, state: 'pass', durationMs: 1 },
+        { nodeId: 'n3', nodeType: 'http', nodeLabel: 'Yes Path', timestamp: 101, state: 'pass', durationMs: 50 },
+      ], finalVariables: {}, traversedEdges: ['e1', 'e2'] },
+      { index: 3, passed: false, durationMs: 1000, events: [
+        { nodeId: 'n1', nodeType: 'http', nodeLabel: 'Request', timestamp: 0, state: 'pass', durationMs: 100 },
+        { nodeId: 'n2', nodeType: 'condition', nodeLabel: 'Check', timestamp: 100, state: 'fail', durationMs: 1 },
+        { nodeId: 'n4', nodeType: 'http', nodeLabel: 'No Path', timestamp: 101, state: 'fail', durationMs: 50 },
+      ], finalVariables: {}, traversedEdges: ['e1', 'e3'] },
+    ],
+    traversedEdges: ['e1', 'e2', 'e3'],
+    workflowSnapshot: {
+      nodes: [
+        { id: 'n1', type: 'http', position: { x: 0, y: 0 }, data: { label: 'Request' } },
+        { id: 'n2', type: 'condition', position: { x: 0, y: 100 }, data: { label: 'Check' } },
+        { id: 'n3', type: 'http', position: { x: -100, y: 200 }, data: { label: 'Yes Path' } },
+        { id: 'n4', type: 'http', position: { x: 100, y: 200 }, data: { label: 'No Path' } },
+      ],
+      edges: [
+        { id: 'e1', source: 'n1', target: 'n2' },
+        { id: 'e2', source: 'n2', target: 'n3' },
+        { id: 'e3', source: 'n2', target: 'n4' },
+      ],
+    },
+  };
+}
+
 function getLastReactFlowProps(): Record<string, unknown> {
   const rf = vi.mocked(XyflowReact.ReactFlow);
   expect(rf.mock.calls.length).toBeGreaterThan(0);
@@ -195,6 +312,9 @@ function getLastReactFlowProps(): Record<string, unknown> {
 
 describe('WorkflowExecutionCanvas', () => {
   beforeEach(() => {
+    viewportState.x = 0;
+    viewportState.y = 0;
+    viewportState.zoom = 1;
     vi.mocked(XyflowReact.ReactFlow).mockClear();
     flowApi.zoomIn.mockClear();
     flowApi.zoomOut.mockClear();
@@ -849,55 +969,6 @@ describe('WorkflowExecutionCanvas', () => {
   });
 
   describe('edge traversal percentages', () => {
-    function createBranchingTrace(): WorkflowExecutionTrace {
-      return {
-        workflowId: 'wf-branch',
-        workflowName: 'Branching Workflow',
-        totalIterations: 4,
-        totalDurationMs: 4000,
-        iterations: [
-          // Iteration 0: takes "yes" path (e2)
-          { index: 0, passed: true, durationMs: 1000, events: [
-            { nodeId: 'n1', nodeType: 'http', nodeLabel: 'Request', timestamp: 0, state: 'pass', durationMs: 100 },
-            { nodeId: 'n2', nodeType: 'condition', nodeLabel: 'Check', timestamp: 100, state: 'pass', durationMs: 1 },
-            { nodeId: 'n3', nodeType: 'http', nodeLabel: 'Yes Path', timestamp: 101, state: 'pass', durationMs: 50 },
-          ], finalVariables: {}, traversedEdges: ['e1', 'e2'] },
-          // Iteration 1: takes "yes" path (e2)
-          { index: 1, passed: true, durationMs: 1000, events: [
-            { nodeId: 'n1', nodeType: 'http', nodeLabel: 'Request', timestamp: 0, state: 'pass', durationMs: 100 },
-            { nodeId: 'n2', nodeType: 'condition', nodeLabel: 'Check', timestamp: 100, state: 'pass', durationMs: 1 },
-            { nodeId: 'n3', nodeType: 'http', nodeLabel: 'Yes Path', timestamp: 101, state: 'pass', durationMs: 50 },
-          ], finalVariables: {}, traversedEdges: ['e1', 'e2'] },
-          // Iteration 2: takes "yes" path (e2)
-          { index: 2, passed: true, durationMs: 1000, events: [
-            { nodeId: 'n1', nodeType: 'http', nodeLabel: 'Request', timestamp: 0, state: 'pass', durationMs: 100 },
-            { nodeId: 'n2', nodeType: 'condition', nodeLabel: 'Check', timestamp: 100, state: 'pass', durationMs: 1 },
-            { nodeId: 'n3', nodeType: 'http', nodeLabel: 'Yes Path', timestamp: 101, state: 'pass', durationMs: 50 },
-          ], finalVariables: {}, traversedEdges: ['e1', 'e2'] },
-          // Iteration 3: takes "no" path (e3)
-          { index: 3, passed: false, durationMs: 1000, events: [
-            { nodeId: 'n1', nodeType: 'http', nodeLabel: 'Request', timestamp: 0, state: 'pass', durationMs: 100 },
-            { nodeId: 'n2', nodeType: 'condition', nodeLabel: 'Check', timestamp: 100, state: 'fail', durationMs: 1 },
-            { nodeId: 'n4', nodeType: 'http', nodeLabel: 'No Path', timestamp: 101, state: 'fail', durationMs: 50 },
-          ], finalVariables: {}, traversedEdges: ['e1', 'e3'] },
-        ],
-        traversedEdges: ['e1', 'e2', 'e3'],
-        workflowSnapshot: {
-          nodes: [
-            { id: 'n1', type: 'http', position: { x: 0, y: 0 }, data: { label: 'Request' } },
-            { id: 'n2', type: 'condition', position: { x: 0, y: 100 }, data: { label: 'Check' } },
-            { id: 'n3', type: 'http', position: { x: -100, y: 200 }, data: { label: 'Yes Path' } },
-            { id: 'n4', type: 'http', position: { x: 100, y: 200 }, data: { label: 'No Path' } },
-          ],
-          edges: [
-            { id: 'e1', source: 'n1', target: 'n2' },
-            { id: 'e2', source: 'n2', target: 'n3' },
-            { id: 'e3', source: 'n2', target: 'n4' },
-          ],
-        },
-      };
-    }
-
     it('shows percentage badges on branching edges', () => {
       const trace = createBranchingTrace();
       const { container } = render(<WorkflowExecutionCanvas trace={trace} />);
@@ -1115,7 +1186,7 @@ describe('WorkflowExecutionCanvas', () => {
         workflowSnapshot: {
           ...trace.workflowSnapshot,
           nodes: [
-            ...trace.workflowSnapshot.nodes as any[],
+            ...trace.workflowSnapshot.nodes,
             { id: 'n3', type: 'http', position: { x: 100, y: 0 }, data: { label: 'Skipped' } },
           ],
         },
@@ -1308,6 +1379,461 @@ describe('WorkflowExecutionCanvas', () => {
       const trace = createTraceWithNameAndIdFallback();
       const { getByTestId } = render(<WorkflowExecutionCanvas trace={trace} searchQuery="idonly" />);
       expect(getByTestId('node-idonly').className).not.toContain('replay-node-dimmed');
+    });
+  });
+
+  describe('onInit and dimensions fitView', () => {
+    it('calls fitView after the first dimensions measurement (debounced)', () => {
+      vi.useFakeTimers();
+      try {
+        const trace = createMockTrace();
+        const { getByTestId } = render(<WorkflowExecutionCanvas trace={trace} />);
+
+        fireEvent.click(getByTestId('trigger-dimensions-change'));
+        vi.advanceTimersByTime(149);
+        expect(flowApi.fitView).not.toHaveBeenCalled();
+        vi.advanceTimersByTime(2);
+        expect(flowApi.fitView).toHaveBeenCalledWith({ padding: 0.05, duration: 200 });
+
+        fireEvent.click(getByTestId('trigger-dimensions-change'));
+        vi.advanceTimersByTime(200);
+        expect(flowApi.fitView).toHaveBeenCalledTimes(1);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('reschedules fitView when dimensions changes fire back-to-back before the debounce elapses', () => {
+      vi.useFakeTimers();
+      try {
+        const trace = createMockTrace();
+        const { getByTestId } = render(<WorkflowExecutionCanvas trace={trace} />);
+
+        fireEvent.click(getByTestId('trigger-dimensions-change'));
+        fireEvent.click(getByTestId('trigger-dimensions-change'));
+        vi.advanceTimersByTime(200);
+
+        expect(flowApi.fitView).toHaveBeenCalledTimes(1);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+  });
+
+  describe('screenshot and svg export hooks', () => {
+    it('registers onScreenshotReady with a working capture function', async () => {
+      let capture: CanvasScreenshotFn | undefined;
+      const trace = createMockTrace();
+      render(
+        <WorkflowExecutionCanvas
+          trace={trace}
+          onScreenshotReady={(fn) => {
+            capture = fn;
+          }}
+        />
+      );
+      expect(capture).toBeDefined();
+      mockedCaptureScreenshot.mockClear();
+      await expect(capture!()).resolves.toBe('data:image/png;base64,xx');
+      expect(mockedCaptureScreenshot).toHaveBeenCalledTimes(1);
+    });
+
+    it('registers onSvgReady with a working capture function', async () => {
+      let capture: CanvasSvgFn | undefined;
+      const trace = createMockTrace();
+      render(
+        <WorkflowExecutionCanvas
+          trace={trace}
+          onSvgReady={(fn) => {
+            capture = fn;
+          }}
+        />
+      );
+      expect(capture).toBeDefined();
+      mockedCaptureSvg.mockClear();
+      await expect(capture!()).resolves.toBe('<svg xmlns="http://www.w3.org/2000/svg"/>');
+      expect(mockedCaptureSvg).toHaveBeenCalledTimes(1);
+    });
+
+    it('rejects PNG capture when the canvas container ref is detached', async () => {
+      let capture: CanvasScreenshotFn | undefined;
+      const trace = createMockTrace();
+      const { unmount } = render(
+        <WorkflowExecutionCanvas trace={trace} onScreenshotReady={(fn) => { capture = fn; }} />
+      );
+
+      await expect(async () => {
+        unmount();
+        await capture!();
+      }).rejects.toThrow(/not mounted/i);
+    });
+
+    it('rejects SVG capture when the canvas container ref is detached', async () => {
+      let capture: CanvasSvgFn | undefined;
+      const trace = createMockTrace();
+      const { unmount } = render(
+        <WorkflowExecutionCanvas trace={trace} onSvgReady={(fn) => { capture = fn; }} />
+      );
+
+      await expect(async () => {
+        unmount();
+        await capture!();
+      }).rejects.toThrow(/not mounted/i);
+    });
+  });
+
+  function createForkJoinSwimLaneTrace(): WorkflowExecutionTrace {
+    return {
+      workflowId: 'wf-fork-swim',
+      workflowName: 'Fork join swim lanes',
+      totalIterations: 2,
+      totalDurationMs: 20000,
+      iterations: [
+        {
+          index: 0,
+          passed: true,
+          durationMs: 10000,
+          traversedEdges: ['sf', 'fl', 'rj', 'je'],
+          events: [
+            { nodeId: 'leftBranch', nodeType: 'http', nodeLabel: 'Left branch', timestamp: 0, state: 'pass', durationMs: 920 },
+            { nodeId: 'rightBranch', nodeType: 'http', nodeLabel: 'Right branch', timestamp: 0, state: 'pass', durationMs: 80 },
+          ],
+          finalVariables: {},
+        },
+        {
+          index: 1,
+          passed: true,
+          durationMs: 10000,
+          traversedEdges: ['sf', 'fl', 'rj', 'je'],
+          events: [
+            { nodeId: 'leftBranch', nodeType: 'http', nodeLabel: 'Left branch', timestamp: 0, state: 'pass', durationMs: 908 },
+            { nodeId: 'rightBranch', nodeType: 'http', nodeLabel: 'Right branch', timestamp: 0, state: 'pass', durationMs: 92 },
+          ],
+          finalVariables: {},
+        },
+      ],
+      traversedEdges: [],
+      workflowSnapshot: {
+        nodes: [
+          { id: 'st', type: 'start', position: { x: 400, y: -40 }, data: { label: 'Start' } },
+          { id: 'fork', type: 'fork', position: { x: 400, y: 40 }, data: { label: 'Fork' } },
+          { id: 'leftBranch', type: 'http', position: { x: 140, y: 200 }, data: { label: 'Lane A Alpha' } },
+          { id: 'rightBranch', type: 'http', position: { x: 660, y: 200 }, data: { label: 'Lane B Beta' } },
+          {
+            id: 'joinNode',
+            type: 'join',
+            position: { x: 400, y: 360 },
+            data: { label: 'Join' },
+          },
+          { id: 'tail', type: 'http', position: { x: 400, y: 500 }, data: { label: 'Tail' } },
+        ],
+        edges: [
+          { id: 'sf', source: 'st', target: 'fork' },
+          { id: 'fl', source: 'fork', target: 'leftBranch' },
+          { id: 'fr', source: 'fork', target: 'rightBranch' },
+          { id: 'jl', source: 'leftBranch', target: 'joinNode' },
+          { id: 'rj', source: 'rightBranch', target: 'joinNode' },
+          { id: 'je', source: 'joinNode', target: 'tail' },
+        ],
+      },
+    };
+  }
+
+  describe('fork/join swim lanes and callback', () => {
+    it('renders swim lane overlays and critical path markup when topology is detected', () => {
+      const trace = createForkJoinSwimLaneTrace();
+      const { getByTestId, container } = render(<WorkflowExecutionCanvas trace={trace} />);
+
+      expect(getByTestId('swim-lane-overlay')).toBeInTheDocument();
+      expect(getByTestId('swim-lane-0')).toBeInTheDocument();
+      expect(getByTestId('swim-lane-1')).toBeInTheDocument();
+      expect(container.querySelector('.swim-lane-critical')).toBeInTheDocument();
+      expect(container.querySelector('.swim-lane-critical-badge')).toBeInTheDocument();
+      const dashed = container.querySelectorAll('.swim-lane:not(.swim-lane-critical)');
+      expect(dashed.length).toBeGreaterThan(0);
+    });
+
+    it('invokes onForkJoinDetected with non-empty pairs', () => {
+      const onForkJoinDetected = vi.fn();
+      const trace = createForkJoinSwimLaneTrace();
+      render(<WorkflowExecutionCanvas trace={trace} onForkJoinDetected={onForkJoinDetected} />);
+
+      expect(onForkJoinDetected).toHaveBeenCalled();
+      const topo = onForkJoinDetected.mock.calls[0][0];
+      expect(topo.pairs.length).toBe(1);
+      expect(topo.pairs[0].branches.length).toBeGreaterThanOrEqual(2);
+    });
+  });
+
+  describe('workflow snapshot refresh', () => {
+    it('rebuilds internal nodes when workflowSnapshot.nodes array identity changes', () => {
+      const trace = createMockTrace();
+      const { rerender, getByTestId } = render(<WorkflowExecutionCanvas trace={trace} />);
+
+      fireEvent.click(getByTestId('trigger-nodes-change'));
+      let n1 = (getLastReactFlowProps().nodes as Array<{ id: string; position: { x: number; y: number } }>).find(
+        (n) => n.id === 'n1',
+      );
+      expect(n1?.position).toEqual({ x: 99, y: 88 });
+
+      const clonedNodes = (trace.workflowSnapshot.nodes as Array<{ id: string }>).map((n) => ({ ...n }));
+      rerender(
+        <WorkflowExecutionCanvas
+          trace={{
+            ...trace,
+            workflowSnapshot: {
+              ...trace.workflowSnapshot,
+              nodes: clonedNodes,
+            },
+          }}
+        />
+      );
+
+      n1 = (getLastReactFlowProps().nodes as Array<{ id: string; position: { x: number; y: number } }>).find(
+        (n) => n.id === 'n1',
+      );
+      expect(n1?.position).toEqual({ x: 0, y: 0 });
+    });
+  });
+
+  describe('layout storage resilience', () => {
+    it('returns null-shaped behavior when persisted layout JSON is invalid', () => {
+      localStorage.setItem(`replayLayout:${createMockTrace().workflowId}`, 'not-json-{');
+      const trace = createMockTrace();
+      render(<WorkflowExecutionCanvas trace={trace} />);
+
+      const n1 = (getLastReactFlowProps().nodes as Array<{ id: string; position: { x: number; y: number } }>).find(
+        (n) => n.id === 'n1'
+      );
+      expect(n1?.position).toEqual({ x: 0, y: 0 });
+    });
+
+    it('swallows quota errors when save layout cannot write to storage', () => {
+      const setSpy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+        throw new Error('quota');
+      });
+      const trace = createMockTrace();
+      const { getByTestId } = render(<WorkflowExecutionCanvas trace={trace} />);
+      expect(() => fireEvent.click(getByTestId('save-layout-btn'))).not.toThrow();
+      setSpy.mockRestore();
+    });
+  });
+
+  describe('edge percentage overlay details', () => {
+    function allSameBranchEdgeTrace(): WorkflowExecutionTrace {
+      const trace = createBranchingTrace();
+      return {
+        ...trace,
+        iterations: trace.iterations.map((iter) => ({
+          ...iter,
+          passed: true,
+          traversedEdges: ['e1', 'e2'],
+        })),
+      };
+    }
+
+    it('adds edge-pct-zero class for 0% branching edges', () => {
+      const trace = allSameBranchEdgeTrace();
+      const { container } = render(<WorkflowExecutionCanvas trace={trace} />);
+      expect(container.querySelector('.edge-pct-zero')).toBeInTheDocument();
+    });
+
+    it('clamps edge badge scale at very low zoom', () => {
+      viewportState.zoom = 0.3;
+      const trace = allSameBranchEdgeTrace();
+      const { container } = render(<WorkflowExecutionCanvas trace={trace} />);
+      const badge = container.querySelector('.edge-pct-badge') as HTMLElement | null;
+      expect(badge?.getAttribute('style')).toContain('scale(0.6');
+    });
+
+    it('clamps edge badge scale at very high zoom', () => {
+      viewportState.zoom = 3;
+      const trace = allSameBranchEdgeTrace();
+      const { container } = render(<WorkflowExecutionCanvas trace={trace} />);
+      const badge = container.querySelector('.edge-pct-badge') as HTMLElement | null;
+      expect(badge?.getAttribute('style')).toContain('scale(1.2');
+    });
+  });
+
+  describe('tooltip label and bottleneck icons', () => {
+    function hoverNode(getByTestId: ReturnType<typeof render>['getByTestId'], nodeId: string) {
+      const el = getByTestId(`node-${nodeId}`);
+      Object.defineProperty(el, 'getBoundingClientRect', {
+        value: () => ({ left: 100, top: 50, width: 220, height: 60, right: 320, bottom: 110 }),
+      });
+      fireEvent.mouseEnter(el);
+    }
+
+    it('fallback tooltip label uses node id when data has no label', () => {
+      const trace = createMockTrace();
+      trace.workflowSnapshot = {
+        ...trace.workflowSnapshot,
+        nodes: (trace.workflowSnapshot.nodes as []).map((n: { id: string; data?: object }) =>
+          n.id === 'n1'
+            ? { ...n, data: {} }
+            : n,
+        ),
+      };
+      const { getByTestId } = render(<WorkflowExecutionCanvas trace={trace} />);
+      hoverNode(getByTestId, 'n1');
+      expect(getByTestId('node-tooltip').textContent).toContain('n1');
+    });
+
+    it('shows warning icon for bottleneck warning severity', () => {
+      const trace: WorkflowExecutionTrace = {
+        workflowId: 'wf-warning-bn',
+        workflowName: 'Warning bottleneck',
+        totalIterations: 2,
+        totalDurationMs: 20000,
+        iterations: Array.from({ length: 2 }, (_, i) => ({
+          index: i,
+          passed: true,
+          durationMs: 10000,
+          traversedEdges: ['e'],
+          events: [
+            {
+              nodeId: 'heavy',
+              nodeType: 'http',
+              nodeLabel: 'Heavy endpoint',
+              timestamp: 0,
+              state: 'pass',
+              durationMs: 4000,
+            },
+            {
+              nodeId: 'light',
+              nodeType: 'http',
+              nodeLabel: 'Light',
+              timestamp: 1,
+              state: 'pass',
+              durationMs: 1000,
+            },
+          ],
+          finalVariables: {},
+        })),
+        traversedEdges: ['e'],
+        workflowSnapshot: {
+          nodes: [
+            { id: 'heavy', type: 'http', position: { x: 0, y: 0 }, data: { label: 'Heavy' } },
+            { id: 'light', type: 'http', position: { x: 200, y: 0 }, data: { label: 'Light' } },
+          ],
+          edges: [{ id: 'e', source: 'heavy', target: 'light' }],
+        },
+      };
+      const { getByTestId } = render(<WorkflowExecutionCanvas trace={trace} />);
+      hoverNode(getByTestId, 'heavy');
+      const tip = getByTestId('node-tooltip');
+      expect(tip.querySelector('.replay-tooltip-bottleneck-warning')).toBeInTheDocument();
+      expect(tip.textContent).toContain('⚠️');
+    });
+
+    it('shows info icon for bottleneck info severity', () => {
+      const trace: WorkflowExecutionTrace = {
+        workflowId: 'wf-info-bn',
+        workflowName: 'Info bottleneck',
+        totalIterations: 2,
+        totalDurationMs: 20000,
+        iterations: Array.from({ length: 2 }, (_, i) => ({
+          index: i,
+          passed: true,
+          durationMs: 10000,
+          traversedEdges: ['e'],
+          events: [
+            {
+              nodeId: 'heavy',
+              nodeType: 'http',
+              nodeLabel: 'Heavy',
+              timestamp: 0,
+              state: 'pass',
+              durationMs: 4000,
+            },
+            {
+              nodeId: 'light',
+              nodeType: 'http',
+              nodeLabel: 'Light',
+              timestamp: 1,
+              state: 'pass',
+              durationMs: 1500,
+            },
+          ],
+          finalVariables: {},
+        })),
+        traversedEdges: ['e'],
+        workflowSnapshot: {
+          nodes: [
+            { id: 'heavy', type: 'http', position: { x: 0, y: 0 }, data: { label: 'Heavy' } },
+            { id: 'light', type: 'http', position: { x: 200, y: 0 }, data: { label: 'Light' } },
+          ],
+          edges: [{ id: 'e', source: 'heavy', target: 'light' }],
+        },
+      };
+      const { getByTestId } = render(<WorkflowExecutionCanvas trace={trace} />);
+      hoverNode(getByTestId, 'light');
+      const tip = getByTestId('node-tooltip');
+      expect(tip.querySelector('.replay-tooltip-bottleneck-info')).toBeInTheDocument();
+      expect(tip.textContent).toContain('ℹ️');
+    });
+  });
+
+  describe('heatmap color branches', () => {
+    function createWideHeatmapTrace(): WorkflowExecutionTrace {
+      return {
+        workflowId: 'wf-wide-heat',
+        workflowName: 'Wide heat split',
+        totalIterations: 2,
+        totalDurationMs: 2000,
+        iterations: [
+          {
+            index: 0,
+            passed: true,
+            durationMs: 1000,
+            traversedEdges: ['e1'],
+            events: [
+              { nodeId: 'cool', nodeType: 'http', nodeLabel: 'Cool', timestamp: 0, state: 'pass', durationMs: 10 },
+              { nodeId: 'warm', nodeType: 'http', nodeLabel: 'Warm', timestamp: 1, state: 'pass', durationMs: 80 },
+              { nodeId: 'hot', nodeType: 'http', nodeLabel: 'Hot', timestamp: 2, state: 'pass', durationMs: 800 },
+            ],
+            finalVariables: {},
+          },
+          {
+            index: 1,
+            passed: true,
+            durationMs: 1000,
+            traversedEdges: ['e1'],
+            events: [
+              { nodeId: 'cool', nodeType: 'http', nodeLabel: 'Cool', timestamp: 0, state: 'pass', durationMs: 20 },
+              { nodeId: 'warm', nodeType: 'http', nodeLabel: 'Warm', timestamp: 1, state: 'pass', durationMs: 90 },
+              { nodeId: 'hot', nodeType: 'http', nodeLabel: 'Hot', timestamp: 2, state: 'pass', durationMs: 900 },
+            ],
+            finalVariables: {},
+          },
+        ],
+        traversedEdges: ['e1'],
+        workflowSnapshot: {
+          nodes: [
+            { id: 'cool', type: 'http', position: { x: 0, y: 0 }, data: { label: 'Cool' } },
+            { id: 'warm', type: 'http', position: { x: 0, y: 100 }, data: { label: 'Warm' } },
+            { id: 'hot', type: 'http', position: { x: 0, y: 200 }, data: { label: 'Hot' } },
+          ],
+          edges: [
+            { id: 'e1', source: 'cool', target: 'warm' },
+            { id: 'e2', source: 'warm', target: 'hot' },
+          ],
+        },
+      };
+    }
+
+    it('spans green and red heatmap tones across three divergent averages', () => {
+      const trace = createWideHeatmapTrace();
+      const { container } = render(<WorkflowExecutionCanvas trace={trace} />);
+      const heatmaps = container.querySelectorAll('.replay-node-heatmap');
+      expect(heatmaps.length).toBe(3);
+      const greens = Array.from(heatmaps).map((n) => (n as HTMLElement).getAttribute('style') || '');
+      const parseG = (s: string) => {
+        const m = s.match(/rgb\(\d+, (\d+), \d+\)/);
+        return m ? parseInt(m[1], 10) : 0;
+      };
+      expect(parseG(greens[0])).toBeGreaterThan(parseG(greens[1]));
+      expect(parseG(greens[1])).toBeGreaterThan(parseG(greens[2]));
     });
   });
 });

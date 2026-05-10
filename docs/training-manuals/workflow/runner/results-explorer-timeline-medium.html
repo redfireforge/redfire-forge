@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RedfireForge — Timeline View (Gantt Chart) Training Manual</title>
+<style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .flow-diagram {
+    background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px;
+    padding: 16px; margin: 12px 0 18px; font-family: monospace; font-size: 12px;
+    line-height: 1.8; white-space: pre; overflow-x: auto;
+  }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-warn {
+    background: #fff8e1; border-left-color: #f4a261;
+  }
+  .callout-tip {
+    background: #e8f5e9; border-left-color: #2e7d32;
+  }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  .toc { margin: 20px 0; }
+  .toc a { color: #1d3557; text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+  .toc li { margin-bottom: 6px; font-size: 13.5px; }
+  .feature-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 10px 0 18px; }
+  .feature-card {
+    background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 6px; padding: 10px 14px;
+  }
+  .feature-card strong { font-size: 12.5px; display: block; margin-bottom: 4px; color: #1d3557; }
+  .feature-card p { font-size: 11.5px; margin: 0; color: #495057; }
+  .step-num {
+    display: inline-block; width: 24px; height: 24px; background: #e63946; color: #fff;
+    border-radius: 50%; text-align: center; line-height: 24px; font-size: 12px; font-weight: 700;
+    margin-right: 6px;
+  }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+</style>
+</head>
+<body>
+
+<!-- COVER PAGE -->
+<div class="cover-page">
+  <h1>Timeline View (Gantt Chart)</h1>
+  <div class="subtitle">Visualize Workflow Execution Over Time</div>
+  <p style="margin-bottom: 12px;">
+    <span class="badge badge-medium">Medium</span>
+  </p>
+  <p style="max-width: 560px; color: #495057; font-size: 14px;">
+    The Timeline View transforms workflow execution data into a horizontal Gantt chart, revealing exactly
+    when each node ran, how long it took, and where parallel branches overlap. Switch between Diagram and
+    Timeline with a single click to get the perspective you need.
+  </p>
+  <div class="meta">
+    <strong>RedfireForge &mdash; Redfire Performance Workbench</strong><br>
+    Document &mdash; May 2026<br>
+    <em>Print this page to PDF: Ctrl/Cmd + P &rarr; Save as PDF</em>
+  </div>
+</div>
+
+<!-- TABLE OF CONTENTS -->
+<div class="page-break"></div>
+<h2>Table of Contents</h2>
+<ol class="toc">
+  <li><a href="#what-is">What is the Timeline View?</a></li>
+  <li><a href="#switching">Switching Between Diagram &amp; Timeline</a></li>
+  <li><a href="#anatomy">Anatomy of the Timeline</a></li>
+  <li><a href="#bar-colors">Bar Colors &amp; Node Types</a></li>
+  <li><a href="#aggregate">Aggregate vs Single-Iteration Mode</a></li>
+  <li><a href="#zoom">Zoom &amp; Pan</a></li>
+  <li><a href="#search-filter">Search &amp; Filter in Timeline</a></li>
+  <li><a href="#interaction">Interaction: Select, Hover, Click</a></li>
+  <li><a href="#sub-workflow">Sub-Workflow Bars</a></li>
+  <li><a href="#shortcuts">Keyboard Shortcuts</a></li>
+  <li><a href="#tips">Tips &amp; Best Practices</a></li>
+  <li><a href="#related">Related Training</a></li>
+</ol>
+
+<!-- WHAT IS THE TIMELINE VIEW? -->
+<div class="page-break"></div>
+<h2 id="what-is">What is the Timeline View?</h2>
+<p>
+  The <strong>Timeline View</strong> is an alternative visualization mode inside the Results Explorer. Instead of
+  displaying the workflow as a graph (the Diagram view), it lays out every node as a <strong>horizontal bar on a
+  time axis</strong> &mdash; a Gantt chart for your API execution.
+</p>
+<p>This view answers questions that are hard to see on the diagram:</p>
+<ul>
+  <li><strong>When</strong> did each step start and finish relative to the others?</li>
+  <li><strong>How long</strong> did each step actually take (proportional bar width)?</li>
+  <li><strong>Where</strong> did parallel branches overlap on the time axis?</li>
+  <li><strong>What&rsquo;s the P95 / average</strong> duration across iterations (aggregate markers)?</li>
+</ul>
+
+<div class="flow-diagram">
+Label Column                    Time Axis (ms)
+┌──────────────┐  ┌──────────────────────────────────────────────┐
+│ ● Get Users  │  │ ████████████                                 │
+│ ● Get Posts  │  │         ██████████████████                   │
+│ ● Merge      │  │                            ████              │
+│ ● Validate   │  │                                ██████████    │
+└──────────────┘  └──────────────────────────────────────────────┘
+                  0ms    100ms   200ms   300ms   400ms   500ms
+</div>
+
+<!-- SWITCHING BETWEEN DIAGRAM & TIMELINE -->
+<h2 id="switching">Switching Between Diagram &amp; Timeline</h2>
+<p>
+  Inside the Results Explorer, look at the <strong>top-left corner</strong> of the main panel. You&rsquo;ll see
+  two toggle buttons:
+</p>
+<ul>
+  <li><strong>Diagram</strong> &mdash; the default graph view (React Flow canvas).</li>
+  <li><strong>Timeline</strong> &mdash; the Gantt chart view.</li>
+</ul>
+<p>Click either button or press <code>T</code> to toggle between them. Your node selection, iteration, and
+  search/filter state are preserved across the switch.</p>
+
+<div class="callout callout-tip">
+  <strong>Tip:</strong>
+  Use the Diagram to understand the <em>structure</em> (which nodes connect where), then switch to Timeline
+  to understand the <em>timing</em> (which steps were slow, where parallelism helped).
+</div>
+
+<!-- ANATOMY OF THE TIMELINE -->
+<div class="page-break"></div>
+<h2 id="anatomy">Anatomy of the Timeline</h2>
+
+<h3>Label column (left)</h3>
+<p>
+  A fixed column listing every node in <strong>topological order</strong> (matching execution order).
+  Each row shows:
+</p>
+<ul>
+  <li>A colored <strong>status dot</strong> &mdash; green (pass), red (fail), gray (skipped), or indigo (sub-workflow pass).</li>
+  <li>The <strong>node label</strong> (truncated with ellipsis if too long; hover for full name).</li>
+  <li>A <strong>SUB badge</strong> for sub-workflow nodes (see <a href="#sub-workflow">Sub-Workflow Bars</a>).</li>
+</ul>
+
+<h3>Chart area (right)</h3>
+<ul>
+  <li><strong>Time axis</strong> at the top with adaptive tick spacing (ms units).</li>
+  <li><strong>Horizontal bars</strong> &mdash; one per node, positioned and sized by start time and duration.</li>
+  <li><strong>Minimum bar width</strong> &mdash; very fast nodes (&lt;1ms) still render as a clickable 14px bar so nothing is invisible.</li>
+</ul>
+
+<h3>SVG height</h3>
+<p>The chart height scales automatically with the number of nodes. Each node row is 32px tall.</p>
+
+<!-- BAR COLORS & NODE TYPES -->
+<h2 id="bar-colors">Bar Colors &amp; Node Types</h2>
+<table>
+  <tr><th>Node Type</th><th>Pass Color</th><th>Fail Color</th><th>Skipped Color</th></tr>
+  <tr>
+    <td>HTTP request</td>
+    <td style="color: #22c55e; font-weight: 600;">Green (#22c55e)</td>
+    <td style="color: #ef4444; font-weight: 600;">Red (#ef4444)</td>
+    <td style="color: #64748b; font-weight: 600;">Gray (#64748b)</td>
+  </tr>
+  <tr>
+    <td>Sub-workflow</td>
+    <td style="color: #818cf8; font-weight: 600;">Indigo (#818cf8)</td>
+    <td style="color: #ef4444; font-weight: 600;">Red (#ef4444)</td>
+    <td style="color: #64748b; font-weight: 600;">Gray (#64748b)</td>
+  </tr>
+  <tr>
+    <td>Other (fork, join, condition, etc.)</td>
+    <td style="color: #22c55e; font-weight: 600;">Green (#22c55e)</td>
+    <td style="color: #ef4444; font-weight: 600;">Red (#ef4444)</td>
+    <td style="color: #64748b; font-weight: 600;">Gray (#64748b)</td>
+  </tr>
+</table>
+<p>
+  Sub-workflow nodes use a distinct <strong>indigo</strong> hue so you can instantly tell them apart from
+  regular HTTP bars. The label column dot and bar color both match.
+</p>
+
+<!-- AGGREGATE VS SINGLE-ITERATION MODE -->
+<div class="page-break"></div>
+<h2 id="aggregate">Aggregate vs Single-Iteration Mode</h2>
+
+<h3>Single iteration (selected)</h3>
+<p>
+  When you select a specific iteration, the timeline shows <strong>one bar per node</strong> at full opacity,
+  representing that iteration&rsquo;s exact timing.
+</p>
+
+<h3>Aggregate mode (All)</h3>
+<p>
+  When the iteration selector shows <strong>All</strong>, the timeline overlays bars from <em>every</em>
+  iteration at <strong>50% opacity</strong>. This reveals:
+</p>
+<ul>
+  <li><strong>Spread</strong> &mdash; wide scatter means high timing variance.</li>
+  <li><strong>Clusters</strong> &mdash; overlapping bars indicate consistent timing.</li>
+  <li><strong>Outliers</strong> &mdash; isolated long bars stand out from the cluster.</li>
+</ul>
+
+<h3>Statistical markers</h3>
+<p>In aggregate mode, two vertical dashed lines appear on the time axis:</p>
+<table>
+  <tr><th>Marker</th><th>Color</th><th>Meaning</th></tr>
+  <tr><td>Avg</td><td>Cyan dashed</td><td>Average iteration duration across all sampled iterations.</td></tr>
+  <tr><td>P95</td><td>Orange dashed</td><td>95th-percentile iteration duration &mdash; your &ldquo;worst typical&rdquo; benchmark.</td></tr>
+</table>
+<p>
+  These markers provide immediate context: if most bars cluster well before P95, performance is stable.
+  If bars spread past P95, investigate the outlier iterations.
+</p>
+
+<!-- ZOOM & PAN -->
+<h2 id="zoom">Zoom &amp; Pan</h2>
+<ul>
+  <li><strong>Zoom in/out</strong> &mdash; use the <code>+</code> and <code>-</code> buttons in the toolbar, or scroll the mouse wheel over the chart area.</li>
+  <li><strong>Horizontal scroll</strong> &mdash; the chart area scrolls horizontally when zoomed in, so you can pan along the time axis.</li>
+  <li><strong>Zoom badge</strong> &mdash; a badge appears when zoom is not at 1&times;, showing the current magnification level.</li>
+  <li><strong>Reset</strong> &mdash; click the zoom badge or the reset button to return to 1&times;.</li>
+</ul>
+<div class="callout">
+  <strong>When to zoom</strong>
+  Zoom in when a workflow has both very fast (&lt;5ms) and very slow (&gt;500ms) nodes. At default zoom the fast
+  nodes compress to minimum width; zooming reveals their true proportional size.
+</div>
+
+<!-- SEARCH & FILTER IN TIMELINE -->
+<div class="page-break"></div>
+<h2 id="search-filter">Search &amp; Filter in Timeline</h2>
+<p>
+  The same search bar and state filter buttons (All / Pass / Fail / Skipped) that work in Diagram mode
+  also work in Timeline mode. Behavior:
+</p>
+<ul>
+  <li><strong>Matching nodes</strong> get a subtle <strong>indigo highlight</strong> on their label row and a faint
+    indigo strip across their chart row.</li>
+  <li><strong>Non-matching nodes</strong> remain visible at full context &mdash; they are <em>not</em> hidden. This
+    preserves the timeline&rsquo;s temporal context so you can see relative positioning.</li>
+  <li>An overlay appears when the filter has <strong>zero matches</strong> (e.g., no failed nodes).</li>
+</ul>
+<div class="callout callout-tip">
+  <strong>Tip:</strong>
+  Press <code>/</code> to focus search, type a fragment like &ldquo;auth&rdquo;, then look at where the highlighted
+  bars fall on the time axis relative to other steps.
+</div>
+
+<!-- INTERACTION -->
+<h2 id="interaction">Interaction: Select, Hover, Click</h2>
+
+<h3>Selecting a node</h3>
+<ul>
+  <li><strong>Click a bar</strong> in the chart, or <strong>click a label row</strong> on the left &mdash; both select
+    that node and update the detail panel on the right.</li>
+  <li>The selected bar gets a <strong>white stroke highlight</strong> (2px).</li>
+  <li>The selected label row gets a <strong>highlighted background</strong>.</li>
+  <li>Click the empty chart area to <strong>deselect</strong>.</li>
+</ul>
+
+<h3>Tooltip on hover</h3>
+<p>
+  Hover over any bar to see a tooltip with: <strong>node label</strong>, <strong>duration</strong> (in ms),
+  <strong>status code</strong> (for HTTP nodes), and <strong>state</strong> (pass/fail/skipped).
+</p>
+
+<h3>Synchronized selection</h3>
+<p>
+  The node you select in the timeline is the same one shown in the detail panel. If you switch back to
+  Diagram mode, the same node stays selected there too. The iteration matrix also reflects your selection.
+</p>
+
+<!-- SUB-WORKFLOW BARS -->
+<div class="page-break"></div>
+<h2 id="sub-workflow">Sub-Workflow Bars</h2>
+<p>Sub-workflow nodes have three visual distinguishers in the timeline:</p>
+
+<h3>1. Indigo color</h3>
+<p>
+  The bar renders in <strong>indigo (#818cf8)</strong> instead of the standard green, making it instantly
+  recognizable as a child workflow execution rather than a single HTTP call.
+</p>
+
+<h3>2. SUB badge</h3>
+<p>
+  The label column shows a small <strong>&ldquo;SUB&rdquo;</strong> pill badge next to the node name,
+  styled in indigo tones.
+</p>
+
+<h3>3. Drill-down icon</h3>
+<p>
+  In single-iteration mode, a small <strong>&#x2935; icon</strong> appears at the right end of the bar.
+  Click it to <strong>drill into the child workflow</strong> &mdash; the Results Explorer pushes the child
+  trace onto a stack and displays it as a full timeline (or diagram). Use the <strong>breadcrumb bar</strong>
+  at the top to navigate back to the parent.
+</p>
+
+<div class="callout">
+  <strong>Drill-down vs node click</strong>
+  Clicking the <em>bar itself</em> selects the node and opens the detail panel (like any other node).
+  Clicking the <em>drill-down icon</em> navigates into the child workflow. Both actions are available
+  on sub-workflow bars.
+</div>
+
+<!-- KEYBOARD SHORTCUTS -->
+<h2 id="shortcuts">Keyboard Shortcuts</h2>
+<table>
+  <tr><th>Key</th><th>Action</th></tr>
+  <tr><td><code>T</code></td><td>Toggle between Diagram and Timeline view.</td></tr>
+  <tr><td><code>&larr;</code> / <code>&rarr;</code></td><td>Previous / next iteration.</td></tr>
+  <tr><td><code>1</code> &ndash; <code>9</code></td><td>Jump to iteration 1&ndash;9.</td></tr>
+  <tr><td><code>Space</code></td><td>Toggle aggregate / iteration 1.</td></tr>
+  <tr><td><code>A</code></td><td>Switch to aggregate (All).</td></tr>
+  <tr><td><code>M</code></td><td>Toggle iteration matrix.</td></tr>
+  <tr><td><code>/</code></td><td>Focus search.</td></tr>
+  <tr><td><code>Escape</code></td><td>Deselect node or close modal.</td></tr>
+</table>
+
+<!-- TIPS & BEST PRACTICES -->
+<div class="page-break"></div>
+<h2 id="tips">Tips &amp; Best Practices</h2>
+<ul>
+  <li><strong>Start in Diagram, switch to Timeline</strong> when you need to compare durations or understand
+    parallelism &mdash; bars make timing proportional, graphs show structure.</li>
+  <li><strong>Use aggregate mode</strong> to spot variance: if a node&rsquo;s bars spread wide across iterations,
+    its latency is unstable and worth investigating.</li>
+  <li><strong>Zoom into fast nodes</strong> that compress at default zoom &mdash; the proportional view reveals
+    whether they&rsquo;re truly negligible or just overshadowed by slower neighbors.</li>
+  <li><strong>Look for gaps</strong> between bars on the time axis &mdash; gaps represent orchestration overhead
+    (edge evaluation, variable extraction, fork/join coordination).</li>
+  <li><strong>Sub-workflow bars</strong> show the total child execution time. Drill down to see the breakdown
+    of individual steps within the child workflow.</li>
+  <li><strong>Combine with the Fail filter</strong> to highlight only failed nodes on the timeline, then step
+    through iterations to compare failure timing.</li>
+</ul>
+
+<!-- RELATED TRAINING -->
+<h2 id="related">Related Training</h2>
+<ul>
+  <li><a href="./results-explorer-medium.html">Results Explorer</a> &mdash; the full three-panel modal reference.</li>
+  <li><a href="./results-explorer-drilldown-medium.html">Sub-Workflow Drill-Down</a> &mdash; navigating into nested workflows.</li>
+  <li><a href="../../api-patterns/parallel-showcase-medium.html">Parallel Showcase: Swim Lanes &amp; Critical Path</a> &mdash; parallel branches in Diagram view.</li>
+  <li><a href="../../edge-traversal-percentages-guide.html">Edge Traversal Percentages</a> &mdash; branch distribution in aggregate mode.</li>
+</ul>
+
+<footer>
+  RedfireForge Training Manual &mdash; Timeline View (Gantt Chart) &mdash; Medium &mdash; May 2026
+</footer>
+
+</body>
+</html>

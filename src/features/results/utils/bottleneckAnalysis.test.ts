@@ -2,10 +2,10 @@ import { describe, it, expect } from 'vitest';
 import { computeNodeStats, identifyBottlenecks, getBottleneckNodeIds } from './bottleneckAnalysis';
 import type { WorkflowExecutionTrace, WorkflowIterationTrace, ExecutionEvent } from '../../../shared/types';
 
-function makeEvent(nodeId: string, durationMs: number, state: 'pass' | 'fail' = 'pass', nodeType = 'http', nodeLabel?: string): ExecutionEvent {
+function makeEvent(nodeId: string, durationMs: number, state: 'pass' | 'fail' = 'pass', nodeType: ExecutionEvent['nodeType'] = 'http', nodeLabel?: string): ExecutionEvent {
   return {
     nodeId,
-    nodeType: nodeType as any,
+    nodeType,
     nodeLabel: nodeLabel || `Node ${nodeId}`,
     timestamp: Date.now(),
     state,
@@ -26,7 +26,7 @@ function makeIteration(events: ExecutionEvent[], durationMs: number, passed = tr
   };
 }
 
-function makeTrace(iterations: WorkflowIterationTrace[], nodes: Array<{ id: string; type: string; data?: any }>): WorkflowExecutionTrace {
+function makeTrace(iterations: WorkflowIterationTrace[], nodes: Array<{ id: string; type: string; data?: Record<string, unknown> }>): WorkflowExecutionTrace {
   return {
     iterations,
     traversedEdges: [],

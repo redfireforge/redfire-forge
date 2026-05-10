@@ -47,7 +47,7 @@ export function useWorkflowDesignerControllerPartB(
     workflowVariables, setWorkflowVariables,
     workflowHostProfiles, workflowAuthProfiles, workflowServices,
     workflowErrorConfig,
-    nextNodeY,
+    nextNodeYRef,
     persistWorkflow, serializeNodes, serializeEdges, insertNodeAndPersist,
     undoRedo, nodesRef, edgesRef, handleQuickTestRef, handleDebugQuickTestRef,
     setLayoutVersion,
@@ -74,7 +74,7 @@ export function useWorkflowDesignerControllerPartB(
     nodeInitialVarsRef, nodesRef, edgesRef,
     serializeNodes, serializeEdges, update, persistWorkflow,
     undoRedo, workflows, create, toast,
-    nextNodeY,
+    nextNodeYRef,
   });
 
   const { handleEnvSelect, resolveHttpBaseUrlForGraph, resolveHttpAuthForGraph } = useWorkflowResolvers({
@@ -116,7 +116,7 @@ export function useWorkflowDesignerControllerPartB(
     setNodes, setEdges, setSelectedNodeId, setLayoutVersion,
     setWorkflowVariables, setWorkflowHostProfiles, setWorkflowAuthProfiles,
     setWorkflowServices, setWorkflowErrorConfig, setNodeInitialVars,
-    nextNodeY, isRunning, abortRef, setIsRunning, setIsDebugMode, debugControllerRef,
+    nextNodeYRef, isRunning, abortRef, setIsRunning, setIsDebugMode, debugControllerRef,
   });
 
   const { selectedNode, conditionVariableHints, httpVariableHints } = useWorkflowVariableHints({

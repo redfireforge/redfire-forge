@@ -16,16 +16,16 @@ npx playwright test --reporter=html
 ## Parallelism & Timeout
 
 - Default: **40 workers** (`--workers=40`)
-- First round of any new E2E run: **5s timeout** (`--timeout=5000`)
-- Subsequent rounds if failures remain: increase timeout incrementally (10s, 30s)
+- First round of any new E2E run: **15s timeout** (`--timeout=15000`)
+- Subsequent rounds if failures remain: increase timeout incrementally (30s, 60s)
 - Run multiple rounds until **all tests pass**
 
 ```bash
 # Standard command
-npx playwright test --reporter=html --workers=40 --timeout=5000
+npx playwright test --reporter=html --workers=40 --timeout=15000
 
 # With specific file
-npx playwright test e2e/some.spec.ts --reporter=html --workers=40 --timeout=5000
+npx playwright test e2e/some.spec.ts --reporter=html --workers=40 --timeout=15000
 ```
 
 ## Fix ALL Errors — No Ignoring

@@ -1,5 +1,6 @@
 import { vi } from 'vitest';
 import type { WorkflowNode, WorkflowEdge, WorkflowNodeType, NodeRunStatus } from '../types/workflow';
+import type { TraceCollector } from './traceCollector';
 import type { NodeHandlerContext, PassedFlag } from './graphRunnerNodeHandlers';
 import { httpFetch } from '../../../shared/utils/httpClient';
 import { executeScript } from './scriptSandbox';
@@ -79,7 +80,7 @@ export function makeHandlerContext(overrides: Partial<NodeHandlerContext> & {
     nodeLabel: overrides.nodeLabel ?? ((id) => id),
     visit: overrides.visit ?? vi.fn(),
     visitOutgoing: overrides.visitOutgoing ?? vi.fn(),
-    traceCollector: overrides.traceCollector ?? { onNodeStart: vi.fn(), onNodeComplete: vi.fn(), onEdgeTraversed: vi.fn(), getEvents: vi.fn(() => []), getTraversedEdges: vi.fn(() => []), reset: vi.fn() } as any,
+    traceCollector: overrides.traceCollector ?? { onNodeStart: vi.fn(), onNodeComplete: vi.fn(), onEdgeTraversed: vi.fn(), getEvents: vi.fn(() => []), getTraversedEdges: vi.fn(() => []), reset: vi.fn() } as unknown as TraceCollector,
     threadId: 'main',
     initialVariables: initialVars,
     traceOptions: overrides.traceOptions,

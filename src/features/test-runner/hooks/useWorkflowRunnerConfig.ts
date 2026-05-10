@@ -3,13 +3,13 @@
  * Simplified version of useRunnerConfig, without scenario-specific state.
  */
 import { useState, useEffect } from 'react';
-import type { ExecutionMode, ErrorPolicy, LoadProfileConfig, ThinkTimeConfig } from '../../../shared/types';
+import type { ExecutionMode, ErrorPolicy, LoadProfileConfig, ThinkTimeConfig, ExecutionTraceOptions } from '../../../shared/types';
 import { saveRunnerConfig, loadRunnerConfig as loadRunnerConfigAsync } from '../../../shared/utils/storage';
-import { defaultLoadProfile, defaultThinkTime } from './useRunnerConfig';
+import { defaultLoadProfile, defaultThinkTime } from './runnerConfigDefaults';
 
 export interface WorkflowRunnerConfig {
   concurrency: number;
-  totalTransactions: number;
+  iterations: number;
   executionMode: ExecutionMode;
   loadProfile?: LoadProfileConfig;
   thinkTime?: ThinkTimeConfig;
@@ -21,19 +21,21 @@ export interface WorkflowRunnerConfig {
   maxErrorRate?: number;
   /** Last selected workflow ID */
   selectedWorkflowId?: string;
+  /** Trace capture options */
+  traceOptions?: ExecutionTraceOptions;
 }
 
 const defaultConfig: WorkflowRunnerConfig = {
   concurrency: 1,
-  totalTransactions: 1,
+  iterations: 1,
   executionMode: 'batch',
 };
 
 export interface UseWorkflowRunnerConfigResult {
   concurrency: number;
   setConcurrency: React.Dispatch<React.SetStateAction<number>>;
-  totalTransactions: number;
-  setTotalTransactions: React.Dispatch<React.SetStateAction<number>>;
+  iterations: number;
+  setIterations: React.Dispatch<React.SetStateAction<number>>;
   executionMode: ExecutionMode;
   setExecutionMode: React.Dispatch<React.SetStateAction<ExecutionMode>>;
   loadProfile: LoadProfileConfig;
@@ -54,6 +56,8 @@ export interface UseWorkflowRunnerConfigResult {
   setMaxErrorRate: React.Dispatch<React.SetStateAction<number>>;
   selectedWorkflowId: string | null;
   setSelectedWorkflowId: React.Dispatch<React.SetStateAction<string | null>>;
+  traceOptions: ExecutionTraceOptions;
+  setTraceOptions: React.Dispatch<React.SetStateAction<ExecutionTraceOptions>>;
   configLoaded: boolean;
 }
 
@@ -65,7 +69,7 @@ export function useWorkflowRunnerConfig(): UseWorkflowRunnerConfigResult {
   const storageKey = '_workflow_runner';
   
   const [concurrency, setConcurrency] = useState(defaultConfig.concurrency);
-  const [totalTransactions, setTotalTransactions] = useState(defaultConfig.totalTransactions);
+  const [iterations, setIterations] = useState(defaultConfig.iterations);
   const [executionMode, setExecutionMode] = useState<ExecutionMode>('batch');
   const [loadProfile, setLoadProfile] = useState<LoadProfileConfig>({ ...defaultLoadProfile });
   const [thinkTime, setThinkTime] = useState<ThinkTimeConfig>({ ...defaultThinkTime });
@@ -76,6 +80,10 @@ export function useWorkflowRunnerConfig(): UseWorkflowRunnerConfigResult {
   const [maxErrors, setMaxErrors] = useState(10);
   const [maxErrorRate, setMaxErrorRate] = useState(50);
   const [selectedWorkflowId, setSelectedWorkflowId] = useState<string | null>(null);
+  const [traceOptions, setTraceOptions] = useState<ExecutionTraceOptions>({
+    captureFullTrace: false,
+    alwaysCaptureFailures: true,
+  });
   const [configLoaded, setConfigLoaded] = useState(false);
 
   // Load config from storage on mount
@@ -85,7 +93,7 @@ export function useWorkflowRunnerConfig(): UseWorkflowRunnerConfigResult {
       if (raw) {
         const saved = raw as WorkflowRunnerConfig;
         setConcurrency(saved.concurrency ?? defaultConfig.concurrency);
-        setTotalTransactions(saved.totalTransactions ?? defaultConfig.totalTransactions);
+        setIterations(saved.iterations ?? defaultConfig.iterations);
         // Sanitize: 'workflow' is an internal execution mode and should never appear
         // in the Workflow Runner's UI config (valid options: sequential, batch, pool, load-profile)
         const savedMode = saved.executionMode;
@@ -100,6 +108,14 @@ export function useWorkflowRunnerConfig(): UseWorkflowRunnerConfigResult {
         setMaxErrors(saved.maxErrors ?? 10);
         setMaxErrorRate(saved.maxErrorRate ?? 50);
         setSelectedWorkflowId(saved.selectedWorkflowId ?? null);
+        if (saved.traceOptions) {
+          setTraceOptions({
+            captureFullTrace: saved.traceOptions.captureFullTrace ?? false,
+            alwaysCaptureFailures: saved.traceOptions.alwaysCaptureFailures ?? true,
+            samplingEnabled: saved.traceOptions.samplingEnabled,
+            samplingThreshold: saved.traceOptions.samplingThreshold,
+          });
+        }
       }
       setConfigLoaded(true);
     });
@@ -110,7 +126,7 @@ export function useWorkflowRunnerConfig(): UseWorkflowRunnerConfigResult {
     if (!configLoaded) return;
     void saveRunnerConfig({
       concurrency,
-      totalTransactions,
+      iterations,
       selectedScenarios: [],
       weights: {},
       skipValidation: false,
@@ -128,12 +144,13 @@ export function useWorkflowRunnerConfig(): UseWorkflowRunnerConfigResult {
       maxErrors,
       maxErrorRate,
       selectedWorkflowId: selectedWorkflowId ?? undefined,
+      traceOptions,
     } as WorkflowRunnerConfig, storageKey);
-  }, [configLoaded, concurrency, totalTransactions, executionMode, loadProfile, thinkTime, timeoutSec, retryCount, retryDelayMs, errorPolicy, maxErrors, maxErrorRate, selectedWorkflowId]);
+  }, [configLoaded, concurrency, iterations, executionMode, loadProfile, thinkTime, timeoutSec, retryCount, retryDelayMs, errorPolicy, maxErrors, maxErrorRate, selectedWorkflowId, traceOptions]);
 
   return {
     concurrency, setConcurrency,
-    totalTransactions, setTotalTransactions,
+    iterations, setIterations,
     executionMode, setExecutionMode,
     loadProfile, setLoadProfile,
     thinkTime, setThinkTime,
@@ -144,6 +161,7 @@ export function useWorkflowRunnerConfig(): UseWorkflowRunnerConfigResult {
     maxErrors, setMaxErrors,
     maxErrorRate, setMaxErrorRate,
     selectedWorkflowId, setSelectedWorkflowId,
+    traceOptions, setTraceOptions,
     configLoaded,
   };
 }

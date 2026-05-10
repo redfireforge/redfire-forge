@@ -4,7 +4,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useRerunFailed } from './useRerunFailed';
-import type { FeatureGroup, TestRun } from '../../shared/types';
+import type { AuthConfig, FeatureGroup, RequestResult, TestRun, TestScenario, TestSummary } from '../../shared/types';
+import type { TestResult } from '../../engine/executor';
 
 // ── Mocks ──
 
@@ -21,9 +22,9 @@ vi.mock('../../engine/executor', () => ({
 }));
 
 vi.mock('../../engine/rerunMerge', () => ({
-  mergeRerunResults: vi.fn((run: TestRun, newResults: import('../../shared/types').RequestResult[]) => ({
+  mergeRerunResults: vi.fn((run: TestRun, rerunResults: TestResult) => ({
     ...run,
-    results: [...run.results, ...newResults],
+    results: [...run.results, ...rerunResults],
   })),
 }));
 
@@ -47,48 +48,71 @@ const { updateTestRun } = await import('../../shared/utils/storage');
 // ── Helpers ──
 
 function makeFeatureGroups(): FeatureGroup[] {
+  const scenario: TestScenario = {
+    id: 'sc1',
+    name: 'Scenario 1',
+    tests: [{
+      id: 's1',
+      name: 'Test 1',
+      url: 'http://example.com/api',
+      method: 'GET',
+      headers: [],
+      body: '',
+      auth: { type: 'none' },
+      validation: { mode: 'none' },
+      dataSource: {
+        columns: [{ name: 'id' }],
+        rows: [
+          { id: 'row1', enabled: true, values: { id: '1' } },
+          { id: 'row2', enabled: true, values: { id: '2' } },
+        ],
+      },
+    }],
+  };
   return [{
     id: 'fg1',
     name: 'Feature 1',
-    scenarios: [{
-      id: 'sc1',
-      name: 'Scenario 1',
-      tests: [{
-        id: 's1',
-        name: 'Test 1',
-        url: 'http://example.com/api',
-        method: 'GET',
-        dataSource: {
-          columns: [{ name: 'id' }],
-          rows: [
-            { id: 'row1', enabled: true, values: { id: '1' } },
-            { id: 'row2', enabled: true, values: { id: '2' } },
-          ],
-        },
-      }],
-    } as any],
-  } as any];
+    scenarios: [scenario],
+  }];
 }
 
 function makeTestRun(): TestRun {
+  const summary: TestSummary = {
+    tps: 0,
+    avgResponseTime: 75,
+    minResponseTime: 50,
+    maxResponseTime: 100,
+    p50ResponseTime: 75,
+    p95ResponseTime: 100,
+    p99ResponseTime: 100,
+    errorRate: 50,
+    errorsByStatus: {},
+    totalRequests: 2,
+    successfulRequests: 1,
+    failedRequests: 1,
+    failedValidations: 0,
+    totalDurationMs: 1000,
+  };
+  const results: RequestResult[] = [
+    { id: 'r1', scenarioId: 's1', passed: false, dataRowId: 'row1', httpStatus: 500, responseTimeMs: 100, scenarioName: 'Test 1', method: 'GET', url: 'http://example.com/api' },
+    { id: 'r2', scenarioId: 's1', passed: true, dataRowId: 'row2', httpStatus: 200, responseTimeMs: 50, scenarioName: 'Test 1', method: 'GET', url: 'http://example.com/api' },
+  ];
   return {
     id: 'run1',
     timestamp: Date.now(),
     baseUrl: 'http://example.com',
     config: {
       concurrency: 1,
-      totalTransactions: 2,
+      iterations: 2,
       executionMode: 'sequential' as const,
       scenarioWeights: [],
       timeoutSec: 30,
       retryCount: 0,
       retryDelayMs: 0,
     },
-    results: [
-      { id: 'r1', scenarioId: 's1', passed: false, dataRowId: 'row1', httpStatus: 500, responseTimeMs: 100, scenarioName: 'Test 1', method: 'GET', url: 'http://example.com/api' },
-      { id: 'r2', scenarioId: 's1', passed: true, dataRowId: 'row2', httpStatus: 200, responseTimeMs: 50, scenarioName: 'Test 1', method: 'GET', url: 'http://example.com/api' },
-    ],
-  } as any;
+    summary,
+    results,
+  };
 }
 
 // ── Tests ──
@@ -280,7 +304,7 @@ describe('useRerunFailed', () => {
     vi.mocked(runTest).mockResolvedValue({ results: [] });
     
     const galleryFeatureGroups = makeFeatureGroups();
-    (galleryFeatureGroups[0] as any).source = 'gallery';
+    galleryFeatureGroups[0].source = 'gallery';
 
     const { result } = renderHook(() =>
       useRerunFailed({
@@ -344,7 +368,7 @@ describe('useRerunFailed', () => {
   it('passes envFallbackAuth into resolveAuth', async () => {
     const { resolveAuth } = await import('../../features/requests/utils/authResolver');
     vi.mocked(runTest).mockResolvedValue({ results: [] });
-    const fb = { type: 'bearer', token: 't' } as any;
+    const fb: AuthConfig = { type: 'bearer', token: 't' };
     const { result } = renderHook(() =>
       useRerunFailed({
         featureGroups: makeFeatureGroups(),

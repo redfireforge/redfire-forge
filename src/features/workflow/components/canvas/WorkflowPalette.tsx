@@ -71,11 +71,38 @@ export default function WorkflowPalette({ collections, catalogEntries, onAddNode
   const [searchQuery, setSearchQuery] = useState('');
   const dragGhostRef = useRef<HTMLDivElement | null>(null);
 
+  const q = searchQuery.trim().toLowerCase();
+
   const filteredBlocks = useMemo(() => {
-    if (!searchQuery.trim()) return ALL_BLOCKS;
-    const q = searchQuery.trim().toLowerCase();
+    if (!q) return ALL_BLOCKS;
     return ALL_BLOCKS.filter(b => b.title.toLowerCase().includes(q) || b.desc.toLowerCase().includes(q));
-  }, [searchQuery]);
+  }, [q]);
+
+  const filteredCollections = useMemo(() => {
+    if (!q) return collections;
+    return collections.map(col => {
+      const matchRequests = (reqs: RequestItem[]) => reqs.filter(r => r.name.toLowerCase().includes(q) || r.method.toLowerCase().includes(q) || r.url?.toLowerCase().includes(q));
+      const matchFolders = (folders?: RequestFolder[]): RequestFolder[] | undefined => {
+        if (!folders) return undefined;
+        return folders.map(f => ({
+          ...f,
+          requests: matchRequests(f.requests),
+          folders: matchFolders(f.folders),
+        })).filter(f => f.requests.length > 0 || (f.folders?.some(sf => sf.requests.length > 0 || (sf.folders?.length ?? 0) > 0) ?? false));
+      };
+      return { ...col, requests: matchRequests(col.requests), folders: matchFolders(col.folders) ?? [] };
+    }).filter(col => col.requests.length > 0 || col.folders.length > 0);
+  }, [q, collections]);
+
+  const filteredCatalog = useMemo(() => {
+    if (!q) return catalogEntries;
+    return catalogEntries.map(entry => ({
+      ...entry,
+      endpoints: entry.endpoints.filter(ep =>
+        (ep.summary || '').toLowerCase().includes(q) || ep.path.toLowerCase().includes(q) || ep.method.toLowerCase().includes(q)
+      ),
+    })).filter(entry => entry.endpoints.length > 0);
+  }, [q, catalogEntries]);
 
   const handleBlockDragStart = useCallback((e: React.DragEvent, block: BlockDef) => {
     e.dataTransfer.setData('application/reactflow-type', block.type);
@@ -110,19 +137,22 @@ export default function WorkflowPalette({ collections, catalogEntries, onAddNode
         <button className={`wf-palette-tab ${section === 'catalog' ? 'active' : ''}`} onClick={() => setSection('catalog')}>Catalog</button>
       </div>
 
+      <div className="wf-palette-search-wrap">
+        <svg className="wf-palette-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input
+          className="wf-palette-search"
+          type="text"
+          placeholder={section === 'blocks' ? 'Search blocks…' : section === 'requests' ? 'Search requests…' : 'Search catalog…'}
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+        />
+        {searchQuery && (
+          <button type="button" className="wf-palette-search-clear" onClick={() => setSearchQuery('')} aria-label="Clear search">&times;</button>
+        )}
+      </div>
       <div className="wf-palette-content">
         {section === 'blocks' && (
           <div className="wf-palette-blocks">
-            <div className="wf-palette-search-wrap">
-              <svg className="wf-palette-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-              <input
-                className="wf-palette-search"
-                type="text"
-                placeholder="Search blocks…"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
             {CATEGORIES.map(cat => {
               const blocks = filteredBlocks.filter(b => b.category === cat.id);
               if (blocks.length === 0) return null;
@@ -160,8 +190,8 @@ export default function WorkflowPalette({ collections, catalogEntries, onAddNode
 
         {section === 'requests' && (
           <div className="wf-palette-tree">
-            {collections.length === 0 && <p className="wf-palette-empty">No request collections</p>}
-            {collections.map(col => (
+            {filteredCollections.length === 0 && <p className="wf-palette-empty">{q ? `No requests matching "${searchQuery.trim()}"` : 'No request collections'}</p>}
+            {filteredCollections.map(col => (
               <div key={col.id} className="wf-palette-group">
                 <button className="wf-palette-group-header" onClick={() => toggle(col.id)}>
                   <span className="wf-palette-caret">{expanded.has(col.id) ? '▾' : '▸'}</span>
@@ -181,8 +211,8 @@ export default function WorkflowPalette({ collections, catalogEntries, onAddNode
 
         {section === 'catalog' && (
           <div className="wf-palette-tree">
-            {catalogEntries.length === 0 && <p className="wf-palette-empty">No catalog entries</p>}
-            {catalogEntries.map(entry => (
+            {filteredCatalog.length === 0 && <p className="wf-palette-empty">{q ? `No catalog entries matching "${searchQuery.trim()}"` : 'No catalog entries'}</p>}
+            {filteredCatalog.map(entry => (
               <div key={entry.id} className="wf-palette-group">
                 <button className="wf-palette-group-header" onClick={() => toggle(entry.id)}>
                   <span className="wf-palette-caret">{expanded.has(entry.id) ? '▾' : '▸'}</span>

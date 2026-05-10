@@ -17,8 +17,10 @@ const { syntheticStart, syntheticStop, SyntheticEventInjectorMock } = vi.hoisted
     constructor(...args: unknown[]) { calls.push(args); }
     static mock = { calls };
   }
-  return { syntheticStart, syntheticStop, SyntheticEventInjectorMock: MockInjector as unknown as ReturnType<typeof vi.fn> };
+  return { syntheticStart, syntheticStop, SyntheticEventInjectorMock: MockInjector as unknown as typeof MockInjector & { mock: { calls: unknown[][] } } };
 });
+
+type SyntheticInjectorMockClass = typeof SyntheticEventInjectorMock & { mock: { calls: unknown[][] } };
 
 // Mock graphRunner
 vi.mock('./graphRunner', () => ({
@@ -31,10 +33,8 @@ vi.mock('./syntheticEventInjector', () => ({
 
 import { runGraphLoad } from './graphLoadRunner';
 import { runGraph } from './graphRunner';
-import { SyntheticEventInjector } from './syntheticEventInjector';
 
 const mockRunGraph = vi.mocked(runGraph);
-const mockSyntheticInjectorCtor = vi.mocked(SyntheticEventInjector);
 
 function createMockWorkflow(name = 'Test Workflow'): Workflow {
   const nodes: WorkflowNode[] = [
@@ -558,7 +558,7 @@ describe('graphLoadRunner', () => {
       const workflow = createMockWorkflow();
       const controller = new AbortController();
       
-      mockRunGraph.mockImplementation(async (_n, _e, _v, callbacks, signal) => {
+      mockRunGraph.mockImplementation(async (_n, _e, _v, callbacks, _signal) => {
         controller.abort();
         // Simulate results before abort is fully processed
         callbacks.onComplete([createMockResult({ passed: true })], true, 10);
@@ -580,7 +580,7 @@ describe('graphLoadRunner', () => {
       const workflow = createMockWorkflow();
       const controller = new AbortController();
       
-      mockRunGraph.mockImplementation(async (_n, _e, _v, callbacks, signal) => {
+      mockRunGraph.mockImplementation(async (_n, _e, _v, callbacks, _signal) => {
         controller.abort();
         callbacks.onComplete([], true, 10); // Empty results
         return [];
@@ -852,8 +852,9 @@ describe('graphLoadRunner', () => {
         },
       });
 
-      expect((SyntheticEventInjectorMock as any).mock.calls.length).toBeGreaterThan(0);
-      const [storeArg, configArg] = (SyntheticEventInjectorMock as any).mock.calls[0]!;
+      const injectorMock = SyntheticEventInjectorMock as SyntheticInjectorMockClass;
+      expect(injectorMock.mock.calls.length).toBeGreaterThan(0);
+      const [storeArg, configArg] = injectorMock.mock.calls[0]!;
       expect(storeArg).toBeDefined();
       expect(configArg).toEqual(
         expect.objectContaining({
@@ -896,7 +897,8 @@ describe('graphLoadRunner', () => {
         correlationWaitConfig: { mode: 'synthetic-inject' },
       });
 
-      const ctorCalls = (SyntheticEventInjectorMock as any).mock.calls as unknown[][];
+      const injectorMock = SyntheticEventInjectorMock as SyntheticInjectorMockClass;
+      const ctorCalls = injectorMock.mock.calls;
       const [, configArg] = ctorCalls[ctorCalls.length - 1]!;
       expect(configArg).toEqual(
         expect.objectContaining({
@@ -1072,8 +1074,6 @@ describe('graphLoadRunner', () => {
 
     it('updates iteration index on collected trace', async () => {
       const workflow = createMockWorkflow();
-      let iterNum = 0;
-      
       mockRunGraph.mockImplementation(async (_n, _e, _v, callbacks) => {
         // Server returns trace with index=0 always
         callbacks.onComplete([createMockResult()], true, 50, {
@@ -1083,7 +1083,6 @@ describe('graphLoadRunner', () => {
           stepResults: [],
           traversedEdges: [],
         });
-        iterNum++;
         return [];
       });
 

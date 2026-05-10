@@ -19,6 +19,7 @@ async function seedWithParamTest(page: Page) {
       scenarios: [{
         id: 'sc-1',
         name: 'E2E Scenario',
+        kind: 'parameterized',
         tests: [{
           id: 'test-1',
           name: 'Vehicle Offers',
@@ -57,6 +58,7 @@ async function seedWithDataSource(page: Page) {
       scenarios: [{
         id: 'sc-1',
         name: 'E2E Scenario',
+        kind: 'parameterized',
         tests: [{
           id: 'test-1',
           name: 'Vehicle Offers',

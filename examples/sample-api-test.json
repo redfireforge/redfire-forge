@@ -9,7 +9,7 @@
   },
   "config": {
     "concurrency": 2,
-    "transactions": 6,
+    "iterations": 6,
     "mode": "batch"
   },
   "tests": [

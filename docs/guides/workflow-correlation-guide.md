@@ -233,7 +233,7 @@ Mock Payload:
 }
 ```
 
-**Important:** All transactions use the same mock response values. The `{{correlationId}}` placeholder is automatically replaced with the actual correlation ID at runtime.
+**Important:** All iterations use the same mock response values. The `{{correlationId}}` placeholder is automatically replaced with the actual correlation ID at runtime.
 
 **Why is this in the Runner, not the Node?**
 This design separates workflow logic from test configuration. The same workflow can be tested with different behaviors without modifying the workflow definition. Quick Test always waits for real webhooks (for debugging), while Workflow Runner uses your configured behavior (for load testing).

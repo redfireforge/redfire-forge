@@ -26,7 +26,7 @@ function makeDebugTestRun() {
   return {
     id: 'run-debug-fitview',
     timestamp: now,
-    config: { executionMode: 'workflow', totalTransactions: 1, concurrency: 1, scenarioWeights: [] },
+    config: { executionMode: 'workflow', iterations: 1, concurrency: 1, scenarioWeights: [] },
     summary: {
       totalRequests: 1, successfulRequests: 1, failedRequests: 0,
       totalDurationMs: 300, tps: 3.3, avgResponseTime: 100,

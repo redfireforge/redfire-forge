@@ -42,8 +42,8 @@ redfireforge validate tests/api-test.yaml
 # Run a simple test
 redfireforge run tests/api-test.yaml
 
-# Run with concurrency and transactions
-redfireforge run tests/api-test.yaml -c 10 -t 100
+# Run with concurrency and iterations
+redfireforge run tests/api-test.yaml -c 10 -i 100
 
 # Run a workflow performance test
 redfireforge workflow tests/checkout-flow.yaml -i 50 -c 5
@@ -65,7 +65,7 @@ redfireforge workflow tests/checkout-flow.yaml -i 50 -c 5
 | Option | Description |
 |--------|-------------|
 | `-c, --concurrency <n>` | Number of concurrent requests (default: 1) |
-| `-t, --transactions <n>` | Total number of requests |
+| `-i, --iterations <n>` | Number of iterations |
 | `-m, --mode <mode>` | Execution mode: `sequential`, `batch`, `pool`, `load-profile` |
 | `--timeout <sec>` | Per-request timeout in seconds (default: 30) |
 | `--retries <n>` | Retry count on failure |
@@ -173,7 +173,7 @@ edges:
   run: |
     npx redfireforge-cli run tests/api-test.yaml \
       --concurrency 10 \
-      --transactions 100 \
+      --iterations 100 \
       --junit results.xml \
       --fail-on-error \
       -q

@@ -4,12 +4,8 @@
 import { describe, it, expect, vi } from 'vitest';
 import { useState } from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
-import {
-  GalleryFilters,
-  defaultFilterState,
-  apiHostname,
-  type GalleryFilterState,
-} from './GalleryFilters';
+import { GalleryFilters } from './GalleryFilters';
+import { defaultFilterState, apiHostname, type GalleryFilterState } from './galleryFiltersUtils';
 import type { GalleryDomainConfig } from '../../../data/galleries/registry';
 import type { TrainingPath } from '../../../data/galleries/trainingPaths';
 

@@ -4,7 +4,13 @@ import type { GallerySampleStatus } from '../../../features/gallery/types';
 import { galleryDomains } from '../../../data/galleries/registry';
 import { trainingPaths } from '../../../data/galleries/trainingPaths';
 import { GalleryCard } from './GalleryCard';
-import { GalleryFilters, defaultFilterState, apiHostname, type GalleryFilterState, type GalleryMode } from './GalleryFilters';
+import { GalleryFilters } from './GalleryFilters';
+import {
+  apiHostname,
+  defaultFilterState,
+  type GalleryFilterState,
+  type GalleryMode,
+} from './galleryFiltersUtils';
 import { GalleryDetailPanel } from './GalleryDetailPanel';
 import { TrainingPathsView } from './TrainingPathsView';
 

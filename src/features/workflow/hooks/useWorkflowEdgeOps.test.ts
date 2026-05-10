@@ -253,6 +253,37 @@ describe('useWorkflowEdgeOps', () => {
     expect(e.get()[0].label).toBeUndefined();
   });
 
+  it('onConnect adds wf-edge-false-branch className for false sourceHandle', () => {
+    const { result, e } = setup();
+    act(() => result.current.onConnect({ source: 'a', target: 'b', sourceHandle: 'false', targetHandle: null }));
+    expect(e.get()[0].className).toBe('wf-edge-false-branch');
+  });
+
+  it('onConnect adds no className for true sourceHandle', () => {
+    const { result, e } = setup();
+    act(() => result.current.onConnect({ source: 'a', target: 'b', sourceHandle: 'true', targetHandle: null }));
+    expect(e.get()[0].className).toBeUndefined();
+  });
+
+  it('preserves false-branch class during execution state updates', () => {
+    const initial: WorkflowRFEdge[] = [{ id: 'e1', source: 'a', target: 'b', sourceHandle: 'false' } as unknown as WorkflowRFEdge];
+    const { e } = setup({
+      initialEdges: initial,
+      nodeStatuses: { a: { state: 'pass' }, b: { state: 'pass' } } as unknown as Record<string, NodeRunStatus>,
+    });
+    expect(e.get()[0].className).toBe('wf-edge-false-branch wf-edge-pass');
+  });
+
+  it('preserves false-branch class when statuses are cleared', () => {
+    const initial: WorkflowRFEdge[] = [{ id: 'e1', source: 'a', target: 'b', sourceHandle: 'false', className: 'wf-edge-false-branch wf-edge-pass' } as unknown as WorkflowRFEdge];
+    const { rerender, e } = setup({
+      initialEdges: initial,
+      nodeStatuses: { a: { state: 'pass' }, b: { state: 'pass' } } as unknown as Record<string, NodeRunStatus>,
+    });
+    rerender({ statuses: {} as Record<string, NodeRunStatus> });
+    expect(e.get()[0].className).toBe('wf-edge-false-branch');
+  });
+
   it('when clearing statuses, only strips className on edges that had one', () => {
     const bare = { id: 'e2', source: 'x', target: 'y' } as unknown as WorkflowRFEdge;
     const active = { id: 'e1', source: 'a', target: 'b' } as unknown as WorkflowRFEdge;

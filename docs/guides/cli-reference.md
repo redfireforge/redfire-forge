@@ -92,7 +92,7 @@ redfireforge --cli validate-workflow <file>
 # Run with concurrency and generate reports
 redfireforge --cli run tests/api-test.yaml \
   -c 10 \
-  -t 100 \
+  -i 100 \
   --junit results.xml \
   --fail-on-error
 ```
@@ -135,7 +135,7 @@ npx tsx cli/index.ts run <file> [options]
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `-c, --concurrency <n>` | integer | 1 | Number of concurrent requests |
-| `-t, --transactions <n>` | integer | (tests × rows) | Total number of requests to execute |
+| `-i, --iterations <n>` | integer | (tests × rows) | Number of iterations (how many times each test runs) |
 | `-m, --mode <mode>` | string | `pool` | Execution mode: `sequential`, `batch`, `pool`, `load-profile` |
 | `--timeout <sec>` | integer | 30 | Per-request timeout in seconds |
 | `--duration <sec>` | integer | - | Duration in seconds (load-profile mode only) |
@@ -185,7 +185,7 @@ npx tsx cli/index.ts run <file> [options]
 npx tsx cli/index.ts run tests/api-test.yaml
 
 # High concurrency load test
-npx tsx cli/index.ts run tests/api-test.yaml -c 10 -t 1000
+npx tsx cli/index.ts run tests/api-test.yaml -c 10 -i 1000
 
 # Parameterized test with external data
 npx tsx cli/index.ts run tests/user-test.yaml --data data/users.csv
@@ -534,10 +534,10 @@ nodes:
 npx tsx cli/index.ts validate tests/api-test.yaml
 
 # Run a quick smoke test
-npx tsx cli/index.ts run tests/api-test.yaml -c 1 -t 5
+npx tsx cli/index.ts run tests/api-test.yaml -c 1 -i 5
 
 # Then scale up
-npx tsx cli/index.ts run tests/api-test.yaml -c 10 -t 1000
+npx tsx cli/index.ts run tests/api-test.yaml -c 10 -i 1000
 ```
 
 ### 2. Use Tags for Test Selection
