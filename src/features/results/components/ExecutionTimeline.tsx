@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { WorkflowExecutionTrace, WorkflowIterationTrace } from '../../../shared/types';
+import { isSampledIteration } from '../utils/sampledIterations';
 import {
   buildTimelineBars,
   generateTicks,
@@ -221,7 +222,7 @@ export default function ExecutionTimeline({
   const aggregateP95 = useMemo(() => {
     if (!isAggregate) return 0;
     const durations = trace.iterations
-      .filter(i => i.sampled !== false)
+      .filter(isSampledIteration)
       .map(i => i.durationMs);
     return calcP95(durations);
   }, [isAggregate, trace.iterations]);
@@ -229,7 +230,7 @@ export default function ExecutionTimeline({
   const aggregateAvg = useMemo(() => {
     if (!isAggregate) return 0;
     const durations = trace.iterations
-      .filter(i => i.sampled !== false)
+      .filter(isSampledIteration)
       .map(i => i.durationMs);
     return durations.length > 0 ? durations.reduce((a, b) => a + b, 0) / durations.length : 0;
   }, [isAggregate, trace.iterations]);

@@ -158,23 +158,28 @@ describe('RunnerExecutionConfig', () => {
 
   it('shows constant delay field', () => {
     renderConfig({ thinkTime: { mode: 'constant', constantMs: 500 } });
-    expect(screen.getByText('Delay')).toBeTruthy();
-    expect(screen.getByDisplayValue('500')).toBeTruthy();
+    const inputs = document.querySelectorAll('.think-time-inline-input');
+    expect(inputs.length).toBe(1);
+    expect((inputs[0] as HTMLInputElement).value).toBe('500');
     expect(screen.getByText(/Fixed 500ms delay/)).toBeTruthy();
   });
 
   it('shows uniform min/max fields', () => {
     renderConfig({ thinkTime: { mode: 'uniform', minMs: 200, maxMs: 3000 } });
-    expect(screen.getByText('Min')).toBeTruthy();
-    expect(screen.getByText('Max')).toBeTruthy();
-    expect(screen.getByText(/Random delay between 200ms/)).toBeTruthy();
+    const inputs = document.querySelectorAll('.think-time-inline-input');
+    expect(inputs.length).toBe(2);
+    expect((inputs[0] as HTMLInputElement).value).toBe('200');
+    expect((inputs[1] as HTMLInputElement).value).toBe('3000');
+    expect(screen.getByText(/Random 200–3000ms/)).toBeTruthy();
   });
 
   it('shows gaussian mean/stdDev fields', () => {
     renderConfig({ thinkTime: { mode: 'gaussian', meanMs: 800, stdDevMs: 150 } });
-    expect(screen.getByText('Mean')).toBeTruthy();
-    expect(screen.getByText('Std Dev')).toBeTruthy();
-    expect(screen.getByText(/Normal distribution: mean 800ms/)).toBeTruthy();
+    const inputs = document.querySelectorAll('.think-time-inline-input');
+    expect(inputs.length).toBe(2);
+    expect((inputs[0] as HTMLInputElement).value).toBe('800');
+    expect((inputs[1] as HTMLInputElement).value).toBe('150');
+    expect(screen.getByText(/μ=800ms σ=150ms/)).toBeTruthy();
   });
 
   // --- Load profile ---
@@ -306,7 +311,7 @@ describe('RunnerExecutionConfig', () => {
   it('fires onThinkTimeChange for constant mode', () => {
     const onThinkTimeChange = vi.fn();
     renderConfig({ thinkTime: { mode: 'constant', constantMs: 500 }, onThinkTimeChange } as unknown as OverrideProps);
-    const input = screen.getByText('Delay').closest('.resilience-field')?.querySelector('input') as HTMLInputElement;
+    const input = document.querySelector('.think-time-inline-input') as HTMLInputElement;
     fireEvent.change(input, { target: { value: '1000' } });
     expect(onThinkTimeChange).toHaveBeenCalledWith({ constantMs: 1000 });
   });
@@ -314,62 +319,52 @@ describe('RunnerExecutionConfig', () => {
   it('fires onThinkTimeChange for uniform min', () => {
     const onThinkTimeChange = vi.fn();
     renderConfig({ thinkTime: { mode: 'uniform', minMs: 200, maxMs: 3000 }, onThinkTimeChange } as unknown as OverrideProps);
-    const input = screen.getByText('Min').closest('.resilience-field')?.querySelector('input') as HTMLInputElement;
-    fireEvent.change(input, { target: { value: '100' } });
+    const inputs = document.querySelectorAll('.think-time-inline-input');
+    fireEvent.change(inputs[0] as HTMLInputElement, { target: { value: '100' } });
     expect(onThinkTimeChange).toHaveBeenCalledWith({ minMs: 100 });
   });
 
   it('fires onThinkTimeChange for uniform max', () => {
     const onThinkTimeChange = vi.fn();
     renderConfig({ thinkTime: { mode: 'uniform', minMs: 200, maxMs: 3000 }, onThinkTimeChange } as unknown as OverrideProps);
-    const input = screen.getByText('Max').closest('.resilience-field')?.querySelector('input') as HTMLInputElement;
-    fireEvent.change(input, { target: { value: '5000' } });
+    const inputs = document.querySelectorAll('.think-time-inline-input');
+    fireEvent.change(inputs[1] as HTMLInputElement, { target: { value: '5000' } });
     expect(onThinkTimeChange).toHaveBeenCalledWith({ maxMs: 5000 });
   });
 
   it('fires onThinkTimeChange for gaussian mean', () => {
     const onThinkTimeChange = vi.fn();
     renderConfig({ thinkTime: { mode: 'gaussian', meanMs: 800, stdDevMs: 150 }, onThinkTimeChange } as unknown as OverrideProps);
-    const input = screen.getByText('Mean').closest('.resilience-field')?.querySelector('input') as HTMLInputElement;
-    fireEvent.change(input, { target: { value: '1200' } });
+    const inputs = document.querySelectorAll('.think-time-inline-input');
+    fireEvent.change(inputs[0] as HTMLInputElement, { target: { value: '1200' } });
     expect(onThinkTimeChange).toHaveBeenCalledWith({ meanMs: 1200 });
   });
 
   it('fires onThinkTimeChange for gaussian stdDev', () => {
     const onThinkTimeChange = vi.fn();
     renderConfig({ thinkTime: { mode: 'gaussian', meanMs: 800, stdDevMs: 150 }, onThinkTimeChange } as unknown as OverrideProps);
-    const input = screen.getByText('Std Dev').closest('.resilience-field')?.querySelector('input') as HTMLInputElement;
-    fireEvent.change(input, { target: { value: '250' } });
+    const inputs = document.querySelectorAll('.think-time-inline-input');
+    fireEvent.change(inputs[1] as HTMLInputElement, { target: { value: '250' } });
     expect(onThinkTimeChange).toHaveBeenCalledWith({ stdDevMs: 250 });
   });
 
   it('passes 0 for uniform min and max when input is empty', () => {
     const onThinkTimeChange = vi.fn();
     renderConfig({ thinkTime: { mode: 'uniform', minMs: 100, maxMs: 200 }, onThinkTimeChange } as unknown as OverrideProps);
-    fireEvent.change(
-      screen.getByText('Min').closest('.resilience-field')?.querySelector('input') as HTMLInputElement,
-      { target: { value: '' } },
-    );
+    const inputs = document.querySelectorAll('.think-time-inline-input');
+    fireEvent.change(inputs[0] as HTMLInputElement, { target: { value: '' } });
     expect(onThinkTimeChange).toHaveBeenCalledWith({ minMs: 0 });
-    fireEvent.change(
-      screen.getByText('Max').closest('.resilience-field')?.querySelector('input') as HTMLInputElement,
-      { target: { value: '' } },
-    );
+    fireEvent.change(inputs[1] as HTMLInputElement, { target: { value: '' } });
     expect(onThinkTimeChange).toHaveBeenCalledWith({ maxMs: 0 });
   });
 
   it('passes 0 for gaussian mean and stdDev when input is empty', () => {
     const onThinkTimeChange = vi.fn();
     renderConfig({ thinkTime: { mode: 'gaussian', meanMs: 100, stdDevMs: 50 }, onThinkTimeChange } as unknown as OverrideProps);
-    fireEvent.change(
-      screen.getByText('Mean').closest('.resilience-field')?.querySelector('input') as HTMLInputElement,
-      { target: { value: '' } },
-    );
+    const inputs = document.querySelectorAll('.think-time-inline-input');
+    fireEvent.change(inputs[0] as HTMLInputElement, { target: { value: '' } });
     expect(onThinkTimeChange).toHaveBeenCalledWith({ meanMs: 0 });
-    fireEvent.change(
-      screen.getByText('Std Dev').closest('.resilience-field')?.querySelector('input') as HTMLInputElement,
-      { target: { value: '' } },
-    );
+    fireEvent.change(inputs[1] as HTMLInputElement, { target: { value: '' } });
     expect(onThinkTimeChange).toHaveBeenCalledWith({ stdDevMs: 0 });
   });
 
@@ -654,12 +649,12 @@ describe('RunnerExecutionConfig', () => {
 
   it('uses default minMs and maxMs when omitted in uniform think-time mode', () => {
     renderConfig({ thinkTime: { mode: 'uniform' } });
-    expect(screen.getByText(/Random delay between 500ms – 2000ms/)).toBeTruthy();
+    expect(screen.getByText(/Random 500–2000ms/)).toBeTruthy();
   });
 
   it('uses default meanMs and stdDevMs when omitted in gaussian think-time mode', () => {
     renderConfig({ thinkTime: { mode: 'gaussian' } });
-    expect(screen.getByText(/Normal distribution: mean 1000ms, σ 300ms/)).toBeTruthy();
+    expect(screen.getByText(/μ=1000ms σ=300ms/)).toBeTruthy();
   });
 
   it('clamps timeout and retry to 0 when input is empty', () => {
@@ -693,8 +688,8 @@ describe('RunnerExecutionConfig', () => {
   it('passes 0 for think-time delay fields when input parses to NaN', () => {
     const onThinkTimeChange = vi.fn();
     renderConfig({ thinkTime: { mode: 'constant', constantMs: 500 }, onThinkTimeChange } as unknown as OverrideProps);
-    const delay = screen.getByText('Delay').closest('.resilience-field')?.querySelector('input') as HTMLInputElement;
-    fireEvent.change(delay, { target: { value: '' } });
+    const input = document.querySelector('.think-time-inline-input') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '' } });
     expect(onThinkTimeChange).toHaveBeenCalledWith({ constantMs: 0 });
   });
 

@@ -1,5 +1,6 @@
 import type { WorkflowExecutionTrace, WorkflowIterationTrace } from '../../../shared/types';
 import type { LogLine } from '../../../shared/utils/consoleLogUtils';
+import { isSampledIteration } from './sampledIterations';
 
 /**
  * Build a compact, professional summary for the aggregate console view.
@@ -8,7 +9,7 @@ import type { LogLine } from '../../../shared/utils/consoleLogUtils';
  */
 export function buildAggregateSummary(trace: WorkflowExecutionTrace): LogLine[] {
   const lines: LogLine[] = [];
-  const iters = trace.iterations.filter(it => it.sampled !== false);
+  const iters = trace.iterations.filter(isSampledIteration);
   if (iters.length === 0) return lines;
 
   const failedIters = iters.filter(it => !it.passed);
@@ -29,10 +30,9 @@ export function buildAggregateSummary(trace: WorkflowExecutionTrace): LogLine[] 
   lines.push(line('info', '── Run Overview ─────────────────────────────'));
   lines.push(line('info', ''));
 
-  const statusIcon = failedIters.length === 0 ? '●' : '●';
   const statusColor = failedIters.length === 0 ? 'info' : 'error';
   lines.push(line(statusColor,
-    `  ${statusIcon} ${passedIters.length}/${iters.length} passed (${passRate}%)` +
+    `  ● ${passedIters.length}/${iters.length} passed (${passRate}%)` +
     (failedIters.length > 0 ? `   ${failedIters.length} failed` : '')
   ));
   lines.push(line('info', `  Duration    min ${minMs}ms  avg ${avgMs}ms  max ${maxMs}ms`));
@@ -62,7 +62,7 @@ export function buildAggregateSummary(trace: WorkflowExecutionTrace): LogLine[] 
       // Show sub-workflow failures within this iteration
       for (const ev of iter.events.filter(e => e.details?.subWorkflowTrace)) {
         const sub = ev.details!.subWorkflowTrace!;
-        const subFailed = sub.iterations.filter(it => it.sampled !== false && !it.passed);
+        const subFailed = sub.iterations.filter(it => isSampledIteration(it) && !it.passed);
         if (subFailed.length > 0) {
           lines.push(line('warn', `     └─ ${sub.workflowName}: ${subFailed.length}/${sub.iterations.length} iteration${subFailed.length !== 1 ? 's' : ''} failed`));
           for (const childIter of subFailed.slice(0, 3)) {
@@ -109,7 +109,7 @@ export function buildAggregateSummary(trace: WorkflowExecutionTrace): LogLine[] 
 
     for (const ev of subWorkflowEvents) {
       const sub = ev.details!.subWorkflowTrace!;
-      const subIters = sub.iterations.filter(it => it.sampled !== false);
+      const subIters = sub.iterations.filter(isSampledIteration);
       const subPassed = subIters.filter(it => it.passed).length;
       const subPassRate = subIters.length > 0 ? Math.round((subPassed / subIters.length) * 100) : 0;
       const subDurations = subIters.map(it => it.durationMs);
