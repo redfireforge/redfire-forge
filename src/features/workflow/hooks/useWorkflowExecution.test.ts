@@ -720,9 +720,7 @@ describe('useWorkflowExecution', () => {
       opts.nodes = [createMockNode('http-1', 'http')];
       opts.nodesRef.current = opts.nodes;
 
-      let abortSignal: AbortSignal | undefined;
-      mockRunGraph.mockImplementation(async (_nodes, _edges, _vars, _callbacks, signal) => {
-        abortSignal = signal;
+      mockRunGraph.mockImplementation(async (_nodes, _edges, _vars, _callbacks, _signal) => {
         await new Promise((r) => setTimeout(r, 2000));
         throw new Error('aborted');
       });
@@ -896,7 +894,7 @@ describe('useWorkflowExecution', () => {
       const opts = createMockOptions();
       opts.lastRunStatus = 'running';
       opts.nodes = [createMockNode('http-1', 'http')];
-      opts.nodeStatuses = { 'http-1': { state: 'pending' as any } };
+      opts.nodeStatuses = { 'http-1': { state: 'pending' } };
       const { result } = renderHook(() => useWorkflowExecution(opts));
       expect(result.current.runProgress?.completed).toBe(0);
     });
@@ -914,7 +912,7 @@ describe('useWorkflowExecution', () => {
       const opts = createMockOptions();
       opts.lastRunStatus = 'pass';
       opts.nodes = [createMockNode('http-1', 'http')];
-      opts.nodeStatuses = { 'http-1': { state: 'skipped' as any } };
+      opts.nodeStatuses = { 'http-1': { state: 'skipped' } };
       const { result } = renderHook(() => useWorkflowExecution(opts));
       expect(result.current.runProgress?.completed).toBe(1);
     });
@@ -951,7 +949,7 @@ describe('useWorkflowExecution', () => {
       opts.nodes = [createMockNode('http-1', 'http')];
       opts.nodesRef.current = opts.nodes;
       mockRunGraph.mockImplementation(async (_a, _b, _c, cb) => {
-        cb.onNodeStateChange('http-1', { state: 'skipped' as any, responseTimeMs: 0 });
+        cb.onNodeStateChange('http-1', { state: 'skipped', responseTimeMs: 0 });
         cb.onComplete([{ url: 'https://x', passed: true, statusCode: 200, responseTime: 1 }], true, 3);
         return [];
       });

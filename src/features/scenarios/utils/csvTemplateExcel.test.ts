@@ -96,11 +96,13 @@ describe('buildColumnDefs', () => {
       test: makeTestScenario({
         validation: { mode: 'selective', expectedFields: [] },
         dataSource: {
+          id: 'ds-dynamic',
           columns: [
-            { name: 'v:$.extra', type: 'validate', mapping: '$.extra' },
+            { id: 'v-extra', name: 'v:$.extra', type: 'validate', mapping: '$.extra' },
           ],
           rows: [],
-        } as any,
+          source: { type: 'inline' },
+        },
       }),
     });
     const defs = buildColumnDefs(opts);
@@ -188,11 +190,13 @@ describe('generateExcelTemplate — extra metadata', () => {
     const test = makeTestScenario({
       validation: { mode: 'none' },
       dataSource: {
+        id: 'ds-meta',
         validationContract: ['offers[*].code'],
         arrayValidationMode: { offers: 'unordered' },
         columns: [],
         rows: [],
-      } as any,
+        source: { type: 'inline' },
+      },
     });
     const opts = makeExportOpts({ test, pathVariables: [] });
     const wb = generateExcelTemplate({
@@ -292,12 +296,14 @@ describe('generateExcelTemplate — decode + config branches', () => {
         expectedFields: [{ jsonPath: '$.status', expectedValue: '200' }],
       },
       dataSource: {
+        id: 'ds-dup',
         columns: [
           { id: 'dup', type: 'validate', mapping: '$.status', name: 'dup' },
           { id: 'extra', type: 'validate', mapping: '$.data.vin', name: '' },
         ],
         rows: [],
-      } as any,
+        source: { type: 'inline' },
+      },
     });
     const defs = buildColumnDefs(makeExportOpts({ test }));
     expect(defs.filter(d => d.type === 'validate' && d.mapping === '$.status')).toHaveLength(1);

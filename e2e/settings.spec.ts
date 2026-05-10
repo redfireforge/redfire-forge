@@ -16,14 +16,14 @@ test.describe('Settings and navigation', () => {
   });
 
   test('can switch between tabs', async ({ page }) => {
-    await page.click('.sub-nav-tab:has-text("Runner")');
-    await expect(page.locator('.sub-nav-tab.active')).toHaveText('Runner');
+    await page.click('.sub-nav-tab:has-text("Test Runner")');
+    await expect(page.locator('.sub-nav-tab.active')).toHaveText('Test Runner');
 
     await page.click('.sub-nav-tab:has-text("Results")');
     await expect(page.locator('.sub-nav-tab.active')).toHaveText('Results');
 
-    await page.click('.sub-nav-tab:has-text("Scenarios")');
-    await expect(page.locator('.sub-nav-tab.active')).toHaveText('Scenarios');
+    await page.click('.sub-nav-tab:has-text("Feature Groups")');
+    await expect(page.locator('.sub-nav-tab.active')).toHaveText('Feature Groups');
   });
 
   test('toggle dark/light theme', async ({ page }) => {

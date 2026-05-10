@@ -169,7 +169,7 @@ describe('WorkflowToastProvider', () => {
       </WorkflowToastProvider>,
     );
     fireEvent.click(screen.getByText('Warn'));
-    expect(screen.getByText('⚠')).toBeTruthy();
+    expect(screen.getByText('!')).toBeTruthy();
     expect(screen.getByText('Look out')).toBeTruthy();
     expect(document.querySelector('.wf-toast-warning')).toBeTruthy();
   });
@@ -181,7 +181,7 @@ describe('WorkflowToastProvider', () => {
       </WorkflowToastProvider>,
     );
     fireEvent.click(screen.getByText('InfoToast'));
-    expect(screen.getByText('ℹ')).toBeTruthy();
+    expect(screen.getByText('i')).toBeTruthy();
     expect(screen.getByText('More info')).toBeTruthy();
     expect(document.querySelector('.wf-toast-progress-info')).toBeTruthy();
   });

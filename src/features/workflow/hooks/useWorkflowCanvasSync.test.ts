@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
+import { renderHook } from '@testing-library/react';
 import { useWorkflowCanvasSync, useWorkflowVariableHints } from './useWorkflowCanvasSync';
 import type { Workflow, WorkflowNode, WorkflowEdge, HttpNodeData } from '../types/workflow';
 import type { WorkflowRFNode, WorkflowRFEdge } from '../utils/workflowNodeFactory';
@@ -38,7 +38,7 @@ function createMockEdge(id: string, source: string, target: string): WorkflowEdg
 function createMockCanvasSyncOpts() {
   const abortRef = { current: null as AbortController | null };
   const debugControllerRef = { current: null };
-  const nextNodeY = { current: 100 };
+  const nextNodeYRef = { current: 100 };
 
   return {
     selected: null as Workflow | null,
@@ -53,7 +53,7 @@ function createMockCanvasSyncOpts() {
     setWorkflowServices: vi.fn(),
     setWorkflowErrorConfig: vi.fn(),
     setNodeInitialVars: vi.fn(),
-    nextNodeY,
+    nextNodeYRef,
     isRunning: false,
     abortRef,
     setIsRunning: vi.fn(),
@@ -89,6 +89,24 @@ describe('useWorkflowCanvasSync', () => {
       expect(opts.setEdges).toHaveBeenCalled();
       expect(opts.setSelectedNodeId).toHaveBeenCalledWith(null);
       expect(opts.setWorkflowVariables).toHaveBeenCalledWith({ baseUrl: 'https://api.example.com' });
+    });
+
+    it('assigns wf-edge-false-branch className to false-handle edges', () => {
+      const opts = createMockCanvasSyncOpts();
+      const nodes = [createMockNode('a', 'condition', { x: 0, y: 0 }), createMockNode('b', 'http', { x: 0, y: 100 })];
+      const edges = [
+        { id: 'e1', source: 'a', target: 'b', sourceHandle: 'false', label: 'No' },
+        { id: 'e2', source: 'a', target: 'b', sourceHandle: 'true', label: 'Yes' },
+      ];
+      opts.selected = createMockWorkflow('wf-1', nodes, edges);
+
+      renderHook(() => useWorkflowCanvasSync(opts));
+
+      const setEdgesCall = opts.setEdges.mock.calls[0][0] as Array<{ id: string; className?: string }>;
+      const falseEdge = setEdgesCall.find(e => e.id === 'e1');
+      const trueEdge = setEdgesCall.find(e => e.id === 'e2');
+      expect(falseEdge?.className).toBe('wf-edge-false-branch');
+      expect(trueEdge?.className).toBeUndefined();
     });
 
     it('syncs workflow variables from selected workflow', () => {
@@ -146,7 +164,7 @@ describe('useWorkflowCanvasSync', () => {
       }));
     });
 
-    it('calculates nextNodeY from highest node position', () => {
+    it('calculates nextNodeYRef from highest node position', () => {
       const opts = createMockCanvasSyncOpts();
       const nodes = [
         createMockNode('n1', 'start', { x: 0, y: 0 }),
@@ -157,7 +175,7 @@ describe('useWorkflowCanvasSync', () => {
 
       renderHook(() => useWorkflowCanvasSync(opts));
 
-      expect(opts.nextNodeY.current).toBeGreaterThan(400);
+      expect(opts.nextNodeYRef.current).toBeGreaterThan(400);
     });
 
     it('aborts running execution when workflow changes', () => {

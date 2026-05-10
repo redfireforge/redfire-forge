@@ -1,9 +1,10 @@
 /**
  * @vitest-environment node
  */
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { readFileSync } from 'fs';
 import { loadWorkflowFile } from './workflowLoader';
+import type { HttpNodeData } from '../src/features/workflow/types/workflow';
 
 // Mock fs
 vi.mock('fs', () => ({
@@ -113,7 +114,7 @@ edges:
       const httpNode = workflow.nodes.find(n => n.id === 'http1');
       
       expect(httpNode?.data).toHaveProperty('scenario');
-      const scenario = (httpNode?.data as any).scenario;
+      const scenario = (httpNode?.data as HttpNodeData).scenario;
       expect(scenario.method).toBe('GET');
       expect(scenario.url).toBe('/users');
       expect(scenario.headers).toHaveLength(2);
@@ -152,7 +153,7 @@ edges:
       const workflow = loadWorkflowFile('test.yaml');
       const httpNode = workflow.nodes.find(n => n.id === 'http1');
       
-      expect((httpNode?.data as any).scenario.id).toBe('scenario-1');
+      expect((httpNode?.data as HttpNodeData).scenario.id).toBe('scenario-1');
     });
 
     it('converts headers object to array format', () => {
@@ -173,7 +174,7 @@ edges: []
       mockReadFileSync.mockReturnValue(yaml);
       
       const workflow = loadWorkflowFile('test.yaml');
-      const scenario = (workflow.nodes[0].data as any).scenario;
+      const scenario = (workflow.nodes[0].data as HttpNodeData).scenario;
       
       expect(scenario.headers).toEqual([
         { key: 'Authorization', value: 'Bearer token' },
@@ -199,7 +200,7 @@ edges: []
       mockReadFileSync.mockReturnValue(yaml);
       
       const workflow = loadWorkflowFile('test.yaml');
-      const scenario = (workflow.nodes[0].data as any).scenario;
+      const scenario = (workflow.nodes[0].data as HttpNodeData).scenario;
       
       expect(scenario.headers).toEqual([{ key: 'Authorization', value: 'Bearer token' }]);
     });
@@ -219,7 +220,7 @@ edges: []
       mockReadFileSync.mockReturnValue(yaml);
       
       const workflow = loadWorkflowFile('test.yaml');
-      const scenario = (workflow.nodes[0].data as any).scenario;
+      const scenario = (workflow.nodes[0].data as HttpNodeData).scenario;
       
       expect(scenario.method).toBe('GET');
     });
@@ -240,7 +241,7 @@ edges: []
       mockReadFileSync.mockReturnValue(yaml);
       
       const workflow = loadWorkflowFile('test.yaml');
-      const scenario = (workflow.nodes[0].data as any).scenario;
+      const scenario = (workflow.nodes[0].data as HttpNodeData).scenario;
       
       expect(scenario.method).toBe('POST');
     });

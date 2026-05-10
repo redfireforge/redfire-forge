@@ -450,7 +450,7 @@ export default function ResultsDashboard({ envName, svcName, onRerunFailed, isRe
                 ) : (
                   <>
                     {selectedRun.config.executionMode === 'pool' ? 'Pool' : selectedRun.config.executionMode === 'sequential' ? 'Sequential' : selectedRun.config.executionMode === 'workflow' ? 'Workflow' : 'Batch'}
-                    {' · '}C:{selectedRun.config.concurrency}{' · '}T:{selectedRun.config.totalTransactions}
+                    {' · '}C:{selectedRun.config.concurrency}{' · '}I:{selectedRun.config.iterations}
                   </>
                 )}
               </span>

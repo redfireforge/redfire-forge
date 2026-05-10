@@ -1,18 +1,45 @@
 /**
  * @vitest-environment jsdom
  */
+import type { SetStateAction } from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useWorkflowNodeActions } from './useWorkflowNodeActions';
 import type { WorkflowRFNode, WorkflowRFEdge } from '../utils/workflowNodeFactory';
+import type { Workflow, WorkflowNode, WorkflowNodeData } from '../types/workflow';
+import type { RequestCollection, Environment, Microservice } from '../../../shared/types';
+import type { CatalogEntry } from '../../catalog/types/catalog';
+import type { ToastApi } from '../components/WorkflowToastProvider';
+import type { ExtractResult } from '../utils/workflowExtractSubWorkflow';
+
+type NodeActionsOpts = Parameters<typeof useWorkflowNodeActions>[0];
+
+const minimalWorkflow = (): Workflow => ({
+  id: 'wf-1',
+  name: 'Test',
+  schemaVersion: 5,
+  variables: {},
+  hostProfiles: [],
+  authProfiles: [],
+  services: [],
+  nodes: [],
+  edges: [],
+  createdAt: 0,
+  updatedAt: 0,
+});
 
 vi.mock('uuid', () => ({ v4: vi.fn(() => 'mock-uuid') }));
 vi.mock('../utils/workflowNodeFactory', async (importOriginal) => {
-  const actual = await importOriginal() as any;
-  return { ...actual, defaultNodeData: (type: string) => ({ label: `New ${type}` }) };
+  const actual = await importOriginal<typeof import('../utils/workflowNodeFactory')>();
+  return {
+    ...actual,
+    defaultNodeData: (type: Parameters<typeof actual.defaultNodeData>[0]) =>
+      ({ ...actual.defaultNodeData(type), label: `New ${type}` }),
+  };
 });
 vi.mock('../utils/workflowNodeMerge', () => ({
-  mergeWorkflowNodeData: (existing: any, patch: any) => ({ ...existing, ...patch }),
+  mergeWorkflowNodeData: (existing: WorkflowNodeData, patch: Partial<WorkflowNodeData>) =>
+    ({ ...existing, ...patch } as WorkflowNodeData),
 }));
 vi.mock('../utils/workflowRequestHost', () => ({
   resolveQuickTestHostForRequest: vi.fn(() => ({})),
@@ -26,31 +53,31 @@ const mockExtract = vi.mocked(extractToSubWorkflow);
 
 const makeRef = <T,>(value: T) => ({ current: value });
 
-const defaultOpts = () => ({
-  selected: { id: 'wf-1', name: 'Test' } as any,
-  collections: [] as any[],
-  catalogEntries: [] as any[],
-  environments: [] as any[],
-  microservices: [] as any[],
+const defaultOpts = (): NodeActionsOpts => ({
+  selected: minimalWorkflow(),
+  collections: [] as RequestCollection[],
+  catalogEntries: [] as CatalogEntry[],
+  environments: [] as Environment[],
+  microservices: [] as Microservice[],
   selectedEnvId: 'env-1',
   resolvedBaseUrl: 'http://localhost',
   selectedNodeId: null as string | null,
   setSelectedNodeId: vi.fn(),
-  setNodes: vi.fn((fn: any) => fn([])),
-  setEdges: vi.fn((fn: any) => fn([])),
+  setNodes: vi.fn((fn: SetStateAction<WorkflowRFNode[]>) => (typeof fn === 'function' ? fn([]) : fn)),
+  setEdges: vi.fn((fn: SetStateAction<WorkflowRFEdge[]>) => (typeof fn === 'function' ? fn([]) : fn)),
   setNodeInitialVars: vi.fn(),
   nodeInitialVarsRef: makeRef({}),
   nodesRef: makeRef([] as WorkflowRFNode[]),
   edgesRef: makeRef([] as WorkflowRFEdge[]),
-  serializeNodes: vi.fn((nodes: any) => nodes),
-  serializeEdges: vi.fn((edges: any) => edges),
+  serializeNodes: vi.fn((nodes: WorkflowRFNode[]) => nodes as unknown as WorkflowNode[]),
+  serializeEdges: vi.fn((edges: WorkflowRFEdge[]) => edges),
   update: vi.fn(),
   persistWorkflow: vi.fn(),
   undoRedo: { takeSnapshot: vi.fn() },
-  workflows: [] as any[],
+  workflows: [] as Workflow[],
   create: vi.fn(),
-  toast: { show: vi.fn() } as any,
-  nextNodeY: makeRef(100),
+  toast: { show: vi.fn(), dismiss: vi.fn() } as ToastApi,
+  nextNodeYRef: makeRef(100),
 });
 
 describe('useWorkflowNodeActions', () => {
@@ -64,12 +91,12 @@ describe('useWorkflowNodeActions', () => {
     expect(opts.setNodes).toHaveBeenCalled();
   });
 
-  it('advances nextNodeY after adding a node', () => {
+  it('advances nextNodeYRef after adding a node', () => {
     const opts = defaultOpts();
-    opts.nextNodeY.current = 100;
+    opts.nextNodeYRef.current = 100;
     const { result } = renderHook(() => useWorkflowNodeActions(opts));
     act(() => result.current.handleAddNode('http'));
-    expect(opts.nextNodeY.current).toBe(220);
+    expect(opts.nextNodeYRef.current).toBe(220);
   });
 
   it('does nothing when selected is null', () => {
@@ -82,9 +109,9 @@ describe('useWorkflowNodeActions', () => {
 
   it('handleDeleteNode removes node and related edges', () => {
     const opts = defaultOpts();
-    const node = { id: 'n1', type: 'http', position: { x: 0, y: 0 }, data: {} } as any;
-    opts.setNodes = vi.fn((fn: any) => fn([node]));
-    opts.setEdges = vi.fn((fn: any) => fn([{ id: 'e1', source: 'n1', target: 'n2' }]));
+    const node: WorkflowRFNode = { id: 'n1', type: 'http', position: { x: 0, y: 0 }, data: { label: 'n1' } as WorkflowNodeData };
+    opts.setNodes = vi.fn((fn: SetStateAction<WorkflowRFNode[]>) => (typeof fn === 'function' ? fn([node]) : fn));
+    opts.setEdges = vi.fn((fn: SetStateAction<WorkflowRFEdge[]>) => (typeof fn === 'function' ? fn([{ id: 'e1', source: 'n1', target: 'n2' }]) : fn));
     const { result } = renderHook(() => useWorkflowNodeActions(opts));
     act(() => result.current.handleDeleteNode('n1'));
     expect(opts.undoRedo.takeSnapshot).toHaveBeenCalledWith('Delete node');
@@ -112,7 +139,7 @@ describe('useWorkflowNodeActions', () => {
   it('handleUpdateNode with initialVariables updates nodeInitialVarsRef', () => {
     const opts = defaultOpts();
     const { result } = renderHook(() => useWorkflowNodeActions(opts));
-    act(() => result.current.handleUpdateNode('n1', { initialVariables: { token: 'xyz' } } as any));
+    act(() => result.current.handleUpdateNode('n1', { initialVariables: { token: 'xyz' } }));
     expect(opts.nodeInitialVarsRef.current.n1).toEqual({ token: 'xyz' });
     expect(opts.setNodeInitialVars).toHaveBeenCalled();
     expect(opts.persistWorkflow).toHaveBeenCalled();
@@ -120,13 +147,13 @@ describe('useWorkflowNodeActions', () => {
 
   it('handleUpdateNode with non-IV patch updates via setNodes', () => {
     const opts = defaultOpts();
-    opts.setNodes = vi.fn((fn: any) => {
-      const result = fn([{ id: 'n1', type: 'http', data: { label: 'Old' }, position: { x: 0, y: 0 } }]);
-      opts.nodesRef.current = result;
-      return result;
+    opts.setNodes = vi.fn((fn: SetStateAction<WorkflowRFNode[]>) => {
+      const resultNodes = fn([{ id: 'n1', type: 'http', data: { label: 'Old' }, position: { x: 0, y: 0 } }]);
+      opts.nodesRef.current = resultNodes;
+      return resultNodes;
     });
     const { result } = renderHook(() => useWorkflowNodeActions(opts));
-    act(() => result.current.handleUpdateNode('n1', { label: 'New' } as any));
+    act(() => result.current.handleUpdateNode('n1', { label: 'New' }));
     expect(opts.setNodes).toHaveBeenCalled();
   });
 
@@ -241,13 +268,13 @@ describe('useWorkflowNodeActions', () => {
 
   it('handleUpdateNode with initialVariables AND other patch fields', () => {
     const opts = defaultOpts();
-    opts.setNodes = vi.fn((fn: any) => {
-      const result = fn([{ id: 'n1', type: 'http', data: { label: 'Old' }, position: { x: 0, y: 0 } }]);
-      opts.nodesRef.current = result;
-      return result;
+    opts.setNodes = vi.fn((fn: SetStateAction<WorkflowRFNode[]>) => {
+      const resultNodes = fn([{ id: 'n1', type: 'http', data: { label: 'Old' }, position: { x: 0, y: 0 } }]);
+      opts.nodesRef.current = resultNodes;
+      return resultNodes;
     });
     const { result } = renderHook(() => useWorkflowNodeActions(opts));
-    act(() => result.current.handleUpdateNode('n1', { initialVariables: { token: 'x' }, label: 'Updated' } as any));
+    act(() => result.current.handleUpdateNode('n1', { initialVariables: { token: 'x' }, label: 'Updated' }));
     expect(opts.nodeInitialVarsRef.current.n1).toEqual({ token: 'x' });
     expect(opts.setNodeInitialVars).toHaveBeenCalled();
     expect(opts.setNodes).toHaveBeenCalled();
@@ -302,18 +329,18 @@ describe('useWorkflowNodeActions', () => {
         extractedNodeIds: new Set(['n1']),
         extractedEdgeIds: new Set(['e1']),
       };
-      mockExtract.mockReturnValue(extractResult as any);
+      mockExtract.mockReturnValue(extractResult as ExtractResult);
 
-      const createdWf = { id: 'new-wf', name: 'Auth Sub' };
-      opts.workflows = [createdWf] as any;
-      opts.setNodes = vi.fn((fn: any) => fn([
-        { id: 'n1', type: 'http', data: {}, position: { x: 0, y: 0 } },
-        { id: 'n2', type: 'http', data: {}, position: { x: 0, y: 100 } },
-      ]));
-      opts.setEdges = vi.fn((fn: any) => fn([
+      const createdWf: Workflow = { ...minimalWorkflow(), id: 'new-wf', name: 'Auth Sub' };
+      opts.workflows = [createdWf];
+      opts.setNodes = vi.fn((fn: SetStateAction<WorkflowRFNode[]>) => (typeof fn === 'function' ? fn([
+        { id: 'n1', type: 'http', data: { label: 'n1' } as WorkflowNodeData, position: { x: 0, y: 0 } },
+        { id: 'n2', type: 'http', data: { label: 'n2' } as WorkflowNodeData, position: { x: 0, y: 100 } },
+      ]) : fn));
+      opts.setEdges = vi.fn((fn: SetStateAction<WorkflowRFEdge[]>) => (typeof fn === 'function' ? fn([
         { id: 'e1', source: 'n1', target: 'n2' },
         { id: 'e2', source: 'n2', target: 'n3' },
-      ]));
+      ]) : fn));
 
       const { result } = renderHook(() => useWorkflowNodeActions(opts));
       act(() => result.current.handleExtractToSubWorkflow('n1'));
@@ -340,7 +367,7 @@ describe('useWorkflowNodeActions', () => {
         extractedNodeIds: new Set(['n1']),
         extractedEdgeIds: new Set<string>(),
       };
-      mockExtract.mockReturnValue(extractResult as any);
+      mockExtract.mockReturnValue(extractResult as ExtractResult);
       opts.workflows = [];
 
       const { result } = renderHook(() => useWorkflowNodeActions(opts));

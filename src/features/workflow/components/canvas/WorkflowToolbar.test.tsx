@@ -1,9 +1,9 @@
 /** @vitest-environment jsdom */
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import WorkflowToolbar from './WorkflowToolbar';
-import type { Workflow, WorkflowService } from '../../types/workflow';
+import type { Workflow, WorkflowFolder, WorkflowService } from '../../types/workflow';
 
 const mockWorkflow: Workflow = {
   id: 'wf-1',
@@ -39,8 +39,8 @@ describe('WorkflowToolbar', () => {
         onSelect={onSelect}
       />,
     );
-    const sel = document.querySelector('select.wf-toolbar-select') as HTMLSelectElement;
-    fireEvent.change(sel, { target: { value: 'b' } });
+    fireEvent.click(screen.getByTestId('wf-toolbar-select'));
+    fireEvent.click(screen.getByText('Workflow B'));
     expect(onSelect).toHaveBeenCalledWith('b');
   });
 
@@ -82,19 +82,19 @@ describe('WorkflowToolbar', () => {
   });
 
   it('renders New button and workflow select when workflows exist', () => {
-    const { container } = render(<WorkflowToolbar {...defaultProps} />);
+    render(<WorkflowToolbar {...defaultProps} />);
     expect(screen.getByRole('button', { name: /^New$/i })).toBeTruthy();
-    expect(container.querySelector('select.wf-toolbar-select')).toBeTruthy();
+    expect(screen.getByTestId('wf-toolbar-select')).toBeTruthy();
   });
 
   it('omits workflow select when no workflows and not in preview', () => {
-    const { container } = render(
+    render(
       <WorkflowToolbar {...defaultProps} workflows={[]} selected={null} />,
     );
-    expect(container.querySelector('select.wf-toolbar-select')).toBeNull();
+    expect(screen.queryByTestId('wf-toolbar-select')).toBeNull();
   });
 
-  it('shows preview-only workflow in select when not in workflows list', () => {
+  it('shows preview-only workflow name in dropdown trigger', () => {
     const preview = { ...mockWorkflow, id: 'preview-1', name: 'Preview WF' };
     render(
       <WorkflowToolbar
@@ -104,12 +104,12 @@ describe('WorkflowToolbar', () => {
         isPreview={true}
       />,
     );
-    expect(screen.getByRole('option', { name: 'Preview WF' })).toBeTruthy();
+    expect(screen.getByText('Preview WF')).toBeTruthy();
   });
 
-  it('disables workflow select in preview mode', () => {
-    const { container } = render(<WorkflowToolbar {...defaultProps} isPreview={true} />);
-    expect(container.querySelector('select.wf-toolbar-select')).toBeDisabled();
+  it('keeps workflow select enabled in preview mode to allow switching', () => {
+    render(<WorkflowToolbar {...defaultProps} isPreview={true} />);
+    expect(screen.getByTestId('wf-toolbar-select')).not.toBeDisabled();
   });
 
   it('shows service and version badges when counts provided', () => {
@@ -341,5 +341,218 @@ describe('WorkflowToolbar', () => {
       <WorkflowToolbar {...defaultProps} isRunning={true} isDebugMode={true} onDebugTest={vi.fn()} />,
     );
     expect(screen.getByText(/Stop Debug/)).toBeTruthy();
+  });
+
+  describe('workflow dropdown (folders, search, navigation)', () => {
+    const folders: WorkflowFolder[] = [
+      { id: 'f-root', name: 'Projects', order: 0 },
+      { id: 'f-sub', name: 'Alpha', order: 0, parentId: 'f-root' },
+      { id: 'f-empty', name: 'Empty Box', order: 1 },
+    ];
+
+    const wfInRoot: Workflow = {
+      ...mockWorkflow,
+      id: 'wf-root',
+      name: 'Root Tagged Item',
+      folderId: 'f-root',
+    };
+    const wfInSub: Workflow = {
+      ...mockWorkflow,
+      id: 'wf-sub',
+      name: 'Sub Nested Item',
+      folderId: 'f-sub',
+    };
+    /** Name chosen so search substring tests highlighting. */
+    const wfSearchDemo: Workflow = {
+      ...mockWorkflow,
+      id: 'wf-hl',
+      name: 'ZySearchTermZy',
+      folderId: 'f-root',
+    };
+    const wfUnfiled: Workflow = {
+      ...mockWorkflow,
+      id: 'wf-loose',
+      name: 'Surface Unfiled',
+    };
+
+    const folderWorkflowProps = {
+      workflows: [wfInRoot, wfInSub, wfSearchDemo, wfUnfiled],
+      selected: wfInRoot,
+      folders,
+    };
+
+    const openDropdown = () => {
+      fireEvent.click(screen.getByTestId('wf-toolbar-select'));
+      const panel = document.querySelector('.wft-dropdown-panel');
+      expect(panel).toBeTruthy();
+      return panel as HTMLElement;
+    };
+
+    /** Accessible name for `.wft-dropdown-folder` rows starts with the folder icon, so avoid `name: /^Foo$/`. */
+    const fireClickFolderRow = (folderLabel: string) => {
+      const rows = [...document.querySelectorAll<HTMLElement>('.wft-dropdown-folder')];
+      const row = rows.find((el) => el.querySelector('.wft-folder-name')?.textContent === folderLabel);
+      expect(row, `folder row "${folderLabel}"`).toBeTruthy();
+      fireEvent.click(row!);
+    };
+
+    beforeEach(() => {
+      vi.clearAllMocks();
+    });
+
+    it('opens dropdown and shows panel; second toggle click closes', () => {
+      render(<WorkflowToolbar {...defaultProps} {...folderWorkflowProps} />);
+      expect(document.querySelector('.wft-dropdown-panel')).toBeNull();
+      openDropdown();
+      expect(document.querySelector('.wft-dropdown-panel')).toBeInTheDocument();
+      fireEvent.click(screen.getByTestId('wf-toolbar-select'));
+      expect(document.querySelector('.wft-dropdown-panel')).toBeNull();
+    });
+
+    it('does not open dropdown when toolbar isRunning', () => {
+      render(<WorkflowToolbar {...defaultProps} {...folderWorkflowProps} isRunning />);
+      fireEvent.click(screen.getByTestId('wf-toolbar-select'));
+      expect(document.querySelector('.wft-dropdown-panel')).toBeNull();
+    });
+
+    it('closes dropdown and clears navigation when backdrop is clicked', () => {
+      render(<WorkflowToolbar {...defaultProps} {...folderWorkflowProps} />);
+      openDropdown();
+      fireClickFolderRow('Projects');
+
+      fireEvent.click(document.querySelector('.wft-dropdown-backdrop') as HTMLElement);
+      expect(document.querySelector('.wft-dropdown-panel')).toBeNull();
+
+      openDropdown();
+      expect((screen.getByPlaceholderText('Search workflows…') as HTMLInputElement).value).toBe('');
+    });
+
+    it('closes dropdown on mousedown outside the dropdown wrap', () => {
+      render(<WorkflowToolbar {...defaultProps} {...folderWorkflowProps} />);
+      openDropdown();
+
+      const outsider = document.createElement('div');
+      document.body.appendChild(outsider);
+      fireEvent.mouseDown(outsider);
+      outsider.remove();
+
+      expect(document.querySelector('.wft-dropdown-panel')).toBeNull();
+    });
+
+    it('filters root list by search and shows breadcrumb hints for filed workflows', () => {
+      const onSelect = vi.fn();
+      render(<WorkflowToolbar {...defaultProps} {...folderWorkflowProps} onSelect={onSelect} />);
+      openDropdown();
+
+      fireEvent.change(screen.getByPlaceholderText('Search workflows…'), { target: { value: 'sub' } });
+      const searchBtn = screen.getByRole('button', { name: /Sub Nested Item/i });
+      expect(searchBtn).toHaveClass('wft-dropdown-item-search');
+      expect(within(searchBtn).getByText(/Projects \/ Alpha/i)).toBeInTheDocument();
+
+      fireEvent.click(searchBtn);
+      expect(onSelect).toHaveBeenCalledWith('wf-sub');
+      expect(document.querySelector('.wft-dropdown-panel')).toBeNull();
+    });
+
+    it('shows empty-search state and clears query via ×', () => {
+      render(<WorkflowToolbar {...defaultProps} {...folderWorkflowProps} />);
+      openDropdown();
+
+      fireEvent.change(screen.getByPlaceholderText('Search workflows…'), { target: { value: 'no-such-workflow-xyz' } });
+      expect(screen.getByText(/No workflows match/)).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('button', { name: '×' }));
+      expect((screen.getByPlaceholderText('Search workflows…') as HTMLInputElement).value).toBe('');
+      expect(screen.queryByText(/No workflows match/)).not.toBeInTheDocument();
+    });
+
+    it('wraps matching search substring in highlight mark', () => {
+      render(<WorkflowToolbar {...defaultProps} {...folderWorkflowProps} />);
+      openDropdown();
+
+      fireEvent.change(screen.getByPlaceholderText('Search workflows…'), { target: { value: 'SearchTerm' } });
+      const mark = document.querySelector('.wft-search-highlight');
+      expect(mark?.textContent).toBe('SearchTerm');
+      expect(mark?.closest('.wft-item-name')).toHaveTextContent('ZySearchTermZy');
+    });
+
+    it('shows folder workflow counts at root using recursive totals', () => {
+      render(<WorkflowToolbar {...defaultProps} {...folderWorkflowProps} />);
+      openDropdown();
+
+      const projectsBtn = screen.getByRole('button', { name: /Projects/i });
+      /** Root folder holds wfInRoot + wfSearchDemo plus wfInSub under Alpha → count 3. */
+      expect(projectsBtn).toHaveTextContent('(3)');
+      const emptyBtn = screen.getByRole('button', { name: /Empty Box/i });
+      expect(emptyBtn).toHaveTextContent('(0)');
+    });
+
+    it('navigates into folders, lists workflows and subfolders, and shows breadcrumbs', () => {
+      render(<WorkflowToolbar {...defaultProps} {...folderWorkflowProps} />);
+      openDropdown();
+
+      fireClickFolderRow('Projects');
+
+      expect(screen.getByRole('button', { name: /Alpha/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /^Root Tagged Item$/ })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /^ZySearchTermZy$/ })).toBeInTheDocument();
+
+      expect(screen.getByText('All')).toBeInTheDocument();
+      expect(screen.getByText('Projects')).toHaveClass('wft-breadcrumb-current');
+
+      fireClickFolderRow('Alpha');
+      expect(screen.getByRole('button', { name: /^Sub Nested Item$/ })).toBeInTheDocument();
+      expect(screen.getByText('Alpha')).toHaveClass('wft-breadcrumb-current');
+      expect(screen.getByText('Projects')).toHaveClass('wft-breadcrumb-seg');
+
+      /** Back pops to Projects. */
+      fireEvent.click(screen.getByRole('button', { name: '←' }));
+      expect(screen.getByRole('button', { name: /Alpha/i })).toBeInTheDocument();
+
+      /** "All" returns to browser root listing. */
+      fireEvent.click(screen.getByText('All'));
+      expect(screen.getAllByRole('button', { name: /Projects/i }).some(btn => btn.classList.contains('wft-dropdown-folder'))).toBe(true);
+      expect(screen.getByRole('button', { name: /^Surface Unfiled$/ })).toBeInTheDocument();
+    });
+
+    it('shows empty-folder message inside a folder with no workflows or children', () => {
+      render(<WorkflowToolbar {...defaultProps} {...folderWorkflowProps} />);
+      openDropdown();
+
+      fireClickFolderRow('Empty Box');
+      expect(screen.getByText('Empty folder')).toBeInTheDocument();
+    });
+
+    it('typing in search resets folder navigation from inside a folder', () => {
+      render(<WorkflowToolbar {...defaultProps} {...folderWorkflowProps} />);
+      openDropdown();
+
+      fireClickFolderRow('Projects');
+      expect(screen.queryByPlaceholderText('Search workflows…')).toBeTruthy();
+
+      fireEvent.change(screen.getByPlaceholderText('Search workflows…'), { target: { value: 'x' } });
+      expect(screen.queryByText('All')).not.toBeInTheDocument();
+
+      /** Search mode (nav cleared — no crumb "All"); query "surf" surfaces unfiled workflow. */
+
+      fireEvent.change(screen.getByPlaceholderText('Search workflows…'), { target: { value: 'surf' } });
+      expect(screen.getByRole('button', { name: /Surface Unfiled/i })).toBeInTheDocument();
+    });
+
+    it('nested folder workflow row is active when selected and selects via nested list handler', () => {
+      const onSel = vi.fn();
+      const view = render(
+        <WorkflowToolbar {...defaultProps} {...folderWorkflowProps} onSelect={onSel} selected={wfInSub} />,
+      );
+      openDropdown();
+      fireClickFolderRow('Projects');
+      fireClickFolderRow('Alpha');
+      expect(screen.getByRole('button', { name: /^Sub Nested Item$/ })).toHaveClass('active');
+
+      view.rerender(<WorkflowToolbar {...defaultProps} {...folderWorkflowProps} onSelect={onSel} selected={wfInRoot} />);
+      fireEvent.click(screen.getByRole('button', { name: /^Sub Nested Item$/ }));
+      expect(onSel).toHaveBeenCalledWith('wf-sub');
+      expect(document.querySelector('.wft-dropdown-panel')).toBeNull();
+    });
   });
 });

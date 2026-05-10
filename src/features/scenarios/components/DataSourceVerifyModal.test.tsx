@@ -4,8 +4,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, act, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
+import type { SetStateAction } from 'react';
 import DataSourceVerifyModal from './DataSourceVerifyModal';
 import type { Scenario, DataSource } from '../../../shared/types';
+import type { HttpResponse } from '../../../shared/utils/httpClient';
+import type { VerifyResult } from '../hooks/useVerifyEngine';
 
 vi.mock('../../../shared/components/AppModalFrame', () => ({
   default: ({ title, children, footer, headerActions }: {
@@ -39,7 +42,7 @@ vi.mock('./VerifyRowCard', () => ({
 
 const mockRunVerification = vi.fn();
 const mockRefetchFailedRows = vi.fn();
-const mockSetResults = vi.fn((updater) => {
+const mockSetResults = vi.fn((updater: SetStateAction<Map<string, VerifyResult>>) => {
   if (typeof updater === 'function') {
     updater(mockEngineState.results);
   }
@@ -573,8 +576,8 @@ describe('DataSourceVerifyModal', () => {
   describe('Error patterns grouped', () => {
     it('uses Unknown error label when error text is missing on zero HTTP status', () => {
       mockEngineState.results = new Map([
-        ['r1', { rowId: 'r1', status: 'error', httpStatus: 0, failedCells: {}, actualCells: {} } as any],
-        ['r2', { rowId: 'r2', status: 'error', httpStatus: 0, failedCells: {}, actualCells: {} } as any],
+        ['r1', { rowId: 'r1', status: 'error', httpStatus: 0, failedCells: {}, actualCells: {} }],
+        ['r2', { rowId: 'r2', status: 'error', httpStatus: 0, failedCells: {}, actualCells: {} }],
       ]);
       mockEngineState.summary = {
         passCount: 0, warnCount: 0, failCount: 0, errorCount: 2,
@@ -708,10 +711,18 @@ describe('DataSourceVerifyModal', () => {
         status: 200, statusText: 'OK',
         body: JSON.stringify({ status: 'ok' }), headers: {},
       });
-      mockExecuteRowFetch.mockImplementation((_draft: unknown, _cols: unknown, _row: unknown, _idx: unknown, doFetch: Function) => ({
-        resolved: { url: 'https://api.example.com/users/1' },
-        fetchPromise: doFetch('https://api.example.com/users/1', { method: 'GET', headers: {} }),
-      }));
+      mockExecuteRowFetch.mockImplementation(
+        (
+          _draft: unknown,
+          _cols: unknown,
+          _row: unknown,
+          _idx: unknown,
+          doFetch: (url: string, method: string, headers: Record<string, string>, body?: string) => Promise<HttpResponse>,
+        ) => ({
+          resolved: { url: 'https://api.example.com/users/1' },
+          fetchPromise: doFetch('https://api.example.com/users/1', 'GET', {}),
+        }),
+      );
       mockExtractJsonPath.mockReturnValue('ok');
 
       const onDraftChange = vi.fn();

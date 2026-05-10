@@ -4,15 +4,23 @@ import { useNodeBase } from './useNodeBase';
 import { NodeIcon, getNodeCategory } from './NodeIcon';
 import { NodeConfigureButton } from './NodeConfigureButton';
 import { NodePausedOverlay } from './NodePausedOverlay';
+import { NodeStatusBadge } from './NodeStatusBadge';
 
 type LogDebugWorkflowNode = Node<LogDebugNodeData, 'logDebug'>;
 type Props = NodeProps<LogDebugWorkflowNode>;
 
 const LEVEL_LABELS: Record<string, string> = {
-  info: 'ℹ️ Info',
-  warn: '⚠️ Warn',
-  error: '❌ Error',
-  debug: '🐛 Debug',
+  info: 'Info',
+  warn: 'Warn',
+  error: 'Error',
+  debug: 'Debug',
+};
+
+const LEVEL_CLASSES: Record<string, string> = {
+  info: 'wf-log-level--info',
+  warn: 'wf-log-level--warn',
+  error: 'wf-log-level--error',
+  debug: 'wf-log-level--debug',
 };
 
 export default function LogDebugNode({ id, data, selected }: Props) {
@@ -32,7 +40,7 @@ export default function LogDebugNode({ id, data, selected }: Props) {
         </div>
       </div>
       <div className="wf-logdebug-message" title={data.message}>{msgPreview}</div>
-      <div className="wf-logdebug-level">
+      <div className={`wf-logdebug-level ${LEVEL_CLASSES[data.logLevel] ?? ''}`}>
         {LEVEL_LABELS[data.logLevel] ?? data.logLevel}
         {data.snapshotVariables && ' · snapshot'}
       </div>
@@ -40,6 +48,7 @@ export default function LogDebugNode({ id, data, selected }: Props) {
         <NodeConfigureButton title="Configure log" onClick={handleConfigure} />
       </div>
 
+      <NodeStatusBadge rs={rs} />
       <NodePausedOverlay nodeId={id} state={rs?.state} debugStep={debugStep} />
 
       <Handle type="target" position={Position.Top} className="wf-handle" />

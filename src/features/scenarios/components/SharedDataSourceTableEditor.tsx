@@ -2,7 +2,7 @@
  * SharedDataSourceTableEditor — Lightweight table editor for shared data sources
  * Phase 4: Table display, inline editing, row/column CRUD
  */
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import type { DataSource, DataSourceColumn } from '../../../shared/types';
 import { createEmptyRow, createEmptyColumn } from '../utils/dataSourceUtils';
 
@@ -22,9 +22,8 @@ export default function SharedDataSourceTableEditor({ dataSource, onChange }: Sh
   const [draggingColId, setDraggingColId] = useState<string | null>(null);
   const [dragOverColId, setDragOverColId] = useState<string | null>(null);
 
-  if (!dataSource) return null;
-
-  const { columns, rows } = dataSource;
+  const columns = useMemo(() => dataSource?.columns ?? [], [dataSource?.columns]);
+  const rows = useMemo(() => dataSource?.rows ?? [], [dataSource?.rows]);
 
   // ─── Handle cell value change ──────────────────────────────
   const handleCellChange = useCallback((rowId: string, colId: string, value: string) => {
@@ -36,7 +35,7 @@ export default function SharedDataSourceTableEditor({ dataSource, onChange }: Sh
     );
 
     onChange({ ...dataSource, rows: updatedRows });
-  }, [columns, rows, onChange, dataSource]);
+  }, [rows, onChange, dataSource]);
 
   // ─── Cell editing handlers ────────────────────────────────
   const handleCellDoubleClick = useCallback((rowId: string, colId: string) => {
@@ -179,6 +178,8 @@ export default function SharedDataSourceTableEditor({ dataSource, onChange }: Sh
   }, [columns, onChange, dataSource]);
 
   // ─── Render ────────────────────────────────────────────────
+
+  if (!dataSource) return null;
 
   if (rows.length === 0) {
     return (

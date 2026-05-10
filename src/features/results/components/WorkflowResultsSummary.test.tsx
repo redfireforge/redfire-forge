@@ -74,7 +74,7 @@ function createWorkflowTestRun(iterations: number, stepsPerIteration: number): T
     timestamp: Date.now(),
     config: {
       executionMode: 'workflow',
-      totalTransactions: iterations,
+      iterations: iterations,
       concurrentUsers: 1,
       thinkTimeMs: 0,
       errorPolicy: 'continue',
@@ -105,7 +105,7 @@ function createNonWorkflowTestRun(): TestRun {
     timestamp: Date.now(),
     config: {
       executionMode: 'sequential',
-      totalTransactions: 10,
+      iterations: 10,
       concurrentUsers: 1,
       thinkTimeMs: 0,
       errorPolicy: 'continue',
@@ -226,7 +226,7 @@ describe('WorkflowResultsSummary', () => {
       timestamp: Date.now(),
       config: {
         executionMode: 'workflow',
-        totalTransactions: 1,
+        iterations: 1,
         concurrentUsers: 1,
         thinkTimeMs: 0,
         errorPolicy: 'continue',
@@ -330,7 +330,7 @@ describe('WorkflowResultsSummary', () => {
       timestamp: Date.now(),
       config: {
         executionMode: 'workflow',
-        totalTransactions: 1,
+        iterations: 1,
         concurrentUsers: 1,
         thinkTimeMs: 0,
         errorPolicy: 'continue',
@@ -386,7 +386,7 @@ describe('WorkflowResultsSummary', () => {
       timestamp: Date.now(),
       config: {
         executionMode: 'workflow',
-        totalTransactions: 1,
+        iterations: 1,
         concurrentUsers: 1,
         thinkTimeMs: 0,
         errorPolicy: 'continue',
@@ -441,7 +441,7 @@ describe('WorkflowResultsSummary', () => {
       timestamp: Date.now(),
       config: {
         executionMode: 'workflow',
-        totalTransactions: 1,
+        iterations: 1,
         concurrentUsers: 1,
         thinkTimeMs: 0,
         errorPolicy: 'continue',
@@ -489,7 +489,7 @@ describe('WorkflowResultsSummary', () => {
       timestamp: Date.now(),
       config: {
         executionMode: 'workflow',
-        totalTransactions: 1,
+        iterations: 1,
         concurrentUsers: 1,
         thinkTimeMs: 0,
         errorPolicy: 'continue',
@@ -528,7 +528,7 @@ describe('WorkflowResultsSummary', () => {
       timestamp: Date.now(),
       config: {
         executionMode: 'workflow',
-        totalTransactions: 1,
+        iterations: 1,
         concurrentUsers: 1,
         thinkTimeMs: 0,
         errorPolicy: 'continue',
@@ -633,7 +633,7 @@ describe('WorkflowResultsSummary', () => {
       timestamp: Date.now(),
       config: {
         executionMode: 'workflow',
-        totalTransactions: 1,
+        iterations: 1,
         concurrentUsers: 1,
         thinkTimeMs: 0,
         errorPolicy: 'continue',

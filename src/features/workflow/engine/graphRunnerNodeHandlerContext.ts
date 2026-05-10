@@ -97,6 +97,11 @@ export interface NodeHandlerContext {
    * Populated by handleHttpNode, consumed when onNodeComplete is called.
    */
   capturedHttpDetails?: Map<string, CapturedHttpNodeDetails>;
+  /**
+   * Storage for captured sub-workflow execution traces per node.
+   * Populated by handleSubWorkflowNode, consumed when onNodeComplete builds eventDetails.
+   */
+  capturedSubWorkflowTraces?: Map<string, import('../../../shared/types').WorkflowExecutionTrace>;
 }
 
 /**

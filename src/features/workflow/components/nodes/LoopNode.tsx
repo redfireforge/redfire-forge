@@ -4,6 +4,7 @@ import { useNodeBase } from './useNodeBase';
 import { NodeIcon, getNodeCategory } from './NodeIcon';
 import { NodeConfigureButton } from './NodeConfigureButton';
 import { NodePausedOverlay } from './NodePausedOverlay';
+import { NodeStatusBadge } from './NodeStatusBadge';
 
 type LoopWorkflowNode = Node<LoopNodeData, 'loop'>;
 type Props = NodeProps<LoopWorkflowNode>;
@@ -47,6 +48,7 @@ export default function LoopNode({ id, data, selected }: Props) {
         <NodeConfigureButton title="Configure this loop" onClick={handleConfigure} />
       </div>
 
+      <NodeStatusBadge rs={rs} />
       <NodePausedOverlay nodeId={id} state={rs?.state} debugStep={debugStep} />
 
       <Handle type="target" position={Position.Top} className="wf-handle" />

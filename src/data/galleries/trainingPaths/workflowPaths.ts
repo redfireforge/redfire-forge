@@ -102,6 +102,13 @@ export const workflowPaths: TrainingPath[] = [
             sampleId: 'sample-workflow-parallel',
             manualPath: 'workflow/api-patterns/parallel-api-calls-easy.html',
           },
+          {
+            title: 'Parallel Showcase: Swim Lanes & Critical Path',
+            description: 'Three uneven parallel branches demonstrating swim-lane grouping, critical path detection, and branch comparison in the Results Explorer.',
+            difficulty: 'medium',
+            sampleId: 'sample-workflow-parallel-showcase',
+            manualPath: 'workflow/api-patterns/parallel-showcase-medium.html',
+          },
         ],
       },
       {
@@ -462,7 +469,7 @@ export const workflowPaths: TrainingPath[] = [
           },
           {
             title: 'Runner Comparison',
-            description: 'Choose between Test Runner and Workflow Runner based on your testing goals.',
+            description: 'Choose between Test Runner, Parameterized Runner, and Workflow Runner based on your testing goals.',
             difficulty: 'easy',
             manualPath: 'tests/runner-comparison-easy.html',
           },
@@ -500,10 +507,24 @@ export const workflowPaths: TrainingPath[] = [
           },
           {
             title: 'Results Explorer',
-            description: 'Visual execution analysis — interactive diagram, detail panel, iteration matrix, search/filter, heatmap, bottleneck insights, and export.',
+            description: 'Visual execution analysis — diagram/timeline views, detail panel, iteration matrix, search/filter, heatmap, bottleneck insights, swim lanes, sub-workflow drill-down, and export.',
             difficulty: 'medium',
             sampleId: 'perf-workflow-bottleneck',
             manualPath: 'workflow/runner/results-explorer-medium.html',
+          },
+          {
+            title: 'Timeline View (Gantt Chart)',
+            description: 'Visualize workflow execution as a horizontal Gantt chart — time axis, bar colors, aggregate markers, zoom, and sub-workflow indicators.',
+            difficulty: 'medium',
+            sampleId: 'perf-workflow-bottleneck',
+            manualPath: 'workflow/runner/results-explorer-timeline-medium.html',
+          },
+          {
+            title: 'Sub-Workflow Drill-Down',
+            description: 'Navigate into nested workflow executions from the Results Explorer — breadcrumb navigation, visual cues, and timeline drill-down.',
+            difficulty: 'medium',
+            sampleId: 'sample-workflow-sub-workflow',
+            manualPath: 'workflow/runner/results-explorer-drilldown-medium.html',
           },
           {
             title: 'Edge Traversal Percentages',

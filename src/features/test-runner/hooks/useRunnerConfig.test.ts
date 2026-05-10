@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import { useRunnerConfig, defaultLoadProfile, defaultThinkTime } from './useRunnerConfig';
+import { useRunnerConfig, defaultLoadProfile, defaultThinkTime, type RunnerConfig } from './useRunnerConfig';
 
 // ── Mocks ──
 
@@ -33,7 +33,7 @@ describe('useRunnerConfig', () => {
     });
 
     expect(result.current.concurrency).toBe(1);
-    expect(result.current.totalTransactions).toBe(1);
+    expect(result.current.iterations).toBe(1);
     expect(result.current.selectedScenarios.size).toBe(0);
     expect(result.current.weights).toEqual({});
     expect(result.current.skipValidation).toBe(false);
@@ -55,7 +55,7 @@ describe('useRunnerConfig', () => {
   it('restores saved config from storage', async () => {
     mockLoadRunnerConfig.mockResolvedValueOnce({
       concurrency: 5,
-      totalTransactions: 100,
+      iterations: 100,
       selectedScenarios: ['s1', 's2'],
       weights: { s1: 70, s2: 30 },
       skipValidation: true,
@@ -81,7 +81,7 @@ describe('useRunnerConfig', () => {
     });
 
     expect(result.current.concurrency).toBe(5);
-    expect(result.current.totalTransactions).toBe(100);
+    expect(result.current.iterations).toBe(100);
     expect(result.current.selectedScenarios).toEqual(new Set(['s1', 's2']));
     expect(result.current.weights).toEqual({ s1: 70, s2: 30 });
     expect(result.current.skipValidation).toBe(true);
@@ -96,7 +96,7 @@ describe('useRunnerConfig', () => {
   it('restores markdown auto-report format when saved', async () => {
     mockLoadRunnerConfig.mockResolvedValueOnce({
       concurrency: 1,
-      totalTransactions: 1,
+      iterations: 1,
       selectedScenarios: [],
       weights: {},
       autoReport: true,
@@ -178,7 +178,7 @@ describe('useRunnerConfig', () => {
 
     mockLoadRunnerConfig.mockResolvedValueOnce({
       concurrency: 20,
-      totalTransactions: 50,
+      iterations: 50,
       selectedScenarios: [],
       weights: {},
     });
@@ -195,7 +195,7 @@ describe('useRunnerConfig', () => {
   it('omits persisted loadProfile and thinkTime when absent on saved blob', async () => {
     mockLoadRunnerConfig.mockResolvedValueOnce({
       concurrency: 5,
-      totalTransactions: 3,
+      iterations: 3,
       selectedScenarios: [],
       weights: {},
       executionMode: 'batch',
@@ -216,7 +216,7 @@ describe('useRunnerConfig', () => {
   it('fills default values for fields missing from sparse saved config', async () => {
     mockLoadRunnerConfig.mockResolvedValueOnce({
       concurrency: 7,
-      totalTransactions: 11,
+      iterations: 11,
       selectedScenarios: ['a'],
       weights: { a: 100 },
       skipValidation: true,
@@ -248,19 +248,72 @@ describe('useRunnerConfig', () => {
     });
 
     expect(result.current.concurrency).toBe(1);
-    expect(result.current.totalTransactions).toBe(1);
+    expect(result.current.iterations).toBe(1);
     expect(result.current.timeoutSec).toBe(10);
+  });
+
+  it('applies ?? fallbacks for every nullish field in saved config', async () => {
+    mockLoadRunnerConfig.mockResolvedValueOnce({
+      /* All fields explicitly undefined to exercise every ?? branch */
+      concurrency: undefined,
+      iterations: undefined,
+      selectedScenarios: undefined,
+      weights: undefined,
+      skipValidation: undefined,
+      validationOverride: undefined,
+      forceUnordered: undefined,
+      hostMode: undefined,
+      customBaseUrl: undefined,
+      executionMode: undefined,
+      loadProfile: undefined,
+      thinkTime: undefined,
+      timeoutSec: undefined,
+      retryCount: undefined,
+      retryDelayMs: undefined,
+      errorPolicy: undefined,
+      maxErrors: undefined,
+      maxErrorRate: undefined,
+      autoReport: undefined,
+      autoReportFormat: undefined,
+    });
+
+    const { result } = renderHook(() => useRunnerConfig('all-nullish'));
+
+    await vi.waitFor(() => {
+      expect(result.current.configLoaded).toBe(true);
+    });
+
+    expect(result.current.concurrency).toBe(1);
+    expect(result.current.iterations).toBe(1);
+    expect(result.current.selectedScenarios.size).toBe(0);
+    expect(result.current.weights).toEqual({});
+    expect(result.current.skipValidation).toBe(false);
+    expect(result.current.validationOverride).toBe('default');
+    expect(result.current.forceUnordered).toBe(false);
+    expect(result.current.hostMode).toBe('settings');
+    expect(result.current.customBaseUrl).toBe('');
+    expect(result.current.executionMode).toBe('batch');
+    expect(result.current.loadProfile.durationSec).toBe(60);
+    expect(result.current.thinkTime.mode).toBe('none');
+    expect(result.current.timeoutSec).toBe(10);
+    expect(result.current.retryCount).toBe(0);
+    expect(result.current.retryDelayMs).toBe(1000);
+    expect(result.current.errorPolicy).toBe('continue');
+    expect(result.current.maxErrors).toBe(10);
+    expect(result.current.maxErrorRate).toBe(50);
+    expect(result.current.autoReport).toBe(false);
+    expect(result.current.autoReportFormat).toBe('html');
   });
 
   it('treats null auto-report fields as unset defaults', async () => {
     mockLoadRunnerConfig.mockResolvedValueOnce({
       concurrency: 2,
-      totalTransactions: 2,
+      iterations: 2,
       selectedScenarios: [],
       weights: {},
-      autoReport: null as any,
-      autoReportFormat: null as any,
-    });
+      autoReport: null,
+      autoReportFormat: null,
+    } as unknown as RunnerConfig);
 
     const { result } = renderHook(() => useRunnerConfig('null-auto'));
 
@@ -270,6 +323,50 @@ describe('useRunnerConfig', () => {
 
     expect(result.current.autoReport).toBe(false);
     expect(result.current.autoReportFormat).toBe('html');
+  });
+
+  it('restores loadProfile and thinkTime when present on saved blob', async () => {
+    mockLoadRunnerConfig.mockResolvedValueOnce({
+      concurrency: 2,
+      iterations: 1,
+      selectedScenarios: [],
+      weights: {},
+      loadProfile: { ...defaultLoadProfile, durationSec: 123, spikeConcurrency: 7 },
+      thinkTime: { mode: 'constant', constantMs: 50 },
+      executionMode: 'batch',
+      skipValidation: false,
+      validationOverride: 'default',
+    });
+
+    const { result } = renderHook(() => useRunnerConfig('profile-think'));
+
+    await vi.waitFor(() => {
+      expect(result.current.configLoaded).toBe(true);
+    });
+
+    expect(result.current.loadProfile.durationSec).toBe(123);
+    expect(result.current.loadProfile.spikeConcurrency).toBe(7);
+    expect(result.current.thinkTime).toEqual({ mode: 'constant', constantMs: 50 });
+  });
+
+  it('uses empty Set and weights when saved selectedScenarios and weights are nullish', async () => {
+    mockLoadRunnerConfig.mockResolvedValueOnce({
+      concurrency: 1,
+      iterations: 2,
+      selectedScenarios: null,
+      weights: null,
+      skipValidation: false,
+      validationOverride: 'default',
+    } as unknown as RunnerConfig);
+
+    const { result } = renderHook(() => useRunnerConfig('nullish-collections'));
+
+    await vi.waitFor(() => {
+      expect(result.current.configLoaded).toBe(true);
+    });
+
+    expect(result.current.selectedScenarios.size).toBe(0);
+    expect(result.current.weights).toEqual({});
   });
 
   it('exports defaultLoadProfile and defaultThinkTime', () => {
@@ -289,7 +386,7 @@ describe('useRunnerConfig', () => {
 
     // Verify all setters are functions
     expect(typeof result.current.setConcurrency).toBe('function');
-    expect(typeof result.current.setTotalTransactions).toBe('function');
+    expect(typeof result.current.setIterations).toBe('function');
     expect(typeof result.current.setSelectedScenarios).toBe('function');
     expect(typeof result.current.setWeights).toBe('function');
     expect(typeof result.current.setSkipValidation).toBe('function');

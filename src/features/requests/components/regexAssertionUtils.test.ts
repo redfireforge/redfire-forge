@@ -3,8 +3,6 @@ import {
   PATTERN_LIBRARY,
   testPattern,
   resolveValue,
-  type PatternEntry,
-  type MatchResult,
 } from './regexAssertionUtils';
 
 describe('regexAssertionUtils', () => {

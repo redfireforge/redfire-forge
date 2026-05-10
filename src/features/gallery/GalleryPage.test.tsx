@@ -29,7 +29,7 @@ vi.mock('../../data/galleries/catalog-specs', async (importOriginal) => {
   };
 });
 
-import { GalleryPage } from './GalleryPage';
+import { GalleryPage, LOADED_SENTINEL } from './GalleryPage';
 import { gallerySampleHash } from '../../shared/utils/gallerySampleHash';
 import { testSampleCatalog } from '../../data/galleries/tests';
 
@@ -134,33 +134,29 @@ describe('GalleryPage', () => {
     expect(onImportTest).toHaveBeenCalledTimes(1);
   });
 
-  it('shows confirm dialog for already-imported samples', () => {
+  it('navigates to the sample tab when clicking an already-imported sample', () => {
     const firstTest = testSampleCatalog[0];
     const hash = gallerySampleHash(firstTest.factory());
     const importedSamples = { [firstTest.id]: hash };
     const onImportTest = vi.fn();
+    const onNavigateTo = vi.fn();
     const { container } = render(
-      <GalleryPage onImportTest={onImportTest} importedSamples={importedSamples} />,
+      <GalleryPage onImportTest={onImportTest} onNavigateTo={onNavigateTo} importedSamples={importedSamples} />,
     );
-    // Filter to tests
     const domainBtns = container.querySelectorAll('.gallery-domain-btn');
     const testBtn = Array.from(domainBtns).find(btn => btn.textContent?.includes('Tests'));
     fireEvent.click(testBtn!);
-    // Find and click the imported card
     const card = container.querySelector('.gallery-card') as HTMLElement;
     fireEvent.click(card);
-    // Click the action button in the detail panel (not the card badge)
     const actionBtn = container.querySelector('.gallery-detail-btn-primary') as HTMLElement;
     fireEvent.click(actionBtn);
-    // Should show confirm dialog
-    expect(screen.getByText(/already loaded/)).toBeTruthy();
-    // Confirm re-import
-    const confirmBtn = screen.getByRole('button', { name: 'Import Again' });
-    fireEvent.click(confirmBtn);
-    expect(onImportTest).toHaveBeenCalledTimes(1);
+    // Should navigate, not re-import, and no confirm dialog
+    expect(onNavigateTo).toHaveBeenCalledTimes(1);
+    expect(onImportTest).not.toHaveBeenCalled();
+    expect(screen.queryByText(/already loaded/)).toBeNull();
   });
 
-  it('shows updated label for samples with changed hash', () => {
+  it('shows confirm dialog when a new version of a loaded sample is available', () => {
     const firstTest = testSampleCatalog[0];
     const importedSamples = { [firstTest.id]: 'stale-hash' };
     const onImportTest = vi.fn();
@@ -172,20 +168,18 @@ describe('GalleryPage', () => {
     fireEvent.click(testBtn!);
     const card = container.querySelector('.gallery-card') as HTMLElement;
     fireEvent.click(card);
-    // Should show reload label
     const reloadBtn = container.querySelector('.gallery-detail-btn-primary') as HTMLElement;
     fireEvent.click(reloadBtn);
-    // Confirm
+    // Confirm dialog should appear
     expect(screen.getByText(/updated since/)).toBeTruthy();
-    const confirmBtn = screen.getByRole('button', { name: /Re-import/ });
+    const confirmBtn = screen.getByRole('button', { name: 'Update' });
     fireEvent.click(confirmBtn);
     expect(onImportTest).toHaveBeenCalledTimes(1);
   });
 
-  it('cancel reimport confirm dialog does not call handler', () => {
+  it('cancelling the update dialog does not re-import', () => {
     const firstTest = testSampleCatalog[0];
-    const hash = gallerySampleHash(firstTest.factory());
-    const importedSamples = { [firstTest.id]: hash };
+    const importedSamples = { [firstTest.id]: 'stale-hash' };
     const onImportTest = vi.fn();
     const { container } = render(
       <GalleryPage onImportTest={onImportTest} importedSamples={importedSamples} />,
@@ -195,9 +189,28 @@ describe('GalleryPage', () => {
     fireEvent.click(testBtn!);
     const card = container.querySelector('.gallery-card') as HTMLElement;
     fireEvent.click(card);
-    const actionBtn2 = container.querySelector('.gallery-detail-btn-primary') as HTMLElement;
-    fireEvent.click(actionBtn2);
+    const reloadBtn = container.querySelector('.gallery-detail-btn-primary') as HTMLElement;
+    fireEvent.click(reloadBtn);
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(onImportTest).not.toHaveBeenCalled();
+  });
+
+  it('clicking an already-imported sample does not call the import handler', () => {
+    const firstTest = testSampleCatalog[0];
+    const hash = gallerySampleHash(firstTest.factory());
+    const importedSamples = { [firstTest.id]: hash };
+    const onImportTest = vi.fn();
+    const onNavigateTo = vi.fn();
+    const { container } = render(
+      <GalleryPage onImportTest={onImportTest} onNavigateTo={onNavigateTo} importedSamples={importedSamples} />,
+    );
+    const domainBtns = container.querySelectorAll('.gallery-domain-btn');
+    const testBtn = Array.from(domainBtns).find(btn => btn.textContent?.includes('Tests'));
+    fireEvent.click(testBtn!);
+    const card = container.querySelector('.gallery-card') as HTMLElement;
+    fireEvent.click(card);
+    const actionBtn = container.querySelector('.gallery-detail-btn-primary') as HTMLElement;
+    fireEvent.click(actionBtn);
     expect(onImportTest).not.toHaveBeenCalled();
   });
 
@@ -221,6 +234,24 @@ describe('GalleryPage', () => {
     const card = container.querySelector('.gallery-card') as HTMLElement;
     fireEvent.click(card);
     expect(container.querySelector('.gallery-detail-preview')).toBeTruthy();
+  });
+
+  it('treats LOADED_SENTINEL as imported without comparing factory hashes', () => {
+    const firstTest = testSampleCatalog[0];
+    const importedSamples = { [firstTest.id]: LOADED_SENTINEL };
+    const onNavigateTo = vi.fn();
+    const { container } = render(
+      <GalleryPage onImportTest={vi.fn()} onNavigateTo={onNavigateTo} importedSamples={importedSamples} />,
+    );
+    const domainBtns = container.querySelectorAll('.gallery-domain-btn');
+    const testBtn = Array.from(domainBtns).find(btn => btn.textContent?.includes('Tests'));
+    fireEvent.click(testBtn!);
+    fireEvent.click(screen.getByText(firstTest.name));
+    expect(
+      container.querySelector('.gallery-detail-btn-primary')?.textContent,
+    ).toContain('✓ Loaded');
+    fireEvent.click(container.querySelector('.gallery-detail-btn-primary') as HTMLElement);
+    expect(onNavigateTo).toHaveBeenCalledWith(expect.objectContaining({ id: firstTest.id }));
   });
 
   it('treats legacy __name: imports as imported without sample id', () => {
@@ -264,6 +295,17 @@ describe('GalleryPage', () => {
     fireEvent.click(container.querySelector('.gallery-card') as HTMLElement);
     const pre = container.querySelector('.gallery-detail-preview-pre');
     expect(pre?.textContent).toContain('[object Object]');
+  });
+
+  it('passes Request label when expanding default request tab', () => {
+    const { container } = render(<GalleryPage />);
+    const reqBtn = Array.from(container.querySelectorAll('.gallery-domain-btn')).find(btn =>
+      btn.textContent?.includes('Requests'),
+    );
+    fireEvent.click(reqBtn!);
+    fireEvent.click(container.querySelector('.gallery-card') as HTMLElement);
+    fireEvent.click(container.querySelector('.gallery-tab-expand-btn') as HTMLElement);
+    expect(screen.getByText(/\s—\sRequest$/)).toBeTruthy();
   });
 
   it('passes Response label when expanding response tab after fetch', async () => {

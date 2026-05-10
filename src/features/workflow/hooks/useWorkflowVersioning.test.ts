@@ -4,7 +4,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useWorkflowVersioning } from './useWorkflowVersioning';
-import type { WorkflowVersion } from '../types/workflow';
+import type { WorkflowVersion, WorkflowNode, WorkflowEdge } from '../types/workflow';
 
 const makeVersion = (overrides: Partial<WorkflowVersion> = {}): WorkflowVersion => ({
   id: 'v1',
@@ -12,8 +12,8 @@ const makeVersion = (overrides: Partial<WorkflowVersion> = {}): WorkflowVersion 
   fingerprint: 'fp1',
   nodeCount: 1,
   edgeCount: 0,
-  nodes: [] as any,
-  edges: [] as any,
+  nodes: [] as WorkflowNode[],
+  edges: [] as WorkflowEdge[],
   variables: { key: 'val' },
   ...overrides,
 });

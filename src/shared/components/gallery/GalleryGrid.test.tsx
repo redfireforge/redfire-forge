@@ -133,7 +133,6 @@ describe('GalleryGrid', () => {
   });
 
   it('renders empty state when filters exclude all', () => {
-    const entries = [baseEntry('e1', { category: 'only' })];
     render(<GalleryGrid entries={[baseEntry('e1', { category: 'only' })]} />);
     const search = screen.getByPlaceholderText('Search gallery...');
     fireEvent.change(search, { target: { value: 'zzznonexistent' } });

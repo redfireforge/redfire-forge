@@ -1,14 +1,14 @@
 /**
  * @vitest-environment jsdom
  */
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import MoveModal from './MoveModal';
 import type { FeatureGroup } from '../../../shared/types';
 
 vi.mock('../../../shared/components/PopupModal', () => ({
   __esModule: true,
-  default: ({ title, onClose, children, footer }: {
+  default: ({ title, onClose: _onClose, children, footer }: {
     title: React.ReactNode; onClose: () => void; children: React.ReactNode; footer?: React.ReactNode;
   }) => (
     <div data-testid="popup-modal">
@@ -23,14 +23,17 @@ const makeFeatureGroups = (): FeatureGroup[] => [
   {
     id: 'fg-1', name: 'Auth', microserviceId: 'svc-1', environmentId: 'env-1',
     scenarios: [
-      { id: 'sc-1', name: 'Login', tests: [{ id: 't-1', name: 'GET login', url: '/login', method: 'GET', headers: [], body: '', auth: { type: 'none' }, validation: { mode: 'none' } }] },
-      { id: 'sc-2', name: 'Signup', tests: [] },
+      {
+        id: 'sc-1', name: 'Login', kind: 'standard',
+        tests: [{ id: 't-1', name: 'GET login', url: '/login', method: 'GET', headers: [], body: '', auth: { type: 'none' }, validation: { mode: 'none' } }],
+      },
+      { id: 'sc-2', name: 'Signup', kind: 'standard', tests: [] },
     ],
   },
   {
     id: 'fg-2', name: 'Payments', microserviceId: 'svc-1', environmentId: 'env-1',
     scenarios: [
-      { id: 'sc-3', name: 'Checkout', tests: [] },
+      { id: 'sc-3', name: 'Checkout', kind: 'standard', tests: [] },
     ],
   },
 ];
@@ -149,6 +152,53 @@ describe('MoveModal', () => {
     renderModal({ type: 'test', featureGroups: fgs });
     fireEvent.change(screen.getAllByRole('combobox')[0], { target: { value: 'fg-empty' } });
     screen.getByText('No scenarios in this feature group');
+  });
+
+  it('filters target scenarios when sourceScenarioKind is set', () => {
+    const mixed: FeatureGroup[] = [{
+      id: 'fg-mix', name: 'Mixed', microserviceId: 's', environmentId: 'e',
+      scenarios: [
+        { id: 'sc-std', name: 'Std', kind: 'standard', tests: [] },
+        {
+          id: 'sc-par', name: 'Par', kind: 'parameterized', tests: [
+            {
+              id: 'tp-1', name: 'T1', url: '/x', method: 'GET',
+              headers: [], body: '', auth: { type: 'none' }, validation: { mode: 'none' },
+            },
+          ],
+        },
+      ],
+    }];
+    renderModal({ type: 'test', sourceScenarioKind: 'parameterized', featureGroups: mixed });
+    fireEvent.change(screen.getAllByRole('combobox')[0], { target: { value: 'fg-mix' } });
+
+    screen.getByRole('option', { name: /Par \(1 tests\)/ });
+    expect(screen.queryByRole('option', { name: /Std/ })).toBeNull();
+
+    const scSelect = screen.getAllByRole('combobox')[1] as HTMLSelectElement;
+    fireEvent.change(scSelect, { target: { value: 'sc-par' } });
+    fireEvent.click(screen.getByText('Move'));
+    expect(onMove).toHaveBeenCalledWith({ fgId: 'fg-mix', scenarioId: 'sc-par' });
+  });
+
+  it('shows parameterized empty message when feature group only has standard scenarios', () => {
+    const onlyStandard: FeatureGroup[] = [{
+      id: 'fg-s', name: 'StandardsOnly', microserviceId: 's', environmentId: 'e',
+      scenarios: [{ id: 'sc-std', name: 'Std', kind: 'standard', tests: [] }],
+    }];
+    renderModal({ type: 'test', sourceScenarioKind: 'parameterized', featureGroups: onlyStandard });
+    fireEvent.change(screen.getAllByRole('combobox')[0], { target: { value: 'fg-s' } });
+    screen.getByText('No parameterized scenarios in this feature group');
+  });
+
+  it('shows standard empty message when feature group only has parameterized scenarios', () => {
+    const onlyParameterized: FeatureGroup[] = [{
+      id: 'fg-p', name: 'ParOnly', microserviceId: 's', environmentId: 'e',
+      scenarios: [{ id: 'sc-par', name: 'Par', kind: 'parameterized', tests: [] }],
+    }];
+    renderModal({ type: 'test', sourceScenarioKind: 'standard', featureGroups: onlyParameterized });
+    fireEvent.change(screen.getAllByRole('combobox')[0], { target: { value: 'fg-p' } });
+    screen.getByText('No standard scenarios in this feature group');
   });
 
   it('marks current feature group in dropdown', () => {

@@ -55,7 +55,7 @@ Redesign the current "Execution Replay" feature into a more useful "Results Expl
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │ Execution Mode: ○ Sequential ○ Batch ● Continuous Pool     │
-│ Concurrency: [30    ]  Transactions: [100   ]              │
+│ Concurrency: [30    ]  Iterations: [100   ]                 │
 │ ...                                                         │
 │ ─────────────────────────────────────────────────────────── │
 │ Advanced Options                                            │

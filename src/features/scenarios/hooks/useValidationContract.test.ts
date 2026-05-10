@@ -4,7 +4,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useValidationContract } from './useValidationContract';
-import type { Scenario, DataSource, DataSourceColumn, DataSourceRow } from '../../../shared/types';
+import type { Scenario, DataSource, DataSourceColumn } from '../../../shared/types';
 
 function makeDataSource(overrides: Partial<DataSource> = {}): DataSource {
   return {
