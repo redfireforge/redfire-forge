@@ -51,6 +51,10 @@ export async function handleScriptNode(
     }
   }
 
+  if (result.consoleLogs.length > 0) {
+    hCtx.capturedScriptOutput?.set(nodeId, result.consoleLogs);
+  }
+
   if (!result.success) {
     hCtx.callbacks.onNodeStateChange(nodeId, {
       state: 'fail',

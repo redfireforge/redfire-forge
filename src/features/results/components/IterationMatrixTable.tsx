@@ -2,6 +2,7 @@ import { useMemo, useState, useCallback } from 'react';
 import type { WorkflowIterationTrace } from '../../../shared/types';
 import { truncate } from '../../../shared/utils/helpers';
 import { formatDurationMs } from '../../../shared/utils/formatDuration';
+import { isSampledIteration } from '../utils/sampledIterations';
 
 type SortField = 'iteration' | 'status' | 'total' | string;
 type SortDirection = 'asc' | 'desc';
@@ -47,7 +48,7 @@ export default function IterationMatrixTable({
 
   // Build row data with node durations
   const rows = useMemo<IterationRow[]>(() => {
-    return iterations.map((iter, i) => {
+    return iterations.map((iter) => {
       const nodeDurations = new Map<string, { durationMs?: number; state: 'pass' | 'fail' | 'skipped' }>();
       
       for (const node of httpNodes) {
@@ -65,7 +66,6 @@ export default function IterationMatrixTable({
         }
       }
 
-      // Get first error message if failed
       let error: string | undefined;
       if (!iter.passed) {
         const failedEvent = iter.events.find(e => e.state === 'fail' && e.details?.error);
@@ -79,14 +79,14 @@ export default function IterationMatrixTable({
       const overhead = Math.max(0, iter.durationMs - httpSum);
 
       return {
-        originalIndex: i,
+        originalIndex: iter.index,
         passed: iter.passed,
         totalDurationMs: iter.durationMs,
         httpDurationMs: httpSum,
         overheadMs: overhead,
         error,
         nodeDurations,
-        sampled: iter.sampled !== false,
+        sampled: isSampledIteration(iter),
       };
     });
   }, [iterations, httpNodes]);

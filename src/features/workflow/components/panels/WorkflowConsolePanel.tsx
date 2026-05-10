@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import type { ConsoleLine } from '../../../requests/hooks/useResponseCache';
 import type { WorkflowRunStepSummary } from '../../hooks/useWorkflowRunCache';
 import { type ConsoleRunBehavior, saveConsoleRunBehavior } from '../../utils/workflowSessionStorage';
+import ConsoleLogLine from '../../../../shared/components/ConsoleLogLine';
 
 function TimelineStep({ step, depth = 0 }: { step: WorkflowRunStepSummary; depth?: number }) {
   const [expanded, setExpanded] = useState(false);
@@ -40,32 +41,6 @@ function TimelineStep({ step, depth = 0 }: { step: WorkflowRunStepSummary; depth
   );
 }
 
-const prefixClass: Record<string, string> = {
-  '*': 'wf-cl-info',
-  '>': 'wf-cl-out',
-  '<': 'wf-cl-in',
-  '#': 'wf-cl-extract',
-  '!': 'wf-cl-error',
-  '---': 'wf-cl-separator',
-  '': 'wf-cl-plain',
-};
-
-const prefixIcon: Record<string, string> = {
-  '*': '●',
-  '>': '→',
-  '<': '←',
-  '#': '⬡',
-  '!': '✗',
-  '---': '',
-  '': '',
-};
-
-function fmtTime(ts?: number): string {
-  if (!ts) return '';
-  const d = new Date(ts);
-  return d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3 } as Intl.DateTimeFormatOptions);
-}
-
 type PanelMode = 'docked' | 'maximized' | 'floating';
 
 const CONSOLE_MODE_KEY = 'wf-console-default-mode';
@@ -91,17 +66,6 @@ interface Props {
   onRunBehaviorChange: (b: ConsoleRunBehavior) => void;
 }
 
-function highlightMatches(text: string, query: string): React.ReactNode {
-  if (!query) return text;
-  const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const parts = text.split(new RegExp(`(${escaped})`, 'gi'));
-  if (parts.length === 1) return text;
-  return parts.map((part, i) =>
-    part.toLowerCase() === query.toLowerCase()
-      ? <mark key={i} className="wf-console-match">{part}</mark>
-      : part
-  );
-}
 
 export default function WorkflowConsolePanel({ lines, onClear, onClose, stepSummaries = [], runBehavior, onRunBehaviorChange }: Props) {
   const [mode, setMode] = useState<PanelMode>(loadDefaultMode);
@@ -423,21 +387,17 @@ export default function WorkflowConsolePanel({ lines, onClear, onClose, stepSumm
           <div className="wf-console-empty">Run a Quick Test to see activity logs</div>
         ) : (
           lines.map((line, i) => {
-            const cls = prefixClass[line.prefix] ?? 'wf-cl-plain';
-            const icon = prefixIcon[line.prefix] ?? '';
-            const time = fmtTime(line.ts);
             const isMatch = searchQuery && matchIndices.includes(i);
             const isCurrent = isMatch && matchIndices[currentMatchIdx] === i;
             return (
-              <div
+              <ConsoleLogLine
                 key={i}
-                ref={(el) => { if (el) lineRefsMap.current.set(i, el); else lineRefsMap.current.delete(i); }}
-                className={`wf-cl-line ${cls}${isCurrent ? ' wf-cl-line-current-match' : isMatch ? ' wf-cl-line-match' : ''}`}
-              >
-                {time && <span className="wf-cl-ts">{time}</span>}
-                {icon && <span className="wf-cl-icon">{icon}</span>}
-                <span className="wf-cl-text">{searchQuery ? highlightMatches(line.text, searchQuery) : line.text}</span>
-              </div>
+                line={{ prefix: line.prefix, text: line.text, ts: line.ts ?? 0 }}
+                searchQuery={searchQuery || undefined}
+                isMatch={!!isMatch}
+                isCurrentMatch={!!isCurrent}
+                lineRef={(el) => { if (el) lineRefsMap.current.set(i, el); else lineRefsMap.current.delete(i); }}
+              />
             );
           })
         )}

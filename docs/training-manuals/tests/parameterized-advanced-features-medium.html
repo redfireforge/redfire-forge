@@ -74,7 +74,7 @@
     <h1>Advanced Data Source Features</h1>
     <div class="subtitle">Tags, Subsets, Bulk Ops &amp; Distribution — Training Manual</div>
     <p><span class="badge badge-medium">Medium ★★☆</span> · Data-Driven · All APIs</p>
-    <div class="meta">RedfireForge v0.5.6</div>
+    <div class="meta">RedfireForge v0.5.7</div>
   </div>
 
   <div class="page-break"></div>
@@ -110,8 +110,8 @@
   <h3>Bulk Tagging</h3>
   <ol>
     <li>Select multiple rows (Ctrl+click or Shift+click).</li>
-    <li>Click <strong>+ Tag</strong> to add a tag to all selected rows at once.</li>
-    <li>Click <strong>− Tag</strong> to remove a tag from all selected rows.</li>
+    <li>Click <strong>+ Tag…</strong> to add a tag to all selected rows at once.</li>
+    <li>Click <strong>− Untag…</strong> to remove a tag from all selected rows.</li>
   </ol>
 
   <div class="callout callout-tip">
@@ -157,7 +157,7 @@
     <tr><td><strong>Selective</strong></td><td>Only validate sample rows (📌); other rows are sent but not assertion-checked</td><td>Large data sets where you want fast execution but still verify key rows</td></tr>
     <tr><td><strong>Full</strong></td><td>Validate all enabled rows</td><td>Regression testing — check every row</td></tr>
   </table>
-  <p>Set the mode via <strong>Validation ▾</strong> in the toolbar.</p>
+  <p>Set the mode using the <strong>Validation</strong> toolbar select.</p>
 
   <h2>5. Row Labels &amp; Notes</h2>
 
@@ -195,7 +195,7 @@
     <li><strong>Enable/Disable</strong> — toggle selected rows on/off</li>
     <li><strong>Delete</strong> — remove all selected rows</li>
     <li><strong>Duplicate</strong> — clone selected rows (inserted after the last selected row)</li>
-    <li><strong>+ Tag / − Tag</strong> — add or remove a tag from all selected rows</li>
+    <li><strong>+ Tag… / − Untag…</strong> — add or remove a tag from all selected rows</li>
   </ul>
 
   <h2>7. Distribution Modes</h2>
@@ -206,7 +206,7 @@
     <tr><td><strong>Random</strong></td><td>Rows are shuffled before execution</td><td>Avoid order-dependent test passes</td></tr>
     <tr><td><strong>Round Robin</strong></td><td>Rows cycle in order, wrapping around</td><td>Load testing with continuous cycling</td></tr>
   </table>
-  <p>Set the mode via <strong>Distribution ▾</strong> in the toolbar.</p>
+  <p>Set the mode using the <strong>Distribution</strong> toolbar select.</p>
 
   <h2>8. Drag, Sort &amp; Search</h2>
   <ul>

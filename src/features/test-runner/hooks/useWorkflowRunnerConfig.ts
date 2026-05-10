@@ -114,6 +114,7 @@ export function useWorkflowRunnerConfig(): UseWorkflowRunnerConfigResult {
             alwaysCaptureFailures: saved.traceOptions.alwaysCaptureFailures ?? true,
             samplingEnabled: saved.traceOptions.samplingEnabled,
             samplingThreshold: saved.traceOptions.samplingThreshold,
+            traceLevel: saved.traceOptions.traceLevel,
           });
         }
       }

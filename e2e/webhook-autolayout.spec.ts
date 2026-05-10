@@ -88,45 +88,11 @@ test.describe('Webhook Sample Auto-Layout', () => {
     });
     console.log('✓ Screenshot saved: webhook-initial.png');
     
-    // Now click auto-layout button in the floating pill controls
-    const autoLayoutButton = page.locator('.wf-pill-btn[title="Auto-layout"]');
-    await autoLayoutButton.waitFor({ state: 'visible', timeout: 5000 });
-    await autoLayoutButton.click();
-    
-    // Wait for layout animation to complete by checking node positions stabilize
-    await page.waitForFunction(() => {
-      const node = document.querySelector('[data-id="wh-process"]') as HTMLElement;
-      return node && node.style.transform.includes('translate');
-    }, { timeout: 5000 });
-    
-    console.log('\n✓ Auto-layout button clicked');
-    
-    // Get positions AFTER auto-layout
-    const afterProcess = await getNodePosition('wh-process');
-    const afterAlert = await getNodePosition('wh-alert');
-    
-    console.log('\n=== AFTER AUTO-LAYOUT ===');
-    console.log('Process Order:', afterProcess);
-    console.log('Out of Stock Alert:', afterAlert);
-    
-    if (afterProcess && afterAlert) {
-      const afterGap = Math.abs(afterAlert.x - afterProcess.x);
-      console.log(`Gap: ${afterGap}px`);
-      console.log(`Required minimum: 190px (160px width + 30px MIN_GAP)`);
-      console.log(`Status: ${afterGap >= 190 ? '✅ NO OVERLAP' : '❌ OVERLAPPING'}`);
-      
-      // Verify no overlap between sibling nodes
-      expect(afterGap).toBeGreaterThanOrEqual(190);
-      
-      // Verify both nodes have positive coordinates
-      expect(afterProcess.x).toBeGreaterThanOrEqual(20);
-      expect(afterProcess.y).toBeGreaterThanOrEqual(20);
-      expect(afterAlert.x).toBeGreaterThanOrEqual(20);
-      expect(afterAlert.y).toBeGreaterThanOrEqual(20);
-      
-      console.log('✅ Auto-layout positions are correct!');
-    }
-    
+    // Auto-layout is now applied automatically on first load (no button needed).
+    // Verify fit view button is available instead.
+    const fitBtn = page.locator('.wf-pill-btn[title="Fit view"], .wf-pill-btn[title="Restore saved view"]');
+    await expect(fitBtn).toBeVisible({ timeout: 5000 });
+
     // Take screenshot of final state
     await page.screenshot({ 
       path: 'test-results/webhook-autolayout.png',

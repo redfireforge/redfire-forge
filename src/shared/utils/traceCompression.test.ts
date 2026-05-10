@@ -301,6 +301,31 @@ describe('sampleIterations', () => {
     const result = sampleIterations([]);
     expect(result).toEqual([]);
   });
+
+  it('preserves initialVariables on non-sampled iteration stubs', () => {
+    const trace = createMockTrace(100, 2);
+    for (const iter of trace.iterations) {
+      iter.initialVariables = { baseUrl: 'https://example.com', token: 'abc' };
+    }
+
+    const result = sampleIterations(trace.iterations);
+    const notSampled = result.filter(i => i.sampled === false);
+    expect(notSampled.length).toBeGreaterThan(0);
+
+    for (const iter of notSampled) {
+      expect(iter.initialVariables).toEqual({ baseUrl: 'https://example.com', token: 'abc' });
+    }
+  });
+
+  it('non-sampled stubs omit initialVariables when source had none', () => {
+    const trace = createMockTrace(100, 2);
+    const result = sampleIterations(trace.iterations);
+    const notSampled = result.filter(i => i.sampled === false);
+
+    for (const iter of notSampled) {
+      expect(iter.initialVariables).toBeUndefined();
+    }
+  });
 });
 
 describe('validateTrace', () => {

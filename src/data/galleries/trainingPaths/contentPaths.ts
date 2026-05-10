@@ -13,6 +13,12 @@ export const contentPaths: TrainingPath[] = [
         name: 'Getting Started',
         manuals: [
           {
+            title: 'Request Basics Overview',
+            description: 'What requests are, how the request gallery works, and how to import & send.',
+            difficulty: 'easy',
+            manualPath: 'requests/requests.html',
+          },
+          {
             title: 'Get All Users',
             description: 'Your first GET request — fetch a JSON list, inspect status codes and response body.',
             difficulty: 'easy',
@@ -102,6 +108,12 @@ export const contentPaths: TrainingPath[] = [
         name: 'Advanced Request Patterns',
         manuals: [
           {
+            title: 'Response Detail Panel',
+            description: 'Inspect response headers, body, timing, and size — read the full response story.',
+            difficulty: 'easy',
+            manualPath: 'requests/response-detail-easy.html',
+          },
+          {
             title: 'Echo Headers',
             description: 'Custom headers, header inspection, and advanced debugging with httpbin.',
             difficulty: 'advanced',
@@ -149,6 +161,12 @@ export const contentPaths: TrainingPath[] = [
             difficulty: 'easy',
             sampleId: 'test-product-listing',
             manualPath: 'tests/product-listing-easy.html',
+          },
+          {
+            title: 'Export Options',
+            description: 'Export test results as JSON — run summaries, time series, and per-scenario details.',
+            difficulty: 'easy',
+            manualPath: 'tests/export-options-easy.html',
           },
         ],
       },
@@ -291,6 +309,30 @@ export const contentPaths: TrainingPath[] = [
             difficulty: 'advanced',
             sampleId: 'test-param-auth-rotation',
             manualPath: 'tests/parameterized-auth-rotation-advanced.html',
+          },
+          {
+            title: 'Populate from API',
+            description: 'Auto-populate data source rows from a live API response — map JSON paths to columns.',
+            difficulty: 'medium',
+            manualPath: 'tests/parameterized-populate-api-medium.html',
+          },
+          {
+            title: 'Validation Columns',
+            description: 'Add validate columns to assert expected values per row — selective and full validation modes.',
+            difficulty: 'medium',
+            manualPath: 'tests/parameterized-validation-medium.html',
+          },
+          {
+            title: 'Advanced Features',
+            description: 'Distribution modes, subsets, sample rows, disabled rows, and keyboard navigation.',
+            difficulty: 'medium',
+            manualPath: 'tests/parameterized-advanced-features-medium.html',
+          },
+          {
+            title: 'Verify Contract',
+            description: 'Contract-based validation — dynamic vs static patterns, array mode, and contract editing.',
+            difficulty: 'advanced',
+            manualPath: 'tests/parameterized-verify-contract-advanced.html',
           },
         ],
       },
@@ -439,6 +481,52 @@ export const contentPaths: TrainingPath[] = [
             difficulty: 'advanced',
             sampleId: 'catalog-httpbin',
             manualPath: 'catalog/httpbin-advanced.html',
+          },
+        ],
+      },
+    ],
+  },
+
+  /* ── Data Mapper ── */
+  {
+    id: 'data-mapper',
+    name: 'Data Mapper',
+    icon: '🔀',
+    description: 'Visual source-to-target field mapping — drag-and-drop, expressions, array loops, aggregation, and workflow integration.',
+    phases: [
+      {
+        id: 1,
+        name: 'Fundamentals',
+        manuals: [
+          {
+            title: 'Data Mapper Basics',
+            description: 'Visual drag-and-drop mapping — panels, auto-map, search, keyboard shortcuts, and indicators.',
+            difficulty: 'easy',
+            manualPath: 'data-mapper/data-mapper-basics-easy.html',
+          },
+          {
+            title: 'Expression & Function Mapping',
+            description: 'Transformation functions, conditional logic, type conversion, null handling, and the function palette.',
+            difficulty: 'medium',
+            manualPath: 'data-mapper/data-mapper-expressions-medium.html',
+          },
+        ],
+      },
+      {
+        id: 2,
+        name: 'Collections & Workflows',
+        manuals: [
+          {
+            title: 'Array & Loop Mapping',
+            description: 'Iterating, filtering, aggregating, flattening, grouping, and sorting collections.',
+            difficulty: 'medium',
+            manualPath: 'data-mapper/data-mapper-arrays-medium.html',
+          },
+          {
+            title: 'Data Mapper in Workflows',
+            description: 'Upstream variables, fork/join topologies, variable collisions, and workflow-specific mapping patterns.',
+            difficulty: 'advanced',
+            manualPath: 'data-mapper/data-mapper-workflow-advanced.html',
           },
         ],
       },
