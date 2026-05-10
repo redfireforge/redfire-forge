@@ -5,7 +5,12 @@ import '@testing-library/jest-dom';
 import { DataRowSummaryTable } from './DataRowSummaryTable';
 import type { RequestResult } from '../../../shared/types';
 
-function makeResult(id: string, passed: boolean, dataRowId?: string): RequestResult {
+function makeResult(
+  id: string,
+  passed: boolean,
+  dataRowId?: string,
+  overrides: Partial<Omit<RequestResult, 'id'>> = {},
+): RequestResult {
   return {
     id,
     scenarioId: 'sc1',
@@ -22,6 +27,7 @@ function makeResult(id: string, passed: boolean, dataRowId?: string): RequestRes
     dataRowId,
     dataRowLabel: dataRowId ? `Row ${dataRowId}` : undefined,
     validationMode: 'none',
+    ...overrides,
   } as RequestResult;
 }
 
@@ -136,5 +142,84 @@ describe('DataRowSummaryTable', () => {
     const passedHeader = screen.getByText(/1 passed/);
     await user.click(passedHeader);
     await user.click(passedHeader);
+  });
+
+  it('shows All rows passed in failures-only mode when there are no failures', async () => {
+    const { userEvent } = await import('@testing-library/user-event');
+    const user = userEvent.setup();
+    const results = [makeResult('r1', true, 'row-1')];
+    render(<DataRowSummaryTable results={results} scenarioName="Test" onResultClick={vi.fn()} />);
+    await user.click(screen.getByRole('button', { name: 'Failures Only' }));
+    expect(screen.getByText('All rows passed')).toBeInTheDocument();
+  });
+
+  it('uses errorMessage for the failure cell when present', () => {
+    const results = [
+      makeResult('r1', false, 'row-1', {
+        errorMessage: 'Connection reset',
+        failureDetails: [{ field: 'x', expected: '1', actual: '2', passed: false }],
+      }),
+    ];
+    render(<DataRowSummaryTable results={results} scenarioName="Test" onResultClick={vi.fn()} />);
+    expect(screen.getByText('Connection reset')).toBeInTheDocument();
+    expect(screen.queryByText(/validation failure/)).not.toBeInTheDocument();
+  });
+
+  it('pluralizes validation failure text when multiple details exist', () => {
+    const results = [
+      makeResult('r1', false, 'row-1', {
+        failureDetails: [
+          { field: 'a', expected: '1', actual: '2', passed: false },
+          { field: 'b', expected: '3', actual: '4', passed: false },
+        ],
+      }),
+    ];
+    render(<DataRowSummaryTable results={results} scenarioName="Test" onResultClick={vi.fn()} />);
+    expect(screen.getByText(/2 validation failures/)).toBeInTheDocument();
+  });
+
+  it('falls back to dataRowId in the row label when dataRowLabel is absent', async () => {
+    const { userEvent } = await import('@testing-library/user-event');
+    const user = userEvent.setup();
+    const results = [makeResult('r1', true, 'only-id', { dataRowLabel: undefined })];
+    render(<DataRowSummaryTable results={results} scenarioName="Test" onResultClick={vi.fn()} />);
+    await user.click(screen.getByText(/1 passed/));
+    expect(screen.getByText('only-id')).toBeInTheDocument();
+  });
+
+  it('shows ERR in the status column when httpStatus is falsy', () => {
+    const results = [makeResult('r1', false, 'row-1', { httpStatus: 0 })];
+    render(<DataRowSummaryTable results={results} scenarioName="Test" onResultClick={vi.fn()} />);
+    expect(screen.getByText('ERR')).toBeInTheDocument();
+  });
+
+  it('shows validated tag when validationMode is not none', async () => {
+    const { userEvent } = await import('@testing-library/user-event');
+    const user = userEvent.setup();
+    const results = [makeResult('r1', true, 'row-1', { validationMode: 'full' })];
+    render(<DataRowSummaryTable results={results} scenarioName="Test" onResultClick={vi.fn()} />);
+    await user.click(screen.getByText(/1 passed/));
+    const tag = document.querySelector('.data-row-table .tag-info');
+    expect(tag?.textContent).toContain('Yes');
+  });
+
+  it('omits failed batch in split mode when every row passed', () => {
+    const results = [
+      makeResult('r1', true, 'row-1'),
+      makeResult('r2', true, 'row-2'),
+    ];
+    render(<DataRowSummaryTable results={results} scenarioName="Test" onResultClick={vi.fn()} />);
+    expect(screen.queryByText(/failed/)).not.toBeInTheDocument();
+    expect(screen.getByText(/2 passed/)).toBeInTheDocument();
+  });
+
+  it('omits passed batch in split mode when every row failed', () => {
+    const results = [
+      makeResult('r1', false, 'row-1'),
+      makeResult('r2', false, 'row-2'),
+    ];
+    render(<DataRowSummaryTable results={results} scenarioName="Test" onResultClick={vi.fn()} />);
+    expect(screen.queryByText(/passed/)).not.toBeInTheDocument();
+    expect(screen.getByText(/2 failed/)).toBeInTheDocument();
   });
 });

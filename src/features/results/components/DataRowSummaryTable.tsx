@@ -22,13 +22,10 @@ export function DataRowSummaryTable({ results, scenarioName, onResultClick, expe
   const passed = dataRowResults.filter(r => r.passed);
 
   const times = dataRowResults.map(r => r.responseTimeMs).sort((a, b) => a - b);
-  const avg = times.length ? Math.round(times.reduce((a, b) => a + b, 0) / times.length) : 0;
-  const p95 = times.length ? times[Math.floor(times.length * 0.95)] : 0;
-  const p99 = times.length ? times[Math.floor(times.length * 0.99)] : 0;
-
-  const passRate = dataRowResults.length > 0
-    ? Math.round((passed.length / dataRowResults.length) * 100)
-    : 0;
+  const avg = Math.round(times.reduce((a, b) => a + b, 0) / times.length);
+  const p95 = times[Math.floor(times.length * 0.95)];
+  const p99 = times[Math.floor(times.length * 0.99)];
+  const passRate = Math.round((passed.length / dataRowResults.length) * 100);
 
   const renderRow = (r: RequestResult) => {
     const errorSnippet = r.errorMessage

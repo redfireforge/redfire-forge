@@ -55,3 +55,11 @@ export async function seedAppDataWithTest(page: Page) {
     localStorage.setItem('perf-test-theme', 'dark');
   });
 }
+
+/** Confirm save destination in FolderPickerModal (opened by "Use as Template" gallery flow). */
+export async function confirmFolderPickerModal(page: Page, opts?: { timeout?: number }) {
+  const timeout = opts?.timeout ?? 5000;
+  await page.locator('.fp-dialog').waitFor({ state: 'visible', timeout });
+  await page.locator('.fp-dialog .btn-primary').click();
+  await page.waitForTimeout(500);
+}

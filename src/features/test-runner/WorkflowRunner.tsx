@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import type { TestConfig, LoadProfileConfig, CorrelationWaitRunnerConfig } from '../../shared/types';
-import type { Workflow, WebhookTriggerNodeData } from '../workflow/types/workflow';
+import type { Workflow, WorkflowFolder, WebhookTriggerNodeData } from '../workflow/types/workflow';
 import { useTestExecution } from './hooks/useTestExecution';
 import { useWorkflowRunnerConfig } from './hooks/useWorkflowRunnerConfig';
 import WorkflowPicker from './components/WorkflowPicker';
@@ -17,6 +17,7 @@ import { sampleWorkflowCatalog } from '../../data/galleries/workflows';
 
 interface Props {
   workflows: Workflow[];
+  folders?: WorkflowFolder[];
   /** Called when run completes. Pass 'workflow' to pre-filter results to workflow runs. */
   onComplete: (runType?: 'test' | 'workflow') => void;
   /** Optional: Pre-select a workflow when navigating from Workflow Designer's "Run in Harness" button. */
@@ -31,7 +32,7 @@ interface Props {
 
 const PROGRESS_KEY = '_workflow_runner_progress';
 
-export default function WorkflowRunner({ workflows, onComplete, initialWorkflowId, onClearInitialWorkflowId, onImportSample, resolvedBaseUrl }: Props) {
+export default function WorkflowRunner({ workflows, folders, onComplete, initialWorkflowId, onClearInitialWorkflowId, onImportSample, resolvedBaseUrl }: Props) {
   const {
     concurrency, setConcurrency,
     iterations, setIterations,
@@ -446,6 +447,7 @@ export default function WorkflowRunner({ workflows, onComplete, initialWorkflowI
 
       <WorkflowPicker
         workflows={workflows}
+        folders={folders}
         selectedWorkflowId={selectedWorkflowId}
         onWorkflowChange={setSelectedWorkflowId}
         variables={workflowVariables}
