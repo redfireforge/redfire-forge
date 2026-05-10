@@ -3,8 +3,9 @@
  * Extracted from TestRunner.tsx to reduce component size and isolate config concerns.
  */
 import { useState, useEffect } from 'react';
-import type { LoadProfileConfig, ThinkTimeConfig } from '../../../shared/types';
+import type { ExecutionMode, ErrorPolicy, LoadProfileConfig, ThinkTimeConfig } from '../../../shared/types';
 import { saveRunnerConfig, loadRunnerConfig as loadRunnerConfigAsync } from '../../../shared/utils/storage';
+import type { ReportOptions } from '../../results/utils/reportGenerator';
 import { defaultLoadProfile, defaultThinkTime, defaultConfig, resolveLoadedConfig } from './runnerConfigDefaults';
 import type { HostMode } from './runnerConfigDefaults';
 
