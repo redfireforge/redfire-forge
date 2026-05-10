@@ -274,4 +274,164 @@ describe('useRunnerOrchestration', () => {
     const { result } = renderHook(() => useRunnerOrchestration(defaultOpts));
     expect(result.current.displayProfileMeta).toBeNull();
   });
+
+  it('handleRun filters tests by tag when runnerTagFilter is set', () => {
+    const fgs: FeatureGroup[] = [{
+      id: 'fg1', name: 'FG',
+      scenarios: [{
+        id: 'sc1', name: 'S', kind: 'standard',
+        tests: [{
+          id: 't1', name: 'T', method: 'GET', url: '/api', headers: [],
+          validation: { mode: 'none' }, auth: { type: 'none' },
+          dataSource: {
+            columns: [{ id: 'c1', name: 'col' }],
+            rows: [
+              { id: 'r1', values: { c1: 'a' }, enabled: true, tags: ['smoke'] },
+              { id: 'r2', values: { c1: 'b' }, enabled: true, tags: ['full'] },
+            ],
+          },
+        }],
+      }],
+    }];
+    const { result } = renderHook(() =>
+      useRunnerOrchestration({ ...defaultOpts, featureGroups: fgs }),
+    );
+    act(() => { result.current.setRunnerTagFilter('smoke'); });
+    act(() => { result.current.handleRun(); });
+    const passedTests = mockExecute.mock.calls[0][1];
+    expect(passedTests[0].dataSource.rows).toHaveLength(1);
+    expect(passedTests[0].dataSource.rows[0].id).toBe('r1');
+  });
+
+  it('handleRun excludes tests with all rows filtered out by tag', () => {
+    const fgs: FeatureGroup[] = [{
+      id: 'fg1', name: 'FG',
+      scenarios: [{
+        id: 'sc1', name: 'S', kind: 'standard',
+        tests: [{
+          id: 't1', name: 'T', method: 'GET', url: '/api', headers: [],
+          validation: { mode: 'none' }, auth: { type: 'none' },
+          dataSource: {
+            columns: [{ id: 'c1', name: 'col' }],
+            rows: [
+              { id: 'r1', values: { c1: 'a' }, enabled: true, tags: ['full'] },
+            ],
+          },
+        }],
+      }],
+    }];
+    const { result } = renderHook(() =>
+      useRunnerOrchestration({ ...defaultOpts, featureGroups: fgs }),
+    );
+    act(() => { result.current.setRunnerTagFilter('smoke'); });
+    act(() => { result.current.handleRun(); });
+    const passedTests = mockExecute.mock.calls[0][1];
+    expect(passedTests).toHaveLength(0);
+  });
+
+  it('hostLabel returns resolvedBaseUrl for settings mode', () => {
+    const { result } = renderHook(() => useRunnerOrchestration(defaultOpts));
+    expect(result.current.hostLabel).toBe('Original');
+  });
+
+  it('configSuffix differentiates parameterized from standard', () => {
+    const { result: r1 } = renderHook(() => useRunnerOrchestration(defaultOpts));
+    const { result: r2 } = renderHook(() =>
+      useRunnerOrchestration({ ...defaultOpts, kind: 'parameterized' }),
+    );
+    expect(r1.current.allocation.kind).toBe('standard');
+    expect(r2.current.allocation.kind).toBe('parameterized');
+  });
+
+  it('displayTimeSeries defaults to empty array', () => {
+    const { result } = renderHook(() => useRunnerOrchestration(defaultOpts));
+    expect(result.current.displayTimeSeries).toEqual([]);
+  });
+
+  it('displayExecMode defaults to config executionMode', () => {
+    const { result } = renderHook(() => useRunnerOrchestration(defaultOpts));
+    expect(result.current.displayExecMode).toBe('sequential');
+  });
+
+  it('displayConc defaults to config concurrency', () => {
+    const { result } = renderHook(() => useRunnerOrchestration(defaultOpts));
+    expect(result.current.displayConc).toBe(1);
+  });
+
+  it('handleRun with tag filter preserves tests without data sources', () => {
+    const fgs: FeatureGroup[] = [{
+      id: 'fg1', name: 'FG',
+      scenarios: [{
+        id: 'sc1', name: 'S', kind: 'standard',
+        tests: [
+          { id: 't1', name: 'T', method: 'GET', url: '/api', headers: [],
+            validation: { mode: 'none' }, auth: { type: 'none' } },
+        ],
+      }],
+    }];
+    const { result } = renderHook(() =>
+      useRunnerOrchestration({ ...defaultOpts, featureGroups: fgs }),
+    );
+    act(() => { result.current.setRunnerTagFilter('smoke'); });
+    act(() => { result.current.handleRun(); });
+    const passedTests = mockExecute.mock.calls[0][1];
+    expect(passedTests).toHaveLength(1);
+  });
+
+  it('handleRun with empty tag filter passes all tests unchanged', () => {
+    const { result } = renderHook(() => useRunnerOrchestration(defaultOpts));
+    act(() => { result.current.handleRun(); });
+    expect(mockExecute).toHaveBeenCalledTimes(1);
+    const [cfg] = mockExecute.mock.calls[0];
+    expect(cfg.executionMode).toBe('sequential');
+  });
+
+  it('progressKey uses param suffix for parameterized kind', () => {
+    const { result: r1 } = renderHook(() => useRunnerOrchestration(defaultOpts));
+    const { result: r2 } = renderHook(() =>
+      useRunnerOrchestration({ ...defaultOpts, kind: 'parameterized' }),
+    );
+    expect(r1.current.allocation.kind).not.toBe(r2.current.allocation.kind);
+  });
+
+  it('handleRun resolves shared data sources', () => {
+    const { result } = renderHook(() => useRunnerOrchestration(defaultOpts));
+    act(() => { result.current.handleRun(); });
+    expect(mockExecute).toHaveBeenCalledTimes(1);
+    const meta = mockExecute.mock.calls[0][2];
+    expect(meta.envName).toBe('Test');
+  });
+
+  it('handleRun with data rows containing no tags excludes them when tag filter is set', () => {
+    const fgs: FeatureGroup[] = [{
+      id: 'fg1', name: 'FG',
+      scenarios: [{
+        id: 'sc1', name: 'S', kind: 'standard',
+        tests: [{
+          id: 't1', name: 'T', method: 'GET', url: '/api', headers: [],
+          validation: { mode: 'none' }, auth: { type: 'none' },
+          dataSource: {
+            columns: [{ id: 'c1', name: 'col' }],
+            rows: [
+              { id: 'r1', values: { c1: 'a' }, enabled: true },
+            ],
+          },
+        }],
+      }],
+    }];
+    const { result } = renderHook(() =>
+      useRunnerOrchestration({ ...defaultOpts, featureGroups: fgs }),
+    );
+    act(() => { result.current.setRunnerTagFilter('smoke'); });
+    act(() => { result.current.handleRun(); });
+    const passedTests = mockExecute.mock.calls[0][1];
+    expect(passedTests).toHaveLength(0);
+  });
+
+  it('configContextKey uses param suffix for parameterized kind', () => {
+    const { result } = renderHook(() =>
+      useRunnerOrchestration({ ...defaultOpts, kind: 'parameterized', envId: undefined, svcId: undefined }),
+    );
+    expect(result.current.allocation.kind).toBe('parameterized');
+  });
 });

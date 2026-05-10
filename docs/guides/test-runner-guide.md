@@ -4,18 +4,28 @@ Configure and execute performance tests with the Test Runner — control concurr
 
 ## Overview
 
-The **Test Runner** executes your scenarios as performance tests with:
-- Configurable concurrency and transaction counts
+RedfireForge provides three specialized runners:
+
+| Runner | Purpose |
+|--------|---------|
+| **Test Runner** | Run standard (non-parameterized) scenario tests under load |
+| **Parameterized Runner** | Run data-driven scenarios with CSV/JSON data sources |
+| **Workflow Runner** | Run workflow graphs as performance tests |
+
+The **Test Runner** executes your standard scenarios with:
+- Configurable concurrency and iteration counts
 - Multiple execution modes
 - Real-time progress monitoring
 - Detailed results and metrics
 
 ## Getting Started
 
-1. Go to **Harness** → **Runner** tab
-2. Select scenarios to run
+1. Go to **Harness** → **Test Runner** tab
+2. Select standard scenarios to run
 3. Configure execution settings
 4. Click **▶ Run Test**
+
+> **Note:** Parameterized scenarios appear only in the **Parameterized Runner** tab. See [Parameterized Testing Guide](./parameterized-testing-guide.md).
 
 ## Execution Modes
 
@@ -34,7 +44,7 @@ Request 1 → Wait → Request 2 → Wait → Request 3 → ...
 
 **Settings:**
 - Concurrency: Fixed to 1
-- Transactions: Total requests to execute
+- Iterations: Total number of iterations to execute
 
 ### Batch
 
@@ -50,7 +60,7 @@ Fires N requests simultaneously, waits for all to complete, then fires the next 
 
 **Settings:**
 - Concurrency: N requests per batch
-- Transactions: Total requests to execute
+- Iterations: Total number of iterations to execute
 
 ### Continuous Pool
 
@@ -70,7 +80,7 @@ Maintains exactly N requests in-flight at all times. When any request completes,
 
 **Settings:**
 - Concurrency: N parallel requests
-- Transactions: Total requests to execute
+- Iterations: Total number of iterations to execute
 
 ### Load Profile
 
@@ -103,7 +113,7 @@ Executes a workflow graph as a performance test. See [Workflow Runner Guide](./w
 | Setting | Description | Default |
 |---------|-------------|---------|
 | **Concurrency** | Parallel requests | 1 |
-| **Transactions** | Total requests | 10 |
+| **Iterations** | Number of iterations | 10 |
 | **Timeout** | Per-request timeout (seconds) | 30 |
 
 ### Retry Settings
@@ -184,7 +194,7 @@ Progress: ████████████░░░░░░░░ 60% (600/
 
 | Metric | Description |
 |--------|-------------|
-| **TPS** | Current transactions per second |
+| **TPS** | Current requests per second |
 | **Avg Response** | Running average response time |
 | **Error Rate** | Current error percentage |
 
@@ -193,7 +203,7 @@ Progress: ████████████░░░░░░░░ 60% (600/
 Tags show active configuration:
 
 ```
-[Pool] [C:10] [T:1000] [Settings Host] [Think: 500ms]
+[Pool] [C:10] [I:1000] [Settings Host] [Think: 500ms]
 ```
 
 ## Stopping a Run
@@ -205,7 +215,7 @@ Click **■ Stop** to abort:
 
 The run may also stop automatically:
 - **Circuit breaker** triggered (error policy)
-- All transactions completed
+- All iterations completed
 - Timeout reached
 
 ## After the Run
@@ -225,13 +235,13 @@ Previous runs are saved and selectable from the Results dropdown.
 
 ### 1. Start Small
 
-Begin with low concurrency/transactions, then scale up:
+Begin with low concurrency/iterations, then scale up:
 
 ```
-First: C:1, T:10 (validation)
-Then:  C:5, T:100 (small load)
-Then:  C:20, T:1000 (medium load)
-Finally: C:50, T:5000 (stress test)
+First: C:1, I:10 (validation)
+Then:  C:5, I:100 (small load)
+Then:  C:20, I:1000 (medium load)
+Finally: C:50, I:5000 (stress test)
 ```
 
 ### 2. Use Think Time for Realism
@@ -259,7 +269,7 @@ When testing pure performance, disable validation:
 Always run a quick sequential test first:
 
 ```
-C:1, T:5, Mode: Sequential
+C:1, I:5, Mode: Sequential
 ```
 
 Confirms tests work before applying load.
@@ -281,5 +291,5 @@ Confirms tests work before applying load.
 
 - [Scenarios Guide](./scenarios-guide.md) — Organize tests
 - [Results Guide](./results-guide.md) — Analyze results
-- [Runners Comparison](./runners-comparison.md) — Test Runner vs Workflow Runner
+- [Runners Comparison](./runners-comparison.md) — Test Runner vs Parameterized Runner vs Workflow Runner
 - [Workflow Runner Guide](./workflow-runner-guide.md) — Workflow-based testing

@@ -21,7 +21,7 @@ echo ""
 echo "Step 2: Running test..."
 npx tsx cli/index.ts run examples/cli-basic-test.yaml \
   --concurrency 2 \
-  --transactions 10 \
+  --iterations 10 \
   --output results/basic-results.json \
   --junit results/basic-results.xml \
   --markdown results/basic-results.md

@@ -22,7 +22,7 @@ Full structured data for programmatic use.
   "timestamp": "2024-01-15T10:30:00.000Z",
   "config": {
     "concurrency": 10,
-    "transactions": 1000,
+    "iterations": 1000,
     "mode": "pool"
   },
   "summary": {
