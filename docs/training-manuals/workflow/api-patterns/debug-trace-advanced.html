@@ -296,6 +296,17 @@ output.elapsed = String(elapsed);</pre>
   so they only execute when debugging is enabled.
 </div>
 
+<div class="callout callout-tip">
+  <strong>💡 Built-in Trace Levels</strong>
+  RedfireForge now has built-in <strong>Trace Levels</strong> (Minimal, Standard, Full, Debug) that you can
+  set in the Workflow Runner before executing. At <strong>Debug</strong> level, the engine automatically captures
+  <code>console.log()</code> output from Script nodes and raw log lines per node — no manual trace nodes needed.
+  The Results Explorer Console (<strong>⌘J</strong>) shows this captured output per iteration. For most debugging
+  scenarios, setting Trace Level to Debug and using the Results Explorer Console is easier than adding
+  manual Script-based trace nodes. Use this manual's pattern when you need <em>custom</em> trace formatting
+  beyond what the built-in levels provide.
+</div>
+
 <!-- ════════════════════════════════════════════ -->
 <!-- 5. DEV GUIDE                                -->
 <!-- ════════════════════════════════════════════ -->

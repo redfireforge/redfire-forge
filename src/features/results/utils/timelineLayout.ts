@@ -1,4 +1,5 @@
 import type { ExecutionEvent, WorkflowIterationTrace } from '../../../shared/types';
+import { isSampledIteration } from './sampledIterations';
 
 export interface TimelineBar {
   nodeId: string;
@@ -139,7 +140,7 @@ export function getMaxLane(bars: TimelineBar[]): number {
  */
 export function buildAggregateBars(iterations: WorkflowIterationTrace[]): TimelineBar[][] {
   return iterations
-    .filter(iter => iter.sampled !== false)
+    .filter(isSampledIteration)
     .map(iter => buildTimelineBars(iter.events));
 }
 

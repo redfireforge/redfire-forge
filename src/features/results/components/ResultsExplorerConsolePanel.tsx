@@ -6,6 +6,7 @@ import { reconstructLogLines } from '../utils/reconstructLogLines';
 import { buildAggregateSummary } from '../utils/buildAggregateSummary';
 import { inferCaptureLevel } from '../utils/inferCaptureLevel';
 import type { WorkflowExecutionTrace } from '../../../shared/types';
+import { isSampledIteration } from '../utils/sampledIterations';
 
 type PanelMode = 'docked' | 'maximized' | 'floating';
 
@@ -71,20 +72,31 @@ export default function ResultsExplorerConsolePanel({
 
   // Build log lines from structured trace data
   const logLines = useMemo<LogLine[]>(() => {
-    if (isMinimal) return [];
+    if (isMinimal) {
+      if (iteration) {
+        const errorEvents = iteration.events.filter(e => e.state === 'fail');
+        if (errorEvents.length === 0) return [];
+        return reconstructLogLines(
+          { ...iteration, events: errorEvents },
+          { nodeFilter: nodeFilter || undefined, includeHttpBodies: false, preferRawLogs: false },
+        );
+      }
+      return buildAggregateSummary(trace);
+    }
     if (iteration) {
       return reconstructLogLines(iteration, {
         nodeFilter: nodeFilter || undefined,
         includeHttpBodies,
+        preferRawLogs: effectiveLevel === 'debug',
       });
     }
     // Aggregate mode: compact summary instead of full log dump
     return buildAggregateSummary(trace);
-  }, [iteration, isMinimal, nodeFilter, includeHttpBodies, trace]);
+  }, [iteration, isMinimal, nodeFilter, includeHttpBodies, effectiveLevel, trace]);
 
   // Unique nodes for filter dropdown, ordered by workflow snapshot position
   const nodeOptions = useMemo(() => {
-    const iters = iteration ? [iteration] : trace.iterations.filter(it => it.sampled !== false);
+    const iters = iteration ? [iteration] : trace.iterations.filter(isSampledIteration);
     const seen = new Map<string, string>();
     for (const iter of iters) {
       for (const event of iter.events) {
@@ -111,6 +123,7 @@ export default function ResultsExplorerConsolePanel({
     return indices;
   }, [logLines, searchQuery]);
 
+  const matchSet = useMemo(() => new Set(matchIndices), [matchIndices]);
   const matchCount = matchIndices.length;
 
   // Close node filter dropdown on click outside
@@ -158,7 +171,7 @@ export default function ResultsExplorerConsolePanel({
   const hasScrolledToError = useRef(false);
   useEffect(() => {
     if (hasScrolledToError.current || !containerRef.current) return;
-    const firstErrorIdx = logLines.findIndex(l => l.prefix === '!');
+    const firstErrorIdx = logLines.findIndex(l => l.prefix === '!' || l.prefix === 'error');
     if (firstErrorIdx >= 0) {
       const errorEl = containerRef.current.children[firstErrorIdx] as HTMLElement | undefined;
       if (errorEl?.scrollIntoView) errorEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -304,6 +317,9 @@ export default function ResultsExplorerConsolePanel({
       style={mode === 'floating' ? { cursor: 'grab' } : undefined}
     >
       <span className="re-console-title">Console</span>
+      <span className="re-console-header-level" data-testid="console-header-level" title={`Trace level: ${effectiveLevel}`}>
+        {effectiveLevel}
+      </span>
       <span className="re-console-count">{logLines.length} line{logLines.length !== 1 ? 's' : ''}</span>
 
       {/* Node filter */}
@@ -409,16 +425,16 @@ export default function ResultsExplorerConsolePanel({
     </div>
   );
 
-  if (isMinimal) {
+  if (isMinimal && logLines.length === 0) {
     return (
       <div className={rootClass} style={rootStyle} data-testid="results-console-panel">
         {mode === 'docked' && <div className="re-console-resize-handle" onMouseDown={onDockedResizeStart} />}
         {renderHeader()}
         <div className="re-console-body re-console-disabled" data-testid="results-console-disabled">
           <div className="re-console-disabled-msg">
-            Console requires <strong>Standard</strong> or higher trace level.
+            No errors captured. Minimal trace only records failures.
             <br />
-            <span className="re-console-disabled-hint">Current level: Minimal — only errors are captured.</span>
+            <span className="re-console-disabled-hint">Use Standard or higher trace level for full console output.</span>
           </div>
         </div>
         {mode === 'floating' && (
@@ -449,7 +465,7 @@ export default function ResultsExplorerConsolePanel({
           </div>
         ) : (
           logLines.map((line, i) => {
-            const isMatch = searchQuery && matchIndices.includes(i);
+            const isMatch = searchQuery && matchSet.has(i);
             const isCurrent = isMatch && matchIndices[currentMatchIdx] === i;
             return (
               <ConsoleLogLine

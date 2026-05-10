@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ReactFlowProvider } from '@xyflow/react';
 
 import type { WorkflowExecutionTrace, WorkflowIterationTrace, ExecutionEvent } from '../../../shared/types';
+import { isSampledIteration } from '../utils/sampledIterations';
 import FullPanelModal from '../../../shared/components/FullPanelModal';
 import WorkflowExecutionCanvas, { type NodeStateFilter, type CanvasScreenshotFn, type CanvasSvgFn } from './WorkflowExecutionCanvas';
 import ExecutionTimeline from './ExecutionTimeline';
@@ -78,7 +79,7 @@ export default function WorkflowResultsExplorerModal({ trace, onClose, importedF
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const sampledCount = useMemo(
-    () => currentTrace.iterations.filter(i => i.sampled !== false).length,
+    () => currentTrace.iterations.filter(isSampledIteration).length,
     [currentTrace.iterations],
   );
   const isSampled = sampledCount < currentTrace.iterations.length;
@@ -90,7 +91,7 @@ export default function WorkflowResultsExplorerModal({ trace, onClose, importedF
   }, [currentTrace, selectedIteration]);
 
   const isSelectedIterationSampled = selectedIteration !== undefined
-    && currentIterationTrace?.sampled !== false;
+    && (currentIterationTrace ? isSampledIteration(currentIterationTrace) : false);
 
   const iterationTransitioning = useIterationTransition(selectedIteration);
 

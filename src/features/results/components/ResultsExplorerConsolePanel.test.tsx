@@ -398,6 +398,22 @@ describe('ResultsExplorerConsolePanel', () => {
     expect(opts?.includeHttpBodies).toBe(true);
   });
 
+  it('passes preferRawLogs true for debug trace level', () => {
+    const spy = vi.spyOn(reconstructLogLinesModule, 'reconstructLogLines');
+    render(<ResultsExplorerConsolePanel {...defaultProps} captureLevel="debug" />);
+    expect(spy).toHaveBeenCalled();
+    const opts = spy.mock.calls[spy.mock.calls.length - 1]?.[1];
+    expect(opts?.preferRawLogs).toBe(true);
+  });
+
+  it('passes preferRawLogs false for standard trace level', () => {
+    const spy = vi.spyOn(reconstructLogLinesModule, 'reconstructLogLines');
+    render(<ResultsExplorerConsolePanel {...defaultProps} captureLevel="standard" />);
+    expect(spy).toHaveBeenCalled();
+    const opts = spy.mock.calls[spy.mock.calls.length - 1]?.[1];
+    expect(opts?.preferRawLogs).toBeFalsy();
+  });
+
   it('renders mode selector with docked/floating/fullscreen options', () => {
     render(<ResultsExplorerConsolePanel {...defaultProps} />);
     const modeSelect = screen.getByTitle('Console display mode (saved as default)') as HTMLSelectElement;

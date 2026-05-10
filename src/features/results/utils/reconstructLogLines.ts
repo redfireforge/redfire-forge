@@ -1,5 +1,6 @@
 import type { WorkflowIterationTrace, ExecutionEvent } from '../../../shared/types';
 import type { LogLine } from '../../../shared/utils/consoleLogUtils';
+import { formatNodeTypeConsole as formatNodeType } from './nodeTypeLabels';
 
 /**
  * Reconstruct console-style LogLines from structured ExecutionEvent data.
@@ -12,11 +13,13 @@ export function reconstructLogLines(
   options?: {
     nodeFilter?: string;
     includeHttpBodies?: boolean;
+    preferRawLogs?: boolean;
   },
 ): LogLine[] {
   const lines: LogLine[] = [];
   const nodeFilter = options?.nodeFilter;
   const includeHttpBodies = options?.includeHttpBodies ?? false;
+  const preferRawLogs = options?.preferRawLogs ?? false;
 
   lines.push({
     prefix: '*',
@@ -24,7 +27,7 @@ export function reconstructLogLines(
     ts: iteration.events[0]?.timestamp ?? 0,
   });
 
-  emitEvents(lines, iteration.events, { nodeFilter, includeHttpBodies, depth: 0 });
+  emitEvents(lines, iteration.events, { nodeFilter, includeHttpBodies, preferRawLogs, depth: 0 });
 
   lines.push({
     prefix: iteration.passed ? '*' : '!',
@@ -40,9 +43,9 @@ const MAX_SUB_WORKFLOW_DEPTH = 5;
 function emitEvents(
   lines: LogLine[],
   events: ExecutionEvent[],
-  ctx: { nodeFilter?: string; includeHttpBodies: boolean; depth: number },
+  ctx: { nodeFilter?: string; includeHttpBodies: boolean; preferRawLogs: boolean; depth: number },
 ): void {
-  const { nodeFilter, includeHttpBodies, depth } = ctx;
+  const { nodeFilter, includeHttpBodies, preferRawLogs, depth } = ctx;
 
   for (const event of events) {
     if (nodeFilter && depth === 0 && event.nodeId !== nodeFilter) continue;
@@ -51,17 +54,34 @@ function emitEvents(
     const ts = event.timestamp;
     const d = event.details;
 
-    lines.push({
-      prefix: '*',
-      text: `[${label}] ${formatNodeType(event.nodeType)} — started`,
-      ts,
-      nodeId: event.nodeId,
-      nodeLabel: label,
-      depth,
-    });
+    // When raw logLines are available and preferred, emit them directly
+    if (preferRawLogs && d?.logLines && d.logLines.length > 0) {
+      for (const raw of d.logLines) {
+        lines.push({
+          prefix: raw.prefix,
+          text: raw.text,
+          ts: raw.ts,
+          nodeId: event.nodeId,
+          nodeLabel: label,
+          depth,
+        });
+      }
+    } else {
+      lines.push({
+        prefix: '*',
+        text: `${formatNodeType(event.nodeType)} — started`,
+        ts,
+        nodeId: event.nodeId,
+        nodeLabel: label,
+        depth,
+      });
+
+      if (d) {
+        emitDetails(lines, event, d, { includeHttpBodies, depth });
+      }
+    }
 
     if (d) {
-      emitDetails(lines, event, d, { includeHttpBodies, depth });
 
       // Sub-workflow: recurse into child trace
       if (d.subWorkflowTrace && depth < MAX_SUB_WORKFLOW_DEPTH) {
@@ -87,6 +107,7 @@ function emitEvents(
           emitEvents(lines, childIter.events, {
             nodeFilter: undefined,
             includeHttpBodies,
+            preferRawLogs,
             depth: depth + 1,
           });
 
@@ -112,7 +133,7 @@ function emitEvents(
     const durationStr = event.durationMs !== undefined ? ` (${event.durationMs}ms)` : '';
     lines.push({
       prefix: event.state === 'fail' ? '!' : '*',
-      text: `[${label}] ${event.state === 'pass' ? 'passed' : event.state === 'fail' ? 'FAILED' : 'skipped'}${durationStr}`,
+      text: `${event.state === 'pass' ? 'passed' : event.state === 'fail' ? 'FAILED' : 'skipped'}${durationStr}`,
       ts: ts + (event.durationMs ?? 0),
       nodeId: event.nodeId,
       nodeLabel: label,
@@ -185,31 +206,16 @@ function emitDetails(
     lines.push({ prefix: '*', text: `Loop iteration ${(d.currentLoopIndex ?? 0) + 1} of ${d.loopIterationCount}`, ts, nodeId: event.nodeId, nodeLabel: label, depth });
   }
 
+  if (d.scriptOutput) {
+    const scriptLines = Array.isArray(d.scriptOutput) ? d.scriptOutput as string[] : [String(d.scriptOutput)];
+    for (const line of scriptLines) {
+      lines.push({ prefix: '#', text: `script: ${line}`, ts: ts + (event.durationMs ?? 0), nodeId: event.nodeId, nodeLabel: label, depth });
+    }
+  }
+
   if (d.error) {
     lines.push({ prefix: '!', text: d.error, ts: ts + (event.durationMs ?? 0), nodeId: event.nodeId, nodeLabel: label, depth });
   }
-}
-
-function formatNodeType(type: string): string {
-  const labels: Record<string, string> = {
-    http: 'HTTP',
-    condition: 'Condition',
-    delay: 'Delay',
-    fork: 'Fork',
-    join: 'Join',
-    loop: 'Loop',
-    setVariable: 'Set Variable',
-    script: 'Script',
-    aggregate: 'Aggregate',
-    correlationWait: 'Correlation Wait',
-    waitForCondition: 'Wait For Condition',
-    subWorkflow: 'Sub-Workflow',
-    webhook: 'Webhook',
-    schedule: 'Schedule',
-    start: 'Start',
-    errorHandler: 'Error Handler',
-  };
-  return labels[type] ?? type;
 }
 
 function truncateBody(body: string, max = 200): string {

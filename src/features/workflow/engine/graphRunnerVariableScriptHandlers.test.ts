@@ -184,6 +184,52 @@ describe('handleScriptNode', () => {
     // Should call executeScript with a preamble string (3rd argument)
     expect(mockExecuteScript).toHaveBeenCalled();
   });
+
+  it('stores console logs in capturedScriptOutput map', async () => {
+    mockExecuteScript.mockReturnValue({
+      success: true,
+      outputs: {},
+      consoleLogs: ['line one', 'line two'],
+      error: undefined,
+    });
+
+    const capturedScriptOutput = new Map<string, string[]>();
+    const { callbacks } = makeCallbacks();
+    const hCtx = makeHandlerContext({ callbacks, capturedScriptOutput });
+    const node = makeNode('sc1', 'script', {
+      mode: 'expression',
+      inputVariables: [],
+      outputVariables: [],
+      code: '',
+    });
+
+    await handleScriptNode('sc1', node, hCtx, makePassedFlag());
+
+    expect(capturedScriptOutput.get('sc1')).toEqual(['line one', 'line two']);
+  });
+
+  it('does not store empty console logs', async () => {
+    mockExecuteScript.mockReturnValue({
+      success: true,
+      outputs: {},
+      consoleLogs: [],
+      error: undefined,
+    });
+
+    const capturedScriptOutput = new Map<string, string[]>();
+    const { callbacks } = makeCallbacks();
+    const hCtx = makeHandlerContext({ callbacks, capturedScriptOutput });
+    const node = makeNode('sc1', 'script', {
+      mode: 'expression',
+      inputVariables: [],
+      outputVariables: [],
+      code: '',
+    });
+
+    await handleScriptNode('sc1', node, hCtx, makePassedFlag());
+
+    expect(capturedScriptOutput.has('sc1')).toBe(false);
+  });
 });
 
 // ── handleAggregateNode ──

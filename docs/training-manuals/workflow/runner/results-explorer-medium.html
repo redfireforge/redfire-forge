@@ -135,6 +135,7 @@
   <li><a href="#timeline">Timeline View (Gantt Chart)</a></li>
   <li><a href="#drilldown">Sub-Workflow Drill-Down</a></li>
   <li><a href="#swim-lanes">Parallel Swim Lanes &amp; Critical Path</a></li>
+  <li><a href="#console">Console Panel</a></li>
   <li><a href="#shortcuts">Keyboard Shortcuts</a></li>
   <li><a href="#tips">Tips &amp; Best Practices</a></li>
   <li><a href="#related">Related Training</a></li>
@@ -171,9 +172,9 @@
 <h2 id="prerequisites">Prerequisites</h2>
 <ol>
   <li>
-    <strong>Trace level (recommended for deep inspection).</strong> In <strong>Workflow Runner</strong>, choose a <strong>Trace level</strong> from
-    the dropdown before you run: <strong>Minimal &mdash; errors only</strong>, <strong>Standard &mdash; summary + assertions</strong>,
-    <strong>Full &mdash; request/response bodies</strong>, <strong>Debug &mdash; full + log lines</strong>. For full request/response visibility in
+    <strong>Trace level (recommended for deep inspection).</strong> In <strong>Workflow Runner</strong>, select a <strong>Trace Level</strong> using
+    the radio buttons before you run: <strong>Minimal</strong> (errors only), <strong>Standard</strong> (summary + assertions),
+    <strong>Full</strong> (request/response bodies), <strong>Debug</strong> (full + log lines). For full request/response visibility in
     Results Explorer, use <strong>Full</strong> or <strong>Debug</strong>; those levels persist headers, bodies, variable snapshots, and rich assertion
     detail. With <strong>Minimal</strong> or <strong>Standard</strong>, the explorer still opens and shows timing and pass/fail, but detailed Request/Response/Variables
     content may be limited.
@@ -578,12 +579,116 @@
 </p>
 
 <!-- ════════════════════════════════════════════ -->
+<!-- CONSOLE PANEL                               -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="console">Console Panel</h2>
+<p>
+  The <strong>Console panel</strong> shows a narrative log of what happened during each iteration&rsquo;s execution.
+  It reconstructs log lines from the structured trace data &mdash; HTTP requests/responses, variable extractions,
+  assertions, errors, and (at Debug level) raw <code>console.log()</code> output from Script nodes.
+</p>
+
+<h3>Opening the Console</h3>
+<ul>
+  <li>Click the <strong>Console</strong> button in the Results Explorer header toolbar (next to Diagram/Timeline).</li>
+  <li>Or press <strong>&lcub;Cmd&rcub;+J</strong> (macOS) / <strong>Ctrl+J</strong> (Windows/Linux).</li>
+  <li>The console appears docked at the bottom of the modal, below the diagram and detail panel.</li>
+</ul>
+
+<h3>Console Header</h3>
+<p>
+  The header shows the <strong>Console</strong> title, a <strong>trace level badge</strong> (e.g., &ldquo;standard&rdquo;, &ldquo;full&rdquo;, &ldquo;debug&rdquo;)
+  indicating what level of detail is available, and a <strong>line count</strong>.
+</p>
+
+<h3>Behavior by Trace Level</h3>
+<table>
+  <tr><th>Trace Level</th><th>Console Content</th></tr>
+  <tr>
+    <td><strong>Minimal</strong></td>
+    <td>Shows captured errors only. If no errors occurred, displays &ldquo;No errors captured.&rdquo;</td>
+  </tr>
+  <tr>
+    <td><strong>Standard</strong></td>
+    <td>Reconstructed narrative: HTTP summaries, assertion results, variable extractions, errors.
+      No HTTP bodies or raw logs.</td>
+  </tr>
+  <tr>
+    <td><strong>Full</strong></td>
+    <td>Same as Standard plus inline HTTP body previews (truncated).</td>
+  </tr>
+  <tr>
+    <td><strong>Debug</strong></td>
+    <td>Full fidelity &mdash; raw <code>onLog</code> lines and Script <code>console.log()</code> output.
+      Identical to the Designer Console experience, but per-iteration and persistent.</td>
+  </tr>
+</table>
+
+<h3>Features</h3>
+<table>
+  <tr><th>Feature</th><th>Description</th></tr>
+  <tr>
+    <td><strong>Iteration-scoped</strong></td>
+    <td>Shows logs for the currently selected iteration. Switch iterations with the picker or arrow keys.</td>
+  </tr>
+  <tr>
+    <td><strong>Node filter</strong></td>
+    <td>Dropdown to filter by a specific node (topologically sorted). Default: &ldquo;All Nodes&rdquo;.</td>
+  </tr>
+  <tr>
+    <td><strong>Search</strong></td>
+    <td>Filter lines by keyword with match count and &uarr;/&darr; navigation between matches.</td>
+  </tr>
+  <tr>
+    <td><strong>Click to select</strong></td>
+    <td>Click a console line to select that node in the diagram and open its detail panel.</td>
+  </tr>
+  <tr>
+    <td><strong>Auto-scroll to error</strong></td>
+    <td>When opened, scrolls to the first error line if errors exist.</td>
+  </tr>
+  <tr>
+    <td><strong>Aggregate view</strong></td>
+    <td>When viewing &ldquo;All iterations&rdquo;, shows a professional summary with pass rate, timing stats, and failures.</td>
+  </tr>
+  <tr>
+    <td><strong>Sub-workflow expansion</strong></td>
+    <td>Sub-workflow execution logs are recursively expanded with depth indentation.</td>
+  </tr>
+  <tr>
+    <td><strong>Display modes</strong></td>
+    <td>Docked (default), floating, or maximized. Drag to resize.</td>
+  </tr>
+</table>
+
+<h3>Log Line Prefixes</h3>
+<table>
+  <tr><th>Prefix</th><th>Meaning</th></tr>
+  <tr><td><code>*</code></td><td>Info / node lifecycle</td></tr>
+  <tr><td><code>&gt;</code></td><td>Outbound request</td></tr>
+  <tr><td><code>&lt;</code></td><td>Inbound response</td></tr>
+  <tr><td><code>#</code></td><td>Variable extraction or script output</td></tr>
+  <tr><td><code>&check;</code></td><td>Assertion passed</td></tr>
+  <tr><td><code>&cross;</code></td><td>Assertion failed</td></tr>
+  <tr><td><code>!</code></td><td>Error</td></tr>
+</table>
+
+<div class="callout callout-tip">
+  <strong>&lcub;Tip&rcub; Use Debug trace level for console-heavy debugging</strong>
+  At Debug level, the Console shows raw <code>console.log()</code> output from Script nodes &mdash;
+  exactly what you&rsquo;d see in the Designer Console, but preserved per-iteration in the trace data
+  so you can review it any time after the run.
+</div>
+
+<!-- ════════════════════════════════════════════ -->
 <!-- KEYBOARD SHORTCUTS                          -->
 <!-- ════════════════════════════════════════════ -->
 <h2 id="shortcuts">Keyboard Shortcuts</h2>
 <table>
   <tr><th>Key</th><th>Action</th></tr>
   <tr><td><code>T</code></td><td>Toggle between Diagram and Timeline view.</td></tr>
+  <tr><td><code>&lcub;Cmd&rcub;+J</code> / <code>Ctrl+J</code></td><td>Toggle Console panel open/closed.</td></tr>
   <tr><td><code>&larr;</code> / <code>&rarr;</code></td><td>Move to previous / next iteration (multi-iteration runs only).</td></tr>
   <tr><td><code>1</code> &ndash; <code>9</code></td><td>Jump to iteration 1 &ndash; 9 when that iteration exists.</td></tr>
   <tr><td><code>Space</code></td><td>Toggle between aggregate view and iteration 1.</td></tr>

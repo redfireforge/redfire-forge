@@ -1,4 +1,5 @@
 import type { WorkflowExecutionTrace } from '../../../shared/types';
+import { isSampledIteration } from './sampledIterations';
 
 export interface BottleneckInsight {
   nodeId: string;
@@ -41,7 +42,7 @@ interface NodeStats {
 export function computeNodeStats(trace: WorkflowExecutionTrace): NodeStats[] {
   const durationsMap = new Map<string, { durations: number[]; failures: number; label: string; type: string }>();
 
-  const sampledIterations = trace.iterations.filter(it => it.sampled !== false);
+  const sampledIterations = trace.iterations.filter(isSampledIteration);
   for (const iter of sampledIterations) {
     for (const event of iter.events) {
       if (event.durationMs === undefined) continue;
