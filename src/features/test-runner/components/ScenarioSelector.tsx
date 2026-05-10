@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import type { FeatureGroup, GlobalAuthProfile, AuthConfig, ScenarioKind } from '../../../shared/types';
-import type { RunnerConfig } from '../hooks/useRunnerConfig';
+import type { RunnerConfig } from '../hooks/runnerConfigDefaults';
 import { buildSelectedTests } from '../utils/buildSelectedTests';
 
 interface Props {

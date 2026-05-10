@@ -356,9 +356,9 @@ test.describe('Sub-Workflow Drill-Down — Live Execution', () => {
     await page.waitForTimeout(1000);
 
     // Select the parent workflow
-    const wfSelect = page.locator('.workflow-picker-select').first();
-    await expect(wfSelect).toBeVisible({ timeout: 5000 });
-    await wfSelect.selectOption('sample-workflow-sub-workflow');
+    await expect(page.getByTestId('workflow-select')).toBeVisible({ timeout: 5000 });
+    await page.getByTestId('workflow-select').click();
+    await page.locator('.wfp-dropdown-item:has-text("Sub-Workflow Orchestrator")').click();
     await page.waitForTimeout(500);
 
     // Click Run
