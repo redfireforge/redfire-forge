@@ -544,75 +544,54 @@ export default function WorkflowRunner({ workflows, folders, onComplete, initial
               </div>
             )}
 
-            {/* Trace level dropdown */}
-            <div className="wf-inline-option">
-              <span className="wf-inline-label">Trace level</span>
-              <select
-                className="wf-trace-level-select"
-                value={traceOptions.traceLevel ?? (traceOptions.captureFullTrace ? 'full' : 'standard')}
-                onChange={(e) => {
-                  const level = e.target.value as import('../../shared/types').TraceCaptureLevel;
-                  setTraceOptions(prev => ({
-                    ...prev,
-                    traceLevel: level,
-                    captureFullTrace: level === 'full' || level === 'debug',
-                  }));
-                }}
-                disabled={isRunning}
-              >
-                <option value="minimal">Minimal — errors only</option>
-                <option value="standard">Standard — summary + assertions</option>
-                <option value="full">Full — request/response bodies</option>
-                <option value="debug">Debug — full + log lines</option>
-              </select>
-              <span className="wf-inline-hint">
-                {(traceOptions.traceLevel === 'full' || traceOptions.traceLevel === 'debug' || (!traceOptions.traceLevel && traceOptions.captureFullTrace))
-                  && <span className="wf-inline-warn">(≤100 iterations recommended)</span>}
-              </span>
-            </div>
-
-            {/* Debug + high iteration warning */}
-            {traceOptions.traceLevel === 'debug' && iterations > 10 && (
-              <div className="wf-trace-warning">
-                Debug trace with &gt;10 iterations increases memory usage
-              </div>
-            )}
-
-            {/* Trace sampling toggle — shown for full/debug levels */}
-            {(traceOptions.traceLevel === 'full' || traceOptions.traceLevel === 'debug' || (!traceOptions.traceLevel && traceOptions.captureFullTrace)) && (
-              <div className="wf-sampling-config">
-                <div className="wf-sampling-row">
-                  <label className="wf-inline-toggle">
+            {/* Trace level — radio row matching Execution Mode style */}
+            <div className="wf-inline-option" style={{ flex: '0 0 auto' }}>
+              <span className="runner-exec-label">Trace Level:</span>
+              {(['minimal', 'standard', 'full', 'debug'] as const).map(level => (
+                <label key={level} className="radio-label">
+                  <input
+                    type="radio"
+                    name="wf-traceLevel"
+                    checked={(traceOptions.traceLevel ?? (traceOptions.captureFullTrace ? 'full' : 'standard')) === level}
+                    onChange={() => {
+                      setTraceOptions(prev => ({
+                        ...prev,
+                        traceLevel: level,
+                        captureFullTrace: level === 'full' || level === 'debug',
+                      }));
+                    }}
+                    disabled={isRunning}
+                  />
+                  {level.charAt(0).toUpperCase() + level.slice(1)}
+                </label>
+              ))}
+              {(traceOptions.traceLevel === 'full' || traceOptions.traceLevel === 'debug' || (!traceOptions.traceLevel && traceOptions.captureFullTrace)) && (
+                <>
+                  <label className="radio-label" style={{ marginLeft: 8 }}>
                     <input
                       type="checkbox"
                       checked={traceOptions.samplingEnabled !== false}
                       onChange={(e) => setTraceOptions(prev => ({ ...prev, samplingEnabled: e.target.checked }))}
                       disabled={isRunning}
                     />
-                    <span className="wf-inline-toggle-label">Trace sampling</span>
+                    Sampling
                   </label>
-                  <span className="wf-inline-hint">— keep only a subset of iteration traces for large runs</span>
-                </div>
-                {traceOptions.samplingEnabled !== false && (
-                  <div className="wf-sampling-threshold">
-                    <label className="wf-inline-label">
-                      Threshold:
-                      <input
-                        type="number"
-                        min={10}
-                        max={1000}
-                        step={10}
-                        value={traceOptions.samplingThreshold ?? 50}
-                        onChange={(e) => setTraceOptions(prev => ({ ...prev, samplingThreshold: Math.max(10, parseInt(e.target.value) || 50) }))}
-                        disabled={isRunning}
-                        className="wf-sampling-threshold-input"
-                      />
-                    </label>
-                    <span className="wf-inline-hint">iterations — full traces kept for runs above this count</span>
-                  </div>
-                )}
-              </div>
-            )}
+                  {traceOptions.samplingEnabled !== false && (
+                    <input
+                      type="number"
+                      min={10}
+                      max={1000}
+                      step={10}
+                      value={traceOptions.samplingThreshold ?? 50}
+                      onChange={(e) => setTraceOptions(prev => ({ ...prev, samplingThreshold: Math.max(10, parseInt(e.target.value) || 50) }))}
+                      disabled={isRunning}
+                      className="wf-sampling-threshold-input"
+                    />
+                  )}
+                  <span className="exec-mode-hint">(≤100 iters recommended)</span>
+                </>
+              )}
+            </div>
           </div>
 
           {/* Execution settings (concurrency, iterations, etc.) — hidden for webhook load test mode */}

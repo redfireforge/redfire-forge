@@ -395,7 +395,7 @@ describe('reconstructLogLines', () => {
 
     for (const k of kinds) {
       expect(
-        lines.some(l => l.text.includes(`[${k.needle}]`) && l.text.includes(k.needle + ' — started')),
+        lines.some(l => l.text.includes(k.needle + ' — started') && l.nodeLabel === k.needle),
         k.nodeType,
       ).toBe(true);
     }
@@ -405,7 +405,7 @@ describe('reconstructLogLines', () => {
     const event = makeEvent({ nodeId: 'u1', nodeType: 'customGadget', nodeLabel: 'Gadget' });
     const lines = reconstructLogLines(makeIteration([event]));
 
-    expect(lines.some(l => l.text.includes('[Gadget] customGadget — started'))).toBe(true);
+    expect(lines.some(l => l.text.includes('customGadget — started') && l.nodeLabel === 'Gadget')).toBe(true);
   });
 
   it('marks sub-workflow header FAILED and plural iterations', () => {
@@ -526,7 +526,7 @@ describe('reconstructLogLines', () => {
     const event = makeEvent({ nodeId: 'id-only', nodeLabel: undefined as never });
     const lines = reconstructLogLines(makeIteration([event]));
 
-    expect(lines.some(l => l.text.includes('[id-only]'))).toBe(true);
+    expect(lines.some(l => l.nodeLabel === 'id-only')).toBe(true);
   });
 
   it('child sub-workflow uses workflowName fallback when id and name missing', () => {
@@ -687,8 +687,143 @@ describe('reconstructLogLines', () => {
     });
     const lines = reconstructLogLines(makeIteration([event]));
 
-    const done = lines.filter(l => l.text.includes('passed') && l.text.startsWith('['));
-    expect(done[0].text.endsWith('passed')).toBe(true);
+    const done = lines.filter(l => l.text === 'passed' && l.nodeId === 'n1');
+    expect(done.length).toBeGreaterThan(0);
     expect(done[0].text).not.toContain('ms)');
+  });
+
+  it('prefers raw logLines when preferRawLogs is true', () => {
+    const rawTs = 42;
+    const event = makeEvent({
+      nodeId: 'nodeRaw',
+      nodeLabel: 'Raw Step',
+      details: {
+        logLines: [
+          { prefix: '>', text: 'RAW_REQUEST_LINE', ts: rawTs },
+          { prefix: '<', text: 'RAW_RESPONSE_LINE', ts: rawTs + 1 },
+        ],
+      },
+    });
+    const lines = reconstructLogLines(makeIteration([event]), { preferRawLogs: true });
+
+    const r1 = lines.find(l => l.text === 'RAW_REQUEST_LINE');
+    const r2 = lines.find(l => l.text === 'RAW_RESPONSE_LINE');
+    expect(r1).toBeDefined();
+    expect(r1!.prefix).toBe('>');
+    expect(r1!.ts).toBe(rawTs);
+    expect(r1!.nodeId).toBe('nodeRaw');
+    expect(r1!.nodeLabel).toBe('Raw Step');
+    expect(r2).toBeDefined();
+    expect(r2!.prefix).toBe('<');
+    expect(r2!.nodeId).toBe('nodeRaw');
+    expect(r2!.nodeLabel).toBe('Raw Step');
+
+    expect(lines.some(l => l.text.includes('[Raw Step]') && l.text.includes('started'))).toBe(false);
+  });
+
+  it('falls back to reconstructed narrative when logLines is empty and preferRawLogs is true', () => {
+    const event = makeEvent({
+      nodeId: 'n-empty-raw',
+      nodeLabel: 'Empty Raw',
+      details: {
+        logLines: [],
+        method: 'PUT',
+        url: '/fallback',
+      },
+    });
+    const lines = reconstructLogLines(makeIteration([event]), { preferRawLogs: true });
+
+    expect(lines.some(l => l.text.includes('HTTP — started') && l.nodeLabel === 'Empty Raw')).toBe(true);
+    expect(lines.some(l => l.prefix === '>' && l.text === 'PUT /fallback')).toBe(true);
+  });
+
+  it('falls back to reconstructed narrative when preferRawLogs is false', () => {
+    const event = makeEvent({
+      nodeId: 'n-narrative',
+      nodeLabel: 'Narrative Step',
+      details: {
+        logLines: [{ prefix: 'x', text: 'ONLY_IF_RAW_EMITTED', ts: 99 }],
+        method: 'PATCH',
+        url: '/patch',
+        statusCode: 200,
+      },
+    });
+    const lines = reconstructLogLines(makeIteration([event]), { preferRawLogs: false });
+
+    expect(lines.some(l => l.text === 'ONLY_IF_RAW_EMITTED')).toBe(false);
+    expect(lines.some(l => l.text.includes('HTTP — started') && l.nodeLabel === 'Narrative Step')).toBe(true);
+    expect(lines.some(l => l.text === 'PATCH /patch')).toBe(true);
+  });
+
+  it('renders scriptOutput as # prefix lines', () => {
+    const event = makeEvent({
+      nodeId: 's1',
+      nodeType: 'script',
+      nodeLabel: 'My Script',
+      details: {
+        scriptOutput: ['hello', 'world'],
+      },
+    });
+    const lines = reconstructLogLines(makeIteration([event]));
+
+    expect(lines.filter(l => l.prefix === '#' && l.text === 'script: hello').length).toBe(1);
+    expect(lines.filter(l => l.prefix === '#' && l.text === 'script: world').length).toBe(1);
+  });
+
+  it('handles scriptOutput as string (backward compat)', () => {
+    const event = makeEvent({
+      nodeId: 's2',
+      nodeType: 'script',
+      details: { scriptOutput: 'single line' },
+    });
+    const lines = reconstructLogLines(makeIteration([event]));
+
+    const line = lines.find(l => l.prefix === '#' && l.text === 'script: single line');
+    expect(line).toBeDefined();
+  });
+
+  it('raw log lines carry depth for sub-workflow events', () => {
+    const childEvent = makeEvent({
+      nodeId: 'c-depth',
+      nodeLabel: 'Child Raw',
+      timestamp: 3000,
+      details: {
+        logLines: [{ prefix: '*', text: 'SUB_WORKFLOW_RAW_LINE', ts: 3100 }],
+      },
+    });
+    const childTrace = {
+      workflowName: 'Nested',
+      totalIterations: 1,
+      totalDurationMs: 120,
+      fullTraceCaptured: true,
+      iterations: [{
+        index: 0,
+        passed: true,
+        durationMs: 120,
+        events: [childEvent],
+        finalVariables: {},
+        traversedEdges: [],
+      }],
+      traversedEdges: [],
+      workflowSnapshot: { nodes: [], edges: [] },
+    };
+
+    const parentEvent = makeEvent({
+      nodeId: 'sw-parent',
+      nodeType: 'subWorkflow',
+      nodeLabel: 'Parent SW',
+      details: {
+        subWorkflowId: 'child-wf',
+        subWorkflowPassed: true,
+        subWorkflowTrace: childTrace as never,
+      },
+    });
+    const lines = reconstructLogLines(makeIteration([parentEvent]), { preferRawLogs: true });
+
+    const rawAtDepth = lines.find(l => l.text === 'SUB_WORKFLOW_RAW_LINE');
+    expect(rawAtDepth).toBeDefined();
+    expect(rawAtDepth!.depth).toBe(1);
+    expect(rawAtDepth!.nodeId).toBe('c-depth');
+    expect(rawAtDepth!.nodeLabel).toBe('Child Raw');
   });
 });

@@ -2,6 +2,7 @@ import { useMemo, useState, useCallback } from 'react';
 import type { WorkflowIterationTrace } from '../../../shared/types';
 import { truncate } from '../../../shared/utils/helpers';
 import { formatDurationMs } from '../../../shared/utils/formatDuration';
+import { isSampledIteration } from '../utils/sampledIterations';
 
 type SortField = 'iteration' | 'status' | 'total' | string;
 type SortDirection = 'asc' | 'desc';
@@ -85,7 +86,7 @@ export default function IterationMatrixTable({
         overheadMs: overhead,
         error,
         nodeDurations,
-        sampled: iter.sampled !== false,
+        sampled: isSampledIteration(iter),
       };
     });
   }, [iterations, httpNodes]);

@@ -4,6 +4,7 @@ import JsonTreeViewer from '../../../shared/components/JsonTreeViewer';
 import { formatDurationMs } from '../../../shared/utils/formatDuration';
 import { truncate } from '../../../shared/utils/helpers';
 import { computeHistogramBins } from '../utils/responseTimeHistogram';
+import { formatNodeTypeExplorer as formatNodeType } from '../utils/nodeTypeLabels';
 import {
   computeBranchStats,
   BRANCH_COLORS,
@@ -872,26 +873,3 @@ function AssertionsTab({ event }: { event: ExecutionEvent }) {
   );
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-const NODE_TYPE_LABELS: Record<string, string> = {
-  start: 'START',
-  http: 'HTTP',
-  script: 'SCRIPT',
-  logDebug: 'LOG / DEBUG',
-  delay: 'DELAY',
-  ifCondition: 'CONDITION',
-  loop: 'LOOP',
-  subWorkflow: 'SUB-WORKFLOW',
-  webhook: 'WEBHOOK',
-  schedule: 'SCHEDULE',
-  correlationWait: 'CORRELATION WAIT',
-  end: 'END',
-  errorHandler: 'ERROR HANDLER',
-  group: 'GROUP',
-  parallel: 'PARALLEL',
-};
-
-function formatNodeType(type: string): string {
-  return NODE_TYPE_LABELS[type] ?? type.replace(/([a-z])([A-Z])/g, '$1 $2').toUpperCase();
-}

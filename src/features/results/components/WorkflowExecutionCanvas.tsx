@@ -16,6 +16,7 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import type { WorkflowExecutionTrace } from '../../../shared/types';
+import { isSampledIteration } from '../utils/sampledIterations';
 import { nodeTypes } from '../../workflow/utils/workflowNodeFactory';
 import { identifyBottlenecks, getBottleneckNodeIds, type BottleneckInsight } from '../utils/bottleneckAnalysis';
 import { captureCanvasScreenshot, captureCanvasSvg } from '../utils/canvasScreenshot';
@@ -536,7 +537,7 @@ export default function WorkflowExecutionCanvas({
   // Compute per-edge traversal counts and identify branching edges
   const edgeTraversalData = useMemo(() => {
     const counts = new Map<string, number>();
-    const sampledIterations = trace.iterations.filter(iter => iter.sampled !== false);
+    const sampledIterations = trace.iterations.filter(isSampledIteration);
     const totalIterations = sampledIterations.length;
 
     for (const iter of sampledIterations) {
