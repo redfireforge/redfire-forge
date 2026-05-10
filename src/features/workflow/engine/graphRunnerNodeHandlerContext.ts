@@ -102,6 +102,11 @@ export interface NodeHandlerContext {
    * Populated by handleSubWorkflowNode, consumed when onNodeComplete builds eventDetails.
    */
   capturedSubWorkflowTraces?: Map<string, import('../../../shared/types').WorkflowExecutionTrace>;
+  /**
+   * Storage for captured script console output per node (debug trace level).
+   * Populated by handleScriptNode, consumed when onNodeComplete builds eventDetails.
+   */
+  capturedScriptOutput?: Map<string, string[]>;
 }
 
 /**

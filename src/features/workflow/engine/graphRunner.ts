@@ -33,8 +33,18 @@ import {
 } from './graphRunnerNodeHandlers';
 import { TraceCollector } from './traceCollector';
 import type { GraphRunCallbacks, CorrelationWaitRunnerConfig } from './graphRunnerInterfaces';
+import type { TraceCaptureLevel } from '../../../shared/types';
 // Re-export interfaces so existing consumers of graphRunner.ts stay unbroken.
 export type { GraphRunCallbacks, SubWorkflowRunSummary, CorrelationWaitRunnerConfig } from './graphRunnerInterfaces';
+
+/**
+ * Resolve the effective trace capture level from ExecutionTraceOptions.
+ * When `traceLevel` is set it takes precedence; otherwise we derive from `captureFullTrace`.
+ */
+export function resolveTraceLevel(opts?: import('../../../shared/types').ExecutionTraceOptions): TraceCaptureLevel {
+  if (opts?.traceLevel) return opts.traceLevel;
+  return opts?.captureFullTrace ? 'full' : 'standard';
+}
 
 /**
  * Execute a workflow graph with topological traversal.
@@ -80,12 +90,30 @@ export async function runGraph(
   const results: RequestResult[] = [];
   const traceCollector = new TraceCollector(nodes);
   
-  // Initialize map for capturing HTTP details when full trace is enabled
+  // Initialize maps for capturing execution details
   const capturedHttpDetails = new Map<string, import('./graphRunnerNodeHandlerContext').CapturedHttpNodeDetails>();
   const capturedSubWorkflowTraces = new Map<string, import('../../../shared/types').WorkflowExecutionTrace>();
+  const capturedScriptOutput = new Map<string, string[]>();
 
-  const log = (line: { prefix: string; text: string }) => {
-    callbacks.onLog?.({ ...line, ts: Date.now() });
+  const effectiveLevelOnce = resolveTraceLevel(traceOptions);
+  const nodeLogBuffer = new Map<string, { prefix: string; text: string; ts: number }[]>();
+  const MAX_LOG_LINES_PER_NODE = 200;
+
+  const log = (line: { prefix: string; text: string }, nodeId?: string) => {
+    const entry = { ...line, ts: Date.now() };
+    callbacks.onLog?.(entry);
+    if (effectiveLevelOnce === 'debug' && nodeId) {
+      const buf = nodeLogBuffer.get(nodeId);
+      if (buf) {
+        if (buf.length < MAX_LOG_LINES_PER_NODE) {
+          buf.push(entry);
+        } else if (buf.length === MAX_LOG_LINES_PER_NODE) {
+          buf.push({ prefix: '*', text: `[... log capped at ${MAX_LOG_LINES_PER_NODE} lines]`, ts: entry.ts });
+        }
+      } else {
+        nodeLogBuffer.set(nodeId, [entry]);
+      }
+    }
   };
   const nodeLabel = (id: string) => {
     const n = nodes.find(nd => nd.id === id);
@@ -171,12 +199,16 @@ export async function runGraph(
     callbacks.onNodeStateChange(nodeId, { state: 'running' });
 
     const passedFlag: PassedFlag = { value: allPassed };
+    const nodeLog = (line: { prefix: string; text: string }) => log(line, nodeId);
+    if (effectiveLevelOnce === 'debug' && !nodeLogBuffer.has(nodeId)) {
+      nodeLogBuffer.set(nodeId, []);
+    }
     const hCtx: NodeHandlerContext = {
       nodeMap, outgoing, ctx, tokenManager, results,
       allPassed, visited, joinArrived, incomingCount, callbacks,
       abortSignal, initialVariables, environmentLayer,
       resolveHttpBaseUrl, resolveHttpAuth, debugController,
-      resolveSubWorkflow, log, nodeLabel,
+      resolveSubWorkflow, log: nodeLog, nodeLabel,
       visit, visitOutgoing, threadId,
       correlationStore,
       executionId: `exec-${Math.floor(start)}-${Math.random().toString(36).slice(2, 8)}`,
@@ -189,6 +221,7 @@ export async function runGraph(
       traceOptions,
       capturedHttpDetails,
       capturedSubWorkflowTraces,
+      capturedScriptOutput,
     };
 
     // Phase 7e: Record node execution start
@@ -237,92 +270,119 @@ export async function runGraph(
 
       if (!passedFlag.value) allPassed = false;
 
-      // Phase 7e: Record node execution completion with details
-      // For HTTP nodes, extract response details from the last result for this node
+      // Build execution event details, gated by trace level
+      const effectiveLevel = resolveTraceLevel(traceOptions);
       let eventDetails: import('../../../shared/types').ExecutionEventDetails | undefined;
-      if (isHttpWorkflowNode(node)) {
-        // Find the most recent result for this node
-        const nodeResults = results.filter(r => r.workflowNodeId === nodeId);
-        const lastResult = nodeResults[nodeResults.length - 1];
-        if (lastResult) {
-          eventDetails = {
-            statusCode: lastResult.httpStatus,
-            responseTimeMs: lastResult.responseTimeMs,
-            requestResultId: lastResult.id,
-            method: lastResult.method,
-            url: lastResult.url,
-          };
 
-          // Capture error information for failed requests
-          if (!lastResult.passed) {
-            if (lastResult.errorMessage) {
-              eventDetails.error = lastResult.errorMessage;
-            } else if (lastResult.failureDetails.length > 0) {
-              eventDetails.error = lastResult.failureDetails
-                .map(f => `${f.path}: expected ${f.expected}, got ${f.actual}`)
-                .join('; ');
+      if (effectiveLevel !== 'minimal') {
+        // Standard+: structured data for all node types
+        if (isHttpWorkflowNode(node)) {
+          const nodeResults = results.filter(r => r.workflowNodeId === nodeId);
+          const lastResult = nodeResults[nodeResults.length - 1];
+          if (lastResult) {
+            eventDetails = {
+              statusCode: lastResult.httpStatus,
+              responseTimeMs: lastResult.responseTimeMs,
+              requestResultId: lastResult.id,
+              method: lastResult.method,
+              url: lastResult.url,
+            };
+
+            if (!lastResult.passed) {
+              if (lastResult.errorMessage) {
+                eventDetails.error = lastResult.errorMessage;
+              } else if (lastResult.failureDetails.length > 0) {
+                eventDetails.error = lastResult.failureDetails
+                  .map(f => `${f.path}: expected ${f.expected}, got ${f.actual}`)
+                  .join('; ');
+              }
+            }
+
+            // Full/Debug: complete request/response bodies, assertions, variables
+            const capturedDetails = capturedHttpDetails.get(nodeId);
+            if (capturedDetails && (effectiveLevel === 'full' || effectiveLevel === 'debug')) {
+              eventDetails.request = capturedDetails.request;
+              eventDetails.response = capturedDetails.response;
+              eventDetails.assertions = capturedDetails.assertions;
+              eventDetails.variablesSnapshot = capturedDetails.variablesSnapshot;
+              eventDetails.extractedVariables = capturedDetails.extractedVariables;
+            } else if (capturedDetails) {
+              // Standard: only assertions and extracted variables (no bodies)
+              eventDetails.assertions = capturedDetails.assertions;
+              eventDetails.extractedVariables = capturedDetails.extractedVariables;
             }
           }
-          
-          // Add full trace data if captured
-          const capturedDetails = capturedHttpDetails.get(nodeId);
-          if (capturedDetails) {
-            eventDetails.request = capturedDetails.request;
-            eventDetails.response = capturedDetails.response;
-            eventDetails.assertions = capturedDetails.assertions;
-            eventDetails.variablesSnapshot = capturedDetails.variablesSnapshot;
-            eventDetails.extractedVariables = capturedDetails.extractedVariables;
+        } else if (node.type === 'webhook') {
+          const webhookInput = ctx.get('__webhookInput');
+          const webhookMethod = ctx.get('__webhookMethod');
+          const webhookPath = ctx.get('__webhookPath');
+          if (webhookInput) {
+            eventDetails = {
+              webhookInput: { payload: webhookInput, method: webhookMethod, path: webhookPath },
+              extractedVariables: ctx.snapshot(),
+            };
+            ctx.delete('__webhookInput');
+            ctx.delete('__webhookMethod');
+            ctx.delete('__webhookPath');
+          }
+        } else if (node.type === 'correlationWait') {
+          const cwPayloadRaw = ctx.get('__cwWebhookPayload');
+          const cwWaitMs = ctx.get('__cwWaitDurationMs');
+          const cwData = node.data as import('../types/workflow').CorrelationWaitNodeData;
+          eventDetails = {
+            ...(cwPayloadRaw ? {
+              webhookInput: { payload: cwPayloadRaw, path: cwData.webhookPath },
+            } : {}),
+            waitDurationMs: cwWaitMs ? Number(cwWaitMs) : undefined,
+            extractedVariables: ctx.snapshot(),
+            variablesSnapshot: ctx.snapshot(),
+          };
+          ctx.delete('__cwWebhookPayload');
+          ctx.delete('__cwWaitDurationMs');
+        } else if (node.type === 'subWorkflow') {
+          const swData = node.data as import('../types/workflow').SubWorkflowNodeData;
+          eventDetails = {
+            subWorkflowId: swData.workflowId,
+            subWorkflowPassed: passedFlag.value,
+            subWorkflowTrace: capturedSubWorkflowTraces.get(nodeId),
+          };
+        }
+      } else {
+        // Minimal: only capture error info for failed nodes
+        if (!passedFlag.value) {
+          if (isHttpWorkflowNode(node)) {
+            const nodeResults = results.filter(r => r.workflowNodeId === nodeId);
+            const lastResult = nodeResults[nodeResults.length - 1];
+            if (lastResult && !lastResult.passed) {
+              eventDetails = {
+                error: lastResult.errorMessage || lastResult.failureDetails
+                  .map(f => `${f.path}: expected ${f.expected}, got ${f.actual}`)
+                  .join('; '),
+              };
+            }
           }
         }
-      } else if (node.type === 'webhook') {
-        // Capture webhook input from context (set by handleWebhookNode via extracted variables)
-        const webhookInput = ctx.get('__webhookInput');
-        const webhookMethod = ctx.get('__webhookMethod');
-        const webhookPath = ctx.get('__webhookPath');
-        if (webhookInput) {
-          eventDetails = {
-            webhookInput: {
-              payload: webhookInput,
-              method: webhookMethod,
-              path: webhookPath,
-            },
-            extractedVariables: ctx.snapshot(),
-          };
-          ctx.delete('__webhookInput');
-          ctx.delete('__webhookMethod');
-          ctx.delete('__webhookPath');
-        }
-      } else if (node.type === 'correlationWait') {
-        const cwPayloadRaw = ctx.get('__cwWebhookPayload');
-        const cwWaitMs = ctx.get('__cwWaitDurationMs');
-        const cwData = node.data as import('../types/workflow').CorrelationWaitNodeData;
-        eventDetails = {
-          ...(cwPayloadRaw ? {
-            webhookInput: {
-              payload: cwPayloadRaw,
-              path: cwData.webhookPath,
-            },
-          } : {}),
-          waitDurationMs: cwWaitMs ? Number(cwWaitMs) : undefined,
-          extractedVariables: ctx.snapshot(),
-          variablesSnapshot: ctx.snapshot(),
-        };
-        ctx.delete('__cwWebhookPayload');
-        ctx.delete('__cwWaitDurationMs');
-      } else if (node.type === 'subWorkflow') {
-        const swData = node.data as import('../types/workflow').SubWorkflowNodeData;
-        eventDetails = {
-          subWorkflowId: swData.workflowId,
-          subWorkflowPassed: passedFlag.value,
-          subWorkflowTrace: capturedSubWorkflowTraces.get(nodeId),
-        };
       }
+      // Debug level: attach buffered log lines and script output to event details
+      if (effectiveLevelOnce === 'debug') {
+        const buffered = nodeLogBuffer.get(nodeId);
+        if (buffered && buffered.length > 0) {
+          if (!eventDetails) eventDetails = {};
+          eventDetails.logLines = buffered;
+        }
+        const scriptOut = capturedScriptOutput.get(nodeId);
+        if (scriptOut && scriptOut.length > 0) {
+          if (!eventDetails) eventDetails = {};
+          eventDetails.scriptOutput = scriptOut;
+        }
+      }
+
       traceCollector.onNodeComplete(nodeId, passedFlag.value ? 'pass' : 'fail', eventDetails);
     } catch (err) {
       allPassed = false;
       const technical = toErrorMessage(err);
       const friendly = humanizeError(technical);
-      log({ prefix: '!', text: `[${nodeLabel(nodeId)}] Error — ${friendly}` });
+      nodeLog({ prefix: '!', text: `[${nodeLabel(nodeId)}] Error — ${friendly}` });
       // Ensure httpStatus is always available even when the node throws before setting it
       if (isHttpWorkflowNode(node) && ctx.get('httpStatus') === undefined) {
         ctx.set('httpStatus', '0');
@@ -336,10 +396,17 @@ export async function runGraph(
       });
       
       // Phase 7e: Record node execution completion (exception)
-      traceCollector.onNodeComplete(nodeId, 'fail', {
+      const catchDetails: import('../../../shared/types').ExecutionEventDetails = {
         error: friendly,
         errorStack: technical,
-      });
+      };
+      if (effectiveLevelOnce === 'debug') {
+        const buffered = nodeLogBuffer.get(nodeId);
+        if (buffered && buffered.length > 0) {
+          catchDetails.logLines = buffered;
+        }
+      }
+      traceCollector.onNodeComplete(nodeId, 'fail', catchDetails);
     }
   }
 

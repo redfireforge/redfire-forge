@@ -438,6 +438,30 @@ export const workflowPaths: TrainingPath[] = [
             difficulty: 'medium',
             manualPath: 'workflow/node-reference/node-reference.html',
           },
+        ],
+      },
+      {
+        id: 2,
+        name: 'Designer Tools',
+        manuals: [
+          {
+            title: 'Designer Console',
+            description: 'Live log output during Quick Test — prefix icons, search, dock/float/maximize.',
+            difficulty: 'easy',
+            manualPath: 'workflow/console-easy.html',
+          },
+          {
+            title: 'Execution History',
+            description: 'Browse past Quick Test runs — status, timing, variable snapshots, and re-run.',
+            difficulty: 'easy',
+            manualPath: 'workflow/execution-history-easy.html',
+          },
+          {
+            title: 'Webhook Delivery Logs',
+            description: 'Inspect inbound webhook payloads — headers, body, correlation matches, and replay.',
+            difficulty: 'easy',
+            manualPath: 'workflow/webhook-delivery-logs-easy.html',
+          },
           {
             title: 'Sub-Workflow Samples Guide',
             description: 'Standalone guide to all sub-workflow gallery samples with architecture diagrams.',

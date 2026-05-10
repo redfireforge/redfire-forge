@@ -130,7 +130,7 @@
     <table>
       <tr><th>Setting</th><th>Description</th></tr>
       <tr><td><strong>Iterations</strong></td><td>How many times each test runs (e.g., 10 = each test executes 10 times)</td></tr>
-      <tr><td><strong>Concurrency</strong></td><td>How many requests run in parallel (1–100)</td></tr>
+      <tr><td><strong>Concurrency</strong></td><td>Parallel in-flight limit: <strong>Batch</strong> and <strong>Continuous Pool</strong> support 1–100; <strong>Sequential</strong> is fixed at 1; <strong>Load Profile</strong> uses the concurrency fields in the profile (not this control).</td></tr>
       <tr><td><strong>Execution Mode</strong></td><td>Sequential, Batch, Continuous Pool, or Load Profile</td></tr>
       <tr><td><strong>Timeout</strong></td><td>Per-request timeout in seconds</td></tr>
     </table>

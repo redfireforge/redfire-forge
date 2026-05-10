@@ -9,6 +9,38 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
 ## [Unreleased]
 
 ### Added
+- **Results Explorer Debug Console** — Full-featured console panel in the Results Explorer for debugging multi-iteration workflow runs
+  - Console toggle via header toolbar button or `⌘J` / `Ctrl+J` keyboard shortcut
+  - Three display modes: docked (bottom), floating (draggable/resizable), and maximized (full screen)
+  - Adaptive content based on trace level: disabled at Minimal; reconstructed narrative at Standard; HTTP bodies at Full; raw `onLog` lines and script output at Debug
+  - Node filter dropdown (topologically sorted) to isolate logs from a specific node
+  - Search with match navigation, count display, and keyboard shortcuts (Enter/Shift+Enter)
+  - Click-to-select: clicking a console line selects that node in the diagram and opens its detail panel
+  - Auto-scroll to first error line when opening a failed iteration
+  - Aggregate summary view: professional run overview (pass rate, timing stats, failure details, sub-workflow stats) when no specific iteration is selected
+  - Sub-workflow recursive expansion with depth-based indentation and visual borders
+  - Workflow context in empty detail panel: shows current workflow name and parent name for sub-workflows
+  - Double-click drill-down: double-clicking a sub-workflow node in the diagram navigates directly into it
+  - Iteration picker closes on outside click via fullscreen backdrop
+- **Trace Capture Levels** — Tiered system controlling how much data is collected during workflow execution
+  - Four levels: Minimal (pass/fail only), Standard (default — structured data), Full (+ HTTP bodies), Debug (+ raw logs and script output)
+  - Trace level radio buttons in Workflow Runner UI with persistence across sessions
+  - `--trace-level` CLI flag for headless execution
+  - Designer Quick Test always runs at Debug level for full fidelity
+  - Sub-workflows inherit trace options from parent
+  - Per-iteration `initialVariables` snapshot for future sampling support
+  - Backward-compatible `inferCaptureLevel()` for pre-existing traces
+- **Debug-Level Capture (Full Console Fidelity)** — Per-node log buffering at Debug trace level
+  - Raw `onLog` lines captured per node during execution and stored in `ExecutionEventDetails.logLines`
+  - Script node `console.log` output captured via `capturedScriptOutput` map
+  - 200-line cap per node with truncation marker
+  - Results Explorer Console renders raw logs when available at Debug level, matching Designer Console output
+- **Designer Canvas Consistency** — Simplified and consistent toolbar controls
+  - "Save current layout" button replaces "Restore saved layout" — saves both node positions and viewport (zoom/pan)
+  - Saved viewport restored on revisit; auto-layout + fit view for new workflows
+  - "Fit View" button restores saved view when available; tooltip dynamically shows "Restore saved view"
+  - Removed Auto-Layout and Undo/Redo toolbar buttons for simplicity (keyboard shortcuts still work)
+  - Consistent behavior between Designer and Results Explorer canvases
 - **Runner Redesign — Three-Runner Architecture**
   - Split single Test Runner into **Test Runner** (standard scenarios) and **Parameterized Runner** (data-driven scenarios), alongside existing **Workflow Runner**
   - New `ScenarioKind` type (`'standard'` | `'parameterized'`) enforced at scenario creation — prevents mixing test types

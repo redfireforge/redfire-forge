@@ -127,6 +127,11 @@ export async function handleSubWorkflowNode(
           hCtx.debugController,
           childWorkflow.errorConfig,
           hCtx.resolveSubWorkflow,
+          undefined, // correlationStore
+          hCtx.loadTestMode,
+          undefined, // correlationWaitConfig
+          undefined, // pollSemaphore
+          hCtx.traceOptions,
         );
       } finally {
         if (timeoutHandle) clearTimeout(timeoutHandle);

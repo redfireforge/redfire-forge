@@ -16,6 +16,7 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import type { WorkflowExecutionTrace } from '../../../shared/types';
+import { isSampledIteration } from '../utils/sampledIterations';
 import { nodeTypes } from '../../workflow/utils/workflowNodeFactory';
 import { identifyBottlenecks, getBottleneckNodeIds, type BottleneckInsight } from '../utils/bottleneckAnalysis';
 import { captureCanvasScreenshot, captureCanvasSvg } from '../utils/canvasScreenshot';
@@ -63,6 +64,7 @@ interface Props {
   trace: WorkflowExecutionTrace;
   selectedNodeId?: string;
   onNodeClick?: (nodeId: string) => void;
+  onNodeDoubleClick?: (nodeId: string) => void;
   showMinimap?: boolean;
   onToggleMinimap?: () => void;
   fitViewTrigger?: number;
@@ -337,6 +339,7 @@ export default function WorkflowExecutionCanvas({
   trace, 
   selectedNodeId,
   onNodeClick,
+  onNodeDoubleClick,
   showMinimap = true,
   onToggleMinimap,
   fitViewTrigger,
@@ -534,7 +537,7 @@ export default function WorkflowExecutionCanvas({
   // Compute per-edge traversal counts and identify branching edges
   const edgeTraversalData = useMemo(() => {
     const counts = new Map<string, number>();
-    const sampledIterations = trace.iterations.filter(iter => iter.sampled !== false);
+    const sampledIterations = trace.iterations.filter(isSampledIteration);
     const totalIterations = sampledIterations.length;
 
     for (const iter of sampledIterations) {
@@ -635,6 +638,13 @@ export default function WorkflowExecutionCanvas({
       onNodeClick?.(node.id);
     },
     [onNodeClick]
+  );
+
+  const handleNodeDoubleClick: NodeMouseHandler = useCallback(
+    (_event, node) => {
+      onNodeDoubleClick?.(node.id);
+    },
+    [onNodeDoubleClick]
   );
 
   const handlePaneClick = useCallback(() => {
@@ -789,6 +799,7 @@ export default function WorkflowExecutionCanvas({
         edges={edges}
         onNodesChange={handleNodesChange}
         onNodeClick={handleNodeClick}
+        onNodeDoubleClick={handleNodeDoubleClick}
         onNodeMouseEnter={handleNodeMouseEnter}
         onNodeMouseLeave={handleNodeMouseLeave}
         onPaneClick={handlePaneClick}

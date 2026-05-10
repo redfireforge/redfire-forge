@@ -4,6 +4,7 @@ import JsonTreeViewer from '../../../shared/components/JsonTreeViewer';
 import { formatDurationMs } from '../../../shared/utils/formatDuration';
 import { truncate } from '../../../shared/utils/helpers';
 import { computeHistogramBins } from '../utils/responseTimeHistogram';
+import { formatNodeTypeExplorer as formatNodeType } from '../utils/nodeTypeLabels';
 import {
   computeBranchStats,
   BRANCH_COLORS,
@@ -125,9 +126,9 @@ export default function ResultsExplorerDetailPanel({
               }}
             >
               <option value="all">All Iterations (Aggregate)</option>
-              {iterations.map((iter, i) => (
-                <option key={i} value={i}>
-                  #{i + 1} — {iter.passed ? '✓' : '✗'} {formatDurationMs(iter.durationMs)}
+              {iterations.map((iter) => (
+                <option key={iter.index} value={iter.index}>
+                  #{iter.index + 1} — {iter.passed ? '✓' : '✗'} {formatDurationMs(iter.durationMs)}
                 </option>
               ))}
             </select>
@@ -872,26 +873,3 @@ function AssertionsTab({ event }: { event: ExecutionEvent }) {
   );
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-const NODE_TYPE_LABELS: Record<string, string> = {
-  start: 'START',
-  http: 'HTTP',
-  script: 'SCRIPT',
-  logDebug: 'LOG / DEBUG',
-  delay: 'DELAY',
-  ifCondition: 'CONDITION',
-  loop: 'LOOP',
-  subWorkflow: 'SUB-WORKFLOW',
-  webhook: 'WEBHOOK',
-  schedule: 'SCHEDULE',
-  correlationWait: 'CORRELATION WAIT',
-  end: 'END',
-  errorHandler: 'ERROR HANDLER',
-  group: 'GROUP',
-  parallel: 'PARALLEL',
-};
-
-function formatNodeType(type: string): string {
-  return NODE_TYPE_LABELS[type] ?? type.replace(/([a-z])([A-Z])/g, '$1 $2').toUpperCase();
-}

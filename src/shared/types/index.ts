@@ -479,9 +479,14 @@ export interface TestSummary {
 // ─── Workflow Execution Trace (Phase 7e) ────────────────────
 
 /**
- * Details about a single node's execution during workflow run.
- * Captures execution state, timing, and type-specific details.
+ * Controls how much data the execution engine captures per node/iteration.
+ * - minimal: pass/fail + errors only (production monitoring)
+ * - standard: + HTTP summary, variables, assertions (default)
+ * - full: + complete HTTP request/response bodies
+ * - debug: + raw onLog lines, scriptOutput (Phase 2)
  */
+export type TraceCaptureLevel = 'minimal' | 'standard' | 'full' | 'debug';
+
 /**
  * Options for controlling how much data is captured during workflow execution.
  * Used to enable full trace capture for debugging vs minimal capture for performance.
@@ -497,6 +502,8 @@ export interface ExecutionTraceOptions {
   samplingEnabled?: boolean;
   /** Iteration count threshold above which sampling activates. Default: 50 */
   samplingThreshold?: number;
+  /** Tiered trace level controlling capture depth. When set, takes precedence over captureFullTrace. */
+  traceLevel?: TraceCaptureLevel;
 }
 
 /**
@@ -568,6 +575,10 @@ export interface ExecutionEventDetails {
 
   // Script nodes
   scriptOutput?: unknown;
+
+  // Debug-level capture (Phase 2: populated at 'debug' trace level)
+  /** Raw onLog lines captured during this node's execution */
+  logLines?: { prefix: string; text: string; ts: number }[];
 
   // Sub-workflow nodes
   subWorkflowId?: string;
@@ -645,6 +656,9 @@ export interface WorkflowIterationTrace {
   /** Ordered list of node execution events */
   events: ExecutionEvent[];
   
+  /** Variable state before iteration starts (for sampling re-execution) */
+  initialVariables?: Record<string, string>;
+
   /** Variable state after iteration completes */
   finalVariables: Record<string, string>;
   
@@ -681,6 +695,9 @@ export interface WorkflowExecutionTrace {
   
   /** Whether full trace was captured (request/response bodies) */
   fullTraceCaptured?: boolean;
+
+  /** Trace capture level used for this run. Absent on pre-existing traces (infer from content). */
+  captureLevel?: TraceCaptureLevel;
 }
 
 // ─────────────────────────────────────────────────────────────

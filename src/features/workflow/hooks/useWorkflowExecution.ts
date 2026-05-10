@@ -276,6 +276,10 @@ export function useWorkflowExecution(opts: UseWorkflowExecutionOptions) {
         return undefined;
       },
       new RemoteCorrelationStore(),
+      undefined, // loadTestMode
+      undefined, // correlationWaitConfig
+      undefined, // pollSemaphore
+      { traceLevel: 'debug' as const, captureFullTrace: true },
     ).catch(() => {
       // If the user already stopped the run, don't override with 'fail'
       if (abortRef.current?.signal.aborted) return;

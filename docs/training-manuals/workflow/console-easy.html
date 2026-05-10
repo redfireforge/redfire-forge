@@ -151,8 +151,31 @@
     Use the console alongside the Execution History. The console shows real-time output; history shows persisted results you can review later.
   </div>
 
-  <h2>8. Related Manuals</h2>
+  <h2>8. Trace Levels &amp; Results Explorer Console</h2>
+  <p>This manual covers the <strong>Designer Console</strong> — the real-time view during Quick Test execution. RedfireForge also has a <strong>Results Explorer Console</strong> for reviewing logs after a Workflow Runner execution.</p>
+
+  <h3>Trace Levels</h3>
+  <p>In the Workflow Runner, you can set a <strong>Trace Level</strong> that controls how much detail is captured:</p>
+  <table>
+    <tr><th>Level</th><th>What's Captured</th></tr>
+    <tr><td><strong>Minimal</strong></td><td>Pass/fail + error messages only</td></tr>
+    <tr><td><strong>Standard</strong></td><td>HTTP status/timing, assertions, variable extractions</td></tr>
+    <tr><td><strong>Full</strong></td><td>Standard + complete HTTP request/response bodies</td></tr>
+    <tr><td><strong>Debug</strong></td><td>Full + raw console.log() output from Script nodes</td></tr>
+  </table>
+  <p>The Designer Console (Quick Test) always runs at <strong>Debug</strong> level for maximum visibility.</p>
+
+  <h3>Results Explorer Console</h3>
+  <p>After running a workflow from the <strong>Workflow Runner</strong>, open the <strong>Results Explorer</strong> and press <strong>⌘J</strong> (or click the Console button in the toolbar) to see a per-iteration console. This console reconstructs log lines from the stored trace data — the higher the trace level, the more detail is available.</p>
+
+  <div class="callout callout-tip">
+    <strong>💡 Two Consoles, One Purpose</strong>
+    The Designer Console is <strong>live</strong> during Quick Test execution. The Results Explorer Console is <strong>post-hoc</strong> — reviewing stored trace data iteration by iteration after a Workflow Runner execution.
+  </div>
+
+  <h2>9. Related Manuals</h2>
   <ul>
+    <li><a href="runner/results-explorer-medium.html">Results Explorer</a> — three-panel visual execution analysis with Console panel</li>
     <li><a href="execution-history-easy.html">Execution History</a> — review past runs and per-step results</li>
     <li><a href="webhook-delivery-logs-easy.html">Webhook Delivery Logs</a> — inspect incoming webhook payloads</li>
     <li><a href="../workflow-patterns/">Workflow Patterns</a> — common workflow design patterns</li>

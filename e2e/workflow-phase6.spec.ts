@@ -111,17 +111,12 @@ test.describe('Phase 6 – Canvas Controls', () => {
     await minimapBtn.click();
   });
 
-  test('undo / redo buttons are visible', async ({ page }) => {
-    const undoBtn = page.locator('.wf-pill-btn[title*="Undo"]');
-    const redoBtn = page.locator('.wf-pill-btn[title*="Redo"]');
-    await expect(undoBtn).toBeVisible();
-    await expect(redoBtn).toBeVisible();
-  });
+  test('fit view and save layout buttons are visible', async ({ page }) => {
+    const fitBtn = page.locator('.wf-pill-btn[title="Fit view"], .wf-pill-btn[title="Restore saved view"]');
+    await expect(fitBtn).toBeVisible();
 
-  test('auto-layout button is visible', async ({ page }) => {
-    const btn = page.locator('.wf-pill-btn[title="Auto-layout"]');
-    await expect(btn).toBeVisible();
-    await btn.click();
+    const saveBtn = page.locator('[data-testid="save-layout-btn"]');
+    await expect(saveBtn).toBeVisible();
   });
 });
 

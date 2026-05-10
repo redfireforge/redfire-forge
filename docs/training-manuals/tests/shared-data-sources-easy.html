@@ -74,7 +74,7 @@
     <h1>Shared Data Sources Basics</h1>
     <div class="subtitle">Centralized Test Data Management — Training Manual</div>
     <p><span class="badge badge-easy">Easy ★☆☆</span> · Shared Data · jsonplaceholder.typicode.com</p>
-    <div class="meta">RedfireForge v0.5.6</div>
+    <div class="meta">RedfireForge v0.5.7</div>
   </div>
 
   <div class="page-break"></div>
@@ -113,7 +113,7 @@
 
   <h3>Step 1: Load the Gallery Sample</h3>
   <ol>
-    <li>Open the <strong>Gallery</strong> panel (sidebar icon or <code>Ctrl+Shift+G</code>).</li>
+    <li>Open the <strong>Gallery</strong> panel from the sidebar.</li>
     <li>Switch to the <strong>Tests</strong> tab.</li>
     <li>Find <strong>"Shared User IDs"</strong> (tagged 📦 shared-data-source).</li>
     <li>Click <strong>Load Test</strong>.</li>
@@ -141,7 +141,7 @@
 
   <div class="callout callout-tip">
     <strong>💡 Fetch Config</strong>
-    Notice the <strong>Fetch URL</strong> at the top: <code>https://jsonplaceholder.typicode.com/users/{{id}}</code>. This lets you verify or re-populate data directly from the API. We'll cover this in the <a href="shared-data-sources-fetch-medium.html">Fetch Config</a> tutorial.
+    Notice the <strong>URL</strong> at the top of the fetch bar: <code>https://jsonplaceholder.typicode.com/users/{{id}}</code>. This lets you verify or re-populate data directly from the API. We'll cover this in the <a href="shared-data-sources-fetch-medium.html">Fetch Config</a> tutorial.
   </div>
 
   <h3>Step 3: See the Linked Tests</h3>
@@ -153,16 +153,16 @@
         <li><code>GET /users/{{id}}/posts — User Posts</code></li>
       </ul>
     </li>
-    <li>Click a badge to jump to that test's editor.</li>
+    <li>Hover a badge to see the full test path in a tooltip (badges are not clickable).</li>
   </ol>
 
   <h3>Step 4: Inspect a Linked Test</h3>
   <ol>
-    <li>Close the modal and go to the <strong>Scenarios</strong> tab.</li>
+    <li>Close the modal and go to the <strong>Feature Groups</strong> tab.</li>
     <li>Expand the "Gallery: Shared User IDs" feature group.</li>
     <li>Click <strong>Edit</strong> on one of the tests.</li>
     <li>Go to the <strong>Data Source</strong> tab.</li>
-    <li>Notice the badge: <strong>📦 Data Source: User IDs (1–10)</strong>.</li>
+    <li>Notice the badge: <strong>📋 User IDs (1–10)</strong> (linked shared sources show <code>📋 {name}</code> in the toolbar).</li>
     <li>The data table is <strong>read-only</strong> — you can't edit it here because it's linked to a shared source.</li>
   </ol>
 
@@ -219,7 +219,7 @@
     <li>Open <strong>Shared Data Sources</strong> (sidebar).</li>
     <li>Click <strong>+ New</strong>.</li>
     <li>Enter a name (e.g., "Product IDs").</li>
-    <li>Add columns: click the "+" in the header row.</li>
+    <li>Add columns: click <strong>+ Column</strong> in the toolbar.</li>
     <li>Set column types (path, param, validate, etc.).</li>
     <li>Add rows with your test data.</li>
     <li>Click <strong>Save</strong>.</li>

@@ -25,6 +25,7 @@ type SyntheticInjectorMockClass = typeof SyntheticEventInjectorMock & { mock: { 
 // Mock graphRunner
 vi.mock('./graphRunner', () => ({
   runGraph: vi.fn(),
+  resolveTraceLevel: vi.fn(() => 'standard'),
 }));
 
 vi.mock('./syntheticEventInjector', () => ({

@@ -171,104 +171,83 @@ export default function RunnerExecutionConfig({
       </div>
 
       <div className="think-time-section">
-        <div className="resilience-row">
-          <div className="resilience-field" style={{ flex: '0 0 auto' }}>
-            <label>Think Time</label>
-            <div className="error-policy-options">
-              {(['none', 'constant', 'uniform', 'gaussian'] as ThinkTimeMode[]).map((m) => (
-                <label key={m} className="radio-label">
-                  <input
-                    type="radio"
-                    name={n('thinkTimeMode')}
-                    checked={thinkTime.mode === m}
-                    onChange={() => onThinkTimeChange({ mode: m })}
-                    disabled={isRunning}
-                  />
-                  {m === 'none' ? 'None' : m === 'constant' ? 'Constant' : m === 'uniform' ? 'Uniform' : 'Gaussian'}
-                </label>
-              ))}
-            </div>
-          </div>
+        <div className="runner-option-box" style={{ flex: 1 }}>
+          <span className="runner-exec-label">Think Time:</span>
+          {(['none', 'constant', 'uniform', 'gaussian'] as ThinkTimeMode[]).map((m) => (
+            <label key={m} className="radio-label">
+              <input
+                type="radio"
+                name={n('thinkTimeMode')}
+                checked={thinkTime.mode === m}
+                onChange={() => onThinkTimeChange({ mode: m })}
+                disabled={isRunning}
+              />
+              {m === 'none' ? 'None' : m === 'constant' ? 'Constant' : m === 'uniform' ? 'Uniform' : 'Gaussian'}
+            </label>
+          ))}
           {thinkTime.mode === 'constant' && (
-            <div className="resilience-field resilience-field-sm">
-              <label>Delay</label>
-              <div className="input-with-unit">
-                <input
-                  type="number" min={0} max={60000} step={100}
-                  value={thinkTime.constantMs ?? 1000}
-                  onChange={(e) => onThinkTimeChange({ constantMs: Math.max(0, parseInt(e.target.value) || 0) })}
-                  disabled={isRunning}
-                />
-                <span className="unit">ms</span>
-              </div>
-            </div>
+            <span className="think-time-inline-params">
+              <input
+                type="number" min={0} max={60000} step={100}
+                value={thinkTime.constantMs ?? 1000}
+                onChange={(e) => onThinkTimeChange({ constantMs: Math.max(0, parseInt(e.target.value) || 0) })}
+                disabled={isRunning}
+                className="think-time-inline-input"
+              />
+              <span className="unit">ms</span>
+            </span>
           )}
           {thinkTime.mode === 'uniform' && (
-            <>
-              <div className="resilience-field resilience-field-sm">
-                <label>Min</label>
-                <div className="input-with-unit">
-                  <input
-                    type="number" min={0} max={60000} step={100}
-                    value={thinkTime.minMs ?? 500}
-                    onChange={(e) => onThinkTimeChange({ minMs: Math.max(0, parseInt(e.target.value) || 0) })}
-                    disabled={isRunning}
-                  />
-                  <span className="unit">ms</span>
-                </div>
-              </div>
-              <div className="resilience-field resilience-field-sm">
-                <label>Max</label>
-                <div className="input-with-unit">
-                  <input
-                    type="number" min={0} max={60000} step={100}
-                    value={thinkTime.maxMs ?? 2000}
-                    onChange={(e) => onThinkTimeChange({ maxMs: Math.max(0, parseInt(e.target.value) || 0) })}
-                    disabled={isRunning}
-                  />
-                  <span className="unit">ms</span>
-                </div>
-              </div>
-            </>
+            <span className="think-time-inline-params">
+              <input
+                type="number" min={0} max={60000} step={100}
+                value={thinkTime.minMs ?? 500}
+                onChange={(e) => onThinkTimeChange({ minMs: Math.max(0, parseInt(e.target.value) || 0) })}
+                disabled={isRunning}
+                className="think-time-inline-input"
+              />
+              <span className="unit">–</span>
+              <input
+                type="number" min={0} max={60000} step={100}
+                value={thinkTime.maxMs ?? 2000}
+                onChange={(e) => onThinkTimeChange({ maxMs: Math.max(0, parseInt(e.target.value) || 0) })}
+                disabled={isRunning}
+                className="think-time-inline-input"
+              />
+              <span className="unit">ms</span>
+            </span>
           )}
           {thinkTime.mode === 'gaussian' && (
-            <>
-              <div className="resilience-field resilience-field-sm">
-                <label>Mean</label>
-                <div className="input-with-unit">
-                  <input
-                    type="number" min={0} max={60000} step={100}
-                    value={thinkTime.meanMs ?? 1000}
-                    onChange={(e) => onThinkTimeChange({ meanMs: Math.max(0, parseInt(e.target.value) || 0) })}
-                    disabled={isRunning}
-                  />
-                  <span className="unit">ms</span>
-                </div>
-              </div>
-              <div className="resilience-field resilience-field-sm">
-                <label>Std Dev</label>
-                <div className="input-with-unit">
-                  <input
-                    type="number" min={0} max={30000} step={50}
-                    value={thinkTime.stdDevMs ?? 300}
-                    onChange={(e) => onThinkTimeChange({ stdDevMs: Math.max(0, parseInt(e.target.value) || 0) })}
-                    disabled={isRunning}
-                  />
-                  <span className="unit">ms</span>
-                </div>
-              </div>
-            </>
+            <span className="think-time-inline-params">
+              <span className="unit">μ</span>
+              <input
+                type="number" min={0} max={60000} step={100}
+                value={thinkTime.meanMs ?? 1000}
+                onChange={(e) => onThinkTimeChange({ meanMs: Math.max(0, parseInt(e.target.value) || 0) })}
+                disabled={isRunning}
+                className="think-time-inline-input"
+              />
+              <span className="unit">σ</span>
+              <input
+                type="number" min={0} max={30000} step={50}
+                value={thinkTime.stdDevMs ?? 300}
+                onChange={(e) => onThinkTimeChange({ stdDevMs: Math.max(0, parseInt(e.target.value) || 0) })}
+                disabled={isRunning}
+                className="think-time-inline-input"
+              />
+              <span className="unit">ms</span>
+            </span>
+          )}
+          {thinkTime.mode !== 'none' && (
+            <span className="exec-mode-hint">
+              {thinkTime.mode === 'constant'
+                ? `Fixed ${thinkTime.constantMs ?? 1000}ms delay`
+                : thinkTime.mode === 'uniform'
+                  ? `Random ${thinkTime.minMs ?? 500}–${thinkTime.maxMs ?? 2000}ms`
+                  : `μ=${thinkTime.meanMs ?? 1000}ms σ=${thinkTime.stdDevMs ?? 300}ms`}
+            </span>
           )}
         </div>
-        {thinkTime.mode !== 'none' && (
-          <span className="exec-mode-hint">
-            {thinkTime.mode === 'constant'
-              ? `Fixed ${thinkTime.constantMs ?? 1000}ms delay after each request`
-              : thinkTime.mode === 'uniform'
-                ? `Random delay between ${thinkTime.minMs ?? 500}ms – ${thinkTime.maxMs ?? 2000}ms`
-                : `Normal distribution: mean ${thinkTime.meanMs ?? 1000}ms, σ ${thinkTime.stdDevMs ?? 300}ms`}
-          </span>
-        )}
       </div>
 
       {isLoadProfile && (

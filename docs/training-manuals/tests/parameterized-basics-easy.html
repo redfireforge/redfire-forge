@@ -73,7 +73,7 @@
     <h1>Parameterized Testing Basics</h1>
     <div class="subtitle">Data-Driven Testing — Training Manual</div>
     <p><span class="badge badge-easy">Easy ★☆☆</span> · Data-Driven · jsonplaceholder.typicode.com</p>
-    <div class="meta">RedfireForge v0.5.6</div>
+    <div class="meta">RedfireForge v0.5.7</div>
   </div>
 
   <div class="page-break"></div>
@@ -100,10 +100,10 @@
 
   <h3>Step 1: Load the Gallery Sample</h3>
   <ol>
-    <li>Open the <strong>Gallery</strong> panel (sidebar icon or <code>Ctrl+Shift+G</code>).</li>
+    <li>Open the <strong>Gallery</strong> panel (sidebar icon; <code>Ctrl+Shift+G</code> is optional if your keybindings include it).</li>
     <li>Switch to the <strong>Tests</strong> tab.</li>
     <li>Find <strong>"User Lookup Sweep"</strong> (tagged 📊 parameterized).</li>
-    <li>Click <strong>Load Sample</strong>.</li>
+    <li>Click <strong>Load Test</strong>.</li>
   </ol>
   <p>A new feature group appears in the Feature Groups tab with one scenario containing one test — but that test has 10 data rows attached.</p>
 
@@ -159,7 +159,7 @@
   <ol>
     <li>Open any test in the Test Editor.</li>
     <li>Switch to the <strong>Data Source</strong> tab.</li>
-    <li>Click <strong>+ Add Column</strong> to define your columns.</li>
+    <li>Click <strong>+ Column</strong> to define your columns.</li>
     <li>Set the column <strong>type</strong> (path, param, body, header, or validate).</li>
     <li>Set the column <strong>mapping</strong> (the variable name or JSON path).</li>
     <li>Add rows with your test data.</li>
@@ -189,8 +189,8 @@
     <tr><td><strong>Row Labels</strong></td><td>Give rows a human-readable label shown in results (e.g., "happy-path", "edge-case")</td><td>Click the ✎ icon on a row → enter a label</td></tr>
     <tr><td><strong>Row Notes</strong></td><td>Add annotations to rows (e.g., "Known to fail on weekends")</td><td>Click the 🗒️ icon on a row → enter a note</td></tr>
     <tr><td><strong>Bulk Operations</strong></td><td>Select multiple rows (click, Ctrl+click, Shift+click) then enable/disable/delete/duplicate them all at once</td><td>Select rows → use the bulk action buttons that appear</td></tr>
-    <tr><td><strong>Distribution Mode</strong></td><td>Control row execution order: Sequential (default), Random, or Round Robin</td><td>Click <strong>Distribution ▾</strong> in the toolbar</td></tr>
-    <tr><td><strong>Validation Mode</strong></td><td>None (skip validation), Selective (sample rows only), or Full (all rows)</td><td>Click <strong>Validation ▾</strong> in the toolbar</td></tr>
+    <tr><td><strong>Distribution Mode</strong></td><td>Control row execution order: Sequential (default), Random, or Round Robin</td><td>Use the <strong>Distribution</strong> toolbar select</td></tr>
+    <tr><td><strong>Validation Mode</strong></td><td>None (skip validation), Selective (sample rows only), or Full (all rows)</td><td>Use the <strong>Validation</strong> toolbar select</td></tr>
     <tr><td><strong>Drag to Reorder</strong></td><td>Reorder rows by dragging the ⠿ handle</td><td>Drag the grip icon on the left of any row</td></tr>
     <tr><td><strong>Sort &amp; Search</strong></td><td>Sort by any column or search/filter rows by text</td><td>Click column headers to sort; use the 🔍 search box</td></tr>
     <tr><td><strong>Keyboard Navigation</strong></td><td>Navigate cells with Tab, Enter, and arrow keys</td><td>Focus a cell and press Tab/Enter/arrows</td></tr>

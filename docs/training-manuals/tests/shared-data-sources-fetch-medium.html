@@ -74,7 +74,7 @@
     <h1>Shared DS with Fetch Config</h1>
     <div class="subtitle">API-Driven Data Population — Training Manual</div>
     <p><span class="badge badge-medium">Medium ★★☆</span> · Fetch Config · dummyjson.com</p>
-    <div class="meta">RedfireForge v0.5.6</div>
+    <div class="meta">RedfireForge v0.5.7</div>
   </div>
 
   <div class="page-break"></div>
@@ -122,17 +122,17 @@
   <p>This creates:</p>
   <ul>
     <li>A shared data source "Product Catalog (8 products)" with fetch config</li>
-    <li>A feature group with 2 scenarios using this shared data</li>
+    <li>A feature group with 2 tests using this shared data</li>
   </ul>
 
   <h3>Step 2: Explore the Fetch Config</h3>
   <ol>
     <li>Open <strong>Shared Data Sources</strong> (sidebar).</li>
     <li>Select "Product Catalog (8 products)".</li>
-    <li>Look at the <strong>Fetch URL</strong> section at the top of the editor:</li>
+    <li>At the top of the editor, use the <strong>method</strong> and <strong>URL</strong> bar, then open the <strong>Params</strong>, <strong>Auth</strong>, <strong>Headers</strong>, and (for non-GET) <strong>Body</strong> tabs to match your request. The same area includes <strong>Configure Variables + Auth…</strong>, <strong>cURL Import</strong>, and <strong>Populate Rows from API</strong>. You should see a URL template like:</li>
   </ol>
 
-  <pre>Fetch URL: https://dummyjson.com/products/{{id}}
+  <pre>URL: https://dummyjson.com/products/{{id}}
 Method: GET
 Headers: Accept: application/json</pre>
 
@@ -161,9 +161,9 @@ Headers: Accept: application/json</pre>
 
   <h3>Step 4: Verify Data Against the API</h3>
   <ol>
-    <li>In the Shared Data Sources modal, click the <strong>✓ Verify</strong> button in the toolbar.</li>
+    <li>In the Shared Data Sources modal, click <strong>▶ Verify All</strong> in the data toolbar.</li>
     <li>The <strong>Verify &amp; Inspect</strong> modal opens.</li>
-    <li>Click <strong>Run Verification</strong>.</li>
+    <li>Click <strong>▶ Verify All</strong> in the modal to run checks (after a pass, the same control reads <strong>▶ Re-verify</strong>).</li>
     <li>Each row shows:
       <ul>
         <li><strong>✓ Pass</strong> — All validate columns match the live API</li>
@@ -183,7 +183,7 @@ Headers: Accept: application/json</pre>
   <p>If you want to replace expected values with fresh data from the API:</p>
   <ol>
     <li>In the Verify modal, check the rows you want to update.</li>
-    <li>Click <strong>Apply Actual Values</strong>.</li>
+    <li>Click <strong>✓ Accept All Changes</strong>.</li>
     <li>The validate columns are updated with the live API response.</li>
     <li>Save the shared data source.</li>
   </ol>
@@ -199,17 +199,17 @@ Headers: Accept: application/json</pre>
     <li>Select the "Gallery: Shared Product Catalog" feature group.</li>
     <li>Run the tests.</li>
   </ol>
-  <p>Both scenarios (Product Validation and Product Reviews) use the same 8 products from the shared data source.</p>
+  <p>Both tests (Product Validation and Product Reviews) use the same 8 products from the shared data source.</p>
 
   <h2>4. Setting Up Fetch Config</h2>
 
   <h3>For a New Shared Data Source</h3>
   <ol>
-    <li>Create a new shared data source.</li>
-    <li>Click <strong>⚙ Fetch Config</strong> in the toolbar.</li>
-    <li>Enter the API URL with <code>{{variable}}</code> placeholders matching your columns.</li>
-    <li>Set method, headers, and auth as needed.</li>
-    <li>Save the config.</li>
+    <li>Create or open a shared data source in <strong>Shared Data Sources</strong>.</li>
+    <li>In the editor header, set <strong>HTTP method</strong> and <strong>URL</strong> (with <code>{{variable}}</code> placeholders matching your columns).</li>
+    <li>Use the <strong>Params</strong>, <strong>Auth</strong>, <strong>Headers</strong>, and <strong>Body</strong> tabs for query, auth, headers, and body; use <strong>Configure Variables + Auth…</strong> for the full mapping wizard when needed.</li>
+    <li>Optional: <strong>cURL Import</strong> → paste a command → <strong>Import &amp; Apply</strong>; or <strong>Populate Rows from API</strong> after the URL is set.</li>
+    <li>Click <strong>Save</strong> in the modal footer when finished.</li>
   </ol>
 
   <h3>For POST/PUT APIs</h3>
