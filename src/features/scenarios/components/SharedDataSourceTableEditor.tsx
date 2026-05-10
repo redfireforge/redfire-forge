@@ -22,8 +22,9 @@ export default function SharedDataSourceTableEditor({ dataSource, onChange }: Sh
   const [draggingColId, setDraggingColId] = useState<string | null>(null);
   const [dragOverColId, setDragOverColId] = useState<string | null>(null);
 
-  const columns = useMemo(() => dataSource?.columns ?? [], [dataSource?.columns]);
-  const rows = useMemo(() => dataSource?.rows ?? [], [dataSource?.rows]);
+  const ds = dataSource as DataSource;
+  const columns = useMemo(() => ds?.columns ?? [], [ds?.columns]);
+  const rows = useMemo(() => ds?.rows ?? [], [ds?.rows]);
 
   // ─── Handle cell value change ──────────────────────────────
   const handleCellChange = useCallback((rowId: string, colId: string, value: string) => {
@@ -34,8 +35,8 @@ export default function SharedDataSourceTableEditor({ dataSource, onChange }: Sh
       r.id === rowId ? { ...r, values: { ...r.values, [colId]: value } } : r,
     );
 
-    onChange({ ...dataSource, rows: updatedRows });
-  }, [rows, onChange, dataSource]);
+    onChange({ ...ds, rows: updatedRows });
+  }, [rows, onChange, ds]);
 
   // ─── Cell editing handlers ────────────────────────────────
   const handleCellDoubleClick = useCallback((rowId: string, colId: string) => {
@@ -65,13 +66,13 @@ export default function SharedDataSourceTableEditor({ dataSource, onChange }: Sh
   // ─── Row CRUD ─────────────────────────────────────────────
   const handleAddRow = useCallback(() => {
     const newRow = createEmptyRow(columns);
-    onChange({ ...dataSource, rows: [...rows, newRow] });
-  }, [columns, rows, onChange, dataSource]);
+    onChange({ ...ds, rows: [...rows, newRow] });
+  }, [columns, rows, onChange, ds]);
 
   const handleDeleteRow = useCallback((rowId: string) => {
     const updated = rows.filter(r => r.id !== rowId);
-    onChange({ ...dataSource, rows: updated });
-  }, [rows, onChange, dataSource]);
+    onChange({ ...ds, rows: updated });
+  }, [rows, onChange, ds]);
 
   const handleMoveRow = useCallback((rowId: string, direction: 'up' | 'down') => {
     const idx = rows.findIndex(r => r.id === rowId);
@@ -83,8 +84,8 @@ export default function SharedDataSourceTableEditor({ dataSource, onChange }: Sh
     const targetIdx = direction === 'up' ? idx - 1 : idx + 1;
     [newRows[idx], newRows[targetIdx]] = [newRows[targetIdx], newRows[idx]];
 
-    onChange({ ...dataSource, rows: newRows });
-  }, [rows, onChange, dataSource]);
+    onChange({ ...ds, rows: newRows });
+  }, [rows, onChange, ds]);
 
   // ─── Column CRUD ──────────────────────────────────────────
   const handleAddColumn = useCallback(() => {
@@ -93,8 +94,8 @@ export default function SharedDataSourceTableEditor({ dataSource, onChange }: Sh
       ...row,
       values: { ...row.values, [newCol.id]: '' },
     }));
-    onChange({ ...dataSource, columns: [...columns, newCol], rows: updatedRows });
-  }, [columns, rows, onChange, dataSource]);
+    onChange({ ...ds, columns: [...columns, newCol], rows: updatedRows });
+  }, [columns, rows, onChange, ds]);
 
   const handleDeleteColumn = useCallback((colId: string) => {
     const updatedCols = columns.filter(c => c.id !== colId);
@@ -104,8 +105,8 @@ export default function SharedDataSourceTableEditor({ dataSource, onChange }: Sh
       return { ...row, values: newValues };
     });
 
-    onChange({ ...dataSource, columns: updatedCols, rows: updatedRows });
-  }, [columns, rows, onChange, dataSource]);
+    onChange({ ...ds, columns: updatedCols, rows: updatedRows });
+  }, [columns, rows, onChange, ds]);
 
   const handleColumnDragStart = useCallback((colId: string, e: React.DragEvent<HTMLButtonElement>) => {
     setDraggingColId(colId);
@@ -144,11 +145,11 @@ export default function SharedDataSourceTableEditor({ dataSource, onChange }: Sh
     const [moved] = updatedCols.splice(fromIdx, 1);
     const insertIdx = fromIdx < toIdx ? toIdx - 1 : toIdx;
     updatedCols.splice(insertIdx, 0, moved);
-    onChange({ ...dataSource, columns: updatedCols });
+    onChange({ ...ds, columns: updatedCols });
 
     setDraggingColId(null);
     setDragOverColId(null);
-  }, [columns, draggingColId, onChange, dataSource]);
+  }, [columns, draggingColId, onChange, ds]);
 
   const handleColumnDragEnd = useCallback(() => {
     setDraggingColId(null);
@@ -167,15 +168,15 @@ export default function SharedDataSourceTableEditor({ dataSource, onChange }: Sh
       }
       return { ...c, name: nextName };
     });
-    onChange({ ...dataSource, columns: updated });
-  }, [columns, onChange, dataSource]);
+    onChange({ ...ds, columns: updated });
+  }, [columns, onChange, ds]);
 
   const handleChangeColumnType = useCallback((colId: string, newType: DataSourceColumn['type']) => {
     const updated = columns.map(c =>
       c.id === colId ? { ...c, type: newType } : c,
     );
-    onChange({ ...dataSource, columns: updated });
-  }, [columns, onChange, dataSource]);
+    onChange({ ...ds, columns: updated });
+  }, [columns, onChange, ds]);
 
   // ─── Render ────────────────────────────────────────────────
 
