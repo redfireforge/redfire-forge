@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Array &amp; Loop Mapping — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e; line-height: 1.6; max-width: 900px;
+    margin: 0 auto; padding: 30px 24px; background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; vertical-align: middle; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .callout { background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px; margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warning { background: #fff3e0; border-left-color: #f57c00; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 60vh; text-align: center; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-top: 8px; }
+  .cover-page .meta { font-size: 12px; color: #6c757d; margin-top: 16px; }
+  .pattern-box { border: 2px solid #dee2e6; border-radius: 8px; padding: 16px; margin: 12px 0; }
+  .pattern-box h4 { color: #e63946; margin-top: 0; }
+  .arrow { color: #457b9d; font-weight: 700; font-size: 16px; text-align: center; margin: 6px 0; }
+  </style>
+</head>
+<body>
+
+<div class="cover-page">
+  <h1>Array &amp; Loop Mapping</h1>
+  <div class="subtitle">Iterating, Filtering, Aggregating &amp; Flattening Collections</div>
+  <div><span class="badge badge-medium">Medium</span></div>
+  <div class="meta">RedfireForge — Redfire Performance Workbench<br>v0.6.0 · Data Mapper Series 3 of 4</div>
+</div>
+
+<div class="page-break"></div>
+
+<h2>Prerequisites</h2>
+<ul>
+  <li>Completed <em>Data Mapper Basics</em> and <em>Expression &amp; Function Mapping</em> manuals</li>
+  <li>Understanding of JSON arrays and nested objects</li>
+</ul>
+
+<h2>1. Array Mapping Overview</h2>
+
+<p>Arrays are the most common complex structure in API responses. The Data Mapper provides visual patterns for every array transformation scenario:</p>
+
+<table>
+  <tr><th>Pattern</th><th>Source</th><th>Target</th><th>Visual Badge</th></tr>
+  <tr><td>Array → Array (map)</td><td><code>arr[n]</code></td><td><code>arr[n]</code></td><td><code>∞</code> loop</td></tr>
+  <tr><td>Array → Scalar (aggregate)</td><td><code>arr[n]</code></td><td>single value</td><td><code>Σ</code> aggregate</td></tr>
+  <tr><td>Array → Filtered array</td><td><code>arr[n]</code></td><td><code>arr[≤n]</code></td><td><code>⧩</code> filter</td></tr>
+  <tr><td>Nested → Flat (flatten)</td><td><code>arr[arr[]]</code></td><td><code>arr[]</code></td><td><code>⊏</code> flatten</td></tr>
+  <tr><td>Scalar → Array (wrap)</td><td>single value</td><td><code>arr[1]</code></td><td>wrap badge</td></tr>
+</table>
+
+<h2>2. Array → Array: The Loop Pattern</h2>
+
+<p>This is the most common array mapping. You have a source array and need to transform each element into a different shape.</p>
+
+<div class="pattern-box">
+  <h4>Example: Orders → Line Items</h4>
+  <pre>
+// Source
+{
+  "orders": [
+    { "orderId": 1001, "product": "Widget A", "quantity": 5, "unitPrice": 29.99 },
+    { "orderId": 1002, "product": "Gadget B", "quantity": 2, "unitPrice": 49.99 }
+  ]
+}
+</pre>
+  <div class="arrow">↓ map each element ↓</div>
+  <pre>
+// Target
+{
+  "lineItems": [
+    { "sku": "Widget A", "qty": 5, "total": 149.95 },
+    { "sku": "Gadget B", "qty": 2, "total": 99.98 }
+  ]
+}
+</pre>
+</div>
+
+<h3>2.1 Creating a Loop Mapping</h3>
+
+<ol>
+  <li><strong>Drag the source array node</strong> (<code>orders</code>) onto the <strong>target array node</strong> (<code>lineItems</code>).</li>
+  <li>A pink <code>∞ for each order</code> badge appears on the connection line, indicating iteration.</li>
+  <li>Both arrays auto-expand to show their child elements as <code>[each]</code>.</li>
+  <li>Now drag <strong>inner fields</strong>: <code>product</code> → <code>sku</code>, <code>quantity</code> → <code>qty</code>.</li>
+  <li>For the computed <code>total</code>, click <code>ƒx</code> on <code>total</code> and type: <code>item.quantity * item.unitPrice</code>.</li>
+</ol>
+
+<div class="callout callout-tip">
+  <strong>💡 Loop variable naming</strong>
+  Inside a loop, the current element is referenced as <code>item</code> by default. You can rename it by clicking the loop badge and editing the variable name (e.g., <code>order</code> instead of <code>item</code>).
+</div>
+
+<h3>2.2 Accessing the Index</h3>
+
+<p>Inside a loop, <code>$index</code> gives the current zero-based position:</p>
+
+<pre>
+// Add a sequential line number
+item.lineNumber = $index + 1
+</pre>
+
+<h2>3. Array → Scalar: Aggregation</h2>
+
+<p>When you drag a source <strong>array</strong> onto a scalar <strong>target field</strong>, the aggregation picker appears:</p>
+
+<table>
+  <tr><th>Function</th><th>Description</th><th>Example Result</th></tr>
+  <tr><td><code>$count(arr)</code></td><td>Number of elements</td><td><code>5</code></td></tr>
+  <tr><td><code>$sum(arr, "field")</code></td><td>Sum of a numeric field</td><td><code>249.93</code></td></tr>
+  <tr><td><code>$avg(arr, "field")</code></td><td>Average</td><td><code>39.99</code></td></tr>
+  <tr><td><code>$min(arr, "field")</code></td><td>Minimum value</td><td><code>29.99</code></td></tr>
+  <tr><td><code>$max(arr, "field")</code></td><td>Maximum value</td><td><code>49.99</code></td></tr>
+  <tr><td><code>$join(arr, "field", sep)</code></td><td>Join string field values</td><td><code>"Widget A, Gadget B"</code></td></tr>
+  <tr><td><code>$first(arr)</code></td><td>First element</td><td><code>{orderId: 1001, ...}</code></td></tr>
+  <tr><td><code>$last(arr)</code></td><td>Last element</td><td><code>{orderId: 1002, ...}</code></td></tr>
+  <tr><td><code>$median(arr, "field")</code></td><td>Median value</td><td><code>39.99</code></td></tr>
+</table>
+
+<div class="callout">
+  <strong>ℹ️ Aggregation picker</strong>
+  The picker automatically suggests the most relevant aggregation based on the target field's type. If the target is a number, it suggests <code>$sum</code> or <code>$count</code>. If the target is a string, it suggests <code>$join</code>.
+</div>
+
+<h2>4. Filtered Arrays</h2>
+
+<p>To map only a subset of array elements:</p>
+
+<ol>
+  <li>Create a loop mapping (source array → target array).</li>
+  <li>Click the <strong>filter icon</strong> <code>⧩</code> on the connection line.</li>
+  <li>The filter builder opens with field, operator, and value inputs.</li>
+  <li>Set condition, e.g., <code>item.status === "shipped"</code>.</li>
+</ol>
+
+<pre>
+// Generated expression
+source.orders.filter(item => item.status === "shipped")
+              .map(item => ({ sku: item.product, qty: item.quantity }))
+</pre>
+
+<h2>5. Nested Arrays: Flatten &amp; Collect</h2>
+
+<h3>5.1 Flattening</h3>
+
+<p>When the source has nested arrays (array of arrays) and the target expects a flat array:</p>
+
+<div class="pattern-box">
+  <h4>Flatten Example</h4>
+  <pre>
+// Source: departments[].employees[]
+{
+  "departments": [
+    { "name": "Eng", "employees": [{"name":"Alice"}, {"name":"Bob"}] },
+    { "name": "Sales", "employees": [{"name":"Carol"}] }
+  ]
+}
+</pre>
+  <div class="arrow">↓ flatten ↓</div>
+  <pre>
+// Target: allEmployees[]
+{
+  "allEmployees": [
+    {"name":"Alice"}, {"name":"Bob"}, {"name":"Carol"}
+  ]
+}
+</pre>
+</div>
+
+<p>Drag the nested <code>employees</code> array onto the flat <code>allEmployees</code> target. A <code>⊏ flatten</code> badge appears.</p>
+
+<h3>5.2 Collecting with Context</h3>
+
+<p>When flattening, you often need to carry parent context. The mapper supports this with the <strong>carry fields</strong> option on the flatten badge:</p>
+
+<pre>
+// Flatten but include department name
+source.departments.flatMap(dept =>
+  dept.employees.map(emp => ({
+    ...emp,
+    department: dept.name
+  }))
+)
+</pre>
+
+<p>Click the flatten badge → "Carry parent fields" → select <code>department.name</code>.</p>
+
+<h2>6. Grouping</h2>
+
+<p>The <code>$groupBy</code> function transforms a flat array into groups:</p>
+
+<pre>
+// Group orders by status
+$groupBy(source.orders, "status")
+
+// Result:
+// { "shipped": [{...}, {...}], "pending": [{...}] }
+</pre>
+
+<table>
+  <tr><th>Function</th><th>Description</th></tr>
+  <tr><td><code>$groupBy(arr, key)</code></td><td>Group elements by a field value → object of arrays</td></tr>
+  <tr><td><code>$countBy(arr, key)</code></td><td>Count elements per group → object of numbers</td></tr>
+  <tr><td><code>$keyBy(arr, key)</code></td><td>Index array by unique key → object of elements</td></tr>
+  <tr><td><code>$chunk(arr, size)</code></td><td>Split array into equal-sized groups</td></tr>
+</table>
+
+<h2>7. Sorting &amp; Deduplication</h2>
+
+<table>
+  <tr><th>Function</th><th>Description</th><th>Example</th></tr>
+  <tr><td><code>$sort(arr, key, dir)</code></td><td>Sort array by field</td><td><code>$sort(orders, "price", "desc")</code></td></tr>
+  <tr><td><code>$unique(arr, key)</code></td><td>Deduplicate by field</td><td><code>$unique(orders, "product")</code></td></tr>
+  <tr><td><code>$reverse(arr)</code></td><td>Reverse order</td><td><code>$reverse(orders)</code></td></tr>
+  <tr><td><code>$slice(arr, start, end)</code></td><td>Extract sub-array</td><td><code>$slice(orders, 0, 5)</code> — first 5</td></tr>
+</table>
+
+<h2>8. Common Patterns Reference</h2>
+
+<table>
+  <tr><th>Scenario</th><th>Expression</th></tr>
+  <tr><td>Map + filter in one step</td><td><code>source.items.filter(i => i.active).map(i => i.name)</code></td></tr>
+  <tr><td>Reduce to single object</td><td><code>$reduce(source.pairs, (acc, p) => ({...acc, [p.key]: p.value}), {})</code></td></tr>
+  <tr><td>Find first match</td><td><code>$find(source.users, item => item.role === "admin")</code></td></tr>
+  <tr><td>Check all pass</td><td><code>$every(source.tests, item => item.passed === true)</code></td></tr>
+  <tr><td>Check any passes</td><td><code>$some(source.tests, item => item.score > 90)</code></td></tr>
+  <tr><td>Zip two arrays</td><td><code>$zip(source.keys, source.values)</code> → array of pairs</td></tr>
+</table>
+
+<h2>9. Practice Exercises</h2>
+
+<ol>
+  <li>Map a <code>products[]</code> array to a <code>catalog[]</code> array, renaming fields and computing <code>total = price × stock</code> per item.</li>
+  <li>Aggregate <code>orders[]</code> into <code>orderCount</code> (count) and <code>totalRevenue</code> (sum of <code>amount</code>).</li>
+  <li>Filter <code>users[]</code> to only <code>active</code> users, then sort by <code>name</code> ascending.</li>
+  <li>Flatten <code>categories[].products[]</code> into a single <code>allProducts[]</code> carrying the <code>categoryName</code>.</li>
+</ol>
+
+<div style="margin-top: 40px; padding-top: 16px; border-top: 2px solid #e63946; font-size: 11px; color: #6c757d; text-align: center;">
+  RedfireForge Training Manual · Array &amp; Loop Mapping · Medium · v0.6.0
+</div>
+
+</body>
+</html>

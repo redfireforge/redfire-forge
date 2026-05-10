@@ -1,8 +1,8 @@
 # UI/UX Improvement Plan
 
-> **Status:** Active backlog — Phases 1–4 complete, remainder planned for future polish phases.
+> **Status:** Active backlog — Phases 1–4 complete, Phase 5 partial, Phase 6 partial. Remaining items are future polish.
 >
-> _Last updated: 2026-05-08_
+> _Last updated: 2026-05-10_
 
 ## Commercial Products Researched
 
@@ -209,12 +209,12 @@
 **Impact**: LOW-MEDIUM — First impression
 
 ### Phase 6: Micro-interactions & Accessibility
-- [ ] Hover lift effect on nodes
-- [ ] Smooth panel slide-in/fade transitions
+- [x] Hover lift effect on nodes (`translateY(-1px)` + shadow on `.wf-node:hover`)
+- [x] Smooth panel slide-in/fade transitions (canvas fade-in, exec strip slide, detail panel `slideInRight`)
 - [ ] Skeleton loading states
 - [ ] Subtle scale animation when adding new node
-- [ ] Define semantic color tokens (success/error/warning/info)
+- [~] Define semantic color tokens — partial: `--success`, `--warning`, `--danger` exist; missing `--info` as first-class token and `--color-*` naming convention
 - [ ] Ensure WCAG AA contrast ratios
-- [ ] Add focus rings for keyboard navigation
+- [x] Add focus rings for keyboard navigation (`focus-visible` on React Flow nodes and controls)
 
 **Impact**: LOW — Polish & accessibility

@@ -7,31 +7,43 @@ import type { WorkflowIterationTrace } from '../../../shared/types';
 
 afterEach(cleanup);
 
-function makeIter(passed: boolean, durationMs: number): WorkflowIterationTrace {
+let _nextIndex = 0;
+function makeIter(passed: boolean, durationMs: number, index?: number): WorkflowIterationTrace {
   return {
-    iterationIndex: 0,
+    index: index ?? _nextIndex++,
     passed,
     durationMs,
-    nodeResults: {},
     events: [],
+    finalVariables: {},
+    traversedEdges: [],
   };
 }
 
+function resetIndex() { _nextIndex = 0; }
+
+resetIndex();
 const passIter = makeIter(true, 100);
 const failIter = makeIter(false, 500);
+const iter3 = makeIter(true, 150);
+const iter4 = makeIter(true, 200);
+const iter5 = makeIter(false, 300);
+const iter6 = makeIter(true, 120);
+const iter7 = makeIter(true, 180);
+const iter8 = makeIter(true, 130);
+const iter9 = makeIter(true, 160);
 const slowIter = makeIter(true, 2000);
 
 const iterations: WorkflowIterationTrace[] = [
-  passIter,     // #1 pass 100ms
-  failIter,     // #2 fail 500ms
-  makeIter(true, 150),  // #3 pass 150ms
-  makeIter(true, 200),  // #4 pass 200ms
-  makeIter(false, 300), // #5 fail 300ms
-  makeIter(true, 120),  // #6 pass 120ms
-  makeIter(true, 180),  // #7 pass 180ms
-  makeIter(true, 130),  // #8 pass 130ms
-  makeIter(true, 160),  // #9 pass 160ms
-  slowIter,     // #10 pass 2000ms (definitely in p95)
+  passIter,     // #1 (index 0) pass 100ms
+  failIter,     // #2 (index 1) fail 500ms
+  iter3,        // #3 (index 2) pass 150ms
+  iter4,        // #4 (index 3) pass 200ms
+  iter5,        // #5 (index 4) fail 300ms
+  iter6,        // #6 (index 5) pass 120ms
+  iter7,        // #7 (index 6) pass 180ms
+  iter8,        // #8 (index 7) pass 130ms
+  iter9,        // #9 (index 8) pass 160ms
+  slowIter,     // #10 (index 9) pass 2000ms (definitely in p95)
 ];
 
 describe('IterationPicker', () => {
@@ -228,5 +240,40 @@ describe('IterationPicker', () => {
     const onSelect = vi.fn();
     render(<IterationPicker iterations={[]} selectedIteration={undefined} onSelect={onSelect} failedCount={0} />);
     expect(screen.getByTestId('iter-picker-toggle').textContent).toMatch(/Aggregate/);
+  });
+
+  it('handles out-of-order iteration indices correctly', () => {
+    const outOfOrder: WorkflowIterationTrace[] = [
+      makeIter(true, 200, 5),
+      makeIter(false, 100, 2),
+      makeIter(true, 300, 8),
+    ];
+    const onSelect = vi.fn();
+    render(<IterationPicker iterations={outOfOrder} selectedIteration={2} onSelect={onSelect} failedCount={1} />);
+
+    expect(screen.getByTestId('iter-picker-toggle').textContent).toMatch(/#3.*✗.*100ms/);
+
+    fireEvent.click(screen.getByTestId('iter-picker-toggle'));
+    expect(screen.getByTestId('iter-picker-item-5')).toBeInTheDocument();
+    expect(screen.getByTestId('iter-picker-item-2')).toBeInTheDocument();
+    expect(screen.getByTestId('iter-picker-item-8')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('iter-picker-item-8'));
+    expect(onSelect).toHaveBeenCalledWith(8);
+  });
+
+  it('jump-to-iteration uses logical index', () => {
+    const outOfOrder: WorkflowIterationTrace[] = [
+      makeIter(true, 200, 5),
+      makeIter(false, 100, 2),
+      makeIter(true, 300, 8),
+    ];
+    const onSelect = vi.fn();
+    render(<IterationPicker iterations={outOfOrder} selectedIteration={undefined} onSelect={onSelect} failedCount={1} />);
+
+    fireEvent.click(screen.getByTestId('iter-picker-toggle'));
+    fireEvent.change(screen.getByTestId('iter-picker-jump'), { target: { value: '6' } });
+    expect(screen.getByTestId('iter-picker-item-5')).toBeInTheDocument();
+    expect(screen.queryByTestId('iter-picker-item-2')).not.toBeInTheDocument();
   });
 });

@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import {
   ReactFlow,
   MiniMap,
@@ -5,6 +6,7 @@ import {
   BackgroundVariant,
   ConnectionMode,
   MarkerType,
+  useReactFlow,
 } from '@xyflow/react';
 
 import type { SubWorkflowNodeData, Workflow } from '../types/workflow';
@@ -57,11 +59,11 @@ export function WorkflowDesignerFlowCanvas({
     handleReactFlowInit,
     showMinimap,
     setShowMinimap,
-    undoRedo,
-    handleUndoAction,
-    handleRedoAction,
-    handleAutoLayout,
-    setNodes,
+    undoRedo: _undoRedo,
+    handleUndoAction: _handleUndoAction,
+    handleRedoAction: _handleRedoAction,
+    handleAutoLayout: _handleAutoLayout,
+    setNodes: _setNodes,
     runVariableSnapshot,
     workflowVariables,
     nodeCtxMenu,
@@ -74,7 +76,31 @@ export function WorkflowDesignerFlowCanvas({
     setNodeCtxMenu,
     isRunning,
     handleQuickTest,
+    persistWorkflow,
+    update,
   } = vm;
+
+  const { getViewport, setViewport, fitView } = useReactFlow();
+
+  // Restore saved viewport when switching to a workflow that has one saved,
+  // or fit view for workflows without a saved viewport.
+  // onInit handles the initial mount; this handles subsequent workflow switches.
+  const prevWorkflowIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (previewWorkflow) return;
+    if (!selected) return;
+    if (prevWorkflowIdRef.current === selected.id) return;
+    prevWorkflowIdRef.current = selected.id;
+    if (selected.savedViewport) {
+      requestAnimationFrame(() => {
+        setViewport(selected.savedViewport!, { duration: 0 });
+      });
+    } else {
+      requestAnimationFrame(() => {
+        fitView({ padding: 0.1, maxZoom: 1, duration: 200 });
+      });
+    }
+  }, [selected, previewWorkflow, setViewport, fitView]);
 
   return (
     <div
@@ -155,7 +181,6 @@ export function WorkflowDesignerFlowCanvas({
           onNodeContextMenu={handleNodeContextMenu}
           onPaneClick={handlePaneClick}
           nodeTypes={nodeTypes}
-          fitView
           onInit={handleReactFlowInit}
           connectionMode={ConnectionMode.Loose}
           connectionRadius={40}
@@ -171,19 +196,14 @@ export function WorkflowDesignerFlowCanvas({
             showMinimap={showMinimap}
             onToggleMinimap={() => setShowMinimap(v => !v)}
             disableLayout={!!previewWorkflow}
-            canUndo={undoRedo.canUndo()}
-            canRedo={undoRedo.canRedo()}
-            onUndo={handleUndoAction}
-            onRedo={handleRedoAction}
-            onRestoreLayout={() => {
+            savedViewport={selected.savedViewport}
+            onSaveLayout={() => {
               if (selected) {
-                setNodes((nds) => nds.map(n => {
-                  const saved = selected.nodes.find(sn => sn.id === n.id);
-                  return saved ? { ...n, position: saved.position } : n;
-                }));
+                persistWorkflow();
+                const vp = getViewport();
+                update(selected.id, { savedViewport: { x: vp.x, y: vp.y, zoom: vp.zoom } });
               }
             }}
-            onAutoLayout={handleAutoLayout}
           />
           {showMinimap && (
             <MiniMap

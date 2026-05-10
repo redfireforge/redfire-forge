@@ -221,6 +221,7 @@ program
   .option('--max-errors <n>', 'Stop after N errors (threshold mode)', (v) => parseInt(v, 10))
   .option('--max-error-rate <pct>', 'Stop at error rate % (threshold mode)', (v) => parseFloat(v))
   .option('--base-url <url>', 'Base URL for HTTP nodes with relative paths')
+  .option('--trace-level <level>', 'Trace capture level: minimal, standard, full, debug (default: standard)')
   .option('--fail-on-error', 'Exit code 1 if any request fails')
   .option('--fail-threshold <pct>', 'Exit code 1 if error rate exceeds this %', (v) => parseFloat(v))
   .option('-o, --output <path>', 'Write JSON report to file')
@@ -301,6 +302,14 @@ program
       }
 
       const t0 = performance.now();
+      // Resolve trace level from CLI option
+      const validTraceLevels = ['minimal', 'standard', 'full', 'debug'] as const;
+      const cliTraceLevel = opts.traceLevel as string | undefined;
+      if (cliTraceLevel && !validTraceLevels.includes(cliTraceLevel as typeof validTraceLevels[number])) {
+        throw new Error(`Invalid --trace-level "${cliTraceLevel}". Valid options: ${validTraceLevels.join(', ')}`);
+      }
+      const traceLevel = (cliTraceLevel as typeof validTraceLevels[number]) ?? 'standard';
+
       const { results } = await runGraphLoad(workflow, {
         iterations,
         concurrency,
@@ -309,6 +318,10 @@ program
         abortSignal: abortController.signal,
         onProgress,
         environmentLayer: baseUrl ? { baseUrl } : undefined,
+        traceOptions: {
+          captureFullTrace: traceLevel === 'full' || traceLevel === 'debug',
+          traceLevel,
+        },
       });
       const elapsed = performance.now() - t0;
       const summary = computeMetrics(results, elapsed);

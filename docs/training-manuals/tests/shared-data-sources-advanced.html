@@ -74,7 +74,7 @@
     <h1>Shared Data Sources Advanced</h1>
     <div class="subtitle">Tags, Import/Export, Promotion — Training Manual</div>
     <p><span class="badge badge-advanced">Advanced ★★★</span> · Power Features · dummyjson.com</p>
-    <div class="meta">RedfireForge v0.5.6</div>
+    <div class="meta">RedfireForge v0.5.7</div>
   </div>
 
   <div class="page-break"></div>
@@ -132,27 +132,13 @@
   <h2>3. CSV/Excel Import</h2>
   <p>Bulk load data from spreadsheets or external sources.</p>
 
-  <h3>Import Steps</h3>
+  <h3>Import Steps (Shared Data Sources modal)</h3>
   <ol>
-    <li>Open the shared data source.</li>
-    <li>Click <strong>Import</strong> in the toolbar.</li>
-    <li>Choose file type: CSV, Excel (.xlsx), or JSON.</li>
-    <li>Upload your file.</li>
-    <li>Map columns:
-      <ul>
-        <li>RedfireForge detects columns from the header row</li>
-        <li>Match to existing columns or create new ones</li>
-        <li>Set column types (path, param, validate, etc.)</li>
-      </ul>
-    </li>
-    <li>Choose merge mode:
-      <ul>
-        <li><strong>Append</strong> — add new rows to existing data</li>
-        <li><strong>Replace</strong> — delete existing, use only imported</li>
-        <li><strong>Merge by key</strong> — update matching rows, add new</li>
-      </ul>
-    </li>
-    <li>Click <strong>Import</strong>.</li>
+    <li>Open <strong>Shared Data Sources</strong> and select a source.</li>
+    <li>Edit the grid directly (<strong>+ Row</strong>, <strong>+ Column</strong>) or open <strong>⚙ Configure</strong> for the column wizard (names, types, mappings).</li>
+    <li>For API-driven rows: set the <strong>method</strong> and <strong>URL</strong> at the top, then use <strong>cURL Import</strong> + <strong>Import &amp; Apply</strong> and/or <strong>Populate Rows from API</strong> as needed.</li>
+    <li>For large spreadsheet workflows, prepare CSV/Excel with the prefix conventions below, then merge values using the grid or the <strong>⚙ Configure</strong> review step; file-picker import with merge modes is available from the <strong>Test Editor</strong> (see <a href="parameterized-file-import-easy.html">File Import</a>).</li>
+    <li>Click <strong>Save</strong> in the modal footer when done.</li>
   </ol>
 
   <h3>CSV Column Prefix Convention</h3>
@@ -174,16 +160,12 @@
   <p>Export shared data for external use or backup.</p>
 
   <h3>Export Formats</h3>
-  <ol>
-    <li>Click <strong>Export ▾</strong> in the toolbar.</li>
-    <li>Choose format:
-      <ul>
-        <li><strong>CSV</strong> — spreadsheet-compatible, includes type prefixes</li>
-        <li><strong>JSON</strong> — full structure with column metadata</li>
-        <li><strong>cURL</strong> — one cURL command per row (requires fetch config)</li>
-      </ul>
-    </li>
-  </ol>
+  <p>The <strong>Shared Data Sources</strong> modal does not include a data <strong>Export ▾</strong> menu. To download data as CSV or JSON, open a test that uses this shared source in the <strong>Test Editor</strong> and use <strong>Export ▾</strong> there → <strong>Data as CSV</strong> or <strong>Data as JSON</strong>. For command-line snippets per row, use <strong>cURL Export</strong> from the same test editor when fetch details are available.</p>
+  <ul>
+    <li><strong>CSV</strong> — spreadsheet-compatible, includes type prefixes</li>
+    <li><strong>JSON</strong> — full structure with column metadata</li>
+    <li><strong>cURL</strong> — one cURL command per row (requires fetch config on the test)</li>
+  </ul>
 
   <h3>cURL Export</h3>
   <p>Generates shell commands for each row:</p>
@@ -214,9 +196,9 @@ curl -X POST 'https://dummyjson.com/auth/login' \
   <p>When you have a test with inline data that should be shared:</p>
   <ol>
     <li>Open the test in Test Editor → Data Source tab.</li>
-    <li>Click <strong>☁ Promote to Shared</strong>.</li>
+    <li>Click <strong>⬆ Promote to Shared</strong>.</li>
     <li>Enter a name for the new shared data source.</li>
-    <li>Click <strong>Promote</strong>.</li>
+    <li>Click <strong>⬆ Promote &amp; Link</strong>.</li>
   </ol>
   <p>The inline data becomes a new shared DS, and the test is automatically linked to it.</p>
 
@@ -284,7 +266,7 @@ curl -X POST 'https://dummyjson.com/auth/login' \
 
   <div class="callout">
     <strong>Best Practice</strong>
-    Review the affected tests list before saving. If you're uncertain about impact, use the "Used by" section to open each test and verify it's ready for the data change.
+    Review the affected tests list before saving. If you're uncertain about impact, use the "Used by" section (hover badges for full paths) and open each test from <strong>Feature Groups</strong> to verify it's ready for the data change.
   </div>
 
   <h2>8. Managing Large Data Sets</h2>

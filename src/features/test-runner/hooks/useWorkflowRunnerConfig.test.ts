@@ -337,4 +337,59 @@ describe('useWorkflowRunnerConfig', () => {
 
     expect(result.current.traceOptions.captureFullTrace).toBe(true);
   });
+
+  it('restores traceLevel from saved config', async () => {
+    mockLoad.mockResolvedValueOnce({
+      concurrency: 1,
+      iterations: 1,
+      executionMode: 'batch',
+      traceOptions: {
+        captureFullTrace: true,
+        alwaysCaptureFailures: true,
+        traceLevel: 'debug',
+      },
+    });
+
+    const { result } = renderHook(() => useWorkflowRunnerConfig());
+    await waitFor(() => expect(result.current.configLoaded).toBe(true));
+
+    expect(result.current.traceOptions.traceLevel).toBe('debug');
+    expect(result.current.traceOptions.captureFullTrace).toBe(true);
+  });
+
+  it('defaults traceLevel to undefined when not in saved config', async () => {
+    mockLoad.mockResolvedValueOnce({
+      concurrency: 1,
+      iterations: 1,
+      executionMode: 'batch',
+      traceOptions: {
+        captureFullTrace: false,
+        alwaysCaptureFailures: true,
+      },
+    });
+
+    const { result } = renderHook(() => useWorkflowRunnerConfig());
+    await waitFor(() => expect(result.current.configLoaded).toBe(true));
+
+    expect(result.current.traceOptions.traceLevel).toBeUndefined();
+  });
+
+  it('persists traceLevel when setTraceOptions is called', async () => {
+    const { result } = renderHook(() => useWorkflowRunnerConfig());
+    await waitFor(() => expect(result.current.configLoaded).toBe(true));
+
+    mockSave.mockClear();
+    act(() => {
+      result.current.setTraceOptions(prev => ({ ...prev, traceLevel: 'full', captureFullTrace: true }));
+    });
+
+    await waitFor(() => {
+      expect(mockSave).toHaveBeenCalledWith(
+        expect.objectContaining({
+          traceOptions: expect.objectContaining({ traceLevel: 'full', captureFullTrace: true }),
+        }),
+        '_workflow_runner',
+      );
+    });
+  });
 });
