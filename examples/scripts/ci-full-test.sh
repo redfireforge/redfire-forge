@@ -23,7 +23,7 @@ EXIT_CODE=0
 echo ">>> Running basic API tests..."
 if npx tsx cli/index.ts run examples/cli-basic-test.yaml \
   --concurrency 5 \
-  --transactions 50 \
+  --iterations 50 \
   --junit results/ci-basic.xml \
   --fail-threshold 5 \
   -q; then
@@ -39,7 +39,7 @@ echo ""
 echo ">>> Running assertion tests..."
 if npx tsx cli/index.ts run examples/cli-assertions.yaml \
   --concurrency 3 \
-  --transactions 30 \
+  --iterations 30 \
   --junit results/ci-assertions.xml \
   --fail-threshold 5 \
   -q; then
@@ -56,7 +56,7 @@ echo ">>> Running parameterized tests (smoke tag)..."
 if npx tsx cli/index.ts run examples/cli-parameterized.yaml \
   --tags smoke \
   --concurrency 2 \
-  --transactions 10 \
+  --iterations 10 \
   --junit results/ci-parameterized.xml \
   --fail-threshold 5 \
   -q; then

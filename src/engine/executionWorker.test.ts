@@ -52,7 +52,7 @@ const workerHarness = vi.hoisted(() => {
 function makeConfig(overrides: Partial<TestConfig> = {}): TestConfig {
   return {
     concurrency: 1,
-    totalTransactions: 1,
+    iterations: 1,
     scenarioWeights: [],
     executionMode: 'sequential',
     ...overrides,

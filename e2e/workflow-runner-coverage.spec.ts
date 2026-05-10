@@ -80,7 +80,7 @@ function makeSeedTestRun() {
     timestamp: now,
     config: {
       executionMode: 'workflow',
-      totalTransactions: 3,
+      iterations: 3,
       concurrentUsers: 1,
       thinkTimeMs: 0,
       errorPolicy: 'continue',

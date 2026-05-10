@@ -1,10 +1,10 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import type { Node, Edge } from '@xyflow/react';
-import type { RequestCollection, Environment, Microservice, FeatureGroup, GlobalAuthProfile } from '../shared/types';
+import type { Environment, Microservice, FeatureGroup, GlobalAuthProfile } from '../shared/types';
 import type { CatalogEntry, SavedEndpointValues } from '../features/catalog/types/catalog';
 import { buildCatalogExport } from '../features/catalog/utils/catalogExport';
 import { useGalleryImport } from './hooks/useGalleryImport';
-import { findFolderDeep } from '../features/requests/utils/requestTree';
+import { useWorkbenchActions } from './hooks/useWorkbenchActions';
 import ThemeCustomizer from './ThemeCustomizer';
 import { isCustomThemeId, findSavedTheme } from './themeCustomizerUtils';
 import { loadCatalogEndpointValues, loadPreviewSampleId, savePreviewSampleId } from '../shared/utils/storage';
@@ -20,7 +20,9 @@ import { useCatalog } from '../features/catalog/hooks/useCatalog';
 import { useSidebarResize } from './hooks/useSidebarResize';
 import ScenarioBuilder from '../features/scenarios/ScenarioBuilder';
 import TestRunner from '../features/test-runner/TestRunner';
+import ParameterizedRunner from '../features/test-runner/ParameterizedRunner';
 import WorkflowRunner from '../features/test-runner/WorkflowRunner';
+import MigrationBanner from '../features/test-runner/components/MigrationBanner';
 import ResultsDashboard from '../features/results/ResultsDashboard';
 import Requests from '../features/requests/Requests';
 import type { PreviewRequest } from '../features/requests/Requests';
@@ -106,9 +108,15 @@ export default function App() {
   };
 
   const [confirmAction, setConfirmAction] = useState<{ message: string; onConfirm: () => void } | null>(null);
-  const [showWbCollectionModal, setShowWbCollectionModal] = useState(false);
-  const [editingWbCollection, setEditingWbCollection] = useState<RequestCollection | null>(null);
-  const [editingSubCol, setEditingSubCol] = useState<{ colId: string; folderId: string } | null>(null);
+  const wbActions = useWorkbenchActions({ wb, activeTab, setActiveTab: (t) => setActiveTab(t as Tab) });
+  const {
+    showWbCollectionModal, setShowWbCollectionModal,
+    editingWbCollection, setEditingWbCollection,
+    editingSubCol, setEditingSubCol,
+    newColMode, subColForEdit,
+    handleWbNewCollection, handleWbEditCollection, handleWbSaveCollection,
+    handleWbNewRequest, handleEditSubCollection,
+  } = wbActions;
   const [showCatalogImport, setShowCatalogImport] = useState(false);
   const [catalogReimportId, setCatalogReimportId] = useState<string | undefined>();
   const [catalogInitialSpec, setCatalogInitialSpec] = useState<{ yaml: string; name: string } | undefined>();
@@ -136,13 +144,6 @@ export default function App() {
       setSendToReqEpValues({});
     }
   }, [sendToReqEntry]);
-
-  const subColForEdit = useMemo(() => {
-    if (!editingSubCol) return null;
-    const col = wb.collections.find(c => c.id === editingSubCol.colId);
-    const folder = col ? findFolderDeep(col.folders ?? [], editingSubCol.folderId) : null;
-    return col && folder ? { col, folder } : null;
-  }, [editingSubCol, wb.collections]);
 
   // ---- Sync theme from loaded data ----
   useEffect(() => {
@@ -236,31 +237,6 @@ export default function App() {
 
   // ---- Helpers ----
   const confirm = (message: string, onConfirm: () => void) => setConfirmAction({ message, onConfirm });
-
-  const [newColGroupId, setNewColGroupId] = useState<string | undefined>();
-  const [newColMode, setNewColMode] = useState<'direct' | 'multi-env' | undefined>();
-  const handleWbNewCollection = useCallback((mode?: 'direct' | 'multi-env', groupId?: string) => {
-    setNewColMode(mode); setNewColGroupId(groupId);
-    setEditingWbCollection(null); setShowWbCollectionModal(true);
-  }, []);
-  const handleWbEditCollection = useCallback((col: RequestCollection) => {
-    setEditingWbCollection(col); setShowWbCollectionModal(true);
-  }, []);
-  const handleWbSaveCollection = useCallback((col: Omit<RequestCollection, 'id' | 'requests'> & { id?: string }) => {
-    if (col.id) {
-      wb.updateCollection(col.id, { name: col.name, mode: col.mode, microserviceId: col.microserviceId, baseUrls: col.baseUrls, auth: col.auth, authPerEnv: col.authPerEnv });
-    } else {
-      wb.addCollection({ name: col.name, mode: col.mode, groupId: newColGroupId, microserviceId: col.microserviceId, baseUrls: col.baseUrls, auth: col.auth, authPerEnv: col.authPerEnv });
-    }
-    setShowWbCollectionModal(false); setEditingWbCollection(null); setNewColGroupId(undefined); setNewColMode(undefined);
-  }, [wb, newColGroupId]);
-  const handleWbNewRequest = useCallback((colId: string, folderId?: string) => {
-    wb.addRequest(colId, folderId);
-    if (activeTab !== 'requests') setActiveTab('requests');
-  }, [wb, activeTab]);
-  const handleEditSubCollection = useCallback((colId: string, folderId: string) => {
-    setEditingSubCol({ colId, folderId });
-  }, []);
 
   const handleSendToRequests = useCallback((entry: CatalogEntry) => {
     setSendToReqEntry(entry);
@@ -583,12 +559,16 @@ export default function App() {
               </div>
             )}
             {domainOf(activeTab) === 'testing' && (
-              <div className="sub-nav-tabs">
-                <button className={`sub-nav-tab ${activeTab === 'scenarios' ? 'active' : ''}`} onClick={() => setActiveTab('scenarios')}>Scenarios</button>
-                <button className={`sub-nav-tab ${activeTab === 'runner' ? 'active' : ''}`} onClick={() => setActiveTab('runner')}>Runner</button>
-                <button className={`sub-nav-tab ${activeTab === 'workflow-runner' ? 'active' : ''}`} onClick={() => setActiveTab('workflow-runner')}>Workflow Runner</button>
-                <button className={`sub-nav-tab ${activeTab === 'results' ? 'active' : ''}`} onClick={() => setActiveTab('results')}>Results</button>
-              </div>
+              <>
+                <div className="sub-nav-tabs">
+                  <button className={`sub-nav-tab ${activeTab === 'scenarios' ? 'active' : ''}`} onClick={() => setActiveTab('scenarios')}>Feature Groups</button>
+                  <button className={`sub-nav-tab ${activeTab === 'runner' ? 'active' : ''}`} onClick={() => setActiveTab('runner')}>Test Runner</button>
+                  <button className={`sub-nav-tab ${activeTab === 'param-runner' ? 'active' : ''}`} onClick={() => setActiveTab('param-runner')}>Parameterized Runner</button>
+                  <button className={`sub-nav-tab ${activeTab === 'workflow-runner' ? 'active' : ''}`} onClick={() => setActiveTab('workflow-runner')}>Workflow Runner</button>
+                  <button className={`sub-nav-tab ${activeTab === 'results' ? 'active' : ''}`} onClick={() => setActiveTab('results')}>Results</button>
+                </div>
+                <MigrationBanner onNavigateToParamRunner={() => setActiveTab('param-runner')} />
+              </>
             )}
             {domainOf(activeTab) === 'gallery' && (
               <div className="sub-nav-tabs">
@@ -733,6 +713,21 @@ export default function App() {
           {/* Keep TestRunner mounted so in-flight tests survive tab switches */}
           <div hidden={activeTab !== 'runner'}>
             <TestRunner
+              featureGroups={filteredFeatureGroups}
+              onComplete={handleCompleteToResults}
+              envName={selectedEnv?.name}
+              svcName={selectedSvc?.name}
+              envId={selectedEnvId}
+              svcId={selectedSvcId}
+              resolvedBaseUrl={resolvedBaseUrl}
+              globalAuthProfiles={appGlobalAuthProfiles}
+              envFallbackAuth={envFallbackAuth}
+              sharedDataSources={sharedDataSources}
+            />
+          </div>
+          {/* Keep ParameterizedRunner mounted so in-flight tests survive tab switches */}
+          <div hidden={activeTab !== 'param-runner'}>
+            <ParameterizedRunner
               featureGroups={filteredFeatureGroups}
               onComplete={handleCompleteToResults}
               envName={selectedEnv?.name}

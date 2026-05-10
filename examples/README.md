@@ -14,7 +14,7 @@ Basic API testing with JSONPlaceholder API. Demonstrates:
 
 **Run:**
 ```bash
-npx redfireforge run examples/sample-api-test.yaml -c 5 -t 20
+npx redfireforge run examples/sample-api-test.yaml -c 5 -i 20
 ```
 
 ### `auth-test.yaml`
@@ -203,8 +203,8 @@ npx redfireforge run examples/assertion-price-guard.yaml
 # Run with default settings
 npx redfireforge run examples/sample-api-test.yaml
 
-# Run with custom concurrency and transactions
-npx redfireforge run examples/sample-api-test.yaml -c 10 -t 100
+# Run with custom concurrency and iterations
+npx redfireforge run examples/sample-api-test.yaml -c 10 -i 100
 
 # Run with custom base URL
 npx redfireforge run examples/auth-test.yaml --base-url https://your-api.com

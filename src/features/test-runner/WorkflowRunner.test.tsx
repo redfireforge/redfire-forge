@@ -161,7 +161,7 @@ vi.mock('./hooks/useWorkflowRunnerConfig', async () => {
   return {
     useWorkflowRunnerConfig() {
       const [concurrency, setConcurrency] = ReactMod.useState(1);
-      const [totalTransactions, setTotalTransactions] = ReactMod.useState(1);
+      const [iterations, setIterations] = ReactMod.useState(1);
       const [executionMode, setExecutionMode] = ReactMod.useState<
         import('../../../shared/types').ExecutionMode
       >('batch');
@@ -176,13 +176,17 @@ vi.mock('./hooks/useWorkflowRunnerConfig', async () => {
       const [maxErrors, setMaxErrors] = ReactMod.useState(10);
       const [maxErrorRate, setMaxErrorRate] = ReactMod.useState(50);
       const [selectedWorkflowId, setSelectedWorkflowId] = ReactMod.useState<string | null>(null);
+      const [traceOptions, setTraceOptions] = ReactMod.useState({
+        captureFullTrace: false,
+        alwaysCaptureFailures: true,
+      });
       const [configLoaded] = ReactMod.useState(true);
 
       return {
         concurrency,
         setConcurrency,
-        totalTransactions,
-        setTotalTransactions,
+        iterations,
+        setIterations,
         executionMode,
         setExecutionMode,
         loadProfile,
@@ -203,6 +207,8 @@ vi.mock('./hooks/useWorkflowRunnerConfig', async () => {
         setMaxErrorRate,
         selectedWorkflowId,
         setSelectedWorkflowId,
+        traceOptions,
+        setTraceOptions,
         configLoaded,
       };
     },
@@ -787,8 +793,8 @@ describe('WorkflowRunner', () => {
     testExec.execute.mockClear();
     fireEvent.click(screen.getByText('▶ Run Workflow'));
     expect(testExec.execute).toHaveBeenCalled();
-    const cfg = testExec.execute.mock.calls[0][0] as { totalTransactions: number; loadProfile?: unknown };
-    expect(cfg.totalTransactions).toBe(0);
+    const cfg = testExec.execute.mock.calls[0][0] as { iterations: number; loadProfile?: unknown };
+    expect(cfg.iterations).toBe(0);
     expect(cfg.loadProfile).toBeDefined();
   });
 
@@ -1064,7 +1070,7 @@ describe('WorkflowRunner', () => {
 
     const cfg = testExec.execute.mock.calls[0][0] as Record<string, unknown>;
     expect(cfg.concurrency).toBe(1);
-    expect(cfg.totalTransactions).toBe(1);
+    expect(cfg.iterations).toBe(1);
     expect(cfg.loadProfile).toBeUndefined();
     expect(cfg.correlationWaitConfig).toMatchObject({
       mode: 'wait-for-real',
@@ -1093,7 +1099,7 @@ describe('WorkflowRunner', () => {
         expect.objectContaining({
           summary,
           isTimeBased: true,
-          executionMode: 'load-profile',
+          executionMode: 'workflow',
           resultCount: testExec.finalRun?.results?.length ?? 0,
           durationMs: 2500,
         }),

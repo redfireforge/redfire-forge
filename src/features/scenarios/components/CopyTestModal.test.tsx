@@ -36,15 +36,15 @@ const makeFeatureGroups = (): FeatureGroup[] => [
   {
     id: 'fg-1', name: 'Auth', microserviceId: 'svc-1', environmentId: 'env-1',
     scenarios: [
-      { id: 'sc-1', name: 'Login Scenario', tests: [makeTest()] },
-      { id: 'sc-2', name: 'Signup Scenario', tests: [] },
+      { id: 'sc-1', name: 'Login Scenario', kind: 'standard', tests: [makeTest()] },
+      { id: 'sc-2', name: 'Signup Scenario', kind: 'standard', tests: [] },
     ],
   },
   {
     id: 'fg-2', name: 'Payments', microserviceId: 'svc-1', environmentId: 'env-1',
     scenarios: [
-      { id: 'sc-1', name: 'Shared Id Scenario', tests: [] },
-      { id: 'sc-3', name: 'Checkout Scenario', tests: [] },
+      { id: 'sc-1', name: 'Shared Id Scenario', kind: 'standard', tests: [] },
+      { id: 'sc-3', name: 'Checkout Scenario', kind: 'parameterized', tests: [] },
     ],
   },
 ];
@@ -180,8 +180,7 @@ describe('CopyTestModal', () => {
     fireEvent.change(fgSelect, {
       target: { value: 'fg-empty' },
     });
-    const scSelect = screen.getAllByRole('combobox')[1] as HTMLSelectElement;
-    expect(scSelect.value).toBe('');
+    expect(screen.getByText('No scenarios in this feature group')).toBeInTheDocument();
   });
 
   it('shows No scenarios when initial feature id does not match any group', () => {
@@ -189,7 +188,80 @@ describe('CopyTestModal', () => {
       sourceFeatureId: 'missing-fg',
       sourceScenarioId: 'sc-1',
     });
-    expect(screen.getByRole('option', { name: 'No scenarios' })).toBeInTheDocument();
+    expect(screen.getByText('No scenarios in this feature group')).toBeInTheDocument();
+  });
+
+  it('filters scenarios by sourceScenarioKind when provided', () => {
+    renderModal({
+      sourceScenarioKind: 'parameterized',
+      sourceFeatureId: 'fg-2',
+      sourceScenarioId: 'sc-3',
+    });
+    expect(screen.getByRole('option', { name: /Checkout Scenario/ })).toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: /Shared Id Scenario/ })).not.toBeInTheDocument();
+  });
+
+  it('shows kind-specific empty message when no matching scenarios', () => {
+    const fgs: FeatureGroup[] = [{
+      id: 'fg-1', name: 'Only Standard', microserviceId: 's', environmentId: 'e',
+      scenarios: [
+        { id: 'sc-1', name: 'Standard Only', kind: 'standard', tests: [] },
+      ],
+    }];
+    renderModal({
+      featureGroups: fgs,
+      sourceFeatureId: 'fg-1',
+      sourceScenarioId: 'sc-1',
+      sourceScenarioKind: 'parameterized',
+    });
+    expect(screen.getByText('No parameterized scenarios in this feature group')).toBeInTheDocument();
+  });
+
+  it('shows standard empty message when filtering for standard', () => {
+    const fgs: FeatureGroup[] = [{
+      id: 'fg-1', name: 'Only Param', microserviceId: 's', environmentId: 'e',
+      scenarios: [
+        { id: 'sc-1', name: 'Param Only', kind: 'parameterized', tests: [] },
+      ],
+    }];
+    renderModal({
+      featureGroups: fgs,
+      sourceFeatureId: 'fg-1',
+      sourceScenarioId: 'sc-1',
+      sourceScenarioKind: 'standard',
+    });
+    expect(screen.getByText('No standard scenarios in this feature group')).toBeInTheDocument();
+  });
+
+  it('kind filtering updates when switching feature groups', () => {
+    const fgs: FeatureGroup[] = [
+      {
+        id: 'fg-1', name: 'Mixed', microserviceId: 's', environmentId: 'e',
+        scenarios: [
+          { id: 'sc-1', name: 'Standard', kind: 'standard', tests: [] },
+          { id: 'sc-2', name: 'Param', kind: 'parameterized', tests: [] },
+        ],
+      },
+      {
+        id: 'fg-2', name: 'Standard Only', microserviceId: 's', environmentId: 'e',
+        scenarios: [
+          { id: 'sc-3', name: 'Only Std', kind: 'standard', tests: [] },
+        ],
+      },
+    ];
+    renderModal({
+      featureGroups: fgs,
+      sourceFeatureId: 'fg-1',
+      sourceScenarioId: 'sc-2',
+      sourceScenarioKind: 'parameterized',
+    });
+    const scenarioSelect = screen.getAllByRole('combobox')[1];
+    const scenarioOptions = Array.from((scenarioSelect as HTMLSelectElement).options);
+    expect(scenarioOptions.some(o => o.text.includes('Param'))).toBe(true);
+    expect(scenarioOptions.some(o => o.text === 'Standard')).toBe(false);
+
+    fireEvent.change(screen.getAllByRole('combobox')[0], { target: { value: 'fg-2' } });
+    expect(screen.getByText('No parameterized scenarios in this feature group')).toBeInTheDocument();
   });
 });
 

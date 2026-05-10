@@ -9,7 +9,7 @@ defaults:
 
 config:
   concurrency: 10
-  transactions: 100
+  iterations: 100
   mode: load-profile
   errorPolicy: stop-threshold
   maxErrorRate: 25

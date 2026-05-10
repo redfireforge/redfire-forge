@@ -5,11 +5,13 @@ interface Props {
   results: RequestResult[];
   scenarioName: string;
   onResultClick: (r: RequestResult) => void;
+  /** Total expected rows from the data source (for executed vs expected display) */
+  expectedRowCount?: number;
 }
 
 type ViewMode = 'split' | 'flat' | 'failures';
 
-export function DataRowSummaryTable({ results, scenarioName, onResultClick }: Props) {
+export function DataRowSummaryTable({ results, scenarioName, onResultClick, expectedRowCount }: Props) {
   const [viewMode, setViewMode] = useState<ViewMode>('split');
   const [passedExpanded, setPassedExpanded] = useState(false);
 
@@ -51,7 +53,9 @@ export function DataRowSummaryTable({ results, scenarioName, onResultClick }: Pr
   return (
     <div className="data-row-summary">
       <div className="data-row-summary-header">
-        <span className="data-row-summary-title">{scenarioName} — {dataRowResults.length} rows</span>
+        <span className="data-row-summary-title">
+          {scenarioName} — {dataRowResults.length}{expectedRowCount != null && expectedRowCount !== dataRowResults.length ? ` / ${expectedRowCount}` : ''} rows
+        </span>
         <div className="data-row-summary-modes">
           <button className={`btn btn-xs ${viewMode === 'split' ? 'btn-primary' : ''}`} onClick={() => setViewMode('split')}>Split</button>
           <button className={`btn btn-xs ${viewMode === 'flat' ? 'btn-primary' : ''}`} onClick={() => setViewMode('flat')}>Flat</button>

@@ -128,7 +128,7 @@ function makeRun(id: string, overrides: Partial<TestRun> = {}): TestRun {
     timestamp: Date.now(),
     config: {
       concurrency: 1,
-      totalTransactions: 1,
+      iterations: 1,
       scenarioWeights: [],
       executionMode: 'sequential',
     },

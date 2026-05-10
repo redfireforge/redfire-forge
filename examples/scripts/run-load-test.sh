@@ -10,14 +10,14 @@
 set -e
 
 CONCURRENCY="${1:-5}"
-TRANSACTIONS="${2:-100}"
+ITERATIONS="${2:-100}"
 TIMEOUT="${3:-30}"
 
 echo "=== RedfireForge Load Test ==="
 echo ""
 echo "Configuration:"
 echo "  Concurrency:   $CONCURRENCY"
-echo "  Transactions:  $TRANSACTIONS"
+echo "  Iterations:    $ITERATIONS"
 echo "  Timeout:       ${TIMEOUT}s"
 echo ""
 
@@ -27,7 +27,7 @@ mkdir -p results
 # Run with error threshold - continue until 50% error rate
 npx tsx cli/index.ts run examples/cli-load-profile.yaml \
   --concurrency "$CONCURRENCY" \
-  --transactions "$TRANSACTIONS" \
+  --iterations "$ITERATIONS" \
   --timeout "$TIMEOUT" \
   --error-policy stop-threshold \
   --max-error-rate 50 \
