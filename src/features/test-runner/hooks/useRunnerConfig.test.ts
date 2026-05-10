@@ -252,6 +252,59 @@ describe('useRunnerConfig', () => {
     expect(result.current.timeoutSec).toBe(10);
   });
 
+  it('applies ?? fallbacks for every nullish field in saved config', async () => {
+    mockLoadRunnerConfig.mockResolvedValueOnce({
+      /* All fields explicitly undefined to exercise every ?? branch */
+      concurrency: undefined,
+      iterations: undefined,
+      selectedScenarios: undefined,
+      weights: undefined,
+      skipValidation: undefined,
+      validationOverride: undefined,
+      forceUnordered: undefined,
+      hostMode: undefined,
+      customBaseUrl: undefined,
+      executionMode: undefined,
+      loadProfile: undefined,
+      thinkTime: undefined,
+      timeoutSec: undefined,
+      retryCount: undefined,
+      retryDelayMs: undefined,
+      errorPolicy: undefined,
+      maxErrors: undefined,
+      maxErrorRate: undefined,
+      autoReport: undefined,
+      autoReportFormat: undefined,
+    });
+
+    const { result } = renderHook(() => useRunnerConfig('all-nullish'));
+
+    await vi.waitFor(() => {
+      expect(result.current.configLoaded).toBe(true);
+    });
+
+    expect(result.current.concurrency).toBe(1);
+    expect(result.current.iterations).toBe(1);
+    expect(result.current.selectedScenarios.size).toBe(0);
+    expect(result.current.weights).toEqual({});
+    expect(result.current.skipValidation).toBe(false);
+    expect(result.current.validationOverride).toBe('default');
+    expect(result.current.forceUnordered).toBe(false);
+    expect(result.current.hostMode).toBe('settings');
+    expect(result.current.customBaseUrl).toBe('');
+    expect(result.current.executionMode).toBe('batch');
+    expect(result.current.loadProfile.durationSec).toBe(60);
+    expect(result.current.thinkTime.mode).toBe('none');
+    expect(result.current.timeoutSec).toBe(10);
+    expect(result.current.retryCount).toBe(0);
+    expect(result.current.retryDelayMs).toBe(1000);
+    expect(result.current.errorPolicy).toBe('continue');
+    expect(result.current.maxErrors).toBe(10);
+    expect(result.current.maxErrorRate).toBe(50);
+    expect(result.current.autoReport).toBe(false);
+    expect(result.current.autoReportFormat).toBe('html');
+  });
+
   it('treats null auto-report fields as unset defaults', async () => {
     mockLoadRunnerConfig.mockResolvedValueOnce({
       concurrency: 2,
@@ -270,6 +323,50 @@ describe('useRunnerConfig', () => {
 
     expect(result.current.autoReport).toBe(false);
     expect(result.current.autoReportFormat).toBe('html');
+  });
+
+  it('restores loadProfile and thinkTime when present on saved blob', async () => {
+    mockLoadRunnerConfig.mockResolvedValueOnce({
+      concurrency: 2,
+      iterations: 1,
+      selectedScenarios: [],
+      weights: {},
+      loadProfile: { ...defaultLoadProfile, durationSec: 123, spikeConcurrency: 7 },
+      thinkTime: { mode: 'constant', constantMs: 50 },
+      executionMode: 'batch',
+      skipValidation: false,
+      validationOverride: 'default',
+    });
+
+    const { result } = renderHook(() => useRunnerConfig('profile-think'));
+
+    await vi.waitFor(() => {
+      expect(result.current.configLoaded).toBe(true);
+    });
+
+    expect(result.current.loadProfile.durationSec).toBe(123);
+    expect(result.current.loadProfile.spikeConcurrency).toBe(7);
+    expect(result.current.thinkTime).toEqual({ mode: 'constant', constantMs: 50 });
+  });
+
+  it('uses empty Set and weights when saved selectedScenarios and weights are nullish', async () => {
+    mockLoadRunnerConfig.mockResolvedValueOnce({
+      concurrency: 1,
+      iterations: 2,
+      selectedScenarios: null,
+      weights: null,
+      skipValidation: false,
+      validationOverride: 'default',
+    } as unknown as RunnerConfig);
+
+    const { result } = renderHook(() => useRunnerConfig('nullish-collections'));
+
+    await vi.waitFor(() => {
+      expect(result.current.configLoaded).toBe(true);
+    });
+
+    expect(result.current.selectedScenarios.size).toBe(0);
+    expect(result.current.weights).toEqual({});
   });
 
   it('exports defaultLoadProfile and defaultThinkTime', () => {

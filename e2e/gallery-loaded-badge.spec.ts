@@ -9,7 +9,7 @@
  * 5. "Close Preview" without saving → badge disappears
  */
 import { test, expect } from '@playwright/test';
-import { seedAppData } from './helpers';
+import { confirmFolderPickerModal, seedAppData } from './helpers';
 
 const SAMPLE_NAME = 'Parallel API Calls';
 
@@ -49,8 +49,10 @@ test.describe('Gallery Loaded Badge Lifecycle', () => {
     await page.locator('.gallery-detail-btn-primary', { hasText: 'Load Workflow' }).click();
     await page.waitForTimeout(500);
 
-    // Should be on workflow tab with preview banner
+    // Should be on workflow tab with preview banner — persisted samples only count as loaded
     await expect(page.locator('.wf-preview-banner')).toBeVisible({ timeout: 5000 });
+    await page.locator('button:has-text("Use as Template")').click();
+    await confirmFolderPickerModal(page);
 
     // Navigate back to gallery
     await page.goto('/?tab=gallery');
@@ -74,7 +76,7 @@ test.describe('Gallery Loaded Badge Lifecycle', () => {
     // Use as Template
     await expect(page.locator('button:has-text("Use as Template")')).toBeVisible({ timeout: 5000 });
     await page.locator('button:has-text("Use as Template")').click();
-    await page.waitForTimeout(500);
+    await confirmFolderPickerModal(page);
 
     // Workflow should be in sidebar now
     const sidebarItem = page.locator('.wf-sidebar-item').first();
@@ -140,6 +142,10 @@ test.describe('Gallery Loaded Badge Lifecycle', () => {
     await page.waitForTimeout(300);
     await page.locator('.gallery-detail-btn-primary', { hasText: 'Load Workflow' }).click();
     await page.waitForTimeout(500);
+
+    await expect(page.locator('.wf-preview-banner')).toBeVisible({ timeout: 5000 });
+    await page.locator('button:has-text("Use as Template")').click();
+    await confirmFolderPickerModal(page);
 
     // Go back to gallery
     await page.goto('/?tab=gallery');

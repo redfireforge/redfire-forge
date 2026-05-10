@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import WorkflowPicker from './WorkflowPicker';
-import type { Workflow } from '../../workflow/types/workflow';
+import type { Workflow, WorkflowFolder } from '../../workflow/types/workflow';
 import { createPerfSimpleWorkflow } from '../../../data/galleries/workflows';
 
 const ts = Date.now();
@@ -113,9 +113,10 @@ describe('WorkflowPicker', () => {
       />
     );
 
-    expect(screen.getByText('Select a workflow...')).toBeInTheDocument();
-    expect(screen.getByRole('option', { name: 'Order API Flow' })).toBeInTheDocument();
-    expect(screen.getByRole('option', { name: 'User Registration' })).toBeInTheDocument();
+    expect(screen.getByText('Select a workflow…')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('workflow-select'));
+    expect(screen.getByText('Order API Flow')).toBeInTheDocument();
+    expect(screen.getByText('User Registration')).toBeInTheDocument();
   });
 
   it('calls onWorkflowChange when workflow selected', () => {
@@ -132,7 +133,8 @@ describe('WorkflowPicker', () => {
       />
     );
 
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'wf1' } });
+    fireEvent.click(screen.getByTestId('workflow-select'));
+    fireEvent.click(screen.getByText('Order API Flow'));
 
     expect(onWorkflowChange).toHaveBeenCalledWith('wf1');
     expect(onVariablesChange).toHaveBeenCalledWith({
@@ -263,7 +265,7 @@ describe('WorkflowPicker', () => {
     expect(onVariablesChange).toHaveBeenCalledWith({});
   });
 
-  it('clears selection when dropdown set to placeholder', () => {
+  it('clears selection via Clear button', () => {
     const onWorkflowChange = vi.fn();
     const onVariablesChange = vi.fn();
 
@@ -277,7 +279,7 @@ describe('WorkflowPicker', () => {
       />
     );
 
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: '' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
 
     expect(onWorkflowChange).toHaveBeenCalledWith(null);
     expect(onVariablesChange).toHaveBeenCalledWith({});
@@ -309,7 +311,7 @@ describe('WorkflowPicker', () => {
       />
     );
 
-    expect(screen.getByRole('combobox')).toBeDisabled();
+    expect(screen.getByTestId('workflow-select')).toBeDisabled();
     expect(screen.getByDisplayValue('https://api.example.com')).toBeDisabled();
   });
 
@@ -947,5 +949,452 @@ describe('WorkflowPicker', () => {
 
     expect(screen.getByRole('button', { name: 'Clear' })).toBeDisabled();
     expect(screen.getByRole('button', { name: /Presets/ })).toBeDisabled();
+  });
+
+  // ── Custom dropdown & search ──────────────────────
+
+  it('opens and closes the custom dropdown on trigger click', () => {
+    render(
+      <WorkflowPicker
+        workflows={mockWorkflows}
+        selectedWorkflowId={null}
+        onWorkflowChange={vi.fn()}
+        variables={{}}
+        onVariablesChange={vi.fn()}
+      />
+    );
+
+    expect(screen.queryByTestId('wfp-search-input')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('workflow-select'));
+    expect(screen.getByTestId('wfp-search-input')).toBeInTheDocument();
+  });
+
+  it('filters workflows by search text in dropdown', () => {
+    render(
+      <WorkflowPicker
+        workflows={mockWorkflows}
+        selectedWorkflowId={null}
+        onWorkflowChange={vi.fn()}
+        variables={{}}
+        onVariablesChange={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByTestId('workflow-select'));
+    fireEvent.change(screen.getByTestId('wfp-search-input'), { target: { value: 'order' } });
+
+    expect(screen.getByText((_content, el) =>
+      el?.classList.contains('wfp-dropdown-item') === true && el.textContent === 'Order API Flow',
+    )).toBeInTheDocument();
+    expect(screen.queryByText('User Registration')).not.toBeInTheDocument();
+  });
+
+  it('selects workflow from filtered search rows and clears search state', () => {
+    const onWorkflowChange = vi.fn();
+    const onVariablesChange = vi.fn();
+    render(
+      <WorkflowPicker
+        workflows={mockWorkflows}
+        selectedWorkflowId={null}
+        onWorkflowChange={onWorkflowChange}
+        variables={{}}
+        onVariablesChange={onVariablesChange}
+      />
+    );
+
+    fireEvent.click(screen.getByTestId('workflow-select'));
+    fireEvent.change(screen.getByTestId('wfp-search-input'), {
+      target: { value: 'order' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Order API Flow/ }));
+
+    expect(onWorkflowChange).toHaveBeenCalledWith('wf1');
+    expect(onVariablesChange).toHaveBeenCalled();
+
+    fireEvent.click(screen.getByTestId('workflow-select'));
+    expect(screen.getByTestId('wfp-search-input')).toHaveValue('');
+  });
+
+  it('shows no-match message when search has no results', () => {
+    render(
+      <WorkflowPicker
+        workflows={mockWorkflows}
+        selectedWorkflowId={null}
+        onWorkflowChange={vi.fn()}
+        variables={{}}
+        onVariablesChange={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByTestId('workflow-select'));
+    fireEvent.change(screen.getByTestId('wfp-search-input'), { target: { value: 'zzz' } });
+
+    expect(screen.getByText(/No workflows match/)).toBeInTheDocument();
+  });
+
+  it('shows search clear button and clears on click', () => {
+    render(
+      <WorkflowPicker
+        workflows={mockWorkflows}
+        selectedWorkflowId={null}
+        onWorkflowChange={vi.fn()}
+        variables={{}}
+        onVariablesChange={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByTestId('workflow-select'));
+    const searchInput = screen.getByTestId('wfp-search-input');
+    fireEvent.change(searchInput, { target: { value: 'test' } });
+
+    const clearBtn = screen.getByTitle('Clear search');
+    expect(clearBtn).toBeInTheDocument();
+    fireEvent.click(clearBtn);
+    expect((searchInput as HTMLInputElement).value).toBe('');
+  });
+
+  it('shows folder navigation at root level with drill-down', () => {
+    const folders = [
+      { id: 'f1', name: 'Performance', order: 0 },
+      { id: 'f2', name: 'Load', parentId: 'f1', order: 0 },
+    ];
+    const folderedWorkflows: Workflow[] = [
+      { ...mockWorkflows[0], folderId: 'f2' },
+      { ...mockWorkflows[1] },
+    ];
+
+    render(
+      <WorkflowPicker
+        workflows={folderedWorkflows}
+        folders={folders}
+        selectedWorkflowId={null}
+        onWorkflowChange={vi.fn()}
+        variables={{}}
+        onVariablesChange={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByTestId('workflow-select'));
+
+    expect(screen.getByText('Performance')).toBeInTheDocument();
+    expect(screen.getByText(mockWorkflows[1].name)).toBeInTheDocument();
+  });
+
+  it('shows selected workflow name on trigger button', () => {
+    render(
+      <WorkflowPicker
+        workflows={mockWorkflows}
+        selectedWorkflowId="wf1"
+        onWorkflowChange={vi.fn()}
+        variables={{ baseUrl: 'https://api.example.com', apiKey: 'sk-test' }}
+        onVariablesChange={vi.fn()}
+      />
+    );
+
+    expect(screen.getByTestId('workflow-select').textContent).toContain('Order API Flow');
+  });
+
+  it('shows placeholder text when no workflow selected', () => {
+    render(
+      <WorkflowPicker
+        workflows={mockWorkflows}
+        selectedWorkflowId={null}
+        onWorkflowChange={vi.fn()}
+        variables={{}}
+        onVariablesChange={vi.fn()}
+      />
+    );
+
+    expect(screen.getByTestId('workflow-select').textContent).toContain('Select a workflow');
+  });
+
+  it('closes dropdown after selecting a workflow', () => {
+    render(
+      <WorkflowPicker
+        workflows={mockWorkflows}
+        selectedWorkflowId={null}
+        onWorkflowChange={vi.fn()}
+        variables={{}}
+        onVariablesChange={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByTestId('workflow-select'));
+    expect(screen.getByTestId('wfp-search-input')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('Order API Flow'));
+    expect(screen.queryByTestId('wfp-search-input')).not.toBeInTheDocument();
+  });
+
+  it('highlights active workflow in dropdown', () => {
+    const { container } = render(
+      <WorkflowPicker
+        workflows={mockWorkflows}
+        selectedWorkflowId="wf1"
+        onWorkflowChange={vi.fn()}
+        variables={{ baseUrl: 'https://api.example.com', apiKey: 'sk-test' }}
+        onVariablesChange={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByTestId('workflow-select'));
+    const activeItem = container.querySelector('.wfp-dropdown-item.active');
+    expect(activeItem).toBeTruthy();
+    expect(activeItem?.textContent).toBe('Order API Flow');
+  });
+
+  it('closes dropdown on outside mousedown and clears search panel state', () => {
+    render(
+      <WorkflowPicker
+        workflows={mockWorkflows}
+        selectedWorkflowId={null}
+        onWorkflowChange={vi.fn()}
+        variables={{}}
+        onVariablesChange={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByTestId('workflow-select'));
+    fireEvent.change(screen.getByTestId('wfp-search-input'), { target: { value: 'order' } });
+    fireEvent.mouseDown(document.body);
+
+    expect(screen.queryByTestId('wfp-search-input')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('workflow-select'));
+    expect(screen.getByTestId('wfp-search-input')).toHaveValue('');
+  });
+
+  it('shows dropdown trigger up-arrow while panel is open', () => {
+    render(
+      <WorkflowPicker
+        workflows={mockWorkflows}
+        selectedWorkflowId={null}
+        onWorkflowChange={vi.fn()}
+        variables={{}}
+        onVariablesChange={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByTestId('workflow-select'));
+    expect(screen.getByTestId('workflow-select')).toHaveTextContent('▲');
+  });
+
+  it('does not open dropdown when trigger is disabled', () => {
+    render(
+      <WorkflowPicker
+        workflows={mockWorkflows}
+        selectedWorkflowId={null}
+        onWorkflowChange={vi.fn()}
+        variables={{}}
+        onVariablesChange={vi.fn()}
+        disabled
+      />
+    );
+
+    fireEvent.click(screen.getByTestId('workflow-select'));
+    expect(screen.queryByTestId('wfp-search-input')).not.toBeInTheDocument();
+  });
+
+  it('navigates nested folders, restores root via breadcrumb All, selects workflow inside leaf', () => {
+    const folders: WorkflowFolder[] = [
+      { id: 'root-a', name: 'Dept', order: 0 },
+      { id: 'mid-b', name: 'Team', parentId: 'root-a', order: 0 },
+      { id: 'leaf-c', name: 'Project', parentId: 'mid-b', order: 0 },
+    ];
+
+    const inLeaf: Workflow = {
+      ...mockWorkflows[0],
+      id: 'wf-deep',
+      name: 'Deep Flow',
+      folderId: 'leaf-c',
+    };
+
+    const onWorkflowChange = vi.fn();
+    render(
+      <WorkflowPicker
+        workflows={[inLeaf]}
+        folders={folders}
+        selectedWorkflowId={null}
+        onWorkflowChange={onWorkflowChange}
+        variables={{}}
+        onVariablesChange={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByTestId('workflow-select'));
+    fireEvent.click(screen.getByRole('button', { name: /Dept/ }));
+
+    fireEvent.click(screen.getByRole('button', { name: /Team/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Project/ }));
+
+    expect(document.querySelector('.wft-dropdown-breadcrumb')).toBeTruthy();
+    expect(screen.getByText('Deep Flow')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('Deep Flow'));
+    expect(onWorkflowChange).toHaveBeenCalledWith('wf-deep');
+
+    fireEvent.click(screen.getByTestId('workflow-select'));
+
+    fireEvent.click(screen.getByRole('button', { name: /Dept/ }));
+    fireEvent.click(document.querySelector('.wft-breadcrumb-root') as HTMLElement);
+
+    expect(document.querySelector('.wft-dropdown-breadcrumb')).not.toBeInTheDocument();
+  });
+
+  it('folder back button climbs to parent in breadcrumb drill-down', () => {
+    const folders: WorkflowFolder[] = [
+      { id: 'a1', name: 'Alpha', order: 0 },
+      { id: 'b1', name: 'Beta', parentId: 'a1', order: 0 },
+    ];
+
+    render(
+      <WorkflowPicker
+        workflows={[mockWorkflows[1]]}
+        folders={folders}
+        selectedWorkflowId={null}
+        onWorkflowChange={vi.fn()}
+        variables={{}}
+        onVariablesChange={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByTestId('workflow-select'));
+    fireEvent.click(screen.getByRole('button', { name: /Alpha/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Beta/ }));
+
+    expect(document.querySelector('.wft-breadcrumb-current')?.textContent).toContain('Beta');
+
+    fireEvent.click(screen.getByRole('button', { name: '←' }));
+    expect(screen.getByRole('button', { name: /Beta/ })).toBeInTheDocument();
+  });
+
+  it('shows Empty folder inside a navigated folder that has only empty structure', () => {
+    const folders: WorkflowFolder[] = [
+      { id: 'p1', name: 'Packed', order: 0 },
+      { id: 'v1', name: 'Vacant', order: 1 },
+    ];
+
+    render(
+      <WorkflowPicker
+        workflows={[mockWorkflows[1]]}
+        folders={folders}
+        selectedWorkflowId={null}
+        onWorkflowChange={vi.fn()}
+        variables={{}}
+        onVariablesChange={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByTestId('workflow-select'));
+    fireEvent.click(screen.getByRole('button', { name: /Vacant/ }));
+
+    expect(screen.getByText('Empty folder')).toBeInTheDocument();
+  });
+
+  it('search highlights substring and shows filed workflow breadcrumb in results', () => {
+    const folders: WorkflowFolder[] = [{ id: 'fx', name: 'Archive', order: 0 }];
+    const filedWf: Workflow = {
+      ...mockWorkflows[0],
+      folderId: 'fx',
+      name: 'Archived Order Flow',
+    };
+
+    render(
+      <WorkflowPicker
+        workflows={[filedWf, mockWorkflows[1]]}
+        folders={folders}
+        selectedWorkflowId={null}
+        onWorkflowChange={vi.fn()}
+        variables={{}}
+        onVariablesChange={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByTestId('workflow-select'));
+    fireEvent.change(screen.getByTestId('wfp-search-input'), {
+      target: { value: 'order' },
+    });
+
+    expect(document.querySelectorAll('.wfp-search-highlight').length).toBeGreaterThan(0);
+
+    const row = screen.getByRole('button', { name: /Archived Order Flow/ }).closest('.wfp-dropdown-item');
+    expect(row?.querySelector('.wft-item-breadcrumb')).toHaveTextContent('Archive');
+
+    fireEvent.change(screen.getByTestId('wfp-search-input'), {
+      target: { value: 'user' },
+    });
+    const userRow = screen.getByRole('button', { name: mockWorkflows[1].name });
+    expect(userRow.querySelector('.wft-item-breadcrumb')).toBeNull();
+  });
+
+  it('drops breadcrumb drill-down when typing in search clears folder navigation', () => {
+    const folders: WorkflowFolder[] = [{ id: 'solo', name: 'Solo', order: 0 }];
+
+    render(
+      <WorkflowPicker
+        workflows={mockWorkflows}
+        folders={folders}
+        selectedWorkflowId={null}
+        onWorkflowChange={vi.fn()}
+        variables={{}}
+        onVariablesChange={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByTestId('workflow-select'));
+    fireEvent.click(screen.getByRole('button', { name: /Solo/ }));
+    expect(document.querySelector('.wft-dropdown-breadcrumb')).toBeTruthy();
+
+    fireEvent.change(screen.getByTestId('wfp-search-input'), { target: { value: 'a' } });
+    expect(document.querySelector('.wft-dropdown-breadcrumb')).not.toBeInTheDocument();
+  });
+
+  it('does not invoke import when compact sample chip is clicked without onImportSample', () => {
+    const onWorkflowChange = vi.fn();
+    render(
+      <WorkflowPicker
+        workflows={mockWorkflows}
+        selectedWorkflowId={null}
+        onWorkflowChange={onWorkflowChange}
+        variables={{}}
+        onVariablesChange={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Perf: Simple POST → GET/ }));
+    expect(onWorkflowChange).not.toHaveBeenCalled();
+  });
+
+  it('shows catalog description as compact sample chip tooltip when not imported yet', () => {
+    render(
+      <WorkflowPicker
+        workflows={[mockWorkflows[0]]}
+        selectedWorkflowId={null}
+        onWorkflowChange={vi.fn()}
+        variables={{}}
+        onVariablesChange={vi.fn()}
+      />
+    );
+
+    const chip = screen.getByRole('button', { name: /Perf: Conditional Branching/ });
+    expect(chip.getAttribute('title')).toBe(
+      'Load test a workflow with conditional paths: search country, branch on result.',
+    );
+  });
+
+  it('shows update/select hint as compact chip tooltip when sample name already exists locally', () => {
+    render(
+      <WorkflowPicker
+        workflows={[createPerfSimpleWorkflow()]}
+        selectedWorkflowId={null}
+        onWorkflowChange={vi.fn()}
+        variables={{}}
+        onVariablesChange={vi.fn()}
+      />
+    );
+
+    const chip = screen.getByRole('button', { name: /Perf: Simple POST → GET/ });
+    expect(chip.getAttribute('title')).toMatch(/Update/);
+    expect(chip.getAttribute('title')).toContain('Perf: Simple POST → GET');
   });
 });

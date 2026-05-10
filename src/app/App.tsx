@@ -12,6 +12,7 @@ import { saveFile } from '../shared/utils/fileSaver';
 import { mergeById } from '../shared/utils/helpers';
 
 import { useWorkflowImportExport } from './hooks/useWorkflowImportExport';
+import { useDerivedViewState } from './hooks/useDerivedViewState';
 import { useRerunFailed } from './hooks/useRerunFailed';
 import { useTheme } from './hooks/useTheme';
 import { useProjects } from '../features/scenarios/hooks/useProjects';
@@ -43,9 +44,11 @@ import WorkflowExecutionHistory from '../features/workflow/WorkflowExecutionHist
 import WebhookDeliveryLogs from '../features/webhooks/WebhookDeliveryLogs';
 import WorkflowSidebar from '../features/workflow/components/panels/WorkflowSidebar';
 import ServerStatusIndicator from '../features/workflow/components/panels/ServerStatusIndicator';
+import FolderPickerModal from '../features/workflow/components/modals/FolderPickerModal';
 import { GalleryPage } from '../features/gallery/GalleryPage';
 import TrainingTracksView from '../features/training/TrainingTracksView';
 import { useWorkflows } from '../features/workflow/hooks/useWorkflows';
+import { useWorkflowFolders } from '../features/workflow/hooks/useWorkflowFolders';
 import { sampleWorkflowCatalog } from '../data/galleries/workflows';
 import { getAutoLayoutNodes } from '../features/workflow/utils/workflowAutoLayout';
 import type { Workflow } from '../features/workflow/types/workflow';
@@ -84,12 +87,12 @@ export default function App() {
   const wb = useRequests();
   const catalog = useCatalog();
   const wfHook = useWorkflows();
+  const wfFolders = useWorkflowFolders();
   const { theme, setTheme, showCustomizer, setShowCustomizer, themePickerOpen, setThemePickerOpen, themePickerRef, reapplyTheme, THEMES, THEME_ICONS } = useTheme();
   const toast = useToast();
   const { handleWorkflowExport, handleWorkflowImport } = useWorkflowImportExport({
     wfHook, setActiveTab: (t) => setActiveTab(t as Tab), showToast: toast.show,
   });
-
   // ---- App shell state ----
   const [activeTab, setActiveTab] = useState<Tab>(() => readTabFromUrl());
   const [resultsRunTypeFilter, setResultsRunTypeFilter] = useState<'all' | 'test' | 'workflow' | undefined>();
@@ -131,7 +134,7 @@ export default function App() {
     return { ...sample, nodes: laidOut as unknown as typeof sample.nodes };
   });
   const [previewRequest, setPreviewRequest] = useState<PreviewRequest | null>(null);
-  // Gallery is now a proper tab — no separate modal state needed.
+  const [pendingTemplateImport, setPendingTemplateImport] = useState<Workflow | null>(null);
   const [catalogEditId, setCatalogEditId] = useState<string | undefined>();
   const [sendToReqEntry, setSendToReqEntry] = useState<CatalogEntry | undefined>();
   const [sendToReqEpValues, setSendToReqEpValues] = useState<Record<string, SavedEndpointValues>>({});
@@ -140,7 +143,6 @@ export default function App() {
     if (sendToReqEntry) {
       loadCatalogEndpointValues(sendToReqEntry.id).then(setSendToReqEpValues);
     } else {
-       
       setSendToReqEpValues({});
     }
   }, [sendToReqEntry]);
@@ -148,9 +150,7 @@ export default function App() {
   // ---- Sync theme from loaded data ----
   useEffect(() => {
     if (!loading) {
-       
       setTheme(initialTheme);
-       
     }
   }, [loading, initialTheme, initialTestRuns, setTheme]);
 
@@ -172,8 +172,6 @@ export default function App() {
     return () => window.removeEventListener('resize', syncHeaderHeight);
   }, [syncHeaderHeight]);
 
-  // ---- Theme ----
-
   // ---- Fix Gallery Samples microservice baseUrls (migration for pre-0.9.1 data) ----
   const galleryFixApplied = useRef(false);
   useEffect(() => {
@@ -190,37 +188,13 @@ export default function App() {
 
   // ---- Derived view state ----
 
-  const selectedEnv = environments.find((e) => e.id === selectedEnvId);
-  const selectedSvc = microservices.find((s) => s.id === selectedSvcId);
-  const resolvedBaseUrl = selectedEnv && selectedSvc ? (selectedSvc.baseUrls[selectedEnv.id] ?? '') : '';
-
-  const envAuthProfileId = selectedSvc?.authProfileIds?.[selectedEnvId];
-  const envFallbackAuth = envAuthProfileId
-    ? appGlobalAuthProfiles.find((p) => p.id === envAuthProfileId)?.auth
-    : undefined;
-
-  const filteredFeatureGroups = (selectedSvcId && selectedEnvId)
-    ? featureGroups.filter((fg) => fg.microserviceId === selectedSvcId && fg.environmentId === selectedEnvId)
-    : selectedSvcId
-      ? featureGroups.filter((fg) => fg.microserviceId === selectedSvcId)
-      : [];
-
-  const svcIds = new Set(microservices.map((s) => s.id));
-  const envIds = new Set(environments.map((e) => e.id));
-  const needsEnvAssignment = selectedSvcId
-    ? featureGroups.filter((fg) => fg.microserviceId === selectedSvcId && !fg.environmentId)
-    : [];
-  const fullyUnassociated = featureGroups.filter((fg) => !fg.microserviceId);
-  const orphanedFGs = featureGroups.filter((fg) =>
-    (fg.microserviceId && !svcIds.has(fg.microserviceId)) ||
-    (fg.environmentId && !envIds.has(fg.environmentId))
-  );
-  const seenIds = new Set([...needsEnvAssignment, ...fullyUnassociated].map((fg) => fg.id));
-  const unassociatedFeatureGroups = [
-    ...needsEnvAssignment,
-    ...fullyUnassociated,
-    ...orphanedFGs.filter((fg) => !seenIds.has(fg.id)),
-  ];
+  const {
+    selectedEnv, selectedSvc, resolvedBaseUrl,
+    envFallbackAuth, filteredFeatureGroups, unassociatedFeatureGroups,
+  } = useDerivedViewState({
+    environments, microservices, featureGroups,
+    globalAuthProfiles: appGlobalAuthProfiles, selectedEnvId, selectedSvcId,
+  });
 
   const { isRerunning, handleRerunFailed } = useRerunFailed({
     featureGroups, resolvedBaseUrl, globalAuthProfiles: appGlobalAuthProfiles, envFallbackAuth,
@@ -281,6 +255,23 @@ export default function App() {
     const blob = new Blob([raw], { type: 'text/yaml' });
     await saveFile(blob, { filename, mimeType: 'text/yaml', description: 'YAML spec' });
   }, [catalog]);
+
+  const handleTemplatePickFolder = useCallback((folderId: string | null) => {
+    if (!pendingTemplateImport) return;
+    const copy = { ...pendingTemplateImport, folderId: folderId ?? undefined };
+    const catalogEntry = sampleWorkflowCatalog.find(e => e.id === pendingTemplateImport.gallerySampleId);
+    if (catalogEntry?.companionFactories) {
+      for (const cf of catalogEntry.companionFactories) {
+        const companion = cf();
+        const companionCopy = { ...structuredClone(companion), id: companion.id, name: companion.name.replace(/^Sample: /, ''), folderId: folderId ?? undefined, createdAt: Date.now(), updatedAt: Date.now() };
+        wfHook.insert(companionCopy);
+      }
+    }
+    wfHook.insert(copy);
+    setPreviewWorkflow(null);
+    savePreviewSampleId(null);
+    setPendingTemplateImport(null);
+  }, [pendingTemplateImport, wfHook]);
 
   const handleImportData = useCallback(async (data: {
     environments?: Environment[];
@@ -497,6 +488,8 @@ export default function App() {
             <WorkflowSidebar
               workflows={wfHook.workflows}
               selectedId={wfHook.selectedId}
+              folders={wfFolders.folders}
+              foldersLoaded={wfFolders.loaded}
               onSelect={(id) => { wfHook.select(id); setActiveTab('workflow'); }}
               onNew={(name: string) => {
                 wfHook.create(name); setActiveTab('workflow');
@@ -509,6 +502,20 @@ export default function App() {
               onDuplicate={(id) => { wfHook.duplicate(id); }}
               onExport={handleWorkflowExport}
               onImport={handleWorkflowImport}
+              onToggleFolderCollapse={wfFolders.toggleCollapse}
+              onSetFolderCollapsed={wfFolders.setCollapsed}
+              onCreateFolder={wfFolders.create}
+              onRenameFolder={wfFolders.rename}
+              onDeleteFolder={(id) => wfFolders.remove(id, wfFolders.folders)}
+              onMoveWorkflowToFolder={(wfId, folderId) => {
+                wfHook.update(wfId, { folderId: folderId ?? undefined, folderOrder: Date.now() });
+              }}
+              onMoveWorkflowsToFolder={(wfIds, folderId) => {
+                wfIds.forEach((id) => {
+                  wfHook.update(id, { folderId: folderId ?? undefined, folderOrder: Date.now() });
+                });
+              }}
+              onMoveFolder={wfFolders.move}
             />
           )}
           {isHarnessTab(activeTab) && (
@@ -590,6 +597,7 @@ export default function App() {
               collections={wb.collections}
               catalogEntries={catalog.entries}
               wfHook={wfHook}
+              folders={wfFolders.folders}
               environments={environments}
               microservices={microservices}
               globalAuthProfiles={appGlobalAuthProfiles}
@@ -602,20 +610,8 @@ export default function App() {
               onClearPreview={() => { setPreviewWorkflow(null); savePreviewSampleId(null); }}
               onUseAsTemplate={(wf) => {
                 const gallerySampleId = sampleWorkflowCatalog.find(e => e.id === wf.id)?.id;
-                const copy = { ...structuredClone(wf), id: crypto.randomUUID(), name: wf.name.replace(/^Sample: /, ''), gallerySampleId, createdAt: Date.now(), updatedAt: Date.now() };
-                // If this sample has companion workflows (e.g. child sub-workflows), insert them too
-                const catalogEntry = sampleWorkflowCatalog.find(e => e.id === wf.id);
-                if (catalogEntry?.companionFactories) {
-                  for (const cf of catalogEntry.companionFactories) {
-                    const companion = cf();
-                    // Update sub-workflow references in the copy to point to the companion
-                    const companionCopy = { ...structuredClone(companion), id: companion.id, name: companion.name.replace(/^Sample: /, ''), createdAt: Date.now(), updatedAt: Date.now() };
-                    wfHook.insert(companionCopy);
-                  }
-                }
-                wfHook.insert(copy);
-                setPreviewWorkflow(null);
-                savePreviewSampleId(null);
+                const copy: Workflow = { ...structuredClone(wf), id: crypto.randomUUID(), name: wf.name.replace(/^Sample: /, ''), gallerySampleId, createdAt: Date.now(), updatedAt: Date.now() };
+                setPendingTemplateImport(copy);
               }}
               onRunInHarness={handleRunInHarness}
             />
@@ -642,6 +638,7 @@ export default function App() {
             <div className="app-tab-pane" style={{ display: 'flex', flexDirection: 'column', overflow: 'auto' }}>
               <WorkflowRunner
                 workflows={wfHook.workflows}
+                folders={wfFolders.folders}
                 onComplete={handleCompleteToResults}
                 initialWorkflowId={workflowRunnerInitialId}
                 onClearInitialWorkflowId={() => setWorkflowRunnerInitialId(null)}
@@ -889,6 +886,14 @@ export default function App() {
           </div>
         </div>
       )}
+
+      <FolderPickerModal
+        open={pendingTemplateImport !== null}
+        folders={wfFolders.folders}
+        title="Save Template To..."
+        onCancel={() => setPendingTemplateImport(null)}
+        onPick={handleTemplatePickFolder}
+      />
 
     </div>
   );
