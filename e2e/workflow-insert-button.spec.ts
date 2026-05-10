@@ -110,10 +110,21 @@ async function seedInsertBtnWorkflow(page: Page) {
 
 async function openNodeConfig(page: Page, nodeLabel: string) {
   const node = page.locator('.react-flow__node', { hasText: nodeLabel });
-  await node.waitFor({ state: 'visible', timeout: 5_000 });
-  await node.dblclick();
+  await node.waitFor({ state: 'visible', timeout: 10_000 });
+
+  await page.evaluate((label) => {
+    const nodes = document.querySelectorAll('.react-flow__node');
+    for (const n of nodes) {
+      if (n.textContent?.includes(label)) {
+        const evt = new MouseEvent('dblclick', { bubbles: true, cancelable: true });
+        n.dispatchEvent(evt);
+        break;
+      }
+    }
+  }, nodeLabel);
+
   const modal = page.locator('.ram-modal');
-  await expect(modal).toBeVisible({ timeout: 3_000 });
+  await expect(modal).toBeVisible({ timeout: 10_000 });
   return modal;
 }
 

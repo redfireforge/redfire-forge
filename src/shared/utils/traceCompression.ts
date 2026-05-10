@@ -75,6 +75,7 @@ export function sampleIterations(
       finalVariables: {},
       traversedEdges: [],
       sampled: false,
+      ...(iter.initialVariables ? { initialVariables: iter.initialVariables } : {}),
     };
   });
 }

@@ -160,8 +160,11 @@ Parent Workflow (Results Explorer)
 <h2 id="prerequisites">Prerequisites</h2>
 <ol>
   <li>
-    <strong>Enable Capture Full Trace</strong> in the Workflow Runner before executing. Sub-workflow
-    trace data is only available when full trace capture is enabled.
+    <strong>Set Trace level to Full or Debug.</strong> In <strong>Workflow Runner</strong>, use the <strong>Trace level</strong> dropdown before executing:
+    <strong>Minimal &mdash; errors only</strong>, <strong>Standard &mdash; summary + assertions</strong>, <strong>Full &mdash; request/response bodies</strong>,
+    <strong>Debug &mdash; full + log lines</strong>. Sub-workflow child traces require <strong>Full</strong> or <strong>Debug</strong> so drill-down data is captured.
+    Optionally use <strong>Trace sampling</strong> (checkbox + threshold; default <strong>50</strong> iterations) to limit how many iterations keep full detail on larger runs;
+    for Full/Debug, <strong>&le;100 iterations recommended</strong>.
   </li>
   <li>
     <strong>The workflow must contain Sub-Workflow nodes</strong> &mdash; these are nodes of type
@@ -169,10 +172,10 @@ Parent Workflow (Results Explorer)
   </li>
 </ol>
 <div class="callout callout-warn">
-  <strong>Without full trace</strong>
-  If full trace capture was not enabled, the detail panel will show the sub-workflow node&rsquo;s
+  <strong>Without Full or Debug trace level</strong>
+  If <strong>Trace level</strong> was <strong>Minimal</strong> or <strong>Standard</strong> only, the detail panel will show the sub-workflow node&rsquo;s
   summary (pass/fail, duration) but the drill-down button will be unavailable since the child
-  trace was not captured.
+  trace was not captured with enough detail.
 </div>
 
 <!-- HOW TO DRILL DOWN -->
@@ -347,7 +350,7 @@ Parent Workflow (Results Explorer)
 <!-- TIPS & BEST PRACTICES -->
 <h2 id="tips">Tips &amp; Best Practices</h2>
 <ul>
-  <li><strong>Always enable full trace capture</strong> when testing workflows with sub-workflow nodes. Without it,
+  <li><strong>Always set Trace level to Full or Debug</strong> when testing workflows with sub-workflow nodes. With only Minimal or Standard,
     drill-down data is unavailable.</li>
   <li><strong>Use Timeline view</strong> to quickly identify sub-workflow bars by their indigo color, then drill down
     to investigate their internal timing breakdown.</li>

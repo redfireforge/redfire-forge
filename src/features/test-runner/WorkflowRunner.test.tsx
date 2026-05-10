@@ -1046,13 +1046,13 @@ describe('WorkflowRunner', () => {
     render(<WorkflowRunner workflows={mockWorkflows} onComplete={vi.fn()} />);
     selectWorkflowById('wf1');
 
-    fireEvent.click(screen.getByRole('checkbox', { name: /full trace/i }));
+    fireEvent.change(screen.getByDisplayValue(/Standard/), { target: { value: 'full' } });
     await waitFor(() => expect(screen.getByText(/≤100 iterations recommended/)).toBeInTheDocument());
 
     testExec.execute.mockClear();
     fireEvent.click(screen.getByText('▶ Run Workflow'));
     expect(testExec.execute.mock.calls[0][0]).toMatchObject({
-      traceOptions: { captureFullTrace: true, alwaysCaptureFailures: true },
+      traceOptions: expect.objectContaining({ captureFullTrace: true, traceLevel: 'full' }),
     });
   });
 
@@ -1146,7 +1146,7 @@ describe('WorkflowRunner', () => {
 
     selectWorkflowById('wf-wh');
     fireEvent.click(screen.getByRole('button', { name: 'Load Test' }));
-    fireEvent.click(screen.getByRole('checkbox', { name: /full trace/i }));
+    fireEvent.change(screen.getByDisplayValue(/Standard/), { target: { value: 'full' } });
     fireEvent.click(screen.getByRole('button', { name: /Run Webhook Load Test/ }));
 
     await waitFor(() => expect(complete).toHaveBeenCalled());
@@ -1270,7 +1270,7 @@ describe('WorkflowRunner', () => {
   it('snapshots invalid sampling thresholds to the fifty-iteration safeguard', async () => {
     render(<WorkflowRunner workflows={mockWorkflows} onComplete={vi.fn()} />);
     selectWorkflowById('wf1');
-    fireEvent.click(screen.getByRole('checkbox', { name: /full trace/i }));
+    fireEvent.change(screen.getByDisplayValue(/Standard/), { target: { value: 'full' } });
     fireEvent.change(await screen.findByRole('spinbutton', { name: /Threshold/i }), {
       target: { value: 'not-a-number' },
     });
@@ -1286,9 +1286,8 @@ describe('WorkflowRunner', () => {
   it('respects disabled trace sampling checkbox in execute options', async () => {
     render(<WorkflowRunner workflows={mockWorkflows} onComplete={vi.fn()} />);
     selectWorkflowById('wf1');
-    await waitFor(() => expect(screen.getByRole('checkbox', { name: /full trace/i })).toBeInTheDocument());
+    fireEvent.change(screen.getByDisplayValue(/Standard/), { target: { value: 'full' } });
 
-    fireEvent.click(screen.getByRole('checkbox', { name: /full trace/i }));
     const sampling = await screen.findByRole('checkbox', { name: /trace sampling/i });
     fireEvent.click(sampling);
 
@@ -1307,7 +1306,7 @@ describe('WorkflowRunner', () => {
     render(<WorkflowRunner workflows={mockWorkflows} onComplete={vi.fn()} />);
     selectWorkflowById('wf1');
 
-    fireEvent.click(screen.getByRole('checkbox', { name: /full trace/i }));
+    fireEvent.change(screen.getByDisplayValue(/Standard/), { target: { value: 'full' } });
     expect(await screen.findByRole('spinbutton', { name: /Threshold/i })).toHaveValue(50);
     fireEvent.change(screen.getByRole('spinbutton', { name: /Threshold/i }), {
       target: { value: '90' },

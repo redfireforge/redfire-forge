@@ -47,7 +47,7 @@ export default function IterationMatrixTable({
 
   // Build row data with node durations
   const rows = useMemo<IterationRow[]>(() => {
-    return iterations.map((iter, i) => {
+    return iterations.map((iter) => {
       const nodeDurations = new Map<string, { durationMs?: number; state: 'pass' | 'fail' | 'skipped' }>();
       
       for (const node of httpNodes) {
@@ -65,7 +65,6 @@ export default function IterationMatrixTable({
         }
       }
 
-      // Get first error message if failed
       let error: string | undefined;
       if (!iter.passed) {
         const failedEvent = iter.events.find(e => e.state === 'fail' && e.details?.error);
@@ -79,7 +78,7 @@ export default function IterationMatrixTable({
       const overhead = Math.max(0, iter.durationMs - httpSum);
 
       return {
-        originalIndex: i,
+        originalIndex: iter.index,
         passed: iter.passed,
         totalDurationMs: iter.durationMs,
         httpDurationMs: httpSum,

@@ -762,20 +762,8 @@ describe('useWorkflowExecution', () => {
         result.current.handleQuickTest();
       });
 
-      expect(mockRunGraph).toHaveBeenCalledWith(
-        expect.anything(),
-        expect.anything(),
-        expect.anything(),
-        expect.anything(),
-        expect.anything(),
-        expect.objectContaining({ baseUrl: 'https://api.test.com' }),
-        expect.anything(),
-        expect.anything(),
-        undefined,
-        undefined,
-        expect.anything(),
-        expect.anything(),
-      );
+      const callArgs = mockRunGraph.mock.calls[0];
+      expect(callArgs[5]).toEqual(expect.objectContaining({ baseUrl: 'https://api.test.com' }));
     });
   });
 

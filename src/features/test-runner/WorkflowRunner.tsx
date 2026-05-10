@@ -485,7 +485,7 @@ export default function WorkflowRunner({ workflows, folders, onComplete, initial
                 </div>
                 <span className="webhook-mode-hint">
                   {webhookRunMode === 'single' 
-                    ? '— Run workflow once using sample payload (supports Full Trace)' 
+                    ? '— Run workflow once using sample payload (supports trace capture)' 
                     : '— Send many requests to webhook endpoint'}
                 </span>
               </div>
@@ -544,20 +544,42 @@ export default function WorkflowRunner({ workflows, folders, onComplete, initial
               </div>
             )}
 
-            {/* Full trace capture toggle - shown for all workflow types */}
-            <label className="wf-inline-toggle">
-              <input
-                type="checkbox"
-                checked={traceOptions.captureFullTrace}
-                onChange={(e) => setTraceOptions(prev => ({ ...prev, captureFullTrace: e.target.checked }))}
+            {/* Trace level dropdown */}
+            <div className="wf-inline-option">
+              <span className="wf-inline-label">Trace level</span>
+              <select
+                className="wf-trace-level-select"
+                value={traceOptions.traceLevel ?? (traceOptions.captureFullTrace ? 'full' : 'standard')}
+                onChange={(e) => {
+                  const level = e.target.value as import('../../shared/types').TraceCaptureLevel;
+                  setTraceOptions(prev => ({
+                    ...prev,
+                    traceLevel: level,
+                    captureFullTrace: level === 'full' || level === 'debug',
+                  }));
+                }}
                 disabled={isRunning}
-              />
-              <span className="wf-inline-toggle-label">Full trace</span>
-            </label>
-            <span className="wf-inline-hint">— capture request/response details for Results Explorer {traceOptions.captureFullTrace && <span className="wf-inline-warn">(≤100 iterations recommended)</span>}</span>
+              >
+                <option value="minimal">Minimal — errors only</option>
+                <option value="standard">Standard — summary + assertions</option>
+                <option value="full">Full — request/response bodies</option>
+                <option value="debug">Debug — full + log lines</option>
+              </select>
+              <span className="wf-inline-hint">
+                {(traceOptions.traceLevel === 'full' || traceOptions.traceLevel === 'debug' || (!traceOptions.traceLevel && traceOptions.captureFullTrace))
+                  && <span className="wf-inline-warn">(≤100 iterations recommended)</span>}
+              </span>
+            </div>
 
-            {/* Trace sampling toggle */}
-            {traceOptions.captureFullTrace && (
+            {/* Debug + high iteration warning */}
+            {traceOptions.traceLevel === 'debug' && iterations > 10 && (
+              <div className="wf-trace-warning">
+                Debug trace with &gt;10 iterations increases memory usage
+              </div>
+            )}
+
+            {/* Trace sampling toggle — shown for full/debug levels */}
+            {(traceOptions.traceLevel === 'full' || traceOptions.traceLevel === 'debug' || (!traceOptions.traceLevel && traceOptions.captureFullTrace)) && (
               <div className="wf-sampling-config">
                 <div className="wf-sampling-row">
                   <label className="wf-inline-toggle">

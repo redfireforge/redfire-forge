@@ -54,7 +54,7 @@ export default function IterationPicker({ iterations, selectedIteration, onSelec
   }, [iterations]);
 
   const filteredIterations = useMemo(() => {
-    let list = iterations.map((iter, idx) => ({ iter, idx }));
+    let list = iterations.map((iter) => ({ iter, iterIndex: iter.index }));
 
     if (filter === 'failed') {
       list = list.filter(({ iter }) => !iter.passed);
@@ -65,22 +65,22 @@ export default function IterationPicker({ iterations, selectedIteration, onSelec
     if (jumpInput.trim()) {
       const num = parseInt(jumpInput.trim(), 10);
       if (!isNaN(num) && num >= 1) {
-        list = list.filter(({ idx }) => idx + 1 === num);
+        list = list.filter(({ iterIndex }) => iterIndex + 1 === num);
       }
     }
 
     return list;
   }, [iterations, filter, jumpInput, p95Threshold]);
 
-  const handleSelect = useCallback((idx: number) => {
-    onSelect(idx);
+  const handleSelect = useCallback((iterIndex: number) => {
+    onSelect(iterIndex);
     setOpen(false);
     setJumpInput('');
   }, [onSelect]);
 
   const handleJumpKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && filteredIterations.length === 1) {
-      handleSelect(filteredIterations[0].idx);
+      handleSelect(filteredIterations[0].iterIndex);
     }
     if (e.key === 'Escape') {
       setOpen(false);
@@ -93,15 +93,20 @@ export default function IterationPicker({ iterations, selectedIteration, onSelec
     [iterations, p95Threshold],
   );
 
+  const selectedIter = useMemo(
+    () => selectedIteration !== undefined ? iterations.find(i => i.index === selectedIteration) : undefined,
+    [iterations, selectedIteration],
+  );
+
   const buttonLabel = isAggregate
     ? 'Aggregate'
-    : `#${selectedIteration + 1} ${iterations[selectedIteration]?.passed ? '✓' : '✗'} ${formatDurationMs(iterations[selectedIteration]?.durationMs)}`;
+    : `#${selectedIteration! + 1} ${selectedIter?.passed ? '✓' : '✗'} ${formatDurationMs(selectedIter?.durationMs)}`;
 
   return (
     <div className="iter-picker" ref={containerRef} data-testid="view-toggle">
       <button
         ref={toggleRef}
-        className={`iter-picker-toggle ${isAggregate ? 'aggregate' : iterations[selectedIteration!]?.passed ? 'pass' : 'fail'}`}
+        className={`iter-picker-toggle ${isAggregate ? 'aggregate' : selectedIter?.passed ? 'pass' : 'fail'}`}
         onClick={() => open ? setOpen(false) : openDropdown()}
         data-testid="iter-picker-toggle"
       >
@@ -110,10 +115,17 @@ export default function IterationPicker({ iterations, selectedIteration, onSelec
       </button>
 
       {open && (
+        <>
+        <div
+          className="iter-picker-backdrop"
+          data-testid="iter-picker-backdrop"
+          onClick={() => setOpen(false)}
+          style={{ position: 'fixed', inset: 0, zIndex: 9998 }}
+        />
         <div
           className="iter-picker-dropdown"
           data-testid="iter-picker-dropdown"
-          style={{ top: dropdownPos.top, left: dropdownPos.left }}
+          style={{ top: dropdownPos.top, left: dropdownPos.left, zIndex: 9999 }}
         >
           <div className="iter-picker-header">
             <input
@@ -167,17 +179,17 @@ export default function IterationPicker({ iterations, selectedIteration, onSelec
               <span className="iter-item-meta">{iterations.length} iterations</span>
             </button>
 
-            {filteredIterations.map(({ iter, idx }) => (
+            {filteredIterations.map(({ iter, iterIndex }) => (
               <button
-                key={idx}
-                className={`iter-picker-item ${iter.passed ? 'pass' : 'fail'} ${selectedIteration === idx ? 'selected' : ''}`}
-                onClick={() => handleSelect(idx)}
-                data-testid={`iter-picker-item-${idx}`}
+                key={iterIndex}
+                className={`iter-picker-item ${iter.passed ? 'pass' : 'fail'} ${selectedIteration === iterIndex ? 'selected' : ''}`}
+                onClick={() => handleSelect(iterIndex)}
+                data-testid={`iter-picker-item-${iterIndex}`}
               >
                 <span className={`iter-item-status ${iter.passed ? 'pass' : 'fail'}`}>
                   {iter.passed ? '✓' : '✗'}
                 </span>
-                <span className="iter-item-label">#{idx + 1}</span>
+                <span className="iter-item-label">#{iterIndex + 1}</span>
                 <span className="iter-item-duration">{formatDurationMs(iter.durationMs)}</span>
                 {iter.durationMs >= p95Threshold && (
                   <span className="iter-item-slow-badge">slow</span>
@@ -192,6 +204,7 @@ export default function IterationPicker({ iterations, selectedIteration, onSelec
             )}
           </div>
         </div>
+        </>
       )}
     </div>
   );

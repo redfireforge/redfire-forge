@@ -72,7 +72,7 @@
     <h1>Verify &amp; Validation Contract</h1>
     <div class="subtitle">Automated Data Verification &amp; Expected-Value Contracts — Training Manual</div>
     <p><span class="badge badge-advanced">Advanced ★★★</span> · Data-Driven · Regression</p>
-    <div class="meta">RedfireForge v0.5.6</div>
+    <div class="meta">RedfireForge v0.5.7</div>
   </div>
 
   <div class="page-break"></div>
@@ -92,7 +92,7 @@
   <ol>
     <li>Open a test in the Test Editor.</li>
     <li>Switch to the <strong>Data Source</strong> tab.</li>
-    <li>Click <strong>✅ Verify</strong> in the toolbar.</li>
+    <li>Click <strong>▶ Verify All</strong> in the Data Source toolbar.</li>
     <li>The Verify modal opens, showing all enabled data source rows.</li>
   </ol>
 
@@ -118,13 +118,12 @@
   <h2>4. Run &amp; Capture</h2>
   <p><strong>Run &amp; Capture</strong> executes all rows and captures the actual API response values into your <code>validate</code> columns — overwriting existing expected values with what the API actually returns.</p>
   <ol>
-    <li>Click <strong>▶ Run &amp; Capture</strong> in the modal toolbar.</li>
+    <li>Click <strong>⬇ Run &amp; Capture</strong> in the modal toolbar.</li>
     <li>All rows execute against the live API.</li>
     <li>Each row's validate columns are populated with actual response values.</li>
     <li>After capture, all rows show as ✅ (since expected now equals actual).</li>
+    <li>To run capture again on the same rows, click <strong>⬇ Re-capture</strong> in the modal toolbar.</li>
   </ol>
-
-  <div class="callout callout-warn">
     <strong>⚠️ When to Use Run &amp; Capture</strong>
     Use this when setting up a new data source for the first time, or after a <em>known, intentional</em> API change. It overwrites expected values — do not use it blindly on an established regression suite.
   </div>
@@ -132,7 +131,7 @@
   <h2>5. Re-Fetch Failed &amp; Accept Changes</h2>
 
   <h3>Re-Fetch Failed</h3>
-  <p>After a verify pass, click <strong>🔄 Re-fetch Failed</strong> to retry only the rows that failed or errored. This is useful when failures were caused by transient issues (network timeouts, server restarts).</p>
+  <p>After a verify pass, click <strong>↻ Re-fetch Failed (n)</strong> (the label includes the failure count) to retry only the rows that failed or errored. This is useful when failures were caused by transient issues (network timeouts, server restarts).</p>
 
   <h3>Accept All Changes</h3>
   <p>When the API has legitimately changed, click <strong>Accept All Changes</strong> to update all failed rows' expected values to the actual values returned by the API.</p>
@@ -153,7 +152,7 @@
 
   <h3>How It Works</h3>
   <ol>
-    <li>In the Data Source tab toolbar, click <strong>📋 Contract</strong>.</li>
+    <li>In the Data Source tab toolbar, click <strong>Contract</strong>.</li>
     <li>Add JSON path patterns you want to monitor, for example:
       <ul>
         <li><code>$.id</code> — the root ID field</li>
@@ -191,12 +190,12 @@
   <ol>
     <li>Load the <strong>User Lookup Sweep</strong> gallery sample.</li>
     <li>Open the Data Source tab — notice validate columns with expected values.</li>
-    <li>Click <strong>✅ Verify</strong> → <strong>▶ Verify All</strong>.</li>
+    <li>Click <strong>▶ Verify All</strong> in the Data Source toolbar to open the Verify modal. In the modal toolbar, click <strong>▶ Verify All</strong> to run verification on all rows.</li>
     <li>Watch rows turn green (✅) or red (❌).</li>
     <li>Click a failed row to see the expected vs actual diff.</li>
     <li>Click <strong>Accept</strong> on one failed row to update its expected value.</li>
-    <li>Click <strong>🔄 Re-fetch Failed</strong> to retry remaining failures.</li>
-    <li>Now set up a contract: click <strong>📋 Contract</strong>.</li>
+    <li>Click <strong>↻ Re-fetch Failed (n)</strong> to retry remaining failures.</li>
+    <li>Now set up a contract: click <strong>Contract</strong>.</li>
     <li>Add: <code>$.id</code>, <code>$.name</code>, <code>$.email</code>.</li>
     <li>Run Verify All again — contract violations (if any) appear separately from value mismatches.</li>
   </ol>
@@ -206,7 +205,7 @@
     <li>Create a test pointing to <code>https://dummyjson.com/products</code>.</li>
     <li>Use <strong>⬇ From API</strong> to populate 30 product rows.</li>
     <li>Add a validate column for <code>$.title</code>.</li>
-    <li>Use <strong>▶ Run &amp; Capture</strong> to auto-fill expected titles.</li>
+    <li>Use <strong>⬇ Run &amp; Capture</strong> to auto-fill expected titles.</li>
     <li>Manually change one row's expected title to "WRONG VALUE".</li>
     <li>Run <strong>▶ Verify All</strong> — the modified row should fail, all others pass.</li>
     <li>Click Accept on the failed row.</li>

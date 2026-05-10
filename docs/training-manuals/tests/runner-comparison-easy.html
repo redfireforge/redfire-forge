@@ -281,7 +281,7 @@
     <li>Go to <strong>Testing → Test Runner</strong></li>
     <li>Select the imported scenario</li>
     <li>Set: <strong>5 iterations, concurrency 2</strong></li>
-    <li>Click <strong>▶ Run</strong></li>
+    <li>Click <strong>▶ Run Test</strong></li>
     <li>Observe: Results show 5 requests (one per iteration)</li>
   </ol>
 
@@ -293,7 +293,7 @@
     <li>Go to <strong>Testing → Parameterized Runner</strong></li>
     <li>Select the imported scenario</li>
     <li>Set: <strong>2 iterations</strong></li>
-    <li>Click <strong>▶ Run</strong></li>
+    <li>Click <strong>▶ Run Parameterized Test</strong></li>
     <li>Observe: Results show <em>2 × N rows</em> requests (each data row runs twice)</li>
   </ol>
 
@@ -444,7 +444,7 @@
 
   <div class="callout">
     <strong>Remember</strong>
-    All three runners use the same underlying execution engine and produce results in the same format. The difference is in how you define, organize, and execute your tests. Scenario type (Standard or Parameterized) determines which runner can use it.
+    Test Runner and Parameterized Runner execute scenarios through the HTTP test execution engine (requests and, for parameterized tests, data rows). Workflow Runner executes the workflow graph through the dedicated graph execution engine. All runs appear under Results, but grouping and drill-down differ: per-request metrics, per-row context, or per-step / per-iteration workflow detail. Scenario type (Standard or Parameterized) determines whether Test Runner or Parameterized Runner can use the scenario.
   </div>
 
   <h2>11. Next Steps</h2>

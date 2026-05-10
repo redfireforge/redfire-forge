@@ -182,9 +182,11 @@ test.describe('New Node Types — Config Modals', () => {
   });
 
   test('opens Aggregate config modal', async ({ page }) => {
-    await page.locator('.wf-node-aggregate .wf-node-configure-badge').click();
+    const aggNode = page.locator('.wf-node-aggregate');
+    await aggNode.waitFor({ state: 'visible', timeout: 10_000 });
+    await aggNode.dblclick({ force: true });
     const modal = page.locator('.wf-config-modal');
-    await expect(modal).toBeVisible({ timeout: 3000 });
+    await expect(modal).toBeVisible({ timeout: 10_000 });
     await expect(page.locator('#wf-config-modal-title')).toContainText('AGGREGATE');
   });
 

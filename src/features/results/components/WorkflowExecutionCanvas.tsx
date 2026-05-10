@@ -63,6 +63,7 @@ interface Props {
   trace: WorkflowExecutionTrace;
   selectedNodeId?: string;
   onNodeClick?: (nodeId: string) => void;
+  onNodeDoubleClick?: (nodeId: string) => void;
   showMinimap?: boolean;
   onToggleMinimap?: () => void;
   fitViewTrigger?: number;
@@ -337,6 +338,7 @@ export default function WorkflowExecutionCanvas({
   trace, 
   selectedNodeId,
   onNodeClick,
+  onNodeDoubleClick,
   showMinimap = true,
   onToggleMinimap,
   fitViewTrigger,
@@ -637,6 +639,13 @@ export default function WorkflowExecutionCanvas({
     [onNodeClick]
   );
 
+  const handleNodeDoubleClick: NodeMouseHandler = useCallback(
+    (_event, node) => {
+      onNodeDoubleClick?.(node.id);
+    },
+    [onNodeDoubleClick]
+  );
+
   const handlePaneClick = useCallback(() => {
     onNodeClick?.('');
   }, [onNodeClick]);
@@ -789,6 +798,7 @@ export default function WorkflowExecutionCanvas({
         edges={edges}
         onNodesChange={handleNodesChange}
         onNodeClick={handleNodeClick}
+        onNodeDoubleClick={handleNodeDoubleClick}
         onNodeMouseEnter={handleNodeMouseEnter}
         onNodeMouseLeave={handleNodeMouseLeave}
         onPaneClick={handlePaneClick}
