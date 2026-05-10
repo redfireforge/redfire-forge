@@ -328,6 +328,30 @@ export const contentPaths: TrainingPath[] = [
           },
         ],
       },
+      {
+        id: 6,
+        name: 'Runners & Scenario Types',
+        manuals: [
+          {
+            title: 'Test Runner Guide',
+            description: 'Run standard tests as load tests — iterations, concurrency, execution modes, and execution plan.',
+            difficulty: 'easy',
+            manualPath: 'tests/test-runner-guide-easy.html',
+          },
+          {
+            title: 'Parameterized Runner Guide',
+            description: 'Run parameterized scenarios — data rows × iterations formula, per-test execution plan.',
+            difficulty: 'easy',
+            manualPath: 'tests/parameterized-runner-guide-easy.html',
+          },
+          {
+            title: 'Scenario Types Guide',
+            description: 'Standard vs Parameterized scenarios — creation, enforcement, Feature Group summary, move/copy rules.',
+            difficulty: 'easy',
+            manualPath: 'tests/scenario-types-guide-easy.html',
+          },
+        ],
+      },
     ],
   },
 

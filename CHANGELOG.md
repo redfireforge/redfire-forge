@@ -9,6 +9,29 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
 ## [Unreleased]
 
 ### Added
+- **Runner Redesign — Three-Runner Architecture**
+  - Split single Test Runner into **Test Runner** (standard scenarios) and **Parameterized Runner** (data-driven scenarios), alongside existing **Workflow Runner**
+  - New `ScenarioKind` type (`'standard'` | `'parameterized'`) enforced at scenario creation — prevents mixing test types
+  - New `computeAllocation()` engine — single source of truth for execution planning (replaces weight-based allocation)
+  - Renamed "Transactions" → "Iterations" throughout UI, engine, CLI, and documentation
+  - `ParameterizedRunner.tsx` — dedicated runner page for data-driven scenarios with per-test row × iterations preview
+  - `ExecutionPlanPreview` — shared component showing exact execution plan (iterations × tests or iterations × rows)
+  - `ScenarioSelector` now filters by `kind` — Test Runner shows only standard, Parameterized Runner shows only parameterized
+  - `useRunnerOrchestration` hook — extracted shared logic between Test Runner and Parameterized Runner (~300 lines of deduplication)
+  - `MigrationBanner` — one-time dismissible notification when existing mixed scenarios are auto-split
+  - Scenario kind selector (Standard/Parameterized radio buttons) on scenario creation
+  - `PARAM` badge on parameterized scenarios, `Param` tag on parameterized tests
+  - Feature Group header shows breakdown: `3 scenarios (2S · 1P)`
+  - Move/Copy modals filter target scenarios by matching kind
+  - Workflow Runner progress shows both iterations and requests: `10/10 iterations (100%) — 40/40 requests (100%)`
+  - Workflow Runner trace config (Full Trace, Sampling) persisted across navigations
+  - "Scenarios" tab renamed to "Feature Groups"
+  - Auto-migration: `migrateScenarioKinds()` detects and splits mixed scenarios on load
+  - `allocationEngine.ts` — deterministic allocation with no silent truncation
+  - `scenarioMigration.ts` — migration logic with split detection and count tracking
+  - 3 new training manuals: Test Runner Guide, Parameterized Runner Guide, Scenario Types Guide
+  - Updated 14+ existing training manuals for three-runner architecture
+  - Runner Comparison manual rewritten for three runners
 - **Training Manual Tracks** — New dedicated page for structured learning with progress tracking
   - `TrainingTracksView`: Full-page training dashboard with expandable learning paths and phases
   - `TrainingProgressDashboard`: Stats overview showing completed, in-progress, paths started, and day streak

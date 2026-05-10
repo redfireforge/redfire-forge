@@ -2,7 +2,7 @@
 
 **Created**: May 8, 2026  
 **Revised**: May 9, 2026 (complete rewrite based on design review)  
-**Status**: Code Complete (Phases 1–4 code) — Documentation tasks (4.4–4.7) pending  
+**Status**: Complete (All 4 phases — code + documentation)  
 **Priority**: High (fundamental UX/architecture fix)  
 **Affected Area**: Scenarios, Test Runner, Parameterized Runner (new), Workflow Runner, Executor
 
@@ -668,7 +668,7 @@ When `kind` is provided, filter `featureGroups → scenarios` to only show `Test
 Add "Parameterized Runner" as a new tab between "Test Runner" and "Workflow Runner" in the main navigation:
 
 ```
-[Scenarios] [Test Runner] [Parameterized Runner] [Workflow Runner] [Results]
+[Feature Groups] [Test Runner] [Parameterized Runner] [Workflow Runner] [Results]
 ```
 
 Route to `ParameterizedRunner` component. Share the same feature group / environment context.
@@ -917,11 +917,11 @@ Update exported report format to use "Iterations" instead of "Transactions" in r
 - [x] Migration banner appears once after upgrade, dismissible
 - [x] `DataRowSummaryTable` shows total vs executed row counts
 - [x] Results display uses "Iterations" terminology (already done in Phase 1)
-- [ ] All existing training manuals updated ("Transactions" → "Iterations", runner architecture)
-- [ ] Three new training manuals created (Test Runner, Parameterized Runner, Scenario Types)
-- [ ] New manuals registered in gallery system with metadata
-- [ ] Gallery sample descriptions updated
-- [ ] `CHANGELOG.md`, `README.md`, `ROADMAP.md`, conventions doc updated
+- [x] All existing training manuals updated ("Transactions" → "Iterations", runner architecture)
+- [x] Three new training manuals created (Test Runner, Parameterized Runner, Scenario Types)
+- [x] New manuals registered in gallery system with metadata
+- [x] Gallery sample descriptions updated (no changes needed — "transactionId" is business domain)
+- [x] `CHANGELOG.md`, `README.md`, `ROADMAP.md`, conventions doc updated
 - [x] Report generator uses new terminology (already done in Phase 1)
 - [x] `forceSingleTransaction` renamed to `forceSingleIteration`
 - [x] All code tests pass (1447 tests)
@@ -953,7 +953,17 @@ Update exported report format to use "Iterations" instead of "Transactions" in r
 - Updated `WorkflowRunner.tsx` (1 occurrence)
 - Updated `RunnerExecutionConfig.test.tsx` (4 occurrences)
 
-**Remaining (documentation-only)**: Tasks 4.4–4.7 deferred pending user review
+**Tasks 4.4–4.7 (documentation) completed 2026-05-09**:
+- Updated 14+ existing training manuals: Runner references → Parameterized Runner, TPS → "Requests per second", navigation paths
+- Rewrote `runner-comparison-easy.html` for three-runner architecture
+- Created 3 new manuals: `test-runner-guide-easy.html`, `parameterized-runner-guide-easy.html`, `scenario-types-guide-easy.html`
+- Registered all new manuals in `contentPaths.ts` (Phase 6: Runners & Scenario Types) and `manualMetadata.ts`
+- Updated `workflowPaths.ts` Runner Comparison description for three runners
+- Gallery sample descriptions: no changes needed (transactionId references are business-domain API fields)
+- Updated `CHANGELOG.md` with runner redesign entries under [Unreleased]
+- Updated `README.md`: Transactions → Iterations, CLI flags, three-runner section, architecture diagram
+- Updated `ROADMAP.md`: Phase 0.5.9 milestone, fixed transaction→iteration wording
+- Updated `.cursor/rules/project-conventions.mdc` Key Files table with new files
 
 **Test Results**: 1447 tests passing, zero TypeScript errors
 
@@ -1108,3 +1118,4 @@ User confirms → executor.ts — runTest()
 | 2026-05-09 | AI Assistant | Phase 2 complete — explicit kind selector on scenario creation (Standard/Parameterized radio buttons), conditional action buttons per scenario type, Data tab hidden for standard scenarios, parameterized save validation, indigo "DATA" badge. 7 new tests, 2181 scenario tests passing. |
 | 2026-05-09 | AI Assistant | Phase 3 complete — Runner split into Test Runner (standard-only) and Parameterized Runner (parameterized-only). ExecutionPlanPreview shared component with kind-aware rendering. ScenarioSelector kind filter. Three tabs in navigation. Old Expansion Summary removed. 19 new tests, 693 tests passing. |
 | 2026-05-09 | AI Assistant | Phase 4 code complete — Migration notification banner (one-time, dismissible), DataRowSummaryTable expected vs executed row counts, `forceSingleTransaction` → `forceSingleIteration` rename. 12 new tests, 1447 tests passing. Documentation tasks (4.4–4.7) deferred pending user review. |
+| 2026-05-09 | AI Assistant | Phase 4 documentation complete — Updated 14+ existing training manuals (Runner references, TPS wording). Rewrote runner-comparison manual for 3-runner architecture. Created 3 new manuals (Test Runner Guide, Parameterized Runner Guide, Scenario Types Guide). Registered in gallery system. Updated CHANGELOG, README, ROADMAP, project-conventions. All 31 tasks complete. |

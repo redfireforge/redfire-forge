@@ -39,6 +39,11 @@ alwaysApply: true
 | `src/utils/catalogExport.ts` | Catalog → Requests export transformation |
 | `src/utils/workflowAutoLayout.ts` | Dagre-based hierarchical auto-layout with post-processing |
 | `src/engine/executor.ts` | HTTP test execution engine |
+| `src/engine/allocationEngine.ts` | Shared allocation engine (computeAllocation) |
+| `src/shared/utils/scenarioMigration.ts` | Scenario kind migration (migrateScenarioKinds) |
+| `src/features/test-runner/ParameterizedRunner.tsx` | Parameterized Runner page |
+| `src/features/test-runner/hooks/useRunnerOrchestration.ts` | Shared runner logic hook |
+| `src/features/test-runner/components/ExecutionPlanPreview.tsx` | Execution plan preview |
 | `src/engine/thinkTime.ts` | Think time delay factory and apply function |
 | `src/engine/validator.ts` | JSON validation + rich assertion evaluator (evaluateAssertions) |
 | `src/engine/workflow/graphRunner.ts` | Workflow execution engine with topological traversal, parallel fork/join |

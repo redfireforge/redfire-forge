@@ -20,7 +20,7 @@ mkdir -p results
 # Run quick smoke test with failure detection
 npx tsx cli/index.ts run examples/cli-basic-test.yaml \
   --concurrency 1 \
-  --transactions 5 \
+  --iterations 5 \
   --timeout 10 \
   --junit results/ci-smoke.xml \
   --fail-on-error \

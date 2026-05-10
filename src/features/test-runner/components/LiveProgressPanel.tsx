@@ -71,7 +71,7 @@ export default function LiveProgressPanel({
             <>
               {executionModeMeta.progressLabel}
               {' · '}C:{executionMode === 'sequential' ? 1 : concurrency}
-              {' · '}T:{total}
+              {' · '}I:{total}
             </>
           )}
         </span>

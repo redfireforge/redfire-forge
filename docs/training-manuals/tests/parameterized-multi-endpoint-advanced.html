@@ -94,7 +94,7 @@
   <ol>
     <li>Open <strong>Gallery → Tests</strong>.</li>
     <li>Load <strong>"Multi-Endpoint Regression"</strong>.</li>
-    <li>In the Scenarios tab, you'll see 4 scenarios under one feature group.</li>
+    <li>In the Feature Groups tab, you'll see 4 scenarios under one feature group.</li>
   </ol>
 
   <h3>Step 2: Explore Each Data Source</h3>
@@ -106,7 +106,7 @@
 
   <h3>Step 3: Run All at Once</h3>
   <ol>
-    <li>Go to the <strong>Runner</strong> tab.</li>
+    <li>Go to <strong>Testing → Parameterized Runner</strong>.</li>
     <li>Check the entire "Multi-Endpoint Regression" feature group.</li>
     <li>The execution summary shows: <strong>"4 tests × 5 data rows each = 20 requests"</strong>.</li>
     <li>Click <strong>Run</strong>.</li>
@@ -133,7 +133,7 @@
   <p>Grouping related endpoints into one feature group means they run together and their results are shown side-by-side. Use separate feature groups for unrelated APIs.</p>
 
   <h3>4.3 Row Tags for Selective Runs</h3>
-  <p>Add tags to data rows (e.g., "smoke", "critical", "edge-case") and use the Runner's tag filter to run only critical rows during quick CI checks, or all rows for nightly regression.</p>
+  <p>Add tags to data rows (e.g., "smoke", "critical", "edge-case") and use the <strong>Parameterized Runner's</strong> tag filter to run only critical rows during quick CI checks, or all rows for nightly regression.</p>
 
   <h2>5. Try It Yourself</h2>
   <ol>
@@ -146,7 +146,7 @@
   <h2>6. Scaling Up: Subsets &amp; Populate from API</h2>
   <p>When managing large multi-endpoint suites, these features help:</p>
   <ul>
-    <li><strong>Named Subsets</strong> — Save tag-based filters like "smoke" or "nightly" that apply across all data rows. Use them in the Runner or CLI to run only a subset of rows per endpoint.</li>
+    <li><strong>Named Subsets</strong> — Save tag-based filters like "smoke" or "nightly" that apply across all data rows. Use them in the <strong>Parameterized Runner</strong> or CLI to run only a subset of rows per endpoint.</li>
     <li><strong>Populate from API</strong> — Instead of manually entering 100 product rows, call <code>⬇ From API</code> to fetch <code>/products</code> and auto-generate rows from the response array. Each array item becomes a data row with columns auto-mapped to JSON fields.</li>
     <li><strong>Verify All</strong> — After populating, click <strong>▶ Verify All</strong> to validate every row against the live API. The Verify modal groups failure patterns so you can spot systematic issues across endpoints.</li>
   </ul>

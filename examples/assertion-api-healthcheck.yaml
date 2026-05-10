@@ -14,7 +14,7 @@ defaults:
 
 config:
   concurrency: 1
-  transactions: 3
+  iterations: 3
 
 tests:
   - name: Health Endpoint Returns OK

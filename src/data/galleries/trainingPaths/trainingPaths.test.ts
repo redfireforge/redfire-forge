@@ -149,10 +149,10 @@ describe('manual counts per path', () => {
     expect(countManuals(path)).toBe(12);
   });
 
-  it('tests has 26 manuals (5 phases)', () => {
+  it('tests has 29 manuals (6 phases)', () => {
     const path = trainingPaths.find(p => p.id === 'tests')!;
-    expect(path.phases).toHaveLength(5);
-    expect(countManuals(path)).toBe(26);
+    expect(path.phases).toHaveLength(6);
+    expect(countManuals(path)).toBe(29);
   });
 
   it('catalog has 9 manuals (3 phases)', () => {

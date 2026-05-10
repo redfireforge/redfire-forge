@@ -1,5 +1,5 @@
 # RedfireForge CLI — sample test file
-# Run: npx redfireforge run examples/sample-api-test.yaml -c 5 -t 20
+# Run: npx redfireforge run examples/sample-api-test.yaml -c 5 -i 20
 
 name: Sample API Smoke Test
 baseUrl: https://httpbin.org
@@ -12,7 +12,7 @@ defaults:
 
 config:
   concurrency: 3
-  transactions: 10
+  iterations: 10
   mode: batch
 
 tests:

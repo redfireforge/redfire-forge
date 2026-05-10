@@ -105,7 +105,7 @@ export default function ParameterizedRunner({
 
       {!hasAnyParamScenarios ? (
         <div className="empty-state">
-          No parameterized scenarios defined. Go to Scenarios tab and create a parameterized scenario with data sources.
+          No parameterized scenarios defined. Go to Feature Groups tab and create a parameterized scenario with data sources.
         </div>
       ) : (
         <>
