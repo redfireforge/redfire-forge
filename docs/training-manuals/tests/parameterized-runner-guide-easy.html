@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Parameterized Runner Guide — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .badge-param { background: #e8d5f5; color: #6f42c1; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warning { background: #fff3cd; border-left-color: #ffc107; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  .step-box {
+    background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px;
+    padding: 16px; margin: 12px 0;
+  }
+  .step-box h4 { color: #1d3557; margin-bottom: 8px; font-size: 14px; }
+  .step-number {
+    display: inline-block; width: 24px; height: 24px; background: #6f42c1;
+    color: #fff; border-radius: 50%; text-align: center; line-height: 24px;
+    font-weight: 600; font-size: 12px; margin-right: 8px;
+  }
+  .formula-box {
+    background: #f3e8ff; border: 2px solid #6f42c1; border-radius: 8px;
+    padding: 16px; margin: 14px 0; text-align: center; font-size: 16px;
+    font-weight: 600; color: #1d3557;
+  }
+  </style>
+</head>
+<body>
+
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">📊</div>
+    <h1>Parameterized Runner Guide</h1>
+    <div class="subtitle">Data-Driven Performance Testing — Training Manual</div>
+    <p><span class="badge badge-easy">Easy ★☆☆</span> · Testing · Data-Driven</p>
+    <div class="meta">RedfireForge v0.5.8</div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <h2>1. Learning Objectives</h2>
+  <p>By the end of this manual, you will be able to:</p>
+  <ul>
+    <li>Navigate to the Parameterized Runner tab</li>
+    <li>Understand what scenarios appear in the Parameterized Runner</li>
+    <li>Understand the iterations × data rows formula</li>
+    <li>Read the execution plan with per-test row counts</li>
+    <li>Run a parameterized test and view per-row results</li>
+  </ul>
+
+  <h2>2. What is the Parameterized Runner?</h2>
+  <p>The <strong>Parameterized Runner</strong> executes <strong>parameterized</strong> test scenarios — tests that use CSV, Excel, or JSON data sources to drive multiple request variations. Each enabled data row becomes a separate request, and the <code>iterations</code> setting controls how many times the full row set is repeated.</p>
+
+  <div class="callout">
+    <strong>Parameterized Scenarios Only</strong>
+    The Parameterized Runner only shows scenarios created with the <strong>Parameterized</strong> type (shown with a <span class="badge badge-param">PARAM</span> badge). Standard scenarios appear in the <strong>Test Runner</strong> tab instead.
+  </div>
+
+  <h3>When to use the Parameterized Runner:</h3>
+  <ul>
+    <li>Testing the same endpoint with many different inputs from CSV/Excel</li>
+    <li>Boundary and edge-case validation across data sets</li>
+    <li>Multi-variant API validation (100 user IDs, 50 product searches, etc.)</li>
+    <li>Data-driven regression testing with expected values in data rows</li>
+  </ul>
+
+  <h2>3. The Execution Formula</h2>
+
+  <div class="formula-box">
+    Total Requests = Iterations × Enabled Data Rows × Tests
+  </div>
+
+  <p>For example, with 3 iterations, 10 enabled rows, and 2 tests:</p>
+  <pre>3 iterations × 10 rows × 2 tests = 60 requests</pre>
+
+  <div class="callout callout-tip">
+    <strong>💡 Every Row Runs — No Surprises</strong>
+    Unlike the old "Transactions" model, the Parameterized Runner guarantees every enabled data row runs exactly the configured number of iterations. There is no silent truncation or cap.
+  </div>
+
+  <h2>4. Getting Started</h2>
+
+  <div class="step-box">
+    <h4><span class="step-number">1</span> Navigate to the Parameterized Runner</h4>
+    <p>Click <strong>Testing</strong> in the Activity Bar, then select <strong>Parameterized Runner</strong> from the sub-navigation tabs.</p>
+  </div>
+
+  <div class="step-box">
+    <h4><span class="step-number">2</span> Select Scenarios</h4>
+    <p>The scenario selector shows all <strong>parameterized</strong> scenarios organized by Feature Group. Each scenario shows a <span class="badge badge-param">PARAM</span> badge.</p>
+  </div>
+
+  <div class="step-box">
+    <h4><span class="step-number">3</span> Configure Iterations</h4>
+    <p>Set the number of <strong>iterations</strong>. Each iteration runs through all enabled data rows for every selected test.</p>
+  </div>
+
+  <div class="step-box">
+    <h4><span class="step-number">4</span> Review the Execution Plan</h4>
+    <p>The execution plan shows a per-test breakdown:</p>
+    <pre>Test: User Lookup          → 3 iterations × 10 rows = 30 requests
+Test: Product Validation   → 3 iterations × 5 rows  = 15 requests
+───────────────────────────────────────────────────────────
+Total:                                                45 requests</pre>
+    <p>This plan uses the same <code>computeAllocation()</code> engine as the executor — the numbers always match.</p>
+  </div>
+
+  <div class="step-box">
+    <h4><span class="step-number">5</span> Run the Test</h4>
+    <p>Click <strong>▶ Run Test</strong>. Progress shows completion percentage with total request count.</p>
+  </div>
+
+  <h2>5. Execution Plan Details</h2>
+  <p>The Parameterized Runner's execution plan shows more detail than the Test Runner because each test may have a different number of enabled data rows:</p>
+
+  <table>
+    <tr><th>Column</th><th>Description</th></tr>
+    <tr><td><strong>Test Name</strong></td><td>The test being executed</td></tr>
+    <tr><td><strong>Iterations</strong></td><td>How many times the row set repeats</td></tr>
+    <tr><td><strong>Rows</strong></td><td>Number of enabled data rows</td></tr>
+    <tr><td><strong>Total Requests</strong></td><td>Iterations × Rows</td></tr>
+  </table>
+
+  <h2>6. Understanding Results</h2>
+  <p>Parameterized test results include data row context:</p>
+  <ul>
+    <li><strong>Grouped by data row</strong> — See which rows passed and which failed</li>
+    <li><strong>Row values visible</strong> — Each result shows the data values used</li>
+    <li><strong>Executed vs Expected</strong> — The Data Row Summary table shows both counts so you can verify all rows ran</li>
+    <li><strong>Re-run failed rows</strong> — After a run, selectively re-execute only the failed rows</li>
+  </ul>
+
+  <h2>7. Creating Parameterized Scenarios</h2>
+  <p>To populate the Parameterized Runner, create scenarios with the <strong>Parameterized</strong> type:</p>
+  <ol>
+    <li>Go to <strong>Testing → Feature Groups</strong></li>
+    <li>Open a Feature Group and click <strong>+ Add Scenario</strong></li>
+    <li>Select <strong>Parameterized</strong> as the scenario type</li>
+    <li>Add tests and configure their data sources (CSV, Excel, or inline)</li>
+  </ol>
+
+  <div class="callout callout-warning">
+    <strong>⚠️ Scenario Type is Permanent</strong>
+    A scenario's type (Standard or Parameterized) is set at creation and enforced throughout. You cannot mix standard and parameterized tests in the same scenario. When moving or copying tests, the target scenario must be the same type.
+  </div>
+
+  <h2>8. Tips</h2>
+  <ul>
+    <li>Disable rows you don't want to test by unchecking them in the data source editor</li>
+    <li>Use row <strong>tags</strong> (e.g., <code>smoke</code>, <code>regression</code>) to filter subsets</li>
+    <li>Start with 1 iteration to validate data mappings before scaling up</li>
+    <li>Use <strong>Pre-Validation</strong> to check expected values before a full run</li>
+  </ul>
+
+  <h2>9. Related Manuals</h2>
+  <ul>
+    <li><strong>Parameterized Testing Basics</strong> — Data sources, column types, row iteration</li>
+    <li><strong>Runner Comparison</strong> — When to use each runner</li>
+    <li><strong>Test Runner Guide</strong> — Standard scenario testing</li>
+    <li><strong>File Import (CSV / JSON)</strong> — Import data from external files</li>
+    <li><strong>Shared Data Sources</strong> — Centralized test data management</li>
+  </ul>
+
+  <footer>
+    RedfireForge Training Manual · Parameterized Runner Guide · Easy ★☆☆
+  </footer>
+
+</body>
+</html>

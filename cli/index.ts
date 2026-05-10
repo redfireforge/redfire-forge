@@ -38,7 +38,7 @@ program
   .description('Execute a test file')
   .argument('<file>', 'Path to a .yaml, .yml, or .json test file')
   .option('-c, --concurrency <n>', 'Number of concurrent requests', parseInt)
-  .option('-t, --transactions <n>', 'Total number of requests', parseInt)
+  .option('-i, --iterations <n>', 'Number of iterations (how many times each test runs)', parseInt)
   .option('-m, --mode <mode>', 'Execution mode: sequential, batch, pool, load-profile')
   .option('--timeout <sec>', 'Per-request timeout in seconds', parseInt)
   .option('--retries <n>', 'Retry count on failure', parseInt)
@@ -114,7 +114,7 @@ program
 
       const config = buildTestConfig(file, scenarios, {
         concurrency: opts.concurrency,
-        transactions: opts.transactions,
+        transactions: opts.iterations,
         mode: opts.mode,
         timeout: opts.timeout,
         retries: opts.retries,

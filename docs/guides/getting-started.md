@@ -97,18 +97,18 @@ The assertion passes (green checkmark).
 ### Step 4: Run a Performance Test
 
 1. Go to the **Harness** tab
-2. Click **Scenarios** → **+ New Feature Group** → Name it "API Tests"
+2. Click **Feature Groups** → **+ New Feature Group** → Name it "API Tests"
 3. Click **+ Scenario** → Name it "User Tests"
 4. Click **+ Add Test** and configure:
    - Name: "List Users"
    - Method: GET
    - URL: `https://jsonplaceholder.typicode.com/users`
 5. Save the test
-6. Go to **Runner** tab
+6. Go to **Test Runner** tab
 7. Check the "User Tests" scenario
 8. Set:
    - Concurrency: `5`
-   - Transactions: `20`
+   - Iterations: `20`
 9. Click **▶ Run Test**
 
 Watch the live progress and view results when complete!

@@ -96,7 +96,7 @@
   </ul>
 
   <h2>2. What is the Workflow Runner?</h2>
-  <p>The <strong>Workflow Runner</strong> is a dedicated tool for running workflows as performance tests. Unlike the Test Runner (which executes individual API requests), the Workflow Runner executes an entire workflow graph — including conditions, branches, and parallel paths — as a single iteration.</p>
+  <p>The <strong>Workflow Runner</strong> is a dedicated tool for running workflows as performance tests. Alongside the <strong>Test Runner</strong> (standard scenarios without data sources) and the <strong>Parameterized Runner</strong> (scenarios driven by CSV/Excel data rows), RedfireForge gives you distinct entry points per test type. The Workflow Runner executes an entire workflow graph — including conditions, branches, and parallel paths — as a single iteration.</p>
 
   <div class="callout">
     <strong>Key Concept: Iteration</strong>
@@ -105,7 +105,7 @@
 
   <h3>When to Use Workflow Runner</h3>
   <table>
-    <tr><th>Use Workflow Runner For</th><th>Use Test Runner For</th></tr>
+    <tr><th>Use Workflow Runner For</th><th>Use Test/Param Runner For</th></tr>
     <tr>
       <td>Multi-step API flows (login → action → verify)</td>
       <td>Single endpoint load testing</td>
@@ -131,8 +131,9 @@
     <h4><span class="step-number">2</span>Find the Testing Section</h4>
     <p>In the sidebar, locate the <strong>Testing</strong> domain. It contains:</p>
     <ul>
-      <li>Scenarios — Test definitions</li>
-      <li>Runner — Test Runner for scenarios</li>
+      <li>Feature Groups — Test definitions</li>
+      <li>Test Runner — Standard scenarios (no data sources)</li>
+      <li>Parameterized Runner — Data-driven scenarios (CSV/Excel)</li>
       <li><strong>Workflow Runner</strong> — Run workflows as performance tests</li>
       <li>Results — View all test results</li>
     </ul>

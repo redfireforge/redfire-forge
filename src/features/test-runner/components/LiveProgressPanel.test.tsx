@@ -59,7 +59,7 @@ describe('LiveProgressPanel', () => {
 
   it('shows total in mode tag', () => {
     render(<LiveProgressPanel {...baseProps} />);
-    expect(screen.getByText(/T:100/)).toBeInTheDocument();
+    expect(screen.getByText(/I:100/)).toBeInTheDocument();
   });
 
   it('shows C:1 for sequential mode', () => {

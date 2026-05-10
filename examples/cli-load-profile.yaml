@@ -4,11 +4,11 @@
 # Run with duration-based load:
 #   npx tsx cli/index.ts run examples/cli-load-profile.yaml -m load-profile --duration 30
 #
-# Run with fixed transactions:
-#   npx tsx cli/index.ts run examples/cli-load-profile.yaml -c 10 -t 500
+# Run with fixed iterations:
+#   npx tsx cli/index.ts run examples/cli-load-profile.yaml -c 10 -i 500
 #
 # Stress test:
-#   npx tsx cli/index.ts run examples/cli-load-profile.yaml -c 20 -t 1000
+#   npx tsx cli/index.ts run examples/cli-load-profile.yaml -c 20 -i 1000
 
 name: CLI Load Profile Test
 env: demo

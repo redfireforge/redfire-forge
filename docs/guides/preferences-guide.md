@@ -76,7 +76,7 @@ Request History:
 ```
 Default Test Configuration:
   Concurrency: [10___]
-  Transactions: [100__]
+  Iterations:   [100__]
   Mode: [Pool ▼]
   Timeout: [30___] seconds
 ```
@@ -345,7 +345,7 @@ Profiles:
 
 ### 1. Set Sensible Defaults
 
-Configure default concurrency/transactions for your typical use case.
+Configure default concurrency/iterations for your typical use case.
 
 ### 2. Enable Auto-Save
 
