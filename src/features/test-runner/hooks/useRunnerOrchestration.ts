@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
-import type { FeatureGroup, GlobalAuthProfile, Scenario, TestConfig, ScenarioWeight, SharedDataSource, ScenarioKind } from '../../../shared/types';
+import type { FeatureGroup, GlobalAuthProfile, Scenario, TestConfig, ScenarioWeight, SharedDataSource, ScenarioKind, ExecutionMode } from '../../../shared/types';
 import type { LoadProfileConfig } from '../../../shared/types';
 import type { AllocationSummary } from '../../../engine/allocationEngine';
 import { useTestExecution } from './useTestExecution';
@@ -46,7 +46,7 @@ export interface RunnerOrchestrationResult {
   displayCompleted: number;
   displayTotal: number;
   displayProfileMeta: PersistedProgress['profileMeta'] | null;
-  displayExecMode: string;
+  displayExecMode: ExecutionMode;
   displayConc: number;
   displayLoadProfile: LoadProfileConfig;
   displayThinkTime: import('../../../shared/types').ThinkTimeConfig;
