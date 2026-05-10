@@ -4,9 +4,13 @@
  * All samples use real public APIs so they work out-of-the-box.
  */
 
-import type { FeatureGroup, SharedDataSource, DataSource, DataSourceColumn, DataSourceRow } from '../../../shared/types';
+import type { FeatureGroup, SharedDataSource, DataSource, DataSourceColumn, DataSourceRow, TestScenario } from '../../../shared/types';
 
 const noAuth = { type: 'none' as const };
+
+function ts(partial: Omit<TestScenario, 'kind'>): TestScenario {
+  return { ...partial, kind: 'parameterized' };
+}
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -38,7 +42,7 @@ export function createSharedUserIdsFeatureGroup(): FeatureGroup {
     name: 'Shared User IDs',
     source: 'gallery',
     scenarios: [
-      {
+      ts({
         id: 'sc-shared-users',
         name: 'User Profile Tests',
         tests: [
@@ -68,7 +72,7 @@ export function createSharedUserIdsFeatureGroup(): FeatureGroup {
             sharedDataSourceId: 'sds-user-ids-10',
           },
         ],
-      },
+      }),
     ],
   };
 }
@@ -117,7 +121,7 @@ export function createSharedProductCatalogFeatureGroup(): FeatureGroup {
     name: 'Shared Product Catalog',
     source: 'gallery',
     scenarios: [
-      {
+      ts({
         id: 'sc-shared-products',
         name: 'Product Validation',
         tests: [
@@ -136,8 +140,8 @@ export function createSharedProductCatalogFeatureGroup(): FeatureGroup {
             sharedDataSourceId: 'sds-product-catalog',
           },
         ],
-      },
-      {
+      }),
+      ts({
         id: 'sc-shared-product-reviews',
         name: 'Product Reviews',
         tests: [
@@ -156,7 +160,7 @@ export function createSharedProductCatalogFeatureGroup(): FeatureGroup {
             sharedDataSourceId: 'sds-product-catalog',
           },
         ],
-      },
+      }),
     ],
   };
 }
@@ -204,7 +208,7 @@ export function createCrossFgPokemonFeatureGroup1(): FeatureGroup {
     name: 'Pokémon Stats',
     source: 'gallery',
     scenarios: [
-      {
+      ts({
         id: 'sc-pokemon-types',
         name: 'Type Verification',
         tests: [
@@ -223,7 +227,7 @@ export function createCrossFgPokemonFeatureGroup1(): FeatureGroup {
             sharedDataSourceId: 'sds-pokemon-roster',
           },
         ],
-      },
+      }),
     ],
   };
 }
@@ -234,7 +238,7 @@ export function createCrossFgPokemonFeatureGroup2(): FeatureGroup {
     name: 'Pokémon Abilities',
     source: 'gallery',
     scenarios: [
-      {
+      ts({
         id: 'sc-pokemon-abilities',
         name: 'Ability Check',
         tests: [
@@ -253,8 +257,8 @@ export function createCrossFgPokemonFeatureGroup2(): FeatureGroup {
             sharedDataSourceId: 'sds-pokemon-roster',
           },
         ],
-      },
-      {
+      }),
+      ts({
         id: 'sc-pokemon-moves',
         name: 'Move Count',
         tests: [
@@ -273,7 +277,7 @@ export function createCrossFgPokemonFeatureGroup2(): FeatureGroup {
             sharedDataSourceId: 'sds-pokemon-roster',
           },
         ],
-      },
+      }),
     ],
   };
 }
@@ -318,7 +322,7 @@ export function createSharedAuthUsersFeatureGroup(): FeatureGroup {
     name: 'Shared Auth Users',
     source: 'gallery',
     scenarios: [
-      {
+      ts({
         id: 'sc-shared-auth-login',
         name: 'Login Tests',
         tests: [
@@ -338,7 +342,7 @@ export function createSharedAuthUsersFeatureGroup(): FeatureGroup {
             sharedDataSourceId: 'sds-auth-users',
           },
         ],
-      },
+      }),
     ],
   };
 }
