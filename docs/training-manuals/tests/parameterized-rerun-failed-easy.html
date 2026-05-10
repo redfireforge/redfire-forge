@@ -122,7 +122,7 @@
   <p>First, run a test with multiple data rows. For this tutorial, we'll use a test that intentionally has some failing rows.</p>
   <ol>
     <li>Load any parameterized test gallery sample (e.g., "User Lookup Sweep").</li>
-    <li>Go to the <strong>Runner</strong> tab.</li>
+    <li>Go to <strong>Testing → Parameterized Runner</strong>.</li>
     <li>Select the test and click <strong>Run</strong>.</li>
     <li>Wait for execution to complete.</li>
   </ol>
@@ -189,7 +189,7 @@
     <tr><th>Aspect</th><th>Description</th></tr>
     <tr><td>Row Selection</td><td>Only rows with <code>status: 'failed'</code> or validation failures are selected</td></tr>
     <tr><td>Data Source</td><td>The test's current data source is used (not a snapshot from the original run)</td></tr>
-    <tr><td>Configuration</td><td>Uses the same runner config (concurrency, timeout, etc.) as the original run</td></tr>
+    <tr><td>Configuration</td><td>Uses the same <strong>Parameterized Runner</strong> config (concurrency, timeout, etc.) as the original run</td></tr>
     <tr><td>Result Merging</td><td>New results replace the failed row results; passed rows are unchanged</td></tr>
     <tr><td>Run History</td><td>A new run entry is created, linked to the original run</td></tr>
   </table>
@@ -213,7 +213,7 @@
   <p>For more control, use row tags to group rows:</p>
   <ol>
     <li>Tag certain rows as <code>flaky</code>, <code>slow</code>, or <code>edge-case</code>.</li>
-    <li>In the Runner, filter by tag to run specific subsets.</li>
+    <li>In the Parameterized Runner, filter by tag to run specific subsets.</li>
     <li>Re-run only rows with a specific tag if they tend to fail intermittently.</li>
   </ol>
 

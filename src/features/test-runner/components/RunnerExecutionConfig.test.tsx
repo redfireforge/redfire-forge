@@ -23,7 +23,7 @@ const defaultThinkTime: ThinkTimeConfig = { mode: 'none' };
 function renderConfig(overrides: OverrideProps = {}) {
   const onExecutionModeChange = vi.fn();
   const onConcurrencyChange = vi.fn();
-  const onTotalTransactionsChange = vi.fn();
+  const onIterationsChange = vi.fn();
   const onTimeoutSecChange = vi.fn();
   const onRetryCountChange = vi.fn();
   const onRetryDelayMsChange = vi.fn();
@@ -39,8 +39,8 @@ function renderConfig(overrides: OverrideProps = {}) {
       onExecutionModeChange={onExecutionModeChange}
       concurrency={4}
       onConcurrencyChange={onConcurrencyChange}
-      totalTransactions={20}
-      onTotalTransactionsChange={onTotalTransactionsChange}
+      iterations={20}
+      onIterationsChange={onIterationsChange}
       timeoutSec={30}
       onTimeoutSecChange={onTimeoutSecChange}
       retryCount={0}
@@ -96,7 +96,7 @@ describe('RunnerExecutionConfig', () => {
     expect(screen.getByText('Fixed to 1')).toBeTruthy();
   });
 
-  // --- Concurrency / Transactions ---
+  // --- Concurrency / Iterations ---
   it('disables concurrency when isRunning', () => {
     renderConfig({ isRunning: true });
     const inputs = screen.getAllByRole('spinbutton') as HTMLInputElement[];
@@ -109,8 +109,8 @@ describe('RunnerExecutionConfig', () => {
     expect((screen.getByLabelText('Batch') as HTMLInputElement).disabled).toBe(true);
   });
 
-  it('shows active test count warning when totalTransactions < activeTestCount', () => {
-    renderConfig({ totalTransactions: 2, activeTestCount: 5 });
+  it('shows active test count warning when iterations < activeTestCount', () => {
+    renderConfig({ iterations: 2, activeTestCount: 5 });
     expect(screen.getByText('5 active')).toBeTruthy();
   });
 
@@ -224,22 +224,22 @@ describe('RunnerExecutionConfig', () => {
     expect(onConcurrencyChange).toHaveBeenCalledWith(1);
   });
 
-  it('fires onTotalTransactionsChange', () => {
-    const onTotalTransactionsChange = vi.fn();
-    renderConfig({ onTotalTransactionsChange } as unknown as OverrideProps);
-    const input = screen.getByText('Transactions').closest('.resilience-field')?.querySelector('input') as HTMLInputElement;
+  it('fires onIterationsChange', () => {
+    const onIterationsChange = vi.fn();
+    renderConfig({ onIterationsChange } as unknown as OverrideProps);
+    const input = screen.getByText('Iterations').closest('.resilience-field')?.querySelector('input') as HTMLInputElement;
     fireEvent.change(input, { target: { value: '50' } });
-    expect(onTotalTransactionsChange).toHaveBeenCalledWith(50);
+    expect(onIterationsChange).toHaveBeenCalledWith(50);
   });
 
   it('clamps total transactions to 1 when input is zero or empty', () => {
-    const onTotalTransactionsChange = vi.fn();
-    renderConfig({ onTotalTransactionsChange } as unknown as OverrideProps);
-    const input = screen.getByText('Transactions').closest('.resilience-field')?.querySelector('input') as HTMLInputElement;
+    const onIterationsChange = vi.fn();
+    renderConfig({ onIterationsChange } as unknown as OverrideProps);
+    const input = screen.getByText('Iterations').closest('.resilience-field')?.querySelector('input') as HTMLInputElement;
     fireEvent.change(input, { target: { value: '0' } });
-    expect(onTotalTransactionsChange).toHaveBeenLastCalledWith(1);
+    expect(onIterationsChange).toHaveBeenLastCalledWith(1);
     fireEvent.change(input, { target: { value: '' } });
-    expect(onTotalTransactionsChange).toHaveBeenLastCalledWith(1);
+    expect(onIterationsChange).toHaveBeenLastCalledWith(1);
   });
 
   it('fires onTimeoutSecChange', () => {
@@ -553,7 +553,7 @@ describe('RunnerExecutionConfig', () => {
 
   it('disables transactions when load-profile mode', () => {
     renderConfig({ executionMode: 'load-profile' });
-    const transLabel = screen.getByText('Transactions');
+    const transLabel = screen.getByText('Iterations');
     const input = transLabel.closest('.resilience-field')?.querySelector('input') as HTMLInputElement;
     expect(input.disabled).toBe(true);
   });
@@ -610,9 +610,9 @@ describe('RunnerExecutionConfig', () => {
     expect(radios.some(r => r.name === 'workflow-runner-thinkTimeMode')).toBe(true);
   });
 
-  it('when forceSingleTransaction, sequential is checked and non-sequential modes are disabled with webhook title', () => {
+  it('when forceSingleIteration, sequential is checked and non-sequential modes are disabled with webhook title', () => {
     renderConfig({
-      forceSingleTransaction: true,
+      forceSingleIteration: true,
       executionMode: 'batch',
     } as unknown as OverrideProps);
     const batch = screen.getByLabelText('Batch') as HTMLInputElement;
@@ -620,18 +620,18 @@ describe('RunnerExecutionConfig', () => {
     expect(sequential.checked).toBe(true);
     expect(batch.disabled).toBe(true);
     expect(batch.closest('label')?.getAttribute('title')).toBe('Only Sequential allowed for Wait for Real Webhook mode');
-    expect(screen.getByText('Single transaction for real webhook testing')).toBeTruthy();
+    expect(screen.getByText('Single iteration for real webhook testing')).toBeTruthy();
   });
 
-  it('when forceSingleTransaction, concurrency and transactions stay fixed at 1 and show hints', () => {
+  it('when forceSingleIteration, concurrency and transactions stay fixed at 1 and show hints', () => {
     renderConfig({
-      forceSingleTransaction: true,
+      forceSingleIteration: true,
       executionMode: 'sequential',
       concurrency: 8,
-      totalTransactions: 99,
+      iterations: 99,
     } as unknown as OverrideProps);
     const conc = screen.getByText('Concurrency').closest('.resilience-field')?.querySelector('input') as HTMLInputElement;
-    const trans = screen.getByText('Transactions').closest('.resilience-field')?.querySelector('input') as HTMLInputElement;
+    const trans = screen.getByText('Iterations').closest('.resilience-field')?.querySelector('input') as HTMLInputElement;
     expect(conc.value).toBe('1');
     expect(trans.value).toBe('1');
     expect(conc.disabled).toBe(true);

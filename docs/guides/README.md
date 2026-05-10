@@ -60,7 +60,7 @@ Welcome to the RedfireForge documentation. These guides cover all features of th
 | [Results Explorer Guide](./results-explorer-guide.md) | Visual workflow execution analysis: diagram, detail panel, iteration matrix, search/filter, bottleneck analysis |
 | [Results Comparison Guide](./results-comparison-guide.md) | Baseline comparison, trend analysis |
 | [Results Export Guide](./results-export-guide.md) | JSON, CSV, Markdown, JUnit export formats |
-| [Runners Comparison](./runners-comparison.md) | Test Runner vs Workflow Runner comparison |
+| [Runners Comparison](./runners-comparison.md) | Test Runner vs Parameterized Runner vs Workflow Runner comparison |
 
 ### Configuration
 

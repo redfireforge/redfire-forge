@@ -71,6 +71,8 @@ export interface TestFile {
   };
   config?: {
     concurrency?: number;
+    iterations?: number;
+    /** @deprecated Use `iterations` instead */
     transactions?: number;
     mode?: string;
     errorPolicy?: string;
@@ -215,12 +217,11 @@ export function buildTestConfig(
 ): TestConfig {
   const fc = file.config ?? {};
   const concurrency = cliOverrides.concurrency ?? fc.concurrency ?? 1;
-  // Default transaction count: account for data source expansion
   const expandedCount = scenarios.reduce((n, s) => {
     const rowCount = s.dataSource?.rows.filter(r => r.enabled).length ?? 0;
     return n + (rowCount > 0 ? rowCount : 1);
   }, 0);
-  const transactions = cliOverrides.transactions ?? fc.transactions ?? expandedCount;
+  const transactions = cliOverrides.transactions ?? fc.iterations ?? fc.transactions ?? expandedCount;
   const mode = (cliOverrides.mode ?? fc.mode ?? 'batch') as ExecutionMode;
   const timeout = cliOverrides.timeout ?? file.defaults?.timeout ?? 10;
   const retries = cliOverrides.retries ?? file.defaults?.retries ?? 0;
@@ -243,7 +244,7 @@ export function buildTestConfig(
 
   return {
     concurrency,
-    totalTransactions: transactions,
+    iterations: transactions,
     scenarioWeights: scenarios.map(s => ({
       scenarioId: s.id,
       weight: file.tests.find(t => t.name === s.name)?.weight ?? 1,

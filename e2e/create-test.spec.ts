@@ -13,7 +13,7 @@ test.describe('Create Test flow', () => {
     const header = page.locator('.app-header h1');
     await expect(header).toContainText('RedfireForge', { timeout: 5000 });
     const activeTab = page.locator('.sub-nav-tab.active');
-    await expect(activeTab).toHaveText('Scenarios', { timeout: 5000 });
+    await expect(activeTab).toHaveText('Feature Groups', { timeout: 5000 });
   });
 
   test('create a Feature Group', async ({ page }) => {

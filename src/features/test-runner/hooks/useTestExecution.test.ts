@@ -61,7 +61,7 @@ function createMockScenario(id = 'sc-1'): Scenario {
 function createMockConfig(): TestConfig {
   return {
     executionMode: 'sequential',
-    totalTransactions: 10,
+    iterations: 10,
     concurrentUsers: 1,
     thinkTimeMs: 0,
     errorPolicy: 'continue',

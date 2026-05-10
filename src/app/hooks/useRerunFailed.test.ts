@@ -103,7 +103,7 @@ function makeTestRun(): TestRun {
     baseUrl: 'http://example.com',
     config: {
       concurrency: 1,
-      totalTransactions: 2,
+      iterations: 2,
       executionMode: 'sequential' as const,
       scenarioWeights: [],
       timeoutSec: 30,

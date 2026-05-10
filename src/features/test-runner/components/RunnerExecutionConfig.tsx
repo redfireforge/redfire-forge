@@ -11,8 +11,8 @@ interface Props {
   onExecutionModeChange: (mode: ExecutionMode) => void;
   concurrency: number;
   onConcurrencyChange: (n: number) => void;
-  totalTransactions: number;
-  onTotalTransactionsChange: (n: number) => void;
+  iterations: number;
+  onIterationsChange: (n: number) => void;
   timeoutSec: number;
   onTimeoutSecChange: (n: number) => void;
   retryCount: number;
@@ -31,8 +31,8 @@ interface Props {
   onThinkTimeChange: (patch: Partial<ThinkTimeConfig>) => void;
   activeTestCount: number;
   isRunning: boolean;
-  /** When true, forces single transaction mode (concurrency=1, transactions=1) and disables those controls */
-  forceSingleTransaction?: boolean;
+  /** When true, forces single-iteration mode (concurrency=1, iterations=1) and disables those controls */
+  forceSingleIteration?: boolean;
   /**
    * Prefix for radio button `name` attributes to prevent browser-level group collisions
    * when multiple RunnerExecutionConfig instances are simultaneously in the DOM.
@@ -55,7 +55,7 @@ export { profileLabel };
 export default function RunnerExecutionConfig({
   executionMode, onExecutionModeChange,
   concurrency, onConcurrencyChange,
-  totalTransactions, onTotalTransactionsChange,
+  iterations, onIterationsChange,
   timeoutSec, onTimeoutSecChange,
   retryCount, onRetryCountChange,
   retryDelayMs, onRetryDelayMsChange,
@@ -65,16 +65,16 @@ export default function RunnerExecutionConfig({
   loadProfile, onLoadProfileChange,
   thinkTime, onThinkTimeChange,
   activeTestCount, isRunning,
-  forceSingleTransaction = false,
+  forceSingleIteration = false,
   namePrefix = 'runner',
 }: Props) {
   const n = (base: string) => `${namePrefix}-${base}`;
   const isLoadProfile = executionMode === 'load-profile';
   const modeMeta = getExecutionModeMeta(executionMode);
   
-  // When forceSingleTransaction is true, override concurrency and transactions
-  const effectiveConcurrency = forceSingleTransaction ? 1 : concurrency;
-  const effectiveTransactions = forceSingleTransaction ? 1 : totalTransactions;
+  // When forceSingleIteration is true, override concurrency and iterations
+  const effectiveConcurrency = forceSingleIteration ? 1 : concurrency;
+  const effectiveIterations = forceSingleIteration ? 1 : iterations;
 
   return (
     <div className="execution-group">
@@ -83,16 +83,16 @@ export default function RunnerExecutionConfig({
           <span className="runner-exec-label">Execution Mode:</span>
           {testRunnerModes.map((mode) => {
             const meta = getExecutionModeMeta(mode);
-            // When forceSingleTransaction, only Sequential is available
-            const isForceDisabled = forceSingleTransaction && mode !== 'sequential';
+            // When forceSingleIteration, only Sequential is available
+            const isForceDisabled = forceSingleIteration && mode !== 'sequential';
             return (
               <label key={mode} className="radio-label" title={isForceDisabled ? 'Only Sequential allowed for Wait for Real Webhook mode' : meta.title}>
-                <input type="radio" name={n('execMode')} checked={forceSingleTransaction ? mode === 'sequential' : executionMode === mode} onChange={() => onExecutionModeChange(mode)} disabled={isRunning || isForceDisabled} />
+                <input type="radio" name={n('execMode')} checked={forceSingleIteration ? mode === 'sequential' : executionMode === mode} onChange={() => onExecutionModeChange(mode)} disabled={isRunning || isForceDisabled} />
                 {meta.label}
               </label>
             );
           })}
-          <span className="exec-mode-hint">{forceSingleTransaction ? 'Single transaction for real webhook testing' : modeMeta.hint}</span>
+          <span className="exec-mode-hint">{forceSingleIteration ? 'Single iteration for real webhook testing' : modeMeta.hint}</span>
         </div>
       </div>
 
@@ -100,17 +100,17 @@ export default function RunnerExecutionConfig({
         <div className="resilience-row">
           <div className="resilience-field resilience-field-sm">
             <label>Concurrency</label>
-            <input type="number" min={1} max={100} value={forceSingleTransaction ? 1 : (executionMode === 'sequential' ? 1 : effectiveConcurrency)} onChange={(e) => onConcurrencyChange(Math.max(1, parseInt(e.target.value) || 1))} disabled={isRunning || executionMode === 'sequential' || isLoadProfile || forceSingleTransaction} />
-            {forceSingleTransaction && <span className="field-hint">Fixed to 1</span>}
-            {!forceSingleTransaction && executionMode === 'sequential' && <span className="field-hint">Fixed to 1</span>}
-            {!forceSingleTransaction && isLoadProfile && <span className="field-hint">Set in profile</span>}
+            <input type="number" min={1} max={100} value={forceSingleIteration ? 1 : (executionMode === 'sequential' ? 1 : effectiveConcurrency)} onChange={(e) => onConcurrencyChange(Math.max(1, parseInt(e.target.value) || 1))} disabled={isRunning || executionMode === 'sequential' || isLoadProfile || forceSingleIteration} />
+            {forceSingleIteration && <span className="field-hint">Fixed to 1</span>}
+            {!forceSingleIteration && executionMode === 'sequential' && <span className="field-hint">Fixed to 1</span>}
+            {!forceSingleIteration && isLoadProfile && <span className="field-hint">Set in profile</span>}
           </div>
           <div className="resilience-field resilience-field-sm">
-            <label>Transactions</label>
-            <input type="number" min={1} max={100000} value={forceSingleTransaction ? 1 : effectiveTransactions} onChange={(e) => onTotalTransactionsChange(Math.max(1, parseInt(e.target.value) || 1))} disabled={isRunning || isLoadProfile || forceSingleTransaction} />
-            {forceSingleTransaction && <span className="field-hint">Fixed to 1</span>}
-            {!forceSingleTransaction && !isLoadProfile && totalTransactions < activeTestCount && <span className="field-hint">{activeTestCount} active</span>}
-            {!forceSingleTransaction && isLoadProfile && <span className="field-hint">Time-based</span>}
+            <label>Iterations</label>
+            <input type="number" min={1} max={100000} value={forceSingleIteration ? 1 : effectiveIterations} onChange={(e) => onIterationsChange(Math.max(1, parseInt(e.target.value) || 1))} disabled={isRunning || isLoadProfile || forceSingleIteration} />
+            {forceSingleIteration && <span className="field-hint">Fixed to 1</span>}
+            {!forceSingleIteration && !isLoadProfile && iterations < activeTestCount && <span className="field-hint">{activeTestCount} active</span>}
+            {!forceSingleIteration && isLoadProfile && <span className="field-hint">Time-based</span>}
           </div>
           <div className="resilience-divider" />
           <div className="resilience-field resilience-field-sm">

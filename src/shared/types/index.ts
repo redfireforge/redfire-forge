@@ -281,11 +281,18 @@ export interface Scenario {
   sourceTestId?: string;
 }
 
+export type ScenarioKind = 'standard' | 'parameterized';
+
 export interface TestScenario {
   id: string;
   name: string;
+  kind: ScenarioKind;
   auth?: AuthConfig;
   tests: Scenario[];
+}
+
+export function isParameterizedScenario(sc: TestScenario): boolean {
+  return sc.kind === 'parameterized';
 }
 
 export interface GlobalAuthProfile {
@@ -376,7 +383,7 @@ export interface CorrelationWaitRunnerConfig {
 
 export interface TestConfig {
   concurrency: number;
-  totalTransactions: number;
+  iterations: number;
   scenarioWeights: ScenarioWeight[];
   executionMode: ExecutionMode;
   loadProfile?: LoadProfileConfig;

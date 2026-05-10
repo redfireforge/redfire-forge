@@ -177,28 +177,24 @@ Each level can override the inherited auth.
 
 ```
 Concurrency: 10
-Total Transactions: 100
+Iterations: 100
 Mode: Pool
 
 → 10 requests start
 → As each completes, a new one starts
-→ Until 100 total have been executed
+→ Until 100 total iterations have been executed
 ```
-
-### Transactions
-
-**Transactions** is the total number of requests to execute in a test run.
 
 ### Iterations
 
-For workflows, **Iterations** is the number of times to run the entire workflow.
+**Iterations** is the number of times to repeat execution in a test run. For standard tests, each iteration runs each selected test once. For workflows, each iteration runs the entire workflow graph once.
 
 ```
 Iterations: 50
 Concurrency: 5
 
-→ 5 workflow instances run in parallel
-→ Each completes its full graph
+→ 5 instances run in parallel
+→ Each completes its full execution
 → Until 50 total iterations complete
 ```
 
@@ -249,7 +245,7 @@ A **Test Run** is a complete execution of tests with all results and metrics.
 
 | Metric | Description |
 |--------|-------------|
-| **TPS** | Transactions per second |
+| **TPS** | Requests per second |
 | **Avg Response** | Mean response time |
 | **P95 / P99** | 95th/99th percentile response times |
 | **Error Rate** | Percentage of failed requests |
@@ -272,7 +268,7 @@ A request **passes** if:
                           ┌──────────────▼──────────────┐
                           │       Feature Groups        │
                           │  ┌─────────────────────┐    │
-                          │  │      Scenarios      │    │
+                          │  │  Scenarios (S / P)  │    │
                           │  │  ┌───────────────┐  │    │
                           │  │  │     Tests     │  │    │
                           │  │  │ (with Data)   │  │    │
@@ -280,12 +276,14 @@ A request **passes** if:
                           │  └─────────────────────┘    │
                           └──────────────┬──────────────┘
                                          │ runs in
-                          ┌──────────────▼──────────────┐
-                          │        Test Runner          │
-                          │  - Concurrency              │
-                          │  - Transactions             │
-                          │  - Execution Mode           │
-                          └──────────────┬──────────────┘
+                    ┌────────────────────┬┴────────────────────┐
+                    ▼                    ▼                     ▼
+           ┌──────────────┐   ┌──────────────────┐   ┌──────────────┐
+           │  Test Runner │   │  Parameterized   │   │   Workflow   │
+           │  (Standard)  │   │     Runner       │   │    Runner    │
+           │  Iterations  │   │   Iterations     │   │  Iterations  │
+           └──────┬───────┘   └────────┬─────────┘   └──────┬───────┘
+                  └────────────────────┼──────────────────────┘
                                          │ produces
                           ┌──────────────▼──────────────┐
                           │         Results             │

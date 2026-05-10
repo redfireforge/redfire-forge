@@ -354,15 +354,15 @@ interface WorkflowIterationSummary {
 
 ---
 
-## Comparison: Test Runner vs Workflow Runner Results
+## Comparison: Test Runner vs Parameterized Runner vs Workflow Runner Results
 
-| Aspect | Test Runner Results | Workflow Runner Results |
-|--------|---------------------|-------------------------|
-| **Grouping** | Feature → Scenario → Test → Data Row | Iteration → Step |
-| **Primary Metric** | Per-test pass/fail | Per-iteration total time |
-| **Visualization** | Pass rate donut chart | Iteration performance chart (bars) |
-| **Drill-Down** | By test, by data row | By iteration, by step |
-| **Use Case** | API contract testing, validation | Load testing, bottleneck identification |
+| Aspect | Test Runner Results | Parameterized Runner Results | Workflow Runner Results |
+|--------|---------------------|------------------------------|-------------------------|
+| **Grouping** | Feature → Scenario → Test | Feature → Scenario → Test → Data Row | Iteration → Step |
+| **Primary Metric** | Per-test pass/fail | Per-test + per-row pass/fail | Per-iteration total time |
+| **Visualization** | Pass rate donut chart | Pass rate + data row summary | Iteration performance chart (bars) |
+| **Drill-Down** | By test | By test, by data row | By iteration, by step |
+| **Use Case** | API contract testing | Data-driven validation | Load testing, bottleneck identification |
 
 ---
 

@@ -76,7 +76,7 @@ const mockedIsTauri = vi.mocked(isTauri);
 function makeConfig(overrides: Partial<TestConfig> = {}): TestConfig {
   return {
     concurrency: 2,
-    totalTransactions: 5,
+    iterations: 5,
     scenarioWeights: [],
     executionMode: 'batch',
     ...overrides,

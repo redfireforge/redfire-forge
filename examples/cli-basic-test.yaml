@@ -5,7 +5,7 @@
 #   npx tsx cli/index.ts run examples/cli-basic-test.yaml
 #
 # With options:
-#   npx tsx cli/index.ts run examples/cli-basic-test.yaml -c 5 -t 50
+#   npx tsx cli/index.ts run examples/cli-basic-test.yaml -c 5 -i 50
 
 name: CLI Basic Test
 env: demo

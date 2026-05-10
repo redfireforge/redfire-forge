@@ -65,7 +65,7 @@ RedfireForge's load testing is currently rated **Good**. The path to **Excellent
 #### Current capabilities (Good: all 6/6 gaps closed ✅)
 
 - Duration-based profiles: sustained, ramp-up, spike
-- Fixed transaction count: sequential, batch, pool concurrency
+- Fixed iteration count: sequential, batch, pool concurrency
 - Circuit breaker (error count/rate threshold), retry with delay, per-request timeout
 - CSV/Excel parameterized data-driven testing
 - Live streaming charts (TPS, response time, error rate, active connections)
@@ -126,7 +126,7 @@ Priority 2 — Reach "Excellent" (Phases 0.11.0 + 1.x)
 
 Graduate from "send N requests" to real performance testing with time-based execution.
 
-- [x] **Duration-Based Runs** — "Run for 60 seconds at 10 concurrent" instead of fixed transaction count
+- [x] **Duration-Based Runs** — "Run for 60 seconds at 10 concurrent" instead of fixed iteration count
 - [x] **Ramp-Up Profile** — Gradually increase from 1 to N concurrent users over X seconds
 - [x] **Sustained Load Profile** — Maintain N concurrent users for X duration
 - [x] **Spike Test Profile** — Sudden burst of traffic to test resilience
@@ -404,6 +404,28 @@ Structured multi-sheet Excel templates for bulk test management and better error
 - [x] **Webhook Load Driver** — `webhookLoadDriver.ts` for driving webhook callbacks during workflow load tests
 - [ ] **Multi-Webhook Testing Panel** — UI for configuring and triggering multiple webhook callbacks
 - [ ] **WebhookLoadDriverPanel** — Runner UI for webhook load testing configuration
+
+### Phase 0.5.9 — Runner Redesign (Three-Runner Architecture) ✅
+
+> Architectural fix for test type confusion. Prevents mixing standard and parameterized tests, eliminates silent allocation bugs, and introduces clear terminology.
+
+- [x] **Scenario Types** — `ScenarioKind` (`'standard'` | `'parameterized'`) enforced at creation; UI radio buttons; `PARAM` badge
+- [x] **Auto-Migration** — `migrateScenarioKinds()` detects and splits mixed scenarios on load; one-time notification banner
+- [x] **Iterations Terminology** — `totalTransactions` → `iterations` across entire codebase (33+ files); CLI flags updated
+- [x] **Allocation Engine** — `computeAllocation()` single source of truth for execution planning; no silent truncation
+- [x] **Test Runner Refactored** — Standard-only scenario selector; simple iterations × tests execution plan preview
+- [x] **Parameterized Runner** — New `ParameterizedRunner.tsx` page with per-test rows × iterations breakdown
+- [x] **Shared Runner Hook** — `useRunnerOrchestration` extracts ~300 lines of shared logic between runners
+- [x] **Execution Plan Preview** — Shared component with kind-aware rendering (compact for standard, detailed for parameterized)
+- [x] **Scenario Selector Filter** — `kind` prop filters scenarios; Test Runner shows standard only, Param Runner shows parameterized only
+- [x] **Feature Group Summary** — Header shows `3 scenarios (2S · 1P)` breakdown with tooltip
+- [x] **Move/Copy Kind Enforcement** — Move and Copy modals filter target scenarios by matching kind
+- [x] **Workflow Progress Display** — Shows both iterations and requests: `10/10 iterations (100%) — 40/40 requests (100%)`
+- [x] **Trace Config Persistence** — Full Trace and Trace Sampling settings persist across navigations
+- [x] **Tab Rename** — "Scenarios" tab renamed to "Feature Groups"
+- [x] **3 New Training Manuals** — Test Runner Guide, Parameterized Runner Guide, Scenario Types Guide
+- [x] **14+ Existing Manuals Updated** — Runner references, TPS terminology, navigation paths
+- [x] **11,226 Unit Tests, 546 E2E Tests** — All passing, >90% code coverage
 
 ---
 

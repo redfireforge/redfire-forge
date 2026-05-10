@@ -1065,4 +1065,92 @@ describe('useScenarioMutations', () => {
       expect(() => act(() => { result.current.startNewTest('fg-1', 'sc-1'); })).not.toThrow();
     });
   });
+
+  describe('scenario kind enforcement (Phase 2)', () => {
+    it('addScenario defaults to kind "standard"', () => {
+      const fg = makeFg();
+      const { result, getFeatureGroups } = setup([fg]);
+      act(() => { result.current.setNewName('Standard Scenario'); });
+      act(() => { result.current.addScenario('fg-1'); });
+      expect(getFeatureGroups()[0].scenarios[0].kind).toBe('standard');
+    });
+
+    it('addScenario uses newScenarioKind state', () => {
+      const fg = makeFg();
+      const { result, getFeatureGroups } = setup([fg]);
+      act(() => { result.current.setNewScenarioKind('parameterized'); });
+      act(() => { result.current.setNewName('Param Scenario'); });
+      act(() => { result.current.addScenario('fg-1'); });
+      expect(getFeatureGroups()[0].scenarios[0].kind).toBe('parameterized');
+    });
+
+    it('addScenario accepts explicit kind parameter', () => {
+      const fg = makeFg();
+      const { result, getFeatureGroups } = setup([fg]);
+      act(() => { result.current.setNewName('Explicit Param'); });
+      act(() => { result.current.addScenario('fg-1', 'parameterized'); });
+      expect(getFeatureGroups()[0].scenarios[0].kind).toBe('parameterized');
+    });
+
+    it('addScenario resets newScenarioKind to standard after creation', () => {
+      const fg = makeFg();
+      const { result } = setup([fg]);
+      act(() => { result.current.setNewScenarioKind('parameterized'); });
+      act(() => { result.current.setNewName('Test'); });
+      act(() => { result.current.addScenario('fg-1'); });
+      expect(result.current.newScenarioKind).toBe('standard');
+    });
+
+    it('saveTest is blocked when parameterized scenario test has no data source', () => {
+      const fg = makeFg({
+        scenarios: [{ id: 'sc-1', name: 'Param', kind: 'parameterized', tests: [] }],
+      });
+      const { result, getFeatureGroups } = setup([fg]);
+      act(() => { result.current.startNewTest('fg-1', 'sc-1'); });
+      act(() => {
+        result.current.setDraft({
+          ...result.current.draft,
+          name: 'Test Without DS',
+          url: '/api',
+        });
+      });
+      act(() => { result.current.saveTest(); });
+      expect(getFeatureGroups()[0].scenarios[0].tests).toHaveLength(0);
+    });
+
+    it('saveTest succeeds when parameterized scenario test has data source', () => {
+      const fg = makeFg({
+        scenarios: [{ id: 'sc-1', name: 'Param', kind: 'parameterized', tests: [] }],
+      });
+      const { result, getFeatureGroups } = setup([fg]);
+      act(() => { result.current.startNewTest('fg-1', 'sc-1'); });
+      act(() => {
+        result.current.setDraft({
+          ...result.current.draft,
+          name: 'Test With DS',
+          url: '/api',
+          dataSource: { columns: [{ id: 'c1', name: 'col', type: 'param' as const, mapping: 'q' }], rows: [{ id: 'r1', values: { c1: 'v' }, enabled: true }], source: { type: 'inline' as const } },
+        });
+      });
+      act(() => { result.current.saveTest(); });
+      expect(getFeatureGroups()[0].scenarios[0].tests).toHaveLength(1);
+    });
+
+    it('saveTest succeeds for standard scenario without data source', () => {
+      const fg = makeFg({
+        scenarios: [{ id: 'sc-1', name: 'Standard', kind: 'standard', tests: [] }],
+      });
+      const { result, getFeatureGroups } = setup([fg]);
+      act(() => { result.current.startNewTest('fg-1', 'sc-1'); });
+      act(() => {
+        result.current.setDraft({
+          ...result.current.draft,
+          name: 'Normal Test',
+          url: '/api',
+        });
+      });
+      act(() => { result.current.saveTest(); });
+      expect(getFeatureGroups()[0].scenarios[0].tests).toHaveLength(1);
+    });
+  });
 });
