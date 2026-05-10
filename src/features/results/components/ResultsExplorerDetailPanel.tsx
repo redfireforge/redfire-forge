@@ -125,9 +125,9 @@ export default function ResultsExplorerDetailPanel({
               }}
             >
               <option value="all">All Iterations (Aggregate)</option>
-              {iterations.map((iter, i) => (
-                <option key={i} value={i}>
-                  #{i + 1} — {iter.passed ? '✓' : '✗'} {formatDurationMs(iter.durationMs)}
+              {iterations.map((iter) => (
+                <option key={iter.index} value={iter.index}>
+                  #{iter.index + 1} — {iter.passed ? '✓' : '✗'} {formatDurationMs(iter.durationMs)}
                 </option>
               ))}
             </select>

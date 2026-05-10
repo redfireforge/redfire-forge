@@ -17,8 +17,8 @@ describe('trainingPaths barrel export', () => {
     expect(trainingPaths).toEqual([...corePaths, ...contentPaths, ...workflowPaths]);
   });
 
-  it('has exactly 16 paths', () => {
-    expect(trainingPaths).toHaveLength(16);
+  it('has exactly 17 paths', () => {
+    expect(trainingPaths).toHaveLength(17);
   });
 });
 
@@ -34,13 +34,13 @@ describe('corePaths module', () => {
 });
 
 describe('contentPaths module', () => {
-  it('contains 3 paths', () => {
-    expect(contentPaths).toHaveLength(3);
+  it('contains 4 paths', () => {
+    expect(contentPaths).toHaveLength(4);
   });
 
   it('has expected path IDs', () => {
     const ids = contentPaths.map(p => p.id);
-    expect(ids).toEqual(['requests', 'tests', 'catalog']);
+    expect(ids).toEqual(['requests', 'tests', 'catalog', 'data-mapper']);
   });
 });
 
@@ -131,10 +131,10 @@ describe('manual counts per path', () => {
     return path.phases.reduce((sum, phase) => sum + phase.manuals.length, 0);
   }
 
-  it('versioning has 16 manuals (8 phases)', () => {
+  it('versioning has 17 manuals (8 phases)', () => {
     const path = trainingPaths.find(p => p.id === 'versioning')!;
     expect(path.phases).toHaveLength(8);
-    expect(countManuals(path)).toBe(16);
+    expect(countManuals(path)).toBe(17);
   });
 
   it('assertion-mastery has 17 manuals (4 phases)', () => {
@@ -143,16 +143,16 @@ describe('manual counts per path', () => {
     expect(countManuals(path)).toBe(17);
   });
 
-  it('requests has 12 manuals (3 phases)', () => {
+  it('requests has 14 manuals (3 phases)', () => {
     const path = trainingPaths.find(p => p.id === 'requests')!;
     expect(path.phases).toHaveLength(3);
-    expect(countManuals(path)).toBe(12);
+    expect(countManuals(path)).toBe(14);
   });
 
-  it('tests has 29 manuals (6 phases)', () => {
+  it('tests has 34 manuals (6 phases)', () => {
     const path = trainingPaths.find(p => p.id === 'tests')!;
     expect(path.phases).toHaveLength(6);
-    expect(countManuals(path)).toBe(29);
+    expect(countManuals(path)).toBe(34);
   });
 
   it('catalog has 9 manuals (3 phases)', () => {
@@ -179,10 +179,10 @@ describe('manual counts per path', () => {
     expect(countManuals(path)).toBe(5);
   });
 
-  it('wf-node-reference has 3 manuals (1 phase)', () => {
+  it('wf-node-reference has 6 manuals (2 phases)', () => {
     const path = trainingPaths.find(p => p.id === 'wf-node-reference')!;
-    expect(path.phases).toHaveLength(1);
-    expect(countManuals(path)).toBe(3);
+    expect(path.phases).toHaveLength(2);
+    expect(countManuals(path)).toBe(6);
   });
 
   it('total manual count across all paths', () => {

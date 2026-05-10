@@ -171,9 +171,16 @@
 <h2 id="prerequisites">Prerequisites</h2>
 <ol>
   <li>
-    <strong>Capture Full Trace (recommended).</strong> In <strong>Workflow Runner</strong>, enable the <strong>Capture Full Trace</strong>
-    option before you run. This persists request/response headers and bodies, variable snapshots, and rich assertion detail inside the trace.
-    Without it, the explorer still opens and shows timing and pass/fail, but detailed Request/Response/Variables content may be limited.
+    <strong>Trace level (recommended for deep inspection).</strong> In <strong>Workflow Runner</strong>, choose a <strong>Trace level</strong> from
+    the dropdown before you run: <strong>Minimal &mdash; errors only</strong>, <strong>Standard &mdash; summary + assertions</strong>,
+    <strong>Full &mdash; request/response bodies</strong>, <strong>Debug &mdash; full + log lines</strong>. For full request/response visibility in
+    Results Explorer, use <strong>Full</strong> or <strong>Debug</strong>; those levels persist headers, bodies, variable snapshots, and rich assertion
+    detail. With <strong>Minimal</strong> or <strong>Standard</strong>, the explorer still opens and shows timing and pass/fail, but detailed Request/Response/Variables
+    content may be limited.
+  </li>
+  <li>
+    <strong>Trace sampling (optional).</strong> A <strong>Trace sampling</strong> checkbox with a <strong>threshold</strong> input limits how many iterations retain
+    the selected trace detail (default <strong>50</strong> iterations). Use it on large runs to balance forensics against memory and export size.
   </li>
   <li>
     <strong>Multiple iterations (for aggregate features).</strong> Run the workflow with <strong>2 or more iterations</strong> so aggregate
@@ -181,8 +188,10 @@
   </li>
 </ol>
 <div class="callout callout-warn">
-  <strong>Large runs and sampling</strong>
-  For very high iteration counts, the product may retain full trace data for a subset of iterations. Watch for sampled badges in the UI;
+  <strong>Large runs, trace level, and sampling</strong>
+  For <strong>Full</strong> or <strong>Debug</strong> trace level, <strong>&le;100 iterations recommended</strong> to keep runs responsive and exports manageable.
+  For very high iteration counts, the product may retain full trace data for a subset of iterations; combine reasonable iteration counts with
+  <strong>Trace sampling</strong> where needed. Watch for sampled badges in the UI;
   aggregate metrics still reflect the run, but not every row may carry full payloads.
 </div>
 
@@ -356,9 +365,9 @@
   </tr>
 </table>
 <div class="callout">
-  <strong>Full trace and the detail tabs</strong>
-  Enable <strong>Capture Full Trace</strong> before running to populate headers, bodies, and variable panes fully. Minimal traces still support
-  timing-focused analysis but may show prompts to enable full capture for deep inspection.
+  <strong>Trace level and the detail tabs</strong>
+  Set <strong>Trace level</strong> to <strong>Full</strong> or <strong>Debug</strong> before running to populate headers, bodies, and variable panes fully. <strong>Minimal</strong> and <strong>Standard</strong> traces still support
+  timing-focused analysis but may show prompts to raise trace level for deep inspection.
 </div>
 
 <!-- ════════════════════════════════════════════ -->
@@ -530,7 +539,7 @@
   Multi-level nesting is fully supported.
 </p>
 <div class="callout">
-  <strong>Requirement:</strong> Drill-down requires <strong>Capture Full Trace</strong> enabled and a
+  <strong>Requirement:</strong> Drill-down requires <strong>Trace level</strong> set to <strong>Full</strong> or <strong>Debug</strong> and a
   <strong>specific iteration</strong> selected (not aggregate mode).
 </div>
 <p>
@@ -589,7 +598,7 @@
 <!-- ════════════════════════════════════════════ -->
 <h2 id="tips">Tips &amp; Best Practices</h2>
 <ul>
-  <li><strong>Enable full trace</strong> whenever you expect to debug payloads, variables, or assertion text &mdash; the marginal storage cost beats another rerun.</li>
+  <li><strong>Use Trace level Full or Debug</strong> whenever you expect to debug payloads, variables, or assertion text &mdash; the marginal storage cost beats another rerun.</li>
   <li><strong>Use search</strong> on wide DAGs to avoid panning; combine with heatmap to spotlight slow nodes inside a subsystem.</li>
   <li><strong>Use the Fail filter</strong> after a flaky run to see only red nodes, then step iterations with arrow keys.</li>
   <li><strong>Save layout</strong> once you arrange a busy workflow; teammates opening the same workflow ID reuse your layout locally.</li>

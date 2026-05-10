@@ -448,23 +448,137 @@ These phases work with the current Tauri desktop + browser architecture. No serv
 
 **Why now:** The Console panel gives immediate debugging value using data that's already captured in traces. Trace levels prepare the data model for everything that follows.
 
-1. **Data model** — Add `TraceCaptureLevel` type, `captureLevel` to `WorkflowExecutionTrace`, `initialVariables` to `WorkflowIterationTrace` (Gap 2)
-2. **Capture gating** — Modify `graphRunner.ts` to respect trace level when building `ExecutionEventDetails`
-3. **Thread `traceOptions` to sub-workflows** — Fix `graphRunnerSubWorkflowHandler.ts` to pass `traceOptions` to child `runGraph` calls (Gap 4)
-4. **Iteration index consistency** — Add `getIterationByIndex()` utility, fix `IterationPicker` to use `index` field not array position (Gap 3)
-5. **Runner UI** — Add Trace Level dropdown to Workflow Runner, with warning for Debug + high iterations
-6. **CLI support** — Add `--trace-level` flag to CLI (Gap 1)
-7. **Console panel** — Create `ResultsExplorerConsolePanel.tsx`:
-   - Reconstruct log lines from structured `ExecutionEventDetails`
-   - Reuse line rendering from `WorkflowConsolePanel`
-   - Node filter, search, dock/maximize, `⌘J` toggle
-   - Graceful handling when trace level is Minimal (disabled state)
-8. **Keyboard shortcut** — Wire `⌘J` in Results Explorer
-9. **Backward compat** — Infer `captureLevel` from trace content for pre-existing traces (Gap 11)
-10. **Unit tests** — Console panel rendering, trace level gating, line reconstruction, iteration index lookup
-11. **E2E tests** — Console toggle, iteration switching, node filtering
-
 **Estimated effort:** ~4–5 days
+
+Phase 1 is split into five sub-phases, each producing a testable, working increment:
+
+##### Sub-phase 1A: Data Model + Type Changes (~0.5 day)
+
+Each sub-phase builds on the previous — no sub-phase should be started until its predecessor compiles cleanly.
+
+| # | Task | File(s) | Status |
+|---|------|---------|--------|
+| 1A.1 | Add `TraceCaptureLevel` type (`'minimal' \| 'standard' \| 'full' \| 'debug'`) | `src/shared/types/index.ts` | ✅ |
+| 1A.2 | Add `captureLevel?: TraceCaptureLevel` to `WorkflowExecutionTrace` | `src/shared/types/index.ts` | ✅ |
+| 1A.3 | Add `traceLevel?: TraceCaptureLevel` to `ExecutionTraceOptions` | `src/shared/types/index.ts` | ✅ |
+| 1A.4 | Add `initialVariables?: Record<string, string>` to `WorkflowIterationTrace` (Gap 2) | `src/shared/types/index.ts` | ✅ |
+| 1A.5 | Add `inferCaptureLevel()` utility for backward compat with pre-existing traces (Gap 11) | `src/features/results/utils/inferCaptureLevel.ts` **New** | ✅ |
+| 1A.6 | Add `getIterationByIndex()` utility (Gap 3) | `src/features/results/utils/iterationLookup.ts` **New** | ✅ |
+| 1A.7 | Unit tests for `inferCaptureLevel` and `getIterationByIndex` | `inferCaptureLevel.test.ts`, `iterationLookup.test.ts` | ✅ |
+| 1A.8 | Run `tsc --noEmit` — zero type errors | | ✅ |
+
+**Success criteria:** All new types compile. Existing code unaffected (new fields are optional). Two new utility functions with tests.
+
+##### Sub-phase 1B: Engine — Capture Gating + Sub-Workflow Fix (~1 day)
+
+| # | Task | File(s) | Status |
+|---|------|---------|--------|
+| 1B.1 | Read `traceOptions.traceLevel` in `graphRunner.ts`; gate `ExecutionEventDetails` building based on level (minimal → errors only; standard → current behavior; full → add complete HTTP bodies; debug → placeholder for Phase 2 logLines) | `graphRunner.ts` (~lines 240–320) | ✅ |
+| 1B.2 | Capture `initialVariables` per iteration in `graphLoadRunner.ts` — snapshot the merged `{ ...workflow.variables, ...initialVariables }` onto the iteration trace (Gap 2) | `graphLoadRunner.ts` (~line 129) | ✅ |
+| 1B.3 | Set `captureLevel` on the assembled `WorkflowExecutionTrace` in `graphLoadRunner.ts` | `graphLoadRunner.ts` (~line 289) | ✅ |
+| 1B.4 | Thread `traceOptions` into child `runGraph` calls in `graphRunnerSubWorkflowHandler.ts` (Gap 4) | `graphRunnerSubWorkflowHandler.ts` (~line 117) | ✅ |
+| 1B.5 | Quick Test (`useWorkflowExecution.ts`): always pass `traceLevel: 'debug'` | `useWorkflowExecution.ts` | ✅ |
+| 1B.6 | Update `capAndTruncateResults` in `storage.ts` to preserve `captureLevel` and `initialVariables` through truncation | `storage.ts`, `traceCompression.ts` | ✅ |
+| 1B.7 | Unit tests for capture gating (verify minimal/standard/full produce different detail shapes) | `graphRunner.captureGating.test.ts`, `graphRunner.traceGating.test.ts` | ✅ |
+| 1B.8 | Unit tests for `initialVariables` capture and sub-workflow trace options threading | `graphLoadRunner.initialVars.test.ts`, `traceCompression.test.ts` | ✅ |
+| 1B.9 | Run `tsc --noEmit` — zero type errors | | ✅ |
+
+**Success criteria:** Running a workflow at different trace levels produces appropriately gated trace data. Sub-workflows inherit trace options from parent. Each iteration records its initial variable state.
+
+##### Sub-phase 1C: Runner UI + CLI — Trace Level Selection (~0.5 day)
+
+| # | Task | File(s) | Status |
+|---|------|---------|--------|
+| 1C.1 | Add Trace Level dropdown to Workflow Runner UI (alongside existing "Full Trace" checkbox area at `wf-runner-inline-options`) | `WorkflowRunner.tsx` | ✅ |
+| 1C.2 | Replace the "Full Trace" checkbox with the dropdown (standard = old default; full = old checkbox-on; minimal/debug = new) | `WorkflowRunner.tsx` | ✅ |
+| 1C.3 | Show warning when Debug + iterations > 10: "Debug trace with >10 iterations increases memory usage" | `WorkflowRunner.tsx` | ✅ |
+| 1C.4 | Persist trace level in runner config (`useWorkflowRunnerConfig`) | `useWorkflowRunnerConfig.ts` | ✅ |
+| 1C.5 | Add `--trace-level` option to CLI `workflow` command | `cli/index.ts` | ✅ |
+| 1C.6 | Pass `traceOptions` with `traceLevel` from CLI to `runGraphLoad` | `cli/index.ts` | ✅ |
+| 1C.7 | CSS for trace level dropdown styling | `src/styles/test-runner.css` | ✅ |
+| 1C.8 | Unit tests for runner config persistence, CLI flag parsing | `useWorkflowRunnerConfig.test.ts`, `WorkflowRunner.test.tsx` | ✅ |
+| 1C.9 | Run `tsc --noEmit` — zero type errors | | ✅ |
+
+**Success criteria:** Users can select trace level from Runner dropdown. CLI accepts `--trace-level`. Both pass the level through to the execution engine.
+
+##### Sub-phase 1D: Iteration Index Consistency (~0.5 day)
+
+| # | Task | File(s) | Status |
+|---|------|---------|--------|
+| 1D.1 | Fix `IterationPicker` to look up iterations by `.index` field, not array position (Gap 3) | `IterationPicker.tsx` | ✅ |
+| 1D.2 | Fix `WorkflowResultsExplorerModal` iteration selection to use `getIterationByIndex()` | `WorkflowResultsExplorerModal.tsx` | ✅ |
+| 1D.3 | Fix `ResultsExplorerDetailPanel` iteration `<select>` to use `.index` | `ResultsExplorerDetailPanel.tsx` | ✅ |
+| 1D.4 | Fix `IterationMatrixTable` callbacks to use `.index` | `IterationMatrixTable.tsx` | ✅ |
+| 1D.5 | Unit tests verifying correct lookup when iterations are out of order (concurrent completion) | `IterationPicker.test.tsx` | ✅ |
+| 1D.6 | Run `tsc --noEmit` — zero type errors | | ✅ |
+
+**Success criteria:** Iteration #12 always refers to the iteration with `index: 12`, regardless of completion order. All iteration-related components use the index field consistently.
+
+##### Sub-phase 1E: Console Panel + Keyboard Shortcut (~2 days)
+
+| # | Task | File(s) | Status |
+|---|------|---------|--------|
+| 1E.1 | Extract shared log line renderer from `WorkflowConsolePanel.tsx` into reusable `ConsoleLogLine` component (prefix icons, colors, timestamp formatting, highlight matches) | `src/shared/components/ConsoleLogLine.tsx` **New** | ✅ |
+| 1E.2 | Refactor `WorkflowConsolePanel` to use the extracted `ConsoleLogLine` | `WorkflowConsolePanel.tsx` | ✅ |
+| 1E.3 | Create `reconstructLogLines()` utility — builds `LogLine[]` from structured `ExecutionEventDetails` (HTTP summaries, assertions, errors, variable extractions, edge traversals) | `src/features/results/utils/reconstructLogLines.ts` **New** | ✅ |
+| 1E.4 | Create `ResultsExplorerConsolePanel.tsx` — iteration-scoped console panel: node filter dropdown, search input, dock/maximize toggle, close button | `src/features/results/components/ResultsExplorerConsolePanel.tsx` **New** | ✅ |
+| 1E.5 | Adaptive behavior: Minimal → disabled with tooltip; Standard → reconstructed narrative; Full → reconstructed + inline HTTP body previews | `ResultsExplorerConsolePanel.tsx` | ✅ |
+| 1E.6 | Click-to-select: clicking a console line selects that node in the canvas + opens detail panel | `ResultsExplorerConsolePanel.tsx` | ✅ |
+| 1E.7 | Auto-scroll to first error line when opening (if errors exist) | `ResultsExplorerConsolePanel.tsx` | ✅ |
+| 1E.8 | Wire console panel into `WorkflowResultsExplorerModal` layout — bottom-docked panel (collapsible), below the main diagram+detail area | `WorkflowResultsExplorerModal.tsx` | ✅ |
+| 1E.9 | Wire `⌘J` keyboard shortcut to toggle console in Results Explorer | `WorkflowResultsExplorerModal.tsx` | ✅ |
+| 1E.10 | Footer button / status bar indicator for console toggle | `WorkflowResultsExplorerModal.tsx` | ✅ |
+| 1E.11 | CSS for console panel: dock/maximize, error line highlighting, node labels, prefix icons, search | `src/styles/results-explorer.css` | ✅ |
+| 1E.12 | Unit tests: `reconstructLogLines` (HTTP events, assertions, errors, empty events, mixed nodes) | `reconstructLogLines.test.ts` | ✅ |
+| 1E.13 | Unit tests: `ResultsExplorerConsolePanel` rendering, node filter, search, disabled state at Minimal level | `ResultsExplorerConsolePanel.test.tsx` | ✅ |
+| 1E.14 | Unit tests: `ConsoleLogLine` component (prefix icons, timestamps, highlight) | `ConsoleLogLine.test.tsx` | ✅ |
+| 1E.15 | E2E tests: Console toggle via button and `⌘J`, iteration switching updates console, node filter dropdown | `e2e/results-console.spec.ts` | Deferred to Phase 1 E2E round |
+| 1E.16 | Run `tsc --noEmit` — zero type errors | | ✅ |
+| 1E.17 | Enhancement: Double-click sub-workflow node in diagram to drill down directly (bypasses detail panel button) | `WorkflowExecutionCanvas.tsx`, `WorkflowResultsExplorerModal.tsx` | ✅ |
+| 1E.18 | Console panel: docked/floating/maximized modes matching Designer Console | `ResultsExplorerConsolePanel.tsx`, `results-explorer.css` | ✅ |
+| 1E.19 | Console panel: enhanced search with match navigation and count | `ResultsExplorerConsolePanel.tsx` | ✅ |
+| 1E.20 | Console panel: sub-workflow recursive expansion with depth indentation | `reconstructLogLines.ts`, `ConsoleLogLine.tsx` | ✅ |
+| 1E.21 | Workflow context in empty detail panel (workflow name + parent name for sub-workflows) | `WorkflowResultsExplorerModal.tsx`, `results-explorer.css` | ✅ |
+| 1E.22 | Iteration picker: closes on outside click (fullscreen backdrop) | `IterationPicker.tsx` | ✅ |
+| 1E.23 | Console node filter: custom styled dropdown with topological sort order | `ResultsExplorerConsolePanel.tsx`, `results-explorer.css` | ✅ |
+| 1E.24 | Console aggregate view: professional summary (pass rate, timing stats, failures, sub-workflows) instead of raw log dump | `buildAggregateSummary.ts` **New**, `ResultsExplorerConsolePanel.tsx` | ✅ |
+| 1E.25 | Console toggle moved to header toolbar (next to Diagram/Timeline) for better discoverability | `WorkflowResultsExplorerModal.tsx`, `results-explorer.css` | ✅ |
+
+**Success criteria:** Console panel renders in Results Explorer showing reconstructed log narrative from structured trace data. Supports node filtering, search, keyboard toggle. Gracefully handles all trace levels. Shared log line component used by both Designer and Results Explorer consoles.
+
+##### Sub-phase 1F: Designer Canvas Consistency (~0.5 day)
+
+| # | Task | File(s) | Status |
+|---|------|---------|--------|
+| 1F.1 | Add `savedViewport` to `Workflow` interface for persisting zoom/pan | `src/features/workflow/types/workflow.ts` | ✅ |
+| 1F.2 | Replace "Restore saved layout" with "Save current layout" (floppy icon, save flash) — matches Results Explorer | `WorkflowCanvasControls.tsx` | ✅ |
+| 1F.3 | Save layout persists both node positions and viewport (zoom/pan) | `WorkflowDesignerFlowCanvas.tsx` | ✅ |
+| 1F.4 | First load (no saved layout): auto-layout + fit view | `useWorkflowPreviewReactFlowInit.ts` | ✅ |
+| 1F.5 | Saved layout: restore exact viewport on revisit | `useWorkflowPreviewReactFlowInit.ts` | ✅ |
+| 1F.6 | Remove "Auto-Layout" toolbar button (confusing alongside Fit View) — keep Cmd+L and Command Palette | `WorkflowCanvasControls.tsx` | ✅ |
+| 1F.7 | Simplified toolbar: Undo/Redo \| Zoom In/Out \| Fit View \| Save Layout \| Minimap | `WorkflowCanvasControls.tsx` | ✅ |
+| 1F.8 | Unit tests updated for simplified controls and viewport persistence | `WorkflowCanvasControls.test.tsx`, `useReactFlowInit.test.ts` | ✅ |
+| 1F.9 | Run `tsc --noEmit` — zero type errors | | ✅ |
+
+**Success criteria:** Designer and Results Explorer canvases have consistent toolbar layout and behavior. First load auto-layouts + fits. Saved layouts persist viewport across sessions. User can re-adjust and re-save at any time.
+
+##### Phase 1 Dependency Graph
+
+```
+  1A (Types)
+    │
+    ├──► 1B (Engine capture gating)
+    │       │
+    │       ├──► 1C (Runner UI + CLI)
+    │       │
+    │       └──► 1D (Iteration index fix)
+    │               │
+    └───────────────┴──► 1E (Console Panel)
+                              │
+                              └──► 1F (Designer Canvas Consistency)
+```
+
+1A is the foundation. 1B depends on 1A. 1C and 1D depend on 1B (both need the engine to produce correct traces). 1E depends on all previous sub-phases (needs correct types, gated data, proper iteration lookup, and UI entry points). 1F depends on 1E (canvas consistency enhancements).
 
 #### Phase 2 — Debug-Level Capture (Full Console Fidelity)
 

@@ -149,6 +149,167 @@ export const manualMetadata: ManualMetadata[] = [
     updatedAt: date('2026-05-09'),
     changeNote: 'Rewritten for three-runner architecture (Test Runner, Parameterized Runner, Workflow Runner)',
   },
+
+  // ============================================================================
+  // Requests Path — Overview
+  // ============================================================================
+  { manualPath: 'requests/requests.html', addedAt: date('2024-01-10') },
+
+  // ============================================================================
+  // Versioning Path (corePaths)
+  // ============================================================================
+  { manualPath: 'versioning/versioning.html', addedAt: date('2024-02-15') },
+  { manualPath: 'versioning/workflow/workflow-version-history-easy.html', addedAt: date('2024-02-15') },
+  { manualPath: 'versioning/workflow/workflow-version-diff-medium.html', addedAt: date('2024-02-20') },
+  { manualPath: 'versioning/workflow/workflow-version-advanced.html', addedAt: date('2024-02-20') },
+  { manualPath: 'versioning/test/test-definition-history-easy.html', addedAt: date('2024-02-15') },
+  { manualPath: 'versioning/test/test-definition-diff-medium.html', addedAt: date('2024-02-20') },
+  { manualPath: 'versioning/catalog/environment-audit-log-easy.html', addedAt: date('2024-02-15') },
+  { manualPath: 'versioning/catalog/environment-audit-export-medium.html', addedAt: date('2024-02-20') },
+  { manualPath: 'versioning/test/run-baselines-easy.html', addedAt: date('2024-02-15') },
+  { manualPath: 'versioning/test/run-baselines-comparison-medium.html', addedAt: date('2024-02-20') },
+  { manualPath: 'versioning/request/request-definition-history-easy.html', addedAt: date('2024-02-15') },
+  { manualPath: 'versioning/request/request-definition-diff-medium.html', addedAt: date('2024-02-20') },
+  { manualPath: 'versioning/catalog/feature-group-history-easy.html', addedAt: date('2024-02-15') },
+  { manualPath: 'versioning/catalog/feature-group-history-medium.html', addedAt: date('2024-02-20') },
+  { manualPath: 'versioning/advanced/script-library-versioning-easy.html', addedAt: date('2024-02-25') },
+  { manualPath: 'versioning/advanced/script-library-impact-medium.html', addedAt: date('2024-02-25') },
+  { manualPath: 'versioning/cross-entity/cross-feature-versioning-advanced.html', addedAt: date('2024-03-01') },
+
+  // ============================================================================
+  // Workflow Patterns Path (corePaths)
+  // ============================================================================
+  { manualPath: 'workflow-patterns/workflow-patterns.html', addedAt: date('2024-03-01') },
+  { manualPath: 'workflow-patterns/foundation/workflow-http-chaining-easy.html', addedAt: date('2024-03-01') },
+  { manualPath: 'workflow-patterns/foundation/workflow-delay-timing-easy.html', addedAt: date('2024-03-01') },
+  { manualPath: 'workflow-patterns/foundation/workflow-variables-easy.html', addedAt: date('2024-03-01') },
+  { manualPath: 'workflow-patterns/flow-control/workflow-condition-branching-medium.html', addedAt: date('2024-03-05') },
+  { manualPath: 'workflow-patterns/flow-control/workflow-switch-multiway-medium.html', addedAt: date('2024-03-05') },
+  { manualPath: 'workflow-patterns/flow-control/workflow-fork-join-medium.html', addedAt: date('2024-03-05') },
+  { manualPath: 'workflow-patterns/loops-errors/workflow-loop-patterns-medium.html', addedAt: date('2024-03-10') },
+  { manualPath: 'workflow-patterns/loops-errors/workflow-aggregate-medium.html', addedAt: date('2024-03-10') },
+  { manualPath: 'workflow-patterns/loops-errors/workflow-error-handling-advanced.html', addedAt: date('2024-03-15') },
+  { manualPath: 'workflow-patterns/advanced/workflow-sub-workflow-advanced.html', addedAt: date('2024-03-15') },
+  { manualPath: 'workflow-patterns/advanced/workflow-webhook-correlation-advanced.html', addedAt: date('2024-03-15') },
+  { manualPath: 'workflow-patterns/advanced/workflow-debug-advanced.html', addedAt: date('2024-03-15') },
+
+  // ============================================================================
+  // Auth Strategies Path (corePaths)
+  // ============================================================================
+  { manualPath: 'auth-strategies/auth-strategies.html', addedAt: date('2024-03-01') },
+  { manualPath: 'auth-strategies/basics/auth-bearer-token-easy.html', addedAt: date('2024-03-01') },
+  { manualPath: 'auth-strategies/basics/auth-basic-easy.html', addedAt: date('2024-03-01') },
+  { manualPath: 'auth-strategies/basics/auth-apikey-easy.html', addedAt: date('2024-03-01') },
+  { manualPath: 'auth-strategies/basics/auth-oauth2-easy.html', addedAt: date('2024-03-01') },
+  { manualPath: 'auth-strategies/inheritance/auth-inheritance-chain-medium.html', addedAt: date('2024-03-05') },
+  { manualPath: 'auth-strategies/inheritance/auth-global-profiles-medium.html', addedAt: date('2024-03-05') },
+  { manualPath: 'auth-strategies/inheritance/auth-catalog-security-medium.html', addedAt: date('2024-03-05') },
+  { manualPath: 'auth-strategies/advanced/auth-workflow-advanced.html', addedAt: date('2024-03-10') },
+
+  // ============================================================================
+  // Assertion Mastery Path (corePaths)
+  // ============================================================================
+  { manualPath: 'assertion-mastery/assertion-mastery.html', addedAt: date('2024-03-01') },
+  { manualPath: 'assertion-mastery/basics/assertion-status-codes-easy.html', addedAt: date('2024-03-01') },
+  { manualPath: 'assertion-mastery/basics/assertion-response-time-easy.html', addedAt: date('2024-03-01') },
+  { manualPath: 'assertion-mastery/basics/assertion-validation-modes-easy.html', addedAt: date('2024-03-01') },
+  { manualPath: 'assertion-mastery/intermediate/assertion-header-checks-medium.html', addedAt: date('2024-03-05') },
+  { manualPath: 'assertion-mastery/intermediate/assertion-jsonpath-regex-medium.html', addedAt: date('2024-03-05') },
+  { manualPath: 'assertion-mastery/intermediate/assertion-numeric-array-medium.html', addedAt: date('2024-03-05') },
+  { manualPath: 'assertion-mastery/intermediate/assertion-date-comparison-medium.html', addedAt: date('2024-03-05') },
+  { manualPath: 'assertion-mastery/advanced/assertion-presets-advanced.html', addedAt: date('2024-03-10') },
+  { manualPath: 'assertion-mastery/advanced/assertion-composition-advanced.html', addedAt: date('2024-03-10') },
+  { manualPath: 'assertion-mastery/advanced/assertion-jsonpath-advanced.html', addedAt: date('2024-03-10') },
+  { manualPath: 'assertions/assertions.html', addedAt: date('2024-03-10') },
+  { manualPath: 'assertions/api-healthcheck-easy.html', addedAt: date('2024-03-10') },
+  { manualPath: 'assertions/paginated-list-easy.html', addedAt: date('2024-03-10') },
+  { manualPath: 'assertions/token-expiry-medium.html', addedAt: date('2024-03-15') },
+  { manualPath: 'assertions/price-guard-medium.html', addedAt: date('2024-03-15') },
+  { manualPath: 'assertions/api-contract-advanced.html', addedAt: date('2024-03-15') },
+
+  // ============================================================================
+  // Workflow: Flow Control (workflowPaths)
+  // ============================================================================
+  { manualPath: 'workflow/flow-control/flow-control.html', addedAt: date('2024-03-01') },
+  { manualPath: 'workflow/flow-control/conditional-branching-easy.html', addedAt: date('2024-03-01') },
+  { manualPath: 'workflow/flow-control/switch-order-router-medium.html', addedAt: date('2024-03-05') },
+  { manualPath: 'workflow/flow-control/paginated-fetcher-medium.html', addedAt: date('2024-03-05') },
+  { manualPath: 'workflow/flow-control/error-handler-advanced.html', addedAt: date('2024-03-10') },
+  { manualPath: 'workflow/flow-control/wf-error-handler-advanced.html', addedAt: date('2024-03-10') },
+
+  // ============================================================================
+  // Workflow: API Patterns (workflowPaths)
+  // ============================================================================
+  { manualPath: 'workflow/api-patterns/api-patterns.html', addedAt: date('2024-03-01') },
+  { manualPath: 'workflow/api-patterns/create-extract-verify-easy.html', addedAt: date('2024-03-01') },
+  { manualPath: 'workflow/api-patterns/parallel-api-calls-easy.html', addedAt: date('2024-03-01') },
+  { manualPath: 'workflow/api-patterns/expression-functions-advanced.html', addedAt: date('2024-03-10') },
+  { manualPath: 'workflow/api-patterns/debug-trace-advanced.html', addedAt: date('2024-03-10') },
+
+  // ============================================================================
+  // Workflow: Diverse APIs (workflowPaths)
+  // ============================================================================
+  { manualPath: 'workflow/diverse-apis/pokemon-evolution-easy.html', addedAt: date('2024-03-15') },
+  { manualPath: 'workflow/diverse-apis/country-currency-easy.html', addedAt: date('2024-03-15') },
+  { manualPath: 'workflow/diverse-apis/book-search-medium.html', addedAt: date('2024-03-20') },
+  { manualPath: 'workflow/diverse-apis/product-cart-medium.html', addedAt: date('2024-03-20') },
+  { manualPath: 'workflow/diverse-apis/multi-api-dashboard-medium.html', addedAt: date('2024-03-20') },
+
+  // ============================================================================
+  // Workflow: Script Node (workflowPaths)
+  // ============================================================================
+  { manualPath: 'workflow/script-node/script-node.html', addedAt: date('2024-03-15') },
+  { manualPath: 'workflow/script-node/json-formatter-easy.html', addedAt: date('2024-03-15') },
+  { manualPath: 'workflow/script-node/cross-api-validator-medium.html', addedAt: date('2024-03-20') },
+  { manualPath: 'workflow/script-node/data-pipeline-report-advanced.html', addedAt: date('2024-03-20') },
+
+  // ============================================================================
+  // Workflow: Event-Driven (workflowPaths)
+  // ============================================================================
+  { manualPath: 'workflow/event-driven/event-driven.html', addedAt: date('2024-03-15') },
+  { manualPath: 'workflow/event-driven/webhook-trigger-easy.html', addedAt: date('2024-03-15') },
+  { manualPath: 'workflow/event-driven/schedule-trigger-easy.html', addedAt: date('2024-03-15') },
+  { manualPath: 'workflow/event-driven/wait-condition-advanced.html', addedAt: date('2024-03-20') },
+
+  // ============================================================================
+  // Workflow: Async Correlation (workflowPaths)
+  // ============================================================================
+  { manualPath: 'workflow/async-correlation/async-correlation.html', addedAt: date('2024-04-01') },
+  { manualPath: 'workflow/async-correlation/payment-callback-easy.html', addedAt: date('2024-04-01') },
+  { manualPath: 'workflow/async-correlation/approval-workflow-medium.html', addedAt: date('2024-04-05') },
+  { manualPath: 'workflow/async-correlation/parallel-payment-advanced.html', addedAt: date('2024-04-05') },
+
+  // ============================================================================
+  // Workflow: Orchestration (workflowPaths)
+  // ============================================================================
+  { manualPath: 'workflow/orchestration/orchestration.html', addedAt: date('2024-04-01') },
+  { manualPath: 'workflow/orchestration/sub-workflow-advanced.html', addedAt: date('2024-04-01') },
+  { manualPath: 'workflow/orchestration/order-pipeline-advanced.html', addedAt: date('2024-04-01') },
+  { manualPath: 'workflow/orchestration/deploy-orchestrator-advanced.html', addedAt: date('2024-04-05') },
+  { manualPath: 'workflow/orchestration/batch-provisioning-advanced.html', addedAt: date('2024-04-05') },
+
+  // ============================================================================
+  // Workflow: Node Reference (workflowPaths)
+  // ============================================================================
+  { manualPath: 'workflow/workflow.html', addedAt: date('2024-03-01') },
+  { manualPath: 'workflow/node-reference/node-reference.html', addedAt: date('2024-03-10') },
+  { manualPath: 'sub-workflow-samples-guide.html', addedAt: date('2026-05-04') },
+
+  // ============================================================================
+  // Workflow: Runner (workflowPaths)
+  // ============================================================================
+  { manualPath: 'workflow/runner/workflow-runner-basics-easy.html', addedAt: date('2026-05-09') },
+  { manualPath: 'workflow/runner/workflow-runner-variables-medium.html', addedAt: date('2026-05-09') },
+  { manualPath: 'workflow/runner/workflow-runner-iterations-medium.html', addedAt: date('2026-05-09') },
+  { manualPath: 'workflow/runner/workflow-runner-results-medium.html', addedAt: date('2026-05-09') },
+
+  // ============================================================================
+  // Data Mapper
+  // ============================================================================
+  { manualPath: 'data-mapper/data-mapper-basics-easy.html', addedAt: date('2026-05-10') },
+  { manualPath: 'data-mapper/data-mapper-expressions-medium.html', addedAt: date('2026-05-10') },
+  { manualPath: 'data-mapper/data-mapper-arrays-medium.html', addedAt: date('2026-05-10') },
+  { manualPath: 'data-mapper/data-mapper-workflow-advanced.html', addedAt: date('2026-05-10') },
 ];
 
 /** Map of manualPath -> ManualMetadata for fast lookup */

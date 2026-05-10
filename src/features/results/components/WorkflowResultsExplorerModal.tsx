@@ -12,6 +12,8 @@ import { saveJsonFile, saveCsvFile, savePngFile, saveSvgFile, buildExportFilenam
 import { formatDurationMs } from '../../../shared/utils/formatDuration';
 import type { BottleneckInsight } from '../utils/bottleneckAnalysis';
 import type { ForkJoinTopology } from '../utils/forkJoinDetection';
+import { getIterationByIndex } from '../utils/iterationLookup';
+import ResultsExplorerConsolePanel from './ResultsExplorerConsolePanel';
 
 type ReplaySnapshotNode = {
   id: string;
@@ -72,6 +74,7 @@ export default function WorkflowResultsExplorerModal({ trace, onClose, importedF
   const [stateFilter, setStateFilter] = useState<NodeStateFilter>('all');
   const [viewMode, setViewMode] = useState<'diagram' | 'timeline'>('diagram');
   const [detailCollapsed, setDetailCollapsed] = useState(false);
+  const [consoleOpen, setConsoleOpen] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const sampledCount = useMemo(
@@ -80,14 +83,14 @@ export default function WorkflowResultsExplorerModal({ trace, onClose, importedF
   );
   const isSampled = sampledCount < currentTrace.iterations.length;
 
-  // Get the selected iteration's trace
+  // Get the selected iteration's trace by logical index (not array position)
   const currentIterationTrace = useMemo<WorkflowIterationTrace | undefined>(() => {
     if (selectedIteration === undefined) return undefined;
-    return currentTrace.iterations[selectedIteration];
-  }, [currentTrace.iterations, selectedIteration]);
+    return getIterationByIndex(currentTrace, selectedIteration);
+  }, [currentTrace, selectedIteration]);
 
   const isSelectedIterationSampled = selectedIteration !== undefined
-    && currentTrace.iterations[selectedIteration]?.sampled !== false;
+    && currentIterationTrace?.sampled !== false;
 
   const iterationTransitioning = useIterationTransition(selectedIteration);
 
@@ -105,7 +108,7 @@ export default function WorkflowResultsExplorerModal({ trace, onClose, importedF
   // Build a per-iteration trace for canvas display
   const canvasTrace = useMemo<WorkflowExecutionTrace>(() => {
     if (selectedIteration === undefined) return currentTrace;
-    const iter = currentTrace.iterations[selectedIteration];
+    const iter = getIterationByIndex(currentTrace, selectedIteration);
     if (!iter || iter.sampled === false) return currentTrace;
     return {
       ...currentTrace,
@@ -131,12 +134,12 @@ export default function WorkflowResultsExplorerModal({ trace, onClose, importedF
   const selectedNodeEvents = useMemo<ExecutionEvent[]>(() => {
     if (!selectedNodeId) return [];
     if (selectedIteration !== undefined) {
-      const iter = currentTrace.iterations[selectedIteration];
+      const iter = getIterationByIndex(currentTrace, selectedIteration);
       if (!iter) return [];
       return iter.events.filter(e => e.nodeId === selectedNodeId);
     }
     return currentTrace.iterations.flatMap(iter => iter.events.filter(e => e.nodeId === selectedNodeId));
-  }, [selectedNodeId, selectedIteration, currentTrace.iterations]);
+  }, [selectedNodeId, selectedIteration, currentTrace]);
 
   // Calculate failure count for default filter
   const failedIterationCount = useMemo(() => {
@@ -187,11 +190,20 @@ export default function WorkflowResultsExplorerModal({ trace, onClose, importedF
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        if (selectedNodeId) {
+        if (consoleOpen) {
+          setConsoleOpen(false);
+        } else if (selectedNodeId) {
           setSelectedNodeId(undefined);
         } else {
           onClose();
         }
+        return;
+      }
+
+      // Cmd/Ctrl+J toggles console
+      if ((e.metaKey || e.ctrlKey) && e.key === 'j') {
+        e.preventDefault();
+        setConsoleOpen(prev => !prev);
         return;
       }
 
@@ -239,10 +251,14 @@ export default function WorkflowResultsExplorerModal({ trace, onClose, importedF
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onClose, selectedNodeId, currentTrace.totalIterations]);
+  }, [onClose, selectedNodeId, currentTrace.totalIterations, consoleOpen]);
 
   const handleNodeClick = useCallback((nodeId: string) => {
     setSelectedNodeId(nodeId || undefined);
+  }, []);
+
+  const handleConsoleNodeSelect = useCallback((nodeId: string) => {
+    setSelectedNodeId(nodeId);
   }, []);
 
   const handleIterationSelect = useCallback((iterIndex: number) => {
@@ -262,6 +278,22 @@ export default function WorkflowResultsExplorerModal({ trace, onClose, importedF
     setStateFilter('all');
     setFitViewTrigger(v => v + 1);
   }, []);
+
+  const handleNodeDoubleClick = useCallback((nodeId: string) => {
+    if (!nodeId) return;
+    const node = (currentTrace.workflowSnapshot.nodes as ReplaySnapshotNode[]).find(n => n.id === nodeId);
+    if (node?.type !== 'subWorkflow') return;
+
+    const iterToCheck = selectedIteration !== undefined
+      ? getIterationByIndex(currentTrace, selectedIteration)
+      : currentTrace.iterations[currentTrace.iterations.length - 1];
+    if (!iterToCheck) return;
+
+    const event = iterToCheck.events.find(e => e.nodeId === nodeId);
+    if (event?.details?.subWorkflowTrace) {
+      handleDrillDown(event.details.subWorkflowTrace, nodeId);
+    }
+  }, [currentTrace, selectedIteration, handleDrillDown]);
 
   const handleBreadcrumbNav = useCallback((depth: number) => {
     setTraceStack(prev => prev.slice(0, depth + 1));
@@ -416,6 +448,15 @@ export default function WorkflowResultsExplorerModal({ trace, onClose, importedF
             >
               📈 Timeline
             </button>
+            <span className="view-toggle-sep" />
+            <button
+              className={`view-toggle-btn view-toggle-console${consoleOpen ? ' view-toggle-active' : ''}`}
+              onClick={() => setConsoleOpen(prev => !prev)}
+              title="Toggle Console (⌘J)"
+              data-testid="console-toggle-btn-header"
+            >
+              🖥 Console
+            </button>
           </div>
           <div className="results-explorer-meta">
             {currentTrace.totalIterations > 1 && (
@@ -535,7 +576,7 @@ export default function WorkflowResultsExplorerModal({ trace, onClose, importedF
             {selectedIteration !== undefined
               ? (isSelectedIterationSampled
                 ? `Iteration #${selectedIteration + 1} — ${currentIterationTrace?.passed ? 'Passed' : 'Failed'} — ${formatDurationMs(currentIterationTrace?.durationMs)}`
-                : `Iteration #${selectedIteration + 1} — ${currentTrace.iterations[selectedIteration]?.passed ? 'Passed' : 'Failed'} — Trace not captured (sampled run)`)
+                : `Iteration #${selectedIteration + 1} — ${currentIterationTrace?.passed ? 'Passed' : 'Failed'} — Trace not captured (sampled run)`)
               : (
                 <>
                   <span className="footer-metric">
@@ -558,7 +599,7 @@ export default function WorkflowResultsExplorerModal({ trace, onClose, importedF
           </div>
           <div className="results-explorer-footer-actions">
             <span className="results-explorer-shortcuts">
-              ← → iterate • 1-9 jump • Space toggle • A all • M matrix • D detail • / search • Esc close
+              ← → iterate • 1-9 jump • Space toggle • A all • M matrix • D detail • / search • ⌘J console • Esc close
             </span>
             <button className="cat-btn" onClick={onClose}>
               Close
@@ -658,6 +699,7 @@ export default function WorkflowResultsExplorerModal({ trace, onClose, importedF
                 trace={canvasTrace}
                 selectedNodeId={selectedNodeId}
                 onNodeClick={handleNodeClick}
+                onNodeDoubleClick={handleNodeDoubleClick}
                 showMinimap={showMinimap}
                 onToggleMinimap={() => setShowMinimap(!showMinimap)}
                 fitViewTrigger={fitViewTrigger}
@@ -711,6 +753,18 @@ export default function WorkflowResultsExplorerModal({ trace, onClose, importedF
               />
             ) : (
               <div className="results-explorer-empty-detail">
+                <div className="results-explorer-workflow-info" data-testid="workflow-info">
+                  <div className="workflow-info-name">{currentTrace.workflowName}</div>
+                  {traceStack.length > 1 && (
+                    <div className="workflow-info-parent">
+                      <span className="workflow-info-parent-label">Parent:</span>
+                      <span className="workflow-info-parent-name">{traceStack[traceStack.length - 2].label}</span>
+                    </div>
+                  )}
+                  {traceStack.length <= 1 && (
+                    <div className="workflow-info-type">Root Workflow</div>
+                  )}
+                </div>
                 <div className="results-explorer-empty-icon">📊</div>
                 <div className="results-explorer-empty-title">Select a Node</div>
                 <div className="results-explorer-empty-text">
@@ -769,6 +823,17 @@ export default function WorkflowResultsExplorerModal({ trace, onClose, importedF
           </div>
         )}
       </div>
+
+      {/* Console Panel */}
+      {consoleOpen && (
+        <ResultsExplorerConsolePanel
+          trace={currentTrace}
+          iteration={currentIterationTrace}
+          captureLevel={currentTrace.captureLevel}
+          onNodeSelect={handleConsoleNodeSelect}
+          onClose={() => setConsoleOpen(false)}
+        />
+      )}
 
       {/* Bottom Panel: Iteration Matrix */}
       {currentTrace.totalIterations > 1 && (

@@ -83,30 +83,28 @@ async function seedAndNavigate(page: import('@playwright/test').Page) {
   await expect(page.locator('.wf-designer')).toBeVisible({ timeout: 5000 });
 }
 
-test.describe('Auto-Layout Button', () => {
+test.describe('Canvas Controls', () => {
   test.beforeEach(async ({ page }) => {
     await seedAndNavigate(page);
   });
 
-  test('auto-layout button is visible in canvas controls', async ({ page }) => {
-    // The floating pill controls should have the auto-layout button
-    const autoLayoutBtn = page.locator('.wf-pill-btn[title="Auto-layout"]');
-    await expect(autoLayoutBtn).toBeVisible({ timeout: 5000 });
+  test('fit view and save layout buttons are visible in canvas controls', async ({ page }) => {
+    const fitBtn = page.locator('.wf-pill-btn[title="Fit view"], .wf-pill-btn[title="Restore saved view"]');
+    await expect(fitBtn).toBeVisible({ timeout: 5000 });
+
+    const saveBtn = page.locator('[data-testid="save-layout-btn"]');
+    await expect(saveBtn).toBeVisible({ timeout: 5000 });
   });
 
-  test('clicking auto-layout repositions nodes on the canvas', async ({ page }) => {
-    // Verify nodes exist before clicking auto-layout
+  test('clicking fit view keeps nodes visible', async ({ page }) => {
     const httpNodes = page.locator('.wf-node-http');
     await expect(httpNodes.first()).toBeVisible({ timeout: 5000 });
 
-    // Click auto-layout button in the floating pill controls
-    const autoLayoutBtn = page.locator('.wf-pill-btn[title="Auto-layout"]');
-    await autoLayoutBtn.click();
+    const fitBtn = page.locator('.wf-pill-btn[title="Fit view"], .wf-pill-btn[title="Restore saved view"]');
+    await fitBtn.click();
 
-    // After auto-layout, nodes should still be visible and the canvas should still render
     await expect(httpNodes.first()).toBeVisible({ timeout: 3000 });
 
-    // Verify the canvas viewport was updated (fitView is called after layout)
     const viewport = page.locator('.react-flow__viewport');
     await expect(viewport).toBeVisible();
   });

@@ -72,7 +72,7 @@
     <h1>Parameterized Validation</h1>
     <div class="subtitle">Data-Driven Testing — Training Manual</div>
     <p><span class="badge badge-medium">Medium ★★☆</span> · Validation Columns · Baseline Capture · Regression Detection</p>
-    <div class="meta">RedfireForge v0.5.6</div>
+    <div class="meta">RedfireForge v0.5.7</div>
   </div>
 
   <div class="page-break"></div>
@@ -117,7 +117,7 @@
 
   <h3>Step 3: Run and Review Results</h3>
   <ol>
-    <li>Run the test from the Parameterized Runner tab.</li>
+    <li>Run the test from <strong>Testing → Parameterized Runner</strong>.</li>
     <li>In Results, expand the test row to see per-row validation outcomes.</li>
     <li>Green rows = all validate columns matched. Red rows = at least one mismatch.</li>
   </ol>
@@ -132,13 +132,13 @@
   <ol>
     <li>In the Test Editor, click <strong>Fetch Sample Response</strong>.</li>
     <li>Review the response body.</li>
-    <li>Click <strong>Keep Rules</strong> or <strong>Replace All</strong> to save the response as your validation baseline.</li>
+    <li>Click <strong>Keep Rules &amp; Update Response</strong> or <strong>Replace All</strong> to save the response as your validation baseline.</li>
     <li>The validate columns now contain the actual API values — any future changes will trigger failures.</li>
   </ol>
 
   <h2>4. Adding Validate Columns to Existing Tests</h2>
   <ol>
-    <li>In the Data Source tab, click <strong>+ Add Column</strong>.</li>
+    <li>In the Data Source tab, click <strong>+ Column</strong>.</li>
     <li>Set type to <strong>validate</strong>.</li>
     <li>Enter a JSON path in the <strong>mapping</strong> field (e.g., <code>$.status</code>, <code>$.data[0].name</code>).</li>
     <li>Fill in expected values for each row.</li>

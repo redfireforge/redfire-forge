@@ -2089,11 +2089,12 @@ tr:hover td { background: var(--surface-hover); }
   flex: 1;
 }
 
-/* ── Inline Options (Poll Throttle + Full Trace) ── */
+/* ── Inline Options (Poll Throttle + Trace Level) ── */
 .wf-runner-inline-options {
   display: flex;
   align-items: center;
-  gap: 24px;
+  flex-wrap: wrap;
+  gap: 12px 24px;
   margin-bottom: 16px;
   padding-left: 16px;
 }
@@ -2203,6 +2204,34 @@ tr:hover td { background: var(--surface-hover); }
 
 .wf-inline-warn {
   color: #f59e0b;
+}
+
+.wf-trace-level-select {
+  padding: 3px 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-secondary, #1e1e2e);
+  color: var(--text);
+  font-size: 0.8rem;
+  cursor: pointer;
+  outline: none;
+}
+.wf-trace-level-select:focus {
+  border-color: var(--primary);
+}
+.wf-trace-level-select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.wf-trace-warning {
+  width: 100%;
+  padding: 6px 12px;
+  border-radius: 4px;
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  color: #f59e0b;
+  font-size: 0.75rem;
 }
 
 /* ── Results Explorer / Trace Capture ── */
