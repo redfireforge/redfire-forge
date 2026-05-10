@@ -63,6 +63,7 @@ export async function handleSubWorkflowNode(
     childDurationMs: number;
     finalAttempt: number;
     childNodeStates: Record<string, NodeRunStatus>;
+    childIterationTrace?: WorkflowIterationTrace;
   }> => {
     const childInputs: Record<string, string> = {};
     for (const m of data.inputMappings) {

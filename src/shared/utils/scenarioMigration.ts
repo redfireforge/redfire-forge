@@ -17,7 +17,7 @@ export function inferScenarioKind(tests: Scenario[]): ScenarioKind {
 }
 
 function needsMigration(sc: TestScenario): boolean {
-  return (sc as Record<string, unknown>).kind === undefined;
+  return (sc as unknown as Record<string, unknown>).kind === undefined;
 }
 
 export function migrateScenarioKinds(groups: FeatureGroup[]): MigrationResult {
