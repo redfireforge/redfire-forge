@@ -377,7 +377,7 @@ Activity bar icon: `🏪` (or `📦`)
 When the user clicks **Import** on a gallery card:
 - **Request** → creates a new Scenario in Requests tab and switches to it
 - **Catalog** → imports OpenAPI spec into Catalog tab and switches to it
-- **Test** → creates a FeatureGroup in Scenarios tab and switches to it
+- **Test** → creates a FeatureGroup in Feature Groups tab and switches to it
 - **Workflow** → loads workflow into Designer tab and switches to it (existing behavior)
 - **Assertion** → opens AssertionPresetMenu behavior (or imports into active test)
 

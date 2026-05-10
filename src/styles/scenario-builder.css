@@ -2183,8 +2183,49 @@
 .inline-name-form.nested {
   margin-bottom: 8px;
   background: var(--bg);
+  flex-wrap: wrap;
 }
 .inline-name-form input { flex: 1; }
+
+.scenario-kind-selector {
+  display: flex;
+  gap: 4px;
+  width: 100%;
+  margin-bottom: 6px;
+}
+.kind-option {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 0.78rem;
+  cursor: pointer;
+  background: var(--surface);
+  color: var(--text-secondary);
+  transition: background 0.15s, border-color 0.15s;
+}
+.kind-option:hover { background: var(--surface-hover); }
+.kind-option-active {
+  background: var(--primary-alpha, rgba(99,102,241,0.12));
+  border-color: var(--primary);
+  color: var(--text);
+  font-weight: 500;
+}
+.kind-option input[type="radio"] { display: none; }
+
+.kind-badge {
+  font-size: 0.6rem;
+  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: 3px;
+  letter-spacing: 0.5px;
+}
+.kind-badge-param {
+  background: #818cf8;
+  color: #fff;
+}
 
 .inline-edit-input {
   background: var(--bg);

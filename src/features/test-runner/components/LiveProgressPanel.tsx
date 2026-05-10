@@ -71,7 +71,7 @@ export default function LiveProgressPanel({
             <>
               {executionModeMeta.progressLabel}
               {' · '}C:{executionMode === 'sequential' ? 1 : concurrency}
-              {' · '}T:{total}
+              {' · '}I:{total}
             </>
           )}
         </span>
@@ -95,8 +95,15 @@ export default function LiveProgressPanel({
               {profileMeta ? `${(profileMeta.elapsedMs / 1000).toFixed(1)}s` : '0s'} / {profileMeta ? (profileMeta.durationMs / 1000).toFixed(0) : loadProfile.durationSec}s
               {' '}({completed} requests)
             </>
+          ) : executionMode === 'workflow' ? (
+            <>
+              {completed} / {total} iterations ({progressPct}%)
+              {summary && summary.totalRequests > 0 && (
+                <> — {summary.successfulRequests} / {summary.totalRequests} requests ({Math.round((summary.successfulRequests / summary.totalRequests) * 100)}%)</>
+              )}
+            </>
           ) : (
-            <>{completed} / {total} {executionMode === 'workflow' ? 'iterations' : 'requests'} ({progressPct}%)</>
+            <>{completed} / {total} requests ({progressPct}%)</>
           )}
         </span>
       </div>

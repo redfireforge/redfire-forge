@@ -1,10 +1,12 @@
 import { useState, useMemo } from 'react';
-import type { FeatureGroup, GlobalAuthProfile, AuthConfig } from '../../../shared/types';
+import type { FeatureGroup, GlobalAuthProfile, AuthConfig, ScenarioKind } from '../../../shared/types';
 import type { RunnerConfig } from '../hooks/useRunnerConfig';
 import { buildSelectedTests } from '../utils/buildSelectedTests';
 
 interface Props {
   featureGroups: FeatureGroup[];
+  /** If set, only show scenarios matching this kind */
+  kind?: ScenarioKind;
   selectedScenarios: Set<string>;
   onSelectedScenariosChange: (ids: Set<string>) => void;
   weights: Record<string, number>;
@@ -28,7 +30,8 @@ interface Props {
 }
 
 export default function ScenarioSelector({
-  featureGroups,
+  featureGroups: rawFeatureGroups,
+  kind,
   selectedScenarios,
   onSelectedScenariosChange,
   weights: _weights,
@@ -50,6 +53,13 @@ export default function ScenarioSelector({
   envFallbackAuth,
   disabled = false,
 }: Props) {
+  const featureGroups = useMemo(() => {
+    if (!kind) return rawFeatureGroups;
+    return rawFeatureGroups
+      .map(fg => ({ ...fg, scenarios: fg.scenarios.filter(sc => sc.kind === kind) }))
+      .filter(fg => fg.scenarios.length > 0);
+  }, [rawFeatureGroups, kind]);
+
   const [expandedFeatures, setExpandedFeatures] = useState<Set<string>>(
     () => new Set(featureGroups.map(fg => fg.id))
   );
@@ -107,12 +117,8 @@ export default function ScenarioSelector({
     onSelectedScenariosChange(next);
   };
 
-  const selectAllUser = () => {
-    onSelectedScenariosChange(new Set(userGroups.flatMap(fg => fg.scenarios.map(sc => sc.id))));
-  };
-
-  const selectAllGallery = () => {
-    onSelectedScenariosChange(new Set(galleryGroups.flatMap(fg => fg.scenarios.map(sc => sc.id))));
+  const selectAll = () => {
+    onSelectedScenariosChange(new Set(featureGroups.flatMap(fg => fg.scenarios.map(sc => sc.id))));
   };
 
   const deselectAll = () => {
@@ -187,6 +193,7 @@ export default function ScenarioSelector({
       <div className="selection-header">
         <h3>Select Scenarios to Test</h3>
         <div className="selection-actions">
+          <button className="btn btn-sm" onClick={selectAll} disabled={disabled}>Select All</button>
           <button className="btn btn-sm" onClick={deselectAll} disabled={disabled}>Deselect All</button>
           <label className="checkbox-label" style={{ marginLeft: 8, fontSize: '0.82rem' }}>
             <input
@@ -250,8 +257,7 @@ export default function ScenarioSelector({
       {userGroups.length > 0 && (
         <>
           <div className="selection-section-header">
-            <span className="selection-section-label">Your Tests</span>
-            <button className="btn btn-sm" onClick={selectAllUser} disabled={disabled}>Select All</button>
+            <span className="selection-section-label">YOUR TESTS</span>
           </div>
           <div className="selection-tree">
             {userGroups.map((fg) => renderFeatureGroup(fg))}
@@ -263,7 +269,6 @@ export default function ScenarioSelector({
         <>
           <div className="selection-section-header selection-section-gallery">
             <span className="selection-section-label">🏪 Gallery Samples</span>
-            <button className="btn btn-sm" onClick={selectAllGallery} disabled={disabled}>Select All</button>
             {userGroups.length > 0 && (
               <span className="selection-section-hint">Selecting gallery tests will deselect your tests and vice versa</span>
             )}

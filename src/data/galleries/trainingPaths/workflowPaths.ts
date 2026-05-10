@@ -469,7 +469,7 @@ export const workflowPaths: TrainingPath[] = [
           },
           {
             title: 'Runner Comparison',
-            description: 'Choose between Test Runner and Workflow Runner based on your testing goals.',
+            description: 'Choose between Test Runner, Parameterized Runner, and Workflow Runner based on your testing goals.',
             difficulty: 'easy',
             manualPath: 'tests/runner-comparison-easy.html',
           },

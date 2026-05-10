@@ -165,7 +165,7 @@ function generateJsonReport(run: TestRun, opts: ReportOptions): string {
     config: {
       executionMode: run.config.executionMode,
       concurrency: run.config.concurrency,
-      totalTransactions: run.config.totalTransactions,
+      iterations: run.config.iterations,
     },
     summary: {
       ...run.summary,

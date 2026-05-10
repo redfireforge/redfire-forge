@@ -31,7 +31,7 @@ function makeRun(overrides: Partial<TestRun> = {}): TestRun {
     timestamp: Date.now(),
     config: {
       concurrency: 5,
-      totalTransactions: 10,
+      iterations: 10,
       executionMode: 'batch',
       scenarioWeights: [],
     },

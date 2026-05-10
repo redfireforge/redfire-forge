@@ -220,7 +220,7 @@ export function useTestExecution() {
     setState({
       isRunning: true,
       completed: 0,
-      total: config.executionMode === 'load-profile' ? -1 : config.totalTransactions,
+      total: config.executionMode === 'load-profile' ? -1 : config.iterations,
       liveResults: [],
       liveSummary: null,
       finalRun: null,
@@ -295,12 +295,15 @@ export function useTestExecution() {
 
       const saveResult = await saveTestRun(testRun);
 
+      const finalCompleted = config.executionMode === 'workflow' ? (config.iterations || 1) : testResult.results.length;
+      const finalTotal = finalCompleted;
+
       if (saveResult.quotaError) {
         setState((prev) => ({
           ...prev,
           isRunning: false,
-          completed: testResult.results.length,
-          total: testResult.results.length,
+          completed: finalCompleted,
+          total: finalTotal,
           pendingRun: testRun,
           liveSummary: summary,
           liveResults: capResults(testResult.results),
@@ -309,8 +312,8 @@ export function useTestExecution() {
         setState((prev) => ({
           ...prev,
           isRunning: false,
-          completed: testResult.results.length,
-          total: testResult.results.length,
+          completed: finalCompleted,
+          total: finalTotal,
           finalRun: testRun,
           liveSummary: summary,
           liveResults: capResults(testResult.results),

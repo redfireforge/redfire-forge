@@ -344,7 +344,7 @@ Mock Payload:
 }
 ```
 
-**Important:** All transactions use the same mock response values. The `{{correlationId}}` placeholder is automatically replaced with the actual correlation ID at runtime.
+**Important:** All iterations use the same mock response values. The `{{correlationId}}` placeholder is automatically replaced with the actual correlation ID at runtime.
 
 ### Synthetic Inject Mode
 

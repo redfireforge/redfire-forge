@@ -28,9 +28,9 @@ Results automatically display after a test completes.
 
 | Metric | Description |
 |--------|-------------|
-| **TPS** | Transactions per second |
-| **TPM** | Transactions per minute |
-| **TPH** | Transactions per hour |
+| **TPS** | Requests per second |
+| **TPM** | Requests per minute |
+| **TPH** | Requests per hour |
 | **Avg Response** | Mean response time |
 | **Min / Max** | Fastest and slowest response |
 

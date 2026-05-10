@@ -25,7 +25,7 @@ if [ -n "$TAGS" ]; then
   npx tsx cli/index.ts run examples/cli-parameterized.yaml \
     --tags "$TAGS" \
     --concurrency 2 \
-    --transactions 20 \
+    --iterations 20 \
     --data-rows-summary results/parameterized-rows.json \
     --output results/parameterized-results.json
 else
@@ -33,7 +33,7 @@ else
   echo ""
   npx tsx cli/index.ts run examples/cli-parameterized.yaml \
     --concurrency 2 \
-    --transactions 20 \
+    --iterations 20 \
     --data-rows-summary results/parameterized-rows.json \
     --output results/parameterized-results.json
 fi

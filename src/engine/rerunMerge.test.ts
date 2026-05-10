@@ -42,7 +42,7 @@ function makeTestRun(results: RequestResult[]): TestRun {
     id: 'run-1',
     timestamp: Date.now(),
     config: {
-      totalTransactions: 1,
+      iterations: 1,
       concurrency: 1,
       timeoutSec: 30,
       executionMode: 'scenario',
