@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ReferenceLine } from 'recharts';
-import type { TooltipProps } from 'recharts';
+
 import type { TestRun } from '../../../shared/types';
 import { computeHistogramBins, computeOverlayHistogram, computeDistributionStats } from '../utils/responseTimeHistogram';
 
@@ -55,7 +55,7 @@ export function ResponseTimeHistogram({ run }: SingleHistogramProps) {
               ((value: number, name: string) => [
                 name === 'percent' ? `${value}%` : value,
                 name === 'percent' ? 'Percentage' : 'Count',
-              ]) as NonNullable<TooltipProps<number, string>['formatter']>
+              ]) as never
             }
             labelFormatter={(label) => `${label} ms`}
             contentStyle={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 4, fontSize: 12 }}
@@ -145,7 +145,7 @@ export function ResponseTimeOverlayHistogram({ baselineRun, currentRun }: Overla
               ((value: number, name: string) => [
                 mode === 'percent' ? `${value}%` : value,
                 name === 'baseline' ? 'Baseline' : 'Current',
-              ]) as NonNullable<TooltipProps<number, string>['formatter']>
+              ]) as never
             }
             labelFormatter={(label) => `${label} ms`}
             contentStyle={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 4, fontSize: 12 }}

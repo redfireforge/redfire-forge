@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ReactFlowProvider } from '@xyflow/react';
-import type { Node } from '@xyflow/react';
+
 import type { WorkflowExecutionTrace, WorkflowIterationTrace, ExecutionEvent } from '../../../shared/types';
 import FullPanelModal from '../../../shared/components/FullPanelModal';
 import WorkflowExecutionCanvas, { type NodeStateFilter, type CanvasScreenshotFn, type CanvasSvgFn } from './WorkflowExecutionCanvas';
@@ -122,7 +122,7 @@ export default function WorkflowResultsExplorerModal({ trace, onClose, importedF
     if (!node) return null;
     return {
       id: node.id,
-      type: node.type,
+      type: node.type ?? 'unknown',
       label: node.data?.label || node.data?.name || node.id,
     };
   }, [selectedNodeId, currentTrace.workflowSnapshot.nodes]);
@@ -787,7 +787,7 @@ export default function WorkflowResultsExplorerModal({ trace, onClose, importedF
           {!matrixCollapsed && (
             <IterationMatrixTable
               iterations={currentTrace.iterations}
-              nodes={currentTrace.workflowSnapshot.nodes as Node[]}
+              nodes={(currentTrace.workflowSnapshot.nodes as ReplaySnapshotNode[]).map(n => ({ id: n.id, type: n.type ?? 'unknown', data: n.data }))}
               selectedIteration={selectedIteration}
               selectedNodeId={selectedNodeId}
               onIterationSelect={handleIterationSelect}
