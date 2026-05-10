@@ -27,6 +27,13 @@ async function seedWorkflows(page: Page, workflows: Workflow[]) {
   }, workflows);
 }
 
+async function selectWorkflowInDesignerToolbar(page: import('@playwright/test').Page, workflowName: string) {
+  await page.locator('[data-testid="wf-toolbar-select"]').click();
+  await page.locator('.wft-dropdown-panel').waitFor({ state: 'visible', timeout: 3000 });
+  await page.locator('.wft-dropdown-panel .wft-dropdown-item').filter({ hasText: new RegExp(`^${workflowName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`) }).click();
+  await page.waitForTimeout(300);
+}
+
 test.describe('Run in Harness Navigation', () => {
   test('should preserve workflow selection when navigating from Designer to Runner', async ({ page }) => {
     const workflow = makeTestWorkflow('wf-run-harness', 'Test Run Harness');
@@ -47,12 +54,10 @@ test.describe('Run in Harness Navigation', () => {
     // Should navigate to Workflow Runner tab
     await expect(page.locator('h2', { hasText: 'Workflow Runner' })).toBeVisible({ timeout: 5000 });
     
-    // Verify workflow is selected in the dropdown
-    const workflowSelect = page.locator('.workflow-picker-select');
-    await expect(workflowSelect).toBeVisible();
-    
-    // The workflow should be selected
-    await expect(workflowSelect).toHaveValue('wf-run-harness');
+    // Verify workflow is selected in the runner dropdown (trigger shows workflow name)
+    const runnerTrigger = page.getByTestId('workflow-select');
+    await expect(runnerTrigger).toBeVisible();
+    await expect(runnerTrigger).toContainText('Test Run Harness');
   });
 
   test('should not reset workflow selection when clicking Run in Harness multiple times', async ({ page }) => {
@@ -64,34 +69,28 @@ test.describe('Run in Harness Navigation', () => {
     await page.goto('/?tab=workflow');
     await expect(page.locator('.wf-designer')).toBeVisible({ timeout: 10000 });
     
-    // Select Workflow A in the designer dropdown - use the workflow selector specifically
-    const designerDropdown = page.locator('.wf-toolbar-select').first();
-    await expect(designerDropdown).toBeVisible();
-    await designerDropdown.selectOption('wf-a');
-    await page.waitForTimeout(300);
+    // Select Workflow A in the designer toolbar dropdown
+    await selectWorkflowInDesignerToolbar(page, 'Workflow A');
     
     // Click "Run in Harness" for Workflow A
     await page.locator('button:has-text("Run in Harness")').click();
     await expect(page.locator('h2', { hasText: 'Workflow Runner' })).toBeVisible({ timeout: 5000 });
     
     // Workflow A should be selected
-    const workflowSelect = page.locator('.workflow-picker-select');
-    await expect(workflowSelect).toHaveValue('wf-a');
+    await expect(page.getByTestId('workflow-select')).toContainText('Workflow A');
     
     // Go back to Designer
     await page.goto('/?tab=workflow');
     await expect(page.locator('.wf-designer')).toBeVisible({ timeout: 10000 });
     
     // Select Workflow B
-    await expect(designerDropdown).toBeVisible();
-    await designerDropdown.selectOption('wf-b');
-    await page.waitForTimeout(300);
+    await selectWorkflowInDesignerToolbar(page, 'Workflow B');
     
     // Click "Run in Harness" for Workflow B
     await page.locator('button:has-text("Run in Harness")').click();
     await expect(page.locator('h2', { hasText: 'Workflow Runner' })).toBeVisible({ timeout: 5000 });
     
     // Workflow B should now be selected (overrides A)
-    await expect(workflowSelect).toHaveValue('wf-b');
+    await expect(page.getByTestId('workflow-select')).toContainText('Workflow B');
   });
 });

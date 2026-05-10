@@ -1,9 +1,5 @@
-import fs from 'fs';
 import path from 'path';
 import { defineConfig } from 'vitest/config';
-
-const coverageTmp = path.resolve(__dirname, 'coverage', '.tmp');
-fs.mkdirSync(coverageTmp, { recursive: true });
 
 export default defineConfig({
   test: {

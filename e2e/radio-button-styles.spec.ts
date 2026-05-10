@@ -124,14 +124,11 @@ test.describe('Radio button CSS styling', () => {
     await page.goto('/?tab=workflow-runner');
     await page.waitForLoadState('networkidle');
 
-    // Find and select the workflow using the specific workflow picker class
-    const selectEl = page.locator('.workflow-picker-select');
-    await selectEl.waitFor({ timeout: 5000 });
-    
-    const options = await selectEl.locator('option').allTextContents();
+    await page.getByTestId('workflow-select').waitFor({ timeout: 5000 });
+    await page.getByTestId('workflow-select').click();
+    const options = await page.locator('.wfp-dropdown-item').allTextContents();
     console.log('Workflow select options:', options);
-    
-    await selectEl.selectOption('wf-radio-test');
+    await page.locator('.wfp-dropdown-item:has-text("Radio Button Test Workflow")').click();
     await page.waitForTimeout(500);
 
     // Dump all radio buttons with full CSS computed info
@@ -191,9 +188,9 @@ test.describe('Radio button CSS styling', () => {
     await page.goto('/?tab=workflow-runner');
     await page.waitForLoadState('networkidle');
 
-    const selectEl = page.locator('.workflow-picker-select');
-    await selectEl.waitFor({ timeout: 5000 });
-    await selectEl.selectOption('wf-radio-test');
+    await page.getByTestId('workflow-select').waitFor({ timeout: 5000 });
+    await page.getByTestId('workflow-select').click();
+    await page.locator('.wfp-dropdown-item:has-text("Radio Button Test Workflow")').click();
     await page.waitForTimeout(300);
 
     const radioSelector = '.runner-option-box .radio-label input[type="radio"]';
@@ -210,9 +207,9 @@ test.describe('Radio button CSS styling', () => {
     await page.goto('/?tab=workflow-runner');
     await page.waitForLoadState('networkidle');
 
-    const selectEl = page.locator('.workflow-picker-select');
-    await selectEl.waitFor({ timeout: 5000 });
-    await selectEl.selectOption('wf-radio-test');
+    await page.getByTestId('workflow-select').waitFor({ timeout: 5000 });
+    await page.getByTestId('workflow-select').click();
+    await page.locator('.wfp-dropdown-item:has-text("Radio Button Test Workflow")').click();
     await page.waitForTimeout(300);
 
     const radioSelector = '.error-policy-options .radio-label input[type="radio"]';
@@ -229,9 +226,9 @@ test.describe('Radio button CSS styling', () => {
     await page.goto('/?tab=workflow-runner');
     await page.waitForLoadState('networkidle');
 
-    const selectEl = page.locator('.workflow-picker-select');
-    await selectEl.waitFor({ timeout: 5000 });
-    await selectEl.selectOption('wf-radio-test');
+    await page.getByTestId('workflow-select').waitFor({ timeout: 5000 });
+    await page.getByTestId('workflow-select').click();
+    await page.locator('.wfp-dropdown-item:has-text("Radio Button Test Workflow")').click();
     await page.waitForTimeout(300);
 
     const radioSelector = '.think-time-section .radio-label input[type="radio"]';
@@ -248,9 +245,9 @@ test.describe('Radio button CSS styling', () => {
     await page.goto('/?tab=workflow-runner');
     await page.waitForLoadState('networkidle');
 
-    const selectEl = page.locator('.workflow-picker-select');
-    await selectEl.waitFor({ timeout: 5000 });
-    await selectEl.selectOption('wf-radio-test');
+    await page.getByTestId('workflow-select').waitFor({ timeout: 5000 });
+    await page.getByTestId('workflow-select').click();
+    await page.locator('.wfp-dropdown-item:has-text("Radio Button Test Workflow")').click();
     await page.waitForTimeout(300);
 
     // Scope to the Workflow Runner config section

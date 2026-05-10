@@ -157,7 +157,6 @@ export function useTestExecution() {
     const summary = computeIncrementalSummary(elapsed);
 
     const elapsedSec = Math.round(elapsed / 1000);
-    let newPoint: TimeSeriesPoint | null = null;
 
     if (elapsedSec > lastSnapshotRef.current && pending.allResults.length > 0) {
       const intervalMs = now - prevSnapshotTimeRef.current;
@@ -168,9 +167,9 @@ export function useTestExecution() {
       const avgRecent = recentWindow.reduce((s, r) => s + r.responseTimeMs, 0) / recentWindow.length;
 
       const failedInWindow = recentWindow.filter(r => r.httpStatus >= 400 || r.httpStatus === 0).length;
-      const errorPct = recentWindow.length > 0 ? (failedInWindow / recentWindow.length) * 100 : 0;
+      const errorPct = (failedInWindow / recentWindow.length) * 100;
 
-      newPoint = {
+      const point: TimeSeriesPoint = {
         elapsedSec,
         avgResponseTime: Math.round(avgRecent * 10) / 10,
         tps: Math.round(intervalTps * 10) / 10,
@@ -184,7 +183,7 @@ export function useTestExecution() {
       prevCompletedRef.current = pending.completed;
       prevSnapshotTimeRef.current = now;
 
-      if (newPoint) timeSeriesRef.current = [...timeSeriesRef.current, newPoint];
+      timeSeriesRef.current = [...timeSeriesRef.current, point];
     }
 
     setState((prev) => ({

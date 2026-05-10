@@ -1,5 +1,7 @@
-import { useState, useMemo, useEffect } from 'react';
-import type { Workflow } from '../../workflow/types/workflow';
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import type { Workflow, WorkflowFolder } from '../../workflow/types/workflow';
+import { getFolderPath, buildFolderTree, getUnfiledWorkflows, countNodeWorkflows } from '../../workflow/utils/workflowFolderTree';
+import type { FolderTreeNode } from '../../workflow/utils/workflowFolderTree';
 import {
   getWorkflowRunConfigs,
   saveWorkflowRunConfigManually,
@@ -12,6 +14,7 @@ import { sampleWorkflowCatalog } from '../../../data/galleries/workflows';
 
 interface Props {
   workflows: Workflow[];
+  folders?: WorkflowFolder[];
   selectedWorkflowId: string | null;
   onWorkflowChange: (workflowId: string | null) => void;
   variables: Record<string, string>;
@@ -24,6 +27,7 @@ const PERF_SAMPLE_IDS = ['perf-workflow-simple', 'perf-workflow-branching', 'per
 
 export default function WorkflowPicker({
   workflows,
+  folders = [],
   selectedWorkflowId,
   onWorkflowChange,
   variables,
@@ -37,6 +41,11 @@ export default function WorkflowPicker({
   const [history, setHistory] = useState<WorkflowRunConfig[]>([]);
   const [savingPreset, setSavingPreset] = useState(false);
   const [newPresetName, setNewPresetName] = useState('');
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [navFolderId, setNavFolderId] = useState<string | null>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const selectedWorkflow = useMemo(
     () => workflows.find(w => w.id === selectedWorkflowId) ?? null,
@@ -64,17 +73,92 @@ export default function WorkflowPicker({
       .slice(0, 5);
   }, [selectedWorkflow]);
 
-  const handleWorkflowSelect = (workflowId: string) => {
+  const folderTree = useMemo(() =>
+    folders.length > 0 ? buildFolderTree(folders, workflows) : [],
+    [folders, workflows],
+  );
+
+  const unfiledWfs = useMemo(() =>
+    folders.length > 0 ? getUnfiledWorkflows(folders, workflows) : workflows,
+    [folders, workflows],
+  );
+
+  const currentNavNode = useMemo((): FolderTreeNode | null => {
+    if (!navFolderId) return null;
+    const find = (nodes: FolderTreeNode[]): FolderTreeNode | null => {
+      for (const n of nodes) {
+        if (n.folder.id === navFolderId) return n;
+        const found = find(n.children);
+        if (found) return found;
+      }
+      return null;
+    };
+    return find(folderTree);
+  }, [navFolderId, folderTree]);
+
+  const navBreadcrumb = useMemo(() => {
+    if (!navFolderId) return [];
+    return getFolderPath(navFolderId, folders).split(' / ');
+  }, [navFolderId, folders]);
+
+  const wfpSearchResults = useMemo(() => {
+    const q = searchQuery.toLowerCase().trim();
+    if (!q) return null;
+    return workflows
+      .filter((wf) => wf.name.toLowerCase().includes(q))
+      .map((wf) => ({
+        workflow: wf,
+        breadcrumb: wf.folderId && folders.length > 0 ? getFolderPath(wf.folderId, folders) : '',
+      }));
+  }, [searchQuery, workflows, folders]);
+
+  useEffect(() => {
+    if (dropdownOpen && searchInputRef.current) {
+      searchInputRef.current.focus();
+    }
+  }, [dropdownOpen]);
+
+  useEffect(() => {
+    if (!dropdownOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setDropdownOpen(false);
+        setSearchQuery('');
+        setNavFolderId(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [dropdownOpen]);
+
+  const handleWorkflowSelect = useCallback((workflowId: string) => {
     const wf = workflows.find(w => w.id === workflowId);
     if (wf) {
       onWorkflowChange(workflowId);
       onVariablesChange({ ...wf.variables });
+      setDropdownOpen(false);
+      setSearchQuery('');
+      setNavFolderId(null);
     }
-  };
+  }, [workflows, onWorkflowChange, onVariablesChange]);
 
   const handleClearSelection = () => {
     onWorkflowChange(null);
     onVariablesChange({});
+    setSearchQuery('');
+  };
+
+  const highlightMatch = (text: string, query: string) => {
+    if (!query) return text;
+    const idx = text.toLowerCase().indexOf(query.toLowerCase());
+    if (idx === -1) return text;
+    return (
+      <>
+        {text.slice(0, idx)}
+        <mark className="wfp-search-highlight">{text.slice(idx, idx + query.length)}</mark>
+        {text.slice(idx + query.length)}
+      </>
+    );
   };
 
   const handleRestoreConfig = (config: WorkflowRunConfig) => {
@@ -192,21 +276,138 @@ export default function WorkflowPicker({
         )}
       </div>
 
-      <div className="workflow-picker-selector">
-        <select
-          className="workflow-picker-select"
+      <div className="workflow-picker-selector" ref={dropdownRef}>
+        <button
+          type="button"
+          className={`wfp-dropdown-trigger ${dropdownOpen ? 'open' : ''}`}
           data-testid="workflow-select"
-          value={selectedWorkflowId || ''}
-          onChange={(e) => e.target.value ? handleWorkflowSelect(e.target.value) : handleClearSelection()}
+          onClick={() => !disabled && setDropdownOpen((v) => !v)}
           disabled={disabled}
         >
-          <option value="">Select a workflow...</option>
-          {workflows.map(wf => (
-            <option key={wf.id} value={wf.id}>
-              {wf.name}
-            </option>
-          ))}
-        </select>
+          <span className="wfp-dropdown-text">
+            {selectedWorkflow ? selectedWorkflow.name : 'Select a workflow…'}
+          </span>
+          <span className="wfp-dropdown-arrow">{dropdownOpen ? '▲' : '▼'}</span>
+        </button>
+        {dropdownOpen && (
+          <div className="wfp-dropdown-panel">
+            <div className="wfp-dropdown-search">
+              <input
+                ref={searchInputRef}
+                type="text"
+                className="wfp-dropdown-search-input"
+                placeholder="Search workflows…"
+                value={searchQuery}
+                onChange={(e) => { setSearchQuery(e.target.value); setNavFolderId(null); }}
+                data-testid="wfp-search-input"
+              />
+              {searchQuery && (
+                <button
+                  className="wfp-dropdown-search-clear"
+                  onClick={() => setSearchQuery('')}
+                  title="Clear search"
+                >×</button>
+              )}
+            </div>
+
+            {navFolderId && !wfpSearchResults && (
+              <div className="wft-dropdown-breadcrumb">
+                <button
+                  type="button"
+                  className="wft-breadcrumb-back"
+                  onClick={() => {
+                    const parentFolder = folders.find((f) => f.id === navFolderId);
+                    setNavFolderId(parentFolder?.parentId ?? null);
+                  }}
+                >←</button>
+                <span className="wft-breadcrumb-root" onClick={() => setNavFolderId(null)}>All</span>
+                {navBreadcrumb.map((seg, i) => (
+                  <span key={i}>
+                    <span className="wft-breadcrumb-sep">/</span>
+                    {i === navBreadcrumb.length - 1
+                      ? <span className="wft-breadcrumb-current">{seg}</span>
+                      : <span className="wft-breadcrumb-seg">{seg}</span>}
+                  </span>
+                ))}
+              </div>
+            )}
+
+            <div className="wfp-dropdown-list">
+              {wfpSearchResults ? (
+                wfpSearchResults.length === 0 ? (
+                  <div className="wfp-dropdown-empty">No workflows match "{searchQuery}"</div>
+                ) : (
+                  wfpSearchResults.map(({ workflow: wf, breadcrumb }) => (
+                    <button
+                      key={wf.id}
+                      type="button"
+                      className={`wfp-dropdown-item wft-dropdown-item-search ${wf.id === selectedWorkflowId ? 'active' : ''}`}
+                      onClick={() => handleWorkflowSelect(wf.id)}
+                    >
+                      <span className="wft-item-name">{highlightMatch(wf.name, searchQuery.trim())}</span>
+                      {breadcrumb && <span className="wft-item-breadcrumb">{breadcrumb}</span>}
+                    </button>
+                  ))
+                )
+              ) : navFolderId && currentNavNode ? (
+                <>
+                  {currentNavNode.children.map((child) => (
+                    <button
+                      key={child.folder.id}
+                      type="button"
+                      className="wft-dropdown-folder"
+                      onClick={() => setNavFolderId(child.folder.id)}
+                    >
+                      <span className="wft-folder-icon">📁</span>
+                      <span className="wft-folder-name">{child.folder.name}</span>
+                      <span className="wft-folder-count">({countNodeWorkflows(child)})</span>
+                      <span className="wft-folder-arrow">›</span>
+                    </button>
+                  ))}
+                  {currentNavNode.workflows.map((wf) => (
+                    <button
+                      key={wf.id}
+                      type="button"
+                      className={`wfp-dropdown-item ${wf.id === selectedWorkflowId ? 'active' : ''}`}
+                      onClick={() => handleWorkflowSelect(wf.id)}
+                    >
+                      {wf.name}
+                    </button>
+                  ))}
+                  {currentNavNode.children.length === 0 && currentNavNode.workflows.length === 0 && (
+                    <div className="wfp-dropdown-empty">Empty folder</div>
+                  )}
+                </>
+              ) : (
+                <>
+                  {folderTree.map((node) => (
+                    <button
+                      key={node.folder.id}
+                      type="button"
+                      className="wft-dropdown-folder"
+                      onClick={() => setNavFolderId(node.folder.id)}
+                    >
+                      <span className="wft-folder-icon">📁</span>
+                      <span className="wft-folder-name">{node.folder.name}</span>
+                      <span className="wft-folder-count">({countNodeWorkflows(node)})</span>
+                      <span className="wft-folder-arrow">›</span>
+                    </button>
+                  ))}
+                  {unfiledWfs.map((wf) => (
+                    <button
+                      key={wf.id}
+                      type="button"
+                      className={`wfp-dropdown-item ${wf.id === selectedWorkflowId ? 'active' : ''}`}
+                      onClick={() => handleWorkflowSelect(wf.id)}
+                    >
+                      {wf.name}
+                    </button>
+                  ))}
+                </>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {selectedWorkflow && (

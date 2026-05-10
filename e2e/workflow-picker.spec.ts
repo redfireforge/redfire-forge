@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 
 /**
  * Smoke tests for Workflow Picker in Workflow Runner (after runner split)
@@ -8,49 +8,45 @@ import { test, expect } from '@playwright/test';
  * accessible at /?tab=workflow-runner
  */
 
+async function selectWorkflow(page: Page, workflowName: string) {
+  await page.locator('[data-testid="workflow-select"]').click();
+  await page.locator(`.wfp-dropdown-item:has-text("${workflowName}")`).click();
+}
+
 test.describe('Workflow Picker Smoke Tests', () => {
   test.beforeEach(async ({ page }) => {
-    // Navigate to the dedicated Workflow Runner tab
     await page.goto('http://localhost:5173/?tab=workflow-runner');
     await page.waitForLoadState('networkidle');
   });
 
   test('shows workflow picker on workflow runner page', async ({ page }) => {
-    // Verify WorkflowPicker appears (may show dropdown or empty state)
     await expect(page.locator('.workflow-picker')).toBeVisible();
-    // Either shows the select dropdown or the empty state
-    const selectOrEmpty = page.locator('.workflow-picker-select, .workflow-picker-empty');
+    const selectOrEmpty = page.locator('[data-testid="workflow-select"], .workflow-picker-empty');
     await expect(selectOrEmpty.first()).toBeVisible();
   });
 
   test('shows empty state when no workflows exist', async ({ page }) => {
-    // Clear any existing workflows from storage
     await page.evaluate(() => {
       localStorage.removeItem('workflows');
     });
     await page.reload();
     await page.waitForLoadState('networkidle');
 
-    // Check for empty state or workflow dropdown
     const picker = page.locator('.workflow-picker');
     await expect(picker).toBeVisible();
 
-    // Either shows empty state or a dropdown (depending on if sample workflows exist)
-    const emptyOrDropdown = picker.locator('.workflow-picker-empty, .workflow-picker-select');
+    const emptyOrDropdown = picker.locator('.workflow-picker-empty, [data-testid="workflow-select"]');
     await expect(emptyOrDropdown.first()).toBeVisible();
   });
 
   test('workflow runner does not show test scenario selection', async ({ page }) => {
-    // Workflow runner should not have scenario selection (that's in TestRunner)
     const scenarioHeader = page.locator('h3').filter({ hasText: 'Select Scenarios to Test' });
     await expect(scenarioHeader).not.toBeVisible();
     
-    // But workflow picker should be visible
     await expect(page.locator('.workflow-picker')).toBeVisible();
   });
 
   test('workflow picker dropdown is enabled', async ({ page }) => {
-    // Create a test workflow via storage
     await page.evaluate(() => {
       const workflow = {
         id: 'test-wf-1',
@@ -68,14 +64,12 @@ test.describe('Workflow Picker Smoke Tests', () => {
     await page.reload();
     await page.waitForLoadState('networkidle');
 
-    // Verify dropdown exists and is enabled initially
-    const dropdown = page.locator('.workflow-picker-select');
-    await expect(dropdown).toBeVisible();
-    await expect(dropdown).not.toBeDisabled();
+    const trigger = page.locator('[data-testid="workflow-select"]');
+    await expect(trigger).toBeVisible();
+    await expect(trigger).not.toBeDisabled();
   });
 
   test('can select a workflow from dropdown', async ({ page }) => {
-    // Create a test workflow
     await page.evaluate(() => {
       const workflow = {
         id: 'test-wf-select',
@@ -94,20 +88,16 @@ test.describe('Workflow Picker Smoke Tests', () => {
     await page.reload();
     await page.waitForLoadState('networkidle');
 
-    // Select the workflow
-    await page.locator('.workflow-picker-select').selectOption('test-wf-select');
+    await selectWorkflow(page, 'Order API Flow');
 
-    // Verify workflow summary appears
     await expect(page.locator('.workflow-step-count')).toContainText('2 HTTP steps');
     await expect(page.locator('.workflow-step-names')).toContainText('Create Order');
 
-    // Verify variables are shown
     await expect(page.locator('.wf-vars-list')).toBeVisible();
     await expect(page.locator('input.wf-var-value-input').first()).toHaveValue('test-key-123');
   });
 
   test('shows Clear button when workflow is selected', async ({ page }) => {
-    // Create a test workflow
     await page.evaluate(() => {
       const workflow = {
         id: 'test-wf-clear',
@@ -123,21 +113,17 @@ test.describe('Workflow Picker Smoke Tests', () => {
     await page.reload();
     await page.waitForLoadState('networkidle');
 
-    // Select the workflow
-    await page.locator('.workflow-picker-select').selectOption('test-wf-clear');
+    await selectWorkflow(page, 'Clear Test Workflow');
 
-    // Clear button should be visible
-    await expect(page.getByRole('button', { name: 'Clear' })).toBeVisible();
+    const clearBtn = page.getByRole('button', { name: 'Clear', exact: true });
+    await expect(clearBtn).toBeVisible();
 
-    // Click Clear
-    await page.getByRole('button', { name: 'Clear' }).click();
+    await clearBtn.click();
 
-    // Workflow should be deselected (hint text appears)
     await expect(page.locator('.workflow-picker-hint')).toContainText('Select a workflow above');
   });
 
   test('shows Presets button and panel', async ({ page }) => {
-    // Create a test workflow and some presets
     await page.evaluate(() => {
       const workflow = {
         id: 'test-wf-history',
@@ -150,7 +136,6 @@ test.describe('Workflow Picker Smoke Tests', () => {
       };
       localStorage.setItem('workflows', JSON.stringify([workflow]));
       
-      // Add some presets (history renamed to presets)
       const history = [
         { id: 'h1', workflowId: 'test-wf-history', variables: { env: 'staging' }, usedAt: Date.now() - 3600000 },
         { id: 'h2', workflowId: 'test-wf-history', variables: { env: 'dev' }, label: 'Dev Config', usedAt: Date.now() - 7200000 },
@@ -160,22 +145,17 @@ test.describe('Workflow Picker Smoke Tests', () => {
     await page.reload();
     await page.waitForLoadState('networkidle');
 
-    // Select workflow
-    await page.locator('.workflow-picker-select').selectOption('test-wf-history');
+    await selectWorkflow(page, 'History Test Workflow');
 
-    // Presets button should show count
     const presetsBtn = page.getByRole('button', { name: /Presets \(2\)/ });
     await expect(presetsBtn).toBeVisible();
 
-    // Click to open presets panel
     await presetsBtn.click();
 
-    // Presets panel should be visible with items
     await expect(page.locator('.workflow-presets-panel, .workflow-history-panel')).toBeVisible();
   });
 
   test('can restore variables from presets', async ({ page }) => {
-    // Create workflow and presets
     await page.evaluate(() => {
       const workflow = {
         id: 'test-wf-restore',
@@ -196,25 +176,19 @@ test.describe('Workflow Picker Smoke Tests', () => {
     await page.reload();
     await page.waitForLoadState('networkidle');
 
-    // Select workflow
-    await page.locator('.workflow-picker-select').selectOption('test-wf-restore');
+    await selectWorkflow(page, 'Restore Test');
 
-    // Verify default value
     await expect(page.locator('input.wf-var-value-input').first()).toHaveValue('https://default.com');
 
-    // Open presets panel and click Restore on the preset
     await page.getByRole('button', { name: /Presets/ }).click();
-    // Click the Restore button for the preset
-    const restoreBtn = page.getByRole('button', { name: /Restore/ });
+    const restoreBtn = page.locator('button[title="Restore these variable values"]');
     await expect(restoreBtn).toBeVisible();
     await restoreBtn.click();
 
-    // Variable should be updated
     await expect(page.locator('input.wf-var-value-input').first()).toHaveValue('https://staging.com');
   });
 
   test('shows modified state when variables differ from defaults', async ({ page }) => {
-    // Create workflow
     await page.evaluate(() => {
       const workflow = {
         id: 'test-wf-modified',
@@ -230,22 +204,17 @@ test.describe('Workflow Picker Smoke Tests', () => {
     await page.reload();
     await page.waitForLoadState('networkidle');
 
-    // Select workflow
-    await page.locator('.workflow-picker-select').selectOption('test-wf-modified');
+    await selectWorkflow(page, 'Modified Test');
 
-    // Modify the variable
     await page.locator('input.wf-var-value-input').first().fill('changed-key');
     await page.locator('input.wf-var-value-input').first().blur();
     
-    // Wait for state update
     await page.waitForTimeout(300);
 
-    // Reset button should appear when values are modified
     await expect(page.getByRole('button', { name: 'Reset', exact: true })).toBeVisible();
   });
 
   test('Reset button restores default variables', async ({ page }) => {
-    // Create workflow
     await page.evaluate(() => {
       const workflow = {
         id: 'test-wf-reset',
@@ -261,25 +230,19 @@ test.describe('Workflow Picker Smoke Tests', () => {
     await page.reload();
     await page.waitForLoadState('networkidle');
 
-    // Select workflow
-    await page.locator('.workflow-picker-select').selectOption('test-wf-reset');
+    await selectWorkflow(page, 'Reset Test');
 
-    // Modify the variable
     await page.locator('input.wf-var-value-input').first().fill('modified-value');
     await expect(page.locator('input.wf-var-value-input').first()).toHaveValue('modified-value');
 
-    // Click Reset - use exact match to avoid matching presets
     await page.getByRole('button', { name: 'Reset', exact: true }).click();
 
-    // Value should be restored
     await expect(page.locator('input.wf-var-value-input').first()).toHaveValue('original-value');
   });
 
   test('workflow runner has dedicated tab', async ({ page }) => {
-    // Verify we're on the workflow runner page
     await expect(page.locator('.workflow-picker')).toBeVisible();
     
-    // The current URL should reflect the workflow-runner tab
     await expect(page).toHaveURL(/tab=workflow-runner/);
   });
 });

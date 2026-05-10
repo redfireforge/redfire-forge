@@ -140,12 +140,12 @@ describe('useGalleryImport', () => {
       expect(result.current.importedSamples).toEqual({});
     });
 
-    it('includes currently-previewed workflow id with LOADED_SENTINEL', () => {
+    it('does not mark previewed workflow as loaded (preview is not persisted)', () => {
       const deps = makeDeps({
         previewWorkflow: { id: 'sample-workflow-parallel', name: 'WF', nodes: [], edges: [], variables: {}, createdAt: 0, updatedAt: 0 } as Workflow,
       });
       const { result } = renderHook(() => useGalleryImport(deps));
-      expect(result.current.importedSamples['sample-workflow-parallel']).toBe(LOADED_SENTINEL);
+      expect(result.current.importedSamples['sample-workflow-parallel']).toBeUndefined();
     });
 
     it('does not add a workflow entry when previewWorkflow is null', () => {

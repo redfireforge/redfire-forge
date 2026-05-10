@@ -1,5 +1,5 @@
 import type { FeatureGroup, Scenario, GlobalAuthProfile, AuthConfig } from '../../../shared/types';
-import type { RunnerConfig } from '../hooks/useRunnerConfig';
+import type { RunnerConfig } from '../hooks/runnerConfigDefaults';
 import { resolveAuth } from '../../requests/utils/authResolver';
 import { replaceHost } from '../../../shared/utils/urlUtils';
 
