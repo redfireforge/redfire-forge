@@ -465,6 +465,22 @@ Structured multi-sheet Excel templates for bulk test management and better error
 - [x] **Request Log** — Show the exact resolved request headers and body in Response Detail Modal; Authorization header values masked for security
 - [x] **Request Timing Breakdown** — DNS, TLS handshake, TTFB, download (waterfall view)
 
+### Phase 0.6.0a — Results Explorer Debug Console & Trace Levels ✅
+
+> Debug Console in Results Explorer, tiered trace capture levels, and Designer canvas consistency improvements.
+
+- [x] **Trace Capture Levels** — `TraceCaptureLevel` type (`minimal | standard | full | debug`); capture gating in `graphRunner.ts`; `captureLevel` on `WorkflowExecutionTrace`; `initialVariables` per iteration
+- [x] **Trace Level UI** — Radio buttons in Workflow Runner; `--trace-level` CLI flag; Designer Quick Test always at Debug; per-session persistence
+- [x] **Iteration Index Consistency** — `getIterationByIndex()` utility; all iteration-related components use `.index` field, not array position
+- [x] **Console Log Line Component** — Shared `ConsoleLogLine` component and `consoleLogUtils` utilities extracted from Designer Console for reuse
+- [x] **Log Reconstruction** — `reconstructLogLines()` utility builds `LogLine[]` from structured `ExecutionEventDetails` (HTTP summaries, assertions, errors, variables, sub-workflow expansion)
+- [x] **ResultsExplorerConsolePanel** — Docked/floating/maximized console panel with node filter, search, click-to-select, auto-scroll-to-error, mode persistence
+- [x] **Aggregate Summary** — `buildAggregateSummary()` generates professional run overview for multi-iteration aggregate view
+- [x] **Debug-Level Capture** — Per-node `logLines` buffering in `graphRunner.ts`; `scriptOutput` wiring for script nodes; 200-line cap; console renders raw logs at Debug level
+- [x] **Sub-Workflow Support** — Recursive expansion with depth indentation; workflow context in empty detail panel; double-click drill-down
+- [x] **Designer Canvas Consistency** — Simplified toolbar (no Auto-Layout/Undo/Redo); "Save current layout" persists viewport; saved view restored on revisit; consistent with Results Explorer
+- [x] **E2E Tests** — 18 Playwright tests covering console toggle, keyboard shortcut, trace levels, node filter, search, aggregate summary, sub-workflow drill-down, designer controls, and runner trace level UI
+
 ---
 
 ## In Progress

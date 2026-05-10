@@ -489,6 +489,8 @@ export interface Workflow {
   folderId?: string;
   /** Position within the folder for drag-and-drop reordering. */
   folderOrder?: number;
+  /** Saved canvas viewport (zoom + pan) from "Save layout". */
+  savedViewport?: { x: number; y: number; zoom: number };
   createdAt: number;
   updatedAt: number;
 }

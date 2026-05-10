@@ -38,12 +38,40 @@ const lastBottleneckCallbackRef = vi.hoisted<{
 const mockCaptureScreenshot = vi.fn(() => Promise.resolve('data:image/png;base64,mockdata'));
 const mockCaptureSvg = vi.fn(() => Promise.resolve('data:image/svg+xml;charset=utf-8,%3Csvg%3E%3C/svg%3E'));
 
+vi.mock('./ResultsExplorerConsolePanel', () => ({
+  default: ({
+    captureLevel,
+    iteration,
+    onNodeSelect,
+    onClose,
+  }: {
+    captureLevel?: string;
+    iteration?: unknown;
+    onNodeSelect?: (id: string) => void;
+    onClose?: () => void;
+  }) => (
+    <div
+      data-testid="mock-console-panel"
+      data-capture-level={captureLevel ?? ''}
+      data-has-iteration={iteration != null ? '1' : '0'}
+    >
+      <button type="button" data-testid="mock-console-select-node" onClick={() => onNodeSelect?.('n2')}>
+        Console pick n2
+      </button>
+      <button type="button" data-testid="mock-console-close" onClick={() => onClose?.()}>
+        Close console
+      </button>
+    </div>
+  ),
+}));
+
 vi.mock('./WorkflowExecutionCanvas', async () => {
   const React = await import('react');
   function MockCanvas(props: {
       trace: import('../../../shared/types').WorkflowExecutionTrace;
       fitViewTrigger?: number;
       onNodeClick?: (nodeId: string) => void;
+      onNodeDoubleClick?: (nodeId: string) => void;
       onToggleMinimap?: () => void;
       onBottlenecksComputed?: (insights: import('../utils/bottleneckAnalysis').BottleneckInsight[]) => void;
       onScreenshotReady?: (fn: () => Promise<string>) => void;
@@ -92,6 +120,15 @@ vi.mock('./WorkflowExecutionCanvas', async () => {
         </button>
         <button type="button" data-testid="canvas-toggle-minimap" onClick={() => props.onToggleMinimap?.()}>
           Toggle minimap
+        </button>
+        <button type="button" data-testid="canvas-dbl-sub1" onClick={() => props.onNodeDoubleClick?.('sub1')}>
+          Dbl-click sub workflow
+        </button>
+        <button type="button" data-testid="canvas-dbl-n2" onClick={() => props.onNodeDoubleClick?.('n2')}>
+          Dbl-click http node
+        </button>
+        <button type="button" data-testid="canvas-dbl-empty" onClick={() => props.onNodeDoubleClick?.('')}>
+          Dbl-click empty id
         </button>
       </div>
     );
@@ -243,7 +280,7 @@ describe('WorkflowResultsExplorerModal', () => {
 
   it('renders modal with workflow name', () => {
     render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
-    expect(screen.getByText('Test Workflow')).toBeInTheDocument();
+    expect(screen.getAllByText('Test Workflow').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText('Results Explorer')).toBeInTheDocument();
   });
 
@@ -1446,7 +1483,7 @@ describe('WorkflowResultsExplorerModal', () => {
 
       fireEvent.click(screen.getByTestId('breadcrumb-0'));
       expect(screen.queryByTestId('sub-workflow-breadcrumb')).not.toBeInTheDocument();
-      expect(screen.getByText('Parent Workflow')).toBeInTheDocument();
+      expect(screen.getAllByText('Parent Workflow').length).toBeGreaterThanOrEqual(1);
     });
   });
 
@@ -1562,6 +1599,349 @@ describe('WorkflowResultsExplorerModal', () => {
       screen.getByTestId('floating-ta').focus();
       fireEvent.keyDown(window, { key: '/' });
       expect(document.activeElement).toBe(screen.getByTestId('floating-ta'));
+    });
+  });
+
+  describe('workflow-info (empty detail panel)', () => {
+    it('shows workflow name and Root Workflow at trace stack depth 1', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      const info = screen.getByTestId('workflow-info');
+      expect(info).toBeInTheDocument();
+      expect(info.querySelector('.workflow-info-name')).toHaveTextContent('Test Workflow');
+      expect(screen.getByText('Root Workflow')).toBeInTheDocument();
+      expect(screen.queryByText(/^Parent:$/)).not.toBeInTheDocument();
+    });
+  });
+
+  describe('console panel', () => {
+    it('opens and closes via header console toggle', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      expect(screen.queryByTestId('mock-console-panel')).not.toBeInTheDocument();
+      fireEvent.click(screen.getByTestId('console-toggle-btn-header'));
+      expect(screen.getByTestId('mock-console-panel')).toBeInTheDocument();
+      expect(screen.getByTestId('console-toggle-btn-header')).toHaveClass('view-toggle-active');
+      fireEvent.click(screen.getByTestId('console-toggle-btn-header'));
+      expect(screen.queryByTestId('mock-console-panel')).not.toBeInTheDocument();
+    });
+
+    it('toggles console with Cmd+J and Ctrl+J', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      fireEvent.keyDown(window, { key: 'j', metaKey: true });
+      expect(screen.getByTestId('mock-console-panel')).toBeInTheDocument();
+      fireEvent.keyDown(window, { key: 'j', ctrlKey: true });
+      expect(screen.queryByTestId('mock-console-panel')).not.toBeInTheDocument();
+      fireEvent.keyDown(window, { key: 'j', ctrlKey: true });
+      expect(screen.getByTestId('mock-console-panel')).toBeInTheDocument();
+    });
+
+    it('closes console first on Escape before clearing node selection', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      fireEvent.click(screen.getByTestId('canvas-pick-n2'));
+      fireEvent.keyDown(window, { key: 'j', metaKey: true });
+      fireEvent.keyDown(window, { key: 'Escape' });
+      expect(screen.queryByTestId('mock-console-panel')).not.toBeInTheDocument();
+      expect(screen.getByTestId('mock-detail-panel')).toBeInTheDocument();
+      fireEvent.keyDown(window, { key: 'Escape' });
+      expect(screen.queryByTestId('mock-detail-panel')).not.toBeInTheDocument();
+    });
+
+    it('closes console via panel onClose', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      fireEvent.keyDown(window, { key: 'j', metaKey: true });
+      fireEvent.click(screen.getByTestId('mock-console-close'));
+      expect(screen.queryByTestId('mock-console-panel')).not.toBeInTheDocument();
+    });
+
+    it('handleConsoleNodeSelect selects the node while console stays open', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      fireEvent.keyDown(window, { key: 'j', metaKey: true });
+      fireEvent.click(screen.getByTestId('mock-console-select-node'));
+      expect(screen.getByTestId('detail-node-label')).toHaveTextContent('Get Users');
+      expect(screen.getByTestId('mock-console-panel')).toBeInTheDocument();
+    });
+
+    it('passes undefined iteration to console in aggregate view', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      fireEvent.click(screen.getByTestId('console-toggle-btn-header'));
+      expect(screen.getByTestId('mock-console-panel')).toHaveAttribute('data-has-iteration', '0');
+    });
+
+    it('passes pinned iteration trace to console', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      fireEvent.keyDown(window, { key: 'ArrowRight' });
+      fireEvent.click(screen.getByTestId('console-toggle-btn-header'));
+      expect(screen.getByTestId('mock-console-panel')).toHaveAttribute('data-has-iteration', '1');
+    });
+
+    it('forwards captureLevel to the console panel', () => {
+      render(
+        <WorkflowResultsExplorerModal
+          trace={{ ...mockTrace, captureLevel: 'minimal' }}
+          onClose={mockOnClose}
+        />,
+      );
+      fireEvent.click(screen.getByTestId('console-toggle-btn-header'));
+      expect(screen.getByTestId('mock-console-panel')).toHaveAttribute('data-capture-level', 'minimal');
+    });
+  });
+
+  describe('node double-click (sub-workflow drill)', () => {
+    const childTrace: WorkflowExecutionTrace = {
+      workflowId: 'child-wf-1',
+      workflowName: 'Child Workflow',
+      workflowSnapshot: {
+        nodes: [
+          { id: 'c1', type: 'start', position: { x: 0, y: 0 }, data: { label: 'Child Start' } },
+          { id: 'c2', type: 'http', position: { x: 100, y: 0 }, data: { label: 'Child HTTP' } },
+        ],
+        edges: [{ id: 'ce1', source: 'c1', target: 'c2' }],
+      },
+      iterations: [{
+        index: 0,
+        passed: true,
+        durationMs: 50,
+        traversedEdges: ['ce1'],
+        events: [
+          { nodeId: 'c1', nodeType: 'start', nodeLabel: 'Child Start', timestamp: 1050, state: 'pass' },
+          { nodeId: 'c2', nodeType: 'http', nodeLabel: 'Child HTTP', timestamp: 1060, state: 'pass', durationMs: 30 },
+        ],
+        finalVariables: {},
+      }],
+      traversedEdges: ['ce1'],
+      totalIterations: 1,
+      totalDurationMs: 50,
+    };
+
+    const baseSubWorkflowIter = {
+      index: 0,
+      passed: true,
+      durationMs: 100,
+      traversedEdges: ['pe1', 'pe2'] as string[],
+      events: [
+        { nodeId: 'p1', nodeType: 'start' as const, nodeLabel: 'Start', timestamp: 1000, state: 'pass' as const },
+        {
+          nodeId: 'sub1',
+          nodeType: 'subWorkflow' as const,
+          nodeLabel: 'Run Child',
+          timestamp: 1010,
+          state: 'pass' as const,
+          durationMs: 50,
+          details: {
+            subWorkflowId: 'child-wf-1',
+            subWorkflowPassed: true,
+            subWorkflowTrace: childTrace,
+          },
+        },
+        { nodeId: 'p2', nodeType: 'end' as const, nodeLabel: 'End', timestamp: 1060, state: 'pass' as const },
+      ],
+      finalVariables: {},
+    };
+
+    const traceWithSubWorkflow: WorkflowExecutionTrace = {
+      workflowId: 'parent-wf',
+      workflowName: 'Parent Workflow',
+      workflowSnapshot: {
+        nodes: [
+          { id: 'p1', type: 'start', position: { x: 0, y: 0 }, data: { label: 'Start' } },
+          { id: 'sub1', type: 'subWorkflow', position: { x: 100, y: 0 }, data: { label: 'Run Child' } },
+          { id: 'p2', type: 'end', position: { x: 200, y: 0 }, data: { label: 'End' } },
+        ],
+        edges: [
+          { id: 'pe1', source: 'p1', target: 'sub1' },
+          { id: 'pe2', source: 'sub1', target: 'p2' },
+        ],
+      },
+      iterations: [{ ...baseSubWorkflowIter }],
+      traversedEdges: ['pe1', 'pe2'],
+      totalIterations: 1,
+      totalDurationMs: 100,
+    };
+
+    it('double-click drills into sub-workflow when child trace is present', () => {
+      render(<WorkflowResultsExplorerModal trace={traceWithSubWorkflow} onClose={mockOnClose} />);
+      fireEvent.click(screen.getByTestId('canvas-dbl-sub1'));
+      expect(screen.getByTestId('sub-workflow-breadcrumb')).toBeInTheDocument();
+      expect(screen.getByTestId('breadcrumb-1')).toHaveTextContent('Child Workflow');
+    });
+
+    it('double-click ignores empty node id', () => {
+      render(<WorkflowResultsExplorerModal trace={traceWithSubWorkflow} onClose={mockOnClose} />);
+      fireEvent.click(screen.getByTestId('canvas-dbl-empty'));
+      expect(screen.queryByTestId('sub-workflow-breadcrumb')).not.toBeInTheDocument();
+    });
+
+    it('double-click ignores non-subWorkflow nodes', () => {
+      render(<WorkflowResultsExplorerModal trace={traceWithSubWorkflow} onClose={mockOnClose} />);
+      fireEvent.click(screen.getByTestId('canvas-dbl-n2'));
+      expect(screen.queryByTestId('sub-workflow-breadcrumb')).not.toBeInTheDocument();
+    });
+
+    it('double-click does not drill when subWorkflow details omit child trace', () => {
+      const traceNoPayload: WorkflowExecutionTrace = {
+        ...traceWithSubWorkflow,
+        iterations: [{
+          ...baseSubWorkflowIter,
+          events: baseSubWorkflowIter.events.map((e) => {
+            if (e.nodeId !== 'sub1') return e;
+            return {
+              ...e,
+              details: { subWorkflowId: 'child-wf-1', subWorkflowPassed: true },
+            };
+          }),
+        }],
+      };
+      render(<WorkflowResultsExplorerModal trace={traceNoPayload} onClose={mockOnClose} />);
+      fireEvent.click(screen.getByTestId('canvas-dbl-sub1'));
+      expect(screen.queryByTestId('sub-workflow-breadcrumb')).not.toBeInTheDocument();
+    });
+
+    it('uses getIterationByIndex when an iteration is pinned for double-click context', () => {
+      const subEventNoTrace = {
+        nodeId: 'sub1',
+        nodeType: 'subWorkflow' as const,
+        nodeLabel: 'Run Child',
+        timestamp: 1010,
+        state: 'pass' as const,
+        durationMs: 50,
+        details: { subWorkflowId: 'child-wf-1', subWorkflowPassed: true },
+      };
+      const traceMulti: WorkflowExecutionTrace = {
+        ...traceWithSubWorkflow,
+        iterations: [
+          { ...baseSubWorkflowIter, index: 0, events: [...baseSubWorkflowIter.events.slice(0, 1), subEventNoTrace, baseSubWorkflowIter.events[2]] },
+          { ...baseSubWorkflowIter, index: 1 },
+        ],
+        totalIterations: 2,
+        totalDurationMs: 200,
+      };
+
+      render(<WorkflowResultsExplorerModal trace={traceMulti} onClose={mockOnClose} />);
+
+      fireEvent.keyDown(window, { key: 'ArrowRight' });
+      fireEvent.click(screen.getByTestId('canvas-dbl-sub1'));
+      expect(screen.queryByTestId('sub-workflow-breadcrumb')).not.toBeInTheDocument();
+
+      fireEvent.keyDown(window, { key: 'ArrowRight' });
+      fireEvent.click(screen.getByTestId('canvas-dbl-sub1'));
+      expect(screen.getByTestId('sub-workflow-breadcrumb')).toBeInTheDocument();
+    });
+
+    it('uses last iteration when aggregate view looks up double-click context', () => {
+      const subEventNoTrace = {
+        nodeId: 'sub1',
+        nodeType: 'subWorkflow' as const,
+        nodeLabel: 'Run Child',
+        timestamp: 1010,
+        state: 'pass' as const,
+        durationMs: 50,
+        details: { subWorkflowId: 'child-wf-1', subWorkflowPassed: true },
+      };
+      const traceMulti: WorkflowExecutionTrace = {
+        ...traceWithSubWorkflow,
+        iterations: [
+          { ...baseSubWorkflowIter, index: 0, events: [...baseSubWorkflowIter.events.slice(0, 1), subEventNoTrace, baseSubWorkflowIter.events[2]] },
+          { ...baseSubWorkflowIter, index: 1 },
+        ],
+        totalIterations: 2,
+        totalDurationMs: 200,
+      };
+
+      render(<WorkflowResultsExplorerModal trace={traceMulti} onClose={mockOnClose} />);
+      fireEvent.keyDown(window, { key: 'a' });
+
+      fireEvent.click(screen.getByTestId('canvas-dbl-sub1'));
+      expect(screen.getByTestId('sub-workflow-breadcrumb')).toBeInTheDocument();
+    });
+
+    it('returns early when pinned iteration lookup yields no iteration row', () => {
+      const traceGapIndex: WorkflowExecutionTrace = {
+        ...traceWithSubWorkflow,
+        iterations: [{ ...baseSubWorkflowIter, index: 1 }],
+        totalIterations: 1,
+      };
+      render(<WorkflowResultsExplorerModal trace={traceGapIndex} onClose={mockOnClose} />);
+
+      fireEvent.click(screen.getByTestId('canvas-dbl-sub1'));
+      expect(screen.queryByTestId('sub-workflow-breadcrumb')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('workflow-info after sub-workflow drill-down', () => {
+    /* reuses fixtures from sibling describe via inline minimal trace */
+    it('shows parent workflow label in workflow-info on drilled child canvas', () => {
+      const childTrace: WorkflowExecutionTrace = {
+        workflowId: 'child-wf-1',
+        workflowName: 'Child Workflow',
+        workflowSnapshot: {
+          nodes: [
+            { id: 'c1', type: 'start', position: { x: 0, y: 0 }, data: { label: 'Child Start' } },
+          ],
+          edges: [],
+        },
+        iterations: [{
+          index: 0,
+          passed: true,
+          durationMs: 10,
+          traversedEdges: [],
+          events: [{ nodeId: 'c1', nodeType: 'start' as const, nodeLabel: 'CS', timestamp: 1, state: 'pass' as const }],
+          finalVariables: {},
+        }],
+        traversedEdges: [],
+        totalIterations: 1,
+        totalDurationMs: 10,
+      };
+      const parent: WorkflowExecutionTrace = {
+        workflowId: 'parent-wf',
+        workflowName: 'Parent Workflow',
+        workflowSnapshot: {
+          nodes: [
+            { id: 'p1', type: 'start', position: { x: 0, y: 0 }, data: { label: 'Start' } },
+            { id: 'sub1', type: 'subWorkflow', position: { x: 100, y: 0 }, data: { label: 'Run Child' } },
+            { id: 'p2', type: 'end', position: { x: 200, y: 0 }, data: { label: 'End' } },
+          ],
+          edges: [
+            { id: 'pe1', source: 'p1', target: 'sub1' },
+            { id: 'pe2', source: 'sub1', target: 'p2' },
+          ],
+        },
+        iterations: [{
+          index: 0,
+          passed: true,
+          durationMs: 100,
+          traversedEdges: ['pe1', 'pe2'],
+          events: [
+            { nodeId: 'p1', nodeType: 'start' as const, nodeLabel: 'Start', timestamp: 1000, state: 'pass' as const },
+            {
+              nodeId: 'sub1',
+              nodeType: 'subWorkflow' as const,
+              nodeLabel: 'Run Child',
+              timestamp: 1010,
+              state: 'pass' as const,
+              details: {
+                subWorkflowId: 'child-wf-1',
+                subWorkflowPassed: true,
+                subWorkflowTrace: childTrace,
+              },
+            },
+            { nodeId: 'p2', nodeType: 'end' as const, nodeLabel: 'End', timestamp: 1060, state: 'pass' as const },
+          ],
+          finalVariables: {},
+        }],
+        traversedEdges: ['pe1', 'pe2'],
+        totalIterations: 1,
+        totalDurationMs: 100,
+      };
+
+      render(<WorkflowResultsExplorerModal trace={parent} onClose={mockOnClose} />);
+      fireEvent.click(screen.getByTestId('canvas-pick-sub1'));
+      fireEvent.click(screen.getByTestId('mock-drilldown-btn'));
+
+      const info = screen.getByTestId('workflow-info');
+      expect(info.querySelector('.workflow-info-name')).toHaveTextContent('Child Workflow');
+      expect(screen.getByText(/^Parent:$/)).toBeInTheDocument();
+      expect(screen.getByTestId('workflow-info').querySelector('.workflow-info-parent-name'))
+        .toHaveTextContent('Parent Workflow');
+      expect(screen.queryByText('Root Workflow')).not.toBeInTheDocument();
     });
   });
 });

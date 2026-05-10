@@ -81,12 +81,11 @@ test.describe('WorkflowDesigner Refactored Components', () => {
     await expect(minimap).toBeVisible({ timeout: 5000 });
   });
 
-  test('auto-layout button works after handleAutoLayout extraction', async ({ page }) => {
+  test('save layout button works after refactoring', async ({ page }) => {
     await expect(page.locator('.react-flow__node').first()).toBeVisible({ timeout: 5000 });
-    const autoLayoutBtn = page.locator('.wf-pill-btn[title="Auto-layout"]');
-    await expect(autoLayoutBtn).toBeVisible({ timeout: 3000 });
-    await autoLayoutBtn.click();
-    // Canvas should still have 3 nodes after layout
+    const saveBtn = page.locator('[data-testid="save-layout-btn"]');
+    await expect(saveBtn).toBeVisible({ timeout: 3000 });
+    await saveBtn.click();
     await expect(page.locator('.react-flow__node')).toHaveCount(3);
   });
 

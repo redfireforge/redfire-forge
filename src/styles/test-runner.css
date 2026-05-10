@@ -610,10 +610,26 @@ tr:hover td { background: var(--surface-hover); }
 }
 .execution-group .think-time-section {
   border-top: 1px solid var(--border);
-  padding: 10px 14px;
 }
-.execution-group .think-time-section .exec-mode-hint {
-  margin-top: 4px;
+.think-time-inline-params {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 4px;
+}
+.think-time-inline-input {
+  width: 65px;
+  padding: 2px 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-input);
+  color: var(--text);
+  font-size: 0.8rem;
+  text-align: center;
+}
+.think-time-inline-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 .execution-group .load-profile-section {
   border-top: 1px solid var(--border);
@@ -2089,11 +2105,12 @@ tr:hover td { background: var(--surface-hover); }
   flex: 1;
 }
 
-/* ── Inline Options (Poll Throttle + Full Trace) ── */
+/* ── Inline Options (Poll Throttle + Trace Level) ── */
 .wf-runner-inline-options {
   display: flex;
   align-items: center;
-  gap: 24px;
+  flex-wrap: wrap;
+  gap: 12px 24px;
   margin-bottom: 16px;
   padding-left: 16px;
 }
@@ -2163,29 +2180,6 @@ tr:hover td { background: var(--surface-hover); }
   opacity: 0.8;
 }
 
-.wf-sampling-config {
-  margin-top: 4px;
-  padding-left: 20px;
-}
-.wf-sampling-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.wf-sampling-threshold {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 4px;
-}
-.wf-inline-label {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 0.8rem;
-  color: var(--text-muted);
-  font-weight: 600;
-}
 .wf-sampling-threshold-input {
   width: 60px;
   padding: 2px 6px;
@@ -2203,6 +2197,18 @@ tr:hover td { background: var(--surface-hover); }
 
 .wf-inline-warn {
   color: #f59e0b;
+}
+
+
+
+.wf-trace-warning {
+  width: 100%;
+  padding: 6px 12px;
+  border-radius: 4px;
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  color: #f59e0b;
+  font-size: 0.75rem;
 }
 
 /* ── Results Explorer / Trace Capture ── */

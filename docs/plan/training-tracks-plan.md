@@ -470,6 +470,190 @@ function calculatePathProgress(path: TrainingPath, progress: TrainingProgress) {
 
 ---
 
+## Ongoing Content Maintenance
+
+> The Training Tracks UI is complete (Phases 1–7). This section tracks **content gaps** — missing manual metadata, unregistered HTML files, and missing training manuals for new features.
+
+### Audit Summary (2026-05-10)
+
+| Area | Count | Notes |
+|------|-------|-------|
+| Training paths registered | 15 | 3 content + 4 core + 8 workflow |
+| Manuals in training paths | ~132 | Across all paths/phases |
+| Manual metadata entries | 81 | In `manualMetadata.ts` |
+| HTML files on disk | 167 | In `docs/training-manuals/` |
+| **Metadata gap** | **~51** | Manuals registered in paths but missing from `manualMetadata.ts` |
+| **Orphan HTML files** | **~35** | HTML files on disk not registered in any training path |
+
+---
+
+### Gap 1: Missing Manual Metadata (~51 entries)
+
+All manuals in `corePaths.ts` and `workflowPaths.ts` are missing from `manualMetadata.ts`. Without metadata, the "What's New" banner can't detect or highlight these manuals.
+
+**Missing from `corePaths.ts` (versioning, workflow-patterns, auth-strategies, assertion-mastery):**
+
+| manualPath | Path | Status |
+|------------|------|--------|
+| `versioning/workflow/workflow-version-history-easy.html` | Versioning | ⬜ |
+| `versioning/workflow/workflow-version-diff-medium.html` | Versioning | ⬜ |
+| `versioning/workflow/workflow-version-advanced.html` | Versioning | ⬜ |
+| `versioning/test/test-definition-history-easy.html` | Versioning | ⬜ |
+| `versioning/test/test-definition-diff-medium.html` | Versioning | ⬜ |
+| `versioning/catalog/environment-audit-log-easy.html` | Versioning | ⬜ |
+| `versioning/catalog/environment-audit-export-medium.html` | Versioning | ⬜ |
+| `versioning/test/run-baselines-easy.html` | Versioning | ⬜ |
+| `versioning/test/run-baselines-comparison-medium.html` | Versioning | ⬜ |
+| `versioning/request/request-definition-history-easy.html` | Versioning | ⬜ |
+| `versioning/request/request-definition-diff-medium.html` | Versioning | ⬜ |
+| `versioning/catalog/feature-group-history-easy.html` | Versioning | ⬜ |
+| `versioning/catalog/feature-group-history-medium.html` | Versioning | ⬜ |
+| `versioning/advanced/script-library-versioning-easy.html` | Versioning | ⬜ |
+| `versioning/advanced/script-library-impact-medium.html` | Versioning | ⬜ |
+| `versioning/cross-entity/cross-feature-versioning-advanced.html` | Versioning | ⬜ |
+| `workflow-patterns/foundation/workflow-http-chaining-easy.html` | Workflow Patterns | ⬜ |
+| `workflow-patterns/foundation/workflow-delay-timing-easy.html` | Workflow Patterns | ⬜ |
+| `workflow-patterns/foundation/workflow-variables-easy.html` | Workflow Patterns | ⬜ |
+| `workflow-patterns/flow-control/workflow-condition-branching-medium.html` | Workflow Patterns | ⬜ |
+| `workflow-patterns/flow-control/workflow-switch-multiway-medium.html` | Workflow Patterns | ⬜ |
+| `workflow-patterns/flow-control/workflow-fork-join-medium.html` | Workflow Patterns | ⬜ |
+| `workflow-patterns/loops-errors/workflow-loop-patterns-medium.html` | Workflow Patterns | ⬜ |
+| `workflow-patterns/loops-errors/workflow-aggregate-medium.html` | Workflow Patterns | ⬜ |
+| `workflow-patterns/loops-errors/workflow-error-handling-advanced.html` | Workflow Patterns | ⬜ |
+| `workflow-patterns/advanced/workflow-sub-workflow-advanced.html` | Workflow Patterns | ⬜ |
+| `workflow-patterns/advanced/workflow-webhook-correlation-advanced.html` | Workflow Patterns | ⬜ |
+| `workflow-patterns/advanced/workflow-debug-advanced.html` | Workflow Patterns | ⬜ |
+| `auth-strategies/basics/auth-bearer-token-easy.html` | Auth Strategies | ⬜ |
+| `auth-strategies/basics/auth-basic-easy.html` | Auth Strategies | ⬜ |
+| `auth-strategies/basics/auth-apikey-easy.html` | Auth Strategies | ⬜ |
+| `auth-strategies/basics/auth-oauth2-easy.html` | Auth Strategies | ⬜ |
+| `auth-strategies/inheritance/auth-inheritance-chain-medium.html` | Auth Strategies | ⬜ |
+| `auth-strategies/inheritance/auth-global-profiles-medium.html` | Auth Strategies | ⬜ |
+| `auth-strategies/inheritance/auth-catalog-security-medium.html` | Auth Strategies | ⬜ |
+| `auth-strategies/advanced/auth-workflow-advanced.html` | Auth Strategies | ⬜ |
+| `assertion-mastery/assertion-mastery.html` | Assertion Mastery | ⬜ |
+| `assertion-mastery/basics/assertion-status-codes-easy.html` | Assertion Mastery | ⬜ |
+| `assertion-mastery/basics/assertion-response-time-easy.html` | Assertion Mastery | ⬜ |
+| `assertion-mastery/basics/assertion-validation-modes-easy.html` | Assertion Mastery | ⬜ |
+| `assertion-mastery/intermediate/assertion-header-checks-medium.html` | Assertion Mastery | ⬜ |
+| `assertion-mastery/intermediate/assertion-jsonpath-regex-medium.html` | Assertion Mastery | ⬜ |
+| `assertion-mastery/intermediate/assertion-numeric-array-medium.html` | Assertion Mastery | ⬜ |
+| `assertion-mastery/intermediate/assertion-date-comparison-medium.html` | Assertion Mastery | ⬜ |
+| `assertion-mastery/advanced/assertion-presets-advanced.html` | Assertion Mastery | ⬜ |
+| `assertion-mastery/advanced/assertion-composition-advanced.html` | Assertion Mastery | ⬜ |
+| `assertion-mastery/advanced/assertion-jsonpath-advanced.html` | Assertion Mastery | ⬜ |
+| `assertions/assertions.html` | Assertion Mastery | ⬜ |
+| `assertions/api-healthcheck-easy.html` | Assertion Mastery | ⬜ |
+| `assertions/paginated-list-easy.html` | Assertion Mastery | ⬜ |
+| `assertions/token-expiry-medium.html` | Assertion Mastery | ⬜ |
+| `assertions/price-guard-medium.html` | Assertion Mastery | ⬜ |
+| `assertions/api-contract-advanced.html` | Assertion Mastery | ⬜ |
+
+**Missing from `workflowPaths.ts` (all 8 workflow paths):**
+
+All manuals listed in `workflowPaths.ts` are missing from `manualMetadata.ts`. This covers:
+- Workflow: Flow Control (6 manuals)
+- Workflow: API Patterns (6 manuals incl. parallel-showcase)
+- Workflow: Diverse APIs (5 manuals)
+- Workflow: Script Node (4 manuals)
+- Workflow: Event-Driven (4 manuals)
+- Workflow: Async Correlation (7 manuals)
+- Workflow: Orchestration (5 manuals)
+- Workflow: Node Reference (3 manuals)
+- Workflow: Runner (9 manuals) — **partially covered**: 5 of 9 have metadata
+
+---
+
+### Gap 2: HTML Files on Disk Not in Any Training Path
+
+These HTML files exist in `docs/training-manuals/` but are NOT registered in any training path (`contentPaths.ts`, `corePaths.ts`, or `workflowPaths.ts`). They are invisible in the Training Tracks UI.
+
+| File | Subdirectory | Status |
+|------|-------------|--------|
+| `requests/requests.html` | requests | ⬜ Not registered |
+| `requests/response-detail-easy.html` | requests | ⬜ Not registered (has metadata) |
+| `tests/export-options-easy.html` | tests | ⬜ Not registered (has metadata) |
+| `tests/runner-comparison-easy.html` | tests | ✅ Registered in `wf-runner` path |
+| `tests/parameterized-populate-api-medium.html` | tests | ⬜ Not registered (has metadata) |
+| `tests/parameterized-validation-medium.html` | tests | ⬜ Not registered (has metadata) |
+| `tests/parameterized-advanced-features-medium.html` | tests | ⬜ Not registered (has metadata) |
+| `tests/parameterized-verify-contract-advanced.html` | tests | ⬜ Not registered (has metadata) |
+| `versioning/versioning.html` | versioning | ⬜ Not registered |
+| `workflow/workflow.html` | workflow | ✅ Registered in `wf-node-reference` |
+| `workflow/console-easy.html` | workflow | ⬜ Not registered (has metadata) |
+| `workflow/execution-history-easy.html` | workflow | ⬜ Not registered (has metadata) |
+| `workflow/webhook-delivery-logs-easy.html` | workflow | ⬜ Not registered (has metadata) |
+| `workflow/flow/sequential-requests.html` | workflow/flow | ⬜ Not registered (has metadata) |
+| `workflow/flow/branch-conditions.html` | workflow/flow | ⬜ Not registered (has metadata) |
+| `workflow/flow/parallel-fork.html` | workflow/flow | ⬜ Not registered (has metadata) |
+| `workflow/flow/loops.html` | workflow/flow | ⬜ Not registered (has metadata) |
+| `workflow/api/chain-extraction.html` | workflow/api | ⬜ Not registered (has metadata) |
+| `workflow/api/auth-refresh.html` | workflow/api | ⬜ Not registered (has metadata) |
+| `workflow/api/retry-logic.html` | workflow/api | ⬜ Not registered (has metadata) |
+| `workflow/async-correlation/correlation-wait-api-yaml-test.html` | workflow/async | ⬜ Not registered |
+| `sub-workflow-samples-guide.html` | root | ✅ Registered in `wf-node-reference` |
+
+**Recommended actions:**
+- `requests/requests.html` and `versioning/versioning.html` are overview pages — add as first entry in their respective Phase 1
+- `tests/export-options-easy.html` — add to Tests path Phase 1 or new "Results & Export" phase
+- `tests/parameterized-*` extras — add to Tests Phase 4 (Parameterized Testing)
+- `workflow/console-easy.html`, `execution-history-easy.html`, `webhook-delivery-logs-easy.html` — add to a new "Workflow: Tools" path or existing Node Reference path
+- `workflow/flow/*` and `workflow/api/*` — these appear to be **legacy** manuals superseded by `workflow-patterns/` and `workflow/flow-control/` equivalents. Verify if they should be removed or redirected.
+
+---
+
+### Gap 3: Missing Training Manuals for Recent Features
+
+Features implemented after May 5, 2026 that lack training manuals:
+
+| Feature | Date | Has Manual? | Action Needed |
+|---------|------|-------------|---------------|
+| Results Explorer Console (debug console in results) | Plan in progress | ❌ No | Create when feature ships |
+| Three-runner architecture (Test/Param/Workflow split) | 2026-05-05 | ✅ Yes | 3 guides exist + runner-comparison |
+| Results Explorer Timeline view | 2026-05-09 | ✅ Yes | `results-explorer-timeline-medium.html` |
+| Results Explorer Sub-workflow drill-down | 2026-05-09 | ✅ Yes | `results-explorer-drilldown-medium.html` |
+| Parallel Showcase swim lanes | 2026-05-09 | ✅ Yes | `parallel-showcase-medium.html` |
+
+---
+
+### Ongoing Maintenance Checklist
+
+When adding a new feature with training content:
+
+1. **Create HTML manual** in `docs/training-manuals/<domain>/<name>-<difficulty>.html`
+2. **Add metadata entry** in `src/data/galleries/trainingPaths/manualMetadata.ts` with `addedAt: new Date('YYYY-MM-DD').getTime()`
+3. **Register in training path** — add to the appropriate path/phase in `contentPaths.ts`, `corePaths.ts`, or `workflowPaths.ts`
+4. **Link to gallery sample** if applicable — set `sampleId` in the manual entry
+5. **Run tests** — `npx vitest run src/data/galleries/trainingPaths/` to verify consistency
+
+---
+
+### Phase 8: Content Gap Resolution (Ongoing)
+
+| # | Task | Status |
+|---|------|--------|
+| 8.1 | Add ~51 missing metadata entries to `manualMetadata.ts` for corePaths + workflowPaths manuals | ✅ Done (2026-05-10) |
+| 8.2 | Register orphan HTML files in training paths (requests overview, tests extras, workflow tools) | ✅ Done (2026-05-10) |
+| 8.3 | Audit legacy `workflow/flow/*` and `workflow/api/*` manuals — keep, redirect, or remove | ⬜ |
+| 8.4 | Register `tests/parameterized-populate-api-medium.html`, `parameterized-validation-medium.html`, `parameterized-advanced-features-medium.html`, `parameterized-verify-contract-advanced.html` in Tests Phase 4 | ✅ Done (2026-05-10) |
+| 8.5 | Register `workflow/console-easy.html`, `execution-history-easy.html`, `webhook-delivery-logs-easy.html` in a training path | ✅ Done (2026-05-10) |
+| 8.6 | Register `requests/requests.html` overview + `response-detail-easy.html` in Request Basics | ✅ Done (2026-05-10) |
+| 8.7 | Register `versioning/versioning.html` overview in Versioning Phase 1 | ✅ Done (2026-05-10) |
+| 8.8 | Register `tests/export-options-easy.html` in Tests Phase 1 | ✅ Done (2026-05-10) |
+| 8.9 | Create training manual for Results Explorer Console (when feature ships) | ⬜ |
+| 8.10 | Run `trainingPaths.test.ts` and `manualMetadata.test.ts` after all updates | ✅ Done — 77/77 pass (2026-05-10) |
+
+---
+
+## Open Questions
+
+1. **Sync Progress?** — Should progress sync across devices (requires backend)?
+2. **Gamification** — Add badges/achievements for completing paths?
+3. **Recommendations** — Suggest next manual based on current progress?
+4. **Export** — Allow users to export their progress?
+
+---
+
 ## Changelog
 
 | Date | Change |
@@ -482,3 +666,5 @@ function calculatePathProgress(path: TrainingPath, progress: TrainingProgress) {
 | 2026-05-05 | Phase 5 completed: WhatsNewBanner component with dismiss persistence, tests (126 total passing) |
 | 2026-05-05 | Phase 6 completed: search hook, TrainingSearchBar, difficulty/status filters, tests (164 total passing) |
 | 2026-05-05 | Phase 7 completed: animations, keyboard focus, responsive design, E2E tests (17 tests) |
+| 2026-05-10 | Content audit: identified ~51 missing metadata entries, ~22 unregistered HTML files, added Phase 8 (Content Gap Resolution) |
+| 2026-05-10 | Phase 8 (partial): Added ~90 metadata entries, registered 10 orphan HTML files in training paths, updated test counts (77/77 pass) |

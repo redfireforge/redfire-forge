@@ -153,8 +153,8 @@
     <tr><th>Setting</th><th>Description</th><th>Default</th></tr>
     <tr>
       <td>Execution Mode</td>
-      <td>Fixed Iterations or Load Profile</td>
-      <td>Fixed Iterations</td>
+      <td>How iterations are scheduled: Sequential, Batch, Continuous Pool, or Load Profile</td>
+      <td>Sequential</td>
     </tr>
     <tr>
       <td>Iterations</td>
@@ -177,6 +177,13 @@
       <td>30s</td>
     </tr>
   </table>
+  <p>The <strong>Execution Mode</strong> radio group offers four choices (same semantics as other runners, applied to whole workflow iterations):</p>
+  <ul>
+    <li><strong>Sequential</strong> — one iteration at a time, in order (no parallelism; concurrency stays 1).</li>
+    <li><strong>Batch</strong> — start up to N iterations, wait for all of them to finish, then start the next N, until the total iteration count is done.</li>
+    <li><strong>Continuous Pool</strong> — keep up to N iterations in flight at all times; when one finishes, another starts until the run completes.</li>
+    <li><strong>Load Profile</strong> — time-based run with shaped concurrency (e.g. ramp-up, sustained, spike) instead of a fixed iteration count.</li>
+  </ul>
 
   <h2>4. Hands-On Exercise: User Data Workflow</h2>
   <p>We'll create and run a 3-step workflow with different load configurations.</p>
@@ -280,8 +287,7 @@ Assert: Status 200</pre>
 
   <h3>Steps</h3>
   <ol>
-    <li>Click the <strong>Execution Mode</strong> dropdown</li>
-    <li>Select <strong>Load Profile</strong></li>
+    <li>Under <strong>Execution Mode</strong>, select <strong>Load Profile</strong></li>
     <li>Choose profile type: <strong>Ramp Up</strong></li>
     <li>Set Duration: <strong>30</strong> seconds</li>
     <li>Set Start Concurrency: <strong>1</strong></li>
@@ -338,7 +344,7 @@ Assert: Status 200</pre>
 
   <h3>Steps</h3>
   <ol>
-    <li>Return to <strong>Fixed Iterations</strong> mode</li>
+    <li>Return to <strong>Sequential</strong> execution mode</li>
     <li>Set Iterations: <strong>10</strong></li>
     <li>Set Concurrency: <strong>2</strong></li>
     <li>Click <strong>Think Time</strong> dropdown</li>

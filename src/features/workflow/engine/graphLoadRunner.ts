@@ -6,7 +6,7 @@
 
 import type { Workflow } from '../types/workflow';
 import type { RequestResult, WorkflowIterationTrace, WorkflowExecutionTrace, ExecutionTraceOptions } from '../../../shared/types';
-import { runGraph, type GraphRunCallbacks, type CorrelationWaitRunnerConfig } from './graphRunner';
+import { runGraph, resolveTraceLevel, type GraphRunCallbacks, type CorrelationWaitRunnerConfig } from './graphRunner';
 import { CircuitBreaker } from '../../../engine/circuitBreaker';
 import type { ProgressMeta } from '../../../engine/executor';
 import { RemoteCorrelationStore } from './remoteCorrelationStore';
@@ -100,6 +100,8 @@ export async function runGraphLoad(
 
     const iterationResults: RequestResult[] = [];
 
+    const mergedInitialVars = { ...workflow.variables, ...initialVariables };
+
     const callbacks: GraphRunCallbacks = {
       onNodeStateChange: () => {},
       onVariablesChange: () => {},
@@ -117,7 +119,11 @@ export async function runGraphLoad(
         }
         iterationDurationSum += durationMs;
         if (trace) {
-          allTraces.push({ ...trace, index: myIterationIndex });
+          allTraces.push({
+            ...trace,
+            index: myIterationIndex,
+            initialVariables: { ...mergedInitialVars },
+          });
         }
       },
     };
@@ -298,6 +304,7 @@ export async function runGraphLoad(
       edges: workflow.edges,
     },
     fullTraceCaptured: traceOptions?.captureFullTrace ?? false,
+    captureLevel: resolveTraceLevel(traceOptions),
   };
 
   return { results: allResults, trace: executionTrace };

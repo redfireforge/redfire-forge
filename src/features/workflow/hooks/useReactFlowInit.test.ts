@@ -40,7 +40,7 @@ describe('useWorkflowPreviewReactFlowInit (React Flow preview onInit)', () => {
   it('returns a stable onInit callback', () => {
     const setLaidOutId = vi.fn();
     const { result, rerender } = renderHook(
-      ({ w }) => useWorkflowPreviewReactFlowInit(w, setLaidOutId),
+      ({ w }) => useWorkflowPreviewReactFlowInit(w, null, setLaidOutId),
       { initialProps: { w: wf as Workflow | null } },
     );
     const first = result.current;
@@ -61,9 +61,10 @@ describe('useWorkflowPreviewReactFlowInit (React Flow preview onInit)', () => {
       getEdges: vi.fn(() => [] as WorkflowRFEdge[]),
       setNodes,
       fitView,
+      setViewport: vi.fn(),
     };
 
-    const { result } = renderHook(() => useWorkflowPreviewReactFlowInit(wf, setLaidOutId));
+    const { result } = renderHook(() => useWorkflowPreviewReactFlowInit(wf, null, setLaidOutId));
 
     await act(async () => {
       result.current(instance);
@@ -93,9 +94,10 @@ describe('useWorkflowPreviewReactFlowInit (React Flow preview onInit)', () => {
       getEdges: vi.fn(() => []),
       setNodes: vi.fn(),
       fitView: vi.fn(),
+      setViewport: vi.fn(),
     };
 
-    const { result } = renderHook(() => useWorkflowPreviewReactFlowInit(wf, setLaidOutId));
+    const { result } = renderHook(() => useWorkflowPreviewReactFlowInit(wf, null, setLaidOutId));
 
     await act(async () => {
       result.current(instance);
@@ -107,17 +109,55 @@ describe('useWorkflowPreviewReactFlowInit (React Flow preview onInit)', () => {
     expect(setLaidOutId).toHaveBeenCalledWith('pv-1');
   });
 
-  it('no-ops when previewWorkflow is null', async () => {
+  it('auto-layouts and fits when no preview and no saved viewport', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const setLaidOutId = vi.fn();
+    const laid: WorkflowRFNode[] = [{ id: 'x', type: 'start', position: { x: 10, y: 20 }, data: {} as never }];
+    mockGetAutoLayout.mockReturnValue(laid);
     const instance = {
-      getNodes: vi.fn(() => [{ id: 'x', type: 'start', position: { x: 0, y: 0 }, data: {} as never }]),
+      getNodes: vi.fn(() => [{ id: 'x', type: 'start', position: { x: 0, y: 0 }, data: {} as never }] as WorkflowRFNode[]),
+      getEdges: vi.fn(() => [] as WorkflowRFEdge[]),
+      setNodes: vi.fn(),
+      fitView: vi.fn(),
+      setViewport: vi.fn(),
+    };
+
+    const { result } = renderHook(() => useWorkflowPreviewReactFlowInit(null, null, setLaidOutId));
+
+    await act(async () => {
+      result.current(instance);
+      vi.advanceTimersByTime(100);
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+      for (let i = 0; i < 4; i++) {
+        await new Promise<void>((r) => requestAnimationFrame(() => r()));
+      }
+    });
+
+    expect(mockGetAutoLayout).toHaveBeenCalled();
+    expect(instance.setNodes).toHaveBeenCalledWith(laid);
+    expect(instance.fitView).toHaveBeenCalledWith({ padding: 0.1, maxZoom: 1, duration: 200 });
+    expect(setLaidOutId).not.toHaveBeenCalled();
+  });
+
+  it('first-load path skips layout when there are zero measured nodes (no saved viewport)', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const setLaidOutId = vi.fn();
+
+    const instance = {
+      getNodes: vi.fn(() => []),
       getEdges: vi.fn(() => []),
       setNodes: vi.fn(),
       fitView: vi.fn(),
+      setViewport: vi.fn(),
     };
 
-    const { result } = renderHook(() => useWorkflowPreviewReactFlowInit(null, setLaidOutId));
+    const selectedNoViewport = { ...wf, id: 'no-vp', savedViewport: undefined };
+    const { result } = renderHook(() =>
+      useWorkflowPreviewReactFlowInit(null, selectedNoViewport, setLaidOutId),
+    );
 
     await act(async () => {
       result.current(instance);
@@ -125,7 +165,34 @@ describe('useWorkflowPreviewReactFlowInit (React Flow preview onInit)', () => {
       await Promise.resolve();
     });
 
-    expect(instance.getNodes).not.toHaveBeenCalled();
+    expect(mockGetAutoLayout).not.toHaveBeenCalled();
+    expect(instance.setNodes).not.toHaveBeenCalled();
+    expect(instance.fitView).not.toHaveBeenCalled();
     expect(setLaidOutId).not.toHaveBeenCalled();
+  });
+
+  it('restores saved viewport when selectedWorkflow has savedViewport', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const setLaidOutId = vi.fn();
+    const savedVp = { x: 100, y: 200, zoom: 0.8 };
+    const selectedWf = { ...wf, id: 'saved-1', savedViewport: savedVp };
+    const instance = {
+      getNodes: vi.fn(() => []),
+      getEdges: vi.fn(() => []),
+      setNodes: vi.fn(),
+      fitView: vi.fn(),
+      setViewport: vi.fn(),
+    };
+
+    const { result } = renderHook(() => useWorkflowPreviewReactFlowInit(null, selectedWf, setLaidOutId));
+
+    await act(async () => {
+      result.current(instance);
+      vi.advanceTimersByTime(100);
+      await new Promise<void>((r) => requestAnimationFrame(() => r()));
+    });
+
+    expect(instance.setViewport).toHaveBeenCalledWith(savedVp, { duration: 0 });
+    expect(instance.fitView).not.toHaveBeenCalled();
   });
 });
