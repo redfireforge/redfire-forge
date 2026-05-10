@@ -1,0 +1,315 @@
+# Instructions
+
+- Following Playwright test failed.
+- Explain why, be concise, respect Playwright best practices.
+- Provide a snippet of code with the fix, if possible.
+
+# Test info
+
+- Name: radio-button-styles.spec.ts >> Radio button CSS styling >> Workflow Runner: execution config renders correct radio structure
+- Location: e2e/radio-button-styles.spec.ts:243:3
+
+# Error details
+
+```
+Test timeout of 10000ms exceeded.
+```
+
+```
+Error: expect(locator).toHaveCount(expected) failed
+
+Locator:  locator('.workflow-runner-config-section').locator('.runner-option-box .radio-label')
+Expected: 4
+Received: 8
+
+Call log:
+  - Expect "toHaveCount" with timeout 5000ms
+  - waiting for locator('.workflow-runner-config-section').locator('.runner-option-box .radio-label')
+    5 × locator resolved to 8 elements
+      - unexpected value "8"
+
+```
+
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - banner [ref=e4]:
+      - heading "🔥 RedfireForgev0.5.7-beta.2" [level=1] [ref=e5]:
+        - text: 🔥 RedfireForge
+        - generic [ref=e6]: v0.5.7-beta.2
+      - generic [ref=e7]:
+        - combobox [ref=e9] [cursor=pointer]:
+          - option "Environment…"
+          - option "t01" [selected]
+        - combobox [ref=e11] [cursor=pointer]:
+          - option "Service…"
+          - option "test-service" [selected]
+        - button "🌙" [ref=e13] [cursor=pointer]
+    - generic [ref=e14]:
+      - navigation [ref=e15]:
+        - button "🔌" [ref=e16] [cursor=pointer]:
+          - generic [ref=e17]: 🔌
+        - button "🔧" [ref=e18] [cursor=pointer]:
+          - generic [ref=e19]: 🔧
+        - button "🏋" [ref=e20] [cursor=pointer]:
+          - generic [ref=e21]: 🏋
+        - button "🏪" [ref=e22] [cursor=pointer]:
+          - generic [ref=e23]: 🏪
+        - button "⚙️" [ref=e24] [cursor=pointer]:
+          - generic [ref=e25]: ⚙️
+      - complementary [ref=e26]:
+        - generic [ref=e28]:
+          - generic [ref=e29]:
+            - button "Environments" [ref=e30] [cursor=pointer]
+            - button "Microservices" [ref=e31] [cursor=pointer]
+          - button "Collapse All" [ref=e33] [cursor=pointer]
+          - generic [ref=e35]:
+            - generic [ref=e36]:
+              - generic [ref=e37] [cursor=pointer]: ▸
+              - generic [ref=e38] [cursor=pointer]: t01
+              - generic [ref=e39]: "1"
+            - generic [ref=e41] [cursor=pointer]: ○test-service
+        - button "⚙ Settings" [ref=e42] [cursor=pointer]
+      - button "◀" [ref=e44] [cursor=pointer]
+      - main [ref=e45]:
+        - generic [ref=e47]:
+          - button "Feature Groups" [ref=e48] [cursor=pointer]
+          - button "Test Runner" [ref=e49] [cursor=pointer]
+          - button "Parameterized Runner" [ref=e50] [cursor=pointer]
+          - button "Workflow Runner" [ref=e51] [cursor=pointer]
+          - button "Results" [ref=e52] [cursor=pointer]
+        - generic [ref=e54]:
+          - heading "Workflow Runner" [level=2] [ref=e56]
+          - generic [ref=e57]:
+            - generic [ref=e58]:
+              - generic [ref=e59]: Workflow
+              - button "Clear" [ref=e60] [cursor=pointer]
+            - button "Radio Button Test Workflow ▼" [ref=e62] [cursor=pointer]:
+              - generic [ref=e63]: Radio Button Test Workflow
+              - generic [ref=e64]: ▼
+            - generic [ref=e65]:
+              - generic [ref=e66]: 1 HTTP step
+              - generic [ref=e67]: Get Post
+            - generic [ref=e68]:
+              - generic [ref=e69]:
+                - generic [ref=e70]: Initial Variables
+                - generic [ref=e71]:
+                  - button "💾 Save preset" [ref=e72] [cursor=pointer]
+                  - button "📋 Presets" [ref=e73] [cursor=pointer]
+              - paragraph [ref=e74]:
+                - text: Variables available to all steps via
+                - code [ref=e75]: "{{name}}"
+                - text: .
+              - paragraph [ref=e76]: This workflow has no defined variables.
+          - generic [ref=e78]:
+            - generic [ref=e79]: "Trace Level:"
+            - generic [ref=e80] [cursor=pointer]:
+              - radio "Minimal" [ref=e81]
+              - text: Minimal
+            - generic [ref=e82] [cursor=pointer]:
+              - radio "Standard" [checked] [ref=e83]
+              - text: Standard
+            - generic [ref=e84] [cursor=pointer]:
+              - radio "Full" [ref=e85]
+              - text: Full
+            - generic [ref=e86] [cursor=pointer]:
+              - radio "Debug" [ref=e87]
+              - text: Debug
+          - generic [ref=e89]:
+            - generic [ref=e91]:
+              - generic [ref=e92]: "Execution Mode:"
+              - generic "Executes requests one by one in sequence. No parallelism." [ref=e93] [cursor=pointer]:
+                - radio "Sequential" [ref=e94]
+                - text: Sequential
+              - generic "Fires N requests, waits for ALL to finish, then fires the next N." [ref=e95] [cursor=pointer]:
+                - radio "Batch" [checked] [ref=e96]
+                - text: Batch
+              - generic "Maintains N concurrent requests at all times." [ref=e97] [cursor=pointer]:
+                - radio "Continuous Pool" [ref=e98]
+                - text: Continuous Pool
+              - 'generic "Time-based load profiles: ramp-up, sustained, spike, soak" [ref=e99] [cursor=pointer]':
+                - radio "Load Profile" [ref=e100]
+                - text: Load Profile
+              - generic [ref=e101]: Fires N requests, waits for all to complete, then fires next N
+            - generic [ref=e103]:
+              - generic [ref=e104]:
+                - generic [ref=e105]: Concurrency
+                - spinbutton [ref=e106]: "1"
+              - generic [ref=e107]:
+                - generic [ref=e108]: Iterations
+                - spinbutton [ref=e109]: "1"
+              - generic [ref=e111]:
+                - generic [ref=e112]: Timeout
+                - generic [ref=e113]:
+                  - spinbutton [ref=e114]: "10"
+                  - generic [ref=e115]: sec
+              - generic [ref=e116]:
+                - generic [ref=e117]: Retry
+                - generic [ref=e118]:
+                  - spinbutton [ref=e119]: "0"
+                  - generic [ref=e120]: times
+                - generic [ref=e121]: No retry
+              - generic [ref=e123]:
+                - generic [ref=e124]: On Error
+                - generic [ref=e125]:
+                  - generic [ref=e126] [cursor=pointer]:
+                    - radio "Continue" [checked] [ref=e127]
+                    - text: Continue
+                  - generic [ref=e128] [cursor=pointer]:
+                    - radio "Stop 1st" [ref=e129]
+                    - text: Stop 1st
+                  - generic [ref=e130] [cursor=pointer]:
+                    - radio "Threshold" [ref=e131]
+                    - text: Threshold
+              - generic [ref=e132]:
+                - generic [ref=e133]: Max Errors
+                - spinbutton [disabled] [ref=e134]: "10"
+              - generic [ref=e135]:
+                - generic [ref=e136]: Error Rate
+                - generic [ref=e137]:
+                  - spinbutton [disabled] [ref=e138]: "50"
+                  - generic [ref=e139]: "%"
+            - generic [ref=e141]:
+              - generic [ref=e142]: "Think Time:"
+              - generic [ref=e143] [cursor=pointer]:
+                - radio "None" [checked] [ref=e144]
+                - text: None
+              - generic [ref=e145] [cursor=pointer]:
+                - radio "Constant" [ref=e146]
+                - text: Constant
+              - generic [ref=e147] [cursor=pointer]:
+                - radio "Uniform" [ref=e148]
+                - text: Uniform
+              - generic [ref=e149] [cursor=pointer]:
+                - radio "Gaussian" [ref=e150]
+                - text: Gaussian
+          - button "▶ Run Workflow" [ref=e153] [cursor=pointer]
+        - text: • • •
+  - status
+```
+
+# Test source
+
+```ts
+  170 |     );
+  171 |     const hidden = allRadioInfo.filter(r =>
+  172 |       r.opacity === '0' || r.visibility === 'hidden' || r.width === '0px' || r.pointerEvents === 'none'
+  173 |     );
+  174 | 
+  175 |     console.log(`\nVisible radios: ${visible.length}, Hidden (custom-styled) radios: ${hidden.length}`);
+  176 | 
+  177 |     // All visible radios should be blue
+  178 |     for (const radio of visible) {
+  179 |       expect(
+  180 |         isBlue(radio.accentColor),
+  181 |         `Radio name="${radio.name}" ancestors="${radio.ancestors.join(' > ')}" has accent-color="${radio.accentColor}" — expected blue`
+  182 |       ).toBe(true);
+  183 |     }
+  184 |   });
+  185 | 
+  186 |   test('Workflow Runner: execution mode radio buttons have blue accent-color', async ({ page }) => {
+  187 |     await seedWithWorkflow(page, makeSimpleWorkflow());
+  188 |     await page.goto('/?tab=workflow-runner');
+  189 |     await page.waitForLoadState('networkidle');
+  190 | 
+  191 |     await page.getByTestId('workflow-select').waitFor({ timeout: 5000 });
+  192 |     await page.getByTestId('workflow-select').click();
+  193 |     await page.locator('.wfp-dropdown-item:has-text("Radio Button Test Workflow")').click();
+  194 |     await page.waitForTimeout(300);
+  195 | 
+  196 |     const radioSelector = '.runner-option-box .radio-label input[type="radio"]';
+  197 |     await page.waitForSelector(radioSelector, { timeout: 5000 });
+  198 | 
+  199 |     const accentColor = await getAccentColor(page, radioSelector);
+  200 |     console.log('[WorkflowRunner] execution mode radio accent-color:', accentColor);
+  201 | 
+  202 |     expect(isBlue(accentColor), `Expected blue but got: ${accentColor}`).toBe(true);
+  203 |   });
+  204 | 
+  205 |   test('Workflow Runner: On Error radio buttons have blue accent-color', async ({ page }) => {
+  206 |     await seedWithWorkflow(page, makeSimpleWorkflow());
+  207 |     await page.goto('/?tab=workflow-runner');
+  208 |     await page.waitForLoadState('networkidle');
+  209 | 
+  210 |     await page.getByTestId('workflow-select').waitFor({ timeout: 5000 });
+  211 |     await page.getByTestId('workflow-select').click();
+  212 |     await page.locator('.wfp-dropdown-item:has-text("Radio Button Test Workflow")').click();
+  213 |     await page.waitForTimeout(300);
+  214 | 
+  215 |     const radioSelector = '.error-policy-options .radio-label input[type="radio"]';
+  216 |     await page.waitForSelector(radioSelector, { timeout: 5000 });
+  217 | 
+  218 |     const accentColor = await getAccentColor(page, radioSelector);
+  219 |     console.log('[WorkflowRunner] On Error radio accent-color:', accentColor);
+  220 | 
+  221 |     expect(isBlue(accentColor), `Expected blue but got: ${accentColor}`).toBe(true);
+  222 |   });
+  223 | 
+  224 |   test('Workflow Runner: Think Time radio buttons have blue accent-color', async ({ page }) => {
+  225 |     await seedWithWorkflow(page, makeSimpleWorkflow());
+  226 |     await page.goto('/?tab=workflow-runner');
+  227 |     await page.waitForLoadState('networkidle');
+  228 | 
+  229 |     await page.getByTestId('workflow-select').waitFor({ timeout: 5000 });
+  230 |     await page.getByTestId('workflow-select').click();
+  231 |     await page.locator('.wfp-dropdown-item:has-text("Radio Button Test Workflow")').click();
+  232 |     await page.waitForTimeout(300);
+  233 | 
+  234 |     const radioSelector = '.think-time-section .radio-label input[type="radio"]';
+  235 |     await page.waitForSelector(radioSelector, { timeout: 5000 });
+  236 | 
+  237 |     const accentColor = await getAccentColor(page, radioSelector);
+  238 |     console.log('[WorkflowRunner] Think Time radio accent-color:', accentColor);
+  239 | 
+  240 |     expect(isBlue(accentColor), `Expected blue but got: ${accentColor}`).toBe(true);
+  241 |   });
+  242 | 
+  243 |   test('Workflow Runner: execution config renders correct radio structure', async ({ page }) => {
+  244 |     await seedWithWorkflow(page, makeSimpleWorkflow());
+  245 |     await page.goto('/?tab=workflow-runner');
+  246 |     await page.waitForLoadState('networkidle');
+  247 | 
+  248 |     await page.getByTestId('workflow-select').waitFor({ timeout: 5000 });
+  249 |     await page.getByTestId('workflow-select').click();
+  250 |     await page.locator('.wfp-dropdown-item:has-text("Radio Button Test Workflow")').click();
+  251 |     await page.waitForTimeout(300);
+  252 | 
+  253 |     // Scope to the Workflow Runner config section
+  254 |     const configSection = page.locator('.workflow-runner-config-section');
+  255 |     await configSection.waitFor({ timeout: 5000 });
+  256 | 
+  257 |     // Verify all 4 execution mode radio buttons are present (name is prefixed to avoid cross-instance collisions)
+  258 |     const allExecRadios = configSection.locator('input[type="radio"][name="workflow-runner-execMode"]');
+  259 |     await expect(allExecRadios).toHaveCount(4);
+  260 | 
+  261 |     // Verify exactly one is checked initially
+  262 |     let checkedCount = 0;
+  263 |     for (let i = 0; i < 4; i++) {
+  264 |       if (await allExecRadios.nth(i).isChecked()) checkedCount++;
+  265 |     }
+  266 |     expect(checkedCount, 'Exactly one execution mode should be selected by default').toBe(1);
+  267 | 
+  268 |     // Verify the mode labels are correct
+  269 |     const labels = configSection.locator('.runner-option-box .radio-label');
+> 270 |     await expect(labels).toHaveCount(4);
+      |                          ^ Error: expect(locator).toHaveCount(expected) failed
+  271 |     await expect(labels.nth(0)).toContainText('Sequential');
+  272 |     await expect(labels.nth(1)).toContainText('Batch');
+  273 |     await expect(labels.nth(2)).toContainText('Continuous Pool');
+  274 |     await expect(labels.nth(3)).toContainText('Load Profile');
+  275 | 
+  276 |     // Verify all radio inputs have blue accent-color
+  277 |     for (let i = 0; i < 4; i++) {
+  278 |       const accentColor = await allExecRadios.nth(i).evaluate(
+  279 |         (el) => window.getComputedStyle(el).accentColor
+  280 |       );
+  281 |       expect(isBlue(accentColor), `Execution mode radio ${i} should have blue accent-color but got: ${accentColor}`).toBe(true);
+  282 |     }
+  283 | 
+  284 |     await page.screenshot({ path: 'playwright-report/radio-button-workflow-runner.png', fullPage: false });
+  285 |   });
+  286 | });
+  287 | 
+```
