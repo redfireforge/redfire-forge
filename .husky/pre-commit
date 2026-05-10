@@ -1,0 +1,12 @@
+#!/bin/sh
+
+# Type-check the entire project (catches missing props, bad imports, etc.)
+echo "Running TypeScript type check..."
+npx tsc --noEmit || {
+  echo ""
+  echo "❌ TypeScript type check failed. Fix the errors above before committing."
+  exit 1
+}
+
+# Run lint-staged (eslint on staged files only)
+npx lint-staged
