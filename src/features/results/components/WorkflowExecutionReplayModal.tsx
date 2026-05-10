@@ -6,6 +6,12 @@ import { formatDurationMs } from '../../../shared/utils/formatDuration';
 import WorkflowExecutionCanvas from './WorkflowExecutionCanvas';
 import NodeExecutionDetailPanel from './NodeExecutionDetailPanel';
 
+type ReplaySnapshotNode = {
+  id: string;
+  type?: string;
+  data?: { label?: string; name?: string };
+};
+
 interface Props {
   trace: WorkflowExecutionTrace;
   onClose: () => void;
@@ -45,7 +51,7 @@ export default function WorkflowExecutionReplayModal({ trace, onClose }: Props) 
   // Get node label for detail panel
   const selectedNodeLabel = useMemo(() => {
     if (!selectedNodeId) return '';
-    const node = (trace.workflowSnapshot.nodes as Array<any>).find(n => n.id === selectedNodeId);
+    const node = (trace.workflowSnapshot.nodes as ReplaySnapshotNode[]).find(n => n.id === selectedNodeId);
     return node?.data?.label || node?.data?.name || selectedNodeId;
   }, [selectedNodeId, trace.workflowSnapshot.nodes]);
 
@@ -90,7 +96,10 @@ export default function WorkflowExecutionReplayModal({ trace, onClose }: Props) 
     setSelectedNodeId(nodeId || undefined);
   }, []);
 
-  const timestamp = new Date(trace.iterations[0]?.events[0]?.timestamp || Date.now()).toLocaleString();
+  const timestamp = useMemo(() => {
+    const ts = trace.iterations[0]?.events[0]?.timestamp;
+    return ts ? new Date(ts).toLocaleString() : '';
+  }, [trace.iterations]);
 
   return (
     <FullPanelModal

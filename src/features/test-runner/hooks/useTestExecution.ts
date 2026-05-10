@@ -157,7 +157,6 @@ export function useTestExecution() {
     const summary = computeIncrementalSummary(elapsed);
 
     const elapsedSec = Math.round(elapsed / 1000);
-    let newPoint: TimeSeriesPoint | null = null;
 
     if (elapsedSec > lastSnapshotRef.current && pending.allResults.length > 0) {
       const intervalMs = now - prevSnapshotTimeRef.current;
@@ -168,9 +167,9 @@ export function useTestExecution() {
       const avgRecent = recentWindow.reduce((s, r) => s + r.responseTimeMs, 0) / recentWindow.length;
 
       const failedInWindow = recentWindow.filter(r => r.httpStatus >= 400 || r.httpStatus === 0).length;
-      const errorPct = recentWindow.length > 0 ? (failedInWindow / recentWindow.length) * 100 : 0;
+      const errorPct = (failedInWindow / recentWindow.length) * 100;
 
-      newPoint = {
+      const point: TimeSeriesPoint = {
         elapsedSec,
         avgResponseTime: Math.round(avgRecent * 10) / 10,
         tps: Math.round(intervalTps * 10) / 10,
@@ -184,7 +183,7 @@ export function useTestExecution() {
       prevCompletedRef.current = pending.completed;
       prevSnapshotTimeRef.current = now;
 
-      if (newPoint) timeSeriesRef.current = [...timeSeriesRef.current, newPoint];
+      timeSeriesRef.current = [...timeSeriesRef.current, point];
     }
 
     setState((prev) => ({
@@ -202,7 +201,7 @@ export function useTestExecution() {
     lastFlushRef.current = now;
   }, []);
 
-  const execute = useCallback(async (config: TestConfig, scenarios: Scenario[], meta?: { projectName?: string; envName?: string; svcName?: string; baseUrl?: string }, workflow?: Workflow) => {
+  const execute = useCallback(async (config: TestConfig, scenarios: Scenario[], meta?: { projectName?: string; envName?: string; svcName?: string; baseUrl?: string }, workflow?: Workflow, resolveSubWorkflow?: (id: string) => Workflow | undefined) => {
     abortRef.current = new AbortController();
     startTimeRef.current = performance.now();
     lastSnapshotRef.current = 0;
@@ -220,7 +219,7 @@ export function useTestExecution() {
     setState({
       isRunning: true,
       completed: 0,
-      total: config.executionMode === 'load-profile' ? -1 : config.totalTransactions,
+      total: config.executionMode === 'load-profile' ? -1 : config.iterations,
       liveResults: [],
       liveSummary: null,
       finalRun: null,
@@ -231,7 +230,7 @@ export function useTestExecution() {
     });
 
     let lastTrackedCount = 0;
-    const useWorker = supportsWorkers();
+    const useWorker = supportsWorkers() && !resolveSubWorkflow;
 
     const onProgress = (completed: number, total: number, allResults: RequestResult[], profileMeta?: ProgressMeta) => {
       for (let i = lastTrackedCount; i < allResults.length; i++) {
@@ -261,7 +260,7 @@ export function useTestExecution() {
     try {
       const testResult = useWorker
         ? await runTestInWorker(config, scenarios, onProgress, abortRef.current.signal, workflow)
-        : await runTest(config, scenarios, onProgress, abortRef.current.signal, workflow);
+        : await runTest(config, scenarios, onProgress, abortRef.current.signal, workflow, resolveSubWorkflow);
 
       if (flushTimerRef.current) {
         clearTimeout(flushTimerRef.current);
@@ -295,12 +294,15 @@ export function useTestExecution() {
 
       const saveResult = await saveTestRun(testRun);
 
+      const finalCompleted = config.executionMode === 'workflow' ? (config.iterations || 1) : testResult.results.length;
+      const finalTotal = finalCompleted;
+
       if (saveResult.quotaError) {
         setState((prev) => ({
           ...prev,
           isRunning: false,
-          completed: testResult.results.length,
-          total: prev.total === -1 ? -1 : testResult.results.length,
+          completed: finalCompleted,
+          total: finalTotal,
           pendingRun: testRun,
           liveSummary: summary,
           liveResults: capResults(testResult.results),
@@ -309,8 +311,8 @@ export function useTestExecution() {
         setState((prev) => ({
           ...prev,
           isRunning: false,
-          completed: testResult.results.length,
-          total: prev.total === -1 ? -1 : testResult.results.length,
+          completed: finalCompleted,
+          total: finalTotal,
           finalRun: testRun,
           liveSummary: summary,
           liveResults: capResults(testResult.results),

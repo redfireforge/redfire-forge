@@ -56,13 +56,13 @@ export default function WorkflowStatusBar({
         </span>
       ) : lastRunStatus === 'pass' && runProgress ? (
         <span className="wf-status-run wf-status-run-pass">
-          ● {runProgress.completed}/{runProgress.total} passed
+          <svg className="wf-inline-icon" viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="12" cy="12" r="6"/></svg> {runProgress.completed}/{runProgress.total} passed
           {runProgress.elapsedMs ? <><span className="wf-status-sep">·</span>{(runProgress.elapsedMs / 1000).toFixed(1)}s</> : null}
         </span>
       ) : lastRunStatus === 'fail' && runProgress ? (
         <>
           <span className="wf-status-run wf-status-run-fail">
-            ● {runProgress.failed} failed
+            <svg className="wf-inline-icon" viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="12" cy="12" r="6"/></svg> {runProgress.failed} failed
           </span>
           {runProgress.completed - runProgress.failed > 0 && (
             <span style={{ color: '#4ade80', fontSize: '0.7rem' }}>{runProgress.completed - runProgress.failed} passed</span>
@@ -74,7 +74,7 @@ export default function WorkflowStatusBar({
         </>
       ) : lastRunStatus === 'stopped' && runProgress ? (
         <span className="wf-status-run wf-status-run-stopped">
-          ⏹ Stopped by user · {runProgress.completed}/{runProgress.total} completed
+          <svg className="wf-inline-icon" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6" y="6" width="12" height="12" rx="1"/></svg> Stopped by user · {runProgress.completed}/{runProgress.total} completed
           {runProgress.elapsedMs ? <><span className="wf-status-sep">·</span>{(runProgress.elapsedMs / 1000).toFixed(1)}s</> : null}
         </span>
       ) : (
@@ -117,7 +117,7 @@ export default function WorkflowStatusBar({
           onClick={onToggleConsole}
           title="Toggle console"
         >
-          🖥 Console{consoleLineCount > 0 && <span className="wf-console-badge-count">{consoleLineCount}</span>}
+          <svg className="wf-inline-icon" viewBox="0 0 24 24"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg> Console{consoleLineCount > 0 && <span className="wf-console-badge-count">{consoleLineCount}</span>}
         </button>
       )}
       {onRestoreRunHistory && onDeleteRunHistoryEntry && onClearRunHistory && (

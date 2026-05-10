@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import type { FeatureGroup } from '../../../shared/types';
+import type { FeatureGroup, ScenarioKind } from '../../../shared/types';
 import PopupModal from '../../../shared/components/PopupModal';
 
 export type MoveType = 'scenario' | 'test';
@@ -15,13 +15,15 @@ interface Props {
   featureGroups: FeatureGroup[];
   currentFgId?: string;
   currentScenarioId?: string;
+  /** When moving a test, only show scenarios matching this kind */
+  sourceScenarioKind?: ScenarioKind;
   onMove: (target: MoveTarget) => void;
   onClose: () => void;
 }
 
 export default function MoveModal({
   type, itemName, featureGroups, currentFgId, currentScenarioId,
-  onMove, onClose,
+  sourceScenarioKind, onMove, onClose,
 }: Props) {
   const [targetFgId, setTargetFgId] = useState('');
   const [targetScenarioId, setTargetScenarioId] = useState('');
@@ -33,8 +35,11 @@ export default function MoveModal({
 
   const availableScenarios = useMemo(() => {
     if (type !== 'test' || !targetFG) return [];
+    if (sourceScenarioKind) {
+      return targetFG.scenarios.filter((sc) => sc.kind === sourceScenarioKind);
+    }
     return targetFG.scenarios;
-  }, [type, targetFG]);
+  }, [type, targetFG, sourceScenarioKind]);
 
   const isSameLocation = (() => {
     if (type === 'scenario') {
@@ -103,7 +108,11 @@ export default function MoveModal({
             <div className="popup-modal-field">
               <label>Target Scenario</label>
               {availableScenarios.length === 0 ? (
-                <div className="popup-modal-empty">No scenarios in this feature group</div>
+                <div className="popup-modal-empty">
+                {sourceScenarioKind && targetFG && targetFG.scenarios.length > 0
+                  ? `No ${sourceScenarioKind === 'parameterized' ? 'parameterized' : 'standard'} scenarios in this feature group`
+                  : 'No scenarios in this feature group'}
+              </div>
               ) : (
                 <select
                   value={targetScenarioId}

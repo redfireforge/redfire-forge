@@ -38,6 +38,8 @@ export interface GraphLoadRunOpts {
   traceOptions?: ExecutionTraceOptions;
   /** Low-priority environment layer (e.g. { baseUrl: 'https://host' }). Workflow variables override these. */
   environmentLayer?: Record<string, string>;
+  /** Resolver for sub-workflow nodes — returns the child workflow by ID. */
+  resolveSubWorkflow?: (workflowId: string) => Workflow | undefined;
 }
 
 /**
@@ -50,7 +52,7 @@ export async function runGraphLoad(
   workflow: Workflow,
   opts: GraphLoadRunOpts,
 ): Promise<{ results: RequestResult[]; trace: WorkflowExecutionTrace }> {
-  const { iterations, concurrency, initialVariables = {}, breaker, abortSignal, onProgress, correlationWaitConfig, maxConcurrentPolls, traceOptions, environmentLayer } = opts;
+  const { iterations, concurrency, initialVariables = {}, breaker, abortSignal, onProgress, correlationWaitConfig, maxConcurrentPolls, traceOptions, environmentLayer, resolveSubWorkflow } = opts;
   
   const allResults: RequestResult[] = [];
   const allTraces: WorkflowIterationTrace[] = [];
@@ -135,7 +137,7 @@ export async function runGraphLoad(
         undefined, // resolveHttpAuth
         undefined, // debugController
         undefined, // errorConfig
-        undefined, // resolveSubWorkflow
+        resolveSubWorkflow,
         correlationStore, // Pass correlation store for wait-for-real mode
         !isWaitForReal, // loadTestMode - false for wait-for-real so it uses real webhook waiting
         correlationWaitConfig, // runner-level config for CorrelationWait behavior

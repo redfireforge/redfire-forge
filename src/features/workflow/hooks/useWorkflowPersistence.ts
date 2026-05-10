@@ -34,7 +34,7 @@ interface UseWorkflowPersistenceOpts {
   nodeInitialVarsRef: React.MutableRefObject<Record<string, Record<string, string>>>;
   nodesRef: React.MutableRefObject<WorkflowRFNode[]>;
   selectedNodeId: string | null;
-  nextNodeY: React.MutableRefObject<number>;
+  nextNodeYRef: React.MutableRefObject<number>;
   setNodes: React.Dispatch<React.SetStateAction<WorkflowRFNode[]>>;
   setWorkflowVariables: React.Dispatch<React.SetStateAction<Record<string, string>>>;
   workflowVariablesRef: React.MutableRefObject<Record<string, string>>;
@@ -82,7 +82,7 @@ export function useWorkflowPersistence(opts: UseWorkflowPersistenceOpts) {
   const {
     selected, previewWorkflow, nodes, edges, workflowVariables, workflowHostProfiles, workflowAuthProfiles,
     workflowServices, workflowErrorConfig, nodeInitialVarsRef, nodesRef, selectedNodeId,
-    nextNodeY, setNodes, setWorkflowVariables, workflowVariablesRef, update, clipboard, undoRedo, toast,
+    nextNodeYRef, setNodes, setWorkflowVariables, workflowVariablesRef, update, clipboard, undoRedo, toast,
   } = opts;
 
   const [saveAcknowledged, setSaveAcknowledged] = useState(false);
@@ -148,13 +148,13 @@ export function useWorkflowPersistence(opts: UseWorkflowPersistenceOpts) {
 
   const handlePasteNode = useCallback(() => {
     if (!selected) return;
-    const y = nextNodeY.current;
-    nextNodeY.current += 120;
+    const y = nextNodeYRef.current;
+    nextNodeYRef.current += 120;
     const newNode = clipboard.buildPasteNode({ x: 340, y });
     if (!newNode) return;
     insertNodeAndPersist(newNode as WorkflowRFNode, 'Paste node');
     toast.show('info', 'Node pasted', `"${(newNode.data as { label?: string }).label}"`);
-  }, [selected, clipboard, insertNodeAndPersist, toast, nextNodeY]);
+  }, [selected, clipboard, insertNodeAndPersist, toast, nextNodeYRef]);
 
   const handleDuplicateNode = useCallback((nodeId?: string) => {
     if (!selected) return;

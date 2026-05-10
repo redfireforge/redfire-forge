@@ -61,7 +61,7 @@ function createMockScenario(id = 'sc-1'): Scenario {
 function createMockConfig(): TestConfig {
   return {
     executionMode: 'sequential',
-    totalTransactions: 10,
+    iterations: 10,
     concurrentUsers: 1,
     thinkTimeMs: 0,
     errorPolicy: 'continue',
@@ -183,6 +183,44 @@ describe('useTestExecution', () => {
       expect(mockRunTest).not.toHaveBeenCalled();
     });
 
+    it('uses runTest instead of worker when resolveSubWorkflow is provided even if workers supported', async () => {
+      mockSupportsWorkers.mockReturnValue(true);
+      mockRunTest.mockResolvedValue({ results: [createMockResult()] });
+
+      const workflow = {
+        id: 'wf-resolve',
+        name: 'Resolvable Workflow',
+        nodes: [],
+        edges: [],
+        variables: {},
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      };
+      const resolveSubWorkflow = vi.fn((_id: string) => workflow);
+
+      const { result } = renderHook(() => useTestExecution());
+
+      await act(async () => {
+        await result.current.execute(
+          createMockConfig(),
+          [createMockScenario()],
+          undefined,
+          workflow,
+          resolveSubWorkflow,
+        );
+      });
+
+      expect(mockRunTest).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.anything(),
+        expect.any(Function),
+        expect.anything(),
+        workflow,
+        resolveSubWorkflow,
+      );
+      expect(mockRunTestInWorker).not.toHaveBeenCalled();
+    });
+
     it('uses runTest when workers are not supported', async () => {
       mockSupportsWorkers.mockReturnValue(false);
       mockRunTest.mockResolvedValue({ results: [createMockResult()] });
@@ -212,7 +250,8 @@ describe('useTestExecution', () => {
         config,
         scenarios,
         expect.any(Function),
-        expect.any(Object),
+        expect.anything(),
+        undefined,
         undefined
       );
     });
@@ -241,8 +280,9 @@ describe('useTestExecution', () => {
         config,
         scenarios,
         expect.any(Function),
-        expect.any(Object),
-        workflow
+        expect.anything(),
+        workflow,
+        undefined
       );
     });
 
@@ -299,6 +339,85 @@ describe('useTestExecution', () => {
 
       expect(result.current.finalRun).not.toBeNull();
       expect(result.current.finalRun?.id).toBe('test-uuid');
+    });
+
+    it('uses workflow iterations for completed and total counters', async () => {
+      mockSupportsWorkers.mockReturnValue(false);
+      const workflowConfig = {
+        ...createMockConfig(),
+        executionMode: 'workflow' as const,
+        iterations: 4,
+      };
+      mockRunTest.mockResolvedValue({ results: [createMockResult({ id: 'w1' })] });
+
+      const { result } = renderHook(() => useTestExecution());
+
+      await act(async () => {
+        await result.current.execute(workflowConfig, [createMockScenario()]);
+      });
+
+      expect(result.current.completed).toBe(4);
+      expect(result.current.total).toBe(4);
+    });
+
+    it('defaults workflow completed total to 1 when iterations omitted at runtime', async () => {
+      mockSupportsWorkers.mockReturnValue(false);
+      mockRunTest.mockResolvedValue({ results: [createMockResult({ id: 'w3' })] });
+
+      const { result } = renderHook(() => useTestExecution());
+
+      const wfCfg = {
+        ...createMockConfig(),
+        executionMode: 'workflow' as const,
+      };
+      Reflect.deleteProperty(wfCfg, 'iterations');
+
+      await act(async () => {
+        await result.current.execute(wfCfg as TestConfig, [createMockScenario()]);
+      });
+
+      expect(result.current.completed).toBe(1);
+      expect(result.current.total).toBe(1);
+    });
+
+    it('defaults workflow counters to 1 when iterations property is explicitly zero', async () => {
+      mockSupportsWorkers.mockReturnValue(false);
+      const wfZeroIter = {
+        ...createMockConfig(),
+        executionMode: 'workflow' as const,
+        iterations: 0,
+      };
+      mockRunTest.mockResolvedValue({ results: [createMockResult({ id: 'w0' })] });
+
+      const { result } = renderHook(() => useTestExecution());
+
+      await act(async () => {
+        await result.current.execute(wfZeroIter, [createMockScenario()]);
+      });
+
+      expect(result.current.completed).toBe(1);
+      expect(result.current.total).toBe(1);
+    });
+
+    it('reflects quota error using workflow iterations for totals', async () => {
+      mockSupportsWorkers.mockReturnValue(false);
+      const wf = {
+        ...createMockConfig(),
+        executionMode: 'workflow' as const,
+        iterations: 9,
+      };
+      mockRunTest.mockResolvedValue({ results: [createMockResult({ id: 'q1' })] });
+      mockSaveTestRun.mockResolvedValue({ ok: false, quotaError: true });
+
+      const { result } = renderHook(() => useTestExecution());
+
+      await act(async () => {
+        await result.current.execute(wf, [createMockScenario()]);
+      });
+
+      expect(result.current.completed).toBe(9);
+      expect(result.current.total).toBe(9);
+      expect(result.current.pendingRun).not.toBeNull();
     });
 
     it('sets pendingRun on quota error', async () => {
@@ -413,7 +532,7 @@ describe('useTestExecution', () => {
       });
     });
 
-    it('keeps total at -1 after load-profile run completes', async () => {
+    it('sets total to results count after load-profile run completes', async () => {
       const config = { ...createMockConfig(), executionMode: 'load-profile' as const };
       mockRunTest.mockResolvedValue({ results: [createMockResult()] });
 
@@ -423,11 +542,11 @@ describe('useTestExecution', () => {
         await result.current.execute(config, [createMockScenario()]);
       });
 
-      expect(result.current.total).toBe(-1);
+      expect(result.current.total).toBe(1);
       expect(result.current.completed).toBe(1);
     });
 
-    it('keeps total at -1 on load-profile quota error', async () => {
+    it('sets total to results count on load-profile quota error', async () => {
       const config = { ...createMockConfig(), executionMode: 'load-profile' as const };
       mockRunTest.mockResolvedValue({ results: [createMockResult()] });
       mockSaveTestRun.mockResolvedValue({ ok: false, quotaError: true });
@@ -438,7 +557,7 @@ describe('useTestExecution', () => {
         await result.current.execute(config, [createMockScenario()]);
       });
 
-      expect(result.current.total).toBe(-1);
+      expect(result.current.total).toBe(1);
       expect(result.current.pendingRun).not.toBeNull();
     });
   });
@@ -601,6 +720,25 @@ describe('useTestExecution', () => {
 
       const failedInLive = result.current.liveResults.filter((r) => !r.passed);
       expect(failedInLive.length).toBe(100);
+    });
+
+    it('caps without subsampling passes when ample budget remains for failures', async () => {
+      const failedResults = Array.from({ length: 50 }, (_, i) =>
+        createMockResult({ id: `cf-${i}`, passed: false, httpStatus: 500 }),
+      );
+      const passedResults = Array.from({ length: 40 }, (_, i) =>
+        createMockResult({ id: `cp-${i}`, passed: true }),
+      );
+      mockRunTest.mockResolvedValue({ results: [...failedResults, ...passedResults] });
+
+      const { result } = renderHook(() => useTestExecution());
+
+      await act(async () => {
+        await result.current.execute(createMockConfig(), [createMockScenario()]);
+      });
+
+      expect(result.current.liveResults.length).toBe(90);
+      expect(result.current.liveResults.filter((r) => !r.passed).length).toBe(50);
     });
   });
 
@@ -1421,9 +1559,124 @@ describe('useTestExecution', () => {
 
       expect(result.current.liveSummary?.avgIterationTime).toBe(42.5);
     });
+
+    it('keeps previous avgIterationTime when newer profileMeta omits avgIterationTimeMs', async () => {
+      let progressCallback: ((
+        c: number,
+        t: number,
+        r: RequestResult[],
+        meta?: import('../../../engine/executor').ProgressMeta,
+      ) => void) | undefined;
+      mockRunTest.mockImplementation(async (_config, _scenarios, onProgress) => {
+        progressCallback = onProgress;
+        await new Promise((r) => setTimeout(r, 5000));
+        return { results: [] };
+      });
+
+      const { result } = renderHook(() => useTestExecution());
+
+      act(() => {
+        result.current.execute(createMockConfig(), [createMockScenario()]);
+      });
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(100);
+      });
+
+      await act(async () => {
+        progressCallback?.(
+          1,
+          10,
+          [createMockResult()],
+          {
+            elapsedMs: 80,
+            targetConcurrency: 1,
+            currentInFlight: 1,
+            durationMs: 0,
+            avgIterationTimeMs: 33.3,
+          },
+        );
+        await vi.advanceTimersByTimeAsync(600);
+      });
+
+      await act(async () => {
+        progressCallback?.(
+          2,
+          10,
+          [createMockResult(), createMockResult({ id: 'r2-meta' })],
+          {
+            elapsedMs: 200,
+            targetConcurrency: 1,
+            currentInFlight: 1,
+            durationMs: 0,
+          },
+        );
+        await vi.advanceTimersByTimeAsync(600);
+      });
+
+      expect(result.current.liveSummary?.avgIterationTime).toBe(33.3);
+    });
   });
 
   describe('deferred flush timer clearing', () => {
+    it('noop second throttle flush when pending was already drained', async () => {
+      let progressCb!: (
+        c: number,
+        t: number,
+        r: RequestResult[],
+        m?: import('../../../engine/executor').ProgressMeta,
+      ) => void;
+      let finishRun!: (v: { results: RequestResult[] }) => void;
+
+      const scheduledThrottleFlushes: (() => void)[] = [];
+      const setTimeoutSpy = vi.spyOn(globalThis, 'setTimeout').mockImplementation((handler: TimerHandler) => {
+        if (typeof handler === 'function') scheduledThrottleFlushes.push(handler as () => void);
+        return scheduledThrottleFlushes.length as unknown as ReturnType<typeof setTimeout>;
+      });
+
+      mockRunTest.mockImplementation((_a, _b, onProgress) => {
+        progressCb = onProgress;
+        return new Promise<{ results: RequestResult[] }>((resolve) => {
+          finishRun = resolve;
+        });
+      });
+
+      const { result } = renderHook(() => useTestExecution());
+
+      try {
+        act(() => {
+          void result.current.execute(createMockConfig(), [createMockScenario()]);
+        });
+
+        await act(async () => {
+          await Promise.resolve();
+        });
+
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(10);
+          progressCb(1, 10, [createMockResult({ id: 'noop-flush-a' })]);
+        });
+
+        expect(scheduledThrottleFlushes.length).toBeGreaterThan(0);
+
+        const throttleFlushCb = scheduledThrottleFlushes.at(-1)!;
+
+        await act(async () => {
+          throttleFlushCb();
+          throttleFlushCb();
+        });
+      } finally {
+        setTimeoutSpy.mockRestore();
+        await act(async () => {
+          finishRun({ results: [createMockResult({ id: 'noop-flush-final' })] });
+        });
+      }
+
+      await waitFor(() => {
+        expect(result.current.isRunning).toBe(false);
+      });
+    });
+
     it('execute onProgress clears pending setTimeout when sinceLast reaches throttle', async () => {
       let progressCb!: (
         c: number,

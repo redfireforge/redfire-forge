@@ -359,8 +359,8 @@ describe('requestTree — folders undefined fallback branches', () => {
 
   it('findRequestInCollection handles collection with undefined folders', () => {
     const req = makeReq('r1');
-    const col = makeCollection({ requests: [req] }) as RequestCollection;
-    delete (col as any).folders;
+    const col = makeCollection({ requests: [req] });
+    delete col.folders;
     expect(findRequestInCollection(col, 'r1')).toEqual(req);
   });
 
@@ -380,8 +380,8 @@ describe('requestTree — folders undefined fallback branches', () => {
   });
 
   it('countAllRequests handles collection with undefined folders', () => {
-    const col = makeCollection({ requests: [makeReq('r1')] }) as RequestCollection;
-    delete (col as any).folders;
+    const col = makeCollection({ requests: [makeReq('r1')] });
+    delete col.folders;
     expect(countAllRequests(col)).toBe(1);
   });
 
@@ -392,8 +392,8 @@ describe('requestTree — folders undefined fallback branches', () => {
   });
 
   it('mapRequests handles collection with undefined folders', () => {
-    const col = makeCollection({ requests: [makeReq('r1')] }) as RequestCollection;
-    delete (col as any).folders;
+    const col = makeCollection({ requests: [makeReq('r1')] });
+    delete col.folders;
     const result = mapRequests(col, 'r1', (r) => ({ ...r, name: 'up' }));
     expect(result.requests[0].name).toBe('up');
   });
@@ -405,8 +405,8 @@ describe('requestTree — folders undefined fallback branches', () => {
   });
 
   it('removeRequestFrom handles collection with undefined folders', () => {
-    const col = makeCollection({ requests: [makeReq('r1')] }) as RequestCollection;
-    delete (col as any).folders;
+    const col = makeCollection({ requests: [makeReq('r1')] });
+    delete col.folders;
     const result = removeRequestFrom(col, 'r1');
     expect(result.requests).toHaveLength(0);
   });
@@ -489,7 +489,7 @@ describe('requestTree — folders undefined fallback branches', () => {
 
   it('findAncestorSubCollection with baseUrls ancestor', () => {
     const req = makeReq('r1');
-    const f: RequestFolder = { id: 'f1', name: 'f1', requests: [req], baseUrls: { env1: 'https://example.com' } } as any;
+    const f: RequestFolder = { id: 'f1', name: 'f1', requests: [req], baseUrls: { env1: 'https://example.com' } };
     expect(findAncestorSubCollection([f], 'r1')).toEqual(f);
   });
 

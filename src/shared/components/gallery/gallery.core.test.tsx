@@ -8,9 +8,10 @@ import { LiveApiBadge } from './LiveApiBadge';
 import { DomainBadge } from './DomainBadge';
 import { GalleryCard } from './GalleryCard';
 import { GalleryDetailPanel } from './GalleryDetailPanel';
-import { GalleryFilters, defaultFilterState, apiHostname } from './GalleryFilters';
+import { GalleryFilters } from './GalleryFilters';
+import { defaultFilterState, apiHostname } from './galleryFiltersUtils';
 import { GalleryGrid } from './GalleryGrid';
-import type { GalleryEntry } from '../../../data/galleries/types';
+import type { GalleryDomain, GalleryEntry } from '../../../data/galleries/types';
 
 /* ── Helpers ── */
 
@@ -107,7 +108,7 @@ describe('DomainBadge', () => {
   });
 
   it('handles unknown domain gracefully', () => {
-    const { container } = render(<DomainBadge domain={'unknown' as any} />);
+    const { container } = render(<DomainBadge domain={'unknown' as GalleryDomain} />);
     expect(container.querySelector('.gallery-domain-badge')).toBeTruthy();
   });
 });

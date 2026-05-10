@@ -53,7 +53,7 @@ function createMockTestRun(responseTimes: number[]): TestRun {
     timestamp: Date.now(),
     config: {
       executionMode: 'sequential',
-      totalTransactions: responseTimes.length,
+      iterations: responseTimes.length,
       concurrentUsers: 1,
       thinkTimeMs: 0,
       errorPolicy: 'continue',

@@ -10,6 +10,7 @@ import { runLoadProfile } from './loadProfileRunner';
 import { createThinkTimeDelay } from './thinkTime';
 import { runWorkflow, runWorkflowLoad, runGraphLoad, VariableContext } from '../features/workflow/engine';
 import { expandQueue } from './dataSourceExpander';
+import { computeAllocation } from './allocationEngine';
 
 export interface ProgressMeta {
   elapsedMs: number;
@@ -78,6 +79,8 @@ export async function runTest(
   abortSignal?: AbortSignal,
   /** Optional workflow for graph-based execution (when config.workflowId is set). */
   workflow?: Workflow,
+  /** Resolver for sub-workflow nodes — returns the child workflow by ID. */
+  resolveSubWorkflow?: (workflowId: string) => Workflow | undefined,
 ): Promise<TestResult> {
   const tokenManager = new TokenManager();
   const timeoutMs = (config.timeoutSec ?? 0) > 0 ? (config.timeoutSec! * 1000) : undefined;
@@ -89,52 +92,38 @@ export async function runTest(
     config.maxErrorRate ?? 50
   );
 
-  const activeWeights = config.scenarioWeights.filter((w) => w.weight > 0);
-  const totalWeight = activeWeights.reduce((s, w) => s + w.weight, 0);
-  const total = config.totalTransactions;
+  // Determine active scenarios from weights (weight > 0 = selected)
+  const activeIds = new Set(
+    config.scenarioWeights.filter((w) => w.weight > 0).map((w) => w.scenarioId),
+  );
+  const activeScenarios = activeIds.size > 0
+    ? scenarios.filter((s) => activeIds.has(s.id))
+    : scenarios;
+
+  // Detect kind from scenarios — parameterized if any have data sources
+  const kind = activeScenarios.some((s) => s.dataSource || s.sharedDataSourceId)
+    ? 'parameterized' as const
+    : 'standard' as const;
+
+  // Use allocation engine for deterministic per-test iterations
+  const allocation = computeAllocation(activeScenarios, config.iterations, kind);
+
+  // Build queue from allocation results
   const queue: Scenario[] = [];
-
-  if (total >= activeWeights.length) {
-    const counts = new Map<string, number>();
-    for (const sw of activeWeights) counts.set(sw.scenarioId, 1);
-    const remaining = total - activeWeights.length;
-    if (remaining > 0 && totalWeight > 0) {
-      for (const sw of activeWeights) {
-        const extra = Math.round((sw.weight / totalWeight) * remaining);
-        counts.set(sw.scenarioId, (counts.get(sw.scenarioId) ?? 0) + extra);
-      }
-    }
-    for (const sw of activeWeights) {
-      const scenario = scenarios.find((s) => s.id === sw.scenarioId);
-      if (!scenario) continue;
-      for (let i = 0; i < (counts.get(sw.scenarioId) ?? 1); i++) queue.push(scenario);
-    }
-  } else {
-    const sorted = [...activeWeights].sort((a, b) => {
-      if (b.weight !== a.weight) return b.weight - a.weight;
-      return Math.random() - 0.5;
-    });
-    const picked = sorted.slice(0, total);
-    for (const sw of picked) {
-      const scenario = scenarios.find((s) => s.id === sw.scenarioId);
-      if (scenario) queue.push(scenario);
-    }
+  for (const item of allocation.items) {
+    const scenario = activeScenarios.find((s) => s.id === item.testId);
+    if (!scenario) continue;
+    for (let i = 0; i < item.iterations; i++) queue.push(scenario);
   }
-  while (queue.length < total && scenarios.length > 0) queue.push(scenarios[0]);
-  while (queue.length > total) queue.pop();
 
+  // Shuffle for realistic load distribution
   for (let i = queue.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [queue[i], queue[j]] = [queue[j], queue[i]];
   }
 
-  // Expand data sources — replace parameterized scenarios with per-row resolved copies
+  // Expand data sources — no post-expansion cap (what you configure is what runs)
   const expandedQueue = expandQueue(queue);
-
-  // Cap expanded queue at the configured total — "transactions" means total HTTP requests
-  if (total > 0 && expandedQueue.length > total) {
-    expandedQueue.length = total;
-  }
 
   const mode = config.executionMode ?? 'batch';
   const getThinkTimeMs = createThinkTimeDelay(config.thinkTime);
@@ -142,7 +131,7 @@ export async function runTest(
 
   if (mode === 'workflow') {
     if (workflow && config.workflowId) {
-      const iterations = config.totalTransactions || 1;
+      const iterations = config.iterations || 1;
       const envLayer = config.workflowBaseUrl
         ? { baseUrl: config.workflowBaseUrl }
         : undefined;
@@ -158,10 +147,11 @@ export async function runTest(
         maxConcurrentPolls: config.maxConcurrentPolls,
         traceOptions: config.traceOptions,
         environmentLayer: envLayer,
+        resolveSubWorkflow,
       });
     }
     const ctx = new VariableContext(config.workflowVariables);
-    const iterations = config.totalTransactions || 1;
+    const iterations = config.iterations || 1;
     if (iterations <= 1) {
       return { results: await runWorkflow(scenarios, opts, ctx) };
     }

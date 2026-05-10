@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { seedAppData } from './helpers';
 
 /**
- * Helper: navigate to Scenarios tab, create a Feature Group + Scenario,
+ * Helper: navigate to Feature Groups tab, create a Feature Group + Scenario,
  * open the test editor, and switch to the Validation tab.
  */
 async function openValidationTab(page: import('@playwright/test').Page) {

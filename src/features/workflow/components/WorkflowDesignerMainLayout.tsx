@@ -17,6 +17,7 @@ export default function WorkflowDesignerMainLayout(vm: WorkflowDesignerViewModel
     <div className="wf-designer">
       <WorkflowToolbar
         workflows={vm.workflows}
+        folders={vm.wfFolders}
         selected={selected}
         isRunning={vm.isRunning}
         saveAcknowledged={vm.saveAcknowledged}

@@ -630,7 +630,7 @@ describe('runWebhookLoadTest', () => {
   describe('timeout handling', () => {
     it('uses custom timeout from config', async () => {
       vi.useRealTimers();
-      const controller = new AbortController();
+      const _controller = new AbortController();
       mockFetch.mockImplementation(async (_url, opts) => {
         // Store the signal to verify timeout behavior
         expect(opts.signal).toBeDefined();

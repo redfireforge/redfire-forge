@@ -1,13 +1,15 @@
 /**
  * @vitest-environment jsdom
  */
+import type { MutableRefObject, Dispatch, SetStateAction } from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useWorkflowDetailModal } from './useWorkflowDetailModal';
 import type { WorkflowRFNode } from '../utils/workflowNodeFactory';
+import type { ConditionNodeData, NodeRunStatus } from '../types/workflow';
 
 vi.mock('../utils/workflowVariableHints', () => ({
-  isHttpWorkflowNode: (n: any) => n.type === 'http',
+  isHttpWorkflowNode: (n: WorkflowRFNode) => n.type === 'http',
 }));
 
 const makeNode = (overrides: Partial<WorkflowRFNode> = {}): WorkflowRFNode => ({
@@ -16,15 +18,15 @@ const makeNode = (overrides: Partial<WorkflowRFNode> = {}): WorkflowRFNode => ({
   position: { x: 0, y: 0 },
   data: { label: 'GET Users', initialVariables: { token: 'abc' } },
   ...overrides,
-} as any);
+} as WorkflowRFNode);
 
 const defaultOpts = () => ({
   nodes: [makeNode()] as WorkflowRFNode[],
-  nodeStatuses: {} as Record<string, any>,
+  nodeStatuses: {} as Record<string, NodeRunStatus>,
   selectedNode: null as WorkflowRFNode | null,
   lastRunError: null as string | null,
   workflowVariables: { baseUrl: 'http://localhost' } as Record<string, string>,
-  nodeInitialVarsRef: { current: { n1: { token: 'abc' } } } as any,
+  nodeInitialVarsRef: { current: { n1: { token: 'abc' } } } as MutableRefObject<Record<string, Record<string, string>>>,
   setNodeInitialVars: vi.fn(),
   setWorkflowVariables: vi.fn(),
   setSelectedNodeId: vi.fn(),
@@ -106,7 +108,7 @@ describe('useWorkflowDetailModal', () => {
   it('openVariableDetail drafts empty string when http node has no initial value for key', () => {
     const opts = defaultOpts();
     opts.selectedNode = makeNode();
-    opts.nodeInitialVarsRef = { current: { n1: { token: 'abc' } } } as any;
+    opts.nodeInitialVarsRef = { current: { n1: { token: 'abc' } } } as MutableRefObject<Record<string, Record<string, string>>>;
     const { result } = renderHook(() => useWorkflowDetailModal(opts));
     act(() => result.current.openVariableDetail('missingKey'));
     expect(result.current.variableDetailDraft).toBe('');
@@ -125,9 +127,9 @@ describe('useWorkflowDetailModal', () => {
   it('handleApplyVariableDetail updates nodeInitialVars for http node', () => {
     const opts = defaultOpts();
     opts.selectedNode = makeNode();
-    opts.setNodeInitialVars = vi.fn((updater: (p: Record<string, Record<string, string>>) => Record<string, Record<string, string>>) =>
-      updater({}),
-    ) as any;
+    opts.setNodeInitialVars = vi.fn((updater: SetStateAction<Record<string, Record<string, string>>>) =>
+      typeof updater === 'function' ? updater({}) : updater,
+    ) as Dispatch<SetStateAction<Record<string, Record<string, string>>>>;
     const { result } = renderHook(() => useWorkflowDetailModal(opts));
     act(() => result.current.openVariableDetail('token'));
     act(() => result.current.setVariableDetailDraft('updated'));
@@ -139,9 +141,9 @@ describe('useWorkflowDetailModal', () => {
   it('handleApplyVariableDetail merges nodeInitialVars with existing node entry in prev', () => {
     const opts = defaultOpts();
     opts.selectedNode = makeNode();
-    opts.setNodeInitialVars = vi.fn((updater: (p: Record<string, Record<string, string>>) => Record<string, Record<string, string>>) =>
-      updater({ n1: { keep: 'yes' } }),
-    ) as any;
+    opts.setNodeInitialVars = vi.fn((updater: SetStateAction<Record<string, Record<string, string>>>) =>
+      typeof updater === 'function' ? updater({ n1: { keep: 'yes' } }) : updater,
+    ) as Dispatch<SetStateAction<Record<string, Record<string, string>>>>;
     const { result } = renderHook(() => useWorkflowDetailModal(opts));
     act(() => result.current.openVariableDetail('token', 'x'));
     act(() => result.current.setVariableDetailDraft('merged'));
@@ -162,9 +164,9 @@ describe('useWorkflowDetailModal', () => {
   it('handleApplyVariableDetail updates workflowVariables when selectedNode is null', () => {
     const opts = defaultOpts();
     opts.selectedNode = null;
-    opts.setWorkflowVariables = vi.fn((updater: (p: Record<string, string>) => Record<string, string>) =>
-      updater(opts.workflowVariables),
-    ) as any;
+    opts.setWorkflowVariables = vi.fn((updater: SetStateAction<Record<string, string>>) =>
+      typeof updater === 'function' ? updater(opts.workflowVariables) : updater,
+    ) as Dispatch<SetStateAction<Record<string, string>>>;
     const { result } = renderHook(() => useWorkflowDetailModal(opts));
     act(() => result.current.openVariableDetail('baseUrl'));
     act(() => result.current.setVariableDetailDraft('http://staging'));
@@ -220,7 +222,8 @@ describe('useWorkflowDetailModal', () => {
 
     it('uses HTTP step title when node exists but is not http', () => {
       const opts = defaultOpts();
-      opts.nodes = [makeNode({ id: 'c1', type: 'condition', data: { label: 'Branch' } as any })];
+      const condData: ConditionNodeData = { label: 'Branch', left: 'a', operator: '==', right: 'b' };
+      opts.nodes = [makeNode({ id: 'c1', type: 'condition', data: condData })];
       const { result } = renderHook(() => useWorkflowDetailModal(opts));
       act(() => result.current.openStepDetail('c1'));
       expect(result.current.stepDetailMeta.title).toBe('HTTP step');

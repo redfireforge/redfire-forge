@@ -1,13 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import type {
-  TestConfig,
-  LoadProfileConfig,
-  CorrelationWaitRunnerConfig,
-  ExecutionTraceOptions,
-  RequestResult,
-  WorkflowExecutionTrace,
-} from '../../shared/types';
-import type { Workflow, WebhookTriggerNodeData } from '../workflow/types/workflow';
+import type { TestConfig, LoadProfileConfig, CorrelationWaitRunnerConfig } from '../../shared/types';
+import type { Workflow, WorkflowFolder, WebhookTriggerNodeData } from '../workflow/types/workflow';
 import { useTestExecution } from './hooks/useTestExecution';
 import { useWorkflowRunnerConfig } from './hooks/useWorkflowRunnerConfig';
 import WorkflowPicker from './components/WorkflowPicker';
@@ -20,9 +13,11 @@ import MultiWebhookTestingPanel, { type WebhookScenario } from './components/Mul
 import { type PersistedProgress, saveProgress, loadProgress, clearProgress } from './utils/runnerProgressStorage';
 import { runWebhookLoadTest, calculateTotalRequests } from '../workflow/engine/webhookLoadDriver';
 import { loadWebhookScenarios, saveWebhookScenario, deleteWebhookScenario, fireWebhook, buildPayloadWithCorrelationId } from './utils/webhookScenarioStorage';
+import { sampleWorkflowCatalog } from '../../data/galleries/workflows';
 
 interface Props {
   workflows: Workflow[];
+  folders?: WorkflowFolder[];
   /** Called when run completes. Pass 'workflow' to pre-filter results to workflow runs. */
   onComplete: (runType?: 'test' | 'workflow') => void;
   /** Optional: Pre-select a workflow when navigating from Workflow Designer's "Run in Harness" button. */
@@ -37,10 +32,10 @@ interface Props {
 
 const PROGRESS_KEY = '_workflow_runner_progress';
 
-export default function WorkflowRunner({ workflows, onComplete, initialWorkflowId, onClearInitialWorkflowId, onImportSample, resolvedBaseUrl }: Props) {
+export default function WorkflowRunner({ workflows, folders, onComplete, initialWorkflowId, onClearInitialWorkflowId, onImportSample, resolvedBaseUrl }: Props) {
   const {
     concurrency, setConcurrency,
-    totalTransactions, setTotalTransactions,
+    iterations, setIterations,
     executionMode, setExecutionMode,
     loadProfile, setLoadProfile,
     thinkTime, setThinkTime,
@@ -51,6 +46,7 @@ export default function WorkflowRunner({ workflows, onComplete, initialWorkflowI
     maxErrors, setMaxErrors,
     maxErrorRate, setMaxErrorRate,
     selectedWorkflowId, setSelectedWorkflowId,
+    traceOptions, setTraceOptions,
     configLoaded,
   } = useWorkflowRunnerConfig();
 
@@ -153,12 +149,6 @@ export default function WorkflowRunner({ workflows, onComplete, initialWorkflowI
   // Max concurrent polls config (for WaitForCondition throttling)
   const [maxConcurrentPolls, setMaxConcurrentPolls] = useState(20);
 
-  // Trace capture options (for Results Explorer)
-  const [traceOptions, setTraceOptions] = useState<ExecutionTraceOptions>({
-    captureFullTrace: false,
-    alwaysCaptureFailures: true,
-  });
-
   // Webhook scenarios for multi-webhook testing (Phase 7f)
   const [webhookScenarios, setWebhookScenarios] = useState<WebhookScenario[]>([]);
 
@@ -199,7 +189,7 @@ export default function WorkflowRunner({ workflows, onComplete, initialWorkflowI
         total,
         profileMeta,
         isTimeBased: isLoadProfile,
-        executionMode,
+        executionMode: 'workflow',
         concurrency,
         loadProfile,
         thinkTime: thinkTime.mode !== 'none' ? thinkTime : undefined,
@@ -239,7 +229,7 @@ export default function WorkflowRunner({ workflows, onComplete, initialWorkflowI
 
     const config: TestConfig = {
       concurrency: isWaitForReal ? 1 : (isLoadProfile ? loadProfile.maxConcurrency : concurrency),
-      totalTransactions: isWaitForReal ? 1 : (isLoadProfile ? 0 : totalTransactions),
+      iterations: isWaitForReal ? 1 : (isLoadProfile ? 0 : iterations),
       scenarioWeights: [],
       executionMode: 'workflow',
       ...(isLoadProfile && !isWaitForReal ? { loadProfile } : {}),
@@ -259,7 +249,21 @@ export default function WorkflowRunner({ workflows, onComplete, initialWorkflowI
     };
 
     saveWorkflowRunConfig({ workflowId: selectedWorkflowId!, variables: workflowVariables });
-    execute(config, [], { projectName: selectedWorkflow.name }, selectedWorkflow);
+
+    const resolveSubWorkflow = (id: string) => {
+      const found = workflows.find(w => w.id === id);
+      if (found) return found;
+      for (const entry of sampleWorkflowCatalog) {
+        if (!entry.companionFactories) continue;
+        for (const cf of entry.companionFactories) {
+          const companion = cf();
+          if (companion.id === id) return companion;
+        }
+      }
+      return undefined;
+    };
+
+    execute(config, [], { projectName: selectedWorkflow.name }, selectedWorkflow, resolveSubWorkflow);
   };
 
   // Webhook load test execution (Phase 7c)
@@ -371,7 +375,7 @@ export default function WorkflowRunner({ workflows, onComplete, initialWorkflowI
       // Complete and save results
       const config: TestConfig = {
         concurrency: 1,
-        totalTransactions: totalReqs,
+        iterations: totalReqs,
         scenarioWeights: [],
         executionMode: 'workflow',
         workflowId: selectedWorkflowId!,
@@ -442,6 +446,7 @@ export default function WorkflowRunner({ workflows, onComplete, initialWorkflowI
 
       <WorkflowPicker
         workflows={workflows}
+        folders={folders}
         selectedWorkflowId={selectedWorkflowId}
         onWorkflowChange={setSelectedWorkflowId}
         variables={workflowVariables}
@@ -596,8 +601,8 @@ export default function WorkflowRunner({ workflows, onComplete, initialWorkflowI
               onExecutionModeChange={setExecutionMode}
               concurrency={concurrency}
               onConcurrencyChange={setConcurrency}
-              totalTransactions={totalTransactions}
-              onTotalTransactionsChange={setTotalTransactions}
+              iterations={iterations}
+              onIterationsChange={setIterations}
               timeoutSec={timeoutSec}
               onTimeoutSecChange={setTimeoutSec}
               retryCount={retryCount}
@@ -616,7 +621,7 @@ export default function WorkflowRunner({ workflows, onComplete, initialWorkflowI
               onThinkTimeChange={(patch) => setThinkTime((prev) => ({ ...prev, ...patch }))}
               activeTestCount={1}
               isRunning={isRunning}
-              forceSingleTransaction={correlationWaitConfig?.mode === 'wait-for-real'}
+              forceSingleIteration={correlationWaitConfig?.mode === 'wait-for-real'}
               namePrefix="workflow-runner"
             />
           </div>

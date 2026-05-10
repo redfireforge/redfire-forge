@@ -96,6 +96,23 @@ export function WorkflowDesignerFlowCanvas({
           Insert between nodes
         </div>
       )}
+      {nodes.length === 0 && !previewWorkflow && !isDragOver && (
+        <div className="wf-empty-canvas">
+          <svg className="wf-empty-canvas-icon" viewBox="0 0 80 80" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="8" y="12" width="26" height="16" rx="4" />
+            <rect x="46" y="12" width="26" height="16" rx="4" />
+            <rect x="27" y="52" width="26" height="16" rx="4" />
+            <line x1="21" y1="28" x2="21" y2="40" />
+            <line x1="21" y1="40" x2="40" y2="40" />
+            <line x1="40" y1="40" x2="40" y2="52" />
+            <line x1="59" y1="28" x2="59" y2="40" />
+            <line x1="59" y1="40" x2="40" y2="40" />
+            <circle cx="40" cy="40" r="2.5" fill="currentColor" stroke="none" />
+          </svg>
+          <p className="wf-empty-canvas-title">Drop your first node here</p>
+          <p className="wf-empty-canvas-hint">Drag a block from the palette on the left, or press <kbd>⌘K</kbd> for commands</p>
+        </div>
+      )}
       {!previewWorkflow && (
         <WorkflowExecSummary
           runProgress={runProgress}
@@ -177,6 +194,19 @@ export function WorkflowDesignerFlowCanvas({
             />
           )}
           <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="var(--border)" />
+          <svg width="0" height="0" style={{ position: 'absolute' }}>
+            <defs>
+              <marker id="wf-arrow-pass" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="8" markerHeight="6" orient="auto-start-reverse">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="#22c55e" />
+              </marker>
+              <marker id="wf-arrow-fail" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="8" markerHeight="6" orient="auto-start-reverse">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="#ef4444" />
+              </marker>
+              <marker id="wf-arrow-animated" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="8" markerHeight="6" orient="auto-start-reverse">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="#3b82f6" />
+              </marker>
+            </defs>
+          </svg>
         </ReactFlow>
       </WorkflowDebugStepContext.Provider>
       </WorkflowNodeRunContext.Provider>

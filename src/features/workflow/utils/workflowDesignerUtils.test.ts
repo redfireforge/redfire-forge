@@ -1,5 +1,24 @@
 import { describe, it, expect } from 'vitest';
 import { getDetailModalProps, getNodeMiniMapColor, buildConfigModalWorkflowList } from './workflowDesignerUtils';
+import type { Workflow } from '../types/workflow';
+
+function minimalWorkflow(id: string, name: string): Workflow {
+  return {
+    id,
+    name,
+    schemaVersion: 5,
+    variables: {},
+    hostProfiles: [],
+    authProfiles: [],
+    services: [],
+    nodes: [],
+    edges: [],
+    createdAt: 0,
+    updatedAt: 0,
+  };
+}
+
+type SampleCatalogEntry = { id: string; companionFactories?: (() => Workflow)[] };
 
 // ─── getDetailModalProps ─────────────────────────────────────────────────────
 
@@ -97,8 +116,8 @@ describe('getNodeMiniMapColor', () => {
 // ─── buildConfigModalWorkflowList ────────────────────────────────────────────
 
 describe('buildConfigModalWorkflowList', () => {
-  const wf1 = { id: 'w1', name: 'Workflow 1' } as any;
-  const wf2 = { id: 'w2', name: 'Workflow 2' } as any;
+  const wf1 = minimalWorkflow('w1', 'Workflow 1');
+  const wf2 = minimalWorkflow('w2', 'Workflow 2');
 
   it('returns base workflows mapped to id/name', () => {
     const result = buildConfigModalWorkflowList([wf1, wf2], null, []);
@@ -113,28 +132,28 @@ describe('buildConfigModalWorkflowList', () => {
   });
 
   it('does not add companions when previewWorkflow is null', () => {
-    const catalog = [{ id: 'w1', companionFactories: [() => ({ id: 'c1', name: 'Companion' })] }];
-    const result = buildConfigModalWorkflowList([wf1], null, catalog as any);
+    const catalog: SampleCatalogEntry[] = [{ id: 'w1', companionFactories: [() => minimalWorkflow('c1', 'Companion')] }];
+    const result = buildConfigModalWorkflowList([wf1], null, catalog);
     expect(result).toEqual([{ id: 'w1', name: 'Workflow 1' }]);
   });
 
   it('adds companion workflows from catalog for preview workflow', () => {
-    const companion = { id: 'c1', name: 'Companion' } as any;
-    const catalog = [{ id: 'w1', companionFactories: [() => companion] }];
-    const result = buildConfigModalWorkflowList([wf1], wf1, catalog as any);
+    const companion = minimalWorkflow('c1', 'Companion');
+    const catalog: SampleCatalogEntry[] = [{ id: 'w1', companionFactories: [() => companion] }];
+    const result = buildConfigModalWorkflowList([wf1], wf1, catalog);
     expect(result).toHaveLength(2);
     expect(result[1]).toEqual({ id: 'c1', name: 'Companion' });
   });
 
   it('does not duplicate companion that is already in the list', () => {
-    const catalog = [{ id: 'w1', companionFactories: [() => ({ id: 'w2', name: 'Companion' })] }];
-    const result = buildConfigModalWorkflowList([wf1, wf2], wf1, catalog as any);
+    const catalog: SampleCatalogEntry[] = [{ id: 'w1', companionFactories: [() => minimalWorkflow('w2', 'Companion')] }];
+    const result = buildConfigModalWorkflowList([wf1, wf2], wf1, catalog);
     expect(result).toHaveLength(2);
   });
 
   it('handles catalog entry without companionFactories', () => {
-    const catalog = [{ id: 'w1' }];
-    const result = buildConfigModalWorkflowList([wf1], wf1, catalog as any);
+    const catalog: SampleCatalogEntry[] = [{ id: 'w1' }];
+    const result = buildConfigModalWorkflowList([wf1], wf1, catalog);
     expect(result).toEqual([{ id: 'w1', name: 'Workflow 1' }]);
   });
 
@@ -144,14 +163,14 @@ describe('buildConfigModalWorkflowList', () => {
   });
 
   it('adds multiple companions', () => {
-    const catalog = [{
+    const catalog: SampleCatalogEntry[] = [{
       id: 'w1',
       companionFactories: [
-        () => ({ id: 'c1', name: 'C1' }),
-        () => ({ id: 'c2', name: 'C2' }),
+        () => minimalWorkflow('c1', 'C1'),
+        () => minimalWorkflow('c2', 'C2'),
       ],
     }];
-    const result = buildConfigModalWorkflowList([wf1], wf1, catalog as any);
+    const result = buildConfigModalWorkflowList([wf1], wf1, catalog);
     expect(result).toHaveLength(3);
     expect(result.map(r => r.id)).toEqual(['w1', 'c1', 'c2']);
   });

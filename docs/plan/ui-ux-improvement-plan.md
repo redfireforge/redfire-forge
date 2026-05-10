@@ -1,8 +1,8 @@
 # UI/UX Improvement Plan
 
-> **Status:** Active backlog — some items implemented, remainder planned for future polish phases.
+> **Status:** Active backlog — Phases 1–4 complete, remainder planned for future polish phases.
 >
-> _Last updated: 2026-04-29_
+> _Last updated: 2026-05-08_
 
 ## Commercial Products Researched
 
@@ -162,46 +162,46 @@
 
 ## Phased Implementation Plan
 
-### Phase 1: Visual Foundation
-- [ ] Replace emoji icons with SVG icons (Lucide icon set)
-- [ ] Increase typography sizes (node title 14px, body 13px)
-- [ ] Add node category background tints (triggers/actions/flow-control)
-- [ ] Add drop shadows to nodes
-- [ ] Increase min node width to 200px
-- [ ] Consistent padding inside nodes (12px 16px)
+### Phase 1: Visual Foundation — ✅ COMPLETE
+- [x] Replace emoji icons with SVG icons (Lucide icon set)
+- [x] Increase typography sizes (node title 14px, body 13px)
+- [x] Add node category background tints (triggers/actions/flow-control)
+- [x] Add drop shadows to nodes
+- [x] Increase min node width to 200px
+- [x] Consistent padding inside nodes (12px 16px)
 
 **Impact**: HIGH — Immediate professional feel
 
-### Phase 2: Execution Feedback
-- [ ] Add status indicator per node (idle/running/success/error)
-- [ ] Show item/request count badge after execution
-- [ ] Add colored border pulse animation during execution
-- [ ] Show response time on HTTP nodes after execution
+### Phase 2: Execution Feedback — ✅ COMPLETE
+- [x] Add status indicator per node (idle/running/success/error)
+- [x] Show item/request count badge after execution
+- [x] Add colored border pulse animation during execution
+- [x] Show response time on HTTP nodes after execution
 - [x] Add edge labels for condition branches ("Yes"/"No")
 
 **Impact**: HIGH — Key differentiator for a testing tool
 
-### Phase 3: Canvas & Controls
+### Phase 3: Canvas & Controls — ✅ COMPLETE
 - [x] Add dot-grid pattern to canvas background (both themes)
-- [ ] Move zoom/fit controls to floating pill on canvas corner
-- [ ] Add arrow markers on connection edges
-- [ ] Add animated dash effect on edges during execution
+- [x] Move zoom/fit controls to floating pill on canvas corner
+- [x] Add arrow markers on connection edges (+ colored markers for pass/fail/animated states)
+- [x] Add animated dash effect on edges during execution
 - [x] Add minimap toggle
-- [ ] Different line styles for conditional branches
+- [x] Different line styles for conditional branches (dashed "No" edges, solid "Yes" edges)
 
 **Impact**: MEDIUM — Polish & usability
 
-### Phase 4: Panel Improvements
-- [ ] Add tabs to config panel (Config | Input | Output | Logs)
-- [ ] Show last execution data in Output tab
-- [ ] Add search/filter in node palette
-- [ ] Better section headers with collapsible groups
-- [ ] Replace toolbar emoji icons with SVG icons
+### Phase 4: Panel Improvements — ✅ COMPLETE
+- [x] Add tabs to config panel (Config | Input | Output | Logs)
+- [x] Show last execution data in Output tab
+- [x] Add search/filter in node palette
+- [x] Better section headers with collapsible groups
+- [x] Replace toolbar emoji icons with SVG icons
 
 **Impact**: MEDIUM — Workflow efficiency
 
 ### Phase 5: Empty States & Onboarding
-- [ ] Illustrated empty state with "Drop your first node here"
+- [x] Illustrated empty state with "Drop your first node here"
 - [ ] Template workflow suggestions on empty canvas
 - [ ] Contextual hints/tooltips on first use
 - [x] Breadcrumb showing current workflow name/path

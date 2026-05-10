@@ -50,8 +50,8 @@ export const manualMetadata: ManualMetadata[] = [
   {
     manualPath: 'tests/parameterized-basics-easy.html',
     addedAt: date('2024-03-01'),
-    updatedAt: date('2026-05-03'),
-    changeNote: 'Added new section on column types and row iteration patterns',
+    updatedAt: date('2026-05-09'),
+    changeNote: 'Updated Runner references for three-runner architecture (Parameterized Runner)',
   },
   { manualPath: 'tests/parameterized-user-sweep-easy.html', addedAt: date('2026-05-04') },
   { manualPath: 'tests/parameterized-product-search-easy.html', addedAt: date('2026-05-04') },
@@ -126,7 +126,29 @@ export const manualMetadata: ManualMetadata[] = [
   { manualPath: 'edge-traversal-percentages-guide.html', addedAt: date('2026-05-07') },
 
   // Results Explorer
-  { manualPath: 'workflow/runner/results-explorer-medium.html', addedAt: date('2026-05-08') },
+  { manualPath: 'workflow/runner/results-explorer-medium.html', addedAt: date('2026-05-08'), updatedAt: date('2026-05-09'), changeNote: 'Added Timeline view, sub-workflow drill-down, and parallel swim lanes sections' },
+
+  // Results Explorer — Timeline View
+  { manualPath: 'workflow/runner/results-explorer-timeline-medium.html', addedAt: date('2026-05-09') },
+
+  // Results Explorer — Sub-Workflow Drill-Down
+  { manualPath: 'workflow/runner/results-explorer-drilldown-medium.html', addedAt: date('2026-05-09') },
+
+  // Parallel Showcase (Swim Lanes & Critical Path)
+  { manualPath: 'workflow/api-patterns/parallel-showcase-medium.html', addedAt: date('2026-05-09') },
+
+  // Runner Redesign — new manuals
+  { manualPath: 'tests/test-runner-guide-easy.html', addedAt: date('2026-05-09') },
+  { manualPath: 'tests/parameterized-runner-guide-easy.html', addedAt: date('2026-05-09') },
+  { manualPath: 'tests/scenario-types-guide-easy.html', addedAt: date('2026-05-09') },
+
+  // Runner Comparison — updated for three-runner architecture
+  {
+    manualPath: 'tests/runner-comparison-easy.html',
+    addedAt: date('2024-01-10'),
+    updatedAt: date('2026-05-09'),
+    changeNote: 'Rewritten for three-runner architecture (Test Runner, Parameterized Runner, Workflow Runner)',
+  },
 ];
 
 /** Map of manualPath -> ManualMetadata for fast lookup */

@@ -121,7 +121,7 @@ function makeRun(id: string, results: number = 1): TestRun {
     id,
     timestamp: Date.now(),
     config: {
-      concurrency: 1, totalTransactions: results,
+      concurrency: 1, iterations: results,
       scenarioWeights: [], executionMode: 'sequential',
     },
     summary: {

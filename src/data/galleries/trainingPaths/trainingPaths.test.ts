@@ -3,7 +3,7 @@ import { trainingPaths } from './index';
 import { corePaths } from './corePaths';
 import { contentPaths } from './contentPaths';
 import { workflowPaths } from './workflowPaths';
-import type { TrainingPath, TrainingPhase, TrainingManual } from './types';
+import type { TrainingPath, TrainingManual } from './types';
 
 /* ── Structural Integrity ── */
 
@@ -149,10 +149,10 @@ describe('manual counts per path', () => {
     expect(countManuals(path)).toBe(12);
   });
 
-  it('tests has 26 manuals (5 phases)', () => {
+  it('tests has 29 manuals (6 phases)', () => {
     const path = trainingPaths.find(p => p.id === 'tests')!;
-    expect(path.phases).toHaveLength(5);
-    expect(countManuals(path)).toBe(26);
+    expect(path.phases).toHaveLength(6);
+    expect(countManuals(path)).toBe(29);
   });
 
   it('catalog has 9 manuals (3 phases)', () => {
@@ -167,10 +167,10 @@ describe('manual counts per path', () => {
     expect(countManuals(path)).toBe(6);
   });
 
-  it('wf-api-patterns has 5 manuals (2 phases)', () => {
+  it('wf-api-patterns has 6 manuals (2 phases)', () => {
     const path = trainingPaths.find(p => p.id === 'wf-api-patterns')!;
     expect(path.phases).toHaveLength(2);
-    expect(countManuals(path)).toBe(5);
+    expect(countManuals(path)).toBe(6);
   });
 
   it('wf-diverse-apis has 5 manuals (2 phases)', () => {

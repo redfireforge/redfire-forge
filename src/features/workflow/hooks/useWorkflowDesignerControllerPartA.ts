@@ -26,7 +26,7 @@ import type {
  * versioning, auto-layout, and keyboard shortcuts. Composed by useWorkflowDesignerController.
  */
 export function useWorkflowDesignerControllerPartA({
-  wfHook, previewWorkflow, onClearPreview, onUseAsTemplate, onRunInHarness,
+  wfHook, previewWorkflow, onClearPreview, onUseAsTemplate, onRunInHarness, folders: wfFolders,
 }: WorkflowDesignerProps) {
   const { workflows, selected: selectedWorkflow, create, update, select } = wfHook;
   const selected = previewWorkflow ?? selectedWorkflow;
@@ -80,7 +80,7 @@ export function useWorkflowDesignerControllerPartA({
   const [activeRunHistoryId, setActiveRunHistoryId] = useState<string | null>(null);
   const [nodeCtxMenu, setNodeCtxMenu] = useState<WorkflowNodeContextMenuData | null>(null);
   const [showMinimap, setShowMinimap] = useState(true);
-  const nextNodeY = useRef(100);
+  const nextNodeYRef = useRef(100);
 
   const toast = useToast();
   const [showShortcuts, setShowShortcuts] = useState(false);
@@ -114,7 +114,7 @@ export function useWorkflowDesignerControllerPartA({
     workflowVariables, workflowHostProfiles, workflowAuthProfiles,
     workflowServices, workflowErrorConfig,
     nodeInitialVarsRef, nodesRef, selectedNodeId,
-    nextNodeY, setNodes, setWorkflowVariables, workflowVariablesRef,
+    nextNodeYRef, setNodes, setWorkflowVariables, workflowVariablesRef,
     update, clipboard, undoRedo, toast,
   });
 
@@ -240,7 +240,7 @@ export function useWorkflowDesignerControllerPartA({
     setNodeCtxMenu,
     showMinimap,
     setShowMinimap,
-    nextNodeY,
+    nextNodeYRef,
     toast,
     showShortcuts,
     setShowShortcuts,
@@ -265,6 +265,7 @@ export function useWorkflowDesignerControllerPartA({
     versioning,
     handleAutoLayout,
     clipboard,
+    wfFolders,
   };
 }
 

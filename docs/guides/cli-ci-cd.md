@@ -64,7 +64,7 @@ jobs:
         run: |
           npx redfireforge-cli run tests/api-test.yaml \
             --concurrency 5 \
-            --transactions 100 \
+            --iterations 100 \
             --junit test-results.xml \
             --fail-on-error \
             -q
@@ -117,7 +117,7 @@ jobs:
         run: |
           npx tsx cli/index.ts run tests/api-test.yaml \
             --concurrency 5 \
-            --transactions 100 \
+            --iterations 100 \
             --junit test-results.xml \
             --fail-on-error \
             -q
@@ -172,7 +172,7 @@ jobs:
             --base-url ${{ vars.API_BASE_URL }} \
             --env ${{ github.event.inputs.environment }} \
             --concurrency 10 \
-            --transactions 500 \
+            --iterations 500 \
             --junit results-${{ github.event.inputs.environment }}.xml \
             --markdown results-${{ github.event.inputs.environment }}.md \
             --fail-threshold 5 \
@@ -263,7 +263,7 @@ jobs:
         run: |
           npx tsx cli/index.ts run tests/${{ matrix.test-suite }}-test.yaml \
             --concurrency 5 \
-            --transactions 200 \
+            --iterations 200 \
             --junit results-${{ matrix.test-suite }}.xml \
             --fail-on-error \
             -q
@@ -302,7 +302,7 @@ performance-test:
     - |
       npx tsx cli/index.ts run tests/api-test.yaml \
         --concurrency 5 \
-        --transactions 100 \
+        --iterations 100 \
         --junit test-results.xml \
         --output test-results.json \
         --fail-on-error \
@@ -387,7 +387,7 @@ production-test:
       npx tsx cli/index.ts run tests/api-test.yaml \
         --base-url ${PRODUCTION_API_URL} \
         --env production \
-        --transactions 50 \
+        --iterations 50 \
         --concurrency 2 \
         --junit production-results.xml \
         --fail-threshold 1 \
@@ -433,7 +433,7 @@ pipeline {
                     npx tsx cli/index.ts run tests/api-test.yaml \
                         --base-url ${API_BASE_URL} \
                         --concurrency 10 \
-                        --transactions 500 \
+                        --iterations 500 \
                         --junit test-results.xml \
                         --markdown test-results.md \
                         --fail-on-error \
@@ -488,7 +488,7 @@ pipeline {
     parameters {
         choice(name: 'ENVIRONMENT', choices: ['staging', 'production'], description: 'Target environment')
         string(name: 'CONCURRENCY', defaultValue: '5', description: 'Concurrent requests')
-        string(name: 'TRANSACTIONS', defaultValue: '100', description: 'Total transactions')
+        string(name: 'ITERATIONS', defaultValue: '100', description: 'Total iterations')
         booleanParam(name: 'FAIL_ON_ERROR', defaultValue: true, description: 'Fail build on test failure')
     }
     
@@ -500,7 +500,7 @@ pipeline {
                         --base-url \${${params.ENVIRONMENT.toUpperCase()}_API_URL} \
                         --env ${params.ENVIRONMENT} \
                         --concurrency ${params.CONCURRENCY} \
-                        --transactions ${params.TRANSACTIONS} \
+                        --iterations ${params.ITERATIONS} \
                         --junit results.xml \
                         ${params.FAIL_ON_ERROR ? '--fail-on-error' : ''} \
                         -q
@@ -548,7 +548,7 @@ stages:
           - script: |
               npx tsx cli/index.ts run tests/api-test.yaml \
                 --concurrency 10 \
-                --transactions 500 \
+                --iterations 500 \
                 --junit $(Build.ArtifactStagingDirectory)/test-results.xml \
                 --output $(Build.ArtifactStagingDirectory)/test-results.json \
                 --fail-on-error \
@@ -628,7 +628,7 @@ jobs:
           command: |
             npx tsx cli/index.ts run tests/api-test.yaml \
               --concurrency 5 \
-              --transactions 200 \
+              --iterations 200 \
               --junit test-results/results.xml \
               --fail-on-error \
               -q
@@ -730,11 +730,11 @@ Quick smoke tests on PRs, full tests on main:
 ```yaml
 # Smoke test (fast)
 - if: github.event_name == 'pull_request'
-  run: npx tsx cli/index.ts run tests/api-test.yaml -c 1 -t 10 --tags smoke
+  run: npx tsx cli/index.ts run tests/api-test.yaml -c 1 -i 10 --tags smoke
 
 # Full test (main only)  
 - if: github.ref == 'refs/heads/main'
-  run: npx tsx cli/index.ts run tests/api-test.yaml -c 10 -t 500
+  run: npx tsx cli/index.ts run tests/api-test.yaml -c 10 -i 500
 ```
 
 ### 7. Archive All Reports

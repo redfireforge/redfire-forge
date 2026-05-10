@@ -5,7 +5,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import DataSourceRowDetailModal from './DataSourceRowDetailModal';
-import type { Scenario, DataSource, DataSourceRow } from '../../../shared/types';
+import type { Scenario, DataSource, DataSourceRow, DataSourceColumn } from '../../../shared/types';
 
 vi.mock('../../workflow/components/modals/WorkflowEditorModalFrame', () => ({
   default: ({ title, children, footer }: { title: string; children: React.ReactNode; footer?: React.ReactNode }) => (
@@ -752,7 +752,7 @@ describe('DataSourceRowDetailModal', () => {
       dt.columns.push({
         id: 'cx',
         name: 'extra',
-        type: 'not-a-real-type' as any,
+        type: 'not-a-real-type' as unknown as DataSourceColumn['type'],
         mapping: 'x',
       });
       const row = createRow();

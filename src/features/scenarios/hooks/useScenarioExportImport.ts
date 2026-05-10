@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useState, useMemo } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import type { FeatureGroup, TestScenario, Scenario, SharedDataSource } from '../../../shared/types';
 import { saveJsonFile, buildExportFilename } from '../../../shared/utils/fileSaver';
@@ -42,11 +42,15 @@ export function useScenarioExportImport({
   setCsvImportOpen,
   confirm,
 }: UseScenarioExportImportParams) {
-  const exportMeta = { microservice: selectedSvcName || undefined, environment: selectedEnvName || undefined };
+  const exportMeta = useMemo(
+    () => ({ microservice: selectedSvcName || undefined, environment: selectedEnvName || undefined }),
+    [selectedSvcName, selectedEnvName],
+  );
   const [pendingImport, setPendingImport] = useState<PendingImport | null>(null);
 
-  const fname = (level: string, name?: string) =>
-    buildExportFilename({ env: selectedEnvName, svc: selectedSvcName, level, name });
+  const fname = useCallback((level: string, name?: string) =>
+    buildExportFilename({ env: selectedEnvName, svc: selectedSvcName, level, name }),
+  [selectedEnvName, selectedSvcName]);
 
   const downloadJson = (data: unknown, filename: string) => saveJsonFile(data, filename);
 
@@ -93,7 +97,7 @@ export function useScenarioExportImport({
       (payload as unknown as Record<string, unknown>).sharedDataSources = sharedDataSources;
     }
     downloadJson(payload, fname('feature-groups'));
-  }, [featureGroups, sharedDataSources, exportMeta]);
+  }, [featureGroups, sharedDataSources, exportMeta, fname]);
 
   const importAll = useCallback(() => {
     if (!selectedSvcId || !selectedEnvId) { confirm('Import Error', 'Select a microservice and environment first.', () => {}); return; }
@@ -146,16 +150,18 @@ export function useScenarioExportImport({
         doFeatureGroupImport(items);
       }
     }, (msg) => confirm('Import Error', msg, () => {}));
-  }, [featureGroups, sharedDataSources, selectedSvcId, selectedEnvId, setFeatureGroups, setSharedDataSources, applyImportVersionOpts, confirm]);
+  }, [featureGroups, selectedSvcId, selectedEnvId, setFeatureGroups, setSharedDataSources, applyImportVersionOpts, confirm]);
 
   const handleCsvImport = useCallback((fgId: string, scenarioId: string, tests: Scenario[]) => {
     const scenName = scenarioId.startsWith('__new__:') ? scenarioId.slice('__new__:'.length) : '';
 
     if (fgId.startsWith('__new_fg__:')) {
       const fgName = fgId.slice('__new_fg__:'.length);
+      const importedKind = tests.some(t => t.dataSource || t.sharedDataSourceId) ? 'parameterized' as const : 'standard' as const;
       const newScenario: TestScenario = {
         id: uuidv4(),
         name: scenName || 'Imported Tests',
+        kind: importedKind,
         tests,
       };
       const newFg: FeatureGroup = {
@@ -172,9 +178,11 @@ export function useScenarioExportImport({
       if (fg.id !== fgId) return fg;
 
       if (scenName) {
+        const importKind = tests.some(t => t.dataSource || t.sharedDataSourceId) ? 'parameterized' as const : 'standard' as const;
         const newScenario: TestScenario = {
           id: uuidv4(),
           name: scenName,
+          kind: importKind,
           tests,
         };
         return { ...fg, scenarios: [...fg.scenarios, newScenario] };
@@ -193,7 +201,7 @@ export function useScenarioExportImport({
 
   const exportFeatureGroup = useCallback((fg: FeatureGroup, versionOpts?: VersionExportOptions) => {
     downloadJson(wrapExport(fg, 'feature-group', exportMeta, versionOpts), fname('feature', fg.name));
-  }, [exportMeta]);
+  }, [exportMeta, fname]);
 
   const importScenariosInto = useCallback((featureId: string) => {
     importWithVersionPrompt<TestScenario>(
@@ -221,11 +229,11 @@ export function useScenarioExportImport({
         ));
       },
     );
-  }, [featureGroups, setFeatureGroups, importWithVersionPrompt]);
+  }, [featureGroups, setFeatureGroups, importWithVersionPrompt, confirm]);
 
   const exportScenario = useCallback((sc: TestScenario, versionOpts?: VersionExportOptions) => {
     downloadJson(wrapExport(sc, 'scenario', exportMeta, versionOpts), fname('scenario', sc.name));
-  }, [exportMeta]);
+  }, [exportMeta, fname]);
 
   const importTestsInto = useCallback((featureId: string, scenarioId: string) => {
     importWithVersionPrompt<Scenario>(
@@ -260,11 +268,11 @@ export function useScenarioExportImport({
         }));
       },
     );
-  }, [featureGroups, setFeatureGroups, importWithVersionPrompt]);
+  }, [featureGroups, setFeatureGroups, importWithVersionPrompt, confirm]);
 
   const exportTest = useCallback((t: Scenario, versionOpts?: VersionExportOptions) => {
     downloadJson(wrapExport(t, 'test', exportMeta, versionOpts), fname('test', t.name));
-  }, [exportMeta]);
+  }, [exportMeta, fname]);
 
   return {
     exportAll,

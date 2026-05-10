@@ -1,6 +1,7 @@
 /**
  * @vitest-environment jsdom
  */
+import type { Workflow } from '../types/workflow';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
 
@@ -8,28 +9,27 @@ import { renderHook, act, waitFor } from '@testing-library/react';
 
 vi.mock('uuid', () => ({ v4: vi.fn(() => 'mock-uuid') }));
 
-const mockLoadWorkflows = vi.fn<() => Promise<any[]>>().mockResolvedValue([]);
-const mockSaveWorkflows = vi.fn<(wfs: any[]) => Promise<void>>().mockResolvedValue(undefined);
+const mockLoadWorkflows = vi.fn<() => Promise<Workflow[]>>().mockResolvedValue([]);
+const mockSaveWorkflows = vi.fn<(wfs: Workflow[]) => Promise<void>>().mockResolvedValue(undefined);
 const mockLoadSelectedId = vi.fn<() => Promise<string | null>>().mockResolvedValue(null);
 const mockSaveSelectedId = vi.fn<(id: string | null) => Promise<void>>().mockResolvedValue(undefined);
 
 vi.mock('../../../shared/utils/storage', () => ({
-  loadWorkflows: (...args: any[]) => mockLoadWorkflows(...args),
-  saveWorkflows: (...args: any[]) => mockSaveWorkflows(...args),
-  loadSelectedWorkflowId: (...args: any[]) => mockLoadSelectedId(...args),
-  saveSelectedWorkflowId: (...args: any[]) => mockSaveSelectedId(...args),
+  loadWorkflows: () => mockLoadWorkflows(),
+  saveWorkflows: (workflows: Workflow[]) => mockSaveWorkflows(workflows),
+  loadSelectedWorkflowId: () => mockLoadSelectedId(),
+  saveSelectedWorkflowId: (id: string | null) => mockSaveSelectedId(id),
 }));
 
 const mockMigrateWorkflow = vi.hoisted(() =>
-  vi.fn((wf: any) => ({ ...wf, schemaVersion: 5 })),
+  vi.fn((wf: Workflow) => ({ ...wf, schemaVersion: 5 })),
 );
 
 vi.mock('../utils/workflowMigrations', () => ({
-  migrateWorkflowSchema: (wf: unknown) => mockMigrateWorkflow(wf as any),
+  migrateWorkflowSchema: (wf: unknown) => mockMigrateWorkflow(wf as Workflow),
 }));
 
 import { useWorkflows } from './useWorkflows';
-import type { Workflow } from '../types/workflow';
 
 const makeWorkflow = (overrides: Partial<Workflow> = {}): Workflow => ({
   id: 'wf-1',
@@ -51,7 +51,7 @@ const makeWorkflow = (overrides: Partial<Workflow> = {}): Workflow => ({
 describe('useWorkflows', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockMigrateWorkflow.mockImplementation((wf: any) => ({ ...wf, schemaVersion: 5 }));
+    mockMigrateWorkflow.mockImplementation((wf: Workflow) => ({ ...wf, schemaVersion: 5 }));
     mockLoadWorkflows.mockResolvedValue([]);
     mockLoadSelectedId.mockResolvedValue(null);
   });
@@ -148,7 +148,7 @@ describe('useWorkflows', () => {
     const { result } = renderHook(() => useWorkflows());
     await waitFor(() => expect(result.current.loaded).toBe(true));
 
-    let created: any;
+    let created: Workflow | undefined;
     act(() => { created = result.current.create('New WF'); });
 
     expect(created).toBeDefined();

@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RedfireForge — Sub-Workflow Drill-Down Training Manual</title>
+<style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .flow-diagram {
+    background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px;
+    padding: 16px; margin: 12px 0 18px; font-family: monospace; font-size: 12px;
+    line-height: 1.8; white-space: pre; overflow-x: auto;
+  }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-warn {
+    background: #fff8e1; border-left-color: #f4a261;
+  }
+  .callout-tip {
+    background: #e8f5e9; border-left-color: #2e7d32;
+  }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  .toc { margin: 20px 0; }
+  .toc a { color: #1d3557; text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+  .toc li { margin-bottom: 6px; font-size: 13.5px; }
+  .feature-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 10px 0 18px; }
+  .feature-card {
+    background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 6px; padding: 10px 14px;
+  }
+  .feature-card strong { font-size: 12.5px; display: block; margin-bottom: 4px; color: #1d3557; }
+  .feature-card p { font-size: 11.5px; margin: 0; color: #495057; }
+  .step-num {
+    display: inline-block; width: 24px; height: 24px; background: #e63946; color: #fff;
+    border-radius: 50%; text-align: center; line-height: 24px; font-size: 12px; font-weight: 700;
+    margin-right: 6px;
+  }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+</style>
+</head>
+<body>
+
+<!-- COVER PAGE -->
+<div class="cover-page">
+  <h1>Sub-Workflow Drill-Down</h1>
+  <div class="subtitle">Navigate Into Nested Workflow Executions</div>
+  <p style="margin-bottom: 12px;">
+    <span class="badge badge-medium">Medium</span>
+  </p>
+  <p style="max-width: 560px; color: #495057; font-size: 14px;">
+    When a workflow calls a child workflow via a Sub-Workflow node, the Results Explorer lets you
+    drill down into that child&rsquo;s full execution trace &mdash; viewing its diagram, timeline,
+    detail tabs, and iteration data without leaving the explorer.
+  </p>
+  <div class="meta">
+    <strong>RedfireForge &mdash; Redfire Performance Workbench</strong><br>
+    Document &mdash; May 2026<br>
+    <em>Print this page to PDF: Ctrl/Cmd + P &rarr; Save as PDF</em>
+  </div>
+</div>
+
+<!-- TABLE OF CONTENTS -->
+<div class="page-break"></div>
+<h2>Table of Contents</h2>
+<ol class="toc">
+  <li><a href="#what-is">What is Sub-Workflow Drill-Down?</a></li>
+  <li><a href="#prerequisites">Prerequisites</a></li>
+  <li><a href="#how-to-drill">How to Drill Down</a></li>
+  <li><a href="#breadcrumbs">Breadcrumb Navigation</a></li>
+  <li><a href="#visual-cues">Visual Cues for Sub-Workflow Nodes</a></li>
+  <li><a href="#timeline-drilldown">Drill-Down from Timeline View</a></li>
+  <li><a href="#detail-panel">Detail Panel for Sub-Workflow Nodes</a></li>
+  <li><a href="#multi-level">Multi-Level Nesting</a></li>
+  <li><a href="#sample-workflows">Sample Workflows to Practice</a></li>
+  <li><a href="#tips">Tips &amp; Best Practices</a></li>
+  <li><a href="#related">Related Training</a></li>
+</ol>
+
+<!-- WHAT IS SUB-WORKFLOW DRILL-DOWN? -->
+<div class="page-break"></div>
+<h2 id="what-is">What is Sub-Workflow Drill-Down?</h2>
+<p>
+  A <strong>Sub-Workflow node</strong> executes an entire child workflow as a single step in the parent.
+  The parent sees it as one node with a total duration, but inside it may contain dozens of HTTP calls,
+  conditions, and even further nested sub-workflows.
+</p>
+<p>
+  <strong>Drill-down</strong> lets you open that child workflow&rsquo;s execution trace directly inside
+  the Results Explorer. The parent trace is pushed onto a stack, and you see the child&rsquo;s full
+  diagram (or timeline), detail tabs, and iteration data. When you&rsquo;re done, navigate back to
+  the parent via the breadcrumb bar.
+</p>
+
+<div class="flow-diagram">
+Parent Workflow (Results Explorer)
+┌─────────────┐     ┌──────────────────┐     ┌──────────────┐
+│  Get Users  │ ──→ │ Process Each User│ ──→ │   Summarize  │
+│   (HTTP)    │     │  (Sub-Workflow)  │     │    (HTTP)    │
+└─────────────┘     └──────────────────┘     └──────────────┘
+                           │ drill down
+                           ▼
+                    Child Workflow (Results Explorer)
+                    ┌───────────┐     ┌───────────┐
+                    │ Get Posts │ ──→ │ Get Stats │
+                    │  (HTTP)   │     │  (HTTP)   │
+                    └───────────┘     └───────────┘
+</div>
+
+<!-- PREREQUISITES -->
+<h2 id="prerequisites">Prerequisites</h2>
+<ol>
+  <li>
+    <strong>Enable Capture Full Trace</strong> in the Workflow Runner before executing. Sub-workflow
+    trace data is only available when full trace capture is enabled.
+  </li>
+  <li>
+    <strong>The workflow must contain Sub-Workflow nodes</strong> &mdash; these are nodes of type
+    <code>subWorkflow</code> that reference another workflow by ID.
+  </li>
+</ol>
+<div class="callout callout-warn">
+  <strong>Without full trace</strong>
+  If full trace capture was not enabled, the detail panel will show the sub-workflow node&rsquo;s
+  summary (pass/fail, duration) but the drill-down button will be unavailable since the child
+  trace was not captured.
+</div>
+
+<!-- HOW TO DRILL DOWN -->
+<div class="page-break"></div>
+<h2 id="how-to-drill">How to Drill Down</h2>
+
+<h3>From the Diagram view</h3>
+<ol>
+  <li><span class="step-num">1</span> Open the Results Explorer for a completed run.</li>
+  <li><span class="step-num">2</span> Select a specific <strong>iteration</strong> (drill-down is not available in aggregate mode).</li>
+  <li><span class="step-num">3</span> Click the <strong>Sub-Workflow node</strong> on the diagram to select it.</li>
+  <li><span class="step-num">4</span> In the <strong>detail panel</strong> (right side), look for the <strong>Drill Down</strong> button in the Overview tab.</li>
+  <li><span class="step-num">5</span> Click <strong>Drill Down</strong> &mdash; the explorer transitions to the child workflow&rsquo;s trace.</li>
+</ol>
+
+<h3>From the Timeline view</h3>
+<ol>
+  <li><span class="step-num">1</span> Switch to Timeline mode (<code>T</code> key).</li>
+  <li><span class="step-num">2</span> Locate the sub-workflow bar &mdash; it&rsquo;s <strong>indigo</strong> colored with a <strong>SUB</strong> badge.</li>
+  <li><span class="step-num">3</span> Click the <strong>&#x2935; drill-down icon</strong> at the right end of the bar.</li>
+</ol>
+
+<div class="callout callout-tip">
+  <strong>Tip:</strong>
+  The drill-down icon on timeline bars is a shortcut &mdash; it navigates directly into the child
+  workflow without needing to open the detail panel first.
+</div>
+
+<!-- BREADCRUMB NAVIGATION -->
+<h2 id="breadcrumbs">Breadcrumb Navigation</h2>
+<p>
+  After drilling down, a <strong>breadcrumb bar</strong> appears at the top of the Results Explorer
+  showing the navigation stack:
+</p>
+<div class="flow-diagram">
+  Parent Workflow  ›  Process Each User  ›  (current child view)
+</div>
+<ul>
+  <li>Click any breadcrumb segment to <strong>jump back</strong> to that level.</li>
+  <li>The <strong>leftmost segment</strong> is always the root (outermost) workflow.</li>
+  <li>Your selection and iteration state at each level are <strong>preserved</strong> when you navigate back.</li>
+</ul>
+<p>
+  The breadcrumb uses the child workflow&rsquo;s <strong>name</strong> as the label, so you always
+  know which nested level you&rsquo;re viewing.
+</p>
+
+<!-- VISUAL CUES FOR SUB-WORKFLOW NODES -->
+<div class="page-break"></div>
+<h2 id="visual-cues">Visual Cues for Sub-Workflow Nodes</h2>
+<p>Sub-workflow nodes are visually distinct in both Diagram and Timeline views:</p>
+
+<h3>In the Diagram</h3>
+<ul>
+  <li>Sub-workflow nodes have a <strong>special node shape</strong> on the React Flow canvas, distinguishing
+    them from HTTP, condition, and other node types.</li>
+  <li>When selected, the detail panel shows sub-workflow-specific information including child workflow name,
+    execution status, and the drill-down button.</li>
+</ul>
+
+<h3>In the Timeline</h3>
+<table>
+  <tr><th>Visual Cue</th><th>Description</th></tr>
+  <tr>
+    <td><strong>Indigo bar color</strong></td>
+    <td>Sub-workflow bars render in indigo (#818cf8) instead of the standard green, immediately standing out from HTTP bars.</td>
+  </tr>
+  <tr>
+    <td><strong>Indigo dot</strong></td>
+    <td>The label column&rsquo;s status dot is indigo instead of green for passing sub-workflow nodes.</td>
+  </tr>
+  <tr>
+    <td><strong>SUB badge</strong></td>
+    <td>A small &ldquo;SUB&rdquo; pill badge appears next to the node name in the label column.</td>
+  </tr>
+  <tr>
+    <td><strong>Drill-down icon (&#x2935;)</strong></td>
+    <td>A white circle with an indigo arrow at the right end of the bar. Click to navigate into the child trace.</td>
+  </tr>
+</table>
+
+<div class="callout">
+  <strong>Failed sub-workflows</strong>
+  If the child workflow failed, the bar color is <strong>red</strong> (not indigo) and the status dot is red,
+  following the same fail convention as HTTP nodes. The SUB badge and drill-down icon remain available.
+</div>
+
+<!-- DRILL-DOWN FROM TIMELINE VIEW -->
+<h2 id="timeline-drilldown">Drill-Down from Timeline View</h2>
+<p>
+  The Timeline view provides a <strong>direct drill-down path</strong> that bypasses the detail panel:
+</p>
+<ol>
+  <li>The &#x2935; icon only appears in <strong>single-iteration mode</strong> (not aggregate).</li>
+  <li>Clicking the icon navigates into the child workflow and opens it in whichever view mode (Diagram or Timeline) you were using.</li>
+  <li>Inside the child, you can toggle between Diagram and Timeline freely.</li>
+  <li>Click a breadcrumb to return to the parent &mdash; your previous view mode and selection are restored.</li>
+</ol>
+<p>
+  Clicking the <em>bar itself</em> (not the icon) selects the node and opens the detail panel,
+  just like any other node. This lets you inspect the sub-workflow&rsquo;s overview without drilling down.
+</p>
+
+<!-- DETAIL PANEL FOR SUB-WORKFLOW NODES -->
+<div class="page-break"></div>
+<h2 id="detail-panel">Detail Panel for Sub-Workflow Nodes</h2>
+<p>
+  When you select a sub-workflow node (without drilling down), the detail panel shows:
+</p>
+<table>
+  <tr><th>Tab</th><th>Content for Sub-Workflow Nodes</th></tr>
+  <tr>
+    <td><strong>Overview</strong></td>
+    <td>Child workflow name, pass/fail status, total duration, and the <strong>Drill Down</strong> button.</td>
+  </tr>
+  <tr>
+    <td><strong>Variables</strong></td>
+    <td>Input variables passed to the child workflow and any variables extracted after completion.</td>
+  </tr>
+  <tr>
+    <td><strong>Request / Response</strong></td>
+    <td>Not applicable for sub-workflow nodes (these tabs may be empty or hidden).</td>
+  </tr>
+  <tr>
+    <td><strong>Assertions</strong></td>
+    <td>Any assertions configured on the sub-workflow node itself (parent-level checks on the child outcome).</td>
+  </tr>
+</table>
+
+<!-- MULTI-LEVEL NESTING -->
+<h2 id="multi-level">Multi-Level Nesting</h2>
+<p>
+  Sub-workflows can call other sub-workflows, creating multiple levels of nesting. The drill-down
+  system supports <strong>unlimited depth</strong>:
+</p>
+<div class="flow-diagram">
+  Main Workflow  ›  Process Orders  ›  Ship Package  ›  (viewing level 3)
+</div>
+<ul>
+  <li>Each drill-down pushes onto the trace stack.</li>
+  <li>The breadcrumb bar grows with each level.</li>
+  <li>Click any breadcrumb segment to jump directly to that level (not just &ldquo;back one&rdquo;).</li>
+</ul>
+<div class="callout callout-warn">
+  <strong>Performance note</strong>
+  Deeply nested workflows with many iterations generate large trace data. If the trace was not
+  fully captured at deep levels, you may see limited data for inner sub-workflows.
+</div>
+
+<!-- SAMPLE WORKFLOWS TO PRACTICE -->
+<div class="page-break"></div>
+<h2 id="sample-workflows">Sample Workflows to Practice</h2>
+<p>
+  Load these from the <strong>Gallery</strong> to practice drill-down:
+</p>
+<table>
+  <tr><th>Sample</th><th>What to explore</th></tr>
+  <tr>
+    <td><strong>Sub-Workflow Orchestrator</strong></td>
+    <td>Parent fetches users, then calls a child workflow per user. Drill down into the child to see per-user API calls.</td>
+  </tr>
+  <tr>
+    <td><strong>Order Pipeline with Sub-Workflow</strong></td>
+    <td>Conditional branching: express vs standard shipping sub-workflows. Compare child execution across iterations.</td>
+  </tr>
+  <tr>
+    <td><strong>Multi-Region Deploy Orchestrator</strong></td>
+    <td>Fork/join combined with sub-workflows &mdash; drill into parallel deploy children to see per-region timing.</td>
+  </tr>
+</table>
+
+<!-- TIPS & BEST PRACTICES -->
+<h2 id="tips">Tips &amp; Best Practices</h2>
+<ul>
+  <li><strong>Always enable full trace capture</strong> when testing workflows with sub-workflow nodes. Without it,
+    drill-down data is unavailable.</li>
+  <li><strong>Use Timeline view</strong> to quickly identify sub-workflow bars by their indigo color, then drill down
+    to investigate their internal timing breakdown.</li>
+  <li><strong>Compare parent and child duration</strong> &mdash; the parent sees the sub-workflow as one bar;
+    drilling down reveals whether time was spent in one child step or spread across many.</li>
+  <li><strong>Check the breadcrumb</strong> to orient yourself &mdash; in deeply nested workflows it&rsquo;s easy
+    to lose track of which level you&rsquo;re viewing.</li>
+  <li><strong>In aggregate mode</strong>, select a specific iteration before drilling down. Drill-down requires
+    a single iteration&rsquo;s trace data.</li>
+  <li><strong>Look for the &#x2935; icon</strong> on Timeline bars as the fastest path to drill-down &mdash; it
+    saves you from opening the detail panel first.</li>
+</ul>
+
+<!-- RELATED TRAINING -->
+<h2 id="related">Related Training</h2>
+<ul>
+  <li><a href="./results-explorer-medium.html">Results Explorer</a> &mdash; the full three-panel modal reference.</li>
+  <li><a href="./results-explorer-timeline-medium.html">Timeline View (Gantt Chart)</a> &mdash; understanding the time-axis visualization.</li>
+  <li><a href="../../orchestration/sub-workflow-advanced.html">Sub-Workflow Orchestrator</a> &mdash; how to build workflows that call child workflows.</li>
+  <li><a href="../../orchestration/order-pipeline-advanced.html">Order Pipeline with Sub-Workflow</a> &mdash; conditional sub-workflow branching.</li>
+</ul>
+
+<footer>
+  RedfireForge Training Manual &mdash; Sub-Workflow Drill-Down &mdash; Medium &mdash; May 2026
+</footer>
+
+</body>
+</html>

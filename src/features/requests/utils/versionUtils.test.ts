@@ -14,7 +14,7 @@ describe('buildRulesSnapshot', () => {
       excludedPaths: ['$.z', '$.a'],
       unorderedArrays: true,
     };
-    const result = buildRulesSnapshot(version as any);
+    const result = buildRulesSnapshot(version as Parameters<typeof buildRulesSnapshot>[0]);
     expect(result.mode).toBe('strict');
     expect(result.selectiveMode).toBe('include');
     expect(result.expectedFields[0].jsonPath).toBe('$.a');
@@ -25,7 +25,7 @@ describe('buildRulesSnapshot', () => {
 
   it('handles missing optional fields with defaults', () => {
     const version = { id: 'v2' };
-    const result = buildRulesSnapshot(version as any);
+    const result = buildRulesSnapshot(version as Parameters<typeof buildRulesSnapshot>[0]);
     expect(result.mode).toBe('none');
     expect(result.selectiveMode).toBe('include');
     expect(result.expectedFields).toEqual([]);
@@ -37,7 +37,7 @@ describe('buildRulesSnapshot', () => {
     const fields = [{ jsonPath: '$.b', type: 'string' }, { jsonPath: '$.a', type: 'number' }];
     const excluded = ['$.z', '$.a'];
     const version = { id: 'v3', expectedFields: fields, excludedPaths: excluded };
-    buildRulesSnapshot(version as any);
+    buildRulesSnapshot(version as Parameters<typeof buildRulesSnapshot>[0]);
     expect(fields[0].jsonPath).toBe('$.b'); // unchanged
     expect(excluded[0]).toBe('$.z'); // unchanged
   });

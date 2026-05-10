@@ -121,8 +121,8 @@ npx tsx cli/index.ts validate examples/cli-basic-test.yaml
 # Run a simple test
 npx tsx cli/index.ts run examples/cli-basic-test.yaml
 
-# Run with concurrency and transactions
-npx tsx cli/index.ts run examples/cli-basic-test.yaml -c 5 -t 50
+# Run with concurrency and iterations
+npx tsx cli/index.ts run examples/cli-basic-test.yaml -c 5 -i 50
 
 # Run parameterized tests with tags
 npx tsx cli/index.ts run examples/cli-parameterized.yaml --tags smoke,critical
@@ -145,7 +145,7 @@ npx tsx cli/index.ts workflow examples/workflow-cli-parallel.yaml -i 20 -c 3
 | Flag | Description |
 |---|---|
 | `-c, --concurrency <n>` | Number of concurrent requests |
-| `-t, --transactions <n>` | Total number of requests (or `-i, --iterations` for workflows) |
+| `-i, --iterations <n>` | Number of iterations (how many times each test runs) |
 | `--timeout <sec>` | Per-request timeout |
 | `--base-url <url>` | Override the base URL for all tests |
 | `-o, --output <path>` | Write JSON report |
@@ -186,7 +186,7 @@ tests:
 # GitHub Actions, Jenkins, etc.
 npx tsx cli/index.ts run tests/api-test.yaml \
   --concurrency 10 \
-  --transactions 100 \
+  --iterations 100 \
   --junit results.xml \
   --fail-on-error \
   -q
@@ -229,13 +229,15 @@ src/
 ├── styles/                  # Modular CSS (sidebar, settings, scenario-builder, etc.)
 ├── pages/
 │   ├── ScenarioBuilder.tsx     # Feature Groups → Scenarios → Tests editor
-│   ├── TestRunner.tsx          # Configure & execute performance runs
+│   ├── TestRunner.tsx          # Test Runner: standard scenario load testing
+│   ├── ParameterizedRunner.tsx # Parameterized Runner: data-driven testing
 │   ├── ResultsDashboard.tsx    # View & analyze historical test results
 │   ├── Requests.tsx            # Requests: ad-hoc API testing (Insomnia/Postman-style)
 │   ├── ApiCatalog.tsx          # API Catalog: OpenAPI/Swagger browser & interactive testing
 │   └── EnvironmentManager.tsx  # Unified environment, microservice, and auth profile management
 ├── engine/
 │   ├── executor.ts          # Orchestration layer (re-exports from focused modules)
+│   ├── allocationEngine.ts  # Shared allocation engine (computeAllocation)
 │   ├── tokenManager.ts      # OAuth2 token cache with JWT expiry detection
 │   ├── circuitBreaker.ts    # Error policy: continue, stop-first, stop-threshold
 │   ├── requestExecution.ts  # executeRequest, executeWithRetry, runSequential/Batch/Pool
@@ -718,9 +720,21 @@ The left sidebar uses a vertical **Requests | Catalog | Harness** nav rail:
 - The sidebar is resizable (drag the right edge) and collapsible (toggle button).
 - **Settings** is always accessible at the bottom of the sidebar.
 
-### Test Runner
+### Test Runners
 
-Navigate to the **Test Runner** tab (second tab).
+RedfireForge provides three specialized runners for different test types:
+
+| Runner | Purpose | Input |
+|---|---|---|
+| **Test Runner** | Standard scenario load testing | Standard scenarios (no data sources) |
+| **Parameterized Runner** | Data-driven testing | Parameterized scenarios (CSV/Excel data) |
+| **Workflow Runner** | Multi-step flow testing | Workflows from the Designer |
+
+Navigate to **Testing** in the Activity Bar, then select the appropriate runner tab.
+
+**Scenario Types:**
+
+When creating a scenario in Feature Groups, you choose its type — **Standard** or **Parameterized**. Each runner only shows matching scenarios. This prevents confusion about how iterations interact with data rows.
 
 **Host Selection:**
 
@@ -732,10 +746,7 @@ Choose which hostname is used at runtime:
 | **Settings** | Replaces the hostname/port with the base URL configured in Settings for the current environment/microservice. Disabled if no URL is configured. |
 | **Custom** | Type a temporary base URL — useful for testing against a specific instance without changing Settings. |
 
-**Options:**
-
-- **Skip Validation**: Disables all response validation for the run. Useful for pure throughput testing.
-- **Execution Mode**:
+**Execution Modes:**
 
 | Mode | Concurrency | How It Works |
 |---|---|---|
@@ -750,7 +761,7 @@ All execution settings are grouped in a single unified card below the Execution 
 | Field | Description |
 |---|---|
 | **Concurrency** | Number of parallel requests (1–100). Fixed to 1 in Sequential mode. Disabled (visible) in Load Profile mode. |
-| **Transactions** | Total number of requests to execute. Disabled in Load Profile mode (time-based). |
+| **Iterations** | How many times each test runs. For parameterized tests: iterations × data rows = total requests. |
 | **Timeout** | Per-request timeout in seconds (0 = unlimited, default 10s). Timed-out requests are recorded as failures. |
 | **Retry** | Number of retry attempts on failure (0–10). When > 0, a Retry Delay field appears. |
 | **Retry Delay** | Milliseconds to wait between retry attempts (shown only when Retry > 0). |
@@ -758,20 +769,20 @@ All execution settings are grouped in a single unified card below the Execution 
 | **Max Errors** | Stop after this many errors (only active in Threshold mode). |
 | **Error Rate** | Stop when error percentage exceeds this value (only active in Threshold mode, requires minimum 10 samples). |
 | **Skip Validation** | Checkbox in the scenario selection header. Disables all response validation for pure throughput testing. |
-| **Test Distribution (Weights)** | Set relative weights per test. A test with weight `2` runs roughly twice as often as one with weight `1`. Set to `0` to skip a test without deselecting it. |
 
 **Running a Test:**
 
-1. Select one or more Scenarios using the checkboxes. Use **Skip validation** to disable response checks or **Unordered arrays** to force order-independent array matching for all tests.
-2. Configure concurrency, transactions, timeout, retry, and error policy.
-3. Optionally configure **Think Time** to add realistic delays between requests (None, Constant, Uniform random, or Gaussian distribution).
-4. Optionally add **Rich Assertions** in the Validation tab — status code, response time SLA, header checks, or regex matches that run on every request.
-5. Click **▶ Run Test**.
-5. A live progress bar shows completion percentage, current TPS, average response time, and error rate. Tags next to "Progress" show the execution mode, concurrency, total transactions, think time config (if active), and active host.
-6. Click **■ Stop** to abort early. The circuit breaker may also stop the run automatically based on the error policy.
-7. When complete, results auto-navigate to the Results tab.
+1. Select one or more scenarios using the checkboxes. Use **Skip validation** to disable response checks or **Unordered arrays** to force order-independent array matching for all tests.
+2. Review the **Execution Plan Preview** — shows exact request count before you run.
+3. Configure concurrency, iterations, timeout, retry, and error policy.
+4. Optionally configure **Think Time** to add realistic delays between requests (None, Constant, Uniform random, or Gaussian distribution).
+5. Optionally add **Rich Assertions** in the Validation tab — status code, response time SLA, header checks, or regex matches that run on every request.
+6. Click **▶ Run Test**.
+7. A live progress bar shows completion percentage, current TPS, average response time, and error rate.
+8. Click **■ Stop** to abort early. The circuit breaker may also stop the run automatically based on the error policy.
+9. When complete, results auto-navigate to the Results tab.
 
-All runner settings (concurrency, transactions, timeout, retry, error policy, think time, selected scenarios, weights, host mode, execution mode, skip validation) are **persisted across sessions**.
+All runner settings (concurrency, iterations, timeout, retry, error policy, think time, selected scenarios, host mode, execution mode, skip validation) are **persisted across sessions**.
 
 **Worker Thread Architecture:**
 
@@ -879,7 +890,7 @@ Navigate to the **Results** tab (third tab).
 
 **Layout:**
 
-- **Row 1**: "Results" heading, context tags (environment, microservice, host, execution mode with `C:` and `T:`), and action buttons (Refresh, Export JSON, Export CSV, Delete) aligned to the far right.
+- **Row 1**: "Results" heading, context tags (environment, microservice, host, execution mode with `C:` and `I:`), and action buttons (Refresh, Export JSON, Export CSV, Delete) aligned to the far right.
 - **Row 2**: Full-width dropdown listing historical runs filtered by the selected environment/microservice. Each entry shows timestamp, service, environment, request count, and TPS.
 
 **Summary Metrics (Row 1):**
@@ -981,7 +992,7 @@ After running a workflow, click **📊 Results Explorer** to open a full-screen 
 | Request timeout | Per-request timeout (0–300s, default 10s); timed-out requests move to next test |
 | Retry on failure | Retry failed requests up to N times with configurable delay between attempts |
 | Error policy (circuit breaker) | Continue, stop on first error, or stop at error count/rate threshold |
-| Unified execution config | Execution Mode, Concurrency, Transactions, Timeout, Retry, Error Policy in one card |
+| Unified execution config | Execution Mode, Concurrency, Iterations, Timeout, Retry, Error Policy in one card |
 | Skip validation toggle | Disable response checks for raw throughput testing |
 | Unordered arrays toggle | Force unordered array matching globally — handles APIs returning arrays in non-deterministic order |
 | Rich assertions | Status code (`200`, `2xx`, `200-299`), response time SLA (`≤ 500ms`), header validation (`equals`/`contains`/`regex`/`exists`), regex on JSONPath values — run on every request alongside JSON validation; **Regex Builder modal** with JSON tree picker, pattern library (17 presets), and live match preview; assertion type badges on test cards |

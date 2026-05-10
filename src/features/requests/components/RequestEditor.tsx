@@ -338,7 +338,7 @@ export default function RequestEditor({
       });
       setInputMode('builder');
     });
-  }, [onUpdateRequest, stripToRelative]);
+  }, [onUpdateRequest, stripToRelative, toast]);
 
   const handleJsonExport = useCallback(async () => {
     const payload = { _exportMeta: { type: 'requests-request', version: 1, exportedAt: new Date().toISOString() },
