@@ -21,7 +21,7 @@ export interface UseGalleryImportDeps {
   featureGroups: FeatureGroup[];
   environments: Environment[];
   microservices: Microservice[];
-  /** Currently-previewed workflow (used to show "✓ Loaded" badge when active). */
+  /** Currently-previewed workflow (passed through for onImportWorkflow). */
   previewWorkflow: Workflow | null;
   /** User's saved workflows (used to detect gallery samples that were "Use as Template"'d). */
   workflows: Workflow[];
@@ -39,7 +39,7 @@ export interface UseGalleryImportDeps {
 
 export function useGalleryImport(deps: UseGalleryImportDeps) {
   const {
-    wb, featureGroups, environments, microservices, previewWorkflow, workflows,
+    wb, featureGroups, environments, microservices, workflows,
     setActiveTab, setPreviewRequest, setPreviewWorkflow,
     setCatalogInitialSpec, setShowCatalogImport,
     setFeatureGroups, setEnvironments, setMicroservices,
@@ -67,12 +67,8 @@ export function useGalleryImport(deps: UseGalleryImportDeps) {
         map[wf.gallerySampleId] = LOADED_SENTINEL;
       }
     }
-    // Track the currently-previewed workflow sample (active but not yet saved).
-    if (previewWorkflow?.id) {
-      map[previewWorkflow.id] = LOADED_SENTINEL;
-    }
     return map;
-  }, [featureGroups, workflows, previewWorkflow]);
+  }, [featureGroups, workflows]);
 
   const onImportRequest = useCallback((entry: GalleryEntry<unknown>) => {
     const scenario = entry.factory() as Scenario;

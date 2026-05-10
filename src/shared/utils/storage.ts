@@ -853,6 +853,16 @@ export async function saveWorkflowSampleDismissed(dismissed: boolean): Promise<v
   await writeKey(WORKFLOWS_SAMPLE_DISMISSED_KEY, dismissed ? 'true' : 'false');
 }
 
+const WORKFLOW_FOLDERS_KEY = 'workflow_folders';
+
+export async function loadWorkflowFolders(): Promise<import('../../features/workflow/types/workflow').WorkflowFolder[]> {
+  try { const r = await readKey(WORKFLOW_FOLDERS_KEY); return r ? JSON.parse(r) : []; } catch { return []; }
+}
+
+export async function saveWorkflowFolders(folders: import('../../features/workflow/types/workflow').WorkflowFolder[]): Promise<void> {
+  await writeKey(WORKFLOW_FOLDERS_KEY, JSON.stringify(folders));
+}
+
 /** Preview sample workflow entry ID — survives refresh via sessionStorage. */
 const WORKFLOW_PREVIEW_SAMPLE_KEY = 'workflow_preview_sample_id';
 

@@ -6,7 +6,7 @@ import { render, screen, fireEvent, waitFor, within } from '@testing-library/rea
 import '@testing-library/jest-dom';
 import WorkflowRunner from './WorkflowRunner';
 import type { Workflow } from '../workflow/types/workflow';
-import { defaultLoadProfile } from './hooks/useRunnerConfig';
+import { defaultLoadProfile } from './hooks/runnerConfigDefaults';
 import type { PersistedProgress } from './utils/runnerProgressStorage';
 import type { RequestResult, TestSummary } from '../../../shared/types';
 import { saveWorkflowRunConfig } from './utils/workflowRunConfigStorage';
@@ -413,6 +413,18 @@ const wfPoll: Workflow = {
 
 const allWorkflowVariants: Workflow[] = [...mockWorkflows, wfWebhookStart, wfWebhookMid, wfWebhookBranchingStart, wfCorr, wfPoll];
 
+const wfIdToName: Record<string, string> = Object.fromEntries(
+  allWorkflowVariants.map((wf) => [wf.id, wf.name])
+);
+
+function selectWorkflowById(id: string) {
+  const trigger = screen.getByTestId('workflow-select');
+  fireEvent.click(trigger);
+  const name = wfIdToName[id];
+  if (!name) throw new Error(`Unknown workflow id in test helper: ${id}`);
+  fireEvent.click(screen.getByText(name));
+}
+
 function ImportSampleHarness(): JSX.Element {
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
   return (
@@ -525,7 +537,8 @@ describe('WorkflowRunner', () => {
   it('renders workflow selector when workflows exist', () => {
     render(<WorkflowRunner workflows={mockWorkflows} onComplete={vi.fn()} />);
     
-    expect(screen.getByText('Select a workflow...')).toBeInTheDocument();
+    expect(screen.getByText('Select a workflow…')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('workflow-select'));
     expect(screen.getByText('Test Workflow')).toBeInTheDocument();
     expect(screen.getByText('Another Workflow')).toBeInTheDocument();
   });
@@ -533,8 +546,7 @@ describe('WorkflowRunner', () => {
   it('shows run button after selecting a workflow and invokes execute when clicked', async () => {
     render(<WorkflowRunner workflows={mockWorkflows} onComplete={vi.fn()} />);
     
-    const select = screen.getByRole('combobox');
-    fireEvent.change(select, { target: { value: 'wf1' } });
+    selectWorkflowById('wf1');
     
     await waitFor(() => {
       expect(screen.getByText('▶ Run Workflow')).toBeInTheDocument();
@@ -546,8 +558,7 @@ describe('WorkflowRunner', () => {
   it('shows workflow step count after selection', async () => {
     render(<WorkflowRunner workflows={mockWorkflows} onComplete={vi.fn()} />);
     
-    const select = screen.getByRole('combobox');
-    fireEvent.change(select, { target: { value: 'wf1' } });
+    selectWorkflowById('wf1');
     
     await waitFor(() => {
       expect(screen.getByText('2 HTTP steps')).toBeInTheDocument();
@@ -557,8 +568,7 @@ describe('WorkflowRunner', () => {
   it('shows workflow step names after selection', async () => {
     render(<WorkflowRunner workflows={mockWorkflows} onComplete={vi.fn()} />);
     
-    const select = screen.getByRole('combobox');
-    fireEvent.change(select, { target: { value: 'wf1' } });
+    selectWorkflowById('wf1');
     
     await waitFor(() => {
       expect(screen.getByText(/Get Users → Get Orders/)).toBeInTheDocument();
@@ -568,8 +578,7 @@ describe('WorkflowRunner', () => {
   it('shows variables section when workflow has variables', async () => {
     render(<WorkflowRunner workflows={mockWorkflows} onComplete={vi.fn()} />);
     
-    const select = screen.getByRole('combobox');
-    fireEvent.change(select, { target: { value: 'wf1' } });
+    selectWorkflowById('wf1');
     
     await waitFor(() => {
       expect(screen.getByText('Initial Variables')).toBeInTheDocument();
@@ -586,8 +595,7 @@ describe('WorkflowRunner', () => {
   it('shows execution config after selecting workflow', async () => {
     render(<WorkflowRunner workflows={mockWorkflows} onComplete={vi.fn()} />);
     
-    const select = screen.getByRole('combobox');
-    fireEvent.change(select, { target: { value: 'wf1' } });
+    selectWorkflowById('wf1');
     
     await waitFor(() => {
       expect(screen.getByText('Execution Mode:')).toBeInTheDocument();
@@ -597,8 +605,7 @@ describe('WorkflowRunner', () => {
   it('allows clearing workflow selection', async () => {
     render(<WorkflowRunner workflows={mockWorkflows} onComplete={vi.fn()} />);
     
-    const select = screen.getByRole('combobox');
-    fireEvent.change(select, { target: { value: 'wf1' } });
+    selectWorkflowById('wf1');
     
     await waitFor(() => {
       expect(screen.getByText('Clear')).toBeInTheDocument();
@@ -653,7 +660,7 @@ describe('WorkflowRunner', () => {
   it('shows completion banner and calls onComplete after final run', async () => {
     const onComplete = vi.fn();
     const { rerender } = render(<WorkflowRunner workflows={mockWorkflows} onComplete={onComplete} />);
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'wf1' } });
+    selectWorkflowById('wf1');
     await waitFor(() => expect(screen.getByText('▶ Run Workflow')).toBeInTheDocument());
     testExec.finalRun = { results: [{}, {}], summary: { totalDurationMs: 4000 } };
     rerender(<WorkflowRunner workflows={mockWorkflows} onComplete={onComplete} />);
@@ -718,7 +725,7 @@ describe('WorkflowRunner', () => {
     runnerProgressMocks.loadProgress.mockReturnValue(saved);
     const onComplete = vi.fn();
     render(<WorkflowRunner workflows={mockWorkflows} onComplete={onComplete} />);
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'wf1' } });
+    selectWorkflowById('wf1');
     await waitFor(() => expect(screen.getByText(/Last run — 5 requests/)).toBeInTheDocument());
     fireEvent.click(screen.getByRole('button', { name: /View Full Results/ }));
     expect(onComplete).toHaveBeenCalledWith('workflow');
@@ -756,7 +763,7 @@ describe('WorkflowRunner', () => {
     };
     runnerProgressMocks.loadProgress.mockReturnValue(saved);
     render(<WorkflowRunner workflows={mockWorkflows} onComplete={vi.fn()} />);
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'wf1' } });
+    selectWorkflowById('wf1');
     await waitFor(() => expect(screen.getByTitle('Clear progress')).toBeInTheDocument());
     fireEvent.click(screen.getByTitle('Clear progress'));
     expect(runnerProgressMocks.clearProgress).toHaveBeenCalled();
@@ -772,10 +779,6 @@ describe('WorkflowRunner', () => {
       />
     );
     await waitFor(() => expect(screen.getByText('▶ Run Workflow')).toBeInTheDocument());
-    const combo = screen.getByRole('combobox') as HTMLSelectElement;
-    if (combo.value !== 'wf1') {
-      fireEvent.change(combo, { target: { value: 'wf1' } });
-    }
     await waitFor(() => expect(screen.getByText('Execution Mode:')).toBeInTheDocument());
     fireEvent.click(screen.getByRole('radio', { name: 'Load Profile' }));
     fireEvent.click(screen.getByRole('button', { name: 'Ramp-Up' }));
@@ -800,7 +803,7 @@ describe('WorkflowRunner', () => {
 
   it('webhook-triggered workflow shows harness mode switching and optional load controls', async () => {
     render(<WorkflowRunner workflows={allWorkflowVariants} onComplete={vi.fn()} />);
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'wf-wh' } });
+    selectWorkflowById('wf-wh');
 
     await waitFor(() => {
       expect(screen.getByText('Run Mode:')).toBeInTheDocument();
@@ -819,7 +822,7 @@ describe('WorkflowRunner', () => {
 
   it('does not expose webhook-trigger mode when webhook is fed by upstream HTTP nodes', async () => {
     render(<WorkflowRunner workflows={allWorkflowVariants} onComplete={vi.fn()} />);
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'wf-wh-mid' } });
+    selectWorkflowById('wf-wh-mid');
 
     await waitFor(() => expect(screen.getByText('▶ Run Workflow')).toBeInTheDocument());
     expect(screen.queryByText('Run Mode:')).not.toBeInTheDocument();
@@ -828,10 +831,10 @@ describe('WorkflowRunner', () => {
 
   it('drops webhook harness controls after leaving a webhook-triggered workflow', async () => {
     render(<WorkflowRunner workflows={allWorkflowVariants} onComplete={vi.fn()} />);
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'wf-wh' } });
+    selectWorkflowById('wf-wh');
     await waitFor(() => expect(screen.getByText('Run Mode:')).toBeInTheDocument());
     fireEvent.click(screen.getByRole('button', { name: 'Load Test' }));
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'wf1' } });
+    selectWorkflowById('wf1');
 
     await waitFor(() => {
       expect(screen.queryByText('Run Mode:')).not.toBeInTheDocument();
@@ -854,7 +857,7 @@ describe('WorkflowRunner', () => {
 
     render(<WorkflowRunner workflows={allWorkflowVariants} onComplete={vi.fn()} />);
 
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'wf-wh' } });
+    selectWorkflowById('wf-wh');
     await waitFor(() => expect(screen.getByRole('button', { name: 'Load Test' })).toBeInTheDocument());
     fireEvent.click(screen.getByRole('button', { name: 'Load Test' }));
 
@@ -896,7 +899,7 @@ describe('WorkflowRunner', () => {
     }));
 
     render(<WorkflowRunner workflows={allWorkflowVariants} onComplete={vi.fn()} />);
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'wf-wh' } });
+    selectWorkflowById('wf-wh');
     fireEvent.click(screen.getByRole('button', { name: 'Load Test' }));
     fireEvent.click(screen.getByRole('button', { name: /Run Webhook Load Test/ }));
 
@@ -923,7 +926,7 @@ describe('WorkflowRunner', () => {
     }));
 
     render(<WorkflowRunner workflows={allWorkflowVariants} onComplete={vi.fn()} />);
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'wf-wh' } });
+    selectWorkflowById('wf-wh');
     fireEvent.click(screen.getByRole('button', { name: 'Load Test' }));
     fireEvent.click(screen.getByRole('button', { name: /Run Webhook Load Test/ }));
 
@@ -948,7 +951,7 @@ describe('WorkflowRunner', () => {
 
     render(<WorkflowRunner workflows={allWorkflowVariants} onComplete={vi.fn()} />);
 
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'wf-wh' } });
+    selectWorkflowById('wf-wh');
     fireEvent.click(screen.getByRole('button', { name: 'Load Test' }));
     fireEvent.click(screen.getByRole('button', { name: /Run Webhook Load Test/ }));
 
@@ -960,8 +963,7 @@ describe('WorkflowRunner', () => {
 
   it('stops generic workflow executions through the abort helper', async () => {
     testExec.isRunning = true;
-    render(<WorkflowRunner workflows={mockWorkflows} onComplete={vi.fn()} />);
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'wf1' } });
+    render(<WorkflowRunner workflows={mockWorkflows} onComplete={vi.fn()} initialWorkflowId="wf1" onClearInitialWorkflowId={vi.fn()} />);
 
     await waitFor(() => expect(screen.getByRole('button', { name: /■ Stop/ })).toBeInTheDocument());
     fireEvent.click(screen.getByRole('button', { name: /■ Stop/ }));
@@ -971,7 +973,7 @@ describe('WorkflowRunner', () => {
   it('shows CorrelationWait settings, loads scenarios, and wires multi webhook callbacks', async () => {
     render(<WorkflowRunner workflows={allWorkflowVariants} onComplete={vi.fn()} />);
 
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'wf-corr' } });
+    selectWorkflowById('wf-corr');
     await waitFor(() => {
       expect(webhookScenarioMocks.loadWebhookScenarios).toHaveBeenCalledWith('wf-corr');
       expect(screen.getByRole('heading', { name: 'CorrelationWait Behavior' })).toBeInTheDocument();
@@ -1006,13 +1008,13 @@ describe('WorkflowRunner', () => {
 
     webhookScenarioMocks.loadWebhookScenarios.mockClear();
 
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'wf1' } });
+    selectWorkflowById('wf1');
 
     await waitFor(() =>
       expect(screen.queryByRole('heading', { name: 'CorrelationWait Behavior' })).not.toBeInTheDocument(),
     );
 
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'wf-corr' } });
+    selectWorkflowById('wf-corr');
 
     await waitFor(() =>
       expect(webhookScenarioMocks.loadWebhookScenarios).toHaveBeenCalledWith('wf-corr'),
@@ -1021,7 +1023,7 @@ describe('WorkflowRunner', () => {
 
   it('passes configurable poll concurrency limits alongside wait-for-condition nodes', async () => {
     render(<WorkflowRunner workflows={allWorkflowVariants} onComplete={vi.fn()} />);
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'wf-poll' } });
+    selectWorkflowById('wf-poll');
 
     await waitFor(() => expect(screen.getByText('Poll limit')).toBeInTheDocument());
 
@@ -1029,8 +1031,8 @@ describe('WorkflowRunner', () => {
     const pollSpinner = within(pollWrap as HTMLElement).getByRole('spinbutton');
 
     fireEvent.change(pollSpinner, { target: { value: '37' } });
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'wf1' } });
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'wf-poll' } });
+    selectWorkflowById('wf1');
+    selectWorkflowById('wf-poll');
 
     testExec.execute.mockClear();
     fireEvent.click(screen.getByText('▶ Run Workflow'));
@@ -1042,7 +1044,7 @@ describe('WorkflowRunner', () => {
 
   it('shows recommended iteration hints when capturing full traces', async () => {
     render(<WorkflowRunner workflows={mockWorkflows} onComplete={vi.fn()} />);
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'wf1' } });
+    selectWorkflowById('wf1');
 
     fireEvent.click(screen.getByRole('checkbox', { name: /full trace/i }));
     await waitFor(() => expect(screen.getByText(/≤100 iterations recommended/)).toBeInTheDocument());
@@ -1057,7 +1059,7 @@ describe('WorkflowRunner', () => {
   it('prioritizes single-transaction safeguards when correlations run in wait-for-real mode', async () => {
     render(<WorkflowRunner workflows={allWorkflowVariants} onComplete={vi.fn()} />);
 
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'wf-corr' } });
+    selectWorkflowById('wf-corr');
     await waitFor(() => {
       expect(screen.getByText('CorrelationWait Behavior')).toBeInTheDocument();
     });
@@ -1081,7 +1083,7 @@ describe('WorkflowRunner', () => {
     const summary = makeSummary({ totalRequests: 2 });
     const { rerender } = render(<WorkflowRunner workflows={mockWorkflows} onComplete={vi.fn()} />);
 
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'wf1' } });
+    selectWorkflowById('wf1');
     fireEvent.click(screen.getByRole('radio', { name: 'Load Profile' }));
 
     testExec.finalRun = {
@@ -1142,7 +1144,7 @@ describe('WorkflowRunner', () => {
 
     render(<WorkflowRunner workflows={allWorkflowVariants} onComplete={vi.fn()} />);
 
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'wf-wh' } });
+    selectWorkflowById('wf-wh');
     fireEvent.click(screen.getByRole('button', { name: 'Load Test' }));
     fireEvent.click(screen.getByRole('checkbox', { name: /full trace/i }));
     fireEvent.click(screen.getByRole('button', { name: /Run Webhook Load Test/ }));
@@ -1169,25 +1171,14 @@ describe('WorkflowRunner', () => {
       expect(screen.queryByText('No workflows available')).not.toBeInTheDocument();
     });
 
-    const selectEl = screen.getByRole('combobox');
     await waitFor(() => {
-      const imported = [...(selectEl as HTMLSelectElement).options].some((option) =>
-        option.value.includes('perf-workflow-simple'),
-      );
-      expect(imported).toBe(true);
-    });
-
-    const importedValue = [...(selectEl as HTMLSelectElement).options].find((option) =>
-      option.value.startsWith('imp-'),
-    )?.value;
-    fireEvent.change(selectEl, {
-      target: { value: importedValue },
+      expect(screen.getByText('▶ Run Workflow')).toBeInTheDocument();
     });
 
     fireEvent.click(screen.getByText('▶ Run Workflow'));
     expect(testExec.execute).toHaveBeenCalledWith(
       expect.objectContaining({
-        workflowId: importedValue,
+        workflowId: expect.stringContaining('perf-workflow-simple'),
       }),
       expect.any(Array),
       expect.objectContaining({
@@ -1203,7 +1194,7 @@ describe('WorkflowRunner', () => {
       <WorkflowRunner workflows={mockWorkflows} onComplete={vi.fn()} resolvedBaseUrl="https://env-host.example" />,
     );
 
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'wf2' } });
+    selectWorkflowById('wf2');
     await waitFor(() => expect(screen.getByText('▶ Run Workflow')).toBeInTheDocument());
 
     testExec.execute.mockClear();
@@ -1231,7 +1222,7 @@ describe('WorkflowRunner', () => {
 
   it('does not classify webhooks as entry triggers when start fans out beyond the webhook', async () => {
     render(<WorkflowRunner workflows={allWorkflowVariants} onComplete={vi.fn()} />);
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'wf-wh-branch' } });
+    selectWorkflowById('wf-wh-branch');
 
     await waitFor(() => expect(screen.getByText('▶ Run Workflow')).toBeInTheDocument());
     expect(screen.queryByText('Run Mode:')).not.toBeInTheDocument();
@@ -1249,7 +1240,7 @@ describe('WorkflowRunner', () => {
     }));
 
     render(<WorkflowRunner workflows={allWorkflowVariants} onComplete={vi.fn()} />);
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'wf-wh' } });
+    selectWorkflowById('wf-wh');
     fireEvent.click(screen.getByRole('button', { name: 'Load Test' }));
     fireEvent.click(screen.getByRole('button', { name: /Run Webhook Load Test/ }));
 
@@ -1262,7 +1253,7 @@ describe('WorkflowRunner', () => {
   it('defaults poll concurrency back to twenty when spinner value is emptied', async () => {
     render(<WorkflowRunner workflows={allWorkflowVariants} onComplete={vi.fn()} />);
 
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'wf-poll' } });
+    selectWorkflowById('wf-poll');
     await waitFor(() => expect(screen.getByText('Poll limit')).toBeInTheDocument());
 
     const pollWrap = screen.getByText('Poll limit').closest('.wf-inline-option')!;
@@ -1278,7 +1269,7 @@ describe('WorkflowRunner', () => {
 
   it('snapshots invalid sampling thresholds to the fifty-iteration safeguard', async () => {
     render(<WorkflowRunner workflows={mockWorkflows} onComplete={vi.fn()} />);
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'wf1' } });
+    selectWorkflowById('wf1');
     fireEvent.click(screen.getByRole('checkbox', { name: /full trace/i }));
     fireEvent.change(await screen.findByRole('spinbutton', { name: /Threshold/i }), {
       target: { value: 'not-a-number' },
@@ -1294,7 +1285,7 @@ describe('WorkflowRunner', () => {
 
   it('respects disabled trace sampling checkbox in execute options', async () => {
     render(<WorkflowRunner workflows={mockWorkflows} onComplete={vi.fn()} />);
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'wf1' } });
+    selectWorkflowById('wf1');
     await waitFor(() => expect(screen.getByRole('checkbox', { name: /full trace/i })).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole('checkbox', { name: /full trace/i }));
@@ -1314,7 +1305,7 @@ describe('WorkflowRunner', () => {
 
   it('allows editing trace sampling threshold when sampling stays enabled', async () => {
     render(<WorkflowRunner workflows={mockWorkflows} onComplete={vi.fn()} />);
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'wf1' } });
+    selectWorkflowById('wf1');
 
     fireEvent.click(screen.getByRole('checkbox', { name: /full trace/i }));
     expect(await screen.findByRole('spinbutton', { name: /Threshold/i })).toHaveValue(50);

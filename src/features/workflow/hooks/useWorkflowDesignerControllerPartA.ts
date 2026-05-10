@@ -26,7 +26,7 @@ import type {
  * versioning, auto-layout, and keyboard shortcuts. Composed by useWorkflowDesignerController.
  */
 export function useWorkflowDesignerControllerPartA({
-  wfHook, previewWorkflow, onClearPreview, onUseAsTemplate, onRunInHarness,
+  wfHook, previewWorkflow, onClearPreview, onUseAsTemplate, onRunInHarness, folders: wfFolders,
 }: WorkflowDesignerProps) {
   const { workflows, selected: selectedWorkflow, create, update, select } = wfHook;
   const selected = previewWorkflow ?? selectedWorkflow;
@@ -265,6 +265,7 @@ export function useWorkflowDesignerControllerPartA({
     versioning,
     handleAutoLayout,
     clipboard,
+    wfFolders,
   };
 }
 

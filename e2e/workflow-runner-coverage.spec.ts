@@ -182,6 +182,12 @@ async function navigateToResults(page: Page) {
   await page.waitForTimeout(1000);
 }
 
+async function selectWorkflowFromDropdown(page: Page, workflowName: string) {
+  const trigger = page.getByTestId('workflow-select');
+  await trigger.click();
+  await page.locator(`.wfp-dropdown-item:has-text("${workflowName}")`).click();
+}
+
 test.describe('WorkflowRunner Coverage Tests', () => {
   test('should display workflow picker and select workflow', async ({ page }) => {
     await page.addInitScript((wfs) => {
@@ -207,10 +213,9 @@ test.describe('WorkflowRunner Coverage Tests', () => {
 
     const picker = page.getByTestId('workflow-select');
     await expect(picker).toBeVisible({ timeout: 5000 });
-    await picker.selectOption('wf-correlation-e2e');
+    await selectWorkflowFromDropdown(page, 'E2E Correlation Test');
     await page.waitForTimeout(500);
 
-    // The CorrelationWait config section should appear with heading text
     const heading = page.locator('h3:has-text("CorrelationWait Behavior")');
     await expect(heading).toBeVisible({ timeout: 5000 });
   });
@@ -226,10 +231,9 @@ test.describe('WorkflowRunner Coverage Tests', () => {
 
     const picker = page.getByTestId('workflow-select');
     await expect(picker).toBeVisible({ timeout: 5000 });
-    await picker.selectOption('wf-webhook-e2e');
+    await selectWorkflowFromDropdown(page, 'E2E Webhook Test');
     await page.waitForTimeout(500);
 
-    // Webhook-triggered workflows show a Run Mode selector
     const runModeLabel = page.locator('.webhook-mode-label, :text("Run Mode")');
     await expect(runModeLabel.first()).toBeVisible({ timeout: 5000 });
   });
@@ -245,10 +249,9 @@ test.describe('WorkflowRunner Coverage Tests', () => {
 
     const picker = page.getByTestId('workflow-select');
     await expect(picker).toBeVisible({ timeout: 5000 });
-    await picker.selectOption('wf-simple-e2e');
+    await selectWorkflowFromDropdown(page, 'E2E Simple Test');
     await page.waitForTimeout(500);
 
-    // Should show execution config inputs (concurrency, transactions, etc.)
     const iterationsInput = page.locator('input[type="number"]').first();
     await expect(iterationsInput).toBeVisible({ timeout: 3000 });
   });
@@ -270,7 +273,6 @@ test.describe('Results Explorer Coverage Tests', () => {
 
     await navigateToResults(page);
 
-    // Click on the test run
     const runText = page.getByText('E2E Simple Test');
     const runVisible = await runText.first().isVisible({ timeout: 5000 }).catch(() => false);
     if (!runVisible) return;
@@ -278,7 +280,6 @@ test.describe('Results Explorer Coverage Tests', () => {
     await runText.first().click();
     await page.waitForTimeout(500);
 
-    // Look for Results Explorer button
     const explorerBtn = page.locator('button:has-text("Results Explorer")');
     const explorerVisible = await explorerBtn.first().isVisible({ timeout: 5000 }).catch(() => false);
     if (!explorerVisible) return;
@@ -286,7 +287,6 @@ test.describe('Results Explorer Coverage Tests', () => {
     await explorerBtn.first().click();
     await page.waitForTimeout(1500);
 
-    // The explorer opens as a full-page view; verify ReactFlow in the visible results explorer
     const explorerCanvas = page.locator('.results-explorer-diagram .react-flow, .results-explorer-flow');
     const visibleCanvas = await explorerCanvas.first().isVisible({ timeout: 5000 }).catch(() => false);
 
@@ -295,7 +295,6 @@ test.describe('Results Explorer Coverage Tests', () => {
       const nodeCount = await nodes.count();
       expect(nodeCount).toBeGreaterThan(0);
 
-      // Click first node to open detail panel
       await nodes.first().click();
       await page.waitForTimeout(500);
     }
@@ -349,10 +348,9 @@ test.describe('MultiWebhookTestingPanel Coverage', () => {
 
     const picker = page.getByTestId('workflow-select');
     await expect(picker).toBeVisible({ timeout: 5000 });
-    await picker.selectOption('wf-webhook-e2e');
+    await selectWorkflowFromDropdown(page, 'E2E Webhook Test');
     await page.waitForTimeout(500);
 
-    // Webhook workflows show Run Mode selector
     const runModeLabel = page.locator('.webhook-mode-label, :text("Run Mode")');
     await expect(runModeLabel.first()).toBeVisible({ timeout: 5000 });
   });

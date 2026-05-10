@@ -9,7 +9,7 @@
  * "From Template" now navigates to the Gallery tab.
  */
 import { test, expect } from '@playwright/test';
-import { seedAppData } from './helpers';
+import { confirmFolderPickerModal, seedAppData } from './helpers';
 
 async function navigateToWorkflow(page: import('@playwright/test').Page) {
   await seedAppData(page);
@@ -112,8 +112,9 @@ test.describe('Gallery Page — Workflow Templates', () => {
     // Should show preview mode with "Use as Template" button
     await expect(page.locator('button:has-text("Use as Template")')).toBeVisible({ timeout: 5000 });
 
-    // Click "Use as Template" to save to sidebar
+    // Click "Use as Template" to save to sidebar (opens folder picker)
     await page.locator('button:has-text("Use as Template")').click();
+    await confirmFolderPickerModal(page);
 
     // Should now see a workflow in the sidebar
     await expect(page.locator('.wf-sidebar-item')).toBeVisible({ timeout: 5000 });

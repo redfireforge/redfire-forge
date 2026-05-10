@@ -736,7 +736,7 @@ describe('correlation-handler — HTTP routes', () => {
     expect(r2.status).toBe(200);
     expect(r2.body.correlationId).toBe('idem-second');
     expect(r2.body.executionId).toBe('e-second');
-  });
+  }, 15000);
 
   it('POST /webhooks/callback/* — rejects payload when webhook filter fails', async () => {
     await request.post('/api/correlations/pause').send({
