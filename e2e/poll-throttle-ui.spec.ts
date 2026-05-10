@@ -32,7 +32,8 @@ async function seedAndOpenWorkflowRunner(page: Page) {
 
   await page.goto('/?tab=workflow-runner');
   await page.waitForLoadState('networkidle');
-  await page.locator('.workflow-picker-select').selectOption('wf-poll-test');
+  await page.getByTestId('workflow-select').click();
+  await page.locator('.wfp-dropdown-item:has-text("Poll Test Workflow")').click();
   await page.waitForTimeout(300);
   await page.locator('.workflow-runner-config-section').waitFor({ timeout: 5000 });
 }

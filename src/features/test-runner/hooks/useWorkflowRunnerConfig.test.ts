@@ -250,4 +250,91 @@ describe('useWorkflowRunnerConfig', () => {
 
     expect(result.current.selectedWorkflowId).toBeNull();
   });
+
+  it('applies ?? fallbacks for every nullish field in saved config', async () => {
+    mockLoad.mockResolvedValueOnce({
+      concurrency: undefined,
+      iterations: undefined,
+      executionMode: undefined,
+      loadProfile: undefined,
+      thinkTime: undefined,
+      timeoutSec: undefined,
+      retryCount: undefined,
+      retryDelayMs: undefined,
+      errorPolicy: undefined,
+      maxErrors: undefined,
+      maxErrorRate: undefined,
+      selectedWorkflowId: undefined,
+      traceOptions: undefined,
+    });
+
+    const { result } = renderHook(() => useWorkflowRunnerConfig());
+    await waitFor(() => expect(result.current.configLoaded).toBe(true));
+
+    expect(result.current.concurrency).toBe(1);
+    expect(result.current.iterations).toBe(1);
+    expect(result.current.executionMode).toBe('batch');
+    expect(result.current.loadProfile.durationSec).toBe(60);
+    expect(result.current.thinkTime.mode).toBe('none');
+    expect(result.current.timeoutSec).toBe(10);
+    expect(result.current.retryCount).toBe(0);
+    expect(result.current.retryDelayMs).toBe(1000);
+    expect(result.current.errorPolicy).toBe('continue');
+    expect(result.current.maxErrors).toBe(10);
+    expect(result.current.maxErrorRate).toBe(50);
+    expect(result.current.selectedWorkflowId).toBeNull();
+    expect(result.current.traceOptions.captureFullTrace).toBe(false);
+    expect(result.current.traceOptions.alwaysCaptureFailures).toBe(true);
+  });
+
+  it('restores traceOptions from saved config', async () => {
+    mockLoad.mockResolvedValueOnce({
+      concurrency: 1,
+      iterations: 1,
+      executionMode: 'batch',
+      traceOptions: {
+        captureFullTrace: true,
+        alwaysCaptureFailures: false,
+        samplingEnabled: true,
+        samplingThreshold: 100,
+      },
+    });
+
+    const { result } = renderHook(() => useWorkflowRunnerConfig());
+    await waitFor(() => expect(result.current.configLoaded).toBe(true));
+
+    expect(result.current.traceOptions.captureFullTrace).toBe(true);
+    expect(result.current.traceOptions.alwaysCaptureFailures).toBe(false);
+    expect(result.current.traceOptions.samplingEnabled).toBe(true);
+    expect(result.current.traceOptions.samplingThreshold).toBe(100);
+  });
+
+  it('applies defaults for partial traceOptions', async () => {
+    mockLoad.mockResolvedValueOnce({
+      concurrency: 1,
+      iterations: 1,
+      executionMode: 'batch',
+      traceOptions: {
+        captureFullTrace: undefined,
+        alwaysCaptureFailures: undefined,
+      },
+    });
+
+    const { result } = renderHook(() => useWorkflowRunnerConfig());
+    await waitFor(() => expect(result.current.configLoaded).toBe(true));
+
+    expect(result.current.traceOptions.captureFullTrace).toBe(false);
+    expect(result.current.traceOptions.alwaysCaptureFailures).toBe(true);
+  });
+
+  it('allows updating traceOptions', async () => {
+    const { result } = renderHook(() => useWorkflowRunnerConfig());
+    await waitFor(() => expect(result.current.configLoaded).toBe(true));
+
+    act(() => {
+      result.current.setTraceOptions({ captureFullTrace: true, alwaysCaptureFailures: true });
+    });
+
+    expect(result.current.traceOptions.captureFullTrace).toBe(true);
+  });
 });

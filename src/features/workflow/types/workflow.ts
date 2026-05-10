@@ -447,6 +447,19 @@ export interface WorkflowVersion {
   services?: WorkflowService[];
 }
 
+// ── Workflow folders ─────────────────────────────────
+
+export interface WorkflowFolder {
+  id: string;
+  name: string;
+  /** null / undefined = root-level folder. */
+  parentId?: string;
+  /** Position among siblings within the same parent. */
+  order: number;
+  /** Whether the folder is collapsed in the sidebar. */
+  collapsed?: boolean;
+}
+
 // ── Saved workflow ───────────────────────────────────
 
 export interface Workflow {
@@ -472,6 +485,10 @@ export interface Workflow {
   lastSelectedEnvId?: string;
   /** Gallery catalog entry ID this workflow was imported from (via "Use as Template"). */
   gallerySampleId?: string;
+  /** Folder this workflow belongs to (undefined = unfiled / root). */
+  folderId?: string;
+  /** Position within the folder for drag-and-drop reordering. */
+  folderOrder?: number;
   createdAt: number;
   updatedAt: number;
 }

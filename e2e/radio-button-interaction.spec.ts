@@ -46,7 +46,8 @@ async function seedAndOpenWorkflowRunner(page: Page): Promise<void> {
 
   await page.goto('/?tab=workflow-runner');
   await page.waitForLoadState('networkidle');
-  await page.locator('.workflow-picker-select').selectOption('wf-interaction-test');
+  await page.getByTestId('workflow-select').click();
+  await page.locator('.wfp-dropdown-item:has-text("Interaction Test Workflow")').click();
   await page.waitForTimeout(300);
   await page.locator('.workflow-runner-config-section').waitFor({ timeout: 5000 });
 }

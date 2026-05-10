@@ -1,14 +1,19 @@
 /** @vitest-environment jsdom */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useRunnerOrchestration } from './useRunnerOrchestration';
 import type { FeatureGroup } from '../../../shared/types';
 
-const { mockExecute, mockSetWeights, mockSetLoadProfile, mockClearProgress } = vi.hoisted(() => ({
+const { mockExecute, mockSetWeights, mockSetLoadProfile, mockClearProgress, mockTestExecOverrides, mockRunnerConfigOverrides, mockLoadProgress, mockDownloadReport, mockGenerateReport } = vi.hoisted(() => ({
   mockExecute: vi.fn(),
   mockSetWeights: vi.fn(),
   mockSetLoadProfile: vi.fn((fn: unknown) => { if (typeof fn === 'function') (fn as (prev: unknown) => unknown)({ phases: [], maxConcurrency: 10 }); }),
   mockClearProgress: vi.fn(),
+  mockTestExecOverrides: { value: {} as Record<string, unknown> },
+  mockRunnerConfigOverrides: { value: {} as Record<string, unknown> },
+  mockLoadProgress: vi.fn(() => null),
+  mockDownloadReport: vi.fn(),
+  mockGenerateReport: vi.fn(() => '<html></html>'),
 }));
 
 vi.mock('./useTestExecution', () => ({
@@ -27,6 +32,7 @@ vi.mock('./useTestExecution', () => ({
     pendingRun: null,
     confirmSavePendingRun: vi.fn(),
     dismissPendingRun: vi.fn(),
+    ...mockTestExecOverrides.value,
   }),
 }));
 
@@ -72,18 +78,19 @@ vi.mock('./useRunnerConfig', () => ({
     setAutoReport: vi.fn(),
     autoReportFormat: 'html' as const,
     setAutoReportFormat: vi.fn(),
+    ...mockRunnerConfigOverrides.value,
   }),
 }));
 
 vi.mock('../utils/runnerProgressStorage', () => ({
   saveProgress: vi.fn(),
-  loadProgress: () => null,
+  loadProgress: (...args: unknown[]) => mockLoadProgress(...args),
   clearProgress: mockClearProgress,
 }));
 
 vi.mock('../../results/utils/reportGenerator', () => ({
-  generateReport: vi.fn(),
-  downloadReport: vi.fn(),
+  generateReport: (...args: unknown[]) => mockGenerateReport(...args),
+  downloadReport: (...args: unknown[]) => mockDownloadReport(...args),
 }));
 
 vi.mock('../../../engine/dataSourceExpander', () => ({
@@ -433,5 +440,363 @@ describe('useRunnerOrchestration', () => {
       useRunnerOrchestration({ ...defaultOpts, kind: 'parameterized', envId: undefined, svcId: undefined }),
     );
     expect(result.current.allocation.kind).toBe('parameterized');
+  });
+
+  describe('with live progress', () => {
+    beforeEach(() => {
+      mockTestExecOverrides.value = {
+        isRunning: true,
+        completed: 10,
+        total: 50,
+        liveSummary: { totalRequests: 10, passCount: 8, failCount: 2, avgResponseTime: 100, totalDurationMs: 5000 },
+        profileMeta: { elapsedSec: 5, currentConcurrency: 3 },
+        timeSeries: [{ elapsedSec: 1, avgResponseTime: 100, tps: 5, errorRate: 0.2, concurrency: 3 }],
+      };
+    });
+
+    afterEach(() => {
+      mockTestExecOverrides.value = {};
+    });
+
+    it('showProgress is true when isRunning', () => {
+      const { result } = renderHook(() => useRunnerOrchestration(defaultOpts));
+      expect(result.current.showProgress).toBe(true);
+    });
+
+    it('displaySummary uses liveSummary when available', () => {
+      const { result } = renderHook(() => useRunnerOrchestration(defaultOpts));
+      expect(result.current.displaySummary).toEqual(expect.objectContaining({ totalRequests: 10 }));
+    });
+
+    it('displayCompleted uses live value', () => {
+      const { result } = renderHook(() => useRunnerOrchestration(defaultOpts));
+      expect(result.current.displayCompleted).toBe(10);
+    });
+
+    it('displayTotal uses live value', () => {
+      const { result } = renderHook(() => useRunnerOrchestration(defaultOpts));
+      expect(result.current.displayTotal).toBe(50);
+    });
+
+    it('displayTimeSeries uses live timeSeries when isRunning', () => {
+      const { result } = renderHook(() => useRunnerOrchestration(defaultOpts));
+      expect(result.current.displayTimeSeries).toHaveLength(1);
+    });
+
+    it('displayProfileMeta uses live profileMeta', () => {
+      const { result } = renderHook(() => useRunnerOrchestration(defaultOpts));
+      expect(result.current.displayProfileMeta).toEqual(expect.objectContaining({ elapsedSec: 5 }));
+    });
+  });
+
+  describe('with saved progress and no live data', () => {
+    const savedProg = {
+      summary: { totalRequests: 100, passCount: 90, failCount: 10, avgResponseTime: 200, totalDurationMs: 60000 },
+      timeSeries: [{ elapsedSec: 60, avgResponseTime: 200, tps: 2, errorRate: 0.1, concurrency: 5 }],
+      completed: 100,
+      total: 100,
+      profileMeta: { elapsedSec: 60, currentConcurrency: 5 },
+      isTimeBased: false,
+      executionMode: 'batch' as const,
+      concurrency: 5,
+      loadProfile: { phases: [], maxConcurrency: 5, durationSec: 60 },
+      thinkTime: { mode: 'constant' as const, constantMs: 500 },
+      resultCount: 100,
+      durationMs: 60000,
+    };
+
+    beforeEach(() => {
+      mockLoadProgress.mockReturnValue(savedProg);
+    });
+
+    afterEach(() => {
+      mockLoadProgress.mockReturnValue(null);
+    });
+
+    it('showProgress is true with saved progress', () => {
+      const { result } = renderHook(() => useRunnerOrchestration(defaultOpts));
+      expect(result.current.showProgress).toBe(true);
+    });
+
+    it('displaySummary falls back to savedProgress.summary', () => {
+      const { result } = renderHook(() => useRunnerOrchestration(defaultOpts));
+      expect(result.current.displaySummary).toEqual(expect.objectContaining({ totalRequests: 100 }));
+    });
+
+    it('displayTimeSeries falls back to savedProgress.timeSeries', () => {
+      const { result } = renderHook(() => useRunnerOrchestration(defaultOpts));
+      expect(result.current.displayTimeSeries).toHaveLength(1);
+    });
+
+    it('displayCompleted falls back to savedProgress.completed', () => {
+      const { result } = renderHook(() => useRunnerOrchestration(defaultOpts));
+      expect(result.current.displayCompleted).toBe(100);
+    });
+
+    it('displayTotal falls back to savedProgress.total', () => {
+      const { result } = renderHook(() => useRunnerOrchestration(defaultOpts));
+      expect(result.current.displayTotal).toBe(100);
+    });
+
+    it('displayProfileMeta falls back to savedProgress.profileMeta', () => {
+      const { result } = renderHook(() => useRunnerOrchestration(defaultOpts));
+      expect(result.current.displayProfileMeta).toEqual(expect.objectContaining({ elapsedSec: 60 }));
+    });
+
+    it('displayExecMode falls back to savedProgress.executionMode', () => {
+      const { result } = renderHook(() => useRunnerOrchestration(defaultOpts));
+      expect(result.current.displayExecMode).toBe('batch');
+    });
+
+    it('displayConc falls back to savedProgress.concurrency', () => {
+      const { result } = renderHook(() => useRunnerOrchestration(defaultOpts));
+      expect(result.current.displayConc).toBe(5);
+    });
+
+    it('displayLoadProfile falls back to savedProgress.loadProfile', () => {
+      const { result } = renderHook(() => useRunnerOrchestration(defaultOpts));
+      expect(result.current.displayLoadProfile).toEqual(expect.objectContaining({ maxConcurrency: 5 }));
+    });
+
+    it('displayThinkTime falls back to savedProgress.thinkTime', () => {
+      const { result } = renderHook(() => useRunnerOrchestration(defaultOpts));
+      expect(result.current.displayThinkTime).toEqual(expect.objectContaining({ mode: 'constant' }));
+    });
+  });
+
+  describe('hostMode settings and custom', () => {
+    afterEach(() => {
+      mockRunnerConfigOverrides.value = {};
+    });
+
+    it('hostLabel returns resolvedBaseUrl for settings mode with URL', () => {
+      mockRunnerConfigOverrides.value = { hostMode: 'settings' };
+      const { result } = renderHook(() => useRunnerOrchestration(defaultOpts));
+      expect(result.current.hostLabel).toBe('http://localhost:3000');
+    });
+
+    it('hostLabel returns Original for settings mode without resolvedBaseUrl', () => {
+      mockRunnerConfigOverrides.value = { hostMode: 'settings' };
+      const { result } = renderHook(() =>
+        useRunnerOrchestration({ ...defaultOpts, resolvedBaseUrl: undefined }),
+      );
+      expect(result.current.hostLabel).toBe('Original');
+    });
+
+    it('hostLabel returns customBaseUrl for custom mode', () => {
+      mockRunnerConfigOverrides.value = { hostMode: 'custom', customBaseUrl: 'https://custom.api.com' };
+      const { result } = renderHook(() => useRunnerOrchestration(defaultOpts));
+      expect(result.current.hostLabel).toBe('https://custom.api.com');
+    });
+
+    it('hostLabel returns Original for custom mode with empty URL', () => {
+      mockRunnerConfigOverrides.value = { hostMode: 'custom', customBaseUrl: '  ' };
+      const { result } = renderHook(() => useRunnerOrchestration(defaultOpts));
+      expect(result.current.hostLabel).toBe('Original');
+    });
+
+    it('handleRun passes resolvedBaseUrl for settings mode', () => {
+      mockRunnerConfigOverrides.value = { hostMode: 'settings' };
+      const { result } = renderHook(() => useRunnerOrchestration(defaultOpts));
+      act(() => { result.current.handleRun(); });
+      const meta = mockExecute.mock.calls[0][2];
+      expect(meta.baseUrl).toBe('http://localhost:3000');
+    });
+
+    it('handleRun passes customBaseUrl for custom mode', () => {
+      mockRunnerConfigOverrides.value = { hostMode: 'custom', customBaseUrl: 'https://custom.api.com' };
+      const { result } = renderHook(() => useRunnerOrchestration(defaultOpts));
+      act(() => { result.current.handleRun(); });
+      const meta = mockExecute.mock.calls[0][2];
+      expect(meta.baseUrl).toBe('https://custom.api.com');
+    });
+
+    it('handleRun passes undefined baseUrl for hardcoded mode', () => {
+      mockRunnerConfigOverrides.value = { hostMode: 'hardcoded' };
+      const { result } = renderHook(() => useRunnerOrchestration(defaultOpts));
+      act(() => { result.current.handleRun(); });
+      const meta = mockExecute.mock.calls[0][2];
+      expect(meta.baseUrl).toBeUndefined();
+    });
+  });
+
+  describe('load-profile mode', () => {
+    afterEach(() => {
+      mockRunnerConfigOverrides.value = {};
+    });
+
+    it('isLoadProfile is true for load-profile mode', () => {
+      mockRunnerConfigOverrides.value = { executionMode: 'load-profile' };
+      const { result } = renderHook(() => useRunnerOrchestration(defaultOpts));
+      expect(result.current.isLoadProfile).toBe(true);
+    });
+
+    it('handleRun uses loadProfile.maxConcurrency for load-profile mode', () => {
+      mockRunnerConfigOverrides.value = { executionMode: 'load-profile' };
+      const { result } = renderHook(() => useRunnerOrchestration(defaultOpts));
+      act(() => { result.current.handleRun(); });
+      const [cfg] = mockExecute.mock.calls[0];
+      expect(cfg.concurrency).toBe(10);
+      expect(cfg.iterations).toBe(0);
+      expect(cfg.loadProfile).toBeDefined();
+    });
+  });
+
+  describe('thinkTime and timeout in handleRun', () => {
+    afterEach(() => {
+      mockRunnerConfigOverrides.value = {};
+    });
+
+    it('handleRun includes thinkTime when mode is not none', () => {
+      mockRunnerConfigOverrides.value = { thinkTime: { mode: 'constant', constantMs: 500 } };
+      const { result } = renderHook(() => useRunnerOrchestration(defaultOpts));
+      act(() => { result.current.handleRun(); });
+      const [cfg] = mockExecute.mock.calls[0];
+      expect(cfg.thinkTime).toEqual({ mode: 'constant', constantMs: 500 });
+    });
+
+    it('handleRun omits thinkTime when mode is none', () => {
+      const { result } = renderHook(() => useRunnerOrchestration(defaultOpts));
+      act(() => { result.current.handleRun(); });
+      const [cfg] = mockExecute.mock.calls[0];
+      expect(cfg.thinkTime).toBeUndefined();
+    });
+
+    it('handleRun includes timeoutSec when > 0', () => {
+      mockRunnerConfigOverrides.value = { timeoutSec: 30 };
+      const { result } = renderHook(() => useRunnerOrchestration(defaultOpts));
+      act(() => { result.current.handleRun(); });
+      const [cfg] = mockExecute.mock.calls[0];
+      expect(cfg.timeoutSec).toBe(30);
+    });
+
+    it('handleRun omits timeoutSec when 0', () => {
+      const { result } = renderHook(() => useRunnerOrchestration(defaultOpts));
+      act(() => { result.current.handleRun(); });
+      const [cfg] = mockExecute.mock.calls[0];
+      expect(cfg.timeoutSec).toBeUndefined();
+    });
+
+    it('handleRun includes retryCount when > 0', () => {
+      mockRunnerConfigOverrides.value = { retryCount: 3 };
+      const { result } = renderHook(() => useRunnerOrchestration(defaultOpts));
+      act(() => { result.current.handleRun(); });
+      const [cfg] = mockExecute.mock.calls[0];
+      expect(cfg.retryCount).toBe(3);
+    });
+  });
+
+  describe('auto report on finalRun', () => {
+    afterEach(() => {
+      mockTestExecOverrides.value = {};
+      mockRunnerConfigOverrides.value = {};
+    });
+
+    it('triggers auto report download when autoReport is true and finalRun exists', () => {
+      const finalRun = {
+        id: 'run-1',
+        timestamp: Date.now(),
+        results: [],
+        summary: { totalDurationMs: 5000 },
+        svcName: 'Service',
+        envName: 'Test',
+      };
+      mockRunnerConfigOverrides.value = { autoReport: true, autoReportFormat: 'html' };
+      mockTestExecOverrides.value = { finalRun, isRunning: false };
+      renderHook(() => useRunnerOrchestration(defaultOpts));
+      expect(mockGenerateReport).toHaveBeenCalled();
+      expect(mockDownloadReport).toHaveBeenCalled();
+    });
+
+    it('triggers markdown report with .md extension', () => {
+      const finalRun = {
+        id: 'run-2',
+        timestamp: Date.now(),
+        results: [],
+        summary: { totalDurationMs: 5000 },
+        svcName: 'Service',
+        envName: 'Test',
+      };
+      mockRunnerConfigOverrides.value = { autoReport: true, autoReportFormat: 'markdown' };
+      mockTestExecOverrides.value = { finalRun, isRunning: false };
+      renderHook(() => useRunnerOrchestration(defaultOpts));
+      const downloadCall = mockDownloadReport.mock.calls[0];
+      expect(downloadCall[1]).toMatch(/\.md$/);
+      expect(downloadCall[2]).toBe('text/markdown');
+    });
+
+    it('triggers json report', () => {
+      const finalRun = {
+        id: 'run-3',
+        timestamp: Date.now(),
+        results: [],
+        summary: { totalDurationMs: 5000 },
+        svcName: 'Service',
+        envName: 'Test',
+      };
+      mockRunnerConfigOverrides.value = { autoReport: true, autoReportFormat: 'json' };
+      mockTestExecOverrides.value = { finalRun, isRunning: false };
+      renderHook(() => useRunnerOrchestration(defaultOpts));
+      const downloadCall = mockDownloadReport.mock.calls[0];
+      expect(downloadCall[1]).toMatch(/\.json$/);
+      expect(downloadCall[2]).toBe('application/json');
+    });
+
+    it('does not fire auto-report when autoReport is false', () => {
+      const finalRun = {
+        id: 'run-4',
+        timestamp: Date.now(),
+        results: [],
+        summary: { totalDurationMs: 5000 },
+      };
+      mockRunnerConfigOverrides.value = { autoReport: false };
+      mockTestExecOverrides.value = { finalRun, isRunning: false };
+      renderHook(() => useRunnerOrchestration(defaultOpts));
+      expect(mockDownloadReport).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('finalRun saves progress', () => {
+    afterEach(() => {
+      mockTestExecOverrides.value = {};
+      mockRunnerConfigOverrides.value = {};
+    });
+
+    it('saves progress to storage when finalRun completes', async () => {
+      const { saveProgress } = await import('../utils/runnerProgressStorage');
+      const finalRun = {
+        id: 'run-save-1',
+        timestamp: Date.now(),
+        results: [{ id: 'r1' }],
+        summary: { totalDurationMs: 10000 },
+      };
+      mockTestExecOverrides.value = {
+        finalRun,
+        isRunning: false,
+        liveSummary: { totalRequests: 50 },
+        completed: 50,
+        total: 50,
+        timeSeries: [],
+        profileMeta: null,
+      };
+      renderHook(() => useRunnerOrchestration(defaultOpts));
+      expect(saveProgress).toHaveBeenCalled();
+    });
+  });
+
+  describe('edge cases for configContextKey and progressKey', () => {
+    it('handles standard kind with no envId/svcId', () => {
+      const { result } = renderHook(() =>
+        useRunnerOrchestration({ ...defaultOpts, kind: 'standard', envId: undefined, svcId: undefined }),
+      );
+      expect(result.current.allocation.kind).toBe('standard');
+    });
+
+    it('handles parameterized kind with envId and svcId', () => {
+      const { result } = renderHook(() =>
+        useRunnerOrchestration({ ...defaultOpts, kind: 'parameterized', envId: 'e1', svcId: 's1' }),
+      );
+      expect(result.current.allocation.kind).toBe('parameterized');
+    });
   });
 });

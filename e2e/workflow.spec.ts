@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { seedAppData } from './helpers';
+import { confirmFolderPickerModal, seedAppData } from './helpers';
 import type { Workflow } from '../src/features/workflow/types/workflow';
 
 function makeSampleWorkflow(): Workflow {
@@ -244,6 +244,7 @@ test.describe('Workflow Creation', () => {
     // Should show preview mode — click "Use as Template" to save
     await expect(page.locator('button:has-text("Use as Template")')).toBeVisible({ timeout: 5000 });
     await page.locator('button:has-text("Use as Template")').click();
+    await confirmFolderPickerModal(page);
 
     // Should see a workflow item appear in sidebar (navigates back to workflow tab)
     await expect(page.locator('.wf-sidebar-item')).toBeVisible({ timeout: 5000 });
