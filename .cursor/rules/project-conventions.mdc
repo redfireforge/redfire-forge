@@ -74,19 +74,28 @@ alwaysApply: true
 
 | Test Type | When to Run | Command |
 |---|---|---|
+| **TypeScript check** | **MANDATORY after every code change** | `npx tsc --noEmit` |
 | Unit tests (touched files only) | During development, after each change | `npx vitest run src/path/to/changed.test.ts` |
-| TypeScript check | During development, after each change | `npx tsc --noEmit` |
 | Full unit test suite | **Only before merging** to `develop`, `release/*`, or `master` | `npx vitest run` |
 | Unit test coverage | Before merging to develop/release/master | `npx vitest run --coverage` |
 | E2E tests (Playwright) | **Only before merging** to `develop`, `release/*`, or `master` | `npx playwright test --reporter=list` |
 
 ### Rules
-- **During development, only run tests for the files you touched** — do NOT run the full test suite. Use `npx vitest run src/path/to/file.test.ts` to target specific test files.
+- **CRITICAL: Always run `npx tsc --noEmit` after making code changes.** This is NOT optional. Vitest and Playwright do NOT type-check source files — only `tsc` catches missing properties, bad imports, and type mismatches. Skipping this step causes Tauri build failures that are expensive to debug later. Run it after every batch of edits, not just before merging.
+- **During development, only run unit tests for the files you touched** — do NOT run the full test suite. Use `npx vitest run src/path/to/file.test.ts` to target specific test files.
 - **Do NOT run E2E tests during regular feature development** — they are slow and only needed at merge gates.
 - **Full test suite and E2E tests are ONLY run before merging** to `develop`, `release/*`, or `master`.
-- During development, rely on scoped unit tests and TypeScript (`npx tsc --noEmit`) for fast feedback.
+- During development, rely on `tsc --noEmit` + scoped unit tests for fast feedback.
 - E2E tests require the dev server running on port 5173 (`npm run dev`).
 - Target >90% code coverage on all four metrics (statements, branches, functions, lines).
+
+## Pre-Commit Hooks (Automated)
+
+A husky pre-commit hook is configured to automatically run before every `git commit`:
+1. `npx tsc --noEmit` — blocks commit if type errors exist
+2. `npx lint-staged` — runs ESLint on staged `.ts`/`.tsx` files
+
+This means **no commit can enter git with type errors**. If the hook blocks your commit, fix the errors first — do NOT bypass with `--no-verify`.
 
 ## Code Quality — Fix All Errors
 
