@@ -17,6 +17,7 @@ import type {
   Mapping,
   ValidationIssue,
 } from '../types';
+import { coerceSampleData } from '../utils/mapperParsing';
 
 // ─── Constants ────────────────────────────────────────────
 
@@ -38,15 +39,6 @@ export interface WebhookExtractionAdapterOptions {
 
 // ─── Helpers ──────────────────────────────────────────────
 
-function parseSample(raw?: string | Record<string, unknown>): unknown | undefined {
-  if (raw == null) return undefined;
-  if (typeof raw === 'object') return raw;
-  try {
-    return JSON.parse(raw);
-  } catch {
-    return undefined;
-  }
-}
 
 function normalizePath(path: string): string {
   const p = String(path ?? '').replace(/^\.+/, '');
@@ -61,7 +53,7 @@ function normalizePath(path: string): string {
 export function createWebhookExtractionAdapter(
   opts: WebhookExtractionAdapterOptions = {},
 ): MapperAdapter<WebhookExtractionOutput> {
-  const parsed = parseSample(opts.samplePayload);
+  const parsed = coerceSampleData(opts.samplePayload);
   const label = opts.sourceLabel ?? SOURCE_LABEL;
 
   const source: MapperSource = {

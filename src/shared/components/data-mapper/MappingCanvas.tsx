@@ -1,6 +1,7 @@
 import { useMemo, useCallback } from 'react';
 import type { ConnectionLine } from './hooks/useConnectionLines';
 import type { MappingTrace } from './utils/mappingTrace';
+import type { ExpressionSuggestion } from './utils/expressionSuggestions';
 
 export interface ErrorDetailData {
   mappingId: string;
@@ -27,6 +28,8 @@ interface MappingCanvasProps {
   debugMode?: boolean;
   traceByMappingId?: Map<string, MappingTrace> | null;
   onShowErrorDetail?: (data: ErrorDetailData, y: number) => void;
+  expressionSuggestions?: Map<string, ExpressionSuggestion[]>;
+  onApplySuggestion?: (mappingId: string, expression: string) => void;
 }
 
 function bezierPath(sourceY: number, targetY: number, width: number): string {
@@ -51,6 +54,8 @@ export default function MappingCanvas({
   debugMode,
   traceByMappingId,
   onShowErrorDetail,
+  expressionSuggestions,
+  onApplySuggestion,
 }: MappingCanvasProps) {
   const handleErrorClick = useCallback((mappingId: string, midY: number) => {
     if (!traceByMappingId || !onShowErrorDetail) return;
@@ -115,7 +120,7 @@ export default function MappingCanvas({
             <path
               d={p.d}
               fill="none"
-              className={`dm-connection-line ${isSelected ? 'dm-connection-line--selected' : ''} ${isDimmed ? 'dm-connection-line--dimmed' : ''} ${p.hasExpression ? 'dm-connection-line--expression' : ''} ${p.isAutoMapped && !p.hasExpression ? 'dm-connection-line--auto' : ''} ${p.hasTypeMismatch ? 'dm-connection-line--mismatch' : ''} ${p.isPending ? 'dm-connection-line--pending' : ''} ${p.arrayKind ? `dm-connection-line--${p.arrayKind}` : ''} ${p.driftSeverity ? `dm-connection-line--drift-${p.driftSeverity}` : ''} ${debugMode && p.traceError ? 'dm-connection-line--trace-error' : ''} ${debugMode && p.traceValue != null && p.traceValue !== '' && !p.traceError ? 'dm-connection-line--trace-ok' : ''}`}
+              className={`dm-connection-line ${isSelected ? 'dm-connection-line--selected' : ''} ${isDimmed ? 'dm-connection-line--dimmed' : ''} ${p.hasExpression ? 'dm-connection-line--expression' : ''} ${p.isAutoMapped && !p.hasExpression ? 'dm-connection-line--auto' : ''} ${p.isFromPattern ? 'dm-connection-line--pattern' : ''} ${p.hasTypeMismatch ? 'dm-connection-line--mismatch' : ''} ${p.isPending ? 'dm-connection-line--pending' : ''} ${p.arrayKind ? `dm-connection-line--${p.arrayKind}` : ''} ${p.driftSeverity ? `dm-connection-line--drift-${p.driftSeverity}` : ''} ${debugMode && p.traceError ? 'dm-connection-line--trace-error' : ''} ${debugMode && p.traceValue != null && p.traceValue !== '' && !p.traceError ? 'dm-connection-line--trace-ok' : ''}`}
               strokeWidth={isSelected ? 2.5 : 1.5}
             />
             {p.driftSeverity && (
@@ -152,6 +157,23 @@ export default function MappingCanvas({
                 variant="mismatch"
               />
             )}
+            {!p.hasExpression && expressionSuggestions?.has(p.mappingId) && onApplySuggestion && (() => {
+              const suggs = expressionSuggestions.get(p.mappingId)!;
+              const top = suggs[0];
+              if (!top) return null;
+              const hasUpperBadge = p.hasTypeMismatch || (p.arrayKind && p.arrayLabel);
+              const yOff = hasUpperBadge ? 24 : 10;
+              return (
+                <CanvasBadge
+                  x={width / 2}
+                  y={(p.sourceY + p.targetY) / 2 + yOff}
+                  label={`💡 ${top.label}`}
+                  variant="suggestion"
+                  cursor="pointer"
+                  onClick={(e) => { e.stopPropagation(); onApplySuggestion(p.mappingId, top.expression); }}
+                />
+              );
+            })()}
             {debugMode && p.traceValue != null && p.traceValue !== '' && (
               <g className={`dm-trace-badge ${p.traceError ? 'dm-trace-badge--error' : 'dm-trace-badge--ok'}`}>
                 <title>{p.traceValue}</title>
@@ -191,6 +213,39 @@ export default function MappingCanvas({
                 </text>
               </g>
             )}
+            {p.isFromPattern && !p.hasExpression && !p.driftSeverity && (() => {
+              const hasSuggestion = !p.hasExpression && expressionSuggestions?.has(p.mappingId);
+              const hasUpperBadge = p.hasTypeMismatch || (p.arrayKind && p.arrayLabel);
+              const yOff = hasUpperBadge ? (hasSuggestion ? 38 : 24) : -10;
+              return (
+                <CanvasBadge
+                  x={width / 2}
+                  y={(p.sourceY + p.targetY) / 2 + yOff}
+                  label="↻ pattern"
+                  variant="pattern"
+                />
+              );
+            })()}
+            {p.confidenceScore != null && p.isPending && (() => {
+              const hasSuggestion = !p.hasExpression && expressionSuggestions?.has(p.mappingId);
+              const hasUpperBadge = p.hasExpression || (p.arrayKind && p.arrayLabel);
+              let yOff: number;
+              if (hasUpperBadge) {
+                yOff = hasSuggestion ? 38 : 24;
+              } else if (p.isFromPattern) {
+                yOff = hasSuggestion ? 38 : 24;
+              } else {
+                yOff = hasSuggestion ? 38 : 10;
+              }
+              return (
+                <CanvasBadge
+                  x={width / 2}
+                  y={(p.sourceY + p.targetY) / 2 + yOff}
+                  label={`${p.confidenceScore}%`}
+                  variant={p.confidenceScore > 80 ? 'confidence-high' : p.confidenceScore >= 50 ? 'confidence-mid' : 'confidence-low'}
+                />
+              );
+            })()}
             {isSelected && !p.isPending && (
               <g
                 className="dm-remove-btn"

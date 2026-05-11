@@ -406,6 +406,233 @@ describe('MappingCanvas – failure pinpointing (9C)', () => {
   });
 });
 
+describe('MappingCanvas – suggestion badge', () => {
+  it('renders suggestion badge when mapping has suggestions and no expression', () => {
+    const suggestions = new Map([
+      ['m1', [{ mappingId: 'm1', label: '$toInt', expression: '$toInt($.name)', description: 'Convert to int', category: 'conversion', priority: 90 }]],
+    ]);
+    const onApply = vi.fn();
+    const mismatchLine = { ...line, hasTypeMismatch: true };
+    const { container } = render(
+      <MappingCanvas lines={[mismatchLine]} {...defaults} expressionSuggestions={suggestions} onApplySuggestion={onApply} />,
+    );
+    expect(container.querySelector('.dm-canvas-badge--suggestion')).toBeTruthy();
+    expect(container.querySelector('.dm-canvas-badge--suggestion .dm-canvas-badge-text')!.textContent).toContain('$toInt');
+  });
+
+  it('calls onApplySuggestion when suggestion badge is clicked', () => {
+    const suggestions = new Map([
+      ['m1', [{ mappingId: 'm1', label: '$toInt', expression: '$toInt($.name)', description: 'Convert to int', category: 'conversion', priority: 90 }]],
+    ]);
+    const onApply = vi.fn();
+    const { container } = render(
+      <MappingCanvas lines={[line]} {...defaults} expressionSuggestions={suggestions} onApplySuggestion={onApply} />,
+    );
+    const badge = container.querySelector('.dm-canvas-badge--suggestion')!;
+    fireEvent.click(badge);
+    expect(onApply).toHaveBeenCalledWith('m1', '$toInt($.name)');
+  });
+
+  it('does not render suggestion badge when mapping has an expression', () => {
+    const suggestions = new Map([
+      ['m1', [{ mappingId: 'm1', label: '$toInt', expression: '$toInt($.name)', description: '', category: 'conversion', priority: 90 }]],
+    ]);
+    const exprLine = { ...line, hasExpression: true };
+    const { container } = render(
+      <MappingCanvas lines={[exprLine]} {...defaults} expressionSuggestions={suggestions} onApplySuggestion={vi.fn()} />,
+    );
+    expect(container.querySelector('.dm-canvas-badge--suggestion')).toBeNull();
+  });
+
+  it('does not render suggestion badge when no onApplySuggestion callback', () => {
+    const suggestions = new Map([
+      ['m1', [{ mappingId: 'm1', label: '$toInt', expression: '$toInt($.name)', description: '', category: 'conversion', priority: 90 }]],
+    ]);
+    const { container } = render(
+      <MappingCanvas lines={[line]} {...defaults} expressionSuggestions={suggestions} />,
+    );
+    expect(container.querySelector('.dm-canvas-badge--suggestion')).toBeNull();
+  });
+
+  it('does not render suggestion badge when mapping not in suggestions map', () => {
+    const suggestions = new Map([
+      ['other', [{ mappingId: 'other', label: '$toInt', expression: '$toInt($.other)', description: '', category: 'conversion', priority: 90 }]],
+    ]);
+    const { container } = render(
+      <MappingCanvas lines={[line]} {...defaults} expressionSuggestions={suggestions} onApplySuggestion={vi.fn()} />,
+    );
+    expect(container.querySelector('.dm-canvas-badge--suggestion')).toBeNull();
+  });
+
+  it('does not render suggestion badge when suggestions array is empty', () => {
+    const suggestions = new Map<string, never[]>([['m1', []]]);
+    const { container } = render(
+      <MappingCanvas lines={[line]} {...defaults} expressionSuggestions={suggestions} onApplySuggestion={vi.fn()} />,
+    );
+    expect(container.querySelector('.dm-canvas-badge--suggestion')).toBeNull();
+  });
+});
+
+describe('MappingCanvas – pattern badge', () => {
+  it('renders pattern badge for pattern-based mappings', () => {
+    const patternLine = { ...line, isFromPattern: true };
+    const { container } = render(
+      <MappingCanvas lines={[patternLine]} {...defaults} />,
+    );
+    expect(container.querySelector('.dm-canvas-badge--pattern')).toBeTruthy();
+    expect(container.querySelector('.dm-canvas-badge--pattern .dm-canvas-badge-text')!.textContent).toBe('↻ pattern');
+  });
+
+  it('does not render pattern badge when line has expression', () => {
+    const patternExprLine = { ...line, isFromPattern: true, hasExpression: true };
+    const { container } = render(
+      <MappingCanvas lines={[patternExprLine]} {...defaults} />,
+    );
+    expect(container.querySelector('.dm-canvas-badge--pattern')).toBeNull();
+  });
+
+  it('does not render pattern badge when line has drift', () => {
+    const patternDriftLine = { ...line, isFromPattern: true, driftSeverity: 'warning' as const };
+    const { container } = render(
+      <MappingCanvas lines={[patternDriftLine]} {...defaults} />,
+    );
+    expect(container.querySelector('.dm-canvas-badge--pattern')).toBeNull();
+  });
+
+  it('stacks pattern badge below suggestion badge when both present', () => {
+    const suggestions = new Map([
+      ['m1', [{ mappingId: 'm1', label: '$toInt', expression: '$toInt($.name)', description: '', category: 'conversion', priority: 90 }]],
+    ]);
+    const patternMismatchLine = { ...line, isFromPattern: true, hasTypeMismatch: true };
+    const { container } = render(
+      <MappingCanvas lines={[patternMismatchLine]} {...defaults} expressionSuggestions={suggestions} onApplySuggestion={vi.fn()} />,
+    );
+    expect(container.querySelector('.dm-canvas-badge--pattern')).toBeTruthy();
+    expect(container.querySelector('.dm-canvas-badge--suggestion')).toBeTruthy();
+  });
+});
+
+describe('MappingCanvas – confidence badge', () => {
+  it('renders confidence badge for pending lines with score', () => {
+    const confLine = { ...line, isPending: true, confidenceScore: 85 };
+    const { container } = render(
+      <MappingCanvas lines={[confLine]} {...defaults} onAcceptPending={vi.fn()} onRejectPending={vi.fn()} />,
+    );
+    const badge = container.querySelector('.dm-canvas-badge--confidence-high');
+    expect(badge).toBeTruthy();
+    expect(badge!.querySelector('.dm-canvas-badge-text')!.textContent).toBe('85%');
+  });
+
+  it('renders mid confidence variant for scores between 50 and 80', () => {
+    const confLine = { ...line, isPending: true, confidenceScore: 65 };
+    const { container } = render(
+      <MappingCanvas lines={[confLine]} {...defaults} onAcceptPending={vi.fn()} onRejectPending={vi.fn()} />,
+    );
+    expect(container.querySelector('.dm-canvas-badge--confidence-mid')).toBeTruthy();
+  });
+
+  it('renders low confidence variant for scores below 50', () => {
+    const confLine = { ...line, isPending: true, confidenceScore: 30 };
+    const { container } = render(
+      <MappingCanvas lines={[confLine]} {...defaults} onAcceptPending={vi.fn()} onRejectPending={vi.fn()} />,
+    );
+    expect(container.querySelector('.dm-canvas-badge--confidence-low')).toBeTruthy();
+  });
+
+  it('does not render confidence badge when not pending', () => {
+    const confLine = { ...line, isPending: false, confidenceScore: 85 };
+    const { container } = render(
+      <MappingCanvas lines={[confLine]} {...defaults} />,
+    );
+    expect(container.querySelector('.dm-canvas-badge--confidence-high')).toBeNull();
+  });
+
+  it('stacks confidence badge below pattern badge when isFromPattern', () => {
+    const patternConfLine = { ...line, isPending: true, isFromPattern: true, confidenceScore: 75 };
+    const { container } = render(
+      <MappingCanvas lines={[patternConfLine]} {...defaults} onAcceptPending={vi.fn()} onRejectPending={vi.fn()} />,
+    );
+    expect(container.querySelector('.dm-canvas-badge--pattern')).toBeTruthy();
+    expect(container.querySelector('.dm-canvas-badge--confidence-mid')).toBeTruthy();
+  });
+
+  it('stacks confidence badge with suggestion', () => {
+    const suggestions = new Map([
+      ['m1', [{ mappingId: 'm1', label: '$toInt', expression: '$toInt($.name)', description: '', category: 'conversion', priority: 90 }]],
+    ]);
+    const confLine = { ...line, isPending: true, confidenceScore: 90, hasTypeMismatch: true };
+    const { container } = render(
+      <MappingCanvas lines={[confLine]} {...defaults} onAcceptPending={vi.fn()} onRejectPending={vi.fn()} expressionSuggestions={suggestions} onApplySuggestion={vi.fn()} />,
+    );
+    expect(container.querySelector('.dm-canvas-badge--suggestion')).toBeTruthy();
+    expect(container.querySelector('.dm-canvas-badge--confidence-high')).toBeTruthy();
+  });
+});
+
+describe('MappingCanvas – array kind badges', () => {
+  it('renders loop array badge', () => {
+    const loopLine = { ...line, arrayKind: 'loop' as const, arrayLabel: 'for each' };
+    const { container } = render(
+      <MappingCanvas lines={[loopLine]} {...defaults} />,
+    );
+    expect(container.querySelector('.dm-canvas-badge--loop')).toBeTruthy();
+    expect(container.querySelector('.dm-canvas-badge--loop .dm-canvas-badge-text')!.textContent).toContain('∞');
+  });
+
+  it('renders aggregate array badge', () => {
+    const aggLine = { ...line, arrayKind: 'aggregate' as const, arrayLabel: '$count' };
+    const { container } = render(
+      <MappingCanvas lines={[aggLine]} {...defaults} />,
+    );
+    expect(container.querySelector('.dm-canvas-badge--aggregate')).toBeTruthy();
+    expect(container.querySelector('.dm-canvas-badge--aggregate .dm-canvas-badge-text')!.textContent).toContain('Σ');
+  });
+
+  it('renders spread array badge with raw label', () => {
+    const spreadLine = { ...line, arrayKind: 'spread' as const, arrayLabel: 'wrap' };
+    const { container } = render(
+      <MappingCanvas lines={[spreadLine]} {...defaults} />,
+    );
+    expect(container.querySelector('.dm-canvas-badge--spread')).toBeTruthy();
+    expect(container.querySelector('.dm-canvas-badge--spread .dm-canvas-badge-text')!.textContent).toBe('wrap');
+  });
+
+  it('does not render array badge when line has expression', () => {
+    const loopExpr = { ...line, arrayKind: 'loop' as const, arrayLabel: 'for each', hasExpression: true };
+    const { container } = render(
+      <MappingCanvas lines={[loopExpr]} {...defaults} />,
+    );
+    expect(container.querySelector('.dm-canvas-badge--loop')).toBeNull();
+  });
+
+  it('applies loop class to connection line', () => {
+    const loopLine = { ...line, arrayKind: 'loop' as const, arrayLabel: 'for each' };
+    const { container } = render(
+      <MappingCanvas lines={[loopLine]} {...defaults} />,
+    );
+    expect(container.querySelector('.dm-connection-line--loop')).toBeTruthy();
+  });
+});
+
+describe('MappingCanvas – selectedMappingIds (multi-select)', () => {
+  it('highlights lines from selectedMappingIds set', () => {
+    const selected = new Set(['m1']);
+    const { container } = render(
+      <MappingCanvas lines={[line]} {...defaults} selectedMappingIds={selected} />,
+    );
+    expect(container.querySelector('.dm-connection-line--selected')).toBeTruthy();
+  });
+
+  it('dims other lines when selectedMappingIds has entries', () => {
+    const line2: ConnectionLine = { ...line, id: 'line-m2', mappingId: 'm2', sourceY: 100, targetY: 120 };
+    const selected = new Set(['m1']);
+    const { container } = render(
+      <MappingCanvas lines={[line, line2]} {...defaults} selectedMappingIds={selected} />,
+    );
+    expect(container.querySelector('.dm-connection-line--dimmed')).toBeTruthy();
+  });
+});
+
 describe('MappingCanvas – error detail callback (9C)', () => {
   const errorTrace: MappingTrace = {
     mappingId: 'm1',

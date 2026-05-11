@@ -19,6 +19,10 @@ export interface ConnectionLine {
   driftSeverity?: 'warning' | 'breaking';
   traceValue?: string;
   traceError?: boolean;
+  /** Confidence score (0–100) for auto-mapped lines. */
+  confidenceScore?: number;
+  /** Whether this mapping was restored from pattern history. */
+  isFromPattern?: boolean;
 }
 
 /**

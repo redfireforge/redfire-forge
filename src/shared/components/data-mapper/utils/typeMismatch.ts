@@ -1,5 +1,6 @@
 import type { Mapping, MapperSource, MapperTarget } from '../types';
 import { getByPath } from '../../../utils/jsonPath';
+import { coerceSampleData, resolveSourceValue, resolveTargetValue as resolveTargetVal, toJsonPathRef } from './mapperParsing';
 
 export type MismatchSeverity = 'warning' | 'info';
 
@@ -40,7 +41,7 @@ export function inferType(value: unknown): string {
  * Resolve the expected type for a target path.
  * Priority: explicit fieldConstraints > sample data inference.
  */
-function resolveTargetType(
+export function resolveTargetType(
   targetPath: string,
   target: MapperTarget,
 ): string | null {
@@ -53,8 +54,7 @@ function resolveTargetType(
     if (field?.type) return field.type;
   }
   if (target.sampleData != null) {
-    const sample = typeof target.sampleData === 'string'
-      ? safeParse(target.sampleData) : target.sampleData;
+    const sample = coerceSampleData(target.sampleData);
     if (sample != null) {
       const val = getByPath(sample, targetPath);
       if (val !== undefined) return inferType(val);
@@ -71,12 +71,7 @@ function resolveSourceType(
   sources: MapperSource[],
   activeSourceId?: string,
 ): string | null {
-  const src = sources.find((s) => s.id === (mapping.sourceId || activeSourceId));
-  if (!src?.sampleData) return null;
-  const data = typeof src.sampleData === 'string'
-    ? safeParse(src.sampleData) : src.sampleData;
-  if (data == null) return null;
-  const val = getByPath(data, mapping.sourcePath);
+  const val = resolveSourceValue(mapping, sources, activeSourceId);
   if (val === undefined) return null;
   return inferType(val);
 }
@@ -101,8 +96,8 @@ export function looksLikeDate(value: unknown): boolean {
  */
 export function typesCompatible(sourceType: string, targetType: string): boolean {
   if (sourceType === targetType) return true;
-  if (sourceType === 'null' || targetType === 'null') return true;
   if (targetType === 'any') return true;
+  if (sourceType === 'null' && targetType === 'null') return true;
   return false;
 }
 
@@ -150,7 +145,7 @@ export function detectTypeMismatches(
 
     const fixKey = `${sourceType}→${targetType}`;
     const template = FIX_MAP[fixKey];
-    const normalizedPath = mapping.sourcePath.startsWith('$.') ? mapping.sourcePath : `$.${mapping.sourcePath}`;
+    const normalizedPath = toJsonPathRef(mapping.sourcePath);
     const suggestedFix = template?.replace('$.PATH', normalizedPath);
 
     mismatches.push({
@@ -170,15 +165,15 @@ export function detectTypeMismatches(
     if (mapping.expression) continue;
     if (mismatches.some((m) => m.mappingId === mapping.id)) continue;
 
-    const sourceVal = getSourceValue(mapping, sources, activeSourceId);
-    const targetVal = getTargetValue(mapping.targetPath, target);
+    const sourceVal = resolveSourceValue(mapping, sources, activeSourceId);
+    const targetVal = resolveTargetVal(mapping.targetPath, target);
 
     if (sourceVal === undefined || targetVal === undefined) continue;
     const srcIsDate = looksLikeDate(sourceVal);
     const tgtIsDate = looksLikeDate(targetVal);
 
     if (srcIsDate && !tgtIsDate && typeof targetVal === 'string') {
-      const normalizedPath = mapping.sourcePath.startsWith('$.') ? mapping.sourcePath : `$.${mapping.sourcePath}`;
+      const normalizedPath = toJsonPathRef(mapping.sourcePath);
       const suggestedFix = `$formatDate(${normalizedPath}, "YYYY-MM-DD")`;
       mismatches.push({
         mappingId: mapping.id,
@@ -191,7 +186,7 @@ export function detectTypeMismatches(
         suggestedFix,
       });
     } else if (srcIsDate && tgtIsDate) {
-      const normalizedPath = mapping.sourcePath.startsWith('$.') ? mapping.sourcePath : `$.${mapping.sourcePath}`;
+      const normalizedPath = toJsonPathRef(mapping.sourcePath);
       const suggestedFix = `$formatDate(${normalizedPath}, "YYYY-MM-DD")`;
       mismatches.push({
         mappingId: mapping.id,
@@ -219,25 +214,3 @@ export function getMismatchForMapping(
   return mismatches.find((m) => m.mappingId === mappingId);
 }
 
-function safeParse(s: string): unknown {
-  try { return JSON.parse(s); } catch { return null; }
-}
-
-function getSourceValue(
-  mapping: Mapping,
-  sources: MapperSource[],
-  activeSourceId?: string,
-): unknown {
-  const src = sources.find((s) => s.id === (mapping.sourceId || activeSourceId));
-  if (!src?.sampleData) return undefined;
-  const data = typeof src.sampleData === 'string' ? safeParse(src.sampleData) : src.sampleData;
-  if (data == null) return undefined;
-  return getByPath(data, mapping.sourcePath);
-}
-
-function getTargetValue(targetPath: string, target: MapperTarget): unknown {
-  if (!target.sampleData) return undefined;
-  const data = typeof target.sampleData === 'string' ? safeParse(target.sampleData) : target.sampleData;
-  if (data == null) return undefined;
-  return getByPath(data, targetPath);
-}
