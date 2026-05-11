@@ -292,4 +292,38 @@ describe('pending accept/reject', () => {
     expect(result.current.state.mappings).toHaveLength(1);
     expect(result.current.state.mappings[0].id).toBe('n1');
   });
+
+  it('removeMappings removes multiple mappings at once', () => {
+    const { result } = renderHook(() => useMapperState());
+    act(() => result.current.addMapping({ id: 'm1', sourcePath: 'a', sourceId: 's1', targetPath: 'x' }));
+    act(() => result.current.addMapping({ id: 'm2', sourcePath: 'b', sourceId: 's1', targetPath: 'y' }));
+    act(() => result.current.addMapping({ id: 'm3', sourcePath: 'c', sourceId: 's1', targetPath: 'z' }));
+    expect(result.current.state.mappings).toHaveLength(3);
+
+    act(() => result.current.removeMappings(['m1', 'm3']));
+    expect(result.current.state.mappings).toHaveLength(1);
+    expect(result.current.state.mappings[0].id).toBe('m2');
+  });
+
+  it('removeMappings clears selectedMappingId if removed', () => {
+    const { result } = renderHook(() => useMapperState());
+    act(() => result.current.addMapping({ id: 'm1', sourcePath: 'a', sourceId: 's1', targetPath: 'x' }));
+    act(() => result.current.addMapping({ id: 'm2', sourcePath: 'b', sourceId: 's1', targetPath: 'y' }));
+    act(() => result.current.selectMapping('m1'));
+    expect(result.current.state.selectedMappingId).toBe('m1');
+
+    act(() => result.current.removeMappings(['m1']));
+    expect(result.current.state.selectedMappingId).toBeNull();
+  });
+
+  it('removeMappings is undoable', () => {
+    const { result } = renderHook(() => useMapperState());
+    act(() => result.current.addMapping({ id: 'm1', sourcePath: 'a', sourceId: 's1', targetPath: 'x' }));
+    act(() => result.current.addMapping({ id: 'm2', sourcePath: 'b', sourceId: 's1', targetPath: 'y' }));
+    act(() => result.current.removeMappings(['m1', 'm2']));
+    expect(result.current.state.mappings).toHaveLength(0);
+
+    act(() => result.current.undo());
+    expect(result.current.state.mappings).toHaveLength(2);
+  });
 });

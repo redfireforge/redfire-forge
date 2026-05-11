@@ -31,7 +31,7 @@ export default function WorkflowCanvasControls({
     if (savedViewport) {
       setViewport(savedViewport, { duration: 300 });
     } else {
-      fitView({ padding: 0.1, duration: 300 });
+      fitView({ padding: 0.1, maxZoom: 1, duration: 300 });
     }
   }, [savedViewport, setViewport, fitView]);
 

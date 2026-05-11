@@ -25,8 +25,15 @@ export function useWorkflowPreviewReactFlowInit(
 ) {
   return useCallback(
     (instance: MeasuredRfInstance) => {
+      const applyFitView = (padding: number, duration: number) => {
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            instance.fitView({ padding, maxZoom: 1, duration });
+          });
+        });
+      };
+
       if (previewWorkflow) {
-        // Preview: auto-layout then fit
         const currentPreviewId = previewWorkflow.id;
         setTimeout(() => {
           const measuredNodes = instance.getNodes();
@@ -34,38 +41,28 @@ export function useWorkflowPreviewReactFlowInit(
           if (measuredNodes.length > 0) {
             const laid = getAutoLayoutNodes(measuredNodes, measuredEdges);
             instance.setNodes(laid);
-            requestAnimationFrame(() => {
-              requestAnimationFrame(() => {
-                instance.fitView({ padding: 0.15, maxZoom: 1, duration: 0 });
-                setLaidOutId(currentPreviewId);
-              });
-            });
+            applyFitView(0.15, 0);
+            setLaidOutId(currentPreviewId);
           } else {
             setLaidOutId(currentPreviewId);
           }
-        }, 100);
+        }, 150);
       } else if (selectedWorkflow?.savedViewport) {
-        // Saved layout: restore exact viewport
         setTimeout(() => {
           requestAnimationFrame(() => {
             instance.setViewport(selectedWorkflow.savedViewport!, { duration: 0 });
           });
-        }, 100);
+        }, 150);
       } else {
-        // First load (no saved layout): auto-layout + fit
         setTimeout(() => {
           const measuredNodes = instance.getNodes();
           const measuredEdges = instance.getEdges();
           if (measuredNodes.length > 0) {
             const laid = getAutoLayoutNodes(measuredNodes, measuredEdges);
             instance.setNodes(laid);
-            requestAnimationFrame(() => {
-              requestAnimationFrame(() => {
-                instance.fitView({ padding: 0.1, maxZoom: 1, duration: 200 });
-              });
-            });
+            applyFitView(0.1, 200);
           }
-        }, 100);
+        }, 150);
       }
     },
     [previewWorkflow, selectedWorkflow, setLaidOutId],

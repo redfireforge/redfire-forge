@@ -144,6 +144,7 @@ vi.mock('./ResultsExplorerDetailPanel', () => ({
     events,
     onDrillDown,
     nodeId,
+    onOpenMapper,
   }: {
     onClose?: () => void;
     onIterationChange?: (i: number) => void;
@@ -151,6 +152,7 @@ vi.mock('./ResultsExplorerDetailPanel', () => ({
     events?: Array<{ details?: { subWorkflowTrace?: import('../../../shared/types').WorkflowExecutionTrace } }>;
     onDrillDown?: (childTrace: import('../../../shared/types').WorkflowExecutionTrace, parentNodeId: string) => void;
     nodeId?: string;
+    onOpenMapper?: (traces: import('../../../shared/components/data-mapper/utils/mappingTrace').MappingTrace[], nodeLabel: string) => void;
   }) => (
     <div data-testid="mock-detail-panel">
       <span data-testid="detail-node-label">{nodeLabel}</span>
@@ -168,6 +170,18 @@ vi.mock('./ResultsExplorerDetailPanel', () => ({
           onClick={() => onDrillDown(events[0].details!.subWorkflowTrace!, nodeId || '')}
         >
           Drill Down
+        </button>
+      )}
+      {onOpenMapper && (
+        <button
+          type="button"
+          data-testid="mock-open-mapper-btn"
+          onClick={() => onOpenMapper(
+            [{ mappingId: 'm1', sourcePath: 'a.b', sourceId: 's1', targetPath: 'x.y', targetValue: 'val', durationMs: 1.5 }],
+            nodeLabel || 'Test Node',
+          )}
+        >
+          Open in Mapper
         </button>
       )}
     </div>
@@ -1942,6 +1956,61 @@ describe('WorkflowResultsExplorerModal', () => {
       expect(screen.getByTestId('workflow-info').querySelector('.workflow-info-parent-name'))
         .toHaveTextContent('Parent Workflow');
       expect(screen.queryByText('Root Workflow')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('mapping trace overlay', () => {
+    it('shows "Open in Mapper" button when a node is selected', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      fireEvent.click(screen.getByTestId('canvas-pick-n2'));
+      expect(screen.getByTestId('mock-open-mapper-btn')).toBeInTheDocument();
+    });
+
+    it('opens the mapping trace overlay when clicking "Open in Mapper"', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      fireEvent.click(screen.getByTestId('canvas-pick-n2'));
+      fireEvent.click(screen.getByTestId('mock-open-mapper-btn'));
+      expect(screen.getByTestId('mapper-trace-overlay')).toBeInTheDocument();
+      expect(screen.getByText(/Mapping Traces/)).toBeInTheDocument();
+      expect(screen.getByText('x.y')).toBeInTheDocument();
+      expect(screen.getByText('a.b')).toBeInTheDocument();
+    });
+
+    it('shows pass/fail badges in the overlay', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      fireEvent.click(screen.getByTestId('canvas-pick-n2'));
+      fireEvent.click(screen.getByTestId('mock-open-mapper-btn'));
+      expect(screen.getByText('1 passed')).toBeInTheDocument();
+      expect(screen.getByText('0 failed')).toBeInTheDocument();
+    });
+
+    it('closes the overlay when clicking the close button', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      fireEvent.click(screen.getByTestId('canvas-pick-n2'));
+      fireEvent.click(screen.getByTestId('mock-open-mapper-btn'));
+      expect(screen.getByTestId('mapper-trace-overlay')).toBeInTheDocument();
+      fireEvent.click(screen.getByLabelText('Close mapping traces'));
+      expect(screen.queryByTestId('mapper-trace-overlay')).not.toBeInTheDocument();
+    });
+
+    it('closes the overlay when pressing Escape', async () => {
+      const user = userEvent.setup();
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      fireEvent.click(screen.getByTestId('canvas-pick-n2'));
+      fireEvent.click(screen.getByTestId('mock-open-mapper-btn'));
+      expect(screen.getByTestId('mapper-trace-overlay')).toBeInTheDocument();
+      await user.keyboard('{Escape}');
+      expect(screen.queryByTestId('mapper-trace-overlay')).not.toBeInTheDocument();
+      expect(mockOnClose).not.toHaveBeenCalled();
+    });
+
+    it('closes the overlay when clicking the backdrop', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      fireEvent.click(screen.getByTestId('canvas-pick-n2'));
+      fireEvent.click(screen.getByTestId('mock-open-mapper-btn'));
+      const backdrop = screen.getByTestId('mapper-trace-overlay').querySelector('.mapper-trace-overlay-backdrop')!;
+      fireEvent.click(backdrop);
+      expect(screen.queryByTestId('mapper-trace-overlay')).not.toBeInTheDocument();
     });
   });
 });

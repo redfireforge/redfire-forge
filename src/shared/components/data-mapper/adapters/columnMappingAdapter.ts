@@ -204,13 +204,9 @@ export function createColumnMappingAdapter(
   // when multiple columns share the same name).
   const sourceData: Record<string, string> = {};
   const colIdToName = new Map<string, string>();
-  const colNameToId = new Map<string, string>();
   for (const col of columns) {
     sourceData[col.id] = col.name;
     colIdToName.set(col.id, col.name);
-    if (!colNameToId.has(col.name)) {
-      colNameToId.set(col.name, col.id);
-    }
   }
 
   const source: MapperSource = {

@@ -1,6 +1,15 @@
-import { useState, useCallback, useRef, useMemo } from 'react';
+import { useState, useCallback, useRef, useMemo, useId, useEffect } from 'react';
 import DataMapper from './DataMapper';
+import DriftBanner from './DriftBanner';
+import SchemaDiffModal from './SchemaDiffModal';
 import type { MapperAdapter, Mapping, ValidationIssue } from './types';
+import type { ClassifiedDrift } from './utils/schemaDrift';
+import type { DriftIndicator } from './SourceTreeNode';
+import { captureSchemaSnapshot, captureSnapshotPair, loadSnapshot, saveSnapshot } from './utils/schemaSnapshot';
+import type { SchemaSnapshot } from './utils/schemaSnapshot';
+import { diffSchemas, findAffectedMappings, classifyDrift } from './utils/schemaDrift';
+import { suggestRepairs, applyRepair } from './utils/schemaRepair';
+import type { RepairSuggestion } from './utils/schemaRepair';
 import '../../../styles/data-mapper-modal.css';
 
 interface DataMapperModalProps<TOutput = unknown> {
@@ -9,6 +18,7 @@ interface DataMapperModalProps<TOutput = unknown> {
   onSave: (output: TOutput) => void;
   onCancel: () => void;
   fullScreenDefault?: boolean;
+  doneLabel?: string;
 }
 
 /**
@@ -59,20 +69,188 @@ export default function DataMapperModal<TOutput = unknown>({
   onSave,
   onCancel,
   fullScreenDefault = false,
+  doneLabel = 'Done',
 }: DataMapperModalProps<TOutput>) {
+  const titleId = useId();
   const [isFullScreen, setIsFullScreen] = useState(fullScreenDefault);
   const [validationIssues, setValidationIssues] = useState<ValidationIssue[]>([]);
+  const [driftEntries, setDriftEntries] = useState<ClassifiedDrift[]>([]);
+  const [showDiffModal, setShowDiffModal] = useState(false);
   const currentMappingsRef = useRef<Mapping[]>([]);
+  const mappingsReadyRef = useRef(false);
+  const sourceSampleOverridesRef = useRef<Record<string, unknown>>({});
+  const savedSnapshotsRef = useRef<{ saved: SchemaSnapshot; current: SchemaSnapshot }[]>([]);
+  const [repairTick, setRepairTick] = useState(0);
+
+  // Detect schema drift on mount by comparing saved snapshot with current source data.
+  // Deferred until mappingsReadyRef is true so findAffectedMappings uses real mappings.
+  useEffect(() => {
+    let cancelled = false;
+
+    const runDriftDetection = async () => {
+      // Wait for child DataMapper to fire handleMappingsChange at least once
+      const deadline = Date.now() + 500;
+      while (!mappingsReadyRef.current && Date.now() < deadline) {
+        await new Promise((r) => requestAnimationFrame(r));
+        if (cancelled) return;
+      }
+
+      const savedPair = await loadSnapshot(adapter.contextId).catch(() => null);
+      if (cancelled || !savedPair) return;
+
+      const allDrifts: ClassifiedDrift[] = [];
+      const snapPairs: { saved: SchemaSnapshot; current: SchemaSnapshot }[] = [];
+
+      const overrides = sourceSampleOverridesRef.current;
+      for (const savedSource of savedPair.source) {
+        const adapterSrc = adapter.sources.find((s) => s.id === savedSource.sourceId);
+        const sourceData = overrides[savedSource.sourceId ?? ''] ?? adapterSrc?.sampleData;
+        if (sourceData == null) continue;
+        const currentSnap = captureSchemaSnapshot(adapter.contextId, 'source', sourceData, savedSource.sourceId);
+        const rawDrifts = diffSchemas(savedSource, currentSnap);
+        if (rawDrifts.length > 0) {
+          const tagged = rawDrifts.map((d) => ({ ...d, sourceId: savedSource.sourceId }));
+          const withMappings = findAffectedMappings(tagged, currentMappingsRef.current, 'source');
+          allDrifts.push(...classifyDrift(withMappings));
+          snapPairs.push({ saved: savedSource, current: currentSnap });
+        }
+      }
+
+      if (allDrifts.length > 0 && !cancelled) {
+        savedSnapshotsRef.current = snapPairs;
+        setDriftEntries(allDrifts);
+      }
+    };
+
+    runDriftDetection();
+
+    return () => { cancelled = true; };
+  }, [adapter]);
 
   const handleMappingsChange = useCallback((mappings: Mapping[]) => {
     currentMappingsRef.current = mappings;
+    mappingsReadyRef.current = true;
     setValidationIssues([]);
+  }, []);
+
+  const handleSourceSampleChange = useCallback((overrides: Record<string, unknown>) => {
+    sourceSampleOverridesRef.current = overrides;
+  }, []);
+
+  const handleAcceptDrift = useCallback(() => {
+    const overrides = sourceSampleOverridesRef.current;
+    const effectiveSources = adapter.sources.map((s) => ({
+      id: s.id,
+      sampleData: overrides[s.id] ?? s.sampleData,
+    }));
+    const pair = captureSnapshotPair(
+      adapter.contextId,
+      effectiveSources,
+      adapter.target.sampleData,
+    );
+    saveSnapshot(adapter.contextId, pair).catch(() => {});
+    savedSnapshotsRef.current = [];
+    setDriftEntries([]);
+  }, [adapter]);
+
+  const handleDismissDrift = useCallback(() => {
+    savedSnapshotsRef.current = [];
+    setDriftEntries([]);
+  }, []);
+
+  const handleShowDiff = useCallback(() => {
+    setShowDiffModal(true);
+  }, []);
+
+  const handleCloseDiff = useCallback(() => {
+    setShowDiffModal(false);
+  }, []);
+
+  const driftMap = useMemo(() => {
+    if (driftEntries.length === 0) return undefined;
+    const map = new Map<string, DriftIndicator>();
+    for (const d of driftEntries) {
+      if (d.severity === 'info' || d.severity === 'warning' || d.severity === 'breaking') {
+        const indicator = { severity: d.severity, label: d.description };
+        map.set(d.path, indicator);
+        // Also register with [*] → [0] normalization so tree nodes with numeric
+        // indices (from buildJsonTree) match snapshot paths that use [*]
+        const numericPath = d.path.replace(/\.\[\*\]/g, '[0]');
+        if (numericPath !== d.path) {
+          map.set(numericPath, indicator);
+        }
+        // Root-level array: `[*].name` → also register `.[*].name` for tree normalization
+        if (d.path.startsWith('[*]')) {
+          map.set('.' + d.path, indicator);
+        }
+      }
+    }
+    return map;
+  }, [driftEntries]);
+
+  const driftMappingIds = useMemo(() => {
+    if (driftEntries.length === 0) return undefined;
+    const result = new Map<string, 'warning' | 'breaking'>();
+    for (const d of driftEntries) {
+      if (d.severity !== 'info') {
+        for (const mid of d.affectedMappingIds) {
+          const existing = result.get(mid);
+          if (!existing || d.severity === 'breaking') {
+            result.set(mid, d.severity as 'warning' | 'breaking');
+          }
+        }
+      }
+    }
+    return result;
+  }, [driftEntries]);
+
+  const repairSuggestions = useMemo(() => {
+    if (driftEntries.length === 0 || savedSnapshotsRef.current.length === 0) return undefined;
+    const breaking = driftEntries.filter((d) => d.severity === 'breaking' && d.affectedMappingIds.length > 0);
+    if (breaking.length === 0) return undefined;
+    const map = new Map<string, RepairSuggestion[]>();
+    for (const drift of breaking) {
+      const pair = drift.sourceId != null
+        ? savedSnapshotsRef.current.find((p) => p.saved.sourceId === drift.sourceId)
+        : savedSnapshotsRef.current[0];
+      if (!pair) continue;
+      for (const mid of drift.affectedMappingIds) {
+        const suggestions = suggestRepairs(drift.path, mid, pair.current, pair.saved);
+        if (suggestions.length > 0) {
+          const existing = map.get(drift.path) ?? [];
+          map.set(drift.path, [...existing, ...suggestions]);
+        }
+      }
+    }
+    return map.size > 0 ? map : undefined;
+  }, [driftEntries]);
+
+  const handleRepairMapping = useCallback((mappingId: string, suggestion: RepairSuggestion) => {
+    const mapping = currentMappingsRef.current.find((m) => m.id === mappingId);
+    if (!mapping) return;
+    const repaired = applyRepair(mapping, suggestion);
+    currentMappingsRef.current = currentMappingsRef.current.map((m) => m.id === mappingId ? repaired : m);
+    setRepairTick((t) => t + 1);
+    setDriftEntries((prev) =>
+      prev.map((d) => ({
+        ...d,
+        affectedMappingIds: d.affectedMappingIds.filter((id) => id !== mappingId),
+      })).filter((d) => d.severity !== 'breaking' || d.affectedMappingIds.length > 0),
+    );
   }, []);
 
   const handleDone = useCallback(() => {
     const mappings = currentMappingsRef.current;
 
-    const adapterIssues = adapter.validate?.(mappings) ?? [];
+    let adapterIssues: ReturnType<NonNullable<typeof adapter.validate>> = [];
+    try {
+      adapterIssues = adapter.validate?.(mappings) ?? [];
+    } catch (err) {
+      adapterIssues = [{
+        severity: 'warning' as const,
+        message: `Validation error: ${err instanceof Error ? err.message : String(err)}`,
+      }];
+    }
     const requiredIssues = findUnmappedRequired(adapter, mappings);
     const allIssues = [...adapterIssues, ...requiredIssues];
 
@@ -99,8 +277,41 @@ export default function DataMapperModal<TOutput = unknown>({
       ]);
       return;
     }
+
+    // Capture schema snapshot for drift detection (fire-and-forget)
+    // Use effective source data (user paste/fetch overrides merged with adapter defaults)
+    const overrides = sourceSampleOverridesRef.current;
+    const effectiveSources = adapter.sources.map((s) => ({
+      id: s.id,
+      sampleData: overrides[s.id] ?? s.sampleData,
+    }));
+    const pair = captureSnapshotPair(
+      adapter.contextId,
+      effectiveSources,
+      adapter.target.sampleData,
+    );
+    saveSnapshot(adapter.contextId, pair).catch(() => {});
+
     onSave(output);
   }, [adapter, onSave]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      // Don't close if a nested dialog (expression editor or schema diff) is open
+      if (document.querySelector('.dm-expr-overlay')) return;
+      if (document.querySelector('.dm-diff-overlay')) return;
+      // Don't close if focus is in an editable field (let the field handle Escape)
+      const el = e.target as HTMLElement;
+      const tag = el?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      if (el?.contentEditable === 'true') return;
+      e.preventDefault();
+      onCancel();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onCancel]);
 
   const errorCount = useMemo(
     () => validationIssues.filter((i) => i.severity === 'error').length,
@@ -117,35 +328,50 @@ export default function DataMapperModal<TOutput = unknown>({
       tabIndex={-1}
       role="dialog"
       aria-modal="true"
+      aria-labelledby={titleId}
     >
       <div className="dm-modal-shell">
         <div className="dm-modal-header">
-          <h2 className="dm-modal-title">{adapter.title}</h2>
+          <h2 id={titleId} className="dm-modal-title">{adapter.title}</h2>
           <div className="dm-modal-header-actions">
             <button
               className="dm-btn-icon"
               onClick={() => setIsFullScreen((f) => !f)}
-              title={isFullScreen ? 'Exit full screen' : 'Full screen'}
+              aria-label={isFullScreen ? 'Exit full screen' : 'Enter full screen'}
             >
               {isFullScreen ? '⊟' : '⊞'}
             </button>
-            <button className="dm-btn-icon" onClick={onCancel} title="Close">
+            <button className="dm-btn-icon" onClick={onCancel} aria-label="Close data mapper">
               ×
             </button>
           </div>
         </div>
+
+        {driftEntries.length > 0 && (
+          <DriftBanner
+            drifts={driftEntries}
+            onAcceptAndUpdate={handleAcceptDrift}
+            onDismiss={handleDismissDrift}
+            onShowDiff={handleShowDiff}
+          />
+        )}
 
         <div className="dm-modal-body">
           <DataMapper
             adapter={adapter}
             initialData={initialData}
             onChange={handleMappingsChange}
+            onSourceSampleChange={handleSourceSampleChange}
             height="100%"
+            driftMap={driftMap}
+            driftMappingIds={driftMappingIds}
+            repairTick={repairTick}
+            repairedMappingsRef={currentMappingsRef}
           />
         </div>
 
         {validationIssues.length > 0 && (
-          <div className="dm-validation-bar">
+          <div className="dm-validation-bar" aria-live="polite">
             {errorCount > 0 && (
               <span className="dm-validation-count dm-validation-count--error">
                 {errorCount} error{errorCount !== 1 ? 's' : ''}
@@ -185,10 +411,18 @@ export default function DataMapperModal<TOutput = unknown>({
             disabled={errorCount > 0}
             title={errorCount > 0 ? 'Fix errors before saving' : 'Save mappings'}
           >
-            Done
+            {doneLabel}
           </button>
         </div>
       </div>
+      {showDiffModal && driftEntries.length > 0 && (
+        <SchemaDiffModal
+          drifts={driftEntries}
+          onClose={handleCloseDiff}
+          repairSuggestions={repairSuggestions}
+          onApplyRepair={handleRepairMapping}
+        />
+      )}
     </div>
   );
 }

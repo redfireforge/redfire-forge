@@ -1,8 +1,9 @@
 /** @vitest-environment jsdom */
 import { describe, it, expect, vi } from 'vitest';
-import { render } from '@testing-library/react';
+import { render, fireEvent } from '@testing-library/react';
 import MappingCanvas from './MappingCanvas';
 import type { ConnectionLine } from './hooks/useConnectionLines';
+import type { MappingTrace } from './utils/mappingTrace';
 
 const line: ConnectionLine = {
   id: 'line-m1',
@@ -70,8 +71,8 @@ describe('MappingCanvas', () => {
     const { container } = render(
       <MappingCanvas lines={[exprLine]} {...defaults} />,
     );
-    expect(container.querySelector('.dm-expression-badge')).toBeTruthy();
-    expect(container.querySelector('.dm-expression-badge')!.textContent).toBe('fx');
+    expect(container.querySelector('.dm-canvas-badge--expression')).toBeTruthy();
+    expect(container.querySelector('.dm-canvas-badge--expression .dm-canvas-badge-text')!.textContent).toBe('ƒx expression');
   });
 
   it('fires onEditExpression when expression badge is clicked', () => {
@@ -80,8 +81,8 @@ describe('MappingCanvas', () => {
     const { container } = render(
       <MappingCanvas lines={[exprLine]} {...defaults} onEditExpression={onEdit} />,
     );
-    const badge = container.querySelector('.dm-expression-badge')!;
-    badge.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    const badge = container.querySelector('.dm-canvas-badge--expression')!;
+    fireEvent.click(badge);
     expect(onEdit).toHaveBeenCalledWith('m1');
   });
 
@@ -109,6 +110,47 @@ describe('MappingCanvas', () => {
     const hitArea = container.querySelector('path[stroke="transparent"]')!;
     hitArea.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     expect(onSelect).toHaveBeenCalledWith('m1');
+  });
+
+  it('fires onToggleSelectMapping on shift-click', () => {
+    const onSelect = vi.fn();
+    const onToggle = vi.fn();
+    const { container } = render(
+      <MappingCanvas lines={[line]} {...defaults} onSelectMapping={onSelect} onToggleSelectMapping={onToggle} />,
+    );
+    const hitArea = container.querySelector('path[stroke="transparent"]')!;
+    fireEvent.click(hitArea, { shiftKey: true });
+    expect(onToggle).toHaveBeenCalledWith('m1');
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+
+  it('fires onToggleSelectMapping on meta-click', () => {
+    const onSelect = vi.fn();
+    const onToggle = vi.fn();
+    const { container } = render(
+      <MappingCanvas lines={[line]} {...defaults} onSelectMapping={onSelect} onToggleSelectMapping={onToggle} />,
+    );
+    const hitArea = container.querySelector('path[stroke="transparent"]')!;
+    fireEvent.click(hitArea, { metaKey: true });
+    expect(onToggle).toHaveBeenCalledWith('m1');
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+
+  it('applies expression line class for expression mappings', () => {
+    const exprLine = { ...line, hasExpression: true };
+    const { container } = render(
+      <MappingCanvas lines={[exprLine]} {...defaults} />,
+    );
+    expect(container.querySelector('.dm-connection-line--expression')).toBeTruthy();
+  });
+
+  it('renders mismatch badge when hasTypeMismatch and no drift', () => {
+    const mismatchLine = { ...line, hasTypeMismatch: true };
+    const { container } = render(
+      <MappingCanvas lines={[mismatchLine]} {...defaults} />,
+    );
+    expect(container.querySelector('.dm-canvas-badge--mismatch')).toBeTruthy();
+    expect(container.querySelector('.dm-canvas-badge--mismatch .dm-canvas-badge-text')!.textContent).toBe('⚠ mismatch');
   });
 
   it('fires onRemoveMapping when remove button clicked', () => {
@@ -215,5 +257,202 @@ describe('pending lines', () => {
     );
     const svg = container.querySelector('svg')!;
     expect(svg.getAttribute('height')).toBe('100');
+  });
+
+  // ── Drift line styling ──────────────────────────
+
+  it('renders breaking drift class on connection line', () => {
+    const driftLine = { ...line, driftSeverity: 'breaking' as const };
+    const { container } = render(
+      <MappingCanvas lines={[driftLine]} {...defaults} />,
+    );
+    const path = container.querySelector('.dm-connection-line--drift-breaking');
+    expect(path).not.toBeNull();
+  });
+
+  it('renders warning drift class on connection line', () => {
+    const driftLine = { ...line, driftSeverity: 'warning' as const };
+    const { container } = render(
+      <MappingCanvas lines={[driftLine]} {...defaults} />,
+    );
+    const path = container.querySelector('.dm-connection-line--drift-warning');
+    expect(path).not.toBeNull();
+  });
+
+  it('renders drift badge on line without expression', () => {
+    const driftLine = { ...line, driftSeverity: 'breaking' as const };
+    const { container } = render(
+      <MappingCanvas lines={[driftLine]} {...defaults} />,
+    );
+    const badge = container.querySelector('.dm-canvas-badge--drift-breaking');
+    expect(badge).not.toBeNull();
+    expect(badge!.querySelector('.dm-canvas-badge-text')!.textContent).toBe('✕ drift');
+  });
+
+  it('renders both drift badge and expression badge when line has both', () => {
+    const driftLine = { ...line, driftSeverity: 'breaking' as const, hasExpression: true };
+    const { container } = render(
+      <MappingCanvas lines={[driftLine]} {...defaults} />,
+    );
+    expect(container.querySelector('.dm-canvas-badge--drift-breaking')).not.toBeNull();
+    expect(container.querySelector('.dm-canvas-badge--expression')).not.toBeNull();
+  });
+
+  it('renders no drift styling when driftSeverity is absent', () => {
+    const { container } = render(
+      <MappingCanvas lines={[line]} {...defaults} />,
+    );
+    expect(container.querySelector('.dm-connection-line--drift-breaking')).toBeNull();
+    expect(container.querySelector('.dm-connection-line--drift-warning')).toBeNull();
+  });
+});
+
+describe('debug mode overlay', () => {
+  it('renders trace value badge when debugMode is true and line has traceValue', () => {
+    const traceLine = { ...line, traceValue: 'Alice', traceError: false };
+    const { container } = render(
+      <MappingCanvas lines={[traceLine]} {...defaults} debugMode />,
+    );
+    expect(container.querySelector('.dm-trace-badge--ok')).not.toBeNull();
+    expect(container.querySelector('.dm-trace-badge-text')!.textContent).toBe('Alice');
+  });
+
+  it('renders error trace badge when traceError is true', () => {
+    const traceLine = { ...line, traceValue: 'undefined', traceError: true };
+    const { container } = render(
+      <MappingCanvas lines={[traceLine]} {...defaults} debugMode />,
+    );
+    expect(container.querySelector('.dm-trace-badge--error')).not.toBeNull();
+  });
+
+  it('does not render trace badges when debugMode is false', () => {
+    const traceLine = { ...line, traceValue: 'Alice', traceError: false };
+    const { container } = render(
+      <MappingCanvas lines={[traceLine]} {...defaults} />,
+    );
+    expect(container.querySelector('.dm-trace-badge')).toBeNull();
+  });
+
+  it('truncates long trace values on line badges', () => {
+    const traceLine = { ...line, traceValue: 'a very long value that exceeds limit', traceError: false };
+    const { container } = render(
+      <MappingCanvas lines={[traceLine]} {...defaults} debugMode />,
+    );
+    const text = container.querySelector('.dm-trace-badge-text')!.textContent!;
+    expect(text.endsWith('…')).toBe(true);
+    expect(text.length).toBeLessThanOrEqual(17);
+  });
+
+  it('applies trace-ok class to connection line when debug and no error', () => {
+    const traceLine = { ...line, traceValue: 'ok', traceError: false };
+    const { container } = render(
+      <MappingCanvas lines={[traceLine]} {...defaults} debugMode />,
+    );
+    expect(container.querySelector('.dm-connection-line--trace-ok')).not.toBeNull();
+  });
+
+  it('applies trace-error class to connection line when debug and error', () => {
+    const traceLine = { ...line, traceValue: 'err', traceError: true };
+    const { container } = render(
+      <MappingCanvas lines={[traceLine]} {...defaults} debugMode />,
+    );
+    expect(container.querySelector('.dm-connection-line--trace-error')).not.toBeNull();
+  });
+
+  it('renders title tooltip with full trace value', () => {
+    const fullValue = 'a long string with full details for tooltip';
+    const traceLine = { ...line, traceValue: fullValue, traceError: false };
+    const { container } = render(
+      <MappingCanvas lines={[traceLine]} {...defaults} debugMode />,
+    );
+    const title = container.querySelector('.dm-trace-badge title');
+    expect(title!.textContent).toBe(fullValue);
+  });
+
+  it('does not render badge or trace-ok class for empty string traceValue', () => {
+    const traceLine = { ...line, traceValue: '', traceError: false };
+    const { container } = render(
+      <MappingCanvas lines={[traceLine]} {...defaults} debugMode />,
+    );
+    expect(container.querySelector('.dm-trace-badge')).toBeNull();
+    expect(container.querySelector('.dm-connection-line--trace-ok')).toBeNull();
+  });
+});
+
+describe('MappingCanvas – failure pinpointing (9C)', () => {
+  it('renders inline error label on failed mapping lines in debug mode', () => {
+    const errorLine = { ...line, traceError: true, traceValue: 'undefined' };
+    const { container } = render(
+      <MappingCanvas lines={[errorLine]} {...defaults} debugMode />,
+    );
+    expect(container.querySelector('.dm-error-inline')).not.toBeNull();
+    expect(container.querySelector('.dm-error-inline-text')).not.toBeNull();
+  });
+
+  it('does not render inline error label when not in debug mode', () => {
+    const errorLine = { ...line, traceError: true, traceValue: 'undefined' };
+    const { container } = render(
+      <MappingCanvas lines={[errorLine]} {...defaults} />,
+    );
+    expect(container.querySelector('.dm-error-inline')).toBeNull();
+  });
+
+  it('does not render inline error label for non-error lines', () => {
+    const okLine = { ...line, traceError: false, traceValue: 'Alice' };
+    const { container } = render(
+      <MappingCanvas lines={[okLine]} {...defaults} debugMode />,
+    );
+    expect(container.querySelector('.dm-error-inline')).toBeNull();
+  });
+});
+
+describe('MappingCanvas – error detail callback (9C)', () => {
+  const errorTrace: MappingTrace = {
+    mappingId: 'm1',
+    sourcePath: 'name',
+    sourceId: 's1',
+    sourceValue: 'Alice',
+    targetPath: 'userName',
+    targetValue: undefined,
+    expression: '$broken($.name)',
+    error: 'Unknown function: $broken',
+    timestamp: Date.now(),
+    durationMs: 1,
+  };
+
+  const traceMap = new Map<string, MappingTrace>([['m1', errorTrace]]);
+
+  it('calls onShowErrorDetail when error inline is clicked', () => {
+    const onShowErrorDetail = vi.fn();
+    const errorLine = { ...line, traceError: true, traceValue: 'undefined' };
+    const { container } = render(
+      <MappingCanvas lines={[errorLine]} {...defaults} debugMode traceByMappingId={traceMap} onShowErrorDetail={onShowErrorDetail} />,
+    );
+    fireEvent.click(container.querySelector('.dm-error-inline')!);
+    expect(onShowErrorDetail).toHaveBeenCalledTimes(1);
+    const [data] = onShowErrorDetail.mock.calls[0];
+    expect(data.sourcePath).toBe('name');
+    expect(data.targetPath).toBe('userName');
+    expect(data.expression).toBe('$broken($.name)');
+    expect(data.error).toContain('Unknown function');
+    expect(data.sourceValue).toBe('Alice');
+  });
+
+  it('does not call onShowErrorDetail when no traceByMappingId', () => {
+    const onShowErrorDetail = vi.fn();
+    const errorLine = { ...line, traceError: true, traceValue: 'undefined' };
+    const { container } = render(
+      <MappingCanvas lines={[errorLine]} {...defaults} debugMode onShowErrorDetail={onShowErrorDetail} />,
+    );
+    fireEvent.click(container.querySelector('.dm-error-inline')!);
+    expect(onShowErrorDetail).not.toHaveBeenCalled();
+  });
+
+  it('does not call onShowErrorDetail when callback not provided', () => {
+    const errorLine = { ...line, traceError: true, traceValue: 'undefined' };
+    const { container } = render(
+      <MappingCanvas lines={[errorLine]} {...defaults} debugMode traceByMappingId={traceMap} />,
+    );
+    expect(() => fireEvent.click(container.querySelector('.dm-error-inline')!)).not.toThrow();
   });
 });

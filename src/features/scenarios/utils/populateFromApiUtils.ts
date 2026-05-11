@@ -38,16 +38,22 @@ export interface ResponseDebugInfo {
  * Walk a JSON object to find all arrays of objects and their paths.
  * Used to detect which parts of an API response can be extracted as data rows.
  */
-export function detectArrays(obj: unknown, prefix = ''): DetectedArray[] {
+export function detectArrays(obj: unknown, prefix = '', _seen?: WeakSet<object>): DetectedArray[] {
   const results: DetectedArray[] = [];
-  if (Array.isArray(obj) && obj.length > 0 && typeof obj[0] === 'object' && obj[0] !== null) {
-    const keys = Object.keys(obj[0] as Record<string, unknown>);
-    results.push({ path: prefix || '$', length: obj.length, sampleKeys: keys });
+  if (Array.isArray(obj) && obj.length > 0) {
+    const firstObj = obj.find((item) => item != null && typeof item === 'object' && !Array.isArray(item));
+    if (firstObj) {
+      const keys = Object.keys(firstObj as Record<string, unknown>);
+      results.push({ path: prefix || '$', length: obj.length, sampleKeys: keys });
+    }
   }
   if (obj && typeof obj === 'object' && !Array.isArray(obj)) {
+    const seen = _seen ?? new WeakSet<object>();
+    if (seen.has(obj as object)) return results;
+    seen.add(obj as object);
     for (const [key, val] of Object.entries(obj as Record<string, unknown>)) {
       const p = prefix ? `${prefix}.${key}` : key;
-      results.push(...detectArrays(val, p));
+      results.push(...detectArrays(val, p, seen));
     }
   }
   return results;
@@ -157,7 +163,7 @@ export function findMatchingColumn(
           return m.endsWith(`.${fieldNorm}`) || m.endsWith(`[${fieldNorm}]`) || m === fieldNorm;
         })
       : undefined)
-    || columns.find(c => normalizeForMatch(c.name) === fieldNorm);
+    || columns.find(c => c.type === colType && normalizeForMatch(c.name) === fieldNorm);
 }
 
 /**

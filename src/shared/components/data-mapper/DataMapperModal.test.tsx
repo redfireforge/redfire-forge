@@ -1,8 +1,29 @@
 /** @vitest-environment jsdom */
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 import DataMapperModal from './DataMapperModal';
 import type { MapperAdapter, Mapping, ValidationIssue } from './types';
+
+vi.mock('./utils/schemaSnapshot', () => ({
+  captureSchemaSnapshot: vi.fn((_contextId: string, side: string, _data: unknown, sourceId?: string) => ({
+    id: `snap-${side}-${sourceId ?? 'tgt'}`,
+    contextId: 'test',
+    side,
+    sourceId,
+    fields: [
+      { path: 'name', type: 'string', depth: 0, isArrayElement: false },
+      { path: 'age', type: 'number', depth: 0, isArrayElement: false },
+    ],
+    capturedAt: new Date().toISOString(),
+    topLevelKeyCount: 2,
+  })),
+  captureSnapshotPair: vi.fn(() => ({
+    source: [],
+    target: null,
+  })),
+  loadSnapshot: vi.fn(() => Promise.resolve(null)),
+  saveSnapshot: vi.fn(() => Promise.resolve()),
+}));
 
 const sampleSource = { name: 'Alice', age: 30 };
 const sampleTarget = { userName: '', userAge: 0 };
@@ -45,7 +66,7 @@ describe('DataMapperModal', () => {
     const adapter = createAdapter();
     const onCancel = vi.fn();
     render(<DataMapperModal adapter={adapter} onSave={vi.fn()} onCancel={onCancel} />);
-    fireEvent.click(screen.getByTitle('Close'));
+    fireEvent.click(screen.getByLabelText('Close data mapper'));
     expect(onCancel).toHaveBeenCalledTimes(1);
   });
 
@@ -125,9 +146,9 @@ describe('DataMapperModal', () => {
       <DataMapperModal adapter={adapter} onSave={vi.fn()} onCancel={vi.fn()} />,
     );
     expect(container.querySelector('.dm-modal--fullscreen')).toBeNull();
-    fireEvent.click(screen.getByTitle('Full screen'));
+    fireEvent.click(screen.getByLabelText('Enter full screen'));
     expect(container.querySelector('.dm-modal--fullscreen')).toBeTruthy();
-    fireEvent.click(screen.getByTitle('Exit full screen'));
+    fireEvent.click(screen.getByLabelText('Exit full screen'));
     expect(container.querySelector('.dm-modal--fullscreen')).toBeNull();
   });
 
@@ -210,5 +231,494 @@ describe('DataMapperModal', () => {
     fireEvent.click(screen.getByText('Done'));
     const doneBtn = screen.getByText('Done').closest('button');
     expect(doneBtn?.disabled).toBe(true);
+  });
+
+  it('shows required field warnings from target.fields (not just fieldConstraints)', () => {
+    const onSave = vi.fn();
+    const adapter = createAdapter({
+      target: {
+        label: 'Target',
+        sampleData: sampleTarget,
+        allowCustomFields: false,
+        fields: [
+          { path: 'requiredField', label: 'Required Field', type: 'string', required: true },
+          { path: 'optionalField', label: 'Optional', type: 'string' },
+        ],
+      },
+    });
+    render(<DataMapperModal adapter={adapter} onSave={onSave} onCancel={vi.fn()} />);
+    fireEvent.click(screen.getByText('Done'));
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(screen.getByText(/Required field "requiredField"/)).toBeTruthy();
+  });
+
+  it('shows save-failed warning when serialize throws an Error', () => {
+    const onSave = vi.fn();
+    const adapter = createAdapter({
+      serialize: () => { throw new Error('Serialization boom'); },
+    });
+    render(<DataMapperModal adapter={adapter} onSave={onSave} onCancel={vi.fn()} />);
+    fireEvent.click(screen.getByText('Done'));
+    expect(onSave).not.toHaveBeenCalled();
+    expect(screen.getByText(/Save failed: Serialization boom/)).toBeTruthy();
+  });
+
+  it('shows save-failed warning when serialize throws a non-Error value', () => {
+    const onSave = vi.fn();
+    const adapter = createAdapter({
+      serialize: () => { throw 'string error'; },
+    });
+    render(<DataMapperModal adapter={adapter} onSave={onSave} onCancel={vi.fn()} />);
+    fireEvent.click(screen.getByText('Done'));
+    expect(onSave).not.toHaveBeenCalled();
+    expect(screen.getByText(/Save failed: string error/)).toBeTruthy();
+  });
+
+  it('calls onCancel when Escape is pressed with no nested overlays', () => {
+    const adapter = createAdapter();
+    const onCancel = vi.fn();
+    render(<DataMapperModal adapter={adapter} onSave={vi.fn()} onCancel={onCancel} />);
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(onCancel).toHaveBeenCalledTimes(1);
+  });
+
+  it('does NOT call onCancel when Escape is pressed with expression overlay open', () => {
+    const adapter = createAdapter();
+    const onCancel = vi.fn();
+    const { container } = render(
+      <DataMapperModal adapter={adapter} onSave={vi.fn()} onCancel={onCancel} />,
+    );
+    // Simulate a nested expression overlay being present in the DOM
+    const overlay = document.createElement('div');
+    overlay.className = 'dm-expr-overlay';
+    container.appendChild(overlay);
+
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(onCancel).not.toHaveBeenCalled();
+
+    container.removeChild(overlay);
+  });
+
+  it('does NOT call onCancel when Escape is pressed while INPUT is focused', () => {
+    const adapter = createAdapter();
+    const onCancel = vi.fn();
+    render(<DataMapperModal adapter={adapter} onSave={vi.fn()} onCancel={onCancel} />);
+    const input = document.createElement('input');
+    document.body.appendChild(input);
+    input.focus();
+    fireEvent.keyDown(input, { key: 'Escape', bubbles: true });
+    expect(onCancel).not.toHaveBeenCalled();
+    document.body.removeChild(input);
+  });
+
+  it('does NOT call onCancel when Escape is pressed while TEXTAREA is focused', () => {
+    const adapter = createAdapter();
+    const onCancel = vi.fn();
+    render(<DataMapperModal adapter={adapter} onSave={vi.fn()} onCancel={onCancel} />);
+    const textarea = document.createElement('textarea');
+    document.body.appendChild(textarea);
+    textarea.focus();
+    fireEvent.keyDown(textarea, { key: 'Escape', bubbles: true });
+    expect(onCancel).not.toHaveBeenCalled();
+    document.body.removeChild(textarea);
+  });
+
+  it('does NOT call onCancel when Escape is pressed on contentEditable element', () => {
+    const adapter = createAdapter();
+    const onCancel = vi.fn();
+    render(<DataMapperModal adapter={adapter} onSave={vi.fn()} onCancel={onCancel} />);
+    const div = document.createElement('div');
+    div.contentEditable = 'true';
+    document.body.appendChild(div);
+    div.focus();
+    fireEvent.keyDown(div, { key: 'Escape', bubbles: true });
+    expect(onCancel).not.toHaveBeenCalled();
+    document.body.removeChild(div);
+  });
+
+  it('uses custom doneLabel', () => {
+    const adapter = createAdapter();
+    render(<DataMapperModal adapter={adapter} onSave={vi.fn()} onCancel={vi.fn()} doneLabel="Save Mappings" />);
+    expect(screen.getByText('Save Mappings')).toBeTruthy();
+  });
+
+  it('shows validation warning when validate throws a non-Error value', () => {
+    const onSave = vi.fn();
+    const adapter = createAdapter({
+      validate: () => { throw 'string validation error'; },
+    });
+    render(<DataMapperModal adapter={adapter} onSave={onSave} onCancel={vi.fn()} />);
+    fireEvent.click(screen.getByText('Done'));
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(screen.getByText(/Validation error: string validation error/)).toBeTruthy();
+  });
+
+  it('shows validation warning when validate throws an Error', () => {
+    const onSave = vi.fn();
+    const adapter = createAdapter({
+      validate: () => { throw new Error('validate boom'); },
+    });
+    render(<DataMapperModal adapter={adapter} onSave={onSave} onCancel={vi.fn()} />);
+    fireEvent.click(screen.getByText('Done'));
+    expect(screen.getByText(/Validation error: validate boom/)).toBeTruthy();
+  });
+
+  it('does NOT call onCancel when Escape is pressed with schema diff overlay open', () => {
+    const adapter = createAdapter();
+    const onCancel = vi.fn();
+    const { container } = render(
+      <DataMapperModal adapter={adapter} onSave={vi.fn()} onCancel={onCancel} />,
+    );
+    const overlay = document.createElement('div');
+    overlay.className = 'dm-diff-overlay';
+    container.appendChild(overlay);
+
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(onCancel).not.toHaveBeenCalled();
+
+    container.removeChild(overlay);
+  });
+
+  it('does NOT call onCancel when non-Escape key is pressed', () => {
+    const adapter = createAdapter();
+    const onCancel = vi.fn();
+    render(<DataMapperModal adapter={adapter} onSave={vi.fn()} onCancel={onCancel} />);
+    fireEvent.keyDown(window, { key: 'Enter' });
+    expect(onCancel).not.toHaveBeenCalled();
+  });
+
+  it('does NOT call onCancel when Escape is pressed on SELECT element', () => {
+    const adapter = createAdapter();
+    const onCancel = vi.fn();
+    render(<DataMapperModal adapter={adapter} onSave={vi.fn()} onCancel={onCancel} />);
+    const select = document.createElement('select');
+    document.body.appendChild(select);
+    select.focus();
+    fireEvent.keyDown(select, { key: 'Escape', bubbles: true });
+    expect(onCancel).not.toHaveBeenCalled();
+    document.body.removeChild(select);
+  });
+
+  it('deduplicates required field warnings between fieldConstraints and fields', () => {
+    const onSave = vi.fn();
+    const adapter = createAdapter({
+      target: {
+        label: 'Target',
+        sampleData: sampleTarget,
+        allowCustomFields: false,
+        fieldConstraints: { userName: { required: true } },
+        fields: [
+          { path: 'userName', label: 'Username', type: 'string', required: true },
+          { path: 'extra', label: 'Extra', type: 'string', required: true },
+        ],
+      },
+    });
+    render(<DataMapperModal adapter={adapter} onSave={onSave} onCancel={vi.fn()} />);
+    fireEvent.click(screen.getByText('Done'));
+    const issues = screen.getAllByText(/Required field/);
+    const userNameIssues = issues.filter(el => el.textContent?.includes('userName'));
+    expect(userNameIssues.length).toBe(1);
+  });
+
+  it('has correct ARIA attributes on the dialog', () => {
+    const adapter = createAdapter();
+    const { container } = render(
+      <DataMapperModal adapter={adapter} onSave={vi.fn()} onCancel={vi.fn()} />,
+    );
+    const overlay = container.querySelector('.dm-modal-overlay');
+    expect(overlay?.getAttribute('role')).toBe('dialog');
+    expect(overlay?.getAttribute('aria-modal')).toBe('true');
+    expect(overlay?.getAttribute('aria-labelledby')).toBeTruthy();
+  });
+
+  it('saves schema snapshot on successful save', async () => {
+    const { saveSnapshot } = await import('./utils/schemaSnapshot');
+    const onSave = vi.fn();
+    const adapter = createAdapter();
+    render(<DataMapperModal adapter={adapter} onSave={onSave} onCancel={vi.fn()} />);
+    fireEvent.click(screen.getByText('Done'));
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(saveSnapshot).toHaveBeenCalled();
+  });
+
+  it('fires drift detection on mount when snapshot exists', async () => {
+    const { loadSnapshot } = await import('./utils/schemaSnapshot');
+    vi.mocked(loadSnapshot).mockResolvedValueOnce({
+      source: [{
+        id: 'snap-1',
+        contextId: 'test',
+        side: 'source' as const,
+        sourceId: 's1',
+        fields: [
+          { path: 'name', type: 'string', depth: 0, isArrayElement: false },
+          { path: 'age', type: 'number', depth: 0, isArrayElement: false },
+        ],
+        capturedAt: new Date(Date.now() - 10000).toISOString(),
+        topLevelKeyCount: 2,
+      }],
+      target: null,
+    });
+    const adapter = createAdapter();
+    await act(async () => {
+      render(<DataMapperModal adapter={adapter} onSave={vi.fn()} onCancel={vi.fn()} />);
+    });
+    await act(async () => { await new Promise((r) => setTimeout(r, 600)); });
+    expect(loadSnapshot).toHaveBeenCalledWith('test');
+  });
+
+  it('does not crash when loadSnapshot rejects', async () => {
+    const { loadSnapshot } = await import('./utils/schemaSnapshot');
+    vi.mocked(loadSnapshot).mockRejectedValueOnce(new Error('storage fail'));
+    const adapter = createAdapter();
+    await act(async () => {
+      render(<DataMapperModal adapter={adapter} onSave={vi.fn()} onCancel={vi.fn()} />);
+    });
+    await act(async () => { await new Promise((r) => setTimeout(r, 600)); });
+    expect(screen.getByText('Test Mapper')).toBeTruthy();
+  });
+
+  it('does not show DriftBanner when no saved snapshot', async () => {
+    const { loadSnapshot } = await import('./utils/schemaSnapshot');
+    vi.mocked(loadSnapshot).mockResolvedValueOnce(null);
+    const adapter = createAdapter();
+    const { container } = render(
+      <DataMapperModal adapter={adapter} onSave={vi.fn()} onCancel={vi.fn()} />,
+    );
+    await act(async () => { await new Promise((r) => setTimeout(r, 600)); });
+    expect(container.querySelector('.dm-drift-banner')).toBeNull();
+  });
+
+  it('renders the modal body with DataMapper inside', () => {
+    const adapter = createAdapter();
+    const { container } = render(
+      <DataMapperModal adapter={adapter} onSave={vi.fn()} onCancel={vi.fn()} />,
+    );
+    expect(container.querySelector('.dm-modal-body')).toBeTruthy();
+    expect(container.querySelector('.dm-container')).toBeTruthy();
+  });
+
+  it('renders modal shell structure', () => {
+    const adapter = createAdapter();
+    const { container } = render(
+      <DataMapperModal adapter={adapter} onSave={vi.fn()} onCancel={vi.fn()} />,
+    );
+    expect(container.querySelector('.dm-modal-shell')).toBeTruthy();
+    expect(container.querySelector('.dm-modal-header')).toBeTruthy();
+    expect(container.querySelector('.dm-modal-footer')).toBeTruthy();
+  });
+
+  it('shows DriftBanner when saved snapshot has removed fields', async () => {
+    const { loadSnapshot, captureSchemaSnapshot } = await import('./utils/schemaSnapshot');
+
+    vi.mocked(loadSnapshot).mockResolvedValueOnce({
+      source: [{
+        id: 'snap-src-s1',
+        contextId: 'test',
+        side: 'source' as const,
+        sourceId: 's1',
+        fields: [
+          { path: 'name', type: 'string', depth: 0, isArrayElement: false },
+          { path: 'age', type: 'number', depth: 0, isArrayElement: false },
+          { path: 'email', type: 'string', depth: 0, isArrayElement: false },
+        ],
+        capturedAt: new Date(Date.now() - 10000).toISOString(),
+        topLevelKeyCount: 3,
+      }],
+      target: null,
+    });
+
+    vi.mocked(captureSchemaSnapshot).mockReturnValueOnce({
+      id: 'snap-current',
+      contextId: 'test',
+      side: 'source' as const,
+      sourceId: 's1',
+      fields: [
+        { path: 'name', type: 'string', depth: 0, isArrayElement: false },
+        { path: 'age', type: 'number', depth: 0, isArrayElement: false },
+      ],
+      capturedAt: new Date().toISOString(),
+      topLevelKeyCount: 2,
+    });
+
+    const adapter = createAdapter();
+    const { container } = await act(async () => {
+      return render(<DataMapperModal adapter={adapter} onSave={vi.fn()} onCancel={vi.fn()} />);
+    });
+    await act(async () => { await new Promise((r) => setTimeout(r, 600)); });
+    expect(container.querySelector('.dm-drift-banner')).toBeTruthy();
+  });
+
+  it('dismisses DriftBanner when dismiss is clicked', async () => {
+    const { loadSnapshot, captureSchemaSnapshot } = await import('./utils/schemaSnapshot');
+
+    vi.mocked(loadSnapshot).mockResolvedValueOnce({
+      source: [{
+        id: 'snap-src-s1',
+        contextId: 'test',
+        side: 'source' as const,
+        sourceId: 's1',
+        fields: [
+          { path: 'name', type: 'string', depth: 0, isArrayElement: false },
+          { path: 'removed', type: 'string', depth: 0, isArrayElement: false },
+        ],
+        capturedAt: new Date(Date.now() - 10000).toISOString(),
+        topLevelKeyCount: 2,
+      }],
+      target: null,
+    });
+
+    vi.mocked(captureSchemaSnapshot).mockReturnValueOnce({
+      id: 'snap-current',
+      contextId: 'test',
+      side: 'source' as const,
+      sourceId: 's1',
+      fields: [
+        { path: 'name', type: 'string', depth: 0, isArrayElement: false },
+      ],
+      capturedAt: new Date().toISOString(),
+      topLevelKeyCount: 1,
+    });
+
+    const adapter = createAdapter();
+    const { container } = await act(async () => {
+      return render(<DataMapperModal adapter={adapter} onSave={vi.fn()} onCancel={vi.fn()} />);
+    });
+    await act(async () => { await new Promise((r) => setTimeout(r, 600)); });
+    expect(container.querySelector('.dm-drift-banner')).toBeTruthy();
+
+    const dismissBtn = screen.getByLabelText('Dismiss drift notification');
+    await act(async () => { fireEvent.click(dismissBtn); });
+    expect(container.querySelector('.dm-drift-banner')).toBeNull();
+  });
+
+  it('Accept & Update calls saveSnapshot and clears banner', async () => {
+    const { loadSnapshot, captureSchemaSnapshot, saveSnapshot } = await import('./utils/schemaSnapshot');
+
+    vi.mocked(loadSnapshot).mockResolvedValueOnce({
+      source: [{
+        id: 'snap-src-s1',
+        contextId: 'test',
+        side: 'source' as const,
+        sourceId: 's1',
+        fields: [
+          { path: 'name', type: 'string', depth: 0, isArrayElement: false },
+          { path: 'gone', type: 'string', depth: 0, isArrayElement: false },
+        ],
+        capturedAt: new Date(Date.now() - 10000).toISOString(),
+        topLevelKeyCount: 2,
+      }],
+      target: null,
+    });
+
+    vi.mocked(captureSchemaSnapshot).mockReturnValueOnce({
+      id: 'snap-current',
+      contextId: 'test',
+      side: 'source' as const,
+      sourceId: 's1',
+      fields: [
+        { path: 'name', type: 'string', depth: 0, isArrayElement: false },
+      ],
+      capturedAt: new Date().toISOString(),
+      topLevelKeyCount: 1,
+    });
+
+    const saveCountBefore = vi.mocked(saveSnapshot).mock.calls.length;
+    const adapter = createAdapter();
+    const { container } = await act(async () => {
+      return render(<DataMapperModal adapter={adapter} onSave={vi.fn()} onCancel={vi.fn()} />);
+    });
+    await act(async () => { await new Promise((r) => setTimeout(r, 600)); });
+    expect(container.querySelector('.dm-drift-banner')).toBeTruthy();
+
+    const acceptBtn = screen.getByText('Accept & Update');
+    await act(async () => { fireEvent.click(acceptBtn); });
+    expect(container.querySelector('.dm-drift-banner')).toBeNull();
+    expect(vi.mocked(saveSnapshot).mock.calls.length).toBeGreaterThan(saveCountBefore);
+  });
+
+  it('Show Diff opens SchemaDiffModal overlay', async () => {
+    const { loadSnapshot, captureSchemaSnapshot } = await import('./utils/schemaSnapshot');
+
+    vi.mocked(loadSnapshot).mockResolvedValueOnce({
+      source: [{
+        id: 'snap-src-s1',
+        contextId: 'test',
+        side: 'source' as const,
+        sourceId: 's1',
+        fields: [
+          { path: 'name', type: 'string', depth: 0, isArrayElement: false },
+          { path: 'missing', type: 'string', depth: 0, isArrayElement: false },
+        ],
+        capturedAt: new Date(Date.now() - 10000).toISOString(),
+        topLevelKeyCount: 2,
+      }],
+      target: null,
+    });
+
+    vi.mocked(captureSchemaSnapshot).mockReturnValueOnce({
+      id: 'snap-current',
+      contextId: 'test',
+      side: 'source' as const,
+      sourceId: 's1',
+      fields: [
+        { path: 'name', type: 'string', depth: 0, isArrayElement: false },
+      ],
+      capturedAt: new Date().toISOString(),
+      topLevelKeyCount: 1,
+    });
+
+    const adapter = createAdapter();
+    const { container } = await act(async () => {
+      return render(<DataMapperModal adapter={adapter} onSave={vi.fn()} onCancel={vi.fn()} />);
+    });
+    await act(async () => { await new Promise((r) => setTimeout(r, 600)); });
+    expect(container.querySelector('.dm-drift-banner')).toBeTruthy();
+
+    const diffBtn = screen.getByText('Show Diff');
+    await act(async () => { fireEvent.click(diffBtn); });
+    expect(container.querySelector('.dm-diff-overlay')).toBeTruthy();
+  });
+
+  it('shows plural errors text for multiple validation errors', () => {
+    const onSave = vi.fn();
+    const validateFn = vi.fn((): ValidationIssue[] => [
+      { mappingId: 'm1', severity: 'error', message: 'Missing source' },
+      { mappingId: 'm2', severity: 'error', message: 'Invalid target' },
+    ]);
+    const adapter = createAdapter({ validate: validateFn });
+    render(<DataMapperModal adapter={adapter} onSave={onSave} onCancel={vi.fn()} />);
+    fireEvent.click(screen.getByText('Done'));
+    expect(screen.getByText('2 errors')).toBeTruthy();
+  });
+
+  it('renders targetPath in validation issue when present', () => {
+    const onSave = vi.fn();
+    const validateFn = vi.fn((): ValidationIssue[] => [
+      { mappingId: 'm1', severity: 'warning', message: 'Low conf', targetPath: '$.userName' },
+    ]);
+    const adapter = createAdapter({ validate: validateFn });
+    const { container } = render(
+      <DataMapperModal adapter={adapter} onSave={onSave} onCancel={vi.fn()} />,
+    );
+    fireEvent.click(screen.getByText('Done'));
+    expect(container.querySelector('.dm-validation-path')?.textContent).toBe('$.userName');
+  });
+
+  it('Done button title shows "Save mappings" when no errors', () => {
+    const adapter = createAdapter();
+    render(<DataMapperModal adapter={adapter} onSave={vi.fn()} onCancel={vi.fn()} />);
+    const doneBtn = screen.getByText('Done');
+    expect(doneBtn.getAttribute('title')).toBe('Save mappings');
+  });
+
+  it('Done button title shows error message when errors present', () => {
+    const validateFn = vi.fn((): ValidationIssue[] => [
+      { mappingId: 'm1', severity: 'error', message: 'Bad' },
+    ]);
+    const adapter = createAdapter({ validate: validateFn });
+    render(<DataMapperModal adapter={adapter} onSave={vi.fn()} onCancel={vi.fn()} />);
+    fireEvent.click(screen.getByText('Done'));
+    const doneBtn = screen.getByText('Done');
+    expect(doneBtn.getAttribute('title')).toBe('Fix errors before saving');
   });
 });

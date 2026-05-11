@@ -604,6 +604,10 @@ export interface ExecutionEventDetails {
     path?: string;
   };
 
+  // Mapping traces (Phase 9A — captured at 'full' or 'debug' level)
+  /** Per-mapping data flow traces showing source→expression→target values */
+  mappingTraces?: import('../components/data-mapper/utils/mappingTrace').MappingTrace[];
+
   // Errors
   error?: string;
   errorStack?: string;

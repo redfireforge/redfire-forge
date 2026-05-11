@@ -68,27 +68,28 @@ describe('TargetPanel', () => {
 
   it('expands all nodes on ⊞ click', () => {
     renderPanel();
-    fireEvent.click(screen.getByTitle('Expand all'));
+    fireEvent.click(screen.getByLabelText('Expand all'));
     expect(screen.getByText('city')).toBeTruthy();
   });
 
   it('collapses all on ⊟ click', () => {
     renderPanel();
-    fireEvent.click(screen.getByTitle('Expand all'));
-    fireEvent.click(screen.getByTitle('Collapse all'));
+    fireEvent.click(screen.getByLabelText('Expand all'));
+    fireEvent.click(screen.getByLabelText('Collapse all'));
     expect(screen.queryByText('city')).toBeNull();
   });
 
   it('shows mapped indicator on mapped fields', () => {
-    renderPanel({ mappings: [mapping] });
-    fireEvent.click(screen.getByTitle('Expand all'));
-    expect(screen.getByText(/← name/)).toBeTruthy();
+    const { container } = renderPanel({ mappings: [mapping] });
+    fireEvent.click(screen.getByLabelText('Expand all'));
+    expect(container.querySelector('.dm-mapped-badge')).toBeTruthy();
+    expect(screen.getByText('←')).toBeTruthy();
   });
 
   it('fires onEditExpression on double-click of mapped field', () => {
     const onEdit = vi.fn();
     renderPanel({ mappings: [mapping], onEditExpression: onEdit });
-    fireEvent.click(screen.getByTitle('Expand all'));
+    fireEvent.click(screen.getByLabelText('Expand all'));
     const el = screen.getByText('userName').closest('.dm-tree-node')!;
     fireEvent.doubleClick(el);
     expect(onEdit).toHaveBeenCalledWith('m1');
@@ -100,7 +101,7 @@ describe('TargetPanel', () => {
       mappings: [mapping],
       onRemoveMapping: onRemove,
     });
-    fireEvent.click(screen.getByTitle('Expand all'));
+    fireEvent.click(screen.getByLabelText('Expand all'));
     const removeBtn = container.querySelector('.dm-inline-remove');
     expect(removeBtn).toBeTruthy();
   });
@@ -124,7 +125,7 @@ describe('TargetPanel', () => {
 
   it('toggles a node path between expanded and collapsed', () => {
     renderPanel();
-    fireEvent.click(screen.getByTitle('Expand all'));
+    fireEvent.click(screen.getByLabelText('Expand all'));
     expect(screen.getByText('city')).toBeTruthy();
     const toggleBtns = screen.getAllByLabelText('Collapse');
     fireEvent.click(toggleBtns[toggleBtns.length - 1]);
@@ -139,14 +140,14 @@ describe('TargetPanel', () => {
       typeMismatches: mismatches,
       onQuickFix,
     });
-    fireEvent.click(screen.getByTitle('Expand all'));
+    fireEvent.click(screen.getByLabelText('Expand all'));
     const badge = container.querySelector('.dm-mismatch-badge');
     expect(badge).toBeTruthy();
   });
 
   it('handles expand all when tree is null (no-op)', () => {
     renderPanel({ target: { label: 'Empty', sampleData: null } });
-    fireEvent.click(screen.getByTitle('Expand all'));
+    fireEvent.click(screen.getByLabelText('Expand all'));
     expect(screen.getByText(/No target schema/)).toBeTruthy();
   });
 });

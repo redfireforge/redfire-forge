@@ -1,6 +1,9 @@
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import type { MapperSource } from './types';
 import type { JsonTreeNode } from '../../utils/jsonTreeModel';
+import type { FocusRegion } from './hooks/useKeyboardNavigation';
+import type { DriftIndicator } from './SourceTreeNode';
+import type { TraceValueOverlay } from './types';
 import { buildJsonTree } from '../../utils/jsonTreeModel';
 import SourceTreeNode from './SourceTreeNode';
 
@@ -15,6 +18,20 @@ interface SourcePanelProps {
   canFetch?: boolean;
   fetchError?: string | null;
   searchInputRef?: React.RefObject<HTMLInputElement | null>;
+  selectedSourcePaths?: Set<string>;
+  onToggleSourcePath?: (path: string) => void;
+  isFocusRegion?: boolean;
+  focusedPath?: string | null;
+  onFocus?: () => void;
+  onTreeKeyDown?: (
+    e: React.KeyboardEvent,
+    region: FocusRegion,
+    expandedPaths: Set<string>,
+    onToggle: (path: string) => void,
+  ) => void;
+  driftMap?: Map<string, DriftIndicator>;
+  traceOverlay?: Map<string, TraceValueOverlay>;
+  mappedPaths?: Set<string>;
 }
 
 export default function SourcePanel({
@@ -28,6 +45,15 @@ export default function SourcePanel({
   canFetch = false,
   fetchError,
   searchInputRef,
+  selectedSourcePaths,
+  onToggleSourcePath,
+  isFocusRegion,
+  focusedPath,
+  onFocus,
+  onTreeKeyDown,
+  driftMap,
+  traceOverlay,
+  mappedPaths,
 }: SourcePanelProps) {
   const [search, setSearch] = useState('');
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set(['__root__']));
@@ -47,7 +73,7 @@ export default function SourcePanel({
   const effectiveSampleData = sourceSampleOverrides[activeSourceId] ?? activeSource?.sampleData;
 
   const tree: JsonTreeNode | null = useMemo(() => {
-    if (!effectiveSampleData) return null;
+    if (effectiveSampleData == null) return null;
     try {
       const data = typeof effectiveSampleData === 'string'
         ? JSON.parse(effectiveSampleData)
@@ -122,14 +148,18 @@ export default function SourcePanel({
   }, [pasteMode, effectiveSampleData]);
 
   return (
-    <div className="dm-panel dm-panel--source">
+    <div
+      className={`dm-panel dm-panel--source ${isFocusRegion ? 'dm-panel--focused' : ''}`}
+      onFocus={onFocus}
+    >
       <div className="dm-panel-header">
         <span className="dm-panel-title">Source</span>
         <div className="dm-panel-actions">
           <button
             className={`dm-btn-icon ${pasteMode ? 'dm-btn-icon--active' : ''}`}
             onClick={togglePasteMode}
-            title={pasteMode ? 'Switch to tree view' : 'Paste JSON'}
+            aria-label={pasteMode ? 'Show tree view' : 'Paste JSON'}
+            aria-pressed={pasteMode}
           >
             {pasteMode ? '🌳' : '📋'}
           </button>
@@ -138,25 +168,27 @@ export default function SourcePanel({
               className="dm-btn-icon"
               onClick={handleFetchSample}
               disabled={fetching}
-              title="Fetch live sample"
+              aria-label="Fetch live sample"
             >
               {fetching ? '⏳' : '🔄'}
             </button>
           )}
           {!pasteMode && (
             <>
-              <button className="dm-btn-icon" onClick={handleExpandAll} title="Expand all">⊞</button>
-              <button className="dm-btn-icon" onClick={handleCollapseAll} title="Collapse all">⊟</button>
+              <button className="dm-btn-icon" onClick={handleExpandAll} aria-label="Expand all">⊞</button>
+              <button className="dm-btn-icon" onClick={handleCollapseAll} aria-label="Collapse all">⊟</button>
             </>
           )}
         </div>
       </div>
 
       {sources.length > 1 && (
-        <div className="dm-source-tabs">
+        <div className="dm-source-tabs" role="tablist" aria-label="Source data tabs">
           {sources.map((s) => (
             <button
               key={s.id}
+              role="tab"
+              aria-selected={s.id === activeSourceId}
               className={`dm-source-tab ${s.id === activeSourceId ? 'dm-source-tab--active' : ''}`}
               onClick={() => onSourceChange(s.id)}
             >
@@ -173,9 +205,11 @@ export default function SourcePanel({
             value={pasteText}
             onChange={(e) => { setPasteText(e.target.value); setPasteError(null); }}
             placeholder='Paste JSON here, e.g. {"name": "Alice", "age": 30}'
+            aria-label="Paste JSON sample"
+            aria-invalid={!!pasteError}
             spellCheck={false}
           />
-          {pasteError && <div className="dm-paste-error">{pasteError}</div>}
+          {pasteError && <div className="dm-paste-error" role="alert">{pasteError}</div>}
           <div className="dm-paste-actions">
             <button className="dm-paste-btn dm-paste-btn--apply" onClick={handlePasteSubmit}>
               Apply
@@ -193,17 +227,23 @@ export default function SourcePanel({
               type="text"
               className="dm-search-input"
               placeholder="Search fields…"
+              aria-label="Search source fields"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
             {search && (
-              <button className="dm-search-clear" onClick={() => setSearch('')}>×</button>
+              <button className="dm-search-clear" onClick={() => setSearch('')} aria-label="Clear search">×</button>
             )}
           </div>
 
-          {fetchError && <div className="dm-paste-error">{fetchError}</div>}
+          {fetchError && <div className="dm-paste-error" role="alert">{fetchError}</div>}
 
-          <div className="dm-tree-container">
+          <div
+            className="dm-tree-container"
+            role="group"
+            tabIndex={isFocusRegion ? 0 : -1}
+            onKeyDown={onTreeKeyDown ? (e) => onTreeKeyDown(e, 'source', expandedPaths, handleToggle) : undefined}
+          >
             {tree ? (
               <SourceTreeNode
                 node={tree}
@@ -213,6 +253,12 @@ export default function SourcePanel({
                 sourceId={activeSourceId}
                 expandedPaths={expandedPaths}
                 onToggle={handleToggle}
+                selectedPaths={selectedSourcePaths}
+                onToggleSelect={onToggleSourcePath}
+                focusedPath={focusedPath}
+                driftMap={driftMap}
+                traceOverlay={traceOverlay}
+                mappedPaths={mappedPaths}
               />
             ) : (
               <div className="dm-empty-state">

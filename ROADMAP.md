@@ -574,7 +574,7 @@ Post-launch features driven by community feedback. Completing the engine items b
 
 #### Extensibility & Organization
 - [ ] **Test Tagging** — Label tests with `smoke`, `regression`, `critical` and run by tag
-- [ ] **Data Mapper** — Visual field mapping component replacing 6+ scattered mapping UIs; drag-and-drop connections, expression editor with live preview, auto-map with accept/reject, type mismatch detection & quick-fix, modal shell with validation, panel resize, demo adapter **(Phase 2 complete — core component fully built; Phase 3 adapter integration next)** — see `docs/plan/data-mapper-plan.md`
+- [ ] **Data Mapper** — Visual field mapping component replacing 6+ scattered mapping UIs; drag-and-drop connections, expression editor with Monaco + autocomplete, auto-map with accept/reject, type mismatch detection & quick-fix, modal shell with validation, panel resize; 10 adapters + body builder; gallery samples, WCAG AA compliance, high-contrast CSS tokens **(Phase 7F complete — hardening, audit fixes, 91%+ coverage, 13,116+ tests)** — see `docs/plan/data-mapper-plan.md`
 - [ ] **Plugin API** — Extension point for custom auth providers, assertion functions, reporters
 
 ---

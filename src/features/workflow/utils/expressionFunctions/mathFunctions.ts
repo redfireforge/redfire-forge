@@ -163,8 +163,9 @@ const $random: ExpressionFunction = {
   returnType: 'number',
   examples: [{ input: '$random(1, 100)', output: '42' }],
   evaluate: (min, max) => {
-    const lo = min != null ? n(min) : 0;
-    const hi = max != null ? n(max) : 999999;
+    let lo = min != null ? n(min) : 0;
+    let hi = max != null ? n(max) : 999999;
+    if (lo > hi) { const tmp = lo; lo = hi; hi = tmp; }
     return Math.floor(Math.random() * (hi - lo + 1)) + lo;
   },
 };
@@ -172,7 +173,7 @@ const $random: ExpressionFunction = {
 const $parseInt: ExpressionFunction = {
   name: '$parseInt', category: 'Math',
   signature: '$parseInt(value)',
-  description: 'Parse a string to an integer. Returns NaN if not parseable.',
+  description: 'Parse a string to an integer. Returns 0 if not parseable.',
   args: [{ name: 'value', type: 'any', required: true, description: 'Value to parse' }],
   returnType: 'number',
   examples: [{ input: '$parseInt("42")', output: '42' }, { input: '$parseInt("3.14")', output: '3' }],

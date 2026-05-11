@@ -40,6 +40,7 @@ export function buildJsonTree(
   parentPath?: string,
   opts?: BuildTreeOptions,
   depth?: number,
+  _seen?: WeakSet<object>,
 ): JsonTreeNode {
   const d = depth ?? 0;
   const track = opts?.trackPaths !== false;
@@ -59,24 +60,30 @@ export function buildJsonTree(
     }
   }
 
-  if (Array.isArray(obj)) {
-    const maxItems = opts?.maxArrayItems;
-    const isTruncated = maxItems !== undefined && obj.length > maxItems;
-    const items = isTruncated ? obj.slice(0, maxItems) : obj;
-    return {
-      key,
-      path,
-      value: obj,
-      type: 'array',
-      children: items.map((item, i) => {
-        const childPath = track ? (path ? `${path}[${i}]` : `[${i}]`) : '';
-        return buildJsonTree(item, `[${i}]`, childPath, opts, d + 1);
-      }),
-      ...(isTruncated ? { truncated: true, totalCount: obj.length } : {}),
-    };
-  }
-
   if (typeof obj === 'object') {
+    const seen = _seen ?? new WeakSet<object>();
+    if (seen.has(obj as object)) {
+      return { key, path, value: '[Circular]', type: 'string' };
+    }
+    seen.add(obj as object);
+
+    if (Array.isArray(obj)) {
+      const maxItems = opts?.maxArrayItems;
+      const isTruncated = maxItems !== undefined && obj.length > maxItems;
+      const items = isTruncated ? obj.slice(0, maxItems) : obj;
+      return {
+        key,
+        path,
+        value: obj,
+        type: 'array',
+        children: items.map((item, i) => {
+          const childPath = track ? (path ? `${path}[${i}]` : `[${i}]`) : '';
+          return buildJsonTree(item, `[${i}]`, childPath, opts, d + 1, seen);
+        }),
+        ...(isTruncated ? { truncated: true, totalCount: obj.length } : {}),
+      };
+    }
+
     return {
       key,
       path,
@@ -84,7 +91,7 @@ export function buildJsonTree(
       type: 'object',
       children: Object.entries(obj as Record<string, unknown>).map(([k, v]) => {
         const childPath = track ? (path ? `${path}.${k}` : k) : '';
-        return buildJsonTree(v, k, childPath, opts, d + 1);
+        return buildJsonTree(v, k, childPath, opts, d + 1, seen);
       }),
     };
   }

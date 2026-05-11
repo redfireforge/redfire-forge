@@ -415,4 +415,21 @@ describe('validationAdapter – $.prefix normalization', () => {
     const idMapping = mappings.find((m) => m.sourcePath === 'id');
     expect(idMapping?.targetPath).toBe('42');
   });
+
+  it('serialize deduplicates by normalized path (last wins)', () => {
+    const sample = { id: 1, name: 'Alice' };
+    const adapter = createValidationAdapter({
+      sampleResponseBody: JSON.stringify(sample),
+      selectiveMode: 'include',
+    });
+    const mappings: Mapping[] = [
+      { id: 'm1', sourceId: 'response-body', sourcePath: 'id', targetPath: 'first' },
+      { id: 'm2', sourceId: 'response-body', sourcePath: 'id', targetPath: 'second' },
+      { id: 'm3', sourceId: 'response-body', sourcePath: 'name', targetPath: 'Alice' },
+    ];
+    const result = adapter.serialize(mappings);
+    expect(result.expectedFields).toHaveLength(2);
+    const idField = result.expectedFields.find((f) => f.jsonPath === 'id');
+    expect(idField?.expectedValue).toBe('second');
+  });
 });

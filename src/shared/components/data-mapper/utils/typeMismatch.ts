@@ -15,12 +15,16 @@ export interface TypeMismatch {
 }
 
 const FIX_MAP: Record<string, string> = {
-  'string→number': '$parseInt($.PATH)',
+  'string→number': '$parseFloat($.PATH)',
   'string→boolean': '$toBool($.PATH)',
   'number→string': '$toString($.PATH)',
   'boolean→string': '$toString($.PATH)',
   'boolean→number': '$toInt($.PATH)',
   'number→boolean': '$toBool($.PATH)',
+  'array→string': '$join($.PATH, ", ")',
+  'string→array': '$split($.PATH, ",")',
+  'array→number': '$count($.PATH)',
+  'array→boolean': '$toBool($count($.PATH))',
 };
 
 /**
@@ -65,8 +69,9 @@ function resolveTargetType(
 function resolveSourceType(
   mapping: Mapping,
   sources: MapperSource[],
+  activeSourceId?: string,
 ): string | null {
-  const src = sources.find((s) => s.id === mapping.sourceId);
+  const src = sources.find((s) => s.id === (mapping.sourceId || activeSourceId));
   if (!src?.sampleData) return null;
   const data = typeof src.sampleData === 'string'
     ? safeParse(src.sampleData) : src.sampleData;
@@ -74,6 +79,21 @@ function resolveSourceType(
   const val = getByPath(data, mapping.sourcePath);
   if (val === undefined) return null;
   return inferType(val);
+}
+
+/**
+ * Check whether a string value looks like an ISO/common date format.
+ */
+const DATE_PATTERNS = [
+  /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2})/,       // ISO 8601
+  /^\d{2}\/\d{2}\/\d{4}/,                     // MM/DD/YYYY or DD/MM/YYYY
+  /^\d{4}\/\d{2}\/\d{2}/,                     // YYYY/MM/DD
+  /^\w{3},\s\d{2}\s\w{3}\s\d{4}/,             // RFC 2822
+];
+
+export function looksLikeDate(value: unknown): boolean {
+  if (typeof value !== 'string') return false;
+  return DATE_PATTERNS.some((rx) => rx.test(value));
 }
 
 /**
@@ -115,13 +135,14 @@ export function detectTypeMismatches(
   mappings: Mapping[],
   sources: MapperSource[],
   target: MapperTarget,
+  activeSourceId?: string,
 ): TypeMismatch[] {
   const mismatches: TypeMismatch[] = [];
 
   for (const mapping of mappings) {
     if (mapping.expression) continue;
 
-    const sourceType = resolveSourceType(mapping, sources);
+    const sourceType = resolveSourceType(mapping, sources, activeSourceId);
     const targetType = resolveTargetType(mapping.targetPath, target);
 
     if (!sourceType || !targetType) continue;
@@ -144,6 +165,47 @@ export function detectTypeMismatches(
     });
   }
 
+  // Second pass: detect date-like strings that may need format conversion
+  for (const mapping of mappings) {
+    if (mapping.expression) continue;
+    if (mismatches.some((m) => m.mappingId === mapping.id)) continue;
+
+    const sourceVal = getSourceValue(mapping, sources, activeSourceId);
+    const targetVal = getTargetValue(mapping.targetPath, target);
+
+    if (sourceVal === undefined || targetVal === undefined) continue;
+    const srcIsDate = looksLikeDate(sourceVal);
+    const tgtIsDate = looksLikeDate(targetVal);
+
+    if (srcIsDate && !tgtIsDate && typeof targetVal === 'string') {
+      const normalizedPath = mapping.sourcePath.startsWith('$.') ? mapping.sourcePath : `$.${mapping.sourcePath}`;
+      const suggestedFix = `$formatDate(${normalizedPath}, "YYYY-MM-DD")`;
+      mismatches.push({
+        mappingId: mapping.id,
+        sourcePath: mapping.sourcePath,
+        targetPath: mapping.targetPath,
+        sourceType: 'date-string',
+        targetType: 'string',
+        severity: 'info',
+        message: `Source looks like a date. Try \`${suggestedFix}\` to reformat.`,
+        suggestedFix,
+      });
+    } else if (srcIsDate && tgtIsDate) {
+      const normalizedPath = mapping.sourcePath.startsWith('$.') ? mapping.sourcePath : `$.${mapping.sourcePath}`;
+      const suggestedFix = `$formatDate(${normalizedPath}, "YYYY-MM-DD")`;
+      mismatches.push({
+        mappingId: mapping.id,
+        sourcePath: mapping.sourcePath,
+        targetPath: mapping.targetPath,
+        sourceType: 'date-string',
+        targetType: 'date-string',
+        severity: 'info',
+        message: `Both values look like dates. Use \`${suggestedFix}\` to normalize format.`,
+        suggestedFix,
+      });
+    }
+  }
+
   return mismatches;
 }
 
@@ -159,4 +221,23 @@ export function getMismatchForMapping(
 
 function safeParse(s: string): unknown {
   try { return JSON.parse(s); } catch { return null; }
+}
+
+function getSourceValue(
+  mapping: Mapping,
+  sources: MapperSource[],
+  activeSourceId?: string,
+): unknown {
+  const src = sources.find((s) => s.id === (mapping.sourceId || activeSourceId));
+  if (!src?.sampleData) return undefined;
+  const data = typeof src.sampleData === 'string' ? safeParse(src.sampleData) : src.sampleData;
+  if (data == null) return undefined;
+  return getByPath(data, mapping.sourcePath);
+}
+
+function getTargetValue(targetPath: string, target: MapperTarget): unknown {
+  if (!target.sampleData) return undefined;
+  const data = typeof target.sampleData === 'string' ? safeParse(target.sampleData) : target.sampleData;
+  if (data == null) return undefined;
+  return getByPath(data, targetPath);
 }
