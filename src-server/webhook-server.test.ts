@@ -298,11 +298,22 @@ describe('webhook-server', () => {
   describe('CORS', () => {
     it('allows cross-origin requests', async () => {
       const res = await request(app)
-        .options('/health')
+        .get('/health')
         .set('Origin', 'http://localhost:5173');
 
       expect(res.status).toBe(200);
       expect(res.headers['access-control-allow-origin']).toBe('*');
+    });
+
+    it('responds to OPTIONS preflight with 200', async () => {
+      const res = await request(app)
+        .options('/health')
+        .set('Origin', 'http://localhost:5173')
+        .set('Access-Control-Request-Method', 'POST');
+
+      expect(res.status).toBe(200);
+      expect(res.headers['access-control-allow-origin']).toBe('*');
+      expect(res.headers['access-control-allow-methods']).toContain('POST');
     });
   });
 
