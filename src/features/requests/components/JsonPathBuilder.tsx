@@ -234,6 +234,10 @@ interface Props {
   onUpdate: (patch: ValidationPatch) => void;
 }
 
+/**
+ * @deprecated Use `DataMapperModal` with `createValidationAdapter` instead.
+ * This component will be removed once all call sites are migrated (Phase 3 wiring).
+ */
 export default function JsonPathBuilder({
   sampleJson,
   onSampleJsonChange,

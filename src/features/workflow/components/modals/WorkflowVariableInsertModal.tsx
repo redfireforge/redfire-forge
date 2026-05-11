@@ -5,7 +5,6 @@ import { NODE_TYPE_DISPLAY } from '../../utils/workflowVariableHints';
 import type { VariableSourceCategory } from '../../utils/workflowVariableHints';
 import { useModalFrame } from '../../../../shared/hooks/useModalFrame';
 import ModalResizeHandles from '../../../../shared/components/ModalResizeHandles';
-import ModalExpandButton from '../../../../shared/components/ModalExpandButton';
 import ComposeStrip from '../ComposeStrip';
 import type { ComposeToken } from '../ComposeStrip';
 import ExpressionBuilderView from '../expression/ExpressionBuilderView';
@@ -53,7 +52,7 @@ export default function WorkflowVariableInsertModal({ open, hints, shortRef = fa
   const [composeMode, setComposeMode] = useState(false);
   const [composeTokens, setComposeTokens] = useState<ComposeToken[]>([]);
   const [view, setView] = useState<ModalView>('browse');
-  const { expanded, setExpanded, toggleExpand, expandClass, overlayStyle, dialogStyle, headerDragStyle, onHeaderMouseDown, onRightEdge, onCorner } = useModalFrame({ open, expandMode: 'fullscreen' });
+  const { expanded: _expanded, setExpanded, toggleExpand: _toggleExpand, expandClass, overlayStyle, dialogStyle, headerDragStyle, onHeaderMouseDown, onRightEdge, onCorner } = useModalFrame({ open, expandMode: 'fullscreen' });
 
   /** Group hints by source. */
   const groups = useMemo((): VarGroup[] => {
@@ -282,8 +281,6 @@ export default function WorkflowVariableInsertModal({ open, hints, shortRef = fa
             />
             <span className="wf-var-insert-compose-toggle-label">Compose</span>
           </label>
-          <ModalExpandButton expanded={expanded} onToggle={toggleExpand} position="header" />
-          <button type="button" className="btn btn-sm btn-ghost" onClick={onClose}>Close</button>
         </div>
         {/* View toggle tabs */}
         <div className="wf-var-insert-view-tabs">
@@ -426,7 +423,6 @@ export default function WorkflowVariableInsertModal({ open, hints, shortRef = fa
             ) : (
               <span className="wf-var-insert-detail-placeholder">Hover a variable to see details</span>
             )}
-            <ModalExpandButton expanded={expanded} onToggle={toggleExpand} position="footer" />
           </div>
           {composeMode && (
             <ComposeStrip
@@ -436,6 +432,11 @@ export default function WorkflowVariableInsertModal({ open, hints, shortRef = fa
               onClear={handleComposeClear}
             />
           )}
+          <div className="wf-var-insert-action-bar">
+            <button type="button" className="wf-var-insert-action-clear" onClick={handleComposeClear} disabled={!composeMode || composeTokens.length === 0}>Clear</button>
+            <button type="button" className="wf-var-insert-action-insert" onClick={handleInsertAll} disabled={!composeMode || composeTokens.length === 0}>Insert All{composeMode && composeTokens.length > 0 ? ` (${composeTokens.length})` : ''}</button>
+            <button type="button" className="wf-var-insert-close-btn" onClick={onClose}>Close</button>
+          </div>
           </>
         )}
         <ModalResizeHandles onRightEdge={onRightEdge} onCorner={onCorner} />

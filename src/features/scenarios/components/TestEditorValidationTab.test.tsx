@@ -52,14 +52,18 @@ vi.mock('../../requests/components/RulesVersionPanel', () => ({
     </div>
   ),
 }));
-vi.mock('../../requests/components/RegexAssertionModal', () => ({
-  default: ({ onClose, onApply }: { onClose: () => void; onApply: (result: { jsonPath: string; pattern: string }) => void }) => (
-    <div data-testid="regex-assertion-modal">
-      <button onClick={onClose}>Close Regex Modal</button>
-      <button data-testid="apply-regex" onClick={() => onApply({ jsonPath: '$.name', pattern: '^[A-Z]+$' })}>Apply Regex</button>
-    </div>
-  ),
-}));
+vi.mock('../../../shared/components/data-mapper', async () => {
+  const actual = await vi.importActual<Record<string, unknown>>('../../../shared/components/data-mapper');
+  return {
+    ...actual,
+    RegexAssertionBuilderModal: ({ onCancel, onSave }: { onCancel: () => void; onSave: (result: { jsonPath: string; pattern: string }) => void }) => (
+      <div data-testid="regex-assertion-modal">
+        <button onClick={onCancel}>Close Regex Modal</button>
+        <button data-testid="apply-regex" onClick={() => onSave({ jsonPath: '$.name', pattern: '^[A-Z]+$' })}>Apply Regex</button>
+      </div>
+    ),
+  };
+});
 
 function makeDraft(overrides: Partial<Scenario> = {}): Scenario {
   return {

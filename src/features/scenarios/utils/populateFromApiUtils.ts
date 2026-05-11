@@ -55,18 +55,9 @@ export function detectArrays(obj: unknown, prefix = ''): DetectedArray[] {
 
 /**
  * Resolve a JSONPath-like string to a value in an object.
- * Supports simple dot notation (e.g., "data.users" or "$" for root).
+ * Supports dot notation, bracket indices, and wildcards via the canonical engine.
  */
-export function resolvePath(obj: unknown, path: string): unknown {
-  if (path === '$') return obj;
-  const segments = path.split('.');
-  let current: unknown = obj;
-  for (const seg of segments) {
-    if (current == null || typeof current !== 'object') return undefined;
-    current = (current as Record<string, unknown>)[seg];
-  }
-  return current;
-}
+export { getByPath as resolvePath } from '../../../shared/utils/jsonPath';
 
 /**
  * Guess a column type from the field name.

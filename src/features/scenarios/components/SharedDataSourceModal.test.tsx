@@ -104,27 +104,31 @@ vi.mock('./DataSourceSetupModal', () => ({
   ),
 }));
 
-vi.mock('./PopulateFromApiModal', () => ({
-  default: ({
-    onApply,
-    onClose,
-  }: {
-    onApply: (columns: DataSource['columns'], rows: DataSource['rows'], mode: 'append' | 'replace') => void;
-    onClose: () => void;
-  }) => (
-    <div data-testid="populate-from-api-mock">
-      <button type="button" onClick={() => onApply([], [{ id: 'nr', values: {}, enabled: true }], 'append')}>
-        Populate Append
-      </button>
-      <button type="button" onClick={() => onApply([], [], 'replace')}>
-        Populate Replace
-      </button>
-      <button type="button" onClick={onClose}>
-        Populate Close
-      </button>
-    </div>
-  ),
-}));
+vi.mock('../../../shared/components/data-mapper', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../shared/components/data-mapper')>();
+  return {
+    ...actual,
+    DataMapperModal: ({
+      onSave,
+      onCancel,
+    }: {
+      onSave: (output: { columns: DataSource['columns']; rows: DataSource['rows']; mode: 'append' | 'replace' }) => void;
+      onCancel: () => void;
+    }) => (
+      <div data-testid="populate-from-api-mock">
+        <button type="button" onClick={() => onSave({ columns: [], rows: [{ id: 'nr', values: {}, enabled: true }], mode: 'append' })}>
+          Populate Append
+        </button>
+        <button type="button" onClick={() => onSave({ columns: [], rows: [], mode: 'replace' })}>
+          Populate Replace
+        </button>
+        <button type="button" onClick={onCancel}>
+          Populate Close
+        </button>
+      </div>
+    ),
+  };
+});
 
 vi.mock('./SharedDsSaveConfirmModal', () => ({
   default: ({

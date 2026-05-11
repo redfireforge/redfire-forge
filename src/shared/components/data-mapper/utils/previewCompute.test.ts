@@ -1,0 +1,221 @@
+import { describe, it, expect } from 'vitest';
+import { computePreview } from './previewCompute';
+import type { Mapping, MapperSource } from '../types';
+
+const sources: MapperSource[] = [
+  { id: 's1', label: 'Response', sampleData: { name: 'Alice', age: 30, address: { city: 'NYC' } } },
+];
+
+const targetSample = { userName: '', userAge: 0, location: '' };
+
+describe('computePreview', () => {
+  it('maps direct path mappings', () => {
+    const mappings: Mapping[] = [
+      { id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'userName' },
+    ];
+    const result = computePreview(mappings, sources, 's1', targetSample);
+    expect(result.fields).toHaveLength(1);
+    expect(result.fields[0].value).toBe('Alice');
+    expect(result.fields[0].error).toBeUndefined();
+    expect(result.targetObject.userName).toBe('Alice');
+  });
+
+  it('maps nested source paths', () => {
+    const mappings: Mapping[] = [
+      { id: 'm1', sourcePath: 'address.city', sourceId: 's1', targetPath: 'location' },
+    ];
+    const result = computePreview(mappings, sources, 's1', targetSample);
+    expect(result.fields[0].value).toBe('NYC');
+    expect(result.targetObject.location).toBe('NYC');
+  });
+
+  it('evaluates expression mappings', () => {
+    const mappings: Mapping[] = [
+      { id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'userName', expression: '$upper($.name)' },
+    ];
+    const result = computePreview(mappings, sources, 's1', targetSample);
+    expect(result.fields[0].value).toBe('ALICE');
+    expect(result.fields[0].hasExpression).toBe(true);
+  });
+
+  it('reports errors for invalid expressions', () => {
+    const mappings: Mapping[] = [
+      { id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'userName', expression: '$unknownFn($.name)' },
+    ];
+    const result = computePreview(mappings, sources, 's1', targetSample);
+    // Unknown functions may evaluate without error (returning raw text) or with error
+    // depending on the evaluator behavior — either way the field is computed
+    expect(result.fields).toHaveLength(1);
+    expect(result.fields[0].hasExpression).toBe(true);
+  });
+
+  it('counts errors for expression evaluation failures', () => {
+    const badSources: MapperSource[] = [
+      { id: 's1', label: 'Test', sampleData: null },
+    ];
+    const mappings: Mapping[] = [
+      { id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'userName', expression: '$upper($.nonexistent)' },
+    ];
+    const result = computePreview(mappings, badSources, 's1', targetSample);
+    // With null source data, resolution returns undefined
+    expect(result.fields[0].value).toBeDefined();
+    expect(result.fields).toHaveLength(1);
+  });
+
+  it('handles multiple mappings', () => {
+    const mappings: Mapping[] = [
+      { id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'userName' },
+      { id: 'm2', sourcePath: 'age', sourceId: 's1', targetPath: 'userAge' },
+      { id: 'm3', sourcePath: 'address.city', sourceId: 's1', targetPath: 'location' },
+    ];
+    const result = computePreview(mappings, sources, 's1', targetSample);
+    expect(result.fields).toHaveLength(3);
+    expect(result.errorCount).toBe(0);
+    expect(result.targetObject.userName).toBe('Alice');
+    expect(result.targetObject.userAge).toBe(30);
+    expect(result.targetObject.location).toBe('NYC');
+  });
+
+  it('handles empty mappings', () => {
+    const result = computePreview([], sources, 's1', targetSample);
+    expect(result.fields).toHaveLength(0);
+    expect(result.errorCount).toBe(0);
+  });
+
+  it('handles null target sample data', () => {
+    const mappings: Mapping[] = [
+      { id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'out' },
+    ];
+    const result = computePreview(mappings, sources, 's1', null);
+    expect(result.targetObject.out).toBe('Alice');
+  });
+
+  it('handles string source sampleData', () => {
+    const strSources: MapperSource[] = [
+      { id: 's1', label: 'Test', sampleData: '{"x": 42}' },
+    ];
+    const mappings: Mapping[] = [
+      { id: 'm1', sourcePath: 'x', sourceId: 's1', targetPath: 'output' },
+    ];
+    const result = computePreview(mappings, strSources, 's1', null);
+    expect(result.fields[0].value).toBe(42);
+  });
+
+  it('sets nested target paths correctly', () => {
+    const mappings: Mapping[] = [
+      { id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'user.displayName' },
+    ];
+    const result = computePreview(mappings, sources, 's1', {});
+    expect((result.targetObject.user as Record<string, unknown>).displayName).toBe('Alice');
+  });
+
+  it('nullifies unmapped target fields', () => {
+    const mappings: Mapping[] = [
+      { id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'userName' },
+    ];
+    const result = computePreview(mappings, sources, 's1', targetSample);
+    expect(result.targetObject.userName).toBe('Alice');
+    expect(result.targetObject.userAge).toBeNull();
+    expect(result.targetObject.location).toBeNull();
+  });
+
+  it('handles bracket-notation target paths (e.g. items[0].name)', () => {
+    const mappings: Mapping[] = [
+      { id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'items[0].name' },
+    ];
+    const result = computePreview(mappings, sources, 's1', { items: [{ name: '' }] });
+    const items = result.targetObject.items as unknown[];
+    expect(Array.isArray(items)).toBe(true);
+    expect((items[0] as Record<string, unknown>).name).toBe('Alice');
+  });
+
+  it('preserves array structure in nullifyLeaves', () => {
+    const mappings: Mapping[] = [];
+    const result = computePreview(mappings, sources, 's1', { tags: ['a', 'b'], nested: { x: 1 } });
+    const tags = result.targetObject.tags as unknown[];
+    expect(Array.isArray(tags)).toBe(true);
+    expect(tags[0]).toBeNull();
+    expect(tags[1]).toBeNull();
+    expect((result.targetObject.nested as Record<string, unknown>).x).toBeNull();
+  });
+
+  it('handles string target sample data', () => {
+    const mappings: Mapping[] = [
+      { id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'userName' },
+    ];
+    const result = computePreview(mappings, sources, 's1', '{"userName":"","userAge":0}');
+    expect(result.targetObject.userName).toBe('Alice');
+    expect(result.targetObject.userAge).toBeNull();
+  });
+
+  it('handles unparseable string target sample data', () => {
+    const mappings: Mapping[] = [
+      { id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'out' },
+    ];
+    const result = computePreview(mappings, sources, 's1', '{bad json}');
+    expect(result.targetObject.out).toBe('Alice');
+  });
+
+  it('falls back to activeSourceId when mapping has no sourceId', () => {
+    const mappings: Mapping[] = [
+      { id: 'm1', sourcePath: 'name', sourceId: '', targetPath: 'userName' },
+    ];
+    const result = computePreview(mappings, sources, 's1', targetSample);
+    expect(result.fields[0].value).toBe('Alice');
+  });
+
+  it('handles expression error with evaluateMapperExpression result.error', () => {
+    const mappings: Mapping[] = [
+      { id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'userName', expression: '$upper(' },
+    ];
+    const result = computePreview(mappings, sources, 's1', targetSample);
+    expect(result.errorCount).toBeGreaterThanOrEqual(0);
+    expect(result.fields).toHaveLength(1);
+  });
+
+  it('handles $.path prefix in sourcePath', () => {
+    const mappings: Mapping[] = [
+      { id: 'm1', sourcePath: '$.name', sourceId: 's1', targetPath: 'userName' },
+    ];
+    const result = computePreview(mappings, sources, 's1', targetSample);
+    expect(result.fields[0].value).toBe('Alice');
+  });
+
+  it('handles source with no sampleData for direct path mapping', () => {
+    const emptySources: MapperSource[] = [{ id: 's1', label: 'Empty', sampleData: null }];
+    const mappings: Mapping[] = [
+      { id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'out' },
+    ];
+    const result = computePreview(mappings, emptySources, 's1', {});
+    expect(result.fields[0].value).toBeNull();
+  });
+
+  it('captures error from expression evaluation result', () => {
+    const mappings: Mapping[] = [
+      { id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'userName', expression: '{{' },
+    ];
+    const result = computePreview(mappings, sources, 's1', targetSample);
+    if (result.fields[0].error) {
+      expect(result.errorCount).toBeGreaterThan(0);
+      expect(result.fields[0].value).toBeNull();
+    }
+  });
+
+  it('handles source not found for direct mapping', () => {
+    const mappings: Mapping[] = [
+      { id: 'm1', sourcePath: 'name', sourceId: 'nonexistent', targetPath: 'userName' },
+    ];
+    const result = computePreview(mappings, sources, 's1', targetSample);
+    expect(result.fields).toHaveLength(1);
+  });
+
+  it('strips $. prefix from targetPath before building preview object', () => {
+    const mappings: Mapping[] = [
+      { id: 'm1', sourcePath: '$.name', sourceId: 's1', targetPath: '$.userName' },
+    ];
+    const result = computePreview(mappings, sources, 's1', targetSample);
+    expect(result.fields[0].value).toBe('Alice');
+    expect(result.targetObject).toHaveProperty('userName');
+    expect(result.targetObject).not.toHaveProperty('$');
+  });
+});

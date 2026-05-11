@@ -6,6 +6,11 @@ import { resolveScenarioFromDataRow } from '../../../engine/dataSourceExpander';
 import { proxyFetch, buildHeaders } from '../../../engine/executor';
 import { expandPatternFromResponse } from '../utils/dataSourceImport';
 import JsonPathBuilder from '../../requests/components/JsonPathBuilder';
+import {
+  DataMapperModal,
+  createValidationAdapter,
+} from '../../../shared/components/data-mapper';
+import type { ValidationAdapterOutput } from '../../../shared/components/data-mapper';
 
 interface DataSourceRowDetailModalProps {
   draft: Scenario;
@@ -35,12 +40,31 @@ export default function DataSourceRowDetailModal({
   const [sampleJson, setSampleJson] = useState('');
   const [pendingFetchBody, setPendingFetchBody] = useState<string | null>(null);
   const [expectedFields, setExpectedFields] = useState<ExpectedField[]>(() => {
-    // Initialize from existing validate column values
     return dataTable.columns
       .filter(c => c.type === 'validate')
       .filter(c => row.values[c.id]?.trim())
       .map(c => ({ jsonPath: c.mapping, expectedValue: row.values[c.id] }));
   });
+  const [mapperOpen, setMapperOpen] = useState(false);
+
+  const validationAdapter = useMemo(
+    () => createValidationAdapter({
+      sampleResponseBody: sampleJson || undefined,
+      selectiveMode: 'include',
+    }),
+    [sampleJson],
+  );
+
+  const mapperInitialData = useMemo<ValidationAdapterOutput>(() => ({
+    selectiveMode: 'include',
+    expectedFields,
+    excludedPaths: [],
+  }), [expectedFields]);
+
+  const handleMapperSave = useCallback((output: ValidationAdapterOutput) => {
+    setExpectedFields(output.expectedFields);
+    setMapperOpen(false);
+  }, []);
 
   const inputColumns = useMemo(
     () => dataTable.columns.filter(c => c.type !== 'validate'),
@@ -360,6 +384,17 @@ export default function DataSourceRowDetailModal({
 
         {/* JSON Response + Field Selection (like Validation tab) */}
         <div className="row-detail-section row-detail-validation-section">
+          {sampleJson && (
+            <div className="validation-mapper-toggle">
+              <button
+                type="button"
+                className="btn btn-sm btn-accent"
+                onClick={() => setMapperOpen(true)}
+              >
+                ⚡ Visual Mapper
+              </button>
+            </div>
+          )}
           <JsonPathBuilder
             sampleJson={sampleJson}
             onSampleJsonChange={setSampleJson}
@@ -368,6 +403,14 @@ export default function DataSourceRowDetailModal({
             excludedPaths={[]}
             onUpdate={handleFieldsUpdate}
           />
+          {mapperOpen && (
+            <DataMapperModal
+              adapter={validationAdapter}
+              initialData={mapperInitialData}
+              onSave={handleMapperSave}
+              onCancel={() => setMapperOpen(false)}
+            />
+          )}
         </div>
       </div>
     </WorkflowEditorModalFrame>

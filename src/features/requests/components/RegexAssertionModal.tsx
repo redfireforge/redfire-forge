@@ -40,7 +40,11 @@ interface PickerNodeProps {
   selectOnDoubleClick?: boolean;
 }
 
-/** Shared JSON tree row picker (also used by ExtractionPathPickerModal). */
+/**
+ * Shared JSON tree row picker (also used by ExtractionPathPickerModal).
+ * @deprecated Use the Data Mapper's `SourceTreeNode` / `TargetTreeNode` instead.
+ * This export will be removed once all call sites are migrated (Phase 3 wiring).
+ */
 export const PickerNode = memo(function PickerNode({ node, depth, selectedPath, onSelect, searchTerm, expandAll, mappedPaths, selectOnDoubleClick }: PickerNodeProps) {
   const [manualExpanded, setManualExpanded] = useState<boolean | null>(null);
   const hasChildren = node.children && node.children.length > 0;

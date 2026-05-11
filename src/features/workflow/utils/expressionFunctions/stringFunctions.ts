@@ -191,7 +191,17 @@ const $indexOf: ExpressionFunction = {
   evaluate: (v, search) => s(v).indexOf(s(search)),
 };
 
+const $toString: ExpressionFunction = {
+  name: '$toString', category: 'String',
+  signature: '$toString(value)',
+  description: 'Convert any value to its string representation.',
+  args: [{ name: 'value', type: 'any', required: true, description: 'Value to convert' }],
+  returnType: 'string',
+  examples: [{ input: '$toString(42)', output: '"42"' }, { input: '$toString(true)', output: '"true"' }],
+  evaluate: (v) => String(v ?? ''),
+};
+
 export const stringFunctions: ExpressionFunction[] = [
   $upper, $lower, $trim, $length, $concat, $substring, $replace, $split, $join,
-  $startsWith, $endsWith, $padStart, $padEnd, $repeat, $indexOf,
+  $startsWith, $endsWith, $padStart, $padEnd, $repeat, $indexOf, $toString,
 ];

@@ -49,7 +49,7 @@ alwaysApply: true
 | `src/engine/workflow/graphRunner.ts` | Workflow execution engine with topological traversal, parallel fork/join |
 | `src/engine/workflow/debugController.ts` | Step-through debugging controller for Quick Test |
 | `src/engine/workflow/fetchScenarioSample.ts` | One-off HTTP fetch for Extract → Pick JSON path |
-| `src/components/RegexAssertionModal.tsx` | Regex assertion builder modal: JSON tree picker, pattern library, live preview |
+| `src/shared/components/data-mapper/RegexAssertionBuilderModal.tsx` | Regex assertion builder modal: DM tree picker, pattern library, live preview (replaced old RegexAssertionModal) |
 | `src/engine/executionWorker.ts` | Web Worker entry point for off-thread execution |
 | `src/engine/workerBridge.ts` | Main-thread bridge wrapping worker (drop-in for runTest) |
 | `src/engine/workerProtocol.ts` | Typed message protocol for Main ↔ Worker comms |
@@ -59,7 +59,38 @@ alwaysApply: true
 | `src/features/results/components/IterationMatrixTable.tsx` | Results Explorer: iteration × node matrix table |
 | `src/features/workflow/engine/traceCollector.ts` | Trace capture during workflow execution |
 | `src/features/results/utils/bottleneckAnalysis.ts` | Bottleneck identification engine for Results Explorer |
+| `src/shared/utils/jsonPath.ts` | Canonical JSONPath engine (getByPath, getByPathAsString) |
+| `src/shared/utils/jsonTreeModel.ts` | Unified JSON tree model (buildJsonTree, JsonTreeNode) |
+| `src/shared/components/data-mapper/DataMapper.tsx` | Data Mapper: main container component |
+| `src/shared/components/data-mapper/DataMapperModal.tsx` | Data Mapper: modal shell with validation + Done/Cancel |
+| `src/shared/components/data-mapper/SourcePanel.tsx` | Data Mapper: source tree panel with paste/fetch |
+| `src/shared/components/data-mapper/TargetPanel.tsx` | Data Mapper: target tree panel with drop zones |
+| `src/shared/components/data-mapper/SourceTreeNode.tsx` | Data Mapper: draggable source tree node |
+| `src/shared/components/data-mapper/TargetTreeNode.tsx` | Data Mapper: droppable target tree node |
+| `src/shared/components/data-mapper/MappingCanvas.tsx` | Data Mapper: SVG connection lines canvas |
+| `src/shared/components/data-mapper/MapperToolbar.tsx` | Data Mapper: toolbar (auto-map, undo/redo, preview) |
+| `src/shared/components/data-mapper/ExpressionEditorModal.tsx` | Data Mapper: expression editor with function catalog & live preview |
+| `src/shared/components/data-mapper/PreviewBar.tsx` | Data Mapper: live preview output bar |
+| `src/shared/components/data-mapper/types.ts` | Data Mapper: core types (Mapping, MapperAdapter, etc.) |
+| `src/shared/components/data-mapper/hooks/useMapperState.ts` | Data Mapper: mapping CRUD + undo/redo state |
+| `src/shared/components/data-mapper/hooks/useConnectionLines.ts` | Data Mapper: connection line position calculator |
+| `src/shared/components/data-mapper/utils/autoMapAlgorithm.ts` | Data Mapper: auto-mapping engine (3-tier name matching) |
+| `src/shared/components/data-mapper/utils/mapperExpressionEvaluator.ts` | Data Mapper: expression evaluator bridge ($.path resolution) |
+| `src/shared/components/data-mapper/utils/previewCompute.ts` | Data Mapper: preview evaluation engine |
+| `src/shared/components/data-mapper/utils/mappingSerializer.ts` | Data Mapper: mapping serialization/deserialization |
+| `src/shared/components/data-mapper/utils/typeMismatch.ts` | Data Mapper: type mismatch detection & quick-fix suggestions |
+| `src/shared/components/data-mapper/index.ts` | Data Mapper: barrel export (public API) |
 | `src/styles/results-explorer.css` | All Results Explorer CSS (2400+ lines) |
+| `src/styles/data-mapper.css` | Data Mapper: base CSS (container, panels, tree, canvas) |
+| `src/styles/data-mapper-expression.css` | Data Mapper: expression editor modal CSS |
+| `src/styles/data-mapper-modal.css` | Data Mapper: modal shell + validation bar CSS |
+| `src/shared/components/data-mapper/adapters/demoAdapter.ts` | Data Mapper: demo/reference adapter for sandbox testing |
+| `src/shared/components/data-mapper/adapters/extractionAdapter.ts` | Data Mapper: HTTP extraction adapter (Extraction[] ↔ Mapping[]) |
+| `src/shared/components/data-mapper/adapters/assertionAdapter.ts` | Data Mapper: regex assertion adapter (AssertionAdapterResult ↔ Mapping) |
+| `src/shared/components/data-mapper/adapters/validationAdapter.ts` | Data Mapper: selective validation adapter (ValidationAdapterOutput ↔ Mapping[]) |
+| `src/shared/components/data-mapper/adapters/populateFromApiAdapter.ts` | Data Mapper: populate from API adapter (PopulateOutput ↔ Mapping[]) with mutable internal state for live-fetch |
+| `src/shared/components/data-mapper/adapters/columnMappingAdapter.ts` | Data Mapper: column ↔ request template adapter (DataSourceColumn[] ↔ Mapping[]) with parseScenarioTemplate |
+| `src/shared/components/data-mapper/adapters/sharedDsFetchAdapter.ts` | Data Mapper: shared DS fetch adapter (SharedDsFetchOutput ↔ Mapping[]) with fetchConfig-aware title |
 | `src-tauri/tauri.conf.json` | Tauri app config |
 | `scripts/version.sh` | Version bump script |
 
