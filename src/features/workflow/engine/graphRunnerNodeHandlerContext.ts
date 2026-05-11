@@ -118,6 +118,7 @@ export interface CapturedHttpNodeDetails {
   assertions?: AssertionResult[];
   variablesSnapshot?: Record<string, string>;
   extractedVariables?: Record<string, string>;
+  mappingTraces?: import('../../../shared/components/data-mapper/utils/mappingTrace').MappingTrace[];
 }
 
 // Re-export so consumers of this file can still access it as one import

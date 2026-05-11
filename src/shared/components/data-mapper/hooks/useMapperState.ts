@@ -13,6 +13,14 @@ function mapperReducer(state: MapperState, action: MapperAction): MapperState {
         mappings: state.mappings.filter((m) => m.id !== action.id),
         selectedMappingId: state.selectedMappingId === action.id ? null : state.selectedMappingId,
       };
+    case 'REMOVE_MAPPINGS': {
+      const idsToRemove = new Set(action.ids);
+      return {
+        ...state,
+        mappings: state.mappings.filter((m) => !idsToRemove.has(m.id)),
+        selectedMappingId: state.selectedMappingId && idsToRemove.has(state.selectedMappingId) ? null : state.selectedMappingId,
+      };
+    }
     case 'UPDATE_MAPPING':
       return {
         ...state,
@@ -59,6 +67,8 @@ function mapperReducer(state: MapperState, action: MapperAction): MapperState {
           ? null
           : state.selectedMappingId,
       };
+    default:
+      return state;
   }
 }
 
@@ -71,6 +81,7 @@ export interface UseMapperStateReturn {
   state: MapperState;
   addMapping: (mapping: Mapping) => void;
   removeMapping: (id: string) => void;
+  removeMappings: (ids: string[]) => void;
   updateMapping: (id: string, changes: Partial<Omit<Mapping, 'id'>>) => void;
   setMappings: (mappings: Mapping[]) => void;
   clearAll: () => void;
@@ -81,6 +92,8 @@ export interface UseMapperStateReturn {
   rejectPending: (id: string) => void;
   acceptAllPending: () => void;
   rejectAllPending: () => void;
+  /** Replace mappings from external props without recording undo history. Clears undo/redo stacks. */
+  replaceMappingsFromProps: (mappings: Mapping[]) => void;
   undo: () => void;
   redo: () => void;
   canUndo: boolean;
@@ -111,6 +124,7 @@ export function useMapperState(opts?: UseMapperStateOptions): UseMapperStateRetu
   const isMutatingAction = (action: MapperAction): boolean =>
     action.type === 'ADD_MAPPING' ||
     action.type === 'REMOVE_MAPPING' ||
+    action.type === 'REMOVE_MAPPINGS' ||
     action.type === 'UPDATE_MAPPING' ||
     action.type === 'SET_MAPPINGS' ||
     action.type === 'CLEAR_ALL' ||
@@ -150,6 +164,7 @@ export function useMapperState(opts?: UseMapperStateOptions): UseMapperStateRetu
     state,
     addMapping: useCallback((m: Mapping) => dispatch({ type: 'ADD_MAPPING', mapping: m }), [dispatch]),
     removeMapping: useCallback((id: string) => dispatch({ type: 'REMOVE_MAPPING', id }), [dispatch]),
+    removeMappings: useCallback((ids: string[]) => dispatch({ type: 'REMOVE_MAPPINGS', ids }), [dispatch]),
     updateMapping: useCallback(
       (id: string, changes: Partial<Omit<Mapping, 'id'>>) =>
         dispatch({ type: 'UPDATE_MAPPING', id, changes }),
@@ -162,6 +177,15 @@ export function useMapperState(opts?: UseMapperStateOptions): UseMapperStateRetu
     // Bypasses undo stack — sample overrides are ephemeral input data, not mapping decisions
     setSourceSample: useCallback(
       (sourceId: string, data: unknown) => rawDispatch({ type: 'SET_SOURCE_SAMPLE', sourceId, data }),
+      [],
+    ),
+    // Bypasses undo stack and clears history — used when parent swaps adapter/initialData
+    replaceMappingsFromProps: useCallback(
+      (mappings: Mapping[]) => {
+        undoStack.current = [];
+        redoStack.current = [];
+        rawDispatch({ type: 'SET_MAPPINGS', mappings });
+      },
       [],
     ),
     acceptPending: useCallback((id: string) => dispatch({ type: 'ACCEPT_PENDING', id }), [dispatch]),

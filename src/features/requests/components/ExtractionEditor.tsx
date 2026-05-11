@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import type { Extraction, ExtractionSource } from '../../../shared/types';
 import type { WorkflowVariableHint } from '../../workflow/utils/workflowVariableHints';
 import { suggestedVariableNameFromJsonPath } from '../utils/jsonPathTreeUtils';
@@ -33,6 +33,12 @@ export default function ExtractionEditor({ extractions, onChange, sampleResponse
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
   const [mapperOpen, setMapperOpen] = useState(false);
 
+  useEffect(() => {
+    if (pickerIdx !== null && pickerIdx >= extractions.length) {
+      setPickerIdx(null);
+    }
+  }, [pickerIdx, extractions.length]);
+
   const { nonBody: nonBodyExtractions } = useMemo(
     () => splitExtractions(extractions),
     [extractions],
@@ -54,8 +60,16 @@ export default function ExtractionEditor({ extractions, onChange, sampleResponse
 
   const pickerInitialData = useMemo(
     () => pickerIdx !== null && extractions[pickerIdx] ? [extractions[pickerIdx]] : null,
+    [pickerIdx, extractions],
+  );
+
+  const pickerAdapter = useMemo(
+    () => pickerIdx !== null ? createExtractionAdapter({
+      sampleResponseBody,
+      nonBodyExtractions,
+    }) : null,
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [pickerIdx],
+    [pickerIdx, sampleResponseBody, nonBodyFingerprint],
   );
 
   const update = (idx: number, patch: Partial<Extraction>) => {
@@ -216,12 +230,9 @@ export default function ExtractionEditor({ extractions, onChange, sampleResponse
         + Add Extraction
       </button>
 
-      {pickerIdx !== null && pickerInitialData && extractions[pickerIdx]?.source === 'body' && (
+      {pickerIdx !== null && pickerInitialData && extractions[pickerIdx]?.source === 'body' && pickerAdapter && (
         <DataMapperModal
-          adapter={createExtractionAdapter({
-            sampleResponseBody,
-            nonBodyExtractions: extractions.filter(e => e.source !== 'body'),
-          })}
+          adapter={pickerAdapter}
           initialData={pickerInitialData}
           onSave={(result) => {
             const bodyResult = result.filter(e => e.source === 'body');

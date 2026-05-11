@@ -4,6 +4,7 @@ import {
   getMismatchForMapping,
   inferType,
   typesCompatible,
+  looksLikeDate,
 } from './typeMismatch';
 import { evaluateMapperExpression } from './mapperExpressionEvaluator';
 import type { Mapping, MapperSource, MapperTarget } from '../types';
@@ -89,7 +90,7 @@ describe('detectTypeMismatches', () => {
     expect(result[0].sourceType).toBe('string');
     expect(result[0].targetType).toBe('number');
     expect(result[0].severity).toBe('warning');
-    expect(result[0].suggestedFix).toContain('$parseInt');
+    expect(result[0].suggestedFix).toContain('$parseFloat');
   });
 
   it('detects number→string mismatch', () => {
@@ -244,7 +245,7 @@ describe('suggestedFix $.prefix handling', () => {
     ];
     const result = detectTypeMismatches(mappings, sources, target());
     expect(result).toHaveLength(1);
-    expect(result[0].suggestedFix).toBe('$parseInt($.name)');
+    expect(result[0].suggestedFix).toBe('$parseFloat($.name)');
     expect(result[0].suggestedFix).not.toContain('$.$.name');
   });
 
@@ -254,7 +255,111 @@ describe('suggestedFix $.prefix handling', () => {
     ];
     const result = detectTypeMismatches(mappings, sources, target());
     expect(result).toHaveLength(1);
-    expect(result[0].suggestedFix).toBe('$parseInt($.name)');
+    expect(result[0].suggestedFix).toBe('$parseFloat($.name)');
+  });
+});
+
+describe('activeSourceId fallback', () => {
+  it('uses activeSourceId when mapping has no sourceId', () => {
+    const mappings: Mapping[] = [
+      { id: 'm1', sourcePath: 'name', sourceId: '', targetPath: 'userAge' },
+    ];
+    const result = detectTypeMismatches(mappings, sources, target(), 's1');
+    expect(result).toHaveLength(1);
+    expect(result[0].sourceType).toBe('string');
+    expect(result[0].targetType).toBe('number');
+  });
+
+  it('returns no mismatch when both sourceId and activeSourceId are missing', () => {
+    const mappings: Mapping[] = [
+      { id: 'm1', sourcePath: 'name', sourceId: '', targetPath: 'userAge' },
+    ];
+    const result = detectTypeMismatches(mappings, sources, target());
+    expect(result).toHaveLength(0);
+  });
+});
+
+describe('array→scalar and scalar→array coercion', () => {
+  it('suggests $join for array→string', () => {
+    const mappings: Mapping[] = [
+      { id: 'm1', sourcePath: 'tags', sourceId: 's1', targetPath: 'userName' },
+    ];
+    const result = detectTypeMismatches(mappings, sources, target());
+    expect(result).toHaveLength(1);
+    expect(result[0].sourceType).toBe('array');
+    expect(result[0].targetType).toBe('string');
+    expect(result[0].suggestedFix).toContain('$join');
+  });
+
+  it('suggests $count for array→number', () => {
+    const mappings: Mapping[] = [
+      { id: 'm1', sourcePath: 'tags', sourceId: 's1', targetPath: 'userAge' },
+    ];
+    const result = detectTypeMismatches(mappings, sources, target());
+    expect(result).toHaveLength(1);
+    expect(result[0].suggestedFix).toContain('$count');
+  });
+});
+
+describe('looksLikeDate', () => {
+  it('detects ISO 8601 dates', () => {
+    expect(looksLikeDate('2024-01-15T10:30:00Z')).toBe(true);
+    expect(looksLikeDate('2024-01-15T10:30')).toBe(true);
+  });
+
+  it('detects MM/DD/YYYY dates', () => {
+    expect(looksLikeDate('01/15/2024')).toBe(true);
+    expect(looksLikeDate('12/31/2023')).toBe(true);
+  });
+
+  it('detects YYYY/MM/DD dates', () => {
+    expect(looksLikeDate('2024/01/15')).toBe(true);
+  });
+
+  it('returns false for non-dates', () => {
+    expect(looksLikeDate('hello')).toBe(false);
+    expect(looksLikeDate(42)).toBe(false);
+    expect(looksLikeDate(null)).toBe(false);
+    expect(looksLikeDate('')).toBe(false);
+  });
+});
+
+describe('date format detection in detectTypeMismatches', () => {
+  it('suggests $dateFormat when source looks like a date', () => {
+    const dateSources: MapperSource[] = [
+      { id: 's1', label: 'API', sampleData: { created: '2024-01-15T10:30:00Z', label: 'test' } },
+    ];
+    const tgt = target({ sampleData: { output: 'plain text' } });
+    const mappings: Mapping[] = [
+      { id: 'm1', sourcePath: 'created', sourceId: 's1', targetPath: 'output' },
+    ];
+    const result = detectTypeMismatches(mappings, dateSources, tgt);
+    const dateMismatch = result.find((m) => m.mappingId === 'm1');
+    expect(dateMismatch).toBeDefined();
+    expect(dateMismatch!.suggestedFix).toContain('$formatDate');
+    expect(dateMismatch!.severity).toBe('info');
+  });
+
+  it('suggests $formatDate when both sides are dates', () => {
+    const dateSources: MapperSource[] = [
+      { id: 's1', label: 'API', sampleData: { created: '2024-01-15T10:30:00Z' } },
+    ];
+    const tgt = target({ sampleData: { updated: '01/15/2024' } });
+    const mappings: Mapping[] = [
+      { id: 'm1', sourcePath: 'created', sourceId: 's1', targetPath: 'updated' },
+    ];
+    const result = detectTypeMismatches(mappings, dateSources, tgt);
+    const dateMismatch = result.find((m) => m.mappingId === 'm1');
+    expect(dateMismatch).toBeDefined();
+    expect(dateMismatch!.suggestedFix).toContain('$formatDate');
+  });
+
+  it('does not flag non-date strings', () => {
+    const mappings: Mapping[] = [
+      { id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'userName' },
+    ];
+    const result = detectTypeMismatches(mappings, sources, target());
+    expect(result.filter((m) => m.sourceType === 'date-string')).toHaveLength(0);
   });
 });
 

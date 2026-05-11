@@ -20,6 +20,7 @@ import type {
   ValidationIssue,
 } from '../types';
 import { getAllLeafPaths, buildJsonTree } from '../../../utils/jsonTreeModel';
+import { getByPathAsString } from '../../../utils/jsonPath';
 
 // ─── Output Type ──────────────────────────────────────────
 
@@ -64,21 +65,8 @@ function stripDollarPrefix(path: string): string {
   return path.replace(/^\$\.?/, '');
 }
 
-/**
- * Resolve a dotted JSONPath to a value in a data object.
- * Handles bracket notation for arrays: `items[0].name`.
- */
 function resolveValue(data: unknown, path: string): string {
-  if (data == null) return '';
-  const segments = path.replace(/^\$\.?/, '').split(/\.|\[(\d+)\]/).filter(Boolean);
-  let current: unknown = data;
-  for (const seg of segments) {
-    if (current == null || typeof current !== 'object') return '';
-    current = (current as Record<string, unknown>)[seg];
-  }
-  if (current === undefined || current === null) return '';
-  if (typeof current === 'object') return JSON.stringify(current);
-  return String(current);
+  return getByPathAsString(data, path);
 }
 
 // ─── Adapter Factory ──────────────────────────────────────
@@ -111,8 +99,16 @@ export function createValidationAdapter(
     target,
 
     serialize(mappings: Mapping[]): ValidationAdapterOutput {
+      // Deduplicate by normalized path — last mapping wins (matches validate() message)
+      const deduped = new Map<string, Mapping>();
+      for (const m of mappings) {
+        const key = stripDollarPrefix(m.expression ?? m.sourcePath);
+        deduped.set(key, m);
+      }
+      const uniqueMappings = Array.from(deduped.values());
+
       if (mode === 'include') {
-        const expectedFields: ExpectedField[] = mappings.map((m) => ({
+        const expectedFields: ExpectedField[] = uniqueMappings.map((m) => ({
           jsonPath: m.expression ?? m.sourcePath,
           expectedValue: m.targetPath,
         }));
@@ -121,12 +117,12 @@ export function createValidationAdapter(
 
       // exclude mode: un-mapped leaves become excludedPaths
       const mappedPaths = new Set(
-        mappings.map((m) => stripDollarPrefix(m.expression ?? m.sourcePath)),
+        uniqueMappings.map((m) => stripDollarPrefix(m.expression ?? m.sourcePath)),
       );
       const allLeaves = getLeafPaths(parsed);
       const excludedPaths = allLeaves.filter((p) => !mappedPaths.has(p));
 
-      const expectedFields: ExpectedField[] = mappings.map((m) => ({
+      const expectedFields: ExpectedField[] = uniqueMappings.map((m) => ({
         jsonPath: m.expression ?? m.sourcePath,
         expectedValue: m.targetPath,
       }));
@@ -195,7 +191,7 @@ export function createValidationAdapter(
           issues.push({
             mappingId: m.id,
             severity: 'warning',
-            message: `Duplicate path "${path}" — only the first will be used.`,
+            message: `Duplicate path "${path}" — only the last will be used.`,
           });
         }
         paths.add(normalized);

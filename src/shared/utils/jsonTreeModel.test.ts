@@ -286,4 +286,25 @@ describe('buildJsonTree – complex real-world scenarios', () => {
     expect(tree.children![3].type).toBe('null');
     expect(tree.children![4].type).toBe('object');
   });
+
+  it('handles circular references without stack overflow', () => {
+    const obj: Record<string, unknown> = { name: 'root' };
+    obj.self = obj;
+    const tree = buildJsonTree(obj, '', '');
+    expect(tree.type).toBe('object');
+    expect(tree.children).toHaveLength(2);
+    const selfChild = tree.children!.find((c) => c.key === 'self');
+    expect(selfChild?.value).toBe('[Circular]');
+    expect(selfChild?.type).toBe('string');
+  });
+
+  it('handles circular references in nested arrays', () => {
+    const inner: Record<string, unknown> = { id: 1 };
+    const obj = { items: [inner] };
+    inner.parent = obj;
+    const tree = buildJsonTree(obj, '', '');
+    expect(tree.type).toBe('object');
+    const parentNode = tree.children![0].children![0].children!.find((c) => c.key === 'parent');
+    expect(parentNode?.value).toBe('[Circular]');
+  });
 });

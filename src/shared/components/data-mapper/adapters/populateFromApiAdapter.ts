@@ -193,13 +193,13 @@ export function createPopulateFromApiAdapter(
       }
 
       const columns: DataSourceColumn[] = [...dataSource.columns];
-      const fieldToColId: Record<string, string> = {};
+      const mappingToColId: Record<string, string> = {};
 
       for (const m of mappings) {
         const colType = guessColType(m.sourcePath);
         const existing = findMatchingColumn(columns, m.targetPath, colType);
         if (existing) {
-          fieldToColId[m.sourcePath] = existing.id;
+          mappingToColId[m.id] = existing.id;
         } else {
           const id = uuidv4();
           columns.push({
@@ -208,7 +208,7 @@ export function createPopulateFromApiAdapter(
             type: colType,
             mapping: m.sourcePath,
           });
-          fieldToColId[m.sourcePath] = id;
+          mappingToColId[m.id] = id;
         }
       }
 
@@ -221,7 +221,7 @@ export function createPopulateFromApiAdapter(
           values[col.id] = baselineRow?.values[col.id] ?? '';
         }
         for (const m of mappings) {
-          const colId = fieldToColId[m.sourcePath];
+          const colId = mappingToColId[m.id];
           if (colId) {
             const raw = getByPath(item, m.sourcePath) ?? item[m.sourcePath];
             values[colId] = stringifyValue(raw);
@@ -293,6 +293,11 @@ export function createPopulateFromApiAdapter(
         issues.push({
           severity: 'error',
           message: 'Fetch an API response before saving. Click the fetch button to load data.',
+        });
+      } else if (!storedArrayPath) {
+        issues.push({
+          severity: 'error',
+          message: 'No array found in the response to expand into rows. Adjust the API or pick an array path.',
         });
       }
 

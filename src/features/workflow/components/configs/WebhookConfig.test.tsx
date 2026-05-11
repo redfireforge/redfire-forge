@@ -257,4 +257,91 @@ describe('WebhookConfig', () => {
     const curlArg = mockClipboard.writeText.mock.calls[0][0] as string;
     expect(curlArg).toContain("'{}'");
   });
+
+  // --- Extract Variables section ---
+
+  it('renders existing extractVariables rows', () => {
+    const vars = [{ name: 'orderId', jsonPath: '$.id' }, { name: 'status', jsonPath: '$.status' }];
+    render(<WebhookConfig data={makeData({ extractVariables: vars })} onChange={vi.fn()} />);
+    expect(screen.getByDisplayValue('orderId')).toBeTruthy();
+    expect(screen.getByDisplayValue('$.id')).toBeTruthy();
+    expect(screen.getByDisplayValue('status')).toBeTruthy();
+    expect(screen.getByDisplayValue('$.status')).toBeTruthy();
+  });
+
+  it('calls onChange when variable name is edited', () => {
+    const onChange = vi.fn();
+    const vars = [{ name: 'orderId', jsonPath: '$.id' }];
+    render(<WebhookConfig data={makeData({ extractVariables: vars })} onChange={onChange} />);
+    fireEvent.change(screen.getByDisplayValue('orderId'), { target: { value: 'myOrder' } });
+    expect(onChange).toHaveBeenCalledWith({ extractVariables: [{ name: 'myOrder', jsonPath: '$.id' }] });
+  });
+
+  it('calls onChange when variable jsonPath is edited', () => {
+    const onChange = vi.fn();
+    const vars = [{ name: 'orderId', jsonPath: '$.id' }];
+    render(<WebhookConfig data={makeData({ extractVariables: vars })} onChange={onChange} />);
+    fireEvent.change(screen.getByDisplayValue('$.id'), { target: { value: '$.orderId' } });
+    expect(onChange).toHaveBeenCalledWith({ extractVariables: [{ name: 'orderId', jsonPath: '$.orderId' }] });
+  });
+
+  it('removes a variable when remove button is clicked', () => {
+    const onChange = vi.fn();
+    const vars = [{ name: 'a', jsonPath: '$.a' }, { name: 'b', jsonPath: '$.b' }];
+    render(<WebhookConfig data={makeData({ extractVariables: vars })} onChange={onChange} />);
+    const removeBtns = screen.getAllByLabelText('Remove variable');
+    fireEvent.click(removeBtns[0]);
+    expect(onChange).toHaveBeenCalledWith({ extractVariables: [{ name: 'b', jsonPath: '$.b' }] });
+  });
+
+  it('adds a new empty variable when Add Variable is clicked', () => {
+    const onChange = vi.fn();
+    render(<WebhookConfig data={makeData({ extractVariables: [] })} onChange={onChange} />);
+    fireEvent.click(screen.getByText('Add Variable'));
+    expect(onChange).toHaveBeenCalledWith({ extractVariables: [{ name: '', jsonPath: '' }] });
+  });
+
+  it('appends to existing variables when Add Variable is clicked', () => {
+    const onChange = vi.fn();
+    const vars = [{ name: 'x', jsonPath: '$.x' }];
+    render(<WebhookConfig data={makeData({ extractVariables: vars })} onChange={onChange} />);
+    fireEvent.click(screen.getByText('Add Variable'));
+    expect(onChange).toHaveBeenCalledWith({
+      extractVariables: [{ name: 'x', jsonPath: '$.x' }, { name: '', jsonPath: '' }],
+    });
+  });
+
+  it('handles undefined extractVariables when Add Variable is clicked', () => {
+    const onChange = vi.fn();
+    render(<WebhookConfig data={makeData()} onChange={onChange} />);
+    fireEvent.click(screen.getByText('Add Variable'));
+    expect(onChange).toHaveBeenCalledWith({ extractVariables: [{ name: '', jsonPath: '' }] });
+  });
+
+  // --- Visual Mapper (DataMapperModal) ---
+
+  it('opens Visual Mapper modal when button is clicked', () => {
+    render(<WebhookConfig data={makeData()} onChange={vi.fn()} />);
+    fireEvent.click(screen.getByText('Visual Mapper'));
+    expect(document.querySelector('.dm-modal-overlay')).toBeTruthy();
+  });
+
+  it('closes Visual Mapper when cancelled', async () => {
+    render(<WebhookConfig data={makeData()} onChange={vi.fn()} />);
+    fireEvent.click(screen.getByText('Visual Mapper'));
+    expect(document.querySelector('.dm-modal-overlay')).toBeTruthy();
+    const cancelBtn = screen.getByText('Cancel');
+    fireEvent.click(cancelBtn);
+    expect(document.querySelector('.dm-modal-overlay')).toBeNull();
+  });
+
+  it('saves mapper result and closes modal via Done', async () => {
+    const onChange = vi.fn();
+    render(<WebhookConfig data={makeData({ samplePayload: '{"id":1}' })} onChange={onChange} />);
+    fireEvent.click(screen.getByText('Visual Mapper'));
+    expect(document.querySelector('.dm-modal-overlay')).toBeTruthy();
+    const doneBtn = screen.getByText('Done');
+    fireEvent.click(doneBtn);
+    expect(document.querySelector('.dm-modal-overlay')).toBeNull();
+  });
 });

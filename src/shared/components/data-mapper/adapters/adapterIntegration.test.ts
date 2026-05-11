@@ -9,6 +9,8 @@ import { createPopulateFromApiAdapter } from './populateFromApiAdapter';
 import { createColumnMappingAdapter } from './columnMappingAdapter';
 import { createSharedDsFetchAdapter } from './sharedDsFetchAdapter';
 import { createDemoAdapter } from './demoAdapter';
+import { createWebhookExtractionAdapter } from './webhookExtractionAdapter';
+import { createVariableBindingAdapter } from './variableBindingAdapter';
 import type { Mapping } from '../types';
 import type { Extraction, DataSource, DataSourceColumn, Scenario } from '../../../types';
 
@@ -138,8 +140,10 @@ describe('3D.2 — variable hints interface compatibility', () => {
       createColumnMappingAdapter({ columns: [], scenario }).contextId,
       createSharedDsFetchAdapter({ dataSource: ds }).contextId,
       createDemoAdapter().contextId,
+      createWebhookExtractionAdapter().contextId,
+      createVariableBindingAdapter({ variableHints: [], templateSlots: [] }).contextId,
     ]);
-    expect(ids.size).toBe(7);
+    expect(ids.size).toBe(9);
     expect(ids).toContain('extraction');
     expect(ids).toContain('assertion');
     expect(ids).toContain('validation');
@@ -147,6 +151,8 @@ describe('3D.2 — variable hints interface compatibility', () => {
     expect(ids).toContain('column-mapping');
     expect(ids).toContain('shared-ds-fetch');
     expect(ids).toContain('demo');
+    expect(ids).toContain('webhook-extraction');
+    expect(ids).toContain('variable-binding');
   });
 
   it('all HTTP adapters share the same category', () => {
@@ -309,12 +315,30 @@ describe('cross-adapter consistency', () => {
     const sdfMappings: Mapping[] = [
       { id: 'sdf-0', sourceId: 'shared-ds-response', sourcePath: 'id', targetPath: 'ID' },
     ];
+    const demo = createDemoAdapter();
+    const demoMappings: Mapping[] = [
+      { id: 'd1', sourceId: 'api-response', sourcePath: 'name', targetPath: 'fullName' },
+    ];
+    const wh = createWebhookExtractionAdapter({ samplePayload: '{"event":"test"}' });
+    const whMappings: Mapping[] = [
+      { id: 'wh-0', sourceId: 'webhook-payload', sourcePath: '$.event', targetPath: 'eventType' },
+    ];
+    const vb = createVariableBindingAdapter({
+      variableHints: [{ ref: 'orderId', label: 'Order ID', source: { nodeLabel: 'Step', nodeType: 'http', category: 'HTTP Steps' } }],
+      templateSlots: [{ ref: 'orderId', location: 'url' }],
+    });
+    const vbMappings: Mapping[] = [
+      { id: 'vb-0', sourceId: 'Step', sourcePath: 'orderId', targetPath: 'orderId' },
+    ];
 
     expect(ext.validate!(extMappings)).toHaveLength(0);
     expect(asr.validate!(asrMappings)).toHaveLength(0);
     expect(val.validate!(valMappings)).toHaveLength(0);
     expect(pop.validate!(popMappings).filter(i => i.severity === 'error')).toHaveLength(0);
     expect(sdf.validate!(sdfMappings).filter(i => i.severity === 'error')).toHaveLength(0);
+    expect(demo.validate!(demoMappings).filter(i => i.severity === 'error')).toHaveLength(0);
+    expect(wh.validate!(whMappings)).toHaveLength(0);
+    expect(vb.validate!(vbMappings)).toHaveLength(0);
   });
 
   it('populate serialize → deserialize round-trip preserves mapping structure', () => {
@@ -413,5 +437,65 @@ describe('cross-adapter consistency', () => {
     const result = await adapter.fetchSampleData!();
     expect(mockFetch).toHaveBeenCalledOnce();
     expect(result).toEqual({ x: 1 });
+  });
+
+  it('webhook-extraction adapter source matches expected sourceId', () => {
+    const adapter = createWebhookExtractionAdapter({ samplePayload: '{"event":"test"}' });
+    expect(adapter.sources[0].id).toBe('webhook-payload');
+    expect(adapter.sources[0].label).toBe('Webhook Payload');
+  });
+
+  it('webhook-extraction adapter has webhook category', () => {
+    const adapter = createWebhookExtractionAdapter();
+    expect(adapter.category).toBe('webhook');
+  });
+
+  it('webhook-extraction serialize → deserialize round-trip preserves structure', () => {
+    const adapter = createWebhookExtractionAdapter({
+      samplePayload: '{"data":{"id":"123","name":"test"}}',
+    });
+    const mappings: Mapping[] = [
+      { id: 'wh-0', sourceId: 'webhook-payload', sourcePath: '$.data.id', targetPath: 'recordId' },
+      { id: 'wh-1', sourceId: 'webhook-payload', sourcePath: '$.data.name', targetPath: 'recordName' },
+    ];
+    const serialized = adapter.serialize(mappings);
+    const restored = adapter.deserialize(serialized);
+
+    expect(restored).toHaveLength(2);
+    expect(restored[0].sourcePath).toBe('$.data.id');
+    expect(restored[0].targetPath).toBe('recordId');
+    expect(restored[1].sourcePath).toBe('$.data.name');
+    expect(restored[1].targetPath).toBe('recordName');
+  });
+
+  it('variable-binding adapter has workflow category', () => {
+    const adapter = createVariableBindingAdapter({ variableHints: [], templateSlots: [] });
+    expect(adapter.category).toBe('workflow');
+  });
+
+  it('variable-binding serialize → deserialize round-trip preserves structure', () => {
+    const hints = [
+      { ref: 'token', label: 'Token', source: { nodeId: 'n1', nodeLabel: 'Auth', nodeType: 'http', category: 'HTTP Steps' } },
+      { ref: 'userId', label: 'User', source: { nodeId: 'n2', nodeLabel: 'GetUser', nodeType: 'http', category: 'HTTP Steps' } },
+    ];
+    const slots = [
+      { ref: 'token', location: 'header' as const, headerKey: 'Authorization' },
+      { ref: 'userId', location: 'url' as const },
+    ];
+    const adapter = createVariableBindingAdapter({ variableHints: hints, templateSlots: slots });
+    const mappings: Mapping[] = [
+      { id: 'vb-0', sourceId: 'n1', sourcePath: 'token', targetPath: 'token' },
+      { id: 'vb-1', sourceId: 'n2', sourcePath: 'userId', targetPath: 'userId' },
+    ];
+    const serialized = adapter.serialize(mappings);
+    const restored = adapter.deserialize(serialized);
+
+    expect(restored).toHaveLength(2);
+    expect(restored[0].sourcePath).toBe('token');
+    expect(restored[0].targetPath).toBe('token');
+    expect(restored[0].sourceId).toBe('n1');
+    expect(restored[1].sourcePath).toBe('userId');
+    expect(restored[1].targetPath).toBe('userId');
+    expect(restored[1].sourceId).toBe('n2');
   });
 });

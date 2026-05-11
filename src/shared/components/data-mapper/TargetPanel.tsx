@@ -1,7 +1,9 @@
 import { useState, useCallback, useMemo } from 'react';
 import type { MapperTarget, Mapping } from './types';
 import type { JsonTreeNode } from '../../utils/jsonTreeModel';
+import type { FocusRegion } from './hooks/useKeyboardNavigation';
 import type { TypeMismatch } from './utils/typeMismatch';
+import type { TraceValueOverlay } from './types';
 import { buildJsonTree } from '../../utils/jsonTreeModel';
 import TargetTreeNode from './TargetTreeNode';
 
@@ -15,6 +17,16 @@ interface TargetPanelProps {
   typeMismatches?: TypeMismatch[];
   onQuickFix?: (mappingId: string, suggestedExpression: string) => void;
   onRemoveMapping?: (id: string) => void;
+  isFocusRegion?: boolean;
+  focusedPath?: string | null;
+  onFocus?: () => void;
+  onTreeKeyDown?: (
+    e: React.KeyboardEvent,
+    region: FocusRegion,
+    expandedPaths: Set<string>,
+    onToggle: (path: string) => void,
+  ) => void;
+  traceOverlay?: Map<string, TraceValueOverlay>;
 }
 
 export default function TargetPanel({
@@ -27,12 +39,17 @@ export default function TargetPanel({
   typeMismatches,
   onQuickFix,
   onRemoveMapping,
+  isFocusRegion,
+  focusedPath,
+  onFocus,
+  onTreeKeyDown,
+  traceOverlay,
 }: TargetPanelProps) {
   const [search, setSearch] = useState('');
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set(['__root__']));
 
   const tree: JsonTreeNode | null = useMemo(() => {
-    if (!target.sampleData) return null;
+    if (target.sampleData == null) return null;
     try {
       const data = typeof target.sampleData === 'string'
         ? JSON.parse(target.sampleData)
@@ -70,13 +87,16 @@ export default function TargetPanel({
   const mappedCount = mappings.length;
 
   return (
-    <div className="dm-panel dm-panel--target">
+    <div
+      className={`dm-panel dm-panel--target ${isFocusRegion ? 'dm-panel--focused' : ''}`}
+      onFocus={onFocus}
+    >
       <div className="dm-panel-header">
         <span className="dm-panel-title">Target</span>
         {mappedCount > 0 && <span className="dm-mapped-badge">{mappedCount} mapped</span>}
         <div className="dm-panel-actions">
-          <button className="dm-btn-icon" onClick={handleExpandAll} title="Expand all">⊞</button>
-          <button className="dm-btn-icon" onClick={handleCollapseAll} title="Collapse all">⊟</button>
+          <button className="dm-btn-icon" onClick={handleExpandAll} aria-label="Expand all">⊞</button>
+          <button className="dm-btn-icon" onClick={handleCollapseAll} aria-label="Collapse all">⊟</button>
         </div>
       </div>
 
@@ -85,15 +105,21 @@ export default function TargetPanel({
           type="text"
           className="dm-search-input"
           placeholder="Search fields…"
+          aria-label="Search target fields"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
         {search && (
-          <button className="dm-search-clear" onClick={() => setSearch('')}>×</button>
+          <button className="dm-search-clear" onClick={() => setSearch('')} aria-label="Clear search">×</button>
         )}
       </div>
 
-      <div className="dm-tree-container">
+      <div
+        className="dm-tree-container"
+        role="group"
+        tabIndex={isFocusRegion ? 0 : -1}
+        onKeyDown={onTreeKeyDown ? (e) => onTreeKeyDown(e, 'target', expandedPaths, handleToggle) : undefined}
+      >
         {tree ? (
           <TargetTreeNode
             node={tree}
@@ -109,6 +135,8 @@ export default function TargetPanel({
             typeMismatches={typeMismatches}
             onQuickFix={onQuickFix}
             onRemoveMapping={onRemoveMapping}
+            focusedPath={focusedPath}
+            traceOverlay={traceOverlay}
           />
         ) : (
           <div className="dm-empty-state">

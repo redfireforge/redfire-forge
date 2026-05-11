@@ -21,15 +21,7 @@ import { DataMapperModal, createPopulateFromApiAdapter, createColumnMappingAdapt
 import { buildHeaders, proxyFetch } from '../../../engine/executor';
 import { resolveScenarioFromDataRow } from '../../../engine/dataSourceExpander';
 import { findUnresolvedTokens } from '../utils/populateFromApiUtils';
-
-
-const COLUMN_TYPES: { value: DataSourceColumn['type']; label: string }[] = [
-  { value: 'path', label: 'Path' },
-  { value: 'param', label: 'Param' },
-  { value: 'body', label: 'Body' },
-  { value: 'header', label: 'Header' },
-  { value: 'validate', label: 'Validate' },
-];
+import { COLUMN_TYPES, mergeRowDetailSave, formatErrorBody } from '../utils/dataSourceEditorUtils';
 
 interface DataSourceEditorProps {
   draft: Scenario;
@@ -418,7 +410,7 @@ export default function DataSourceEditor({ draft, onDraftChange, onFetchRow, onC
             </div>
           )}
           {fetchRowErrorDetail?.body && (
-            <pre style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', background: 'rgba(0,0,0,0.2)', padding: 6, borderRadius: 4, marginTop: 4, maxHeight: 150, overflow: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{(() => { try { return JSON.stringify(JSON.parse(fetchRowErrorDetail.body!), null, 2); } catch { return fetchRowErrorDetail.body; } })()}</pre>
+            <pre style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', background: 'rgba(0,0,0,0.2)', padding: 6, borderRadius: 4, marginTop: 4, maxHeight: 150, overflow: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{formatErrorBody(fetchRowErrorDetail.body)}</pre>
           )}
         </div>
       )}
@@ -816,32 +808,7 @@ export default function DataSourceEditor({ draft, onDraftChange, onFetchRow, onC
             rowIndex={rowIdx}
             onFetchRow={onFetchRow}
             onSave={(updatedRow, newColumns) => {
-              let updatedDt = { ...dt };
-              // Add any new validate columns
-              if (newColumns && newColumns.length > 0) {
-                updatedDt = {
-                  ...updatedDt,
-                  columns: [...updatedDt.columns, ...newColumns],
-                };
-                // Add empty values for the new columns to ALL other rows
-                updatedDt = {
-                  ...updatedDt,
-                  rows: updatedDt.rows.map(r => {
-                    if (r.id === updatedRow.id) return updatedRow;
-                    const values = { ...r.values };
-                    for (const col of newColumns) {
-                      values[col.id] = '';
-                    }
-                    return { ...r, values };
-                  }),
-                };
-              } else {
-                updatedDt = {
-                  ...updatedDt,
-                  rows: updatedDt.rows.map(r => r.id === updatedRow.id ? updatedRow : r),
-                };
-              }
-              onDraftChange({ ...draft, dataSource: updatedDt });
+              onDraftChange({ ...draft, dataSource: mergeRowDetailSave(dt, updatedRow, newColumns) });
               setEditingRowId(null);
             }}
             onClose={() => setEditingRowId(null)}

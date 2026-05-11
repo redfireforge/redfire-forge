@@ -85,6 +85,33 @@ describe('buildMapperResolveVariable', () => {
     expect(r('$.name')).toBeUndefined();
   });
 
+  it('resolves JSON null value as "null" string, not undefined', () => {
+    const nullSources: MapperSource[] = [
+      { id: 's1', label: 'Src', sampleData: { status: null, name: 'test' } },
+    ];
+    const r = buildMapperResolveVariable(nullSources, 's1');
+    expect(r('$.status')).toBe('null');
+    expect(r('$.name')).toBe('test');
+  });
+
+  it('resolves JSON null via sourceId.path as "null" string', () => {
+    const nullSources: MapperSource[] = [
+      { id: 'src', label: 'Src', sampleData: { val: null } },
+    ];
+    const r = buildMapperResolveVariable(nullSources, 'src');
+    expect(r('src.val')).toBe('null');
+  });
+
+  it('returns [Object] for circular references instead of throwing', () => {
+    const circular: Record<string, unknown> = { a: 1 };
+    circular.self = circular;
+    const circSources: MapperSource[] = [
+      { id: 'c1', label: 'Circ', sampleData: circular },
+    ];
+    const r = buildMapperResolveVariable(circSources, 'c1');
+    expect(r('$.self')).toBe('[Object]');
+  });
+
   it('returns object values as JSON string', () => {
     expect(resolve('$.address')).toBe('{"city":"NYC","zip":"10001"}');
   });
@@ -135,6 +162,24 @@ describe('evaluateMapperExpression', () => {
     const result = evaluateMapperExpression('', sources, 's1');
     expect(result.value).toBe('');
     expect(result.preview).toBe('');
+  });
+
+  it('handles throwing custom function gracefully via evaluator catch', () => {
+    const badFn = {
+      name: '$boom',
+      category: 'Test',
+      signature: '$boom()',
+      description: 'throws',
+      args: [],
+      returnType: 'never',
+      examples: [],
+      evaluate: () => { throw new Error('kaboom'); },
+    };
+    const result = evaluateMapperExpression('$boom()', sources, 's1', [badFn]);
+    // evaluateExpression catches function throws and returns error in value string
+    expect(result.value).toContain('Error');
+    expect(result.value).toContain('kaboom');
+    expect(result.error).toBeUndefined();
   });
 
   it('evaluates $concat with multiple args', () => {

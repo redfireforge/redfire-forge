@@ -767,6 +767,147 @@ describe('ResultsExplorerDetailPanel', () => {
     });
   });
 
+  describe('Variables Tab — Mapping Traces (9D)', () => {
+    const mappingTraces = [
+      {
+        mappingId: 'm1',
+        sourcePath: 'name',
+        sourceValue: 'Alice',
+        targetPath: 'userName',
+        targetValue: 'Alice',
+        timestamp: Date.now(),
+        durationMs: 1,
+      },
+      {
+        mappingId: 'm2',
+        sourcePath: 'email',
+        sourceValue: 'a@b.com',
+        targetPath: 'userEmail',
+        targetValue: undefined as unknown,
+        error: 'Missing field',
+        timestamp: Date.now(),
+        durationMs: 0.5,
+      },
+    ];
+
+    const eventsWithTraces: ExecutionEvent[] = [{
+      nodeId: 'http-1',
+      nodeType: 'http',
+      nodeLabel: 'Get Users',
+      timestamp: 1000,
+      state: 'pass',
+      durationMs: 120,
+      details: {
+        statusCode: 200,
+        request: { method: 'GET', url: '/api' },
+        mappingTraces,
+      },
+    }];
+
+    it('shows Mapping Traces section when traces exist', () => {
+      render(
+        <ResultsExplorerDetailPanel
+          nodeId="http-1"
+          nodeType="http"
+          nodeLabel="Get Users"
+          events={eventsWithTraces}
+          iterations={[{ index: 0, passed: true, durationMs: 120, traversedEdges: [], events: eventsWithTraces, finalVariables: {} }]}
+          onIterationChange={mockOnIterationChange}
+          onClose={mockOnClose}
+          fullTraceCaptured
+        />,
+      );
+      fireEvent.click(screen.getByRole('button', { name: 'Variables' }));
+      expect(screen.getByText('Mapping Traces')).toBeInTheDocument();
+    });
+
+    it('enables Variables tab when only mappingTraces exist', () => {
+      const traceOnlyEvents: ExecutionEvent[] = [{
+        nodeId: 'http-1',
+        nodeType: 'http',
+        nodeLabel: 'API',
+        timestamp: 1000,
+        state: 'pass',
+        durationMs: 50,
+        details: { statusCode: 200, mappingTraces },
+      }];
+      const { container } = render(
+        <ResultsExplorerDetailPanel
+          nodeId="http-1"
+          nodeType="http"
+          nodeLabel="API"
+          events={traceOnlyEvents}
+          iterations={[{ index: 0, passed: true, durationMs: 50, traversedEdges: [], events: traceOnlyEvents, finalVariables: {} }]}
+          onIterationChange={mockOnIterationChange}
+          onClose={mockOnClose}
+        />,
+      );
+      const variablesBtn = screen.getByRole('button', { name: 'Variables' });
+      expect((variablesBtn as HTMLButtonElement).disabled).toBe(false);
+      fireEvent.click(variablesBtn);
+      expect(container.querySelector('[data-testid="mapping-trace-m1"]')).toBeTruthy();
+    });
+
+    it('shows "Open in Mapper" button when onOpenMapper provided', () => {
+      const onOpenMapper = vi.fn();
+      render(
+        <ResultsExplorerDetailPanel
+          nodeId="http-1"
+          nodeType="http"
+          nodeLabel="Get Users"
+          events={eventsWithTraces}
+          iterations={[{ index: 0, passed: true, durationMs: 120, traversedEdges: [], events: eventsWithTraces, finalVariables: {} }]}
+          onIterationChange={mockOnIterationChange}
+          onClose={mockOnClose}
+          fullTraceCaptured
+          onOpenMapper={onOpenMapper}
+        />,
+      );
+      fireEvent.click(screen.getByRole('button', { name: 'Variables' }));
+      const openBtn = screen.getByTestId('open-in-mapper-btn');
+      expect(openBtn).toBeTruthy();
+      fireEvent.click(openBtn);
+      expect(onOpenMapper).toHaveBeenCalledTimes(1);
+      expect(onOpenMapper.mock.calls[0][0]).toEqual(mappingTraces);
+      expect(onOpenMapper.mock.calls[0][1]).toBe('Get Users');
+    });
+
+    it('does not show "Open in Mapper" when onOpenMapper not provided', () => {
+      render(
+        <ResultsExplorerDetailPanel
+          nodeId="http-1"
+          nodeType="http"
+          nodeLabel="Get Users"
+          events={eventsWithTraces}
+          iterations={[{ index: 0, passed: true, durationMs: 120, traversedEdges: [], events: eventsWithTraces, finalVariables: {} }]}
+          onIterationChange={mockOnIterationChange}
+          onClose={mockOnClose}
+          fullTraceCaptured
+        />,
+      );
+      fireEvent.click(screen.getByRole('button', { name: 'Variables' }));
+      expect(screen.queryByTestId('open-in-mapper-btn')).toBeNull();
+    });
+
+    it('shows error styling for failed mapping traces', () => {
+      render(
+        <ResultsExplorerDetailPanel
+          nodeId="http-1"
+          nodeType="http"
+          nodeLabel="Get Users"
+          events={eventsWithTraces}
+          iterations={[{ index: 0, passed: true, durationMs: 120, traversedEdges: [], events: eventsWithTraces, finalVariables: {} }]}
+          onIterationChange={mockOnIterationChange}
+          onClose={mockOnClose}
+          fullTraceCaptured
+        />,
+      );
+      fireEvent.click(screen.getByRole('button', { name: 'Variables' }));
+      const failRow = screen.getByTestId('mapping-trace-m2');
+      expect(failRow.className).toContain('fail');
+    });
+  });
+
   describe('Assertions Tab', () => {
     const eventsWithAssertions: ExecutionEvent[] = [{
       nodeId: 'http-1',

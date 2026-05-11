@@ -1,6 +1,8 @@
 import { useMemo, useState, useEffect, useCallback } from 'react';
 import type { Mapping } from '../types';
 
+export type ArrayLineKind = 'loop' | 'aggregate' | 'spread' | 'direct' | null;
+
 export interface ConnectionLine {
   id: string;
   mappingId: string;
@@ -12,6 +14,11 @@ export interface ConnectionLine {
   isAutoMapped: boolean;
   hasTypeMismatch?: boolean;
   isPending?: boolean;
+  arrayKind?: ArrayLineKind;
+  arrayLabel?: string;
+  driftSeverity?: 'warning' | 'breaking';
+  traceValue?: string;
+  traceError?: boolean;
 }
 
 /**
@@ -25,6 +32,7 @@ export function useConnectionLines(
   containerRef: React.RefObject<HTMLElement | null>,
   layoutTick: number,
   mismatchIds?: Set<string>,
+  arrayInfoMap?: Map<string, { kind: ArrayLineKind; label?: string }>,
 ): { lines: ConnectionLine[]; containerHeight: number } {
   return useMemo(() => {
     const container = containerRef.current;
@@ -47,6 +55,7 @@ export function useConnectionLines(
       const sourceRect = sourceEl.getBoundingClientRect();
       const targetRect = targetEl.getBoundingClientRect();
 
+      const arrInfo = arrayInfoMap?.get(mapping.id);
       lines.push({
         id: `line-${mapping.id}`,
         mappingId: mapping.id,
@@ -58,13 +67,15 @@ export function useConnectionLines(
         isAutoMapped: !!mapping.isAutoMapped,
         hasTypeMismatch: mismatchIds?.has(mapping.id) ?? false,
         isPending: !!mapping.isPending,
+        arrayKind: arrInfo?.kind ?? null,
+        arrayLabel: arrInfo?.label,
       });
     }
 
     return { lines, containerHeight: containerRect.height };
     // layoutTick forces recalc on scroll/resize/expand events
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mappings, containerRef, layoutTick, mismatchIds]);
+  }, [mappings, containerRef, layoutTick, mismatchIds, arrayInfoMap]);
 }
 
 /**

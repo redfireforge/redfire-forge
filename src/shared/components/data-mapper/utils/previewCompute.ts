@@ -102,8 +102,12 @@ function parsePathSegments(path: string): (string | number)[] {
       const close = path.indexOf(']', i);
       if (close === -1) break;
       const inner = path.slice(i + 1, close);
-      const idx = Number(inner);
-      segments.push(Number.isNaN(idx) ? inner : idx);
+      if (inner === '*') {
+        segments.push(0);
+      } else {
+        const idx = Number(inner);
+        segments.push(Number.isNaN(idx) ? inner : idx);
+      }
       i = close + 1;
       if (path[i] === '.') i++;
     } else {
@@ -122,10 +126,13 @@ function parsePathSegments(path: string): (string | number)[] {
   return segments;
 }
 
+const UNSAFE_SEGMENTS = new Set(['__proto__', 'prototype', 'constructor']);
+
 function setNestedValue(obj: Record<string, unknown>, path: string, value: unknown): void {
   const normalized = path.replace(/^\$\.?/, '');
   const segments = parsePathSegments(normalized);
   if (segments.length === 0) return;
+  if (segments.some(s => typeof s === 'string' && UNSAFE_SEGMENTS.has(s))) return;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let current: any = obj;
   for (let i = 0; i < segments.length - 1; i++) {

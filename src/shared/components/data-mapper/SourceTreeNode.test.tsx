@@ -40,9 +40,9 @@ describe('SourceTreeNode', () => {
     expect(screen.getByTitle('Drag to map')).toBeTruthy();
   });
 
-  it('renders type badge', () => {
+  it('renders type pill', () => {
     render(<SourceTreeNode node={leaf} {...defaults} />);
-    expect(screen.getByText('Aa')).toBeTruthy();
+    expect(screen.getByText('str')).toBeTruthy();
   });
 
   it('renders nested children when expanded', () => {
@@ -106,5 +106,112 @@ describe('SourceTreeNode', () => {
     render(<SourceTreeNode node={longVal} {...defaults} />);
     const valueEl = screen.getByText(/A+…/);
     expect(valueEl.textContent!.length).toBeLessThan(45);
+  });
+
+  // ── Drift indicators ──────────────────────────────
+
+  it('renders info drift badge (green dot) for added field', () => {
+    const driftMap = new Map([['name', { severity: 'info' as const, label: 'New field' }]]);
+    const { container } = render(<SourceTreeNode node={leaf} {...defaults} driftMap={driftMap} />);
+    const badge = container.querySelector('.dm-drift-badge--info');
+    expect(badge).not.toBeNull();
+    expect(badge!.textContent).toBe('●');
+  });
+
+  it('renders warning drift badge (amber) for type-changed field', () => {
+    const driftMap = new Map([['name', { severity: 'warning' as const, label: 'Type changed' }]]);
+    const { container } = render(<SourceTreeNode node={leaf} {...defaults} driftMap={driftMap} />);
+    const badge = container.querySelector('.dm-drift-badge--warning');
+    expect(badge).not.toBeNull();
+    expect(badge!.textContent).toBe('⚠');
+  });
+
+  it('renders breaking drift (red strikethrough + badge) for removed field', () => {
+    const driftMap = new Map([['name', { severity: 'breaking' as const, label: 'Removed' }]]);
+    const { container } = render(<SourceTreeNode node={leaf} {...defaults} driftMap={driftMap} />);
+    const badge = container.querySelector('.dm-drift-badge--breaking');
+    expect(badge).not.toBeNull();
+    expect(badge!.textContent).toBe('✕');
+    const key = container.querySelector('.dm-node-key--removed');
+    expect(key).not.toBeNull();
+  });
+
+  it('applies drift background class to tree node', () => {
+    const driftMap = new Map([['name', { severity: 'warning' as const, label: 'Changed' }]]);
+    const { container } = render(<SourceTreeNode node={leaf} {...defaults} driftMap={driftMap} />);
+    const node = container.querySelector('.dm-tree-node--drift-warning');
+    expect(node).not.toBeNull();
+  });
+
+  it('disables drag on breaking drift nodes', () => {
+    const driftMap = new Map([['name', { severity: 'breaking' as const, label: 'Removed' }]]);
+    const { container } = render(<SourceTreeNode node={leaf} {...defaults} driftMap={driftMap} />);
+    const node = container.querySelector('.dm-tree-node--source');
+    expect(node!.getAttribute('draggable')).toBe('false');
+  });
+
+  it('renders no drift badge when no drift map provided', () => {
+    const { container } = render(<SourceTreeNode node={leaf} {...defaults} />);
+    expect(container.querySelector('.dm-drift-badge')).toBeNull();
+  });
+
+  it('passes driftMap to child nodes', () => {
+    const driftMap = new Map([['age', { severity: 'info' as const, label: 'New' }]]);
+    const { container } = render(<SourceTreeNode node={nested} {...defaults} driftMap={driftMap} />);
+    const badges = container.querySelectorAll('.dm-drift-badge--info');
+    expect(badges).toHaveLength(1);
+  });
+
+  it('matches drift via [*] normalization when tree path uses [0]', () => {
+    const arrayChild: JsonTreeNode = {
+      key: 'name', path: 'items[0].name', type: 'string', value: 'test', children: [],
+    };
+    const driftMap = new Map([['items.[*].name', { severity: 'warning' as const, label: 'Type changed' }]]);
+    const { container } = render(<SourceTreeNode node={arrayChild} {...defaults} driftMap={driftMap} />);
+    expect(container.querySelector('.dm-drift-badge--warning')).not.toBeNull();
+  });
+});
+
+describe('trace overlay', () => {
+  it('renders trace value when traceOverlay has matching path', () => {
+    const traceOverlay = new Map([['name', { value: 'Alice', isError: false }]]);
+    const { container } = render(<SourceTreeNode node={leaf} {...defaults} traceOverlay={traceOverlay} />);
+    expect(container.querySelector('.dm-trace-value--ok')).not.toBeNull();
+    expect(container.querySelector('.dm-trace-value')!.textContent).toBe('Alice');
+  });
+
+  it('renders error trace value with error styling', () => {
+    const traceOverlay = new Map([['name', { value: 'undefined', isError: true }]]);
+    const { container } = render(<SourceTreeNode node={leaf} {...defaults} traceOverlay={traceOverlay} />);
+    expect(container.querySelector('.dm-trace-value--error')).not.toBeNull();
+  });
+
+  it('hides sample value when trace value is shown', () => {
+    const traceOverlay = new Map([['name', { value: 'runtime-val', isError: false }]]);
+    const { container } = render(<SourceTreeNode node={leaf} {...defaults} traceOverlay={traceOverlay} />);
+    expect(container.querySelector('.dm-node-sample-value')).toBeNull();
+    expect(container.querySelector('.dm-trace-value')!.textContent).toBe('runtime-val');
+  });
+
+  it('shows sample value when no trace overlay provided', () => {
+    const { container } = render(<SourceTreeNode node={leaf} {...defaults} />);
+    expect(container.querySelector('.dm-node-sample-value')).not.toBeNull();
+  });
+
+  it('truncates long trace values', () => {
+    const longVal = 'a'.repeat(30);
+    const traceOverlay = new Map([['name', { value: longVal, isError: false }]]);
+    const { container } = render(<SourceTreeNode node={leaf} {...defaults} traceOverlay={traceOverlay} />);
+    const text = container.querySelector('.dm-trace-value')!.textContent!;
+    expect(text.endsWith('…')).toBe(true);
+    expect(text.length).toBeLessThanOrEqual(25);
+  });
+
+  it('passes traceOverlay to child nodes', () => {
+    const traceOverlay = new Map([['age', { value: '30', isError: false }]]);
+    const { container } = render(
+      <SourceTreeNode node={nested} {...defaults} traceOverlay={traceOverlay} />,
+    );
+    expect(container.querySelector('.dm-trace-value--ok')).not.toBeNull();
   });
 });

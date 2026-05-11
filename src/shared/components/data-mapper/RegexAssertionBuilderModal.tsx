@@ -26,13 +26,13 @@ interface Props {
 
 const CATEGORIES = [...new Set(PATTERN_LIBRARY.map(p => p.category))];
 
-const TYPE_ICONS: Record<string, string> = {
-  object: '{ }',
-  array: '[ ]',
-  string: 'Aa',
-  number: '#',
-  boolean: '◉',
-  null: '∅',
+const TYPE_LABELS: Record<string, string> = {
+  object: 'obj',
+  array: 'arr',
+  string: 'str',
+  number: 'num',
+  boolean: 'bool',
+  null: 'null',
 };
 
 function matchesSearch(node: JsonTreeNode, term: string): boolean {
@@ -89,10 +89,10 @@ function SelectableTreeNode({
         ) : (
           <span className="dm-tree-toggle dm-tree-toggle--spacer" />
         )}
-        <span className={`dm-type-badge dm-type--${node.type}`}>{TYPE_ICONS[node.type] ?? '?'}</span>
+        <span className={`dm-type-pill dm-type-pill--${node.type}`}>{TYPE_LABELS[node.type] ?? '?'}</span>
         <span className="dm-node-key">{node.key || '(root)'}</span>
         {isLeaf && truncValue && (
-          <span className="dm-node-value" title={valueStr}>{truncValue}</span>
+          <span className="dm-node-sample-value" title={valueStr}>{truncValue}</span>
         )}
         {hasChildren && !isExpanded && (
           <span className="dm-node-count">{node.children!.length}</span>

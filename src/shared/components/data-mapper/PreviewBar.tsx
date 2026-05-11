@@ -80,15 +80,15 @@ export default function PreviewBar({
         <div className="dm-preview-divider" />
         <div className="dm-preview-column">
           <div className="dm-preview-col-label">Mapped Output</div>
-          <pre className="dm-preview-json dm-preview-json--output">{targetJson || '(evaluating…)'}</pre>
+          <pre className="dm-preview-json dm-preview-json--output" aria-label="Mapped output" aria-live="polite">{targetJson || '(evaluating…)'}</pre>
         </div>
       </div>
       {preview && preview.fields.some((f) => f.error) && (
-        <div className="dm-preview-error-list">
+        <div className="dm-preview-error-list" aria-live="polite">
           {preview.fields
             .filter((f) => f.error)
             .map((f) => (
-              <div key={f.targetPath} className="dm-preview-error-item">
+              <div key={`${f.targetPath}-${f.error}`} className="dm-preview-error-item">
                 <span className="dm-preview-error-path">{f.targetPath}</span>
                 <span className="dm-preview-error-msg">{f.error}</span>
               </div>

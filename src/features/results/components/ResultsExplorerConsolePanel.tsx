@@ -105,8 +105,8 @@ export default function ResultsExplorerConsolePanel({
         }
       }
     }
-    const snapshotNodes = trace.workflowSnapshot?.nodes ?? [];
-    const orderMap = new Map(snapshotNodes.map((n: { id: string }, i: number) => [n.id, i]));
+    const snapshotNodes = (trace.workflowSnapshot?.nodes ?? []) as { id: string }[];
+    const orderMap = new Map(snapshotNodes.map((n, i) => [n.id, i]));
     return Array.from(seen.entries())
       .map(([id, label]) => ({ id, label }))
       .sort((a, b) => (orderMap.get(a.id) ?? Infinity) - (orderMap.get(b.id) ?? Infinity));

@@ -28,7 +28,7 @@ const $urlEncode: ExpressionFunction = {
   args: [{ name: 'value', type: 'string', required: true, description: 'String to encode' }],
   returnType: 'string',
   examples: [{ input: '$urlEncode("hello world")', output: 'hello%20world' }],
-  evaluate: (v) => encodeURIComponent(s(v)),
+  evaluate: (v) => { try { return encodeURIComponent(s(v)); } catch { return s(v); } },
 };
 
 const $urlDecode: ExpressionFunction = {
@@ -43,14 +43,13 @@ const $urlDecode: ExpressionFunction = {
 
 const $hash: ExpressionFunction = {
   name: '$hash', category: 'Encoding',
-  signature: '$hash(value, algorithm?) → string',
-  description: 'Generate a hash of a string. Supports simple djb2 hashing (synchronous). Returns hex string.',
+  signature: '$hash(value) → string',
+  description: 'Generate a djb2 hash of a string. Synchronous, deterministic. Returns hex string.',
   args: [
     { name: 'value', type: 'string', required: true, description: 'String to hash' },
-    { name: 'algorithm', type: 'string', required: false, description: 'Reserved for future use' },
   ],
   returnType: 'string',
-  examples: [{ input: '$hash("hello")', output: '261238937' }],
+  examples: [{ input: '$hash("hello")', output: 'f923099' }],
   evaluate: (v) => {
     // djb2 hash — fast, deterministic, synchronous
     const str = s(v);

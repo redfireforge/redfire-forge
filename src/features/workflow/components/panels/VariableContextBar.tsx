@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useWorkflowInspect } from './WorkflowInspectContext';
 import { useModalDrag } from '../../../../shared/hooks/useModalDrag';
 
@@ -13,8 +13,23 @@ interface Props {
 export default function VariableContextBadge({ variables }: Props) {
   const { openVariableDetail } = useWorkflowInspect();
   const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
   const { onDragStart, overlayStyle, modalStyle } = useModalDrag(open);
   const entries = Object.entries(variables);
+
+  const filteredEntries = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return entries;
+    return entries.filter(([name, value]) =>
+      name.toLowerCase().includes(q) || String(value).toLowerCase().includes(q),
+    );
+  }, [entries, search]);
+
+  const handleClose = useCallback(() => {
+    setOpen(false);
+    setSearch('');
+  }, []);
+
   if (entries.length === 0) return null;
 
   return (
@@ -32,9 +47,10 @@ export default function VariableContextBadge({ variables }: Props) {
 
       {open && (
         <div
-          className="modal-overlay wf-detail-modal-overlay"
+          className="modal-overlay wf-vars-modal-overlay"
           role="presentation"
-          onClick={(e) => { if (e.target === e.currentTarget) setOpen(false); }}
+          onClick={(e) => { if (e.target === e.currentTarget) handleClose(); }}
+          onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); handleClose(); } }}
           style={overlayStyle}
         >
           <div
@@ -47,11 +63,7 @@ export default function VariableContextBadge({ variables }: Props) {
           >
             <div className="ram-header wf-vars-modal-header" style={{ cursor: 'move' }} onMouseDown={onDragStart}>
               <h3 id="wf-vars-modal-title">Workflow context</h3>
-              <button type="button" className="ram-modal-close" onClick={() => setOpen(false)} aria-label="Close">
-                &times;
-              </button>
             </div>
-            {/* Do not use ram-body here — it applies a 2-column grid (regex modal) and breaks this layout. */}
             <div className="wf-vars-modal-body">
               <p className="wf-vars-modal-intro">
                 After <strong>Quick Test</strong>, this is the snapshot of names and values your workflow uses when
@@ -59,29 +71,43 @@ export default function VariableContextBadge({ variables }: Props) {
                 delays. Use it to confirm extractions (e.g. <code>httpStatus</code>) and why a branch ran or skipped.
                 Initial variables live in the right panel; extractions update when steps run.
               </p>
-              <ul className="wf-vars-modal-list">
-                {entries.map(([name, value]) => (
-                  <li key={name}>
-                    <button
-                      type="button"
-                      className="wf-vars-modal-row"
-                      title="View or edit in Initial variables"
-                      onClick={() => {
-                        openVariableDetail(name);
-                        setOpen(false);
-                      }}
-                    >
-                      <div className="wf-vars-modal-row-head">
-                        <code className="wf-vars-modal-name">{`{{${name}}}`}</code>
-                      </div>
-                      <pre className="wf-vars-modal-val">{value}</pre>
-                    </button>
-                  </li>
-                ))}
-              </ul>
+              <input
+                className="wf-vars-modal-search"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search variables…"
+                autoFocus
+                aria-label="Search variables"
+              />
+              {filteredEntries.length === 0 ? (
+                <div className="wf-vars-modal-no-results">
+                  No variables match &ldquo;{search.trim()}&rdquo;
+                </div>
+              ) : (
+                <ul className="wf-vars-modal-list">
+                  {filteredEntries.map(([name, value]) => (
+                    <li key={name}>
+                      <button
+                        type="button"
+                        className="wf-vars-modal-row"
+                        title="View or edit in Initial variables"
+                        onClick={() => {
+                          openVariableDetail(name);
+                          handleClose();
+                        }}
+                      >
+                        <div className="wf-vars-modal-row-head">
+                          <code className="wf-vars-modal-name">{`{{${name}}}`}</code>
+                        </div>
+                        <pre className="wf-vars-modal-val">{value}</pre>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
             <div className="ram-footer wf-vars-modal-footer">
-              <button type="button" className="btn btn-sm btn-primary" onClick={() => setOpen(false)}>
+              <button type="button" className="btn btn-sm btn-primary" onClick={handleClose}>
                 Close
               </button>
             </div>

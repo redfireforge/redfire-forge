@@ -53,9 +53,9 @@ export function buildMapperResolveVariable(
     if (name.startsWith('$.') || name === '$') {
       const path = name === '$' ? '$' : name;
       const data = sourceDataMap.get(activeSourceId);
-      if (data == null) return undefined;
+      if (data === undefined) return undefined;
       const val = getByPath(data, path);
-      return val == null ? undefined : formatValue(val);
+      return val === undefined ? undefined : formatValue(val);
     }
 
     // sourceId.path → resolve against specific source
@@ -63,13 +63,13 @@ export function buildMapperResolveVariable(
       if (name.startsWith(`${sid}.`)) {
         const path = name.slice(sid.length + 1);
         const val = getByPath(data, path);
-        return val == null ? undefined : formatValue(val);
+        return val === undefined ? undefined : formatValue(val);
       }
     }
 
     // Bare name → try active source first (direct field access)
     const activeData = sourceDataMap.get(activeSourceId);
-    if (activeData != null) {
+    if (activeData !== undefined) {
       const val = getByPath(activeData, name);
       if (val !== undefined) return formatValue(val);
     }
@@ -164,6 +164,12 @@ export function evaluateMapperExpression(
       preview: result.error ? '' : formatExpressionResult(result.value),
       error: result.error,
     };
+  } catch (e) {
+    return {
+      value: undefined,
+      preview: '',
+      error: e instanceof Error ? e.message : String(e),
+    };
   } finally {
     if (saved) restoreCustomFunctions(saved);
   }
@@ -188,8 +194,12 @@ export function resolveMapperPath(
 // ── Helpers ──
 
 function formatValue(val: unknown): string {
-  if (val == null) return '';
-  return typeof val === 'object' ? JSON.stringify(val) : String(val);
+  if (val === undefined) return '';
+  if (val === null) return 'null';
+  if (typeof val === 'object') {
+    try { return JSON.stringify(val); } catch { return '[Object]'; }
+  }
+  return String(val);
 }
 
 function safeJsonParse(s: string): unknown {

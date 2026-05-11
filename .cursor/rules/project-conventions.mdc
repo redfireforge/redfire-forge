@@ -50,6 +50,11 @@ alwaysApply: true
 | `src/engine/workflow/debugController.ts` | Step-through debugging controller for Quick Test |
 | `src/engine/workflow/fetchScenarioSample.ts` | One-off HTTP fetch for Extract → Pick JSON path |
 | `src/shared/components/data-mapper/RegexAssertionBuilderModal.tsx` | Regex assertion builder modal: DM tree picker, pattern library, live preview (replaced old RegexAssertionModal) |
+| `src/shared/components/data-mapper/utils/mappingProfiles.ts` | Named mapping profile CRUD — save/load/rename/delete per adapter contextId |
+| `src/shared/components/data-mapper/utils/arrayMapping.ts` | Array mapping detection — classify loop/aggregate/spread/direct, smart aggregate suggestions |
+| `src/shared/components/data-mapper/utils/gallerySamples.ts` | 6 pre-built mapping gallery presets — direct, expression, array, multi-source, type conversion, conditional |
+| `src/shared/components/data-mapper/hooks/useKeyboardNavigation.ts` | Keyboard navigation hook — Tab between panels, arrow keys for tree traversal, Home/End |
+| `src/shared/components/data-mapper/CodeView.tsx` | Read-only code view of mappings (target ← source format), sorted, with line numbers |
 | `src/engine/executionWorker.ts` | Web Worker entry point for off-thread execution |
 | `src/engine/workerBridge.ts` | Main-thread bridge wrapping worker (drop-in for runTest) |
 | `src/engine/workerProtocol.ts` | Typed message protocol for Main ↔ Worker comms |
@@ -58,8 +63,11 @@ alwaysApply: true
 | `src/features/results/components/ResultsExplorerDetailPanel.tsx` | Results Explorer: tabbed detail panel (overview/request/response/variables/assertions) |
 | `src/features/results/components/IterationMatrixTable.tsx` | Results Explorer: iteration × node matrix table |
 | `src/features/workflow/engine/traceCollector.ts` | Trace capture during workflow execution |
+| `src/shared/components/data-mapper/utils/traceComparison.ts` | Mapping trace comparison engine (Phase 9D) |
+| `src/shared/components/data-mapper/utils/traceExportImport.ts` | Mapping trace export/import round-trip (Phase 9D) |
+| `src/shared/components/data-mapper/MappingCompare.tsx` | Side-by-side mapping trace comparison UI (Phase 9D) |
 | `src/features/results/utils/bottleneckAnalysis.ts` | Bottleneck identification engine for Results Explorer |
-| `src/shared/utils/jsonPath.ts` | Canonical JSONPath engine (getByPath, getByPathAsString) |
+| `src/shared/utils/jsonPath.ts` | Canonical JSONPath engine (getByPath, getByPathAsString, setByPath) |
 | `src/shared/utils/jsonTreeModel.ts` | Unified JSON tree model (buildJsonTree, JsonTreeNode) |
 | `src/shared/components/data-mapper/DataMapper.tsx` | Data Mapper: main container component |
 | `src/shared/components/data-mapper/DataMapperModal.tsx` | Data Mapper: modal shell with validation + Done/Cancel |
@@ -91,6 +99,21 @@ alwaysApply: true
 | `src/shared/components/data-mapper/adapters/populateFromApiAdapter.ts` | Data Mapper: populate from API adapter (PopulateOutput ↔ Mapping[]) with mutable internal state for live-fetch |
 | `src/shared/components/data-mapper/adapters/columnMappingAdapter.ts` | Data Mapper: column ↔ request template adapter (DataSourceColumn[] ↔ Mapping[]) with parseScenarioTemplate |
 | `src/shared/components/data-mapper/adapters/sharedDsFetchAdapter.ts` | Data Mapper: shared DS fetch adapter (SharedDsFetchOutput ↔ Mapping[]) with fetchConfig-aware title |
+| `src/shared/components/data-mapper/adapters/webhookExtractionAdapter.ts` | Data Mapper: webhook payload extraction adapter (WebhookExtractionOutput ↔ Mapping[]) for CorrelationWait + WebhookTrigger |
+| `src/shared/components/data-mapper/adapters/variableBindingAdapter.ts` | Data Mapper: variable binding adapter (VariableBinding[] ↔ Mapping[]) for HttpConfig upstream variable visualization |
+| `src/shared/components/data-mapper/adapters/requestBodyAdapter.ts` | Data Mapper: request body builder adapter (string ↔ Mapping[]) for visual JSON body construction with {{var}} placeholders |
+| `src/shared/components/data-mapper/utils/bodyTemplateSync.ts` | Bi-directional sync engine: template↔visual mapping sync with conflict resolution and incremental diff |
+| `src/shared/components/data-mapper/utils/bodyMappingShared.ts` | Shared helpers for body builder: findSourceForRef, hasUnsafePathSegment |
+| `src/shared/components/data-mapper/BodyBuilderPanel.tsx` | Body Builder: three-mode visual body construction (JSON/Form/Raw) with DataMapper integration |
+| `src/shared/components/data-mapper/hooks/useBodyBuilderSync.ts` | Body Builder: React hook wrapping bodyTemplateSync for bi-directional sync lifecycle |
+| `src/shared/components/data-mapper/utils/schemaSnapshot.ts` | Schema Drift: snapshot capture (collectFieldEntries, captureSchemaSnapshot, load/save/delete) |
+| `src/shared/components/data-mapper/utils/schemaDrift.ts` | Schema Drift: diff engine, classifyDrift severity, summarize, findAffectedMappings |
+| `src/shared/components/data-mapper/DriftBanner.tsx` | Schema Drift: dismissible notification banner with Accept & Update / Show Diff |
+| `src/shared/components/data-mapper/SchemaDiffModal.tsx` | Schema Drift: tabular diff modal with repair UI (severity, path, change type, affected mappings, repair suggestions with Apply) |
+| `src/shared/components/data-mapper/utils/schemaRepair.ts` | Schema Repair: Levenshtein + renamed-candidate repair suggestions for broken mappings |
+| `src/shared/components/data-mapper/utils/schemaContract.ts` | Schema Contract: strict/lenient lock mode, validateContract, config persistence |
+| `src/shared/components/data-mapper/utils/mappingTrace.ts` | Mapping Execution Trace: per-mapping data flow capture, trace level gating, summarization (Phase 9A) |
+| `src/shared/components/data-mapper/utils/expressionStepDebugger.ts` | Step-through expression debugger: breaks expressions into EvalStep[] for incremental visualization (Phase 9C) |
 | `src-tauri/tauri.conf.json` | Tauri app config |
 | `scripts/version.sh` | Version bump script |
 
@@ -105,25 +128,25 @@ alwaysApply: true
 
 | Test Type | When to Run | Command |
 |---|---|---|
-| **TypeScript check** | **MANDATORY after every code change** | `npx tsc --noEmit` |
+| **TypeScript check** | **MANDATORY after every code change** | `npx tsc -b --noEmit` |
 | Unit tests (touched files only) | During development, after each change | `npx vitest run src/path/to/changed.test.ts` |
 | Full unit test suite | **Only before merging** to `develop`, `release/*`, or `master` | `npx vitest run` |
 | Unit test coverage | Before merging to develop/release/master | `npx vitest run --coverage` |
 | E2E tests (Playwright) | **Only before merging** to `develop`, `release/*`, or `master` | `npx playwright test --reporter=list` |
 
 ### Rules
-- **CRITICAL: Always run `npx tsc --noEmit` after making code changes.** This is NOT optional. Vitest and Playwright do NOT type-check source files — only `tsc` catches missing properties, bad imports, and type mismatches. Skipping this step causes Tauri build failures that are expensive to debug later. Run it after every batch of edits, not just before merging.
+- **CRITICAL: Always run `npx tsc -b --noEmit` after making code changes.** This is NOT optional. The `-b` flag is required because the root `tsconfig.json` uses project references (`"files": []`); without `-b`, tsc checks nothing. Vitest and Playwright do NOT type-check source files — only `tsc` catches missing properties, bad imports, and type mismatches. Skipping this step causes Tauri build failures that are expensive to debug later. Run it after every batch of edits, not just before merging.
 - **During development, only run unit tests for the files you touched** — do NOT run the full test suite. Use `npx vitest run src/path/to/file.test.ts` to target specific test files.
 - **Do NOT run E2E tests during regular feature development** — they are slow and only needed at merge gates.
 - **Full test suite and E2E tests are ONLY run before merging** to `develop`, `release/*`, or `master`.
-- During development, rely on `tsc --noEmit` + scoped unit tests for fast feedback.
+- During development, rely on `tsc -b --noEmit` + scoped unit tests for fast feedback.
 - E2E tests require the dev server running on port 5173 (`npm run dev`).
 - Target >90% code coverage on all four metrics (statements, branches, functions, lines).
 
 ## Pre-Commit Hooks (Automated)
 
 A husky pre-commit hook is configured to automatically run before every `git commit`:
-1. `npx tsc --noEmit` — blocks commit if type errors exist
+1. `npx tsc -b --noEmit` — blocks commit if type errors exist
 2. `npx lint-staged` — runs ESLint on staged `.ts`/`.tsx` files
 
 This means **no commit can enter git with type errors**. If the hook blocks your commit, fix the errors first — do NOT bypass with `--no-verify`.
@@ -132,6 +155,6 @@ This means **no commit can enter git with type errors**. If the hook blocks your
 
 - **Fix ALL lint, type, and test errors across the entire codebase** — not just the files you touched. If you discover pre-existing issues while working on a feature, fix them as part of the same branch.
 - Before merging, `npx eslint src/ cli/` must report **0 errors and 0 warnings**.
-- Before merging, `npx tsc --noEmit` must report **0 errors**.
+- Before merging, `npx tsc -b --noEmit` must report **0 errors**.
 - Before merging, `npx vitest run` must report **0 failures**.
 - Do NOT ignore pre-existing problems. Own the codebase quality.

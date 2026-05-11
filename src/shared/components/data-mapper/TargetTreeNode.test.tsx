@@ -40,15 +40,18 @@ describe('TargetTreeNode', () => {
   });
 
   it('shows mapped indicator when mapping exists', () => {
-    render(<TargetTreeNode node={leaf} {...defaults} mappings={[mapping]} />);
-    expect(screen.getByText(/← name/)).toBeTruthy();
+    const { container } = render(<TargetTreeNode node={leaf} {...defaults} mappings={[mapping]} />);
+    expect(container.querySelector('.dm-mapped-badge')).toBeTruthy();
+    expect(screen.getByText('←')).toBeTruthy();
+    expect(screen.getByText('name')).toBeTruthy();
     expect(screen.queryByText('Drop here')).toBeNull();
   });
 
-  it('shows "fx" prefix for expression mappings', () => {
+  it('shows "fx" pill for expression mappings', () => {
     const exprMapping = { ...mapping, expression: '$upper($.name)' };
-    render(<TargetTreeNode node={leaf} {...defaults} mappings={[exprMapping]} />);
-    expect(screen.getByText(/fx.*name/)).toBeTruthy();
+    const { container } = render(<TargetTreeNode node={leaf} {...defaults} mappings={[exprMapping]} />);
+    expect(container.querySelector('.dm-mapped-fx-pill')).toBeTruthy();
+    expect(container.querySelector('.dm-mapped-fx-pill')!.textContent).toBe('fx');
   });
 
   it('toggles selection on click', () => {
@@ -263,5 +266,50 @@ describe('TargetTreeNode – toggle', () => {
       <TargetTreeNode node={leaf} {...defaults} search="nonexistent" />,
     );
     expect(container.querySelector('.dm-tree-node')).toBeNull();
+  });
+});
+
+describe('trace overlay', () => {
+  it('renders trace value on target node when traceOverlay has matching path', () => {
+    const traceOverlay = new Map([['userName', { value: 'Alice', isError: false }]]);
+    const { container } = render(
+      <TargetTreeNode node={leaf} {...defaults} traceOverlay={traceOverlay} />,
+    );
+    expect(container.querySelector('.dm-trace-value--ok')).not.toBeNull();
+    expect(container.querySelector('.dm-trace-value')!.textContent).toBe('= Alice');
+  });
+
+  it('renders error trace value with error styling on target', () => {
+    const traceOverlay = new Map([['userName', { value: 'undefined', isError: true }]]);
+    const { container } = render(
+      <TargetTreeNode node={leaf} {...defaults} traceOverlay={traceOverlay} />,
+    );
+    expect(container.querySelector('.dm-trace-value--error')).not.toBeNull();
+  });
+
+  it('does not render trace value when traceOverlay is not provided', () => {
+    const { container } = render(
+      <TargetTreeNode node={leaf} {...defaults} />,
+    );
+    expect(container.querySelector('.dm-trace-value')).toBeNull();
+  });
+
+  it('truncates long trace values on target', () => {
+    const longVal = 'b'.repeat(30);
+    const traceOverlay = new Map([['userName', { value: longVal, isError: false }]]);
+    const { container } = render(
+      <TargetTreeNode node={leaf} {...defaults} traceOverlay={traceOverlay} />,
+    );
+    const text = container.querySelector('.dm-trace-value')!.textContent!;
+    expect(text.startsWith('=')).toBe(true);
+    expect(text.endsWith('…')).toBe(true);
+  });
+
+  it('passes traceOverlay to child nodes', () => {
+    const traceOverlay = new Map([['email', { value: 'alice@test.com', isError: false }]]);
+    const { container } = render(
+      <TargetTreeNode node={nested} {...defaults} traceOverlay={traceOverlay} />,
+    );
+    expect(container.querySelector('.dm-trace-value--ok')).not.toBeNull();
   });
 });
