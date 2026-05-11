@@ -305,7 +305,7 @@ export default function DataMapperModal<TOutput = unknown>({
       const el = e.target as HTMLElement;
       const tag = el?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
-      if (el?.contentEditable === 'true') return;
+      if (el?.isContentEditable || el?.contentEditable === 'true') return;
       e.preventDefault();
       onCancel();
     };

@@ -8,6 +8,7 @@ import { getByPath } from '../../../utils/jsonPath';
 import { evaluateMapperExpression } from './mapperExpressionEvaluator';
 import type { Mapping, MapperSource } from '../types';
 import type { ExpressionFunction } from '../../../../features/workflow/utils/expressionFunctions/types';
+import { coerceSampleData, toJsonPathRef } from './mapperParsing';
 
 export interface PreviewField {
   targetPath: string;
@@ -35,9 +36,7 @@ export function computePreview(
   customFunctions?: ExpressionFunction[],
 ): PreviewResult {
   const fields: PreviewField[] = [];
-  const rawTarget = targetSampleData != null
-    ? (typeof targetSampleData === 'string' ? safeParse(targetSampleData) : targetSampleData)
-    : null;
+  const rawTarget = coerceSampleData(targetSampleData) ?? null;
   const cloned = rawTarget != null ? deepClone(rawTarget) : {};
   const targetObject = (nullifyLeaves(cloned) ?? {}) as Record<string, unknown>;
   let errorCount = 0;
@@ -67,14 +66,9 @@ export function computePreview(
       } else {
         const source = sources.find((s) => s.id === (mapping.sourceId || activeSourceId));
         if (source?.sampleData != null) {
-          const data = typeof source.sampleData === 'string'
-            ? safeParse(source.sampleData)
-            : source.sampleData;
+          const data = coerceSampleData(source.sampleData);
           if (data != null) {
-            const pathToResolve = mapping.sourcePath.startsWith('$.')
-              ? mapping.sourcePath
-              : `$.${mapping.sourcePath}`;
-            field.value = getByPath(data, pathToResolve);
+            field.value = getByPath(data, toJsonPathRef(mapping.sourcePath));
           }
         }
       }
@@ -152,10 +146,6 @@ function deepClone(obj: unknown): Record<string, unknown> {
   } catch {
     return {};
   }
-}
-
-function safeParse(s: string): unknown {
-  try { return JSON.parse(s); } catch { return null; }
 }
 
 /**

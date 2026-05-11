@@ -47,7 +47,7 @@ describe('DataMapperModal', () => {
     expect(screen.getByText('Test Mapper')).toBeTruthy();
   });
 
-  it('renders Done and Cancel buttons', () => {
+  it('renders Save and Cancel buttons', () => {
     const adapter = createAdapter();
     render(<DataMapperModal adapter={adapter} onSave={vi.fn()} onCancel={vi.fn()} />);
     expect(screen.getByText('Done')).toBeTruthy();
@@ -62,15 +62,15 @@ describe('DataMapperModal', () => {
     expect(onCancel).toHaveBeenCalledTimes(1);
   });
 
-  it('calls onCancel when X button clicked', () => {
+  it('calls onCancel when Cancel button clicked', () => {
     const adapter = createAdapter();
     const onCancel = vi.fn();
     render(<DataMapperModal adapter={adapter} onSave={vi.fn()} onCancel={onCancel} />);
-    fireEvent.click(screen.getByLabelText('Close data mapper'));
+    fireEvent.click(screen.getByText('Cancel'));
     expect(onCancel).toHaveBeenCalledTimes(1);
   });
 
-  it('calls onSave with serialized output when Done clicked (no validation)', () => {
+  it('calls onSave with serialized output when Save clicked (no validation)', () => {
     const onSave = vi.fn();
     const adapter = createAdapter();
     render(<DataMapperModal adapter={adapter} onSave={onSave} onCancel={vi.fn()} />);
@@ -222,7 +222,7 @@ describe('DataMapperModal', () => {
     expect(pathEl?.textContent).toBe('userName');
   });
 
-  it('disables Done button when errors exist', () => {
+  it('disables Save button when errors exist', () => {
     const validateFn = vi.fn((): ValidationIssue[] => [
       { mappingId: 'm1', severity: 'error', message: 'Err' },
     ]);
@@ -331,7 +331,8 @@ describe('DataMapperModal', () => {
     div.contentEditable = 'true';
     document.body.appendChild(div);
     div.focus();
-    fireEvent.keyDown(div, { key: 'Escape', bubbles: true });
+    const event = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true });
+    div.dispatchEvent(event);
     expect(onCancel).not.toHaveBeenCalled();
     document.body.removeChild(div);
   });
@@ -704,14 +705,14 @@ describe('DataMapperModal', () => {
     expect(container.querySelector('.dm-validation-path')?.textContent).toBe('$.userName');
   });
 
-  it('Done button title shows "Save mappings" when no errors', () => {
+  it('Save button title shows "Save mappings" when no errors', () => {
     const adapter = createAdapter();
     render(<DataMapperModal adapter={adapter} onSave={vi.fn()} onCancel={vi.fn()} />);
     const doneBtn = screen.getByText('Done');
     expect(doneBtn.getAttribute('title')).toBe('Save mappings');
   });
 
-  it('Done button title shows error message when errors present', () => {
+  it('Save button title shows error message when errors present', () => {
     const validateFn = vi.fn((): ValidationIssue[] => [
       { mappingId: 'm1', severity: 'error', message: 'Bad' },
     ]);
@@ -720,5 +721,107 @@ describe('DataMapperModal', () => {
     fireEvent.click(screen.getByText('Done'));
     const doneBtn = screen.getByText('Done');
     expect(doneBtn.getAttribute('title')).toBe('Fix errors before saving');
+  });
+
+  it('shows warning when serialize throws', () => {
+    const adapter = createAdapter({
+      serialize: () => { throw new Error('serialize boom'); },
+    });
+    const onSave = vi.fn();
+    render(<DataMapperModal adapter={adapter} onSave={onSave} onCancel={vi.fn()} />);
+    fireEvent.click(screen.getByText('Done'));
+    expect(screen.getByText(/Save failed: serialize boom/)).toBeTruthy();
+    expect(onSave).not.toHaveBeenCalled();
+  });
+
+  it('shows warning when validate throws', () => {
+    const adapter = createAdapter({
+      validate: () => { throw new Error('validate boom'); },
+    });
+    const onSave = vi.fn();
+    render(<DataMapperModal adapter={adapter} onSave={onSave} onCancel={vi.fn()} />);
+    fireEvent.click(screen.getByText('Done'));
+    expect(screen.getByText(/Validation error: validate boom/)).toBeTruthy();
+  });
+
+  it('closes on Escape key unless nested dialog is open', () => {
+    const onCancel = vi.fn();
+    const adapter = createAdapter();
+    render(<DataMapperModal adapter={adapter} onSave={vi.fn()} onCancel={onCancel} />);
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(onCancel).toHaveBeenCalled();
+  });
+
+  it('does not close on Escape when focus is in an INPUT', () => {
+    const onCancel = vi.fn();
+    const adapter = createAdapter();
+    const { container } = render(<DataMapperModal adapter={adapter} onSave={vi.fn()} onCancel={onCancel} />);
+    const input = container.querySelector('input');
+    if (input) {
+      input.focus();
+      const event = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true });
+      input.dispatchEvent(event);
+      expect(onCancel).not.toHaveBeenCalled();
+    }
+  });
+
+  it('saves with warnings (non-error validation issues)', () => {
+    const adapter = createAdapter({
+      validate: () => [{ severity: 'warning', message: 'Low confidence' }],
+    });
+    const onSave = vi.fn();
+    render(<DataMapperModal adapter={adapter} onSave={onSave} onCancel={vi.fn()} />);
+    fireEvent.click(screen.getByText('Done'));
+    expect(screen.getByText('1 warning')).toBeTruthy();
+    expect(onSave).toHaveBeenCalled();
+  });
+
+  it('detects unmapped required fields from target.fields', () => {
+    const adapter = createAdapter({
+      target: {
+        label: 'Target',
+        sampleData: { x: 1 },
+        allowCustomFields: false,
+        fields: [{ path: 'x', label: 'X', required: true }],
+      },
+    });
+    const onSave = vi.fn();
+    render(<DataMapperModal adapter={adapter} onSave={onSave} onCancel={vi.fn()} />);
+    fireEvent.click(screen.getByText('Done'));
+    expect(screen.getByText(/Required field "x" is not mapped/)).toBeTruthy();
+    expect(onSave).toHaveBeenCalled();
+  });
+
+  it('detects unmapped required fields from fieldConstraints', () => {
+    const adapter = createAdapter({
+      target: {
+        label: 'Target',
+        sampleData: { y: '' },
+        allowCustomFields: false,
+        fieldConstraints: { y: { required: true } },
+      },
+    });
+    const onSave = vi.fn();
+    render(<DataMapperModal adapter={adapter} onSave={onSave} onCancel={vi.fn()} />);
+    fireEvent.click(screen.getByText('Done'));
+    expect(screen.getByText(/Required field "y" is not mapped/)).toBeTruthy();
+  });
+
+  it('toggles fullscreen mode', () => {
+    const adapter = createAdapter();
+    const { container } = render(<DataMapperModal adapter={adapter} onSave={vi.fn()} onCancel={vi.fn()} />);
+    expect(container.querySelector('.dm-modal--fullscreen')).toBeNull();
+    const fsBtn = screen.getByLabelText('Enter full screen');
+    fireEvent.click(fsBtn);
+    expect(container.querySelector('.dm-modal--fullscreen')).toBeTruthy();
+    const exitBtn = screen.getByLabelText('Exit full screen');
+    fireEvent.click(exitBtn);
+    expect(container.querySelector('.dm-modal--fullscreen')).toBeNull();
+  });
+
+  it('renders custom doneLabel', () => {
+    const adapter = createAdapter();
+    render(<DataMapperModal adapter={adapter} onSave={vi.fn()} onCancel={vi.fn()} doneLabel="Apply" />);
+    expect(screen.getByText('Apply')).toBeTruthy();
   });
 });

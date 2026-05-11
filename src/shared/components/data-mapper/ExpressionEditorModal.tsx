@@ -8,6 +8,7 @@ import type { MapperSource, Mapping } from './types';
 import type { OnMount } from '@monaco-editor/react';
 import type { editor as MonacoEditor, IDisposable, Position } from 'monaco-editor';
 import { buildJsonTree, getAllLeafPaths } from '../../utils/jsonTreeModel';
+import { coerceSampleData } from './utils/mapperParsing';
 
 const Editor = lazy(() => import('@monaco-editor/react'));
 
@@ -22,16 +23,10 @@ interface ExpressionEditorModalProps {
 
 type CategoryFilter = (typeof EXPRESSION_CATEGORIES)[number] | 'All';
 
-function safeParse(data: unknown): unknown {
-  if (data == null) return null;
-  if (typeof data === 'string') { try { return JSON.parse(data); } catch { return null; } }
-  return data;
-}
-
 function getSourceLeafPaths(sources: MapperSource[], activeSourceId: string): string[] {
   const src = sources.find((s) => s.id === activeSourceId);
   if (src?.sampleData == null) return [];
-  const parsed = safeParse(src.sampleData);
+  const parsed = coerceSampleData(src.sampleData);
   if (parsed == null) return [];
   try {
     const tree = buildJsonTree(parsed, '', '');
@@ -111,6 +106,7 @@ export default function ExpressionEditorModal({
     if (!expression.trim()) {
       setPreview({ display: '', error: undefined });
       setDebugSteps(null);
+      setShowDebugger(false);
       return;
     }
     const timer = setTimeout(() => {

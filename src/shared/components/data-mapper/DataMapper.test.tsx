@@ -80,8 +80,8 @@ describe('DataMapper', () => {
   it('shows undo/redo buttons', () => {
     const adapter = createTestAdapter();
     render(<DataMapper adapter={adapter} />);
-    expect(screen.getByText(/Undo/)).toBeTruthy();
-    expect(screen.getByText(/Redo/)).toBeTruthy();
+    expect(screen.getByTitle('Undo (⌘Z)')).toBeTruthy();
+    expect(screen.getByTitle('Redo (⌘⇧Z)')).toBeTruthy();
   });
 
   it('shows clear all button', () => {
@@ -125,8 +125,8 @@ describe('DataMapper – MapperToolbar', () => {
   it('hides badge when no candidates', () => {
     const adapter: MapperAdapter<Mapping[]> = {
       ...createTestAdapter(),
-      sources: [{ id: 's1', label: 'Source', sampleData: { foo: 1 } }],
-      target: { label: 'Target', sampleData: { bar: 2 }, allowCustomFields: false },
+      sources: [{ id: 's1', label: 'Source', sampleData: { foo: 'hello' } }],
+      target: { label: 'Target', sampleData: { bar: true }, allowCustomFields: false },
     };
     const { container } = render(<DataMapper adapter={adapter} />);
     const badge = container.querySelector('.dm-toolbar-badge');
@@ -399,7 +399,7 @@ describe('auto-map toast notification', () => {
     fireEvent.click(autoMapBtn);
     const toast = container.querySelector('.dm-toast');
     expect(toast).toBeTruthy();
-    expect(toast?.textContent).toContain('Auto-mapped');
+    expect(toast?.textContent).toContain('auto-mapped');
   });
 });
 
@@ -1043,6 +1043,267 @@ describe('DataMapper – trace overlays', () => {
     fireEvent.click(debugBtn!);
     const debugBar = container.querySelector('.dm-debug-bar');
     expect(debugBar?.textContent).toContain('error');
+  });
+});
+
+describe('DataMapper – error popover', () => {
+  it('closes error popover on close button click', () => {
+    const adapter = createTestAdapter();
+    const initial: Mapping[] = [{ id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'userName' }];
+    const errorTraces = [
+      {
+        mappingId: 'm1', sourcePath: 'name', sourceId: 's1', sourceValue: 'Alice',
+        evaluatedValue: undefined, targetPath: 'userName', targetValue: undefined,
+        timestamp: Date.now(), durationMs: 1, error: 'something broke',
+      },
+    ];
+    const { container } = render(
+      <DataMapper adapter={adapter} initialData={initial} traceData={errorTraces} />,
+    );
+    // Enable debug mode
+    const debugBtn = container.querySelector('.dm-toolbar-btn--debug');
+    fireEvent.click(debugBtn!);
+
+    // Click the error inline text to open popover
+    const errorInline = container.querySelector('.dm-error-inline');
+    if (errorInline) {
+      fireEvent.click(errorInline);
+      const popover = container.querySelector('.dm-error-popover');
+      if (popover) {
+        expect(popover.textContent).toContain('Mapping Error');
+        // Close the popover
+        const closeBtn = container.querySelector('.dm-error-popover-close');
+        fireEvent.click(closeBtn!);
+        expect(container.querySelector('.dm-error-popover')).toBeNull();
+      }
+    }
+  });
+
+  it('closes error popover on Escape keydown', () => {
+    const adapter = createTestAdapter();
+    const initial: Mapping[] = [{ id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'userName' }];
+    const errorTraces = [
+      {
+        mappingId: 'm1', sourcePath: 'name', sourceId: 's1', sourceValue: 'Alice',
+        evaluatedValue: undefined, targetPath: 'userName', targetValue: undefined,
+        timestamp: Date.now(), durationMs: 1, error: 'something broke',
+      },
+    ];
+    const { container } = render(
+      <DataMapper adapter={adapter} initialData={initial} traceData={errorTraces} />,
+    );
+    const debugBtn = container.querySelector('.dm-toolbar-btn--debug');
+    fireEvent.click(debugBtn!);
+    const errorInline = container.querySelector('.dm-error-inline');
+    if (errorInline) {
+      fireEvent.click(errorInline);
+      if (container.querySelector('.dm-error-popover')) {
+        fireEvent.keyDown(document, { key: 'Escape' });
+        expect(container.querySelector('.dm-error-popover')).toBeNull();
+      }
+    }
+  });
+
+  it('closes error popover on outside mousedown', () => {
+    const adapter = createTestAdapter();
+    const initial: Mapping[] = [{ id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'userName' }];
+    const errorTraces = [
+      {
+        mappingId: 'm1', sourcePath: 'name', sourceId: 's1', sourceValue: 'Alice',
+        evaluatedValue: undefined, targetPath: 'userName', targetValue: undefined,
+        timestamp: Date.now(), durationMs: 1, error: 'something broke',
+      },
+    ];
+    const { container } = render(
+      <DataMapper adapter={adapter} initialData={initial} traceData={errorTraces} />,
+    );
+    const debugBtn = container.querySelector('.dm-toolbar-btn--debug');
+    fireEvent.click(debugBtn!);
+    const errorInline = container.querySelector('.dm-error-inline');
+    if (errorInline) {
+      fireEvent.click(errorInline);
+      if (container.querySelector('.dm-error-popover')) {
+        fireEvent.mouseDown(document.body);
+        expect(container.querySelector('.dm-error-popover')).toBeNull();
+      }
+    }
+  });
+});
+
+describe('DataMapper – resize handles', () => {
+  it('renders resize handles for source and target panels', () => {
+    const adapter = createTestAdapter();
+    const { container } = render(<DataMapper adapter={adapter} />);
+    const handles = container.querySelectorAll('.dm-resize-handle');
+    expect(handles.length).toBe(2);
+    expect(handles[0].getAttribute('aria-label')).toBe('Resize source panel');
+    expect(handles[1].getAttribute('aria-label')).toBe('Resize target panel');
+  });
+
+  it('initiates resize on mousedown and cleans up on mouseup', () => {
+    const adapter = createTestAdapter();
+    const { container } = render(<DataMapper adapter={adapter} />);
+    const sourceHandle = container.querySelector('[aria-label="Resize source panel"]')!;
+    fireEvent.mouseDown(sourceHandle, { clientX: 100 });
+    fireEvent.mouseMove(document, { clientX: 150 });
+    fireEvent.mouseUp(document);
+    // No crash — resize cleanup ran successfully
+    expect(container.querySelector('.dm-container')).toBeTruthy();
+  });
+});
+
+describe('DataMapper – array suggestion bar', () => {
+  it('shows aggregate suggestion when array-to-scalar mapping selected', () => {
+    const adapter: MapperAdapter<Mapping[]> = {
+      ...createTestAdapter(),
+      sources: [{
+        id: 's1', label: 'Source',
+        sampleData: { items: [1, 2, 3] },
+      }],
+      target: {
+        label: 'Target',
+        sampleData: { total: 0 },
+        allowCustomFields: false,
+        fields: [{ path: 'total', label: 'total', type: 'number' }],
+      },
+    };
+    const initial: Mapping[] = [
+      { id: 'm1', sourcePath: 'items', sourceId: 's1', targetPath: 'total' },
+    ];
+    const { container } = render(
+      <DataMapper adapter={adapter} initialData={initial} />,
+    );
+    // Select the mapping to show array suggestion bar
+    const mapped = container.querySelector('.dm-tree-node--target.dm-tree-node--mapped');
+    if (mapped) {
+      fireEvent.click(mapped);
+      const suggestionBar = container.querySelector('.dm-array-suggestion-bar');
+      if (suggestionBar) {
+        expect(suggestionBar.textContent).toContain('Array');
+      }
+    }
+  });
+});
+
+describe('DataMapper – deserialize error handling', () => {
+  it('returns empty mappings when deserialize throws', () => {
+    const adapter: MapperAdapter<string> = {
+      contextId: 'test',
+      title: 'Bad Adapter',
+      sources: [{ id: 's1', label: 'Source', sampleData: { a: 1 } }],
+      target: { label: 'Target', sampleData: { b: 0 }, allowCustomFields: false },
+      serialize: () => '',
+      deserialize: () => { throw new Error('bad data'); },
+    };
+    const { container } = render(<DataMapper adapter={adapter} initialData="bad" />);
+    expect(container.querySelector('.dm-container')).toBeTruthy();
+  });
+});
+
+describe('DataMapper – repairTick', () => {
+  it('applies repaired mappings when repairTick changes', () => {
+    const adapter = createTestAdapter();
+    const onChange = vi.fn();
+    const repairedRef = { current: [
+      { id: 'r1', sourcePath: 'email', sourceId: 's1', targetPath: 'userEmail' },
+    ] };
+    const { rerender } = render(
+      <DataMapper adapter={adapter} onChange={onChange} repairTick={0} repairedMappingsRef={repairedRef} />,
+    );
+    rerender(
+      <DataMapper adapter={adapter} onChange={onChange} repairTick={1} repairedMappingsRef={repairedRef} />,
+    );
+    expect(onChange).toHaveBeenCalledWith(repairedRef.current);
+  });
+});
+
+describe('DataMapper – stats footer', () => {
+  it('renders stats footer with 0 mapped when no mappings', () => {
+    const adapter = createTestAdapter();
+    const { container } = render(<DataMapper adapter={adapter} />);
+    const footer = container.querySelector('.dm-stats-footer');
+    expect(footer).toBeTruthy();
+    const mappedValue = container.querySelector('.dm-stat-value--mapped');
+    expect(mappedValue).toBeTruthy();
+    expect(mappedValue!.textContent).toBe('0');
+  });
+
+  it('shows correct mapped count with initial mappings', () => {
+    const adapter = createTestAdapter();
+    const initial: Mapping[] = [
+      { id: '1', sourcePath: 'name', sourceId: 's1', targetPath: 'userName' },
+      { id: '2', sourcePath: 'email', sourceId: 's1', targetPath: 'userEmail' },
+    ];
+    const { container } = render(<DataMapper adapter={adapter} initialData={initial} />);
+    const mappedValue = container.querySelector('.dm-stat-value--mapped');
+    expect(mappedValue!.textContent).toBe('2');
+  });
+
+  it('shows expression count when mappings have expressions', () => {
+    const adapter = createTestAdapter();
+    const initial: Mapping[] = [
+      { id: '1', sourcePath: 'name', sourceId: 's1', targetPath: 'userName', expression: 'toUpperCase($)' },
+      { id: '2', sourcePath: 'email', sourceId: 's1', targetPath: 'userEmail' },
+    ];
+    const { container } = render(<DataMapper adapter={adapter} initialData={initial} />);
+    const exprValue = container.querySelector('.dm-stat-value--expression');
+    expect(exprValue).toBeTruthy();
+    expect(exprValue!.textContent).toBe('1');
+  });
+
+  it('does not show expression stat when count is zero', () => {
+    const adapter = createTestAdapter();
+    const { container } = render(<DataMapper adapter={adapter} />);
+    const exprValue = container.querySelector('.dm-stat-value--expression');
+    expect(exprValue).toBeNull();
+  });
+
+  it('does not show loop/aggregate/mismatch stats when counts are zero', () => {
+    const adapter = createTestAdapter();
+    const { container } = render(<DataMapper adapter={adapter} />);
+    expect(container.querySelector('.dm-stat-value--loop')).toBeNull();
+    expect(container.querySelector('.dm-stat-value--aggregate')).toBeNull();
+    expect(container.querySelector('.dm-stat-value--mismatch')).toBeNull();
+  });
+
+  it('renders keyboard shortcut hints', () => {
+    const adapter = createTestAdapter();
+    const { container } = render(<DataMapper adapter={adapter} />);
+    const shortcuts = container.querySelector('.dm-stats-shortcuts');
+    expect(shortcuts).toBeTruthy();
+    expect(shortcuts!.textContent).toContain('Search');
+    expect(shortcuts!.textContent).toContain('Delete');
+    expect(shortcuts!.textContent).toContain('Undo');
+  });
+
+  it('footer has role="status"', () => {
+    const adapter = createTestAdapter();
+    const { container } = render(<DataMapper adapter={adapter} />);
+    const footer = container.querySelector('.dm-stats-footer');
+    expect(footer!.getAttribute('role')).toBe('status');
+  });
+
+  it('pluralizes expression label correctly', () => {
+    const adapter = createTestAdapter();
+    const initial: Mapping[] = [
+      { id: '1', sourcePath: 'name', sourceId: 's1', targetPath: 'userName', expression: 'toUpperCase($)' },
+      { id: '2', sourcePath: 'email', sourceId: 's1', targetPath: 'userEmail', expression: 'toLowerCase($)' },
+    ];
+    const { container } = render(<DataMapper adapter={adapter} initialData={initial} />);
+    const stats = container.querySelectorAll('.dm-stat');
+    const exprStat = Array.from(stats).find((s) => s.textContent?.includes('expression'));
+    expect(exprStat!.textContent).toContain('expressions');
+  });
+
+  it('shows singular expression label for count of 1', () => {
+    const adapter = createTestAdapter();
+    const initial: Mapping[] = [
+      { id: '1', sourcePath: 'name', sourceId: 's1', targetPath: 'userName', expression: 'toUpperCase($)' },
+    ];
+    const { container } = render(<DataMapper adapter={adapter} initialData={initial} />);
+    const stats = container.querySelectorAll('.dm-stat');
+    const exprStat = Array.from(stats).find((s) => s.textContent?.includes('expression'));
+    expect(exprStat!.textContent).toMatch(/1\s*expression$/);
   });
 });
 

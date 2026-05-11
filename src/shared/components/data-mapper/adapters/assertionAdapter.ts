@@ -46,24 +46,14 @@ const SOURCE_ID = 'response-body';
 const SOURCE_LABEL = 'Response Body';
 const TARGET_PATH = 'jsonPath';
 
-// ─── Helpers ──────────────────────────────────────────────
-
-function parseSample(raw?: string | Record<string, unknown>): unknown | undefined {
-  if (raw == null) return undefined;
-  if (typeof raw === 'object') return raw;
-  try {
-    return JSON.parse(raw);
-  } catch {
-    return undefined;
-  }
-}
+import { coerceSampleData } from '../utils/mapperParsing';
 
 // ─── Adapter Factory ──────────────────────────────────────
 
 export function createAssertionAdapter(
   opts: AssertionAdapterOptions = {},
 ): MapperAdapter<AssertionAdapterResult> {
-  const parsed = parseSample(opts.sampleResponseBody);
+  const parsed = coerceSampleData(opts.sampleResponseBody);
   const fallbackPattern = opts.initialPattern ?? '';
   const fallbackPatternName = opts.initialPatternName;
 

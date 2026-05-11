@@ -534,3 +534,127 @@ describe('ExpressionEditorModal — error confirmation', () => {
     vi.useRealTimers();
   });
 });
+
+describe('ExpressionEditorModal – Ctrl+Enter keyboard shortcut', () => {
+  it('fires handleSave when Ctrl+Enter pressed in overlay', async () => {
+    vi.useFakeTimers();
+    const onSave = vi.fn();
+    const { container } = render(
+      <ExpressionEditorModal
+        mapping={{ ...baseMapping, expression: '$.name' }}
+        sources={sources}
+        activeSourceId="s1"
+        onSave={onSave}
+        onCancel={vi.fn()}
+      />,
+    );
+    await act(async () => { vi.advanceTimersByTime(300); });
+    const overlay = container.querySelector('.dm-expr-overlay')!;
+    fireEvent.keyDown(overlay, { key: 'Enter', ctrlKey: true });
+    expect(onSave).toHaveBeenCalledWith('m1', '$.name');
+    vi.useRealTimers();
+  });
+
+  it('fires onCancel when Escape pressed in overlay', () => {
+    const onCancel = vi.fn();
+    const { container } = render(
+      <ExpressionEditorModal
+        mapping={{ ...baseMapping, expression: '$.name' }}
+        sources={sources}
+        activeSourceId="s1"
+        onSave={vi.fn()}
+        onCancel={onCancel}
+      />,
+    );
+    const overlay = container.querySelector('.dm-expr-overlay')!;
+    fireEvent.keyDown(overlay, { key: 'Escape' });
+    expect(onCancel).toHaveBeenCalled();
+  });
+});
+
+describe('ExpressionEditorModal – function insert without editor', () => {
+  it('appends function template to expression when no Monaco editor', async () => {
+    vi.useFakeTimers();
+    const onSave = vi.fn();
+    render(
+      <ExpressionEditorModal
+        mapping={{ ...baseMapping, expression: '' }}
+        sources={sources}
+        activeSourceId="s1"
+        onSave={onSave}
+        onCancel={vi.fn()}
+      />,
+    );
+    await act(async () => { vi.advanceTimersByTime(300); });
+    const fnBtn = screen.getByText('$upper');
+    fireEvent.click(fnBtn);
+    // Monaco not mounted in test → falls back to appending to expression via setExpression
+    // Verify the expression was updated by saving
+    await act(async () => { vi.advanceTimersByTime(300); });
+    fireEvent.click(screen.getByText('Save Expression'));
+    const savedExpr = onSave.mock.calls[0]?.[1] ?? '';
+    expect(savedExpr).toContain('$upper');
+    vi.useRealTimers();
+  });
+});
+
+describe('ExpressionEditorModal – initializes from sourcePath when no expression', () => {
+  it('defaults expression to mapping.sourcePath', async () => {
+    vi.useFakeTimers();
+    const onSave = vi.fn();
+    render(
+      <ExpressionEditorModal
+        mapping={{ id: 'm1', sourcePath: 'email', sourceId: 's1', targetPath: 'userEmail' }}
+        sources={sources}
+        activeSourceId="s1"
+        onSave={onSave}
+        onCancel={vi.fn()}
+      />,
+    );
+    await act(async () => { vi.advanceTimersByTime(300); });
+    fireEvent.click(screen.getByText('Save Expression'));
+    expect(onSave).toHaveBeenCalledWith('m1', 'email');
+    vi.useRealTimers();
+  });
+});
+
+describe('ExpressionEditorModal – step debugger toggle', () => {
+  it('toggles debugger on and off', async () => {
+    vi.useFakeTimers();
+    const { container } = render(
+      <ExpressionEditorModal
+        mapping={{ ...baseMapping, expression: '$upper($.name)' }}
+        sources={sources}
+        activeSourceId="s1"
+        onSave={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    );
+    await act(async () => { vi.advanceTimersByTime(300); });
+    const toggleBtn = screen.getByText('Step Debug');
+    fireEvent.click(toggleBtn);
+    await act(async () => { vi.advanceTimersByTime(300); });
+    expect(container.querySelector('.dm-expr-step-debugger')).toBeTruthy();
+    // Toggle off
+    fireEvent.click(toggleBtn);
+    expect(container.querySelector('.dm-expr-step-debugger')).toBeNull();
+    vi.useRealTimers();
+  });
+
+  it('does not enable debugger with empty expression', async () => {
+    vi.useFakeTimers();
+    const { container } = render(
+      <ExpressionEditorModal
+        mapping={{ ...baseMapping, expression: '' }}
+        sources={sources}
+        activeSourceId="s1"
+        onSave={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    );
+    await act(async () => { vi.advanceTimersByTime(300); });
+    fireEvent.click(screen.getByText('Step Debug'));
+    expect(container.querySelector('.dm-expr-step-debugger')).toBeNull();
+    vi.useRealTimers();
+  });
+});

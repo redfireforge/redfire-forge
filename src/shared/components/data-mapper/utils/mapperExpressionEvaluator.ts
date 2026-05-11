@@ -16,6 +16,7 @@ import { EXPRESSION_FUNCTION_MAP } from '../../../../features/workflow/utils/exp
 import type { ExpressionFunction } from '../../../../features/workflow/utils/expressionFunctions/types';
 import { getByPath } from '../../../utils/jsonPath';
 import type { MapperSource } from '../types';
+import { coerceSampleData, toJsonPathRef } from './mapperParsing';
 
 export { formatExpressionResult } from '../../../../features/workflow/utils/expressionEvaluator';
 
@@ -41,9 +42,7 @@ export function buildMapperResolveVariable(
   const sourceDataMap = new Map<string, unknown>();
   for (const src of sources) {
     if (src.sampleData != null) {
-      const data = typeof src.sampleData === 'string'
-        ? safeJsonParse(src.sampleData)
-        : src.sampleData;
+      const data = coerceSampleData(src.sampleData);
       if (data != null) sourceDataMap.set(src.id, data);
     }
   }
@@ -185,7 +184,7 @@ export function resolveMapperPath(
   activeSourceId: string,
 ): unknown {
   const resolve = buildMapperResolveVariable(sources, activeSourceId);
-  const pathRef = sourcePath.startsWith('$.') ? sourcePath : `$.${sourcePath}`;
+  const pathRef = toJsonPathRef(sourcePath);
   const result = resolve(pathRef);
   if (result === undefined) return undefined;
   try { return JSON.parse(result); } catch { return result; }
@@ -200,10 +199,6 @@ function formatValue(val: unknown): string {
     try { return JSON.stringify(val); } catch { return '[Object]'; }
   }
   return String(val);
-}
-
-function safeJsonParse(s: string): unknown {
-  try { return JSON.parse(s); } catch { return null; }
 }
 
 /**
