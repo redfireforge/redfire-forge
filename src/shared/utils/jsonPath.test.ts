@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getByPath, getByPathAsString } from './jsonPath';
+import { getByPath, getByPathAsString, setByPath } from './jsonPath';
 
 describe('getByPath', () => {
   const obj = {
@@ -199,5 +199,92 @@ describe('getByPathAsString', () => {
   it('handles array element extraction', () => {
     const obj = { items: ['a', 'b', 'c'] };
     expect(getByPathAsString(obj, 'items[1]')).toBe('b');
+  });
+});
+
+describe('setByPath', () => {
+  it('sets a top-level key', () => {
+    const obj: Record<string, unknown> = {};
+    setByPath(obj, 'name', 'Alice');
+    expect(obj.name).toBe('Alice');
+  });
+
+  it('creates nested structure from dotted path', () => {
+    const obj: Record<string, unknown> = {};
+    setByPath(obj, 'a.b.c', 42);
+    expect((obj.a as Record<string, unknown>).b).toEqual({ c: 42 });
+  });
+
+  it('strips $. prefix before setting', () => {
+    const obj: Record<string, unknown> = {};
+    setByPath(obj, '$.user.id', 'abc');
+    expect((obj.user as Record<string, unknown>).id).toBe('abc');
+  });
+
+  it('strips bare $ prefix', () => {
+    const obj: Record<string, unknown> = {};
+    setByPath(obj, '$name', 'value');
+    expect(obj.name).toBe('value');
+  });
+
+  it('preserves existing sibling keys', () => {
+    const obj: Record<string, unknown> = { x: 1 };
+    setByPath(obj, 'y', 2);
+    expect(obj).toEqual({ x: 1, y: 2 });
+  });
+
+  it('overwrites non-object intermediates', () => {
+    const obj: Record<string, unknown> = { a: 'string' };
+    setByPath(obj, 'a.b', 'deep');
+    expect((obj.a as Record<string, unknown>).b).toBe('deep');
+  });
+
+  it('does nothing for empty path', () => {
+    const obj: Record<string, unknown> = { a: 1 };
+    setByPath(obj, '', 'value');
+    expect(obj).toEqual({ a: 1 });
+  });
+
+  it('does nothing for $ only path', () => {
+    const obj: Record<string, unknown> = { a: 1 };
+    setByPath(obj, '$', 'value');
+    expect(obj).toEqual({ a: 1 });
+  });
+
+  it('does nothing for $. only path', () => {
+    const obj: Record<string, unknown> = { a: 1 };
+    setByPath(obj, '$.', 'value');
+    expect(obj).toEqual({ a: 1 });
+  });
+
+  it('treats bracket paths as literal keys (dot-only semantics)', () => {
+    const obj: Record<string, unknown> = {};
+    setByPath(obj, '$.items[0].id', 'v');
+    expect(obj).toEqual({ 'items[0]': { id: 'v' } });
+  });
+
+  it('rejects __proto__ segments (prototype pollution)', () => {
+    const obj: Record<string, unknown> = {};
+    setByPath(obj, '__proto__.polluted', true);
+    expect(obj).toEqual({});
+    expect(({} as Record<string, unknown>).polluted).toBeUndefined();
+  });
+
+  it('rejects constructor segments', () => {
+    const obj: Record<string, unknown> = {};
+    setByPath(obj, 'constructor.polluted', true);
+    expect(obj).toEqual({});
+  });
+
+  it('rejects prototype segments', () => {
+    const obj: Record<string, unknown> = {};
+    setByPath(obj, 'a.prototype.x', true);
+    expect(obj).toEqual({});
+  });
+
+  it('skips empty segments from double dots', () => {
+    const obj: Record<string, unknown> = {};
+    setByPath(obj, 'a..b', 1);
+    expect(obj).toEqual({ a: { b: 1 } });
   });
 });

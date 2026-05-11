@@ -176,4 +176,17 @@ describe('computeAutoMapCandidates – edge cases', () => {
     // source 'user' is not a leaf (has child 'name'), so no match for target 'user'
     expect(candidates).toHaveLength(0);
   });
+
+  it('claims sourcePath for expression mappings so leaf is not reused', () => {
+    const src = buildJsonTree({ email: 'a@b.com', name: 'A' }, '', '');
+    const tgt = buildJsonTree({ email: '', name: '' }, '', '');
+    const existing: Mapping[] = [
+      { id: 'e1', sourcePath: 'email', sourceId: 's1', targetPath: 'contactEmail', expression: '$upper($.email)' },
+    ];
+    const candidates = computeAutoMapCandidates(src, tgt, existing);
+    const emailCandidates = candidates.filter(c => c.sourcePath === 'email');
+    expect(emailCandidates).toHaveLength(0);
+    const nameCandidates = candidates.filter(c => c.sourcePath === 'name');
+    expect(nameCandidates).toHaveLength(1);
+  });
 });

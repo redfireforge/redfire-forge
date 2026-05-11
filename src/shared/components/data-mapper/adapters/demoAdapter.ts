@@ -99,7 +99,7 @@ export function createDemoAdapter(): MapperAdapter<DemoOutput> {
     serialize(mappings: Mapping[]): DemoOutput {
       return {
         mappings: mappings.map((m) => ({
-          from: `${m.sourceId}.${m.sourcePath}`,
+          from: `${m.sourceId}::${m.sourcePath}`,
           to: m.targetPath,
           ...(m.expression ? { expression: m.expression } : {}),
         })),
@@ -109,6 +109,17 @@ export function createDemoAdapter(): MapperAdapter<DemoOutput> {
     deserialize(existing: DemoOutput): Mapping[] {
       if (!existing?.mappings) return [];
       return existing.mappings.map((m, i) => {
+        // Support both :: (new) and . (legacy) delimiters
+        const colonIdx = m.from.indexOf('::');
+        if (colonIdx >= 0) {
+          return {
+            id: `demo-${i}`,
+            sourceId: m.from.slice(0, colonIdx),
+            sourcePath: m.from.slice(colonIdx + 2),
+            targetPath: m.to,
+            expression: m.expression,
+          };
+        }
         const dotIdx = m.from.indexOf('.');
         return {
           id: `demo-${i}`,

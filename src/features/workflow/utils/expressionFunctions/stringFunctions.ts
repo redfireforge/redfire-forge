@@ -148,7 +148,7 @@ const $padStart: ExpressionFunction = {
   ],
   returnType: 'string',
   examples: [{ input: '$padStart("42", 5, "0")', output: '00042' }],
-  evaluate: (v, len, pad) => s(v).padStart(n(len), pad != null ? s(pad) : ' '),
+  evaluate: (v, len, pad) => s(v).padStart(n(len), pad != null && s(pad) !== '' ? s(pad) : ' '),
 };
 
 const $padEnd: ExpressionFunction = {
@@ -162,7 +162,7 @@ const $padEnd: ExpressionFunction = {
   ],
   returnType: 'string',
   examples: [{ input: '$padEnd("hi", 5, ".")', output: 'hi...' }],
-  evaluate: (v, len, pad) => s(v).padEnd(n(len), pad != null ? s(pad) : ' '),
+  evaluate: (v, len, pad) => s(v).padEnd(n(len), pad != null && s(pad) !== '' ? s(pad) : ' '),
 };
 
 const $repeat: ExpressionFunction = {

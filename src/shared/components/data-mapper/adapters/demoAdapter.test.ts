@@ -33,9 +33,9 @@ describe('demoAdapter', () => {
     ];
     const output = adapter.serialize(mappings);
     expect(output.mappings).toHaveLength(2);
-    expect(output.mappings[0]).toEqual({ from: 'api-response.user.firstName', to: 'fullName' });
+    expect(output.mappings[0]).toEqual({ from: 'api-response::user.firstName', to: 'fullName' });
     expect(output.mappings[1]).toEqual({
-      from: 'api-response.user.email',
+      from: 'api-response::user.email',
       to: 'email',
       expression: '$upper($.user.email)',
     });
@@ -92,5 +92,26 @@ describe('demoAdapter', () => {
     expect(restored[0].sourceId).toBe('api-response');
     expect(restored[1].sourcePath).toBe('user.email');
     expect(restored[1].expression).toBe('$upper($.user.email)');
+  });
+
+  it('deserializes bare field name (no dot) using default sourceId', () => {
+    const output = {
+      mappings: [
+        { from: 'topLevelField', to: 'output' },
+      ],
+    };
+    const mappings = adapter.deserialize(output);
+    expect(mappings).toHaveLength(1);
+    expect(mappings[0].sourceId).toBe('api-response');
+    expect(mappings[0].sourcePath).toBe('topLevelField');
+    expect(mappings[0].targetPath).toBe('output');
+  });
+
+  it('validate returns no issues when email target has expression', () => {
+    const mappings = [
+      { id: 'm1', sourcePath: 'user.name', sourceId: 'api-response', targetPath: 'email', expression: '$lower($.user.name)' },
+    ];
+    const issues = adapter.validate!(mappings);
+    expect(issues).toHaveLength(0);
   });
 });

@@ -1027,7 +1027,7 @@ After running a workflow, click **📊 Results Explorer** to open a full-screen 
 | Collapsible sidebar | Toggle sidebar visibility from anywhere, including modals |
 | Drag-and-drop | Move and reorder scenarios between Feature Groups and tests between scenarios via drag handles |
 | Feature presence indicator | Sidebar color-codes items with/without Feature Groups |
-| **Data Mapper** | Visual field mapping component: drag source fields to target drop zones, expression editor (`$fn()` syntax with live preview), auto-map with accept/reject, type mismatch detection & quick-fix, live preview bar, modal shell with validation, panel resize handles |
+| **Data Mapper** | Visual field mapping component: drag source fields to target drop zones, expression editor (`$fn()` syntax with live preview), auto-map with accept/reject, type mismatch detection & quick-fix, live preview bar, modal shell with validation, panel resize handles. 9 adapters: HTTP extraction, assertion, validation, populate-from-API, column-mapping, shared-DS-fetch, demo, webhook-extraction, variable-binding |
 | **Parameterized Testing** | Data-driven testing with inline data sources — define one test pattern, run against N data rows |
 | Data Source Editor | Inline spreadsheet-style table editor with columns (path, param, header, body, validate) and rows |
 | Column types | `path:` replaces URL variables, `param:` adds query params, `header:` sets headers, `body:` fills body placeholders, `validate:` asserts response values |

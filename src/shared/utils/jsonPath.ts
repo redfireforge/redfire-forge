@@ -79,3 +79,33 @@ export function getByPathAsString(obj: unknown, path: string): string {
   if (value == null) return '';
   return typeof value === 'object' ? JSON.stringify(value) : String(value);
 }
+
+/**
+ * Set a value at a JSONPath-style location in a mutable object,
+ * creating intermediate objects as needed.
+ *
+ * Accepts `$.a.b.c`, `a.b`, plain `key` — the `$.` prefix is optional.
+ * Only supports dot-separated keys (no array brackets for set).
+ */
+const UNSAFE_KEYS = new Set(['__proto__', 'prototype', 'constructor']);
+
+export function setByPath(
+  obj: Record<string, unknown>,
+  path: string,
+  value: unknown,
+): void {
+  const normalized = path.startsWith('$.') ? path.slice(2) : path.startsWith('$') ? path.slice(1) : path;
+  if (!normalized.trim()) return;
+  const keys = normalized.split('.').filter(Boolean);
+  if (keys.length === 0) return;
+  if (keys.some(k => UNSAFE_KEYS.has(k))) return;
+  let current: Record<string, unknown> = obj;
+  for (let i = 0; i < keys.length - 1; i++) {
+    const k = keys[i];
+    if (!(k in current) || typeof current[k] !== 'object' || current[k] === null) {
+      current[k] = {};
+    }
+    current = current[k] as Record<string, unknown>;
+  }
+  current[keys[keys.length - 1]] = value;
+}

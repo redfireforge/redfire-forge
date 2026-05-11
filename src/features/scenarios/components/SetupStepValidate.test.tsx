@@ -22,6 +22,23 @@ vi.mock('../../requests/components/JsonPathBuilder', () => ({
   ),
 }));
 
+vi.mock('../../../shared/components/data-mapper', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../shared/components/data-mapper')>();
+  return {
+    ...actual,
+    DataMapperModal: ({ onSave, onCancel }: { onSave: (output: { expectedFields: unknown[]; excludedPaths: string[] }) => void; onCancel: () => void }) => (
+      <div data-testid="data-mapper-modal">
+        <button type="button" onClick={() => onSave({ expectedFields: [{ jsonPath: '$.mapped', expectedValue: '"yes"' }], excludedPaths: ['$.skip'] })}>
+          Save Mapper
+        </button>
+        <button type="button" onClick={onCancel}>
+          Cancel Mapper
+        </button>
+      </div>
+    ),
+  };
+});
+
 function createDefaultProps(overrides: Partial<SetupStepValidateProps> = {}): SetupStepValidateProps {
   return {
     validationMode: 'selective',
@@ -240,5 +257,34 @@ describe('SetupStepValidate', () => {
     renderWithRealArrayModes(['items'], { items: 'unordered' });
     fireEvent.click(screen.getByText('↕ Ordered'));
     expect(screen.getByTestId('array-modes-json').textContent).toContain('"items":"ordered"');
+  });
+
+  // --- Visual Mapper (DataMapperModal) ---
+
+  it('opens Visual Mapper modal when button is clicked', () => {
+    render(<SetupStepValidate {...createDefaultProps({ sampleJson: '{"x":1}' })} />);
+    fireEvent.click(screen.getByText('⚡ Visual Mapper'));
+    expect(screen.getByTestId('data-mapper-modal')).toBeInTheDocument();
+  });
+
+  it('saves mapper output and closes modal', () => {
+    const setValidateFields = vi.fn();
+    const setValidateExcluded = vi.fn();
+    render(<SetupStepValidate {...createDefaultProps({ sampleJson: '{}', setValidateFields, setValidateExcluded })} />);
+    fireEvent.click(screen.getByText('⚡ Visual Mapper'));
+    fireEvent.click(screen.getByText('Save Mapper'));
+    expect(setValidateFields).toHaveBeenCalledWith([{ jsonPath: '$.mapped', expectedValue: '"yes"' }]);
+    expect(setValidateExcluded).toHaveBeenCalledWith(['$.skip']);
+    expect(screen.queryByTestId('data-mapper-modal')).toBeNull();
+  });
+
+  it('cancels mapper modal without saving', () => {
+    const setValidateFields = vi.fn();
+    render(<SetupStepValidate {...createDefaultProps({ sampleJson: '{}', setValidateFields })} />);
+    fireEvent.click(screen.getByText('⚡ Visual Mapper'));
+    expect(screen.getByTestId('data-mapper-modal')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('Cancel Mapper'));
+    expect(screen.queryByTestId('data-mapper-modal')).toBeNull();
+    expect(setValidateFields).not.toHaveBeenCalled();
   });
 });

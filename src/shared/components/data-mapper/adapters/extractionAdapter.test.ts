@@ -233,10 +233,11 @@ describe('round-trip', () => {
     const result = adapter.serialize(mappings);
 
     expect(result).toHaveLength(4);
+    // Preserves original interleaved order: [HEADER, body1, body2, STATUS]
     expect(result[0]).toEqual(HEADER_EXTRACTION);
-    expect(result[1]).toEqual(STATUS_EXTRACTION);
-    expect(result[2].name).toBe('userId');
-    expect(result[3].name).toBe('userName');
+    expect(result[1].name).toBe('userId');
+    expect(result[2].name).toBe('userName');
+    expect(result[3]).toEqual(STATUS_EXTRACTION);
   });
 
   it('round-trip with expression-only mappings', () => {
@@ -358,6 +359,32 @@ describe('splitExtractions', () => {
     const { body, nonBody } = splitExtractions([]);
     expect(body).toHaveLength(0);
     expect(nonBody).toHaveLength(0);
+  });
+});
+
+// ── stale state after deserialize([]) ──────────────────────
+
+describe('extractionAdapter – stale state clearing', () => {
+  it('clears internal state when deserialize([]) is called after non-empty', () => {
+    const adapter = createExtractionAdapter({
+      sampleResponseBody: SAMPLE_BODY,
+      nonBodyExtractions: [
+        { name: 'token', source: 'header', expression: 'Authorization' },
+      ],
+    });
+    // First deserialize with real data populates internal indices
+    adapter.deserialize(MIXED_EXTRACTIONS);
+
+    // Now deserialize empty — should clear stale state
+    adapter.deserialize([]);
+
+    // Serialize with no mappings should produce only the nonBodyExtractions
+    const result = adapter.serialize([]);
+    const nonBody = result.filter((e) => e.source !== 'body');
+    const body = result.filter((e) => e.source === 'body');
+    expect(nonBody).toHaveLength(1);
+    expect(nonBody[0].name).toBe('token');
+    expect(body).toHaveLength(0);
   });
 });
 

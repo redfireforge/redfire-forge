@@ -289,4 +289,161 @@ describe('RegexAssertionBuilderModal', () => {
       expect(screen.getByText('b')).toBeInTheDocument();
     });
   });
+
+  describe('tree expand/collapse', () => {
+    it('collapses all nodes via Collapse all button hides nested children', () => {
+      renderModal();
+      expect(screen.getByText('name')).toBeInTheDocument();
+      fireEvent.click(screen.getByTitle('Collapse all'));
+      // Root children (status, user, tags) still visible since root is always expanded
+      // But nested children under "user" (name, age) should be hidden
+      expect(screen.queryByTestId('tree-leaf-user.name')).not.toBeInTheDocument();
+    });
+
+    it('expands all nodes via Expand all button after collapse', () => {
+      renderModal();
+      fireEvent.click(screen.getByTitle('Collapse all'));
+      expect(screen.queryByTestId('tree-leaf-user.name')).not.toBeInTheDocument();
+      fireEvent.click(screen.getByTitle('Expand all'));
+      expect(screen.getByTestId('tree-leaf-user.name')).toBeInTheDocument();
+    });
+
+    it('toggles individual parent node expand/collapse', () => {
+      renderModal();
+      const collapseButtons = screen.getAllByLabelText('Collapse');
+      expect(collapseButtons.length).toBeGreaterThan(0);
+      fireEvent.click(collapseButtons[0]);
+      const expandButtons = screen.getAllByLabelText('Expand');
+      expect(expandButtons.length).toBeGreaterThan(0);
+      fireEvent.click(expandButtons[0]);
+    });
+
+    it('shows child count on collapsed parent nodes', () => {
+      renderModal();
+      fireEvent.click(screen.getByTitle('Collapse all'));
+      const countBadges = document.querySelectorAll('.dm-node-count');
+      expect(countBadges.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('paste mode (with tree visible)', () => {
+    it('opens paste mode with Edit JSON button when tree exists', () => {
+      renderModal();
+      const editBtn = screen.getByTitle('Edit JSON');
+      fireEvent.click(editBtn);
+      expect(screen.getByTestId('paste-json')).toBeInTheDocument();
+    });
+
+    it('populates paste textarea with pretty-printed existing JSON', () => {
+      renderModal();
+      fireEvent.click(screen.getByTitle('Edit JSON'));
+      const textarea = screen.getByTestId('paste-json') as HTMLTextAreaElement;
+      expect(textarea.value).toContain('"status"');
+      expect(textarea.value).toContain('\n');
+    });
+
+    it('shows error when applying empty paste text', () => {
+      renderModal();
+      fireEvent.click(screen.getByTitle('Edit JSON'));
+      const textarea = screen.getByTestId('paste-json');
+      fireEvent.change(textarea, { target: { value: '' } });
+      fireEvent.click(screen.getByText('Apply'));
+      expect(screen.getByText('Paste some JSON')).toBeInTheDocument();
+    });
+
+    it('shows error when applying invalid JSON in paste mode', () => {
+      renderModal();
+      fireEvent.click(screen.getByTitle('Edit JSON'));
+      const textarea = screen.getByTestId('paste-json');
+      fireEvent.change(textarea, { target: { value: '{bad json' } });
+      fireEvent.click(screen.getByText('Apply'));
+      expect(screen.getByText(/Expected/i)).toBeInTheDocument();
+    });
+
+    it('applies valid JSON from paste mode', () => {
+      renderModal();
+      fireEvent.click(screen.getByTitle('Edit JSON'));
+      const textarea = screen.getByTestId('paste-json');
+      fireEvent.change(textarea, { target: { value: '{"newField":"hello"}' } });
+      fireEvent.click(screen.getByText('Apply'));
+      expect(screen.queryByTestId('paste-json')).not.toBeInTheDocument();
+      expect(screen.getByText('newField')).toBeInTheDocument();
+    });
+
+    it('cancels paste mode without changes', () => {
+      renderModal();
+      fireEvent.click(screen.getByTitle('Edit JSON'));
+      expect(screen.getByTestId('paste-json')).toBeInTheDocument();
+      const pasteActions = document.querySelector('.dm-paste-actions');
+      const cancelBtn = within(pasteActions as HTMLElement).getByText('Cancel');
+      fireEvent.click(cancelBtn);
+      expect(screen.queryByTestId('paste-json')).not.toBeInTheDocument();
+      expect(screen.getByText('status')).toBeInTheDocument();
+    });
+  });
+
+  describe('search clear', () => {
+    it('clears search when × is clicked', () => {
+      renderModal();
+      const search = screen.getByTestId('tree-search');
+      fireEvent.change(search, { target: { value: 'name' } });
+      expect(screen.queryByTestId('tree-leaf-status')).not.toBeInTheDocument();
+      fireEvent.click(screen.getByText('×'));
+      expect(screen.getByTestId('tree-leaf-status')).toBeInTheDocument();
+    });
+  });
+
+  describe('pattern library All category', () => {
+    it('resets to All patterns when All is clicked after category filter', () => {
+      renderModal();
+      fireEvent.click(screen.getByText('Pattern Library'));
+      fireEvent.click(screen.getByText('Numbers'));
+      expect(screen.queryByText('UUID v4')).not.toBeInTheDocument();
+      fireEvent.click(screen.getByText('All'));
+      expect(screen.getByText('UUID v4')).toBeInTheDocument();
+    });
+  });
+
+  describe('preview details', () => {
+    it('shows match details with matched text', () => {
+      renderModal({ initialJsonPath: '$.status', initialPattern: 'act' });
+      const preview = screen.getByTestId('match-preview');
+      expect(within(preview).getByText('MATCH')).toBeInTheDocument();
+      expect(within(preview).getByText(/act/)).toBeInTheDocument();
+    });
+
+    it('shows no-match explanation', () => {
+      renderModal({ initialJsonPath: '$.status', initialPattern: '^zzz$' });
+      expect(screen.getByText(/does not match the resolved value/)).toBeInTheDocument();
+    });
+
+    it('shows regex error text for invalid regex', () => {
+      renderModal({ initialJsonPath: '$.status', initialPattern: '[invalid(' });
+      expect(screen.getByText('INVALID REGEX')).toBeInTheDocument();
+    });
+
+    it('truncates resolved value longer than 200 chars', () => {
+      const longJson = JSON.stringify({ longField: 'x'.repeat(250) });
+      renderModal({ sampleJson: longJson, initialJsonPath: '$.longField', initialPattern: 'x' });
+      const resolved = screen.getByText(/Value:/);
+      const code = resolved.parentElement?.querySelector('code');
+      expect(code?.textContent).toContain('...');
+    });
+  });
+
+  describe('fetch actions', () => {
+    it('calls onFetchSampleResponse when fetch button is clicked', () => {
+      const fetchFn = vi.fn();
+      renderModal({ onFetchSampleResponse: fetchFn });
+      fireEvent.click(screen.getByTitle('Fetch Response'));
+      expect(fetchFn).toHaveBeenCalled();
+    });
+
+    it('disables fetch button while fetchingResponse is true', () => {
+      const fetchFn = vi.fn();
+      renderModal({ onFetchSampleResponse: fetchFn, fetchingResponse: true });
+      const btn = screen.getByTitle('Fetching...');
+      expect(btn).toBeDisabled();
+    });
+  });
 });

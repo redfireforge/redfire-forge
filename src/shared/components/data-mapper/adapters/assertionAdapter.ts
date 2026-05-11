@@ -1,12 +1,16 @@
 /**
  * AssertionAdapter — MapperAdapter<AssertionAdapterResult>
  *
- * Bridges the Data Mapper to the regex assertion builder.
- * Source: single 'response-body' source from sample JSON.
- * Target: single field — the selected JSONPath for the regex assertion.
+ * **API-only adapter** — not used in production UI. The production regex
+ * assertion UI is `RegexAssertionBuilderModal`, which builds its own tree
+ * and only imports the `AssertionAdapterResult` type from here.
  *
- * This is the simplest adapter: single-mapping path selection,
- * no multi-field mapping needed.
+ * This adapter is retained for:
+ * - Round-trip testing (serialize/deserialize verification)
+ * - Potential future "assertion via full DataMapper" flow
+ * - API consumers who want programmatic assertion mapping
+ *
+ * @see RegexAssertionBuilderModal for the production assertion UI
  */
 
 import type {

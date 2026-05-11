@@ -56,6 +56,8 @@ export function createExtractionAdapter(
   const parsed = parseSample(opts.sampleResponseBody);
   const nonBody = opts.nonBodyExtractions ?? [];
   const fallbackMap = new Map<string, string>();
+  // Track original interleaved positions so serialize preserves ordering
+  const nonBodyIndices = new Set<number>();
 
   const source: MapperSource = {
     id: SOURCE_ID,
@@ -89,12 +91,35 @@ export function createExtractionAdapter(
         if (fallback !== undefined) ext.fallback = fallback;
         return ext;
       });
+      // Re-interleave non-body extractions at their original positions
+      if (nonBodyIndices.size > 0) {
+        const result: Extraction[] = [];
+        let bodyIdx = 0;
+        let nbIdx = 0;
+        const totalLen = bodyExtractions.length + nonBody.length;
+        for (let i = 0; i < totalLen; i++) {
+          if (nonBodyIndices.has(i) && nbIdx < nonBody.length) {
+            result.push(nonBody[nbIdx++]);
+          } else if (bodyIdx < bodyExtractions.length) {
+            result.push(bodyExtractions[bodyIdx++]);
+          }
+        }
+        // Append any remaining
+        while (nbIdx < nonBody.length) result.push(nonBody[nbIdx++]);
+        while (bodyIdx < bodyExtractions.length) result.push(bodyExtractions[bodyIdx++]);
+        return result;
+      }
       return [...nonBody, ...bodyExtractions];
     },
 
     deserialize(existing: Extraction[]): Mapping[] {
-      if (!existing?.length) return [];
       fallbackMap.clear();
+      nonBodyIndices.clear();
+      if (!existing?.length) return [];
+      // Track original positions of non-body extractions for ordering
+      for (let i = 0; i < existing.length; i++) {
+        if (!isBodyExtraction(existing[i])) nonBodyIndices.add(i);
+      }
       return existing
         .filter(isBodyExtraction)
         .map((e, i) => {

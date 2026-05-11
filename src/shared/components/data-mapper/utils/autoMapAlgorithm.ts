@@ -48,14 +48,19 @@ export function computeAutoMapCandidates(
   targetTree: JsonTreeNode,
   existingMappings: Mapping[],
 ): AutoMapCandidate[] {
-  const sourceLeafs = getAllLeafPaths(sourceTree).filter(Boolean);
-  const targetLeafs = getAllLeafPaths(targetTree).filter(Boolean);
+  // Filter out empty-string root paths (scalar roots) — auto-map only works
+  // with named fields, not bare scalar values
+  const sourceLeafs = getAllLeafPaths(sourceTree).filter((p) => p !== '');
+  const targetLeafs = getAllLeafPaths(targetTree).filter((p) => p !== '');
 
   const alreadyMappedTargets = new Set(existingMappings.map((m) => m.targetPath));
   const unmappedTargets = targetLeafs.filter((t) => !alreadyMappedTargets.has(t));
 
   const candidates: AutoMapCandidate[] = [];
-  const claimedSources = new Set<string>(existingMappings.map((m) => m.expression ?? m.sourcePath));
+  const claimedSources = new Set<string>();
+  for (const m of existingMappings) {
+    claimedSources.add(m.sourcePath);
+  }
 
   for (const targetPath of unmappedTargets) {
     const targetName = lastSegment(targetPath);

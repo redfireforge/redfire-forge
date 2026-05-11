@@ -33,18 +33,10 @@ import {
 } from './graphRunnerNodeHandlers';
 import { TraceCollector } from './traceCollector';
 import type { GraphRunCallbacks, CorrelationWaitRunnerConfig } from './graphRunnerInterfaces';
-import type { TraceCaptureLevel } from '../../../shared/types';
 // Re-export interfaces so existing consumers of graphRunner.ts stay unbroken.
 export type { GraphRunCallbacks, SubWorkflowRunSummary, CorrelationWaitRunnerConfig } from './graphRunnerInterfaces';
-
-/**
- * Resolve the effective trace capture level from ExecutionTraceOptions.
- * When `traceLevel` is set it takes precedence; otherwise we derive from `captureFullTrace`.
- */
-export function resolveTraceLevel(opts?: import('../../../shared/types').ExecutionTraceOptions): TraceCaptureLevel {
-  if (opts?.traceLevel) return opts.traceLevel;
-  return opts?.captureFullTrace ? 'full' : 'standard';
-}
+export { resolveTraceLevel } from './graphRunnerTraceLevel';
+import { resolveTraceLevel } from './graphRunnerTraceLevel';
 
 /**
  * Execute a workflow graph with topological traversal.
@@ -298,7 +290,7 @@ export async function runGraph(
               }
             }
 
-            // Full/Debug: complete request/response bodies, assertions, variables
+            // Full/Debug: complete request/response bodies, assertions, variables, mapping traces
             const capturedDetails = capturedHttpDetails.get(nodeId);
             if (capturedDetails && (effectiveLevel === 'full' || effectiveLevel === 'debug')) {
               eventDetails.request = capturedDetails.request;
@@ -306,6 +298,7 @@ export async function runGraph(
               eventDetails.assertions = capturedDetails.assertions;
               eventDetails.variablesSnapshot = capturedDetails.variablesSnapshot;
               eventDetails.extractedVariables = capturedDetails.extractedVariables;
+              eventDetails.mappingTraces = capturedDetails.mappingTraces;
             } else if (capturedDetails) {
               // Standard: only assertions and extracted variables (no bodies)
               eventDetails.assertions = capturedDetails.assertions;

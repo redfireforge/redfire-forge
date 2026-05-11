@@ -3,14 +3,16 @@ import type { JsonTreeNode } from '../../utils/jsonTreeModel';
 import type { Mapping } from './types';
 import type { TypeMismatch } from './utils/typeMismatch';
 
-const TYPE_ICONS: Record<string, string> = {
-  object: '{ }',
-  array: '[ ]',
-  string: 'Aa',
-  number: '#',
-  boolean: '◉',
-  null: '∅',
+const TYPE_LABELS: Record<string, string> = {
+  object: 'obj',
+  array: 'arr',
+  string: 'str',
+  number: 'num',
+  boolean: 'bool',
+  null: 'null',
 };
+
+import type { TraceValueOverlay } from './types';
 
 interface TargetTreeNodeProps {
   node: JsonTreeNode;
@@ -26,6 +28,8 @@ interface TargetTreeNodeProps {
   typeMismatches?: TypeMismatch[];
   onQuickFix?: (mappingId: string, suggestedExpression: string) => void;
   onRemoveMapping?: (id: string) => void;
+  focusedPath?: string | null;
+  traceOverlay?: Map<string, TraceValueOverlay>;
 }
 
 function matchesSearch(node: JsonTreeNode, term: string): boolean {
@@ -52,6 +56,8 @@ export default function TargetTreeNode({
   typeMismatches,
   onQuickFix,
   onRemoveMapping,
+  focusedPath,
+  traceOverlay,
 }: TargetTreeNodeProps) {
   const [dragOver, setDragOver] = useState(false);
   const hasChildren = (node.children?.length ?? 0) > 0;
@@ -101,11 +107,13 @@ export default function TargetTreeNode({
 
   const isMapped = !!mapping;
   const isSelected = mapping?.id === selectedMappingId && !!selectedMappingId;
+  const isFocused = focusedPath === node.path;
+  const traceVal = traceOverlay?.get(node.path);
 
   return (
     <div className="dm-tree-node-group">
       <div
-        className={`dm-tree-node dm-tree-node--target ${isLeaf ? 'dm-tree-node--leaf' : ''} ${isMapped ? 'dm-tree-node--mapped' : ''} ${dragOver ? 'dm-tree-node--drag-over' : ''} ${isSelected ? 'dm-tree-node--selected' : ''}`}
+        className={`dm-tree-node dm-tree-node--target ${isLeaf ? 'dm-tree-node--leaf' : ''} ${isMapped ? 'dm-tree-node--mapped' : ''} ${dragOver ? 'dm-tree-node--drag-over' : ''} ${isSelected ? 'dm-tree-node--selected' : ''} ${isFocused ? 'dm-tree-node--focused' : ''}`}
         style={{ paddingLeft: depth * 16 + 4 }}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
@@ -119,35 +127,62 @@ export default function TargetTreeNode({
             className="dm-tree-toggle"
             onClick={(e) => { e.stopPropagation(); onToggle(node.path || '__root__'); }}
             aria-label={isExpanded ? 'Collapse' : 'Expand'}
+            aria-expanded={isExpanded}
           >
             <span className={`dm-chevron ${isExpanded ? 'dm-chevron--open' : ''}`}>▶</span>
           </button>
         ) : (
           <span className="dm-tree-toggle dm-tree-toggle--spacer" />
         )}
-        <span className={`dm-type-badge dm-type--${node.type}`}>{TYPE_ICONS[node.type] ?? '?'}</span>
+        <span className={`dm-type-pill dm-type-pill--${node.type}`}>{TYPE_LABELS[node.type] ?? '?'}</span>
         <span className="dm-node-key">{node.key || '(root)'}</span>
         {isMapped && (
-          <span className="dm-mapped-indicator" title={`← ${mapping.sourcePath}`}>
-            {mapping.expression ? 'fx' : '←'} {mapping.sourcePath}
+          <span className="dm-mapped-badge">
+            {mapping.expression ? (
+              <>
+                <span className="dm-mapped-fx-pill">fx</span>
+                <span className="dm-mapped-src-ref" title={mapping.expression}>{mapping.sourcePath}</span>
+              </>
+            ) : (
+              <>
+                <span className="dm-mapped-arrow">←</span>
+                <span className="dm-mapped-src-ref" title={mapping.sourcePath}>{mapping.sourcePath}</span>
+              </>
+            )}
           </span>
         )}
         {mismatch && (
+          mismatch.suggestedFix && onQuickFix ? (
+            <button
+              type="button"
+              className={`dm-mismatch-badge dm-mismatch--${mismatch.severity}`}
+              aria-label={`${mismatch.message}. Click to apply fix.`}
+              onClick={(e) => { e.stopPropagation(); onQuickFix(mismatch.mappingId, mismatch.suggestedFix!); }}
+            >
+              {mismatch.severity === 'warning' ? '⚠' : 'ℹ'}
+            </button>
+          ) : (
+            <span
+              className={`dm-mismatch-badge dm-mismatch--${mismatch.severity}`}
+              title={mismatch.message}
+              aria-label={mismatch.message}
+            >
+              {mismatch.severity === 'warning' ? '⚠' : 'ℹ'}
+            </span>
+          )
+        )}
+        {traceVal && (
           <span
-            className={`dm-mismatch-badge dm-mismatch--${mismatch.severity}`}
-            title={mismatch.message}
-            onClick={mismatch.suggestedFix && onQuickFix
-              ? (e) => { e.stopPropagation(); onQuickFix(mismatch.mappingId, mismatch.suggestedFix!); }
-              : undefined}
-            style={mismatch.suggestedFix && onQuickFix ? { cursor: 'pointer' } : undefined}
+            className={`dm-trace-value ${traceVal.isError ? 'dm-trace-value--error' : 'dm-trace-value--ok'}`}
+            title={traceVal.value}
           >
-            {mismatch.severity === 'warning' ? '⚠' : 'ℹ'}
+            = {traceVal.value.length > 20 ? traceVal.value.slice(0, 19) + '…' : traceVal.value}
           </span>
         )}
         {isMapped && onRemoveMapping && (
           <button
             className="dm-inline-remove"
-            title="Remove mapping"
+            aria-label={`Remove mapping for ${node.key}`}
             onClick={(e) => { e.stopPropagation(); onRemoveMapping(mapping.id); }}
           >
             ✕
@@ -178,6 +213,8 @@ export default function TargetTreeNode({
               typeMismatches={typeMismatches}
               onQuickFix={onQuickFix}
               onRemoveMapping={onRemoveMapping}
+              focusedPath={focusedPath}
+              traceOverlay={traceOverlay}
             />
           ))}
         </div>

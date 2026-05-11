@@ -3,7 +3,7 @@
 .dm-expr-overlay {
   position: fixed;
   inset: 0;
-  z-index: 1000;
+  z-index: 1050;
   background: rgba(0, 0, 0, 0.6);
   display: flex;
   align-items: center;
@@ -159,6 +159,9 @@
 
 .dm-expr-editor-label,
 .dm-expr-preview-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   font-size: 0.75rem;
   font-weight: 600;
   color: var(--text-muted, #6c7086);
@@ -359,4 +362,149 @@
 
 .dm-expr-btn--save:hover {
   opacity: 0.9;
+}
+
+/* ─── Step-Through Debugger (Phase 9C) ─────────────────── */
+
+.dm-expr-debug-toggle {
+  margin-left: 8px;
+  padding: 2px 8px;
+  font-size: 11px;
+  background: rgba(137, 180, 250, 0.12);
+  border: 1px solid rgba(137, 180, 250, 0.3);
+  border-radius: 4px;
+  color: #89b4fa;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.dm-expr-debug-toggle:hover {
+  background: rgba(137, 180, 250, 0.2);
+  border-color: rgba(137, 180, 250, 0.5);
+}
+
+.dm-expr-debug-toggle--active {
+  background: rgba(137, 180, 250, 0.25);
+  border-color: #89b4fa;
+  color: #89b4fa;
+  font-weight: 600;
+}
+
+.dm-expr-step-debugger {
+  margin-top: 8px;
+  border: 1px solid rgba(137, 180, 250, 0.2);
+  border-radius: 6px;
+  background: rgba(30, 30, 46, 0.6);
+  overflow: hidden;
+}
+
+.dm-expr-step-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: rgba(30, 30, 46, 0.8);
+  border-bottom: 1px solid rgba(137, 180, 250, 0.15);
+}
+
+.dm-expr-step-btn {
+  background: rgba(137, 180, 250, 0.1);
+  border: 1px solid rgba(137, 180, 250, 0.3);
+  border-radius: 3px;
+  color: #89b4fa;
+  cursor: pointer;
+  padding: 2px 8px;
+  font-size: 11px;
+  line-height: 1;
+  transition: opacity 0.15s;
+}
+
+.dm-expr-step-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.dm-expr-step-btn:not(:disabled):hover {
+  background: rgba(137, 180, 250, 0.2);
+}
+
+.dm-expr-step-counter {
+  font-size: 11px;
+  color: #908caa;
+  flex: 1;
+  text-align: center;
+}
+
+.dm-expr-step-list {
+  max-height: 150px;
+  overflow-y: auto;
+}
+
+.dm-expr-step {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: background 0.1s;
+  border-left: 3px solid transparent;
+  font-size: 11px;
+}
+
+.dm-expr-step:hover {
+  background: rgba(137, 180, 250, 0.06);
+}
+
+.dm-expr-step--active {
+  background: rgba(137, 180, 250, 0.1);
+  border-left-color: #89b4fa;
+}
+
+.dm-expr-step--done {
+  opacity: 0.7;
+}
+
+.dm-expr-step--error {
+  border-left-color: #eb6f92;
+}
+
+.dm-expr-step--error.dm-expr-step--active {
+  background: rgba(235, 111, 146, 0.1);
+}
+
+.dm-expr-step-label {
+  color: #908caa;
+  font-size: 10px;
+  min-width: 90px;
+  flex-shrink: 0;
+}
+
+.dm-expr-step-expression {
+  color: #89b4fa;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 160px;
+}
+
+.dm-expr-step-arrow {
+  color: #6e6a86;
+  flex-shrink: 0;
+}
+
+.dm-expr-step-value {
+  color: #a6e3a1;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+
+.dm-expr-step-value--error {
+  color: #eb6f92;
 }

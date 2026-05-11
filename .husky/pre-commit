@@ -2,7 +2,7 @@
 
 # Type-check the entire project (catches missing props, bad imports, etc.)
 echo "Running TypeScript type check..."
-npx tsc --noEmit || {
+npx tsc -b --noEmit || {
   echo ""
   echo "❌ TypeScript type check failed. Fix the errors above before committing."
   exit 1

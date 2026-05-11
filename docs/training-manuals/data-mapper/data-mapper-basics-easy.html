@@ -60,7 +60,7 @@
   <h1>Data Mapper Basics</h1>
   <div class="subtitle">Visual Source-to-Target Field Mapping</div>
   <div><span class="badge badge-easy">Easy</span></div>
-  <div class="meta">RedfireForge — Redfire Performance Workbench<br>v0.6.0 · Data Mapper Series 1 of 4</div>
+  <div class="meta">RedfireForge — Redfire Performance Workbench<br>v0.5.7 · Data Mapper Series 1 of 4</div>
 </div>
 
 <div class="page-break"></div>
@@ -190,13 +190,16 @@
 
 <table>
   <tr><th>Key</th><th>Action</th></tr>
-  <tr><td><span class="key-combo">Tab</span></td><td>Move focus between source and target panels</td></tr>
-  <tr><td><span class="key-combo">↑ ↓</span></td><td>Navigate tree nodes</td></tr>
-  <tr><td><span class="key-combo">Enter</span></td><td>Expand/collapse a tree node, or confirm a mapping</td></tr>
-  <tr><td><span class="key-combo">Esc</span></td><td>Cancel current drag or close the mapper</td></tr>
+  <tr><td><span class="key-combo">Tab</span> / <span class="key-combo">Shift+Tab</span></td><td>Move focus between source and target panels</td></tr>
+  <tr><td><span class="key-combo">↑</span> / <span class="key-combo">↓</span></td><td>Navigate between tree nodes</td></tr>
+  <tr><td><span class="key-combo">→</span></td><td>Expand a collapsed tree node</td></tr>
+  <tr><td><span class="key-combo">←</span></td><td>Collapse an expanded tree node</td></tr>
+  <tr><td><span class="key-combo">Home</span> / <span class="key-combo">End</span></td><td>Jump to first / last visible node</td></tr>
+  <tr><td><span class="key-combo">Esc</span></td><td>Clear selection; close modal when used from Data Mapper Modal</td></tr>
   <tr><td><span class="key-combo">/</span></td><td>Focus the source search box</td></tr>
-  <tr><td><span class="key-combo">Delete</span></td><td>Remove the selected mapping</td></tr>
-  <tr><td><span class="key-combo">Ctrl+Z</span></td><td>Undo last mapping change</td></tr>
+  <tr><td><span class="key-combo">Delete</span> / <span class="key-combo">Backspace</span></td><td>Remove the selected mapping(s)</td></tr>
+  <tr><td><span class="key-combo">Ctrl+Z</span> / <span class="key-combo">⌘Z</span></td><td>Undo last action</td></tr>
+  <tr><td><span class="key-combo">Ctrl+Shift+Z</span> / <span class="key-combo">⌘⇧Z</span></td><td>Redo</td></tr>
 </table>
 
 <h2>9. Visual Indicators</h2>
@@ -212,13 +215,59 @@
   <tr><td>Amber <code>⚠</code></td><td>Type mismatch — source and target types differ</td></tr>
 </table>
 
+<h2>10. Mapping Profiles</h2>
+
+<p>Save and reload mapping configurations using the <strong>Profiles</strong> button in the toolbar:</p>
+
+<table>
+  <tr><th>Action</th><th>How</th></tr>
+  <tr><td>Save current mappings</td><td>Click <strong>Profiles</strong> → type a name → click <strong>✓</strong></td></tr>
+  <tr><td>Load a saved profile</td><td>Click <strong>Profiles</strong> → click a profile name</td></tr>
+  <tr><td>Rename a profile</td><td>Click the <strong>rename</strong> icon → edit → press <strong>Enter</strong></td></tr>
+  <tr><td>Delete a profile</td><td>Click the <strong>delete</strong> icon next to the profile</td></tr>
+</table>
+
+<div class="callout callout-info">
+  Profiles are stored locally in your browser. Each adapter context has its own set of profiles.
+</div>
+
+<h2>11. Bulk Operations</h2>
+
+<p>Select multiple source fields or mapping lines for batch operations:</p>
+
+<ul>
+  <li><strong>Multi-select source fields</strong> — hold <code>Ctrl</code> / <code>⌘</code> and click source tree nodes, then drag all selected onto a target area</li>
+  <li><strong>Multi-select connection lines</strong> — hold <code>Ctrl</code> / <code>⌘</code> and click lines on the canvas to select multiple</li>
+  <li><strong>Batch delete</strong> — select multiple lines, then press <code>Delete</code> or <code>Backspace</code></li>
+</ul>
+
+<h2>12. Code View</h2>
+
+<p>Click the <strong>&lt;&gt; Code</strong> button in the toolbar to see a text representation of all mappings. Each line shows:</p>
+
+<pre>targetPath ← sourcePath
+targetPath ← $expression()</pre>
+
+<p>The code view is read-only and updates in real-time as you modify mappings. It's useful for reviewing complex mapping configurations at a glance.</p>
+
+<h2>13. Expression Editor (Monaco)</h2>
+
+<p>Double-click a mapped target field to open the Expression Editor. It features:</p>
+
+<ul>
+  <li><strong>Autocomplete</strong> — type <code>$</code> to see available functions, type <code>$.</code> to see source field paths</li>
+  <li><strong>Live preview</strong> — see the result of your expression in real-time</li>
+  <li><strong>Function catalog</strong> — browse functions by category in the left sidebar</li>
+  <li><strong>Keyboard shortcuts</strong> — <code>Ctrl+Enter</code> to save, <code>Escape</code> to cancel</li>
+</ul>
+
 <div class="callout callout-tip">
   <strong>💡 Next Steps</strong>
   Once you're comfortable with basic drag-and-drop mapping, continue to the <em>Expression Mapping</em> manual to learn about transformation functions, or the <em>Array & Loop Mapping</em> manual for working with collections.
 </div>
 
 <div style="margin-top: 40px; padding-top: 16px; border-top: 2px solid #e63946; font-size: 11px; color: #6c757d; text-align: center;">
-  RedfireForge Training Manual · Data Mapper Basics · Easy · v0.6.0
+  RedfireForge Training Manual · Data Mapper Basics · Easy · v0.5.7
 </div>
 
 </body>

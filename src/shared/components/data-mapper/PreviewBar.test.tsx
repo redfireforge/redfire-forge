@@ -304,4 +304,21 @@ describe('PreviewBar', () => {
     expect(screen.getByText('Preview')).toBeTruthy();
     vi.useRealTimers();
   });
+
+  it('renders error list for mappings with expression errors', async () => {
+    vi.useFakeTimers();
+    const badMapping: Mapping = {
+      id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'userName',
+      expression: '$unknownFn(',
+    };
+    const { container } = renderBar({ mappings: [badMapping] });
+    await act(async () => { vi.advanceTimersByTime(300); });
+    const errorList = container.querySelector('.dm-preview-error-list');
+    if (errorList) {
+      const items = container.querySelectorAll('.dm-preview-error-item');
+      expect(items.length).toBeGreaterThanOrEqual(1);
+      expect(container.querySelector('.dm-preview-error-path')?.textContent).toBe('userName');
+    }
+    vi.useRealTimers();
+  });
 });

@@ -218,4 +218,77 @@ describe('computePreview', () => {
     expect(result.targetObject).toHaveProperty('userName');
     expect(result.targetObject).not.toHaveProperty('$');
   });
+
+  it('handles expression that returns error-like value from custom function', () => {
+    const errorFn = {
+      name: '$failMe',
+      category: 'Custom' as const,
+      signature: '$failMe()',
+      description: 'always errors',
+      args: [],
+      returnType: 'string' as const,
+      evaluate: (): string => { throw new Error('forced error'); },
+    };
+    const mappings: Mapping[] = [
+      { id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'userName', expression: '$failMe()' },
+    ];
+    const result = computePreview(mappings, sources, 's1', targetSample, [errorFn]);
+    expect(result.fields).toHaveLength(1);
+    expect(result.fields[0].value).toContain('[Error:');
+  });
+
+  it('handles thrown custom function errors gracefully as value', () => {
+    const mappings: Mapping[] = [
+      { id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'userName', expression: '$throwingCustom()' },
+    ];
+    const throwFn = {
+      name: '$throwingCustom',
+      category: 'Custom' as const,
+      signature: '$throwingCustom()',
+      description: 'test',
+      args: [],
+      returnType: 'string' as const,
+      evaluate: () => { throw new Error('boom in fn'); },
+    };
+    const result = computePreview(mappings, sources, 's1', targetSample, [throwFn]);
+    expect(result.fields).toHaveLength(1);
+    expect(result.fields[0].value).toContain('[Error:');
+  });
+
+  it('falls back to empty object when deepClone fails on non-serializable target', () => {
+    const circular: Record<string, unknown> = { a: 1 };
+    circular.self = circular;
+    const mappings: Mapping[] = [
+      { id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'out' },
+    ];
+    const result = computePreview(mappings, sources, 's1', circular);
+    expect(result.targetObject.out).toBe('Alice');
+  });
+
+  it('uses custom expression functions for preview evaluation', () => {
+    const customFn = {
+      name: '$double',
+      category: 'Custom' as const,
+      signature: '$double(v)',
+      description: 'test',
+      args: [{ name: 'v', type: 'number' as const, required: true, description: 'd' }],
+      returnType: 'number' as const,
+      evaluate: (v: unknown) => Number(v) * 2,
+    };
+    const mappings: Mapping[] = [
+      { id: 'm1', sourcePath: 'age', sourceId: 's1', targetPath: 'userAge', expression: '$double($.age)' },
+    ];
+    const result = computePreview(mappings, sources, 's1', targetSample, [customFn]);
+    expect(result.fields[0].value).toBe(60);
+  });
+
+  it('treats [*] wildcard in target path as [0]', () => {
+    const mappings: Mapping[] = [
+      { id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'items[*].label' },
+    ];
+    const result = computePreview(mappings, sources, 's1', { items: [{ label: '' }] });
+    const items = result.targetObject.items as Record<string, unknown>[];
+    expect(Array.isArray(items)).toBe(true);
+    expect(items[0].label).toBe('Alice');
+  });
 });

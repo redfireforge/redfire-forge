@@ -62,7 +62,7 @@ describe('SourcePanel – tree view', () => {
 describe('SourcePanel – paste JSON mode', () => {
   it('toggles paste mode on button click', () => {
     renderPanel();
-    const pasteBtn = screen.getByTitle('Paste JSON');
+    const pasteBtn = screen.getByLabelText('Paste JSON');
     fireEvent.click(pasteBtn);
     expect(screen.getByPlaceholderText(/Paste JSON/)).toBeTruthy();
     expect(screen.getByText('Apply')).toBeTruthy();
@@ -71,14 +71,14 @@ describe('SourcePanel – paste JSON mode', () => {
 
   it('pre-fills textarea with current data when entering paste mode', () => {
     renderPanel();
-    fireEvent.click(screen.getByTitle('Paste JSON'));
+    fireEvent.click(screen.getByLabelText('Paste JSON'));
     const textarea = screen.getByPlaceholderText(/Paste JSON/) as HTMLTextAreaElement;
     expect(textarea.value).toContain('Alice');
   });
 
   it('applies valid JSON and calls onSourceSampleChange', () => {
     const { props } = renderPanel();
-    fireEvent.click(screen.getByTitle('Paste JSON'));
+    fireEvent.click(screen.getByLabelText('Paste JSON'));
     const textarea = screen.getByPlaceholderText(/Paste JSON/);
     fireEvent.change(textarea, { target: { value: '{"color":"blue"}' } });
     fireEvent.click(screen.getByText('Apply'));
@@ -87,7 +87,7 @@ describe('SourcePanel – paste JSON mode', () => {
 
   it('shows error for invalid JSON', () => {
     const { container } = renderPanel();
-    fireEvent.click(screen.getByTitle('Paste JSON'));
+    fireEvent.click(screen.getByLabelText('Paste JSON'));
     const textarea = screen.getByPlaceholderText(/Paste JSON/);
     fireEvent.change(textarea, { target: { value: '{bad json' } });
     fireEvent.click(screen.getByText('Apply'));
@@ -98,7 +98,7 @@ describe('SourcePanel – paste JSON mode', () => {
 
   it('shows error for empty paste', () => {
     renderPanel();
-    fireEvent.click(screen.getByTitle('Paste JSON'));
+    fireEvent.click(screen.getByLabelText('Paste JSON'));
     const textarea = screen.getByPlaceholderText(/Paste JSON/);
     fireEvent.change(textarea, { target: { value: '' } });
     fireEvent.click(screen.getByText('Apply'));
@@ -107,7 +107,7 @@ describe('SourcePanel – paste JSON mode', () => {
 
   it('cancel exits paste mode without applying', () => {
     const { props } = renderPanel();
-    fireEvent.click(screen.getByTitle('Paste JSON'));
+    fireEvent.click(screen.getByLabelText('Paste JSON'));
     fireEvent.click(screen.getByText('Cancel'));
     expect(screen.getByText('name')).toBeTruthy();
     expect(props.onSourceSampleChange).not.toHaveBeenCalled();
@@ -115,9 +115,9 @@ describe('SourcePanel – paste JSON mode', () => {
 
   it('toggles back to tree view from paste mode', () => {
     renderPanel();
-    fireEvent.click(screen.getByTitle('Paste JSON'));
+    fireEvent.click(screen.getByLabelText('Paste JSON'));
     expect(screen.getByPlaceholderText(/Paste JSON/)).toBeTruthy();
-    fireEvent.click(screen.getByTitle('Switch to tree view'));
+    fireEvent.click(screen.getByLabelText('Show tree view'));
     expect(screen.getByText('name')).toBeTruthy();
   });
 });
@@ -125,24 +125,24 @@ describe('SourcePanel – paste JSON mode', () => {
 describe('SourcePanel – fetch sample', () => {
   it('shows fetch button when canFetch is true', () => {
     renderPanel({ canFetch: true, onFetchSample: vi.fn() });
-    expect(screen.getByTitle('Fetch live sample')).toBeTruthy();
+    expect(screen.getByLabelText('Fetch live sample')).toBeTruthy();
   });
 
   it('hides fetch button when canFetch is false', () => {
     renderPanel({ canFetch: false });
-    expect(screen.queryByTitle('Fetch live sample')).toBeNull();
+    expect(screen.queryByLabelText('Fetch live sample')).toBeNull();
   });
 
   it('calls onFetchSample when fetch button clicked', async () => {
     const onFetch = vi.fn().mockResolvedValue(undefined);
     renderPanel({ canFetch: true, onFetchSample: onFetch });
-    fireEvent.click(screen.getByTitle('Fetch live sample'));
+    fireEvent.click(screen.getByLabelText('Fetch live sample'));
     await waitFor(() => expect(onFetch).toHaveBeenCalledTimes(1));
   });
 
   it('resets paste mode when activeSourceId changes', () => {
     const { rerender, props } = renderPanel({ activeSourceId: 's1' });
-    fireEvent.click(screen.getByTitle('Paste JSON'));
+    fireEvent.click(screen.getByLabelText('Paste JSON'));
     expect(screen.getByPlaceholderText(/Paste JSON here/)).toBeTruthy();
 
     rerender(<SourcePanel {...props} activeSourceId="s2" />);
@@ -152,15 +152,15 @@ describe('SourcePanel – fetch sample', () => {
 
   it('expand all shows all fields', () => {
     renderPanel();
-    fireEvent.click(screen.getByTitle('Expand all'));
+    fireEvent.click(screen.getByLabelText('Expand all'));
     expect(screen.getByText('name')).toBeTruthy();
     expect(screen.getByText('age')).toBeTruthy();
   });
 
   it('collapse all still shows root-level fields', () => {
     renderPanel();
-    fireEvent.click(screen.getByTitle('Expand all'));
-    fireEvent.click(screen.getByTitle('Collapse all'));
+    fireEvent.click(screen.getByLabelText('Expand all'));
+    fireEvent.click(screen.getByLabelText('Collapse all'));
     expect(screen.getByText('name')).toBeTruthy();
   });
 
@@ -187,7 +187,7 @@ describe('SourcePanel – fetch sample', () => {
 
   it('pre-populates paste textarea with current sample data', () => {
     renderPanel();
-    fireEvent.click(screen.getByTitle('Paste JSON'));
+    fireEvent.click(screen.getByLabelText('Paste JSON'));
     const textarea = screen.getByPlaceholderText(/Paste JSON here/) as HTMLTextAreaElement;
     expect(textarea.value).toContain('Alice');
   });
@@ -214,7 +214,7 @@ describe('SourcePanel – fetch sample', () => {
     let resolver!: () => void;
     const onFetch = vi.fn().mockImplementation(() => new Promise<void>((resolve) => { resolver = resolve; }));
     renderPanel({ canFetch: true, onFetchSample: onFetch });
-    const fetchBtn = screen.getByTitle('Fetch live sample');
+    const fetchBtn = screen.getByLabelText('Fetch live sample');
     expect(fetchBtn.textContent).toBe('🔄');
     fireEvent.click(fetchBtn);
     expect(fetchBtn.textContent).toBe('⏳');
@@ -226,7 +226,7 @@ describe('SourcePanel – fetch sample', () => {
     renderPanel({
       sources: [{ id: 's1', label: 'S', sampleData: '{"key":"value"}' }],
     });
-    fireEvent.click(screen.getByTitle('Paste JSON'));
+    fireEvent.click(screen.getByLabelText('Paste JSON'));
     const textarea = screen.getByPlaceholderText(/Paste JSON here/) as HTMLTextAreaElement;
     expect(textarea.value).toContain('key');
   });
@@ -235,17 +235,17 @@ describe('SourcePanel – fetch sample', () => {
     renderPanel({
       sources: [{ id: 's1', label: 'S', sampleData: 'not json' }],
     });
-    fireEvent.click(screen.getByTitle('Paste JSON'));
+    fireEvent.click(screen.getByLabelText('Paste JSON'));
     const textarea = screen.getByPlaceholderText(/Paste JSON here/) as HTMLTextAreaElement;
     expect(textarea.value).toBe('');
   });
 
   it('hides expand/collapse buttons in paste mode', () => {
     renderPanel();
-    expect(screen.getByTitle('Expand all')).toBeTruthy();
-    fireEvent.click(screen.getByTitle('Paste JSON'));
-    expect(screen.queryByTitle('Expand all')).toBeNull();
-    expect(screen.queryByTitle('Collapse all')).toBeNull();
+    expect(screen.getByLabelText('Expand all')).toBeTruthy();
+    fireEvent.click(screen.getByLabelText('Paste JSON'));
+    expect(screen.queryByLabelText('Expand all')).toBeNull();
+    expect(screen.queryByLabelText('Collapse all')).toBeNull();
   });
 
   it('does not show source tabs for single source', () => {
@@ -255,7 +255,7 @@ describe('SourcePanel – fetch sample', () => {
 
   it('clears paste error when typing in textarea', () => {
     const { container } = renderPanel();
-    fireEvent.click(screen.getByTitle('Paste JSON'));
+    fireEvent.click(screen.getByLabelText('Paste JSON'));
     const textarea = screen.getByPlaceholderText(/Paste JSON here/);
     fireEvent.change(textarea, { target: { value: '{bad' } });
     fireEvent.click(screen.getByText('Apply'));
@@ -286,14 +286,14 @@ describe('SourcePanel – fetch sample', () => {
   it('resets fetching state after successful fetch', async () => {
     const onFetch = vi.fn().mockResolvedValue(undefined);
     renderPanel({ canFetch: true, onFetchSample: onFetch });
-    fireEvent.click(screen.getByTitle('Fetch live sample'));
+    fireEvent.click(screen.getByLabelText('Fetch live sample'));
     await waitFor(() => expect(onFetch).toHaveBeenCalled());
-    await waitFor(() => expect(screen.getByTitle('Fetch live sample').textContent).toBe('🔄'));
+    await waitFor(() => expect(screen.getByLabelText('Fetch live sample').textContent).toBe('🔄'));
   });
 
   it('does not call onFetchSample when not provided', async () => {
     renderPanel({ canFetch: true });
-    const fetchBtn = screen.queryByTitle('Fetch live sample');
+    const fetchBtn = screen.queryByLabelText('Fetch live sample');
     expect(fetchBtn).toBeTruthy();
     if (fetchBtn) {
       fireEvent.click(fetchBtn);
@@ -305,7 +305,7 @@ describe('SourcePanel – fetch sample', () => {
       { id: 's1', label: 'S', sampleData: { user: { name: 'Bob', age: 25 } } },
     ];
     renderPanel({ sources: nestedSources, activeSourceId: 's1' });
-    fireEvent.click(screen.getByTitle('Expand all'));
+    fireEvent.click(screen.getByLabelText('Expand all'));
     expect(screen.getByText('name')).toBeTruthy();
     const collapseBtn = screen.getAllByLabelText('Collapse');
     if (collapseBtn.length > 1) {

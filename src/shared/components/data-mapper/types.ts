@@ -34,7 +34,8 @@ export interface ValidationIssue {
 
 // Re-export the canonical ExpressionFunction type from the workflow engine.
 // Adapter `customFunctions` use the same shape so they plug directly into the evaluator.
-export type { ExpressionFunction } from '../../../features/workflow/utils/expressionFunctions/types';
+import type { ExpressionFunction } from '../../../features/workflow/utils/expressionFunctions/types';
+export type { ExpressionFunction };
 
 // ─── Source & Target ──────────────────────────────────────
 
@@ -89,7 +90,6 @@ export interface MapperAdapter<TOutput = unknown> {
   fetchSampleData?: () => Promise<unknown>;
   validate?: (mappings: Mapping[]) => ValidationIssue[];
   customFunctions?: ExpressionFunction[];
-  docsUrl?: string;
 }
 
 // ─── State ────────────────────────────────────────────────
@@ -104,6 +104,7 @@ export interface MapperState {
 export type MapperAction =
   | { type: 'ADD_MAPPING'; mapping: Mapping }
   | { type: 'REMOVE_MAPPING'; id: string }
+  | { type: 'REMOVE_MAPPINGS'; ids: string[] }
   | { type: 'UPDATE_MAPPING'; id: string; changes: Partial<Omit<Mapping, 'id'>> }
   | { type: 'SET_MAPPINGS'; mappings: Mapping[] }
   | { type: 'CLEAR_ALL' }
@@ -114,3 +115,10 @@ export type MapperAction =
   | { type: 'REJECT_PENDING'; id: string }
   | { type: 'ACCEPT_ALL_PENDING' }
   | { type: 'REJECT_ALL_PENDING' };
+
+// ─── Trace Overlay (Phase 9B) ─────────────────────────────
+
+export interface TraceValueOverlay {
+  value: string;
+  isError: boolean;
+}
