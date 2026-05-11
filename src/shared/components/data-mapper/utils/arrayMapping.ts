@@ -4,7 +4,8 @@
  */
 
 import type { Mapping, MapperSource, MapperTarget } from '../types';
-import { getByPath } from '../../../utils/jsonPath';
+import { inferType } from './typeMismatch';
+import { resolveSourceValue, resolveTargetValue, toJsonPathRef } from './mapperParsing';
 
 export type ArrayMappingKind =
   | 'loop'       // array → array (iterate each element)
@@ -25,32 +26,8 @@ const AGGREGATE_SUGGESTIONS: Record<string, { expr: string; label: string }> = {
   number: { expr: '$count($.PATH)', label: 'Σ $count' },
   string: { expr: '$join($.PATH, ", ")', label: 'Σ $join' },
   object: { expr: '$count($.PATH)', label: 'Σ $count' },
+  boolean: { expr: '$toBool($count($.PATH))', label: 'Σ $toBool' },
 };
-
-function safeParse(s: string): unknown {
-  try { return JSON.parse(s); } catch { return null; }
-}
-
-function inferType(value: unknown): string {
-  if (value === null || value === undefined) return 'null';
-  if (Array.isArray(value)) return 'array';
-  return typeof value;
-}
-
-function getSourceSample(mapping: Mapping, sources: MapperSource[], activeSourceId?: string): unknown {
-  const src = sources.find((s) => s.id === (mapping.sourceId || activeSourceId));
-  if (!src?.sampleData) return undefined;
-  const data = typeof src.sampleData === 'string' ? safeParse(src.sampleData) : src.sampleData;
-  if (data == null) return undefined;
-  return getByPath(data, mapping.sourcePath);
-}
-
-function getTargetSample(targetPath: string, target: MapperTarget): unknown {
-  if (!target.sampleData) return undefined;
-  const data = typeof target.sampleData === 'string' ? safeParse(target.sampleData) : target.sampleData;
-  if (data == null) return undefined;
-  return getByPath(data, targetPath);
-}
 
 /**
  * Infer the array element type from a sample array value.
@@ -73,8 +50,8 @@ export function classifyArrayMapping(
     return { mappingId: mapping.id, kind: 'direct', sourceType: 'unknown', targetType: 'unknown' };
   }
 
-  const sourceVal = getSourceSample(mapping, sources, activeSourceId);
-  const targetVal = getTargetSample(mapping.targetPath, target);
+  const sourceVal = resolveSourceValue(mapping, sources, activeSourceId);
+  const targetVal = resolveTargetValue(mapping.targetPath, target);
   if (sourceVal === undefined || targetVal === undefined) {
     return { mappingId: mapping.id, kind: 'direct', sourceType: 'unknown', targetType: 'unknown' };
   }
@@ -97,7 +74,7 @@ export function classifyArrayMapping(
     const suggestion = elemMatchesTarget
       ? AGGREGATE_SUGGESTIONS[targetType]
       : AGGREGATE_SUGGESTIONS[elemType] ?? AGGREGATE_SUGGESTIONS[targetType];
-    const normalizedPath = mapping.sourcePath.startsWith('$.') ? mapping.sourcePath : `$.${mapping.sourcePath}`;
+    const normalizedPath = toJsonPathRef(mapping.sourcePath);
 
     return {
       mappingId: mapping.id,

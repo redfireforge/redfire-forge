@@ -32,20 +32,12 @@ export interface ExtractionAdapterOptions {
   nonBodyExtractions?: Extraction[];
 }
 
+import { coerceSampleData } from '../utils/mapperParsing';
+
 // ─── Helpers ──────────────────────────────────────────────
 
 function isBodyExtraction(e: Extraction): boolean {
   return e.source === 'body';
-}
-
-function parseSample(raw?: string | Record<string, unknown>): unknown | undefined {
-  if (raw == null) return undefined;
-  if (typeof raw === 'object') return raw;
-  try {
-    return JSON.parse(raw);
-  } catch {
-    return undefined;
-  }
 }
 
 // ─── Adapter Factory ──────────────────────────────────────
@@ -53,7 +45,7 @@ function parseSample(raw?: string | Record<string, unknown>): unknown | undefine
 export function createExtractionAdapter(
   opts: ExtractionAdapterOptions = {},
 ): MapperAdapter<Extraction[]> {
-  const parsed = parseSample(opts.sampleResponseBody);
+  const parsed = coerceSampleData(opts.sampleResponseBody);
   const nonBody = opts.nonBodyExtractions ?? [];
   const fallbackMap = new Map<string, string>();
   // Track original interleaved positions so serialize preserves ordering

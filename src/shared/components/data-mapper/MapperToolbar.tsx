@@ -29,6 +29,9 @@ interface MapperToolbarProps {
   debugMode?: boolean;
   onToggleDebugMode?: () => void;
   traceErrorCount?: number;
+  confidenceThreshold?: number;
+  onConfidenceThresholdChange?: (value: number) => void;
+  onLearnFromExamples?: () => void;
 }
 
 export default function MapperToolbar({
@@ -55,6 +58,9 @@ export default function MapperToolbar({
   debugMode,
   onToggleDebugMode,
   traceErrorCount,
+  confidenceThreshold,
+  onConfidenceThresholdChange,
+  onLearnFromExamples,
 }: MapperToolbarProps) {
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [samplesMenuOpen, setSamplesMenuOpen] = useState(false);
@@ -135,6 +141,31 @@ export default function MapperToolbar({
             <span className="dm-toolbar-badge">{autoMapCount}</span>
           )}
         </button>
+        {onConfidenceThresholdChange && (
+          <select
+            className="dm-toolbar-threshold"
+            value={confidenceThreshold ?? 50}
+            onChange={(e) => onConfidenceThresholdChange(Number(e.target.value))}
+            title="Minimum confidence for auto-map suggestions"
+            aria-label="Auto-map confidence threshold"
+          >
+            <option value={0}>All</option>
+            <option value={50}>≥ 50%</option>
+            <option value={60}>≥ 60%</option>
+            <option value={75}>≥ 75%</option>
+            <option value={80}>≥ 80%</option>
+            <option value={90}>≥ 90%</option>
+          </select>
+        )}
+        {onLearnFromExamples && (
+          <button
+            className="dm-toolbar-btn"
+            onClick={onLearnFromExamples}
+            title="Infer mappings from input/output examples"
+          >
+            🧪 Examples
+          </button>
+        )}
         <button
           className="dm-toolbar-btn"
           onClick={onClearAll}

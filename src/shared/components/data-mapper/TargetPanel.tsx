@@ -93,7 +93,7 @@ export default function TargetPanel({
     >
       <div className="dm-panel-header">
         <span className="dm-panel-title">Target</span>
-        {mappedCount > 0 && <span className="dm-mapped-badge">{mappedCount} mapped</span>}
+        {mappedCount > 0 && <span className="dm-mapped-count-badge">{mappedCount} mapped</span>}
         <div className="dm-panel-actions">
           <button className="dm-btn-icon" onClick={handleExpandAll} aria-label="Expand all">⊞</button>
           <button className="dm-btn-icon" onClick={handleCollapseAll} aria-label="Collapse all">⊟</button>

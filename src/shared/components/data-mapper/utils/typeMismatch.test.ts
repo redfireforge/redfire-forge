@@ -57,9 +57,10 @@ describe('typesCompatible', () => {
     expect(typesCompatible('number', 'number')).toBe(true);
   });
 
-  it('null is compatible with anything', () => {
-    expect(typesCompatible('null', 'string')).toBe(true);
-    expect(typesCompatible('number', 'null')).toBe(true);
+  it('null is only compatible with null', () => {
+    expect(typesCompatible('null', 'null')).toBe(true);
+    expect(typesCompatible('null', 'string')).toBe(false);
+    expect(typesCompatible('number', 'null')).toBe(false);
   });
 
   it('any target type accepts all', () => {
@@ -140,12 +141,14 @@ describe('detectTypeMismatches', () => {
     expect(result).toHaveLength(0);
   });
 
-  it('skips when source type is null', () => {
+  it('detects mismatch when source type is null', () => {
     const mappings: Mapping[] = [
       { id: 'm1', sourcePath: 'score', sourceId: 's1', targetPath: 'userName' },
     ];
     const result = detectTypeMismatches(mappings, sources, target());
-    expect(result).toHaveLength(0);
+    expect(result).toHaveLength(1);
+    expect(result[0].sourceType).toBe('null');
+    expect(result[0].targetType).toBe('string');
   });
 
   it('skips when source path does not exist', () => {

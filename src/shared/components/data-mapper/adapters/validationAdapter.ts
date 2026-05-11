@@ -21,6 +21,7 @@ import type {
 } from '../types';
 import { getAllLeafPaths, buildJsonTree } from '../../../utils/jsonTreeModel';
 import { getByPathAsString } from '../../../utils/jsonPath';
+import { coerceSampleData } from '../utils/mapperParsing';
 
 // ─── Output Type ──────────────────────────────────────────
 
@@ -45,15 +46,6 @@ const SOURCE_LABEL = 'Response Body';
 
 // ─── Helpers ──────────────────────────────────────────────
 
-function parseSample(raw?: string | Record<string, unknown>): unknown | undefined {
-  if (raw == null) return undefined;
-  if (typeof raw === 'object') return raw;
-  try {
-    return JSON.parse(raw);
-  } catch {
-    return undefined;
-  }
-}
 
 function getLeafPaths(data: unknown): string[] {
   if (data == null || typeof data !== 'object') return [];
@@ -74,7 +66,7 @@ function resolveValue(data: unknown, path: string): string {
 export function createValidationAdapter(
   opts: ValidationAdapterOptions = {},
 ): MapperAdapter<ValidationAdapterOutput> {
-  const parsed = parseSample(opts.sampleResponseBody);
+  const parsed = coerceSampleData(opts.sampleResponseBody);
   const mode: SelectiveMode = opts.selectiveMode ?? 'include';
 
   const source: MapperSource = {

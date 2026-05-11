@@ -12,6 +12,7 @@ import type { Mapping, MapperSource } from '../types';
 import type { TraceCaptureLevel } from '../../../types';
 import { evaluateMapperExpression } from './mapperExpressionEvaluator';
 import { getByPath } from '../../../utils/jsonPath';
+import { coerceSampleData } from './mapperParsing';
 import type { ExpressionFunction } from '../../../../features/workflow/utils/expressionFunctions/types';
 
 // ─── Types ────────────────────────────────────────────────
@@ -47,16 +48,14 @@ export function shouldCaptureMappingTraces(level: TraceCaptureLevel): boolean {
 
 // ─── Trace Capture ────────────────────────────────────────
 
-function resolveSourceValue(
+function resolveSourceValueForTrace(
   sourcePath: string,
   sourceId: string,
   sources: MapperSource[],
 ): unknown {
   const source = sources.find((s) => s.id === sourceId);
   if (!source?.sampleData) return undefined;
-  const data = typeof source.sampleData === 'string'
-    ? (() => { try { return JSON.parse(source.sampleData as string); } catch { return undefined; } })()
-    : source.sampleData;
+  const data = coerceSampleData(source.sampleData);
   if (data == null) return undefined;
   const normalized = sourcePath.replace(/^\$\.?/, '');
   if (!normalized) return data;
@@ -75,7 +74,7 @@ export function captureMappingTraces(opts: MappingTraceOptions): MappingTrace[] 
   for (const mapping of mappings) {
     const start = performance.now();
     const effectiveSourceId = mapping.sourceId || activeSourceId;
-    const sourceValue = resolveSourceValue(mapping.sourcePath, effectiveSourceId, sources);
+    const sourceValue = resolveSourceValueForTrace(mapping.sourcePath, effectiveSourceId, sources);
 
     let evaluatedValue: unknown = sourceValue;
     let error: string | undefined;

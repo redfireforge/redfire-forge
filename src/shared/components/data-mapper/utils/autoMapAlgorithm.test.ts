@@ -3,6 +3,7 @@ import {
   computeAutoMapCandidates,
   candidatesToMappings,
   normalizeFieldName,
+  MATCH_SCORES,
 } from './autoMapAlgorithm';
 import { buildJsonTree } from '../../../utils/jsonTreeModel';
 import type { Mapping } from '../types';
@@ -188,5 +189,209 @@ describe('computeAutoMapCandidates – edge cases', () => {
     expect(emailCandidates).toHaveLength(0);
     const nameCandidates = candidates.filter(c => c.sourcePath === 'name');
     expect(nameCandidates).toHaveLength(1);
+  });
+});
+
+describe('computeAutoMapCandidates – suffix matching', () => {
+  it('matches source suffix to shorter target name', () => {
+    const src = buildJsonTree({ userEmail: 'a@b.com', userPhone: '555' }, '', '');
+    const tgt = buildJsonTree({ email: '', phone: '' }, '', '');
+    const candidates = computeAutoMapCandidates(src, tgt, []);
+    expect(candidates).toHaveLength(2);
+    expect(candidates.every(c => c.tier === 'suffix')).toBe(true);
+    expect(candidates.every(c => c.score === MATCH_SCORES.suffix)).toBe(true);
+  });
+
+  it('matches shorter source name as suffix of longer target', () => {
+    const src = buildJsonTree({ email: 'a@b.com' }, '', '');
+    const tgt = buildJsonTree({ contactEmail: '' }, '', '');
+    const candidates = computeAutoMapCandidates(src, tgt, []);
+    expect(candidates).toHaveLength(1);
+    expect(candidates[0].tier).toBe('suffix');
+  });
+
+  it('does not match identical names as suffix (handled by exact)', () => {
+    const src = buildJsonTree({ email: 'a@b.com' }, '', '');
+    const tgt = buildJsonTree({ email: '' }, '', '');
+    const candidates = computeAutoMapCandidates(src, tgt, []);
+    expect(candidates[0].tier).toBe('exact');
+  });
+
+  it('prefers normalized over suffix when both match', () => {
+    const src = buildJsonTree({ user_name: 'A' }, '', '');
+    const tgt = buildJsonTree({ userName: '' }, '', '');
+    const candidates = computeAutoMapCandidates(src, tgt, []);
+    expect(candidates[0].tier).toBe('normalized');
+  });
+});
+
+describe('computeAutoMapCandidates – synonym matching', () => {
+  it('matches qty → quantity via synonym', () => {
+    const src = buildJsonTree({ qty: 5 }, '', '');
+    const tgt = buildJsonTree({ quantity: 0 }, '', '');
+    const candidates = computeAutoMapCandidates(src, tgt, []);
+    expect(candidates).toHaveLength(1);
+    expect(candidates[0].tier).toBe('synonym');
+    expect(candidates[0].score).toBe(MATCH_SCORES.synonym);
+  });
+
+  it('matches tel → phone via synonym', () => {
+    const src = buildJsonTree({ tel: '555-1234' }, '', '');
+    const tgt = buildJsonTree({ phone: '' }, '', '');
+    const candidates = computeAutoMapCandidates(src, tgt, []);
+    expect(candidates).toHaveLength(1);
+    expect(candidates[0].tier).toBe('synonym');
+  });
+
+  it('matches desc → description via synonym', () => {
+    const src = buildJsonTree({ desc: 'A thing' }, '', '');
+    const tgt = buildJsonTree({ description: '' }, '', '');
+    const candidates = computeAutoMapCandidates(src, tgt, []);
+    expect(candidates).toHaveLength(1);
+    expect(candidates[0].tier).toBe('synonym');
+  });
+
+  it('matches addr → address via synonym', () => {
+    const src = buildJsonTree({ addr: '123 Main St' }, '', '');
+    const tgt = buildJsonTree({ address: '' }, '', '');
+    const candidates = computeAutoMapCandidates(src, tgt, []);
+    expect(candidates).toHaveLength(1);
+    expect(candidates[0].tier).toBe('synonym');
+  });
+
+  it('matches img → image via synonym', () => {
+    const src = buildJsonTree({ img: 'pic.jpg' }, '', '');
+    const tgt = buildJsonTree({ image: '' }, '', '');
+    const candidates = computeAutoMapCandidates(src, tgt, []);
+    expect(candidates).toHaveLength(1);
+    expect(candidates[0].tier).toBe('synonym');
+  });
+
+  it('does not match unrelated words', () => {
+    const src = buildJsonTree({ color: 'red' }, '', '');
+    const tgt = buildJsonTree({ weight: 0 }, '', '');
+    const candidates = computeAutoMapCandidates(src, tgt, []);
+    expect(candidates).toHaveLength(0);
+  });
+
+  it('prefers suffix over synonym when both match', () => {
+    const src = buildJsonTree({ userPhone: '555' }, '', '');
+    const tgt = buildJsonTree({ phone: '' }, '', '');
+    const candidates = computeAutoMapCandidates(src, tgt, []);
+    expect(candidates[0].tier).toBe('suffix');
+  });
+
+  it('handles synonyms with normalized names (camelCase source)', () => {
+    const src = buildJsonTree({ firstName: 'Alice' }, '', '');
+    const tgt = buildJsonTree({ fname: '' }, '', '');
+    const candidates = computeAutoMapCandidates(src, tgt, []);
+    expect(candidates).toHaveLength(1);
+    expect(candidates[0].tier).toBe('synonym');
+  });
+});
+
+describe('computeAutoMapCandidates – semantic value matching', () => {
+  it('matches by shared email type', () => {
+    const sourceData = { contact: 'alice@example.com', foo: 'bar' };
+    const targetData = { recipientMail: 'bob@test.org', baz: 'qux' };
+    const src = buildJsonTree(sourceData, '', '');
+    const tgt = buildJsonTree(targetData, '', '');
+    const candidates = computeAutoMapCandidates(src, tgt, [], {
+      sourceData, targetData,
+    });
+    const emailMatch = candidates.find(c => c.tier === 'semantic-value');
+    expect(emailMatch).toBeDefined();
+    expect(emailMatch!.semanticType).toBe('email');
+    expect(emailMatch!.score).toBe(MATCH_SCORES['semantic-value']);
+  });
+
+  it('does not match when values have different semantic types', () => {
+    const sourceData = { val: 'alice@example.com' };
+    const targetData = { val2: 'https://example.com' };
+    const src = buildJsonTree(sourceData, '', '');
+    const tgt = buildJsonTree(targetData, '', '');
+    const candidates = computeAutoMapCandidates(src, tgt, [], {
+      sourceData, targetData,
+    });
+    expect(candidates.find(c => c.tier === 'semantic-value')).toBeUndefined();
+  });
+
+  it('skips semantic matching when no options provided', () => {
+    const sourceData = { a: 'alice@example.com' };
+    const targetData = { b: 'bob@test.org' };
+    const src = buildJsonTree(sourceData, '', '');
+    const tgt = buildJsonTree(targetData, '', '');
+    const candidates = computeAutoMapCandidates(src, tgt, []);
+    expect(candidates.find(c => c.tier === 'semantic-value')).toBeUndefined();
+  });
+
+  it('matches UUID values semantically', () => {
+    const sourceData = { ref: '550e8400-e29b-41d4-a716-446655440000' };
+    const targetData = { identifier: '12345678-1234-1234-1234-123456789abc' };
+    const src = buildJsonTree(sourceData, '', '');
+    const tgt = buildJsonTree(targetData, '', '');
+    const candidates = computeAutoMapCandidates(src, tgt, [], { sourceData, targetData });
+    expect(candidates).toHaveLength(1);
+    expect(candidates[0].tier).toBe('semantic-value');
+    expect(candidates[0].semanticType).toBe('uuid');
+  });
+});
+
+describe('computeAutoMapCandidates – scoring', () => {
+  it('exact match has score 100', () => {
+    const src = buildJsonTree({ name: 'A' }, '', '');
+    const tgt = buildJsonTree({ name: '' }, '', '');
+    const candidates = computeAutoMapCandidates(src, tgt, []);
+    expect(candidates[0].score).toBe(100);
+    expect(candidates[0].tier).toBe('exact');
+  });
+
+  it('case-insensitive match has score 90', () => {
+    const src = buildJsonTree({ Name: 'A' }, '', '');
+    const tgt = buildJsonTree({ name: '' }, '', '');
+    const candidates = computeAutoMapCandidates(src, tgt, []);
+    expect(candidates[0].score).toBe(90);
+    expect(candidates[0].tier).toBe('case-insensitive');
+  });
+
+  it('normalized match has score 80', () => {
+    const src = buildJsonTree({ user_name: 'A' }, '', '');
+    const tgt = buildJsonTree({ userName: '' }, '', '');
+    const candidates = computeAutoMapCandidates(src, tgt, []);
+    expect(candidates[0].score).toBe(80);
+    expect(candidates[0].tier).toBe('normalized');
+  });
+
+  it('suffix match has score 75', () => {
+    const src = buildJsonTree({ userEmail: 'a@b.com' }, '', '');
+    const tgt = buildJsonTree({ email: '' }, '', '');
+    const candidates = computeAutoMapCandidates(src, tgt, []);
+    expect(candidates[0].score).toBe(75);
+    expect(candidates[0].tier).toBe('suffix');
+  });
+
+  it('synonym match has score 60', () => {
+    const src = buildJsonTree({ qty: 5 }, '', '');
+    const tgt = buildJsonTree({ quantity: 0 }, '', '');
+    const candidates = computeAutoMapCandidates(src, tgt, []);
+    expect(candidates[0].score).toBe(60);
+    expect(candidates[0].tier).toBe('synonym');
+  });
+
+  it('MATCH_SCORES constant has all tiers', () => {
+    expect(MATCH_SCORES.exact).toBe(100);
+    expect(MATCH_SCORES['case-insensitive']).toBe(90);
+    expect(MATCH_SCORES.normalized).toBe(80);
+    expect(MATCH_SCORES.suffix).toBe(75);
+    expect(MATCH_SCORES.synonym).toBe(60);
+    expect(MATCH_SCORES['semantic-value']).toBe(50);
+  });
+
+  it('candidates have both confidence (legacy) and tier fields', () => {
+    const src = buildJsonTree({ qty: 5 }, '', '');
+    const tgt = buildJsonTree({ quantity: 0 }, '', '');
+    const candidates = computeAutoMapCandidates(src, tgt, []);
+    expect(candidates[0].confidence).toBe('synonym');
+    expect(candidates[0].tier).toBe('synonym');
   });
 });

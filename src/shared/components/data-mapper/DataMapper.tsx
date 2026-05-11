@@ -3,11 +3,14 @@ import { v4 as uuidv4 } from 'uuid';
 import type { MapperAdapter, Mapping } from './types';
 import { useMapperState } from './hooks/useMapperState';
 import { useConnectionLines, useLayoutTick } from './hooks/useConnectionLines';
-import { computeAutoMapCandidates, candidatesToMappings } from './utils/autoMapAlgorithm';
+import { computeAutoMapCandidates } from './utils/autoMapAlgorithm';
+import type { AutoMapCandidate } from './utils/autoMapAlgorithm';
 import { detectTypeMismatches } from './utils/typeMismatch';
 import { detectArrayMappings } from './utils/arrayMapping';
 import type { ArrayLineKind } from './hooks/useConnectionLines';
-import { buildJsonTree } from '../../utils/jsonTreeModel';
+import { buildJsonTree, getAllLeafPaths } from '../../utils/jsonTreeModel';
+import { savePattern, loadPattern, patternToSuggestions } from './utils/mappingPatterns';
+import type { PatternEntry } from './utils/mappingPatterns';
 import SourcePanel from './SourcePanel';
 import TargetPanel from './TargetPanel';
 import MappingCanvas from './MappingCanvas';
@@ -21,10 +24,13 @@ import '../../../styles/data-mapper.css';
 import '../../../styles/data-mapper-expression.css';
 
 import type { DriftIndicator } from './SourceTreeNode';
-import type { TraceValueOverlay } from './types';
 import type { MappingTrace } from './utils/mappingTrace';
 import { formatTraceValue, isTraceError } from './utils/mappingTrace';
-import type { ErrorDetailData } from './MappingCanvas';
+import { suggestExpressionsForAll } from './utils/expressionSuggestions';
+import ExampleInferenceModal from './ExampleInferenceModal';
+import ErrorPopover from './ErrorPopover';
+import type { InferredMapping } from './utils/exampleInference';
+import { useDebugOverlay } from './hooks/useDebugOverlay';
 
 interface DataMapperProps<TOutput = unknown> {
   adapter: MapperAdapter<TOutput>;
@@ -73,6 +79,9 @@ export default function DataMapper<TOutput = unknown>({
   const sourceSearchRef = useRef<HTMLInputElement | null>(null);
   const [sourcePanelWidth, setSourcePanelWidth] = useState<number | null>(null);
   const [targetPanelWidth, setTargetPanelWidth] = useState<number | null>(null);
+  const [confidenceThreshold, setConfidenceThreshold] = useState(50);
+  const autoMapScoresRef = useRef<Map<string, number>>(new Map());
+  const patternMappingIdsRef = useRef<Set<string>>(new Set());
 
   const {
     state,
@@ -116,6 +125,7 @@ export default function DataMapper<TOutput = unknown>({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const layoutTick = useLayoutTick(containerRef);
   const [showCodeView, setShowCodeView] = useState(false);
+  const [showExampleModal, setShowExampleModal] = useState(false);
 
   const { focusRegion, focusedPath, setFocusRegion, handleTreeKeyDown } = useKeyboardNavigation({
     containerRef,
@@ -147,6 +157,16 @@ export default function DataMapper<TOutput = unknown>({
   useEffect(() => {
     onSourceSampleChange?.(state.sourceSampleOverrides);
   }, [state.sourceSampleOverrides, onSourceSampleChange]);
+
+  useEffect(() => {
+    const currentIds = new Set(state.mappings.map((m) => m.id));
+    for (const id of autoMapScoresRef.current.keys()) {
+      if (!currentIds.has(id)) autoMapScoresRef.current.delete(id);
+    }
+    for (const id of patternMappingIdsRef.current) {
+      if (!currentIds.has(id)) patternMappingIdsRef.current.delete(id);
+    }
+  }, [state.mappings]);
 
   const getEffectiveSourceData = useCallback((sourceId: string): unknown => {
     return state.sourceSampleOverrides[sourceId]
@@ -187,6 +207,8 @@ export default function DataMapper<TOutput = unknown>({
         if (newMappings.length > 0) {
           setMappings([...state.mappings, ...newMappings]);
           setToast(`Mapped ${newMappings.length} field${newMappings.length !== 1 ? 's' : ''}`);
+        } else {
+          setToast('No new mappings — targets already mapped or no matches');
         }
         setSelectedSourcePaths(new Set());
         return;
@@ -211,99 +233,48 @@ export default function DataMapper<TOutput = unknown>({
   }, [selectMapping]);
 
   const [fetchError, setFetchError] = useState<string | null>(null);
-  const [debugMode, setDebugMode] = useState(false);
-  const [errorPopover, setErrorPopover] = useState<{ data: ErrorDetailData; y: number } | null>(null);
-  const errorPopoverRef = useRef<HTMLDivElement | null>(null);
 
   const currentMappingIds = useMemo(
     () => new Set(state.mappings.map((m) => m.id)),
     [state.mappings],
   );
 
-  const traceByMappingId = useMemo(() => {
-    if (!traceData || traceData.length === 0) return null;
-    const map = new Map<string, MappingTrace>();
-    for (const t of traceData) {
-      if (currentMappingIds.has(t.mappingId)) map.set(t.mappingId, t);
-    }
-    return map.size > 0 ? map : null;
-  }, [traceData, currentMappingIds]);
-
-  const hasTraceData = traceByMappingId != null;
-
-  useEffect(() => {
-    if (!hasTraceData) {
-      setDebugMode(false);
-      setErrorPopover(null);
-    }
-  }, [hasTraceData]);
-
-  useEffect(() => {
-    if (!debugMode) setErrorPopover(null);
-  }, [debugMode]);
-
-  useEffect(() => {
-    if (!errorPopover) return;
-    const handleMouseDown = (e: MouseEvent) => {
-      if (errorPopoverRef.current && !errorPopoverRef.current.contains(e.target as Node)) {
-        setErrorPopover(null);
-      }
-    };
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setErrorPopover(null);
-    };
-    document.addEventListener('mousedown', handleMouseDown);
-    document.addEventListener('keydown', handleKeyDown);
-    return () => {
-      document.removeEventListener('mousedown', handleMouseDown);
-      document.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [errorPopover]);
-
-  const handleShowErrorDetail = useCallback((data: ErrorDetailData, y: number) => {
-    setErrorPopover({ data, y });
-  }, []);
-
-  const traceErrorCount = useMemo(() => {
-    if (!traceByMappingId) return 0;
-    let count = 0;
-    for (const t of traceByMappingId.values()) if (isTraceError(t)) count++;
-    return count;
-  }, [traceByMappingId]);
-
-  const sourceTraceOverlay = useMemo<Map<string, TraceValueOverlay> | undefined>(() => {
-    if (!debugMode || !traceByMappingId) return undefined;
-    const map = new Map<string, TraceValueOverlay>();
-    for (const trace of traceByMappingId.values()) {
-      const effectiveSourceId = trace.sourceId || state.activeSourceId;
-      if (effectiveSourceId !== state.activeSourceId) continue;
-      if (!map.has(trace.sourcePath)) {
-        map.set(trace.sourcePath, {
-          value: formatTraceValue(trace.sourceValue, 30),
-          isError: trace.sourceValue === undefined,
-        });
-      }
-    }
-    return map;
-  }, [debugMode, traceByMappingId, state.activeSourceId]);
-
-  const targetTraceOverlay = useMemo<Map<string, TraceValueOverlay> | undefined>(() => {
-    if (!debugMode || !traceByMappingId) return undefined;
-    const map = new Map<string, TraceValueOverlay>();
-    for (const trace of traceByMappingId.values()) {
-      map.set(trace.targetPath, {
-        value: formatTraceValue(trace.targetValue, 30),
-        isError: isTraceError(trace),
-      });
-    }
-    return map;
-  }, [debugMode, traceByMappingId]);
+  const {
+    debugMode, setDebugMode,
+    errorPopover, setErrorPopover, errorPopoverRef,
+    traceByMappingId, hasTraceData,
+    handleShowErrorDetail, traceErrorCount,
+    sourceTraceOverlay, targetTraceOverlay,
+  } = useDebugOverlay({ traceData, currentMappingIds, activeSourceId: state.activeSourceId });
 
   useEffect(() => {
     setFetchError(null);
     setSelectedSourcePaths(new Set());
     setSelectedIds(new Set());
   }, [state.activeSourceId]);
+
+  // Pattern learning: save confirmed mappings for future suggestions
+  const patternSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    const confirmedMappings = state.mappings.filter((m) => !m.isPending);
+    if (confirmedMappings.length === 0 || !adapter.contextId) return;
+    if (patternSaveTimerRef.current) clearTimeout(patternSaveTimerRef.current);
+    patternSaveTimerRef.current = setTimeout(() => {
+      try {
+        const sourceData = getEffectiveSourceData(state.activeSourceId);
+        const targetData = adapter.target.sampleData;
+        if (sourceData == null || targetData == null) return;
+        const parsedSrc = typeof sourceData === 'string' ? JSON.parse(sourceData) : sourceData;
+        const parsedTgt = typeof targetData === 'string' ? JSON.parse(targetData) : targetData;
+        const srcTree = buildJsonTree(parsedSrc, '', '');
+        const tgtTree = buildJsonTree(parsedTgt, '', '');
+        const srcPaths = getAllLeafPaths(srcTree);
+        const tgtPaths = getAllLeafPaths(tgtTree);
+        savePattern(adapter.contextId!, srcPaths, tgtPaths, confirmedMappings);
+      } catch { /* ignore save errors */ }
+    }, 2000);
+    return () => { if (patternSaveTimerRef.current) clearTimeout(patternSaveTimerRef.current); };
+  }, [state.mappings, adapter.contextId, adapter.target.sampleData, getEffectiveSourceData, state.activeSourceId]);
 
   const activeSourceIdRef = useRef(state.activeSourceId);
   activeSourceIdRef.current = state.activeSourceId;
@@ -339,6 +310,11 @@ export default function DataMapper<TOutput = unknown>({
     [typeMismatches],
   );
 
+  const expressionSuggestions = useMemo(
+    () => suggestExpressionsForAll(state.mappings, effectiveSources, adapter.target),
+    [state.mappings, effectiveSources, adapter.target],
+  );
+
   const mappedSourcePaths = useMemo(
     () => new Set(
       state.mappings
@@ -364,16 +340,16 @@ export default function DataMapper<TOutput = unknown>({
   const { lines: rawLines, containerHeight } = useConnectionLines(state.mappings, containerRef, layoutTick, mismatchIds, arrayInfoMap);
 
   const lines = useMemo(() => {
-    const needsDrift = driftMappingIds && driftMappingIds.size > 0;
-    const needsTrace = debugMode && traceByMappingId;
-    if (!needsDrift && !needsTrace) return rawLines;
     return rawLines.map((line) => {
       let updated = line;
-      if (needsDrift) {
+      const score = autoMapScoresRef.current.get(line.mappingId);
+      if (score != null) updated = { ...updated, confidenceScore: score };
+      if (patternMappingIdsRef.current.has(line.mappingId)) updated = { ...updated, isFromPattern: true };
+      if (driftMappingIds && driftMappingIds.size > 0) {
         const severity = driftMappingIds.get(line.mappingId);
         if (severity) updated = { ...updated, driftSeverity: severity };
       }
-      if (needsTrace) {
+      if (debugMode && traceByMappingId) {
         const trace = traceByMappingId.get(line.mappingId);
         if (trace) {
           updated = {
@@ -387,24 +363,27 @@ export default function DataMapper<TOutput = unknown>({
     });
   }, [rawLines, driftMappingIds, debugMode, traceByMappingId]);
 
-  const autoMapCandidateCount = useMemo(() => {
+  const autoMapCandidates = useMemo<AutoMapCandidate[]>(() => {
     const sourceData = getEffectiveSourceData(state.activeSourceId);
     const targetData = adapter.target.sampleData;
-    if (sourceData == null || targetData == null) return 0;
+    if (sourceData == null || targetData == null) return [];
     try {
-      const srcTree = buildJsonTree(
-        typeof sourceData === 'string' ? JSON.parse(sourceData) : sourceData,
-        '', '',
-      );
-      const tgtTree = buildJsonTree(
-        typeof targetData === 'string' ? JSON.parse(targetData) : targetData,
-        '', '',
-      );
-      return computeAutoMapCandidates(srcTree, tgtTree, state.mappings).length;
+      const parsedSource = typeof sourceData === 'string' ? JSON.parse(sourceData) : sourceData;
+      const parsedTarget = typeof targetData === 'string' ? JSON.parse(targetData) : targetData;
+      const srcTree = buildJsonTree(parsedSource, '', '');
+      const tgtTree = buildJsonTree(parsedTarget, '', '');
+      return computeAutoMapCandidates(srcTree, tgtTree, state.mappings, {
+        sourceData: parsedSource, targetData: parsedTarget,
+      });
     } catch {
-      return 0;
+      return [];
     }
   }, [getEffectiveSourceData, adapter.target.sampleData, state.activeSourceId, state.mappings]);
+
+  const autoMapCandidateCount = useMemo(
+    () => autoMapCandidates.filter((c) => c.score >= confidenceThreshold).length,
+    [autoMapCandidates, confidenceThreshold],
+  );
 
   const handleLoadGallerySample = useCallback((sample: MapperGallerySample) => {
     const adapterSourceIds = new Set(adapter.sources.map((s) => s.id));
@@ -422,28 +401,75 @@ export default function DataMapper<TOutput = unknown>({
   }, [adapter.sources, state.activeSourceId, setSourceSample, setMappings]);
 
   const handleAutoMap = useCallback(() => {
-    const sourceData = getEffectiveSourceData(state.activeSourceId);
-    const targetData = adapter.target.sampleData;
-    if (sourceData == null || targetData == null) return;
+    const filtered = autoMapCandidates.filter((c) => c.score >= confidenceThreshold);
+    const allNew: Mapping[] = [];
+
+    // Load pattern suggestions first
     try {
-      const srcTree = buildJsonTree(
-        typeof sourceData === 'string' ? JSON.parse(sourceData) : sourceData,
-        '', '',
-      );
-      const tgtTree = buildJsonTree(
-        typeof targetData === 'string' ? JSON.parse(targetData) : targetData,
-        '', '',
-      );
-      const candidates = computeAutoMapCandidates(srcTree, tgtTree, state.mappings);
-      if (candidates.length === 0) return;
-      const newMappings = candidatesToMappings(candidates, state.activeSourceId)
-        .map((m) => ({ ...m, isPending: true }));
-      setMappings([...state.mappings, ...newMappings]);
-      setToast(`Auto-mapped ${newMappings.length} field${newMappings.length !== 1 ? 's' : ''}`);
-    } catch {
-      setToast('Auto-map failed: could not parse sample data');
+      const sourceData = getEffectiveSourceData(state.activeSourceId);
+      const targetData = adapter.target.sampleData;
+      if (sourceData != null && targetData != null && adapter.contextId) {
+        const parsedSrc = typeof sourceData === 'string' ? JSON.parse(sourceData) : sourceData;
+        const parsedTgt = typeof targetData === 'string' ? JSON.parse(targetData) : targetData;
+        const srcTree = buildJsonTree(parsedSrc, '', '');
+        const tgtTree = buildJsonTree(parsedTgt, '', '');
+        const srcPaths = getAllLeafPaths(srcTree);
+        const tgtPaths = getAllLeafPaths(tgtTree);
+        const pattern = loadPattern(adapter.contextId, srcPaths, tgtPaths);
+        if (pattern) {
+          const currentSrcPaths = new Set(srcPaths);
+          const currentTgtPaths = new Set(tgtPaths);
+          const combined = [...state.mappings, ...allNew];
+          const suggestions: PatternEntry[] = patternToSuggestions(pattern, currentSrcPaths, currentTgtPaths, combined);
+          const mappedTargets = new Set(combined.map((m) => m.targetPath));
+          const mappedSources = new Set(combined.map((m) => m.sourcePath));
+          const filteredTargets = new Set(filtered.map((c) => c.targetPath));
+          for (const s of suggestions) {
+            if (mappedTargets.has(s.targetPath) || filteredTargets.has(s.targetPath)) continue;
+            if (mappedSources.has(s.sourcePath)) continue;
+            const m: Mapping = {
+              id: uuidv4(),
+              sourcePath: s.sourcePath,
+              sourceId: state.activeSourceId,
+              targetPath: s.targetPath,
+              isPending: true,
+              ...(s.expression ? { expression: s.expression } : {}),
+            };
+            allNew.push(m);
+            patternMappingIdsRef.current.add(m.id);
+            autoMapScoresRef.current.set(m.id, 95);
+            mappedTargets.add(s.targetPath);
+            mappedSources.add(s.sourcePath);
+          }
+        }
+      }
+    } catch { /* ignore pattern load errors */ }
+
+    // Add name/semantic-based auto-map candidates
+    const patternTargets = new Set(allNew.map((m) => m.targetPath));
+    for (let i = 0; i < filtered.length; i++) {
+      if (patternTargets.has(filtered[i].targetPath)) continue;
+      const m: Mapping = {
+        id: uuidv4(),
+        sourcePath: filtered[i].sourcePath,
+        sourceId: state.activeSourceId,
+        targetPath: filtered[i].targetPath,
+        isAutoMapped: true,
+        isPending: true,
+      };
+      allNew.push(m);
+      autoMapScoresRef.current.set(m.id, filtered[i].score);
     }
-  }, [getEffectiveSourceData, adapter.target.sampleData, state.activeSourceId, state.mappings, setMappings]);
+
+    if (allNew.length === 0) return;
+    setMappings([...state.mappings, ...allNew]);
+    const patternCount = [...patternMappingIdsRef.current].filter((id) => allNew.some((m) => m.id === id)).length;
+    const autoCount = allNew.length - patternCount;
+    const parts: string[] = [];
+    if (autoCount > 0) parts.push(`${autoCount} auto-mapped`);
+    if (patternCount > 0) parts.push(`${patternCount} from patterns`);
+    setToast(parts.join(', '));
+  }, [autoMapCandidates, confidenceThreshold, state.activeSourceId, state.mappings, setMappings, getEffectiveSourceData, adapter.target.sampleData, adapter.contextId]);
 
   const handleEditExpression = useCallback((mappingId: string) => {
     setEditingMappingId(mappingId);
@@ -457,6 +483,30 @@ export default function DataMapper<TOutput = unknown>({
   const handleQuickFix = useCallback((mappingId: string, suggestedExpression: string) => {
     updateMapping(mappingId, { expression: suggestedExpression });
   }, [updateMapping]);
+
+  const handleApplySuggestion = useCallback((mappingId: string, expression: string) => {
+    updateMapping(mappingId, { expression });
+    setToast('Expression applied');
+  }, [updateMapping]);
+
+  const handleExampleInferenceApply = useCallback((inferred: InferredMapping[]) => {
+    const newMappings: Mapping[] = inferred.map((r) => ({
+      id: uuidv4(),
+      sourcePath: r.sourcePath,
+      sourceId: state.activeSourceId,
+      targetPath: r.targetPath,
+      isPending: true,
+      ...(r.expression ? { expression: r.expression } : {}),
+    }));
+    const existingTargets = new Set(state.mappings.map((m) => m.targetPath));
+    const filtered = newMappings.filter((m) => !existingTargets.has(m.targetPath));
+    if (filtered.length === 0) {
+      setToast('No new mappings — all targets already mapped');
+      return;
+    }
+    setMappings([...state.mappings, ...filtered]);
+    setToast(`${filtered.length} mapping${filtered.length !== 1 ? 's' : ''} inferred from examples`);
+  }, [state.activeSourceId, state.mappings, setMappings]);
 
   const handleToggleSelectMapping = useCallback((id: string) => {
     setSelectedIds((prev) => {
@@ -481,6 +531,23 @@ export default function DataMapper<TOutput = unknown>({
     return arrayMappingInfos.find((i) => i.mappingId === state.selectedMappingId) ?? null;
   }, [state.selectedMappingId, arrayMappingInfos]);
 
+  const footerStats = useMemo(() => {
+    const expressionCount = state.mappings.filter((m) => !!m.expression).length;
+    let loopCount = 0;
+    let aggregateCount = 0;
+    for (const info of arrayMappingInfos) {
+      if (info.kind === 'loop') loopCount++;
+      else if (info.kind === 'aggregate') aggregateCount++;
+    }
+    return {
+      mapped: state.mappings.length,
+      expressions: expressionCount,
+      loops: loopCount,
+      aggregates: aggregateCount,
+      mismatches: typeMismatches.length,
+    };
+  }, [state.mappings, arrayMappingInfos, typeMismatches]);
+
   const editingMapping = useMemo(
     () => editingMappingId ? state.mappings.find((m) => m.id === editingMappingId) ?? null : null,
     [editingMappingId, state.mappings],
@@ -489,6 +556,7 @@ export default function DataMapper<TOutput = unknown>({
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (editingMappingId) return;
+      if (document.querySelector('.dm-expr-overlay') || document.querySelector('.dm-diff-overlay')) return;
       const tag = (e.target as HTMLElement)?.tagName;
       const isEditable = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (e.target as HTMLElement)?.isContentEditable;
       if ((e.metaKey || e.ctrlKey) && e.key === 'z') {
@@ -543,6 +611,7 @@ export default function DataMapper<TOutput = unknown>({
   const handleResizeStart = useCallback(
     (side: 'source' | 'target', e: React.MouseEvent) => {
       e.preventDefault();
+      resizeCleanupRef.current?.();
       const startX = e.clientX;
       const body = containerRef.current?.querySelector('.dm-body') as HTMLElement | null;
       if (!body) return;
@@ -600,6 +669,9 @@ export default function DataMapper<TOutput = unknown>({
         debugMode={debugMode}
         onToggleDebugMode={() => setDebugMode((d) => !d)}
         traceErrorCount={traceErrorCount}
+        confidenceThreshold={confidenceThreshold}
+        onConfidenceThresholdChange={setConfidenceThreshold}
+        onLearnFromExamples={() => setShowExampleModal(true)}
       />
       {debugMode && hasTraceData && (
         <div className="dm-debug-bar" role="status" aria-live="polite">
@@ -659,6 +731,8 @@ export default function DataMapper<TOutput = unknown>({
             debugMode={debugMode}
             traceByMappingId={traceByMappingId}
             onShowErrorDetail={handleShowErrorDetail}
+            expressionSuggestions={expressionSuggestions}
+            onApplySuggestion={handleApplySuggestion}
           />
         </div>
         <div
@@ -738,51 +812,51 @@ export default function DataMapper<TOutput = unknown>({
         </div>
       )}
       {errorPopover && (
-        <div
+        <ErrorPopover
           ref={errorPopoverRef}
-          className="dm-error-popover"
-          style={{ top: errorPopover.y }}
-          role="dialog"
-          aria-label="Error details"
-        >
-          <button
-            className="dm-error-popover-close"
-            onClick={() => setErrorPopover(null)}
-            aria-label="Close error details"
-          >
-            ×
-          </button>
-          <div className="dm-error-popover-title">Mapping Error</div>
-          <div className="dm-error-popover-row">
-            <span className="dm-error-popover-label">Source:</span>
-            <code className="dm-error-popover-value">{errorPopover.data.sourcePath}</code>
-          </div>
-          <div className="dm-error-popover-row">
-            <span className="dm-error-popover-label">Target:</span>
-            <code className="dm-error-popover-value">{errorPopover.data.targetPath}</code>
-          </div>
-          {errorPopover.data.expression && (
-            <div className="dm-error-popover-row">
-              <span className="dm-error-popover-label">Expression:</span>
-              <code className="dm-error-popover-value">{errorPopover.data.expression}</code>
-            </div>
+          data={errorPopover.data}
+          y={errorPopover.y}
+          onClose={() => setErrorPopover(null)}
+        />
+      )}
+      <div className="dm-stats-footer" role="status">
+        <div className="dm-stats-counters">
+          <span className="dm-stat">
+            <span className="dm-stat-value dm-stat-value--mapped">{footerStats.mapped}</span> mapped
+          </span>
+          {footerStats.expressions > 0 && (
+            <span className="dm-stat">
+              <span className="dm-stat-value dm-stat-value--expression">{footerStats.expressions}</span> expression{footerStats.expressions !== 1 ? 's' : ''}
+            </span>
           )}
-          <div className="dm-error-popover-row">
-            <span className="dm-error-popover-label">Source value:</span>
-            <code className="dm-error-popover-value">{errorPopover.data.sourceValue}</code>
-          </div>
-          <div className="dm-error-popover-row">
-            <span className="dm-error-popover-label">Target value:</span>
-            <code className={`dm-error-popover-value ${errorPopover.data.targetValue === 'undefined' ? 'dm-error-popover-value--error' : ''}`}>
-              {errorPopover.data.targetValue}
-            </code>
-          </div>
-          {errorPopover.data.error && (
-            <div className="dm-error-popover-error">
-              {errorPopover.data.error}
-            </div>
+          {footerStats.loops > 0 && (
+            <span className="dm-stat">
+              <span className="dm-stat-value dm-stat-value--loop">{footerStats.loops}</span> loop{footerStats.loops !== 1 ? 's' : ''}
+            </span>
+          )}
+          {footerStats.aggregates > 0 && (
+            <span className="dm-stat">
+              <span className="dm-stat-value dm-stat-value--aggregate">{footerStats.aggregates}</span> aggregate{footerStats.aggregates !== 1 ? 's' : ''}
+            </span>
+          )}
+          {footerStats.mismatches > 0 && (
+            <span className="dm-stat">
+              <span className="dm-stat-value dm-stat-value--mismatch">{footerStats.mismatches}</span> mismatch{footerStats.mismatches !== 1 ? 'es' : ''}
+            </span>
           )}
         </div>
+        <div className="dm-stats-shortcuts">
+          <span className="dm-shortcut"><kbd className="dm-kbd">/</kbd> Search</span>
+          <span className="dm-shortcut"><kbd className="dm-kbd">⌫</kbd> Delete</span>
+          <span className="dm-shortcut"><kbd className="dm-kbd">⌘Z</kbd> Undo</span>
+          <span className="dm-shortcut"><kbd className="dm-kbd">Tab</kbd> Switch panel</span>
+        </div>
+      </div>
+      {showExampleModal && (
+        <ExampleInferenceModal
+          onClose={() => setShowExampleModal(false)}
+          onApply={handleExampleInferenceApply}
+        />
       )}
     </div>
   );
