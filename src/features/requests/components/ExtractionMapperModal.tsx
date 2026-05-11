@@ -26,6 +26,10 @@ interface MappedExtraction extends Extraction {
   changed?: boolean;
 }
 
+/**
+ * @deprecated Use `DataMapperModal` with `createExtractionAdapter` instead.
+ * This component will be removed once all call sites are migrated (Phase 3 wiring).
+ */
 export default function ExtractionMapperModal({
   existingExtractions,
   sampleResponseBody,

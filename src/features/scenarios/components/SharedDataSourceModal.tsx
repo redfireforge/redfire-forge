@@ -14,7 +14,10 @@ import ConfirmModal from '../../../shared/components/ConfirmModal';
 import PopupModal from '../../../shared/components/PopupModal';
 import SharedDsSaveConfirmModal from './SharedDsSaveConfirmModal';
 import DataSourceEditor from './DataSourceEditor';
-import PopulateFromApiModal from './PopulateFromApiModal';
+import { DataMapperModal, createSharedDsFetchAdapter, type SharedDsFetchOutput } from '../../../shared/components/data-mapper';
+import { buildHeaders } from '../../../engine/executor';
+import { resolveScenarioFromDataRow } from '../../../engine/dataSourceExpander';
+import { findUnresolvedTokens } from '../utils/populateFromApiUtils';
 import DataSourceSetupModal from './DataSourceSetupModal';
 import { useSharedDsFetchConfig } from '../hooks/useSharedDsFetchConfig';
 import { useSharedDsListPanel } from '../hooks/useSharedDsListPanel';
@@ -128,13 +131,13 @@ export default function SharedDataSourceModal({
   }, [selected, sharedDataSources, onUpdate, fetchConfig]);
 
   // ─── Populate from API handler ─────────────────────────────
-  const handlePopulateFromApiApply = useCallback((columns: DataSource['columns'], rows: DataSource['rows'], mode: 'append' | 'replace') => {
+  const handlePopulateFromApiApply = useCallback((output: SharedDsFetchOutput) => {
     if (!selected) return;
     const current = selected.dataSource;
-    const nextRows = mode === 'replace' ? rows : [...current.rows, ...rows];
+    const nextRows = output.mode === 'replace' ? output.rows : [...current.rows, ...output.rows];
     const nextDataSource: DataSource = {
       ...current,
-      columns,
+      columns: output.columns,
       rows: nextRows,
     };
     onUpdate(sharedDataSources.map(ds =>
@@ -142,6 +145,40 @@ export default function SharedDataSourceModal({
     ));
     setShowPopulateFromApi(false);
   }, [selected, sharedDataSources, onUpdate]);
+
+  const populateDepsRef = useRef({ fetchDraftScenario: editorPanel.fetchDraftScenario, selected, handleFetchRow: editorPanel.handleFetchRow });
+  populateDepsRef.current = { fetchDraftScenario: editorPanel.fetchDraftScenario, selected, handleFetchRow: editorPanel.handleFetchRow };
+
+  const populateAdapter = useMemo(() => {
+    if (!showPopulateFromApi || !editorPanel.fetchDraftScenario || !selected) return null;
+    const dataTable = selected.dataSource;
+    return createSharedDsFetchAdapter({
+      dataSource: dataTable,
+      fetchConfig: selected.fetchConfig,
+      fetchSampleData: async () => {
+        const { fetchDraftScenario: draftScenario, selected: sel, handleFetchRow } = populateDepsRef.current;
+        if (!draftScenario || !sel) throw new Error('Fetch configuration unavailable');
+        const table = sel.dataSource;
+        const firstRow = table.rows.find(r => r.enabled);
+        const resolved = firstRow
+          ? resolveScenarioFromDataRow(draftScenario, table.columns, firstRow, 0)
+          : draftScenario;
+        const headers = buildHeaders(resolved);
+        const baseBody = resolved.body || '';
+        const unresolved = findUnresolvedTokens(resolved.url, baseBody || undefined, headers);
+        if (unresolved.length > 0) {
+          throw new Error(`Unresolved variables: ${unresolved.join(', ')}. Fill the first enabled row before fetching.`);
+        }
+        const result = await handleFetchRow(
+          resolved.url, resolved.method, headers, baseBody || undefined,
+        );
+        if (result.error) throw new Error(result.error);
+        if (result.status >= 400) throw new Error(`HTTP ${result.status}: ${result.statusText}`);
+        return JSON.parse(result.body);
+      },
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showPopulateFromApi, selected]);
 
   // ─── Render ────────────────────────────────────────────────
   return (
@@ -617,13 +654,11 @@ export default function SharedDataSourceModal({
         </div>
       </div>
 
-      {showPopulateFromApi && editorPanel.fetchDraftScenario && selected && (
-        <PopulateFromApiModal
-          draft={editorPanel.fetchDraftScenario}
-          dataTable={selected.dataSource}
-          onApply={handlePopulateFromApiApply}
-          onFetchRow={editorPanel.handleFetchRow}
-          onClose={() => setShowPopulateFromApi(false)}
+      {showPopulateFromApi && populateAdapter && (
+        <DataMapperModal<SharedDsFetchOutput>
+          adapter={populateAdapter}
+          onSave={handlePopulateFromApiApply}
+          onCancel={() => setShowPopulateFromApi(false)}
         />
       )}
 

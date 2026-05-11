@@ -2,9 +2,15 @@
  * Step 3: Validate — Validation mode, field selection, array ordering.
  * Extracted from DataSourceSetupModal to reduce file size.
  */
+import { useState, useMemo, useCallback } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import type { Scenario, ExpectedField } from '../../../shared/types';
 import JsonPathBuilder from '../../requests/components/JsonPathBuilder';
+import {
+  DataMapperModal,
+  createValidationAdapter,
+} from '../../../shared/components/data-mapper';
+import type { ValidationAdapterOutput } from '../../../shared/components/data-mapper';
 
 export interface SetupStepValidateProps {
   validationMode: 'none' | 'selective' | 'full';
@@ -33,6 +39,28 @@ export default function SetupStepValidate({
   arrayPrefixes, arrayModes, setArrayModes,
   test,
 }: SetupStepValidateProps) {
+  const [mapperOpen, setMapperOpen] = useState(false);
+
+  const validationAdapter = useMemo(
+    () => createValidationAdapter({
+      sampleResponseBody: sampleJson || undefined,
+      selectiveMode: 'include',
+    }),
+    [sampleJson],
+  );
+
+  const mapperInitialData = useMemo<ValidationAdapterOutput>(() => ({
+    selectiveMode: 'include',
+    expectedFields: validateFields,
+    excludedPaths: validateExcluded,
+  }), [validateFields, validateExcluded]);
+
+  const handleMapperSave = useCallback((output: ValidationAdapterOutput) => {
+    setValidateFields(output.expectedFields);
+    setValidateExcluded(output.excludedPaths);
+    setMapperOpen(false);
+  }, [setValidateFields, setValidateExcluded]);
+
   return (
     <div className="excel-step-content parameterize-validate-step">
       {/* Validation mode selector */}
@@ -100,6 +128,15 @@ export default function SetupStepValidate({
             </button>
           </div>
           <div className="parameterize-validate-content">
+            <div className="validation-mapper-toggle">
+              <button
+                type="button"
+                className="btn btn-sm btn-accent"
+                onClick={() => setMapperOpen(true)}
+              >
+                ⚡ Visual Mapper
+              </button>
+            </div>
             <JsonPathBuilder
               sampleJson={sampleJson}
               onSampleJsonChange={setSampleJson}
@@ -112,6 +149,14 @@ export default function SetupStepValidate({
               }}
             />
           </div>
+          {mapperOpen && (
+            <DataMapperModal
+              adapter={validationAdapter}
+              initialData={mapperInitialData}
+              onSave={handleMapperSave}
+              onCancel={() => setMapperOpen(false)}
+            />
+          )}
 
           {/* Array ordering mode toggles */}
           {arrayPrefixes.length > 0 && (

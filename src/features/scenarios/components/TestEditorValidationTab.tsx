@@ -1,14 +1,21 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import type { MutableRefObject } from 'react';
 import type { Assertion, AssertionOperator, ComparisonOperator, DateReference, FailureDetail, Scenario, ValidationMode } from '../../../shared/types';
 import JsonPathBuilder from '../../requests/components/JsonPathBuilder';
 import ResponseVersionPanel from '../../requests/components/ResponseVersionPanel';
 import RulesVersionPanel from '../../requests/components/RulesVersionPanel';
-import RegexAssertionModal from '../../requests/components/RegexAssertionModal';
-import type { RegexAssertionResult } from '../../requests/components/RegexAssertionModal';
+import {
+  RegexAssertionBuilderModal,
+} from '../../../shared/components/data-mapper';
+import type { AssertionAdapterResult } from '../../../shared/components/data-mapper';
 import AssertionPresetMenu from './AssertionPresetMenu';
 import { createResponseVersion, createRulesVersion } from '../utils/versionFactory';
 import JsonPathPicker from './JsonPathPicker';
+import {
+  DataMapperModal,
+  createValidationAdapter,
+} from '../../../shared/components/data-mapper';
+import type { ValidationAdapterOutput } from '../../../shared/components/data-mapper';
 
 export interface TestEditorValidationTabProps {
   draft: Scenario;
@@ -91,6 +98,35 @@ export default function TestEditorValidationTab({
   const [showAddMenu, setShowAddMenu] = useState(false);
   const addMenuRef = useRef<HTMLDivElement>(null);
   const [regexModalIdx, setRegexModalIdx] = useState<number | null>(null);
+  const [validationMapperOpen, setValidationMapperOpen] = useState(false);
+
+  const validationAdapter = useMemo(
+    () => createValidationAdapter({
+      sampleResponseBody: draft.validation.sampleJson || undefined,
+      selectiveMode: draft.validation.selectiveMode || 'include',
+    }),
+    [draft.validation.sampleJson, draft.validation.selectiveMode],
+  );
+
+  const validationMapperInitialData = useMemo<ValidationAdapterOutput>(() => ({
+    selectiveMode: draft.validation.selectiveMode || 'include',
+    expectedFields: draft.validation.expectedFields || [],
+    excludedPaths: draft.validation.excludedPaths || [],
+  }), [draft.validation.selectiveMode, draft.validation.expectedFields, draft.validation.excludedPaths]);
+
+  const handleValidationMapperSave = useCallback((output: ValidationAdapterOutput) => {
+    const prev = draftRef.current;
+    onDraftChange({
+      ...prev,
+      validation: {
+        ...prev.validation,
+        selectiveMode: output.selectiveMode,
+        expectedFields: output.expectedFields,
+        excludedPaths: output.excludedPaths,
+      },
+    });
+    setValidationMapperOpen(false);
+  }, [draftRef, onDraftChange]);
 
   useEffect(() => {
     if (!showAddMenu) return;
@@ -366,6 +402,17 @@ export default function TestEditorValidationTab({
               </div>
             </div>
           )}
+          <div className="validation-mapper-toggle">
+            <button
+              type="button"
+              className="btn btn-sm btn-accent"
+              onClick={() => setValidationMapperOpen(true)}
+              disabled={!draft.validation.sampleJson?.trim()}
+              title={draft.validation.sampleJson?.trim() ? 'Open Visual Mapper' : 'Fetch or paste sample JSON first'}
+            >
+              ⚡ Visual Mapper
+            </button>
+          </div>
           <JsonPathBuilder
             sampleJson={draft.validation.sampleJson || ''}
             onSampleJsonChange={(json) => {
@@ -526,22 +573,31 @@ export default function TestEditorValidationTab({
         </>
       )}
 
+      {validationMapperOpen && (
+        <DataMapperModal
+          adapter={validationAdapter}
+          initialData={validationMapperInitialData}
+          onSave={handleValidationMapperSave}
+          onCancel={() => setValidationMapperOpen(false)}
+        />
+      )}
+
       {regexModalIdx !== null && (() => {
         const a = (draft.validation.assertions ?? [])[regexModalIdx];
         const regexA = a?.type === 'regex' ? a : undefined;
         return (
-          <RegexAssertionModal
+          <RegexAssertionBuilderModal
             initialJsonPath={regexA?.jsonPath || ''}
             initialPattern={regexA?.pattern || ''}
             sampleJson={draft.validation.sampleJson || ''}
             onFetchSampleResponse={onFetchSampleResponse}
             fetchingResponse={fetchingResponse}
             fetchError={fetchError}
-            onApply={(result: RegexAssertionResult) => {
+            onSave={(result: AssertionAdapterResult) => {
               updateAssertion(regexModalIdx, { jsonPath: result.jsonPath, pattern: result.pattern });
               setRegexModalIdx(null);
             }}
-            onClose={() => setRegexModalIdx(null)}
+            onCancel={() => setRegexModalIdx(null)}
           />
         );
       })()}

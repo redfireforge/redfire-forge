@@ -8,6 +8,7 @@ import type { VariableContext } from './variableContext';
 import type { TokenManager } from '../../../engine/tokenManager';
 import type { ResponseData } from './extractVariables';
 import type { GraphRunCallbacks } from './graphRunner';
+import { getByPath } from '../../../shared/utils/jsonPath';
 import { httpFetch } from '../../../shared/utils/httpClient';
 import { serializeWithContentType } from '../../../shared/utils/bodySerializer';
 import { buildHeaders, buildUrl } from '../../../engine/executor';
@@ -332,12 +333,7 @@ export function extractPayloadVariables(
 ): Record<string, string> {
   const extracted: Record<string, string> = {};
   for (const { name, jsonPath } of mappings) {
-    const keys = jsonPath.replace(/^\$\./, '').split('.');
-    let value: unknown = payload;
-    for (const key of keys) {
-      value = (value as Record<string, unknown>)?.[key];
-      if (value === undefined) break;
-    }
+    const value = getByPath(payload, jsonPath);
     if (value !== undefined) {
       const strVal = typeof value === 'string' ? value : JSON.stringify(value);
       ctx.set(name, strVal);

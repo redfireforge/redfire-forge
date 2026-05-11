@@ -116,7 +116,22 @@ const $equals: ExpressionFunction = {
   evaluate: (a, b) => s(a) === s(b),
 };
 
+const $toBool: ExpressionFunction = {
+  name: '$toBool', category: 'Conditional',
+  signature: '$toBool(value)',
+  description: 'Convert a value to boolean. Truthy: non-zero numbers, non-empty strings (except "false"/"0"), true. Falsy: 0, "", "false", "0", null, undefined, false.',
+  args: [{ name: 'value', type: 'any', required: true, description: 'Value to convert' }],
+  returnType: 'boolean',
+  examples: [{ input: '$toBool("yes")', output: 'true' }, { input: '$toBool(0)', output: 'false' }],
+  evaluate: (v) => {
+    if (typeof v === 'boolean') return v;
+    if (typeof v === 'number') return v !== 0;
+    const str = s(v).toLowerCase().trim();
+    return str !== '' && str !== 'false' && str !== '0';
+  },
+};
+
 export const conditionalFunctions: ExpressionFunction[] = [
   $default, $if, $isEmpty, $contains, $matches,
-  $not, $coalesce, $equals,
+  $not, $coalesce, $equals, $toBool,
 ];
