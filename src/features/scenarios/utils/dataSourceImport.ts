@@ -238,17 +238,11 @@ export async function parseExcelSimple(
 
 // ─── JSON Path Utilities ─────────────────────────────────────
 
-/** Extract a value from a JSON object using a simple dot/bracket path */
-export function extractJsonPath(obj: unknown, path: string): string {
-  const segments = path.replace(/\[(\d+)\]/g, '.$1').split('.');
-  let current: unknown = obj;
-  for (const seg of segments) {
-    if (current == null || typeof current !== 'object') return '';
-    current = (current as Record<string, unknown>)[seg];
-  }
-  if (current == null) return '';
-  return typeof current === 'object' ? JSON.stringify(current) : String(current);
-}
+/**
+ * Extract a value from a JSON object using a simple dot/bracket path.
+ * Delegates to the canonical `getByPathAsString` engine.
+ */
+export { getByPathAsString as extractJsonPath } from '../../../shared/utils/jsonPath';
 
 /**
  * Infer dynamic patterns from existing indexed validate columns.

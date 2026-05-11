@@ -1,0 +1,100 @@
+import { useState, useEffect, useMemo } from 'react';
+import { computePreview } from './utils/previewCompute';
+import type { Mapping, MapperSource } from './types';
+import type { ExpressionFunction } from '../../../features/workflow/utils/expressionFunctions/types';
+
+interface PreviewBarProps {
+  mappings: Mapping[];
+  sources: MapperSource[];
+  activeSourceId: string;
+  targetSampleData: unknown;
+  customFunctions?: ExpressionFunction[];
+}
+
+export default function PreviewBar({
+  mappings,
+  sources,
+  activeSourceId,
+  targetSampleData,
+  customFunctions,
+}: PreviewBarProps) {
+  const [preview, setPreview] = useState<ReturnType<typeof computePreview> | null>(null);
+
+  useEffect(() => {
+    if (mappings.length === 0) {
+      setPreview(null);
+      return;
+    }
+    const timer = setTimeout(() => {
+      setPreview(computePreview(mappings, sources, activeSourceId, targetSampleData, customFunctions));
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [mappings, sources, activeSourceId, targetSampleData, customFunctions]);
+
+  const sourceJson = useMemo(() => {
+    const src = sources.find((s) => s.id === activeSourceId);
+    if (!src?.sampleData) return '';
+    try {
+      const data = typeof src.sampleData === 'string'
+        ? JSON.parse(src.sampleData)
+        : src.sampleData;
+      return JSON.stringify(data, null, 2);
+    } catch {
+      return '';
+    }
+  }, [sources, activeSourceId]);
+
+  const targetJson = useMemo(() => {
+    if (!preview) return '';
+    try {
+      return JSON.stringify(preview.targetObject, null, 2);
+    } catch {
+      return '{}';
+    }
+  }, [preview]);
+
+  if (mappings.length === 0) {
+    return (
+      <div className="dm-preview-bar">
+        <div className="dm-preview-empty">
+          Add mappings to see a live preview of the mapped output.
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="dm-preview-bar">
+      <div className="dm-preview-header">
+        <span className="dm-preview-title">Preview</span>
+        {preview && preview.errorCount > 0 && (
+          <span className="dm-preview-errors">{preview.errorCount} error{preview.errorCount !== 1 ? 's' : ''}</span>
+        )}
+        <span className="dm-preview-count">{mappings.length} mapping{mappings.length !== 1 ? 's' : ''}</span>
+      </div>
+      <div className="dm-preview-columns">
+        <div className="dm-preview-column">
+          <div className="dm-preview-col-label">Source Sample</div>
+          <pre className="dm-preview-json">{sourceJson || '(no data)'}</pre>
+        </div>
+        <div className="dm-preview-divider" />
+        <div className="dm-preview-column">
+          <div className="dm-preview-col-label">Mapped Output</div>
+          <pre className="dm-preview-json dm-preview-json--output">{targetJson || '(evaluating…)'}</pre>
+        </div>
+      </div>
+      {preview && preview.fields.some((f) => f.error) && (
+        <div className="dm-preview-error-list">
+          {preview.fields
+            .filter((f) => f.error)
+            .map((f) => (
+              <div key={f.targetPath} className="dm-preview-error-item">
+                <span className="dm-preview-error-path">{f.targetPath}</span>
+                <span className="dm-preview-error-msg">{f.error}</span>
+              </div>
+            ))}
+        </div>
+      )}
+    </div>
+  );
+}

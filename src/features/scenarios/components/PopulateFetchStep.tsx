@@ -1,4 +1,8 @@
 /**
+ * @deprecated Part of the legacy PopulateFromApiModal flow.
+ * Replaced by `DataMapperModal` with `createPopulateFromApiAdapter` (Phase 4A)
+ * or `createSharedDsFetchAdapter` (Phase 4C).
+ *
  * PopulateFetchStep — Fetch step UI for PopulateFromApiModal.
  * Shows request preview, sends request, and displays debug info.
  */

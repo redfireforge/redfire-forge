@@ -169,7 +169,44 @@ const $random: ExpressionFunction = {
   },
 };
 
+const $parseInt: ExpressionFunction = {
+  name: '$parseInt', category: 'Math',
+  signature: '$parseInt(value)',
+  description: 'Parse a string to an integer. Returns NaN if not parseable.',
+  args: [{ name: 'value', type: 'any', required: true, description: 'Value to parse' }],
+  returnType: 'number',
+  examples: [{ input: '$parseInt("42")', output: '42' }, { input: '$parseInt("3.14")', output: '3' }],
+  evaluate: (v) => { const r = parseInt(String(v), 10); return Number.isNaN(r) ? 0 : r; },
+};
+
+const $toInt: ExpressionFunction = {
+  name: '$toInt', category: 'Math',
+  signature: '$toInt(value)',
+  description: 'Convert a value to an integer. Handles booleans ("true"→1, "false"→0) and numeric strings.',
+  args: [{ name: 'value', type: 'any', required: true, description: 'Value to convert' }],
+  returnType: 'number',
+  examples: [{ input: '$toInt(true)', output: '1' }, { input: '$toInt("7")', output: '7' }],
+  evaluate: (v) => {
+    if (typeof v === 'boolean') return v ? 1 : 0;
+    const str = String(v).toLowerCase().trim();
+    if (str === 'true') return 1;
+    if (str === 'false') return 0;
+    const r = parseInt(str, 10);
+    return Number.isNaN(r) ? 0 : r;
+  },
+};
+
+const $parseFloat: ExpressionFunction = {
+  name: '$parseFloat', category: 'Math',
+  signature: '$parseFloat(value)',
+  description: 'Parse a string to a floating-point number.',
+  args: [{ name: 'value', type: 'any', required: true, description: 'Value to parse' }],
+  returnType: 'number',
+  examples: [{ input: '$parseFloat("3.14")', output: '3.14' }],
+  evaluate: (v) => { const r = parseFloat(String(v)); return Number.isNaN(r) ? 0 : r; },
+};
+
 export const mathFunctions: ExpressionFunction[] = [
   $add, $subtract, $multiply, $divide, $round, $abs, $min, $max,
-  $mod, $floor, $ceil, $power, $random,
+  $mod, $floor, $ceil, $power, $random, $parseInt, $toInt, $parseFloat,
 ];

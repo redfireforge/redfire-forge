@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
-import type { Scenario, DataSource, DataSourceColumn, DataSourceRow, FeatureGroup, SharedDataSource, KeyValue, AuthConfig } from '../../../shared/types';
+import type { Scenario, DataSource, DataSourceColumn, FeatureGroup, SharedDataSource, KeyValue, AuthConfig } from '../../../shared/types';
 import type { HttpResponse } from '../../../shared/utils/httpClient';
 import type { TestEditingContext } from './TestEditorModal';
 
@@ -13,11 +13,14 @@ import { useValidationContract } from '../hooks/useValidationContract';
 import DataSourceSetupModal from './DataSourceSetupModal';
 import DataSourceRowDetailModal from './DataSourceRowDetailModal';
 import DataSourceVerifyModal from './DataSourceVerifyModal';
-import PopulateFromApiModal from './PopulateFromApiModal';
 import DataSourceEmptyState from './DataSourceEmptyState';
 import ValidationContractPanel from './ValidationContractPanel';
 import PromoteToSharedModal from './PromoteToSharedModal';
 import DataSourceToolbar from './DataSourceToolbar';
+import { DataMapperModal, createPopulateFromApiAdapter, createColumnMappingAdapter, type PopulateOutput, type ColumnMappingOutput } from '../../../shared/components/data-mapper';
+import { buildHeaders, proxyFetch } from '../../../engine/executor';
+import { resolveScenarioFromDataRow } from '../../../engine/dataSourceExpander';
+import { findUnresolvedTokens } from '../utils/populateFromApiUtils';
 
 
 const COLUMN_TYPES: { value: DataSourceColumn['type']; label: string }[] = [
@@ -224,18 +227,74 @@ export default function DataSourceEditor({ draft, onDraftChange, onFetchRow, onC
   const [showPopulateModal, setShowPopulateModal] = useState(false);
 
   const handlePopulateApply = useCallback(
-    (columns: DataSourceColumn[], newRows: DataSourceRow[], mode: 'append' | 'replace') => {
+    (output: PopulateOutput) => {
       if (!dt) return;
-      const rows = mode === 'replace' ? newRows : [...dt.rows, ...newRows];
+      const rows = output.mode === 'replace' ? output.rows : [...dt.rows, ...output.rows];
       onDraftChange({
         ...draft,
-        dataSource: { ...dt, columns, rows, source: { type: 'inline' } },
+        dataSource: { ...dt, columns: output.columns, rows, source: { type: 'inline' } },
       });
+      setShowPopulateModal(false);
     },
     [draft, dt, onDraftChange],
   );
 
+  const populateDepsRef = useRef({ draft, dt, onFetchRow });
+  populateDepsRef.current = { draft, dt, onFetchRow };
 
+  const populateAdapter = useMemo(() => {
+    if (!showPopulateModal || !dt) return null;
+    return createPopulateFromApiAdapter({
+      dataSource: dt,
+      fetchSampleData: async () => {
+        const { draft: d, dt: table, onFetchRow: fetcher } = populateDepsRef.current;
+        if (!table) throw new Error('Data source unavailable');
+        const firstRow = table.rows.find(r => r.enabled);
+        const resolved = firstRow
+          ? resolveScenarioFromDataRow(d, table.columns, firstRow, 0)
+          : d;
+        const headers = buildHeaders(resolved);
+        const baseBody = resolved.body || '';
+        const unresolved = findUnresolvedTokens(resolved.url, baseBody || undefined, headers);
+        if (unresolved.length > 0) {
+          throw new Error(`Unresolved variables: ${unresolved.join(', ')}. Fill the first enabled row before fetching.`);
+        }
+        const doFetch = fetcher ?? proxyFetch;
+        const result = await doFetch(resolved.url, resolved.method, headers, baseBody || undefined);
+        if (result.error) throw new Error(result.error);
+        if (result.status >= 400) throw new Error(`HTTP ${result.status}: ${result.statusText}`);
+        return JSON.parse(result.body);
+      },
+    });
+  }, [showPopulateModal, dt]);
+
+  // ─── Column Mapping modal ──────────────────────────────────
+
+  const [showColumnMapper, setShowColumnMapper] = useState(false);
+
+  const columnMappingAdapter = useMemo(() => {
+    if (!showColumnMapper || !dt) return null;
+    return createColumnMappingAdapter({
+      columns: dt.columns,
+      scenario: draft,
+    });
+    // Only recreate when modal opens/closes or columns change.
+    // `draft` is intentionally excluded — the scenario template is
+    // snapshotted when the modal opens to prevent adapter churn.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showColumnMapper, dt]);
+
+  const handleColumnMapperApply = useCallback(
+    (output: ColumnMappingOutput) => {
+      if (!dt) return;
+      onDraftChange({
+        ...draft,
+        dataSource: { ...dt, columns: output },
+      });
+      setShowColumnMapper(false);
+    },
+    [draft, dt, onDraftChange],
+  );
 
   // ─── Import (CSV / JSON / Excel) ─────────────────────────────
   const { handleImport } = useDataSourceImport({ draft, dataSource: dt, onDraftChange });
@@ -300,6 +359,7 @@ export default function DataSourceEditor({ draft, onDraftChange, onFetchRow, onC
         onAddSampleRow={addSampleRow}
         onAddColumn={addColumn}
         onShowPopulateModal={() => setShowPopulateModal(true)}
+        onShowColumnMapper={() => setShowColumnMapper(true)}
         onShowVerifyModal={() => setShowVerifyModal(true)}
         onRefetchAllRows={() => void refetchAllRows()}
         onDistributionChange={handleDistributionChange}
@@ -386,13 +446,21 @@ export default function DataSourceEditor({ draft, onDraftChange, onFetchRow, onC
       )}
 
       {/* Populate from API Modal */}
-      {showPopulateModal && dt && (
-        <PopulateFromApiModal
-          draft={draft}
-          dataTable={dt}
-          onApply={handlePopulateApply}
-          onFetchRow={onFetchRow}
-          onClose={() => setShowPopulateModal(false)}
+      {showPopulateModal && populateAdapter && (
+        <DataMapperModal<PopulateOutput>
+          adapter={populateAdapter}
+          onSave={handlePopulateApply}
+          onCancel={() => setShowPopulateModal(false)}
+        />
+      )}
+
+      {/* Column Mapping Modal */}
+      {showColumnMapper && columnMappingAdapter && (
+        <DataMapperModal<ColumnMappingOutput>
+          adapter={columnMappingAdapter}
+          initialData={dt.columns}
+          onSave={handleColumnMapperApply}
+          onCancel={() => setShowColumnMapper(false)}
         />
       )}
 

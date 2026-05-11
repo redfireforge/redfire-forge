@@ -38,51 +38,47 @@ vi.mock('../hooks/useDataSourceFetch', async (importOriginal) => {
   };
 });
 
-/** Preserves heading for existing “opens populate modal” test while exposing onApply. */
-vi.mock('./PopulateFromApiModal', () => ({
-  default: function MockPopulateFromApiModal({
-    onApply,
-    onClose,
-    dataTable,
-  }: {
-    onApply: (columns: DataSourceColumn[], newRows: DataSourceRow[], mode: 'append' | 'replace') => void;
-    onClose: () => void;
-    dataTable: DataSource;
-    draft: Scenario;
-  }) {
-    const valuesAppend: Record<string, string> = {};
-    for (const c of dataTable.columns) {
-      valuesAppend[c.id] = '';
-    }
-    if (dataTable.columns[0]) valuesAppend[dataTable.columns[0].id] = 'appended-cell';
-    return (
-      <div>
-        <h2>Populate from API Response</h2>
-        <button
-          type="button"
-          onClick={() =>
-            onApply(dataTable.columns, [{ id: 'pop-row', values: valuesAppend, enabled: true }], 'append')}
-        >
-          Mock Append
-        </button>
-        <button
-          type="button"
-          onClick={() =>
-            onApply(
-              dataTable.columns,
-              [{ id: 'repl-row', values: valuesAppend, enabled: true }],
-              'replace',
-            )}
-        >
-          Mock Replace
-        </button>
-        <button type="button" onClick={onClose}>
-          Close Populate
-        </button>
-      </div>
-    );
-  },
-}));
+/** Mock DataMapperModal for populate tests. */
+vi.mock('../../../shared/components/data-mapper', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../shared/components/data-mapper')>();
+  return {
+    ...actual,
+    DataMapperModal: function MockDataMapperModal({
+      onSave,
+      onCancel,
+      adapter,
+    }: {
+      onSave: (output: { columns: DataSourceColumn[]; rows: DataSourceRow[]; mode: 'append' | 'replace' }) => void;
+      onCancel: () => void;
+      adapter: { title: string };
+    }) {
+      return (
+        <div>
+          <h2>{adapter.title}</h2>
+          <button
+            type="button"
+            onClick={() =>
+              onSave({ columns: [], rows: [{ id: 'pop-row', values: {}, enabled: true }], mode: 'append' })}
+          >
+            Mock Append
+          </button>
+          <button
+            type="button"
+            onClick={() =>
+              onSave({ columns: [], rows: [{ id: 'repl-row', values: {}, enabled: true }], mode: 'replace' })}
+          >
+            Mock Replace
+          </button>
+          <button type="button" onClick={onCancel}>
+            Close Populate
+          </button>
+        </div>
+      );
+    },
+  };
+});
+
+/** @deprecated Old PopulateFromApiModal mock removed — now using DataMapperModal mock above. */
 
 vi.mock('./DataSourceRowDetailModal', () => ({
   default: function MockDataSourceRowDetailModal({
@@ -654,8 +650,7 @@ describe('DataSourceEditor', () => {
     it('opens populate modal', () => {
       render(<DataSourceEditor draft={makeScenario({ dataSource: makeDataSource() })} onDraftChange={vi.fn()} />);
       fireEvent.click(screen.getByTitle('Send a request and populate rows from an array in the response'));
-      // PopulateFromApiModal renders with its heading
-      expect(screen.getByText('Populate from API Response')).toBeTruthy();
+      expect(screen.getByText('API Response → Data Source')).toBeTruthy();
     });
   });
 
@@ -987,7 +982,8 @@ describe('DataSourceEditor', () => {
       const updated = onChange.mock.calls[0][0] as Scenario;
       expect(updated.dataSource!.rows.length).toBe(3);
       const appended = updated.dataSource!.rows.find((r) => r.id === 'pop-row');
-      expect(appended?.values.c1).toBe('appended-cell');
+      expect(appended).toBeDefined();
+      expect(appended!.enabled).toBe(true);
     });
 
     it('replaces rows via mocked populate modal', () => {
@@ -1428,7 +1424,7 @@ describe('DataSourceEditor', () => {
       expect(inp).toBeTruthy();
     });
 
-    it('closes populate modal via onClose', () => {
+    it('closes populate modal via onCancel', () => {
       render(<DataSourceEditor draft={makeScenario({ dataSource: makeDataSource() })} onDraftChange={vi.fn()} />);
       fireEvent.click(screen.getByTitle('Send a request and populate rows from an array in the response'));
       fireEvent.click(screen.getByText('Close Populate'));

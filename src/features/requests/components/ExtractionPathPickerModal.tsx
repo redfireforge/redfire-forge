@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { buildTree, getAllLeafPaths } from '../utils/jsonPathTreeUtils';
-import { getByPath } from '../../../engine/validator';
+import { getByPath } from '../../../shared/utils/jsonPath';
 import { PickerNode } from './RegexAssertionModal';
 import { useDebounce } from '../../../shared/hooks/useDebounce';
 import AppModalFrame from '../../../shared/components/AppModalFrame';
@@ -50,6 +50,10 @@ function previewExtracted(body: unknown, expression: string): string | undefined
   return typeof raw === 'string' ? raw : JSON.stringify(raw);
 }
 
+/**
+ * @deprecated Use `DataMapper` with `createExtractionAdapter` instead.
+ * This component will be removed once all call sites are migrated (Phase 3 wiring).
+ */
 export default function ExtractionPathPickerModal({
   initialExpression,
   initialSampleJson = '',
