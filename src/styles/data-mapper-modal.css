@@ -37,23 +37,50 @@
 
 .dm-modal-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  padding: 12px 16px;
+  padding: 14px 18px;
   border-bottom: 1px solid var(--border, #3b3f51);
   flex-shrink: 0;
+  gap: 10px;
+}
+
+.dm-modal-title-block {
+  min-width: 0;
 }
 
 .dm-modal-title {
   margin: 0;
-  font-size: 1rem;
+  font-size: 1.02rem;
   font-weight: 600;
   color: var(--text-primary, #cdd6f4);
+}
+
+.dm-modal-subtitle {
+  margin: 4px 0 0;
+  font-size: 0.76rem;
+  color: var(--text-secondary, #a6adc8);
 }
 
 .dm-modal-header-actions {
   display: flex;
   gap: 4px;
+}
+
+.dm-modal-header-btn {
+  border: 1px solid var(--border, #3b3f51);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary, #a6adc8);
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 5px 10px;
+  cursor: pointer;
+}
+
+.dm-modal-header-btn:hover {
+  background: var(--bg-hover, #313244);
+  color: var(--text-primary, #cdd6f4);
 }
 
 .dm-modal-body {
@@ -71,11 +98,23 @@
 .dm-modal-footer {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
-  padding: 10px 16px;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 18px;
   border-top: 1px solid var(--border, #3b3f51);
   flex-shrink: 0;
+  background: color-mix(in srgb, var(--bg-surface, #1e1e2e) 80%, #000 20%);
+}
+
+.dm-modal-footer-status {
+  font-size: 0.75rem;
+  color: var(--text-secondary, #a6adc8);
+}
+
+.dm-modal-footer-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .dm-modal-btn {

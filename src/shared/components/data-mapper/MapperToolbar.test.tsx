@@ -50,6 +50,84 @@ describe('MapperToolbar', () => {
     expect(screen.getByText(/Auto-map/)).toBeTruthy();
   });
 
+  it('renders grouped toolbar clusters by intent', () => {
+    const { container } = renderToolbar({
+      onTogglePreview: vi.fn(),
+      onToggleCodeView: vi.fn(),
+      onToggleMappingLines: vi.fn(),
+      onLearnFromExamples: vi.fn(),
+      onConfidenceThresholdChange: vi.fn(),
+      hasTraceData: true,
+      onToggleDebugMode: vi.fn(),
+      contextId: 'ctx',
+      mappings: [],
+      onLoadProfile: vi.fn(),
+    });
+    expect(container.querySelector('.dm-toolbar-cluster--core')).toBeTruthy();
+    expect(container.querySelector('.dm-toolbar-cluster--view')).toBeTruthy();
+    expect(container.querySelector('.dm-toolbar-cluster--advanced-toggle')).toBeTruthy();
+    expect(container.querySelector('.dm-toolbar-advanced-panel')).toBeTruthy();
+    expect(container.querySelector('.dm-toolbar-cluster--history')).toBeTruthy();
+  });
+
+  it('toggles advanced controls panel visibility', () => {
+    renderToolbar({
+      onLearnFromExamples: vi.fn(),
+      onConfidenceThresholdChange: vi.fn(),
+      autoMapCount: 2,
+    });
+    const toggle = screen.getByLabelText('Toggle advanced controls');
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    expect(screen.getByLabelText('Auto-map confidence threshold')).toBeTruthy();
+
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    expect(screen.queryByLabelText('Auto-map confidence threshold')).toBeNull();
+  });
+
+  it('shows confidence threshold only when candidates exist', () => {
+    const { rerender } = render(
+      <MapperToolbar
+        onAutoMap={vi.fn()}
+        onClearAll={vi.fn()}
+        onUndo={vi.fn()}
+        onRedo={vi.fn()}
+        canUndo={false}
+        canRedo={false}
+        mappingCount={0}
+        onConfidenceThresholdChange={vi.fn()}
+        autoMapCount={0}
+      />,
+    );
+    expect(screen.queryByLabelText('Auto-map confidence threshold')).toBeNull();
+
+    rerender(
+      <MapperToolbar
+        onAutoMap={vi.fn()}
+        onClearAll={vi.fn()}
+        onUndo={vi.fn()}
+        onRedo={vi.fn()}
+        canUndo={false}
+        canRedo={false}
+        mappingCount={0}
+        onConfidenceThresholdChange={vi.fn()}
+        autoMapCount={3}
+      />,
+    );
+    expect(screen.getByLabelText('Auto-map confidence threshold')).toBeTruthy();
+  });
+
+  it('renders compact mode toggle and applies compact class', () => {
+    const onToggleCompactMode = vi.fn();
+    const { container } = renderToolbar({
+      compactMode: true,
+      onToggleCompactMode,
+    });
+    expect(container.querySelector('.dm-toolbar--compact')).toBeTruthy();
+    fireEvent.click(screen.getByTitle('Switch to guided mode'));
+    expect(onToggleCompactMode).toHaveBeenCalledTimes(1);
+  });
+
   it('calls onAutoMap when clicked', () => {
     const { props } = renderToolbar();
     fireEvent.click(screen.getByText(/Auto-map/));
@@ -92,17 +170,17 @@ describe('MapperToolbar', () => {
 
   it('shows mapping count status', () => {
     renderToolbar({ mappingCount: 7 });
-    expect(screen.getByText('7 mappings')).toBeTruthy();
+    expect(screen.getByText(/7 mappings/)).toBeTruthy();
   });
 
   it('shows singular "mapping" for count 1', () => {
     renderToolbar({ mappingCount: 1 });
-    expect(screen.getByText('1 mapping')).toBeTruthy();
+    expect(screen.getByText(/1 mapping/)).toBeTruthy();
   });
 
-  it('hides status when no mappings', () => {
+  it('shows empty mapping status when no mappings', () => {
     renderToolbar({ mappingCount: 0 });
-    expect(screen.queryByText(/mapping/i)).toBeNull();
+    expect(screen.getByText('No mappings yet')).toBeTruthy();
   });
 
   it('undo is disabled when canUndo is false', () => {

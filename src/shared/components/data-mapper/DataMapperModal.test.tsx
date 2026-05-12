@@ -48,6 +48,13 @@ describe('DataMapperModal', () => {
     expect(screen.getByText('Test Mapper')).toBeTruthy();
   });
 
+  it('renders modal subtitle and footer helper text', () => {
+    const adapter = createAdapter();
+    render(<DataMapperModal adapter={adapter} onSave={vi.fn()} onCancel={vi.fn()} />);
+    expect(screen.getByText('Map source fields to target outputs.')).toBeTruthy();
+    expect(screen.getByText('Review mappings and save when ready')).toBeTruthy();
+  });
+
   it('renders Save and Cancel buttons', () => {
     const adapter = createAdapter();
     render(<DataMapperModal adapter={adapter} onSave={vi.fn()} onCancel={vi.fn()} />);
@@ -186,6 +193,7 @@ describe('DataMapperModal', () => {
     expect(onSave).not.toHaveBeenCalled();
     expect(screen.getByText('1 error')).toBeTruthy();
     expect(screen.getByText('1 warning')).toBeTruthy();
+    expect(screen.getByText('1 error must be fixed before saving')).toBeTruthy();
   });
 
   it('shows validation icons per issue', () => {

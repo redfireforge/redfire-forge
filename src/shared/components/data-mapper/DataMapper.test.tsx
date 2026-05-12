@@ -1485,6 +1485,44 @@ describe('DataMapper – stats footer', () => {
     expect(mappedValue!.textContent).toBe('2');
   });
 
+  it('keeps toolbar status and footer mapped count consistent for partial mapping', () => {
+    const adapter = createTestAdapter();
+    const partial: Mapping[] = [
+      { id: '1', sourcePath: 'name', sourceId: 's1', targetPath: 'userName' },
+    ];
+    const { container } = render(<DataMapper adapter={adapter} initialData={partial} />);
+    expect(screen.getByText(/1 mapping/)).toBeTruthy();
+    const mappedValue = container.querySelector('.dm-stat-value--mapped');
+    expect(mappedValue?.textContent).toBe('1');
+  });
+
+  it('keeps toolbar status and footer mapped count consistent for fully mapped shell', () => {
+    const adapter = createTestAdapter();
+    const full: Mapping[] = [
+      { id: '1', sourcePath: 'name', sourceId: 's1', targetPath: 'userName' },
+      { id: '2', sourcePath: 'email', sourceId: 's1', targetPath: 'userEmail' },
+    ];
+    const { container } = render(<DataMapper adapter={adapter} initialData={full} />);
+    expect(screen.getByText(/2 mappings/)).toBeTruthy();
+    const mappedValue = container.querySelector('.dm-stat-value--mapped');
+    expect(mappedValue?.textContent).toBe('2');
+  });
+
+  it('surfaces unresolved mappings when source or target paths are missing', () => {
+    const adapter: MapperAdapter<Mapping[]> = {
+      ...createTestAdapter(),
+      sources: [{ id: 's1', label: 'Source', sampleData: { name: 'Alice' } }],
+      target: { label: 'Target', sampleData: { userName: '' }, allowCustomFields: true },
+    };
+    const initial: Mapping[] = [
+      { id: '1', sourcePath: 'missingSource', sourceId: 's1', targetPath: 'missingTarget' },
+    ];
+    const { container } = render(<DataMapper adapter={adapter} initialData={initial} />);
+    expect(screen.getByText('0 mapped, 1 unresolved')).toBeTruthy();
+    expect(container.querySelector('.dm-stat-value--mapped')?.textContent).toBe('0');
+    expect(container.textContent).toContain('1 unresolved');
+  });
+
   it('shows expression count when mappings have expressions', () => {
     const adapter = createTestAdapter();
     const initial: Mapping[] = [
@@ -1579,7 +1617,10 @@ describe('DataMapper – coverage: pattern learning & auto-map edge cases', () =
       deserialize: (m) => m,
     };
     const { container } = render(<DataMapper adapter={adapter} />);
-    fireEvent.change(screen.getByLabelText('Auto-map confidence threshold'), { target: { value: '90' } });
+    const threshold = screen.queryByLabelText('Auto-map confidence threshold');
+    if (threshold) {
+      fireEvent.change(threshold, { target: { value: '90' } });
+    }
     fireEvent.click(screen.getByTitle('Auto-map matching fields'));
     const toast = container.querySelector('.dm-toast');
     expect(toast?.textContent).toMatch(/from patterns/);
@@ -1603,7 +1644,10 @@ describe('DataMapper – coverage: pattern learning & auto-map edge cases', () =
       deserialize: (m) => m,
     };
     const { container } = render(<DataMapper adapter={adapter} />);
-    fireEvent.change(screen.getByLabelText('Auto-map confidence threshold'), { target: { value: '90' } });
+    const threshold = screen.queryByLabelText('Auto-map confidence threshold');
+    if (threshold) {
+      fireEvent.change(threshold, { target: { value: '90' } });
+    }
     fireEvent.click(screen.getByTitle('Auto-map matching fields'));
     await bumpMapperLayout(container);
     expect(container.querySelector('.dm-connection-line--pattern')).toBeTruthy();
