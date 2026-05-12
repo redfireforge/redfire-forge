@@ -55,6 +55,8 @@ const TARGET_TYPE_SEPARATOR = '::';
 
 // ─── Template Parser ──────────────────────────────────────
 
+import type { TargetFieldLocation } from '../types';
+
 export interface TemplatePlaceholder {
   /** e.g. 'vin', 'channel', 'Content-Type' */
   name: string;
@@ -64,6 +66,8 @@ export interface TemplatePlaceholder {
   targetPath: string;
   /** Human-readable label */
   label: string;
+  /** HTTP location for grouping in the target panel */
+  location: TargetFieldLocation;
 }
 
 /**
@@ -94,6 +98,14 @@ export function parseScenarioTemplate(scenario: Scenario): TemplatePlaceholder[]
   const seen = new Set<string>();
   const placeholders: TemplatePlaceholder[] = [];
 
+  const typeToLocation: Record<DataSourceColumn['type'], TargetFieldLocation> = {
+    path: 'path',
+    param: 'query',
+    body: 'body',
+    header: 'header',
+    validate: 'body',
+  };
+
   function add(name: string, type: DataSourceColumn['type']): void {
     const targetPath = `${type}${TARGET_TYPE_SEPARATOR}${name}`;
     if (seen.has(targetPath)) return;
@@ -103,6 +115,7 @@ export function parseScenarioTemplate(scenario: Scenario): TemplatePlaceholder[]
       type,
       targetPath,
       label: `${name} (${TYPE_LABELS[type]})`,
+      location: typeToLocation[type],
     });
   }
 
@@ -224,6 +237,7 @@ export function createColumnMappingAdapter(
     label: p.label,
     type: p.type,
     required: false,
+    location: p.location,
   }));
 
   // Add a "Validation" catch-all field group so users can also map
@@ -235,6 +249,7 @@ export function createColumnMappingAdapter(
       label: 'Validation Field (custom)',
       type: 'validate',
       required: false,
+      location: 'body',
     });
   }
 

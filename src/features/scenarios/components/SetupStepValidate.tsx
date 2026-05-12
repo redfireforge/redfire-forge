@@ -5,7 +5,6 @@
 import { useState, useMemo, useCallback } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import type { Scenario, ExpectedField } from '../../../shared/types';
-import JsonPathBuilder from '../../requests/components/JsonPathBuilder';
 import {
   DataMapperModal,
   createValidationAdapter,
@@ -137,17 +136,30 @@ export default function SetupStepValidate({
                 ⚡ Visual Mapper
               </button>
             </div>
-            <JsonPathBuilder
-              sampleJson={sampleJson}
-              onSampleJsonChange={setSampleJson}
-              selectiveMode="include"
-              expectedFields={validateFields}
-              excludedPaths={validateExcluded}
-              onUpdate={(patch) => {
-                if (patch.expectedFields) setValidateFields(patch.expectedFields);
-                if (patch.excludedPaths) setValidateExcluded(patch.excludedPaths);
-              }}
-            />
+            {validateFields.length > 0 && (
+              <div className="validation-fields-summary">
+                <table className="validation-fields-table">
+                  <thead>
+                    <tr><th>JSON Path</th><th>Expected Value</th><th /></tr>
+                  </thead>
+                  <tbody>
+                    {validateFields.map((f: ExpectedField, idx: number) => (
+                      <tr key={idx}>
+                        <td><code>{f.jsonPath}</code></td>
+                        <td><code>{f.expectedValue}</code></td>
+                        <td>
+                          <button type="button" className="btn-icon-sm" title="Remove" onClick={() => {
+                            const next = [...validateFields];
+                            next.splice(idx, 1);
+                            setValidateFields(next);
+                          }}>×</button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
           {mapperOpen && (
             <DataMapperModal

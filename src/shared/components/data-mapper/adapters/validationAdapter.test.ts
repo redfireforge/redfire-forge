@@ -433,3 +433,70 @@ describe('validationAdapter – $.prefix normalization', () => {
     expect(idField?.expectedValue).toBe('second');
   });
 });
+
+// ── fetchTargetSchema ──────────────────────────────────────
+
+describe('validationAdapter – fetchTargetSchema', () => {
+  it('is undefined when fetchSampleData is not provided', () => {
+    const adapter = createValidationAdapter({ sampleResponseBody: '{"id": 1}' });
+    expect(adapter.fetchTargetSchema).toBeUndefined();
+  });
+
+  it('is defined when fetchSampleData is provided', () => {
+    const adapter = createValidationAdapter({
+      fetchSampleData: async () => ({ id: 1 }),
+    });
+    expect(adapter.fetchTargetSchema).toBeDefined();
+  });
+
+  it('returns sampleData and fields with defaultValue from fetched response', async () => {
+    const mockData = { user: { name: 'Alice', age: 30 }, status: 'ok' };
+    const adapter = createValidationAdapter({
+      fetchSampleData: async () => mockData,
+    });
+    const result = await adapter.fetchTargetSchema!();
+    expect(result.sampleData).toEqual(mockData);
+    expect(result.fields).toBeDefined();
+    expect(result.fields!.length).toBeGreaterThanOrEqual(3);
+    const nameField = result.fields!.find(f => f.path === 'user.name');
+    expect(nameField!.defaultValue).toBe('Alice');
+    expect(nameField!.label).toBe('name');
+  });
+
+  it('sets defaultValue from actual response values', async () => {
+    const adapter = createValidationAdapter({
+      fetchSampleData: async () => ({ count: 42, active: true }),
+    });
+    const result = await adapter.fetchTargetSchema!();
+    const countField = result.fields!.find(f => f.path === 'count');
+    expect(countField!.defaultValue).toBe('42');
+    const activeField = result.fields!.find(f => f.path === 'active');
+    expect(activeField!.defaultValue).toBe('true');
+  });
+
+  it('handles string JSON response', async () => {
+    const adapter = createValidationAdapter({
+      fetchSampleData: async () => '{"key": "value"}',
+    });
+    const result = await adapter.fetchTargetSchema!();
+    expect(result.sampleData).toEqual({ key: 'value' });
+    expect(result.fields![0].path).toBe('key');
+    expect(result.fields![0].defaultValue).toBe('value');
+  });
+
+  it('handles null response gracefully', async () => {
+    const adapter = createValidationAdapter({
+      fetchSampleData: async () => null,
+    });
+    const result = await adapter.fetchTargetSchema!();
+    expect(result.sampleData).toBeUndefined();
+    expect(result.fields).toBeUndefined();
+  });
+
+  it('propagates fetch errors', async () => {
+    const adapter = createValidationAdapter({
+      fetchSampleData: async () => { throw new Error('Timeout'); },
+    });
+    await expect(adapter.fetchTargetSchema!()).rejects.toThrow('Timeout');
+  });
+});

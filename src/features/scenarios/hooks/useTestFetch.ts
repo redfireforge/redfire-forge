@@ -276,8 +276,11 @@ export function useTestFetch({
         try { pretty = JSON.stringify(JSON.parse(result.body), null, 2); } catch { pretty = result.body; }
         const v = latest.validation;
         const hasExistingRules = (v.expectedFields || []).length > 0;
+        const hasExistingSampleResponse = (v.sampleJson || '').trim().length > 0;
 
-        if (hasExistingRules) {
+        // Keep fetch behavior consistent with real tests: when a response already exists
+        // (or rules exist), require explicit confirmation before replacing it.
+        if (hasExistingRules || hasExistingSampleResponse) {
           setPendingFetchResponse(pretty);
         } else {
           const prevVersions = v.responseVersions || [];

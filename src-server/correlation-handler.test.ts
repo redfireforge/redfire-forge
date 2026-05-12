@@ -1341,6 +1341,42 @@ describe('resume queue cleanup behavior', () => {
     server?.close();
   });
 
+  it('wait times out when no resume arrives within timeout', async () => {
+    const res = await request
+      .get('/api/correlations/timeout-test/wait')
+      .query({ timeoutMs: 1000 });
+
+    expect(res.status).toBe(200);
+    expect(res.body.resumed).toBe(false);
+    expect(res.body.timedOut).toBe(true);
+    expect(res.body.correlationId).toBe('timeout-test');
+  }, 10000);
+
+  it('second resume for same correlation is queued after first settles waiter', async () => {
+    const waitPromise = request
+      .get('/api/correlations/dup-settle/wait')
+      .query({ timeoutMs: 5000 });
+
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    notifyResume('dup-settle', {
+      executionId: 'exec-dup-1',
+      workflowId: 'wf-dup',
+      ts: Date.now(),
+    });
+
+    const res = await waitPromise;
+    expect(res.status).toBe(200);
+    expect(res.body.resumed).toBe(true);
+    expect(res.body.executionId).toBe('exec-dup-1');
+
+    const res2 = await request
+      .get('/api/correlations/dup-settle/wait')
+      .query({ timeoutMs: 1000 });
+    expect(res2.body.resumed).toBe(false);
+    expect(res2.body.timedOut).toBe(true);
+  }, 10000);
+
   it('picks up queued resume data immediately', async () => {
     // Queue resume data before any waiter
     notifyResume('pre-queued', {

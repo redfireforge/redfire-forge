@@ -249,4 +249,118 @@ export const mapperGallerySamples: MapperGallerySample[] = [
       { id: 'g6-m4', sourceId: 'src', sourcePath: 'category', targetPath: 'badge', expression: '$if($.discount, $concat("SALE: ", $toString($multiply($.discount, 100)), "% OFF"), "")' },
     ],
   },
+
+  {
+    id: 'gallery-location-groups',
+    name: 'Location-Aware Target',
+    description: 'Map CSV columns to HTTP request slots grouped by location: path, query, header, and body.',
+    difficulty: 'medium',
+    tags: ['location', 'path', 'query', 'header', 'body', 'column-mapping'],
+    sources: [
+      {
+        id: 'csv',
+        label: 'CSV Columns',
+        sampleData: {
+          user_id: '42',
+          page: '1',
+          auth_token: 'Bearer abc123',
+          display_name: 'Alice',
+          email: 'alice@example.com',
+        },
+      },
+    ],
+    target: {
+      label: 'HTTP Request Slots',
+      sampleData: null,
+      allowCustomFields: true,
+      fields: [
+        { path: 'userId', label: 'userId', type: 'path', location: 'path' as never },
+        { path: 'page', label: 'page', type: 'param', location: 'query' as never },
+        { path: 'Authorization', label: 'Authorization', type: 'header', location: 'header' as never },
+        { path: 'name', label: 'name', type: 'string', location: 'body' as never },
+        { path: 'email', label: 'email', type: 'string', location: 'body' as never },
+      ],
+    },
+    mappings: [
+      { id: 'g7-m1', sourceId: 'csv', sourcePath: 'user_id', targetPath: 'userId' },
+      { id: 'g7-m2', sourceId: 'csv', sourcePath: 'page', targetPath: 'page' },
+      { id: 'g7-m3', sourceId: 'csv', sourcePath: 'auth_token', targetPath: 'Authorization' },
+      { id: 'g7-m4', sourceId: 'csv', sourcePath: 'display_name', targetPath: 'name' },
+      { id: 'g7-m5', sourceId: 'csv', sourcePath: 'email', targetPath: 'email' },
+    ],
+  },
+
+  {
+    id: 'gallery-custom-fields',
+    name: 'Custom Target Fields',
+    description: 'Add custom target fields alongside adapter-defined ones. Mix adapter, custom, and fetched field origins.',
+    difficulty: 'medium',
+    tags: ['custom', 'target', 'editable', 'origin', 'add-field'],
+    sources: [
+      {
+        id: 'api',
+        label: 'Auth Response',
+        sampleData: {
+          token: 'eyJhbGciOiJIUzI1NiJ9...',
+          refreshToken: 'rt_abc123',
+          expiresIn: 3600,
+          user: { id: 99, role: 'admin' },
+        },
+      },
+    ],
+    target: {
+      label: 'Extraction Variables',
+      sampleData: null,
+      allowCustomFields: true,
+      fields: [
+        { path: 'authToken', label: 'Auth Token', type: 'string' },
+        { path: 'refreshToken', label: 'Refresh Token', type: 'string' },
+        { path: 'sessionDuration', label: 'Session Duration', type: 'number' },
+        { path: 'userId', label: 'User ID', type: 'number' },
+        { path: 'userRole', label: 'User Role', type: 'string' },
+      ],
+    },
+    mappings: [
+      { id: 'g8-m1', sourceId: 'api', sourcePath: 'token', targetPath: 'authToken' },
+      { id: 'g8-m2', sourceId: 'api', sourcePath: 'refreshToken', targetPath: 'refreshToken' },
+      { id: 'g8-m3', sourceId: 'api', sourcePath: 'expiresIn', targetPath: 'sessionDuration' },
+      { id: 'g8-m4', sourceId: 'api', sourcePath: 'user.id', targetPath: 'userId' },
+      { id: 'g8-m5', sourceId: 'api', sourcePath: 'user.role', targetPath: 'userRole' },
+    ],
+  },
+
+  {
+    id: 'gallery-default-values',
+    name: 'Pre-Filled Defaults',
+    description: 'Target fields with default values from API response. Demonstrates validation adapter pattern.',
+    difficulty: 'easy',
+    tags: ['default', 'validation', 'expected', 'pre-filled'],
+    sources: [
+      {
+        id: 'response',
+        label: 'API Response',
+        sampleData: {
+          status: 'success',
+          data: { id: 1, name: 'Widget', price: 29.99, inStock: true },
+        },
+      },
+    ],
+    target: {
+      label: 'Validation Expected',
+      sampleData: null,
+      allowCustomFields: true,
+      fields: [
+        { path: 'status', label: 'status', type: 'string', defaultValue: 'success' },
+        { path: 'data.id', label: 'id', type: 'number', defaultValue: '1' },
+        { path: 'data.name', label: 'name', type: 'string', defaultValue: 'Widget' },
+        { path: 'data.price', label: 'price', type: 'number', defaultValue: '29.99' },
+        { path: 'data.inStock', label: 'inStock', type: 'boolean', defaultValue: 'true' },
+      ],
+    },
+    mappings: [
+      { id: 'g9-m1', sourceId: 'response', sourcePath: 'status', targetPath: 'status' },
+      { id: 'g9-m2', sourceId: 'response', sourcePath: 'data.name', targetPath: 'data.name' },
+      { id: 'g9-m3', sourceId: 'response', sourcePath: 'data.price', targetPath: 'data.price' },
+    ],
+  },
 ];

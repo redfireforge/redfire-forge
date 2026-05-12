@@ -7,6 +7,7 @@ import type { MapperTarget, Mapping } from './types';
 const target: MapperTarget = {
   label: 'Output',
   sampleData: { userName: '', email: '', address: { city: '' } },
+  allowCustomFields: false,
 };
 
 const mapping: Mapping = { id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'userName' };
@@ -149,5 +150,318 @@ describe('TargetPanel', () => {
     renderPanel({ target: { label: 'Empty', sampleData: null } });
     fireEvent.click(screen.getByLabelText('Expand all'));
     expect(screen.getByText(/No target schema/)).toBeTruthy();
+  });
+
+  describe('fields-based tree (12A)', () => {
+    const fieldsTarget: MapperTarget = {
+      label: 'API Fields',
+      sampleData: undefined,
+      fields: [
+        { path: 'name', label: 'Name', type: 'string' },
+        { path: 'age', label: 'Age', type: 'number' },
+        { path: 'address.city', label: 'City', type: 'string' },
+      ],
+      allowCustomFields: true,
+    };
+
+    it('renders tree from fields when sampleData is absent', () => {
+      renderPanel({ target: fieldsTarget });
+      expect(screen.getByText('Name')).toBeTruthy();
+      expect(screen.getByText('Age')).toBeTruthy();
+    });
+
+    it('shows "fields" schema source badge', () => {
+      renderPanel({ target: fieldsTarget });
+      expect(screen.getByText('fields')).toBeTruthy();
+    });
+
+    it('does not show "fields" badge when sampleData is present', () => {
+      renderPanel();
+      expect(screen.queryByText('fields')).toBeNull();
+    });
+
+    it('auto-expands nested fields', () => {
+      renderPanel({ target: fieldsTarget });
+      expect(screen.getByText('City')).toBeTruthy();
+    });
+
+    it('renders type pills on field nodes', () => {
+      const { container } = renderPanel({ target: fieldsTarget });
+      const numPills = container.querySelectorAll('.dm-type-pill--number');
+      expect(numPills.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('shows drop zone hints on unmapped leaf fields', () => {
+      const { container } = renderPanel({ target: fieldsTarget });
+      const hints = container.querySelectorAll('.dm-drop-zone-hint');
+      expect(hints.length).toBeGreaterThanOrEqual(2);
+    });
+
+    it('supports mappings on field-generated nodes', () => {
+      const fieldMapping: Mapping = { id: 'm2', sourcePath: 'src.name', sourceId: 's1', targetPath: 'name' };
+      renderPanel({ target: fieldsTarget, mappings: [fieldMapping] });
+      expect(screen.getByText('1 mapped')).toBeTruthy();
+      expect(screen.getByText('←')).toBeTruthy();
+    });
+
+    it('forwards field reorder drops when fields tree is shown', () => {
+      const onReorderField = vi.fn();
+      renderPanel({ target: fieldsTarget, onReorderField });
+      const ageNode = screen.getByText('Age').closest('.dm-tree-node')!;
+      const dt = {
+        getData: (type: string) => (type === 'application/mapper-target-field'
+          ? JSON.stringify({ kind: 'target-field', path: 'name' })
+          : ''),
+        dropEffect: 'none',
+      };
+      fireEvent.drop(ageNode, { dataTransfer: dt });
+      expect(onReorderField).toHaveBeenCalledWith('name', 'age');
+    });
+
+    it('shows empty state when fields is empty array', () => {
+      const emptyFields: MapperTarget = {
+        label: 'Empty',
+        sampleData: undefined,
+        fields: [],
+        allowCustomFields: false,
+      };
+      renderPanel({ target: emptyFields });
+      expect(screen.getByText(/No target schema/)).toBeTruthy();
+    });
+
+    it('prefers sampleData over fields when both are present', () => {
+      const both: MapperTarget = {
+        label: 'Both',
+        sampleData: { output: 'val' },
+        fields: [{ path: 'fieldOnly', label: 'Field Only' }],
+        allowCustomFields: false,
+      };
+      renderPanel({ target: both });
+      expect(screen.getByText('output')).toBeTruthy();
+      expect(screen.queryByText('Field Only')).toBeNull();
+      expect(screen.queryByText('fields')).toBeNull();
+    });
+
+    it('handles :: separator paths as flat leaves', () => {
+      const colTarget: MapperTarget = {
+        label: 'Column Mapping',
+        sampleData: undefined,
+        fields: [
+          { path: 'path::userId', label: 'userId (path)', type: 'path' },
+          { path: 'param::page', label: 'page (param)', type: 'param' },
+        ],
+        allowCustomFields: true,
+      };
+      renderPanel({ target: colTarget });
+      expect(screen.getByText('userId (path)')).toBeTruthy();
+      expect(screen.getByText('page (param)')).toBeTruthy();
+    });
+  });
+
+  describe('editable target fields (12B)', () => {
+    const editableTarget: MapperTarget = {
+      label: 'Editable',
+      sampleData: undefined,
+      fields: [
+        { path: 'name', label: 'Name', type: 'string', origin: 'adapter' },
+        { path: 'custom1', label: 'Custom1', type: 'string', origin: 'custom' },
+      ],
+      allowCustomFields: true,
+    };
+
+    it('shows "+ Add Field" button when allowCustomFields is true', () => {
+      renderPanel({ target: editableTarget, onAddCustomField: vi.fn() });
+      expect(screen.getByText('+ Add Field')).toBeTruthy();
+    });
+
+    it('does not show "+ Add Field" when allowCustomFields is false', () => {
+      renderPanel({ target: { ...editableTarget, allowCustomFields: false } });
+      expect(screen.queryByText('+ Add Field')).toBeNull();
+    });
+
+    it('does not show "+ Add Field" when onAddCustomField is not provided', () => {
+      renderPanel({ target: editableTarget });
+      expect(screen.queryByText('+ Add Field')).toBeNull();
+    });
+
+    it('renders origin badge for custom fields', () => {
+      const { container } = renderPanel({ target: editableTarget });
+      const badges = container.querySelectorAll('.dm-origin-badge--custom');
+      expect(badges.length).toBe(1);
+    });
+
+    it('does not render origin badge for adapter fields', () => {
+      const adapterOnly: MapperTarget = {
+        label: 'AdapterOnly',
+        sampleData: undefined,
+        fields: [{ path: 'name', label: 'Name', origin: 'adapter' }],
+        allowCustomFields: false,
+      };
+      const { container } = renderPanel({ target: adapterOnly });
+      expect(container.querySelectorAll('.dm-origin-badge').length).toBe(0);
+    });
+
+    it('renders fetched origin badge', () => {
+      const fetchedTarget: MapperTarget = {
+        label: 'Fetched',
+        sampleData: undefined,
+        fields: [{ path: 'data', label: 'Data', origin: 'fetched' }],
+        allowCustomFields: true,
+      };
+      const { container } = renderPanel({ target: fetchedTarget });
+      expect(container.querySelectorAll('.dm-origin-badge--fetched').length).toBe(1);
+    });
+
+    it('shows remove button on custom field hover', () => {
+      const onRemove = vi.fn();
+      const { container } = renderPanel({
+        target: editableTarget,
+        onRemoveCustomField: onRemove,
+      });
+      const removeBtn = container.querySelector('.dm-inline-remove--field');
+      expect(removeBtn).toBeTruthy();
+    });
+
+    it('calls onRemoveCustomField when remove button is clicked', () => {
+      const onRemove = vi.fn();
+      const { container } = renderPanel({
+        target: editableTarget,
+        onRemoveCustomField: onRemove,
+      });
+      const removeBtn = container.querySelector('.dm-inline-remove--field');
+      fireEvent.click(removeBtn!);
+      expect(onRemove).toHaveBeenCalledWith('custom1');
+    });
+  });
+
+  describe('target fetch + paste (12C)', () => {
+    it('shows fetch button when canFetchTarget is true', () => {
+      renderPanel({ canFetchTarget: true, onFetchTargetSchema: vi.fn() });
+      expect(screen.getByLabelText('Fetch target schema')).toBeTruthy();
+    });
+
+    it('does not show fetch button when canFetchTarget is false', () => {
+      renderPanel();
+      expect(screen.queryByLabelText('Fetch target schema')).toBeNull();
+    });
+
+    it('shows paste button when onPasteTargetSample is provided', () => {
+      renderPanel({ onPasteTargetSample: vi.fn() });
+      expect(screen.getByLabelText('Paste JSON')).toBeTruthy();
+    });
+
+    it('toggles paste mode on paste button click', () => {
+      renderPanel({ onPasteTargetSample: vi.fn() });
+      fireEvent.click(screen.getByLabelText('Paste JSON'));
+      expect(screen.getByLabelText('Paste target JSON')).toBeTruthy();
+    });
+
+    it('calls onPasteTargetSample with parsed JSON on Apply', () => {
+      const onPaste = vi.fn();
+      renderPanel({ onPasteTargetSample: onPaste });
+      fireEvent.click(screen.getByLabelText('Paste JSON'));
+      const textarea = screen.getByLabelText('Paste target JSON');
+      fireEvent.change(textarea, { target: { value: '{"test": 123}' } });
+      fireEvent.click(screen.getByText('Apply'));
+      expect(onPaste).toHaveBeenCalledWith({ test: 123 });
+    });
+
+    it('shows paste error for invalid JSON', () => {
+      renderPanel({ onPasteTargetSample: vi.fn() });
+      fireEvent.click(screen.getByLabelText('Paste JSON'));
+      const textarea = screen.getByLabelText('Paste target JSON');
+      fireEvent.change(textarea, { target: { value: '{bad json' } });
+      fireEvent.click(screen.getByText('Apply'));
+      expect(screen.getByRole('alert')).toBeTruthy();
+    });
+
+    it('shows paste error for empty input', () => {
+      const emptyTarget: MapperTarget = { label: 'Empty', sampleData: undefined, allowCustomFields: false };
+      renderPanel({ target: emptyTarget, onPasteTargetSample: vi.fn() });
+      fireEvent.click(screen.getByLabelText('Paste JSON'));
+      fireEvent.click(screen.getByText('Apply'));
+      expect(screen.getByText('Paste some JSON')).toBeTruthy();
+    });
+
+    it('cancels paste mode', () => {
+      renderPanel({ onPasteTargetSample: vi.fn() });
+      fireEvent.click(screen.getByLabelText('Paste JSON'));
+      fireEvent.click(screen.getByText('Cancel'));
+      expect(screen.queryByLabelText('Paste target JSON')).toBeNull();
+    });
+
+    it('displays target fetch error', () => {
+      renderPanel({ targetFetchError: 'Network error' });
+      expect(screen.getByText('Network error')).toBeTruthy();
+    });
+
+    it('shows spinner during fetch', async () => {
+      let resolveFetch: () => void = () => {};
+      const fetchFn = () => new Promise<void>((r) => { resolveFetch = r; });
+      renderPanel({ canFetchTarget: true, onFetchTargetSchema: fetchFn });
+      fireEvent.click(screen.getByLabelText('Fetch target schema'));
+      expect(screen.getByText('⏳')).toBeTruthy();
+      resolveFetch();
+    });
+
+    it('pre-fills paste textarea with existing sampleData', () => {
+      renderPanel({
+        target: { ...target, sampleData: { foo: 'bar' } },
+        onPasteTargetSample: vi.fn(),
+      });
+      fireEvent.click(screen.getByLabelText('Paste JSON'));
+      const textarea = screen.getByLabelText('Paste target JSON') as HTMLTextAreaElement;
+      expect(textarea.value).toContain('"foo"');
+    });
+  });
+
+  describe('location grouping', () => {
+    const groupTarget: MapperTarget = {
+      label: 'Grouped',
+      sampleData: undefined,
+      fields: [
+        { path: 'userId', label: 'userId', type: 'string', location: 'path' },
+        { path: 'page', label: 'page', type: 'string', location: 'query' },
+        { path: 'Authorization', label: 'Authorization', type: 'string', location: 'header' },
+        { path: 'name', label: 'name', type: 'string', location: 'body' },
+      ],
+      allowCustomFields: true,
+    };
+
+    it('renders LocationGroupPanel when fields have locations', () => {
+      renderPanel({ target: groupTarget, onAddCustomField: vi.fn() });
+      expect(screen.getByText('Path')).toBeTruthy();
+      expect(screen.getByText('Query')).toBeTruthy();
+      expect(screen.getByText('Headers')).toBeTruthy();
+      expect(screen.getByText('Body')).toBeTruthy();
+    });
+
+    it('uses flat tree when no fields have locations', () => {
+      const noLocTarget: MapperTarget = {
+        label: 'No Loc',
+        sampleData: undefined,
+        fields: [
+          { path: 'field1', label: 'field1', type: 'string' },
+          { path: 'field2', label: 'field2', type: 'string' },
+        ],
+      };
+      renderPanel({ target: noLocTarget });
+      expect(screen.queryByText('Path')).toBeNull();
+      expect(screen.getByText('field1')).toBeTruthy();
+    });
+
+    it('hides general Add Field when location groups are active', () => {
+      renderPanel({ target: groupTarget, onAddCustomField: vi.fn() });
+      const addBtns = screen.getAllByText('+ Add Field');
+      for (const btn of addBtns) {
+        expect(btn.closest('.dm-loc-group-body')).toBeTruthy();
+      }
+    });
+
+    it('renders field nodes with data-path for connection lines across groups', () => {
+      const { container } = renderPanel({ target: groupTarget });
+      expect(container.querySelector('[data-path="userId"]')).toBeTruthy();
+      expect(container.querySelector('[data-path="name"]')).toBeTruthy();
+    });
   });
 });

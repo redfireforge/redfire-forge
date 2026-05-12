@@ -84,6 +84,7 @@ describe('suggestRepairs', () => {
     const top = suggestions[0];
     expect(top.suggestedPath).toBe('emails');
     expect(top.confidence).toBeGreaterThan(70);
+    expect(top.reason).toContain('likely rename');
   });
 
   it('returns empty for no viable candidates', () => {
@@ -159,6 +160,43 @@ describe('suggestRepairs', () => {
     expect(sameType).toBeDefined();
     expect(diffType).toBeDefined();
     expect(sameType!.confidence).toBeGreaterThan(diffType!.confidence);
+  });
+
+  it('renamed-candidate skips fields under a different parent path', () => {
+    const saved = snap([{ path: 'user.oldField', type: 'string' }]);
+    const current = snap([
+      { path: 'user.oldField', type: 'string' },
+      { path: 'other.qqqqqqqqqq', type: 'string' },
+    ]);
+    const suggestions = suggestRepairs('user.oldField', 'm1', current, saved);
+    const renamed = suggestions.filter((s) => s.strategy === 'renamed-candidate');
+    expect(renamed.some((s) => s.suggestedPath === 'other.qqqqqqqqqq')).toBe(false);
+  });
+
+  it('lastSegment resolves trailing [*] to parent token for drift path', () => {
+    const saved = snap([
+      { path: 'wrap.[*]', type: 'string' },
+    ]);
+    const current = snap([
+      { path: 'wrap.[*]', type: 'string' },
+      { path: 'wrap.candidate', type: 'string' },
+    ]);
+    const suggestions = suggestRepairs('wrap.[*]', 'm1', current, saved);
+    expect(suggestions.some((s) => s.suggestedPath === 'wrap.candidate')).toBe(true);
+  });
+
+  it('skips renamed-candidate when field already existed in saved snapshot', () => {
+    const saved = snap([
+      { path: 'user.kept', type: 'string' },
+      { path: 'user.removed', type: 'string' },
+    ]);
+    const current = snap([
+      { path: 'user.kept', type: 'string' },
+      { path: 'user.removed', type: 'string' },
+    ]);
+    const suggestions = suggestRepairs('user.removed', 'm1', current, saved);
+    const renamed = suggestions.filter((s) => s.strategy === 'renamed-candidate');
+    expect(renamed.some((s) => s.suggestedPath === 'user.kept')).toBe(false);
   });
 });
 
@@ -286,5 +324,25 @@ describe('applyRepair', () => {
     expect(repaired.sourcePath).toBe('xx');
     expect(repaired.expression).toBe('$upper(xx)');
     expect(repaired.sourceId).toBe('s1');
+  });
+
+  it('rewrites $. paths in expressions when paths already use $. prefix', () => {
+    const mapping: Mapping = {
+      id: 'm3',
+      sourceId: 's1',
+      sourcePath: '$.old.p',
+      targetPath: 'out',
+      expression: '$concat($.old.p, $.old.p)',
+    };
+    const suggestion = {
+      driftPath: '$.old.p',
+      mappingId: 'm3',
+      suggestedPath: '$.new.p',
+      reason: 'rename',
+      strategy: 'similar-name' as const,
+      confidence: 90,
+    };
+    const repaired = applyRepair(mapping, suggestion);
+    expect(repaired.expression).toBe('$concat($.new.p, $.new.p)');
   });
 });

@@ -47,7 +47,7 @@ export default function PreviewBar({
   const targetJson = useMemo(() => {
     if (!preview) return '';
     try {
-      return JSON.stringify(preview.targetObject, null, 2);
+      return JSON.stringify(normalizePreviewDisplayJson(preview.targetObject), null, 2);
     } catch {
       return '{}';
     }
@@ -97,4 +97,52 @@ export default function PreviewBar({
       )}
     </div>
   );
+}
+
+function normalizePreviewDisplayJson(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map((item) => normalizePreviewDisplayJson(item));
+  }
+
+  if (value != null && typeof value === 'object') {
+    const result: Record<string, unknown> = {};
+    for (const [key, item] of Object.entries(value)) {
+      result[normalizePreviewKey(key)] = normalizePreviewDisplayJson(item);
+    }
+    return result;
+  }
+
+  if (typeof value === 'string') {
+    return normalizePreviewStringValue(value);
+  }
+
+  return value;
+}
+
+function normalizePreviewKey(key: string): string {
+  const trimmed = key.trim();
+  if (!(trimmed.startsWith('"') && trimmed.endsWith('"'))) return key;
+  try {
+    const parsed = JSON.parse(trimmed);
+    return typeof parsed === 'string' ? parsed : key;
+  } catch {
+    return key;
+  }
+}
+
+function normalizePreviewStringValue(value: string): unknown {
+  const trimmed = value.trim();
+  const looksQuoted = trimmed.startsWith('"') && trimmed.endsWith('"');
+  const looksContainer = (
+    (trimmed.startsWith('{') && trimmed.endsWith('}'))
+    || (trimmed.startsWith('[') && trimmed.endsWith(']'))
+  );
+  if (!looksQuoted && !looksContainer) return value;
+
+  try {
+    const parsed = JSON.parse(trimmed);
+    return normalizePreviewDisplayJson(parsed);
+  } catch {
+    return value;
+  }
 }

@@ -84,6 +84,13 @@ describe('savePattern / loadPattern', () => {
     expect(loadPattern('nonexistent', srcPaths, tgtPaths)).toBeNull();
   });
 
+  it('returns null when stored pattern entries is not an array', () => {
+    const key = buildPatternKey('ctx-bad', srcPaths, tgtPaths);
+    localStorage.setItem(key, JSON.stringify({ entries: {}, savedAt: 1 }));
+    expect(loadPattern('ctx-bad', srcPaths, tgtPaths)).toBeNull();
+    localStorage.removeItem(key);
+  });
+
   it('does not save empty mappings', () => {
     savePattern('test', srcPaths, tgtPaths, []);
     expect(loadPattern('test', srcPaths, tgtPaths)).toBeNull();
@@ -171,13 +178,33 @@ describe('patternToSuggestions', () => {
 
 describe('loadPattern error handling', () => {
   it('returns null for corrupt JSON in localStorage', () => {
-    localStorage.setItem('dm-patterns:test:abc:def', 'NOT VALID JSON');
+    const key = buildPatternKey('test', ['a'], ['b']);
+    localStorage.setItem(key, 'NOT VALID JSON');
     expect(loadPattern('test', ['a'], ['b'])).toBeNull();
-    localStorage.removeItem('dm-patterns:test:abc:def');
+    localStorage.removeItem(key);
   });
 });
 
 describe('savePattern with pruning', () => {
+  it('ignores pattern keys with empty stored payload during prune scan', () => {
+    const key = 'dm-patterns:empty-payload:x:y';
+    localStorage.setItem(key, '');
+    savePattern('z', ['a'], ['b'], [
+      { id: '1', sourcePath: 'a', sourceId: 's', targetPath: 'b' },
+    ]);
+    expect(loadPattern('z', ['a'], ['b'])).not.toBeNull();
+    localStorage.removeItem(key);
+  });
+
+  it('ignores unrelated keys while pruning scans storage', () => {
+    localStorage.setItem('unrelated', 'x');
+    savePattern('scan', ['a'], ['b'], [
+      { id: '1', sourcePath: 'a', sourceId: 's', targetPath: 'b' },
+    ]);
+    expect(localStorage.getItem('unrelated')).toBe('x');
+    localStorage.removeItem('unrelated');
+  });
+
   it('prunes oldest entries when exceeding max count', () => {
     for (let i = 0; i < 105; i++) {
       const key = `dm-patterns:ctx${i}:h${i}:h${i}`;

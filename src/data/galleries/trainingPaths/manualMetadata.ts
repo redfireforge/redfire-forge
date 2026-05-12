@@ -310,6 +310,9 @@ export const manualMetadata: ManualMetadata[] = [
   { manualPath: 'data-mapper/data-mapper-expressions-medium.html', addedAt: date('2026-05-10') },
   { manualPath: 'data-mapper/data-mapper-arrays-medium.html', addedAt: date('2026-05-10') },
   { manualPath: 'data-mapper/data-mapper-workflow-advanced.html', addedAt: date('2026-05-10') },
+  { manualPath: 'data-mapper/data-mapper-target-schema-medium.html', addedAt: date('2026-05-11') },
+  { manualPath: 'data-mapper/data-mapper-schema-drift-advanced.html', addedAt: date('2026-05-11') },
+  { manualPath: 'data-mapper/data-mapper-debugger-advanced.html', addedAt: date('2026-05-11') },
 ];
 
 /** Map of manualPath -> ManualMetadata for fast lookup */

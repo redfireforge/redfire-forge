@@ -766,4 +766,42 @@ describe('edge cases', () => {
     expect(shared.contextId).toBe('shared-ds-fetch');
     expect(shared.contextId).not.toBe('populate-from-api');
   });
+
+  it('title falls back to method + API when URL is invalid', () => {
+    const adapter = createSharedDsFetchAdapter({
+      dataSource: makeDataSource(),
+      fetchConfig: { url: 'http://[invalid', method: 'POST', headers: {}, body: '' },
+    });
+    expect(adapter.title).toBe('POST API → Data Source');
+  });
+
+  it('title defaults to GET when fetchConfig has url but no method', () => {
+    const adapter = createSharedDsFetchAdapter({
+      dataSource: makeDataSource(),
+      fetchConfig: { url: '/api/v1/items', headers: {}, body: '' },
+    });
+    expect(adapter.title).toBe('GET /api/v1/items → Data Source');
+  });
+
+  it('fetchSampleData handles null response from callback', async () => {
+    const adapter = createSharedDsFetchAdapter({
+      dataSource: makeDataSource(),
+      fetchSampleData: async () => null,
+    });
+    const result = await adapter.fetchSampleData!();
+    expect(result).toBeUndefined();
+  });
+
+  it('validate reports no-array-path when response exists but arrayPath is undefined', () => {
+    const adapter = createSharedDsFetchAdapter({
+      dataSource: makeDataSource(),
+      responseJson: { data: 'not array' },
+      selectedArrayPath: undefined,
+    });
+    const mappings: Mapping[] = [
+      { id: 'v1', sourceId: 'shared-ds-fetch-response', sourcePath: 'data', targetPath: 'Col' },
+    ];
+    const issues = adapter.validate(mappings);
+    expect(issues.some(i => i.message.includes('No array found'))).toBe(true);
+  });
 });

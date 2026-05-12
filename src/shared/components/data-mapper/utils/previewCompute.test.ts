@@ -1,6 +1,8 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { computePreview } from './previewCompute';
 import type { Mapping, MapperSource } from '../types';
+import * as mapperExpr from './mapperExpressionEvaluator';
+import * as jsonPath from '../../../utils/jsonPath';
 
 const sources: MapperSource[] = [
   { id: 's1', label: 'Response', sampleData: { name: 'Alice', age: 30, address: { city: 'NYC' } } },
@@ -290,5 +292,127 @@ describe('computePreview', () => {
     const items = result.targetObject.items as Record<string, unknown>[];
     expect(Array.isArray(items)).toBe(true);
     expect(items[0].label).toBe('Alice');
+  });
+
+  it('records expression evaluator error without throwing', () => {
+    const spy = vi.spyOn(mapperExpr, 'evaluateMapperExpression').mockReturnValue({
+      value: undefined,
+      preview: '',
+      error: 'parse error',
+    });
+    try {
+      const mappings: Mapping[] = [
+        { id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'userName', expression: '$bad' },
+      ];
+      const result = computePreview(mappings, sources, 's1', targetSample);
+      expect(result.fields[0].error).toBe('parse error');
+      expect(result.errorCount).toBe(1);
+      expect(result.targetObject.userName).toBeNull();
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('maps expression value when evaluation succeeds', () => {
+    const spy = vi.spyOn(mapperExpr, 'evaluateMapperExpression').mockReturnValue({
+      value: 'computed',
+      preview: 'computed',
+    });
+    try {
+      const mappings: Mapping[] = [
+        { id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'userName', expression: '$noop()' },
+      ];
+      const result = computePreview(mappings, sources, 's1', targetSample);
+      expect(result.fields[0].error).toBeUndefined();
+      expect(result.fields[0].value).toBe('computed');
+      expect(result.errorCount).toBe(0);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('surfaces Error instances from getByPath in preview field', () => {
+    const spy = vi.spyOn(jsonPath, 'getByPath').mockImplementation(() => {
+      throw new Error('path failed');
+    });
+    try {
+      const mappings: Mapping[] = [
+        { id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'out' },
+      ];
+      const result = computePreview(mappings, sources, 's1', {});
+      expect(result.fields[0].error).toBe('path failed');
+      expect(result.errorCount).toBe(1);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('uses Evaluation failed when direct path resolution throws non-Error', () => {
+    const spy = vi.spyOn(jsonPath, 'getByPath').mockImplementation(() => {
+      throw 'not-an-error-instance';
+    });
+    try {
+      const mappings: Mapping[] = [
+        { id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'out' },
+      ];
+      const result = computePreview(mappings, sources, 's1', {});
+      expect(result.fields[0].error).toBe('Evaluation failed');
+      expect(result.errorCount).toBe(1);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('does not set values under unsafe path segments', () => {
+    const mappings: Mapping[] = [
+      { id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'constructor.foo' },
+    ];
+    const result = computePreview(mappings, sources, 's1', {});
+    expect(Object.prototype.hasOwnProperty.call(result.targetObject, 'constructor')).toBe(false);
+  });
+
+  it('parses target paths with non-numeric bracket keys', () => {
+    const mappings: Mapping[] = [
+      { id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'wrap[ab].label' },
+    ];
+    const result = computePreview(mappings, sources, 's1', { wrap: { ab: { label: '' } } });
+    expect((result.targetObject.wrap as Record<string, unknown>).ab).toBeDefined();
+    expect(((result.targetObject.wrap as Record<string, unknown>).ab as Record<string, unknown>).label).toBe('Alice');
+  });
+
+  it('stops parsing when bracket is unclosed', () => {
+    const mappings: Mapping[] = [
+      { id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: '[broken' },
+    ];
+    const result = computePreview(mappings, sources, 's1', {});
+    expect(result.targetObject).toEqual({});
+  });
+
+  it('leaves direct mapping null when sample JSON coerces to empty', () => {
+    const badSources: MapperSource[] = [{ id: 's1', label: 'x', sampleData: '{ not json' }];
+    const mappings: Mapping[] = [
+      { id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'out' },
+    ];
+    const result = computePreview(mappings, badSources, 's1', {});
+    expect(result.fields[0].value).toBeNull();
+  });
+
+  it('maps target path bracket star index to zero', () => {
+    const mappings: Mapping[] = [
+      { id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'rows[*].x' },
+    ];
+    const result = computePreview(mappings, sources, 's1', { rows: [{ x: '' }] });
+    const rows = result.targetObject.rows as Record<string, unknown>[];
+    expect(rows[0].x).toBe('Alice');
+  });
+
+  it('creates array interior when next segment is numeric', () => {
+    const mappings: Mapping[] = [
+      { id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'a[0].b' },
+    ];
+    const result = computePreview(mappings, sources, 's1', {});
+    const a = result.targetObject.a as unknown[];
+    expect(Array.isArray(a)).toBe(true);
+    expect((a[0] as Record<string, unknown>).b).toBe('Alice');
   });
 });

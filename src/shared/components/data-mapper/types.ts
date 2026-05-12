@@ -51,11 +51,17 @@ export interface MapperSource {
   fieldDescriptions?: Record<string, string>;
 }
 
+export type TargetFieldOrigin = 'adapter' | 'custom' | 'fetched';
+export type TargetFieldLocation = 'path' | 'query' | 'header' | 'body' | 'bodyForm';
+
 export interface TargetField {
   path: string;
   label: string;
   type?: string;
   required?: boolean;
+  origin?: TargetFieldOrigin;
+  location?: TargetFieldLocation;
+  defaultValue?: string;
 }
 
 export interface FieldConstraint {
@@ -73,6 +79,14 @@ export interface MapperTarget {
   fieldConstraints?: Record<string, FieldConstraint>;
 }
 
+// ─── Target Schema Result ────────────────────────────────
+
+export interface TargetSchemaResult {
+  sampleData?: unknown;
+  fields?: TargetField[];
+  label?: string;
+}
+
 // ─── Adapter ──────────────────────────────────────────────
 
 export type AdapterCategory =
@@ -88,6 +102,7 @@ export interface MapperAdapter<TOutput = unknown> {
   serialize(mappings: Mapping[]): TOutput;
   deserialize(existing: TOutput): Mapping[];
   fetchSampleData?: () => Promise<unknown>;
+  fetchTargetSchema?: () => Promise<TargetSchemaResult>;
   validate?: (mappings: Mapping[]) => ValidationIssue[];
   customFunctions?: ExpressionFunction[];
 }

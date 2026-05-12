@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useEffect, useRef, memo } from 'react';
-import { buildTree, getAllLeafPaths, nodeMatchesSearch } from '../utils/jsonPathTreeUtils';
-import type { JsonNode } from '../utils/jsonPathTreeUtils';
+import { buildJsonTree, getAllLeafPaths, nodeMatchesSearch } from '../../../shared/utils/jsonTreeModel';
+import type { JsonTreeNode } from '../../../shared/utils/jsonTreeModel';
 import { typeColor, getValuePreview, ChevronIcon } from '../../../shared/components/jsonTreeShared';
 import FullPanelModal from '../../../shared/components/FullPanelModal';
 import { PATTERN_LIBRARY, testPattern, resolveValue, type PatternEntry } from './regexAssertionUtils';
@@ -28,23 +28,16 @@ const CATEGORIES = [...new Set(PATTERN_LIBRARY.map(p => p.category))];
 /* ── Tree Node (click-to-select, no checkboxes) ────── */
 
 interface PickerNodeProps {
-  node: JsonNode;
+  node: JsonTreeNode;
   depth: number;
   selectedPath: string;
   onSelect: (path: string) => void;
   searchTerm: string;
   expandAll?: boolean;
-  /** Set of JSONPath expressions already mapped (shown with a check indicator). */
   mappedPaths?: Set<string>;
-  /** When true, onSelect fires on double-click instead of single-click. */
   selectOnDoubleClick?: boolean;
 }
 
-/**
- * Shared JSON tree row picker (also used by ExtractionPathPickerModal).
- * @deprecated Use the Data Mapper's `SourceTreeNode` / `TargetTreeNode` instead.
- * This export will be removed once all call sites are migrated (Phase 3 wiring).
- */
 export const PickerNode = memo(function PickerNode({ node, depth, selectedPath, onSelect, searchTerm, expandAll, mappedPaths, selectOnDoubleClick }: PickerNodeProps) {
   const [manualExpanded, setManualExpanded] = useState<boolean | null>(null);
   const hasChildren = node.children && node.children.length > 0;
@@ -156,7 +149,7 @@ export default function RegexAssertionModal({
     if (!sampleJson.trim()) return { parsedTree: null, parseError: null };
     try {
       const obj = JSON.parse(sampleJson);
-      return { parsedTree: buildTree(obj, '', '(root)'), parseError: null };
+      return { parsedTree: buildJsonTree(obj, '(root)', ''), parseError: null };
     } catch (e) {
       return { parsedTree: null, parseError: e instanceof Error ? e.message : 'Invalid JSON' };
     }

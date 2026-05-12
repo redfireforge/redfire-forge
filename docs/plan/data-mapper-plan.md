@@ -18,8 +18,9 @@
 | **9** | Mapping Debugger | ✅ Complete | 9A–9E complete (Mapping Execution Trace + Data Flow Overlay + Step-Through & Failure Pinpointing + Historical Comparison & Results Integration + Hardening). |
 | **10** | AI-Assisted Mapping | ✅ Complete | 10A–10D complete. Smart auto-map, semantic matching, confidence scores, pattern learning, expression suggestions, example-based mapping, hardening. |
 | **11** | Visual Polish — Mockup Alignment | ✅ Complete | 11A–11D complete. Tree node polish, canvas lines, footer stats, snapshot tests, hardening. |
+| **12** | Schema-Driven Target & Fetch Integration | ✅ Complete | 12A–12E complete, 12C.5 adapter wiring complete. Target tree from fields, editable custom fields, target fetch/paste, location-aware groups, hardening. |
 
-**Status:** All phases complete (1–11). Feature branch ready for merge review.
+**Status:** Phases 1–12 complete. All deferred items resolved (8D.3, P9.1.3, 12C.5). Deprecated `PickerNode`/`JsonPathBuilder`/`ExtractionMapperModal`/`ExtractionPathPickerModal`/`jsonPathTreeUtils` removed. **13,970 tests across 526 files, 0 failures.**
 
 ## Executive Summary
 
@@ -89,8 +90,8 @@ Registered in Gallery: `src/data/galleries/trainingPaths/contentPaths.ts` (path 
 
 | # | Surface | Files | What It Does | Interaction | Reusable? |
 |---|---------|-------|-------------|-------------|-----------|
-| 1 | **Extraction Editor** | `ExtractionEditor.tsx`, `ExtractionPathPickerModal.tsx`, `ExtractionMapperModal.tsx` | Map HTTP response fields → workflow variables | Table rows + "Pick path" modal with JSON tree | Shared (workflow + test) |
-| 2 | **JSON Path Builder** | `JsonPathBuilder.tsx`, `jsonPathTreeUtils.ts` | Multi-select JSON paths for validation expected fields | Checkbox tree over sample JSON, include/exclude modes | Primary validation mapper |
+| 1 | **Extraction Editor** | `ExtractionEditor.tsx` _(formerly also `ExtractionPathPickerModal.tsx`, `ExtractionMapperModal.tsx` — removed)_ | Map HTTP response fields → workflow variables | Table rows + Visual Mapper (DataMapperModal) | Shared (workflow + test) |
+| 2 | **~~JSON Path Builder~~** | ~~`JsonPathBuilder.tsx`, `jsonPathTreeUtils.ts`~~ _(removed — replaced by DataMapperModal + validationAdapter)_ | Multi-select JSON paths for validation expected fields | Inline fields table + Visual Mapper (DataMapperModal) | Primary validation mapper |
 | 3 | **Regex Assertion Builder Modal** | `RegexAssertionBuilderModal.tsx` | Pick JSON path + build regex pattern | DM tree (`SelectableTreeNode`) + pattern library | Reusable tree picker (replaced old `RegexAssertionModal`) |
 | 4 | **Data Source Column Mapping** | `DataSourceEditor.tsx`, `dataSourceExpander.ts` | Map `{{column}}` placeholders to request fields | Column headers with type prefix (`path:`, `param:`, `body:`) | Parameterized tests |
 | 5 | **Populate from API** | `PopulateFromApiModal.tsx`, `usePopulateFromApi.ts` | Map API response → data source columns/rows | Two-step wizard: fetch → field mapping | Shared DS specific |
@@ -101,9 +102,9 @@ Registered in Gallery: `src/data/galleries/trainingPaths/contentPaths.ts` (path 
 
 | Component | File | What It Provides |
 |-----------|------|-----------------|
-| `jsonPathTreeUtils.ts` | `buildTree`, `getAllLeafPaths` | Core JSON → tree model |
+| ~~`jsonPathTreeUtils.ts`~~ | ~~`buildTree`, `getAllLeafPaths`~~ | _(Removed — replaced by `jsonTreeModel.ts`)_ |
 | `jsonTreeShared.tsx` | `typeColor`, `getValuePreview`, `ChevronIcon` | Shared tree styling |
-| `PickerNode` | `RegexAssertionModal.tsx` (exported) | Clickable tree node row |
+| ~~`PickerNode`~~ | ~~`RegexAssertionModal.tsx` (exported)~~ | _(No longer exported — private to RegexAssertionModal)_ |
 | `JsonTreePreview.tsx` | `buildJTree`, search, expand/collapse | Read-only tree viewer |
 | `JsonTreeViewer.tsx` | Generic viewer | Results Explorer display |
 | `validator.ts` → `getByPath` | Tokenized JSONPath evaluation | Most capable path engine |
@@ -779,13 +780,13 @@ Extract the canonical JSONPath engine from `validator.ts` and replace all 4 scat
 | 1A.2 | Replace `extractJsonPath()` in `dataSourceImport.ts` with re-export of `getByPathAsString` from unified module | `src/features/scenarios/utils/dataSourceImport.ts` | ✅ |
 | 1A.3 | Replace `extractPayloadVariables()` inline path resolution with `getByPath` call | `src/features/workflow/engine/graphRunnerHelpers.ts` | ✅ |
 | 1A.4 | Replace `resolvePath()` with re-export of `getByPath` | `src/features/scenarios/utils/populateFromApiUtils.ts` | ✅ |
-| 1A.5 | Updated imports in `ExtractionPathPickerModal.tsx` and `extractorVariables.ts` to use `src/shared/utils/jsonPath` | `ExtractionPathPickerModal.tsx`, `extractorVariables.ts` | ✅ |
+| 1A.5 | Updated imports in `ExtractionPathPickerModal.tsx` _(since removed)_ and `extractorVariables.ts` to use `src/shared/utils/jsonPath` | `extractorVariables.ts` | ✅ |
 | 1A.6 | Created `jsonPath.test.ts` with 39 tests (basic, edge cases, wildcards, empty paths, bracket spaces, deep chains, boolean/number leaves, `.length`) | `src/shared/utils/jsonPath.test.ts` **New** | ✅ |
 | 1A.7 | Verified all 242 existing tests pass across 5 affected test suites | Existing test files | ✅ |
 | 1A.8 | `tsc --noEmit` — zero type errors | | ✅ |
 
 **Files affected:** 8 source files, 3 test files  
-**Consumers to update:** `dataSourceImport.ts` (7 callsites), `graphRunnerHelpers.ts` (2 callsites), `populateFromApiUtils.ts` (3 callsites), `ExtractionPathPickerModal.tsx` (1), `extractorVariables.ts` (1)  
+**Consumers to update:** `dataSourceImport.ts` (7 callsites), `graphRunnerHelpers.ts` (2 callsites), `populateFromApiUtils.ts` (3 callsites), `extractorVariables.ts` (1). _(Originally also `ExtractionPathPickerModal.tsx` — since removed.)_  
 **Success criteria:** One `getByPath` function in `src/shared/utils/jsonPath.ts`. All 4 previous path implementations removed. All existing tests pass. Zero breaking changes.
 
 ##### Sub-phase 1B: Unified Tree Model (~1 day)
@@ -797,7 +798,7 @@ Consolidate the two parallel JSON tree implementations into one reusable model.
 | 1B.1 | Analyzed: `JsonNode`/`buildTree` has path tracking, truncation, maxDepth; `JNode`/`buildJTree` is simpler (no path, no truncation). Unified model is a superset. | Analysis | ✅ |
 | 1B.2 | Created unified `jsonTreeModel.ts` with `JsonTreeNode` interface, `buildJsonTree()` function, `trackPaths` option, `maxArrayItems`/`maxDepth` truncation | `src/shared/utils/jsonTreeModel.ts` **New** | ✅ |
 | 1B.3 | Added `getAllLeafPaths()`, `getAllPaths()`, `nodeMatchesSearch()`, `suggestedVariableNameFromJsonPath()` to unified model | `src/shared/utils/jsonTreeModel.ts` | ✅ |
-| 1B.4 | Migrated `jsonPathTreeUtils.ts` to thin re-export wrapper over unified model. All 5 consumer components unchanged (backward-compatible `JsonNode` type alias + `buildTree` wrapper) | `src/features/requests/utils/jsonPathTreeUtils.ts` | ✅ |
+| 1B.4 | Migrated `jsonPathTreeUtils.ts` to thin re-export wrapper over unified model _(shim since removed — all consumers now import from `jsonTreeModel.ts` directly)_. | ~~`src/features/requests/utils/jsonPathTreeUtils.ts`~~ | ✅ |
 | 1B.5 | Migrated `JsonTreePreview.tsx`: `JNode` → type alias for `JsonTreeNode`, `buildJTree` delegates to `buildJsonTree` with `trackPaths: false` + `fixArrayKeys` compatibility shim | `src/features/requests/components/JsonTreePreview.tsx` | ✅ |
 | 1B.6 | Shared styling in `jsonTreeShared.tsx` unchanged | No change | ✅ |
 | 1B.7 | 38 tests: tree building (objects, arrays, nested, null, undefined, booleans, numbers, strings, empty), truncation, `trackPaths` option, leaf paths, all paths, search, `suggestedVariableNameFromJsonPath`, real-world API response, mixed-type arrays | `src/shared/utils/jsonTreeModel.test.ts` **New** | ✅ |
@@ -853,7 +854,7 @@ Build the right-side target tree with drop zones and mapping indicators.
 | 1E.1 | Created `TargetPanel.tsx`: search input, expand/collapse all, mapped count badge, recursive `TargetTreeNode` rendering | `TargetPanel.tsx` **New** | ✅ |
 | 1E.2 | Created `TargetTreeNode.tsx`: recursive node with native HTML5 drop zones (`onDragOver`/`onDrop`), mapped/unmapped indicators, selection highlighting, click-to-select mapping | `TargetTreeNode.tsx` **New** | ✅ |
 | 1E.3 | Sample data mode: target tree built from `target.sampleData` via `buildJsonTree`. Schema-driven mode (building tree from `target.fields` / JSON Schema) deferred (see Deferred Items). | `TargetPanel.tsx` | ✅ |
-| 1E.4 | Free-form mode (add field button) deferred to Phase 9+ (`allowCustomFields` type exists but no UI yet) | — | 🔜 |
+| 1E.4 | Free-form mode (add field button) — resolved in Phase 12B. `AddFieldRow` component + `customTargetFields` state + inline rename. | `AddFieldRow.tsx`, `DataMapper.tsx` | ✅ |
 | 1E.5 | Drop handling: native drag/drop parses `application/mapper-source` data, calls `onDrop(targetPath, sourcePath, sourceId)`. Drop replaces existing mapping on same target. Visual feedback via CSS class `dm-tree-node--drag-over`. | `TargetTreeNode.tsx` | ✅ |
 | 1E.6 | Remove mapping via canvas (click connection line → remove button). Inline ✕ on hover — **done in 2G.1**. | `MappingCanvas.tsx`, `TargetTreeNode.tsx` | ✅ |
 | 1E.7 | Inline display: mapped target shows `← sourcePath` (direct maps) or `fx sourcePath` (expression maps) | `TargetTreeNode.tsx` | ✅ |
@@ -1090,7 +1091,7 @@ Remaining Phase 1 deferred items that improve the mapper experience but aren't b
 | 2G.8 | Unit tests for all 2G items: 3 TargetTreeNode inline-remove tests, 4 MapperToolbar accept/reject tests, 4 useMapperState pending tests, 2 DataMapper toast/resize tests, 10 demoAdapter tests. Total 23 new tests. | Various test files | ✅ |
 
 **Dependency:** None (fully independent of 2A–2F).  
-**Success criteria:** ✅ All deferred Phase 1 items resolved except 1E.4 (free-form mode, deferred to Phase 9+). Only one 🔜 remains in Phase 1 rows (1E.4).
+**Success criteria:** ✅ All deferred Phase 1 items resolved. 1E.4 (free-form mode) completed in Phase 12B.
 
 ---
 
@@ -1153,12 +1154,12 @@ Final verification and cleanup before Phase 3.
 
 #### Sub-Phase 3A: ExtractionAdapter (Medium Complexity — Start Here)
 
-Replace `ExtractionEditor` + `ExtractionPathPickerModal` + `ExtractionMapperModal` with the Data Mapper. Source = HTTP response body tree; Target = variable name list. Output: `Extraction[]`. The existing `ExtractionMapperModal` (337 lines) is essentially a simpler version of our Data Mapper, making this the most natural starting point.
+Replaced `ExtractionEditor`'s old picker modals with the Data Mapper. Source = HTTP response body tree; Target = variable name list. Output: `Extraction[]`.
 
-**Existing components being replaced:**
-- `ExtractionEditor.tsx` (~226 lines) — inline extraction row list with add/remove/reorder
-- `ExtractionPathPickerModal.tsx` (~374 lines) — single-path JSONPath picker with tree
-- `ExtractionMapperModal.tsx` (~337 lines) — bulk "Fetch & Map" with tree + extraction rows
+**Existing components replaced (now deleted):**
+- `ExtractionEditor.tsx` (~226 lines) — inline extraction row list _(kept — now uses DataMapperModal instead of old picker modals)_
+- ~~`ExtractionPathPickerModal.tsx` (~374 lines)~~ — single-path JSONPath picker with tree _(deleted)_
+- ~~`ExtractionMapperModal.tsx` (~337 lines)~~ — bulk "Fetch & Map" with tree + extraction rows _(deleted)_
 
 **Parents that render these:**
 - `HttpConfig.tsx` (workflow HTTP node config, Extract tab)
@@ -1199,17 +1200,17 @@ Replace `RegexAssertionModal` path picker tree with the Data Mapper's `SourcePan
 
 #### Sub-Phase 3C: ValidationAdapter (High Complexity)
 
-Replace `JsonPathBuilder` (658 lines) with the Data Mapper for selective validation. Source = response body tree; Target = expected field values. Must support both include and exclude modes. This is the most complex adapter because `JsonPathBuilder` uses a checkbox interaction model that differs from the mapper's drag-and-drop model.
+Replaced ~~`JsonPathBuilder`~~ (658 lines, now deleted) with the Data Mapper for selective validation. Source = response body tree; Target = expected field values. Both include and exclude modes supported via `validationAdapter`.
 
-**Existing component being replaced:**
-- `JsonPathBuilder.tsx` (~658 lines) — checkbox tree for field selection, include/exclude toggle, manual rule entry, table/list view toggle
+**Existing component replaced (now deleted):**
+- ~~`JsonPathBuilder.tsx` (~658 lines)~~ — checkbox tree for field selection _(deleted — replaced by DataMapperModal + validationAdapter)_
 
-**Parents:**
+**Parents (now using inline `validation-fields-table` + DataMapperModal):**
 - `TestEditorValidationTab.tsx` (~551 lines) — selective validation mode
 - `SetupStepValidate.tsx` — parameterized datasource wizard (include mode only)
 - `DataSourceRowDetailModal.tsx` — row-level validation field picker (include mode only)
 
-**Interaction model change:** `JsonPathBuilder` uses checkboxes (click to include/exclude). The Data Mapper uses drag-and-drop (drag source field to target to create mapping). For validation, the target is the expected value for each field. Users drag response fields they want to validate into the target panel, then fill in expected values.
+**Interaction model change:** ~~`JsonPathBuilder`~~ _(now deleted)_ used checkboxes (click to include/exclude). The Data Mapper uses drag-and-drop (drag source field to target to create mapping). For validation, the target is the expected value for each field. Users drag response fields they want to validate into the target panel, then fill in expected values.
 
 | # | Task | File(s) | Status |
 |---|------|---------|--------|
@@ -1219,13 +1220,13 @@ Replace `JsonPathBuilder` (658 lines) with the Data Mapper for selective validat
 | 3C.4 | `deserialize()` — include mode: reconstructs mappings from `expectedFields`. Exclude mode: inverts `excludedPaths` against full leaf set, uses existing `expectedValue` or falls back to sample data via `resolveValue()`. | Same file | ✅ |
 | 3C.5 | Mode toggle — `selectiveMode` option on `createValidationAdapter()`. Parent recreates adapter with new mode; serialize/deserialize logic switches automatically. | Same file | ✅ |
 | 3C.6 | Sample JSON management — `fetchSampleData` callback option, `supportsLiveFetch` flag. Paste JSON handled by Data Mapper's built-in source panel. | Same file | ✅ |
-| 3C.7 | Wired into `TestEditorValidationTab.tsx` — added `DataMapperModal` + `createValidationAdapter` as "⚡ Visual Mapper" button alongside existing `JsonPathBuilder`. `handleValidationMapperSave` writes `selectiveMode`, `expectedFields`, `excludedPaths`. Both UIs coexist. | `TestEditorValidationTab.tsx` | ✅ |
-| 3C.8 | Wired into `SetupStepValidate.tsx` — added `DataMapperModal` + `createValidationAdapter` (include mode only). "⚡ Visual Mapper" button alongside `JsonPathBuilder`. | `SetupStepValidate.tsx` | ✅ |
-| 3C.9 | Wired into `DataSourceRowDetailModal.tsx` — added `DataMapperModal` + `createValidationAdapter` (include mode only). "⚡ Visual Mapper" button alongside `JsonPathBuilder`. | `DataSourceRowDetailModal.tsx` | ✅ |
+| 3C.7 | Wired into `TestEditorValidationTab.tsx` — added `DataMapperModal` + `createValidationAdapter` as "⚡ Visual Mapper" button. `handleValidationMapperSave` writes `selectiveMode`, `expectedFields`, `excludedPaths`. _(Originally alongside `JsonPathBuilder`; `JsonPathBuilder` since deleted and replaced by inline `validation-fields-table`.)_ | `TestEditorValidationTab.tsx` | ✅ |
+| 3C.8 | Wired into `SetupStepValidate.tsx` — added `DataMapperModal` + `createValidationAdapter` (include mode only). "⚡ Visual Mapper" button. _(Originally alongside `JsonPathBuilder`; since replaced.)_ | `SetupStepValidate.tsx` | ✅ |
+| 3C.9 | Wired into `DataSourceRowDetailModal.tsx` — added `DataMapperModal` + `createValidationAdapter` (include mode only). "⚡ Visual Mapper" button. _(Originally alongside `JsonPathBuilder`; since replaced.)_ | `DataSourceRowDetailModal.tsx` | ✅ |
 | 3C.10 | 32 unit tests: adapter creation (11), include serialize (3), exclude serialize (3), include deserialize (4), exclude deserialize (4), round-trip (3), validate (5). Covers: JSON parsing, mode toggle, leaf path computation, sample value fallback, empty/null input, duplicate paths, empty paths. | `adapters/validationAdapter.test.ts` **New** | ✅ |
 | 3C.11 | Integration tests in `TestEditorValidationTab.test.tsx` — mocked `DataMapperModal`, verified "⚡ Visual Mapper" button renders/opens, onSave writes expectedFields + excludedPaths + selectiveMode. `adapterIntegration.test.ts` covers cross-adapter round-trip. | `TestEditorValidationTab.test.tsx`, `adapterIntegration.test.ts` | ✅ |
 
-**Success criteria:** `TestEditorValidationTab`, `SetupStepValidate`, and `DataSourceRowDetailModal` use the Data Mapper instead of `JsonPathBuilder`. Both include and exclude modes work. Sample JSON synced. All existing validation tests pass. Round-trip: open existing validation config → save → output is identical.
+**Success criteria:** `TestEditorValidationTab`, `SetupStepValidate`, and `DataSourceRowDetailModal` use the Data Mapper _(~~`JsonPathBuilder`~~ removed)_. Both include and exclude modes work. Sample JSON synced. All existing validation tests pass. Round-trip: open existing validation config → save → output is identical.
 
 #### Sub-Phase 3D: Integration Wiring & Cross-Cutting
 
@@ -1233,23 +1234,23 @@ Final wiring to ensure all parent components correctly use the new adapters and 
 
 | # | Task | File(s) | Status |
 |---|------|---------|--------|
-| 3D.1 | Verified host-override pipeline — all 3 adapters (`extraction`, `assertion`, `validation`) correctly delegate `fetchSampleData` to provided callback and set `supportsLiveFetch` flag. The existing `HttpConfig` → `ExtractionEditor` → `ExtractionPathPickerModal` pipeline threads `fetchHostEnabled`, `fetchHostOverride`, `resolvedBaseUrl` via `ExtractionFetchSampleProps.host`. Adapter API is compatible: parent creates adapter with `fetchSampleData` callback that wraps the same host-aware fetch. 5 integration tests verify delegation, absence, and updated-sample scenarios. | `adapters/adapterIntegration.test.ts` **New** | ✅ |
+| 3D.1 | Verified host-override pipeline — all 3 adapters (`extraction`, `assertion`, `validation`) correctly delegate `fetchSampleData` to provided callback and set `supportsLiveFetch` flag. The existing `HttpConfig` → `ExtractionEditor` pipeline threads `fetchHostEnabled`, `fetchHostOverride`, `resolvedBaseUrl` via `ExtractionFetchSampleProps.host` _(formerly via `ExtractionPathPickerModal` — since removed)_. Adapter API is compatible: parent creates adapter with `fetchSampleData` callback that wraps the same host-aware fetch. 5 integration tests verify delegation, absence, and updated-sample scenarios. | `adapters/adapterIntegration.test.ts` **New** | ✅ |
 | 3D.2 | Verified variable hints — `variableHints` flow from `WorkflowNodeConfigModal` → `WorkflowConfigPanel` → `HttpConfig` → `ExtractionEditor` as a prop. They're consumed by `ExpressionInput` components (autocomplete), not by the adapter itself. When wiring (3A.4), parent will pass `variableHints` to Data Mapper component directly. 5 integration tests verify source IDs, context IDs, and category consistency across all adapters. | `adapters/adapterIntegration.test.ts` | ✅ |
-| 3D.3 | Verified `PickerNode` status — still has 3 active consumers: `ExtractionMapperModal.tsx`, `ExtractionPathPickerModal.tsx`, `RegexAssertionModal.component.test.tsx`. Cannot be removed until wiring tasks (3A.4-3A.5, 3B.2-3B.3) replace those components. 1 integration test verifies export exists. | `adapters/adapterIntegration.test.ts` | ✅ |
+| 3D.3 | Verified `PickerNode` status — _(at time of check: 3 consumers — `ExtractionMapperModal.tsx`, `ExtractionPathPickerModal.tsx`, `RegexAssertionModal.component.test.tsx`. All since resolved: first two files deleted, test updated. `PickerNode` now private to `RegexAssertionModal`.)_ | `adapters/adapterIntegration.test.ts` | ✅ |
 | 3D.4 | Update barrel export (`index.ts`) — export new adapters: `createExtractionAdapter`, `createAssertionAdapter`, `createValidationAdapter`. | `index.ts` | ✅ |
 | 3D.5 | Update `project-conventions.mdc` — add new adapter files to Key Files table. | `.cursor/rules/project-conventions.mdc` | ✅ |
 
 #### Sub-Phase 3E: Deprecation
 
-Mark old components as deprecated. Do NOT delete them yet — they serve as reference and may be needed for edge cases discovered during Phase 4+.
+~~Mark old components as deprecated.~~ _All deprecated components have now been deleted (post-Phase 12). See "Post-Phase 12: Deprecated Component Removal" below._
 
 | # | Task | File(s) | Status |
 |---|------|---------|--------|
-| 3E.1 | Added `@deprecated` JSDoc to `ExtractionPathPickerModal` — "Use `DataMapper` with `createExtractionAdapter` instead." | `ExtractionPathPickerModal.tsx` | ✅ |
-| 3E.2 | Added `@deprecated` JSDoc to `ExtractionMapperModal` — "Use `DataMapperModal` with `createExtractionAdapter` instead." | `ExtractionMapperModal.tsx` | ✅ |
-| 3E.3 | Added `@deprecated` JSDoc to `JsonPathBuilder` — "Use `DataMapperModal` with `createValidationAdapter` instead." | `JsonPathBuilder.tsx` | ✅ |
-| 3E.4 | Added `@deprecated` JSDoc to `PickerNode` export — "Use the Data Mapper's `SourceTreeNode` / `TargetTreeNode` instead." Still exported; 3 active consumers remain until wiring. | `RegexAssertionModal.tsx` | ✅ |
-| 3E.5 | Verified all imports of deprecated components are in expected locations only: `ExtractionEditor.tsx` (wiring target), `ExtractionMapperModal.test.tsx`, `ExtractionPathPickerModal.test.tsx`, `RegexAssertionModal.component.test.tsx`, plus type-only imports (`ExtractionFetchSampleProps`) in `HttpConfig.tsx`, `WorkflowConfigPanel.tsx`, `WorkflowNodeConfigModal.tsx`. No unexpected new consumers. | Grep search | ✅ |
+| 3E.1 | ~~Added `@deprecated` JSDoc to `ExtractionPathPickerModal`~~ — file deleted post-Phase 12. | ~~`ExtractionPathPickerModal.tsx`~~ | ✅ (deleted) |
+| 3E.2 | ~~Added `@deprecated` JSDoc to `ExtractionMapperModal`~~ — file deleted post-Phase 12. | ~~`ExtractionMapperModal.tsx`~~ | ✅ (deleted) |
+| 3E.3 | ~~Added `@deprecated` JSDoc to `JsonPathBuilder`~~ — file deleted post-Phase 12. | ~~`JsonPathBuilder.tsx`~~ | ✅ (deleted) |
+| 3E.4 | ~~Added `@deprecated` JSDoc to `PickerNode` export~~ — `PickerNode` is now a private (non-exported) component inside `RegexAssertionModal.tsx`. | `RegexAssertionModal.tsx` | ✅ (privatised) |
+| 3E.5 | Verified all imports of deprecated components are in expected locations only. Post-removal: `ExtractionFetchSampleProps` moved to `ExtractionEditor.tsx`. All stale imports removed. | Grep search | ✅ |
 
 #### Sub-Phase 3F: Hardening & Documentation
 
@@ -1339,7 +1340,7 @@ Replace the fetch config mapping UI in `SharedDataSourceModal` with a Data Mappe
 | # | Task | File(s) | Status |
 |---|------|---------|--------|
 | 4D.1 | Add `@deprecated` JSDoc to `PopulateFromApiModal` (already done in 4A), `PopulateFetchStep`, `PopulateMapStep`, `usePopulateFromApi`. All note replacement by `DataMapperModal` + `createPopulateFromApiAdapter` (4A) or `createSharedDsFetchAdapter` (4C). | 4 files | ✅ |
-| 4D.2 | Verify no direct imports of deprecated components remain in production code. Only self-references (PopulateFromApiModal → sub-components) and test files remain. `PickerNode` still used by `ExtractionMapperModal`/`ExtractionPathPickerModal` (Phase 5 targets). | Grep search | ✅ |
+| 4D.2 | Verify no direct imports of deprecated components remain in production code. Only self-references (PopulateFromApiModal → sub-components) and test files remain. _(At time of check: `PickerNode` used by `ExtractionMapperModal`/`ExtractionPathPickerModal` — both since deleted post-Phase 12.)_ | Grep search | ✅ |
 | 4D.3 | `tsc --noEmit` — 0 errors. Full test suite — 12,655 tests pass, 0 failures across 485 files. | — | ✅ |
 | 4D.4 | Coverage check — adapters: 97.57% stmts / 90.18% branches / 100% functions / 99.54% lines. All four metrics >90% for the adapters directory. | — | ✅ |
 | 4D.5 | Updated `data-mapper-plan.md` (Phase 4 status, completed phases, metrics) + `CHANGELOG.md` (Phase 4 Data Source Adapters entry). | Docs | ✅ |
@@ -1603,7 +1604,7 @@ Differentiator: Most mapper tools are design-time only. This phase makes our Dat
 |---|------|---------|--------|
 | 8D.1 | **Auto-repair suggestions** — for broken mappings (source field removed), suggest: (a) similar field names (by Levenshtein edit distance), (b) renamed field candidates (same type, same parent, different name). Sorted by confidence, max 5 per mapping. | `utils/schemaRepair.ts` **New** | ✅ |
 | 8D.2 | **Apply repair** — `applyRepair()` creates a new Mapping with updated `sourcePath`. UI integration (dropdown on broken lines) deferred to Pre-Phase 9 prework (Pre-9.1). | `utils/schemaRepair.ts` | ✅ |
-| 8D.3 | **Mapping health dashboard** — deferred to Phase 9 (requires trace/results infrastructure). | — | 🔜 |
+| 8D.3 | **Mapping health dashboard** — `MappingHealthDashboard` component with `computeHealthStats`. Shows: status indicator (Healthy/Warnings/Broken), coverage % (mapped target fields / total), broken count (breaking drift), drift warning count, type mismatch count. Clickable broken/drift metrics open diff modal. Auto-hides when no mappings and no issues. Wired into `DataMapper.tsx` between toolbar and body. CSS with severity-based background tints. 15 new tests. | `MappingHealthDashboard.tsx` **New**, `DataMapper.tsx` | ✅ |
 | 8D.4 | **Contract mode ("Lock Schema")** — strict (any change fails) and lenient (additions OK) modes. `validateContract()` produces `ContractViolation[]`, convertible to `FailureDetail[]` via `contractViolationsToFailures()`. Config persistence via `loadContractConfig`/`saveContractConfig`. | `utils/schemaContract.ts` **New** | ✅ |
 | 8D.5 | Unit tests — 18 repair tests (levenshtein, suggestRepairs, generateRepairResults, applyRepair), 15 contract tests (validateContract strict/lenient, violations, storage). **33 new tests.** | `schemaRepair.test.ts`, `schemaContract.test.ts` **New** | ✅ |
 
@@ -1639,7 +1640,7 @@ The repair engine (`suggestRepairs`, `generateRepairResults`, `applyRepair`) was
 |---|------|---------|--------|
 | P9.1.1 | **Repair action column in SchemaDiffModal** — for breaking drifts with affected mappings, add a "Repair" column showing the top suggestion (or "No suggestions" if none). Click opens a dropdown with all suggestions, confidence scores, and "Apply" button. | `SchemaDiffModal.tsx` | ✅ |
 | P9.1.2 | **`onRepairMapping` callback** — new props `repairSuggestions` and `onApplyRepair` on `SchemaDiffModal`. `DataMapperModal` computes suggestions via `suggestRepairs`, calls `applyRepair` and updates mappings + drift entries on apply. | `SchemaDiffModal.tsx`, `DataMapperModal.tsx` | ✅ |
-| P9.1.3 | **Repair badge on broken connection lines** — deferred; repair is accessible from SchemaDiffModal dropdown (lower complexity, same functionality). Canvas badge can be added in Phase 9 if needed. | `MappingCanvas.tsx` | 🔜 |
+| P9.1.3 | **Repair badge on broken connection lines** — `🔧 repair → <path>` `CanvasBadge` on lines with `driftSeverity === 'breaking'` AND available `repairSuggestions`. Shows top suggestion's target path (truncated at 12 chars). Click applies repair via `onApplyRepair`. Props `repairSuggestions` and `onApplyRepair` wired through `DataMapper` → `MappingCanvas`. `DataMapperModal` passes repair map + handler. Green accent CSS (`dm-canvas-badge--repair`). 6 new tests. | `MappingCanvas.tsx`, `DataMapper.tsx`, `DataMapperModal.tsx` | ✅ |
 | P9.1.4 | **CSS** — repair dropdown styling (`.dm-repair-*`), suggestion cards with confidence color coding (high/medium/low), wrench button, apply button. | `data-mapper-modal.css` | ✅ |
 | P9.1.5 | **Unit tests** — 7 new tests: SchemaDiffModal repair column rendering, dropdown toggle, Apply callback, "No suggestions", confidence color coding, no-repair column when not provided. | `SchemaDiffModal.test.tsx` | ✅ |
 
@@ -1873,6 +1874,118 @@ Align the Data Mapper UI with the design reference in `docs/mockups/data-mapper-
 
 ---
 
+### Phase 12: Schema-Driven Target & Fetch Integration
+
+Currently, 6 of 10 adapters have **empty target trees** (`target.sampleData: undefined`). Users see "No target schema" and must rely on `allowCustomFields` or already knowing the field names. This phase fills that gap by:
+
+1. Building target trees from `target.fields` when `sampleData` is absent
+2. Adding a `fetchTargetSchema` adapter hook for live target schema discovery
+3. Making target construction location-aware (body vs path vs query vs header)
+4. Adding free-form "Add Field" UI for `allowCustomFields` adapters
+
+**Current adapter target state:**
+
+| Adapter | `sampleData` | `fields` | Target tree today | After Phase 12 |
+|---------|-------------|----------|-------------------|----------------|
+| demoAdapter | ✅ object | ✅ fields | ✅ Full tree | No change |
+| requestBodyAdapter | ✅ from body | ✅ from body | ✅ Full tree | No change |
+| variableBindingAdapter | ✅ flat map | ✅ from slots | ✅ Tree (when slots exist) | No change |
+| assertionAdapter | ✅ `{jsonPath:''}` | ✅ 1 field | ✅ Single field | No change |
+| extractionAdapter | ❌ undefined | ❌ none | ❌ Empty | ✅ Fetch target + custom fields |
+| validationAdapter | ❌ undefined | ❌ none | ❌ Empty | ✅ Fetch target + custom fields |
+| webhookExtractionAdapter | ❌ undefined | ❌ none | ❌ Empty | ✅ Custom fields UI |
+| populateFromApiAdapter | ❌ undefined | ✅ from columns | ❌ Empty | ✅ Tree from fields |
+| sharedDsFetchAdapter | ❌ undefined | ✅ from columns | ❌ Empty | ✅ Tree from fields |
+| columnMappingAdapter | ❌ undefined | ✅ from slots | ❌ Empty | ✅ Tree from fields + location tabs |
+
+**Progress:** ✅ All Phase 12 sub-phases complete (12A–12E + 12C.5).
+
+#### Sub-Phase 12A: Target Tree from Fields (Quick Win)
+
+When `target.sampleData` is null but `target.fields` exists, `TargetPanel` should build a synthetic tree from the fields array. This immediately gives target trees to `populateFromApiAdapter`, `sharedDsFetchAdapter`, and `columnMappingAdapter` with zero adapter changes.
+
+| # | Task | File(s) | Status |
+|---|------|---------|--------|
+| 12A.1 | **`buildTreeFromFields`** — new utility that converts `TargetField[]` into a `JsonTreeNode` tree. Each field becomes a leaf node with `type` from the field definition (default `'string'` when unspecified). Nested dot-paths (`user.name`, `address.city`) auto-create parent `object` nodes. Flat paths with `::` separators (e.g., `path::userId` from `columnMappingAdapter`) stay as flat leaves — no spurious nesting on `::`. Also includes `normalizeFieldType` (adapter types → `JsonNodeType`) and `collectAllPaths` (for auto-expand). | `utils/targetTreeBuilder.ts` **New** | ✅ |
+| 12A.2 | **TargetPanel fallback** — when `target.sampleData` is null and `target.fields` exists, call `buildTreeFromFields(target.fields)` to build the tree. Auto-expand all nodes via `collectAllPaths` + `useEffect`. Show a subtle "fields" badge in panel header so users know the tree source. `sampleData` always takes precedence when both exist. | `TargetPanel.tsx` | ✅ |
+| 12A.3 | **Field type normalization** — `normalizeFieldType` in `targetTreeBuilder.ts` converts adapter-specific types (`path`, `param`, `header`, `body`, `validate`) to standard `JsonNodeType` values. `TargetTreeNode` renders correct type pills automatically. Non-standard types default to `'string'`. | `utils/targetTreeBuilder.ts` | ✅ |
+| 12A.4 | **Drop zone + connection line compatibility** — Verified: `node.path = field.path`, `data-path` attribute matches, `useConnectionLines` queries by `mapping.targetPath` which equals `field.path`. Drop handler reads `node.path` → mapping serializes correctly. Integration test in TargetPanel confirms mappings work on field-generated nodes. | `TargetTreeNode.tsx`, `useConnectionLines.ts` | ✅ |
+| 12A.5 | Unit tests — `targetTreeBuilder.test.ts` (19 tests: flat fields, nested dot-paths, mixed types, empty, undefined, duplicates, `::` separators, type normalization, deep nesting, shared prefixes, collectAllPaths). `TargetPanel.test.tsx` (12 new tests: fields-only tree, "fields" badge, auto-expand, type pills, drop zones, mappings on field nodes, empty fields, sampleData precedence, `::` paths). **28 total TargetPanel tests pass, 19 builder tests pass.** | Test files | ✅ |
+
+**Success criteria:** `populateFromApiAdapter`, `sharedDsFetchAdapter`, and `columnMappingAdapter` show a visible target tree without any adapter code changes. Drop-to-map works on field nodes.
+
+#### Sub-Phase 12B: Editable Target Fields — Add / Delete / Update
+
+Target fields should be fully editable: users can add custom fields, modify existing ones, or remove them. Field values come from **three sources** depending on the use case: hardcoded by the user, driven by previous values (upstream variables, URL parsing), or fetched from a live API response.
+
+| # | Task | File(s) | Status |
+|---|------|---------|--------|
+| 12B.0 | **`TargetField.origin` type** — added `TargetFieldOrigin = 'adapter' | 'custom' | 'fetched'` and `origin?: TargetFieldOrigin` to `TargetField`. | `types.ts` | ✅ |
+| 12B.1 | **"+ Add Field" row** — new `AddFieldRow` component renders when `allowCustomFields` is true. Inline text input + type dropdown. Enter to add, Escape to cancel. Validates: no empty, no spaces, no duplicates. Dot-notation creates nested paths. | `AddFieldRow.tsx` **New**, `TargetPanel.tsx` | ✅ |
+| 12B.2 | **`customTargetFields` state in DataMapper** — `DataMapper` maintains `customTargetFields: TargetField[]` via `useState`, merges with `adapter.target.fields` into `effectiveTarget`. Passed to `TargetPanel`, `detectTypeMismatches`, `suggestExpressionsForAll`, `detectArrayMappings`. `handleAddCustomField` / `handleRemoveCustomField` / `handleUpdateCustomField` manage state. Remove cleans up mappings. Rename updates all referencing mappings. | `DataMapper.tsx` | ✅ |
+| 12B.3 | **Inline edit (rename)** — double-click on unmapped custom/fetched field opens inline rename input. Mapped fields still open expression editor. `onBlur` and Enter submit rename. Escape cancels. `handleUpdateCustomField` propagates path change. | `TargetTreeNode.tsx` | ✅ |
+| 12B.4 | **Remove field** — inline ✕ button on custom/fetched fields (hidden on adapter fields). Calls `onRemoveCustomField`. CSS `.dm-inline-remove--field` with hover-reveal on `.dm-tree-node--custom`. | `TargetTreeNode.tsx` | ✅ |
+| 12B.5 | **Field origin indicator** — `dm-origin-badge--custom` (orange) and `dm-origin-badge--fetched` (blue) badges. Custom/fetched nodes get `dm-tree-node--custom` class with left-border accent. Adapter fields have no badge (default look). | `TargetTreeNode.tsx`, CSS | ✅ |
+| 12B.6 | Unit tests — `AddFieldRow.test.tsx` (12 tests: show/open/add/cancel/errors/nested/type-change/reset). `TargetPanel.test.tsx` (9 new tests: add-field visibility, origin badges, remove button). Visual snapshots updated. **1,941 tests pass across 63 files, 0 tsc errors.** | Test files | ✅ |
+
+**Success criteria:** Users can add, edit, and remove target fields inline. Pre-populated fields from adapters are visible and non-removable. Custom fields are maintained in DataMapper state and included in `onChange` output. Origin badges distinguish adapter vs custom vs fetched fields. Dot-notation creates nested custom fields. Remove cleans up associated mappings. Rename updates all referencing mappings.
+
+#### Sub-Phase 12C: Target Fetch — `fetchTargetSchema`
+
+Add a new adapter hook that lets the mapper fetch the target schema, similar to how `fetchSampleData` works for sources. This reuses the existing HTTP fetch infrastructure (host provides the callback). The fetched schema populates the target tree and can be combined with custom fields.
+
+| # | Task | File(s) | Status |
+|---|------|---------|--------|
+| 12C.1 | **`TargetSchemaResult` type + `fetchTargetSchema` on adapter** — added `TargetSchemaResult` interface (`sampleData?`, `fields?`, `label?`) and `fetchTargetSchema?: () => Promise<TargetSchemaResult>` on `MapperAdapter`. | `types.ts` | ✅ |
+| 12C.2 | **Target fetch + paste in TargetPanel** — 🔄 fetch button (with ⏳ spinner) + 📋 paste toggle mirroring SourcePanel. Paste mode with textarea → Apply/Cancel. Pre-fills existing sampleData. Fetch error display inline. | `TargetPanel.tsx` | ✅ |
+| 12C.3 | **Target state merge in DataMapper** — `targetSampleOverride`, `fetchedTargetFields`, `targetFetchError` state. `handleFetchTargetSchema` → stores sampleData/fields. `handlePasteTargetSample` → stores paste as sampleData override. `effectiveTarget` now merges: adapter fields → fetched fields → custom fields, dedup by path. `targetSampleOverride` takes precedence as sampleData. | `DataMapper.tsx` | ✅ |
+| 12C.4 | Unit tests — 11 new TargetPanel tests: fetch button visibility, paste toggle, paste submit (valid/invalid/empty), cancel, fetch error display, spinner, pre-fill textarea. **1,952 tests pass across 63 files, 0 tsc errors.** | Test files | ✅ |
+| 12C.5 | **Wire into adapters** — extraction adapter: `fetchTargetSchema` reuses `fetchSampleData` → parses response leaf paths into `TargetField[]` (path as suggested variable name, last segment as label). Validation adapter: same + `defaultValue` set from actual response values via `getByPathAsString`. Both only active when host provides `fetchSampleData`. 14 new tests (7 extraction + 7 validation). 2010 tests pass across 64 files. | `extractionAdapter.ts`, `validationAdapter.ts`, test files | ✅ |
+
+**Success criteria:** Target panel has 🔄 fetch + 📋 paste buttons when adapter supports it. Clicking fetch populates target tree with response structure (sampleData or fields). Pasting JSON overrides target sample data. Fetched fields coexist with custom-added fields. Error states display inline. Adapter wiring complete: extraction adapter generates target fields from response leaf paths; validation adapter generates fields with actual values as defaults.
+
+#### Sub-Phase 12D: Location-Aware Targets
+
+For HTTP request building (column mapping, variable binding, body builder), the target represents **multiple parts of the HTTP request**. Users should see their pre-populated values (existing URL params, headers, body fields) and be able to add/delete/update within each location group.
+
+**Design concept:** The target panel shows collapsible **location sections** — each representing a part of the HTTP request. Pre-populated values from the scenario (URL path params, query params, existing headers, body template fields) appear as pre-filled target nodes. Users can map source data to these targets, add new fields per section, or remove custom ones.
+
+| # | Task | File(s) | Status |
+|---|------|---------|--------|
+| 12D.1 | **`TargetField.location` + `defaultValue`** — extend `TargetField` with `location?: 'path' \| 'query' \| 'header' \| 'body' \| 'bodyForm'` and `defaultValue?: string`. `TargetFieldLocation` type alias. | `types.ts` | ✅ |
+| 12D.2 | **`parseScenarioTemplate` upgrade** — already correctly splits `path` vs `param`. Add `location` field to `TemplatePlaceholder` matching its type. `columnMappingAdapter` passes `location` through to target fields. Map `'path'→'path'`, `'param'→'query'`, `'body'→'body'`, `'header'→'header'`. | `adapters/columnMappingAdapter.ts` | ✅ |
+| 12D.3 | **`collectTemplateSlots` upgrade** — split `'url'` into `'path'` vs `'query'` by parsing URL. Path segment tokens → `'path'`, query tokens → `'query'`. `variableBindingAdapter` passes `location` to target fields. | `adapters/variableBindingAdapter.ts` | ✅ |
+| 12D.4 | **Location group UI** — new `LocationGroupPanel` component. When fields have `location`, group them into collapsible sections: `📍 Path`, `❓ Query`, `📋 Headers`, `📦 Body`, `📝 Form`. Each section header shows count + chevron. Fields without location go under general tree. Per-section "+" Add Field with auto-tagged location. | `LocationGroupPanel.tsx` **New**, `TargetPanel.tsx` | ✅ |
+| 12D.5 | **Pre-filled value display** — `buildTreeFromFields` uses `defaultValue` to set `node.value`. `TargetTreeNode` shows pre-filled value in muted text. Mapped values override. | `utils/targetTreeBuilder.ts`, `TargetTreeNode.tsx` | ✅ |
+| 12D.6 | **CSS for location groups** — section header bars with icon + label + count + chevron, group containers, location-specific color accents (path=blue, query=green, header=orange, body=purple, form=teal). | `src/styles/data-mapper.css` | ✅ |
+| 12D.7 | **Connection lines verification** — `useConnectionLines` queries `data-path` globally in container. Grouping doesn't change `data-path` attributes. Verified via unit test. | `hooks/useConnectionLines.ts` | ✅ |
+| 12D.8 | Unit tests — location grouping rendering, per-section add, adapter location tags, `collectTemplateSlots` path/query split, pre-filled value display, connection lines across groups. 27 new tests, 1979 total. | Test files | ✅ |
+
+**Success criteria:** Column mapping and variable binding adapters show target fields grouped by HTTP location. Pre-populated values from the scenario (existing params, headers, body fields) are visible. Users can add/delete/update fields within each section. Connection lines work correctly across location groups.
+
+#### Sub-Phase 12E: Hardening
+
+| # | Task | File(s) | Status |
+|---|------|---------|--------|
+| 12E.1 | `tsc --noEmit` + full test suite — zero errors, 1996 tests pass. | — | ✅ |
+| 12E.2 | Coverage check — all Phase 12 files >90%. Added 14 tests to close gaps (LocationGroupPanel 97.8%, TargetTreeNode 95.7%). | — | ✅ |
+| 12E.3 | Update deferred items — moved "Schema-driven target tree" and "Free-form target fields" to Resolved. Updated 1E.4 status. | Docs | ✅ |
+| 12E.4 | Update success criteria — 7 Phase 12 criteria added and checked. Phase 12 row updated to ✅ Complete. | Docs | ✅ |
+| 12E.5 | Snapshot tests — 5 new variants: custom field badge, fetched field badge, pre-filled value, hidden pre-filled on mapped, location groups. 27 total snapshots. | `visual-snapshots.test.tsx` | ✅ |
+| 12E.6 | Changelog — Phase 12A–12E entries added to Completed Phases Summary. Metrics updated. | Docs | ✅ |
+
+**Estimated total:** ~5–7 days  
+**Recommended order:** 12A → 12B → 12C → 12D → 12E
+
+**Dependencies:**
+- 12A is standalone — builds target tree from `fields` (no adapter changes)
+- 12B depends on 12A — add/edit/remove custom fields, `effectiveTargetFields` merging
+- 12C depends on 12A+12B — fetched fields merge with adapter fields + custom fields
+- 12D depends on 12A+12B — location grouping extends the fields-to-tree builder + per-section add
+- 12E runs after all above
+
+---
+
 ## Technical Decisions
 
 ### Drag-and-Drop Library
@@ -1932,6 +2045,8 @@ src/shared/components/data-mapper/
 ├── DriftBanner.test.tsx
 ├── SchemaDiffModal.tsx                  # Schema diff detail modal
 ├── SchemaDiffModal.test.tsx
+├── MappingHealthDashboard.tsx           # Health dashboard (coverage, drift, mismatches)
+├── MappingHealthDashboard.test.tsx
 ├── index.ts                             # Barrel export (public API)
 ├── types.ts                             # Core types
 ├── adapters/
@@ -1994,18 +2109,21 @@ Adapters live under `src/shared/components/data-mapper/adapters/` — 10 adapter
 
 ## Migration Strategy
 
-The Data Mapper will be introduced **alongside** existing components, not as a big-bang replacement:
+The Data Mapper was introduced **alongside** existing components via a phased rollout:
 
-1. **Phase 1–2**: Build the core mapper as a new standalone component with no existing feature dependencies
-2. **Phase 3**: Replace extraction editor, assertion modal tree, and validation builder with Data Mapper adapters (direct replacement, old components deprecated but kept as reference)
+1. **Phase 1–2**: Built the core mapper as a new standalone component with no existing feature dependencies
+2. **Phase 3**: Replaced extraction editor, assertion modal tree, and validation builder with Data Mapper adapters (direct replacement, old components deprecated)
 3. **Phase 4–5**: Same adapter-based replacement for data sources and webhook config
 4. **Phase 6**: Request body builder as a new optional mode
-5. **Phase 7**: Polish, remove deprecated components after one release cycle
-6. **Phase 8**: Schema drift detection runs passively — captures snapshots on save, compares on fetch, no user action needed until drift is found
-7. **Phase 9**: Mapping debugger is opt-in — "Debug View" toggle in mapper toolbar; trace capture uses existing `traceCollector` infrastructure
-8. **Phase 10**: AI-assisted features layer on top of the existing auto-map — same UI, smarter backend
+5. **Phase 7**: Polish and UX excellence — keyboard navigation, accessibility, gallery samples
+6. **Phase 8**: Schema drift detection — captures snapshots on save, compares on fetch, auto-repair engine, health dashboard
+7. **Phase 9**: Mapping debugger — "Debug View" toggle, trace capture, step-through, repair badges on canvas
+8. **Phase 10**: AI-assisted features — semantic auto-map, confidence scores, pattern learning, expression suggestions
+9. **Phase 11**: Visual polish — mockup alignment, type pills, canvas lines, footer stats
+10. **Phase 12**: Schema-driven target — target tree from fields, editable custom fields, fetch/paste schema, location-aware groups
+11. **Post-Phase 12**: Deprecated components removed — `ExtractionPathPickerModal`, `ExtractionMapperModal`, `JsonPathBuilder`, `jsonPathTreeUtils` deleted. `PickerNode` privatised. All consumers updated to use DataMapper-based UIs.
 
-This ensures zero disruption to existing workflows while the mapper matures. Phases 8–10 are **differentiators** — they go beyond what any current API testing or integration tool offers and position RedfireForge as the industry leader in visual data mapping.
+Migration is **complete**. All deprecated components have been removed. The remaining 4 deprecated components (`PopulateFromApiModal`, `PopulateFetchStep`, `PopulateMapStep`, `usePopulateFromApi`) are retained as they still serve as the only live import path in `DataSourceEditor`.
 
 ---
 
@@ -2022,15 +2140,24 @@ This ensures zero disruption to existing workflows while the mapper matures. Pha
 - [x] >90% unit test coverage on core mapper, path engine, and all adapters _(Phase 2H — hooks/utils/adapters >90%; components ~94% stmts)_
 - [x] Training manuals and gallery samples for each mapping context _(4 manuals created)_
 
+### Target Experience (Phase 12)
+- [x] Target tree built from `target.fields` when `sampleData` absent _(Phase 12A — `buildTreeFromFields`, type normalization, auto-expand)_
+- [x] Users can add/remove/rename custom target fields _(Phase 12B — `AddFieldRow`, `customTargetFields` state, origin badges)_
+- [x] Target schema fetchable from adapter + JSON paste override _(Phase 12C — `fetchTargetSchema` hook, paste mode, `effectiveTarget` merge)_
+- [x] Target fields grouped by HTTP location (path/query/header/body/form) _(Phase 12D — `LocationGroupPanel`, location-specific accents, per-section add)_
+- [x] Pre-filled values visible on target nodes, overridden by mappings _(Phase 12D — `defaultValue` on `TargetField`, `.dm-default-value`)_
+- [x] Connection lines work across location groups _(Phase 12D — verified `data-path` global query)_
+- [x] All Phase 12 files >90% code coverage _(Phase 12E — 1996 tests, snapshot tests for all new variants)_
+
 ### Industry-Leading (Phases 8–10)
 - [x] Schema drift detected automatically on source/target changes _(Phase 8A–8C — snapshot capture on save, diff on modal open, drift classification)_
 - [x] Breaking changes surfaced before test runs fail silently _(Phase 8B–8C — DriftBanner notification, visual tree/line overlays, SchemaDiffModal)_
-- [ ] Mapping debugger shows actual runtime values on connection lines
-- [ ] Failed mappings pinpoint the exact source→target connection that broke
-- [ ] Auto-map suggests semantic matches (synonym-based, not just name-based)
-- [ ] Confidence scores on every auto-map suggestion
+- [x] Mapping debugger shows actual runtime values on connection lines _(Phase 9B — debug mode + trace value badges on connection lines and tree nodes)_
+- [x] Failed mappings pinpoint the exact source→target connection that broke _(Phase 9C — error popover, step-through debugger, failed line highlighting)_
+- [x] Auto-map suggests semantic matches (synonym-based, not just name-based) _(Phase 10A — 6-tier cascade with synonym dictionary)_
+- [x] Confidence scores on every auto-map suggestion _(Phase 10B — green/amber/red canvas badges with percentage)_
 - [x] Expression suggestions for type mismatches _(Phase 2E — `typeMismatch.ts` with quick-fix suggestions and one-click apply)_
-- [ ] Pattern learning remembers user mapping decisions across sessions
+- [x] Pattern learning remembers user mapping decisions across sessions _(Phase 10B — `mappingPatterns.ts` with localStorage persistence, schema-hashed entries, prune to 100 max)_
 
 ---
 
@@ -2063,17 +2190,29 @@ This ensures zero disruption to existing workflows while the mapper matures. Pha
 | **9B** | 2026-05-11 | Data Flow Overlay — Debug mode toggle, value badges on connection lines, source/target tree trace overlays, debug status bar, `traceData` prop on DataMapper, `TraceValueOverlay` type, CSS styling (120+ lines). 25 new tests. | 13,571 project tests |
 | **Pre-9C audit** | 2026-05-11 | Fixed 3 HIGH + 4 MEDIUM issues: debugMode stuck when traces cleared, sourceTraceOverlay ignored sourceId (multi-source collision), traceByMappingId included stale traces, double onChange on repair, stuck repairTick, empty-string badge render, TraceValueOverlay type location. hasTraceData now derived from filtered traces. 5 new tests. | 13,576 project tests |
 | **9C** | 2026-05-11 | Step-Through & Failure Pinpointing — `expressionStepDebugger.ts` (path resolution, nested function eval, step-by-step), "Step Debug" button + panel in ExpressionEditorModal, inline error labels on failed lines, error detail popover with close/outside-click, `traceByMappingId` prop on MappingCanvas. 30 new tests. | 13,606 project tests |
+| **12A** | 2026-05-11 | Target tree from fields — `buildTreeFromFields` + `normalizeFieldType` in `targetTreeBuilder.ts`, TargetPanel fallback rendering, `::` path handling, `collectAllPaths` auto-expansion. 19 new tests. | 1,952 data-mapper tests |
+| **12B** | 2026-05-11 | Editable target fields — `AddFieldRow` component, `customTargetFields` state, `effectiveTarget` merge, `TargetFieldOrigin` type, inline rename, origin badges (custom/fetched), remove button. 21 new tests. | 1,952 data-mapper tests |
+| **12C** | 2026-05-11 | Target fetch & paste — `TargetSchemaResult` type, `fetchTargetSchema` on adapter, fetch button + paste mode in TargetPanel, `targetSampleOverride`/`fetchedTargetFields` state in DataMapper, 3-way effective merge. 11 new tests. | 1,952 data-mapper tests |
+| **12D** | 2026-05-11 | Location-aware targets — `TargetFieldLocation` type + `defaultValue`, `LocationGroupPanel` with collapsible sections, `parseScenarioTemplate`/`collectTemplateSlots` location tags, adapter field location pass-through, pre-filled value display, CSS color accents. 27 new tests. | 1,979 data-mapper tests |
+| **12E** | 2026-05-11 | Hardening — coverage >90% on all Phase 12 files, snapshot tests (5 new variants), deferred items resolved (1E.4, schema tree, free-form fields), success criteria updated, changelog. 17 new tests. | 1,996 data-mapper tests |
+| **12C.5** | 2026-05-11 | Adapter wiring — `fetchTargetSchema` wired into extraction adapter (response leaf paths → target fields) and validation adapter (leaf paths + defaultValue from actual values). Both conditional on `fetchSampleData`. 14 new tests. | 2,010 data-mapper tests |
+| **8D.3** | 2026-05-11 | Mapping health dashboard — `MappingHealthDashboard` component with `computeHealthStats`, status indicator, coverage %, broken/drift/mismatch counts, clickable metrics. 15 new tests. | 2,025 data-mapper tests |
+| **P9.1.3** | 2026-05-11 | Repair badge on canvas — `🔧 repair → <path>` badge on breaking-drift lines with suggestions, click applies repair, props wired through DataMapper → MappingCanvas → DataMapperModal. 6 new tests. | 2,031 data-mapper tests |
+| **Post-12: Cleanup** | 2026-05-11 | Deprecated component removal — Deleted 7 files (`ExtractionPathPickerModal`, `ExtractionMapperModal`, `JsonPathBuilder`, `jsonPathTreeUtils` + their tests). `PickerNode` privatised in `RegexAssertionModal`. `ExtractionFetchSampleProps` moved to `ExtractionEditor`. Consumers updated to inline `validation-fields-table` + `DataMapperModal`. 13 files modified, extensive test refactoring. | 13,970 project tests |
 
-### Current Metrics (as of Phase 9C Completion)
+### Current Metrics (as of Post-Phase 12 — Deprecated Component Removal)
 
 | Metric | Value |
 |--------|-------|
-| **Full project tests** | **13,606 across 512 files** |
+| **Full project tests** | **13,970 across 526 files** |
 | TypeScript errors | 0 |
 | Lint errors | 0 |
 | Adapters | 10 (extraction, assertion, validation, populate, column-mapping, shared-ds-fetch, webhook-extraction, variable-binding, request-body, demo) |
-| Deprecated components | 4 (PopulateFromApiModal, PopulateFetchStep, PopulateMapStep, usePopulateFromApi) |
-| Schema drift features | Snapshot engine, drift classification (info/warning/breaking), notification banner, visual tree/line overlays, schema diff modal, auto-repair engine, contract mode |
+| Deprecated components | 4 remaining (PopulateFromApiModal, PopulateFetchStep, PopulateMapStep, usePopulateFromApi). All other deprecated components deleted: ~~PickerNode export~~, ~~JsonPathBuilder~~, ~~ExtractionMapperModal~~, ~~ExtractionPathPickerModal~~, ~~jsonPathTreeUtils~~ |
+| Schema drift features | Snapshot engine, drift classification (info/warning/breaking), notification banner, visual tree/line overlays, schema diff modal, auto-repair engine, contract mode, **health dashboard**, **repair badges** |
+| AI-assisted features | 6-tier semantic auto-map, synonym dictionary, confidence scores, pattern learning, expression suggestions, transformation library, example-based mapping inference |
+| Target experience (Phase 12) | Fields-based tree, custom/fetched field editing, fetch/paste schema override, location-aware grouping (path/query/header/body/form), pre-filled values, **fetchTargetSchema wired into extraction & validation adapters** |
+| Visual polish | Type pills, sample values, mapped indicators, dot-grid canvas, colored lines, canvas badges, stats footer, 27 snapshot tests |
 
 ### Key Bugs Fixed During Development
 
@@ -2164,9 +2303,8 @@ This ensures zero disruption to existing workflows while the mapper matures. Pha
 
 | Item | Deferred To | Reason |
 |------|-------------|--------|
-| Free-form target fields (`allowCustomFields` UI) | Phase 9+ | Adapters set the flag; TargetPanel UX not built yet |
-| Schema-driven target tree (from `target.fields` / JSON Schema) | Phase 9+ | Only sample data tree implemented |
-| Remove deprecated `PickerNode` / `JsonPathBuilder` | After full wiring | Keep both old + new UIs in parallel until DataMapper is fully validated |
+| ~~Remove deprecated `PickerNode` / `JsonPathBuilder`~~ | ✅ Complete | Removed after Phase 12. All consumers migrated to DataMapper. 7 files deleted, 8 consumers updated, 13,970 tests pass. |
+| Non-workflow chained execution (request A extraction -> request B `{{var}}` in non-workflow run modes) | Future phase (Phase 13+) | Current chaining is workflow-only via `VariableContext`; non-workflow modes (`sequential`/`batch`/`pool`/`load-profile`) do not maintain a shared extraction pipeline between requests. Add optional "chained test run" path with explicit ordering and deterministic variable scope. |
 
 ### Resolved Items (formerly deferred)
 
@@ -2182,3 +2320,8 @@ This ensures zero disruption to existing workflows while the mapper matures. Pha
 | Training manual version outdated | Post-7F fix | Updated `data-mapper-basics-easy.html` from v0.6.0 to v0.5.7 (header + footer) |
 | Duplicate keyboard shortcut sections | Post-7F fix | Merged sections 8 and 12 into one accurate section; renumbered subsequent sections |
 | Training manual Escape claim wrong | Post-7F fix | Corrected "close the mapper" to "clear selection; close modal when used from Modal" |
+| Free-form target fields (`allowCustomFields` UI) | Phase 12B | `AddFieldRow` component, `customTargetFields` state, inline rename, origin badges |
+| Schema-driven target tree (from `target.fields`) | Phase 12A | `buildTreeFromFields` in `targetTreeBuilder.ts`, TargetPanel fallback, type normalization |
+| Adapter wiring for `fetchTargetSchema` | Phase 12C.5 | Extraction adapter generates target fields from response leaf paths; validation adapter generates fields with actual values as `defaultValue`. Both conditional on host providing `fetchSampleData`. |
+| Mapping health dashboard | 8D.3 | `MappingHealthDashboard` with coverage %, broken count, drift/mismatch stats. Wired into `DataMapper` between toolbar and body. |
+| Repair badge on broken connection lines | P9.1.3 | `🔧 repair` `CanvasBadge` on breaking-drift lines with suggestions. Click applies top repair. |

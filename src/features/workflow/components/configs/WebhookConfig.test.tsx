@@ -99,6 +99,44 @@ describe('WebhookConfig', () => {
     expect(mockClipboard.writeText).toHaveBeenCalledWith('http://127.0.0.1:3001/webhooks/wf1/n1');
   });
 
+  it('handles clipboard failure when copying URL', async () => {
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    mockClipboard.writeText.mockRejectedValueOnce(new Error('denied'));
+    render(<WebhookConfig data={makeData()} onChange={vi.fn()} workflowId="wf1" nodeId="n1" />);
+    await act(async () => {
+      fireEvent.click(screen.getByText('Copy'));
+    });
+    expect(errSpy).toHaveBeenCalled();
+    errSpy.mockRestore();
+    mockClipboard.writeText.mockResolvedValue(undefined);
+  });
+
+  it('handles clipboard failure when copying cURL', async () => {
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    mockClipboard.writeText.mockRejectedValueOnce(new Error('denied'));
+    render(<WebhookConfig data={makeData()} onChange={vi.fn()} workflowId="wf1" nodeId="n1" />);
+    await act(async () => {
+      fireEvent.click(screen.getByText('Copy cURL'));
+    });
+    expect(errSpy).toHaveBeenCalled();
+    errSpy.mockRestore();
+    mockClipboard.writeText.mockResolvedValue(undefined);
+  });
+
+  it('Copy cURL uses empty JSON when sample payload is whitespace only', async () => {
+    render(
+      <WebhookConfig
+        data={makeData({ samplePayload: '   \n\t  ' })}
+        onChange={vi.fn()}
+        workflowId="wf1"
+        nodeId="n1"
+      />,
+    );
+    fireEvent.click(screen.getByText('Copy cURL'));
+    const curlArg = mockClipboard.writeText.mock.calls[0][0] as string;
+    expect(curlArg).toContain("-d '{}'");
+  });
+
   it('copies cURL command to clipboard on Copy cURL click', async () => {
     render(<WebhookConfig data={makeData()} onChange={vi.fn()} workflowId="wf1" nodeId="n1" />);
     fireEvent.click(screen.getByText('Copy cURL'));
@@ -318,6 +356,18 @@ describe('WebhookConfig', () => {
     expect(onChange).toHaveBeenCalledWith({ extractVariables: [{ name: '', jsonPath: '' }] });
   });
 
+  it('handles null extractVariables when adding variable', () => {
+    const onChange = vi.fn();
+    render(
+      <WebhookConfig
+        data={makeData({ extractVariables: null as unknown as undefined })}
+        onChange={onChange}
+      />,
+    );
+    fireEvent.click(screen.getByText('Add Variable'));
+    expect(onChange).toHaveBeenCalledWith({ extractVariables: [{ name: '', jsonPath: '' }] });
+  });
+
   // --- Visual Mapper (DataMapperModal) ---
 
   it('opens Visual Mapper modal when button is clicked', () => {
@@ -326,7 +376,7 @@ describe('WebhookConfig', () => {
     expect(document.querySelector('.dm-modal-overlay')).toBeTruthy();
   });
 
-  it('closes Visual Mapper when cancelled', async () => {
+  it('closes Visual Mapper when closed', async () => {
     render(<WebhookConfig data={makeData()} onChange={vi.fn()} />);
     fireEvent.click(screen.getByText('Visual Mapper'));
     expect(document.querySelector('.dm-modal-overlay')).toBeTruthy();
@@ -335,13 +385,13 @@ describe('WebhookConfig', () => {
     expect(document.querySelector('.dm-modal-overlay')).toBeNull();
   });
 
-  it('saves mapper result and closes modal via Done', async () => {
+  it('saves mapper result and closes modal via Save', async () => {
     const onChange = vi.fn();
     render(<WebhookConfig data={makeData({ samplePayload: '{"id":1}' })} onChange={onChange} />);
     fireEvent.click(screen.getByText('Visual Mapper'));
     expect(document.querySelector('.dm-modal-overlay')).toBeTruthy();
-    const doneBtn = screen.getByText('Done');
-    fireEvent.click(doneBtn);
+    const saveBtn = screen.getByText('Save');
+    fireEvent.click(saveBtn);
     expect(document.querySelector('.dm-modal-overlay')).toBeNull();
   });
 });

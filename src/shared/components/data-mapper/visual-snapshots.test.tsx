@@ -11,6 +11,7 @@ import type { JsonTreeNode } from '../../utils/jsonTreeModel';
 import type { Mapping } from './types';
 import type { ClassifiedDrift } from './utils/schemaDrift';
 import type { MappingTrace } from './utils/mappingTrace';
+import LocationGroupPanel from './LocationGroupPanel';
 
 const strLeaf: JsonTreeNode = { key: 'name', path: 'name', type: 'string', value: 'Alice', children: [] };
 const numLeaf: JsonTreeNode = { key: 'age', path: 'age', type: 'number', value: 42, children: [] };
@@ -262,6 +263,65 @@ describe('Visual Snapshots — MapperToolbar', () => {
         hasPending={true}
         onAcceptAllPending={vi.fn()}
         onRejectAllPending={vi.fn()}
+      />,
+    );
+    expect(container.innerHTML).toMatchSnapshot();
+  });
+});
+
+describe('Visual Snapshots — TargetTreeNode (Phase 12)', () => {
+  it('custom field with origin badge', () => {
+    const customNode: JsonTreeNode = { key: 'customField', path: 'customField', type: 'string', value: undefined, children: [] };
+    const origins = new Map([['customField', 'custom' as const]]);
+    const { container } = render(
+      <TargetTreeNode node={customNode} {...targetDefaults} fieldOrigins={origins} />,
+    );
+    expect(container.innerHTML).toMatchSnapshot();
+  });
+
+  it('fetched field with origin badge', () => {
+    const fetchedNode: JsonTreeNode = { key: 'fetchedField', path: 'fetchedField', type: 'number', value: undefined, children: [] };
+    const origins = new Map([['fetchedField', 'fetched' as const]]);
+    const { container } = render(
+      <TargetTreeNode node={fetchedNode} {...targetDefaults} fieldOrigins={origins} />,
+    );
+    expect(container.innerHTML).toMatchSnapshot();
+  });
+
+  it('pre-filled default value on unmapped node', () => {
+    const prefilledNode: JsonTreeNode = { key: 'page', path: 'page', type: 'string', value: '1', children: [] };
+    const { container } = render(
+      <TargetTreeNode node={prefilledNode} {...targetDefaults} />,
+    );
+    expect(container.innerHTML).toMatchSnapshot();
+  });
+
+  it('pre-filled value hidden when mapped', () => {
+    const node: JsonTreeNode = { key: 'userName', path: 'userName', type: 'string', value: 'DefaultUser', children: [] };
+    const { container } = render(
+      <TargetTreeNode node={node} {...targetDefaults} mappings={[directMapping]} />,
+    );
+    expect(container.innerHTML).toMatchSnapshot();
+  });
+});
+
+describe('Visual Snapshots — LocationGroupPanel', () => {
+  it('grouped by location', () => {
+    const fields = [
+      { path: 'userId', label: 'userId', type: 'string', location: 'path' as const },
+      { path: 'page', label: 'page', type: 'string', location: 'query' as const, defaultValue: '1' },
+      { path: 'Auth', label: 'Auth', type: 'string', location: 'header' as const },
+      { path: 'name', label: 'name', type: 'string', location: 'body' as const },
+    ];
+    const { container } = render(
+      <LocationGroupPanel
+        fields={fields}
+        mappings={[]}
+        onDrop={vi.fn()}
+        search=""
+        selectedMappingId={null}
+        onSelectMapping={vi.fn()}
+        existingPaths={new Set(fields.map(f => f.path))}
       />,
     );
     expect(container.innerHTML).toMatchSnapshot();

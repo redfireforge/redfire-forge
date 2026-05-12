@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import type { MutableRefObject } from 'react';
-import type { Assertion, AssertionOperator, ComparisonOperator, DateReference, FailureDetail, Scenario, ValidationMode } from '../../../shared/types';
-import JsonPathBuilder from '../../requests/components/JsonPathBuilder';
+import type { Assertion, AssertionOperator, ComparisonOperator, DateReference, ExpectedField, FailureDetail, Scenario, ValidationMode } from '../../../shared/types';
 import ResponseVersionPanel from '../../requests/components/ResponseVersionPanel';
 import RulesVersionPanel from '../../requests/components/RulesVersionPanel';
 import {
@@ -139,6 +138,8 @@ export default function TestEditorValidationTab({
     return () => document.removeEventListener('mousedown', handleClick);
   }, [showAddMenu]);
   const assertions = draft.validation.assertions ?? [];
+  const responsePreviewJson = pendingFetchResponse ?? draft.validation.sampleJson ?? '';
+  const hasResponsePreview = responsePreviewJson.trim().length > 0;
 
   function updateAssertion(idx: number, patch: Partial<Assertion>) {
     const prev = draftRef.current;
@@ -402,6 +403,25 @@ export default function TestEditorValidationTab({
               </div>
             </div>
           )}
+          {hasResponsePreview && (
+            <div className={`validation-response-preview ${pendingFetchResponse ? 'validation-response-preview--pending' : ''}`}>
+              <div className="validation-response-preview-header">
+                <span className="validation-response-preview-title">
+                  {pendingFetchResponse ? 'Fetched response (pending apply)' : 'Current sample response'}
+                </span>
+                <span className="validation-response-preview-meta">
+                  {(responsePreviewJson.length / 1024).toFixed(1)} KB
+                </span>
+              </div>
+              <textarea
+                className="validation-response-preview-textarea"
+                value={responsePreviewJson}
+                readOnly
+                rows={8}
+                aria-label={pendingFetchResponse ? 'Fetched response preview' : 'Current sample response'}
+              />
+            </div>
+          )}
           <div className="validation-mapper-toggle">
             <button
               type="button"
@@ -413,20 +433,40 @@ export default function TestEditorValidationTab({
               ⚡ Visual Mapper
             </button>
           </div>
-          <JsonPathBuilder
-            sampleJson={draft.validation.sampleJson || ''}
-            onSampleJsonChange={(json) => {
-              const prev = draftRef.current;
-              onDraftChange({ ...prev, validation: { ...prev.validation, sampleJson: json } });
-            }}
-            selectiveMode={draft.validation.selectiveMode || 'include'}
-            expectedFields={draft.validation.expectedFields || []}
-            excludedPaths={draft.validation.excludedPaths || []}
-            onUpdate={(patch) => {
-              const prev = draftRef.current;
-              onDraftChange({ ...prev, validation: { ...prev.validation, ...patch } });
-            }}
-          />
+          {(draft.validation.expectedFields || []).length > 0 && (
+            <div className="validation-fields-summary">
+              <table className="validation-fields-table">
+                <thead>
+                  <tr>
+                    <th>JSON Path</th>
+                    <th>Expected Value</th>
+                    <th />
+                  </tr>
+                </thead>
+                <tbody>
+                  {(draft.validation.expectedFields || []).map((f: ExpectedField, idx: number) => (
+                    <tr key={idx}>
+                      <td><code>{f.jsonPath}</code></td>
+                      <td><code>{f.expectedValue}</code></td>
+                      <td>
+                        <button
+                          type="button"
+                          className="btn-icon-sm"
+                          title="Remove"
+                          onClick={() => {
+                            const prev = draftRef.current;
+                            const next = [...(prev.validation.expectedFields || [])];
+                            next.splice(idx, 1);
+                            onDraftChange({ ...prev, validation: { ...prev.validation, expectedFields: next } });
+                          }}
+                        >×</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
 
           {(draft.validation.expectedFields || []).length > 0 && (
             <div className="validate-response-section">

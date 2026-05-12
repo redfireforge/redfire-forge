@@ -17,6 +17,7 @@ const hoistedMocks = vi.hoisted(() => {
       fetchHookOverride = fn;
     },
     getFetchHookOverride: () => fetchHookOverride,
+    lastPopulateAdapter: null as null | { fetchSampleData?: () => Promise<unknown> },
   };
 });
 
@@ -48,27 +49,54 @@ vi.mock('../../../shared/components/data-mapper', async (importOriginal) => {
       onCancel,
       adapter,
     }: {
-      onSave: (output: { columns: DataSourceColumn[]; rows: DataSourceRow[]; mode: 'append' | 'replace' }) => void;
+      onSave: (output: unknown) => void;
       onCancel: () => void;
-      adapter: { title: string };
+      adapter: { title: string; fetchSampleData?: () => Promise<unknown> };
     }) {
+      const isPopulate = adapter.title === 'API Response → Data Source';
+      hoistedMocks.lastPopulateAdapter = isPopulate ? adapter : null;
       return (
         <div>
           <h2>{adapter.title}</h2>
-          <button
-            type="button"
-            onClick={() =>
-              onSave({ columns: [], rows: [{ id: 'pop-row', values: {}, enabled: true }], mode: 'append' })}
-          >
-            Mock Append
-          </button>
-          <button
-            type="button"
-            onClick={() =>
-              onSave({ columns: [], rows: [{ id: 'repl-row', values: {}, enabled: true }], mode: 'replace' })}
-          >
-            Mock Replace
-          </button>
+          {isPopulate ? (
+            <>
+              <button
+                type="button"
+                onClick={() =>
+                  (onSave as (o: { columns: DataSourceColumn[]; rows: DataSourceRow[]; mode: 'append' | 'replace' }) => void)({
+                    columns: [],
+                    rows: [{ id: 'pop-row', values: {}, enabled: true }],
+                    mode: 'append',
+                  })}
+              >
+                Mock Append
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  (onSave as (o: { columns: DataSourceColumn[]; rows: DataSourceRow[]; mode: 'append' | 'replace' }) => void)({
+                    columns: [],
+                    rows: [{ id: 'repl-row', values: {}, enabled: true }],
+                    mode: 'replace',
+                  })}
+              >
+                Mock Replace
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              data-testid="mock-column-mapper-save"
+              onClick={() =>
+                onSave([
+                  { id: 'c1', name: 'vin', type: 'body', mapping: 'vin' },
+                  { id: 'c-mapped', name: 'extra', type: 'param', mapping: 'q' },
+                ] as DataSourceColumn[])
+              }
+            >
+              Mock Column Apply
+            </button>
+          )}
           <button type="button" onClick={onCancel}>
             Close Populate
           </button>
@@ -209,6 +237,7 @@ describe('DataSourceEditor', () => {
   beforeEach(() => {
     hoistedMocks.setFetchHookOverride(null);
     hoistedMocks.handleImport.mockClear();
+    hoistedMocks.lastPopulateAdapter = null;
     document.body.style.cursor = '';
     document.body.style.userSelect = '';
   });
@@ -286,6 +315,26 @@ describe('DataSourceEditor', () => {
       expect(updated.dataSource!.columns).toHaveLength(3);
       // Each existing row should have the new column's value
       expect(Object.keys(updated.dataSource!.rows[0].values)).toHaveLength(3);
+    });
+
+    it('opens column mapper and applies mapped columns', () => {
+      const onChange = vi.fn();
+      render(<DataSourceEditor draft={makeScenario({ dataSource: makeDataSource() })} onDraftChange={onChange} />);
+      fireEvent.click(screen.getByTitle('Visual mapper: drag columns to URL path, query, body, header, or validate slots'));
+      expect(screen.getByText('Columns → Request Template')).toBeTruthy();
+      fireEvent.click(screen.getByTestId('mock-column-mapper-save'));
+      const updated = onChange.mock.calls[onChange.mock.calls.length - 1][0] as Scenario;
+      expect(updated.dataSource!.columns).toHaveLength(2);
+      expect(updated.dataSource!.columns.some((c) => c.id === 'c-mapped')).toBe(true);
+      expect(screen.queryByTestId('mock-column-mapper-save')).toBeNull();
+    });
+
+    it('closes column mapper via modal cancel', () => {
+      render(<DataSourceEditor draft={makeScenario({ dataSource: makeDataSource() })} onDraftChange={vi.fn()} />);
+      fireEvent.click(screen.getByTitle('Visual mapper: drag columns to URL path, query, body, header, or validate slots'));
+      expect(screen.getByText('Columns → Request Template')).toBeTruthy();
+      fireEvent.click(screen.getByText('Close Populate'));
+      expect(screen.queryByText('Columns → Request Template')).toBeNull();
     });
 
     it('toggles row enabled/disabled', () => {
@@ -651,6 +700,125 @@ describe('DataSourceEditor', () => {
       render(<DataSourceEditor draft={makeScenario({ dataSource: makeDataSource() })} onDraftChange={vi.fn()} />);
       fireEvent.click(screen.getByTitle('Send a request and populate rows from an array in the response'));
       expect(screen.getByText('API Response → Data Source')).toBeTruthy();
+    });
+
+    it('runs populate adapter inner fetchSampleData with first enabled row', async () => {
+      const onFetchRow = vi.fn().mockResolvedValue({
+        status: 200,
+        body: JSON.stringify({ items: [{ id: 'a' }] }),
+        headers: {},
+        error: null,
+      });
+      render(
+        <DataSourceEditor
+          draft={makeScenario({
+            dataSource: makeDataSource(),
+            url: 'https://api.example.com/users',
+            method: 'GET',
+          })}
+          onDraftChange={vi.fn()}
+          onFetchRow={onFetchRow}
+        />,
+      );
+      fireEvent.click(screen.getByTitle('Send a request and populate rows from an array in the response'));
+      expect(hoistedMocks.lastPopulateAdapter?.fetchSampleData).toBeTruthy();
+      await act(async () => {
+        await hoistedMocks.lastPopulateAdapter!.fetchSampleData!();
+      });
+      expect(onFetchRow).toHaveBeenCalled();
+    });
+
+    it('populate fetchSampleData uses draft when no enabled row', async () => {
+      const ds = makeDataSource();
+      ds.rows.forEach((r) => { r.enabled = false; });
+      const onFetchRow = vi.fn().mockResolvedValue({
+        status: 200,
+        body: '{}',
+        headers: {},
+        error: null,
+      });
+      render(
+        <DataSourceEditor
+          draft={makeScenario({
+            dataSource: ds,
+            url: 'https://api.example.com/z',
+            method: 'GET',
+          })}
+          onDraftChange={vi.fn()}
+          onFetchRow={onFetchRow}
+        />,
+      );
+      fireEvent.click(screen.getByTitle('Send a request and populate rows from an array in the response'));
+      await act(async () => {
+        await hoistedMocks.lastPopulateAdapter!.fetchSampleData!();
+      });
+      expect(onFetchRow).toHaveBeenCalled();
+    });
+
+    it('populate fetchSampleData throws when template vars unresolved', async () => {
+      render(
+        <DataSourceEditor
+          draft={makeScenario({
+            dataSource: makeDataSource(),
+            url: 'https://api.example.com/{{nope}}',
+            method: 'GET',
+          })}
+          onDraftChange={vi.fn()}
+          onFetchRow={vi.fn()}
+        />,
+      );
+      fireEvent.click(screen.getByTitle('Send a request and populate rows from an array in the response'));
+      await act(async () => {
+        await expect(hoistedMocks.lastPopulateAdapter!.fetchSampleData!()).rejects.toThrow(/Unresolved variables/);
+      });
+    });
+
+    it('populate fetchSampleData propagates fetch error', async () => {
+      const onFetchRow = vi.fn().mockResolvedValue({
+        status: 200,
+        body: '{}',
+        headers: {},
+        error: 'network',
+      });
+      render(
+        <DataSourceEditor
+          draft={makeScenario({
+            dataSource: makeDataSource(),
+            url: 'https://api.example.com/f',
+            method: 'GET',
+          })}
+          onDraftChange={vi.fn()}
+          onFetchRow={onFetchRow}
+        />,
+      );
+      fireEvent.click(screen.getByTitle('Send a request and populate rows from an array in the response'));
+      await act(async () => {
+        await expect(hoistedMocks.lastPopulateAdapter!.fetchSampleData!()).rejects.toThrow('network');
+      });
+    });
+
+    it('populate fetchSampleData throws on HTTP error status', async () => {
+      const onFetchRow = vi.fn().mockResolvedValue({
+        status: 500,
+        body: '{}',
+        headers: {},
+        error: null,
+      });
+      render(
+        <DataSourceEditor
+          draft={makeScenario({
+            dataSource: makeDataSource(),
+            url: 'https://api.example.com/e',
+            method: 'GET',
+          })}
+          onDraftChange={vi.fn()}
+          onFetchRow={onFetchRow}
+        />,
+      );
+      fireEvent.click(screen.getByTitle('Send a request and populate rows from an array in the response'));
+      await act(async () => {
+        await expect(hoistedMocks.lastPopulateAdapter!.fetchSampleData!()).rejects.toThrow(/HTTP 500/);
+      });
     });
   });
 

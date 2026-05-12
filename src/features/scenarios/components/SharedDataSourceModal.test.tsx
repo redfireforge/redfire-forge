@@ -9,6 +9,8 @@ import { render, screen, fireEvent, act, waitFor, within } from '@testing-librar
 import userEvent from '@testing-library/user-event';
 import SharedDataSourceModal from './SharedDataSourceModal';
 import type { SharedDataSource, FeatureGroup, DataSource, GlobalAuthProfile } from '../../../shared/types';
+import { proxyFetch } from '../../../engine/executor';
+import { createSharedDsFetchAdapter } from '../../../shared/components/data-mapper';
 
 // Mock uuid to return predictable IDs
 vi.mock('uuid', () => ({
@@ -18,6 +20,7 @@ vi.mock('uuid', () => ({
 // Mock proxyFetch
 vi.mock('../../../engine/executor', () => ({
   proxyFetch: vi.fn(),
+  buildHeaders: vi.fn(() => ({})),
 }));
 
 /** Minimal frame so `onClose` (dirty gate) can be exercised — production uses closeButtonKind none + closeOnOverlayClick false */
@@ -106,8 +109,10 @@ vi.mock('./DataSourceSetupModal', () => ({
 
 vi.mock('../../../shared/components/data-mapper', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../../shared/components/data-mapper')>();
+  const createSharedDsFetchAdapterMock = vi.fn(actual.createSharedDsFetchAdapter);
   return {
     ...actual,
+    createSharedDsFetchAdapter: createSharedDsFetchAdapterMock,
     DataMapperModal: ({
       onSave,
       onCancel,
@@ -236,6 +241,12 @@ function ModalHarness(
 describe('SharedDataSourceModal', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(proxyFetch).mockResolvedValue({
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      body: '{"ok":true}',
+    });
   });
 
   describe('Initial Render', () => {
@@ -1298,6 +1309,75 @@ describe('SharedDataSourceModal', () => {
       await userEvent.click(screen.getByRole('button', { name: /populate rows from api/i }));
       await userEvent.click(screen.getByText('Populate Close'));
       expect(screen.queryByTestId('populate-from-api-mock')).not.toBeInTheDocument();
+    });
+
+    it('populate adapter fetchSampleData throws for unresolved variables', async () => {
+      const createAdapterMock = vi.mocked(createSharedDsFetchAdapter);
+      const sources = [
+        makeSharedDs('s1', 'T', {
+          fetchConfig: { url: 'https://api.com/{{missing}}', method: 'GET', headers: [], auth: { type: 'none' } },
+        }),
+      ];
+      render(<SharedDataSourceModal {...defaultProps} sharedDataSources={sources} featureGroups={[]} />);
+      await userEvent.click(screen.getByRole('button', { name: /populate rows from api/i }));
+      const adapterOptions = createAdapterMock.mock.calls.at(-1)?.[0] as { fetchSampleData?: () => Promise<unknown> } | undefined;
+      expect(adapterOptions?.fetchSampleData).toBeDefined();
+      await expect(adapterOptions!.fetchSampleData!()).rejects.toThrow(/Unresolved variables/i);
+    });
+
+    it('populate adapter fetchSampleData throws for fetch error and HTTP error', async () => {
+      const createAdapterMock = vi.mocked(createSharedDsFetchAdapter);
+      const sources = [
+        makeSharedDs('s1', 'T', {
+          fetchConfig: { url: 'https://api.com/items', method: 'GET', headers: [], auth: { type: 'none' } },
+        }),
+      ];
+      render(<SharedDataSourceModal {...defaultProps} sharedDataSources={sources} featureGroups={[]} />);
+      await userEvent.click(screen.getByRole('button', { name: /populate rows from api/i }));
+      const adapterOptions = createAdapterMock.mock.calls.at(-1)?.[0] as { fetchSampleData?: () => Promise<unknown> } | undefined;
+      expect(adapterOptions?.fetchSampleData).toBeDefined();
+
+      vi.mocked(proxyFetch).mockResolvedValueOnce({
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        body: '{}',
+        error: 'network fail',
+      });
+      await expect(adapterOptions!.fetchSampleData!()).rejects.toThrow('network fail');
+
+      vi.mocked(proxyFetch).mockResolvedValueOnce({
+        status: 503,
+        statusText: 'Service Unavailable',
+        headers: {},
+        body: '{}',
+      });
+      await expect(adapterOptions!.fetchSampleData!()).rejects.toThrow('HTTP 503: Service Unavailable');
+    });
+
+    it('populate adapter fetchSampleData parses body and uses draft scenario when all rows disabled', async () => {
+      const createAdapterMock = vi.mocked(createSharedDsFetchAdapter);
+      const ds = makeDataSource('ds1', 1, 2);
+      ds.rows = ds.rows.map(row => ({ ...row, enabled: false }));
+      const sources = [
+        makeSharedDs('s1', 'T', {
+          dataSource: ds,
+          fetchConfig: { url: 'https://api.com/items', method: 'GET', headers: [], auth: { type: 'none' } },
+        }),
+      ];
+      render(<SharedDataSourceModal {...defaultProps} sharedDataSources={sources} featureGroups={[]} />);
+      await userEvent.click(screen.getByRole('button', { name: /populate rows from api/i }));
+      const adapterOptions = createAdapterMock.mock.calls.at(-1)?.[0] as { fetchSampleData?: () => Promise<unknown> } | undefined;
+      expect(adapterOptions?.fetchSampleData).toBeDefined();
+
+      vi.mocked(proxyFetch).mockResolvedValueOnce({
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        body: '{"hello":"world"}',
+      });
+      await expect(adapterOptions!.fetchSampleData!()).resolves.toEqual({ hello: 'world' });
+      expect(proxyFetch).toHaveBeenCalledWith('https://api.com/items', 'GET', {}, undefined);
     });
 
     it('mapping chips and warning affordances toggle fetch sections', async () => {

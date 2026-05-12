@@ -19,9 +19,9 @@ const hints: VariableHintInput[] = [
 ];
 
 const slots: TemplateSlot[] = [
-  { ref: 'orderId', location: 'url' },
+  { ref: 'orderId', location: 'path' },
   { ref: 'userId', location: 'header', headerKey: 'X-User-Id' },
-  { ref: 'baseUrl', location: 'url' },
+  { ref: 'baseUrl', location: 'path' },
 ];
 
 function makeMappings(): Mapping[] {
@@ -69,7 +69,7 @@ describe('collectTemplateSlots', () => {
   it('collects from URL', () => {
     const result = collectTemplateSlots({ url: 'https://api.com/{{orderId}}/items' });
     expect(result).toHaveLength(1);
-    expect(result[0]).toEqual({ ref: 'orderId', location: 'url' });
+    expect(result[0]).toEqual({ ref: 'orderId', location: 'path' });
   });
 
   it('collects from headers', () => {
@@ -116,7 +116,7 @@ describe('collectTemplateSlots', () => {
       headers: [{ key: 'Auth', value: '{{token}}' }],
     });
     expect(result).toHaveLength(2);
-    expect(result[0].location).toBe('url');
+    expect(result[0].location).toBe('path');
     expect(result[1].location).toBe('header');
   });
 
@@ -129,6 +129,23 @@ describe('collectTemplateSlots', () => {
     expect(result[0].location).toBe('bodyForm');
   });
 
+  it('collects template refs from both header keys and values in one header', () => {
+    const result = collectTemplateSlots({
+      headers: [{ key: '{{k}}', value: '{{v}}' }],
+    });
+    expect(result).toHaveLength(2);
+    expect(result.some((s) => s.ref === 'k' && s.location === 'header' && s.headerKey === undefined)).toBe(true);
+    expect(result.some((s) => s.ref === 'v' && s.location === 'header' && s.headerKey === '{{k}}')).toBe(true);
+  });
+
+  it('collects from header values with concrete header key passed through', () => {
+    const result = collectTemplateSlots({
+      headers: [{ key: 'X-Request-Id', value: '{{reqId}}' }],
+    });
+    expect(result).toHaveLength(1);
+    expect(result[0]).toEqual({ ref: 'reqId', location: 'header', headerKey: 'X-Request-Id' });
+  });
+
   it('handles empty scenario', () => {
     expect(collectTemplateSlots({})).toEqual([]);
   });
@@ -137,6 +154,24 @@ describe('collectTemplateSlots', () => {
     const result = collectTemplateSlots({ url: '{{$uuid}}/{{orderId}}' });
     expect(result).toHaveLength(1);
     expect(result[0].ref).toBe('orderId');
+  });
+
+  it('splits URL path refs as path and query refs as query', () => {
+    const result = collectTemplateSlots({
+      url: 'https://api.com/{{userId}}/orders?page={{page}}&sort={{sort}}',
+    });
+    expect(result).toHaveLength(3);
+    expect(result.find(s => s.ref === 'userId')?.location).toBe('path');
+    expect(result.find(s => s.ref === 'page')?.location).toBe('query');
+    expect(result.find(s => s.ref === 'sort')?.location).toBe('query');
+  });
+
+  it('assigns path location when URL has no query string', () => {
+    const result = collectTemplateSlots({
+      url: 'https://api.com/{{resourceId}}/details',
+    });
+    expect(result).toHaveLength(1);
+    expect(result[0].location).toBe('path');
   });
 });
 
@@ -175,11 +210,29 @@ describe('variableBindingAdapter', () => {
       expect(adapter.sources[0].label).toBe('No upstream variables');
     });
 
+    it('uses node id as source label when nodeLabel is empty string', () => {
+      const adapter = createVariableBindingAdapter({
+        variableHints: [
+          { ref: 'x', label: 'X', source: { nodeId: 'nid', nodeLabel: '', nodeType: 'http', category: 'HTTP Steps' } },
+        ],
+        templateSlots: [{ ref: 'x', location: 'path' }],
+      });
+      const src = adapter.sources.find((s) => s.id === 'nid');
+      expect(src?.label).toBe('nid');
+    });
+
     it('builds target fields from template slots', () => {
       const adapter = createVariableBindingAdapter({ variableHints: hints, templateSlots: slots });
       expect(adapter.target.fields).toHaveLength(3);
       expect(adapter.target.fields![0].path).toBe('orderId');
       expect(adapter.target.fields![1].path).toBe('userId');
+    });
+
+    it('target fields include location tags from slots', () => {
+      const adapter = createVariableBindingAdapter({ variableHints: hints, templateSlots: slots });
+      expect(adapter.target.fields![0].location).toBe('path');
+      expect(adapter.target.fields![1].location).toBe('header');
+      expect(adapter.target.fields![2].location).toBe('path');
     });
 
     it('target does not allow custom fields', () => {
@@ -265,6 +318,23 @@ describe('variableBindingAdapter', () => {
       expect(adapter.deserialize([])).toEqual([]);
     });
 
+    it('picks exact disambiguated path when templateRef matches full path', () => {
+      const dupSlots: TemplateSlot[] = [
+        { ref: 'token', location: 'path' },
+        { ref: 'token', location: 'header', headerKey: 'Authorization' },
+        { ref: 'orderId', location: 'path' },
+      ];
+      const adapter = createVariableBindingAdapter({
+        variableHints: hints,
+        templateSlots: dupSlots,
+      });
+      const bindings: VariableBinding[] = [
+        { templateRef: 'token::path', boundTo: 'orderId' },
+      ];
+      const result = adapter.deserialize(bindings);
+      expect(result[0].targetPath).toBe('token::path');
+    });
+
     it('assigns first source id for unrecognized boundTo ref', () => {
       const adapter = createVariableBindingAdapter({ variableHints: hints, templateSlots: slots });
       const bindings: VariableBinding[] = [
@@ -316,9 +386,9 @@ describe('variableBindingAdapter', () => {
 
   describe('disambiguation for duplicate refs', () => {
     const dupSlots: TemplateSlot[] = [
-      { ref: 'token', location: 'url' },
+      { ref: 'token', location: 'path' },
       { ref: 'token', location: 'header', headerKey: 'Authorization' },
-      { ref: 'orderId', location: 'url' },
+      { ref: 'orderId', location: 'path' },
     ];
 
     it('creates disambiguated target paths for same ref in different locations', () => {
@@ -327,7 +397,7 @@ describe('variableBindingAdapter', () => {
         templateSlots: dupSlots,
       });
       const paths = adapter.target.fields!.map((f) => f.path);
-      expect(paths).toContain('token::url');
+      expect(paths).toContain('token::path');
       expect(paths).toContain('token::header::Authorization');
       expect(paths).toContain('orderId');
     });
@@ -338,7 +408,7 @@ describe('variableBindingAdapter', () => {
         templateSlots: dupSlots,
       });
       const mappings: Mapping[] = [
-        { id: 'vb-0', sourceId: 'n1', sourcePath: 'orderId', targetPath: 'token::url' },
+        { id: 'vb-0', sourceId: 'n1', sourcePath: 'orderId', targetPath: 'token::path' },
         { id: 'vb-1', sourceId: 'n2', sourcePath: 'userId', targetPath: 'token::header::Authorization' },
       ];
       const result = adapter.serialize(mappings);
@@ -360,7 +430,7 @@ describe('variableBindingAdapter', () => {
       const result = adapter.deserialize(bindings);
       expect(result).toHaveLength(2);
       const paths = result.map((m) => m.targetPath);
-      expect(paths).toContain('token::url');
+      expect(paths).toContain('token::path');
       expect(paths).toContain('token::header::Authorization');
     });
 
@@ -420,6 +490,33 @@ describe('variableBindingAdapter', () => {
       ];
       const issues = adapter.validate!(mappings);
       expect(issues.some((i) => i.severity === 'warning' && i.message.includes('bound more than once'))).toBe(true);
+    });
+
+    it('reports error for whitespace-only template slot', () => {
+      const adapter = createVariableBindingAdapter({ variableHints: hints, templateSlots: slots });
+      const mappings: Mapping[] = [
+        { id: 'm1', sourceId: 'n1', sourcePath: 'orderId', targetPath: '   ' },
+      ];
+      const issues = adapter.validate!(mappings);
+      expect(issues.some((i) => i.severity === 'error' && i.message.includes('Template slot is required'))).toBe(true);
+    });
+
+    it('reports error for whitespace-only binding ref', () => {
+      const adapter = createVariableBindingAdapter({ variableHints: hints, templateSlots: slots });
+      const mappings: Mapping[] = [
+        { id: 'm1', sourceId: 'n1', sourcePath: '', targetPath: 'orderId', expression: '   ' },
+      ];
+      const issues = adapter.validate!(mappings);
+      expect(issues.some((i) => i.severity === 'error' && i.message.includes('No variable bound'))).toBe(true);
+    });
+
+    it('treats empty expression string as missing binding', () => {
+      const adapter = createVariableBindingAdapter({ variableHints: hints, templateSlots: slots });
+      const mappings: Mapping[] = [
+        { id: 'm1', sourceId: 'n1', sourcePath: 'orderId', targetPath: 'orderId', expression: '' },
+      ];
+      const issues = adapter.validate!(mappings);
+      expect(issues.some((i) => i.severity === 'error' && i.message.includes('No variable bound'))).toBe(true);
     });
 
     it('returns no issues for empty mappings', () => {

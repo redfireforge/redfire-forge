@@ -5,10 +5,17 @@ import { useMapperState } from './hooks/useMapperState';
 import { useConnectionLines, useLayoutTick } from './hooks/useConnectionLines';
 import { computeAutoMapCandidates } from './utils/autoMapAlgorithm';
 import type { AutoMapCandidate } from './utils/autoMapAlgorithm';
-import { detectTypeMismatches } from './utils/typeMismatch';
+import {
+  detectTypeMismatches,
+  inferType,
+  resolveTargetType,
+  suggestTypeFixExpression,
+  typesCompatible,
+} from './utils/typeMismatch';
 import { detectArrayMappings } from './utils/arrayMapping';
 import type { ArrayLineKind } from './hooks/useConnectionLines';
 import { buildJsonTree, getAllLeafPaths } from '../../utils/jsonTreeModel';
+import { getByPath } from '../../utils/jsonPath';
 import { savePattern, loadPattern, patternToSuggestions } from './utils/mappingPatterns';
 import type { PatternEntry } from './utils/mappingPatterns';
 import SourcePanel from './SourcePanel';
@@ -31,6 +38,15 @@ import ExampleInferenceModal from './ExampleInferenceModal';
 import ErrorPopover from './ErrorPopover';
 import type { InferredMapping } from './utils/exampleInference';
 import { useDebugOverlay } from './hooks/useDebugOverlay';
+import MappingHealthDashboard from './MappingHealthDashboard';
+import { buildTreeFromFields } from './utils/targetTreeBuilder';
+import type { RepairSuggestion } from './utils/schemaRepair';
+import MapperFooter from './MapperFooter';
+import { useTargetFields } from './hooks/useTargetFields';
+import { usePanelResize } from './hooks/usePanelResize';
+import { useMapperKeyboard } from './hooks/useMapperKeyboard';
+import { useMappingOverlay } from './hooks/useMappingOverlay';
+import { upsertTargetMapping, bulkDropMappings } from './utils/dropMapping';
 
 interface DataMapperProps<TOutput = unknown> {
   adapter: MapperAdapter<TOutput>;
@@ -40,15 +56,15 @@ interface DataMapperProps<TOutput = unknown> {
   height?: number | string;
   driftMap?: Map<string, DriftIndicator>;
   driftMappingIds?: Map<string, 'warning' | 'breaking'>;
-  /** Incremented when parent applies a repair — triggers re-read of currentMappingsRef. */
   repairTick?: number;
-  /** Ref providing repaired mappings after a repair is applied. */
   repairedMappingsRef?: React.RefObject<Mapping[]>;
-  /** Runtime mapping traces for debug overlay (Phase 9B). */
   traceData?: MappingTrace[];
+  repairSuggestions?: Map<string, RepairSuggestion[]>;
+  onApplyRepair?: (mappingId: string, suggestion: RepairSuggestion) => void;
+  onShowDrift?: () => void;
 }
 
-const CANVAS_WIDTH = 120;
+type LineFocusNode = { region: 'source' | 'target'; path: string } | null;
 
 export default function DataMapper<TOutput = unknown>({
   adapter,
@@ -61,6 +77,9 @@ export default function DataMapper<TOutput = unknown>({
   repairTick,
   repairedMappingsRef,
   traceData,
+  repairSuggestions,
+  onApplyRepair,
+  onShowDrift,
 }: DataMapperProps<TOutput>) {
   const initialMappings = useMemo(() => {
     if (!initialData) return [];
@@ -73,19 +92,20 @@ export default function DataMapper<TOutput = unknown>({
 
   const [editingMappingId, setEditingMappingId] = useState<string | null>(null);
   const [showPreview, setShowPreview] = useState(false);
+  const [showMappingLines, setShowMappingLines] = useState(true);
+  const [nodeFocusMode, setNodeFocusMode] = useState(false);
+  const [lineFocusNode, setLineFocusNode] = useState<LineFocusNode>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [selectedSourcePaths, setSelectedSourcePaths] = useState<Set<string>>(new Set());
   const sourceSearchRef = useRef<HTMLInputElement | null>(null);
-  const [sourcePanelWidth, setSourcePanelWidth] = useState<number | null>(null);
-  const [targetPanelWidth, setTargetPanelWidth] = useState<number | null>(null);
   const [confidenceThreshold, setConfidenceThreshold] = useState(50);
+  const draggedSourceRef = useRef<{ path: string; sourceId: string } | null>(null);
   const autoMapScoresRef = useRef<Map<string, number>>(new Map());
   const patternMappingIdsRef = useRef<Set<string>>(new Set());
 
   const {
     state,
-    addMapping,
     removeMapping,
     removeMappings,
     updateMapping,
@@ -132,6 +152,27 @@ export default function DataMapper<TOutput = unknown>({
     disabled: !!editingMappingId,
   });
 
+  const {
+    effectiveTarget,
+    targetFetchError,
+    handleAddCustomField,
+    handleRemoveCustomField,
+    handleUpdateCustomField,
+    handleFetchTargetSchema,
+    handlePasteTargetSample,
+    handleReorderTargetField,
+    handleTargetFieldDragStart,
+    handleTargetFieldDragEnd,
+    getDraggedTargetFieldPath,
+  } = useTargetFields({
+    adapter,
+    mappings: state.mappings,
+    removeMappings,
+    updateMapping,
+  });
+
+  const { sourcePanelWidth, targetPanelWidth, canvasWidth, handleResizeStart } = usePanelResize(containerRef);
+
   const prevRepairTickRef = useRef(repairTick ?? 0);
   const skipNextOnChangeRef = useRef(false);
 
@@ -173,64 +214,71 @@ export default function DataMapper<TOutput = unknown>({
       ?? adapter.sources.find((s) => s.id === sourceId)?.sampleData;
   }, [state.sourceSampleOverrides, adapter.sources]);
 
+  const suggestDropExpression = useCallback((sourcePath: string, sourceId: string, targetPath: string): string | undefined => {
+    const sourceData = getEffectiveSourceData(sourceId);
+    if (sourceData == null) return undefined;
+
+    let parsedSource: unknown;
+    try {
+      parsedSource = typeof sourceData === 'string' ? JSON.parse(sourceData) : sourceData;
+    } catch {
+      return undefined;
+    }
+
+    const sourceVal = getByPath(parsedSource, sourcePath);
+    if (sourceVal === undefined) return undefined;
+    const sourceType = inferType(sourceVal);
+
+    const targetType = resolveTargetType(targetPath, effectiveTarget);
+    if (!targetType || typesCompatible(sourceType, targetType)) return undefined;
+
+    return suggestTypeFixExpression(sourceType, targetType, sourcePath);
+  }, [getEffectiveSourceData, effectiveTarget]);
+
   const handleDrop = useCallback(
     (targetPath: string, sourcePath: string, sourceId: string) => {
-      // Bulk drop: map the dragged source to the actual drop target,
-      // then auto-map remaining selections by matching source leaf name → target leaf name
-      if (selectedSourcePaths.size > 0 && selectedSourcePaths.has(sourcePath)) {
-        const paths = Array.from(selectedSourcePaths);
-        const existingTargets = new Set(state.mappings.map((m) => m.targetPath));
-
-        // Build target leaf-name lookup for name-based matching
-        const targetLeafPaths = adapter.target.fields?.map((f) => f.path) ?? [];
-        const targetByLeaf = new Map<string, string>();
-        for (const tp of targetLeafPaths) {
-          const leaf = tp.split('.').pop()?.toLowerCase() ?? '';
-          if (leaf && !targetByLeaf.has(leaf)) targetByLeaf.set(leaf, tp);
-        }
-
-        const newMappings: Mapping[] = [];
-        for (const sp of paths) {
-          let tp: string;
-          if (sp === sourcePath) {
-            tp = targetPath;
-          } else {
-            const leaf = sp.split('.').pop()?.toLowerCase() ?? '';
-            const matched = leaf ? targetByLeaf.get(leaf) : undefined;
-            if (!matched) continue;
-            tp = matched;
-          }
-          if (existingTargets.has(tp)) continue;
-          newMappings.push({ id: uuidv4(), sourcePath: sp, sourceId, targetPath: tp });
-          existingTargets.add(tp);
-        }
-        if (newMappings.length > 0) {
-          setMappings([...state.mappings, ...newMappings]);
-          setToast(`Mapped ${newMappings.length} field${newMappings.length !== 1 ? 's' : ''}`);
+      if (selectedSourcePaths.size > 1 && selectedSourcePaths.has(sourcePath)) {
+        const { nextMappings, appliedCount } = bulkDropMappings(
+          state.mappings,
+          Array.from(selectedSourcePaths),
+          sourcePath,
+          targetPath,
+          sourceId,
+          effectiveTarget.fields?.map((f) => f.path) ?? [],
+          suggestDropExpression,
+        );
+        if (appliedCount > 0) {
+          setMappings(nextMappings);
+          setToast(`Mapped ${appliedCount} field${appliedCount !== 1 ? 's' : ''}`);
         } else {
           setToast('No new mappings — targets already mapped or no matches');
         }
         setSelectedSourcePaths(new Set());
+        draggedSourceRef.current = null;
         return;
       }
 
-      const existing = state.mappings.find((m) => m.targetPath === targetPath);
-      if (existing) {
-        removeMapping(existing.id);
+      const suggestedExpression = suggestDropExpression(sourcePath, sourceId, targetPath);
+      const applied = upsertTargetMapping(state.mappings, sourcePath, sourceId, targetPath, suggestedExpression);
+      if (applied.changed) {
+        setMappings(applied.next);
       }
-      addMapping({
-        id: uuidv4(),
-        sourcePath,
-        sourceId,
-        targetPath,
-      });
+      draggedSourceRef.current = null;
     },
-    [state.mappings, addMapping, removeMapping, selectedSourcePaths, setMappings, adapter.target],
+    [state.mappings, selectedSourcePaths, setMappings, effectiveTarget.fields, suggestDropExpression],
   );
 
-  const handleDragStart = useCallback(() => {
+  const handleDragStart = useCallback((path: string, sourceId: string) => {
     selectMapping(null);
+    setSelectedIds(new Set());
+    draggedSourceRef.current = { path, sourceId };
   }, [selectMapping]);
+
+  const handleSourceDragEnd = useCallback(() => {
+    draggedSourceRef.current = null;
+  }, []);
+
+  const getDraggedSource = useCallback(() => draggedSourceRef.current, []);
 
   const [fetchError, setFetchError] = useState<string | null>(null);
 
@@ -251,9 +299,18 @@ export default function DataMapper<TOutput = unknown>({
     setFetchError(null);
     setSelectedSourcePaths(new Set());
     setSelectedIds(new Set());
+    draggedSourceRef.current = null;
+    setLineFocusNode(null);
   }, [state.activeSourceId]);
 
-  // Pattern learning: save confirmed mappings for future suggestions
+  useEffect(() => {
+    if (showMappingLines) setLineFocusNode(null);
+  }, [showMappingLines]);
+
+  useEffect(() => {
+    if (!nodeFocusMode) setLineFocusNode(null);
+  }, [nodeFocusMode]);
+
   const patternSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     const confirmedMappings = state.mappings.filter((m) => !m.isPending);
@@ -293,7 +350,7 @@ export default function DataMapper<TOutput = unknown>({
     }
   }, [adapter, setSourceSample]);
 
-  const effectiveSources: typeof adapter.sources = useMemo(() => {
+  const effectiveSources = useMemo(() => {
     return adapter.sources.map((s) => ({
       ...s,
       sampleData: state.sourceSampleOverrides[s.id] ?? s.sampleData,
@@ -301,8 +358,8 @@ export default function DataMapper<TOutput = unknown>({
   }, [adapter.sources, state.sourceSampleOverrides]);
 
   const typeMismatches = useMemo(
-    () => detectTypeMismatches(state.mappings, effectiveSources, adapter.target, state.activeSourceId),
-    [state.mappings, effectiveSources, adapter.target, state.activeSourceId],
+    () => detectTypeMismatches(state.mappings, effectiveSources, effectiveTarget, state.activeSourceId),
+    [state.mappings, effectiveSources, effectiveTarget, state.activeSourceId],
   );
 
   const mismatchIds = useMemo(
@@ -311,8 +368,8 @@ export default function DataMapper<TOutput = unknown>({
   );
 
   const expressionSuggestions = useMemo(
-    () => suggestExpressionsForAll(state.mappings, effectiveSources, adapter.target),
-    [state.mappings, effectiveSources, adapter.target],
+    () => suggestExpressionsForAll(state.mappings, effectiveSources, effectiveTarget),
+    [state.mappings, effectiveSources, effectiveTarget],
   );
 
   const mappedSourcePaths = useMemo(
@@ -325,8 +382,8 @@ export default function DataMapper<TOutput = unknown>({
   );
 
   const arrayMappingInfos = useMemo(
-    () => detectArrayMappings(state.mappings, effectiveSources, adapter.target, state.activeSourceId),
-    [state.mappings, effectiveSources, adapter.target, state.activeSourceId],
+    () => detectArrayMappings(state.mappings, effectiveSources, effectiveTarget, state.activeSourceId),
+    [state.mappings, effectiveSources, effectiveTarget, state.activeSourceId],
   );
 
   const arrayInfoMap = useMemo(() => {
@@ -362,6 +419,24 @@ export default function DataMapper<TOutput = unknown>({
       return updated;
     });
   }, [rawLines, driftMappingIds, debugMode, traceByMappingId]);
+
+  const visibleLines = useMemo(() => {
+    if (showMappingLines) return lines;
+    if (!nodeFocusMode || !lineFocusNode) return [];
+    const normalizePath = (path: string) => path.replace(/^\$\.?/, '');
+    const fp = normalizePath(lineFocusNode.path);
+    if (lineFocusNode.region === 'source') {
+      return lines.filter((line) => normalizePath(line.sourcePath) === fp);
+    }
+    return lines.filter((line) => normalizePath(line.targetPath) === fp);
+  }, [lines, showMappingLines, nodeFocusMode, lineFocusNode]);
+
+  const mappedTargetValueOverlay = useMappingOverlay(
+    state.mappings,
+    state.activeSourceId,
+    effectiveSources,
+    adapter.customFunctions,
+  );
 
   const autoMapCandidates = useMemo<AutoMapCandidate[]>(() => {
     const sourceData = getEffectiveSourceData(state.activeSourceId);
@@ -404,7 +479,6 @@ export default function DataMapper<TOutput = unknown>({
     const filtered = autoMapCandidates.filter((c) => c.score >= confidenceThreshold);
     const allNew: Mapping[] = [];
 
-    // Load pattern suggestions first
     try {
       const sourceData = getEffectiveSourceData(state.activeSourceId);
       const targetData = adapter.target.sampleData;
@@ -445,7 +519,6 @@ export default function DataMapper<TOutput = unknown>({
       }
     } catch { /* ignore pattern load errors */ }
 
-    // Add name/semantic-based auto-map candidates
     const patternTargets = new Set(allNew.map((m) => m.targetPath));
     for (let i = 0; i < filtered.length; i++) {
       if (patternTargets.has(filtered[i].targetPath)) continue;
@@ -499,13 +572,13 @@ export default function DataMapper<TOutput = unknown>({
       ...(r.expression ? { expression: r.expression } : {}),
     }));
     const existingTargets = new Set(state.mappings.map((m) => m.targetPath));
-    const filtered = newMappings.filter((m) => !existingTargets.has(m.targetPath));
-    if (filtered.length === 0) {
+    const deduped = newMappings.filter((m) => !existingTargets.has(m.targetPath));
+    if (deduped.length === 0) {
       setToast('No new mappings — all targets already mapped');
       return;
     }
-    setMappings([...state.mappings, ...filtered]);
-    setToast(`${filtered.length} mapping${filtered.length !== 1 ? 's' : ''} inferred from examples`);
+    setMappings([...state.mappings, ...deduped]);
+    setToast(`${deduped.length} mapping${deduped.length !== 1 ? 's' : ''} inferred from examples`);
   }, [state.activeSourceId, state.mappings, setMappings]);
 
   const handleToggleSelectMapping = useCallback((id: string) => {
@@ -531,70 +604,37 @@ export default function DataMapper<TOutput = unknown>({
     return arrayMappingInfos.find((i) => i.mappingId === state.selectedMappingId) ?? null;
   }, [state.selectedMappingId, arrayMappingInfos]);
 
-  const footerStats = useMemo(() => {
-    const expressionCount = state.mappings.filter((m) => !!m.expression).length;
-    let loopCount = 0;
-    let aggregateCount = 0;
-    for (const info of arrayMappingInfos) {
-      if (info.kind === 'loop') loopCount++;
-      else if (info.kind === 'aggregate') aggregateCount++;
+  const healthTargetTree = useMemo(() => {
+    if (effectiveTarget.sampleData != null) {
+      try {
+        const data = typeof effectiveTarget.sampleData === 'string'
+          ? JSON.parse(effectiveTarget.sampleData) : effectiveTarget.sampleData;
+        return buildJsonTree(data, '', '');
+      } catch { return null; }
     }
-    return {
-      mapped: state.mappings.length,
-      expressions: expressionCount,
-      loops: loopCount,
-      aggregates: aggregateCount,
-      mismatches: typeMismatches.length,
-    };
-  }, [state.mappings, arrayMappingInfos, typeMismatches]);
+    if (effectiveTarget.fields && effectiveTarget.fields.length > 0) {
+      return buildTreeFromFields(effectiveTarget.fields);
+    }
+    return null;
+  }, [effectiveTarget.sampleData, effectiveTarget.fields]);
 
   const editingMapping = useMemo(
     () => editingMappingId ? state.mappings.find((m) => m.id === editingMappingId) ?? null : null,
     [editingMappingId, state.mappings],
   );
 
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (editingMappingId) return;
-      if (document.querySelector('.dm-expr-overlay') || document.querySelector('.dm-diff-overlay')) return;
-      const tag = (e.target as HTMLElement)?.tagName;
-      const isEditable = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (e.target as HTMLElement)?.isContentEditable;
-      if ((e.metaKey || e.ctrlKey) && e.key === 'z') {
-        if (isEditable) return;
-        e.preventDefault();
-        if (e.shiftKey) redo();
-        else undo();
-        return;
-      }
-      if ((e.key === 'Delete' || e.key === 'Backspace')) {
-        if (isEditable) return;
-        if (selectedIds.size > 0) {
-          e.preventDefault();
-          removeMappings(Array.from(selectedIds));
-          setSelectedIds(new Set());
-          return;
-        }
-        if (state.selectedMappingId) {
-          e.preventDefault();
-          removeMapping(state.selectedMappingId);
-          return;
-        }
-      }
-      if (e.key === 'Escape' && state.selectedMappingId) {
-        if (isEditable) return;
-        e.preventDefault();
-        selectMapping(null);
-        return;
-      }
-      if (e.key === '/' && !e.metaKey && !e.ctrlKey) {
-        if (isEditable) return;
-        e.preventDefault();
-        sourceSearchRef.current?.focus();
-      }
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [undo, redo, state.selectedMappingId, removeMapping, removeMappings, selectMapping, editingMappingId, selectedIds]);
+  useMapperKeyboard({
+    undo,
+    redo,
+    selectedMappingId: state.selectedMappingId,
+    removeMapping,
+    removeMappings,
+    selectMapping,
+    editingMappingId,
+    selectedIds,
+    setSelectedIds,
+    sourceSearchRef,
+  });
 
   useEffect(() => {
     if (!toast) return;
@@ -602,46 +642,25 @@ export default function DataMapper<TOutput = unknown>({
     return () => clearTimeout(t);
   }, [toast]);
 
-  const resizeCleanupRef = useRef<(() => void) | null>(null);
-
-  useEffect(() => {
-    return () => { resizeCleanupRef.current?.(); };
-  }, []);
-
-  const handleResizeStart = useCallback(
-    (side: 'source' | 'target', e: React.MouseEvent) => {
-      e.preventDefault();
-      resizeCleanupRef.current?.();
-      const startX = e.clientX;
-      const body = containerRef.current?.querySelector('.dm-body') as HTMLElement | null;
-      if (!body) return;
-      const bodyRect = body.getBoundingClientRect();
-      const startSourceW = sourcePanelWidth ?? bodyRect.width * 0.38;
-      const startTargetW = targetPanelWidth ?? bodyRect.width * 0.38;
-      const MIN_PANEL = 150;
-
-      const onMove = (ev: MouseEvent) => {
-        const delta = ev.clientX - startX;
-        if (side === 'source') {
-          const newW = Math.max(MIN_PANEL, Math.min(bodyRect.width - MIN_PANEL - CANVAS_WIDTH, startSourceW + delta));
-          setSourcePanelWidth(newW);
-        } else {
-          const newW = Math.max(MIN_PANEL, Math.min(bodyRect.width - MIN_PANEL - CANVAS_WIDTH, startTargetW - delta));
-          setTargetPanelWidth(newW);
-        }
-      };
-      const cleanup = () => {
-        document.removeEventListener('mousemove', onMove);
-        document.removeEventListener('mouseup', onUp);
-        resizeCleanupRef.current = null;
-      };
-      const onUp = () => { cleanup(); };
-      resizeCleanupRef.current = cleanup;
-      document.addEventListener('mousemove', onMove);
-      document.addEventListener('mouseup', onUp);
-    },
-    [sourcePanelWidth, targetPanelWidth],
-  );
+  const handleTreeNodeClickForLineFocus = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (showMappingLines || !nodeFocusMode) return;
+    const target = e.target as HTMLElement;
+    if (target.closest('button, input, textarea, select, a, [contenteditable="true"]')) return;
+    const node = target.closest('.dm-tree-node[data-path]') as HTMLElement | null;
+    if (!node) return;
+    const path = node.getAttribute('data-path');
+    if (!path) return;
+    const region = node.closest('.dm-panel--source')
+      ? 'source'
+      : node.closest('.dm-panel--target')
+        ? 'target'
+        : null;
+    if (!region) return;
+    setLineFocusNode((prev) => {
+      if (prev?.region === region && prev.path === path) return null;
+      return { region, path };
+    });
+  }, [showMappingLines, nodeFocusMode]);
 
   return (
     <div className="dm-container" ref={containerRef} style={{ height }}>
@@ -672,6 +691,10 @@ export default function DataMapper<TOutput = unknown>({
         confidenceThreshold={confidenceThreshold}
         onConfidenceThresholdChange={setConfidenceThreshold}
         onLearnFromExamples={() => setShowExampleModal(true)}
+        showMappingLines={showMappingLines}
+        onToggleMappingLines={() => setShowMappingLines((s) => !s)}
+        nodeFocusMode={nodeFocusMode}
+        onToggleNodeFocusMode={() => setNodeFocusMode((s) => !s)}
       />
       {debugMode && hasTraceData && (
         <div className="dm-debug-bar" role="status" aria-live="polite">
@@ -684,7 +707,14 @@ export default function DataMapper<TOutput = unknown>({
           </span>
         </div>
       )}
-      <div className="dm-body">
+      <MappingHealthDashboard
+        mappings={state.mappings}
+        targetTree={healthTargetTree}
+        driftMappingIds={driftMappingIds}
+        typeMismatchCount={typeMismatches.length}
+        onShowDrift={onShowDrift}
+      />
+      <div className="dm-body" onClickCapture={handleTreeNodeClickForLineFocus}>
         <div className="dm-panel-wrapper" style={sourcePanelWidth ? { width: sourcePanelWidth, flex: 'none' } : undefined}>
           <SourcePanel
             sources={effectiveSources}
@@ -692,6 +722,7 @@ export default function DataMapper<TOutput = unknown>({
             sourceSampleOverrides={state.sourceSampleOverrides}
             onSourceChange={setActiveSource}
             onDragStart={handleDragStart}
+            onDragEnd={handleSourceDragEnd}
             onSourceSampleChange={setSourceSample}
             onFetchSample={adapter.fetchSampleData ? handleFetchSample : undefined}
             canFetch={!!adapter.fetchSampleData}
@@ -715,10 +746,10 @@ export default function DataMapper<TOutput = unknown>({
           aria-label="Resize source panel"
           onMouseDown={(e) => handleResizeStart('source', e)}
         />
-        <div className="dm-canvas-wrapper">
+        <div className="dm-canvas-wrapper" style={{ width: canvasWidth, flex: 'none' }}>
           <MappingCanvas
-            lines={lines}
-            width={CANVAS_WIDTH}
+            lines={visibleLines}
+            width={canvasWidth}
             height={containerHeight || 400}
             selectedMappingId={state.selectedMappingId}
             selectedMappingIds={selectedIds}
@@ -733,6 +764,8 @@ export default function DataMapper<TOutput = unknown>({
             onShowErrorDetail={handleShowErrorDetail}
             expressionSuggestions={expressionSuggestions}
             onApplySuggestion={handleApplySuggestion}
+            repairSuggestions={repairSuggestions}
+            onApplyRepair={onApplyRepair}
           />
         </div>
         <div
@@ -744,7 +777,7 @@ export default function DataMapper<TOutput = unknown>({
         />
         <div className="dm-panel-wrapper" style={targetPanelWidth ? { width: targetPanelWidth, flex: 'none' } : undefined}>
           <TargetPanel
-            target={adapter.target}
+            target={effectiveTarget}
             mappings={state.mappings}
             onDrop={handleDrop}
             selectedMappingId={state.selectedMappingId}
@@ -757,7 +790,19 @@ export default function DataMapper<TOutput = unknown>({
             focusedPath={focusRegion === 'target' ? focusedPath : null}
             onFocus={() => setFocusRegion('target')}
             onTreeKeyDown={handleTreeKeyDown}
-            traceOverlay={targetTraceOverlay}
+            traceOverlay={debugMode ? targetTraceOverlay : mappedTargetValueOverlay}
+            onAddCustomField={effectiveTarget.allowCustomFields ? handleAddCustomField : undefined}
+            onRemoveCustomField={handleRemoveCustomField}
+            onUpdateCustomField={handleUpdateCustomField}
+            onFetchTargetSchema={adapter.fetchTargetSchema ? handleFetchTargetSchema : undefined}
+            canFetchTarget={!!adapter.fetchTargetSchema}
+            targetFetchError={targetFetchError}
+            onPasteTargetSample={handlePasteTargetSample}
+            onReorderField={effectiveTarget.sampleData == null ? handleReorderTargetField : undefined}
+            onTargetFieldDragStart={handleTargetFieldDragStart}
+            onTargetFieldDragEnd={handleTargetFieldDragEnd}
+            getDraggedSource={getDraggedSource}
+            getDraggedTargetFieldPath={getDraggedTargetFieldPath}
           />
         </div>
       </div>
@@ -792,7 +837,7 @@ export default function DataMapper<TOutput = unknown>({
           mappings={state.mappings}
           sources={effectiveSources}
           activeSourceId={state.activeSourceId}
-          targetSampleData={adapter.target.sampleData}
+          targetSampleData={effectiveTarget.sampleData}
           customFunctions={adapter.customFunctions}
         />
       )}
@@ -819,39 +864,11 @@ export default function DataMapper<TOutput = unknown>({
           onClose={() => setErrorPopover(null)}
         />
       )}
-      <div className="dm-stats-footer" role="status">
-        <div className="dm-stats-counters">
-          <span className="dm-stat">
-            <span className="dm-stat-value dm-stat-value--mapped">{footerStats.mapped}</span> mapped
-          </span>
-          {footerStats.expressions > 0 && (
-            <span className="dm-stat">
-              <span className="dm-stat-value dm-stat-value--expression">{footerStats.expressions}</span> expression{footerStats.expressions !== 1 ? 's' : ''}
-            </span>
-          )}
-          {footerStats.loops > 0 && (
-            <span className="dm-stat">
-              <span className="dm-stat-value dm-stat-value--loop">{footerStats.loops}</span> loop{footerStats.loops !== 1 ? 's' : ''}
-            </span>
-          )}
-          {footerStats.aggregates > 0 && (
-            <span className="dm-stat">
-              <span className="dm-stat-value dm-stat-value--aggregate">{footerStats.aggregates}</span> aggregate{footerStats.aggregates !== 1 ? 's' : ''}
-            </span>
-          )}
-          {footerStats.mismatches > 0 && (
-            <span className="dm-stat">
-              <span className="dm-stat-value dm-stat-value--mismatch">{footerStats.mismatches}</span> mismatch{footerStats.mismatches !== 1 ? 'es' : ''}
-            </span>
-          )}
-        </div>
-        <div className="dm-stats-shortcuts">
-          <span className="dm-shortcut"><kbd className="dm-kbd">/</kbd> Search</span>
-          <span className="dm-shortcut"><kbd className="dm-kbd">⌫</kbd> Delete</span>
-          <span className="dm-shortcut"><kbd className="dm-kbd">⌘Z</kbd> Undo</span>
-          <span className="dm-shortcut"><kbd className="dm-kbd">Tab</kbd> Switch panel</span>
-        </div>
-      </div>
+      <MapperFooter
+        mappings={state.mappings}
+        arrayMappingInfos={arrayMappingInfos}
+        typeMismatches={typeMismatches}
+      />
       {showExampleModal && (
         <ExampleInferenceModal
           onClose={() => setShowExampleModal(false)}

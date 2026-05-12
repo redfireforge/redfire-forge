@@ -211,4 +211,72 @@ describe('GalleryGrid', () => {
     const el = screen.getByText(/1 sample/).closest('.gallery-result-count');
     expect(el?.textContent).toBe('1 sample');
   });
+
+  it('clears active path from training paths back control', () => {
+    render(<GalleryGrid entries={[baseEntry('e1')]} />);
+    fireEvent.click(screen.getByRole('button', { name: /Training Paths/i }));
+    const filters = document.querySelector('.gallery-filters')!;
+    fireEvent.click(within(filters).getByRole('button', { name: /Versioning/i }));
+    fireEvent.click(screen.getByRole('button', { name: /All Training Paths/ }));
+    expect(screen.queryByRole('button', { name: /All Training Paths/ })).toBeNull();
+  });
+
+  it('navigates from training path sample chip to samples grid and selects entry', () => {
+    const entries = [baseEntry('req-get-all-users', { name: 'Get All Users' })];
+    render(<GalleryGrid entries={entries} onAction={vi.fn()} actionLabel="Import" />);
+    fireEvent.click(screen.getByRole('button', { name: /Training Paths/i }));
+    const filters = document.querySelector('.gallery-filters')!;
+    fireEvent.click(within(filters).getByRole('button', { name: /Request Basics/i }));
+    fireEvent.click(screen.getByRole('button', { name: /req-get-all-users/ }));
+    expect(screen.getByPlaceholderText('Search gallery...')).toBeTruthy();
+    expect(document.querySelector('.gallery-detail-panel')).toBeTruthy();
+  });
+
+  it('filters by live API hostname', () => {
+    const entries = [
+      baseEntry('a', { name: 'Alpha', liveApis: ['https://cats.example.com/api'] }),
+      baseEntry('b', { name: 'Beta', liveApis: ['https://dogs.example.com/api'] }),
+    ];
+    render(<GalleryGrid entries={entries} />);
+    const select = screen.getByLabelText('Filter by live API');
+    fireEvent.change(select, { target: { value: 'cats.example.com' } });
+    expect(screen.getByText(/1 sample/)).toBeTruthy();
+    expect(screen.getByText('Alpha')).toBeTruthy();
+    expect(screen.queryByText('Beta')).toBeNull();
+  });
+
+  it('filters by difficulty', () => {
+    const entries = [
+      baseEntry('ez', { difficulty: 'easy' }),
+      baseEntry('md', { difficulty: 'medium' }),
+    ];
+    render(<GalleryGrid entries={entries} />);
+    const select = screen.getByLabelText('Filter by difficulty');
+    fireEvent.change(select, { target: { value: 'medium' } });
+    expect(screen.getByText(/1 sample/)).toBeTruthy();
+    expect(screen.getByText('Sample md')).toBeTruthy();
+    expect(screen.queryByText('Sample ez')).toBeNull();
+  });
+
+  it('clears detail selection when active card drops out of filtered results', () => {
+    const entries = [
+      baseEntry('keep', { name: 'Keep me' }),
+      baseEntry('gone', { name: 'UniqueGoneName' }),
+    ];
+    render(<GalleryGrid entries={entries} />);
+    fireEvent.click(screen.getByText('UniqueGoneName'));
+    expect(document.querySelector('.gallery-detail-panel')).toBeTruthy();
+    fireEvent.change(screen.getByPlaceholderText('Search gallery...'), { target: { value: 'Keep' } });
+    expect(document.querySelector('.gallery-detail-panel')).toBeNull();
+  });
+
+  it('does not navigate to sample when id is absent from entries', () => {
+    render(<GalleryGrid entries={[baseEntry('only-other-id')]} />);
+    fireEvent.click(screen.getByRole('button', { name: /Training Paths/i }));
+    const filters = document.querySelector('.gallery-filters')!;
+    fireEvent.click(within(filters).getByRole('button', { name: /Request Basics/i }));
+    fireEvent.click(screen.getByRole('button', { name: /req-get-all-users/ }));
+    expect(screen.getByPlaceholderText('Search training paths...')).toBeTruthy();
+    expect(document.querySelector('.gallery-detail-panel')).toBeNull();
+  });
 });

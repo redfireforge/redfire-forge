@@ -81,6 +81,103 @@ describe('SourceTreeNode', () => {
     expect(store['application/mapper-source']).toContain('"path":"name"');
   });
 
+  it('calls onDragEnd when drag ends on a leaf', () => {
+    const onDragEnd = vi.fn();
+    render(<SourceTreeNode node={leaf} {...defaults} onDragEnd={onDragEnd} />);
+    const el = screen.getByText('name').closest('.dm-tree-node')!;
+    fireEvent.dragEnd(el);
+    expect(onDragEnd).toHaveBeenCalled();
+  });
+
+  it('matches children when parent key does not match search', () => {
+    render(<SourceTreeNode node={nested} {...defaults} search="NYC" />);
+    expect(screen.getByText('city')).toBeTruthy();
+    expect(screen.getByText('NYC')).toBeTruthy();
+  });
+
+  it('invokes onToggleSelect when leaf is shift-clicked', () => {
+    const onToggleSelect = vi.fn();
+    render(<SourceTreeNode node={leaf} {...defaults} onToggleSelect={onToggleSelect} />);
+    const el = screen.getByText('name').closest('.dm-tree-node')!;
+    fireEvent.click(el, { shiftKey: true });
+    expect(onToggleSelect).toHaveBeenCalledWith('name');
+  });
+
+  it('invokes onToggleSelect when leaf is meta-clicked', () => {
+    const onToggleSelect = vi.fn();
+    render(<SourceTreeNode node={leaf} {...defaults} onToggleSelect={onToggleSelect} />);
+    const el = screen.getByText('name').closest('.dm-tree-node')!;
+    fireEvent.click(el, { metaKey: true });
+    expect(onToggleSelect).toHaveBeenCalledWith('name');
+  });
+
+  it('invokes onToggleSelect when leaf is ctrl-clicked', () => {
+    const onToggleSelect = vi.fn();
+    render(<SourceTreeNode node={leaf} {...defaults} onToggleSelect={onToggleSelect} />);
+    const el = screen.getByText('name').closest('.dm-tree-node')!;
+    fireEvent.click(el, { ctrlKey: true });
+    expect(onToggleSelect).toHaveBeenCalledWith('name');
+  });
+
+  it('does not toggle selection on plain leaf click without modifier keys', () => {
+    const onToggleSelect = vi.fn();
+    render(<SourceTreeNode node={leaf} {...defaults} onToggleSelect={onToggleSelect} />);
+    const el = screen.getByText('name').closest('.dm-tree-node')!;
+    fireEvent.click(el);
+    expect(onToggleSelect).not.toHaveBeenCalled();
+  });
+
+  it('does not call onDragEnd when node is not draggable (breaking drift)', () => {
+    const onDragEnd = vi.fn();
+    const driftMap = new Map([['name', { severity: 'breaking' as const, label: 'Removed' }]]);
+    render(<SourceTreeNode node={leaf} {...defaults} driftMap={driftMap} onDragEnd={onDragEnd} />);
+    const el = screen.getByText('name').closest('.dm-tree-node')!;
+    fireEvent.dragEnd(el);
+    expect(onDragEnd).not.toHaveBeenCalled();
+  });
+
+  it('uses child key as React key when child path is empty', () => {
+    const childNoPath: JsonTreeNode = { key: 'leaf', path: '', type: 'string', value: 'v', children: [] };
+    const parent: JsonTreeNode = {
+      key: 'parent', path: 'parent', type: 'object', value: undefined, children: [childNoPath],
+    };
+    const { container } = render(
+      <SourceTreeNode node={parent} {...defaults} expandedPaths={new Set(['parent', '__root__'])} />,
+    );
+    expect(container.querySelector('[data-path=""]')).not.toBeNull();
+    expect(screen.getByText('v')).toBeTruthy();
+  });
+
+  it('matches leaf by path substring in search', () => {
+    const pathLeaf: JsonTreeNode = { key: 'id', path: 'user.profile.id', type: 'string', value: '1', children: [] };
+    render(<SourceTreeNode node={pathLeaf} {...defaults} search="profile" />);
+    expect(screen.getByText('id')).toBeTruthy();
+  });
+
+  it('renders null leaf without sample value text', () => {
+    const nullLeaf: JsonTreeNode = { key: 'n', path: 'n', type: 'null', value: null, children: [] };
+    const { container } = render(<SourceTreeNode node={nullLeaf} {...defaults} />);
+    expect(container.querySelector('.dm-node-sample-value')).toBeNull();
+  });
+
+  it('shows fallback type pill for unknown node types', () => {
+    const odd = { ...leaf, type: 'bogus' as unknown as JsonTreeNode['type'] };
+    render(<SourceTreeNode node={odd} {...defaults} />);
+    expect(screen.getByText('?')).toBeTruthy();
+  });
+
+  it('renders root placeholder when key is empty string', () => {
+    const rootBare: JsonTreeNode = { key: '', path: '', type: 'object', value: undefined, children: [leaf] };
+    render(<SourceTreeNode node={rootBare} {...defaults} expandedPaths={new Set(['', '__root__'])} />);
+    expect(screen.getByText('(root)')).toBeTruthy();
+  });
+
+  it('shows short trace values without ellipsis', () => {
+    const traceOverlay = new Map([['name', { value: 'abc', isError: false }]]);
+    const { container } = render(<SourceTreeNode node={leaf} {...defaults} traceOverlay={traceOverlay} />);
+    expect(container.querySelector('.dm-trace-value')!.textContent).toBe('abc');
+  });
+
   it('filters nodes by search term', () => {
     render(<SourceTreeNode node={nested} {...defaults} search="city" />);
     expect(screen.getByText('city')).toBeTruthy();
@@ -90,6 +187,17 @@ describe('SourceTreeNode', () => {
   it('hides entire tree when search matches nothing', () => {
     const { container } = render(<SourceTreeNode node={nested} {...defaults} search="zzz" />);
     expect(container.innerHTML).toBe('');
+  });
+
+  it('hides leaf without children property when search has no match', () => {
+    const solo: JsonTreeNode = { key: 'solo', path: 'solo', type: 'string', value: 'v' };
+    const { container } = render(<SourceTreeNode node={solo} {...defaults} search="zzz" />);
+    expect(container.innerHTML).toBe('');
+  });
+
+  it('matches leaf by sample value substring', () => {
+    render(<SourceTreeNode node={leaf} {...defaults} search="alic" />);
+    expect(screen.getByText('Alice')).toBeTruthy();
   });
 
   it('shows count for collapsed object nodes', () => {

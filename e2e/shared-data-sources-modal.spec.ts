@@ -345,10 +345,10 @@ test.describe('Shared Data Sources Modal', () => {
     await page.locator('.shared-ds-fetch-actions .btn', { hasText: 'Populate Rows from API' }).click();
     await expect(page.locator('.dm-modal-overlay')).toBeVisible();
 
-    // Data Mapper modal should have source/target panels and Done/Cancel
+    // Data Mapper modal should have source/target panels and Save/Cancel
     const dmModal = page.locator('.dm-modal-overlay');
     await expect(dmModal.locator('.dm-modal-header')).toBeVisible();
-    await expect(dmModal.locator('.dm-modal-footer button', { hasText: 'Done' })).toBeVisible();
+    await expect(dmModal.locator('.dm-modal-footer button', { hasText: 'Save' })).toBeVisible();
     await expect(dmModal.locator('.dm-modal-footer button', { hasText: 'Cancel' })).toBeVisible();
 
     // Click Cancel to close (since no sample data is fetched without real API)

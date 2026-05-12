@@ -1,8 +1,19 @@
 /** @vitest-environment jsdom */
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, act } from '@testing-library/react';
+
+vi.mock('./utils/previewCompute', () => ({
+  computePreview: vi.fn(),
+}));
+
+import { computePreview } from './utils/previewCompute';
 import PreviewBar from './PreviewBar';
 import type { Mapping, MapperSource } from './types';
+
+beforeEach(async () => {
+  const actual = await vi.importActual<typeof import('./utils/previewCompute')>('./utils/previewCompute');
+  vi.mocked(computePreview).mockImplementation(actual.computePreview);
+});
 
 const sources: MapperSource[] = [
   { id: 's1', label: 'Response', sampleData: { name: 'Alice', age: 30 } },
@@ -213,6 +224,22 @@ describe('PreviewBar', () => {
     vi.useRealTimers();
   });
 
+  it('renders quoted target keys as normal JSON keys in output preview', async () => {
+    vi.useFakeTimers();
+    const quotedKeyMapping: Mapping = {
+      ...mapping,
+      targetPath: '"ONZFONCP01MCALM"',
+    };
+    const { container } = renderBar({ mappings: [quotedKeyMapping] });
+    await act(async () => { vi.advanceTimersByTime(250); });
+    const outputEl = container.querySelector('.dm-preview-json--output');
+    const outputText = outputEl?.textContent ?? '';
+    expect(outputText).toContain('"ONZFONCP01MCALM"');
+    expect(outputText).toContain('"Alice"');
+    expect(outputText).not.toContain('\\"ONZFONCP01MCALM\\"');
+    vi.useRealTimers();
+  });
+
   it('clears preview when mappings become empty', async () => {
     vi.useFakeTimers();
     const { rerender } = renderBar({ mappings: [mapping] });
@@ -319,6 +346,120 @@ describe('PreviewBar', () => {
       expect(items.length).toBeGreaterThanOrEqual(1);
       expect(container.querySelector('.dm-preview-error-path')?.textContent).toBe('userName');
     }
+    vi.useRealTimers();
+  });
+
+  it('shows plural errors label and multiple error list rows', async () => {
+    vi.useFakeTimers();
+    vi.mocked(computePreview).mockReturnValue({
+      fields: [
+        { targetPath: 'a', value: null, error: 'e1', hasExpression: true },
+        { targetPath: 'b', value: null, error: 'e2', hasExpression: true },
+      ],
+      targetObject: {},
+      errorCount: 2,
+    });
+    const { container } = renderBar({ mappings: [mapping, { ...mapping, id: 'm2', targetPath: 'b' }] });
+    await act(async () => { vi.advanceTimersByTime(250); });
+    expect(screen.getByText(/2 errors/)).toBeTruthy();
+    const items = container.querySelectorAll('.dm-preview-error-item');
+    expect(items.length).toBe(2);
+    vi.useRealTimers();
+  });
+
+  it('renders mapped output as {} when JSON.stringify fails after preview', async () => {
+    vi.useFakeTimers();
+    vi.mocked(computePreview).mockReturnValue({
+      fields: [],
+      targetObject: { x: BigInt(1) },
+      errorCount: 0,
+    });
+    const { container } = renderBar({ mappings: [mapping] });
+    await act(async () => { vi.advanceTimersByTime(250); });
+    const outputEl = container.querySelector('.dm-preview-json--output');
+    expect(outputEl?.textContent?.trim()).toBe('{}');
+    vi.useRealTimers();
+  });
+
+  it('normalizes array and invalid quoted keys in preview object', async () => {
+    vi.useFakeTimers();
+    const badQuotedKey = '"\\u"';
+    vi.mocked(computePreview).mockReturnValue({
+      fields: [],
+      targetObject: {
+        list: [1, { nested: 'y' }],
+        [badQuotedKey]: 'keep',
+      },
+      errorCount: 0,
+    });
+    const { container } = renderBar({ mappings: [mapping] });
+    await act(async () => { vi.advanceTimersByTime(250); });
+    const outputEl = container.querySelector('.dm-preview-json--output');
+    expect(outputEl?.textContent).toContain('"list"');
+    expect(outputEl?.textContent).toContain('keep');
+    vi.useRealTimers();
+  });
+
+  it('shows singular error label when errorCount is 1', async () => {
+    vi.useFakeTimers();
+    vi.mocked(computePreview).mockReturnValue({
+      fields: [{ targetPath: 'x', value: null, error: 'only', hasExpression: true }],
+      targetObject: {},
+      errorCount: 1,
+    });
+    renderBar({ mappings: [mapping] });
+    await act(async () => { vi.advanceTimersByTime(250); });
+    expect(screen.getByText(/1 error$/)).toBeTruthy();
+    expect(screen.queryByText(/1 errors/)).toBeNull();
+    vi.useRealTimers();
+  });
+
+  it('normalizes string values that look like JSON in preview output', async () => {
+    vi.useFakeTimers();
+    vi.mocked(computePreview).mockReturnValue({
+      fields: [],
+      targetObject: { raw: '{"nested":true}', arrStr: '[1,2]' },
+      errorCount: 0,
+    });
+    const { container } = renderBar({ mappings: [mapping] });
+    await act(async () => { vi.advanceTimersByTime(250); });
+    const outputEl = container.querySelector('.dm-preview-json--output');
+    expect(outputEl?.textContent).toContain('"nested"');
+    expect(outputEl?.textContent).toContain('1');
+    vi.useRealTimers();
+  });
+
+  it('leaves unparseable JSON-like string values as raw strings in preview', async () => {
+    vi.useFakeTimers();
+    vi.mocked(computePreview).mockReturnValue({
+      fields: [],
+      targetObject: { bad: '{not json' },
+      errorCount: 0,
+    });
+    const { container } = renderBar({ mappings: [mapping] });
+    await act(async () => { vi.advanceTimersByTime(250); });
+    const outputEl = container.querySelector('.dm-preview-json--output');
+    expect(outputEl?.textContent).toContain('{not json');
+    vi.useRealTimers();
+  });
+
+  it('renders nested arrays in preview output from live computePreview', async () => {
+    vi.useFakeTimers();
+    const arrSources: MapperSource[] = [
+      { id: 's1', label: 'S', sampleData: { tags: ['a', 'b'] } },
+    ];
+    const mTags: Mapping = {
+      id: 'm1', sourcePath: 'tags', sourceId: 's1', targetPath: 'items',
+    };
+    const { container } = renderBar({
+      mappings: [mTags],
+      sources: arrSources,
+      targetSampleData: { items: null },
+    });
+    await act(async () => { vi.advanceTimersByTime(250); });
+    const outputEl = container.querySelector('.dm-preview-json--output');
+    expect(outputEl?.textContent).toContain('[');
+    expect(outputEl?.textContent).toContain('"a"');
     vi.useRealTimers();
   });
 });

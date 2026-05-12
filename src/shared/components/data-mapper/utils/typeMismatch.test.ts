@@ -3,6 +3,7 @@ import {
   detectTypeMismatches,
   getMismatchForMapping,
   inferType,
+  suggestTypeFixExpression,
   typesCompatible,
   looksLikeDate,
 } from './typeMismatch';
@@ -130,7 +131,34 @@ describe('detectTypeMismatches', () => {
     const result = detectTypeMismatches(mappings, sources, target());
     expect(result).toHaveLength(1);
     expect(result[0].severity).toBe('info');
-    expect(result[0].suggestedFix).toBeUndefined();
+    expect(result[0].suggestedFix).toContain('$first');
+  });
+
+  it('detects object→string mismatch with toString suggestion', () => {
+    const mappings: Mapping[] = [
+      { id: 'm1', sourcePath: 'address', sourceId: 's1', targetPath: 'userName' },
+    ];
+    const result = detectTypeMismatches(mappings, sources, target());
+    expect(result).toHaveLength(1);
+    expect(result[0].sourceType).toBe('object');
+    expect(result[0].targetType).toBe('string');
+    expect(result[0].suggestedFix).toContain('$toString');
+  });
+
+  it('detects string→object mismatch with parse suggestion', () => {
+    const strObjSources: MapperSource[] = [
+      { id: 's1', label: 'API', sampleData: { jsonBlob: '{"city":"NYC"}' } },
+    ];
+    const tgt = target({
+      sampleData: undefined,
+      fields: [{ path: 'profile', label: 'Profile', type: 'object' }],
+    });
+    const mappings: Mapping[] = [
+      { id: 'm1', sourcePath: 'jsonBlob', sourceId: 's1', targetPath: 'profile' },
+    ];
+    const result = detectTypeMismatches(mappings, strObjSources, tgt);
+    expect(result).toHaveLength(1);
+    expect(result[0].suggestedFix).toContain('$parse');
   });
 
   it('skips mappings with expressions', () => {
@@ -259,6 +287,13 @@ describe('suggestedFix $.prefix handling', () => {
     const result = detectTypeMismatches(mappings, sources, target());
     expect(result).toHaveLength(1);
     expect(result[0].suggestedFix).toBe('$parseFloat($.name)');
+  });
+});
+
+describe('suggestTypeFixExpression', () => {
+  it('returns object conversion suggestions', () => {
+    expect(suggestTypeFixExpression('object', 'string', 'address')).toBe('$toString($.address)');
+    expect(suggestTypeFixExpression('string', 'object', 'payload')).toBe('$parse($.payload)');
   });
 });
 
@@ -416,5 +451,25 @@ describe('suggestedFix functions evaluate successfully', () => {
     );
     expect(result.error).toBeUndefined();
     expect(result.value).toBe(29.99);
+  });
+
+  it('$toString evaluates object to JSON string', () => {
+    const result = evaluateMapperExpression(
+      '$toString($.address)',
+      [{ id: 's1', label: 'S', sampleData: { address: { city: 'NYC' } } }],
+      's1',
+    );
+    expect(result.error).toBeUndefined();
+    expect(result.value).toBe('{"city":"NYC"}');
+  });
+
+  it('$parse evaluates JSON string to object', () => {
+    const result = evaluateMapperExpression(
+      '$parse($.jsonBlob)',
+      [{ id: 's1', label: 'S', sampleData: { jsonBlob: '{"city":"NYC"}' } }],
+      's1',
+    );
+    expect(result.error).toBeUndefined();
+    expect(result.value).toEqual({ city: 'NYC' });
   });
 });

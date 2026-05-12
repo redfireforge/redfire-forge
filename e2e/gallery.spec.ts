@@ -17,8 +17,8 @@ test.describe('Gallery Page', () => {
 
   test('gallery shows domain filter buttons', async ({ page }) => {
     const domainBtns = page.locator('.gallery-domain-btn');
-    // All + 5 domains
-    await expect(domainBtns).toHaveCount(6);
+    // All + 6 domains (including data-mapper)
+    await expect(domainBtns).toHaveCount(7);
   });
 
   test('can filter by domain', async ({ page }) => {

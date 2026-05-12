@@ -51,7 +51,7 @@ import NodeConfigInputTab from '../configs/NodeConfigInputTab';
 import NodeConfigOutputTab from '../configs/NodeConfigOutputTab';
 import NodeConfigLogsTab from '../configs/NodeConfigLogsTab';
 import WorkflowEditorModalFrame from './WorkflowEditorModalFrame';
-import type { ExtractionFetchSampleProps } from '../../../requests/components/ExtractionPathPickerModal';
+import type { ExtractionFetchSampleProps } from '../../../requests/components/ExtractionEditor';
 
 type ConfigPanelTab = 'config' | 'input' | 'output' | 'logs';
 

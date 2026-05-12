@@ -1,22 +1,135 @@
 /** @vitest-environment jsdom */
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
+import * as JsonTreeModel from '../../utils/jsonTreeModel';
 import ExpressionEditorModal from './ExpressionEditorModal';
 import type { Mapping, MapperSource } from './types';
 
-// Mock Monaco editor — renders a textarea in test environment
-vi.mock('@monaco-editor/react', () => ({
-  default: ({ value, onChange, onMount: _onMount }: { value: string; onChange: (v: string) => void; onMount?: (e: unknown, m: unknown) => void }) => {
-    return (
-      <textarea
-        data-testid="monaco-editor"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder='e.g. $upper($.name) or $concat($.firstName, " ", $.lastName)'
-      />
-    );
-  },
-}));
+export const monacoTestState: {
+  lastEditor: ReturnType<typeof createFakeEditor>['editor'] | null;
+  lastMonaco: ReturnType<typeof createFakeMonaco>['monaco'] | null;
+  lastMountOpts: { getSelectionImpl?: () => unknown } | null;
+  completionProvider: { provideCompletionItems: (model: unknown, position: unknown) => unknown } | null;
+  disposeSpies: ReturnType<typeof vi.fn>[];
+  suppressOnMount: boolean;
+} = {
+  lastEditor: null,
+  lastMonaco: null,
+  lastMountOpts: null,
+  completionProvider: null,
+  disposeSpies: [],
+  suppressOnMount: false,
+};
+
+function createFakeMonaco() {
+  const monaco = {
+    languages: {
+      CompletionItemKind: { Field: 1, Function: 2 },
+      CompletionItemInsertTextRule: { InsertAsSnippet: 4 },
+      registerCompletionItemProvider: vi.fn((_lang: string, provider: { provideCompletionItems: (model: unknown, position: unknown) => unknown }) => {
+        monacoTestState.completionProvider = provider;
+        const dispose = vi.fn();
+        monacoTestState.disposeSpies.push(dispose);
+        return { dispose };
+      }),
+    },
+    KeyMod: { CtrlCmd: 2048 },
+    KeyCode: { Enter: 3, Escape: 9 },
+  };
+  return { monaco };
+}
+
+function createFakeEditor(
+  opts: { modelInitial?: string; getSelectionImpl?: () => unknown } = {},
+) {
+  const modelValue = { current: opts.modelInitial ?? '' };
+  const model = {
+    getValue: () => modelValue.current,
+    setValue: (v: string) => { modelValue.current = v; },
+  };
+  const commands = new Map<number, () => void>();
+  const defaultRange = () => ({
+    startLineNumber: 1,
+    startColumn: 1,
+    endLineNumber: 1,
+    endColumn: 1,
+  });
+  const editor = {
+    getModel: () => model,
+    getSelection: () => {
+      if (opts.getSelectionImpl) return opts.getSelectionImpl();
+      return defaultRange();
+    },
+    executeEdits: vi.fn(),
+    focus: vi.fn(),
+    addCommand: vi.fn((keybinding: number, handler: () => void) => {
+      commands.set(keybinding, handler);
+    }),
+    __runCommand: (keybinding: number) => {
+      commands.get(keybinding)?.();
+    },
+  };
+  return { editor, model };
+}
+
+vi.mock('@monaco-editor/react', async () => {
+  const React = await import('react');
+  const { useEffect, useRef } = React;
+
+  function MockEditor({
+    value,
+    onChange,
+    onMount,
+  }: {
+    value: string;
+    onChange: (v: string | undefined) => void;
+    onMount?: (
+      editor: ReturnType<typeof createFakeEditor>['editor'],
+      monaco: ReturnType<typeof createFakeMonaco>['monaco'],
+    ) => void;
+  }) {
+    const mountedRef = useRef(false);
+
+    useEffect(() => {
+      if (monacoTestState.suppressOnMount) return;
+      if (!onMount || mountedRef.current) return;
+      mountedRef.current = true;
+      const getSelectionImpl = monacoTestState.lastMountOpts?.getSelectionImpl;
+      const { editor } = createFakeEditor({
+        modelInitial: '',
+        getSelectionImpl,
+      });
+      const { monaco } = createFakeMonaco();
+      monacoTestState.lastEditor = editor;
+      monacoTestState.lastMonaco = monaco;
+      onMount(editor, monaco);
+    }, [onMount]);
+
+    return React.createElement('textarea', {
+      'data-testid': 'monaco-editor',
+      value,
+      onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => onChange(e.target.value),
+      placeholder: 'e.g. $upper($.name) or $concat($.firstName, " ", $.lastName)',
+    });
+  }
+
+  return {
+    default: MockEditor,
+  };
+});
+
+beforeEach(() => {
+  monacoTestState.lastEditor = null;
+  monacoTestState.lastMonaco = null;
+  monacoTestState.lastMountOpts = null;
+  monacoTestState.completionProvider = null;
+  monacoTestState.disposeSpies = [];
+  monacoTestState.suppressOnMount = false;
+});
+
+async function flushMonacoMount() {
+  await act(async () => { await Promise.resolve(); });
+}
 
 const sources: MapperSource[] = [
   { id: 's1', label: 'Response', sampleData: { name: 'Alice', age: 30 } },
@@ -121,11 +234,12 @@ describe('ExpressionEditorModal', () => {
     expect(screen.getByText(/UPPERCASE/)).toBeTruthy();
   });
 
-  it('inserts function template when clicked', () => {
+  it('inserts function template when clicked', async () => {
     renderModal();
+    await flushMonacoMount();
     fireEvent.click(screen.getByText('$upper'));
-    const textarea = screen.getByPlaceholderText(/\$upper/) as HTMLTextAreaElement;
-    expect(textarea.value).toContain('$upper(');
+    const text = monacoTestState.lastEditor?.executeEdits.mock.calls[0]?.[1]?.[0]?.text ?? '';
+    expect(text).toContain('$upper(');
   });
 
   it('filters functions by category', () => {
@@ -233,12 +347,13 @@ describe('ExpressionEditorModal – additional coverage', () => {
     expect(document.querySelector('.dm-expr-doc-sig')).toBeTruthy();
   });
 
-  it('inserts function template on click', () => {
+  it('inserts function template on click', async () => {
     renderModal();
+    await flushMonacoMount();
     const fnItem = screen.getByText('$upper').closest('.dm-expr-fn-item')!;
     fireEvent.click(fnItem);
-    const textarea = screen.getByPlaceholderText(/\$upper/) as HTMLTextAreaElement;
-    expect(textarea.value).toContain('$upper(');
+    const text = monacoTestState.lastEditor?.executeEdits.mock.calls[0]?.[1]?.[0]?.text ?? '';
+    expect(text).toContain('$upper(');
   });
 });
 
@@ -438,7 +553,7 @@ describe('ExpressionEditorModal – Step-Through Debugger', () => {
     expect(document.querySelector('.dm-expr-doc-empty')).toBeTruthy();
   });
 
-  it('inserts function without args as fnName()', () => {
+  it('inserts function without args as fnName()', async () => {
     const noArgFns = [{
       name: '$myNoArgs',
       category: 'Custom' as const,
@@ -450,9 +565,10 @@ describe('ExpressionEditorModal – Step-Through Debugger', () => {
       evaluate: () => 42,
     }];
     renderModal({ customFunctions: noArgFns });
+    await flushMonacoMount();
     fireEvent.click(screen.getByText('$myNoArgs'));
-    const textarea = screen.getByPlaceholderText(/\$upper/) as HTMLTextAreaElement;
-    expect(textarea.value).toContain('$myNoArgs()');
+    const text = monacoTestState.lastEditor?.executeEdits.mock.calls[0]?.[1]?.[0]?.text ?? '';
+    expect(text).toContain('$myNoArgs()');
   });
 });
 
@@ -572,8 +688,243 @@ describe('ExpressionEditorModal – Ctrl+Enter keyboard shortcut', () => {
   });
 });
 
-describe('ExpressionEditorModal – function insert without editor', () => {
-  it('appends function template to expression when no Monaco editor', async () => {
+describe('ExpressionEditorModal – editor onMount and completion', () => {
+  it('syncs model value when it differs from expression on mount', async () => {
+    renderModal({ mapping: { ...baseMapping, expression: '$.name' } });
+    await flushMonacoMount();
+    const model = monacoTestState.lastEditor?.getModel();
+    expect(model?.getValue()).toBe('$.name');
+  });
+
+  it('registers completion provider and disposes on unmount', async () => {
+    const { unmount } = renderModal();
+    await flushMonacoMount();
+    const dispose = monacoTestState.disposeSpies[0];
+    expect(dispose).toBeTruthy();
+    expect(monacoTestState.completionProvider).toBeTruthy();
+    unmount();
+    expect(dispose).toHaveBeenCalled();
+  });
+
+  it('disposes previous completion provider when modal remounts with new key', async () => {
+    const { rerender } = render(
+      <ExpressionEditorModal
+        key="k1"
+        mapping={baseMapping}
+        sources={sources}
+        activeSourceId="s1"
+        onSave={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    );
+    await flushMonacoMount();
+    const firstDispose = monacoTestState.disposeSpies[0];
+    expect(firstDispose).toBeTruthy();
+    rerender(
+      <ExpressionEditorModal
+        key="k2"
+        mapping={baseMapping}
+        sources={sources}
+        activeSourceId="s1"
+        onSave={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    );
+    await flushMonacoMount();
+    expect(firstDispose).toHaveBeenCalled();
+  });
+
+  it('suggests source paths for $. completions', async () => {
+    renderModal({ mapping: { ...baseMapping, expression: '$.name' } });
+    await flushMonacoMount();
+    const p = monacoTestState.completionProvider!;
+    const model = {
+      getValueInRange: () => '$.',
+      getWordUntilPosition: () => ({ startColumn: 1, endColumn: 3 }),
+    };
+    const res = p.provideCompletionItems(
+      model as never,
+      { lineNumber: 1, column: 3 } as never,
+    ) as { suggestions: { label: string }[] };
+    expect(res.suggestions.some((s) => s.label.includes('name'))).toBe(true);
+    expect(monacoTestState.lastMonaco?.languages.registerCompletionItemProvider).toHaveBeenCalled();
+  });
+
+  it('suggests source paths for partial $.path completions', async () => {
+    renderModal({ mapping: { ...baseMapping, expression: '$.name' } });
+    await flushMonacoMount();
+    const p = monacoTestState.completionProvider!;
+    const model = {
+      getValueInRange: () => 'prefix $.na',
+      getWordUntilPosition: () => ({ startColumn: 8, endColumn: 12 }),
+    };
+    const res = p.provideCompletionItems(
+      model as never,
+      { lineNumber: 1, column: 12 } as never,
+    ) as { suggestions: { label: string }[] };
+    expect(res.suggestions.length).toBeGreaterThan(0);
+  });
+
+  it('suggests functions for $ prefix completions', async () => {
+    renderModal();
+    await flushMonacoMount();
+    const p = monacoTestState.completionProvider!;
+    const model = {
+      getValueInRange: () => 'x + $upp',
+      getWordUntilPosition: () => ({ startColumn: 5, endColumn: 9 }),
+    };
+    const res = p.provideCompletionItems(
+      model as never,
+      { lineNumber: 1, column: 9 } as never,
+    ) as { suggestions: { label: string }[] };
+    expect(res.suggestions.length).toBeGreaterThan(0);
+    const labels = res.suggestions.map((s) => String(s.label));
+    expect(labels.some((l) => l.includes('upper') || l.startsWith('$'))).toBe(true);
+  });
+
+  it('returns empty suggestions when context does not match', async () => {
+    renderModal();
+    await flushMonacoMount();
+    const p = monacoTestState.completionProvider!;
+    const model = {
+      getValueInRange: () => 'plain text',
+      getWordUntilPosition: () => ({ startColumn: 1, endColumn: 5 }),
+    };
+    const res = p.provideCompletionItems(
+      model as never,
+      { lineNumber: 1, column: 5 } as never,
+    ) as { suggestions: unknown[] };
+    expect(res.suggestions).toEqual([]);
+  });
+
+  it('offers no source path suggestions when active source id is missing', async () => {
+    renderModal({ activeSourceId: 'missing' });
+    await flushMonacoMount();
+    const p = monacoTestState.completionProvider!;
+    const model = {
+      getValueInRange: () => '$.',
+      getWordUntilPosition: () => ({ startColumn: 1, endColumn: 3 }),
+    };
+    const res = p.provideCompletionItems(
+      model as never,
+      { lineNumber: 1, column: 3 } as never,
+    ) as { suggestions: unknown[] };
+    expect(res.suggestions).toEqual([]);
+  });
+
+  it('handles buildJsonTree failure when collecting source paths', async () => {
+    const spy = vi.spyOn(JsonTreeModel, 'buildJsonTree').mockImplementation(() => {
+      throw new Error('boom');
+    });
+    renderModal();
+    await flushMonacoMount();
+    const p = monacoTestState.completionProvider!;
+    const model = {
+      getValueInRange: () => '$.',
+      getWordUntilPosition: () => ({ startColumn: 1, endColumn: 3 }),
+    };
+    const res = p.provideCompletionItems(
+      model as never,
+      { lineNumber: 1, column: 3 } as never,
+    ) as { suggestions: unknown[] };
+    expect(res.suggestions).toEqual([]);
+    spy.mockRestore();
+  });
+
+  it('fires save from editor Ctrl+Enter command', async () => {
+    vi.useFakeTimers();
+    const onSave = vi.fn();
+    render(
+      <ExpressionEditorModal
+        mapping={{ ...baseMapping, expression: '$.name' }}
+        sources={sources}
+        activeSourceId="s1"
+        onSave={onSave}
+        onCancel={vi.fn()}
+      />,
+    );
+    await act(async () => { vi.advanceTimersByTime(300); });
+    await flushMonacoMount();
+    const monaco = monacoTestState.lastMonaco!;
+    const ed = monacoTestState.lastEditor!;
+    ed.__runCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter);
+    expect(onSave).toHaveBeenCalledWith('m1', '$.name');
+    vi.useRealTimers();
+  });
+
+  it('fires onCancel from editor Escape command', async () => {
+    const onCancel = vi.fn();
+    render(
+      <ExpressionEditorModal
+        mapping={{ ...baseMapping, expression: '$.name' }}
+        sources={sources}
+        activeSourceId="s1"
+        onSave={vi.fn()}
+        onCancel={onCancel}
+      />,
+    );
+    await flushMonacoMount();
+    const monaco = monacoTestState.lastMonaco!;
+    const ed = monacoTestState.lastEditor!;
+    ed.__runCommand(monaco.KeyCode.Escape);
+    expect(onCancel).toHaveBeenCalled();
+  });
+
+  it('shows Evaluating before debounced preview resolves', () => {
+    vi.useFakeTimers();
+    renderModal({ mapping: { ...baseMapping, expression: '$.name' } });
+    expect(screen.getByText('Evaluating…')).toBeTruthy();
+    vi.useRealTimers();
+  });
+
+  it('shows preview error styling when evaluation returns an error', async () => {
+    vi.useFakeTimers();
+    const evalMod = await import('./utils/mapperExpressionEvaluator');
+    const evalSpy = vi.spyOn(evalMod, 'evaluateMapperExpression').mockReturnValue({
+      value: undefined,
+      preview: '',
+      error: 'bad',
+    });
+    const { container } = renderModal({ mapping: { ...baseMapping, expression: 'x' } });
+    await act(async () => { vi.advanceTimersByTime(300); });
+    expect(container.querySelector('.dm-expr-preview-value--error')).toBeTruthy();
+    expect(screen.getByText(/Error: bad/)).toBeTruthy();
+    evalSpy.mockRestore();
+    vi.useRealTimers();
+  });
+
+  it('appends function template via React state when editor onMount is suppressed', () => {
+    monacoTestState.suppressOnMount = true;
+    renderModal();
+    fireEvent.click(screen.getByText('$upper'));
+    const textarea = screen.getByPlaceholderText(/\$upper/) as HTMLTextAreaElement;
+    expect(textarea.value).toContain('$upper(');
+  });
+
+  it('prefixes inserted template when custom function name lacks leading $', async () => {
+    vi.useFakeTimers();
+    const customFns = [{
+      name: 'noDollarFn',
+      category: 'Custom',
+      signature: '$noDollarFn(x)',
+      description: 'Custom',
+      args: [{ name: 'x', type: 'string', required: true, description: 'In' }],
+      returnType: 'string',
+      examples: [],
+      evaluate: (v: unknown) => v,
+    }];
+    renderModal({ customFunctions: customFns });
+    await act(async () => { vi.advanceTimersByTime(300); });
+    await flushMonacoMount();
+    fireEvent.click(screen.getByText('noDollarFn'));
+    const text = monacoTestState.lastEditor?.executeEdits.mock.calls[0]?.[1]?.[0]?.text ?? '';
+    expect(text).toContain('$noDollarFn');
+    vi.useRealTimers();
+  });
+});
+
+describe('ExpressionEditorModal – function insert with Monaco', () => {
+  it('inserts function template via executeEdits when editor is mounted', async () => {
     vi.useFakeTimers();
     const onSave = vi.fn();
     render(
@@ -586,14 +937,24 @@ describe('ExpressionEditorModal – function insert without editor', () => {
       />,
     );
     await act(async () => { vi.advanceTimersByTime(300); });
-    const fnBtn = screen.getByText('$upper');
-    fireEvent.click(fnBtn);
-    // Monaco not mounted in test → falls back to appending to expression via setExpression
-    // Verify the expression was updated by saving
+    expect(monacoTestState.lastEditor).toBeTruthy();
+    fireEvent.click(screen.getByText('$upper'));
+    expect(monacoTestState.lastEditor?.executeEdits).toHaveBeenCalled();
+    const editArg = monacoTestState.lastEditor?.executeEdits.mock.calls[0]?.[1]?.[0]?.text ?? '';
+    expect(editArg).toContain('$upper');
+    expect(monacoTestState.lastEditor?.focus).toHaveBeenCalled();
+    vi.useRealTimers();
+  });
+
+  it('does not call executeEdits when editor returns no selection', async () => {
+    vi.useFakeTimers();
+    monacoTestState.lastMountOpts = { getSelectionImpl: () => null };
+    renderModal({ mapping: { ...baseMapping, expression: '' } });
     await act(async () => { vi.advanceTimersByTime(300); });
-    fireEvent.click(screen.getByText('Save Expression'));
-    const savedExpr = onSave.mock.calls[0]?.[1] ?? '';
-    expect(savedExpr).toContain('$upper');
+    const ed = monacoTestState.lastEditor;
+    expect(ed).toBeTruthy();
+    fireEvent.click(screen.getByText('$upper'));
+    expect(ed?.executeEdits).not.toHaveBeenCalled();
     vi.useRealTimers();
   });
 });

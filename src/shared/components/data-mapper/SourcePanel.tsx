@@ -13,6 +13,7 @@ interface SourcePanelProps {
   sourceSampleOverrides: Record<string, unknown>;
   onSourceChange: (sourceId: string) => void;
   onDragStart: (path: string, sourceId: string) => void;
+  onDragEnd?: () => void;
   onSourceSampleChange: (sourceId: string, data: unknown) => void;
   onFetchSample?: () => Promise<void>;
   canFetch?: boolean;
@@ -40,6 +41,7 @@ export default function SourcePanel({
   sourceSampleOverrides,
   onSourceChange,
   onDragStart,
+  onDragEnd,
   onSourceSampleChange,
   onFetchSample,
   canFetch = false,
@@ -250,6 +252,7 @@ export default function SourcePanel({
                 depth={0}
                 search={search}
                 onDragStart={onDragStart}
+                onDragEnd={onDragEnd}
                 sourceId={activeSourceId}
                 expandedPaths={expandedPaths}
                 onToggle={handleToggle}

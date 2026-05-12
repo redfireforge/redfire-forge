@@ -201,6 +201,20 @@ describe('inline remove button', () => {
 });
 
 describe('TargetTreeNode – drop handling', () => {
+  it('calls onReorderField when another target field is dropped', () => {
+    const onReorderField = vi.fn();
+    render(<TargetTreeNode node={leaf} {...defaults} onReorderField={onReorderField} />);
+    const el = screen.getByText('userName').closest('.dm-tree-node')!;
+    const dt = {
+      getData: (type: string) => (type === 'application/mapper-target-field'
+        ? JSON.stringify({ kind: 'target-field', path: 'email' })
+        : ''),
+      dropEffect: 'none',
+    };
+    fireEvent.drop(el, { dataTransfer: dt });
+    expect(onReorderField).toHaveBeenCalledWith('email', 'userName');
+  });
+
   it('calls onDrop with parsed drag data on drop', () => {
     const onDrop = vi.fn();
     render(<TargetTreeNode node={leaf} {...defaults} onDrop={onDrop} />);
@@ -266,6 +280,138 @@ describe('TargetTreeNode – toggle', () => {
       <TargetTreeNode node={leaf} {...defaults} search="nonexistent" />,
     );
     expect(container.querySelector('.dm-tree-node')).toBeNull();
+  });
+});
+
+describe('rename and double-click', () => {
+  const customLeaf: JsonTreeNode = { key: 'myField', path: 'myField', type: 'string', value: undefined, children: [] };
+
+  it('double-click on unmapped custom field starts rename', () => {
+    const fieldOrigins = new Map([['myField', 'custom' as const]]);
+    const onUpdate = vi.fn();
+    render(
+      <TargetTreeNode
+        node={customLeaf}
+        {...defaults}
+        fieldOrigins={fieldOrigins}
+        onUpdateCustomField={onUpdate}
+      />,
+    );
+    const node = screen.getByText('myField');
+    fireEvent.doubleClick(node.closest('.dm-tree-node')!);
+    expect(screen.getByLabelText('Rename field')).toBeTruthy();
+  });
+
+  it('rename submit calls onUpdateCustomField with new path', () => {
+    const fieldOrigins = new Map([['myField', 'custom' as const]]);
+    const onUpdate = vi.fn();
+    render(
+      <TargetTreeNode
+        node={customLeaf}
+        {...defaults}
+        fieldOrigins={fieldOrigins}
+        onUpdateCustomField={onUpdate}
+      />,
+    );
+    fireEvent.doubleClick(screen.getByText('myField').closest('.dm-tree-node')!);
+    const input = screen.getByLabelText('Rename field');
+    fireEvent.change(input, { target: { value: 'newName' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(onUpdate).toHaveBeenCalledWith('myField', expect.objectContaining({ path: 'newName' }));
+  });
+
+  it('rename cancel via Escape reverts without calling update', () => {
+    const fieldOrigins = new Map([['myField', 'custom' as const]]);
+    const onUpdate = vi.fn();
+    render(
+      <TargetTreeNode
+        node={customLeaf}
+        {...defaults}
+        fieldOrigins={fieldOrigins}
+        onUpdateCustomField={onUpdate}
+      />,
+    );
+    fireEvent.doubleClick(screen.getByText('myField').closest('.dm-tree-node')!);
+    const input = screen.getByLabelText('Rename field');
+    fireEvent.keyDown(input, { key: 'Escape' });
+    expect(onUpdate).not.toHaveBeenCalled();
+    expect(screen.getByText('myField')).toBeTruthy();
+  });
+
+  it('rename submit with same value cancels rename', () => {
+    const fieldOrigins = new Map([['myField', 'custom' as const]]);
+    const onUpdate = vi.fn();
+    render(
+      <TargetTreeNode
+        node={customLeaf}
+        {...defaults}
+        fieldOrigins={fieldOrigins}
+        onUpdateCustomField={onUpdate}
+      />,
+    );
+    fireEvent.doubleClick(screen.getByText('myField').closest('.dm-tree-node')!);
+    const input = screen.getByLabelText('Rename field');
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(onUpdate).not.toHaveBeenCalled();
+  });
+
+  it('double-click on mapped field opens expression editor', () => {
+    const onEdit = vi.fn();
+    render(
+      <TargetTreeNode
+        node={leaf}
+        {...defaults}
+        mappings={[mapping]}
+        onEditExpression={onEdit}
+      />,
+    );
+    fireEvent.doubleClick(screen.getByText('userName').closest('.dm-tree-node')!);
+    expect(onEdit).toHaveBeenCalledWith('m1');
+  });
+});
+
+describe('default value display', () => {
+  it('shows default value on unmapped node with value', () => {
+    const nodeWithDefault: JsonTreeNode = {
+      key: 'page', path: 'page', type: 'string', value: '1', children: [],
+    };
+    const { container } = render(
+      <TargetTreeNode node={nodeWithDefault} {...defaults} />,
+    );
+    expect(container.querySelector('.dm-default-value')).toBeTruthy();
+    expect(container.querySelector('.dm-default-value')!.textContent).toBe('= 1');
+  });
+
+  it('hides default value when node is mapped', () => {
+    const nodeWithDefault: JsonTreeNode = {
+      key: 'userName', path: 'userName', type: 'string', value: 'DefaultUser', children: [],
+    };
+    const { container } = render(
+      <TargetTreeNode node={nodeWithDefault} {...defaults} mappings={[mapping]} />,
+    );
+    expect(container.querySelector('.dm-default-value')).toBeNull();
+  });
+
+  it('does not show default value when value is empty string', () => {
+    const nodeEmpty: JsonTreeNode = {
+      key: 'email', path: 'email', type: 'string', value: '', children: [],
+    };
+    const { container } = render(
+      <TargetTreeNode node={nodeEmpty} {...defaults} />,
+    );
+    expect(container.querySelector('.dm-default-value')).toBeNull();
+  });
+
+  it('truncates long default values', () => {
+    const longVal = 'x'.repeat(30);
+    const nodeWithLong: JsonTreeNode = {
+      key: 'data', path: 'data', type: 'string', value: longVal, children: [],
+    };
+    const { container } = render(
+      <TargetTreeNode node={nodeWithLong} {...defaults} />,
+    );
+    const text = container.querySelector('.dm-default-value')!.textContent!;
+    expect(text.endsWith('…')).toBe(true);
   });
 });
 
