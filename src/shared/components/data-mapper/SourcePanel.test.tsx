@@ -41,6 +41,16 @@ describe('SourcePanel – tree view', () => {
     expect(screen.getByText(/No sample data/)).toBeTruthy();
   });
 
+  it('shows guided empty-state actions when source is empty', () => {
+    renderPanel({
+      sources: [{ id: 's1', label: 'Empty', sampleData: undefined }],
+      canFetch: true,
+      onFetchSample: vi.fn(),
+    });
+    expect(screen.getByText('Paste JSON')).toBeTruthy();
+    expect(screen.getByText('Fetch sample')).toBeTruthy();
+  });
+
   it('uses sourceSampleOverrides over adapter data', () => {
     renderPanel({
       sourceSampleOverrides: { s1: { overridden: true, color: 'red' } },
@@ -203,6 +213,13 @@ describe('SourcePanel – fetch sample', () => {
     expect(screen.getByText(/No sample data/)).toBeTruthy();
   });
 
+  it('opens paste mode from empty-state action', () => {
+    const sources = [{ id: 's1', label: 'S', sampleData: undefined }];
+    renderPanel({ sources });
+    fireEvent.click(screen.getByText('Paste JSON'));
+    expect(screen.getByPlaceholderText(/Paste JSON here/)).toBeTruthy();
+  });
+
   it('passes searchInputRef to search input', () => {
     const ref = { current: null } as React.RefObject<HTMLInputElement | null>;
     renderPanel({ searchInputRef: ref });
@@ -215,11 +232,11 @@ describe('SourcePanel – fetch sample', () => {
     const onFetch = vi.fn().mockImplementation(() => new Promise<void>((resolve) => { resolver = resolve; }));
     renderPanel({ canFetch: true, onFetchSample: onFetch });
     const fetchBtn = screen.getByLabelText('Fetch live sample');
-    expect(fetchBtn.textContent).toBe('🔄');
+    expect(fetchBtn.textContent).toBe('↻');
     fireEvent.click(fetchBtn);
-    expect(fetchBtn.textContent).toBe('⏳');
+    expect(fetchBtn.textContent).toBe('…');
     resolver();
-    await waitFor(() => expect(fetchBtn.textContent).toBe('🔄'));
+    await waitFor(() => expect(fetchBtn.textContent).toBe('↻'));
   });
 
   it('handles string sampleData in togglePasteMode', () => {
@@ -288,7 +305,7 @@ describe('SourcePanel – fetch sample', () => {
     renderPanel({ canFetch: true, onFetchSample: onFetch });
     fireEvent.click(screen.getByLabelText('Fetch live sample'));
     await waitFor(() => expect(onFetch).toHaveBeenCalled());
-    await waitFor(() => expect(screen.getByLabelText('Fetch live sample').textContent).toBe('🔄'));
+    await waitFor(() => expect(screen.getByLabelText('Fetch live sample').textContent).toBe('↻'));
   });
 
   it('does not call onFetchSample when not provided', async () => {

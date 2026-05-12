@@ -7,8 +7,10 @@ import ErrorPopover from './ErrorPopover';
 import DriftBanner from './DriftBanner';
 import MapperToolbar from './MapperToolbar';
 import MappingCompare from './MappingCompare';
+import DataMapper from './DataMapper';
 import type { JsonTreeNode } from '../../utils/jsonTreeModel';
 import type { Mapping } from './types';
+import type { MapperAdapter } from './types';
 import type { ClassifiedDrift } from './utils/schemaDrift';
 import type { MappingTrace } from './utils/mappingTrace';
 import LocationGroupPanel from './LocationGroupPanel';
@@ -45,6 +47,20 @@ const targetDefaults = {
   selectedMappingId: null,
   onSelectMapping: vi.fn(),
 };
+
+function createShellAdapter(
+  sourceSampleData: unknown,
+  targetSampleData: unknown,
+): MapperAdapter<Mapping[]> {
+  return {
+    contextId: 'visual-shell',
+    title: 'Visual Shell',
+    sources: [{ id: 's1', label: 'Source', sampleData: sourceSampleData }],
+    target: { label: 'Target', sampleData: targetSampleData, allowCustomFields: true },
+    serialize: (m) => m,
+    deserialize: (d) => (Array.isArray(d) ? d as Mapping[] : []),
+  };
+}
 
 describe('Visual Snapshots — SourceTreeNode', () => {
   it('string leaf with sample value', () => {
@@ -265,6 +281,52 @@ describe('Visual Snapshots — MapperToolbar', () => {
         onRejectAllPending={vi.fn()}
       />,
     );
+    expect(container.innerHTML).toMatchSnapshot();
+  });
+});
+
+describe('Visual Snapshots — DataMapper shell baseline states', () => {
+  it('both source and target empty', () => {
+    const adapter = createShellAdapter(undefined, undefined);
+    const { container } = render(<DataMapper adapter={adapter} />);
+    expect(container.innerHTML).toMatchSnapshot();
+  });
+
+  it('source empty with target defined', () => {
+    const adapter = createShellAdapter(
+      undefined,
+      { userName: '', userAge: 0 },
+    );
+    const { container } = render(<DataMapper adapter={adapter} />);
+    expect(container.innerHTML).toMatchSnapshot();
+  });
+
+  it('target empty with source defined', () => {
+    const adapter = createShellAdapter(
+      { name: 'Alice', age: 42 },
+      undefined,
+    );
+    const { container } = render(<DataMapper adapter={adapter} />);
+    expect(container.innerHTML).toMatchSnapshot();
+  });
+
+  it('partially mapped shell', () => {
+    const adapter = createShellAdapter(
+      { name: 'Alice', age: 42 },
+      { userName: '', userAge: 0 },
+    );
+    const partial = [directMapping];
+    const { container } = render(<DataMapper adapter={adapter} initialData={partial} />);
+    expect(container.innerHTML).toMatchSnapshot();
+  });
+
+  it('fully mapped shell', () => {
+    const adapter = createShellAdapter(
+      { name: 'Alice', age: 42 },
+      { userName: '', userAge: 0 },
+    );
+    const full = [directMapping, exprMapping];
+    const { container } = render(<DataMapper adapter={adapter} initialData={full} />);
     expect(container.innerHTML).toMatchSnapshot();
   });
 });

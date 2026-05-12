@@ -321,6 +321,11 @@ export default function DataMapperModal<TOutput = unknown>({
     () => validationIssues.filter((i) => i.severity === 'warning').length,
     [validationIssues],
   );
+  const footerStatus = errorCount > 0
+    ? `${errorCount} error${errorCount !== 1 ? 's' : ''} must be fixed before saving`
+    : warningCount > 0
+      ? `${warningCount} warning${warningCount !== 1 ? 's' : ''} will be saved`
+      : 'Review mappings and save when ready';
 
   return (
     <div
@@ -332,14 +337,18 @@ export default function DataMapperModal<TOutput = unknown>({
     >
       <div className="dm-modal-shell">
         <div className="dm-modal-header">
-          <h2 id={titleId} className="dm-modal-title">{adapter.title}</h2>
+          <div className="dm-modal-title-block">
+            <h2 id={titleId} className="dm-modal-title">{adapter.title}</h2>
+            <p className="dm-modal-subtitle">Map source fields to target outputs.</p>
+          </div>
           <div className="dm-modal-header-actions">
             <button
-              className="dm-btn-icon"
+              className="dm-modal-header-btn"
               onClick={() => setIsFullScreen((f) => !f)}
               aria-label={isFullScreen ? 'Exit full screen' : 'Enter full screen'}
+              title={isFullScreen ? 'Restore modal size' : 'Use full screen workspace'}
             >
-              {isFullScreen ? '⊟' : '⊞'}
+              {isFullScreen ? 'Exit full screen' : 'Full screen'}
             </button>
           </div>
         </div>
@@ -402,17 +411,22 @@ export default function DataMapperModal<TOutput = unknown>({
         )}
 
         <div className="dm-modal-footer">
-          <button className="dm-modal-btn dm-modal-btn--secondary" onClick={onCancel}>
-            Cancel
-          </button>
-          <button
-            className="dm-modal-btn dm-modal-btn--primary"
-            onClick={handleDone}
-            disabled={errorCount > 0}
-            title={errorCount > 0 ? 'Fix errors before saving' : 'Save mappings'}
-          >
-            {doneLabel}
-          </button>
+          <div className="dm-modal-footer-status" role="status" aria-live="polite">
+            {footerStatus}
+          </div>
+          <div className="dm-modal-footer-actions">
+            <button className="dm-modal-btn dm-modal-btn--secondary" onClick={onCancel}>
+              Cancel
+            </button>
+            <button
+              className="dm-modal-btn dm-modal-btn--primary"
+              onClick={handleDone}
+              disabled={errorCount > 0}
+              title={errorCount > 0 ? 'Fix errors before saving' : 'Save mappings'}
+            >
+              {doneLabel}
+            </button>
+          </div>
         </div>
       </div>
       {showDiffModal && driftEntries.length > 0 && (

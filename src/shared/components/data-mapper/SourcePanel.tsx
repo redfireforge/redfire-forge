@@ -163,7 +163,7 @@ export default function SourcePanel({
             aria-label={pasteMode ? 'Show tree view' : 'Paste JSON'}
             aria-pressed={pasteMode}
           >
-            {pasteMode ? '🌳' : '📋'}
+            {pasteMode ? 'Tree' : 'JSON'}
           </button>
           {canFetch && (
             <button
@@ -172,7 +172,7 @@ export default function SourcePanel({
               disabled={fetching}
               aria-label="Fetch live sample"
             >
-              {fetching ? '⏳' : '🔄'}
+              {fetching ? '…' : '↻'}
             </button>
           )}
           {!pasteMode && (
@@ -264,10 +264,30 @@ export default function SourcePanel({
                 mappedPaths={mappedPaths}
               />
             ) : (
-              <div className="dm-empty-state">
-                No sample data.
-                <br />
-                Paste JSON or fetch a sample to populate the source tree.
+              <div className="dm-empty-state dm-empty-state--guided">
+                <div className="dm-empty-state-title">No sample data yet.</div>
+                <div className="dm-empty-state-help">
+                  Add source data first so fields can be mapped.
+                </div>
+                <div className="dm-empty-state-actions">
+                  <button
+                    type="button"
+                    className="dm-empty-action-btn dm-empty-action-btn--primary"
+                    onClick={() => setPasteMode(true)}
+                  >
+                    Paste JSON
+                  </button>
+                  {canFetch && onFetchSample && (
+                    <button
+                      type="button"
+                      className="dm-empty-action-btn"
+                      onClick={handleFetchSample}
+                      disabled={fetching}
+                    >
+                      {fetching ? 'Fetching…' : 'Fetch sample'}
+                    </button>
+                  )}
+                </div>
               </div>
             )}
           </div>

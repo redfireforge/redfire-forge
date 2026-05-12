@@ -45,9 +45,37 @@ describe('TargetPanel', () => {
     expect(screen.queryByText(/mapped/)).toBeNull();
   });
 
+  it('hides mapped badge when schema is missing even with mappings', () => {
+    renderPanel({
+      target: { label: 'No Schema', sampleData: undefined, allowCustomFields: false },
+      mappings: [mapping],
+    });
+    expect(screen.queryByText(/mapped/)).toBeNull();
+  });
+
   it('shows empty state when no sampleData', () => {
     renderPanel({ target: { label: 'Empty', sampleData: null } });
     expect(screen.getByText(/No target schema/)).toBeTruthy();
+  });
+
+  it('shows guided empty-state actions when target schema is missing', () => {
+    renderPanel({
+      target: { label: 'Empty', sampleData: undefined, allowCustomFields: false },
+      onPasteTargetSample: vi.fn(),
+      canFetchTarget: true,
+      onFetchTargetSchema: vi.fn(),
+    });
+    expect(screen.getByText('Paste JSON')).toBeTruthy();
+    expect(screen.getByText('Fetch schema')).toBeTruthy();
+  });
+
+  it('opens paste mode from target empty-state action', () => {
+    renderPanel({
+      target: { label: 'Empty', sampleData: undefined, allowCustomFields: false },
+      onPasteTargetSample: vi.fn(),
+    });
+    fireEvent.click(screen.getByText('Paste JSON'));
+    expect(screen.getByLabelText('Paste target JSON')).toBeTruthy();
   });
 
   it('filters by search', () => {
@@ -400,7 +428,7 @@ describe('TargetPanel', () => {
       const fetchFn = () => new Promise<void>((r) => { resolveFetch = r; });
       renderPanel({ canFetchTarget: true, onFetchTargetSchema: fetchFn });
       fireEvent.click(screen.getByLabelText('Fetch target schema'));
-      expect(screen.getByText('⏳')).toBeTruthy();
+      expect(screen.getByText('…')).toBeTruthy();
       resolveFetch();
     });
 

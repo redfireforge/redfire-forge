@@ -42,6 +42,8 @@ interface TargetPanelProps {
   onTargetFieldDragEnd?: () => void;
   getDraggedSource?: () => { path: string; sourceId: string } | null;
   getDraggedTargetFieldPath?: () => string | null;
+  resolvedMappingCount?: number;
+  unresolvedMappingCount?: number;
 }
 
 export default function TargetPanel({
@@ -71,6 +73,8 @@ export default function TargetPanel({
   onTargetFieldDragEnd,
   getDraggedSource,
   getDraggedTargetFieldPath,
+  resolvedMappingCount,
+  unresolvedMappingCount,
 }: TargetPanelProps) {
   const [search, setSearch] = useState('');
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set(['__root__']));
@@ -195,7 +199,8 @@ export default function TargetPanel({
   );
   const canReorderFields = treeSource === 'fields' && !!onReorderField;
 
-  const mappedCount = mappings.length;
+  const resolvedMappedCount = resolvedMappingCount ?? mappings.length;
+  const unresolvedMappedCount = unresolvedMappingCount ?? Math.max(mappings.length - resolvedMappedCount, 0);
 
   return (
     <div
@@ -207,7 +212,12 @@ export default function TargetPanel({
         {treeSource === 'fields' && !pasteMode && (
           <span className="dm-schema-source-badge" title="Tree built from field definitions">fields</span>
         )}
-        {mappedCount > 0 && !pasteMode && <span className="dm-mapped-count-badge">{mappedCount} mapped</span>}
+        {(resolvedMappedCount > 0 || unresolvedMappedCount > 0) && !pasteMode && treeSource !== null && (
+          <span className="dm-mapped-count-badge">
+            {resolvedMappedCount > 0 ? `${resolvedMappedCount} mapped` : '0 mapped'}
+            {unresolvedMappedCount > 0 ? ` · ${unresolvedMappedCount} unresolved` : ''}
+          </span>
+        )}
         <div className="dm-panel-actions">
           {onPasteTargetSample && (
             <button
@@ -216,7 +226,7 @@ export default function TargetPanel({
               aria-label={pasteMode ? 'Show tree view' : 'Paste JSON'}
               aria-pressed={pasteMode}
             >
-              {pasteMode ? '🌳' : '📋'}
+              {pasteMode ? 'Tree' : 'JSON'}
             </button>
           )}
           {canFetchTarget && (
@@ -226,7 +236,7 @@ export default function TargetPanel({
               disabled={fetching}
               aria-label="Fetch target schema"
             >
-              {fetching ? '⏳' : '🔄'}
+              {fetching ? '…' : '↻'}
             </button>
           )}
           {!pasteMode && (
@@ -336,10 +346,32 @@ export default function TargetPanel({
                 getDraggedTargetFieldPath={getDraggedTargetFieldPath}
               />
             ) : (
-              <div className="dm-empty-state">
-                No target schema.
-                <br />
-                Define target fields or paste sample JSON.
+              <div className="dm-empty-state dm-empty-state--guided">
+                <div className="dm-empty-state-title">No target schema yet.</div>
+                <div className="dm-empty-state-help">
+                  Define destination fields before creating mappings.
+                </div>
+                <div className="dm-empty-state-actions">
+                  {onPasteTargetSample && (
+                    <button
+                      type="button"
+                      className="dm-empty-action-btn dm-empty-action-btn--primary"
+                      onClick={() => setPasteMode(true)}
+                    >
+                      Paste JSON
+                    </button>
+                  )}
+                  {canFetchTarget && onFetchTargetSchema && (
+                    <button
+                      type="button"
+                      className="dm-empty-action-btn"
+                      onClick={handleFetch}
+                      disabled={fetching}
+                    >
+                      {fetching ? 'Fetching…' : 'Fetch schema'}
+                    </button>
+                  )}
+                </div>
               </div>
             )}
             {!hasLocationGroups && target.allowCustomFields && onAddCustomField && (
