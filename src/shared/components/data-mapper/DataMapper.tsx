@@ -146,6 +146,7 @@ export default function DataMapper<TOutput = unknown>({
   const layoutTick = useLayoutTick(containerRef);
   const [showCodeView, setShowCodeView] = useState(false);
   const [showExampleModal, setShowExampleModal] = useState(false);
+  const [compactMode, setCompactMode] = useState(false);
 
   const { focusRegion, focusedPath, setFocusRegion, handleTreeKeyDown } = useKeyboardNavigation({
     containerRef,
@@ -380,6 +381,64 @@ export default function DataMapper<TOutput = unknown>({
     ),
     [state.mappings, state.activeSourceId],
   );
+
+  const mappingResolution = useMemo(() => {
+    const normalizePath = (path: string) => path.replace(/^\$\.?/, '');
+
+    const sourcePathsById = new Map<string, Set<string>>();
+    for (const source of effectiveSources) {
+      const paths = new Set<string>();
+      if (source.sampleData != null) {
+        try {
+          const parsed = typeof source.sampleData === 'string'
+            ? JSON.parse(source.sampleData)
+            : source.sampleData;
+          const tree = buildJsonTree(parsed, '', '');
+          for (const path of getAllLeafPaths(tree)) {
+            paths.add(normalizePath(path));
+          }
+        } catch {
+          // Keep empty set when sample cannot be parsed.
+        }
+      }
+      sourcePathsById.set(source.id, paths);
+    }
+
+    const targetPaths = new Set<string>();
+    if (effectiveTarget.sampleData != null) {
+      try {
+        const parsed = typeof effectiveTarget.sampleData === 'string'
+          ? JSON.parse(effectiveTarget.sampleData)
+          : effectiveTarget.sampleData;
+        const tree = buildJsonTree(parsed, '', '');
+        for (const path of getAllLeafPaths(tree)) {
+          targetPaths.add(normalizePath(path));
+        }
+      } catch {
+        // Keep empty set when target sample cannot be parsed.
+      }
+    } else if (effectiveTarget.fields && effectiveTarget.fields.length > 0) {
+      for (const field of effectiveTarget.fields) {
+        targetPaths.add(normalizePath(field.path));
+      }
+    }
+
+    let unresolved = 0;
+    for (const mapping of state.mappings) {
+      const sourceId = mapping.sourceId || state.activeSourceId;
+      const sourcePath = normalizePath(mapping.sourcePath);
+      const targetPath = normalizePath(mapping.targetPath);
+      const sourceSet = sourcePathsById.get(sourceId);
+      const sourceMissing = !sourceSet || sourceSet.size === 0 || !sourceSet.has(sourcePath);
+      const targetMissing = targetPaths.size === 0 || !targetPaths.has(targetPath);
+      if (sourceMissing || targetMissing) unresolved += 1;
+    }
+
+    return {
+      unresolved,
+      resolved: Math.max(state.mappings.length - unresolved, 0),
+    };
+  }, [state.mappings, state.activeSourceId, effectiveSources, effectiveTarget.sampleData, effectiveTarget.fields]);
 
   const arrayMappingInfos = useMemo(
     () => detectArrayMappings(state.mappings, effectiveSources, effectiveTarget, state.activeSourceId),
@@ -672,6 +731,8 @@ export default function DataMapper<TOutput = unknown>({
         canUndo={canUndo}
         canRedo={canRedo}
         mappingCount={state.mappings.length}
+        resolvedCount={mappingResolution.resolved}
+        unresolvedCount={mappingResolution.unresolved}
         autoMapCount={autoMapCandidateCount}
         showPreview={showPreview}
         onTogglePreview={() => setShowPreview((p) => !p)}
@@ -695,6 +756,8 @@ export default function DataMapper<TOutput = unknown>({
         onToggleMappingLines={() => setShowMappingLines((s) => !s)}
         nodeFocusMode={nodeFocusMode}
         onToggleNodeFocusMode={() => setNodeFocusMode((s) => !s)}
+        compactMode={compactMode}
+        onToggleCompactMode={() => setCompactMode((mode) => !mode)}
       />
       {debugMode && hasTraceData && (
         <div className="dm-debug-bar" role="status" aria-live="polite">
@@ -803,6 +866,8 @@ export default function DataMapper<TOutput = unknown>({
             onTargetFieldDragEnd={handleTargetFieldDragEnd}
             getDraggedSource={getDraggedSource}
             getDraggedTargetFieldPath={getDraggedTargetFieldPath}
+            resolvedMappingCount={mappingResolution.resolved}
+            unresolvedMappingCount={mappingResolution.unresolved}
           />
         </div>
       </div>
@@ -868,6 +933,9 @@ export default function DataMapper<TOutput = unknown>({
         mappings={state.mappings}
         arrayMappingInfos={arrayMappingInfos}
         typeMismatches={typeMismatches}
+        resolvedCount={mappingResolution.resolved}
+        unresolvedCount={mappingResolution.unresolved}
+        compactMode={compactMode}
       />
       {showExampleModal && (
         <ExampleInferenceModal

@@ -102,6 +102,34 @@ export default function MappingCanvas({
       aria-hidden="true"
       viewBox={`0 0 ${width} ${Math.max(height, 100)}`}
     >
+      {paths.length === 0 && (
+        <g className="dm-canvas-empty-guide">
+          <rect
+            className="dm-canvas-empty-guide-bg"
+            x={Math.max(8, width / 2 - 130)}
+            y={Math.max(8, Math.max(height, 100) / 2 - 28)}
+            width={Math.min(260, Math.max(120, width - 16))}
+            height={56}
+            rx={8}
+          />
+          <text
+            className="dm-canvas-empty-guide-title"
+            x={width / 2}
+            y={Math.max(height, 100) / 2 - 6}
+            textAnchor="middle"
+          >
+            No mappings yet
+          </text>
+          <text
+            className="dm-canvas-empty-guide-subtitle"
+            x={width / 2}
+            y={Math.max(height, 100) / 2 + 12}
+            textAnchor="middle"
+          >
+            Drag fields from Source to Target to draw lines
+          </text>
+        </g>
+      )}
       {paths.map((p) => {
         const isSelected = p.mappingId === selectedMappingId || (selectedMappingIds?.has(p.mappingId) ?? false);
         const hasAnySelection = selectedMappingId !== null || (selectedMappingIds != null && selectedMappingIds.size > 0);
@@ -128,71 +156,135 @@ export default function MappingCanvas({
               className={`dm-connection-line ${isSelected ? 'dm-connection-line--selected' : ''} ${isDimmed ? 'dm-connection-line--dimmed' : ''} ${p.hasExpression ? 'dm-connection-line--expression' : ''} ${p.isAutoMapped && !p.hasExpression ? 'dm-connection-line--auto' : ''} ${p.isFromPattern ? 'dm-connection-line--pattern' : ''} ${p.hasTypeMismatch ? 'dm-connection-line--mismatch' : ''} ${p.isPending ? 'dm-connection-line--pending' : ''} ${p.arrayKind ? `dm-connection-line--${p.arrayKind}` : ''} ${p.driftSeverity ? `dm-connection-line--drift-${p.driftSeverity}` : ''} ${debugMode && p.traceError ? 'dm-connection-line--trace-error' : ''} ${debugMode && p.traceValue != null && p.traceValue !== '' && !p.traceError ? 'dm-connection-line--trace-ok' : ''}`}
               strokeWidth={isSelected ? 2.5 : 1.5}
             />
-            {p.driftSeverity && (
-              <CanvasBadge
-                x={width / 2}
-                y={(p.sourceY + p.targetY) / 2 - (p.hasExpression || (p.arrayKind && p.arrayLabel) ? 24 : 10)}
-                label={p.driftSeverity === 'breaking' ? '✕ drift' : '⚠ drift'}
-                variant={`drift-${p.driftSeverity}`}
-              />
-            )}
-            {p.driftSeverity === 'breaking' && repairSuggestions?.has(p.mappingId) && onApplyRepair && (() => {
-              const suggs = repairSuggestions.get(p.mappingId)!;
-              const top = suggs[0];
-              if (!top) return null;
-              const driftBadgeY = (p.sourceY + p.targetY) / 2 - (p.hasExpression || (p.arrayKind && p.arrayLabel) ? 24 : 10);
+            {(() => {
+              const midX = width / 2;
+              const midY = (p.sourceY + p.targetY) / 2;
+              const topBadges: Array<{
+                label: string;
+                variant: string;
+                cursor?: string;
+                onClick?: (e: React.MouseEvent) => void;
+              }> = [];
+              const bottomBadges: Array<{
+                label: string;
+                variant: string;
+                cursor?: string;
+                onClick?: (e: React.MouseEvent) => void;
+              }> = [];
+
+              if (p.driftSeverity) {
+                topBadges.push({
+                  label: p.driftSeverity === 'breaking' ? '✕ drift' : '⚠ drift',
+                  variant: `drift-${p.driftSeverity}`,
+                });
+              }
+
+              if (p.driftSeverity === 'breaking' && repairSuggestions?.has(p.mappingId) && onApplyRepair) {
+                const topRepair = repairSuggestions.get(p.mappingId)?.[0];
+                if (topRepair) {
+                  const shortPath = topRepair.suggestedPath.length > 12
+                    ? topRepair.suggestedPath.slice(-12)
+                    : topRepair.suggestedPath;
+                  topBadges.push({
+                    label: `🔧 repair → ${shortPath}`,
+                    variant: 'repair',
+                    cursor: 'pointer',
+                    onClick: (e) => {
+                      e.stopPropagation();
+                      onApplyRepair(p.mappingId, topRepair);
+                    },
+                  });
+                }
+              }
+
+              if (p.hasExpression) {
+                topBadges.push({
+                  label: 'ƒx expression',
+                  variant: 'expression',
+                  cursor: onEditExpression ? 'pointer' : undefined,
+                  onClick: onEditExpression
+                    ? (e) => {
+                      e.stopPropagation();
+                      onEditExpression(p.mappingId);
+                    }
+                    : undefined,
+                });
+              } else if (p.arrayKind && p.arrayLabel) {
+                topBadges.push({
+                  label: p.arrayKind === 'loop'
+                    ? `∞ ${p.arrayLabel}`
+                    : p.arrayKind === 'aggregate'
+                      ? `Σ ${p.arrayLabel}`
+                      : p.arrayLabel,
+                  variant: p.arrayKind,
+                });
+              }
+
+              if (p.hasTypeMismatch && !p.driftSeverity) {
+                bottomBadges.push({
+                  label: '⚠ mismatch',
+                  variant: 'mismatch',
+                });
+              }
+
+              if (!p.hasExpression && expressionSuggestions?.has(p.mappingId) && onApplySuggestion) {
+                const topSuggestion = expressionSuggestions.get(p.mappingId)?.[0];
+                if (topSuggestion) {
+                  bottomBadges.push({
+                    label: `💡 ${topSuggestion.label}`,
+                    variant: 'suggestion',
+                    cursor: 'pointer',
+                    onClick: (e) => {
+                      e.stopPropagation();
+                      onApplySuggestion(p.mappingId, topSuggestion.expression);
+                    },
+                  });
+                }
+              }
+
+              if (p.isFromPattern && !p.hasExpression && !p.driftSeverity) {
+                bottomBadges.push({
+                  label: '↻ pattern',
+                  variant: 'pattern',
+                });
+              }
+
+              if (p.confidenceScore != null && p.isPending) {
+                bottomBadges.push({
+                  label: `${p.confidenceScore}%`,
+                  variant: p.confidenceScore > 80
+                    ? 'confidence-high'
+                    : p.confidenceScore >= 50
+                      ? 'confidence-mid'
+                      : 'confidence-low',
+                });
+              }
+
               return (
-                <CanvasBadge
-                  x={width / 2}
-                  y={driftBadgeY + 16}
-                  label={`🔧 repair → ${top.suggestedPath.length > 12 ? top.suggestedPath.slice(-12) : top.suggestedPath}`}
-                  variant="repair"
-                  cursor="pointer"
-                  onClick={(e) => { e.stopPropagation(); onApplyRepair(p.mappingId, top); }}
-                />
-              );
-            })()}
-            {p.hasExpression && (
-              <CanvasBadge
-                x={width / 2}
-                y={(p.sourceY + p.targetY) / 2 - 10}
-                label="ƒx expression"
-                variant="expression"
-                cursor={onEditExpression ? 'pointer' : undefined}
-                onClick={onEditExpression ? (e) => { e.stopPropagation(); onEditExpression(p.mappingId); } : undefined}
-              />
-            )}
-            {p.arrayKind && p.arrayLabel && !p.hasExpression && (
-              <CanvasBadge
-                x={width / 2}
-                y={(p.sourceY + p.targetY) / 2 - 10}
-                label={p.arrayKind === 'loop' ? `∞ ${p.arrayLabel}` : p.arrayKind === 'aggregate' ? `Σ ${p.arrayLabel}` : p.arrayLabel}
-                variant={p.arrayKind}
-              />
-            )}
-            {p.hasTypeMismatch && !p.driftSeverity && (
-              <CanvasBadge
-                x={width / 2}
-                y={(p.sourceY + p.targetY) / 2 + (p.hasExpression || (p.arrayKind && p.arrayLabel) ? 10 : -10)}
-                label="⚠ mismatch"
-                variant="mismatch"
-              />
-            )}
-            {!p.hasExpression && expressionSuggestions?.has(p.mappingId) && onApplySuggestion && (() => {
-              const suggs = expressionSuggestions.get(p.mappingId)!;
-              const top = suggs[0];
-              if (!top) return null;
-              const hasUpperBadge = p.hasTypeMismatch || (p.arrayKind && p.arrayLabel);
-              const yOff = hasUpperBadge ? 24 : 10;
-              return (
-                <CanvasBadge
-                  x={width / 2}
-                  y={(p.sourceY + p.targetY) / 2 + yOff}
-                  label={`💡 ${top.label}`}
-                  variant="suggestion"
-                  cursor="pointer"
-                  onClick={(e) => { e.stopPropagation(); onApplySuggestion(p.mappingId, top.expression); }}
-                />
+                <>
+                  {topBadges.map((badge, index) => (
+                    <CanvasBadge
+                      key={`${p.mappingId}-top-${badge.variant}-${index}`}
+                      x={midX}
+                      y={midY - 10 - (index * 16)}
+                      label={badge.label}
+                      variant={badge.variant}
+                      cursor={badge.cursor}
+                      onClick={badge.onClick}
+                    />
+                  ))}
+                  {bottomBadges.map((badge, index) => (
+                    <CanvasBadge
+                      key={`${p.mappingId}-bottom-${badge.variant}-${index}`}
+                      x={midX}
+                      y={midY + 10 + (index * 16)}
+                      label={badge.label}
+                      variant={badge.variant}
+                      cursor={badge.cursor}
+                      onClick={badge.onClick}
+                    />
+                  ))}
+                </>
               );
             })()}
             {debugMode && p.traceValue != null && p.traceValue !== '' && (
@@ -234,39 +326,6 @@ export default function MappingCanvas({
                 </text>
               </g>
             )}
-            {p.isFromPattern && !p.hasExpression && !p.driftSeverity && (() => {
-              const hasSuggestion = !p.hasExpression && expressionSuggestions?.has(p.mappingId);
-              const hasUpperBadge = p.hasTypeMismatch || (p.arrayKind && p.arrayLabel);
-              const yOff = hasUpperBadge ? (hasSuggestion ? 38 : 24) : -10;
-              return (
-                <CanvasBadge
-                  x={width / 2}
-                  y={(p.sourceY + p.targetY) / 2 + yOff}
-                  label="↻ pattern"
-                  variant="pattern"
-                />
-              );
-            })()}
-            {p.confidenceScore != null && p.isPending && (() => {
-              const hasSuggestion = !p.hasExpression && expressionSuggestions?.has(p.mappingId);
-              const hasUpperBadge = p.hasExpression || (p.arrayKind && p.arrayLabel);
-              let yOff: number;
-              if (hasUpperBadge) {
-                yOff = hasSuggestion ? 38 : 24;
-              } else if (p.isFromPattern) {
-                yOff = hasSuggestion ? 38 : 24;
-              } else {
-                yOff = hasSuggestion ? 38 : 10;
-              }
-              return (
-                <CanvasBadge
-                  x={width / 2}
-                  y={(p.sourceY + p.targetY) / 2 + yOff}
-                  label={`${p.confidenceScore}%`}
-                  variant={p.confidenceScore > 80 ? 'confidence-high' : p.confidenceScore >= 50 ? 'confidence-mid' : 'confidence-low'}
-                />
-              );
-            })()}
             {isSelected && !p.isPending && (
               <g
                 className="dm-remove-btn"
@@ -326,7 +385,7 @@ function CanvasBadge({
   const w = Math.max(textLen, 30);
   return (
     <g
-      className={`dm-canvas-badge--${variant}`}
+      className={`dm-canvas-badge dm-canvas-badge--${variant} ${onClick ? 'dm-canvas-badge--clickable' : ''}`}
       style={cursor ? { cursor } : undefined}
       onClick={onClick}
     >

@@ -252,6 +252,15 @@ describe('pending lines', () => {
     expect(container.querySelector('svg')).toBeTruthy();
   });
 
+  it('renders instructional overlay when no mappings exist', () => {
+    const { container } = render(
+      <MappingCanvas lines={[]} {...defaults} height={200} />,
+    );
+    expect(container.querySelector('.dm-canvas-empty-guide')).toBeTruthy();
+    const title = container.querySelector('.dm-canvas-empty-guide-title');
+    expect(title?.textContent).toContain('No mappings yet');
+  });
+
   it('uses minimum height of 100 for small heights', () => {
     const { container } = render(
       <MappingCanvas lines={[line]} {...defaults} height={50} />,
