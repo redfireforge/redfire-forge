@@ -2,6 +2,7 @@ import { useMemo, useCallback } from 'react';
 import type { ConnectionLine } from './hooks/useConnectionLines';
 import type { MappingTrace } from './utils/mappingTrace';
 import type { ExpressionSuggestion } from './utils/expressionSuggestions';
+import type { RepairSuggestion } from './utils/schemaRepair';
 
 export interface ErrorDetailData {
   mappingId: string;
@@ -30,6 +31,8 @@ interface MappingCanvasProps {
   onShowErrorDetail?: (data: ErrorDetailData, y: number) => void;
   expressionSuggestions?: Map<string, ExpressionSuggestion[]>;
   onApplySuggestion?: (mappingId: string, expression: string) => void;
+  repairSuggestions?: Map<string, RepairSuggestion[]>;
+  onApplyRepair?: (mappingId: string, suggestion: RepairSuggestion) => void;
 }
 
 function bezierPath(sourceY: number, targetY: number, width: number): string {
@@ -56,6 +59,8 @@ export default function MappingCanvas({
   onShowErrorDetail,
   expressionSuggestions,
   onApplySuggestion,
+  repairSuggestions,
+  onApplyRepair,
 }: MappingCanvasProps) {
   const handleErrorClick = useCallback((mappingId: string, midY: number) => {
     if (!traceByMappingId || !onShowErrorDetail) return;
@@ -131,6 +136,22 @@ export default function MappingCanvas({
                 variant={`drift-${p.driftSeverity}`}
               />
             )}
+            {p.driftSeverity === 'breaking' && repairSuggestions?.has(p.mappingId) && onApplyRepair && (() => {
+              const suggs = repairSuggestions.get(p.mappingId)!;
+              const top = suggs[0];
+              if (!top) return null;
+              const driftBadgeY = (p.sourceY + p.targetY) / 2 - (p.hasExpression || (p.arrayKind && p.arrayLabel) ? 24 : 10);
+              return (
+                <CanvasBadge
+                  x={width / 2}
+                  y={driftBadgeY + 16}
+                  label={`🔧 repair → ${top.suggestedPath.length > 12 ? top.suggestedPath.slice(-12) : top.suggestedPath}`}
+                  variant="repair"
+                  cursor="pointer"
+                  onClick={(e) => { e.stopPropagation(); onApplyRepair(p.mappingId, top); }}
+                />
+              );
+            })()}
             {p.hasExpression && (
               <CanvasBadge
                 x={width / 2}

@@ -11,14 +11,6 @@ import { createRef } from 'react';
 
 // ── Shared mock setup ────────────────────────────────────────────────────────
 
-vi.mock('../../requests/components/JsonPathBuilder', () => ({
-  default: ({ onSampleJsonChange, onUpdate }: { onSampleJsonChange?: (json: string) => void; onUpdate?: (patch: Record<string, unknown>) => void }) => (
-    <div data-testid="json-path-builder">
-      {onSampleJsonChange && <button data-testid="change-sample" onClick={() => onSampleJsonChange('{"new":"json"}')}>Change Sample</button>}
-      {onUpdate && <button data-testid="update-fields" onClick={() => onUpdate({ expectedFields: [{ jsonPath: '$.x', expectedValue: '1' }] })}>Update Fields</button>}
-    </div>
-  ),
-}));
 vi.mock('../../requests/components/ResponseVersionPanel', () => ({
   default: ({ onSaveVersion, onRestore, onDeleteVersion, onRenameVersion, versions }: {
     onSaveVersion: () => void;
@@ -368,7 +360,7 @@ describe('TestEditorValidationTab', () => {
       const draft = makeDraft({ validation: { mode: 'selective', assertions: [] } });
       render(<TestEditorValidationTab {...makeProps({ draft, draftRef: { current: draft } })} />);
       expect(screen.getByText('Fetch Response')).toBeInTheDocument();
-      expect(screen.getByTestId('json-path-builder')).toBeInTheDocument();
+      expect(screen.getByText('⚡ Visual Mapper')).toBeInTheDocument();
     });
 
     it('shows fetching state on Fetch Response button', () => {
@@ -381,6 +373,19 @@ describe('TestEditorValidationTab', () => {
       const draft = makeDraft({ validation: { mode: 'selective', assertions: [] } });
       render(<TestEditorValidationTab {...makeProps({ draft, draftRef: { current: draft }, fetchError: 'Network error' })} />);
       expect(screen.getByText('Network error')).toBeInTheDocument();
+    });
+
+    it('shows current sample response preview when sampleJson exists', () => {
+      const draft = makeDraft({
+        validation: {
+          mode: 'selective',
+          assertions: [],
+          sampleJson: '{"id":1}',
+        },
+      });
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef: { current: draft } })} />);
+      expect(screen.getByText('Current sample response')).toBeInTheDocument();
+      expect(screen.getByLabelText('Current sample response')).toHaveValue('{"id":1}');
     });
 
     it('shows pending fetch confirmation when pendingFetchResponse is set', () => {
@@ -401,6 +406,8 @@ describe('TestEditorValidationTab', () => {
       expect(screen.getByText(/New response fetched/)).toBeInTheDocument();
       expect(screen.getByText('Keep Rules & Update Response')).toBeInTheDocument();
       expect(screen.getByText('Replace All')).toBeInTheDocument();
+      expect(screen.getByText('Fetched response (pending apply)')).toBeInTheDocument();
+      expect(screen.getByLabelText('Fetched response preview')).toHaveValue('{"id":2}');
     });
 
     it('calls onFetchKeepRules when "Keep Rules" clicked', () => {
@@ -474,7 +481,7 @@ describe('TestEditorValidationTab', () => {
         },
       })} />);
       expect(screen.getByText('FAILED')).toBeInTheDocument();
-      expect(screen.getByText('$.id')).toBeInTheDocument();
+      expect(screen.getAllByText('$.id').length).toBeGreaterThanOrEqual(1);
     });
 
     it('closes validation result on × click', () => {
@@ -486,12 +493,12 @@ describe('TestEditorValidationTab', () => {
           expectedFields: [{ jsonPath: '$.id', expectedValue: '1' }],
         },
       });
-      render(<TestEditorValidationTab {...makeProps({
+      const { container } = render(<TestEditorValidationTab {...makeProps({
         draft, draftRef: { current: draft },
         validationResult: { passed: true, failures: [] },
         setValidationResult,
       })} />);
-      const closeBtn = screen.getByRole('button', { name: '×' });
+      const closeBtn = container.querySelector('.validate-result-header .btn.btn-xs') as HTMLElement;
       fireEvent.click(closeBtn);
       expect(setValidationResult).toHaveBeenCalledWith(null);
     });
@@ -695,19 +702,20 @@ describe('TestEditorValidationTab', () => {
         },
       })} />);
       expect(screen.getByText('FAILED')).toBeInTheDocument();
-      expect(screen.getByText('$.a')).toBeInTheDocument();
+      expect(screen.getAllByText('$.a').length).toBeGreaterThanOrEqual(1);
     });
 
     it('dismisses validation result on × click', () => {
       const setValidationResult = vi.fn();
       const draft = makeDraft({ validation: { mode: 'selective', assertions: [], expectedFields: [{ jsonPath: '$.a', expectedValue: '1' }] } });
-      render(<TestEditorValidationTab {...makeProps({
+      const { container } = render(<TestEditorValidationTab {...makeProps({
         draft,
         draftRef: { current: draft },
         validationResult: { passed: true, failures: [] },
         setValidationResult,
       })} />);
-      fireEvent.click(screen.getByText('×'));
+      const closeBtn = container.querySelector('.validate-result-header .btn.btn-xs') as HTMLElement;
+      fireEvent.click(closeBtn);
       expect(setValidationResult).toHaveBeenCalledWith(null);
     });
   });
@@ -754,28 +762,6 @@ describe('TestEditorValidationTab', () => {
       })} />);
       fireEvent.click(screen.getByText(/Replace All/));
       expect(onFetchReplaceAll).toHaveBeenCalled();
-    });
-  });
-
-  describe('JsonPathBuilder callbacks', () => {
-    it('updates sample JSON through JsonPathBuilder', () => {
-      const onDraftChange = vi.fn();
-      const draft = makeDraft({ validation: { mode: 'selective', assertions: [] } });
-      render(<TestEditorValidationTab {...makeProps({ draft, draftRef: { current: draft }, onDraftChange })} />);
-      fireEvent.click(screen.getByTestId('change-sample'));
-      expect(onDraftChange).toHaveBeenCalledWith(expect.objectContaining({
-        validation: expect.objectContaining({ sampleJson: '{"new":"json"}' }),
-      }));
-    });
-
-    it('updates validation fields through JsonPathBuilder', () => {
-      const onDraftChange = vi.fn();
-      const draft = makeDraft({ validation: { mode: 'selective', assertions: [] } });
-      render(<TestEditorValidationTab {...makeProps({ draft, draftRef: { current: draft }, onDraftChange })} />);
-      fireEvent.click(screen.getByTestId('update-fields'));
-      expect(onDraftChange).toHaveBeenCalledWith(expect.objectContaining({
-        validation: expect.objectContaining({ expectedFields: [{ jsonPath: '$.x', expectedValue: '1' }] }),
-      }));
     });
   });
 

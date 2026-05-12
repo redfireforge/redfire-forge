@@ -254,7 +254,12 @@ const $first: ExpressionFunction = {
   evaluate: (v) => {
     if (Array.isArray(v)) return v[0] ?? null;
     const sv = s(v);
-    if (sv.startsWith('[')) { try { const arr = JSON.parse(sv); return Array.isArray(arr) ? arr[0] ?? null : sv[0] ?? ''; } catch { /* fall through */ } }
+    if (sv.startsWith('[')) {
+      try {
+        const arr = JSON.parse(sv);
+        if (Array.isArray(arr)) return arr[0] ?? null;
+      } catch { /* fall through */ }
+    }
     return sv[0] ?? '';
   },
 };
@@ -269,7 +274,12 @@ const $last: ExpressionFunction = {
   evaluate: (v) => {
     if (Array.isArray(v)) return v[v.length - 1] ?? null;
     const sv = s(v);
-    if (sv.startsWith('[')) { try { const arr = JSON.parse(sv); return Array.isArray(arr) ? arr[arr.length - 1] ?? null : sv[sv.length - 1] ?? ''; } catch { /* fall through */ } }
+    if (sv.startsWith('[')) {
+      try {
+        const arr = JSON.parse(sv);
+        if (Array.isArray(arr)) return arr[arr.length - 1] ?? null;
+      } catch { /* fall through */ }
+    }
     return sv[sv.length - 1] ?? '';
   },
 };

@@ -8,7 +8,7 @@
 
 export type GalleryDifficulty = 'easy' | 'medium' | 'advanced';
 
-export type GalleryDomain = 'requests' | 'catalog' | 'tests' | 'workflows' | 'assertions';
+export type GalleryDomain = 'requests' | 'catalog' | 'tests' | 'workflows' | 'assertions' | 'data-mapper';
 
 /** Reference to a training manual related to a gallery sample. */
 export interface RelatedManual {

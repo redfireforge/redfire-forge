@@ -5,8 +5,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import RegexAssertionModal, { PickerNode } from './RegexAssertionModal';
 import { PATTERN_LIBRARY } from './regexAssertionUtils';
-import { buildTree } from '../utils/jsonPathTreeUtils';
-import type { JsonNode } from '../utils/jsonPathTreeUtils';
+import { buildJsonTree } from '../../../shared/utils/jsonTreeModel';
 
 const SAMPLE = { id: 'abc', name: 'Alice', tags: ['admin'], nested: { city: 'NYC' } };
 const SAMPLE_JSON = JSON.stringify(SAMPLE);
@@ -148,6 +147,15 @@ describe('RegexAssertionModal', () => {
     expect(allBtn.className).not.toContain('btn-active');
   });
 
+  it('resets pattern library filter to All', () => {
+    renderModal();
+    fireEvent.click(screen.getByText('Pattern Library'));
+    const categories = [...new Set(PATTERN_LIBRARY.map(p => p.category))];
+    fireEvent.click(screen.getAllByText(categories[0])[0]);
+    fireEvent.click(screen.getByText('All'));
+    expect(screen.getByText('All').className).toContain('btn-active');
+  });
+
   it('renders Fetch Response button when onFetchSampleResponse provided', () => {
     const onFetch = vi.fn();
     renderModal({ onFetchSampleResponse: onFetch });
@@ -231,6 +239,21 @@ describe('RegexAssertionModal', () => {
     );
   });
 
+  it('shows match position when pattern matches substring', () => {
+    renderModal({ sampleJson: '{"t":"hello"}', initialJsonPath: '$.t', initialPattern: 'ell' });
+    expect(screen.getByText(/at position/)).toBeTruthy();
+  });
+
+  it('shows INVALID REGEX when pattern is invalid', () => {
+    renderModal({ sampleJson: SAMPLE_JSON, initialJsonPath: '$.id', initialPattern: '[' });
+    expect(screen.getByText('INVALID REGEX')).toBeTruthy();
+  });
+
+  it('shows no-match detail when pattern is valid but fails', () => {
+    renderModal({ sampleJson: SAMPLE_JSON, initialJsonPath: '$.id', initialPattern: '^z+$' });
+    expect(screen.getByText(/does not match the resolved value/)).toBeTruthy();
+  });
+
   it('shows hint when no sampleJson', () => {
     renderModal();
     expect(screen.getByText(/Paste a sample JSON/)).toBeTruthy();
@@ -241,90 +264,94 @@ describe('RegexAssertionModal', () => {
     fireEvent.click(screen.getByText('Close'));
     expect(onClose).toHaveBeenCalled();
   });
+
+  it('shows pattern name tag after picking from library', () => {
+    const { container } = renderModal();
+    fireEvent.click(screen.getByText('Pattern Library'));
+    const firstPattern = PATTERN_LIBRARY[0];
+    fireEvent.click(screen.getByText(firstPattern.name));
+    const tag = container.querySelector('.ram-pattern-name-tag');
+    expect(tag?.textContent).toBe(firstPattern.name);
+  });
+
+  it('search highlights when term matches a primitive leaf value', () => {
+    const { container } = renderModal({ sampleJson: '{"sku":"needle-here"}' });
+    const searchInput = screen.getByPlaceholderText(/Search fields/);
+    fireEvent.change(searchInput, { target: { value: 'needle' } });
+    expect(container.querySelector('.search-hit')).toBeTruthy();
+  });
 });
 
 describe('PickerNode', () => {
-  const sampleTree = buildTree(SAMPLE, '', '(root)');
-
-  it('renders root node', () => {
-    const { container } = render(
-      <PickerNode node={sampleTree} depth={0} selectedPath="" onSelect={vi.fn()} searchTerm="" expandAll />
-    );
-    expect(container.querySelector('.ram-tree-node')).toBeTruthy();
-  });
-
-  it('renders children when expanded', () => {
-    const { container } = render(
-      <PickerNode node={sampleTree} depth={0} selectedPath="" onSelect={vi.fn()} searchTerm="" expandAll />
-    );
-    expect(container.querySelectorAll('.ram-tree-row').length).toBeGreaterThan(1);
-  });
-
-  it('calls onSelect when row clicked', () => {
+  it('selects on double-click when selectOnDoubleClick', () => {
+    const tree = buildJsonTree({ nested: { leaf: 1 } }, 'root', '');
     const onSelect = vi.fn();
     const { container } = render(
-      <PickerNode node={sampleTree} depth={0} selectedPath="" onSelect={onSelect} searchTerm="" expandAll />
+      <PickerNode
+        node={tree}
+        depth={0}
+        selectedPath=""
+        onSelect={onSelect}
+        searchTerm=""
+        selectOnDoubleClick
+      />,
     );
     const rows = container.querySelectorAll('.ram-tree-row');
-    if (rows.length > 1) {
-      fireEvent.click(rows[1]);
-      expect(onSelect).toHaveBeenCalled();
-    }
+    const leafRow = Array.from(rows).find(r => r.textContent?.includes('leaf'));
+    expect(leafRow).toBeTruthy();
+    fireEvent.click(leafRow!);
+    expect(onSelect).not.toHaveBeenCalled();
+    fireEvent.doubleClick(leafRow!);
+    expect(onSelect).toHaveBeenCalledTimes(1);
   });
 
-  it('highlights selected node', () => {
+  it('respects expandAll=false by collapsing deeper rows', () => {
+    const tree = buildJsonTree({ outer: { inner: 1 } }, 'root', '');
     const { container } = render(
-      <PickerNode node={sampleTree} depth={0} selectedPath="name" onSelect={vi.fn()} searchTerm="" expandAll />
+      <PickerNode
+        node={tree}
+        depth={0}
+        selectedPath=""
+        onSelect={vi.fn()}
+        searchTerm=""
+        expandAll={false}
+      />,
     );
-    expect(container.querySelector('.ram-tree-selected')).toBeTruthy();
+    expect(container.querySelectorAll('.jt-toggle--collapsed').length).toBeGreaterThan(0);
   });
 
-  it('filters by search term showing matching descendants', () => {
-    render(
-      <PickerNode node={sampleTree} depth={0} selectedPath="" onSelect={vi.fn()} searchTerm="city" expandAll />
-    );
-    expect(screen.getByText('city')).toBeTruthy();
-  });
-
-  it('returns null when search does not match at all', () => {
-    const leaf = { key: 'x', path: 'x', type: 'string' as const, value: 'v', children: [] };
+  it('expands all levels when expandAll is true', () => {
+    const tree = buildJsonTree({ outer: { inner: 1 } }, 'root', '');
     const { container } = render(
-      <PickerNode node={leaf as unknown as JsonNode} depth={0} selectedPath="" onSelect={vi.fn()} searchTerm="zzzzz" />
+      <PickerNode
+        node={tree}
+        depth={0}
+        selectedPath=""
+        onSelect={vi.fn()}
+        searchTerm=""
+        expandAll
+      />,
     );
-    expect(container.querySelector('.ram-tree-node')).toBeFalsy();
+    expect(container.querySelector('.jt-toggle--collapsed')).toBeFalsy();
   });
 
-  it('toggles collapse on chevron click', () => {
+  it('toggles manual expansion via chevron without selecting', () => {
+    const tree = buildJsonTree({ a: { b: 1 } }, 'root', '');
+    const onSelect = vi.fn();
     const { container } = render(
-      <PickerNode node={sampleTree} depth={0} selectedPath="" onSelect={vi.fn()} searchTerm="" expandAll />
+      <PickerNode
+        node={tree}
+        depth={0}
+        selectedPath=""
+        onSelect={onSelect}
+        searchTerm=""
+        expandAll={false}
+      />,
     );
-    const toggle = container.querySelector('.jt-toggle');
-    if (toggle) {
-      fireEvent.click(toggle);
-      // After collapsing, children container should be removed or hidden
-    }
-  });
-
-  it('highlights matching search terms', () => {
-    const { container } = render(
-      <PickerNode node={sampleTree} depth={0} selectedPath="" onSelect={vi.fn()} searchTerm="id" expandAll />
-    );
-    expect(container.querySelector('.search-hit')).toBeTruthy();
-  });
-
-  it('shows spacer for leaf nodes without children', () => {
-    const leaf = { key: 'leaf', path: 'leaf', type: 'string' as const, value: 'val', children: [] };
-    const { container } = render(
-      <PickerNode node={leaf as unknown as JsonNode} depth={0} selectedPath="" onSelect={vi.fn()} searchTerm="" expandAll />
-    );
-    expect(container.querySelector('.jt-toggle-spacer')).toBeTruthy();
-  });
-
-  it('renders with depth-based padding', () => {
-    const { container } = render(
-      <PickerNode node={sampleTree} depth={3} selectedPath="" onSelect={vi.fn()} searchTerm="" expandAll />
-    );
-    const row = container.querySelector('.ram-tree-row') as HTMLElement;
-    expect(row.style.paddingLeft).toBe('62px'); // 3 * 18 + 8
+    const toggle = container.querySelector('.jt-toggle')!;
+    fireEvent.click(toggle);
+    expect(onSelect).not.toHaveBeenCalled();
+    expect(container.querySelector('.jt-toggle--collapsed')).toBeTruthy();
   });
 });
+

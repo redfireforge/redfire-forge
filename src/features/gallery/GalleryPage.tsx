@@ -7,6 +7,7 @@ import { catalogSpecCatalog } from '../../data/galleries/catalog-specs';
 import { testSampleCatalog } from '../../data/galleries/tests';
 import { sampleWorkflowCatalog } from '../../data/galleries/workflows';
 import { assertionPresetCatalog } from '../../data/galleries/assertion-presets';
+import { dataMapperSampleCatalog } from '../../data/galleries/data-mapper';
 import { GalleryGrid } from '../../shared/components/gallery';
 import ConfirmModal from '../../shared/components/ConfirmModal';
 import RequestPreview from './RequestPreview';
@@ -26,6 +27,7 @@ const ALL_ENTRIES: GalleryEntry<unknown>[] = [
   ...testSampleCatalog,
   ...sampleWorkflowCatalog,
   ...assertionPresetCatalog,
+  ...dataMapperSampleCatalog,
 ];
 
 export interface GalleryPageProps {
@@ -54,6 +56,7 @@ const ACTION_LABELS: Record<GalleryDomain, string> = {
   tests: 'Load Test',
   workflows: 'Load Workflow',
   assertions: 'Apply Preset',
+  'data-mapper': 'Load Sample',
 };
 
 const SECONDARY_LABELS: Partial<Record<GalleryDomain, string>> = {
@@ -100,6 +103,7 @@ export function GalleryPage({
     tests: onImportTest,
     workflows: onImportWorkflow,
     assertions: undefined,
+    'data-mapper': onImportTest,
   }), [onImportRequest, onImportCatalog, onImportTest, onImportWorkflow]);
 
   const handleAction = useCallback((entry: GalleryEntry<unknown>) => {

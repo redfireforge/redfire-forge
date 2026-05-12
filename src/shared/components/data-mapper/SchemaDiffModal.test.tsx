@@ -104,6 +104,29 @@ describe('SchemaDiffModal', () => {
     expect(screen.getByText('≠ type changed')).toBeTruthy();
   });
 
+  it('renders em dash when saved type is absent on added fields', () => {
+    const drifts = [makeDrift({ path: 'newfield', driftType: 'added', severity: 'info', currentType: 'string' })];
+    const { container } = render(<SchemaDiffModal drifts={drifts} onClose={vi.fn()} />);
+    const row = container.querySelector('.dm-diff-row');
+    const typeCells = row?.querySelectorAll('.dm-diff-type');
+    expect(typeCells?.[0]?.textContent?.trim()).toBe('—');
+  });
+
+  it('renders em dash when current type is absent on removed fields', () => {
+    const drifts = [makeDrift({
+      path: 'gone',
+      driftType: 'removed',
+      severity: 'breaking',
+      savedType: 'string',
+      currentType: undefined,
+      affectedMappingIds: ['m1'],
+    })];
+    const { container } = render(<SchemaDiffModal drifts={drifts} onClose={vi.fn()} />);
+    const row = container.querySelector('.dm-diff-row--breaking');
+    const typeCells = row?.querySelectorAll('.dm-diff-type');
+    expect(typeCells?.[1]?.textContent?.trim()).toBe('—');
+  });
+
   it('hides severity count badge when count is 0', () => {
     const drifts = [makeDrift({ path: 'a', severity: 'info' })];
     const { container } = render(<SchemaDiffModal drifts={drifts} onClose={vi.fn()} />);
@@ -119,12 +142,39 @@ describe('SchemaDiffModal', () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
+  it('ignores non-Escape keydown on window listener', () => {
+    const onClose = vi.fn();
+    render(<SchemaDiffModal drifts={[makeDrift({ path: 'a' })]} onClose={onClose} />);
+    fireEvent.keyDown(window, { key: 'Enter' });
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
   it('moves focus into the shell on mount', () => {
     const drifts = [makeDrift({ path: 'a' })];
     const { container } = render(<SchemaDiffModal drifts={drifts} onClose={vi.fn()} />);
     const shell = container.querySelector('.dm-diff-shell');
     expect(shell).not.toBeNull();
     expect(document.activeElement).toBe(shell);
+  });
+
+  it('does not throw when restoring focus after SVG element was focused', () => {
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('tabindex', '-1');
+    document.body.appendChild(svg);
+    svg.focus();
+    expect(document.activeElement).toBe(svg);
+    const drifts = [makeDrift({ path: 'a' })];
+    const { unmount } = render(<SchemaDiffModal drifts={drifts} onClose={vi.fn()} />);
+    unmount();
+    document.body.removeChild(svg);
+  });
+
+  it('labels nullable drift changes', () => {
+    const drifts = [
+      makeDrift({ path: 'opt', driftType: 'nullableChanged', severity: 'info', savedType: 'string', currentType: 'string' }),
+    ];
+    render(<SchemaDiffModal drifts={drifts} onClose={vi.fn()} />);
+    expect(screen.getByText('~ nullable')).toBeTruthy();
   });
 
   describe('repair UI', () => {
@@ -257,6 +307,146 @@ describe('SchemaDiffModal', () => {
       );
       fireEvent.click(screen.getByLabelText('Repair userName'));
       expect(container.querySelector('.dm-repair-confidence--high')).not.toBeNull();
+    });
+
+    it('shows medium confidence styling', () => {
+      const suggestions = new Map([['userName', [{
+        driftPath: 'userName',
+        mappingId: 'm1',
+        suggestedPath: 'user_name',
+        reason: 'test',
+        strategy: 'similar-name' as const,
+        confidence: 55,
+      }]]]);
+      const { container } = render(
+        <SchemaDiffModal
+          drifts={[breakingDrift]}
+          onClose={vi.fn()}
+          repairSuggestions={suggestions}
+          onApplyRepair={vi.fn()}
+        />,
+      );
+      fireEvent.click(screen.getByLabelText('Repair userName'));
+      expect(container.querySelector('.dm-repair-confidence--medium')).not.toBeNull();
+    });
+
+    it('shows low confidence styling', () => {
+      const suggestions = new Map([['userName', [{
+        driftPath: 'userName',
+        mappingId: 'm1',
+        suggestedPath: 'user_name',
+        reason: 'test',
+        strategy: 'similar-name' as const,
+        confidence: 30,
+      }]]]);
+      const { container } = render(
+        <SchemaDiffModal
+          drifts={[breakingDrift]}
+          onClose={vi.fn()}
+          repairSuggestions={suggestions}
+          onApplyRepair={vi.fn()}
+        />,
+      );
+      fireEvent.click(screen.getByLabelText('Repair userName'));
+      expect(container.querySelector('.dm-repair-confidence--low')).not.toBeNull();
+    });
+
+    it('closes repair dropdown when repair button is clicked again', () => {
+      const suggestions = new Map([['userName', [{
+        driftPath: 'userName',
+        mappingId: 'm1',
+        suggestedPath: 'user_name',
+        reason: 'Similar',
+        strategy: 'similar-name' as const,
+        confidence: 70,
+      }]]]);
+      const { container } = render(
+        <SchemaDiffModal
+          drifts={[breakingDrift]}
+          onClose={vi.fn()}
+          repairSuggestions={suggestions}
+          onApplyRepair={vi.fn()}
+        />,
+      );
+      const btn = screen.getByLabelText('Repair userName');
+      fireEvent.click(btn);
+      expect(container.querySelector('.dm-repair-dropdown')).not.toBeNull();
+      fireEvent.click(btn);
+      expect(container.querySelector('.dm-repair-dropdown')).toBeNull();
+    });
+
+    it('shows No suggestions when apply handler is missing but drift has suggestions', () => {
+      const suggestions = new Map([['userName', [{
+        driftPath: 'userName',
+        mappingId: 'm1',
+        suggestedPath: 'user_name',
+        reason: 'Similar',
+        strategy: 'similar-name' as const,
+        confidence: 70,
+      }]]]);
+      render(
+        <SchemaDiffModal
+          drifts={[breakingDrift]}
+          onClose={vi.fn()}
+          repairSuggestions={suggestions}
+        />,
+      );
+      expect(screen.getByText('No suggestions')).toBeTruthy();
+    });
+
+    it('shows em dash in repair cell for non-breaking drifts', () => {
+      const drift = makeDrift({
+        path: 'w',
+        severity: 'warning',
+        driftType: 'typeChanged',
+        savedType: 'number',
+        currentType: 'string',
+      });
+      const suggestions = new Map([['w', [{
+        driftPath: 'w',
+        mappingId: 'm1',
+        suggestedPath: 'x',
+        reason: 'Similar',
+        strategy: 'similar-name' as const,
+        confidence: 70,
+      }]]]);
+      const { container } = render(
+        <SchemaDiffModal
+          drifts={[drift]}
+          onClose={vi.fn()}
+          repairSuggestions={suggestions}
+          onApplyRepair={vi.fn()}
+        />,
+      );
+      const repairCell = container.querySelector('.dm-diff-row--warning .dm-diff-repair-cell');
+      expect(repairCell?.textContent?.trim()).toBe('—');
+    });
+
+    it('shows em dash for breaking row with suggestions when no apply handler and no affected mappings', () => {
+      const drift = makeDrift({
+        path: 'solo',
+        severity: 'breaking',
+        driftType: 'removed',
+        savedType: 'string',
+        affectedMappingIds: [],
+      });
+      const suggestions = new Map([['solo', [{
+        driftPath: 'solo',
+        mappingId: 'm1',
+        suggestedPath: 's',
+        reason: 'Similar',
+        strategy: 'similar-name' as const,
+        confidence: 70,
+      }]]]);
+      const { container } = render(
+        <SchemaDiffModal
+          drifts={[drift]}
+          onClose={vi.fn()}
+          repairSuggestions={suggestions}
+        />,
+      );
+      const repairCell = container.querySelector('.dm-diff-row--breaking .dm-diff-repair-cell');
+      expect(repairCell?.textContent?.trim()).toBe('—');
     });
   });
 });

@@ -132,6 +132,82 @@ describe('MappingCompare', () => {
     expect(container.querySelector('.dm-compare-badge--regression')?.textContent).toContain('1');
   });
 
+  it('uses singular regression label when exactly one regression', () => {
+    const regBaseline = [makeTrace({ mappingId: 'm1', targetValue: 'ok' })];
+    const regCurrent = [makeTrace({ mappingId: 'm1', targetValue: undefined, error: 'fail' })];
+    const { container } = render(
+      <MappingCompare baselineTraces={regBaseline} currentTraces={regCurrent} />,
+    );
+    expect(container.querySelector('.dm-compare-badge--regression')?.textContent).toContain('1 regression');
+    expect(container.querySelector('.dm-compare-badge--regression')?.textContent).not.toContain('regressions');
+  });
+
+  it('filters to regressions when Regressions control is clicked', () => {
+    const regBaseline = [makeTrace({ mappingId: 'm1', targetValue: 'ok' })];
+    const regCurrent = [makeTrace({ mappingId: 'm1', targetValue: undefined, error: 'fail' })];
+    const { container } = render(
+      <MappingCompare baselineTraces={regBaseline} currentTraces={regCurrent} />,
+    );
+    const regrBtn = Array.from(container.querySelectorAll('.dm-compare-filter-btn'))
+      .find((btn) => btn.textContent?.includes('Regressions'));
+    expect((regrBtn as HTMLButtonElement).disabled).toBe(false);
+    fireEvent.click(regrBtn!);
+    expect(container.querySelectorAll('.dm-compare-row')).toHaveLength(1);
+    expect(container.querySelector('.dm-compare-row--regression')).not.toBeNull();
+  });
+
+  it('disables Changes filter when only unchanged mappings exist', () => {
+    const same = [makeTrace({ mappingId: 'm1', targetValue: 'same' })];
+    const { container } = render(
+      <MappingCompare baselineTraces={same} currentTraces={same} />,
+    );
+    const changesBtn = Array.from(container.querySelectorAll('.dm-compare-filter-btn'))
+      .find((btn) => btn.textContent?.includes('Changes'));
+    expect((changesBtn as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('shows plural regressions in summary when multiple regressions exist', () => {
+    const b = [
+      makeTrace({ mappingId: 'a', targetValue: 'ok' }),
+      makeTrace({ mappingId: 'b', targetValue: 'ok', sourcePath: 's2', targetPath: 't2' }),
+    ];
+    const c = [
+      makeTrace({ mappingId: 'a', targetValue: undefined, error: 'e1' }),
+      makeTrace({ mappingId: 'b', targetValue: undefined, error: 'e2', sourcePath: 's2', targetPath: 't2' }),
+    ];
+    const { container } = render(<MappingCompare baselineTraces={b} currentTraces={c} />);
+    expect(container.querySelector('.dm-compare-badge--regression')?.textContent).toContain('2 regressions');
+  });
+
+  it('shows no-match filter message after regressions clear while regression filter active', () => {
+    const regressing = (
+      <MappingCompare
+        baselineTraces={[makeTrace({ mappingId: 'm1', targetValue: 'ok' })]}
+        currentTraces={[makeTrace({ mappingId: 'm1', targetValue: undefined, error: 'fail' })]}
+      />
+    );
+    const stable = (
+      <MappingCompare
+        baselineTraces={[makeTrace({ mappingId: 'm1', targetValue: 'ok' })]}
+        currentTraces={[makeTrace({ mappingId: 'm1', targetValue: 'ok' })]}
+      />
+    );
+    const { rerender } = render(regressing);
+    fireEvent.click(screen.getByText(/Regressions/).closest('button')!);
+    rerender(stable);
+    expect(screen.getByText('No mappings match the current filter.')).toBeTruthy();
+  });
+
+  it('truncates long cell values in comparison rows', () => {
+    const longStr = 'x'.repeat(70);
+    const baseline = [makeTrace({ mappingId: 'm1', targetValue: longStr })];
+    const current = [makeTrace({ mappingId: 'm1', targetValue: longStr })];
+    const { container } = render(<MappingCompare baselineTraces={baseline} currentTraces={current} />);
+    const code = container.querySelector('[data-testid="compare-row-m1"] code');
+    expect(code?.textContent?.endsWith('…')).toBe(true);
+    expect(code?.textContent?.length ?? 0).toBeLessThan(70);
+  });
+
   it('renders data-testid on root', () => {
     const { container } = render(
       <MappingCompare baselineTraces={[]} currentTraces={[]} />,

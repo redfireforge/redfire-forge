@@ -1093,7 +1093,7 @@
   line-height: 1.5;
 }
 
-/* Builder — response loaded, showing JsonPathBuilder */
+/* Builder — response loaded, showing validation fields */
 .parameterize-validate-builder {
   display: flex;
   flex-direction: column;
@@ -1201,7 +1201,7 @@
   background: var(--surface-hover);
   color: var(--text);
 }
-/* Make the JsonPathBuilder fill the available space */
+/* Make the validation builder fill the available space */
 .parameterize-validate-content .json-path-builder {
   flex: 1;
   overflow: hidden;
@@ -1220,7 +1220,7 @@
   overflow-y: auto;
 }
 
-/* Make the JsonPathBuilder summary section fit in the wizard */
+/* Make the validation summary section fit in the wizard */
 .parameterize-validate-content .jpb-summary {
   flex-shrink: 0;
   max-height: 200px;

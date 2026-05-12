@@ -404,3 +404,78 @@ describe('extractionAdapter – fallback preservation', () => {
     expect(bodyOnly[1].fallback).toBeUndefined();
   });
 });
+
+// ── fetchTargetSchema ──────────────────────────────────────
+
+describe('extractionAdapter – fetchTargetSchema', () => {
+  it('is undefined when fetchSampleData is not provided', () => {
+    const adapter = createExtractionAdapter({ sampleResponseBody: SAMPLE_BODY });
+    expect(adapter.fetchTargetSchema).toBeUndefined();
+  });
+
+  it('is defined when fetchSampleData is provided', () => {
+    const adapter = createExtractionAdapter({
+      fetchSampleData: async () => ({ id: 1 }),
+    });
+    expect(adapter.fetchTargetSchema).toBeDefined();
+  });
+
+  it('returns sampleData and fields from fetched response', async () => {
+    const mockData = { user: { name: 'Alice', age: 30 }, status: 'ok' };
+    const adapter = createExtractionAdapter({
+      fetchSampleData: async () => mockData,
+    });
+    const result = await adapter.fetchTargetSchema!();
+    expect(result.sampleData).toEqual(mockData);
+    expect(result.fields).toBeDefined();
+    expect(result.fields!.length).toBeGreaterThanOrEqual(3);
+    const paths = result.fields!.map(f => f.path);
+    expect(paths).toContain('user.name');
+    expect(paths).toContain('user.age');
+    expect(paths).toContain('status');
+  });
+
+  it('sets field labels to last path segment', async () => {
+    const adapter = createExtractionAdapter({
+      fetchSampleData: async () => ({ user: { email: 'a@b.com' } }),
+    });
+    const result = await adapter.fetchTargetSchema!();
+    const emailField = result.fields!.find(f => f.path === 'user.email');
+    expect(emailField!.label).toBe('email');
+  });
+
+  it('handles string JSON response', async () => {
+    const adapter = createExtractionAdapter({
+      fetchSampleData: async () => '{"key": "value"}',
+    });
+    const result = await adapter.fetchTargetSchema!();
+    expect(result.sampleData).toEqual({ key: 'value' });
+    expect(result.fields!.length).toBe(1);
+    expect(result.fields![0].path).toBe('key');
+  });
+
+  it('handles null/primitive response gracefully', async () => {
+    const adapter = createExtractionAdapter({
+      fetchSampleData: async () => null,
+    });
+    const result = await adapter.fetchTargetSchema!();
+    expect(result.sampleData).toBeNull();
+    expect(result.fields).toBeUndefined();
+  });
+
+  it('returns sampleData only for numeric primitive fetch result', async () => {
+    const adapter = createExtractionAdapter({
+      fetchSampleData: async () => 99,
+    });
+    const result = await adapter.fetchTargetSchema!();
+    expect(result.sampleData).toBe(99);
+    expect(result.fields).toBeUndefined();
+  });
+
+  it('propagates fetch errors', async () => {
+    const adapter = createExtractionAdapter({
+      fetchSampleData: async () => { throw new Error('Network failure'); },
+    });
+    await expect(adapter.fetchTargetSchema!()).rejects.toThrow('Network failure');
+  });
+});

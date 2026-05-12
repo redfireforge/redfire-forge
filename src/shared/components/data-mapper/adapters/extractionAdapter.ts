@@ -15,8 +15,11 @@ import type {
   MapperSource,
   MapperTarget,
   Mapping,
+  TargetField,
+  TargetSchemaResult,
   ValidationIssue,
 } from '../types';
+import { buildJsonTree, getAllLeafPaths } from '../../../utils/jsonTreeModel';
 
 // ─── Constants ────────────────────────────────────────────
 
@@ -127,6 +130,24 @@ export function createExtractionAdapter(
     },
 
     fetchSampleData: opts.fetchSampleData,
+
+    fetchTargetSchema: opts.fetchSampleData
+      ? async (): Promise<TargetSchemaResult> => {
+          const data = await opts.fetchSampleData!();
+          const parsed = typeof data === 'string' ? JSON.parse(data) : data;
+          if (parsed == null || typeof parsed !== 'object') {
+            return { sampleData: parsed };
+          }
+          const tree = buildJsonTree(parsed, '', '');
+          const leafPaths = getAllLeafPaths(tree);
+          const fields: TargetField[] = leafPaths.map((p) => ({
+            path: p,
+            label: p.includes('.') ? p.split('.').pop()! : p,
+            type: 'string',
+          }));
+          return { sampleData: parsed, fields };
+        }
+      : undefined,
 
     validate(mappings: Mapping[]): ValidationIssue[] {
       const issues: ValidationIssue[] = [];

@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { inferMappingsFromExamples, parseExampleJson } from './exampleInference';
 import type { ExamplePair } from './exampleInference';
 
@@ -216,6 +216,28 @@ describe('inferMappingsFromExamples', () => {
     expect(result.some((r) => r.sourcePath === 'a' && r.targetPath === 'b')).toBe(true);
   });
 
+  it('flattens non-empty arrays under a prefix', () => {
+    const examples: ExamplePair[] = [
+      { input: { items: [{ id: 1 }] }, output: { firstId: 1 } },
+    ];
+    const result = inferMappingsFromExamples(examples);
+    expect(result.some((r) => r.sourcePath === 'items[0].id' && r.targetPath === 'firstId')).toBe(true);
+  });
+
+  it('compares boolean inequality via valuesMatch', () => {
+    const examples: ExamplePair[] = [
+      { input: { active: true }, output: { enabled: false } },
+    ];
+    expect(inferMappingsFromExamples(examples)).toEqual([]);
+  });
+
+  it('falls through valuesMatch for same-typed non-primitive leaves', () => {
+    const examples: ExamplePair[] = [
+      { input: { a: 1n }, output: { b: 2n } },
+    ];
+    expect(inferMappingsFromExamples(examples)).toEqual([]);
+  });
+
   it('handles array join with no spaces', () => {
     const examples: ExamplePair[] = [
       { input: { tags: ['a', 'b'] }, output: { tagStr: 'a,b' } },
@@ -242,9 +264,54 @@ describe('inferMappingsFromExamples', () => {
     expect(result.some((r) => r.reason.includes('contained'))).toBe(true);
   });
 
+  it('detects substring match when target is inside source', () => {
+    const examples: ExamplePair[] = [
+      { input: { long: 'prefix SHORT suffix' }, output: { tiny: 'SHORT' } },
+    ];
+    const result = inferMappingsFromExamples(examples);
+    expect(result.some((r) => r.reason.includes('contained'))).toBe(true);
+  });
+
+  it('keeps $. prefix when emitting transformation expression', () => {
+    const examples: ExamplePair[] = [
+      { input: { '$.raw': 'HI' }, output: { z: 'hi' } },
+    ];
+    const result = inferMappingsFromExamples(examples);
+    const row = result.find((r) => r.targetPath === 'z');
+    expect(row?.expression?.includes('$.raw')).toBe(true);
+  });
+
+  it('skips candidate pairs with no co-occurring example rows', () => {
+    const examples: ExamplePair[] = [
+      { input: { a: 1 }, output: { x: 9 } },
+      { input: { b: 2 }, output: { y: 9 } },
+    ];
+    expect(() => inferMappingsFromExamples(examples)).not.toThrow();
+  });
+
+  it('infers from array-shaped root inputs', () => {
+    const examples: ExamplePair[] = [
+      { input: [{ id: 1 }], output: { uid: 1 } },
+    ];
+    const result = inferMappingsFromExamples(examples);
+    expect(result.some((r) => r.targetPath === 'uid')).toBe(true);
+  });
+
   it('parseExampleJson returns error for null JSON literal', () => {
     const result = parseExampleJson('null');
     expect(result.error).toContain('object or array');
+  });
+
+  it('parseExampleJson maps non-Error parse failures to a generic message', () => {
+    const spy = vi.spyOn(JSON, 'parse').mockImplementation(() => {
+      throw 404;
+    });
+    try {
+      const result = parseExampleJson('{}');
+      expect(result.error).toBe('Invalid JSON');
+    } finally {
+      spy.mockRestore();
+    }
   });
 });
 

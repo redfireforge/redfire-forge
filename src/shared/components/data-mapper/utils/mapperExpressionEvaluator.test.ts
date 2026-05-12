@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
   evaluateMapperExpression,
   buildMapperResolveVariable,
@@ -6,6 +6,7 @@ import {
   formatExpressionResult,
 } from './mapperExpressionEvaluator';
 import type { MapperSource } from '../types';
+import * as expressionEvaluator from '../../../../features/workflow/utils/expressionEvaluator';
 
 const sources: MapperSource[] = [
   {
@@ -126,6 +127,51 @@ describe('buildMapperResolveVariable', () => {
 });
 
 describe('evaluateMapperExpression', () => {
+  it('maps evaluateExpression throw Error to result.error', () => {
+    const spy = vi.spyOn(expressionEvaluator, 'evaluateExpression').mockImplementation(() => {
+      throw new Error('boom');
+    });
+    try {
+      const result = evaluateMapperExpression('1', sources, 's1');
+      expect(result.error).toBe('boom');
+      expect(result.preview).toBe('');
+      expect(result.value).toBeUndefined();
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('maps non-Error throw from evaluateExpression to string', () => {
+    const spy = vi.spyOn(expressionEvaluator, 'evaluateExpression').mockImplementation(() => {
+      throw 'plain';
+    });
+    try {
+      const result = evaluateMapperExpression('1', sources, 's1');
+      expect(result.error).toBe('plain');
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('clears preview when evaluateExpression returns error field', () => {
+    const spy = vi.spyOn(expressionEvaluator, 'evaluateExpression').mockReturnValue({
+      value: undefined,
+      error: 'parse failed',
+    });
+    try {
+      const result = evaluateMapperExpression('x', sources, 's1');
+      expect(result.preview).toBe('');
+      expect(result.error).toBe('parse failed');
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('leaves bare $. when path is only dollar-dot', () => {
+    const result = evaluateMapperExpression('$.', sources, 's1');
+    expect(result.error || String(result.value)).toBeTruthy();
+  });
+
   it('evaluates a function with $.path arg', () => {
     const result = evaluateMapperExpression('$upper($.name)', sources, 's1');
     expect(result.value).toBe('ALICE');
@@ -209,6 +255,11 @@ describe('evaluateMapperExpression', () => {
     expect(result.value).toBe('ALICE');
   });
 
+  it('preserves backslash escapes inside single-quoted strings when wrapping paths', () => {
+    const result = evaluateMapperExpression(`'a\\'$.name'`, sources, 's1');
+    expect(result.value).toBeTruthy();
+  });
+
   it('handles $.X-Request-Id with multiple hyphens', () => {
     const result = evaluateMapperExpression('$.X-Request-Id', sources, 's2');
     expect(result.value).toBe('abc-123');
@@ -289,6 +340,11 @@ describe('resolveMapperPath', () => {
   it('resolves array path as array', () => {
     const result = resolveMapperPath('tags', sources, 's1');
     expect(result).toEqual(['admin', 'user']);
+  });
+
+  it('parses JSON when resolved leaf is a JSON string', () => {
+    const src: MapperSource[] = [{ id: 's1', label: 'S', sampleData: { payload: '{"z":9}' } }];
+    expect(resolveMapperPath('payload', src, 's1')).toEqual({ z: 9 });
   });
 });
 

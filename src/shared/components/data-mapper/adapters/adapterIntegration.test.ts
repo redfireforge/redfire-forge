@@ -168,15 +168,6 @@ describe('3D.2 — variable hints interface compatibility', () => {
   });
 });
 
-// ── 3D.3: PickerNode consumers verification ──
-
-describe('3D.3 — PickerNode export status', () => {
-  it('PickerNode is still exported from RegexAssertionModal (consumers exist)', async () => {
-    const mod = await import('../../../../features/requests/components/RegexAssertionModal');
-    expect(mod.PickerNode).toBeDefined();
-  });
-});
-
 // ── Cross-adapter consistency ──
 
 describe('cross-adapter consistency', () => {

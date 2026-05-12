@@ -8,7 +8,7 @@ import {
 } from '../../utils/workflowVariableHints';
 import type { Scenario, KeyValue } from '../../../../shared/types';
 import ExtractionEditor from '../../../requests/components/ExtractionEditor';
-import type { ExtractionFetchSampleProps } from '../../../requests/components/ExtractionPathPickerModal';
+import type { ExtractionFetchSampleProps } from '../../../requests/components/ExtractionEditor';
 import { ParamsEditor } from '../../../requests/components/ParamsEditor';
 import type { ParamEntry } from '../../../requests/components/ParamsEditor';
 import ExpressionInput from '../expression/ExpressionInput';

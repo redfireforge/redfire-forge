@@ -168,6 +168,54 @@ describe('MapperToolbar', () => {
     renderToolbar({ onTogglePreview: vi.fn(), showPreview: true });
     expect(screen.getByTitle('Hide preview')).toBeTruthy();
   });
+
+  it('shows mapping line toggle when onToggleMappingLines provided', () => {
+    renderToolbar({ onToggleMappingLines: vi.fn() });
+    expect(screen.getByTitle('Hide mapping lines')).toBeTruthy();
+  });
+
+  it('calls onToggleMappingLines when line button clicked', () => {
+    const onToggle = vi.fn();
+    renderToolbar({ onToggleMappingLines: onToggle });
+    fireEvent.click(screen.getByTitle('Hide mapping lines'));
+    expect(onToggle).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows node focus toggle only when lines are hidden', () => {
+    const { rerender } = renderToolbar({
+      onToggleMappingLines: vi.fn(),
+      onToggleNodeFocusMode: vi.fn(),
+      showMappingLines: true,
+    });
+    expect(screen.queryByTitle('Enable node-focus lines')).toBeNull();
+
+    rerender(
+      <MapperToolbar
+        onAutoMap={vi.fn()}
+        onClearAll={vi.fn()}
+        onUndo={vi.fn()}
+        onRedo={vi.fn()}
+        canUndo={false}
+        canRedo={false}
+        mappingCount={0}
+        onToggleMappingLines={vi.fn()}
+        onToggleNodeFocusMode={vi.fn()}
+        showMappingLines={false}
+      />,
+    );
+    expect(screen.getByTitle('Enable node-focus lines')).toBeTruthy();
+  });
+
+  it('calls onToggleNodeFocusMode when node focus button clicked', () => {
+    const onToggle = vi.fn();
+    renderToolbar({
+      onToggleMappingLines: vi.fn(),
+      onToggleNodeFocusMode: onToggle,
+      showMappingLines: false,
+    });
+    fireEvent.click(screen.getByTitle('Enable node-focus lines'));
+    expect(onToggle).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('pending accept/reject buttons', () => {

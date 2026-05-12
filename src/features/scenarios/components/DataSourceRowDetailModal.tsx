@@ -5,7 +5,6 @@ import type { HttpResponse } from '../../../shared/utils/httpClient';
 import { resolveScenarioFromDataRow } from '../../../engine/dataSourceExpander';
 import { proxyFetch, buildHeaders } from '../../../engine/executor';
 import { expandPatternFromResponse } from '../utils/dataSourceImport';
-import JsonPathBuilder from '../../requests/components/JsonPathBuilder';
 import {
   DataMapperModal,
   createValidationAdapter,
@@ -114,7 +113,7 @@ export default function DataSourceRowDetailModal({
 
       setFetchStatus(`${result.status} ${result.statusText}${timing ? ` — ${timing}` : ''}`);
 
-      // Set the response JSON into JsonPathBuilder
+      // Set the response JSON for validation
       if (result.body) {
         let pretty: string;
         try {
@@ -261,14 +260,6 @@ export default function DataSourceRowDetailModal({
     );
   }, [row, editedLabel, editedValues, expectedFields, validateColumns, dataTable, onSave]);
 
-  // ─── JsonPathBuilder update handler ────────────────────────
-
-  const handleFieldsUpdate = useCallback((patch: { expectedFields?: ExpectedField[]; excludedPaths?: string[] }) => {
-    if (patch.expectedFields !== undefined) {
-      setExpectedFields(patch.expectedFields);
-    }
-  }, []);
-
   // ─── Column type badge color ───────────────────────────────
 
   const typeBadgeClass = (type: DataSourceColumn['type']) => {
@@ -384,25 +375,41 @@ export default function DataSourceRowDetailModal({
 
         {/* JSON Response + Field Selection (like Validation tab) */}
         <div className="row-detail-section row-detail-validation-section">
-          {sampleJson && (
-            <div className="validation-mapper-toggle">
-              <button
-                type="button"
-                className="btn btn-sm btn-accent"
-                onClick={() => setMapperOpen(true)}
-              >
-                ⚡ Visual Mapper
-              </button>
+          <div className="validation-mapper-toggle">
+            <button
+              type="button"
+              className="btn btn-sm btn-accent"
+              onClick={() => setMapperOpen(true)}
+              disabled={!sampleJson}
+              title={sampleJson ? 'Open Visual Mapper' : 'Fetch response first'}
+            >
+              ⚡ Visual Mapper
+            </button>
+          </div>
+          {expectedFields.length > 0 && (
+            <div className="validation-fields-summary">
+              <table className="validation-fields-table">
+                <thead>
+                  <tr><th>JSON Path</th><th>Expected Value</th><th /></tr>
+                </thead>
+                <tbody>
+                  {expectedFields.map((f: ExpectedField, idx: number) => (
+                    <tr key={idx}>
+                      <td><code>{f.jsonPath}</code></td>
+                      <td><code>{f.expectedValue}</code></td>
+                      <td>
+                        <button type="button" className="btn-icon-sm" title="Remove" onClick={() => {
+                          const next = [...expectedFields];
+                          next.splice(idx, 1);
+                          setExpectedFields(next);
+                        }}>×</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
-          <JsonPathBuilder
-            sampleJson={sampleJson}
-            onSampleJsonChange={setSampleJson}
-            selectiveMode="include"
-            expectedFields={expectedFields}
-            excludedPaths={[]}
-            onUpdate={handleFieldsUpdate}
-          />
           {mapperOpen && (
             <DataMapperModal
               adapter={validationAdapter}

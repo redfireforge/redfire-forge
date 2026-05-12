@@ -1170,9 +1170,17 @@
   transition: border-color 0.12s;
 }
 .training-manual-row:hover { border-color: rgba(139, 92, 246, 0.2); }
+.training-manual-row--clickable { cursor: pointer; }
+.training-manual-row--clickable:hover { border-color: rgba(139, 92, 246, 0.4); background: rgba(139, 92, 246, 0.06); }
+.training-manual-row--clickable:active { background: rgba(139, 92, 246, 0.1); }
 .training-manual-icon { font-size: 1rem; flex-shrink: 0; }
 .training-manual-info { flex: 1; min-width: 0; }
 .training-manual-title { font-size: 0.78rem; font-weight: 600; color: var(--text); }
+.training-manual-open-hint {
+  margin-left: 4px; font-size: 0.65rem; color: var(--text-muted);
+  opacity: 0; transition: opacity 0.12s;
+}
+.training-manual-row--clickable:hover .training-manual-open-hint { opacity: 1; }
 .training-manual-desc { font-size: 0.68rem; color: var(--text-muted); margin-top: 1px; }
 .training-manual-sample {
   display: flex;
@@ -1189,6 +1197,16 @@
   display: flex;
   align-items: center;
   gap: 4px;
+  border: none;
+  font-family: inherit;
+}
+.training-manual-sample-chip--clickable {
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.training-manual-sample-chip--clickable:hover {
+  background: rgba(56, 189, 248, 0.25);
+  color: #38bdf8;
 }
 .training-manual-import-btn {
   background: rgba(139, 92, 246, 0.8);

@@ -1,6 +1,6 @@
 /**
- * Shared utilities for all JSON tree viewers (JsonTreePreview, JsonPathBuilder, PickerNode).
- * Eliminates duplicated type-color maps, value preview logic, and SVG toggle icons.
+ * Shared utilities for JSON tree viewers (JsonTreePreview, RegexAssertionModal, etc.).
+ * Provides type-color maps, value preview logic, and SVG toggle icons.
  */
 
 /** Canonical type → color map used by all tree nodes. */
