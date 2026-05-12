@@ -1,8 +1,8 @@
 /**
  * Unified JSON tree model.
  *
- * Consolidates the previously separate `JsonNode`/`buildTree` (from jsonPathTreeUtils)
- * and `JNode`/`buildJTree` (from JsonTreePreview) into a single canonical implementation.
+ * Canonical JSON tree model used across the codebase. Single implementation
+ * for building, traversing, and searching JSON tree structures.
  *
  * Features:
  * - Optional JSONPath tracking per node

@@ -185,7 +185,8 @@ export function useGalleryImport(deps: UseGalleryImportDeps) {
 
     setSelectedEnvId(galleryEnv.id);
     setSelectedSvcId(gallerySvc.id);
-  }, [environments, microservices, setEnvironments, setMicroservices, setFeatureGroups, setSelectedEnvId, setSelectedSvcId]);
+    setActiveTab('scenarios');
+  }, [environments, microservices, setEnvironments, setMicroservices, setFeatureGroups, setSelectedEnvId, setSelectedSvcId, setActiveTab]);
 
   const onImportWorkflow = useCallback((entry: GalleryEntry<unknown>) => {
     const sample = entry.factory() as Workflow;
@@ -206,6 +207,7 @@ export function useGalleryImport(deps: UseGalleryImportDeps) {
       workflows: 'workflow',
       requests: 'requests',
       catalog: 'catalog',
+      'data-mapper': 'scenarios',
     };
     const tab = domainTabMap[entry.domain];
     if (tab) setActiveTab(tab);

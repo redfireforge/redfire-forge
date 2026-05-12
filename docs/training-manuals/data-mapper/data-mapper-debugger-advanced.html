@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mapping Debugger — Step-by-Step Walkthrough</title>
+  <style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; color: #1a1a2e; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 30px 24px; background: #fff; }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code { background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 1px 5px; border-radius: 3px; }
+  pre { background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto; margin: 10px 0 16px; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; }
+  .callout { background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px; margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .step { background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 16px; margin: 12px 0; }
+  .step-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .step-num { width: 32px; height: 32px; background: #e63946; color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; flex-shrink: 0; }
+  .step-title { font-weight: 600; color: #1d3557; font-size: 15px; }
+  .expect { background: #d4edda; border-left: 4px solid #28a745; padding: 10px 14px; margin: 10px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+  .expect strong { color: #155724; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+  .badge-sample { background: #e8f4fd; color: #1d3557; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  </style>
+</head>
+<body>
+
+<h1>Mapping Debugger &amp; Auto-Map</h1>
+<p><span class="badge badge-advanced">ADVANCED</span> &nbsp; <span class="badge badge-sample">Sample: dm-extraction-mapping</span></p>
+<p>Learn how to use the Data Mapper's debugging tools and Auto-Map feature. This walkthrough uses the <strong>Extraction Mapping</strong> sample.</p>
+
+<div class="callout">
+  <strong>Prerequisites</strong>
+  Import the <code>dm-extraction-mapping</code> sample from Gallery.
+</div>
+
+<h2>Part 1 — Auto-Map</h2>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">1</div><div class="step-title">Open the Visual Mapper</div></div>
+  <p>Open <code>GET user → extract id, name, email, company</code> → Extract tab → <strong>⚡ Visual Mapper</strong>.</p>
+  <div class="expect"><strong>You should see:</strong> 5 existing mappings. The source tree shows the user response with all fields.</div>
+</div>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">2</div><div class="step-title">Clear all mappings</div></div>
+  <p>Click <strong>Clear all</strong> in the toolbar. All 5 mappings are removed — the target panel shows empty.</p>
+</div>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">3</div><div class="step-title">Run Auto-Map</div></div>
+  <p>Click the <strong>Auto-map</strong> button. The mapper analyzes source fields and automatically creates mappings based on name similarity.</p>
+  <div class="expect"><strong>You should see:</strong> Auto-map creates mappings with confidence scores. Fields like <code>id</code>, <code>name</code>, <code>email</code> get high confidence (exact match). Nested fields like <code>company.name</code> may get medium confidence.</div>
+</div>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">4</div><div class="step-title">Adjust the confidence threshold</div></div>
+  <p>Use the confidence dropdown (e.g., "≥ 50%") to filter which auto-mapped fields are shown. Higher thresholds show only confident matches.</p>
+</div>
+
+<h2>Part 2 — Preview &amp; Debug</h2>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">5</div><div class="step-title">Enable Preview mode</div></div>
+  <p>Click the <strong>Preview</strong> button in the toolbar. Each mapping now shows the <strong>resolved value</strong> from the source data:</p>
+  <table>
+    <tr><th>Mapping</th><th>Expression</th><th>Preview Value</th></tr>
+    <tr><td>userId</td><td><code>$.id</code></td><td><code>1</code></td></tr>
+    <tr><td>userName</td><td><code>$.name</code></td><td><code>"Leanne Graham"</code></td></tr>
+    <tr><td>userEmail</td><td><code>$.email</code></td><td><code>"Sincere@april.biz"</code></td></tr>
+    <tr><td>companyName</td><td><code>$.company.name</code></td><td><code>"Romaguera-Crona"</code></td></tr>
+    <tr><td>city</td><td><code>$.address.city</code></td><td><code>"Gwenborough"</code></td></tr>
+  </table>
+  <div class="expect"><strong>You should see:</strong> Each target field shows the actual value that would be extracted at runtime, rendered inline next to the mapping.</div>
+</div>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">6</div><div class="step-title">Introduce an error</div></div>
+  <p>Edit a mapping expression to something invalid — for example, change <code>$.email</code> to <code>$.nonexistent</code>. The preview will show an error indicator and the mapping turns red.</p>
+  <div class="expect"><strong>You should see:</strong> The invalid mapping shows a red error badge with "Path not found" and the preview value is empty/null.</div>
+</div>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">7</div><div class="step-title">Fix the error</div></div>
+  <p>Change the expression back to <code>$.email</code>. The preview immediately shows <code>"Sincere@april.biz"</code> again and the error indicator disappears.</p>
+</div>
+
+<h2>Part 3 — Code View</h2>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">8</div><div class="step-title">Switch to Code view</div></div>
+  <p>Click <strong>&lt;/&gt; Code</strong> in the toolbar. This shows the mappings as JSON/code format instead of the visual tree.</p>
+  <div class="expect"><strong>You should see:</strong> A code editor showing the extraction configuration as structured data, useful for copy-pasting or bulk editing.</div>
+</div>
+
+<h2>Summary</h2>
+<table>
+  <tr><th>Feature</th><th>What it does</th></tr>
+  <tr><td>Auto-Map</td><td>Automatically creates mappings from source to target based on name similarity</td></tr>
+  <tr><td>Confidence threshold</td><td>Filters auto-mapped fields by match confidence (50%, 70%, 90%)</td></tr>
+  <tr><td>Preview mode</td><td>Shows resolved values inline next to each mapping</td></tr>
+  <tr><td>Error detection</td><td>Red indicators on broken/invalid mapping expressions</td></tr>
+  <tr><td>Code view</td><td>JSON representation of mappings for bulk editing</td></tr>
+</table>
+
+<div class="callout callout-tip">
+  <strong>Tip</strong>
+  Use Preview mode whenever you're unsure about a mapping expression. It instantly shows what the extraction would produce from the current sample data.
+</div>
+
+</body>
+</html>

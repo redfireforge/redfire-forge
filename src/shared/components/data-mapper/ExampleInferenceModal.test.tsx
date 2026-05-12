@@ -4,6 +4,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import ExampleInferenceModal from './ExampleInferenceModal';
+import * as exampleInference from './utils/exampleInference';
 
 describe('ExampleInferenceModal', () => {
   it('renders with title and input areas', () => {
@@ -25,6 +26,13 @@ describe('ExampleInferenceModal', () => {
     render(<ExampleInferenceModal onClose={onClose} onApply={vi.fn()} />);
     fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it('does not close on non-Escape keys on overlay', () => {
+    const onClose = vi.fn();
+    render(<ExampleInferenceModal onClose={onClose} onApply={vi.fn()} />);
+    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Enter' });
+    expect(onClose).not.toHaveBeenCalled();
   });
 
   it('shows Analyze button disabled when no input', () => {
@@ -50,6 +58,16 @@ describe('ExampleInferenceModal', () => {
     fireEvent.change(textareas[1], { target: { value: '{"a": 1}' } });
     fireEvent.click(screen.getByText(/Analyze/));
     expect(document.querySelector('.dm-example-error')).toBeTruthy();
+  });
+
+  it('flags the output textarea when only output JSON is invalid', () => {
+    render(<ExampleInferenceModal onClose={vi.fn()} onApply={vi.fn()} />);
+    const textareas = document.querySelectorAll('textarea');
+    fireEvent.change(textareas[0], { target: { value: '{"a": 1}' } });
+    fireEvent.change(textareas[1], { target: { value: '{bad}' } });
+    fireEvent.click(screen.getByText(/Analyze/));
+    expect(textareas[1].className).toContain('dm-example-textarea--error');
+    expect(textareas[0].className).not.toContain('dm-example-textarea--error');
   });
 
   it('shows inferred results after valid analysis', () => {
@@ -106,5 +124,105 @@ describe('ExampleInferenceModal', () => {
     expect(checkboxes.length).toBeGreaterThan(0);
     fireEvent.click(checkboxes[0]);
     expect(checkboxes[0].checked).toBe(false);
+  });
+
+  it('re-selects an inferred mapping when checkbox toggled again', () => {
+    render(<ExampleInferenceModal onClose={vi.fn()} onApply={vi.fn()} />);
+    const textareas = document.querySelectorAll('textarea');
+    fireEvent.change(textareas[0], { target: { value: '{"a": 1}' } });
+    fireEvent.change(textareas[1], { target: { value: '{"x": 1}' } });
+    fireEvent.click(screen.getByText(/Analyze/));
+    const cb = document.querySelector<HTMLInputElement>('input[type="checkbox"]')!;
+    fireEvent.click(cb);
+    expect(cb.checked).toBe(false);
+    fireEvent.click(cb);
+    expect(cb.checked).toBe(true);
+  });
+
+  it('does not add rows beyond the maximum', () => {
+    render(<ExampleInferenceModal onClose={vi.fn()} onApply={vi.fn()} />);
+    for (let i = 0; i < 5; i++) {
+      const add = screen.queryByText('+ Add example pair');
+      if (!add) break;
+      fireEvent.click(add);
+    }
+    expect(document.querySelectorAll('.dm-example-row').length).toBe(5);
+    expect(screen.queryByText('+ Add example pair')).toBeNull();
+  });
+
+  it('uses plural example label when multiple rows are valid', () => {
+    render(<ExampleInferenceModal onClose={vi.fn()} onApply={vi.fn()} />);
+    fireEvent.click(screen.getByText('+ Add example pair'));
+    const rows = document.querySelectorAll('.dm-example-row');
+    const ta0 = rows[0].querySelectorAll('textarea');
+    const ta1 = rows[1].querySelectorAll('textarea');
+    fireEvent.change(ta0[0], { target: { value: '{"a":1}' } });
+    fireEvent.change(ta0[1], { target: { value: '{"b":1}' } });
+    fireEvent.change(ta1[0], { target: { value: '{"a":2}' } });
+    fireEvent.change(ta1[1], { target: { value: '{"b":2}' } });
+    expect(screen.getByText(/Analyze \(2 examples\)/)).toBeTruthy();
+  });
+
+  it('uses singular example label for a single valid pair', () => {
+    render(<ExampleInferenceModal onClose={vi.fn()} onApply={vi.fn()} />);
+    const textareas = document.querySelectorAll('textarea');
+    fireEvent.change(textareas[0], { target: { value: '{"a":1}' } });
+    fireEvent.change(textareas[1], { target: { value: '{"b":1}' } });
+    expect(screen.getByText(/Analyze \(1 example\)/)).toBeTruthy();
+  });
+
+  it('shows Re-analyze when engine returns an empty mapping list', () => {
+    vi.spyOn(exampleInference, 'inferMappingsFromExamples').mockReturnValue([]);
+    render(<ExampleInferenceModal onClose={vi.fn()} onApply={vi.fn()} />);
+    const textareas = document.querySelectorAll('textarea');
+    fireEvent.change(textareas[0], { target: { value: '{"a":1}' } });
+    fireEvent.change(textareas[1], { target: { value: '{"b":2}' } });
+    fireEvent.click(screen.getByText(/Analyze/));
+    expect(screen.getByText(/Re-analyze/)).toBeTruthy();
+    expect(screen.getByText('0 mappings inferred')).toBeTruthy();
+    vi.restoreAllMocks();
+  });
+
+  it('updates rows when one pair fails and another succeeds', () => {
+    render(<ExampleInferenceModal onClose={vi.fn()} onApply={vi.fn()} />);
+    fireEvent.click(screen.getByText('+ Add example pair'));
+    const rows = document.querySelectorAll('.dm-example-row');
+    const r0 = rows[0].querySelectorAll('textarea');
+    const r1 = rows[1].querySelectorAll('textarea');
+    fireEvent.change(r0[0], { target: { value: '{bad}' } });
+    fireEvent.change(r0[1], { target: { value: '{"b":1}' } });
+    fireEvent.change(r1[0], { target: { value: '{"a":1}' } });
+    fireEvent.change(r1[1], { target: { value: '{"b":1}' } });
+    fireEvent.click(screen.getByText(/Analyze/));
+    expect(r0[0].className).toContain('dm-example-textarea--error');
+    expect(r1[0].className).not.toContain('dm-example-textarea--error');
+    vi.spyOn(exampleInference, 'inferMappingsFromExamples').mockReturnValue([
+      { sourcePath: 'a', targetPath: 'b', confidence: 100, reason: 'ok' },
+    ]);
+    fireEvent.change(r0[0], { target: { value: '{"a":1}' } });
+    fireEvent.click(screen.getByText(/Analyze/));
+    expect(screen.getByText('1 mapping inferred')).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Apply 1 mapping/ })).toBeTruthy();
+    vi.restoreAllMocks();
+  });
+
+  it('renders confidence tiers and optional expression from inference results', () => {
+    vi.spyOn(exampleInference, 'inferMappingsFromExamples').mockReturnValue([
+      { sourcePath: 'a', targetPath: 'b', confidence: 85, reason: 'exact' },
+      { sourcePath: 'c', targetPath: 'd', confidence: 70, reason: 'mid', expression: '$.c' },
+      { sourcePath: 'e', targetPath: 'f', confidence: 50, reason: 'low' },
+    ]);
+    render(<ExampleInferenceModal onClose={vi.fn()} onApply={vi.fn()} />);
+    const textareas = document.querySelectorAll('textarea');
+    fireEvent.change(textareas[0], { target: { value: '{"a":1,"c":2,"e":3}' } });
+    fireEvent.change(textareas[1], { target: { value: '{"b":1,"d":2,"f":3}' } });
+    fireEvent.click(screen.getByText(/Analyze/));
+    const items = document.querySelectorAll('.dm-example-result-item');
+    expect(items.length).toBe(3);
+    expect(document.querySelector('.dm-example-confidence--high')).not.toBeNull();
+    expect(document.querySelector('.dm-example-confidence--mid')).not.toBeNull();
+    expect(document.querySelector('.dm-example-confidence--low')).not.toBeNull();
+    expect(document.querySelector('.dm-example-expr')?.textContent).toBe('$.c');
+    vi.restoreAllMocks();
   });
 });

@@ -42,17 +42,34 @@ export function useConnectionLines(
     const container = containerRef.current;
     if (!container) return { lines: [], containerHeight: 0 };
 
-    const containerRect = container.getBoundingClientRect();
+    // Line coordinates should be relative to the body/canvas region, not the full
+    // container (which includes toolbar + status bars above the body).
+    const body = container.querySelector('.dm-body') as HTMLElement | null;
+    const anchorRoot = body ?? container;
+    const anchorRect = anchorRoot.getBoundingClientRect();
     const lines: ConnectionLine[] = [];
-    const esc = typeof CSS !== 'undefined' && CSS.escape ? CSS.escape : (s: string) => s;
+
+    const buildPathMap = (
+      panelSelector: '.dm-panel--source' | '.dm-panel--target',
+    ): Map<string, HTMLElement> => {
+      const pathMap = new Map<string, HTMLElement>();
+      const panel = container.querySelector(panelSelector) as HTMLElement | null;
+      if (!panel) return pathMap;
+      const candidates = panel.querySelectorAll<HTMLElement>('[data-path]');
+      for (const node of candidates) {
+        const path = node.getAttribute('data-path');
+        if (path == null || pathMap.has(path)) continue;
+        pathMap.set(path, node);
+      }
+      return pathMap;
+    };
+
+    const sourcePathMap = buildPathMap('.dm-panel--source');
+    const targetPathMap = buildPathMap('.dm-panel--target');
 
     for (const mapping of mappings) {
-      const sourceEl = container.querySelector(
-        `.dm-panel--source [data-path="${esc(mapping.sourcePath)}"]`,
-      );
-      const targetEl = container.querySelector(
-        `.dm-panel--target [data-path="${esc(mapping.targetPath)}"]`,
-      );
+      const sourceEl = sourcePathMap.get(mapping.sourcePath);
+      const targetEl = targetPathMap.get(mapping.targetPath);
 
       if (!sourceEl || !targetEl) continue;
 
@@ -65,8 +82,8 @@ export function useConnectionLines(
         mappingId: mapping.id,
         sourcePath: mapping.sourcePath,
         targetPath: mapping.targetPath,
-        sourceY: sourceRect.top + sourceRect.height / 2 - containerRect.top,
-        targetY: targetRect.top + targetRect.height / 2 - containerRect.top,
+        sourceY: sourceRect.top + sourceRect.height / 2 - anchorRect.top,
+        targetY: targetRect.top + targetRect.height / 2 - anchorRect.top,
         hasExpression: !!mapping.expression,
         isAutoMapped: !!mapping.isAutoMapped,
         hasTypeMismatch: mismatchIds?.has(mapping.id) ?? false,
@@ -76,7 +93,7 @@ export function useConnectionLines(
       });
     }
 
-    return { lines, containerHeight: containerRect.height };
+    return { lines, containerHeight: anchorRect.height };
     // layoutTick forces recalc on scroll/resize/expand events
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mappings, containerRef, layoutTick, mismatchIds, arrayInfoMap]);

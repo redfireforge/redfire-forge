@@ -192,9 +192,6 @@ export async function runGraph(
 
     const passedFlag: PassedFlag = { value: allPassed };
     const nodeLog = (line: { prefix: string; text: string }) => log(line, nodeId);
-    if (effectiveLevelOnce === 'debug' && !nodeLogBuffer.has(nodeId)) {
-      nodeLogBuffer.set(nodeId, []);
-    }
     const hCtx: NodeHandlerContext = {
       nodeMap, outgoing, ctx, tokenManager, results,
       allPassed, visited, joinArrived, incomingCount, callbacks,

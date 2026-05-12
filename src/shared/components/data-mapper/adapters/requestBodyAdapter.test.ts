@@ -1,10 +1,11 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
   createRequestBodyAdapter,
   extractBodyTemplateRefs,
   parseBodyJson,
   collectBodyLeafPaths,
   buildBodyFromMappings,
+  resolveTemplateValue,
 } from './requestBodyAdapter';
 import type { Mapping } from '../types';
 
@@ -143,6 +144,14 @@ describe('collectBodyLeafPaths', () => {
   });
 });
 
+describe('resolveTemplateValue', () => {
+  it('formats bigint and symbol as string display', () => {
+    expect(resolveTemplateValue(42n)).toEqual({ display: '42', type: 'string' });
+    expect(resolveTemplateValue(Symbol('s')).display).toMatch(/^Symbol/);
+    expect(resolveTemplateValue(Symbol('s')).type).toBe('string');
+  });
+});
+
 // ─── buildBodyFromMappings ────────────────────────────────
 
 describe('buildBodyFromMappings', () => {
@@ -218,6 +227,20 @@ describe('buildBodyFromMappings', () => {
       base,
     );
     expect(JSON.stringify(base)).toBe(original);
+  });
+
+  it('falls back to JSON serialization when structuredClone throws', () => {
+    const spy = vi.spyOn(globalThis, 'structuredClone').mockImplementation(() => {
+      throw new Error('clone failed');
+    });
+    const parsed = JSON.parse(buildBodyFromMappings(
+      [{ id: '1', sourceId: 's', sourcePath: 'x', targetPath: 'field' }],
+      { ok: true, nested: { y: 1 } },
+    ));
+    spy.mockRestore();
+    expect(parsed.ok).toBe(true);
+    expect(parsed.nested.y).toBe(1);
+    expect(parsed.field).toBe('{{x}}');
   });
 });
 
@@ -366,7 +389,7 @@ describe('createRequestBodyAdapter', () => {
       });
       expect(adapter.target.fields).toHaveLength(2);
       expect(adapter.target.fields![0]).toEqual({
-        path: 'name', label: 'name', type: 'string', required: true,
+        path: 'name', label: 'name', type: 'string', required: true, location: 'body',
       });
     });
 
@@ -427,6 +450,16 @@ describe('createRequestBodyAdapter', () => {
       });
       const sample = adapter.target.sampleData as Record<string, string>;
       expect(sample.count).toBe('42');
+    });
+
+    it('resolves empty object leaf as object display type', () => {
+      const adapter = createRequestBodyAdapter({
+        existingBody: '{"meta": {}}',
+      });
+      expect(adapter.target.fields).toHaveLength(1);
+      const sample = adapter.target.sampleData as Record<string, string>;
+      expect(sample.meta).toBe('{}');
+      expect(adapter.target.fields![0].type).toBe('object');
     });
   });
 
@@ -685,6 +718,14 @@ describe('createRequestBodyAdapter', () => {
         { id: '1', sourceId: 's', sourcePath: '', targetPath: 'field', expression: '' },
       ]);
       expect(issues.some(i => i.severity === 'error' && i.message.includes('No variable bound'))).toBe(true);
+    });
+
+    it('reports reserved path segment in field path during validate', () => {
+      const adapter = createRequestBodyAdapter({});
+      const issues = adapter.validate!([
+        { id: '1', sourceId: 's', sourcePath: 'x', targetPath: 'data.__proto__.x' },
+      ]);
+      expect(issues.some(i => i.severity === 'error' && i.message.includes('reserved segment'))).toBe(true);
     });
   });
 

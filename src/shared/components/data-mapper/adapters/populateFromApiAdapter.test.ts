@@ -523,6 +523,15 @@ describe('validate', () => {
     expect(issues.some(i => i.severity === 'error' && i.message.includes('Fetch an API response'))).toBe(true);
   });
 
+  it('reports error when response JSON exists but has no array path', () => {
+    const adapter = createPopulateFromApiAdapter({
+      dataSource: makeDataSource(),
+      responseJson: { name: 'test', value: 42 },
+    });
+    const issues = adapter.validate!(MAPPINGS);
+    expect(issues.some(i => i.severity === 'error' && i.message.includes('No array found'))).toBe(true);
+  });
+
   it('does not report fetch error when response JSON present', () => {
     const adapter = createPopulateFromApiAdapter({
       dataSource: makeDataSource(),

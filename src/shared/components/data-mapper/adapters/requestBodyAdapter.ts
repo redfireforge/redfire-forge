@@ -218,6 +218,7 @@ function buildTargetFromBody(
           label: leaf.path.split('.').pop() ?? leaf.path,
           type: resolvedValue.type,
           required: false,
+          location: 'body',
         });
         sampleData[leaf.path] = resolvedValue.display;
       }
@@ -233,6 +234,7 @@ function buildTargetFromBody(
         label: field.path.split('.').pop() ?? field.path,
         type: field.type ?? 'string',
         required: field.required ?? false,
+        location: 'body',
       });
       sampleData[field.path] = field.description ?? `<${field.type ?? 'string'}>`;
     }
@@ -249,7 +251,7 @@ function buildTargetFromBody(
  * Resolve the display value and type for a body template field value.
  * If the value is a {{ref}} placeholder, show the ref name.
  */
-function resolveTemplateValue(value: unknown): { display: string; type: string } {
+export function resolveTemplateValue(value: unknown): { display: string; type: string } {
   if (typeof value === 'string') {
     const match = value.match(/^\{\{([^}]+)\}\}$/);
     if (match) {

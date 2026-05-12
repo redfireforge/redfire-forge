@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { mapperGallerySamples } from './gallerySamples';
 
 describe('gallerySamples', () => {
-  it('contains 6 samples', () => {
-    expect(mapperGallerySamples).toHaveLength(6);
+  it('contains 9 samples', () => {
+    expect(mapperGallerySamples).toHaveLength(9);
   });
 
   it('all samples have unique ids', () => {
@@ -87,5 +87,32 @@ describe('gallerySamples', () => {
     expect(exprs.some((e) => e.includes('$parseFloat'))).toBe(true);
     expect(exprs.some((e) => e.includes('$toBool'))).toBe(true);
     expect(exprs.some((e) => e.includes('$toString'))).toBe(true);
+  });
+
+  it('location-groups sample has fields with location property', () => {
+    const loc = mapperGallerySamples.find((s) => s.id === 'gallery-location-groups');
+    expect(loc).toBeTruthy();
+    const fields = loc!.target.fields!;
+    const locations = fields.map((f) => (f as Record<string, unknown>).location);
+    expect(locations).toContain('path');
+    expect(locations).toContain('query');
+    expect(locations).toContain('header');
+    expect(locations).toContain('body');
+  });
+
+  it('custom-fields sample has allowCustomFields enabled', () => {
+    const custom = mapperGallerySamples.find((s) => s.id === 'gallery-custom-fields');
+    expect(custom).toBeTruthy();
+    expect(custom!.target.allowCustomFields).toBe(true);
+    expect(custom!.target.sampleData).toBeNull();
+    expect(custom!.target.fields!.length).toBe(5);
+  });
+
+  it('default-values sample has fields with defaultValue', () => {
+    const dv = mapperGallerySamples.find((s) => s.id === 'gallery-default-values');
+    expect(dv).toBeTruthy();
+    const withDefaults = dv!.target.fields!.filter((f) => f.defaultValue);
+    expect(withDefaults.length).toBe(5);
+    expect(withDefaults[0].defaultValue).toBe('success');
   });
 });

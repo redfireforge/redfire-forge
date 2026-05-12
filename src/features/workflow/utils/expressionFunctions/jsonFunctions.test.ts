@@ -60,6 +60,10 @@ describe('$jsonpath', () => {
     expect(evalFn('$jsonpath', { a: 'string' }, 'a[*]')).toBeNull();
   });
 
+  it('walkJsonPath handles wildcard segment on nested array values', () => {
+    expect(evalFn('$jsonpath', [{ x: [10, 20] }, { x: [30] }], '$[*].x[*]')).toEqual([[10, 20], [30]]);
+  });
+
   it('resolves deep wildcard nested.items[*].sub.value', () => {
     const data = { nested: { items: [{ sub: { value: 'A' } }, { sub: { value: 'B' } }] } };
     expect(evalFn('$jsonpath', data, 'nested.items[*].sub.value')).toEqual(['A', 'B']);
@@ -73,6 +77,14 @@ describe('$jsonpath', () => {
   it('handles empty path by returning root', () => {
     const data = { a: 1 };
     expect(evalFn('$jsonpath', data, '$')).toEqual({ a: 1 });
+  });
+
+  it('returns null for path segment after primitive', () => {
+    expect(evalFn('$jsonpath', { a: 1 }, 'a.b')).toBeNull();
+  });
+
+  it('parses path with unclosed bracket as literal remainder', () => {
+    expect(evalFn('$jsonpath', { a: 1 }, 'a[unclosed')).toBeNull();
   });
 });
 
@@ -105,6 +117,10 @@ describe('$flatten', () => {
   it('flattens nested arrays', () => {
     expect(evalFn('$flatten', [[1, 2], [3, 4]])).toEqual([1, 2, 3, 4]);
   });
+
+  it('returns empty when flatten input is not array', () => {
+    expect(evalFn('$flatten', '{}')).toEqual([]);
+  });
 });
 
 describe('$keys / $values', () => {
@@ -129,6 +145,15 @@ describe('$merge', () => {
   it('second object overrides first', () => {
     expect(evalFn('$merge', { a: 1 }, { a: 99 })).toEqual({ a: 99 });
   });
+
+  it('treats JSON array parse as empty object for merge', () => {
+    expect(evalFn('$merge', { a: 1 }, '[1,2]')).toEqual({ a: 1 });
+    expect(evalFn('$merge', '[1,2]', { b: 2 })).toEqual({ b: 2 });
+  });
+
+  it('returns override only when base JSON is invalid', () => {
+    expect(evalFn('$merge', 'not-json', { z: 1 })).toEqual({ z: 1 });
+  });
 });
 
 describe('$type', () => {
@@ -144,12 +169,37 @@ describe('$sort / $reverse / $unique', () => {
     expect(evalFn('$sort', [3, 1, 2])).toEqual([1, 2, 3]);
   });
 
+  it('returns empty when sort input is not array', () => {
+    expect(evalFn('$sort', '{}')).toEqual([]);
+  });
+
   it('reverses', () => {
     expect(evalFn('$reverse', [1, 2, 3])).toEqual([3, 2, 1]);
   });
 
+  it('returns empty when reverse input is not array', () => {
+    expect(evalFn('$reverse', 'xx')).toEqual([]);
+  });
+
   it('removes duplicates', () => {
     expect(evalFn('$unique', [1, 2, 2, 3])).toEqual([1, 2, 3]);
+  });
+
+  it('unique deduplicates equivalent objects', () => {
+    expect(evalFn('$unique', [{ a: 1 }, { a: 1 }])).toEqual([{ a: 1 }]);
+  });
+
+  it('unique returns empty when input is not array and not JSON array', () => {
+    expect(evalFn('$unique', 42)).toEqual([]);
+    expect(evalFn('$unique', '{}')).toEqual([]);
+  });
+
+  it('unique deduplicates parsed JSON array string', () => {
+    expect(evalFn('$unique', '[1,1,2,2]')).toEqual([1, 2]);
+  });
+
+  it('unique keeps primitive when set key collision stringifies same', () => {
+    expect(evalFn('$unique', [1, '1'])).toEqual([1, '1']);
   });
 });
 
@@ -157,6 +207,52 @@ describe('$first / $last / $slice', () => {
   it('first of array', () => { expect(evalFn('$first', [10, 20])).toBe(10); });
   it('last of array', () => { expect(evalFn('$last', [10, 20])).toBe(20); });
   it('slices array', () => { expect(evalFn('$slice', [1, 2, 3, 4], 1, 3)).toEqual([2, 3]); });
+  it('first and last character of plain string', () => {
+    expect(evalFn('$first', 'abc')).toBe('a');
+    expect(evalFn('$last', 'abc')).toBe('c');
+  });
+  it('first and last from JSON array string', () => {
+    expect(evalFn('$first', '[7,8,9]')).toBe(7);
+    expect(evalFn('$last', '[7,8,9]')).toBe(9);
+  });
+  it('first and last fall back for invalid bracket-prefixed strings', () => {
+    expect(evalFn('$first', '[broken')).toBe('[');
+    expect(evalFn('$last', '[broken')).toBe('n');
+  });
+  it('returns null for empty array', () => {
+    expect(evalFn('$first', [])).toBeNull();
+    expect(evalFn('$last', [])).toBeNull();
+  });
+  it('slice with start only uses single-argument slice', () => {
+    expect(evalFn('$slice', [1, 2, 3], 1)).toEqual([2, 3]);
+  });
+
+  it('slice returns empty when value is not an array', () => {
+    expect(evalFn('$slice', '{}', 0, 1)).toEqual([]);
+  });
+
+  it('slice parses JSON array string', () => {
+    expect(evalFn('$slice', '[1,2,3,4]', 1, 3)).toEqual([2, 3]);
+  });
+
+  it('first returns null when first element is null', () => {
+    expect(evalFn('$first', [null])).toBeNull();
+    expect(evalFn('$first', '[null]')).toBeNull();
+  });
+
+  it('last returns null when last element is null', () => {
+    expect(evalFn('$last', [null])).toBeNull();
+    expect(evalFn('$last', '[null]')).toBeNull();
+  });
+
+  it('first and last of empty string are empty', () => {
+    expect(evalFn('$first', '')).toBe('');
+    expect(evalFn('$last', '')).toBe('');
+  });
+
+  it('slice passes explicit end index including zero', () => {
+    expect(evalFn('$slice', [1, 2, 3], 0, 0)).toEqual([]);
+  });
 });
 
 describe('$parse / $stringify', () => {

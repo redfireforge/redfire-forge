@@ -51,8 +51,8 @@ export interface VariableBindingAdapterOptions {
 export interface TemplateSlot {
   /** Inner ref (without braces), e.g. "orderId" or "node:abc.status". */
   ref: string;
-  /** Where this template ref appears: url, header, body, bodyForm. */
-  location: 'url' | 'header' | 'body' | 'bodyForm';
+  /** Where this template ref appears: path, query, header, body, bodyForm. */
+  location: 'path' | 'query' | 'header' | 'body' | 'bodyForm';
   /** For headers: the header key where this appears. */
   headerKey?: string;
 }
@@ -93,8 +93,15 @@ export function collectTemplateSlots(scenario: {
   };
 
   if (scenario.url) {
-    for (const ref of extractTemplateRefs(scenario.url)) {
-      add(ref, 'url');
+    const qIdx = scenario.url.indexOf('?');
+    const pathPart = qIdx >= 0 ? scenario.url.slice(0, qIdx) : scenario.url;
+    const queryPart = qIdx >= 0 ? scenario.url.slice(qIdx + 1) : '';
+
+    for (const ref of extractTemplateRefs(pathPart)) {
+      add(ref, 'path');
+    }
+    for (const ref of extractTemplateRefs(queryPart)) {
+      add(ref, 'query');
     }
   }
 
@@ -214,6 +221,7 @@ export function createVariableBindingAdapter(
       label: slotLabel(slot),
       type: 'string',
       required: false,
+      location: slot.location,
     })),
     allowCustomFields: false,
   };

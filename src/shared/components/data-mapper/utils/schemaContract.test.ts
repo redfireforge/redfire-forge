@@ -7,6 +7,7 @@ import {
 } from './schemaContract';
 import type { SchemaContractConfig, ContractViolation } from './schemaContract';
 import { captureSchemaSnapshot } from './schemaSnapshot';
+import * as schemaDrift from './schemaDrift';
 
 vi.mock('../../../utils/storage', () => ({
   readKey: vi.fn(),
@@ -121,6 +122,62 @@ describe('validateContract', () => {
     if (nullable) {
       expect(nullable.expected).toMatch(/nullable|non-nullable/);
       expect(nullable.actual).toMatch(/nullable|non-nullable/);
+    }
+  });
+
+  it('lenient mode ignores nullableChanged even when diff reports it', () => {
+    const saved = makeSnapshot({ x: 1 });
+    const spy = vi.spyOn(schemaDrift, 'diffSchemas').mockReturnValue([
+      {
+        path: 'n',
+        driftType: 'nullableChanged',
+        savedType: 'string',
+        currentType: 'string',
+        savedNullable: false,
+        currentNullable: true,
+        affectedMappingIds: [],
+      },
+    ]);
+    try {
+      const violations = validateContract(saved, { x: 1 }, 'test', enabledLenient);
+      expect(violations.some((v) => v.driftType === 'nullableChanged')).toBe(false);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('strict mode maps nullableChanged drift to expected and actual labels', () => {
+    const saved = makeSnapshot({ x: 1 });
+    const spy = vi.spyOn(schemaDrift, 'diffSchemas').mockReturnValue([
+      {
+        path: 'flag',
+        driftType: 'nullableChanged',
+        savedType: 'string',
+        currentType: 'string',
+        savedNullable: false,
+        currentNullable: true,
+        affectedMappingIds: [],
+      },
+      {
+        path: 'other',
+        driftType: 'nullableChanged',
+        savedType: 'string',
+        currentType: 'string',
+        savedNullable: true,
+        currentNullable: false,
+        affectedMappingIds: [],
+      },
+    ]);
+    try {
+      const violations = validateContract(saved, { x: 1 }, 'test', enabledStrict);
+      const v0 = violations.find((v) => v.path === 'flag');
+      const v1 = violations.find((v) => v.path === 'other');
+      expect(v0?.expected).toBe('non-nullable');
+      expect(v0?.actual).toBe('nullable');
+      expect(v1?.expected).toBe('nullable');
+      expect(v1?.actual).toBe('non-nullable');
+    } finally {
+      spy.mockRestore();
     }
   });
 

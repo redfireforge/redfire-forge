@@ -1,8 +1,8 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import type { Plugin, PreviewServer, ViteDevServer } from 'vite'
-import { readFileSync } from 'fs'
-import { resolve } from 'path'
+import { readFileSync, existsSync } from 'fs'
+import { resolve, join } from 'path'
 
 function proxyPlugin(): Plugin {
   let pooledDispatcher: import('undici').Dispatcher | undefined;
@@ -154,11 +154,40 @@ function proxyPlugin(): Plugin {
   };
 }
 
+function docsPlugin(): Plugin {
+  const docsRoot = resolve(__dirname, 'docs');
+
+  function attachDocsMiddleware(server: ViteDevServer | PreviewServer) {
+    server.middlewares.use('/docs', (req, res, next) => {
+      const urlPath = (req.url ?? '/').split('?')[0];
+      const filePath = join(docsRoot, decodeURIComponent(urlPath));
+      if (!filePath.startsWith(docsRoot) || !existsSync(filePath)) {
+        next();
+        return;
+      }
+      const ext = filePath.split('.').pop()?.toLowerCase() ?? '';
+      const mimeTypes: Record<string, string> = {
+        html: 'text/html', css: 'text/css', js: 'application/javascript',
+        json: 'application/json', png: 'image/png', svg: 'image/svg+xml',
+        jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif',
+      };
+      res.writeHead(200, { 'Content-Type': mimeTypes[ext] ?? 'application/octet-stream' });
+      res.end(readFileSync(filePath));
+    });
+  }
+
+  return {
+    name: 'docs-static',
+    configureServer(server) { attachDocsMiddleware(server); },
+    configurePreviewServer(server) { attachDocsMiddleware(server); },
+  };
+}
+
 const pkg = JSON.parse(readFileSync(resolve(__dirname, 'package.json'), 'utf-8'))
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react(), proxyPlugin()],
+  plugins: [react(), proxyPlugin(), docsPlugin()],
   clearScreen: false,
   server: {
     strictPort: true,

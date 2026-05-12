@@ -90,3 +90,6 @@ export type {
   SourceFormat,
   ValidationSeverity,
 } from './types';
+export { default as MappingHealthDashboard } from './MappingHealthDashboard';
+export { computeHealthStats } from './utils/healthStats';
+export type { HealthStats } from './utils/healthStats';

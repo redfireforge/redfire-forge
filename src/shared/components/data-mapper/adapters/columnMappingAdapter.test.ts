@@ -225,6 +225,49 @@ describe('parseScenarioTemplate', () => {
     expect(slots.find(s => s.name === 'vin')?.type).toBe('path');
     expect(slots.find(s => s.name === 'channel')?.type).toBe('param');
   });
+
+  it('assigns location: path for path variables', () => {
+    const scenario = makeScenario({ url: 'https://api.com/vehicles/{{vin}}/details' });
+    const slots = parseScenarioTemplate(scenario);
+    expect(slots.find(s => s.name === 'vin')?.location).toBe('path');
+  });
+
+  it('assigns location: query for query param placeholders', () => {
+    const scenario = makeScenario({ url: 'https://api.com/data?channel={{channel}}&limit=10' });
+    const slots = parseScenarioTemplate(scenario);
+    expect(slots.find(s => s.name === 'channel')?.location).toBe('query');
+  });
+
+  it('assigns location: body for body placeholders', () => {
+    const scenario = makeScenario({
+      url: 'https://api.com/data',
+      body: '{"name": "{{userName}}"}',
+    });
+    const slots = parseScenarioTemplate(scenario);
+    expect(slots.find(s => s.name === 'userName')?.location).toBe('body');
+  });
+
+  it('assigns location: header for header placeholders', () => {
+    const scenario = makeScenario({
+      url: 'https://api.com/data',
+      headers: [{ key: 'Authorization', value: 'Bearer {{token}}' }],
+    });
+    const slots = parseScenarioTemplate(scenario);
+    expect(slots.find(s => s.name === 'token')?.location).toBe('header');
+  });
+
+  it('mixed scenario assigns correct locations to all slots', () => {
+    const scenario = makeScenario({
+      url: 'https://api.com/{{vin}}?channel={{channel}}',
+      body: '{"payload": "{{data}}"}',
+      headers: [{ key: 'Auth', value: '{{token}}' }],
+    });
+    const slots = parseScenarioTemplate(scenario);
+    expect(slots.find(s => s.name === 'vin')?.location).toBe('path');
+    expect(slots.find(s => s.name === 'channel')?.location).toBe('query');
+    expect(slots.find(s => s.name === 'data')?.location).toBe('body');
+    expect(slots.find(s => s.name === 'token')?.location).toBe('header');
+  });
 });
 
 // ─── Adapter creation ────────────────────────────────────────
@@ -268,6 +311,14 @@ describe('createColumnMappingAdapter', () => {
     const pathField = adapter.target.fields!.find(f => f.path === 'path::vin');
     expect(pathField).toBeDefined();
     expect(pathField!.label).toBe('vin (URL Path)');
+  });
+
+  it('target fields include location tags', () => {
+    const adapter = createColumnMappingAdapter({ columns: COLUMNS, scenario: makeScenario() });
+    const pathField = adapter.target.fields!.find(f => f.path === 'path::vin');
+    expect(pathField!.location).toBe('path');
+    const paramField = adapter.target.fields!.find(f => f.path === 'param::channel');
+    expect(paramField!.location).toBe('query');
   });
 
   it('allows custom target fields', () => {

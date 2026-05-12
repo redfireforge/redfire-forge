@@ -23,6 +23,51 @@ vi.mock('../expression/ExpressionTextarea', () => ({
   )),
 }));
 
+vi.mock('../../../../shared/components/data-mapper/BodyBuilderPanel', () => ({
+  __esModule: true,
+  default: function MockBodyBuilder({
+    onBodyChange,
+    onMappingsChange,
+    onBodyTypeChange,
+    onBodyFormChange,
+  }: {
+    onBodyChange: (v: string) => void;
+    onMappingsChange: (m: unknown[]) => void;
+    onBodyTypeChange: (t: 'json' | 'form-urlencoded' | 'form-data' | 'text' | 'xml' | 'none' | 'file') => void;
+    onBodyFormChange: (f: { key: string; value: string }[]) => void;
+  }) {
+    return (
+      <div data-testid="mock-body-builder">
+        <button type="button" onClick={() => onBodyChange('{"mb":1}')}>bb-body</button>
+        <button type="button" onClick={() => onMappingsChange([])}>bb-mappings</button>
+        <button type="button" onClick={() => onBodyTypeChange('form-urlencoded')}>bb-type</button>
+        <button type="button" onClick={() => onBodyFormChange([])}>bb-form</button>
+      </div>
+    );
+  },
+}));
+
+vi.mock('../../../../shared/components/data-mapper', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../../shared/components/data-mapper')>();
+  return {
+    ...actual,
+    DataMapperModal: function MockVarMapperModal({
+      onSave,
+      onCancel,
+    }: {
+      onSave: () => void;
+      onCancel: () => void;
+    }) {
+      return (
+        <div data-testid="mock-var-mapper-modal">
+          <button type="button" onClick={() => onSave()}>var-mapper-save</button>
+          <button type="button" onClick={() => onCancel()}>var-mapper-cancel</button>
+        </div>
+      );
+    },
+  };
+});
+
 // Mock ExtractionEditor to expose props for testing
 let lastExtractionEditorProps: Record<string, unknown> = {};
 vi.mock('../../../requests/components/ExtractionEditor', () => ({
@@ -43,10 +88,18 @@ vi.mock('../../../requests/components/ParamsEditor', () => ({
   }),
 }));
 
-// Mock DataSourceEditor
 vi.mock('../../../scenarios/components/DataSourceEditor', () => ({
   __esModule: true,
-  default: vi.fn().mockImplementation(() => <div data-testid="data-source-editor">DataSourceEditor</div>),
+  default: vi.fn().mockImplementation((props: Record<string, unknown>) => (
+    <div data-testid="data-source-editor">
+      <button
+        type="button"
+        onClick={() => (props.onDraftChange as (p: Partial<Scenario>) => void)({ url: '/from-ds' })}
+      >
+        ds-patch-draft
+      </button>
+    </div>
+  )),
 }));
 
 function makeScenario(overrides: Partial<Scenario> = {}): Scenario {
@@ -686,5 +739,51 @@ describe('HttpConfig', () => {
         url: '/api?q=hello%20world',
       }),
     }));
+  });
+
+  it('routes body tab through visual BodyBuilderPanel callbacks', () => {
+    const onChange = vi.fn();
+    render(<HttpConfig {...defaultProps} activeTab="body" onChange={onChange} />);
+    fireEvent.click(screen.getByText('Visual Builder'));
+    expect(screen.getByTestId('mock-body-builder')).toBeTruthy();
+    fireEvent.click(screen.getByText('bb-body'));
+    fireEvent.click(screen.getByText('bb-mappings'));
+    fireEvent.click(screen.getByText('bb-type'));
+    fireEvent.click(screen.getByText('bb-form'));
+    expect(onChange.mock.calls.length).toBeGreaterThan(1);
+    fireEvent.click(screen.getByText('Raw'));
+    expect(screen.getByTestId('expression-textarea')).toBeTruthy();
+  });
+
+  it('updates extractions via ExtractionEditor onChange', () => {
+    const onChange = vi.fn();
+    render(<HttpConfig {...defaultProps} activeTab="extract" onChange={onChange} />);
+    const patch = [{ name: 'v1', source: 'body' as const, expression: '$.id' }];
+    (lastExtractionEditorProps.onChange as (e: typeof patch) => void)(patch);
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({
+      scenario: expect.objectContaining({ extractions: patch }),
+    }));
+  });
+
+  it('forwards DataSourceEditor draft updates through update()', () => {
+    const onChange = vi.fn();
+    render(<HttpConfig {...defaultProps} activeTab="data" onChange={onChange} />);
+    fireEvent.click(screen.getByText('ds-patch-draft'));
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({
+      scenario: expect.objectContaining({ url: '/from-ds' }),
+    }));
+  });
+
+  it('opens and closes variable binding mapper when template slots exist', () => {
+    const onChange = vi.fn();
+    const data = makeHttpData({ scenario: makeScenario({ url: 'https://api/x/{{orderId}}/y' }) });
+    render(<HttpConfig {...defaultProps} data={data} onChange={onChange} />);
+    fireEvent.click(screen.getByRole('button', { name: /Visual Variables/ }));
+    expect(screen.getByTestId('mock-var-mapper-modal')).toBeTruthy();
+    fireEvent.click(screen.getByText('var-mapper-save'));
+    expect(screen.queryByTestId('mock-var-mapper-modal')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /Visual Variables/ }));
+    fireEvent.click(screen.getByText('var-mapper-cancel'));
+    expect(screen.queryByTestId('mock-var-mapper-modal')).toBeNull();
   });
 });

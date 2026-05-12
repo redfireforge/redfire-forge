@@ -248,6 +248,24 @@ describe('useTestFetch hook', () => {
       expect(result.current.pendingFetchResponse).not.toBeNull();
     });
 
+    it('sets pendingFetchResponse when sample response already exists (no rules)', async () => {
+      const options = createOptions({
+        validation: {
+          mode: 'selective',
+          expectedFields: [],
+          sampleJson: '{"old":"data"}',
+        },
+      });
+
+      const { result } = renderHook(() => useTestFetch(options));
+
+      await act(async () => {
+        await result.current.handleFetchSampleResponse();
+      });
+
+      expect(result.current.pendingFetchResponse).not.toBeNull();
+    });
+
     it('sets fetchError when OAuth2 credentials are incomplete on sample fetch', async () => {
       const options = createOptions({
         auth: {

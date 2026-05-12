@@ -32,6 +32,10 @@ interface MapperToolbarProps {
   confidenceThreshold?: number;
   onConfidenceThresholdChange?: (value: number) => void;
   onLearnFromExamples?: () => void;
+  showMappingLines?: boolean;
+  onToggleMappingLines?: () => void;
+  nodeFocusMode?: boolean;
+  onToggleNodeFocusMode?: () => void;
 }
 
 export default function MapperToolbar({
@@ -61,6 +65,10 @@ export default function MapperToolbar({
   confidenceThreshold,
   onConfidenceThresholdChange,
   onLearnFromExamples,
+  showMappingLines = true,
+  onToggleMappingLines,
+  nodeFocusMode = false,
+  onToggleNodeFocusMode,
 }: MapperToolbarProps) {
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [samplesMenuOpen, setSamplesMenuOpen] = useState(false);
@@ -330,6 +338,24 @@ export default function MapperToolbar({
             title={showPreview ? 'Hide preview' : 'Show preview'}
           >
             ⊞ Preview
+          </button>
+        )}
+        {onToggleMappingLines && (
+          <button
+            className={`dm-toolbar-btn ${showMappingLines ? 'dm-toolbar-btn--active' : ''}`}
+            onClick={onToggleMappingLines}
+            title={showMappingLines ? 'Hide mapping lines' : 'Show mapping lines'}
+          >
+            🧵 Lines
+          </button>
+        )}
+        {!showMappingLines && onToggleNodeFocusMode && (
+          <button
+            className={`dm-toolbar-btn ${nodeFocusMode ? 'dm-toolbar-btn--active' : ''}`}
+            onClick={onToggleNodeFocusMode}
+            title={nodeFocusMode ? 'Disable node-focus lines' : 'Enable node-focus lines'}
+          >
+            🎯 Node focus
           </button>
         )}
         <button className="dm-toolbar-btn" onClick={onUndo} disabled={!canUndo} title="Undo (⌘Z)">

@@ -8,20 +8,6 @@ import '@testing-library/jest-dom';
 import SetupStepValidate from './SetupStepValidate';
 import type { SetupStepValidateProps } from './SetupStepValidate';
 
-// Mock JsonPathBuilder since it's complex
-vi.mock('../../requests/components/JsonPathBuilder', () => ({
-  default: ({ onUpdate }: { onUpdate: (patch: Record<string, unknown>) => void }) => (
-    <div data-testid="json-path-builder">
-      <button type="button" onClick={() => onUpdate({ expectedFields: [{ jsonPath: '$.name', expectedValue: '"test"' }] })}>
-        Update Fields
-      </button>
-      <button type="button" onClick={() => onUpdate({ excludedPaths: ['/skip'] })}>
-        Exclude Paths
-      </button>
-    </div>
-  ),
-}));
-
 vi.mock('../../../shared/components/data-mapper', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../../shared/components/data-mapper')>();
   return {
@@ -145,9 +131,9 @@ describe('SetupStepValidate', () => {
     expect(screen.getByText(/Or use stored response/)).toBeInTheDocument();
   });
 
-  it('renders JsonPathBuilder when sampleJson is present', () => {
+  it('renders Visual Mapper button when sampleJson is present', () => {
     render(<SetupStepValidate {...createDefaultProps({ sampleJson: '{"name": "test"}' })} />);
-    expect(screen.getByTestId('json-path-builder')).toBeInTheDocument();
+    expect(screen.getByText('⚡ Visual Mapper')).toBeInTheDocument();
   });
 
   it('shows re-fetch button when sampleJson is present', () => {
@@ -210,26 +196,25 @@ describe('SetupStepValidate', () => {
     expect(setSampleJson).toHaveBeenCalledWith(stored);
   });
 
-  it('forwards excludedPaths from JsonPathBuilder', () => {
-    const setValidateExcluded = vi.fn();
+  it('renders validation fields table when fields present', () => {
     render(<SetupStepValidate {...createDefaultProps({
       sampleJson: '{}',
-      setValidateExcluded,
+      validateFields: [{ jsonPath: '$.name', expectedValue: '"test"' }],
     })} />);
-    fireEvent.click(screen.getByText('Exclude Paths'));
-    expect(setValidateExcluded).toHaveBeenCalledWith(['/skip']);
+    const table = document.querySelector('.validation-fields-table');
+    expect(table).toBeTruthy();
   });
 
-  it('forwards expectedFields from JsonPathBuilder', () => {
+  it('removes field via inline remove button', () => {
     const setValidateFields = vi.fn();
     render(<SetupStepValidate {...createDefaultProps({
       sampleJson: '{}',
       setValidateFields,
+      validateFields: [{ jsonPath: '$.name', expectedValue: '"test"' }],
     })} />);
-    fireEvent.click(screen.getByText('Update Fields'));
-    expect(setValidateFields).toHaveBeenCalledWith([
-      { jsonPath: '$.name', expectedValue: '"test"' },
-    ]);
+    const removeBtn = document.querySelector('.btn-icon-sm');
+    if (removeBtn) fireEvent.click(removeBtn);
+    expect(setValidateFields).toHaveBeenCalledWith([]);
   });
 
   it('disables re-fetch while fetching', () => {

@@ -62,6 +62,22 @@ describe('CodeView', () => {
     expect(screen.getByText('1 mapping')).toBeTruthy();
   });
 
+  it('shows placeholder for empty target path', () => {
+    const mappings: Mapping[] = [
+      { id: 'm1', sourcePath: 'src', sourceId: 's1', targetPath: '' },
+    ];
+    const { container } = render(<CodeView mappings={mappings} />);
+    expect(container.textContent).toContain('(unmapped) ← src');
+  });
+
+  it('shows placeholder for missing source path when no expression', () => {
+    const mappings: Mapping[] = [
+      { id: 'm1', sourcePath: '', sourceId: 's1', targetPath: 'tgt' },
+    ];
+    const { container } = render(<CodeView mappings={mappings} />);
+    expect(container.textContent).toContain('tgt ← (unknown)');
+  });
+
   it('displays line numbers', () => {
     const mappings: Mapping[] = [
       { id: 'm1', sourcePath: 'a', sourceId: 's1', targetPath: 'b' },

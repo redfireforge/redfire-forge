@@ -1,9 +1,21 @@
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import type { Extraction, ExtractionSource } from '../../../shared/types';
 import type { WorkflowVariableHint } from '../../workflow/utils/workflowVariableHints';
-import { suggestedVariableNameFromJsonPath } from '../utils/jsonPathTreeUtils';
-import { type ExtractionFetchSampleProps } from './ExtractionPathPickerModal';
+import { suggestedVariableNameFromJsonPath } from '../../../shared/utils/jsonTreeModel';
 import ExpressionInput from '../../workflow/components/expression/ExpressionInput';
+
+export interface ExtractionFetchSampleProps {
+  onFetch: () => void | Promise<void>;
+  fetching: boolean;
+  error: string | null;
+  host?: {
+    enabled: boolean;
+    setEnabled: (v: boolean) => void;
+    override: string;
+    setOverride: (v: string) => void;
+    resolvedBaseUrl: string;
+  };
+}
 import {
   DataMapperModal,
   createExtractionAdapter,
@@ -49,13 +61,22 @@ export default function ExtractionEditor({ extractions, onChange, sampleResponse
     [nonBodyExtractions],
   );
 
+  const fetchSampleData = useMemo(() => {
+    if (!fetchSample?.onFetch) return undefined;
+    return async () => {
+      await fetchSample.onFetch();
+      return undefined;
+    };
+  }, [fetchSample]);
+
   const extractionAdapter = useMemo(
     () => createExtractionAdapter({
       sampleResponseBody,
       nonBodyExtractions,
+      fetchSampleData,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [sampleResponseBody, nonBodyFingerprint],
+    [sampleResponseBody, nonBodyFingerprint, fetchSampleData],
   );
 
   const pickerInitialData = useMemo(
@@ -67,9 +88,10 @@ export default function ExtractionEditor({ extractions, onChange, sampleResponse
     () => pickerIdx !== null ? createExtractionAdapter({
       sampleResponseBody,
       nonBodyExtractions,
+      fetchSampleData,
     }) : null,
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [pickerIdx, sampleResponseBody, nonBodyFingerprint],
+    [pickerIdx, sampleResponseBody, nonBodyFingerprint, fetchSampleData],
   );
 
   const update = (idx: number, patch: Partial<Extraction>) => {
@@ -99,7 +121,7 @@ export default function ExtractionEditor({ extractions, onChange, sampleResponse
   return (
     <div className="extraction-editor">
       <p className="extraction-hint">
-        Extract response values into <code>{'{{variables}}'}</code> for subsequent steps.
+        Extract response values into <code>{'{{variables}}'}</code> for workflow/chained steps. In a single standalone request, extractions are optional unless you reference them later.
       </p>
 
       {/* ── Open Data Mapper for body extractions ── */}

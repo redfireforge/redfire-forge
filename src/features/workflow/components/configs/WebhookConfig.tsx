@@ -28,14 +28,12 @@ export default function WebhookConfig({ data, onChange, workflowId, nodeId }: Pr
     : null;
 
   const handleCopyUrl = async () => {
-    if (webhookUrl) {
-      try {
-        await navigator.clipboard.writeText(webhookUrl);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-      } catch (err) {
-        console.error('Failed to copy:', err);
-      }
+    try {
+      await navigator.clipboard.writeText(webhookUrl as string);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
     }
   };
 

@@ -1,241 +1,285 @@
-# Data Mapper UI/UX Improvement Plan
+# Data Mapper UI Improvement - Execution Checklist
 
-> Created: 2026-05-11  
-> Scope: Data Mapper presentation quality, interaction clarity, and professional UX polish  
-> Complements: `docs/plan/data-mapper-plan.md` (feature-complete roadmap)
-
----
-
-## Why This Plan Exists
-
-The Data Mapper is functionally rich, but the current production UI (as seen in the latest screenshot) still feels visually dense, inconsistent, and less professional than the intended benchmark in `docs/mockups/data-mapper-edge-cases-mockup.html`.
-
-This document focuses only on **UI/UX quality improvement**, not core mapping logic.
+> Converted on: 2026-05-11  
+> Purpose: Turn the UI improvement plan into milestone tickets that can be executed directly by component/file.
 
 ---
 
-## Evaluation Inputs Reviewed
+## How To Use This Checklist
 
-1. **Current production UI screenshot** (Response Body -> Variables modal state)
-2. **Edge-case mockup reference**: `docs/mockups/data-mapper-edge-cases-mockup.html`
-3. **Existing master roadmap**: `docs/plan/data-mapper-plan.md`
-4. **Commercial UX guidance already captured in plan**:
-   - Two-panel trees + center mapping canvas
-   - Progressive disclosure for advanced transformations
-   - Strong type indicators and mapping status feedback
-   - Search-first navigation for large schemas
-   - Live feedback + trust-building state clarity
+- Each ticket is implementation-ready and scoped by component/file.
+- Mark a ticket complete only after code, tests, and visual verification are done.
+- Execute milestones in order (M0 -> M5) unless a ticket explicitly says it can run in parallel.
 
 ---
 
-## Executive Assessment
+## Milestone Overview
 
-The gap is not missing features. The gap is **experience coherence**:
-
-- Too many controls appear at once in the top toolbar, with weak grouping and mixed visual language.
-- Empty-state experience is low guidance and low trust (example: visible "1 mapping" while source and target are both empty).
-- Visual hierarchy is flat; important and secondary actions compete equally.
-- Styling uses many tiny controls and icon styles that look utility-oriented rather than product-polished.
-- The mockup communicates mapping state, complexity, and next steps better through stronger hierarchy, badges, and progressive disclosure.
-
----
-
-## Gap Matrix: Current vs Mockup
-
-| Area | Current Screenshot Behavior | Mockup Benchmark | UX Impact | Priority |
-|---|---|---|---|---|
-| Toolbar information density | Many controls in one row, all similar weight | Clear action grouping; progressive disclosure | Cognitive overload, weak first-impression quality | P0 |
-| Visual language | Emoji-heavy action labels (for example, "Auto-map", "Examples") mixed with text buttons | Consistent product-grade iconography and labels | Feels less enterprise/professional | P0 |
-| State trust | Shows `1 mapping` / `1 mapped` while both trees are empty | State appears context-aware and self-consistent | User confidence drops; appears buggy | P0 |
-| Empty states | Passive text only; no guided next action flow | Contextual, action-oriented empty-state pattern | Slower onboarding, uncertain next step | P0 |
-| Primary action emphasis | "Done" is visually detached from mapping workflow | Apply/complete action visually integrated with status | Completion path unclear | P1 |
-| Panel hierarchy | Panel headers/search/actions are visually similar; low contrast distinctions | Stronger panel segmentation and scanability | Harder to parse regions quickly | P1 |
-| Canvas utility in empty state | Large blank middle zone with little help | Canvas conveys meaning through structure, labels, and status | Wasted visual real estate | P1 |
-| Advanced feature discoverability | All users see advanced controls immediately | Progressive disclosure by context and user intent | Novice intimidation, expert clutter | P1 |
-| Typography and spacing rhythm | Small typography and tight controls in several regions | Balanced rhythm and better breathing room | Perceived quality penalty | P2 |
-| Interaction consistency | Multiple status surfaces (top count, panel count, bottom footer) can conflict | Unified status model | Redundant/conflicting signals | P2 |
+| Milestone | Objective | Tickets | Primary Components |
+|---|---|---:|---|
+| M0 | Baseline and guardrails | 4 | `DataMapper`, tests, docs |
+| M1 | Shell and toolbar information architecture | 6 | `MapperToolbar`, `DataMapper`, `DataMapperModal` |
+| M2 | Empty-state and state-trust UX | 5 | `SourcePanel`, `TargetPanel`, `MappingCanvas`, `DataMapper` |
+| M3 | Visual system alignment and polish | 5 | CSS + panel/canvas/footer components |
+| M4 | Progressive disclosure for advanced tools | 4 | `MapperToolbar`, `DataMapper` |
+| M5 | Validation, accessibility, and release gate | 5 | tests, docs, full mapper surface |
 
 ---
 
-## Root Causes
+## M0 - Baseline And Guardrails
 
-1. **Feature accretion without IA reset**  
-   Many advanced capabilities were added into existing shell areas (mainly toolbar), but the shell was not redesigned to absorb that complexity.
+### Exit Criteria
+- Baseline visual states are captured.
+- State integrity expectations are codified in tests.
+- A repeatable UX validation checklist exists.
 
-2. **Single-row command model**  
-   Primary, secondary, contextual, and expert actions currently live together.
+### Tickets
 
-3. **State model not tied to view readiness**  
-   Mapping counts are computed globally, even when source/target trees are empty or unresolved.
+- [ ] **DMUI-0001 - Baseline state inventory**
+  - **Components:** `DataMapper`, `SourcePanel`, `TargetPanel`, `MappingCanvas`, `DataMapperModal`
+  - **Files:** `src/shared/components/data-mapper/DataMapper.tsx`, `src/shared/components/data-mapper/SourcePanel.tsx`, `src/shared/components/data-mapper/TargetPanel.tsx`, `src/shared/components/data-mapper/MappingCanvas.tsx`, `src/shared/components/data-mapper/DataMapperModal.tsx`
+  - **Done when:** current empty/partial/mapped states are documented in this file as baseline references.
 
-4. **Styling token drift and inconsistent affordance weight**  
-   Different visual styles coexist (emoji controls, compact utility buttons, badges, footer hints), resulting in mixed product tone.
+- [ ] **DMUI-0002 - Snapshot coverage for baseline states**
+  - **Components:** visual snapshots
+  - **Files:** `src/shared/components/data-mapper/visual-snapshots.test.tsx`, `src/shared/components/data-mapper/__snapshots__/visual-snapshots.test.tsx.snap`
+  - **Done when:** snapshot tests include empty source, empty target, both empty, partially mapped, and fully mapped shells.
 
-5. **Empty-state UX treated as fallback text, not a workflow**  
-   Empty states should guide setup sequence (Source -> Target -> First mapping), not just explain absence.
+- [ ] **DMUI-0003 - State truth contract tests**
+  - **Components:** status counters and badges
+  - **Files:** `src/shared/components/data-mapper/DataMapper.test.tsx`, `src/shared/components/data-mapper/MapperToolbar.test.tsx`, `src/shared/components/data-mapper/TargetPanel.test.tsx`
+  - **Done when:** tests fail if mapping counters conflict with visible source/target readiness.
 
----
-
-## UX North-Star Principles
-
-1. **Clarity before power**: show core actions first, reveal advanced tools contextually.
-2. **One truth per state**: visible counters and badges must always match the visible data context.
-3. **Guided first-use path**: empty state should be actionable, not descriptive only.
-4. **Consistent visual grammar**: typography, iconography, spacing, and badges must feel like one system.
-5. **Progressive complexity**: advanced controls should not penalize beginners.
-6. **Professional tone**: remove novelty cues that reduce enterprise confidence.
-
----
-
-## Proposed UX Improvement Roadmap
-
-### Phase UI-1: Shell & Information Architecture Reset (P0)
-
-**Goal:** Make the interface immediately readable and professional before adding visual polish details.
-
-| Task | Description | Files (expected) |
-|---|---|---|
-| UI-1.1 Toolbar regrouping | Split actions into: Core Mapping, View Modes, Advanced Tools, History | `MapperToolbar.tsx`, `DataMapper.tsx`, `data-mapper.css` |
-| UI-1.2 Replace emoji-first controls | Move to consistent icon + text or text-only system | `MapperToolbar.tsx`, `SourcePanel.tsx`, `data-mapper.css` |
-| UI-1.3 Primary action hierarchy | Ensure completion CTA and mapping status have clear visual hierarchy | `DataMapperModal.tsx`, `data-mapper-modal.css` |
-| UI-1.4 State integrity rules | If source/target unavailable, show "unresolved mapping" state instead of plain mapped count | `DataMapper.tsx`, `TargetPanel.tsx` |
-
-**Acceptance criteria**
-- User can identify primary action and workflow in <5 seconds.
-- No conflicting counts between top status, panel badges, and footer.
-- Toolbar can be scanned by role group, not by individual button parsing.
+- [ ] **DMUI-0004 - UX validation script scaffold**
+  - **Components:** docs/test process
+  - **Files:** `docs/plan/data-mapper-ui-improvement.md`
+  - **Done when:** manual validation steps for first-map flow and trust-state checks are listed in M5.
 
 ---
 
-### Phase UI-2: Empty-State Experience Redesign (P0)
+## M1 - Shell And Toolbar Information Architecture
 
-**Goal:** Convert blank mapper states into guided setup flow.
+### Exit Criteria
+- Toolbar is grouped by user intent.
+- Primary and secondary actions are visually distinct.
+- Modal completion path is clear and professional.
 
-| Task | Description | Files (expected) |
-|---|---|---|
-| UI-2.1 Guided setup cards | Add action cards: "Paste Source JSON", "Fetch Source Sample", "Define Target Schema", "Load Sample" | `SourcePanel.tsx`, `TargetPanel.tsx`, `data-mapper.css` |
-| UI-2.2 Contextual callouts | Show setup progress steps (1/3 source ready, 2/3 target ready, 3/3 mapping ready) | `DataMapper.tsx`, `data-mapper.css` |
-| UI-2.3 Empty canvas helper | Add center instructional scaffold (how mapping appears once both sides are ready) | `MappingCanvas.tsx`, `data-mapper.css` |
-| UI-2.4 Recoverability hints | If mappings exist but schema missing, surface clear recovery CTA | `DataMapper.tsx`, `TargetPanel.tsx` |
+### Tickets
 
-**Acceptance criteria**
-- First-time user can create first mapping without external instructions.
-- Empty state never appears as "dead space".
-- No "mapped" counts shown without corresponding visible mappable structure.
+- [ ] **DMUI-1001 - Toolbar group layout refactor**
+  - **Components:** toolbar structure
+  - **Files:** `src/shared/components/data-mapper/MapperToolbar.tsx`, `src/styles/data-mapper.css`
+  - **Done when:** toolbar is grouped into Core Mapping, View, Advanced, and History clusters.
+  - **Depends on:** `DMUI-0003`
 
----
+- [ ] **DMUI-1002 - Action priority hierarchy**
+  - **Components:** toolbar/button emphasis
+  - **Files:** `src/shared/components/data-mapper/MapperToolbar.tsx`, `src/styles/data-mapper.css`
+  - **Done when:** `Auto-map`, `Clear`, and completion-related actions have clear priority and spacing.
+  - **Depends on:** `DMUI-1001`
 
-### Phase UI-3: Visual System Alignment with Mockup (P1)
+- [ ] **DMUI-1003 - Professional control language cleanup**
+  - **Components:** toolbar labels and icon usage
+  - **Files:** `src/shared/components/data-mapper/MapperToolbar.tsx`, `src/shared/components/data-mapper/SourcePanel.tsx`
+  - **Done when:** emoji-first labels are replaced with consistent product-grade labels/icons.
+  - **Depends on:** `DMUI-1001`
 
-**Goal:** Close aesthetic gap between production UI and edge-case mockup quality.
+- [ ] **DMUI-1004 - Modal header/footer hierarchy pass**
+  - **Components:** modal shell
+  - **Files:** `src/shared/components/data-mapper/DataMapperModal.tsx`, `src/styles/data-mapper-modal.css`
+  - **Done when:** `Done` path is visually clear, with cleaner header actions and footer rhythm.
+  - **Depends on:** `DMUI-1002`
 
-| Task | Description | Files (expected) |
-|---|---|---|
-| UI-3.1 Typography scale cleanup | Normalize size scale and weight for title, panel headers, metadata, helper text | `data-mapper.css`, `data-mapper-modal.css` |
-| UI-3.2 Spacing rhythm pass | Standardize paddings, row heights, badge spacing, control heights | `data-mapper.css` |
-| UI-3.3 Header/panel contrast tuning | Improve separation of toolbar, panel headers, search rows, canvas | `data-mapper.css` |
-| UI-3.4 Badge and line polish | Ensure mapping badges, confidence chips, and mismatch badges remain legible and non-overlapping | `MappingCanvas.tsx`, `data-mapper.css` |
-| UI-3.5 Footer rationalization | Keep one concise status strip; remove redundant noise | `DataMapper.tsx`, `data-mapper.css` |
+- [ ] **DMUI-1005 - Status lane simplification (top-level)**
+  - **Components:** top status text and badges
+  - **Files:** `src/shared/components/data-mapper/MapperToolbar.tsx`, `src/shared/components/data-mapper/DataMapper.tsx`
+  - **Done when:** top-level status conveys one clear mapping state with no redundant signals.
+  - **Depends on:** `DMUI-1002`
 
-**Acceptance criteria**
-- Visual hierarchy matches mockup quality expectations.
-- No badge overlap across common layouts.
-- Interface appears coherent at 100%, 125%, and 150% zoom.
-
----
-
-### Phase UI-4: Progressive Disclosure for Advanced Tools (P1)
-
-**Goal:** Keep power features without overwhelming default experience.
-
-| Task | Description | Files (expected) |
-|---|---|---|
-| UI-4.1 Advanced tools menu | Move less frequent controls (examples, profiles, confidence threshold, debug) into structured popover/drawer | `MapperToolbar.tsx`, `data-mapper.css` |
-| UI-4.2 Context-aware control visibility | Show controls only when relevant (e.g., confidence only when auto-map candidates exist) | `MapperToolbar.tsx`, `DataMapper.tsx` |
-| UI-4.3 Compact expert mode | Optional toggle to re-enable dense view for power users | `MapperToolbar.tsx`, `DataMapper.tsx` |
-
-**Acceptance criteria**
-- Default toolbar shows only high-frequency actions.
-- Advanced controls stay discoverable but unobtrusive.
-- Novice and expert workflows both remain efficient.
+- [ ] **DMUI-1006 - Toolbar regression tests**
+  - **Components:** toolbar interaction tests
+  - **Files:** `src/shared/components/data-mapper/MapperToolbar.test.tsx`, `src/shared/components/data-mapper/DataMapper.test.tsx`
+  - **Done when:** tests cover grouped layout, label updates, and action priority behavior.
+  - **Depends on:** `DMUI-1001`, `DMUI-1003`, `DMUI-1005`
 
 ---
 
-### Phase UI-5: UX Validation & Release Gate (P0 before merge)
+## M2 - Empty-State And State-Trust UX
 
-**Goal:** Treat UX quality as shippable quality, not subjective polish.
+### Exit Criteria
+- Empty states are guided and actionable.
+- Canvas provides setup guidance when no lines exist.
+- Counter/status behavior stays trustworthy in all empty/partial states.
 
-| Task | Description | Files (expected) |
-|---|---|---|
-| UI-5.1 Visual regression suite expansion | Add snapshots/stories for empty, partial, and fully mapped states | `visual-snapshots.test.tsx` (+ related tests) |
-| UI-5.2 UX scenario checklist | Add deterministic QA scenarios: first-use flow, partial schema, mismatch fix, auto-map review | `docs/plan` and test docs |
-| UI-5.3 Accessibility re-check | Verify focus order, contrast, and screen-reader labels after UI changes | mapper components + CSS |
-| UI-5.4 Smoke usability test | 3-5 internal runs measuring first-map completion time and confusion points | validation artifact |
+### Tickets
 
-**Acceptance criteria**
-- Visual regressions cover empty and setup states explicitly.
-- UX checklist passes before merge.
-- No a11y regressions from visual updates.
+- [ ] **DMUI-2001 - Source panel guided empty state**
+  - **Components:** source setup UX
+  - **Files:** `src/shared/components/data-mapper/SourcePanel.tsx`, `src/styles/data-mapper.css`
+  - **Done when:** source empty state includes clear actions (paste/fetch/sample guidance), not passive text only.
+  - **Depends on:** `DMUI-1001`
 
----
+- [ ] **DMUI-2002 - Target panel guided empty state**
+  - **Components:** target setup UX
+  - **Files:** `src/shared/components/data-mapper/TargetPanel.tsx`, `src/styles/data-mapper.css`
+  - **Done when:** target empty state includes explicit next actions for schema/sample setup.
+  - **Depends on:** `DMUI-1001`
 
-## Prioritized Backlog (Implementation Order)
+- [ ] **DMUI-2003 - Canvas instructional empty overlay**
+  - **Components:** center canvas guidance
+  - **Files:** `src/shared/components/data-mapper/MappingCanvas.tsx`, `src/shared/components/data-mapper/DataMapper.tsx`, `src/styles/data-mapper.css`
+  - **Done when:** when no mappings exist, canvas communicates how lines will appear after setup.
+  - **Depends on:** `DMUI-2001`, `DMUI-2002`
 
-### P0 (Do First)
+- [ ] **DMUI-2004 - Unresolved mapping trust state**
+  - **Components:** mapping counts and warnings
+  - **Files:** `src/shared/components/data-mapper/DataMapper.tsx`, `src/shared/components/data-mapper/TargetPanel.tsx`, `src/shared/components/data-mapper/MapperToolbar.tsx`
+  - **Done when:** persisted mappings with missing schema/source are shown as unresolved, not fully mapped.
+  - **Depends on:** `DMUI-0003`
 
-1. Toolbar regrouping and visual hierarchy reset
-2. Empty-state workflow redesign
-3. State integrity fix for mapping counters vs visible tree availability
-4. Professional iconography and control language cleanup
-5. UX validation gate definition
-
-### P1 (Do Next)
-
-1. Visual system tuning (typography, spacing, contrast)
-2. Advanced-tool progressive disclosure
-3. Footer and status channel simplification
-
-### P2 (Polish/Optimization)
-
-1. Optional expert compact mode
-2. Further animation and micro-interaction refinements
-3. Theme variants (if needed beyond current dark baseline)
-
----
-
-## Proposed Deliverables
-
-1. **Updated mapper shell** with cleaner command IA
-2. **Guided empty-state UX** for both source and target setup
-3. **Unified professional visual style** aligned with mockup intent
-4. **Consistent state messaging** with no contradictory counters
-5. **Documented UX quality gate** for future changes
+- [ ] **DMUI-2005 - Empty-state and trust regression tests**
+  - **Components:** test coverage
+  - **Files:** `src/shared/components/data-mapper/DataMapper.test.tsx`, `src/shared/components/data-mapper/SourcePanel.test.tsx`, `src/shared/components/data-mapper/TargetPanel.test.tsx`, `src/shared/components/data-mapper/MappingCanvas.test.tsx`
+  - **Done when:** tests lock in guided empty states and trust-state behavior.
+  - **Depends on:** `DMUI-2001`, `DMUI-2002`, `DMUI-2003`, `DMUI-2004`
 
 ---
 
-## Risks and Mitigations
+## M3 - Visual System Alignment And Polish
 
-| Risk | Impact | Mitigation |
-|---|---|---|
-| Over-optimizing visuals while breaking existing workflows | Medium | Keep behavior unchanged in UI-1/UI-3; add focused regression tests |
-| Toolbar simplification hides needed controls | Medium | Add "Advanced" grouping with persistent discoverability |
-| New empty-state flow adds complexity | Low | Keep max 2-step CTAs per panel, avoid wizard overhead |
-| CSS regressions across many features | High | Add targeted visual snapshots for key states before refactor |
+### Exit Criteria
+- Hierarchy, spacing, and typography are cohesive.
+- Badges/lines remain legible without overlap.
+- Footer status is concise and non-redundant.
+
+### Tickets
+
+- [ ] **DMUI-3001 - Typography and spacing scale normalization**
+  - **Components:** global mapper styles
+  - **Files:** `src/styles/data-mapper.css`, `src/styles/data-mapper-modal.css`
+  - **Done when:** font sizes, weights, control heights, and spacing follow a consistent scale.
+  - **Depends on:** `DMUI-1001`
+
+- [ ] **DMUI-3002 - Panel/header/search contrast tuning**
+  - **Components:** source/target panel visual hierarchy
+  - **Files:** `src/styles/data-mapper.css`
+  - **Done when:** panel header/search/tree sections are visually distinct and easier to scan.
+  - **Depends on:** `DMUI-3001`
+
+- [ ] **DMUI-3003 - Canvas badge and line collision handling**
+  - **Components:** mapping line annotation system
+  - **Files:** `src/shared/components/data-mapper/MappingCanvas.tsx`, `src/styles/data-mapper.css`
+  - **Done when:** confidence/suggestion/mismatch/array badges do not overlap in common scenarios.
+  - **Depends on:** `DMUI-2003`
+
+- [ ] **DMUI-3004 - Footer signal simplification**
+  - **Components:** bottom status strip
+  - **Files:** `src/shared/components/data-mapper/DataMapper.tsx`, `src/styles/data-mapper.css`
+  - **Done when:** footer shows concise status and shortcuts without duplicating top-level status.
+  - **Depends on:** `DMUI-1005`, `DMUI-2004`
+
+- [ ] **DMUI-3005 - Visual polish snapshot refresh**
+  - **Components:** visual regression artifacts
+  - **Files:** `src/shared/components/data-mapper/visual-snapshots.test.tsx`, `src/shared/components/data-mapper/__snapshots__/visual-snapshots.test.tsx.snap`
+  - **Done when:** snapshots are updated and reviewed for professional visual consistency.
+  - **Depends on:** `DMUI-3001`, `DMUI-3002`, `DMUI-3003`, `DMUI-3004`
 
 ---
 
-## Success Metrics
+## M4 - Progressive Disclosure For Advanced Tools
 
-1. **Perceived quality:** stakeholder review rates UI as "professional and production-ready"
-2. **First-map onboarding:** new user completes first mapping with no guidance
-3. **Trust signals:** no contradictory status indicators in empty/partial states
-4. **Operational quality:** zero visual/a11y regressions in mapper test suite
+### Exit Criteria
+- Default view prioritizes high-frequency actions.
+- Advanced controls are discoverable but not noisy.
+- Optional compact expert mode is available.
+
+### Tickets
+
+- [ ] **DMUI-4001 - Advanced tools container**
+  - **Components:** toolbar advanced section
+  - **Files:** `src/shared/components/data-mapper/MapperToolbar.tsx`, `src/styles/data-mapper.css`
+  - **Done when:** profiles/examples/debug/confidence are grouped under an "Advanced" affordance.
+  - **Depends on:** `DMUI-1001`
+
+- [ ] **DMUI-4002 - Context-aware control visibility**
+  - **Components:** dynamic toolbar behavior
+  - **Files:** `src/shared/components/data-mapper/MapperToolbar.tsx`, `src/shared/components/data-mapper/DataMapper.tsx`
+  - **Done when:** controls appear only when relevant (for example, confidence filter shown only with candidates).
+  - **Depends on:** `DMUI-4001`
+
+- [ ] **DMUI-4003 - Expert compact mode**
+  - **Components:** toolbar density mode
+  - **Files:** `src/shared/components/data-mapper/MapperToolbar.tsx`, `src/shared/components/data-mapper/DataMapper.tsx`, `src/styles/data-mapper.css`
+  - **Done when:** users can switch between default guided and compact expert layouts.
+  - **Depends on:** `DMUI-4001`
+
+- [ ] **DMUI-4004 - Progressive disclosure test coverage**
+  - **Components:** toolbar state tests
+  - **Files:** `src/shared/components/data-mapper/MapperToolbar.test.tsx`, `src/shared/components/data-mapper/DataMapper.test.tsx`
+  - **Done when:** tests verify advanced menu behavior, context visibility, and compact mode state.
+  - **Depends on:** `DMUI-4001`, `DMUI-4002`, `DMUI-4003`
 
 ---
 
-## Implementation Notes
+## M5 - Validation, Accessibility, And Release Gate
 
-- This plan should be executed as a **new UI-focused phase** after current feature-complete baseline.
-- Functional mapping engine should remain stable; changes are mainly shell, hierarchy, and visual behavior.
-- If desired, this can be tracked as **Phase 12: UI/UX Professionalization** inside `data-mapper-plan.md`, with this file as the detailed execution spec.
+### Exit Criteria
+- UX improvements are test-protected and accessible.
+- Manual smoke checklist is completed.
+- Release readiness criteria are explicitly passed.
+
+### Tickets
+
+- [ ] **DMUI-5001 - Visual regression expansion**
+  - **Components:** snapshot and state coverage
+  - **Files:** `src/shared/components/data-mapper/visual-snapshots.test.tsx`, `src/shared/components/data-mapper/__snapshots__/visual-snapshots.test.tsx.snap`
+  - **Done when:** snapshots cover all critical states introduced in M1-M4.
+  - **Depends on:** `DMUI-3005`, `DMUI-4004`
+
+- [ ] **DMUI-5002 - Behavioral regression pass**
+  - **Components:** mapper component tests
+  - **Files:** `src/shared/components/data-mapper/DataMapper.test.tsx`, `src/shared/components/data-mapper/MapperToolbar.test.tsx`, `src/shared/components/data-mapper/SourcePanel.test.tsx`, `src/shared/components/data-mapper/TargetPanel.test.tsx`, `src/shared/components/data-mapper/MappingCanvas.test.tsx`, `src/shared/components/data-mapper/DataMapperModal.test.tsx`
+  - **Done when:** updated tests pass with no regressions in core mapping flows.
+  - **Depends on:** `DMUI-5001`
+
+- [ ] **DMUI-5003 - Accessibility verification pass**
+  - **Components:** keyboard, aria labels, focus behavior, contrast
+  - **Files:** `src/shared/components/data-mapper/*.tsx`, `src/styles/data-mapper.css`, `src/styles/data-mapper-modal.css`
+  - **Done when:** no accessibility regressions after UI refactor (focus order, labels, contrast).
+  - **Depends on:** `DMUI-5002`
+
+- [ ] **DMUI-5004 - Manual UX smoke checklist completion**
+  - **Components:** QA workflow
+  - **Files:** `docs/plan/data-mapper-ui-improvement.md`
+  - **Done when:** checklist below is executed and signed off.
+  - **Depends on:** `DMUI-5002`, `DMUI-5003`
+
+- [ ] **DMUI-5005 - Final release gate**
+  - **Components:** overall mapper package
+  - **Files:** `docs/plan/data-mapper-ui-improvement.md`
+  - **Done when:** all tickets complete, tests pass, and UX sign-off is recorded.
+  - **Depends on:** all previous tickets
+
+---
+
+## Manual UX Smoke Checklist (for DMUI-5004)
+
+- [ ] First-time flow: paste source JSON -> define target -> create first mapping without confusion.
+- [ ] Empty-state flow: source empty, target empty, both empty each show actionable guidance.
+- [ ] Trust-state flow: no contradictory mapped counts in empty/partial states.
+- [ ] Auto-map flow: candidate threshold and advanced controls are understandable.
+- [ ] Advanced flow: profiles/examples/debug are discoverable but not noisy.
+- [ ] Keyboard flow: search shortcut, undo/redo, delete, panel switching still work.
+- [ ] Modal flow: Done/Cancel hierarchy is visually clear and consistent.
+
+---
+
+## Global Completion Criteria
+
+- [ ] Milestones M0-M5 complete
+- [ ] `npx tsc -b --noEmit` passes
+- [ ] Targeted mapper test files pass
+- [ ] Updated visual snapshots reviewed
+- [ ] UX smoke checklist completed
+- [ ] Accessibility re-check completed
 

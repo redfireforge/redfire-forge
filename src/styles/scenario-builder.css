@@ -2839,6 +2839,53 @@
   font-size: 0.75rem;
   color: var(--text-muted);
 }
+.validation-response-preview {
+  margin-top: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card);
+  overflow: hidden;
+}
+.validation-response-preview--pending {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+}
+.validation-response-preview-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+.validation-response-preview-title {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+.validation-response-preview-meta {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.validation-response-preview-textarea {
+  width: 100%;
+  border: none;
+  margin: 0;
+  border-radius: 0;
+  resize: vertical;
+  min-height: 160px;
+  max-height: 360px;
+  box-sizing: border-box;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.75rem;
+  line-height: 1.45;
+  background: var(--bg);
+  color: var(--text);
+}
+.validation-response-preview-textarea:focus {
+  outline: none;
+}
 .validate-host-input {
   flex: 1;
   font-size: 0.8rem;

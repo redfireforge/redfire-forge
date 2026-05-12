@@ -69,7 +69,7 @@ export default function DataMapperModal<TOutput = unknown>({
   onSave,
   onCancel,
   fullScreenDefault = false,
-  doneLabel = 'Done',
+  doneLabel = 'Save',
 }: DataMapperModalProps<TOutput>) {
   const titleId = useId();
   const [isFullScreen, setIsFullScreen] = useState(fullScreenDefault);
@@ -341,9 +341,6 @@ export default function DataMapperModal<TOutput = unknown>({
             >
               {isFullScreen ? '⊟' : '⊞'}
             </button>
-            <button className="dm-btn-icon" onClick={onCancel} aria-label="Close data mapper">
-              ×
-            </button>
           </div>
         </div>
 
@@ -367,6 +364,9 @@ export default function DataMapperModal<TOutput = unknown>({
             driftMappingIds={driftMappingIds}
             repairTick={repairTick}
             repairedMappingsRef={currentMappingsRef}
+            repairSuggestions={repairSuggestions}
+            onApplyRepair={handleRepairMapping}
+            onShowDrift={driftEntries.length > 0 ? handleShowDiff : undefined}
           />
         </div>
 

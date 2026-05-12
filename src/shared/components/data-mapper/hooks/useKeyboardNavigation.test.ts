@@ -1,5 +1,5 @@
 /** @vitest-environment jsdom */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useKeyboardNavigation } from './useKeyboardNavigation';
 
@@ -188,6 +188,57 @@ describe('useKeyboardNavigation', () => {
     expect(result.current.focusedPath).toBeNull();
 
     cleanup();
+  });
+
+  it('no-ops when container has no tree panel', () => {
+    const ref = { current: document.createElement('div') };
+    const { result } = renderHook(() => useKeyboardNavigation({ containerRef: ref }));
+    act(() => {
+      result.current.handleTreeKeyDown(
+        { key: 'ArrowDown', preventDefault: () => {} } as unknown as React.KeyboardEvent,
+        'source',
+        new Set(),
+        () => {},
+      );
+    });
+    expect(result.current.focusedPath).toBeNull();
+  });
+
+  it('no-ops when focusNodeByPath container ref is null', () => {
+    const { container, cleanup } = createContainer();
+    const ref: { current: HTMLDivElement | null } = { current: container };
+    const { result } = renderHook(() => useKeyboardNavigation({ containerRef: ref }));
+    act(() => {
+      ref.current = null;
+      result.current.handleTreeKeyDown(
+        { key: 'Home', preventDefault: () => {} } as unknown as React.KeyboardEvent,
+        'source',
+        new Set(['__root__']),
+        () => {},
+      );
+    });
+    ref.current = container;
+    cleanup();
+  });
+
+  it('Arrow keys no-op when visible node list is empty', () => {
+    const container = document.createElement('div');
+    const panel = document.createElement('div');
+    panel.className = 'dm-panel--source';
+    container.appendChild(panel);
+    document.body.appendChild(container);
+    const ref = { current: container };
+    const { result } = renderHook(() => useKeyboardNavigation({ containerRef: ref }));
+    act(() => {
+      result.current.handleTreeKeyDown(
+        { key: 'ArrowDown', preventDefault: () => {} } as unknown as React.KeyboardEvent,
+        'source',
+        new Set(),
+        () => {},
+      );
+    });
+    expect(result.current.focusedPath).toBeNull();
+    document.body.removeChild(container);
   });
 
   it('ArrowRight calls onToggle for collapsed nodes', () => {
@@ -404,6 +455,40 @@ describe('useKeyboardNavigation', () => {
     cleanup();
   });
 
+  it('Tab advances from target panel to source', () => {
+    const { container, cleanup } = createContainer();
+    const sourceTree = document.createElement('div');
+    sourceTree.className = 'dm-tree-container';
+    sourceTree.setAttribute('tabindex', '-1');
+    sourceTree.focus = function () { (this as HTMLElement).setAttribute('tabindex', '0'); };
+    container.querySelector('.dm-panel--source')!.appendChild(sourceTree);
+    const targetTree = document.createElement('div');
+    targetTree.className = 'dm-tree-container';
+    container.querySelector('.dm-panel--target')!.appendChild(targetTree);
+
+    const treeNode = document.createElement('div');
+    treeNode.className = 'dm-tree-node';
+    targetTree.appendChild(treeNode);
+
+    const ref = { current: container };
+    const { result } = renderHook(() => useKeyboardNavigation({ containerRef: ref }));
+
+    act(() => { result.current.setFocusRegion('target'); });
+
+    act(() => {
+      result.current.handleTreeKeyDown(
+        { key: 'Tab', shiftKey: false, preventDefault: () => {}, target: treeNode } as unknown as React.KeyboardEvent,
+        'target',
+        new Set(['__root__']),
+        () => {},
+      );
+    });
+
+    expect(result.current.focusRegion).toBe('source');
+
+    cleanup();
+  });
+
   it('Shift+Tab cycles focus region from target to source', () => {
     const { container, cleanup } = createContainer();
     const sourceTree = document.createElement('div');
@@ -439,6 +524,30 @@ describe('useKeyboardNavigation', () => {
     cleanup();
   });
 
+  it('Tab advances region even when next panel has no tree container', () => {
+    const { container, cleanup } = createContainer();
+    const sourceTree = document.createElement('div');
+    sourceTree.className = 'dm-tree-container';
+    const treeNode = document.createElement('div');
+    treeNode.className = 'dm-tree-node';
+    sourceTree.appendChild(treeNode);
+    container.querySelector('.dm-panel--source')!.appendChild(sourceTree);
+
+    const ref = { current: container };
+    const { result } = renderHook(() => useKeyboardNavigation({ containerRef: ref }));
+
+    act(() => {
+      result.current.handleTreeKeyDown(
+        { key: 'Tab', shiftKey: false, preventDefault: () => {}, target: treeNode } as unknown as React.KeyboardEvent,
+        'source',
+        new Set(),
+        () => {},
+      );
+    });
+    expect(result.current.focusRegion).toBe('target');
+    cleanup();
+  });
+
   it('Tab outside tree does not intercept (no keyboard trap)', () => {
     const { container, cleanup } = createContainer();
     const sourceTree = document.createElement('div');
@@ -466,6 +575,243 @@ describe('useKeyboardNavigation', () => {
 
     expect(result.current.focusRegion).toBe('source');
 
+    cleanup();
+  });
+
+  it('Tab clears last focused node when switching panels', () => {
+    const { container, cleanup } = createContainer();
+    const sourceTree = document.createElement('div');
+    sourceTree.className = 'dm-tree-container';
+    container.querySelector('.dm-panel--source')!.appendChild(sourceTree);
+    const targetTree = document.createElement('div');
+    targetTree.className = 'dm-tree-container';
+    targetTree.setAttribute('tabindex', '-1');
+    targetTree.focus = function () { (this as HTMLElement).setAttribute('tabindex', '0'); };
+    container.querySelector('.dm-panel--target')!.appendChild(targetTree);
+
+    const ref = { current: container };
+    const { result } = renderHook(() => useKeyboardNavigation({ containerRef: ref }));
+
+    const treeNode = document.createElement('div');
+    treeNode.className = 'dm-tree-node';
+    sourceTree.appendChild(treeNode);
+
+    act(() => {
+      result.current.handleTreeKeyDown(
+        { key: 'ArrowDown', preventDefault: () => {} } as unknown as React.KeyboardEvent,
+        'source',
+        new Set(['__root__']),
+        () => {},
+      );
+    });
+    const sourceFirst = container.querySelector('.dm-panel--source .dm-tree-node[data-path="name"]') as HTMLElement;
+    expect(sourceFirst.getAttribute('tabindex')).toBe('0');
+
+    act(() => {
+      result.current.handleTreeKeyDown(
+        { key: 'Tab', shiftKey: false, preventDefault: () => {}, target: treeNode } as unknown as React.KeyboardEvent,
+        'source',
+        new Set(['__root__']),
+        () => {},
+      );
+    });
+
+    expect(sourceFirst.hasAttribute('tabindex')).toBe(false);
+    expect(result.current.focusedPath).toBeNull();
+
+    cleanup();
+  });
+
+  it('focusNodeByPath falls back when CSS.escape is unavailable', () => {
+    const { container, cleanup } = createContainer();
+    const ref = { current: container };
+    const css = globalThis.CSS;
+    vi.stubGlobal('CSS', { ...css, escape: undefined as unknown as typeof css.escape });
+    try {
+      const { result } = renderHook(() => useKeyboardNavigation({ containerRef: ref }));
+      act(() => {
+        result.current.handleTreeKeyDown(
+          { key: 'ArrowDown', preventDefault: () => {} } as unknown as React.KeyboardEvent,
+          'source',
+          new Set(['__root__']),
+          () => {},
+        );
+      });
+      expect(result.current.focusedPath).toBe('name');
+    } finally {
+      vi.unstubAllGlobals();
+    }
+    cleanup();
+  });
+
+  it('ArrowRight does not toggle when no tree node is focused', () => {
+    const { container, cleanup } = createContainer();
+    const ref = { current: container };
+    let toggled = false;
+    const { result } = renderHook(() => useKeyboardNavigation({ containerRef: ref }));
+    act(() => {
+      result.current.handleTreeKeyDown(
+        { key: 'ArrowRight', preventDefault: () => {} } as unknown as React.KeyboardEvent,
+        'source',
+        new Set(['name']),
+        () => { toggled = true; },
+      );
+    });
+    expect(toggled).toBe(false);
+    cleanup();
+  });
+
+  it('does not strip tabindex when Home keeps focus on the same node', () => {
+    const { container, cleanup } = createContainer();
+    const ref = { current: container };
+    const { result } = renderHook(() => useKeyboardNavigation({ containerRef: ref }));
+
+    act(() => {
+      result.current.handleTreeKeyDown(
+        { key: 'ArrowDown', preventDefault: () => {} } as unknown as React.KeyboardEvent,
+        'source',
+        new Set(['__root__']),
+        () => {},
+      );
+    });
+    const nameEl = container.querySelector('.dm-panel--source .dm-tree-node[data-path="name"]') as HTMLElement;
+    act(() => {
+      result.current.handleTreeKeyDown(
+        { key: 'Home', preventDefault: () => {} } as unknown as React.KeyboardEvent,
+        'source',
+        new Set(['__root__']),
+        () => {},
+      );
+    });
+    expect(result.current.focusedPath).toBe('name');
+    expect(nameEl.getAttribute('tabindex')).toBe('0');
+
+    cleanup();
+  });
+
+  it('ArrowLeft does not toggle when focused node is collapsed', () => {
+    const { container, cleanup } = createContainer();
+    const ref = { current: container };
+    let toggled = false;
+    const { result } = renderHook(() => useKeyboardNavigation({ containerRef: ref }));
+    act(() => {
+      result.current.handleTreeKeyDown(
+        { key: 'ArrowDown', preventDefault: () => {} } as unknown as React.KeyboardEvent,
+        'source',
+        new Set(['__root__']),
+        () => {},
+      );
+    });
+    act(() => {
+      result.current.handleTreeKeyDown(
+        { key: 'ArrowLeft', preventDefault: () => {} } as unknown as React.KeyboardEvent,
+        'source',
+        new Set([]),
+        () => { toggled = true; },
+      );
+    });
+    expect(toggled).toBe(false);
+    cleanup();
+  });
+
+  it('End skips focus when last visible node lacks a path attribute', () => {
+    const { container, cleanup } = createContainer();
+    const ref = { current: container };
+    const ageNode = container.querySelector('.dm-panel--source .dm-tree-node[data-path="age"]')!;
+    const spy = vi.spyOn(ageNode, 'getAttribute').mockImplementation((name: string) => {
+      if (name === 'data-path') return null;
+      return HTMLElement.prototype.getAttribute.call(ageNode, name);
+    });
+    try {
+      const { result } = renderHook(() => useKeyboardNavigation({ containerRef: ref }));
+      act(() => {
+        result.current.handleTreeKeyDown(
+          { key: 'End', preventDefault: () => {} } as unknown as React.KeyboardEvent,
+          'source',
+          new Set(['__root__']),
+          () => {},
+        );
+      });
+      expect(result.current.focusedPath).toBeNull();
+    } finally {
+      spy.mockRestore();
+    }
+    cleanup();
+  });
+
+  it('Home skips focus when first visible node lacks a path attribute', () => {
+    const { container, cleanup } = createContainer();
+    const ref = { current: container };
+    const nameNode = container.querySelector('.dm-panel--source .dm-tree-node[data-path="name"]')!;
+    const spy = vi.spyOn(nameNode, 'getAttribute').mockImplementation((name: string) => {
+      if (name === 'data-path') return null;
+      return HTMLElement.prototype.getAttribute.call(nameNode, name);
+    });
+    try {
+      const { result } = renderHook(() => useKeyboardNavigation({ containerRef: ref }));
+      act(() => {
+        result.current.handleTreeKeyDown(
+          { key: 'Home', preventDefault: () => {} } as unknown as React.KeyboardEvent,
+          'source',
+          new Set(['__root__']),
+          () => {},
+        );
+      });
+      expect(result.current.focusedPath).toBeNull();
+    } finally {
+      spy.mockRestore();
+    }
+    cleanup();
+  });
+
+  it('skips focus when data-path resolves empty on visible node', () => {
+    const { container, cleanup } = createContainer();
+    const ref = { current: container };
+    const nameNode = container.querySelector('.dm-panel--source .dm-tree-node[data-path="name"]')!;
+    const spy = vi.spyOn(nameNode, 'getAttribute').mockImplementation((name: string) => {
+      if (name === 'data-path') return null;
+      return HTMLElement.prototype.getAttribute.call(nameNode, name);
+    });
+    try {
+      const { result } = renderHook(() => useKeyboardNavigation({ containerRef: ref }));
+      act(() => {
+        result.current.handleTreeKeyDown(
+          { key: 'ArrowDown', preventDefault: () => {} } as unknown as React.KeyboardEvent,
+          'source',
+          new Set(['__root__']),
+          () => {},
+        );
+      });
+      expect(result.current.focusedPath).toBeNull();
+    } finally {
+      spy.mockRestore();
+    }
+    cleanup();
+  });
+
+  it('skips focus when tree node selector finds no element', () => {
+    const { container, cleanup } = createContainer();
+    const ref = { current: container };
+    const spy = vi.spyOn(container, 'querySelector').mockImplementation(function (this: HTMLElement, sel: string) {
+      if (typeof sel === 'string' && sel.includes('.dm-tree-node[data-path=')) {
+        return null;
+      }
+      return HTMLElement.prototype.querySelector.call(this, sel);
+    });
+    try {
+      const { result } = renderHook(() => useKeyboardNavigation({ containerRef: ref }));
+      act(() => {
+        result.current.handleTreeKeyDown(
+          { key: 'ArrowDown', preventDefault: () => {} } as unknown as React.KeyboardEvent,
+          'source',
+          new Set(['__root__']),
+          () => {},
+        );
+      });
+      expect(result.current.focusedPath).toBeNull();
+    } finally {
+      spy.mockRestore();
+    }
     cleanup();
   });
 });

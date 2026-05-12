@@ -21,6 +21,7 @@ interface SourceTreeNodeProps {
   depth: number;
   search: string;
   onDragStart: (path: string, sourceId: string) => void;
+  onDragEnd?: () => void;
   sourceId: string;
   expandedPaths: Set<string>;
   onToggle: (path: string) => void;
@@ -47,6 +48,7 @@ export default function SourceTreeNode({
   depth,
   search,
   onDragStart,
+  onDragEnd,
   sourceId,
   expandedPaths,
   onToggle,
@@ -64,12 +66,19 @@ export default function SourceTreeNode({
 
   const handleDragStart = useCallback(
     (e: React.DragEvent) => {
-      e.dataTransfer.setData('application/mapper-source', JSON.stringify({ path: node.path, sourceId }));
+      const payload = JSON.stringify({ kind: 'source-field', path: node.path, sourceId });
+      e.dataTransfer.setData('application/mapper-source', payload);
+      // WKWebView/Safari can strip custom mime types; keep a text/plain fallback.
+      e.dataTransfer.setData('text/plain', `mapper-source:${payload}`);
       e.dataTransfer.effectAllowed = 'link';
       onDragStart(node.path, sourceId);
     },
     [node.path, sourceId, onDragStart],
   );
+
+  const handleDragEnd = useCallback(() => {
+    onDragEnd?.();
+  }, [onDragEnd]);
 
   const isLeaf = !hasChildren;
 
@@ -102,6 +111,7 @@ export default function SourceTreeNode({
         style={{ paddingLeft: depth * 16 + 4 }}
         draggable={isLeaf && drift?.severity !== 'breaking'}
         onDragStart={isLeaf && drift?.severity !== 'breaking' ? handleDragStart : undefined}
+        onDragEnd={isLeaf && drift?.severity !== 'breaking' ? handleDragEnd : undefined}
         onClick={handleClick}
         data-path={node.path}
         title={drift?.label}
@@ -150,6 +160,7 @@ export default function SourceTreeNode({
               depth={depth + 1}
               search={search}
               onDragStart={onDragStart}
+              onDragEnd={onDragEnd}
               sourceId={sourceId}
               expandedPaths={expandedPaths}
               onToggle={onToggle}

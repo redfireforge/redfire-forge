@@ -17,6 +17,8 @@ import type {
   MapperSource,
   MapperTarget,
   Mapping,
+  TargetField,
+  TargetSchemaResult,
   ValidationIssue,
 } from '../types';
 import { getAllLeafPaths, buildJsonTree } from '../../../utils/jsonTreeModel';
@@ -156,6 +158,25 @@ export function createValidationAdapter(
     },
 
     fetchSampleData: opts.fetchSampleData,
+
+    fetchTargetSchema: opts.fetchSampleData
+      ? async (): Promise<TargetSchemaResult> => {
+          const data = await opts.fetchSampleData!();
+          const fetched = coerceSampleData(data);
+          if (fetched == null || typeof fetched !== 'object') {
+            return { sampleData: fetched };
+          }
+          const tree = buildJsonTree(fetched, '', '');
+          const leafPaths = getAllLeafPaths(tree);
+          const fields: TargetField[] = leafPaths.map((p) => ({
+            path: p,
+            label: p.includes('.') ? p.split('.').pop()! : p,
+            type: 'string',
+            defaultValue: getByPathAsString(fetched, p),
+          }));
+          return { sampleData: fetched, fields };
+        }
+      : undefined,
 
     validate(mappings: Mapping[]): ValidationIssue[] {
       const issues: ValidationIssue[] = [];

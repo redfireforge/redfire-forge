@@ -3,271 +3,173 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Data Mapper Basics — Training Manual</title>
+  <title>Data Mapper Basics — Step-by-Step Walkthrough</title>
   <style>
-  @page { size: A4; margin: 20mm 18mm; }
-  @media print {
-    .page-break { page-break-before: always; }
-    body { font-size: 10pt; }
-    h1 { font-size: 20pt; }
-    h2 { font-size: 16pt; }
-    h3 { font-size: 13pt; }
-  }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
     font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
     color: #1a1a2e; line-height: 1.6; max-width: 900px;
     margin: 0 auto; padding: 30px 24px; background: #fff;
   }
-  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; }
   h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
   h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
-  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
   p, li { font-size: 13px; margin-bottom: 8px; }
   ul, ol { padding-left: 22px; }
-  code {
-    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
-    font-size: 12px; padding: 1px 5px; border-radius: 3px;
-  }
-  pre {
-    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
-    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
-    margin: 10px 0 16px; line-height: 1.5;
-  }
+  code { background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 1px 5px; border-radius: 3px; }
+  pre { background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto; margin: 10px 0 16px; line-height: 1.5; }
   table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
-  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
-  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
-  tr:nth-child(even) td { background: #f8f9fa; }
-  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; vertical-align: middle; }
-  .badge-easy { background: #d4edda; color: #155724; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; }
   .callout { background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px; margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
   .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
   .callout-warning { background: #fff3e0; border-left-color: #f57c00; }
   .callout strong { display: block; margin-bottom: 4px; }
-  .cover-page { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 60vh; text-align: center; }
-  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-top: 8px; }
-  .cover-page .meta { font-size: 12px; color: #6c757d; margin-top: 16px; }
-  .step-grid { display: grid; grid-template-columns: 40px 1fr; gap: 0 12px; margin: 16px 0; }
-  .step-num { width: 32px; height: 32px; background: #e63946; color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; }
-  .step-body { padding: 4px 0 20px; }
-  .step-body h4 { margin-top: 0; }
-  .key-combo { background: #1d3557; color: #fff; padding: 1px 6px; border-radius: 3px; font-size: 11px; font-family: 'JetBrains Mono', monospace; }
+  .step { background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 16px; margin: 12px 0; }
+  .step-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .step-num { width: 32px; height: 32px; background: #e63946; color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; flex-shrink: 0; }
+  .step-title { font-weight: 600; color: #1d3557; font-size: 15px; }
+  .expect { background: #d4edda; border-left: 4px solid #28a745; padding: 10px 14px; margin: 10px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+  .expect strong { color: #155724; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+  .badge-sample { background: #e8f4fd; color: #1d3557; }
+  .badge-easy { background: #d4edda; color: #155724; }
   </style>
 </head>
 <body>
 
-<div class="cover-page">
-  <h1>Data Mapper Basics</h1>
-  <div class="subtitle">Visual Source-to-Target Field Mapping</div>
-  <div><span class="badge badge-easy">Easy</span></div>
-  <div class="meta">RedfireForge — Redfire Performance Workbench<br>v0.5.7 · Data Mapper Series 1 of 4</div>
-</div>
-
-<div class="page-break"></div>
-
-<h2>1. What Is the Data Mapper?</h2>
-
-<p>The Data Mapper is a visual tool for connecting source data fields to target fields. Instead of writing JSON paths and template expressions by hand, you <strong>drag and drop</strong> fields between two tree panels to create mappings.</p>
-
-<table>
-  <tr><th>Concept</th><th>Description</th></tr>
-  <tr><td><strong>Source Panel</strong> (left)</td><td>Shows the structure of incoming data — API response body, headers, status code, or upstream workflow variables</td></tr>
-  <tr><td><strong>Target Panel</strong> (right)</td><td>Shows the expected structure of the output — the next request's body, validation target, or downstream variable shape</td></tr>
-  <tr><td><strong>Canvas</strong> (middle)</td><td>Displays connection lines between mapped fields, with badges showing the mapping type (direct, expression, loop, aggregate)</td></tr>
-  <tr><td><strong>Mapping</strong></td><td>A single connection from a source field to a target field, optionally with a transformation expression</td></tr>
-</table>
-
-<div class="callout callout-tip">
-  <strong>💡 When to use the Data Mapper</strong>
-  Use the mapper any time you need to extract values from one JSON shape and place them into another. Common places: request body builders, extraction rules, workflow variable assignments, and validation targets.
-</div>
-
-<h2>2. Opening the Data Mapper</h2>
-
-<p>The Data Mapper can be opened from several places in RedfireForge:</p>
-
-<table>
-  <tr><th>Context</th><th>How to Open</th><th>What Appears</th></tr>
-  <tr><td>Request Body Builder</td><td>Click <strong>Open Mapper</strong> button in the body editor toolbar</td><td>Source = previous response / extracted variables. Target = this request's body schema.</td></tr>
-  <tr><td>Extraction Rules</td><td>Click <strong>Map Fields</strong> in the extraction editor</td><td>Source = response body tree. Target = extraction variable definitions.</td></tr>
-  <tr><td>Workflow Node Config</td><td>Double-click a node → click <strong>Open Mapper</strong> in the node config modal</td><td>Source = upstream node variables (grouped by origin). Target = this node's input fields.</td></tr>
-  <tr><td>Validation / Assertions</td><td>Click <strong>Map Expected</strong> in the assertion builder</td><td>Source = actual response tree. Target = expected value template.</td></tr>
-</table>
-
-<h2>3. Understanding the Panels</h2>
-
-<h3>3.1 Source Panel</h3>
-
-<p>The source panel shows a tree view of available data. Each node displays:</p>
-
-<ul>
-  <li><strong>Field name</strong> — the JSON key</li>
-  <li><strong>Type badge</strong> — <code>str</code>, <code>num</code>, <code>bool</code>, <code>arr</code>, <code>obj</code></li>
-  <li><strong>Sample value</strong> — the actual value from a fetched or pasted sample (shown in muted text)</li>
-  <li><strong>Drag handle</strong> <code>⠿</code> — appears on hover; grab to start dragging</li>
-</ul>
-
-<h4>Loading Source Data</h4>
-
-<table>
-  <tr><th>Method</th><th>When to Use</th></tr>
-  <tr><td><strong>Fetch Sample</strong> ☁</td><td>Click to execute the upstream request and populate the source tree with a live response. Best for accuracy.</td></tr>
-  <tr><td><strong>Paste JSON</strong> 📋</td><td>Paste or type a JSON sample manually. Use when offline or when you have a specific sample.</td></tr>
-</table>
-
-<h3>3.2 Source Tabs</h3>
-
-<p>When the source is an HTTP response, three tabs are available:</p>
-
-<ul>
-  <li><strong>Body</strong> — the parsed JSON response body (most common)</li>
-  <li><strong>Headers</strong> — response headers as key-value pairs</li>
-  <li><strong>Status</strong> — status code and status text</li>
-</ul>
-
-<h3>3.3 Target Panel</h3>
-
-<p>The target panel shows the expected output structure. Mapped fields show a green left border and a source reference badge. Unmapped fields show a gray dash.</p>
-
-<h2>4. Creating Your First Mapping</h2>
-
-<div class="step-grid">
-  <div><div class="step-num">1</div></div>
-  <div class="step-body">
-    <h4>Open the Mapper</h4>
-    <p>From a request body builder or extraction editor, click <strong>Open Mapper</strong>.</p>
-  </div>
-
-  <div><div class="step-num">2</div></div>
-  <div class="step-body">
-    <h4>Load Source Data</h4>
-    <p>Click <strong>☁ Fetch</strong> to execute the upstream request and populate the source tree. Or click <strong>📋 Paste</strong> and paste a JSON sample.</p>
-  </div>
-
-  <div><div class="step-num">3</div></div>
-  <div class="step-body">
-    <h4>Expand the Trees</h4>
-    <p>Click the <code>▶</code> chevrons to expand both source and target trees. Find the fields you want to connect.</p>
-  </div>
-
-  <div><div class="step-num">4</div></div>
-  <div class="step-body">
-    <h4>Drag and Drop</h4>
-    <p>Hover over a source field to reveal the drag handle <code>⠿</code>. Drag it to the matching target field and release. A green connection line appears on the canvas.</p>
-  </div>
-
-  <div><div class="step-num">5</div></div>
-  <div class="step-body">
-    <h4>Check the Preview</h4>
-    <p>The target panel shows the mapped value next to each field: <code>← source.path</code>. The footer shows the mapping count.</p>
-  </div>
-
-  <div><div class="step-num">6</div></div>
-  <div class="step-body">
-    <h4>Apply</h4>
-    <p>Click <strong>✓ Apply</strong> to save the mappings and close the mapper. The generated expressions are injected into the parent editor.</p>
-  </div>
-</div>
-
-<h2>5. Auto-Map</h2>
-
-<p>Click the <strong>✨ Auto-map</strong> button in the toolbar to automatically match source and target fields by name. The mapper uses exact name matching and common naming conventions (e.g., <code>firstName</code> ↔ <code>first_name</code>).</p>
+<h1>Data Mapper Basics</h1>
+<p><span class="badge badge-easy">EASY</span> &nbsp; <span class="badge badge-sample">Sample: dm-extraction-mapping</span></p>
+<p>A hands-on walkthrough using the <strong>Extraction Mapping</strong> sample. You will open a test scenario, launch the Visual Mapper, see source/target trees with real data, and verify extraction mappings visually.</p>
 
 <div class="callout">
-  <strong>ℹ️ Auto-map is a starting point</strong>
-  Auto-map connects fields it is confident about. Review the suggestions, remove incorrect ones, and manually map the rest. Fields with ambiguous matches are left unmapped for you to decide.
+  <strong>Prerequisites</strong>
+  Import the <code>dm-extraction-mapping</code> sample from the Gallery before starting. Go to Gallery → Data Mapper → "Extraction Mapping" → click <strong>Load Sample</strong>.
 </div>
 
-<h2>6. Removing a Mapping</h2>
+<h2>Part 1 — Open the Sample</h2>
 
-<p>To remove a mapping, hover over the connection line on the canvas and click the <strong>✕</strong> button that appears. Alternatively, click a mapped target field and press <span class="key-combo">Delete</span> or <span class="key-combo">Backspace</span>.</p>
-
-<h2>7. Searching Fields</h2>
-
-<p>Both source and target panels have a search box. Type a field name to filter the tree and highlight matches. Use <span class="key-combo">/</span> to focus the source search, <span class="key-combo">Shift+/</span> for the target search.</p>
-
-<h2>8. Keyboard Shortcuts</h2>
-
-<table>
-  <tr><th>Key</th><th>Action</th></tr>
-  <tr><td><span class="key-combo">Tab</span> / <span class="key-combo">Shift+Tab</span></td><td>Move focus between source and target panels</td></tr>
-  <tr><td><span class="key-combo">↑</span> / <span class="key-combo">↓</span></td><td>Navigate between tree nodes</td></tr>
-  <tr><td><span class="key-combo">→</span></td><td>Expand a collapsed tree node</td></tr>
-  <tr><td><span class="key-combo">←</span></td><td>Collapse an expanded tree node</td></tr>
-  <tr><td><span class="key-combo">Home</span> / <span class="key-combo">End</span></td><td>Jump to first / last visible node</td></tr>
-  <tr><td><span class="key-combo">Esc</span></td><td>Clear selection; close modal when used from Data Mapper Modal</td></tr>
-  <tr><td><span class="key-combo">/</span></td><td>Focus the source search box</td></tr>
-  <tr><td><span class="key-combo">Delete</span> / <span class="key-combo">Backspace</span></td><td>Remove the selected mapping(s)</td></tr>
-  <tr><td><span class="key-combo">Ctrl+Z</span> / <span class="key-combo">⌘Z</span></td><td>Undo last action</td></tr>
-  <tr><td><span class="key-combo">Ctrl+Shift+Z</span> / <span class="key-combo">⌘⇧Z</span></td><td>Redo</td></tr>
-</table>
-
-<h2>9. Visual Indicators</h2>
-
-<table>
-  <tr><th>Indicator</th><th>Meaning</th></tr>
-  <tr><td>Green left border + <code>← source.path</code></td><td>Field is mapped via direct copy</td></tr>
-  <tr><td>Gray dash</td><td>Field is unmapped (optional field — no action needed)</td></tr>
-  <tr><td>Red <code>*</code></td><td>Required field is unmapped — must be mapped before Apply</td></tr>
-  <tr><td>Purple <code>ƒx</code> badge</td><td>Field uses an expression transform (not a simple copy)</td></tr>
-  <tr><td>Pink <code>∞</code> badge</td><td>Array loop mapping — iterates over source array</td></tr>
-  <tr><td>Blue <code>Σ</code> badge</td><td>Aggregation — array reduced to a single value (sum, count, etc.)</td></tr>
-  <tr><td>Amber <code>⚠</code></td><td>Type mismatch — source and target types differ</td></tr>
-</table>
-
-<h2>10. Mapping Profiles</h2>
-
-<p>Save and reload mapping configurations using the <strong>Profiles</strong> button in the toolbar:</p>
-
-<table>
-  <tr><th>Action</th><th>How</th></tr>
-  <tr><td>Save current mappings</td><td>Click <strong>Profiles</strong> → type a name → click <strong>✓</strong></td></tr>
-  <tr><td>Load a saved profile</td><td>Click <strong>Profiles</strong> → click a profile name</td></tr>
-  <tr><td>Rename a profile</td><td>Click the <strong>rename</strong> icon → edit → press <strong>Enter</strong></td></tr>
-  <tr><td>Delete a profile</td><td>Click the <strong>delete</strong> icon next to the profile</td></tr>
-</table>
-
-<div class="callout callout-info">
-  Profiles are stored locally in your browser. Each adapter context has its own set of profiles.
+<div class="step">
+  <div class="step-header"><div class="step-num">1</div><div class="step-title">Navigate to Scenarios</div></div>
+  <p>After importing, you'll be taken to the <strong>Scenarios</strong> tab. Find the group named <code>Gallery: Data Mapper — Extraction</code>.</p>
 </div>
 
-<h2>11. Bulk Operations</h2>
+<div class="step">
+  <div class="step-header"><div class="step-num">2</div><div class="step-title">Open the first test</div></div>
+  <p>Click on <code>GET user → extract id, name, email, company</code> to open the test editor.</p>
+  <div class="expect"><strong>You should see:</strong> The test editor with URL <code>https://jsonplaceholder.typicode.com/users/1</code> and method GET.</div>
+</div>
 
-<p>Select multiple source fields or mapping lines for batch operations:</p>
+<div class="step">
+  <div class="step-header"><div class="step-num">3</div><div class="step-title">Go to the Extract tab</div></div>
+  <p>Click the <strong>Extract</strong> tab (it shows a green badge with "6" indicating 5 extractions are defined).</p>
+  <div class="expect"><strong>You should see:</strong> A table with 5 extraction rows:
+    <code>userId</code> → <code>$.id</code>,
+    <code>userName</code> → <code>$.name</code>,
+    <code>userEmail</code> → <code>$.email</code>,
+    <code>companyName</code> → <code>$.company.name</code>,
+    <code>city</code> → <code>$.address.city</code>.
+  </div>
+</div>
 
-<ul>
-  <li><strong>Multi-select source fields</strong> — hold <code>Ctrl</code> / <code>⌘</code> and click source tree nodes, then drag all selected onto a target area</li>
-  <li><strong>Multi-select connection lines</strong> — hold <code>Ctrl</code> / <code>⌘</code> and click lines on the canvas to select multiple</li>
-  <li><strong>Batch delete</strong> — select multiple lines, then press <code>Delete</code> or <code>Backspace</code></li>
-</ul>
+<h2>Part 2 — Launch the Visual Mapper</h2>
 
-<h2>12. Code View</h2>
+<div class="step">
+  <div class="step-header"><div class="step-num">4</div><div class="step-title">Click "⚡ Visual Mapper"</div></div>
+  <p>Click the purple <strong>⚡ Visual Mapper</strong> button at the top of the Extract tab.</p>
+  <div class="expect"><strong>You should see:</strong> The Data Mapper modal opens with title <strong>"Response Body → Variables"</strong>.</div>
+</div>
 
-<p>Click the <strong>&lt;&gt; Code</strong> button in the toolbar to see a text representation of all mappings. Each line shows:</p>
+<div class="step">
+  <div class="step-header"><div class="step-num">5</div><div class="step-title">Inspect the Source panel (left)</div></div>
+  <p>The <strong>Source</strong> panel shows the embedded API response as a JSON tree:</p>
+  <pre>{
+  "id": 1,
+  "name": "Leanne Graham",
+  "email": "Sincere@april.biz",
+  "address": {
+    "city": "Gwenborough",
+    ...
+  },
+  "company": {
+    "name": "Romaguera-Crona",
+    ...
+  }
+}</pre>
+  <div class="expect"><strong>You should see:</strong> A fully populated source tree with expandable nodes for <code>address</code>, <code>company</code>, and <code>geo</code>. Each leaf node shows the actual value (e.g., <code>id: 1</code>, <code>name: "Leanne Graham"</code>).</div>
+</div>
 
-<pre>targetPath ← sourcePath
-targetPath ← $expression()</pre>
+<div class="step">
+  <div class="step-header"><div class="step-num">6</div><div class="step-title">Inspect the Target panel (right)</div></div>
+  <p>The <strong>Target</strong> panel shows the 5 extracted variable names:</p>
+  <table>
+    <tr><th>Variable Name</th><th>Mapped From (Expression)</th></tr>
+    <tr><td><code>userId</code></td><td><code>$.id</code></td></tr>
+    <tr><td><code>userName</code></td><td><code>$.name</code></td></tr>
+    <tr><td><code>userEmail</code></td><td><code>$.email</code></td></tr>
+    <tr><td><code>companyName</code></td><td><code>$.company.name</code></td></tr>
+    <tr><td><code>city</code></td><td><code>$.address.city</code></td></tr>
+  </table>
+  <div class="expect"><strong>You should see:</strong> The Target panel with "5 mapped" badge and all 5 variable names listed. Each shows a purple connection line back to its source path.</div>
+</div>
 
-<p>The code view is read-only and updates in real-time as you modify mappings. It's useful for reviewing complex mapping configurations at a glance.</p>
+<h2>Part 3 — Interact with the Mapper</h2>
 
-<h2>13. Expression Editor (Monaco)</h2>
+<div class="step">
+  <div class="step-header"><div class="step-num">7</div><div class="step-title">Try Auto-Map</div></div>
+  <p>Click the <strong>Auto-map</strong> button in the toolbar. Since all fields are already mapped, it will show "6 mappings" (no change).</p>
+</div>
 
-<p>Double-click a mapped target field to open the Expression Editor. It features:</p>
+<div class="step">
+  <div class="step-header"><div class="step-num">8</div><div class="step-title">Search for a field</div></div>
+  <p>Type <code>email</code> in the Source search bar. The tree filters to show only <code>email</code>. Clear the search to restore the full tree.</p>
+</div>
 
-<ul>
-  <li><strong>Autocomplete</strong> — type <code>$</code> to see available functions, type <code>$.</code> to see source field paths</li>
-  <li><strong>Live preview</strong> — see the result of your expression in real-time</li>
-  <li><strong>Function catalog</strong> — browse functions by category in the left sidebar</li>
-  <li><strong>Keyboard shortcuts</strong> — <code>Ctrl+Enter</code> to save, <code>Escape</code> to cancel</li>
-</ul>
+<div class="step">
+  <div class="step-header"><div class="step-num">9</div><div class="step-title">Click Preview</div></div>
+  <p>Click the <strong>Preview</strong> button in the toolbar. This shows a live preview of what each extraction would produce:</p>
+  <table>
+    <tr><th>Variable</th><th>Previewed Value</th></tr>
+    <tr><td><code>userId</code></td><td><code>1</code></td></tr>
+    <tr><td><code>userName</code></td><td><code>"Leanne Graham"</code></td></tr>
+    <tr><td><code>userEmail</code></td><td><code>"Sincere@april.biz"</code></td></tr>
+    <tr><td><code>companyName</code></td><td><code>"Romaguera-Crona"</code></td></tr>
+    <tr><td><code>city</code></td><td><code>"Gwenborough"</code></td></tr>
+  </table>
+  <div class="expect"><strong>You should see:</strong> Each target field shows the resolved value from the source JSON next to it.</div>
+</div>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">10</div><div class="step-title">Click Done</div></div>
+  <p>Click <strong>Done</strong> to close the mapper and save any changes back to the Extract tab.</p>
+</div>
+
+<h2>Part 4 — Verify the Chain</h2>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">11</div><div class="step-title">Open the second test</div></div>
+  <p>Go back to the scenario list and open <code>GET posts by extracted userId</code>.</p>
+  <div class="expect"><strong>You should see:</strong> URL contains <code>?userId={{userId}}</code> — the variable extracted from the first test will be substituted at runtime.</div>
+</div>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">12</div><div class="step-title">Open its Visual Mapper</div></div>
+  <p>Go to the Extract tab and open the Visual Mapper. The source shows a sample posts array response. The target shows <code>firstPostId</code> and <code>firstPostTitle</code>.</p>
+</div>
+
+<h2>Summary</h2>
+<table>
+  <tr><th>Concept</th><th>Where you saw it</th></tr>
+  <tr><td>Source tree from response JSON</td><td>Step 5 — left panel shows the user object</td></tr>
+  <tr><td>Target variables from extractions</td><td>Step 6 — right panel shows variable names</td></tr>
+  <tr><td>Mapping connections</td><td>Steps 5-6 — purple lines connect source→target</td></tr>
+  <tr><td>Preview evaluated values</td><td>Step 9 — see actual resolved values</td></tr>
+  <tr><td>Variable chaining across tests</td><td>Steps 11-12 — <code>{{userId}}</code> in second test URL</td></tr>
+</table>
 
 <div class="callout callout-tip">
-  <strong>💡 Next Steps</strong>
-  Once you're comfortable with basic drag-and-drop mapping, continue to the <em>Expression Mapping</em> manual to learn about transformation functions, or the <em>Array & Loop Mapping</em> manual for working with collections.
-</div>
-
-<div style="margin-top: 40px; padding-top: 16px; border-top: 2px solid #e63946; font-size: 11px; color: #6c757d; text-align: center;">
-  RedfireForge Training Manual · Data Mapper Basics · Easy · v0.5.7
+  <strong>Next: Expression Mapping</strong>
+  Try the <code>dm-body-builder</code> sample to learn about building POST bodies with <code>{{variable}}</code> templates.
 </div>
 
 </body>

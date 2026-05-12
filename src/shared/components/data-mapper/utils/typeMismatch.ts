@@ -26,6 +26,12 @@ const FIX_MAP: Record<string, string> = {
   'string→array': '$split($.PATH, ",")',
   'array→number': '$count($.PATH)',
   'array→boolean': '$toBool($count($.PATH))',
+  'object→string': '$toString($.PATH)',
+  'string→object': '$parse($.PATH)',
+  'object→array': '$values($.PATH)',
+  'array→object': '$first($.PATH)',
+  'object→number': '$count($keys($.PATH))',
+  'object→boolean': '$toBool($count($keys($.PATH)))',
 };
 
 /**
@@ -111,6 +117,20 @@ function buildMessage(sourceType: string, targetType: string, suggestedFn?: stri
 }
 
 /**
+ * Suggest an expression to coerce sourceType → targetType for a source path.
+ */
+export function suggestTypeFixExpression(
+  sourceType: string,
+  targetType: string,
+  sourcePath: string,
+): string | undefined {
+  const fixKey = `${sourceType}→${targetType}`;
+  const template = FIX_MAP[fixKey];
+  if (!template) return undefined;
+  return template.replace('$.PATH', toJsonPathRef(sourcePath));
+}
+
+/**
  * Determine the severity of a type mismatch.
  * Scalar-to-scalar is a warning (likely fixable), structural mismatches are info.
  */
@@ -143,10 +163,7 @@ export function detectTypeMismatches(
     if (!sourceType || !targetType) continue;
     if (typesCompatible(sourceType, targetType)) continue;
 
-    const fixKey = `${sourceType}→${targetType}`;
-    const template = FIX_MAP[fixKey];
-    const normalizedPath = toJsonPathRef(mapping.sourcePath);
-    const suggestedFix = template?.replace('$.PATH', normalizedPath);
+    const suggestedFix = suggestTypeFixExpression(sourceType, targetType, mapping.sourcePath);
 
     mismatches.push({
       mappingId: mapping.id,
