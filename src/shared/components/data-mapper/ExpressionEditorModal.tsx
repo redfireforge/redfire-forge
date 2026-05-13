@@ -90,8 +90,10 @@ export default function ExpressionEditorModal({
   onCancel,
 }: ExpressionEditorModalProps) {
   const titleId = useId();
+  const [isExpanded, setIsExpanded] = useState(false);
   const [expression, setExpression] = useState(mapping.expression ?? mapping.sourcePath);
   const [activeCategory, setActiveCategory] = useState<CategoryFilter>('All');
+  const [functionSearch, setFunctionSearch] = useState('');
   const [selectedFn, setSelectedFn] = useState<ExpressionFunction | null>(null);
   const [templateQuery, setTemplateQuery] = useState('');
   const [composeTemplates, setComposeTemplates] = useState(false);
@@ -105,6 +107,22 @@ export default function ExpressionEditorModal({
   const expressionRef = useRef(expression);
   expressionRef.current = expression;
   const handleSaveRef = useRef<() => void>(() => {});
+
+  const handleUndo = useCallback(() => {
+    const editor = editorRef.current;
+    if (editor) {
+      editor.trigger('keyboard', 'undo', null);
+      editor.focus();
+    }
+  }, []);
+
+  const handleRedo = useCallback(() => {
+    const editor = editorRef.current;
+    if (editor) {
+      editor.trigger('keyboard', 'redo', null);
+      editor.focus();
+    }
+  }, []);
 
   const allFunctions = useMemo(() => {
     const base = groupedExpressionFunctions();
@@ -164,9 +182,18 @@ export default function ExpressionEditorModal({
   }, [customFunctions]);
 
   const filteredGroups = useMemo(() => {
-    if (activeCategory === 'All') return grouped;
-    return grouped.filter((g) => g.category === activeCategory);
-  }, [grouped, activeCategory]);
+    const byCategory = activeCategory === 'All' ? grouped : grouped.filter((g) => g.category === activeCategory);
+    const q = functionSearch.trim().toLowerCase();
+    if (!q) return byCategory;
+    return byCategory
+      .map((g) => ({
+        ...g,
+        functions: g.functions.filter((fn) =>
+          fn.name.toLowerCase().includes(q) || fn.description.toLowerCase().includes(q),
+        ),
+      }))
+      .filter((g) => g.functions.length > 0);
+  }, [grouped, activeCategory, functionSearch]);
 
   const allCategories = useMemo(() => {
     const cats = [...EXPRESSION_CATEGORIES] as string[];
@@ -216,38 +243,41 @@ export default function ExpressionEditorModal({
     });
   }, [expression, sources, activeSourceId, customFunctions]);
 
-  const insertText = useCallback((text: string) => {
-    const editor = editorRef.current;
-    if (editor) {
-      const selection = editor.getSelection();
-      if (selection) {
-        editor.executeEdits('insert-expression', [{
-          range: selection,
-          text,
-        }]);
-        editor.focus();
-        return;
-      }
-    }
-    setExpression((prev) => prev + text);
-  }, []);
 
   const handleInsertFunction = useCallback((fn: ExpressionFunction) => {
     setSelectedFn(fn);
     const fnCall = fn.name.startsWith('$') ? fn.name : `$${fn.name}`;
-    const template = fn.args.length > 0
-      ? `${fnCall}(${fn.args.map((a) => a.name).join(', ')})`
-      : `${fnCall}()`;
-    insertText(template);
-  }, [insertText]);
+
+    if (fn.args.length === 0) {
+      setExpression(`${fnCall}()`);
+      return;
+    }
+
+    const currentExpr = expression.trim();
+    const baseInput = currentExpr
+      ? currentExpr
+      : toExpressionReference(mapping.sourcePath);
+
+    const args = fn.args.map((arg, index) => {
+      if (index === 0) return baseInput;
+      const type = arg.type.toLowerCase();
+      if (type.includes('string')) return '"value"';
+      if (type.includes('number')) return '0';
+      if (type.includes('bool')) return 'false';
+      return arg.name;
+    });
+
+    setExpression(`${fnCall}(${args.join(', ')})`);
+  }, [expression, mapping.sourcePath]);
 
   const handleInsertTemplate = useCallback((template: string) => {
     const sourceRef = toExpressionReference(mapping.sourcePath);
-    const pipelineInput = composeTemplates && expression.trim()
-      ? toExpressionReference(expression)
+    const currentExpr = expression.trim();
+    const pipelineInput = composeTemplates && currentExpr
+      ? currentExpr
       : sourceRef;
-    insertText(template.replace(/\$\.PATH/g, pipelineInput));
-  }, [mapping.sourcePath, composeTemplates, expression, insertText]);
+    setExpression(template.replace(/\$\.PATH/g, pipelineInput));
+  }, [mapping.sourcePath, composeTemplates, expression]);
 
   const handleComposeWithFunction = useCallback((fn: ExpressionFunction) => {
     const fnCall = fn.name.startsWith('$') ? fn.name : `$${fn.name}`;
@@ -399,12 +429,41 @@ export default function ExpressionEditorModal({
   }, [handleSave, onCancel]);
 
   return (
-    <div className="dm-expr-overlay" onKeyDown={handleKeyDown} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby={titleId}>
+    <div className={`dm-expr-overlay ${isExpanded ? 'dm-expr--expanded' : ''}`} onKeyDown={handleKeyDown} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby={titleId}>
       <div className="dm-expr-modal">
         <div className="dm-expr-header">
           <span id={titleId} className="dm-expr-title">Expression Editor</span>
           <span className="dm-expr-target-path">Target: {mapping.targetPath}</span>
-          <button className="dm-expr-close" onClick={onCancel} aria-label="Close expression editor">×</button>
+          <div className="dm-expr-header-actions">
+            <button
+              type="button"
+              className="dm-expr-action-btn"
+              onClick={handleUndo}
+              title="Undo (Ctrl+Z)"
+              aria-label="Undo"
+            >
+              ↶
+            </button>
+            <button
+              type="button"
+              className="dm-expr-action-btn"
+              onClick={handleRedo}
+              title="Redo (Ctrl+Shift+Z)"
+              aria-label="Redo"
+            >
+              ↷
+            </button>
+            <span className="dm-expr-action-divider" />
+            <button
+              type="button"
+              className="dm-expr-action-btn"
+              onClick={() => setIsExpanded((v) => !v)}
+              title={isExpanded ? 'Shrink to default size' : 'Expand to full screen'}
+              aria-label={isExpanded ? 'Shrink' : 'Expand'}
+            >
+              {isExpanded ? '⊟' : '⊞'}
+            </button>
+          </div>
         </div>
 
         <div className="dm-expr-body">
@@ -422,6 +481,13 @@ export default function ExpressionEditorModal({
                 >{cat}</button>
               ))}
             </div>
+            <input
+              className="dm-expr-fn-search"
+              value={functionSearch}
+              onChange={(e) => setFunctionSearch(e.target.value)}
+              placeholder="Search functions…"
+              aria-label="Search functions"
+            />
             <div className="dm-expr-fn-list">
               {filteredGroups.map((g) => (
                 <div key={g.category}>
@@ -439,6 +505,9 @@ export default function ExpressionEditorModal({
                   ))}
                 </div>
               ))}
+              {filteredGroups.length === 0 && functionSearch.trim() && (
+                <div className="dm-expr-fn-empty">No functions matching "{functionSearch.trim()}"</div>
+              )}
             </div>
           </div>
 

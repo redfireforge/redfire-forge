@@ -30,11 +30,11 @@ export const TRANSFORMATION_LIBRARY: readonly TransformationTemplate[] = [
   // ─── Type Conversions ──────────────────────────────────
   { id: 'str-to-num',       label: 'Parse number',       template: '$parseFloat($.PATH)',           description: 'Parse string to floating-point number',          category: 'conversion', fromType: 'string',  toType: 'number',  priority: 95 },
   { id: 'str-to-int',       label: 'Parse integer',      template: '$toInt($.PATH)',                description: 'Parse string to integer (truncates decimals)',   category: 'conversion', fromType: 'string',  toType: 'number',  priority: 90 },
-  { id: 'str-to-bool',      label: 'To boolean',         template: '$toBool($.PATH)',               description: 'Convert "true"/"false"/truthy string to boolean', category: 'conversion', fromType: 'string',  toType: 'boolean', priority: 95 },
-  { id: 'num-to-str',       label: 'To string',          template: '$toString($.PATH)',             description: 'Convert number to string',                       category: 'conversion', fromType: 'number',  toType: 'string',  priority: 95 },
-  { id: 'bool-to-str',      label: 'To string',          template: '$toString($.PATH)',             description: 'Convert boolean to "true"/"false" string',       category: 'conversion', fromType: 'boolean', toType: 'string',  priority: 95 },
-  { id: 'bool-to-num',      label: 'To integer',         template: '$toInt($.PATH)',                description: 'Convert boolean to 0/1',                         category: 'conversion', fromType: 'boolean', toType: 'number',  priority: 95 },
-  { id: 'num-to-bool',      label: 'To boolean',         template: '$toBool($.PATH)',               description: 'Convert number to boolean (0=false)',             category: 'conversion', fromType: 'number',  toType: 'boolean', priority: 95 },
+  { id: 'str-to-bool',      label: 'String → boolean',   template: '$toBool($.PATH)',               description: 'Convert "true"/"false"/truthy string to boolean', category: 'conversion', fromType: 'string',  toType: 'boolean', priority: 95 },
+  { id: 'num-to-str',       label: 'Number → string',    template: '$toString($.PATH)',             description: 'Convert number to string',                       category: 'conversion', fromType: 'number',  toType: 'string',  priority: 95 },
+  { id: 'bool-to-str',      label: 'Boolean → string',   template: '$toString($.PATH)',             description: 'Convert boolean to "true"/"false" string',       category: 'conversion', fromType: 'boolean', toType: 'string',  priority: 95 },
+  { id: 'bool-to-num',      label: 'Boolean → integer',  template: '$toInt($.PATH)',                description: 'Convert boolean to 0/1',                         category: 'conversion', fromType: 'boolean', toType: 'number',  priority: 95 },
+  { id: 'num-to-bool',      label: 'Number → boolean',   template: '$toBool($.PATH)',               description: 'Convert number to boolean (0=false)',             category: 'conversion', fromType: 'number',  toType: 'boolean', priority: 95 },
   { id: 'obj-to-str',       label: 'Stringify',          template: '$toString($.PATH)',             description: 'JSON stringify an object',                        category: 'conversion', fromType: 'object',  toType: 'string',  priority: 70 },
 
   // ─── Date Conversions ──────────────────────────────────

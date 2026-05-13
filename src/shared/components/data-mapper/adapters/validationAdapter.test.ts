@@ -564,3 +564,94 @@ describe('validationAdapter – fetchTargetSchema', () => {
     await expect(adapter.fetchTargetSchema!()).rejects.toThrow('Timeout');
   });
 });
+
+// ---------------------------------------------------------------------------
+// Operator round-trip tests
+// ---------------------------------------------------------------------------
+describe('validationAdapter — operator round-trip', () => {
+  it('serialize preserves operator and operatorValue from mappings', () => {
+    const adapter = createValidationAdapter({
+      sampleResponseBody: { price: 99, name: 'OnStar' },
+      selectiveMode: 'include',
+    });
+    const mappings = [
+      { id: 'v1', sourceId: 'response', sourcePath: 'price', targetPath: 'price', operator: 'greater_than' as const, operatorValue: '50' },
+      { id: 'v2', sourceId: 'response', sourcePath: 'name', targetPath: 'name', operator: 'contains' as const, operatorValue: 'Star' },
+    ];
+    const output = adapter.serialize(mappings);
+    expect(output.expectedFields[0].operator).toBe('greater_than');
+    expect(output.expectedFields[0].operatorValue).toBe('50');
+    expect(output.expectedFields[1].operator).toBe('contains');
+    expect(output.expectedFields[1].operatorValue).toBe('Star');
+  });
+
+  it('serialize omits operator fields when not present', () => {
+    const adapter = createValidationAdapter({
+      sampleResponseBody: { name: 'Alice' },
+      selectiveMode: 'include',
+    });
+    const mappings = [
+      { id: 'v1', sourceId: 'response', sourcePath: 'name', targetPath: 'name' },
+    ];
+    const output = adapter.serialize(mappings);
+    expect(output.expectedFields[0].operator).toBeUndefined();
+    expect(output.expectedFields[0].operatorValue).toBeUndefined();
+  });
+
+  it('deserialize restores operator and operatorValue into mappings', () => {
+    const adapter = createValidationAdapter({
+      sampleResponseBody: { price: 99, active: true },
+      selectiveMode: 'include',
+      expectedFields: [
+        { jsonPath: 'price', expectedValue: '', operator: 'greater_than', operatorValue: '10' },
+        { jsonPath: 'active', expectedValue: '', operator: 'is_true' },
+      ],
+    });
+    const output = {
+      selectiveMode: 'include' as const,
+      expectedFields: [
+        { jsonPath: 'price', expectedValue: '', operator: 'greater_than' as const, operatorValue: '10' },
+        { jsonPath: 'active', expectedValue: '', operator: 'is_true' as const },
+      ],
+      excludedPaths: [],
+    };
+    const mappings = adapter.deserialize(output);
+    expect(mappings[0].operator).toBe('greater_than');
+    expect(mappings[0].operatorValue).toBe('10');
+    expect(mappings[1].operator).toBe('is_true');
+    expect(mappings[1].operatorValue).toBeUndefined();
+  });
+
+  it('full round-trip: serialize → deserialize preserves operator data', () => {
+    const adapter = createValidationAdapter({
+      sampleResponseBody: { score: 95, status: 'active' },
+      selectiveMode: 'include',
+    });
+    const original = [
+      { id: 'v1', sourceId: 'response', sourcePath: 'score', targetPath: 'score', operator: 'between' as const, operatorValue: '80,100' },
+      { id: 'v2', sourceId: 'response', sourcePath: 'status', targetPath: 'status', operator: 'in' as const, operatorValue: '["active","pending"]' },
+    ];
+    const serialized = adapter.serialize(original);
+    const deserialized = adapter.deserialize(serialized);
+    expect(deserialized[0].operator).toBe('between');
+    expect(deserialized[0].operatorValue).toBe('80,100');
+    expect(deserialized[1].operator).toBe('in');
+    expect(deserialized[1].operatorValue).toBe('["active","pending"]');
+  });
+
+  it('backward compatible: deserialize handles fields without operators', () => {
+    const adapter = createValidationAdapter({
+      sampleResponseBody: { name: 'Alice' },
+      selectiveMode: 'include',
+      expectedFields: [{ jsonPath: 'name', expectedValue: '"Alice"' }],
+    });
+    const output = {
+      selectiveMode: 'include' as const,
+      expectedFields: [{ jsonPath: 'name', expectedValue: '"Alice"' }],
+      excludedPaths: [],
+    };
+    const mappings = adapter.deserialize(output);
+    expect(mappings[0].operator).toBeUndefined();
+    expect(mappings[0].operatorValue).toBeUndefined();
+  });
+});

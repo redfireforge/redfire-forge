@@ -150,13 +150,18 @@ export default function SetupStepValidate({
               <div className="validation-fields-summary">
                 <table className="validation-fields-table">
                   <thead>
-                    <tr><th>JSON Path</th><th>Expected Value</th><th /></tr>
+                    <tr><th>JSON Path</th><th>Operator</th><th>Expected Value</th><th /></tr>
                   </thead>
                   <tbody>
                     {validateFields.map((f: ExpectedField, idx: number) => (
                       <tr key={idx}>
                         <td><code>{f.jsonPath}</code></td>
-                        <td><code>{f.expectedValue}</code></td>
+                        <td>
+                          <span className={`validation-field-op-badge validation-field-op-badge--${f.operator ?? 'equals'}`}>
+                            {f.operator ? f.operator.replace(/_/g, ' ') : 'equals'}
+                          </span>
+                        </td>
+                        <td><code>{f.operatorValue ?? f.expectedValue}</code></td>
                         <td>
                           <button type="button" className="btn-icon-sm" title="Remove" onClick={() => {
                             const next = [...validateFields];

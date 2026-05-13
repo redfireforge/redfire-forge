@@ -29,8 +29,8 @@
   border-radius: 12px;
   display: flex;
   flex-direction: column;
-  width: min(90vw, 1200px);
-  height: min(85vh, 800px);
+  width: min(94vw, 1400px);
+  height: min(88vh, 860px);
   overflow: hidden;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
 }
@@ -385,7 +385,7 @@
 .dm-diff-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: transparent;
   display: flex;
   align-items: center;
   justify-content: center;

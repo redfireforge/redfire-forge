@@ -78,6 +78,7 @@ export function createAssertionAdapter(
     contextId: 'assertion',
     title: 'Response Body → Regex Assertion',
     category: 'http',
+    capabilities: { operators: true, verification: true },
     sources: [source],
     target,
 

@@ -264,6 +264,7 @@ export function createColumnMappingAdapter(
     contextId: 'column-mapping',
     title: 'Columns → Request Template',
     category: 'data-source',
+    capabilities: { expressions: false },
     sources: [source],
     target,
 

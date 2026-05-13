@@ -59,7 +59,11 @@ export function roundTripMappings<TOutput>(
           r.sourcePath === m.sourcePath &&
           r.sourceId === m.sourceId &&
           r.targetPath === m.targetPath &&
-          r.expression === m.expression,
+          r.expression === m.expression &&
+          r.operator === m.operator &&
+          r.operatorValue === m.operatorValue &&
+          r.condition === m.condition &&
+          r.fallback === m.fallback,
       ),
     );
   return { output, restored, lossless };

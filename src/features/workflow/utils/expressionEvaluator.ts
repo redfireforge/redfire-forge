@@ -93,9 +93,18 @@ function tokenize(expr: string): Token[] {
     }
 
     // Bare identifier (fallback — treated as variable name)
+    // Also consumes bracket notation (e.g. offers[0].offerName) so path
+    // references inside function args are kept as a single token.
     if (/[a-zA-Z_]/.test(expr[i])) {
       let ident = ''; 
       while (i < expr.length && /[a-zA-Z0-9_.]/.test(expr[i])) { ident += expr[i]; i++; }
+      while (i < expr.length && expr[i] === '[') {
+        ident += expr[i]; i++;
+        while (i < expr.length && expr[i] !== ']') { ident += expr[i]; i++; }
+        if (i < expr.length && expr[i] === ']') { ident += expr[i]; i++; }
+        if (i < expr.length && expr[i] === '.') { ident += expr[i]; i++; }
+        while (i < expr.length && /[a-zA-Z0-9_]/.test(expr[i])) { ident += expr[i]; i++; }
+      }
       tokens.push({ type: 'ident', value: ident });
       continue;
     }

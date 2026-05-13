@@ -1,0 +1,1279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RedfireForge — Visual Mapper: Validation Operators Mockup</title>
+<style>
+/* ─── Reset & Tokens ─────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #0d1117;
+  --bg-card: #161b22;
+  --bg-elevated: #1c2333;
+  --bg-hover: #1f2937;
+  --border: #30363d;
+  --border-accent: #58a6ff;
+  --text: #c9d1d9;
+  --text-muted: #8b949e;
+  --text-dim: #6e7681;
+  --accent: #58a6ff;
+  --success: #3fb950;
+  --success-dim: rgba(63, 185, 80, 0.15);
+  --warning: #d29922;
+  --warning-dim: rgba(210, 153, 34, 0.15);
+  --error: #f85149;
+  --error-dim: rgba(248, 81, 73, 0.15);
+  --purple: #bc8cff;
+  --purple-dim: rgba(188, 140, 255, 0.15);
+  --teal: #3ddbd9;
+  --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --mono: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+  --radius: 6px;
+  --radius-sm: 4px;
+}
+body { font-family: var(--font); background: var(--bg); color: var(--text); font-size: 13px; line-height: 1.5; overflow-x: hidden; }
+button { font-family: var(--font); cursor: pointer; border: none; background: none; color: var(--text); font-size: inherit; }
+
+/* ─── Layout ─────────────────────────────────────── */
+.mockup-page { max-width: 1400px; margin: 0 auto; padding: 24px; }
+.section-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--accent); margin: 40px 0 12px; font-weight: 600; }
+.section-label:first-child { margin-top: 0; }
+h1 { font-size: 20px; font-weight: 600; margin-bottom: 4px; }
+h1 span { color: var(--text-muted); font-weight: 400; font-size: 14px; margin-left: 8px; }
+.subtitle { color: var(--text-muted); font-size: 13px; margin-bottom: 24px; }
+.design-note { background: var(--bg-elevated); border-left: 3px solid var(--accent); padding: 10px 14px; border-radius: var(--radius-sm); margin: 12px 0; font-size: 12px; color: var(--text-muted); line-height: 1.6; }
+.design-note strong { color: var(--text); }
+
+/* ─── Modal Shell ────────────────────────────────── */
+.dm-modal { background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+.dm-modal-header { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--border); }
+.dm-modal-title { font-size: 15px; font-weight: 600; }
+.dm-modal-subtitle { color: var(--text-muted); font-size: 12px; }
+.dm-modal-actions { margin-left: auto; display: flex; gap: 6px; }
+
+/* ─── Toolbar ────────────────────────────────────── */
+.dm-toolbar { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+.dm-toolbar-group { display: flex; align-items: center; gap: 6px; }
+.dm-toolbar-divider { width: 1px; height: 20px; background: var(--border); margin: 0 4px; }
+.toolbar-btn { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: var(--radius-sm); font-size: 12px; border: 1px solid var(--border); transition: all 0.15s; }
+.toolbar-btn:hover { background: var(--bg-hover); border-color: var(--text-dim); }
+.toolbar-btn.primary { background: var(--success); color: #000; border-color: var(--success); font-weight: 600; }
+.toolbar-btn.primary:hover { opacity: 0.9; }
+.toolbar-btn.active { background: var(--accent); color: #000; border-color: var(--accent); }
+.toolbar-btn .badge { background: var(--accent); color: #000; font-size: 10px; padding: 0 5px; border-radius: 8px; font-weight: 700; min-width: 18px; text-align: center; }
+.toolbar-status { color: var(--text-muted); font-size: 12px; margin-left: 4px; }
+
+/* ─── Body: Source | Canvas | Target ─────────────── */
+.dm-body { display: flex; height: 520px; border-bottom: 1px solid var(--border); }
+.dm-panel { flex: 1; min-width: 0; display: flex; flex-direction: column; overflow: hidden; }
+.dm-panel--source { border-right: 1px solid var(--border); }
+.dm-panel--target { border-left: 1px solid var(--border); }
+.dm-panel-header { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-bottom: 1px solid var(--border); background: var(--bg-elevated); }
+.dm-panel-label { font-size: 12px; font-weight: 600; }
+.dm-mapped-count { font-size: 11px; color: var(--success); background: var(--success-dim); padding: 1px 7px; border-radius: 10px; }
+.dm-search-row { display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-bottom: 1px solid var(--border); }
+.dm-search-input { flex: 1; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 4px 8px; color: var(--text); font-size: 12px; outline: none; }
+.dm-search-input:focus { border-color: var(--accent); }
+.dm-filter-select { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 4px 6px; color: var(--text); font-size: 11px; }
+.dm-tree { flex: 1; overflow-y: auto; padding: 4px 0; }
+
+/* ─── Canvas ─────────────────────────────────────── */
+.dm-canvas { width: 140px; min-width: 140px; background: var(--bg); position: relative; }
+.dm-canvas svg { width: 100%; height: 100%; }
+.canvas-line { stroke: var(--success); stroke-width: 2; fill: none; opacity: 0.5; }
+.canvas-line.expression { stroke: var(--purple); stroke-dasharray: 6 3; }
+.canvas-line.operator { stroke: var(--warning); stroke-width: 2.5; }
+.canvas-badge { position: absolute; font-size: 9px; padding: 1px 6px; border-radius: 8px; font-weight: 600; white-space: nowrap; pointer-events: auto; cursor: default; }
+
+/* ─── Tree Nodes ─────────────────────────────────── */
+.tree-node { display: flex; align-items: center; gap: 4px; padding: 2px 8px 2px 0; min-height: 26px; border-left: 2px solid transparent; cursor: default; transition: background 0.1s; position: relative; }
+.tree-node:hover { background: var(--bg-hover); }
+.tree-node.mapped { background: var(--success-dim); border-left-color: var(--success); }
+.tree-node.selected { background: rgba(88, 166, 255, 0.1); border-left-color: var(--accent); }
+.tree-node.has-operator { background: var(--warning-dim); border-left-color: var(--warning); }
+.tree-toggle { width: 16px; text-align: center; font-size: 9px; color: var(--text-dim); flex-shrink: 0; user-select: none; }
+.tree-toggle:hover { color: var(--text); }
+.type-pill { font-size: 9px; padding: 0 4px; border-radius: 3px; font-weight: 600; font-family: var(--mono); flex-shrink: 0; }
+.type-pill.obj { background: #1f3a5f; color: #79b8ff; }
+.type-pill.arr { background: #2a1f47; color: #bc8cff; }
+.type-pill.str { background: #1a3a1a; color: #7ee787; }
+.type-pill.num { background: #3a2a0f; color: #d29922; }
+.type-pill.bool { background: #2a1a1a; color: #f97583; }
+.node-key { font-family: var(--mono); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.node-value { margin-left: auto; font-size: 11px; color: var(--text-dim); font-family: var(--mono); max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-left: 8px; }
+.node-mapped-ref { margin-left: auto; display: inline-flex; align-items: center; gap: 3px; font-size: 10px; padding-left: 8px; flex-shrink: 0; }
+.node-mapped-src { color: var(--success); font-family: var(--mono); max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.node-mapped-arrow { color: var(--text-dim); }
+
+/* ─── NEW: Operator Pill (on mapped target nodes) ── */
+.operator-pill { display: inline-flex; align-items: center; gap: 3px; padding: 1px 6px; border-radius: 10px; font-size: 10px; font-weight: 600; cursor: pointer; transition: all 0.15s; flex-shrink: 0; margin-left: 4px; }
+.operator-pill.equals { background: var(--success-dim); color: var(--success); }
+.operator-pill.comparison { background: var(--warning-dim); color: var(--warning); }
+.operator-pill.string-op { background: var(--purple-dim); color: var(--purple); }
+.operator-pill.type-check { background: rgba(61, 219, 217, 0.15); color: var(--teal); }
+.operator-pill.existence { background: rgba(139, 148, 158, 0.15); color: var(--text-muted); }
+.operator-pill:hover { filter: brightness(1.3); outline: 1px solid currentColor; }
+.operator-pill .op-icon { font-size: 11px; }
+
+/* ─── NEW: Operator Picker Dropdown ─────────────── */
+.operator-picker-overlay { position: fixed; inset: 0; z-index: 1000; }
+.operator-picker { position: absolute; z-index: 1001; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: 0 8px 30px rgba(0,0,0,0.5); width: 300px; max-height: 420px; overflow: hidden; display: flex; flex-direction: column; }
+.op-picker-header { padding: 10px 12px 8px; border-bottom: 1px solid var(--border); }
+.op-picker-title { font-size: 12px; font-weight: 600; margin-bottom: 6px; }
+.op-picker-search { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 5px 8px; color: var(--text); font-size: 12px; outline: none; }
+.op-picker-search:focus { border-color: var(--accent); }
+.op-picker-body { overflow-y: auto; padding: 4px 0; flex: 1; }
+.op-group-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); padding: 8px 12px 4px; font-weight: 600; }
+.op-item { display: flex; align-items: center; gap: 8px; padding: 6px 12px; cursor: pointer; transition: background 0.1s; }
+.op-item:hover { background: var(--bg-hover); }
+.op-item.selected { background: rgba(88, 166, 255, 0.12); }
+.op-item-icon { width: 22px; height: 22px; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; flex-shrink: 0; }
+.op-item-icon.cmp { background: var(--warning-dim); color: var(--warning); }
+.op-item-icon.str { background: var(--purple-dim); color: var(--purple); }
+.op-item-icon.typ { background: rgba(61,219,217,0.15); color: var(--teal); }
+.op-item-icon.exi { background: rgba(139,148,158,0.15); color: var(--text-muted); }
+.op-item-icon.bool { background: var(--error-dim); color: var(--error); }
+.op-item-icon.set { background: rgba(88,166,255,0.15); color: var(--accent); }
+.op-item-text { flex: 1; }
+.op-item-name { font-size: 12px; font-weight: 500; }
+.op-item-desc { font-size: 10px; color: var(--text-dim); }
+.op-item-value { font-size: 10px; color: var(--text-muted); }
+
+/* ─── NEW: Inline Value Editor (appears next to operator) */
+.inline-value-editor { display: inline-flex; align-items: center; gap: 4px; margin-left: 4px; }
+.inline-value-input { width: 80px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 2px 6px; font-size: 11px; color: var(--text); font-family: var(--mono); outline: none; }
+.inline-value-input:focus { border-color: var(--accent); width: 120px; }
+.inline-value-input.wide { width: 140px; }
+
+/* ─── NEW: Array-Level Assertion Row ─────────────── */
+.array-assertion-row { display: flex; align-items: center; gap: 6px; padding: 3px 8px 3px 32px; background: var(--warning-dim); border-left: 2px solid var(--warning); min-height: 24px; font-size: 11px; }
+.array-assertion-label { color: var(--warning); font-weight: 600; }
+.array-assertion-detail { color: var(--text-muted); font-family: var(--mono); }
+.array-assertion-edit { color: var(--accent); font-size: 10px; cursor: pointer; margin-left: auto; }
+.array-assertion-edit:hover { text-decoration: underline; }
+.array-assertion-remove { color: var(--text-dim); font-size: 12px; cursor: pointer; padding: 0 4px; }
+.array-assertion-remove:hover { color: var(--error); }
+
+/* ─── Footer ─────────────────────────────────────── */
+.dm-footer { display: flex; align-items: center; gap: 12px; padding: 10px 16px; }
+.dm-footer-status { font-size: 12px; color: var(--text-muted); }
+.dm-footer-status strong { color: var(--text); }
+.dm-footer-actions { margin-left: auto; display: flex; gap: 8px; }
+.btn { padding: 6px 16px; border-radius: var(--radius-sm); font-size: 12px; font-weight: 500; border: 1px solid var(--border); }
+.btn:hover { background: var(--bg-hover); }
+.btn-primary { background: var(--success); color: #000; border-color: var(--success); font-weight: 600; }
+.btn-primary:hover { opacity: 0.9; }
+.btn-cancel { color: var(--text-muted); }
+
+/* ─── Bottom Dock: Validation Summary Table ──────── */
+.dm-dock { border-top: 1px solid var(--border); max-height: 220px; overflow-y: auto; }
+.dm-dock-header { display: flex; align-items: center; gap: 8px; padding: 6px 12px; background: var(--bg-elevated); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 5; }
+.dm-dock-title { font-size: 12px; font-weight: 600; }
+.dm-dock-tabs { display: flex; gap: 2px; margin-left: auto; }
+.dm-dock-tab { padding: 3px 10px; font-size: 11px; border-radius: var(--radius-sm); }
+.dm-dock-tab.active { background: var(--accent); color: #000; }
+table.rules-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+table.rules-table th { text-align: left; padding: 4px 10px; color: var(--text-muted); font-weight: 500; border-bottom: 1px solid var(--border); position: sticky; top: 34px; background: var(--bg-card); z-index: 4; }
+table.rules-table td { padding: 5px 10px; border-bottom: 1px solid rgba(48,54,61,0.5); font-family: var(--mono); font-size: 11px; }
+table.rules-table tr:hover td { background: var(--bg-hover); }
+.rule-op { display: inline-block; padding: 1px 6px; border-radius: 8px; font-size: 10px; font-weight: 600; }
+.rule-op.eq { background: var(--success-dim); color: var(--success); }
+.rule-op.cmp { background: var(--warning-dim); color: var(--warning); }
+.rule-op.str { background: var(--purple-dim); color: var(--purple); }
+.rule-op.typ { background: rgba(61,219,217,0.15); color: var(--teal); }
+.rule-op.bool { background: var(--error-dim); color: var(--error); }
+.rule-val { color: var(--text); }
+.rule-remove { color: var(--text-dim); cursor: pointer; font-size: 12px; }
+.rule-remove:hover { color: var(--error); }
+
+/* ─── Callout Annotations (mockup-only) ──────────── */
+.annotation { position: absolute; z-index: 100; }
+.annotation-badge { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; background: var(--accent); color: #000; font-size: 11px; font-weight: 700; }
+.annotation-line { position: absolute; border-left: 2px dashed var(--accent); opacity: 0.4; }
+
+/* ─── Scenario Tabs ──────────────────────────────── */
+.scenario-tabs { display: flex; gap: 2px; margin: 20px 0 12px; border-bottom: 1px solid var(--border); }
+.scenario-tab { padding: 8px 16px; font-size: 13px; color: var(--text-muted); border-bottom: 2px solid transparent; cursor: pointer; transition: all 0.15s; }
+.scenario-tab:hover { color: var(--text); }
+.scenario-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+/* ─── Context Menu (right-click on target node) ──── */
+.context-menu { position: fixed; z-index: 2000; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: 0 8px 24px rgba(0,0,0,0.5); min-width: 220px; padding: 4px 0; }
+.ctx-item { display: flex; align-items: center; gap: 8px; padding: 6px 12px; font-size: 12px; cursor: pointer; }
+.ctx-item:hover { background: var(--bg-hover); }
+.ctx-item-icon { width: 16px; text-align: center; font-size: 12px; }
+.ctx-divider { height: 1px; background: var(--border); margin: 4px 0; }
+.ctx-item.disabled { opacity: 0.4; pointer-events: none; }
+.ctx-shortcut { margin-left: auto; font-size: 10px; color: var(--text-dim); }
+
+/* ─── Scrollbar ─────────────────────────────── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
+
+/* ─── Responsive ─────────────────────────── */
+@media (max-width: 900px) {
+  .dm-body { flex-direction: column; height: auto; }
+  .dm-panel { min-height: 200px; }
+  .dm-canvas { width: 100%; min-width: 100%; height: 60px; }
+}
+</style>
+</head>
+<body>
+<div class="mockup-page">
+
+<h1>Visual Mapper: Validation Operators <span>Interactive Mockup</span></h1>
+<p class="subtitle">Shows how all missing validation operators integrate into the existing Visual Mapper UI without disrupting the drag-and-drop mapping workflow.</p>
+
+<!-- ─── Scenario 1: The Full Mapper ──────────────────────── -->
+<div class="scenario-tabs">
+  <div class="scenario-tab active" onclick="showScenario(1)">Scenario 1: Full Mapper</div>
+  <div class="scenario-tab" onclick="showScenario(2)">Scenario 2: Operator Picker</div>
+  <div class="scenario-tab" onclick="showScenario(3)">Scenario 3: Array Assertions</div>
+  <div class="scenario-tab" onclick="showScenario(4)">Scenario 4: Context Menu</div>
+  <div class="scenario-tab" onclick="showScenario(5)">Scenario 5: Rules Summary</div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════ -->
+<!-- SCENARIO 1: Full Mapper with Operator Pills             -->
+<!-- ════════════════════════════════════════════════════════ -->
+<div id="scenario-1" class="scenario">
+<div class="section-label">Scenario 1 — Full Mapper with Inline Operator Pills</div>
+<div class="design-note">
+  <strong>Key Design Decisions:</strong><br>
+  1. Each mapped target field gains an <strong>operator pill</strong> between the arrow (←) and the source reference. Click to change the operator.<br>
+  2. Operators that need a value (e.g., "greater than 5") show an inline value input next to the pill.<br>
+  3. Array nodes gain an <strong>assertion row</strong> below them for length checks (e.g., "length >= 1").<br>
+  4. The bottom dock "Rules" tab shows all validation rules with operators in a unified table.<br>
+  5. Color-coded by category: <span style="color:var(--success)">green</span>=equals, <span style="color:var(--warning)">amber</span>=comparison, <span style="color:var(--purple)">purple</span>=string, <span style="color:var(--teal)">teal</span>=type, <span style="color:var(--text-muted)">gray</span>=existence.
+</div>
+
+<div class="dm-modal">
+  <!-- Header -->
+  <div class="dm-modal-header">
+    <div>
+      <div class="dm-modal-title">Response Body → Validation Rules</div>
+      <div class="dm-modal-subtitle">Map source fields to target outputs with validation operators</div>
+    </div>
+    <div class="dm-modal-actions">
+      <button class="toolbar-btn" style="font-size:11px">Exit full screen</button>
+    </div>
+  </div>
+
+  <!-- Toolbar -->
+  <div class="dm-toolbar">
+    <div class="dm-toolbar-group">
+      <button class="toolbar-btn primary">Auto-map <span class="badge">8</span></button>
+      <button class="toolbar-btn">Clear all</button>
+    </div>
+    <div class="dm-toolbar-divider"></div>
+    <div class="dm-toolbar-group">
+      <button class="toolbar-btn active">Code</button>
+      <button class="toolbar-btn">Preview</button>
+      <button class="toolbar-btn">Table</button>
+      <button class="toolbar-btn">Lines</button>
+    </div>
+    <div class="dm-toolbar-divider"></div>
+    <div class="dm-toolbar-group">
+      <button class="toolbar-btn">Map siblings</button>
+      <button class="toolbar-btn">Clear subtree</button>
+      <button class="toolbar-btn">Replace subtree</button>
+      <button class="toolbar-btn">Preview propagate</button>
+    </div>
+    <div class="dm-toolbar-divider"></div>
+    <div class="dm-toolbar-group">
+      <button class="toolbar-btn">Compact</button>
+      <button class="toolbar-btn">Undo</button>
+      <button class="toolbar-btn">Redo</button>
+    </div>
+    <span class="toolbar-status">12 mappings ready</span>
+  </div>
+
+  <!-- Body: Source | Canvas | Target -->
+  <div class="dm-body">
+    <!-- SOURCE PANEL -->
+    <div class="dm-panel dm-panel--source">
+      <div class="dm-panel-header">
+        <span class="dm-panel-label">Source</span>
+        <span style="margin-left:auto;font-size:11px;color:var(--text-dim)">JSON</span>
+      </div>
+      <div class="dm-search-row">
+        <input class="dm-search-input" placeholder="Search fields..." />
+        <select class="dm-filter-select"><option>All</option><option>Mapped</option><option>Unmapped</option></select>
+      </div>
+      <div class="dm-tree">
+        <!-- Source tree nodes -->
+        <div class="tree-node" style="padding-left:8px">
+          <span class="tree-toggle">▼</span>
+          <span class="type-pill obj">obj</span>
+          <span class="node-key">(root)</span>
+        </div>
+        <div class="tree-node" style="padding-left:24px">
+          <span class="tree-toggle">▼</span>
+          <span class="type-pill arr">arr</span>
+          <span class="node-key">offers</span>
+        </div>
+        <div class="tree-node" style="padding-left:40px">
+          <span class="tree-toggle">▼</span>
+          <span class="type-pill obj">obj</span>
+          <span class="node-key">offers[0]</span>
+        </div>
+        <div class="tree-node mapped" style="padding-left:56px">
+          <span class="tree-toggle">&nbsp;</span>
+          <span class="type-pill str">str</span>
+          <span class="node-key">associatedOfferingCode</span>
+          <span class="node-value">ONZFCNCPR3MCAL4</span>
+        </div>
+        <div class="tree-node mapped" style="padding-left:56px">
+          <span class="tree-toggle">&nbsp;</span>
+          <span class="type-pill num">num</span>
+          <span class="node-key">rank</span>
+          <span class="node-value">1</span>
+        </div>
+        <div class="tree-node mapped" style="padding-left:56px">
+          <span class="tree-toggle">&nbsp;</span>
+          <span class="type-pill str">str</span>
+          <span class="node-key">offerName</span>
+          <span class="node-value">OnStar One - trial - 1...</span>
+        </div>
+        <div class="tree-node mapped" style="padding-left:56px">
+          <span class="tree-toggle">&nbsp;</span>
+          <span class="type-pill str">str</span>
+          <span class="node-key">productCode</span>
+          <span class="node-value">OnStar One</span>
+        </div>
+        <div class="tree-node mapped" style="padding-left:56px">
+          <span class="tree-toggle">&nbsp;</span>
+          <span class="type-pill str">str</span>
+          <span class="node-key">billingCadence</span>
+          <span class="node-value">Prepaid</span>
+        </div>
+        <div class="tree-node mapped" style="padding-left:56px">
+          <span class="tree-toggle">&nbsp;</span>
+          <span class="type-pill str">str</span>
+          <span class="node-key">planType</span>
+          <span class="node-value">Trial</span>
+        </div>
+        <div class="tree-node" style="padding-left:56px">
+          <span class="tree-toggle">▼</span>
+          <span class="type-pill obj">obj</span>
+          <span class="node-key">duration</span>
+        </div>
+        <div class="tree-node mapped" style="padding-left:72px">
+          <span class="tree-toggle">&nbsp;</span>
+          <span class="type-pill str">str</span>
+          <span class="node-key">unit</span>
+          <span class="node-value">Months</span>
+        </div>
+        <div class="tree-node mapped" style="padding-left:72px">
+          <span class="tree-toggle">&nbsp;</span>
+          <span class="type-pill num">num</span>
+          <span class="node-key">value</span>
+          <span class="node-value">1</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- CANVAS -->
+    <div class="dm-canvas">
+      <svg viewBox="0 0 140 520">
+        <path class="canvas-line" d="M0,95 C60,95 80,45 140,45" />
+        <path class="canvas-line" d="M0,121 C60,121 80,71 140,71" />
+        <path class="canvas-line operator" d="M0,147 C60,147 80,97 140,97" />
+        <path class="canvas-line" d="M0,173 C60,173 80,123 140,123" />
+        <path class="canvas-line expression" d="M0,199 C60,199 80,149 140,149" />
+        <path class="canvas-line" d="M0,225 C60,225 80,175 140,175" />
+        <path class="canvas-line" d="M0,277 C60,277 80,201 140,201" />
+        <path class="canvas-line" d="M0,303 C60,303 80,227 140,227" />
+      </svg>
+      <!-- Operator badge on canvas line -->
+      <div class="canvas-badge" style="top:88px;left:40px;background:var(--warning-dim);color:var(--warning);border:1px solid var(--warning)">≥ 1</div>
+      <div class="canvas-badge" style="top:140px;left:36px;background:var(--purple-dim);color:var(--purple);border:1px solid var(--purple)">contains</div>
+    </div>
+
+    <!-- TARGET PANEL -->
+    <div class="dm-panel dm-panel--target">
+      <div class="dm-panel-header">
+        <span class="dm-panel-label">Target</span>
+        <span class="dm-mapped-count">12 mapped</span>
+        <span style="margin-left:auto;font-size:11px;color:var(--text-dim)">JSON</span>
+      </div>
+      <div class="dm-search-row">
+        <input class="dm-search-input" placeholder="Search fields..." />
+        <select class="dm-filter-select"><option>All</option><option>Mapped</option><option>Unmapped</option></select>
+      </div>
+      <div class="dm-tree">
+        <!-- Target tree nodes with OPERATOR PILLS -->
+        <div class="tree-node mapped" style="padding-left:8px">
+          <span class="tree-toggle">&nbsp;</span>
+          <span class="type-pill str">str</span>
+          <span class="node-key">associatedOfferingCode</span>
+          <span class="node-mapped-ref">
+            <span class="node-mapped-arrow">←</span>
+            <span class="operator-pill equals" onclick="showPicker(this, 'equals')" title="Click to change operator">= equals</span>
+            <span class="node-mapped-src">offers[0].associatedOfferingCode</span>
+          </span>
+        </div>
+        <div class="tree-node mapped" style="padding-left:8px">
+          <span class="tree-toggle">&nbsp;</span>
+          <span class="type-pill num">num</span>
+          <span class="node-key">rank</span>
+          <span class="node-mapped-ref">
+            <span class="node-mapped-arrow">←</span>
+            <span class="operator-pill comparison" onclick="showPicker(this, 'gte')" title="Click to change operator">≥ at least</span>
+            <span class="inline-value-editor"><input class="inline-value-input" value="1" /></span>
+          </span>
+        </div>
+        <div class="tree-node mapped has-operator" style="padding-left:8px">
+          <span class="tree-toggle">&nbsp;</span>
+          <span class="type-pill str">str</span>
+          <span class="node-key">offerName</span>
+          <span class="node-mapped-ref">
+            <span class="node-mapped-arrow">←</span>
+            <span class="operator-pill string-op" onclick="showPicker(this, 'contains')" title="Click to change operator">⊃ contains</span>
+            <span class="inline-value-editor"><input class="inline-value-input wide" value="OnStar" /></span>
+          </span>
+        </div>
+        <div class="tree-node mapped" style="padding-left:8px">
+          <span class="tree-toggle">&nbsp;</span>
+          <span class="type-pill str">str</span>
+          <span class="node-key">productCode</span>
+          <span class="node-mapped-ref">
+            <span class="node-mapped-arrow">←</span>
+            <span class="operator-pill equals" onclick="showPicker(this, 'equals')">= equals</span>
+            <span class="node-mapped-src">offers[0].productCode</span>
+          </span>
+        </div>
+        <div class="tree-node mapped" style="padding-left:8px">
+          <span class="tree-toggle">&nbsp;</span>
+          <span class="type-pill str">str</span>
+          <span class="node-key">billingCadence</span>
+          <span class="node-mapped-ref">
+            <span class="node-mapped-arrow">←</span>
+            <span class="operator-pill equals" onclick="showPicker(this, 'equals')">= equals</span>
+            <span class="node-mapped-src">offers[0].billingCadence</span>
+          </span>
+        </div>
+        <div class="tree-node mapped" style="padding-left:8px">
+          <span class="tree-toggle">&nbsp;</span>
+          <span class="type-pill bool">bool</span>
+          <span class="node-key">planType</span>
+          <span class="node-mapped-ref">
+            <span class="node-mapped-arrow">←</span>
+            <span class="operator-pill equals" onclick="showPicker(this, 'equals')">= equals</span>
+            <span class="node-mapped-src">offers[0].planType</span>
+          </span>
+        </div>
+
+        <!-- Array node with ASSERTION ROW -->
+        <div class="tree-node" style="padding-left:8px">
+          <span class="tree-toggle">▼</span>
+          <span class="type-pill arr">arr</span>
+          <span class="node-key">offers</span>
+          <span style="margin-left:auto;font-size:10px;color:var(--text-dim)">6 items</span>
+        </div>
+        <!-- Array length assertion (injected below array node) -->
+        <div class="array-assertion-row">
+          <span class="array-assertion-label">LENGTH</span>
+          <span class="array-assertion-detail">
+            <select style="background:var(--bg);border:1px solid var(--border);color:var(--text);font-size:11px;padding:1px 4px;border-radius:3px" onchange="this.nextElementSibling.style.display=this.value==='exists'?'none':'inline'">
+              <option value="gte">≥ at least</option>
+              <option value="gt">&gt; greater than</option>
+              <option value="eq">= equals</option>
+              <option value="lte">≤ at most</option>
+              <option value="lt">&lt; less than</option>
+              <option value="ne">≠ not equals</option>
+              <option value="between">↔ between</option>
+              <option value="exists">? exists (non-empty)</option>
+            </select>
+            <input style="width:50px;background:var(--bg);border:1px solid var(--border);color:var(--text);font-size:11px;padding:1px 6px;border-radius:3px;font-family:var(--mono)" value="1" />
+          </span>
+          <span class="array-assertion-edit" title="Edit assertion">Edit</span>
+          <span class="array-assertion-remove" title="Remove assertion">×</span>
+        </div>
+
+        <div class="tree-node" style="padding-left:24px">
+          <span class="tree-toggle">▼</span>
+          <span class="type-pill obj">obj</span>
+          <span class="node-key">offers[4]</span>
+        </div>
+        <div class="tree-node mapped" style="padding-left:40px">
+          <span class="tree-toggle">&nbsp;</span>
+          <span class="type-pill str">str</span>
+          <span class="node-key">associatedOfferingCode</span>
+          <span class="node-mapped-ref">
+            <span class="node-mapped-arrow">←</span>
+            <span class="operator-pill equals">= equals</span>
+            <span class="node-mapped-src" style="color:var(--success)">CA2FCNC9B1UDK</span>
+          </span>
+        </div>
+        <div class="tree-node mapped has-operator" style="padding-left:40px">
+          <span class="tree-toggle">&nbsp;</span>
+          <span class="type-pill str">str</span>
+          <span class="node-key">offerName</span>
+          <span class="node-mapped-ref">
+            <span class="node-mapped-arrow">←</span>
+            <span class="operator-pill string-op" onclick="showPicker(this, 'starts_with')">⊳ starts with</span>
+            <span class="inline-value-editor"><input class="inline-value-input wide" value="Connected Access" /></span>
+          </span>
+        </div>
+
+        <!-- Type check example -->
+        <div class="tree-node mapped" style="padding-left:40px">
+          <span class="tree-toggle">&nbsp;</span>
+          <span class="type-pill num">num</span>
+          <span class="node-key">rank</span>
+          <span class="node-mapped-ref">
+            <span class="node-mapped-arrow">←</span>
+            <span class="operator-pill type-check" onclick="showPicker(this, 'is_type')">τ isNumber</span>
+          </span>
+        </div>
+
+        <!-- Existence check example -->
+        <div class="tree-node mapped" style="padding-left:40px">
+          <span class="tree-toggle">&nbsp;</span>
+          <span class="type-pill str">str</span>
+          <span class="node-key">productCode</span>
+          <span class="node-mapped-ref">
+            <span class="node-mapped-arrow">←</span>
+            <span class="operator-pill existence" onclick="showPicker(this, 'exists')">∃ exists</span>
+          </span>
+        </div>
+
+        <div class="tree-node" style="padding-left:24px">
+          <span class="tree-toggle">▼</span>
+          <span class="type-pill obj">obj</span>
+          <span class="node-key">offers[4].duration</span>
+        </div>
+        <div class="tree-node mapped" style="padding-left:40px">
+          <span class="tree-toggle">&nbsp;</span>
+          <span class="type-pill num">num</span>
+          <span class="node-key">value</span>
+          <span class="node-mapped-ref">
+            <span class="node-mapped-arrow">←</span>
+            <span class="operator-pill comparison" onclick="showPicker(this, 'gt')">＞ greater than</span>
+            <span class="inline-value-editor"><input class="inline-value-input" value="0" /></span>
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom Dock: Unified Rules Table -->
+  <div class="dm-dock">
+    <div class="dm-dock-header">
+      <span class="dm-dock-title">Validation Rules</span>
+      <span style="font-size:11px;color:var(--text-dim)">14 rules (12 field + 1 array + 1 type)</span>
+      <div class="dm-dock-tabs">
+        <button class="dm-dock-tab active">Rules</button>
+        <button class="dm-dock-tab">Code</button>
+        <button class="dm-dock-tab">Preview</button>
+      </div>
+    </div>
+    <table class="rules-table">
+      <thead>
+        <tr>
+          <th style="width:30px">#</th>
+          <th>Target Path</th>
+          <th>Operator</th>
+          <th>Expected Value / Source</th>
+          <th style="width:30px"></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td style="color:var(--text-dim)">1</td>
+          <td>offers</td>
+          <td><span class="rule-op cmp">≥ length</span></td>
+          <td class="rule-val">1</td>
+          <td><span class="rule-remove">×</span></td>
+        </tr>
+        <tr>
+          <td style="color:var(--text-dim)">2</td>
+          <td>offers[0].associatedOfferingCode</td>
+          <td><span class="rule-op eq">= equals</span></td>
+          <td class="rule-val">ONZFCNCPR3MCAL4</td>
+          <td><span class="rule-remove">×</span></td>
+        </tr>
+        <tr>
+          <td style="color:var(--text-dim)">3</td>
+          <td>offers[0].rank</td>
+          <td><span class="rule-op cmp">≥ at least</span></td>
+          <td class="rule-val">1</td>
+          <td><span class="rule-remove">×</span></td>
+        </tr>
+        <tr>
+          <td style="color:var(--text-dim)">4</td>
+          <td>offers[0].offerName</td>
+          <td><span class="rule-op str">⊃ contains</span></td>
+          <td class="rule-val">"OnStar"</td>
+          <td><span class="rule-remove">×</span></td>
+        </tr>
+        <tr>
+          <td style="color:var(--text-dim)">5</td>
+          <td>offers[0].productCode</td>
+          <td><span class="rule-op eq">= equals</span></td>
+          <td class="rule-val">OnStar One</td>
+          <td><span class="rule-remove">×</span></td>
+        </tr>
+        <tr>
+          <td style="color:var(--text-dim)">6</td>
+          <td>offers[0].billingCadence</td>
+          <td><span class="rule-op eq">= equals</span></td>
+          <td class="rule-val">Prepaid</td>
+          <td><span class="rule-remove">×</span></td>
+        </tr>
+        <tr>
+          <td style="color:var(--text-dim)">7</td>
+          <td>offers[0].planType</td>
+          <td><span class="rule-op eq">= equals</span></td>
+          <td class="rule-val">Trial</td>
+          <td><span class="rule-remove">×</span></td>
+        </tr>
+        <tr>
+          <td style="color:var(--text-dim)">8</td>
+          <td>offers[4].rank</td>
+          <td><span class="rule-op typ">τ isNumber</span></td>
+          <td class="rule-val" style="color:var(--text-dim)">(type check)</td>
+          <td><span class="rule-remove">×</span></td>
+        </tr>
+        <tr>
+          <td style="color:var(--text-dim)">9</td>
+          <td>offers[4].offerName</td>
+          <td><span class="rule-op str">⊳ starts with</span></td>
+          <td class="rule-val">"Connected Access"</td>
+          <td><span class="rule-remove">×</span></td>
+        </tr>
+        <tr>
+          <td style="color:var(--text-dim)">10</td>
+          <td>offers[4].productCode</td>
+          <td><span class="rule-op" style="background:rgba(139,148,158,0.15);color:var(--text-muted)">∃ exists</span></td>
+          <td class="rule-val" style="color:var(--text-dim)">(existence check)</td>
+          <td><span class="rule-remove">×</span></td>
+        </tr>
+        <tr>
+          <td style="color:var(--text-dim)">11</td>
+          <td>offers[4].duration.value</td>
+          <td><span class="rule-op cmp">＞ greater than</span></td>
+          <td class="rule-val">0</td>
+          <td><span class="rule-remove">×</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Footer -->
+  <div class="dm-footer">
+    <span class="dm-footer-status"><strong>14</strong> rules · <strong>12</strong> field mappings · <strong>1</strong> array assertion · <strong>1</strong> type check</span>
+    <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-muted);cursor:pointer;margin-left:16px">
+      <input type="checkbox" checked /> Unordered array matching
+    </label>
+    <div class="dm-footer-actions">
+      <button class="btn btn-cancel">Cancel</button>
+      <button class="btn btn-primary">Save</button>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════ -->
+<!-- SCENARIO 2: Operator Picker Dropdown                    -->
+<!-- ════════════════════════════════════════════════════════ -->
+<div id="scenario-2" class="scenario" style="display:none">
+<div class="section-label">Scenario 2 — Operator Picker Dropdown (click any operator pill)</div>
+<div class="design-note">
+  <strong>UX Flow:</strong> When a user clicks an operator pill on a mapped target node, this picker appears anchored below it. Operators are grouped by category and searchable. Selecting an operator immediately updates the pill and shows/hides the value input as needed. No extra modal — everything stays inline.
+</div>
+
+<div style="position:relative;height:480px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:20px">
+  <!-- Sample target row behind the picker -->
+  <div style="margin-bottom:16px;opacity:0.6">
+    <div class="tree-node mapped has-operator" style="padding-left:8px;background:var(--bg-elevated)">
+      <span class="tree-toggle">&nbsp;</span>
+      <span class="type-pill str">str</span>
+      <span class="node-key">offerName</span>
+      <span class="node-mapped-ref">
+        <span class="node-mapped-arrow">←</span>
+        <span class="operator-pill string-op" style="outline:2px solid var(--accent)">⊃ contains</span>
+        <span class="inline-value-editor"><input class="inline-value-input wide" value="OnStar" /></span>
+      </span>
+    </div>
+  </div>
+
+  <!-- The Operator Picker -->
+  <div class="operator-picker" style="position:absolute;top:52px;left:220px;">
+    <div class="op-picker-header">
+      <div class="op-picker-title">Select Operator</div>
+      <input class="op-picker-search" placeholder="Search operators..." value="" />
+    </div>
+    <div class="op-picker-body">
+      <div class="op-group-label">Equality</div>
+      <div class="op-item">
+        <div class="op-item-icon cmp">=</div>
+        <div class="op-item-text"><div class="op-item-name">equals</div><div class="op-item-desc">Exact value match (default)</div></div>
+      </div>
+      <div class="op-item">
+        <div class="op-item-icon cmp">≠</div>
+        <div class="op-item-text"><div class="op-item-name">not equals</div><div class="op-item-desc">Value must differ</div></div>
+      </div>
+
+      <div class="op-group-label">Comparison (numeric)</div>
+      <div class="op-item">
+        <div class="op-item-icon cmp">＞</div>
+        <div class="op-item-text"><div class="op-item-name">greater than</div><div class="op-item-desc">Number strictly greater</div></div>
+      </div>
+      <div class="op-item">
+        <div class="op-item-icon cmp">≥</div>
+        <div class="op-item-text"><div class="op-item-name">at least (≥)</div><div class="op-item-desc">Number greater or equal</div></div>
+      </div>
+      <div class="op-item">
+        <div class="op-item-icon cmp">＜</div>
+        <div class="op-item-text"><div class="op-item-name">less than</div><div class="op-item-desc">Number strictly less</div></div>
+      </div>
+      <div class="op-item">
+        <div class="op-item-icon cmp">≤</div>
+        <div class="op-item-text"><div class="op-item-name">at most (≤)</div><div class="op-item-desc">Number less or equal</div></div>
+      </div>
+      <div class="op-item">
+        <div class="op-item-icon cmp">↔</div>
+        <div class="op-item-text"><div class="op-item-name">between</div><div class="op-item-desc">Within min-max range (inclusive)</div></div>
+      </div>
+
+      <div class="op-group-label">String</div>
+      <div class="op-item selected">
+        <div class="op-item-icon str">⊃</div>
+        <div class="op-item-text"><div class="op-item-name">contains</div><div class="op-item-desc">String includes substring</div></div>
+      </div>
+      <div class="op-item">
+        <div class="op-item-icon str">⊅</div>
+        <div class="op-item-text"><div class="op-item-name">not contains</div><div class="op-item-desc">String does not include substring</div></div>
+      </div>
+      <div class="op-item">
+        <div class="op-item-icon str">⊳</div>
+        <div class="op-item-text"><div class="op-item-name">starts with</div><div class="op-item-desc">String begins with prefix</div></div>
+      </div>
+      <div class="op-item">
+        <div class="op-item-icon str">⊲</div>
+        <div class="op-item-text"><div class="op-item-name">ends with</div><div class="op-item-desc">String ends with suffix</div></div>
+      </div>
+      <div class="op-item">
+        <div class="op-item-icon str">/r/</div>
+        <div class="op-item-text"><div class="op-item-name">matches (regex)</div><div class="op-item-desc">Regular expression match</div></div>
+      </div>
+
+      <div class="op-group-label">Boolean</div>
+      <div class="op-item">
+        <div class="op-item-icon bool">✓</div>
+        <div class="op-item-text"><div class="op-item-name">is true</div><div class="op-item-desc">Value must be boolean true</div></div>
+      </div>
+      <div class="op-item">
+        <div class="op-item-icon bool">✗</div>
+        <div class="op-item-text"><div class="op-item-name">is false</div><div class="op-item-desc">Value must be boolean false</div></div>
+      </div>
+
+      <div class="op-group-label">Type Checks</div>
+      <div class="op-item">
+        <div class="op-item-icon typ">τ</div>
+        <div class="op-item-text"><div class="op-item-name">is string</div><div class="op-item-desc">Must be a string value</div></div>
+      </div>
+      <div class="op-item">
+        <div class="op-item-icon typ">τ</div>
+        <div class="op-item-text"><div class="op-item-name">is number</div><div class="op-item-desc">Must be a numeric value</div></div>
+      </div>
+      <div class="op-item">
+        <div class="op-item-icon typ">τ</div>
+        <div class="op-item-text"><div class="op-item-name">is boolean</div><div class="op-item-desc">Must be true or false</div></div>
+      </div>
+      <div class="op-item">
+        <div class="op-item-icon typ">τ</div>
+        <div class="op-item-text"><div class="op-item-name">is array</div><div class="op-item-desc">Must be an array</div></div>
+      </div>
+      <div class="op-item">
+        <div class="op-item-icon typ">τ</div>
+        <div class="op-item-text"><div class="op-item-name">is object</div><div class="op-item-desc">Must be an object</div></div>
+      </div>
+
+      <div class="op-group-label">Existence & Null</div>
+      <div class="op-item">
+        <div class="op-item-icon exi">∃</div>
+        <div class="op-item-text"><div class="op-item-name">exists</div><div class="op-item-desc">Field must be present (any value)</div></div>
+      </div>
+      <div class="op-item">
+        <div class="op-item-icon exi">∄</div>
+        <div class="op-item-text"><div class="op-item-name">not exists</div><div class="op-item-desc">Field must be absent</div></div>
+      </div>
+      <div class="op-item">
+        <div class="op-item-icon exi">∅</div>
+        <div class="op-item-text"><div class="op-item-name">is null</div><div class="op-item-desc">Value must be null</div></div>
+      </div>
+      <div class="op-item">
+        <div class="op-item-icon exi">≠∅</div>
+        <div class="op-item-text"><div class="op-item-name">is not null</div><div class="op-item-desc">Value must not be null</div></div>
+      </div>
+      <div class="op-item">
+        <div class="op-item-icon exi">⊘</div>
+        <div class="op-item-text"><div class="op-item-name">is empty</div><div class="op-item-desc">Empty string, array, or object</div></div>
+      </div>
+      <div class="op-item">
+        <div class="op-item-icon exi">⊙</div>
+        <div class="op-item-text"><div class="op-item-name">is not empty</div><div class="op-item-desc">Has content (non-empty)</div></div>
+      </div>
+
+      <div class="op-group-label">Set Membership</div>
+      <div class="op-item">
+        <div class="op-item-icon set">∈</div>
+        <div class="op-item-text"><div class="op-item-name">in</div><div class="op-item-desc">Value is one of a set</div></div>
+        <div class="op-item-value">e.g., "a, b, c"</div>
+      </div>
+      <div class="op-item">
+        <div class="op-item-icon set">∉</div>
+        <div class="op-item-text"><div class="op-item-name">not in</div><div class="op-item-desc">Value is none of a set</div></div>
+        <div class="op-item-value">e.g., "x, y, z"</div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════ -->
+<!-- SCENARIO 3: Array-Level Assertions                      -->
+<!-- ════════════════════════════════════════════════════════ -->
+<div id="scenario-3" class="scenario" style="display:none">
+<div class="section-label">Scenario 3 — Array-Level Assertions (Right-Click or Toolbar)</div>
+<div class="design-note">
+  <strong>How it works:</strong><br>
+  1. Right-click any <code>arr</code> node → context menu offers "Add array assertion" with sub-options for length, contains, each element, etc.<br>
+  2. The assertion row appears <strong>directly below the array node</strong>, visually nested at the same indent level.<br>
+  3. Multiple assertions per array are stacked (e.g., "length ≥ 1" AND "contains item where offerName = 'X'").<br>
+  4. These map to <code>Assertion</code> types: <code>arrayLength</code>, <code>arrayContains</code>, <code>each</code>.<br>
+  5. For primitive fields: drag a field, then click the operator pill to change from "equals" to "is true", "greater than", "contains", etc.
+</div>
+
+<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:16px">
+  <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px">Target Panel — Array nodes with assertion rows:</div>
+
+  <!-- Array with multiple assertions -->
+  <div class="tree-node" style="padding-left:8px">
+    <span class="tree-toggle">▼</span>
+    <span class="type-pill arr">arr</span>
+    <span class="node-key">offers</span>
+    <span style="margin-left:auto;font-size:10px;color:var(--text-dim)">6 items · 2 assertions</span>
+  </div>
+
+  <!-- Assertion 1: length -->
+  <div class="array-assertion-row">
+    <span class="array-assertion-label">LENGTH</span>
+    <span class="array-assertion-detail">
+      <select style="background:var(--bg);border:1px solid var(--border);color:var(--text);font-size:11px;padding:1px 4px;border-radius:3px">
+        <option selected>≥ at least</option>
+        <option>&gt; greater than</option>
+        <option>= equals</option>
+        <option>≤ at most</option>
+      </select>
+      <input style="width:50px;background:var(--bg);border:1px solid var(--border);color:var(--text);font-size:11px;padding:1px 6px;border-radius:3px;font-family:var(--mono)" value="3" />
+    </span>
+    <span class="array-assertion-edit">Edit</span>
+    <span class="array-assertion-remove">×</span>
+  </div>
+
+  <!-- Assertion 2: contains item -->
+  <div class="array-assertion-row" style="border-left-color:var(--purple)">
+    <span class="array-assertion-label" style="color:var(--purple)">CONTAINS</span>
+    <span class="array-assertion-detail">
+      item where <code style="color:var(--accent)">offerName</code> =
+      <input style="width:120px;background:var(--bg);border:1px solid var(--border);color:var(--text);font-size:11px;padding:1px 6px;border-radius:3px;font-family:var(--mono)" value="EV Access - 8 Years" />
+    </span>
+    <span class="array-assertion-edit">Edit</span>
+    <span class="array-assertion-remove">×</span>
+  </div>
+
+  <!-- Assertion 3: each element check -->
+  <div class="array-assertion-row" style="border-left-color:var(--teal)">
+    <span class="array-assertion-label" style="color:var(--teal)">EACH</span>
+    <span class="array-assertion-detail">
+      <code style="color:var(--accent)">rank</code>
+      <select style="background:var(--bg);border:1px solid var(--border);color:var(--text);font-size:11px;padding:1px 4px;border-radius:3px">
+        <option>is number</option>
+        <option selected>≥ at least</option>
+        <option>exists</option>
+      </select>
+      <input style="width:40px;background:var(--bg);border:1px solid var(--border);color:var(--text);font-size:11px;padding:1px 6px;border-radius:3px;font-family:var(--mono)" value="0" />
+    </span>
+    <span class="array-assertion-edit">Edit</span>
+    <span class="array-assertion-remove">×</span>
+  </div>
+
+  <!-- Child nodes -->
+  <div class="tree-node" style="padding-left:24px">
+    <span class="tree-toggle">▼</span>
+    <span class="type-pill obj">obj</span>
+    <span class="node-key">offers[0]</span>
+  </div>
+  <div class="tree-node mapped" style="padding-left:40px">
+    <span class="tree-toggle">&nbsp;</span>
+    <span class="type-pill str">str</span>
+    <span class="node-key">offerName</span>
+    <span class="node-mapped-ref">
+      <span class="node-mapped-arrow">←</span>
+      <span class="operator-pill equals">= equals</span>
+      <span class="node-mapped-src">OnStar One - trial - 1...</span>
+    </span>
+  </div>
+  <div class="tree-node mapped" style="padding-left:40px">
+    <span class="tree-toggle">&nbsp;</span>
+    <span class="type-pill bool">bool</span>
+    <span class="node-key">isActive</span>
+    <span class="node-mapped-ref">
+      <span class="node-mapped-arrow">←</span>
+      <span class="operator-pill" style="background:var(--error-dim);color:var(--error)" onclick="showPicker(this,'is_true')">✓ is true</span>
+    </span>
+  </div>
+  <div class="tree-node mapped" style="padding-left:40px">
+    <span class="tree-toggle">&nbsp;</span>
+    <span class="type-pill num">num</span>
+    <span class="node-key">rank</span>
+    <span class="node-mapped-ref">
+      <span class="node-mapped-arrow">←</span>
+      <span class="operator-pill comparison">≥ at least</span>
+      <span class="inline-value-editor"><input class="inline-value-input" value="1" /></span>
+    </span>
+  </div>
+  <div class="tree-node mapped" style="padding-left:40px">
+    <span class="tree-toggle">&nbsp;</span>
+    <span class="type-pill num">num</span>
+    <span class="node-key">duration.value</span>
+    <span class="node-mapped-ref">
+      <span class="node-mapped-arrow">←</span>
+      <span class="operator-pill comparison">↔ between</span>
+      <span class="inline-value-editor">
+        <input class="inline-value-input" value="1" style="width:40px" />
+        <span style="color:var(--text-dim);font-size:10px">and</span>
+        <input class="inline-value-input" value="365" style="width:50px" />
+      </span>
+    </span>
+  </div>
+
+  <div style="margin-top:20px;padding:12px;background:var(--bg-elevated);border-radius:var(--radius)">
+    <div style="font-size:12px;font-weight:600;margin-bottom:8px">Primitive Field Assertion Examples:</div>
+    <div style="display:flex;flex-direction:column;gap:8px;font-size:12px;font-family:var(--mono)">
+      <div><span style="color:var(--text-muted)">isActive</span> <span style="color:var(--error)">✓ is true</span> — <span style="color:var(--text-dim)">boolean assertion, no value input needed</span></div>
+      <div><span style="color:var(--text-muted)">rank</span> <span style="color:var(--warning)">≥ 1</span> — <span style="color:var(--text-dim)">numeric comparison with inline value</span></div>
+      <div><span style="color:var(--text-muted)">offerName</span> <span style="color:var(--purple)">⊃ "OnStar"</span> — <span style="color:var(--text-dim)">string contains with inline value</span></div>
+      <div><span style="color:var(--text-muted)">productCode</span> <span style="color:var(--text-dim)">∃ exists</span> — <span style="color:var(--text-dim)">existence check, no value input needed</span></div>
+      <div><span style="color:var(--text-muted)">duration.value</span> <span style="color:var(--warning)">↔ 1 and 365</span> — <span style="color:var(--text-dim)">range assertion with two value inputs</span></div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════ -->
+<!-- SCENARIO 4: Right-Click Context Menu                    -->
+<!-- ════════════════════════════════════════════════════════ -->
+<div id="scenario-4" class="scenario" style="display:none">
+<div class="section-label">Scenario 4 — Context Menu for Quick Assertion Setup</div>
+<div class="design-note">
+  <strong>Right-click context menu</strong> appears on any target tree node. It provides quick-access to set operators and assertions without navigating away from the tree.
+</div>
+
+<div style="position:relative;height:380px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:16px">
+  <!-- Sample nodes -->
+  <div class="tree-node" style="padding-left:8px">
+    <span class="tree-toggle">▼</span>
+    <span class="type-pill arr">arr</span>
+    <span class="node-key">offers</span>
+  </div>
+  <div class="tree-node selected" style="padding-left:24px">
+    <span class="tree-toggle">&nbsp;</span>
+    <span class="type-pill num">num</span>
+    <span class="node-key">rank</span>
+    <span class="node-value">1</span>
+  </div>
+  <div class="tree-node" style="padding-left:24px">
+    <span class="tree-toggle">&nbsp;</span>
+    <span class="type-pill str">str</span>
+    <span class="node-key">offerName</span>
+    <span class="node-value">OnStar One</span>
+  </div>
+
+  <!-- Context Menu -->
+  <div class="context-menu" style="top:60px;left:200px">
+    <div class="ctx-item"><span class="ctx-item-icon" style="color:var(--success)">←</span> Map from source <span class="ctx-shortcut">Drag & Drop</span></div>
+    <div class="ctx-divider"></div>
+    <div class="ctx-item"><span class="ctx-item-icon" style="color:var(--success)">=</span> Assert equals (exact match)</div>
+    <div class="ctx-item"><span class="ctx-item-icon" style="color:var(--warning)">≥</span> Assert at least… <span class="ctx-shortcut">numeric</span></div>
+    <div class="ctx-item"><span class="ctx-item-icon" style="color:var(--warning)">＞</span> Assert greater than… <span class="ctx-shortcut">numeric</span></div>
+    <div class="ctx-item"><span class="ctx-item-icon" style="color:var(--purple)">⊃</span> Assert contains… <span class="ctx-shortcut">string</span></div>
+    <div class="ctx-item"><span class="ctx-item-icon" style="color:var(--purple)">⊳</span> Assert starts with… <span class="ctx-shortcut">string</span></div>
+    <div class="ctx-item"><span class="ctx-item-icon" style="color:var(--error)">✓</span> Assert is true <span class="ctx-shortcut">boolean</span></div>
+    <div class="ctx-divider"></div>
+    <div class="ctx-item"><span class="ctx-item-icon" style="color:var(--teal)">τ</span> Assert type is…
+      <span class="ctx-shortcut">▸</span>
+    </div>
+    <div class="ctx-item"><span class="ctx-item-icon">∃</span> Assert exists</div>
+    <div class="ctx-item"><span class="ctx-item-icon">∅</span> Assert is null</div>
+    <div class="ctx-item"><span class="ctx-item-icon">⊙</span> Assert is not empty</div>
+    <div class="ctx-divider"></div>
+    <div class="ctx-item"><span class="ctx-item-icon" style="color:var(--accent)">fx</span> Expression editor… <span class="ctx-shortcut">Double-click</span></div>
+    <div class="ctx-item disabled"><span class="ctx-item-icon">✕</span> Remove mapping <span class="ctx-shortcut">Del</span></div>
+  </div>
+
+  <div style="position:absolute;bottom:16px;left:16px;right:16px">
+    <div class="design-note" style="margin:0">
+      <strong>Context menu for array nodes</strong> additionally shows:<br>
+      • <strong>Add length assertion</strong> (opens inline row below the array node)<br>
+      • <strong>Add "contains item" assertion</strong> (pick a child field + value to match)<br>
+      • <strong>Add "each element" assertion</strong> (every item must satisfy a condition)<br>
+      • <strong>Propagate pattern [0] → [*]</strong> (existing feature)
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════ -->
+<!-- SCENARIO 5: Rules Summary / Audit View                  -->
+<!-- ════════════════════════════════════════════════════════ -->
+<div id="scenario-5" class="scenario" style="display:none">
+<div class="section-label">Scenario 5 — Rules Summary in Bottom Dock (Audit View)</div>
+<div class="design-note">
+  <strong>The "Rules" tab</strong> in the bottom dock replaces the old "Code" view when in validation adapter mode. It shows a unified table of ALL validation rules — field assertions, array assertions, type checks, and existence checks — with color-coded operator pills. Users can sort, filter, and bulk-edit operators from here.
+</div>
+
+<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;overflow:hidden">
+  <div class="dm-dock-header">
+    <span class="dm-dock-title">Validation Rules</span>
+    <span style="font-size:11px;color:var(--text-dim)">15 rules total</span>
+    <div style="display:flex;gap:6px;align-items:center;margin-left:12px">
+      <input class="dm-search-input" style="width:160px;font-size:11px" placeholder="Filter rules..." />
+      <select class="dm-filter-select">
+        <option>All operators</option>
+        <option>Equality only</option>
+        <option>Comparison only</option>
+        <option>String only</option>
+        <option>Type checks</option>
+        <option>Existence</option>
+      </select>
+    </div>
+    <div class="dm-dock-tabs">
+      <button class="dm-dock-tab active">Rules</button>
+      <button class="dm-dock-tab">Code</button>
+      <button class="dm-dock-tab">Table</button>
+      <button class="dm-dock-tab">Preview</button>
+    </div>
+  </div>
+
+  <table class="rules-table">
+    <thead>
+      <tr>
+        <th style="width:30px">#</th>
+        <th>Target Path</th>
+        <th>Operator</th>
+        <th>Expected</th>
+        <th>Source / Value</th>
+        <th style="width:60px">Status</th>
+        <th style="width:30px"></th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td style="color:var(--text-dim)">1</td>
+        <td>offers</td>
+        <td><span class="rule-op cmp">≥ length</span></td>
+        <td>3</td>
+        <td style="color:var(--text-dim)">(array assertion)</td>
+        <td><span style="color:var(--success);font-size:11px">✓ Pass</span></td>
+        <td><span class="rule-remove">×</span></td>
+      </tr>
+      <tr>
+        <td style="color:var(--text-dim)">2</td>
+        <td>offers</td>
+        <td><span class="rule-op str">⊃ contains</span></td>
+        <td>item.offerName</td>
+        <td>"EV Access - 8 Years"</td>
+        <td><span style="color:var(--success);font-size:11px">✓ Pass</span></td>
+        <td><span class="rule-remove">×</span></td>
+      </tr>
+      <tr>
+        <td style="color:var(--text-dim)">3</td>
+        <td>offers[*].rank</td>
+        <td><span class="rule-op cmp">≥ each</span></td>
+        <td>0</td>
+        <td style="color:var(--text-dim)">(each element)</td>
+        <td><span style="color:var(--success);font-size:11px">✓ Pass</span></td>
+        <td><span class="rule-remove">×</span></td>
+      </tr>
+      <tr>
+        <td style="color:var(--text-dim)">4</td>
+        <td>offers[0].associatedOfferingCode</td>
+        <td><span class="rule-op eq">= equals</span></td>
+        <td>ONZFCNCPR3MCAL4</td>
+        <td style="color:var(--success)">← source value</td>
+        <td><span style="color:var(--success);font-size:11px">✓ Pass</span></td>
+        <td><span class="rule-remove">×</span></td>
+      </tr>
+      <tr>
+        <td style="color:var(--text-dim)">5</td>
+        <td>offers[0].rank</td>
+        <td><span class="rule-op cmp">≥ at least</span></td>
+        <td>1</td>
+        <td style="color:var(--text-dim)">actual: 1</td>
+        <td><span style="color:var(--success);font-size:11px">✓ Pass</span></td>
+        <td><span class="rule-remove">×</span></td>
+      </tr>
+      <tr>
+        <td style="color:var(--text-dim)">6</td>
+        <td>offers[0].offerName</td>
+        <td><span class="rule-op str">⊃ contains</span></td>
+        <td>"OnStar"</td>
+        <td style="color:var(--text-dim)">actual: "OnStar One - trial..."</td>
+        <td><span style="color:var(--success);font-size:11px">✓ Pass</span></td>
+        <td><span class="rule-remove">×</span></td>
+      </tr>
+      <tr>
+        <td style="color:var(--text-dim)">7</td>
+        <td>offers[0].isActive</td>
+        <td><span class="rule-op bool">✓ is true</span></td>
+        <td style="color:var(--text-dim)">—</td>
+        <td style="color:var(--text-dim)">actual: true</td>
+        <td><span style="color:var(--success);font-size:11px">✓ Pass</span></td>
+        <td><span class="rule-remove">×</span></td>
+      </tr>
+      <tr>
+        <td style="color:var(--text-dim)">8</td>
+        <td>offers[4].rank</td>
+        <td><span class="rule-op typ">τ isNumber</span></td>
+        <td style="color:var(--text-dim)">—</td>
+        <td style="color:var(--text-dim)">actual: 13 (number)</td>
+        <td><span style="color:var(--success);font-size:11px">✓ Pass</span></td>
+        <td><span class="rule-remove">×</span></td>
+      </tr>
+      <tr>
+        <td style="color:var(--text-dim)">9</td>
+        <td>offers[4].offerName</td>
+        <td><span class="rule-op str">⊳ starts with</span></td>
+        <td>"Connected Access"</td>
+        <td style="color:var(--text-dim)">actual: "Connected Access -..."</td>
+        <td><span style="color:var(--success);font-size:11px">✓ Pass</span></td>
+        <td><span class="rule-remove">×</span></td>
+      </tr>
+      <tr>
+        <td style="color:var(--text-dim)">10</td>
+        <td>offers[4].productCode</td>
+        <td><span class="rule-op" style="background:rgba(139,148,158,0.15);color:var(--text-muted)">∃ exists</span></td>
+        <td style="color:var(--text-dim)">—</td>
+        <td style="color:var(--text-dim)">actual: "EV Access" (present)</td>
+        <td><span style="color:var(--success);font-size:11px">✓ Pass</span></td>
+        <td><span class="rule-remove">×</span></td>
+      </tr>
+      <tr>
+        <td style="color:var(--text-dim)">11</td>
+        <td>offers[4].duration.value</td>
+        <td><span class="rule-op cmp">＞ greater than</span></td>
+        <td>0</td>
+        <td style="color:var(--text-dim)">actual: 4</td>
+        <td><span style="color:var(--success);font-size:11px">✓ Pass</span></td>
+        <td><span class="rule-remove">×</span></td>
+      </tr>
+      <tr style="background:var(--error-dim)">
+        <td style="color:var(--text-dim)">12</td>
+        <td>offers[5].billingCadence</td>
+        <td><span class="rule-op eq">= equals</span></td>
+        <td>"Prepaid"</td>
+        <td style="color:var(--error)">actual: "Postpaid"</td>
+        <td><span style="color:var(--error);font-size:11px">✗ Fail</span></td>
+        <td><span class="rule-remove">×</span></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div style="padding:8px 12px;border-top:1px solid var(--border);display:flex;align-items:center;gap:8px">
+    <span style="font-size:11px;color:var(--success)">11 passed</span>
+    <span style="font-size:11px;color:var(--error)">1 failed</span>
+    <span style="margin-left:auto;font-size:11px;color:var(--text-dim)">Last verified: just now</span>
+    <button class="toolbar-btn" style="font-size:11px;padding:3px 10px">Re-verify</button>
+  </div>
+</div>
+</div>
+
+</div><!-- end mockup-page -->
+
+<script>
+function showScenario(n) {
+  for (let i = 1; i <= 5; i++) {
+    const el = document.getElementById('scenario-' + i);
+    if (el) el.style.display = i === n ? 'block' : 'none';
+  }
+  document.querySelectorAll('.scenario-tab').forEach((tab, idx) => {
+    tab.classList.toggle('active', idx === n - 1);
+  });
+}
+
+function showPicker(pill, currentOp) {
+  const existing = document.querySelector('.operator-picker-float');
+  if (existing) { existing.remove(); return; }
+
+  const rect = pill.getBoundingClientRect();
+  const picker = document.createElement('div');
+  picker.className = 'operator-picker-float';
+  picker.style.cssText = `position:fixed;top:${rect.bottom+4}px;left:${Math.max(rect.left-60,8)}px;z-index:3000`;
+  picker.innerHTML = `
+    <div class="operator-picker" style="position:relative">
+      <div class="op-picker-header">
+        <div class="op-picker-title">Select Operator</div>
+        <input class="op-picker-search" placeholder="Search operators..." autofocus />
+      </div>
+      <div class="op-picker-body" style="max-height:280px">
+        <div class="op-group-label">Equality</div>
+        <div class="op-item" onclick="applyOp(this,'= equals','equals')"><div class="op-item-icon cmp">=</div><div class="op-item-text"><div class="op-item-name">equals</div></div></div>
+        <div class="op-item" onclick="applyOp(this,'≠ not equals','comparison')"><div class="op-item-icon cmp">≠</div><div class="op-item-text"><div class="op-item-name">not equals</div></div></div>
+        <div class="op-group-label">Comparison</div>
+        <div class="op-item" onclick="applyOp(this,'＞ greater than','comparison')"><div class="op-item-icon cmp">＞</div><div class="op-item-text"><div class="op-item-name">greater than</div></div></div>
+        <div class="op-item" onclick="applyOp(this,'≥ at least','comparison')"><div class="op-item-icon cmp">≥</div><div class="op-item-text"><div class="op-item-name">at least</div></div></div>
+        <div class="op-item" onclick="applyOp(this,'＜ less than','comparison')"><div class="op-item-icon cmp">＜</div><div class="op-item-text"><div class="op-item-name">less than</div></div></div>
+        <div class="op-item" onclick="applyOp(this,'≤ at most','comparison')"><div class="op-item-icon cmp">≤</div><div class="op-item-text"><div class="op-item-name">at most</div></div></div>
+        <div class="op-group-label">String</div>
+        <div class="op-item" onclick="applyOp(this,'⊃ contains','string-op')"><div class="op-item-icon str">⊃</div><div class="op-item-text"><div class="op-item-name">contains</div></div></div>
+        <div class="op-item" onclick="applyOp(this,'⊳ starts with','string-op')"><div class="op-item-icon str">⊳</div><div class="op-item-text"><div class="op-item-name">starts with</div></div></div>
+        <div class="op-item" onclick="applyOp(this,'⊲ ends with','string-op')"><div class="op-item-icon str">⊲</div><div class="op-item-text"><div class="op-item-name">ends with</div></div></div>
+        <div class="op-group-label">Boolean</div>
+        <div class="op-item" onclick="applyOp(this,'✓ is true','bool')"><div class="op-item-icon bool">✓</div><div class="op-item-text"><div class="op-item-name">is true</div></div></div>
+        <div class="op-item" onclick="applyOp(this,'✗ is false','bool')"><div class="op-item-icon bool">✗</div><div class="op-item-text"><div class="op-item-name">is false</div></div></div>
+        <div class="op-group-label">Type Checks</div>
+        <div class="op-item" onclick="applyOp(this,'τ isNumber','type-check')"><div class="op-item-icon typ">τ</div><div class="op-item-text"><div class="op-item-name">is number</div></div></div>
+        <div class="op-item" onclick="applyOp(this,'τ isString','type-check')"><div class="op-item-icon typ">τ</div><div class="op-item-text"><div class="op-item-name">is string</div></div></div>
+        <div class="op-item" onclick="applyOp(this,'τ isBoolean','type-check')"><div class="op-item-icon typ">τ</div><div class="op-item-text"><div class="op-item-name">is boolean</div></div></div>
+        <div class="op-group-label">Existence</div>
+        <div class="op-item" onclick="applyOp(this,'∃ exists','existence')"><div class="op-item-icon exi">∃</div><div class="op-item-text"><div class="op-item-name">exists</div></div></div>
+        <div class="op-item" onclick="applyOp(this,'∅ is null','existence')"><div class="op-item-icon exi">∅</div><div class="op-item-text"><div class="op-item-name">is null</div></div></div>
+        <div class="op-item" onclick="applyOp(this,'⊙ not empty','existence')"><div class="op-item-icon exi">⊙</div><div class="op-item-text"><div class="op-item-name">not empty</div></div></div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(picker);
+
+  const close = (e) => { if (!picker.contains(e.target) && e.target !== pill) { picker.remove(); document.removeEventListener('mousedown', close); } };
+  setTimeout(() => document.addEventListener('mousedown', close), 10);
+
+  picker.querySelector('.op-picker-search').addEventListener('input', function() {
+    const q = this.value.toLowerCase();
+    picker.querySelectorAll('.op-item').forEach(item => {
+      const text = item.textContent.toLowerCase();
+      item.style.display = text.includes(q) ? '' : 'none';
+    });
+  });
+
+  window._activePill = pill;
+}
+
+function applyOp(item, label, cls) {
+  if (window._activePill) {
+    window._activePill.className = 'operator-pill ' + cls;
+    window._activePill.textContent = label;
+  }
+  const float = document.querySelector('.operator-picker-float');
+  if (float) float.remove();
+}
+</script>
+</body>
+</html>

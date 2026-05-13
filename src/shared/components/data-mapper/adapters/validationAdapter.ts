@@ -11,7 +11,7 @@
  *   mapped paths become `expectedFields` with user-supplied values.
  */
 
-import type { ExpectedField, SelectiveMode } from '../../../types';
+import type { ExpectedField, SelectiveMode, FieldOperator } from '../../../types';
 import type {
   MapperAdapter,
   MapperSource,
@@ -20,6 +20,7 @@ import type {
   TargetField,
   TargetSchemaResult,
   ValidationIssue,
+  AdapterCapabilities,
 } from '../types';
 import { getAllLeafPaths, buildJsonTree } from '../../../utils/jsonTreeModel';
 import { getByPath, getByPathAsString } from '../../../utils/jsonPath';
@@ -91,12 +92,26 @@ export function createValidationAdapter(
     allowCustomFields: true,
   };
 
+  const capabilities: AdapterCapabilities = {
+    operators: true,
+    arrayAssertions: true,
+    typeChecks: true,
+    codeEditor: true,
+    verification: true,
+    expressions: true,
+    schemaDrift: true,
+    profiles: true,
+    unorderedArrays: true,
+    hideAdvanced: true,
+  };
+
   return {
     contextId: 'validation',
     title: 'Response Body → Validation Rules',
     category: 'http',
     sources: [source],
     target,
+    capabilities,
 
     serialize(mappings: Mapping[]): ValidationAdapterOutput {
       const deduped = new Map<string, Mapping>();
@@ -105,22 +120,25 @@ export function createValidationAdapter(
       }
       const uniqueMappings = Array.from(deduped.values());
 
-      if (mode === 'include') {
-        const expectedFields: ExpectedField[] = uniqueMappings.map((m) => ({
+      const buildExpectedField = (m: Mapping): ExpectedField => {
+        const field: ExpectedField = {
           jsonPath: stripDollarPrefix(m.sourcePath),
           expectedValue: resolveExpectedValue(m),
-        }));
+        };
+        if (m.operator) field.operator = m.operator as FieldOperator;
+        if (m.operatorValue !== undefined) field.operatorValue = m.operatorValue;
+        return field;
+      };
+
+      if (mode === 'include') {
+        const expectedFields = uniqueMappings.map(buildExpectedField);
         return { selectiveMode: 'include', expectedFields, excludedPaths: [] };
       }
 
       const mappedPaths = new Set(uniqueMappings.map((m) => stripDollarPrefix(m.targetPath)));
       const allLeaves = getLeafPaths(parsed);
       const excludedPaths = allLeaves.filter((p) => !mappedPaths.has(p));
-
-      const expectedFields: ExpectedField[] = uniqueMappings.map((m) => ({
-        jsonPath: stripDollarPrefix(m.sourcePath),
-        expectedValue: resolveExpectedValue(m),
-      }));
+      const expectedFields = uniqueMappings.map(buildExpectedField);
 
       return { selectiveMode: 'exclude', expectedFields, excludedPaths };
     },
@@ -130,14 +148,21 @@ export function createValidationAdapter(
 
       const effectiveMode = existing.selectiveMode === 'exclude' ? 'exclude' : 'include';
 
-      if (effectiveMode === 'include') {
-        if (!existing.expectedFields?.length) return [];
-        return existing.expectedFields.map((f, i) => ({
+      const fieldToMapping = (f: ExpectedField, i: number): Mapping => {
+        const m: Mapping = {
           id: `val-${i}`,
           sourceId: SOURCE_ID,
-          sourcePath: f.jsonPath,
-          targetPath: f.jsonPath,
-        }));
+          sourcePath: stripDollarPrefix(f.jsonPath),
+          targetPath: stripDollarPrefix(f.jsonPath),
+        };
+        if (f.operator) m.operator = f.operator;
+        if (f.operatorValue !== undefined) m.operatorValue = f.operatorValue;
+        return m;
+      };
+
+      if (effectiveMode === 'include') {
+        if (!existing.expectedFields?.length) return [];
+        return existing.expectedFields.map(fieldToMapping);
       }
 
       // exclude mode: invert excludedPaths against all leaves
@@ -146,12 +171,7 @@ export function createValidationAdapter(
       const included = allLeaves.filter((p) => !excluded.has(p));
 
       if (included.length === 0 && (existing.expectedFields?.length ?? 0) > 0) {
-        return (existing.expectedFields ?? []).map((f, i) => ({
-          id: `val-${i}`,
-          sourceId: SOURCE_ID,
-          sourcePath: stripDollarPrefix(f.jsonPath),
-          targetPath: stripDollarPrefix(f.jsonPath),
-        }));
+        return (existing.expectedFields ?? []).map(fieldToMapping);
       }
 
       return included.map((path, i) => ({

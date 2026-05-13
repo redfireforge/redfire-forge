@@ -3,6 +3,7 @@ import DataMapper from './DataMapper';
 import DriftBanner from './DriftBanner';
 import SchemaDiffModal from './SchemaDiffModal';
 import type { MapperAdapter, Mapping, ValidationIssue } from './types';
+import { resolveCapabilities } from './types';
 import type { ClassifiedDrift } from './utils/schemaDrift';
 import type { DriftIndicator } from './SourceTreeNode';
 import { captureSchemaSnapshot, captureSnapshotPair, loadSnapshot, saveSnapshot } from './utils/schemaSnapshot';
@@ -80,6 +81,7 @@ export default function DataMapperModal<TOutput = unknown>({
   doneLabel = 'Save',
   unorderedArrays: initialUnorderedArrays,
 }: DataMapperModalProps<TOutput>) {
+  const caps = useMemo(() => resolveCapabilities(adapter.capabilities), [adapter.capabilities]);
   const titleId = useId();
   const [isFullScreen, setIsFullScreen] = useState(fullScreenDefault);
   const [validationIssues, setValidationIssues] = useState<ValidationIssue[]>([]);
@@ -479,8 +481,8 @@ export default function DataMapperModal<TOutput = unknown>({
             onApplyRepair={handleRepairMapping}
             onShowDrift={driftEntries.length > 0 ? handleShowDiff : undefined}
             unorderedDefault={unorderedArrays}
-            onToggleUnorderedArray={adapter.contextId === 'validation' ? handleToggleUnorderedArray : undefined}
-            hideAdvanced={adapter.contextId === 'validation'}
+            onToggleUnorderedArray={caps.unorderedArrays ? handleToggleUnorderedArray : undefined}
+            hideAdvanced={caps.hideAdvanced}
           />
         </div>
 
@@ -519,7 +521,7 @@ export default function DataMapperModal<TOutput = unknown>({
           <div className="dm-modal-footer-status" role="status" aria-live="polite">
             {footerStatus}
           </div>
-          {adapter.contextId === 'validation' && (
+          {caps.unorderedArrays && (
             <label className="dm-modal-footer-option">
               <input
                 type="checkbox"

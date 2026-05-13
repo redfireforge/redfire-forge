@@ -110,4 +110,59 @@ describe('roundTripMappings', () => {
     const result = roundTripMappings(lossyAdapter, mockMappings);
     expect(result.lossless).toBe(false);
   });
+
+  it('detects lossy round-trip when operator fields are dropped', () => {
+    const mappingsWithOperator: Mapping[] = [
+      { id: '1', sourcePath: 'price', sourceId: 's1', targetPath: 'price', operator: 'greater_than', operatorValue: '10' },
+    ];
+    const adapterThatDropsOps: MapperAdapter<TestOutput> = {
+      ...testAdapter,
+      serialize: (mappings) => ({
+        fields: mappings.map((m) => ({ from: m.sourcePath, to: m.targetPath })),
+      }),
+      deserialize: (existing) =>
+        existing.fields.map((f, i) => ({ id: String(i + 1), sourcePath: f.from, sourceId: 's1', targetPath: f.to })),
+    };
+    const result = roundTripMappings(adapterThatDropsOps, mappingsWithOperator);
+    expect(result.lossless).toBe(false);
+  });
+
+  it('reports lossless when operator fields are preserved', () => {
+    const mappingsWithOperator: Mapping[] = [
+      { id: '1', sourcePath: 'price', sourceId: 's1', targetPath: 'price', operator: 'greater_than', operatorValue: '10' },
+    ];
+    const adapterPreservingOps: MapperAdapter<TestOutput> = {
+      ...testAdapter,
+      serialize: (mappings) => ({
+        fields: mappings.map((m) => ({ from: m.sourcePath, to: m.targetPath, transform: m.expression })),
+      }),
+      deserialize: (existing) =>
+        existing.fields.map((f, i) => ({
+          id: String(i + 1),
+          sourcePath: f.from,
+          sourceId: 's1',
+          targetPath: f.to,
+          operator: 'greater_than' as const,
+          operatorValue: '10',
+        })),
+    };
+    const result = roundTripMappings(adapterPreservingOps, mappingsWithOperator);
+    expect(result.lossless).toBe(true);
+  });
+
+  it('detects lossy round-trip when condition/fallback are dropped', () => {
+    const mappingsWithCondition: Mapping[] = [
+      { id: '1', sourcePath: 'name', sourceId: 's1', targetPath: 'name', condition: '$isEmpty($.name)', fallback: 'N/A' },
+    ];
+    const adapterThatDrops: MapperAdapter<TestOutput> = {
+      ...testAdapter,
+      serialize: (mappings) => ({
+        fields: mappings.map((m) => ({ from: m.sourcePath, to: m.targetPath })),
+      }),
+      deserialize: (existing) =>
+        existing.fields.map((f, i) => ({ id: String(i + 1), sourcePath: f.from, sourceId: 's1', targetPath: f.to })),
+    };
+    const result = roundTripMappings(adapterThatDrops, mappingsWithCondition);
+    expect(result.lossless).toBe(false);
+  });
 });

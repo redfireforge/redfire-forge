@@ -17,10 +17,36 @@ export function usePanelResize(containerRef: React.RefObject<HTMLDivElement | nu
   const [canvasWidth, setCanvasWidth] = useState(DEFAULT_CANVAS_WIDTH);
 
   const resizeCleanupRef = useRef<(() => void) | null>(null);
+  const lastContainerWidthRef = useRef<number | null>(null);
+  const userResizedRef = useRef(false);
 
   useEffect(() => {
     return () => { resizeCleanupRef.current?.(); };
   }, []);
+
+  // Reset pixel widths when the container changes size substantially
+  // (e.g. fullscreen toggle) so panels revert to flex auto-sizing.
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (!entry) return;
+      const newWidth = entry.contentRect.width;
+      const prev = lastContainerWidthRef.current;
+      lastContainerWidthRef.current = newWidth;
+      if (prev == null) return;
+      const delta = Math.abs(newWidth - prev);
+      if (delta > 50 && userResizedRef.current) {
+        userResizedRef.current = false;
+        setSourcePanelWidth(null);
+        setTargetPanelWidth(null);
+        setCanvasWidth(DEFAULT_CANVAS_WIDTH);
+      }
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [containerRef]);
 
   const handleResizeStart = useCallback(
     (side: 'source' | 'target', e: React.MouseEvent) => {
@@ -44,6 +70,7 @@ export function usePanelResize(containerRef: React.RefObject<HTMLDivElement | nu
 
       const onMove = (ev: MouseEvent) => {
         const delta = ev.clientX - startX;
+        userResizedRef.current = true;
         if (side === 'source') {
           const maxSourceW = Math.max(MIN_PANEL_WIDTH, startSourceW + startCanvasW - MIN_CANVAS_WIDTH);
           const newSourceW = Math.max(MIN_PANEL_WIDTH, Math.min(maxSourceW, startSourceW + delta));

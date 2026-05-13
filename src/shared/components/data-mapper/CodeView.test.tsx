@@ -1,11 +1,16 @@
 /** @vitest-environment jsdom */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import CodeView from './CodeView';
 import type { MapperSource, Mapping } from './types';
 import type { MappingTrace } from './utils/mappingTrace';
+import * as mapperExpr from './utils/mapperExpressionEvaluator';
 
 describe('CodeView', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it('renders empty state when no mappings', () => {
     const { container } = render(<CodeView mappings={[]} />);
     expect(container.textContent).toContain('No mappings defined');
@@ -91,6 +96,18 @@ describe('CodeView', () => {
     expect(lineNos[1].textContent).toBe('2');
   });
 
+  it('displays double-digit line numbers in code view when there are many mappings', () => {
+    const mappings: Mapping[] = Array.from({ length: 10 }, (_, i) => ({
+      id: `m${i}`,
+      sourcePath: `s${i}`,
+      sourceId: 's1',
+      targetPath: `t${String(i).padStart(2, '0')}`,
+    }));
+    const { container } = render(<CodeView mappings={mappings} />);
+    const lineNos = container.querySelectorAll('.dm-code-view-line-no');
+    expect(lineNos[lineNos.length - 1].textContent).toBe('10');
+  });
+
   it('switches to table mode and shows before/after preview status', () => {
     const mappings: Mapping[] = [
       { id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'user.name' },
@@ -154,6 +171,96 @@ describe('CodeView', () => {
     expect(screen.getByText('user.lastName')).toBeTruthy();
   });
 
+  it('shows empty table message when focus mode matches no rows', () => {
+    const mappings: Mapping[] = [
+      { id: 'm1', sourcePath: 'a', sourceId: 's1', targetPath: 'x' },
+    ];
+    render(
+      <CodeView
+        mappings={mappings}
+        sources={[{ id: 's1', label: 'S', sampleData: { a: 1 } }]}
+        activeSourceId="s1"
+      />,
+    );
+    fireEvent.click(screen.getByRole('tab', { name: 'Table' }));
+    fireEvent.change(screen.getByLabelText('Search mapping rows'), { target: { value: 'nomatch-xyz' } });
+    fireEvent.click(screen.getByLabelText('Focus matches'));
+    expect(screen.getByText('No rows match the current search.')).toBeTruthy();
+    expect(screen.getByText('0 matches')).toBeTruthy();
+  });
+
+  it('reports multiple search matches in toolbar meta', () => {
+    const mappings: Mapping[] = [
+      { id: 'm1', sourcePath: 'a', sourceId: 's1', targetPath: 'block.userName' },
+      { id: 'm2', sourcePath: 'b', sourceId: 's1', targetPath: 'block.userAlias' },
+    ];
+    render(
+      <CodeView
+        mappings={mappings}
+        sources={[{ id: 's1', label: 'S', sampleData: { a: 1, b: 2 } }]}
+        activeSourceId="s1"
+      />,
+    );
+    fireEvent.click(screen.getByRole('tab', { name: 'Table' }));
+    fireEvent.change(screen.getByLabelText('Search mapping rows'), { target: { value: 'user' } });
+    expect(screen.getByText('2 matches')).toBeTruthy();
+  });
+
+  it('shows runtime trace count in table toolbar when debug hooks are enabled', () => {
+    const mappings: Mapping[] = [
+      { id: 'm1', sourcePath: 'a', sourceId: 's1', targetPath: 'u.x' },
+    ];
+    const traces = new Map<string, MappingTrace>([
+      ['m1', {
+        mappingId: 'm1',
+        sourcePath: 'a',
+        sourceId: 's1',
+        sourceValue: 1,
+        targetPath: 'u.x',
+        targetValue: 1,
+        evaluatedValue: 1,
+        timestamp: Date.now(),
+        durationMs: 0,
+      }],
+    ]);
+    render(
+      <CodeView
+        mappings={mappings}
+        sources={[{ id: 's1', label: 'S', sampleData: { a: 1 } }]}
+        activeSourceId="s1"
+        debugMode
+        traceByMappingId={traces}
+      />,
+    );
+    fireEvent.click(screen.getByRole('tab', { name: 'Table' }));
+    expect(screen.getByText(/1 runtime trace$/)).toBeTruthy();
+  });
+
+  it('renders mappings that include operator metadata in code and table modes', () => {
+    const mappings: Mapping[] = [
+      {
+        id: 'm1',
+        sourcePath: 'qty',
+        sourceId: 's1',
+        targetPath: 'line.count',
+        operator: 'greater_than',
+        operatorValue: '0',
+      },
+    ];
+    const { container } = render(
+      <CodeView
+        mappings={mappings}
+        sources={[{ id: 's1', label: 'S', sampleData: { qty: 3 } }]}
+        activeSourceId="s1"
+      />,
+    );
+    expect(container.textContent).toContain('line.count ← qty');
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Table' }));
+    expect(screen.getByText('line.count')).toBeTruthy();
+    expect(screen.getByText('qty')).toBeTruthy();
+  });
+
   it('renders expression rows in table mode', () => {
     const mappings: Mapping[] = [
       {
@@ -177,6 +284,179 @@ describe('CodeView', () => {
 
     expect(screen.getByText('fx $parseFloat($.price)')).toBeTruthy();
     expect(screen.getByText('13.5')).toBeTruthy();
+  });
+
+  it('shows n/a duration for preview-origin traces', () => {
+    const mappings: Mapping[] = [
+      { id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'user.name' },
+    ];
+    render(
+      <CodeView
+        mappings={mappings}
+        sources={[{ id: 's1', label: 'S', sampleData: { name: 'Pat' } }]}
+        activeSourceId="s1"
+      />,
+    );
+    fireEvent.click(screen.getByRole('tab', { name: 'Table' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Inspect trace for user.name' }));
+    expect(screen.getByText('Preview trace')).toBeTruthy();
+    expect(screen.getByText('Duration: n/a')).toBeTruthy();
+  });
+
+  it('closes trace inspector via Close button', () => {
+    const mappings: Mapping[] = [
+      { id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'user.name' },
+    ];
+    render(
+      <CodeView
+        mappings={mappings}
+        sources={[{ id: 's1', label: 'S', sampleData: { name: 'Pat' } }]}
+        activeSourceId="s1"
+      />,
+    );
+    fireEvent.click(screen.getByRole('tab', { name: 'Table' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Inspect trace for user.name' }));
+    expect(screen.getByLabelText('Row trace inspector')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    expect(screen.queryByLabelText('Row trace inspector')).toBeNull();
+  });
+
+  it('clears trace selection when switching from Table back to Code mode', () => {
+    const mappings: Mapping[] = [
+      { id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'user.name' },
+    ];
+    render(
+      <CodeView
+        mappings={mappings}
+        sources={[{ id: 's1', label: 'S', sampleData: { name: 'Pat' } }]}
+        activeSourceId="s1"
+      />,
+    );
+    fireEvent.click(screen.getByRole('tab', { name: 'Table' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Inspect trace for user.name' }));
+    expect(screen.getByLabelText('Row trace inspector')).toBeTruthy();
+    fireEvent.click(screen.getByRole('tab', { name: 'Code' }));
+    expect(screen.queryByLabelText('Row trace inspector')).toBeNull();
+  });
+
+  it('clears trace selection when the active mapping row disappears', () => {
+    const mappings: Mapping[] = [
+      { id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'user.name' },
+    ];
+    const { rerender } = render(
+      <CodeView
+        mappings={mappings}
+        sources={[{ id: 's1', label: 'S', sampleData: { name: 'Pat' } }]}
+        activeSourceId="s1"
+      />,
+    );
+    fireEvent.click(screen.getByRole('tab', { name: 'Table' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Inspect trace for user.name' }));
+    expect(screen.getByLabelText('Row trace inspector')).toBeTruthy();
+    rerender(
+      <CodeView
+        mappings={[]}
+        sources={[{ id: 's1', label: 'S', sampleData: { name: 'Pat' } }]}
+        activeSourceId="s1"
+      />,
+    );
+    expect(screen.queryByLabelText('Row trace inspector')).toBeNull();
+  });
+
+  it('labels expression evaluation failures when the thrown value is not an Error instance', () => {
+    vi.spyOn(mapperExpr, 'evaluateMapperExpression').mockImplementation(() => {
+      throw 'not an error';
+    });
+    const mappings: Mapping[] = [
+      { id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'out', expression: '$upper($.name)' },
+    ];
+    render(
+      <CodeView
+        mappings={mappings}
+        sources={[{ id: 's1', label: 'S', sampleData: { name: 'x' } }]}
+        activeSourceId="s1"
+      />,
+    );
+    fireEvent.click(screen.getByRole('tab', { name: 'Table' }));
+    expect(screen.getByText(/Error: Evaluation failed/)).toBeTruthy();
+  });
+
+  it('shows evaluator error message when expression evaluation returns an error field', () => {
+    vi.spyOn(mapperExpr, 'evaluateMapperExpression').mockReturnValue({
+      value: undefined,
+      preview: '',
+      error: 'bad syntax',
+    });
+    const mappings: Mapping[] = [
+      { id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'out', expression: '$broken()' },
+    ];
+    render(
+      <CodeView
+        mappings={mappings}
+        sources={[{ id: 's1', label: 'S', sampleData: { name: 'x' } }]}
+        activeSourceId="s1"
+      />,
+    );
+    fireEvent.click(screen.getByRole('tab', { name: 'Table' }));
+    expect(screen.getByText(/Error: bad syntax/)).toBeTruthy();
+  });
+
+  it('formats circular evaluated values without crashing', () => {
+    const circular: Record<string, unknown> = { tag: 'loop' };
+    circular.self = circular;
+    vi.spyOn(mapperExpr, 'evaluateMapperExpression').mockReturnValue({
+      value: circular,
+      preview: '',
+    });
+    const mappings: Mapping[] = [
+      { id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'out', expression: '$noop()' },
+    ];
+    render(
+      <CodeView
+        mappings={mappings}
+        sources={[{ id: 's1', label: 'S', sampleData: { name: 'x' } }]}
+        activeSourceId="s1"
+      />,
+    );
+    fireEvent.click(screen.getByRole('tab', { name: 'Table' }));
+    expect(screen.getByText('[object Object]')).toBeTruthy();
+  });
+
+  it('uses stringify fallback when comparing non-circular preview values fails', () => {
+    const left = { tag: 'a' };
+    const right = { tag: 'b' };
+    const mappings: Mapping[] = [
+      { id: 'm1', sourcePath: 'snap', sourceId: 's1', targetPath: 'out' },
+    ];
+    render(
+      <CodeView
+        mappings={mappings}
+        sources={[{ id: 's1', label: 'S', sampleData: { snap: right } }]}
+        activeSourceId="s1"
+        targetSampleData={{ out: left }}
+      />,
+    );
+    fireEvent.click(screen.getByRole('tab', { name: 'Table' }));
+    expect(screen.getByText('changed')).toBeTruthy();
+  });
+
+  it('falls back when path resolution throws during table preview', () => {
+    const spy = vi.spyOn(mapperExpr, 'resolveMapperPath').mockImplementation(() => {
+      throw new Error('resolve failed');
+    });
+    const mappings: Mapping[] = [
+      { id: 'm1', sourcePath: 'x', sourceId: 's1', targetPath: 'y' },
+    ];
+    render(
+      <CodeView
+        mappings={mappings}
+        sources={[{ id: 's1', label: 'S', sampleData: { x: 1 } }]}
+        activeSourceId="s1"
+      />,
+    );
+    fireEvent.click(screen.getByRole('tab', { name: 'Table' }));
+    expect(spy).toHaveBeenCalled();
+    expect(screen.getAllByText('undefined')).toHaveLength(2);
   });
 
   it('shows row-level preview trace inspector with step timeline', () => {
@@ -363,6 +643,19 @@ describe('CodeView', () => {
       expect(screen.getByText('Offer A')).toBeTruthy();
       expect(screen.getByText('B2')).toBeTruthy();
       expect(screen.getByText('Offer B')).toBeTruthy();
+    });
+
+    it('renders pivot placeholder for missing field cells', () => {
+      const sparse: Mapping[] = [
+        { id: 'm1', sourcePath: 'offers[0].code', sourceId: 's1', targetPath: 'offers[0].code' },
+        { id: 'm2', sourcePath: 'offers[1].name', sourceId: 's1', targetPath: 'offers[1].name' },
+      ];
+      render(<CodeView mappings={sparse} sources={arraySources} activeSourceId="s1" />);
+      fireEvent.click(screen.getByRole('tab', { name: 'Table' }));
+      const tableTabs = screen.getAllByRole('tab', { name: 'Table' });
+      fireEvent.click(tableTabs[1]);
+      const dashes = document.querySelectorAll('.validation-fields-pivot-empty');
+      expect(dashes.length).toBeGreaterThan(0);
     });
 
     it('does not show List/Table toggle for non-array mappings', () => {

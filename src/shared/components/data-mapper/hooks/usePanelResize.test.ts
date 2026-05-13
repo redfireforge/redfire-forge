@@ -367,4 +367,117 @@ describe('usePanelResize', () => {
       document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
     });
   });
+
+  describe('ResizeObserver container width reset', () => {
+    let observeCallback: ResizeObserverCallback;
+    let disconnectSpy: ReturnType<typeof vi.fn>;
+
+    beforeEach(() => {
+      disconnectSpy = vi.fn();
+      vi.stubGlobal('ResizeObserver', class {
+        constructor(cb: ResizeObserverCallback) { observeCallback = cb; }
+        observe = vi.fn();
+        unobserve = vi.fn();
+        disconnect = disconnectSpy;
+      });
+    });
+
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    it('resets panel widths on substantial container resize after user resize', () => {
+      const { container } = buildMapperContainer(800, 300, 300, 200);
+      document.body.append(container);
+      const ref = { current: container };
+      const { result } = renderHook(() => usePanelResize(ref));
+
+      act(() => {
+        result.current.handleResizeStart('source', syntheticMouse(300));
+      });
+      act(() => {
+        document.dispatchEvent(new MouseEvent('mousemove', { clientX: 350, bubbles: true }));
+      });
+      act(() => {
+        document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+      });
+      expect(result.current.sourcePanelWidth).not.toBeNull();
+
+      act(() => {
+        observeCallback([{ contentRect: { width: 800 } } as ResizeObserverEntry], null as unknown as ResizeObserver);
+      });
+
+      act(() => {
+        observeCallback([{ contentRect: { width: 1200 } } as ResizeObserverEntry], null as unknown as ResizeObserver);
+      });
+
+      expect(result.current.sourcePanelWidth).toBeNull();
+      expect(result.current.targetPanelWidth).toBeNull();
+      expect(result.current.canvasWidth).toBe(120);
+    });
+
+    it('does not reset when container resize delta is small', () => {
+      const { container } = buildMapperContainer(800, 300, 300, 200);
+      document.body.append(container);
+      const ref = { current: container };
+      const { result } = renderHook(() => usePanelResize(ref));
+
+      act(() => {
+        result.current.handleResizeStart('source', syntheticMouse(300));
+      });
+      act(() => {
+        document.dispatchEvent(new MouseEvent('mousemove', { clientX: 350, bubbles: true }));
+      });
+      act(() => {
+        document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+      });
+      const savedWidth = result.current.sourcePanelWidth;
+
+      act(() => {
+        observeCallback([{ contentRect: { width: 800 } } as ResizeObserverEntry], null as unknown as ResizeObserver);
+      });
+      act(() => {
+        observeCallback([{ contentRect: { width: 820 } } as ResizeObserverEntry], null as unknown as ResizeObserver);
+      });
+
+      expect(result.current.sourcePanelWidth).toBe(savedWidth);
+    });
+
+    it('does not reset when user has not manually resized', () => {
+      const { container } = buildMapperContainer(800, 300, 300, 200);
+      document.body.append(container);
+      const ref = { current: container };
+      const { result } = renderHook(() => usePanelResize(ref));
+
+      act(() => {
+        observeCallback([{ contentRect: { width: 800 } } as ResizeObserverEntry], null as unknown as ResizeObserver);
+      });
+      act(() => {
+        observeCallback([{ contentRect: { width: 1200 } } as ResizeObserverEntry], null as unknown as ResizeObserver);
+      });
+
+      expect(result.current.sourcePanelWidth).toBeNull();
+      expect(result.current.targetPanelWidth).toBeNull();
+    });
+
+    it('handles empty entries array', () => {
+      const { container } = buildMapperContainer(800, 300, 300, 200);
+      document.body.append(container);
+      const ref = { current: container };
+      renderHook(() => usePanelResize(ref));
+
+      act(() => {
+        observeCallback([], null as unknown as ResizeObserver);
+      });
+    });
+
+    it('disconnects observer on unmount', () => {
+      const { container } = buildMapperContainer(800, 300, 300, 200);
+      document.body.append(container);
+      const ref = { current: container };
+      const { unmount } = renderHook(() => usePanelResize(ref));
+      unmount();
+      expect(disconnectSpy).toHaveBeenCalled();
+    });
+  });
 });
