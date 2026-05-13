@@ -5,6 +5,7 @@ import type { FocusRegion } from './hooks/useKeyboardNavigation';
 import type { DriftIndicator } from './SourceTreeNode';
 import type { TraceValueOverlay } from './types';
 import { buildJsonTree } from '../../utils/jsonTreeModel';
+import { normalizeMapperPath } from './utils/pathNormalization';
 import SourceTreeNode from './SourceTreeNode';
 
 interface SourcePanelProps {
@@ -18,6 +19,8 @@ interface SourcePanelProps {
   onFetchSample?: () => Promise<void>;
   canFetch?: boolean;
   fetchError?: string | null;
+  onNodeSelect?: (path: string, sourceId: string) => void;
+  selectedNodePath?: string | null;
   searchInputRef?: React.RefObject<HTMLInputElement | null>;
   selectedSourcePaths?: Set<string>;
   onToggleSourcePath?: (path: string) => void;
@@ -33,6 +36,7 @@ interface SourcePanelProps {
   driftMap?: Map<string, DriftIndicator>;
   traceOverlay?: Map<string, TraceValueOverlay>;
   mappedPaths?: Set<string>;
+  onMapFilteredFields?: (paths: string[], sourceId: string) => void;
 }
 
 export default function SourcePanel({
@@ -46,6 +50,8 @@ export default function SourcePanel({
   onFetchSample,
   canFetch = false,
   fetchError,
+  onNodeSelect,
+  selectedNodePath,
   searchInputRef,
   selectedSourcePaths,
   onToggleSourcePath,
@@ -56,8 +62,10 @@ export default function SourcePanel({
   driftMap,
   traceOverlay,
   mappedPaths,
+  onMapFilteredFields,
 }: SourcePanelProps) {
   const [search, setSearch] = useState('');
+  const [mappingFilter, setMappingFilter] = useState<'all' | 'mapped' | 'unmapped'>('all');
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set(['__root__']));
   const [pasteMode, setPasteMode] = useState(false);
   const [pasteText, setPasteText] = useState('');
@@ -85,6 +93,48 @@ export default function SourcePanel({
       return null;
     }
   }, [effectiveSampleData]);
+
+  const leafPaths = useMemo(() => {
+    if (!tree) return [] as string[];
+    const leaves: string[] = [];
+    const collect = (node: JsonTreeNode) => {
+      if (!node.children || node.children.length === 0) {
+        leaves.push(node.path);
+        return;
+      }
+      node.children.forEach(collect);
+    };
+    collect(tree);
+    return leaves;
+  }, [tree]);
+
+  const mappedLeafCount = useMemo(() => {
+    if (!mappedPaths || mappedPaths.size === 0) return 0;
+    let count = 0;
+    for (const path of leafPaths) {
+      if (mappedPaths.has(normalizeMapperPath(path))) count += 1;
+    }
+    return count;
+  }, [leafPaths, mappedPaths]);
+
+  const unmappedLeafCount = useMemo(
+    () => Math.max(leafPaths.length - mappedLeafCount, 0),
+    [leafPaths.length, mappedLeafCount],
+  );
+
+  useEffect(() => {
+    if (!tree) {
+      setExpandedPaths(new Set(['__root__']));
+      return;
+    }
+    const all = new Set<string>();
+    const collect = (node: JsonTreeNode) => {
+      all.add(node.path || '__root__');
+      node.children?.forEach(collect);
+    };
+    collect(tree);
+    setExpandedPaths(all);
+  }, [tree]);
 
   const handleToggle = useCallback((path: string) => {
     setExpandedPaths((prev) => {
@@ -133,6 +183,23 @@ export default function SourcePanel({
       setFetching(false);
     }
   }, [onFetchSample]);
+
+  const filteredUnmappedLeaves = useMemo(() => {
+    const lowerSearch = search.toLowerCase();
+    return leafPaths.filter((p) => {
+      if (search && !p.toLowerCase().includes(lowerSearch)) return false;
+      const isMapped = mappedPaths?.has(normalizeMapperPath(p)) ?? false;
+      if (mappingFilter === 'mapped') return false;
+      if (mappingFilter === 'unmapped' && isMapped) return false;
+      if (mappingFilter === 'all' && isMapped) return false;
+      return true;
+    });
+  }, [leafPaths, search, mappingFilter, mappedPaths]);
+
+  const handleMapFiltered = useCallback(() => {
+    if (!onMapFilteredFields || filteredUnmappedLeaves.length === 0) return;
+    onMapFilteredFields(filteredUnmappedLeaves, activeSourceId);
+  }, [onMapFilteredFields, filteredUnmappedLeaves, activeSourceId]);
 
   const togglePasteMode = useCallback(() => {
     setPasteMode((prev) => !prev);
@@ -236,7 +303,31 @@ export default function SourcePanel({
             {search && (
               <button className="dm-search-clear" onClick={() => setSearch('')} aria-label="Clear search">×</button>
             )}
+            <select
+              className="dm-filter-select"
+              aria-label="Filter source fields"
+              value={mappingFilter}
+              onChange={(e) => setMappingFilter(e.target.value as 'all' | 'mapped' | 'unmapped')}
+            >
+              <option value="all">All</option>
+              <option value="mapped">Mapped</option>
+              <option value="unmapped">Unmapped</option>
+            </select>
+            <span className="dm-filter-count" aria-live="polite">
+              {mappedLeafCount} mapped / {unmappedLeafCount} unmapped
+            </span>
           </div>
+          {filteredUnmappedLeaves.length > 0 && onMapFilteredFields && (
+            <div className="dm-map-filtered-bar">
+              <button
+                className="dm-map-filtered-btn"
+                onClick={handleMapFiltered}
+                aria-label={`Map ${filteredUnmappedLeaves.length} filtered fields`}
+              >
+                Map {search || mappingFilter !== 'all' ? 'filtered' : 'all'} ({filteredUnmappedLeaves.length})
+              </button>
+            </div>
+          )}
 
           {fetchError && <div className="dm-paste-error" role="alert">{fetchError}</div>}
 
@@ -251,9 +342,12 @@ export default function SourcePanel({
                 node={tree}
                 depth={0}
                 search={search}
+                mappingFilter={mappingFilter}
                 onDragStart={onDragStart}
                 onDragEnd={onDragEnd}
                 sourceId={activeSourceId}
+                onNodeSelect={onNodeSelect}
+                selectedNodePath={selectedNodePath}
                 expandedPaths={expandedPaths}
                 onToggle={handleToggle}
                 selectedPaths={selectedSourcePaths}

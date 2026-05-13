@@ -191,4 +191,36 @@ describe('LocationGroupPanel', () => {
     expect(container.querySelector('.dm-loc-group--body')).toBeTruthy();
     expect(container.querySelector('.dm-loc-group--form')).toBeTruthy();
   });
+
+  it('resetViewSignal re-expands all paths', () => {
+    const fields = makeFields([
+      { path: 'outer.inner', location: 'body' },
+    ]);
+    const { rerender } = renderPanel(fields, { resetViewSignal: 0 });
+    rerender(
+      <LocationGroupPanel
+        fields={fields}
+        mappings={baseMappings}
+        onDrop={noop}
+        search=""
+        selectedMappingId={null}
+        onSelectMapping={noop}
+        existingPaths={new Set(fields.map(f => f.path))}
+        resetViewSignal={1}
+      />,
+    );
+    expect(screen.getByText('outer.inner')).toBeTruthy();
+  });
+
+  it('toggling a tree node collapses it', () => {
+    const fields = makeFields([
+      { path: 'data.name', location: 'body' },
+    ]);
+    renderPanel(fields);
+    const collapseBtn = screen.queryAllByLabelText('Collapse');
+    if (collapseBtn.length > 0) {
+      fireEvent.click(collapseBtn[0]);
+      expect(screen.queryAllByLabelText('Expand').length).toBeGreaterThanOrEqual(1);
+    }
+  });
 });

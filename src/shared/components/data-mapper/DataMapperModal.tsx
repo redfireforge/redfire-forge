@@ -15,10 +15,18 @@ import '../../../styles/data-mapper-modal.css';
 interface DataMapperModalProps<TOutput = unknown> {
   adapter: MapperAdapter<TOutput>;
   initialData?: TOutput;
-  onSave: (output: TOutput) => void;
+  onSave: (output: TOutput, options?: { unorderedArrays?: boolean }) => void;
   onCancel: () => void;
   fullScreenDefault?: boolean;
   doneLabel?: string;
+  unorderedArrays?: boolean;
+}
+
+interface SnapshotPairRef {
+  side: 'source' | 'target';
+  sourceId?: string;
+  saved: SchemaSnapshot;
+  current: SchemaSnapshot;
 }
 
 /**
@@ -70,17 +78,20 @@ export default function DataMapperModal<TOutput = unknown>({
   onCancel,
   fullScreenDefault = false,
   doneLabel = 'Save',
+  unorderedArrays: initialUnorderedArrays,
 }: DataMapperModalProps<TOutput>) {
   const titleId = useId();
   const [isFullScreen, setIsFullScreen] = useState(fullScreenDefault);
   const [validationIssues, setValidationIssues] = useState<ValidationIssue[]>([]);
   const [driftEntries, setDriftEntries] = useState<ClassifiedDrift[]>([]);
+  const [showDriftBanner, setShowDriftBanner] = useState(false);
   const [showDiffModal, setShowDiffModal] = useState(false);
   const currentMappingsRef = useRef<Mapping[]>([]);
   const mappingsReadyRef = useRef(false);
   const sourceSampleOverridesRef = useRef<Record<string, unknown>>({});
-  const savedSnapshotsRef = useRef<{ saved: SchemaSnapshot; current: SchemaSnapshot }[]>([]);
+  const savedSnapshotsRef = useRef<SnapshotPairRef[]>([]);
   const [repairTick, setRepairTick] = useState(0);
+  const [unorderedArrays, setUnorderedArrays] = useState(initialUnorderedArrays ?? false);
 
   // Detect schema drift on mount by comparing saved snapshot with current source data.
   // Deferred until mappingsReadyRef is true so findAffectedMappings uses real mappings.
@@ -99,7 +110,7 @@ export default function DataMapperModal<TOutput = unknown>({
       if (cancelled || !savedPair) return;
 
       const allDrifts: ClassifiedDrift[] = [];
-      const snapPairs: { saved: SchemaSnapshot; current: SchemaSnapshot }[] = [];
+      const snapPairs: SnapshotPairRef[] = [];
 
       const overrides = sourceSampleOverridesRef.current;
       for (const savedSource of savedPair.source) {
@@ -112,13 +123,37 @@ export default function DataMapperModal<TOutput = unknown>({
           const tagged = rawDrifts.map((d) => ({ ...d, sourceId: savedSource.sourceId }));
           const withMappings = findAffectedMappings(tagged, currentMappingsRef.current, 'source');
           allDrifts.push(...classifyDrift(withMappings));
-          snapPairs.push({ saved: savedSource, current: currentSnap });
+          snapPairs.push({
+            side: 'source',
+            sourceId: savedSource.sourceId,
+            saved: savedSource,
+            current: currentSnap,
+          });
+        }
+      }
+
+      if (savedPair.target && adapter.target.sampleData != null) {
+        const currentTargetSnap = captureSchemaSnapshot(
+          adapter.contextId,
+          'target',
+          adapter.target.sampleData,
+        );
+        const targetDrifts = diffSchemas(savedPair.target, currentTargetSnap);
+        if (targetDrifts.length > 0) {
+          const withMappings = findAffectedMappings(targetDrifts, currentMappingsRef.current, 'target');
+          allDrifts.push(...classifyDrift(withMappings));
+          snapPairs.push({
+            side: 'target',
+            saved: savedPair.target,
+            current: currentTargetSnap,
+          });
         }
       }
 
       if (allDrifts.length > 0 && !cancelled) {
         savedSnapshotsRef.current = snapPairs;
         setDriftEntries(allDrifts);
+        setShowDriftBanner(true);
       }
     };
 
@@ -132,6 +167,11 @@ export default function DataMapperModal<TOutput = unknown>({
     mappingsReadyRef.current = true;
     setValidationIssues([]);
   }, []);
+
+  const handleToggleUnorderedArray = useCallback((_arrayPath: string) => {
+    setUnorderedArrays((prev) => !prev);
+  }, []);
+
 
   const handleSourceSampleChange = useCallback((overrides: Record<string, unknown>) => {
     sourceSampleOverridesRef.current = overrides;
@@ -151,11 +191,11 @@ export default function DataMapperModal<TOutput = unknown>({
     saveSnapshot(adapter.contextId, pair).catch(() => {});
     savedSnapshotsRef.current = [];
     setDriftEntries([]);
+    setShowDriftBanner(false);
   }, [adapter]);
 
   const handleDismissDrift = useCallback(() => {
-    savedSnapshotsRef.current = [];
-    setDriftEntries([]);
+    setShowDriftBanner(false);
   }, []);
 
   const handleShowDiff = useCallback(() => {
@@ -211,36 +251,98 @@ export default function DataMapperModal<TOutput = unknown>({
     const map = new Map<string, RepairSuggestion[]>();
     for (const drift of breaking) {
       const pair = drift.sourceId != null
-        ? savedSnapshotsRef.current.find((p) => p.saved.sourceId === drift.sourceId)
-        : savedSnapshotsRef.current[0];
+        ? savedSnapshotsRef.current.find((p) => p.side === 'source' && p.sourceId === drift.sourceId)
+        : savedSnapshotsRef.current.find((p) => p.side === 'target');
       if (!pair) continue;
       for (const mid of drift.affectedMappingIds) {
-        const suggestions = suggestRepairs(drift.path, mid, pair.current, pair.saved);
+        const suggestions = suggestRepairs(
+          drift.path,
+          mid,
+          pair.current,
+          pair.saved,
+          drift.sourceId != null ? 'source' : 'target',
+        );
         if (suggestions.length > 0) {
           const existing = map.get(drift.path) ?? [];
-          map.set(drift.path, [...existing, ...suggestions]);
+          const merged = [...existing, ...suggestions];
+          const deduped: RepairSuggestion[] = [];
+          const seen = new Set<string>();
+          for (const suggestion of merged.sort((a, b) => b.confidence - a.confidence)) {
+            const key = `${suggestion.mappingId}:${suggestion.suggestedPath}:${suggestion.side ?? 'source'}`;
+            if (seen.has(key)) continue;
+            seen.add(key);
+            deduped.push(suggestion);
+          }
+          map.set(drift.path, deduped);
         }
       }
     }
     return map.size > 0 ? map : undefined;
   }, [driftEntries]);
 
-  const handleRepairMapping = useCallback((mappingId: string, suggestion: RepairSuggestion) => {
-    const mapping = currentMappingsRef.current.find((m) => m.id === mappingId);
-    if (!mapping) return;
-    const repaired = applyRepair(mapping, suggestion);
-    currentMappingsRef.current = currentMappingsRef.current.map((m) => m.id === mappingId ? repaired : m);
+  const applyRepairSet = useCallback((repairs: Array<{ mappingId: string; suggestion: RepairSuggestion }>) => {
+    if (repairs.length === 0) return 0;
+    let appliedCount = 0;
+    const repairedMappingIds = new Set<string>();
+    const latestByMapping = new Map<string, RepairSuggestion>();
+    for (const { mappingId, suggestion } of repairs) {
+      const prev = latestByMapping.get(mappingId);
+      if (!prev || suggestion.confidence > prev.confidence) {
+        latestByMapping.set(mappingId, suggestion);
+      }
+    }
+
+    currentMappingsRef.current = currentMappingsRef.current.map((mapping) => {
+      const suggestion = latestByMapping.get(mapping.id);
+      if (!suggestion) return mapping;
+      appliedCount += 1;
+      repairedMappingIds.add(mapping.id);
+      return applyRepair(mapping, suggestion);
+    });
+
+    if (appliedCount === 0) return 0;
+
     setRepairTick((t) => t + 1);
     setDriftEntries((prev) =>
       prev.map((d) => ({
         ...d,
-        affectedMappingIds: d.affectedMappingIds.filter((id) => id !== mappingId),
+        affectedMappingIds: d.affectedMappingIds.filter((id) => !repairedMappingIds.has(id)),
       })).filter((d) => d.severity !== 'breaking' || d.affectedMappingIds.length > 0),
     );
+    return appliedCount;
   }, []);
+
+  const handleRepairMapping = useCallback((mappingId: string, suggestion: RepairSuggestion) => {
+    applyRepairSet([{ mappingId, suggestion }]);
+  }, [applyRepairSet]);
+
+  const handleRepairBatch = useCallback((repairs: Array<{ mappingId: string; suggestion: RepairSuggestion }>) => {
+    applyRepairSet(repairs);
+  }, [applyRepairSet]);
 
   const handleDone = useCallback(() => {
     const mappings = currentMappingsRef.current;
+
+    const unresolvedBreakingDrift = driftEntries.filter(
+      (entry) => entry.severity === 'breaking' && entry.affectedMappingIds.length > 0,
+    );
+    if (unresolvedBreakingDrift.length > 0) {
+      const message = unresolvedBreakingDrift.length === 1
+        ? '1 breaking schema drift issue must be repaired or accepted before saving.'
+        : `${unresolvedBreakingDrift.length} breaking schema drift issues must be repaired or accepted before saving.`;
+      setValidationIssues((prev) => {
+        const filtered = prev.filter((issue) => !issue.message.includes('schema drift issue'));
+        return [
+          ...filtered,
+          {
+            severity: 'error',
+            message,
+          },
+        ];
+      });
+      setShowDiffModal(true);
+      return;
+    }
 
     let adapterIssues: ReturnType<NonNullable<typeof adapter.validate>> = [];
     try {
@@ -292,8 +394,8 @@ export default function DataMapperModal<TOutput = unknown>({
     );
     saveSnapshot(adapter.contextId, pair).catch(() => {});
 
-    onSave(output);
-  }, [adapter, onSave]);
+    onSave(output, { unorderedArrays });
+  }, [adapter, driftEntries, onSave, unorderedArrays]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -353,7 +455,7 @@ export default function DataMapperModal<TOutput = unknown>({
           </div>
         </div>
 
-        {driftEntries.length > 0 && (
+        {showDriftBanner && driftEntries.length > 0 && (
           <DriftBanner
             drifts={driftEntries}
             onAcceptAndUpdate={handleAcceptDrift}
@@ -376,6 +478,9 @@ export default function DataMapperModal<TOutput = unknown>({
             repairSuggestions={repairSuggestions}
             onApplyRepair={handleRepairMapping}
             onShowDrift={driftEntries.length > 0 ? handleShowDiff : undefined}
+            unorderedDefault={unorderedArrays}
+            onToggleUnorderedArray={adapter.contextId === 'validation' ? handleToggleUnorderedArray : undefined}
+            hideAdvanced={adapter.contextId === 'validation'}
           />
         </div>
 
@@ -414,6 +519,16 @@ export default function DataMapperModal<TOutput = unknown>({
           <div className="dm-modal-footer-status" role="status" aria-live="polite">
             {footerStatus}
           </div>
+          {adapter.contextId === 'validation' && (
+            <label className="dm-modal-footer-option">
+              <input
+                type="checkbox"
+                checked={unorderedArrays}
+                onChange={(e) => setUnorderedArrays(e.target.checked)}
+              />
+              <span>Unordered array matching</span>
+            </label>
+          )}
           <div className="dm-modal-footer-actions">
             <button className="dm-modal-btn dm-modal-btn--secondary" onClick={onCancel}>
               Cancel
@@ -435,6 +550,7 @@ export default function DataMapperModal<TOutput = unknown>({
           onClose={handleCloseDiff}
           repairSuggestions={repairSuggestions}
           onApplyRepair={handleRepairMapping}
+          onApplyRepairBatch={handleRepairBatch}
         />
       )}
     </div>

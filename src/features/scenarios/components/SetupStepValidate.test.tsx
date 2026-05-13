@@ -12,10 +12,14 @@ vi.mock('../../../shared/components/data-mapper', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../../shared/components/data-mapper')>();
   return {
     ...actual,
-    DataMapperModal: ({ onSave, onCancel }: { onSave: (output: { expectedFields: unknown[]; excludedPaths: string[] }) => void; onCancel: () => void }) => (
+    DataMapperModal: ({ onSave, onCancel, unorderedArrays }: { onSave: (output: { expectedFields: unknown[]; excludedPaths: string[] }, options?: { unorderedArrays?: boolean }) => void; onCancel: () => void; unorderedArrays?: boolean }) => (
       <div data-testid="data-mapper-modal">
+        <span data-testid="mapper-unordered-prop">{String(!!unorderedArrays)}</span>
         <button type="button" onClick={() => onSave({ expectedFields: [{ jsonPath: '$.mapped', expectedValue: '"yes"' }], excludedPaths: ['$.skip'] })}>
           Save Mapper
+        </button>
+        <button type="button" onClick={() => onSave({ expectedFields: [], excludedPaths: [] }, { unorderedArrays: true })}>
+          Save Unordered
         </button>
         <button type="button" onClick={onCancel}>
           Cancel Mapper
@@ -261,6 +265,45 @@ describe('SetupStepValidate', () => {
     expect(setValidateFields).toHaveBeenCalledWith([{ jsonPath: '$.mapped', expectedValue: '"yes"' }]);
     expect(setValidateExcluded).toHaveBeenCalledWith(['$.skip']);
     expect(screen.queryByTestId('data-mapper-modal')).toBeNull();
+  });
+
+  it('saves mapper output with unorderedArrays option and updates arrayModes', () => {
+    const Wrapper = () => {
+      const [arrayModes, setArrayModes] = useState<Record<string, 'ordered' | 'unordered'>>({ items: 'ordered' });
+      const [validateFields, setValidateFields] = useState<{ jsonPath: string; expectedValue: string }[]>([]);
+      const [validateExcluded, setValidateExcluded] = useState<string[]>([]);
+      return (
+        <>
+          <SetupStepValidate
+            {...createDefaultProps({
+              sampleJson: '{"items":[]}',
+              arrayPrefixes: ['items'],
+              arrayModes,
+              setArrayModes,
+              validateFields,
+              setValidateFields: setValidateFields as SetupStepValidateProps['setValidateFields'],
+              validateExcluded,
+              setValidateExcluded,
+            })}
+          />
+          <span data-testid="modes-json">{JSON.stringify(arrayModes)}</span>
+        </>
+      );
+    };
+    render(<Wrapper />);
+    fireEvent.click(screen.getByText('⚡ Visual Mapper'));
+    fireEvent.click(screen.getByText('Save Unordered'));
+    expect(screen.getByTestId('modes-json').textContent).toContain('"items":"unordered"');
+    expect(screen.queryByTestId('data-mapper-modal')).toBeNull();
+  });
+
+  it('passes unorderedArrays prop to DataMapperModal', () => {
+    render(<SetupStepValidate {...createDefaultProps({
+      sampleJson: '{}',
+      arrayModes: { items: 'unordered' },
+    })} />);
+    fireEvent.click(screen.getByText('⚡ Visual Mapper'));
+    expect(screen.getByTestId('mapper-unordered-prop').textContent).toBe('true');
   });
 
   it('cancels mapper modal without saving', () => {

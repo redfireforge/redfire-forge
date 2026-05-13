@@ -552,6 +552,30 @@ describe('useTestFetch hook', () => {
       expect(options.onDraftChange).toHaveBeenCalled();
     });
 
+    it('handleFetchKeepRules refreshes expected values from fetched response', async () => {
+      const options = createOptions({
+        validation: {
+          mode: 'selective',
+          expectedFields: [{ jsonPath: '$.users[0].id', expectedValue: '999' }],
+          sampleJson: '{"users":[{"id":999}]}',
+        },
+      });
+      const { result } = renderHook(() => useTestFetch(options));
+
+      await act(async () => {
+        await result.current.handleFetchSampleResponse();
+      });
+      expect(result.current.pendingFetchResponse).not.toBeNull();
+
+      act(() => {
+        result.current.handleFetchKeepRules();
+      });
+
+      const last = options.onDraftChange.mock.calls.at(-1)?.[0] as Scenario;
+      expect(last.validation.expectedFields?.[0]?.jsonPath).toBe('$.users[0].id');
+      expect(last.validation.expectedFields?.[0]?.expectedValue).toBe('1');
+    });
+
     it('handleFetchReplaceAll clears pending and resets rules', async () => {
       const options = createOptions({
         validation: {

@@ -48,6 +48,24 @@ vi.mock('../../../shared/components/data-mapper', async () => {
   const actual = await vi.importActual<Record<string, unknown>>('../../../shared/components/data-mapper');
   return {
     ...actual,
+    DataMapperModal: ({ onCancel, onSave, unorderedArrays }: {
+      onCancel: () => void;
+      onSave: (output: { selectiveMode: string; expectedFields: { jsonPath: string; expectedValue: string }[]; excludedPaths: string[] }, options?: { unorderedArrays?: boolean }) => void;
+      unorderedArrays?: boolean;
+    }) => (
+      <div data-testid="data-mapper-modal">
+        <button onClick={onCancel}>Close Mapper Modal</button>
+        <button data-testid="mapper-save" onClick={() => onSave(
+          { selectiveMode: 'include', expectedFields: [{ jsonPath: '$.a', expectedValue: '1' }], excludedPaths: [] },
+          { unorderedArrays: true }
+        )}>Save Mapper</button>
+        <button data-testid="mapper-save-ordered" onClick={() => onSave(
+          { selectiveMode: 'include', expectedFields: [{ jsonPath: '$.a', expectedValue: '1' }], excludedPaths: [] },
+          { unorderedArrays: false }
+        )}>Save Mapper Ordered</button>
+        <span data-testid="mapper-unordered-prop">{unorderedArrays ? 'true' : 'false'}</span>
+      </div>
+    ),
     RegexAssertionBuilderModal: ({ onCancel, onSave }: { onCancel: () => void; onSave: (result: { jsonPath: string; pattern: string }) => void }) => (
       <div data-testid="regex-assertion-modal">
         <button onClick={onCancel}>Close Regex Modal</button>
@@ -388,6 +406,114 @@ describe('TestEditorValidationTab', () => {
       expect(screen.getByLabelText('Current sample response')).toHaveValue('{"id":1}');
     });
 
+    describe('response search box', () => {
+      const sampleJson = JSON.stringify({
+        offers: [
+          { code: 'AAA', name: 'Alpha' },
+          { code: 'BBB', name: 'Beta' },
+          { code: 'AAA', name: 'Echo' },
+        ],
+      }, null, 2);
+
+      function renderWithSample() {
+        const draft = makeDraft({
+          validation: { mode: 'selective', assertions: [], sampleJson },
+        });
+        return render(<TestEditorValidationTab {...makeProps({ draft, draftRef: { current: draft } })} />);
+      }
+
+      it('shows the search box when a sample response is present', () => {
+        renderWithSample();
+        expect(screen.getByPlaceholderText('Search response…')).toBeInTheDocument();
+      });
+
+      it('shows match count when search term has matches (no auto-jump)', () => {
+        renderWithSample();
+        const input = screen.getByPlaceholderText('Search response…');
+        fireEvent.change(input, { target: { value: 'AAA' } });
+        expect(screen.getByText('2 matches')).toBeInTheDocument();
+      });
+
+      it('shows "No matches" when search term has no matches', () => {
+        renderWithSample();
+        const input = screen.getByPlaceholderText('Search response…');
+        fireEvent.change(input, { target: { value: 'NOTFOUND' } });
+        expect(screen.getByText('No matches')).toBeInTheDocument();
+      });
+
+      it('navigates to first match when next button is clicked', () => {
+        renderWithSample();
+        const input = screen.getByPlaceholderText('Search response…');
+        fireEvent.change(input, { target: { value: 'AAA' } });
+        expect(screen.getByText('2 matches')).toBeInTheDocument();
+        fireEvent.click(screen.getByLabelText('Next match'));
+        expect(screen.getByText('1 / 2')).toBeInTheDocument();
+      });
+
+      it('wraps around when navigating past last match', () => {
+        renderWithSample();
+        const input = screen.getByPlaceholderText('Search response…');
+        fireEvent.change(input, { target: { value: 'AAA' } });
+        fireEvent.click(screen.getByLabelText('Next match'));
+        fireEvent.click(screen.getByLabelText('Next match'));
+        fireEvent.click(screen.getByLabelText('Next match'));
+        expect(screen.getByText('1 / 2')).toBeInTheDocument();
+      });
+
+      it('clears search with the clear button', () => {
+        renderWithSample();
+        const input = screen.getByPlaceholderText('Search response…') as HTMLInputElement;
+        fireEvent.change(input, { target: { value: 'AAA' } });
+        expect(input.value).toBe('AAA');
+        fireEvent.click(screen.getByLabelText('Clear search'));
+        expect(input.value).toBe('');
+        expect(screen.queryByText(/\/ \d+/)).not.toBeInTheDocument();
+      });
+
+      it('navigates to first match on Enter key', () => {
+        renderWithSample();
+        const input = screen.getByPlaceholderText('Search response…');
+        fireEvent.change(input, { target: { value: 'AAA' } });
+        fireEvent.keyDown(input, { key: 'Enter' });
+        expect(screen.getByText('1 / 2')).toBeInTheDocument();
+      });
+
+      it('does not steal focus while typing', () => {
+        renderWithSample();
+        const input = screen.getByPlaceholderText('Search response…') as HTMLInputElement;
+        input.focus();
+        expect(document.activeElement).toBe(input);
+        fireEvent.change(input, { target: { value: 'A' } });
+        expect(document.activeElement).toBe(input);
+        fireEvent.change(input, { target: { value: 'AA' } });
+        expect(document.activeElement).toBe(input);
+        fireEvent.change(input, { target: { value: 'AAA' } });
+        expect(document.activeElement).toBe(input);
+      });
+
+      it('clears search on Escape key', () => {
+        renderWithSample();
+        const input = screen.getByPlaceholderText('Search response…') as HTMLInputElement;
+        fireEvent.change(input, { target: { value: 'AAA' } });
+        fireEvent.keyDown(input, { key: 'Escape' });
+        expect(input.value).toBe('');
+      });
+
+      it('disables nav buttons when there are no matches', () => {
+        renderWithSample();
+        const input = screen.getByPlaceholderText('Search response…');
+        fireEvent.change(input, { target: { value: 'NOTFOUND' } });
+        expect(screen.getByLabelText('Next match')).toBeDisabled();
+        expect(screen.getByLabelText('Previous match')).toBeDisabled();
+      });
+
+      it('does not show the search box when there is no sample response', () => {
+        const draft = makeDraft({ validation: { mode: 'selective', assertions: [] } });
+        render(<TestEditorValidationTab {...makeProps({ draft, draftRef: { current: draft } })} />);
+        expect(screen.queryByPlaceholderText('Search response…')).not.toBeInTheDocument();
+      });
+    });
+
     it('shows pending fetch confirmation when pendingFetchResponse is set', () => {
       const draft = makeDraft({
         validation: {
@@ -427,6 +553,53 @@ describe('TestEditorValidationTab', () => {
       })} />);
       fireEvent.click(screen.getByText('Keep Rules & Update Response'));
       expect(onFetchKeepRules).toHaveBeenCalled();
+    });
+
+    it('opens Visual Mapper after keep-rules response is applied', async () => {
+      const onFetchKeepRules = vi.fn();
+      const draft = makeDraft({
+        validation: {
+          mode: 'selective',
+          assertions: [],
+          sampleJson: '{"id":1}',
+          expectedFields: [{ jsonPath: '$.id', expectedValue: '1' }],
+        },
+      });
+      const draftRef = createRef<Scenario>() as React.MutableRefObject<Scenario>;
+      draftRef.current = draft;
+      const { rerender } = render(<TestEditorValidationTab {...makeProps({
+        draft,
+        draftRef,
+        pendingFetchResponse: '{"id":2}',
+        onFetchKeepRules,
+        onFetchReplaceAll: vi.fn(),
+        onFetchCancel: vi.fn(),
+      })} />);
+
+      fireEvent.click(screen.getByText('Keep Rules & Update Response'));
+      expect(onFetchKeepRules).toHaveBeenCalledTimes(1);
+
+      const updatedDraft = makeDraft({
+        validation: {
+          mode: 'selective',
+          assertions: [],
+          sampleJson: '{"id":2}',
+          expectedFields: [{ jsonPath: '$.id', expectedValue: '2' }],
+        },
+      });
+      draftRef.current = updatedDraft;
+      rerender(<TestEditorValidationTab {...makeProps({
+        draft: updatedDraft,
+        draftRef,
+        pendingFetchResponse: null,
+        onFetchKeepRules,
+        onFetchReplaceAll: vi.fn(),
+        onFetchCancel: vi.fn(),
+      })} />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('data-mapper-modal')).toBeInTheDocument();
+      });
     });
 
     it('calls onFetchReplaceAll when "Replace All" clicked', () => {
@@ -613,6 +786,47 @@ describe('TestEditorValidationTab', () => {
           validation: expect.objectContaining({ unorderedArrays: true }),
         })
       );
+    });
+
+    it('persists unorderedArrays when saved via DataMapper modal', () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({
+        validation: { mode: 'selective', sampleJson: '{"a":1}', assertions: [] },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+
+      fireEvent.click(screen.getByText('⚡ Visual Mapper'));
+      expect(screen.getByTestId('data-mapper-modal')).toBeTruthy();
+
+      fireEvent.click(screen.getByTestId('mapper-save'));
+      expect(onDraftChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          validation: expect.objectContaining({ unorderedArrays: true }),
+        })
+      );
+    });
+
+    it('passes saved unorderedArrays back to DataMapper modal on reopen', () => {
+      const draft = makeDraft({
+        validation: { mode: 'selective', sampleJson: '{"a":1}', unorderedArrays: true, assertions: [] },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef })} />);
+
+      fireEvent.click(screen.getByText('⚡ Visual Mapper'));
+      expect(screen.getByTestId('mapper-unordered-prop').textContent).toBe('true');
+    });
+
+    it('shows checkbox checked when unorderedArrays is true in draft', () => {
+      const draft = makeDraft({
+        validation: { mode: 'selective', unorderedArrays: true, assertions: [] },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef })} />);
+
+      const checkbox = screen.getByRole('checkbox', { name: /Unordered array matching/i }) as HTMLInputElement;
+      expect(checkbox.checked).toBe(true);
     });
   });
 
@@ -1633,6 +1847,88 @@ describe('TestEditorValidationTab', () => {
       const updated = onDraftChange.mock.calls[0][0] as Scenario;
       expect(updated.validation.rulesVersions?.[0].label).toBe('renamed-rule');
       expect(updated.validation.rulesVersions?.[1].label).toBeUndefined();
+    });
+  });
+
+  describe('validation rules table view', () => {
+    const arrayDraft = makeDraft({
+      validation: {
+        mode: 'selective',
+        assertions: [],
+        expectedFields: [
+          { jsonPath: '$.offers[0].associatedOfferingCode', expectedValue: '"AAA"' },
+          { jsonPath: '$.offers[0].offerName', expectedValue: '"Alpha"' },
+          { jsonPath: '$.offers[1].associatedOfferingCode', expectedValue: '"BBB"' },
+          { jsonPath: '$.offers[1].offerName', expectedValue: '"Beta"' },
+        ],
+      },
+    });
+
+    it('shows List/Table toggle when rules contain array entries', () => {
+      render(<TestEditorValidationTab {...makeProps({ draft: arrayDraft, draftRef: { current: arrayDraft } })} />);
+      expect(screen.getByRole('tab', { name: 'List' })).toBeInTheDocument();
+      expect(screen.getByRole('tab', { name: 'Table' })).toBeInTheDocument();
+    });
+
+    it('hides List/Table toggle when there are no array rules', () => {
+      const flatDraft = makeDraft({
+        validation: {
+          mode: 'selective',
+          assertions: [],
+          expectedFields: [{ jsonPath: '$.id', expectedValue: '1' }],
+        },
+      });
+      render(<TestEditorValidationTab {...makeProps({ draft: flatDraft, draftRef: { current: flatDraft } })} />);
+      expect(screen.queryByRole('tab', { name: 'Table' })).not.toBeInTheDocument();
+    });
+
+    it('renders flat list view by default', () => {
+      render(<TestEditorValidationTab {...makeProps({ draft: arrayDraft, draftRef: { current: arrayDraft } })} />);
+      expect(screen.getByText('$.offers[0].associatedOfferingCode')).toBeInTheDocument();
+      expect(screen.getByText('$.offers[1].offerName')).toBeInTheDocument();
+    });
+
+    it('renders pivot table with field columns and indexed rows when Table is selected', () => {
+      render(<TestEditorValidationTab {...makeProps({ draft: arrayDraft, draftRef: { current: arrayDraft } })} />);
+      fireEvent.click(screen.getByRole('tab', { name: 'Table' }));
+
+      expect(screen.getByRole('columnheader', { name: 'associatedOfferingCode' })).toBeInTheDocument();
+      expect(screen.getByRole('columnheader', { name: 'offerName' })).toBeInTheDocument();
+      expect(screen.getByText('#0')).toBeInTheDocument();
+      expect(screen.getByText('#1')).toBeInTheDocument();
+      expect(screen.getByText('AAA')).toBeInTheDocument();
+      expect(screen.getByText('Alpha')).toBeInTheDocument();
+      expect(screen.getByText('BBB')).toBeInTheDocument();
+      expect(screen.getByText('Beta')).toBeInTheDocument();
+    });
+
+    it('removes a single rule from list view', () => {
+      const onDraftChange = vi.fn();
+      render(<TestEditorValidationTab {...makeProps({
+        draft: arrayDraft,
+        draftRef: { current: arrayDraft },
+        onDraftChange,
+      })} />);
+      const removeBtn = screen.getByRole('button', { name: 'Remove $.offers[1].offerName' });
+      fireEvent.click(removeBtn);
+      const updated = onDraftChange.mock.calls[0][0] as Scenario;
+      expect(updated.validation.expectedFields).toHaveLength(3);
+      expect(updated.validation.expectedFields?.find((f) => f.jsonPath === '$.offers[1].offerName')).toBeUndefined();
+    });
+
+    it('removes all rules for the row when remove is clicked in pivot view', () => {
+      const onDraftChange = vi.fn();
+      render(<TestEditorValidationTab {...makeProps({
+        draft: arrayDraft,
+        draftRef: { current: arrayDraft },
+        onDraftChange,
+      })} />);
+      fireEvent.click(screen.getByRole('tab', { name: 'Table' }));
+      const removeBtn = screen.getByRole('button', { name: 'Remove $.offers[1]' });
+      fireEvent.click(removeBtn);
+      const updated = onDraftChange.mock.calls[0][0] as Scenario;
+      expect(updated.validation.expectedFields).toHaveLength(2);
+      expect(updated.validation.expectedFields?.every((f) => !f.jsonPath.startsWith('$.offers[1]'))).toBe(true);
     });
   });
 });

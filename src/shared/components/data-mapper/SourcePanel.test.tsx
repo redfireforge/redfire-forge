@@ -67,6 +67,30 @@ describe('SourcePanel – tree view', () => {
     expect(screen.getByText('age')).toBeTruthy();
     expect(screen.queryByText('name')).toBeNull();
   });
+
+  it('filters to mapped fields only and shows mapped/unmapped counts', () => {
+    renderPanel({ mappedPaths: new Set(['name']) });
+    fireEvent.change(screen.getByLabelText('Filter source fields'), { target: { value: 'mapped' } });
+    expect(screen.getByText('name')).toBeTruthy();
+    expect(screen.queryByText('age')).toBeNull();
+    expect(screen.getByText('1 mapped / 1 unmapped')).toBeTruthy();
+  });
+
+  it('filters to unmapped fields only', () => {
+    renderPanel({ mappedPaths: new Set(['name']) });
+    fireEvent.change(screen.getByLabelText('Filter source fields'), { target: { value: 'unmapped' } });
+    expect(screen.getByText('age')).toBeTruthy();
+    expect(screen.queryByText('name')).toBeNull();
+  });
+
+  it('expands nested source tree by default', () => {
+    const nestedSources: MapperSource[] = [
+      { id: 's1', label: 'Nested', sampleData: { user: { profile: { name: 'Bob' } } } },
+    ];
+    renderPanel({ sources: nestedSources, activeSourceId: 's1' });
+    expect(screen.getByText('profile')).toBeTruthy();
+    expect(screen.getByText('name')).toBeTruthy();
+  });
 });
 
 describe('SourcePanel – paste JSON mode', () => {

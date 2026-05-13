@@ -3,7 +3,7 @@
 .dm-modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.6);
+  background: transparent;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -111,10 +111,36 @@
   color: var(--text-secondary, #a6adc8);
 }
 
-.dm-modal-footer-actions {
+.dm-modal-footer-option {
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  font-size: 0.8rem;
+  color: var(--text, #cdd6f4);
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+  background: color-mix(in srgb, var(--accent, #89b4fa) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent, #89b4fa) 30%, transparent);
+  border-radius: 6px;
+  padding: 6px 14px;
+  transition: background 0.15s, border-color 0.15s;
+}
+.dm-modal-footer-option:hover {
+  background: color-mix(in srgb, var(--accent, #89b4fa) 18%, transparent);
+  border-color: color-mix(in srgb, var(--accent, #89b4fa) 50%, transparent);
+}
+.dm-modal-footer-option input[type="checkbox"] {
+  accent-color: var(--accent, #89b4fa);
+  cursor: pointer;
+  width: 16px;
+  height: 16px;
+}
+
+.dm-modal-footer-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .dm-modal-btn {
@@ -139,15 +165,30 @@
   background: var(--accent, #89b4fa);
   color: #1e1e2e;
   border-color: transparent;
+  min-width: 112px;
+  font-weight: 600;
+  box-shadow: 0 0 0 1px rgba(137, 180, 250, 0.22), 0 4px 10px rgba(0, 0, 0, 0.22);
 }
 
 .dm-modal-btn--primary:hover {
-  opacity: 0.9;
+  filter: brightness(1.04);
 }
 
 .dm-modal-btn--primary:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+  box-shadow: none;
+}
+
+@media (max-width: 860px) {
+  .dm-modal-footer {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .dm-modal-footer-status {
+    width: 100%;
+  }
 }
 
 /* ── Validation Bar ────────────────────────────── */
@@ -415,6 +456,14 @@
   padding: 0;
 }
 
+.dm-diff-batch-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border-subtle, rgba(59, 63, 81, 0.4));
+  background: var(--bg-elevated, #181825);
+}
+
 .dm-diff-table {
   width: 100%;
   border-collapse: collapse;
@@ -512,6 +561,11 @@
 .dm-repair-btn:hover {
   background: rgba(166, 227, 161, 0.18);
   border-color: rgba(166, 227, 161, 0.5);
+}
+
+.dm-repair-btn--batch {
+  font-size: 0.7rem;
+  padding: 4px 10px;
 }
 
 .dm-repair-none {

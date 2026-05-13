@@ -15,6 +15,7 @@ import type { ClassifiedDrift } from './schemaDrift';
 // ─── Types ────────────────────────────────────────────────
 
 export type RepairStrategy = 'similar-name' | 'renamed-candidate' | 'manual';
+export type RepairSide = 'source' | 'target';
 
 export interface RepairSuggestion {
   /** The drift entry that triggered this suggestion */
@@ -29,6 +30,8 @@ export interface RepairSuggestion {
   strategy: RepairStrategy;
   /** Confidence score 0–100 */
   confidence: number;
+  /** Which mapping side should be repaired */
+  side?: RepairSide;
 }
 
 export interface RepairResult {
@@ -100,6 +103,7 @@ export function suggestRepairs(
   mappingId: string,
   currentSnapshot: SchemaSnapshot,
   savedSnapshot: SchemaSnapshot,
+  side: RepairSide = 'source',
 ): RepairSuggestion[] {
   const suggestions: RepairSuggestion[] = [];
   const removedName = lastSegment(driftPath);
@@ -123,6 +127,7 @@ export function suggestRepairs(
         reason: `Similar name "${fieldName}" (edit distance: ${dist})`,
         strategy: 'similar-name',
         confidence,
+        side,
       });
     }
   }
@@ -151,6 +156,7 @@ export function suggestRepairs(
         reason: `New field "${lastSegment(field.path)}" with same type (${removedType}) under same parent — likely rename`,
         strategy: 'renamed-candidate',
         confidence: 70,
+        side,
       });
     }
   }
@@ -208,13 +214,19 @@ export function applyRepair(
   mapping: Mapping,
   suggestion: RepairSuggestion,
 ): Mapping {
-  const oldPath = mapping.sourcePath;
+  const side = suggestion.side ?? 'source';
+  const oldPath = side === 'source' ? mapping.sourcePath : mapping.targetPath;
   const newPath = suggestion.suggestedPath;
-  const result: Mapping = {
-    ...mapping,
-    sourcePath: newPath,
-  };
-  if (result.expression && oldPath !== newPath) {
+  const result: Mapping = side === 'source'
+    ? {
+        ...mapping,
+        sourcePath: newPath,
+      }
+    : {
+        ...mapping,
+        targetPath: newPath,
+      };
+  if (side === 'source' && result.expression && oldPath !== newPath) {
     const oldPathDollar = oldPath.startsWith('$.') ? oldPath : `$.${oldPath}`;
     const newPathDollar = newPath.startsWith('$.') ? newPath : `$.${newPath}`;
     result.expression = result.expression

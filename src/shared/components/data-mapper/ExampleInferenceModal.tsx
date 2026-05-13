@@ -101,105 +101,143 @@ export default function ExampleInferenceModal({ onClose, onApply }: ExampleInfer
     <div className="dm-example-overlay" onKeyDown={handleKeyDown} role="dialog" aria-label="Learn from Examples">
       <div className="dm-example-modal">
         <div className="dm-example-header">
-          <h3>Learn from Examples</h3>
-          <span className="dm-example-subtitle">
-            Paste input/output JSON pairs. The engine will infer mapping rules.
-          </span>
-          <button className="dm-btn-icon" onClick={onClose} aria-label="Close">×</button>
+          <div className="dm-example-header-text">
+            <h3>Learn from Examples</h3>
+            <span className="dm-example-subtitle">
+              Provide input → output JSON pairs to infer mapping rules automatically.
+            </span>
+          </div>
         </div>
 
         <div className="dm-example-body">
-          {rows.map((row, i) => (
-            <div key={i} className="dm-example-row">
-              <div className="dm-example-pair">
-                <div className="dm-example-field">
-                  <label className="dm-example-label">Input {i + 1}</label>
-                  <textarea
-                    className={`dm-example-textarea ${row.inputError ? 'dm-example-textarea--error' : ''}`}
-                    value={row.inputJson}
-                    onChange={(e) => updateRow(i, 'inputJson', e.target.value)}
-                    placeholder='{ "name": "Alice", "age": 30 }'
-                    spellCheck={false}
-                  />
-                  {row.inputError && <span className="dm-example-error">{row.inputError}</span>}
+          <div className="dm-example-pairs">
+            {rows.map((row, i) => (
+              <div key={i} className="dm-example-card">
+                <div className="dm-example-card-header">
+                  <span className="dm-example-card-num">Pair {i + 1}</span>
+                  {rows.length > 1 && (
+                    <button
+                      className="dm-example-card-remove"
+                      onClick={() => removeRow(i)}
+                      title="Remove pair"
+                      aria-label={`Remove pair ${i + 1}`}
+                    >×</button>
+                  )}
                 </div>
-                <span className="dm-example-arrow">→</span>
-                <div className="dm-example-field">
-                  <label className="dm-example-label">Output {i + 1}</label>
-                  <textarea
-                    className={`dm-example-textarea ${row.outputError ? 'dm-example-textarea--error' : ''}`}
-                    value={row.outputJson}
-                    onChange={(e) => updateRow(i, 'outputJson', e.target.value)}
-                    placeholder='{ "fullName": "Alice", "years": 30 }'
-                    spellCheck={false}
-                  />
-                  {row.outputError && <span className="dm-example-error">{row.outputError}</span>}
+                <div className="dm-example-card-body">
+                  <div className="dm-example-field">
+                    <label className="dm-example-label">Input</label>
+                    <textarea
+                      className={`dm-example-textarea ${row.inputError ? 'dm-example-textarea--error' : ''}`}
+                      value={row.inputJson}
+                      onChange={(e) => updateRow(i, 'inputJson', e.target.value)}
+                      placeholder='{ "name": "Alice", "age": 30 }'
+                      spellCheck={false}
+                      rows={3}
+                    />
+                    {row.inputError && <span className="dm-example-error">{row.inputError}</span>}
+                  </div>
+                  <div className="dm-example-arrow-col">
+                    <span className="dm-example-arrow">→</span>
+                  </div>
+                  <div className="dm-example-field">
+                    <label className="dm-example-label">Output</label>
+                    <textarea
+                      className={`dm-example-textarea ${row.outputError ? 'dm-example-textarea--error' : ''}`}
+                      value={row.outputJson}
+                      onChange={(e) => updateRow(i, 'outputJson', e.target.value)}
+                      placeholder='{ "fullName": "Alice", "years": 30 }'
+                      spellCheck={false}
+                      rows={3}
+                    />
+                    {row.outputError && <span className="dm-example-error">{row.outputError}</span>}
+                  </div>
                 </div>
               </div>
-              {rows.length > 1 && (
-                <button
-                  className="dm-btn-icon dm-example-remove"
-                  onClick={() => removeRow(i)}
-                  title="Remove example"
-                >×</button>
-              )}
-            </div>
-          ))}
+            ))}
+          </div>
           {rows.length < MAX_EXAMPLES && (
             <button className="dm-example-add" onClick={addRow}>
-              + Add example pair
+              + Add pair ({rows.length}/{MAX_EXAMPLES})
             </button>
           )}
         </div>
 
         {results && (
           <div className="dm-example-results">
-            <h4>{results.length} mapping{results.length !== 1 ? 's' : ''} inferred</h4>
+            <div className="dm-example-results-header">
+              <span className="dm-example-results-title">
+                {results.length} mapping{results.length !== 1 ? 's' : ''} inferred
+              </span>
+              {results.length > 0 && (
+                <span className="dm-example-results-selected">
+                  {selectedIds.size} selected
+                </span>
+              )}
+            </div>
             {results.length === 0 && (
-              <p className="dm-example-empty">No mappings could be inferred. Try providing more examples or different data.</p>
+              <p className="dm-example-empty">No mappings could be inferred. Try more examples or different data.</p>
             )}
             {results.length > 0 && (
-              <div className="dm-example-result-list">
-                {results.map((r, i) => (
-                  <label key={i} className="dm-example-result-item">
-                    <input
-                      type="checkbox"
-                      checked={selectedIds.has(i)}
-                      onChange={() => toggleSelection(i)}
-                    />
-                    <span className="dm-example-result-paths">
-                      <span className="dm-example-source">{r.sourcePath}</span>
-                      <span className="dm-example-result-arrow">→</span>
-                      <span className="dm-example-target">{r.targetPath}</span>
-                    </span>
-                    <span className={`dm-example-confidence dm-example-confidence--${r.confidence >= 80 ? 'high' : r.confidence >= 60 ? 'mid' : 'low'}`}>
-                      {r.confidence}%
-                    </span>
-                    <span className="dm-example-reason">{r.reason}</span>
-                    {r.expression && (
-                      <code className="dm-example-expr">{r.expression}</code>
-                    )}
-                  </label>
-                ))}
-              </div>
+              <table className="dm-example-result-table">
+                <thead>
+                  <tr>
+                    <th style={{ width: 28 }}></th>
+                    <th>Source</th>
+                    <th></th>
+                    <th>Target</th>
+                    <th style={{ width: 48 }}>Score</th>
+                    <th>Reason</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {results.map((r, i) => (
+                    <tr
+                      key={i}
+                      className={`dm-example-result-row ${selectedIds.has(i) ? 'dm-example-result-row--selected' : ''}`}
+                      onClick={() => toggleSelection(i)}
+                    >
+                      <td>
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.has(i)}
+                          onChange={() => toggleSelection(i)}
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      </td>
+                      <td><code className="dm-example-src-code">{r.sourcePath}</code></td>
+                      <td className="dm-example-result-arrow">→</td>
+                      <td><code className="dm-example-tgt-code">{r.targetPath}</code></td>
+                      <td>
+                        <span className={`dm-example-score dm-example-score--${r.confidence >= 80 ? 'high' : r.confidence >= 60 ? 'mid' : 'low'}`}>
+                          {r.confidence}%
+                        </span>
+                      </td>
+                      <td className="dm-example-reason">
+                        {r.reason}
+                        {r.expression && <code className="dm-example-expr">{r.expression}</code>}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             )}
           </div>
         )}
 
         <div className="dm-example-footer">
-          <button className="dm-toolbar-btn" onClick={onClose}>Cancel</button>
-          {(!results || results.length === 0) && (
+          <button className="dm-example-btn dm-example-btn--secondary" onClick={onClose}>Cancel</button>
+          {(!results || results.length === 0) ? (
             <button
-              className="dm-toolbar-btn dm-toolbar-btn--primary"
+              className="dm-example-btn dm-example-btn--primary"
               onClick={handleAnalyze}
               disabled={validRowCount === 0}
             >
-              {results ? 'Re-analyze' : 'Analyze'} ({validRowCount} example{validRowCount !== 1 ? 's' : ''})
+              Analyze{validRowCount > 0 ? ` (${validRowCount})` : ''}
             </button>
-          )}
-          {results && results.length > 0 && (
+          ) : (
             <button
-              className="dm-toolbar-btn dm-toolbar-btn--primary"
+              className="dm-example-btn dm-example-btn--primary"
               onClick={handleApply}
               disabled={selectedIds.size === 0}
             >

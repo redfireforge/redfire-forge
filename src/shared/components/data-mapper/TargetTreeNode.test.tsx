@@ -235,7 +235,28 @@ describe('TargetTreeNode – drop handling', () => {
     expect(onDrop).not.toHaveBeenCalled();
   });
 
-  it('does not accept drop on non-leaf (parent) nodes', () => {
+  it('accepts drop on non-leaf nodes that have a concrete path', () => {
+    const onDrop = vi.fn();
+    const parentNode: JsonTreeNode = {
+      key: '[0]',
+      path: 'offers[0]',
+      type: 'object',
+      value: {},
+      children: [
+        { key: 'associatedOfferingCode', path: 'offers[0].associatedOfferingCode', type: 'string', value: '' },
+      ],
+    };
+    const expandedPaths = new Set<string>(['__root__', 'offers[0]']);
+    render(<TargetTreeNode node={parentNode} {...defaults} expandedPaths={expandedPaths} onDrop={onDrop} />);
+    const parentEl = screen.getByText('offers[0]').closest('.dm-tree-node')!;
+    const dragData = JSON.stringify({ path: 'offers[0]', sourceId: 's1' });
+    const dt = { getData: () => dragData, dropEffect: 'none' };
+    fireEvent.dragOver(parentEl, { dataTransfer: dt });
+    fireEvent.drop(parentEl, { dataTransfer: dt });
+    expect(onDrop).toHaveBeenCalledWith('offers[0]', 'offers[0]', 's1');
+  });
+
+  it('does not accept drop on root node without path', () => {
     const onDrop = vi.fn();
     render(<TargetTreeNode node={nested} {...defaults} onDrop={onDrop} />);
     const rootEl = screen.getByText('(root)').closest('.dm-tree-node')!;

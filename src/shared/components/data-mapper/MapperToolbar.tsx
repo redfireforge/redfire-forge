@@ -24,8 +24,11 @@ interface MapperToolbarProps {
   contextId?: string;
   mappings?: Mapping[];
   onLoadProfile?: (mappings: Mapping[]) => void;
+  onApplyProfileDelta?: (mappings: Mapping[]) => void;
   showCodeView?: boolean;
   onToggleCodeView?: () => void;
+  showTableView?: boolean;
+  onToggleTableView?: () => void;
   onLoadGallerySample?: (sample: MapperGallerySample) => void;
   hasTraceData?: boolean;
   debugMode?: boolean;
@@ -40,6 +43,8 @@ interface MapperToolbarProps {
   onToggleNodeFocusMode?: () => void;
   compactMode?: boolean;
   onToggleCompactMode?: () => void;
+  advancedOpen?: boolean;
+  onAdvancedOpenChange?: (open: boolean) => void;
 }
 
 export default function MapperToolbar({
@@ -61,8 +66,11 @@ export default function MapperToolbar({
   contextId,
   mappings,
   onLoadProfile,
+  onApplyProfileDelta,
   showCodeView,
   onToggleCodeView,
+  showTableView,
+  onToggleTableView,
   onLoadGallerySample,
   hasTraceData,
   debugMode,
@@ -77,10 +85,12 @@ export default function MapperToolbar({
   onToggleNodeFocusMode,
   compactMode = false,
   onToggleCompactMode,
+  advancedOpen: advancedOpenProp,
+  onAdvancedOpenChange,
 }: MapperToolbarProps) {
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [samplesMenuOpen, setSamplesMenuOpen] = useState(false);
-  const [advancedOpen, setAdvancedOpen] = useState(true);
+  const [internalAdvancedOpen, setInternalAdvancedOpen] = useState(true);
   const samplesRef = useRef<HTMLDivElement>(null);
   const advancedRef = useRef<HTMLDivElement>(null);
   const [profiles, setProfiles] = useState<MappingProfile[]>([]);
@@ -88,6 +98,15 @@ export default function MapperToolbar({
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameText, setRenameText] = useState('');
   const menuRef = useRef<HTMLDivElement>(null);
+
+  const advancedOpen = advancedOpenProp ?? internalAdvancedOpen;
+  const setAdvancedOpen = useCallback((next: boolean | ((prev: boolean) => boolean)) => {
+    const nextValue = typeof next === 'function' ? next(advancedOpen) : next;
+    if (advancedOpenProp === undefined) {
+      setInternalAdvancedOpen(nextValue);
+    }
+    onAdvancedOpenChange?.(nextValue);
+  }, [advancedOpen, advancedOpenProp, onAdvancedOpenChange]);
 
   const refreshProfiles = useCallback(() => {
     if (!contextId) return;
@@ -129,7 +148,7 @@ export default function MapperToolbar({
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
-  }, [advancedOpen]);
+  }, [advancedOpen, setAdvancedOpen]);
 
   useEffect(() => {
     if (advancedOpen) return;
@@ -149,6 +168,11 @@ export default function MapperToolbar({
     setProfileMenuOpen(false);
   }, [onLoadProfile]);
 
+  const handleApplyDelta = useCallback((profile: MappingProfile) => {
+    onApplyProfileDelta?.(profile.mappings);
+    setProfileMenuOpen(false);
+  }, [onApplyProfileDelta]);
+
   const handleDelete = useCallback(async (profileId: string) => {
     if (!contextId) return;
     await deleteProfile(contextId, profileId);
@@ -165,15 +189,25 @@ export default function MapperToolbar({
     }
   }, [contextId, renameText, refreshProfiles]);
 
-  const profilesEnabled = !!contextId && !!mappings && !!onLoadProfile;
+  const profilesEnabled = !!contextId && !!mappings && (!!onLoadProfile || !!onApplyProfileDelta);
   const hasConfidenceControl = !!onConfidenceThresholdChange && (autoMapCount ?? 0) > 0;
   const hasAdvancedControls = hasConfidenceControl
     || !!onLearnFromExamples
     || !!onLoadGallerySample
     || !!(hasTraceData && onToggleDebugMode)
     || profilesEnabled;
+  const advancedControlCount = Number(hasConfidenceControl)
+    + Number(!!onLearnFromExamples)
+    + Number(!!onLoadGallerySample)
+    + Number(!!(hasTraceData && onToggleDebugMode))
+    + Number(profilesEnabled);
   const resolvedMappings = resolvedCount ?? mappingCount;
   const unresolvedMappings = unresolvedCount ?? Math.max(mappingCount - resolvedMappings, 0);
+  const denseSession = mappingCount >= 8 || unresolvedMappings >= 3 || !!hasPending;
+  useEffect(() => {
+    if (hasAdvancedControls || !advancedOpen) return;
+    setAdvancedOpen(false);
+  }, [hasAdvancedControls, advancedOpen, setAdvancedOpen]);
   const mappingStatus =
     mappingCount === 0
       ? 'No mappings yet'
@@ -184,7 +218,7 @@ export default function MapperToolbar({
           : `${resolvedMappings} mapping${resolvedMappings !== 1 ? 's' : ''} ready`;
 
   return (
-    <div className={`dm-toolbar ${compactMode ? 'dm-toolbar--compact' : ''}`}>
+    <div className={`dm-toolbar ${compactMode ? 'dm-toolbar--compact' : ''} ${denseSession ? 'dm-toolbar--dense' : ''}`}>
       <div className="dm-toolbar-cluster dm-toolbar-cluster--core" aria-label="Core mapping controls">
         <button className="dm-toolbar-btn dm-toolbar-btn--primary" onClick={onAutoMap} title="Auto-map matching fields">
           Auto-map
@@ -224,10 +258,10 @@ export default function MapperToolbar({
         <span className="dm-toolbar-status">{mappingStatus}</span>
       </div>
 
-      <div className="dm-toolbar-cluster dm-toolbar-cluster--view" aria-label="View controls">
+      <div className="dm-toolbar-cluster dm-toolbar-cluster--view dm-toolbar-cluster--secondary" aria-label="View controls">
         {onToggleCodeView && (
           <button
-            className={`dm-toolbar-btn ${showCodeView ? 'dm-toolbar-btn--active' : ''}`}
+            className={`dm-toolbar-btn dm-toolbar-btn--quiet ${showCodeView ? 'dm-toolbar-btn--active' : ''}`}
             onClick={onToggleCodeView}
             title={showCodeView ? 'Hide code view' : 'Show code view'}
           >
@@ -236,16 +270,25 @@ export default function MapperToolbar({
         )}
         {onTogglePreview && (
           <button
-            className={`dm-toolbar-btn ${showPreview ? 'dm-toolbar-btn--active' : ''}`}
+            className={`dm-toolbar-btn dm-toolbar-btn--quiet ${showPreview ? 'dm-toolbar-btn--active' : ''}`}
             onClick={onTogglePreview}
             title={showPreview ? 'Hide preview' : 'Show preview'}
           >
             Preview
           </button>
         )}
+        {onToggleTableView && (
+          <button
+            className={`dm-toolbar-btn dm-toolbar-btn--quiet ${showTableView ? 'dm-toolbar-btn--active' : ''}`}
+            onClick={onToggleTableView}
+            title={showTableView ? 'Hide table view' : 'Show mapping table'}
+          >
+            Table
+          </button>
+        )}
         {onToggleMappingLines && (
           <button
-            className={`dm-toolbar-btn ${showMappingLines ? 'dm-toolbar-btn--active' : ''}`}
+            className={`dm-toolbar-btn dm-toolbar-btn--quiet ${showMappingLines ? 'dm-toolbar-btn--active' : ''}`}
             onClick={onToggleMappingLines}
             title={showMappingLines ? 'Hide mapping lines' : 'Show mapping lines'}
           >
@@ -254,7 +297,7 @@ export default function MapperToolbar({
         )}
         {!showMappingLines && onToggleNodeFocusMode && (
           <button
-            className={`dm-toolbar-btn ${nodeFocusMode ? 'dm-toolbar-btn--active' : ''}`}
+            className={`dm-toolbar-btn dm-toolbar-btn--quiet ${nodeFocusMode ? 'dm-toolbar-btn--active' : ''}`}
             onClick={onToggleNodeFocusMode}
             title={nodeFocusMode ? 'Disable node-focus lines' : 'Enable node-focus lines'}
           >
@@ -264,15 +307,20 @@ export default function MapperToolbar({
       </div>
 
       {hasAdvancedControls && (
-        <div className="dm-toolbar-cluster dm-toolbar-cluster--advanced-toggle" ref={advancedRef} aria-label="Advanced controls">
+        <div className="dm-toolbar-cluster dm-toolbar-cluster--advanced-toggle dm-toolbar-cluster--secondary" ref={advancedRef} aria-label="Advanced controls">
           <button
-            className={`dm-toolbar-btn ${advancedOpen ? 'dm-toolbar-btn--active' : ''}`}
+            className={`dm-toolbar-btn dm-toolbar-btn--quiet ${advancedOpen ? 'dm-toolbar-btn--active' : ''}`}
             onClick={() => setAdvancedOpen((open) => !open)}
             aria-expanded={advancedOpen}
             aria-label="Toggle advanced controls"
             title={advancedOpen ? 'Hide advanced controls' : 'Show advanced controls'}
           >
             Advanced
+            {!advancedOpen && advancedControlCount > 0 && (
+              <span className="dm-toolbar-advanced-count">
+                {advancedControlCount}
+              </span>
+            )}
           </button>
           {advancedOpen && (
             <div className="dm-toolbar-advanced-panel">
@@ -383,14 +431,30 @@ export default function MapperToolbar({
                                 />
                               ) : (
                                 <>
-                                  <button
-                                    className="dm-profile-name"
-                                    onClick={() => handleLoad(p)}
-                                    title={`Load "${p.name}" (${p.mappings.length} mappings)`}
-                                  >
-                                    {p.name}
-                                    <span className="dm-profile-count">{p.mappings.length}</span>
-                                  </button>
+                                  {onLoadProfile ? (
+                                    <button
+                                      className="dm-profile-name"
+                                      onClick={() => handleLoad(p)}
+                                      title={`Load "${p.name}" (${p.mappings.length} mappings)`}
+                                    >
+                                      {p.name}
+                                      <span className="dm-profile-count">{p.mappings.length}</span>
+                                    </button>
+                                  ) : (
+                                    <div className="dm-profile-name">
+                                      {p.name}
+                                      <span className="dm-profile-count">{p.mappings.length}</span>
+                                    </div>
+                                  )}
+                                  {onApplyProfileDelta && (
+                                    <button
+                                      className="dm-btn-icon"
+                                      onClick={() => handleApplyDelta(p)}
+                                      title={`Apply "${p.name}" as delta`}
+                                    >
+                                      +
+                                    </button>
+                                  )}
                                   <button
                                     className="dm-btn-icon"
                                     onClick={() => { setRenamingId(p.id); setRenameText(p.name); }}
@@ -419,20 +483,20 @@ export default function MapperToolbar({
         </div>
       )}
 
-      <div className="dm-toolbar-cluster dm-toolbar-cluster--history" aria-label="History controls">
+      <div className="dm-toolbar-cluster dm-toolbar-cluster--history dm-toolbar-cluster--secondary" aria-label="History controls">
         {onToggleCompactMode && (
           <button
-            className={`dm-toolbar-btn ${compactMode ? 'dm-toolbar-btn--active' : ''}`}
+            className={`dm-toolbar-btn dm-toolbar-btn--quiet ${compactMode ? 'dm-toolbar-btn--active' : ''}`}
             onClick={onToggleCompactMode}
             title={compactMode ? 'Switch to guided mode' : 'Switch to compact mode'}
           >
             {compactMode ? 'Guided' : 'Compact'}
           </button>
         )}
-        <button className="dm-toolbar-btn" onClick={onUndo} disabled={!canUndo} title="Undo (⌘Z)">
+        <button className="dm-toolbar-btn dm-toolbar-btn--quiet" onClick={onUndo} disabled={!canUndo} title="Undo (⌘Z)">
           Undo
         </button>
-        <button className="dm-toolbar-btn" onClick={onRedo} disabled={!canRedo} title="Redo (⌘⇧Z)">
+        <button className="dm-toolbar-btn dm-toolbar-btn--quiet" onClick={onRedo} disabled={!canRedo} title="Redo (⌘⇧Z)">
           Redo
         </button>
       </div>
