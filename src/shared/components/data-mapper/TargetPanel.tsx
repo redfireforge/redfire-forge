@@ -6,9 +6,12 @@ import type { TypeMismatch } from './utils/typeMismatch';
 import type { TraceValueOverlay } from './types';
 import { buildJsonTree } from '../../utils/jsonTreeModel';
 import { buildTreeFromFields, collectAllPaths } from './utils/targetTreeBuilder';
+import { normalizeMapperPath } from './utils/pathNormalization';
 import TargetTreeNode from './TargetTreeNode';
 import AddFieldRow from './AddFieldRow';
 import LocationGroupPanel from './LocationGroupPanel';
+
+const SOURCE_TEXT_PREFIX = 'mapper-source:';
 
 interface TargetPanelProps {
   target: MapperTarget;
@@ -42,8 +45,13 @@ interface TargetPanelProps {
   onTargetFieldDragEnd?: () => void;
   getDraggedSource?: () => { path: string; sourceId: string } | null;
   getDraggedTargetFieldPath?: () => string | null;
+  onNodeSelect?: (path: string) => void;
+  selectedNodePath?: string | null;
   resolvedMappingCount?: number;
   unresolvedMappingCount?: number;
+  resetViewSignal?: number | null;
+  unorderedDefault?: boolean;
+  onToggleUnorderedArray?: (arrayPath: string) => void;
 }
 
 export default function TargetPanel({
@@ -73,10 +81,16 @@ export default function TargetPanel({
   onTargetFieldDragEnd,
   getDraggedSource,
   getDraggedTargetFieldPath,
+  onNodeSelect,
+  selectedNodePath,
   resolvedMappingCount,
   unresolvedMappingCount,
+  resetViewSignal,
+  unorderedDefault,
+  onToggleUnorderedArray,
 }: TargetPanelProps) {
   const [search, setSearch] = useState('');
+  const [mappingFilter, setMappingFilter] = useState<'all' | 'mapped' | 'unmapped'>('all');
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set(['__root__']));
   const [pasteMode, setPasteMode] = useState(false);
   const [pasteText, setPasteText] = useState('');
@@ -104,13 +118,45 @@ export default function TargetPanel({
     return null;
   }, [target.sampleData, target.fields]);
 
-  const lastFieldsTreeRef = useRef<JsonTreeNode | null>(null);
   useEffect(() => {
-    if (treeSource === 'fields' && tree && tree !== lastFieldsTreeRef.current) {
-      lastFieldsTreeRef.current = tree;
+    if (resetViewSignal == null) return;
+    setExpandedPaths(tree ? collectAllPaths(tree) : new Set(['__root__']));
+    setSearch('');
+    setMappingFilter('all');
+    setPasteMode(false);
+    setPasteError(null);
+  }, [resetViewSignal, tree]);
+
+  const fieldsSignature = useMemo(
+    () => (target.fields ?? [])
+      .map((field) => `${field.path}:${field.type ?? 'string'}:${field.origin ?? 'adapter'}`)
+      .sort()
+      .join('|'),
+    [target.fields],
+  );
+  const lastFieldsSignatureRef = useRef<string>('');
+  useEffect(() => {
+    if (treeSource === 'fields' && tree && fieldsSignature !== lastFieldsSignatureRef.current) {
+      lastFieldsSignatureRef.current = fieldsSignature;
       setExpandedPaths(collectAllPaths(tree));
     }
-  }, [treeSource, tree]);
+  }, [treeSource, tree, fieldsSignature]);
+
+  const sampleSignature = useMemo(() => {
+    if (target.sampleData == null) return '';
+    try {
+      return typeof target.sampleData === 'string'
+        ? target.sampleData.slice(0, 200)
+        : JSON.stringify(target.sampleData).slice(0, 200);
+    } catch { return ''; }
+  }, [target.sampleData]);
+  const lastSampleSignatureRef = useRef<string>('');
+  useEffect(() => {
+    if (treeSource === 'sampleData' && tree && sampleSignature && sampleSignature !== lastSampleSignatureRef.current) {
+      lastSampleSignatureRef.current = sampleSignature;
+      setExpandedPaths(collectAllPaths(tree));
+    }
+  }, [treeSource, tree, sampleSignature]);
 
   const handleToggle = useCallback((path: string) => {
     setExpandedPaths((prev) => {
@@ -202,6 +248,100 @@ export default function TargetPanel({
   const resolvedMappedCount = resolvedMappingCount ?? mappings.length;
   const unresolvedMappedCount = unresolvedMappingCount ?? Math.max(mappings.length - resolvedMappedCount, 0);
 
+  const mappedTargetPaths = useMemo(() => {
+    const mapped = new Set<string>();
+    for (const mapping of mappings) {
+      mapped.add(normalizeMapperPath(mapping.targetPath));
+    }
+    return mapped;
+  }, [mappings]);
+
+  const leafPaths = useMemo(() => {
+    if (!tree) return [] as string[];
+    const leaves: string[] = [];
+    const collect = (node: JsonTreeNode) => {
+      if (!node.children || node.children.length === 0) {
+        leaves.push(node.path);
+        return;
+      }
+      node.children.forEach(collect);
+    };
+    collect(tree);
+    return leaves;
+  }, [tree]);
+
+  const mappedLeafCount = useMemo(() => {
+    let count = 0;
+    for (const path of leafPaths) {
+      if (mappedTargetPaths.has(normalizeMapperPath(path))) {
+        count += 1;
+      }
+    }
+    return count;
+  }, [leafPaths, mappedTargetPaths]);
+
+  const unmappedLeafCount = useMemo(
+    () => Math.max(leafPaths.length - mappedLeafCount, 0),
+    [leafPaths.length, mappedLeafCount],
+  );
+
+  const extractDraggedSource = useCallback((e: React.DragEvent): { path: string; sourceId: string } | null => {
+    const parsePayload = (raw: string): { path: string; sourceId: string } | null => {
+      if (!raw) return null;
+      const cleaned = raw.startsWith(SOURCE_TEXT_PREFIX) ? raw.slice(SOURCE_TEXT_PREFIX.length) : raw;
+      try {
+        const parsed = JSON.parse(cleaned) as { path?: unknown; sourceId?: unknown };
+        if (typeof parsed.path === 'string' && typeof parsed.sourceId === 'string') {
+          return { path: parsed.path, sourceId: parsed.sourceId };
+        }
+      } catch {
+        // ignore invalid payload
+      }
+      return null;
+    };
+
+    const customMime = parsePayload(e.dataTransfer.getData('application/mapper-source'));
+    if (customMime) return customMime;
+    const textPayload = parsePayload(e.dataTransfer.getData('text/plain'));
+    if (textPayload) return textPayload;
+    return getDraggedSource?.() ?? null;
+  }, [getDraggedSource]);
+
+  const createUniquePath = useCallback((basePath: string): string => {
+    const base = basePath.trim() || 'field';
+    if (!existingPaths.has(base)) return base;
+    let index = 2;
+    let candidate = `${base}_${index}`;
+    while (existingPaths.has(candidate)) {
+      index += 1;
+      candidate = `${base}_${index}`;
+    }
+    return candidate;
+  }, [existingPaths]);
+
+  const handleEmptyStateDragOver = useCallback((e: React.DragEvent) => {
+    if (!target.allowCustomFields || !onAddCustomField) return;
+    const dragged = extractDraggedSource(e);
+    if (!dragged) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'link';
+  }, [target.allowCustomFields, onAddCustomField, extractDraggedSource]);
+
+  const handleEmptyStateDrop = useCallback((e: React.DragEvent) => {
+    if (!target.allowCustomFields || !onAddCustomField) return;
+    const dragged = extractDraggedSource(e);
+    if (!dragged) return;
+    e.preventDefault();
+    const targetPath = createUniquePath(dragged.path);
+    onAddCustomField({
+      path: targetPath,
+      label: targetPath.includes('.') ? targetPath.split('.').pop()! : targetPath,
+      type: 'string',
+      origin: 'custom',
+    });
+    onDrop(targetPath, dragged.path, dragged.sourceId);
+  }, [target.allowCustomFields, onAddCustomField, extractDraggedSource, createUniquePath, onDrop]);
+
   return (
     <div
       className={`dm-panel dm-panel--target ${isFocusRegion ? 'dm-panel--focused' : ''}`}
@@ -283,6 +423,19 @@ export default function TargetPanel({
             {search && (
               <button className="dm-search-clear" onClick={() => setSearch('')} aria-label="Clear search">×</button>
             )}
+            <select
+              className="dm-filter-select"
+              aria-label="Filter target fields"
+              value={mappingFilter}
+              onChange={(e) => setMappingFilter(e.target.value as 'all' | 'mapped' | 'unmapped')}
+            >
+              <option value="all">All</option>
+              <option value="mapped">Mapped</option>
+              <option value="unmapped">Unmapped</option>
+            </select>
+            <span className="dm-filter-count" aria-live="polite">
+              {mappedLeafCount} mapped / {unmappedLeafCount} unmapped
+            </span>
           </div>
 
           {targetFetchError && <div className="dm-paste-error" role="alert">{targetFetchError}</div>}
@@ -299,6 +452,10 @@ export default function TargetPanel({
                 mappings={mappings}
                 onDrop={onDrop}
                 search={search}
+                mappingFilter={mappingFilter}
+                mappedTargetPaths={mappedTargetPaths}
+                onNodeSelect={onNodeSelect}
+                selectedNodePath={selectedNodePath}
                 selectedMappingId={selectedMappingId}
                 onSelectMapping={onSelectMapping}
                 onEditExpression={onEditExpression}
@@ -318,12 +475,17 @@ export default function TargetPanel({
                 onTargetFieldDragEnd={onTargetFieldDragEnd}
                 getDraggedSource={getDraggedSource}
                 getDraggedTargetFieldPath={getDraggedTargetFieldPath}
+                resetViewSignal={resetViewSignal}
               />
             ) : tree ? (
               <TargetTreeNode
                 node={tree}
                 depth={0}
                 search={search}
+                mappingFilter={mappingFilter}
+                mappedTargetPaths={mappedTargetPaths}
+                onNodeSelect={onNodeSelect}
+                selectedNodePath={selectedNodePath}
                 mappings={mappings}
                 onDrop={onDrop}
                 expandedPaths={expandedPaths}
@@ -344,13 +506,24 @@ export default function TargetPanel({
                 onTargetFieldDragEnd={onTargetFieldDragEnd}
                 getDraggedSource={getDraggedSource}
                 getDraggedTargetFieldPath={getDraggedTargetFieldPath}
+                unorderedDefault={unorderedDefault}
+                onToggleUnorderedArray={onToggleUnorderedArray}
               />
             ) : (
-              <div className="dm-empty-state dm-empty-state--guided">
+              <div
+                className="dm-empty-state dm-empty-state--guided"
+                onDragOver={handleEmptyStateDragOver}
+                onDrop={handleEmptyStateDrop}
+              >
                 <div className="dm-empty-state-title">No target schema yet.</div>
                 <div className="dm-empty-state-help">
                   Define destination fields before creating mappings.
                 </div>
+                {target.allowCustomFields && onAddCustomField && (
+                  <div className="dm-empty-state-help">
+                    Drag a source field here to create a target field and map it.
+                  </div>
+                )}
                 <div className="dm-empty-state-actions">
                   {onPasteTargetSample && (
                     <button

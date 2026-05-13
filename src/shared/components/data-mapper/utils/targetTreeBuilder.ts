@@ -29,6 +29,7 @@ export function normalizeFieldType(type?: string): JsonNodeType {
  *
  * - Flat paths (no dots) become leaf nodes directly under root
  * - Dot-separated paths (e.g. "user.name") create intermediate object nodes
+ * - Array index paths (e.g. "offers[0].code") split into "offers" -> "[0]" -> "code"
  * - Paths with "::" separators (e.g. "path::userId") stay flat (no nesting on "::")
  * - Duplicate paths are deduplicated (first wins)
  */
@@ -69,11 +70,50 @@ export function buildTreeFromFields(fields: TargetField[]): JsonTreeNode {
 
 /**
  * Split a field path into segments for tree nesting.
- * Only splits on "." — "::" separators are kept intact as a single segment.
+ * Splits on "." and array brackets while preserving array segments as "[n]".
+ * "::" separators are kept intact as a single segment.
  */
 function splitFieldPath(path: string): string[] {
   if (path.includes('::')) return [path];
-  return path.split('.').filter(Boolean);
+  const segments: string[] = [];
+  let token = '';
+  for (let i = 0; i < path.length; i++) {
+    const ch = path[i];
+    if (ch === '.') {
+      if (token) {
+        segments.push(token);
+        token = '';
+      }
+      continue;
+    }
+    if (ch === '[') {
+      if (token) {
+        segments.push(token);
+        token = '';
+      }
+      const end = path.indexOf(']', i);
+      if (end !== -1) {
+        segments.push(path.slice(i, end + 1));
+        i = end;
+        continue;
+      }
+    }
+    token += ch;
+  }
+  if (token) segments.push(token);
+  return segments.filter(Boolean);
+}
+
+function joinPathSegments(segments: string[]): string {
+  let path = '';
+  for (const segment of segments) {
+    if (segment.startsWith('[')) {
+      path += segment;
+    } else {
+      path += path ? `.${segment}` : segment;
+    }
+  }
+  return path;
 }
 
 /**
@@ -89,7 +129,7 @@ function insertNestedField(
   for (let i = 0; i < segments.length; i++) {
     const segment = segments[i];
     const isLast = i === segments.length - 1;
-    const pathSoFar = segments.slice(0, i + 1).join('.');
+    const pathSoFar = joinPathSegments(segments.slice(0, i + 1));
 
     if (isLast) {
       const existing = current.children!.find((c) => c.path === pathSoFar);
@@ -105,10 +145,11 @@ function insertNestedField(
     } else {
       let intermediate = current.children!.find((c) => c.path === pathSoFar);
       if (!intermediate) {
+        const nextSegment = segments[i + 1];
         intermediate = {
           key: segment,
           path: pathSoFar,
-          type: 'object',
+          type: nextSegment?.startsWith('[') ? 'array' : 'object',
           value: undefined,
           children: [],
         };

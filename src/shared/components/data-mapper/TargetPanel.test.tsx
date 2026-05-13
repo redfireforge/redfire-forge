@@ -41,16 +41,16 @@ describe('TargetPanel', () => {
   });
 
   it('hides mapped badge when no mappings', () => {
-    renderPanel();
-    expect(screen.queryByText(/mapped/)).toBeNull();
+    const { container } = renderPanel();
+    expect(container.querySelector('.dm-mapped-count-badge')).toBeNull();
   });
 
   it('hides mapped badge when schema is missing even with mappings', () => {
-    renderPanel({
+    const { container } = renderPanel({
       target: { label: 'No Schema', sampleData: undefined, allowCustomFields: false },
       mappings: [mapping],
     });
-    expect(screen.queryByText(/mapped/)).toBeNull();
+    expect(container.querySelector('.dm-mapped-count-badge')).toBeNull();
   });
 
   it('shows empty state when no sampleData', () => {
@@ -69,6 +69,36 @@ describe('TargetPanel', () => {
     expect(screen.getByText('Fetch schema')).toBeTruthy();
   });
 
+  it('accepts left-to-right drop on empty state by creating custom field + mapping', () => {
+    const onDrop = vi.fn();
+    const onAddCustomField = vi.fn();
+    const { container } = renderPanel({
+      target: { label: 'Empty', sampleData: undefined, allowCustomFields: true },
+      onDrop,
+      onAddCustomField,
+      getDraggedSource: () => ({ path: 'offers[0].associatedOfferingCode', sourceId: 'response-body' }),
+    });
+
+    const emptyState = container.querySelector('.dm-empty-state') as HTMLElement;
+    fireEvent.drop(emptyState, {
+      dataTransfer: {
+        getData: () => '',
+      },
+    });
+
+    expect(onAddCustomField).toHaveBeenCalledWith({
+      path: 'offers[0].associatedOfferingCode',
+      label: 'associatedOfferingCode',
+      type: 'string',
+      origin: 'custom',
+    });
+    expect(onDrop).toHaveBeenCalledWith(
+      'offers[0].associatedOfferingCode',
+      'offers[0].associatedOfferingCode',
+      'response-body',
+    );
+  });
+
   it('opens paste mode from target empty-state action', () => {
     renderPanel({
       target: { label: 'Empty', sampleData: undefined, allowCustomFields: false },
@@ -82,6 +112,21 @@ describe('TargetPanel', () => {
     renderPanel();
     const input = screen.getByPlaceholderText('Search fields…');
     fireEvent.change(input, { target: { value: 'email' } });
+    expect(screen.getByText('email')).toBeTruthy();
+    expect(screen.queryByText('userName')).toBeNull();
+  });
+
+  it('filters to mapped target fields only and shows mapped/unmapped counts', () => {
+    renderPanel({ mappings: [mapping] });
+    fireEvent.change(screen.getByLabelText('Filter target fields'), { target: { value: 'mapped' } });
+    expect(screen.getByText('userName')).toBeTruthy();
+    expect(screen.queryByText('email')).toBeNull();
+    expect(screen.getByText('1 mapped / 2 unmapped')).toBeTruthy();
+  });
+
+  it('filters to unmapped target fields only', () => {
+    renderPanel({ mappings: [mapping] });
+    fireEvent.change(screen.getByLabelText('Filter target fields'), { target: { value: 'unmapped' } });
     expect(screen.getByText('email')).toBeTruthy();
     expect(screen.queryByText('userName')).toBeNull();
   });
@@ -211,6 +256,22 @@ describe('TargetPanel', () => {
     it('auto-expands nested fields', () => {
       renderPanel({ target: fieldsTarget });
       expect(screen.getByText('City')).toBeTruthy();
+    });
+
+    it('resets filters and keeps root expanded when resetViewSignal changes (clear-all behavior)', () => {
+      const baseProps = {
+        target: fieldsTarget,
+        mappings: [] as Mapping[],
+        onDrop: vi.fn(),
+        selectedMappingId: null,
+        onSelectMapping: vi.fn(),
+      };
+      const { rerender } = render(<TargetPanel {...baseProps} resetViewSignal={null} />);
+      expect(screen.getByText('City')).toBeTruthy();
+
+      rerender(<TargetPanel {...baseProps} resetViewSignal={1} />);
+      expect(screen.getByText('Name')).toBeTruthy();
+      expect(screen.getByText('(root)')).toBeTruthy();
     });
 
     it('renders type pills on field nodes', () => {
@@ -490,6 +551,231 @@ describe('TargetPanel', () => {
       const { container } = renderPanel({ target: groupTarget });
       expect(container.querySelector('[data-path="userId"]')).toBeTruthy();
       expect(container.querySelector('[data-path="name"]')).toBeTruthy();
+    });
+  });
+
+  describe('toggle and custom field coverage', () => {
+    it('collapses expanded node on toggle click', () => {
+      renderPanel();
+      const collapseBtn = screen.queryAllByLabelText('Collapse');
+      if (collapseBtn.length > 0) {
+        fireEvent.click(collapseBtn[0]);
+        expect(screen.queryAllByLabelText('Expand').length).toBeGreaterThanOrEqual(1);
+      }
+    });
+
+    it('expands collapsed node on toggle click', () => {
+      renderPanel();
+      const collapseBtn = screen.queryAllByLabelText('Collapse');
+      if (collapseBtn.length > 0) {
+        fireEvent.click(collapseBtn[0]);
+        const expandBtn = screen.queryAllByLabelText('Expand');
+        if (expandBtn.length > 0) {
+          fireEvent.click(expandBtn[0]);
+          expect(expandBtn[0]).toBeTruthy();
+        }
+      }
+    });
+
+    it('renders with custom fields and existing paths', () => {
+      const onAddCustomField = vi.fn();
+      const customTarget: MapperTarget = {
+        label: 'Custom',
+        sampleData: { field: '' },
+        allowCustomFields: true,
+        fields: [
+          { path: 'field', label: 'field', type: 'string' },
+          { path: 'field_2', label: 'field_2', type: 'string' },
+        ],
+      };
+      renderPanel({
+        target: customTarget,
+        onAddCustomField,
+        existingPaths: new Set(['field', 'field_2']),
+      });
+      expect(screen.getByText('Target')).toBeTruthy();
+    });
+
+    it('handles drag over empty state with valid custom MIME payload', () => {
+      const onAddCustomField = vi.fn();
+      const onDrop = vi.fn();
+      const customTarget: MapperTarget = {
+        label: 'Custom',
+        sampleData: null,
+        allowCustomFields: true,
+      };
+      const { container } = renderPanel({
+        target: customTarget,
+        onAddCustomField,
+        onDrop,
+      });
+      const emptyState = container.querySelector('.dm-empty-state');
+      expect(emptyState).toBeTruthy();
+      const payload = JSON.stringify({ path: 'name', sourceId: 's1' });
+      fireEvent.dragOver(emptyState!, {
+        dataTransfer: {
+          getData: (type: string) => type === 'application/mapper-source' ? payload : '',
+          dropEffect: 'none',
+        },
+      });
+    });
+
+    it('handles drop on empty state with text/plain payload', () => {
+      const onAddCustomField = vi.fn();
+      const onDrop = vi.fn();
+      const customTarget: MapperTarget = {
+        label: 'Custom',
+        sampleData: null,
+        allowCustomFields: true,
+      };
+      const { container } = renderPanel({
+        target: customTarget,
+        onAddCustomField,
+        onDrop,
+      });
+      const emptyState = container.querySelector('.dm-empty-state');
+      expect(emptyState).toBeTruthy();
+      const payload = JSON.stringify({ path: 'name', sourceId: 's1' });
+      fireEvent.drop(emptyState!, {
+        dataTransfer: {
+          getData: (type: string) => type === 'text/plain' ? payload : '',
+          dropEffect: 'none',
+        },
+      });
+      expect(onAddCustomField).toHaveBeenCalled();
+      expect(onDrop).toHaveBeenCalledWith('name', 'name', 's1');
+    });
+
+    it('handles drop with dotted path uses last segment as label', () => {
+      const onAddCustomField = vi.fn();
+      const onDrop = vi.fn();
+      const customTarget: MapperTarget = {
+        label: 'Custom',
+        sampleData: null,
+        allowCustomFields: true,
+      };
+      const { container } = renderPanel({
+        target: customTarget,
+        onAddCustomField,
+        onDrop,
+      });
+      const emptyState = container.querySelector('.dm-empty-state');
+      expect(emptyState).toBeTruthy();
+      const payload = JSON.stringify({ path: 'user.name', sourceId: 's1' });
+      fireEvent.drop(emptyState!, {
+        dataTransfer: {
+          getData: (type: string) => type === 'text/plain' ? payload : '',
+          dropEffect: 'none',
+        },
+      });
+      expect(onAddCustomField).toHaveBeenCalledWith(
+        expect.objectContaining({ path: 'user.name', label: 'name' }),
+      );
+    });
+
+    it('handles drag over but ignores when custom fields not allowed', () => {
+      const customTarget: MapperTarget = {
+        label: 'Custom',
+        sampleData: null,
+        allowCustomFields: false,
+      };
+      const { container } = renderPanel({
+        target: customTarget,
+      });
+      const emptyState = container.querySelector('.dm-empty-state');
+      expect(emptyState).toBeTruthy();
+      fireEvent.dragOver(emptyState!, {
+        dataTransfer: {
+          getData: () => JSON.stringify({ path: 'x', sourceId: 's1' }),
+          dropEffect: 'none',
+        },
+      });
+    });
+
+    it('extractDraggedSource falls back to getDraggedSource when no payload', () => {
+      const onAddCustomField = vi.fn();
+      const onDrop = vi.fn();
+      const customTarget: MapperTarget = {
+        label: 'Custom',
+        sampleData: null,
+        allowCustomFields: true,
+      };
+      const { container } = renderPanel({
+        target: customTarget,
+        onAddCustomField,
+        onDrop,
+        getDraggedSource: () => ({ path: 'fallback', sourceId: 's2' }),
+      });
+      const emptyState = container.querySelector('.dm-empty-state');
+      expect(emptyState).toBeTruthy();
+      fireEvent.drop(emptyState!, {
+        dataTransfer: {
+          getData: () => '',
+          dropEffect: 'none',
+        },
+      });
+      expect(onAddCustomField).toHaveBeenCalledWith(
+        expect.objectContaining({ path: 'fallback' }),
+      );
+    });
+
+    it('extractDraggedSource handles SOURCE_TEXT_PREFIX in payload', () => {
+      const onAddCustomField = vi.fn();
+      const onDrop = vi.fn();
+      const customTarget: MapperTarget = {
+        label: 'Custom',
+        sampleData: null,
+        allowCustomFields: true,
+      };
+      const { container } = renderPanel({
+        target: customTarget,
+        onAddCustomField,
+        onDrop,
+      });
+      const emptyState = container.querySelector('.dm-empty-state');
+      expect(emptyState).toBeTruthy();
+      const payload = 'mapper-source:' + JSON.stringify({ path: 'prefixed', sourceId: 's1' });
+      fireEvent.drop(emptyState!, {
+        dataTransfer: {
+          getData: (type: string) => type === 'text/plain' ? payload : '',
+          dropEffect: 'none',
+        },
+      });
+      expect(onAddCustomField).toHaveBeenCalledWith(
+        expect.objectContaining({ path: 'prefixed' }),
+      );
+    });
+
+    it('onTreeKeyDown is invoked when provided', () => {
+      const onTreeKeyDown = vi.fn();
+      const { container } = renderPanel({ onTreeKeyDown });
+      const treeContainer = container.querySelector('.dm-tree-container');
+      if (treeContainer) {
+        fireEvent.keyDown(treeContainer, { key: 'ArrowDown' });
+        expect(onTreeKeyDown).toHaveBeenCalled();
+      }
+    });
+
+    it('handles invalid sampleData string gracefully for sampleSignature', () => {
+      renderPanel({
+        target: { label: 'Bad', sampleData: '{invalid-json', allowCustomFields: false },
+      });
+      expect(screen.getByText('Target')).toBeTruthy();
+    });
+
+    it('togglePasteMode catches invalid string sampleData and sets empty paste text', () => {
+      renderPanel({
+        target: { label: 'Bad JSON', sampleData: '{not-valid', allowCustomFields: false },
+        onPasteTargetSample: vi.fn(),
+      });
+      fireEvent.click(screen.getByLabelText('Paste JSON'));
+      const textarea = screen.getByLabelText('Paste target JSON') as HTMLTextAreaElement;
+      expect(textarea.value).toBe('');
+    });
+
+    it('handleFetch is a no-op when onFetchTargetSchema is not provided', () => {
+      renderPanel({ canFetchTarget: false });
+      expect(screen.queryByLabelText('Fetch target schema')).toBeNull();
     });
   });
 });

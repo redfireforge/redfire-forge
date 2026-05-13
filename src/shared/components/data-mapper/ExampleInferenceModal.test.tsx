@@ -96,12 +96,12 @@ describe('ExampleInferenceModal', () => {
 
   it('can add and remove example rows', () => {
     render(<ExampleInferenceModal onClose={vi.fn()} onApply={vi.fn()} />);
-    expect(document.querySelectorAll('.dm-example-row').length).toBe(1);
-    fireEvent.click(screen.getByText('+ Add example pair'));
-    expect(document.querySelectorAll('.dm-example-row').length).toBe(2);
-    const removeButtons = document.querySelectorAll('.dm-example-remove');
+    expect(document.querySelectorAll('.dm-example-card').length).toBe(1);
+    fireEvent.click(screen.getByText(/Add pair/));
+    expect(document.querySelectorAll('.dm-example-card').length).toBe(2);
+    const removeButtons = document.querySelectorAll('.dm-example-card-remove');
     fireEvent.click(removeButtons[0]);
-    expect(document.querySelectorAll('.dm-example-row').length).toBe(1);
+    expect(document.querySelectorAll('.dm-example-card').length).toBe(1);
   });
 
   it('shows "no mappings" message when inference finds nothing', () => {
@@ -142,53 +142,53 @@ describe('ExampleInferenceModal', () => {
   it('does not add rows beyond the maximum', () => {
     render(<ExampleInferenceModal onClose={vi.fn()} onApply={vi.fn()} />);
     for (let i = 0; i < 5; i++) {
-      const add = screen.queryByText('+ Add example pair');
+      const add = screen.queryByText(/Add pair/);
       if (!add) break;
       fireEvent.click(add);
     }
-    expect(document.querySelectorAll('.dm-example-row').length).toBe(5);
-    expect(screen.queryByText('+ Add example pair')).toBeNull();
+    expect(document.querySelectorAll('.dm-example-card').length).toBe(5);
+    expect(screen.queryByText(/Add pair/)).toBeNull();
   });
 
-  it('uses plural example label when multiple rows are valid', () => {
+  it('uses plural example count in button when multiple rows are valid', () => {
     render(<ExampleInferenceModal onClose={vi.fn()} onApply={vi.fn()} />);
-    fireEvent.click(screen.getByText('+ Add example pair'));
-    const rows = document.querySelectorAll('.dm-example-row');
-    const ta0 = rows[0].querySelectorAll('textarea');
-    const ta1 = rows[1].querySelectorAll('textarea');
+    fireEvent.click(screen.getByText(/Add pair/));
+    const cards = document.querySelectorAll('.dm-example-card');
+    const ta0 = cards[0].querySelectorAll('textarea');
+    const ta1 = cards[1].querySelectorAll('textarea');
     fireEvent.change(ta0[0], { target: { value: '{"a":1}' } });
     fireEvent.change(ta0[1], { target: { value: '{"b":1}' } });
     fireEvent.change(ta1[0], { target: { value: '{"a":2}' } });
     fireEvent.change(ta1[1], { target: { value: '{"b":2}' } });
-    expect(screen.getByText(/Analyze \(2 examples\)/)).toBeTruthy();
+    expect(screen.getByText(/Analyze \(2\)/)).toBeTruthy();
   });
 
-  it('uses singular example label for a single valid pair', () => {
+  it('uses single count in button for a single valid pair', () => {
     render(<ExampleInferenceModal onClose={vi.fn()} onApply={vi.fn()} />);
     const textareas = document.querySelectorAll('textarea');
     fireEvent.change(textareas[0], { target: { value: '{"a":1}' } });
     fireEvent.change(textareas[1], { target: { value: '{"b":1}' } });
-    expect(screen.getByText(/Analyze \(1 example\)/)).toBeTruthy();
+    expect(screen.getByText(/Analyze \(1\)/)).toBeTruthy();
   });
 
-  it('shows Re-analyze when engine returns an empty mapping list', () => {
+  it('shows Analyze again when engine returns an empty mapping list', () => {
     vi.spyOn(exampleInference, 'inferMappingsFromExamples').mockReturnValue([]);
     render(<ExampleInferenceModal onClose={vi.fn()} onApply={vi.fn()} />);
     const textareas = document.querySelectorAll('textarea');
     fireEvent.change(textareas[0], { target: { value: '{"a":1}' } });
     fireEvent.change(textareas[1], { target: { value: '{"b":2}' } });
     fireEvent.click(screen.getByText(/Analyze/));
-    expect(screen.getByText(/Re-analyze/)).toBeTruthy();
+    expect(screen.getByText(/Analyze/)).toBeTruthy();
     expect(screen.getByText('0 mappings inferred')).toBeTruthy();
     vi.restoreAllMocks();
   });
 
   it('updates rows when one pair fails and another succeeds', () => {
     render(<ExampleInferenceModal onClose={vi.fn()} onApply={vi.fn()} />);
-    fireEvent.click(screen.getByText('+ Add example pair'));
-    const rows = document.querySelectorAll('.dm-example-row');
-    const r0 = rows[0].querySelectorAll('textarea');
-    const r1 = rows[1].querySelectorAll('textarea');
+    fireEvent.click(screen.getByText(/Add pair/));
+    const cards = document.querySelectorAll('.dm-example-card');
+    const r0 = cards[0].querySelectorAll('textarea');
+    const r1 = cards[1].querySelectorAll('textarea');
     fireEvent.change(r0[0], { target: { value: '{bad}' } });
     fireEvent.change(r0[1], { target: { value: '{"b":1}' } });
     fireEvent.change(r1[0], { target: { value: '{"a":1}' } });
@@ -217,11 +217,11 @@ describe('ExampleInferenceModal', () => {
     fireEvent.change(textareas[0], { target: { value: '{"a":1,"c":2,"e":3}' } });
     fireEvent.change(textareas[1], { target: { value: '{"b":1,"d":2,"f":3}' } });
     fireEvent.click(screen.getByText(/Analyze/));
-    const items = document.querySelectorAll('.dm-example-result-item');
-    expect(items.length).toBe(3);
-    expect(document.querySelector('.dm-example-confidence--high')).not.toBeNull();
-    expect(document.querySelector('.dm-example-confidence--mid')).not.toBeNull();
-    expect(document.querySelector('.dm-example-confidence--low')).not.toBeNull();
+    const rows = document.querySelectorAll('.dm-example-result-row');
+    expect(rows.length).toBe(3);
+    expect(document.querySelector('.dm-example-score--high')).not.toBeNull();
+    expect(document.querySelector('.dm-example-score--mid')).not.toBeNull();
+    expect(document.querySelector('.dm-example-score--low')).not.toBeNull();
     expect(document.querySelector('.dm-example-expr')?.textContent).toBe('$.c');
     vi.restoreAllMocks();
   });

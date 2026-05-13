@@ -448,5 +448,72 @@ describe('SchemaDiffModal', () => {
       const repairCell = container.querySelector('.dm-diff-row--breaking .dm-diff-repair-cell');
       expect(repairCell?.textContent?.trim()).toBe('—');
     });
+
+    it('renders Apply all repairs button when batch handler provided', () => {
+      const onApplyBatch = vi.fn();
+      const suggestions = new Map([['userName', [{
+        driftPath: 'userName',
+        mappingId: 'm1',
+        suggestedPath: 'user_name',
+        reason: 'Similar',
+        strategy: 'similar-name' as const,
+        confidence: 70,
+      }]]]);
+      render(
+        <SchemaDiffModal
+          drifts={[breakingDrift]}
+          onClose={vi.fn()}
+          repairSuggestions={suggestions}
+          onApplyRepair={vi.fn()}
+          onApplyRepairBatch={onApplyBatch}
+        />,
+      );
+      expect(screen.getByText('Apply all repairs (1)')).toBeTruthy();
+    });
+
+    it('calls batch handler with highest-confidence suggestion per mapping', () => {
+      const onApplyBatch = vi.fn();
+      const drifts = [
+        breakingDrift,
+        makeDrift({
+          path: 'legacyName',
+          severity: 'breaking',
+          driftType: 'removed',
+          savedType: 'string',
+          affectedMappingIds: ['m1', 'm2'],
+        }),
+      ];
+      const suggestions = new Map<string, Array<{
+        driftPath: string;
+        mappingId: string;
+        suggestedPath: string;
+        reason: string;
+        strategy: 'similar-name';
+        confidence: number;
+      }>>([
+        ['userName', [
+          { driftPath: 'userName', mappingId: 'm1', suggestedPath: 'user_name_low', reason: 'low', strategy: 'similar-name', confidence: 40 },
+          { driftPath: 'userName', mappingId: 'm1', suggestedPath: 'user_name_high', reason: 'high', strategy: 'similar-name', confidence: 85 },
+        ]],
+        ['legacyName', [
+          { driftPath: 'legacyName', mappingId: 'm2', suggestedPath: 'legacy_name', reason: 'rename', strategy: 'similar-name', confidence: 75 },
+        ]],
+      ]);
+      render(
+        <SchemaDiffModal
+          drifts={drifts}
+          onClose={vi.fn()}
+          repairSuggestions={suggestions}
+          onApplyRepair={vi.fn()}
+          onApplyRepairBatch={onApplyBatch}
+        />,
+      );
+      fireEvent.click(screen.getByText('Apply all repairs (2)'));
+      expect(onApplyBatch).toHaveBeenCalledTimes(1);
+      const repairs = onApplyBatch.mock.calls[0][0];
+      expect(repairs).toHaveLength(2);
+      const repairM1 = repairs.find((r: { mappingId: string; suggestion: { suggestedPath: string } }) => r.mappingId === 'm1');
+      expect(repairM1?.suggestion.suggestedPath).toBe('user_name_high');
+    });
   });
 });

@@ -22,7 +22,7 @@ import type {
   ValidationIssue,
 } from '../types';
 import { getAllLeafPaths, buildJsonTree } from '../../../utils/jsonTreeModel';
-import { getByPathAsString } from '../../../utils/jsonPath';
+import { getByPath, getByPathAsString } from '../../../utils/jsonPath';
 import { coerceSampleData } from '../utils/mapperParsing';
 
 // ─── Output Type ──────────────────────────────────────────
@@ -31,6 +31,7 @@ export interface ValidationAdapterOutput {
   selectiveMode: SelectiveMode;
   expectedFields: ExpectedField[];
   excludedPaths: string[];
+  unorderedArrays?: boolean;
 }
 
 // ─── Options ──────────────────────────────────────────────
@@ -38,7 +39,9 @@ export interface ValidationAdapterOutput {
 export interface ValidationAdapterOptions {
   sampleResponseBody?: string | Record<string, unknown>;
   selectiveMode?: SelectiveMode;
+  expectedFields?: ExpectedField[];
   fetchSampleData?: () => Promise<unknown>;
+  unorderedArrays?: boolean;
 }
 
 // ─── Constants ────────────────────────────────────────────
@@ -59,10 +62,6 @@ function stripDollarPrefix(path: string): string {
   return path.replace(/^\$\.?/, '');
 }
 
-function resolveValue(data: unknown, path: string): string {
-  return getByPathAsString(data, path);
-}
-
 // ─── Adapter Factory ──────────────────────────────────────
 
 export function createValidationAdapter(
@@ -70,6 +69,13 @@ export function createValidationAdapter(
 ): MapperAdapter<ValidationAdapterOutput> {
   const parsed = coerceSampleData(opts.sampleResponseBody);
   const mode: SelectiveMode = opts.selectiveMode ?? 'include';
+  const resolveExpectedValue = (m: Mapping): string => {
+    const sourceRef = m.expression ?? m.sourcePath;
+    const sourceValue = getByPath(parsed, sourceRef);
+    if (sourceValue === undefined) return m.targetPath;
+    if (typeof sourceValue === 'string') return sourceValue;
+    return JSON.stringify(sourceValue);
+  };
 
   const source: MapperSource = {
     id: SOURCE_ID,
@@ -81,7 +87,7 @@ export function createValidationAdapter(
 
   const target: MapperTarget = {
     label: 'Validation Fields',
-    sampleData: undefined,
+    sampleData: parsed,
     allowCustomFields: true,
   };
 
@@ -93,32 +99,27 @@ export function createValidationAdapter(
     target,
 
     serialize(mappings: Mapping[]): ValidationAdapterOutput {
-      // Deduplicate by normalized path — last mapping wins (matches validate() message)
       const deduped = new Map<string, Mapping>();
       for (const m of mappings) {
-        const key = stripDollarPrefix(m.expression ?? m.sourcePath);
-        deduped.set(key, m);
+        deduped.set(stripDollarPrefix(m.targetPath), m);
       }
       const uniqueMappings = Array.from(deduped.values());
 
       if (mode === 'include') {
         const expectedFields: ExpectedField[] = uniqueMappings.map((m) => ({
-          jsonPath: m.expression ?? m.sourcePath,
-          expectedValue: m.targetPath,
+          jsonPath: stripDollarPrefix(m.sourcePath),
+          expectedValue: resolveExpectedValue(m),
         }));
         return { selectiveMode: 'include', expectedFields, excludedPaths: [] };
       }
 
-      // exclude mode: un-mapped leaves become excludedPaths
-      const mappedPaths = new Set(
-        uniqueMappings.map((m) => stripDollarPrefix(m.expression ?? m.sourcePath)),
-      );
+      const mappedPaths = new Set(uniqueMappings.map((m) => stripDollarPrefix(m.targetPath)));
       const allLeaves = getLeafPaths(parsed);
       const excludedPaths = allLeaves.filter((p) => !mappedPaths.has(p));
 
       const expectedFields: ExpectedField[] = uniqueMappings.map((m) => ({
-        jsonPath: m.expression ?? m.sourcePath,
-        expectedValue: m.targetPath,
+        jsonPath: stripDollarPrefix(m.sourcePath),
+        expectedValue: resolveExpectedValue(m),
       }));
 
       return { selectiveMode: 'exclude', expectedFields, excludedPaths };
@@ -135,7 +136,7 @@ export function createValidationAdapter(
           id: `val-${i}`,
           sourceId: SOURCE_ID,
           sourcePath: f.jsonPath,
-          targetPath: f.expectedValue,
+          targetPath: f.jsonPath,
         }));
       }
 
@@ -144,16 +145,20 @@ export function createValidationAdapter(
       const allLeaves = getLeafPaths(parsed);
       const included = allLeaves.filter((p) => !excluded.has(p));
 
-      const existingFieldMap = new Map<string, string>();
-      for (const f of existing.expectedFields ?? []) {
-        existingFieldMap.set(stripDollarPrefix(f.jsonPath), f.expectedValue);
+      if (included.length === 0 && (existing.expectedFields?.length ?? 0) > 0) {
+        return (existing.expectedFields ?? []).map((f, i) => ({
+          id: `val-${i}`,
+          sourceId: SOURCE_ID,
+          sourcePath: stripDollarPrefix(f.jsonPath),
+          targetPath: stripDollarPrefix(f.jsonPath),
+        }));
       }
 
       return included.map((path, i) => ({
         id: `val-${i}`,
         sourceId: SOURCE_ID,
         sourcePath: path,
-        targetPath: existingFieldMap.get(path) ?? resolveValue(parsed, path),
+        targetPath: path,
       }));
     },
 

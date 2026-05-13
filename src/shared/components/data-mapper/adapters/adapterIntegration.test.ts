@@ -238,14 +238,14 @@ describe('cross-adapter consistency', () => {
       selectiveMode: 'include',
     });
     const mappings: Mapping[] = [
-      { id: 'm1', sourceId: 'response-body', sourcePath: 'data.id', targetPath: '42' },
+      { id: 'm1', sourceId: 'response-body', sourcePath: 'data.id', targetPath: 'data.id' },
     ];
     const serialized = adapter.serialize(mappings);
     const deserialized = adapter.deserialize(serialized);
 
     expect(deserialized).toHaveLength(1);
     expect(deserialized[0].sourcePath).toBe('data.id');
-    expect(deserialized[0].targetPath).toBe('42');
+    expect(deserialized[0].targetPath).toBe('data.id');
   });
 
   it('splitExtractions correctly partitions body and non-body', () => {

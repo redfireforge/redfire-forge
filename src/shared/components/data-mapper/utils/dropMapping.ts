@@ -1,5 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import type { Mapping } from '../types';
+import { normalizeMapperPath } from './pathNormalization';
 
 export function upsertTargetMapping(
   mappings: Mapping[],
@@ -8,7 +9,8 @@ export function upsertTargetMapping(
   targetPath: string,
   expression?: string,
 ): { next: Mapping[]; changed: boolean } {
-  const existingIdx = mappings.findIndex((m) => m.targetPath === targetPath);
+  const normalizedTargetPath = normalizeMapperPath(targetPath);
+  const existingIdx = mappings.findIndex((m) => normalizeMapperPath(m.targetPath) === normalizedTargetPath);
   if (existingIdx >= 0) {
     const existing = mappings[existingIdx];
     if (
@@ -55,7 +57,7 @@ export function bulkDropMappings(
   suggestExpression: (sourcePath: string, sourceId: string, targetPath: string) => string | undefined,
 ): BulkDropResult {
   let nextMappings = [...currentMappings];
-  const occupiedTargets = new Set(nextMappings.map((m) => m.targetPath));
+  const occupiedTargets = new Set(nextMappings.map((m) => normalizeMapperPath(m.targetPath)));
 
   const targetByLeaf = new Map<string, string>();
   for (const tp of targetLeafPaths) {
@@ -79,17 +81,18 @@ export function bulkDropMappings(
       const applied = upsertTargetMapping(nextMappings, sp, sourceId, tp, suggestedExpression);
       if (applied.changed) {
         nextMappings = applied.next;
-        occupiedTargets.add(tp);
+        occupiedTargets.add(normalizeMapperPath(tp));
         appliedCount += 1;
       }
       continue;
     }
-    if (occupiedTargets.has(tp)) continue;
+    const normalizedTargetPath = normalizeMapperPath(tp);
+    if (occupiedTargets.has(normalizedTargetPath)) continue;
     const nextMapping: Mapping = suggestedExpression
       ? { id: uuidv4(), sourcePath: sp, sourceId, targetPath: tp, expression: suggestedExpression }
       : { id: uuidv4(), sourcePath: sp, sourceId, targetPath: tp };
     nextMappings = [...nextMappings, nextMapping];
-    occupiedTargets.add(tp);
+    occupiedTargets.add(normalizedTargetPath);
     appliedCount += 1;
   }
 

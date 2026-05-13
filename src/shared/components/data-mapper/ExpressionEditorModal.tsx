@@ -4,6 +4,13 @@ import { debugExpression } from './utils/expressionStepDebugger';
 import type { EvalStep } from './utils/expressionStepDebugger';
 import { groupedExpressionFunctions, EXPRESSION_CATEGORIES } from '../../../features/workflow/utils/expressionFunctions';
 import type { ExpressionFunction } from '../../../features/workflow/utils/expressionFunctions/types';
+import { TRANSFORMATION_LIBRARY, searchTemplates } from './utils/transformationLibrary';
+import {
+  loadExpressionSnippets,
+  saveExpressionSnippet,
+  deleteExpressionSnippet,
+  type ExpressionSnippet,
+} from './utils/expressionSnippets';
 import type { MapperSource, Mapping } from './types';
 import type { OnMount } from '@monaco-editor/react';
 import type { editor as MonacoEditor, IDisposable, Position } from 'monaco-editor';
@@ -36,6 +43,44 @@ function getSourceLeafPaths(sources: MapperSource[], activeSourceId: string): st
   }
 }
 
+function toExpressionReference(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) return '$.value';
+  if (trimmed.startsWith('$')) return trimmed;
+  const normalized = trimmed.replace(/^\.+/, '');
+  return `$.${normalized}`;
+}
+
+function extractTemplateFunctionNames(template: string): string[] {
+  const matches = template.match(/\$[a-zA-Z_][a-zA-Z0-9_]*/g) ?? [];
+  return Array.from(new Set(matches));
+}
+
+function fixedValueToExpression(value: string): string | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (trimmed === 'true' || trimmed === 'false' || trimmed === 'null') return trimmed;
+  if (/^-?\d+(\.\d+)?$/.test(trimmed)) return trimmed;
+  if (
+    (trimmed.startsWith('{') && trimmed.endsWith('}')) ||
+    (trimmed.startsWith('[') && trimmed.endsWith(']'))
+  ) {
+    try {
+      JSON.parse(trimmed);
+      return trimmed;
+    } catch {
+      // fall through and store as string literal
+    }
+  }
+  if (
+    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+    (trimmed.startsWith('\'') && trimmed.endsWith('\''))
+  ) {
+    return JSON.stringify(trimmed.slice(1, -1));
+  }
+  return JSON.stringify(trimmed);
+}
+
 export default function ExpressionEditorModal({
   mapping,
   sources,
@@ -48,6 +93,12 @@ export default function ExpressionEditorModal({
   const [expression, setExpression] = useState(mapping.expression ?? mapping.sourcePath);
   const [activeCategory, setActiveCategory] = useState<CategoryFilter>('All');
   const [selectedFn, setSelectedFn] = useState<ExpressionFunction | null>(null);
+  const [templateQuery, setTemplateQuery] = useState('');
+  const [composeTemplates, setComposeTemplates] = useState(false);
+  const [fixedValueInput, setFixedValueInput] = useState('');
+  const [snippets, setSnippets] = useState<ExpressionSnippet[]>([]);
+  const [snippetName, setSnippetName] = useState('');
+  const [snippetBusy, setSnippetBusy] = useState(false);
   const editorRef = useRef<MonacoEditor.IStandaloneCodeEditor | null>(null);
   const completionDisposableRef = useRef<IDisposable | null>(null);
   const prevMappingIdRef = useRef(mapping.id);
@@ -72,12 +123,38 @@ export default function ExpressionEditorModal({
   const allFunctionsRef = useRef(allFunctions);
   allFunctionsRef.current = allFunctions;
 
+  const supportedFunctionNames = useMemo(
+    () => new Set(allFunctions.map((fn) => (fn.name.startsWith('$') ? fn.name : `$${fn.name}`))),
+    [allFunctions],
+  );
+
+  const templateCandidates = useMemo(() => {
+    const base = templateQuery.trim() ? searchTemplates(templateQuery.trim()) : TRANSFORMATION_LIBRARY;
+    return [...base]
+      .filter((template) => {
+        const fnNames = extractTemplateFunctionNames(template.template);
+        return fnNames.every((name) => supportedFunctionNames.has(name));
+      })
+      .sort((a, b) => b.priority - a.priority)
+      .slice(0, 8);
+  }, [templateQuery, supportedFunctionNames]);
+
   useEffect(() => {
     if (prevMappingIdRef.current !== mapping.id) {
       prevMappingIdRef.current = mapping.id;
       setExpression(mapping.expression ?? mapping.sourcePath);
     }
   }, [mapping.id, mapping.expression, mapping.sourcePath]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void loadExpressionSnippets().then((loaded) => {
+      if (!cancelled) setSnippets(loaded);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const grouped = useMemo(() => {
     const base = groupedExpressionFunctions();
@@ -139,25 +216,85 @@ export default function ExpressionEditorModal({
     });
   }, [expression, sources, activeSourceId, customFunctions]);
 
+  const insertText = useCallback((text: string) => {
+    const editor = editorRef.current;
+    if (editor) {
+      const selection = editor.getSelection();
+      if (selection) {
+        editor.executeEdits('insert-expression', [{
+          range: selection,
+          text,
+        }]);
+        editor.focus();
+        return;
+      }
+    }
+    setExpression((prev) => prev + text);
+  }, []);
+
   const handleInsertFunction = useCallback((fn: ExpressionFunction) => {
     setSelectedFn(fn);
     const fnCall = fn.name.startsWith('$') ? fn.name : `$${fn.name}`;
     const template = fn.args.length > 0
       ? `${fnCall}(${fn.args.map((a) => a.name).join(', ')})`
       : `${fnCall}()`;
+    insertText(template);
+  }, [insertText]);
 
-    const editor = editorRef.current;
-    if (editor) {
-      const selection = editor.getSelection();
-      if (selection) {
-        editor.executeEdits('insert-function', [{
-          range: selection,
-          text: template,
-        }]);
-        editor.focus();
-      }
-    } else {
-      setExpression((prev) => prev + template);
+  const handleInsertTemplate = useCallback((template: string) => {
+    const sourceRef = toExpressionReference(mapping.sourcePath);
+    const pipelineInput = composeTemplates && expression.trim()
+      ? toExpressionReference(expression)
+      : sourceRef;
+    insertText(template.replace(/\$\.PATH/g, pipelineInput));
+  }, [mapping.sourcePath, composeTemplates, expression, insertText]);
+
+  const handleComposeWithFunction = useCallback((fn: ExpressionFunction) => {
+    const fnCall = fn.name.startsWith('$') ? fn.name : `$${fn.name}`;
+    if (fn.args.length === 0) {
+      setExpression(`${fnCall}()`);
+      return;
+    }
+    const baseInput = expression.trim()
+      ? toExpressionReference(expression)
+      : toExpressionReference(mapping.sourcePath);
+    const args = fn.args.map((arg, index) => {
+      if (index === 0) return baseInput;
+      const type = arg.type.toLowerCase();
+      if (type.includes('string')) return '"value"';
+      if (type.includes('number')) return '0';
+      if (type.includes('bool')) return 'false';
+      return arg.name;
+    });
+    setExpression(`${fnCall}(${args.join(', ')})`);
+  }, [expression, mapping.sourcePath]);
+
+  const handleApplyFixedValue = useCallback(() => {
+    const literal = fixedValueToExpression(fixedValueInput);
+    if (!literal) return;
+    setExpression(literal);
+  }, [fixedValueInput]);
+
+  const handleSaveSnippet = useCallback(async () => {
+    const name = snippetName.trim();
+    if (!name || !expression.trim()) return;
+    setSnippetBusy(true);
+    try {
+      const next = await saveExpressionSnippet(name, expression);
+      setSnippets(next);
+      setSnippetName('');
+    } finally {
+      setSnippetBusy(false);
+    }
+  }, [snippetName, expression]);
+
+  const handleDeleteSnippet = useCallback(async (snippetId: string) => {
+    setSnippetBusy(true);
+    try {
+      const next = await deleteExpressionSnippet(snippetId);
+      setSnippets(next);
+    } finally {
+      setSnippetBusy(false);
     }
   }, []);
 
@@ -346,6 +483,64 @@ export default function ExpressionEditorModal({
             <div className="dm-expr-source-hint">
               Type <code>$.</code> for source fields, <code>$</code> for functions. <code>Ctrl+Enter</code> to save.
             </div>
+            <div className="dm-expr-fixed-value">
+              <div className="dm-expr-fixed-value-label">Fixed Value</div>
+              <div className="dm-expr-fixed-value-controls">
+                <input
+                  className="dm-expr-fixed-value-input"
+                  value={fixedValueInput}
+                  onChange={(e) => setFixedValueInput(e.target.value)}
+                  placeholder='e.g. hello, 42, true, {"x":1}'
+                  aria-label="Fixed value input"
+                />
+                <button
+                  type="button"
+                  className="dm-expr-inline-btn"
+                  onClick={handleApplyFixedValue}
+                  disabled={!fixedValueInput.trim()}
+                >
+                  Use value
+                </button>
+              </div>
+            </div>
+            <div className="dm-expr-template-panel">
+              <div className="dm-expr-template-header">
+                <span className="dm-expr-template-title">Function Templates</span>
+                <label className="dm-expr-template-compose">
+                  <input
+                    type="checkbox"
+                    checked={composeTemplates}
+                    onChange={(e) => setComposeTemplates(e.target.checked)}
+                  />
+                  Compose current
+                </label>
+              </div>
+              <input
+                className="dm-expr-template-search"
+                value={templateQuery}
+                onChange={(e) => setTemplateQuery(e.target.value)}
+                placeholder="Search templates"
+                aria-label="Search function templates"
+              />
+              <div className="dm-expr-template-list">
+                {templateCandidates.length > 0 ? (
+                  templateCandidates.map((template) => (
+                    <button
+                      type="button"
+                      key={template.id}
+                      className="dm-expr-template-item"
+                      onClick={() => handleInsertTemplate(template.template)}
+                      title={template.description}
+                    >
+                      <span className="dm-expr-template-item-label">{template.label}</span>
+                      <span className="dm-expr-template-item-category">{template.category}</span>
+                    </button>
+                  ))
+                ) : (
+                  <div className="dm-expr-template-empty">No templates match.</div>
+                )}
+              </div>
+            </div>
 
             <div className="dm-expr-preview-section">
               <div className="dm-expr-preview-label">
@@ -444,6 +639,13 @@ export default function ExpressionEditorModal({
                     ))}
                   </div>
                 )}
+                <button
+                  type="button"
+                  className="dm-expr-inline-btn"
+                  onClick={() => handleComposeWithFunction(selectedFn)}
+                >
+                  Compose with current
+                </button>
                 <div className="dm-expr-doc-returns">Returns: {selectedFn.returnType}</div>
               </>
             ) : (
@@ -452,6 +654,57 @@ export default function ExpressionEditorModal({
                 <p>Select a function to see documentation.</p>
               </div>
             )}
+            <div className="dm-expr-snippets">
+              <div className="dm-expr-doc-examples-title">Reusable Snippets</div>
+              <div className="dm-expr-snippet-save">
+                <input
+                  className="dm-expr-snippet-name"
+                  value={snippetName}
+                  onChange={(e) => setSnippetName(e.target.value)}
+                  placeholder="Snippet name"
+                  aria-label="Snippet name"
+                />
+                <button
+                  type="button"
+                  className="dm-expr-inline-btn"
+                  onClick={() => void handleSaveSnippet()}
+                  disabled={snippetBusy || !snippetName.trim() || !expression.trim()}
+                >
+                  Save
+                </button>
+              </div>
+              <div className="dm-expr-snippet-list">
+                {snippets.length === 0 ? (
+                  <div className="dm-expr-snippet-empty">No saved snippets yet.</div>
+                ) : (
+                  snippets.map((snippet) => (
+                    <div key={snippet.id} className="dm-expr-snippet-item">
+                      <div className="dm-expr-snippet-meta">
+                        <span className="dm-expr-snippet-title">{snippet.name}</span>
+                        <code className="dm-expr-snippet-expression">{snippet.expression}</code>
+                      </div>
+                      <div className="dm-expr-snippet-actions">
+                        <button
+                          type="button"
+                          className="dm-expr-inline-btn"
+                          onClick={() => setExpression(snippet.expression)}
+                        >
+                          Use
+                        </button>
+                        <button
+                          type="button"
+                          className="dm-expr-inline-btn dm-expr-inline-btn--danger"
+                          onClick={() => void handleDeleteSnippet(snippet.id)}
+                          disabled={snippetBusy}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
           </div>
         </div>
 

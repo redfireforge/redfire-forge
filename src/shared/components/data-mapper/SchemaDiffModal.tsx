@@ -7,9 +7,16 @@ interface SchemaDiffModalProps {
   onClose: () => void;
   repairSuggestions?: Map<string, RepairSuggestion[]>;
   onApplyRepair?: (mappingId: string, suggestion: RepairSuggestion) => void;
+  onApplyRepairBatch?: (repairs: Array<{ mappingId: string; suggestion: RepairSuggestion }>) => void;
 }
 
-export default function SchemaDiffModal({ drifts, onClose, repairSuggestions, onApplyRepair }: SchemaDiffModalProps) {
+export default function SchemaDiffModal({
+  drifts,
+  onClose,
+  repairSuggestions,
+  onApplyRepair,
+  onApplyRepairBatch,
+}: SchemaDiffModalProps) {
   const titleId = useId();
   const shellRef = useRef<HTMLDivElement>(null);
   const previousFocusRef = useRef<Element | null>(null);
@@ -53,6 +60,25 @@ export default function SchemaDiffModal({ drifts, onClose, repairSuggestions, on
     return { breaking, warning, info };
   }, [drifts]);
 
+  const batchRepairs = useMemo(() => {
+    if (!repairSuggestions) return [];
+    const bestSuggestionByMapping = new Map<string, RepairSuggestion>();
+    for (const drift of sorted) {
+      if (drift.severity !== 'breaking' || drift.affectedMappingIds.length === 0) continue;
+      const suggestions = repairSuggestions.get(drift.path) ?? [];
+      for (const suggestion of suggestions) {
+        const prev = bestSuggestionByMapping.get(suggestion.mappingId);
+        if (!prev || suggestion.confidence > prev.confidence) {
+          bestSuggestionByMapping.set(suggestion.mappingId, suggestion);
+        }
+      }
+    }
+    return Array.from(bestSuggestionByMapping.entries()).map(([mappingId, suggestion]) => ({
+      mappingId,
+      suggestion,
+    }));
+  }, [repairSuggestions, sorted]);
+
   return (
     <div className="dm-diff-overlay" role="dialog" aria-modal="true" aria-labelledby={titleId}>
       <div className="dm-diff-shell" ref={shellRef} tabIndex={-1}>
@@ -71,6 +97,17 @@ export default function SchemaDiffModal({ drifts, onClose, repairSuggestions, on
           </div>
           <button className="dm-btn-icon" onClick={onClose} aria-label="Close schema diff">×</button>
         </div>
+        {onApplyRepairBatch && batchRepairs.length > 0 && (
+          <div className="dm-diff-batch-actions">
+            <button
+              type="button"
+              className="dm-repair-btn dm-repair-btn--batch"
+              onClick={() => onApplyRepairBatch(batchRepairs)}
+            >
+              Apply all repairs ({batchRepairs.length})
+            </button>
+          </div>
+        )}
         <div className="dm-diff-body">
           <table className="dm-diff-table">
             <thead>

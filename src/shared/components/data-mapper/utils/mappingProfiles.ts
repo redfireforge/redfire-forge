@@ -7,6 +7,7 @@
 
 import type { Mapping } from '../types';
 import { readKey, writeKey } from '../../../utils/storage';
+import { normalizeMapperPath } from './pathNormalization';
 
 const STORAGE_PREFIX = 'dm-profiles-';
 
@@ -101,4 +102,71 @@ export async function getProfileById(
 ): Promise<MappingProfile | undefined> {
   const profiles = await loadProfiles(contextId);
   return profiles.find((p) => p.id === profileId);
+}
+
+export interface ApplyProfileDeltaResult {
+  mappings: Mapping[];
+  insertedCount: number;
+  updatedCount: number;
+  unchangedCount: number;
+}
+
+function isDeltaEquivalent(existing: Mapping, fromProfile: Mapping): boolean {
+  return (
+    normalizeMapperPath(existing.sourcePath) === normalizeMapperPath(fromProfile.sourcePath)
+    && (existing.sourceId || '') === (fromProfile.sourceId || '')
+    && normalizeMapperPath(existing.targetPath) === normalizeMapperPath(fromProfile.targetPath)
+    && (existing.expression ?? '') === (fromProfile.expression ?? '')
+  );
+}
+
+export function applyProfileDelta(
+  currentMappings: Mapping[],
+  profileMappings: Mapping[],
+  createId: () => string,
+): ApplyProfileDeltaResult {
+  const nextMappings = [...currentMappings];
+  const targetIndex = new Map<string, number>();
+  for (let i = 0; i < nextMappings.length; i += 1) {
+    const targetKey = normalizeMapperPath(nextMappings[i].targetPath);
+    if (!targetIndex.has(targetKey)) targetIndex.set(targetKey, i);
+  }
+
+  let insertedCount = 0;
+  let updatedCount = 0;
+  let unchangedCount = 0;
+
+  for (const profileMapping of profileMappings) {
+    const targetKey = normalizeMapperPath(profileMapping.targetPath);
+    const existingIdx = targetIndex.get(targetKey);
+    if (existingIdx == null) {
+      const inserted: Mapping = {
+        ...profileMapping,
+        id: createId(),
+        isPending: false,
+      };
+      nextMappings.push(inserted);
+      targetIndex.set(targetKey, nextMappings.length - 1);
+      insertedCount += 1;
+      continue;
+    }
+
+    const existing = nextMappings[existingIdx];
+    if (isDeltaEquivalent(existing, profileMapping)) {
+      unchangedCount += 1;
+      continue;
+    }
+
+    nextMappings[existingIdx] = {
+      ...existing,
+      sourcePath: profileMapping.sourcePath,
+      sourceId: profileMapping.sourceId,
+      targetPath: profileMapping.targetPath,
+      expression: profileMapping.expression,
+      isPending: false,
+    };
+    updatedCount += 1;
+  }
+
+  return { mappings: nextMappings, insertedCount, updatedCount, unchangedCount };
 }

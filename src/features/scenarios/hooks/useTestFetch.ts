@@ -8,6 +8,7 @@ import { acquireOAuth2Token } from '../../../engine/tokenManager';
 import { resolveAuthHeaders } from '../../../shared/utils/authHeaders';
 import { validate } from '../../../engine/validator';
 import { jsonEqual } from '../utils/testEditorUtils';
+import { getByPath } from '../../../shared/utils/jsonPath';
 
 // ─── Shared helpers ──────────────────────────────────────────
 
@@ -319,9 +320,29 @@ export function useTestFetch({
     const updatedVersions = shouldAutoSave
       ? [...prevVersions, buildResponseVersion(v, v.sampleJson || '')]
       : prevVersions;
+    const currentExpectedFields = v.expectedFields || [];
+    let updatedExpectedFields = currentExpectedFields;
+    try {
+      const parsed = JSON.parse(pendingFetchResponse);
+      updatedExpectedFields = currentExpectedFields.map((field) => {
+        const nextValue = getByPath(parsed, field.jsonPath);
+        if (nextValue === undefined) return field;
+        return {
+          ...field,
+          expectedValue: JSON.stringify(nextValue),
+        };
+      });
+    } catch {
+      // Keep existing expected values when fetched response is not JSON.
+    }
     onDraftChange({
       ...latest,
-      validation: { ...latest.validation, sampleJson: pendingFetchResponse, responseVersions: updatedVersions },
+      validation: {
+        ...latest.validation,
+        sampleJson: pendingFetchResponse,
+        expectedFields: updatedExpectedFields,
+        responseVersions: updatedVersions,
+      },
     });
     setPendingFetchResponse(null);
   }, [pendingFetchResponse, onDraftChange, draftRef]);

@@ -167,6 +167,37 @@ describe('buildTreeFromFields', () => {
     expect(cNode.type).toBe('number');
   });
 
+  it('splits array index paths into offers -> [0] -> leaf', () => {
+    const fields: TargetField[] = [
+      { path: 'offers[0].associatedOfferingCode', label: 'associatedOfferingCode', type: 'string' },
+    ];
+    const tree = buildTreeFromFields(fields);
+    const offersNode = tree.children![0];
+    expect(offersNode.key).toBe('offers');
+    expect(offersNode.path).toBe('offers');
+    expect(offersNode.type).toBe('array');
+
+    const indexNode = offersNode.children![0];
+    expect(indexNode.key).toBe('[0]');
+    expect(indexNode.path).toBe('offers[0]');
+    expect(indexNode.type).toBe('object');
+
+    const leaf = indexNode.children![0];
+    expect(leaf.key).toBe('associatedOfferingCode');
+    expect(leaf.path).toBe('offers[0].associatedOfferingCode');
+  });
+
+  it('keeps bracket path format without dot before index', () => {
+    const fields: TargetField[] = [
+      { path: 'offers[12].rank', label: 'rank', type: 'number' },
+    ];
+    const tree = buildTreeFromFields(fields);
+    const offersNode = tree.children![0];
+    const indexNode = offersNode.children![0];
+    expect(indexNode.path).toBe('offers[12]');
+    expect(indexNode.children![0].path).toBe('offers[12].rank');
+  });
+
   it('reuses intermediate nodes for shared prefixes', () => {
     const fields: TargetField[] = [
       { path: 'user.name', label: 'Name' },

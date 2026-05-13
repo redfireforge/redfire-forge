@@ -81,6 +81,35 @@ describe('SourceTreeNode', () => {
     expect(store['application/mapper-source']).toContain('"path":"name"');
   });
 
+  it('fires onDragStart on non-leaf drag when node has a path', () => {
+    const parentNode: JsonTreeNode = {
+      key: 'payload',
+      path: 'payload',
+      type: 'object',
+      value: undefined,
+      children: [{ key: 'x', path: 'payload.x', type: 'number', value: 1, children: [] }],
+    };
+    const onDragStart = vi.fn();
+    render(
+      <SourceTreeNode
+        node={parentNode}
+        {...defaults}
+        onDragStart={onDragStart}
+        expandedPaths={new Set(['payload'])}
+      />,
+    );
+    const el = screen.getByText('payload').closest('.dm-tree-node')!;
+    const store: Record<string, string> = {};
+    const dataTransfer = {
+      setData: (k: string, v: string) => { store[k] = v; },
+      getData: (k: string) => store[k] ?? '',
+      effectAllowed: 'none',
+    };
+    fireEvent.dragStart(el, { dataTransfer });
+    expect(onDragStart).toHaveBeenCalledWith('payload', 's1');
+    expect(store['application/mapper-source']).toContain('"path":"payload"');
+  });
+
   it('calls onDragEnd when drag ends on a leaf', () => {
     const onDragEnd = vi.fn();
     render(<SourceTreeNode node={leaf} {...defaults} onDragEnd={onDragEnd} />);
@@ -256,6 +285,12 @@ describe('SourceTreeNode', () => {
     const { container } = render(<SourceTreeNode node={leaf} {...defaults} driftMap={driftMap} />);
     const node = container.querySelector('.dm-tree-node--source');
     expect(node!.getAttribute('draggable')).toBe('false');
+  });
+
+  it('disables drag on the root source node with empty path', () => {
+    const { container } = render(<SourceTreeNode node={nested} {...defaults} />);
+    const rootNode = container.querySelector('.dm-tree-node--source[data-path=""]');
+    expect(rootNode?.getAttribute('draggable')).toBe('false');
   });
 
   it('renders no drift badge when no drift map provided', () => {

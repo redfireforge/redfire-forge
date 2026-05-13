@@ -4,6 +4,23 @@ import { render, screen, fireEvent, act } from '@testing-library/react';
 import * as JsonTreeModel from '../../utils/jsonTreeModel';
 import ExpressionEditorModal from './ExpressionEditorModal';
 import type { Mapping, MapperSource } from './types';
+import {
+  loadExpressionSnippets,
+  saveExpressionSnippet,
+  deleteExpressionSnippet,
+} from './utils/expressionSnippets';
+
+type SnippetStub = { id: string; name: string; expression: string; updatedAt: number };
+const snippetStore: SnippetStub[] = [];
+vi.mock('./utils/expressionSnippets', () => ({
+  loadExpressionSnippets: vi.fn(),
+  saveExpressionSnippet: vi.fn(),
+  deleteExpressionSnippet: vi.fn(),
+}));
+
+const loadExpressionSnippetsMock = vi.mocked(loadExpressionSnippets);
+const saveExpressionSnippetMock = vi.mocked(saveExpressionSnippet);
+const deleteExpressionSnippetMock = vi.mocked(deleteExpressionSnippet);
 
 export const monacoTestState: {
   lastEditor: ReturnType<typeof createFakeEditor>['editor'] | null;
@@ -125,6 +142,31 @@ beforeEach(() => {
   monacoTestState.completionProvider = null;
   monacoTestState.disposeSpies = [];
   monacoTestState.suppressOnMount = false;
+  snippetStore.splice(0, snippetStore.length);
+  loadExpressionSnippetsMock.mockReset();
+  saveExpressionSnippetMock.mockReset();
+  deleteExpressionSnippetMock.mockReset();
+  loadExpressionSnippetsMock.mockImplementation(async () => [...snippetStore]);
+  saveExpressionSnippetMock.mockImplementation(async (name: string, expression: string) => {
+    const now = Date.now();
+    const idx = snippetStore.findIndex((snippet) => snippet.name.toLowerCase() === name.toLowerCase());
+    if (idx >= 0) {
+      snippetStore[idx] = { ...snippetStore[idx], name, expression, updatedAt: now };
+    } else {
+      snippetStore.unshift({
+        id: `snippet-${snippetStore.length + 1}`,
+        name,
+        expression,
+        updatedAt: now,
+      });
+    }
+    return [...snippetStore];
+  });
+  deleteExpressionSnippetMock.mockImplementation(async (snippetId: string) => {
+    const idx = snippetStore.findIndex((snippet) => snippet.id === snippetId);
+    if (idx >= 0) snippetStore.splice(idx, 1);
+    return [...snippetStore];
+  });
 });
 
 async function flushMonacoMount() {
@@ -257,6 +299,50 @@ describe('ExpressionEditorModal', () => {
   it('shows hint about $.path syntax', () => {
     renderModal();
     expect(screen.getByText(/source fields/)).toBeTruthy();
+  });
+
+  it('applies fixed value helper to expression editor', () => {
+    renderModal();
+    const fixedValueInput = screen.getByLabelText('Fixed value input');
+    fireEvent.change(fixedValueInput, { target: { value: 'hello world' } });
+    fireEvent.click(screen.getByText('Use value'));
+    const textarea = screen.getByPlaceholderText(/\$upper/) as HTMLTextAreaElement;
+    expect(textarea.value).toBe('"hello world"');
+  });
+
+  it('inserts function template using source-path reference', async () => {
+    renderModal();
+    await flushMonacoMount();
+    fireEvent.click(screen.getByText('Parse number'));
+    const inserted = monacoTestState.lastEditor?.executeEdits.mock.calls[0]?.[1]?.[0]?.text ?? '';
+    expect(inserted).toContain('$parseFloat($.name)');
+  });
+
+  it('composes template using current expression when compose mode is enabled', async () => {
+    renderModal({ mapping: { ...baseMapping, expression: '$trim($.name)' } });
+    await flushMonacoMount();
+    fireEvent.change(screen.getByLabelText('Search function templates'), { target: { value: 'Trim' } });
+    fireEvent.click(screen.getByLabelText(/Compose current/));
+    fireEvent.click(screen.getByText('Trim'));
+    const inserted = monacoTestState.lastEditor?.executeEdits.mock.calls[0]?.[1]?.[0]?.text ?? '';
+    expect(inserted).toContain('$trim($trim($.name))');
+  });
+
+  it('saves, applies, and deletes reusable snippets', async () => {
+    renderModal({ mapping: { ...baseMapping, expression: '$upper($.name)' } });
+    await flushMonacoMount();
+    fireEvent.change(screen.getByLabelText('Snippet name'), { target: { value: 'Upper Name' } });
+    fireEvent.click(screen.getByText('Save'));
+    expect(saveExpressionSnippetMock).toHaveBeenCalledWith('Upper Name', '$upper($.name)');
+    expect(await screen.findByText('Upper Name')).toBeTruthy();
+
+    fireEvent.change(screen.getByTestId('monaco-editor'), { target: { value: '$lower($.name)' } });
+    fireEvent.click(screen.getByText('Use'));
+    const textarea = screen.getByPlaceholderText(/\$upper/) as HTMLTextAreaElement;
+    expect(textarea.value).toBe('$upper($.name)');
+
+    fireEvent.click(screen.getByText('Delete'));
+    expect(deleteExpressionSnippetMock).toHaveBeenCalled();
   });
 });
 
@@ -976,6 +1062,198 @@ describe('ExpressionEditorModal – initializes from sourcePath when no expressi
     fireEvent.click(screen.getByText('Save Expression'));
     expect(onSave).toHaveBeenCalledWith('m1', 'email');
     vi.useRealTimers();
+  });
+});
+
+describe('ExpressionEditorModal – fixedValueToExpression branches', () => {
+  it('applies boolean true as fixed value', () => {
+    renderModal();
+    const input = screen.getByLabelText('Fixed value input');
+    fireEvent.change(input, { target: { value: 'true' } });
+    fireEvent.click(screen.getByText('Use value'));
+    const textarea = screen.getByPlaceholderText(/\$upper/) as HTMLTextAreaElement;
+    expect(textarea.value).toBe('true');
+  });
+
+  it('applies boolean false as fixed value', () => {
+    renderModal();
+    const input = screen.getByLabelText('Fixed value input');
+    fireEvent.change(input, { target: { value: 'false' } });
+    fireEvent.click(screen.getByText('Use value'));
+    const textarea = screen.getByPlaceholderText(/\$upper/) as HTMLTextAreaElement;
+    expect(textarea.value).toBe('false');
+  });
+
+  it('applies null as fixed value', () => {
+    renderModal();
+    const input = screen.getByLabelText('Fixed value input');
+    fireEvent.change(input, { target: { value: 'null' } });
+    fireEvent.click(screen.getByText('Use value'));
+    const textarea = screen.getByPlaceholderText(/\$upper/) as HTMLTextAreaElement;
+    expect(textarea.value).toBe('null');
+  });
+
+  it('applies number as fixed value', () => {
+    renderModal();
+    const input = screen.getByLabelText('Fixed value input');
+    fireEvent.change(input, { target: { value: '42' } });
+    fireEvent.click(screen.getByText('Use value'));
+    const textarea = screen.getByPlaceholderText(/\$upper/) as HTMLTextAreaElement;
+    expect(textarea.value).toBe('42');
+  });
+
+  it('applies negative decimal number as fixed value', () => {
+    renderModal();
+    const input = screen.getByLabelText('Fixed value input');
+    fireEvent.change(input, { target: { value: '-3.14' } });
+    fireEvent.click(screen.getByText('Use value'));
+    const textarea = screen.getByPlaceholderText(/\$upper/) as HTMLTextAreaElement;
+    expect(textarea.value).toBe('-3.14');
+  });
+
+  it('applies valid JSON object as fixed value', () => {
+    renderModal();
+    const input = screen.getByLabelText('Fixed value input');
+    fireEvent.change(input, { target: { value: '{"key":"val"}' } });
+    fireEvent.click(screen.getByText('Use value'));
+    const textarea = screen.getByPlaceholderText(/\$upper/) as HTMLTextAreaElement;
+    expect(textarea.value).toBe('{"key":"val"}');
+  });
+
+  it('applies valid JSON array as fixed value', () => {
+    renderModal();
+    const input = screen.getByLabelText('Fixed value input');
+    fireEvent.change(input, { target: { value: '[1,2,3]' } });
+    fireEvent.click(screen.getByText('Use value'));
+    const textarea = screen.getByPlaceholderText(/\$upper/) as HTMLTextAreaElement;
+    expect(textarea.value).toBe('[1,2,3]');
+  });
+
+  it('wraps invalid JSON object as string literal', () => {
+    renderModal();
+    const input = screen.getByLabelText('Fixed value input');
+    fireEvent.change(input, { target: { value: '{bad:json}' } });
+    fireEvent.click(screen.getByText('Use value'));
+    const textarea = screen.getByPlaceholderText(/\$upper/) as HTMLTextAreaElement;
+    expect(textarea.value).toBe('"{bad:json}"');
+  });
+
+  it('applies quoted string value (strips outer quotes)', () => {
+    renderModal();
+    const input = screen.getByLabelText('Fixed value input');
+    fireEvent.change(input, { target: { value: '"hello"' } });
+    fireEvent.click(screen.getByText('Use value'));
+    const textarea = screen.getByPlaceholderText(/\$upper/) as HTMLTextAreaElement;
+    expect(textarea.value).toBe('"hello"');
+  });
+
+  it('applies single-quoted string value (strips outer quotes)', () => {
+    renderModal();
+    const input = screen.getByLabelText('Fixed value input');
+    fireEvent.change(input, { target: { value: "'hello'" } });
+    fireEvent.click(screen.getByText('Use value'));
+    const textarea = screen.getByPlaceholderText(/\$upper/) as HTMLTextAreaElement;
+    expect(textarea.value).toBe('"hello"');
+  });
+
+  it('does nothing for empty fixed value', () => {
+    renderModal();
+    const input = screen.getByLabelText('Fixed value input');
+    fireEvent.change(input, { target: { value: '' } });
+    fireEvent.click(screen.getByText('Use value'));
+    const textarea = screen.getByPlaceholderText(/\$upper/) as HTMLTextAreaElement;
+    expect(textarea.value).toBe('name');
+  });
+});
+
+describe('ExpressionEditorModal – handleComposeWithFunction', () => {
+  it('composes function with zero args', () => {
+    const noArgFn = {
+      name: '$now',
+      category: 'Date' as const,
+      signature: '$now()',
+      description: 'Current timestamp',
+      args: [] as { name: string; type: string; required: boolean; description: string }[],
+      returnType: 'number' as const,
+      examples: [],
+      evaluate: () => Date.now(),
+    };
+    const { container } = renderModal({ customFunctions: [noArgFn] });
+    const fnItem = Array.from(container.querySelectorAll('.dm-expr-fn-item')).find(el => el.textContent?.includes('$now'));
+    fireEvent.click(fnItem!);
+    fireEvent.click(screen.getByText('Compose with current'));
+    const textarea = screen.getByPlaceholderText(/\$upper/) as HTMLTextAreaElement;
+    expect(textarea.value).toBe('$now()');
+  });
+
+  it('composes function with multiple arg types', () => {
+    const multiArgFn = {
+      name: '$custom',
+      category: 'Custom' as const,
+      signature: '$custom(input, count, flag)',
+      description: 'Multi-arg',
+      args: [
+        { name: 'input', type: 'string', required: true, description: 'Input' },
+        { name: 'count', type: 'number', required: true, description: 'Count' },
+        { name: 'flag', type: 'boolean', required: false, description: 'Flag' },
+      ],
+      returnType: 'string' as const,
+      examples: [],
+      evaluate: (v: unknown) => v,
+    };
+    renderModal({ customFunctions: [multiArgFn] });
+    fireEvent.click(screen.getByText('$custom'));
+    fireEvent.click(screen.getByText('Compose with current'));
+    const textarea = screen.getByPlaceholderText(/\$upper/) as HTMLTextAreaElement;
+    expect(textarea.value).toBe('$custom($.name, 0, false)');
+  });
+
+  it('compose button updates expression with function wrapping current input', async () => {
+    const fn = {
+      name: '$xyzWrap',
+      category: 'Custom' as const,
+      signature: '$xyzWrap(input, delim)',
+      description: 'Wrap',
+      args: [
+        { name: 'input', type: 'string', required: true, description: 'In' },
+        { name: 'delim', type: 'string', required: true, description: 'Delim' },
+      ],
+      returnType: 'string' as const,
+      examples: [],
+      evaluate: (v: unknown) => v,
+    };
+    monacoTestState.suppressOnMount = true;
+    renderModal({ mapping: { ...baseMapping, expression: '$upper($.name)' }, customFunctions: [fn] });
+    await act(async () => {
+      fireEvent.click(screen.getByText('$xyzWrap'));
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByText('Compose with current'));
+    });
+    const textarea = screen.getByTestId('monaco-editor') as HTMLTextAreaElement;
+    expect(textarea.value).toContain('$xyzWrap(');
+    expect(textarea.value).toContain('"value"');
+  });
+
+  it('composes function with unknown arg type uses arg name', () => {
+    const fn = {
+      name: '$exotic',
+      category: 'Custom' as const,
+      signature: '$exotic(input, opts)',
+      description: 'Exotic',
+      args: [
+        { name: 'input', type: 'string', required: true, description: 'In' },
+        { name: 'opts', type: 'options', required: true, description: 'Options' },
+      ],
+      returnType: 'string' as const,
+      examples: [],
+      evaluate: (v: unknown) => v,
+    };
+    renderModal({ customFunctions: [fn] });
+    fireEvent.click(screen.getByText('$exotic'));
+    fireEvent.click(screen.getByText('Compose with current'));
+    const textarea = screen.getByPlaceholderText(/\$upper/) as HTMLTextAreaElement;
+    expect(textarea.value).toBe('$exotic($.name, opts)');
   });
 });
 

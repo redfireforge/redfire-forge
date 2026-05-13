@@ -1,7 +1,7 @@
 /**
  * Compute the mapped target object by evaluating all mappings
- * against source sample data. Builds a target JSON with mapped
- * values filled in and unmapped fields left as `null`.
+ * against source sample data. Builds a target JSON containing
+ * only the mapped fields — unmapped fields are omitted entirely.
  */
 
 import { getByPath } from '../../../utils/jsonPath';
@@ -32,13 +32,11 @@ export function computePreview(
   mappings: Mapping[],
   sources: MapperSource[],
   activeSourceId: string,
-  targetSampleData: unknown,
+  _targetSampleData: unknown,
   customFunctions?: ExpressionFunction[],
 ): PreviewResult {
   const fields: PreviewField[] = [];
-  const rawTarget = coerceSampleData(targetSampleData) ?? null;
-  const cloned = rawTarget != null ? deepClone(rawTarget) : {};
-  const targetObject = (nullifyLeaves(cloned) ?? {}) as Record<string, unknown>;
+  const targetObject: Record<string, unknown> = {};
   let errorCount = 0;
 
   for (const mapping of mappings) {
@@ -140,28 +138,3 @@ function setNestedValue(obj: Record<string, unknown>, path: string, value: unkno
   current[segments[segments.length - 1]] = value;
 }
 
-function deepClone(obj: unknown): Record<string, unknown> {
-  try {
-    return JSON.parse(JSON.stringify(obj));
-  } catch {
-    return {};
-  }
-}
-
-/**
- * Set all leaf (non-object, non-array) values to null so unmapped
- * fields show as null rather than retaining sample placeholder values.
- */
-function nullifyLeaves(obj: unknown): unknown {
-  if (Array.isArray(obj)) {
-    return obj.map((item) => nullifyLeaves(item));
-  }
-  if (obj != null && typeof obj === 'object') {
-    const result: Record<string, unknown> = {};
-    for (const [key, val] of Object.entries(obj)) {
-      result[key] = nullifyLeaves(val);
-    }
-    return result;
-  }
-  return null;
-}
