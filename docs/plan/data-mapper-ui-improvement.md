@@ -592,6 +592,41 @@ Open-source and source-available transformation ecosystems reviewed:
 - [x] Validation workflows catch and repair mapping integrity issues before save.
 - [x] Updated visual baseline and UX sign-off recorded.
 
+---
+
+## M8 - Expression Editor & Operator UX Fixes (2026-05-13)
+
+### Issues Addressed
+
+| # | Issue | Root Cause | Fix |
+|---|---|---|---|
+| 1 | Live Preview uppercased entire `offers` array instead of single field | Tokenizer split `offers[0].offerName` into 3 tokens (`offers`, `0`, `offerName`) | Updated bare-identifier scanner to consume bracket notation as single token |
+| 2 | Clicking function in sidebar inserted `$upper(value)` at cursor, leaving existing text | `handleInsertFunction` blindly inserted template at cursor position | Changed to wrap current expression as first arg, or use source path if empty |
+| 3 | Function Template click appended `$toString($.path)path` | `handleInsertTemplate` called `insertText` which appended at cursor | Changed to `setExpression` which replaces entire editor content |
+| 4 | Duplicate "To string" / "To boolean" in Function Templates | Multiple templates had identical labels for different source types | Renamed to "Number → string", "Boolean → string", etc. |
+| 5 | Operator picker cut off at viewport bottom | Picker rendered inside tree node with `position: absolute`, clipped by panel overflow | Changed to portal rendering at `document.body` with viewport-aware positioning |
+| 6 | No search in function sidebar | Only category filter existed, no text search | Added search input filtering by name and description |
+| 7 | Modal backgrounds not transparent | Overlays used `rgba(0,0,0,0.5/0.6)` backgrounds | Changed to `background: transparent` |
+| 8 | Redundant X close button in Expression Editor | Modal had both X button and Cancel button | Removed X, added Undo/Redo/Fullscreen controls in header |
+
+### Files Modified
+
+- `src/features/workflow/utils/expressionEvaluator.ts` — Tokenizer bracket-path fix
+- `src/shared/components/data-mapper/ExpressionEditorModal.tsx` — Smart function insert, template replace, search, undo/redo/expand
+- `src/shared/components/data-mapper/TargetTreeNode.tsx` — Operator picker portal rendering
+- `src/shared/components/data-mapper/utils/transformationLibrary.ts` — Deduplicated template labels
+- `src/shared/components/data-mapper/utils/mapperExpressionEvaluator.test.ts` — Bracket-path regression tests
+- `src/styles/data-mapper.css` — Portal picker styles
+- `src/styles/data-mapper-expression.css` — Function search, header actions, fullscreen mode
+- `src/styles/data-mapper-modal.css` — Transparent overlay
+
+### Validation
+
+- All unit tests pass (ExpressionEditorModal 94, evaluator 61, mapperExpressionEvaluator 54, previewCompute 37, transformationLibrary 14, TargetTreeNode 43, expressionFunctions 300)
+- TypeScript check passes (`npx tsc -b --noEmit`)
+
+---
+
 ### External References Used (for M7)
 
 - https://docs.mulesoft.com/mule-runtime/latest/transform-graphically-construct-mapping-design-center-task

@@ -170,6 +170,7 @@ export function createSharedDsFetchAdapter(
     contextId: 'shared-ds-fetch',
     title: buildAdapterTitle(fetchConfig),
     category: 'data-source',
+    capabilities: { schemaDrift: true },
     sources: [source],
     target,
 

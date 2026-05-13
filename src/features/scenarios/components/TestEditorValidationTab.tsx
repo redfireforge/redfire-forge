@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import type { MutableRefObject } from 'react';
-import type { Assertion, AssertionOperator, ComparisonOperator, DateReference, ExpectedField, FailureDetail, Scenario, ValidationMode } from '../../../shared/types';
+import type { Assertion, AssertionOperator, ComparisonOperator, DateReference, ExpectedField, FailureDetail, JsonTypeName, Scenario, ValidationMode } from '../../../shared/types';
 import ResponseVersionPanel from '../../requests/components/ResponseVersionPanel';
 import RulesVersionPanel from '../../requests/components/RulesVersionPanel';
 import {
@@ -332,6 +332,17 @@ export default function TestEditorValidationTab({
                   <span className="aam-label">Date Compare</span>
                   <span className="aam-desc">Compare date at a JSON path</span>
                 </button>
+                <div className="aam-divider" />
+                <button type="button" onClick={() => addAssertion({ type: 'typeCheck', jsonPath: '', expectedType: 'string' })}>
+                  <span className="aam-icon">🏷</span>
+                  <span className="aam-label">Type Check</span>
+                  <span className="aam-desc">Assert value type at a JSON path</span>
+                </button>
+                <button type="button" onClick={() => addAssertion({ type: 'existence', jsonPath: '', expectExists: true })}>
+                  <span className="aam-icon">🔍</span>
+                  <span className="aam-label">Field Exists</span>
+                  <span className="aam-desc">Assert a JSON path exists or not</span>
+                </button>
               </div>
             )}
           </div>
@@ -341,7 +352,7 @@ export default function TestEditorValidationTab({
             {assertions.map((a, i) => (
               <div key={i} className="assertion-row">
                 <span className={`assertion-type-badge assertion-type-${a.type}`}>
-                  {a.type === 'status' ? 'STATUS' : a.type === 'responseTime' ? 'TIME' : a.type === 'header' ? 'HEADER' : a.type === 'regex' ? 'REGEX' : a.type === 'arrayLength' ? 'ARRAY' : a.type === 'numeric' ? 'NUMBER' : 'DATE'}
+                  {a.type === 'status' ? 'STATUS' : a.type === 'responseTime' ? 'TIME' : a.type === 'header' ? 'HEADER' : a.type === 'regex' ? 'REGEX' : a.type === 'arrayLength' ? 'ARRAY' : a.type === 'numeric' ? 'NUMBER' : a.type === 'date' ? 'DATE' : a.type === 'typeCheck' ? 'TYPE' : 'EXISTS'}
                 </span>
                 {a.type === 'status' && (
                   <div className="assertion-field">
@@ -423,6 +434,31 @@ export default function TestEditorValidationTab({
                     {a.reference.kind === 'fixed' && (
                       <input type="date" value={a.reference.iso} onChange={(e) => updateAssertion(i, { reference: { kind: 'fixed', iso: e.target.value } })} className="assertion-input assertion-input-sm" />
                     )}
+                  </div>
+                )}
+                {a.type === 'typeCheck' && (
+                  <div className="assertion-field">
+                    <input value={a.jsonPath} onChange={(e) => updateAssertion(i, { jsonPath: e.target.value })} placeholder="$.price" className="assertion-input assertion-input-path" />
+                    <JsonPathPicker sampleJson={draft.validation.sampleJson || ''} onSelect={(p) => updateAssertion(i, { jsonPath: p })} />
+                    <span className="assertion-field-label assertion-field-label-fixed">is</span>
+                    <select value={a.expectedType} onChange={(e) => updateAssertion(i, { expectedType: e.target.value as JsonTypeName })} className="assertion-select">
+                      <option value="string">string</option>
+                      <option value="number">number</option>
+                      <option value="boolean">boolean</option>
+                      <option value="array">array</option>
+                      <option value="object">object</option>
+                      <option value="null">null</option>
+                    </select>
+                  </div>
+                )}
+                {a.type === 'existence' && (
+                  <div className="assertion-field">
+                    <input value={a.jsonPath} onChange={(e) => updateAssertion(i, { jsonPath: e.target.value })} placeholder="$.metadata.tags" className="assertion-input assertion-input-path" />
+                    <JsonPathPicker sampleJson={draft.validation.sampleJson || ''} onSelect={(p) => updateAssertion(i, { jsonPath: p })} />
+                    <select value={a.expectExists ? 'exists' : 'not_exists'} onChange={(e) => updateAssertion(i, { expectExists: e.target.value === 'exists' })} className="assertion-select">
+                      <option value="exists">exists</option>
+                      <option value="not_exists">does not exist</option>
+                    </select>
                   </div>
                 )}
                 <button type="button" className="btn btn-xs btn-danger assertion-remove" onClick={() => removeAssertion(i)} title="Remove assertion">×</button>
@@ -647,6 +683,7 @@ export default function TestEditorValidationTab({
                   <thead>
                     <tr>
                       <th>JSON Path</th>
+                      <th>Operator</th>
                       <th>Expected Value</th>
                       <th aria-label="Actions" />
                     </tr>
@@ -655,7 +692,12 @@ export default function TestEditorValidationTab({
                     {(draft.validation.expectedFields || []).map((f: ExpectedField, idx: number) => (
                       <tr key={idx}>
                         <td><code>{f.jsonPath}</code></td>
-                        <td><code>{f.expectedValue}</code></td>
+                        <td>
+                          <span className={`validation-field-op-badge validation-field-op-badge--${f.operator ?? 'equals'}`}>
+                            {f.operator ? f.operator.replace(/_/g, ' ') : 'equals'}
+                          </span>
+                        </td>
+                        <td><code>{f.operatorValue ?? f.expectedValue}</code></td>
                         <td className="validation-fields-actions-cell">
                           <button
                             type="button"

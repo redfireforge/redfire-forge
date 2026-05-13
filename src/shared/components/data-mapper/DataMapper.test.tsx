@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, act, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, act, waitFor, within } from '@testing-library/react';
 import DataMapper from './DataMapper';
 import type { MapperAdapter, Mapping } from './types';
 import { buildJsonTree, getAllLeafPaths } from '../../utils/jsonTreeModel';
@@ -10,6 +10,8 @@ import { mapperGallerySamples } from './utils/gallerySamples';
 import type { RepairSuggestion } from './utils/schemaRepair';
 import * as autoMapAlgorithm from './utils/autoMapAlgorithm';
 import * as mappingProfiles from './utils/mappingProfiles';
+import * as dropMappingNs from './utils/dropMapping';
+import * as subtreeMappingNs from './utils/subtreeMapping';
 
 const sampleSource = { name: 'Alice', email: 'a@b.com', age: 30 };
 const sampleTarget = { userName: '', userEmail: '', userAge: 0 };
@@ -2785,6 +2787,34 @@ describe('DataMapper – coverage: toolbar profiles, pending, preview custom fns
     }
   });
 
+  it('profile delta merge shows noop toast when mappings already match', async () => {
+    const mappings: Mapping[] = [
+      { id: 'i1', sourcePath: 'name', sourceId: 's1', targetPath: 'userName' },
+    ];
+    const prof = {
+      id: 'prof-noop-delta',
+      name: 'NoopDeltaProf',
+      contextId: 'test',
+      mappings: [{ id: 'p1', sourcePath: 'name', sourceId: 's1', targetPath: 'userName' }],
+      createdAt: 0,
+      updatedAt: 0,
+    };
+    const spy = vi.spyOn(mappingProfiles, 'loadProfiles').mockResolvedValue([prof]);
+    try {
+      const adapter = createTestAdapter();
+      const { container } = render(<DataMapper adapter={adapter} initialData={mappings} />);
+      await waitFor(() => expect(screen.getByTitle('Mapping profiles')).toBeTruthy());
+      fireEvent.click(screen.getByTitle('Mapping profiles'));
+      await waitFor(() => expect(screen.getByTitle('Apply "NoopDeltaProf" as delta')).toBeTruthy());
+      fireEvent.click(screen.getByTitle('Apply "NoopDeltaProf" as delta'));
+      await waitFor(() => {
+        expect(container.querySelector('.dm-toast')?.textContent).toBe('Profile delta already up to date');
+      });
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
   it('accepts a pending mapping from the canvas', async () => {
     const adapter: MapperAdapter<Mapping[]> = {
       ...createTestAdapter(),
@@ -3757,6 +3787,295 @@ describe('DataMapper – additional coverage for below-90% lines', () => {
     expect(targetNode).toBeTruthy();
     fireEvent.click(targetNode!);
   });
-});
 
+  it('propagation preview clears when anchor mapping is deleted', () => {
+    const adapter: MapperAdapter<Mapping[]> = {
+      ...createTestAdapter(),
+      sources: [{
+        id: 's1',
+        label: 'Source',
+        sampleData: {
+          offers: [
+            { associatedOfferingCode: 'A' },
+            { associatedOfferingCode: 'B' },
+          ],
+        },
+      }],
+      target: {
+        label: 'Target',
+        allowCustomFields: true,
+        fields: [
+          { path: 'offers[0].associatedOfferingCode', label: 'associatedOfferingCode 0', type: 'string' },
+          { path: 'offers[1].associatedOfferingCode', label: 'associatedOfferingCode 1', type: 'string' },
+        ],
+      },
+    };
+    const initial: Mapping[] = [{
+      id: 'anchor-del',
+      sourcePath: 'offers[0].associatedOfferingCode',
+      sourceId: 's1',
+      targetPath: 'offers[0].associatedOfferingCode',
+    }];
+    const onChange = vi.fn();
+    const { container } = render(<DataMapper adapter={adapter} initialData={initial} onChange={onChange} />);
+    const anchorNode = container.querySelector('.dm-panel--target .dm-tree-node[data-path="offers[0].associatedOfferingCode"]');
+    expect(anchorNode).toBeTruthy();
+    fireEvent.click(anchorNode!);
+    fireEvent.click(screen.getByRole('button', { name: 'Preview propagate' }));
+    expect(container.querySelector('.dm-propagation-preview')).toBeTruthy();
+
+    fireEvent.keyDown(window, { key: 'Delete' });
+    expect(container.querySelector('.dm-propagation-preview')).toBeNull();
+    expect(onChange).toHaveBeenCalledWith([]);
+  });
+
+  it('Preview propagate shows not eligible toast for non-indexed mapping', () => {
+    const adapter = createTestAdapter();
+    const initial: Mapping[] = [{ id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'userName' }];
+    const { container } = render(<DataMapper adapter={adapter} initialData={initial} />);
+    const node = container.querySelector('.dm-panel--target .dm-tree-node[data-path="userName"]');
+    expect(node).toBeTruthy();
+    fireEvent.click(node!);
+    fireEvent.click(screen.getByRole('button', { name: 'Preview propagate' }));
+    expect(container.querySelector('.dm-toast')?.textContent).toContain('not eligible');
+  });
+
+  it('Apply propagation repairs sibling row when target already mapped from wrong source index', () => {
+    const adapter: MapperAdapter<Mapping[]> = {
+      ...createTestAdapter(),
+      sources: [{
+        id: 's1',
+        label: 'Source',
+        sampleData: {
+          offers: [
+            { associatedOfferingCode: 'A' },
+            { associatedOfferingCode: 'B' },
+          ],
+        },
+      }],
+      target: {
+        label: 'Target',
+        allowCustomFields: true,
+        fields: [
+          { path: 'offers[0].associatedOfferingCode', label: 'c0', type: 'string' },
+          { path: 'offers[1].associatedOfferingCode', label: 'c1', type: 'string' },
+        ],
+      },
+    };
+    const initial: Mapping[] = [
+      { id: 'anchor', sourcePath: 'offers[0].associatedOfferingCode', sourceId: 's1', targetPath: 'offers[0].associatedOfferingCode' },
+      { id: 'wrong', sourcePath: 'offers[0].associatedOfferingCode', sourceId: 's1', targetPath: 'offers[1].associatedOfferingCode' },
+    ];
+    const onChange = vi.fn();
+    const { container } = render(<DataMapper adapter={adapter} initialData={initial} onChange={onChange} />);
+    const anchorNode = container.querySelector('.dm-panel--target .dm-tree-node[data-path="offers[0].associatedOfferingCode"]');
+    expect(anchorNode).toBeTruthy();
+    fireEvent.click(anchorNode!);
+    fireEvent.click(screen.getByRole('button', { name: 'Preview propagate' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Apply propagation' }));
+    const last = onChange.mock.calls.at(-1)?.[0] as Mapping[] | undefined;
+    const sibling = last?.find((m) => m.targetPath === 'offers[1].associatedOfferingCode');
+    expect(sibling?.sourcePath).toBe('offers[1].associatedOfferingCode');
+  });
+
+  it('Apply propagation shows no-op toast when upsert reports no mapping changes', () => {
+    const spy = vi.spyOn(dropMappingNs, 'upsertTargetMapping').mockImplementation((mappings) => ({
+      next: mappings,
+      changed: false,
+    }));
+    try {
+      const adapter: MapperAdapter<Mapping[]> = {
+        ...createTestAdapter(),
+        sources: [{
+          id: 's1',
+          label: 'Source',
+          sampleData: {
+            offers: [
+              { associatedOfferingCode: 'A' },
+              { associatedOfferingCode: 'B' },
+            ],
+          },
+        }],
+        target: {
+          label: 'Target',
+          allowCustomFields: true,
+          fields: [
+            { path: 'offers[0].associatedOfferingCode', label: 'offers00', type: 'string' },
+            { path: 'offers[1].associatedOfferingCode', label: 'offers10', type: 'string' },
+          ],
+        },
+      };
+      const initial: Mapping[] = [{
+        id: 'anchor',
+        sourcePath: 'offers[0].associatedOfferingCode',
+        sourceId: 's1',
+        targetPath: 'offers[0].associatedOfferingCode',
+      }];
+      const { container } = render(<DataMapper adapter={adapter} initialData={initial} />);
+      const anchorNode = container.querySelector('.dm-panel--target .dm-tree-node[data-path="offers[0].associatedOfferingCode"]');
+      fireEvent.click(anchorNode!);
+      fireEvent.click(screen.getByRole('button', { name: 'Preview propagate' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Apply propagation' }));
+      expect(container.querySelector('.dm-toast')?.textContent).toContain(
+        'No changes - propagated mappings already up to date',
+      );
+      expect(container.querySelector('.dm-propagation-preview')).toBeNull();
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('Map filtered shows toast when filtered source paths only target already-occupied fields', () => {
+    const adapter = createTestAdapter();
+    const initial: Mapping[] = [
+      { id: 'occupy', sourcePath: 'name', sourceId: 's1', targetPath: 'email' },
+    ];
+    const { container } = render(<DataMapper adapter={adapter} initialData={initial} />);
+    const searchInputs = screen.getAllByPlaceholderText('Search fields…');
+    fireEvent.change(searchInputs[0], { target: { value: 'email' } });
+    fireEvent.click(screen.getByLabelText(/Map 1 filtered fields/));
+    expect(container.querySelector('.dm-toast')?.textContent).toContain('All filtered fields are already mapped');
+  });
+
+  it('bulk subtree drop toast when pairing yields only unchanged mappings', () => {
+    const applySpy = vi.spyOn(subtreeMappingNs, 'applyDropPairs').mockReturnValue({
+      nextMappings: [],
+      insertedCount: 0,
+      updatedCount: 0,
+      unchangedCount: 3,
+    });
+    try {
+      const adapter: MapperAdapter<Mapping[]> = {
+        ...createTestAdapter(),
+        sources: [{ id: 's1', label: 'Src', sampleData: { user: { first: 'A', last: 'B' } } }],
+        target: { label: 'Tgt', sampleData: { user: { first: '', last: '' } }, allowCustomFields: false },
+      };
+      const { container } = render(<DataMapper adapter={adapter} />);
+      const expandBtns = screen.getAllByLabelText('Expand all');
+      for (const btn of expandBtns) fireEvent.click(btn);
+      const tgtUser = Array.from(container.querySelectorAll('.dm-tree-node--target[data-path]'))
+        .find((el) => el.getAttribute('data-path') === 'user');
+      expect(tgtUser).toBeTruthy();
+      const dragData = JSON.stringify({ path: 'user', sourceId: 's1' });
+      const dt = { getData: () => dragData, dropEffect: 'none', setData: vi.fn() };
+      fireEvent.dragOver(tgtUser!, { dataTransfer: dt });
+      fireEvent.drop(tgtUser!, { dataTransfer: dt });
+      expect(container.querySelector('.dm-toast')?.textContent).toContain(
+        'No changes - matching targets already mapped',
+      );
+    } finally {
+      applySpy.mockRestore();
+    }
+  });
+
+  describe('operator wiring (target operator picker)', () => {
+    beforeEach(() => {
+      vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+        if (this.classList.contains('dm-body')) {
+          return {
+            x: 0, y: 0, top: 0, left: 0, width: 900, height: 500, bottom: 500, right: 900, toJSON: () => ({}),
+          } as DOMRect;
+        }
+        return {
+          x: 0, y: 80, top: 80, left: 0, width: 200, height: 24, bottom: 104, right: 200, toJSON: () => ({}),
+        } as DOMRect;
+      });
+    });
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it('updates mapping operator via DataMapper target operator picker', () => {
+      const adapter: MapperAdapter<Mapping[]> = {
+        ...createTestAdapter(),
+        capabilities: { operators: true },
+      };
+      const initial: Mapping[] = [{ id: 'op1', sourcePath: 'name', sourceId: 's1', targetPath: 'userName' }];
+      const onChange = vi.fn();
+      render(<DataMapper adapter={adapter} initialData={initial} onChange={onChange} />);
+      const pill = screen.getByLabelText('Change operator from equals');
+      fireEvent.click(pill);
+      fireEvent.click(screen.getByText('greater than'));
+      const last = onChange.mock.calls.at(-1)?.[0] as Mapping[] | undefined;
+      expect(last?.find((m) => m.id === 'op1')?.operator).toBe('greater_than');
+    });
+  });
+
+  it('propagation preview Close button clears preview', () => {
+    const adapter: MapperAdapter<Mapping[]> = {
+      ...createTestAdapter(),
+      sources: [{
+        id: 's1',
+        label: 'Source',
+        sampleData: {
+          offers: [
+            { associatedOfferingCode: 'A' },
+            { associatedOfferingCode: 'B' },
+          ],
+        },
+      }],
+      target: {
+        label: 'Target',
+        allowCustomFields: true,
+        fields: [
+          { path: 'offers[0].associatedOfferingCode', label: 'associatedOfferingCode 0', type: 'string' },
+          { path: 'offers[1].associatedOfferingCode', label: 'associatedOfferingCode 1', type: 'string' },
+        ],
+      },
+    };
+    const initial: Mapping[] = [{
+      id: 'anchor',
+      sourcePath: 'offers[0].associatedOfferingCode',
+      sourceId: 's1',
+      targetPath: 'offers[0].associatedOfferingCode',
+    }];
+    const { container } = render(<DataMapper adapter={adapter} initialData={initial} />);
+    const anchorNode = container.querySelector('.dm-panel--target .dm-tree-node[data-path="offers[0].associatedOfferingCode"]');
+    expect(anchorNode).toBeTruthy();
+    fireEvent.click(anchorNode!);
+    fireEvent.click(screen.getByRole('button', { name: 'Preview propagate' }));
+    expect(container.querySelector('.dm-propagation-preview')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Close propagation preview' }));
+    expect(container.querySelector('.dm-propagation-preview')).toBeNull();
+  });
+
+  it('propagation preview Cancel button clears preview', () => {
+    const adapter: MapperAdapter<Mapping[]> = {
+      ...createTestAdapter(),
+      sources: [{
+        id: 's1',
+        label: 'Source',
+        sampleData: {
+          offers: [
+            { associatedOfferingCode: 'A' },
+            { associatedOfferingCode: 'B' },
+          ],
+        },
+      }],
+      target: {
+        label: 'Target',
+        allowCustomFields: true,
+        fields: [
+          { path: 'offers[0].associatedOfferingCode', label: 'associatedOfferingCode 0', type: 'string' },
+          { path: 'offers[1].associatedOfferingCode', label: 'associatedOfferingCode 1', type: 'string' },
+        ],
+      },
+    };
+    const initial: Mapping[] = [{
+      id: 'anchor',
+      sourcePath: 'offers[0].associatedOfferingCode',
+      sourceId: 's1',
+      targetPath: 'offers[0].associatedOfferingCode',
+    }];
+    const { container } = render(<DataMapper adapter={adapter} initialData={initial} />);
+    const anchorNode = container.querySelector('.dm-panel--target .dm-tree-node[data-path="offers[0].associatedOfferingCode"]');
+    expect(anchorNode).toBeTruthy();
+    fireEvent.click(anchorNode!);
+    fireEvent.click(screen.getByRole('button', { name: 'Preview propagate' }));
+    const previewEl = container.querySelector('.dm-propagation-preview') as HTMLElement;
+    expect(previewEl).toBeTruthy();
+    fireEvent.click(within(previewEl).getByRole('button', { name: 'Cancel' }));
+    expect(container.querySelector('.dm-propagation-preview')).toBeNull();
+  });
+});
 

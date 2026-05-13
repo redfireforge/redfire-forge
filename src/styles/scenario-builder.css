@@ -3011,6 +3011,58 @@
   font-size: 0.75rem;
   color: var(--text);
 }
+.validation-field-op-badge {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 8px;
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: none;
+  white-space: nowrap;
+  background: rgba(137, 180, 250, 0.12);
+  color: #89b4fa;
+}
+.validation-field-op-badge--equals,
+.validation-field-op-badge--not_equals {
+  background: rgba(34, 197, 94, 0.12);
+  color: #22c55e;
+}
+.validation-field-op-badge--greater_than,
+.validation-field-op-badge--greater_than_or_equal,
+.validation-field-op-badge--less_than,
+.validation-field-op-badge--less_than_or_equal,
+.validation-field-op-badge--between,
+.validation-field-op-badge--close_to {
+  background: rgba(250, 204, 21, 0.12);
+  color: #facc15;
+}
+.validation-field-op-badge--contains,
+.validation-field-op-badge--not_contains,
+.validation-field-op-badge--starts_with,
+.validation-field-op-badge--ends_with,
+.validation-field-op-badge--regex {
+  background: rgba(168, 85, 247, 0.12);
+  color: #a855f7;
+}
+.validation-field-op-badge--is_true,
+.validation-field-op-badge--is_false {
+  background: rgba(239, 68, 68, 0.12);
+  color: #ef4444;
+}
+.validation-field-op-badge--is_null,
+.validation-field-op-badge--is_not_null,
+.validation-field-op-badge--is_empty,
+.validation-field-op-badge--is_not_empty,
+.validation-field-op-badge--exists,
+.validation-field-op-badge--not_exists {
+  background: rgba(139, 148, 158, 0.12);
+  color: #8b949e;
+}
+.validation-field-op-badge--is_type {
+  background: rgba(61, 219, 217, 0.12);
+  color: #3ddbd9;
+}
 .validation-fields-pivot-wrapper {
   max-height: 360px;
   overflow: auto;
@@ -3106,6 +3158,7 @@
 }
 .validate-host-input {
   flex: 1;
+  max-width: 420px;
   font-size: 0.8rem;
   padding: 4px 8px;
   border-radius: var(--radius);

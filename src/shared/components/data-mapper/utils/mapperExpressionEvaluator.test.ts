@@ -365,3 +365,34 @@ describe('formatExpressionResult (re-export)', () => {
     expect(formatExpressionResult(null)).toBe('');
   });
 });
+
+describe('bracket-path resolution in function args', () => {
+  const sources: MapperSource[] = [{
+    id: 's1',
+    label: 'Source',
+    sampleData: {
+      offers: [
+        { offerName: 'OnStar Premium', rank: 1 },
+        { offerName: 'WiFi Plan', rank: 2 },
+      ],
+    },
+  }];
+
+  it('$upper(offers[0].offerName) uppercases only the single field', () => {
+    const result = evaluateMapperExpression('$upper(offers[0].offerName)', sources, 's1');
+    expect(result.error).toBeUndefined();
+    expect(result.value).toBe('ONSTAR PREMIUM');
+  });
+
+  it('$lower(offers[1].offerName) lowercases only the single field', () => {
+    const result = evaluateMapperExpression('$lower(offers[1].offerName)', sources, 's1');
+    expect(result.error).toBeUndefined();
+    expect(result.value).toBe('wifi plan');
+  });
+
+  it('bare bracket path resolves to specific array element', () => {
+    const result = evaluateMapperExpression('offers[0].rank', sources, 's1');
+    expect(result.error).toBeUndefined();
+    expect(result.preview).toBe('1');
+  });
+});

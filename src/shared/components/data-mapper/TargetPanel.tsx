@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
-import type { MapperTarget, Mapping, TargetField, TargetFieldOrigin } from './types';
+import type { MapperTarget, Mapping, TargetField, TargetFieldOrigin, AdapterCapabilities, FieldOperator } from './types';
 import type { JsonTreeNode } from '../../utils/jsonTreeModel';
 import type { FocusRegion } from './hooks/useKeyboardNavigation';
 import type { TypeMismatch } from './utils/typeMismatch';
@@ -52,6 +52,8 @@ interface TargetPanelProps {
   resetViewSignal?: number | null;
   unorderedDefault?: boolean;
   onToggleUnorderedArray?: (arrayPath: string) => void;
+  capabilities?: Required<AdapterCapabilities>;
+  onUpdateMappingOperator?: (mappingId: string, operator: FieldOperator | undefined, operatorValue: string | undefined) => void;
 }
 
 export default function TargetPanel({
@@ -88,6 +90,8 @@ export default function TargetPanel({
   resetViewSignal,
   unorderedDefault,
   onToggleUnorderedArray,
+  capabilities,
+  onUpdateMappingOperator,
 }: TargetPanelProps) {
   const [search, setSearch] = useState('');
   const [mappingFilter, setMappingFilter] = useState<'all' | 'mapped' | 'unmapped'>('all');
@@ -508,6 +512,8 @@ export default function TargetPanel({
                 getDraggedTargetFieldPath={getDraggedTargetFieldPath}
                 unorderedDefault={unorderedDefault}
                 onToggleUnorderedArray={onToggleUnorderedArray}
+                capabilities={capabilities}
+                onUpdateMappingOperator={onUpdateMappingOperator}
               />
             ) : (
               <div

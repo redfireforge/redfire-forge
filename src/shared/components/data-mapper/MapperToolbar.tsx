@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import type { Mapping } from './types';
+import type { Mapping, AdapterCapabilities } from './types';
 import type { MappingProfile } from './utils/mappingProfiles';
 import { loadProfiles, saveProfile, deleteProfile, renameProfile } from './utils/mappingProfiles';
 import { mapperGallerySamples } from './utils/gallerySamples';
@@ -23,6 +23,7 @@ interface MapperToolbarProps {
   onRejectAllPending?: () => void;
   contextId?: string;
   mappings?: Mapping[];
+  capabilities?: Required<AdapterCapabilities>;
   onLoadProfile?: (mappings: Mapping[]) => void;
   onApplyProfileDelta?: (mappings: Mapping[]) => void;
   showCodeView?: boolean;
@@ -65,6 +66,7 @@ export default function MapperToolbar({
   onRejectAllPending,
   contextId,
   mappings,
+  capabilities: _capabilities,
   onLoadProfile,
   onApplyProfileDelta,
   showCodeView,

@@ -411,4 +411,87 @@ describe('computePreview', () => {
     expect(Array.isArray(a)).toBe(true);
     expect((a[0] as Record<string, unknown>).b).toBe('Alice');
   });
+
+  it('parses paths with dot immediately after a closing bracket before another bracket', () => {
+    const mappings: Mapping[] = [
+      { id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'grid[0].[1].cell' },
+    ];
+    const result = computePreview(mappings, sources, 's1', {});
+    const grid = result.targetObject.grid as unknown[];
+    expect(Array.isArray(grid)).toBe(true);
+    const row = grid[0] as unknown[];
+    expect(Array.isArray(row)).toBe(true);
+    expect((row[1] as Record<string, unknown>).cell).toBe('Alice');
+  });
+
+  it('creates plain objects when next segment after a key is non-numeric', () => {
+    const mappings: Mapping[] = [
+      { id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'parent.child[0].leaf' },
+    ];
+    const result = computePreview(mappings, sources, 's1', {});
+    const parent = result.targetObject.parent as Record<string, unknown>;
+    const child = parent.child as unknown[];
+    expect(Array.isArray(child)).toBe(true);
+    expect((child[0] as Record<string, unknown>).leaf).toBe('Alice');
+  });
+
+  it('does not set values when path segment is __proto__', () => {
+    const mappings: Mapping[] = [
+      { id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: '__proto__.polluted' },
+    ];
+    const result = computePreview(mappings, sources, 's1', {});
+    expect(Object.prototype.hasOwnProperty.call(result.targetObject, '__proto__')).toBe(false);
+  });
+
+  it('does not set values when path segment is prototype', () => {
+    const mappings: Mapping[] = [
+      { id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'holder.prototype.inner' },
+    ];
+    const result = computePreview(mappings, sources, 's1', {});
+    expect(result.targetObject).toEqual({});
+  });
+
+  it('maps wildcard at root-level bracket segment via numeric zero index', () => {
+    const mappings: Mapping[] = [
+      { id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: '[*].title' },
+    ];
+    const result = computePreview(mappings, sources, 's1', {});
+    const slot = result.targetObject[0 as unknown as keyof typeof result.targetObject] as Record<
+      string,
+      unknown
+    >;
+    expect(slot.title).toBe('Alice');
+  });
+
+  it('retargets nested paths when an intermediate segment was previously a primitive', () => {
+    const mappings: Mapping[] = [
+      { id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'bucket' },
+      { id: 'm2', sourcePath: 'age', sourceId: 's1', targetPath: 'bucket[0].score' },
+    ];
+    const result = computePreview(mappings, sources, 's1', {});
+    const bucket = result.targetObject.bucket as unknown[];
+    expect(Array.isArray(bucket)).toBe(true);
+    expect((bucket[0] as Record<string, unknown>).score).toBe(30);
+  });
+
+  it('parses segments when dot appears before bracket without overlapping indices', () => {
+    const mappings: Mapping[] = [
+      { id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'wrap.field[aux].deep' },
+    ];
+    const result = computePreview(mappings, sources, 's1', {});
+    const wrap = result.targetObject.wrap as Record<string, unknown>;
+    const inner = wrap.field as Record<string, unknown>;
+    expect((inner.aux as Record<string, unknown>).deep).toBe('Alice');
+  });
+
+  it('parses trailing identifier segments after a bracket without an intermediate dot', () => {
+    const mappings: Mapping[] = [
+      { id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'node[0]tail.value' },
+    ];
+    const result = computePreview(mappings, sources, 's1', {});
+    const node = result.targetObject.node as unknown[];
+    expect(Array.isArray(node)).toBe(true);
+    const mid = node[0] as Record<string, unknown>;
+    expect((mid.tail as Record<string, unknown>).value).toBe('Alice');
+  });
 });

@@ -1382,7 +1382,7 @@ describe('DataMapperModal', () => {
 
   describe('unorderedArrays persistence', () => {
     function createValidationAdapter(overrides?: Partial<MapperAdapter<Mapping[]>>): MapperAdapter<Mapping[]> {
-      return createAdapter({ contextId: 'validation', ...overrides });
+      return createAdapter({ contextId: 'validation', capabilities: { unorderedArrays: true, hideAdvanced: true }, ...overrides });
     }
 
     it('passes unorderedArrays: true to onSave when checkbox is checked', async () => {
@@ -1441,6 +1441,32 @@ describe('DataMapperModal', () => {
         render(<DataMapperModal adapter={adapter} onSave={vi.fn()} onCancel={vi.fn()} unorderedArrays={savedValue} />);
       });
       expect((screen.getByRole('checkbox') as HTMLInputElement).checked).toBe(true);
+    });
+  });
+
+  describe('capability gating', () => {
+    it('hides unordered array checkbox when capabilities.unorderedArrays is false', async () => {
+      const adapter = createAdapter({ capabilities: { unorderedArrays: false } });
+      await act(async () => {
+        render(<DataMapperModal adapter={adapter} onSave={vi.fn()} onCancel={vi.fn()} />);
+      });
+      expect(screen.queryByRole('checkbox')).toBeNull();
+    });
+
+    it('shows unordered array checkbox when capabilities.unorderedArrays is true', async () => {
+      const adapter = createAdapter({ capabilities: { unorderedArrays: true } });
+      await act(async () => {
+        render(<DataMapperModal adapter={adapter} onSave={vi.fn()} onCancel={vi.fn()} />);
+      });
+      expect(screen.getByRole('checkbox')).toBeTruthy();
+    });
+
+    it('hides unordered array checkbox when capabilities is undefined (defaults)', async () => {
+      const adapter = createAdapter();
+      await act(async () => {
+        render(<DataMapperModal adapter={adapter} onSave={vi.fn()} onCancel={vi.fn()} />);
+      });
+      expect(screen.queryByRole('checkbox')).toBeNull();
     });
   });
 

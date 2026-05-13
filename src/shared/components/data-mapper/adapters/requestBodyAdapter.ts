@@ -22,6 +22,7 @@ import type {
   Mapping,
   TargetField,
   ValidationIssue,
+  AdapterCapabilities,
 } from '../types';
 import { findSourceForRef, hasUnsafePathSegment } from '../utils/bodyMappingShared';
 
@@ -346,11 +347,19 @@ export function createRequestBodyAdapter(
     allowCustomFields: true,
   };
 
+  const capabilities: AdapterCapabilities = {
+    expressions: true,
+    codeEditor: true,
+    schemaDrift: true,
+    profiles: true,
+  };
+
   return {
     contextId: 'request-body',
     title: 'Variables → Request Body',
     category: 'http',
     sources,
+    capabilities,
     target,
 
     serialize(mappings: Mapping[]): string {

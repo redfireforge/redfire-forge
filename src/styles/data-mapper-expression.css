@@ -4,7 +4,7 @@
   position: fixed;
   inset: 0;
   z-index: 1050;
-  background: rgba(0, 0, 0, 0.6);
+  background: transparent;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -43,18 +43,50 @@
   font-family: 'SF Mono', 'Fira Code', monospace;
 }
 
-.dm-expr-close {
+.dm-expr-header-actions {
   margin-left: auto;
-  background: none;
-  border: none;
-  color: var(--text-muted, #6c7086);
-  font-size: 1.2rem;
-  cursor: pointer;
-  padding: 0 4px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
-.dm-expr-close:hover {
+.dm-expr-action-btn {
+  background: none;
+  border: 1px solid var(--border, #3b3f51);
+  border-radius: 4px;
+  color: var(--text-muted, #6c7086);
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 2px 6px;
+  line-height: 1;
+  transition: all 0.12s;
+}
+
+.dm-expr-action-btn:hover {
   color: var(--text, #cdd6f4);
+  border-color: var(--text-muted, #6c7086);
+  background: rgba(137, 180, 250, 0.08);
+}
+
+.dm-expr-action-divider {
+  width: 1px;
+  height: 16px;
+  background: var(--border, #3b3f51);
+  margin: 0 2px;
+}
+
+/* ── Expanded / Full-screen mode ──────────────── */
+
+.dm-expr--expanded {
+  padding: 0;
+}
+
+.dm-expr--expanded .dm-expr-modal {
+  width: 100%;
+  max-width: none;
+  max-height: none;
+  height: 100%;
+  border-radius: 0;
 }
 
 .dm-expr-body {
@@ -93,6 +125,33 @@
   background: var(--accent, #89b4fa);
   color: #1e1e2e;
   border-color: var(--accent, #89b4fa);
+}
+
+.dm-expr-fn-search {
+  margin: 6px 6px 2px;
+  padding: 5px 8px;
+  border: 1px solid var(--border, #313244);
+  border-radius: 4px;
+  background: var(--surface1, #1e1e2e);
+  color: var(--text, #cdd6f4);
+  font-size: 12px;
+  outline: none;
+}
+
+.dm-expr-fn-search:focus {
+  border-color: var(--accent, #89b4fa);
+}
+
+.dm-expr-fn-search::placeholder {
+  color: var(--subtext0, #6c7086);
+}
+
+.dm-expr-fn-empty {
+  padding: 12px 8px;
+  color: var(--subtext0, #6c7086);
+  font-size: 11px;
+  text-align: center;
+  font-style: italic;
 }
 
 .dm-expr-fn-list {

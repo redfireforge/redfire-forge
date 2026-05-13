@@ -151,6 +151,28 @@ A husky pre-commit hook is configured to automatically run before every `git com
 
 This means **no commit can enter git with type errors**. If the hook blocks your commit, fix the errors first — do NOT bypass with `--no-verify`.
 
+## Validation Operator UI/UX Reference
+
+When implementing any phase of the validation operator feature (Phases 1–8 from `docs/plan/validation-operator-gap-analysis.md`), **always refer to the interactive HTML mockup** at `docs/mockups/validation-operators-visual-mapper.html` for UI/UX guidance. This mockup is the source of truth for:
+
+- **Color scheme**: green (equality), amber (comparison), purple (string ops), teal (type checks), red (boolean), gray (existence/null), blue (set membership)
+- **Operator pill placement**: inline on target tree nodes between the arrow (←) and source reference
+- **Inline value editors**: appear next to operator pills when the operator requires a value; hidden for no-value operators (is_true, exists, is_null, type checks)
+- **Array assertion rows**: render directly below array nodes with inline operator select, value input, edit, and remove controls
+- **Operator picker dropdown**: categorized, searchable, with icon + name + description per operator
+- **Right-click context menu**: quick assertion setup on target nodes
+- **Code editor mode**: DSL syntax with syntax highlighting, autocomplete, and inline errors in the bottom dock
+- **Validation stage**: per-node pass/fail badges (✓/✗), canvas line coloring (red for failed), footer aggregation, filter by status
+- **Rules summary table**: bottom dock with operator column, status column, and color-coded operator pills
+
+The UI must be **professional, clean, and user-friendly** — matching the dark theme tokens in `src/styles/data-mapper.css`. Avoid emoji-first labels; use symbols and structured typography. Every interactive element must have hover states, focus indicators, and appropriate `aria-label` attributes.
+
+## Modal Design Rules
+
+- **Background overlay**: Always use `background: transparent` for modal overlays. Never use opaque or semi-transparent backdrops (`rgba(0,0,0,0.5)` etc.).
+- **No redundant close buttons**: Do NOT add an "×" close button in the modal header if the modal already has a "Cancel" button in the footer. One close mechanism is sufficient. Escape key should always close modals.
+- **Undo/Redo**: Modals with editors (expression editor, code editor) must provide undo/redo buttons in the header.
+
 ## Code Quality — Fix All Errors
 
 - **Fix ALL lint, type, and test errors across the entire codebase** — not just the files you touched. If you discover pre-existing issues while working on a feature, fix them as part of the same branch.

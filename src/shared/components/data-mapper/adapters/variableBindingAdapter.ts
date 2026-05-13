@@ -17,6 +17,7 @@ import type {
   MapperTarget,
   Mapping,
   ValidationIssue,
+  AdapterCapabilities,
 } from '../types';
 
 // ─── Types ────────────────────────────────────────────────
@@ -226,11 +227,18 @@ export function createVariableBindingAdapter(
     allowCustomFields: false,
   };
 
+  const capabilities: AdapterCapabilities = {
+    expressions: true,
+    codeEditor: true,
+    profiles: true,
+  };
+
   return {
     contextId: 'variable-binding',
     title: 'Upstream Variables → Template Slots',
     category: 'workflow',
     sources,
+    capabilities,
     target,
 
     serialize(mappings: Mapping[]): VariableBinding[] {

@@ -73,6 +73,7 @@ export function createWebhookExtractionAdapter(
     contextId: 'webhook-extraction',
     title: opts.title ?? `${label} → Variables`,
     category: 'webhook',
+    capabilities: { expressions: true },
     sources: [source],
     target,
 
