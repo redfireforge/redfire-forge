@@ -657,3 +657,95 @@ describe('validate – unordered arrays', () => {
     expect(result).toHaveLength(0);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Real-world scenario: offers list with reordered API response
+// Verifies unordered matching reports correct API indices in failure messages
+// ---------------------------------------------------------------------------
+describe('validate – real-world offers reorder scenario', () => {
+  const apiResponse = {
+    offers: [
+      { associatedOfferingCode: 'ONZFCNCP01MCALM', rank: 1, offerName: 'OnStar One - Trial - 1 Month' },
+      { associatedOfferingCode: 'IHUTRNCP08YCAUL', rank: 3, offerName: 'IHU Connectivity - 8 Years' },
+      { associatedOfferingCode: 'DAFCNCP01MCA3G', rank: 3, offerName: '3GB WiFi Connectivity - Trial - 1 Month' },
+      { associatedOfferingCode: 'BAZFCNCP08YUCX', rank: 9, offerName: 'OnStar Basics - 8 Years' },
+      { associatedOfferingCode: 'CAZFCNCP08YUCMX', rank: 13, offerName: 'Connected Access - 8 Years' },
+      { associatedOfferingCode: 'EVZFCNCP08YUCMX', rank: 13, offerName: 'EV Access - 8 Years' },
+    ],
+  };
+
+  it('matches by associatedOfferingCode and reports correct API index in failure message', () => {
+    const failures = validate(
+      {
+        mode: 'selective',
+        unorderedArrays: true,
+        expectedFields: [
+          { jsonPath: '$.offers[0].associatedOfferingCode', expectedValue: 'ONZFCNCP01MCALM' },
+          { jsonPath: '$.offers[0].offerName', expectedValue: 'OnStar One - Trial - 1 Month' },
+          { jsonPath: '$.offers[1].associatedOfferingCode', expectedValue: 'DAFCNCP01MCA3G' },
+          { jsonPath: '$.offers[1].offerName', expectedValue: 'Trial Data 3GB - 1 Month CAN' },
+          { jsonPath: '$.offers[2].associatedOfferingCode', expectedValue: 'IHUTRNCP08YCAUL' },
+          { jsonPath: '$.offers[2].offerName', expectedValue: 'IHU Connectivity - 96 months CA' },
+        ],
+      },
+      apiResponse,
+    );
+
+    const offerNameFailures = failures.filter((f) => f.path.endsWith('.offerName'));
+    expect(offerNameFailures).toHaveLength(2);
+
+    const f1 = offerNameFailures.find((f) => f.path === '$.offers[1].offerName');
+    expect(f1).toBeDefined();
+    expect(f1!.expected).toBe('Trial Data 3GB - 1 Month CAN');
+    expect(String(f1!.actual)).toContain('3GB WiFi Connectivity - Trial - 1 Month');
+    expect(String(f1!.actual)).toContain('matched by');
+    expect(String(f1!.actual)).toContain('DAFCNCP01MCA3G');
+    expect(String(f1!.actual)).toContain('at [2]');
+
+    const f2 = offerNameFailures.find((f) => f.path === '$.offers[2].offerName');
+    expect(f2).toBeDefined();
+    expect(f2!.expected).toBe('IHU Connectivity - 96 months CA');
+    expect(String(f2!.actual)).toContain('IHU Connectivity - 8 Years');
+    expect(String(f2!.actual)).toContain('matched by');
+    expect(String(f2!.actual)).toContain('IHUTRNCP08YCAUL');
+    expect(String(f2!.actual)).toContain('at [1]');
+  });
+
+  it('passes when expected offerName values match the API response', () => {
+    const failures = validate(
+      {
+        mode: 'selective',
+        unorderedArrays: true,
+        expectedFields: [
+          { jsonPath: '$.offers[0].associatedOfferingCode', expectedValue: 'ONZFCNCP01MCALM' },
+          { jsonPath: '$.offers[0].offerName', expectedValue: 'OnStar One - Trial - 1 Month' },
+          { jsonPath: '$.offers[1].associatedOfferingCode', expectedValue: 'DAFCNCP01MCA3G' },
+          { jsonPath: '$.offers[1].offerName', expectedValue: '3GB WiFi Connectivity - Trial - 1 Month' },
+          { jsonPath: '$.offers[2].associatedOfferingCode', expectedValue: 'IHUTRNCP08YCAUL' },
+          { jsonPath: '$.offers[2].offerName', expectedValue: 'IHU Connectivity - 8 Years' },
+        ],
+      },
+      apiResponse,
+    );
+
+    expect(failures).toEqual([]);
+  });
+
+  it('reports ordered-mode failures as plain expected/actual (no "matched by")', () => {
+    const failures = validate(
+      {
+        mode: 'selective',
+        unorderedArrays: false,
+        expectedFields: [
+          { jsonPath: '$.offers[1].associatedOfferingCode', expectedValue: 'DAFCNCP01MCA3G' },
+        ],
+      },
+      apiResponse,
+    );
+
+    expect(failures).toHaveLength(1);
+    expect(failures[0].expected).toBe('DAFCNCP01MCA3G');
+    expect(String(failures[0].actual)).not.toContain('matched by');
+    expect(String(failures[0].actual)).toContain('IHUTRNCP08YCAUL');
+  });
+});

@@ -689,6 +689,172 @@ describe('DataMapperModal', () => {
     expect(container.querySelector('.dm-diff-overlay')).toBeTruthy();
   });
 
+  it('detects target-side breaking drift and blocks save until resolved', async () => {
+    const { loadSnapshot, captureSchemaSnapshot } = await import('./utils/schemaSnapshot');
+    vi.mocked(loadSnapshot).mockResolvedValueOnce({
+      source: [],
+      target: {
+        id: 'snap-target',
+        contextId: 'test',
+        side: 'target' as const,
+        fields: [
+          { path: 'userName', type: 'string', depth: 0, isArrayElement: false },
+        ],
+        capturedAt: new Date(Date.now() - 10000).toISOString(),
+        topLevelKeyCount: 1,
+      },
+    });
+    vi.mocked(captureSchemaSnapshot).mockReturnValueOnce({
+      id: 'snap-current-target',
+      contextId: 'test',
+      side: 'target' as const,
+      fields: [
+        { path: 'user_name', type: 'string', depth: 0, isArrayElement: false },
+      ],
+      capturedAt: new Date().toISOString(),
+      topLevelKeyCount: 1,
+    });
+    const initialMappings: Mapping[] = [{
+      id: 'm-target-drift',
+      sourceId: 's1',
+      sourcePath: '$.name',
+      targetPath: '$.userName',
+    }];
+    const onSave = vi.fn();
+    const adapter = createAdapter({
+      deserialize: () => initialMappings,
+      target: {
+        label: 'Variables',
+        sampleData: { user_name: '' },
+        allowCustomFields: false,
+      },
+    });
+    const { container } = render(
+      <DataMapperModal
+        adapter={adapter}
+        initialData={initialMappings}
+        onSave={onSave}
+        onCancel={vi.fn()}
+      />,
+    );
+    await act(async () => { await new Promise((r) => setTimeout(r, 600)); });
+    expect(container.querySelector('.dm-drift-banner')).toBeTruthy();
+
+    fireEvent.click(screen.getByText('Save'));
+    expect(onSave).not.toHaveBeenCalled();
+    expect(screen.getByText(/breaking schema drift issue/i)).toBeTruthy();
+    expect(container.querySelector('.dm-diff-overlay')).toBeTruthy();
+  });
+
+  it('still blocks save after drift banner is dismissed', async () => {
+    const { loadSnapshot, captureSchemaSnapshot } = await import('./utils/schemaSnapshot');
+    vi.mocked(loadSnapshot).mockResolvedValueOnce({
+      source: [],
+      target: {
+        id: 'snap-target',
+        contextId: 'test',
+        side: 'target' as const,
+        fields: [{ path: 'userName', type: 'string', depth: 0, isArrayElement: false }],
+        capturedAt: new Date(Date.now() - 10000).toISOString(),
+        topLevelKeyCount: 1,
+      },
+    });
+    vi.mocked(captureSchemaSnapshot).mockReturnValueOnce({
+      id: 'snap-current-target',
+      contextId: 'test',
+      side: 'target' as const,
+      fields: [{ path: 'user_name', type: 'string', depth: 0, isArrayElement: false }],
+      capturedAt: new Date().toISOString(),
+      topLevelKeyCount: 1,
+    });
+    const initialMappings: Mapping[] = [{
+      id: 'm-target-dismiss',
+      sourceId: 's1',
+      sourcePath: '$.name',
+      targetPath: '$.userName',
+    }];
+    const onSave = vi.fn();
+    const adapter = createAdapter({
+      deserialize: () => initialMappings,
+      target: {
+        label: 'Variables',
+        sampleData: { user_name: '' },
+        allowCustomFields: false,
+      },
+    });
+    const { container } = render(
+      <DataMapperModal
+        adapter={adapter}
+        initialData={initialMappings}
+        onSave={onSave}
+        onCancel={vi.fn()}
+      />,
+    );
+    await act(async () => { await new Promise((r) => setTimeout(r, 600)); });
+    await act(async () => { fireEvent.click(screen.getByLabelText('Dismiss drift notification')); });
+    expect(container.querySelector('.dm-drift-banner')).toBeNull();
+
+    fireEvent.click(screen.getByText('Save'));
+    expect(onSave).not.toHaveBeenCalled();
+    expect(container.querySelector('.dm-diff-overlay')).toBeTruthy();
+  });
+
+  it('applies batch repairs and then allows save', async () => {
+    const { loadSnapshot, captureSchemaSnapshot } = await import('./utils/schemaSnapshot');
+    vi.mocked(loadSnapshot).mockResolvedValueOnce({
+      source: [{
+        id: 'snap-src-s1',
+        contextId: 'test',
+        side: 'source' as const,
+        sourceId: 's1',
+        fields: [
+          { path: 'name', type: 'string', depth: 0, isArrayElement: false },
+        ],
+        capturedAt: new Date(Date.now() - 10000).toISOString(),
+        topLevelKeyCount: 1,
+      }],
+      target: null,
+    });
+    vi.mocked(captureSchemaSnapshot).mockReturnValueOnce({
+      id: 'snap-current',
+      contextId: 'test',
+      side: 'source' as const,
+      sourceId: 's1',
+      fields: [
+        { path: 'names', type: 'string', depth: 0, isArrayElement: false },
+      ],
+      capturedAt: new Date().toISOString(),
+      topLevelKeyCount: 1,
+    });
+    const initialMappings: Mapping[] = [{
+      id: 'm-batch',
+      sourceId: 's1',
+      sourcePath: '$.name',
+      targetPath: '$.userName',
+    }];
+    const onSave = vi.fn();
+    const adapter = createAdapter({
+      deserialize: () => initialMappings,
+    });
+    const { container } = render(
+      <DataMapperModal
+        adapter={adapter}
+        initialData={initialMappings}
+        onSave={onSave}
+        onCancel={vi.fn()}
+      />,
+    );
+    await act(async () => { await new Promise((r) => setTimeout(r, 600)); });
+    await act(async () => { fireEvent.click(screen.getByText('Show Diff')); });
+    expect(container.querySelector('.dm-diff-overlay')).toBeTruthy();
+    await act(async () => { fireEvent.click(screen.getByText('Apply all repairs (1)')); });
+
+    fireEvent.click(screen.getByText('Save'));
+    expect(onSave).toHaveBeenCalledTimes(1);
+    const savedMappings = onSave.mock.calls[0][0] as Mapping[];
+    expect(savedMappings[0].sourcePath).toBe('names');
+  });
+
   it('shows plural errors text for multiple validation errors', () => {
     const onSave = vi.fn();
     const validateFn = vi.fn((): ValidationIssue[] => [
@@ -1212,6 +1378,70 @@ describe('DataMapperModal', () => {
     await act(async () => { await new Promise((r) => setTimeout(r, 600)); });
     expect(classifySpy).toHaveBeenCalled();
     classifySpy.mockRestore();
+  });
+
+  describe('unorderedArrays persistence', () => {
+    function createValidationAdapter(overrides?: Partial<MapperAdapter<Mapping[]>>): MapperAdapter<Mapping[]> {
+      return createAdapter({ contextId: 'validation', ...overrides });
+    }
+
+    it('passes unorderedArrays: true to onSave when checkbox is checked', async () => {
+      const onSave = vi.fn();
+      const adapter = createValidationAdapter();
+      await act(async () => {
+        render(<DataMapperModal adapter={adapter} onSave={onSave} onCancel={vi.fn()} />);
+      });
+
+      const checkbox = screen.getByRole('checkbox') as HTMLInputElement;
+      expect(checkbox.checked).toBe(false);
+      fireEvent.click(checkbox);
+      expect(checkbox.checked).toBe(true);
+
+      fireEvent.click(screen.getByText('Save'));
+      expect(onSave).toHaveBeenCalledWith(expect.anything(), { unorderedArrays: true });
+    });
+
+    it('passes unorderedArrays: false to onSave when checkbox is not checked', async () => {
+      const onSave = vi.fn();
+      const adapter = createValidationAdapter();
+      await act(async () => {
+        render(<DataMapperModal adapter={adapter} onSave={onSave} onCancel={vi.fn()} />);
+      });
+
+      fireEvent.click(screen.getByText('Save'));
+      expect(onSave).toHaveBeenCalledWith(expect.anything(), { unorderedArrays: false });
+    });
+
+    it('initializes checkbox as checked when unorderedArrays prop is true', async () => {
+      const adapter = createValidationAdapter();
+      await act(async () => {
+        render(<DataMapperModal adapter={adapter} onSave={vi.fn()} onCancel={vi.fn()} unorderedArrays={true} />);
+      });
+
+      const checkbox = screen.getByRole('checkbox') as HTMLInputElement;
+      expect(checkbox.checked).toBe(true);
+    });
+
+    it('round-trips: save with checked → re-mount with prop → still checked', async () => {
+      const onSave = vi.fn();
+      const adapter = createValidationAdapter();
+
+      const { unmount } = await act(async () =>
+        render(<DataMapperModal adapter={adapter} onSave={onSave} onCancel={vi.fn()} />)
+      );
+
+      fireEvent.click(screen.getByRole('checkbox'));
+      fireEvent.click(screen.getByText('Save'));
+      const savedValue = onSave.mock.calls[0][1]?.unorderedArrays;
+      expect(savedValue).toBe(true);
+
+      unmount();
+
+      await act(async () => {
+        render(<DataMapperModal adapter={adapter} onSave={vi.fn()} onCancel={vi.fn()} unorderedArrays={savedValue} />);
+      });
+      expect((screen.getByRole('checkbox') as HTMLInputElement).checked).toBe(true);
+    });
   });
 
 });

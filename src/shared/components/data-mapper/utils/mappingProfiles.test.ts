@@ -8,6 +8,7 @@ import {
   deleteProfile,
   renameProfile,
   getProfileById,
+  applyProfileDelta,
 } from './mappingProfiles';
 import type { Mapping } from '../types';
 
@@ -120,5 +121,42 @@ describe('mappingProfiles', () => {
   it('uses storage key prefix correctly', async () => {
     await saveProfile(CTX, 'P', [makeMapping()]);
     expect(getItemSpy).toHaveBeenCalledWith('dm-profiles-test-ctx');
+  });
+});
+
+describe('applyProfileDelta', () => {
+  it('inserts new mappings when target path does not exist', () => {
+    const current = [makeMapping({ id: 'm1', sourcePath: 'name', targetPath: 'userName' })];
+    const profile = [makeMapping({ id: 'p1', sourcePath: 'email', targetPath: 'userEmail' })];
+    const result = applyProfileDelta(current, profile, () => 'new-1');
+    expect(result.insertedCount).toBe(1);
+    expect(result.updatedCount).toBe(0);
+    expect(result.unchangedCount).toBe(0);
+    expect(result.mappings).toHaveLength(2);
+    expect(result.mappings.some((m) => m.id === 'new-1' && m.targetPath === 'userEmail')).toBe(true);
+  });
+
+  it('updates existing mapping when target path matches but source/expression differs', () => {
+    const current = [makeMapping({ id: 'm1', sourcePath: 'name', targetPath: 'userName' })];
+    const profile = [makeMapping({ id: 'p1', sourcePath: 'email', targetPath: 'userName', expression: '$lower($.email)' })];
+    const result = applyProfileDelta(current, profile, () => 'unused');
+    expect(result.insertedCount).toBe(0);
+    expect(result.updatedCount).toBe(1);
+    expect(result.unchangedCount).toBe(0);
+    expect(result.mappings).toHaveLength(1);
+    expect(result.mappings[0].id).toBe('m1');
+    expect(result.mappings[0].sourcePath).toBe('email');
+    expect(result.mappings[0].expression).toBe('$lower($.email)');
+  });
+
+  it('counts unchanged mappings when profile already matches current by normalized paths', () => {
+    const current = [makeMapping({ id: 'm1', sourcePath: '$.name', sourceId: 's1', targetPath: '$.user.name' })];
+    const profile = [makeMapping({ id: 'p1', sourcePath: 'name', sourceId: 's1', targetPath: 'user.name' })];
+    const result = applyProfileDelta(current, profile, () => 'unused');
+    expect(result.insertedCount).toBe(0);
+    expect(result.updatedCount).toBe(0);
+    expect(result.unchangedCount).toBe(1);
+    expect(result.mappings).toHaveLength(1);
+    expect(result.mappings[0].id).toBe('m1');
   });
 });

@@ -98,13 +98,19 @@ export default function TestEditorValidationTab({
   const addMenuRef = useRef<HTMLDivElement>(null);
   const [regexModalIdx, setRegexModalIdx] = useState<number | null>(null);
   const [validationMapperOpen, setValidationMapperOpen] = useState(false);
+  const [openMapperAfterKeepRules, setOpenMapperAfterKeepRules] = useState(false);
+  const [responseSearchTerm, setResponseSearchTerm] = useState('');
+  const [responseSearchIndex, setResponseSearchIndex] = useState(-1);
+  const responseTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const [rulesViewMode, setRulesViewMode] = useState<'flat' | 'pivot'>('flat');
 
   const validationAdapter = useMemo(
     () => createValidationAdapter({
       sampleResponseBody: draft.validation.sampleJson || undefined,
       selectiveMode: draft.validation.selectiveMode || 'include',
+      expectedFields: draft.validation.expectedFields || [],
     }),
-    [draft.validation.sampleJson, draft.validation.selectiveMode],
+    [draft.validation.sampleJson, draft.validation.selectiveMode, draft.validation.expectedFields],
   );
 
   const validationMapperInitialData = useMemo<ValidationAdapterOutput>(() => ({
@@ -113,7 +119,7 @@ export default function TestEditorValidationTab({
     excludedPaths: draft.validation.excludedPaths || [],
   }), [draft.validation.selectiveMode, draft.validation.expectedFields, draft.validation.excludedPaths]);
 
-  const handleValidationMapperSave = useCallback((output: ValidationAdapterOutput) => {
+  const handleValidationMapperSave = useCallback((output: ValidationAdapterOutput, options?: { unorderedArrays?: boolean }) => {
     const prev = draftRef.current;
     onDraftChange({
       ...prev,
@@ -122,10 +128,17 @@ export default function TestEditorValidationTab({
         selectiveMode: output.selectiveMode,
         expectedFields: output.expectedFields,
         excludedPaths: output.excludedPaths,
+        unorderedArrays: options?.unorderedArrays ?? prev.validation.unorderedArrays,
       },
     });
     setValidationMapperOpen(false);
   }, [draftRef, onDraftChange]);
+
+  const handleFetchKeepRulesClick = useCallback(() => {
+    if (!onFetchKeepRules) return;
+    setOpenMapperAfterKeepRules(true);
+    onFetchKeepRules();
+  }, [onFetchKeepRules]);
 
   useEffect(() => {
     if (!showAddMenu) return;
@@ -137,9 +150,110 @@ export default function TestEditorValidationTab({
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
   }, [showAddMenu]);
+
+  useEffect(() => {
+    if (!openMapperAfterKeepRules || pendingFetchResponse) return;
+    setOpenMapperAfterKeepRules(false);
+    if (draft.validation.sampleJson?.trim()) {
+      setValidationMapperOpen(true);
+    }
+  }, [openMapperAfterKeepRules, pendingFetchResponse, draft.validation.sampleJson]);
+
   const assertions = draft.validation.assertions ?? [];
   const responsePreviewJson = pendingFetchResponse ?? draft.validation.sampleJson ?? '';
   const hasResponsePreview = responsePreviewJson.trim().length > 0;
+
+  const removeExpectedField = useCallback((index: number) => {
+    const prev = draftRef.current;
+    const next = [...(prev.validation.expectedFields || [])];
+    next.splice(index, 1);
+    onDraftChange({ ...prev, validation: { ...prev.validation, expectedFields: next } });
+  }, [draftRef, onDraftChange]);
+
+  const removeExpectedFieldsByPathPrefix = useCallback((rowKey: string) => {
+    const prev = draftRef.current;
+    const next = (prev.validation.expectedFields || []).filter((f) => {
+      const lastDot = f.jsonPath.lastIndexOf('.');
+      const itsRowKey = lastDot === -1 ? '(root)' : f.jsonPath.slice(0, lastDot);
+      return itsRowKey !== rowKey;
+    });
+    onDraftChange({ ...prev, validation: { ...prev.validation, expectedFields: next } });
+  }, [draftRef, onDraftChange]);
+
+  const pivotedRules = useMemo(() => {
+    const fields = draft.validation.expectedFields || [];
+    const colSet = new Set<string>();
+    const rowMap = new Map<string, Map<string, { value: string; originalIndex: number }>>();
+
+    fields.forEach((f, originalIndex) => {
+      const lastDot = f.jsonPath.lastIndexOf('.');
+      const rowKey = lastDot === -1 ? '(root)' : f.jsonPath.slice(0, lastDot);
+      const field = lastDot === -1 ? f.jsonPath : f.jsonPath.slice(lastDot + 1);
+      colSet.add(field);
+      let row = rowMap.get(rowKey);
+      if (!row) {
+        row = new Map();
+        rowMap.set(rowKey, row);
+      }
+      row.set(field, { value: f.expectedValue, originalIndex });
+    });
+
+    const columns = Array.from(colSet);
+    const rows = Array.from(rowMap.entries()).map(([key, cells]) => ({ key, cells }));
+
+    const firstKey = rows[0]?.key || '';
+    const bracketIdx = firstKey.lastIndexOf('[');
+    const arrayPrefix = bracketIdx > 0 && rows.every((r) => /\[\d+\]$/.test(r.key))
+      ? firstKey.slice(0, bracketIdx)
+      : '';
+
+    if (arrayPrefix) {
+      rows.sort((a, b) => {
+        const ai = parseInt(a.key.match(/\[(\d+)\]$/)?.[1] || '0', 10);
+        const bi = parseInt(b.key.match(/\[(\d+)\]$/)?.[1] || '0', 10);
+        return ai - bi;
+      });
+    }
+
+    return { columns, rows, arrayPrefix };
+  }, [draft.validation.expectedFields]);
+
+  const canPivot = !!pivotedRules.arrayPrefix && pivotedRules.rows.length > 0;
+
+  const responseSearchMatches = useMemo(() => {
+    const term = responseSearchTerm.trim();
+    if (!term || !responsePreviewJson) return [] as Array<{ start: number; end: number }>;
+    const matches: Array<{ start: number; end: number }> = [];
+    const haystack = responsePreviewJson.toLowerCase();
+    const needle = term.toLowerCase();
+    let from = 0;
+    while (from <= haystack.length - needle.length) {
+      const idx = haystack.indexOf(needle, from);
+      if (idx < 0) break;
+      matches.push({ start: idx, end: idx + needle.length });
+      from = idx + Math.max(needle.length, 1);
+    }
+    return matches;
+  }, [responseSearchTerm, responsePreviewJson]);
+
+  useEffect(() => {
+    setResponseSearchIndex(-1);
+  }, [responseSearchTerm]);
+
+  const focusResponseMatch = useCallback((index: number) => {
+    if (responseSearchMatches.length === 0) return;
+    const safeIndex = ((index % responseSearchMatches.length) + responseSearchMatches.length) % responseSearchMatches.length;
+    const target = responseSearchMatches[safeIndex];
+    const ta = responseTextareaRef.current;
+    if (!ta) return;
+    ta.focus({ preventScroll: true });
+    ta.setSelectionRange(target.start, target.end);
+    const lineHeight = parseFloat(getComputedStyle(ta).lineHeight || '18') || 18;
+    const linesBefore = responsePreviewJson.slice(0, target.start).split('\n').length - 1;
+    const desiredScrollTop = Math.max(0, linesBefore * lineHeight - ta.clientHeight / 3);
+    ta.scrollTop = desiredScrollTop;
+    setResponseSearchIndex(safeIndex);
+  }, [responseSearchMatches, responsePreviewJson]);
 
   function updateAssertion(idx: number, patch: Partial<Assertion>) {
     const prev = draftRef.current;
@@ -391,13 +505,22 @@ export default function TestEditorValidationTab({
             {fetchHostEnabled && resolvedBaseUrl && !fetchHostOverride && (
               <button type="button" className="btn btn-sm" onClick={() => setFetchHostOverride(resolvedBaseUrl)} title="Use Settings base URL">Use Settings</button>
             )}
+            <button
+              type="button"
+              className="btn btn-sm btn-accent"
+              onClick={() => setValidationMapperOpen(true)}
+              disabled={!draft.validation.sampleJson?.trim()}
+              title={draft.validation.sampleJson?.trim() ? 'Open Visual Mapper' : 'Fetch or paste sample JSON first'}
+            >
+              ⚡ Visual Mapper
+            </button>
           </div>
           {fetchError && <div className="fetch-error-inline">{fetchError}</div>}
           {pendingFetchResponse && (
             <div className="fetch-confirm-bar">
               <span className="fetch-confirm-msg">New response fetched. You have <strong>{(draft.validation.expectedFields || []).length}</strong> existing rule(s).</span>
               <div className="fetch-confirm-actions">
-                <button type="button" className="btn btn-sm btn-accent" onClick={onFetchKeepRules}>Keep Rules &amp; Update Response</button>
+                <button type="button" className="btn btn-sm btn-accent" onClick={handleFetchKeepRulesClick}>Keep Rules &amp; Update Response</button>
                 <button type="button" className="btn btn-sm btn-danger" onClick={onFetchReplaceAll}>Replace All</button>
                 <button type="button" className="btn btn-sm" onClick={onFetchCancel}>Cancel</button>
               </div>
@@ -413,7 +536,72 @@ export default function TestEditorValidationTab({
                   {(responsePreviewJson.length / 1024).toFixed(1)} KB
                 </span>
               </div>
+              <div className="validation-response-preview-search">
+                <input
+                  type="text"
+                  className="validation-response-preview-search-input"
+                  placeholder="Search response…"
+                  value={responseSearchTerm}
+                  onChange={(e) => setResponseSearchTerm(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      if (responseSearchMatches.length > 0) {
+                        const next = responseSearchIndex < 0
+                          ? (e.shiftKey ? responseSearchMatches.length - 1 : 0)
+                          : responseSearchIndex + (e.shiftKey ? -1 : 1);
+                        focusResponseMatch(next);
+                      }
+                    } else if (e.key === 'Escape' && responseSearchTerm) {
+                      e.preventDefault();
+                      setResponseSearchTerm('');
+                    }
+                  }}
+                  aria-label="Search sample response"
+                />
+                {responseSearchTerm && (
+                  <span className="validation-response-preview-search-count">
+                    {responseSearchMatches.length === 0
+                      ? 'No matches'
+                      : responseSearchIndex < 0
+                        ? `${responseSearchMatches.length} match${responseSearchMatches.length === 1 ? '' : 'es'}`
+                        : `${responseSearchIndex + 1} / ${responseSearchMatches.length}`}
+                  </span>
+                )}
+                <button
+                  type="button"
+                  className="btn btn-xs"
+                  onClick={() => focusResponseMatch(responseSearchIndex < 0 ? responseSearchMatches.length - 1 : responseSearchIndex - 1)}
+                  disabled={responseSearchMatches.length === 0}
+                  title="Previous match (Shift+Enter)"
+                  aria-label="Previous match"
+                >
+                  ↑
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-xs"
+                  onClick={() => focusResponseMatch(responseSearchIndex < 0 ? 0 : responseSearchIndex + 1)}
+                  disabled={responseSearchMatches.length === 0}
+                  title="Next match (Enter)"
+                  aria-label="Next match"
+                >
+                  ↓
+                </button>
+                {responseSearchTerm && (
+                  <button
+                    type="button"
+                    className="btn btn-xs"
+                    onClick={() => setResponseSearchTerm('')}
+                    title="Clear search (Esc)"
+                    aria-label="Clear search"
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
               <textarea
+                ref={responseTextareaRef}
                 className="validation-response-preview-textarea"
                 value={responsePreviewJson}
                 readOnly
@@ -422,49 +610,126 @@ export default function TestEditorValidationTab({
               />
             </div>
           )}
-          <div className="validation-mapper-toggle">
-            <button
-              type="button"
-              className="btn btn-sm btn-accent"
-              onClick={() => setValidationMapperOpen(true)}
-              disabled={!draft.validation.sampleJson?.trim()}
-              title={draft.validation.sampleJson?.trim() ? 'Open Visual Mapper' : 'Fetch or paste sample JSON first'}
-            >
-              ⚡ Visual Mapper
-            </button>
-          </div>
           {(draft.validation.expectedFields || []).length > 0 && (
             <div className="validation-fields-summary">
-              <table className="validation-fields-table">
-                <thead>
-                  <tr>
-                    <th>JSON Path</th>
-                    <th>Expected Value</th>
-                    <th />
-                  </tr>
-                </thead>
-                <tbody>
-                  {(draft.validation.expectedFields || []).map((f: ExpectedField, idx: number) => (
-                    <tr key={idx}>
-                      <td><code>{f.jsonPath}</code></td>
-                      <td><code>{f.expectedValue}</code></td>
-                      <td>
-                        <button
-                          type="button"
-                          className="btn-icon-sm"
-                          title="Remove"
-                          onClick={() => {
-                            const prev = draftRef.current;
-                            const next = [...(prev.validation.expectedFields || [])];
-                            next.splice(idx, 1);
-                            onDraftChange({ ...prev, validation: { ...prev.validation, expectedFields: next } });
-                          }}
-                        >×</button>
-                      </td>
+              <div className="validation-fields-summary-header">
+                <span className="validation-fields-summary-title">
+                  Validation Rules
+                  <span className="validation-fields-summary-count">
+                    ({(draft.validation.expectedFields || []).length})
+                  </span>
+                </span>
+                {canPivot && (
+                  <div className="validation-fields-view-toggle" role="tablist" aria-label="Rules view mode">
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={rulesViewMode === 'flat'}
+                      className={`validation-fields-view-btn ${rulesViewMode === 'flat' ? 'is-active' : ''}`}
+                      onClick={() => setRulesViewMode('flat')}
+                    >
+                      List
+                    </button>
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={rulesViewMode === 'pivot'}
+                      className={`validation-fields-view-btn ${rulesViewMode === 'pivot' ? 'is-active' : ''}`}
+                      onClick={() => setRulesViewMode('pivot')}
+                    >
+                      Table
+                    </button>
+                  </div>
+                )}
+              </div>
+              {(!canPivot || rulesViewMode === 'flat') ? (
+                <table className="validation-fields-table">
+                  <thead>
+                    <tr>
+                      <th>JSON Path</th>
+                      <th>Expected Value</th>
+                      <th aria-label="Actions" />
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {(draft.validation.expectedFields || []).map((f: ExpectedField, idx: number) => (
+                      <tr key={idx}>
+                        <td><code>{f.jsonPath}</code></td>
+                        <td><code>{f.expectedValue}</code></td>
+                        <td className="validation-fields-actions-cell">
+                          <button
+                            type="button"
+                            className="validation-fields-remove-btn"
+                            title={`Remove ${f.jsonPath}`}
+                            aria-label={`Remove ${f.jsonPath}`}
+                            onClick={() => removeExpectedField(idx)}
+                          >
+                            <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
+                              <path d="M3 3 L9 9 M9 3 L3 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                            </svg>
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <div className="validation-fields-pivot-wrapper">
+                  <table className="validation-fields-pivot-table">
+                    <thead>
+                      <tr>
+                        <th className="validation-fields-pivot-row-header">
+                          {pivotedRules.arrayPrefix || 'Path'}
+                        </th>
+                        {pivotedRules.columns.map((col) => (
+                          <th key={col}>{col}</th>
+                        ))}
+                        <th aria-label="Actions" className="validation-fields-pivot-actions-header" />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pivotedRules.rows.map((row) => {
+                        const indexMatch = row.key.match(/\[(\d+)\]$/);
+                        const label = pivotedRules.arrayPrefix && indexMatch ? `#${indexMatch[1]}` : row.key;
+                        return (
+                          <tr key={row.key}>
+                            <td className="validation-fields-pivot-row-header"><code>{label}</code></td>
+                            {pivotedRules.columns.map((col) => {
+                              const cell = row.cells.get(col);
+                              return (
+                                <td key={col}>
+                                  {cell ? (
+                                    <code className="validation-fields-pivot-val">
+                                      {cell.value.startsWith('"') && cell.value.endsWith('"') && cell.value.length >= 2
+                                        ? cell.value.slice(1, -1)
+                                        : cell.value}
+                                    </code>
+                                  ) : (
+                                    <span className="validation-fields-pivot-empty">—</span>
+                                  )}
+                                </td>
+                              );
+                            })}
+                            <td className="validation-fields-actions-cell">
+                              <button
+                                type="button"
+                                className="validation-fields-remove-btn"
+                                title={`Remove ${row.key}`}
+                                aria-label={`Remove ${row.key}`}
+                                onClick={() => removeExpectedFieldsByPathPrefix(row.key)}
+                              >
+                                <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
+                                  <path d="M3 3 L9 9 M9 3 L3 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                                </svg>
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           )}
 
@@ -514,26 +779,51 @@ export default function TestEditorValidationTab({
                     </span>
                     <button className="btn btn-xs" onClick={() => setValidationResult(null)}>×</button>
                   </div>
-                  {!validationResult.passed && validationResult.failures.length > 0 && (
-                    <table className="validate-failures-table">
-                      <thead>
-                        <tr>
-                          <th>Path</th>
-                          <th>Expected</th>
-                          <th>Actual</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {validationResult.failures.map((f, i) => (
-                          <tr key={i}>
-                            <td><code>{f.path}</code></td>
-                            <td className="val-expected">{f.expected}</td>
-                            <td className="val-actual">{f.actual}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  )}
+                  {!validationResult.passed && validationResult.failures.length > 0 && (() => {
+                    const allOrderMismatches = !draft.validation.unorderedArrays
+                      && validationResult.failures.every((f) => /\[\d+\]/.test(f.path) && typeof f.actual === 'string' && f.actual.includes('matched by'));
+                    return (
+                      <>
+                        {allOrderMismatches && (
+                          <div className="validate-order-hint">
+                            All failures are array ordering mismatches. The expected values exist but at different indices.
+                            <button
+                              type="button"
+                              className="btn btn-xs btn-accent"
+                              style={{ marginLeft: 8 }}
+                              onClick={() => {
+                                const prev = draftRef.current;
+                                const updated = { ...prev, validation: { ...prev.validation, unorderedArrays: true } };
+                                draftRef.current = updated;
+                                onDraftChange(updated);
+                                void onValidateResponse();
+                              }}
+                            >
+                              Enable unordered matching &amp; re-verify
+                            </button>
+                          </div>
+                        )}
+                        <table className="validate-failures-table">
+                          <thead>
+                            <tr>
+                              <th>Path</th>
+                              <th>Expected</th>
+                              <th>Actual</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {validationResult.failures.map((f, i) => (
+                              <tr key={i}>
+                                <td><code>{f.path}</code></td>
+                                <td className="val-expected">{f.expected}</td>
+                                <td className="val-actual">{f.actual}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </>
+                    );
+                  })()}
                 </div>
               )}
             </div>
@@ -619,6 +909,7 @@ export default function TestEditorValidationTab({
           initialData={validationMapperInitialData}
           onSave={handleValidationMapperSave}
           onCancel={() => setValidationMapperOpen(false)}
+          unorderedArrays={draft.validation.unorderedArrays}
         />
       )}
 

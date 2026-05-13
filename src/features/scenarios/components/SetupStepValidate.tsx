@@ -44,8 +44,9 @@ export default function SetupStepValidate({
     () => createValidationAdapter({
       sampleResponseBody: sampleJson || undefined,
       selectiveMode: 'include',
+      expectedFields: validateFields,
     }),
-    [sampleJson],
+    [sampleJson, validateFields],
   );
 
   const mapperInitialData = useMemo<ValidationAdapterOutput>(() => ({
@@ -54,11 +55,20 @@ export default function SetupStepValidate({
     excludedPaths: validateExcluded,
   }), [validateFields, validateExcluded]);
 
-  const handleMapperSave = useCallback((output: ValidationAdapterOutput) => {
+  const handleMapperSave = useCallback((output: ValidationAdapterOutput, options?: { unorderedArrays?: boolean }) => {
     setValidateFields(output.expectedFields);
     setValidateExcluded(output.excludedPaths);
+    if (options?.unorderedArrays !== undefined) {
+      const mode = options.unorderedArrays ? 'unordered' as const : 'ordered' as const;
+      setArrayModes((prev) => {
+        const next: Record<string, 'ordered' | 'unordered'> = {};
+        for (const key of Object.keys(prev)) next[key] = mode;
+        for (const prefix of arrayPrefixes) next[prefix] = mode;
+        return next;
+      });
+    }
     setMapperOpen(false);
-  }, [setValidateFields, setValidateExcluded]);
+  }, [setValidateFields, setValidateExcluded, setArrayModes, arrayPrefixes]);
 
   return (
     <div className="excel-step-content parameterize-validate-step">
@@ -167,6 +177,7 @@ export default function SetupStepValidate({
               initialData={mapperInitialData}
               onSave={handleMapperSave}
               onCancel={() => setMapperOpen(false)}
+              unorderedArrays={Object.values(arrayModes).some((m) => m === 'unordered')}
             />
           )}
 

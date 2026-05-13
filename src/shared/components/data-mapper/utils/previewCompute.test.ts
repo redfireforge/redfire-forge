@@ -111,14 +111,14 @@ describe('computePreview', () => {
     expect((result.targetObject.user as Record<string, unknown>).displayName).toBe('Alice');
   });
 
-  it('nullifies unmapped target fields', () => {
+  it('omits unmapped target fields entirely', () => {
     const mappings: Mapping[] = [
       { id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'userName' },
     ];
     const result = computePreview(mappings, sources, 's1', targetSample);
     expect(result.targetObject.userName).toBe('Alice');
-    expect(result.targetObject.userAge).toBeNull();
-    expect(result.targetObject.location).toBeNull();
+    expect(result.targetObject.userAge).toBeUndefined();
+    expect(result.targetObject.location).toBeUndefined();
   });
 
   it('handles bracket-notation target paths (e.g. items[0].name)', () => {
@@ -131,14 +131,10 @@ describe('computePreview', () => {
     expect((items[0] as Record<string, unknown>).name).toBe('Alice');
   });
 
-  it('preserves array structure in nullifyLeaves', () => {
+  it('returns empty object when no mappings exist', () => {
     const mappings: Mapping[] = [];
     const result = computePreview(mappings, sources, 's1', { tags: ['a', 'b'], nested: { x: 1 } });
-    const tags = result.targetObject.tags as unknown[];
-    expect(Array.isArray(tags)).toBe(true);
-    expect(tags[0]).toBeNull();
-    expect(tags[1]).toBeNull();
-    expect((result.targetObject.nested as Record<string, unknown>).x).toBeNull();
+    expect(result.targetObject).toEqual({});
   });
 
   it('handles string target sample data', () => {
@@ -147,7 +143,7 @@ describe('computePreview', () => {
     ];
     const result = computePreview(mappings, sources, 's1', '{"userName":"","userAge":0}');
     expect(result.targetObject.userName).toBe('Alice');
-    expect(result.targetObject.userAge).toBeNull();
+    expect(result.targetObject.userAge).toBeUndefined();
   });
 
   it('handles unparseable string target sample data', () => {

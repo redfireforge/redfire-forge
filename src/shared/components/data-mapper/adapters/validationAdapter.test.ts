@@ -96,6 +96,36 @@ describe('createValidationAdapter', () => {
     expect(adapter.target.label).toBe('Validation Fields');
   });
 
+  it('always uses sampleData for target tree, not fields', () => {
+    const adapter = createValidationAdapter({
+      sampleResponseBody: { data: { id: 42, name: 'Alice' } },
+      expectedFields: [
+        { jsonPath: 'data.id', expectedValue: '"42"' },
+        { jsonPath: 'data.name', expectedValue: '"Alice"' },
+      ],
+    });
+    expect(adapter.target.sampleData).toEqual({ data: { id: 42, name: 'Alice' } });
+    expect(adapter.target.fields).toBeUndefined();
+  });
+
+  it('uses sampleData tree when expectedFields are missing in include mode', () => {
+    const adapter = createValidationAdapter({
+      sampleResponseBody: { data: { id: 42, name: 'Alice' } },
+      expectedFields: [],
+    });
+    expect(adapter.target.sampleData).toEqual({ data: { id: 42, name: 'Alice' } });
+    expect(adapter.target.fields).toBeUndefined();
+  });
+
+  it('uses sampleData for target tree in exclude mode too', () => {
+    const adapter = createValidationAdapter({
+      sampleResponseBody: { data: { id: 42, name: 'Alice' } },
+      selectiveMode: 'exclude',
+      expectedFields: [],
+    });
+    expect(adapter.target.sampleData).toEqual({ data: { id: 42, name: 'Alice' } });
+  });
+
   it('delegates fetchSampleData to provided callback', async () => {
     const mockFetch = vi.fn().mockResolvedValue({ ok: true });
     const adapter = createValidationAdapter({ fetchSampleData: mockFetch });
@@ -108,11 +138,14 @@ describe('createValidationAdapter', () => {
 // ── serialize (include mode) ──────────────────────────────
 
 describe('serialize — include mode', () => {
-  it('converts mappings to expectedFields', () => {
-    const adapter = createValidationAdapter({ selectiveMode: 'include' });
+  it('converts mappings to expectedFields using targetPath as jsonPath', () => {
+    const adapter = createValidationAdapter({
+      sampleResponseBody: SAMPLE_BODY,
+      selectiveMode: 'include',
+    });
     const mappings: Mapping[] = [
-      { id: 'm1', sourceId: 'response-body', sourcePath: 'data.id', targetPath: '42' },
-      { id: 'm2', sourceId: 'response-body', sourcePath: 'data.name', targetPath: 'Alice' },
+      { id: 'm1', sourceId: 'response-body', sourcePath: 'data.id', targetPath: 'data.id' },
+      { id: 'm2', sourceId: 'response-body', sourcePath: 'data.name', targetPath: 'data.name' },
     ];
 
     const result = adapter.serialize(mappings);
@@ -124,21 +157,30 @@ describe('serialize — include mode', () => {
     expect(result.excludedPaths).toEqual([]);
   });
 
-  it('uses expression when present instead of sourcePath', () => {
-    const adapter = createValidationAdapter({ selectiveMode: 'include' });
-    const mappings: Mapping[] = [
-      { id: 'm1', sourceId: 'response-body', sourcePath: 'data.id', targetPath: '42', expression: '$.data.id' },
-    ];
-
-    const result = adapter.serialize(mappings);
-    expect(result.expectedFields[0].jsonPath).toBe('$.data.id');
-  });
-
   it('returns empty expectedFields when no mappings', () => {
     const adapter = createValidationAdapter({ selectiveMode: 'include' });
     const result = adapter.serialize([]);
     expect(result.expectedFields).toEqual([]);
     expect(result.excludedPaths).toEqual([]);
+  });
+
+  it('resolves value from sample for target path', () => {
+    const adapter = createValidationAdapter({
+      sampleResponseBody: { offers: [{ code: 'A' }] },
+      selectiveMode: 'include',
+    });
+    const mappings: Mapping[] = [
+      {
+        id: 'm1',
+        sourceId: 'response-body',
+        sourcePath: 'offers[0].code',
+        targetPath: 'offers[0].code',
+      },
+    ];
+    const result = adapter.serialize(mappings);
+    expect(result.expectedFields).toEqual([
+      { jsonPath: 'offers[0].code', expectedValue: 'A' },
+    ]);
   });
 });
 
@@ -151,8 +193,8 @@ describe('serialize — exclude mode', () => {
       selectiveMode: 'exclude',
     });
     const mappings: Mapping[] = [
-      { id: 'm1', sourceId: 'response-body', sourcePath: 'data.id', targetPath: '42' },
-      { id: 'm2', sourceId: 'response-body', sourcePath: 'data.name', targetPath: 'Alice' },
+      { id: 'm1', sourceId: 'response-body', sourcePath: 'data.id', targetPath: 'data.id' },
+      { id: 'm2', sourceId: 'response-body', sourcePath: 'data.name', targetPath: 'data.name' },
     ];
 
     const result = adapter.serialize(mappings);
@@ -178,8 +220,8 @@ describe('serialize — exclude mode', () => {
       selectiveMode: 'exclude',
     });
     const mappings: Mapping[] = [
-      { id: 'm1', sourceId: 'response-body', sourcePath: 'a', targetPath: '1' },
-      { id: 'm2', sourceId: 'response-body', sourcePath: 'b', targetPath: '2' },
+      { id: 'm1', sourceId: 'response-body', sourcePath: 'a', targetPath: 'a' },
+      { id: 'm2', sourceId: 'response-body', sourcePath: 'b', targetPath: 'b' },
     ];
     const result = adapter.serialize(mappings);
     expect(result.excludedPaths).toEqual([]);
@@ -189,7 +231,7 @@ describe('serialize — exclude mode', () => {
 // ── deserialize (include mode) ────────────────────────────
 
 describe('deserialize — include mode', () => {
-  it('converts expectedFields to mappings', () => {
+  it('converts expectedFields to mappings with jsonPath as both sourcePath and targetPath', () => {
     const adapter = createValidationAdapter();
     const result = adapter.deserialize(INCLUDE_OUTPUT);
 
@@ -198,13 +240,13 @@ describe('deserialize — include mode', () => {
       id: 'val-0',
       sourceId: 'response-body',
       sourcePath: 'data.id',
-      targetPath: '42',
+      targetPath: 'data.id',
     });
     expect(result[1]).toEqual({
       id: 'val-1',
       sourceId: 'response-body',
       sourcePath: 'data.name',
-      targetPath: 'Alice',
+      targetPath: 'data.name',
     });
   });
 
@@ -231,6 +273,7 @@ describe('deserialize — include mode', () => {
       excludedPaths: [],
     } as ValidationAdapterOutput);
     expect(result).toHaveLength(1);
+    expect(result[0].targetPath).toBe('a');
   });
 
   it('treats unknown selectiveMode as include (not exclude)', () => {
@@ -242,6 +285,7 @@ describe('deserialize — include mode', () => {
     });
     expect(result).toHaveLength(1);
     expect(result[0].sourcePath).toBe('a');
+    expect(result[0].targetPath).toBe('a');
   });
 });
 
@@ -259,15 +303,15 @@ describe('deserialize — exclude mode', () => {
     expect(paths).not.toContain('meta.total');
   });
 
-  it('uses expectedValue from existing fields when available', () => {
+  it('uses jsonPath as targetPath (mirrors source path)', () => {
     const adapter = createValidationAdapter({ sampleResponseBody: SAMPLE_BODY });
     const result = adapter.deserialize(EXCLUDE_OUTPUT);
 
     const idMapping = result.find((m) => m.sourcePath === 'data.id');
-    expect(idMapping?.targetPath).toBe('42');
+    expect(idMapping?.targetPath).toBe('data.id');
   });
 
-  it('falls back to sample value when expectedValue not available', () => {
+  it('targetPath equals sourcePath even without expectedFields', () => {
     const adapter = createValidationAdapter({ sampleResponseBody: SAMPLE_BODY });
     const output: ValidationAdapterOutput = {
       selectiveMode: 'exclude',
@@ -277,10 +321,10 @@ describe('deserialize — exclude mode', () => {
     const result = adapter.deserialize(output);
 
     const idMapping = result.find((m) => m.sourcePath === 'data.id');
-    expect(idMapping?.targetPath).toBe('42');
+    expect(idMapping?.targetPath).toBe('data.id');
 
     const nameMapping = result.find((m) => m.sourcePath === 'data.name');
-    expect(nameMapping?.targetPath).toBe('Alice');
+    expect(nameMapping?.targetPath).toBe('data.name');
   });
 
   it('returns empty array when all leaves are excluded', () => {
@@ -292,13 +336,33 @@ describe('deserialize — exclude mode', () => {
     });
     expect(result).toEqual([]);
   });
+
+  it('falls back to expectedFields when excludedPaths removes all leaves', () => {
+    const adapter = createValidationAdapter({ sampleResponseBody: { a: 1 } });
+    const result = adapter.deserialize({
+      selectiveMode: 'exclude',
+      expectedFields: [{ jsonPath: '$.a', expectedValue: '999' }],
+      excludedPaths: ['a'],
+    });
+    expect(result).toEqual([
+      {
+        id: 'val-0',
+        sourceId: 'response-body',
+        sourcePath: 'a',
+        targetPath: 'a',
+      },
+    ]);
+  });
 });
 
 // ── Round-trip ────────────────────────────────────────────
 
 describe('round-trip', () => {
-  it('include mode: serialize(deserialize(output)) preserves fields', () => {
-    const adapter = createValidationAdapter({ selectiveMode: 'include' });
+  it('include mode: serialize(deserialize(output)) preserves jsonPaths and resolves values from sample', () => {
+    const adapter = createValidationAdapter({
+      sampleResponseBody: SAMPLE_BODY,
+      selectiveMode: 'include',
+    });
     const mappings = adapter.deserialize(INCLUDE_OUTPUT);
     const result = adapter.serialize(mappings);
 
@@ -385,14 +449,14 @@ describe('validate', () => {
 // ── $.prefix normalization in exclude mode ──────────────────
 
 describe('validationAdapter – $.prefix normalization', () => {
-  it('exclude mode handles $.prefixed sourcePaths correctly', () => {
+  it('exclude mode handles $.prefixed targetPaths correctly', () => {
     const sample = { id: 1, name: 'Alice', email: 'a@b.com' };
     const adapter = createValidationAdapter({
       sampleResponseBody: JSON.stringify(sample),
       selectiveMode: 'exclude',
     });
     const mappings: Mapping[] = [
-      { id: 'm1', sourceId: 'response-body', sourcePath: '$.id', targetPath: '1' },
+      { id: 'm1', sourceId: 'response-body', sourcePath: 'id', targetPath: '$.id' },
     ];
     const result = adapter.serialize(mappings);
     expect(result.excludedPaths).toContain('name');
@@ -400,7 +464,7 @@ describe('validationAdapter – $.prefix normalization', () => {
     expect(result.excludedPaths).not.toContain('id');
   });
 
-  it('exclude deserialize matches $.prefixed expectedFields to leaf paths', () => {
+  it('exclude deserialize uses jsonPath as targetPath', () => {
     const sample = { id: 1, name: 'Alice' };
     const adapter = createValidationAdapter({
       sampleResponseBody: JSON.stringify(sample),
@@ -413,24 +477,24 @@ describe('validationAdapter – $.prefix normalization', () => {
     };
     const mappings = adapter.deserialize(existing);
     const idMapping = mappings.find((m) => m.sourcePath === 'id');
-    expect(idMapping?.targetPath).toBe('42');
+    expect(idMapping?.targetPath).toBe('id');
   });
 
-  it('serialize deduplicates by normalized path (last wins)', () => {
+  it('serialize deduplicates by normalized targetPath (last wins)', () => {
     const sample = { id: 1, name: 'Alice' };
     const adapter = createValidationAdapter({
       sampleResponseBody: JSON.stringify(sample),
       selectiveMode: 'include',
     });
     const mappings: Mapping[] = [
-      { id: 'm1', sourceId: 'response-body', sourcePath: 'id', targetPath: 'first' },
-      { id: 'm2', sourceId: 'response-body', sourcePath: 'id', targetPath: 'second' },
-      { id: 'm3', sourceId: 'response-body', sourcePath: 'name', targetPath: 'Alice' },
+      { id: 'm1', sourceId: 'response-body', sourcePath: 'id', targetPath: 'id' },
+      { id: 'm2', sourceId: 'response-body', sourcePath: 'id', targetPath: 'id' },
+      { id: 'm3', sourceId: 'response-body', sourcePath: 'name', targetPath: 'name' },
     ];
     const result = adapter.serialize(mappings);
     expect(result.expectedFields).toHaveLength(2);
     const idField = result.expectedFields.find((f) => f.jsonPath === 'id');
-    expect(idField?.expectedValue).toBe('second');
+    expect(idField?.expectedValue).toBe('1');
   });
 });
 

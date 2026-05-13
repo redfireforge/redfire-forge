@@ -114,6 +114,8 @@ describe('MapperToolbar', () => {
         autoMapCount={3}
       />,
     );
+    expect(screen.queryByLabelText('Auto-map confidence threshold')).toBeNull();
+    fireEvent.click(screen.getByLabelText('Toggle advanced controls'));
     expect(screen.getByLabelText('Auto-map confidence threshold')).toBeTruthy();
   });
 
@@ -126,6 +128,58 @@ describe('MapperToolbar', () => {
     expect(container.querySelector('.dm-toolbar--compact')).toBeTruthy();
     fireEvent.click(screen.getByTitle('Switch to guided mode'));
     expect(onToggleCompactMode).toHaveBeenCalledTimes(1);
+  });
+
+  it('applies dense de-emphasis classes in high-volume sessions', () => {
+    const { container } = renderToolbar({
+      mappingCount: 12,
+      unresolvedCount: 4,
+      onTogglePreview: vi.fn(),
+      onToggleCodeView: vi.fn(),
+      onToggleMappingLines: vi.fn(),
+    });
+    expect(container.querySelector('.dm-toolbar--dense')).toBeTruthy();
+    expect(container.querySelectorAll('.dm-toolbar-btn--quiet').length).toBeGreaterThan(0);
+  });
+
+  it('supports controlled advanced disclosure state', () => {
+    const onAdvancedOpenChange = vi.fn();
+    const { rerender } = render(
+      <MapperToolbar
+        onAutoMap={vi.fn()}
+        onClearAll={vi.fn()}
+        onUndo={vi.fn()}
+        onRedo={vi.fn()}
+        canUndo={false}
+        canRedo={false}
+        mappingCount={0}
+        onConfidenceThresholdChange={vi.fn()}
+        autoMapCount={3}
+        advancedOpen={false}
+        onAdvancedOpenChange={onAdvancedOpenChange}
+      />,
+    );
+
+    fireEvent.click(screen.getByLabelText('Toggle advanced controls'));
+    expect(onAdvancedOpenChange).toHaveBeenCalledWith(true);
+    expect(screen.queryByLabelText('Auto-map confidence threshold')).toBeNull();
+
+    rerender(
+      <MapperToolbar
+        onAutoMap={vi.fn()}
+        onClearAll={vi.fn()}
+        onUndo={vi.fn()}
+        onRedo={vi.fn()}
+        canUndo={false}
+        canRedo={false}
+        mappingCount={0}
+        onConfidenceThresholdChange={vi.fn()}
+        autoMapCount={3}
+        advancedOpen={true}
+        onAdvancedOpenChange={onAdvancedOpenChange}
+      />,
+    );
+    expect(screen.getByLabelText('Auto-map confidence threshold')).toBeTruthy();
   });
 
   it('calls onAutoMap when clicked', () => {
@@ -357,6 +411,16 @@ describe('profiles menu', () => {
     expect(screen.queryByText(/Profiles/)).toBeNull();
   });
 
+  it('shows Profiles button when only delta callback is provided', () => {
+    renderToolbar({
+      contextId: 'ctx-1',
+      mappings: [{ id: 'm1', sourceId: 's', sourcePath: 'x', targetPath: 'y' }],
+      onApplyProfileDelta: vi.fn(),
+      mappingCount: 1,
+    });
+    expect(screen.getByTitle('Mapping profiles')).toBeTruthy();
+  });
+
   it('opens and closes profile menu', async () => {
     renderWithProfiles();
     expect(screen.queryByPlaceholderText('Profile name…')).toBeNull();
@@ -404,6 +468,15 @@ describe('profiles menu', () => {
     await waitFor(() => expect(screen.getByText('Profile A')).toBeTruthy());
     fireEvent.click(screen.getByText('Profile A'));
     expect(props.onLoadProfile).toHaveBeenCalledWith([{ id: 'm1', sourceId: 's', sourcePath: 'a', targetPath: 'b' }]);
+  });
+
+  it('calls onApplyProfileDelta when delta action is clicked', async () => {
+    const onApplyProfileDelta = vi.fn();
+    renderWithProfiles({ onApplyProfileDelta });
+    await openMenu();
+    await waitFor(() => expect(screen.getByTitle('Apply "Profile A" as delta')).toBeTruthy());
+    fireEvent.click(screen.getByTitle('Apply "Profile A" as delta'));
+    expect(onApplyProfileDelta).toHaveBeenCalledWith([{ id: 'm1', sourceId: 's', sourcePath: 'a', targetPath: 'b' }]);
   });
 
   it('calls deleteProfile when delete button clicked', async () => {

@@ -2886,6 +2886,224 @@
 .validation-response-preview-textarea:focus {
   outline: none;
 }
+.validation-response-preview-textarea::selection {
+  background: color-mix(in srgb, var(--accent) 55%, transparent);
+  color: var(--text);
+}
+.validation-response-preview-search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+.validation-response-preview-search-input {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.78rem;
+  padding: 4px 8px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+}
+.validation-response-preview-search-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.validation-response-preview-search-count {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  min-width: 64px;
+  text-align: right;
+}
+
+/* Validation rules summary table */
+.validation-fields-summary {
+  margin-top: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card);
+  overflow: hidden;
+}
+.validation-fields-summary-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+.validation-fields-summary-title {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+.validation-fields-summary-count {
+  margin-left: 6px;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+.validation-fields-view-toggle {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--bg);
+}
+.validation-fields-view-btn {
+  appearance: none;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 500;
+  padding: 4px 12px;
+  cursor: pointer;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+.validation-fields-view-btn:hover {
+  color: var(--text);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+.validation-fields-view-btn.is-active {
+  background: var(--accent);
+  color: #fff;
+}
+.validation-fields-table,
+.validation-fields-pivot-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+}
+.validation-fields-table th,
+.validation-fields-table td,
+.validation-fields-pivot-table th,
+.validation-fields-pivot-table td {
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: middle;
+}
+.validation-fields-table th,
+.validation-fields-pivot-table th {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  background: var(--surface);
+  white-space: nowrap;
+}
+.validation-fields-table tbody tr:last-child td,
+.validation-fields-pivot-table tbody tr:last-child td {
+  border-bottom: none;
+}
+.validation-fields-table tbody tr:hover,
+.validation-fields-pivot-table tbody tr:hover {
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+}
+.validation-fields-table code {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.75rem;
+  color: var(--text);
+}
+.validation-fields-pivot-wrapper {
+  max-height: 360px;
+  overflow: auto;
+}
+.validation-fields-pivot-row-header {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  background: var(--surface);
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  white-space: nowrap;
+}
+.validation-fields-pivot-row-header code {
+  color: var(--accent);
+  font-weight: 600;
+}
+.validation-fields-pivot-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+.validation-fields-pivot-table thead th.validation-fields-pivot-row-header {
+  z-index: 3;
+}
+.validation-fields-pivot-val {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.74rem;
+  color: var(--text);
+}
+.validation-fields-pivot-empty {
+  color: var(--text-muted);
+}
+.validation-fields-pivot-actions-header {
+  width: 32px;
+}
+.validation-fields-actions-cell {
+  width: 32px;
+  text-align: center;
+  padding: 4px 6px;
+}
+.validation-fields-remove-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background-color 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+.validation-fields-remove-btn:hover {
+  background: color-mix(in srgb, var(--danger, #ef4444) 14%, transparent);
+  color: var(--danger, #ef4444);
+  border-color: color-mix(in srgb, var(--danger, #ef4444) 32%, transparent);
+}
+.validation-fields-remove-btn:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+/* Generic small icon button (used by legacy callers — e.g. SetupStepValidate) */
+.btn-icon-sm {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  font-size: 0.85rem;
+  line-height: 1;
+  border: 1px solid transparent;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background-color 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+.btn-icon-sm:hover {
+  background: color-mix(in srgb, var(--danger, #ef4444) 14%, transparent);
+  color: var(--danger, #ef4444);
+  border-color: color-mix(in srgb, var(--danger, #ef4444) 32%, transparent);
+}
+.btn-icon-sm:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent);
+}
 .validate-host-input {
   flex: 1;
   font-size: 0.8rem;
@@ -2963,6 +3181,20 @@
 }
 .val-expected { color: #22c55e; }
 .val-actual { color: #ef4444; }
+
+.validate-order-hint {
+  background: rgba(245, 169, 127, 0.12);
+  border: 1px solid rgba(245, 169, 127, 0.3);
+  border-radius: 6px;
+  padding: 8px 12px;
+  margin-bottom: 8px;
+  font-size: 0.8rem;
+  color: #f5a97f;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
 
 /* Builder Search */
 .builder-search-wrapper { margin-bottom: 16px; }

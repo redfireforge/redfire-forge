@@ -1,9 +1,9 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import type { TargetField, TargetFieldLocation, Mapping, TargetFieldOrigin } from './types';
 import type { JsonTreeNode } from '../../utils/jsonTreeModel';
 import type { TypeMismatch } from './utils/typeMismatch';
 import type { TraceValueOverlay } from './types';
-import { buildTreeFromFields } from './utils/targetTreeBuilder';
+import { buildTreeFromFields, collectAllPaths } from './utils/targetTreeBuilder';
 import TargetTreeNode from './TargetTreeNode';
 import AddFieldRow from './AddFieldRow';
 
@@ -22,6 +22,10 @@ interface LocationGroupPanelProps {
   mappings: Mapping[];
   onDrop: (targetPath: string, sourcePath: string, sourceId: string) => void;
   search: string;
+  mappingFilter?: 'all' | 'mapped' | 'unmapped';
+  mappedTargetPaths?: Set<string>;
+  onNodeSelect?: (path: string) => void;
+  selectedNodePath?: string | null;
   selectedMappingId: string | null;
   onSelectMapping: (id: string | null) => void;
   onEditExpression?: (mappingId: string) => void;
@@ -41,6 +45,7 @@ interface LocationGroupPanelProps {
   onTargetFieldDragEnd?: () => void;
   getDraggedSource?: () => { path: string; sourceId: string } | null;
   getDraggedTargetFieldPath?: () => string | null;
+  resetViewSignal?: number | null;
 }
 
 interface GroupData {
@@ -54,6 +59,10 @@ export default function LocationGroupPanel({
   mappings,
   onDrop,
   search,
+  mappingFilter = 'all',
+  mappedTargetPaths,
+  onNodeSelect,
+  selectedNodePath,
   selectedMappingId,
   onSelectMapping,
   onEditExpression,
@@ -73,6 +82,7 @@ export default function LocationGroupPanel({
   onTargetFieldDragEnd,
   getDraggedSource,
   getDraggedTargetFieldPath,
+  resetViewSignal,
 }: LocationGroupPanelProps) {
   const [collapsedGroups, setCollapsedGroups] = useState<Set<TargetFieldLocation>>(new Set());
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set(['__root__']));
@@ -93,6 +103,16 @@ export default function LocationGroupPanel({
     }
     return result;
   }, [fields]);
+
+  useEffect(() => {
+    if (resetViewSignal == null) return;
+    const allPaths = new Set(['__root__']);
+    for (const g of groups) {
+      for (const p of collectAllPaths(g.tree)) allPaths.add(p);
+    }
+    setExpandedPaths(allPaths);
+    setCollapsedGroups(new Set());
+  }, [resetViewSignal, groups]);
 
   const ungroupedFields = useMemo(
     () => fields.filter(f => !f.location),
@@ -145,6 +165,10 @@ export default function LocationGroupPanel({
               node={group.tree}
               depth={0}
               search={search}
+              mappingFilter={mappingFilter}
+              mappedTargetPaths={mappedTargetPaths}
+              onNodeSelect={onNodeSelect}
+              selectedNodePath={selectedNodePath}
               mappings={mappings}
               onDrop={onDrop}
               expandedPaths={expandedPaths}
@@ -200,6 +224,10 @@ export default function LocationGroupPanel({
               node={ungroupedTree}
               depth={0}
               search={search}
+              mappingFilter={mappingFilter}
+              mappedTargetPaths={mappedTargetPaths}
+              onNodeSelect={onNodeSelect}
+              selectedNodePath={selectedNodePath}
               mappings={mappings}
               onDrop={onDrop}
               expandedPaths={expandedPaths}

@@ -2,6 +2,7 @@ import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import type { JsonTreeNode } from '../../utils/jsonTreeModel';
 import type { Mapping, TargetField, TargetFieldOrigin } from './types';
 import type { TypeMismatch } from './utils/typeMismatch';
+import { normalizeMapperPath } from './utils/pathNormalization';
 const SOURCE_TEXT_PREFIX = 'mapper-source:';
 const TARGET_FIELD_TEXT_PREFIX = 'mapper-target-field:';
 
@@ -20,6 +21,10 @@ interface TargetTreeNodeProps {
   node: JsonTreeNode;
   depth: number;
   search: string;
+  mappingFilter?: 'all' | 'mapped' | 'unmapped';
+  mappedTargetPaths?: Set<string>;
+  onNodeSelect?: (path: string) => void;
+  selectedNodePath?: string | null;
   mappings: Mapping[];
   onDrop: (targetPath: string, sourcePath: string, sourceId: string) => void;
   expandedPaths: Set<string>;
@@ -40,22 +45,62 @@ interface TargetTreeNodeProps {
   onTargetFieldDragEnd?: () => void;
   getDraggedSource?: () => { path: string; sourceId: string } | null;
   getDraggedTargetFieldPath?: () => string | null;
+  unorderedDefault?: boolean;
+  onToggleUnorderedArray?: (arrayPath: string) => void;
 }
 
-function matchesSearch(node: JsonTreeNode, term: string): boolean {
-  if (!term) return true;
-  const lower = term.toLowerCase();
+function matchesSearchTerm(node: JsonTreeNode, lower: string): boolean {
+  if (!lower) return true;
   if (node.key.toLowerCase().includes(lower)) return true;
   if (node.path.toLowerCase().includes(lower)) return true;
   if (node.type !== 'object' && node.type !== 'array' && String(node.value ?? '').toLowerCase().includes(lower)) return true;
-  if (node.children) return node.children.some((c) => matchesSearch(c, term));
   return false;
+}
+
+function matchesFilter(path: string, mappingFilter: 'all' | 'mapped' | 'unmapped', mappedTargetPaths?: Set<string>): boolean {
+  if (mappingFilter === 'all') return true;
+  const normalizedPath = normalizeMapperPath(path);
+  const isMapped = mappedTargetPaths?.has(normalizedPath) ?? false;
+  return mappingFilter === 'mapped' ? isMapped : !isMapped;
+}
+
+function matchesNodeVisibility(
+  node: JsonTreeNode,
+  search: string,
+  mappingFilter: 'all' | 'mapped' | 'unmapped',
+  mappedTargetPaths?: Set<string>,
+): boolean {
+  const hasChildren = (node.children?.length ?? 0) > 0;
+  const lower = search.toLowerCase();
+  const searchMatch = matchesSearchTerm(node, lower);
+
+  if (!hasChildren) {
+    return searchMatch && matchesFilter(node.path, mappingFilter, mappedTargetPaths);
+  }
+
+  const childMatch = node.children!.some((child) => matchesNodeVisibility(child, search, mappingFilter, mappedTargetPaths));
+  if (mappingFilter === 'all') {
+    return searchMatch || childMatch;
+  }
+  return childMatch;
+}
+
+function formatNodeDisplayKey(node: JsonTreeNode): string {
+  const raw = node.key || '(root)';
+  if (!/^\[(\d+|\*)\]$/.test(raw)) return raw;
+  const normalizedPath = normalizeMapperPath(node.path);
+  const match = normalizedPath.match(/(?:^|\.)([^.[\]]+\[(?:\d+|\*)\])$/);
+  return match?.[1] ?? raw;
 }
 
 export default function TargetTreeNode({
   node,
   depth,
   search,
+  mappingFilter = 'all',
+  mappedTargetPaths,
+  onNodeSelect,
+  selectedNodePath,
   mappings,
   onDrop,
   expandedPaths,
@@ -76,6 +121,8 @@ export default function TargetTreeNode({
   onTargetFieldDragEnd,
   getDraggedSource,
   getDraggedTargetFieldPath,
+  unorderedDefault,
+  onToggleUnorderedArray,
 }: TargetTreeNodeProps) {
   const [dragOver, setDragOver] = useState(false);
   const [renaming, setRenaming] = useState(false);
@@ -86,10 +133,11 @@ export default function TargetTreeNode({
   const isLeaf = !hasChildren;
   const origin = fieldOrigins?.get(node.path);
   const isCustomOrFetched = origin === 'custom' || origin === 'fetched';
+  const normalizedNodePath = useMemo(() => normalizeMapperPath(node.path), [node.path]);
 
   const mapping = useMemo(
-    () => mappings.find((m) => m.targetPath === node.path),
-    [mappings, node.path],
+    () => mappings.find((m) => normalizeMapperPath(m.targetPath) === normalizedNodePath),
+    [mappings, normalizedNodePath],
   );
 
   const mismatch = useMemo(
@@ -98,7 +146,10 @@ export default function TargetTreeNode({
     [mapping, typeMismatches],
   );
 
-  const isVisible = useMemo(() => matchesSearch(node, search), [node, search]);
+  const isVisible = useMemo(
+    () => matchesNodeVisibility(node, search, mappingFilter, mappedTargetPaths),
+    [node, search, mappingFilter, mappedTargetPaths],
+  );
 
   const handleFieldDragStart = useCallback((e: React.DragEvent) => {
     if (!isLeaf || !onReorderField || !node.path) return;
@@ -117,18 +168,19 @@ export default function TargetTreeNode({
   }, [onTargetFieldDragEnd]);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
-    if (!isLeaf) return;
+    if (!node.path) return;
     e.preventDefault();
     const activeTargetPath = getDraggedTargetFieldPath?.();
-    e.dataTransfer.dropEffect = activeTargetPath ? 'move' : 'link';
+    const hasSourceDrag = !!getDraggedSource?.();
+    e.dataTransfer.dropEffect = activeTargetPath && isLeaf && !hasSourceDrag ? 'move' : 'link';
     setDragOver(true);
-  }, [isLeaf, getDraggedTargetFieldPath]);
+  }, [isLeaf, node.path, getDraggedTargetFieldPath, getDraggedSource]);
 
   const handleDragEnter = useCallback((e: React.DragEvent) => {
-    if (!isLeaf) return;
+    if (!node.path) return;
     e.preventDefault();
     setDragOver(true);
-  }, [isLeaf]);
+  }, [node.path]);
 
   const handleDragLeave = useCallback(() => {
     setDragOver(false);
@@ -138,7 +190,7 @@ export default function TargetTreeNode({
     (e: React.DragEvent) => {
       e.preventDefault();
       setDragOver(false);
-      if (!isLeaf) return;
+      if (!node.path) return;
       const getDragData = (type: string): string => {
         if (typeof e.dataTransfer.getData !== 'function') return '';
         try {
@@ -170,7 +222,8 @@ export default function TargetTreeNode({
           ? targetFieldData.path
           : fallbackTargetPath;
         if (
-          !!onReorderField
+          isLeaf
+          && !!onReorderField
           && typeof dragPath === 'string'
           && dragPath !== node.path
         ) {
@@ -239,15 +292,18 @@ export default function TargetTreeNode({
 
   if (!isVisible) return null;
 
-  const isMapped = !!mapping;
+  const isMapped = !!mapping || (mappedTargetPaths?.has(normalizedNodePath) ?? false);
   const isSelected = mapping?.id === selectedMappingId && !!selectedMappingId;
+  const isBulkSelected = selectedNodePath === node.path;
   const isFocused = focusedPath === node.path;
   const traceVal = traceOverlay?.get(node.path);
+  const displayKey = formatNodeDisplayKey(node);
+  const nodePathTitle = normalizedNodePath ? `Path: ${normalizedNodePath}` : '(root)';
 
   return (
     <div className="dm-tree-node-group">
       <div
-        className={`dm-tree-node dm-tree-node--target ${isLeaf ? 'dm-tree-node--leaf' : ''} ${isLeaf && onReorderField ? 'dm-tree-node--reorderable' : ''} ${isMapped ? 'dm-tree-node--mapped' : ''} ${dragOver ? 'dm-tree-node--drag-over' : ''} ${isSelected ? 'dm-tree-node--selected' : ''} ${isFocused ? 'dm-tree-node--focused' : ''} ${isCustomOrFetched ? 'dm-tree-node--custom' : ''}`}
+        className={`dm-tree-node dm-tree-node--target ${isLeaf ? 'dm-tree-node--leaf' : ''} ${isLeaf && onReorderField ? 'dm-tree-node--reorderable' : ''} ${isMapped ? 'dm-tree-node--mapped' : ''} ${dragOver ? 'dm-tree-node--drag-over' : ''} ${isSelected ? 'dm-tree-node--selected' : ''} ${isBulkSelected ? 'dm-tree-node--bulk-selected' : ''} ${isFocused ? 'dm-tree-node--focused' : ''} ${isCustomOrFetched ? 'dm-tree-node--custom' : ''}`}
         style={{ paddingLeft: depth * 16 + 4 }}
         onDragEnter={handleDragEnter}
         onDragOver={handleDragOver}
@@ -256,7 +312,10 @@ export default function TargetTreeNode({
         draggable={isLeaf && !!onReorderField}
         onDragStart={isLeaf && onReorderField ? handleFieldDragStart : undefined}
         onDragEnd={isLeaf && onReorderField ? handleFieldDragEnd : undefined}
-        onClick={mapping ? () => onSelectMapping(isSelected ? null : mapping.id) : undefined}
+        onClick={() => {
+          onNodeSelect?.(node.path);
+          if (mapping) onSelectMapping(isSelected ? null : mapping.id);
+        }}
         onDoubleClick={handleDoubleClick}
         data-path={node.path}
       >
@@ -284,7 +343,7 @@ export default function TargetTreeNode({
             aria-label="Rename field"
           />
         ) : (
-          <span className="dm-node-key">{node.key || '(root)'}</span>
+          <span className="dm-node-key" title={nodePathTitle}>{displayKey}</span>
         )}
         {!isMapped && !renaming && node.value != null && String(node.value) !== '' && (
           <span className="dm-default-value" title={`Default: ${String(node.value)}`}>
@@ -299,19 +358,32 @@ export default function TargetTreeNode({
         )}
         {isMapped && (
           <span className="dm-mapped-badge">
-            {mapping.expression ? (
+            {mapping!.expression ? (
               <>
                 <span className="dm-mapped-fx-pill">fx</span>
-                <span className="dm-mapped-src-ref" title={mapping.expression}>{mapping.sourcePath}</span>
+                <span className="dm-mapped-src-ref" title={mapping!.expression}>{mapping!.sourcePath}</span>
               </>
             ) : (
               <>
                 <span className="dm-mapped-arrow">←</span>
-                <span className="dm-mapped-src-ref" title={mapping.sourcePath}>{mapping.sourcePath}</span>
+                <span className="dm-mapped-src-ref" title={mapping!.sourcePath}>{mapping!.sourcePath}</span>
               </>
             )}
           </span>
         )}
+        {node.type === 'array' && onToggleUnorderedArray && (() => {
+          const isUnordered = unorderedDefault ?? false;
+          return (
+            <button
+              type="button"
+              className={`dm-order-badge ${isUnordered ? 'dm-order-badge--unordered' : 'dm-order-badge--ordered'}`}
+              title={isUnordered ? 'Unordered: items matched by value (click for ordered)' : 'Ordered: items matched by index (click for unordered)'}
+              onClick={(e) => { e.stopPropagation(); onToggleUnorderedArray(node.path); }}
+            >
+              {isUnordered ? '⟳ unordered' : '↕ ordered'}
+            </button>
+          );
+        })()}
         {mismatch && (
           mismatch.suggestedFix && onQuickFix ? (
             <button
@@ -340,7 +412,7 @@ export default function TargetTreeNode({
             = {traceVal.value.length > 20 ? traceVal.value.slice(0, 19) + '…' : traceVal.value}
           </span>
         )}
-        {isMapped && onRemoveMapping && (
+        {isMapped && mapping && onRemoveMapping && (
           <button
             className="dm-inline-remove"
             aria-label={`Remove mapping for ${node.key}`}
@@ -376,6 +448,10 @@ export default function TargetTreeNode({
               node={child}
               depth={depth + 1}
               search={search}
+              mappingFilter={mappingFilter}
+              mappedTargetPaths={mappedTargetPaths}
+              onNodeSelect={onNodeSelect}
+              selectedNodePath={selectedNodePath}
               mappings={mappings}
               onDrop={onDrop}
               expandedPaths={expandedPaths}
@@ -396,6 +472,8 @@ export default function TargetTreeNode({
               onTargetFieldDragEnd={onTargetFieldDragEnd}
               getDraggedSource={getDraggedSource}
               getDraggedTargetFieldPath={getDraggedTargetFieldPath}
+              unorderedDefault={unorderedDefault}
+              onToggleUnorderedArray={onToggleUnorderedArray}
             />
           ))}
         </div>

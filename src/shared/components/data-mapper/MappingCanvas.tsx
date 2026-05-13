@@ -33,6 +33,7 @@ interface MappingCanvasProps {
   onApplySuggestion?: (mappingId: string, expression: string) => void;
   repairSuggestions?: Map<string, RepairSuggestion[]>;
   onApplyRepair?: (mappingId: string, suggestion: RepairSuggestion) => void;
+  totalMappingCount?: number;
 }
 
 function bezierPath(sourceY: number, targetY: number, width: number): string {
@@ -61,6 +62,7 @@ export default function MappingCanvas({
   onApplySuggestion,
   repairSuggestions,
   onApplyRepair,
+  totalMappingCount = 0,
 }: MappingCanvasProps) {
   const handleErrorClick = useCallback((mappingId: string, midY: number) => {
     if (!traceByMappingId || !onShowErrorDetail) return;
@@ -118,7 +120,7 @@ export default function MappingCanvas({
             y={Math.max(height, 100) / 2 - 6}
             textAnchor="middle"
           >
-            No mappings yet
+            {totalMappingCount > 0 ? 'Lines hidden' : 'No mappings yet'}
           </text>
           <text
             className="dm-canvas-empty-guide-subtitle"
@@ -126,7 +128,9 @@ export default function MappingCanvas({
             y={Math.max(height, 100) / 2 + 12}
             textAnchor="middle"
           >
-            Drag fields from Source to Target to draw lines
+            {totalMappingCount > 0
+              ? 'Click a node to show its connections'
+              : 'Drag fields from Source to Target to draw lines'}
           </text>
         </g>
       )}
