@@ -1,6 +1,7 @@
 import { useRef, useCallback, useMemo, useEffect, useState } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import type { MapperAdapter, Mapping } from './types';
+import type { MapperAdapter, Mapping, FieldOperator } from './types';
+import { resolveCapabilities } from './types';
 import { useMapperState } from './hooks/useMapperState';
 import { useConnectionLines, useLayoutTick } from './hooks/useConnectionLines';
 import { computeAutoMapCandidates } from './utils/autoMapAlgorithm';
@@ -40,8 +41,7 @@ import ErrorPopover from './ErrorPopover';
 import type { InferredMapping } from './utils/exampleInference';
 import { useDebugOverlay } from './hooks/useDebugOverlay';
 import MappingHealthDashboard from './MappingHealthDashboard';
-import ValidationRepairPanel, { type MapperRepairIssue } from './ValidationRepairPanel';
-import { buildTreeFromFields } from './utils/targetTreeBuilder';
+import ValidationRepairPanel from './ValidationRepairPanel';
 import type { RepairSuggestion } from './utils/schemaRepair';
 import MapperFooter from './MapperFooter';
 import { useTargetFields } from './hooks/useTargetFields';
@@ -49,11 +49,8 @@ import { usePanelResize } from './hooks/usePanelResize';
 import { useMapperKeyboard } from './hooks/useMapperKeyboard';
 import { useMappingOverlay } from './hooks/useMappingOverlay';
 import { upsertTargetMapping, bulkDropMappings } from './utils/dropMapping';
-import {
-  isMapperPathWithin,
-  isSameMapperPath,
-  normalizeMapperPath,
-} from './utils/pathNormalization';
+import { parseSampleToTree, buildTargetTree } from './utils/mapperTreeBuilders';
+import { normalizeMapperPath } from './utils/pathNormalization';
 import {
   buildPatternPropagationPreview,
   type PatternPropagationPreview,
@@ -61,14 +58,13 @@ import {
 import { applyProfileDelta } from './utils/mappingProfiles';
 import {
   findNodeByPath,
-  collectLeafPathsFromNode,
   getArrayParentPath,
-  buildRelativePairs,
   applyDropPairs,
   buildDropSummary,
-  type PathPair,
 } from './utils/subtreeMapping';
 import { useMappingDiagnostics } from './hooks/useMappingDiagnostics';
+import { useMapperRepairActions } from './hooks/useMapperRepairActions';
+import { useBulkSubtreeActions } from './hooks/useBulkSubtreeActions';
 
 interface DataMapperProps<TOutput = unknown> {
   adapter: MapperAdapter<TOutput>;
@@ -109,6 +105,9 @@ export default function DataMapper<TOutput = unknown>({
   onToggleUnorderedArray,
   hideAdvanced = false,
 }: DataMapperProps<TOutput>) {
+  const caps = useMemo(() => resolveCapabilities(adapter.capabilities), [adapter.capabilities]);
+  const effectiveHideAdvanced = hideAdvanced || caps.hideAdvanced;
+
   const initialMappings = useMemo(() => {
     if (!initialData) return [];
     try {
@@ -130,7 +129,6 @@ export default function DataMapper<TOutput = unknown>({
   const [bulkSourceId, setBulkSourceId] = useState<string | null>(null);
   const [bulkTargetPath, setBulkTargetPath] = useState<string | null>(null);
   const [propagationPreview, setPropagationPreview] = useState<PatternPropagationPreview | null>(null);
-  const [ignoredRepairIssueIds, setIgnoredRepairIssueIds] = useState<Set<string>>(new Set());
   const [targetResetSignal, setTargetResetSignal] = useState<number | null>(null);
   const sourceSearchRef = useRef<HTMLInputElement | null>(null);
   const [confidenceThreshold, setConfidenceThreshold] = useState(50);
@@ -260,10 +258,6 @@ export default function DataMapper<TOutput = unknown>({
     }
   }, [state.mappings]);
 
-  useEffect(() => {
-    setIgnoredRepairIssueIds(new Set());
-  }, [state.mappings]);
-
   const getEffectiveSourceData = useCallback((sourceId: string): unknown => {
     return state.sourceSampleOverrides[sourceId]
       ?? adapter.sources.find((s) => s.id === sourceId)?.sampleData;
@@ -290,33 +284,15 @@ export default function DataMapper<TOutput = unknown>({
     return suggestTypeFixExpression(sourceType, targetType, sourcePath);
   }, [getEffectiveSourceData, effectiveTarget]);
 
-  const sourceTreeForDrop = useMemo(() => {
-    const sourceData = getEffectiveSourceData(state.activeSourceId);
-    if (sourceData == null) return null;
-    try {
-      const parsedSource = typeof sourceData === 'string' ? JSON.parse(sourceData) : sourceData;
-      return buildJsonTree(parsedSource, '', '');
-    } catch {
-      return null;
-    }
-  }, [getEffectiveSourceData, state.activeSourceId]);
+  const sourceTreeForDrop = useMemo(
+    () => parseSampleToTree(getEffectiveSourceData(state.activeSourceId)),
+    [getEffectiveSourceData, state.activeSourceId],
+  );
 
-  const targetTreeForDrop = useMemo(() => {
-    if (effectiveTarget.sampleData != null) {
-      try {
-        const parsedTarget = typeof effectiveTarget.sampleData === 'string'
-          ? JSON.parse(effectiveTarget.sampleData)
-          : effectiveTarget.sampleData;
-        return buildJsonTree(parsedTarget, '', '');
-      } catch {
-        return null;
-      }
-    }
-    if ((effectiveTarget.fields?.length ?? 0) > 0) {
-      return buildTreeFromFields(effectiveTarget.fields!);
-    }
-    return null;
-  }, [effectiveTarget.sampleData, effectiveTarget.fields]);
+  const targetTreeForDrop = useMemo(
+    () => buildTargetTree(effectiveTarget).tree,
+    [effectiveTarget],
+  );
 
   const sourceLeafPathsForPropagation = useMemo(
     () => sourceTreeForDrop ? getAllLeafPaths(sourceTreeForDrop).filter((path) => path.length > 0) : [],
@@ -327,54 +303,23 @@ export default function DataMapper<TOutput = unknown>({
     [targetTreeForDrop],
   );
 
-  const prepareSubtreeDropPlan = useCallback(
-    (
-      sourcePath: string,
-      targetPath: string,
-      options?: { expandArraySiblings?: boolean },
-    ): { pairs: PathPair[]; usedArraySiblingExpansion: boolean; canExpandAcrossSiblings: boolean } => {
-      const sourceNode = sourceTreeForDrop ? findNodeByPath(sourceTreeForDrop, sourcePath) : null;
-      const targetNode = targetTreeForDrop ? findNodeByPath(targetTreeForDrop, targetPath) : null;
-      if (!sourceNode || !targetNode) {
-        return { pairs: [], usedArraySiblingExpansion: false, canExpandAcrossSiblings: false };
-      }
-
-      let sourceBaseNode = sourceNode;
-      let targetBaseNode = targetNode;
-      let sourceBasePath = sourcePath;
-      let targetBasePath = targetPath;
-      let canExpandAcrossSiblings = false;
-      let usedArraySiblingExpansion = false;
-
-      const sourceArrayParentPath = getArrayParentPath(sourcePath);
-      const targetArrayParentPath = getArrayParentPath(targetPath);
-      if (sourceArrayParentPath && targetArrayParentPath && sourceTreeForDrop && targetTreeForDrop) {
-        const sourceArrayNode = findNodeByPath(sourceTreeForDrop, sourceArrayParentPath);
-        const targetArrayNode = findNodeByPath(targetTreeForDrop, targetArrayParentPath);
-        canExpandAcrossSiblings = !!(
-          sourceArrayNode?.children?.length
-          && targetArrayNode?.children?.length
-        );
-        if (options?.expandArraySiblings && canExpandAcrossSiblings) {
-          sourceBaseNode = sourceArrayNode!;
-          targetBaseNode = targetArrayNode!;
-          sourceBasePath = sourceArrayParentPath;
-          targetBasePath = targetArrayParentPath;
-          usedArraySiblingExpansion = true;
-        }
-      }
-
-      const pairs = buildRelativePairs(
-        collectLeafPathsFromNode(sourceBaseNode),
-        collectLeafPathsFromNode(targetBaseNode),
-        sourceBasePath,
-        targetBasePath,
-      );
-
-      return { pairs, usedArraySiblingExpansion, canExpandAcrossSiblings };
-    },
-    [sourceTreeForDrop, targetTreeForDrop],
-  );
+  const {
+    prepareSubtreeDropPlan,
+    handleMapSubtree,
+    handleMapSiblingSubtrees,
+    handleClearTargetSubtree,
+    handleReplaceTargetSubtree,
+  } = useBulkSubtreeActions({
+    bulkSourcePath,
+    bulkSourceId,
+    bulkTargetPath,
+    sourceTree: sourceTreeForDrop,
+    targetTree: targetTreeForDrop,
+    mappings: state.mappings,
+    suggestDropExpression,
+    setMappings,
+    setToast,
+  });
 
   const handleSelectSourceNode = useCallback((path: string, sourceId: string) => {
     setBulkSourcePath(path);
@@ -550,111 +495,6 @@ export default function DataMapper<TOutput = unknown>({
     );
   }, [propagationPreview, setMappings, state.mappings]);
 
-  const handleMapSubtree = useCallback(() => {
-    if (!bulkSourcePath || !bulkTargetPath || !bulkSourceId) {
-      setToast('Select source and target nodes first');
-      return;
-    }
-    const { pairs } = prepareSubtreeDropPlan(bulkSourcePath, bulkTargetPath);
-    if (pairs.length === 0) {
-      setToast('No matching child fields found for selected subtree');
-      return;
-    }
-    const { nextMappings, insertedCount, updatedCount, unchangedCount } = applyDropPairs(
-      state.mappings,
-      pairs,
-      bulkSourceId,
-      suggestDropExpression,
-    );
-    const changedCount = insertedCount + updatedCount;
-    if (changedCount > 0) {
-      setMappings(nextMappings);
-      setToast(buildDropSummary(changedCount, insertedCount, updatedCount));
-      return;
-    }
-    if (unchangedCount > 0) {
-      setToast('No changes - matching targets already mapped');
-    }
-  }, [bulkSourcePath, bulkTargetPath, bulkSourceId, prepareSubtreeDropPlan, state.mappings, suggestDropExpression, setMappings]);
-
-  const handleMapSiblingSubtrees = useCallback(() => {
-    if (!bulkSourcePath || !bulkTargetPath || !bulkSourceId) {
-      setToast('Select source and target nodes first');
-      return;
-    }
-    const plan = prepareSubtreeDropPlan(bulkSourcePath, bulkTargetPath, { expandArraySiblings: true });
-    if (!plan.canExpandAcrossSiblings) {
-      setToast('Select matching array index nodes to map siblings');
-      return;
-    }
-    if (plan.pairs.length === 0) {
-      setToast('No matching sibling fields found');
-      return;
-    }
-    const { nextMappings, insertedCount, updatedCount, unchangedCount } = applyDropPairs(
-      state.mappings,
-      plan.pairs,
-      bulkSourceId,
-      suggestDropExpression,
-    );
-    const changedCount = insertedCount + updatedCount;
-    if (changedCount > 0) {
-      setMappings(nextMappings);
-      setToast(
-        buildDropSummary(changedCount, insertedCount, updatedCount, {
-          scopeSuffix: 'across array siblings',
-        }),
-      );
-      return;
-    }
-    if (unchangedCount > 0) {
-      setToast('No changes - matching targets already mapped');
-    }
-  }, [bulkSourcePath, bulkTargetPath, bulkSourceId, prepareSubtreeDropPlan, state.mappings, suggestDropExpression, setMappings]);
-
-  const handleClearTargetSubtree = useCallback(() => {
-    if (!bulkTargetPath) {
-      setToast('Select a target node to clear');
-      return;
-    }
-    const nextMappings = state.mappings.filter((m) => !isMapperPathWithin(m.targetPath, bulkTargetPath));
-    const clearedCount = state.mappings.length - nextMappings.length;
-    if (clearedCount === 0) {
-      setToast('No mappings found in selected target subtree');
-      return;
-    }
-    setMappings(nextMappings);
-    setToast(`Cleared ${clearedCount} mapping${clearedCount !== 1 ? 's' : ''} in target subtree`);
-  }, [bulkTargetPath, state.mappings, setMappings]);
-
-  const handleReplaceTargetSubtree = useCallback(() => {
-    if (!bulkSourcePath || !bulkTargetPath || !bulkSourceId) {
-      setToast('Select source and target nodes first');
-      return;
-    }
-    const { pairs } = prepareSubtreeDropPlan(bulkSourcePath, bulkTargetPath);
-    if (pairs.length === 0) {
-      setToast('No matching child fields found for selected subtree');
-      return;
-    }
-    const remainingMappings = state.mappings.filter((m) => !isMapperPathWithin(m.targetPath, bulkTargetPath));
-    const clearedCount = state.mappings.length - remainingMappings.length;
-    const { nextMappings, insertedCount, updatedCount } = applyDropPairs(
-      remainingMappings,
-      pairs,
-      bulkSourceId,
-      suggestDropExpression,
-    );
-    const changedCount = insertedCount + updatedCount;
-    if (changedCount === 0 && clearedCount === 0) {
-      setToast('No changes - selected subtree already matches');
-      return;
-    }
-    setMappings(nextMappings);
-    setToast(
-      `Replaced subtree with ${changedCount} mapping${changedCount !== 1 ? 's' : ''} (${clearedCount} cleared)`,
-    );
-  }, [bulkSourcePath, bulkTargetPath, bulkSourceId, prepareSubtreeDropPlan, state.mappings, suggestDropExpression, setMappings]);
 
   const handleDragStart = useCallback((path: string, sourceId: string) => {
     selectMapping(null);
@@ -797,6 +637,38 @@ export default function DataMapper<TOutput = unknown>({
     typeMismatches,
   );
 
+  const {
+    visibleRepairIssues,
+    handleFixRepairIssue,
+    handleReplaceRepairIssue,
+    handleIgnoreRepairIssue,
+    handleOpenRepairIssue,
+    clearIgnoredRepairIssues,
+  } = useMapperRepairActions({
+    diagnostics: mappingDiagnostics,
+    mappings: state.mappings,
+    activeSourceId: state.activeSourceId,
+    bulkSourcePath,
+    bulkSourceId,
+    bulkTargetPath,
+    showMappingLines,
+    nodeFocusMode,
+    setMappings,
+    updateMapping,
+    selectMapping,
+    setSelectedIds,
+    setFocusRegion,
+    setBulkSourceId,
+    setBulkSourcePath,
+    setBulkTargetPath,
+    setLineFocusNode,
+    setToast,
+  });
+
+  useEffect(() => {
+    clearIgnoredRepairIssues();
+  }, [state.mappings, clearIgnoredRepairIssues]);
+
   const mappingResolution = useMemo(
     () => ({
       unresolved: mappingDiagnostics.unresolved,
@@ -861,28 +733,10 @@ export default function DataMapper<TOutput = unknown>({
     adapter.customFunctions,
   );
 
-  const buildTargetTreeForAutoMap = useCallback(() => {
-    if (effectiveTarget.sampleData != null) {
-      try {
-        const parsedTarget = typeof effectiveTarget.sampleData === 'string'
-          ? JSON.parse(effectiveTarget.sampleData)
-          : effectiveTarget.sampleData;
-        return {
-          tree: buildJsonTree(parsedTarget, '', ''),
-          targetData: parsedTarget,
-        };
-      } catch {
-        return { tree: null, targetData: undefined as unknown };
-      }
-    }
-    if ((effectiveTarget.fields?.length ?? 0) > 0) {
-      return {
-        tree: buildTreeFromFields(effectiveTarget.fields!),
-        targetData: undefined as unknown,
-      };
-    }
-    return { tree: null, targetData: undefined as unknown };
-  }, [effectiveTarget.sampleData, effectiveTarget.fields]);
+  const buildTargetTreeForAutoMap = useCallback(
+    () => buildTargetTree(effectiveTarget),
+    [effectiveTarget],
+  );
 
   const autoMapCandidates = useMemo<AutoMapCandidate[]>(() => {
     const sourceData = getEffectiveSourceData(state.activeSourceId);
@@ -1038,6 +892,9 @@ export default function DataMapper<TOutput = unknown>({
     setToast('Expression applied');
   }, [updateMapping]);
 
+  const handleUpdateMappingOperator = useCallback((mappingId: string, operator: FieldOperator | undefined, operatorValue: string | undefined) => {
+    updateMapping(mappingId, { operator, operatorValue });
+  }, [updateMapping]);
 
   const handleExampleInferenceApply = useCallback((inferred: InferredMapping[]) => {
     const newMappings: Mapping[] = inferred.map((r) => ({
@@ -1081,19 +938,10 @@ export default function DataMapper<TOutput = unknown>({
     return arrayMappingInfos.find((i) => i.mappingId === state.selectedMappingId) ?? null;
   }, [state.selectedMappingId, arrayMappingInfos]);
 
-  const healthTargetTree = useMemo(() => {
-    if (effectiveTarget.sampleData != null) {
-      try {
-        const data = typeof effectiveTarget.sampleData === 'string'
-          ? JSON.parse(effectiveTarget.sampleData) : effectiveTarget.sampleData;
-        return buildJsonTree(data, '', '');
-      } catch { return null; }
-    }
-    if (effectiveTarget.fields && effectiveTarget.fields.length > 0) {
-      return buildTreeFromFields(effectiveTarget.fields);
-    }
-    return null;
-  }, [effectiveTarget.sampleData, effectiveTarget.fields]);
+  const healthTargetTree = useMemo(
+    () => buildTargetTree(effectiveTarget).tree,
+    [effectiveTarget],
+  );
 
   const editingMapping = useMemo(
     () => editingMappingId ? state.mappings.find((m) => m.id === editingMappingId) ?? null : null,
@@ -1168,106 +1016,6 @@ export default function DataMapper<TOutput = unknown>({
   const canPreviewPropagation = sourceLeafPathsForPropagation.length > 0
     && targetLeafPathsForPropagation.length > 0;
 
-  const visibleRepairIssues = useMemo(
-    () => mappingDiagnostics.issues.filter((issue) => !ignoredRepairIssueIds.has(issue.id)),
-    [mappingDiagnostics.issues, ignoredRepairIssueIds],
-  );
-
-  const handleFixRepairIssue = useCallback((issue: MapperRepairIssue) => {
-    if (!issue.suggestedFixExpression) {
-      setToast('No automatic fix available for this issue');
-      return;
-    }
-    updateMapping(issue.mappingId, { expression: issue.suggestedFixExpression });
-    setToast('Applied suggested fix');
-  }, [updateMapping]);
-
-  const handleReplaceRepairIssue = useCallback((issue: MapperRepairIssue) => {
-    const mapping = state.mappings.find((item) => item.id === issue.mappingId);
-    if (!mapping) {
-      setToast('Issue mapping is no longer available');
-      return;
-    }
-
-    if (issue.kind === 'duplicate-target') {
-      const normalizedTargetPath = normalizeMapperPath(mapping.targetPath);
-      const nextMappings = state.mappings.filter(
-        (item) => normalizeMapperPath(item.targetPath) !== normalizedTargetPath || item.id === mapping.id,
-      );
-      const removed = state.mappings.length - nextMappings.length;
-      if (removed <= 0) {
-        setToast('No duplicate mappings found to replace');
-        return;
-      }
-      setMappings(nextMappings);
-      setToast(`Replaced duplicate target mapping (${removed} removed)`);
-      return;
-    }
-
-    const mappingSourceId = mapping.sourceId || state.activeSourceId;
-    const sourceSelected = !!bulkSourcePath
-      && !!bulkSourceId
-      && (
-        bulkSourceId !== mappingSourceId
-        || !isSameMapperPath(bulkSourcePath, mapping.sourcePath)
-      );
-    const targetSelected = !!bulkTargetPath && !isSameMapperPath(bulkTargetPath, mapping.targetPath);
-
-    if (!sourceSelected && !targetSelected) {
-      setToast('Select source/target nodes first, then use Replace');
-      return;
-    }
-
-    const changes: Partial<Omit<Mapping, 'id'>> = {};
-    if (sourceSelected) {
-      changes.sourcePath = bulkSourcePath!;
-      changes.sourceId = bulkSourceId!;
-      if (issue.kind === 'type-mismatch') {
-        // Source replacement should re-evaluate type compatibility from raw path.
-        changes.expression = undefined;
-      }
-    }
-    if (targetSelected) {
-      changes.targetPath = bulkTargetPath!;
-    }
-
-    updateMapping(mapping.id, changes);
-    setToast('Replaced mapping from current selection');
-  }, [
-    state.mappings,
-    state.activeSourceId,
-    bulkSourcePath,
-    bulkSourceId,
-    bulkTargetPath,
-    setMappings,
-    updateMapping,
-  ]);
-
-  const handleIgnoreRepairIssue = useCallback((issue: MapperRepairIssue) => {
-    setIgnoredRepairIssueIds((prev) => {
-      const next = new Set(prev);
-      next.add(issue.id);
-      return next;
-    });
-  }, []);
-
-  const handleOpenRepairIssue = useCallback((issue: MapperRepairIssue) => {
-    selectMapping(issue.mappingId);
-    setSelectedIds(new Set([issue.mappingId]));
-    setFocusRegion('target');
-    setBulkTargetPath(issue.targetPath);
-
-    const issueSourceId = issue.sourceId || state.activeSourceId;
-    if (issueSourceId === state.activeSourceId) {
-      setBulkSourceId(issueSourceId);
-      setBulkSourcePath(issue.sourcePath);
-    }
-
-    if (!showMappingLines && nodeFocusMode) {
-      setLineFocusNode({ region: 'target', path: issue.targetPath });
-    }
-    setToast(`Focused ${normalizeMapperPath(issue.targetPath)}`);
-  }, [selectMapping, setFocusRegion, state.activeSourceId, showMappingLines, nodeFocusMode]);
 
   return (
     <div className="dm-container" ref={containerRef} style={{ height }}>
@@ -1289,20 +1037,21 @@ export default function DataMapper<TOutput = unknown>({
         onRejectAllPending={rejectAllPending}
         contextId={adapter.contextId}
         mappings={state.mappings}
-        onLoadProfile={hideAdvanced ? undefined : (m: Mapping[]) => { setMappings(m); setSelectedIds(new Set()); setSelectedSourcePaths(new Set()); }}
-        onApplyProfileDelta={hideAdvanced ? undefined : handleApplyProfileDelta}
+        capabilities={caps}
+        onLoadProfile={effectiveHideAdvanced ? undefined : (m: Mapping[]) => { setMappings(m); setSelectedIds(new Set()); setSelectedSourcePaths(new Set()); }}
+        onApplyProfileDelta={effectiveHideAdvanced ? undefined : handleApplyProfileDelta}
         showCodeView={showCodeView}
         onToggleCodeView={handleToggleCodeView}
         showTableView={bottomUtilityMode === 'table'}
         onToggleTableView={handleToggleTableView}
-        onLoadGallerySample={hideAdvanced ? undefined : handleLoadGallerySample}
+        onLoadGallerySample={effectiveHideAdvanced ? undefined : handleLoadGallerySample}
         hasTraceData={hasTraceData}
         debugMode={debugMode}
         onToggleDebugMode={() => setDebugMode((d) => !d)}
         traceErrorCount={traceErrorCount}
         confidenceThreshold={confidenceThreshold}
-        onConfidenceThresholdChange={hideAdvanced ? undefined : setConfidenceThreshold}
-        onLearnFromExamples={hideAdvanced ? undefined : () => setShowExampleModal(true)}
+        onConfidenceThresholdChange={effectiveHideAdvanced ? undefined : setConfidenceThreshold}
+        onLearnFromExamples={effectiveHideAdvanced ? undefined : () => setShowExampleModal(true)}
         showMappingLines={showMappingLines}
         onToggleMappingLines={() => setShowMappingLines((s) => !s)}
         nodeFocusMode={nodeFocusMode}
@@ -1545,6 +1294,8 @@ export default function DataMapper<TOutput = unknown>({
             resetViewSignal={targetResetSignal}
             unorderedDefault={unorderedDefault}
             onToggleUnorderedArray={onToggleUnorderedArray}
+            capabilities={caps}
+            onUpdateMappingOperator={caps.operators ? handleUpdateMappingOperator : undefined}
           />
         </div>
       </div>

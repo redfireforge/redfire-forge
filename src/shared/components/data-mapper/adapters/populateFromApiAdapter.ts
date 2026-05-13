@@ -179,6 +179,7 @@ export function createPopulateFromApiAdapter(
     contextId: 'populate-from-api',
     title: 'API Response → Data Source',
     category: 'data-source',
+    capabilities: { schemaDrift: true },
     sources: [source],
     target,
 

@@ -87,9 +87,12 @@ export type {
   ValidationIssue,
   ExpressionFunction,
   AdapterCategory,
+  AdapterCapabilities,
+  FieldOperator,
   SourceFormat,
   ValidationSeverity,
 } from './types';
+export { defaultCapabilities, resolveCapabilities } from './types';
 export { default as MappingHealthDashboard } from './MappingHealthDashboard';
 export { computeHealthStats } from './utils/healthStats';
 export type { HealthStats } from './utils/healthStats';

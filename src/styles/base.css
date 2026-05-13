@@ -974,6 +974,10 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
 .assertion-type-arrayLength { background: #06b6d418; color: #22d3ee; border-color: #06b6d450; }
 .assertion-type-numeric { background: #f9731618; color: #fb923c; border-color: #f9731650; }
 .assertion-type-date { background: #ec489918; color: #f472b6; border-color: #ec489950; }
+.assertion-type-typeCheck { background: #14b8a618; color: #2dd4bf; border-color: #14b8a650; }
+.assertion-type-existence { background: #a855f718; color: #c084fc; border-color: #a855f750; }
+.assertion-row:has(.assertion-type-typeCheck) { border-left-color: #14b8a6; }
+.assertion-row:has(.assertion-type-existence) { border-left-color: #a855f7; }
 .assertion-field { display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0; }
 .assertion-field-label { font-size: 11px; color: var(--text-muted); white-space: nowrap; flex-shrink: 0; }
 .assertion-field-label-fixed { flex: 0 0 42px; min-width: 42px; text-align: center; }

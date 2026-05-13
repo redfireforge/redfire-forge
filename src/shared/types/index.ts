@@ -45,9 +45,37 @@ export interface AuthConfig {
 
 export type ValidationMode = 'none' | 'full' | 'selective';
 
+export type FieldOperator =
+  | 'equals'
+  | 'not_equals'
+  | 'greater_than'
+  | 'greater_than_or_equal'
+  | 'less_than'
+  | 'less_than_or_equal'
+  | 'contains'
+  | 'not_contains'
+  | 'starts_with'
+  | 'ends_with'
+  | 'regex'
+  | 'is_true'
+  | 'is_false'
+  | 'is_null'
+  | 'is_not_null'
+  | 'is_empty'
+  | 'is_not_empty'
+  | 'exists'
+  | 'not_exists'
+  | 'is_type'
+  | 'in'
+  | 'not_in'
+  | 'between'
+  | 'close_to';
+
 export interface ExpectedField {
   jsonPath: string;
   expectedValue: string;
+  operator?: FieldOperator;
+  operatorValue?: string;
 }
 
 export type SelectiveMode = 'include' | 'exclude';
@@ -83,6 +111,8 @@ export type DateReference =
   | { kind: 'today'; timezone: 'utc' | 'local' }
   | { kind: 'fixed'; iso: string };
 
+export type JsonTypeName = 'string' | 'number' | 'boolean' | 'array' | 'object' | 'null';
+
 export type Assertion =
   | { type: 'status'; expected: string }
   | { type: 'responseTime'; maxMs: number }
@@ -90,7 +120,9 @@ export type Assertion =
   | { type: 'regex'; jsonPath: string; pattern: string }
   | { type: 'arrayLength'; jsonPath: string; operator: ComparisonOperator; value: number }
   | { type: 'numeric'; jsonPath: string; operator: ComparisonOperator; value: number }
-  | { type: 'date'; jsonPath: string; operator: ComparisonOperator; reference: DateReference };
+  | { type: 'date'; jsonPath: string; operator: ComparisonOperator; reference: DateReference }
+  | { type: 'typeCheck'; jsonPath: string; expectedType: JsonTypeName }
+  | { type: 'existence'; jsonPath: string; expectExists: boolean };
 
 export interface ValidationConfig {
   mode: ValidationMode;

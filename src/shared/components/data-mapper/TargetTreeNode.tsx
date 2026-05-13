@@ -1,10 +1,58 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import type { JsonTreeNode } from '../../utils/jsonTreeModel';
-import type { Mapping, TargetField, TargetFieldOrigin } from './types';
+import type { Mapping, TargetField, TargetFieldOrigin, AdapterCapabilities, FieldOperator } from './types';
 import type { TypeMismatch } from './utils/typeMismatch';
 import { normalizeMapperPath } from './utils/pathNormalization';
 const SOURCE_TEXT_PREFIX = 'mapper-source:';
 const TARGET_FIELD_TEXT_PREFIX = 'mapper-target-field:';
+
+interface OperatorMeta {
+  label: string;
+  icon: string;
+  category: 'equality' | 'comparison' | 'string' | 'boolean' | 'existence' | 'type' | 'set' | 'range';
+  cssClass: string;
+  needsValue: boolean;
+}
+
+const OPERATOR_REGISTRY: Record<FieldOperator, OperatorMeta> = {
+  equals: { label: 'equals', icon: '=', category: 'equality', cssClass: 'equals', needsValue: false },
+  not_equals: { label: 'not equals', icon: '≠', category: 'equality', cssClass: 'equals', needsValue: false },
+  greater_than: { label: 'greater than', icon: '＞', category: 'comparison', cssClass: 'comparison', needsValue: true },
+  greater_than_or_equal: { label: 'at least', icon: '≥', category: 'comparison', cssClass: 'comparison', needsValue: true },
+  less_than: { label: 'less than', icon: '＜', category: 'comparison', cssClass: 'comparison', needsValue: true },
+  less_than_or_equal: { label: 'at most', icon: '≤', category: 'comparison', cssClass: 'comparison', needsValue: true },
+  contains: { label: 'contains', icon: '⊃', category: 'string', cssClass: 'string-op', needsValue: true },
+  not_contains: { label: 'not contains', icon: '⊅', category: 'string', cssClass: 'string-op', needsValue: true },
+  starts_with: { label: 'starts with', icon: '⊳', category: 'string', cssClass: 'string-op', needsValue: true },
+  ends_with: { label: 'ends with', icon: '⊲', category: 'string', cssClass: 'string-op', needsValue: true },
+  regex: { label: 'matches', icon: '.*', category: 'string', cssClass: 'string-op', needsValue: true },
+  is_true: { label: 'is true', icon: '✓', category: 'boolean', cssClass: 'boolean-op', needsValue: false },
+  is_false: { label: 'is false', icon: '✗', category: 'boolean', cssClass: 'boolean-op', needsValue: false },
+  is_null: { label: 'is null', icon: '∅', category: 'existence', cssClass: 'existence', needsValue: false },
+  is_not_null: { label: 'is not null', icon: '∃≠∅', category: 'existence', cssClass: 'existence', needsValue: false },
+  is_empty: { label: 'is empty', icon: '⌀', category: 'existence', cssClass: 'existence', needsValue: false },
+  is_not_empty: { label: 'is not empty', icon: '⌀̸', category: 'existence', cssClass: 'existence', needsValue: false },
+  exists: { label: 'exists', icon: '∃', category: 'existence', cssClass: 'existence', needsValue: false },
+  not_exists: { label: 'not exists', icon: '∄', category: 'existence', cssClass: 'existence', needsValue: false },
+  is_type: { label: 'is type', icon: 'τ', category: 'type', cssClass: 'type-check', needsValue: true },
+  in: { label: 'in list', icon: '∈', category: 'set', cssClass: 'comparison', needsValue: true },
+  not_in: { label: 'not in list', icon: '∉', category: 'set', cssClass: 'comparison', needsValue: true },
+  between: { label: 'between', icon: '↔', category: 'range', cssClass: 'comparison', needsValue: true },
+  close_to: { label: 'close to', icon: '≈', category: 'range', cssClass: 'comparison', needsValue: true },
+};
+
+const OPERATOR_CATEGORIES = [
+  { key: 'equality', label: 'Equality' },
+  { key: 'comparison', label: 'Comparison' },
+  { key: 'string', label: 'String' },
+  { key: 'boolean', label: 'Boolean' },
+  { key: 'existence', label: 'Existence' },
+  { key: 'type', label: 'Type' },
+  { key: 'set', label: 'Set' },
+  { key: 'range', label: 'Range' },
+] as const;
+
+export { OPERATOR_REGISTRY, OPERATOR_CATEGORIES, type OperatorMeta };
 
 const TYPE_LABELS: Record<string, string> = {
   object: 'obj',
@@ -47,6 +95,8 @@ interface TargetTreeNodeProps {
   getDraggedTargetFieldPath?: () => string | null;
   unorderedDefault?: boolean;
   onToggleUnorderedArray?: (arrayPath: string) => void;
+  capabilities?: Required<AdapterCapabilities>;
+  onUpdateMappingOperator?: (mappingId: string, operator: FieldOperator | undefined, operatorValue: string | undefined) => void;
 }
 
 function matchesSearchTerm(node: JsonTreeNode, lower: string): boolean {
@@ -123,11 +173,21 @@ export default function TargetTreeNode({
   getDraggedTargetFieldPath,
   unorderedDefault,
   onToggleUnorderedArray,
+  capabilities,
+  onUpdateMappingOperator,
 }: TargetTreeNodeProps) {
   const [dragOver, setDragOver] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState('');
+  const [showOperatorPicker, setShowOperatorPicker] = useState(false);
+  const [operatorSearch, setOperatorSearch] = useState('');
+  const [editingOperatorValue, setEditingOperatorValue] = useState(false);
+  const [localOperatorValue, setLocalOperatorValue] = useState('');
+  const [pickerPos, setPickerPos] = useState<{ top: number; left: number; openUp: boolean }>({ top: 0, left: 0, openUp: false });
   const renameInputRef = useRef<HTMLInputElement>(null);
+  const operatorPillRef = useRef<HTMLButtonElement>(null);
+  const operatorValueRef = useRef<HTMLInputElement>(null);
+  const pickerRef = useRef<HTMLDivElement>(null);
   const hasChildren = (node.children?.length ?? 0) > 0;
   const isExpanded = expandedPaths.has(node.path || '__root__');
   const isLeaf = !hasChildren;
@@ -290,6 +350,69 @@ export default function TargetTreeNode({
     }
   }, [mapping, onEditExpression, isCustomOrFetched, onUpdateCustomField, handleStartRename]);
 
+  const currentOp = mapping?.operator ?? 'equals';
+  const currentOpMeta = OPERATOR_REGISTRY[currentOp];
+  const showOperators = capabilities?.operators && !!mapping && !!onUpdateMappingOperator;
+
+  const handleOperatorSelect = useCallback((op: FieldOperator) => {
+    if (!mapping || !onUpdateMappingOperator) return;
+    const meta = OPERATOR_REGISTRY[op];
+    if (meta.needsValue) {
+      onUpdateMappingOperator(mapping.id, op, mapping.operatorValue ?? '');
+    } else {
+      onUpdateMappingOperator(mapping.id, op === 'equals' ? undefined : op, undefined);
+    }
+    setShowOperatorPicker(false);
+    setOperatorSearch('');
+  }, [mapping, onUpdateMappingOperator]);
+
+  const handleOperatorValueCommit = useCallback(() => {
+    if (!mapping || !onUpdateMappingOperator) return;
+    onUpdateMappingOperator(mapping.id, mapping.operator, localOperatorValue);
+    setEditingOperatorValue(false);
+  }, [mapping, onUpdateMappingOperator, localOperatorValue]);
+
+  const handleOperatorValueKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') { e.preventDefault(); handleOperatorValueCommit(); }
+    else if (e.key === 'Escape') { e.preventDefault(); setEditingOperatorValue(false); }
+  }, [handleOperatorValueCommit]);
+
+  const startEditOperatorValue = useCallback(() => {
+    if (!mapping) return;
+    setLocalOperatorValue(mapping.operatorValue ?? '');
+    setEditingOperatorValue(true);
+  }, [mapping]);
+
+  useEffect(() => {
+    if (editingOperatorValue) operatorValueRef.current?.focus();
+  }, [editingOperatorValue]);
+
+  useEffect(() => {
+    if (!showOperatorPicker) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (pickerRef.current && !pickerRef.current.contains(e.target as Node) &&
+          operatorPillRef.current && !operatorPillRef.current.contains(e.target as Node)) {
+        setShowOperatorPicker(false);
+        setOperatorSearch('');
+      }
+    };
+    const timer = setTimeout(() => {
+      document.addEventListener('mousedown', handleClickOutside);
+    }, 50);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showOperatorPicker]);
+
+  const filteredOperators = useMemo(() => {
+    const lower = operatorSearch.toLowerCase();
+    if (!lower) return Object.entries(OPERATOR_REGISTRY) as [FieldOperator, OperatorMeta][];
+    return (Object.entries(OPERATOR_REGISTRY) as [FieldOperator, OperatorMeta][]).filter(
+      ([key, meta]) => meta.label.includes(lower) || key.includes(lower) || meta.category.includes(lower),
+    );
+  }, [operatorSearch]);
+
   if (!isVisible) return null;
 
   const isMapped = !!mapping || (mappedTargetPaths?.has(normalizedNodePath) ?? false);
@@ -357,7 +480,10 @@ export default function TargetTreeNode({
           <span className="dm-origin-badge dm-origin-badge--fetched" title="Fetched from API">fetched</span>
         )}
         {isMapped && (
-          <span className="dm-mapped-badge">
+          <span
+            className="dm-mapped-badge"
+            onDoubleClick={(e) => { e.stopPropagation(); if (mapping && onEditExpression) onEditExpression(mapping.id); }}
+          >
             {mapping!.expression ? (
               <>
                 <span className="dm-mapped-fx-pill">fx</span>
@@ -366,7 +492,76 @@ export default function TargetTreeNode({
             ) : (
               <>
                 <span className="dm-mapped-arrow">←</span>
-                <span className="dm-mapped-src-ref" title={mapping!.sourcePath}>{mapping!.sourcePath}</span>
+                {showOperators && (
+                  <button
+                    ref={operatorPillRef}
+                    type="button"
+                    className={`dm-operator-pill dm-operator-pill--${currentOpMeta.cssClass}`}
+                    title={`Operator: ${currentOpMeta.label} (click to change)`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (!showOperatorPicker && operatorPillRef.current) {
+                        const rect = operatorPillRef.current.getBoundingClientRect();
+                        const dmBody = operatorPillRef.current.closest('.dm-body');
+                        const sourcePanel = dmBody?.querySelector('.dm-panel-wrapper');
+                        const sourcePanelRect = sourcePanel?.getBoundingClientRect();
+                        const pickerWidth = 240;
+                        const pickerHeight = 400;
+                        let left: number;
+                        if (sourcePanelRect) {
+                          const fitWidth = Math.min(pickerWidth, sourcePanelRect.width - 16);
+                          left = sourcePanelRect.left + 8;
+                          if (fitWidth < pickerWidth) {
+                            left = sourcePanelRect.left + 4;
+                          }
+                        } else {
+                          left = 8;
+                        }
+                        const spaceBelow = window.innerHeight - rect.top;
+                        const openUp = spaceBelow < pickerHeight && rect.top > spaceBelow;
+                        setPickerPos({
+                          top: openUp ? Math.max(8, rect.top - pickerHeight + 30) : rect.top,
+                          left: Math.max(8, left),
+                          openUp,
+                        });
+                      }
+                      setShowOperatorPicker(prev => !prev);
+                    }}
+                    onDoubleClick={(e) => e.stopPropagation()}
+                    aria-label={`Change operator from ${currentOpMeta.label}`}
+                    aria-expanded={showOperatorPicker}
+                    aria-haspopup="listbox"
+                  >
+                    <span className="dm-op-icon">{currentOpMeta.icon}</span> {currentOpMeta.label}
+                  </button>
+                )}
+                {showOperators && currentOpMeta.needsValue ? (
+                  editingOperatorValue ? (
+                    <input
+                      ref={operatorValueRef}
+                      className="dm-operator-value-input"
+                      value={localOperatorValue}
+                      onChange={(e) => setLocalOperatorValue(e.target.value)}
+                      onKeyDown={handleOperatorValueKeyDown}
+                      onBlur={handleOperatorValueCommit}
+                      onClick={(e) => e.stopPropagation()}
+                      aria-label="Operator comparison value"
+                    />
+                  ) : (
+                    <span
+                      className="dm-operator-value-display"
+                      title="Click to edit value"
+                      onClick={(e) => { e.stopPropagation(); startEditOperatorValue(); }}
+                    >
+                      {mapping!.operatorValue || mapping!.sourcePath}
+                    </span>
+                  )
+                ) : !showOperators ? (
+                  <span className="dm-mapped-src-ref" title={mapping!.sourcePath}>{mapping!.sourcePath}</span>
+                ) : null}
+                {showOperators && !currentOpMeta.needsValue && (
+                  <span className="dm-mapped-src-ref" title={mapping!.sourcePath}>{mapping!.sourcePath}</span>
+                )}
               </>
             )}
           </span>
@@ -440,6 +635,53 @@ export default function TargetTreeNode({
           <span className="dm-node-count">{node.children!.length}</span>
         )}
       </div>
+      {showOperatorPicker && showOperators && (
+        <div
+          ref={pickerRef}
+          className={`dm-operator-picker ${pickerPos.openUp ? 'dm-operator-picker--up' : ''}`}
+          style={{ position: 'fixed', top: pickerPos.top, left: pickerPos.left, zIndex: 10000 }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="dm-op-picker-header">
+            <div className="dm-op-picker-title">Select Operator</div>
+            <input
+              className="dm-op-picker-search"
+              placeholder="Search operators..."
+              value={operatorSearch}
+              onChange={(e) => setOperatorSearch(e.target.value)}
+              autoFocus
+            />
+          </div>
+          <div className="dm-op-picker-list" role="listbox" aria-label="Operators">
+            {OPERATOR_CATEGORIES.map(cat => {
+              const ops = filteredOperators.filter(([, m]) => m.category === cat.key);
+              if (ops.length === 0) return null;
+              return (
+                <div key={cat.key} className="dm-op-picker-category">
+                  <div className="dm-op-picker-category-label">{cat.label}</div>
+                  {ops.map(([opKey, meta]) => (
+                    <button
+                      key={opKey}
+                      type="button"
+                      role="option"
+                      aria-selected={opKey === currentOp}
+                      className={`dm-op-picker-item ${opKey === currentOp ? 'dm-op-picker-item--active' : ''}`}
+                      onClick={() => handleOperatorSelect(opKey)}
+                    >
+                      <span className={`dm-op-picker-icon dm-operator-pill--${meta.cssClass}`}>{meta.icon}</span>
+                      <span className="dm-op-picker-label">{meta.label}</span>
+                      {meta.needsValue && <span className="dm-op-picker-hint">value</span>}
+                    </button>
+                  ))}
+                </div>
+              );
+            })}
+            {filteredOperators.length === 0 && (
+              <div className="dm-op-picker-empty">No matching operators</div>
+            )}
+          </div>
+        </div>
+      )}
       {hasChildren && isExpanded && (
         <div className="dm-tree-children">
           {node.children!.map((child) => (
@@ -474,6 +716,8 @@ export default function TargetTreeNode({
               getDraggedTargetFieldPath={getDraggedTargetFieldPath}
               unorderedDefault={unorderedDefault}
               onToggleUnorderedArray={onToggleUnorderedArray}
+              capabilities={capabilities}
+              onUpdateMappingOperator={onUpdateMappingOperator}
             />
           ))}
         </div>

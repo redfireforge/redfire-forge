@@ -18,6 +18,7 @@ import type {
   TargetField,
   TargetSchemaResult,
   ValidationIssue,
+  AdapterCapabilities,
 } from '../types';
 import { buildJsonTree, getAllLeafPaths } from '../../../utils/jsonTreeModel';
 
@@ -68,11 +69,19 @@ export function createExtractionAdapter(
     allowCustomFields: true,
   };
 
+  const capabilities: AdapterCapabilities = {
+    expressions: true,
+    codeEditor: true,
+    schemaDrift: true,
+    profiles: true,
+  };
+
   return {
     contextId: 'extraction',
     title: 'Response Body → Variables',
     category: 'http',
     sources: [source],
+    capabilities,
     target,
 
     serialize(mappings: Mapping[]): Extraction[] {

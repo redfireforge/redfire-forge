@@ -7,6 +7,34 @@
  * only needs to implement MapperAdapter without touching the core.
  */
 
+// ─── Field Operators ─────────────────────────────────────
+
+export type FieldOperator =
+  | 'equals'
+  | 'not_equals'
+  | 'greater_than'
+  | 'greater_than_or_equal'
+  | 'less_than'
+  | 'less_than_or_equal'
+  | 'contains'
+  | 'not_contains'
+  | 'starts_with'
+  | 'ends_with'
+  | 'regex'
+  | 'is_true'
+  | 'is_false'
+  | 'is_null'
+  | 'is_not_null'
+  | 'is_empty'
+  | 'is_not_empty'
+  | 'exists'
+  | 'not_exists'
+  | 'is_type'
+  | 'in'
+  | 'not_in'
+  | 'between'
+  | 'close_to';
+
 // ─── Mapping ──────────────────────────────────────────────
 
 export interface Mapping {
@@ -17,6 +45,10 @@ export interface Mapping {
   expression?: string;
   isAutoMapped?: boolean;
   isPending?: boolean;
+  operator?: FieldOperator;
+  operatorValue?: string;
+  condition?: string;
+  fallback?: string;
 }
 
 // ─── Validation ───────────────────────────────────────────
@@ -87,6 +119,61 @@ export interface TargetSchemaResult {
   label?: string;
 }
 
+// ─── Adapter Capabilities ─────────────────────────────────
+
+export interface AdapterCapabilities {
+  /** Show operator pills on target nodes (validation, assertion contexts) */
+  operators?: boolean;
+  /** Show array assertion rows below array nodes */
+  arrayAssertions?: boolean;
+  /** Show type-check operator pills */
+  typeChecks?: boolean;
+  /** Enable code editor tab in bottom dock */
+  codeEditor?: boolean;
+  /** Enable verify-all toolbar cluster */
+  verification?: boolean;
+  /** Enable expression editor on mappings */
+  expressions?: boolean;
+  /** Enable schema drift/repair detection */
+  schemaDrift?: boolean;
+  /** Enable mapping profiles (save/load presets) */
+  profiles?: boolean;
+  /** Show unordered array matching option */
+  unorderedArrays?: boolean;
+  /** Hide advanced toolbar section by default */
+  hideAdvanced?: boolean;
+  /** Future: enable conditional mapping logic */
+  conditionals?: boolean;
+  /** Future: enable loop/iterate constructs */
+  loopConstructs?: boolean;
+  /** Future: enable error handling / fallback paths */
+  errorHandling?: boolean;
+}
+
+export function defaultCapabilities(): AdapterCapabilities {
+  return {
+    operators: false,
+    arrayAssertions: false,
+    typeChecks: false,
+    codeEditor: false,
+    verification: false,
+    expressions: true,
+    schemaDrift: false,
+    profiles: false,
+    unorderedArrays: false,
+    hideAdvanced: false,
+    conditionals: false,
+    loopConstructs: false,
+    errorHandling: false,
+  };
+}
+
+export function resolveCapabilities(caps?: AdapterCapabilities): Required<AdapterCapabilities> {
+  const defaults = defaultCapabilities();
+  if (!caps) return defaults as Required<AdapterCapabilities>;
+  return { ...defaults, ...caps } as Required<AdapterCapabilities>;
+}
+
 // ─── Adapter ──────────────────────────────────────────────
 
 export type AdapterCategory =
@@ -105,6 +192,7 @@ export interface MapperAdapter<TOutput = unknown> {
   fetchTargetSchema?: () => Promise<TargetSchemaResult>;
   validate?: (mappings: Mapping[]) => ValidationIssue[];
   customFunctions?: ExpressionFunction[];
+  capabilities?: AdapterCapabilities;
 }
 
 // ─── State ────────────────────────────────────────────────

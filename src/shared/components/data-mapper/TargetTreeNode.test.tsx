@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
-import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { render, screen, fireEvent, act, within } from '@testing-library/react';
 import TargetTreeNode from './TargetTreeNode';
 import type { JsonTreeNode } from '../../utils/jsonTreeModel';
 import type { Mapping } from './types';
@@ -478,5 +478,1009 @@ describe('trace overlay', () => {
       <TargetTreeNode node={nested} {...defaults} traceOverlay={traceOverlay} />,
     );
     expect(container.querySelector('.dm-trace-value--ok')).not.toBeNull();
+  });
+
+  it('shows operator pill and opens picker on click', async () => {
+    const onUpdateMappingOperator = vi.fn();
+    const capabilities = { operators: true } as Required<import('./types').AdapterCapabilities>;
+    render(
+      <TargetTreeNode
+        node={leaf}
+        {...defaults}
+        mappings={[mapping]}
+        capabilities={capabilities}
+        onUpdateMappingOperator={onUpdateMappingOperator}
+      />,
+    );
+    // Operator pill should be visible
+    const pill = screen.getByLabelText('Change operator from equals');
+    expect(pill).toBeTruthy();
+    expect(pill.textContent).toContain('equals');
+
+    // Click the pill
+    fireEvent.click(pill);
+
+    // The picker should be rendered with fixed positioning
+    const picker = document.querySelector('.dm-operator-picker');
+    expect(picker).not.toBeNull();
+    expect(picker!.textContent).toContain('Select Operator');
+    expect(picker!.textContent).toContain('greater than');
+    expect(picker!.textContent).toContain('contains');
+  });
+
+  it('operator picker stays open after click (not immediately dismissed)', () => {
+    const onUpdateMappingOperator = vi.fn();
+    const capabilities = { operators: true } as Required<import('./types').AdapterCapabilities>;
+    render(
+      <TargetTreeNode
+        node={leaf}
+        {...defaults}
+        mappings={[mapping]}
+        capabilities={capabilities}
+        onUpdateMappingOperator={onUpdateMappingOperator}
+      />,
+    );
+    const pill = screen.getByLabelText('Change operator from equals');
+    fireEvent.click(pill);
+
+    // Picker should exist immediately after click
+    const picker = document.querySelector('.dm-operator-picker');
+    expect(picker).not.toBeNull();
+    expect(picker!.querySelector('.dm-op-picker-search')).not.toBeNull();
+    // Should have position fixed style
+    expect((picker as HTMLElement).style.position).toBe('fixed');
+  });
+
+  it('selecting an operator in picker calls onUpdateMappingOperator', () => {
+    const onUpdateMappingOperator = vi.fn();
+    const capabilities = { operators: true } as Required<import('./types').AdapterCapabilities>;
+    render(
+      <TargetTreeNode
+        node={leaf}
+        {...defaults}
+        mappings={[mapping]}
+        capabilities={capabilities}
+        onUpdateMappingOperator={onUpdateMappingOperator}
+      />,
+    );
+    const pill = screen.getByLabelText('Change operator from equals');
+    fireEvent.click(pill);
+
+    // Click "greater than" in the picker
+    const gtButton = screen.getByText('greater than');
+    fireEvent.click(gtButton);
+
+    expect(onUpdateMappingOperator).toHaveBeenCalledWith('m1', 'greater_than', '');
+  });
+
+  it('clicking operator pill does NOT trigger onEditExpression', () => {
+    const onUpdateMappingOperator = vi.fn();
+    const onEditExpression = vi.fn();
+    const capabilities = { operators: true } as Required<import('./types').AdapterCapabilities>;
+    render(
+      <TargetTreeNode
+        node={leaf}
+        {...defaults}
+        mappings={[mapping]}
+        capabilities={capabilities}
+        onUpdateMappingOperator={onUpdateMappingOperator}
+        onEditExpression={onEditExpression}
+      />,
+    );
+    const pill = screen.getByLabelText('Change operator from equals');
+
+    // Simulate mousedown then click (real browser flow)
+    fireEvent.mouseDown(pill);
+    fireEvent.click(pill);
+
+    // Expression editor should NOT open
+    expect(onEditExpression).not.toHaveBeenCalled();
+
+    // Picker should be open
+    const picker = document.querySelector('.dm-operator-picker');
+    expect(picker).not.toBeNull();
+  });
+
+  it('operator picker survives parent row click handler', () => {
+    const onUpdateMappingOperator = vi.fn();
+    const onSelectMapping = vi.fn();
+    const capabilities = { operators: true } as Required<import('./types').AdapterCapabilities>;
+    render(
+      <TargetTreeNode
+        node={leaf}
+        {...defaults}
+        mappings={[mapping]}
+        capabilities={capabilities}
+        onUpdateMappingOperator={onUpdateMappingOperator}
+        onSelectMapping={onSelectMapping}
+      />,
+    );
+    const pill = screen.getByLabelText('Change operator from equals');
+    fireEvent.click(pill);
+
+    const picker = document.querySelector('.dm-operator-picker');
+    expect(picker).not.toBeNull();
+    expect(picker!.textContent).toContain('Select Operator');
+  });
+
+  it('renders operator value display for needsValue operator and allows edit', () => {
+    const onUpdateMappingOperator = vi.fn();
+    const capabilities = { operators: true } as Required<import('./types').AdapterCapabilities>;
+    const mappingWithOp: Mapping = { ...mapping, operator: 'greater_than' as import('./types').FieldOperator, operatorValue: '50' };
+    const { container } = render(
+      <TargetTreeNode
+        node={leaf}
+        {...defaults}
+        mappings={[mappingWithOp]}
+        capabilities={capabilities}
+        onUpdateMappingOperator={onUpdateMappingOperator}
+      />,
+    );
+    const valueDisplay = container.querySelector('.dm-operator-value-display');
+    expect(valueDisplay).not.toBeNull();
+    expect(valueDisplay!.textContent).toBe('50');
+
+    fireEvent.click(valueDisplay!);
+    const input = container.querySelector('.dm-operator-value-input') as HTMLInputElement | null;
+    expect(input).not.toBeNull();
+    fireEvent.change(input!, { target: { value: '100' } });
+    fireEvent.keyDown(input!, { key: 'Enter' });
+    expect(onUpdateMappingOperator).toHaveBeenCalledWith('m1', 'greater_than', '100');
+  });
+
+  it('commits operator value on blur', () => {
+    const onUpdateMappingOperator = vi.fn();
+    const capabilities = { operators: true } as Required<import('./types').AdapterCapabilities>;
+    const mappingWithOp: Mapping = { ...mapping, operator: 'less_than' as import('./types').FieldOperator, operatorValue: '10' };
+    const { container } = render(
+      <TargetTreeNode
+        node={leaf}
+        {...defaults}
+        mappings={[mappingWithOp]}
+        capabilities={capabilities}
+        onUpdateMappingOperator={onUpdateMappingOperator}
+      />,
+    );
+    fireEvent.click(container.querySelector('.dm-operator-value-display')!);
+    const input = container.querySelector('.dm-operator-value-input') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '20' } });
+    fireEvent.blur(input);
+    expect(onUpdateMappingOperator).toHaveBeenCalledWith('m1', 'less_than', '20');
+  });
+
+  it('cancels operator value edit on Escape', () => {
+    const onUpdateMappingOperator = vi.fn();
+    const capabilities = { operators: true } as Required<import('./types').AdapterCapabilities>;
+    const mappingWithOp: Mapping = { ...mapping, operator: 'greater_than' as import('./types').FieldOperator, operatorValue: '50' };
+    const { container } = render(
+      <TargetTreeNode
+        node={leaf}
+        {...defaults}
+        mappings={[mappingWithOp]}
+        capabilities={capabilities}
+        onUpdateMappingOperator={onUpdateMappingOperator}
+      />,
+    );
+    fireEvent.click(container.querySelector('.dm-operator-value-display')!);
+    const input = container.querySelector('.dm-operator-value-input') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '999' } });
+    fireEvent.keyDown(input, { key: 'Escape' });
+    expect(onUpdateMappingOperator).not.toHaveBeenCalled();
+  });
+
+  it('renders unordered array toggle badge', () => {
+    const arrayNode: JsonTreeNode = {
+      key: 'items',
+      path: 'items',
+      type: 'array',
+      value: undefined,
+      children: [{ key: '0', path: 'items[0]', type: 'object', value: undefined, children: [] }],
+    };
+    const onToggleUnorderedArray = vi.fn();
+    render(
+      <TargetTreeNode
+        node={arrayNode}
+        {...defaults}
+        onToggleUnorderedArray={onToggleUnorderedArray}
+        unorderedDefault={false}
+      />,
+    );
+    const badge = screen.getByText('↕ ordered');
+    expect(badge).toBeTruthy();
+    fireEvent.click(badge);
+    expect(onToggleUnorderedArray).toHaveBeenCalledWith('items');
+  });
+
+  it('renders unordered badge when unorderedDefault is true', () => {
+    const arrayNode: JsonTreeNode = {
+      key: 'items',
+      path: 'items',
+      type: 'array',
+      value: undefined,
+      children: [{ key: '0', path: 'items[0]', type: 'object', value: undefined, children: [] }],
+    };
+    render(
+      <TargetTreeNode
+        node={arrayNode}
+        {...defaults}
+        onToggleUnorderedArray={vi.fn()}
+        unorderedDefault={true}
+      />,
+    );
+    expect(screen.getByText('⟳ unordered')).toBeTruthy();
+  });
+
+  it('renders mismatch badge with quick fix', () => {
+    const onQuickFix = vi.fn();
+    const mismatch: TypeMismatch = {
+      mappingId: 'm1',
+      sourcePath: 'name',
+      sourceType: 'number',
+      targetType: 'string',
+      message: 'Type mismatch: number → string',
+      severity: 'warning',
+      suggestedFix: '$toString($.name)',
+    };
+    const { container } = render(
+      <TargetTreeNode
+        node={leaf}
+        {...defaults}
+        mappings={[mapping]}
+        typeMismatches={[mismatch]}
+        onQuickFix={onQuickFix}
+      />,
+    );
+    const badge = container.querySelector('.dm-mismatch-badge');
+    expect(badge).not.toBeNull();
+    fireEvent.click(badge!);
+    expect(onQuickFix).toHaveBeenCalledWith('m1', '$toString($.name)');
+  });
+
+  it('renders non-interactive mismatch badge when no quick fix', () => {
+    const mismatch: TypeMismatch = {
+      mappingId: 'm1',
+      sourcePath: 'name',
+      sourceType: 'number',
+      targetType: 'object',
+      message: 'Type mismatch: number → object',
+      severity: 'error',
+    };
+    const { container } = render(
+      <TargetTreeNode
+        node={leaf}
+        {...defaults}
+        mappings={[mapping]}
+        typeMismatches={[mismatch]}
+      />,
+    );
+    const badge = container.querySelector('.dm-mismatch-badge');
+    expect(badge).not.toBeNull();
+    expect(badge!.tagName.toLowerCase()).toBe('span');
+  });
+
+  it('shows source path for non-operator mapped node', () => {
+    const capabilities = { operators: false } as Required<import('./types').AdapterCapabilities>;
+    render(
+      <TargetTreeNode
+        node={leaf}
+        {...defaults}
+        mappings={[mapping]}
+        capabilities={capabilities}
+      />,
+    );
+    expect(screen.getByText('name')).toBeTruthy();
+  });
+
+  it('shows source path for operator that does not need a value', () => {
+    const capabilities = { operators: true } as Required<import('./types').AdapterCapabilities>;
+    const mappingWithOp: Mapping = { ...mapping, operator: 'is_true' as import('./types').FieldOperator };
+    render(
+      <TargetTreeNode
+        node={leaf}
+        {...defaults}
+        mappings={[mappingWithOp]}
+        capabilities={capabilities}
+      />,
+    );
+    expect(screen.getByText('name')).toBeTruthy();
+  });
+});
+
+describe('TargetTreeNode – search and mapping filter', () => {
+  const filteredParent: JsonTreeNode = {
+    key: 'parent',
+    path: 'parent',
+    type: 'object',
+    value: undefined,
+    children: [
+      { key: 'mappedChild', path: 'parent.mappedChild', type: 'string', value: '', children: [] },
+      { key: 'freeChild', path: 'parent.freeChild', type: 'string', value: '', children: [] },
+    ],
+  };
+
+  it('shows node when search matches target path substring (not just key)', () => {
+    const deepLeaf: JsonTreeNode = {
+      key: 'email',
+      path: 'accounts.primary.email',
+      type: 'string',
+      value: '',
+      children: [],
+    };
+    render(<TargetTreeNode node={deepLeaf} {...defaults} search="accounts" />);
+    expect(screen.getByText('email')).toBeTruthy();
+  });
+
+  it('shows node when search matches primitive default value text', () => {
+    const withValue: JsonTreeNode = {
+      key: 'token',
+      path: 'token',
+      type: 'string',
+      value: 'Bearer abc123xyz',
+      children: [],
+    };
+    render(<TargetTreeNode node={withValue} {...defaults} search="abc123" />);
+    expect(screen.getByText('token')).toBeTruthy();
+    expect(screen.getByText(/abc123/)).toBeTruthy();
+  });
+
+  it('shows only mapped branches when mappingFilter is mapped', () => {
+    const mappings: Mapping[] = [
+      { id: 'mx', sourcePath: 'src', sourceId: 's1', targetPath: 'parent.mappedChild' },
+    ];
+    const mappedPaths = new Set(['parent.mappedChild']);
+    const expandedPaths = new Set(['__root__', 'parent']);
+    render(
+      <TargetTreeNode
+        node={filteredParent}
+        {...defaults}
+        mappings={mappings}
+        mappingFilter="mapped"
+        mappedTargetPaths={mappedPaths}
+        expandedPaths={expandedPaths}
+      />,
+    );
+    expect(screen.getByText('mappedChild')).toBeTruthy();
+    expect(screen.queryByText('freeChild')).toBeNull();
+  });
+
+  it('shows only unmapped branches when mappingFilter is unmapped', () => {
+    const mappings: Mapping[] = [
+      { id: 'mx', sourcePath: 'src', sourceId: 's1', targetPath: 'parent.mappedChild' },
+    ];
+    const mappedPaths = new Set(['parent.mappedChild']);
+    const expandedPaths = new Set(['__root__', 'parent']);
+    render(
+      <TargetTreeNode
+        node={filteredParent}
+        {...defaults}
+        mappings={mappings}
+        mappingFilter="unmapped"
+        mappedTargetPaths={mappedPaths}
+        expandedPaths={expandedPaths}
+      />,
+    );
+    expect(screen.getByText('freeChild')).toBeTruthy();
+    expect(screen.queryByText('mappedChild')).toBeNull();
+  });
+
+  it('shows parent when mappingFilter passes via a matching child (childMatch branch)', () => {
+    const mappings: Mapping[] = [
+      { id: 'mx', sourcePath: 'src', sourceId: 's1', targetPath: 'parent.mappedChild' },
+    ];
+    const mappedPaths = new Set(['parent.mappedChild']);
+    const expandedPaths = new Set(['__root__', 'parent']);
+    render(
+      <TargetTreeNode
+        node={filteredParent}
+        {...defaults}
+        mappings={mappings}
+        mappingFilter="mapped"
+        mappedTargetPaths={mappedPaths}
+        expandedPaths={expandedPaths}
+        search=""
+      />,
+    );
+    expect(screen.getByText('parent')).toBeTruthy();
+  });
+});
+
+describe('TargetTreeNode – field reorder drag and drop fallbacks', () => {
+  it('handleFieldDragStart sets payload on dataTransfer for reorderable leaf', () => {
+    const onReorderField = vi.fn();
+    const onTargetFieldDragStart = vi.fn();
+    render(
+      <TargetTreeNode
+        node={leaf}
+        {...defaults}
+        onReorderField={onReorderField}
+        onTargetFieldDragStart={onTargetFieldDragStart}
+      />,
+    );
+    const el = screen.getByText('userName').closest('.dm-tree-node')!;
+    const setData = vi.fn();
+    fireEvent.dragStart(el, {
+      dataTransfer: {
+        effectAllowed: 'uninitialized',
+        setData,
+        dropEffect: 'none',
+      },
+    });
+    expect(onTargetFieldDragStart).toHaveBeenCalledWith('userName');
+    expect(setData).toHaveBeenCalledWith(
+      'application/mapper-target-field',
+      JSON.stringify({ kind: 'target-field', path: 'userName' }),
+    );
+    expect(setData).toHaveBeenCalledWith(
+      'text/plain',
+      expect.stringContaining('mapper-target-field:'),
+    );
+  });
+
+  it('handleFieldDragEnd calls onTargetFieldDragEnd', () => {
+    const onReorderField = vi.fn();
+    const onTargetFieldDragEnd = vi.fn();
+    render(
+      <TargetTreeNode
+        node={leaf}
+        {...defaults}
+        onReorderField={onReorderField}
+        onTargetFieldDragEnd={onTargetFieldDragEnd}
+      />,
+    );
+    const el = screen.getByText('userName').closest('.dm-tree-node')!;
+    fireEvent.dragEnd(el);
+    expect(onTargetFieldDragEnd).toHaveBeenCalled();
+  });
+
+  it('handleDragEnter prevents default and shows drag-over styling', () => {
+    render(<TargetTreeNode node={leaf} {...defaults} />);
+    const el = screen.getByText('userName').closest('.dm-tree-node')!;
+    fireEvent.dragEnter(el, {
+      preventDefault: vi.fn(),
+      dataTransfer: { dropEffect: 'none' },
+    });
+    expect(el.className).toContain('dm-tree-node--drag-over');
+  });
+
+  it('handleDragOver sets dropEffect move when reordering target field without source drag', () => {
+    const dt = {
+      dropEffect: 'none' as DataTransfer['dropEffect'],
+      getData: () => '',
+    };
+    render(
+      <TargetTreeNode
+        node={leaf}
+        {...defaults}
+        getDraggedTargetFieldPath={() => 'email'}
+        getDraggedSource={() => null}
+      />,
+    );
+    const el = screen.getByText('userName').closest('.dm-tree-node')!;
+    fireEvent.dragOver(el, {
+      preventDefault: vi.fn(),
+      dataTransfer: dt,
+    });
+    expect(dt.dropEffect).toBe('move');
+  });
+
+  it('handleDragOver sets dropEffect link when source is being dragged', () => {
+    const dt = {
+      dropEffect: 'none' as DataTransfer['dropEffect'],
+      getData: () => '',
+    };
+    render(
+      <TargetTreeNode
+        node={leaf}
+        {...defaults}
+        getDraggedTargetFieldPath={() => 'email'}
+        getDraggedSource={() => ({ path: 'body.id', sourceId: 's1' })}
+      />,
+    );
+    const el = screen.getByText('userName').closest('.dm-tree-node')!;
+    fireEvent.dragOver(el, {
+      preventDefault: vi.fn(),
+      dataTransfer: dt,
+    });
+    expect(dt.dropEffect).toBe('link');
+  });
+
+  it('onReorderField uses text/plain prefixed target-field payload when MIME type is empty', () => {
+    const onReorderField = vi.fn();
+    const payload = JSON.stringify({ kind: 'target-field', path: 'email' });
+    render(<TargetTreeNode node={leaf} {...defaults} onReorderField={onReorderField} />);
+    const el = screen.getByText('userName').closest('.dm-tree-node')!;
+    const dt = {
+      getData: (type: string) => (type === 'text/plain' ? `mapper-target-field:${payload}` : ''),
+      dropEffect: 'none',
+    };
+    fireEvent.drop(el, { dataTransfer: dt });
+    expect(onReorderField).toHaveBeenCalledWith('email', 'userName');
+  });
+
+  it('onReorderField falls back to getDraggedTargetFieldPath when payload is missing', () => {
+    const onReorderField = vi.fn();
+    render(
+      <TargetTreeNode
+        node={leaf}
+        {...defaults}
+        onReorderField={onReorderField}
+        getDraggedTargetFieldPath={() => 'email'}
+        getDraggedSource={() => null}
+      />,
+    );
+    const el = screen.getByText('userName').closest('.dm-tree-node')!;
+    const dt = { getData: () => '', dropEffect: 'none' };
+    fireEvent.drop(el, { dataTransfer: dt });
+    expect(onReorderField).toHaveBeenCalledWith('email', 'userName');
+  });
+
+  it('does not use getDraggedTargetFieldPath fallback when getDraggedSource is active', () => {
+    const onReorderField = vi.fn();
+    const onDrop = vi.fn();
+    render(
+      <TargetTreeNode
+        node={leaf}
+        {...defaults}
+        onReorderField={onReorderField}
+        onDrop={onDrop}
+        getDraggedTargetFieldPath={() => 'email'}
+        getDraggedSource={() => ({ path: 'x', sourceId: 's1' })}
+      />,
+    );
+    const el = screen.getByText('userName').closest('.dm-tree-node')!;
+    const dt = { getData: () => '', dropEffect: 'none' };
+    fireEvent.drop(el, { dataTransfer: dt });
+    expect(onReorderField).not.toHaveBeenCalled();
+  });
+
+  it('onDrop accepts mapper-source text/plain prefix', () => {
+    const onDrop = vi.fn();
+    render(<TargetTreeNode node={leaf} {...defaults} onDrop={onDrop} />);
+    const el = screen.getByText('userName').closest('.dm-tree-node')!;
+    const raw = JSON.stringify({ path: 'items[0].id', sourceId: 's2' });
+    const dt = {
+      getData: (type: string) => (type === 'text/plain' ? `mapper-source:${raw}` : ''),
+      dropEffect: 'none',
+    };
+    fireEvent.drop(el, { dataTransfer: dt });
+    expect(onDrop).toHaveBeenCalledWith('userName', 'items[0].id', 's2');
+  });
+
+  it('onDrop falls back to getDraggedSource when transfer data is empty', () => {
+    const onDrop = vi.fn();
+    render(
+      <TargetTreeNode
+        node={leaf}
+        {...defaults}
+        onDrop={onDrop}
+        getDraggedSource={() => ({ path: 'ghost.path', sourceId: 'src-9' })}
+      />,
+    );
+    const el = screen.getByText('userName').closest('.dm-tree-node')!;
+    const dt = { getData: () => '', dropEffect: 'none' };
+    fireEvent.drop(el, { dataTransfer: dt });
+    expect(onDrop).toHaveBeenCalledWith('userName', 'ghost.path', 'src-9');
+  });
+
+  it('onDrop falls back when dataTransfer.getData is missing', () => {
+    const onDrop = vi.fn();
+    render(
+      <TargetTreeNode
+        node={leaf}
+        {...defaults}
+        onDrop={onDrop}
+        getDraggedSource={() => ({ path: 'only.fallback', sourceId: 'sZ' })}
+      />,
+    );
+    const el = screen.getByText('userName').closest('.dm-tree-node')!;
+    const dt = { dropEffect: 'none' } as unknown as DataTransfer;
+    fireEvent.drop(el, { dataTransfer: dt });
+    expect(onDrop).toHaveBeenCalledWith('userName', 'only.fallback', 'sZ');
+  });
+
+  it('onDrop tolerates getData throwing and still uses fallback source', () => {
+    const onDrop = vi.fn();
+    render(
+      <TargetTreeNode
+        node={leaf}
+        {...defaults}
+        onDrop={onDrop}
+        getDraggedSource={() => ({ path: 'safe.path', sourceId: 'sok' })}
+      />,
+    );
+    const el = screen.getByText('userName').closest('.dm-tree-node')!;
+    const dt = {
+      dropEffect: 'none',
+      getData: () => {
+        throw new Error('getData failed');
+      },
+    } as unknown as DataTransfer;
+    fireEvent.drop(el, { dataTransfer: dt });
+    expect(onDrop).toHaveBeenCalledWith('userName', 'safe.path', 'sok');
+  });
+
+  it('onReorderField tolerates getData throwing and uses target field fallback', () => {
+    const onReorderField = vi.fn();
+    render(
+      <TargetTreeNode
+        node={leaf}
+        {...defaults}
+        onReorderField={onReorderField}
+        getDraggedTargetFieldPath={() => 'email'}
+        getDraggedSource={() => null}
+      />,
+    );
+    const el = screen.getByText('userName').closest('.dm-tree-node')!;
+    const dt = {
+      dropEffect: 'none',
+      getData: () => {
+        throw new Error('getData failed');
+      },
+    } as unknown as DataTransfer;
+    fireEvent.drop(el, { dataTransfer: dt });
+    expect(onReorderField).toHaveBeenCalledWith('email', 'userName');
+  });
+
+  it('onTargetFieldDragEnd runs after successful reorder drop', () => {
+    const onReorderField = vi.fn();
+    const onTargetFieldDragEnd = vi.fn();
+    render(
+      <TargetTreeNode
+        node={leaf}
+        {...defaults}
+        onReorderField={onReorderField}
+        onTargetFieldDragEnd={onTargetFieldDragEnd}
+      />,
+    );
+    const el = screen.getByText('userName').closest('.dm-tree-node')!;
+    const dt = {
+      getData: (type: string) => (type === 'application/mapper-target-field'
+        ? JSON.stringify({ kind: 'target-field', path: 'email' })
+        : ''),
+      dropEffect: 'none',
+    };
+    fireEvent.drop(el, { dataTransfer: dt });
+    expect(onTargetFieldDragEnd).toHaveBeenCalled();
+  });
+});
+
+describe('TargetTreeNode – rename submit edge cases', () => {
+  const customLeaf: JsonTreeNode = { key: 'myField', path: 'myField', type: 'string', value: undefined, children: [] };
+
+  it('rename blur with blank trimmed value closes without update', () => {
+    const fieldOrigins = new Map([['myField', 'custom' as const]]);
+    const onUpdate = vi.fn();
+    render(
+      <TargetTreeNode
+        node={customLeaf}
+        {...defaults}
+        fieldOrigins={fieldOrigins}
+        onUpdateCustomField={onUpdate}
+      />,
+    );
+    fireEvent.doubleClick(screen.getByText('myField').closest('.dm-tree-node')!);
+    const input = screen.getByLabelText('Rename field');
+    fireEvent.change(input, { target: { value: '   ' } });
+    fireEvent.blur(input);
+    expect(onUpdate).not.toHaveBeenCalled();
+  });
+
+  it('rename uses tail segment as label when path contains dots', () => {
+    const fieldOrigins = new Map([['myField', 'custom' as const]]);
+    const onUpdate = vi.fn();
+    render(
+      <TargetTreeNode
+        node={customLeaf}
+        {...defaults}
+        fieldOrigins={fieldOrigins}
+        onUpdateCustomField={onUpdate}
+      />,
+    );
+    fireEvent.doubleClick(screen.getByText('myField').closest('.dm-tree-node')!);
+    const input = screen.getByLabelText('Rename field');
+    fireEvent.change(input, { target: { value: 'parent.child.tail' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(onUpdate).toHaveBeenCalledWith(
+      'myField',
+      expect.objectContaining({ path: 'parent.child.tail', label: 'tail' }),
+    );
+  });
+});
+
+describe('TargetTreeNode – operator picker coverage', () => {
+  const capabilities = { operators: true } as Required<import('./types').AdapterCapabilities>;
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  it('closes operator picker on outside mousedown after delayed listener', async () => {
+    const onUpdateMappingOperator = vi.fn();
+    render(
+      <TargetTreeNode
+        node={leaf}
+        {...defaults}
+        mappings={[mapping]}
+        capabilities={capabilities}
+        onUpdateMappingOperator={onUpdateMappingOperator}
+      />,
+    );
+    fireEvent.click(screen.getByLabelText('Change operator from equals'));
+    expect(document.querySelector('.dm-operator-picker')).not.toBeNull();
+
+    await act(async () => {
+      vi.advanceTimersByTime(50);
+    });
+    fireEvent.mouseDown(document.body);
+    expect(document.querySelector('.dm-operator-picker')).toBeNull();
+  });
+
+  it('filters operators by search text (label and category)', async () => {
+    const onUpdateMappingOperator = vi.fn();
+    render(
+      <TargetTreeNode
+        node={leaf}
+        {...defaults}
+        mappings={[mapping]}
+        capabilities={capabilities}
+        onUpdateMappingOperator={onUpdateMappingOperator}
+      />,
+    );
+    fireEvent.click(screen.getByLabelText('Change operator from equals'));
+    const search = document.querySelector('.dm-op-picker-search') as HTMLInputElement;
+    fireEvent.change(search, { target: { value: 'between' } });
+    expect(screen.getByText('between')).toBeTruthy();
+    expect(screen.queryByText('contains')).toBeNull();
+
+    fireEvent.change(search, { target: { value: 'string' } });
+    expect(screen.getByText('String')).toBeTruthy();
+    expect(screen.getByText('contains')).toBeTruthy();
+  });
+
+  it('shows empty state when no operators match search', () => {
+    const onUpdateMappingOperator = vi.fn();
+    render(
+      <TargetTreeNode
+        node={leaf}
+        {...defaults}
+        mappings={[mapping]}
+        capabilities={capabilities}
+        onUpdateMappingOperator={onUpdateMappingOperator}
+      />,
+    );
+    fireEvent.click(screen.getByLabelText('Change operator from equals'));
+    const search = document.querySelector('.dm-op-picker-search') as HTMLInputElement;
+    fireEvent.change(search, { target: { value: '__no_such_operator__' } });
+    expect(screen.getByText('No matching operators')).toBeTruthy();
+  });
+
+  it('selecting equals clears operator to undefined', () => {
+    const onUpdateMappingOperator = vi.fn();
+    const mappingWithOp: Mapping = {
+      ...mapping,
+      operator: 'greater_than' as import('./types').FieldOperator,
+      operatorValue: '9',
+    };
+    render(
+      <TargetTreeNode
+        node={leaf}
+        {...defaults}
+        mappings={[mappingWithOp]}
+        capabilities={capabilities}
+        onUpdateMappingOperator={onUpdateMappingOperator}
+      />,
+    );
+    fireEvent.click(screen.getByLabelText('Change operator from greater than'));
+    const listEq = screen.getByRole('listbox', { name: 'Operators' });
+    fireEvent.click(within(listEq).getByText('equals', { exact: true }));
+    expect(onUpdateMappingOperator).toHaveBeenCalledWith('m1', undefined, undefined);
+  });
+
+  it('selecting needsValue operator preserves prior operatorValue', () => {
+    const onUpdateMappingOperator = vi.fn();
+    const mappingWithOp: Mapping = {
+      ...mapping,
+      operator: 'greater_than' as import('./types').FieldOperator,
+      operatorValue: '42',
+    };
+    render(
+      <TargetTreeNode
+        node={leaf}
+        {...defaults}
+        mappings={[mappingWithOp]}
+        capabilities={capabilities}
+        onUpdateMappingOperator={onUpdateMappingOperator}
+      />,
+    );
+    fireEvent.click(screen.getByLabelText('Change operator from greater than'));
+    const listLt = screen.getByRole('listbox', { name: 'Operators' });
+    fireEvent.click(within(listLt).getByText('less than', { exact: true }));
+    expect(onUpdateMappingOperator).toHaveBeenCalledWith('m1', 'less_than', '42');
+  });
+
+  it('double-click on operator pill does not open expression editor', () => {
+    const onEditExpression = vi.fn();
+    const onUpdateMappingOperator = vi.fn();
+    render(
+      <TargetTreeNode
+        node={leaf}
+        {...defaults}
+        mappings={[mapping]}
+        capabilities={capabilities}
+        onUpdateMappingOperator={onUpdateMappingOperator}
+        onEditExpression={onEditExpression}
+      />,
+    );
+    const pill = screen.getByLabelText('Change operator from equals');
+    fireEvent.doubleClick(pill);
+    expect(onEditExpression).not.toHaveBeenCalled();
+  });
+
+  it('positions picker using dm-panel-wrapper rect when nested under dm-body', () => {
+    const onUpdateMappingOperator = vi.fn();
+    const inner = (
+      <div className="dm-body">
+        <div className="dm-panel-wrapper" data-testid="wrapper">
+          <TargetTreeNode
+            node={leaf}
+            {...defaults}
+            mappings={[mapping]}
+            capabilities={capabilities}
+            onUpdateMappingOperator={onUpdateMappingOperator}
+          />
+        </div>
+      </div>
+    );
+    const { getByTestId } = render(inner);
+    const spy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function mockRect(
+      this: HTMLElement,
+    ): DOMRect {
+      if (this.classList.contains('dm-panel-wrapper')) {
+        return new DOMRect(12, 0, 50, 400);
+      }
+      if (this.classList.contains('dm-operator-pill')) {
+        return new DOMRect(200, 50, 60, 20);
+      }
+      return new DOMRect(0, 0, 1200, 800);
+    });
+    vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(900);
+
+    fireEvent.click(screen.getByLabelText('Change operator from equals'));
+    const picker = document.querySelector('.dm-operator-picker') as HTMLElement | null;
+    expect(picker).not.toBeNull();
+    expect(picker!.style.position).toBe('fixed');
+
+    spy.mockRestore();
+    expect(getByTestId('wrapper')).toBeTruthy();
+  });
+
+  it('adds picker--up modifier when viewport has little space below pill', () => {
+    const onUpdateMappingOperator = vi.fn();
+    render(
+      <TargetTreeNode
+        node={leaf}
+        {...defaults}
+        mappings={[mapping]}
+        capabilities={capabilities}
+        onUpdateMappingOperator={onUpdateMappingOperator}
+      />,
+    );
+    const spy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function mockLowSpace(
+      this: HTMLElement,
+    ): DOMRect {
+      if (this.classList.contains('dm-operator-pill')) {
+        return new DOMRect(48, 280, 64, 24);
+      }
+      return new DOMRect(0, 0, 800, 600);
+    });
+    vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(520);
+
+    fireEvent.click(screen.getByLabelText('Change operator from equals'));
+    const picker = document.querySelector('.dm-operator-picker');
+    expect(picker!.classList).toContain('dm-operator-picker--up');
+
+    spy.mockRestore();
+  });
+
+  it('double-click on mapped badge area opens expression editor when operators are off', () => {
+    const onEditExpression = vi.fn();
+    const capabilities = { operators: false } as Required<import('./types').AdapterCapabilities>;
+    const { container } = render(
+      <TargetTreeNode
+        node={leaf}
+        {...defaults}
+        mappings={[mapping]}
+        capabilities={capabilities}
+        onEditExpression={onEditExpression}
+      />,
+    );
+    const refEl = container.querySelector('.dm-mapped-src-ref')!;
+    fireEvent.doubleClick(refEl);
+    expect(onEditExpression).toHaveBeenCalledWith('m1');
+  });
+
+  it('shows source path in value slot when needsValue operator has empty operatorValue', () => {
+    const onUpdateMappingOperator = vi.fn();
+    const mappingWithOp: Mapping = {
+      ...mapping,
+      operator: 'contains' as import('./types').FieldOperator,
+      operatorValue: '',
+    };
+    const { container } = render(
+      <TargetTreeNode
+        node={leaf}
+        {...defaults}
+        mappings={[mappingWithOp]}
+        capabilities={capabilities}
+        onUpdateMappingOperator={onUpdateMappingOperator}
+      />,
+    );
+    const display = container.querySelector('.dm-operator-value-display');
+    expect(display?.textContent).toBe('name');
+  });
+
+  it('operator value input click does not bubble to tree row select handler', () => {
+    const onUpdateMappingOperator = vi.fn();
+    const onSelectMapping = vi.fn();
+    const mappingWithOp: Mapping = {
+      ...mapping,
+      operator: 'greater_than' as import('./types').FieldOperator,
+      operatorValue: '5',
+    };
+    const { container } = render(
+      <TargetTreeNode
+        node={leaf}
+        {...defaults}
+        mappings={[mappingWithOp]}
+        capabilities={capabilities}
+        onUpdateMappingOperator={onUpdateMappingOperator}
+        onSelectMapping={onSelectMapping}
+        selectedMappingId={null}
+      />,
+    );
+    fireEvent.click(container.querySelector('.dm-operator-value-display')!);
+    const input = container.querySelector('.dm-operator-value-input') as HTMLInputElement;
+    onSelectMapping.mockClear();
+    fireEvent.click(input);
+    expect(onSelectMapping).not.toHaveBeenCalled();
+  });
+});
+
+describe('TargetTreeNode – custom field removal and tree chrome', () => {
+  const customLeaf: JsonTreeNode = { key: 'extra', path: 'extra', type: 'string', value: undefined, children: [] };
+
+  it('calls onRemoveCustomField when remove field button is clicked', () => {
+    const fieldOrigins = new Map([['extra', 'fetched' as const]]);
+    const onRemoveCustomField = vi.fn();
+    const { container } = render(
+      <TargetTreeNode
+        node={customLeaf}
+        {...defaults}
+        fieldOrigins={fieldOrigins}
+        onRemoveCustomField={onRemoveCustomField}
+      />,
+    );
+    const btn = container.querySelector('.dm-inline-remove--field')!;
+    fireEvent.click(btn);
+    expect(onRemoveCustomField).toHaveBeenCalledWith('extra');
+  });
+
+  it('renders expanded children container for nested expanded node', () => {
+    const { container } = render(<TargetTreeNode node={nested} {...defaults} />);
+    const childrenWrap = container.querySelector('.dm-tree-children');
+    expect(childrenWrap).not.toBeNull();
+    expect(childrenWrap!.querySelectorAll('.dm-tree-node').length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('renders node count badge when parent is collapsed', () => {
+    const collapsed = { ...defaults, expandedPaths: new Set<string>() };
+    const { container } = render(<TargetTreeNode node={nested} {...collapsed} />);
+    const count = container.querySelector('.dm-node-count');
+    expect(count?.textContent).toBe('2');
   });
 });

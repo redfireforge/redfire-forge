@@ -1,5 +1,6 @@
 /** @vitest-environment jsdom */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import '@testing-library/jest-dom';
 import { render, screen, fireEvent, act } from '@testing-library/react';
 import * as JsonTreeModel from '../../utils/jsonTreeModel';
 import ExpressionEditorModal from './ExpressionEditorModal';
@@ -63,6 +64,7 @@ function createFakeEditor(
   const model = {
     getValue: () => modelValue.current,
     setValue: (v: string) => { modelValue.current = v; },
+    getValueInRange: () => '',
   };
   const commands = new Map<number, () => void>();
   const defaultRange = () => ({
@@ -79,6 +81,7 @@ function createFakeEditor(
     },
     executeEdits: vi.fn(),
     focus: vi.fn(),
+    trigger: vi.fn(),
     addCommand: vi.fn((keybinding: number, handler: () => void) => {
       commands.set(keybinding, handler);
     }),
@@ -255,10 +258,16 @@ describe('ExpressionEditorModal', () => {
     expect(props.onCancel).toHaveBeenCalledTimes(1);
   });
 
-  it('calls onCancel when close button clicked', () => {
+  it('calls onCancel when Cancel button clicked', () => {
     const { props } = renderModal();
-    fireEvent.click(screen.getByLabelText('Close expression editor'));
+    fireEvent.click(screen.getByText('Cancel'));
     expect(props.onCancel).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders undo and redo buttons in header', () => {
+    renderModal();
+    expect(screen.getByLabelText('Undo')).toBeTruthy();
+    expect(screen.getByLabelText('Redo')).toBeTruthy();
   });
 
   it('renders function catalog with categories', () => {
@@ -279,9 +288,10 @@ describe('ExpressionEditorModal', () => {
   it('inserts function template when clicked', async () => {
     renderModal();
     await flushMonacoMount();
-    fireEvent.click(screen.getByText('$upper'));
-    const text = monacoTestState.lastEditor?.executeEdits.mock.calls[0]?.[1]?.[0]?.text ?? '';
-    expect(text).toContain('$upper(');
+    await act(async () => { fireEvent.click(screen.getByText('$upper')); });
+    const editorTextarea = screen.getByTestId('monaco-editor') as HTMLTextAreaElement;
+    expect(editorTextarea.value).toContain('$upper(');
+    expect(editorTextarea.value).toContain('name');
   });
 
   it('filters functions by category', () => {
@@ -313,9 +323,9 @@ describe('ExpressionEditorModal', () => {
   it('inserts function template using source-path reference', async () => {
     renderModal();
     await flushMonacoMount();
-    fireEvent.click(screen.getByText('Parse number'));
-    const inserted = monacoTestState.lastEditor?.executeEdits.mock.calls[0]?.[1]?.[0]?.text ?? '';
-    expect(inserted).toContain('$parseFloat($.name)');
+    await act(async () => { fireEvent.click(screen.getByText('Parse number')); });
+    const editorTextarea = screen.getByTestId('monaco-editor') as HTMLTextAreaElement;
+    expect(editorTextarea.value).toContain('$parseFloat($.name)');
   });
 
   it('composes template using current expression when compose mode is enabled', async () => {
@@ -323,9 +333,9 @@ describe('ExpressionEditorModal', () => {
     await flushMonacoMount();
     fireEvent.change(screen.getByLabelText('Search function templates'), { target: { value: 'Trim' } });
     fireEvent.click(screen.getByLabelText(/Compose current/));
-    fireEvent.click(screen.getByText('Trim'));
-    const inserted = monacoTestState.lastEditor?.executeEdits.mock.calls[0]?.[1]?.[0]?.text ?? '';
-    expect(inserted).toContain('$trim($trim($.name))');
+    await act(async () => { fireEvent.click(screen.getByText('Trim')); });
+    const editorTextarea = screen.getByTestId('monaco-editor') as HTMLTextAreaElement;
+    expect(editorTextarea.value).toContain('$trim($trim($.name))');
   });
 
   it('saves, applies, and deletes reusable snippets', async () => {
@@ -437,9 +447,10 @@ describe('ExpressionEditorModal – additional coverage', () => {
     renderModal();
     await flushMonacoMount();
     const fnItem = screen.getByText('$upper').closest('.dm-expr-fn-item')!;
-    fireEvent.click(fnItem);
-    const text = monacoTestState.lastEditor?.executeEdits.mock.calls[0]?.[1]?.[0]?.text ?? '';
-    expect(text).toContain('$upper(');
+    await act(async () => { fireEvent.click(fnItem); });
+    const editorTextarea = screen.getByTestId('monaco-editor') as HTMLTextAreaElement;
+    expect(editorTextarea.value).toContain('$upper(');
+    expect(editorTextarea.value).toContain('name');
   });
 });
 
@@ -652,9 +663,9 @@ describe('ExpressionEditorModal – Step-Through Debugger', () => {
     }];
     renderModal({ customFunctions: noArgFns });
     await flushMonacoMount();
-    fireEvent.click(screen.getByText('$myNoArgs'));
-    const text = monacoTestState.lastEditor?.executeEdits.mock.calls[0]?.[1]?.[0]?.text ?? '';
-    expect(text).toContain('$myNoArgs()');
+    await act(async () => { fireEvent.click(screen.getByText('$myNoArgs')); });
+    const editorTextarea = screen.getByTestId('monaco-editor') as HTMLTextAreaElement;
+    expect(editorTextarea.value).toContain('$myNoArgs()');
   });
 });
 
@@ -1002,15 +1013,15 @@ describe('ExpressionEditorModal – editor onMount and completion', () => {
     renderModal({ customFunctions: customFns });
     await act(async () => { vi.advanceTimersByTime(300); });
     await flushMonacoMount();
-    fireEvent.click(screen.getByText('noDollarFn'));
-    const text = monacoTestState.lastEditor?.executeEdits.mock.calls[0]?.[1]?.[0]?.text ?? '';
-    expect(text).toContain('$noDollarFn');
+    await act(async () => { fireEvent.click(screen.getByText('noDollarFn')); });
+    const editorTextarea = screen.getByTestId('monaco-editor') as HTMLTextAreaElement;
+    expect(editorTextarea.value).toContain('$noDollarFn');
     vi.useRealTimers();
   });
 });
 
 describe('ExpressionEditorModal – function insert with Monaco', () => {
-  it('inserts function template via executeEdits when editor is mounted', async () => {
+  it('wraps source path when editor is empty and function is clicked', async () => {
     vi.useFakeTimers();
     const onSave = vi.fn();
     render(
@@ -1024,11 +1035,10 @@ describe('ExpressionEditorModal – function insert with Monaco', () => {
     );
     await act(async () => { vi.advanceTimersByTime(300); });
     expect(monacoTestState.lastEditor).toBeTruthy();
-    fireEvent.click(screen.getByText('$upper'));
-    expect(monacoTestState.lastEditor?.executeEdits).toHaveBeenCalled();
-    const editArg = monacoTestState.lastEditor?.executeEdits.mock.calls[0]?.[1]?.[0]?.text ?? '';
-    expect(editArg).toContain('$upper');
-    expect(monacoTestState.lastEditor?.focus).toHaveBeenCalled();
+    await act(async () => { fireEvent.click(screen.getByText('$upper')); });
+    const editorTextarea = screen.getByTestId('monaco-editor') as HTMLTextAreaElement;
+    expect(editorTextarea.value).toContain('$upper(');
+    expect(editorTextarea.value).toContain('$.name');
     vi.useRealTimers();
   });
 
@@ -1186,7 +1196,7 @@ describe('ExpressionEditorModal – handleComposeWithFunction', () => {
     expect(textarea.value).toBe('$now()');
   });
 
-  it('composes function with multiple arg types', () => {
+  it('composes function with multiple arg types', async () => {
     const multiArgFn = {
       name: '$custom',
       category: 'Custom' as const,
@@ -1202,10 +1212,10 @@ describe('ExpressionEditorModal – handleComposeWithFunction', () => {
       evaluate: (v: unknown) => v,
     };
     renderModal({ customFunctions: [multiArgFn] });
-    fireEvent.click(screen.getByText('$custom'));
-    fireEvent.click(screen.getByText('Compose with current'));
+    await act(async () => { fireEvent.click(screen.getByText('$custom')); });
+    // Sidebar click wraps the current expression (name) as first arg
     const textarea = screen.getByPlaceholderText(/\$upper/) as HTMLTextAreaElement;
-    expect(textarea.value).toBe('$custom($.name, 0, false)');
+    expect(textarea.value).toBe('$custom(name, 0, false)');
   });
 
   it('compose button updates expression with function wrapping current input', async () => {
@@ -1235,7 +1245,7 @@ describe('ExpressionEditorModal – handleComposeWithFunction', () => {
     expect(textarea.value).toContain('"value"');
   });
 
-  it('composes function with unknown arg type uses arg name', () => {
+  it('composes function with unknown arg type uses arg name', async () => {
     const fn = {
       name: '$exotic',
       category: 'Custom' as const,
@@ -1250,10 +1260,10 @@ describe('ExpressionEditorModal – handleComposeWithFunction', () => {
       evaluate: (v: unknown) => v,
     };
     renderModal({ customFunctions: [fn] });
-    fireEvent.click(screen.getByText('$exotic'));
-    fireEvent.click(screen.getByText('Compose with current'));
+    await act(async () => { fireEvent.click(screen.getByText('$exotic')); });
+    // Sidebar click wraps current expression as first arg, unknown type uses arg name
     const textarea = screen.getByPlaceholderText(/\$upper/) as HTMLTextAreaElement;
-    expect(textarea.value).toBe('$exotic($.name, opts)');
+    expect(textarea.value).toBe('$exotic(name, opts)');
   });
 });
 
@@ -1295,5 +1305,105 @@ describe('ExpressionEditorModal – step debugger toggle', () => {
     fireEvent.click(screen.getByText('Step Debug'));
     expect(container.querySelector('.dm-expr-step-debugger')).toBeNull();
     vi.useRealTimers();
+  });
+});
+
+describe('ExpressionEditorModal — search, templates, expand, snippets edge cases', () => {
+  it('shows empty state when function search matches nothing', async () => {
+    renderModal();
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText('Search functions'), {
+        target: { value: '__no_such_function_xyz__' },
+      });
+    });
+    expect(screen.getByText(/No functions matching/)).toBeInTheDocument();
+  });
+
+  it('shows empty template list when template query matches nothing', async () => {
+    vi.useFakeTimers();
+    renderModal();
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText('Search function templates'), {
+        target: { value: '___nonexistent_template_query___' },
+      });
+    });
+    expect(screen.getByText('No templates match.')).toBeInTheDocument();
+    vi.useRealTimers();
+  });
+
+  it('toggles expanded overlay class when expand control clicked', () => {
+    const { container } = renderModal();
+    const overlay = container.querySelector('.dm-expr-overlay')!;
+    expect(overlay.classList.contains('dm-expr--expanded')).toBe(false);
+    fireEvent.click(screen.getByLabelText('Expand'));
+    expect(overlay.classList.contains('dm-expr--expanded')).toBe(true);
+    fireEvent.click(screen.getByLabelText('Shrink'));
+    expect(overlay.classList.contains('dm-expr--expanded')).toBe(false);
+  });
+
+  it('passes snippet id to deleteExpressionSnippet when deleting', async () => {
+    snippetStore.splice(0, snippetStore.length, {
+      id: 'snippet-delete-me',
+      name: 'To Delete',
+      expression: '$upper($.name)',
+      updatedAt: 1,
+    });
+    renderModal({ mapping: { ...baseMapping, expression: '$upper($.name)' } });
+    await act(async () => { await Promise.resolve(); });
+    await flushMonacoMount();
+    fireEvent.click(screen.getAllByText('Delete')[0]);
+    expect(deleteExpressionSnippetMock).toHaveBeenCalledWith('snippet-delete-me');
+  });
+
+  it('invokes Monaco undo/redo triggers when header buttons clicked', async () => {
+    renderModal({ mapping: { ...baseMapping, expression: '$.name' } });
+    await flushMonacoMount();
+    const editor = monacoTestState.lastEditor!;
+    fireEvent.click(screen.getByLabelText('Undo'));
+    fireEvent.click(screen.getByLabelText('Redo'));
+    expect(editor.trigger).toHaveBeenCalledWith('keyboard', 'undo', null);
+    expect(editor.trigger).toHaveBeenCalledWith('keyboard', 'redo', null);
+  });
+
+  it('filters catalog by description text', async () => {
+    renderModal();
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText('Search functions'), {
+        target: { value: 'uppercase' },
+      });
+    });
+    expect(screen.getByText('$upper')).toBeInTheDocument();
+  });
+
+  it('blocks snippet save when expression trimmed empty', async () => {
+    renderModal({ mapping: { ...baseMapping, expression: '$x' } });
+    await flushMonacoMount();
+    await act(async () => {
+      fireEvent.change(screen.getByTestId('monaco-editor'), { target: { value: '   ' } });
+    });
+    fireEvent.change(screen.getByLabelText('Snippet name'), { target: { value: 'N' } });
+    const snippetSave = document.querySelector('.dm-expr-snippet-save .dm-expr-inline-btn') as HTMLButtonElement;
+    expect(snippetSave.disabled).toBe(true);
+  });
+
+  it('compose with boolean arg inserts false placeholder', async () => {
+    const fn = {
+      name: '$flagWrap',
+      category: 'Custom' as const,
+      signature: '$flagWrap(text, enabled)',
+      description: 'Wrap',
+      args: [
+        { name: 'text', type: 'string', required: true, description: '' },
+        { name: 'enabled', type: 'boolean', required: true, description: '' },
+      ],
+      returnType: 'string' as const,
+      examples: [],
+      evaluate: () => '',
+    };
+    renderModal({ mapping: { ...baseMapping, expression: '$.name' }, customFunctions: [fn] });
+    await act(async () => { fireEvent.click(screen.getByText('$flagWrap')); });
+    fireEvent.click(screen.getByText('Compose with current'));
+    const ta = screen.getByPlaceholderText(/\$upper/) as HTMLTextAreaElement;
+    expect(ta.value).toContain('$flagWrap($.name, false)');
   });
 });
