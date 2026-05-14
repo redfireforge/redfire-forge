@@ -106,6 +106,18 @@
   </table>
 </div>
 
+<h2>Part — Validation &amp; Assertions</h2>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">7</div><div class="step-title">Validation with Operators</div></div>
+  <p>In Step 3's test (comments), switch to the <strong>Validation</strong> tab and open Visual Mapper. Use the operator picker on target fields to set operators like <code>exists</code>, <code>contains</code>, <code>regex</code>. Each operator shows a color-coded pill: green (equality), amber (comparison), purple (string), gray (existence).</p>
+</div>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">8</div><div class="step-title">Verify Rules</div></div>
+  <p>Click <strong>Verify All</strong> in the toolbar. Each rule shows inline pass/fail badges. Use the <strong>Fetch &amp; Verify</strong> button to send a live request and verify against the actual response.</p>
+</div>
+
 <h2>Full Chain Summary</h2>
 <pre>
 Request 1: GET /users/3
@@ -126,6 +138,8 @@ Request 3: GET /comments?postId={{postId}}  ← postId=21 from Request 2
   <tr><td>Array element extraction</td><td>Steps 4, 6 — <code>$[0].id</code>, <code>$[0].email</code></td></tr>
   <tr><td>Variable chaining across requests</td><td>Steps 3, 5 — <code>{{userId}}</code>, <code>{{postId}}</code> in URLs</td></tr>
   <tr><td>Regex assertion</td><td>Step 5 — email pattern validation</td></tr>
+  <tr><td>Validation with operators</td><td>Step 7 — operator picker, color-coded pills</td></tr>
+  <tr><td>Verify rules</td><td>Step 8 — Verify All, Fetch &amp; Verify</td></tr>
 </table>
 
 <div class="callout callout-tip">

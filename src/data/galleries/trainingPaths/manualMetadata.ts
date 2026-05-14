@@ -306,13 +306,15 @@ export const manualMetadata: ManualMetadata[] = [
   // ============================================================================
   // Data Mapper
   // ============================================================================
-  { manualPath: 'data-mapper/data-mapper-basics-easy.html', addedAt: date('2026-05-10') },
-  { manualPath: 'data-mapper/data-mapper-expressions-medium.html', addedAt: date('2026-05-10') },
-  { manualPath: 'data-mapper/data-mapper-arrays-medium.html', addedAt: date('2026-05-10') },
-  { manualPath: 'data-mapper/data-mapper-workflow-advanced.html', addedAt: date('2026-05-10') },
-  { manualPath: 'data-mapper/data-mapper-target-schema-medium.html', addedAt: date('2026-05-11') },
-  { manualPath: 'data-mapper/data-mapper-schema-drift-advanced.html', addedAt: date('2026-05-11') },
-  { manualPath: 'data-mapper/data-mapper-debugger-advanced.html', addedAt: date('2026-05-11') },
+  { manualPath: 'data-mapper/data-mapper-basics-easy.html', addedAt: date('2026-05-10'), updatedAt: date('2026-05-14'), changeNote: 'Added keyboard navigation, hover-to-highlight, and line visibility toggle sections' },
+  { manualPath: 'data-mapper/data-mapper-expressions-medium.html', addedAt: date('2026-05-10'), updatedAt: date('2026-05-14'), changeNote: 'Added expression editor (125 functions) and mapping profiles sections' },
+  { manualPath: 'data-mapper/data-mapper-arrays-medium.html', addedAt: date('2026-05-10'), updatedAt: date('2026-05-14'), changeNote: 'Added validation operators and verify rules sections' },
+  { manualPath: 'data-mapper/data-mapper-workflow-advanced.html', addedAt: date('2026-05-10'), updatedAt: date('2026-05-14'), changeNote: 'Added operator selection, code mode, and verify scope sections' },
+  { manualPath: 'data-mapper/data-mapper-target-schema-medium.html', addedAt: date('2026-05-11'), updatedAt: date('2026-05-14'), changeNote: 'Added field operators, DSL code editor, floating editor, verify & failure navigation sections' },
+  { manualPath: 'data-mapper/data-mapper-schema-drift-advanced.html', addedAt: date('2026-05-11'), updatedAt: date('2026-05-14'), changeNote: 'Added schema contract (strict/lenient) and type mismatch auto-fix sections' },
+  { manualPath: 'data-mapper/data-mapper-debugger-advanced.html', addedAt: date('2026-05-11'), updatedAt: date('2026-05-14'), changeNote: 'Added keyboard navigation, hover-highlight, mapping profiles, and Code vs Rules distinction' },
+  { manualPath: 'data-mapper/data-mapper-operators-dsl-advanced.html', addedAt: date('2026-05-14') },
+  { manualPath: 'data-mapper/data-mapper-custom-assertions-advanced.html', addedAt: date('2026-05-14') },
 ];
 
 /** Map of manualPath -> ManualMetadata for fast lookup */

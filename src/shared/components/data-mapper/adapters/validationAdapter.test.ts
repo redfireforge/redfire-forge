@@ -151,8 +151,8 @@ describe('serialize — include mode', () => {
     const result = adapter.serialize(mappings);
     expect(result.selectiveMode).toBe('include');
     expect(result.expectedFields).toEqual([
-      { jsonPath: 'data.id', expectedValue: '42', operator: 'exists' },
-      { jsonPath: 'data.name', expectedValue: 'Alice', operator: 'exists' },
+      { jsonPath: 'data.id', expectedValue: '42' },
+      { jsonPath: 'data.name', expectedValue: 'Alice' },
     ]);
     expect(result.excludedPaths).toEqual([]);
   });
@@ -179,7 +179,7 @@ describe('serialize — include mode', () => {
     ];
     const result = adapter.serialize(mappings);
     expect(result.expectedFields).toEqual([
-      { jsonPath: 'offers[0].code', expectedValue: 'A', operator: 'exists' },
+      { jsonPath: 'offers[0].code', expectedValue: 'A' },
     ]);
   });
 });
@@ -687,17 +687,19 @@ describe('validationAdapter — operator round-trip', () => {
     expect(output.expectedFields[1].operatorValue).toBe('Star');
   });
 
-  it('serialize applies autoMapDefaultOperator when mapping has no explicit operator', () => {
+  it('serialize applies autoMapDefaultOperator only to auto-mapped fields', () => {
     const adapter = createValidationAdapter({
-      sampleResponseBody: { name: 'Alice' },
+      sampleResponseBody: { name: 'Alice', age: '30' },
       selectiveMode: 'include',
     });
     const mappings = [
-      { id: 'v1', sourceId: 'response', sourcePath: 'name', targetPath: 'name' },
+      { id: 'v1', sourceId: 'response', sourcePath: 'name', targetPath: 'name', isAutoMapped: true },
+      { id: 'v2', sourceId: 'response', sourcePath: 'age', targetPath: 'age' },
     ];
     const output = adapter.serialize(mappings);
     expect(output.expectedFields[0].operator).toBe('exists');
     expect(output.expectedFields[0].operatorValue).toBeUndefined();
+    expect(output.expectedFields[1].operator).toBeUndefined();
   });
 
   it('serialize resolves expectedValue from expression ref when expression is set', () => {

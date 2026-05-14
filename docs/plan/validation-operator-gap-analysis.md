@@ -1,7 +1,8 @@
 # Validation & Assertion Operator Gap Analysis
 
-> Date: 2026-05-13
+> Date: 2026-05-14
 > Purpose: Benchmark RedfireForge against commercial and open-source API testing tools for validation operators, assertion types, and expression functions.
+> Last updated: 2026-05-14 — Added module architecture section reflecting validator/DataMapper refactoring, floating DSL editor, and 16,356-test quality gate.
 
 ---
 
@@ -17,18 +18,20 @@ RedfireForge scores **100% on the competitive feature matrix** (33 of 33 capabil
 | FieldOperator values | 0 | 24 |
 | Competitive coverage | 21% (7/33) | 100% (33/33) |
 | Industry ranking | 12th of 12 | 1st of 12 |
-| Authoring modes | Visual only | Visual + Code DSL (bi-directional) |
+| Authoring modes | Visual only | Visual + Code DSL (bi-directional + floating) |
 
 ### Unique Differentiators
 
 RedfireForge is the only tool offering all of these in a single platform:
-- **Unified visual mapper** reused across 11+ integration contexts
+- **Unified visual mapper** reused across 10 integration contexts
 - **Bi-directional visual ↔ code sync** (debounced, lossless)
+- **Floating pop-out DSL editor** — drag, resize, and dock back
 - **Auto-verify on change** with per-rule inline pass/fail
 - **125-function expression engine** with lambda/closure support
 - **Custom predicate functions** via `ASSERT` keyword
 - **Universal negation** on any assertion
 - **Type mismatch detection** with auto-fix suggestions
+- **Modular validator architecture** — extracted into focused, testable modules
 
 ---
 
@@ -170,22 +173,21 @@ Covers pairwise coercions: `string↔number`, `string↔boolean`, `string↔arra
 
 ### 4.1 Guiding Principle
 
-The Visual Mapper is a **single, shared visual authoring surface** used across 11+ integration contexts. All operator and expression enhancements are universally applicable — or cleanly gated behind adapter capabilities — keeping the mapper cohesive regardless of where it's embedded.
+The Visual Mapper is a **single, shared visual authoring surface** used across 10 integration contexts. All operator and expression enhancements are universally applicable — or cleanly gated behind adapter capabilities — keeping the mapper cohesive regardless of where it's embedded.
 
-### 4.2 Adapter Inventory (11 adapters)
+### 4.2 Adapter Inventory (10 adapters)
 
 | Adapter | Context | Source → Target | Category |
 |---|---|---|---|
 | `validationAdapter` | Body validation rules | Response JSON → Expected fields | `http` |
 | `extractionAdapter` | Variable extraction | Response JSON → Variable names | `http` |
-| `requestBodyAdapter` | Request body building | Variables/Generators → JSON body | `http` |
+| `requestBodyAdapter` | Request body building (JSON/Form/Raw) | Variables/Generators → Body template | `http` |
 | `assertionAdapter` | Regex assertion | Response JSON → Regex pattern | `http` |
 | `columnMappingAdapter` | Data source ↔ template | CSV columns → Request slots | `data-source` |
 | `populateFromApiAdapter` | Populate data source | API response → DS columns/rows | `data-source` |
 | `sharedDsFetchAdapter` | Shared data source fetch | API response → DS columns/rows | `data-source` |
 | `variableBindingAdapter` | Workflow variable wiring | Upstream variables → Template slots | `workflow` |
 | `webhookExtractionAdapter` | Webhook/correlation extraction | Webhook payload → Variables | `webhook` |
-| `requestBodyAdapter` (Form) | Form body building | Variables → Form key/value pairs | `http` |
 | `demoAdapter` | Sandbox/gallery demos | Sample API → Order summary | `custom` |
 
 ### 4.3 Where Each Adapter Is Used
@@ -212,8 +214,8 @@ The Visual Mapper is a **single, shared visual authoring surface** used across 1
 | **extractionAdapter** | — | — | — | ✓ | — | ✓ | ✓ | ✓ |
 | **requestBodyAdapter** | — | — | — | ✓ | — | ✓ | ✓ | ✓ |
 | **columnMappingAdapter** | — | — | — | — | — | partial | — | — |
-| **populateFromApiAdapter** | — | — | — | — | — | planned | ✓ | — |
-| **sharedDsFetchAdapter** | — | — | — | — | — | planned | ✓ | — |
+| **populateFromApiAdapter** | — | — | — | — | — | — | ✓ | — |
+| **sharedDsFetchAdapter** | — | — | — | — | — | — | ✓ | — |
 | **variableBindingAdapter** | — | — | — | ✓ | — | ✓ | — | ✓ |
 | **webhookExtractionAdapter** | — | — | — | — | — | ✓ | — | — |
 | **assertionAdapter** | ✓ | — | — | — | ✓ | — | — | — |
@@ -316,7 +318,8 @@ offers[*].rank                    each >=          0
 | Autocomplete | Path completion from JSON tree, operator keywords, value suggestions |
 | Inline errors | Red squiggles for unknown paths, unknown operators, type mismatches |
 | Bi-directional sync | Visual edits ↔ code edits, debounced 300ms, last-write-wins on conflict |
-| Import/Export | Paste from Hurl/JSON/YAML; export as JSON array, YAML, or Hurl-style |
+| Copy & paste | Select all + copy to back up rules; paste DSL text to restore (parser validates on the fly) |
+| Floating pop-out | ↗ button opens a draggable/resizable floating Monaco window; ↙ or Escape docks back |
 
 ### 5.4 Verification Stage
 
@@ -330,7 +333,68 @@ Toolbar: `[Verify All] [Fetch & Verify] [Auto-verify ☐] 14 passed · 1 failed`
 
 ---
 
-## 6. Competitive Benchmark — Tool Details
+## 6. Module Architecture
+
+The validation and Data Mapper subsystems were refactored from monolithic files (>900 lines) into focused, testable modules. All files are under 900 lines; all have >90% code coverage.
+
+### 6.1 Validator Engine Modules
+
+| Module | Extracted From | Exports | Purpose |
+|---|---|---|---|
+| `validatorDateHelpers.ts` | `validator.ts` | `resolveDate`, `toDayString`, `truncateToUnit` | Date assertion evaluation (day compare, precision truncation) |
+| `validatorHttpHelpers.ts` | `validator.ts` | `matchesStatusPattern`, `getJsonTypeName`, `findHeader`, `evaluateHeaderOp` | HTTP-level assertion helpers (status patterns, header ops) |
+| `validatorSubsetMatch.ts` | `validator.ts` | `deepSubsetMatch` | Recursive deep partial match for `containsSubset` + `arrayContains` |
+| `validatorCustomExpression.ts` | `validator.ts` | `isTruthy`, `wrapCustomExprDollarPaths`, `DOLLAR_PATH_CHAR` | Custom `ASSERT` expression preprocessing |
+| `fieldOperatorEvaluation.ts` | `validator.ts` | `evaluateFieldOperator`, `stringify`, `toNumber` | 24-operator switch with robust serialization (circular-safe) |
+| `validator.ts` | — | `validate`, `evaluateAssertions`, re-exports above | Barrel module — orchestrates selective/full validation and all 16 assertion types |
+
+### 6.2 Data Mapper Extracted Hooks
+
+| Hook | Extracted From | Responsibility |
+|---|---|---|
+| `useBottomUtilityDock.ts` | `DataMapper.tsx` | Bottom dock mode toggles (preview, code, table, rules), floating pop-out/pop-in |
+| `useDataMapperTreeInteraction.ts` | `DataMapper.tsx` | Mouse/keyboard events for tree nodes — hover, click, keyboard navigation bridge |
+| `useHighlightedMappingPaths.ts` | `DataMapper.tsx` | Derives highlight sets (mapping IDs + source/target paths) from hover > focus > selection |
+| `useMapperVisibleLines.ts` | `DataMapper.tsx` | Filters connection lines when "node focus" or "hide lines" modes are active |
+| `useKeyboardNavigation.ts` | — (original) | Arrow keys, Tab panel switch, Home/End, proper root-node (empty path) handling |
+
+### 6.3 Test Editor Extracted Modules
+
+| Module | Extracted From | Exports |
+|---|---|---|
+| `testEditorValidationAddMenu.ts` | `TestEditorValidationTab.tsx` | `ADD_ASSERTION_MENU_ROWS` — data-driven assertion factory menu |
+| `testEditorValidationPivot.ts` | `TestEditorValidationTab.tsx` | `buildPivotedRulesFromExpectedFields`, `trailingBracketArrayIndex` — pivoted rules table model |
+
+### 6.4 Floating DSL Editor
+
+| Component | File | Description |
+|---|---|---|
+| `FloatingEditorModal` | `FloatingEditorModal.tsx` | React Portal wrapping `ValidationCodeEditor` in a draggable/resizable overlay |
+| `ValidationCodeEditor` | `ValidationCodeEditor.tsx` | Monaco-based DSL editor with ↗ pop-out / ↙ dock-back buttons, `isFloating` prop |
+
+Floating editor features:
+- **Drag handle** — top bar with "Validation Rules Editor" title
+- **Resize handle** — bottom-right corner grip
+- **Escape to close** — returns editor to docked panel
+- **Independent position/size** — persists during session, resets on close
+
+### 6.5 Quality Gate
+
+| Metric | Value |
+|---|---|
+| Unit tests | 16,356 passing |
+| E2E tests | 613 passing |
+| Test files | 576 |
+| Statement coverage | >90% (all files) |
+| Branch coverage | >90% (all files) |
+| Function coverage | >90% (all files) |
+| Monolithic files (>900 lines) | 0 |
+| ESLint errors | 0 |
+| TypeScript errors | 0 |
+
+---
+
+## 7. Competitive Benchmark — Tool Details
 
 ### 6.1 Postman (Chai.js BDD)
 
@@ -400,9 +464,9 @@ Toolbar: `[Verify All] [Fetch & Verify] [Auto-verify ☐] 14 passed · 1 failed`
 
 ---
 
-## 7. Expression Function Benchmarks
+## 8. Expression Function Benchmarks
 
-### 7.1 vs JSONata
+### 8.1 vs JSONata
 
 | Function | JSONata | RedfireForge |
 |---|---|---|
@@ -419,17 +483,17 @@ Toolbar: `[Verify All] [Fetch & Verify] [Auto-verify ☐] 14 passed · 1 failed`
 | `$assert`, `$error` | ✓ | ✓ |
 | **Coverage** | | **100%** |
 
-### 7.2 vs DataWeave
+### 8.2 vs DataWeave
 
 All core functions covered: `contains`, `endsWith`, `flatMap`, `flatten`, `groupBy`, `filter`, `map`, `mapObject`, `orderBy`, `pluck`, `reduce`, `sizeOf`, `splitBy`, `trim`, `upper`, `lower`, `replace`, `distinctBy`, `zip`.
 
 String module functions: `capitalize` ✓, `underscore` (`$snakeCase`) ✓, `isAlpha`/`isNumeric` ✓.
 
-### 7.3 vs jq
+### 8.3 vs jq
 
 All major built-in filters covered: `length`, `keys`, `values`, `has`, `to_entries`/`from_entries`/`with_entries`, `map`/`select`/`reduce`, `sort_by`/`group_by`/`unique_by`/`min_by`/`max_by`, `reverse`, `contains`, `startswith`/`endswith`, `split`/`join`, `ascii_downcase`/`ascii_upcase`, `test`/`capture`/`scan`, `tostring`/`tonumber`/`type`, `any`/`all`, `flatten`, `first`/`last`.
 
-### 7.4 Expression Gap Coverage Summary
+### 8.4 Expression Gap Coverage Summary
 
 | Category | Implemented | Total Gaps | Coverage |
 |---|---|---|---|
@@ -441,9 +505,9 @@ All major built-in filters covered: `length`, `keys`, `values`, `has`, `to_entri
 
 ---
 
-## 8. Gap Closure Summary
+## 9. Gap Closure Summary
 
-### 8.1 All 18 Gaps — Closed
+### 9.1 All 18 Gaps — Closed
 
 | GAP | Description | Severity | Phase | Status |
 |---|---|---|---|---|
@@ -466,11 +530,11 @@ All major built-in filters covered: `length`, `keys`, `values`, `has`, `to_entri
 | GAP-17 | Dual-mode authoring (visual + code DSL) | Critical | P4 | ✅ |
 | GAP-18 | Integrated live validation (verify + auto-verify) | Critical | P5 | ✅ |
 
-### 8.2 Implementation Phases
+### 9.2 Implementation Phases
 
 | Phase | Title | Key Deliverables | Status |
 |---|---|---|---|
-| P0 | Adapter Capability Framework | `AdapterCapabilities` interface, `FieldOperator` type, `resolveCapabilities()`, all 11 adapters updated | ✅ |
+| P0 | Adapter Capability Framework | `AdapterCapabilities` interface, `FieldOperator` type, `resolveCapabilities()`, all 10 adapters updated | ✅ |
 | P1 | Field Operator Foundation | 24 `FieldOperator` values, `evaluateFieldOperator()`, operator pills, 6 CSS color themes | ✅ |
 | P2 | Type & Existence Assertions | `typeCheck` + `existence` assertion types, operator picker UI | ✅ |
 | P3 | Collection & Structural Assertions | `arrayContains` (4 modes), `each`, `containsSubset`, array assertion rows | ✅ |
@@ -482,8 +546,9 @@ All major built-in filters covered: `length`, `keys`, `values`, `has`, `to_entri
 | P9.1 | Universal Negation | `negate` on `Assertion`/`ExpectedField`/`Mapping`, `NOT` DSL keyword, red toggle badge | ✅ |
 | P9.2 | Lambda Expression Syntax | Arrow-function lambdas, `LambdaValue` runtime, 25 new HOFs, comparison helpers | ✅ |
 | P9.3 | Custom Predicate Functions | `custom` assertion, `ASSERT` DSL keyword, full expression engine context | ✅ |
+| P9.4 | Validation Rules Modal | Console-style 3-mode modal (docked/floating/maximized) + DSL Reference Panel | 🔲 |
 
-### 8.3 Key Design Decisions
+### 9.3 Key Design Decisions
 
 - **`evaluateFieldOperator()` exported** — reusable by all adapters and live verification
 - **`operatorValue` with `expectedValue` fallback** — full backward compatibility
@@ -494,9 +559,269 @@ All major built-in filters covered: `length`, `keys`, `values`, `has`, `to_entri
 
 ---
 
-## 9. Future Roadmap
+### 9.4 Phase 9.4: Validation Rules Modal — Console-Style Pop-Up with DSL Reference Panel
 
-### 9.1 Near-Term (6 months)
+**Status:** 🔲 Not Started
+
+**Goal:** Replace the current bottom-dock validation rules editor with a console-style pop-up modal (matching the Workflow Console pattern) that supports three display modes (docked/floating/maximized) and includes a collapsible DSL Reference Panel alongside the editor, so users never need to memorize syntax.
+
+**Motivation:** The current bottom-dock implementation has two problems: (1) the editor competes for vertical space with the mapper canvas, making it hard to see both rules and mappings simultaneously; (2) users must memorize DSL syntax because there's no in-context reference. The Workflow Console already solves the layout problem with a 3-mode panel (docked/floating/full-screen). This phase applies the same pattern and adds a side-by-side DSL reference.
+
+---
+
+#### 9.4.0 Design Philosophy
+
+1. **Console-style 3-mode layout** — Exactly like `WorkflowConsolePanel`: docked (resizable bottom dock), floating (draggable + resizable window via `createPortal`), and maximized (full-screen, hides mapper canvas). Mode is persisted to `localStorage`.
+2. **Split-pane: Editor (left) + DSL Reference (right)** — The modal body is a horizontal split. Left pane is the Monaco DSL editor (existing `ValidationCodeEditor`). Right pane is a collapsible DSL Reference Panel with categorized syntax samples.
+3. **Reference panel toggle** — A "Reference" button in the header toggles the right pane. When hidden, the editor takes full width. State is persisted to `localStorage`.
+4. **Click-to-insert** — Each sample in the reference panel has a copy/insert button that inserts the syntax at the editor's cursor position.
+5. **Searchable reference** — A search input at the top of the reference panel filters operators/examples by keyword.
+
+---
+
+#### 9.4.1 Architecture Overview
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│ HEADER: [Title] [Rule count] [Search] [Reference ◀▶] [Mode ▾] [✕] │
+├──────────────────────────────────────────────────────────────┤
+│                          BODY                                │
+│ ┌──────────────────────────┐ ┌─────────────────────────────┐ │
+│ │                          │ │  DSL Reference Panel        │ │
+│ │  Monaco DSL Editor       │ │  ┌─────────────────────┐    │ │
+│ │  (ValidationCodeEditor)  │ │  │ 🔍 Search operators  │    │ │
+│ │                          │ │  ├─────────────────────┤    │ │
+│ │  path  operator  value   │ │  │ ▾ Field Assertions   │    │ │
+│ │  path  operator  value   │ │  │   equals  "value"   [+]│ │ │
+│ │  path  operator  value   │ │  │   contains "text"   [+]│ │ │
+│ │  ...                     │ │  │   >= 5              [+]│ │ │
+│ │                          │ │  │   is_true           [+]│ │ │
+│ │                          │ │  │ ▾ Collection         │    │ │
+│ │                          │ │  │   length >= N       [+]│ │ │
+│ │                          │ │  │   each >= N         [+]│ │ │
+│ │                          │ │  │ ▾ Type & Existence   │    │ │
+│ │                          │ │  │ ▾ Custom Predicates  │    │ │
+│ │                          │ │  │ ▾ Negation           │    │ │
+│ └──────────────────────────┘ └─────────────────────────────┘ │
+├──────────────────────────────────────────────────────────────┤
+│ FOOTER: Syntax hint · Ctrl+Space · Ctrl+G jump · # comments │
+└──────────────────────────────────────────────────────────────┘
+```
+
+**Display Modes (matching WorkflowConsolePanel):**
+
+| Mode | Behavior | CSS |
+|---|---|---|
+| **Docked** | Bottom dock inside mapper; top resize handle; 80–600px height | `vr-modal-docked` |
+| **Floating** | `position: fixed` via `createPortal`; draggable header; corner + edge resize | `vr-modal-floating` |
+| **Maximized** | Full mapper area; hides canvas via `:has()` selector | `vr-modal-maximized` |
+
+**Mode selector:** `<select>` in the header (same as Workflow Console): `⬓ Bottom` / `⧉ Floating` / `⬜ Full Screen`.
+
+---
+
+#### 9.4.2 DSL Reference Panel — Content Specification
+
+The reference panel is organized into collapsible sections with searchable entries. Each entry shows: **keyword**, **syntax template**, **example**, and an **[Insert]** button.
+
+**Section 1: Field Assertions (24 operators)**
+
+| Keyword | Syntax | Example |
+|---|---|---|
+| `equals` / `=` | `path  equals  "value"` | `offers[0].name  equals  "Premium"` |
+| `not_equals` / `!=` | `path  not_equals  "value"` | `status  !=  "inactive"` |
+| `greater_than` / `>` | `path  >  number` | `offers[0].rank  >  0` |
+| `greater_than_or_equal` / `>=` | `path  >=  number` | `count  >=  1` |
+| `less_than` / `<` | `path  <  number` | `responseTime  <  1000` |
+| `less_than_or_equal` / `<=` | `path  <=  number` | `errors.length  <=  0` |
+| `contains` | `path  contains  "text"` | `name  contains  "Star"` |
+| `not_contains` | `path  not_contains  "text"` | `msg  not_contains  "error"` |
+| `starts_with` | `path  starts_with  "prefix"` | `code  starts_with  "ON"` |
+| `ends_with` | `path  ends_with  "suffix"` | `file  ends_with  ".json"` |
+| `regex` | `path  regex  "pattern"` | `email  regex  "^.+@.+$"` |
+| `is_true` | `path  is_true` | `isActive  is_true` |
+| `is_false` | `path  is_false` | `isDeleted  is_false` |
+| `is_null` | `path  is_null` | `deletedAt  is_null` |
+| `is_not_null` | `path  is_not_null` | `createdAt  is_not_null` |
+| `is_empty` | `path  is_empty` | `errors  is_empty` |
+| `is_not_empty` | `path  is_not_empty` | `items  is_not_empty` |
+| `exists` | `path  exists` | `metadata.version  exists` |
+| `not_exists` | `path  not_exists` | `_internal  not_exists` |
+| `is_type` | `path  is_type  typename` | `rank  is_type  number` |
+| `in` | `path  in  "a", "b", "c"` | `status  in  "active", "pending"` |
+| `not_in` | `path  not_in  "a", "b"` | `role  not_in  "admin", "root"` |
+| `between` | `path  between  min, max` | `price  between  10, 100` |
+| `close_to` | `path  close_to  value, tolerance` | `lat  close_to  40.7, 0.1` |
+
+**Section 2: Collection Assertions**
+
+| Keyword | Syntax | Example |
+|---|---|---|
+| `length` | `path  length >=  N` | `offers  length >=  3` |
+| `each` | `path[*].field  each OP  value` | `offers[*].rank  each >=  0` |
+| `contains_item` | `path  contains_item  "val"` | `tags  contains_item  "vip"` |
+| `contains_any` | `path  contains_any  "a", "b"` | `roles  contains_any  "admin"` |
+| `contains_all` | `path  contains_all  "a", "b"` | `perms  contains_all  "r", "w"` |
+| `contains_only` | `path  contains_only  "a", "b"` | `flags  contains_only  "on"` |
+| `contains_none` | `path  contains_none  "a"` | `list  contains_none  "banned"` |
+| `subset` | `path  subset  {"key": ...}` | `meta  subset  {"v": 1}` |
+
+**Section 3: Type & Existence Checks**
+
+| Keyword | Syntax | Example |
+|---|---|---|
+| `is_type string` | `path  is_type  string` | `name  is_type  string` |
+| `is_type number` | `path  is_type  number` | `count  is_type  number` |
+| `is_type boolean` | `path  is_type  boolean` | `active  is_type  boolean` |
+| `is_type array` | `path  is_type  array` | `items  is_type  array` |
+| `is_type object` | `path  is_type  object` | `config  is_type  object` |
+| `is_type null` | `path  is_type  null` | `deleted  is_type  null` |
+
+**Section 4: Custom Predicates (ASSERT)**
+
+| Keyword | Syntax | Example |
+|---|---|---|
+| `ASSERT` | `ASSERT expression` | `ASSERT $gt($.body.count, 0)` |
+| `ASSERT` + desc | `ASSERT expr  // desc` | `ASSERT $gt($.body.count, 0)  // positive count` |
+
+**Section 5: Negation (NOT prefix)**
+
+| Keyword | Syntax | Example |
+|---|---|---|
+| `NOT` | `NOT path  operator  value` | `NOT status  is_null` |
+| `NOT ASSERT` | `NOT ASSERT expression` | `NOT ASSERT $isEmpty($.body)` |
+
+**Section 6: Syntax Reference**
+
+| Element | Syntax |
+|---|---|
+| Comments | `# This is a comment` |
+| Paths | `field`, `obj.field`, `arr[0].field`, `arr[*].field` |
+| String values | `"double quoted"` |
+| Numeric values | `42`, `3.14`, `-1` |
+| Boolean values | `true`, `false` |
+| Comma lists | `"a", "b", "c"` (for `in`, `not_in`) |
+| Ranges | `min, max` (for `between`) |
+
+---
+
+#### 9.4.3 Implementation Steps
+
+**Step 1: Create `ValidationRulesModal.tsx` (L)**
+
+New file: `src/shared/components/data-mapper/ValidationRulesModal.tsx`
+
+1. Implement 3-mode panel (docked/floating/maximized) matching `WorkflowConsolePanel` pattern:
+   - `mode` state: `'docked' | 'floating' | 'maximized'`
+   - Docked: resizable bottom dock (min 80px, max 600px, default 260px)
+   - Floating: `createPortal(document.body)`, draggable header, corner resize grip, right-edge resize
+   - Maximized: flex:1, hide mapper canvas via `:has()` CSS
+   - Mode persisted to `localStorage` key `vr-modal-default-mode`
+2. Header bar with: title, rule/error counts, Search toggle, Reference toggle, mode `<select>`, close button
+3. Body: horizontal split — left pane (Monaco editor), right pane (DSL Reference, collapsible)
+4. Footer: syntax hint bar (same as current `ValidationCodeEditor` footer)
+5. Props: same as current `ValidationCodeEditor` + `onClose`, `referenceVisible?`
+
+**Step 2: Create `DslReferencePanel.tsx` (M)**
+
+New file: `src/shared/components/data-mapper/DslReferencePanel.tsx`
+
+1. Searchable, categorized DSL reference from section 9.4.2 above
+2. Collapsible sections (accordion): Field, Collection, Type/Existence, Custom, Negation, Syntax
+3. Each entry: keyword (monospace, color-coded), syntax template, example, `[+]` insert button
+4. Search input filters entries across all sections by keyword/syntax/example
+5. Click-to-insert callback: `onInsert(text: string)` — inserts at Monaco cursor position
+6. Responsive: in docked mode (narrow), sections use compact layout; in floating/maximized, full layout
+
+**Step 3: Create `hooks/useValidationRulesModal.ts` (S)**
+
+New hook for modal state management:
+- `mode`, `setMode` with localStorage persistence
+- `referenceVisible`, `toggleReference` with localStorage persistence
+- `dockedHeight` with resize logic
+- `floatPos`, `floatSize` with drag/resize handlers
+- Mirrors `WorkflowConsolePanel` state management
+
+**Step 4: Update `DataMapper.tsx` Integration (M)**
+
+1. Replace `BottomUtilityDock` rules rendering with `ValidationRulesModal`
+2. Replace `FloatingEditorModal` usage with the new modal's floating mode
+3. Remove `rulesFloating` state from `useBottomUtilityDock` (modal handles its own modes)
+4. The "Rules" toolbar button now toggles `ValidationRulesModal` visibility (not bottom dock mode)
+5. When rules modal is in docked mode, it renders inside the mapper layout (same position as before)
+6. When floating/maximized, it renders via `createPortal`
+
+**Step 5: Add CSS Styles (M)**
+
+File: `src/styles/data-mapper-modal.css` (extend existing)
+
+1. `.vr-modal-panel` base styles (flex column, dark theme matching mapper)
+2. `.vr-modal-docked` — bottom dock within mapper, resize handle top
+3. `.vr-modal-floating` — fixed position, z-index 100, box-shadow, rounded corners
+4. `.vr-modal-maximized` — flex:1, `:has()` rule to hide `.dm-body`
+5. `.vr-modal-header` — header bar (matches `wf-console-header` style)
+6. `.vr-modal-body` — horizontal flexbox (editor left, reference right)
+7. `.vr-modal-split` — CSS grid or flex with configurable split ratio
+8. `.vr-reference-panel` — right pane styles (scrollable, collapsible sections)
+9. `.vr-reference-search` — search input styling
+10. `.vr-reference-section` — accordion sections with expand/collapse
+11. `.vr-reference-entry` — individual entry with keyword, syntax, example, insert button
+12. `.vr-reference-insert-btn` — insert button hover states
+13. Transition animations for reference panel show/hide (width transition)
+
+**Step 6: Unit Tests (M)**
+
+1. `ValidationRulesModal.test.tsx` — mode switching, reference toggle, resize, close
+2. `DslReferencePanel.test.tsx` — search filtering, section collapse/expand, insert callback, all entries render
+3. `useValidationRulesModal.test.ts` — localStorage persistence, mode/reference state
+
+**Step 7: Update Existing Tests (S)**
+
+1. Update `DataMapper.test.tsx` — rules modal replaces bottom dock rules mode
+2. Update any E2E tests that reference the old bottom dock rules tab
+
+**Step 8: TypeScript Check & Verification (S)**
+
+1. `npx tsc -b --noEmit` — zero errors
+2. Run all touched test files
+3. Visual verification of all 3 modes + reference panel
+
+---
+
+#### 9.4.4 Deliverable Criteria
+
+- [ ] 3-mode panel (docked/floating/maximized) with mode selector in header
+- [ ] Mode persisted to localStorage
+- [ ] Docked mode: resizable via top drag handle (80–600px)
+- [ ] Floating mode: draggable header, corner resize grip, right-edge resize
+- [ ] Maximized mode: fills mapper area, hides canvas
+- [ ] DSL Reference Panel with all 6 sections (Field, Collection, Type/Existence, Custom, Negation, Syntax)
+- [ ] Reference panel toggle (show/hide) with state persisted to localStorage
+- [ ] Search input in reference panel filters entries across all sections
+- [ ] Click-to-insert from reference entries into Monaco editor at cursor
+- [ ] Reference entries are color-coded matching the DSL syntax highlighting theme
+- [ ] Bi-directional sync preserved (no regression from current `useValidationCodeSync`)
+- [ ] All existing ValidationCodeEditor features preserved (autocomplete, error markers, path hints, Ctrl+G)
+- [ ] Keyboard shortcut: Escape closes the modal
+- [ ] Unit tests for modal, reference panel, and hook
+- [ ] TypeScript zero errors
+
+---
+
+#### 9.4.5 Risk Assessment
+
+| Risk | Mitigation |
+|---|---|
+| Monaco editor resize issues in mode transitions | Use `automaticLayout: true` + force `editor.layout()` on mode change |
+| Reference panel competes for width in narrow viewports | Collapse to icon-only in docked mode < 600px width; full layout in floating/maximized |
+| Bi-directional sync regression | Reuse existing `useValidationCodeSync` unchanged; modal is a pure UI wrapper |
+| Floating mode z-index conflicts with other modals | Use same z-index strategy as `WorkflowConsolePanel` (z-index 100) |
+
+---
+
+## 10. Future Roadmap
+
+### 10.1 Near-Term (6 months)
 
 | Function | Adapters Benefiting | Design Impact |
 |---|---|---|
@@ -507,7 +832,7 @@ All major built-in filters covered: `length`, `keys`, `values`, `has`, `to_entri
 | **Type coercion declarations** | All adapters | Explicit coercion pill |
 | **Expression templates** | All adapters | Expression library panel |
 
-### 9.2 Mid-Term (6-12 months)
+### 10.2 Mid-Term (6-12 months)
 
 | Function | Adapters Benefiting | Design Impact |
 |---|---|---|
@@ -518,7 +843,7 @@ All major built-in filters covered: `length`, `keys`, `values`, `has`, `to_entri
 | **WebSocket message mapping** | New `wsExtractionAdapter` | Similar to webhook extraction |
 | **File content mapping** | New `fileFormatAdapter` | CSV/XML/YAML → JSON |
 
-### 9.3 Long-Term (12+ months)
+### 10.3 Long-Term (12+ months)
 
 | Function | Adapters Benefiting | Design Impact |
 |---|---|---|
@@ -530,7 +855,7 @@ All major built-in filters covered: `length`, `keys`, `values`, `has`, `to_entri
 
 ---
 
-## 10. References
+## 11. References
 
 ### Commercial Tools
 - Postman: https://learning.postman.com/docs/tests-and-scripts/write-scripts/test-examples

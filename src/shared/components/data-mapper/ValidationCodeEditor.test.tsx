@@ -33,16 +33,41 @@ vi.mock('@monaco-editor/react', () => ({
 
 import ValidationCodeEditor from './ValidationCodeEditor';
 
+const noop = vi.fn();
+const noopDisposable = { dispose: noop };
+function withEditorDefaults(overrides: Record<string, unknown> = {}) {
+  return {
+    addAction: vi.fn(),
+    addCommand: vi.fn(),
+    onDidChangeModelContent: vi.fn().mockReturnValue(noopDisposable),
+    onDidChangeCursorPosition: vi.fn().mockReturnValue(noopDisposable),
+    onDidDispose: vi.fn().mockReturnValue(noopDisposable),
+    trigger: noop,
+    executeEdits: vi.fn(),
+    focus: vi.fn(),
+    getPosition: vi.fn().mockReturnValue(null),
+    getModel: vi.fn().mockReturnValue(null),
+    getDomNode: vi.fn().mockReturnValue(null),
+    ...overrides,
+  };
+}
+
 function createMonacoForRegistration() {
   return {
     languages: {
       register: vi.fn(),
+      setLanguageConfiguration: vi.fn(),
       setMonarchTokensProvider: vi.fn(),
-      registerCompletionItemProvider: vi.fn(),
+      registerCompletionItemProvider: vi.fn().mockReturnValue({ dispose: vi.fn() }),
       CompletionItemKind: { Field: 1, Keyword: 2, Value: 3 },
+      CompletionTriggerKind: { Invoke: 0, TriggerCharacter: 1, TriggerForIncompleteCompletions: 2 },
     },
     editor: { defineTheme: vi.fn() },
   };
+}
+
+function makeContext(triggerKind = 0) {
+  return { triggerKind };
 }
 
 describe('ValidationCodeEditor', () => {
@@ -194,14 +219,14 @@ describe('ValidationCodeEditor', () => {
     expect(mockMonaco.languages.registerCompletionItemProvider).toHaveBeenCalled();
   });
 
+  const baseMonaco = {
+    KeyMod: { CtrlCmd: 2048 },
+    KeyCode: { KeyG: 30, Space: 10, Tab: 2 },
+  };
+
   it('onMount adds jump-to-node action', () => {
-    const mockEditor = {
-      addAction: vi.fn(),
-    };
-    const mockMonaco = {
-      KeyMod: { CtrlCmd: 2048 },
-      KeyCode: { KeyG: 30 },
-    };
+    const mockEditor = withEditorDefaults();
+    const mockMonaco = { ...baseMonaco };
 
     render(
       <ValidationCodeEditor
@@ -219,8 +244,8 @@ describe('ValidationCodeEditor', () => {
   });
 
   it('jump action no-ops without cursor position', () => {
-    const mockEditor = { addAction: vi.fn() };
-    const mockMonaco = { KeyMod: { CtrlCmd: 2048 }, KeyCode: { KeyG: 30 } };
+    const mockEditor = withEditorDefaults();
+    const mockMonaco = { ...baseMonaco };
     render(
       <ValidationCodeEditor value="" onChange={mockOnChangeHandler} errors={[]} onJumpToNode={vi.fn()} />,
     );
@@ -231,8 +256,8 @@ describe('ValidationCodeEditor', () => {
   });
 
   it('jump action no-ops when line content missing', () => {
-    const mockEditor = { addAction: vi.fn() };
-    const mockMonaco = { KeyMod: { CtrlCmd: 2048 }, KeyCode: { KeyG: 30 } };
+    const mockEditor = withEditorDefaults();
+    const mockMonaco = { ...baseMonaco };
     const onJump = vi.fn();
     render(
       <ValidationCodeEditor value="" onChange={mockOnChangeHandler} errors={[]} onJumpToNode={onJump} />,
@@ -244,8 +269,8 @@ describe('ValidationCodeEditor', () => {
   });
 
   it('jump action skips comment lines', () => {
-    const mockEditor = { addAction: vi.fn() };
-    const mockMonaco = { KeyMod: { CtrlCmd: 2048 }, KeyCode: { KeyG: 30 } };
+    const mockEditor = withEditorDefaults();
+    const mockMonaco = { ...baseMonaco };
     const onJump = vi.fn();
     render(
       <ValidationCodeEditor value="" onChange={mockOnChangeHandler} errors={[]} onJumpToNode={onJump} />,
@@ -260,8 +285,8 @@ describe('ValidationCodeEditor', () => {
   });
 
   it('jump action extracts path and calls onJumpToNode', () => {
-    const mockEditor = { addAction: vi.fn() };
-    const mockMonaco = { KeyMod: { CtrlCmd: 2048 }, KeyCode: { KeyG: 30 } };
+    const mockEditor = withEditorDefaults();
+    const mockMonaco = { ...baseMonaco };
     const onJump = vi.fn();
     render(
       <ValidationCodeEditor value="" onChange={mockOnChangeHandler} errors={[]} onJumpToNode={onJump} />,
@@ -278,13 +303,9 @@ describe('ValidationCodeEditor', () => {
   it('sets model markers when errors update after mount', () => {
     const setModelMarkers = vi.fn();
     const mockModel = {};
-    const mockEditor = {
-      addAction: vi.fn(),
-      getModel: () => mockModel,
-    };
+    const mockEditor = withEditorDefaults({ getModel: () => mockModel });
     const mockMonaco = {
-      KeyMod: { CtrlCmd: 2048 },
-      KeyCode: { KeyG: 30 },
+      ...baseMonaco,
       MarkerSeverity: { Error: 8 },
       editor: { setModelMarkers },
     };
@@ -326,13 +347,9 @@ describe('ValidationCodeEditor', () => {
 
   it('markers effect no-ops when getModel returns null', () => {
     const setModelMarkers = vi.fn();
-    const mockEditor = {
-      addAction: vi.fn(),
-      getModel: () => null,
-    };
+    const mockEditor = withEditorDefaults({ getModel: () => null });
     const mockMonaco = {
-      KeyMod: { CtrlCmd: 2048 },
-      KeyCode: { KeyG: 30 },
+      ...baseMonaco,
       MarkerSeverity: { Error: 8 },
       editor: { setModelMarkers },
     };
@@ -463,6 +480,10 @@ describe('ValidationCodeEditor', () => {
 describe('ValidationCodeEditor completion provider', () => {
   beforeEach(() => {
     vi.resetModules();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    delete (globalThis as any).__validationDsl_languageRegistered;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    delete (globalThis as any).__validationDsl_completionDisposable;
   });
 
   async function loadFreshEditor() {
@@ -470,7 +491,7 @@ describe('ValidationCodeEditor completion provider', () => {
     return mod.default;
   }
 
-  it('second beforeMount skips re-registering language and completion provider', async () => {
+  it('second beforeMount skips re-registering language and reuses completion provider', async () => {
     const Fresh = await loadFreshEditor();
     const m1 = createMonacoForRegistration();
     const m2 = createMonacoForRegistration();
@@ -481,11 +502,17 @@ describe('ValidationCodeEditor completion provider', () => {
     });
     expect(m1.languages.register).toHaveBeenCalledTimes(1);
     expect(m2.languages.register).not.toHaveBeenCalled();
+    // Completion provider is registered once (on m1) and reused
     expect(m1.languages.registerCompletionItemProvider).toHaveBeenCalledTimes(1);
     expect(m2.languages.registerCompletionItemProvider).not.toHaveBeenCalled();
   });
 
-  it('suggests sample paths at line start', async () => {
+  it('NEVER suggests paths through Monaco widget — paths use the passive hint strip only', async () => {
+    // Path suggestions are intentionally NOT exposed through Monaco's suggest
+    // widget because quickSuggestions auto-trigger uses the same `Invoke`
+    // triggerKind as manual Ctrl+Space, so we cannot tell them apart. To avoid
+    // the widget auto-popup hijacking keystrokes while typing the path, the
+    // provider always returns empty suggestions in path position.
     const Fresh = await loadFreshEditor();
     const mockMonaco = createMonacoForRegistration();
     render(
@@ -501,17 +528,24 @@ describe('ValidationCodeEditor completion provider', () => {
     });
 
     const provider = mockMonaco.languages.registerCompletionItemProvider.mock.calls[0]?.[1] as {
-      provideCompletionItems: (model: { getLineContent: (n: number) => string }, position: { lineNumber: number; column: number }) => { suggestions: { label: string }[] };
+      provideCompletionItems: (
+        model: { getLineContent: (n: number) => string },
+        position: { lineNumber: number; column: number },
+        context: { triggerKind: number },
+      ) => { suggestions: { label: string }[] };
     };
     expect(provider).toBeTruthy();
 
-    const result = provider.provideCompletionItems(
-      { getLineContent: () => 'data' },
-      { lineNumber: 1, column: 5 },
-    );
-    const labels = result.suggestions.map(s => s.label);
-    expect(labels).toContain('data.user');
-    expect(labels).toContain('data.order');
+    // All three trigger kinds (Invoke, TriggerCharacter, TriggerForIncompleteCompletions)
+    // must return empty suggestions for path positions.
+    for (const triggerKind of [0, 1, 2]) {
+      const result = provider.provideCompletionItems(
+        { getLineContent: () => 'data' },
+        { lineNumber: 1, column: 5 },
+        makeContext(triggerKind),
+      );
+      expect(result.suggestions).toEqual([]);
+    }
   });
 
   it('suggests operators after path', async () => {
@@ -522,12 +556,13 @@ describe('ValidationCodeEditor completion provider', () => {
       mockBeforeMount?.(mockMonaco);
     });
     const provider = mockMonaco.languages.registerCompletionItemProvider.mock.calls[0][1] as {
-      provideCompletionItems: (model: { getLineContent: (n: number) => string }, position: { lineNumber: number; column: number }) => { suggestions: { label: string }[] };
+      provideCompletionItems: (model: { getLineContent: (n: number) => string }, position: { lineNumber: number; column: number }, context: { triggerKind: number }) => { suggestions: { label: string }[] };
     };
 
     const r = provider.provideCompletionItems(
       { getLineContent: () => 'field ' },
       { lineNumber: 1, column: 7 },
+      makeContext(1),
     );
     expect(r.suggestions.some(s => s.label === 'equals')).toBe(true);
   });
@@ -540,12 +575,13 @@ describe('ValidationCodeEditor completion provider', () => {
       mockBeforeMount?.(mockMonaco);
     });
     const provider = mockMonaco.languages.registerCompletionItemProvider.mock.calls[0][1] as {
-      provideCompletionItems: (model: { getLineContent: (n: number) => string }, position: { lineNumber: number; column: number }) => { suggestions: { label: string }[] };
+      provideCompletionItems: (model: { getLineContent: (n: number) => string }, position: { lineNumber: number; column: number }, context: { triggerKind: number }) => { suggestions: { label: string }[] };
     };
 
     const r = provider.provideCompletionItems(
       { getLineContent: () => 'field gre' },
       { lineNumber: 1, column: 10 },
+      makeContext(1),
     );
     expect(r.suggestions.map(s => s.label)).toContain('greater_than');
     expect(r.suggestions.map(s => s.label)).not.toContain('equals');
@@ -559,12 +595,13 @@ describe('ValidationCodeEditor completion provider', () => {
       mockBeforeMount?.(mockMonaco);
     });
     const provider = mockMonaco.languages.registerCompletionItemProvider.mock.calls[0][1] as {
-      provideCompletionItems: (model: { getLineContent: (n: number) => string }, position: { lineNumber: number; column: number }) => { suggestions: { label: string }[] };
+      provideCompletionItems: (model: { getLineContent: (n: number) => string }, position: { lineNumber: number; column: number }, context: { triggerKind: number }) => { suggestions: { label: string }[] };
     };
 
     const r = provider.provideCompletionItems(
       { getLineContent: () => 'field is_type ' },
       { lineNumber: 1, column: 15 },
+      makeContext(1),
     );
     expect(r.suggestions.map(s => s.label).sort()).toEqual(['array', 'boolean', 'null', 'number', 'object', 'string']);
   });
@@ -577,12 +614,13 @@ describe('ValidationCodeEditor completion provider', () => {
       mockBeforeMount?.(mockMonaco);
     });
     const provider = mockMonaco.languages.registerCompletionItemProvider.mock.calls[0][1] as {
-      provideCompletionItems: (model: { getLineContent: (n: number) => string }, position: { lineNumber: number; column: number }) => { suggestions: unknown[] };
+      provideCompletionItems: (model: { getLineContent: (n: number) => string }, position: { lineNumber: number; column: number }, context: { triggerKind: number }) => { suggestions: unknown[] };
     };
 
     const r = provider.provideCompletionItems(
       { getLineContent: () => 'field is_true ' },
       { lineNumber: 1, column: 15 },
+      makeContext(1),
     );
     expect(r.suggestions).toEqual([]);
   });
@@ -595,12 +633,13 @@ describe('ValidationCodeEditor completion provider', () => {
       mockBeforeMount?.(mockMonaco);
     });
     const provider = mockMonaco.languages.registerCompletionItemProvider.mock.calls[0][1] as {
-      provideCompletionItems: (model: { getLineContent: (n: number) => string }, position: { lineNumber: number; column: number }) => { suggestions: unknown[] };
+      provideCompletionItems: (model: { getLineContent: (n: number) => string }, position: { lineNumber: number; column: number }, context: { triggerKind: number }) => { suggestions: unknown[] };
     };
 
     const r = provider.provideCompletionItems(
       { getLineContent: () => 'field is_false ' },
       { lineNumber: 1, column: 16 },
+      makeContext(1),
     );
     expect(r.suggestions).toEqual([]);
   });
@@ -613,13 +652,391 @@ describe('ValidationCodeEditor completion provider', () => {
       mockBeforeMount?.(mockMonaco);
     });
     const provider = mockMonaco.languages.registerCompletionItemProvider.mock.calls[0][1] as {
-      provideCompletionItems: (model: { getLineContent: (n: number) => string }, position: { lineNumber: number; column: number }) => { suggestions: { label: string }[] };
+      provideCompletionItems: (model: { getLineContent: (n: number) => string }, position: { lineNumber: number; column: number }, context: { triggerKind: number }) => { suggestions: { label: string }[] };
     };
 
     const r = provider.provideCompletionItems(
       { getLineContent: () => 'field equals ' },
       { lineNumber: 1, column: 14 },
+      makeContext(1),
     );
     expect(r.suggestions.map(s => s.label).sort()).toEqual(['false', 'true']);
+  });
+});
+
+// ─── Path hint strip & model-change behaviour ─────────────────────────────────
+
+describe('ValidationCodeEditor path-hint strip and model handlers', () => {
+  beforeEach(() => {
+    mockOnChange = undefined;
+    mockBeforeMount = undefined;
+    mockOnMount = undefined;
+    lastEditorProps = null;
+  });
+
+  /**
+   * Construct a mock editor that lets the test drive the model-change and
+   * cursor-position callbacks (so the path-prefix tracker becomes observable
+   * via the rendered hint chips).
+   */
+  function buildEditorWithCallbacks(line = 'data', column = 5) {
+    const contentHandlers: Array<(e: { changes: Array<{ text: string; rangeOffset: number }> }) => void> = [];
+    const cursorHandlers: Array<() => void> = [];
+    const model = {
+      getLineContent: vi.fn().mockReturnValue(line),
+      getPositionAt: vi.fn().mockImplementation((offset: number) => ({ lineNumber: 1, column: offset + 1 })),
+    };
+    const editor = {
+      addAction: vi.fn(),
+      addCommand: vi.fn(),
+      onDidChangeModelContent: vi.fn().mockImplementation((cb: (e: { changes: Array<{ text: string; rangeOffset: number }> }) => void) => {
+        contentHandlers.push(cb);
+        return { dispose: vi.fn() };
+      }),
+      onDidChangeCursorPosition: vi.fn().mockImplementation((cb: () => void) => {
+        cursorHandlers.push(cb);
+        return { dispose: vi.fn() };
+      }),
+      onDidDispose: vi.fn().mockReturnValue({ dispose: vi.fn() }),
+      trigger: vi.fn(),
+      executeEdits: vi.fn(),
+      setPosition: vi.fn(),
+      focus: vi.fn(),
+      getPosition: vi.fn().mockReturnValue({ lineNumber: 1, column }),
+      getModel: vi.fn().mockReturnValue(model),
+      getDomNode: vi.fn().mockReturnValue(null),
+    };
+    const monaco = {
+      KeyMod: { CtrlCmd: 2048 },
+      KeyCode: { KeyG: 30, Space: 10, Tab: 2 },
+    };
+    return {
+      editor,
+      monaco,
+      model,
+      triggerContentChange: (changes: Array<{ text: string; rangeOffset: number }>) => {
+        for (const h of contentHandlers) h({ changes });
+      },
+      triggerCursorChange: () => {
+        for (const h of cursorHandlers) h();
+      },
+    };
+  }
+
+  it('shows path-hint chips when the typed prefix matches a sample path', async () => {
+    const { editor, monaco, triggerCursorChange } = buildEditorWithCallbacks('data', 5);
+    render(
+      <ValidationCodeEditor
+        value=""
+        onChange={vi.fn()}
+        errors={[]}
+        samplePaths={['data.user.id', 'data.order.total', 'unrelated']}
+      />,
+    );
+    await act(async () => { mockOnMount?.(editor, monaco); });
+    await act(async () => { triggerCursorChange(); });
+
+    expect(screen.getByRole('region', { name: 'Matching paths' })).toBeInTheDocument();
+    expect(screen.getByText('data.user.id')).toBeInTheDocument();
+    expect(screen.getByText('data.order.total')).toBeInTheDocument();
+    expect(screen.queryByText('unrelated')).not.toBeInTheDocument();
+  });
+
+  it('clicking a path chip inserts that path at the cursor via executeEdits', async () => {
+    const { editor, monaco, triggerCursorChange } = buildEditorWithCallbacks('data', 5);
+    render(
+      <ValidationCodeEditor
+        value=""
+        onChange={vi.fn()}
+        errors={[]}
+        samplePaths={['data.user.id']}
+      />,
+    );
+    await act(async () => { mockOnMount?.(editor, monaco); });
+    await act(async () => { triggerCursorChange(); });
+
+    const chip = screen.getByText('data.user.id');
+    fireEvent.click(chip);
+
+    expect(editor.executeEdits).toHaveBeenCalledWith(
+      'dsl-insert-path',
+      expect.arrayContaining([
+        expect.objectContaining({
+          text: 'data.user.id',
+          forceMoveMarkers: true,
+        }),
+      ]),
+    );
+    expect(editor.focus).toHaveBeenCalled();
+  });
+
+  it('hides path-hint chips when the current line begins with "#"', async () => {
+    const { editor, monaco, triggerCursorChange } = buildEditorWithCallbacks('# data', 7);
+    const { container } = render(
+      <ValidationCodeEditor
+        value=""
+        onChange={vi.fn()}
+        errors={[]}
+        samplePaths={['data.user.id']}
+      />,
+    );
+    await act(async () => { mockOnMount?.(editor, monaco); });
+    await act(async () => { triggerCursorChange(); });
+    expect(container.querySelector('.dm-validation-editor-pathstrip')).not.toBeInTheDocument();
+  });
+
+  it('hides path-hint chips after a space (no longer in path position)', async () => {
+    const { editor, monaco, triggerCursorChange } = buildEditorWithCallbacks('data ', 6);
+    const { container } = render(
+      <ValidationCodeEditor
+        value=""
+        onChange={vi.fn()}
+        errors={[]}
+        samplePaths={['data.user.id']}
+      />,
+    );
+    await act(async () => { mockOnMount?.(editor, monaco); });
+    await act(async () => { triggerCursorChange(); });
+    expect(container.querySelector('.dm-validation-editor-pathstrip')).not.toBeInTheDocument();
+  });
+
+  it('hides path-hint chips after a path is fully typed (more than one token)', async () => {
+    const { editor, monaco, triggerCursorChange } = buildEditorWithCallbacks('data equals', 12);
+    const { container } = render(
+      <ValidationCodeEditor
+        value=""
+        onChange={vi.fn()}
+        errors={[]}
+        samplePaths={['data.user.id']}
+      />,
+    );
+    await act(async () => { mockOnMount?.(editor, monaco); });
+    await act(async () => { triggerCursorChange(); });
+    expect(container.querySelector('.dm-validation-editor-pathstrip')).not.toBeInTheDocument();
+  });
+
+  it('hides path-hint chips when the typed prefix exactly equals a sample path', async () => {
+    const { editor, monaco, triggerCursorChange } = buildEditorWithCallbacks('data.user.id', 13);
+    const { container } = render(
+      <ValidationCodeEditor
+        value=""
+        onChange={vi.fn()}
+        errors={[]}
+        samplePaths={['data.user.id']}
+      />,
+    );
+    await act(async () => { mockOnMount?.(editor, monaco); });
+    await act(async () => { triggerCursorChange(); });
+    expect(container.querySelector('.dm-validation-editor-pathstrip')).not.toBeInTheDocument();
+  });
+
+  it('clears prefix when position is null', async () => {
+    const { editor, monaco, triggerCursorChange } = buildEditorWithCallbacks('data', 5);
+    editor.getPosition.mockReturnValue(null);
+    const { container } = render(
+      <ValidationCodeEditor
+        value=""
+        onChange={vi.fn()}
+        errors={[]}
+        samplePaths={['data.user.id']}
+      />,
+    );
+    await act(async () => { mockOnMount?.(editor, monaco); });
+    await act(async () => { triggerCursorChange(); });
+    expect(container.querySelector('.dm-validation-editor-pathstrip')).not.toBeInTheDocument();
+  });
+
+  it('macOS smart-period substitution ". " is reverted to a single " "', async () => {
+    const { editor, monaco, triggerContentChange } = buildEditorWithCallbacks('data', 5);
+    render(
+      <ValidationCodeEditor
+        value=""
+        onChange={vi.fn()}
+        errors={[]}
+      />,
+    );
+    await act(async () => { mockOnMount?.(editor, monaco); });
+
+    await act(async () => {
+      triggerContentChange([{ text: '. ', rangeOffset: 4 }]);
+    });
+
+    expect(editor.executeEdits).toHaveBeenCalledWith(
+      'block-mac-smart-period',
+      expect.arrayContaining([
+        expect.objectContaining({
+          text: ' ',
+          forceMoveMarkers: true,
+        }),
+      ]),
+    );
+    expect(editor.setPosition).toHaveBeenCalled();
+  });
+
+  it('also reverts the " ." inverted-substitution variant', async () => {
+    const { editor, monaco, triggerContentChange } = buildEditorWithCallbacks('data', 5);
+    render(
+      <ValidationCodeEditor value="" onChange={vi.fn()} errors={[]} />,
+    );
+    await act(async () => { mockOnMount?.(editor, monaco); });
+    await act(async () => {
+      triggerContentChange([{ text: ' .', rangeOffset: 4 }]);
+    });
+    expect(editor.executeEdits).toHaveBeenCalledWith('block-mac-smart-period', expect.anything());
+  });
+
+  it('does NOT revert ordinary single-character insertions', async () => {
+    const { editor, monaco, triggerContentChange } = buildEditorWithCallbacks('data', 5);
+    render(<ValidationCodeEditor value="" onChange={vi.fn()} errors={[]} />);
+    await act(async () => { mockOnMount?.(editor, monaco); });
+    await act(async () => {
+      triggerContentChange([{ text: 'x', rangeOffset: 4 }]);
+    });
+    expect(editor.executeEdits).not.toHaveBeenCalledWith('block-mac-smart-period', expect.anything());
+  });
+
+  it('macOS guard no-ops when getModel returns null inside the handler', async () => {
+    const { editor, monaco, triggerContentChange } = buildEditorWithCallbacks('data', 5);
+    render(<ValidationCodeEditor value="" onChange={vi.fn()} errors={[]} />);
+    await act(async () => { mockOnMount?.(editor, monaco); });
+    editor.getModel.mockReturnValue(null);
+    await act(async () => {
+      triggerContentChange([{ text: '. ', rangeOffset: 4 }]);
+    });
+    expect(editor.executeEdits).not.toHaveBeenCalledWith('block-mac-smart-period', expect.anything());
+  });
+
+  it('hardens the Monaco textarea with autocorrect/autocomplete/spellcheck off', async () => {
+    const textarea = document.createElement('textarea');
+    textarea.className = 'ime-text-area';
+    const domNode = document.createElement('div');
+    domNode.appendChild(textarea);
+    const { editor, monaco } = buildEditorWithCallbacks('data', 5);
+    editor.getDomNode.mockReturnValue(domNode);
+    render(<ValidationCodeEditor value="" onChange={vi.fn()} errors={[]} />);
+    await act(async () => { mockOnMount?.(editor, monaco); });
+
+    expect(textarea.getAttribute('autocorrect')).toBe('off');
+    expect(textarea.getAttribute('autocomplete')).toBe('off');
+    expect(textarea.getAttribute('autocapitalize')).toBe('off');
+    expect(textarea.getAttribute('spellcheck')).toBe('false');
+    expect(textarea.getAttribute('data-gramm')).toBe('false');
+  });
+
+  it('falls back to inputarea class when ime-text-area is absent', async () => {
+    const textarea = document.createElement('textarea');
+    textarea.className = 'inputarea';
+    const domNode = document.createElement('div');
+    domNode.appendChild(textarea);
+    const { editor, monaco } = buildEditorWithCallbacks('data', 5);
+    editor.getDomNode.mockReturnValue(domNode);
+    render(<ValidationCodeEditor value="" onChange={vi.fn()} errors={[]} />);
+    await act(async () => { mockOnMount?.(editor, monaco); });
+    expect(textarea.getAttribute('autocorrect')).toBe('off');
+  });
+
+  it('falls back to plain <textarea> when no class matches', async () => {
+    const textarea = document.createElement('textarea');
+    const domNode = document.createElement('div');
+    domNode.appendChild(textarea);
+    const { editor, monaco } = buildEditorWithCallbacks('data', 5);
+    editor.getDomNode.mockReturnValue(domNode);
+    render(<ValidationCodeEditor value="" onChange={vi.fn()} errors={[]} />);
+    await act(async () => { mockOnMount?.(editor, monaco); });
+    expect(textarea.getAttribute('autocorrect')).toBe('off');
+  });
+
+  it('falls back to document-level selector when editor DOM is empty', async () => {
+    const textarea = document.createElement('textarea');
+    textarea.className = 'ime-text-area';
+    const editorRoot = document.createElement('div');
+    editorRoot.className = 'dm-validation-editor';
+    editorRoot.appendChild(textarea);
+    document.body.appendChild(editorRoot);
+    try {
+      const { editor, monaco } = buildEditorWithCallbacks('data', 5);
+      editor.getDomNode.mockReturnValue(null);
+      render(<ValidationCodeEditor value="" onChange={vi.fn()} errors={[]} />);
+      await act(async () => { mockOnMount?.(editor, monaco); });
+      expect(textarea.getAttribute('autocorrect')).toBe('off');
+    } finally {
+      editorRoot.remove();
+    }
+  });
+
+  it('inserts path correctly when getModel is null (no-op gracefully)', async () => {
+    const { editor, monaco, triggerCursorChange } = buildEditorWithCallbacks('data', 5);
+    const originalModel = editor.getModel.getMockImplementation();
+    let calls = 0;
+    editor.getModel.mockImplementation(() => {
+      calls += 1;
+      if (calls > 4) return null;
+      return originalModel ? originalModel() : null;
+    });
+    render(
+      <ValidationCodeEditor
+        value=""
+        onChange={vi.fn()}
+        errors={[]}
+        samplePaths={['data.user.id']}
+      />,
+    );
+    await act(async () => { mockOnMount?.(editor, monaco); });
+    await act(async () => { triggerCursorChange(); });
+    const chip = screen.queryByText('data.user.id');
+    if (chip) {
+      expect(() => fireEvent.click(chip)).not.toThrow();
+    }
+  });
+
+  it('path-hint chip onMouseDown preventDefault stops focus loss', async () => {
+    const { editor, monaco, triggerCursorChange } = buildEditorWithCallbacks('data', 5);
+    render(
+      <ValidationCodeEditor
+        value=""
+        onChange={vi.fn()}
+        errors={[]}
+        samplePaths={['data.user.id']}
+      />,
+    );
+    await act(async () => { mockOnMount?.(editor, monaco); });
+    await act(async () => { triggerCursorChange(); });
+    const chip = screen.getByText('data.user.id');
+    const event = new MouseEvent('mousedown', { bubbles: true, cancelable: true });
+    const dispatched = chip.dispatchEvent(event);
+    // preventDefault on a cancelable event makes dispatchEvent return false.
+    expect(dispatched).toBe(false);
+  });
+
+  it('onDidDispose handler disposes both content and cursor listeners', async () => {
+    const contentDispose = vi.fn();
+    const cursorDispose = vi.fn();
+    const disposeDispose = vi.fn();
+    const disposeHandlers: Array<() => void> = [];
+    const editor = {
+      addAction: vi.fn(),
+      addCommand: vi.fn(),
+      onDidChangeModelContent: vi.fn().mockReturnValue({ dispose: contentDispose }),
+      onDidChangeCursorPosition: vi.fn().mockReturnValue({ dispose: cursorDispose }),
+      onDidDispose: vi.fn().mockImplementation((cb: () => void) => {
+        disposeHandlers.push(cb);
+        return { dispose: disposeDispose };
+      }),
+      trigger: vi.fn(),
+      executeEdits: vi.fn(),
+      setPosition: vi.fn(),
+      focus: vi.fn(),
+      getPosition: vi.fn().mockReturnValue(null),
+      getModel: vi.fn().mockReturnValue(null),
+      getDomNode: vi.fn().mockReturnValue(null),
+    };
+    const monaco = { KeyMod: { CtrlCmd: 2048 }, KeyCode: { KeyG: 30 } };
+    render(<ValidationCodeEditor value="" onChange={vi.fn()} errors={[]} />);
+    await act(async () => { mockOnMount?.(editor, monaco); });
+    expect(disposeHandlers).toHaveLength(1);
+    disposeHandlers[0]();
+    expect(contentDispose).toHaveBeenCalled();
+    expect(cursorDispose).toHaveBeenCalled();
+    expect(disposeDispose).toHaveBeenCalled();
   });
 });

@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import type { MapperTarget, Mapping, TargetField, TargetFieldOrigin, AdapterCapabilities, FieldOperator } from './types';
+import type { Assertion } from '../../types';
 import type { JsonTreeNode } from '../../utils/jsonTreeModel';
 import type { FocusRegion } from './hooks/useKeyboardNavigation';
 import type { TypeMismatch } from './utils/typeMismatch';
@@ -58,6 +59,9 @@ interface TargetPanelProps {
   nodeStatusMap?: Map<string, 'pass' | 'fail'>;
   fieldVerifyResults?: Map<string, { passed: boolean; actual?: string; expected?: string; matchContext?: string }>;
   onAddArrayAssertion?: (arrayPath: string, assertionType: 'length' | 'contains' | 'each' | 'subset') => void;
+  onUpdateArrayAssertion?: (index: number, patch: Partial<Assertion>) => void;
+  onRemoveArrayAssertion?: (index: number) => void;
+  arrayAssertions?: Assertion[];
   filterFailedSignal?: number | null;
   highlightedPaths?: Set<string> | null;
 }
@@ -102,6 +106,9 @@ export default function TargetPanel({
   nodeStatusMap,
   fieldVerifyResults,
   onAddArrayAssertion,
+  onUpdateArrayAssertion,
+  onRemoveArrayAssertion,
+  arrayAssertions,
   filterFailedSignal,
   highlightedPaths,
 }: TargetPanelProps) {
@@ -541,6 +548,9 @@ export default function TargetPanel({
                 nodeStatusMap={nodeStatusMap}
                 fieldVerifyResults={fieldVerifyResults}
                 onAddArrayAssertion={onAddArrayAssertion}
+                onUpdateArrayAssertion={onUpdateArrayAssertion}
+                onRemoveArrayAssertion={onRemoveArrayAssertion}
+                arrayAssertions={arrayAssertions}
               />
             ) : tree ? (
               <TargetTreeNode
@@ -579,6 +589,9 @@ export default function TargetPanel({
                 nodeStatusMap={nodeStatusMap}
                 fieldVerifyResults={fieldVerifyResults}
                 onAddArrayAssertion={onAddArrayAssertion}
+                onUpdateArrayAssertion={onUpdateArrayAssertion}
+                onRemoveArrayAssertion={onRemoveArrayAssertion}
+                arrayAssertions={arrayAssertions}
                 highlightedPaths={highlightedPaths}
               />
             ) : (

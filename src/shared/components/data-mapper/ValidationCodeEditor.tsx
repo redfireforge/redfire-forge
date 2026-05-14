@@ -1,6 +1,7 @@
 import { useRef, useEffect, useCallback, useMemo, useState } from 'react';
 import Editor, { type OnMount, type BeforeMount } from '@monaco-editor/react';
 import type { ParseError } from './utils/validationDsl';
+import { installTextareaHardening } from './utils/monacoTextareaHardening';
 
 // ─── Monaco Language Registration ─────────────────────────
 
@@ -19,14 +20,43 @@ const OPERATOR_KEYWORDS = [
 
 const TYPE_NAMES = ['string', 'number', 'boolean', 'array', 'object', 'null'];
 
-let languageRegistered = false;
-let completionProviderRegistered = false;
+// HMR-safe globals: stored on globalThis so previous module instances can be cleaned up.
+// Paths are NOT surfaced through Monaco's suggest widget (they live on the passive hint
+// strip beneath the editor), so we only need to remember language registration and the
+// single completion-provider disposable across hot-reload cycles.
+const HMR_KEY_LANG = '__validationDsl_languageRegistered';
+const HMR_KEY_DISPOSABLE = '__validationDsl_completionDisposable';
+
+function isLanguageRegistered(): boolean {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return !!(globalThis as any)[HMR_KEY_LANG];
+}
+function markLanguageRegistered(): void {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (globalThis as any)[HMR_KEY_LANG] = true;
+}
+
+function getStoredDisposable(): { dispose: () => void } | null {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (globalThis as any)[HMR_KEY_DISPOSABLE] ?? null;
+}
+function setStoredDisposable(d: { dispose: () => void } | null): void {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (globalThis as any)[HMR_KEY_DISPOSABLE] = d;
+}
 
 function registerLanguage(monaco: typeof import('monaco-editor')) {
-  if (languageRegistered) return;
-  languageRegistered = true;
+  if (isLanguageRegistered()) return;
+  markLanguageRegistered();
 
   monaco.languages.register({ id: LANGUAGE_ID });
+
+  // Word pattern: only plain identifiers are "words" — dots, brackets, etc. are separators.
+  // This prevents Monaco from treating "offers[0].rank" as a single word and trying to
+  // extend partial text like "offers" into a longer path via its suggest widget.
+  monaco.languages.setLanguageConfiguration(LANGUAGE_ID, {
+    wordPattern: /[a-zA-Z_$]\w*/,
+  });
 
   monaco.languages.setMonarchTokensProvider(LANGUAGE_ID, {
     defaultToken: '',
@@ -47,7 +77,8 @@ function registerLanguage(monaco: typeof import('monaco-editor')) {
         [/\b(equals|not_equals|contains|not_contains|starts_with|ends_with|regex|is_true|is_false|is_null|is_not_null|is_empty|is_not_empty|exists|not_exists|is_type|in|not_in|between|close_to|greater_than|greater_than_or_equal|less_than|less_than_or_equal)\b/, 'keyword.operator'],
         [/[><=!]+/, 'operator'],
         [/-?\d+(\.\d+)?/, 'number'],
-        [/[\w$][\w$.[\]*]*/, 'identifier'],
+        [/[\w$]+/, 'identifier'],
+        [/[.[\]]/, 'delimiter.path'],
         [/,/, 'delimiter'],
         [/\s+/, 'white'],
       ],
@@ -69,6 +100,7 @@ function registerLanguage(monaco: typeof import('monaco-editor')) {
       { token: 'operator', foreground: 'f9e2af' },
       { token: 'identifier', foreground: '89dceb' },
       { token: 'delimiter', foreground: '6c7086' },
+      { token: 'delimiter.path', foreground: '89dceb' },
     ],
     colors: {
       'editor.background': '#181825',
@@ -87,49 +119,40 @@ function registerLanguage(monaco: typeof import('monaco-editor')) {
 
 // ─── Autocomplete Provider ────────────────────────────────
 
-function registerCompletionProvider(
+function ensureCompletionProvider(
   monaco: typeof import('monaco-editor'),
-  getSamplePaths: () => string[],
 ) {
-  if (completionProviderRegistered) return;
-  completionProviderRegistered = true;
-  monaco.languages.registerCompletionItemProvider(LANGUAGE_ID, {
-    triggerCharacters: [' ', '.', '['],
-    provideCompletionItems: (model, position) => {
+  if (getStoredDisposable()) return;
+
+  const disposable = monaco.languages.registerCompletionItemProvider(LANGUAGE_ID, {
+    // No automatic triggerCharacters — quickSuggestions handles auto-trigger,
+    // and our provider decides what (if anything) to return per context.
+    // Paths are surfaced via the passive React hint strip, never through this widget.
+    provideCompletionItems: (model, position, context) => {
       const lineContent = model.getLineContent(position.lineNumber);
       const textUntilCursor = lineContent.slice(0, position.column - 1);
       const words = textUntilCursor.trim().split(/\s+/);
-      const range = {
+      const cursorRange = {
         startLineNumber: position.lineNumber,
         startColumn: position.column,
         endLineNumber: position.lineNumber,
         endColumn: position.column,
       };
 
-      // Position 1: start of line — suggest paths
-      if (words.length <= 1 && !textUntilCursor.includes(' ')) {
-        const prefix = textUntilCursor.toLowerCase();
-        const paths = getSamplePaths();
-        const pathRange = {
-          startLineNumber: position.lineNumber,
-          startColumn: 1,
-          endLineNumber: position.lineNumber,
-          endColumn: position.column,
-        };
-        return {
-          suggestions: paths
-            .filter(p => p.toLowerCase().includes(prefix))
-            .map(p => ({
-              label: p,
-              kind: monaco.languages.CompletionItemKind.Field,
-              insertText: p,
-              range: pathRange,
-              detail: 'JSON path',
-            })),
-        };
+      const hasSpace = textUntilCursor.includes(' ');
+      const isPathPosition = words.length <= 1 && !hasSpace;
+      if (isPathPosition) {
+        // Paths are NEVER returned via Monaco's suggest widget — Monaco can't
+        // distinguish quickSuggestions auto-trigger from manual Ctrl+Space
+        // (both use triggerKind: Invoke), so any path return would auto-popup
+        // while the user types and hijack keystrokes. Path discovery is handled
+        // by the passive `dm-validation-editor-pathstrip` chips below the
+        // editor — which cannot intercept typing because it's not a Monaco widget.
+        void context; // kept for future use; intentionally unused here
+        return { suggestions: [] };
       }
 
-      // Position 2: after path — suggest operators
+      // After path — suggest operators
       if (words.length === 1 || (words.length === 2 && !textUntilCursor.endsWith(' '))) {
         const partial = words.length === 2 ? words[1].toLowerCase() : '';
         const opRange = words.length === 2
@@ -139,7 +162,7 @@ function registerCompletionProvider(
             endLineNumber: position.lineNumber,
             endColumn: position.column,
           }
-          : range;
+          : cursorRange;
         return {
           suggestions: OPERATOR_KEYWORDS
             .filter(op => !partial || op.toLowerCase().includes(partial))
@@ -153,7 +176,7 @@ function registerCompletionProvider(
         };
       }
 
-      // Position 3: after operator — suggest values
+      // After operator — suggest values
       if (words.length >= 2) {
         const op = words[words.length - 1]?.toLowerCase() ?? words[words.length - 2]?.toLowerCase();
         if (op === 'is_type') {
@@ -162,7 +185,7 @@ function registerCompletionProvider(
               label: t,
               kind: monaco.languages.CompletionItemKind.Value,
               insertText: t,
-              range,
+              range: cursorRange,
               detail: 'Type name',
             })),
           };
@@ -172,8 +195,8 @@ function registerCompletionProvider(
         }
         return {
           suggestions: [
-            { label: 'true', kind: monaco.languages.CompletionItemKind.Value, insertText: 'true', range, detail: 'Boolean' },
-            { label: 'false', kind: monaco.languages.CompletionItemKind.Value, insertText: 'false', range, detail: 'Boolean' },
+            { label: 'true', kind: monaco.languages.CompletionItemKind.Value, insertText: 'true', range: cursorRange, detail: 'Boolean' },
+            { label: 'false', kind: monaco.languages.CompletionItemKind.Value, insertText: 'false', range: cursorRange, detail: 'Boolean' },
           ],
         };
       }
@@ -181,6 +204,7 @@ function registerCompletionProvider(
       return { suggestions: [] };
     },
   });
+  setStoredDisposable(disposable);
 }
 
 // ─── Component ────────────────────────────────────────────
@@ -215,6 +239,7 @@ export default function ValidationCodeEditor({
   const samplePathsRef = useRef(samplePaths);
   const [ruleCount, setRuleCount] = useState(0);
   const [errorCount, setErrorCount] = useState(0);
+  const [currentPrefix, setCurrentPrefix] = useState('');
 
   samplePathsRef.current = samplePaths;
 
@@ -223,9 +248,46 @@ export default function ValidationCodeEditor({
     setErrorCount(errors.length);
   }, [value, errors]);
 
+  // Compute matching paths to show in the non-intrusive hints strip.
+  // This NEVER intercepts keystrokes — it's a passive visual hint only.
+  const matchingPaths = useMemo(() => {
+    const prefix = currentPrefix.trim();
+    if (!prefix) return [];
+    if (samplePaths.some(p => p === prefix)) return [];
+    const lower = prefix.toLowerCase();
+    return samplePaths
+      .filter(p => p.toLowerCase().includes(lower) && p !== prefix)
+      .slice(0, 8);
+  }, [currentPrefix, samplePaths]);
+
+  const insertPathAtCursor = useCallback((path: string) => {
+    const editor = editorRef.current;
+    if (!editor) return;
+    const pos = editor.getPosition();
+    if (!pos) return;
+    const model = editor.getModel();
+    if (!model) return;
+    const lineContent = model.getLineContent(pos.lineNumber);
+    const textUntilCursor = lineContent.slice(0, pos.column - 1);
+    const trimmedStart = textUntilCursor.replace(/^\s+/, '');
+    const prefixLen = trimmedStart.length;
+    const startCol = pos.column - prefixLen;
+    editor.executeEdits('dsl-insert-path', [{
+      range: {
+        startLineNumber: pos.lineNumber,
+        startColumn: startCol,
+        endLineNumber: pos.lineNumber,
+        endColumn: pos.column,
+      },
+      text: path,
+      forceMoveMarkers: true,
+    }]);
+    editor.focus();
+  }, []);
+
   const handleBeforeMount: BeforeMount = useCallback((monaco) => {
     registerLanguage(monaco);
-    registerCompletionProvider(monaco, () => samplePathsRef.current);
+    ensureCompletionProvider(monaco);
   }, []);
 
   const handleMount: OnMount = useCallback((editor, monaco) => {
@@ -246,6 +308,105 @@ export default function ValidationCodeEditor({
           onJumpToNode(path);
         }
       },
+    });
+
+    // Disable browser/extension autocorrect on Monaco's hidden input textarea.
+    // We intentionally do NOT install a `beforeinput` listener — across HMR
+    // cycles, stale listeners can accumulate and silently swallow legitimate
+    // keystrokes (most notably Space), forcing the user to press the key
+    // multiple times. Substitution defense is handled entirely by the
+    // model-layer guard below, which is idempotent and self-contained.
+    const hardening = installTextareaHardening({ getDomNode: () => editor.getDomNode() });
+
+    // NOTE: We do NOT override Space. `acceptSuggestionOnCommitCharacter: false`
+    // already ensures Space inserts a literal space and does NOT accept the
+    // current suggestion. Overriding Space here was the cause of "Space being
+    // eaten" reports on macOS — Monaco's command pipeline interacted poorly
+    // with composition events. Tab and Enter still accept suggestions normally.
+
+    // NOTE: We intentionally do NOT trigger Monaco's suggest widget. After
+    // many attempts, programmatic triggering proved unreliable. Instead, we
+    // update a passive React-rendered hints strip below the editor — it
+    // cannot intercept keystrokes because it is not a Monaco widget.
+    // Suggestions inside the editor appear ONLY when the user presses Ctrl+Space.
+    const updatePrefix = () => {
+      const pos = editor.getPosition();
+      const model = editor.getModel();
+      if (!pos || !model) {
+        setCurrentPrefix('');
+        return;
+      }
+      const lineText = model.getLineContent(pos.lineNumber).slice(0, pos.column - 1);
+      const trimmed = lineText.trim();
+      // Only the first token (path) — once a space is typed, no hints.
+      if (trimmed.length === 0 || trimmed.startsWith('#') || lineText.endsWith(' ')) {
+        setCurrentPrefix('');
+        return;
+      }
+      const words = trimmed.split(/\s+/);
+      if (words.length > 1) {
+        setCurrentPrefix('');
+        return;
+      }
+      setCurrentPrefix(words[0]);
+    };
+    // FINAL DEFENSE: detect macOS smart-period substitution at the model layer.
+    // macOS replaces a trailing space + Space keystroke with ". " — which lands
+    // in Monaco's model as a single-change insertion of exactly ". ". No normal
+    // keystroke produces this 2-char insert (typing a period then space is
+    // two separate single-char changes), so this is an unambiguous signature.
+    // When detected, replace the inserted `. ` with a single space.
+    let macosUndoGuard = false;
+    const macosSubstitutionGuard = (event: import('monaco-editor').editor.IModelContentChangedEvent) => {
+      if (macosUndoGuard) return;
+      const model = editor.getModel();
+      if (!model) return;
+      for (const change of event.changes) {
+        // Smoking gun: insertion of exactly ". " (or " . " edge cases)
+        const isSmartPeriod =
+          change.text === '. ' ||
+          change.text === ' .' ||
+          (change.text.length === 2 && change.text[0] === '.' && change.text[1] === ' ');
+        if (!isSmartPeriod) continue;
+
+        // The newly inserted text occupies [rangeOffset, rangeOffset + 2).
+        // Replace it with a single space.
+        const startPos = model.getPositionAt(change.rangeOffset);
+        const endPos = model.getPositionAt(change.rangeOffset + change.text.length);
+        macosUndoGuard = true;
+        try {
+          editor.executeEdits('block-mac-smart-period', [
+            {
+              range: {
+                startLineNumber: startPos.lineNumber,
+                startColumn: startPos.column,
+                endLineNumber: endPos.lineNumber,
+                endColumn: endPos.column,
+              },
+              text: ' ',
+              forceMoveMarkers: true,
+            },
+          ]);
+          // Place the cursor right after the single space we inserted.
+          const finalPos = model.getPositionAt(change.rangeOffset + 1);
+          editor.setPosition(finalPos);
+        } finally {
+          macosUndoGuard = false;
+        }
+        break;
+      }
+    };
+    const contentDisposable = editor.onDidChangeModelContent((event) => {
+      macosSubstitutionGuard(event);
+      updatePrefix();
+    });
+    const cursorDisposable = editor.onDidChangeCursorPosition(updatePrefix);
+
+    const disposeDisposable = editor.onDidDispose(() => {
+      contentDisposable.dispose();
+      cursorDisposable.dispose();
+      hardening.cancel();
+      disposeDisposable.dispose();
     });
   }, [onJumpToNode]);
 
@@ -290,8 +451,29 @@ export default function ValidationCodeEditor({
     readOnly,
     tabSize: 2,
     automaticLayout: true,
+    // CRITICAL: Force Monaco off the experimental EditContext API and onto the
+    // legacy <textarea> input path. On macOS Chromium the EditContext path
+    // intermittently swallows Space keystrokes — `keydown` fires but no
+    // `textupdate` follows, so the user has to press Space multiple times to
+    // commit one space (the reported bug). Setting this to false also makes
+    // our `autocorrect="off"` attribute on the textarea actually take effect,
+    // disabling macOS smart-substitution at its source.
+    editContext: false,
+    // quickSuggestions ON so the operator/value helper auto-appears (e.g. "length"
+    // after `offers `). Path suggestions are gated INSIDE the completion provider
+    // so they only appear on explicit Invoke (Ctrl+Space) — never while typing
+    // the path itself.
     quickSuggestions: { other: true, comments: false, strings: false },
     suggestOnTriggerCharacters: true,
+    wordBasedSuggestions: 'off' as const,
+    // Space NEVER accepts a suggestion. Tab/Enter accept. This keeps Space literal.
+    acceptSuggestionOnEnter: 'on' as const,
+    acceptSuggestionOnCommitCharacter: false,
+    suggest: {
+      filterGraceful: true,
+      snippetsPreventQuickSuggestions: false,
+      showWords: false,
+    },
     contextmenu: true,
     fixedOverflowWidgets: true,
   }), [readOnly]);
@@ -343,9 +525,26 @@ export default function ValidationCodeEditor({
           loading={<div className="dm-validation-editor-loading">Loading editor…</div>}
         />
       </div>
+      {matchingPaths.length > 0 && (
+        <div className="dm-validation-editor-pathstrip" role="region" aria-label="Matching paths">
+          <span className="dm-validation-editor-pathstrip-label">Matches:</span>
+          {matchingPaths.map((p) => (
+            <button
+              key={p}
+              type="button"
+              className="dm-validation-editor-pathstrip-chip"
+              onClick={() => insertPathAtCursor(p)}
+              onMouseDown={(e) => e.preventDefault()}
+              title={`Insert ${p}`}
+            >
+              {p}
+            </button>
+          ))}
+        </div>
+      )}
       <div className="dm-validation-editor-footer">
         <span className="dm-validation-editor-hint">
-          Syntax: <code>path  operator  [value]</code> · Lines starting with <code>#</code> are comments
+          Syntax: <code>path  operator  [value]</code> · <kbd>Ctrl</kbd>+<kbd>Space</kbd> for full suggestions · Lines starting with <code>#</code> are comments
         </span>
         {onJumpToNode && (
           <span className="dm-validation-editor-hint">

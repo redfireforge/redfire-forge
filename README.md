@@ -224,105 +224,78 @@ Exit codes: `0` = all passed, `1` = failures exceed threshold, `2` = invalid fil
 
 ```
 src/
-├── App.tsx                  # Root component: tabs, sidebar, settings modal
-├── App.css                  # Root styles & imports
-├── styles/                  # Modular CSS (sidebar, settings, scenario-builder, etc.)
+├── App.tsx                     # Root component: tabs, sidebar, settings modal
+├── styles/                     # Modular CSS files
 ├── pages/
-│   ├── ScenarioBuilder.tsx     # Feature Groups → Scenarios → Tests editor
-│   ├── TestRunner.tsx          # Test Runner: standard scenario load testing
-│   ├── ParameterizedRunner.tsx # Parameterized Runner: data-driven testing
-│   ├── ResultsDashboard.tsx    # View & analyze historical test results
-│   ├── Requests.tsx            # Requests: ad-hoc API testing (Insomnia/Postman-style)
-│   ├── ApiCatalog.tsx          # API Catalog: OpenAPI/Swagger browser & interactive testing
-│   └── EnvironmentManager.tsx  # Unified environment, microservice, and auth profile management
+│   └── EnvironmentManager.tsx  # Unified env/microservice/auth config page
 ├── engine/
-│   ├── executor.ts          # Orchestration layer (re-exports from focused modules)
-│   ├── allocationEngine.ts  # Shared allocation engine (computeAllocation)
-│   ├── tokenManager.ts      # OAuth2 token cache with JWT expiry detection
-│   ├── circuitBreaker.ts    # Error policy: continue, stop-first, stop-threshold
-│   ├── requestExecution.ts  # executeRequest, executeWithRetry, runSequential/Batch/Pool
-│   ├── loadProfileRunner.ts # getTargetConcurrency, buildWeightedIterator, runLoadProfile
-│   ├── validator.ts         # Response validation (full, selective, unordered)
-│   ├── metrics.ts           # Summary statistics computation
-│   ├── executionWorker.ts   # Web Worker entry point for off-thread test execution
-│   ├── workerBridge.ts      # Main-thread bridge wrapping worker with runTest() interface
-│   └── workerProtocol.ts    # Typed message protocol for Main ↔ Worker communication
-├── hooks/
-│   ├── useProjects.ts       # Project state, CRUD, moves, persistence
-│   ├── useRequests.ts       # Requests state management (collections, folders, requests, drag-and-drop)
-│   ├── useCatalog.ts        # API Catalog CRUD, persistence, import, versioning
-│   ├── useResponseCache.ts  # Per-request response caching with automatic sync on navigation
-│   ├── useTestExecution.ts  # React hook wrapping the executor
-│   └── useAuthVerify.ts     # Shared auth verification logic (OAuth2 token test, config check)
-├── components/
-│   ├── JsonPathBuilder.tsx      # Visual JSON path selector for validation
-│   ├── ResponseVersionPanel.tsx # Response + validation version history with diff comparison
-│   ├── SettingsModal.tsx        # Split-panel settings shell (delegates to tab components)
-│   ├── SettingsStorageTab.tsx   # Storage usage tab
-│   ├── Sidebar.tsx              # Hierarchical sidebar with project/env/svc navigation
-│   ├── TestEditorModal.tsx      # Test editor shell (delegates to tab components)
-│   ├── TestEditorAuthTab.tsx    # Auth tab: auth type selector, credentials, verify
-│   ├── TestEditorValidationTab.tsx # Validation tab: mode, rules, fetch, JSON path builder, assertions
-│   ├── RegexAssertionModal.tsx    # Regex assertion builder: JSON tree picker, pattern library, live preview
-│   ├── AuthConfigPanel.tsx      # Shared auth config form (used by Feature & Scenario panels)
-│   ├── LiveCharts.tsx           # Live time-series charts (response time, TPS, error rate)
-│   ├── ProfilePreview.tsx       # SVG load profile shape preview
-│   ├── ResponseDetailModal.tsx  # Full response detail for failed requests
-│   ├── CsvTemplateExportModal.tsx # Excel template export with 3-step wizard
-│   ├── CsvImportModal.tsx       # Excel/CSV import with validation and drag-and-drop
-│   ├── ExportCenter.tsx         # Multi-select data export modal
-│   ├── ImportCenter.tsx         # Import with per-item conflict resolution
-│   ├── requests/               # Requests (ad-hoc API testing) components
-│   │   ├── RequestEditor.tsx           # Request editor: URL, params, headers, body, auth, send
-│   │   ├── RequestsSidebar.tsx         # Collection/folder/request tree with drag-and-drop
-│   │   ├── RequestCollectionModal.tsx  # Collection create/edit modal
-│   │   ├── SubCollectionModal.tsx      # Sub-collection settings (env, auth, base URLs)
-│   │   ├── SidebarContextMenu.tsx      # Right-click context menu (collection/folder/request)
-│   │   ├── RequestAuthEditor.tsx       # Auth type selector and credentials form
-│   │   ├── JsonTreePreview.tsx         # Collapsible JSON tree viewer with search
-│   │   ├── ConsoleLog.tsx             # Request/response trace console
-│   │   └── MultiEnvResultRow.tsx      # Multi-environment result row
-│   └── catalog/                # API Catalog (OpenAPI/Swagger browser) components
-│       ├── CatalogSidebar.tsx         # API list with version badges and endpoint counts
-│       ├── CatalogImportModal.tsx     # OpenAPI/Swagger spec import with preview
-│       ├── CatalogOverview.tsx        # API summary: endpoint stats, servers, security schemes
-│       ├── CatalogEndpointBrowser.tsx # Tag-grouped endpoint list with search/filter
-│       ├── CatalogEndpointCard.tsx    # Swagger-UI-style endpoint detail with "Try It"
-│       ├── CatalogAuthPanel.tsx       # Per-API auth config (Inherit/Global/OAuth2/Bearer/Basic)
-│       ├── CatalogEditModal.tsx       # API settings: environments, auth, host strategy
-│       ├── CatalogVersionHistory.tsx  # Version list with re-import and restore
-│       ├── CatalogSendToRequestsModal.tsx # Two-panel modal for exporting catalog endpoints to Requests
-│       ├── CatalogVersionDiff.tsx     # Visual endpoint diff between spec versions
-│       └── CatalogWelcome.tsx         # Empty-state welcome page
+│   ├── executor.ts             # Orchestration layer (re-exports from focused modules)
+│   ├── allocationEngine.ts     # Shared allocation engine (computeAllocation)
+│   ├── validator.ts            # Response validation barrel (16 assertion types)
+│   ├── validatorDateHelpers.ts # Date assertion: resolveDate, toDayString, truncateToUnit
+│   ├── validatorHttpHelpers.ts # HTTP assertion: matchesStatusPattern, findHeader, evaluateHeaderOp
+│   ├── validatorSubsetMatch.ts # Deep recursive partial match: deepSubsetMatch
+│   ├── validatorCustomExpression.ts # Custom ASSERT: isTruthy, wrapCustomExprDollarPaths
+│   ├── fieldOperatorEvaluation.ts   # 24-operator evaluator: evaluateFieldOperator
+│   ├── executionWorker.ts      # Web Worker entry point for off-thread test execution
+│   ├── workerBridge.ts         # Main-thread bridge wrapping worker with runTest() interface
+│   └── workerProtocol.ts       # Typed message protocol for Main ↔ Worker communication
+├── features/
+│   ├── scenarios/              # Feature Groups → Scenarios → Tests editor
+│   │   └── components/
+│   │       ├── TestEditorValidationTab.tsx  # Validation tab: 16 assertion types, rules pivot
+│   │       ├── testEditorValidationAddMenu.ts  # Assertion factory menu definitions
+│   │       └── testEditorValidationPivot.ts    # Pivoted rules table model
+│   ├── test-runner/            # Standard, Parameterized, Workflow runners
+│   ├── results/                # Results Explorer (canvas, detail panel, iteration matrix)
+│   ├── requests/               # Requests: ad-hoc API testing (collections, folders)
+│   ├── workflow/               # Workflow designer + 125 expression functions (8 categories)
+│   └── catalog/                # API Catalog (OpenAPI/Swagger browser & testing)
+├── shared/
+│   ├── components/
+│   │   └── data-mapper/        # Unified Visual Mapper
+│   │       ├── DataMapper.tsx             # Main container (895 lines)
+│   │       ├── FloatingEditorModal.tsx    # Draggable/resizable pop-out DSL editor
+│   │       ├── ValidationCodeEditor.tsx   # Monaco DSL editor with syntax highlighting
+│   │       ├── BodyBuilderPanel.tsx       # Three-mode body construction (JSON/Form/Raw)
+│   │       ├── MappingCompare.tsx         # Side-by-side mapping trace comparison
+│   │       ├── adapters/                  # 10 context-specific adapters
+│   │       │   ├── validationAdapter.ts   # Selective validation (ExpectedField[])
+│   │       │   ├── extractionAdapter.ts   # Variable extraction (Extraction[])
+│   │       │   ├── requestBodyAdapter.ts  # Request body builder (JSON/Form/Raw)
+│   │       │   ├── assertionAdapter.ts    # Regex assertion (jsonPath + pattern)
+│   │       │   ├── columnMappingAdapter.ts    # CSV columns ↔ request slots
+│   │       │   ├── populateFromApiAdapter.ts  # API response → data source
+│   │       │   ├── sharedDsFetchAdapter.ts    # Shared data source fetch
+│   │       │   ├── variableBindingAdapter.ts  # Workflow variable wiring
+│   │       │   ├── webhookExtractionAdapter.ts # Webhook payload extraction
+│   │       │   └── demoAdapter.ts             # Sandbox/gallery demos
+│   │       ├── hooks/                     # State management hooks
+│   │       │   ├── useMapperState.ts      # Mapping CRUD + undo/redo
+│   │       │   ├── useKeyboardNavigation.ts   # Arrow keys, Tab, Home/End
+│   │       │   ├── useBottomUtilityDock.ts    # Dock mode + floating pop-out
+│   │       │   ├── useDataMapperTreeInteraction.ts # Hover/click/keyboard bridge
+│   │       │   ├── useHighlightedMappingPaths.ts  # Highlight set derivation
+│   │       │   ├── useMapperVisibleLines.ts       # Connection line filtering
+│   │       │   └── useValidationCodeSync.ts       # Bi-directional DSL sync
+│   │       └── utils/                     # Algorithms & engines
+│   │           ├── autoMapAlgorithm.ts    # 3-tier auto-map matching
+│   │           ├── validationDsl.ts       # DSL parser/serializer
+│   │           ├── schemaDrift.ts         # Schema drift detection
+│   │           ├── schemaRepair.ts        # Levenshtein-based repair
+│   │           ├── schemaContract.ts      # Strict/lenient lock mode
+│   │           ├── mappingTrace.ts        # Execution trace capture
+│   │           ├── expressionStepDebugger.ts  # Step-through debugger
+│   │           └── typeMismatch.ts        # Type mismatch detection & auto-fix
+│   ├── types/index.ts          # Core types (16 Assertion variants, 24 FieldOperator, ExpectedField)
+│   └── utils/                  # JSONPath engine, JSON tree model, scenario migration
 ├── utils/
 │   ├── storage.ts           # Dual-mode persistence (Tauri fs / localStorage)
-│   ├── httpClient.ts        # Quad-mode HTTP client with connection pooling (Worker override / Tauri native / Vite proxy / Node fetch)
-│   ├── platform.ts          # Runtime platform & capability detection (Tauri / browser / Node / Workers)
-│   ├── tauriStore.ts        # Tauri file-system storage backend
-│   ├── curlParser.ts        # cURL command → test config parser
-│   ├── curlGenerator.ts     # Test config → cURL command builder
-│   ├── csvTemplate.ts       # Barrel re-export (delegates to focused modules below)
-│   ├── csvTemplateTypes.ts  # Shared interfaces & constants for CSV/Excel templates
-│   ├── csvTemplateUrl.ts    # URL parsing, path variable detection, URL rebuilding
-│   ├── csvTemplateCsv.ts    # CSV template generation and parsing
-│   ├── csvTemplateExcel.ts  # Excel template generation, styling, and parsing
-│   ├── testEditorUtils.ts   # Test editor helpers (canonicalize, stripPaths, rebuildUrl)
-│   ├── scenarioSearch.ts    # Boolean search parser (AND, OR, NOT, phrases, parens)
-│   ├── scenarioImportExport.ts # Scenario JSON import/export utilities
-│   ├── resultsGrouping.ts   # Multi-level result grouping and stats computation
-│   ├── runnerProgressStorage.ts # Test runner progress persistence
-│   ├── jsonPathTreeUtils.ts # JSON tree building, path enumeration, search
-│   ├── fileSaver.ts         # Native save dialog (Tauri dialog / File System Access API)
-│   ├── export.ts            # JSON & CSV export utilities
-│   ├── requestTree.ts       # Requests tree manipulation (find, map, clone, move, reorder)
-│   ├── requestAuthState.ts  # Auth config ↔ UI state mapping for request collection modals
-│   ├── requestUrlResolver.ts # Base URL resolution and display URL building for multi-env collections
-│   ├── catalogExport.ts     # Catalog-to-requests export: build collections with env folders, requests, auth
-│   ├── catalogCurlGenerator.ts # cURL generation for catalog endpoints with OAuth2 token acquisition
-│   └── catalogSpecDiff.ts   # Spec diff engine: detect added/removed/changed endpoints between versions
+│   ├── httpClient.ts        # Quad-mode HTTP client with connection pooling
+│   ├── platform.ts          # Runtime platform & capability detection
+│   └── ...                  # cURL, CSV/Excel templates, search, export utilities
 └── types/
-    ├── index.ts             # Shared TypeScript interfaces
-    └── catalog.ts           # API Catalog types (CatalogEntry, CatalogEndpoint, CatalogVersion)
+    └── catalog.ts           # API Catalog types
 
 cli/                            # CLI Runner (headless, Node.js)
 ├── index.ts                 # Entry point: `run` and `validate` commands (commander)
@@ -776,7 +749,7 @@ All execution settings are grouped in a single unified card below the Execution 
 2. Review the **Execution Plan Preview** — shows exact request count before you run.
 3. Configure concurrency, iterations, timeout, retry, and error policy.
 4. Optionally configure **Think Time** to add realistic delays between requests (None, Constant, Uniform random, or Gaussian distribution).
-5. Optionally add **Rich Assertions** in the Validation tab — status code, response time SLA, header checks, or regex matches that run on every request.
+5. Optionally add **Rich Assertions** in the Validation tab — 16 assertion types (status, responseTime, header, regex, arrayLength, numeric, date, typeCheck, existence, arrayContains, each, containsSubset, jsonSchema, bodySize, datePrecise, custom), 24 field operators, visual mapper with bi-directional DSL editor.
 6. Click **▶ Run Test**.
 7. A live progress bar shows completion percentage, current TPS, average response time, and error rate.
 8. Click **■ Stop** to abort early. The circuit breaker may also stop the run automatically based on the error policy.
@@ -1027,7 +1000,7 @@ After running a workflow, click **📊 Results Explorer** to open a full-screen 
 | Collapsible sidebar | Toggle sidebar visibility from anywhere, including modals |
 | Drag-and-drop | Move and reorder scenarios between Feature Groups and tests between scenarios via drag handles |
 | Feature presence indicator | Sidebar color-codes items with/without Feature Groups |
-| **Data Mapper** | Visual field mapping component: drag source fields to target drop zones, expression editor (`$fn()` syntax with live preview), auto-map with accept/reject, type mismatch detection & quick-fix, live preview bar, modal shell with validation, panel resize handles. 9 adapters: HTTP extraction, assertion, validation, populate-from-API, column-mapping, shared-DS-fetch, demo, webhook-extraction, variable-binding |
+| **Data Mapper** | Visual field mapping component: drag source fields to target drop zones, expression editor (125 functions + lambda syntax with live preview), auto-map with accept/reject, type mismatch detection & auto-fix, live preview bar, floating pop-out DSL editor, bi-directional visual ↔ code sync, schema drift/repair, mapping profiles, keyboard navigation, hover-to-highlight, failure navigation. 10 adapters: validation, extraction, requestBody (JSON/Form/Raw), assertion, columnMapping, populateFromApi, sharedDsFetch, variableBinding, webhookExtraction, demo |
 | **Parameterized Testing** | Data-driven testing with inline data sources — define one test pattern, run against N data rows |
 | Data Source Editor | Inline spreadsheet-style table editor with columns (path, param, header, body, validate) and rows |
 | Column types | `path:` replaces URL variables, `param:` adds query params, `header:` sets headers, `body:` fills body placeholders, `validate:` asserts response values |
@@ -1165,10 +1138,10 @@ This launches the native desktop window with **hot-reload** — any changes to R
 | `npm run preview` | Serve the production web build locally |
 | `npm run tauri:dev` | Launch desktop app with hot-reload |
 | `npm run tauri:build` | Build desktop app for current OS |
-| `npm test` | Run unit + integration test suite (Vitest, 1781 tests) |
+| `npm test` | Run unit + integration test suite (Vitest, 16,356 tests) |
 | `npm run test:watch` | Run tests in watch mode |
-| `npm run test:coverage` | Run tests with coverage report |
-| `npm run test:e2e` | Run Playwright E2E tests (109 tests, Chromium) |
+| `npm run test:coverage` | Run tests with coverage report (>90% all files) |
+| `npm run test:e2e` | Run Playwright E2E tests (613 tests, Chromium) |
 | `npm run test:e2e:headed` | Run E2E tests with visible browser |
 | `npm run lint` | Run ESLint |
 | `./scripts/version.sh` | Bump version across all config files |

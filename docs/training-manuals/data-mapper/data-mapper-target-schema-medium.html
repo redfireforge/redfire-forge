@@ -115,6 +115,66 @@
   <p>Click <strong>Done</strong> to save your changes back to the Validation tab. The expected fields table updates with your additions.</p>
 </div>
 
+<h2>Part 4 — Field Operators (NEW)</h2>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">9</div><div class="step-title">Operator Picker</div></div>
+  <p>Click any target field's operator pill (defaults to <code>exists</code>). A searchable, categorized dropdown opens with 24 operators grouped by: <strong>Equality</strong> (<code>equals</code>, <code>not_equals</code>), <strong>Comparison</strong> (<code>greater_than</code>, <code>less_than</code>, <code>between</code>, <code>close_to</code>), <strong>String</strong> (<code>contains</code>, <code>starts_with</code>, <code>ends_with</code>, <code>regex</code>), <strong>Boolean</strong> (<code>is_true</code>, <code>is_false</code>), <strong>Type</strong> (<code>is_type</code>), <strong>Existence</strong> (<code>exists</code>, <code>not_exists</code>, <code>is_null</code>, <code>is_empty</code>), <strong>Set</strong> (<code>in</code>, <code>not_in</code>).</p>
+</div>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">10</div><div class="step-title">Color-Coded Operator Pills</div></div>
+  <p>Each operator category has a distinct color: <strong>green</strong> = equality, <strong>amber</strong> = comparison, <strong>purple</strong> = string, <strong>red</strong> = boolean, <strong>teal</strong> = type check, <strong>gray</strong> = existence, <strong>blue</strong> = set membership.</p>
+</div>
+
+<h2>Part 5 — DSL Code Editor (NEW)</h2>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">11</div><div class="step-title">Switch to Code Mode</div></div>
+  <p>Click <strong>Rules</strong> in the bottom toolbar dock. A Monaco-based DSL editor appears with syntax highlighting (paths in cyan, operators color-coded, values in green/amber/red, comments in gray).</p>
+</div>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">12</div><div class="step-title">DSL Syntax</div></div>
+  <p>Type validation rules as text. Example:</p>
+  <pre>$.title   equals   "Essence Mascara Lash Princess"
+$.price   >=       5
+$.stock   exists
+$.brand   NOT is_empty</pre>
+</div>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">13</div><div class="step-title">Floating Pop-Out Editor</div></div>
+  <p>Click the ↗ button to pop the DSL editor out as a floating window. Drag the title bar to move it, resize from the bottom-right corner. Click ↙ or press Escape to dock it back.</p>
+</div>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">14</div><div class="step-title">Bi-Directional Sync</div></div>
+  <p>Edit rules in the DSL editor. Changes sync back to the visual mapper in real-time (300ms debounce). Edit in the visual mapper — changes sync to the code editor. Both directions are lossless.</p>
+</div>
+
+<h2>Part 6 — Verify &amp; Navigate Failures (NEW)</h2>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">15</div><div class="step-title">Verify Rules</div></div>
+  <p>Click <strong>Verify All</strong> in the toolbar. Each target node shows an inline pass (green check) or fail (red X) badge. The footer shows aggregate counts.</p>
+</div>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">16</div><div class="step-title">Fetch &amp; Verify</div></div>
+  <p>Click <strong>Fetch &amp; Verify</strong> to send a live HTTP request and re-verify all rules against the actual response.</p>
+</div>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">17</div><div class="step-title">Failure Navigation</div></div>
+  <p>When failures exist, use the ◀/▶ buttons in the toolbar to cycle through failed rules. The mapper scrolls to and highlights each failure.</p>
+</div>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">18</div><div class="step-title">Filter by Status</div></div>
+  <p>Use the target panel filter dropdown to show only: All, Mapped, Unmapped, Passed, or Failed rules.</p>
+</div>
+
 <h2>Summary</h2>
 <table>
   <tr><th>Concept</th><th>Where you saw it</th></tr>
@@ -123,6 +183,16 @@
   <tr><td>Target fields = expected values</td><td>Step 5 — 5 fields with specific expected values</td></tr>
   <tr><td>Adding validation rules via mapper</td><td>Step 6 — drag or add new fields</td></tr>
   <tr><td>Preview to verify values</td><td>Step 7 — compare actual vs expected</td></tr>
+  <tr><td>Operator picker (24 operators, grouped)</td><td>Step 9 — searchable dropdown on operator pill</td></tr>
+  <tr><td>Color-coded operator pills</td><td>Step 10 — category colors on pills</td></tr>
+  <tr><td>Rules / DSL editor (Monaco)</td><td>Step 11 — bottom dock Rules tab</td></tr>
+  <tr><td>Validation DSL syntax</td><td>Step 12 — text rules like <code>$.path operator value</code></td></tr>
+  <tr><td>Floating DSL editor</td><td>Step 13 — ↗ pop-out, resize, dock with ↙ or Escape</td></tr>
+  <tr><td>Bi-directional DSL ↔ visual sync</td><td>Step 14 — real-time, 300ms debounce</td></tr>
+  <tr><td>Verify All</td><td>Step 15 — pass/fail badges and footer counts</td></tr>
+  <tr><td>Fetch &amp; Verify</td><td>Step 16 — live HTTP then re-verify</td></tr>
+  <tr><td>Failure navigation</td><td>Step 17 — ◀/▶ jump to failures</td></tr>
+  <tr><td>Target filter by status</td><td>Step 18 — All / Mapped / Unmapped / Passed / Failed</td></tr>
 </table>
 
 <div class="callout callout-tip">
