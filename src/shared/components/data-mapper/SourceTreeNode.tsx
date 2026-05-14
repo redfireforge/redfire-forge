@@ -35,6 +35,7 @@ interface SourceTreeNodeProps {
   driftMap?: Map<string, DriftIndicator>;
   traceOverlay?: Map<string, TraceValueOverlay>;
   mappedPaths?: Set<string>;
+  highlightedPaths?: Set<string> | null;
 }
 
 function matchesSearchTerm(node: JsonTreeNode, lower: string): boolean {
@@ -98,6 +99,7 @@ export default function SourceTreeNode({
   driftMap,
   traceOverlay,
   mappedPaths,
+  highlightedPaths,
 }: SourceTreeNodeProps) {
   const hasChildren = (node.children?.length ?? 0) > 0;
   const isExpanded = expandedPaths.has(node.path || '__root__');
@@ -147,6 +149,7 @@ export default function SourceTreeNode({
     ?? driftMap?.get(node.path.replace(/\.?\[(\d+|\*)\]/g, '.[*]'));
   const canDrag = !!node.path && drift?.severity !== 'breaking';
   const traceVal = traceOverlay?.get(node.path);
+  const isHoverHighlighted = isLeaf && (highlightedPaths?.has(normalizeMapperPath(node.path)) ?? false);
   const valueStr = isLeaf && node.type !== 'null' ? String(node.value ?? '') : '';
   const truncValue = valueStr.length > 40 ? valueStr.slice(0, 40) + '…' : valueStr;
   const displayKey = formatNodeDisplayKey(node);
@@ -155,7 +158,7 @@ export default function SourceTreeNode({
   return (
     <div className="dm-tree-node-group">
       <div
-        className={`dm-tree-node dm-tree-node--source ${isLeaf ? 'dm-tree-node--leaf' : ''} ${isMapped ? 'dm-tree-node--mapped' : ''} ${isSelected ? 'dm-tree-node--selected' : ''} ${isBulkSelected ? 'dm-tree-node--bulk-selected' : ''} ${isFocused ? 'dm-tree-node--focused' : ''} ${drift ? `dm-tree-node--drift-${drift.severity}` : ''}`}
+        className={`dm-tree-node dm-tree-node--source ${isLeaf ? 'dm-tree-node--leaf' : ''} ${isMapped ? 'dm-tree-node--mapped' : ''} ${isSelected ? 'dm-tree-node--selected' : ''} ${isBulkSelected ? 'dm-tree-node--bulk-selected' : ''} ${isFocused ? 'dm-tree-node--focused' : ''} ${drift ? `dm-tree-node--drift-${drift.severity}` : ''} ${isHoverHighlighted ? 'dm-tree-node--hover-highlight' : ''}`}
         style={{ paddingLeft: depth * 16 + 4 }}
         draggable={canDrag}
         onDragStart={canDrag ? handleDragStart : undefined}
@@ -226,6 +229,7 @@ export default function SourceTreeNode({
               driftMap={driftMap}
               traceOverlay={traceOverlay}
               mappedPaths={mappedPaths}
+              highlightedPaths={highlightedPaths}
             />
           ))}
         </div>

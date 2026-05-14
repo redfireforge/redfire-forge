@@ -19,7 +19,13 @@ export function toNumber(val: unknown): number | null {
 export function stringify(val: unknown): string {
   if (val === undefined) return 'undefined';
   if (typeof val === 'string') return val;
-  return JSON.stringify(val);
+  try {
+    const serialized = JSON.stringify(val);
+    if (serialized === undefined) return String(val);
+    return serialized;
+  } catch {
+    return String(val);
+  }
 }
 
 export function evaluateFieldOperator(

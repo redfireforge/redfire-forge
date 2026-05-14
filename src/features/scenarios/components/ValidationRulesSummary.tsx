@@ -1,4 +1,4 @@
-import type { ExpectedField } from '../../../shared/types';
+import type { Assertion, ExpectedField } from '../../../shared/types';
 
 interface PivotedRules {
   columns: string[];
@@ -8,6 +8,7 @@ interface PivotedRules {
 
 interface ValidationRulesSummaryProps {
   expectedFields: ExpectedField[];
+  assertions?: Assertion[];
   pivotedRules: PivotedRules;
   canPivot: boolean;
   rulesViewMode: 'flat' | 'pivot';
@@ -18,6 +19,7 @@ interface ValidationRulesSummaryProps {
 
 export default function ValidationRulesSummary({
   expectedFields,
+  assertions,
   pivotedRules,
   canPivot,
   rulesViewMode,
@@ -25,7 +27,8 @@ export default function ValidationRulesSummary({
   onRemoveField,
   onRemoveRowPrefix,
 }: ValidationRulesSummaryProps) {
-  if (expectedFields.length === 0) return null;
+  const customAssertions = (assertions ?? []).filter((a): a is Extract<Assertion, { type: 'custom' }> => a.type === 'custom');
+  if (expectedFields.length === 0 && customAssertions.length === 0) return null;
 
   return (
     <div className="validation-fields-summary">
@@ -151,6 +154,25 @@ export default function ValidationRulesSummary({
               })}
             </tbody>
           </table>
+        </div>
+      )}
+      {customAssertions.length > 0 && (
+        <div className="validation-custom-assertions-section">
+          <div className="validation-custom-assertions-header">
+            Custom Predicates
+            <span className="validation-fields-summary-count">({customAssertions.length})</span>
+          </div>
+          <div className="validation-custom-assertions-list">
+            {customAssertions.map((ca, idx) => (
+              <div key={idx} className="validation-custom-assertion-card">
+                <span className="assertion-type-badge assertion-type-custom">CUSTOM</span>
+                <code className="validation-custom-assertion-expr">{ca.expression}</code>
+                {ca.description && (
+                  <span className="validation-custom-assertion-desc">{ca.description}</span>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>

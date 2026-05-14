@@ -113,6 +113,46 @@ describe('MappingCanvas', () => {
     expect(onSelect).toHaveBeenCalledWith('m1');
   });
 
+  it('updates hover state via transparent path mouseEnter and mouseLeave', () => {
+    const { container } = render(
+      <MappingCanvas lines={[line]} {...defaults} />,
+    );
+    const hitAreas = container.querySelectorAll('path[stroke="transparent"]');
+    const hitArea = hitAreas[0] as SVGPathElement;
+    fireEvent.mouseEnter(hitArea);
+    expect(container.querySelector('.dm-connection-line--selected')).not.toBeNull();
+    const visible = container.querySelectorAll('.dm-connection-line')[0] as SVGPathElement;
+    expect(visible.getAttribute('stroke-width')).toBe('2.5');
+    fireEvent.mouseLeave(hitArea);
+    expect(container.querySelector('.dm-connection-line--selected')).toBeNull();
+    expect((container.querySelectorAll('.dm-connection-line')[0] as SVGPathElement).getAttribute('stroke-width')).toBe('1.5');
+  });
+
+  it('mouseLeave on a line keeps hover when a different line is hovered', () => {
+    const line2: ConnectionLine = { ...line, id: 'line-m2', mappingId: 'm2', sourceY: 100, targetY: 120 };
+    const { container } = render(
+      <MappingCanvas lines={[line, line2]} {...defaults} />,
+    );
+    const hitAreas = container.querySelectorAll('path[stroke="transparent"]');
+    fireEvent.mouseEnter(hitAreas[0] as Element);
+    fireEvent.mouseEnter(hitAreas[1] as Element);
+    fireEvent.mouseLeave(hitAreas[0] as Element);
+    const paths = container.querySelectorAll('.dm-connection-line');
+    expect((paths[1] as SVGPathElement).getAttribute('stroke-width')).toBe('2.5');
+  });
+
+  it('fires onToggleSelectMapping on ctrl-click', () => {
+    const onSelect = vi.fn();
+    const onToggle = vi.fn();
+    const { container } = render(
+      <MappingCanvas lines={[line]} {...defaults} onSelectMapping={onSelect} onToggleSelectMapping={onToggle} />,
+    );
+    const hitArea = container.querySelector('path[stroke="transparent"]')!;
+    fireEvent.click(hitArea, { ctrlKey: true });
+    expect(onToggle).toHaveBeenCalledWith('m1');
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+
   it('fires onToggleSelectMapping on shift-click', () => {
     const onSelect = vi.fn();
     const onToggle = vi.fn();
@@ -644,6 +684,9 @@ describe('MappingCanvas – selectedMappingIds (multi-select)', () => {
 });
 
 describe('MappingCanvas – error detail callback (9C)', () => {
+  const circular: Record<string, unknown> = {};
+  circular.self = circular;
+
   const errorTrace: MappingTrace = {
     mappingId: 'm1',
     sourcePath: 'name',
@@ -673,6 +716,25 @@ describe('MappingCanvas – error detail callback (9C)', () => {
     expect(data.expression).toBe('$broken($.name)');
     expect(data.error).toContain('Unknown function');
     expect(data.sourceValue).toBe('Alice');
+  });
+
+  it('formats non-JSON-serializable trace values with String() fallback', () => {
+    const onShowErrorDetail = vi.fn();
+    const badTrace: MappingTrace = {
+      ...errorTrace,
+      sourceValue: circular,
+      targetValue: null,
+    };
+    const map = new Map<string, MappingTrace>([['m1', badTrace]]);
+    const errorLine = { ...line, traceError: true, traceValue: 'undefined' };
+    const { container } = render(
+      <MappingCanvas lines={[errorLine]} {...defaults} debugMode traceByMappingId={map} onShowErrorDetail={onShowErrorDetail} />,
+    );
+    fireEvent.click(container.querySelector('.dm-error-inline')!);
+    expect(onShowErrorDetail).toHaveBeenCalledTimes(1);
+    const [data] = onShowErrorDetail.mock.calls[0];
+    expect(data.sourceValue).toBe('[object Object]');
+    expect(data.targetValue).toBe('null');
   });
 
   it('does not call onShowErrorDetail when no traceByMappingId', () => {

@@ -185,7 +185,54 @@ const $withEntries: ExpressionFunction = {
   },
 };
 
+const $spread: ExpressionFunction = {
+  name: '$spread', category: 'Object',
+  signature: '$spread(obj) → array',
+  description: 'Convert an object to an array of single-key objects.',
+  args: [{ name: 'obj', type: 'object', required: true, description: 'Object to spread' }],
+  returnType: 'array',
+  examples: [{ input: '$spread({a:1, b:2})', output: '[{a:1},{b:2}]' }],
+  evaluate: (obj) => {
+    const o = asObj(obj);
+    return Object.entries(o).map(([key, value]) => ({ [key]: value }));
+  },
+};
+
+const $lookup: ExpressionFunction = {
+  name: '$lookup', category: 'Object',
+  signature: '$lookup(obj, key, default?) → any',
+  description: 'Look up a value in an object by key, with optional default.',
+  args: [
+    { name: 'obj', type: 'object', required: true, description: 'Lookup table object' },
+    { name: 'key', type: 'string', required: true, description: 'Key to look up' },
+    { name: 'default', type: 'any', required: false, description: 'Default value if key not found' },
+  ],
+  returnType: 'any',
+  examples: [
+    { input: '$lookup({US:"United States", UK:"United Kingdom"}, "US")', output: '"United States"' },
+  ],
+  evaluate: (obj, key, defaultVal) => {
+    const o = asObj(obj);
+    const k = s(key);
+    return Object.prototype.hasOwnProperty.call(o, k) ? o[k] : (defaultVal ?? null);
+  },
+};
+
+const $exists: ExpressionFunction = {
+  name: '$exists', category: 'Object',
+  signature: '$exists(value) → boolean',
+  description: 'Return true if the value is not null and not undefined.',
+  args: [{ name: 'value', type: 'any', required: true, description: 'Value to check' }],
+  returnType: 'boolean',
+  examples: [
+    { input: '$exists("hello")', output: 'true' },
+    { input: '$exists(null)', output: 'false' },
+  ],
+  evaluate: (value) => value != null,
+};
+
 export const objectFunctions: ExpressionFunction[] = [
   $has, $toEntries, $fromEntries, $pick, $omit,
   $mapValues, $mapKeys, $withEntries,
+  $spread, $lookup, $exists,
 ];

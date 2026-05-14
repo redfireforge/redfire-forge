@@ -127,6 +127,46 @@ describe('generateJsonSchema', () => {
     expect(schema.properties?.label?.format).toBeUndefined();
   });
 
+  it('falls back to string type for bigint, symbol, or undefined primitives', () => {
+    expect(generateJsonSchema(BigInt(9), { strict: false }).type).toBe('string');
+    expect(generateJsonSchema(Symbol.iterator as unknown, { strict: false }).type).toBe('string');
+    expect(generateJsonSchema(undefined as unknown, { strict: false }).type).toBe('string');
+    expect(generateJsonSchema({ x: BigInt(1) }, { strict: false }).properties?.x?.type).toBe('string');
+  });
+
+  it('single-element arrays merge item schema directly', () => {
+    expect(generateJsonSchema([42])).toMatchObject({ type: 'array', items: { type: 'integer' } });
+  });
+
+  it('merges heterogeneous integer and float array items into numeric union schema', () => {
+    expect(generateJsonSchema([1, 2.25])).toMatchObject({
+      type: 'array',
+      items: { type: expect.arrayContaining(['integer', 'number']) },
+    });
+  });
+
+  it('omit merged required on array objects when inferring with strict:false', () => {
+    const schema = generateJsonSchema([{ a: 1 }, { a: 2 }], { strict: false });
+    expect(schema.items?.type).toBe('object');
+    expect(schema.items?.required).toBeUndefined();
+    expect(schema.items?.additionalProperties).toBeUndefined();
+  });
+
+  it('restricts merged required keys to intersection of strict object shapes', () => {
+    const schema = generateJsonSchema([{ shared: true, onlyA: 1 }, { shared: false, onlyB: 2 }]);
+    expect(schema.items?.properties?.shared).toMatchObject({ type: 'boolean' });
+    expect(schema.items?.properties?.onlyA?.type).toBe('integer');
+    expect(schema.items?.properties?.onlyB?.type).toBe('integer');
+    expect(schema.items?.required?.sort()).toEqual(['shared']);
+    expect(schema.items?.additionalProperties).toBe(false);
+  });
+
+  it('handles single-branch property merge when key exists on only some samples', () => {
+    const schema = generateJsonSchema([{ y: [] }, { y: [{}], lone: '' }]);
+    expect(schema.items?.properties?.y?.type).toBe('array');
+    expect(schema.items?.properties?.lone?.type).toBe('string');
+  });
+
   it('produces a valid JSON Schema that Ajv can compile', async () => {
     const Ajv = (await import('ajv')).default;
     const addFormats = (await import('ajv-formats')).default;

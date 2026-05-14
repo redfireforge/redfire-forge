@@ -17,14 +17,15 @@ import { useDataMapperEffects } from './hooks/useDataMapperEffects';
 import { useDataMapperHandlers } from './hooks/useDataMapperHandlers';
 import { useVerifyNavigation } from './hooks/useVerifyNavigation';
 import { useKeyboardNavigation } from './hooks/useKeyboardNavigation';
+import { useBottomUtilityDock } from './hooks/useBottomUtilityDock';
+import { useDataMapperTreeInteraction, type LineFocusNode } from './hooks/useDataMapperTreeInteraction';
 import '../../../styles/data-mapper.css';
 import '../../../styles/data-mapper-expression.css';
 
 import type { DriftIndicator } from './SourceTreeNode';
 import type { MappingTrace } from './utils/mappingTrace';
 import { enrichConnectionLines } from './utils/lineEnrichment';
-import { toggleUtilityMode, safeDeserialize } from './utils/bottomUtilityHelpers';
-import type { BottomUtilityMode } from './utils/bottomUtilityHelpers';
+import { safeDeserialize } from './utils/bottomUtilityHelpers';
 import ExampleInferenceModal from './ExampleInferenceModal';
 import ErrorPopover from './ErrorPopover';
 import { useDebugOverlay } from './hooks/useDebugOverlay';
@@ -34,18 +35,20 @@ import type { RepairSuggestion } from './utils/schemaRepair';
 import MapperFooter from './MapperFooter';
 import BulkActionsBar from './BulkActionsBar';
 import BottomUtilityDock from './BottomUtilityDock';
+import FloatingEditorModal from './FloatingEditorModal';
 import { useTargetFields } from './hooks/useTargetFields';
 import { usePanelResize } from './hooks/usePanelResize';
 import { useMapperKeyboard } from './hooks/useMapperKeyboard';
 import { useMappingOverlay } from './hooks/useMappingOverlay';
 import { buildTargetTree } from './utils/mapperTreeBuilders';
-import { normalizeMapperPath } from './utils/pathNormalization';
 import {
   getArrayParentPath,
 } from './utils/subtreeMapping';
 import { useMappingDiagnostics } from './hooks/useMappingDiagnostics';
 import { useMapperRepairActions } from './hooks/useMapperRepairActions';
 import { useBulkSubtreeActions } from './hooks/useBulkSubtreeActions';
+import { useHighlightedMappingPaths } from './hooks/useHighlightedMappingPaths';
+import { useMapperVisibleLines } from './hooks/useMapperVisibleLines';
 
 interface DataMapperProps<TOutput = unknown> {
   adapter: MapperAdapter<TOutput>;
@@ -67,7 +70,6 @@ interface DataMapperProps<TOutput = unknown> {
   onAssertionsChange?: (assertions: import('../../types').Assertion[]) => void;
   flushRef?: React.RefObject<(() => void) | null>;
 }
-type LineFocusNode = { region: 'source' | 'target'; path: string } | null;
 
 export default function DataMapper<TOutput = unknown>({
   adapter,
@@ -98,7 +100,16 @@ export default function DataMapper<TOutput = unknown>({
   );
 
   const [editingMappingId, setEditingMappingId] = useState<string | null>(null);
-  const [bottomUtilityMode, setBottomUtilityMode] = useState<BottomUtilityMode>('none');
+  const {
+    bottomUtilityMode,
+    rulesFloating,
+    handleTogglePreview,
+    handleToggleCodeView,
+    handleToggleTableView,
+    handleToggleRulesView,
+    handleRulesPopOut,
+    handleRulesPopIn,
+  } = useBottomUtilityDock();
   const [showMappingLines, setShowMappingLines] = useState(true);
   const [nodeFocusMode, setNodeFocusMode] = useState(false);
   const [lineFocusNode, setLineFocusNode] = useState<LineFocusNode>(null);
@@ -151,25 +162,31 @@ export default function DataMapper<TOutput = unknown>({
   const layoutTick = useLayoutTick(containerRef);
   const [showExampleModal, setShowExampleModal] = useState(false);
   const [compactMode, setCompactMode] = useState(false);
-  const handleTogglePreview = useCallback(() => {
-    setBottomUtilityMode((mode) => toggleUtilityMode(mode, 'preview'));
-  }, []);
-  const handleToggleCodeView = useCallback(() => {
-    setBottomUtilityMode((mode) => toggleUtilityMode(mode, 'code'));
-  }, []);
-  const handleToggleTableView = useCallback(() => {
-    setBottomUtilityMode((mode) => toggleUtilityMode(mode, 'table'));
-  }, []);
-  const handleToggleRulesView = useCallback(() => {
-    setBottomUtilityMode((mode) => toggleUtilityMode(mode, 'rules'));
-  }, []);
 
   const [advancedControlsOpen, setAdvancedControlsOpen] = useState(() => initialMappings.length < 8);
   const previousMappingCountRef = useRef(initialMappings.length);
 
-  const { focusRegion, focusedPath, setFocusRegion, handleTreeKeyDown } = useKeyboardNavigation({
+  const { focusRegion, focusedPath, setFocusRegion, setFocusedPath, handleTreeKeyDown: rawHandleTreeKeyDown } = useKeyboardNavigation({
     containerRef,
     disabled: !!editingMappingId,
+  });
+
+  const {
+    hoveredNodePath,
+    hoveredNodeRegion,
+    handleTreeNodeHover,
+    handleBodyMouseLeave,
+    handleTreeNodeClickForKeyboard,
+    handleTreeNodeClickForLineFocus,
+    handleTreeKeyDown,
+    clearHover,
+  } = useDataMapperTreeInteraction({
+    setFocusRegion,
+    setFocusedPath,
+    rawHandleTreeKeyDown,
+    showMappingLines,
+    nodeFocusMode,
+    setLineFocusNode,
   });
 
   const {
@@ -272,6 +289,7 @@ export default function DataMapper<TOutput = unknown>({
     setBulkSourcePath,
     setBulkSourceId,
     setBulkTargetPath,
+    autoMapDefaultOperator: caps.autoMapDefaultOperator,
   });
 
   const {
@@ -421,15 +439,16 @@ export default function DataMapper<TOutput = unknown>({
     traceByMappingId,
   }), [rawLines, driftMappingIds, debugMode, traceByMappingId, autoMapScoresRef, patternMappingIdsRef]);
 
-  const visibleLines = useMemo(() => {
-    if (showMappingLines) return lines;
-    if (!nodeFocusMode || !lineFocusNode) return [];
-    const fp = normalizeMapperPath(lineFocusNode.path);
-    if (lineFocusNode.region === 'source') {
-      return lines.filter((line) => normalizeMapperPath(line.sourcePath) === fp);
-    }
-    return lines.filter((line) => normalizeMapperPath(line.targetPath) === fp);
-  }, [lines, showMappingLines, nodeFocusMode, lineFocusNode]);
+  const visibleLines = useMapperVisibleLines(lines, showMappingLines, nodeFocusMode, lineFocusNode);
+
+  const { highlightedMappingIds, highlightedSourcePaths, highlightedTargetPaths } = useHighlightedMappingPaths(
+    hoveredNodePath,
+    hoveredNodeRegion,
+    focusedPath,
+    focusRegion,
+    state.mappings,
+    state.selectedMappingId,
+  );
 
   const mappedTargetValueOverlay = useMappingOverlay(
     state.mappings,
@@ -533,26 +552,6 @@ export default function DataMapper<TOutput = unknown>({
     return () => clearTimeout(t);
   }, [toast]);
 
-  const handleTreeNodeClickForLineFocus = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    if (showMappingLines || !nodeFocusMode) return;
-    const target = e.target as HTMLElement;
-    if (target.closest('button, input, textarea, select, a, [contenteditable="true"]')) return;
-    const node = target.closest('.dm-tree-node[data-path]') as HTMLElement | null;
-    if (!node) return;
-    const path = node.getAttribute('data-path');
-    if (!path) return;
-    const region = node.closest('.dm-panel--source')
-      ? 'source'
-      : node.closest('.dm-panel--target')
-        ? 'target'
-        : null;
-    if (!region) return;
-    setLineFocusNode((prev) => {
-      if (prev?.region === region && prev.path === path) return null;
-      return { region, path };
-    });
-  }, [showMappingLines, nodeFocusMode]);
-
   const handleToggleCompactMode = useCallback(() => {
     setCompactMode((mode) => {
       const nextMode = !mode;
@@ -585,7 +584,8 @@ export default function DataMapper<TOutput = unknown>({
   const handleSelectMappingExclusive = useCallback((id: string | null) => {
     selectMapping(id);
     setSelectedIds(new Set());
-  }, [selectMapping]);
+    clearHover();
+  }, [selectMapping, clearHover]);
 
   return (
     <div className="dm-container" ref={containerRef} style={{ height }}>
@@ -683,7 +683,7 @@ export default function DataMapper<TOutput = unknown>({
         onIgnoreOnce={handleIgnoreRepairIssue}
         onOpenNode={handleOpenRepairIssue}
       />
-      <div className="dm-body" onClickCapture={handleTreeNodeClickForLineFocus}>
+      <div className="dm-body" onClickCapture={handleTreeNodeClickForLineFocus} onClick={handleTreeNodeClickForKeyboard} onMouseOver={handleTreeNodeHover} onMouseLeave={handleBodyMouseLeave}>
         <div className="dm-panel-wrapper" style={sourcePanelWidth ? { width: sourcePanelWidth, flex: 'none' } : undefined}>
           <SourcePanel
             sources={effectiveSources}
@@ -709,6 +709,7 @@ export default function DataMapper<TOutput = unknown>({
             traceOverlay={sourceTraceOverlay}
             mappedPaths={mappedSourcePaths}
             onMapFilteredFields={handleMapFilteredFields}
+            highlightedPaths={highlightedSourcePaths}
           />
         </div>
         <div
@@ -740,6 +741,7 @@ export default function DataMapper<TOutput = unknown>({
             onApplyRepair={onApplyRepair}
             totalMappingCount={state.mappings.length}
             failedMappingIds={verifyHook.result.status === 'complete' ? verifyHook.result.failedMappingIds : undefined}
+            highlightedMappingIds={highlightedMappingIds}
           />
         </div>
         <div
@@ -791,6 +793,7 @@ export default function DataMapper<TOutput = unknown>({
             fieldVerifyResults={verifyHook.result.status === 'complete' ? verifyHook.result.fieldResults : undefined}
             onAddArrayAssertion={caps.operators ? handleAddArrayAssertion : undefined}
             filterFailedSignal={filterFailedSignal}
+            highlightedPaths={highlightedTargetPaths}
           />
         </div>
       </div>
@@ -834,6 +837,16 @@ export default function DataMapper<TOutput = unknown>({
           onValidationCodeChange={validationSync.handleCodeChange}
           validationParseErrors={validationSync.parseErrors}
           validationSamplePaths={validationSamplePaths}
+          onRulesPopOut={handleRulesPopOut}
+        />
+      )}
+      {rulesFloating && (
+        <FloatingEditorModal
+          value={validationSync.dslText}
+          onChange={validationSync.handleCodeChange}
+          errors={validationSync.parseErrors}
+          samplePaths={validationSamplePaths}
+          onClose={handleRulesPopIn}
         />
       )}
       {editingMapping && (

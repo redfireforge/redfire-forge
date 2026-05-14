@@ -193,6 +193,9 @@ interface ValidationCodeEditorProps {
   onJumpToNode?: (path: string) => void;
   height?: number | string;
   readOnly?: boolean;
+  onPopOut?: () => void;
+  onPopIn?: () => void;
+  isFloating?: boolean;
 }
 
 export default function ValidationCodeEditor({
@@ -203,6 +206,9 @@ export default function ValidationCodeEditor({
   onJumpToNode,
   height = 200,
   readOnly = false,
+  onPopOut,
+  onPopIn,
+  isFloating = false,
 }: ValidationCodeEditorProps) {
   const editorRef = useRef<import('monaco-editor').editor.IStandaloneCodeEditor | null>(null);
   const monacoRef = useRef<typeof import('monaco-editor') | null>(null);
@@ -292,7 +298,7 @@ export default function ValidationCodeEditor({
 
   return (
     <div className="dm-validation-editor" role="region" aria-label="Validation rules editor">
-      <div className="dm-validation-editor-header">
+      <div className={`dm-validation-editor-header${isFloating ? ' dm-validation-editor-header--floating' : ''}`}>
         <span className="dm-validation-editor-title">Validation Rules</span>
         <div className="dm-validation-editor-stats">
           <span className="dm-validation-editor-stat">
@@ -302,6 +308,26 @@ export default function ValidationCodeEditor({
             <span className="dm-validation-editor-stat dm-validation-editor-stat--error">
               {errorCount} error{errorCount !== 1 ? 's' : ''}
             </span>
+          )}
+          {onPopOut && !isFloating && (
+            <button
+              className="dm-validation-editor-popout-btn"
+              onClick={onPopOut}
+              title="Open in floating window"
+              aria-label="Pop out editor"
+            >
+              ↗
+            </button>
+          )}
+          {onPopIn && isFloating && (
+            <button
+              className="dm-validation-editor-popout-btn"
+              onClick={onPopIn}
+              title="Dock back to panel"
+              aria-label="Pop in editor"
+            >
+              ↙
+            </button>
           )}
         </div>
       </div>

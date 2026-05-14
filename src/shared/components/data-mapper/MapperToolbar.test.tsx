@@ -42,6 +42,11 @@ function renderWithProfiles(overrides?: Partial<Parameters<typeof MapperToolbar>
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.mocked(loadProfiles).mockResolvedValue([
+    { id: 'p1', name: 'Profile A', mappings: [{ id: 'm1', sourceId: 's', sourcePath: 'a', targetPath: 'b' }] },
+    { id: 'p2', name: 'Profile B', mappings: [] },
+  ]);
+  vi.mocked(renameProfile).mockResolvedValue(true);
 });
 
 describe('MapperToolbar', () => {
@@ -348,6 +353,194 @@ describe('MapperToolbar', () => {
     fireEvent.click(screen.getByTitle('Enable node-focus lines'));
     expect(onToggle).toHaveBeenCalledTimes(1);
   });
+
+  it('shows Table and Rules toggles when callbacks are provided', () => {
+    renderToolbar({
+      onToggleTableView: vi.fn(),
+      onToggleRulesView: vi.fn(),
+    });
+    fireEvent.click(screen.getByTitle('Show mapping table'));
+    fireEvent.click(screen.getByTitle('Edit validation rules as code'));
+  });
+
+  it('shows active titles when Table and Rules are visible', () => {
+    renderToolbar({
+      onToggleTableView: vi.fn(),
+      onToggleRulesView: vi.fn(),
+      showTableView: true,
+      showRulesView: true,
+    });
+    expect(screen.getByTitle('Hide table view')).toBeTruthy();
+    expect(screen.getByTitle('Hide rules editor')).toBeTruthy();
+  });
+
+  it('shows mapping status with unresolved count when unresolvedMappings > 0', () => {
+    renderToolbar({
+      mappingCount: 5,
+      resolvedCount: 2,
+      unresolvedCount: 3,
+    });
+    expect(screen.getByText('2 mapped, 3 unresolved')).toBeTruthy();
+  });
+
+  it('shows pending review status when hasPending without unresolved mapping math', () => {
+    renderToolbar({
+      mappingCount: 3,
+      resolvedCount: 3,
+      unresolvedCount: 0,
+      hasPending: true,
+    });
+    expect(screen.getByText(/pending review/)).toBeTruthy();
+  });
+
+  it('shows singular pending mapping label', () => {
+    renderToolbar({
+      mappingCount: 1,
+      resolvedCount: 1,
+      unresolvedCount: 0,
+      hasPending: true,
+    });
+    expect(screen.getByText('1 mapping pending review')).toBeTruthy();
+  });
+
+  it('calls onLearnFromExamples from advanced panel', () => {
+    const onLearn = vi.fn();
+    renderToolbar({
+      onLearnFromExamples: onLearn,
+      advancedOpen: true,
+      onAdvancedOpenChange: vi.fn(),
+    });
+    fireEvent.click(screen.getByTitle('Infer mappings from input/output examples'));
+    expect(onLearn).toHaveBeenCalledTimes(1);
+  });
+
+  it('fires onConfidenceThresholdChange when threshold select changes', () => {
+    const onThreshold = vi.fn();
+    renderToolbar({
+      onConfidenceThresholdChange: onThreshold,
+      autoMapCount: 2,
+      confidenceThreshold: 60,
+      advancedOpen: true,
+      onAdvancedOpenChange: vi.fn(),
+    });
+    fireEvent.change(screen.getByLabelText('Auto-map confidence threshold'), { target: { value: '75' } });
+    expect(onThreshold).toHaveBeenCalledWith(75);
+  });
+
+  it('closes advanced panel on outside mousedown', async () => {
+    renderToolbar({
+      onLearnFromExamples: vi.fn(),
+    });
+    expect(screen.getByTitle('Infer mappings from input/output examples')).toBeTruthy();
+    fireEvent.mouseDown(document.body);
+    await waitFor(() => {
+      expect(screen.queryByTitle('Infer mappings from input/output examples')).toBeNull();
+    });
+  });
+
+  it('shows compact label when compact mode is off', () => {
+    renderToolbar({
+      compactMode: false,
+      onToggleCompactMode: vi.fn(),
+    });
+    expect(screen.getByTitle('Switch to compact mode').textContent).toContain('Compact');
+  });
+});
+
+describe('verification toolbar cluster', () => {
+  it('renders Verify All, Fetch & Verify, and Auto toggle', () => {
+    renderToolbar({
+      onVerifyAll: vi.fn(),
+      onFetchAndVerify: vi.fn(),
+      onToggleAutoVerify: vi.fn(),
+      autoVerify: true,
+    });
+    expect(screen.getByTitle('Verify all rules against sample data')).toBeTruthy();
+    expect(screen.getByTitle('Fetch live response and verify')).toBeTruthy();
+    expect(screen.getByTitle('Auto-verify on rule changes')).toBeTruthy();
+  });
+
+  it('shows verifying state and disables buttons while running', () => {
+    renderToolbar({
+      onVerifyAll: vi.fn(),
+      onFetchAndVerify: vi.fn(),
+      verifyStatus: 'running',
+    });
+    expect(screen.getByText('Verifying…')).toBeTruthy();
+    expect(screen.getByTitle('Verify all rules against sample data').closest('button')?.disabled).toBe(true);
+  });
+
+  it('shows passed-only summary when verify completes with zero failures', () => {
+    const { container } = renderToolbar({
+      onVerifyAll: vi.fn(),
+      verifyStatus: 'complete',
+      verifyPassedCount: 4,
+      verifyFailedCount: 0,
+    });
+    expect(container.querySelector('.dm-toolbar-verify-pass')?.textContent).toContain('4 passed');
+  });
+
+  it('toggles failure list and navigates failures', () => {
+    const onNavigate = vi.fn();
+    renderToolbar({
+      onVerifyAll: vi.fn(),
+      verifyStatus: 'complete',
+      verifyPassedCount: 1,
+      verifyFailedCount: 2,
+      verifyFailures: [
+        { path: '$.a', expected: '1', actual: '2' },
+        { path: '$.b', expected: 'x', actual: 'y' },
+      ],
+      onNavigateToFailure: onNavigate,
+    });
+    fireEvent.click(screen.getByTitle('Click to see failures'));
+    expect(screen.getByText('Failed Rules (2)')).toBeTruthy();
+    fireEvent.click(screen.getByText('$.b'));
+    expect(onNavigate).toHaveBeenCalledWith('$.b');
+    fireEvent.click(screen.getByLabelText('Next failure'));
+    expect(onNavigate).toHaveBeenCalledWith('$.a');
+    fireEvent.click(screen.getByLabelText('Previous failure'));
+    expect(onNavigate).toHaveBeenCalledWith('$.b');
+  });
+
+  it('closes failure list on outside mousedown', async () => {
+    renderToolbar({
+      onVerifyAll: vi.fn(),
+      verifyStatus: 'complete',
+      verifyPassedCount: 0,
+      verifyFailedCount: 1,
+      verifyFailures: [{ path: '$.x', expected: 'a', actual: 'b' }],
+      onNavigateToFailure: vi.fn(),
+    });
+    fireEvent.click(screen.getByTitle('Click to see failures'));
+    expect(screen.getByText('Failed Rules (1)')).toBeTruthy();
+    fireEvent.mouseDown(document.body);
+    await waitFor(() => {
+      expect(screen.queryByText('Failed Rules (1)')).toBeNull();
+    });
+  });
+
+  it('fires onToggleAutoVerify when Auto checkbox changes', () => {
+    const onToggle = vi.fn();
+    renderToolbar({
+      onVerifyAll: vi.fn(),
+      onToggleAutoVerify: onToggle,
+      autoVerify: false,
+    });
+    const checkbox = screen.getByTitle('Auto-verify on rule changes').querySelector('input');
+    fireEvent.click(checkbox!);
+    expect(onToggle).toHaveBeenCalled();
+  });
+
+  it('calls onFetchAndVerify when Fetch & Verify clicked', () => {
+    const onFetch = vi.fn();
+    renderToolbar({
+      onVerifyAll: vi.fn(),
+      onFetchAndVerify: onFetch,
+    });
+    fireEvent.click(screen.getByTitle('Fetch live response and verify'));
+    expect(onFetch).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('pending accept/reject buttons', () => {
@@ -540,6 +733,36 @@ describe('profiles menu', () => {
     renderWithProfiles();
     await openMenu();
     await waitFor(() => expect(screen.getByText('No saved profiles')).toBeTruthy());
+  });
+
+  it('renders profile name as non-clickable div when only delta apply is available', async () => {
+    renderToolbar({
+      contextId: 'ctx-delta',
+      mappings: [{ id: 'm1', sourceId: 's', sourcePath: 'x', targetPath: 'y' }],
+      onApplyProfileDelta: vi.fn(),
+      mappingCount: 1,
+      advancedOpen: true,
+      onAdvancedOpenChange: vi.fn(),
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByTitle('Mapping profiles'));
+    });
+    await waitFor(() => expect(screen.getByText('Profile A')).toBeTruthy());
+    expect(screen.queryByTitle(/Load "/)).toBeNull();
+  });
+
+  it('does not refresh profiles when renameProfile returns false', async () => {
+    vi.mocked(renameProfile).mockResolvedValueOnce(false);
+    renderWithProfiles();
+    await openMenu();
+    await waitFor(() => expect(screen.getAllByTitle('Rename').length).toBeGreaterThan(0));
+    fireEvent.click(screen.getAllByTitle('Rename')[0]);
+    const renameInput = screen.getByDisplayValue('Profile A');
+    fireEvent.change(renameInput, { target: { value: 'Still A' } });
+    await act(async () => {
+      fireEvent.keyDown(renameInput, { key: 'Enter' });
+    });
+    expect(renameProfile).toHaveBeenCalled();
   });
 });
 

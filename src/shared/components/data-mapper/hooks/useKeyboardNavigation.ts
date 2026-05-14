@@ -11,6 +11,7 @@ export interface UseKeyboardNavigationReturn {
   focusRegion: FocusRegion;
   focusedPath: string | null;
   setFocusRegion: (region: FocusRegion) => void;
+  setFocusedPath: (path: string | null) => void;
   handleTreeKeyDown: (
     e: React.KeyboardEvent,
     region: FocusRegion,
@@ -99,7 +100,7 @@ export function useKeyboardNavigation({
       const nodes = getVisibleNodes(container, panelClass);
       if (nodes.length === 0) return;
 
-      const currentIdx = focusedPathRef.current
+      const currentIdx = focusedPathRef.current != null
         ? nodes.findIndex((n) => n.getAttribute('data-path') === focusedPathRef.current)
         : -1;
 
@@ -155,6 +156,7 @@ export function useKeyboardNavigation({
     focusRegion,
     focusedPath,
     setFocusRegion,
+    setFocusedPath,
     handleTreeKeyDown,
   };
 }

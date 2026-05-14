@@ -138,8 +138,8 @@ export function useDataMapperEffects({
   }, [adapter.sources, sourceSampleOverrides]);
 
   const typeMismatches = useMemo(
-    () => detectTypeMismatches(mappings, effectiveSources, effectiveTarget, activeSourceId),
-    [mappings, effectiveSources, effectiveTarget, activeSourceId],
+    () => detectTypeMismatches(mappings, effectiveSources, effectiveTarget, activeSourceId, adapter.capabilities?.autoMapDefaultOperator),
+    [mappings, effectiveSources, effectiveTarget, activeSourceId, adapter.capabilities?.autoMapDefaultOperator],
   );
 
   const mismatchIds = useMemo(

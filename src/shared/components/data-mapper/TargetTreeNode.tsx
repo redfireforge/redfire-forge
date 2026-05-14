@@ -59,6 +59,7 @@ interface TargetTreeNodeProps {
   nodeStatusMap?: Map<string, 'pass' | 'fail'>;
   fieldVerifyResults?: Map<string, { passed: boolean; actual?: string; expected?: string; matchContext?: string }>;
   onAddArrayAssertion?: (arrayPath: string, assertionType: 'length' | 'contains' | 'each' | 'subset') => void;
+  highlightedPaths?: Set<string> | null;
 }
 
 function matchesSearchTerm(node: JsonTreeNode, lower: string): boolean {
@@ -144,6 +145,7 @@ export default function TargetTreeNode({
   nodeStatusMap,
   fieldVerifyResults,
   onAddArrayAssertion,
+  highlightedPaths,
 }: TargetTreeNodeProps) {
   const [dragOver, setDragOver] = useState(false);
   const [renaming, setRenaming] = useState(false);
@@ -329,7 +331,7 @@ export default function TargetTreeNode({
     }
   }, [mapping, onEditExpression, isCustomOrFetched, onUpdateCustomField, handleStartRename]);
 
-  const currentOp = mapping?.operator ?? 'equals';
+  const currentOp = mapping?.operator ?? capabilities?.autoMapDefaultOperator ?? 'equals';
   const currentOpMeta = OPERATOR_REGISTRY[currentOp] ?? OPERATOR_REGISTRY['equals'];
   const showOperators = capabilities?.operators && !!mapping && !!onUpdateMappingOperator;
 
@@ -424,6 +426,7 @@ export default function TargetTreeNode({
   const isSelected = mapping?.id === selectedMappingId && !!selectedMappingId;
   const isBulkSelected = selectedNodePath === node.path;
   const isFocused = focusedPath === node.path;
+  const isHoverHighlighted = isLeaf && (highlightedPaths?.has(normalizedNodePath) ?? false);
   const traceVal = traceOverlay?.get(node.path);
   const displayKey = formatNodeDisplayKey(node);
   const nodePathTitle = normalizedNodePath ? `Path: ${normalizedNodePath}` : '(root)';
@@ -431,7 +434,7 @@ export default function TargetTreeNode({
   return (
     <div className="dm-tree-node-group">
       <div
-        className={`dm-tree-node dm-tree-node--target ${isLeaf ? 'dm-tree-node--leaf' : ''} ${isLeaf && onReorderField ? 'dm-tree-node--reorderable' : ''} ${isMapped ? 'dm-tree-node--mapped' : ''} ${dragOver ? 'dm-tree-node--drag-over' : ''} ${isSelected ? 'dm-tree-node--selected' : ''} ${isBulkSelected ? 'dm-tree-node--bulk-selected' : ''} ${isFocused ? 'dm-tree-node--focused' : ''} ${isCustomOrFetched ? 'dm-tree-node--custom' : ''}`}
+        className={`dm-tree-node dm-tree-node--target ${isLeaf ? 'dm-tree-node--leaf' : ''} ${isLeaf && onReorderField ? 'dm-tree-node--reorderable' : ''} ${isMapped ? 'dm-tree-node--mapped' : ''} ${dragOver ? 'dm-tree-node--drag-over' : ''} ${isSelected ? 'dm-tree-node--selected' : ''} ${isBulkSelected ? 'dm-tree-node--bulk-selected' : ''} ${isFocused ? 'dm-tree-node--focused' : ''} ${isCustomOrFetched ? 'dm-tree-node--custom' : ''} ${isHoverHighlighted ? 'dm-tree-node--hover-highlight' : ''}`}
         style={{ paddingLeft: depth * 16 + 4 }}
         onDragEnter={handleDragEnter}
         onDragOver={handleDragOver}
@@ -869,6 +872,7 @@ export default function TargetTreeNode({
               nodeStatusMap={nodeStatusMap}
               fieldVerifyResults={fieldVerifyResults}
               onAddArrayAssertion={onAddArrayAssertion}
+              highlightedPaths={highlightedPaths}
             />
           ))}
         </div>

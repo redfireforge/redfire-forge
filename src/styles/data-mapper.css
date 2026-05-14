@@ -215,6 +215,7 @@
   display: flex;
   flex: 1;
   overflow: hidden;
+  min-height: 0;
 }
 
 /* ─── Panels ───────────────────────────────────────────────── */
@@ -617,6 +618,10 @@
   background: color-mix(in srgb, var(--accent, #89b4fa) 30%, transparent);
   border-color: var(--accent, #89b4fa);
 }
+.dm-map-filtered-btn--header {
+  margin-left: auto;
+  margin-right: 6px;
+}
 
 /* ─── Mapping Table View ──────────────────────────────────── */
 
@@ -758,7 +763,8 @@
   height: 26px;
   padding-right: 8px;
   cursor: default;
-  transition: background 0.1s;
+  transition: background 0.08s;
+  outline: none;
 }
 
 .dm-tree-node:hover {
@@ -2469,9 +2475,12 @@ button.dm-mismatch-badge {
 
 .dm-tree-node--focused {
   background: var(--dm-selected-bg);
-  outline: 2px solid var(--dm-focus-ring);
-  outline-offset: -2px;
-  border-radius: 3px;
+  box-shadow: inset 2px 0 0 var(--dm-focus-ring);
+}
+
+.dm-tree-node--hover-highlight {
+  background: color-mix(in srgb, var(--accent, #89b4fa) 18%, transparent);
+  box-shadow: inset 2px 0 0 color-mix(in srgb, var(--accent, #89b4fa) 60%, transparent);
 }
 
 /* ─── Code View ──────────────────────────────────────────── */
@@ -2817,6 +2826,11 @@ button.dm-mismatch-badge {
   border-top: 1px solid rgba(137, 180, 250, 0.12);
   background: rgba(0, 0, 0, 0.16);
   flex-shrink: 0;
+  max-height: 40%;
+}
+
+.dm-bottom-utility-dock--rules {
+  min-height: 240px;
 }
 
 .dm-bottom-utility-dock .dm-code-view,
@@ -4331,6 +4345,7 @@ button.dm-mismatch-badge {
   background: #181825;
   border-top: 1px solid rgba(137, 180, 250, 0.12);
   overflow: hidden;
+  height: 100%;
 }
 
 .dm-validation-editor-header {
@@ -4372,10 +4387,12 @@ button.dm-mismatch-badge {
 .dm-validation-editor-body {
   flex: 1;
   overflow: hidden;
-  min-height: 120px;
+  min-height: 160px;
+  position: relative;
 }
 
-.dm-validation-editor-body .monaco-editor {
+.dm-validation-editor-body .monaco-editor,
+.dm-validation-editor-body .monaco-editor .overflow-guard {
   border-radius: 0;
 }
 
@@ -4425,6 +4442,118 @@ button.dm-mismatch-badge {
   color: var(--text-muted, #6c7086);
   font-size: 0.78rem;
   font-style: italic;
+}
+
+.dm-validation-editor-popout-btn {
+  background: transparent;
+  border: 1px solid rgba(137, 180, 250, 0.15);
+  border-radius: 4px;
+  color: var(--text-muted, #6c7086);
+  font-size: 0.72rem;
+  cursor: pointer;
+  padding: 1px 6px;
+  line-height: 1.2;
+  transition: background 0.12s, color 0.12s;
+}
+
+.dm-validation-editor-popout-btn:hover {
+  background: rgba(137, 180, 250, 0.12);
+  color: var(--accent, #89b4fa);
+}
+
+.dm-validation-editor-header--floating {
+  display: none;
+}
+
+/* ─── Floating Editor Modal ─────────────────────────── */
+
+.dm-floating-editor {
+  position: fixed;
+  z-index: 1200;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-surface, #1e1e2e);
+  border: 1px solid rgba(137, 180, 250, 0.2);
+  border-radius: 10px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(137, 180, 250, 0.06);
+  overflow: hidden;
+  user-select: none;
+}
+
+.dm-floating-editor-drag {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: rgba(17, 17, 27, 0.7);
+  border-bottom: 1px solid rgba(137, 180, 250, 0.1);
+  cursor: grab;
+  user-select: none;
+}
+
+.dm-floating-editor-drag:active {
+  cursor: grabbing;
+}
+
+.dm-floating-editor-grip {
+  color: var(--text-muted, #6c7086);
+  font-size: 0.8rem;
+  letter-spacing: 2px;
+  opacity: 0.5;
+}
+
+.dm-floating-editor-drag-title {
+  flex: 1;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--text, #cdd6f4);
+}
+
+.dm-floating-editor-close {
+  background: transparent;
+  border: none;
+  color: var(--text-muted, #6c7086);
+  font-size: 0.82rem;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: background 0.12s, color 0.12s;
+}
+
+.dm-floating-editor-close:hover {
+  background: rgba(243, 139, 168, 0.15);
+  color: #f38ba8;
+}
+
+.dm-floating-editor-body {
+  flex: 1;
+  overflow: hidden;
+  user-select: text;
+}
+
+.dm-floating-editor-body .dm-validation-editor {
+  border-top: none;
+}
+
+.dm-floating-editor-body .dm-validation-editor-body {
+  min-height: 0;
+}
+
+.dm-floating-editor-resize {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 16px;
+  height: 16px;
+  cursor: nwse-resize;
+  background:
+    linear-gradient(135deg, transparent 50%, rgba(137, 180, 250, 0.25) 50%);
+  border-radius: 0 0 10px 0;
+}
+
+.dm-floating-editor-resize:hover {
+  background:
+    linear-gradient(135deg, transparent 50%, rgba(137, 180, 250, 0.45) 50%);
 }
 
 /* ─── Verification UI ─────────────────────────────────── */

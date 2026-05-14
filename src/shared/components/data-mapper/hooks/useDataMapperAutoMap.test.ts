@@ -247,4 +247,102 @@ describe('useDataMapperAutoMap', () => {
     vi.mocked(loadPattern).mockReturnValue(null);
     vi.mocked(patternToSuggestions).mockReturnValue([]);
   });
+
+  it('handleAutoMap does nothing when no candidates meet threshold and patterns empty', () => {
+    const setMappings = vi.fn();
+    const deps = makeDeps({
+      getEffectiveSourceData: vi.fn().mockReturnValue(JSON.stringify({ z: 9 })),
+      effectiveTarget: { sampleData: JSON.stringify({ unmatched: 1 }) },
+      setMappings,
+      confidenceThreshold: 100,
+    });
+    const { result } = renderHook(() => useDataMapperAutoMap(deps));
+
+    act(() => {
+      result.current.handleAutoMap();
+    });
+
+    expect(setMappings).not.toHaveBeenCalled();
+  });
+
+  it('handleAutoMap attaches autoMapDefaultOperator to new mappings', () => {
+    const setMappings = vi.fn();
+    const deps = makeDeps({
+      getEffectiveSourceData: vi.fn().mockReturnValue(JSON.stringify({ name: 'test' })),
+      effectiveTarget: { sampleData: JSON.stringify({ name: '' }) },
+      setMappings,
+      confidenceThreshold: 0,
+      autoMapDefaultOperator: 'contains',
+    });
+    const { result } = renderHook(() => useDataMapperAutoMap(deps));
+
+    act(() => {
+      result.current.handleAutoMap();
+    });
+
+    if (result.current.autoMapCandidateCount > 0) {
+      const applied = setMappings.mock.calls[0][0] as { operator?: string }[];
+      expect(applied.some((m) => m.operator === 'contains')).toBe(true);
+    }
+  });
+
+  it('handleLoadGallerySample maps unknown sample source id onto first adapter source', () => {
+    const setSourceSample = vi.fn();
+    const deps = makeDeps({
+      adapter: {
+        label: 'test',
+        contextId: 'ctx',
+        sources: [{ id: 'primary', label: 'Primary', sampleData: '{}' }],
+        target: { label: 'Target', allowCustomFields: false, sampleData: '{}' },
+        serialize: vi.fn().mockReturnValue({}),
+        deserialize: vi.fn().mockReturnValue([]),
+      } as unknown as DataMapperAutoMapDeps['adapter'],
+      activeSourceId: 'ignored',
+      setSourceSample,
+    });
+    const { result } = renderHook(() => useDataMapperAutoMap(deps));
+
+    const sample = {
+      name: 'Remap',
+      description: '',
+      sources: [{ id: 'unknown-src', sampleData: { injected: true } }],
+      mappings: [],
+    };
+
+    act(() => {
+      result.current.handleLoadGallerySample(sample);
+    });
+
+    expect(setSourceSample).toHaveBeenCalledWith('primary', { injected: true });
+  });
+
+  it('combine toast lists pattern-derived and scored mappings when both apply', () => {
+    vi.mocked(patternToSuggestions).mockReturnValue([
+      { sourcePath: 'alpha', targetPath: 'omega', expression: undefined },
+    ]);
+    vi.mocked(loadPattern).mockReturnValue({ entries: [{ sourcePath: 'alpha', targetPath: 'omega' }], savedAt: 1 });
+
+    const setMappings = vi.fn();
+    const setToast = vi.fn();
+    const deps = makeDeps({
+      getEffectiveSourceData: vi.fn().mockReturnValue(JSON.stringify({ alpha: 1, beta: 2 })),
+      effectiveTarget: { sampleData: JSON.stringify({ omega: 0, gamma: 0 }) },
+      setMappings,
+      setToast,
+      confidenceThreshold: 0,
+    });
+    const { result } = renderHook(() => useDataMapperAutoMap(deps));
+
+    act(() => {
+      result.current.handleAutoMap();
+    });
+
+    expect(setMappings).toHaveBeenCalled();
+    expect(setToast).toHaveBeenCalled();
+    const msg = String(setToast.mock.calls[0][0]);
+    expect(msg).toMatch(/auto-mapped|from patterns/);
+
+    vi.mocked(loadPattern).mockReturnValue(null);
+    vi.mocked(patternToSuggestions).mockReturnValue([]);
+  });
 });

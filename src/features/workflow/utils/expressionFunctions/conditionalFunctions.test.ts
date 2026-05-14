@@ -87,11 +87,70 @@ describe('conditionalFunctions', () => {
     it('converts null as falsy', () => expect(evalFn('$toBool', null)).toBe(false));
   });
 
-  it('exports all 9 functions', () => {
-    expect(conditionalFunctions).toHaveLength(9);
+  describe('$assert', () => {
+    it('returns true for truthy condition', () => {
+      expect(evalFn('$assert', true)).toBe(true);
+    });
+    it('returns true for truthy string', () => {
+      expect(evalFn('$assert', 'hello')).toBe(true);
+    });
+    it('returns true for non-zero number', () => {
+      expect(evalFn('$assert', 42)).toBe(true);
+    });
+    it('throws for false condition', () => {
+      expect(() => evalFn('$assert', false, 'must be true')).toThrow('must be true');
+    });
+    it('throws for null condition', () => {
+      expect(() => evalFn('$assert', null, 'not null')).toThrow('not null');
+    });
+    it('throws for empty string condition', () => {
+      expect(() => evalFn('$assert', '', 'not empty')).toThrow('not empty');
+    });
+    it('throws for "false" string', () => {
+      expect(() => evalFn('$assert', 'false', 'no false')).toThrow('no false');
+    });
+    it('throws for "0" string', () => {
+      expect(() => evalFn('$assert', '0', 'no zero')).toThrow('no zero');
+    });
+    it('throws default message when none provided', () => {
+      expect(() => evalFn('$assert', false)).toThrow('Assertion failed');
+    });
+    it('treats 0 as falsy', () => {
+      expect(() => evalFn('$assert', 0, 'zero')).toThrow('zero');
+    });
+    it('treats non-empty array as truthy', () => {
+      expect(evalFn('$assert', [1, 2])).toBe(true);
+    });
+    it('treats object as truthy', () => {
+      expect(evalFn('$assert', { a: 1 })).toBe(true);
+    });
+  });
+
+  describe('$error', () => {
+    it('throws with the given message', () => {
+      expect(() => evalFn('$error', 'something went wrong')).toThrow('something went wrong');
+    });
+    it('throws with default message when null', () => {
+      expect(() => evalFn('$error', null)).toThrow('Error');
+    });
+    it('throws with default message when undefined', () => {
+      expect(() => evalFn('$error', undefined)).toThrow('Error');
+    });
+    it('stringifies non-string message', () => {
+      expect(() => evalFn('$error', 42)).toThrow('42');
+    });
+    it('throws with empty string message', () => {
+      expect(() => evalFn('$error', '')).toThrow('');
+    });
+  });
+
+  it('exports all 11 functions', () => {
+    expect(conditionalFunctions).toHaveLength(11);
     const names = conditionalFunctions.map((f) => f.name);
     expect(names).toContain('$if');
     expect(names).toContain('$default');
     expect(names).toContain('$toBool');
+    expect(names).toContain('$assert');
+    expect(names).toContain('$error');
   });
 });

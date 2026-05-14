@@ -37,6 +37,7 @@ interface SourcePanelProps {
   traceOverlay?: Map<string, TraceValueOverlay>;
   mappedPaths?: Set<string>;
   onMapFilteredFields?: (paths: string[], sourceId: string) => void;
+  highlightedPaths?: Set<string> | null;
 }
 
 export default function SourcePanel({
@@ -63,6 +64,7 @@ export default function SourcePanel({
   traceOverlay,
   mappedPaths,
   onMapFilteredFields,
+  highlightedPaths,
 }: SourcePanelProps) {
   const [search, setSearch] = useState('');
   const [mappingFilter, setMappingFilter] = useState<'all' | 'mapped' | 'unmapped'>('all');
@@ -223,6 +225,15 @@ export default function SourcePanel({
     >
       <div className="dm-panel-header">
         <span className="dm-panel-title">Source</span>
+        {!pasteMode && filteredUnmappedLeaves.length > 0 && onMapFilteredFields && (
+          <button
+            className="dm-map-filtered-btn dm-map-filtered-btn--header"
+            onClick={handleMapFiltered}
+            aria-label={`Map ${filteredUnmappedLeaves.length} filtered fields`}
+          >
+            Map {search || mappingFilter !== 'all' ? 'filtered' : 'all'} ({filteredUnmappedLeaves.length})
+          </button>
+        )}
         <div className="dm-panel-actions">
           <button
             className={`dm-btn-icon ${pasteMode ? 'dm-btn-icon--active' : ''}`}
@@ -317,18 +328,6 @@ export default function SourcePanel({
               {mappedLeafCount} mapped / {unmappedLeafCount} unmapped
             </span>
           </div>
-          {filteredUnmappedLeaves.length > 0 && onMapFilteredFields && (
-            <div className="dm-map-filtered-bar">
-              <button
-                className="dm-map-filtered-btn"
-                onClick={handleMapFiltered}
-                aria-label={`Map ${filteredUnmappedLeaves.length} filtered fields`}
-              >
-                Map {search || mappingFilter !== 'all' ? 'filtered' : 'all'} ({filteredUnmappedLeaves.length})
-              </button>
-            </div>
-          )}
-
           {fetchError && <div className="dm-paste-error" role="alert">{fetchError}</div>}
 
           <div
@@ -356,6 +355,7 @@ export default function SourcePanel({
                 driftMap={driftMap}
                 traceOverlay={traceOverlay}
                 mappedPaths={mappedPaths}
+                highlightedPaths={highlightedPaths}
               />
             ) : (
               <div className="dm-empty-state dm-empty-state--guided">

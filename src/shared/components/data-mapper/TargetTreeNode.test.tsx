@@ -824,6 +824,30 @@ describe('TargetTreeNode – search and mapping filter', () => {
     expect(screen.getByText(/abc123/)).toBeTruthy();
   });
 
+  it('shows parent when mappingFilter is all and only a child matches search (searchMatch || childMatch)', () => {
+    const parentNode: JsonTreeNode = {
+      key: 'parent',
+      path: 'parent',
+      type: 'object',
+      value: undefined,
+      children: [
+        { key: 'email', path: 'parent.email', type: 'string', value: '', children: [] },
+      ],
+    };
+    const expandedPaths = new Set(['__root__', '', 'parent']);
+    render(
+      <TargetTreeNode
+        node={parentNode}
+        {...defaults}
+        mappingFilter="all"
+        expandedPaths={expandedPaths}
+        search="mail"
+      />,
+    );
+    expect(screen.getByText('parent')).toBeTruthy();
+    expect(screen.getByText('email')).toBeTruthy();
+  });
+
   it('shows only mapped branches when mappingFilter is mapped', () => {
     const mappings: Mapping[] = [
       { id: 'mx', sourcePath: 'src', sourceId: 's1', targetPath: 'parent.mappedChild' },
@@ -1518,6 +1542,46 @@ describe('TargetTreeNode – custom field removal and tree chrome', () => {
       expect(screen.getByText('Set operator…')).toBeInTheDocument();
     });
 
+    it('closes context menu on outside mousedown after delayed listener', async () => {
+      vi.useFakeTimers();
+      const { container } = render(
+        <TargetTreeNode
+          node={leaf}
+          {...defaults}
+          mappings={[mapping]}
+          capabilities={capsWithOperators}
+          onUpdateMappingOperator={vi.fn()}
+        />,
+      );
+      const nodeEl = container.querySelector('.dm-tree-node--target')!;
+      fireEvent.contextMenu(nodeEl);
+      expect(container.querySelector('.dm-context-menu')).not.toBeNull();
+      await act(async () => {
+        vi.advanceTimersByTime(50);
+      });
+      fireEvent.mouseDown(document.body);
+      expect(container.querySelector('.dm-context-menu')).toBeNull();
+      vi.useRealTimers();
+    });
+
+    it('toggles negation from operator picker row', () => {
+      const onToggleNegate = vi.fn();
+      const { container } = render(
+        <TargetTreeNode
+          node={leaf}
+          {...defaults}
+          mappings={[mapping]}
+          capabilities={capsWithOperators}
+          onUpdateMappingOperator={vi.fn()}
+          onToggleMappingNegate={onToggleNegate}
+        />,
+      );
+      fireEvent.click(screen.getByLabelText('Change operator from equals'));
+      expect(container.querySelector('.dm-operator-picker')).not.toBeNull();
+      fireEvent.click(screen.getByLabelText('Toggle negation'));
+      expect(onToggleNegate).toHaveBeenCalledWith('m1');
+    });
+
     it('shows "Remove mapping" in context menu for mapped node', () => {
       const onRemoveMapping = vi.fn();
       const { container } = render(
@@ -1573,6 +1637,128 @@ describe('TargetTreeNode – custom field removal and tree chrome', () => {
       const nodeEl = container.querySelector('.dm-tree-node--target')!;
       fireEvent.contextMenu(nodeEl);
       expect(screen.queryByText('Array Assertions')).not.toBeInTheDocument();
+    });
+
+    it('positions operator picker from pill when using Set operator from context menu', () => {
+      const onUpdateMappingOperator = vi.fn();
+      const { container } = render(
+        <TargetTreeNode
+          node={leaf}
+          {...defaults}
+          mappings={[mapping]}
+          capabilities={capsWithOperators}
+          onUpdateMappingOperator={onUpdateMappingOperator}
+        />,
+      );
+      const rectSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function mockPillRect(
+        this: HTMLElement,
+      ): DOMRect {
+        if (this.classList.contains('dm-operator-pill')) {
+          return new DOMRect(12, 30, 48, 22);
+        }
+        return new DOMRect(0, 0, 800, 600);
+      });
+      const nodeEl = container.querySelector('.dm-tree-node--target')!;
+      fireEvent.contextMenu(nodeEl);
+      fireEvent.click(screen.getByText('Set operator…'));
+      const picker = document.querySelector('.dm-operator-picker') as HTMLElement | null;
+      expect(picker).not.toBeNull();
+      expect(picker!.style.top).toBe('56px');
+      expect(picker!.style.left).toBe('12px');
+      rectSpy.mockRestore();
+    });
+
+    it('opens operator picker at menu position when mapped node has expression (no operator pill ref)', () => {
+      const exprMap: Mapping = { ...mapping, expression: '$upper($.name)' };
+      const onUpdateMappingOperator = vi.fn();
+      const { container } = render(
+        <TargetTreeNode
+          node={leaf}
+          {...defaults}
+          mappings={[exprMap]}
+          capabilities={capsWithOperators}
+          onUpdateMappingOperator={onUpdateMappingOperator}
+        />,
+      );
+      const nodeEl = container.querySelector('.dm-tree-node--target')!;
+      fireEvent.contextMenu(nodeEl, { clientX: 120, clientY: 240 });
+      fireEvent.click(screen.getByText('Set operator…'));
+      const picker = document.querySelector('.dm-operator-picker') as HTMLElement | null;
+      expect(picker).not.toBeNull();
+      expect(screen.getByRole('listbox', { name: 'Operators' })).toBeInTheDocument();
+    });
+
+    it('toggles negation from context menu', () => {
+      const onToggleNegate = vi.fn();
+      const { container } = render(
+        <TargetTreeNode
+          node={leaf}
+          {...defaults}
+          mappings={[mapping]}
+          capabilities={capsWithOperators}
+          onUpdateMappingOperator={vi.fn()}
+          onToggleMappingNegate={onToggleNegate}
+        />,
+      );
+      const nodeEl = container.querySelector('.dm-tree-node--target')!;
+      fireEvent.contextMenu(nodeEl);
+      fireEvent.click(screen.getByText('Negate (NOT)'));
+      expect(onToggleNegate).toHaveBeenCalledWith('m1');
+    });
+
+    it('opens expression editor from context menu', () => {
+      const onEditExpression = vi.fn();
+      const { container } = render(
+        <TargetTreeNode
+          node={leaf}
+          {...defaults}
+          mappings={[mapping]}
+          capabilities={capsWithOperators}
+          onUpdateMappingOperator={vi.fn()}
+          onEditExpression={onEditExpression}
+        />,
+      );
+      const nodeEl = container.querySelector('.dm-tree-node--target')!;
+      fireEvent.contextMenu(nodeEl);
+      fireEvent.click(screen.getByText('Edit expression…'));
+      expect(onEditExpression).toHaveBeenCalledWith('m1');
+    });
+
+    it('invokes onAddArrayAssertion for each array assertion action', () => {
+      const arrayNode: JsonTreeNode = {
+        key: 'items',
+        path: 'items',
+        type: 'array',
+        value: undefined,
+        children: [{ key: '[0]', path: 'items[0]', type: 'string', value: 'a', children: [] }],
+      };
+      const onAddArrayAssertion = vi.fn();
+      const { container } = render(
+        <TargetTreeNode
+          node={arrayNode}
+          {...defaults}
+          capabilities={capsWithOperators}
+          onUpdateMappingOperator={vi.fn()}
+          onAddArrayAssertion={onAddArrayAssertion}
+        />,
+      );
+      const nodeEl = container.querySelector('.dm-tree-node--target')!;
+      fireEvent.contextMenu(nodeEl);
+
+      fireEvent.click(screen.getByText('Add length assertion'));
+      fireEvent.contextMenu(nodeEl);
+      fireEvent.click(screen.getByText('Add contains assertion'));
+      fireEvent.contextMenu(nodeEl);
+      fireEvent.click(screen.getByText('Add each assertion'));
+      fireEvent.contextMenu(nodeEl);
+      fireEvent.click(screen.getByText('Add subset assertion'));
+
+      expect(onAddArrayAssertion.mock.calls).toEqual([
+        ['items', 'length'],
+        ['items', 'contains'],
+        ['items', 'each'],
+        ['items', 'subset'],
+      ]);
     });
   });
 
@@ -1631,5 +1817,115 @@ describe('TargetTreeNode – custom field removal and tree chrome', () => {
       );
       expect(container.querySelector('.dm-array-assertion-rows')).toBeNull();
     });
+  });
+});
+
+describe('TargetTreeNode – verification and highlight gaps', () => {
+  it('derives pass badge from nodeStatusMap $.path variant', () => {
+    const statusMap = new Map<string, 'pass' | 'fail'>([['$.userName', 'pass']]);
+    const { container } = render(
+      <TargetTreeNode node={leaf} {...defaults} mappings={[mapping]} nodeStatusMap={statusMap} />,
+    );
+    expect(container.querySelector('.dm-verify-badge--pass')).not.toBeNull();
+  });
+
+  it('truncates long verify actual snippet', () => {
+    const longActual = 'y'.repeat(40);
+    const { container } = render(
+      <TargetTreeNode
+        node={leaf}
+        {...defaults}
+        mappings={[mapping]}
+        verifyStatus="fail"
+        verifyActual={longActual}
+        verifyExpected="x"
+      />,
+    );
+    expect(container.querySelector('.dm-verify-actual')?.textContent?.endsWith('…')).toBe(true);
+  });
+
+  it('includes match context line in failure tooltip', () => {
+    const results = new Map([
+      ['userName', { passed: false, actual: 'a', expected: 'b', matchContext: 'diff at $.items[0]' }],
+    ]);
+    const { container } = render(
+      <TargetTreeNode
+        node={leaf}
+        {...defaults}
+        mappings={[mapping]}
+        verifyStatus="fail"
+        fieldVerifyResults={results}
+      />,
+    );
+    expect(container.querySelector('.dm-verify-badge--fail')?.getAttribute('title')).toContain('diff at $.items[0]');
+  });
+
+  it('applies hover highlight for highlighted leaf path', () => {
+    const { container } = render(
+      <TargetTreeNode node={leaf} {...defaults} highlightedPaths={new Set(['userName'])} />,
+    );
+    expect(container.querySelector('.dm-tree-node--hover-highlight')).not.toBeNull();
+  });
+
+  it('shows negate checkmark in operator picker when mapping is negated', () => {
+    const onUpdateMappingOperator = vi.fn();
+    const onToggleNegate = vi.fn();
+    const capabilities = { operators: true } as Required<import('./types').AdapterCapabilities>;
+    const negMapping = { ...mapping, negate: true };
+    render(
+      <TargetTreeNode
+        node={leaf}
+        {...defaults}
+        mappings={[negMapping]}
+        capabilities={capabilities}
+        onUpdateMappingOperator={onUpdateMappingOperator}
+        onToggleMappingNegate={onToggleNegate}
+      />,
+    );
+    fireEvent.click(screen.getByLabelText(/Change operator from equals/));
+    expect(document.querySelector('.dm-op-picker-negate-btn--active')).not.toBeNull();
+    expect(document.querySelector('.dm-op-picker-negate-check')).not.toBeNull();
+  });
+
+  it('chooses context menu Negated label when mapping is already negated', () => {
+    const onToggleNegate = vi.fn();
+    const { container } = render(
+      <TargetTreeNode
+        node={leaf}
+        {...defaults}
+        mappings={[{ ...mapping, negate: true }]}
+        capabilities={{
+          operators: true, arrayAssertions: true, typeChecks: false,
+          codeEditor: false, verification: false, expressions: true,
+          schemaDrift: false, profiles: false, unorderedArrays: false,
+          hideAdvanced: false, conditionals: false, loopConstructs: false, errorHandling: false,
+        } as const}
+        onUpdateMappingOperator={vi.fn()}
+        onToggleMappingNegate={onToggleNegate}
+      />,
+    );
+    const nodeEl = container.querySelector('.dm-tree-node--target')!;
+    fireEvent.contextMenu(nodeEl);
+    expect(screen.getByText('✓ Negated (NOT)')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('✓ Negated (NOT)'));
+    expect(onToggleNegate).toHaveBeenCalledWith('m1');
+  });
+
+  it('removes negation when NOT chip clicked', () => {
+    const onToggleNegate = vi.fn();
+    const capabilities = { operators: true } as Required<import('./types').AdapterCapabilities>;
+    const negMapping = { ...mapping, negate: true };
+    const { container } = render(
+      <TargetTreeNode
+        node={leaf}
+        {...defaults}
+        mappings={[negMapping]}
+        capabilities={capabilities}
+        onUpdateMappingOperator={vi.fn()}
+        onToggleMappingNegate={onToggleNegate}
+      />,
+    );
+    fireEvent.click(container.querySelector('.dm-negate-badge')!);
+    expect(onToggleNegate).toHaveBeenCalledWith('m1');
   });
 });
