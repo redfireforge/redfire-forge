@@ -3495,15 +3495,551 @@ RedfireForge's arrow syntax is the **most concise** among all benchmarked tools 
 
 ### 9.3 Custom Predicate Functions (Closes last coverage gap)
 
-**Priority:** Low | **Effort:** Medium | **Impact:** Coverage 96% → 100%
+**Priority:** Low | **Effort:** Medium | **Impact:** Coverage 97% → 100%
 
-Add a `custom` assertion type that evaluates an expression as a boolean predicate:
+**Status:** NOT STARTED
+
+---
+
+#### 9.3.0 Design Philosophy & Specification
+
+**Goal:** Add a `custom` assertion type that evaluates an arbitrary expression as a boolean predicate against the full HTTP response context — matching Postman's `pm.expect().to.satisfy(fn)`, Karate's embedded `#(expression)`, and REST Assured's custom `Matcher` interface.
+
+**Design decisions:**
+
+1. **Expression-as-predicate** — The custom assertion reuses the existing 113-function expression engine. The expression must evaluate to a truthy value for the assertion to pass. No new language constructs are needed beyond what Phase 9.2 already provides.
+2. **Full response context** — The expression receives `$.body` (parsed JSON), `$.headers` (object), `$.status` (number), `$.responseTime` (number), and `$.rawBody` (string). This is richer than per-field assertions which only see the JSON body.
+3. **User-friendly description** — An optional `description` field lets users label the predicate (e.g., "Response contains at least 3 active users") for readable failure messages.
+4. **Negation compatible** — Inherits `negate?: boolean` from `AssertionBase` automatically. `NOT` in DSL works unchanged.
+5. **Lambda-powered** — Users can write complex predicates like `$all($.body.items, x => $gt(x.price, 0))` or `$eq($length($.body.users), $.body.totalCount)` thanks to Phase 9.2 lambda support.
+
+**Type definition:**
 
 ```typescript
-| { type: 'custom'; expression: string; description?: string }
+(AssertionBase & {
+  type: 'custom';
+  expression: string;
+  description?: string;
+})
 ```
 
-The expression receives the full response context (`$.body`, `$.headers`, `$.status`, `$.responseTime`) and must evaluate to `true` for the assertion to pass. This matches Postman's `satisfy(fn)`, Karate's embedded expressions, and REST Assured's custom matchers.
+**NOT supported (intentionally):**
+- Multi-statement expressions (consistent with existing engine)
+- Side effects or mutation
+- External HTTP calls within the expression
+
+---
+
+#### 9.3.1 Architecture Overview
+
+**Files to modify/create:**
+
+| File | Change Type | Description |
+|------|-------------|-------------|
+| `src/shared/types/index.ts` | **Extend** | Add `custom` to `Assertion` union |
+| `src/engine/validator.ts` | **Extend** | Add `case 'custom'` to `evaluateAssertions` switch |
+| `src/shared/components/data-mapper/utils/validationDsl.ts` | **Extend** | Add `custom` DSL syntax: `ASSERT expression ["description"]` |
+| `src/shared/components/data-mapper/hooks/useValidationCodeSync.ts` | **Extend** | Add `'custom'` to `DSL_ASSERTION_TYPES` |
+| `src/shared/components/data-mapper/hooks/useValidationVerify.ts` | **Extend** | Add `'custom'` to body assertion handling (already handled by `evaluateAssertions`, but update `getAssertionPath`) |
+| `src/features/scenarios/components/TestEditorValidationTab.tsx` | **Extend** | Add menu entry + assertion row UI |
+| `src/features/scenarios/components/ValidationRulesSummary.tsx` | **Extend** | Render custom assertion rows in rules table |
+| `src/engine/validator.assertions.test.ts` | **Extend** | Unit tests for custom assertion evaluation |
+| `src/engine/validator.validate.test.ts` | **Extend** | Integration tests with `validate` + `evaluateAssertions` |
+| `src/shared/components/data-mapper/utils/validationDsl.test.ts` | **Extend** | DSL parser/serializer tests for `ASSERT` keyword |
+| `src/features/scenarios/components/TestEditorValidationTab.test.tsx` | **Extend** | UI tests for custom assertion row |
+| `e2e/structured-assertions.spec.ts` | **Extend** | E2E test for custom assertion |
+
+---
+
+#### Step 1: Type Extension — Add `custom` to Assertion Union (S)
+
+**File:** `src/shared/types/index.ts`
+
+**Changes:**
+
+Add a new arm to the `Assertion` union (after `datePrecise`):
+
+```typescript
+  | (AssertionBase & { type: 'custom'; expression: string; description?: string });
+```
+
+**Done when:** `npx tsc -b --noEmit` passes. All existing switch/if-chains that exhaustively check assertion types will need the new case (compiler will flag missing cases if using `never` exhaustiveness checks).
+
+---
+
+#### Step 2: Engine — `evaluateAssertions` Case (M)
+
+**File:** `src/engine/validator.ts`
+
+**Changes:**
+
+Add a new `case 'custom'` in the `evaluateAssertions` switch (after `datePrecise`, before the switch closes at ~line 781):
+
+```typescript
+case 'custom': {
+  const expr = a.expression?.trim();
+  if (!expr) {
+    assertionFailures.push({
+      path: '(custom)',
+      expected: `${negPrefix}custom predicate to evaluate`,
+      actual: 'empty expression',
+    });
+    break;
+  }
+
+  const resolveVariable = (name: string): unknown => {
+    if (name === '$.body' || name === '$') return ctx.responseBody;
+    if (name === '$.status') return ctx.httpStatus;
+    if (name === '$.responseTime') return ctx.responseTimeMs;
+    if (name === '$.headers') return ctx.responseHeaders;
+    if (name === '$.rawBody') return ctx.rawBody ?? '';
+    // $.body.path.to.field → resolve from body
+    if (name.startsWith('$.body.')) {
+      const subPath = '$.' + name.slice('$.body.'.length);
+      return getByPath(ctx.responseBody, subPath);
+    }
+    // $.headers.name → resolve header
+    if (name.startsWith('$.headers.')) {
+      const headerName = name.slice('$.headers.'.length).toLowerCase();
+      return findHeader(ctx.responseHeaders, headerName);
+    }
+    // Bare $.path → resolve from body (convenience alias)
+    if (name.startsWith('$.')) {
+      return getByPath(ctx.responseBody, name);
+    }
+    return undefined;
+  };
+
+  try {
+    const result = evaluateExpression(expr, { resolveVariable });
+    if (result.error) {
+      assertionFailures.push({
+        path: '(custom)',
+        expected: `${negPrefix}expression to evaluate without error`,
+        actual: `expression error: ${result.error}`,
+      });
+    } else {
+      const passed = isTruthy(result.value);
+      if (!passed) {
+        const desc = a.description ? ` (${a.description})` : '';
+        assertionFailures.push({
+          path: '(custom)',
+          expected: `${negPrefix}custom predicate to pass${desc}`,
+          actual: formatExpressionResult(result.value),
+        });
+      }
+    }
+  } catch (e) {
+    assertionFailures.push({
+      path: '(custom)',
+      expected: `${negPrefix}expression to evaluate`,
+      actual: `runtime error: ${e instanceof Error ? e.message : String(e)}`,
+    });
+  }
+  break;
+}
+```
+
+**New import** at top of `validator.ts`:
+
+```typescript
+import { evaluateExpression, formatExpressionResult } from '../features/workflow/utils/expressionEvaluator';
+```
+
+**Truthiness helper** (add to `validator.ts` or a shared util):
+
+```typescript
+function isTruthy(value: unknown): boolean {
+  if (value === false || value === 0 || value === '' || value === null || value === undefined) return false;
+  if (typeof value === 'number' && isNaN(value)) return false;
+  return true;
+}
+```
+
+**Negate config-error filter:** The `'empty expression'` and `'expression error'` failures should be classified as config errors so negation doesn't invert them. Update the filter at ~line 785:
+
+```typescript
+f.actual === 'empty expression' ||
+f.actual.startsWith('expression error:') ||
+f.actual.startsWith('runtime error:') ||
+```
+
+**Done when:** `evaluateAssertions([{ type: 'custom', expression: '$gt($length($.items), 0)' }], ctx)` returns correct pass/fail based on the response body.
+
+---
+
+#### Step 3: DSL Syntax — `ASSERT` Keyword (M)
+
+**File:** `src/shared/components/data-mapper/utils/validationDsl.ts`
+
+**Syntax design:**
+
+```
+# Custom predicates
+ASSERT $gt($.status, 199)
+ASSERT $all($.items, x => $gt(x.price, 0))   "All items have positive price"
+ASSERT NOT $eq($.body, null)                   "Response body is not null"
+```
+
+- Keyword `ASSERT` (case-insensitive) starts a custom predicate line.
+- Everything after `ASSERT` (and optional `NOT`) up to an optional trailing quoted string is the expression.
+- The trailing `"quoted string"` is the optional `description`.
+
+**`serializeToDsl` changes:**
+
+Add a fourth bucket `customLines` alongside `fieldLines`, `collectionLines`, `typeLines`:
+
+```typescript
+case 'custom': {
+  const desc = a.description ? ` "${a.description}"` : '';
+  customLines.push(`ASSERT${neg ? ' NOT' : ''} ${a.expression}${desc}`);
+  break;
+}
+```
+
+Output: after type lines, add `# Custom predicates` section header + `customLines`.
+
+**`parseDslLine` changes:**
+
+Before the existing path-operator-value parsing, check if the first token is `ASSERT`:
+
+```typescript
+if (tokens[0].toUpperCase() === 'ASSERT') {
+  const rest = tokens.slice(1).join(' ');
+  let negate = false;
+  let exprAndDesc = rest;
+  if (exprAndDesc.toUpperCase().startsWith('NOT ')) {
+    negate = true;
+    exprAndDesc = exprAndDesc.slice(4).trim();
+  }
+  // Extract optional trailing "description"
+  const descMatch = exprAndDesc.match(/^(.+?)\s+"([^"]*)"$/);
+  const expression = descMatch ? descMatch[1].trim() : exprAndDesc.trim();
+  const description = descMatch ? descMatch[2] : undefined;
+  if (!expression) {
+    return { message: 'Missing expression after ASSERT', lineNumber };
+  }
+  return { kind: 'custom', path: '', operator: '', value: expression, negate, description, lineNumber };
+}
+```
+
+**`dslToModel` changes:**
+
+Add handling for `kind: 'custom'`:
+
+```typescript
+case 'custom':
+  assertions.push({
+    type: 'custom',
+    expression: rule.value,
+    description: rule.description,
+    ...(rule.negate ? { negate: true } : {}),
+  });
+  break;
+```
+
+**`DSL_ASSERTION_TYPES` update** (`useValidationCodeSync.ts`):
+
+```typescript
+const DSL_ASSERTION_TYPES = new Set([
+  'typeCheck', 'existence', 'arrayLength', 'each',
+  'arrayContains', 'containsSubset', 'custom',
+]);
+```
+
+**Done when:** `parseDsl(serializeToDsl([], [{ type: 'custom', expression: '$gt($.count, 5)', description: 'Has enough items' }]))` round-trips losslessly.
+
+---
+
+#### Step 4: Verify Hook — Path Resolution (S)
+
+**File:** `src/shared/components/data-mapper/hooks/useValidationVerify.ts`
+
+**Changes:**
+
+1. `custom` assertions are body assertions (not in `HTTP_ONLY_TYPES`), so they are already handled by the existing `evaluateAssertions([assertion], ctx)` call.
+
+2. However, the verify hook builds a synthetic `AssertionContext` with `httpStatus: 200, responseTimeMs: 0, responseHeaders: {}` for visual mapper verification (since there's no real HTTP call). Document this limitation: `$.status` and `$.responseTime` will be synthetic values during mapper verify; real values are used during test execution.
+
+3. Update `getAssertionPath` to handle `custom`:
+
+```typescript
+case 'custom':
+  return '(custom)';
+```
+
+**Done when:** Custom assertions verify correctly in the Visual Mapper's "Verify All" flow.
+
+---
+
+#### Step 5: Test Editor UI — Menu Entry & Assertion Row (M)
+
+**File:** `src/features/scenarios/components/TestEditorValidationTab.tsx`
+
+**Changes:**
+
+**5a. Add menu entry** (after `datePrecise` entry, ~line 388):
+
+```typescript
+<button className="add-assertion-item" onClick={() => {
+  addAssertion({ type: 'custom', expression: '', description: '' });
+}}>
+  <span className="add-assertion-icon">λ</span>
+  Custom Predicate
+</button>
+```
+
+**5b. Add badge label** (extend ternary at ~line 397):
+
+Add `a.type === 'custom' ? 'CUSTOM'` to the badge label chain.
+
+**5c. Add assertion row** (after `datePrecise` fields, before closing of the assertion map):
+
+```tsx
+{a.type === 'custom' && (
+  <div className="assertion-custom-row">
+    <div className="assertion-field-group assertion-field-full">
+      <label>Expression</label>
+      <textarea
+        className="assertion-expression-input"
+        value={a.expression}
+        onChange={(e) => updateAssertion(i, { expression: e.target.value })}
+        placeholder="e.g. $gt($length($.items), 0)"
+        rows={2}
+      />
+    </div>
+    <div className="assertion-field-group">
+      <label>Description <span className="optional-label">(optional)</span></label>
+      <input
+        type="text"
+        value={a.description ?? ''}
+        onChange={(e) => updateAssertion(i, { description: e.target.value })}
+        placeholder="e.g. Response has items"
+      />
+    </div>
+  </div>
+)}
+```
+
+**5d. Expression autocomplete** (optional enhancement): If the textarea is replaced with a mini-editor, hook up the expression function catalog for autocomplete. For v1, a plain `<textarea>` with placeholder examples is sufficient.
+
+**Done when:** Users can add, edit, and delete custom predicate assertions from the Test Editor.
+
+---
+
+#### Step 6: Rules Summary UI (S)
+
+**File:** `src/features/scenarios/components/ValidationRulesSummary.tsx`
+
+**Changes:**
+
+`ValidationRulesSummary` currently only renders `ExpectedField` rows. Custom assertions live in the `assertions[]` array. Two options:
+
+**Option A (recommended):** Add a small section below the field rules table that shows custom predicate rows:
+
+```tsx
+{assertions.filter(a => a.type === 'custom').length > 0 && (
+  <div className="validation-custom-rules">
+    <div className="validation-section-label">Custom Predicates</div>
+    {assertions.filter(a => a.type === 'custom').map((a, i) => (
+      <div key={i} className="validation-custom-rule-row">
+        <span className="validation-field-op-badge validation-field-op-badge--custom">CUSTOM</span>
+        <code className="validation-custom-expr">{a.expression}</code>
+        {a.description && <span className="validation-custom-desc">{a.description}</span>}
+      </div>
+    ))}
+  </div>
+)}
+```
+
+**Option B:** If `ValidationRulesSummary` should remain field-only, skip this step. The rules table in `TestEditorValidationTab` already shows assertion rows inline.
+
+**Done when:** Custom predicates appear in the rules summary with a "CUSTOM" badge and the expression text.
+
+---
+
+#### Step 7: CSS Styling (S)
+
+**Files:** `src/styles/scenario-builder.css`, `src/styles/data-mapper.css`
+
+**Changes:**
+
+Add operator badge color for `custom` (use indigo/violet to differentiate from existing 6 color families):
+
+```css
+.validation-field-op-badge--custom {
+  background: var(--badge-custom-bg, #6366f1);
+  color: var(--badge-custom-fg, #fff);
+}
+
+.assertion-custom-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.assertion-expression-input {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  resize: vertical;
+  min-height: 40px;
+}
+```
+
+**Done when:** Custom assertion badge and expression editor render with consistent styling in the dark theme.
+
+---
+
+#### Step 8: Unit Tests — Engine (L)
+
+**File:** `src/engine/validator.assertions.test.ts`
+
+**Test cases (minimum 15):**
+
+| # | Test | Expected |
+|---|------|----------|
+| 1 | Simple truthy: `$gt($length($.items), 0)` with body `{items: [1,2]}` | Pass |
+| 2 | Simple falsy: `$gt($length($.items), 5)` with body `{items: [1,2]}` | Fail with actual `"false"` |
+| 3 | Expression returning non-boolean truthy: `$length($.items)` (returns 2) | Pass (2 is truthy) |
+| 4 | Expression returning 0 (falsy): `$length($.items)` with empty array | Fail |
+| 5 | Expression returning null | Fail |
+| 6 | Expression returning empty string | Fail |
+| 7 | With description: failure message includes description | Failure detail contains "(My label)" |
+| 8 | Empty expression | Config error: "empty expression" |
+| 9 | Invalid expression (parse error) | Error: "expression error: ..." |
+| 10 | Access `$.status`: `$gt($.status, 199)` | Pass when httpStatus=200 |
+| 11 | Access `$.responseTime`: `$lt($.responseTime, 1000)` | Pass when responseTimeMs=50 |
+| 12 | Access `$.headers.content-type`: `$contains($.headers.content-type, "json")` | Pass |
+| 13 | Lambda predicate: `$all($.items, x => $gt(x.price, 0))` | Pass when all items have positive price |
+| 14 | Negate: `{ negate: true, expression: '$eq($.count, 0)' }` with count=5 | Pass (assertion fails → negated → pass) |
+| 15 | Negate + pass → fail: `{ negate: true, expression: '$gt($.count, 0)' }` with count=5 | Fail (assertion passes → negated → fail) |
+| 16 | Negate + config error: `{ negate: true, expression: '' }` | Fail (config error not inverted) |
+| 17 | Deep body path: `$eq($.body.user.name, "Alice")` | Pass when nested path matches |
+
+**Done when:** All tests pass with correct failure details and negate behavior.
+
+---
+
+#### Step 9: Unit Tests — DSL (M)
+
+**File:** `src/shared/components/data-mapper/utils/validationDsl.test.ts`
+
+**Test cases (minimum 10):**
+
+| # | Test | Expected |
+|---|------|----------|
+| 1 | Parse `ASSERT $gt($.count, 5)` | `{ kind: 'custom', expression: '$gt($.count, 5)' }` |
+| 2 | Parse `ASSERT NOT $eq($.name, "")` | `{ kind: 'custom', expression: '$eq($.name, "")', negate: true }` |
+| 3 | Parse `ASSERT $all($.items, x => x.ok) "all items ok"` | `{ kind: 'custom', expression: '...', description: 'all items ok' }` |
+| 4 | Parse `assert $length($.items)` (case-insensitive) | Valid custom rule |
+| 5 | Parse `ASSERT` (missing expression) | Parse error: "Missing expression after ASSERT" |
+| 6 | Serialize `{ type: 'custom', expression: '$gt($.x, 0)' }` | `ASSERT $gt($.x, 0)` |
+| 7 | Serialize with description | `ASSERT $gt($.x, 0) "positive x"` |
+| 8 | Serialize with negate | `ASSERT NOT $eq($.x, null)` |
+| 9 | Round-trip: `parseDsl(serializeToDsl([], [customAssertion]))` | Lossless |
+| 10 | Round-trip with mixed rules (field + collection + custom) | All preserved |
+
+**Done when:** DSL parser/serializer handles all custom assertion patterns.
+
+---
+
+#### Step 10: Unit Tests — UI (M)
+
+**File:** `src/features/scenarios/components/TestEditorValidationTab.test.tsx`
+
+**Test cases (minimum 5):**
+
+| # | Test | Expected |
+|---|------|----------|
+| 1 | Add menu shows "Custom Predicate" option | Menu item rendered with λ icon |
+| 2 | Clicking adds default custom assertion | `{ type: 'custom', expression: '', description: '' }` appended |
+| 3 | Typing in expression field updates assertion | `onDraftChange` called with expression value |
+| 4 | Typing in description field updates assertion | `onDraftChange` called with description value |
+| 5 | Badge shows "CUSTOM" label | Badge text is "CUSTOM" |
+
+**Done when:** All UI interaction tests pass.
+
+---
+
+#### Step 11: E2E Test (S)
+
+**File:** `e2e/structured-assertions.spec.ts` (extend existing)
+
+**Test case:**
+
+```typescript
+test('custom predicate assertion round-trips through editor', async ({ page }) => {
+  // 1. Navigate to Test Editor → Validation tab
+  // 2. Click "+ Add" → "Custom Predicate"
+  // 3. Type expression: $gt($length($.items), 0)
+  // 4. Type description: "Has items"
+  // 5. Verify the assertion row renders with CUSTOM badge
+  // 6. Switch to Code Editor view
+  // 7. Verify DSL contains: ASSERT $gt($length($.items), 0) "Has items"
+  // 8. Edit DSL to add: ASSERT NOT $eq($.name, null)
+  // 9. Switch back to visual → verify two custom assertion rows
+});
+```
+
+**Done when:** E2E test passes with `npx playwright test e2e/structured-assertions.spec.ts --reporter=html --timeout=30000`.
+
+---
+
+#### Step 12: TypeScript Check & Integration Verification (S)
+
+1. Run `npx tsc -b --noEmit` — zero errors
+2. Run `npx vitest run src/engine/validator.assertions.test.ts` — all tests pass
+3. Run `npx vitest run src/shared/components/data-mapper/utils/validationDsl.test.ts` — all tests pass
+4. Run `npx vitest run src/features/scenarios/components/TestEditorValidationTab.test.tsx` — all tests pass
+5. Run full test suite `npx vitest run` — all 15,743+ tests pass
+6. Run `npx eslint src/` — zero errors, zero warnings
+7. Verify expression autocomplete suggests functions in custom assertion textarea
+
+---
+
+#### Phase 9.3 Deliverable Criteria
+
+| Criterion | Metric |
+|-----------|--------|
+| Type system | `custom` assertion compiles in `Assertion` union |
+| Engine evaluation | Expression evaluates against full response context (body, status, headers, responseTime) |
+| Truthiness | Follows JavaScript-like truthiness (0, "", null, undefined, NaN, false → fail) |
+| Error handling | Empty expression, parse errors, and runtime errors produce config-error failures |
+| Negation | `negate: true` inverts semantic results; config errors remain un-inverted |
+| DSL round-trip | `ASSERT expr ["desc"]` serializes and parses losslessly |
+| Bi-directional sync | Custom assertions sync between visual list and code editor |
+| Verify | Custom assertions evaluate during Visual Mapper verify-all flow |
+| UI | Add menu entry, expression textarea, description input, CUSTOM badge |
+| Tests | ≥30 new tests (17 engine + 10 DSL + 5 UI), all passing |
+| E2E | At least 1 E2E test covering add + edit + code editor round-trip |
+| Competitive coverage | 33/33 capabilities (100%) |
+| Backward compatible | All existing 15 assertion types unchanged, all existing tests pass |
+
+---
+
+#### Phase 9.3 Risk Assessment
+
+| Risk | Likelihood | Mitigation |
+|------|-----------|------------|
+| Expression engine import from `validator.ts` creates cross-module dependency | Low | `evaluateExpression` is already a pure function; import adds no coupling beyond a function call |
+| `$.body` vs `$.path` ambiguity — does `$.items` mean `body.items` or top-level? | Medium | Design choice: `$.path` resolves from body (convenience alias); explicit `$.body.path` also works. Document in DSL help text |
+| Large expression evaluation in hot loop (1000s of assertions) | Low | Custom predicates are typically few per test; expression engine is fast for single evaluations |
+| Expression errors vs validation failures confusion | Medium | Config errors (empty/parse/runtime) are clearly separated from semantic failures in failure details |
+| DSL `ASSERT` keyword colliding with user JSON paths named "ASSERT" | Very Low | Paths starting with uppercase `ASSERT` is extremely unlikely; parser checks first token only |
+
+---
+
+#### Competitive Alignment
+
+| Tool | Custom Predicate Syntax | RedfireForge Equivalent |
+|------|------------------------|-------------------------|
+| Postman | `pm.expect(data).to.satisfy((d) => d.count > 0)` | `ASSERT $gt($.count, 0)` |
+| Karate | `* match response.count == '#? _ > 0'` | `ASSERT $gt($.count, 0)` |
+| REST Assured | `.body("count", greaterThan(0))` | `count greater_than 0` (Phase 1) or `ASSERT $gt($.count, 0)` |
+| Hurl | `[Asserts] jsonpath "$.count" > 0` | `count > 0` (Phase 1) or `ASSERT $gt($.count, 0)` |
+| k6 | `check(res, { 'has items': (r) => r.json().items.length > 0 })` | `ASSERT $gt($length($.items), 0) "has items"` |
+
+RedfireForge's `ASSERT` syntax is concise and leverages the full 113-function expression engine, making it **more powerful** than most competitors' custom assertion APIs while maintaining readability.
 
 ### 9.4 Enhancement Priority Matrix
 
