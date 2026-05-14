@@ -1,4 +1,4 @@
-import { useMemo, useCallback } from 'react';
+import { useMemo, useCallback, useState } from 'react';
 import type { ConnectionLine } from './hooks/useConnectionLines';
 import type { MappingTrace } from './utils/mappingTrace';
 import type { ExpressionSuggestion } from './utils/expressionSuggestions';
@@ -35,6 +35,7 @@ interface MappingCanvasProps {
   onApplyRepair?: (mappingId: string, suggestion: RepairSuggestion) => void;
   totalMappingCount?: number;
   failedMappingIds?: Set<string>;
+  highlightedMappingIds?: Set<string> | null;
 }
 
 function bezierPath(sourceY: number, targetY: number, width: number): string {
@@ -65,7 +66,10 @@ export default function MappingCanvas({
   onApplyRepair,
   totalMappingCount = 0,
   failedMappingIds,
+  highlightedMappingIds,
 }: MappingCanvasProps) {
+  const [hoveredMappingId, setHoveredMappingId] = useState<string | null>(null);
+
   const handleErrorClick = useCallback((mappingId: string, midY: number) => {
     if (!traceByMappingId || !onShowErrorDetail) return;
     const trace = traceByMappingId.get(mappingId);
@@ -138,8 +142,14 @@ export default function MappingCanvas({
       )}
       {paths.map((p) => {
         const isSelected = p.mappingId === selectedMappingId || (selectedMappingIds?.has(p.mappingId) ?? false);
+        const isHovered = p.mappingId === hoveredMappingId;
+        const isHighlighted = highlightedMappingIds?.has(p.mappingId) ?? false;
         const hasAnySelection = selectedMappingId !== null || (selectedMappingIds != null && selectedMappingIds.size > 0);
-        const isDimmed = hasAnySelection && !isSelected;
+        const hasAnyHover = hoveredMappingId !== null;
+        const hasAnyHighlight = highlightedMappingIds != null && highlightedMappingIds.size > 0;
+        const isDimmed = (hasAnySelection && !isSelected)
+          || (hasAnyHover && !isHovered && !isSelected)
+          || (hasAnyHighlight && !isHighlighted && !isSelected && !isHovered);
         return (
           <g key={p.id}>
             <path
@@ -148,6 +158,8 @@ export default function MappingCanvas({
               stroke="transparent"
               strokeWidth={12}
               style={{ cursor: 'pointer' }}
+              onMouseEnter={() => setHoveredMappingId(p.mappingId)}
+              onMouseLeave={() => setHoveredMappingId((prev) => prev === p.mappingId ? null : prev)}
               onClick={(e) => {
                 if ((e.shiftKey || e.metaKey || e.ctrlKey) && onToggleSelectMapping) {
                   onToggleSelectMapping(p.mappingId);
@@ -159,8 +171,8 @@ export default function MappingCanvas({
             <path
               d={p.d}
               fill="none"
-              className={`dm-connection-line ${isSelected ? 'dm-connection-line--selected' : ''} ${isDimmed ? 'dm-connection-line--dimmed' : ''} ${p.hasExpression ? 'dm-connection-line--expression' : ''} ${p.isAutoMapped && !p.hasExpression ? 'dm-connection-line--auto' : ''} ${p.isFromPattern ? 'dm-connection-line--pattern' : ''} ${p.hasTypeMismatch ? 'dm-connection-line--mismatch' : ''} ${p.isPending ? 'dm-connection-line--pending' : ''} ${p.arrayKind ? `dm-connection-line--${p.arrayKind}` : ''} ${p.driftSeverity ? `dm-connection-line--drift-${p.driftSeverity}` : ''} ${debugMode && p.traceError ? 'dm-connection-line--trace-error' : ''} ${debugMode && p.traceValue != null && p.traceValue !== '' && !p.traceError ? 'dm-connection-line--trace-ok' : ''} ${failedMappingIds?.has(p.mappingId) ? 'dm-connection-line--verify-fail' : ''}`}
-              strokeWidth={isSelected ? 2.5 : 1.5}
+              className={`dm-connection-line ${isSelected || isHovered || isHighlighted ? 'dm-connection-line--selected' : ''} ${isDimmed ? 'dm-connection-line--dimmed' : ''} ${p.hasExpression ? 'dm-connection-line--expression' : ''} ${p.isAutoMapped && !p.hasExpression ? 'dm-connection-line--auto' : ''} ${p.isFromPattern ? 'dm-connection-line--pattern' : ''} ${p.hasTypeMismatch ? 'dm-connection-line--mismatch' : ''} ${p.isPending ? 'dm-connection-line--pending' : ''} ${p.arrayKind ? `dm-connection-line--${p.arrayKind}` : ''} ${p.driftSeverity ? `dm-connection-line--drift-${p.driftSeverity}` : ''} ${debugMode && p.traceError ? 'dm-connection-line--trace-error' : ''} ${debugMode && p.traceValue != null && p.traceValue !== '' && !p.traceError ? 'dm-connection-line--trace-ok' : ''} ${failedMappingIds?.has(p.mappingId) ? 'dm-connection-line--verify-fail' : ''}`}
+              strokeWidth={isSelected || isHovered || isHighlighted ? 2.5 : 1.5}
             />
             {(() => {
               const midX = width / 2;

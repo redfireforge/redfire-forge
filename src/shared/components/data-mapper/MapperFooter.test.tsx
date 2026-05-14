@@ -1,5 +1,5 @@
 /** @vitest-environment jsdom */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import '@testing-library/jest-dom';
 import { render, screen, within } from '@testing-library/react';
 import MapperFooter from './MapperFooter';
@@ -256,5 +256,81 @@ describe('MapperFooter', () => {
     const status = screen.getByRole('status');
     expect(status.querySelector('.dm-stat-value--loop')).toBeNull();
     expect(status.querySelector('.dm-stat-value--aggregate')).toBeNull();
+  });
+
+  it('renders nothing in compact mode when all mapping stats are zero', () => {
+    const { container } = render(
+      <MapperFooter
+        mappings={[]}
+        arrayMappingInfos={[]}
+        typeMismatches={[]}
+        compactMode
+      />,
+    );
+    expect(container.firstChild).toBeNull();
+  });
+
+  it('shows unresolved stats when overridden counts say so', () => {
+    render(
+      <MapperFooter
+        mappings={[baseMapping(), baseMapping({ id: 'x' })]}
+        arrayMappingInfos={[]}
+        typeMismatches={[]}
+        resolvedCount={1}
+        unresolvedCount={3}
+      />,
+    );
+    const status = screen.getByRole('status');
+    expect(within(status).getByText('3', { selector: '.dm-stat-value--mismatch' })).toBeInTheDocument();
+    expect(status.textContent).toContain('unresolved');
+  });
+
+  it('shows verify passed/failed when verify completes', () => {
+    const onFilterFailed = vi.fn();
+    render(
+      <MapperFooter
+        mappings={[]}
+        arrayMappingInfos={[]}
+        typeMismatches={[]}
+        verifyStatus="complete"
+        verifyPassedCount={2}
+        verifyFailedCount={1}
+        onFilterFailed={onFilterFailed}
+      />,
+    );
+    const status = screen.getByRole('status');
+    expect(within(status).getByText('2', { selector: '.dm-stat-value--verify-pass' })).toBeInTheDocument();
+    expect(within(status).getByText('1', { selector: '.dm-stat-value--verify-fail' })).toBeInTheDocument();
+    const failBtn = within(status).getByRole('button', { name: /failed/i });
+    failBtn.click();
+    expect(onFilterFailed).toHaveBeenCalledTimes(1);
+  });
+
+  it('hides verify passed row when count is intentionally undefined after complete', () => {
+    render(
+      <MapperFooter
+        mappings={[]}
+        arrayMappingInfos={[]}
+        typeMismatches={[]}
+        verifyStatus="complete"
+        verifyPassedCount={undefined}
+        verifyFailedCount={0}
+      />,
+    );
+    expect(screen.queryByText('passed')).toBeNull();
+  });
+
+  it('does not render failed clickable row when failure count is zero', () => {
+    render(
+      <MapperFooter
+        mappings={[]}
+        arrayMappingInfos={[]}
+        typeMismatches={[]}
+        verifyStatus="complete"
+        verifyPassedCount={1}
+        verifyFailedCount={0}
+      />,
+    );
+    expect(screen.queryByRole('button', { name: /failed/i })).toBeNull();
   });
 });

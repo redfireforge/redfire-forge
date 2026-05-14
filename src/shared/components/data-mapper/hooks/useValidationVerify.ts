@@ -2,8 +2,6 @@ import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import type { ExpectedField, Assertion } from '../../../types';
 import type { Mapping, MapperAdapter } from '../types';
 import { evaluateFieldOperator, validateFieldsUnordered } from '../../../../engine/validator';
-import { evaluateAssertions } from '../../../../engine/validator';
-import type { AssertionContext } from '../../../../engine/validator';
 import { getByPath } from '../../../utils/jsonPath';
 
 function stripDollarPrefix(p: string): string {
@@ -95,7 +93,7 @@ export function useValidationVerify({
       }
     } catch { /* ignore serialization errors */ }
 
-    if (expectedFields.length === 0 && assertions.length === 0) {
+    if (expectedFields.length === 0) {
       setResult(EMPTY_RESULT);
       return;
     }
@@ -168,77 +166,11 @@ export function useValidationVerify({
       }
     }
 
-    // 3. Evaluate standalone assertions against sample data
-    // Skip HTTP-level assertions (status, header, responseTime) that cannot be
-    // meaningfully evaluated against sample body data alone.
-    const HTTP_ONLY_TYPES = new Set(['status', 'responseTime', 'header']);
+    // Assertions inherited from the test config are NOT evaluated inside the
+    // mapper — they are only verified in the Test Editor's own verify flow.
+    // The mapper verify counts only mapper-created rules (expectedFields).
     const assertionResults: AssertionVerifyResult[] = [];
-    let skippedCount = 0;
-
-    if (assertions.length > 0) {
-      if (responseBody === undefined) {
-        // No sample body — mark all assertions as skipped
-        assertions.forEach((assertion, index) => {
-          assertionResults.push({
-            assertion,
-            index,
-            passed: true,
-            actual: 'skipped (no sample data)',
-          });
-          skippedCount++;
-        });
-      } else {
-        const bodyAssertions = assertions.filter(a => !HTTP_ONLY_TYPES.has(a.type));
-        const httpAssertions = assertions.filter(a => HTTP_ONLY_TYPES.has(a.type));
-
-        // Mark HTTP-only assertions as skipped
-        httpAssertions.forEach((assertion) => {
-          const originalIndex = assertions.indexOf(assertion);
-          assertionResults.push({
-            assertion,
-            index: originalIndex,
-            passed: true,
-            actual: 'skipped (no HTTP context)',
-          });
-          skippedCount++;
-        });
-
-        if (bodyAssertions.length > 0) {
-          const ctx: AssertionContext = {
-            httpStatus: 200,
-            responseTimeMs: 0,
-            responseHeaders: {},
-            responseBody,
-          };
-
-          for (const assertion of bodyAssertions) {
-            const originalIndex = assertions.indexOf(assertion);
-            const { failures: af } = evaluateAssertions([assertion], ctx);
-            const passed = af.length === 0;
-
-            assertionResults.push({
-              assertion,
-              index: originalIndex,
-              passed,
-              actual: af[0]?.actual,
-              expected: af[0]?.expected,
-            });
-
-            if (passed) {
-              passedCount++;
-            } else {
-              failedCount++;
-              const assertionPath = getAssertionPath(assertion);
-              const mapping = mappings.find(m =>
-                pathsMatch(m.targetPath, assertionPath) ||
-                pathsMatch(m.sourcePath, assertionPath),
-              );
-              if (mapping) failedMappingIds.add(mapping.id);
-            }
-          }
-        }
-      }
-    }
+    const skippedCount = 0;
 
     const now = Date.now();
     lastRunRef.current = now;
@@ -254,7 +186,7 @@ export function useValidationVerify({
       failedMappingIds,
       timestamp: now,
     });
-  }, [mappings, assertions, sampleResponseData, adapter, unorderedArrays]);
+  }, [mappings, sampleResponseData, adapter, unorderedArrays]);
 
   // Auto-verify with debounce
   useEffect(() => {
@@ -345,10 +277,4 @@ function stripMatchContext(actual: string | undefined): { value: string; context
   return { value: actual.slice(0, idx), context: actual.slice(idx + 1) };
 }
 
-function getAssertionPath(assertion: Assertion): string {
-  const a = assertion as Record<string, unknown>;
-  return (typeof a.jsonPath === 'string' && a.jsonPath)
-    || (typeof a.name === 'string' && a.name)
-    || assertion.type;
-}
 

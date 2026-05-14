@@ -1,10 +1,14 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mathFunctions } from './mathFunctions';
 
 function fn(name: string) {
   const f = mathFunctions.find((mf) => mf.name === name);
   if (!f) throw new Error(`Function ${name} not found`);
   return f.evaluate;
+}
+
+function mockPredictableRandom(value: number) {
+  vi.spyOn(Math, 'random').mockReturnValue(value);
 }
 
 describe('mathFunctions', () => {
@@ -33,6 +37,9 @@ describe('mathFunctions', () => {
   describe('$round', () => {
     it('rounds to nearest integer by default', () => expect(fn('$round')(3.7)).toBe(4));
     it('rounds to specified decimals', () => expect(fn('$round')(3.14159, 2)).toBe(3.14));
+    it('treats null decimals like default precision', () => expect(fn('$round')(12.499, null)).toBe(12));
+    it('clamps decimals above 20 to 20', () => expect(fn('$round')(1.123456789, 50)).toBeCloseTo(1.123456789, 15));
+    it('clamps decimals below zero to zero', () => expect(fn('$round')(9.876, -3)).toBe(10));
   });
 
   describe('$abs', () => {
@@ -66,16 +73,37 @@ describe('mathFunctions', () => {
   });
 
   describe('$random', () => {
+    beforeEach(() => {
+      mockPredictableRandom(0);
+    });
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
     it('returns a number between min and max', () => {
-      const result = fn('$random')(1, 10);
-      expect(result).toBeGreaterThanOrEqual(1);
-      expect(result).toBeLessThanOrEqual(10);
+      mockPredictableRandom(0.999);
+      expect(fn('$random')(1, 10)).toBe(10);
     });
 
     it('handles swapped min/max gracefully', () => {
-      const result = fn('$random')(10, 1);
-      expect(result).toBeGreaterThanOrEqual(1);
-      expect(result).toBeLessThanOrEqual(10);
+      mockPredictableRandom(0);
+      expect(fn('$random')(10, 1)).toBe(1);
+    });
+
+    it('defaults min to zero and max when only end bound provided', () => {
+      mockPredictableRandom(0);
+      expect(fn('$random')(null, 2)).toBe(0);
+    });
+
+    it('uses inclusive 0-based default ceiling when bounds omitted entirely', () => {
+      mockPredictableRandom(0);
+      expect(fn('$random')()).toBe(0);
+    });
+
+    it('defaults max when only min provided', () => {
+      mockPredictableRandom(0);
+      expect(fn('$random')(5)).toBe(5);
     });
   });
 
@@ -121,15 +149,33 @@ describe('mathFunctions', () => {
   });
 
   describe('$uuid', () => {
+    const origRandom = Math.random.bind(Math);
+
+    afterEach(() => {
+      Math.random = origRandom;
+      vi.unstubAllGlobals();
+    });
+
     it('returns a valid UUID v4 format', () => {
+      Math.random = origRandom;
       const result = fn('$uuid')() as string;
       expect(result).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
     });
 
     it('generates unique values on successive calls', () => {
+      Math.random = origRandom;
       const a = fn('$uuid')() as string;
       const b = fn('$uuid')() as string;
       expect(a).not.toBe(b);
+    });
+
+    it('falls back when Web Crypto lacks randomUUID', () => {
+      vi.stubGlobal('crypto', {});
+      mockPredictableRandom(0);
+
+      expect(fn('$uuid')()).toMatch(/^[0-9a-f-]{36}$/);
+
+      Math.random = origRandom;
     });
   });
 
@@ -151,8 +197,17 @@ describe('mathFunctions', () => {
       expect(fn('$range')(5, 0, -1)).toEqual([5, 4, 3, 2, 1]);
     });
 
+    it('short-circuits negative step ranges that never approach end', () => {
+      expect(fn('$range')(0, 10, -1)).toEqual([]);
+      expect(fn('$range')(10, -5, -1)).toContain(10);
+    });
+
     it('treats step of 0 as 1', () => {
       expect(fn('$range')(0, 3, 0)).toEqual([0, 1, 2]);
+    });
+
+    it('omits trailing values when fractional step aligns past boundary', () => {
+      expect(fn('$range')(0, 11, 2.75)).toEqual([0, 2.75, 5.5, 8.25]);
     });
 
     it('caps at 10000 elements to prevent infinite loops', () => {
@@ -198,6 +253,7 @@ describe('mathFunctions', () => {
     it('returns true for different numbers', () => expect(fn('$neq')(5, 3)).toBe(true));
     it('returns false for equal numbers', () => expect(fn('$neq')(5, 5)).toBe(false));
     it('compares strings', () => expect(fn('$neq')('a', 'b')).toBe(true));
+    it('compares heterogeneous operands after string coercion', () => expect(fn('$neq')(5, '3')).toBe(true));
   });
 
   describe('$log', () => {

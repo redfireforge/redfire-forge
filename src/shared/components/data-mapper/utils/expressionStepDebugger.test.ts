@@ -172,4 +172,25 @@ describe('debugExpression', () => {
     expect(result.steps.length).toBeGreaterThanOrEqual(1);
     expect(result.steps[result.steps.length - 1].label).toBe('Final Result');
   });
+
+  it('labels higher-order mapper calls as lambda application steps', () => {
+    const withArr: MapperSource[] = [
+      { id: 's1', label: 'Response', sampleData: { tags: ['a', 'b'] } },
+    ];
+    const result = debugExpression('$multiply($zip($.tags, $.tags), 1)', withArr, 's1');
+    const hofSteps = result.steps.filter((s) => s.label === 'Lambda Application');
+    expect(hofSteps.some((s) => s.expression.startsWith('$zip('))).toBe(true);
+  });
+
+  it('ignores stray $ tokens that do not begin a path or function identifier', () => {
+    const result = debugExpression('$ concat("a","b")', sources, 's1');
+    expect(result.steps.some((s) => s.expression === '$')).toBe(false);
+    expect(result.steps[result.steps.length - 1].label).toBe('Final Result');
+  });
+
+  it('handles function names not followed immediately by parentheses', () => {
+    const result = debugExpression('$upper $.name', sources, 's1');
+    const fnEval = result.steps.filter((s) => s.label === 'Function Evaluation');
+    expect(fnEval.some((s) => s.expression.startsWith('$upper('))).toBe(false);
+  });
 });

@@ -8,7 +8,7 @@ export interface ParsedRule {
   operator: string;
   value?: string;
   negate?: boolean;
-  kind: 'field' | 'length' | 'each' | 'contains_item' | 'subset' | 'type_check' | 'existence';
+  kind: 'field' | 'length' | 'each' | 'contains_item' | 'subset' | 'type_check' | 'existence' | 'custom';
 }
 
 export interface ParseError {
@@ -126,6 +126,31 @@ function unquote(val: string): string {
 }
 
 export function parseDslLine(line: string, lineNumber: number): ParsedRule | ParseError | null {
+  const trimmedRaw = line.trim();
+  if (!trimmedRaw || trimmedRaw.startsWith('#')) return null;
+
+  // ASSERT keyword — custom predicate assertion
+  const assertMatch = trimmedRaw.match(/^(NOT\s+)?ASSERT(\s+(.*))?$/i);
+  if (assertMatch) {
+    const negate = !!assertMatch[1];
+    const afterAssert = (assertMatch[3] ?? '').trim();
+    if (!afterAssert) {
+      return { lineNumber, message: 'ASSERT requires an expression' };
+    }
+    // Optional description: ASSERT <expression> // <description>
+    const descSplit = afterAssert.match(/^(.+?)\s*\/\/\s*(.+)$/);
+    const expression = descSplit ? descSplit[1].trim() : afterAssert;
+    const description = descSplit ? descSplit[2].trim() : undefined;
+    return {
+      lineNumber,
+      path: '(custom)',
+      operator: 'assert',
+      value: description ? `${expression}\n${description}` : expression,
+      negate,
+      kind: 'custom',
+    };
+  }
+
   const tokens = tokenizeLine(line);
   if (!tokens) return null;
 
@@ -165,10 +190,7 @@ export function parseDslLine(line: string, lineNumber: number): ParsedRule | Par
     if (!rawValue) {
       return { lineNumber, message: 'Missing operator after "each"' };
     }
-    const eachParts = rawValue.match(/^(\S+)\s*(.*)/);
-    if (!eachParts) {
-      return { lineNumber, message: `Invalid each expression: ${rawValue}` };
-    }
+    const eachParts = rawValue.match(/^(\S+)\s*(.*)/)!;
     return {
       lineNumber, path, operator: `each ${eachParts[1]}`, value: eachParts[2].trim() || undefined,
       negate, kind: 'each',
@@ -259,6 +281,7 @@ export function serializeToDsl(fields: ExpectedField[], assertions: Assertion[])
   const fieldLines: string[] = [];
   const collectionLines: string[] = [];
   const typeLines: string[] = [];
+  const customLines: string[] = [];
 
   // Compute alignment width
   let maxPathLen = 0;
@@ -334,6 +357,11 @@ export function serializeToDsl(fields: ExpectedField[], assertions: Assertion[])
         collectionLines.push(`${path.padEnd(padWidth)}${neg}subset              ${a.expected}`);
         break;
       }
+      case 'custom': {
+        const desc = a.description ? ` // ${a.description}` : '';
+        customLines.push(`${neg}ASSERT ${a.expression}${desc}`);
+        break;
+      }
       default:
         break;
     }
@@ -352,6 +380,11 @@ export function serializeToDsl(fields: ExpectedField[], assertions: Assertion[])
     if (lines.length > 0) lines.push('');
     lines.push('# Type & existence assertions');
     lines.push(...typeLines.sort());
+  }
+  if (customLines.length > 0) {
+    if (lines.length > 0) lines.push('');
+    lines.push('# Custom predicate assertions');
+    lines.push(...customLines);
   }
 
   return lines.join('\n');
@@ -447,6 +480,19 @@ export function dslToModel(rules: ParsedRule[]): DslModel {
         });
         break;
       }
+      case 'custom': {
+        const val = rule.value ?? '';
+        const nlIdx = val.indexOf('\n');
+        const expression = nlIdx >= 0 ? val.slice(0, nlIdx) : val;
+        const description = nlIdx >= 0 ? val.slice(nlIdx + 1) : undefined;
+        assertions.push({
+          type: 'custom',
+          expression,
+          ...(description && { description }),
+          ...(neg && { negate: true }),
+        });
+        break;
+      }
     }
   }
 
@@ -491,6 +537,7 @@ export function importFromJson(text: string): DslModel | ParseError {
 }
 
 function detectKind(operator: string): ParsedRule['kind'] {
+  if (operator === 'assert') return 'custom';
   if (operator.startsWith('length')) return 'length';
   if (operator.startsWith('each')) return 'each';
   if (operator === 'contains_item' || operator === 'contains_any' || operator === 'contains_all' || operator === 'contains_only' || operator === 'contains_none') return 'contains_item';

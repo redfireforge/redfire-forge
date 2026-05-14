@@ -36,7 +36,8 @@ function makeDeps(overrides: Partial<DataMapperValidationDeps> = {}): DataMapper
 
 describe('useDataMapperValidation', () => {
   it('initializes with empty assertions when no initialData', () => {
-    const { result } = renderHook(() => useDataMapperValidation(makeDeps()));
+    const deps = makeDeps();
+    const { result } = renderHook(() => useDataMapperValidation(deps));
     expect(result.current.validationSamplePaths).toEqual([]);
     expect(result.current.validationSync).toBeDefined();
   });
@@ -220,5 +221,238 @@ describe('useDataMapperValidation', () => {
     });
     renderHook(() => useDataMapperValidation(deps));
     expect(onAssertionsChange).toHaveBeenCalledWith(initialAssertions);
+  });
+
+  it('returns empty validationFields when code editor capability is off', () => {
+    const serialize = vi.fn().mockReturnValue({ expectedFields: [{ jsonPath: 'x' }] });
+    const adapter = { ...makeDeps().adapter, serialize } as DataMapperValidationDeps['adapter'];
+    const deps = makeDeps({ caps: { codeEditor: false }, adapter });
+    const { result } = renderHook(() => useDataMapperValidation(deps));
+    expect(result.current.validationFields).toEqual([]);
+    expect(serialize).not.toHaveBeenCalled();
+  });
+
+  it('returns empty validationFields when serialize throws', () => {
+    const adapter = {
+      ...makeDeps().adapter,
+      serialize: vi.fn(() => {
+        throw new Error('serialize fail');
+      }),
+    } as DataMapperValidationDeps['adapter'];
+    const deps = makeDeps({ adapter });
+    const { result } = renderHook(() => useDataMapperValidation(deps));
+    expect(result.current.validationFields).toEqual([]);
+  });
+
+  it('ignores malformed sample JSON when building validationSamplePaths', () => {
+    const brokenJson = '{"broken": ';
+    const deps = makeDeps({ effectiveTarget: { sampleData: brokenJson } });
+    const { result } = renderHook(() => useDataMapperValidation(deps));
+    expect(result.current.validationSamplePaths).toEqual([]);
+  });
+
+  it('parses object sampleData without JSON.parse', () => {
+    const sampleData = { nested: { leaf: 1 } };
+    const deps = makeDeps({ effectiveTarget: { sampleData } });
+    const { result } = renderHook(() => useDataMapperValidation(deps));
+    expect(result.current.validationSamplePaths.length).toBeGreaterThan(0);
+  });
+
+  it('updates assertions when initialData reference changes', () => {
+    const a1 = [{ type: 'arrayLength' as const, jsonPath: '$.a', operator: '>=' as const, value: 1 }];
+    const a2 = [{ type: 'arrayLength' as const, jsonPath: '$.b', operator: '>=' as const, value: 2 }];
+    const onAssertionsChange = vi.fn();
+    const { result, rerender } = renderHook(
+      (p: DataMapperValidationDeps) => useDataMapperValidation(p),
+      {
+        initialProps: makeDeps({
+          initialData: { assertions: a1 } as unknown,
+          onAssertionsChange,
+        }),
+      },
+    );
+
+    expect(result.current.validationAssertions).toEqual(a1);
+
+    rerender(
+      makeDeps({
+        initialData: { assertions: a2 } as unknown,
+        onAssertionsChange,
+      }),
+    );
+
+    expect(result.current.validationAssertions).toEqual(a2);
+    expect(onAssertionsChange).toHaveBeenCalledWith(a2);
+  });
+
+  it('assigns flushRef to validation flush and clears on unmount', () => {
+    const flushRef = { current: null as (() => void) | null };
+    const deps = makeDeps({ flushRef, showRulesView: true });
+    const { result, unmount } = renderHook(() => useDataMapperValidation(deps));
+
+    expect(typeof flushRef.current).toBe('function');
+    expect(flushRef.current).toBe(result.current.validationSync.flushPending);
+
+    unmount();
+    expect(flushRef.current).toBeNull();
+  });
+
+  it('handleFetchAndVerify returns immediately when adapter has no fetchTargetSchema', async () => {
+    const adapter = { ...makeDeps().adapter, fetchTargetSchema: undefined } as DataMapperValidationDeps['adapter'];
+    const handleFetchTargetSchema = vi.fn();
+    const setToast = vi.fn();
+    const deps = makeDeps({ adapter, handleFetchTargetSchema, setToast });
+    const { result } = renderHook(() => useDataMapperValidation(deps));
+
+    await act(async () => {
+      await result.current.handleFetchAndVerify();
+    });
+
+    expect(handleFetchTargetSchema).not.toHaveBeenCalled();
+    expect(setToast).not.toHaveBeenCalledWith('Fetching live response…');
+  });
+
+  it('handleUpdateValidationFields preserves operatorValue from mapping when field omits operatorValue', () => {
+    const setMappings = vi.fn();
+    const existingMapping: Mapping = {
+      id: 'm1',
+      sourcePath: '$.status',
+      sourceId: 'src1',
+      targetPath: '$.status',
+      operatorValue: 'fallback',
+    };
+    const deps = makeDeps({ mappings: [existingMapping], setMappings });
+    const { result } = renderHook(() => useDataMapperValidation(deps));
+
+    act(() => {
+      result.current.handleUpdateValidationFields([
+        {
+          jsonPath: '$.status',
+          operator: 'equals' as const,
+          expectedValue: undefined as unknown as string,
+          operatorValue: undefined,
+        },
+      ]);
+    });
+
+    expect(setMappings).toHaveBeenCalledWith([
+      expect.objectContaining({ operatorValue: 'fallback' }),
+    ]);
+  });
+
+  it('handleUpdateValidationAssertions updates local state and notifies parent', () => {
+    const onAssertionsChange = vi.fn();
+    const deps = makeDeps({ onAssertionsChange });
+    const { result } = renderHook(() => useDataMapperValidation(deps));
+
+    const next = [{ type: 'existence' as const, jsonPath: '$.x', expectExists: true }];
+    act(() => {
+      result.current.handleUpdateValidationAssertions(next);
+    });
+
+    expect(result.current.validationAssertions).toEqual(next);
+    expect(onAssertionsChange).toHaveBeenCalledWith(next);
+  });
+
+  it('handleUpdateValidationFields drops plain mappings absent from incoming fields unless they carry expressions', () => {
+    const setMappings = vi.fn();
+    const plain: Mapping = { id: 'drop', sourcePath: 'gone', sourceId: 'src1', targetPath: 'gone' };
+    const withExpr: Mapping = { id: 'keep', sourcePath: 'e', sourceId: 'src1', targetPath: 'e', expression: '$upper($.x)' };
+    const deps = makeDeps({ mappings: [plain, withExpr], setMappings });
+    const { result } = renderHook(() => useDataMapperValidation(deps));
+
+    act(() => {
+      result.current.handleUpdateValidationFields([]);
+    });
+
+    expect(setMappings).toHaveBeenCalledWith([withExpr]);
+  });
+
+  it('handleUpdateValidationFields applies negate from matching expectedField', () => {
+    const setMappings = vi.fn();
+    const m: Mapping = { id: 'm1', sourcePath: 'status', sourceId: 'src1', targetPath: '$.status', operatorValue: 'x' };
+    const deps = makeDeps({ mappings: [m], setMappings });
+    const { result } = renderHook(() => useDataMapperValidation(deps));
+
+    act(() => {
+      result.current.handleUpdateValidationFields([
+        {
+          jsonPath: '$.status',
+          operator: 'equals',
+          negate: true,
+          operatorValue: 'active',
+          expectedValue: 'active',
+        },
+      ]);
+    });
+
+    expect(setMappings).toHaveBeenCalledWith([
+      expect.objectContaining({ negate: true, operator: 'equals' }),
+    ]);
+  });
+
+  it('handleUpdateValidationFields inserts negate on newly added validation fields only when negate is truthy', () => {
+    const setMappings = vi.fn();
+    const deps = makeDeps({ mappings: [], setMappings });
+    const { result } = renderHook(() => useDataMapperValidation(deps));
+
+    act(() => {
+      result.current.handleUpdateValidationFields([
+        {
+          jsonPath: '$.new',
+          operator: 'exists',
+          negate: true,
+          expectedValue: '',
+        },
+      ]);
+    });
+
+    expect(setMappings).toHaveBeenCalledWith([
+      expect.objectContaining({
+        targetPath: '$.new',
+        sourcePath: '$.new',
+        negate: true,
+      }),
+    ]);
+  });
+
+  it('validationFields memo returns empty when serializer output omits expectedFields key', () => {
+    const adapter = {
+      label: 'test',
+      contextId: 'ctx',
+      sources: [{ id: 'src1', label: 'Source 1' }],
+      target: { label: 'Target', allowCustomFields: false },
+      serialize: vi.fn(() => ({ otherPayload: [] })),
+      deserialize: vi.fn().mockReturnValue([]),
+    } as unknown as DataMapperValidationDeps['adapter'];
+    const deps = makeDeps({ adapter, mappings: [] });
+    const { result } = renderHook(() => useDataMapperValidation(deps));
+    expect(adapter.serialize).toHaveBeenCalled();
+    expect(result.current.validationFields).toEqual([]);
+  });
+
+  it('handleFetchAndVerify reports unknown error detail when rejection is not Error', async () => {
+    const adapter = {
+      label: 'test',
+      contextId: 'ctx',
+      sources: [{ id: 'src1', label: 'Source 1' }],
+      target: { label: 'Target', allowCustomFields: false },
+      serialize: vi.fn().mockReturnValue({}),
+      deserialize: vi.fn().mockReturnValue([]),
+      fetchTargetSchema: vi.fn(),
+    } as unknown as DataMapperValidationDeps['adapter'];
+    const setToast = vi.fn();
+    const deps = makeDeps({
+      adapter,
+      handleFetchTargetSchema: vi.fn(() => Promise.reject('boom')),
+      setToast,
+    });
+    const { result } = renderHook(() => useDataMapperValidation(deps));
+
+    await act(async () => {
+      await result.current.handleFetchAndVerify();
+    });
+
+    expect(setToast).toHaveBeenCalledWith('Fetch failed: unknown error');
   });
 });

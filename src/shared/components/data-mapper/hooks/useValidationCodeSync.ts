@@ -19,7 +19,7 @@ interface UseValidationCodeSyncOptions {
   enabled: boolean;
 }
 
-const DSL_ASSERTION_TYPES = new Set(['typeCheck', 'existence', 'arrayLength', 'each', 'arrayContains', 'containsSubset']);
+const DSL_ASSERTION_TYPES = new Set(['typeCheck', 'existence', 'arrayLength', 'each', 'arrayContains', 'containsSubset', 'custom']);
 
 export function useValidationCodeSync({
   mappings: _mappings,
@@ -45,19 +45,24 @@ export function useValidationCodeSync({
     return dslText.split('\n').filter(l => l.trim() && !l.trim().startsWith('#')).length;
   }, [dslText]);
 
+  // pendingCodeSyncs tracks how many code→visual updates are in-flight so
+  // the visual→code guard isn't cleared until React has flushed all of them.
+  const pendingCodeSyncs = useRef(0);
+
   // Visual → Code: re-serialize when fields/assertions change from visual side
   const syncVisualToCode = useCallback(() => {
     // Always keep nonDslAssertionsRef fresh so code→visual merges are correct
     nonDslAssertionsRef.current = assertions.filter(a => !DSL_ASSERTION_TYPES.has(a.type));
 
     if (syncDirection.current === 'code') {
-      // Visual state changed as a result of code→visual apply — cancel any stale debounce
-      // and skip re-serializing back to DSL (would create an echo)
+      // Visual state changed as a result of code→visual apply — cancel stale debounce
+      // and skip re-serializing to avoid overwriting the user's in-progress edit
       if (debounceTimer.current) {
         clearTimeout(debounceTimer.current);
         debounceTimer.current = null;
       }
-      syncDirection.current = null;
+      pendingCodeSyncs.current = Math.max(0, pendingCodeSyncs.current - 1);
+      if (pendingCodeSyncs.current === 0) syncDirection.current = null;
       return;
     }
 
@@ -74,10 +79,10 @@ export function useValidationCodeSync({
     syncVisualToCode();
   }, [enabled, fields, assertions, syncVisualToCode]);
 
-  // Code → Visual: debounced parse and update
   const handleCodeChange = useCallback((text: string) => {
     setDslText(text);
     syncDirection.current = 'code';
+    pendingCodeSyncs.current++;
 
     if (debounceTimer.current) clearTimeout(debounceTimer.current);
     debounceTimer.current = setTimeout(() => {
@@ -85,12 +90,14 @@ export function useValidationCodeSync({
       const { rules, errors } = parseDsl(text);
       setParseErrors(errors);
 
-      if (rules.length > 0 || text.trim() === '') {
+      // Only push to visual model when there are zero parse errors.
+      // This prevents mid-edit partial keywords (e.g. "exist" while
+      // typing "exists") from deleting the line from the visual model.
+      if (errors.length === 0 && (rules.length > 0 || text.trim() === '')) {
         const model = dslToModel(rules);
         onUpdateFields(model.fields);
         onUpdateAssertions([...nonDslAssertionsRef.current, ...model.assertions]);
       }
-      syncDirection.current = null;
     }, 300);
   }, [onUpdateFields, onUpdateAssertions]);
 
@@ -130,6 +137,7 @@ export function useValidationCodeSync({
       onUpdateFields(model.fields);
       onUpdateAssertions([...nonDslAssertionsRef.current, ...model.assertions]);
     }
+    pendingCodeSyncs.current = 0;
     syncDirection.current = null;
   }, [onUpdateFields, onUpdateAssertions]);
 

@@ -33,8 +33,8 @@ function eval$(expr: string, vars?: Record<string, unknown>) {
 }
 
 describe('arrayFunctions', () => {
-  it('exports 13 functions', () => {
-    expect(arrayFunctions).toHaveLength(13);
+  it('exports 16 functions', () => {
+    expect(arrayFunctions).toHaveLength(16);
   });
 
   describe('$sum', () => {
@@ -217,6 +217,9 @@ describe('arrayFunctions', () => {
     it('returns initial for empty array', () => {
       expect(eval$('$reduce([], (acc, x) => $add(acc, x), 42)')).toBe(42);
     });
+    it('returns null for empty reductions without seeds', () => {
+      expect(eval$('$reduce([], (acc, x) => $add(acc, x))')).toBeNull();
+    });
   });
 
   describe('$sortBy (lambda)', () => {
@@ -334,6 +337,32 @@ describe('arrayFunctions', () => {
         expect(fn('$any')(items, 'v', 'bogus', 1)).toBe(false);
       });
 
+      it('handles bigint compares via stringify replacer equality', () => {
+        expect(fn('$any')([{ v: BigInt(42) }], 'v', '=', BigInt(42))).toBe(true);
+      });
+
+      it('runs bigint replacers for nested field serialization', () => {
+        const row = { id: BigInt(11) };
+        expect(fn('$any')([{ v: row }], 'v', '=', row)).toBe(true);
+      });
+
+      it('supports cyclic payloads using stringify-safe fallback comparisons', () => {
+        type Box = Record<string, unknown>;
+        const cyclic: Box = {};
+        cyclic.ref = cyclic;
+        expect(fn('$any')([{ v: cyclic }], 'v', 'contains', 'Object')).toBe(true);
+      });
+
+      it('falls back through stringify when JSON serialization rejects the payload', () => {
+        const bad = {
+          toJSON() {
+            throw new Error('nope');
+          },
+        };
+
+        expect(fn('$any')([{ v: bad }], 'v', '=', bad)).toBe(true);
+      });
+
       it('compareValues numeric comparison with non-numeric values', () => {
         const items = [{ v: 'abc' }];
         expect(fn('$any')(items, 'v', '>', 0)).toBe(false);
@@ -385,6 +414,80 @@ describe('arrayFunctions', () => {
         const result = eval$('$sortBy(items, x => x.n)', vars);
         expect(result).toHaveLength(3);
       });
+
+      it('handles null-ish keys beside numeric keys', () => {
+        expect(eval$('$sortBy(items, x => x.n)', { items: [{ n: null }, { n: 2 }] }))
+          .toHaveLength(2);
+      });
+
+      it('treats comparator ties as equal-order', () => {
+        expect(eval$('$sortBy([2, 1, 1], x => 0)')).toHaveLength(3);
+      });
+    });
+  });
+
+  describe('$pluck', () => {
+    it('extracts values by key from array of objects', () => {
+      const items = [{ name: 'Alice', age: 30 }, { name: 'Bob', age: 25 }];
+      expect(fn('$pluck')(items, 'name')).toEqual(['Alice', 'Bob']);
+    });
+    it('handles nested key paths', () => {
+      const items = [{ user: { id: 1 } }, { user: { id: 2 } }];
+      expect(fn('$pluck')(items, 'user.id')).toEqual([1, 2]);
+    });
+    it('returns undefined for missing keys', () => {
+      const items = [{ a: 1 }, { b: 2 }];
+      expect(fn('$pluck')(items, 'a')).toEqual([1, undefined]);
+    });
+    it('handles empty array', () => {
+      expect(fn('$pluck')([], 'key')).toEqual([]);
+    });
+    it('handles null input', () => {
+      expect(fn('$pluck')(null, 'key')).toEqual([]);
+    });
+    it('works via evaluateExpression', () => {
+      const vars = { items: [{ x: 10 }, { x: 20 }] };
+      expect(eval$('$pluck(items, "x")', vars)).toEqual([10, 20]);
+    });
+  });
+
+  describe('$find (lambda)', () => {
+    it('finds the first matching element', () => {
+      const vars = { items: [1, 2, 3, 4, 5] };
+      expect(eval$('$find(items, x => $gt(x, 3))', vars)).toBe(4);
+    });
+    it('returns null when no element matches', () => {
+      const vars = { items: [1, 2, 3] };
+      expect(eval$('$find(items, x => $gt(x, 10))', vars)).toBeNull();
+    });
+    it('returns null for empty array', () => {
+      const vars = { items: [] as unknown[] };
+      expect(eval$('$find(items, x => x)', vars)).toBeNull();
+    });
+    it('returns null without lambda', () => {
+      expect(fn('$find')([1, 2], 'notALambda')).toBeNull();
+    });
+    it('finds objects by property', () => {
+      const vars = { items: [{ id: 1, active: false }, { id: 2, active: true }] };
+      expect(eval$('$find(items, x => x.active)', vars)).toEqual({ id: 2, active: true });
+    });
+  });
+
+  describe('$findAll (lambda)', () => {
+    it('returns all matching elements', () => {
+      const vars = { items: [1, 2, 3, 4, 5] };
+      expect(eval$('$findAll(items, x => $gt(x, 3))', vars)).toEqual([4, 5]);
+    });
+    it('returns empty array when nothing matches', () => {
+      const vars = { items: [1, 2, 3] };
+      expect(eval$('$findAll(items, x => $gt(x, 10))', vars)).toEqual([]);
+    });
+    it('returns original array without lambda', () => {
+      expect(fn('$findAll')([1, 2, 3], 'notALambda')).toEqual([1, 2, 3]);
+    });
+    it('filters objects by property', () => {
+      const vars = { items: [{ v: 0 }, { v: 1 }, { v: 2 }, { v: 3 }] };
+      expect(eval$('$findAll(items, x => $gte(x.v, 2))', vars)).toEqual([{ v: 2 }, { v: 3 }]);
     });
   });
 });

@@ -108,12 +108,39 @@ describe('resolveEffectiveAuthFromHierarchy', () => {
     expect(result.source).toBe('global:Global Bearer');
   });
 
+  it('inherits from scenario when test auth type is inherit', () => {
+    const draft = makeDraft({ type: 'inherit' });
+    const fgs = [makeFeatureGroup({
+      scenarios: [{
+        id: 'sc-1', name: 'S', tests: [],
+        auth: { type: 'bearer', token: 'from-scenario' } as AuthConfig,
+      }],
+    })];
+    const result = resolveEffectiveAuthFromHierarchy(draft, fgs, 'fg-1', 'sc-1', []);
+    expect(result.source).toBe('scenario');
+    expect(result.auth.type).toBe('bearer');
+  });
+
   it('returns none when no auth is configured anywhere', () => {
     const draft = makeDraft({ type: 'none' });
     const fgs = [makeFeatureGroup({ scenarios: [{ id: 'sc-1', name: 'S', tests: [] }] })];
     const result = resolveEffectiveAuthFromHierarchy(draft, fgs, 'fg-1', 'sc-1', noProfiles);
     expect(result.source).toBe('none');
     expect(result.auth.type).toBe('none');
+  });
+
+  it('skips global profile when linked profile auth is none', () => {
+    const draft = makeDraft({ type: 'none' });
+    const profiles: GlobalAuthProfile[] = [
+      { id: 'gp-1', name: 'Empty', auth: { type: 'none' } as AuthConfig },
+    ];
+    const fgs = [makeFeatureGroup({
+      auth: { type: 'inherit' } as AuthConfig,
+      globalAuthProfileId: 'gp-1',
+      scenarios: [{ id: 'sc-1', name: 'S', tests: [] }],
+    })];
+    const result = resolveEffectiveAuthFromHierarchy(draft, fgs, 'fg-1', 'sc-1', profiles);
+    expect(result.source).toBe('none');
   });
 
   it('returns none when feature group is not found', () => {
