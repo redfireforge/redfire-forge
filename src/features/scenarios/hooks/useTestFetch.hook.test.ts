@@ -16,8 +16,10 @@ vi.mock('../../../engine/tokenManager', () => ({
 }));
 
 const validateMock = vi.hoisted(() => vi.fn(() => []));
+const evaluateAssertionsMock = vi.hoisted(() => vi.fn(() => ({ failures: [] as { path: string }[] })));
 vi.mock('../../../engine/validator', () => ({
   validate: validateMock,
+  evaluateAssertions: evaluateAssertionsMock,
 }));
 
 vi.mock('../../../shared/utils/authHeaders', () => ({
@@ -71,6 +73,7 @@ describe('useTestFetch hook', () => {
     vi.clearAllMocks();
     jsonEqualMock.mockReturnValue(false);
     validateMock.mockReturnValue([]);
+    evaluateAssertionsMock.mockReturnValue({ failures: [] });
     serializeWithContentTypeMock.mockImplementation((draft: { body?: string }) => ({ body: draft.body || undefined, contentType: 'application/json' }));
     getEffectiveBodyTypeMock.mockReturnValue('json');
     mockProxyFetch.mockResolvedValue({
@@ -147,11 +150,23 @@ describe('useTestFetch hook', () => {
       expect(url).toContain('key=secret');
     });
 
-    it('returns original URL when fetch host override is malformed', () => {
-      const options = createOptions({ fetchHostOverride: 'http://[::', fetchHostEnabled: true });
+    it('uses fetch host override base without trailing slash', () => {
+      const options = createOptions({ fetchHostOverride: 'https://staging.example.com', fetchHostEnabled: true });
       const { result } = renderHook(() => useTestFetch(options));
-      const url = result.current.applyFetchUrlOverrides('https://api.example.com/z', { type: 'none' });
-      expect(url).toBe('https://api.example.com/z');
+      const url = result.current.applyFetchUrlOverrides('https://api.example.com/path?q=1', { type: 'none' });
+      expect(url.startsWith('https://staging.example.com/path')).toBe(true);
+    });
+
+    it('returns original URL when apikey query injection URL is invalid', () => {
+      const { result } = renderHook(() => useTestFetch(createOptions()));
+      const bad = 'not-a-valid-url';
+      const url = result.current.applyFetchUrlOverrides(bad, {
+        type: 'apikey',
+        apiKeyName: 'k',
+        apiKeyValue: 'v',
+        apiKeyIn: 'query',
+      });
+      expect(url).toBe(bad);
     });
   });
 
@@ -385,6 +400,53 @@ describe('useTestFetch hook', () => {
     });
   });
 
+  describe('fetchSampleDataForMapper', () => {
+    it('parses non-JSON response body as string', async () => {
+      mockProxyFetch.mockResolvedValue({ status: 200, statusText: 'OK', body: 'plain-text' });
+      const { result } = renderHook(() => useTestFetch(createOptions()));
+
+      await act(async () => {
+        const data = await result.current.fetchSampleDataForMapper();
+        expect(data).toBe('plain-text');
+      });
+    });
+
+    it('throws when URL is empty', async () => {
+      const options = createOptions({ url: '   ' });
+      const { result } = renderHook(() => useTestFetch(options));
+
+      await expect(act(async () => result.current.fetchSampleDataForMapper())).rejects.toThrow('URL is required');
+    });
+
+    it('throws on OAuth2 configuration error', async () => {
+      const options = createOptions({
+        auth: {
+          type: 'oauth2',
+          tokenUrl: '',
+          clientId: 'a',
+          clientSecret: 'b',
+          grantType: 'client_credentials',
+        },
+      });
+      const { result } = renderHook(() => useTestFetch(options));
+
+      await expect(act(async () => result.current.fetchSampleDataForMapper())).rejects.toThrow(/OAuth2 missing/i);
+    });
+
+    it('throws on proxy transport error', async () => {
+      mockProxyFetch.mockResolvedValue({ status: 0, statusText: '', body: '', error: 'boom' });
+      const { result } = renderHook(() => useTestFetch(createOptions()));
+
+      await expect(act(async () => result.current.fetchSampleDataForMapper())).rejects.toThrow('boom');
+    });
+
+    it('throws on HTTP error status', async () => {
+      mockProxyFetch.mockResolvedValue({ status: 503, statusText: 'Service Unavailable', body: '{}' });
+      const { result } = renderHook(() => useTestFetch(createOptions()));
+
+      await expect(act(async () => result.current.fetchSampleDataForMapper())).rejects.toThrow(/HTTP 503/);
+    });
+  });
   describe('handleValidateResponse', () => {
     it('validates response against rules', async () => {
       const options = createOptions({
@@ -443,6 +505,121 @@ describe('useTestFetch hook', () => {
       });
 
       expect(result.current.validationResult?.passed).toBe(false);
+    });
+
+    it('fails assertions scope when no assertions configured', async () => {
+      const options = createOptions({
+        validation: { mode: 'none', assertions: [] },
+      });
+      const { result } = renderHook(() => useTestFetch(options));
+
+      await act(async () => {
+        await result.current.handleValidateResponse('assertions');
+      });
+
+      expect(result.current.validationResult?.passed).toBe(false);
+      expect(result.current.validationResult?.failures[0].path).toBe('(config)');
+    });
+
+    it('runs assertion evaluation for assertions-only scope', async () => {
+      evaluateAssertionsMock.mockReturnValue({
+        failures: [{ path: '$.status', expected: '200', actual: '500' }],
+      });
+      mockProxyFetch.mockResolvedValue({
+        status: 200,
+        statusText: 'OK',
+        body: '{}',
+        headers: { 'X-Test': 'ok', 'X-Multi': ['a', 'b'] },
+      });
+      const options = createOptions({
+        validation: {
+          mode: 'none',
+          assertions: [{ type: 'status', expected: '200' }],
+        },
+      });
+      const { result } = renderHook(() => useTestFetch(options));
+
+      await act(async () => {
+        await result.current.handleValidateResponse('assertions');
+      });
+
+      expect(evaluateAssertionsMock).toHaveBeenCalled();
+      expect(result.current.validationResult?.passed).toBe(false);
+      expect(result.current.validationResult?.verifyScope).toBe('assertions');
+      expect(result.current.validationResult?.failures.some((f) => f.path === '$.status')).toBe(true);
+    });
+
+    it('aggregates rule failures and assertion failures for scope all', async () => {
+      validateMock.mockReturnValue([{ path: '$.rule', expected: 'r', actual: 'x' }] as never);
+      evaluateAssertionsMock.mockReturnValue({
+        failures: [{ path: '$.assert', expected: 'a', actual: 'b' }],
+      });
+      const options = createOptions({
+        validation: {
+          mode: 'full',
+          expectedFields: [{ path: '$.rule', op: 'exists' }],
+          assertions: [{ type: 'status', expected: '200' }],
+        },
+      });
+      const { result } = renderHook(() => useTestFetch(options));
+
+      await act(async () => {
+        await result.current.handleValidateResponse('all');
+      });
+
+      expect(result.current.validationResult?.passed).toBe(false);
+      expect(result.current.validationResult?.failures.length).toBeGreaterThanOrEqual(2);
+    });
+
+    it('fails rules-only scope when validation mode is none', async () => {
+      const options = createOptions({
+        validation: {
+          mode: 'none',
+          expectedFields: [{ path: '$.id', op: 'exists' }],
+        },
+      });
+      const { result } = renderHook(() => useTestFetch(options));
+
+      await act(async () => {
+        await result.current.handleValidateResponse('rules');
+      });
+
+      expect(result.current.validationResult?.passed).toBe(false);
+      expect(mockProxyFetch).not.toHaveBeenCalled();
+    });
+
+    it('fails validation when rules scope requested but only assertions exist', async () => {
+      const options = createOptions({
+        validation: {
+          mode: 'none',
+          assertions: [{ type: 'status', expected: '200' }],
+        },
+      });
+      const { result } = renderHook(() => useTestFetch(options));
+
+      await act(async () => {
+        await result.current.handleValidateResponse('rules');
+      });
+
+      expect(result.current.validationResult?.passed).toBe(false);
+      expect(result.current.validationResult?.failures[0].path).toBe('(config)');
+    });
+
+    it('fails validation when assertions scope requested but only rules exist', async () => {
+      const options = createOptions({
+        validation: {
+          mode: 'full',
+          expectedFields: [{ path: '$.id', op: 'exists' }],
+        },
+      });
+      const { result } = renderHook(() => useTestFetch(options));
+
+      await act(async () => {
+        await result.current.handleValidateResponse('assertions');
+      });
+
+      expect(result.current.validationResult?.passed).toBe(false);
+      expect(result.current.validationResult?.failures[0].path).toBe('(config)');
     });
 
     it('fails validation when proxy returns HTTP error', async () => {
@@ -649,6 +826,57 @@ describe('useTestFetch hook', () => {
       });
       const last = options.onDraftChange.mock.calls.at(-1)?.[0] as Scenario;
       expect(last.validation.rulesVersions?.length ?? 0).toBe(0);
+    });
+
+    it('handleFetchKeepRules preserves rules when pending JSON fails to parse', async () => {
+      const options = createOptions({
+        validation: {
+          mode: 'selective',
+          expectedFields: [{ jsonPath: '$.id', expectedValue: 'keep-me' }],
+          sampleJson: '{"old":"data"}',
+        },
+      });
+      const { result } = renderHook(() => useTestFetch(options));
+
+      await act(async () => {
+        await result.current.handleFetchSampleResponse();
+      });
+
+      const spy = vi.spyOn(JSON, 'parse').mockImplementationOnce(() => {
+        throw new SyntaxError('forced');
+      });
+
+      act(() => {
+        result.current.handleFetchKeepRules();
+      });
+
+      spy.mockRestore();
+
+      const last = options.onDraftChange.mock.calls.at(-1)?.[0] as Scenario;
+      expect(last.validation.expectedFields?.[0]?.expectedValue).toBe('keep-me');
+    });
+
+    it('handleFetchReplaceAll appends rulesVersions when rules existed before replace', async () => {
+      const options = createOptions({
+        validation: {
+          mode: 'selective',
+          expectedFields: [{ jsonPath: '$.id', expectedValue: '1' }],
+          sampleJson: '{"old":"data"}',
+          rulesVersions: [],
+        },
+      });
+      const { result } = renderHook(() => useTestFetch(options));
+
+      await act(async () => {
+        await result.current.handleFetchSampleResponse();
+      });
+
+      act(() => {
+        result.current.handleFetchReplaceAll();
+      });
+
+      const last = options.onDraftChange.mock.calls.at(-1)?.[0] as Scenario;
+      expect(last.validation.rulesVersions?.length).toBe(1);
     });
 
     it('handleFetchCancel clears pending without applying draft changes', async () => {

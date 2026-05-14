@@ -778,4 +778,55 @@ describe('TargetPanel', () => {
       expect(screen.queryByLabelText('Fetch target schema')).toBeNull();
     });
   });
+
+  describe('verify filters and highlights', () => {
+    it('sets filter to failed when filterFailedSignal updates', () => {
+      const emailMap: Mapping = { id: 'mE', sourcePath: 'src', sourceId: 's1', targetPath: 'email' };
+      const props = {
+        target,
+        mappings: [emailMap],
+        onDrop: vi.fn(),
+        selectedMappingId: null,
+        onSelectMapping: vi.fn(),
+        nodeStatusMap: new Map<string, 'pass' | 'fail'>([['email', 'fail']]),
+      };
+      const { rerender } = render(<TargetPanel {...props} filterFailedSignal={null} />);
+      rerender(<TargetPanel {...props} filterFailedSignal={1} />);
+      expect((screen.getByLabelText('Filter target fields') as HTMLSelectElement).value).toBe('failed');
+    });
+
+    it('filters tree leaves by verification passed paths', () => {
+      renderPanel({
+        mappings: [mapping],
+        nodeStatusMap: new Map([
+          ['userName', 'pass'],
+          ['email', 'fail'],
+        ]),
+      });
+      fireEvent.change(screen.getByLabelText('Filter target fields'), { target: { value: 'passed' } });
+      expect(screen.getByText('userName')).toBeTruthy();
+      expect(screen.queryByText('email')).toBeNull();
+    });
+
+    it('applies hover-highlight class when highlightedPaths matches mapped leaf', () => {
+      const { container } = renderPanel({
+        mappings: [mapping],
+        highlightedPaths: new Set(['userName']),
+      });
+      fireEvent.click(screen.getByLabelText('Expand all'));
+      const row = container.querySelector('[data-path="userName"]');
+      expect(row?.className).toContain('dm-tree-node--hover-highlight');
+    });
+
+    it('shows unresolved counts on badge when explicitly provided', () => {
+      const { container } = renderPanel({
+        mappings: [mapping],
+        resolvedMappingCount: 1,
+        unresolvedMappingCount: 4,
+      });
+      const badge = container.querySelector('.dm-mapped-count-badge');
+      expect(badge?.textContent).toContain('1 mapped');
+      expect(badge?.textContent).toContain('4 unresolved');
+    });
+  });
 });

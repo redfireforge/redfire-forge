@@ -25,6 +25,7 @@ import type {
 import { getAllLeafPaths, buildJsonTree } from '../../../utils/jsonTreeModel';
 import { getByPath, getByPathAsString } from '../../../utils/jsonPath';
 import { coerceSampleData } from '../utils/mapperParsing';
+import { inferType } from '../utils/typeMismatch';
 
 // ─── Output Type ──────────────────────────────────────────
 
@@ -127,7 +128,8 @@ export function createValidationAdapter(
           jsonPath: stripDollarPrefix(m.sourcePath),
           expectedValue: resolveExpectedValue(m),
         };
-        if (m.operator) field.operator = m.operator as FieldOperator;
+        const op = (m.operator as FieldOperator | undefined) ?? capabilities.autoMapDefaultOperator;
+        if (op) field.operator = op;
         if (m.operatorValue !== undefined) field.operatorValue = m.operatorValue;
         if (m.negate) field.negate = true;
         return field;
@@ -212,7 +214,7 @@ export function createValidationAdapter(
           const fields: TargetField[] = leafPaths.map((p) => ({
             path: p,
             label: p.includes('.') ? p.split('.').pop()! : p,
-            type: 'string',
+            type: inferType(getByPath(fetched, p)),
             defaultValue: getByPathAsString(fetched, p),
           }));
           return { sampleData: fetched, fields };

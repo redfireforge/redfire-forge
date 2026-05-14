@@ -384,7 +384,70 @@ const $zip: ExpressionFunction = {
   },
 };
 
+const $pluck: ExpressionFunction = {
+  name: '$pluck', category: 'Array',
+  signature: '$pluck(array, key) → array',
+  description: 'Extract the value of a specific key from each element in an array of objects.',
+  args: [
+    { name: 'array', type: 'array', required: true, description: 'Array of objects' },
+    { name: 'key', type: 'string', required: true, description: 'Key path to extract' },
+  ],
+  returnType: 'array',
+  examples: [
+    { input: '$pluck([{name:"Alice"},{name:"Bob"}], "name")', output: '["Alice","Bob"]' },
+  ],
+  evaluate: (arr, key) => {
+    const items = asArray(arr);
+    const keyPath = s(key);
+    return items.map(item => getNestedValue(item, keyPath));
+  },
+};
+
+const $find: ExpressionFunction = {
+  name: '$find', category: 'Array',
+  signature: '$find(array, fn) → any',
+  description: 'Return the first element where the predicate function returns truthy, or null if none found.',
+  args: [
+    { name: 'array', type: 'array', required: true, description: 'Input array' },
+    { name: 'fn', type: 'function', required: true, description: 'Lambda: element => boolean' },
+  ],
+  returnType: 'any',
+  examples: [
+    { input: '$find([1,2,3,4,5], x => $gt(x, 3))', output: '4' },
+  ],
+  evaluate: (arr, fn) => {
+    const items = asArray(arr);
+    if (!isLambda(fn)) return null;
+    const lambda = fn as LambdaValue;
+    for (let i = 0; i < items.length; i++) {
+      if (applyLambda(lambda, [items[i], i])) return items[i];
+    }
+    return null;
+  },
+};
+
+const $findAll: ExpressionFunction = {
+  name: '$findAll', category: 'Array',
+  signature: '$findAll(array, fn) → array',
+  description: 'Return all elements where the predicate function returns truthy (alias for $filter with clearer intent).',
+  args: [
+    { name: 'array', type: 'array', required: true, description: 'Input array' },
+    { name: 'fn', type: 'function', required: true, description: 'Lambda: element => boolean' },
+  ],
+  returnType: 'array',
+  examples: [
+    { input: '$findAll([1,2,3,4,5], x => $gt(x, 3))', output: '[4,5]' },
+  ],
+  evaluate: (arr, fn) => {
+    const items = asArray(arr);
+    if (!isLambda(fn)) return items;
+    const lambda = fn as LambdaValue;
+    return items.filter((item, idx) => !!applyLambda(lambda, [item, idx]));
+  },
+};
+
 export const arrayFunctions: ExpressionFunction[] = [
   $sum, $average, $groupBy, $any, $all,
   $map, $filter, $reduce, $sortBy, $minBy, $maxBy, $distinctBy, $zip,
+  $pluck, $find, $findAll,
 ];

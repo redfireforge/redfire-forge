@@ -151,11 +151,14 @@ export function detectTypeMismatches(
   sources: MapperSource[],
   target: MapperTarget,
   activeSourceId?: string,
+  defaultOperator?: string,
 ): TypeMismatch[] {
   const mismatches: TypeMismatch[] = [];
 
   for (const mapping of mappings) {
     if (mapping.expression) continue;
+    const effectiveOp = mapping.operator ?? defaultOperator;
+    if (effectiveOp === 'exists' || effectiveOp === 'not_exists' || effectiveOp === 'is_empty' || effectiveOp === 'is_not_empty') continue;
 
     const sourceType = resolveSourceType(mapping, sources, activeSourceId);
     const targetType = resolveTargetType(mapping.targetPath, target);

@@ -59,6 +59,7 @@ interface TargetPanelProps {
   fieldVerifyResults?: Map<string, { passed: boolean; actual?: string; expected?: string; matchContext?: string }>;
   onAddArrayAssertion?: (arrayPath: string, assertionType: 'length' | 'contains' | 'each' | 'subset') => void;
   filterFailedSignal?: number | null;
+  highlightedPaths?: Set<string> | null;
 }
 
 export default function TargetPanel({
@@ -102,6 +103,7 @@ export default function TargetPanel({
   fieldVerifyResults,
   onAddArrayAssertion,
   filterFailedSignal,
+  highlightedPaths,
 }: TargetPanelProps) {
   const [search, setSearch] = useState('');
   const [mappingFilter, setMappingFilter] = useState<'all' | 'mapped' | 'unmapped' | 'passed' | 'failed'>('all');
@@ -577,6 +579,7 @@ export default function TargetPanel({
                 nodeStatusMap={nodeStatusMap}
                 fieldVerifyResults={fieldVerifyResults}
                 onAddArrayAssertion={onAddArrayAssertion}
+                highlightedPaths={highlightedPaths}
               />
             ) : (
               <div

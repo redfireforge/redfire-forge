@@ -6,7 +6,7 @@ import '@testing-library/jest-dom';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import TestEditorValidationTab from './TestEditorValidationTab';
 import type { TestEditorValidationTabProps } from './TestEditorValidationTab';
-import type { Scenario } from '../../../shared/types';
+import type { Assertion, Scenario } from '../../../shared/types';
 import { createRef } from 'react';
 
 // ── Shared mock setup ────────────────────────────────────────────────────────
@@ -2407,6 +2407,732 @@ describe('TestEditorValidationTab', () => {
       const draftRef = { current: draft };
       render(<TestEditorValidationTab {...makeProps({ draft, draftRef })} />);
       expect(screen.getByDisplayValue('{"status": "ok"}')).toBeInTheDocument();
+    });
+  });
+
+  describe('custom predicate assertion', () => {
+    it('shows Custom Predicate in the +Add menu', () => {
+      render(<TestEditorValidationTab {...makeProps()} />);
+      fireEvent.click(screen.getByText('+ Add'));
+      expect(screen.getByText('Custom Predicate')).toBeInTheDocument();
+      expect(screen.getByText('Write an expression that evaluates to truthy/falsy')).toBeInTheDocument();
+    });
+
+    it('adds a custom assertion via +Add menu', () => {
+      const onDraftChange = vi.fn();
+      render(<TestEditorValidationTab {...makeProps({ onDraftChange })} />);
+      fireEvent.click(screen.getByText('+ Add'));
+      fireEvent.click(screen.getByText('Custom Predicate'));
+      expect(onDraftChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          validation: expect.objectContaining({
+            assertions: [{ type: 'custom', expression: '', description: '' }],
+          }),
+        }),
+      );
+    });
+
+    it('renders custom assertion row with CUSTOM badge', () => {
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{ type: 'custom', expression: '$eq($.status, 200)', description: 'Status OK' }],
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef })} />);
+      expect(screen.getByText('CUSTOM')).toBeInTheDocument();
+    });
+
+    it('renders expression textarea and description input', () => {
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{ type: 'custom', expression: '$gt($.body.age, 18)', description: 'Must be adult' }],
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef })} />);
+      expect(screen.getByDisplayValue('$gt($.body.age, 18)')).toBeInTheDocument();
+      expect(screen.getByDisplayValue('Must be adult')).toBeInTheDocument();
+    });
+
+    it('renders help hint with variable reference info', () => {
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{ type: 'custom', expression: '' }],
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef })} />);
+      expect(screen.getByText(/\$\.body/)).toBeInTheDocument();
+      expect(screen.getByText(/\$\.status/)).toBeInTheDocument();
+    });
+
+    it('updates expression when textarea changes', () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{ type: 'custom', expression: '', description: '' }],
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ onDraftChange, draft, draftRef })} />);
+      const textarea = screen.getByLabelText('Custom predicate expression');
+      fireEvent.change(textarea, { target: { value: '$eq($.status, 200)' } });
+      expect(onDraftChange).toHaveBeenCalled();
+    });
+
+    it('sets description to undefined when description input is cleared', () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{ type: 'custom', expression: 'true', description: 'note' }],
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      fireEvent.change(screen.getByLabelText('Custom predicate description'), { target: { value: '' } });
+      const updated = onDraftChange.mock.calls[0][0] as Scenario;
+      expect(updated.validation.assertions?.[0]).toMatchObject({ type: 'custom', description: undefined });
+    });
+  });
+
+  describe('body validation radios — selective to none', () => {
+    it('switches from selective mode to none', () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({ validation: { mode: 'selective', assertions: [] } });
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef: { current: draft }, onDraftChange })} />);
+      fireEvent.click(screen.getByLabelText('No Body Validation'));
+      expect(onDraftChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          validation: expect.objectContaining({ mode: 'none' }),
+        }),
+      );
+    });
+  });
+
+  describe('assertion negate toggle', () => {
+    it('sets negate on status assertion when NOT is clicked', () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{ type: 'status', expected: '200' }],
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      fireEvent.click(screen.getByRole('button', { name: 'Negate assertion' }));
+      expect(onDraftChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          validation: expect.objectContaining({
+            assertions: [expect.objectContaining({ type: 'status', negate: true })],
+          }),
+        }),
+      );
+    });
+
+    it('clears negate when NOT is clicked again', () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{ type: 'status', expected: '200', negate: true }],
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      fireEvent.click(screen.getByRole('button', { name: 'Remove negation' }));
+      expect(onDraftChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          validation: expect.objectContaining({
+            assertions: [expect.objectContaining({ type: 'status', negate: undefined })],
+          }),
+        }),
+      );
+    });
+  });
+
+  describe('jsonSchema assertion row', () => {
+    it('adds jsonSchema assertion from + Add menu', () => {
+      const onDraftChange = vi.fn();
+      render(<TestEditorValidationTab {...makeProps({ onDraftChange })} />);
+      fireEvent.click(screen.getByText('+ Add'));
+      fireEvent.click(screen.getByText('JSON Schema'));
+      expect(onDraftChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          validation: expect.objectContaining({
+            assertions: [{ type: 'jsonSchema', schema: '{}' }],
+          }),
+        }),
+      );
+    });
+
+    it('formats schema JSON via Format toolbar button', () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{ type: 'jsonSchema', schema: '{"a":1}' }],
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      fireEvent.click(screen.getByTitle('Format JSON'));
+      expect(onDraftChange).toHaveBeenCalled();
+      const updated = onDraftChange.mock.calls[0][0] as Scenario;
+      expect(updated.validation.assertions?.[0]).toMatchObject({ type: 'jsonSchema' });
+      expect((updated.validation.assertions?.[0] as { schema: string }).schema).toContain('\n');
+    });
+
+    it('generates schema from sample response when toolbar button is used', () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          sampleJson: '{"id":1,"name":"x"}',
+          assertions: [{ type: 'jsonSchema', schema: '{}' }],
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      fireEvent.click(screen.getByTitle('Generate schema from sample response'));
+      expect(onDraftChange).toHaveBeenCalled();
+      const updated = onDraftChange.mock.calls[0][0] as Scenario;
+      const schema = (updated.validation.assertions?.[0] as { schema: string }).schema;
+      expect(() => JSON.parse(schema)).not.toThrow();
+      expect(schema).toContain('type');
+    });
+
+    it('shows schema parse error styling and message for invalid JSON', () => {
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{ type: 'jsonSchema', schema: '{not json' }],
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef })} />);
+      expect(document.querySelector('.assertion-input-schema--invalid')).toBeInTheDocument();
+      expect(document.querySelector('.assertion-schema-error')).toBeInTheDocument();
+    });
+
+    it('pastes schema from clipboard when Paste Schema is clicked', async () => {
+      const readText = vi.fn().mockResolvedValue('{"type":"array"}');
+      Object.assign(navigator, { clipboard: { readText } });
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{ type: 'jsonSchema', schema: '{}' }],
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      fireEvent.click(screen.getByTitle('Paste schema from clipboard'));
+      await waitFor(() => {
+        expect(onDraftChange).toHaveBeenCalled();
+      });
+      const updated = onDraftChange.mock.calls.at(-1)![0] as Scenario;
+      expect((updated.validation.assertions?.[0] as { schema: string }).schema).toBe('{"type":"array"}');
+    });
+
+    it('does not call onDraftChange when Paste Schema clicked without clipboard.readText', () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{ type: 'jsonSchema', schema: '{}' }],
+        },
+      });
+      const draftRef = { current: draft };
+      const nav = navigator as Navigator & { clipboard?: { readText?: () => Promise<string> } };
+      const prev = nav.clipboard;
+      Object.defineProperty(nav, 'clipboard', { value: {}, configurable: true });
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      fireEvent.click(screen.getByTitle('Paste schema from clipboard'));
+      expect(onDraftChange).not.toHaveBeenCalled();
+      Object.defineProperty(nav, 'clipboard', { value: prev, configurable: true });
+    });
+  });
+
+  describe('bodySize assertion row', () => {
+    it('adds bodySize assertion from + Add menu', () => {
+      const onDraftChange = vi.fn();
+      render(<TestEditorValidationTab {...makeProps({ onDraftChange })} />);
+      fireEvent.click(screen.getByText('+ Add'));
+      fireEvent.click(screen.getByText('Body Size'));
+      expect(onDraftChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          validation: expect.objectContaining({
+            assertions: [expect.objectContaining({ type: 'bodySize', unit: 'kb' })],
+          }),
+        }),
+      );
+    });
+
+    it('updates body size operator, value, and unit', () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{ type: 'bodySize', operator: '<=', value: 1024, unit: 'kb' }],
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      expect(screen.getByText('SIZE')).toBeInTheDocument();
+      const row = screen.getByText('SIZE').closest('.assertion-row')!;
+      fireEvent.change(row.querySelector('.assertion-select--operator')!, { target: { value: '>' } });
+      draftRef.current = onDraftChange.mock.calls.at(-1)![0] as Scenario;
+      fireEvent.change(row.querySelector('input[type="number"]')!, { target: { value: '10' } });
+      draftRef.current = onDraftChange.mock.calls.at(-1)![0] as Scenario;
+      fireEvent.change(row.querySelector('.assertion-select--unit')!, { target: { value: 'mb' } });
+      expect(onDraftChange).toHaveBeenCalled();
+      const last = onDraftChange.mock.calls.at(-1)![0] as Scenario;
+      expect(last.validation.assertions?.[0]).toMatchObject({ type: 'bodySize', operator: '>', value: 10, unit: 'mb' });
+    });
+  });
+
+  describe('datePrecise assertion row', () => {
+    it('adds datePrecise assertion from + Add menu', () => {
+      const onDraftChange = vi.fn();
+      render(<TestEditorValidationTab {...makeProps({ onDraftChange })} />);
+      fireEvent.click(screen.getByText('+ Add'));
+      fireEvent.click(screen.getByText('Date Precise'));
+      expect(onDraftChange).toHaveBeenCalled();
+      const updated = onDraftChange.mock.calls[0][0] as Scenario;
+      expect(updated.validation.assertions?.[0]).toMatchObject({
+        type: 'datePrecise',
+        jsonPath: '',
+        precision: 'second',
+      });
+    });
+
+    it('updates datePrecise fields', () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          sampleJson: '{"t":"x"}',
+          assertions: [{
+            type: 'datePrecise',
+            jsonPath: '$.t',
+            operator: '=',
+            reference: '2020-06-01T12:00:00.000Z',
+            precision: 'second',
+          }],
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      expect(screen.getByText('DATE⁺')).toBeInTheDocument();
+      const row = screen.getByText('DATE⁺').closest('.assertion-row')!;
+      fireEvent.change(row.querySelector('.assertion-select--operator')!, { target: { value: '>' } });
+      draftRef.current = onDraftChange.mock.calls.at(-1)![0] as Scenario;
+      fireEvent.change(row.querySelector('.assertion-select--precision')!, { target: { value: 'minute' } });
+      expect(onDraftChange).toHaveBeenCalled();
+    });
+
+    it('updates datePrecise jsonPath via path input', () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{
+            type: 'datePrecise',
+            jsonPath: '$.old',
+            operator: '=',
+            reference: '2020-06-01T12:00:00.000Z',
+            precision: 'second',
+          }],
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      fireEvent.change(screen.getByPlaceholderText('$.timestamp'), { target: { value: '$.createdAt' } });
+      expect(onDraftChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          validation: expect.objectContaining({
+            assertions: [expect.objectContaining({ type: 'datePrecise', jsonPath: '$.createdAt' })],
+          }),
+        }),
+      );
+    });
+
+    it('clears datePrecise ISO reference when datetime-local is cleared', () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{
+            type: 'datePrecise',
+            jsonPath: '$.t',
+            operator: '=',
+            reference: '2020-06-15T10:30:00.000Z',
+            precision: 'hour',
+          }],
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      const dt = document.querySelector('.assertion-field--dateprecise input[type="datetime-local"]') as HTMLInputElement;
+      fireEvent.change(dt, { target: { value: '' } });
+      expect(onDraftChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          validation: expect.objectContaining({
+            assertions: [expect.objectContaining({ type: 'datePrecise', reference: '' })],
+          }),
+        }),
+      );
+    });
+  });
+
+  describe('assertion type badge labels', () => {
+    it('renders expected badge text for each assertion type', () => {
+      const unknown = { type: 'totallyUnknown' } as unknown as Assertion;
+      const assertionsList: Assertion[] = [
+        { type: 'status', expected: '200' },
+        { type: 'responseTime', maxMs: 1 },
+        { type: 'header', name: 'h', operator: 'exists' },
+        { type: 'regex', jsonPath: '$', pattern: '.' },
+        { type: 'arrayLength', jsonPath: '$', operator: '=', value: 0 },
+        { type: 'numeric', jsonPath: '$', operator: '=', value: 0 },
+        { type: 'date', jsonPath: '$', operator: '=', reference: { kind: 'today', timezone: 'utc' } },
+        { type: 'typeCheck', jsonPath: '$', expectedType: 'string' },
+        { type: 'existence', jsonPath: '$', expectExists: true },
+        { type: 'arrayContains', jsonPath: '$', value: '', mode: 'any' },
+        { type: 'each', jsonPath: '$', fieldPath: 'a', operator: 'exists' },
+        { type: 'containsSubset', jsonPath: '$', expected: '{}' },
+        { type: 'jsonSchema', schema: '{}' },
+        { type: 'bodySize', operator: '=', value: 1, unit: 'bytes' },
+        {
+          type: 'datePrecise',
+          jsonPath: '$',
+          operator: '=',
+          reference: '2020-01-01T00:00:00.000Z',
+          precision: 'day',
+        },
+        { type: 'custom', expression: 'true' },
+        unknown,
+      ];
+      const draft = makeDraft({
+        validation: { mode: 'none', assertions: assertionsList },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef })} />);
+      expect(screen.getByText('STATUS')).toBeInTheDocument();
+      expect(screen.getByText('TIME')).toBeInTheDocument();
+      expect(screen.getByText('HEADER')).toBeInTheDocument();
+      expect(screen.getByText('REGEX')).toBeInTheDocument();
+      expect(screen.getByText('ARRAY')).toBeInTheDocument();
+      expect(screen.getByText('NUMBER')).toBeInTheDocument();
+      expect(screen.getByText('DATE')).toBeInTheDocument();
+      expect(screen.getByText('TYPE')).toBeInTheDocument();
+      expect(screen.getByText('EXISTS')).toBeInTheDocument();
+      expect(screen.getByText('CONTAINS')).toBeInTheDocument();
+      expect(screen.getByText('EACH')).toBeInTheDocument();
+      expect(screen.getByText('SCHEMA')).toBeInTheDocument();
+      expect(screen.getByText('SIZE')).toBeInTheDocument();
+      expect(screen.getByText('DATE⁺')).toBeInTheDocument();
+      expect(screen.getByText('CUSTOM')).toBeInTheDocument();
+      expect(screen.getAllByText('SUBSET')).toHaveLength(2);
+    });
+  });
+
+  describe('interaction coverage — remaining assertion handlers', () => {
+    it('returns early when Keep Rules is clicked without onFetchKeepRules callback', () => {
+      const draft = makeDraft({
+        validation: {
+          mode: 'selective',
+          sampleJson: '{}',
+          expectedFields: [{ jsonPath: '$.a', expectedValue: '1' }],
+          assertions: [],
+        },
+      });
+      render(<TestEditorValidationTab {...makeProps({
+        draft,
+        draftRef: { current: draft },
+        pendingFetchResponse: '{"b":2}',
+        onFetchReplaceAll: vi.fn(),
+        onFetchCancel: vi.fn(),
+      })} />);
+      fireEvent.click(screen.getByText('Keep Rules & Update Response'));
+    });
+
+    it('updates jsonSchema textarea via direct typing', () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{ type: 'jsonSchema', schema: '{"a":1}' }],
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      const ta = document.querySelector('.assertion-input-schema') as HTMLTextAreaElement;
+      fireEvent.change(ta, { target: { value: '{"b":2}' } });
+      expect(onDraftChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          validation: expect.objectContaining({
+            assertions: [expect.objectContaining({ type: 'jsonSchema', schema: '{"b":2}' })],
+          }),
+        }),
+      );
+    });
+
+    it('updates arrayContains JSON textarea', () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          sampleJson: '[]',
+          assertions: [{ type: 'arrayContains', jsonPath: '$.items', value: '', mode: 'any' }],
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      fireEvent.change(screen.getByPlaceholderText(/\{"name": "example"\}/), { target: { value: '{"id":1}' } });
+      expect(onDraftChange).toHaveBeenCalled();
+    });
+
+    it('updates containsSubset expected textarea', () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{ type: 'containsSubset', jsonPath: '$', expected: '{}' }],
+          sampleJson: '{}',
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      const tas = screen.getAllByPlaceholderText(/\{"status": "active"/);
+      fireEvent.change(tas[0]!, { target: { value: '{"status":"ok"}' } });
+      expect(onDraftChange).toHaveBeenCalled();
+    });
+
+    it('picks jsonPath on datePrecise row via JsonPathPicker', async () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          sampleJson: '{"when":"2024-01-01"}',
+          assertions: [{
+            type: 'datePrecise',
+            jsonPath: '',
+            operator: '=',
+            reference: '2024-06-01T12:00:00.000Z',
+            precision: 'day',
+          }],
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      fireEvent.click(screen.getAllByTitle('Pick JSON path from sample response')[0]!);
+      await waitFor(() => {
+        expect(screen.getByText('$.when')).toBeInTheDocument();
+      });
+      fireEvent.click(screen.getByText('$.when'));
+      expect(onDraftChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          validation: expect.objectContaining({
+            assertions: [expect.objectContaining({ type: 'datePrecise', jsonPath: '$.when' })],
+          }),
+        }),
+      );
+    });
+
+    it('maps each-element JsonPathPicker selection from $.field form', async () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          sampleJson: '[{"score":99}]',
+          assertions: [{
+            type: 'each',
+            jsonPath: '$',
+            fieldPath: '',
+            operator: 'greater_than',
+            value: '0',
+          }],
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      const pickButtons = screen.getAllByTitle('Pick JSON path from sample response');
+      fireEvent.click(pickButtons[pickButtons.length - 1]!);
+      await waitFor(() => {
+        expect(screen.getByText('$.score')).toBeInTheDocument();
+      });
+      fireEvent.click(screen.getByText('$.score'));
+      expect(onDraftChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          validation: expect.objectContaining({
+            assertions: [expect.objectContaining({ type: 'each', fieldPath: 'score' })],
+          }),
+        }),
+      );
+    });
+
+    it('maps each-element JsonPathPicker root $ to empty fieldPath', async () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          sampleJson: '[{"score":99}]',
+          assertions: [{
+            type: 'each',
+            jsonPath: '$',
+            fieldPath: 'score',
+            operator: 'greater_than',
+            value: '0',
+          }],
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      const row = screen.getByText('EACH').closest('.assertion-row')!;
+      const innerWrap = row.querySelectorAll('.jpp-wrap')[1];
+      fireEvent.click(innerWrap!.querySelector('.jpp-btn')!);
+      await waitFor(() => {
+        expect(innerWrap!.querySelectorAll('button.jpp-item').length).toBeGreaterThan(0);
+      });
+      fireEvent.click(innerWrap!.querySelector('button.jpp-item')!);
+      expect(onDraftChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          validation: expect.objectContaining({
+            assertions: [expect.objectContaining({ type: 'each', fieldPath: '' })],
+          }),
+        }),
+      );
+    });
+
+    it('updates arrayContains jsonPath via input', () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          sampleJson: '{"items":[]}',
+          assertions: [{ type: 'arrayContains', jsonPath: '', value: '', mode: 'any' }],
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      fireEvent.change(screen.getByPlaceholderText('$.items'), { target: { value: '$.items' } });
+      expect(onDraftChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          validation: expect.objectContaining({
+            assertions: [expect.objectContaining({ type: 'arrayContains', jsonPath: '$.items' })],
+          }),
+        }),
+      );
+    });
+
+    it('selects jsonPath on arrayContains row via JsonPathPicker', async () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          sampleJson: '{"items":[1]}',
+          assertions: [{ type: 'arrayContains', jsonPath: '', value: '', mode: 'any' }],
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      fireEvent.click(screen.getAllByTitle('Pick JSON path from sample response')[0]!);
+      await waitFor(() => expect(screen.getByText('$.items')).toBeInTheDocument());
+      fireEvent.click(screen.getAllByRole('button').find((b) => b.querySelector('.jpp-path')?.textContent === '$.items')!);
+      expect(onDraftChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          validation: expect.objectContaining({
+            assertions: [expect.objectContaining({ type: 'arrayContains', jsonPath: '$.items' })],
+          }),
+        }),
+      );
+    });
+
+    it('updates each assertion jsonPath, fieldPath, operator, and hides value when operator is exists', () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          sampleJson: '[{"id":1}]',
+          assertions: [{
+            type: 'each',
+            jsonPath: '',
+            fieldPath: '',
+            operator: 'greater_than',
+            value: '5',
+          }],
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      fireEvent.change(screen.getByPlaceholderText('$.items'), { target: { value: '$' } });
+      draftRef.current = onDraftChange.mock.calls.at(-1)![0] as Scenario;
+      fireEvent.change(screen.getByPlaceholderText('field (e.g. rank)'), { target: { value: 'id' } });
+      draftRef.current = onDraftChange.mock.calls.at(-1)![0] as Scenario;
+      fireEvent.change(screen.getByDisplayValue('>'), { target: { value: 'exists' } });
+      const updated = onDraftChange.mock.calls.at(-1)![0] as Scenario;
+      expect(updated.validation.assertions?.[0]).toMatchObject({
+        type: 'each',
+        jsonPath: '$',
+        fieldPath: 'id',
+        operator: 'exists',
+      });
+    });
+
+    it('updates containsSubset jsonPath via input and picker', async () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          sampleJson: '{"data":{"x":1}}',
+          assertions: [{ type: 'containsSubset', jsonPath: '$', expected: '{}' }],
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      fireEvent.change(screen.getByPlaceholderText('$'), { target: { value: '$.data' } });
+      draftRef.current = onDraftChange.mock.calls.at(-1)![0] as Scenario;
+      fireEvent.click(screen.getAllByTitle('Pick JSON path from sample response')[0]!);
+      await waitFor(() => expect(screen.getByText('$.data')).toBeInTheDocument());
+      fireEvent.click(screen.getAllByRole('button').find((b) => b.querySelector('.jpp-path')?.textContent === '$.data')!);
+      expect(onDraftChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          validation: expect.objectContaining({
+            assertions: [expect.objectContaining({ type: 'containsSubset', jsonPath: '$.data' })],
+          }),
+        }),
+      );
+    });
+  });
+
+  describe('AssertionPresetMenu — merge import', () => {
+    it('appends preset assertions without replacing existing ones', async () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{ type: 'status', expected: '404' }],
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      fireEvent.click(screen.getByText('📋 Presets'));
+      await waitFor(() => {
+        expect(screen.getByText('API Health Check')).toBeInTheDocument();
+      });
+      fireEvent.click(screen.getByText('API Health Check'));
+      expect(onDraftChange).toHaveBeenCalled();
+      const updated = onDraftChange.mock.calls[0][0] as Scenario;
+      expect(updated.validation.assertions?.length).toBeGreaterThan(1);
+      expect(updated.validation.assertions?.[0]).toMatchObject({ type: 'status', expected: '404' });
     });
   });
 });

@@ -380,9 +380,97 @@ const $scan: ExpressionFunction = {
   },
 };
 
+const $ltrimStr: ExpressionFunction = {
+  name: '$ltrimStr', category: 'String',
+  signature: '$ltrimStr(str, prefix) → string',
+  description: 'Remove a specific prefix string from the start (once). If the string does not start with the prefix, return it unchanged.',
+  args: [
+    { name: 'str', type: 'string', required: true, description: 'Input string' },
+    { name: 'prefix', type: 'string', required: true, description: 'Prefix to remove' },
+  ],
+  returnType: 'string',
+  examples: [{ input: '$ltrimStr("/api/users", "/api")', output: '"/users"' }],
+  evaluate: (val, prefix) => {
+    const text = s(val);
+    const pfx = s(prefix);
+    return text.startsWith(pfx) ? text.slice(pfx.length) : text;
+  },
+};
+
+const $rtrimStr: ExpressionFunction = {
+  name: '$rtrimStr', category: 'String',
+  signature: '$rtrimStr(str, suffix) → string',
+  description: 'Remove a specific suffix string from the end (once). If the string does not end with the suffix, return it unchanged.',
+  args: [
+    { name: 'str', type: 'string', required: true, description: 'Input string' },
+    { name: 'suffix', type: 'string', required: true, description: 'Suffix to remove' },
+  ],
+  returnType: 'string',
+  examples: [{ input: '$rtrimStr("file.json", ".json")', output: '"file"' }],
+  evaluate: (val, suffix) => {
+    const text = s(val);
+    const sfx = s(suffix);
+    if (!sfx) return text;
+    return text.endsWith(sfx) ? text.slice(0, -sfx.length) : text;
+  },
+};
+
+const $capture: ExpressionFunction = {
+  name: '$capture', category: 'String',
+  signature: '$capture(str, regex) → object',
+  description: 'Extract named capture groups from the first regex match. Returns an object with group names as keys, or an empty object if no match.',
+  args: [
+    { name: 'str', type: 'string', required: true, description: 'Input string' },
+    { name: 'regex', type: 'string', required: true, description: 'Regular expression with named groups (?<name>...)' },
+  ],
+  returnType: 'object',
+  examples: [
+    { input: '$capture("2024-01-15", "(?<year>\\d{4})-(?<month>\\d{2})-(?<day>\\d{2})")', output: '{"year":"2024","month":"01","day":"15"}' },
+  ],
+  evaluate: (val, pattern) => {
+    const text = s(val);
+    const p = s(pattern);
+    try {
+      const re = new RegExp(p);
+      const match = text.match(re);
+      if (!match?.groups) return {};
+      return { ...match.groups };
+    } catch {
+      return {};
+    }
+  },
+};
+
+const $indices: ExpressionFunction = {
+  name: '$indices', category: 'String',
+  signature: '$indices(str, search) → array',
+  description: 'Return an array of all starting index positions where the search string occurs.',
+  args: [
+    { name: 'str', type: 'string', required: true, description: 'Input string' },
+    { name: 'search', type: 'string', required: true, description: 'Substring to find' },
+  ],
+  returnType: 'array',
+  examples: [{ input: '$indices("abcabc", "bc")', output: '[1,4]' }],
+  evaluate: (val, search) => {
+    const text = s(val);
+    const needle = s(search);
+    if (!needle) return [];
+    const positions: number[] = [];
+    let idx = 0;
+    while (idx <= text.length - needle.length) {
+      const found = text.indexOf(needle, idx);
+      if (found < 0) break;
+      positions.push(found);
+      idx = found + 1;
+    }
+    return positions;
+  },
+};
+
 export const stringFunctions: ExpressionFunction[] = [
   $upper, $lower, $trim, $length, $concat, $substring, $replace, $split, $join,
   $startsWith, $endsWith, $padStart, $padEnd, $repeat, $indexOf, $toString,
   $substringBefore, $substringAfter, $capitalize, $camelCase, $snakeCase,
   $kebabCase, $isAlpha, $isNumeric, $trimStart, $trimEnd, $scan,
+  $ltrimStr, $rtrimStr, $capture, $indices,
 ];

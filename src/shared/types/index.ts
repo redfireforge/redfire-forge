@@ -132,7 +132,8 @@ export type Assertion =
   | (AssertionBase & { type: 'containsSubset'; jsonPath: string; expected: string })
   | (AssertionBase & { type: 'jsonSchema'; schema: string })
   | (AssertionBase & { type: 'bodySize'; operator: ComparisonOperator; value: number; unit: 'bytes' | 'kb' | 'mb' })
-  | (AssertionBase & { type: 'datePrecise'; jsonPath: string; operator: ComparisonOperator; reference: string; precision: 'day' | 'hour' | 'minute' | 'second' | 'millisecond' });
+  | (AssertionBase & { type: 'datePrecise'; jsonPath: string; operator: ComparisonOperator; reference: string; precision: 'day' | 'hour' | 'minute' | 'second' | 'millisecond' })
+  | (AssertionBase & { type: 'custom'; expression: string; description?: string });
 
 export interface ValidationConfig {
   mode: ValidationMode;

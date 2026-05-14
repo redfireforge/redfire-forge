@@ -14,6 +14,20 @@ const createMockAdapter = (fields: { jsonPath: string; expectedValue: string; op
   deserialize: () => [],
 });
 
+/**
+ * Adapter that always returns one dummy expectedField so `expectedFields.length > 0`,
+ * allowing execution to proceed past the "no mapper rules → idle" guard.
+ * The dummy field uses `exists` on root `$`, which passes for any non-null sample data.
+ */
+const createAdapterWithDummyField = (extraFields: { jsonPath: string; expectedValue: string; operator?: string; operatorValue?: string }[] = []): MapperAdapter => ({
+  contextId: 'test',
+  title: 'Test',
+  sources: [{ id: 'src', label: 'Source', sampleData: '{}' }],
+  target: { label: 'Target', sampleData: '{}' },
+  serialize: () => ({ expectedFields: [{ jsonPath: '$', expectedValue: '', operator: 'exists' }, ...extraFields] }),
+  deserialize: () => [],
+});
+
 describe('useValidationVerify', () => {
   beforeEach(() => {
     vi.useFakeTimers();
@@ -96,7 +110,29 @@ describe('useValidationVerify', () => {
     expect(fieldResult!.actual).toBeDefined();
   });
 
-  it('evaluates standalone assertions (typeCheck pass)', () => {
+  it('ignores inherited assertions — only counts mapper-created rules', () => {
+    const adapter = createAdapterWithDummyField();
+    const assertions: Assertion[] = [
+      { type: 'typeCheck', jsonPath: '$.name', expectedType: 'string' },
+      { type: 'existence', jsonPath: '$.data', expectExists: true },
+    ];
+    const { result } = renderHook(() => useValidationVerify({
+      mappings: [],
+      assertions,
+      sampleResponseData: JSON.stringify({ name: 'hello', data: [1] }),
+      adapter,
+      enabled: true,
+    }));
+
+    act(() => { result.current.verifyAll(); });
+
+    expect(result.current.result.assertionResults).toHaveLength(0);
+    expect(result.current.result.passedCount).toBe(1);
+    expect(result.current.result.failedCount).toBe(0);
+    expect(result.current.result.skippedCount).toBe(0);
+  });
+
+  it('assertions-only with 0 mappings stays idle (no phantom pass)', () => {
     const adapter = createMockAdapter([]);
     const assertions: Assertion[] = [
       { type: 'typeCheck', jsonPath: '$.name', expectedType: 'string' },
@@ -111,63 +147,9 @@ describe('useValidationVerify', () => {
 
     act(() => { result.current.verifyAll(); });
 
-    expect(result.current.result.passedCount).toBe(1);
-    expect(result.current.result.assertionResults).toHaveLength(1);
-    expect(result.current.result.assertionResults[0].passed).toBe(true);
-  });
-
-  it('evaluates standalone assertions (typeCheck fail)', () => {
-    const adapter = createMockAdapter([]);
-    const assertions: Assertion[] = [
-      { type: 'typeCheck', jsonPath: '$.name', expectedType: 'number' },
-    ];
-    const { result } = renderHook(() => useValidationVerify({
-      mappings: [],
-      assertions,
-      sampleResponseData: JSON.stringify({ name: 'hello' }),
-      adapter,
-      enabled: true,
-    }));
-
-    act(() => { result.current.verifyAll(); });
-
-    expect(result.current.result.failedCount).toBeGreaterThan(0);
-  });
-
-  it('evaluates existence assertion (pass)', () => {
-    const adapter = createMockAdapter([]);
-    const assertions: Assertion[] = [
-      { type: 'existence', jsonPath: '$.data', expectExists: true },
-    ];
-    const { result } = renderHook(() => useValidationVerify({
-      mappings: [],
-      assertions,
-      sampleResponseData: JSON.stringify({ data: [1, 2, 3] }),
-      adapter,
-      enabled: true,
-    }));
-
-    act(() => { result.current.verifyAll(); });
-
-    expect(result.current.result.passedCount).toBe(1);
-  });
-
-  it('evaluates existence assertion (fail)', () => {
-    const adapter = createMockAdapter([]);
-    const assertions: Assertion[] = [
-      { type: 'existence', jsonPath: '$.missing', expectExists: true },
-    ];
-    const { result } = renderHook(() => useValidationVerify({
-      mappings: [],
-      assertions,
-      sampleResponseData: JSON.stringify({ data: 1 }),
-      adapter,
-      enabled: true,
-    }));
-
-    act(() => { result.current.verifyAll(); });
-
-    expect(result.current.result.failedCount).toBeGreaterThan(0);
+    expect(result.current.result.status).toBe('idle');
+    expect(result.current.result.passedCount).toBe(0);
+    expect(result.current.result.failedCount).toBe(0);
   });
 
   it('handles empty mappings and assertions — stays idle', () => {
@@ -409,8 +391,8 @@ describe('useValidationVerify', () => {
     expect(entry?.expected).toMatch(/^NOT /);
   });
 
-  it('skips assertions when sampleResponseData is null', () => {
-    const adapter = createMockAdapter([]);
+  it('assertions with null sample data are ignored in mapper verify', () => {
+    const adapter = createAdapterWithDummyField();
     const { result } = renderHook(() => useValidationVerify({
       mappings: [],
       assertions: [{ type: 'regex', jsonPath: '$.name', pattern: '.*' } as Assertion],
@@ -422,11 +404,12 @@ describe('useValidationVerify', () => {
     act(() => { result.current.verifyAll(); });
 
     expect(result.current.result.status).toBe('complete');
-    expect(result.current.result.skippedCount).toBeGreaterThanOrEqual(1);
+    expect(result.current.result.assertionResults).toHaveLength(0);
+    expect(result.current.result.skippedCount).toBe(0);
   });
 
-  it('skips HTTP-only assertions (status, responseTime, header)', () => {
-    const adapter = createMockAdapter([]);
+  it('HTTP-only assertions are ignored in mapper verify', () => {
+    const adapter = createAdapterWithDummyField();
     const { result } = renderHook(() => useValidationVerify({
       mappings: [],
       assertions: [
@@ -442,7 +425,8 @@ describe('useValidationVerify', () => {
     act(() => { result.current.verifyAll(); });
 
     expect(result.current.result.status).toBe('complete');
-    expect(result.current.result.skippedCount).toBeGreaterThanOrEqual(3);
+    expect(result.current.result.assertionResults).toHaveLength(0);
+    expect(result.current.result.skippedCount).toBe(0);
   });
 
   it('parses invalid JSON sample gracefully', () => {
@@ -462,8 +446,8 @@ describe('useValidationVerify', () => {
     expect(result.current.result.status).toBe('complete');
   });
 
-  it('maps assertion failure to failedMappingIds via name fallback', () => {
-    const adapter = createMockAdapter([]);
+  it('assertions do not contribute to failedMappingIds in mapper verify', () => {
+    const adapter = createAdapterWithDummyField();
     const { result } = renderHook(() => useValidationVerify({
       mappings: [{ id: 'm1', sourcePath: 'ct', sourceId: 'src', targetPath: 'content-type' }] as Mapping[],
       assertions: [
@@ -477,25 +461,7 @@ describe('useValidationVerify', () => {
     act(() => { result.current.verifyAll(); });
 
     expect(result.current.result.status).toBe('complete');
-  });
-
-  it('failedMappingIds includes mapping whose targetPath matches failed assertion jsonPath', () => {
-    const adapter = createMockAdapter([]);
-    const { result } = renderHook(() => useValidationVerify({
-      mappings: [{ id: 'map1', sourcePath: 'src.name', sourceId: 'src', targetPath: '$.name' }] as Mapping[],
-      assertions: [
-        { type: 'regex', jsonPath: '$.name', pattern: '^Z' } as Assertion,
-      ],
-      sampleResponseData: JSON.stringify({ name: 'Alice' }),
-      adapter,
-      enabled: true,
-    }));
-
-    act(() => { result.current.verifyAll(); });
-
-    expect(result.current.result.status).toBe('complete');
-    expect(result.current.result.failedCount).toBeGreaterThan(0);
-    expect(result.current.result.failedMappingIds.has('map1')).toBe(true);
+    expect(result.current.result.assertionResults).toHaveLength(0);
   });
 
   it('parseSampleData handles already-parsed object (non-string)', () => {
@@ -516,26 +482,8 @@ describe('useValidationVerify', () => {
     expect(result.current.result.passedCount).toBe(1);
   });
 
-  it('getAssertionPath uses name property when jsonPath is absent', () => {
-    const adapter = createMockAdapter([]);
-    const { result } = renderHook(() => useValidationVerify({
-      mappings: [{ id: 'm1', sourcePath: 'x', sourceId: 'src', targetPath: 'myField' }] as Mapping[],
-      assertions: [
-        { type: 'regex', name: 'myField', jsonPath: '$.missing', pattern: '^Z' } as unknown as Assertion,
-      ],
-      sampleResponseData: JSON.stringify({ missing: 'Alice' }),
-      adapter,
-      enabled: true,
-    }));
-
-    act(() => { result.current.verifyAll(); });
-
-    expect(result.current.result.status).toBe('complete');
-    expect(result.current.result.failedCount).toBeGreaterThan(0);
-  });
-
-  it('getAssertionPath falls back to assertion.type when no jsonPath or name', () => {
-    const adapter = createMockAdapter([]);
+  it('assertions are not evaluated so getAssertionPath is unused', () => {
+    const adapter = createAdapterWithDummyField();
     const { result } = renderHook(() => useValidationVerify({
       mappings: [],
       assertions: [
@@ -549,6 +497,7 @@ describe('useValidationVerify', () => {
     act(() => { result.current.verifyAll(); });
 
     expect(result.current.result.status).toBe('complete');
+    expect(result.current.result.assertionResults).toHaveLength(0);
   });
 
   it('unorderedArrays mode validates fields with unordered comparison', () => {
@@ -590,4 +539,194 @@ describe('useValidationVerify', () => {
     expect(result.current.result.failedCount).toBeGreaterThan(0);
     expect(result.current.result.failedMappingIds.has('mx')).toBe(true);
   });
+
+  it('custom assertions are ignored in mapper verify', () => {
+    const adapter = createAdapterWithDummyField();
+    const { result } = renderHook(() => useValidationVerify({
+      mappings: [],
+      assertions: [{ type: 'custom', expression: '$eq($.status, 200)' }] as Assertion[],
+      sampleResponseData: JSON.stringify({ count: 5 }),
+      adapter,
+      enabled: true,
+    }));
+
+    act(() => { result.current.verifyAll(); });
+
+    expect(result.current.result.status).toBe('complete');
+    expect(result.current.result.assertionResults).toHaveLength(0);
+  });
+
+  it('treats serialized output without expectedFields as no rules', () => {
+    const adapter: MapperAdapter = {
+      contextId: 'test',
+      title: 'Test',
+      sources: [{ id: 'src', label: 'Source', sampleData: '{}' }],
+      target: { label: 'Target', sampleData: '{}' },
+      serialize: () => ({ other: true }),
+      deserialize: () => [],
+    };
+    const { result } = renderHook(() => useValidationVerify({
+      mappings: [{ id: 'm1', sourcePath: 'x', sourceId: 'src', targetPath: '$.x' }] as Mapping[],
+      assertions: [],
+      sampleResponseData: JSON.stringify({ x: 1 }),
+      adapter,
+      enabled: true,
+    }));
+
+    act(() => { result.current.verifyAll(); });
+
+    expect(result.current.result.status).toBe('idle');
+  });
+
+  it('unorderedArrays strips matched-by context from failure actual', () => {
+    const adapter = createMockAdapter([
+      { jsonPath: '$.items[0].x', expectedValue: '"a"', operator: 'equals' },
+      { jsonPath: '$.items[0].y', expectedValue: '"b"', operator: 'equals' },
+    ]);
+    const { result } = renderHook(() => useValidationVerify({
+      mappings: [{ id: 'm1', sourcePath: 'items[0].x', sourceId: 'src', targetPath: '$.items[0].x' }] as Mapping[],
+      assertions: [],
+      sampleResponseData: JSON.stringify({ items: [{ x: 'a', y: 'wrong' }] }),
+      adapter,
+      enabled: true,
+      unorderedArrays: true,
+    }));
+
+    act(() => { result.current.verifyAll(); });
+
+    const fr = result.current.result.fieldResults.get('$.items[0].y');
+    expect(fr?.passed).toBe(false);
+    expect(fr?.matchContext).toContain('matched by');
+    expect(fr?.actual).not.toContain('matched by');
+  });
+
+  it('getNodeStatus resolves bare paths without $. prefix', () => {
+    const adapter = createMockAdapter([
+      { jsonPath: '$.deep.leaf', expectedValue: '"ok"', operator: 'equals' },
+    ]);
+    const { result } = renderHook(() => useValidationVerify({
+      mappings: [{ id: 'm1', sourcePath: 'leaf', sourceId: 'src', targetPath: '$.deep.leaf' }] as Mapping[],
+      assertions: [],
+      sampleResponseData: JSON.stringify({ deep: { leaf: 'ok' } }),
+      adapter,
+      enabled: true,
+    }));
+
+    act(() => { result.current.verifyAll(); });
+
+    expect(result.current.getNodeStatus('deep.leaf')).toBe('pass');
+  });
+
+  it('nodeStatusMap registers status under mapping targetPath when paths differ', () => {
+    const adapter = createMockAdapter([
+      { jsonPath: '$.target.only', expectedValue: '"v"', operator: 'equals' },
+    ]);
+    const { result } = renderHook(() => useValidationVerify({
+      mappings: [{
+        id: 'mx',
+        sourcePath: '$.different.source',
+        sourceId: 'src',
+        targetPath: '$.target.only',
+      }] as Mapping[],
+      assertions: [],
+      sampleResponseData: JSON.stringify({ target: { only: 'v' } }),
+      adapter,
+      enabled: true,
+    }));
+
+    act(() => { result.current.verifyAll(); });
+
+    expect(result.current.nodeStatusMap.get('target.only')).toBe('pass');
+    expect(result.current.nodeStatusMap.get('different.source')).toBeUndefined();
+  });
+
+  it('handles adapter without serialize helper — verify stays idle', () => {
+    const base = createMockAdapter([
+      { jsonPath: '$.x', expectedValue: '"1"', operator: 'equals' },
+    ]);
+    const adapterNoSer = Object.assign({}, base, { serialize: undefined }) as unknown as MapperAdapter;
+    const { result } = renderHook(() => useValidationVerify({
+      mappings: [{ id: 'm1', sourcePath: 'x', sourceId: 'src', targetPath: '$.x' }] as Mapping[],
+      assertions: [],
+      sampleResponseData: JSON.stringify({ x: 2 }),
+      adapter: adapterNoSer,
+      enabled: true,
+    }));
+
+    act(() => { result.current.verifyAll(); });
+
+    expect(result.current.result.status).toBe('idle');
+  });
+
+  it('failed verify does not add mapping id when serializer path lacks a mapper mapping row', () => {
+    const adapter = createMockAdapter([
+      { jsonPath: '$.orphan.only', expectedValue: '"gone"', operator: 'equals' },
+    ]);
+    const { result } = renderHook(() => useValidationVerify({
+      mappings: [{ id: 'm1', sourcePath: 'x', sourceId: 'src', targetPath: '$.x' }] as Mapping[],
+      assertions: [],
+      sampleResponseData: JSON.stringify({ orphan: { only: 'nope' } }),
+      adapter,
+      enabled: true,
+    }));
+
+    act(() => { result.current.verifyAll(); });
+
+    expect(result.current.result.failedMappingIds.has('m1')).toBe(false);
+  });
+
+  it('unorderedArrays unmatched rows use failures without matched-by suffix (strip branch)', () => {
+    const adapter = createMockAdapter([
+      { jsonPath: '$.items[0].id', expectedValue: '"missing"', operator: 'equals' },
+    ]);
+    const { result } = renderHook(() => useValidationVerify({
+      mappings: [{ id: 'm1', sourcePath: 'items[0].id', sourceId: 'src', targetPath: '$.items[0].id' }] as Mapping[],
+      assertions: [],
+      sampleResponseData: JSON.stringify({ items: [] }),
+      adapter,
+      enabled: true,
+      unorderedArrays: true,
+    }));
+
+    act(() => { result.current.verifyAll(); });
+
+    const fr = result.current.result.fieldResults.get('$.items[0].id');
+    expect(fr?.passed).toBe(false);
+    expect(fr?.actual ?? '').not.toContain('matched by');
+  });
+
+  it('getNodeStatus is undefined until verify completes', () => {
+    const adapter = createMockAdapter([]);
+    const { result } = renderHook(() => useValidationVerify({
+      mappings: [{ id: 'm1', sourcePath: 'x', sourceId: 'src', targetPath: '$.x' }] as Mapping[],
+      assertions: [],
+      sampleResponseData: JSON.stringify({ x: 1 }),
+      adapter,
+      enabled: false,
+    }));
+
+    expect(result.current.getNodeStatus('$.x')).toBeUndefined();
+    expect(result.current.result.status).toBe('idle');
+  });
+
+  it('clears auto-verify debounce on unmount', () => {
+    const adapter = createMockAdapter([
+      { jsonPath: '$.x', expectedValue: '"y"', operator: 'equals' },
+    ]);
+    const { unmount } = renderHook(() => useValidationVerify({
+      mappings: [{ id: 'm1', sourcePath: 'x', sourceId: 'src', targetPath: '$.x' }] as Mapping[],
+      assertions: [],
+      sampleResponseData: JSON.stringify({ x: 'y' }),
+      adapter,
+      enabled: true,
+      autoVerify: true,
+    }));
+
+    expect(vi.getTimerCount()).toBeGreaterThan(0);
+    act(() => {
+      unmount();
+    });
+    expect(vi.getTimerCount()).toBe(0);
+  });
 });
+

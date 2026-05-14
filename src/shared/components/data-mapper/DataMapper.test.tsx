@@ -3243,6 +3243,36 @@ describe('DataMapper – coverage: toolbar profiles, pending, preview custom fns
     expect(fetchTargetSchema).toHaveBeenCalled();
   });
 
+  it('maps verification failures to clickable footer stats for filtering', async () => {
+    const initial: Mapping[] = [{ id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'userName' }];
+    const adapter: MapperAdapter<Mapping[]> = {
+      ...createTestAdapter(),
+      capabilities: { verification: true },
+      serialize: (_mappings) => ({
+        expectedFields: [
+          {
+            jsonPath: '$.userName',
+            operator: 'equals',
+            expectedValue: '"Alice"',
+            operatorValue: '"Alice"',
+          },
+        ],
+      }),
+      deserialize: (existing) => existing,
+    };
+
+    render(<DataMapper adapter={adapter} initialData={initial} />);
+
+    fireEvent.click(screen.getByRole('button', { name: /Verify All/i }));
+
+    await waitFor(() => {
+      expect(document.querySelector('.dm-stats-footer .dm-stat-value--verify-fail')).not.toBeNull();
+    });
+
+    fireEvent.click(document.querySelector('.dm-stats-footer .dm-stat--clickable')!);
+    expect(document.querySelector('.dm-container')).toBeTruthy();
+  });
+
   it('adds a custom field on targets that allow custom fields', () => {
     const adapter: MapperAdapter<Mapping[]> = {
       ...createTestAdapter(),
@@ -4076,6 +4106,108 @@ describe('DataMapper – additional coverage for below-90% lines', () => {
     expect(previewEl).toBeTruthy();
     fireEvent.click(within(previewEl).getByRole('button', { name: 'Cancel' }));
     expect(container.querySelector('.dm-propagation-preview')).toBeNull();
+  });
+});
+
+describe('DataMapper hover-to-highlight', () => {
+  function createIdenticalAdapter(): MapperAdapter<Mapping[]> {
+    return {
+      contextId: 'hover-test',
+      title: 'Hover Test',
+      sources: [{ id: 's1', label: 'API', sampleData: { id: 1, name: 'Alice' } }],
+      target: { label: 'Target', sampleData: { id: 0, name: '' }, allowCustomFields: false },
+      serialize: (m) => m,
+      deserialize: (m) => m,
+    };
+  }
+
+  it('highlights both source and target nodes when a mapping is selected', async () => {
+    const adapter = createIdenticalAdapter();
+    const mappings: Mapping[] = [
+      { id: 'm1', sourcePath: 'id', sourceId: 's1', targetPath: 'id' },
+      { id: 'm2', sourcePath: 'name', sourceId: 's1', targetPath: 'name' },
+    ];
+    const { container } = render(<DataMapper adapter={adapter} initialData={mappings} />);
+    await bumpMapperLayout(container);
+
+    const sourceIdNode = container.querySelector('.dm-panel--source .dm-tree-node[data-path="id"]');
+    const targetIdNode = container.querySelector('.dm-panel--target .dm-tree-node[data-path="id"]');
+    expect(sourceIdNode).toBeTruthy();
+    expect(targetIdNode).toBeTruthy();
+
+    expect(sourceIdNode!.classList.contains('dm-tree-node--hover-highlight')).toBe(false);
+    expect(targetIdNode!.classList.contains('dm-tree-node--hover-highlight')).toBe(false);
+
+    const svgLine = container.querySelector('.dm-connection-line');
+    if (svgLine) {
+      const hitArea = svgLine.previousElementSibling;
+      if (hitArea) {
+        fireEvent.click(hitArea);
+      }
+    }
+
+    await act(async () => {});
+
+    const sourceIdAfter = container.querySelector('.dm-panel--source .dm-tree-node[data-path="id"]');
+    const targetIdAfter = container.querySelector('.dm-panel--target .dm-tree-node[data-path="id"]');
+    const sourceNameAfter = container.querySelector('.dm-panel--source .dm-tree-node[data-path="name"]');
+
+    if (sourceIdAfter?.classList.contains('dm-tree-node--hover-highlight')) {
+      expect(targetIdAfter!.classList.contains('dm-tree-node--hover-highlight')).toBe(true);
+      expect(sourceNameAfter!.classList.contains('dm-tree-node--hover-highlight')).toBe(false);
+    }
+  });
+
+  it('highlights source node when hovering over its corresponding target node', async () => {
+    const adapter = createIdenticalAdapter();
+    const mappings: Mapping[] = [
+      { id: 'm1', sourcePath: 'id', sourceId: 's1', targetPath: 'id' },
+      { id: 'm2', sourcePath: 'name', sourceId: 's1', targetPath: 'name' },
+    ];
+    const { container } = render(<DataMapper adapter={adapter} initialData={mappings} />);
+    await bumpMapperLayout(container);
+
+    const body = container.querySelector('.dm-body');
+    expect(body).toBeTruthy();
+
+    const targetIdNode = container.querySelector('.dm-panel--target .dm-tree-node[data-path="id"]');
+    expect(targetIdNode).toBeTruthy();
+
+    fireEvent.mouseOver(targetIdNode!);
+    await act(async () => {});
+
+    const sourceIdNode = container.querySelector('.dm-panel--source .dm-tree-node[data-path="id"]');
+    expect(sourceIdNode).toBeTruthy();
+    expect(sourceIdNode!.classList.contains('dm-tree-node--hover-highlight')).toBe(true);
+
+    const sourceNameNode = container.querySelector('.dm-panel--source .dm-tree-node[data-path="name"]');
+    expect(sourceNameNode!.classList.contains('dm-tree-node--hover-highlight')).toBe(false);
+  });
+
+  it('clears highlight when mouse leaves the body area', async () => {
+    const adapter = createIdenticalAdapter();
+    const mappings: Mapping[] = [
+      { id: 'm1', sourcePath: 'id', sourceId: 's1', targetPath: 'id' },
+    ];
+    const { container } = render(<DataMapper adapter={adapter} initialData={mappings} />);
+    await bumpMapperLayout(container);
+
+    const body = container.querySelector('.dm-body');
+    const targetIdNode = container.querySelector('.dm-panel--target .dm-tree-node[data-path="id"]');
+    expect(body).toBeTruthy();
+    expect(targetIdNode).toBeTruthy();
+
+    fireEvent.mouseOver(targetIdNode!);
+    await act(async () => {});
+
+    const sourceIdBefore = container.querySelector('.dm-panel--source .dm-tree-node[data-path="id"]');
+    expect(sourceIdBefore!.classList.contains('dm-tree-node--hover-highlight')).toBe(true);
+
+    fireEvent.mouseLeave(body!);
+    await act(async () => {});
+
+    const sourceIdAfter = container.querySelector('.dm-panel--source .dm-tree-node[data-path="id"]');
+    expect(sourceIdAfter!.classList.contains('dm-tree-node--hover-highlight')).toBe(false);
   });
 });
 

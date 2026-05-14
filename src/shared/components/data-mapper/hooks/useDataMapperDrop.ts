@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import type { Mapping } from '../types';
+import type { FieldOperator } from '../../../types';
 import type { PatternPropagationPreview } from '../utils/patternPropagation';
 import { buildPatternPropagationPreview } from '../utils/patternPropagation';
 import { upsertTargetMapping, bulkDropMappings } from '../utils/dropMapping';
@@ -37,6 +38,7 @@ interface UseDataMapperDropDeps {
   setBulkSourcePath: (p: string | null) => void;
   setBulkSourceId: (p: string | null) => void;
   setBulkTargetPath: (p: string | null) => void;
+  autoMapDefaultOperator?: FieldOperator;
 }
 
 export function useDataMapperDrop({
@@ -54,6 +56,7 @@ export function useDataMapperDrop({
     setBulkSourcePath,
     setBulkSourceId,
     setBulkTargetPath,
+    autoMapDefaultOperator,
   }: UseDataMapperDropDeps) {
   const draggedSourceRef = useRef<{ path: string; sourceId: string } | null>(null);
   const prepareSubtreeDropPlanRef = useRef<PrepareSubtreeDropPlanFn | null>(null);
@@ -114,13 +117,14 @@ export function useDataMapperDrop({
       const existingTargets = new Set(
         mappings.map((m) => normalizeMapperPath(m.targetPath)),
       );
-      const newMappings = paths
+      const newMappings: Mapping[] = paths
         .filter((p) => !existingTargets.has(normalizeMapperPath(p)))
         .map((p, i) => ({
           id: `map-${Date.now()}-${i}`,
           sourceId,
           sourcePath: p,
           targetPath: p,
+          ...(autoMapDefaultOperator ? { operator: autoMapDefaultOperator } : {}),
         }));
       if (newMappings.length === 0) {
         setToast('All filtered fields are already mapped');
@@ -129,7 +133,7 @@ export function useDataMapperDrop({
       setMappings([...mappings, ...newMappings]);
       setToast(`Mapped ${newMappings.length} field${newMappings.length !== 1 ? 's' : ''}`);
     },
-    [mappings, setMappings, setToast],
+    [mappings, setMappings, setToast, autoMapDefaultOperator],
   );
 
   const handleDrop = useCallback(

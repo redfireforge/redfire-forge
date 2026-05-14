@@ -203,8 +203,8 @@ describe('stringFunctions', () => {
     it('handles empty string', () => expect(evalFn('$scan', '', 'abc')).toEqual([]));
   });
 
-  it('exports all 27 functions', () => {
-    expect(stringFunctions).toHaveLength(27);
+  it('exports all 31 functions', () => {
+    expect(stringFunctions).toHaveLength(31);
     const names = stringFunctions.map((f) => f.name);
     expect(names).toContain('$upper');
     expect(names).toContain('$toString');
@@ -220,5 +220,74 @@ describe('stringFunctions', () => {
     expect(names).toContain('$trimStart');
     expect(names).toContain('$trimEnd');
     expect(names).toContain('$scan');
+    expect(names).toContain('$ltrimStr');
+    expect(names).toContain('$rtrimStr');
+    expect(names).toContain('$capture');
+    expect(names).toContain('$indices');
+  });
+
+  describe('$ltrimStr', () => {
+    it('removes prefix from start', () => expect(evalFn('$ltrimStr', '/api/users', '/api')).toBe('/users'));
+    it('returns unchanged if prefix not present', () => expect(evalFn('$ltrimStr', 'hello', 'xyz')).toBe('hello'));
+    it('removes only first occurrence', () => expect(evalFn('$ltrimStr', '/api/api/test', '/api')).toBe('/api/test'));
+    it('handles empty prefix', () => expect(evalFn('$ltrimStr', 'hello', '')).toBe('hello'));
+    it('handles exact match', () => expect(evalFn('$ltrimStr', 'abc', 'abc')).toBe(''));
+    it('handles empty string', () => expect(evalFn('$ltrimStr', '', 'abc')).toBe(''));
+  });
+
+  describe('$rtrimStr', () => {
+    it('removes suffix from end', () => expect(evalFn('$rtrimStr', 'file.json', '.json')).toBe('file'));
+    it('returns unchanged if suffix not present', () => expect(evalFn('$rtrimStr', 'hello', 'xyz')).toBe('hello'));
+    it('removes only last occurrence', () => expect(evalFn('$rtrimStr', 'test.json.json', '.json')).toBe('test.json'));
+    it('handles empty suffix', () => expect(evalFn('$rtrimStr', 'hello', '')).toBe('hello'));
+    it('handles exact match', () => expect(evalFn('$rtrimStr', 'abc', 'abc')).toBe(''));
+    it('handles empty string', () => expect(evalFn('$rtrimStr', '', 'abc')).toBe(''));
+  });
+
+  describe('$capture', () => {
+    it('extracts named capture groups', () => {
+      expect(evalFn('$capture', '2024-01-15', '(?<year>\\d{4})-(?<month>\\d{2})-(?<day>\\d{2})'))
+        .toEqual({ year: '2024', month: '01', day: '15' });
+    });
+    it('returns empty object when no match', () => {
+      expect(evalFn('$capture', 'no-match', '(?<num>\\d+)')).toEqual({});
+    });
+    it('returns empty object for regex without named groups', () => {
+      expect(evalFn('$capture', 'hello 123', '(\\d+)')).toEqual({});
+    });
+    it('returns empty object for invalid regex', () => {
+      expect(evalFn('$capture', 'test', '[')).toEqual({});
+    });
+    it('handles partial captures', () => {
+      expect(evalFn('$capture', 'abc@domain.com', '(?<user>[^@]+)@(?<domain>.+)'))
+        .toEqual({ user: 'abc', domain: 'domain.com' });
+    });
+    it('handles empty input string', () => {
+      expect(evalFn('$capture', '', '(?<x>.+)')).toEqual({});
+    });
+  });
+
+  describe('$indices', () => {
+    it('finds all positions of substring', () => {
+      expect(evalFn('$indices', 'abcabc', 'bc')).toEqual([1, 4]);
+    });
+    it('finds overlapping positions', () => {
+      expect(evalFn('$indices', 'aaa', 'aa')).toEqual([0, 1]);
+    });
+    it('returns empty array when not found', () => {
+      expect(evalFn('$indices', 'hello', 'xyz')).toEqual([]);
+    });
+    it('handles single character search', () => {
+      expect(evalFn('$indices', 'banana', 'a')).toEqual([1, 3, 5]);
+    });
+    it('returns empty array for empty search', () => {
+      expect(evalFn('$indices', 'hello', '')).toEqual([]);
+    });
+    it('returns empty array for empty string', () => {
+      expect(evalFn('$indices', '', 'abc')).toEqual([]);
+    });
+    it('handles search string equal to input', () => {
+      expect(evalFn('$indices', 'abc', 'abc')).toEqual([0]);
+    });
   });
 });

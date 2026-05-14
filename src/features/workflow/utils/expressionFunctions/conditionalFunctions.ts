@@ -131,7 +131,44 @@ const $toBool: ExpressionFunction = {
   },
 };
 
+const $assert: ExpressionFunction = {
+  name: '$assert', category: 'Conditional',
+  signature: '$assert(condition, message?) → true',
+  description: 'Return true if condition is truthy; throw an error with the given message otherwise.',
+  args: [
+    { name: 'condition', type: 'any', required: true, description: 'Condition that must be truthy' },
+    { name: 'message', type: 'string', required: false, description: 'Error message if assertion fails' },
+  ],
+  returnType: 'boolean',
+  examples: [
+    { input: '$assert($gt(10, 5), "must be greater")', output: 'true' },
+  ],
+  evaluate: (condition, message) => {
+    const c = s(condition);
+    const truthy = condition === true || (c !== '' && c !== '0' && c !== 'false' && c !== 'null' && c !== 'undefined' && condition != null);
+    if (truthy) return true;
+    throw new Error(message != null ? s(message) : 'Assertion failed');
+  },
+};
+
+const $error: ExpressionFunction = {
+  name: '$error', category: 'Conditional',
+  signature: '$error(message) → (throws)',
+  description: 'Unconditionally throw an error with the given message. Useful in $if branches for guard clauses.',
+  args: [
+    { name: 'message', type: 'string', required: true, description: 'Error message' },
+  ],
+  returnType: 'never',
+  examples: [
+    { input: '$if($isEmpty(val), $error("val is required"), val)', output: '(error or val)' },
+  ],
+  evaluate: (message) => {
+    throw new Error(message != null ? s(message) : 'Error');
+  },
+};
+
 export const conditionalFunctions: ExpressionFunction[] = [
   $default, $if, $isEmpty, $contains, $matches,
   $not, $coalesce, $equals, $toBool,
+  $assert, $error,
 ];

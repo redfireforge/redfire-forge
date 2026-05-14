@@ -15,6 +15,29 @@ import { getByPath } from '../../../shared/utils/jsonPath';
 import { generateJsonSchema } from '../../../shared/components/data-mapper/utils/schemaGenerator';
 import { DataMapperModal, createValidationAdapter } from '../../../shared/components/data-mapper';
 import type { ValidationAdapterOutput } from '../../../shared/components/data-mapper';
+import { buildPivotedRulesFromExpectedFields } from './testEditorValidationPivot';
+import { ADD_ASSERTION_MENU_ROWS } from './testEditorValidationAddMenu';
+
+function getAssertionTypeBadgeLabel(type: string): string {
+  switch (type) {
+    case 'status': return 'STATUS';
+    case 'responseTime': return 'TIME';
+    case 'header': return 'HEADER';
+    case 'regex': return 'REGEX';
+    case 'arrayLength': return 'ARRAY';
+    case 'numeric': return 'NUMBER';
+    case 'date': return 'DATE';
+    case 'typeCheck': return 'TYPE';
+    case 'existence': return 'EXISTS';
+    case 'arrayContains': return 'CONTAINS';
+    case 'each': return 'EACH';
+    case 'jsonSchema': return 'SCHEMA';
+    case 'bodySize': return 'SIZE';
+    case 'datePrecise': return 'DATE⁺';
+    case 'custom': return 'CUSTOM';
+    default: return 'SUBSET';
+  }
+}
 
 export interface TestEditorValidationTabProps {
   draft: Scenario;
@@ -215,43 +238,10 @@ export default function TestEditorValidationTab({
     onDraftChange({ ...prev, validation: { ...prev.validation, expectedFields: next } });
   }, [draftRef, onDraftChange]);
 
-  const pivotedRules = useMemo(() => {
-    const fields = draft.validation.expectedFields || [];
-    const colSet = new Set<string>();
-    const rowMap = new Map<string, Map<string, { value: string; originalIndex: number }>>();
-
-    fields.forEach((f, originalIndex) => {
-      const lastDot = f.jsonPath.lastIndexOf('.');
-      const rowKey = lastDot === -1 ? '(root)' : f.jsonPath.slice(0, lastDot);
-      const field = lastDot === -1 ? f.jsonPath : f.jsonPath.slice(lastDot + 1);
-      colSet.add(field);
-      let row = rowMap.get(rowKey);
-      if (!row) {
-        row = new Map();
-        rowMap.set(rowKey, row);
-      }
-      row.set(field, { value: f.expectedValue, originalIndex });
-    });
-
-    const columns = Array.from(colSet);
-    const rows = Array.from(rowMap.entries()).map(([key, cells]) => ({ key, cells }));
-
-    const firstKey = rows[0]?.key || '';
-    const bracketIdx = firstKey.lastIndexOf('[');
-    const arrayPrefix = bracketIdx > 0 && rows.every((r) => /\[\d+\]$/.test(r.key))
-      ? firstKey.slice(0, bracketIdx)
-      : '';
-
-    if (arrayPrefix) {
-      rows.sort((a, b) => {
-        const ai = parseInt(a.key.match(/\[(\d+)\]$/)?.[1] || '0', 10);
-        const bi = parseInt(b.key.match(/\[(\d+)\]$/)?.[1] || '0', 10);
-        return ai - bi;
-      });
-    }
-
-    return { columns, rows, arrayPrefix };
-  }, [draft.validation.expectedFields]);
+  const pivotedRules = useMemo(
+    () => buildPivotedRulesFromExpectedFields(draft.validation.expectedFields || []),
+    [draft.validation.expectedFields],
+  );
 
   const canPivot = !!pivotedRules.arrayPrefix && pivotedRules.rows.length > 0;
 
@@ -301,91 +291,36 @@ export default function TestEditorValidationTab({
             <button type="button" className="btn btn-sm btn-accent" onClick={() => setShowAddMenu(!showAddMenu)}>+ Add</button>
             {showAddMenu && (
               <div className="assertions-add-menu">
-                <button type="button" onClick={() => addAssertion({ type: 'status', expected: '200' })}>
-                  <span className="aam-icon">🔢</span>
-                  <span className="aam-label">Status Code</span>
-                  <span className="aam-desc">Assert HTTP status (200, 404…)</span>
-                </button>
-                <button type="button" onClick={() => addAssertion({ type: 'responseTime', maxMs: 500 })}>
-                  <span className="aam-icon">⏱</span>
-                  <span className="aam-label">Response Time SLA</span>
-                  <span className="aam-desc">Set max response time threshold</span>
-                </button>
-                <button type="button" onClick={() => addAssertion({ type: 'header', name: 'content-type', operator: 'contains', value: 'json' })}>
-                  <span className="aam-icon">📋</span>
-                  <span className="aam-label">Response Header</span>
-                  <span className="aam-desc">Check header name &amp; value</span>
-                </button>
-                <button type="button" onClick={() => addAssertion({ type: 'regex', jsonPath: '$.name', pattern: '^[A-Z].*' })}>
-                  <span className="aam-icon">🔤</span>
-                  <span className="aam-label">Regex Match</span>
-                  <span className="aam-desc">Quick regex on a JSON path</span>
-                </button>
-                <div className="aam-divider" />
-                <button type="button" onClick={() => { addAssertion({ type: 'regex', jsonPath: '', pattern: '' }); setRegexModalIdx((draft.validation.assertions ?? []).length); }}>
-                  <span className="aam-icon">🛠</span>
-                  <span className="aam-label">Regex Builder…</span>
-                  <span className="aam-desc">Visual builder with pattern library</span>
-                </button>
-                <div className="aam-divider" />
-                <button type="button" onClick={() => addAssertion({ type: 'arrayLength', jsonPath: '', operator: '>=', value: 1 })}>
-                  <span className="aam-icon">📏</span>
-                  <span className="aam-label">Array Length</span>
-                  <span className="aam-desc">Assert array size at a JSON path</span>
-                </button>
-                <button type="button" onClick={() => addAssertion({ type: 'numeric', jsonPath: '', operator: '=', value: 0 })}>
-                  <span className="aam-icon">🔢</span>
-                  <span className="aam-label">Numeric Compare</span>
-                  <span className="aam-desc">Compare number at a JSON path</span>
-                </button>
-                <button type="button" onClick={() => addAssertion({ type: 'date', jsonPath: '', operator: '>', reference: { kind: 'today', timezone: 'utc' } })}>
-                  <span className="aam-icon">📅</span>
-                  <span className="aam-label">Date Compare</span>
-                  <span className="aam-desc">Compare date at a JSON path</span>
-                </button>
-                <div className="aam-divider" />
-                <button type="button" onClick={() => addAssertion({ type: 'typeCheck', jsonPath: '', expectedType: 'string' })}>
-                  <span className="aam-icon">🏷</span>
-                  <span className="aam-label">Type Check</span>
-                  <span className="aam-desc">Assert value type at a JSON path</span>
-                </button>
-                <button type="button" onClick={() => addAssertion({ type: 'existence', jsonPath: '', expectExists: true })}>
-                  <span className="aam-icon">🔍</span>
-                  <span className="aam-label">Field Exists</span>
-                  <span className="aam-desc">Assert a JSON path exists or not</span>
-                </button>
-                <div className="aam-divider" />
-                <button type="button" onClick={() => addAssertion({ type: 'arrayContains', jsonPath: '', value: '', mode: 'any' })}>
-                  <span className="aam-icon">⊇</span>
-                  <span className="aam-label">Array Contains</span>
-                  <span className="aam-desc">Check if array includes specific items</span>
-                </button>
-                <button type="button" onClick={() => addAssertion({ type: 'each', jsonPath: '', fieldPath: '', operator: 'greater_than_or_equal', value: '0' })}>
-                  <span className="aam-icon">∀</span>
-                  <span className="aam-label">Each Element</span>
-                  <span className="aam-desc">Assert condition on every array element</span>
-                </button>
-                <button type="button" onClick={() => addAssertion({ type: 'containsSubset', jsonPath: '$', expected: '{}' })}>
-                  <span className="aam-icon">⊆</span>
-                  <span className="aam-label">Contains Subset</span>
-                  <span className="aam-desc">Partial deep match on a JSON structure</span>
-                </button>
-                <button type="button" onClick={() => addAssertion({ type: 'jsonSchema', schema: '{}' })}>
-                  <span className="aam-icon">{'{}'}</span>
-                  <span className="aam-label">JSON Schema</span>
-                  <span className="aam-desc">Validate response against a JSON Schema document</span>
-                </button>
-                <div className="aam-divider" />
-                <button type="button" onClick={() => addAssertion({ type: 'bodySize', operator: '<=', value: 1024, unit: 'kb' })}>
-                  <span className="aam-icon">⚖</span>
-                  <span className="aam-label">Body Size</span>
-                  <span className="aam-desc">Assert response body size within bounds</span>
-                </button>
-                <button type="button" onClick={() => addAssertion({ type: 'datePrecise', jsonPath: '', operator: '>=', reference: new Date().toISOString(), precision: 'second' })}>
-                  <span className="aam-icon">⏱</span>
-                  <span className="aam-label">Date Precise</span>
-                  <span className="aam-desc">Compare date/time with sub-day precision</span>
-                </button>
+                {ADD_ASSERTION_MENU_ROWS.map((row, idx) => {
+                  if (row.kind === 'divider') {
+                    return <div key={`add-menu-div-${idx}`} className="aam-divider" />;
+                  }
+                  if (row.kind === 'regexBuilder') {
+                    return (
+                      <button
+                        key={`add-menu-${idx}`}
+                        type="button"
+                        onClick={() => {
+                          addAssertion({ type: 'regex', jsonPath: '', pattern: '' });
+                          setRegexModalIdx((draft.validation.assertions ?? []).length);
+                        }}
+                      >
+                        <span className="aam-icon">{row.icon}</span>
+                        <span className="aam-label">{row.label}</span>
+                        <span className="aam-desc">{row.desc}</span>
+                      </button>
+                    );
+                  }
+                  const resolved = typeof row.assertion === 'function' ? row.assertion() : row.assertion;
+                  const iconClass = row.iconClassName ? `aam-icon ${row.iconClassName}` : 'aam-icon';
+                  return (
+                    <button key={`add-menu-${idx}`} type="button" onClick={() => addAssertion(resolved)}>
+                      <span className={iconClass}>{row.icon}</span>
+                      <span className="aam-label">{row.label}</span>
+                      <span className="aam-desc">{row.desc}</span>
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -395,7 +330,7 @@ export default function TestEditorValidationTab({
             {assertions.map((a, i) => (
               <div key={i} className={`assertion-row${a.negate ? ' assertion-row--negated' : ''}`}>
                 <span className={`assertion-type-badge assertion-type-${a.type}`}>
-                  {a.type === 'status' ? 'STATUS' : a.type === 'responseTime' ? 'TIME' : a.type === 'header' ? 'HEADER' : a.type === 'regex' ? 'REGEX' : a.type === 'arrayLength' ? 'ARRAY' : a.type === 'numeric' ? 'NUMBER' : a.type === 'date' ? 'DATE' : a.type === 'typeCheck' ? 'TYPE' : a.type === 'existence' ? 'EXISTS' : a.type === 'arrayContains' ? 'CONTAINS' : a.type === 'each' ? 'EACH' : a.type === 'jsonSchema' ? 'SCHEMA' : a.type === 'bodySize' ? 'SIZE' : a.type === 'datePrecise' ? 'DATE⁺' : 'SUBSET'}
+                  {getAssertionTypeBadgeLabel(a.type)}
                 </span>
                 <button
                   type="button"
@@ -701,6 +636,36 @@ export default function TestEditorValidationTab({
                     </select>
                   </div>
                 )}
+                {a.type === 'custom' && (
+                  <div className="assertion-field assertion-field--custom">
+                    <div className="assertion-custom-expression-wrap">
+                      <label className="assertion-field-label assertion-field-label--mono">λ Expression</label>
+                      <textarea
+                        value={a.expression}
+                        onChange={(e) => updateAssertion(i, { expression: e.target.value })}
+                        placeholder='$gt($.body.count, 0) or $includes($.body.name, "test")'
+                        className="assertion-textarea assertion-textarea--expression"
+                        rows={2}
+                        spellCheck={false}
+                        aria-label="Custom predicate expression"
+                      />
+                    </div>
+                    <div className="assertion-custom-description-wrap">
+                      <label className="assertion-field-label">Description</label>
+                      <input
+                        value={a.description ?? ''}
+                        onChange={(e) => updateAssertion(i, { description: e.target.value || undefined })}
+                        placeholder="Optional — describe what this checks"
+                        className="assertion-input assertion-input--description"
+                        aria-label="Custom predicate description"
+                      />
+                    </div>
+                    <div className="assertion-custom-hint">
+                      <span className="assertion-custom-hint-icon">i</span>
+                      <span>Use <code>$.body</code>, <code>$.status</code>, <code>$.headers</code>, <code>$.responseTime</code> — supports all 113 expression functions including lambdas</span>
+                    </div>
+                  </div>
+                )}
                 <button type="button" className="btn btn-xs btn-danger assertion-remove" onClick={() => removeAssertion(i)} title="Remove assertion">×</button>
               </div>
             ))}
@@ -810,6 +775,7 @@ export default function TestEditorValidationTab({
           )}
           <ValidationRulesSummary
             expectedFields={draft.validation.expectedFields || []}
+            assertions={draft.validation.assertions}
             pivotedRules={pivotedRules}
             canPivot={canPivot}
             rulesViewMode={rulesViewMode}

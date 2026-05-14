@@ -1,15 +1,24 @@
-import type { ValidationConfig, FailureDetail, ExpectedField, Assertion, ComparisonOperator, DateReference, JsonTypeName } from '../shared/types';
+import type { ValidationConfig, FailureDetail, ExpectedField, Assertion, ComparisonOperator } from '../shared/types';
 import { getByPath } from '../shared/utils/jsonPath';
 import Ajv from 'ajv';
 import addFormats from 'ajv-formats';
 import { evaluateFieldOperator } from './fieldOperatorEvaluation';
 import { deepCompare } from './deepCompare';
+import { evaluateExpression, formatExpressionResult } from '../features/workflow/utils/expressionEvaluator';
+import { resolveDate, toDayString, truncateToUnit } from './validatorDateHelpers';
+import { matchesStatusPattern, findHeader, evaluateHeaderOp, getJsonTypeName } from './validatorHttpHelpers';
+import { deepSubsetMatch } from './validatorSubsetMatch';
+import { wrapCustomExprDollarPaths, isTruthy } from './validatorCustomExpression';
 export type { FieldEvalResult } from './fieldOperatorEvaluation';
 
 // Re-export canonical path engine for backward compatibility
 export { getByPath } from '../shared/utils/jsonPath';
 // Re-export field operator evaluation for backward compatibility
 export { evaluateFieldOperator } from './fieldOperatorEvaluation';
+export { resolveDate, toDayString, truncateToUnit } from './validatorDateHelpers';
+export { matchesStatusPattern, getJsonTypeName } from './validatorHttpHelpers';
+export { deepSubsetMatch } from './validatorSubsetMatch';
+export { wrapCustomExprDollarPaths } from './validatorCustomExpression';
 
 let _ajvInstance: Ajv | null = null;
 function getAjv(): Ajv {
@@ -283,102 +292,11 @@ export function compare(a: number, op: ComparisonOperator, b: number): boolean {
   }
 }
 
-export function resolveDate(ref: DateReference): string {
-  if (ref.kind === 'fixed') return ref.iso.slice(0, 10);
-  const now = new Date();
-  if (ref.timezone === 'utc') {
-    return now.toISOString().slice(0, 10);
-  }
-  const y = now.getFullYear();
-  const m = String(now.getMonth() + 1).padStart(2, '0');
-  const d = String(now.getDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
-}
-
-export function toDayString(val: unknown): string | null {
-  if (typeof val === 'string') {
-    const match = val.match(/^(\d{4}-\d{2}-\d{2})/);
-    return match ? match[1] : null;
-  }
-  if (typeof val === 'number') {
-    return new Date(val).toISOString().slice(0, 10);
-  }
-  return null;
-}
-
-export function truncateToUnit(d: Date, precision: 'day' | 'hour' | 'minute' | 'second' | 'millisecond'): number {
-  switch (precision) {
-    case 'millisecond': return d.getTime();
-    case 'second': return Math.floor(d.getTime() / 1000);
-    case 'minute': return Math.floor(d.getTime() / 60000);
-    case 'hour': return Math.floor(d.getTime() / 3600000);
-    case 'day': return Math.floor(d.getTime() / 86400000);
-  }
-}
-
 export function formatOp(op: ComparisonOperator): string {
   const map: Record<ComparisonOperator, string> = {
     '=': '=', '!=': '≠', '>': '>', '>=': '≥', '<': '<', '<=': '≤',
   };
   return map[op];
-}
-
-export function matchesStatusPattern(httpStatus: number, pattern: string): boolean {
-  const p = pattern.trim();
-  if (/^\d+$/.test(p)) return httpStatus === Number(p);
-  if (/^\d+\s*-\s*\d+$/.test(p)) {
-    const [lo, hi] = p.split('-').map(s => Number(s.trim()));
-    return httpStatus >= lo && httpStatus <= hi;
-  }
-  if (/^\dxx$/i.test(p)) {
-    const classDigit = Number(p[0]);
-    return Math.floor(httpStatus / 100) === classDigit;
-  }
-  return p.split(',').some(s => matchesStatusPattern(httpStatus, s));
-}
-
-export function deepSubsetMatch(
-  actual: unknown,
-  expected: unknown,
-  path: string = '',
-): { match: boolean; path?: string; expected?: string; actual?: string } {
-  if (expected === null) {
-    return actual === null
-      ? { match: true }
-      : { match: false, path: path || '(root)', expected: 'null', actual: JSON.stringify(actual) };
-  }
-
-  if (Array.isArray(expected)) {
-    if (!Array.isArray(actual)) {
-      return { match: false, path: path || '(root)', expected: 'array', actual: typeof actual };
-    }
-    for (let i = 0; i < expected.length; i++) {
-      const found = actual.some(item => deepSubsetMatch(item, expected[i], '').match);
-      if (!found) {
-        return { match: false, path: `${path}[${i}]`, expected: JSON.stringify(expected[i]), actual: 'not found in array' };
-      }
-    }
-    return { match: true };
-  }
-
-  if (typeof expected === 'object' && expected !== null) {
-    if (typeof actual !== 'object' || actual === null || Array.isArray(actual)) {
-      return { match: false, path: path || '(root)', expected: 'object', actual: actual === null ? 'null' : Array.isArray(actual) ? 'array' : typeof actual };
-    }
-    const actObj = actual as Record<string, unknown>;
-    const expObj = expected as Record<string, unknown>;
-    for (const key of Object.keys(expObj)) {
-      if (!(key in actObj)) {
-        return { match: false, path: path ? `${path}.${key}` : key, expected: JSON.stringify(expObj[key]), actual: 'missing key' };
-      }
-      const sub = deepSubsetMatch(actObj[key], expObj[key], path ? `${path}.${key}` : key);
-      if (!sub.match) return sub;
-    }
-    return { match: true };
-  }
-
-  if (actual === expected) return { match: true };
-  return { match: false, path: path || '(root)', expected: JSON.stringify(expected), actual: JSON.stringify(actual) };
 }
 
 export interface AssertionContext {
@@ -778,12 +696,76 @@ export function evaluateAssertions(
         }
         break;
       }
+
+      case 'custom': {
+        const expr = a.expression?.trim();
+        if (!expr) {
+          assertionFailures.push({
+            path: '(custom)',
+            expected: `${negPrefix}custom predicate to evaluate`,
+            actual: 'empty expression',
+          });
+          break;
+        }
+
+        const resolveVariable = (name: string): unknown => {
+          if (name === '$.body' || name === '$') return ctx.responseBody;
+          if (name === '$.status') return ctx.httpStatus;
+          if (name === '$.responseTime') return ctx.responseTimeMs;
+          if (name === '$.headers') return ctx.responseHeaders;
+          if (name === '$.rawBody') return ctx.rawBody ?? '';
+          if (name.startsWith('$.body.')) {
+            return getByPath(ctx.responseBody, '$.' + name.slice('$.body.'.length));
+          }
+          if (name.startsWith('$.headers.')) {
+            const headerName = name.slice('$.headers.'.length);
+            return findHeader(ctx.responseHeaders, headerName);
+          }
+          if (name.startsWith('$.')) {
+            return getByPath(ctx.responseBody, name);
+          }
+          return undefined;
+        };
+
+        try {
+          const processed = wrapCustomExprDollarPaths(expr);
+          const result = evaluateExpression(processed, { resolveVariable });
+          if (result.error) {
+            assertionFailures.push({
+              path: '(custom)',
+              expected: `${negPrefix}expression to evaluate without error`,
+              actual: `expression error: ${result.error}`,
+            });
+          } else {
+            const v = result.value;
+            const passed = isTruthy(v);
+            if (!passed) {
+              const desc = a.description ? ` (${a.description})` : '';
+              assertionFailures.push({
+                path: '(custom)',
+                expected: `${negPrefix}custom predicate to pass${desc}`,
+                actual: formatExpressionResult(result.value),
+              });
+            }
+          }
+        } catch (e) {
+          assertionFailures.push({
+            path: '(custom)',
+            expected: `${negPrefix}expression to evaluate`,
+            actual: `runtime error: ${e instanceof Error ? e.message : String(e)}`,
+          });
+        }
+        break;
+      }
     }
 
     if (negated) {
       const configErrors = assertionFailures.filter(f =>
         f.actual === 'invalid regex pattern' ||
         f.actual === 'invalid JSON in expected' ||
+        f.actual === 'empty expression' ||
+        f.actual.startsWith('expression error:') ||
+        f.actual.startsWith('runtime error:') ||
         f.actual.startsWith('invalid date:') ||
         f.actual.startsWith('invalid reference:') ||
         (f.expected === 'valid JSON Schema' || f.expected === 'valid JSON subset'),
@@ -803,48 +785,6 @@ export function evaluateAssertions(
   }
 
   return { failures, statusAsserted };
-}
-
-export function getJsonTypeName(val: unknown): JsonTypeName {
-  if (val === null) return 'null';
-  if (Array.isArray(val)) return 'array';
-  const t = typeof val;
-  if (t === 'string' || t === 'number' || t === 'boolean' || t === 'object') return t as JsonTypeName;
-  return 'string';
-}
-
-function findHeader(headers: Record<string, string>, name: string): string | undefined {
-  const lower = name.toLowerCase();
-  for (const [k, v] of Object.entries(headers)) {
-    if (k.toLowerCase() === lower) return v;
-  }
-  return undefined;
-}
-
-function evaluateHeaderOp(
-  headerVal: string | undefined,
-  operator: string,
-  expected?: string,
-): { pass: boolean; expected: string; actual: string } {
-  const actual = headerVal ?? '(not present)';
-  switch (operator) {
-    case 'exists':
-      return { pass: headerVal !== undefined, expected: 'header exists', actual };
-    case 'equals':
-      return { pass: headerVal === expected, expected: expected ?? '', actual };
-    case 'contains':
-      return { pass: headerVal !== undefined && headerVal.includes(expected ?? ''), expected: `contains "${expected ?? ''}"`, actual };
-    case 'regex': {
-      try {
-        const re = new RegExp(expected ?? '');
-        return { pass: headerVal !== undefined && re.test(headerVal), expected: `matches /${expected}/`, actual };
-      } catch {
-        return { pass: false, expected: `valid regex /${expected}/`, actual: 'invalid regex pattern' };
-      }
-    }
-    default:
-      return { pass: false, expected: `operator "${operator}"`, actual: 'unknown operator' };
-  }
 }
 
 export function validate(

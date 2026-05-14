@@ -176,6 +176,42 @@ describe('parseDslLine', () => {
     expect(result.message).toContain('Missing operator');
   });
 
+  it('returns error for invalid length comparison token', () => {
+    const result = parseDslLine('items length blah', 1) as ParseError;
+    expect(result.message).toContain('Invalid length comparison');
+  });
+
+  it('unquotes escaped double-quote inside quoted value', () => {
+    const result = parseDslLine('id equals "a\\"b"', 1) as ParsedRule;
+    expect(result.value).toBe('a"b');
+  });
+
+  it('unquotes single-quoted values and strip escapes like double-quoted', () => {
+    const result = parseDslLine(`code equals 'ok'`, 1) as ParsedRule;
+    expect(result.value).toBe('ok');
+  });
+
+  it('parses shorthand comparison operators', () => {
+    expect((parseDslLine('x != 2', 1) as ParsedRule).operator).toBe('not_equals');
+    expect((parseDslLine('x >= 1', 1) as ParsedRule).operator).toBe('greater_than_or_equal');
+    expect((parseDslLine('x <= 9', 1) as ParsedRule).operator).toBe('less_than_or_equal');
+  });
+
+  it('parses contains_any, contains_all, contains_only, and contains_none', () => {
+    const modes = ['contains_any', 'contains_all', 'contains_only', 'contains_none'] as const;
+    for (const op of modes) {
+      const r = parseDslLine(`tags ${op} "a"`, 1) as ParsedRule;
+      expect(r.kind).toBe('contains_item');
+      expect(r.operator).toBe(op);
+    }
+  });
+
+  it('parses close_to operator', () => {
+    const r = parseDslLine('score close_to 1,0.01', 1) as ParsedRule;
+    expect(r.operator).toBe('close_to');
+    expect(r.value).toBe('1,0.01');
+  });
+
   it('preserves line number in results', () => {
     const result = parseDslLine('name equals "test"', 42) as ParsedRule;
     expect(result.lineNumber).toBe(42);
@@ -369,6 +405,99 @@ describe('serializeToDsl', () => {
     expect(result).toContain('42');
     expect(result).not.toContain('"42"');
   });
+
+  it('serializes boolean literals without quotes', () => {
+    const result = serializeToDsl(
+      [{ jsonPath: '$.flag', expectedValue: 'true', operator: 'equals' as const }],
+      [],
+    );
+    expect(result).toContain('true');
+    expect(result).not.toContain('"true"');
+  });
+
+  it('preserves already double-quoted operator values', () => {
+    const result = serializeToDsl(
+      [{ jsonPath: '$.msg', expectedValue: '"raw"', operator: 'equals' as const }],
+      [],
+    );
+    expect(result).toContain('"raw"');
+    expect(result).not.toContain('\\"raw\\"');
+  });
+
+  it('escapes embedded quotes when wrapping plain strings', () => {
+    const result = serializeToDsl(
+      [{ jsonPath: '$.msg', expectedValue: 'say "hi"', operator: 'equals' as const }],
+      [],
+    );
+    expect(result).toContain('\\"hi\\"');
+  });
+
+  it('ignores unknown assertion types in serializer default branch', () => {
+    const result = serializeToDsl([], [
+      { type: 'status', expected: '200' } as never,
+    ]);
+    expect(result).toBe('');
+  });
+
+  it('pads empty operatorValue as empty string for valued operators', () => {
+    const result = serializeToDsl(
+      [{ jsonPath: '$.x', expectedValue: '', operator: 'contains' as const }],
+      [],
+    );
+    expect(result).toContain('contains');
+    expect(result).toContain('""');
+  });
+
+  it('serializes each assertion with NO_VALUE inner operator (no quoted operand)', () => {
+    const result = serializeToDsl([], [
+      { type: 'each', jsonPath: '$.items', fieldPath: 'ok', operator: 'is_true' as const, value: '' },
+    ]);
+    expect(result).toContain('items[*].ok');
+    expect(result).toMatch(/each\s+is_true\b/);
+    expect(result).not.toMatch(/each\s+is_true\s+"/);
+  });
+
+  it('uses raw operator token when serializer lacks a keyword mapping', () => {
+    const result = serializeToDsl(
+      [{ jsonPath: '$.x', expectedValue: '1', operator: 'equals' as const, operatorValue: '1' }],
+      [
+        {
+          type: 'each',
+          jsonPath: '$.arr',
+          operator: 'bogus_each_op' as never,
+          value: 'v',
+        },
+      ],
+    );
+    expect(result).toContain('each bogus_each_op');
+  });
+
+  it('serializes arrayLength with undefined numeric value as 0', () => {
+    const result = serializeToDsl([], [
+      { type: 'arrayLength', jsonPath: '$.items', operator: '=' as const, value: undefined as unknown as number },
+    ]);
+    expect(result).toMatch(/length\s*=\s*0\b/);
+  });
+
+  it('quotes field values that contain backslashes for escaping', () => {
+    const result = serializeToDsl(
+      [{ jsonPath: '$.p', expectedValue: 'a\\b', operator: 'equals' as const, operatorValue: 'a\\b' }],
+      [],
+    );
+    expect(result).toContain('\\\\');
+  });
+
+  it('uses $ as path when jsonPath is only $ after stripping prefix (field)', () => {
+    const result = serializeToDsl([{ jsonPath: '$', expectedValue: '1', operator: 'equals' as const, operatorValue: '1' }], []);
+    const fieldLine = result.split('\n').find((l) => l.includes('equals') && !l.startsWith('#'))!;
+    expect(fieldLine.trimStart().startsWith('$')).toBe(true);
+  });
+
+  it('uses $ as path when assertion jsonPath is bare $', () => {
+    const result = serializeToDsl([], [{ type: 'existence', jsonPath: '$', expectExists: true }]);
+    const line = result.split('\n').find((l) => l.includes('exists') && !l.startsWith('#'))!;
+    expect(line.trimStart().startsWith('$')).toBe(true);
+  });
 });
 
 // ─── dslToModel ───────────────────────────────────────────
@@ -481,6 +610,99 @@ describe('dslToModel', () => {
     expect(model.fields).toHaveLength(1);
     expect(model.assertions).toHaveLength(2);
   });
+
+  it('skips length rules when comparison operator is not in map', () => {
+    const rules: ParsedRule[] = [
+      { lineNumber: 1, path: 'items', operator: 'length >>', value: '3', kind: 'length' },
+    ];
+    const model = dslToModel(rules);
+    expect(model.assertions).toHaveLength(0);
+  });
+
+  it('skips each rules when inner operator keyword is unknown', () => {
+    const rules: ParsedRule[] = [
+      { lineNumber: 1, path: 'items[*].x', operator: 'each bogus_op', value: '1', kind: 'each' },
+    ];
+    const model = dslToModel(rules);
+    expect(model.assertions).toHaveLength(0);
+  });
+
+  it('parses each path without nested field as empty fieldPath', () => {
+    const rules: ParsedRule[] = [
+      { lineNumber: 1, path: 'items[*]', operator: 'each >', value: '0', kind: 'each' },
+    ];
+    const model = dslToModel(rules);
+    expect(model.assertions).toHaveLength(1);
+    if (model.assertions[0].type === 'each') {
+      expect(model.assertions[0].fieldPath).toBe('');
+    }
+  });
+
+  it('uses zero when length rule value is not numeric', () => {
+    const rules: ParsedRule[] = [
+      { lineNumber: 1, path: 'items', operator: 'length >=', value: 'nan', kind: 'length' },
+    ];
+    const model = dslToModel(rules);
+    if (model.assertions[0]?.type === 'arrayLength') {
+      expect(model.assertions[0].value).toBe(0);
+    }
+  });
+
+  it('custom rule splits expression and description on first newline', () => {
+    const rules: ParsedRule[] = [
+      {
+        lineNumber: 1,
+        path: '(custom)',
+        operator: 'assert',
+        value: '$eq(1,1)\nline2 desc',
+        kind: 'custom',
+      },
+    ];
+    const model = dslToModel(rules);
+    expect(model.assertions[0].type).toBe('custom');
+    if (model.assertions[0].type === 'custom') {
+      expect(model.assertions[0].expression).toBe('$eq(1,1)');
+      expect(model.assertions[0].description).toBe('line2 desc');
+    }
+  });
+
+  it('custom rule without newline leaves description undefined', () => {
+    const rules: ParsedRule[] = [
+      { lineNumber: 1, path: '(custom)', operator: 'assert', value: '$gt(1,0)', kind: 'custom' },
+    ];
+    const model = dslToModel(rules);
+    expect(model.assertions[0].type).toBe('custom');
+    if (model.assertions[0].type === 'custom') {
+      expect(model.assertions[0].expression).toBe('$gt(1,0)');
+      expect(model.assertions[0].description).toBeUndefined();
+    }
+  });
+
+  it('type_check defaults missing value to string', () => {
+    const rules: ParsedRule[] = [
+      { lineNumber: 1, path: 'any', operator: 'is_type', kind: 'type_check' },
+    ];
+    const model = dslToModel(rules);
+    expect(model.assertions[0].type).toBe('typeCheck');
+    if (model.assertions[0].type === 'typeCheck') {
+      expect(model.assertions[0].expectedType).toBe('string');
+    }
+  });
+
+  it('drops length assertions when operator token does not match length comparison pattern', () => {
+    const rules: ParsedRule[] = [
+      { lineNumber: 1, path: 'items', operator: 'length', value: '3', kind: 'length' },
+    ];
+    expect(dslToModel(rules).assertions).toHaveLength(0);
+  });
+
+  it('field rule with negate sets negate on ExpectedField', () => {
+    const rules: ParsedRule[] = [
+      { lineNumber: 1, path: 's', operator: 'equals', value: 'x', kind: 'field', negate: true },
+    ];
+    const model = dslToModel(rules);
+    expect(model.fields[0].negate).toBe(true);
+  });
 });
 
 // ─── Round-trip: serialize → parse → model ────────────────
@@ -540,6 +762,32 @@ describe('exportAsJson', () => {
     expect(parsed[0].path).toBeDefined();
     expect(parsed[0].operator).toBeDefined();
   });
+
+  it('omits value property when exported rule has no value and retains negate flags', () => {
+    const out = exportAsJson(
+      [
+        {
+          jsonPath: '$.active',
+          expectedValue: '',
+          operator: 'is_true',
+        },
+        {
+          jsonPath: '$.name',
+          expectedValue: '',
+          operator: 'contains',
+          operatorValue: 'x',
+          negate: true,
+        },
+      ],
+      [{ type: 'arrayLength', jsonPath: '$.items', operator: '>=' as const, value: 2, negate: true }],
+    );
+    const parsed = JSON.parse(out) as Record<string, unknown>[];
+    const isTrueRule = parsed.find((r) => r.operator === 'is_true');
+    expect(isTrueRule).toBeDefined();
+    expect(Object.prototype.hasOwnProperty.call(isTrueRule!, 'value')).toBe(false);
+    expect(parsed.some((r) => r.negate === true)).toBe(true);
+    expect(parsed.some((r) => typeof r.operator === 'string' && String(r.operator).includes('length'))).toBe(true);
+  });
 });
 
 describe('importFromJson', () => {
@@ -549,6 +797,29 @@ describe('importFromJson', () => {
     expect('fields' in result).toBe(true);
     if ('fields' in result) {
       expect(result.fields[0].jsonPath).toBe('$.name');
+    }
+  });
+
+  it('assigns detectKind for all operator families', () => {
+    const json = JSON.stringify([
+      { path: '(custom)', operator: 'assert', value: '$eq(1,1)' },
+      { path: 'items', operator: 'length >=', value: '2' },
+      { path: 'nums[*]', operator: 'each >', value: '0' },
+      { path: 'tags', operator: 'contains_any', value: '"a"' },
+      { path: 'cfg', operator: 'subset', value: '{}' },
+      { path: 'n', operator: 'is_type', value: 'number' },
+      { path: 'a', operator: 'exists' },
+      { path: 'b', operator: 'not_exists' },
+      { path: 'plain', operator: 'equals', value: 'ok' },
+    ]);
+    const result = importFromJson(json);
+    expect('assertions' in result).toBe(true);
+    if ('fields' in result && 'assertions' in result) {
+      expect(result.fields).toContainEqual(expect.objectContaining({ jsonPath: '$.plain', expectedValue: 'ok' }));
+      expect(result.assertions.length).toBeGreaterThanOrEqual(7);
+      expect(result.assertions.some((a) => a.type === 'custom')).toBe(true);
+      expect(result.assertions.some((a) => a.type === 'arrayLength')).toBe(true);
+      expect(result.assertions.some((a) => a.type === 'each')).toBe(true);
     }
   });
 
@@ -570,6 +841,12 @@ describe('importAutoDetect', () => {
     expect('assertions' in result).toBe(true);
   });
 
+  it('trims leading whitespace before JSON array detection', () => {
+    const json = `  \n${JSON.stringify([{ path: 'y', operator: 'not_exists' }])}`;
+    const result = importAutoDetect(json);
+    expect('assertions' in result).toBe(true);
+  });
+
   it('auto-detects DSL format', () => {
     const dsl = 'name equals "test"\nage > 18';
     const result = importAutoDetect(dsl);
@@ -582,6 +859,14 @@ describe('importAutoDetect', () => {
   it('returns error for completely invalid text', () => {
     const result = importAutoDetect('!@#$%^&*');
     expect('message' in result).toBe(true);
+  });
+
+  it('returns first parse error when DSL has semantic errors', () => {
+    const result = importAutoDetect('bad unknown_op');
+    expect('message' in result).toBe(true);
+    if ('message' in result) {
+      expect(result.lineNumber).toBeGreaterThanOrEqual(1);
+    }
   });
 });
 
@@ -659,5 +944,141 @@ describe('NOT prefix — serializer round-trip', () => {
       [],
     );
     expect(dsl).not.toContain('NOT');
+  });
+});
+
+// ─── Custom Predicate (ASSERT keyword) ────────────────────
+
+describe('ASSERT keyword — parseDslLine', () => {
+  it('parses basic ASSERT expression', () => {
+    const result = parseDslLine('ASSERT $gt($.body.count, 0)', 1) as ParsedRule;
+    expect(result.kind).toBe('custom');
+    expect(result.operator).toBe('assert');
+    expect(result.value).toBe('$gt($.body.count, 0)');
+    expect(result.path).toBe('(custom)');
+  });
+
+  it('parses ASSERT with description comment', () => {
+    const result = parseDslLine('ASSERT $eq($.status, 200) // Status must be OK', 1) as ParsedRule;
+    expect(result.kind).toBe('custom');
+    expect(result.value).toBe('$eq($.status, 200)\nStatus must be OK');
+  });
+
+  it('parses NOT ASSERT (negated custom predicate)', () => {
+    const result = parseDslLine('NOT ASSERT $eq($.status, 500)', 1) as ParsedRule;
+    expect(result.kind).toBe('custom');
+    expect(result.negate).toBe(true);
+    expect(result.value).toBe('$eq($.status, 500)');
+  });
+
+  it('parses ASSERT case-insensitive', () => {
+    const result = parseDslLine('assert $gt($.body.age, 18)', 1) as ParsedRule;
+    expect(result.kind).toBe('custom');
+    expect(result.value).toBe('$gt($.body.age, 18)');
+  });
+
+  it('returns error for empty ASSERT', () => {
+    const result = parseDslLine('ASSERT', 1);
+    expect(result).not.toBeNull();
+    expect(result && 'message' in result).toBe(true);
+    if (result && 'message' in result) {
+      expect(result.message).toContain('expression');
+    }
+  });
+
+  it('parses ASSERT with spaces before expression', () => {
+    const result = parseDslLine('ASSERT    $length($.body.items)', 1) as ParsedRule;
+    expect(result.kind).toBe('custom');
+    expect(result.value).toBe('$length($.body.items)');
+  });
+});
+
+describe('ASSERT keyword — serializeToDsl', () => {
+  it('serializes custom assertion with ASSERT keyword', () => {
+    const dsl = serializeToDsl([], [
+      { type: 'custom', expression: '$gt($.body.count, 0)' },
+    ]);
+    expect(dsl).toContain('# Custom predicate assertions');
+    expect(dsl).toContain('ASSERT $gt($.body.count, 0)');
+  });
+
+  it('serializes custom assertion with description as comment', () => {
+    const dsl = serializeToDsl([], [
+      { type: 'custom', expression: '$eq($.status, 200)', description: 'Status check' },
+    ]);
+    expect(dsl).toContain('ASSERT $eq($.status, 200) // Status check');
+  });
+
+  it('serializes negated custom assertion with NOT prefix', () => {
+    const dsl = serializeToDsl([], [
+      { type: 'custom', expression: '$eq($.status, 500)', negate: true },
+    ]);
+    expect(dsl).toContain('NOT ASSERT $eq($.status, 500)');
+  });
+
+  it('serializes multiple custom assertions', () => {
+    const dsl = serializeToDsl([], [
+      { type: 'custom', expression: '$gt($.body.count, 0)' },
+      { type: 'custom', expression: '$eq($.status, 200)', description: 'OK' },
+    ]);
+    const lines = dsl.split('\n').filter(l => l.startsWith('ASSERT') || l.startsWith('NOT ASSERT'));
+    expect(lines).toHaveLength(2);
+  });
+
+  it('serializes mixed assertions (field + custom) in correct sections', () => {
+    const dsl = serializeToDsl(
+      [{ jsonPath: '$.name', expectedValue: 'Alice', operator: 'equals' as const, operatorValue: 'Alice' }],
+      [
+        { type: 'typeCheck', jsonPath: '$.name', expectedType: 'string' },
+        { type: 'custom', expression: '$gt($.body.age, 0)' },
+      ],
+    );
+    expect(dsl).toContain('# Field assertions');
+    expect(dsl).toContain('# Type & existence assertions');
+    expect(dsl).toContain('# Custom predicate assertions');
+  });
+});
+
+describe('ASSERT keyword — dslToModel round-trip', () => {
+  it('round-trips custom assertion through DSL', () => {
+    const original = [
+      { type: 'custom' as const, expression: '$gt($.body.count, 0)' },
+    ];
+    const dsl = serializeToDsl([], original);
+    const { rules, errors } = parseDsl(dsl);
+    expect(errors).toHaveLength(0);
+    const model = dslToModel(rules);
+    expect(model.assertions).toHaveLength(1);
+    expect(model.assertions[0].type).toBe('custom');
+    if (model.assertions[0].type === 'custom') {
+      expect(model.assertions[0].expression).toBe('$gt($.body.count, 0)');
+    }
+  });
+
+  it('round-trips custom assertion with description', () => {
+    const original = [
+      { type: 'custom' as const, expression: '$eq($.status, 200)', description: 'Status check' },
+    ];
+    const dsl = serializeToDsl([], original);
+    const { rules, errors } = parseDsl(dsl);
+    expect(errors).toHaveLength(0);
+    const model = dslToModel(rules);
+    expect(model.assertions).toHaveLength(1);
+    if (model.assertions[0].type === 'custom') {
+      expect(model.assertions[0].expression).toBe('$eq($.status, 200)');
+      expect(model.assertions[0].description).toBe('Status check');
+    }
+  });
+
+  it('round-trips negated custom assertion', () => {
+    const original = [
+      { type: 'custom' as const, expression: '$eq($.status, 500)', negate: true },
+    ];
+    const dsl = serializeToDsl([], original);
+    const { rules, errors } = parseDsl(dsl);
+    expect(errors).toHaveLength(0);
+    const model = dslToModel(rules);
+    expect(model.assertions).toHaveLength(1);
+    expect(model.assertions[0].negate).toBe(true);
   });
 });

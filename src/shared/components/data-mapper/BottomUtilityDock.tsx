@@ -22,6 +22,7 @@ interface BottomUtilityDockProps {
   onValidationCodeChange: (text: string) => void;
   validationParseErrors: ParseError[];
   validationSamplePaths: string[];
+  onRulesPopOut?: () => void;
 }
 
 export default function BottomUtilityDock({
@@ -40,6 +41,7 @@ export default function BottomUtilityDock({
   onValidationCodeChange,
   validationParseErrors,
   validationSamplePaths,
+  onRulesPopOut,
 }: BottomUtilityDockProps) {
   return (
     <div className={`dm-bottom-utility-dock dm-bottom-utility-dock--${mode}`}>
@@ -68,7 +70,8 @@ export default function BottomUtilityDock({
           onChange={onValidationCodeChange}
           errors={validationParseErrors}
           samplePaths={validationSamplePaths}
-          height={200}
+          height={220}
+          onPopOut={onRulesPopOut}
         />
       ) : (
         <PreviewBar
