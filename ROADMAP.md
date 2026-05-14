@@ -8,7 +8,7 @@
 ## Positioning & Strategy
 
 > Competitive analysis against k6, Gatling, Locust, Artillery, JMeter, Bruno, Hoppscotch, Postman.
-> Last re-evaluated: 2026-05-10 (after completing workflow designer, results explorer with debug console, trace levels, 3-runner architecture, data-driven testing, and API catalog).
+> Last re-evaluated: 2026-05-14 (after completing workflow designer, results explorer with debug console, trace levels, 3-runner architecture, data-driven testing, API catalog, validation engine (16 assertion types, 24 operators, 125 functions), and Data Mapper (10 adapters, floating DSL editor)).
 
 ### Identity
 
@@ -25,7 +25,7 @@ RedfireForge is a **visual API testing and workflow automation workbench** — n
 | **Bruno** | No | No | Manual | Console | No | Environments | Yes (Electron) |
 | **Hoppscotch** | No | No | Manual | Console | No | Environments | No |
 | **Postman** | Flows (basic) | Limited (paid) | Good | Console | Partial (paid) | Data files | Yes (Electron) |
-| **RedfireForge** | **Yes (full DAG)** | Good | **Excellent** | **Full debug console** | **Yes (OpenAPI)** | **CSV/Excel/API** | Yes (Tauri) |
+| **RedfireForge** | **Yes (full DAG)** | Good | **Excellent (100%)** | **Full debug console** | **Yes (OpenAPI)** | **CSV/Excel/API** | Yes (Tauri) |
 
 ### Key Differentiators
 
@@ -189,7 +189,7 @@ Structured multi-sheet Excel templates for bulk test management and better error
 - [x] **Unit Tests — Utils** — `testEditorUtils.ts` (28), `resultsGrouping.ts` (14), `jsonPathTreeUtils.ts` (24), `helpers.ts` (2), `fileSaver.ts` (5), `export.ts` (2)
 - [x] **Integration Tests** — Storage layer (31), auth inheritance resolution (15), JSON import/export roundtrips (15), CSV template roundtrips (12), Excel template roundtrips (15)
 - [x] **E2E Tests** — Playwright: create feature group/scenario/test (4), run test (4), view results (4), navigation/settings (5)
-- [x] **`npm test` Script** — Vitest (5,717 tests, <16s) + Playwright E2E (372 tests)
+- [x] **`npm test` Script** — Vitest (16,356 tests) + Playwright E2E (613 tests)
 - [x] **Refactor Large Components** — 8 monoliths broken into 27+ focused modules + 2 shared utilities + shared useAuthVerify hook + AuthConfigPanel
 
 ### Phase 6 — Requests (Ad-Hoc API Testing) ✅
@@ -465,7 +465,7 @@ Structured multi-sheet Excel templates for bulk test management and better error
 - [x] **Tab Rename** — "Scenarios" tab renamed to "Feature Groups"
 - [x] **3 New Training Manuals** — Test Runner Guide, Parameterized Runner Guide, Scenario Types Guide
 - [x] **14+ Existing Manuals Updated** — Runner references, TPS terminology, navigation paths
-- [x] **11,226 Unit Tests, 546 E2E Tests** — All passing, >90% code coverage
+- [x] **16,356 Unit Tests, 613 E2E Tests** — All passing, >90% code coverage across all files
 
 ### Phase 22 — Results Explorer Debug Console & Trace Levels ✅
 
@@ -570,11 +570,11 @@ Post-launch features driven by community feedback. Completing the engine items b
 - [ ] **GraphQL Support** — Query/mutation builder with introspection
 - [ ] **gRPC Support** — Protobuf definition import, unary and streaming calls
 - [ ] **WebSocket Support** — Connect, send messages, assert on received messages
-- [ ] **JSON Schema Validation** — Validate response against JSON Schema (draft 2020-12)
+- [x] **JSON Schema Validation** — ✅ `jsonSchema` assertion type with Ajv + ajv-formats, allErrors mode, inline validation errors (completed in Phase P6 — see `docs/plan/validation-operator-gap-analysis.md`)
 
 #### Extensibility & Organization
 - [ ] **Test Tagging** — Label tests with `smoke`, `regression`, `critical` and run by tag
-- [ ] **Data Mapper** — Visual field mapping component replacing 6+ scattered mapping UIs; drag-and-drop connections, expression editor with Monaco + autocomplete, auto-map with accept/reject, type mismatch detection & quick-fix, modal shell with validation, panel resize; 10 adapters + body builder; gallery samples, WCAG AA compliance, high-contrast CSS tokens **(Phase 7F complete — hardening, audit fixes, 91%+ coverage, 13,116+ tests)** — see `docs/plan/data-mapper-plan.md`
+- [x] **Data Mapper** — ✅ Visual field mapping component with 10 adapters + body builder; drag-and-drop, expression editor (Monaco + 125 functions + lambda), auto-map with accept/reject, type mismatch detection & auto-fix, floating pop-out DSL editor, bi-directional visual ↔ code sync, schema drift/repair, mapping profiles, keyboard navigation, hover-to-highlight, failure navigation; 16,356 unit tests, 613 E2E tests, >90% coverage across all files — see `docs/plan/validation-operator-gap-analysis.md`
 - [ ] **Plugin API** — Extension point for custom auth providers, assertion functions, reporters
 
 ---
@@ -609,8 +609,8 @@ Post-launch features driven by community feedback. Completing the engine items b
 | 24 | CI/CD Pipeline | 8 | 2 |
 | 25 | Run Comparison & Trends | 5 | 0 |
 | 26 | Open-Source Launch | 14 | 0 |
-| 27 | Future (Engine → Excellent + Server) | 17 | 0 |
-| **Total** | | **252** | **204** |
+| 27 | Future (Engine → Excellent + Server) | 17 | 2 |
+| **Total** | | **252** | **206** |
 
 ### Feature Maturity Assessment
 
@@ -622,7 +622,8 @@ PRODUCTION-READY (fully implemented, tested, documented):
   ✅ Requests                   — collections, auth inheritance, cURL, console (Phase 6)
   ✅ Test Runners (x3)          — Standard, Parameterized, Workflow (Phases 19, 21)
   ✅ Data-Driven Testing        — CSV/Excel/JSON/API, shared data sources (Phases 2, 3, 16)
-  ✅ Assertions Engine          — 7 assertion types + presets + regex builder (Phase 12)
+  ✅ Assertions Engine          — 16 assertion types, 24 field operators, 125 expression functions (Phases 12, P0–P9.3)
+  ✅ Data Mapper                — 10 adapters, visual + DSL authoring, floating editor, schema drift (Phase 7F+)
   ✅ CLI Runner                 — YAML/JSON, JUnit XML, CI exit codes (Phase 4)
   ✅ Training System            — 123+ manuals, 9 training paths, progress tracking (Phases 14, 15, 17)
 
@@ -697,4 +698,4 @@ Phase 25 (Run Comparison)  →  Phase 27 (Rust Executor + Distributed)
 
 ---
 
-_Last updated: 2026-05-10 (v0.5.7-beta.2 — on `develop` branch; 204/252 items done; load testing at Good; >94% code coverage; 11,000+ unit tests, 463 E2E tests)_
+_Last updated: 2026-05-14 (v0.5.7-beta.2 — on `develop` branch; 206/252 items done; load testing at Good; >90% code coverage all files; 16,356 unit tests, 613 E2E tests)_

@@ -424,6 +424,8 @@ export default function DataMapperModal<TOutput = unknown>({
       const tag = el?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
       if (el?.isContentEditable || el?.contentEditable === 'true') return;
+      // Don't close if focus is inside a Monaco editor (e.g. Validation Rules)
+      if (el?.closest?.('.monaco-editor')) return;
       e.preventDefault();
       onCancel();
     };

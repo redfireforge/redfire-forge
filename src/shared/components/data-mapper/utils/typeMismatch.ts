@@ -157,7 +157,7 @@ export function detectTypeMismatches(
 
   for (const mapping of mappings) {
     if (mapping.expression) continue;
-    const effectiveOp = mapping.operator ?? defaultOperator;
+    const effectiveOp = mapping.operator ?? (mapping.isAutoMapped ? defaultOperator : undefined);
     if (effectiveOp === 'exists' || effectiveOp === 'not_exists' || effectiveOp === 'is_empty' || effectiveOp === 'is_not_empty') continue;
 
     const sourceType = resolveSourceType(mapping, sources, activeSourceId);

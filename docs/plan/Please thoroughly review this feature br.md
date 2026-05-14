@@ -10,7 +10,7 @@ Thoroughly re-evaluate what are missing or if there are any bugs in any phase , 
 What is next phase? Do we have detail sub-phases? Also througly search if we need any additonal things overall? 
 
 
-Please start with a thorough audit of all previously completed phases from the phase 1 to find any bugs, gaps, or inconsistencies before proceeding with the 11C implementation. You don't need to run E2E tests for this. 
+Please start with a thorough audit of all previously completed phases from the phase 1 to find any bugs, gaps, or inconsistencies based on validation-operator-gap-analysis.md file. You don't need to run E2E tests for this. 
 
 
 When you implement ui, pleaes data-mapper-edge-cases-mockup.html mockup for reference.

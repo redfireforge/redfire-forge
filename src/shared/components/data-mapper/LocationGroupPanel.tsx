@@ -3,6 +3,7 @@ import type { TargetField, TargetFieldLocation, Mapping, TargetFieldOrigin, Fiel
 import type { JsonTreeNode } from '../../utils/jsonTreeModel';
 import type { TypeMismatch } from './utils/typeMismatch';
 import type { TraceValueOverlay } from './types';
+import type { Assertion } from '../../types';
 import { buildTreeFromFields, collectAllPaths } from './utils/targetTreeBuilder';
 import TargetTreeNode from './TargetTreeNode';
 import AddFieldRow from './AddFieldRow';
@@ -54,6 +55,9 @@ interface LocationGroupPanelProps {
   nodeStatusMap?: Map<string, 'pass' | 'fail'>;
   fieldVerifyResults?: Map<string, { passed: boolean; actual?: string; expected?: string }>;
   onAddArrayAssertion?: (arrayPath: string, assertionType: 'length' | 'contains' | 'each' | 'subset') => void;
+  onUpdateArrayAssertion?: (index: number, patch: Partial<Assertion>) => void;
+  onRemoveArrayAssertion?: (index: number) => void;
+  arrayAssertions?: Assertion[];
 }
 
 interface GroupData {
@@ -99,6 +103,9 @@ export default function LocationGroupPanel({
   nodeStatusMap,
   fieldVerifyResults,
   onAddArrayAssertion,
+  onUpdateArrayAssertion,
+  onRemoveArrayAssertion,
+  arrayAssertions,
 }: LocationGroupPanelProps) {
   const [collapsedGroups, setCollapsedGroups] = useState<Set<TargetFieldLocation>>(new Set());
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set(['__root__']));
@@ -213,6 +220,9 @@ export default function LocationGroupPanel({
               nodeStatusMap={nodeStatusMap}
               fieldVerifyResults={fieldVerifyResults}
               onAddArrayAssertion={onAddArrayAssertion}
+              onUpdateArrayAssertion={onUpdateArrayAssertion}
+              onRemoveArrayAssertion={onRemoveArrayAssertion}
+              arrayAssertions={arrayAssertions}
             />
             {allowCustomFields && onAddCustomField && (
               <AddFieldRow
@@ -280,6 +290,9 @@ export default function LocationGroupPanel({
               nodeStatusMap={nodeStatusMap}
               fieldVerifyResults={fieldVerifyResults}
               onAddArrayAssertion={onAddArrayAssertion}
+              onUpdateArrayAssertion={onUpdateArrayAssertion}
+              onRemoveArrayAssertion={onRemoveArrayAssertion}
+              arrayAssertions={arrayAssertions}
             />
           </div>
         </div>
