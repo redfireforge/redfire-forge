@@ -117,6 +117,9 @@ function isDeltaEquivalent(existing: Mapping, fromProfile: Mapping): boolean {
     && (existing.sourceId || '') === (fromProfile.sourceId || '')
     && normalizeMapperPath(existing.targetPath) === normalizeMapperPath(fromProfile.targetPath)
     && (existing.expression ?? '') === (fromProfile.expression ?? '')
+    && existing.operator === fromProfile.operator
+    && (existing.operatorValue ?? '') === (fromProfile.operatorValue ?? '')
+    && !!existing.negate === !!fromProfile.negate
   );
 }
 
@@ -163,6 +166,9 @@ export function applyProfileDelta(
       sourceId: profileMapping.sourceId,
       targetPath: profileMapping.targetPath,
       expression: profileMapping.expression,
+      operator: profileMapping.operator,
+      operatorValue: profileMapping.operatorValue,
+      negate: profileMapping.negate,
       isPending: false,
     };
     updatedCount += 1;

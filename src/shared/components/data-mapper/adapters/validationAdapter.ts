@@ -11,7 +11,7 @@
  *   mapped paths become `expectedFields` with user-supplied values.
  */
 
-import type { ExpectedField, SelectiveMode, FieldOperator } from '../../../types';
+import type { ExpectedField, SelectiveMode, FieldOperator, Assertion } from '../../../types';
 import type {
   MapperAdapter,
   MapperSource,
@@ -33,6 +33,7 @@ export interface ValidationAdapterOutput {
   expectedFields: ExpectedField[];
   excludedPaths: string[];
   unorderedArrays?: boolean;
+  assertions?: Assertion[];
 }
 
 // ─── Options ──────────────────────────────────────────────
@@ -103,6 +104,7 @@ export function createValidationAdapter(
     profiles: true,
     unorderedArrays: true,
     hideAdvanced: true,
+    autoMapDefaultOperator: 'exists',
   };
 
   return {
@@ -127,6 +129,7 @@ export function createValidationAdapter(
         };
         if (m.operator) field.operator = m.operator as FieldOperator;
         if (m.operatorValue !== undefined) field.operatorValue = m.operatorValue;
+        if (m.negate) field.negate = true;
         return field;
       };
 
@@ -157,6 +160,7 @@ export function createValidationAdapter(
         };
         if (f.operator) m.operator = f.operator;
         if (f.operatorValue !== undefined) m.operatorValue = f.operatorValue;
+        if (f.negate) m.negate = true;
         return m;
       };
 
@@ -174,12 +178,24 @@ export function createValidationAdapter(
         return (existing.expectedFields ?? []).map(fieldToMapping);
       }
 
-      return included.map((path, i) => ({
-        id: `val-${i}`,
-        sourceId: SOURCE_ID,
-        sourcePath: path,
-        targetPath: path,
-      }));
+      // Merge stored operators/values from expectedFields onto included paths
+      const fieldMap = new Map<string, ExpectedField>();
+      for (const f of existing.expectedFields ?? []) {
+        fieldMap.set(stripDollarPrefix(f.jsonPath), f);
+      }
+
+      return included.map((path, i) => {
+        const storedField = fieldMap.get(stripDollarPrefix(path));
+        if (storedField) {
+          return fieldToMapping(storedField, i);
+        }
+        return {
+          id: `val-${i}`,
+          sourceId: SOURCE_ID,
+          sourcePath: path,
+          targetPath: path,
+        };
+      });
     },
 
     fetchSampleData: opts.fetchSampleData,
@@ -215,7 +231,7 @@ export function createValidationAdapter(
 
       const paths = new Set<string>();
       for (const m of mappings) {
-        const path = m.expression ?? m.sourcePath;
+        const path = m.expression ?? m.sourcePath ?? '';
         if (!path.trim()) {
           issues.push({
             mappingId: m.id,

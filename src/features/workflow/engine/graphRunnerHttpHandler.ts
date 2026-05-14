@@ -165,7 +165,7 @@ function buildAssertionResults(requestResult: import('../../../shared/types').Re
     results.push({
       type: 'status',
       description: `Status code is ${requestResult.httpStatus}`,
-      passed: requestResult.passed || requestResult.failureDetails?.every(f => f.path !== 'status') !== false,
+      passed: requestResult.passed || requestResult.failureDetails?.every(f => f.path !== '(status)' && f.path !== '(http)') !== false,
       expected: requestResult.httpStatus?.toString(),
       actual: requestResult.httpStatus?.toString(),
     });

@@ -976,8 +976,32 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
 .assertion-type-date { background: #ec489918; color: #f472b6; border-color: #ec489950; }
 .assertion-type-typeCheck { background: #14b8a618; color: #2dd4bf; border-color: #14b8a650; }
 .assertion-type-existence { background: #a855f718; color: #c084fc; border-color: #a855f750; }
+.assertion-type-arrayContains { background: #3b82f618; color: #60a5fa; border-color: #3b82f650; }
+.assertion-type-each { background: #8b5cf618; color: #a78bfa; border-color: #8b5cf650; }
+.assertion-type-containsSubset { background: #14b8a618; color: #2dd4bf; border-color: #14b8a650; }
+.assertion-type-jsonSchema { background: #6366f118; color: #818cf8; border-color: #6366f150; }
+.assertion-type-bodySize { background: #f59e0b18; color: #fbbf24; border-color: #f59e0b50; }
+.assertion-type-datePrecise { background: #ec489918; color: #f472b6; border-color: #ec489950; }
 .assertion-row:has(.assertion-type-typeCheck) { border-left-color: #14b8a6; }
 .assertion-row:has(.assertion-type-existence) { border-left-color: #a855f7; }
+.assertion-row:has(.assertion-type-arrayContains) { border-left-color: #3b82f6; }
+.assertion-row:has(.assertion-type-each) { border-left-color: #8b5cf6; }
+.assertion-row:has(.assertion-type-containsSubset) { border-left-color: #14b8a6; }
+.assertion-row:has(.assertion-type-jsonSchema) { border-left-color: #6366f1; }
+.assertion-row:has(.assertion-type-bodySize) { border-left-color: #f59e0b; }
+.assertion-row:has(.assertion-type-datePrecise) { border-left-color: #ec4899; }
+.assertion-row--negated { border-left-color: #ef4444 !important; background: #ef444408; }
+.assertion-negate-toggle {
+  font-size: 9px; font-weight: 800; padding: 2px 5px; border-radius: 3px;
+  border: 1px solid #64748b40; background: transparent; color: #94a3b8;
+  cursor: pointer; letter-spacing: .8px; flex-shrink: 0;
+  transition: all 0.15s ease;
+}
+.assertion-negate-toggle:hover { border-color: #ef4444; color: #ef4444; background: #ef444412; }
+.assertion-negate-toggle--active {
+  background: #ef444420; color: #f87171; border-color: #ef4444;
+  box-shadow: 0 0 0 1px #ef444430;
+}
 .assertion-field { display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0; }
 .assertion-field-label { font-size: 11px; color: var(--text-muted); white-space: nowrap; flex-shrink: 0; }
 .assertion-field-label-fixed { flex: 0 0 42px; min-width: 42px; text-align: center; }
@@ -991,6 +1015,72 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
 .assertion-input-path { flex: 0 0 200px; min-width: 140px; font-family: monospace; }
 .assertion-input-header-name { flex: 0 0 200px; min-width: 120px; }
 .assertion-input-header-val { flex: 1; min-width: 80px; }
+.assertion-input-json {
+  flex: 1; min-width: 140px; font-family: monospace; font-size: 11px;
+  resize: vertical; line-height: 1.4;
+}
+.assertion-field--schema {
+  flex-direction: column; align-items: stretch;
+}
+.assertion-schema-toolbar {
+  display: flex; gap: 6px; margin-bottom: 6px;
+}
+.assertion-schema-action {
+  font-size: 11px; padding: 3px 10px; border-radius: 4px;
+  background: var(--surface-raised, #2a2d3a); border: 1px solid var(--border);
+  color: var(--text-muted); cursor: pointer; transition: all .15s;
+}
+.assertion-schema-action:hover {
+  background: var(--surface-hover, #333648); color: var(--text); border-color: var(--accent);
+}
+.assertion-schema-action--generate {
+  color: #818cf8; border-color: #6366f150;
+}
+.assertion-schema-action--generate:hover {
+  background: #6366f118; border-color: #6366f1;
+}
+.assertion-input-schema {
+  flex: 1; min-width: 140px; width: 100%;
+  font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
+  font-size: 11px; line-height: 1.5; resize: vertical;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 6px; padding: 10px 12px; color: var(--text);
+  tab-size: 2; white-space: pre;
+  transition: border-color .15s, box-shadow .15s;
+}
+.assertion-input-schema:focus {
+  border-color: #6366f1; outline: none;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, .15);
+}
+.assertion-input-schema--invalid {
+  border-color: #ef4444 !important;
+  box-shadow: 0 0 0 2px rgba(239, 68, 68, .12) !important;
+}
+.assertion-schema-error {
+  font-size: 11px; color: #ef4444; margin-top: 4px;
+  font-family: monospace; padding: 0 2px;
+}
+.assertion-field--bodysize {
+  display: flex; align-items: center; gap: 8px; flex: 1;
+}
+.assertion-field--bodysize .assertion-input-num {
+  width: 90px; flex: 0 0 90px; text-align: right; font-variant-numeric: tabular-nums;
+}
+.assertion-field--dateprecise {
+  display: flex; align-items: center; gap: 6px; flex: 1; flex-wrap: wrap;
+}
+.assertion-field--dateprecise .assertion-input-path { flex: 1; min-width: 120px; }
+.assertion-field--dateprecise .assertion-input-date {
+  flex: 0 0 auto; min-width: 180px; font-size: 12px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 4px;
+  padding: 5px 8px; color: var(--text); transition: border-color .15s;
+}
+.assertion-field--dateprecise .assertion-input-date:focus {
+  border-color: var(--accent); outline: none; box-shadow: 0 0 0 2px rgba(236, 72, 153, .15);
+}
+.assertion-select--operator { flex: 0 0 auto; min-width: 100px; }
+.assertion-select--unit { flex: 0 0 auto; min-width: 70px; }
+.assertion-select--precision { flex: 0 0 auto; min-width: 95px; }
 .assertion-select {
   background: var(--surface); border: 1px solid var(--border); border-radius: 4px;
   padding: 5px 6px; color: var(--text); font-size: 12px; flex: 0 0 auto; width: auto;

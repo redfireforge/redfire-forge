@@ -1,0 +1,247 @@
+import { useRef, useCallback, useMemo, useEffect, useState } from 'react';
+import { v4 as uuidv4 } from 'uuid';
+import type { MapperAdapter, Mapping } from '../types';
+import { buildJsonTree, getAllLeafPaths } from '../../../utils/jsonTreeModel';
+import { useValidationCodeSync } from './useValidationCodeSync';
+import { useValidationVerify } from './useValidationVerify';
+import { normalizeMapperPath } from '../utils/pathNormalization';
+import type { Assertion, ExpectedField } from '../../../types';
+
+export interface DataMapperValidationDeps {
+  caps: { codeEditor?: boolean };
+  adapter: MapperAdapter;
+  mappings: Mapping[];
+  activeSourceId: string;
+  setMappings: (mappings: Mapping[]) => void;
+  onChange?: (mappings: Mapping[]) => void;
+  skipNextOnChangeRef: React.MutableRefObject<boolean>;
+  initialData?: unknown;
+  effectiveTarget: { sampleData?: unknown };
+  onAssertionsChange?: (assertions: Assertion[]) => void;
+  flushRef?: React.RefObject<(() => void) | null>;
+  showRulesView: boolean;
+  handleFetchTargetSchema: () => Promise<void>;
+  setToast: (msg: string) => void;
+  unorderedArrays?: boolean;
+}
+
+export function useDataMapperValidation(deps: DataMapperValidationDeps) {
+  const {
+    caps,
+    adapter,
+    mappings,
+    activeSourceId,
+    setMappings,
+    onChange,
+    skipNextOnChangeRef,
+    initialData,
+    effectiveTarget,
+    onAssertionsChange,
+    flushRef,
+    showRulesView,
+    handleFetchTargetSchema,
+    setToast,
+    unorderedArrays,
+  } = deps;
+
+  const validationSamplePaths = useMemo(() => {
+    const paths: string[] = [];
+    try {
+      if (effectiveTarget.sampleData) {
+        const parsed = typeof effectiveTarget.sampleData === 'string'
+          ? JSON.parse(effectiveTarget.sampleData)
+          : effectiveTarget.sampleData;
+        const tree = buildJsonTree(parsed, '');
+        paths.push(...getAllLeafPaths(tree));
+      }
+    } catch { /* ignore */ }
+    return paths;
+  }, [effectiveTarget.sampleData]);
+
+  const validationFields = useMemo(() => {
+    if (!caps.codeEditor || !adapter.serialize) return [];
+    try {
+      const output = adapter.serialize(mappings);
+      if (output && typeof output === 'object' && 'expectedFields' in output) {
+        return (output as { expectedFields?: ExpectedField[] }).expectedFields ?? [];
+      }
+    } catch { /* ignore */ }
+    return [];
+  }, [caps.codeEditor, adapter, mappings]);
+
+  const [validationAssertions, setValidationAssertions] = useState<Assertion[]>(() => {
+    if (initialData && typeof initialData === 'object' && 'assertions' in initialData) {
+      const data = initialData as { assertions?: Assertion[] };
+      return data.assertions ?? [];
+    }
+    return [];
+  });
+
+  const onAssertionsChangeRef = useRef(onAssertionsChange);
+  onAssertionsChangeRef.current = onAssertionsChange;
+
+  useEffect(() => {
+    if (validationAssertions.length > 0) {
+      onAssertionsChangeRef.current?.(validationAssertions);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const prevInitialAssertionsRef = useRef(initialData);
+  useEffect(() => {
+    if (prevInitialAssertionsRef.current === initialData) return;
+    prevInitialAssertionsRef.current = initialData;
+    if (initialData && typeof initialData === 'object' && 'assertions' in initialData) {
+      const data = initialData as { assertions?: Assertion[] };
+      const newAssertions = data.assertions ?? [];
+      setValidationAssertions(newAssertions);
+      onAssertionsChangeRef.current?.(newAssertions);
+    }
+  }, [initialData]);
+
+  const handleUpdateValidationFields = useCallback((fields: ExpectedField[]) => {
+    const prev = mappings;
+
+    const pm = (fieldPath: string, mappingPath: string): boolean =>
+      normalizeMapperPath(fieldPath) === normalizeMapperPath(mappingPath);
+
+    const matchedFieldPaths = new Set<string>();
+
+    const kept: Mapping[] = [];
+    for (const m of prev) {
+      const matchingField = fields.find(f => pm(f.jsonPath, m.targetPath) || pm(f.jsonPath, m.sourcePath));
+      if (matchingField) {
+        matchedFieldPaths.add(matchingField.jsonPath);
+        kept.push({
+          ...m,
+          operator: matchingField.operator,
+          operatorValue: matchingField.operatorValue ?? matchingField.expectedValue ?? m.operatorValue,
+          negate: matchingField.negate || undefined,
+        });
+      } else if (m.expression) {
+        kept.push(m);
+      }
+    }
+
+    const newFields: Mapping[] = fields
+      .filter(f => !matchedFieldPaths.has(f.jsonPath))
+      .map(f => ({
+        id: uuidv4(),
+        sourcePath: f.jsonPath,
+        sourceId: activeSourceId,
+        targetPath: f.jsonPath,
+        operator: f.operator,
+        operatorValue: f.operatorValue ?? f.expectedValue,
+        ...(f.negate && { negate: true }),
+      }));
+
+    const merged = [...kept, ...newFields];
+    skipNextOnChangeRef.current = true;
+    setMappings(merged);
+    onChange?.(merged);
+  }, [mappings, activeSourceId, setMappings, onChange, skipNextOnChangeRef]);
+
+  const handleUpdateValidationAssertions = useCallback((assertions: Assertion[]) => {
+    setValidationAssertions(assertions);
+    onAssertionsChange?.(assertions);
+  }, [onAssertionsChange]);
+
+  const validationSync = useValidationCodeSync({
+    mappings,
+    assertions: validationAssertions,
+    fields: validationFields,
+    onUpdateFields: handleUpdateValidationFields,
+    onUpdateAssertions: handleUpdateValidationAssertions,
+    enabled: showRulesView,
+  });
+
+  useEffect(() => {
+    if (flushRef && 'current' in flushRef) {
+      (flushRef as React.MutableRefObject<(() => void) | null>).current = validationSync.flushPending;
+    }
+    return () => {
+      if (flushRef && 'current' in flushRef) {
+        (flushRef as React.MutableRefObject<(() => void) | null>).current = null;
+      }
+    };
+  }, [flushRef, validationSync.flushPending]);
+
+  // ── Verification ──
+  const [verifyEnabled, setVerifyEnabled] = useState(false);
+  const [autoVerifyEnabled, setAutoVerifyEnabled] = useState(false);
+
+  const verifyHook = useValidationVerify({
+    mappings,
+    assertions: validationAssertions,
+    sampleResponseData: effectiveTarget.sampleData,
+    adapter,
+    enabled: verifyEnabled,
+    autoVerify: autoVerifyEnabled,
+    unorderedArrays,
+  });
+
+  const handleVerifyAll = useCallback(() => {
+    setVerifyEnabled(true);
+    verifyHook.verifyAll();
+  }, [verifyHook]);
+
+  const handleFetchAndVerify = useCallback(async () => {
+    if (!adapter.fetchTargetSchema) return;
+    try {
+      setToast('Fetching live response…');
+      await handleFetchTargetSchema();
+      setVerifyEnabled(true);
+      setAutoVerifyEnabled(true);
+    } catch (e) {
+      setToast(`Fetch failed: ${e instanceof Error ? e.message : 'unknown error'}`);
+    }
+  }, [handleFetchTargetSchema, adapter.fetchTargetSchema, setToast]);
+
+  const handleToggleAutoVerify = useCallback(() => {
+    setAutoVerifyEnabled(prev => {
+      const next = !prev;
+      if (next) setVerifyEnabled(true);
+      return next;
+    });
+  }, []);
+
+  const handleAddArrayAssertion = useCallback((arrayPath: string, assertionType: 'length' | 'contains' | 'each' | 'subset') => {
+    const jsonPath = arrayPath.startsWith('$') ? arrayPath : `$.${arrayPath}`;
+    let newAssertion: Assertion;
+    switch (assertionType) {
+      case 'length':
+        newAssertion = { type: 'arrayLength', jsonPath, operator: '>=', value: 1 };
+        break;
+      case 'contains':
+        newAssertion = { type: 'arrayContains', jsonPath, value: '', mode: 'any' };
+        break;
+      case 'each':
+        newAssertion = { type: 'each', jsonPath, fieldPath: '', operator: 'exists', value: undefined };
+        break;
+      case 'subset':
+        newAssertion = { type: 'containsSubset', jsonPath, expected: '{}' };
+        break;
+    }
+    setValidationAssertions(prev => {
+      const updated = [...prev, newAssertion];
+      onAssertionsChangeRef.current?.(updated);
+      return updated;
+    });
+  }, []);
+
+  return {
+    validationSamplePaths,
+    validationFields,
+    validationAssertions,
+    validationSync,
+    verifyEnabled,
+    autoVerifyEnabled,
+    verifyHook,
+    handleVerifyAll,
+    handleFetchAndVerify,
+    handleToggleAutoVerify,
+    handleAddArrayAssertion,
+    handleUpdateValidationFields,
+    handleUpdateValidationAssertions,
+  };
+}

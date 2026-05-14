@@ -3,56 +3,11 @@ import type { JsonTreeNode } from '../../utils/jsonTreeModel';
 import type { Mapping, TargetField, TargetFieldOrigin, AdapterCapabilities, FieldOperator } from './types';
 import type { TypeMismatch } from './utils/typeMismatch';
 import { normalizeMapperPath } from './utils/pathNormalization';
+import { OPERATOR_REGISTRY, OPERATOR_CATEGORIES } from './utils/operatorRegistry';
+import type { OperatorMeta } from './utils/operatorRegistry';
+export { OPERATOR_REGISTRY, OPERATOR_CATEGORIES, type OperatorMeta };
 const SOURCE_TEXT_PREFIX = 'mapper-source:';
 const TARGET_FIELD_TEXT_PREFIX = 'mapper-target-field:';
-
-interface OperatorMeta {
-  label: string;
-  icon: string;
-  category: 'equality' | 'comparison' | 'string' | 'boolean' | 'existence' | 'type' | 'set' | 'range';
-  cssClass: string;
-  needsValue: boolean;
-}
-
-const OPERATOR_REGISTRY: Record<FieldOperator, OperatorMeta> = {
-  equals: { label: 'equals', icon: '=', category: 'equality', cssClass: 'equals', needsValue: false },
-  not_equals: { label: 'not equals', icon: '≠', category: 'equality', cssClass: 'equals', needsValue: false },
-  greater_than: { label: 'greater than', icon: '＞', category: 'comparison', cssClass: 'comparison', needsValue: true },
-  greater_than_or_equal: { label: 'at least', icon: '≥', category: 'comparison', cssClass: 'comparison', needsValue: true },
-  less_than: { label: 'less than', icon: '＜', category: 'comparison', cssClass: 'comparison', needsValue: true },
-  less_than_or_equal: { label: 'at most', icon: '≤', category: 'comparison', cssClass: 'comparison', needsValue: true },
-  contains: { label: 'contains', icon: '⊃', category: 'string', cssClass: 'string-op', needsValue: true },
-  not_contains: { label: 'not contains', icon: '⊅', category: 'string', cssClass: 'string-op', needsValue: true },
-  starts_with: { label: 'starts with', icon: '⊳', category: 'string', cssClass: 'string-op', needsValue: true },
-  ends_with: { label: 'ends with', icon: '⊲', category: 'string', cssClass: 'string-op', needsValue: true },
-  regex: { label: 'matches', icon: '.*', category: 'string', cssClass: 'string-op', needsValue: true },
-  is_true: { label: 'is true', icon: '✓', category: 'boolean', cssClass: 'boolean-op', needsValue: false },
-  is_false: { label: 'is false', icon: '✗', category: 'boolean', cssClass: 'boolean-op', needsValue: false },
-  is_null: { label: 'is null', icon: '∅', category: 'existence', cssClass: 'existence', needsValue: false },
-  is_not_null: { label: 'is not null', icon: '∃≠∅', category: 'existence', cssClass: 'existence', needsValue: false },
-  is_empty: { label: 'is empty', icon: '⌀', category: 'existence', cssClass: 'existence', needsValue: false },
-  is_not_empty: { label: 'is not empty', icon: '⌀̸', category: 'existence', cssClass: 'existence', needsValue: false },
-  exists: { label: 'exists', icon: '∃', category: 'existence', cssClass: 'existence', needsValue: false },
-  not_exists: { label: 'not exists', icon: '∄', category: 'existence', cssClass: 'existence', needsValue: false },
-  is_type: { label: 'is type', icon: 'τ', category: 'type', cssClass: 'type-check', needsValue: true },
-  in: { label: 'in list', icon: '∈', category: 'set', cssClass: 'comparison', needsValue: true },
-  not_in: { label: 'not in list', icon: '∉', category: 'set', cssClass: 'comparison', needsValue: true },
-  between: { label: 'between', icon: '↔', category: 'range', cssClass: 'comparison', needsValue: true },
-  close_to: { label: 'close to', icon: '≈', category: 'range', cssClass: 'comparison', needsValue: true },
-};
-
-const OPERATOR_CATEGORIES = [
-  { key: 'equality', label: 'Equality' },
-  { key: 'comparison', label: 'Comparison' },
-  { key: 'string', label: 'String' },
-  { key: 'boolean', label: 'Boolean' },
-  { key: 'existence', label: 'Existence' },
-  { key: 'type', label: 'Type' },
-  { key: 'set', label: 'Set' },
-  { key: 'range', label: 'Range' },
-] as const;
-
-export { OPERATOR_REGISTRY, OPERATOR_CATEGORIES, type OperatorMeta };
 
 const TYPE_LABELS: Record<string, string> = {
   object: 'obj',
@@ -97,6 +52,13 @@ interface TargetTreeNodeProps {
   onToggleUnorderedArray?: (arrayPath: string) => void;
   capabilities?: Required<AdapterCapabilities>;
   onUpdateMappingOperator?: (mappingId: string, operator: FieldOperator | undefined, operatorValue: string | undefined) => void;
+  onToggleMappingNegate?: (mappingId: string) => void;
+  verifyStatus?: 'pass' | 'fail';
+  verifyActual?: string;
+  verifyExpected?: string;
+  nodeStatusMap?: Map<string, 'pass' | 'fail'>;
+  fieldVerifyResults?: Map<string, { passed: boolean; actual?: string; expected?: string; matchContext?: string }>;
+  onAddArrayAssertion?: (arrayPath: string, assertionType: 'length' | 'contains' | 'each' | 'subset') => void;
 }
 
 function matchesSearchTerm(node: JsonTreeNode, lower: string): boolean {
@@ -175,6 +137,13 @@ export default function TargetTreeNode({
   onToggleUnorderedArray,
   capabilities,
   onUpdateMappingOperator,
+  onToggleMappingNegate,
+  verifyStatus: verifyStatusProp,
+  verifyActual: verifyActualProp,
+  verifyExpected: verifyExpectedProp,
+  nodeStatusMap,
+  fieldVerifyResults,
+  onAddArrayAssertion,
 }: TargetTreeNodeProps) {
   const [dragOver, setDragOver] = useState(false);
   const [renaming, setRenaming] = useState(false);
@@ -184,6 +153,9 @@ export default function TargetTreeNode({
   const [editingOperatorValue, setEditingOperatorValue] = useState(false);
   const [localOperatorValue, setLocalOperatorValue] = useState('');
   const [pickerPos, setPickerPos] = useState<{ top: number; left: number; openUp: boolean }>({ top: 0, left: 0, openUp: false });
+  const [showContextMenu, setShowContextMenu] = useState(false);
+  const [contextMenuPos, setContextMenuPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const contextMenuRef = useRef<HTMLDivElement>(null);
   const renameInputRef = useRef<HTMLInputElement>(null);
   const operatorPillRef = useRef<HTMLButtonElement>(null);
   const operatorValueRef = useRef<HTMLInputElement>(null);
@@ -193,6 +165,13 @@ export default function TargetTreeNode({
   const isLeaf = !hasChildren;
   const origin = fieldOrigins?.get(node.path);
   const isCustomOrFetched = origin === 'custom' || origin === 'fetched';
+
+  // Derive verify status from nodeStatusMap if not directly set
+  const verifyStatus = verifyStatusProp ?? nodeStatusMap?.get(node.path) ?? nodeStatusMap?.get(`$.${node.path}`);
+  const fieldResult = fieldVerifyResults?.get(node.path) ?? fieldVerifyResults?.get(`$.${node.path}`);
+  const verifyActual = verifyActualProp ?? fieldResult?.actual;
+  const verifyExpected = verifyExpectedProp ?? fieldResult?.expected;
+  const verifyMatchContext = fieldResult?.matchContext;
   const normalizedNodePath = useMemo(() => normalizeMapperPath(node.path), [node.path]);
 
   const mapping = useMemo(
@@ -351,7 +330,7 @@ export default function TargetTreeNode({
   }, [mapping, onEditExpression, isCustomOrFetched, onUpdateCustomField, handleStartRename]);
 
   const currentOp = mapping?.operator ?? 'equals';
-  const currentOpMeta = OPERATOR_REGISTRY[currentOp];
+  const currentOpMeta = OPERATOR_REGISTRY[currentOp] ?? OPERATOR_REGISTRY['equals'];
   const showOperators = capabilities?.operators && !!mapping && !!onUpdateMappingOperator;
 
   const handleOperatorSelect = useCallback((op: FieldOperator) => {
@@ -364,6 +343,8 @@ export default function TargetTreeNode({
     }
     setShowOperatorPicker(false);
     setOperatorSearch('');
+    setEditingOperatorValue(false);
+    setLocalOperatorValue(meta.needsValue ? (mapping.operatorValue ?? '') : '');
   }, [mapping, onUpdateMappingOperator]);
 
   const handleOperatorValueCommit = useCallback(() => {
@@ -405,6 +386,30 @@ export default function TargetTreeNode({
     };
   }, [showOperatorPicker]);
 
+  useEffect(() => {
+    if (!showContextMenu) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (contextMenuRef.current && !contextMenuRef.current.contains(e.target as Node)) {
+        setShowContextMenu(false);
+      }
+    };
+    const timer = setTimeout(() => {
+      document.addEventListener('mousedown', handleClickOutside);
+    }, 50);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showContextMenu]);
+
+  const handleContextMenu = useCallback((e: React.MouseEvent) => {
+    if (!capabilities?.operators) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setContextMenuPos({ x: e.clientX, y: e.clientY });
+    setShowContextMenu(true);
+  }, [capabilities]);
+
   const filteredOperators = useMemo(() => {
     const lower = operatorSearch.toLowerCase();
     if (!lower) return Object.entries(OPERATOR_REGISTRY) as [FieldOperator, OperatorMeta][];
@@ -440,6 +445,7 @@ export default function TargetTreeNode({
           if (mapping) onSelectMapping(isSelected ? null : mapping.id);
         }}
         onDoubleClick={handleDoubleClick}
+        onContextMenu={handleContextMenu}
         data-path={node.path}
       >
         {hasChildren ? (
@@ -492,12 +498,21 @@ export default function TargetTreeNode({
             ) : (
               <>
                 <span className="dm-mapped-arrow">←</span>
+                {showOperators && mapping?.negate && (
+                  <button
+                    type="button"
+                    className="dm-negate-badge"
+                    title="Negated — click to remove NOT"
+                    onClick={(e) => { e.stopPropagation(); onToggleMappingNegate?.(mapping!.id); }}
+                    aria-label="Remove negation"
+                  >NOT</button>
+                )}
                 {showOperators && (
                   <button
                     ref={operatorPillRef}
                     type="button"
-                    className={`dm-operator-pill dm-operator-pill--${currentOpMeta.cssClass}`}
-                    title={`Operator: ${currentOpMeta.label} (click to change)`}
+                    className={`dm-operator-pill dm-operator-pill--${currentOpMeta.cssClass}${mapping?.negate ? ' dm-operator-pill--negated' : ''}`}
+                    title={`Operator: ${mapping?.negate ? 'NOT ' : ''}${currentOpMeta.label} (click to change)`}
                     onClick={(e) => {
                       e.stopPropagation();
                       if (!showOperatorPicker && operatorPillRef.current) {
@@ -564,6 +579,22 @@ export default function TargetTreeNode({
                 )}
               </>
             )}
+          </span>
+        )}
+        {verifyStatus && (
+          <span
+            className={`dm-verify-badge dm-verify-badge--${verifyStatus}`}
+            title={verifyStatus === 'pass'
+              ? 'Verification passed'
+              : `Failed: expected ${verifyExpected ?? '?'}, got ${verifyActual ?? '?'}${verifyMatchContext ? `\n${verifyMatchContext}` : ''}`}
+            aria-label={verifyStatus === 'pass' ? 'Passed' : 'Failed'}
+          >
+            {verifyStatus === 'pass' ? '✓' : '✗'}
+          </span>
+        )}
+        {verifyStatus === 'fail' && verifyActual && (
+          <span className="dm-verify-actual" title={`Actual: ${verifyActual}`}>
+            Got: {verifyActual.length > 30 ? verifyActual.slice(0, 30) + '…' : verifyActual}
           </span>
         )}
         {node.type === 'array' && onToggleUnorderedArray && (() => {
@@ -652,6 +683,20 @@ export default function TargetTreeNode({
               autoFocus
             />
           </div>
+          {onToggleMappingNegate && mapping && (
+            <div className="dm-op-picker-negate-row">
+              <button
+                type="button"
+                className={`dm-op-picker-negate-btn${mapping.negate ? ' dm-op-picker-negate-btn--active' : ''}`}
+                onClick={() => onToggleMappingNegate(mapping.id)}
+                aria-label="Toggle negation"
+              >
+                <span className="dm-op-picker-negate-icon">¬</span>
+                <span className="dm-op-picker-negate-label">Negate (NOT)</span>
+                {mapping.negate && <span className="dm-op-picker-negate-check">✓</span>}
+              </button>
+            </div>
+          )}
           <div className="dm-op-picker-list" role="listbox" aria-label="Operators">
             {OPERATOR_CATEGORIES.map(cat => {
               const ops = filteredOperators.filter(([, m]) => m.category === cat.key);
@@ -679,6 +724,108 @@ export default function TargetTreeNode({
             {filteredOperators.length === 0 && (
               <div className="dm-op-picker-empty">No matching operators</div>
             )}
+          </div>
+        </div>
+      )}
+      {showContextMenu && capabilities?.operators && (
+        <div
+          ref={contextMenuRef}
+          className="dm-context-menu"
+          style={{ position: 'fixed', top: contextMenuPos.y, left: contextMenuPos.x, zIndex: 10001 }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {isMapped && mapping && (
+            <>
+              <button
+                type="button"
+                className="dm-context-menu-item"
+                onClick={() => {
+                  setShowContextMenu(false);
+                  if (operatorPillRef.current) {
+                    const rect = operatorPillRef.current.getBoundingClientRect();
+                    setPickerPos({ top: rect.bottom + 4, left: rect.left, openUp: false });
+                  } else {
+                    setPickerPos({ top: contextMenuPos.y, left: contextMenuPos.x, openUp: false });
+                  }
+                  setShowOperatorPicker(true);
+                }}
+              >
+                Set operator…
+              </button>
+              {onToggleMappingNegate && (
+                <button
+                  type="button"
+                  className={`dm-context-menu-item${mapping.negate ? ' dm-context-menu-item--active' : ''}`}
+                  onClick={() => { setShowContextMenu(false); onToggleMappingNegate(mapping.id); }}
+                >
+                  {mapping.negate ? '✓ Negated (NOT)' : 'Negate (NOT)'}
+                </button>
+              )}
+              {onEditExpression && (
+                <button
+                  type="button"
+                  className="dm-context-menu-item"
+                  onClick={() => { setShowContextMenu(false); onEditExpression(mapping.id); }}
+                >
+                  Edit expression…
+                </button>
+              )}
+              {onRemoveMapping && (
+                <button
+                  type="button"
+                  className="dm-context-menu-item dm-context-menu-item--danger"
+                  onClick={() => { setShowContextMenu(false); onRemoveMapping(mapping.id); }}
+                >
+                  Remove mapping
+                </button>
+              )}
+            </>
+          )}
+          {node.type === 'array' && capabilities.arrayAssertions && (
+            <>
+              {isMapped && mapping && <div className="dm-context-menu-divider" />}
+              <div className="dm-context-menu-label">Array Assertions</div>
+              <button
+                type="button"
+                className="dm-context-menu-item"
+                disabled={!onAddArrayAssertion}
+                onClick={() => { setShowContextMenu(false); onAddArrayAssertion?.(node.path, 'length'); }}
+              >
+                Add length assertion
+              </button>
+              <button
+                type="button"
+                className="dm-context-menu-item"
+                disabled={!onAddArrayAssertion}
+                onClick={() => { setShowContextMenu(false); onAddArrayAssertion?.(node.path, 'contains'); }}
+              >
+                Add contains assertion
+              </button>
+              <button
+                type="button"
+                className="dm-context-menu-item"
+                disabled={!onAddArrayAssertion}
+                onClick={() => { setShowContextMenu(false); onAddArrayAssertion?.(node.path, 'each'); }}
+              >
+                Add each assertion
+              </button>
+              <button
+                type="button"
+                className="dm-context-menu-item"
+                disabled={!onAddArrayAssertion}
+                onClick={() => { setShowContextMenu(false); onAddArrayAssertion?.(node.path, 'subset'); }}
+              >
+                Add subset assertion
+              </button>
+            </>
+          )}
+        </div>
+      )}
+      {node.type === 'array' && isExpanded && capabilities?.arrayAssertions && (
+        <div className="dm-array-assertion-rows" style={{ paddingLeft: (depth + 1) * 16 + 4 }}>
+          <div className="dm-array-assertion-hint">
+            <span className="dm-array-assertion-hint-icon">+</span>
+            <span className="dm-array-assertion-hint-text">Add array assertion (use Assertions panel)</span>
           </div>
         </div>
       )}
@@ -718,6 +865,10 @@ export default function TargetTreeNode({
               onToggleUnorderedArray={onToggleUnorderedArray}
               capabilities={capabilities}
               onUpdateMappingOperator={onUpdateMappingOperator}
+              onToggleMappingNegate={onToggleMappingNegate}
+              nodeStatusMap={nodeStatusMap}
+              fieldVerifyResults={fieldVerifyResults}
+              onAddArrayAssertion={onAddArrayAssertion}
             />
           ))}
         </div>

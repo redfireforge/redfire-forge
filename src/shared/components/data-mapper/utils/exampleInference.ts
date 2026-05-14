@@ -84,8 +84,8 @@ function substringMatch(source: unknown, target: unknown): 'contained' | 'contai
  */
 function detectTransformation(source: unknown, target: unknown): { expression: string; reason: string } | null {
   if (typeof source === 'string' && typeof target === 'string') {
-    if (source.toLowerCase() === target) return { expression: '$lowercase($.PATH)', reason: 'lowercase transformation' };
-    if (source.toUpperCase() === target) return { expression: '$uppercase($.PATH)', reason: 'uppercase transformation' };
+    if (source.toLowerCase() === target) return { expression: '$lower($.PATH)', reason: 'lowercase transformation' };
+    if (source.toUpperCase() === target) return { expression: '$upper($.PATH)', reason: 'uppercase transformation' };
     if (source.trim() === target && source !== target) return { expression: '$trim($.PATH)', reason: 'trim transformation' };
   }
   if (typeof source === 'string' && typeof target === 'number') {

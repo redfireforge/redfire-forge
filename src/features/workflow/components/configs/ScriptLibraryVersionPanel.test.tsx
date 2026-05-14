@@ -464,7 +464,7 @@ describe('ScriptLibraryVersionPanel', () => {
       month: 'short', day: 'numeric',
       hour: '2-digit', minute: '2-digit',
     });
-    expect(screen.getByText(expected)).toBeTruthy();
+    expect(screen.getAllByText(expected).length).toBeGreaterThan(0);
     expect(screen.getByText('1 version')).toBeTruthy();
   });
 

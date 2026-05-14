@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
-import type { RulesVersion, ValidationConfig, ExpectedField } from '../../../shared/types';
+import type { RulesVersion, ValidationConfig, ExpectedField, Assertion } from '../../../shared/types';
 import { buildRulesSnapshot } from '../utils/versionUtils';
 import { Differ, Viewer } from 'json-diff-kit';
 import 'json-diff-kit/dist/viewer.css';
@@ -20,10 +20,12 @@ function rulesFingerprint(
   fields: ExpectedField[],
   excluded: string[],
   unordered: boolean,
+  assertions: Assertion[],
 ): string {
   const sortedFields = [...fields].sort((a, b) => a.jsonPath.localeCompare(b.jsonPath));
   const sortedPaths = [...excluded].sort();
-  return JSON.stringify({ mode, selectiveMode, fields: sortedFields, excluded: sortedPaths, unordered });
+  const sortedAssertions = [...assertions].sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
+  return JSON.stringify({ mode, selectiveMode, fields: sortedFields, excluded: sortedPaths, unordered, assertions: sortedAssertions });
 }
 
 const differ = new Differ({
@@ -92,10 +94,11 @@ export default function RulesVersionPanel({
       v.expectedFields || [],
       v.excludedPaths || [],
       !!v.unorderedArrays,
+      v.assertions || [],
     );
   }, [currentValidation]);
 
-  const hasRules = (currentValidation.expectedFields || []).length > 0;
+  const hasRules = (currentValidation.expectedFields || []).length > 0 || (currentValidation.assertions || []).length > 0;
 
   /** Check ALL versions for a duplicate. Returns matching version label or null. */
   const duplicateOfLabel = useMemo(() => {
@@ -108,6 +111,7 @@ export default function RulesVersionPanel({
         ver.expectedFields || [],
         ver.excludedPaths || [],
         !!ver.unorderedArrays,
+        ver.assertions || [],
       );
       if (currentFingerprint === verFp) return getVersionLabel(ver, i);
     }
@@ -207,6 +211,7 @@ export default function RulesVersionPanel({
             v.expectedFields || [],
             v.excludedPaths || [],
             !!v.unorderedArrays,
+            v.assertions || [],
           );
           return (
             <div key={v.id} className={`version-item ${isCurrent ? 'version-current' : ''}`}>

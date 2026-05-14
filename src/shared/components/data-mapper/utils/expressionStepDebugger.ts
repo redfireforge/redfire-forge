@@ -60,8 +60,9 @@ export function debugExpression(
   for (const call of fnCalls) {
     if (call === expression.trim()) continue;
     const result = evaluateMapperExpression(call, sources, activeSourceId, customFunctions);
+    const isHof = HOF_FUNCTIONS.some(name => call.startsWith(name + '('));
     steps.push({
-      label: 'Function Evaluation',
+      label: isHof ? 'Lambda Application' : 'Function Evaluation',
       expression: call,
       value: result.value,
       displayValue: result.error ? `Error: ${result.error}` : formatExpressionResult(result.value),
@@ -85,6 +86,11 @@ export function debugExpression(
     error: finalResult.error,
   };
 }
+
+const HOF_FUNCTIONS = [
+  '$map', '$filter', '$reduce', '$sortBy', '$minBy', '$maxBy', '$distinctBy', '$zip',
+  '$mapValues', '$mapKeys', '$withEntries',
+];
 
 const PATH_CHAR = /[\w.[*\]-]/;
 

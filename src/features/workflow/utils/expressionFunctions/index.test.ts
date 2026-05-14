@@ -105,6 +105,8 @@ describe('expressionFunctions/index', () => {
       expect(EXPRESSION_CATEGORIES).toEqual([
         'String',
         'Math',
+        'Array',
+        'Object',
         'Conditional',
         'JSON',
         'Date/Time',
@@ -112,8 +114,8 @@ describe('expressionFunctions/index', () => {
       ]);
     });
 
-    it('contains exactly 6 categories', () => {
-      expect(EXPRESSION_CATEGORIES).toHaveLength(6);
+    it('contains exactly 8 categories', () => {
+      expect(EXPRESSION_CATEGORIES).toHaveLength(8);
     });
 
     it('contains only unique values', () => {

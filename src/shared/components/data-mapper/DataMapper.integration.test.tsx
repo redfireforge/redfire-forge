@@ -4,6 +4,17 @@ import { render, screen, fireEvent, act, waitFor } from '@testing-library/react'
 import DataMapper from './DataMapper';
 import type { MapperAdapter, Mapping } from './types';
 
+vi.mock('@monaco-editor/react', () => ({
+  default: ({ value, onChange }: { value: string; onChange?: (v: string) => void }) => (
+    <textarea
+      className="dm-expr-textarea"
+      value={value}
+      onChange={(e) => onChange?.(e.target.value)}
+      aria-label="Expression"
+    />
+  ),
+}));
+
 const sampleSource = { name: 'Alice', email: 'a@b.com', age: 30 };
 const sampleTarget = { userName: '', userEmail: '', userAge: 0 };
 
@@ -48,7 +59,7 @@ describe('DataMapper – expression editor modal', () => {
     expect(container.querySelector('.dm-expr-overlay')).toBeNull();
   });
 
-  it('saves expression and closes modal on save', () => {
+  it('saves expression and closes modal on save', async () => {
     const onChange = vi.fn();
     const adapter = createTestAdapter();
     const initial: Mapping[] = [
@@ -60,11 +71,18 @@ describe('DataMapper – expression editor modal', () => {
     const expandBtns = screen.getAllByLabelText('Expand all');
     expandBtns.forEach((b) => fireEvent.click(b));
     const mapped = container.querySelector('.dm-panel--target .dm-tree-node--mapped');
-    fireEvent.doubleClick(mapped!);
+    await act(async () => {
+      fireEvent.doubleClick(mapped!);
+    });
+    await waitFor(() => {
+      expect(container.querySelector('.dm-expr-overlay')).toBeTruthy();
+    });
     const textarea = container.querySelector('.dm-expr-textarea') as HTMLTextAreaElement;
     expect(textarea).toBeTruthy();
     fireEvent.change(textarea, { target: { value: '$upper($.name)' } });
-    fireEvent.click(screen.getByText('Save Expression'));
+    await act(async () => {
+      fireEvent.click(screen.getByText('Save Expression'));
+    });
     expect(container.querySelector('.dm-expr-overlay')).toBeNull();
     const last = onChange.mock.calls[onChange.mock.calls.length - 1]?.[0];
     const updated = last?.find((m: Mapping) => m.id === 'm1');

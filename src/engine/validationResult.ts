@@ -31,7 +31,7 @@ export function buildValidationResult(input: ValidationInput): ValidationOutput 
   const { errorMessage } = input;
 
   const { failures: assertionFailures, statusAsserted } = assertions.length > 0
-    ? evaluateAssertions(assertions, { httpStatus, responseTimeMs, responseHeaders, responseBody: responseObj })
+    ? evaluateAssertions(assertions, { httpStatus, responseTimeMs, responseHeaders, responseBody: responseObj, rawBody: input.responseBody })
     : { failures: [], statusAsserted: false };
 
   const httpOk = httpStatus > 0 && httpStatus < 400;
