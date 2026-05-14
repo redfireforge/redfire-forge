@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useMemo, useId, useEffect } from 'react';
+import { useState, useCallback, useRef, useMemo, useId, useEffect, type RefObject } from 'react';
 import DataMapper from './DataMapper';
 import DriftBanner from './DriftBanner';
 import SchemaDiffModal from './SchemaDiffModal';
@@ -89,6 +89,8 @@ export default function DataMapperModal<TOutput = unknown>({
   const [showDriftBanner, setShowDriftBanner] = useState(false);
   const [showDiffModal, setShowDiffModal] = useState(false);
   const currentMappingsRef = useRef<Mapping[]>([]);
+  const currentAssertionsRef = useRef<import('../../types').Assertion[]>([]);
+  const mapperFlushRef = useRef<(() => void) | null>(null);
   const mappingsReadyRef = useRef(false);
   const sourceSampleOverridesRef = useRef<Record<string, unknown>>({});
   const savedSnapshotsRef = useRef<SnapshotPairRef[]>([]);
@@ -168,6 +170,10 @@ export default function DataMapperModal<TOutput = unknown>({
     currentMappingsRef.current = mappings;
     mappingsReadyRef.current = true;
     setValidationIssues([]);
+  }, []);
+
+  const handleAssertionsChange = useCallback((assertions: import('../../types').Assertion[]) => {
+    currentAssertionsRef.current = assertions;
   }, []);
 
   const handleToggleUnorderedArray = useCallback((_arrayPath: string) => {
@@ -323,6 +329,9 @@ export default function DataMapperModal<TOutput = unknown>({
   }, [applyRepairSet]);
 
   const handleDone = useCallback(() => {
+    // Flush any pending DSL debounce so assertions/fields are up-to-date before save
+    mapperFlushRef.current?.();
+
     const mappings = currentMappingsRef.current;
 
     const unresolvedBreakingDrift = driftEntries.filter(
@@ -395,6 +404,11 @@ export default function DataMapperModal<TOutput = unknown>({
       adapter.target.sampleData,
     );
     saveSnapshot(adapter.contextId, pair).catch(() => {});
+
+    const assertions = currentAssertionsRef.current;
+    if (output && typeof output === 'object' && !Array.isArray(output)) {
+      (output as Record<string, unknown>).assertions = assertions;
+    }
 
     onSave(output, { unorderedArrays });
   }, [adapter, driftEntries, onSave, unorderedArrays]);
@@ -471,6 +485,7 @@ export default function DataMapperModal<TOutput = unknown>({
             adapter={adapter}
             initialData={initialData}
             onChange={handleMappingsChange}
+            onAssertionsChange={handleAssertionsChange}
             onSourceSampleChange={handleSourceSampleChange}
             height="100%"
             driftMap={driftMap}
@@ -483,6 +498,7 @@ export default function DataMapperModal<TOutput = unknown>({
             unorderedDefault={unorderedArrays}
             onToggleUnorderedArray={caps.unorderedArrays ? handleToggleUnorderedArray : undefined}
             hideAdvanced={caps.hideAdvanced}
+            flushRef={mapperFlushRef as RefObject<(() => void) | null>}
           />
         </div>
 

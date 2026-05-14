@@ -1,294 +1,40 @@
-import type { ValidationConfig, FailureDetail, ExpectedField, Assertion, ComparisonOperator, DateReference, FieldOperator, JsonTypeName } from '../shared/types';
+import type { ValidationConfig, FailureDetail, ExpectedField, Assertion, ComparisonOperator, DateReference, JsonTypeName } from '../shared/types';
 import { getByPath } from '../shared/utils/jsonPath';
+import Ajv from 'ajv';
+import addFormats from 'ajv-formats';
+import { evaluateFieldOperator } from './fieldOperatorEvaluation';
+import { deepCompare } from './deepCompare';
+export type { FieldEvalResult } from './fieldOperatorEvaluation';
 
 // Re-export canonical path engine for backward compatibility
 export { getByPath } from '../shared/utils/jsonPath';
+// Re-export field operator evaluation for backward compatibility
+export { evaluateFieldOperator } from './fieldOperatorEvaluation';
 
-function deepCompare(
-  expected: unknown,
-  actual: unknown,
-  currentPath: string,
-  failures: FailureDetail[]
-): void {
-  if (expected === actual) return;
-
-  if (expected == null || actual == null || typeof expected !== typeof actual) {
-    failures.push({
-      path: currentPath || '(root)',
-      expected: JSON.stringify(expected),
-      actual: JSON.stringify(actual),
-    });
-    return;
+let _ajvInstance: Ajv | null = null;
+function getAjv(): Ajv {
+  if (!_ajvInstance) {
+    _ajvInstance = new Ajv({ allErrors: true, strict: false });
+    addFormats(_ajvInstance);
   }
-
-  if (Array.isArray(expected)) {
-    if (!Array.isArray(actual)) {
-      failures.push({
-        path: currentPath,
-        expected: 'array',
-        actual: typeof actual,
-      });
-      return;
-    }
-    const maxLen = Math.max(expected.length, actual.length);
-    for (let i = 0; i < maxLen; i++) {
-      deepCompare(
-        expected[i],
-        actual[i],
-        `${currentPath}[${i}]`,
-        failures
-      );
-    }
-    return;
-  }
-
-  if (typeof expected === 'object') {
-    const expObj = expected as Record<string, unknown>;
-    const actObj = actual as Record<string, unknown>;
-    const allKeys = new Set([...Object.keys(expObj), ...Object.keys(actObj)]);
-    for (const key of allKeys) {
-      deepCompare(
-        expObj[key],
-        actObj[key],
-        currentPath ? `${currentPath}.${key}` : key,
-        failures
-      );
-    }
-    return;
-  }
-
-  // Primitive mismatch
-  failures.push({
-    path: currentPath || '(root)',
-    expected: JSON.stringify(expected),
-    actual: JSON.stringify(actual),
-  });
+  return _ajvInstance;
 }
 
-interface FieldEvalResult {
-  pass: boolean;
-  expected: string;
-  actual: string;
-}
 
-function toNumber(val: unknown): number | null {
-  if (typeof val === 'number') return val;
-  if (typeof val === 'string') {
-    const n = Number(val);
-    return isNaN(n) ? null : n;
-  }
-  return null;
-}
 
-function stringify(val: unknown): string {
-  if (val === undefined) return 'undefined';
-  if (typeof val === 'string') return val;
-  return JSON.stringify(val);
-}
-
-export function evaluateFieldOperator(
-  actualValue: unknown,
-  operator: FieldOperator,
-  operatorValue: string | undefined,
-  expectedValue: string,
-): FieldEvalResult {
-  const actual = stringify(actualValue);
-
-  switch (operator) {
-    case 'equals': {
-      const actualStr = JSON.stringify(actualValue);
-      let expectedStr: string;
-      try {
-        expectedStr = JSON.stringify(JSON.parse(expectedValue));
-      } catch {
-        expectedStr = JSON.stringify(expectedValue);
-      }
-      return { pass: actualStr === expectedStr, expected: `equals ${expectedValue}`, actual: actualStr ?? 'undefined' };
-    }
-
-    case 'not_equals': {
-      const actualStr = JSON.stringify(actualValue);
-      let expectedStr: string;
-      try {
-        expectedStr = JSON.stringify(JSON.parse(expectedValue));
-      } catch {
-        expectedStr = JSON.stringify(expectedValue);
-      }
-      return { pass: actualStr !== expectedStr, expected: `not equals ${expectedValue}`, actual: actualStr ?? 'undefined' };
-    }
-
-    case 'greater_than': {
-      const a = toNumber(actualValue);
-      const b = toNumber(operatorValue ?? expectedValue);
-      if (a === null || b === null) return { pass: false, expected: `> ${operatorValue ?? expectedValue}`, actual };
-      return { pass: a > b, expected: `> ${b}`, actual: String(a) };
-    }
-
-    case 'greater_than_or_equal': {
-      const a = toNumber(actualValue);
-      const b = toNumber(operatorValue ?? expectedValue);
-      if (a === null || b === null) return { pass: false, expected: `>= ${operatorValue ?? expectedValue}`, actual };
-      return { pass: a >= b, expected: `>= ${b}`, actual: String(a) };
-    }
-
-    case 'less_than': {
-      const a = toNumber(actualValue);
-      const b = toNumber(operatorValue ?? expectedValue);
-      if (a === null || b === null) return { pass: false, expected: `< ${operatorValue ?? expectedValue}`, actual };
-      return { pass: a < b, expected: `< ${b}`, actual: String(a) };
-    }
-
-    case 'less_than_or_equal': {
-      const a = toNumber(actualValue);
-      const b = toNumber(operatorValue ?? expectedValue);
-      if (a === null || b === null) return { pass: false, expected: `<= ${operatorValue ?? expectedValue}`, actual };
-      return { pass: a <= b, expected: `<= ${b}`, actual: String(a) };
-    }
-
-    case 'contains': {
-      const target = operatorValue ?? expectedValue;
-      const str = typeof actualValue === 'string' ? actualValue : JSON.stringify(actualValue) ?? '';
-      return { pass: str.includes(target), expected: `contains "${target}"`, actual };
-    }
-
-    case 'not_contains': {
-      const target = operatorValue ?? expectedValue;
-      const str = typeof actualValue === 'string' ? actualValue : JSON.stringify(actualValue) ?? '';
-      return { pass: !str.includes(target), expected: `not contains "${target}"`, actual };
-    }
-
-    case 'starts_with': {
-      const target = operatorValue ?? expectedValue;
-      const str = typeof actualValue === 'string' ? actualValue : '';
-      return { pass: str.startsWith(target), expected: `starts with "${target}"`, actual };
-    }
-
-    case 'ends_with': {
-      const target = operatorValue ?? expectedValue;
-      const str = typeof actualValue === 'string' ? actualValue : '';
-      return { pass: str.endsWith(target), expected: `ends with "${target}"`, actual };
-    }
-
-    case 'regex': {
-      const pattern = operatorValue ?? expectedValue;
-      const str = typeof actualValue === 'string' ? actualValue : JSON.stringify(actualValue) ?? '';
-      try {
-        const re = new RegExp(pattern);
-        return { pass: re.test(str), expected: `matches /${pattern}/`, actual };
-      } catch {
-        return { pass: false, expected: `valid regex /${pattern}/`, actual: 'invalid regex pattern' };
-      }
-    }
-
-    case 'is_true':
-      return { pass: actualValue === true || actualValue === 'true', expected: 'is true', actual };
-
-    case 'is_false':
-      return { pass: actualValue === false || actualValue === 'false', expected: 'is false', actual };
-
-    case 'is_null':
-      return { pass: actualValue === null, expected: 'is null', actual };
-
-    case 'is_not_null':
-      return { pass: actualValue !== null && actualValue !== undefined, expected: 'is not null', actual };
-
-    case 'is_empty': {
-      const empty =
-        actualValue === '' ||
-        actualValue === null ||
-        actualValue === undefined ||
-        (Array.isArray(actualValue) && actualValue.length === 0) ||
-        (typeof actualValue === 'object' && actualValue !== null && Object.keys(actualValue).length === 0);
-      return { pass: empty, expected: 'is empty', actual };
-    }
-
-    case 'is_not_empty': {
-      const notEmpty =
-        actualValue !== '' &&
-        actualValue !== null &&
-        actualValue !== undefined &&
-        !(Array.isArray(actualValue) && actualValue.length === 0) &&
-        !(typeof actualValue === 'object' && actualValue !== null && Object.keys(actualValue).length === 0);
-      return { pass: notEmpty, expected: 'is not empty', actual };
-    }
-
-    case 'exists':
-      return { pass: actualValue !== undefined, expected: 'exists', actual };
-
-    case 'not_exists':
-      return { pass: actualValue === undefined, expected: 'not exists', actual };
-
-    case 'is_type': {
-      const expectedType = (operatorValue ?? expectedValue).toLowerCase();
-      let actualType: string;
-      if (actualValue === null) actualType = 'null';
-      else if (Array.isArray(actualValue)) actualType = 'array';
-      else actualType = typeof actualValue;
-      return { pass: actualType === expectedType, expected: `is type ${expectedType}`, actual: `type: ${actualType}` };
-    }
-
-    case 'in': {
-      const raw = operatorValue ?? expectedValue;
-      let items: unknown[];
-      try {
-        items = JSON.parse(raw);
-        if (!Array.isArray(items)) items = raw.split(',').map(s => s.trim());
-      } catch {
-        items = raw.split(',').map(s => s.trim());
-      }
-      const stringified = items.map(i => JSON.stringify(i));
-      const actualStr = JSON.stringify(actualValue);
-      return { pass: stringified.includes(actualStr), expected: `in [${items.map(i => JSON.stringify(i)).join(', ')}]`, actual };
-    }
-
-    case 'not_in': {
-      const raw = operatorValue ?? expectedValue;
-      let items: unknown[];
-      try {
-        items = JSON.parse(raw);
-        if (!Array.isArray(items)) items = raw.split(',').map(s => s.trim());
-      } catch {
-        items = raw.split(',').map(s => s.trim());
-      }
-      const stringified = items.map(i => JSON.stringify(i));
-      const actualStr = JSON.stringify(actualValue);
-      return { pass: !stringified.includes(actualStr), expected: `not in [${items.map(i => JSON.stringify(i)).join(', ')}]`, actual };
-    }
-
-    case 'between': {
-      const raw = operatorValue ?? expectedValue;
-      const parts = raw.split(',').map(s => s.trim());
-      const lo = Number(parts[0]);
-      const hi = Number(parts[1]);
-      const a = toNumber(actualValue);
-      if (a === null || isNaN(lo) || isNaN(hi)) return { pass: false, expected: `between ${lo} and ${hi}`, actual };
-      return { pass: a >= lo && a <= hi, expected: `between ${lo} and ${hi}`, actual: String(a) };
-    }
-
-    case 'close_to': {
-      const raw = operatorValue ?? expectedValue;
-      const parts = raw.split(',').map(s => s.trim());
-      const target = Number(parts[0]);
-      const tolerance = parts.length > 1 ? Number(parts[1]) : 0.01;
-      const a = toNumber(actualValue);
-      if (a === null || isNaN(target)) return { pass: false, expected: `close to ${target} ±${tolerance}`, actual };
-      return { pass: Math.abs(a - target) <= tolerance, expected: `close to ${target} ±${tolerance}`, actual: String(a) };
-    }
-
-    default:
-      return { pass: false, expected: `operator "${operator}"`, actual: 'unknown operator' };
-  }
-}
 
 function validateFields(fields: ExpectedField[], responseBody: unknown): FailureDetail[] {
   const failures: FailureDetail[] = [];
   for (const field of fields) {
     const actualValue = getByPath(responseBody, field.jsonPath);
+    const negated = !!field.negate;
+    const negPrefix = negated ? 'NOT ' : '';
 
     if (field.operator) {
       const result = evaluateFieldOperator(actualValue, field.operator, field.operatorValue, field.expectedValue);
-      if (!result.pass) {
-        failures.push({ path: field.jsonPath, expected: result.expected, actual: result.actual });
+      const pass = negated ? !result.pass : result.pass;
+      if (!pass) {
+        failures.push({ path: field.jsonPath, expected: `${negPrefix}${result.expected}`, actual: result.actual });
       }
       continue;
     }
@@ -300,13 +46,16 @@ function validateFields(fields: ExpectedField[], responseBody: unknown): Failure
     } catch {
       expectedStr = JSON.stringify(field.expectedValue);
     }
-    if (actualStr !== expectedStr) {
-      failures.push({
-        path: field.jsonPath,
-        expected: field.expectedValue,
-        actual: actualStr ?? 'undefined',
-      });
+    const matched = actualStr === expectedStr;
+    const pass = negated ? !matched : matched;
+    if (pass) {
+      continue;
     }
+    failures.push({
+      path: field.jsonPath,
+      expected: negated ? `NOT equals ${field.expectedValue}` : field.expectedValue,
+      actual: actualStr ?? 'undefined',
+    });
   }
   return failures;
 }
@@ -320,7 +69,7 @@ function validateFields(fields: ExpectedField[], responseBody: unknown): Failure
  * Example: expected `offers[0].name = "A"` and `offers[0].code = "X"`
  * will match if ANY offers[i] has both name="A" AND code="X".
  */
-function validateFieldsUnordered(fields: ExpectedField[], responseBody: unknown): FailureDetail[] {
+export function validateFieldsUnordered(fields: ExpectedField[], responseBody: unknown): FailureDetail[] {
   // Identify array index pattern: replace [N] with [*]
   const indexPattern = /\[(\d+)\]/g;
 
@@ -377,6 +126,7 @@ function validateFieldsUnordered(fields: ExpectedField[], responseBody: unknown)
         originalPath: f.jsonPath,
         operator: f.operator,
         operatorValue: f.operatorValue,
+        negate: !!f.negate,
       }));
 
       let matchedIndex = -1;
@@ -394,7 +144,7 @@ function validateFieldsUnordered(fields: ExpectedField[], responseBody: unknown)
         const mismatches: { originalPath: string; expectedValue: string; actualValue: string }[] = [];
         const matches: { suffix: string; value: string }[] = [];
 
-        for (const { suffix, expectedValue, originalPath, operator, operatorValue } of fieldSuffixes) {
+        for (const { suffix, expectedValue, originalPath, operator, operatorValue, negate } of fieldSuffixes) {
           const candidatePath = baseIndex + suffix;
           const actualValue = getByPath(responseBody, candidatePath);
 
@@ -403,7 +153,7 @@ function validateFieldsUnordered(fields: ExpectedField[], responseBody: unknown)
 
           if (operator) {
             const result = evaluateFieldOperator(actualValue, operator, operatorValue, expectedValue);
-            fieldPassed = result.pass;
+            fieldPassed = negate ? !result.pass : result.pass;
             actualDisplay = result.actual;
           } else {
             const actualStr = JSON.stringify(actualValue);
@@ -413,7 +163,8 @@ function validateFieldsUnordered(fields: ExpectedField[], responseBody: unknown)
             } catch {
               expectedStr = JSON.stringify(expectedValue);
             }
-            fieldPassed = actualStr === expectedStr;
+            const matched = actualStr === expectedStr;
+            fieldPassed = negate ? !matched : matched;
             actualDisplay = actualStr ?? 'undefined';
           }
 
@@ -555,6 +306,16 @@ export function toDayString(val: unknown): string | null {
   return null;
 }
 
+export function truncateToUnit(d: Date, precision: 'day' | 'hour' | 'minute' | 'second' | 'millisecond'): number {
+  switch (precision) {
+    case 'millisecond': return d.getTime();
+    case 'second': return Math.floor(d.getTime() / 1000);
+    case 'minute': return Math.floor(d.getTime() / 60000);
+    case 'hour': return Math.floor(d.getTime() / 3600000);
+    case 'day': return Math.floor(d.getTime() / 86400000);
+  }
+}
+
 export function formatOp(op: ComparisonOperator): string {
   const map: Record<ComparisonOperator, string> = {
     '=': '=', '!=': '≠', '>': '>', '>=': '≥', '<': '<', '<=': '≤',
@@ -576,11 +337,56 @@ export function matchesStatusPattern(httpStatus: number, pattern: string): boole
   return p.split(',').some(s => matchesStatusPattern(httpStatus, s));
 }
 
+export function deepSubsetMatch(
+  actual: unknown,
+  expected: unknown,
+  path: string = '',
+): { match: boolean; path?: string; expected?: string; actual?: string } {
+  if (expected === null) {
+    return actual === null
+      ? { match: true }
+      : { match: false, path: path || '(root)', expected: 'null', actual: JSON.stringify(actual) };
+  }
+
+  if (Array.isArray(expected)) {
+    if (!Array.isArray(actual)) {
+      return { match: false, path: path || '(root)', expected: 'array', actual: typeof actual };
+    }
+    for (let i = 0; i < expected.length; i++) {
+      const found = actual.some(item => deepSubsetMatch(item, expected[i], '').match);
+      if (!found) {
+        return { match: false, path: `${path}[${i}]`, expected: JSON.stringify(expected[i]), actual: 'not found in array' };
+      }
+    }
+    return { match: true };
+  }
+
+  if (typeof expected === 'object' && expected !== null) {
+    if (typeof actual !== 'object' || actual === null || Array.isArray(actual)) {
+      return { match: false, path: path || '(root)', expected: 'object', actual: actual === null ? 'null' : Array.isArray(actual) ? 'array' : typeof actual };
+    }
+    const actObj = actual as Record<string, unknown>;
+    const expObj = expected as Record<string, unknown>;
+    for (const key of Object.keys(expObj)) {
+      if (!(key in actObj)) {
+        return { match: false, path: path ? `${path}.${key}` : key, expected: JSON.stringify(expObj[key]), actual: 'missing key' };
+      }
+      const sub = deepSubsetMatch(actObj[key], expObj[key], path ? `${path}.${key}` : key);
+      if (!sub.match) return sub;
+    }
+    return { match: true };
+  }
+
+  if (actual === expected) return { match: true };
+  return { match: false, path: path || '(root)', expected: JSON.stringify(expected), actual: JSON.stringify(actual) };
+}
+
 export interface AssertionContext {
   httpStatus: number;
   responseTimeMs: number;
   responseHeaders: Record<string, string>;
   responseBody: unknown;
+  rawBody?: string;
 }
 
 export function evaluateAssertions(
@@ -590,12 +396,16 @@ export function evaluateAssertions(
   const failures: FailureDetail[] = [];
   let statusAsserted = false;
 
-  for (const a of assertions) {
+  for (let _ai = 0; _ai < assertions.length; _ai++) {
+    const a = assertions[_ai];
+    const negated = !!a.negate;
+    const negPrefix = negated ? 'NOT ' : '';
+    const assertionFailures: FailureDetail[] = [];
     switch (a.type) {
       case 'status': {
         statusAsserted = true;
         if (!matchesStatusPattern(ctx.httpStatus, a.expected)) {
-          failures.push({
+          assertionFailures.push({
             path: '(status)',
             expected: a.expected,
             actual: String(ctx.httpStatus),
@@ -605,7 +415,7 @@ export function evaluateAssertions(
       }
       case 'responseTime': {
         if (ctx.responseTimeMs > a.maxMs) {
-          failures.push({
+          assertionFailures.push({
             path: '(responseTime)',
             expected: `≤ ${a.maxMs}ms`,
             actual: `${ctx.responseTimeMs}ms`,
@@ -617,7 +427,7 @@ export function evaluateAssertions(
         const headerVal = findHeader(ctx.responseHeaders, a.name);
         const opResult = evaluateHeaderOp(headerVal, a.operator, a.value);
         if (!opResult.pass) {
-          failures.push({
+          assertionFailures.push({
             path: `(header:${a.name})`,
             expected: opResult.expected,
             actual: opResult.actual,
@@ -631,14 +441,14 @@ export function evaluateAssertions(
         try {
           const re = new RegExp(a.pattern);
           if (!re.test(str)) {
-            failures.push({
+            assertionFailures.push({
               path: `(regex:${a.jsonPath})`,
               expected: `matches /${a.pattern}/`,
               actual: str.length > 200 ? str.slice(0, 200) + '…' : str,
             });
           }
         } catch {
-          failures.push({
+          assertionFailures.push({
             path: `(regex:${a.jsonPath})`,
             expected: `valid regex /${a.pattern}/`,
             actual: 'invalid regex pattern',
@@ -649,13 +459,13 @@ export function evaluateAssertions(
       case 'arrayLength': {
         const arr = getByPath(ctx.responseBody, a.jsonPath);
         if (!Array.isArray(arr)) {
-          failures.push({
+          assertionFailures.push({
             path: `(arrayLength:${a.jsonPath})`,
             expected: `array with length ${formatOp(a.operator)} ${a.value}`,
             actual: arr === undefined ? 'undefined' : `not an array (${typeof arr})`,
           });
         } else if (!compare(arr.length, a.operator, a.value)) {
-          failures.push({
+          assertionFailures.push({
             path: `(arrayLength:${a.jsonPath})`,
             expected: `length ${formatOp(a.operator)} ${a.value}`,
             actual: `length ${arr.length}`,
@@ -667,19 +477,19 @@ export function evaluateAssertions(
         const raw = getByPath(ctx.responseBody, a.jsonPath);
         const num = typeof raw === 'number' ? raw : Number(raw);
         if (raw === undefined) {
-          failures.push({
+          assertionFailures.push({
             path: `(numeric:${a.jsonPath})`,
             expected: `numeric value ${formatOp(a.operator)} ${a.value}`,
             actual: 'undefined',
           });
         } else if (isNaN(num)) {
-          failures.push({
+          assertionFailures.push({
             path: `(numeric:${a.jsonPath})`,
             expected: `numeric value ${formatOp(a.operator)} ${a.value}`,
             actual: `not a number: ${JSON.stringify(raw)}`,
           });
         } else if (!compare(num, a.operator, a.value)) {
-          failures.push({
+          assertionFailures.push({
             path: `(numeric:${a.jsonPath})`,
             expected: `${formatOp(a.operator)} ${a.value}`,
             actual: String(num),
@@ -691,13 +501,13 @@ export function evaluateAssertions(
         const rawDate = getByPath(ctx.responseBody, a.jsonPath);
         const dayStr = toDayString(rawDate);
         if (rawDate === undefined) {
-          failures.push({
+          assertionFailures.push({
             path: `(date:${a.jsonPath})`,
             expected: `date ${formatOp(a.operator)} ${resolveDate(a.reference)}`,
             actual: 'undefined',
           });
         } else if (dayStr === null) {
-          failures.push({
+          assertionFailures.push({
             path: `(date:${a.jsonPath})`,
             expected: `date ${formatOp(a.operator)} ${resolveDate(a.reference)}`,
             actual: `not a date: ${JSON.stringify(rawDate)}`,
@@ -706,7 +516,7 @@ export function evaluateAssertions(
           const refStr = resolveDate(a.reference);
           const cmp = dayStr.localeCompare(refStr);
           if (!compare(cmp, a.operator, 0)) {
-            failures.push({
+            assertionFailures.push({
               path: `(date:${a.jsonPath})`,
               expected: `${formatOp(a.operator)} ${refStr}`,
               actual: dayStr,
@@ -718,7 +528,7 @@ export function evaluateAssertions(
       case 'typeCheck': {
         const tcVal = getByPath(ctx.responseBody, a.jsonPath);
         if (tcVal === undefined) {
-          failures.push({
+          assertionFailures.push({
             path: `(typeCheck:${a.jsonPath})`,
             expected: `type ${a.expectedType}`,
             actual: 'path not found',
@@ -726,7 +536,7 @@ export function evaluateAssertions(
         } else {
           const actualType = getJsonTypeName(tcVal);
           if (actualType !== a.expectedType) {
-            failures.push({
+            assertionFailures.push({
               path: `(typeCheck:${a.jsonPath})`,
               expected: `type ${a.expectedType}`,
               actual: `type ${actualType}`,
@@ -739,7 +549,7 @@ export function evaluateAssertions(
         const exVal = getByPath(ctx.responseBody, a.jsonPath);
         const found = exVal !== undefined;
         if (found !== a.expectExists) {
-          failures.push({
+          assertionFailures.push({
             path: `(existence:${a.jsonPath})`,
             expected: a.expectExists ? 'field exists' : 'field does not exist',
             actual: found ? 'field exists' : 'field not found',
@@ -747,6 +557,248 @@ export function evaluateAssertions(
         }
         break;
       }
+      case 'arrayContains': {
+        const acArr = getByPath(ctx.responseBody, a.jsonPath);
+        if (!Array.isArray(acArr)) {
+          assertionFailures.push({
+            path: `(arrayContains:${a.jsonPath})`,
+            expected: `array containing value`,
+            actual: acArr === undefined ? 'undefined' : `not an array (${typeof acArr})`,
+          });
+          break;
+        }
+        let parsedValue: unknown;
+        try { parsedValue = JSON.parse(a.value); } catch { parsedValue = a.value; }
+        const itemMatches = (item: unknown): boolean => {
+          if (typeof parsedValue === 'object' && parsedValue !== null) {
+            return deepSubsetMatch(item, parsedValue).match;
+          }
+          return item === parsedValue || JSON.stringify(item) === JSON.stringify(parsedValue);
+        };
+        switch (a.mode) {
+          case 'any': {
+            if (!acArr.some(itemMatches)) {
+              assertionFailures.push({
+                path: `(arrayContains:${a.jsonPath})`,
+                expected: `array contains ${a.value}`,
+                actual: `no matching item in ${acArr.length} items`,
+              });
+            }
+            break;
+          }
+          case 'all': {
+            const failCount = acArr.filter(item => !itemMatches(item)).length;
+            if (failCount > 0) {
+              assertionFailures.push({
+                path: `(arrayContains:${a.jsonPath})`,
+                expected: `all ${acArr.length} items match ${a.value}`,
+                actual: `${failCount} of ${acArr.length} items did not match`,
+              });
+            }
+            break;
+          }
+          case 'only': {
+            const parsedArr = Array.isArray(parsedValue) ? parsedValue : [parsedValue];
+            const unmatched = parsedArr.filter(exp =>
+              !acArr.some(act => deepSubsetMatch(act, exp).match),
+            );
+            const extras = acArr.filter(act =>
+              !parsedArr.some(exp => deepSubsetMatch(act, exp).match),
+            );
+            if (unmatched.length > 0 || extras.length > 0) {
+              const parts: string[] = [];
+              if (unmatched.length > 0) parts.push(`missing: ${JSON.stringify(unmatched)}`);
+              if (extras.length > 0) parts.push(`extras: ${JSON.stringify(extras)}`);
+              assertionFailures.push({
+                path: `(arrayContains:${a.jsonPath})`,
+                expected: `exactly ${parsedArr.length} items (unordered)`,
+                actual: parts.join('; '),
+              });
+            }
+            break;
+          }
+          case 'none': {
+            const matchIdx = acArr.findIndex(itemMatches);
+            if (matchIdx >= 0) {
+              assertionFailures.push({
+                path: `(arrayContains:${a.jsonPath})`,
+                expected: `no items match ${a.value}`,
+                actual: `item at index ${matchIdx} matched`,
+              });
+            }
+            break;
+          }
+        }
+        break;
+      }
+      case 'each': {
+        const eachArr = getByPath(ctx.responseBody, a.jsonPath);
+        if (!Array.isArray(eachArr)) {
+          assertionFailures.push({
+            path: `(each:${a.jsonPath})`,
+            expected: `array where every element satisfies condition`,
+            actual: eachArr === undefined ? 'undefined' : `not an array (${typeof eachArr})`,
+          });
+          break;
+        }
+        const eachFailures: string[] = [];
+        for (let idx = 0; idx < eachArr.length; idx++) {
+          const elem = eachArr[idx];
+          const fieldVal = a.fieldPath
+            ? getByPath(elem, a.fieldPath)
+            : elem;
+          const result = evaluateFieldOperator(
+            fieldVal, a.operator, a.value, a.value ?? '',
+          );
+          if (!result.pass) {
+            eachFailures.push(`[${idx}]${a.fieldPath ? '.' + a.fieldPath : ''}: expected ${result.expected}, got ${result.actual}`);
+          }
+        }
+        if (eachFailures.length > 0) {
+          const summary = eachFailures.length <= 3
+            ? eachFailures.join('; ')
+            : `${eachFailures.slice(0, 3).join('; ')} … and ${eachFailures.length - 3} more`;
+          assertionFailures.push({
+            path: `(each:${a.jsonPath})`,
+            expected: `all ${eachArr.length} items: ${a.fieldPath ? a.fieldPath + ' ' : ''}${a.operator}${a.value ? ' ' + a.value : ''}`,
+            actual: `${eachFailures.length} of ${eachArr.length} failed — ${summary}`,
+          });
+        }
+        break;
+      }
+      case 'containsSubset': {
+        const csVal = getByPath(ctx.responseBody, a.jsonPath);
+        if (csVal === undefined) {
+          assertionFailures.push({
+            path: `(containsSubset:${a.jsonPath})`,
+            expected: `contains subset ${a.expected}`,
+            actual: 'undefined',
+          });
+          break;
+        }
+        let parsedExpected: unknown;
+        try { parsedExpected = JSON.parse(a.expected); } catch {
+          assertionFailures.push({
+            path: `(containsSubset:${a.jsonPath})`,
+            expected: `valid JSON subset`,
+            actual: 'invalid JSON in expected',
+          });
+          break;
+        }
+        const subResult = deepSubsetMatch(csVal, parsedExpected);
+        if (!subResult.match) {
+          assertionFailures.push({
+            path: `(containsSubset:${a.jsonPath}${subResult.path ? '.' + subResult.path : ''})`,
+            expected: subResult.expected ?? a.expected,
+            actual: subResult.actual ?? JSON.stringify(csVal),
+          });
+        }
+        break;
+      }
+
+      case 'jsonSchema': {
+        try {
+          const schema = JSON.parse(a.schema);
+          const ajv = getAjv();
+          const validate = ajv.compile(schema);
+          const valid = validate(ctx.responseBody);
+          if (!valid && validate.errors) {
+            for (const err of validate.errors.slice(0, 10)) {
+              assertionFailures.push({
+                path: `(jsonSchema#${_ai}:${err.instancePath || '/'})`,
+                expected: err.message ?? 'schema validation',
+                actual: `violation at ${err.instancePath || '/'}: ${err.keyword}`,
+              });
+            }
+          }
+          ajv.removeSchema();
+        } catch (e) {
+          assertionFailures.push({
+            path: `(jsonSchema#${_ai})`,
+            expected: 'valid JSON Schema',
+            actual: e instanceof Error ? e.message : 'invalid schema',
+          });
+        }
+        break;
+      }
+
+      case 'bodySize': {
+        const raw = ctx.rawBody ?? (ctx.responseBody != null ? JSON.stringify(ctx.responseBody) : '');
+        const sizeBytes = new TextEncoder().encode(raw).length;
+        const divisor = a.unit === 'kb' ? 1024 : a.unit === 'mb' ? 1024 * 1024 : 1;
+        const actualSize = sizeBytes / divisor;
+        const threshold = a.value;
+        if (!compare(actualSize, a.operator, threshold)) {
+          const unitLabel = a.unit === 'bytes' ? 'B' : a.unit.toUpperCase();
+          assertionFailures.push({
+            path: '(bodySize)',
+            expected: `body size ${formatOp(a.operator)} ${threshold} ${unitLabel}`,
+            actual: `${Math.round(actualSize * 100) / 100} ${unitLabel}`,
+          });
+        }
+        break;
+      }
+
+      case 'datePrecise': {
+        const rawDp = getByPath(ctx.responseBody, a.jsonPath);
+        if (rawDp === undefined) {
+          assertionFailures.push({
+            path: `(datePrecise:${a.jsonPath})`,
+            expected: `date ${formatOp(a.operator)} ${a.reference} (${a.precision})`,
+            actual: 'undefined',
+          });
+          break;
+        }
+        const actualDate = new Date(String(rawDp));
+        const refDate = new Date(a.reference);
+        if (isNaN(actualDate.getTime())) {
+          assertionFailures.push({
+            path: `(datePrecise:${a.jsonPath})`,
+            expected: `valid date`,
+            actual: `invalid date: ${String(rawDp)}`,
+          });
+          break;
+        }
+        if (isNaN(refDate.getTime())) {
+          assertionFailures.push({
+            path: `(datePrecise:${a.jsonPath})`,
+            expected: `valid reference date`,
+            actual: `invalid reference: ${a.reference}`,
+          });
+          break;
+        }
+        const truncActual = truncateToUnit(actualDate, a.precision);
+        const truncRef = truncateToUnit(refDate, a.precision);
+        if (!compare(truncActual, a.operator, truncRef)) {
+          assertionFailures.push({
+            path: `(datePrecise:${a.jsonPath})`,
+            expected: `date ${formatOp(a.operator)} ${a.reference} (precision: ${a.precision})`,
+            actual: String(rawDp),
+          });
+        }
+        break;
+      }
+    }
+
+    if (negated) {
+      const configErrors = assertionFailures.filter(f =>
+        f.actual === 'invalid regex pattern' ||
+        f.actual === 'invalid JSON in expected' ||
+        f.actual.startsWith('invalid date:') ||
+        f.actual.startsWith('invalid reference:') ||
+        (f.expected === 'valid JSON Schema' || f.expected === 'valid JSON subset'),
+      );
+      if (configErrors.length > 0) {
+        failures.push(...configErrors);
+      } else if (assertionFailures.length === 0) {
+        failures.push({
+          path: `(${a.type})`,
+          expected: `${negPrefix}(assertion to fail)`,
+          actual: 'assertion passed (negated → fail)',
+        });
+      }
+    } else {
+      failures.push(...assertionFailures);
     }
   }
 

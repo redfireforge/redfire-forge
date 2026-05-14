@@ -30,6 +30,8 @@ interface MapperToolbarProps {
   onToggleCodeView?: () => void;
   showTableView?: boolean;
   onToggleTableView?: () => void;
+  showRulesView?: boolean;
+  onToggleRulesView?: () => void;
   onLoadGallerySample?: (sample: MapperGallerySample) => void;
   hasTraceData?: boolean;
   debugMode?: boolean;
@@ -46,6 +48,15 @@ interface MapperToolbarProps {
   onToggleCompactMode?: () => void;
   advancedOpen?: boolean;
   onAdvancedOpenChange?: (open: boolean) => void;
+  onVerifyAll?: () => void;
+  onFetchAndVerify?: () => void;
+  autoVerify?: boolean;
+  onToggleAutoVerify?: () => void;
+  verifyStatus?: 'idle' | 'running' | 'complete';
+  verifyPassedCount?: number;
+  verifyFailedCount?: number;
+  verifyFailures?: { path: string; expected?: string; actual?: string }[];
+  onNavigateToFailure?: (path: string) => void;
 }
 
 export default function MapperToolbar({
@@ -73,6 +84,8 @@ export default function MapperToolbar({
   onToggleCodeView,
   showTableView,
   onToggleTableView,
+  showRulesView,
+  onToggleRulesView,
   onLoadGallerySample,
   hasTraceData,
   debugMode,
@@ -89,10 +102,22 @@ export default function MapperToolbar({
   onToggleCompactMode,
   advancedOpen: advancedOpenProp,
   onAdvancedOpenChange,
+  onVerifyAll,
+  onFetchAndVerify,
+  autoVerify = false,
+  onToggleAutoVerify,
+  verifyStatus = 'idle',
+  verifyPassedCount = 0,
+  verifyFailedCount = 0,
+  verifyFailures = [],
+  onNavigateToFailure,
 }: MapperToolbarProps) {
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [samplesMenuOpen, setSamplesMenuOpen] = useState(false);
   const [internalAdvancedOpen, setInternalAdvancedOpen] = useState(true);
+  const [failureListOpen, setFailureListOpen] = useState(false);
+  const [activeFailureIndex, setActiveFailureIndex] = useState(0);
+  const failureListRef = useRef<HTMLDivElement>(null);
   const samplesRef = useRef<HTMLDivElement>(null);
   const advancedRef = useRef<HTMLDivElement>(null);
   const [profiles, setProfiles] = useState<MappingProfile[]>([]);
@@ -157,6 +182,29 @@ export default function MapperToolbar({
     setProfileMenuOpen(false);
     setSamplesMenuOpen(false);
   }, [advancedOpen]);
+
+  useEffect(() => {
+    if (!failureListOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (failureListRef.current && !failureListRef.current.contains(e.target as Node)) {
+        setFailureListOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [failureListOpen]);
+
+  useEffect(() => {
+    setActiveFailureIndex(0);
+    setFailureListOpen(false);
+  }, [verifyFailures.length]);
+
+  const navigateFailure = useCallback((index: number) => {
+    if (verifyFailures.length === 0) return;
+    const clamped = ((index % verifyFailures.length) + verifyFailures.length) % verifyFailures.length;
+    setActiveFailureIndex(clamped);
+    onNavigateToFailure?.(verifyFailures[clamped].path);
+  }, [verifyFailures, onNavigateToFailure]);
 
   const handleSave = useCallback(async () => {
     if (!contextId || !mappings || !saveName.trim()) return;
@@ -288,6 +336,15 @@ export default function MapperToolbar({
             Table
           </button>
         )}
+        {onToggleRulesView && (
+          <button
+            className={`dm-toolbar-btn dm-toolbar-btn--quiet ${showRulesView ? 'dm-toolbar-btn--active' : ''}`}
+            onClick={onToggleRulesView}
+            title={showRulesView ? 'Hide rules editor' : 'Edit validation rules as code'}
+          >
+            Rules
+          </button>
+        )}
         {onToggleMappingLines && (
           <button
             className={`dm-toolbar-btn dm-toolbar-btn--quiet ${showMappingLines ? 'dm-toolbar-btn--active' : ''}`}
@@ -307,6 +364,107 @@ export default function MapperToolbar({
           </button>
         )}
       </div>
+
+      {onVerifyAll && (
+        <div className="dm-toolbar-cluster dm-toolbar-cluster--verify dm-toolbar-cluster--secondary" aria-label="Verification controls">
+          <button
+            className={`dm-toolbar-btn dm-toolbar-btn--verify ${verifyStatus === 'running' ? 'dm-toolbar-btn--spinning' : ''}`}
+            onClick={onVerifyAll}
+            disabled={verifyStatus === 'running'}
+            title="Verify all rules against sample data"
+          >
+            {verifyStatus === 'running' ? 'Verifying…' : 'Verify All'}
+          </button>
+          {onFetchAndVerify && (
+            <button
+              className={`dm-toolbar-btn dm-toolbar-btn--verify ${verifyStatus === 'running' ? 'dm-toolbar-btn--spinning' : ''}`}
+              onClick={onFetchAndVerify}
+              disabled={verifyStatus === 'running'}
+              title="Fetch live response and verify"
+            >
+              Fetch & Verify
+            </button>
+          )}
+          {onToggleAutoVerify && (
+            <label className="dm-toolbar-toggle" title="Auto-verify on rule changes">
+              <input
+                type="checkbox"
+                checked={autoVerify}
+                onChange={onToggleAutoVerify}
+              />
+              <span className="dm-toolbar-toggle-label">Auto</span>
+            </label>
+          )}
+          {verifyStatus === 'complete' && (
+            <span className="dm-toolbar-verify-summary">
+              {verifyFailedCount === 0 ? (
+                <span className="dm-toolbar-verify-pass">{verifyPassedCount} passed</span>
+              ) : (
+                <>
+                  <span className="dm-toolbar-verify-pass">{verifyPassedCount}</span>
+                  <span className="dm-toolbar-verify-sep">/</span>
+                  <span
+                    className="dm-toolbar-verify-fail dm-toolbar-verify-fail--clickable"
+                    onClick={() => setFailureListOpen(prev => !prev)}
+                    role="button"
+                    tabIndex={0}
+                    title="Click to see failures"
+                  >
+                    {verifyFailedCount} failed
+                  </span>
+                </>
+              )}
+            </span>
+          )}
+          {verifyStatus === 'complete' && verifyFailedCount > 0 && onNavigateToFailure && (
+            <div className="dm-toolbar-failure-nav">
+              <button
+                className="dm-toolbar-btn dm-toolbar-btn--icon"
+                onClick={() => navigateFailure(activeFailureIndex - 1)}
+                title="Previous failure"
+                aria-label="Previous failure"
+              >
+                ▲
+              </button>
+              <span className="dm-toolbar-failure-counter">
+                {activeFailureIndex + 1}/{verifyFailedCount}
+              </span>
+              <button
+                className="dm-toolbar-btn dm-toolbar-btn--icon"
+                onClick={() => navigateFailure(activeFailureIndex + 1)}
+                title="Next failure"
+                aria-label="Next failure"
+              >
+                ▼
+              </button>
+            </div>
+          )}
+          {failureListOpen && verifyFailures.length > 0 && (
+            <div className="dm-toolbar-failure-list" ref={failureListRef}>
+              <div className="dm-toolbar-failure-list-header">
+                Failed Rules ({verifyFailures.length})
+              </div>
+              {verifyFailures.map((f, i) => (
+                <button
+                  key={f.path}
+                  className={`dm-toolbar-failure-item ${i === activeFailureIndex ? 'dm-toolbar-failure-item--active' : ''}`}
+                  onClick={() => {
+                    setActiveFailureIndex(i);
+                    onNavigateToFailure?.(f.path);
+                    setFailureListOpen(false);
+                  }}
+                >
+                  <span className="dm-toolbar-failure-path">{f.path}</span>
+                  <span className="dm-toolbar-failure-detail">
+                    <span className="dm-toolbar-failure-expected">Expected: {f.expected ?? '?'}</span>
+                    <span className="dm-toolbar-failure-actual">Got: {f.actual ?? '?'}</span>
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {hasAdvancedControls && (
         <div className="dm-toolbar-cluster dm-toolbar-cluster--advanced-toggle dm-toolbar-cluster--secondary" ref={advancedRef} aria-label="Advanced controls">

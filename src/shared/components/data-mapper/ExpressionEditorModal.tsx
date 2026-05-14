@@ -56,6 +56,40 @@ function extractTemplateFunctionNames(template: string): string[] {
   return Array.from(new Set(matches));
 }
 
+const LAMBDA_SNIPPETS: Record<string, string> = {
+  '$map': '$map(${1:array}, ${2:x} => ${3:expr})',
+  '$filter': '$filter(${1:array}, ${2:x} => ${3:condition})',
+  '$reduce': '$reduce(${1:array}, (${2:acc}, ${3:x}) => ${4:expr}, ${5:initial})',
+  '$sortBy': '$sortBy(${1:array}, ${2:x} => ${3:x.key})',
+  '$minBy': '$minBy(${1:array}, ${2:x} => ${3:x.key})',
+  '$maxBy': '$maxBy(${1:array}, ${2:x} => ${3:x.key})',
+  '$distinctBy': '$distinctBy(${1:array}, ${2:x} => ${3:x.key})',
+  '$zip': '$zip(${1:array1}, ${2:array2}, (${3:a}, ${4:b}) => ${5:expr})',
+  '$mapValues': '$mapValues(${1:object}, ${2:v} => ${3:expr})',
+  '$mapKeys': '$mapKeys(${1:object}, ${2:k} => ${3:expr})',
+  '$withEntries': '$withEntries(${1:object}, ${2:e} => ${3:e})',
+};
+
+const LAMBDA_INSERT_TEMPLATES: Record<string, string> = {
+  '$map': '$map(ARRAY, x => x)',
+  '$filter': '$filter(ARRAY, x => $gt(x, 0))',
+  '$reduce': '$reduce(ARRAY, (acc, x) => $add(acc, x), 0)',
+  '$sortBy': '$sortBy(ARRAY, x => x)',
+  '$minBy': '$minBy(ARRAY, x => x)',
+  '$maxBy': '$maxBy(ARRAY, x => x)',
+  '$distinctBy': '$distinctBy(ARRAY, x => x)',
+  '$zip': '$zip(ARRAY, [], (a, b) => a)',
+  '$mapValues': '$mapValues(ARRAY, v => v)',
+  '$mapKeys': '$mapKeys(ARRAY, k => k)',
+  '$withEntries': '$withEntries(ARRAY, e => e)',
+};
+
+function buildFunctionSnippet(fnCall: string, fn: ExpressionFunction): string {
+  if (LAMBDA_SNIPPETS[fnCall]) return LAMBDA_SNIPPETS[fnCall];
+  if (fn.args.length > 0) return `${fnCall}(\${1:${fn.args[0].name}})`;
+  return `${fnCall}()`;
+}
+
 function fixedValueToExpression(value: string): string | null {
   const trimmed = value.trim();
   if (!trimmed) return null;
@@ -258,6 +292,12 @@ export default function ExpressionEditorModal({
       ? currentExpr
       : toExpressionReference(mapping.sourcePath);
 
+    const lambdaTemplate = LAMBDA_INSERT_TEMPLATES[fnCall];
+    if (lambdaTemplate) {
+      setExpression(lambdaTemplate.replace('ARRAY', baseInput));
+      return;
+    }
+
     const args = fn.args.map((arg, index) => {
       if (index === 0) return baseInput;
       const type = arg.type.toLowerCase();
@@ -288,6 +328,13 @@ export default function ExpressionEditorModal({
     const baseInput = expression.trim()
       ? toExpressionReference(expression)
       : toExpressionReference(mapping.sourcePath);
+
+    const lambdaTemplate = LAMBDA_INSERT_TEMPLATES[fnCall];
+    if (lambdaTemplate) {
+      setExpression(lambdaTemplate.replace('ARRAY', baseInput));
+      return;
+    }
+
     const args = fn.args.map((arg, index) => {
       if (index === 0) return baseInput;
       const type = arg.type.toLowerCase();
@@ -380,9 +427,7 @@ export default function ExpressionEditorModal({
           return {
             suggestions: allFunctionsRef.current.map((fn) => {
               const fnCall = fn.name.startsWith('$') ? fn.name : `$${fn.name}`;
-              const snippet = fn.args.length > 0
-                ? `${fnCall}(\${1:${fn.args[0].name}})`
-                : `${fnCall}()`;
+              const snippet = buildFunctionSnippet(fnCall, fn);
               return {
                 label: fnCall,
                 kind: monaco.languages.CompletionItemKind.Function,
@@ -500,6 +545,9 @@ export default function ExpressionEditorModal({
                       title={fn.description}
                     >
                       <span className="dm-expr-fn-name">{fn.name}</span>
+                      {fn.args.some(a => a.type === 'function') && (
+                        <span className="dm-expr-fn-lambda-badge">λ</span>
+                      )}
                       <span className="dm-expr-fn-return">{fn.returnType}</span>
                     </button>
                   ))}

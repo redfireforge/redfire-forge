@@ -70,7 +70,7 @@ describe('inferMappingsFromExamples', () => {
     ];
     const result = inferMappingsFromExamples(examples);
     expect(result.length).toBe(1);
-    expect(result[0].expression).toContain('$lowercase');
+    expect(result[0].expression).toContain('$lower');
   });
 
   it('detects string→number transformation', () => {
@@ -164,7 +164,7 @@ describe('inferMappingsFromExamples', () => {
       { input: { code: 'abc' }, output: { CODE: 'ABC' } },
     ];
     const result = inferMappingsFromExamples(examples);
-    expect(result.some((r) => r.expression?.includes('$uppercase'))).toBe(true);
+    expect(result.some((r) => r.expression?.includes('$upper'))).toBe(true);
   });
 
   it('returns empty when no value matches', () => {

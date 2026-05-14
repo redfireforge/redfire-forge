@@ -202,20 +202,8 @@ export function detectTypeMismatches(
         message: `Source looks like a date. Try \`${suggestedFix}\` to reformat.`,
         suggestedFix,
       });
-    } else if (srcIsDate && tgtIsDate) {
-      const normalizedPath = toJsonPathRef(mapping.sourcePath);
-      const suggestedFix = `$formatDate(${normalizedPath}, "YYYY-MM-DD")`;
-      mismatches.push({
-        mappingId: mapping.id,
-        sourcePath: mapping.sourcePath,
-        targetPath: mapping.targetPath,
-        sourceType: 'date-string',
-        targetType: 'date-string',
-        severity: 'info',
-        message: `Both values look like dates. Use \`${suggestedFix}\` to normalize format.`,
-        suggestedFix,
-      });
     }
+    // When both values are dates, they're the same type — no mismatch to report.
   }
 
   return mismatches;

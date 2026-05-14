@@ -4057,6 +4057,38 @@ button.dm-mismatch-badge {
   color: #8b949e;
 }
 
+.dm-operator-pill--negated {
+  box-shadow: inset 0 0 0 1px #ef4444, 0 0 4px #ef444430;
+}
+
+.dm-negate-badge {
+  font-size: 9px; font-weight: 800; padding: 1px 4px; border-radius: 3px;
+  background: #ef444425; color: #f87171; border: 1px solid #ef4444;
+  cursor: pointer; letter-spacing: .6px; flex-shrink: 0;
+  margin-right: -2px; line-height: 1.3;
+  transition: all 0.15s ease;
+}
+.dm-negate-badge:hover { background: #ef444440; }
+
+.dm-op-picker-negate-row {
+  padding: 6px 8px; border-bottom: 1px solid var(--border, #313244);
+}
+.dm-op-picker-negate-btn {
+  display: flex; align-items: center; gap: 6px; width: 100%;
+  padding: 5px 8px; border-radius: 4px; border: 1px solid #64748b30;
+  background: transparent; color: var(--text-muted, #888);
+  cursor: pointer; font-size: 12px; transition: all 0.15s ease;
+}
+.dm-op-picker-negate-btn:hover { border-color: #ef4444; color: #f87171; background: #ef444410; }
+.dm-op-picker-negate-btn--active {
+  background: #ef444418; color: #f87171; border-color: #ef4444;
+}
+.dm-op-picker-negate-icon {
+  font-size: 14px; font-weight: 700; color: #ef4444;
+}
+.dm-op-picker-negate-label { flex: 1; text-align: left; }
+.dm-op-picker-negate-check { color: #22c55e; font-size: 13px; }
+
 .dm-op-icon {
   font-size: 11px;
 }
@@ -4207,6 +4239,433 @@ button.dm-mismatch-badge {
   text-align: center;
   color: var(--text-muted, #6c7086);
   font-size: 12px;
+}
+
+/* ─── Context Menu ──────────────────────────────── */
+
+.dm-context-menu {
+  background: var(--surface, #1e1e2e);
+  border: 1px solid var(--border, #45475a);
+  border-radius: 6px;
+  padding: 4px 0;
+  min-width: 180px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  font-size: 12px;
+}
+
+.dm-context-menu-item {
+  display: block;
+  width: 100%;
+  padding: 6px 12px;
+  background: none;
+  border: none;
+  color: var(--text, #cdd6f4);
+  text-align: left;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.dm-context-menu-item:hover:not(:disabled) {
+  background: var(--surface-hover, #313244);
+}
+
+.dm-context-menu-item:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.dm-context-menu-item--danger {
+  color: #f38ba8;
+}
+.dm-context-menu-item--active {
+  color: #f87171;
+  background: #ef444410;
+}
+
+.dm-context-menu-divider {
+  height: 1px;
+  background: var(--border, #45475a);
+  margin: 4px 0;
+}
+
+.dm-context-menu-label {
+  padding: 4px 12px 2px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted, #6c7086);
+}
+
+/* ─── Array Assertion Rows ─────────────────────────── */
+
+.dm-array-assertion-rows {
+  padding: 2px 0;
+}
+
+.dm-array-assertion-hint {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  font-size: 11px;
+  color: var(--text-muted, #6c7086);
+  opacity: 0.6;
+  cursor: default;
+}
+
+.dm-array-assertion-hint-icon {
+  font-size: 13px;
+  font-weight: bold;
+  color: var(--accent, #89b4fa);
+}
+
+.dm-array-assertion-hint-text {
+  font-style: italic;
+}
+
+/* ─── Validation Code Editor ──────────────────────────── */
+
+.dm-validation-editor {
+  display: flex;
+  flex-direction: column;
+  background: #181825;
+  border-top: 1px solid rgba(137, 180, 250, 0.12);
+  overflow: hidden;
+}
+
+.dm-validation-editor-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px;
+  border-bottom: 1px solid rgba(137, 180, 250, 0.08);
+  background: rgba(17, 17, 27, 0.6);
+}
+
+.dm-validation-editor-title {
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--text, #cdd6f4);
+  letter-spacing: 0.01em;
+}
+
+.dm-validation-editor-stats {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.dm-validation-editor-stat {
+  font-size: 0.68rem;
+  color: var(--text-muted, #6c7086);
+  padding: 1px 8px;
+  border-radius: 8px;
+  background: rgba(137, 180, 250, 0.08);
+}
+
+.dm-validation-editor-stat--error {
+  background: rgba(243, 139, 168, 0.15);
+  color: #f38ba8;
+  font-weight: 600;
+}
+
+.dm-validation-editor-body {
+  flex: 1;
+  overflow: hidden;
+  min-height: 120px;
+}
+
+.dm-validation-editor-body .monaco-editor {
+  border-radius: 0;
+}
+
+.dm-validation-editor-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 12px;
+  border-top: 1px solid rgba(137, 180, 250, 0.06);
+  background: rgba(17, 17, 27, 0.4);
+}
+
+.dm-validation-editor-hint {
+  font-size: 0.65rem;
+  color: var(--text-muted, #6c7086);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.dm-validation-editor-hint code {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 0.62rem;
+  background: rgba(137, 180, 250, 0.08);
+  padding: 1px 4px;
+  border-radius: 3px;
+  color: #89dceb;
+}
+
+.dm-validation-editor-hint kbd {
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 0.58rem;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+  padding: 0 3px;
+  color: var(--text-muted, #6c7086);
+  line-height: 1.4;
+}
+
+.dm-validation-editor-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-muted, #6c7086);
+  font-size: 0.78rem;
+  font-style: italic;
+}
+
+/* ─── Verification UI ─────────────────────────────────── */
+
+.dm-verify-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  font-size: 0.62rem;
+  font-weight: 700;
+  line-height: 1;
+  flex-shrink: 0;
+  margin-left: 4px;
+}
+
+.dm-verify-badge--pass {
+  background: rgba(166, 227, 161, 0.18);
+  color: #a6e3a1;
+  border: 1px solid rgba(166, 227, 161, 0.35);
+}
+
+.dm-verify-badge--fail {
+  background: rgba(243, 139, 168, 0.18);
+  color: #f38ba8;
+  border: 1px solid rgba(243, 139, 168, 0.35);
+}
+
+.dm-verify-actual {
+  font-size: 0.62rem;
+  color: #f38ba8;
+  margin-left: 4px;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0.85;
+}
+
+.dm-connection-line--verify-fail {
+  stroke: #f38ba8 !important;
+  stroke-dasharray: 4 2;
+  opacity: 0.9;
+}
+
+/* Toolbar verify cluster */
+
+.dm-toolbar-btn--verify {
+  border-color: rgba(148, 226, 213, 0.5);
+  color: #94e2d5;
+  font-weight: 600;
+}
+
+.dm-toolbar-btn--verify:hover:not(:disabled) {
+  background: rgba(148, 226, 213, 0.12);
+}
+
+.dm-toolbar-btn--spinning {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+.dm-toolbar-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.72rem;
+  color: var(--text-muted, #6c7086);
+  cursor: pointer;
+}
+
+.dm-toolbar-toggle input[type="checkbox"] {
+  width: 12px;
+  height: 12px;
+  accent-color: #94e2d5;
+}
+
+.dm-toolbar-toggle-label {
+  font-size: 0.68rem;
+}
+
+.dm-toolbar-verify-summary {
+  font-size: 0.68rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.dm-toolbar-verify-pass {
+  color: #a6e3a1;
+  font-weight: 600;
+}
+
+.dm-toolbar-verify-fail {
+  color: #f38ba8;
+  font-weight: 600;
+}
+
+.dm-toolbar-verify-sep {
+  color: var(--text-muted, #6c7086);
+}
+
+.dm-toolbar-cluster--verify {
+  position: relative;
+}
+
+.dm-toolbar-verify-fail--clickable {
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 2px;
+}
+.dm-toolbar-verify-fail--clickable:hover {
+  color: #ff7eb3;
+}
+
+/* ── Failure navigation ── */
+.dm-toolbar-failure-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: 4px;
+}
+.dm-toolbar-failure-counter {
+  font-size: 0.65rem;
+  color: #f38ba8;
+  font-weight: 600;
+  min-width: 28px;
+  text-align: center;
+}
+.dm-toolbar-btn--icon {
+  background: none;
+  border: 1px solid var(--border-subtle, #45475a);
+  border-radius: 3px;
+  color: var(--text-muted, #a6adc8);
+  font-size: 0.55rem;
+  padding: 1px 4px;
+  cursor: pointer;
+  line-height: 1;
+}
+.dm-toolbar-btn--icon:hover {
+  background: var(--bg-hover, #313244);
+  color: #f38ba8;
+}
+
+/* ── Failure list dropdown ── */
+.dm-toolbar-failure-list {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 100;
+  background: var(--bg-surface, #1e1e2e);
+  border: 1px solid var(--border-subtle, #45475a);
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  min-width: 340px;
+  max-width: 480px;
+  max-height: 320px;
+  overflow-y: auto;
+  margin-top: 4px;
+}
+.dm-toolbar-failure-list-header {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #f38ba8;
+  padding: 8px 12px 4px;
+  border-bottom: 1px solid var(--border-subtle, #313244);
+}
+.dm-toolbar-failure-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: 6px 12px;
+  border: none;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border-subtle, #313244);
+  font-size: 0.68rem;
+  color: var(--text-primary, #cdd6f4);
+}
+.dm-toolbar-failure-item:last-child {
+  border-bottom: none;
+}
+.dm-toolbar-failure-item:hover {
+  background: var(--bg-hover, #313244);
+}
+.dm-toolbar-failure-item--active {
+  background: rgba(243, 139, 168, 0.1);
+  border-left: 3px solid #f38ba8;
+}
+.dm-toolbar-failure-path {
+  font-weight: 600;
+  color: #f38ba8;
+  font-family: var(--font-mono, 'Fira Code', monospace);
+  font-size: 0.66rem;
+}
+.dm-toolbar-failure-detail {
+  display: flex;
+  gap: 12px;
+  font-size: 0.62rem;
+  color: var(--text-muted, #a6adc8);
+}
+.dm-toolbar-failure-expected {
+  color: #a6e3a1;
+}
+.dm-toolbar-failure-actual {
+  color: #f38ba8;
+}
+
+/* ── Flash animation for scroll-to target ── */
+@keyframes dm-node-flash {
+  0%   { background-color: rgba(243, 139, 168, 0.35); }
+  50%  { background-color: rgba(243, 139, 168, 0.15); }
+  100% { background-color: transparent; }
+}
+.dm-tree-node--flash {
+  animation: dm-node-flash 1.5s ease-out;
+}
+
+/* Footer verify stats */
+
+.dm-stat--verify .dm-stat-value--verify-pass {
+  color: #a6e3a1;
+}
+
+.dm-stat--verify .dm-stat-value--verify-fail {
+  color: #f38ba8;
+}
+
+.dm-stat--clickable {
+  cursor: pointer;
+  border-radius: 4px;
+  padding: 1px 4px;
+}
+
+.dm-stat--clickable:hover {
+  background: rgba(243, 139, 168, 0.1);
 }
 
 /* Expression Editor styles are in data-mapper-expression.css */

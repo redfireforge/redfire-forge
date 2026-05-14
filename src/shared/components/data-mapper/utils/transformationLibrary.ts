@@ -35,7 +35,7 @@ export const TRANSFORMATION_LIBRARY: readonly TransformationTemplate[] = [
   { id: 'bool-to-str',      label: 'Boolean → string',   template: '$toString($.PATH)',             description: 'Convert boolean to "true"/"false" string',       category: 'conversion', fromType: 'boolean', toType: 'string',  priority: 95 },
   { id: 'bool-to-num',      label: 'Boolean → integer',  template: '$toInt($.PATH)',                description: 'Convert boolean to 0/1',                         category: 'conversion', fromType: 'boolean', toType: 'number',  priority: 95 },
   { id: 'num-to-bool',      label: 'Number → boolean',   template: '$toBool($.PATH)',               description: 'Convert number to boolean (0=false)',             category: 'conversion', fromType: 'number',  toType: 'boolean', priority: 95 },
-  { id: 'obj-to-str',       label: 'Stringify',          template: '$toString($.PATH)',             description: 'JSON stringify an object',                        category: 'conversion', fromType: 'object',  toType: 'string',  priority: 70 },
+  { id: 'obj-to-str',       label: 'Stringify',          template: '$stringify($.PATH)',            description: 'JSON stringify an object',                        category: 'conversion', fromType: 'object',  toType: 'string',  priority: 70 },
 
   // ─── Date Conversions ──────────────────────────────────
   { id: 'date-iso',         label: 'ISO date',           template: '$formatDate($.PATH, "YYYY-MM-DD")',           description: 'Format date as ISO (YYYY-MM-DD)',                 category: 'date', fromType: 'string', toType: 'string', priority: 85 },
@@ -45,9 +45,9 @@ export const TRANSFORMATION_LIBRARY: readonly TransformationTemplate[] = [
 
   // ─── String Operations ─────────────────────────────────
   { id: 'str-trim',         label: 'Trim',               template: '$trim($.PATH)',                  description: 'Remove leading/trailing whitespace',              category: 'string', fromType: 'string', toType: 'string', priority: 70 },
-  { id: 'str-lower',        label: 'Lowercase',          template: '$lowercase($.PATH)',             description: 'Convert to lowercase',                            category: 'string', fromType: 'string', toType: 'string', priority: 65 },
-  { id: 'str-upper',        label: 'Uppercase',          template: '$uppercase($.PATH)',             description: 'Convert to uppercase',                            category: 'string', fromType: 'string', toType: 'string', priority: 65 },
-  { id: 'str-concat',       label: 'Concatenate',        template: '$concat($.PATH, " ", $.PATH)',   description: 'Concatenate strings with separator',              category: 'string', fromType: 'string', toType: 'string', priority: 50 },
+  { id: 'str-lower',        label: 'Lowercase',          template: '$lower($.PATH)',                 description: 'Convert to lowercase',                            category: 'string', fromType: 'string', toType: 'string', priority: 65 },
+  { id: 'str-upper',        label: 'Uppercase',          template: '$upper($.PATH)',                 description: 'Convert to uppercase',                            category: 'string', fromType: 'string', toType: 'string', priority: 65 },
+  { id: 'str-concat',       label: 'Concatenate',        template: '$concat($.PATH, " ", "...")',    description: 'Concatenate with another value (edit second arg)', category: 'string', fromType: 'string', toType: 'string', priority: 50 },
   { id: 'str-substr',       label: 'Substring',          template: '$substring($.PATH, 0, 10)',      description: 'Extract substring (start, length)',               category: 'string', fromType: 'string', toType: 'string', priority: 50 },
   { id: 'str-replace',      label: 'Replace',            template: '$replace($.PATH, "old", "new")', description: 'Replace substring occurrences',                   category: 'string', fromType: 'string', toType: 'string', priority: 50 },
 
@@ -68,6 +68,13 @@ export const TRANSFORMATION_LIBRARY: readonly TransformationTemplate[] = [
   { id: 'math-abs',          label: 'Absolute',           template: '$abs($.PATH)',                   description: 'Absolute value',                                  category: 'math', fromType: 'number', toType: 'number', priority: 60 },
   { id: 'math-ceil',         label: 'Ceiling',            template: '$ceil($.PATH)',                  description: 'Round up to nearest integer',                     category: 'math', fromType: 'number', toType: 'number', priority: 55 },
   { id: 'math-floor',        label: 'Floor',              template: '$floor($.PATH)',                 description: 'Round down to nearest integer',                   category: 'math', fromType: 'number', toType: 'number', priority: 55 },
+  { id: 'math-sqrt',         label: 'Square root',        template: '$sqrt($.PATH)',                  description: 'Calculate the square root',                       category: 'math', fromType: 'number', toType: 'number', priority: 50 },
+  { id: 'math-clamp',        label: 'Clamp (0–100)',      template: '$clamp($.PATH, 0, 100)',         description: 'Constrain value between 0 and 100',               category: 'math', fromType: 'number', toType: 'number', priority: 50 },
+
+  // ─── Array ─────────────────────────────────────────────
+  { id: 'array-sum',          label: 'Sum',               template: '$sum($.PATH)',                   description: 'Sum all numeric elements in array',               category: 'array', fromType: 'array', toType: 'number',  priority: 80 },
+  { id: 'array-average',      label: 'Average',           template: '$average($.PATH)',               description: 'Calculate arithmetic mean of array',              category: 'array', fromType: 'array', toType: 'number',  priority: 75 },
+  { id: 'array-group',        label: 'Group by key',      template: '$groupBy($.PATH, "status")',     description: 'Group array elements by a key field',             category: 'array', fromType: 'array', toType: 'object',  priority: 70 },
 ];
 
 /**

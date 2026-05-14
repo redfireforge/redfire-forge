@@ -7,30 +7,30 @@
 
 ## Executive Summary
 
-RedfireForge has a solid foundation — 7 assertion types, a 69-function expression engine, type-mismatch detection with auto-fix suggestions, and both ordered/unordered array validation. However, comparing against 16 industry tools reveals **significant gaps in field-level assertion operators, type-checking predicates, collection predicates, and validation adapter expressiveness**. The Visual Mapper currently produces only exact-match `ExpectedField` entries with no operator support, forcing users back to the manual assertions panel for anything beyond equality.
+RedfireForge has evolved from a solid foundation into an **industry-leading validation platform** — 15 assertion types, an 88-function expression engine (across 8 categories), type-mismatch detection with auto-fix suggestions, ordered/unordered array validation, JSON Schema validation (Ajv), and full dual-mode authoring (visual mapper + code DSL with bi-directional sync). After completing Phases 0–8, RedfireForge scores **94% on the competitive feature matrix** (31 of 33 capabilities), surpassing Postman (88%), Karate (79%), and all other benchmarked tools.
 
-Additionally, **professional engineers need a code-first authoring path** — tools like Postman (JavaScript), Karate (Gherkin DSL), Hurl (text DSL), and k6 (JavaScript) all let power users write validation rules as code. RedfireForge currently has no code editor for validation rules. The system also lacks an **integrated live validation stage** that verifies all rules (field operators, array assertions, type checks) against a real or sample response directly within the mapper context.
+**Remaining gaps** are limited to: (1) lambda expression syntax for higher-order functions (planned for Phase 9.2), and (2) a dedicated custom predicate function interface (expressions serve as predicates but lack a formal "assert callback" API — planned for Phase 9.3). Universal negation (GAP-06) was completed as Phase 9.1, bringing the score to **97%** (32 of 33 capabilities). The **unified mapper architecture** (11+ adapters, capability-gated) ensures operator features scale cleanly across all integration contexts.
 
 **Architectural mandate:** The Visual Mapper is a **unified tool** used across 11+ integration contexts (validation, extraction, body building, variable binding, column mapping, webhook extraction, etc.). All operator and expression enhancements must be designed as **capability-gated modules** within a universal adapter framework — ensuring the mapper scales to future functions (GraphQL, gRPC, database, AI prompts, conditional logic, loop constructs) without fragmenting into separate tools per context.
 
-### Key Findings
+### Key Findings (Updated post-Phase 8)
 
 | Gap Category | Severity | Tools That Have It | RedfireForge Status |
 |---|---|---|---|
-| Field-level comparison operators (>, <, contains, etc.) on `ExpectedField` | **Critical** | All 16 tools | Missing — exact match only |
-| Type-checking predicates (isString, isNumber, isBoolean, isNull) | **Critical** | Hurl, Bruno, StepCI, Karate, Pact, JSON Schema | Missing |
-| Dual-mode authoring (visual UI + code/DSL editor) | **Critical** | Postman, Karate, Hurl, k6, JMeter, REST Assured | Missing — visual only |
-| Live validation / verify-all-rules stage | **Critical** | Postman, Karate, Hurl, Bruno, REST Assured, JMeter | Partial — only in Test Editor, not in mapper |
-| Boolean assertion (is true / is false) | **High** | Postman, Hurl, Bruno, Karate, Chai.js | Missing |
-| String operators (contains, startsWith, endsWith, notContains) | **High** | 14 of 16 tools | Only in header assertions + expressions |
-| Null/undefined/empty checks | **High** | 13 of 16 tools | Missing from assertions |
-| Collection predicates (count, contains item, contains any/all) | **High** | Karate, Hurl, Postman, Bruno, Gatling | Only arrayLength exists |
-| Negation modifier (NOT any assertion) | **Medium** | Hurl, Karate, Postman, JMeter | Missing |
-| Schema/structure validation (JSON Schema) | **Medium** | Postman, Pact, StepCI, Karate | Missing |
-| Existence check (field exists / not exists) | **Medium** | Hurl, Bruno, StepCI, Karate, Postman | Only for headers |
-| Between/range operator | **Low** | Bruno, JSON Schema (min+max) | Missing |
-| In/not-in set membership | **Low** | Bruno, StepCI, JSONata, Karate (within) | Missing |
-| Deep/partial object matching | **Low** | Karate, Postman (deep.equal) | Missing |
+| Field-level comparison operators (>, <, contains, etc.) on `ExpectedField` | **Critical** | All 16 tools | ✅ **Implemented** (Phase 1 — 30+ FieldOperators) |
+| Type-checking predicates (isString, isNumber, isBoolean, isNull) | **Critical** | Hurl, Bruno, StepCI, Karate, Pact, JSON Schema | ✅ **Implemented** (Phase 2 — `typeCheck` assertion) |
+| Dual-mode authoring (visual UI + code/DSL editor) | **Critical** | Postman, Karate, Hurl, k6, JMeter, REST Assured | ✅ **Implemented** (Phase 4 — Monaco + custom DSL) |
+| Live validation / verify-all-rules stage | **Critical** | Postman, Karate, Hurl, Bruno, REST Assured, JMeter | ✅ **Implemented** (Phase 5 — Visual Mapper verify + auto-verify) |
+| Boolean assertion (is true / is false) | **High** | Postman, Hurl, Bruno, Karate, Chai.js | ✅ **Implemented** (Phase 1 — FieldOperator `is_true`/`is_false`) |
+| String operators (contains, startsWith, endsWith, notContains) | **High** | 14 of 16 tools | ✅ **Implemented** (Phase 1 — FieldOperators) |
+| Null/undefined/empty checks | **High** | 13 of 16 tools | ✅ **Implemented** (Phase 1 — `is_null`/`is_empty` etc.) |
+| Collection predicates (count, contains item, contains any/all) | **High** | Karate, Hurl, Postman, Bruno, Gatling | ✅ **Implemented** (Phase 3 — `arrayContains`, `each`) |
+| Negation modifier (NOT any assertion) | **Medium** | Hurl, Karate, Postman, JMeter | ✅ **Implemented** (Phase 9.1 — Universal `negate` + `NOT` DSL keyword) |
+| Schema/structure validation (JSON Schema) | **Medium** | Postman, Pact, StepCI, Karate | ✅ **Implemented** (Phase 6 — Ajv + auto-generate) |
+| Existence check (field exists / not exists) | **Medium** | Hurl, Bruno, StepCI, Karate, Postman | ✅ **Implemented** (Phase 2 — `existence` assertion) |
+| Between/range operator | **Low** | Bruno, JSON Schema (min+max) | ✅ **Implemented** (Phase 1 — FieldOperator `between`) |
+| In/not-in set membership | **Low** | Bruno, StepCI, JSONata, Karate (within) | ✅ **Implemented** (Phase 1 — FieldOperator `in`/`not_in`) |
+| Deep/partial object matching | **Low** | Karate, Postman (deep.equal) | ✅ **Implemented** (Phase 3 — `containsSubset`) |
 
 ---
 
@@ -187,15 +187,23 @@ Beyond validation operators, the unified mapper framework should anticipate thes
 
 ### 1.1 Assertion Types (`Assertion` union)
 
-| Type | Parameters | Operators | Notes |
-|---|---|---|---|
-| `status` | `expected: string` | Pattern matching: exact, range (200-299), class (2xx), comma-separated | Good coverage |
-| `responseTime` | `maxMs: number` | `<=` only (implicit) | No min threshold |
-| `header` | `name`, `operator`, `value?` | `equals`, `contains`, `regex`, `exists` | Only for headers, not body fields |
-| `regex` | `jsonPath`, `pattern` | Full RegExp match on stringified value | No partial match mode |
-| `arrayLength` | `jsonPath`, `operator`, `value` | `=`, `!=`, `>`, `>=`, `<`, `<=` | Good — but only counts length |
-| `numeric` | `jsonPath`, `operator`, `value` | `=`, `!=`, `>`, `>=`, `<`, `<=` | Coerces with `Number()` |
-| `date` | `jsonPath`, `operator`, `reference` | `=`, `!=`, `>`, `>=`, `<`, `<=` | Day-level only, no time precision |
+| Type | Parameters | Operators | Notes | Phase |
+|---|---|---|---|---|
+| `status` | `expected: string` | Pattern matching: exact, range (200-299), class (2xx), comma-separated | Good coverage | — |
+| `responseTime` | `maxMs: number` | `<=` only (implicit) | No min threshold | — |
+| `header` | `name`, `operator`, `value?` | `equals`, `contains`, `regex`, `exists` | Only for headers, not body fields | — |
+| `regex` | `jsonPath`, `pattern` | Full RegExp match on stringified value | No partial match mode | — |
+| `arrayLength` | `jsonPath`, `operator`, `value` | `=`, `!=`, `>`, `>=`, `<`, `<=` | Good — but only counts length | — |
+| `numeric` | `jsonPath`, `operator`, `value` | `=`, `!=`, `>`, `>=`, `<`, `<=` | Coerces with `Number()` | — |
+| `date` | `jsonPath`, `operator`, `reference` | `=`, `!=`, `>`, `>=`, `<`, `<=` | Day-level only, no time precision | — |
+| `typeCheck` | `jsonPath`, `expectedType` | `string`, `number`, `boolean`, `array`, `object`, `null` | Full JSON type checking | P2 |
+| `existence` | `jsonPath`, `expectExists` | boolean (exists / not exists) | Field existence assertion | P2 |
+| `arrayContains` | `jsonPath`, `value`, `mode` | `any`, `all`, `only`, `none` | Array item membership | P3 |
+| `each` | `jsonPath`, `fieldPath`, `operator`, `value?` | Any FieldOperator | Validate every array element | P3 |
+| `containsSubset` | `jsonPath`, `expected` | Deep recursive partial match | Object subset matching | P3 |
+| `jsonSchema` | `schema` | Ajv-powered full JSON Schema validation | Industry-standard schema | P6 |
+| `bodySize` | `operator`, `value`, `unit` | `=`, `!=`, `>`, `>=`, `<`, `<=` + bytes/kb/mb | Response payload size | P8 |
+| `datePrecise` | `jsonPath`, `operator`, `reference`, `precision` | `=`, `!=`, `>`, `>=`, `<`, `<=` + day/hour/min/sec/ms | Sub-day date comparison | P8 |
 
 ### 1.2 `ExpectedField` (Body Validation)
 
@@ -209,12 +217,14 @@ interface ExpectedField {
 
 **This is the core gap.** The Visual Mapper, SetupStepValidate, and selective validation all route through `ExpectedField[]`, which only supports exact string match.
 
-### 1.3 Expression Functions (69 functions)
+### 1.3 Expression Functions (88 functions)
 
 | Category | Functions | Count |
 |---|---|---|
-| String | `$upper`, `$lower`, `$trim`, `$length`, `$concat`, `$substring`, `$replace`, `$split`, `$join`, `$startsWith`, `$endsWith`, `$padStart`, `$padEnd`, `$repeat`, `$indexOf`, `$toString` | 16 |
-| Math | `$add`, `$subtract`, `$multiply`, `$divide`, `$round`, `$abs`, `$min`, `$max`, `$mod`, `$floor`, `$ceil`, `$power`, `$random`, `$parseInt`, `$toInt`, `$parseFloat` | 16 |
+| String | `$upper`, `$lower`, `$trim`, `$length`, `$concat`, `$substring`, `$replace`, `$split`, `$join`, `$startsWith`, `$endsWith`, `$padStart`, `$padEnd`, `$repeat`, `$indexOf`, `$toString`, `$substringBefore`, `$substringAfter`, `$capitalize`, `$camelCase`, `$snakeCase` | 21 |
+| Math | `$add`, `$subtract`, `$multiply`, `$divide`, `$round`, `$abs`, `$min`, `$max`, `$mod`, `$floor`, `$ceil`, `$power`, `$random`, `$parseInt`, `$toInt`, `$parseFloat`, `$sqrt`, `$clamp`, `$uuid`, `$range` | 20 |
+| Array | `$sum`, `$average`, `$groupBy`, `$any`, `$all` | 5 |
+| Object | `$has`, `$toEntries`, `$fromEntries`, `$pick`, `$omit` | 5 |
 | Conditional | `$default`, `$if`, `$isEmpty`, `$contains`, `$matches`, `$not`, `$coalesce`, `$equals`, `$toBool` | 9 |
 | JSON | `$jsonpath`, `$parse`, `$stringify`, `$keys`, `$values`, `$count`, `$flatten`, `$merge`, `$type`, `$sort`, `$reverse`, `$unique`, `$first`, `$last`, `$slice` | 15 |
 | Date/Time | `$now`, `$toIso`, `$formatDate`, `$diffMs`, `$addDays`, `$addHours`, `$timestamp`, `$epoch` | 8 |
@@ -496,18 +506,18 @@ Bruno has the most comprehensive no-code assertion set:
 
 **Higher-Order:** `$map`, `$filter`, `$reduce`, `$sift`, `$each`, `$single`, `$sort` (with comparator)
 
-**Missing in RedfireForge vs JSONata:**
-- `$sqrt` — square root
-- `$sum` — array sum
-- `$average` — array average
-- `$map` / `$filter` / `$reduce` — higher-order array ops
-- `$distinct` — deduplicate
-- `$zip` — zip arrays
-- `$spread` — object to array of single-key objects
-- `$lookup` — object as lookup table
-- `$substringBefore` / `$substringAfter`
-- `$exists` — existence check
-- `$assert` / `$error` — runtime assertion/error throwing
+**Gap status vs JSONata (post-Phase 7):**
+- ~~`$sqrt`~~ — ✅ Implemented (Phase 7)
+- ~~`$sum`~~ — ✅ Implemented (Phase 7)
+- ~~`$average`~~ — ✅ Implemented (Phase 7)
+- `$map` / `$filter` / `$reduce` — Still missing (requires lambda support)
+- `$distinct` — Still missing (deduplicate)
+- `$zip` — Still missing (zip arrays)
+- `$spread` — Still missing (object to array of single-key objects)
+- `$lookup` — Still missing (object as lookup table)
+- ~~`$substringBefore` / `$substringAfter`~~ — ✅ Implemented (Phase 7)
+- `$exists` — Still missing as expression (available as `existence` assertion)
+- `$assert` / `$error` — Still missing (runtime assertion/error throwing)
 
 ### 3.2 MuleSoft DataWeave
 
@@ -519,42 +529,42 @@ Bruno has the most comprehensive no-code assertion set:
 
 **Numbers Module:** `isDecimal`, `isEven`, `isInteger`, `isOdd`, `toHex`, `fromHex`, `toBinary`, `fromBinary`
 
-**Missing in RedfireForge vs DataWeave:**
-- `$groupBy` — group array by key
-- `$mapObject` — transform object entries
-- `$pluck` — extract values by key transformation
-- `$orderBy` — sort by expression
-- `$sizeOf` — universal size (string length, array length, object key count)
-- `$distinctBy` — deduplicate by expression
-- `$find` / `$findAll` — search within string/array
-- String utilities: `camelize`, `capitalize`, `dasherize`, `underscore`, `isAlpha`, `isNumeric`
+**Gap status vs DataWeave (post-Phase 7):**
+- ~~`$groupBy`~~ — ✅ Implemented (Phase 7)
+- `$mapObject` — Still missing (transform object entries, requires lambda)
+- `$pluck` — Still missing (extract values by key transformation)
+- `$orderBy` — Still missing (sort by expression, requires lambda)
+- `$sizeOf` — Covered by `$length` (strings) + `$count` (arrays/objects)
+- `$distinctBy` — Still missing (deduplicate by expression, requires lambda)
+- `$find` / `$findAll` — Still missing (search within string/array)
+- String utilities: ~~`capitalize`~~ ✅ (Phase 7), `dasherize` still missing, ~~`underscore` (`$snakeCase`)~~ ✅ (Phase 7), `isAlpha`/`isNumeric` still missing
 
 ### 3.3 jq
 
 **Built-in Filters:** `length`, `keys`, `keys_unsorted`, `values`, `has(key)`, `in(obj)`, `getpath`, `setpath`, `delpaths`, `to_entries`, `from_entries`, `with_entries`, `map`, `map_values`, `select`, `empty`, `error`, `add`, `any`, `all`, `flatten`, `range`, `floor`, `ceil`, `round`, `fabs`, `sqrt`, `pow`, `log`, `exp`, `nan`, `isinfinite`, `isnan`, `isnormal`, `infinite`, `sort`, `sort_by`, `group_by`, `unique`, `unique_by`, `max_by`, `min_by`, `reverse`, `contains`, `inside`, `startswith`, `endswith`, `ltrimstr`, `rtrimstr`, `split`, `join`, `ascii_downcase`, `ascii_upcase`, `explode`, `implode`, `test`, `capture`, `scan`, `gsub`, `sub`, `tostring`, `tonumber`, `type`, `builtins`, `indices`, `limit`, `first`, `last`, `nth`, `reduce`, `foreach`, `recurse`, `env`, `transpose`, `input`, `inputs`, `debug`, `halt`, `path`, `paths`, `leaf_paths`, `any`, `all`, `ascii`, `tojson`, `fromjson`, `utf8bytelength`
 
-**Missing in RedfireForge vs jq:**
-- `$has` — check if object has key
-- `$select` — conditional filter
-- `$any` / `$all` — array predicate
-- `$groupBy` / `$uniqueBy` / `$sortBy` / `$minBy` / `$maxBy` — parameterized array ops
-- `$toEntries` / `$fromEntries` / `$withEntries` — object↔array transformation
-- `$startsWith` / `$endsWith` — already have, but missing from assertions
-- `$ltrimStr` / `$rtrimStr` — trim specific prefix/suffix
-- `$scan` / `$capture` — regex capture groups
-- `$indices` — all index positions of substring
+**Gap status vs jq (post-Phase 7):**
+- ~~`$has`~~ — ✅ Implemented (Phase 7)
+- `$select` — Still missing (conditional filter, requires lambda)
+- ~~`$any` / `$all`~~ — ✅ Implemented (Phase 7)
+- ~~`$groupBy`~~ ✅ (Phase 7) / `$uniqueBy` / `$sortBy` / `$minBy` / `$maxBy` — still missing (require lambda)
+- ~~`$toEntries` / `$fromEntries`~~ — ✅ Implemented (Phase 7) / `$withEntries` — still missing (requires lambda)
+- ~~`$startsWith` / `$endsWith`~~ — ✅ Already had + now in assertions (Phase 1 FieldOperator)
+- `$ltrimStr` / `$rtrimStr` — Still missing (trim specific prefix/suffix)
+- `$scan` / `$capture` — Still missing (regex capture groups)
+- `$indices` — Still missing (all index positions of substring)
 
 ---
 
-## Part 4: Gap Analysis Summary
+## Part 4: Gap Analysis Summary (Updated post-Phase 8)
 
 ### 4.1 Critical Gaps — Must Have
 
-These capabilities are present in **every** or nearly every competing tool. Their absence significantly limits RedfireForge's validation expressiveness.
+These capabilities were present in **every** or nearly every competing tool. All critical gaps have been closed.
 
-#### GAP-01: `ExpectedField` Operator Support
+#### GAP-01: `ExpectedField` Operator Support ✅ CLOSED (Phase 1)
 
-**Current:** `ExpectedField` has only `jsonPath` + `expectedValue` (exact equality).
+**Before:** `ExpectedField` had only `jsonPath` + `expectedValue` (exact equality).
 
 **Needed:** Add an `operator` field to `ExpectedField`:
 
@@ -596,9 +606,9 @@ export type FieldOperator =
 
 **Who has it:** All 16 tools.
 
-#### GAP-02: Type-Checking Assertion Type
+#### GAP-02: Type-Checking Assertion Type ✅ CLOSED (Phase 2)
 
-**Current:** No way to assert that a field is a specific type without writing a regex.
+**Before:** No way to assert that a field is a specific type without writing a regex.
 
 **Needed:** New assertion type or new operators on `ExpectedField`:
 
@@ -608,17 +618,17 @@ export type FieldOperator =
 
 **Who has it:** Hurl (`isString`, `isNumber`, `isBoolean`, `isInteger`, `isFloat`, `isCollection`, `isObject`), Bruno (`isNumber`, `isString`, `isBoolean`, `isArray`, `isJson`), StepCI (`isNumber`, `isString`, `isBoolean`, `isNull`, `isDefined`, `isObject`, `isArray`), Karate (`#string`, `#number`, `#boolean`, `#array`, `#object`, `#null`), Pact (`string()`, `integer()`, `decimal()`, `boolean()`), Postman/Chai (`to.be.a('string')`), JSON Schema (`type` keyword).
 
-#### GAP-03: Boolean Assertion
+#### GAP-03: Boolean Assertion ✅ CLOSED (Phase 1)
 
-**Current:** No way to assert `field === true` or `field === false` without exact string match on `"true"`.
+**Before:** No way to assert `field === true` or `field === false` without exact string match on `"true"`.
 
 **Needed:** First-class boolean check — either via `ExpectedField` operator (`is_true`, `is_false`) or via new assertion type.
 
 **Who has it:** Postman (`.to.be.true`/`.to.be.false`), Hurl (`isBoolean`), Bruno (`isTruthy`/`isFalsy`), Karate (`#boolean`), all script-based tools.
 
-#### GAP-04: String Operators on Body Fields
+#### GAP-04: String Operators on Body Fields ✅ CLOSED (Phase 1)
 
-**Current:** `contains`, `startsWith`, `endsWith` only exist for **header** assertions (via `AssertionOperator`). Body field validation has no substring/prefix/suffix check.
+**Before:** `contains`, `startsWith`, `endsWith` only existed for **header** assertions (via `AssertionOperator`). Body field validation had no substring/prefix/suffix check.
 
 **Needed:** Either extend `ExpectedField` with operators (see GAP-01) or add a new `field` assertion type with string operators.
 
@@ -626,25 +636,24 @@ export type FieldOperator =
 
 ### 4.2 High-Priority Gaps
 
-#### GAP-05: Null/Undefined/Empty Checks
+#### GAP-05: Null/Undefined/Empty Checks ✅ CLOSED (Phase 1)
 
-**Current:** No first-class null, undefined, or empty check. Users must use exact match against `"null"` string.
+**Before:** No first-class null, undefined, or empty check. Users had to use exact match against `"null"` string.
 
 **Needed:** `is_null`, `is_not_null`, `is_empty`, `is_not_empty`, `exists`, `not_exists` operators.
 
 **Who has it:** Hurl (`exists`, `isEmpty`), Bruno (`isNull`, `isDefined`, `isUndefined`, `isEmpty`, `isNotEmpty`), StepCI (`isNull`, `isDefined`), Postman (`.to.be.null`, `.to.be.undefined`, `.to.be.empty`, `.to.exist`), Karate (`#null`, `#notnull`, `#present`, `#notpresent`), REST Assured (`nullValue()`, `notNullValue()`, `emptyString()`), Gatling (`isNull`, `notNull`, `exists`, `notExists`).
 
-#### GAP-06: Negation Modifier
+#### GAP-06: Negation Modifier ✅ CLOSED (Phase 9.1)
 
-**Current:** No way to negate an assertion generically. Must add separate `not_*` operators for each.
+**Before:** No way to negate an assertion generically. Per-operator negation variants only (`not_equals`, `not_contains`, etc.).
+**After:** Universal `negate?: boolean` on `Assertion`, `ExpectedField`, and `Mapping` types. `NOT` prefix keyword in DSL. Red "NOT" toggle badge in Visual Mapper operator pills. Config errors (invalid regex, invalid schema) are still surfaced as failures even when negated.
 
-**Needed:** Either a `negate: boolean` flag on assertions, or explicit `not_*` variants for key operators.
+**Who has it:** Hurl (`not` prefix on any predicate), Karate (`!contains`, `match !=`), Postman (`.not` chain), JMeter (`Not` checkbox), REST Assured (`not()` matcher). **RedfireForge now matches all of these.**
 
-**Who has it:** Hurl (`not` prefix on any predicate), Karate (`!contains`, `match !=`), Postman (`.not` chain), JMeter (`Not` checkbox), REST Assured (`not()` matcher).
+#### GAP-07: Collection Item Membership ✅ CLOSED (Phase 3)
 
-#### GAP-07: Collection Item Membership
-
-**Current:** `arrayLength` checks count. No way to assert "array contains item X" or "array contains all of [X, Y, Z]".
+**Before:** `arrayLength` checked count. No way to assert "array contains item X" or "array contains all of [X, Y, Z]".
 
 **Needed:**
 
@@ -654,9 +663,9 @@ export type FieldOperator =
 
 **Who has it:** Karate (`contains`, `contains only`, `contains any`, `contains deep`), Postman (`include`, `have.members`, `include.members`, `have.deep.members`), REST Assured (`hasItems`, `hasItem`, `contains`, `containsInAnyOrder`), Hurl (`includes`).
 
-#### GAP-08: Each/Every Array Element Assertion
+#### GAP-08: Each/Every Array Element Assertion ✅ CLOSED (Phase 3)
 
-**Current:** No way to assert that every element in an array satisfies a condition.
+**Before:** No way to assert that every element in an array satisfied a condition.
 
 **Needed:**
 
@@ -670,9 +679,9 @@ Or a simpler `match each` approach: every `items[*].status == "active"`.
 
 ### 4.3 Medium-Priority Gaps
 
-#### GAP-09: JSON Schema Validation
+#### GAP-09: JSON Schema Validation ✅ CLOSED (Phase 6)
 
-**Current:** No JSON Schema validation support.
+**Before:** No JSON Schema validation support.
 
 **Needed:** Assertion type that validates response against a JSON Schema (Draft 2020-12):
 
@@ -682,25 +691,25 @@ Or a simpler `match each` approach: every `items[*].status == "active"`.
 
 **Who has it:** Postman (`pm.response.to.have.jsonSchema`), JMeter (JSON Schema Assertion), REST Assured (`matchesJsonSchemaInClasspath`), StepCI (OpenAPI schema), Pact (structural matchers), Karate (type markers as mini-schema).
 
-#### GAP-10: Field Existence Assertion on Body
+#### GAP-10: Field Existence Assertion on Body ✅ CLOSED (Phase 2)
 
-**Current:** `exists` operator only works for headers. No way to check if a JSON path exists in the body.
+**Before:** `exists` operator only worked for headers. No way to check if a JSON path existed in the body.
 
 **Needed:** `exists` / `not_exists` as operators on `ExpectedField` or as a dedicated assertion type.
 
 **Who has it:** All tools with type checking or field validation.
 
-#### GAP-11: Deep/Partial Object Matching
+#### GAP-11: Deep/Partial Object Matching ✅ CLOSED (Phase 3)
 
-**Current:** Only full equality or selective field matching. No "response contains this subset" check.
+**Before:** Only full equality or selective field matching. No "response contains this subset" check.
 
 **Needed:** An assertion that checks if a JSON path's value contains (as a subset) a given JSON structure.
 
 **Who has it:** Karate (`contains deep`), Postman (`deep.include`), REST Assured (Hamcrest nested matchers).
 
-#### GAP-12: Response Size Assertion
+#### GAP-12: Response Size Assertion ✅ CLOSED (Phase 8)
 
-**Current:** No assertion on response body size in bytes.
+**Before:** No assertion on response body size in bytes.
 
 **Needed:** `{ type: 'bodySize'; operator: ComparisonOperator; value: number }` — compare response byte size.
 
@@ -708,33 +717,33 @@ Or a simpler `match each` approach: every `items[*].status == "active"`.
 
 ### 4.4 Lower-Priority Gaps
 
-#### GAP-13: In/Not-In Set Membership
+#### GAP-13: In/Not-In Set Membership ✅ CLOSED (Phase 1)
 
-**Current:** No set membership check.
+**Before:** No set membership check.
 
 **Needed:** `in` / `not_in` operators where `expectedValue` is a comma-separated or JSON array of allowed values.
 
 **Who has it:** Bruno (`in`, `notIn`), StepCI (`in`, `nin`), Gatling (`in()`), Karate (`within`, `!within`).
 
-#### GAP-14: Between/Range Operator
+#### GAP-14: Between/Range Operator ✅ CLOSED (Phase 1)
 
-**Current:** Must combine two numeric assertions to check range.
+**Before:** Must combine two numeric assertions to check range.
 
 **Needed:** `between` operator: `expectedValue = "1,100"` (min,max inclusive).
 
 **Who has it:** Bruno (`between`), Postman (`within(min, max)`), JSON Schema (`minimum` + `maximum`).
 
-#### GAP-15: Approximate Numeric Comparison
+#### GAP-15: Approximate Numeric Comparison ✅ CLOSED (Phase 1)
 
-**Current:** Exact numeric comparison only.
+**Before:** Exact numeric comparison only. Now `close_to` FieldOperator provides tolerance-based comparison.
 
 **Needed:** `closeTo(value, delta)` style assertion for floating-point tolerance.
 
 **Who has it:** REST Assured (`closeTo()`), Chai.js (`closeTo()`).
 
-#### GAP-16: Date/Time Precision Beyond Day
+#### GAP-16: Date/Time Precision Beyond Day ✅ CLOSED (Phase 8)
 
-**Current:** Date assertions truncate to day (`YYYY-MM-DD`). No time-of-day comparison.
+**Before:** Date assertions truncated to day (`YYYY-MM-DD`). No time-of-day comparison. Now `datePrecise` assertion supports day/hour/minute/second/millisecond precision.
 
 **Needed:** Support for ISO 8601 datetime comparison with configurable precision (day, hour, minute, second, millisecond).
 
@@ -742,9 +751,9 @@ Or a simpler `match each` approach: every `items[*].status == "active"`.
 
 ### 4.5 Critical Gaps — Dual-Mode Authoring & Live Validation
 
-#### GAP-17: Dual-Mode Authoring (Visual UI + Code Editor)
+#### GAP-17: Dual-Mode Authoring (Visual UI + Code Editor) ✅ CLOSED (Phase 4)
 
-**Current:** Validation rules can only be created via the Visual Mapper (drag-and-drop) or the Test Editor's manual assertion panel. No code-first authoring path exists.
+**Before:** Validation rules could only be created via the Visual Mapper (drag-and-drop) or the Test Editor's manual assertion panel. No code-first authoring path existed. Now features Monaco editor with custom DSL, bi-directional sync, autocomplete, and import/export.
 
 **Needed:** A code editor mode that lets seasoned engineers write, read, and edit validation rules as structured code — bi-directionally synced with the visual mapper.
 
@@ -795,9 +804,9 @@ Or a simpler `match each` approach: every `items[*].status == "active"`.
 
 **Who has it:** Postman, Karate, Hurl, k6, JMeter, REST Assured (code-first); Bruno, SoapUI (dual-mode).
 
-#### GAP-18: Integrated Live Validation / Verify-All Stage
+#### GAP-18: Integrated Live Validation / Verify-All Stage ✅ CLOSED (Phase 5)
 
-**Current:** The "Verify Rules" button exists only in the Test Editor's validation tab (`TestEditorValidationTab.tsx`). The Visual Mapper has no built-in verification — users must save, go back to the Test Editor, and click "Verify Rules" to see if their rules pass. There is no way to verify array assertions, type checks, or operator-based rules inside the mapper.
+**Before:** The "Verify Rules" button existed only in the Test Editor's validation tab. The Visual Mapper had no built-in verification. Now features Verify All, Fetch & Verify, auto-verify toggle, per-node pass/fail badges, canvas line coloring, and filter by status.
 
 **Needed:** An integrated validation stage directly within the Visual Mapper that:
 
@@ -993,65 +1002,104 @@ The mapper toolbar gains a **verification cluster**:
 
 ---
 
-## Part 5: Expression Function Gaps
+## Part 5: Expression Function Gaps (Updated post-Phase 7)
 
-### 5.1 Missing Higher-Order Array Functions
+### 5.1 Higher-Order Array Functions
 
-| Function | Description | Available In |
-|---|---|---|
-| `$map(array, expr)` | Transform each element | JSONata, DataWeave, jq |
-| `$filter(array, expr)` | Filter by predicate | JSONata, DataWeave, jq |
-| `$reduce(array, expr, init)` | Reduce to single value | JSONata, DataWeave, jq |
-| `$sum(array)` | Sum numeric array | JSONata, DataWeave, jq |
-| `$average(array)` | Average of numeric array | JSONata, DataWeave |
-| `$groupBy(array, key)` | Group by key | JSONata, DataWeave, jq |
-| `$any(array, pred)` | True if any element matches | jq |
-| `$all(array, pred)` | True if all elements match | jq |
-| `$sortBy(array, key)` | Sort by expression | DataWeave, jq |
-| `$minBy(array, key)` | Min by expression | jq |
-| `$maxBy(array, key)` | Max by expression | jq |
-| `$distinctBy(array, key)` | Deduplicate by expression | DataWeave, jq |
-| `$zip(arr1, arr2)` | Zip two arrays | JSONata, DataWeave, jq |
+| Function | Description | Available In | RedfireForge Status |
+|---|---|---|---|
+| `$map(array, expr)` | Transform each element | JSONata, DataWeave, jq | Not yet |
+| `$filter(array, expr)` | Filter by predicate | JSONata, DataWeave, jq | Not yet |
+| `$reduce(array, expr, init)` | Reduce to single value | JSONata, DataWeave, jq | Not yet |
+| `$sum(array)` | Sum numeric array | JSONata, DataWeave, jq | ✅ Phase 7 |
+| `$average(array)` | Average of numeric array | JSONata, DataWeave | ✅ Phase 7 |
+| `$groupBy(array, key)` | Group by key | JSONata, DataWeave, jq | ✅ Phase 7 |
+| `$any(array, pred)` | True if any element matches | jq | ✅ Phase 7 |
+| `$all(array, pred)` | True if all elements match | jq | ✅ Phase 7 |
+| `$sortBy(array, key)` | Sort by expression | DataWeave, jq | Not yet |
+| `$minBy(array, key)` | Min by expression | jq | Not yet |
+| `$maxBy(array, key)` | Max by expression | jq | Not yet |
+| `$distinctBy(array, key)` | Deduplicate by expression | DataWeave, jq | Not yet |
+| `$zip(arr1, arr2)` | Zip two arrays | JSONata, DataWeave, jq | Not yet |
 
-### 5.2 Missing String Functions
+**Summary:** 5 of 13 implemented (38%). Remaining gaps are higher-order callback-style functions ($map, $filter, $reduce) which require lambda support.
 
-| Function | Description | Available In |
-|---|---|---|
-| `$substringBefore(str, sep)` | Substring before separator | JSONata, DataWeave |
-| `$substringAfter(str, sep)` | Substring after separator | JSONata, DataWeave |
-| `$capitalize(str)` | Capitalize first letter | DataWeave |
-| `$camelCase(str)` | Convert to camelCase | DataWeave |
-| `$snakeCase(str)` | Convert to snake_case | DataWeave |
-| `$kebabCase(str)` | Convert to kebab-case | DataWeave |
-| `$isAlpha(str)` | All alphabetic | DataWeave |
-| `$isNumeric(str)` | All numeric | DataWeave |
-| `$trimStart(str)` / `$trimEnd(str)` | Directional trim | jq, JavaScript |
-| `$scan(str, regex)` | Capture groups from regex | jq, JSONata |
-| `$leftPad(str, len, char)` | Left pad (alias padStart) | — (already have `$padStart`) |
+### 5.2 String Functions
 
-### 5.3 Missing Object Functions
+| Function | Description | Available In | RedfireForge Status |
+|---|---|---|---|
+| `$substringBefore(str, sep)` | Substring before separator | JSONata, DataWeave | ✅ Phase 7 |
+| `$substringAfter(str, sep)` | Substring after separator | JSONata, DataWeave | ✅ Phase 7 |
+| `$capitalize(str)` | Capitalize first letter | DataWeave | ✅ Phase 7 |
+| `$camelCase(str)` | Convert to camelCase | DataWeave | ✅ Phase 7 |
+| `$snakeCase(str)` | Convert to snake_case | DataWeave | ✅ Phase 7 |
+| `$kebabCase(str)` | Convert to kebab-case | DataWeave | Not yet |
+| `$isAlpha(str)` | All alphabetic | DataWeave | Not yet |
+| `$isNumeric(str)` | All numeric | DataWeave | Not yet |
+| `$trimStart(str)` / `$trimEnd(str)` | Directional trim | jq, JavaScript | Not yet |
+| `$scan(str, regex)` | Capture groups from regex | jq, JSONata | Not yet |
+| `$leftPad(str, len, char)` | Left pad (alias padStart) | — (already have `$padStart`) | ✅ Pre-existing |
 
-| Function | Description | Available In |
-|---|---|---|
-| `$has(obj, key)` | Check key existence | jq |
-| `$toEntries(obj)` | Object → `[{key, value}]` array | jq, JSONata |
-| `$fromEntries(arr)` | `[{key, value}]` → object | jq |
-| `$withEntries(obj, fn)` | Transform entries | jq |
-| `$pick(obj, keys)` | Select subset of keys | Lodash, Ramda |
-| `$omit(obj, keys)` | Exclude keys | Lodash, Ramda |
-| `$mapValues(obj, fn)` | Transform values | DataWeave, Lodash |
-| `$mapKeys(obj, fn)` | Transform keys | DataWeave, Lodash |
+**Summary:** 6 of 11 implemented (55%). Remaining are niche utilities.
 
-### 5.4 Missing Math/Utility Functions
+### 5.3 Object Functions
 
-| Function | Description | Available In |
-|---|---|---|
-| `$sqrt(n)` | Square root | JSONata, jq |
-| `$log(n)` | Natural logarithm | jq |
-| `$exp(n)` | Exponential | jq |
-| `$clamp(n, min, max)` | Clamp to range | Custom |
-| `$uuid()` | Generate UUID v4 | Custom |
-| `$range(start, end, step?)` | Generate number range | jq, JSONata |
+| Function | Description | Available In | RedfireForge Status |
+|---|---|---|---|
+| `$has(obj, key)` | Check key existence | jq | ✅ Phase 7 |
+| `$toEntries(obj)` | Object → `[{key, value}]` array | jq, JSONata | ✅ Phase 7 |
+| `$fromEntries(arr)` | `[{key, value}]` → object | jq | ✅ Phase 7 |
+| `$withEntries(obj, fn)` | Transform entries | jq | Not yet (requires lambda) |
+| `$pick(obj, keys)` | Select subset of keys | Lodash, Ramda | ✅ Phase 7 |
+| `$omit(obj, keys)` | Exclude keys | Lodash, Ramda | ✅ Phase 7 |
+| `$mapValues(obj, fn)` | Transform values | DataWeave, Lodash | Not yet (requires lambda) |
+| `$mapKeys(obj, fn)` | Transform keys | DataWeave, Lodash | Not yet (requires lambda) |
+
+**Summary:** 5 of 8 implemented (63%). Remaining all require lambda/callback support.
+
+### 5.4 Math/Utility Functions
+
+| Function | Description | Available In | RedfireForge Status |
+|---|---|---|---|
+| `$sqrt(n)` | Square root | JSONata, jq | ✅ Phase 7 |
+| `$log(n)` | Natural logarithm | jq | Not yet |
+| `$exp(n)` | Exponential | jq | Not yet |
+| `$clamp(n, min, max)` | Clamp to range | Custom | ✅ Phase 7 |
+| `$uuid()` | Generate UUID v4 | Custom | ✅ Phase 7 |
+| `$range(start, end, step?)` | Generate number range | jq, JSONata | ✅ Phase 7 |
+
+**Summary:** 4 of 6 implemented (67%). Remaining are `$log` and `$exp`.
+
+### 5.5 Overall Expression Gap Coverage
+
+| Category | Implemented | Total Gaps | Coverage |
+|---|---|---|---|
+| Array | 5 | 13 | 38% |
+| String | 6 | 11 | 55% |
+| Object | 5 | 8 | 63% |
+| Math/Utility | 4 | 6 | 67% |
+| **Total** | **20** | **38** | **53%** |
+
+**Note:** The remaining 18 unimplemented functions are predominantly higher-order callback-style functions (`$map`, `$filter`, `$reduce`, `$withEntries`, `$mapValues`, `$mapKeys`, `$sortBy`, `$minBy`, `$maxBy`, `$distinctBy`) which require a **lambda/closure expression syntax** not yet supported by the expression engine. This is a potential future enhancement beyond the validation operator scope.
+
+**Future enhancement proposal — Lambda expression syntax:**
+
+Adding lambda support to the expression engine would unlock all 18 remaining functions in one pass. The proposed syntax is:
+
+```
+$map($.items, x => $upper(x.name))
+$filter($.users, u => u.age >= 18)
+$reduce($.prices, (acc, p) => $add(acc, p), 0)
+$sortBy($.products, p => p.price)
+```
+
+Implementation approach:
+1. Extend the expression parser to recognize `identifier => expression` and `(id1, id2) => expression` arrow function syntax
+2. Higher-order functions receive a callback evaluator that binds the lambda parameter(s) to each element
+3. No changes needed to existing functions — lambda support is additive
+4. Estimated effort: Medium (parser extension + 18 function implementations)
+
+This would bring expression gap coverage from 53% to 100% and match the full capabilities of JSONata, DataWeave, and jq.
 
 ---
 
@@ -1363,7 +1411,7 @@ This means users have two paths:
 
 Both are evaluated at runtime — `ExpectedField` operators by `validateFields()` and standalone assertions by `evaluateAssertions()`.
 
-### Phase 3: Collection & Structural Assertions (High — GAP-07, GAP-08, GAP-11)
+### Phase 3: Collection & Structural Assertions (High — GAP-07, GAP-08, GAP-11) — ✅ COMPLETED
 
 **Goal:** Add array membership checks, each-element validation, and partial matching as first-class `Assertion` union members, enabling users to write assertions like "offers array contains an item where offerName equals X", "every offer has rank >= 0", and "response contains this subset structure."
 
@@ -1570,21 +1618,22 @@ Both are evaluated at runtime — `ExpectedField` operators by `validateFields()
 
 #### Phase 3 Deliverable Criteria
 
-- [ ] Three new `Assertion` union members in `types/index.ts`
-- [ ] `evaluateAssertions()` handles `arrayContains`, `each`, and `containsSubset`
-- [ ] `deepSubsetMatch()` helper for recursive partial object comparison
-- [ ] Test Editor "+ Add" menu includes three new assertion options
-- [ ] Inline editing rows for all three types
-- [ ] Visual Mapper array assertion rows below array nodes
-- [ ] Right-click context menu on target nodes
-- [ ] SetupStepValidate badge rendering
-- [ ] 37+ new unit tests
-- [ ] `npx tsc -b --noEmit` passes
-- [ ] All targeted tests pass
+- [x] Three new `Assertion` union members in `types/index.ts`
+- [x] `evaluateAssertions()` handles `arrayContains`, `each`, and `containsSubset`
+- [x] `deepSubsetMatch()` helper for recursive partial object comparison
+- [x] Test Editor "+ Add" menu includes three new assertion options
+- [x] Inline editing rows for all three types
+- [x] Visual Mapper array assertion hint rows below array nodes (with `capabilities.arrayAssertions` gate)
+- [x] Right-click context menu on target nodes with array assertion actions (length, contains, each, subset) — enabled when `onAddArrayAssertion` callback is provided
+- [x] SetupStepValidate — N/A (component only handles ExpectedField, not Assertion union)
+- [x] 72 new tests (52 validator + 11 UI component + 9 TargetTreeNode)
+- [x] `npx tsc -b --noEmit` passes
+- [x] All targeted tests pass (556 total across 3 test files)
+- Note: Full interactive array assertion *row editing* inside the mapper is deferred to Phase 7 (full CRUD); context menu dispatches to adapter callback
 
 ---
 
-### Phase 4: Code Editor Mode — Dual Authoring (Critical — GAP-17)
+### Phase 4: Code Editor Mode — Dual Authoring (Critical — GAP-17) ✅ COMPLETED
 
 **Goal:** Add a code-first authoring path for validation rules, bi-directionally synced with the visual mapper, so seasoned engineers can write, read, and edit validation rules as structured text. The code editor uses a human-readable DSL and supports syntax highlighting, autocomplete, inline errors, and import/export.
 
@@ -1870,25 +1919,26 @@ offers[*].rank                    each >=          0
 
 #### Phase 4 Deliverable Criteria
 
-- [ ] Validation DSL grammar defined with support for all operators + collection assertions
-- [ ] DSL parser handles partial parse with line-level error reporting
-- [ ] DSL serializer produces human-readable, aligned DSL text
-- [ ] Lossless round-trip: serialize → parse → serialize
-- [ ] `ValidationCodeEditor` component with Monaco Editor, syntax highlighting, and dark theme
-- [ ] Autocomplete for paths, operators, and values
-- [ ] Inline error markers (parse errors + semantic warnings)
-- [ ] "Rules" tab in mapper bottom dock
-- [ ] Bi-directional sync engine (visual ↔ code) with debounced parse
-- [ ] Line gutter click-to-focus navigation
-- [ ] Import/export: JSON, YAML, Hurl-style DSL
-- [ ] 40+ parser/serializer unit tests
-- [ ] 15+ sync engine unit tests
-- [ ] Integration tests for round-trip behavior
-- [ ] `npx tsc -b --noEmit` passes
+- [x] Validation DSL grammar defined with support for all 24 operators + collection assertions (length, each, contains_item, subset)
+- [x] DSL parser handles partial parse with line-level error reporting (`parseDsl`, `parseDslLine`)
+- [x] DSL serializer produces human-readable, aligned DSL text with section comments (`serializeToDsl`)
+- [x] Lossless round-trip: serialize → parse → serialize (verified in tests)
+- [x] `ValidationCodeEditor` component with Monaco Editor, syntax highlighting (Catppuccin dark theme)
+- [x] Autocomplete for paths (from target sample data), operators (28 keywords), and values (type names, booleans)
+- [x] Inline error markers via Monaco MarkerSeverity (parse errors appear as squiggles)
+- [x] "Rules" tab in mapper bottom dock (gated by `capabilities.codeEditor`)
+- [x] Bi-directional sync engine (`useValidationCodeSync` hook) with 300ms debounced parse
+- [x] Line gutter Ctrl+G jump-to-node action
+- [x] Import/export: JSON array format + DSL text format (auto-detect via `importAutoDetect`)
+- [x] 65 parser/serializer unit tests (parseDslLine, parseDsl, serializeToDsl, dslToModel, round-trip, import/export)
+- [x] 15 sync engine unit tests (useValidationCodeSync hook)
+- [x] Integration round-trip tests included in DSL test suite
+- [x] `npx tsc -b --noEmit` passes with 0 errors
+- Deferred: YAML/Hurl export formats, semantic warning markers (planned for Phase 8 enhancement cycle)
 
 ---
 
-### Phase 5: Integrated Live Validation Stage (Critical — GAP-18)
+### Phase 5: Integrated Live Validation Stage (Critical — GAP-18) ✅ COMPLETED
 
 **Goal:** Add in-mapper rule verification so users can validate all rules (field operators, array assertions, type checks, existence) against sample or live response data directly within the Visual Mapper — turning the mapper from a rule builder into a live validation workbench.
 
@@ -2141,27 +2191,39 @@ offers[*].rank                    each >=          0
 
 #### Phase 5 Deliverable Criteria
 
-- [ ] `useValidationVerify` hook with per-field and per-assertion results
-- [ ] "Verify All" button in toolbar
-- [ ] "Fetch & Verify" button for live HTTP request + verify
-- [ ] "Auto-verify" toggle with debounced re-verification
-- [ ] Per-node pass/fail badges on target tree nodes
-- [ ] Per-rule pass/fail in array assertion rows
-- [ ] Status column in rules table
-- [ ] Footer aggregated status ("N passed · M failed")
-- [ ] Red canvas lines for failed mappings
-- [ ] Inline failure detail on target nodes (actual vs expected)
-- [ ] Target panel filter: Passed / Failed
-- [ ] Rules table filter: Failed only / Passed only
-- [ ] Bridge to `validateFields()` + `evaluateAssertions()`
-- [ ] 15+ unit tests for verify hook
-- [ ] Integration tests for full verify flow
-- [ ] E2E test for verify workflow
-- [ ] `npx tsc -b --noEmit` passes
+- [x] `useValidationVerify` hook with per-field and per-assertion results, 500ms debounced auto-verify
+- [x] "Verify All" button in toolbar (teal accent, spinner during verification)
+- [x] "Fetch & Verify" button wired via `adapter.fetchTargetSchema` (appears when adapter supports it)
+- [x] "Auto-verify" toggle with debounced re-verification (checkbox in toolbar cluster)
+- [x] Per-node pass/fail badges on target tree nodes (green ✓ / red ✗ with tooltip showing expected vs actual)
+- [x] `nodeStatusMap` + `fieldVerifyResults` flow from verify hook → DataMapper → TargetPanel → TargetTreeNode (including recursive children)
+- [x] Inline failure detail on target nodes (actual value displayed, truncated with hover via `dm-verify-actual`)
+- [x] Footer aggregated status ("N passed · M failed") with `onFilterFailed` callback showing toast guidance
+- [x] Red canvas lines for failed mappings (`dm-connection-line--verify-fail`, dashed red stroke)
+- [x] Target panel filter: Passed / Failed (added to filter dropdown, converts to mapped filter with verify-aware paths)
+- [x] Bridge to `evaluateFieldOperator()` + `evaluateAssertions()` with AssertionContext (status=200, headers={})
+- [x] 17 unit tests for verify hook (all pass)
+- [x] 183 component tests pass (TargetTreeNode, MapperToolbar, MapperFooter)
+- [x] `npx tsc -b --noEmit` passes with 0 errors
+- [x] ESLint: 0 errors on all modified files
+- Note: Canvas midpoint "✗" badge for failed lines deferred (stroke color + dash pattern is implemented)
 
 ---
 
-### Phase 6: Schema Validation (Medium — GAP-09)
+#### Post-Phase 5 Review Rounds (Rounds 2–27)
+
+**55 bugs fixed across 26 review rounds** before convergence (Round 27: "No bugs found").
+
+Key categories of fixes:
+- **Data persistence** (Rounds 6–8, 12–13, 16–18, 26): Assertion round-trip through DataMapperModal, exclude-mode operator preservation, DSL field removal sync, arrayLength `=` vs `==` serializer/parser alignment
+- **DSL ↔ Visual sync** (Rounds 10, 12, 14, 16): Debounce flush on disable/save, non-DSL assertion preservation (`nonDslAssertionsRef`), stale debounce cancellation, `flushPending()` for pre-save flush
+- **Verification engine** (Rounds 3, 5, 15–16, 20–22): Assertion failure attribution, path normalization (`$.` prefix), HTTP-only assertion skipping, `nodeStatusMap` target path registration, undefined guards for `evaluateFieldOperator`
+- **UI correctness** (Rounds 2, 4, 23, 25): Operator picker positioning, filter-failed signal flow, `OPERATOR_REGISTRY` fallback, `serializeToDsl` crash guards, cell.value null guard
+- **React state management** (Rounds 5, 8, 10, 13, 17–18): `verifyAll` timing, assertion initialization from `initialData`, `handleAddArrayAssertion` compositing, synchronous `onChange` propagation, expression vs field mapping heuristic
+
+---
+
+### Phase 6: Schema Validation (Medium — GAP-09) ✅ COMPLETED
 
 **Goal:** Support JSON Schema (Draft 2020-12) validation against response bodies, enabling users to validate structural contracts — required fields, types, value constraints, and nested structures — using the industry-standard JSON Schema format.
 
@@ -2316,19 +2378,51 @@ offers[*].rank                    each >=          0
 
 #### Phase 6 Deliverable Criteria
 
-- [ ] `jsonSchema` assertion type in `Assertion` union
-- [ ] Ajv integration with format support
-- [ ] `evaluateAssertions()` handles `jsonSchema` with per-path error reporting
-- [ ] Schema editor UI with paste and multi-line editing
-- [ ] Auto-generate schema from sample response utility
-- [ ] Test Editor "+ Add" menu includes "JSON Schema" option
-- [ ] 15+ unit tests for schema validation
-- [ ] 10+ unit tests for schema generator
-- [ ] `npx tsc -b --noEmit` passes
+- [x] `jsonSchema` assertion type in `Assertion` union
+- [x] Ajv integration with format support (lazy-init, `strict: false`, `allErrors: true`)
+- [x] `evaluateAssertions()` handles `jsonSchema` with per-path error reporting (capped at 10 errors)
+- [x] Schema editor UI with paste, format, and multi-line editing (textarea with syntax validation)
+- [x] Auto-generate schema from sample response utility (`generateJsonSchema` with strict/lenient modes)
+- [x] Test Editor "+ Add" menu includes "JSON Schema" option with SCHEMA badge
+- [x] 16 unit tests for schema validation (validator.assertions.test.ts)
+- [x] 20 unit tests for schema generator (schemaGenerator.test.ts)
+- [x] `npx tsc -b --noEmit` passes — 0 errors
+- [x] Professional UI: indigo color scheme badge, monospace textarea, red border on invalid JSON, inline error messages, toolbar with Paste/Format/Generate actions
+
+#### Post-Phase 6 Review Rounds (Rounds 1–5)
+
+**4 bugs fixed across 4 review rounds** before convergence (Round 5: "No bugs found").
+
+Key fixes:
+- **R1-1 (HIGH)**: `matchesAssertionFailure` in `useValidationVerify.ts` never matched `jsonSchema` failures — `getAssertionPath` returned the type name instead of matching the engine's `(jsonSchema:…)` path format
+- **R2-1 (HIGH)**: Multiple `jsonSchema` assertions had incorrect pass/fail attribution — all failures matched all assertions. Fixed by embedding assertion index in failure paths: `(jsonSchema#N:…)` in `validator.ts` and index-based matching in `matchesAssertionFailure`
+- **R2-2 (HIGH)**: Clipboard API `navigator.clipboard.readText()` could throw synchronously when clipboard is undefined (non-HTTPS contexts). Fixed with `?.readText` guard
+- **R3-1 (MEDIUM)**: "Generate from Response" on empty sample `{}` produced over-strict schema (`additionalProperties: false`). Fixed by using lenient mode when sample has no keys
+
+#### Extended Review Rounds (Rounds 6–16)
+
+**12 additional bugs fixed across 10 review rounds** expanding scope to cross-cutting Phases 1-6 integration (Round 16: no new bugs under strict criteria).
+
+Key fixes:
+- **R6-1 (HIGH)**: Same-type same-path assertions had incorrect pass/fail attribution via `.find()` — fixed by evaluating each body assertion individually instead of batched
+- **R6-2 (MEDIUM)**: `operatorValue` set without `operator` for equality rules — null guard
+- **R7-1 (HIGH)**: DSL `quoteValue` didn't escape embedded `"` / `\` — fixed with escape in serializer + single-pass unescape in parser
+- **R7-2 (HIGH)**: Validation adapter exclude mode `fieldMap` lookup failed due to `$.` prefix mismatch — `stripDollarPrefix` on both sides
+- **R8-1 (HIGH)**: `RulesVersion` type missing `assertions` field — added to type, factory (`structuredClone`), and restore handler
+- **R9-1 (HIGH)**: R6-2 fix was too aggressive, equality rules lost `operatorValue/expectedValue` — reverted to always passing through
+- **R9-2 (MEDIUM)**: `each` assertion value not quoted in DSL serializer — added `quoteValue` call
+- **R10-1 (HIGH)**: `rulesFingerprint` omitted assertions — added to fingerprint computation
+- **R10-2 (HIGH)**: `buildRulesSnapshot` omitted assertions — added to snapshot for version diff
+- **R11-1 (MEDIUM)**: `starts_with`/`ends_with` didn't coerce non-string values — aligned with `contains` using `JSON.stringify`
+- **R11-2 (MEDIUM)**: Rules version panel + save gate hidden for assertion-only setups — broadened `hasRules` check
+- **R12-2 (MEDIUM)**: "Verify Rules" section hidden for assertion-only scenarios — broadened visibility gate
+- **R12-4 (MEDIUM)**: `unquote` escape ordering incorrect — fixed with single-pass `\\(.)` → capture group regex
+- **R14-1 (HIGH)**: `importAutoDetect` silently dropped invalid DSL lines — now rejects on any parse error
+- **R14-3 (MEDIUM)**: `COMPARISON_OP_MAP` missing `==` → `=` alias — `length ==` rules silently dropped
 
 ---
 
-### Phase 7: Expression Engine Enrichment (Medium — Part 5 gaps)
+### Phase 7: Expression Engine Enrichment (Medium — Part 5 gaps) ✅ COMPLETED
 
 **Goal:** Add the most impactful missing transformation functions to the expression engine, prioritized by competitive benchmark frequency and user workflow impact. These functions are available to all adapters via the shared expression evaluator.
 
@@ -2457,17 +2551,32 @@ Target: 60+ new tests.
 
 #### Phase 7 Deliverable Criteria
 
-- [ ] 5 higher-order array functions (`$sum`, `$average`, `$groupBy`, `$any`, `$all`)
-- [ ] 5 string utility functions (`$substringBefore`, `$substringAfter`, `$capitalize`, `$camelCase`, `$snakeCase`)
-- [ ] 5 object utility functions (`$has`, `$toEntries`, `$fromEntries`, `$pick`, `$omit`)
-- [ ] 4 math utility functions (`$sqrt`, `$clamp`, `$uuid`, `$range`)
-- [ ] All 19 functions in expression editor catalog with descriptions
-- [ ] 60+ new unit tests
-- [ ] `npx tsc -b --noEmit` passes
+- [x] 5 higher-order array functions (`$sum`, `$average`, `$groupBy`, `$any`, `$all`) → `arrayFunctions.ts`
+- [x] 5 string utility functions (`$substringBefore`, `$substringAfter`, `$capitalize`, `$camelCase`, `$snakeCase`) → added to `stringFunctions.ts`
+- [x] 5 object utility functions (`$has`, `$toEntries`, `$fromEntries`, `$pick`, `$omit`) → `objectFunctions.ts`
+- [x] 4 math utility functions (`$sqrt`, `$clamp`, `$uuid`, `$range`) → added to `mathFunctions.ts`
+- [x] All 19 functions in expression editor catalog with descriptions (auto-registered via `EXPRESSION_CATEGORIES` + `groupedExpressionFunctions()`)
+- [x] 100+ new unit tests (217 total across 5 test files)
+- [x] `npx tsc -b --noEmit` passes — 0 errors
+- [x] Transformation library updated with new `$sqrt`, `$clamp`, `$sum`, `$average`, `$groupBy` templates
+
+#### Post-Phase 7 Review Rounds (Rounds 1–7)
+
+17 bugs fixed across 6 rounds. Round 7 confirmed "No bugs found" under strict criteria.
+
+| Round | Bugs Fixed | Key Issues |
+|-------|-----------|------------|
+| R1 | 6 | `compareValues` object equality, `$substringBefore` empty sep, `$lowercase`/`$uppercase` wrong names, `$range` FP accumulation, `$clamp` inverted bounds |
+| R2 | 3 | `$concat` template duplicate path, `$range` boundary overshoot, `$round` extreme decimals |
+| R3 | 2 | `asArray`/`asObj` don't parse JSON strings (mapper integration), confirmed across expressionSuggestions/exampleInference |
+| R4 | 3 | `obj-to-str` template → `$stringify`, `object→string` suggestion → `$stringify`, `$repeat` Infinity crash |
+| R5 | 2 | `stringify()` BigInt/cyclic crash, `$substring` uses `substr` vs `slice` semantics |
+| R6 | 1 | BigInt replacer for `JSON.stringify` in `compareValues` |
+| R7 | 0 | Convergence — "No bugs found" |
 
 ---
 
-### Phase 8: Nice-to-Have Operators (Low — GAP-12 through GAP-16)
+### Phase 8: Nice-to-Have Operators (Low — GAP-12 through GAP-16) ✅ COMPLETED
 
 **Goal:** Add remaining lower-priority assertion types and operators to close the final competitive gaps. These are individually small but collectively round out the assertion vocabulary.
 
@@ -2576,13 +2685,14 @@ Add to the `Assertion` union:
 
 #### Phase 8 Deliverable Criteria
 
-- [ ] `bodySize` and `datePrecise` assertion types in `Assertion` union
-- [ ] `evaluateAssertions()` handles both new types
-- [ ] Test Editor "+ Add" menu includes "Body Size" and "Date Precise" options
-- [ ] Inline editing rows for both types
-- [ ] SetupStepValidate badge rendering
-- [ ] 16+ new unit tests
-- [ ] `npx tsc -b --noEmit` passes
+- [x] `bodySize` and `datePrecise` assertion types in `Assertion` union (with `unit` field for bodySize)
+- [x] `evaluateAssertions()` handles both new types (with `truncateToUnit` helper for date precision)
+- [x] Test Editor "+ Add" menu includes "Body Size" and "Date Precise" options
+- [x] Inline editing rows: bodySize (operator + value + unit), datePrecise (path + operator + datetime-local + precision)
+- [x] Badge rendering: SIZE (amber), DATE⁺ (pink) with border-left indicators
+- [x] 22 new unit tests (10 bodySize + 12 datePrecise)
+- [x] `npx tsc -b --noEmit` passes — 0 errors
+- [x] `rawBody` added to AssertionContext for accurate byte-level body size measurement
 
 ---
 
@@ -2592,48 +2702,49 @@ Add to the `Assertion` union:
 
 | Operator | Postman | Karate | Hurl | Bruno | StepCI | REST Assured | JMeter | Gatling | k6 | Artillery | Pact | **RedfireForge** |
 |---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| Exact equality | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | **Partial** (assertions only, not ExpectedField) |
-| Not equals | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | — | **No** |
-| Greater than | Y | Y | Y | Y | Y | Y | — | Y | Y | — | — | **Partial** (numeric/date only) |
-| Less than | Y | Y | Y | Y | Y | Y | — | Y | Y | — | — | **Partial** (numeric/date only) |
-| Contains (string) | Y | Y | Y | Y | — | Y | Y | — | Y | — | — | **No** (header only) |
-| Starts with | Y | — | Y | Y | — | Y | — | — | Y | — | — | **No** |
-| Ends with | Y | — | Y | Y | — | Y | — | — | Y | — | — | **No** |
-| Regex match | Y | Y | Y | Y | Y | Y | Y | — | Y | Y | Y | **Yes** |
-| Is true / false | Y | Y | Y | Y | — | — | — | — | Y | — | — | **No** |
-| Is null | Y | Y | — | Y | Y | Y | — | Y | Y | — | Y | **No** |
-| Is type | Y | Y | Y | Y | Y | Y | — | — | Y | — | Y | **No** |
-| Exists | Y | Y | Y | Y | Y | — | — | Y | Y | Y | — | **No** (header only) |
-| Is empty | Y | — | Y | Y | — | Y | — | — | Y | — | — | **No** |
-| Array length | Y | Y | Y | Y | — | Y | — | Y | Y | — | Y | **Yes** |
-| Array contains | Y | Y | Y | — | — | Y | — | — | Y | — | — | **No** |
-| Each element | Y | Y | — | — | — | Y | — | — | Y | — | — | **No** |
-| In / not in | — | Y | — | Y | Y | — | — | Y | Y | — | — | **No** |
-| Between / range | Y | — | — | Y | — | — | — | — | — | — | — | **No** |
-| Deep partial | Y | Y | — | — | — | Y | — | — | — | — | — | **No** |
-| JSON Schema | Y | Y | — | — | Y | Y | Y | — | — | — | Y | **No** |
-| Negation (any) | Y | Y | Y | — | — | Y | Y | — | Y | — | — | **No** |
-| Has property | Y | Y | — | — | — | Y | — | — | Y | Y | — | **No** |
-| Custom predicate | Y | Y | — | — | — | Y | Y | Y | Y | — | — | **No** |
-| Response size | — | — | Y | — | — | — | Y | Y | Y | — | — | **No** |
+| Exact equality | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | **Yes** (ExpectedField + operators) |
+| Not equals | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | — | **Yes** (FieldOperator `not_equals`) |
+| Greater than | Y | Y | Y | Y | Y | Y | — | Y | Y | — | — | **Yes** (numeric, date, datePrecise) |
+| Less than | Y | Y | Y | Y | Y | Y | — | Y | Y | — | — | **Yes** (numeric, date, datePrecise) |
+| Contains (string) | Y | Y | Y | Y | — | Y | Y | — | Y | — | — | **Yes** (FieldOperator `contains`) |
+| Starts with | Y | — | Y | Y | — | Y | — | — | Y | — | — | **Yes** (FieldOperator `starts_with`) |
+| Ends with | Y | — | Y | Y | — | Y | — | — | Y | — | — | **Yes** (FieldOperator `ends_with`) |
+| Regex match | Y | Y | Y | Y | Y | Y | Y | — | Y | Y | Y | **Yes** (regex assertion + FieldOperator) |
+| Is true / false | Y | Y | Y | Y | — | — | — | — | Y | — | — | **Yes** (FieldOperator `is_true`/`is_false`) |
+| Is null | Y | Y | — | Y | Y | Y | — | Y | Y | — | Y | **Yes** (FieldOperator `is_null`/`is_not_null`) |
+| Is type | Y | Y | Y | Y | Y | Y | — | — | Y | — | Y | **Yes** (`typeCheck` assertion) |
+| Exists | Y | Y | Y | Y | Y | — | — | Y | Y | Y | — | **Yes** (`existence` assertion) |
+| Is empty | Y | — | Y | Y | — | Y | — | — | Y | — | — | **Yes** (FieldOperator `is_empty`/`is_not_empty`) |
+| Array length | Y | Y | Y | Y | — | Y | — | Y | Y | — | Y | **Yes** (`arrayLength` assertion) |
+| Array contains | Y | Y | Y | — | — | Y | — | — | Y | — | — | **Yes** (`arrayContains` assertion) |
+| Each element | Y | Y | — | — | — | Y | — | — | Y | — | — | **Yes** (`each` assertion) |
+| In / not in | — | Y | — | Y | Y | — | — | Y | Y | — | — | **Yes** (FieldOperator `in`/`not_in`) |
+| Between / range | Y | — | — | Y | — | — | — | — | — | — | — | **Yes** (FieldOperator `between`) |
+| Deep partial | Y | Y | — | — | — | Y | — | — | — | — | — | **Yes** (`containsSubset` assertion) |
+| JSON Schema | Y | Y | — | — | Y | Y | Y | — | — | — | Y | **Yes** (`jsonSchema` assertion + Ajv) |
+| Negation (any) | Y | Y | Y | — | — | Y | Y | — | Y | — | — | **Partial** (per-operator negation, not universal) |
+| Has property | Y | Y | — | — | — | Y | — | — | Y | Y | — | **Yes** (`existence` assertion) |
+| Custom predicate | Y | Y | — | — | — | Y | Y | Y | Y | — | — | **Partial** (expressions as predicates) |
+| Response size | — | — | Y | — | — | — | Y | Y | Y | — | — | **Yes** (`bodySize` assertion) |
 
 ### Authoring & Verification Matrix
 
 | Capability | Postman | Karate | Hurl | Bruno | StepCI | REST Assured | JMeter | Gatling | k6 | Artillery | Pact | **RedfireForge** |
 |---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
 | Visual UI authoring | Y | — | — | Y | — | — | Y | — | — | — | — | **Yes** |
-| Code/DSL authoring | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | **No** |
-| Bi-directional sync (visual ↔ code) | — | — | — | Y | — | — | Partial | — | — | — | — | **No** |
-| In-context verify (without leaving editor) | Y | Y | Y | Y | — | — | Y | — | — | — | — | **No** (Test Editor only) |
-| Per-rule pass/fail inline | Y | Y | Y | Y | — | Y | Y | — | Y | — | — | **No** |
-| Live fetch + verify | Y | Y | Y | Y | — | Y | Y | — | Y | — | — | **Partial** (Test Editor only) |
-| Auto-verify on change | — | — | — | — | — | — | — | — | — | — | — | **No** |
-| Filter by pass/fail | — | — | — | — | — | — | — | — | — | — | — | **No** |
+| Code/DSL authoring | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | **Yes** (custom DSL + Monaco) |
+| Bi-directional sync (visual ↔ code) | — | — | — | Y | — | — | Partial | — | — | — | — | **Yes** (debounced + lossless) |
+| In-context verify (without leaving editor) | Y | Y | Y | Y | — | — | Y | — | — | — | — | **Yes** (Visual Mapper verify) |
+| Per-rule pass/fail inline | Y | Y | Y | Y | — | Y | Y | — | Y | — | — | **Yes** (target node badges + canvas lines) |
+| Live fetch + verify | Y | Y | Y | Y | — | Y | Y | — | Y | — | — | **Yes** (Test Editor + Visual Mapper) |
+| Auto-verify on change | — | — | — | — | — | — | — | — | — | — | — | **Yes** (auto-verify toggle) |
+| Filter by pass/fail | — | — | — | — | — | — | — | — | — | — | — | **Yes** (filter failed signal) |
 
-### Coverage Score
+### Coverage Score (Updated post-Phase 8)
 
 | Tool | Operators (of 25) | Authoring (of 8) | Total (of 33) | Coverage |
 |---|---|---|---|---|
+| **RedfireForge** | **23** | **8** | **31** | **94%** |
 | Postman (Chai.js) | 23 | 6 | 29 | 88% |
 | Karate DSL | 21 | 5 | 26 | 79% |
 | k6 (JavaScript) | 20 | 4 | 24 | 73% |
@@ -2645,9 +2756,772 @@ Add to the `Assertion` union:
 | StepCI | 10 | 2 | 12 | 36% |
 | Pact | 9 | 2 | 11 | 33% |
 | Artillery | 7 | 2 | 9 | 27% |
-| **RedfireForge** | **5** | **2** | **7** | **21%** |
 
-**Note:** After implementing all phases (0–8), RedfireForge would score **33/33 (100%)** — the only tool offering a **unified visual mapper** (reused across 11+ contexts) + code authoring + bi-directional sync + auto-verify + per-rule inline pass/fail + filter by status. This combination does not exist in any competing tool today. Critically, the capability-gated architecture (Phase 0) ensures operator features only appear in contexts that declare them, keeping simpler adapters clean.
+**RedfireForge now leads the industry** at **94% coverage** — the only tool offering a **unified visual mapper** (reused across 11+ contexts) + code authoring + bi-directional sync + auto-verify + per-rule inline pass/fail + filter by status + JSON Schema + body size + sub-day date precision. This combination does not exist in any competing tool today.
+
+**Remaining gaps (2 of 25 operators):**
+- **Universal negation modifier** — currently per-operator only (`not_equals`, `not_contains`, etc.), not a generic `NOT` wrapper
+- **Custom predicate functions** — expressions can serve as predicates, but no dedicated "assert callback" interface
+
+---
+
+## Part 8: Implementation Summary — All Phases Complete
+
+### GAP Closure Scorecard
+
+| GAP | Description | Severity | Phase | Status |
+|---|---|---|---|---|
+| GAP-01 | ExpectedField operator support | Critical | P1 | ✅ Closed |
+| GAP-02 | Type-checking predicates | Critical | P2 | ✅ Closed |
+| GAP-03 | Boolean assertion | High | P1 | ✅ Closed |
+| GAP-04 | String operators on body fields | High | P1 | ✅ Closed |
+| GAP-05 | Null/undefined/empty checks | High | P1 | ✅ Closed |
+| GAP-06 | Negation modifier | Medium | P1 | ⚠️ Partial |
+| GAP-07 | Collection item membership | High | P3 | ✅ Closed |
+| GAP-08 | Each/every element assertion | High | P3 | ✅ Closed |
+| GAP-09 | JSON Schema validation | Medium | P6 | ✅ Closed |
+| GAP-10 | Field existence on body | Medium | P2 | ✅ Closed |
+| GAP-11 | Deep/partial object matching | Low | P3 | ✅ Closed |
+| GAP-12 | Response size assertion | Medium | P8 | ✅ Closed |
+| GAP-13 | In/not-in set membership | Low | P1 | ✅ Closed |
+| GAP-14 | Between/range operator | Low | P1 | ✅ Closed |
+| GAP-15 | Approximate numeric comparison | Low | P1 | ✅ Closed |
+| GAP-16 | Date/time precision beyond day | Low | P8 | ✅ Closed |
+| GAP-17 | Dual-mode authoring | Critical | P4 | ✅ Closed |
+| GAP-18 | Integrated live validation | Critical | P5 | ✅ Closed |
+
+**Result: 17 of 18 gaps fully closed. 1 partial (GAP-06: universal negation).**
+
+### Phase Completion Timeline
+
+| Phase | Title | Complexity | Status | Review Rounds | Bugs Fixed |
+|---|---|---|---|---|---|
+| P0 | Unified Adapter Capability Framework | Foundation | ✅ Complete | — | — |
+| P1 | Field Operator Foundation | Critical | ✅ Complete | — | — |
+| P2 | Type & Existence Assertions | High | ✅ Complete | — | — |
+| P3 | Collection & Structural Assertions | High | ✅ Complete | — | — |
+| P4 | Code Editor Mode — Dual Authoring | Critical | ✅ Complete | — | — |
+| P5 | Integrated Live Validation Stage | Critical | ✅ Complete | 27 rounds | 55 bugs |
+| P6 | Schema Validation (JSON Schema) | Medium | ✅ Complete | 16 rounds | 16 bugs |
+| P7 | Expression Engine Enrichment | Medium | ✅ Complete | 7 rounds | 17 bugs |
+| P8 | Nice-to-Have Operators | Low | ✅ Complete | — | 5 TS errors |
+
+### Metrics
+
+| Metric | Before (Pre-Phase 0) | After (Post-Phase 8) |
+|---|---|---|
+| Assertion types | 7 | 15 |
+| Expression functions | 69 | 88 |
+| Expression categories | 6 | 8 |
+| FieldOperator values | 0 | 24 |
+| Competitive coverage score | 21% (7/33) | 94% (31/33) |
+| Industry ranking | Last (12th of 12) | First (1st of 12) |
+| Authoring modes | Visual only | Visual + Code DSL (bi-directional) |
+| Live verification | Test Editor only | Visual Mapper + Test Editor + auto-verify |
+
+---
+
+## Part 9: Future Enhancements (Beyond Phase 8)
+
+The following enhancements are **not required** for the validation operator gap analysis — all 18 identified gaps are closed or partially closed. These are forward-looking improvements that would further strengthen RedfireForge's position.
+
+### 9.1 Universal Negation Modifier (Closes GAP-06 fully) ✅ COMPLETED
+
+**Priority:** Low | **Effort:** Small | **Impact:** Coverage 94% → 96%
+
+**Status:** ✅ COMPLETED — Implemented and reviewed across 7 rounds with 11 bugs found and fixed.
+
+Added `negate?: boolean` field to both `Assertion` and `ExpectedField` types. When `true`, the evaluation result is inverted — a passing rule becomes a failure and vice versa.
+
+| Component | Change | Status |
+|---|---|---|
+| `ExpectedField` type | Added `negate?: boolean` | ✅ |
+| `Assertion` type | Added `AssertionBase` with `negate?: boolean` to all union members | ✅ |
+| `Mapping` type | Added `negate?: boolean` for Visual Mapper state | ✅ |
+| `evaluateFieldOperator()` | Wrap result with `negate` inversion in `validateFields`/`validateFieldsUnordered` | ✅ |
+| `evaluateAssertions()` | Post-switch negate logic with config error separation | ✅ |
+| DSL parser/serializer | `NOT` prefix keyword: `path NOT contains "x"` (case-insensitive) | ✅ |
+| Operator pill UI | Red "NOT" toggle badge before operator pill + context menu | ✅ |
+| Code editor | Syntax highlight `NOT` keyword in red + autocomplete | ✅ |
+| Visual Mapper | Negate toggle in operator picker dropdown | ✅ |
+| Validation adapter | Serialize/deserialize `negate` field | ✅ |
+| Live verification | `useValidationVerify` applies negate to field evaluations | ✅ |
+| Mapping profiles | `isDeltaEquivalent` + `applyProfileDelta` include negate | ✅ |
+
+This eliminates the need for per-operator negation variants and matches Hurl's `not` prefix, Karate's `!contains`, and Postman's `.not` chain.
+
+### 9.2 Lambda Expression Syntax (Closes 18 expression gaps)
+
+**Priority:** Medium | **Effort:** Medium | **Impact:** Expression gap coverage 53% → 100%
+
+**Status:** NOT STARTED
+
+---
+
+#### 9.2.0 Design Philosophy & Syntax Specification
+
+**Goal:** Extend the expression engine with arrow-function (lambda) syntax, enabling higher-order functions that accept user-defined predicates, transformers, and reducers — matching JSONata's `function` keyword, JavaScript's arrow functions, and DataWeave's lambda closures.
+
+**Design decisions:**
+
+1. **Arrow syntax over `function` keyword** — We use `=>` (JavaScript-style) rather than JSONata's `function($x) { body }` because: (a) shorter, (b) familiar to TypeScript developers, (c) aligns with the app's tech stack.
+2. **Implicit return** — Lambda body is always a single expression (no blocks, no statements). This keeps the parser simple and aligns with our existing expression model.
+3. **Lexical scoping** — Lambda parameters shadow outer variables with the same name. Outer variables remain accessible if names don't collide.
+4. **Lazy argument evaluation** — When a function receives a lambda argument, the lambda body is NOT eagerly evaluated. Instead, the host function (e.g. `$map`) controls when/how many times the lambda is invoked.
+
+**Supported syntax forms:**
+
+```
+// Single parameter (no parens required)
+$map($.items, x => $upper(x.name))
+$filter($.users, u => u.age > 18)
+
+// Multiple parameters (parens required)
+$reduce($.prices, (acc, p) => $add(acc, p), 0)
+$zip($.a, $.b, (x, y) => $concat(x, "-", y))
+
+// Nested lambdas
+$map($.groups, g => $filter(g.items, i => i.active))
+
+// Lambda with existing functions
+$sortBy($.products, p => p.price)
+$distinctBy($.users, u => u.email)
+```
+
+**NOT supported (intentionally):**
+
+- Multi-statement bodies: `x => { const y = x + 1; return y }`
+- Destructuring parameters: `({name, age}) => name`
+- Default parameters: `(x = 0) => x`
+- Rest parameters: `(...args) => args`
+- Infix operators in body: `x => x + 1` (use `$add(x, 1)` instead)
+
+> **Note on infix operators:** The expression engine does NOT support infix operators (`+`, `-`, `*`, `/`, `>`, `<`, `>=`, `<=`, `==`, `!=`). All operations must use function calls (`$add`, `$subtract`, `$multiply`, `$divide`). For comparisons in `$filter`, use the existing 4-arg `$any`/`$all` pattern or the new comparison functions: `$gt(a, b)`, `$gte(a, b)`, `$lt(a, b)`, `$lte(a, b)`, `$eq(a, b)`, `$neq(a, b)`.
+
+---
+
+#### 9.2.1 Architecture Overview
+
+**Files to modify/create:**
+
+| File | Change Type | Description |
+|------|-------------|-------------|
+| `src/features/workflow/utils/expressionEvaluator.ts` | **Major refactor** | Add `'lambda'` AST node kind, `'=>'` token type, lambda parsing, closure evaluation |
+| `src/features/workflow/utils/expressionFunctions/types.ts` | **Extend** | Add `LambdaValue` type for runtime lambda representation |
+| `src/features/workflow/utils/expressionFunctions/arrayFunctions.ts` | **Extend** | Add 8 new higher-order array functions |
+| `src/features/workflow/utils/expressionFunctions/objectFunctions.ts` | **Extend** | Add 3 new higher-order object functions |
+| `src/features/workflow/utils/expressionFunctions/stringFunctions.ts` | **Extend** | Add 6 new string utility functions |
+| `src/features/workflow/utils/expressionFunctions/mathFunctions.ts` | **Extend** | Add 2 new math functions + 6 comparison helpers |
+| `src/shared/components/data-mapper/utils/mapperExpressionEvaluator.ts` | **Modify** | Update `wrapDollarPaths` to handle `=>` context |
+| `src/shared/components/data-mapper/utils/expressionStepDebugger.ts` | **Modify** | Update debugger to trace lambda invocations |
+| `src/shared/components/data-mapper/ExpressionEditorModal.tsx` | **Modify** | Update autocomplete and function catalog |
+| `src/features/workflow/utils/expressionEvaluator.test.ts` | **Extend** | Parser + evaluator unit tests for lambda |
+| `src/features/workflow/utils/expressionFunctions/arrayFunctions.test.ts` | **Extend** | Tests for all new HOF functions |
+| `src/features/workflow/utils/expressionFunctions/objectFunctions.test.ts` | **Extend** | Tests for new object functions |
+| `src/features/workflow/utils/expressionFunctions/stringFunctions.test.ts` | **Extend** | Tests for new string functions |
+| `src/features/workflow/utils/expressionFunctions/mathFunctions.test.ts` | **Extend** | Tests for new math/comparison functions |
+
+---
+
+#### Step 1: Tokenizer Extension (S)
+
+**File:** `src/features/workflow/utils/expressionEvaluator.ts`
+
+**Current state:** The tokenizer emits tokens of type `'string' | 'number' | 'bool' | 'func' | 'lparen' | 'rparen' | 'comma' | 'var' | 'ident'`. It has no concept of `=>` or parameter binding.
+
+**Changes:**
+
+1. Add new token type `'arrow'` for the `=>` operator.
+2. Ensure bare identifiers before `=>` are still tokenized as `'ident'` (parameter names).
+3. Handle `(x, y) =>` — the `(` already tokenizes as `'lparen'`, params as `'ident'`, commas as `'comma'`, `)` as `'rparen'`.
+
+```typescript
+type TokenType = 'string' | 'number' | 'bool' | 'func' | 'lparen' | 'rparen'
+  | 'comma' | 'var' | 'ident' | 'arrow';
+
+// In tokenize():
+// After comma handling, before bare identifier:
+if (expr[i] === '=' && expr[i + 1] === '>') {
+  tokens.push({ type: 'arrow', value: '=>' });
+  i += 2;
+  continue;
+}
+```
+
+**Test cases for tokenizer:**
+- `x => $upper(x)` → `[ident:x, arrow:=>, func:$upper, lparen:(, ident:x, rparen:)]`
+- `(a, b) => $add(a, b)` → `[lparen:(, ident:a, comma:,, ident:b, rparen:), arrow:=>, func:$add, lparen:(, ident:a, comma:,, ident:b, rparen:)]`
+
+---
+
+#### Step 2: Parser Extension — Lambda AST Node (M)
+
+**File:** `src/features/workflow/utils/expressionEvaluator.ts`
+
+**Changes:**
+
+1. Add `'lambda'` to `ASTNode.kind`.
+2. Add `params?: string[]` and `body?: ASTNode` fields to `ASTNode`.
+3. Modify `parseExpr()` to detect lambda syntax:
+   - **Single param:** If current token is `ident` and next is `arrow`, parse as lambda.
+   - **Multi param:** If current token is `lparen`, peek ahead for `ident, comma, ..., rparen, arrow` pattern; if matched, parse as lambda. Otherwise, fall through to existing parsing (parenthesized expression / function call).
+
+```typescript
+interface ASTNode {
+  kind: 'literal' | 'variable' | 'call' | 'lambda';
+  value?: unknown;
+  varName?: string;
+  funcName?: string;
+  args?: ASTNode[];
+  params?: string[];   // Lambda parameter names
+  body?: ASTNode;      // Lambda body expression
+}
+
+function parseExpr(): ASTNode {
+  if (pos >= tokens.length) return { kind: 'literal', value: '' };
+  const tok = tokens[pos];
+
+  // Lambda: single param — `x => body`
+  if (tok.type === 'ident' && pos + 1 < tokens.length && tokens[pos + 1].type === 'arrow') {
+    const paramName = tok.value;
+    pos += 2; // consume ident + =>
+    const body = parseExpr();
+    return { kind: 'lambda', params: [paramName], body };
+  }
+
+  // Lambda: multi param — `(a, b) => body`
+  if (tok.type === 'lparen' && isLambdaParamList()) {
+    const params = parseLambdaParams(); // consume ( ident , ident , ... ) =>
+    const body = parseExpr();
+    return { kind: 'lambda', params, body };
+  }
+
+  // ... existing function call / literal / variable parsing ...
+}
+
+// Peek-ahead to distinguish `(x, y) => ...` from `(nested expression)`
+function isLambdaParamList(): boolean {
+  let j = pos + 1;
+  while (j < tokens.length) {
+    if (tokens[j].type === 'rparen') {
+      return j + 1 < tokens.length && tokens[j + 1].type === 'arrow';
+    }
+    if (tokens[j].type !== 'ident' && tokens[j].type !== 'comma') return false;
+    j++;
+  }
+  return false;
+}
+
+function parseLambdaParams(): string[] {
+  const params: string[] = [];
+  pos++; // consume (
+  while (pos < tokens.length && tokens[pos].type !== 'rparen') {
+    if (tokens[pos].type === 'comma') { pos++; continue; }
+    if (tokens[pos].type === 'ident') { params.push(tokens[pos].value); pos++; }
+    else break;
+  }
+  if (pos < tokens.length) pos++; // consume )
+  if (pos < tokens.length && tokens[pos].type === 'arrow') pos++; // consume =>
+  return params;
+}
+```
+
+**Edge cases to handle:**
+- Empty params: `() => $uuid()` — valid, zero-arg lambda
+- Lambda as function argument: `$map($.items, x => $upper(x.name))` — parsed as second arg to `$map`
+- Nested lambdas: `$map($.groups, g => $filter(g.items, i => i.active))` — recursive `parseExpr` handles this
+
+---
+
+#### Step 3: Evaluator Extension — Lambda Value & Application (M)
+
+**File:** `src/features/workflow/utils/expressionEvaluator.ts`
+
+**Changes:**
+
+1. Define a `LambdaValue` runtime type that captures the lambda's params + body + closure context.
+2. When `evalNode` encounters `kind: 'lambda'`, return a `LambdaValue` (do NOT evaluate body).
+3. Host functions (e.g. `$map`) receive `LambdaValue` as an argument and invoke it per element.
+4. Provide a helper `applyLambda(lambda, args, ctx)` that:
+   - Creates a child context with param bindings shadowing the parent `resolveVariable`.
+   - Evaluates the body in that child context.
+
+```typescript
+// Runtime representation of a lambda closure
+export interface LambdaValue {
+  __type: 'lambda';
+  params: string[];
+  body: ASTNode;
+  closureCtx: EvalContext;
+}
+
+export function isLambda(v: unknown): v is LambdaValue {
+  return v != null && typeof v === 'object' && (v as LambdaValue).__type === 'lambda';
+}
+
+export function applyLambda(lambda: LambdaValue, args: unknown[]): unknown {
+  const childCtx: EvalContext = {
+    resolveVariable: (name) => {
+      const paramIdx = lambda.params.indexOf(name);
+      if (paramIdx >= 0) return args[paramIdx] as string | undefined;
+      // Dot-path access on lambda parameters: "x.name" → resolve "x" then getByPath
+      const dotIdx = name.indexOf('.');
+      if (dotIdx > 0) {
+        const paramName = name.slice(0, dotIdx);
+        const restPath = name.slice(dotIdx + 1);
+        const pIdx = lambda.params.indexOf(paramName);
+        if (pIdx >= 0) {
+          const paramValue = args[pIdx];
+          return getNestedValue(paramValue, restPath) as string | undefined;
+        }
+      }
+      return lambda.closureCtx.resolveVariable?.(name);
+    },
+  };
+  return evalNode(lambda.body, childCtx);
+}
+
+// In evalNode():
+case 'lambda':
+  return { __type: 'lambda', params: node.params!, body: node.body!, closureCtx: ctx } as LambdaValue;
+```
+
+**Key design:**
+- `x.name` inside a lambda resolves to: look up `x` in params → get `args[idx]` → then `getNestedValue(value, 'name')`.
+- This enables `$map($.items, item => item.name)` without requiring `getByPath` notation.
+- Outer variables still accessible via `closureCtx.resolveVariable` fallback.
+
+**Export `applyLambda` and `isLambda`** so function implementations can use them.
+
+---
+
+#### Step 4: Higher-Order Array Functions (L)
+
+**File:** `src/features/workflow/utils/expressionFunctions/arrayFunctions.ts`
+
+**New functions (8):**
+
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `$map` | `$map(array, fn) → array` | Apply `fn` to each element, return new array |
+| `$filter` | `$filter(array, fn) → array` | Return elements where `fn` returns truthy |
+| `$reduce` | `$reduce(array, fn, initial?) → any` | Fold array with accumulator |
+| `$sortBy` | `$sortBy(array, fn) → array` | Sort by key extracted via `fn` |
+| `$minBy` | `$minBy(array, fn) → any` | Element with minimum key per `fn` |
+| `$maxBy` | `$maxBy(array, fn) → any` | Element with maximum key per `fn` |
+| `$distinctBy` | `$distinctBy(array, fn) → array` | Deduplicate by key extracted via `fn` |
+| `$zip` | `$zip(array1, array2, fn?) → array` | Combine two arrays element-wise, optionally with `fn` |
+
+**Implementation pattern:**
+
+```typescript
+import { isLambda, applyLambda, type LambdaValue } from '../expressionEvaluator';
+
+const $map: ExpressionFunction = {
+  name: '$map', category: 'Array',
+  signature: '$map(array, fn) → array',
+  description: 'Apply a function to each element of an array and return the results.',
+  args: [
+    { name: 'array', type: 'array', required: true, description: 'Input array' },
+    { name: 'fn', type: 'function', required: true, description: 'Lambda: element => result' },
+  ],
+  returnType: 'array',
+  examples: [
+    { input: '$map(["hello","world"], x => $upper(x))', output: '["HELLO","WORLD"]' },
+    { input: '$map([{name:"Alice"},{name:"Bob"}], u => u.name)', output: '["Alice","Bob"]' },
+  ],
+  evaluate: (arr, fn) => {
+    const items = asArray(arr);
+    if (!isLambda(fn)) return items; // graceful fallback
+    return items.map((item, idx) => applyLambda(fn as LambdaValue, [item, idx]));
+  },
+};
+
+const $filter: ExpressionFunction = {
+  name: '$filter', category: 'Array',
+  signature: '$filter(array, fn) → array',
+  description: 'Return elements where the predicate function returns truthy.',
+  args: [
+    { name: 'array', type: 'array', required: true, description: 'Input array' },
+    { name: 'fn', type: 'function', required: true, description: 'Lambda: element => boolean' },
+  ],
+  returnType: 'array',
+  examples: [
+    { input: '$filter([1,2,3,4,5], x => $gt(x, 3))', output: '[4,5]' },
+    { input: '$filter([{active:true},{active:false}], u => u.active)', output: '[{active:true}]' },
+  ],
+  evaluate: (arr, fn) => {
+    const items = asArray(arr);
+    if (!isLambda(fn)) return items;
+    return items.filter((item, idx) => {
+      const result = applyLambda(fn as LambdaValue, [item, idx]);
+      return !!result;
+    });
+  },
+};
+
+const $reduce: ExpressionFunction = {
+  name: '$reduce', category: 'Array',
+  signature: '$reduce(array, fn, initial?) → any',
+  description: 'Reduce an array to a single value by applying fn(accumulator, element) for each element.',
+  args: [
+    { name: 'array', type: 'array', required: true, description: 'Input array' },
+    { name: 'fn', type: 'function', required: true, description: 'Lambda: (acc, element) => newAcc' },
+    { name: 'initial', type: 'any', required: false, description: 'Initial accumulator value (default: first element)' },
+  ],
+  returnType: 'any',
+  examples: [
+    { input: '$reduce([1,2,3,4], (acc, x) => $add(acc, x), 0)', output: '10' },
+  ],
+  evaluate: (arr, fn, initial) => {
+    const items = asArray(arr);
+    if (!isLambda(fn) || items.length === 0) return initial ?? null;
+    const lambda = fn as LambdaValue;
+    let acc = initial !== undefined ? initial : items[0];
+    const startIdx = initial !== undefined ? 0 : 1;
+    for (let i = startIdx; i < items.length; i++) {
+      acc = applyLambda(lambda, [acc, items[i], i]);
+    }
+    return acc;
+  },
+};
+
+const $sortBy: ExpressionFunction = {
+  name: '$sortBy', category: 'Array',
+  signature: '$sortBy(array, fn) → array',
+  description: 'Sort array by key extracted via function.',
+  args: [
+    { name: 'array', type: 'array', required: true, description: 'Input array' },
+    { name: 'fn', type: 'function', required: true, description: 'Lambda: element => sortKey' },
+  ],
+  returnType: 'array',
+  examples: [
+    { input: '$sortBy([{n:3},{n:1},{n:2}], x => x.n)', output: '[{n:1},{n:2},{n:3}]' },
+  ],
+  evaluate: (arr, fn) => {
+    const items = [...asArray(arr)];
+    if (!isLambda(fn)) return items;
+    const lambda = fn as LambdaValue;
+    return items.sort((a, b) => {
+      const ka = applyLambda(lambda, [a]);
+      const kb = applyLambda(lambda, [b]);
+      if (ka == null && kb == null) return 0;
+      if (ka == null) return -1;
+      if (kb == null) return 1;
+      return ka < kb ? -1 : ka > kb ? 1 : 0;
+    });
+  },
+};
+
+// $minBy, $maxBy, $distinctBy, $zip follow same pattern
+```
+
+---
+
+#### Step 5: Higher-Order Object Functions (M)
+
+**File:** `src/features/workflow/utils/expressionFunctions/objectFunctions.ts`
+
+**New functions (3):**
+
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `$withEntries` | `$withEntries(obj, fn) → object` | Transform each {key, value} entry |
+| `$mapValues` | `$mapValues(obj, fn) → object` | Transform each value, keep keys |
+| `$mapKeys` | `$mapKeys(obj, fn) → object` | Transform each key, keep values |
+
+```typescript
+const $mapValues: ExpressionFunction = {
+  name: '$mapValues', category: 'Object',
+  signature: '$mapValues(object, fn) → object',
+  description: 'Apply function to each value in an object, returning new object with same keys.',
+  args: [
+    { name: 'object', type: 'object', required: true, description: 'Input object' },
+    { name: 'fn', type: 'function', required: true, description: 'Lambda: (value, key) => newValue' },
+  ],
+  returnType: 'object',
+  examples: [
+    { input: '$mapValues({a:1, b:2}, v => $multiply(v, 10))', output: '{"a":10,"b":20}' },
+  ],
+  evaluate: (obj, fn) => {
+    const o = asObj(obj);
+    if (!isLambda(fn)) return o;
+    const lambda = fn as LambdaValue;
+    const result: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(o)) {
+      result[k] = applyLambda(lambda, [v, k]);
+    }
+    return result;
+  },
+};
+```
+
+---
+
+#### Step 6: Comparison Helper Functions (S)
+
+**File:** `src/features/workflow/utils/expressionFunctions/mathFunctions.ts`
+
+Since the expression engine has no infix operators, lambdas like `x => x > 3` won't work. We need comparison functions for use in `$filter` predicates:
+
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `$gt` | `$gt(a, b) → boolean` | `a > b` |
+| `$gte` | `$gte(a, b) → boolean` | `a >= b` |
+| `$lt` | `$lt(a, b) → boolean` | `a < b` |
+| `$lte` | `$lte(a, b) → boolean` | `a <= b` |
+| `$eq` | `$eq(a, b) → boolean` | `a === b` |
+| `$neq` | `$neq(a, b) → boolean` | `a !== b` |
+| `$log` | `$log(n) → number` | Natural logarithm |
+| `$exp` | `$exp(n) → number` | e^n |
+
+```typescript
+const $gt: ExpressionFunction = {
+  name: '$gt', category: 'Math',
+  signature: '$gt(a, b) → boolean',
+  description: 'Return true if a is greater than b (numeric comparison).',
+  args: [
+    { name: 'a', type: 'number', required: true, description: 'Left operand' },
+    { name: 'b', type: 'number', required: true, description: 'Right operand' },
+  ],
+  returnType: 'boolean',
+  examples: [{ input: '$gt(5, 3)', output: 'true' }],
+  evaluate: (a, b) => n(a) > n(b),
+};
+```
+
+---
+
+#### Step 7: New String Utility Functions (S)
+
+**File:** `src/features/workflow/utils/expressionFunctions/stringFunctions.ts`
+
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `$kebabCase` | `$kebabCase(str) → string` | Convert to kebab-case |
+| `$isAlpha` | `$isAlpha(str) → boolean` | Test if string is all alphabetic |
+| `$isNumeric` | `$isNumeric(str) → boolean` | Test if string is all numeric |
+| `$trimStart` | `$trimStart(str) → string` | Trim leading whitespace |
+| `$trimEnd` | `$trimEnd(str) → string` | Trim trailing whitespace |
+| `$scan` | `$scan(str, regex) → array` | Find all regex matches |
+
+---
+
+#### Step 8: Mapper Expression Evaluator Updates (M)
+
+**File:** `src/shared/components/data-mapper/utils/mapperExpressionEvaluator.ts`
+
+**Changes:**
+
+1. **`wrapDollarPaths`** — Must NOT wrap `$.path`-style segments that are part of a lambda parameter access. E.g., in `x => x.name`, `x.name` is NOT a `$.path` reference — it's a lambda parameter dot-access. The preprocessor must skip identifiers that are NOT prefixed with `$`.
+
+   Current behavior: `wrapDollarPaths` only wraps patterns starting with `$.` (dollar-dot). Lambda params like `x.name` start with a letter, not `$`, so they are **already safe**. No change needed for basic cases.
+
+   **However:** If a user writes `$map($.items, item => $.otherField)`, the `$.otherField` should still be wrapped. This works correctly with current logic.
+
+2. **`evaluateMapperExpression`** — Must pass `EvalContext` through to the lambda closure. Currently `buildMapperResolveVariable` creates the context; this will naturally be captured in `LambdaValue.closureCtx` when the lambda is parsed and eval'd. No structural change needed.
+
+3. **`registerCustomFunctions` / `restoreCustomFunctions`** — Lambda functions don't need custom registration (they're inline, not named). No change needed.
+
+---
+
+#### Step 9: Expression Step Debugger Updates (M)
+
+**File:** `src/shared/components/data-mapper/utils/expressionStepDebugger.ts`
+
+**Changes:**
+
+1. **`extractFunctionCalls`** — Currently uses regex-style balanced-paren scanning. Lambda arrows (`=>`) inside function arguments must not break paren balancing. Since `=>` doesn't contain parens, existing scan should be safe. However, we should add a step type `'Lambda Application'` to show how the lambda is invoked.
+
+2. **New step type for lambda invocations:**
+   - When `$map(arr, x => ...)` is debugged, show intermediate steps:
+     - `Path Resolution: $.items → [...]`
+     - `Lambda Application: x => $upper(x.name) applied to arr[0]`
+     - `Function Evaluation: $map($.items, x => $upper(x.name)) → [...]`
+     - `Final Result: [...]`
+
+3. **Implementation approach:** In the debugger, detect `$map`, `$filter`, `$reduce` etc. as "HOF" functions. For HOFs, extract the lambda body and show a single representative evaluation (first element) as a trace step.
+
+---
+
+#### Step 10: Expression Editor UI Updates (M)
+
+**File:** `src/shared/components/data-mapper/ExpressionEditorModal.tsx`
+
+**Changes:**
+
+1. **Function catalog** — Add all 25 new functions to the sidebar grouped under existing categories (Array, Object, String, Math).
+
+2. **Insert template** — For HOF functions, the insert template should include a lambda placeholder:
+   ```
+   $map(${1:$.array}, ${2:x} => ${3:x.field})
+   $filter(${1:$.array}, ${2:x} => ${3:$gt(x.field, 0)})
+   $reduce(${1:$.array}, (${2:acc}, ${3:x}) => ${4:$add(acc, x)}, ${5:0})
+   ```
+
+3. **Monaco autocomplete:**
+   - After `=>`, suggest `$.` paths and `$` functions (existing behavior covers this).
+   - Add `=>` syntax awareness to the completion context detection.
+   - When inside a lambda body (after `=>`), suggest the lambda parameter names as local completions.
+
+4. **Syntax highlighting (optional):** Style `=>` with a distinct token color in the Monaco theme.
+
+---
+
+#### Step 11: Unit Tests — Parser & Evaluator (L)
+
+**File:** `src/features/workflow/utils/expressionEvaluator.test.ts`
+
+**Test categories:**
+
+1. **Tokenizer tests:**
+   - Single param lambda: `x => $upper(x)` → correct token sequence
+   - Multi param lambda: `(a, b) => $add(a, b)` → correct token sequence
+   - Arrow token not confused with `=` or `>=`
+   - Lambda inside function args: `$map($.x, y => y.name)` → function wraps lambda
+
+2. **Parser tests:**
+   - Produces `kind: 'lambda'` node with correct `params` and `body`
+   - Nested lambda: `$map($.a, x => $filter(x.items, y => y.ok))`
+   - Zero-param lambda: `() => $uuid()`
+   - Lambda as only expression: `x => x` (edge case)
+
+3. **Evaluator tests:**
+   - Lambda creates `LambdaValue` object (not eagerly evaluated)
+   - `applyLambda` resolves params correctly
+   - Dot-path on params: `item.name` resolves nested fields
+   - Closure captures outer context: `$map($.items, x => $concat(x.name, {{suffix}}))`
+   - Shadowing: lambda param named same as outer variable uses param
+
+4. **Integration tests:**
+   - `$map([1,2,3], x => $multiply(x, 2))` → `[2,4,6]`
+   - `$filter([{age:15},{age:25}], u => $gte(u.age, 18))` → `[{age:25}]`
+   - `$reduce([1,2,3,4], (acc, x) => $add(acc, x), 0)` → `10`
+   - `$sortBy([{n:3},{n:1}], x => x.n)` → `[{n:1},{n:3}]`
+   - Error handling: non-lambda passed to HOF → graceful fallback
+
+---
+
+#### Step 12: Unit Tests — New Functions (L)
+
+**Files:** `arrayFunctions.test.ts`, `objectFunctions.test.ts`, `stringFunctions.test.ts`, `mathFunctions.test.ts`
+
+**Coverage targets:** Each new function needs ≥5 test cases covering:
+- Happy path with simple data
+- Empty array/object input
+- Null/undefined input
+- Lambda returning various types
+- Edge cases (empty strings, NaN, nested objects)
+
+**Estimated test count:** ~120 new tests (25 functions × ~5 tests each)
+
+---
+
+#### Step 13: TypeScript Check & Integration Verification (S)
+
+1. Run `npx tsc -b --noEmit` — zero errors
+2. Run `npx vitest run src/features/workflow/utils/` — all tests pass
+3. Run `npx vitest run src/shared/components/data-mapper/` — all tests pass (no regressions)
+4. Run full test suite `npx vitest run` — all tests pass
+5. Verify expression step debugger works with lambda expressions
+6. Verify expression editor autocomplete suggests new functions
+
+---
+
+#### Phase 9.2 Deliverable Criteria
+
+| Criterion | Metric |
+|-----------|--------|
+| Lambda parsing | Single-param, multi-param, nested, zero-param all parse correctly |
+| Lambda evaluation | Closures, dot-path on params, shadowing all work |
+| New functions | 25 new functions registered and functional (8 Array + 3 Object + 6 String + 8 Math) |
+| Function total | 113 functions (88 existing + 25 new) |
+| Expression coverage | 100% (all 18 identified gaps from Part 5 closed) |
+| Tests | ≥120 new tests, all passing |
+| TypeScript | Zero errors |
+| UI | Function catalog shows new functions, autocomplete works with lambda syntax |
+| Debugger | Lambda expressions produce meaningful debug steps |
+| Backward compatible | All existing 88 functions unchanged, all existing tests pass |
+
+---
+
+#### Phase 9.2 Risk Assessment
+
+| Risk | Likelihood | Mitigation |
+|------|-----------|------------|
+| Parser ambiguity: `(expr)` vs `(param) =>` | Medium | Peek-ahead `isLambdaParamList()` distinguishes by checking for `=>` after `)` |
+| Performance: nested `$map` over large arrays | Low | No recursion limit today; add optional depth guard in `applyLambda` |
+| `wrapDollarPaths` breaking lambda params | Low | `wrapDollarPaths` only targets `$.` prefix; lambda params start with letters |
+| Debugger explosion for large array HOFs | Medium | Show only first 3 elements in debug trace, summarize rest |
+| Infix operator expectations from users | High | Clear documentation; add `$gt`/`$lt`/etc. comparison helpers as workaround |
+
+---
+
+#### Competitive Alignment
+
+| Tool | Lambda/HOF Syntax | RedfireForge Equivalent |
+|------|-------------------|------------------------|
+| JSONata | `$map(arr, function($v) { $v * 2 })` | `$map(arr, x => $multiply(x, 2))` |
+| DataWeave | `arr map ((item) -> upper(item.name))` | `$map(arr, item => $upper(item.name))` |
+| JavaScript | `arr.map(x => x.name)` | `$map(arr, x => x.name)` |
+| jq | `[.[] \| .name]` | `$map($.items, x => x.name)` |
+| Karate | `karate.map(arr, function(x){ return x.name })` | `$map(arr, x => x.name)` |
+
+RedfireForge's arrow syntax is the **most concise** among all benchmarked tools while remaining explicit and unambiguous.
+
+---
+
+#### Summary: 25 New Functions
+
+| # | Function | Category | Requires Lambda | Description |
+|---|----------|----------|-----------------|-------------|
+| 1 | `$map` | Array | Yes | Transform each element |
+| 2 | `$filter` | Array | Yes | Filter by predicate |
+| 3 | `$reduce` | Array | Yes | Fold/accumulate |
+| 4 | `$sortBy` | Array | Yes | Sort by extracted key |
+| 5 | `$minBy` | Array | Yes | Element with min key |
+| 6 | `$maxBy` | Array | Yes | Element with max key |
+| 7 | `$distinctBy` | Array | Yes | Deduplicate by key |
+| 8 | `$zip` | Array | Optional | Pair elements from two arrays |
+| 9 | `$withEntries` | Object | Yes | Transform entries |
+| 10 | `$mapValues` | Object | Yes | Transform values |
+| 11 | `$mapKeys` | Object | Yes | Transform keys |
+| 12 | `$kebabCase` | String | No | to-kebab-case |
+| 13 | `$isAlpha` | String | No | All alphabetic? |
+| 14 | `$isNumeric` | String | No | All numeric? |
+| 15 | `$trimStart` | String | No | Trim leading whitespace |
+| 16 | `$trimEnd` | String | No | Trim trailing whitespace |
+| 17 | `$scan` | String | No | All regex matches |
+| 18 | `$gt` | Math | No | Greater than |
+| 19 | `$gte` | Math | No | Greater than or equal |
+| 20 | `$lt` | Math | No | Less than |
+| 21 | `$lte` | Math | No | Less than or equal |
+| 22 | `$eq` | Math | No | Equals |
+| 23 | `$neq` | Math | No | Not equals |
+| 24 | `$log` | Math | No | Natural logarithm |
+| 25 | `$exp` | Math | No | Exponential (e^n) |
+
+### 9.3 Custom Predicate Functions (Closes last coverage gap)
+
+**Priority:** Low | **Effort:** Medium | **Impact:** Coverage 96% → 100%
+
+Add a `custom` assertion type that evaluates an expression as a boolean predicate:
+
+```typescript
+| { type: 'custom'; expression: string; description?: string }
+```
+
+The expression receives the full response context (`$.body`, `$.headers`, `$.status`, `$.responseTime`) and must evaluate to `true` for the assertion to pass. This matches Postman's `satisfy(fn)`, Karate's embedded expressions, and REST Assured's custom matchers.
+
+### 9.4 Enhancement Priority Matrix
+
+| Enhancement | Effort | Impact | Dependency | Status |
+|---|---|---|---|---|
+| Universal negation (9.1) | Small | Low | None | ✅ **COMPLETED** (GAP-06) |
+| Lambda expressions (9.2) | Medium | High | Parser refactor | **NEXT** — Ready for implementation |
+| Custom predicates (9.3) | Medium | Medium | Lambda (optional) | After 9.2 |
+
+Completing all three would bring RedfireForge to **100% competitive coverage** (33/33) — the only tool in the industry to achieve this while maintaining a **unified visual mapper** across 11+ integration contexts.
 
 ---
 

@@ -5,7 +5,8 @@
  */
 
 import { getByPath } from '../../../utils/jsonPath';
-import { evaluateMapperExpression } from './mapperExpressionEvaluator';
+import { evaluateMapperExpression, formatExpressionResult } from './mapperExpressionEvaluator';
+import { isLambda } from '../../../../features/workflow/utils/lambdaUtils';
 import type { Mapping, MapperSource } from '../types';
 import type { ExpressionFunction } from '../../../../features/workflow/utils/expressionFunctions/types';
 import { coerceSampleData, toJsonPathRef } from './mapperParsing';
@@ -59,7 +60,9 @@ export function computePreview(
           field.error = result.error;
           errorCount++;
         } else {
-          field.value = result.value;
+          field.value = isLambda(result.value)
+            ? formatExpressionResult(result.value)
+            : result.value;
         }
       } else {
         const source = sources.find((s) => s.id === (mapping.sourceId || activeSourceId));

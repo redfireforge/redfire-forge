@@ -10,6 +10,10 @@ interface MapperFooterProps {
   resolvedCount?: number;
   unresolvedCount?: number;
   compactMode?: boolean;
+  verifyPassedCount?: number;
+  verifyFailedCount?: number;
+  verifyStatus?: 'idle' | 'running' | 'complete';
+  onFilterFailed?: () => void;
 }
 
 export default function MapperFooter({
@@ -19,6 +23,10 @@ export default function MapperFooter({
   resolvedCount,
   unresolvedCount,
   compactMode = false,
+  verifyPassedCount,
+  verifyFailedCount,
+  verifyStatus = 'idle',
+  onFilterFailed,
 }: MapperFooterProps) {
   const stats = useMemo(() => {
     const expressionCount = mappings.filter((m) => !!m.expression).length;
@@ -71,6 +79,22 @@ export default function MapperFooter({
         {stats.mismatches > 0 && (
           <span className="dm-stat">
             <span className="dm-stat-value dm-stat-value--mismatch">{stats.mismatches}</span> mismatch{stats.mismatches !== 1 ? 'es' : ''}
+          </span>
+        )}
+        {verifyStatus === 'complete' && verifyPassedCount !== undefined && (
+          <span className="dm-stat dm-stat--verify">
+            <span className="dm-stat-value dm-stat-value--verify-pass">{verifyPassedCount}</span> passed
+          </span>
+        )}
+        {verifyStatus === 'complete' && (verifyFailedCount ?? 0) > 0 && (
+          <span
+            className="dm-stat dm-stat--verify dm-stat--clickable"
+            onClick={onFilterFailed}
+            title="Click to filter failed rules"
+            role="button"
+            tabIndex={0}
+          >
+            <span className="dm-stat-value dm-stat-value--verify-fail">{verifyFailedCount}</span> failed
           </span>
         )}
       </div>

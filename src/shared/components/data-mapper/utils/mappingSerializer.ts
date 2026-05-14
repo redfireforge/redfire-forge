@@ -62,6 +62,7 @@ export function roundTripMappings<TOutput>(
           r.expression === m.expression &&
           r.operator === m.operator &&
           r.operatorValue === m.operatorValue &&
+          r.negate === m.negate &&
           r.condition === m.condition &&
           r.fallback === m.fallback,
       ),

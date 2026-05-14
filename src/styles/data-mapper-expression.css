@@ -197,6 +197,26 @@
   font-size: 0.75rem;
 }
 
+.dm-expr-fn-lambda-badge {
+  font-size: 0.6rem;
+  font-weight: 600;
+  color: #cba6f7;
+  background: rgba(203, 166, 247, 0.15);
+  border: 1px solid rgba(203, 166, 247, 0.3);
+  border-radius: 3px;
+  padding: 0 3px;
+  margin-left: auto;
+  margin-right: 4px;
+  line-height: 1.3;
+  flex-shrink: 0;
+}
+
+.dm-expr-fn-item--active .dm-expr-fn-lambda-badge {
+  color: #1e1e2e;
+  background: rgba(30, 30, 46, 0.15);
+  border-color: rgba(30, 30, 46, 0.3);
+}
+
 .dm-expr-fn-return {
   font-size: 0.68rem;
   color: var(--text-muted, #6c7086);

@@ -4,7 +4,7 @@
 import http from 'node:http';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import request from 'supertest';
-import { app } from './webhook-server';
+import { app } from './webhook-server.js';
 import type { Workflow } from '../src/features/workflow/types/workflow';
 
 // Mock file storage

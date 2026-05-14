@@ -2828,6 +2828,11 @@
   align-items: center;
   gap: 12px;
 }
+.verify-scope-select {
+  min-width: 160px;
+  max-width: 180px;
+  font-size: 0.8rem;
+}
 .btn-validate {
   background: #6366f1;
   color: #fff;

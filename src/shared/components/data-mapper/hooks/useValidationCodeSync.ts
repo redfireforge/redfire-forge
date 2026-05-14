@@ -1,0 +1,165 @@
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
+import type { ExpectedField, Assertion } from '../../../types';
+import type { Mapping } from '../types';
+import type { ParseError, DslModel } from '../utils/validationDsl';
+import { serializeToDsl, parseDsl, dslToModel, exportAsJson, importAutoDetect } from '../utils/validationDsl';
+
+export interface ValidationCodeSyncState {
+  dslText: string;
+  parseErrors: ParseError[];
+  ruleCount: number;
+}
+
+interface UseValidationCodeSyncOptions {
+  mappings: Mapping[];  // reserved for future expression-based DSL serialization
+  assertions: Assertion[];
+  fields: ExpectedField[];
+  onUpdateFields: (fields: ExpectedField[]) => void;
+  onUpdateAssertions: (assertions: Assertion[]) => void;
+  enabled: boolean;
+}
+
+const DSL_ASSERTION_TYPES = new Set(['typeCheck', 'existence', 'arrayLength', 'each', 'arrayContains', 'containsSubset']);
+
+export function useValidationCodeSync({
+  mappings: _mappings,
+  assertions,
+  fields,
+  onUpdateFields,
+  onUpdateAssertions,
+  enabled,
+}: UseValidationCodeSyncOptions): ValidationCodeSyncState & {
+  handleCodeChange: (text: string) => void;
+  syncVisualToCode: () => void;
+  flushPending: () => void;
+  exportJson: () => string;
+  importText: (text: string) => ParseError | null;
+} {
+  const [dslText, setDslText] = useState('');
+  const [parseErrors, setParseErrors] = useState<ParseError[]>([]);
+  const syncDirection = useRef<'visual' | 'code' | null>(null);
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const nonDslAssertionsRef = useRef<Assertion[]>([]);
+
+  const ruleCount = useMemo(() => {
+    return dslText.split('\n').filter(l => l.trim() && !l.trim().startsWith('#')).length;
+  }, [dslText]);
+
+  // Visual → Code: re-serialize when fields/assertions change from visual side
+  const syncVisualToCode = useCallback(() => {
+    // Always keep nonDslAssertionsRef fresh so code→visual merges are correct
+    nonDslAssertionsRef.current = assertions.filter(a => !DSL_ASSERTION_TYPES.has(a.type));
+
+    if (syncDirection.current === 'code') {
+      // Visual state changed as a result of code→visual apply — cancel any stale debounce
+      // and skip re-serializing back to DSL (would create an echo)
+      if (debounceTimer.current) {
+        clearTimeout(debounceTimer.current);
+        debounceTimer.current = null;
+      }
+      syncDirection.current = null;
+      return;
+    }
+
+    const dslAssertions = assertions.filter(a => DSL_ASSERTION_TYPES.has(a.type));
+    const text = serializeToDsl(fields, dslAssertions);
+    setDslText(text);
+    const { errors } = parseDsl(text);
+    setParseErrors(errors);
+  }, [fields, assertions]);
+
+  // Auto-sync visual → code when enabled and fields/assertions change
+  useEffect(() => {
+    if (!enabled) return;
+    syncVisualToCode();
+  }, [enabled, fields, assertions, syncVisualToCode]);
+
+  // Code → Visual: debounced parse and update
+  const handleCodeChange = useCallback((text: string) => {
+    setDslText(text);
+    syncDirection.current = 'code';
+
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    debounceTimer.current = setTimeout(() => {
+      debounceTimer.current = null;
+      const { rules, errors } = parseDsl(text);
+      setParseErrors(errors);
+
+      if (rules.length > 0 || text.trim() === '') {
+        const model = dslToModel(rules);
+        onUpdateFields(model.fields);
+        onUpdateAssertions([...nonDslAssertionsRef.current, ...model.assertions]);
+      }
+      syncDirection.current = null;
+    }, 300);
+  }, [onUpdateFields, onUpdateAssertions]);
+
+  // Flush pending debounce when disabled (instead of dropping edits), clear on unmount
+  const dslTextRef = useRef(dslText);
+  dslTextRef.current = dslText;
+  const onUpdateFieldsRef = useRef(onUpdateFields);
+  onUpdateFieldsRef.current = onUpdateFields;
+  const onUpdateAssertionsRef = useRef(onUpdateAssertions);
+  onUpdateAssertionsRef.current = onUpdateAssertions;
+
+  useEffect(() => {
+    return () => {
+      if (debounceTimer.current) {
+        clearTimeout(debounceTimer.current);
+        debounceTimer.current = null;
+        const text = dslTextRef.current;
+        const { rules } = parseDsl(text);
+        if (rules.length > 0 || text.trim() === '') {
+          const model = dslToModel(rules);
+          onUpdateFieldsRef.current(model.fields);
+          onUpdateAssertionsRef.current([...nonDslAssertionsRef.current, ...model.assertions]);
+        }
+      }
+    };
+  }, [enabled]);
+
+  // Synchronously flush any pending debounced DSL changes
+  const flushPending = useCallback(() => {
+    if (!debounceTimer.current) return;
+    clearTimeout(debounceTimer.current);
+    debounceTimer.current = null;
+    const text = dslTextRef.current;
+    const { rules } = parseDsl(text);
+    if (rules.length > 0 || text.trim() === '') {
+      const model = dslToModel(rules);
+      onUpdateFields(model.fields);
+      onUpdateAssertions([...nonDslAssertionsRef.current, ...model.assertions]);
+    }
+    syncDirection.current = null;
+  }, [onUpdateFields, onUpdateAssertions]);
+
+  // Export
+  const exportJson = useCallback(() => {
+    return exportAsJson(fields, assertions);
+  }, [fields, assertions]);
+
+  // Import — merge imported DSL assertions with preserved non-DSL assertions
+  const importText = useCallback((text: string): ParseError | null => {
+    const result = importAutoDetect(text);
+    if ('message' in result) return result;
+    const model = result as DslModel;
+    onUpdateFields(model.fields);
+    onUpdateAssertions([...nonDslAssertionsRef.current, ...model.assertions]);
+    syncDirection.current = null;
+    const newDsl = serializeToDsl(model.fields, model.assertions);
+    setDslText(newDsl);
+    setParseErrors([]);
+    return null;
+  }, [onUpdateFields, onUpdateAssertions]);
+
+  return {
+    dslText,
+    parseErrors,
+    ruleCount,
+    handleCodeChange,
+    syncVisualToCode,
+    flushPending,
+    exportJson,
+    importText,
+  };
+}
