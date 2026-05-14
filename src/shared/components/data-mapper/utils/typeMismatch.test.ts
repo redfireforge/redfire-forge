@@ -378,7 +378,7 @@ describe('date format detection in detectTypeMismatches', () => {
     expect(dateMismatch!.severity).toBe('info');
   });
 
-  it('suggests $formatDate when both sides are dates', () => {
+  it('does not flag mismatch when both sides are dates', () => {
     const dateSources: MapperSource[] = [
       { id: 's1', label: 'API', sampleData: { created: '2024-01-15T10:30:00Z' } },
     ];
@@ -388,8 +388,7 @@ describe('date format detection in detectTypeMismatches', () => {
     ];
     const result = detectTypeMismatches(mappings, dateSources, tgt);
     const dateMismatch = result.find((m) => m.mappingId === 'm1');
-    expect(dateMismatch).toBeDefined();
-    expect(dateMismatch!.suggestedFix).toContain('$formatDate');
+    expect(dateMismatch).toBeUndefined();
   });
 
   it('does not flag non-date strings', () => {

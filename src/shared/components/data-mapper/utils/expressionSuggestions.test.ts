@@ -77,7 +77,7 @@ describe('suggestExpressionsForMapping', () => {
     const sources = mkSources({ Name: 'ALICE' });
     const target = mkTarget({ name: 'alice' });
     const suggestions = suggestExpressionsForMapping(mapping, sources, target);
-    expect(suggestions.some((s) => s.expression.includes('$lowercase'))).toBe(true);
+    expect(suggestions.some((s) => s.expression.includes('$lower'))).toBe(true);
   });
 
   it('suggests uppercase for string→string case mismatch', () => {
@@ -85,7 +85,7 @@ describe('suggestExpressionsForMapping', () => {
     const sources = mkSources({ name: 'alice' });
     const target = mkTarget({ NAME: 'ALICE' });
     const suggestions = suggestExpressionsForMapping(mapping, sources, target);
-    expect(suggestions.some((s) => s.expression.includes('$uppercase'))).toBe(true);
+    expect(suggestions.some((s) => s.expression.includes('$upper'))).toBe(true);
   });
 
   it('suggests date formatting for date-like source', () => {
@@ -133,7 +133,7 @@ describe('suggestExpressionsForMapping', () => {
     const sources = mkSources({ data: { a: 1 } });
     const target = mkTarget({ json: 'hello' });
     const suggestions = suggestExpressionsForMapping(mapping, sources, target);
-    expect(suggestions.some((s) => s.expression.includes('$toString'))).toBe(true);
+    expect(suggestions.some((s) => s.expression.includes('$stringify'))).toBe(true);
   });
 
   it('suggests string→array split', () => {

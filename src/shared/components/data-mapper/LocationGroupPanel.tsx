@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo, useEffect } from 'react';
-import type { TargetField, TargetFieldLocation, Mapping, TargetFieldOrigin } from './types';
+import type { TargetField, TargetFieldLocation, Mapping, TargetFieldOrigin, FieldOperator, AdapterCapabilities } from './types';
 import type { JsonTreeNode } from '../../utils/jsonTreeModel';
 import type { TypeMismatch } from './utils/typeMismatch';
 import type { TraceValueOverlay } from './types';
@@ -46,6 +46,14 @@ interface LocationGroupPanelProps {
   getDraggedSource?: () => { path: string; sourceId: string } | null;
   getDraggedTargetFieldPath?: () => string | null;
   resetViewSignal?: number | null;
+  unorderedDefault?: boolean;
+  onToggleUnorderedArray?: (arrayPath: string) => void;
+  capabilities?: Required<AdapterCapabilities>;
+  onUpdateMappingOperator?: (mappingId: string, operator: FieldOperator | undefined, operatorValue: string | undefined) => void;
+  onToggleMappingNegate?: (mappingId: string) => void;
+  nodeStatusMap?: Map<string, 'pass' | 'fail'>;
+  fieldVerifyResults?: Map<string, { passed: boolean; actual?: string; expected?: string }>;
+  onAddArrayAssertion?: (arrayPath: string, assertionType: 'length' | 'contains' | 'each' | 'subset') => void;
 }
 
 interface GroupData {
@@ -83,6 +91,14 @@ export default function LocationGroupPanel({
   getDraggedSource,
   getDraggedTargetFieldPath,
   resetViewSignal,
+  unorderedDefault,
+  onToggleUnorderedArray,
+  capabilities,
+  onUpdateMappingOperator,
+  onToggleMappingNegate,
+  nodeStatusMap,
+  fieldVerifyResults,
+  onAddArrayAssertion,
 }: LocationGroupPanelProps) {
   const [collapsedGroups, setCollapsedGroups] = useState<Set<TargetFieldLocation>>(new Set());
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set(['__root__']));
@@ -189,6 +205,14 @@ export default function LocationGroupPanel({
               onTargetFieldDragEnd={onTargetFieldDragEnd}
               getDraggedSource={getDraggedSource}
               getDraggedTargetFieldPath={getDraggedTargetFieldPath}
+              unorderedDefault={unorderedDefault}
+              onToggleUnorderedArray={onToggleUnorderedArray}
+              capabilities={capabilities}
+              onUpdateMappingOperator={onUpdateMappingOperator}
+              onToggleMappingNegate={onToggleMappingNegate}
+              nodeStatusMap={nodeStatusMap}
+              fieldVerifyResults={fieldVerifyResults}
+              onAddArrayAssertion={onAddArrayAssertion}
             />
             {allowCustomFields && onAddCustomField && (
               <AddFieldRow
@@ -248,6 +272,14 @@ export default function LocationGroupPanel({
               onTargetFieldDragEnd={onTargetFieldDragEnd}
               getDraggedSource={getDraggedSource}
               getDraggedTargetFieldPath={getDraggedTargetFieldPath}
+              unorderedDefault={unorderedDefault}
+              onToggleUnorderedArray={onToggleUnorderedArray}
+              capabilities={capabilities}
+              onUpdateMappingOperator={onUpdateMappingOperator}
+              onToggleMappingNegate={onToggleMappingNegate}
+              nodeStatusMap={nodeStatusMap}
+              fieldVerifyResults={fieldVerifyResults}
+              onAddArrayAssertion={onAddArrayAssertion}
             />
           </div>
         </div>

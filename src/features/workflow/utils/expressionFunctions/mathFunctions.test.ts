@@ -8,8 +8,8 @@ function fn(name: string) {
 }
 
 describe('mathFunctions', () => {
-  it('exports 16 functions', () => {
-    expect(mathFunctions).toHaveLength(16);
+  it('exports 28 functions', () => {
+    expect(mathFunctions).toHaveLength(28);
   });
 
   describe('$add', () => {
@@ -99,5 +99,116 @@ describe('mathFunctions', () => {
   describe('$parseFloat', () => {
     it('parses float string', () => expect(fn('$parseFloat')('3.14')).toBe(3.14));
     it('returns 0 for non-numeric', () => expect(fn('$parseFloat')('abc')).toBe(0));
+  });
+
+  describe('$sqrt', () => {
+    it('returns square root of positive number', () => expect(fn('$sqrt')(16)).toBe(4));
+    it('returns square root of 2', () => expect(fn('$sqrt')(2)).toBeCloseTo(1.4142, 4));
+    it('returns 0 for negative number', () => expect(fn('$sqrt')(-4)).toBe(0));
+    it('returns 0 for zero', () => expect(fn('$sqrt')(0)).toBe(0));
+    it('coerces string input', () => expect(fn('$sqrt')('25')).toBe(5));
+  });
+
+  describe('$clamp', () => {
+    it('clamps value above max', () => expect(fn('$clamp')(15, 0, 10)).toBe(10));
+    it('clamps value below min', () => expect(fn('$clamp')(-5, 0, 10)).toBe(0));
+    it('returns value within range unchanged', () => expect(fn('$clamp')(5, 0, 10)).toBe(5));
+    it('handles boundary values', () => {
+      expect(fn('$clamp')(0, 0, 10)).toBe(0);
+      expect(fn('$clamp')(10, 0, 10)).toBe(10);
+    });
+    it('coerces string inputs', () => expect(fn('$clamp')('7', '1', '9')).toBe(7));
+  });
+
+  describe('$uuid', () => {
+    it('returns a valid UUID v4 format', () => {
+      const result = fn('$uuid')() as string;
+      expect(result).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+    });
+
+    it('generates unique values on successive calls', () => {
+      const a = fn('$uuid')() as string;
+      const b = fn('$uuid')() as string;
+      expect(a).not.toBe(b);
+    });
+  });
+
+  describe('$range', () => {
+    it('generates ascending sequence', () => {
+      expect(fn('$range')(0, 5)).toEqual([0, 1, 2, 3, 4]);
+    });
+
+    it('respects custom step', () => {
+      expect(fn('$range')(0, 10, 2)).toEqual([0, 2, 4, 6, 8]);
+    });
+
+    it('returns empty for start >= end with positive step', () => {
+      expect(fn('$range')(5, 5)).toEqual([]);
+      expect(fn('$range')(10, 5)).toEqual([]);
+    });
+
+    it('handles negative step for descending', () => {
+      expect(fn('$range')(5, 0, -1)).toEqual([5, 4, 3, 2, 1]);
+    });
+
+    it('treats step of 0 as 1', () => {
+      expect(fn('$range')(0, 3, 0)).toEqual([0, 1, 2]);
+    });
+
+    it('caps at 10000 elements to prevent infinite loops', () => {
+      const result = fn('$range')(0, 100000, 1) as number[];
+      expect(result).toHaveLength(10000);
+    });
+  });
+
+  describe('$gt', () => {
+    it('returns true when a > b', () => expect(fn('$gt')(5, 3)).toBe(true));
+    it('returns false when a < b', () => expect(fn('$gt')(2, 5)).toBe(false));
+    it('returns false when a = b', () => expect(fn('$gt')(3, 3)).toBe(false));
+    it('coerces strings to numbers', () => expect(fn('$gt')('10', '2')).toBe(true));
+  });
+
+  describe('$gte', () => {
+    it('returns true when a > b', () => expect(fn('$gte')(5, 3)).toBe(true));
+    it('returns true when a = b', () => expect(fn('$gte')(3, 3)).toBe(true));
+    it('returns false when a < b', () => expect(fn('$gte')(2, 3)).toBe(false));
+  });
+
+  describe('$lt', () => {
+    it('returns true when a < b', () => expect(fn('$lt')(2, 5)).toBe(true));
+    it('returns false when a > b', () => expect(fn('$lt')(5, 3)).toBe(false));
+    it('returns false when a = b', () => expect(fn('$lt')(3, 3)).toBe(false));
+  });
+
+  describe('$lte', () => {
+    it('returns true when a < b', () => expect(fn('$lte')(2, 5)).toBe(true));
+    it('returns true when a = b', () => expect(fn('$lte')(3, 3)).toBe(true));
+    it('returns false when a > b', () => expect(fn('$lte')(5, 3)).toBe(false));
+  });
+
+  describe('$eq', () => {
+    it('returns true for equal numbers', () => expect(fn('$eq')(5, 5)).toBe(true));
+    it('returns false for different numbers', () => expect(fn('$eq')(5, 3)).toBe(false));
+    it('compares strings', () => expect(fn('$eq')('abc', 'abc')).toBe(true));
+    it('handles null comparisons', () => expect(fn('$eq')(null, null)).toBe(true));
+    it('handles mixed types via string coercion', () => expect(fn('$eq')('5', '5')).toBe(true));
+  });
+
+  describe('$neq', () => {
+    it('returns true for different numbers', () => expect(fn('$neq')(5, 3)).toBe(true));
+    it('returns false for equal numbers', () => expect(fn('$neq')(5, 5)).toBe(false));
+    it('compares strings', () => expect(fn('$neq')('a', 'b')).toBe(true));
+  });
+
+  describe('$log', () => {
+    it('returns 0 for log(1)', () => expect(fn('$log')(1)).toBe(0));
+    it('returns ~1 for log(e)', () => expect(fn('$log')(Math.E)).toBeCloseTo(1, 10));
+    it('returns negative for log(0.5)', () => expect(fn('$log')(0.5)).toBeLessThan(0));
+  });
+
+  describe('$exp', () => {
+    it('returns 1 for exp(0)', () => expect(fn('$exp')(0)).toBe(1));
+    it('returns e for exp(1)', () => expect(fn('$exp')(1)).toBeCloseTo(Math.E, 10));
+    it('returns e^2 for exp(2)', () => expect(fn('$exp')(2)).toBeCloseTo(Math.E * Math.E, 5));
   });
 });

@@ -411,7 +411,7 @@ describe('useTargetFields', () => {
     );
 
     await act(async () => {
-      await r1.current.handleFetchTargetSchema();
+      try { await r1.current.handleFetchTargetSchema(); } catch { /* expected */ }
     });
     expect(r1.current.targetFetchError).toBe('network down');
 
@@ -422,7 +422,7 @@ describe('useTargetFields', () => {
       useTargetFields({ adapter: adapterStr, mappings: [], removeMappings, updateMapping }),
     );
     await act(async () => {
-      await r2.current.handleFetchTargetSchema();
+      try { await r2.current.handleFetchTargetSchema(); } catch { /* expected */ }
     });
     expect(r2.current.targetFetchError).toBe('Failed to fetch target schema');
   });
@@ -440,7 +440,7 @@ describe('useTargetFields', () => {
     );
 
     await act(async () => {
-      await result.current.handleFetchTargetSchema();
+      try { await result.current.handleFetchTargetSchema(); } catch { /* expected */ }
     });
     expect(result.current.targetFetchError).toBe('first');
 
@@ -522,7 +522,7 @@ describe('useTargetFields', () => {
     );
 
     await act(async () => {
-      await result.current.handleFetchTargetSchema();
+      try { await result.current.handleFetchTargetSchema(); } catch { /* expected */ }
     });
     expect(result.current.targetFetchError).toBe('bad');
 

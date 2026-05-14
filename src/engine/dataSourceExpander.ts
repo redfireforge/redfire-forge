@@ -253,7 +253,7 @@ export function expandDataSource(scenario: Scenario): Scenario[] {
     return [scenario];
   }
 
-  const enabledRows = dt.rows.filter(r => r.enabled);
+  const enabledRows = dt.rows.filter(r => r.enabled !== false);
   if (enabledRows.length === 0) {
     return [scenario];
   }

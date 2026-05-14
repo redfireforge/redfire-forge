@@ -34,6 +34,7 @@ interface MappingCanvasProps {
   repairSuggestions?: Map<string, RepairSuggestion[]>;
   onApplyRepair?: (mappingId: string, suggestion: RepairSuggestion) => void;
   totalMappingCount?: number;
+  failedMappingIds?: Set<string>;
 }
 
 function bezierPath(sourceY: number, targetY: number, width: number): string {
@@ -63,6 +64,7 @@ export default function MappingCanvas({
   repairSuggestions,
   onApplyRepair,
   totalMappingCount = 0,
+  failedMappingIds,
 }: MappingCanvasProps) {
   const handleErrorClick = useCallback((mappingId: string, midY: number) => {
     if (!traceByMappingId || !onShowErrorDetail) return;
@@ -157,7 +159,7 @@ export default function MappingCanvas({
             <path
               d={p.d}
               fill="none"
-              className={`dm-connection-line ${isSelected ? 'dm-connection-line--selected' : ''} ${isDimmed ? 'dm-connection-line--dimmed' : ''} ${p.hasExpression ? 'dm-connection-line--expression' : ''} ${p.isAutoMapped && !p.hasExpression ? 'dm-connection-line--auto' : ''} ${p.isFromPattern ? 'dm-connection-line--pattern' : ''} ${p.hasTypeMismatch ? 'dm-connection-line--mismatch' : ''} ${p.isPending ? 'dm-connection-line--pending' : ''} ${p.arrayKind ? `dm-connection-line--${p.arrayKind}` : ''} ${p.driftSeverity ? `dm-connection-line--drift-${p.driftSeverity}` : ''} ${debugMode && p.traceError ? 'dm-connection-line--trace-error' : ''} ${debugMode && p.traceValue != null && p.traceValue !== '' && !p.traceError ? 'dm-connection-line--trace-ok' : ''}`}
+              className={`dm-connection-line ${isSelected ? 'dm-connection-line--selected' : ''} ${isDimmed ? 'dm-connection-line--dimmed' : ''} ${p.hasExpression ? 'dm-connection-line--expression' : ''} ${p.isAutoMapped && !p.hasExpression ? 'dm-connection-line--auto' : ''} ${p.isFromPattern ? 'dm-connection-line--pattern' : ''} ${p.hasTypeMismatch ? 'dm-connection-line--mismatch' : ''} ${p.isPending ? 'dm-connection-line--pending' : ''} ${p.arrayKind ? `dm-connection-line--${p.arrayKind}` : ''} ${p.driftSeverity ? `dm-connection-line--drift-${p.driftSeverity}` : ''} ${debugMode && p.traceError ? 'dm-connection-line--trace-error' : ''} ${debugMode && p.traceValue != null && p.traceValue !== '' && !p.traceError ? 'dm-connection-line--trace-ok' : ''} ${failedMappingIds?.has(p.mappingId) ? 'dm-connection-line--verify-fail' : ''}`}
               strokeWidth={isSelected ? 2.5 : 1.5}
             />
             {(() => {

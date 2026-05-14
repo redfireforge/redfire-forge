@@ -47,6 +47,7 @@ export interface Mapping {
   isPending?: boolean;
   operator?: FieldOperator;
   operatorValue?: string;
+  negate?: boolean;
   condition?: string;
   fallback?: string;
 }
@@ -142,6 +143,8 @@ export interface AdapterCapabilities {
   unorderedArrays?: boolean;
   /** Hide advanced toolbar section by default */
   hideAdvanced?: boolean;
+  /** Default operator applied to auto-mapped fields (e.g., 'exists' for validation) */
+  autoMapDefaultOperator?: import('../../types').FieldOperator;
   /** Future: enable conditional mapping logic */
   conditionals?: boolean;
   /** Future: enable loop/iterate constructs */

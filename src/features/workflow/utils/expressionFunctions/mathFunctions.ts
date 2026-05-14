@@ -64,7 +64,7 @@ const $round: ExpressionFunction = {
   returnType: 'number',
   examples: [{ input: '$round(3.14159, 2)', output: '3.14' }],
   evaluate: (v, dec) => {
-    const d = dec != null ? n(dec) : 0;
+    const d = Math.min(Math.max(dec != null ? n(dec) : 0, 0), 20);
     const factor = Math.pow(10, d);
     return Math.round(n(v) * factor) / factor;
   },
@@ -207,7 +207,201 @@ const $parseFloat: ExpressionFunction = {
   evaluate: (v) => { const r = parseFloat(String(v)); return Number.isNaN(r) ? 0 : r; },
 };
 
+const $sqrt: ExpressionFunction = {
+  name: '$sqrt', category: 'Math',
+  signature: '$sqrt(value) → number',
+  description: 'Return the square root of a number. Returns 0 for negative values.',
+  args: [{ name: 'value', type: 'number', required: true, description: 'Non-negative number' }],
+  returnType: 'number',
+  examples: [{ input: '$sqrt(16)', output: '4' }, { input: '$sqrt(2)', output: '1.4142135623730951' }],
+  evaluate: (v) => {
+    const num = n(v);
+    return num < 0 ? 0 : Math.sqrt(num);
+  },
+};
+
+const $clamp: ExpressionFunction = {
+  name: '$clamp', category: 'Math',
+  signature: '$clamp(value, min, max) → number',
+  description: 'Constrain a value between a minimum and maximum bound.',
+  args: [
+    { name: 'value', type: 'number', required: true, description: 'Value to clamp' },
+    { name: 'min', type: 'number', required: true, description: 'Lower bound' },
+    { name: 'max', type: 'number', required: true, description: 'Upper bound' },
+  ],
+  returnType: 'number',
+  examples: [
+    { input: '$clamp(15, 0, 10)', output: '10' },
+    { input: '$clamp(-5, 0, 10)', output: '0' },
+    { input: '$clamp(5, 0, 10)', output: '5' },
+  ],
+  evaluate: (value, min, max) => {
+    const lo = Math.min(n(min), n(max));
+    const hi = Math.max(n(min), n(max));
+    return Math.min(Math.max(n(value), lo), hi);
+  },
+};
+
+const $uuid: ExpressionFunction = {
+  name: '$uuid', category: 'Math',
+  signature: '$uuid() → string',
+  description: 'Generate a random UUID v4 string.',
+  args: [],
+  returnType: 'string',
+  examples: [{ input: '$uuid()', output: '"a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d"' }],
+  evaluate: () => {
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+      return crypto.randomUUID();
+    }
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+      const r = (Math.random() * 16) | 0;
+      const v = c === 'x' ? r : (r & 0x3) | 0x8;
+      return v.toString(16);
+    });
+  },
+};
+
+const $range: ExpressionFunction = {
+  name: '$range', category: 'Math',
+  signature: '$range(start, end, step?) → array',
+  description: 'Generate a numeric sequence from start (inclusive) to end (exclusive). Max 10,000 elements.',
+  args: [
+    { name: 'start', type: 'number', required: true, description: 'Start value (inclusive)' },
+    { name: 'end', type: 'number', required: true, description: 'End value (exclusive)' },
+    { name: 'step', type: 'number', required: false, description: 'Step increment (default 1)' },
+  ],
+  returnType: 'array',
+  examples: [
+    { input: '$range(0, 5)', output: '[0,1,2,3,4]' },
+    { input: '$range(0, 10, 2)', output: '[0,2,4,6,8]' },
+  ],
+  evaluate: (start, end, step) => {
+    const s = n(start);
+    const e = n(end);
+    let st = step != null ? n(step) : 1;
+    if (st === 0) st = 1;
+    if ((st > 0 && s >= e) || (st < 0 && s <= e)) return [];
+    const result: number[] = [];
+    const maxItems = 10000;
+    const rawCount = Math.abs((e - s) / st);
+    const count = Math.min(Math.ceil(rawCount), maxItems);
+    for (let idx = 0; idx < count; idx++) {
+      const val = s + idx * st;
+      if (st > 0 && val >= e) break;
+      if (st < 0 && val <= e) break;
+      result.push(val);
+    }
+    return result;
+  },
+};
+
+const $gt: ExpressionFunction = {
+  name: '$gt', category: 'Math',
+  signature: '$gt(a, b) → boolean',
+  description: 'Return true if a is greater than b (numeric comparison).',
+  args: [
+    { name: 'a', type: 'number', required: true, description: 'Left operand' },
+    { name: 'b', type: 'number', required: true, description: 'Right operand' },
+  ],
+  returnType: 'boolean',
+  examples: [{ input: '$gt(5, 3)', output: 'true' }, { input: '$gt(2, 5)', output: 'false' }],
+  evaluate: (a, b) => n(a) > n(b),
+};
+
+const $gte: ExpressionFunction = {
+  name: '$gte', category: 'Math',
+  signature: '$gte(a, b) → boolean',
+  description: 'Return true if a is greater than or equal to b.',
+  args: [
+    { name: 'a', type: 'number', required: true, description: 'Left operand' },
+    { name: 'b', type: 'number', required: true, description: 'Right operand' },
+  ],
+  returnType: 'boolean',
+  examples: [{ input: '$gte(5, 5)', output: 'true' }, { input: '$gte(3, 5)', output: 'false' }],
+  evaluate: (a, b) => n(a) >= n(b),
+};
+
+const $lt: ExpressionFunction = {
+  name: '$lt', category: 'Math',
+  signature: '$lt(a, b) → boolean',
+  description: 'Return true if a is less than b.',
+  args: [
+    { name: 'a', type: 'number', required: true, description: 'Left operand' },
+    { name: 'b', type: 'number', required: true, description: 'Right operand' },
+  ],
+  returnType: 'boolean',
+  examples: [{ input: '$lt(2, 5)', output: 'true' }, { input: '$lt(5, 3)', output: 'false' }],
+  evaluate: (a, b) => n(a) < n(b),
+};
+
+const $lte: ExpressionFunction = {
+  name: '$lte', category: 'Math',
+  signature: '$lte(a, b) → boolean',
+  description: 'Return true if a is less than or equal to b.',
+  args: [
+    { name: 'a', type: 'number', required: true, description: 'Left operand' },
+    { name: 'b', type: 'number', required: true, description: 'Right operand' },
+  ],
+  returnType: 'boolean',
+  examples: [{ input: '$lte(3, 3)', output: 'true' }, { input: '$lte(5, 3)', output: 'false' }],
+  evaluate: (a, b) => n(a) <= n(b),
+};
+
+const $eq: ExpressionFunction = {
+  name: '$eq', category: 'Math',
+  signature: '$eq(a, b) → boolean',
+  description: 'Return true if a equals b (string comparison for non-numeric, numeric for numbers).',
+  args: [
+    { name: 'a', type: 'any', required: true, description: 'Left operand' },
+    { name: 'b', type: 'any', required: true, description: 'Right operand' },
+  ],
+  returnType: 'boolean',
+  examples: [{ input: '$eq(5, 5)', output: 'true' }, { input: '$eq("a", "b")', output: 'false' }],
+  evaluate: (a, b) => {
+    if (typeof a === 'number' && typeof b === 'number') return a === b;
+    return String(a ?? '') === String(b ?? '');
+  },
+};
+
+const $neq: ExpressionFunction = {
+  name: '$neq', category: 'Math',
+  signature: '$neq(a, b) → boolean',
+  description: 'Return true if a does not equal b.',
+  args: [
+    { name: 'a', type: 'any', required: true, description: 'Left operand' },
+    { name: 'b', type: 'any', required: true, description: 'Right operand' },
+  ],
+  returnType: 'boolean',
+  examples: [{ input: '$neq(5, 3)', output: 'true' }, { input: '$neq(5, 5)', output: 'false' }],
+  evaluate: (a, b) => {
+    if (typeof a === 'number' && typeof b === 'number') return a !== b;
+    return String(a ?? '') !== String(b ?? '');
+  },
+};
+
+const $log: ExpressionFunction = {
+  name: '$log', category: 'Math',
+  signature: '$log(n) → number',
+  description: 'Return the natural logarithm (base e) of a number.',
+  args: [{ name: 'n', type: 'number', required: true, description: 'Numeric value' }],
+  returnType: 'number',
+  examples: [{ input: '$log(1)', output: '0' }, { input: '$log(2.718281828)', output: '~1' }],
+  evaluate: (v) => Math.log(n(v)),
+};
+
+const $exp: ExpressionFunction = {
+  name: '$exp', category: 'Math',
+  signature: '$exp(n) → number',
+  description: 'Return e raised to the power of n.',
+  args: [{ name: 'n', type: 'number', required: true, description: 'Exponent' }],
+  returnType: 'number',
+  examples: [{ input: '$exp(0)', output: '1' }, { input: '$exp(1)', output: '~2.718' }],
+  evaluate: (v) => Math.exp(n(v)),
+};
+
 export const mathFunctions: ExpressionFunction[] = [
   $add, $subtract, $multiply, $divide, $round, $abs, $min, $max,
   $mod, $floor, $ceil, $power, $random, $parseInt, $toInt, $parseFloat,
+  $sqrt, $clamp, $uuid, $range,
+  $gt, $gte, $lt, $lte, $eq, $neq, $log, $exp,
 ];

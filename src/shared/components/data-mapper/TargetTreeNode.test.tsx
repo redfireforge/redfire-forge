@@ -1,5 +1,6 @@
 /** @vitest-environment jsdom */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import '@testing-library/jest-dom';
 import { render, screen, fireEvent, act, within } from '@testing-library/react';
 import TargetTreeNode from './TargetTreeNode';
 import type { JsonTreeNode } from '../../utils/jsonTreeModel';
@@ -1482,5 +1483,153 @@ describe('TargetTreeNode – custom field removal and tree chrome', () => {
     const { container } = render(<TargetTreeNode node={nested} {...collapsed} />);
     const count = container.querySelector('.dm-node-count');
     expect(count?.textContent).toBe('2');
+  });
+
+  describe('context menu (Phase 3)', () => {
+    const capsWithOperators = {
+      operators: true, arrayAssertions: true, typeChecks: false,
+      codeEditor: false, verification: false, expressions: true,
+      schemaDrift: false, profiles: false, unorderedArrays: false,
+      hideAdvanced: false, conditionals: false, loopConstructs: false, errorHandling: false,
+    } as const;
+
+    it('does not show context menu without capabilities.operators', () => {
+      const { container } = render(
+        <TargetTreeNode node={leaf} {...defaults} mappings={[mapping]} />,
+      );
+      const nodeEl = container.querySelector('.dm-tree-node--target')!;
+      fireEvent.contextMenu(nodeEl);
+      expect(container.querySelector('.dm-context-menu')).toBeNull();
+    });
+
+    it('shows context menu on right-click when capabilities.operators is true', () => {
+      const { container } = render(
+        <TargetTreeNode
+          node={leaf}
+          {...defaults}
+          mappings={[mapping]}
+          capabilities={capsWithOperators}
+          onUpdateMappingOperator={vi.fn()}
+        />,
+      );
+      const nodeEl = container.querySelector('.dm-tree-node--target')!;
+      fireEvent.contextMenu(nodeEl);
+      expect(container.querySelector('.dm-context-menu')).not.toBeNull();
+      expect(screen.getByText('Set operator…')).toBeInTheDocument();
+    });
+
+    it('shows "Remove mapping" in context menu for mapped node', () => {
+      const onRemoveMapping = vi.fn();
+      const { container } = render(
+        <TargetTreeNode
+          node={leaf}
+          {...defaults}
+          mappings={[mapping]}
+          capabilities={capsWithOperators}
+          onUpdateMappingOperator={vi.fn()}
+          onRemoveMapping={onRemoveMapping}
+        />,
+      );
+      const nodeEl = container.querySelector('.dm-tree-node--target')!;
+      fireEvent.contextMenu(nodeEl);
+      const removeBtn = screen.getByText('Remove mapping');
+      expect(removeBtn).toBeInTheDocument();
+      fireEvent.click(removeBtn);
+      expect(onRemoveMapping).toHaveBeenCalledWith('m1');
+    });
+
+    it('shows array assertion options for array nodes', () => {
+      const arrayNode: JsonTreeNode = {
+        key: 'items', path: 'items', type: 'array', value: undefined,
+        children: [{ key: '[0]', path: 'items[0]', type: 'object', value: undefined, children: [] }],
+      };
+      const { container } = render(
+        <TargetTreeNode
+          node={arrayNode}
+          {...defaults}
+          capabilities={capsWithOperators}
+          onUpdateMappingOperator={vi.fn()}
+        />,
+      );
+      const nodeEl = container.querySelector('.dm-tree-node--target')!;
+      fireEvent.contextMenu(nodeEl);
+      expect(screen.getByText('Array Assertions')).toBeInTheDocument();
+      expect(screen.getByText('Add length assertion')).toBeInTheDocument();
+      expect(screen.getByText('Add contains assertion')).toBeInTheDocument();
+      expect(screen.getByText('Add each assertion')).toBeInTheDocument();
+      expect(screen.getByText('Add subset assertion')).toBeInTheDocument();
+    });
+
+    it('does not show array assertion section for non-array nodes', () => {
+      const { container } = render(
+        <TargetTreeNode
+          node={leaf}
+          {...defaults}
+          mappings={[mapping]}
+          capabilities={capsWithOperators}
+          onUpdateMappingOperator={vi.fn()}
+        />,
+      );
+      const nodeEl = container.querySelector('.dm-tree-node--target')!;
+      fireEvent.contextMenu(nodeEl);
+      expect(screen.queryByText('Array Assertions')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('array assertion hint row (Phase 3)', () => {
+    const capsWithArrayAssertions = {
+      operators: true, arrayAssertions: true, typeChecks: false,
+      codeEditor: false, verification: false, expressions: true,
+      schemaDrift: false, profiles: false, unorderedArrays: false,
+      hideAdvanced: false, conditionals: false, loopConstructs: false, errorHandling: false,
+    } as const;
+
+    it('renders array assertion hint for expanded array node', () => {
+      const arrayNode: JsonTreeNode = {
+        key: 'items', path: 'items', type: 'array', value: undefined,
+        children: [{ key: '[0]', path: 'items[0]', type: 'string', value: 'a', children: [] }],
+      };
+      const expandedWithItems = new Set(['__root__', '', 'items']);
+      const { container } = render(
+        <TargetTreeNode
+          node={arrayNode}
+          {...defaults}
+          expandedPaths={expandedWithItems}
+          capabilities={capsWithArrayAssertions}
+          onUpdateMappingOperator={vi.fn()}
+        />,
+      );
+      expect(container.querySelector('.dm-array-assertion-rows')).not.toBeNull();
+      expect(screen.getByText(/Add array assertion/)).toBeInTheDocument();
+    });
+
+    it('does not render array assertion hint for non-array nodes', () => {
+      const { container } = render(
+        <TargetTreeNode
+          node={leaf}
+          {...defaults}
+          capabilities={capsWithArrayAssertions}
+          onUpdateMappingOperator={vi.fn()}
+        />,
+      );
+      expect(container.querySelector('.dm-array-assertion-rows')).toBeNull();
+    });
+
+    it('does not render array assertion hint when arrayAssertions capability is false', () => {
+      const capsNoArray = { ...capsWithArrayAssertions, arrayAssertions: false } as const;
+      const arrayNode: JsonTreeNode = {
+        key: 'items', path: 'items', type: 'array', value: undefined,
+        children: [{ key: '[0]', path: 'items[0]', type: 'string', value: 'a', children: [] }],
+      };
+      const { container } = render(
+        <TargetTreeNode
+          node={arrayNode}
+          {...defaults}
+          capabilities={capsNoArray}
+          onUpdateMappingOperator={vi.fn()}
+        />,
+      );
+      expect(container.querySelector('.dm-array-assertion-rows')).toBeNull();
+    });
   });
 });

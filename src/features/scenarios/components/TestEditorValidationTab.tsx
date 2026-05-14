@@ -1,19 +1,19 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import type { MutableRefObject } from 'react';
-import type { Assertion, AssertionOperator, ComparisonOperator, DateReference, ExpectedField, FailureDetail, JsonTypeName, Scenario, ValidationMode } from '../../../shared/types';
+import type { Assertion, AssertionOperator, ComparisonOperator, DateReference, FailureDetail, FieldOperator, JsonTypeName, Scenario, ValidationMode } from '../../../shared/types';
 import ResponseVersionPanel from '../../requests/components/ResponseVersionPanel';
 import RulesVersionPanel from '../../requests/components/RulesVersionPanel';
-import {
-  RegexAssertionBuilderModal,
-} from '../../../shared/components/data-mapper';
+import { RegexAssertionBuilderModal } from '../../../shared/components/data-mapper';
 import type { AssertionAdapterResult } from '../../../shared/components/data-mapper';
 import AssertionPresetMenu from './AssertionPresetMenu';
-import { createResponseVersion, createRulesVersion } from '../utils/versionFactory';
+import { useValidationVersionHandlers } from '../hooks/useValidationVersionHandlers';
 import JsonPathPicker from './JsonPathPicker';
-import {
-  DataMapperModal,
-  createValidationAdapter,
-} from '../../../shared/components/data-mapper';
+import ValidationRulesSummary from './ValidationRulesSummary';
+import ValidationVerifyPanel from './ValidationVerifyPanel';
+import ValidationResponsePreview from './ValidationResponsePreview';
+import { getByPath } from '../../../shared/utils/jsonPath';
+import { generateJsonSchema } from '../../../shared/components/data-mapper/utils/schemaGenerator';
+import { DataMapperModal, createValidationAdapter } from '../../../shared/components/data-mapper';
 import type { ValidationAdapterOutput } from '../../../shared/components/data-mapper';
 
 export interface TestEditorValidationTabProps {
@@ -28,10 +28,11 @@ export interface TestEditorValidationTabProps {
   fetchHostEnabled: boolean;
   setFetchHostEnabled: (v: boolean) => void;
   onFetchSampleResponse: () => void | Promise<void>;
+  fetchSampleDataForMapper?: () => Promise<unknown>;
   validating: boolean;
-  validationResult: { passed: boolean; failures: FailureDetail[]; httpStatus?: number; responseJson?: string } | null;
-  setValidationResult: (v: { passed: boolean; failures: FailureDetail[]; httpStatus?: number; responseJson?: string } | null) => void;
-  onValidateResponse: () => void | Promise<void>;
+  validationResult: { passed: boolean; failures: FailureDetail[]; httpStatus?: number; responseJson?: string; verifyScope?: 'assertions' | 'rules' | 'all' } | null;
+  setValidationResult: (v: { passed: boolean; failures: FailureDetail[]; httpStatus?: number; responseJson?: string; verifyScope?: 'assertions' | 'rules' | 'all' } | null) => void;
+  onValidateResponse: (scope?: 'assertions' | 'rules' | 'all') => void | Promise<void>;
   /** When non-null, a new response was fetched but user has existing rules — show confirmation dialog */
   pendingFetchResponse?: string | null;
   /** Accept new response but keep existing validation rules */
@@ -50,7 +51,6 @@ const NUMERIC_OP_OPTIONS: { value: ComparisonOperator; label: string }[] = [
   { value: '<', label: 'less than (<)' },
   { value: '<=', label: 'at most (≤)' },
 ];
-
 const DATE_OP_OPTIONS: { value: ComparisonOperator; label: string }[] = [
   { value: '=', label: 'equals (=)' },
   { value: '!=', label: 'not equals (≠)' },
@@ -72,6 +72,39 @@ function ComparisonSelect({ value, onChange, options, className }: {
     </select>
   );
 }
+const FIELD_OP_OPTIONS: { value: FieldOperator; label: string }[] = [
+  { value: 'equals', label: 'equals' },
+  { value: 'not_equals', label: 'not equals' },
+  { value: 'greater_than', label: '>' },
+  { value: 'greater_than_or_equal', label: '>=' },
+  { value: 'less_than', label: '<' },
+  { value: 'less_than_or_equal', label: '<=' },
+  { value: 'contains', label: 'contains' },
+  { value: 'not_contains', label: 'not contains' },
+  { value: 'starts_with', label: 'starts with' },
+  { value: 'ends_with', label: 'ends with' },
+  { value: 'regex', label: 'regex' },
+  { value: 'is_true', label: 'is true' },
+  { value: 'is_false', label: 'is false' },
+  { value: 'is_null', label: 'is null' },
+  { value: 'is_not_null', label: 'is not null' },
+  { value: 'is_empty', label: 'is empty' },
+  { value: 'is_not_empty', label: 'is not empty' },
+  { value: 'exists', label: 'exists' },
+  { value: 'not_exists', label: 'not exists' },
+  { value: 'is_type', label: 'is type' },
+  { value: 'in', label: 'in' },
+  { value: 'not_in', label: 'not in' },
+  { value: 'between', label: 'between' },
+  { value: 'close_to', label: 'close to' },
+];
+
+const ARRAY_CONTAINS_MODE_OPTIONS: { value: 'any' | 'all' | 'only' | 'none'; label: string }[] = [
+  { value: 'any', label: 'any (at least one)' },
+  { value: 'all', label: 'all (every item)' },
+  { value: 'only', label: 'only (exact set)' },
+  { value: 'none', label: 'none (no match)' },
+];
 
 export default function TestEditorValidationTab({
   draft,
@@ -85,6 +118,7 @@ export default function TestEditorValidationTab({
   fetchHostEnabled,
   setFetchHostEnabled,
   onFetchSampleResponse,
+  fetchSampleDataForMapper,
   validating,
   validationResult,
   setValidationResult,
@@ -99,25 +133,25 @@ export default function TestEditorValidationTab({
   const [regexModalIdx, setRegexModalIdx] = useState<number | null>(null);
   const [validationMapperOpen, setValidationMapperOpen] = useState(false);
   const [openMapperAfterKeepRules, setOpenMapperAfterKeepRules] = useState(false);
-  const [responseSearchTerm, setResponseSearchTerm] = useState('');
-  const [responseSearchIndex, setResponseSearchIndex] = useState(-1);
-  const responseTextareaRef = useRef<HTMLTextAreaElement>(null);
   const [rulesViewMode, setRulesViewMode] = useState<'flat' | 'pivot'>('flat');
+  const [verifyScope, setVerifyScope] = useState<'assertions' | 'rules' | 'all'>('all');
 
   const validationAdapter = useMemo(
     () => createValidationAdapter({
       sampleResponseBody: draft.validation.sampleJson || undefined,
       selectiveMode: draft.validation.selectiveMode || 'include',
       expectedFields: draft.validation.expectedFields || [],
+      fetchSampleData: fetchSampleDataForMapper,
     }),
-    [draft.validation.sampleJson, draft.validation.selectiveMode, draft.validation.expectedFields],
+    [draft.validation.sampleJson, draft.validation.selectiveMode, draft.validation.expectedFields, fetchSampleDataForMapper],
   );
 
   const validationMapperInitialData = useMemo<ValidationAdapterOutput>(() => ({
     selectiveMode: draft.validation.selectiveMode || 'include',
     expectedFields: draft.validation.expectedFields || [],
     excludedPaths: draft.validation.excludedPaths || [],
-  }), [draft.validation.selectiveMode, draft.validation.expectedFields, draft.validation.excludedPaths]);
+    assertions: draft.validation.assertions || [],
+  }), [draft.validation.selectiveMode, draft.validation.expectedFields, draft.validation.excludedPaths, draft.validation.assertions]);
 
   const handleValidationMapperSave = useCallback((output: ValidationAdapterOutput, options?: { unorderedArrays?: boolean }) => {
     const prev = draftRef.current;
@@ -129,6 +163,7 @@ export default function TestEditorValidationTab({
         expectedFields: output.expectedFields,
         excludedPaths: output.excludedPaths,
         unorderedArrays: options?.unorderedArrays ?? prev.validation.unorderedArrays,
+        assertions: output.assertions !== undefined ? output.assertions : prev.validation.assertions,
       },
     });
     setValidationMapperOpen(false);
@@ -220,41 +255,6 @@ export default function TestEditorValidationTab({
 
   const canPivot = !!pivotedRules.arrayPrefix && pivotedRules.rows.length > 0;
 
-  const responseSearchMatches = useMemo(() => {
-    const term = responseSearchTerm.trim();
-    if (!term || !responsePreviewJson) return [] as Array<{ start: number; end: number }>;
-    const matches: Array<{ start: number; end: number }> = [];
-    const haystack = responsePreviewJson.toLowerCase();
-    const needle = term.toLowerCase();
-    let from = 0;
-    while (from <= haystack.length - needle.length) {
-      const idx = haystack.indexOf(needle, from);
-      if (idx < 0) break;
-      matches.push({ start: idx, end: idx + needle.length });
-      from = idx + Math.max(needle.length, 1);
-    }
-    return matches;
-  }, [responseSearchTerm, responsePreviewJson]);
-
-  useEffect(() => {
-    setResponseSearchIndex(-1);
-  }, [responseSearchTerm]);
-
-  const focusResponseMatch = useCallback((index: number) => {
-    if (responseSearchMatches.length === 0) return;
-    const safeIndex = ((index % responseSearchMatches.length) + responseSearchMatches.length) % responseSearchMatches.length;
-    const target = responseSearchMatches[safeIndex];
-    const ta = responseTextareaRef.current;
-    if (!ta) return;
-    ta.focus({ preventScroll: true });
-    ta.setSelectionRange(target.start, target.end);
-    const lineHeight = parseFloat(getComputedStyle(ta).lineHeight || '18') || 18;
-    const linesBefore = responsePreviewJson.slice(0, target.start).split('\n').length - 1;
-    const desiredScrollTop = Math.max(0, linesBefore * lineHeight - ta.clientHeight / 3);
-    ta.scrollTop = desiredScrollTop;
-    setResponseSearchIndex(safeIndex);
-  }, [responseSearchMatches, responsePreviewJson]);
-
   function updateAssertion(idx: number, patch: Partial<Assertion>) {
     const prev = draftRef.current;
     const list = [...(prev.validation.assertions ?? [])];
@@ -277,6 +277,17 @@ export default function TestEditorValidationTab({
     const list = [...(prev.validation.assertions ?? []), ...items];
     onDraftChange({ ...prev, validation: { ...prev.validation, assertions: list } });
   }
+
+  const {
+    handleSaveResponseVersion,
+    handleRestoreResponseVersion,
+    handleDeleteResponseVersion,
+    handleRenameResponseVersion,
+    handleSaveRulesVersion,
+    handleRestoreRulesVersion,
+    handleDeleteRulesVersion,
+    handleRenameRulesVersion,
+  } = useValidationVersionHandlers({ draftRef, onDraftChange });
 
   return (
     <div>
@@ -343,6 +354,38 @@ export default function TestEditorValidationTab({
                   <span className="aam-label">Field Exists</span>
                   <span className="aam-desc">Assert a JSON path exists or not</span>
                 </button>
+                <div className="aam-divider" />
+                <button type="button" onClick={() => addAssertion({ type: 'arrayContains', jsonPath: '', value: '', mode: 'any' })}>
+                  <span className="aam-icon">⊇</span>
+                  <span className="aam-label">Array Contains</span>
+                  <span className="aam-desc">Check if array includes specific items</span>
+                </button>
+                <button type="button" onClick={() => addAssertion({ type: 'each', jsonPath: '', fieldPath: '', operator: 'greater_than_or_equal', value: '0' })}>
+                  <span className="aam-icon">∀</span>
+                  <span className="aam-label">Each Element</span>
+                  <span className="aam-desc">Assert condition on every array element</span>
+                </button>
+                <button type="button" onClick={() => addAssertion({ type: 'containsSubset', jsonPath: '$', expected: '{}' })}>
+                  <span className="aam-icon">⊆</span>
+                  <span className="aam-label">Contains Subset</span>
+                  <span className="aam-desc">Partial deep match on a JSON structure</span>
+                </button>
+                <button type="button" onClick={() => addAssertion({ type: 'jsonSchema', schema: '{}' })}>
+                  <span className="aam-icon">{'{}'}</span>
+                  <span className="aam-label">JSON Schema</span>
+                  <span className="aam-desc">Validate response against a JSON Schema document</span>
+                </button>
+                <div className="aam-divider" />
+                <button type="button" onClick={() => addAssertion({ type: 'bodySize', operator: '<=', value: 1024, unit: 'kb' })}>
+                  <span className="aam-icon">⚖</span>
+                  <span className="aam-label">Body Size</span>
+                  <span className="aam-desc">Assert response body size within bounds</span>
+                </button>
+                <button type="button" onClick={() => addAssertion({ type: 'datePrecise', jsonPath: '', operator: '>=', reference: new Date().toISOString(), precision: 'second' })}>
+                  <span className="aam-icon">⏱</span>
+                  <span className="aam-label">Date Precise</span>
+                  <span className="aam-desc">Compare date/time with sub-day precision</span>
+                </button>
               </div>
             )}
           </div>
@@ -350,10 +393,19 @@ export default function TestEditorValidationTab({
         {assertions.length > 0 && (
           <div className="assertions-list">
             {assertions.map((a, i) => (
-              <div key={i} className="assertion-row">
+              <div key={i} className={`assertion-row${a.negate ? ' assertion-row--negated' : ''}`}>
                 <span className={`assertion-type-badge assertion-type-${a.type}`}>
-                  {a.type === 'status' ? 'STATUS' : a.type === 'responseTime' ? 'TIME' : a.type === 'header' ? 'HEADER' : a.type === 'regex' ? 'REGEX' : a.type === 'arrayLength' ? 'ARRAY' : a.type === 'numeric' ? 'NUMBER' : a.type === 'date' ? 'DATE' : a.type === 'typeCheck' ? 'TYPE' : 'EXISTS'}
+                  {a.type === 'status' ? 'STATUS' : a.type === 'responseTime' ? 'TIME' : a.type === 'header' ? 'HEADER' : a.type === 'regex' ? 'REGEX' : a.type === 'arrayLength' ? 'ARRAY' : a.type === 'numeric' ? 'NUMBER' : a.type === 'date' ? 'DATE' : a.type === 'typeCheck' ? 'TYPE' : a.type === 'existence' ? 'EXISTS' : a.type === 'arrayContains' ? 'CONTAINS' : a.type === 'each' ? 'EACH' : a.type === 'jsonSchema' ? 'SCHEMA' : a.type === 'bodySize' ? 'SIZE' : a.type === 'datePrecise' ? 'DATE⁺' : 'SUBSET'}
                 </span>
+                <button
+                  type="button"
+                  className={`assertion-negate-toggle${a.negate ? ' assertion-negate-toggle--active' : ''}`}
+                  title={a.negate ? 'Negated — click to remove NOT' : 'Click to negate this assertion (NOT)'}
+                  onClick={() => updateAssertion(i, { negate: a.negate ? undefined : true } as Partial<Assertion>)}
+                  aria-label={a.negate ? 'Remove negation' : 'Negate assertion'}
+                >
+                  NOT
+                </button>
                 {a.type === 'status' && (
                   <div className="assertion-field">
                     <span className="assertion-field-label">Expected</span>
@@ -461,6 +513,194 @@ export default function TestEditorValidationTab({
                     </select>
                   </div>
                 )}
+                {a.type === 'arrayContains' && (
+                  <div className="assertion-field">
+                    <input value={a.jsonPath} onChange={(e) => updateAssertion(i, { jsonPath: e.target.value })} placeholder="$.items" className="assertion-input assertion-input-path" />
+                    <JsonPathPicker sampleJson={draft.validation.sampleJson || ''} onSelect={(p) => updateAssertion(i, { jsonPath: p })} />
+                    <select value={a.mode} onChange={(e) => updateAssertion(i, { mode: e.target.value as 'any' | 'all' | 'only' | 'none' })} className="assertion-select">
+                      {ARRAY_CONTAINS_MODE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    </select>
+                    <textarea
+                      value={a.value}
+                      onChange={(e) => updateAssertion(i, { value: e.target.value })}
+                      placeholder='{"name": "example"} or "value"'
+                      className="assertion-input assertion-input-json"
+                      rows={1}
+                    />
+                  </div>
+                )}
+                {a.type === 'each' && (
+                  <div className="assertion-field">
+                    <input value={a.jsonPath} onChange={(e) => updateAssertion(i, { jsonPath: e.target.value })} placeholder="$.items" className="assertion-input assertion-input-path" />
+                    <JsonPathPicker sampleJson={draft.validation.sampleJson || ''} onSelect={(p) => updateAssertion(i, { jsonPath: p })} />
+                    <input value={a.fieldPath} onChange={(e) => updateAssertion(i, { fieldPath: e.target.value })} placeholder="field (e.g. rank)" className="assertion-input assertion-input-sm" />
+                    <JsonPathPicker
+                      sampleJson={(() => {
+                        try {
+                          const parsed = JSON.parse(draft.validation.sampleJson || '');
+                          const arr = a.jsonPath ? getByPath(parsed, a.jsonPath) : parsed;
+                          if (Array.isArray(arr) && arr.length > 0 && typeof arr[0] === 'object' && arr[0] !== null) {
+                            return JSON.stringify(arr[0]);
+                          }
+                        } catch { /* ignore */ }
+                        return '';
+                      })()}
+                      onSelect={(p) => {
+                        const field = p.startsWith('$.') ? p.slice(2) : p === '$' ? '' : p;
+                        updateAssertion(i, { fieldPath: field });
+                      }}
+                    />
+                    <select value={a.operator} onChange={(e) => updateAssertion(i, { operator: e.target.value as FieldOperator })} className="assertion-select">
+                      {FIELD_OP_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    </select>
+                    {!['is_true', 'is_false', 'is_null', 'is_not_null', 'is_empty', 'is_not_empty', 'exists', 'not_exists'].includes(a.operator) && (
+                      <input value={a.value ?? ''} onChange={(e) => updateAssertion(i, { value: e.target.value })} placeholder="value" className="assertion-input assertion-input-sm" />
+                    )}
+                  </div>
+                )}
+                {a.type === 'containsSubset' && (
+                  <div className="assertion-field">
+                    <input value={a.jsonPath} onChange={(e) => updateAssertion(i, { jsonPath: e.target.value })} placeholder="$" className="assertion-input assertion-input-path" />
+                    <JsonPathPicker sampleJson={draft.validation.sampleJson || ''} onSelect={(p) => updateAssertion(i, { jsonPath: p })} />
+                    <textarea
+                      value={a.expected}
+                      onChange={(e) => updateAssertion(i, { expected: e.target.value })}
+                      placeholder='{"status": "active", "enabled": true}'
+                      className="assertion-input assertion-input-json"
+                      rows={2}
+                    />
+                  </div>
+                )}
+                {a.type === 'jsonSchema' && (
+                  <div className="assertion-field assertion-field--schema">
+                    <div className="assertion-schema-toolbar">
+                      <button
+                        type="button"
+                        className="btn btn-xs btn-outline assertion-schema-action"
+                        onClick={() => {
+                          if (!navigator.clipboard?.readText) return;
+                          navigator.clipboard.readText().then(text => {
+                            updateAssertion(i, { schema: text });
+                          }).catch(() => {});
+                        }}
+                        title="Paste schema from clipboard"
+                      >
+                        Paste Schema
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-xs btn-outline assertion-schema-action"
+                        onClick={() => {
+                          try {
+                            const parsed = JSON.parse(a.schema);
+                            updateAssertion(i, { schema: JSON.stringify(parsed, null, 2) });
+                          } catch { /* ignore malformed JSON */ }
+                        }}
+                        title="Format JSON"
+                      >
+                        Format
+                      </button>
+                      {draft.validation.sampleJson && (
+                        <button
+                          type="button"
+                          className="btn btn-xs btn-outline assertion-schema-action assertion-schema-action--generate"
+                        onClick={() => {
+                          try {
+                            const sample = JSON.parse(draft.validation.sampleJson || '{}');
+                            const schema = generateJsonSchema(sample, { strict: Object.keys(sample as object).length > 0 });
+                            updateAssertion(i, { schema: JSON.stringify(schema, null, 2) });
+                          } catch { /* ignore malformed JSON */ }
+                        }}
+                          title="Generate schema from sample response"
+                        >
+                          Generate from Response
+                        </button>
+                      )}
+                    </div>
+                    <textarea
+                      value={a.schema}
+                      onChange={(e) => updateAssertion(i, { schema: e.target.value })}
+                      placeholder={'{\n  "type": "object",\n  "required": ["id", "name"],\n  "properties": {\n    "id": { "type": "integer" },\n    "name": { "type": "string" }\n  }\n}'}
+                      className={`assertion-input assertion-input-schema${(() => { try { JSON.parse(a.schema); return ''; } catch { return ' assertion-input-schema--invalid'; } })()}`}
+                      rows={6}
+                      spellCheck={false}
+                    />
+                    {(() => { try { JSON.parse(a.schema); return null; } catch (e) { return <span className="assertion-schema-error">{e instanceof Error ? e.message : 'Invalid JSON'}</span>; } })()}
+                  </div>
+                )}
+                {a.type === 'bodySize' && (
+                  <div className="assertion-field assertion-field--bodysize">
+                    <select
+                      value={a.operator}
+                      onChange={(e) => updateAssertion(i, { operator: e.target.value as ComparisonOperator })}
+                      className="assertion-select assertion-select--operator"
+                    >
+                      <option value="<">less than</option>
+                      <option value="<=">at most</option>
+                      <option value="=">exactly</option>
+                      <option value=">=">at least</option>
+                      <option value=">">more than</option>
+                      <option value="!=">not equal</option>
+                    </select>
+                    <input
+                      type="number"
+                      value={a.value}
+                      onChange={(e) => updateAssertion(i, { value: Number(e.target.value) || 0 })}
+                      className="assertion-input assertion-input-num"
+                      min={0}
+                      step={1}
+                    />
+                    <select
+                      value={a.unit}
+                      onChange={(e) => updateAssertion(i, { unit: e.target.value as 'bytes' | 'kb' | 'mb' })}
+                      className="assertion-select assertion-select--unit"
+                    >
+                      <option value="bytes">Bytes</option>
+                      <option value="kb">KB</option>
+                      <option value="mb">MB</option>
+                    </select>
+                  </div>
+                )}
+                {a.type === 'datePrecise' && (
+                  <div className="assertion-field assertion-field--dateprecise">
+                    <input
+                      value={a.jsonPath}
+                      onChange={(e) => updateAssertion(i, { jsonPath: e.target.value })}
+                      placeholder="$.timestamp"
+                      className="assertion-input assertion-input-path"
+                    />
+                    <JsonPathPicker sampleJson={draft.validation.sampleJson || ''} onSelect={(p) => updateAssertion(i, { jsonPath: p })} />
+                    <select
+                      value={a.operator}
+                      onChange={(e) => updateAssertion(i, { operator: e.target.value as ComparisonOperator })}
+                      className="assertion-select assertion-select--operator"
+                    >
+                      <option value="=">equals</option>
+                      <option value="!=">not equals</option>
+                      <option value=">">after</option>
+                      <option value=">=">on or after</option>
+                      <option value="<">before</option>
+                      <option value="<=">on or before</option>
+                    </select>
+                    <input
+                      type="datetime-local"
+                      value={a.reference ? a.reference.slice(0, 16) : ''}
+                      onChange={(e) => updateAssertion(i, { reference: e.target.value ? new Date(e.target.value).toISOString() : '' })}
+                      className="assertion-input assertion-input-date"
+                    />
+                    <select
+                      value={a.precision}
+                      onChange={(e) => updateAssertion(i, { precision: e.target.value as 'day' | 'hour' | 'minute' | 'second' | 'millisecond' })}
+                      className="assertion-select assertion-select--precision"
+                    >
+                      <option value="day">Day</option>
+                      <option value="hour">Hour</option>
+                      <option value="minute">Minute</option>
+                      <option value="second">Second</option>
+                      <option value="millisecond">Millisecond</option>
+                    </select>
+                  </div>
+                )}
                 <button type="button" className="btn btn-xs btn-danger assertion-remove" onClick={() => removeAssertion(i)} title="Remove assertion">×</button>
               </div>
             ))}
@@ -563,384 +803,64 @@ export default function TestEditorValidationTab({
             </div>
           )}
           {hasResponsePreview && (
-            <div className={`validation-response-preview ${pendingFetchResponse ? 'validation-response-preview--pending' : ''}`}>
-              <div className="validation-response-preview-header">
-                <span className="validation-response-preview-title">
-                  {pendingFetchResponse ? 'Fetched response (pending apply)' : 'Current sample response'}
-                </span>
-                <span className="validation-response-preview-meta">
-                  {(responsePreviewJson.length / 1024).toFixed(1)} KB
-                </span>
-              </div>
-              <div className="validation-response-preview-search">
-                <input
-                  type="text"
-                  className="validation-response-preview-search-input"
-                  placeholder="Search response…"
-                  value={responseSearchTerm}
-                  onChange={(e) => setResponseSearchTerm(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      if (responseSearchMatches.length > 0) {
-                        const next = responseSearchIndex < 0
-                          ? (e.shiftKey ? responseSearchMatches.length - 1 : 0)
-                          : responseSearchIndex + (e.shiftKey ? -1 : 1);
-                        focusResponseMatch(next);
-                      }
-                    } else if (e.key === 'Escape' && responseSearchTerm) {
-                      e.preventDefault();
-                      setResponseSearchTerm('');
-                    }
-                  }}
-                  aria-label="Search sample response"
-                />
-                {responseSearchTerm && (
-                  <span className="validation-response-preview-search-count">
-                    {responseSearchMatches.length === 0
-                      ? 'No matches'
-                      : responseSearchIndex < 0
-                        ? `${responseSearchMatches.length} match${responseSearchMatches.length === 1 ? '' : 'es'}`
-                        : `${responseSearchIndex + 1} / ${responseSearchMatches.length}`}
-                  </span>
-                )}
-                <button
-                  type="button"
-                  className="btn btn-xs"
-                  onClick={() => focusResponseMatch(responseSearchIndex < 0 ? responseSearchMatches.length - 1 : responseSearchIndex - 1)}
-                  disabled={responseSearchMatches.length === 0}
-                  title="Previous match (Shift+Enter)"
-                  aria-label="Previous match"
-                >
-                  ↑
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-xs"
-                  onClick={() => focusResponseMatch(responseSearchIndex < 0 ? 0 : responseSearchIndex + 1)}
-                  disabled={responseSearchMatches.length === 0}
-                  title="Next match (Enter)"
-                  aria-label="Next match"
-                >
-                  ↓
-                </button>
-                {responseSearchTerm && (
-                  <button
-                    type="button"
-                    className="btn btn-xs"
-                    onClick={() => setResponseSearchTerm('')}
-                    title="Clear search (Esc)"
-                    aria-label="Clear search"
-                  >
-                    ×
-                  </button>
-                )}
-              </div>
-              <textarea
-                ref={responseTextareaRef}
-                className="validation-response-preview-textarea"
-                value={responsePreviewJson}
-                readOnly
-                rows={8}
-                aria-label={pendingFetchResponse ? 'Fetched response preview' : 'Current sample response'}
-              />
-            </div>
+            <ValidationResponsePreview
+              responsePreviewJson={responsePreviewJson}
+              isPending={!!pendingFetchResponse}
+            />
           )}
-          {(draft.validation.expectedFields || []).length > 0 && (
-            <div className="validation-fields-summary">
-              <div className="validation-fields-summary-header">
-                <span className="validation-fields-summary-title">
-                  Validation Rules
-                  <span className="validation-fields-summary-count">
-                    ({(draft.validation.expectedFields || []).length})
-                  </span>
-                </span>
-                {canPivot && (
-                  <div className="validation-fields-view-toggle" role="tablist" aria-label="Rules view mode">
-                    <button
-                      type="button"
-                      role="tab"
-                      aria-selected={rulesViewMode === 'flat'}
-                      className={`validation-fields-view-btn ${rulesViewMode === 'flat' ? 'is-active' : ''}`}
-                      onClick={() => setRulesViewMode('flat')}
-                    >
-                      List
-                    </button>
-                    <button
-                      type="button"
-                      role="tab"
-                      aria-selected={rulesViewMode === 'pivot'}
-                      className={`validation-fields-view-btn ${rulesViewMode === 'pivot' ? 'is-active' : ''}`}
-                      onClick={() => setRulesViewMode('pivot')}
-                    >
-                      Table
-                    </button>
-                  </div>
-                )}
-              </div>
-              {(!canPivot || rulesViewMode === 'flat') ? (
-                <table className="validation-fields-table">
-                  <thead>
-                    <tr>
-                      <th>JSON Path</th>
-                      <th>Operator</th>
-                      <th>Expected Value</th>
-                      <th aria-label="Actions" />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(draft.validation.expectedFields || []).map((f: ExpectedField, idx: number) => (
-                      <tr key={idx}>
-                        <td><code>{f.jsonPath}</code></td>
-                        <td>
-                          <span className={`validation-field-op-badge validation-field-op-badge--${f.operator ?? 'equals'}`}>
-                            {f.operator ? f.operator.replace(/_/g, ' ') : 'equals'}
-                          </span>
-                        </td>
-                        <td><code>{f.operatorValue ?? f.expectedValue}</code></td>
-                        <td className="validation-fields-actions-cell">
-                          <button
-                            type="button"
-                            className="validation-fields-remove-btn"
-                            title={`Remove ${f.jsonPath}`}
-                            aria-label={`Remove ${f.jsonPath}`}
-                            onClick={() => removeExpectedField(idx)}
-                          >
-                            <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
-                              <path d="M3 3 L9 9 M9 3 L3 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                            </svg>
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              ) : (
-                <div className="validation-fields-pivot-wrapper">
-                  <table className="validation-fields-pivot-table">
-                    <thead>
-                      <tr>
-                        <th className="validation-fields-pivot-row-header">
-                          {pivotedRules.arrayPrefix || 'Path'}
-                        </th>
-                        {pivotedRules.columns.map((col) => (
-                          <th key={col}>{col}</th>
-                        ))}
-                        <th aria-label="Actions" className="validation-fields-pivot-actions-header" />
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {pivotedRules.rows.map((row) => {
-                        const indexMatch = row.key.match(/\[(\d+)\]$/);
-                        const label = pivotedRules.arrayPrefix && indexMatch ? `#${indexMatch[1]}` : row.key;
-                        return (
-                          <tr key={row.key}>
-                            <td className="validation-fields-pivot-row-header"><code>{label}</code></td>
-                            {pivotedRules.columns.map((col) => {
-                              const cell = row.cells.get(col);
-                              return (
-                                <td key={col}>
-                                  {cell ? (
-                                    <code className="validation-fields-pivot-val">
-                                      {cell.value.startsWith('"') && cell.value.endsWith('"') && cell.value.length >= 2
-                                        ? cell.value.slice(1, -1)
-                                        : cell.value}
-                                    </code>
-                                  ) : (
-                                    <span className="validation-fields-pivot-empty">—</span>
-                                  )}
-                                </td>
-                              );
-                            })}
-                            <td className="validation-fields-actions-cell">
-                              <button
-                                type="button"
-                                className="validation-fields-remove-btn"
-                                title={`Remove ${row.key}`}
-                                aria-label={`Remove ${row.key}`}
-                                onClick={() => removeExpectedFieldsByPathPrefix(row.key)}
-                              >
-                                <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
-                                  <path d="M3 3 L9 9 M9 3 L3 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                                </svg>
-                              </button>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          )}
+          <ValidationRulesSummary
+            expectedFields={draft.validation.expectedFields || []}
+            pivotedRules={pivotedRules}
+            canPivot={canPivot}
+            rulesViewMode={rulesViewMode}
+            onViewModeChange={setRulesViewMode}
+            onRemoveField={removeExpectedField}
+            onRemoveRowPrefix={removeExpectedFieldsByPathPrefix}
+          />
 
-          {(draft.validation.expectedFields || []).length > 0 && (
-            <div className="validate-response-section">
-              <div className="validate-response-row">
-                <button
-                  type="button"
-                  className="btn btn-sm btn-validate"
-                  onClick={() => void onValidateResponse()}
-                  disabled={validating}
-                >
-                  {validating ? 'Validating...' : 'Verify Rules'}
-                </button>
-                <label className="checkbox-label fetch-host-toggle">
-                  <input
-                    type="checkbox"
-                    checked={fetchHostEnabled}
-                    onChange={(e) => setFetchHostEnabled(e.target.checked)}
-                  />
-                  Host Override
-                </label>
-                <input
-                  className="validate-host-input"
-                  value={fetchHostOverride}
-                  onChange={(e) => setFetchHostOverride(e.target.value)}
-                  placeholder={resolvedBaseUrl || 'Enter base URL'}
-                  disabled={!fetchHostEnabled}
-                />
-                {fetchHostEnabled && resolvedBaseUrl && !fetchHostOverride && (
-                  <button type="button" className="btn btn-sm" onClick={() => setFetchHostOverride(resolvedBaseUrl)} title="Use Settings base URL">Use Settings</button>
-                )}
-              </div>
-              {validationResult && (
-                <div className={`validate-result ${validationResult.passed ? 'validate-pass' : 'validate-fail'}`}>
-                  <div className="validate-result-header">
-                    <span className={`validate-badge ${validationResult.passed ? 'badge-pass' : 'badge-fail'}`}>
-                      {validationResult.passed ? 'PASSED' : 'FAILED'}
-                    </span>
-                    {validationResult.httpStatus && (
-                      <span className="validate-http-status">HTTP {validationResult.httpStatus}</span>
-                    )}
-                    <span className="validate-summary">
-                      {validationResult.passed
-                        ? `All ${(draft.validation.expectedFields || []).length} rules matched`
-                        : `${validationResult.failures.length} discrepanc${validationResult.failures.length === 1 ? 'y' : 'ies'} found`}
-                    </span>
-                    <button className="btn btn-xs" onClick={() => setValidationResult(null)}>×</button>
-                  </div>
-                  {!validationResult.passed && validationResult.failures.length > 0 && (() => {
-                    const allOrderMismatches = !draft.validation.unorderedArrays
-                      && validationResult.failures.every((f) => /\[\d+\]/.test(f.path) && typeof f.actual === 'string' && f.actual.includes('matched by'));
-                    return (
-                      <>
-                        {allOrderMismatches && (
-                          <div className="validate-order-hint">
-                            All failures are array ordering mismatches. The expected values exist but at different indices.
-                            <button
-                              type="button"
-                              className="btn btn-xs btn-accent"
-                              style={{ marginLeft: 8 }}
-                              onClick={() => {
-                                const prev = draftRef.current;
-                                const updated = { ...prev, validation: { ...prev.validation, unorderedArrays: true } };
-                                draftRef.current = updated;
-                                onDraftChange(updated);
-                                void onValidateResponse();
-                              }}
-                            >
-                              Enable unordered matching &amp; re-verify
-                            </button>
-                          </div>
-                        )}
-                        <table className="validate-failures-table">
-                          <thead>
-                            <tr>
-                              <th>Path</th>
-                              <th>Expected</th>
-                              <th>Actual</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {validationResult.failures.map((f, i) => (
-                              <tr key={i}>
-                                <td><code>{f.path}</code></td>
-                                <td className="val-expected">{f.expected}</td>
-                                <td className="val-actual">{f.actual}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </>
-                    );
-                  })()}
-                </div>
-              )}
-            </div>
-          )}
+          <ValidationVerifyPanel
+            expectedFieldCount={(draft.validation.expectedFields || []).length}
+            assertionCount={(draft.validation.assertions || []).length}
+            validating={validating}
+            verifyScope={verifyScope}
+            onVerifyScopeChange={setVerifyScope}
+            onValidate={() => void onValidateResponse(verifyScope)}
+            fetchHostEnabled={fetchHostEnabled}
+            onFetchHostEnabledChange={setFetchHostEnabled}
+            fetchHostOverride={fetchHostOverride}
+            onFetchHostOverrideChange={setFetchHostOverride}
+            resolvedBaseUrl={resolvedBaseUrl}
+            onUseSettingsUrl={() => setFetchHostOverride(resolvedBaseUrl || '')}
+            validationResult={validationResult}
+            onDismissResult={() => setValidationResult(null)}
+            unorderedArrays={draft.validation.unorderedArrays}
+            onEnableUnorderedAndReVerify={() => {
+              const prev = draftRef.current;
+              const updated = { ...prev, validation: { ...prev.validation, unorderedArrays: true } };
+              draftRef.current = updated;
+              onDraftChange(updated);
+              void onValidateResponse(verifyScope);
+            }}
+          />
 
           <ResponseVersionPanel
             versions={draft.validation.responseVersions || []}
             currentJson={draft.validation.sampleJson || ''}
             currentValidation={draft.validation}
             excludedPaths={draft.validation.excludedPaths}
-            onSaveVersion={() => {
-              const prev = draftRef.current;
-              const v = prev.validation;
-              const json = v.sampleJson || '';
-              if (!json.trim()) return;
-              const prevVersions = v.responseVersions || [];
-              onDraftChange({ ...prev, validation: { ...v, responseVersions: [...prevVersions, createResponseVersion(v, json)] } });
-            }}
-            onRestore={(ver) => {
-              const prev = draftRef.current;
-              onDraftChange({
-                ...prev,
-                validation: {
-                  ...prev.validation,
-                  sampleJson: ver.json,
-                  mode: ver.validationMode || prev.validation.mode,
-                  selectiveMode: ver.selectiveMode || prev.validation.selectiveMode,
-                  expectedFields: ver.expectedFields || [],
-                  excludedPaths: ver.excludedPaths || prev.validation.excludedPaths || [],
-                  unorderedArrays: ver.unorderedArrays ?? prev.validation.unorderedArrays,
-                },
-              });
-            }}
-            onDeleteVersion={(id) => {
-              const prev = draftRef.current;
-              onDraftChange({ ...prev, validation: { ...prev.validation, responseVersions: (prev.validation.responseVersions || []).filter((v) => v.id !== id) } });
-            }}
-            onRenameVersion={(id, label) => {
-              const prev = draftRef.current;
-              onDraftChange({ ...prev, validation: { ...prev.validation, responseVersions: (prev.validation.responseVersions || []).map((v) => v.id === id ? { ...v, label } : v) } });
-            }}
+            onSaveVersion={handleSaveResponseVersion}
+            onRestore={handleRestoreResponseVersion}
+            onDeleteVersion={handleDeleteResponseVersion}
+            onRenameVersion={handleRenameResponseVersion}
           />
 
           <RulesVersionPanel
             versions={draft.validation.rulesVersions || []}
             currentValidation={draft.validation}
-            onSaveVersion={() => {
-              const prev = draftRef.current;
-              const v = prev.validation;
-              if (!(v.expectedFields || []).length) return;
-              const prevVersions = v.rulesVersions || [];
-              onDraftChange({ ...prev, validation: { ...v, rulesVersions: [...prevVersions, createRulesVersion(v)] } });
-            }}
-            onRestore={(ver) => {
-              const prev = draftRef.current;
-              onDraftChange({
-                ...prev,
-                validation: {
-                  ...prev.validation,
-                  mode: ver.validationMode || prev.validation.mode,
-                  selectiveMode: ver.selectiveMode || prev.validation.selectiveMode,
-                  expectedFields: ver.expectedFields || [],
-                  excludedPaths: ver.excludedPaths || prev.validation.excludedPaths || [],
-                  unorderedArrays: ver.unorderedArrays ?? prev.validation.unorderedArrays,
-                },
-              });
-            }}
-            onDeleteVersion={(id) => {
-              const prev = draftRef.current;
-              onDraftChange({ ...prev, validation: { ...prev.validation, rulesVersions: (prev.validation.rulesVersions || []).filter((v) => v.id !== id) } });
-            }}
-            onRenameVersion={(id, label) => {
-              const prev = draftRef.current;
-              onDraftChange({ ...prev, validation: { ...prev.validation, rulesVersions: (prev.validation.rulesVersions || []).map((v) => v.id === id ? { ...v, label } : v) } });
-            }}
+            onSaveVersion={handleSaveRulesVersion}
+            onRestore={handleRestoreRulesVersion}
+            onDeleteVersion={handleDeleteRulesVersion}
+            onRenameVersion={handleRenameRulesVersion}
           />
         </>
       )}

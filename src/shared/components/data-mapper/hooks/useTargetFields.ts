@@ -193,7 +193,9 @@ export function useTargetFields<TOutput = unknown>({
         })));
       }
     } catch (e) {
-      setTargetFetchError(e instanceof Error ? e.message : 'Failed to fetch target schema');
+      const msg = e instanceof Error ? e.message : 'Failed to fetch target schema';
+      setTargetFetchError(msg);
+      throw new Error(msg);
     }
   }, [adapter]);
 

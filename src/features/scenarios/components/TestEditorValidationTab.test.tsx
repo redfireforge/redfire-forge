@@ -1396,13 +1396,13 @@ describe('TestEditorValidationTab', () => {
       expect(onFetchSampleResponse).toHaveBeenCalled();
     });
 
-    it('calls onValidateResponse when Verify Rules clicked', () => {
+    it('calls onValidateResponse when Verify clicked', () => {
       const onValidateResponse = vi.fn();
       const draft = makeDraft({
         validation: { mode: 'selective', assertions: [], expectedFields: [{ jsonPath: '$.a', expectedValue: '1' }] },
       });
       render(<TestEditorValidationTab {...makeProps({ draft, draftRef: { current: draft }, onValidateResponse })} />);
-      fireEvent.click(screen.getByText('Verify Rules'));
+      fireEvent.click(screen.getByText('Verify'));
       expect(onValidateResponse).toHaveBeenCalled();
     });
 
@@ -2279,6 +2279,134 @@ describe('TestEditorValidationTab', () => {
       render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
       fireEvent.change(screen.getByDisplayValue('equals'), { target: { value: 'regex' } });
       expect(onDraftChange).toHaveBeenCalled();
+    });
+  });
+
+  describe('Phase 3 — collection assertion types in +Add menu', () => {
+    it('shows Array Contains, Each Element, Contains Subset in the add menu', () => {
+      render(<TestEditorValidationTab {...makeProps()} />);
+      fireEvent.click(screen.getByText('+ Add'));
+      expect(screen.getByText('Array Contains')).toBeInTheDocument();
+      expect(screen.getByText('Each Element')).toBeInTheDocument();
+      expect(screen.getByText('Contains Subset')).toBeInTheDocument();
+    });
+
+    it('adds arrayContains assertion via +Add', () => {
+      const onDraftChange = vi.fn();
+      render(<TestEditorValidationTab {...makeProps({ onDraftChange })} />);
+      fireEvent.click(screen.getByText('+ Add'));
+      fireEvent.click(screen.getByText('Array Contains'));
+      expect(onDraftChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          validation: expect.objectContaining({
+            assertions: [{ type: 'arrayContains', jsonPath: '', value: '', mode: 'any' }],
+          }),
+        }),
+      );
+    });
+
+    it('adds each assertion via +Add', () => {
+      const onDraftChange = vi.fn();
+      render(<TestEditorValidationTab {...makeProps({ onDraftChange })} />);
+      fireEvent.click(screen.getByText('+ Add'));
+      fireEvent.click(screen.getByText('Each Element'));
+      expect(onDraftChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          validation: expect.objectContaining({
+            assertions: [{ type: 'each', jsonPath: '', fieldPath: '', operator: 'greater_than_or_equal', value: '0' }],
+          }),
+        }),
+      );
+    });
+
+    it('adds containsSubset assertion via +Add', () => {
+      const onDraftChange = vi.fn();
+      render(<TestEditorValidationTab {...makeProps({ onDraftChange })} />);
+      fireEvent.click(screen.getByText('+ Add'));
+      fireEvent.click(screen.getByText('Contains Subset'));
+      expect(onDraftChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          validation: expect.objectContaining({
+            assertions: [{ type: 'containsSubset', jsonPath: '$', expected: '{}' }],
+          }),
+        }),
+      );
+    });
+
+    it('renders CONTAINS badge for arrayContains assertion', () => {
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{ type: 'arrayContains', jsonPath: '$.items', value: '1', mode: 'any' }],
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef })} />);
+      expect(screen.getByText('CONTAINS')).toBeInTheDocument();
+    });
+
+    it('renders EACH badge for each assertion', () => {
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{ type: 'each', jsonPath: '$.items', fieldPath: 'rank', operator: 'greater_than_or_equal', value: '0' }],
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef })} />);
+      expect(screen.getByText('EACH')).toBeInTheDocument();
+    });
+
+    it('renders SUBSET badge for containsSubset assertion', () => {
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{ type: 'containsSubset', jsonPath: '$', expected: '{}' }],
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef })} />);
+      expect(screen.getByText('SUBSET')).toBeInTheDocument();
+    });
+
+    it('renders mode dropdown for arrayContains', () => {
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{ type: 'arrayContains', jsonPath: '$.items', value: '1', mode: 'any' }],
+        },
+      });
+      const draftRef = { current: draft };
+      const onDraftChange = vi.fn();
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      const modeSelect = screen.getByDisplayValue('any (at least one)');
+      expect(modeSelect).toBeInTheDocument();
+      fireEvent.change(modeSelect, { target: { value: 'all' } });
+      expect(onDraftChange).toHaveBeenCalled();
+    });
+
+    it('renders operator dropdown for each assertion', () => {
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{ type: 'each', jsonPath: '$.items', fieldPath: 'rank', operator: 'greater_than_or_equal', value: '0' }],
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef })} />);
+      expect(screen.getByDisplayValue('>=')).toBeInTheDocument();
+    });
+
+    it('renders JSON textarea for containsSubset', () => {
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{ type: 'containsSubset', jsonPath: '$', expected: '{"status": "ok"}' }],
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef })} />);
+      expect(screen.getByDisplayValue('{"status": "ok"}')).toBeInTheDocument();
     });
   });
 });

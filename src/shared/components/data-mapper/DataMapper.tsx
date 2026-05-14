@@ -1,66 +1,47 @@
 import { useRef, useCallback, useMemo, useEffect, useState } from 'react';
-import { v4 as uuidv4 } from 'uuid';
-import type { MapperAdapter, Mapping, FieldOperator } from './types';
+import type { MapperAdapter, Mapping } from './types';
 import { resolveCapabilities } from './types';
 import { useMapperState } from './hooks/useMapperState';
 import { useConnectionLines, useLayoutTick } from './hooks/useConnectionLines';
-import { computeAutoMapCandidates } from './utils/autoMapAlgorithm';
-import type { AutoMapCandidate } from './utils/autoMapAlgorithm';
-import {
-  detectTypeMismatches,
-  inferType,
-  resolveTargetType,
-  suggestTypeFixExpression,
-  typesCompatible,
-} from './utils/typeMismatch';
 import { detectArrayMappings } from './utils/arrayMapping';
 import type { ArrayLineKind } from './hooks/useConnectionLines';
-import { buildJsonTree, getAllLeafPaths } from '../../utils/jsonTreeModel';
-import { getByPath } from '../../utils/jsonPath';
-import { savePattern, loadPattern, patternToSuggestions } from './utils/mappingPatterns';
-import type { PatternEntry } from './utils/mappingPatterns';
 import SourcePanel from './SourcePanel';
 import TargetPanel from './TargetPanel';
 import MappingCanvas from './MappingCanvas';
 import MapperToolbar from './MapperToolbar';
-import type { MapperGallerySample } from './utils/gallerySamples';
 import ExpressionEditorModal from './ExpressionEditorModal';
-import PreviewBar from './PreviewBar';
-import MappingTableView from './MappingTableView';
-import CodeView from './CodeView';
+import { useDataMapperValidation } from './hooks/useDataMapperValidation';
+import { useDataMapperAutoMap } from './hooks/useDataMapperAutoMap';
+import { useDataMapperDrop } from './hooks/useDataMapperDrop';
+import { useDataMapperEffects } from './hooks/useDataMapperEffects';
+import { useDataMapperHandlers } from './hooks/useDataMapperHandlers';
+import { useVerifyNavigation } from './hooks/useVerifyNavigation';
 import { useKeyboardNavigation } from './hooks/useKeyboardNavigation';
 import '../../../styles/data-mapper.css';
 import '../../../styles/data-mapper-expression.css';
 
 import type { DriftIndicator } from './SourceTreeNode';
 import type { MappingTrace } from './utils/mappingTrace';
-import { formatTraceValue, isTraceError } from './utils/mappingTrace';
-import { suggestExpressionsForAll } from './utils/expressionSuggestions';
+import { enrichConnectionLines } from './utils/lineEnrichment';
+import { toggleUtilityMode, safeDeserialize } from './utils/bottomUtilityHelpers';
+import type { BottomUtilityMode } from './utils/bottomUtilityHelpers';
 import ExampleInferenceModal from './ExampleInferenceModal';
 import ErrorPopover from './ErrorPopover';
-import type { InferredMapping } from './utils/exampleInference';
 import { useDebugOverlay } from './hooks/useDebugOverlay';
 import MappingHealthDashboard from './MappingHealthDashboard';
 import ValidationRepairPanel from './ValidationRepairPanel';
 import type { RepairSuggestion } from './utils/schemaRepair';
 import MapperFooter from './MapperFooter';
+import BulkActionsBar from './BulkActionsBar';
+import BottomUtilityDock from './BottomUtilityDock';
 import { useTargetFields } from './hooks/useTargetFields';
 import { usePanelResize } from './hooks/usePanelResize';
 import { useMapperKeyboard } from './hooks/useMapperKeyboard';
 import { useMappingOverlay } from './hooks/useMappingOverlay';
-import { upsertTargetMapping, bulkDropMappings } from './utils/dropMapping';
-import { parseSampleToTree, buildTargetTree } from './utils/mapperTreeBuilders';
+import { buildTargetTree } from './utils/mapperTreeBuilders';
 import { normalizeMapperPath } from './utils/pathNormalization';
 import {
-  buildPatternPropagationPreview,
-  type PatternPropagationPreview,
-} from './utils/patternPropagation';
-import { applyProfileDelta } from './utils/mappingProfiles';
-import {
-  findNodeByPath,
   getArrayParentPath,
-  applyDropPairs,
-  buildDropSummary,
 } from './utils/subtreeMapping';
 import { useMappingDiagnostics } from './hooks/useMappingDiagnostics';
 import { useMapperRepairActions } from './hooks/useMapperRepairActions';
@@ -83,8 +64,9 @@ interface DataMapperProps<TOutput = unknown> {
   unorderedDefault?: boolean;
   onToggleUnorderedArray?: (arrayPath: string) => void;
   hideAdvanced?: boolean;
+  onAssertionsChange?: (assertions: import('../../types').Assertion[]) => void;
+  flushRef?: React.RefObject<(() => void) | null>;
 }
-
 type LineFocusNode = { region: 'source' | 'target'; path: string } | null;
 
 export default function DataMapper<TOutput = unknown>({
@@ -104,21 +86,19 @@ export default function DataMapper<TOutput = unknown>({
   unorderedDefault,
   onToggleUnorderedArray,
   hideAdvanced = false,
+  onAssertionsChange,
+  flushRef,
 }: DataMapperProps<TOutput>) {
   const caps = useMemo(() => resolveCapabilities(adapter.capabilities), [adapter.capabilities]);
   const effectiveHideAdvanced = hideAdvanced || caps.hideAdvanced;
 
-  const initialMappings = useMemo(() => {
-    if (!initialData) return [];
-    try {
-      return adapter.deserialize(initialData);
-    } catch {
-      return [];
-    }
-  }, [adapter, initialData]);
+  const initialMappings = useMemo(
+    () => safeDeserialize(adapter, initialData),
+    [adapter, initialData],
+  );
 
   const [editingMappingId, setEditingMappingId] = useState<string | null>(null);
-  const [bottomUtilityMode, setBottomUtilityMode] = useState<'none' | 'code' | 'preview' | 'table'>('none');
+  const [bottomUtilityMode, setBottomUtilityMode] = useState<BottomUtilityMode>('none');
   const [showMappingLines, setShowMappingLines] = useState(true);
   const [nodeFocusMode, setNodeFocusMode] = useState(false);
   const [lineFocusNode, setLineFocusNode] = useState<LineFocusNode>(null);
@@ -128,13 +108,10 @@ export default function DataMapper<TOutput = unknown>({
   const [bulkSourcePath, setBulkSourcePath] = useState<string | null>(null);
   const [bulkSourceId, setBulkSourceId] = useState<string | null>(null);
   const [bulkTargetPath, setBulkTargetPath] = useState<string | null>(null);
-  const [propagationPreview, setPropagationPreview] = useState<PatternPropagationPreview | null>(null);
   const [targetResetSignal, setTargetResetSignal] = useState<number | null>(null);
+  const [filterFailedSignal, setFilterFailedSignal] = useState<number | null>(null);
   const sourceSearchRef = useRef<HTMLInputElement | null>(null);
   const [confidenceThreshold, setConfidenceThreshold] = useState(50);
-  const draggedSourceRef = useRef<{ path: string; sourceId: string } | null>(null);
-  const autoMapScoresRef = useRef<Map<string, number>>(new Map());
-  const patternMappingIdsRef = useRef<Set<string>>(new Set());
 
   const {
     state,
@@ -167,30 +144,24 @@ export default function DataMapper<TOutput = unknown>({
     if (prevInitialDataRef.current === initialData && prevAdapterRef.current === adapter) return;
     prevInitialDataRef.current = initialData;
     prevAdapterRef.current = adapter;
-    try {
-      replaceMappingsFromProps(initialData ? adapter.deserialize(initialData) : []);
-    } catch {
-      replaceMappingsFromProps([]);
-    }
+    replaceMappingsFromProps(safeDeserialize(adapter, initialData));
   }, [initialData, adapter, replaceMappingsFromProps]);
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const layoutTick = useLayoutTick(containerRef);
   const [showExampleModal, setShowExampleModal] = useState(false);
   const [compactMode, setCompactMode] = useState(false);
-  const showCodeView = bottomUtilityMode === 'code';
-  const showPreview = bottomUtilityMode === 'preview';
-
   const handleTogglePreview = useCallback(() => {
-    setBottomUtilityMode((mode) => (mode === 'preview' ? 'none' : 'preview'));
+    setBottomUtilityMode((mode) => toggleUtilityMode(mode, 'preview'));
   }, []);
-
   const handleToggleCodeView = useCallback(() => {
-    setBottomUtilityMode((mode) => (mode === 'code' ? 'none' : 'code'));
+    setBottomUtilityMode((mode) => toggleUtilityMode(mode, 'code'));
   }, []);
-
   const handleToggleTableView = useCallback(() => {
-    setBottomUtilityMode((mode) => (mode === 'table' ? 'none' : 'table'));
+    setBottomUtilityMode((mode) => toggleUtilityMode(mode, 'table'));
+  }, []);
+  const handleToggleRulesView = useCallback(() => {
+    setBottomUtilityMode((mode) => toggleUtilityMode(mode, 'rules'));
   }, []);
 
   const [advancedControlsOpen, setAdvancedControlsOpen] = useState(() => initialMappings.length < 8);
@@ -248,60 +219,71 @@ export default function DataMapper<TOutput = unknown>({
     onSourceSampleChange?.(state.sourceSampleOverrides);
   }, [state.sourceSampleOverrides, onSourceSampleChange]);
 
+  const autoMapRefCleanupDep = state.mappings;
+  const getEffectiveSourceData = useCallback((sourceId: string): unknown => {
+    return state.sourceSampleOverrides[sourceId]
+      ?? adapter.sources.find((s) => s.id === sourceId)?.sampleData;
+  }, [state.sourceSampleOverrides, adapter.sources]);
+
+  const {
+    autoMapCandidateCount,
+    autoMapScoresRef,
+    patternMappingIdsRef,
+    handleLoadGallerySample,
+    handleApplyProfileDelta,
+    handleAutoMap,
+  } = useDataMapperAutoMap({
+    adapter,
+    mappings: state.mappings,
+    activeSourceId: state.activeSourceId,
+    setMappings,
+    setSelectedIds,
+    setSelectedSourcePaths,
+    setSourceSample,
+    setToast,
+    getEffectiveSourceData,
+    effectiveTarget,
+    confidenceThreshold,
+    autoMapDefaultOperator: caps.autoMapDefaultOperator,
+  });
+
   useEffect(() => {
-    const currentIds = new Set(state.mappings.map((m) => m.id));
+    const currentIds = new Set(autoMapRefCleanupDep.map((m) => m.id));
     for (const id of autoMapScoresRef.current.keys()) {
       if (!currentIds.has(id)) autoMapScoresRef.current.delete(id);
     }
     for (const id of patternMappingIdsRef.current) {
       if (!currentIds.has(id)) patternMappingIdsRef.current.delete(id);
     }
-  }, [state.mappings]);
+  }, [autoMapRefCleanupDep, autoMapScoresRef, patternMappingIdsRef]);
 
-  const getEffectiveSourceData = useCallback((sourceId: string): unknown => {
-    return state.sourceSampleOverrides[sourceId]
-      ?? adapter.sources.find((s) => s.id === sourceId)?.sampleData;
-  }, [state.sourceSampleOverrides, adapter.sources]);
+  const dropHook = useDataMapperDrop({
+    mappings: state.mappings,
+    activeSourceId: state.activeSourceId,
+    selectedMappingId: state.selectedMappingId,
+    getEffectiveSourceData,
+    effectiveTarget,
+    setMappings,
+    setToast,
+    setSelectedSourcePaths,
+    setSelectedIds,
+    selectMapping,
+    selectedSourcePaths,
+    setBulkSourcePath,
+    setBulkSourceId,
+    setBulkTargetPath,
+  });
 
-  const suggestDropExpression = useCallback((sourcePath: string, sourceId: string, targetPath: string): string | undefined => {
-    const sourceData = getEffectiveSourceData(sourceId);
-    if (sourceData == null) return undefined;
+  const {
+    draggedSourceRef, propagationPreview, setPropagationPreview,
+    suggestDropExpression, sourceTreeForDrop, targetTreeForDrop,
+    sourceLeafPathsForPropagation, targetLeafPathsForPropagation,
+    handleSelectSourceNode, handleSelectTargetNode, handleMapFilteredFields,
+    handleDrop, handlePreviewPropagation, handleApplyPropagation,
+    handleDragStart, handleSourceDragEnd, getDraggedSource,
+  } = dropHook;
 
-    let parsedSource: unknown;
-    try {
-      parsedSource = typeof sourceData === 'string' ? JSON.parse(sourceData) : sourceData;
-    } catch {
-      return undefined;
-    }
-
-    const sourceVal = getByPath(parsedSource, sourcePath);
-    if (sourceVal === undefined) return undefined;
-    const sourceType = inferType(sourceVal);
-
-    const targetType = resolveTargetType(targetPath, effectiveTarget);
-    if (!targetType || typesCompatible(sourceType, targetType)) return undefined;
-
-    return suggestTypeFixExpression(sourceType, targetType, sourcePath);
-  }, [getEffectiveSourceData, effectiveTarget]);
-
-  const sourceTreeForDrop = useMemo(
-    () => parseSampleToTree(getEffectiveSourceData(state.activeSourceId)),
-    [getEffectiveSourceData, state.activeSourceId],
-  );
-
-  const targetTreeForDrop = useMemo(
-    () => buildTargetTree(effectiveTarget).tree,
-    [effectiveTarget],
-  );
-
-  const sourceLeafPathsForPropagation = useMemo(
-    () => sourceTreeForDrop ? getAllLeafPaths(sourceTreeForDrop).filter((path) => path.length > 0) : [],
-    [sourceTreeForDrop],
-  );
-  const targetLeafPathsForPropagation = useMemo(
-    () => targetTreeForDrop ? getAllLeafPaths(targetTreeForDrop).filter((path) => path.length > 0) : [],
-    [targetTreeForDrop],
-  );
+  const resetDraggedSource = useCallback(() => { draggedSourceRef.current = null; }, [draggedSourceRef]);
 
   const {
     prepareSubtreeDropPlan,
@@ -321,194 +303,39 @@ export default function DataMapper<TOutput = unknown>({
     setToast,
   });
 
-  const handleSelectSourceNode = useCallback((path: string, sourceId: string) => {
-    setBulkSourcePath(path);
-    setBulkSourceId(sourceId);
-  }, []);
+  const subtreeDropPlanRef = dropHook.prepareSubtreeDropPlanRef;
+  subtreeDropPlanRef.current = prepareSubtreeDropPlan;
 
-  const handleSelectTargetNode = useCallback((path: string) => {
-    setBulkTargetPath(path);
-  }, []);
-
-  const handleMapFilteredFields = useCallback(
-    (paths: string[], sourceId: string) => {
-      if (paths.length === 0) return;
-      const existingTargets = new Set(
-        state.mappings.map((m) => normalizeMapperPath(m.targetPath)),
-      );
-      const newMappings = paths
-        .filter((p) => !existingTargets.has(normalizeMapperPath(p)))
-        .map((p, i) => ({
-          id: `map-${Date.now()}-${i}`,
-          sourceId,
-          sourcePath: p,
-          targetPath: p,
-        }));
-      if (newMappings.length === 0) {
-        setToast('All filtered fields are already mapped');
-        return;
-      }
-      setMappings([...state.mappings, ...newMappings]);
-      setToast(`Mapped ${newMappings.length} field${newMappings.length !== 1 ? 's' : ''}`);
-    },
-    [state.mappings, setMappings, setToast],
-  );
-
-  const handleDrop = useCallback(
-    (targetPath: string, sourcePath: string, sourceId: string) => {
-      if (selectedSourcePaths.size > 1 && selectedSourcePaths.has(sourcePath)) {
-        const { nextMappings, appliedCount } = bulkDropMappings(
-          state.mappings,
-          Array.from(selectedSourcePaths),
-          sourcePath,
-          targetPath,
-          sourceId,
-          effectiveTarget.fields?.map((f) => f.path) ?? [],
-          suggestDropExpression,
-        );
-        if (appliedCount > 0) {
-          setMappings(nextMappings);
-          setToast(`Mapped ${appliedCount} field${appliedCount !== 1 ? 's' : ''}`);
-        } else {
-          setToast('No new mappings - targets already mapped or no matches');
-        }
-        setSelectedSourcePaths(new Set());
-        draggedSourceRef.current = null;
-        return;
-      }
-
-      const sourceNode = sourceTreeForDrop ? findNodeByPath(sourceTreeForDrop, sourcePath) : null;
-      const targetNode = targetTreeForDrop ? findNodeByPath(targetTreeForDrop, targetPath) : null;
-      const sourceHasChildren = !!(sourceNode?.children && sourceNode.children.length > 0);
-      const targetHasChildren = !!(targetNode?.children && targetNode.children.length > 0);
-
-      if (sourceHasChildren && targetHasChildren) {
-        const { pairs: plannedPairs } = prepareSubtreeDropPlan(
-          sourcePath,
-          targetPath,
-        );
-
-        if (plannedPairs.length === 0) {
-          setToast('No matching child fields found for object drop');
-          draggedSourceRef.current = null;
-          return;
-        }
-
-        const { nextMappings, insertedCount, updatedCount, unchangedCount } = applyDropPairs(
-          state.mappings,
-          plannedPairs,
-          sourceId,
-          suggestDropExpression,
-        );
-        const changedCount = insertedCount + updatedCount;
-
-        if (changedCount > 0) {
-          setMappings(nextMappings);
-          setToast(buildDropSummary(changedCount, insertedCount, updatedCount));
-        } else if (unchangedCount > 0) {
-          setToast('No changes - matching targets already mapped');
-        }
-        draggedSourceRef.current = null;
-        return;
-      }
-
-      const suggestedExpression = suggestDropExpression(sourcePath, sourceId, targetPath);
-      const applied = upsertTargetMapping(state.mappings, sourcePath, sourceId, targetPath, suggestedExpression);
-      if (applied.changed) {
-        setMappings(applied.next);
-      }
-      draggedSourceRef.current = null;
-    },
-    [state.mappings, selectedSourcePaths, setMappings, effectiveTarget.fields, suggestDropExpression, sourceTreeForDrop, targetTreeForDrop, prepareSubtreeDropPlan],
-  );
-
-  const handlePreviewPropagation = useCallback(() => {
-    if (!state.selectedMappingId) {
-      setToast('Select an indexed mapping first');
-      return;
-    }
-    const anchorMapping = state.mappings.find((mapping) => mapping.id === state.selectedMappingId);
-    if (!anchorMapping) {
-      setToast('Selected mapping is no longer available');
-      return;
-    }
-    const preview = buildPatternPropagationPreview(
-      anchorMapping,
-      state.mappings,
-      sourceLeafPathsForPropagation,
-      targetLeafPathsForPropagation,
-      state.activeSourceId,
-    );
-    if (!preview) {
-      setToast('Selected mapping is not eligible for index propagation');
-      return;
-    }
-    setPropagationPreview(preview);
-  }, [
-    state.selectedMappingId,
-    state.mappings,
-    state.activeSourceId,
-    sourceLeafPathsForPropagation,
-    targetLeafPathsForPropagation,
-  ]);
-
-  const handleApplyPropagation = useCallback(() => {
-    if (!propagationPreview) return;
-    let nextMappings = [...state.mappings];
-    let insertedCount = 0;
-    let updatedCount = 0;
-
-    const actionableRows = propagationPreview.rows.filter(
-      (row) => row.action === 'new' || row.action === 'update',
-    );
-    for (const row of actionableRows) {
-      const hadTargetMapping = nextMappings.some(
-        (mapping) => normalizeMapperPath(mapping.targetPath) === row.targetPath,
-      );
-      const applied = upsertTargetMapping(
-        nextMappings,
-        row.sourcePath,
-        propagationPreview.sourceId,
-        row.targetPath,
-        row.projectedExpression,
-      );
-      if (!applied.changed) continue;
-      nextMappings = applied.next;
-      if (hadTargetMapping) {
-        updatedCount += 1;
-      } else {
-        insertedCount += 1;
-      }
-    }
-
-    const changedCount = insertedCount + updatedCount;
-    if (changedCount === 0) {
-      setToast('No changes - propagated mappings already up to date');
-      setPropagationPreview(null);
-      return;
-    }
-
-    setMappings(nextMappings);
-    setPropagationPreview(null);
-    setToast(
-      `Propagated pattern (${insertedCount} new, ${updatedCount} updated, ${propagationPreview.missingSourceCount} skipped)`,
-    );
-  }, [propagationPreview, setMappings, state.mappings]);
-
-
-  const handleDragStart = useCallback((path: string, sourceId: string) => {
-    selectMapping(null);
-    setSelectedIds(new Set());
-    draggedSourceRef.current = { path, sourceId };
-  }, [selectMapping]);
-
-  const handleSourceDragEnd = useCallback(() => {
-    draggedSourceRef.current = null;
-  }, []);
-
-  const getDraggedSource = useCallback(() => draggedSourceRef.current, []);
-
-  const [fetchError, setFetchError] = useState<string | null>(null);
+  const {
+    fetchError,
+    handleFetchSample,
+    effectiveSources,
+    typeMismatches,
+    mismatchIds,
+    expressionSuggestions,
+    mappedSourcePaths,
+  } = useDataMapperEffects({
+    adapter: adapter as MapperAdapter,
+    mappings: state.mappings,
+    activeSourceId: state.activeSourceId,
+    getEffectiveSourceData,
+    effectiveTarget,
+    setSourceSample,
+    setSelectedSourcePaths,
+    setSelectedIds,
+    setBulkSourcePath,
+    setBulkSourceId,
+    setBulkTargetPath,
+    setPropagationPreview,
+    propagationPreview,
+    resetDraggedSource,
+    showMappingLines,
+    nodeFocusMode,
+    setLineFocusNode,
+    setAdvancedControlsOpen,
+    previousMappingCountRef,
+    sourceSampleOverrides: state.sourceSampleOverrides,
+  });
 
   const currentMappingIds = useMemo(
     () => new Set(state.mappings.map((m) => m.id)),
@@ -522,112 +349,6 @@ export default function DataMapper<TOutput = unknown>({
     handleShowErrorDetail, traceErrorCount,
     sourceTraceOverlay, targetTraceOverlay,
   } = useDebugOverlay({ traceData, currentMappingIds, activeSourceId: state.activeSourceId });
-
-  useEffect(() => {
-    setFetchError(null);
-    setSelectedSourcePaths(new Set());
-    setSelectedIds(new Set());
-    setBulkSourcePath(null);
-    setBulkSourceId(null);
-    setBulkTargetPath(null);
-    setPropagationPreview(null);
-    draggedSourceRef.current = null;
-    setLineFocusNode(null);
-  }, [state.activeSourceId]);
-
-  useEffect(() => {
-    if (showMappingLines) setLineFocusNode(null);
-  }, [showMappingLines]);
-
-  useEffect(() => {
-    if (!propagationPreview) return;
-    const anchorStillExists = state.mappings.some((mapping) => mapping.id === propagationPreview.anchorMappingId);
-    if (!anchorStillExists) {
-      setPropagationPreview(null);
-    }
-  }, [propagationPreview, state.mappings]);
-
-  useEffect(() => {
-    if (!nodeFocusMode) setLineFocusNode(null);
-  }, [nodeFocusMode]);
-
-  useEffect(() => {
-    const previousCount = previousMappingCountRef.current;
-    if (previousCount < 8 && state.mappings.length >= 8) {
-      setAdvancedControlsOpen(false);
-    }
-    previousMappingCountRef.current = state.mappings.length;
-  }, [state.mappings.length]);
-
-  const patternSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => {
-    const confirmedMappings = state.mappings.filter((m) => !m.isPending);
-    if (confirmedMappings.length === 0 || !adapter.contextId) return;
-    if (patternSaveTimerRef.current) clearTimeout(patternSaveTimerRef.current);
-    patternSaveTimerRef.current = setTimeout(() => {
-      try {
-        const sourceData = getEffectiveSourceData(state.activeSourceId);
-        const targetData = adapter.target.sampleData;
-        if (sourceData == null || targetData == null) return;
-        const parsedSrc = typeof sourceData === 'string' ? JSON.parse(sourceData) : sourceData;
-        const parsedTgt = typeof targetData === 'string' ? JSON.parse(targetData) : targetData;
-        const srcTree = buildJsonTree(parsedSrc, '', '');
-        const tgtTree = buildJsonTree(parsedTgt, '', '');
-        const srcPaths = getAllLeafPaths(srcTree);
-        const tgtPaths = getAllLeafPaths(tgtTree);
-        savePattern(adapter.contextId!, srcPaths, tgtPaths, confirmedMappings);
-      } catch { /* ignore save errors */ }
-    }, 2000);
-    return () => { if (patternSaveTimerRef.current) clearTimeout(patternSaveTimerRef.current); };
-  }, [state.mappings, adapter.contextId, adapter.target.sampleData, getEffectiveSourceData, state.activeSourceId]);
-
-  const activeSourceIdRef = useRef(state.activeSourceId);
-  activeSourceIdRef.current = state.activeSourceId;
-
-  const handleFetchSample = useCallback(async () => {
-    if (!adapter.fetchSampleData) return;
-    const requestedSourceId = activeSourceIdRef.current;
-    setFetchError(null);
-    try {
-      const data = await adapter.fetchSampleData();
-      if (data != null && activeSourceIdRef.current === requestedSourceId) {
-        setSourceSample(requestedSourceId, data);
-      }
-    } catch (e) {
-      setFetchError(e instanceof Error ? e.message : 'Failed to fetch sample data');
-    }
-  }, [adapter, setSourceSample]);
-
-  const effectiveSources = useMemo(() => {
-    return adapter.sources.map((s) => ({
-      ...s,
-      sampleData: state.sourceSampleOverrides[s.id] ?? s.sampleData,
-    }));
-  }, [adapter.sources, state.sourceSampleOverrides]);
-
-  const typeMismatches = useMemo(
-    () => detectTypeMismatches(state.mappings, effectiveSources, effectiveTarget, state.activeSourceId),
-    [state.mappings, effectiveSources, effectiveTarget, state.activeSourceId],
-  );
-
-  const mismatchIds = useMemo(
-    () => new Set(typeMismatches.map((m) => m.mappingId)),
-    [typeMismatches],
-  );
-
-  const expressionSuggestions = useMemo(
-    () => suggestExpressionsForAll(state.mappings, effectiveSources, effectiveTarget),
-    [state.mappings, effectiveSources, effectiveTarget],
-  );
-
-  const mappedSourcePaths = useMemo(
-    () => new Set(
-      state.mappings
-        .filter((m) => (m.sourceId || state.activeSourceId) === state.activeSourceId)
-        .map((m) => normalizeMapperPath(m.sourcePath)),
-    ),
-    [state.mappings, state.activeSourceId],
-  );
 
   const mappingDiagnostics = useMappingDiagnostics(
     state.mappings,
@@ -692,29 +413,13 @@ export default function DataMapper<TOutput = unknown>({
 
   const { lines: rawLines, containerHeight } = useConnectionLines(state.mappings, containerRef, layoutTick, mismatchIds, arrayInfoMap);
 
-  const lines = useMemo(() => {
-    return rawLines.map((line) => {
-      let updated = line;
-      const score = autoMapScoresRef.current.get(line.mappingId);
-      if (score != null) updated = { ...updated, confidenceScore: score };
-      if (patternMappingIdsRef.current.has(line.mappingId)) updated = { ...updated, isFromPattern: true };
-      if (driftMappingIds && driftMappingIds.size > 0) {
-        const severity = driftMappingIds.get(line.mappingId);
-        if (severity) updated = { ...updated, driftSeverity: severity };
-      }
-      if (debugMode && traceByMappingId) {
-        const trace = traceByMappingId.get(line.mappingId);
-        if (trace) {
-          updated = {
-            ...updated,
-            traceValue: formatTraceValue(trace.targetValue, 20),
-            traceError: isTraceError(trace),
-          };
-        }
-      }
-      return updated;
-    });
-  }, [rawLines, driftMappingIds, debugMode, traceByMappingId]);
+  const lines = useMemo(() => enrichConnectionLines(rawLines, {
+    autoMapScores: autoMapScoresRef.current,
+    patternMappingIds: patternMappingIdsRef.current,
+    driftMappingIds,
+    debugMode,
+    traceByMappingId,
+  }), [rawLines, driftMappingIds, debugMode, traceByMappingId, autoMapScoresRef, patternMappingIdsRef]);
 
   const visibleLines = useMemo(() => {
     if (showMappingLines) return lines;
@@ -733,205 +438,64 @@ export default function DataMapper<TOutput = unknown>({
     adapter.customFunctions,
   );
 
-  const buildTargetTreeForAutoMap = useCallback(
-    () => buildTargetTree(effectiveTarget),
-    [effectiveTarget],
-  );
+  const {
+    handleEditExpression,
+    handleClearAllMappings,
+    handleSaveExpression,
+    handleQuickFix,
+    handleApplySuggestion,
+    handleUpdateMappingOperator,
+    handleToggleMappingNegate,
+    handleExampleInferenceApply,
+    handleToggleSelectMapping,
+    handleToggleSourcePath,
+  } = useDataMapperHandlers({
+    mappings: state.mappings,
+    activeSourceId: state.activeSourceId,
+    clearAll,
+    selectMapping,
+    updateMapping,
+    setMappings,
+    setSelectedIds,
+    setSelectedSourcePaths,
+    setBulkSourcePath,
+    setBulkSourceId,
+    setBulkTargetPath,
+    setPropagationPreview,
+    setLineFocusNode,
+    setEditingMappingId,
+    setTargetResetSignal,
+    setToast,
+    resetDraggedSource,
+  });
 
-  const autoMapCandidates = useMemo<AutoMapCandidate[]>(() => {
-    const sourceData = getEffectiveSourceData(state.activeSourceId);
-    if (sourceData == null) return [];
-    try {
-      const parsedSource = typeof sourceData === 'string' ? JSON.parse(sourceData) : sourceData;
-      const srcTree = buildJsonTree(parsedSource, '', '');
-      const { tree: tgtTree, targetData } = buildTargetTreeForAutoMap();
-      if (!tgtTree) return [];
-      return computeAutoMapCandidates(srcTree, tgtTree, state.mappings, {
-        sourceData: parsedSource,
-        targetData,
-      });
-    } catch {
-      return [];
-    }
-  }, [getEffectiveSourceData, state.activeSourceId, state.mappings, buildTargetTreeForAutoMap]);
+  const {
+    validationSamplePaths,
+    validationSync,
+    autoVerifyEnabled,
+    verifyHook,
+    handleVerifyAll,
+    handleFetchAndVerify,
+    handleToggleAutoVerify,
+    handleAddArrayAssertion,
+  } = useDataMapperValidation({
+    caps,
+    adapter,
+    mappings: state.mappings,
+    activeSourceId: state.activeSourceId,
+    setMappings,
+    onChange,
+    skipNextOnChangeRef,
+    initialData,
+    effectiveTarget,
+    onAssertionsChange,
+    flushRef,
+    showRulesView: bottomUtilityMode === 'rules',
+    handleFetchTargetSchema,
+    setToast,
+    unorderedArrays: unorderedDefault,
+  });
 
-  const autoMapCandidateCount = useMemo(
-    () => autoMapCandidates.filter((c) => c.score >= confidenceThreshold).length,
-    [autoMapCandidates, confidenceThreshold],
-  );
-
-  const handleLoadGallerySample = useCallback((sample: MapperGallerySample) => {
-    const adapterSourceIds = new Set(adapter.sources.map((s) => s.id));
-    for (const sampleSrc of sample.sources) {
-      if (sampleSrc.sampleData == null) continue;
-      const targetId = adapterSourceIds.has(sampleSrc.id)
-        ? sampleSrc.id
-        : adapter.sources[0]?.id ?? state.activeSourceId;
-      setSourceSample(targetId, sampleSrc.sampleData);
-    }
-    setMappings(sample.mappings);
-    setSelectedIds(new Set());
-    setSelectedSourcePaths(new Set());
-    setToast(`Loaded sample: ${sample.name}`);
-  }, [adapter.sources, state.activeSourceId, setSourceSample, setMappings]);
-
-  const handleApplyProfileDelta = useCallback((profileMappings: Mapping[]) => {
-    const result = applyProfileDelta(state.mappings, profileMappings, uuidv4);
-    const changedCount = result.insertedCount + result.updatedCount;
-    if (changedCount === 0) {
-      setToast('Profile delta already up to date');
-      return;
-    }
-    setMappings(result.mappings);
-    setSelectedIds(new Set());
-    setSelectedSourcePaths(new Set());
-    setToast(
-      `Applied profile delta (${result.insertedCount} new, ${result.updatedCount} updated, ${result.unchangedCount} unchanged)`,
-    );
-  }, [state.mappings, setMappings]);
-
-  const handleAutoMap = useCallback(() => {
-    const filtered = autoMapCandidates.filter((c) => c.score >= confidenceThreshold);
-    const allNew: Mapping[] = [];
-
-    try {
-      const sourceData = getEffectiveSourceData(state.activeSourceId);
-      if (sourceData != null && adapter.contextId) {
-        const parsedSrc = typeof sourceData === 'string' ? JSON.parse(sourceData) : sourceData;
-        const srcTree = buildJsonTree(parsedSrc, '', '');
-        const { tree: tgtTree } = buildTargetTreeForAutoMap();
-        if (tgtTree) {
-          const srcPaths = getAllLeafPaths(srcTree);
-          const tgtPaths = getAllLeafPaths(tgtTree);
-          const pattern = loadPattern(adapter.contextId, srcPaths, tgtPaths);
-          if (pattern) {
-            const currentSrcPaths = new Set(srcPaths);
-            const currentTgtPaths = new Set(tgtPaths);
-            const combined = [...state.mappings, ...allNew];
-            const suggestions: PatternEntry[] = patternToSuggestions(pattern, currentSrcPaths, currentTgtPaths, combined);
-            const mappedTargets = new Set(combined.map((m) => m.targetPath));
-            const mappedSources = new Set(combined.map((m) => m.sourcePath));
-            const filteredTargets = new Set(filtered.map((c) => c.targetPath));
-            for (const s of suggestions) {
-              if (mappedTargets.has(s.targetPath) || filteredTargets.has(s.targetPath)) continue;
-              if (mappedSources.has(s.sourcePath)) continue;
-              const m: Mapping = {
-                id: uuidv4(),
-                sourcePath: s.sourcePath,
-                sourceId: state.activeSourceId,
-                targetPath: s.targetPath,
-                isPending: true,
-                ...(s.expression ? { expression: s.expression } : {}),
-              };
-              allNew.push(m);
-              patternMappingIdsRef.current.add(m.id);
-              autoMapScoresRef.current.set(m.id, 95);
-              mappedTargets.add(s.targetPath);
-              mappedSources.add(s.sourcePath);
-            }
-          }
-        }
-      }
-    } catch { /* ignore pattern load errors */ }
-
-    const patternTargets = new Set(allNew.map((m) => m.targetPath));
-    for (let i = 0; i < filtered.length; i++) {
-      if (patternTargets.has(filtered[i].targetPath)) continue;
-      const m: Mapping = {
-        id: uuidv4(),
-        sourcePath: filtered[i].sourcePath,
-        sourceId: state.activeSourceId,
-        targetPath: filtered[i].targetPath,
-        isAutoMapped: true,
-        isPending: true,
-      };
-      allNew.push(m);
-      autoMapScoresRef.current.set(m.id, filtered[i].score);
-    }
-
-    if (allNew.length === 0) return;
-    setMappings([...state.mappings, ...allNew]);
-    const patternCount = [...patternMappingIdsRef.current].filter((id) => allNew.some((m) => m.id === id)).length;
-    const autoCount = allNew.length - patternCount;
-    const parts: string[] = [];
-    if (autoCount > 0) parts.push(`${autoCount} auto-mapped`);
-    if (patternCount > 0) parts.push(`${patternCount} from patterns`);
-    setToast(parts.join(', '));
-  }, [autoMapCandidates, confidenceThreshold, state.activeSourceId, state.mappings, setMappings, getEffectiveSourceData, adapter.contextId, buildTargetTreeForAutoMap]);
-
-  const handleEditExpression = useCallback((mappingId: string) => {
-    setEditingMappingId(mappingId);
-  }, []);
-
-  const handleClearAllMappings = useCallback(() => {
-    clearAll();
-    selectMapping(null);
-    setSelectedIds(new Set());
-    setSelectedSourcePaths(new Set());
-    setBulkSourcePath(null);
-    setBulkSourceId(null);
-    setBulkTargetPath(null);
-    setPropagationPreview(null);
-    setLineFocusNode(null);
-    draggedSourceRef.current = null;
-    setTargetResetSignal((value) => (value ?? 0) + 1);
-    setToast('Cleared all mappings');
-  }, [clearAll, selectMapping]);
-
-  const handleSaveExpression = useCallback((mappingId: string, expression: string) => {
-    updateMapping(mappingId, { expression });
-    setEditingMappingId(null);
-  }, [updateMapping]);
-
-  const handleQuickFix = useCallback((mappingId: string, suggestedExpression: string) => {
-    updateMapping(mappingId, { expression: suggestedExpression });
-  }, [updateMapping]);
-
-  const handleApplySuggestion = useCallback((mappingId: string, expression: string) => {
-    updateMapping(mappingId, { expression });
-    setToast('Expression applied');
-  }, [updateMapping]);
-
-  const handleUpdateMappingOperator = useCallback((mappingId: string, operator: FieldOperator | undefined, operatorValue: string | undefined) => {
-    updateMapping(mappingId, { operator, operatorValue });
-  }, [updateMapping]);
-
-  const handleExampleInferenceApply = useCallback((inferred: InferredMapping[]) => {
-    const newMappings: Mapping[] = inferred.map((r) => ({
-      id: uuidv4(),
-      sourcePath: r.sourcePath,
-      sourceId: state.activeSourceId,
-      targetPath: r.targetPath,
-      isPending: true,
-      ...(r.expression ? { expression: r.expression } : {}),
-    }));
-    const existingTargets = new Set(state.mappings.map((m) => m.targetPath));
-    const deduped = newMappings.filter((m) => !existingTargets.has(m.targetPath));
-    if (deduped.length === 0) {
-      setToast('No new mappings — all targets already mapped');
-      return;
-    }
-    setMappings([...state.mappings, ...deduped]);
-    setToast(`${deduped.length} mapping${deduped.length !== 1 ? 's' : ''} inferred from examples`);
-  }, [state.activeSourceId, state.mappings, setMappings]);
-
-  const handleToggleSelectMapping = useCallback((id: string) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }, []);
-
-  const handleToggleSourcePath = useCallback((path: string) => {
-    setSelectedSourcePaths((prev) => {
-      const next = new Set(prev);
-      if (next.has(path)) next.delete(path);
-      else next.add(path);
-      return next;
-    });
-  }, []);
 
   const selectedArrayInfo = useMemo(() => {
     if (!state.selectedMappingId) return null;
@@ -960,6 +524,8 @@ export default function DataMapper<TOutput = unknown>({
     setSelectedIds,
     sourceSearchRef,
   });
+
+  const { targetPanelRef, verifyFailuresList, handleNavigateToFailure } = useVerifyNavigation(verifyHook.result);
 
   useEffect(() => {
     if (!toast) return;
@@ -1016,6 +582,10 @@ export default function DataMapper<TOutput = unknown>({
   const canPreviewPropagation = sourceLeafPathsForPropagation.length > 0
     && targetLeafPathsForPropagation.length > 0;
 
+  const handleSelectMappingExclusive = useCallback((id: string | null) => {
+    selectMapping(id);
+    setSelectedIds(new Set());
+  }, [selectMapping]);
 
   return (
     <div className="dm-container" ref={containerRef} style={{ height }}>
@@ -1030,7 +600,7 @@ export default function DataMapper<TOutput = unknown>({
         resolvedCount={mappingResolution.resolved}
         unresolvedCount={mappingResolution.unresolved}
         autoMapCount={autoMapCandidateCount}
-        showPreview={showPreview}
+        showPreview={bottomUtilityMode === 'preview'}
         onTogglePreview={handleTogglePreview}
         hasPending={hasPending}
         onAcceptAllPending={acceptAllPending}
@@ -1040,10 +610,21 @@ export default function DataMapper<TOutput = unknown>({
         capabilities={caps}
         onLoadProfile={effectiveHideAdvanced ? undefined : (m: Mapping[]) => { setMappings(m); setSelectedIds(new Set()); setSelectedSourcePaths(new Set()); }}
         onApplyProfileDelta={effectiveHideAdvanced ? undefined : handleApplyProfileDelta}
-        showCodeView={showCodeView}
+        showCodeView={bottomUtilityMode === 'code'}
         onToggleCodeView={handleToggleCodeView}
         showTableView={bottomUtilityMode === 'table'}
         onToggleTableView={handleToggleTableView}
+        showRulesView={bottomUtilityMode === 'rules'}
+        onToggleRulesView={caps.codeEditor ? handleToggleRulesView : undefined}
+        onVerifyAll={caps.verification ? handleVerifyAll : undefined}
+        onFetchAndVerify={caps.verification && adapter.fetchTargetSchema ? handleFetchAndVerify : undefined}
+        onToggleAutoVerify={caps.verification ? handleToggleAutoVerify : undefined}
+        autoVerify={autoVerifyEnabled}
+        verifyStatus={verifyHook.result.status}
+        verifyPassedCount={verifyHook.result.passedCount}
+        verifyFailedCount={verifyHook.result.failedCount}
+        verifyFailures={verifyFailuresList}
+        onNavigateToFailure={handleNavigateToFailure}
         onLoadGallerySample={effectiveHideAdvanced ? undefined : handleLoadGallerySample}
         hasTraceData={hasTraceData}
         debugMode={debugMode}
@@ -1061,114 +642,22 @@ export default function DataMapper<TOutput = unknown>({
         advancedOpen={advancedControlsOpen}
         onAdvancedOpenChange={setAdvancedControlsOpen}
       />
-      <div className="dm-bulk-actions-bar" role="group" aria-label="Bulk mapping actions">
-        <span className="dm-bulk-selection">
-          Source: <strong>{bulkSourcePath ? normalizeMapperPath(bulkSourcePath) : 'none'}</strong>
-        </span>
-        <span className="dm-bulk-selection">
-          Target: <strong>{bulkTargetPath ? normalizeMapperPath(bulkTargetPath) : 'none'}</strong>
-        </span>
-        <button
-          type="button"
-          className="dm-bulk-action-btn"
-          onClick={handleMapSubtree}
-          disabled={!hasBulkSourceAndTarget}
-          title="Map selected source subtree to selected target subtree"
-        >
-          Map subtree
-        </button>
-        <button
-          type="button"
-          className="dm-bulk-action-btn"
-          onClick={handleMapSiblingSubtrees}
-          disabled={!hasBulkSourceAndTarget || !canMapSiblingSubtrees}
-          title="Map all matching array siblings for selected index nodes"
-        >
-          Map siblings
-        </button>
-        <button
-          type="button"
-          className="dm-bulk-action-btn dm-bulk-action-btn--danger"
-          onClick={handleClearTargetSubtree}
-          disabled={!bulkTargetPath}
-          title="Clear mappings under selected target subtree"
-        >
-          Clear subtree
-        </button>
-        <button
-          type="button"
-          className="dm-bulk-action-btn dm-bulk-action-btn--primary"
-          onClick={handleReplaceTargetSubtree}
-          disabled={!hasBulkSourceAndTarget || !bulkTargetPath}
-          title="Clear and replace selected target subtree"
-        >
-          Replace subtree
-        </button>
-        <button
-          type="button"
-          className="dm-bulk-action-btn"
-          onClick={handlePreviewPropagation}
-          disabled={!canPreviewPropagation}
-          title="Preview pattern propagation from selected mapping"
-        >
-          Preview propagate
-        </button>
-        <span className="dm-bulk-selection dm-bulk-selection--inline">
-          Anchor mapping: <strong>{selectedMapping ? normalizeMapperPath(selectedMapping.targetPath) : 'none'}</strong>
-        </span>
-      </div>
-      {propagationPreview && (
-        <div className="dm-propagation-preview" role="region" aria-label="Pattern propagation preview">
-          <div className="dm-propagation-preview-head">
-            <span className="dm-propagation-preview-title">
-              Propagation preview from <strong>{propagationPreview.anchorTargetPath}</strong>
-            </span>
-            <button
-              type="button"
-              className="dm-propagation-preview-close"
-              onClick={() => setPropagationPreview(null)}
-              aria-label="Close propagation preview"
-            >
-              Close
-            </button>
-          </div>
-          <div className="dm-propagation-preview-stats">
-            {propagationPreview.insertedCount} new · {propagationPreview.updatedCount} updated · {propagationPreview.unchangedCount} unchanged · {propagationPreview.missingSourceCount} skipped
-          </div>
-          <div className="dm-propagation-preview-rows">
-            {propagationPreview.rows.slice(0, 12).map((row) => (
-              <div key={row.targetPath} className={`dm-propagation-preview-row dm-propagation-preview-row--${row.action}`}>
-                <span className="dm-propagation-preview-action">{row.action}</span>
-                <span className="dm-propagation-preview-path">{row.targetPath}</span>
-                <span className="dm-propagation-preview-arrow">←</span>
-                <span className="dm-propagation-preview-path">{row.sourcePath}</span>
-              </div>
-            ))}
-            {propagationPreview.rows.length > 12 && (
-              <div className="dm-propagation-preview-more">
-                +{propagationPreview.rows.length - 12} more rows
-              </div>
-            )}
-          </div>
-          <div className="dm-propagation-preview-actions">
-            <button
-              type="button"
-              className="dm-bulk-action-btn dm-bulk-action-btn--primary"
-              onClick={handleApplyPropagation}
-              disabled={(propagationPreview.insertedCount + propagationPreview.updatedCount) === 0}
-            >
-              Apply propagation
-            </button>
-            <button
-              type="button"
-              className="dm-bulk-action-btn"
-              onClick={() => setPropagationPreview(null)}
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
+      <BulkActionsBar
+        bulkSourcePath={bulkSourcePath}
+        bulkTargetPath={bulkTargetPath}
+        hasBulkSourceAndTarget={hasBulkSourceAndTarget}
+        canMapSiblingSubtrees={canMapSiblingSubtrees}
+        canPreviewPropagation={canPreviewPropagation}
+        selectedMappingTargetPath={selectedMapping?.targetPath ?? null}
+        propagationPreview={propagationPreview}
+        onMapSubtree={handleMapSubtree}
+        onMapSiblingSubtrees={handleMapSiblingSubtrees}
+        onClearTargetSubtree={handleClearTargetSubtree}
+        onReplaceTargetSubtree={handleReplaceTargetSubtree}
+        onPreviewPropagation={handlePreviewPropagation}
+        onApplyPropagation={handleApplyPropagation}
+        onClosePropagation={() => setPropagationPreview(null)}
+      />
       {debugMode && hasTraceData && (
         <div className="dm-debug-bar" role="status" aria-live="polite">
           <span className="dm-debug-bar-label">Debug Overlay</span>
@@ -1236,7 +725,7 @@ export default function DataMapper<TOutput = unknown>({
             height={containerHeight || 400}
             selectedMappingId={state.selectedMappingId}
             selectedMappingIds={selectedIds}
-            onSelectMapping={(id) => { selectMapping(id); setSelectedIds(new Set()); }}
+            onSelectMapping={handleSelectMappingExclusive}
             onToggleSelectMapping={handleToggleSelectMapping}
             onRemoveMapping={removeMapping}
             onEditExpression={handleEditExpression}
@@ -1250,6 +739,7 @@ export default function DataMapper<TOutput = unknown>({
             repairSuggestions={repairSuggestions}
             onApplyRepair={onApplyRepair}
             totalMappingCount={state.mappings.length}
+            failedMappingIds={verifyHook.result.status === 'complete' ? verifyHook.result.failedMappingIds : undefined}
           />
         </div>
         <div
@@ -1259,13 +749,13 @@ export default function DataMapper<TOutput = unknown>({
           aria-label="Resize target panel"
           onMouseDown={(e) => handleResizeStart('target', e)}
         />
-        <div className="dm-panel-wrapper" style={targetPanelWidth ? { width: targetPanelWidth, flex: 'none' } : undefined}>
+        <div className="dm-panel-wrapper" ref={targetPanelRef} style={targetPanelWidth ? { width: targetPanelWidth, flex: 'none' } : undefined}>
           <TargetPanel
             target={effectiveTarget}
             mappings={state.mappings}
             onDrop={handleDrop}
             selectedMappingId={state.selectedMappingId}
-            onSelectMapping={(id) => { selectMapping(id); setSelectedIds(new Set()); }}
+            onSelectMapping={handleSelectMappingExclusive}
             onEditExpression={handleEditExpression}
             typeMismatches={typeMismatches}
             onQuickFix={handleQuickFix}
@@ -1296,6 +786,11 @@ export default function DataMapper<TOutput = unknown>({
             onToggleUnorderedArray={onToggleUnorderedArray}
             capabilities={caps}
             onUpdateMappingOperator={caps.operators ? handleUpdateMappingOperator : undefined}
+            onToggleMappingNegate={caps.operators ? handleToggleMappingNegate : undefined}
+            nodeStatusMap={verifyHook.result.status === 'complete' ? verifyHook.nodeStatusMap : undefined}
+            fieldVerifyResults={verifyHook.result.status === 'complete' ? verifyHook.result.fieldResults : undefined}
+            onAddArrayAssertion={caps.operators ? handleAddArrayAssertion : undefined}
+            filterFailedSignal={filterFailedSignal}
           />
         </div>
       </div>
@@ -1323,36 +818,23 @@ export default function DataMapper<TOutput = unknown>({
         </div>
       )}
       {bottomUtilityMode !== 'none' && (
-        <div className={`dm-bottom-utility-dock dm-bottom-utility-dock--${bottomUtilityMode}`}>
-          {bottomUtilityMode === 'code' ? (
-            <CodeView
-              mappings={state.mappings}
-              sources={effectiveSources}
-              activeSourceId={state.activeSourceId}
-              targetSampleData={effectiveTarget.sampleData}
-              customFunctions={adapter.customFunctions}
-              debugMode={debugMode}
-              traceByMappingId={traceByMappingId}
-            />
-          ) : bottomUtilityMode === 'table' ? (
-            <MappingTableView
-              mappings={state.mappings}
-              sources={effectiveSources}
-              activeSourceId={state.activeSourceId}
-              onRemoveMapping={removeMapping}
-              onSelectMapping={(id) => { selectMapping(id); setSelectedIds(new Set()); }}
-              selectedMappingId={state.selectedMappingId}
-            />
-          ) : (
-            <PreviewBar
-              mappings={state.mappings}
-              sources={effectiveSources}
-              activeSourceId={state.activeSourceId}
-              targetSampleData={effectiveTarget.sampleData}
-              customFunctions={adapter.customFunctions}
-            />
-          )}
-        </div>
+        <BottomUtilityDock
+          mode={bottomUtilityMode}
+          mappings={state.mappings}
+          sources={effectiveSources}
+          activeSourceId={state.activeSourceId}
+          targetSampleData={effectiveTarget.sampleData}
+          customFunctions={adapter.customFunctions}
+          debugMode={debugMode}
+          traceByMappingId={traceByMappingId}
+          selectedMappingId={state.selectedMappingId}
+          onRemoveMapping={removeMapping}
+          onSelectMapping={handleSelectMappingExclusive}
+          validationDslText={validationSync.dslText}
+          onValidationCodeChange={validationSync.handleCodeChange}
+          validationParseErrors={validationSync.parseErrors}
+          validationSamplePaths={validationSamplePaths}
+        />
       )}
       {editingMapping && (
         <ExpressionEditorModal
@@ -1384,6 +866,10 @@ export default function DataMapper<TOutput = unknown>({
         resolvedCount={mappingResolution.resolved}
         unresolvedCount={mappingResolution.unresolved}
         compactMode={compactMode}
+        verifyPassedCount={verifyHook.result.passedCount}
+        verifyFailedCount={verifyHook.result.failedCount}
+        verifyStatus={verifyHook.result.status}
+        onFilterFailed={verifyHook.result.failedCount > 0 ? () => setFilterFailedSignal(Date.now()) : undefined}
       />
       {showExampleModal && (
         <ExampleInferenceModal

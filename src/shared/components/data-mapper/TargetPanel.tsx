@@ -54,6 +54,11 @@ interface TargetPanelProps {
   onToggleUnorderedArray?: (arrayPath: string) => void;
   capabilities?: Required<AdapterCapabilities>;
   onUpdateMappingOperator?: (mappingId: string, operator: FieldOperator | undefined, operatorValue: string | undefined) => void;
+  onToggleMappingNegate?: (mappingId: string) => void;
+  nodeStatusMap?: Map<string, 'pass' | 'fail'>;
+  fieldVerifyResults?: Map<string, { passed: boolean; actual?: string; expected?: string; matchContext?: string }>;
+  onAddArrayAssertion?: (arrayPath: string, assertionType: 'length' | 'contains' | 'each' | 'subset') => void;
+  filterFailedSignal?: number | null;
 }
 
 export default function TargetPanel({
@@ -92,9 +97,14 @@ export default function TargetPanel({
   onToggleUnorderedArray,
   capabilities,
   onUpdateMappingOperator,
+  onToggleMappingNegate,
+  nodeStatusMap,
+  fieldVerifyResults,
+  onAddArrayAssertion,
+  filterFailedSignal,
 }: TargetPanelProps) {
   const [search, setSearch] = useState('');
-  const [mappingFilter, setMappingFilter] = useState<'all' | 'mapped' | 'unmapped'>('all');
+  const [mappingFilter, setMappingFilter] = useState<'all' | 'mapped' | 'unmapped' | 'passed' | 'failed'>('all');
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set(['__root__']));
   const [pasteMode, setPasteMode] = useState(false);
   const [pasteText, setPasteText] = useState('');
@@ -130,6 +140,11 @@ export default function TargetPanel({
     setPasteMode(false);
     setPasteError(null);
   }, [resetViewSignal, tree]);
+
+  useEffect(() => {
+    if (filterFailedSignal == null) return;
+    setMappingFilter('failed');
+  }, [filterFailedSignal]);
 
   const fieldsSignature = useMemo(
     () => (target.fields ?? [])
@@ -191,6 +206,8 @@ export default function TargetPanel({
     setFetching(true);
     try {
       await onFetchTargetSchema();
+    } catch {
+      // Error state handled by parent via targetFetchError prop
     } finally {
       setFetching(false);
     }
@@ -259,6 +276,34 @@ export default function TargetPanel({
     }
     return mapped;
   }, [mappings]);
+
+  const verifyFilteredPaths = useMemo((): Set<string> | null => {
+    if (mappingFilter === 'passed' && nodeStatusMap) {
+      const passed = new Set<string>();
+      for (const [path, status] of nodeStatusMap) {
+        if (status === 'pass') passed.add(normalizeMapperPath(path));
+      }
+      return passed;
+    }
+    if (mappingFilter === 'failed' && nodeStatusMap) {
+      const failed = new Set<string>();
+      for (const [path, status] of nodeStatusMap) {
+        if (status === 'fail') failed.add(normalizeMapperPath(path));
+      }
+      return failed;
+    }
+    return null;
+  }, [mappingFilter, nodeStatusMap]);
+
+  const effectiveFilter = useMemo((): 'all' | 'mapped' | 'unmapped' => {
+    if (mappingFilter === 'passed' || mappingFilter === 'failed') return 'mapped';
+    return mappingFilter;
+  }, [mappingFilter]);
+
+  const effectiveMappedPaths = useMemo(() => {
+    if (verifyFilteredPaths !== null) return verifyFilteredPaths;
+    return mappedTargetPaths;
+  }, [verifyFilteredPaths, mappedTargetPaths]);
 
   const leafPaths = useMemo(() => {
     if (!tree) return [] as string[];
@@ -431,11 +476,17 @@ export default function TargetPanel({
               className="dm-filter-select"
               aria-label="Filter target fields"
               value={mappingFilter}
-              onChange={(e) => setMappingFilter(e.target.value as 'all' | 'mapped' | 'unmapped')}
+              onChange={(e) => setMappingFilter(e.target.value as 'all' | 'mapped' | 'unmapped' | 'passed' | 'failed')}
             >
               <option value="all">All</option>
               <option value="mapped">Mapped</option>
               <option value="unmapped">Unmapped</option>
+              {nodeStatusMap && (
+                <>
+                  <option value="passed">Passed</option>
+                  <option value="failed">Failed</option>
+                </>
+              )}
             </select>
             <span className="dm-filter-count" aria-live="polite">
               {mappedLeafCount} mapped / {unmappedLeafCount} unmapped
@@ -456,8 +507,8 @@ export default function TargetPanel({
                 mappings={mappings}
                 onDrop={onDrop}
                 search={search}
-                mappingFilter={mappingFilter}
-                mappedTargetPaths={mappedTargetPaths}
+                mappingFilter={effectiveFilter}
+                mappedTargetPaths={effectiveMappedPaths}
                 onNodeSelect={onNodeSelect}
                 selectedNodePath={selectedNodePath}
                 selectedMappingId={selectedMappingId}
@@ -480,14 +531,22 @@ export default function TargetPanel({
                 getDraggedSource={getDraggedSource}
                 getDraggedTargetFieldPath={getDraggedTargetFieldPath}
                 resetViewSignal={resetViewSignal}
+                unorderedDefault={unorderedDefault}
+                onToggleUnorderedArray={onToggleUnorderedArray}
+                capabilities={capabilities}
+                onUpdateMappingOperator={onUpdateMappingOperator}
+                onToggleMappingNegate={onToggleMappingNegate}
+                nodeStatusMap={nodeStatusMap}
+                fieldVerifyResults={fieldVerifyResults}
+                onAddArrayAssertion={onAddArrayAssertion}
               />
             ) : tree ? (
               <TargetTreeNode
                 node={tree}
                 depth={0}
                 search={search}
-                mappingFilter={mappingFilter}
-                mappedTargetPaths={mappedTargetPaths}
+                mappingFilter={effectiveFilter}
+                mappedTargetPaths={effectiveMappedPaths}
                 onNodeSelect={onNodeSelect}
                 selectedNodePath={selectedNodePath}
                 mappings={mappings}
@@ -514,6 +573,10 @@ export default function TargetPanel({
                 onToggleUnorderedArray={onToggleUnorderedArray}
                 capabilities={capabilities}
                 onUpdateMappingOperator={onUpdateMappingOperator}
+                onToggleMappingNegate={onToggleMappingNegate}
+                nodeStatusMap={nodeStatusMap}
+                fieldVerifyResults={fieldVerifyResults}
+                onAddArrayAssertion={onAddArrayAssertion}
               />
             ) : (
               <div

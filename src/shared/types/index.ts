@@ -76,6 +76,7 @@ export interface ExpectedField {
   expectedValue: string;
   operator?: FieldOperator;
   operatorValue?: string;
+  negate?: boolean;
 }
 
 export type SelectiveMode = 'include' | 'exclude';
@@ -101,6 +102,7 @@ export interface RulesVersion {
   expectedFields: ExpectedField[];
   excludedPaths?: string[];
   unorderedArrays?: boolean;
+  assertions?: Assertion[];
 }
 
 export type AssertionOperator = 'equals' | 'contains' | 'regex' | 'exists';
@@ -113,16 +115,24 @@ export type DateReference =
 
 export type JsonTypeName = 'string' | 'number' | 'boolean' | 'array' | 'object' | 'null';
 
+type AssertionBase = { negate?: boolean };
+
 export type Assertion =
-  | { type: 'status'; expected: string }
-  | { type: 'responseTime'; maxMs: number }
-  | { type: 'header'; name: string; operator: AssertionOperator; value?: string }
-  | { type: 'regex'; jsonPath: string; pattern: string }
-  | { type: 'arrayLength'; jsonPath: string; operator: ComparisonOperator; value: number }
-  | { type: 'numeric'; jsonPath: string; operator: ComparisonOperator; value: number }
-  | { type: 'date'; jsonPath: string; operator: ComparisonOperator; reference: DateReference }
-  | { type: 'typeCheck'; jsonPath: string; expectedType: JsonTypeName }
-  | { type: 'existence'; jsonPath: string; expectExists: boolean };
+  | (AssertionBase & { type: 'status'; expected: string })
+  | (AssertionBase & { type: 'responseTime'; maxMs: number })
+  | (AssertionBase & { type: 'header'; name: string; operator: AssertionOperator; value?: string })
+  | (AssertionBase & { type: 'regex'; jsonPath: string; pattern: string })
+  | (AssertionBase & { type: 'arrayLength'; jsonPath: string; operator: ComparisonOperator; value: number })
+  | (AssertionBase & { type: 'numeric'; jsonPath: string; operator: ComparisonOperator; value: number })
+  | (AssertionBase & { type: 'date'; jsonPath: string; operator: ComparisonOperator; reference: DateReference })
+  | (AssertionBase & { type: 'typeCheck'; jsonPath: string; expectedType: JsonTypeName })
+  | (AssertionBase & { type: 'existence'; jsonPath: string; expectExists: boolean })
+  | (AssertionBase & { type: 'arrayContains'; jsonPath: string; value: string; mode: 'any' | 'all' | 'only' | 'none' })
+  | (AssertionBase & { type: 'each'; jsonPath: string; fieldPath: string; operator: FieldOperator; value?: string })
+  | (AssertionBase & { type: 'containsSubset'; jsonPath: string; expected: string })
+  | (AssertionBase & { type: 'jsonSchema'; schema: string })
+  | (AssertionBase & { type: 'bodySize'; operator: ComparisonOperator; value: number; unit: 'bytes' | 'kb' | 'mb' })
+  | (AssertionBase & { type: 'datePrecise'; jsonPath: string; operator: ComparisonOperator; reference: string; precision: 'day' | 'hour' | 'minute' | 'second' | 'millisecond' });
 
 export interface ValidationConfig {
   mode: ValidationMode;

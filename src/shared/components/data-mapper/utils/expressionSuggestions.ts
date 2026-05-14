@@ -119,7 +119,7 @@ function suggestStringToStringSuggestions(
       suggestions.push({
         mappingId: mapping.id,
         label: 'Lowercase',
-        expression: `$lowercase(${pathRef})`,
+        expression: `$lower(${pathRef})`,
         description: 'Convert to lowercase',
         category: 'string',
         priority: 40,
@@ -129,7 +129,7 @@ function suggestStringToStringSuggestions(
       suggestions.push({
         mappingId: mapping.id,
         label: 'Uppercase',
-        expression: `$uppercase(${pathRef})`,
+        expression: `$upper(${pathRef})`,
         description: 'Convert to uppercase',
         category: 'string',
         priority: 40,
@@ -151,7 +151,7 @@ const FALLBACK_MAP: Record<string, Omit<ExpressionSuggestion, 'mappingId'>> = {
   'string→array': { label: 'Split', expression: '$split($.PATH, ",")', description: 'Split string into array', category: 'conversion', priority: 85 },
   'array→number': { label: 'Count', expression: '$count($.PATH)', description: 'Count array elements', category: 'conversion', priority: 85 },
   'array→boolean': { label: 'Has items', expression: '$toBool($count($.PATH))', description: 'True if array is non-empty', category: 'conversion', priority: 80 },
-  'object→string': { label: 'Stringify', expression: '$toString($.PATH)', description: 'Convert object to JSON string', category: 'conversion', priority: 70 },
+  'object→string': { label: 'Stringify', expression: '$stringify($.PATH)', description: 'Convert object to JSON string', category: 'conversion', priority: 70 },
 };
 
 function getFallbackSuggestion(conversionKey: string, pathRef: string): Omit<ExpressionSuggestion, 'mappingId'> | null {
