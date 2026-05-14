@@ -9,6 +9,29 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
 ## [Unreleased]
 
 ### Added
+- **Validation & Data Mapper — Architecture Refactoring**
+  - **Validator module decomposition** — `validator.ts` (1012 → 830 lines) split into focused modules: `validatorDateHelpers.ts`, `validatorHttpHelpers.ts`, `validatorSubsetMatch.ts`, `validatorCustomExpression.ts`.
+  - **DataMapper hook extraction** — `DataMapper.tsx` (1001 → 895 lines) split into: `useBottomUtilityDock.ts`, `useDataMapperTreeInteraction.ts`, `useHighlightedMappingPaths.ts`, `useMapperVisibleLines.ts`.
+  - **TestEditorValidationTab decomposition** — (936 → 865 lines) split into: `testEditorValidationAddMenu.ts`, `testEditorValidationPivot.ts`.
+  - **Zero monolithic files** — all source files now under 900 lines.
+  - **Quality gate** — 16,356 unit tests (576 files), 613 E2E tests, >90% coverage (statements/branches/functions/lines) across all files, 0 ESLint errors, 0 TypeScript errors.
+
+- **Floating DSL Editor**
+  - **`FloatingEditorModal`** — draggable/resizable pop-out Monaco editor via React Portal. ↗ button pops out from bottom dock, ↙ or Escape docks back. Independent position and size management.
+  - **Bi-directional sync hardening** — `useValidationCodeSync` now uses error-aware updates (only pushes to visual model on zero parse errors) and `pendingCodeSyncs` counter to prevent sync echo overwrites.
+
+- **Visual Mapper UX Improvements**
+  - **Hover-to-Highlight** — hovering a tree node dims all non-connected lines/nodes.
+  - **Toggle Line Visibility** — toolbar button to show/hide all mapping connection lines.
+  - **Keyboard navigation** — Arrow Up/Down traverses tree nodes, highlighting both source and target sides. Tab switches panels. Home/End jump to first/last node. Root node (empty path) handled correctly.
+  - **Click highlighting** — clicking a tree node or canvas line highlights both connected source and target nodes.
+  - **Failure Navigation System** — toolbar shows failed rule count with ◀/▶ navigation to cycle through failures.
+  - **Verify scope selector** — Assertions, Validation Rules, or All.
+  - **`JsonPathPicker`** for `each` assertion field path.
+  - **Auto-map default operator** — validation adapter defaults to `exists`, preventing false failures on type differences.
+  - **Type mismatch suppression** — operators like `exists`, `not_exists`, `is_empty`, `is_not_empty` skip type mismatch detection.
+  - **Target schema type inference** — `validationAdapter.fetchTargetSchema` now infers actual types from sample data instead of hardcoding `string`.
+
 - **Data Mapper Phase 9E — Hardening**
   - **Full test suite pass** — 515 test files, 13,713 tests, all passing with zero failures.
   - **Type safety** — `tsc --noEmit` zero errors.

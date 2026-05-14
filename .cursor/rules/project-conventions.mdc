@@ -45,7 +45,12 @@ alwaysApply: true
 | `src/features/test-runner/hooks/useRunnerOrchestration.ts` | Shared runner logic hook |
 | `src/features/test-runner/components/ExecutionPlanPreview.tsx` | Execution plan preview |
 | `src/engine/thinkTime.ts` | Think time delay factory and apply function |
-| `src/engine/validator.ts` | JSON validation + rich assertion evaluator (evaluateAssertions) |
+| `src/engine/validator.ts` | JSON validation + rich assertion evaluator (evaluateAssertions) — barrel re-exports from extracted modules |
+| `src/engine/validatorDateHelpers.ts` | Date assertion helpers: resolveDate, toDayString, truncateToUnit |
+| `src/engine/validatorHttpHelpers.ts` | HTTP assertion helpers: matchesStatusPattern, getJsonTypeName, findHeader, evaluateHeaderOp |
+| `src/engine/validatorSubsetMatch.ts` | Deep recursive partial match: deepSubsetMatch |
+| `src/engine/validatorCustomExpression.ts` | Custom ASSERT expression preprocessing: isTruthy, wrapCustomExprDollarPaths |
+| `src/engine/fieldOperatorEvaluation.ts` | 24-operator evaluator: evaluateFieldOperator, stringify, toNumber |
 | `src/engine/workflow/graphRunner.ts` | Workflow execution engine with topological traversal, parallel fork/join |
 | `src/engine/workflow/debugController.ts` | Step-through debugging controller for Quick Test |
 | `src/engine/workflow/fetchScenarioSample.ts` | One-off HTTP fetch for Extract → Pick JSON path |
@@ -54,6 +59,10 @@ alwaysApply: true
 | `src/shared/components/data-mapper/utils/arrayMapping.ts` | Array mapping detection — classify loop/aggregate/spread/direct, smart aggregate suggestions |
 | `src/shared/components/data-mapper/utils/gallerySamples.ts` | 6 pre-built mapping gallery presets — direct, expression, array, multi-source, type conversion, conditional |
 | `src/shared/components/data-mapper/hooks/useKeyboardNavigation.ts` | Keyboard navigation hook — Tab between panels, arrow keys for tree traversal, Home/End |
+| `src/shared/components/data-mapper/hooks/useBottomUtilityDock.ts` | Bottom dock mode toggles (preview, code, table, rules) + floating pop-out/pop-in |
+| `src/shared/components/data-mapper/hooks/useDataMapperTreeInteraction.ts` | Mouse/keyboard tree node interaction — hover, click, keyboard navigation bridge |
+| `src/shared/components/data-mapper/hooks/useHighlightedMappingPaths.ts` | Derives highlight sets for tree nodes/connections from hover > focus > selection |
+| `src/shared/components/data-mapper/hooks/useMapperVisibleLines.ts` | Connection line filtering for node-focus and hide-lines modes |
 | `src/shared/components/data-mapper/CodeView.tsx` | Read-only code view of mappings (target ← source format), sorted, with line numbers |
 | `src/engine/executionWorker.ts` | Web Worker entry point for off-thread execution |
 | `src/engine/workerBridge.ts` | Main-thread bridge wrapping worker (drop-in for runTest) |
@@ -114,6 +123,12 @@ alwaysApply: true
 | `src/shared/components/data-mapper/utils/schemaContract.ts` | Schema Contract: strict/lenient lock mode, validateContract, config persistence |
 | `src/shared/components/data-mapper/utils/mappingTrace.ts` | Mapping Execution Trace: per-mapping data flow capture, trace level gating, summarization (Phase 9A) |
 | `src/shared/components/data-mapper/utils/expressionStepDebugger.ts` | Step-through expression debugger: breaks expressions into EvalStep[] for incremental visualization (Phase 9C) |
+| `src/shared/components/data-mapper/FloatingEditorModal.tsx` | Floating DSL editor: draggable/resizable React Portal wrapping ValidationCodeEditor |
+| `src/shared/components/data-mapper/ValidationCodeEditor.tsx` | Monaco-based DSL editor with pop-out/dock-back, syntax highlighting, autocomplete |
+| `src/shared/components/data-mapper/hooks/useValidationCodeSync.ts` | Bi-directional visual ↔ DSL code sync with error-aware debounce |
+| `src/shared/components/data-mapper/utils/validationDsl.ts` | DSL parser/serializer: serializeToDsl, parseDsl, parseDslLine, importAutoDetect |
+| `src/features/scenarios/components/testEditorValidationAddMenu.ts` | Data-driven assertion factory menu (ADD_ASSERTION_MENU_ROWS) |
+| `src/features/scenarios/components/testEditorValidationPivot.ts` | Pivoted rules table model: buildPivotedRulesFromExpectedFields |
 | `src-tauri/tauri.conf.json` | Tauri app config |
 | `scripts/version.sh` | Version bump script |
 
@@ -153,7 +168,7 @@ This means **no commit can enter git with type errors**. If the hook blocks your
 
 ## Validation Operator UI/UX Reference
 
-When implementing any phase of the validation operator feature (Phases 1–8 from `docs/plan/validation-operator-gap-analysis.md`), **always refer to the interactive HTML mockup** at `docs/mockups/validation-operators-visual-mapper.html` for UI/UX guidance. This mockup is the source of truth for:
+All 12 implementation phases (P0–P9.3) of the validation operator feature are **completed**. See `docs/plan/validation-operator-gap-analysis.md` for the full gap analysis, module architecture, and competitive benchmarks. The interactive HTML mockup at `docs/mockups/validation-operators-visual-mapper.html` remains the reference for UI/UX conventions:
 
 - **Color scheme**: green (equality), amber (comparison), purple (string ops), teal (type checks), red (boolean), gray (existence/null), blue (set membership)
 - **Operator pill placement**: inline on target tree nodes between the arrow (←) and source reference

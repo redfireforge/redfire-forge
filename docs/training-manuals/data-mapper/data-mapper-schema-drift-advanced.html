@@ -103,6 +103,18 @@ $.limit           → number</pre>
   <p>Click the drift banner to open the Schema Diff Modal. Review each change and click <strong>Apply Repair</strong> for suggested fixes, or manually update mappings.</p>
 </div>
 
+<h2>Part 4 — Schema Contract &amp; Type Mismatch</h2>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">7</div><div class="step-title">Schema Contract Mode</div></div>
+  <p>The mapper supports <strong>strict</strong> and <strong>lenient</strong> schema locking. In strict mode, any field addition or removal is flagged as a contract violation. In lenient mode, only removals are violations (additions are allowed).</p>
+</div>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">8</div><div class="step-title">Type Mismatch Auto-Fix</div></div>
+  <p>When a source and target field have different types (e.g., number vs string), the mapper shows an inline warning bubble with fix suggestions. Operators like <code>exists</code>, <code>not_exists</code>, <code>is_empty</code>, <code>is_not_empty</code> skip type mismatch detection because they don't compare values.</p>
+</div>
+
 <h2>Summary</h2>
 <table>
   <tr><th>Concept</th><th>What it does</th></tr>
@@ -110,6 +122,8 @@ $.limit           → number</pre>
   <tr><td>Drift detection</td><td>Compares current schema to snapshot, flags differences</td></tr>
   <tr><td>Repair suggestions</td><td>Auto-generates fixes for renamed/removed/changed fields</td></tr>
   <tr><td>Health dashboard</td><td>Shows overall mapping health: broken count, drift status</td></tr>
+  <tr><td>Schema contract (strict vs lenient)</td><td>Step 7 — strict flags adds+removals; lenient flags removals only</td></tr>
+  <tr><td>Type mismatch auto-fix</td><td>Step 8 — inline warnings and suggestions; existence operators exempt</td></tr>
 </table>
 
 </body>

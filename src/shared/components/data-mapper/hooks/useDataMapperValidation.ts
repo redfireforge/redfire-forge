@@ -1,7 +1,7 @@
 import { useRef, useCallback, useMemo, useEffect, useState } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import type { MapperAdapter, Mapping } from '../types';
-import { buildJsonTree, getAllLeafPaths } from '../../../utils/jsonTreeModel';
+import { buildJsonTree, getAllPaths } from '../../../utils/jsonTreeModel';
 import { useValidationCodeSync } from './useValidationCodeSync';
 import { useValidationVerify } from './useValidationVerify';
 import { normalizeMapperPath } from '../utils/pathNormalization';
@@ -52,7 +52,7 @@ export function useDataMapperValidation(deps: DataMapperValidationDeps) {
           ? JSON.parse(effectiveTarget.sampleData)
           : effectiveTarget.sampleData;
         const tree = buildJsonTree(parsed, '');
-        paths.push(...getAllLeafPaths(tree));
+        paths.push(...getAllPaths(tree));
       }
     } catch { /* ignore */ }
     return paths;
@@ -229,6 +229,25 @@ export function useDataMapperValidation(deps: DataMapperValidationDeps) {
     });
   }, []);
 
+  const handleUpdateArrayAssertion = useCallback((index: number, patch: Partial<Assertion>) => {
+    setValidationAssertions(prev => {
+      if (index < 0 || index >= prev.length) return prev;
+      const updated = [...prev];
+      updated[index] = { ...updated[index], ...patch } as Assertion;
+      onAssertionsChangeRef.current?.(updated);
+      return updated;
+    });
+  }, []);
+
+  const handleRemoveArrayAssertion = useCallback((index: number) => {
+    setValidationAssertions(prev => {
+      if (index < 0 || index >= prev.length) return prev;
+      const updated = prev.filter((_, i) => i !== index);
+      onAssertionsChangeRef.current?.(updated);
+      return updated;
+    });
+  }, []);
+
   return {
     validationSamplePaths,
     validationFields,
@@ -241,6 +260,8 @@ export function useDataMapperValidation(deps: DataMapperValidationDeps) {
     handleFetchAndVerify,
     handleToggleAutoVerify,
     handleAddArrayAssertion,
+    handleUpdateArrayAssertion,
+    handleRemoveArrayAssertion,
     handleUpdateValidationFields,
     handleUpdateValidationAssertions,
   };

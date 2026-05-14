@@ -97,7 +97,24 @@
 <div class="step">
   <div class="step-header"><div class="step-num">8</div><div class="step-title">Switch to Code view</div></div>
   <p>Click <strong>&lt;/&gt; Code</strong> in the toolbar. This shows the mappings as JSON/code format instead of the visual tree.</p>
-  <div class="expect"><strong>You should see:</strong> A code editor showing the extraction configuration as structured data, useful for copy-pasting or bulk editing.</div>
+  <div class="expect"><strong>You should see:</strong> A code editor showing the extraction configuration as structured data, useful for copy-pasting or bulk editing. The <strong>Code</strong> view in extraction/body context shows mappings as structured JSON. In <strong>validation</strong> context, the bottom dock <strong>Rules</strong> tab shows a different <strong>Validation DSL</strong> editor with operator keywords, syntax highlighting, and autocomplete.</div>
+</div>
+
+<h2>Part 4 — Keyboard &amp; Visual Navigation (NEW)</h2>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">9</div><div class="step-title">Keyboard Navigation</div></div>
+  <p>Click any field, then use Arrow Up/Down to traverse nodes. Both source and target sides highlight the connected mapping simultaneously. Tab switches panels. Home/End jump to first/last.</p>
+</div>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">10</div><div class="step-title">Hover-to-Highlight</div></div>
+  <p>Hover any node to dim all unrelated lines and nodes, spotlighting the hovered mapping path.</p>
+</div>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">11</div><div class="step-title">Mapping Profiles</div></div>
+  <p>After a good Auto-Map result, click <strong>Profiles</strong> → <strong>Save</strong> to store the mapping as a named preset. Load it later to restore instantly.</p>
 </div>
 
 <h2>Summary</h2>
@@ -108,6 +125,10 @@
   <tr><td>Preview mode</td><td>Shows resolved values inline next to each mapping</td></tr>
   <tr><td>Error detection</td><td>Red indicators on broken/invalid mapping expressions</td></tr>
   <tr><td>Code view</td><td>JSON representation of mappings for bulk editing</td></tr>
+  <tr><td>Code vs Rules (validation)</td><td>Step 8 — extraction/body: structured JSON; validation: Rules tab = Validation DSL</td></tr>
+  <tr><td>Keyboard navigation</td><td>Step 9 — arrows, Tab, Home/End; dual-side highlight</td></tr>
+  <tr><td>Hover-to-highlight</td><td>Step 10 — dim unrelated mappings</td></tr>
+  <tr><td>Mapping profiles</td><td>Step 11 — save/load named presets after Auto-Map</td></tr>
 </table>
 
 <div class="callout callout-tip">

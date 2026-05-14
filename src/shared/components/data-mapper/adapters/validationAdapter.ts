@@ -128,7 +128,8 @@ export function createValidationAdapter(
           jsonPath: stripDollarPrefix(m.sourcePath),
           expectedValue: resolveExpectedValue(m),
         };
-        const op = (m.operator as FieldOperator | undefined) ?? capabilities.autoMapDefaultOperator;
+        const op = (m.operator as FieldOperator | undefined)
+          ?? (m.isAutoMapped ? capabilities.autoMapDefaultOperator : undefined);
         if (op) field.operator = op;
         if (m.operatorValue !== undefined) field.operatorValue = m.operatorValue;
         if (m.negate) field.negate = true;

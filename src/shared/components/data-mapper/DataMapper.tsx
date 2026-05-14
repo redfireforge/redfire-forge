@@ -41,9 +41,7 @@ import { usePanelResize } from './hooks/usePanelResize';
 import { useMapperKeyboard } from './hooks/useMapperKeyboard';
 import { useMappingOverlay } from './hooks/useMappingOverlay';
 import { buildTargetTree } from './utils/mapperTreeBuilders';
-import {
-  getArrayParentPath,
-} from './utils/subtreeMapping';
+import { getArrayParentPath } from './utils/subtreeMapping';
 import { useMappingDiagnostics } from './hooks/useMappingDiagnostics';
 import { useMapperRepairActions } from './hooks/useMapperRepairActions';
 import { useBulkSubtreeActions } from './hooks/useBulkSubtreeActions';
@@ -490,6 +488,7 @@ export default function DataMapper<TOutput = unknown>({
 
   const {
     validationSamplePaths,
+    validationAssertions,
     validationSync,
     autoVerifyEnabled,
     verifyHook,
@@ -497,6 +496,8 @@ export default function DataMapper<TOutput = unknown>({
     handleFetchAndVerify,
     handleToggleAutoVerify,
     handleAddArrayAssertion,
+    handleUpdateArrayAssertion,
+    handleRemoveArrayAssertion,
   } = useDataMapperValidation({
     caps,
     adapter,
@@ -792,6 +793,9 @@ export default function DataMapper<TOutput = unknown>({
             nodeStatusMap={verifyHook.result.status === 'complete' ? verifyHook.nodeStatusMap : undefined}
             fieldVerifyResults={verifyHook.result.status === 'complete' ? verifyHook.result.fieldResults : undefined}
             onAddArrayAssertion={caps.operators ? handleAddArrayAssertion : undefined}
+            onUpdateArrayAssertion={caps.operators ? handleUpdateArrayAssertion : undefined}
+            onRemoveArrayAssertion={caps.operators ? handleRemoveArrayAssertion : undefined}
+            arrayAssertions={caps.arrayAssertions ? validationAssertions : undefined}
             filterFailedSignal={filterFailedSignal}
             highlightedPaths={highlightedTargetPaths}
           />

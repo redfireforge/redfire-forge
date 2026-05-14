@@ -111,6 +111,61 @@ describe('useDataMapperValidation', () => {
     );
   });
 
+  it('handleUpdateArrayAssertion patches an existing assertion in place', () => {
+    const onAssertionsChange = vi.fn();
+    const deps = makeDeps({ onAssertionsChange });
+    const { result } = renderHook(() => useDataMapperValidation(deps));
+
+    act(() => { result.current.handleAddArrayAssertion('items', 'length'); });
+    onAssertionsChange.mockClear();
+
+    act(() => { result.current.handleUpdateArrayAssertion(0, { value: 7 } as never); });
+    expect(onAssertionsChange).toHaveBeenCalledWith(
+      expect.arrayContaining([expect.objectContaining({ type: 'arrayLength', value: 7 })]),
+    );
+  });
+
+  it('handleUpdateArrayAssertion no-ops on out-of-range index', () => {
+    const onAssertionsChange = vi.fn();
+    const deps = makeDeps({ onAssertionsChange });
+    const { result } = renderHook(() => useDataMapperValidation(deps));
+
+    act(() => { result.current.handleAddArrayAssertion('items', 'length'); });
+    onAssertionsChange.mockClear();
+
+    act(() => { result.current.handleUpdateArrayAssertion(-1, { value: 9 } as never); });
+    act(() => { result.current.handleUpdateArrayAssertion(99, { value: 9 } as never); });
+    expect(onAssertionsChange).not.toHaveBeenCalled();
+  });
+
+  it('handleRemoveArrayAssertion removes by index and notifies', () => {
+    const onAssertionsChange = vi.fn();
+    const deps = makeDeps({ onAssertionsChange });
+    const { result } = renderHook(() => useDataMapperValidation(deps));
+
+    act(() => { result.current.handleAddArrayAssertion('items', 'length'); });
+    act(() => { result.current.handleAddArrayAssertion('items', 'contains'); });
+    onAssertionsChange.mockClear();
+
+    act(() => { result.current.handleRemoveArrayAssertion(0); });
+    const lastCall = onAssertionsChange.mock.calls.at(-1)?.[0] as Array<{ type: string }>;
+    expect(lastCall).toHaveLength(1);
+    expect(lastCall[0].type).toBe('arrayContains');
+  });
+
+  it('handleRemoveArrayAssertion no-ops on out-of-range index', () => {
+    const onAssertionsChange = vi.fn();
+    const deps = makeDeps({ onAssertionsChange });
+    const { result } = renderHook(() => useDataMapperValidation(deps));
+
+    act(() => { result.current.handleAddArrayAssertion('items', 'length'); });
+    onAssertionsChange.mockClear();
+
+    act(() => { result.current.handleRemoveArrayAssertion(-1); });
+    act(() => { result.current.handleRemoveArrayAssertion(42); });
+    expect(onAssertionsChange).not.toHaveBeenCalled();
+  });
+
   it('handleVerifyAll enables verify and calls verifyAll', () => {
     const deps = makeDeps();
     const { result } = renderHook(() => useDataMapperValidation(deps));
