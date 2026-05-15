@@ -278,6 +278,43 @@ export function useDataMapperDrop({
     );
   }, [propagationPreview, setMappings, mappings, setToast]);
 
+  const draggedRemapRef = useRef<string | null>(null);
+
+  const handleRemapDrop = useCallback(
+    (newTargetPath: string, mappingId: string) => {
+      const existing = mappings.find((m) => m.id === mappingId);
+      if (!existing) return;
+      if (normalizeMapperPath(existing.targetPath) === normalizeMapperPath(newTargetPath)) return;
+
+      const occupied = mappings.find(
+        (m) => m.id !== mappingId && normalizeMapperPath(m.targetPath) === normalizeMapperPath(newTargetPath),
+      );
+      if (occupied) {
+        setToast('Target already has a mapping — remove it first');
+        return;
+      }
+
+      const next = mappings.map((m) => {
+        if (m.id !== mappingId) return m;
+        return { ...m, targetPath: newTargetPath };
+      });
+      setMappings(next);
+      setToast(`Remapped to ${newTargetPath}`);
+      draggedRemapRef.current = null;
+    },
+    [mappings, setMappings, setToast],
+  );
+
+  const handleRemapDragStart = useCallback((mappingId: string) => {
+    draggedRemapRef.current = mappingId;
+  }, []);
+
+  const handleRemapDragEnd = useCallback(() => {
+    draggedRemapRef.current = null;
+  }, []);
+
+  const getDraggedRemapId = useCallback(() => draggedRemapRef.current, []);
+
   const handleDragStart = useCallback((path: string, sourceId: string) => {
     selectMapping(null);
     setSelectedIds(new Set());
@@ -309,5 +346,9 @@ export function useDataMapperDrop({
     handleDragStart,
     handleSourceDragEnd,
     getDraggedSource,
+    handleRemapDrop,
+    handleRemapDragStart,
+    handleRemapDragEnd,
+    getDraggedRemapId,
   };
 }

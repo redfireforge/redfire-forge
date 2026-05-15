@@ -39,7 +39,15 @@ async function openMapperWithRulesTab(page: Page): Promise<Locator> {
   await mapper.locator('button:has-text("Rules")').click();
   await expect(mapper.locator('.dm-validation-editor')).toBeVisible();
   await mapper.locator('.dm-validation-editor .monaco-editor').waitFor({ state: 'visible', timeout: 10000 });
-  await page.waitForTimeout(1500);
+  // Wait until Monaco has a real textarea (signals full initialization)
+  await mapper.locator('.dm-validation-editor .monaco-editor textarea').waitFor({ state: 'attached', timeout: 10000 });
+  // Wait for Monaco to fully initialize its internal model and listeners;
+  // under heavy parallel load (40 workers), initialization can take longer
+  await page.waitForFunction(() => {
+    const editors = (window as unknown as { monaco?: { editor?: { getEditors?: () => Array<{ getModel: () => unknown }> } } }).monaco?.editor?.getEditors?.();
+    return editors && editors.length > 0 && editors[editors.length - 1].getModel() != null;
+  }, { timeout: 10000 });
+  await page.waitForTimeout(500);
 
   return mapper;
 }

@@ -58,6 +58,10 @@ interface LocationGroupPanelProps {
   onUpdateArrayAssertion?: (index: number, patch: Partial<Assertion>) => void;
   onRemoveArrayAssertion?: (index: number) => void;
   arrayAssertions?: Assertion[];
+  onRemapDrop?: (newTargetPath: string, mappingId: string) => void;
+  onRemapDragStart?: (mappingId: string) => void;
+  onRemapDragEnd?: () => void;
+  getDraggedRemapId?: () => string | null;
 }
 
 interface GroupData {
@@ -106,6 +110,10 @@ export default function LocationGroupPanel({
   onUpdateArrayAssertion,
   onRemoveArrayAssertion,
   arrayAssertions,
+  onRemapDrop,
+  onRemapDragStart,
+  onRemapDragEnd,
+  getDraggedRemapId,
 }: LocationGroupPanelProps) {
   const [collapsedGroups, setCollapsedGroups] = useState<Set<TargetFieldLocation>>(new Set());
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set(['__root__']));
@@ -223,6 +231,10 @@ export default function LocationGroupPanel({
               onUpdateArrayAssertion={onUpdateArrayAssertion}
               onRemoveArrayAssertion={onRemoveArrayAssertion}
               arrayAssertions={arrayAssertions}
+              onRemapDrop={onRemapDrop}
+              onRemapDragStart={onRemapDragStart}
+              onRemapDragEnd={onRemapDragEnd}
+              getDraggedRemapId={getDraggedRemapId}
             />
             {allowCustomFields && onAddCustomField && (
               <AddFieldRow
@@ -293,6 +305,10 @@ export default function LocationGroupPanel({
               onUpdateArrayAssertion={onUpdateArrayAssertion}
               onRemoveArrayAssertion={onRemoveArrayAssertion}
               arrayAssertions={arrayAssertions}
+              onRemapDrop={onRemapDrop}
+              onRemapDragStart={onRemapDragStart}
+              onRemapDragEnd={onRemapDragEnd}
+              getDraggedRemapId={getDraggedRemapId}
             />
           </div>
         </div>

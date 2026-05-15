@@ -3,6 +3,7 @@ import type { ConsoleLine } from '../../../requests/hooks/useResponseCache';
 import type { WorkflowRunStepSummary } from '../../hooks/useWorkflowRunCache';
 import { type ConsoleRunBehavior, saveConsoleRunBehavior } from '../../utils/workflowSessionStorage';
 import ConsoleLogLine from '../../../../shared/components/ConsoleLogLine';
+import { type PanelMode, loadPanelMode, savePanelMode } from '../../../../shared/utils/panelMode';
 
 function TimelineStep({ step, depth = 0 }: { step: WorkflowRunStepSummary; depth?: number }) {
   const [expanded, setExpanded] = useState(false);
@@ -41,15 +42,7 @@ function TimelineStep({ step, depth = 0 }: { step: WorkflowRunStepSummary; depth
   );
 }
 
-type PanelMode = 'docked' | 'maximized' | 'floating';
-
 const CONSOLE_MODE_KEY = 'wf-console-default-mode';
-
-function loadDefaultMode(): PanelMode {
-  const stored = localStorage.getItem(CONSOLE_MODE_KEY);
-  if (stored === 'docked' || stored === 'maximized' || stored === 'floating') return stored;
-  return 'docked';
-}
 
 const MIN_DOCKED_H = 80;
 const MAX_DOCKED_H = 600;
@@ -68,7 +61,7 @@ interface Props {
 
 
 export default function WorkflowConsolePanel({ lines, onClear, onClose, stepSummaries = [], runBehavior, onRunBehaviorChange }: Props) {
-  const [mode, setMode] = useState<PanelMode>(loadDefaultMode);
+  const [mode, setMode] = useState<PanelMode>(() => loadPanelMode(CONSOLE_MODE_KEY));
   const [dockedHeight, setDockedHeight] = useState(DEFAULT_DOCKED_H);
   const [viewMode, setViewMode] = useState<'log' | 'timeline'>('log');
   const [searchOpen, setSearchOpen] = useState(false);
@@ -231,9 +224,7 @@ export default function WorkflowConsolePanel({ lines, onClear, onClose, stepSumm
   }, []);
 
   // ── Mode actions ──
-  const setAsDefault = (m: PanelMode) => {
-    localStorage.setItem(CONSOLE_MODE_KEY, m);
-  };
+  const setAsDefault = (m: PanelMode) => savePanelMode(CONSOLE_MODE_KEY, m);
 
   // ── Search ──
   const matchIndices = useMemo(() => {

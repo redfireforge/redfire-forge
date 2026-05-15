@@ -624,7 +624,7 @@ describe('ValidationCodeEditor path-hint strip and model handlers', () => {
         contentHandlers.push(cb);
         return { dispose: vi.fn() };
       }),
-      onDidChangeCursorPosition: vi.fn().mockImplementation((cb: () => void) => {
+      onDidChangeCursorPosition: vi.fn().mockImplementation((cb: (e: { position: { lineNumber: number; column: number } }) => void) => {
         cursorHandlers.push(cb);
         return { dispose: vi.fn() };
       }),
@@ -649,7 +649,7 @@ describe('ValidationCodeEditor path-hint strip and model handlers', () => {
         for (const h of contentHandlers) h({ changes });
       },
       triggerCursorChange: () => {
-        for (const h of cursorHandlers) h();
+        for (const h of cursorHandlers) h({ position: { lineNumber: 1, column } });
       },
     };
   }

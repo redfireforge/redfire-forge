@@ -864,4 +864,72 @@ describe('MappingCanvas — repair badge', () => {
     expect(text?.textContent).toContain('repair');
     expect(text!.textContent!.length).toBeLessThan(40);
   });
+
+  describe('RemapHandle', () => {
+    it('renders remap handle when onRemapDragStart is provided', () => {
+      const onRemapDragStart = vi.fn();
+      const { container } = render(
+        <MappingCanvas
+          lines={[line]}
+          {...defaults}
+          onRemapDragStart={onRemapDragStart}
+        />,
+      );
+      const handle = container.querySelector('.dm-remap-handle');
+      expect(handle).toBeTruthy();
+    });
+
+    it('does not render remap handle without onRemapDragStart', () => {
+      const { container } = render(
+        <MappingCanvas lines={[line]} {...defaults} />,
+      );
+      expect(container.querySelector('.dm-remap-handle')).toBeNull();
+    });
+
+    it('does not render remap handle for pending lines', () => {
+      const pendingLine: ConnectionLine = { ...line, isPending: true };
+      const { container } = render(
+        <MappingCanvas
+          lines={[pendingLine]}
+          {...defaults}
+          onRemapDragStart={vi.fn()}
+        />,
+      );
+      expect(container.querySelector('.dm-remap-handle')).toBeNull();
+    });
+
+    it('fires onRemapDragStart on drag start', () => {
+      const onRemapDragStart = vi.fn();
+      const { container } = render(
+        <MappingCanvas
+          lines={[line]}
+          {...defaults}
+          onRemapDragStart={onRemapDragStart}
+        />,
+      );
+      const handle = container.querySelector('.dm-remap-handle')!;
+      const dt = { effectAllowed: '', setData: vi.fn() };
+      fireEvent.dragStart(handle, { dataTransfer: dt });
+      expect(onRemapDragStart).toHaveBeenCalledWith('m1');
+      expect(dt.setData).toHaveBeenCalledWith(
+        'application/mapper-remap',
+        expect.stringContaining('"mappingId":"m1"'),
+      );
+    });
+
+    it('fires onRemapDragEnd on drag end', () => {
+      const onRemapDragEnd = vi.fn();
+      const { container } = render(
+        <MappingCanvas
+          lines={[line]}
+          {...defaults}
+          onRemapDragStart={vi.fn()}
+          onRemapDragEnd={onRemapDragEnd}
+        />,
+      );
+      const handle = container.querySelector('.dm-remap-handle')!;
+      fireEvent.dragEnd(handle);
+      expect(onRemapDragEnd).toHaveBeenCalled();
+    });
+  });
 });

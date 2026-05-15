@@ -158,74 +158,76 @@
 
 ### P1-05: Boolean operators (is_true, is_false)
 
-- [ ] **Setup:** Map `isActive` from source to target.
-- [ ] **Steps:**
+- [x] **Setup:** Map `isActive` from source to target.
+- [x] **Steps:**
   1. Set operator to **✓ is true** (red pill).
   2. Confirm no value input appears (is_true needs no value).
   3. Switch to **✗ is false** (red pill).
-- [ ] **Expected:** Red pills. No value input field shown for either.
+- [x] **Expected:** Red pills. No value input field shown for either.
 
 ### P1-06: Existence operators (exists, not_exists)
 
-- [ ] **Setup:** Map `metadata.version` from source to target.
-- [ ] **Steps:**
+- [x] **Setup:** Map `metadata.version` from source to target.
+- [x] **Steps:**
   1. Set operator to **∃ exists** (gray pill).
   2. Confirm no value input.
   3. Switch to **∄ not exists** (gray pill).
-- [ ] **Expected:** Gray pills with no value input.
+- [x] **Expected:** Gray pills with no value input.
 
 ### P1-07: Null operators (is_null, is_not_null, is_empty, is_not_empty)
 
-- [ ] **Setup:** Map `deletedAt` from source to target. Also map `errors`.
-- [ ] **Steps:**
+- [x] **Setup:** Map `deletedAt` from source to target. Also map `errors`.
+- [x] **Steps:**
   1. On `deletedAt`: set **∅ is null** (gray pill). Verify no value input.
   2. Switch to **⊙ not null**. Verify no value input.
   3. On `errors` (empty array): set **∅ is empty** (gray pill). Verify no value input.
   4. Switch to **⊙ not empty** (gray pill).
-- [ ] **Expected:** Gray pills for all four. No value input needed.
+- [x] **Expected:** Gray pills for all four. No value input needed.
 
 ### P1-08: Set membership operators (in, not_in)
 
-- [ ] **Setup:** Map `status` from source to target.
-- [ ] **Steps:**
+- [x] **Setup:** Map `status` from source to target.
+- [x] **Steps:**
   1. Set operator to **∈ in** (blue pill).
   2. Enter value: `"active", "pending", "approved"`.
   3. Switch to **∉ not in** (blue pill). Enter value: `"deleted", "banned"`.
-- [ ] **Expected:** Blue pills. Value input accepts comma-separated quoted strings.
+- [x] **Expected:** Blue pills. Value input accepts comma-separated quoted strings.
 
 ### P1-09: Between operator
 
-- [ ] **Setup:** Map `offers[0].price` from source to target.
-- [ ] **Steps:**
+- [x] **Setup:** Map `offers[0].price` from source to target.
+- [x] **Steps:**
   1. Set operator to **↔ between** (amber pill).
-  2. Enter value: `10, 100`.
-- [ ] **Expected:** Amber pill. Value shows `10, 100` (min, max).
+  2. Two separate number inputs appear (min / max) separated by a dash.
+  3. Enter min: `10`, press Enter to move to max, enter `100`.
+- [x] **Expected:** Amber pill. Two-box input for min/max. Value stored as `10, 100`.
 
 ### P1-10: Close-to operator (approximate numeric)
 
-- [ ] **Setup:** Map `latitude` from source to target.
-- [ ] **Steps:**
+- [x] **Setup:** Map `latitude` from source to target.
+- [x] **Steps:**
   1. Set operator to **≈ close to** (amber pill).
-  2. Enter value: `40.7, 0.1` (value, tolerance).
-- [ ] **Expected:** Amber pill. Value shows `40.7, 0.1`.
+  2. Two separate number inputs appear (value / tolerance) separated by a dash.
+  3. Enter value: `40.7`, press Enter, enter tolerance: `0.1`.
+- [x] **Expected:** Amber pill. Two-box input for value/tolerance. Value stored as `40.7, 0.1`.
 
 ### P1-11: Operator picker — search and categories
 
-- [ ] **Setup:** Click any mapped field's operator pill.
-- [ ] **Steps:**
+- [x] **Setup:** Click any mapped field's operator pill.
+- [x] **Steps:**
   1. The **operator picker dropdown** opens with a search box and categorized sections.
   2. Verify categories: **Equality**, **Comparison**, **String**, **Boolean**, **Type**, **Existence**, **Set**.
   3. Type `"contain"` in search. Verify only matching operators appear (`contains`, `not_contains`, `array_length` may not match but collection items may).
   4. Clear search. All operators reappear.
-- [ ] **Expected:** Searchable dropdown with grouped operators. Each operator shows icon + label + "value" hint (for operators requiring a value).
+- [x] **Expected:** Searchable dropdown with grouped operators. Each operator shows icon + label + "value" hint (for operators requiring a value).
 
 ### P1-12: Operator pill color scheme on canvas lines
 
-- [ ] **Setup:** Create several mappings with different operator types (equals, >=, contains, is_true, is_type, exists, in).
-- [ ] **Steps:**
+- [x] **Setup:** Create several mappings with different operator types (equals, >=, contains, is_true, is_type, exists, in).
+- [x] **Steps:**
   1. Ensure **Lines** are visible (toolbar toggle).
   2. Observe the canvas connection lines between source and target panels.
-- [ ] **Expected:** Mid-line badges appear color-coded: green (equality), amber (comparison), purple (string), red (boolean), teal (type), gray (existence), blue (set).
+- [x] **Expected:** Mid-line badges appear color-coded: green (equality), amber (comparison), purple (string), red (boolean), teal (type), gray (existence), blue (set).
 
 ---
 
@@ -233,23 +235,23 @@
 
 ### P2-01: Type-check operator (is_type)
 
-- [ ] **Setup:** Map `count` from source to target.
-- [ ] **Steps:**
+- [x] **Setup:** Map `count` from source to target.
+- [x] **Steps:**
   1. Set operator to **τ is type** (teal pill).
-  2. An inline dropdown or value input appears.
-  3. Enter/select `number`.
-- [ ] **Expected:** Teal pill showing `τ isNumber`. The value is the expected type name.
+  2. A **dropdown** appears automatically with options: `string`, `number`, `boolean`, `object`, `array`, `null`.
+  3. Select `number` from the dropdown — it commits immediately.
+- [x] **Expected:** Teal pill showing the type value. Dropdown auto-opens when `is_type` is selected, no manual typing needed.
 
 ### P2-02: Type-check for all types
 
-- [ ] **Steps:** For each field, set `is_type` and enter the type:
-  1. `name` → `is_type string` (teal pill, `τ isString`).
-  2. `count` → `is_type number` (teal pill, `τ isNumber`).
-  3. `isActive` → `is_type boolean` (teal pill, `τ isBoolean`).
-  4. `offers` → `is_type array` (teal pill, `τ isArray`).
-  5. `config` → `is_type object` (teal pill, `τ isObject`).
-  6. `deletedAt` → `is_type null` (teal pill, `τ isNull`).
-- [ ] **Expected:** All six type pills render with the correct type label in teal.
+- [x] **Steps:** For each field, set `is_type` and select the type from the dropdown:
+  1. `name` → select `string` (teal pill).
+  2. `count` → select `number` (teal pill).
+  3. `isActive` → select `boolean` (teal pill).
+  4. `offers` → select `array` (teal pill).
+  5. `config` → select `object` (teal pill).
+  6. `deletedAt` → select `null` (teal pill).
+- [x] **Expected:** All six type pills render with the correct type value in teal. Each selection commits immediately via dropdown.
 
 ### P2-03: Existence assertion (existence assertion type)
 
@@ -1018,7 +1020,9 @@
 | `is_not_empty` | `name` | `"OnStar..."` | ✅ | `name  is_not_empty` |
 | `is_not_empty` | `errors` | `[]` | ❌ | `errors  is_not_empty` |
 
-### Type Check Operator (teal pill)
+### Type Check Operator (teal pill — dropdown selector)
+
+> **UI:** Selecting `is_type` opens a **dropdown** with options: `string`, `number`, `boolean`, `object`, `array`, `null`. No typing needed — select and commit instantly.
 
 | Operator | Field | Operator Value | Sample Data | Pass? | DSL Syntax |
 |----------|-------|----------------|-------------|-------|------------|
@@ -1031,14 +1035,21 @@
 
 ### Set Operators (blue pills)
 
+> **UI:** Value input accepts JSON array format (`["a","b"]`) or comma-separated quoted strings (`"a","b"`). Both formats are supported — quotes around individual items are stripped automatically during evaluation.
+
 | Operator | Field | Operator Value | Sample Data | Pass? | DSL Syntax |
 |----------|-------|----------------|-------------|-------|------------|
 | `in` | `status` | `["active","pending"]` | `"active"` | ✅ | `status  in  ["active","pending"]` |
+| `in` | `status` | `"active","pending"` | `"active"` | ✅ | `status  in  "active","pending"` |
 | `in` | `status` | `["deleted","banned"]` | `"active"` | ❌ | `status  in  ["deleted","banned"]` |
 | `not_in` | `status` | `["deleted","banned"]` | `"active"` | ✅ | `status  not_in  ["deleted","banned"]` |
 | `not_in` | `status` | `["active","pending"]` | `"active"` | ❌ | `status  not_in  ["active","pending"]` |
 
-### Range Operators (amber pills)
+### Range Operators (amber pills — dual-input boxes)
+
+> **UI:** `between` and `close_to` show **two separate number input boxes** separated by a dash (`–`).
+> - `between`: boxes labeled **min** / **max**. Press Enter in first box to move to second.
+> - `close_to`: boxes labeled **value** / **tolerance**. Press Enter in first box to move to second.
 
 | Operator | Field | Operator Value | Sample Data | Pass? | DSL Syntax |
 |----------|-------|----------------|-------------|-------|------------|

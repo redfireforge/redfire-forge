@@ -1957,4 +1957,357 @@ describe('TargetTreeNode – verification and highlight gaps', () => {
     fireEvent.click(container.querySelector('.dm-negate-badge')!);
     expect(onToggleNegate).toHaveBeenCalledWith('m1');
   });
+
+  describe('remap drag-and-drop', () => {
+    it('makes mapped leaf node draggable when onRemapDrop is provided', () => {
+      const { container } = render(
+        <TargetTreeNode
+          node={leaf}
+          {...defaults}
+          mappings={[mapping]}
+          onRemapDrop={vi.fn()}
+        />,
+      );
+      const nodeEl = container.querySelector('.dm-tree-node--target')!;
+      expect(nodeEl).toHaveClass('dm-tree-node--remappable');
+      expect(nodeEl.getAttribute('draggable')).toBe('true');
+    });
+
+    it('does not make unmapped leaf node draggable for remap', () => {
+      const { container } = render(
+        <TargetTreeNode
+          node={leaf}
+          {...defaults}
+          mappings={[]}
+          onRemapDrop={vi.fn()}
+        />,
+      );
+      const nodeEl = container.querySelector('.dm-tree-node--target')!;
+      expect(nodeEl).not.toHaveClass('dm-tree-node--remappable');
+    });
+
+    it('fires onRemapDragStart when mapped node drag starts', () => {
+      const onRemapDragStart = vi.fn();
+      const { container } = render(
+        <TargetTreeNode
+          node={leaf}
+          {...defaults}
+          mappings={[mapping]}
+          onRemapDrop={vi.fn()}
+          onRemapDragStart={onRemapDragStart}
+        />,
+      );
+      const nodeEl = container.querySelector('.dm-tree-node--target')!;
+      const dt = { effectAllowed: '', setData: vi.fn() };
+      fireEvent.dragStart(nodeEl, { dataTransfer: dt });
+      expect(onRemapDragStart).toHaveBeenCalledWith('m1');
+      expect(dt.setData).toHaveBeenCalledWith(
+        'application/mapper-remap',
+        expect.stringContaining('"mappingId":"m1"'),
+      );
+    });
+
+    it('calls onRemapDrop when remap payload is dropped', () => {
+      const onRemapDrop = vi.fn();
+      const targetNode: JsonTreeNode = { key: 'email', path: 'email', type: 'string', value: '', children: [] };
+      const { container } = render(
+        <TargetTreeNode
+          node={targetNode}
+          {...defaults}
+          onRemapDrop={onRemapDrop}
+        />,
+      );
+      const nodeEl = container.querySelector('.dm-tree-node--target')!;
+      const payload = JSON.stringify({ kind: 'remap', mappingId: 'map-1' });
+      fireEvent.drop(nodeEl, {
+        dataTransfer: {
+          getData: (type: string) => type === 'application/mapper-remap' ? payload : '',
+        },
+      });
+      expect(onRemapDrop).toHaveBeenCalledWith('email', 'map-1');
+    });
+
+    it('falls back to getDraggedRemapId ref when payload is empty', () => {
+      const onRemapDrop = vi.fn();
+      const getDraggedRemapId = vi.fn().mockReturnValue('map-ref-fallback');
+      const targetNode: JsonTreeNode = { key: 'email', path: 'email', type: 'string', value: '', children: [] };
+      const { container } = render(
+        <TargetTreeNode
+          node={targetNode}
+          {...defaults}
+          onRemapDrop={onRemapDrop}
+          getDraggedRemapId={getDraggedRemapId}
+        />,
+      );
+      const nodeEl = container.querySelector('.dm-tree-node--target')!;
+      fireEvent.drop(nodeEl, {
+        dataTransfer: {
+          getData: () => '',
+        },
+      });
+      expect(onRemapDrop).toHaveBeenCalledWith('email', 'map-ref-fallback');
+    });
+
+    it('calls onRemapDragEnd on drag end', () => {
+      const onRemapDragEnd = vi.fn();
+      const { container } = render(
+        <TargetTreeNode
+          node={leaf}
+          {...defaults}
+          mappings={[mapping]}
+          onRemapDrop={vi.fn()}
+          onRemapDragEnd={onRemapDragEnd}
+        />,
+      );
+      const nodeEl = container.querySelector('.dm-tree-node--target')!;
+      fireEvent.dragEnd(nodeEl);
+      expect(onRemapDragEnd).toHaveBeenCalled();
+    });
+  });
+});
+
+describe('TargetTreeNode – is_type dropdown', () => {
+  const capsOp = { operators: true, arrayAssertions: false, codeEditor: false } as const;
+  const typeMapping: Mapping = { id: 'mT', sourcePath: 'src', sourceId: 's1', targetPath: 'userName', operator: 'is_type' as import('./types').FieldOperator, operatorValue: 'string' };
+
+  it('renders a <select> when operator is is_type and value display is clicked', () => {
+    const onUpdate = vi.fn();
+    const { container } = render(
+      <TargetTreeNode
+        node={leaf}
+        {...defaults}
+        mappings={[typeMapping]}
+        capabilities={capsOp}
+        onUpdateMappingOperator={onUpdate}
+      />,
+    );
+    const valueDisplay = container.querySelector('.dm-operator-value-display');
+    expect(valueDisplay).not.toBeNull();
+    fireEvent.click(valueDisplay!);
+    const select = container.querySelector('.dm-type-select') as HTMLSelectElement;
+    expect(select).not.toBeNull();
+    expect(select.tagName).toBe('SELECT');
+    expect(select.value).toBe('string');
+  });
+
+  it('commits type selection on change', () => {
+    const onUpdate = vi.fn();
+    const { container } = render(
+      <TargetTreeNode
+        node={leaf}
+        {...defaults}
+        mappings={[typeMapping]}
+        capabilities={capsOp}
+        onUpdateMappingOperator={onUpdate}
+      />,
+    );
+    const valueDisplay = container.querySelector('.dm-operator-value-display');
+    fireEvent.click(valueDisplay!);
+    const select = container.querySelector('.dm-type-select') as HTMLSelectElement;
+    fireEvent.change(select, { target: { value: 'number' } });
+    expect(onUpdate).toHaveBeenCalledWith('mT', 'is_type', 'number');
+  });
+});
+
+describe('TargetTreeNode – range inputs (between/close_to)', () => {
+  const capsOp = { operators: true, arrayAssertions: false, codeEditor: false } as const;
+  const betweenMapping: Mapping = {
+    id: 'mB', sourcePath: 'src', sourceId: 's1', targetPath: 'userName',
+    operator: 'between' as import('./types').FieldOperator, operatorValue: '10,20',
+  };
+  const closeToMapping: Mapping = {
+    id: 'mC', sourcePath: 'src', sourceId: 's1', targetPath: 'userName',
+    operator: 'close_to' as import('./types').FieldOperator, operatorValue: '100,5',
+  };
+
+  it('renders two number inputs for between operator', () => {
+    const onUpdate = vi.fn();
+    const { container } = render(
+      <TargetTreeNode
+        node={leaf}
+        {...defaults}
+        mappings={[betweenMapping]}
+        capabilities={capsOp}
+        onUpdateMappingOperator={onUpdate}
+      />,
+    );
+    const valueDisplay = container.querySelector('.dm-operator-value-display');
+    expect(valueDisplay).not.toBeNull();
+    fireEvent.click(valueDisplay!);
+    const inputs = container.querySelectorAll('.dm-range-input');
+    expect(inputs).toHaveLength(2);
+    expect((inputs[0] as HTMLInputElement).type).toBe('number');
+    expect((inputs[0] as HTMLInputElement).defaultValue).toBe('10');
+    expect((inputs[1] as HTMLInputElement).defaultValue).toBe('20');
+  });
+
+  it('pressing Enter on first range input focuses second', () => {
+    const { container } = render(
+      <TargetTreeNode
+        node={leaf}
+        {...defaults}
+        mappings={[betweenMapping]}
+        capabilities={capsOp}
+        onUpdateMappingOperator={vi.fn()}
+      />,
+    );
+    fireEvent.click(container.querySelector('.dm-operator-value-display')!);
+    const inputs = container.querySelectorAll('.dm-range-input');
+    const focusSpy = vi.spyOn(inputs[1] as HTMLInputElement, 'focus');
+    fireEvent.keyDown(inputs[0], { key: 'Enter' });
+    expect(focusSpy).toHaveBeenCalled();
+    focusSpy.mockRestore();
+  });
+
+  it('pressing Escape on range input closes edit', () => {
+    const { container } = render(
+      <TargetTreeNode
+        node={leaf}
+        {...defaults}
+        mappings={[betweenMapping]}
+        capabilities={capsOp}
+        onUpdateMappingOperator={vi.fn()}
+      />,
+    );
+    fireEvent.click(container.querySelector('.dm-operator-value-display')!);
+    const inputs = container.querySelectorAll('.dm-range-input');
+    expect(inputs).toHaveLength(2);
+    fireEvent.keyDown(inputs[0], { key: 'Escape' });
+    expect(container.querySelectorAll('.dm-range-input')).toHaveLength(0);
+  });
+
+  it('pressing Enter on second range input commits both values', () => {
+    const onUpdate = vi.fn();
+    const { container } = render(
+      <TargetTreeNode
+        node={leaf}
+        {...defaults}
+        mappings={[betweenMapping]}
+        capabilities={capsOp}
+        onUpdateMappingOperator={onUpdate}
+      />,
+    );
+    fireEvent.click(container.querySelector('.dm-operator-value-display')!);
+    const inputs = container.querySelectorAll('.dm-range-input') as NodeListOf<HTMLInputElement>;
+    fireEvent.change(inputs[0], { target: { value: '5' } });
+    fireEvent.change(inputs[1], { target: { value: '50' } });
+    fireEvent.keyDown(inputs[1], { key: 'Enter' });
+    expect(onUpdate).toHaveBeenCalled();
+  });
+
+  it('blur on second range input commits via handleRangeCommit', () => {
+    const onUpdate = vi.fn();
+    const { container } = render(
+      <TargetTreeNode
+        node={leaf}
+        {...defaults}
+        mappings={[betweenMapping]}
+        capabilities={capsOp}
+        onUpdateMappingOperator={onUpdate}
+      />,
+    );
+    fireEvent.click(container.querySelector('.dm-operator-value-display')!);
+    const inputs = container.querySelectorAll('.dm-range-input') as NodeListOf<HTMLInputElement>;
+    fireEvent.blur(inputs[1]);
+    expect(onUpdate).toHaveBeenCalled();
+  });
+
+  it('renders close_to with value/tolerance labels', () => {
+    const { container } = render(
+      <TargetTreeNode
+        node={leaf}
+        {...defaults}
+        mappings={[closeToMapping]}
+        capabilities={capsOp}
+        onUpdateMappingOperator={vi.fn()}
+      />,
+    );
+    fireEvent.click(container.querySelector('.dm-operator-value-display')!);
+    const inputs = container.querySelectorAll('.dm-range-input') as NodeListOf<HTMLInputElement>;
+    expect(inputs).toHaveLength(2);
+    expect(inputs[0].placeholder).toBe('value');
+    expect(inputs[1].placeholder).toBe('tolerance');
+  });
+});
+
+describe('TargetTreeNode – array assertion rows with InlineAssertionRow', () => {
+  const capsArr = { operators: false, arrayAssertions: true, codeEditor: false } as const;
+  const arrayNode: JsonTreeNode = {
+    key: 'items', path: 'items', type: 'array', value: undefined,
+    children: [{ key: '[0]', path: 'items[0]', type: 'string', value: 'a', children: [] }],
+  };
+
+  it('renders InlineAssertionRow items when arrayAssertions exist', () => {
+    const assertions = [
+      { type: 'arrayLength' as const, jsonPath: '$.items', operator: '=' as const, value: 3 },
+    ];
+    const { container } = render(
+      <TargetTreeNode
+        node={arrayNode}
+        {...defaults}
+        expandedPaths={new Set(['__root__', '', 'items'])}
+        capabilities={capsArr}
+        arrayAssertions={assertions}
+      />,
+    );
+    const rows = container.querySelectorAll('.dm-array-assertion-row');
+    expect(rows.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('clicking +Add array assertion calls onAddArrayAssertion', () => {
+    const onAdd = vi.fn();
+    const { container } = render(
+      <TargetTreeNode
+        node={arrayNode}
+        {...defaults}
+        expandedPaths={new Set(['__root__', '', 'items'])}
+        capabilities={capsArr}
+        onAddArrayAssertion={onAdd}
+        arrayAssertions={[]}
+      />,
+    );
+    const hint = container.querySelector('.dm-array-assertion-hint--clickable');
+    expect(hint).not.toBeNull();
+    fireEvent.click(hint!);
+    expect(onAdd).toHaveBeenCalledWith('items', 'length');
+  });
+});
+
+describe('TargetTreeNode – verify display from fieldVerifyResults', () => {
+  const capsOp = { operators: true, arrayAssertions: false, codeEditor: false } as const;
+
+  it('shows fail badge and actual text from fieldVerifyResults map', () => {
+    const nodeStatus = new Map<string, 'pass' | 'fail'>([['userName', 'fail']]);
+    const fvr = new Map([['userName', { passed: false, actual: 'got "Bob"', expected: 'equals "Alice"' }]]);
+    const { container } = render(
+      <TargetTreeNode
+        node={leaf}
+        {...defaults}
+        mappings={[mapping]}
+        capabilities={capsOp}
+        nodeStatusMap={nodeStatus}
+        fieldVerifyResults={fvr}
+      />,
+    );
+    expect(container.querySelector('.dm-verify-badge--fail')).not.toBeNull();
+    const actualEl = container.querySelector('.dm-verify-actual');
+    expect(actualEl).not.toBeNull();
+    expect(actualEl!.textContent).toContain('Bob');
+  });
+
+  it('shows pass badge from fieldVerifyResults with $.path key', () => {
+    const nodeStatus = new Map<string, 'pass' | 'fail'>([['$.userName', 'pass']]);
+    const fvr = new Map([['$.userName', { passed: true, actual: '"Alice"', expected: 'equals "Alice"' }]]);
+    const { container } = render(
+      <TargetTreeNode
+        node={leaf}
+        {...defaults}
+        mappings={[mapping]}
+        capabilities={capsOp}
+        nodeStatusMap={nodeStatus}
+        fieldVerifyResults={fvr}
+      />,
+    );
+    expect(container.querySelector('.dm-verify-badge--pass')).not.toBeNull();
+  });
 });
