@@ -8,6 +8,8 @@ import type { TraceValueOverlay } from './types';
 import { buildJsonTree } from '../../utils/jsonTreeModel';
 import { buildTreeFromFields, collectAllPaths } from './utils/targetTreeBuilder';
 import { normalizeMapperPath } from './utils/pathNormalization';
+import { stripJsonPathPrefix } from '../../utils/jsonPath';
+import { flashTreeNode } from './utils/targetTreeHelpers';
 import TargetTreeNode from './TargetTreeNode';
 import AddFieldRow from './AddFieldRow';
 import LocationGroupPanel from './LocationGroupPanel';
@@ -64,6 +66,11 @@ interface TargetPanelProps {
   arrayAssertions?: Assertion[];
   filterFailedSignal?: number | null;
   highlightedPaths?: Set<string> | null;
+  onRemapDrop?: (newTargetPath: string, mappingId: string) => void;
+  onRemapDragStart?: (mappingId: string) => void;
+  onRemapDragEnd?: () => void;
+  getDraggedRemapId?: () => string | null;
+  scrollToPathSignal?: { path: string; tick: number } | null;
 }
 
 export default function TargetPanel({
@@ -111,6 +118,11 @@ export default function TargetPanel({
   arrayAssertions,
   filterFailedSignal,
   highlightedPaths,
+  onRemapDrop,
+  onRemapDragStart,
+  onRemapDragEnd,
+  getDraggedRemapId,
+  scrollToPathSignal,
 }: TargetPanelProps) {
   const [search, setSearch] = useState('');
   const [mappingFilter, setMappingFilter] = useState<'all' | 'mapped' | 'unmapped' | 'passed' | 'failed'>('all');
@@ -209,6 +221,37 @@ export default function TargetPanel({
   const handleCollapseAll = useCallback(() => {
     setExpandedPaths(new Set(['__root__']));
   }, []);
+
+  const treeContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!scrollToPathSignal) return;
+    const { path } = scrollToPathSignal;
+    const stripped = stripJsonPathPrefix(path);
+    const segments = stripped.replace(/\[(\d+)\]/g, '.$1').split('.');
+    const ancestorPaths: string[] = [];
+    for (let i = 1; i < segments.length; i++) {
+      const seg = segments.slice(0, i);
+      ancestorPaths.push(seg.join('.').replace(/\.(\d+)/g, '[$1]'));
+    }
+    setExpandedPaths((prev) => {
+      const next = new Set(prev);
+      for (const p of ancestorPaths) next.add(p);
+      return next;
+    });
+    requestAnimationFrame(() => {
+      const container = treeContainerRef.current;
+      if (!container) return;
+      const esc = typeof CSS !== 'undefined' && CSS.escape ? CSS.escape : (s: string) => s;
+      const el =
+        container.querySelector(`[data-path="${esc(stripped)}"]`) ??
+        container.querySelector(`[data-path="${esc(path)}"]`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        flashTreeNode(el);
+      }
+    });
+  }, [scrollToPathSignal]);
 
   const handleFetch = useCallback(async () => {
     if (!onFetchTargetSchema) return;
@@ -506,6 +549,7 @@ export default function TargetPanel({
 
           <div
             className="dm-tree-container"
+            ref={treeContainerRef}
             role="group"
             tabIndex={isFocusRegion ? 0 : -1}
             onKeyDown={onTreeKeyDown ? (e) => onTreeKeyDown(e, 'target', expandedPaths, handleToggle) : undefined}
@@ -551,6 +595,10 @@ export default function TargetPanel({
                 onUpdateArrayAssertion={onUpdateArrayAssertion}
                 onRemoveArrayAssertion={onRemoveArrayAssertion}
                 arrayAssertions={arrayAssertions}
+                onRemapDrop={onRemapDrop}
+                onRemapDragStart={onRemapDragStart}
+                onRemapDragEnd={onRemapDragEnd}
+                getDraggedRemapId={getDraggedRemapId}
               />
             ) : tree ? (
               <TargetTreeNode
@@ -593,6 +641,10 @@ export default function TargetPanel({
                 onRemoveArrayAssertion={onRemoveArrayAssertion}
                 arrayAssertions={arrayAssertions}
                 highlightedPaths={highlightedPaths}
+                onRemapDrop={onRemapDrop}
+                onRemapDragStart={onRemapDragStart}
+                onRemapDragEnd={onRemapDragEnd}
+                getDraggedRemapId={getDraggedRemapId}
               />
             ) : (
               <div

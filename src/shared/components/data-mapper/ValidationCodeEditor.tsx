@@ -239,11 +239,14 @@ export default function ValidationCodeEditor({
   const editorRef = useRef<import('monaco-editor').editor.IStandaloneCodeEditor | null>(null);
   const monacoRef = useRef<typeof import('monaco-editor') | null>(null);
   const samplePathsRef = useRef(samplePaths);
+  const jumpToNodeRef = useRef(onJumpToNode);
   const [ruleCount, setRuleCount] = useState(0);
   const [errorCount, setErrorCount] = useState(0);
   const [currentPrefix, setCurrentPrefix] = useState('');
+  const lastJumpedLineRef = useRef<number | null>(null);
 
   samplePathsRef.current = samplePaths;
+  jumpToNodeRef.current = onJumpToNode;
 
   useEffect(() => {
     setRuleCount(value.split('\n').filter(l => l.trim() && !l.trim().startsWith('#')).length);
@@ -403,7 +406,20 @@ export default function ValidationCodeEditor({
       macosSubstitutionGuard(event);
       updatePrefix();
     });
-    const cursorDisposable = editor.onDidChangeCursorPosition(updatePrefix);
+    const cursorDisposable = editor.onDidChangeCursorPosition((e) => {
+      updatePrefix();
+      const lineNum = e.position.lineNumber;
+      if (lineNum === lastJumpedLineRef.current) return;
+      lastJumpedLineRef.current = lineNum;
+      const model = editor.getModel();
+      if (!model) return;
+      const lineContent = model.getLineContent(lineNum).trim();
+      if (!lineContent || lineContent.startsWith('#')) return;
+      const path = lineContent.split(/\s+/)[0];
+      if (path && jumpToNodeRef.current) {
+        jumpToNodeRef.current(path);
+      }
+    });
 
     const disposeDisposable = editor.onDidDispose(() => {
       contentDisposable.dispose();

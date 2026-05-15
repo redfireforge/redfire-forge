@@ -28,6 +28,23 @@ export function stringify(val: unknown): string {
   }
 }
 
+function stripQuotes(s: string): string {
+  if ((s.startsWith('"') && s.endsWith('"')) || (s.startsWith("'") && s.endsWith("'"))) {
+    return s.slice(1, -1);
+  }
+  return s;
+}
+
+function parseListItems(raw: string): unknown[] {
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) return parsed;
+    return raw.split(',').map(s => stripQuotes(s.trim()));
+  } catch {
+    return raw.split(',').map(s => stripQuotes(s.trim()));
+  }
+}
+
 export function evaluateFieldOperator(
   actualValue: unknown,
   operator: FieldOperator,
@@ -176,13 +193,7 @@ export function evaluateFieldOperator(
 
     case 'in': {
       const raw = operatorValue ?? expectedValue ?? '';
-      let items: unknown[];
-      try {
-        items = JSON.parse(raw);
-        if (!Array.isArray(items)) items = raw.split(',').map(s => s.trim());
-      } catch {
-        items = raw.split(',').map(s => s.trim());
-      }
+      const items = parseListItems(raw);
       const stringified = items.map(i => JSON.stringify(i));
       const actualStr = JSON.stringify(actualValue);
       return { pass: stringified.includes(actualStr), expected: `in [${items.map(i => JSON.stringify(i)).join(', ')}]`, actual };
@@ -190,13 +201,7 @@ export function evaluateFieldOperator(
 
     case 'not_in': {
       const raw = operatorValue ?? expectedValue ?? '';
-      let items: unknown[];
-      try {
-        items = JSON.parse(raw);
-        if (!Array.isArray(items)) items = raw.split(',').map(s => s.trim());
-      } catch {
-        items = raw.split(',').map(s => s.trim());
-      }
+      const items = parseListItems(raw);
       const stringified = items.map(i => JSON.stringify(i));
       const actualStr = JSON.stringify(actualValue);
       return { pass: !stringified.includes(actualStr), expected: `not in [${items.map(i => JSON.stringify(i)).join(', ')}]`, actual };

@@ -1,5 +1,5 @@
 import { useRef, useCallback, useMemo, useEffect, useState } from 'react';
-import type { MapperAdapter, Mapping } from './types';
+import type { MapperAdapter, Mapping, DataMapperProps } from './types';
 import { resolveCapabilities } from './types';
 import { useMapperState } from './hooks/useMapperState';
 import { useConnectionLines, useLayoutTick } from './hooks/useConnectionLines';
@@ -22,8 +22,6 @@ import { useDataMapperTreeInteraction, type LineFocusNode } from './hooks/useDat
 import '../../../styles/data-mapper.css';
 import '../../../styles/data-mapper-expression.css';
 
-import type { DriftIndicator } from './SourceTreeNode';
-import type { MappingTrace } from './utils/mappingTrace';
 import { enrichConnectionLines } from './utils/lineEnrichment';
 import { safeDeserialize } from './utils/bottomUtilityHelpers';
 import ExampleInferenceModal from './ExampleInferenceModal';
@@ -31,7 +29,6 @@ import ErrorPopover from './ErrorPopover';
 import { useDebugOverlay } from './hooks/useDebugOverlay';
 import MappingHealthDashboard from './MappingHealthDashboard';
 import ValidationRepairPanel from './ValidationRepairPanel';
-import type { RepairSuggestion } from './utils/schemaRepair';
 import MapperFooter from './MapperFooter';
 import BulkActionsBar from './BulkActionsBar';
 import BottomUtilityDock from './BottomUtilityDock';
@@ -47,27 +44,6 @@ import { useMapperRepairActions } from './hooks/useMapperRepairActions';
 import { useBulkSubtreeActions } from './hooks/useBulkSubtreeActions';
 import { useHighlightedMappingPaths } from './hooks/useHighlightedMappingPaths';
 import { useMapperVisibleLines } from './hooks/useMapperVisibleLines';
-
-interface DataMapperProps<TOutput = unknown> {
-  adapter: MapperAdapter<TOutput>;
-  initialData?: TOutput;
-  onChange?: (mappings: Mapping[]) => void;
-  onSourceSampleChange?: (overrides: Record<string, unknown>) => void;
-  height?: number | string;
-  driftMap?: Map<string, DriftIndicator>;
-  driftMappingIds?: Map<string, 'warning' | 'breaking'>;
-  repairTick?: number;
-  repairedMappingsRef?: React.RefObject<Mapping[]>;
-  traceData?: MappingTrace[];
-  repairSuggestions?: Map<string, RepairSuggestion[]>;
-  onApplyRepair?: (mappingId: string, suggestion: RepairSuggestion) => void;
-  onShowDrift?: () => void;
-  unorderedDefault?: boolean;
-  onToggleUnorderedArray?: (arrayPath: string) => void;
-  hideAdvanced?: boolean;
-  onAssertionsChange?: (assertions: import('../../types').Assertion[]) => void;
-  flushRef?: React.RefObject<(() => void) | null>;
-}
 
 export default function DataMapper<TOutput = unknown>({
   adapter,
@@ -296,6 +272,7 @@ export default function DataMapper<TOutput = unknown>({
     handleSelectSourceNode, handleSelectTargetNode, handleMapFilteredFields,
     handleDrop, handlePreviewPropagation, handleApplyPropagation,
     handleDragStart, handleSourceDragEnd, getDraggedSource,
+    handleRemapDrop, handleRemapDragStart, handleRemapDragEnd, getDraggedRemapId,
   } = dropHook;
 
   const resetDraggedSource = useCallback(() => { draggedSourceRef.current = null; }, [draggedSourceRef]);
@@ -544,13 +521,23 @@ export default function DataMapper<TOutput = unknown>({
     sourceSearchRef,
   });
 
-  const { targetPanelRef, verifyFailuresList, handleNavigateToFailure } = useVerifyNavigation(verifyHook.result);
+  const { targetPanelRef, verifyFailuresList, handleNavigateToFailure: rawNavigateToFailure } = useVerifyNavigation(verifyHook.result);
+  const [scrollToPathSignal, setScrollToPathSignal] = useState<{ path: string; tick: number } | null>(null);
+
+  const handleNavigateToFailure = useCallback((path: string) => {
+    rawNavigateToFailure(path);
+    setScrollToPathSignal({ path, tick: Date.now() });
+  }, [rawNavigateToFailure]);
 
   useEffect(() => {
     if (!toast) return;
     const t = setTimeout(() => setToast(null), 3000);
     return () => clearTimeout(t);
   }, [toast]);
+
+  const handleJumpToNode = useCallback((path: string) => {
+    setScrollToPathSignal({ path, tick: Date.now() });
+  }, []);
 
   const handleToggleCompactMode = useCallback(() => {
     setCompactMode((mode) => {
@@ -742,6 +729,8 @@ export default function DataMapper<TOutput = unknown>({
             totalMappingCount={state.mappings.length}
             failedMappingIds={verifyHook.result.status === 'complete' ? verifyHook.result.failedMappingIds : undefined}
             highlightedMappingIds={highlightedMappingIds}
+            onRemapDragStart={handleRemapDragStart}
+            onRemapDragEnd={handleRemapDragEnd}
           />
         </div>
         <div
@@ -790,13 +779,18 @@ export default function DataMapper<TOutput = unknown>({
             onUpdateMappingOperator={caps.operators ? handleUpdateMappingOperator : undefined}
             onToggleMappingNegate={caps.operators ? handleToggleMappingNegate : undefined}
             nodeStatusMap={verifyHook.result.status === 'complete' ? verifyHook.nodeStatusMap : undefined}
-            fieldVerifyResults={verifyHook.result.status === 'complete' ? verifyHook.result.fieldResults : undefined}
+            fieldVerifyResults={verifyHook.result.status === 'complete' ? verifyHook.mergedFieldResults : undefined}
             onAddArrayAssertion={caps.arrayAssertions ? handleAddArrayAssertion : undefined}
             onUpdateArrayAssertion={caps.arrayAssertions ? handleUpdateArrayAssertion : undefined}
             onRemoveArrayAssertion={caps.arrayAssertions ? handleRemoveArrayAssertion : undefined}
             arrayAssertions={caps.arrayAssertions ? validationAssertions : undefined}
             filterFailedSignal={filterFailedSignal}
             highlightedPaths={highlightedTargetPaths}
+            onRemapDrop={handleRemapDrop}
+            onRemapDragStart={handleRemapDragStart}
+            onRemapDragEnd={handleRemapDragEnd}
+            getDraggedRemapId={getDraggedRemapId}
+            scrollToPathSignal={scrollToPathSignal}
           />
         </div>
       </div>
@@ -845,6 +839,7 @@ export default function DataMapper<TOutput = unknown>({
           errors={validationSync.parseErrors}
           samplePaths={validationSamplePaths}
           onClose={handleCloseRulesModal}
+          onJumpToNode={handleJumpToNode}
           portalContainerRef={containerRef}
           verifyStatus={verifyHook.result.status}
           verifyPassedCount={verifyHook.result.passedCount}

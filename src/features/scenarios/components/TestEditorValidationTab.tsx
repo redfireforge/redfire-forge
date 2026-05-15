@@ -11,7 +11,7 @@ import JsonPathPicker from './JsonPathPicker';
 import ValidationRulesSummary from './ValidationRulesSummary';
 import ValidationVerifyPanel from './ValidationVerifyPanel';
 import ValidationResponsePreview from './ValidationResponsePreview';
-import { getByPath } from '../../../shared/utils/jsonPath';
+import { getByPath, stripJsonPathPrefix } from '../../../shared/utils/jsonPath';
 import { generateJsonSchema } from '../../../shared/components/data-mapper/utils/schemaGenerator';
 import { DataMapperModal, createValidationAdapter } from '../../../shared/components/data-mapper';
 import type { ValidationAdapterOutput } from '../../../shared/components/data-mapper';
@@ -481,7 +481,7 @@ export default function TestEditorValidationTab({
                         return '';
                       })()}
                       onSelect={(p) => {
-                        const field = p.startsWith('$.') ? p.slice(2) : p === '$' ? '' : p;
+                        const field = stripJsonPathPrefix(p);
                         updateAssertion(i, { fieldPath: field });
                       }}
                     />

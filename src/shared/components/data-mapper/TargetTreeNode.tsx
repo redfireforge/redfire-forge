@@ -1,20 +1,13 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
-import type { JsonTreeNode } from '../../utils/jsonTreeModel';
-import type {
-  Mapping,
-  TargetField,
-  TargetFieldOrigin,
-  AdapterCapabilities,
-  FieldOperator,
-  TraceValueOverlay,
-} from './types';
-import type { TypeMismatch } from './utils/typeMismatch';
+import type { TargetTreeNodeProps, FieldOperator } from './types';
 import type { Assertion } from '../../types';
+import type { OperatorMeta } from './utils/operatorRegistry';
 import { normalizeMapperPath } from './utils/pathNormalization';
-import { OPERATOR_REGISTRY, type OperatorMeta } from './utils/operatorRegistry';
+import { OPERATOR_REGISTRY } from './utils/operatorRegistry';
 import {
   SOURCE_TEXT_PREFIX,
   TARGET_FIELD_TEXT_PREFIX,
+  REMAP_TEXT_PREFIX,
   TYPE_LABELS,
   matchesNodeVisibility,
   formatNodeDisplayKey,
@@ -22,52 +15,6 @@ import {
 import InlineAssertionRow from './InlineAssertionRow';
 import TargetNodeOperatorPicker from './TargetNodeOperatorPicker';
 import TargetNodeContextMenu from './TargetNodeContextMenu';
-
-
-interface TargetTreeNodeProps {
-  node: JsonTreeNode;
-  depth: number;
-  search: string;
-  mappingFilter?: 'all' | 'mapped' | 'unmapped';
-  mappedTargetPaths?: Set<string>;
-  onNodeSelect?: (path: string) => void;
-  selectedNodePath?: string | null;
-  mappings: Mapping[];
-  onDrop: (targetPath: string, sourcePath: string, sourceId: string) => void;
-  expandedPaths: Set<string>;
-  onToggle: (path: string) => void;
-  selectedMappingId: string | null;
-  onSelectMapping: (id: string | null) => void;
-  onEditExpression?: (mappingId: string) => void;
-  typeMismatches?: TypeMismatch[];
-  onQuickFix?: (mappingId: string, suggestedExpression: string) => void;
-  onRemoveMapping?: (id: string) => void;
-  focusedPath?: string | null;
-  traceOverlay?: Map<string, TraceValueOverlay>;
-  fieldOrigins?: Map<string, TargetFieldOrigin>;
-  onRemoveCustomField?: (path: string) => void;
-  onUpdateCustomField?: (oldPath: string, updated: TargetField) => void;
-  onReorderField?: (dragPath: string, dropPath: string) => void;
-  onTargetFieldDragStart?: (path: string) => void;
-  onTargetFieldDragEnd?: () => void;
-  getDraggedSource?: () => { path: string; sourceId: string } | null;
-  getDraggedTargetFieldPath?: () => string | null;
-  unorderedDefault?: boolean;
-  onToggleUnorderedArray?: (arrayPath: string) => void;
-  capabilities?: Required<AdapterCapabilities>;
-  onUpdateMappingOperator?: (mappingId: string, operator: FieldOperator | undefined, operatorValue: string | undefined) => void;
-  onToggleMappingNegate?: (mappingId: string) => void;
-  verifyStatus?: 'pass' | 'fail';
-  verifyActual?: string;
-  verifyExpected?: string;
-  nodeStatusMap?: Map<string, 'pass' | 'fail'>;
-  fieldVerifyResults?: Map<string, { passed: boolean; actual?: string; expected?: string; matchContext?: string }>;
-  onAddArrayAssertion?: (arrayPath: string, assertionType: 'length' | 'contains' | 'each' | 'subset') => void;
-  onUpdateArrayAssertion?: (index: number, patch: Partial<Assertion>) => void;
-  onRemoveArrayAssertion?: (index: number) => void;
-  arrayAssertions?: Assertion[];
-  highlightedPaths?: Set<string> | null;
-}
 
 export default function TargetTreeNode({
   node,
@@ -112,6 +59,10 @@ export default function TargetTreeNode({
   onRemoveArrayAssertion,
   arrayAssertions,
   highlightedPaths,
+  onRemapDrop,
+  onRemapDragStart,
+  onRemapDragEnd,
+  getDraggedRemapId,
 }: TargetTreeNodeProps) {
   const [dragOver, setDragOver] = useState(false);
   const [renaming, setRenaming] = useState(false);
@@ -171,18 +122,40 @@ export default function TargetTreeNode({
     }
   }, [isLeaf, onReorderField, node.path, onTargetFieldDragStart]);
 
-  const handleFieldDragEnd = useCallback(() => {
+  const hasMapping = !!mapping;
+  const canRemapDrag = isLeaf && hasMapping && !!onRemapDrop;
+
+  const handleRemapDragStart = useCallback((e: React.DragEvent) => {
+    if (!mapping || !onRemapDrop) return;
+    e.dataTransfer.effectAllowed = 'move';
+    const payload = JSON.stringify({ kind: 'remap', mappingId: mapping.id });
+    e.dataTransfer.setData('application/mapper-remap', payload);
+    e.dataTransfer.setData('text/plain', `${REMAP_TEXT_PREFIX}${payload}`);
+    onRemapDragStart?.(mapping.id);
+  }, [mapping, onRemapDrop, onRemapDragStart]);
+
+  const handleNodeDragStart = useCallback((e: React.DragEvent) => {
+    if (isLeaf && onReorderField && node.path) {
+      handleFieldDragStart(e);
+    } else if (canRemapDrag) {
+      handleRemapDragStart(e);
+    }
+  }, [isLeaf, onReorderField, node.path, handleFieldDragStart, canRemapDrag, handleRemapDragStart]);
+
+  const handleNodeDragEnd = useCallback(() => {
     onTargetFieldDragEnd?.();
-  }, [onTargetFieldDragEnd]);
+    onRemapDragEnd?.();
+  }, [onTargetFieldDragEnd, onRemapDragEnd]);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     if (!node.path) return;
     e.preventDefault();
     const activeTargetPath = getDraggedTargetFieldPath?.();
     const hasSourceDrag = !!getDraggedSource?.();
-    e.dataTransfer.dropEffect = activeTargetPath && isLeaf && !hasSourceDrag ? 'move' : 'link';
+    const hasRemapDrag = !!getDraggedRemapId?.();
+    e.dataTransfer.dropEffect = (activeTargetPath && isLeaf && !hasSourceDrag) || hasRemapDrag ? 'move' : 'link';
     setDragOver(true);
-  }, [isLeaf, node.path, getDraggedTargetFieldPath, getDraggedSource]);
+  }, [isLeaf, node.path, getDraggedTargetFieldPath, getDraggedSource, getDraggedRemapId]);
 
   const handleDragEnter = useCallback((e: React.DragEvent) => {
     if (!node.path) return;
@@ -214,7 +187,9 @@ export default function TargetTreeNode({
           ? raw.slice(SOURCE_TEXT_PREFIX.length)
           : raw.startsWith(TARGET_FIELD_TEXT_PREFIX)
             ? raw.slice(TARGET_FIELD_TEXT_PREFIX.length)
-            : raw;
+            : raw.startsWith(REMAP_TEXT_PREFIX)
+              ? raw.slice(REMAP_TEXT_PREFIX.length)
+              : raw;
         try {
           return JSON.parse(cleaned);
         } catch {
@@ -240,6 +215,20 @@ export default function TargetTreeNode({
           return;
         }
       } catch { /* not a target-field reorder drop */ }
+
+      try {
+        const remapRaw = getDragData('application/mapper-remap') || getDragData('text/plain');
+        const remapData = parseJsonPayload(remapRaw) as { kind?: string; mappingId?: string } | null;
+        const fallbackRemapId = getDraggedRemapId?.() ?? null;
+        const mappingId = remapData?.kind === 'remap' && typeof remapData.mappingId === 'string'
+          ? remapData.mappingId
+          : fallbackRemapId;
+        if (typeof mappingId === 'string' && onRemapDrop) {
+          onRemapDrop(node.path, mappingId);
+          return;
+        }
+      } catch { /* not a remap drop */ }
+
       try {
         const sourceRaw = getDragData('application/mapper-source') || getDragData('text/plain');
         const data = parseJsonPayload(sourceRaw) as { path?: string; sourceId?: string } | null;
@@ -252,7 +241,7 @@ export default function TargetTreeNode({
         }
       } catch { /* ignore invalid drag data */ }
     },
-    [node.path, onDrop, isLeaf, onReorderField, getDraggedSource, getDraggedTargetFieldPath, onTargetFieldDragEnd],
+    [node.path, onDrop, isLeaf, onReorderField, getDraggedSource, getDraggedTargetFieldPath, onTargetFieldDragEnd, onRemapDrop, getDraggedRemapId],
   );
 
   useEffect(() => {
@@ -326,11 +315,22 @@ export default function TargetTreeNode({
     setOperatorSearch('');
   }, [mapping, onUpdateMappingOperator]);
 
+  const isRangeOperator = currentOp === 'between' || currentOp === 'close_to';
+  const rangeSecondRef = useRef<HTMLInputElement>(null);
+  const typeSelectRef = useRef<HTMLSelectElement>(null);
+
   const handleOperatorValueCommit = useCallback(() => {
     if (!mapping || !onUpdateMappingOperator) return;
     onUpdateMappingOperator(mapping.id, mapping.operator, localOperatorValue);
     setEditingOperatorValue(false);
   }, [mapping, onUpdateMappingOperator, localOperatorValue]);
+
+  const handleRangeCommit = useCallback((part1: string, part2: string) => {
+    if (!mapping || !onUpdateMappingOperator) return;
+    const combined = `${part1.trim()}, ${part2.trim()}`;
+    onUpdateMappingOperator(mapping.id, mapping.operator, combined);
+    setEditingOperatorValue(false);
+  }, [mapping, onUpdateMappingOperator]);
 
   const handleOperatorValueKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter') { e.preventDefault(); handleOperatorValueCommit(); }
@@ -344,8 +344,14 @@ export default function TargetTreeNode({
   }, [mapping]);
 
   useEffect(() => {
-    if (editingOperatorValue) operatorValueRef.current?.focus();
-  }, [editingOperatorValue]);
+    if (editingOperatorValue) {
+      if (currentOp === 'is_type') {
+        typeSelectRef.current?.focus();
+      } else {
+        operatorValueRef.current?.focus();
+      }
+    }
+  }, [editingOperatorValue, currentOp]);
 
   useEffect(() => {
     if (!showOperatorPicker) return;
@@ -427,18 +433,31 @@ export default function TargetTreeNode({
   const displayKey = formatNodeDisplayKey(node);
   const nodePathTitle = normalizedNodePath ? `Path: ${normalizedNodePath}` : '(root)';
 
+  const childPassthroughProps: Omit<TargetTreeNodeProps, 'node' | 'depth'> = {
+    search, mappingFilter, mappedTargetPaths, onNodeSelect, selectedNodePath,
+    mappings, onDrop, expandedPaths, onToggle, selectedMappingId, onSelectMapping,
+    onEditExpression, typeMismatches, onQuickFix, onRemoveMapping, focusedPath,
+    traceOverlay, fieldOrigins, onRemoveCustomField, onUpdateCustomField,
+    onReorderField, onTargetFieldDragStart, onTargetFieldDragEnd, getDraggedSource,
+    getDraggedTargetFieldPath, unorderedDefault, onToggleUnorderedArray, capabilities,
+    onUpdateMappingOperator, onToggleMappingNegate, nodeStatusMap, fieldVerifyResults,
+    onAddArrayAssertion, onUpdateArrayAssertion, onRemoveArrayAssertion,
+    arrayAssertions, highlightedPaths, onRemapDrop, onRemapDragStart, onRemapDragEnd,
+    getDraggedRemapId,
+  };
+
   return (
     <div className="dm-tree-node-group">
       <div
-        className={`dm-tree-node dm-tree-node--target ${isLeaf ? 'dm-tree-node--leaf' : ''} ${isLeaf && onReorderField ? 'dm-tree-node--reorderable' : ''} ${isMapped ? 'dm-tree-node--mapped' : ''} ${dragOver ? 'dm-tree-node--drag-over' : ''} ${isSelected ? 'dm-tree-node--selected' : ''} ${isBulkSelected ? 'dm-tree-node--bulk-selected' : ''} ${isFocused ? 'dm-tree-node--focused' : ''} ${isCustomOrFetched ? 'dm-tree-node--custom' : ''} ${isHoverHighlighted ? 'dm-tree-node--hover-highlight' : ''}`}
+        className={`dm-tree-node dm-tree-node--target ${isLeaf ? 'dm-tree-node--leaf' : ''} ${isLeaf && onReorderField ? 'dm-tree-node--reorderable' : ''} ${canRemapDrag ? 'dm-tree-node--remappable' : ''} ${isMapped ? 'dm-tree-node--mapped' : ''} ${dragOver ? 'dm-tree-node--drag-over' : ''} ${isSelected ? 'dm-tree-node--selected' : ''} ${isBulkSelected ? 'dm-tree-node--bulk-selected' : ''} ${isFocused ? 'dm-tree-node--focused' : ''} ${isCustomOrFetched ? 'dm-tree-node--custom' : ''} ${isHoverHighlighted ? 'dm-tree-node--hover-highlight' : ''}`}
         style={{ paddingLeft: depth * 16 + 4 }}
         onDragEnter={handleDragEnter}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
-        draggable={isLeaf && !!onReorderField}
-        onDragStart={isLeaf && onReorderField ? handleFieldDragStart : undefined}
-        onDragEnd={isLeaf && onReorderField ? handleFieldDragEnd : undefined}
+        draggable={(isLeaf && !!onReorderField) || canRemapDrag}
+        onDragStart={(isLeaf && onReorderField) || canRemapDrag ? handleNodeDragStart : undefined}
+        onDragEnd={(isLeaf && onReorderField) || canRemapDrag ? handleNodeDragEnd : undefined}
         onClick={() => {
           onNodeSelect?.(node.path);
           if (mapping) onSelectMapping(isSelected ? null : mapping.id);
@@ -551,6 +570,82 @@ export default function TargetTreeNode({
                 )}
                 {showOperators && currentOpMeta.needsValue ? (
                   editingOperatorValue ? (
+                    currentOp === 'is_type' ? (
+                      <select
+                        ref={typeSelectRef}
+                        className="dm-operator-value-input dm-type-select"
+                        value={localOperatorValue}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          setLocalOperatorValue(v);
+                          if (mapping && onUpdateMappingOperator) {
+                            onUpdateMappingOperator(mapping.id, mapping.operator, v);
+                          }
+                          setEditingOperatorValue(false);
+                        }}
+                        onBlur={handleOperatorValueCommit}
+                        onClick={(e) => e.stopPropagation()}
+                        aria-label="Select expected type"
+                      >
+                        <option value="">select type…</option>
+                        <option value="string">string</option>
+                        <option value="number">number</option>
+                        <option value="boolean">boolean</option>
+                        <option value="object">object</option>
+                        <option value="array">array</option>
+                        <option value="null">null</option>
+                      </select>
+                    ) :
+                    isRangeOperator ? (() => {
+                      const parts = localOperatorValue.split(',').map(s => s.trim());
+                      const val1 = parts[0] ?? '';
+                      const val2 = parts[1] ?? '';
+                      const label1 = currentOp === 'between' ? 'min' : 'value';
+                      const label2 = currentOp === 'between' ? 'max' : 'tolerance';
+                      return (
+                        <span className="dm-range-inputs" onClick={(e) => e.stopPropagation()}>
+                          <input
+                            ref={operatorValueRef}
+                            className="dm-operator-value-input dm-range-input"
+                            defaultValue={val1}
+                            placeholder={label1}
+                            type="number"
+                            aria-label={label1}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                rangeSecondRef.current?.focus();
+                              } else if (e.key === 'Escape') { e.preventDefault(); setEditingOperatorValue(false); }
+                            }}
+                          />
+                          <span className="dm-range-separator">–</span>
+                          <input
+                            ref={rangeSecondRef}
+                            className="dm-operator-value-input dm-range-input"
+                            defaultValue={val2}
+                            placeholder={label2}
+                            type="number"
+                            aria-label={label2}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                handleRangeCommit(
+                                  operatorValueRef.current?.value ?? '',
+                                  rangeSecondRef.current?.value ?? '',
+                                );
+                              } else if (e.key === 'Escape') { e.preventDefault(); setEditingOperatorValue(false); }
+                            }}
+                            onBlur={() => {
+                              handleRangeCommit(
+                                operatorValueRef.current?.value ?? '',
+                                rangeSecondRef.current?.value ?? '',
+                              );
+                            }}
+                          />
+                        </span>
+                      );
+                    })()
+                  : (
                     <input
                       ref={operatorValueRef}
                       className="dm-operator-value-input"
@@ -562,7 +657,7 @@ export default function TargetTreeNode({
                       placeholder="Enter value"
                       aria-label="Operator comparison value"
                     />
-                  ) : (
+                  )) : (
                     <span
                       className="dm-operator-value-display"
                       title="Click to edit value"
@@ -739,45 +834,9 @@ export default function TargetTreeNode({
           {node.children!.map((child) => (
             <TargetTreeNode
               key={child.path || child.key}
+              {...childPassthroughProps}
               node={child}
               depth={depth + 1}
-              search={search}
-              mappingFilter={mappingFilter}
-              mappedTargetPaths={mappedTargetPaths}
-              onNodeSelect={onNodeSelect}
-              selectedNodePath={selectedNodePath}
-              mappings={mappings}
-              onDrop={onDrop}
-              expandedPaths={expandedPaths}
-              onToggle={onToggle}
-              selectedMappingId={selectedMappingId}
-              onSelectMapping={onSelectMapping}
-              onEditExpression={onEditExpression}
-              typeMismatches={typeMismatches}
-              onQuickFix={onQuickFix}
-              onRemoveMapping={onRemoveMapping}
-              focusedPath={focusedPath}
-              traceOverlay={traceOverlay}
-              fieldOrigins={fieldOrigins}
-              onRemoveCustomField={onRemoveCustomField}
-              onUpdateCustomField={onUpdateCustomField}
-              onReorderField={onReorderField}
-              onTargetFieldDragStart={onTargetFieldDragStart}
-              onTargetFieldDragEnd={onTargetFieldDragEnd}
-              getDraggedSource={getDraggedSource}
-              getDraggedTargetFieldPath={getDraggedTargetFieldPath}
-              unorderedDefault={unorderedDefault}
-              onToggleUnorderedArray={onToggleUnorderedArray}
-              capabilities={capabilities}
-              onUpdateMappingOperator={onUpdateMappingOperator}
-              onToggleMappingNegate={onToggleMappingNegate}
-              nodeStatusMap={nodeStatusMap}
-              fieldVerifyResults={fieldVerifyResults}
-              onAddArrayAssertion={onAddArrayAssertion}
-              onUpdateArrayAssertion={onUpdateArrayAssertion}
-              onRemoveArrayAssertion={onRemoveArrayAssertion}
-              arrayAssertions={arrayAssertions}
-              highlightedPaths={highlightedPaths}
             />
           ))}
         </div>

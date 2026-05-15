@@ -228,3 +228,83 @@ export interface TraceValueOverlay {
   value: string;
   isError: boolean;
 }
+
+// ─── TargetTreeNode Props ──────────────────────────────────
+import type { JsonTreeNode } from '../../utils/jsonTreeModel';
+import type { TypeMismatch } from './utils/typeMismatch';
+import type { Assertion } from '../../types';
+
+export interface TargetTreeNodeProps {
+  node: JsonTreeNode;
+  depth: number;
+  search: string;
+  mappingFilter?: 'all' | 'mapped' | 'unmapped';
+  mappedTargetPaths?: Set<string>;
+  onNodeSelect?: (path: string) => void;
+  selectedNodePath?: string | null;
+  mappings: Mapping[];
+  onDrop: (targetPath: string, sourcePath: string, sourceId: string) => void;
+  expandedPaths: Set<string>;
+  onToggle: (path: string) => void;
+  selectedMappingId: string | null;
+  onSelectMapping: (id: string | null) => void;
+  onEditExpression?: (mappingId: string) => void;
+  typeMismatches?: TypeMismatch[];
+  onQuickFix?: (mappingId: string, suggestedExpression: string) => void;
+  onRemoveMapping?: (id: string) => void;
+  focusedPath?: string | null;
+  traceOverlay?: Map<string, TraceValueOverlay>;
+  fieldOrigins?: Map<string, TargetFieldOrigin>;
+  onRemoveCustomField?: (path: string) => void;
+  onUpdateCustomField?: (oldPath: string, updated: TargetField) => void;
+  onReorderField?: (dragPath: string, dropPath: string) => void;
+  onTargetFieldDragStart?: (path: string) => void;
+  onTargetFieldDragEnd?: () => void;
+  getDraggedSource?: () => { path: string; sourceId: string } | null;
+  getDraggedTargetFieldPath?: () => string | null;
+  unorderedDefault?: boolean;
+  onToggleUnorderedArray?: (arrayPath: string) => void;
+  capabilities?: Required<AdapterCapabilities>;
+  onUpdateMappingOperator?: (mappingId: string, operator: FieldOperator | undefined, operatorValue: string | undefined) => void;
+  onToggleMappingNegate?: (mappingId: string) => void;
+  verifyStatus?: 'pass' | 'fail';
+  verifyActual?: string;
+  verifyExpected?: string;
+  nodeStatusMap?: Map<string, 'pass' | 'fail'>;
+  fieldVerifyResults?: Map<string, { passed: boolean; actual?: string; expected?: string; matchContext?: string }>;
+  onAddArrayAssertion?: (arrayPath: string, assertionType: 'length' | 'contains' | 'each' | 'subset') => void;
+  onUpdateArrayAssertion?: (index: number, patch: Partial<Assertion>) => void;
+  onRemoveArrayAssertion?: (index: number) => void;
+  arrayAssertions?: Assertion[];
+  highlightedPaths?: Set<string> | null;
+  onRemapDrop?: (newTargetPath: string, mappingId: string) => void;
+  onRemapDragStart?: (mappingId: string) => void;
+  onRemapDragEnd?: () => void;
+  getDraggedRemapId?: () => string | null;
+}
+
+// ─── DataMapper Props ──────────────────────────────────────
+import type { DriftIndicator } from './SourceTreeNode';
+import type { MappingTrace } from './utils/mappingTrace';
+import type { RepairSuggestion } from './utils/schemaRepair';
+
+export interface DataMapperProps<TOutput = unknown> {
+  adapter: MapperAdapter<TOutput>;
+  initialData?: TOutput;
+  onChange?: (mappings: Mapping[]) => void;
+  onSourceSampleChange?: (overrides: Record<string, unknown>) => void;
+  height?: number | string;
+  driftMap?: Map<string, DriftIndicator>;
+  driftMappingIds?: Map<string, 'warning' | 'breaking'>;
+  repairTick?: number;
+  repairedMappingsRef?: React.RefObject<Mapping[]>;
+  traceData?: MappingTrace[];
+  repairSuggestions?: Map<string, RepairSuggestion[]>;
+  onApplyRepair?: (mappingId: string, suggestion: RepairSuggestion) => void;
+  onShowDrift?: () => void;
+  unorderedDefault?: boolean;
+  onToggleUnorderedArray?: (arrayPath: string) => void;
+  hideAdvanced?: boolean;
+  onAssertionsChange?: (assertions: import('../../types').Assertion[]) => void;
+  flushRef?: React.RefObject<(() => void) | null>;
+}

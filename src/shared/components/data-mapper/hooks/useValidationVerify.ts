@@ -2,16 +2,12 @@ import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import type { ExpectedField, Assertion } from '../../../types';
 import type { Mapping, MapperAdapter, MapperSource } from '../types';
 import { evaluateFieldOperator, evaluateAssertions, validateFieldsUnordered } from '../../../../engine/validator';
-import { getByPath } from '../../../utils/jsonPath';
+import { getByPath, stripJsonPathPrefix } from '../../../utils/jsonPath';
 import { DSL_ASSERTION_TYPES } from '../utils/validationDsl';
 import { evaluateMapperExpression } from '../utils/mapperExpressionEvaluator';
 
-function stripDollarPrefix(p: string): string {
-  return p.startsWith('$.') ? p.slice(2) : p;
-}
-
 function pathsMatch(a: string, b: string): boolean {
-  return stripDollarPrefix(a) === stripDollarPrefix(b);
+  return stripJsonPathPrefix(a) === stripJsonPathPrefix(b);
 }
 
 // ─── Types ────────────────────────────────────────────────
@@ -269,19 +265,45 @@ export function useValidationVerify({
       map.set(path, status);
       const stripped = path.replace(/^\$\.?/, '');
       if (stripped) map.set(stripped, status);
-      // Also register by targetPath so TargetTreeNode can resolve status
-      // when sourcePath differs from targetPath
       const mapping = mappings.find(m =>
         pathsMatch(m.sourcePath, path) || pathsMatch(m.targetPath, path),
       );
       if (mapping) {
         map.set(mapping.targetPath, status);
-        const strippedTarget = stripDollarPrefix(mapping.targetPath);
+        const strippedTarget = stripJsonPathPrefix(mapping.targetPath);
         if (strippedTarget) map.set(strippedTarget, status);
       }
     }
+    for (const ar of result.assertionResults) {
+      if (!('jsonPath' in ar.assertion)) continue;
+      const aPath = (ar.assertion as { jsonPath: string }).jsonPath;
+      const status = ar.passed ? 'pass' : 'fail';
+      if (!map.has(aPath) || status === 'fail') map.set(aPath, status);
+      const stripped = aPath.replace(/^\$\.?/, '');
+      if (stripped && (!map.has(stripped) || status === 'fail')) map.set(stripped, status);
+    }
     return map;
-  }, [result.fieldResults, mappings]);
+  }, [result.fieldResults, result.assertionResults, mappings]);
+
+  const mergedFieldResults = useMemo(() => {
+    const map = new Map<string, { passed: boolean; actual?: string; expected?: string; matchContext?: string }>();
+    for (const [path, r] of result.fieldResults) {
+      map.set(path, r);
+    }
+    for (const ar of result.assertionResults) {
+      if (!('jsonPath' in ar.assertion)) continue;
+      const aPath = (ar.assertion as { jsonPath: string }).jsonPath;
+      const entry = { passed: ar.passed, actual: ar.actual, expected: ar.expected };
+      const existing = map.get(aPath);
+      if (!existing || (!ar.passed && existing.passed)) map.set(aPath, entry);
+      const stripped = aPath.replace(/^\$\.?/, '');
+      if (stripped) {
+        const existingStripped = map.get(stripped);
+        if (!existingStripped || (!ar.passed && existingStripped.passed)) map.set(stripped, entry);
+      }
+    }
+    return map;
+  }, [result.fieldResults, result.assertionResults]);
 
   return {
     result,
@@ -289,6 +311,7 @@ export function useValidationVerify({
     reset,
     getNodeStatus,
     nodeStatusMap,
+    mergedFieldResults,
   };
 }
 

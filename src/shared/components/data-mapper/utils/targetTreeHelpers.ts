@@ -12,6 +12,8 @@ import { normalizeMapperPath } from './pathNormalization';
 export const SOURCE_TEXT_PREFIX = 'mapper-source:';
 /** Drag-and-drop text/plain payload prefixes for target ⇒ target reorder drops. */
 export const TARGET_FIELD_TEXT_PREFIX = 'mapper-target-field:';
+/** Drag-and-drop text/plain payload prefix for mapping remap (move line to new target). */
+export const REMAP_TEXT_PREFIX = 'mapper-remap:';
 
 /** Compact type pills shown next to each node ("obj", "arr", …). */
 export const TYPE_LABELS: Record<string, string> = {
@@ -99,6 +101,13 @@ export function formatNodeDisplayKey(node: JsonTreeNode): string {
   const normalizedPath = normalizeMapperPath(node.path);
   const match = normalizedPath.match(/(?:^|\.)([^.[\]]+\[(?:\d+|\*)\])$/);
   return match?.[1] ?? raw;
+}
+
+/** Apply a flash animation to a tree node element, removing it after `ms`. */
+export function flashTreeNode(el: Element | null, ms = 1500): void {
+  if (!el) return;
+  (el as HTMLElement).classList.add('dm-tree-node--flash');
+  setTimeout(() => (el as HTMLElement).classList.remove('dm-tree-node--flash'), ms);
 }
 
 /** Short, one-line summary of an assertion for the inline row chip. */

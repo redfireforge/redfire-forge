@@ -787,6 +787,14 @@
   cursor: grabbing;
 }
 
+.dm-tree-node--target.dm-tree-node--remappable {
+  cursor: grab;
+}
+
+.dm-tree-node--target.dm-tree-node--remappable:active {
+  cursor: grabbing;
+}
+
 .dm-tree-node--mapped {
   background: var(--dm-mapped-bg);
   position: relative;
@@ -1670,6 +1678,40 @@
 
 .dm-remove-btn:hover circle {
   fill: #eb6f92;
+}
+
+/* ─── Remap Handle ─────────────────────────────────────────── */
+
+.dm-remap-handle-fo {
+  overflow: visible;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.18s ease;
+}
+
+g:hover > .dm-remap-handle-fo {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.dm-remap-handle {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent, #cba6f7);
+  border: 2px solid var(--surface0, #313244);
+  cursor: grab;
+  box-shadow: 0 0 4px rgba(203, 166, 247, 0.5);
+}
+
+.dm-remap-handle:hover {
+  transform: scale(1.25);
+  background: #b4befe;
+  box-shadow: 0 0 8px rgba(180, 190, 254, 0.7);
+}
+
+.dm-remap-handle:active {
+  cursor: grabbing;
 }
 
 /* ─── Empty State ──────────────────────────────────────────── */
@@ -4121,6 +4163,33 @@ button.dm-mismatch-badge {
   box-shadow: 0 0 0 1px rgba(137, 180, 250, 0.25);
 }
 
+.dm-type-select {
+  width: auto !important;
+  min-width: 80px;
+  cursor: pointer;
+  appearance: auto;
+  padding-right: 4px !important;
+}
+
+.dm-range-inputs {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: 4px;
+}
+
+.dm-range-input {
+  width: 52px !important;
+  margin-left: 0 !important;
+  text-align: center;
+}
+
+.dm-range-separator {
+  color: var(--text-muted, #6c7086);
+  font-size: 11px;
+  padding: 0 1px;
+}
+
 .dm-operator-value-display {
   font-size: 11px;
   color: var(--text-muted, #6c7086);
@@ -4804,6 +4873,38 @@ button.dm-mismatch-badge {
 .dm-toolbar-btn--icon:hover {
   background: var(--bg-hover, #313244);
   color: #f38ba8;
+}
+
+/* ── Inline failure detail (next to ▲▼ arrows) ── */
+.dm-toolbar-failure-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 6px;
+  padding: 2px 8px;
+  background: rgba(243, 139, 168, 0.08);
+  border: 1px solid rgba(243, 139, 168, 0.2);
+  border-radius: 4px;
+  font-size: 0.62rem;
+  max-width: 400px;
+  overflow: hidden;
+}
+.dm-toolbar-failure-inline-path {
+  font-weight: 600;
+  color: #f38ba8;
+  font-family: var(--font-mono, 'Fira Code', monospace);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 160px;
+}
+.dm-toolbar-failure-inline-expected {
+  color: #a6e3a1;
+  white-space: nowrap;
+}
+.dm-toolbar-failure-inline-actual {
+  color: #f38ba8;
+  white-space: nowrap;
 }
 
 /* ── Failure list dropdown ── */

@@ -18,6 +18,7 @@ export interface UseKeyboardNavigationReturn {
     expandedPaths: Set<string>,
     onToggle: (path: string) => void,
   ) => void;
+  focusNodeByPath: (path: string, region: FocusRegion) => void;
 }
 
 function getVisibleNodes(container: HTMLElement, panelClass: string): HTMLElement[] {
@@ -158,5 +159,6 @@ export function useKeyboardNavigation({
     setFocusRegion,
     setFocusedPath,
     handleTreeKeyDown,
+    focusNodeByPath,
   };
 }

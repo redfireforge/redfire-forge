@@ -4,6 +4,7 @@ import type { Assertion } from '../../../types';
 import {
   SOURCE_TEXT_PREFIX,
   TARGET_FIELD_TEXT_PREFIX,
+  REMAP_TEXT_PREFIX,
   TYPE_LABELS,
   ARRAY_ASSERTION_LABELS,
   COMPARISON_OPS,
@@ -25,6 +26,7 @@ describe('targetTreeHelpers constants', () => {
   it('exposes drag/drop text prefixes', () => {
     expect(SOURCE_TEXT_PREFIX).toBe('mapper-source:');
     expect(TARGET_FIELD_TEXT_PREFIX).toBe('mapper-target-field:');
+    expect(REMAP_TEXT_PREFIX).toBe('mapper-remap:');
   });
 
   it('maps JSON types to compact labels', () => {
