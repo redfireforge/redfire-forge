@@ -1,4 +1,4 @@
-export type BottomUtilityMode = 'none' | 'code' | 'preview' | 'table' | 'rules';
+export type BottomUtilityMode = 'none' | 'code' | 'preview' | 'table';
 
 export function toggleUtilityMode(
   current: BottomUtilityMode,

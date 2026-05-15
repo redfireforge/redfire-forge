@@ -110,7 +110,7 @@ describe('useValidationVerify', () => {
     expect(fieldResult!.actual).toBeDefined();
   });
 
-  it('ignores inherited assertions — only counts mapper-created rules', () => {
+  it('evaluates DSL assertions alongside mapping fields', () => {
     const adapter = createAdapterWithDummyField();
     const assertions: Assertion[] = [
       { type: 'typeCheck', jsonPath: '$.name', expectedType: 'string' },
@@ -126,13 +126,33 @@ describe('useValidationVerify', () => {
 
     act(() => { result.current.verifyAll(); });
 
-    expect(result.current.result.assertionResults).toHaveLength(0);
-    expect(result.current.result.passedCount).toBe(1);
+    expect(result.current.result.assertionResults).toHaveLength(2);
+    expect(result.current.result.passedCount).toBe(3);
     expect(result.current.result.failedCount).toBe(0);
     expect(result.current.result.skippedCount).toBe(0);
   });
 
-  it('assertions-only with 0 mappings stays idle (no phantom pass)', () => {
+  it('ignores non-DSL assertions (status, responseTime, header)', () => {
+    const adapter = createAdapterWithDummyField();
+    const assertions: Assertion[] = [
+      { type: 'status', expected: '200' },
+      { type: 'responseTime', maxMs: 5000 },
+    ] as Assertion[];
+    const { result } = renderHook(() => useValidationVerify({
+      mappings: [],
+      assertions,
+      sampleResponseData: JSON.stringify({ count: 5 }),
+      adapter,
+      enabled: true,
+    }));
+
+    act(() => { result.current.verifyAll(); });
+
+    expect(result.current.result.assertionResults).toHaveLength(0);
+    expect(result.current.result.passedCount).toBe(1);
+  });
+
+  it('assertions-only with 0 mappings still evaluates DSL assertions', () => {
     const adapter = createMockAdapter([]);
     const assertions: Assertion[] = [
       { type: 'typeCheck', jsonPath: '$.name', expectedType: 'string' },
@@ -147,9 +167,11 @@ describe('useValidationVerify', () => {
 
     act(() => { result.current.verifyAll(); });
 
-    expect(result.current.result.status).toBe('idle');
-    expect(result.current.result.passedCount).toBe(0);
+    expect(result.current.result.status).toBe('complete');
+    expect(result.current.result.passedCount).toBe(1);
     expect(result.current.result.failedCount).toBe(0);
+    expect(result.current.result.assertionResults).toHaveLength(1);
+    expect(result.current.result.assertionResults[0].passed).toBe(true);
   });
 
   it('handles empty mappings and assertions — stays idle', () => {
@@ -482,7 +504,7 @@ describe('useValidationVerify', () => {
     expect(result.current.result.passedCount).toBe(1);
   });
 
-  it('assertions are not evaluated so getAssertionPath is unused', () => {
+  it('DSL assertion type mismatch is reported as failed', () => {
     const adapter = createAdapterWithDummyField();
     const { result } = renderHook(() => useValidationVerify({
       mappings: [],
@@ -497,7 +519,8 @@ describe('useValidationVerify', () => {
     act(() => { result.current.verifyAll(); });
 
     expect(result.current.result.status).toBe('complete');
-    expect(result.current.result.assertionResults).toHaveLength(0);
+    expect(result.current.result.assertionResults).toHaveLength(1);
+    expect(result.current.result.assertionResults[0].passed).toBe(false);
   });
 
   it('unorderedArrays mode validates fields with unordered comparison', () => {
@@ -540,11 +563,11 @@ describe('useValidationVerify', () => {
     expect(result.current.result.failedMappingIds.has('mx')).toBe(true);
   });
 
-  it('custom assertions are ignored in mapper verify', () => {
+  it('custom DSL assertions are evaluated in mapper verify', () => {
     const adapter = createAdapterWithDummyField();
     const { result } = renderHook(() => useValidationVerify({
       mappings: [],
-      assertions: [{ type: 'custom', expression: '$eq($.status, 200)' }] as Assertion[],
+      assertions: [{ type: 'custom', expression: '$eq($.count, 5)' }] as Assertion[],
       sampleResponseData: JSON.stringify({ count: 5 }),
       adapter,
       enabled: true,
@@ -553,7 +576,7 @@ describe('useValidationVerify', () => {
     act(() => { result.current.verifyAll(); });
 
     expect(result.current.result.status).toBe('complete');
-    expect(result.current.result.assertionResults).toHaveLength(0);
+    expect(result.current.result.assertionResults).toHaveLength(1);
   });
 
   it('treats serialized output without expectedFields as no rules', () => {

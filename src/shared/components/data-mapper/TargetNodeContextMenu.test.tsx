@@ -27,12 +27,14 @@ function renderMenu(overrides: Partial<{
   capabilities: Required<AdapterCapabilities>;
   isMapped: boolean;
   mapping: Mapping | undefined;
+  isRenamable: boolean;
   onClose: () => void;
   onOpenOperatorPicker: () => void;
   onToggleMappingNegate: ((mappingId: string) => void) | undefined;
   onEditExpression: ((mappingId: string) => void) | undefined;
   onRemoveMapping: ((id: string) => void) | undefined;
   onAddArrayAssertion: ((arrayPath: string, type: 'length' | 'contains' | 'each' | 'subset') => void) | undefined;
+  onRename: (() => void) | undefined;
 }> = {}) {
   const onClose = overrides.onClose ?? vi.fn();
   const onOpenOperatorPicker = overrides.onOpenOperatorPicker ?? vi.fn();
@@ -46,12 +48,14 @@ function renderMenu(overrides: Partial<{
         capabilities={overrides.capabilities ?? fullCaps}
         isMapped={overrides.isMapped ?? true}
         mapping={'mapping' in overrides ? overrides.mapping : baseMapping}
+        isRenamable={overrides.isRenamable}
         onClose={onClose}
         onOpenOperatorPicker={onOpenOperatorPicker}
         onToggleMappingNegate={overrides.onToggleMappingNegate}
         onEditExpression={overrides.onEditExpression}
         onRemoveMapping={overrides.onRemoveMapping}
         onAddArrayAssertion={overrides.onAddArrayAssertion}
+        onRename={overrides.onRename}
       />,
     ),
   };
@@ -165,5 +169,44 @@ describe('TargetNodeContextMenu', () => {
     renderMenu({ isMapped: false, mapping: undefined });
     expect(screen.queryByText('Set operator…')).not.toBeInTheDocument();
     expect(screen.queryByText('Array Assertions')).not.toBeInTheDocument();
+  });
+
+  it('shows "Rename…" when isRenamable and onRename provided', () => {
+    const onRename = vi.fn();
+    renderMenu({ isRenamable: true, onRename });
+    expect(screen.getByText('Rename…')).toBeInTheDocument();
+  });
+
+  it('"Rename…" closes menu and calls onRename', () => {
+    const onClose = vi.fn();
+    const onRename = vi.fn();
+    renderMenu({ isRenamable: true, onRename, onClose });
+    fireEvent.click(screen.getByText('Rename…'));
+    expect(onClose).toHaveBeenCalled();
+    expect(onRename).toHaveBeenCalled();
+  });
+
+  it('does NOT show "Rename…" when isRenamable is false', () => {
+    renderMenu({ isRenamable: false, onRename: vi.fn() });
+    expect(screen.queryByText('Rename…')).not.toBeInTheDocument();
+  });
+
+  it('does NOT show "Rename…" when onRename is not provided', () => {
+    renderMenu({ isRenamable: true, onRename: undefined });
+    expect(screen.queryByText('Rename…')).not.toBeInTheDocument();
+  });
+
+  it('shows divider between Rename and operator items when both are present', () => {
+    const { container } = renderMenu({ isRenamable: true, onRename: vi.fn() });
+    const dividers = container.querySelectorAll('.dm-context-menu-divider');
+    expect(dividers.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('shows Rename for unmapped custom fields without operators', () => {
+    const noCaps: Required<AdapterCapabilities> = { ...fullCaps, operators: false };
+    const onRename = vi.fn();
+    renderMenu({ capabilities: noCaps, isMapped: false, mapping: undefined, isRenamable: true, onRename });
+    expect(screen.getByText('Rename…')).toBeInTheDocument();
+    expect(screen.queryByText('Set operator…')).not.toBeInTheDocument();
   });
 });

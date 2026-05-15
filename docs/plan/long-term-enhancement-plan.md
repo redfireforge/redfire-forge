@@ -179,7 +179,45 @@
 
 ---
 
-## 9. Ideas & Suggestions (Unstructured)
+## 9. Data Mapper & Validation Operator Enhancements
+
+> Migrated from `docs/plan/validation-operator-gap-analysis.md` § 10 — Future Roadmap.
+
+### 9.1 Near-Term (6 months)
+
+| ID | Feature | Adapters Benefiting | Design Impact | Status |
+|----|---------|---------------------|---------------|--------|
+| DM-1 | **Conditional mappings** | All adapters | `condition?: string` on `Mapping`; conditional badge | `BACKLOG` |
+| DM-2 | **Loop/iterate** | `requestBody`, `extraction`, `populate` | Loop node in target tree | `BACKLOG` |
+| DM-3 | **Default values / fallback** | `extraction`, `variableBinding`, `requestBody` | `fallback?: string` on `Mapping` | `BACKLOG` |
+| DM-4 | **Multi-source merge** | `variableBinding`, `requestBody` | Already supported via multi-source tabs | `BACKLOG` |
+| DM-5 | **Type coercion declarations** | All adapters | Explicit coercion pill | `BACKLOG` |
+| DM-6 | **Expression templates** | All adapters | Expression library panel | `BACKLOG` |
+
+### 9.2 Mid-Term (6–12 months)
+
+| ID | Feature | Adapters Benefiting | Design Impact | Status |
+|----|---------|---------------------|---------------|--------|
+| DM-7 | **GraphQL field selection** | New `graphqlAdapter` | Target tree = GraphQL schema | `BACKLOG` |
+| DM-8 | **Database mapper** | New `dbResultAdapter` | Source = SQL result set | `BACKLOG` |
+| DM-9 | **AI/LLM prompt template** | New `promptAdapter` | Source = context vars; target = prompt slots | `BACKLOG` |
+| DM-10 | **gRPC/protobuf mapping** | New `grpcAdapter` | Target tree from .proto schema | `BACKLOG` |
+| DM-11 | **WebSocket message mapping** | New `wsExtractionAdapter` | Similar to webhook extraction | `BACKLOG` |
+| DM-12 | **File content mapping** | New `fileFormatAdapter` | CSV/XML/YAML → JSON | `BACKLOG` |
+
+### 9.3 Long-Term (12+ months)
+
+| ID | Feature | Adapters Benefiting | Design Impact | Status |
+|----|---------|---------------------|---------------|--------|
+| DM-13 | **Data flow visualization** | All workflow adapters | End-to-end data lineage canvas | `BACKLOG` |
+| DM-14 | **Schema evolution tracking** | All HTTP adapters | Time-series schema diff | `BACKLOG` |
+| DM-15 | **AI-assisted mapping** | All adapters | LLM-powered "Suggest" button | `BACKLOG` |
+| DM-16 | **Custom operator plugins** | `validationAdapter` | Plugin registration API | `BACKLOG` |
+| DM-17 | **Cross-adapter references** | Workflow chains | Inter-adapter dependency graph | `BACKLOG` |
+
+---
+
+## 10. Ideas & Suggestions (Unstructured)
 
 > Drop ideas here as they come up. Periodically review and promote to a numbered section above.
 
@@ -234,5 +272,5 @@
 
 ---
 
-_Created: 2026-05-07 | Last updated: 2026-05-07_
-_Related: [ROADMAP.md](../../ROADMAP.md) · [workflow-harness-integration-plan.md](./workflow-harness-integration-plan.md)_
+_Created: 2026-05-07 | Last updated: 2026-05-14_
+_Related: [ROADMAP.md](../../ROADMAP.md) · [workflow-harness-integration-plan.md](./workflow-harness-integration-plan.md) · [validation-operator-gap-analysis.md](./validation-operator-gap-analysis.md)_

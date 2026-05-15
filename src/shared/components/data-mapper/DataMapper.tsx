@@ -35,7 +35,7 @@ import type { RepairSuggestion } from './utils/schemaRepair';
 import MapperFooter from './MapperFooter';
 import BulkActionsBar from './BulkActionsBar';
 import BottomUtilityDock from './BottomUtilityDock';
-import FloatingEditorModal from './FloatingEditorModal';
+import ValidationRulesModal from './ValidationRulesModal';
 import { useTargetFields } from './hooks/useTargetFields';
 import { usePanelResize } from './hooks/usePanelResize';
 import { useMapperKeyboard } from './hooks/useMapperKeyboard';
@@ -100,13 +100,12 @@ export default function DataMapper<TOutput = unknown>({
   const [editingMappingId, setEditingMappingId] = useState<string | null>(null);
   const {
     bottomUtilityMode,
-    rulesFloating,
+    rulesModalOpen,
     handleTogglePreview,
     handleToggleCodeView,
     handleToggleTableView,
     handleToggleRulesView,
-    handleRulesPopOut,
-    handleRulesPopIn,
+    handleCloseRulesModal,
   } = useBottomUtilityDock();
   const [showMappingLines, setShowMappingLines] = useState(true);
   const [nodeFocusMode, setNodeFocusMode] = useState(false);
@@ -510,7 +509,7 @@ export default function DataMapper<TOutput = unknown>({
     effectiveTarget,
     onAssertionsChange,
     flushRef,
-    showRulesView: bottomUtilityMode === 'rules',
+    showRulesView: rulesModalOpen,
     handleFetchTargetSchema,
     setToast,
     unorderedArrays: unorderedDefault,
@@ -615,7 +614,7 @@ export default function DataMapper<TOutput = unknown>({
         onToggleCodeView={handleToggleCodeView}
         showTableView={bottomUtilityMode === 'table'}
         onToggleTableView={handleToggleTableView}
-        showRulesView={bottomUtilityMode === 'rules'}
+        showRulesView={rulesModalOpen}
         onToggleRulesView={caps.codeEditor ? handleToggleRulesView : undefined}
         onVerifyAll={caps.verification ? handleVerifyAll : undefined}
         onFetchAndVerify={caps.verification && adapter.fetchTargetSchema ? handleFetchAndVerify : undefined}
@@ -837,20 +836,19 @@ export default function DataMapper<TOutput = unknown>({
           selectedMappingId={state.selectedMappingId}
           onRemoveMapping={removeMapping}
           onSelectMapping={handleSelectMappingExclusive}
-          validationDslText={validationSync.dslText}
-          onValidationCodeChange={validationSync.handleCodeChange}
-          validationParseErrors={validationSync.parseErrors}
-          validationSamplePaths={validationSamplePaths}
-          onRulesPopOut={handleRulesPopOut}
         />
       )}
-      {rulesFloating && (
-        <FloatingEditorModal
+      {rulesModalOpen && (
+        <ValidationRulesModal
           value={validationSync.dslText}
           onChange={validationSync.handleCodeChange}
           errors={validationSync.parseErrors}
           samplePaths={validationSamplePaths}
-          onClose={handleRulesPopIn}
+          onClose={handleCloseRulesModal}
+          portalContainerRef={containerRef}
+          verifyStatus={verifyHook.result.status}
+          verifyPassedCount={verifyHook.result.passedCount}
+          verifyFailedCount={verifyHook.result.failedCount}
         />
       )}
       {editingMapping && (

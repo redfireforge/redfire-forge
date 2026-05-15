@@ -15,12 +15,14 @@ interface TargetNodeContextMenuProps {
   capabilities?: Required<AdapterCapabilities>;
   isMapped: boolean;
   mapping: Mapping | undefined;
+  isRenamable?: boolean;
   onClose: () => void;
   onOpenOperatorPicker: () => void;
   onToggleMappingNegate?: (mappingId: string) => void;
   onEditExpression?: (mappingId: string) => void;
   onRemoveMapping?: (id: string) => void;
   onAddArrayAssertion?: (arrayPath: string, assertionType: 'length' | 'contains' | 'each' | 'subset') => void;
+  onRename?: () => void;
 }
 
 const TargetNodeContextMenu = forwardRef<HTMLDivElement, TargetNodeContextMenuProps>(
@@ -31,12 +33,14 @@ const TargetNodeContextMenu = forwardRef<HTMLDivElement, TargetNodeContextMenuPr
       capabilities,
       isMapped,
       mapping,
+      isRenamable,
       onClose,
       onOpenOperatorPicker,
       onToggleMappingNegate,
       onEditExpression,
       onRemoveMapping,
       onAddArrayAssertion,
+      onRename,
     },
     ref,
   ) {
@@ -49,8 +53,18 @@ const TargetNodeContextMenu = forwardRef<HTMLDivElement, TargetNodeContextMenuPr
         style={{ position: 'fixed', top: position.y, left: position.x, zIndex: 10001 }}
         onClick={(e) => e.stopPropagation()}
       >
+        {isRenamable && onRename && (
+          <button
+            type="button"
+            className="dm-context-menu-item"
+            onClick={close(onRename)}
+          >
+            Rename…
+          </button>
+        )}
         {isMapped && mapping && (
           <>
+            {isRenamable && onRename && <div className="dm-context-menu-divider" />}
             <button
               type="button"
               className="dm-context-menu-item"
