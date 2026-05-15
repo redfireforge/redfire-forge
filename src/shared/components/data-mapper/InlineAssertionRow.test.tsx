@@ -56,7 +56,7 @@ describe('InlineAssertionRow', () => {
   it('clicking the value span starts editing and pre-fills input', () => {
     const onUpdate = vi.fn();
     renderRow({ onUpdate });
-    fireEvent.click(screen.getByText('>= 3'));
+    fireEvent.click(screen.getByText('3'));
     const input = screen.getByLabelText('Assertion value') as HTMLInputElement;
     expect(input.value).toBe('3');
   });
@@ -64,7 +64,7 @@ describe('InlineAssertionRow', () => {
   it('commits arrayLength value on Enter as a number', () => {
     const onUpdate = vi.fn();
     renderRow({ onUpdate, globalIndex: 2 });
-    fireEvent.click(screen.getByText('>= 3'));
+    fireEvent.click(screen.getByText('3'));
     const input = screen.getByLabelText('Assertion value');
     fireEvent.change(input, { target: { value: '7' } });
     fireEvent.keyDown(input, { key: 'Enter' });
@@ -74,7 +74,7 @@ describe('InlineAssertionRow', () => {
   it('ignores non-numeric arrayLength values on commit', () => {
     const onUpdate = vi.fn();
     renderRow({ onUpdate });
-    fireEvent.click(screen.getByText('>= 3'));
+    fireEvent.click(screen.getByText('3'));
     const input = screen.getByLabelText('Assertion value');
     fireEvent.change(input, { target: { value: 'abc' } });
     fireEvent.keyDown(input, { key: 'Enter' });
@@ -84,7 +84,7 @@ describe('InlineAssertionRow', () => {
   it('Escape cancels edit without dispatching', () => {
     const onUpdate = vi.fn();
     renderRow({ onUpdate });
-    fireEvent.click(screen.getByText('>= 3'));
+    fireEvent.click(screen.getByText('3'));
     const input = screen.getByLabelText('Assertion value');
     fireEvent.change(input, { target: { value: '5' } });
     fireEvent.keyDown(input, { key: 'Escape' });
@@ -95,7 +95,7 @@ describe('InlineAssertionRow', () => {
   it('commits on blur', () => {
     const onUpdate = vi.fn();
     renderRow({ onUpdate });
-    fireEvent.click(screen.getByText('>= 3'));
+    fireEvent.click(screen.getByText('3'));
     const input = screen.getByLabelText('Assertion value');
     fireEvent.change(input, { target: { value: '9' } });
     fireEvent.blur(input);
@@ -181,7 +181,7 @@ describe('InlineAssertionRow', () => {
 
   it('clicking value when onUpdate is undefined does not enter edit mode', () => {
     renderRow({ onUpdate: undefined });
-    fireEvent.click(screen.getByText('>= 3'));
+    fireEvent.click(screen.getByText('3'));
     expect(screen.queryByLabelText('Assertion value')).not.toBeInTheDocument();
   });
 

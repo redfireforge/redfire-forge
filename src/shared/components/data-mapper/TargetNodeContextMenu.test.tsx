@@ -133,29 +133,29 @@ describe('TargetNodeContextMenu', () => {
     const onAddArrayAssertion = vi.fn();
     renderMenu({ node: arrayNode, onAddArrayAssertion, isMapped: false, mapping: undefined });
     expect(screen.getByText('Array Assertions')).toBeInTheDocument();
-    fireEvent.click(screen.getByText('Add length assertion'));
+    fireEvent.click(screen.getByText('Check array size'));
     expect(onAddArrayAssertion).toHaveBeenCalledWith('offers', 'length');
   });
 
   it('dispatches all four assertion types', () => {
     const onAddArrayAssertion = vi.fn();
     renderMenu({ node: arrayNode, onAddArrayAssertion, isMapped: false, mapping: undefined });
-    fireEvent.click(screen.getByText('Add length assertion'));
-    fireEvent.click(screen.getByText('Add contains assertion'));
-    fireEvent.click(screen.getByText('Add each assertion'));
-    fireEvent.click(screen.getByText('Add subset assertion'));
+    fireEvent.click(screen.getByText('Check array size'));
+    fireEvent.click(screen.getByText('Must contain value'));
+    fireEvent.click(screen.getByText('Every item must match'));
+    fireEvent.click(screen.getByText('Contains JSON object'));
     expect(onAddArrayAssertion).toHaveBeenCalledTimes(4);
     expect(onAddArrayAssertion.mock.calls.map(c => c[1])).toEqual(['length', 'contains', 'each', 'subset']);
   });
 
   it('renders assertion section divider when mapped + array node', () => {
-    const { container } = renderMenu({ node: arrayNode, onAddArrayAssertion: vi.fn() });
-    expect(container.querySelector('.dm-context-menu-divider')).toBeInTheDocument();
+    renderMenu({ node: arrayNode, onAddArrayAssertion: vi.fn() });
+    expect(document.querySelector('.dm-context-menu-divider')).toBeInTheDocument();
   });
 
   it('disables assertion buttons when onAddArrayAssertion is omitted', () => {
     renderMenu({ node: arrayNode, onAddArrayAssertion: undefined, isMapped: false, mapping: undefined });
-    const btn = screen.getByText('Add length assertion').closest('button');
+    const btn = screen.getByText('Check array size').closest('button');
     expect(btn).toBeDisabled();
   });
 
@@ -197,8 +197,8 @@ describe('TargetNodeContextMenu', () => {
   });
 
   it('shows divider between Rename and operator items when both are present', () => {
-    const { container } = renderMenu({ isRenamable: true, onRename: vi.fn() });
-    const dividers = container.querySelectorAll('.dm-context-menu-divider');
+    renderMenu({ isRenamable: true, onRename: vi.fn() });
+    const dividers = document.querySelectorAll('.dm-context-menu-divider');
     expect(dividers.length).toBeGreaterThanOrEqual(1);
   });
 

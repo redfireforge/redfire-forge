@@ -1,4 +1,5 @@
 import { forwardRef } from 'react';
+import { createPortal } from 'react-dom';
 import type { Mapping, FieldOperator } from './types';
 import { OPERATOR_REGISTRY, OPERATOR_CATEGORIES, type OperatorMeta } from './utils/operatorRegistry';
 
@@ -32,11 +33,11 @@ const TargetNodeOperatorPicker = forwardRef<HTMLDivElement, TargetNodeOperatorPi
     },
     ref,
   ) {
-    return (
+    return createPortal(
       <div
         ref={ref}
         className={`dm-operator-picker ${pickerPos.openUp ? 'dm-operator-picker--up' : ''}`}
-        style={{ position: 'fixed', top: pickerPos.top, left: pickerPos.left, zIndex: 10000 }}
+        style={{ position: 'fixed', top: pickerPos.top, left: pickerPos.left, zIndex: 100000 }}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="dm-op-picker-header">
@@ -91,7 +92,8 @@ const TargetNodeOperatorPicker = forwardRef<HTMLDivElement, TargetNodeOperatorPi
             <div className="dm-op-picker-empty">No matching operators</div>
           )}
         </div>
-      </div>
+      </div>,
+      document.body,
     );
   },
 );

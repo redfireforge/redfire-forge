@@ -3,7 +3,7 @@
 .dm-expr-overlay {
   position: fixed;
   inset: 0;
-  z-index: 1050;
+  z-index: 10090;
   background: transparent;
   display: flex;
   align-items: center;
@@ -14,7 +14,7 @@
   display: flex;
   flex-direction: column;
   width: min(90vw, 960px);
-  max-height: 80vh;
+  max-height: min(80vh, calc(100vh - 40px));
   background: var(--bg-primary, #1e1e2e);
   border: 1px solid var(--border, #3b3f51);
   border-radius: 10px;
@@ -46,6 +46,49 @@
   font-size: 0.78rem;
   color: var(--text-muted, #6c7086);
   font-family: 'SF Mono', 'Fira Code', monospace;
+}
+
+.dm-expr-variable-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px;
+  border-bottom: 1px solid var(--border, #3b3f51);
+  background: var(--surface0, rgba(30, 30, 46, 0.6));
+  flex-shrink: 0;
+}
+
+.dm-expr-variable-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--subtext1, #a6adc8);
+  white-space: nowrap;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.dm-expr-variable-input {
+  background: var(--surface0, #1e1e2e);
+  border: 1px solid var(--surface2, #45475a);
+  border-radius: 4px;
+  color: var(--text, #cdd6f4);
+  font-size: 0.82rem;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  padding: 4px 8px;
+  flex: 1;
+  min-width: 0;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.dm-expr-variable-input:focus {
+  border-color: var(--accent, #89b4fa);
+  box-shadow: 0 0 0 1px var(--accent, #89b4fa);
+}
+
+.dm-expr-variable-input::placeholder {
+  color: var(--subtext0, #6c7086);
+  font-style: italic;
 }
 
 .dm-expr-header-actions {

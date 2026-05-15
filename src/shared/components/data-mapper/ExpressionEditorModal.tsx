@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useEffect, useRef, lazy, Suspense, useId } from 'react';
+import { createPortal } from 'react-dom';
 import { evaluateMapperExpression } from './utils/mapperExpressionEvaluator';
 import { debugExpression } from './utils/expressionStepDebugger';
 import type { EvalStep } from './utils/expressionStepDebugger';
@@ -26,6 +27,7 @@ interface ExpressionEditorModalProps {
   customFunctions?: ExpressionFunction[];
   onSave: (mappingId: string, expression: string) => void;
   onCancel: () => void;
+  onRename?: (mappingId: string, oldTargetPath: string, newTargetPath: string) => void;
 }
 
 type CategoryFilter = (typeof EXPRESSION_CATEGORIES)[number] | 'All';
@@ -122,10 +124,13 @@ export default function ExpressionEditorModal({
   customFunctions,
   onSave,
   onCancel,
+  onRename,
 }: ExpressionEditorModalProps) {
   const titleId = useId();
   const [isExpanded, setIsExpanded] = useState(false);
   const [expression, setExpression] = useState(mapping.expression ?? mapping.sourcePath);
+  const [targetNameValue, setTargetNameValue] = useState(mapping.targetPath);
+  const targetNameRef = useRef<HTMLInputElement>(null);
   const [activeCategory, setActiveCategory] = useState<CategoryFilter>('All');
   const [functionSearch, setFunctionSearch] = useState('');
   const [selectedFn, setSelectedFn] = useState<ExpressionFunction | null>(null);
@@ -218,8 +223,16 @@ export default function ExpressionEditorModal({
     if (prevMappingIdRef.current !== mapping.id) {
       prevMappingIdRef.current = mapping.id;
       setExpression(mapping.expression ?? mapping.sourcePath);
+      setTargetNameValue(mapping.targetPath);
     }
-  }, [mapping.id, mapping.expression, mapping.sourcePath]);
+  }, [mapping.id, mapping.expression, mapping.sourcePath, mapping.targetPath]);
+
+  const commitTargetName = useCallback(() => {
+    const trimmed = targetNameValue.trim();
+    if (trimmed && trimmed !== mapping.targetPath && onRename) {
+      onRename(mapping.id, mapping.targetPath, trimmed);
+    }
+  }, [targetNameValue, mapping.id, mapping.targetPath, onRename]);
 
   useEffect(() => {
     let cancelled = false;
@@ -496,12 +509,14 @@ export default function ExpressionEditorModal({
     }
   }, [handleSave, onCancel]);
 
-  return (
+  return createPortal(
     <div className={`dm-expr-overlay ${isExpanded ? 'dm-expr--expanded' : ''}`} onKeyDown={handleKeyDown} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby={titleId}>
       <div className="dm-expr-modal" style={!isExpanded && (dragOffset.x || dragOffset.y) ? { transform: `translate(${dragOffset.x}px, ${dragOffset.y}px)` } : undefined}>
         <div className="dm-expr-header" onMouseDown={!isExpanded ? handleDragStart : undefined} style={!isExpanded ? { cursor: 'grab' } : undefined}>
           <span id={titleId} className="dm-expr-title">Expression Editor</span>
-          <span className="dm-expr-target-path">Target: {mapping.targetPath}</span>
+          {!onRename && (
+            <span className="dm-expr-target-path">Target: {mapping.targetPath}</span>
+          )}
           <div className="dm-expr-header-actions">
             <button
               type="button"
@@ -533,6 +548,29 @@ export default function ExpressionEditorModal({
             </button>
           </div>
         </div>
+
+        {onRename && (
+          <div className="dm-expr-variable-row">
+            <label className="dm-expr-variable-label" htmlFor="dm-expr-var-name">Variable Name</label>
+            <input
+              id="dm-expr-var-name"
+              ref={targetNameRef}
+              className="dm-expr-variable-input"
+              value={targetNameValue}
+              onChange={(e) => setTargetNameValue(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') { e.preventDefault(); commitTargetName(); }
+                else if (e.key === 'Escape') { e.preventDefault(); setTargetNameValue(mapping.targetPath); }
+                e.stopPropagation();
+              }}
+              onBlur={commitTargetName}
+              onClick={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
+              placeholder="e.g. myVariable"
+              aria-label="Variable name (target path)"
+            />
+          </div>
+        )}
 
         <div className="dm-expr-body">
           <div className="dm-expr-sidebar">
@@ -855,6 +893,7 @@ export default function ExpressionEditorModal({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

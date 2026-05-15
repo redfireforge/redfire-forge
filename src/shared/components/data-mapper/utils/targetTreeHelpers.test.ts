@@ -157,7 +157,7 @@ describe('formatNodeDisplayKey', () => {
 describe('formatAssertionSummary', () => {
   it('formats arrayLength', () => {
     const a: Assertion = { type: 'arrayLength', jsonPath: '$.x', operator: '>=', value: 3 };
-    expect(formatAssertionSummary(a)).toBe('>= 3');
+    expect(formatAssertionSummary(a)).toBe('3');
   });
   it('formats arrayContains with mode + value', () => {
     const a: Assertion = { type: 'arrayContains', jsonPath: '$.x', mode: 'any', value: 'foo' };

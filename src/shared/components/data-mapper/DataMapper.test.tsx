@@ -4211,3 +4211,74 @@ describe('DataMapper hover-to-highlight', () => {
   });
 });
 
+describe('DataMapper – capability-gated branch coverage', () => {
+  it('renders with arrayAssertions + codeEditor capabilities', () => {
+    const adapter: MapperAdapter<Mapping[]> = {
+      ...createTestAdapter(),
+      capabilities: { arrayAssertions: true, codeEditor: true, verification: true, operators: true },
+    };
+    const initial: Mapping[] = [
+      { id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'userName' },
+    ];
+    const { container } = render(<DataMapper adapter={adapter} initialData={initial} />);
+    expect(container.querySelector('.dm-container')).toBeTruthy();
+  });
+
+  it('renders with hideAdvanced capability false (advanced controls visible)', () => {
+    const adapter: MapperAdapter<Mapping[]> = {
+      ...createTestAdapter(),
+      capabilities: { hideAdvanced: false },
+    };
+    const { container } = render(<DataMapper adapter={adapter} />);
+    expect(container.querySelector('.dm-container')).toBeTruthy();
+    const profilesBtn = container.querySelector('button[title="Mapping profiles"]');
+    expect(profilesBtn).toBeTruthy();
+  });
+
+  it('renders with allowCustomFields target for onRename path', () => {
+    const adapter: MapperAdapter<Mapping[]> = {
+      ...createTestAdapter(),
+      target: { label: 'Target', sampleData: sampleTarget, allowCustomFields: true },
+    };
+    const initial: Mapping[] = [
+      { id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'userName' },
+    ];
+    const { container } = render(<DataMapper adapter={adapter} initialData={initial} />);
+    expect(container.querySelector('.dm-container')).toBeTruthy();
+  });
+
+  it('selectedMapping resolves from selectedMappingId', () => {
+    const adapter: MapperAdapter<Mapping[]> = {
+      ...createTestAdapter(),
+      sources: [{
+        id: 's1',
+        label: 'Source',
+        sampleData: { items: [{ code: 'A' }, { code: 'B' }] },
+      }],
+      target: {
+        label: 'Target',
+        sampleData: { items: [{ code: '' }, { code: '' }] },
+        allowCustomFields: false,
+      },
+    };
+    const initial: Mapping[] = [
+      { id: 'arr1', sourcePath: 'items[0].code', sourceId: 's1', targetPath: 'items[0].code' },
+    ];
+    const { container } = render(<DataMapper adapter={adapter} initialData={initial} />);
+    const expandBtns = screen.getAllByLabelText('Expand all');
+    expandBtns.forEach((b) => fireEvent.click(b));
+    const targetMapped = container.querySelector('.dm-panel--target .dm-tree-node--mapped');
+    if (targetMapped) fireEvent.click(targetMapped);
+    expect(container.querySelector('.dm-tree-node--selected')).toBeTruthy();
+  });
+
+  it('adapter with sources having empty id falls back', () => {
+    const adapter: MapperAdapter<Mapping[]> = {
+      ...createTestAdapter(),
+      sources: [],
+    };
+    const { container } = render(<DataMapper adapter={adapter} />);
+    expect(container.querySelector('.dm-container')).toBeTruthy();
+  });
+});
+

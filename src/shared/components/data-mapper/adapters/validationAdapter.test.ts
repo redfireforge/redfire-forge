@@ -721,7 +721,7 @@ describe('validationAdapter — operator round-trip', () => {
     expect(output.expectedFields[0].expectedValue).toBe('from-expr');
   });
 
-  it('serialize falls back to targetPath when expression path is missing from sample', () => {
+  it('serialize falls back to sourcePath value when expression resolves to undefined', () => {
     const adapter = createValidationAdapter({
       sampleResponseBody: { ok: true },
       selectiveMode: 'include',
@@ -736,7 +736,7 @@ describe('validationAdapter — operator round-trip', () => {
       },
     ];
     const output = adapter.serialize(mappings);
-    expect(output.expectedFields[0].expectedValue).toBe('fallback-path');
+    expect(output.expectedFields[0].expectedValue).toBe('true');
   });
 
   it('serialize stringifies non-string sample values resolved via expression', () => {

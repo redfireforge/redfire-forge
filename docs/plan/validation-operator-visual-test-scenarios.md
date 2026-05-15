@@ -83,26 +83,35 @@
 
 ### P0-02: Operator pills are NOT shown for non-validation adapters
 
-- [ ] **Setup:** Open the Visual Mapper from the **Extraction** context (Test Editor → **Extract** tab → Visual Mapper).
-- [ ] **Steps:**
+- [x] **Setup:** Open the Visual Mapper from the **Extraction** context (Test Editor → **Extract** tab → Visual Mapper).
+- [x] **Steps:**
   1. Create a mapping by dragging a source field to a target.
   2. Inspect the target row.
-- [ ] **Expected:** No operator pill appears. The row shows only `targetField ← sourcePath` without any operator badge.
+  3. Right-click the mapped target field to open the context menu.
+  4. Check the toolbar for the **Rules** button.
+- [x] **Expected:** No operator pill appears. The row shows only `targetField ← sourcePath` without any operator badge. The right-click context menu shows **Rename…**, **Edit expression…**, and **Remove mapping** — but does NOT show "Set operator…" (operator actions are exclusive to the validation adapter). The **Rules** button does NOT appear in the toolbar, and no "Validation Rules" panel is shown at the bottom (the code editor/rules panel is exclusive to the validation adapter).
 
 ### P0-03: Array assertions gated by capability
 
-- [ ] **Setup:** In the Validation Mapper, locate an array node in the target tree (e.g., `offers`).
-- [ ] **Steps:**
+- [x] **Setup:** In the Validation Mapper, locate an array node in the target tree (e.g., `offers`).
+- [x] **Steps:**
   1. Right-click on the `offers` array node.
   2. Check the context menu.
-- [ ] **Expected:** The context menu shows **Array Assertions** section with options: "Add length assertion", "Add contains assertion", "Add each assertion", "Add subset assertion".
+- [x] **Expected:** The context menu shows **Array Assertions** section with descriptive options: "Check array size" (with example), "Must contain value", "Every item must match", "Contains JSON object". Each option shows a context-aware example using the node name.
+- [x] **Additional fixes applied:**
+  - Array assertion handlers (`onAddArrayAssertion`, `onUpdateArrayAssertion`, `onRemoveArrayAssertion`) correctly gated by `caps.arrayAssertions` (was incorrectly gated by `caps.operators`).
+  - Context menu suppresses browser native right-click on all target nodes.
+  - Unmapped non-array nodes no longer show an empty context menu box.
+  - Only custom-origin fields show "Rename..." (fetched response fields do not).
+  - Assertion value "1" is visible, editable, and styled with solid border and bold text.
 
 ### P0-04: Code editor gated by capability
 
-- [ ] **Setup:** In the Validation Mapper, look at the toolbar.
-- [ ] **Steps:**
-  1. Look for the **Rules** button in the toolbar.
-- [ ] **Expected:** The **Rules** button is visible in the validation context. (It would be absent in adapters without `codeEditor: true`.)
+- [x] **Setup:** Compare the Validation Mapper toolbar to the Extraction Mapper toolbar.
+- [x] **Steps:**
+  1. Open the Visual Mapper from the **Validation** tab. Look for the **Rules** button in the toolbar.
+  2. Close the mapper. Open the Visual Mapper from the **Extract** tab. Look for the **Rules** button.
+- [x] **Expected:** The **Rules** button is visible only in the validation context. It is **absent** in the extraction, variable binding, request body, and demo adapters — these adapters do not have validation rules to manage (`codeEditor` capability is `false`).
 
 ---
 
@@ -110,47 +119,42 @@
 
 ### P1-01: Default operator on auto-map
 
-- [ ] **Setup:** Open the Validation Mapper with sample JSON loaded.
-- [ ] **Steps:**
+- [x] **Setup:** Open the Validation Mapper with sample JSON loaded.
+- [x] **Steps:**
   1. Click the **Auto-map** button in the toolbar.
   2. Accept the suggested mappings.
   3. Inspect the operator pills on the mapped fields.
-- [ ] **Expected:** All auto-mapped fields default to the `exists` operator (gray `∃ exists` pill), preventing false failures on type mismatches.
+- [x] **Expected:** All auto-mapped fields default to the `exists` operator (gray `∃ exists` pill), preventing false failures on type mismatches. Implemented via `autoMapDefaultOperator: 'exists'` in the validation adapter. Manually mapped fields still default to `equals`.
 
 ### P1-02: Equality operators (equals, not_equals)
 
-- [ ] **Setup:** Map `status` from source to target.
-- [ ] **Steps:**
-  1. Click the operator pill on the `status` row. The **operator picker** dropdown opens.
-  2. Search for "equals" in the picker search box.
-  3. Select **= equals** (green).
-  4. Observe the inline value input appears next to the pill showing the source value `"active"`.
-  5. Close the picker. Select the pill again, search "not_equals", select **≠ not equals**.
-- [ ] **Expected:**
-  - `equals`: Green pill `= equals`, value input shows `"active"`.
-  - `not_equals`: Green pill `≠ not equals`, value input shows `"active"`.
+- [x] **Setup:** Drag a source field (e.g. `planType`) to a target field.
+- [x] **Steps:**
+  1. After mapping, the field automatically shows a green `= equals` pill — no manual selection needed.
+  2. Click the operator pill to open the picker. Switch to **≠ not equals**.
+  3. Verify the pill changes to green `≠ not equals`.
+- [x] **Expected:** Manual drag-drop mappings default to `equals` (green pill). Switching to `not_equals` also shows a green pill. Both operators work without requiring an explicit value input since the source reference provides the expected value.
 
 ### P1-03: Comparison operators (>, >=, <, <=)
 
-- [ ] **Setup:** Map `count` from source to target.
-- [ ] **Steps:**
+- [x] **Setup:** Map a numeric field (e.g. `value`, `rank`) from source to target.
+- [x] **Steps:**
   1. Click the operator pill. Select **> greater than** (amber).
-  2. Verify the value input shows `42`. Change it to `10`.
-  3. Switch to **>= at least**. Verify pill color is amber.
-  4. Switch to **< less than**. Verify pill color is amber.
-  5. Switch to **<= at most**. Verify pill color is amber.
-- [ ] **Expected:** Each comparison operator shows an amber-colored pill with the correct symbol. The inline value editor allows number input.
+  2. An inline value input appears automatically (with "Enter value" placeholder). Type a number.
+  3. Press Enter to commit. Switch to **>= at least**. Verify pill color is amber.
+  4. Switch to **< less than**, **<= at most**. Verify pill color is amber for all.
+- [x] **Expected:** Each comparison operator shows an amber-colored pill with the correct symbol. Selecting a value-requiring operator auto-focuses the value input for immediate typing.
 
 ### P1-04: String operators (contains, not_contains, starts_with, ends_with, regex)
 
-- [ ] **Setup:** Map `name` from source to target.
-- [ ] **Steps:**
+- [x] **Setup:** Map `name` from source to target.
+- [x] **Steps:**
   1. Set operator to **⊃ contains** (purple). Enter value `"OnStar"`.
   2. Switch to **⊅ not contains**. Enter value `"expired"`.
   3. Switch to **⊳ starts with**. Enter value `"On"`.
   4. Switch to **⊲ ends with**. Enter value `"Package"`.
   5. Switch to **/r/ matches** (regex). Enter value `"^On.*Package$"`.
-- [ ] **Expected:** All five string operators show purple pills. Each allows a string value input.
+- [x] **Expected:** All five string operators show purple pills. Each allows a string value input.
 
 ### P1-05: Boolean operators (is_true, is_false)
 
@@ -321,6 +325,16 @@
   2. Type `5` and press **Enter**. The value commits.
   3. Click the value again, type `2`, press **Escape**. The edit cancels (reverts to `5`).
 - [ ] **Expected:** Enter commits, Escape cancels. Value updates persist across save.
+
+### P3-07: Assertion row layout — value always visible
+
+- [ ] **Setup:** Add a length assertion (`>= N`) to an array node (e.g., `offers`).
+- [ ] **Steps:**
+  1. Observe the assertion row: `# LENGTH  >=  [value]  ×`.
+  2. Verify all elements are visible within the panel — the type pill, the `>=` select, the value display, and the remove button.
+  3. Click the value to enter edit mode. Type a number and press Enter.
+  4. Resize the mapper to a narrower width. Verify the row still fits.
+- [ ] **Expected:** The assertion row lays out correctly within the panel width. The `>=` select dropdown is compact (max ~50px wide), the value display takes remaining flex space, and nothing overflows off-screen. The value is clickable and editable at all panel widths.
 
 ---
 
@@ -518,7 +532,30 @@
      - `$upper($.source.name)` → `"ONSTAR PREMIUM PACKAGE"`.
 - [ ] **Expected:** Expression editor has a function catalog. Live preview evaluates the expression against sample data. Result updates as you type.
 
-### P7-02: Expression function categories in catalog
+### P7-02: Expression Editor — Variable Name field (extraction adapter)
+
+- [ ] **Setup:** Open the Visual Mapper from the **Extract** tab. Map a source field to create an extraction.
+- [ ] **Steps:**
+  1. Right-click the mapped target node → **Edit expression…** to open the Expression Editor.
+  2. Observe the top of the modal: a **VARIABLE NAME** input field appears below the header, showing the current target path (e.g., `offers[0].associatedOfferingCode`).
+  3. Click into the Variable Name field, clear it, and type `myVar`.
+  4. Press **Enter** to commit the rename.
+  5. Close the Expression Editor.
+  6. Inspect the target tree — the field should now be named `myVar`.
+  7. Re-open the Expression Editor for the same field. Verify the Variable Name field shows `myVar`.
+- [ ] **Expected:** The Variable Name field is visible and editable in the Expression Editor for adapters that allow custom fields (extraction). Renaming via this field updates the target field name and all affected mappings. The field does NOT appear in the validation adapter Expression Editor (validation targets are fetched schema fields, not user-defined).
+
+### P7-03: Expression Editor — stays within viewport
+
+- [ ] **Setup:** Open the Expression Editor (either via right-click → Edit expression, or double-click a mapped node).
+- [ ] **Steps:**
+  1. Resize the browser window to a smaller height (e.g., 600px).
+  2. Open the Expression Editor.
+  3. Verify the modal stays fully within the viewport (no overflow past top or bottom edges).
+  4. Try dragging the modal by its header.
+- [ ] **Expected:** The Expression Editor modal is always fully visible within the viewport. It is portaled to `document.body` to escape CSS stacking context issues from ancestor elements with `backdrop-filter` or `transform`. The modal's `max-height` is clamped to `min(80vh, calc(100vh - 40px))`.
+
+### P7-04: Expression function categories in catalog
 
 - [ ] **Setup:** In the Expression Editor Modal, open the function catalog.
 - [ ] **Steps:**
@@ -918,6 +955,121 @@
 
 ---
 
+## Appendix A — All 24 Operators: Automated Test Reference
+
+> **Test files:**
+> - `src/engine/fieldOperatorEvaluation.comprehensive.test.ts` — 167 tests covering all 24 operators
+> - `src/shared/components/data-mapper/adapters/validationAdapter.integration.test.ts` — 73 integration tests (adapter → verify pipeline)
+>
+> Use the sample JSON from the top of this document. The table below shows concrete examples for each operator.
+
+### Equality Operators (green pills)
+
+| Operator | Field | Value | Sample Data | Pass? | DSL Syntax |
+|----------|-------|-------|-------------|-------|------------|
+| `equals` | `name` | _(auto from source)_ | `"OnStar Premium Package"` | ✅ | `name  equals  "OnStar Premium Package"` |
+| `equals` | `count` | _(auto)_ | `42` | ✅ | `count  equals  42` |
+| `not_equals` | `status` | _(auto)_ | If response has `"active"` but expected was `"inactive"` | ✅ | `status  not_equals  "inactive"` |
+
+### Comparison Operators (amber pills)
+
+| Operator | Field | Operator Value | Sample Data | Pass? | DSL Syntax |
+|----------|-------|----------------|-------------|-------|------------|
+| `greater_than` | `count` | `10` | `42` | ✅ | `count  >  10` |
+| `greater_than` | `count` | `100` | `42` | ❌ | `count  >  100` |
+| `greater_than_or_equal` | `count` | `42` | `42` | ✅ | `count  >=  42` |
+| `less_than` | `offers[0].price` | `100` | `49.99` | ✅ | `offers[0].price  <  100` |
+| `less_than_or_equal` | `offers[0].price` | `49.99` | `49.99` | ✅ | `offers[0].price  <=  49.99` |
+
+### String Operators (purple pills)
+
+| Operator | Field | Operator Value | Sample Data | Pass? | DSL Syntax |
+|----------|-------|----------------|-------------|-------|------------|
+| `contains` | `name` | `OnStar` | `"OnStar Premium Package"` | ✅ | `name  contains  "OnStar"` |
+| `contains` | `name` | `Expired` | `"OnStar Premium Package"` | ❌ | `name  contains  "Expired"` |
+| `not_contains` | `name` | `Expired` | `"OnStar Premium Package"` | ✅ | `name  not_contains  "Expired"` |
+| `starts_with` | `email` | `test@` | `"test@example.com"` | ✅ | `email  starts_with  "test@"` |
+| `ends_with` | `email` | `.com` | `"test@example.com"` | ✅ | `email  ends_with  ".com"` |
+| `regex` | `email` | `^[\w.]+@[\w.]+\.[a-z]+$` | `"test@example.com"` | ✅ | `email  regex  "^[\\w.]+@[\\w.]+\\.[a-z]+$"` |
+
+### Boolean Operators (red pills)
+
+| Operator | Field | Sample Data | Pass? | DSL Syntax |
+|----------|-------|-------------|-------|------------|
+| `is_true` | `isActive` | `true` | ✅ | `isActive  is_true` |
+| `is_true` | `isDeleted` | `false` | ❌ | `isDeleted  is_true` |
+| `is_false` | `isDeleted` | `false` | ✅ | `isDeleted  is_false` |
+| `is_false` | `isActive` | `true` | ❌ | `isActive  is_false` |
+
+### Existence Operators (gray pills)
+
+| Operator | Field | Sample Data | Pass? | DSL Syntax |
+|----------|-------|-------------|-------|------------|
+| `exists` | `name` | `"OnStar Premium Package"` | ✅ | `name  exists` |
+| `exists` | `deletedAt` | `null` (null exists) | ✅ | `deletedAt  exists` |
+| `exists` | `nonExistent` | _(missing)_ | ❌ | `nonExistent  exists` |
+| `not_exists` | `nonExistent` | _(missing)_ | ✅ | `nonExistent  not_exists` |
+| `is_null` | `deletedAt` | `null` | ✅ | `deletedAt  is_null` |
+| `is_null` | `name` | `"OnStar..."` | ❌ | `name  is_null` |
+| `is_not_null` | `name` | `"OnStar..."` | ✅ | `name  is_not_null` |
+| `is_not_null` | `deletedAt` | `null` | ❌ | `deletedAt  is_not_null` |
+| `is_empty` | `errors` | `[]` | ✅ | `errors  is_empty` |
+| `is_empty` | `name` | `"OnStar..."` | ❌ | `name  is_empty` |
+| `is_not_empty` | `name` | `"OnStar..."` | ✅ | `name  is_not_empty` |
+| `is_not_empty` | `errors` | `[]` | ❌ | `errors  is_not_empty` |
+
+### Type Check Operator (teal pill)
+
+| Operator | Field | Operator Value | Sample Data | Pass? | DSL Syntax |
+|----------|-------|----------------|-------------|-------|------------|
+| `is_type` | `name` | `string` | `"OnStar..."` | ✅ | `name  is_type  "string"` |
+| `is_type` | `count` | `number` | `42` | ✅ | `count  is_type  "number"` |
+| `is_type` | `isActive` | `boolean` | `true` | ✅ | `isActive  is_type  "boolean"` |
+| `is_type` | `offers` | `array` | `[...]` | ✅ | `offers  is_type  "array"` |
+| `is_type` | `config` | `object` | `{...}` | ✅ | `config  is_type  "object"` |
+| `is_type` | `deletedAt` | `null` | `null` | ✅ | `deletedAt  is_type  "null"` |
+
+### Set Operators (blue pills)
+
+| Operator | Field | Operator Value | Sample Data | Pass? | DSL Syntax |
+|----------|-------|----------------|-------------|-------|------------|
+| `in` | `status` | `["active","pending"]` | `"active"` | ✅ | `status  in  ["active","pending"]` |
+| `in` | `status` | `["deleted","banned"]` | `"active"` | ❌ | `status  in  ["deleted","banned"]` |
+| `not_in` | `status` | `["deleted","banned"]` | `"active"` | ✅ | `status  not_in  ["deleted","banned"]` |
+| `not_in` | `status` | `["active","pending"]` | `"active"` | ❌ | `status  not_in  ["active","pending"]` |
+
+### Range Operators (amber pills)
+
+| Operator | Field | Operator Value | Sample Data | Pass? | DSL Syntax |
+|----------|-------|----------------|-------------|-------|------------|
+| `between` | `count` | `1, 100` | `42` | ✅ | `count  between  "1, 100"` |
+| `between` | `count` | `1, 10` | `42` | ❌ | `count  between  "1, 10"` |
+| `between` | `offers[0].price` | `10, 60` | `49.99` | ✅ | `offers[0].price  between  "10, 60"` |
+| `close_to` | `latitude` | `40.7, 0.1` | `40.7128` | ✅ | `latitude  close_to  "40.7, 0.1"` |
+| `close_to` | `latitude` | `40.0, 0.01` | `40.7128` | ❌ | `latitude  close_to  "40.0, 0.01"` |
+
+### Negate Modifier (NOT)
+
+| Base Operator | Field | Operator Value | Sample Data | Pass? | DSL Syntax |
+|---------------|-------|----------------|-------------|-------|------------|
+| `NOT equals` | `name` | _(auto)_ | same as expected | ❌ | `name  NOT equals  "OnStar Premium Package"` |
+| `NOT contains` | `name` | `Expired` | `"OnStar..."` | ✅ | `name  NOT contains  "Expired"` |
+| `NOT is_true` | `isDeleted` | — | `false` | ✅ | `isDeleted  NOT is_true` |
+| `NOT exists` | `name` | — | `"OnStar..."` | ❌ | `name  NOT exists` |
+
+### Expression + Operator Combinations
+
+| Expression | Operator | Result | Pass? | Notes |
+|------------|----------|--------|-------|-------|
+| `$contains($.name, "OnStar")` | _(auto: is_true)_ | `true` | ✅ | Boolean expression auto-assigns `is_true` |
+| `$contains($.name, "xyz")` | _(auto: is_true)_ | `false` | ❌ | Expression returns `false` → `is_true` fails |
+| `$upper($.name)` | `equals` | `"ONSTAR PREMIUM PACKAGE"` | ✅ | Expression transforms value, `equals` compares |
+| `$sum([$.count, 10])` | `greater_than` `50` | `52` | ✅ | Expression computes value, operator validates |
+
+> **Key rule:** When an expression returns a boolean (`true`/`false`) and no explicit operator is set, the system auto-assigns `is_true` — treating the expression as a pass/fail assertion. If you want a different behavior, set the operator explicitly.
+
+---
+
 ## Summary Checklist
 
 | Phase | Tests | Description |
@@ -925,15 +1077,26 @@
 | P0 | 4 | Adapter capability gating |
 | P1 | 12 | 24 field operators, picker, colors |
 | P2 | 3 | Type checks, existence assertions |
-| P3 | 6 | Array length, contains, each, subset |
+| P3 | 7 | Array length, contains, each, subset, inline layout |
 | P4 | 8 | DSL editor, syntax, autocomplete, sync |
 | P5 | 7 | Verify All, Fetch & Verify, auto-verify, filters |
 | P6 | 1 | JSON Schema validation |
-| P7 | 2 | Expression engine, 125 functions |
+| P7 | 4 | Expression engine, variable rename, viewport fit, 125 functions |
 | P8 | 4 | bodySize, datePrecise, between, close_to |
 | P9.1 | 5 | Universal negation |
 | P9.2 | 4 | Lambda syntax, HOFs |
 | P9.3 | 5 | ASSERT keyword, custom predicates |
 | P9.4 | 15 | 3-mode modal, DSL reference, verify stats |
 | Integration | 6 | Cross-phase workflows |
-| **Total** | **82** | |
+| **Total** | **85** | |
+
+### Automated Test Coverage
+
+| Test File | Tests | Scope |
+|-----------|-------|-------|
+| `fieldOperatorEvaluation.test.ts` | 33 | Original unit tests |
+| `fieldOperatorEvaluation.comprehensive.test.ts` | 167 | All 24 operators: pass, fail, edge cases, type coercion, boundaries |
+| `validationAdapter.integration.test.ts` | 73 | Full pipeline: adapter serialize → operator evaluate for all operators, negate, expressions |
+| `validationAdapter.test.ts` | 65 | Adapter unit tests |
+| `useValidationVerify.test.ts` | 37 | Verify hook tests |
+| **Total automated** | **375** | |

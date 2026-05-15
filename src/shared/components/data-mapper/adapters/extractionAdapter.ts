@@ -71,7 +71,6 @@ export function createExtractionAdapter(
 
   const capabilities: AdapterCapabilities = {
     expressions: true,
-    codeEditor: true,
     schemaDrift: true,
     profiles: true,
   };

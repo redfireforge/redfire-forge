@@ -26,6 +26,7 @@ import { getAllLeafPaths, buildJsonTree } from '../../../utils/jsonTreeModel';
 import { getByPath, getByPathAsString } from '../../../utils/jsonPath';
 import { coerceSampleData } from '../utils/mapperParsing';
 import { inferType } from '../utils/typeMismatch';
+import { evaluateMapperExpression } from '../utils/mapperExpressionEvaluator';
 
 // ─── Output Type ──────────────────────────────────────────
 
@@ -73,8 +74,19 @@ export function createValidationAdapter(
   const parsed = coerceSampleData(opts.sampleResponseBody);
   const mode: SelectiveMode = opts.selectiveMode ?? 'include';
   const resolveExpectedValue = (m: Mapping): string => {
-    const sourceRef = m.expression ?? m.sourcePath;
-    const sourceValue = getByPath(parsed, sourceRef);
+    if (m.expression) {
+      const result = evaluateMapperExpression(m.expression, [source], SOURCE_ID);
+      if (!result.error && result.value !== undefined) {
+        const strVal = typeof result.value === 'string' ? result.value : JSON.stringify(result.value);
+        if (!strVal.startsWith('{{')) return strVal;
+      }
+      const pathValue = getByPath(parsed, m.expression);
+      if (pathValue !== undefined) {
+        if (typeof pathValue === 'string') return pathValue;
+        return JSON.stringify(pathValue);
+      }
+    }
+    const sourceValue = getByPath(parsed, m.sourcePath);
     if (sourceValue === undefined) return m.targetPath;
     if (typeof sourceValue === 'string') return sourceValue;
     return JSON.stringify(sourceValue);
@@ -124,12 +136,16 @@ export function createValidationAdapter(
       const uniqueMappings = Array.from(deduped.values());
 
       const buildExpectedField = (m: Mapping): ExpectedField => {
+        const expectedValue = resolveExpectedValue(m);
         const field: ExpectedField = {
           jsonPath: stripDollarPrefix(m.sourcePath),
-          expectedValue: resolveExpectedValue(m),
+          expectedValue,
         };
-        const op = (m.operator as FieldOperator | undefined)
+        let op = (m.operator as FieldOperator | undefined)
           ?? (m.isAutoMapped ? capabilities.autoMapDefaultOperator : undefined);
+        if (!op && m.expression && (expectedValue === 'true' || expectedValue === 'false')) {
+          op = 'is_true';
+        }
         if (op) field.operator = op;
         if (m.operatorValue !== undefined) field.operatorValue = m.operatorValue;
         if (m.negate) field.negate = true;
