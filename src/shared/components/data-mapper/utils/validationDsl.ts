@@ -27,6 +27,13 @@ export interface DslModel {
   assertions: Assertion[];
 }
 
+/** Assertion types owned by the DSL layer (managed via code editor / visual mappings).
+ *  Non-DSL assertions (status, responseTime, header) belong to the Test Editor. */
+export const DSL_ASSERTION_TYPES = new Set([
+  'typeCheck', 'existence', 'arrayLength', 'each',
+  'arrayContains', 'containsSubset', 'custom',
+]);
+
 // ─── Operator Keyword Maps ────────────────────────────────
 
 const FIELD_OPERATOR_KEYWORDS: Record<string, FieldOperator> = {

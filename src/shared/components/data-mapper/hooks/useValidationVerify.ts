@@ -1,8 +1,9 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import type { ExpectedField, Assertion } from '../../../types';
 import type { Mapping, MapperAdapter } from '../types';
-import { evaluateFieldOperator, validateFieldsUnordered } from '../../../../engine/validator';
+import { evaluateFieldOperator, evaluateAssertions, validateFieldsUnordered } from '../../../../engine/validator';
 import { getByPath } from '../../../utils/jsonPath';
+import { DSL_ASSERTION_TYPES } from '../utils/validationDsl';
 
 function stripDollarPrefix(p: string): string {
   return p.startsWith('$.') ? p.slice(2) : p;
@@ -76,8 +77,6 @@ export function useValidationVerify({
 }: UseValidationVerifyOptions) {
   const [result, setResult] = useState<VerifyResult>(EMPTY_RESULT);
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const lastRunRef = useRef(0);
-  const verifyTimestampRef = useRef(0);
 
   const executeVerification = useCallback(() => {
     setResult(prev => ({ ...prev, status: 'running' }));
@@ -93,7 +92,9 @@ export function useValidationVerify({
       }
     } catch { /* ignore serialization errors */ }
 
-    if (expectedFields.length === 0) {
+    const dslAssertions = assertions.filter(a => DSL_ASSERTION_TYPES.has(a.type));
+
+    if (expectedFields.length === 0 && dslAssertions.length === 0) {
       setResult(EMPTY_RESULT);
       return;
     }
@@ -166,15 +167,40 @@ export function useValidationVerify({
       }
     }
 
-    // Assertions inherited from the test config are NOT evaluated inside the
-    // mapper — they are only verified in the Test Editor's own verify flow.
-    // The mapper verify counts only mapper-created rules (expectedFields).
+    // Evaluate DSL-originated assertions (arrayLength, typeCheck, existence, etc.)
+    // so the verify count matches the total DSL rule count visible to the user.
+    // Non-DSL assertions (status, responseTime, header) are skipped — they belong
+    // to the Test Editor's own verify flow.
     const assertionResults: AssertionVerifyResult[] = [];
-    const skippedCount = 0;
+    let skippedCount = 0;
+
+    if (dslAssertions.length > 0 && responseBody !== undefined) {
+      const ctx = { httpStatus: 200, responseTimeMs: 0, responseHeaders: {}, responseBody };
+
+      for (let i = 0; i < dslAssertions.length; i++) {
+        const a = dslAssertions[i];
+        const { failures: af } = evaluateAssertions([a], ctx);
+        const passed = af.length === 0;
+
+        assertionResults.push({
+          assertion: a,
+          index: i,
+          passed,
+          actual: af[0]?.actual,
+          expected: af[0]?.expected,
+        });
+
+        if (passed) {
+          passedCount++;
+        } else {
+          failedCount++;
+        }
+      }
+    } else if (dslAssertions.length > 0) {
+      skippedCount = dslAssertions.length;
+    }
 
     const now = Date.now();
-    lastRunRef.current = now;
-    verifyTimestampRef.current = now;
 
     setResult({
       status: 'complete',
@@ -186,7 +212,7 @@ export function useValidationVerify({
       failedMappingIds,
       timestamp: now,
     });
-  }, [mappings, sampleResponseData, adapter, unorderedArrays]);
+  }, [mappings, assertions, sampleResponseData, adapter, unorderedArrays]);
 
   // Auto-verify with debounce
   useEffect(() => {
@@ -201,11 +227,6 @@ export function useValidationVerify({
       if (debounceTimer.current) clearTimeout(debounceTimer.current);
     };
   }, [enabled, autoVerify, mappings, assertions, sampleResponseData, executeVerification]);
-
-  // NOTE: Invalidation of stale verify results when inputs change is not needed here because
-  // verifyTimestampRef tracks when the last verify ran, and components consuming nodeStatusMap
-  // should prompt re-verification via the toolbar button. Automatic invalidation caused
-  // issues with React's batched updates.
 
   // Reset when disabled
   useEffect(() => {

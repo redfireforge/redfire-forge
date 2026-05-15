@@ -4,11 +4,11 @@ import { renderHook, act } from '@testing-library/react';
 import { useBottomUtilityDock } from './useBottomUtilityDock';
 
 describe('useBottomUtilityDock', () => {
-  it('initializes with bottomUtilityMode "none" and rulesFloating false', () => {
+  it('initializes with bottomUtilityMode "none" and rulesModalOpen false', () => {
     const { result } = renderHook(() => useBottomUtilityDock());
 
     expect(result.current.bottomUtilityMode).toBe('none');
-    expect(result.current.rulesFloating).toBe(false);
+    expect(result.current.rulesModalOpen).toBe(false);
   });
 
   it('handleTogglePreview toggles between preview and none', () => {
@@ -53,92 +53,54 @@ describe('useBottomUtilityDock', () => {
     expect(result.current.bottomUtilityMode).toBe('none');
   });
 
-  it('handleToggleRulesView toggles between rules and none', () => {
+  it('handleToggleRulesView toggles rulesModalOpen independently of bottomUtilityMode', () => {
     const { result } = renderHook(() => useBottomUtilityDock());
 
     act(() => {
       result.current.handleToggleRulesView();
     });
-    expect(result.current.bottomUtilityMode).toBe('rules');
+    expect(result.current.rulesModalOpen).toBe(true);
+    expect(result.current.bottomUtilityMode).toBe('none');
 
     act(() => {
       result.current.handleToggleRulesView();
     });
-    expect(result.current.bottomUtilityMode).toBe('none');
+    expect(result.current.rulesModalOpen).toBe(false);
   });
 
-  it('activating a different mode switches away from the current mode', () => {
+  it('activating a different dock mode does not affect rulesModalOpen', () => {
     const { result } = renderHook(() => useBottomUtilityDock());
+
+    act(() => {
+      result.current.handleToggleRulesView();
+    });
+    expect(result.current.rulesModalOpen).toBe(true);
 
     act(() => {
       result.current.handleTogglePreview();
     });
     expect(result.current.bottomUtilityMode).toBe('preview');
+    expect(result.current.rulesModalOpen).toBe(true);
 
     act(() => {
       result.current.handleToggleCodeView();
     });
     expect(result.current.bottomUtilityMode).toBe('code');
-
-    act(() => {
-      result.current.handleToggleTableView();
-    });
-    expect(result.current.bottomUtilityMode).toBe('table');
-
-    act(() => {
-      result.current.handleToggleRulesView();
-    });
-    expect(result.current.bottomUtilityMode).toBe('rules');
-
-    act(() => {
-      result.current.handleTogglePreview();
-    });
-    expect(result.current.bottomUtilityMode).toBe('preview');
+    expect(result.current.rulesModalOpen).toBe(true);
   });
 
-  it('handleRulesPopOut sets rulesFloating true and closes rules dock when rules was active', () => {
+  it('handleCloseRulesModal closes the rules modal', () => {
     const { result } = renderHook(() => useBottomUtilityDock());
 
     act(() => {
       result.current.handleToggleRulesView();
     });
-    expect(result.current.bottomUtilityMode).toBe('rules');
+    expect(result.current.rulesModalOpen).toBe(true);
 
     act(() => {
-      result.current.handleRulesPopOut();
+      result.current.handleCloseRulesModal();
     });
-    expect(result.current.rulesFloating).toBe(true);
-    expect(result.current.bottomUtilityMode).toBe('none');
-  });
-
-  it('handleRulesPopOut keeps non-rules bottomUtilityMode unchanged', () => {
-    const { result } = renderHook(() => useBottomUtilityDock());
-
-    act(() => {
-      result.current.handleTogglePreview();
-    });
-    expect(result.current.bottomUtilityMode).toBe('preview');
-
-    act(() => {
-      result.current.handleRulesPopOut();
-    });
-    expect(result.current.rulesFloating).toBe(true);
-    expect(result.current.bottomUtilityMode).toBe('preview');
-  });
-
-  it('handleRulesPopIn clears floating and opens rules dock', () => {
-    const { result } = renderHook(() => useBottomUtilityDock());
-
-    act(() => {
-      result.current.handleRulesPopOut();
-    });
-    expect(result.current.rulesFloating).toBe(true);
-
-    act(() => {
-      result.current.handleRulesPopIn();
-    });
-    expect(result.current.rulesFloating).toBe(false);
-    expect(result.current.bottomUtilityMode).toBe('rules');
+    expect(result.current.rulesModalOpen).toBe(false);
   });
 
   it('handler references remain stable across renders', () => {
@@ -149,8 +111,7 @@ describe('useBottomUtilityDock', () => {
       handleToggleCodeView: result.current.handleToggleCodeView,
       handleToggleTableView: result.current.handleToggleTableView,
       handleToggleRulesView: result.current.handleToggleRulesView,
-      handleRulesPopOut: result.current.handleRulesPopOut,
-      handleRulesPopIn: result.current.handleRulesPopIn,
+      handleCloseRulesModal: result.current.handleCloseRulesModal,
     };
 
     rerender();
@@ -159,7 +120,6 @@ describe('useBottomUtilityDock', () => {
     expect(result.current.handleToggleCodeView).toBe(first.handleToggleCodeView);
     expect(result.current.handleToggleTableView).toBe(first.handleToggleTableView);
     expect(result.current.handleToggleRulesView).toBe(first.handleToggleRulesView);
-    expect(result.current.handleRulesPopOut).toBe(first.handleRulesPopOut);
-    expect(result.current.handleRulesPopIn).toBe(first.handleRulesPopIn);
+    expect(result.current.handleCloseRulesModal).toBe(first.handleCloseRulesModal);
   });
 });

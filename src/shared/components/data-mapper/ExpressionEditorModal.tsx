@@ -142,6 +142,29 @@ export default function ExpressionEditorModal({
   expressionRef.current = expression;
   const handleSaveRef = useRef<() => void>(() => {});
 
+  const [dragOffset, setDragOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const dragRef = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
+
+  const handleDragStart = useCallback((e: React.MouseEvent) => {
+    if ((e.target as HTMLElement).closest('button, input, select')) return;
+    e.preventDefault();
+    dragRef.current = { startX: e.clientX, startY: e.clientY, origX: dragOffset.x, origY: dragOffset.y };
+    const handleMove = (ev: MouseEvent) => {
+      if (!dragRef.current) return;
+      setDragOffset({
+        x: dragRef.current.origX + ev.clientX - dragRef.current.startX,
+        y: dragRef.current.origY + ev.clientY - dragRef.current.startY,
+      });
+    };
+    const handleUp = () => {
+      dragRef.current = null;
+      window.removeEventListener('mousemove', handleMove);
+      window.removeEventListener('mouseup', handleUp);
+    };
+    window.addEventListener('mousemove', handleMove);
+    window.addEventListener('mouseup', handleUp);
+  }, [dragOffset]);
+
   const handleUndo = useCallback(() => {
     const editor = editorRef.current;
     if (editor) {
@@ -475,8 +498,8 @@ export default function ExpressionEditorModal({
 
   return (
     <div className={`dm-expr-overlay ${isExpanded ? 'dm-expr--expanded' : ''}`} onKeyDown={handleKeyDown} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby={titleId}>
-      <div className="dm-expr-modal">
-        <div className="dm-expr-header">
+      <div className="dm-expr-modal" style={!isExpanded && (dragOffset.x || dragOffset.y) ? { transform: `translate(${dragOffset.x}px, ${dragOffset.y}px)` } : undefined}>
+        <div className="dm-expr-header" onMouseDown={!isExpanded ? handleDragStart : undefined} style={!isExpanded ? { cursor: 'grab' } : undefined}>
           <span id={titleId} className="dm-expr-title">Expression Editor</span>
           <span className="dm-expr-target-path">Target: {mapping.targetPath}</span>
           <div className="dm-expr-header-actions">
@@ -502,7 +525,7 @@ export default function ExpressionEditorModal({
             <button
               type="button"
               className="dm-expr-action-btn"
-              onClick={() => setIsExpanded((v) => !v)}
+              onClick={() => { setIsExpanded((v) => !v); setDragOffset({ x: 0, y: 0 }); }}
               title={isExpanded ? 'Shrink to default size' : 'Expand to full screen'}
               aria-label={isExpanded ? 'Shrink' : 'Expand'}
             >

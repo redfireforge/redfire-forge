@@ -73,6 +73,7 @@ function registerLanguage(monaco: typeof import('monaco-editor')) {
         [/\b(true|false)\b/, 'keyword.boolean'],
         [/\b(string|number|boolean|array|object|null)\b/, 'type'],
         [/\bNOT\b/, 'keyword.negate'],
+        [/\bASSERT\b/, 'keyword.assert'],
         [/\b(length|each|contains_item|contains_any|contains_all|contains_only|contains_none|subset)\b/, 'keyword.collection'],
         [/\b(equals|not_equals|contains|not_contains|starts_with|ends_with|regex|is_true|is_false|is_null|is_not_null|is_empty|is_not_empty|exists|not_exists|is_type|in|not_in|between|close_to|greater_than|greater_than_or_equal|less_than|less_than_or_equal)\b/, 'keyword.operator'],
         [/[><=!]+/, 'operator'],
@@ -95,6 +96,7 @@ function registerLanguage(monaco: typeof import('monaco-editor')) {
       { token: 'keyword.boolean', foreground: 'f38ba8' },
       { token: 'keyword.operator', foreground: 'cba6f7' },
       { token: 'keyword.negate', foreground: 'f87171', fontStyle: 'bold' },
+      { token: 'keyword.assert', foreground: 'cba6f7', fontStyle: 'bold' },
       { token: 'keyword.collection', foreground: '94e2d5' },
       { token: 'type', foreground: '94e2d5' },
       { token: 'operator', foreground: 'f9e2af' },
@@ -217,9 +219,9 @@ interface ValidationCodeEditorProps {
   onJumpToNode?: (path: string) => void;
   height?: number | string;
   readOnly?: boolean;
-  onPopOut?: () => void;
-  onPopIn?: () => void;
-  isFloating?: boolean;
+  onEditorMount?: (editor: import('monaco-editor').editor.IStandaloneCodeEditor) => void;
+  hideHeader?: boolean;
+  hideFooter?: boolean;
 }
 
 export default function ValidationCodeEditor({
@@ -230,9 +232,9 @@ export default function ValidationCodeEditor({
   onJumpToNode,
   height = 200,
   readOnly = false,
-  onPopOut,
-  onPopIn,
-  isFloating = false,
+  onEditorMount,
+  hideHeader = false,
+  hideFooter = false,
 }: ValidationCodeEditorProps) {
   const editorRef = useRef<import('monaco-editor').editor.IStandaloneCodeEditor | null>(null);
   const monacoRef = useRef<typeof import('monaco-editor') | null>(null);
@@ -293,6 +295,7 @@ export default function ValidationCodeEditor({
   const handleMount: OnMount = useCallback((editor, monaco) => {
     editorRef.current = editor;
     monacoRef.current = monaco;
+    onEditorMount?.(editor);
 
     editor.addAction({
       id: 'jump-to-node',
@@ -408,7 +411,7 @@ export default function ValidationCodeEditor({
       hardening.cancel();
       disposeDisposable.dispose();
     });
-  }, [onJumpToNode]);
+  }, [onJumpToNode, onEditorMount]);
 
   // Update error markers whenever errors change
   useEffect(() => {
@@ -480,39 +483,21 @@ export default function ValidationCodeEditor({
 
   return (
     <div className="dm-validation-editor" role="region" aria-label="Validation rules editor">
-      <div className={`dm-validation-editor-header${isFloating ? ' dm-validation-editor-header--floating' : ''}`}>
-        <span className="dm-validation-editor-title">Validation Rules</span>
-        <div className="dm-validation-editor-stats">
-          <span className="dm-validation-editor-stat">
-            {ruleCount} rule{ruleCount !== 1 ? 's' : ''}
-          </span>
-          {errorCount > 0 && (
-            <span className="dm-validation-editor-stat dm-validation-editor-stat--error">
-              {errorCount} error{errorCount !== 1 ? 's' : ''}
+      {!hideHeader && (
+        <div className="dm-validation-editor-header">
+          <span className="dm-validation-editor-title">Validation Rules</span>
+          <div className="dm-validation-editor-stats">
+            <span className="dm-validation-editor-stat">
+              {ruleCount} rule{ruleCount !== 1 ? 's' : ''}
             </span>
-          )}
-          {onPopOut && !isFloating && (
-            <button
-              className="dm-validation-editor-popout-btn"
-              onClick={onPopOut}
-              title="Open in floating window"
-              aria-label="Pop out editor"
-            >
-              ↗
-            </button>
-          )}
-          {onPopIn && isFloating && (
-            <button
-              className="dm-validation-editor-popout-btn"
-              onClick={onPopIn}
-              title="Dock back to panel"
-              aria-label="Pop in editor"
-            >
-              ↙
-            </button>
-          )}
+            {errorCount > 0 && (
+              <span className="dm-validation-editor-stat dm-validation-editor-stat--error">
+                {errorCount} error{errorCount !== 1 ? 's' : ''}
+              </span>
+            )}
+          </div>
         </div>
-      </div>
+      )}
       <div className="dm-validation-editor-body" style={{ height }}>
         <Editor
           language={LANGUAGE_ID}
@@ -542,16 +527,18 @@ export default function ValidationCodeEditor({
           ))}
         </div>
       )}
-      <div className="dm-validation-editor-footer">
-        <span className="dm-validation-editor-hint">
-          Syntax: <code>path  operator  [value]</code> · <kbd>Ctrl</kbd>+<kbd>Space</kbd> for full suggestions · Lines starting with <code>#</code> are comments
-        </span>
-        {onJumpToNode && (
+      {!hideFooter && (
+        <div className="dm-validation-editor-footer">
           <span className="dm-validation-editor-hint">
-            <kbd>Ctrl</kbd>+<kbd>G</kbd> Jump to node
+            Syntax: <code>path  operator  [value]</code> · <kbd>Ctrl</kbd>+<kbd>Space</kbd> for full suggestions · Lines starting with <code>#</code> are comments
           </span>
-        )}
-      </div>
+          {onJumpToNode && (
+            <span className="dm-validation-editor-hint">
+              <kbd>Ctrl</kbd>+<kbd>G</kbd> Jump to node
+            </span>
+          )}
+        </div>
+      )}
     </div>
   );
 }

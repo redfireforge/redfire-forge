@@ -16,8 +16,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
   - **Zero monolithic files** — all source files now under 900 lines.
   - **Quality gate** — 16,356 unit tests (576 files), 613 E2E tests, >90% coverage (statements/branches/functions/lines) across all files, 0 ESLint errors, 0 TypeScript errors.
 
-- **Floating DSL Editor**
-  - **`FloatingEditorModal`** — draggable/resizable pop-out Monaco editor via React Portal. ↗ button pops out from bottom dock, ↙ or Escape docks back. Independent position and size management.
+- **Validation Rules Modal** (replaced `FloatingEditorModal`)
+  - **`ValidationRulesModal`** — three-mode panel (docked / floating / maximized) with split-pane DSL editor + reference panel. Portals into closest modal overlay for correct stacking context.
+  - **`DslReferencePanel`** — professional card-based DSL reference with 10 categories, search, expand/collapse all, click-to-insert, and copy syntax.
   - **Bi-directional sync hardening** — `useValidationCodeSync` now uses error-aware updates (only pushes to visual model on zero parse errors) and `pendingCodeSyncs` counter to prevent sync echo overwrites.
 
 - **Visual Mapper UX Improvements**
