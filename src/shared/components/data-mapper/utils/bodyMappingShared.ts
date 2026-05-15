@@ -3,6 +3,7 @@
  */
 
 import type { MapperSource } from '../types';
+import { stripJsonPathPrefix } from '../../../utils/jsonPath';
 
 const UNSAFE_PATH_KEYS = new Set(['__proto__', 'prototype', 'constructor']);
 
@@ -23,6 +24,6 @@ export function findSourceForRef(ref: string, sources: MapperSource[]): string {
  * silently skipped by setByPath (prototype pollution guard).
  */
 export function hasUnsafePathSegment(path: string): boolean {
-  const normalized = path.startsWith('$.') ? path.slice(2) : path.startsWith('$') ? path.slice(1) : path;
+  const normalized = stripJsonPathPrefix(path);
   return normalized.split('.').filter(Boolean).some(k => UNSAFE_PATH_KEYS.has(k));
 }

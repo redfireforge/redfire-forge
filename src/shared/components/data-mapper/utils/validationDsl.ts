@@ -238,9 +238,10 @@ export function parseDslLine(line: string, lineNumber: number): ParsedRule | Par
     return { lineNumber, path, operator: fieldOp, value: undefined, negate, kind: 'existence' };
   }
 
+  const listOperators = new Set(['in', 'not_in', 'between', 'close_to']);
   return {
     lineNumber, path, operator: fieldOp,
-    value: rawValue ? unquote(rawValue) : undefined,
+    value: rawValue ? (listOperators.has(fieldOp) ? rawValue : unquote(rawValue)) : undefined,
     negate, kind: 'field',
   };
 }

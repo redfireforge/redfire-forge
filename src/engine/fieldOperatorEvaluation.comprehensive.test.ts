@@ -507,6 +507,14 @@ describe('in operator', () => {
   it('handles undefined actual', () => {
     expect(evaluateFieldOperator(undefined, 'in', '[1,2]', '').pass).toBe(false);
   });
+  it('handles quoted values without brackets (user input)', () => {
+    expect(evaluateFieldOperator('Trial', 'in', '"Error","Trial"', '').pass).toBe(true);
+    expect(evaluateFieldOperator('Trial', 'in', '"Error","Premium"', '').pass).toBe(false);
+  });
+  it('strips surrounding quotes from CSV items', () => {
+    expect(evaluateFieldOperator('Trial', 'in', '"Trial", "Premium"', '').pass).toBe(true);
+    expect(evaluateFieldOperator('Trial', 'in', "'Trial', 'Premium'", '').pass).toBe(true);
+  });
 });
 
 describe('not_in operator', () => {

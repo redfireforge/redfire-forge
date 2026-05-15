@@ -829,4 +829,61 @@ describe('TargetPanel', () => {
       expect(badge?.textContent).toContain('4 unresolved');
     });
   });
+
+  describe('scrollToPathSignal', () => {
+    const panelDefaults = {
+      target,
+      mappings: [] as Mapping[],
+      onDrop: vi.fn(),
+      selectedMappingId: null as string | null,
+      onSelectMapping: vi.fn(),
+    };
+
+    it('auto-expands ancestors and scrolls to node on signal', async () => {
+      const scrollIntoViewMock = vi.fn();
+      Element.prototype.scrollIntoView = scrollIntoViewMock;
+
+      const deepTarget: MapperTarget = {
+        label: 'Output',
+        sampleData: { nested: { deep: { value: 42 } } },
+        allowCustomFields: false,
+      };
+      const { rerender, container } = render(<TargetPanel {...panelDefaults} target={deepTarget} />);
+
+      fireEvent.click(screen.getByRole('button', { name: 'Collapse all' }));
+      expect(container.querySelector('[data-path="nested.deep.value"]')).toBeNull();
+
+      rerender(
+        <TargetPanel {...panelDefaults} target={deepTarget} scrollToPathSignal={{ path: '$.nested.deep.value', tick: 1 }} />,
+      );
+
+      await new Promise(r => setTimeout(r, 50));
+
+      const node = container.querySelector('[data-path="nested.deep.value"]');
+      expect(node).not.toBeNull();
+    });
+
+    it('strips $. prefix and finds node by stripped path', async () => {
+      const { rerender, container } = render(<TargetPanel {...panelDefaults} />);
+
+      rerender(
+        <TargetPanel {...panelDefaults} scrollToPathSignal={{ path: '$.userName', tick: 1 }} />,
+      );
+
+      await new Promise(r => setTimeout(r, 50));
+      const node = container.querySelector('[data-path="userName"]');
+      expect(node).not.toBeNull();
+    });
+
+    it('handles path without $. prefix', async () => {
+      const { rerender, container } = render(<TargetPanel {...panelDefaults} />);
+
+      rerender(
+        <TargetPanel {...panelDefaults} scrollToPathSignal={{ path: 'userName', tick: 1 }} />,
+      );
+
+      await new Promise(r => setTimeout(r, 50));
+      expect(container.querySelector('[data-path="userName"]')).not.toBeNull();
+    });
+  });
 });

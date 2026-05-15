@@ -1,5 +1,7 @@
 import { useMemo, useCallback, useRef } from 'react';
 import type { VerifyResult } from './useValidationVerify';
+import { stripJsonPathPrefix } from '../../../utils/jsonPath';
+import { flashTreeNode } from '../utils/targetTreeHelpers';
 
 export function useVerifyNavigation(verifyResult: VerifyResult) {
   const targetPanelRef = useRef<HTMLDivElement>(null);
@@ -24,14 +26,13 @@ export function useVerifyNavigation(verifyResult: VerifyResult) {
   const handleNavigateToFailure = useCallback((path: string) => {
     const container = targetPanelRef.current;
     if (!container) return;
-    const stripped = path.startsWith('$.') ? path.slice(2) : path;
+    const stripped = stripJsonPathPrefix(path);
     const el =
       container.querySelector(`[data-path="${path}"]`) ??
       container.querySelector(`[data-path="${stripped}"]`);
     if (el) {
       el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      (el as HTMLElement).classList.add('dm-tree-node--flash');
-      setTimeout(() => (el as HTMLElement).classList.remove('dm-tree-node--flash'), 1500);
+      flashTreeNode(el);
     }
   }, []);
 

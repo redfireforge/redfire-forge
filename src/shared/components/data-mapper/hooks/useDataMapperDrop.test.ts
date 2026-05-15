@@ -738,4 +738,124 @@ describe('useDataMapperDrop', () => {
     expect(setMappings).not.toHaveBeenCalled();
     expect(result.current.propagationPreview).toBeNull();
   });
+
+  describe('handleRemapDrop', () => {
+    it('moves mapping to a new target path', () => {
+      const setMappings = vi.fn();
+      const setToast = vi.fn();
+      const existingMapping: Mapping = {
+        id: 'map-1',
+        sourcePath: 'outer.childA',
+        sourceId: 'src1',
+        targetPath: 'outer.childA',
+      };
+      const { result } = renderHook(() =>
+        useDataMapperDrop(mkDeps([existingMapping], { setMappings, setToast })),
+      );
+
+      act(() => {
+        result.current.handleRemapDrop('outer.childB', 'map-1');
+      });
+
+      expect(setMappings).toHaveBeenCalledWith([
+        { ...existingMapping, targetPath: 'outer.childB' },
+      ]);
+      expect(setToast).toHaveBeenCalledWith('Remapped to outer.childB');
+    });
+
+    it('no-ops when mapping does not exist', () => {
+      const setMappings = vi.fn();
+      const { result } = renderHook(() =>
+        useDataMapperDrop(mkDeps([], { setMappings })),
+      );
+
+      act(() => {
+        result.current.handleRemapDrop('outer.childB', 'non-existent');
+      });
+
+      expect(setMappings).not.toHaveBeenCalled();
+    });
+
+    it('no-ops when target path is the same', () => {
+      const setMappings = vi.fn();
+      const existingMapping: Mapping = {
+        id: 'map-1',
+        sourcePath: 'outer.childA',
+        sourceId: 'src1',
+        targetPath: 'outer.childA',
+      };
+      const { result } = renderHook(() =>
+        useDataMapperDrop(mkDeps([existingMapping], { setMappings })),
+      );
+
+      act(() => {
+        result.current.handleRemapDrop('outer.childA', 'map-1');
+      });
+
+      expect(setMappings).not.toHaveBeenCalled();
+    });
+
+    it('rejects remap when new target is already occupied', () => {
+      const setMappings = vi.fn();
+      const setToast = vi.fn();
+      const mappings: Mapping[] = [
+        { id: 'map-1', sourcePath: 'outer.childA', sourceId: 'src1', targetPath: 'outer.childA' },
+        { id: 'map-2', sourcePath: 'outer.childB', sourceId: 'src1', targetPath: 'outer.childB' },
+      ];
+      const { result } = renderHook(() =>
+        useDataMapperDrop(mkDeps(mappings, { setMappings, setToast })),
+      );
+
+      act(() => {
+        result.current.handleRemapDrop('outer.childB', 'map-1');
+      });
+
+      expect(setMappings).not.toHaveBeenCalled();
+      expect(setToast).toHaveBeenCalledWith('Target already has a mapping — remove it first');
+    });
+
+    it('preserves existing expression when remapping', () => {
+      const setMappings = vi.fn();
+      const existingMapping: Mapping = {
+        id: 'map-1',
+        sourcePath: 'outer.childA',
+        sourceId: 'src1',
+        targetPath: 'outer.childA',
+        expression: 'String($.outer.childA)',
+      };
+      const { result } = renderHook(() =>
+        useDataMapperDrop(mkDeps([existingMapping], { setMappings })),
+      );
+
+      act(() => {
+        result.current.handleRemapDrop('outer.childC', 'map-1');
+      });
+
+      expect(setMappings).toHaveBeenCalledWith([
+        { ...existingMapping, targetPath: 'outer.childC' },
+      ]);
+    });
+  });
+
+  describe('remap drag ref', () => {
+    it('tracks remap drag start and end via ref', () => {
+      const { result } = renderHook(() =>
+        useDataMapperDrop(mkDeps([])),
+      );
+
+      expect(result.current.getDraggedRemapId()).toBeNull();
+
+      act(() => {
+        result.current.handleRemapDragStart('map-42');
+      });
+
+      expect(result.current.getDraggedRemapId()).toBe('map-42');
+
+      act(() => {
+        result.current.handleRemapDragEnd();
+      });
+
+      expect(result.current.getDraggedRemapId()).toBeNull();
+    });
+  });
 });

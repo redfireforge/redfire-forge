@@ -437,6 +437,13 @@ export default function MapperToolbar({
               >
                 ▼
               </button>
+              {verifyFailures[activeFailureIndex] && (
+                <span className="dm-toolbar-failure-inline" title={verifyFailures[activeFailureIndex].path}>
+                  <span className="dm-toolbar-failure-inline-path">{verifyFailures[activeFailureIndex].path}</span>
+                  <span className="dm-toolbar-failure-inline-expected">Expected: {verifyFailures[activeFailureIndex].expected ?? '?'}</span>
+                  <span className="dm-toolbar-failure-inline-actual">Got: {verifyFailures[activeFailureIndex].actual ?? '?'}</span>
+                </span>
+              )}
             </div>
           )}
           {failureListOpen && verifyFailures.length > 0 && (

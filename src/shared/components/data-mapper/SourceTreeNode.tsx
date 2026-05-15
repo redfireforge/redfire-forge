@@ -2,15 +2,11 @@ import { useCallback, useMemo } from 'react';
 import type { JsonTreeNode } from '../../utils/jsonTreeModel';
 import type { DriftSeverity } from './utils/schemaDrift';
 import { normalizeMapperPath } from './utils/pathNormalization';
-
-const TYPE_LABELS: Record<string, string> = {
-  object: 'obj',
-  array: 'arr',
-  string: 'str',
-  number: 'num',
-  boolean: 'bool',
-  null: 'null',
-};
+import {
+  TYPE_LABELS,
+  matchesNodeVisibility,
+  formatNodeDisplayKey,
+} from './utils/targetTreeHelpers';
 
 export type DriftIndicator = { severity: DriftSeverity; label: string };
 
@@ -36,49 +32,6 @@ interface SourceTreeNodeProps {
   traceOverlay?: Map<string, TraceValueOverlay>;
   mappedPaths?: Set<string>;
   highlightedPaths?: Set<string> | null;
-}
-
-function matchesSearchTerm(node: JsonTreeNode, lower: string): boolean {
-  if (!lower) return true;
-  if (node.key.toLowerCase().includes(lower)) return true;
-  if (node.path.toLowerCase().includes(lower)) return true;
-  if (node.type !== 'object' && node.type !== 'array' && String(node.value ?? '').toLowerCase().includes(lower)) return true;
-  return false;
-}
-
-function matchesFilter(path: string, mappingFilter: 'all' | 'mapped' | 'unmapped', mappedPaths?: Set<string>): boolean {
-  if (mappingFilter === 'all') return true;
-  const isMapped = mappedPaths?.has(normalizeMapperPath(path)) ?? false;
-  return mappingFilter === 'mapped' ? isMapped : !isMapped;
-}
-
-function matchesNodeVisibility(
-  node: JsonTreeNode,
-  search: string,
-  mappingFilter: 'all' | 'mapped' | 'unmapped',
-  mappedPaths?: Set<string>,
-): boolean {
-  const hasChildren = (node.children?.length ?? 0) > 0;
-  const lower = search.toLowerCase();
-  const searchMatch = matchesSearchTerm(node, lower);
-
-  if (!hasChildren) {
-    return searchMatch && matchesFilter(node.path, mappingFilter, mappedPaths);
-  }
-
-  const childMatch = node.children!.some((child) => matchesNodeVisibility(child, search, mappingFilter, mappedPaths));
-  if (mappingFilter === 'all') {
-    return searchMatch || childMatch;
-  }
-  return childMatch;
-}
-
-function formatNodeDisplayKey(node: JsonTreeNode): string {
-  const raw = node.key || '(root)';
-  if (!/^\[(\d+|\*)\]$/.test(raw)) return raw;
-  const normalizedPath = normalizeMapperPath(node.path);
-  const match = normalizedPath.match(/(?:^|\.)([^.[\]]+\[(?:\d+|\*)\])$/);
-  return match?.[1] ?? raw;
 }
 
 export default function SourceTreeNode({

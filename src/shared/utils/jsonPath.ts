@@ -8,6 +8,16 @@
 
 const STAR = '__PATH_STAR__';
 
+/**
+ * Strip the leading `$.` or `$` prefix from a JSONPath string.
+ * Returns the bare dotted path (`a.b[0].c`).
+ */
+export function stripJsonPathPrefix(path: string): string {
+  if (path.startsWith('$.')) return path.slice(2);
+  if (path.startsWith('$')) return path.slice(1);
+  return path;
+}
+
 function tokenizeJsonPath(normalized: string): string[] {
   const tokens: string[] = [];
   let i = 0;
@@ -62,7 +72,7 @@ function walkPath(obj: unknown, tokens: string[], idx: number): unknown {
  * `[*]` walks every array element at that segment and returns an array of nested results.
  */
 export function getByPath(obj: unknown, path: string): unknown {
-  const normalized = path.startsWith('$.') ? path.slice(2) : path.startsWith('$') ? path.slice(1) : path;
+  const normalized = stripJsonPathPrefix(path);
   if (!normalized.trim()) return obj;
   const tokens = tokenizeJsonPath(normalized);
   if (tokens.length === 0) return obj;
@@ -94,7 +104,7 @@ export function setByPath(
   path: string,
   value: unknown,
 ): void {
-  const normalized = path.startsWith('$.') ? path.slice(2) : path.startsWith('$') ? path.slice(1) : path;
+  const normalized = stripJsonPathPrefix(path);
   if (!normalized.trim()) return;
   const keys = normalized.split('.').filter(Boolean);
   if (keys.length === 0) return;

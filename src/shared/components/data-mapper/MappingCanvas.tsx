@@ -36,6 +36,8 @@ interface MappingCanvasProps {
   totalMappingCount?: number;
   failedMappingIds?: Set<string>;
   highlightedMappingIds?: Set<string> | null;
+  onRemapDragStart?: (mappingId: string) => void;
+  onRemapDragEnd?: () => void;
 }
 
 function bezierPath(sourceY: number, targetY: number, width: number): string {
@@ -67,6 +69,8 @@ export default function MappingCanvas({
   totalMappingCount = 0,
   failedMappingIds,
   highlightedMappingIds,
+  onRemapDragStart,
+  onRemapDragEnd,
 }: MappingCanvasProps) {
   const [hoveredMappingId, setHoveredMappingId] = useState<string | null>(null);
 
@@ -377,6 +381,15 @@ export default function MappingCanvas({
                 </g>
               </>
             )}
+            {onRemapDragStart && !p.isPending && (
+              <RemapHandle
+                x={width}
+                y={p.targetY}
+                mappingId={p.mappingId}
+                onDragStart={onRemapDragStart}
+                onDragEnd={onRemapDragEnd}
+              />
+            )}
           </g>
         );
       })}
@@ -422,5 +435,54 @@ function CanvasBadge({
         {label}
       </text>
     </g>
+  );
+}
+
+const REMAP_TEXT_PREFIX = 'mapper-remap:';
+
+function RemapHandle({
+  x,
+  y,
+  mappingId,
+  onDragStart,
+  onDragEnd,
+}: {
+  x: number;
+  y: number;
+  mappingId: string;
+  onDragStart: (mappingId: string) => void;
+  onDragEnd?: () => void;
+}) {
+  const handleDragStart = useCallback((e: React.DragEvent) => {
+    e.stopPropagation();
+    e.dataTransfer.effectAllowed = 'move';
+    const payload = JSON.stringify({ kind: 'remap', mappingId });
+    e.dataTransfer.setData('application/mapper-remap', payload);
+    e.dataTransfer.setData('text/plain', `${REMAP_TEXT_PREFIX}${payload}`);
+    onDragStart(mappingId);
+  }, [mappingId, onDragStart]);
+
+  const handleDragEnd = useCallback(() => {
+    onDragEnd?.();
+  }, [onDragEnd]);
+
+  const size = 14;
+  const inset = 6;
+  return (
+    <foreignObject
+      x={x - size - inset}
+      y={y - size / 2}
+      width={size}
+      height={size}
+      className="dm-remap-handle-fo"
+    >
+      <div
+        draggable
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+        className="dm-remap-handle"
+        title="Drag to remap to a different target"
+      />
+    </foreignObject>
   );
 }

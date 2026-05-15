@@ -8,6 +8,7 @@
 
 import type { SchemaSnapshot, SchemaFieldEntry } from './schemaSnapshot';
 import type { Mapping } from '../types';
+import { stripJsonPathPrefix } from '../../../utils/jsonPath';
 
 // ─── Types ────────────────────────────────────────────────
 
@@ -122,8 +123,7 @@ export function diffSchemas(
  * `data[2][0].x` → `data.[*].[*].x`
  */
 function normalizePathForDrift(path: string): string {
-  // Strip leading $. prefix (mapping paths use $. while snapshot paths don't)
-  const stripped = path.startsWith('$.') ? path.slice(2) : path;
+  const stripped = stripJsonPathPrefix(path);
   // Replace optional dot + bracket notation with canonical .[*]
   return stripped.replace(/\.?\[(\d+|\*)\]/g, '.[*]');
 }
