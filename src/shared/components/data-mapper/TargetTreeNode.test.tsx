@@ -1566,7 +1566,7 @@ describe('TargetTreeNode – custom field removal and tree chrome', () => {
 
     it('toggles negation from operator picker row', () => {
       const onToggleNegate = vi.fn();
-      const { container } = render(
+      render(
         <TargetTreeNode
           node={leaf}
           {...defaults}
@@ -1577,7 +1577,7 @@ describe('TargetTreeNode – custom field removal and tree chrome', () => {
         />,
       );
       fireEvent.click(screen.getByLabelText('Change operator from equals'));
-      expect(container.querySelector('.dm-operator-picker')).not.toBeNull();
+      expect(document.querySelector('.dm-operator-picker')).not.toBeNull();
       fireEvent.click(screen.getByLabelText('Toggle negation'));
       expect(onToggleNegate).toHaveBeenCalledWith('m1');
     });

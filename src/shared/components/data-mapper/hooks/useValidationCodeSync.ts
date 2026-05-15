@@ -2,7 +2,7 @@ import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import type { ExpectedField, Assertion } from '../../../types';
 import type { Mapping } from '../types';
 import type { ParseError, DslModel } from '../utils/validationDsl';
-import { serializeToDsl, parseDsl, dslToModel, exportAsJson, importAutoDetect } from '../utils/validationDsl';
+import { serializeToDsl, parseDsl, dslToModel, exportAsJson, importAutoDetect, DSL_ASSERTION_TYPES } from '../utils/validationDsl';
 
 export interface ValidationCodeSyncState {
   dslText: string;
@@ -18,8 +18,6 @@ interface UseValidationCodeSyncOptions {
   onUpdateAssertions: (assertions: Assertion[]) => void;
   enabled: boolean;
 }
-
-const DSL_ASSERTION_TYPES = new Set(['typeCheck', 'existence', 'arrayLength', 'each', 'arrayContains', 'containsSubset', 'custom']);
 
 export function useValidationCodeSync({
   mappings: _mappings,

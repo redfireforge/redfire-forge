@@ -1261,9 +1261,46 @@ describe('ExpressionEditorModal – handleComposeWithFunction', () => {
     };
     renderModal({ customFunctions: [fn] });
     await act(async () => { fireEvent.click(screen.getByText('$exotic')); });
-    // Sidebar click wraps current expression as first arg, unknown type uses arg name
     const textarea = screen.getByPlaceholderText(/\$upper/) as HTMLTextAreaElement;
     expect(textarea.value).toBe('$exotic(name, opts)');
+  });
+
+  it('uses lambda template for $map when sidebar-clicked', async () => {
+    const { container } = renderModal();
+    const mapItem = Array.from(container.querySelectorAll('.dm-expr-fn-item'))
+      .find(el => el.textContent?.includes('$map'));
+    expect(mapItem).toBeTruthy();
+    await act(async () => { fireEvent.click(mapItem!); });
+    const textarea = screen.getByPlaceholderText(/\$upper/) as HTMLTextAreaElement;
+    expect(textarea.value).toBe('$map(name, x => x)');
+  });
+
+  it('uses lambda template for $filter when sidebar-clicked', async () => {
+    const { container } = renderModal();
+    const filterItem = Array.from(container.querySelectorAll('.dm-expr-fn-item'))
+      .find(el => el.textContent?.includes('$filter'));
+    expect(filterItem).toBeTruthy();
+    await act(async () => { fireEvent.click(filterItem!); });
+    const textarea = screen.getByPlaceholderText(/\$upper/) as HTMLTextAreaElement;
+    expect(textarea.value).toBe('$filter(name, x => $gt(x, 0))');
+  });
+
+  it('Compose-with-current uses lambda template for lambda-supporting function', async () => {
+    monacoTestState.suppressOnMount = true;
+    const { container } = renderModal({ mapping: { ...baseMapping, expression: '$upper($.name)' } });
+    const fnItems = Array.from(container.querySelectorAll('.dm-expr-fn-item'));
+    const mapItem = fnItems.find(el => {
+      const nameEl = el.querySelector('.dm-expr-fn-name');
+      return nameEl?.textContent === '$map';
+    });
+    expect(mapItem).toBeTruthy();
+    await act(async () => { fireEvent.click(mapItem!); });
+    await act(async () => {
+      fireEvent.click(screen.getByText('Compose with current'));
+    });
+    const textarea = screen.getByTestId('monaco-editor') as HTMLTextAreaElement;
+    expect(textarea.value).toContain('$map(');
+    expect(textarea.value).toContain('x => x');
   });
 });
 
@@ -1405,5 +1442,43 @@ describe('ExpressionEditorModal — search, templates, expand, snippets edge cas
     fireEvent.click(screen.getByText('Compose with current'));
     const ta = screen.getByPlaceholderText(/\$upper/) as HTMLTextAreaElement;
     expect(ta.value).toContain('$flagWrap($.name, false)');
+  });
+});
+
+describe('ExpressionEditorModal — modal drag', () => {
+  it('drag on header moves the modal offset', () => {
+    const { container } = renderModal();
+    const header = container.querySelector('.dm-expr-header')!;
+    expect(header).toBeTruthy();
+
+    fireEvent.mouseDown(header, { clientX: 200, clientY: 100 });
+
+    act(() => {
+      window.dispatchEvent(new MouseEvent('mousemove', { clientX: 250, clientY: 130, bubbles: true }));
+    });
+
+    const modal = container.querySelector('.dm-expr-modal');
+    const style = modal?.getAttribute('style') || '';
+    expect(style).toContain('translate(50px, 30px)');
+
+    act(() => {
+      window.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+    });
+  });
+
+  it('drag aborts when clicking on a button within header', () => {
+    const { container } = renderModal();
+    const header = container.querySelector('.dm-expr-header')!;
+    const button = header.querySelector('button')!;
+
+    fireEvent.mouseDown(button, { clientX: 200, clientY: 100 });
+
+    act(() => {
+      window.dispatchEvent(new MouseEvent('mousemove', { clientX: 300, clientY: 200, bubbles: true }));
+    });
+
+    const modal = container.querySelector('.dm-expr-modal');
+    const style = modal?.getAttribute('style') || '';
+    expect(style).not.toContain('translate');
   });
 });

@@ -23,6 +23,31 @@ import InlineAssertionRow from './InlineAssertionRow';
 import TargetNodeOperatorPicker from './TargetNodeOperatorPicker';
 import TargetNodeContextMenu from './TargetNodeContextMenu';
 
+/**
+ * Find the nearest ancestor that creates a containing block for position:fixed
+ * (transform, backdrop-filter, filter, perspective, will-change, contain)
+ * and return its viewport offset so we can compensate in fixed positioning.
+ */
+function getContainingBlockOffset(el: HTMLElement | null): { x: number; y: number } {
+  let node = el?.parentElement ?? null;
+  while (node) {
+    const cs = getComputedStyle(node);
+    if (
+      (cs.transform && cs.transform !== 'none') ||
+      (cs.backdropFilter && cs.backdropFilter !== 'none') ||
+      (cs.filter && cs.filter !== 'none') ||
+      (cs.perspective && cs.perspective !== 'none') ||
+      (cs.willChange === 'transform' || cs.willChange === 'perspective' || cs.willChange === 'filter') ||
+      (cs.contain === 'paint' || cs.contain === 'layout' || cs.contain === 'strict' || cs.contain === 'content')
+    ) {
+      const rect = node.getBoundingClientRect();
+      return { x: rect.left, y: rect.top };
+    }
+    node = node.parentElement;
+  }
+  return { x: 0, y: 0 };
+}
+
 interface TargetTreeNodeProps {
   node: JsonTreeNode;
   depth: number;
@@ -132,6 +157,7 @@ export default function TargetTreeNode({
   const isLeaf = !hasChildren;
   const origin = fieldOrigins?.get(node.path);
   const isCustomOrFetched = origin === 'custom' || origin === 'fetched';
+  const isRenamableField = !!onUpdateCustomField && (isCustomOrFetched || isLeaf);
 
   // Derive verify status from nodeStatusMap if not directly set
   const verifyStatus = verifyStatusProp ?? nodeStatusMap?.get(node.path) ?? nodeStatusMap?.get(`$.${node.path}`);
@@ -254,14 +280,17 @@ export default function TargetTreeNode({
   );
 
   useEffect(() => {
-    if (renaming) renameInputRef.current?.focus();
+    if (renaming) {
+      renameInputRef.current?.focus();
+      renameInputRef.current?.select();
+    }
   }, [renaming]);
 
   const handleStartRename = useCallback(() => {
-    if (!isCustomOrFetched || !onUpdateCustomField) return;
+    if (!isRenamableField) return;
     setRenameValue(node.path);
     setRenaming(true);
-  }, [isCustomOrFetched, onUpdateCustomField, node.path]);
+  }, [isRenamableField, node.path]);
 
   const handleRenameSubmit = useCallback(() => {
     const trimmed = renameValue.trim();
@@ -291,10 +320,10 @@ export default function TargetTreeNode({
   const handleDoubleClick = useCallback(() => {
     if (mapping && onEditExpression) {
       onEditExpression(mapping.id);
-    } else if (isCustomOrFetched && !mapping && onUpdateCustomField) {
+    } else if (isRenamableField && !mapping) {
       handleStartRename();
     }
-  }, [mapping, onEditExpression, isCustomOrFetched, onUpdateCustomField, handleStartRename]);
+  }, [mapping, onEditExpression, isRenamableField, handleStartRename]);
 
   const currentOp = mapping?.operator
     ?? (mapping?.isAutoMapped ? capabilities?.autoMapDefaultOperator : undefined)
@@ -371,13 +400,17 @@ export default function TargetTreeNode({
     };
   }, [showContextMenu]);
 
+  const canRename = isRenamableField;
+  const hasContextMenu = !!(capabilities?.operators || canRename);
+
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
-    if (!capabilities?.operators) return;
+    if (!hasContextMenu) return;
     e.preventDefault();
     e.stopPropagation();
-    setContextMenuPos({ x: e.clientX, y: e.clientY });
+    const offset = getContainingBlockOffset(e.target as HTMLElement);
+    setContextMenuPos({ x: e.clientX - offset.x, y: e.clientY - offset.y });
     setShowContextMenu(true);
-  }, [capabilities]);
+  }, [hasContextMenu]);
 
   const filteredOperators = useMemo(() => {
     const lower = operatorSearch.toLowerCase();
@@ -503,6 +536,7 @@ export default function TargetTreeNode({
                       e.stopPropagation();
                       if (!showOperatorPicker && operatorPillRef.current) {
                         const rect = operatorPillRef.current.getBoundingClientRect();
+                        const cbOffset = getContainingBlockOffset(operatorPillRef.current);
                         const dmBody = operatorPillRef.current.closest('.dm-body');
                         const sourcePanel = dmBody?.querySelector('.dm-panel-wrapper');
                         const sourcePanelRect = sourcePanel?.getBoundingClientRect();
@@ -511,9 +545,9 @@ export default function TargetTreeNode({
                         let left: number;
                         if (sourcePanelRect) {
                           const fitWidth = Math.min(pickerWidth, sourcePanelRect.width - 16);
-                          left = sourcePanelRect.left + 8;
+                          left = sourcePanelRect.left - cbOffset.x + 8;
                           if (fitWidth < pickerWidth) {
-                            left = sourcePanelRect.left + 4;
+                            left = sourcePanelRect.left - cbOffset.x + 4;
                           }
                         } else {
                           left = 8;
@@ -521,7 +555,7 @@ export default function TargetTreeNode({
                         const spaceBelow = window.innerHeight - rect.top;
                         const openUp = spaceBelow < pickerHeight && rect.top > spaceBelow;
                         setPickerPos({
-                          top: openUp ? Math.max(8, rect.top - pickerHeight + 30) : rect.top,
+                          top: openUp ? Math.max(8, rect.top - cbOffset.y - pickerHeight + 30) : rect.top - cbOffset.y,
                           left: Math.max(8, left),
                           openUp,
                         });
@@ -665,7 +699,7 @@ export default function TargetTreeNode({
           handleOperatorSelect={handleOperatorSelect}
         />
       )}
-      {showContextMenu && capabilities?.operators && (
+      {showContextMenu && hasContextMenu && (
         <TargetNodeContextMenu
           ref={contextMenuRef}
           position={contextMenuPos}
@@ -673,11 +707,13 @@ export default function TargetTreeNode({
           capabilities={capabilities}
           isMapped={isMapped}
           mapping={mapping}
+          isRenamable={canRename}
           onClose={() => setShowContextMenu(false)}
           onOpenOperatorPicker={() => {
             if (operatorPillRef.current) {
               const rect = operatorPillRef.current.getBoundingClientRect();
-              setPickerPos({ top: rect.bottom + 4, left: rect.left, openUp: false });
+              const cbOffset = getContainingBlockOffset(operatorPillRef.current);
+              setPickerPos({ top: rect.bottom + 4 - cbOffset.y, left: rect.left - cbOffset.x, openUp: false });
             } else {
               setPickerPos({ top: contextMenuPos.y, left: contextMenuPos.x, openUp: false });
             }
@@ -687,6 +723,7 @@ export default function TargetTreeNode({
           onEditExpression={onEditExpression}
           onRemoveMapping={onRemoveMapping}
           onAddArrayAssertion={onAddArrayAssertion}
+          onRename={canRename ? handleStartRename : undefined}
         />
       )}
       {node.type === 'array' && isExpanded && capabilities?.arrayAssertions && (

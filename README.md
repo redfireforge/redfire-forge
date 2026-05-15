@@ -255,7 +255,8 @@ src/
 │   ├── components/
 │   │   └── data-mapper/        # Unified Visual Mapper
 │   │       ├── DataMapper.tsx             # Main container (895 lines)
-│   │       ├── FloatingEditorModal.tsx    # Draggable/resizable pop-out DSL editor
+│   │       ├── ValidationRulesModal.tsx    # Three-mode validation rules panel (docked/floating/maximized)
+│   │       ├── DslReferencePanel.tsx      # Card-based DSL reference panel with search/insert
 │   │       ├── ValidationCodeEditor.tsx   # Monaco DSL editor with syntax highlighting
 │   │       ├── BodyBuilderPanel.tsx       # Three-mode body construction (JSON/Form/Raw)
 │   │       ├── MappingCompare.tsx         # Side-by-side mapping trace comparison

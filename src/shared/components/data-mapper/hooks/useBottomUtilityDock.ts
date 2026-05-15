@@ -4,7 +4,7 @@ import { toggleUtilityMode } from '../utils/bottomUtilityHelpers';
 
 export function useBottomUtilityDock() {
   const [bottomUtilityMode, setBottomUtilityMode] = useState<BottomUtilityMode>('none');
-  const [rulesFloating, setRulesFloating] = useState(false);
+  const [rulesModalOpen, setRulesModalOpen] = useState(false);
 
   const handleTogglePreview = useCallback(() => {
     setBottomUtilityMode((mode) => toggleUtilityMode(mode, 'preview'));
@@ -19,27 +19,20 @@ export function useBottomUtilityDock() {
   }, []);
 
   const handleToggleRulesView = useCallback(() => {
-    setBottomUtilityMode((mode) => toggleUtilityMode(mode, 'rules'));
+    setRulesModalOpen(prev => !prev);
   }, []);
 
-  const handleRulesPopOut = useCallback(() => {
-    setBottomUtilityMode((mode) => (mode === 'rules' ? 'none' : mode));
-    setRulesFloating(true);
-  }, []);
-
-  const handleRulesPopIn = useCallback(() => {
-    setRulesFloating(false);
-    setBottomUtilityMode('rules');
+  const handleCloseRulesModal = useCallback(() => {
+    setRulesModalOpen(false);
   }, []);
 
   return {
     bottomUtilityMode,
-    rulesFloating,
+    rulesModalOpen,
     handleTogglePreview,
     handleToggleCodeView,
     handleToggleTableView,
     handleToggleRulesView,
-    handleRulesPopOut,
-    handleRulesPopIn,
+    handleCloseRulesModal,
   };
 }

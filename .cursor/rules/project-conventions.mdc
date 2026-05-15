@@ -123,9 +123,13 @@ alwaysApply: true
 | `src/shared/components/data-mapper/utils/schemaContract.ts` | Schema Contract: strict/lenient lock mode, validateContract, config persistence |
 | `src/shared/components/data-mapper/utils/mappingTrace.ts` | Mapping Execution Trace: per-mapping data flow capture, trace level gating, summarization (Phase 9A) |
 | `src/shared/components/data-mapper/utils/expressionStepDebugger.ts` | Step-through expression debugger: breaks expressions into EvalStep[] for incremental visualization (Phase 9C) |
-| `src/shared/components/data-mapper/FloatingEditorModal.tsx` | Floating DSL editor: draggable/resizable React Portal wrapping ValidationCodeEditor |
-| `src/shared/components/data-mapper/ValidationCodeEditor.tsx` | Monaco-based DSL editor with pop-out/dock-back, syntax highlighting, autocomplete |
+| `src/shared/components/data-mapper/ValidationRulesModal.tsx` | Validation Rules Modal: 3-mode (docked/floating/maximized) panel with DSL Reference |
+| `src/shared/components/data-mapper/DslReferencePanel.tsx` | DSL Reference Panel: 10-category card-based reference (39 entries) with search, insert, copy, expand/collapse all |
+| `src/shared/components/data-mapper/hooks/useValidationRulesModal.ts` | Modal state: mode/resize/reference persistence (mirrors WorkflowConsolePanel) |
+| `src/styles/validation-rules-modal.css` | Validation Rules Modal + DSL Reference Panel CSS |
+| `src/shared/components/data-mapper/ValidationCodeEditor.tsx` | Monaco-based DSL editor with syntax highlighting, autocomplete, inline error markers |
 | `src/shared/components/data-mapper/hooks/useValidationCodeSync.ts` | Bi-directional visual ↔ DSL code sync with error-aware debounce |
+| `src/shared/components/data-mapper/hooks/useValidationVerify.ts` | Verification engine: evaluates field operators + DSL assertions, passedCount/failedCount |
 | `src/shared/components/data-mapper/utils/validationDsl.ts` | DSL parser/serializer: serializeToDsl, parseDsl, parseDslLine, importAutoDetect |
 | `src/features/scenarios/components/testEditorValidationAddMenu.ts` | Data-driven assertion factory menu (ADD_ASSERTION_MENU_ROWS) |
 | `src/features/scenarios/components/testEditorValidationPivot.ts` | Pivoted rules table model: buildPivotedRulesFromExpectedFields |
