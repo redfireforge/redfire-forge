@@ -134,9 +134,6 @@ test.describe('Context menu positioning in Data Mapper', () => {
     const operatorPicker = page.locator('.dm-operator-picker');
     await expect(operatorPicker).toBeVisible({ timeout: 3000 });
 
-    // Picker should contain operator options
-    await expect(operatorPicker.locator('[role="listbox"]')).toBeVisible();
-
     // Verify the picker is positioned within the mapper (not overflowing far right)
     const pickerBox = await operatorPicker.boundingBox();
     const mapperBox = await mapper.boundingBox();
@@ -144,6 +141,11 @@ test.describe('Context menu positioning in Data Mapper', () => {
     expect(mapperBox).toBeTruthy();
     expect(pickerBox!.x).toBeGreaterThanOrEqual(mapperBox!.x - 20);
     expect(pickerBox!.x + pickerBox!.width).toBeLessThanOrEqual(mapperBox!.x + mapperBox!.width + 20);
+
+    // Verify picker has operator items
+    const operatorItems = operatorPicker.locator('[role="listbox"] button');
+    const count = await operatorItems.count();
+    expect(count).toBeGreaterThan(0);
 
     // Click an operator (e.g., "contains")
     await operatorPicker.locator('button:has-text("contains")').first().click();
@@ -155,5 +157,8 @@ test.describe('Context menu positioning in Data Mapper', () => {
     const pill = mappedNode.locator('.dm-operator-pill');
     await expect(pill).toBeVisible();
     await expect(pill).toContainText('contains');
+
+    // Take final screenshot
+    await page.screenshot({ path: 'test-results/operator-set-contains.png' });
   });
 });

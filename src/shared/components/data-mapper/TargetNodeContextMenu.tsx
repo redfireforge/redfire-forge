@@ -1,4 +1,5 @@
 import { forwardRef } from 'react';
+import { createPortal } from 'react-dom';
 import type { JsonTreeNode } from '../../utils/jsonTreeModel';
 import type { Mapping, AdapterCapabilities } from './types';
 
@@ -46,11 +47,11 @@ const TargetNodeContextMenu = forwardRef<HTMLDivElement, TargetNodeContextMenuPr
   ) {
     const close = (fn?: () => void) => () => { onClose(); fn?.(); };
 
-    return (
+    return createPortal(
       <div
         ref={ref}
         className="dm-context-menu"
-        style={{ position: 'fixed', top: position.y, left: position.x, zIndex: 10001 }}
+        style={{ position: 'fixed', top: position.y, left: position.x, zIndex: 100001 }}
         onClick={(e) => e.stopPropagation()}
       >
         {isRenamable && onRename && (
@@ -65,13 +66,15 @@ const TargetNodeContextMenu = forwardRef<HTMLDivElement, TargetNodeContextMenuPr
         {isMapped && mapping && (
           <>
             {isRenamable && onRename && <div className="dm-context-menu-divider" />}
-            <button
-              type="button"
-              className="dm-context-menu-item"
-              onClick={close(onOpenOperatorPicker)}
-            >
-              Set operator…
-            </button>
+            {capabilities?.operators && (
+              <button
+                type="button"
+                className="dm-context-menu-item"
+                onClick={close(onOpenOperatorPicker)}
+              >
+                Set operator…
+              </button>
+            )}
             {onToggleMappingNegate && (
               <button
                 type="button"
@@ -107,39 +110,44 @@ const TargetNodeContextMenu = forwardRef<HTMLDivElement, TargetNodeContextMenuPr
             <div className="dm-context-menu-label">Array Assertions</div>
             <button
               type="button"
-              className="dm-context-menu-item"
+              className="dm-context-menu-item dm-context-menu-item--described"
               disabled={!onAddArrayAssertion}
               onClick={close(() => onAddArrayAssertion?.(node.path, 'length'))}
             >
-              Add length assertion
+              <span className="dm-context-menu-item-title">Check array size</span>
+              <span className="dm-context-menu-item-desc">e.g. {node.key} has &gt;= 3 items</span>
             </button>
             <button
               type="button"
-              className="dm-context-menu-item"
+              className="dm-context-menu-item dm-context-menu-item--described"
               disabled={!onAddArrayAssertion}
               onClick={close(() => onAddArrayAssertion?.(node.path, 'contains'))}
             >
-              Add contains assertion
+              <span className="dm-context-menu-item-title">Must contain value</span>
+              <span className="dm-context-menu-item-desc">e.g. {node.key} includes &quot;premium&quot;</span>
             </button>
             <button
               type="button"
-              className="dm-context-menu-item"
+              className="dm-context-menu-item dm-context-menu-item--described"
               disabled={!onAddArrayAssertion}
               onClick={close(() => onAddArrayAssertion?.(node.path, 'each'))}
             >
-              Add each assertion
+              <span className="dm-context-menu-item-title">Every item must match</span>
+              <span className="dm-context-menu-item-desc">e.g. every item in {node.key} has &quot;id&quot;</span>
             </button>
             <button
               type="button"
-              className="dm-context-menu-item"
+              className="dm-context-menu-item dm-context-menu-item--described"
               disabled={!onAddArrayAssertion}
               onClick={close(() => onAddArrayAssertion?.(node.path, 'subset'))}
             >
-              Add subset assertion
+              <span className="dm-context-menu-item-title">Contains JSON object</span>
+              <span className="dm-context-menu-item-desc">e.g. {node.key} includes {'{'}&#34;type&#34;: &#34;active&#34;{'}'}</span>
             </button>
           </>
         )}
-      </div>
+      </div>,
+      document.body,
     );
   },
 );

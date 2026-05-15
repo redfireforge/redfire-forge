@@ -124,13 +124,13 @@ describe('TargetNodeOperatorPicker', () => {
   });
 
   it('renders openUp class when pickerPos.openUp is true', () => {
-    const { container } = renderPicker({ pickerPos: { top: 5, left: 5, openUp: true } });
-    expect(container.querySelector('.dm-operator-picker--up')).toBeInTheDocument();
+    renderPicker({ pickerPos: { top: 5, left: 5, openUp: true } });
+    expect(document.querySelector('.dm-operator-picker--up')).toBeInTheDocument();
   });
 
   it('positions itself via style top/left from pickerPos', () => {
-    const { container } = renderPicker({ pickerPos: { top: 42, left: 17, openUp: false } });
-    const root = container.querySelector('.dm-operator-picker') as HTMLElement;
+    renderPicker({ pickerPos: { top: 42, left: 17, openUp: false } });
+    const root = document.querySelector('.dm-operator-picker') as HTMLElement;
     expect(root.style.top).toBe('42px');
     expect(root.style.left).toBe('17px');
   });

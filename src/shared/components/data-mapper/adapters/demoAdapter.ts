@@ -52,7 +52,7 @@ export function createDemoAdapter(): MapperAdapter<DemoOutput> {
     contextId: 'demo',
     title: 'Demo Adapter — User → Order Summary',
     category: 'custom',
-    capabilities: { expressions: true, codeEditor: true, schemaDrift: true, profiles: true },
+    capabilities: { expressions: true, schemaDrift: true, profiles: true },
 
     sources: [
       {

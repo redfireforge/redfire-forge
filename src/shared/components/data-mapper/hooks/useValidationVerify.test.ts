@@ -751,5 +751,181 @@ describe('useValidationVerify', () => {
     });
     expect(vi.getTimerCount()).toBe(0);
   });
+
+  // ─── Branch-coverage tests ─────────────────────────────
+
+  it('covers expression evaluation path in non-unordered mode', () => {
+    const adapter: MapperAdapter = {
+      contextId: 'test',
+      title: 'Test',
+      sources: [{ id: 'src', label: 'Source', sampleData: '{}' }],
+      target: { label: 'Target', sampleData: '{}' },
+      serialize: () => ({
+        expectedFields: [{ jsonPath: '$.name', expectedValue: 'ALICE', operator: 'equals' }],
+      }),
+      deserialize: () => [],
+    };
+    const mappings: Mapping[] = [{
+      id: 'm1',
+      sourcePath: 'name',
+      sourceId: 'src',
+      targetPath: '$.name',
+      expression: '$upper($.name)',
+    }];
+    const { result } = renderHook(() => useValidationVerify({
+      mappings,
+      assertions: [],
+      sampleResponseData: JSON.stringify({ name: 'Alice' }),
+      adapter,
+      enabled: true,
+    }));
+    act(() => { result.current.verifyAll(); });
+    expect(result.current.result.status).toBe('complete');
+    expect(result.current.result.fieldResults.get('$.name')).toBeDefined();
+  });
+
+  it('expression evaluation with undefined responseBody skips expression path', () => {
+    const adapter = createMockAdapter([{ jsonPath: '$.name', expectedValue: 'Alice', operator: 'equals' }]);
+    const mappings: Mapping[] = [{
+      id: 'm1',
+      sourcePath: 'name',
+      sourceId: 'src',
+      targetPath: '$.name',
+      expression: '$upper($.name)',
+    }];
+    const { result } = renderHook(() => useValidationVerify({
+      mappings,
+      assertions: [],
+      sampleResponseData: undefined,
+      adapter,
+      enabled: true,
+    }));
+    act(() => { result.current.verifyAll(); });
+    expect(result.current.result.fieldResults.get('$.name')).toBeDefined();
+  });
+
+  it('DSL assertions with undefined responseBody produces skippedCount', () => {
+    const adapter = createMockAdapter([]);
+    const dslAssertions: Assertion[] = [{
+      type: 'arrayLength',
+      path: '$.items',
+      operator: '>=',
+      value: '1',
+    }];
+    const adapterWithField: MapperAdapter = {
+      ...adapter,
+      serialize: () => ({
+        expectedFields: [{ jsonPath: '$', expectedValue: '', operator: 'exists' }],
+      }),
+    };
+    const { result } = renderHook(() => useValidationVerify({
+      mappings: [],
+      assertions: dslAssertions,
+      sampleResponseData: undefined,
+      adapter: adapterWithField,
+      enabled: true,
+    }));
+    act(() => { result.current.verifyAll(); });
+    expect(result.current.result.skippedCount).toBe(1);
+  });
+
+  it('getNodeStatus returns fail for a failed field', () => {
+    const adapter = createMockAdapter([
+      { jsonPath: '$.name', expectedValue: 'Bob', operator: 'equals' },
+    ]);
+    const mappings: Mapping[] = [{
+      id: 'm1', sourcePath: 'name', sourceId: 'src', targetPath: '$.name',
+    }];
+    const { result } = renderHook(() => useValidationVerify({
+      mappings,
+      assertions: [],
+      sampleResponseData: JSON.stringify({ name: 'Alice' }),
+      adapter,
+      enabled: true,
+    }));
+    act(() => { result.current.verifyAll(); });
+    expect(result.current.getNodeStatus('$.name')).toBe('fail');
+    expect(result.current.getNodeStatus('name')).toBe('fail');
+  });
+
+  it('nodeStatusMap registers both prefixed and stripped target paths', () => {
+    const adapter = createMockAdapter([
+      { jsonPath: '$.email', expectedValue: 'a@b.com', operator: 'equals' },
+    ]);
+    const mappings: Mapping[] = [{
+      id: 'm1', sourcePath: 'email', sourceId: 'src', targetPath: 'email',
+    }];
+    const { result } = renderHook(() => useValidationVerify({
+      mappings,
+      assertions: [],
+      sampleResponseData: JSON.stringify({ email: 'a@b.com' }),
+      adapter,
+      enabled: true,
+    }));
+    act(() => { result.current.verifyAll(); });
+    expect(result.current.nodeStatusMap.get('email')).toBe('pass');
+    expect(result.current.nodeStatusMap.get('$.email')).toBe('pass');
+  });
+
+  it('serializer returning output without expectedFields produces empty array', () => {
+    const adapter: MapperAdapter = {
+      contextId: 'test',
+      title: 'Test',
+      sources: [{ id: 'src', label: 'Source', sampleData: '{}' }],
+      target: { label: 'Target', sampleData: '{}' },
+      serialize: () => ({ someOtherKey: [] }),
+      deserialize: () => [],
+    };
+    const { result } = renderHook(() => useValidationVerify({
+      mappings: [],
+      assertions: [],
+      sampleResponseData: '{}',
+      adapter,
+      enabled: true,
+    }));
+    act(() => { result.current.verifyAll(); });
+    expect(result.current.result.status).toBe('idle');
+  });
+
+  it('negate flag on field inverts pass/fail in unordered mode', () => {
+    const adapter: MapperAdapter = {
+      contextId: 'test',
+      title: 'Test',
+      sources: [{ id: 'src', label: 'Source', sampleData: '{}' }],
+      target: { label: 'Target', sampleData: '{}' },
+      serialize: () => ({
+        expectedFields: [{ jsonPath: '$.name', expectedValue: 'Alice', operator: 'equals', negate: true }],
+      }),
+      deserialize: () => [],
+    };
+    const mappings: Mapping[] = [{ id: 'm1', sourcePath: 'name', sourceId: 'src', targetPath: '$.name' }];
+    const { result } = renderHook(() => useValidationVerify({
+      mappings,
+      assertions: [],
+      sampleResponseData: JSON.stringify({ name: 'Alice' }),
+      adapter,
+      enabled: true,
+      unorderedArrays: true,
+    }));
+    act(() => { result.current.verifyAll(); });
+    const fr = result.current.result.fieldResults.get('$.name');
+    expect(fr).toBeDefined();
+    expect(fr!.expected).toMatch(/^NOT /);
+  });
+
+  it('debounce timer is not set when auto-verify cleanup runs', () => {
+    const adapter = createMockAdapter([{ jsonPath: '$.x', expectedValue: 'a', operator: 'equals' }]);
+    const { result, unmount } = renderHook(() => useValidationVerify({
+      mappings: [{ id: 'm1', sourcePath: 'x', sourceId: 'src', targetPath: '$.x' }] as Mapping[],
+      assertions: [],
+      sampleResponseData: JSON.stringify({ x: 'a' }),
+      adapter,
+      enabled: true,
+      autoVerify: true,
+    }));
+    act(() => { vi.advanceTimersByTime(500); });
+    expect(result.current.result.status).toBe('complete');
+    unmount();
+  });
 });
 

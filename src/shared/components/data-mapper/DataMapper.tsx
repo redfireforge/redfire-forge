@@ -791,9 +791,9 @@ export default function DataMapper<TOutput = unknown>({
             onToggleMappingNegate={caps.operators ? handleToggleMappingNegate : undefined}
             nodeStatusMap={verifyHook.result.status === 'complete' ? verifyHook.nodeStatusMap : undefined}
             fieldVerifyResults={verifyHook.result.status === 'complete' ? verifyHook.result.fieldResults : undefined}
-            onAddArrayAssertion={caps.operators ? handleAddArrayAssertion : undefined}
-            onUpdateArrayAssertion={caps.operators ? handleUpdateArrayAssertion : undefined}
-            onRemoveArrayAssertion={caps.operators ? handleRemoveArrayAssertion : undefined}
+            onAddArrayAssertion={caps.arrayAssertions ? handleAddArrayAssertion : undefined}
+            onUpdateArrayAssertion={caps.arrayAssertions ? handleUpdateArrayAssertion : undefined}
+            onRemoveArrayAssertion={caps.arrayAssertions ? handleRemoveArrayAssertion : undefined}
             arrayAssertions={caps.arrayAssertions ? validationAssertions : undefined}
             filterFailedSignal={filterFailedSignal}
             highlightedPaths={highlightedTargetPaths}
@@ -859,6 +859,9 @@ export default function DataMapper<TOutput = unknown>({
           customFunctions={adapter.customFunctions}
           onSave={handleSaveExpression}
           onCancel={() => setEditingMappingId(null)}
+          onRename={effectiveTarget.allowCustomFields ? (_mappingId, oldPath, newPath) => {
+            handleUpdateCustomField(oldPath, { path: newPath, label: newPath.split('.').pop() || newPath });
+          } : undefined}
         />
       )}
       {toast && (

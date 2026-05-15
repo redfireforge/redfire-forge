@@ -97,10 +97,13 @@ export default function InlineAssertionRow({
         <input
           ref={inputRef}
           className="dm-array-assertion-value-input"
+          type={assertion.type === 'arrayLength' ? 'number' : 'text'}
           value={localValue}
           onChange={(e) => setLocalValue(e.target.value)}
           onKeyDown={handleKeyDown}
           onBlur={commitEdit}
+          onClick={(e) => e.stopPropagation()}
+          placeholder={assertion.type === 'arrayLength' ? 'Enter number' : 'Enter value'}
           aria-label="Assertion value"
         />
       ) : (
@@ -109,7 +112,7 @@ export default function InlineAssertionRow({
           onClick={(e) => { e.stopPropagation(); startEdit(); }}
           title={onUpdate ? 'Click to edit value' : formatAssertionSummary(assertion)}
         >
-          {formatAssertionSummary(assertion)}
+          {formatAssertionSummary(assertion) || (onUpdate ? 'click to set' : '')}
         </span>
       )}
       {assertion.negate && (

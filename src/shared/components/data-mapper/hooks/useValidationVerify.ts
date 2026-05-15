@@ -1,9 +1,10 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import type { ExpectedField, Assertion } from '../../../types';
-import type { Mapping, MapperAdapter } from '../types';
+import type { Mapping, MapperAdapter, MapperSource } from '../types';
 import { evaluateFieldOperator, evaluateAssertions, validateFieldsUnordered } from '../../../../engine/validator';
 import { getByPath } from '../../../utils/jsonPath';
 import { DSL_ASSERTION_TYPES } from '../utils/validationDsl';
+import { evaluateMapperExpression } from '../utils/mapperExpressionEvaluator';
 
 function stripDollarPrefix(p: string): string {
   return p.startsWith('$.') ? p.slice(2) : p;
@@ -137,7 +138,18 @@ export function useValidationVerify({
       }
     } else {
       for (const field of expectedFields) {
-        const actualValue = getByPath(responseBody, field.jsonPath);
+        const mapping = mappings.find(m => pathsMatch(m.targetPath, field.jsonPath) || pathsMatch(m.sourcePath, field.jsonPath));
+        let actualValue: unknown = getByPath(responseBody, field.jsonPath);
+
+        if (mapping?.expression && responseBody !== undefined) {
+          const src: MapperSource = { id: mapping.sourceId || 'response-body', label: '', sampleData: responseBody, format: 'json' };
+          const exprResult = evaluateMapperExpression(mapping.expression, [src], src.id);
+          if (!exprResult.error && exprResult.value !== undefined) {
+            const sv = typeof exprResult.value === 'string' ? exprResult.value : JSON.stringify(exprResult.value);
+            if (!sv.startsWith('{{')) actualValue = exprResult.value;
+          }
+        }
+
         const operator = field.operator ?? 'equals';
         const evalResult = evaluateFieldOperator(
           actualValue,
@@ -161,7 +173,6 @@ export function useValidationVerify({
           passedCount++;
         } else {
           failedCount++;
-          const mapping = mappings.find(m => pathsMatch(m.targetPath, field.jsonPath) || pathsMatch(m.sourcePath, field.jsonPath));
           if (mapping) failedMappingIds.add(mapping.id);
         }
       }

@@ -229,7 +229,6 @@ export function createVariableBindingAdapter(
 
   const capabilities: AdapterCapabilities = {
     expressions: true,
-    codeEditor: true,
     profiles: true,
   };
 
