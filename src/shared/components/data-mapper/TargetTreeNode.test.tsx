@@ -1517,13 +1517,42 @@ describe('TargetTreeNode – custom field removal and tree chrome', () => {
       hideAdvanced: false, conditionals: false, loopConstructs: false, errorHandling: false,
     } as const;
 
-    it('does not show context menu without capabilities.operators', () => {
+    it('does not show context menu without capabilities.operators on non-array node', () => {
       const { container } = render(
         <TargetTreeNode node={leaf} {...defaults} mappings={[mapping]} />,
       );
       const nodeEl = container.querySelector('.dm-tree-node--target')!;
       fireEvent.contextMenu(nodeEl);
       expect(container.querySelector('.dm-context-menu')).toBeNull();
+    });
+
+    it('shows context menu on array node when arrayAssertions is true even without operators', () => {
+      const arrayNode: JsonTreeNode = {
+        key: 'offers', path: 'offers', type: 'array', value: undefined,
+        children: [{ key: '0', path: 'offers[0]', type: 'object', value: undefined, children: [] }],
+      };
+      const capsArrayOnly = {
+        operators: false, arrayAssertions: true, typeChecks: false,
+        codeEditor: false, verification: false, expressions: false,
+        schemaDrift: false, profiles: false, unorderedArrays: false,
+        hideAdvanced: false, conditionals: false, loopConstructs: false, errorHandling: false,
+      } as const;
+      render(
+        <TargetTreeNode
+          node={arrayNode}
+          {...defaults}
+          capabilities={capsArrayOnly}
+          onAddArrayAssertion={vi.fn()}
+        />,
+      );
+      const nodeEl = document.querySelector('.dm-tree-node--target')!;
+      fireEvent.contextMenu(nodeEl);
+      expect(document.querySelector('.dm-context-menu')).not.toBeNull();
+      expect(screen.getByText('Array Assertions')).toBeInTheDocument();
+      expect(screen.getByText('Check array size')).toBeInTheDocument();
+      expect(screen.getByText('Must contain value')).toBeInTheDocument();
+      expect(screen.getByText('Every item must match')).toBeInTheDocument();
+      expect(screen.getByText('Contains JSON object')).toBeInTheDocument();
     });
 
     it('shows context menu on right-click when capabilities.operators is true', () => {
@@ -1538,13 +1567,13 @@ describe('TargetTreeNode – custom field removal and tree chrome', () => {
       );
       const nodeEl = container.querySelector('.dm-tree-node--target')!;
       fireEvent.contextMenu(nodeEl);
-      expect(container.querySelector('.dm-context-menu')).not.toBeNull();
+      expect(document.querySelector('.dm-context-menu')).not.toBeNull();
       expect(screen.getByText('Set operator…')).toBeInTheDocument();
     });
 
     it('closes context menu on outside mousedown after delayed listener', async () => {
       vi.useFakeTimers();
-      const { container } = render(
+      render(
         <TargetTreeNode
           node={leaf}
           {...defaults}
@@ -1553,14 +1582,14 @@ describe('TargetTreeNode – custom field removal and tree chrome', () => {
           onUpdateMappingOperator={vi.fn()}
         />,
       );
-      const nodeEl = container.querySelector('.dm-tree-node--target')!;
+      const nodeEl = document.querySelector('.dm-tree-node--target')!;
       fireEvent.contextMenu(nodeEl);
-      expect(container.querySelector('.dm-context-menu')).not.toBeNull();
+      expect(document.querySelector('.dm-context-menu')).not.toBeNull();
       await act(async () => {
         vi.advanceTimersByTime(50);
       });
       fireEvent.mouseDown(document.body);
-      expect(container.querySelector('.dm-context-menu')).toBeNull();
+      expect(document.querySelector('.dm-context-menu')).toBeNull();
       vi.useRealTimers();
     });
 
@@ -1618,10 +1647,10 @@ describe('TargetTreeNode – custom field removal and tree chrome', () => {
       const nodeEl = container.querySelector('.dm-tree-node--target')!;
       fireEvent.contextMenu(nodeEl);
       expect(screen.getByText('Array Assertions')).toBeInTheDocument();
-      expect(screen.getByText('Add length assertion')).toBeInTheDocument();
-      expect(screen.getByText('Add contains assertion')).toBeInTheDocument();
-      expect(screen.getByText('Add each assertion')).toBeInTheDocument();
-      expect(screen.getByText('Add subset assertion')).toBeInTheDocument();
+      expect(screen.getByText('Check array size')).toBeInTheDocument();
+      expect(screen.getByText('Must contain value')).toBeInTheDocument();
+      expect(screen.getByText('Every item must match')).toBeInTheDocument();
+      expect(screen.getByText('Contains JSON object')).toBeInTheDocument();
     });
 
     it('does not show array assertion section for non-array nodes', () => {
@@ -1745,13 +1774,13 @@ describe('TargetTreeNode – custom field removal and tree chrome', () => {
       const nodeEl = container.querySelector('.dm-tree-node--target')!;
       fireEvent.contextMenu(nodeEl);
 
-      fireEvent.click(screen.getByText('Add length assertion'));
+      fireEvent.click(screen.getByText('Check array size'));
       fireEvent.contextMenu(nodeEl);
-      fireEvent.click(screen.getByText('Add contains assertion'));
+      fireEvent.click(screen.getByText('Must contain value'));
       fireEvent.contextMenu(nodeEl);
-      fireEvent.click(screen.getByText('Add each assertion'));
+      fireEvent.click(screen.getByText('Every item must match'));
       fireEvent.contextMenu(nodeEl);
-      fireEvent.click(screen.getByText('Add subset assertion'));
+      fireEvent.click(screen.getByText('Contains JSON object'));
 
       expect(onAddArrayAssertion.mock.calls).toEqual([
         ['items', 'length'],

@@ -236,9 +236,9 @@ describe('ExpressionEditorModal', () => {
   it('shows preview for unknown function expression (debounced)', async () => {
     vi.useFakeTimers();
     const mapping = { ...baseMapping, expression: '$unknownFn($.name)' };
-    const { container } = renderModal({ mapping });
+    renderModal({ mapping });
     await act(async () => { vi.advanceTimersByTime(250); });
-    const previewDiv = container.querySelector('.dm-expr-preview-value');
+    const previewDiv = document.querySelector('.dm-expr-preview-value');
     expect(previewDiv).toBeTruthy();
     expect(previewDiv?.textContent).toBeTruthy();
     vi.useRealTimers();
@@ -271,8 +271,8 @@ describe('ExpressionEditorModal', () => {
   });
 
   it('renders function catalog with categories', () => {
-    const { container } = renderModal();
-    const catButtons = container.querySelectorAll('.dm-expr-cat-btn');
+    renderModal();
+    const catButtons = document.querySelectorAll('.dm-expr-cat-btn');
     const catNames = Array.from(catButtons).map((b) => b.textContent);
     expect(catNames).toContain('String');
     expect(catNames).toContain('Math');
@@ -384,9 +384,9 @@ describe('ExpressionEditorModal – custom functions', () => {
       examples: [],
       evaluate: (v: unknown) => `custom:${v}`,
     }];
-    const { container } = renderModal({ customFunctions: customFns });
+    renderModal({ customFunctions: customFns });
     expect(screen.getByText('$myFn')).toBeTruthy();
-    const catButtons = container.querySelectorAll('.dm-expr-cat-btn');
+    const catButtons = document.querySelectorAll('.dm-expr-cat-btn');
     const catNames = Array.from(catButtons).map((b) => b.textContent);
     expect(catNames).toContain('Custom');
   });
@@ -425,12 +425,12 @@ describe('ExpressionEditorModal – additional coverage', () => {
   });
 
   it('filters by category when category button is clicked', () => {
-    const { container } = renderModal();
-    const catButtons = container.querySelectorAll('.dm-expr-cat-btn');
+    renderModal();
+    const catButtons = document.querySelectorAll('.dm-expr-cat-btn');
     const mathBtn = Array.from(catButtons).find(b => b.textContent === 'Math');
     fireEvent.click(mathBtn!);
     expect(screen.getByText('$add')).toBeTruthy();
-    const allBtn = Array.from(container.querySelectorAll('.dm-expr-cat-btn')).find(b => b.textContent === 'All');
+    const allBtn = Array.from(document.querySelectorAll('.dm-expr-cat-btn')).find(b => b.textContent === 'All');
     fireEvent.click(allBtn!);
     expect(screen.getByText('$upper')).toBeTruthy();
   });
@@ -752,7 +752,7 @@ describe('ExpressionEditorModal – Ctrl+Enter keyboard shortcut', () => {
   it('fires handleSave when Ctrl+Enter pressed in overlay', async () => {
     vi.useFakeTimers();
     const onSave = vi.fn();
-    const { container } = render(
+    render(
       <ExpressionEditorModal
         mapping={{ ...baseMapping, expression: '$.name' }}
         sources={sources}
@@ -762,7 +762,7 @@ describe('ExpressionEditorModal – Ctrl+Enter keyboard shortcut', () => {
       />,
     );
     await act(async () => { vi.advanceTimersByTime(300); });
-    const overlay = container.querySelector('.dm-expr-overlay')!;
+    const overlay = document.querySelector('.dm-expr-overlay')!;
     fireEvent.keyDown(overlay, { key: 'Enter', ctrlKey: true });
     expect(onSave).toHaveBeenCalledWith('m1', '$.name');
     vi.useRealTimers();
@@ -770,7 +770,7 @@ describe('ExpressionEditorModal – Ctrl+Enter keyboard shortcut', () => {
 
   it('fires onCancel when Escape pressed in overlay', () => {
     const onCancel = vi.fn();
-    const { container } = render(
+    render(
       <ExpressionEditorModal
         mapping={{ ...baseMapping, expression: '$.name' }}
         sources={sources}
@@ -779,7 +779,7 @@ describe('ExpressionEditorModal – Ctrl+Enter keyboard shortcut', () => {
         onCancel={onCancel}
       />,
     );
-    const overlay = container.querySelector('.dm-expr-overlay')!;
+    const overlay = document.querySelector('.dm-expr-overlay')!;
     fireEvent.keyDown(overlay, { key: 'Escape' });
     expect(onCancel).toHaveBeenCalled();
   });
@@ -982,9 +982,9 @@ describe('ExpressionEditorModal – editor onMount and completion', () => {
       preview: '',
       error: 'bad',
     });
-    const { container } = renderModal({ mapping: { ...baseMapping, expression: 'x' } });
+    renderModal({ mapping: { ...baseMapping, expression: 'x' } });
     await act(async () => { vi.advanceTimersByTime(300); });
-    expect(container.querySelector('.dm-expr-preview-value--error')).toBeTruthy();
+    expect(document.querySelector('.dm-expr-preview-value--error')).toBeTruthy();
     expect(screen.getByText(/Error: bad/)).toBeTruthy();
     evalSpy.mockRestore();
     vi.useRealTimers();
@@ -1188,8 +1188,8 @@ describe('ExpressionEditorModal – handleComposeWithFunction', () => {
       examples: [],
       evaluate: () => Date.now(),
     };
-    const { container } = renderModal({ customFunctions: [noArgFn] });
-    const fnItem = Array.from(container.querySelectorAll('.dm-expr-fn-item')).find(el => el.textContent?.includes('$now'));
+    renderModal({ customFunctions: [noArgFn] });
+    const fnItem = Array.from(document.querySelectorAll('.dm-expr-fn-item')).find(el => el.textContent?.includes('$now'));
     fireEvent.click(fnItem!);
     fireEvent.click(screen.getByText('Compose with current'));
     const textarea = screen.getByPlaceholderText(/\$upper/) as HTMLTextAreaElement;
@@ -1266,8 +1266,8 @@ describe('ExpressionEditorModal – handleComposeWithFunction', () => {
   });
 
   it('uses lambda template for $map when sidebar-clicked', async () => {
-    const { container } = renderModal();
-    const mapItem = Array.from(container.querySelectorAll('.dm-expr-fn-item'))
+    renderModal();
+    const mapItem = Array.from(document.querySelectorAll('.dm-expr-fn-item'))
       .find(el => el.textContent?.includes('$map'));
     expect(mapItem).toBeTruthy();
     await act(async () => { fireEvent.click(mapItem!); });
@@ -1276,8 +1276,8 @@ describe('ExpressionEditorModal – handleComposeWithFunction', () => {
   });
 
   it('uses lambda template for $filter when sidebar-clicked', async () => {
-    const { container } = renderModal();
-    const filterItem = Array.from(container.querySelectorAll('.dm-expr-fn-item'))
+    renderModal();
+    const filterItem = Array.from(document.querySelectorAll('.dm-expr-fn-item'))
       .find(el => el.textContent?.includes('$filter'));
     expect(filterItem).toBeTruthy();
     await act(async () => { fireEvent.click(filterItem!); });
@@ -1287,8 +1287,8 @@ describe('ExpressionEditorModal – handleComposeWithFunction', () => {
 
   it('Compose-with-current uses lambda template for lambda-supporting function', async () => {
     monacoTestState.suppressOnMount = true;
-    const { container } = renderModal({ mapping: { ...baseMapping, expression: '$upper($.name)' } });
-    const fnItems = Array.from(container.querySelectorAll('.dm-expr-fn-item'));
+    renderModal({ mapping: { ...baseMapping, expression: '$upper($.name)' } });
+    const fnItems = Array.from(document.querySelectorAll('.dm-expr-fn-item'));
     const mapItem = fnItems.find(el => {
       const nameEl = el.querySelector('.dm-expr-fn-name');
       return nameEl?.textContent === '$map';
@@ -1307,7 +1307,7 @@ describe('ExpressionEditorModal – handleComposeWithFunction', () => {
 describe('ExpressionEditorModal – step debugger toggle', () => {
   it('toggles debugger on and off', async () => {
     vi.useFakeTimers();
-    const { container } = render(
+    render(
       <ExpressionEditorModal
         mapping={{ ...baseMapping, expression: '$upper($.name)' }}
         sources={sources}
@@ -1320,16 +1320,16 @@ describe('ExpressionEditorModal – step debugger toggle', () => {
     const toggleBtn = screen.getByText('Step Debug');
     fireEvent.click(toggleBtn);
     await act(async () => { vi.advanceTimersByTime(300); });
-    expect(container.querySelector('.dm-expr-step-debugger')).toBeTruthy();
+    expect(document.querySelector('.dm-expr-step-debugger')).toBeTruthy();
     // Toggle off
     fireEvent.click(toggleBtn);
-    expect(container.querySelector('.dm-expr-step-debugger')).toBeNull();
+    expect(document.querySelector('.dm-expr-step-debugger')).toBeNull();
     vi.useRealTimers();
   });
 
   it('does not enable debugger with empty expression', async () => {
     vi.useFakeTimers();
-    const { container } = render(
+    render(
       <ExpressionEditorModal
         mapping={{ ...baseMapping, expression: '' }}
         sources={sources}
@@ -1340,7 +1340,7 @@ describe('ExpressionEditorModal – step debugger toggle', () => {
     );
     await act(async () => { vi.advanceTimersByTime(300); });
     fireEvent.click(screen.getByText('Step Debug'));
-    expect(container.querySelector('.dm-expr-step-debugger')).toBeNull();
+    expect(document.querySelector('.dm-expr-step-debugger')).toBeNull();
     vi.useRealTimers();
   });
 });
@@ -1369,8 +1369,8 @@ describe('ExpressionEditorModal — search, templates, expand, snippets edge cas
   });
 
   it('toggles expanded overlay class when expand control clicked', () => {
-    const { container } = renderModal();
-    const overlay = container.querySelector('.dm-expr-overlay')!;
+    renderModal();
+    const overlay = document.querySelector('.dm-expr-overlay')!;
     expect(overlay.classList.contains('dm-expr--expanded')).toBe(false);
     fireEvent.click(screen.getByLabelText('Expand'));
     expect(overlay.classList.contains('dm-expr--expanded')).toBe(true);
@@ -1447,8 +1447,8 @@ describe('ExpressionEditorModal — search, templates, expand, snippets edge cas
 
 describe('ExpressionEditorModal — modal drag', () => {
   it('drag on header moves the modal offset', () => {
-    const { container } = renderModal();
-    const header = container.querySelector('.dm-expr-header')!;
+    renderModal();
+    const header = document.querySelector('.dm-expr-header')!;
     expect(header).toBeTruthy();
 
     fireEvent.mouseDown(header, { clientX: 200, clientY: 100 });
@@ -1457,7 +1457,7 @@ describe('ExpressionEditorModal — modal drag', () => {
       window.dispatchEvent(new MouseEvent('mousemove', { clientX: 250, clientY: 130, bubbles: true }));
     });
 
-    const modal = container.querySelector('.dm-expr-modal');
+    const modal = document.querySelector('.dm-expr-modal');
     const style = modal?.getAttribute('style') || '';
     expect(style).toContain('translate(50px, 30px)');
 
@@ -1467,8 +1467,8 @@ describe('ExpressionEditorModal — modal drag', () => {
   });
 
   it('drag aborts when clicking on a button within header', () => {
-    const { container } = renderModal();
-    const header = container.querySelector('.dm-expr-header')!;
+    renderModal();
+    const header = document.querySelector('.dm-expr-header')!;
     const button = header.querySelector('button')!;
 
     fireEvent.mouseDown(button, { clientX: 200, clientY: 100 });
@@ -1477,8 +1477,107 @@ describe('ExpressionEditorModal — modal drag', () => {
       window.dispatchEvent(new MouseEvent('mousemove', { clientX: 300, clientY: 200, bubbles: true }));
     });
 
-    const modal = container.querySelector('.dm-expr-modal');
+    const modal = document.querySelector('.dm-expr-modal');
     const style = modal?.getAttribute('style') || '';
     expect(style).not.toContain('translate');
+  });
+});
+
+describe('ExpressionEditorModal – branch coverage extras', () => {
+  beforeEach(() => {
+    monacoTestState.suppressOnMount = false;
+    monacoTestState.lastEditor = null;
+    monacoTestState.lastMonaco = null;
+    monacoTestState.lastMountOpts = null;
+    monacoTestState.completionProvider = null;
+    monacoTestState.disposeSpies = [];
+    loadExpressionSnippetsMock.mockResolvedValue([]);
+    saveExpressionSnippetMock.mockResolvedValue([]);
+    deleteExpressionSnippetMock.mockResolvedValue([]);
+    document.querySelectorAll('.dm-expr-overlay').forEach(el => el.remove());
+  });
+
+  it('renders variable name row when onRename is provided', () => {
+    render(
+      <ExpressionEditorModal
+        mapping={{ ...baseMapping, expression: '$.name' }}
+        sources={sources}
+        activeSourceId="s1"
+        onSave={vi.fn()}
+        onCancel={vi.fn()}
+        onRename={vi.fn()}
+      />,
+    );
+    const varInput = document.querySelector('.dm-expr-variable-input') as HTMLInputElement;
+    expect(varInput).toBeTruthy();
+    expect(varInput.value).toBe(baseMapping.targetPath);
+  });
+
+  it('variable name Enter key commits rename', () => {
+    const onRename = vi.fn();
+    render(
+      <ExpressionEditorModal
+        mapping={{ ...baseMapping, expression: '$.name' }}
+        sources={sources}
+        activeSourceId="s1"
+        onSave={vi.fn()}
+        onCancel={vi.fn()}
+        onRename={onRename}
+      />,
+    );
+    const varInput = document.querySelector('.dm-expr-variable-input') as HTMLInputElement;
+    fireEvent.change(varInput, { target: { value: 'newVarName' } });
+    fireEvent.keyDown(varInput, { key: 'Enter' });
+    expect(onRename).toHaveBeenCalledWith(baseMapping.id, baseMapping.targetPath, 'newVarName');
+  });
+
+  it('variable name Escape key reverts to original targetPath', () => {
+    render(
+      <ExpressionEditorModal
+        mapping={{ ...baseMapping, expression: '$.name' }}
+        sources={sources}
+        activeSourceId="s1"
+        onSave={vi.fn()}
+        onCancel={vi.fn()}
+        onRename={vi.fn()}
+      />,
+    );
+    const varInput = document.querySelector('.dm-expr-variable-input') as HTMLInputElement;
+    fireEvent.change(varInput, { target: { value: 'tempName' } });
+    fireEvent.keyDown(varInput, { key: 'Escape' });
+    expect(varInput.value).toBe(baseMapping.targetPath);
+  });
+
+  it('commitTargetName does not call onRename when value is empty or unchanged', () => {
+    const onRename = vi.fn();
+    render(
+      <ExpressionEditorModal
+        mapping={{ ...baseMapping, expression: '$.name' }}
+        sources={sources}
+        activeSourceId="s1"
+        onSave={vi.fn()}
+        onCancel={vi.fn()}
+        onRename={onRename}
+      />,
+    );
+    const varInput = document.querySelector('.dm-expr-variable-input') as HTMLInputElement;
+    fireEvent.change(varInput, { target: { value: '  ' } });
+    fireEvent.blur(varInput);
+    expect(onRename).not.toHaveBeenCalled();
+
+    fireEvent.change(varInput, { target: { value: baseMapping.targetPath } });
+    fireEvent.blur(varInput);
+    expect(onRename).not.toHaveBeenCalled();
+  });
+
+  it('handleUndo/handleRedo are no-ops when editor ref is null', () => {
+    monacoTestState.suppressOnMount = true;
+    renderModal();
+    const undoBtn = document.querySelector('button[title*="Undo"]');
+    const redoBtn = document.querySelector('button[title*="Redo"]');
+    expect(undoBtn).toBeTruthy();
+    expect(redoBtn).toBeTruthy();
+    fireEvent.click(undoBtn!);
+    fireEvent.click(redoBtn!);
   });
 });

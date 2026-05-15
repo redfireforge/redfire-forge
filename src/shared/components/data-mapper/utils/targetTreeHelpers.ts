@@ -104,7 +104,7 @@ export function formatNodeDisplayKey(node: JsonTreeNode): string {
 /** Short, one-line summary of an assertion for the inline row chip. */
 export function formatAssertionSummary(a: Assertion): string {
   switch (a.type) {
-    case 'arrayLength': return `${a.operator} ${a.value}`;
+    case 'arrayLength': return String(a.value);
     case 'arrayContains': return `${a.mode}: ${a.value || '(empty)'}`;
     case 'each': return `${a.fieldPath || '*'} ${a.operator} ${a.value ?? ''}`;
     case 'containsSubset': return a.expected.length > 30 ? a.expected.slice(0, 27) + '…' : a.expected;

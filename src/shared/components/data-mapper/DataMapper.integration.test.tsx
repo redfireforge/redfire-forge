@@ -41,7 +41,7 @@ describe('DataMapper – expression editor modal', () => {
     const targetMapped = container.querySelector('.dm-panel--target .dm-tree-node--mapped');
     expect(targetMapped).toBeTruthy();
     fireEvent.doubleClick(targetMapped!);
-    expect(container.querySelector('.dm-expr-overlay')).toBeTruthy();
+    expect(document.querySelector('.dm-expr-overlay')).toBeTruthy();
   });
 
   it('closes expression editor on cancel', () => {
@@ -54,9 +54,9 @@ describe('DataMapper – expression editor modal', () => {
     expandBtns.forEach((b) => fireEvent.click(b));
     const mapped = container.querySelector('.dm-panel--target .dm-tree-node--mapped');
     fireEvent.doubleClick(mapped!);
-    expect(container.querySelector('.dm-expr-overlay')).toBeTruthy();
+    expect(document.querySelector('.dm-expr-overlay')).toBeTruthy();
     fireEvent.click(screen.getByText('Cancel'));
-    expect(container.querySelector('.dm-expr-overlay')).toBeNull();
+    expect(document.querySelector('.dm-expr-overlay')).toBeNull();
   });
 
   it('saves expression and closes modal on save', async () => {
@@ -75,15 +75,15 @@ describe('DataMapper – expression editor modal', () => {
       fireEvent.doubleClick(mapped!);
     });
     await waitFor(() => {
-      expect(container.querySelector('.dm-expr-overlay')).toBeTruthy();
+      expect(document.querySelector('.dm-expr-overlay')).toBeTruthy();
     });
-    const textarea = container.querySelector('.dm-expr-textarea') as HTMLTextAreaElement;
+    const textarea = document.querySelector('.dm-expr-textarea') as HTMLTextAreaElement;
     expect(textarea).toBeTruthy();
     fireEvent.change(textarea, { target: { value: '$upper($.name)' } });
     await act(async () => {
       fireEvent.click(screen.getByText('Save Expression'));
     });
-    expect(container.querySelector('.dm-expr-overlay')).toBeNull();
+    expect(document.querySelector('.dm-expr-overlay')).toBeNull();
     const last = onChange.mock.calls[onChange.mock.calls.length - 1]?.[0];
     const updated = last?.find((m: Mapping) => m.id === 'm1');
     expect(updated?.expression).toBe('$upper($.name)');
@@ -166,7 +166,7 @@ describe('DataMapper – keyboard shortcuts suppressed when editing', () => {
     );
     const mapped = container.querySelector('.dm-tree-node--target.dm-tree-node--mapped');
     if (mapped) fireEvent.doubleClick(mapped);
-    expect(container.querySelector('.dm-expr-overlay')).toBeTruthy();
+    expect(document.querySelector('.dm-expr-overlay')).toBeTruthy();
     fireEvent.keyDown(window, { key: 'z', metaKey: true });
     const last = onChange.mock.calls[onChange.mock.calls.length - 1]?.[0];
     expect(last).toHaveLength(1);
