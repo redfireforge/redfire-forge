@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 import { describe, it, expect, vi } from 'vitest';
 import '@testing-library/jest-dom';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 import ExpressionDebugDetailModal from './ExpressionDebugDetailModal';
 import type { EvalStep } from './utils/expressionStepDebugger';
 
@@ -76,8 +76,12 @@ describe('ExpressionDebugDetailModal', () => {
     render(<ExpressionDebugDetailModal step={makeStep()} onClose={vi.fn()} />);
     const header = document.querySelector('.dm-expr-detail-header')!;
     fireEvent.mouseDown(header, { clientX: 100, clientY: 100 });
-    fireEvent.mouseMove(window, { clientX: 150, clientY: 120 });
-    fireEvent.mouseUp(window);
+    act(() => {
+      window.dispatchEvent(new MouseEvent('mousemove', { clientX: 150, clientY: 120 }));
+    });
+    act(() => {
+      window.dispatchEvent(new MouseEvent('mouseup'));
+    });
     const modal = document.querySelector('.dm-expr-detail-modal') as HTMLElement;
     expect(modal.style.transform).toBe('translate(50px, 20px)');
   });
@@ -109,5 +113,14 @@ describe('ExpressionDebugDetailModal', () => {
     );
     const pre = document.querySelectorAll('.dm-expr-detail-code')[1];
     expect(pre?.classList.contains('dm-expr-detail-code--result')).toBe(true);
+  });
+
+  it('mousemove without prior mouseDown does nothing (guard branch)', () => {
+    render(<ExpressionDebugDetailModal step={makeStep()} onClose={vi.fn()} />);
+    act(() => {
+      window.dispatchEvent(new MouseEvent('mousemove', { clientX: 200, clientY: 200 }));
+    });
+    const modal = document.querySelector('.dm-expr-detail-modal') as HTMLElement;
+    expect(modal.style.transform).toBe('');
   });
 });

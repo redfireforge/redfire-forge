@@ -136,13 +136,13 @@ function unquote(val: string): string {
 
 export function parseDslLine(line: string, lineNumber: number): ParsedRule | ParseError | null {
   const trimmedRaw = line.trim();
-  if (!trimmedRaw || trimmedRaw.startsWith('#')) return null;
+  if (!trimmedRaw || trimmedRaw.startsWith('#') || trimmedRaw.startsWith('//')) return null;
 
   // ASSERT keyword — custom predicate assertion
-  const assertMatch = trimmedRaw.match(/^(NOT\s+)?ASSERT(\s+(.*))?$/i);
+  const assertMatch = trimmedRaw.match(/^(NOT\s+)?ASSERT\s*(.*)?$/i);
   if (assertMatch) {
     const negate = !!assertMatch[1];
-    const afterAssert = (assertMatch[3] ?? '').trim();
+    const afterAssert = (assertMatch[2] ?? '').trim();
     if (!afterAssert) {
       return { lineNumber, message: 'ASSERT requires an expression' };
     }
@@ -263,6 +263,16 @@ export function parseDslLine(line: string, lineNumber: number): ParsedRule | Par
   }
 
   const listOperators = new Set(['in', 'not_in', 'between', 'close_to']);
+
+  // Auto-detect: if path contains [*], treat as "each" assertion even without explicit "each" keyword
+  if (path.includes('[*]')) {
+    return {
+      lineNumber, path, operator: `each ${fieldOp}`,
+      value: rawValue ? (listOperators.has(fieldOp) ? rawValue : unquote(rawValue)) : undefined,
+      negate, kind: 'each',
+    };
+  }
+
   if (rawValue && rawValue.startsWith('expr:')) {
     const expression = rawValue.slice(5);
     return {

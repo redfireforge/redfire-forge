@@ -638,33 +638,23 @@ export default function TestEditorValidationTab({
                   </div>
                 )}
                 {a.type === 'custom' && (
-                  <div className="assertion-field assertion-field--custom">
-                    <div className="assertion-custom-expression-wrap">
-                      <label className="assertion-field-label assertion-field-label--mono">λ Expression</label>
-                      <textarea
-                        value={a.expression}
-                        onChange={(e) => updateAssertion(i, { expression: e.target.value })}
-                        placeholder='$gt($.body.count, 0) or $includes($.body.name, "test")'
-                        className="assertion-textarea assertion-textarea--expression"
-                        rows={2}
-                        spellCheck={false}
-                        aria-label="Custom predicate expression"
-                      />
-                    </div>
-                    <div className="assertion-custom-description-wrap">
-                      <label className="assertion-field-label">Description</label>
-                      <input
-                        value={a.description ?? ''}
-                        onChange={(e) => updateAssertion(i, { description: e.target.value || undefined })}
-                        placeholder="Optional — describe what this checks"
-                        className="assertion-input assertion-input--description"
-                        aria-label="Custom predicate description"
-                      />
-                    </div>
-                    <div className="assertion-custom-hint">
-                      <span className="assertion-custom-hint-icon">i</span>
-                      <span>Use <code>$.body</code>, <code>$.status</code>, <code>$.headers</code>, <code>$.responseTime</code> — supports all 113 expression functions including lambdas</span>
-                    </div>
+                  <div className="assertion-field assertion-field--custom-inline">
+                    <input
+                      value={a.expression}
+                      onChange={(e) => updateAssertion(i, { expression: e.target.value })}
+                      placeholder='$gt($count($.body.offers), 0)'
+                      className="assertion-input assertion-input--expression-inline"
+                      spellCheck={false}
+                      aria-label="Custom predicate expression"
+                    />
+                    <input
+                      value={a.description ?? ''}
+                      onChange={(e) => updateAssertion(i, { description: e.target.value || undefined })}
+                      placeholder="Optional — describe what this checks"
+                      className="assertion-input assertion-input--desc-inline"
+                      aria-label="Custom predicate description"
+                    />
+                    <span className="assertion-custom-hint-tip" title="Use $.body, $.status, $.headers, $.responseTime — supports all 113 expression functions including lambdas">i</span>
                   </div>
                 )}
                 <button type="button" className="btn btn-xs btn-danger assertion-remove" onClick={() => removeAssertion(i)} title="Remove assertion">×</button>
@@ -780,7 +770,6 @@ export default function TestEditorValidationTab({
           )}
           <ValidationRulesSummary
             expectedFields={draft.validation.expectedFields || []}
-            assertions={draft.validation.assertions}
             pivotedRules={pivotedRules}
             canPivot={canPivot}
             rulesViewMode={rulesViewMode}

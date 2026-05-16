@@ -843,6 +843,8 @@ export default function DataMapper<TOutput = unknown>({
           verifyPassedCount={verifyHook.result.passedCount}
           verifyFailedCount={verifyHook.result.failedCount}
           lineResults={rulesLineResults}
+          sampleResponseData={effectiveTarget.sampleData}
+          unorderedArrays={unorderedDefault}
         />
       )}
       {editingMapping && (

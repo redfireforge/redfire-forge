@@ -1,7 +1,6 @@
 /**
  * @vitest-environment jsdom
  */
-import type { Assertion } from '../../../shared/types';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import '@testing-library/jest-dom';
 import { render, screen, fireEvent, within } from '@testing-library/react';
@@ -18,11 +17,10 @@ describe('ValidationRulesSummary', () => {
     vi.clearAllMocks();
   });
 
-  it('renders nothing when there are no expected fields and no custom assertions', () => {
+  it('renders nothing when there are no expected fields', () => {
     const { container } = render(
       <ValidationRulesSummary
         expectedFields={[]}
-        assertions={[]}
         pivotedRules={emptyPivot}
         canPivot={false}
         rulesViewMode="flat"
@@ -32,27 +30,6 @@ describe('ValidationRulesSummary', () => {
       />,
     );
     expect(container.firstChild).toBeNull();
-  });
-
-  it('renders custom predicates section when only custom assertions exist', () => {
-    const assertions: Assertion[] = [{ type: 'custom', expression: '$eq(1,1)', description: 'always true' }];
-    render(
-      <ValidationRulesSummary
-        expectedFields={[]}
-        assertions={assertions}
-        pivotedRules={emptyPivot}
-        canPivot={false}
-        rulesViewMode="flat"
-        onViewModeChange={vi.fn()}
-        onRemoveField={vi.fn()}
-        onRemoveRowPrefix={vi.fn()}
-      />,
-    );
-    expect(screen.getByText('Custom Predicates')).toBeInTheDocument();
-    expect(screen.getByText('$eq(1,1)')).toBeInTheDocument();
-    expect(screen.getByText('always true')).toBeInTheDocument();
-    expect(screen.getByText('Validation Rules')).toBeInTheDocument();
-    expect(screen.getByText('(0)')).toBeInTheDocument();
   });
 
   it('renders operator badge defaulting to equals when operator is omitted', () => {
@@ -370,23 +347,5 @@ describe('ValidationRulesSummary', () => {
     const pivotTable = tables[tables.length - 1]!;
     expect(within(pivotTable).getAllByText('$.items').length).toBe(2);
     expect(screen.getByRole('button', { name: 'Remove $.items' })).toBeInTheDocument();
-  });
-
-  it('renders custom cards without description when omitted', () => {
-    const assertions: Assertion[] = [{ type: 'custom', expression: 'true' }];
-    render(
-      <ValidationRulesSummary
-        expectedFields={[{ jsonPath: '$.a', expectedValue: '1' }]}
-        assertions={assertions}
-        pivotedRules={emptyPivot}
-        canPivot={false}
-        rulesViewMode="flat"
-        onViewModeChange={vi.fn()}
-        onRemoveField={vi.fn()}
-        onRemoveRowPrefix={vi.fn()}
-      />,
-    );
-    expect(screen.getByText('true')).toBeInTheDocument();
-    expect(document.querySelector('.validation-custom-assertion-desc')).not.toBeInTheDocument();
   });
 });

@@ -443,7 +443,7 @@ describe('ValidationCodeEditor', () => {
     const deltaDecorations = vi.fn().mockReturnValue(['v-dec-1']);
     const mockEditor = withEditorDefaults({
       deltaDecorations,
-      getModel: () => ({}),
+      getModel: () => ({ getLineLength: () => 20 }),
     });
     const mockMonaco = mockMonacoForMountedEditor();
 
@@ -490,7 +490,7 @@ describe('ValidationCodeEditor', () => {
     const deltaDecorations = vi.fn().mockReturnValue(['dec']);
     const mockEditor = withEditorDefaults({
       deltaDecorations,
-      getModel: () => ({}),
+      getModel: () => ({ getLineLength: () => 20 }),
     });
     const mockMonaco = mockMonacoForMountedEditor();
 
@@ -523,7 +523,7 @@ describe('ValidationCodeEditor', () => {
       (newDecs.length === 0 ? [] : ['verify-dec']));
     const mockEditor = withEditorDefaults({
       deltaDecorations,
-      getModel: () => ({}),
+      getModel: () => ({ getLineLength: () => 20 }),
     });
     const mockMonaco = mockMonacoForMountedEditor();
 
