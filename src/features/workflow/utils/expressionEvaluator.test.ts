@@ -339,8 +339,22 @@ describe('expressionEvaluator', () => {
       expect(formatExpressionResult(circular)).toBe('[object Object]');
     });
 
-    it('evaluateExpression returns empty literal for leading rparen token', () => {
-      expect(evaluateExpression(')')).toEqual({ value: '' });
+    it('evaluateExpression returns error for unmatched rparen token', () => {
+      const result = evaluateExpression(')');
+      expect(result.value).toBeNull();
+      expect(result.error).toContain('Unmatched parentheses');
+    });
+
+    it('evaluateExpression returns error for unclosed lparen', () => {
+      const result = evaluateExpression('$eq($sum(1)');
+      expect(result.value).toBeNull();
+      expect(result.error).toContain('1 unclosed "("');
+    });
+
+    it('evaluateExpression returns error for unclosed bracket', () => {
+      const result = evaluateExpression('[1, 2');
+      expect(result.value).toBeNull();
+      expect(result.error).toContain('Unmatched brackets');
     });
 
     it('evaluateExpression error path surfaces non-Error throws', () => {

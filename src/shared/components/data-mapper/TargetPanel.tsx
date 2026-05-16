@@ -131,6 +131,7 @@ export default function TargetPanel({
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set(['__root__']));
   const [pasteMode, setPasteMode] = useState(false);
   const [pasteText, setPasteText] = useState('');
+  const [customPredicatesExpanded, setCustomPredicatesExpanded] = useState(true);
   const [pasteError, setPasteError] = useState<string | null>(null);
   const [fetching, setFetching] = useState(false);
 
@@ -567,25 +568,33 @@ export default function TargetPanel({
             if (customEntries.length === 0) return null;
             return (
               <div className="dm-custom-predicates-section">
-                <div className="dm-custom-predicates-header">
+                <button
+                  type="button"
+                  className="dm-custom-predicates-header"
+                  onClick={() => setCustomPredicatesExpanded(v => !v)}
+                  aria-expanded={customPredicatesExpanded}
+                >
+                  <span className={`dm-custom-predicates-arrow ${customPredicatesExpanded ? 'expanded' : ''}`}>▶</span>
                   <span className="dm-custom-predicates-icon">ƒ</span>
                   <span className="dm-custom-predicates-title">Custom Predicates</span>
                   <span className="dm-custom-predicates-count">
                     {customEntries.length}
                   </span>
-                </div>
-                <div className="dm-custom-predicates-list">
-                  {customEntries.map(({ assertion, globalIndex }) => (
-                    <InlineAssertionRow
-                      key={globalIndex}
-                      assertion={assertion}
-                      globalIndex={globalIndex}
-                      onUpdate={onUpdateArrayAssertion}
-                      onRemove={onRemoveArrayAssertion}
-                      verifyResult={assertionVerifyMap?.get(globalIndex)}
-                    />
-                  ))}
-                </div>
+                </button>
+                {customPredicatesExpanded && (
+                  <div className="dm-custom-predicates-list">
+                    {customEntries.map(({ assertion, globalIndex }) => (
+                      <InlineAssertionRow
+                        key={globalIndex}
+                        assertion={assertion}
+                        globalIndex={globalIndex}
+                        onUpdate={onUpdateArrayAssertion}
+                        onRemove={onRemoveArrayAssertion}
+                        verifyResult={assertionVerifyMap?.get(globalIndex)}
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
             );
           })()}
