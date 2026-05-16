@@ -299,5 +299,41 @@ describe('monacoValidationLanguage', () => {
       const result = provideCompletionItems(makeModel('zzz'), makePos(4));
       expect(result.suggestions.length).toBe(0);
     });
+
+    it('suggests item properties in lambda context (x => x.)', () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (window as any).__REDFIRE_VALIDATION_PATHS = [
+        'offers[0].rank', 'offers[0].name', 'offers[0].price', 'count',
+      ];
+      const line = 'NOT ASSERT $eq($sum($map($.body.offers, x => x.';
+      const result = provideCompletionItems(makeModel(line), makePos(line.length + 1));
+      const labels = result.suggestions.map((s: { label: string }) => s.label);
+      expect(labels).toContain('rank');
+      expect(labels).toContain('name');
+      expect(labels).toContain('price');
+      expect(labels).not.toContain('count');
+    });
+
+    it('filters lambda properties by partial input (x => x.ra)', () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (window as any).__REDFIRE_VALIDATION_PATHS = [
+        'offers[0].rank', 'offers[0].name', 'offers[0].price',
+      ];
+      const line = 'ASSERT $map($.body.offers, x => x.ra';
+      const result = provideCompletionItems(makeModel(line), makePos(line.length + 1));
+      const labels = result.suggestions.map((s: { label: string }) => s.label);
+      expect(labels).toContain('rank');
+      expect(labels).not.toContain('name');
+      expect(labels).not.toContain('price');
+    });
+
+    it('falls back to function suggestions when no item paths found for lambda', () => {
+      // No paths set — lambda should fall through to function suggestions
+      const line = 'ASSERT $map($.body.items, y => y.';
+      const result = provideCompletionItems(makeModel(line), makePos(line.length + 1));
+      const labels = result.suggestions.map((s: { label: string }) => s.label);
+      // Should get function suggestions as fallback
+      expect(labels.some((l: string) => l.startsWith('$'))).toBe(true);
+    });
   });
 });
