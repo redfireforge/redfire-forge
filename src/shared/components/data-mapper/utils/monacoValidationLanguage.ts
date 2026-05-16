@@ -77,11 +77,13 @@ export function isLightTheme(): boolean {
 }
 
 export function registerLanguage(monaco: typeof import('monaco-editor')) {
-  if (isLanguageRegistered()) return;
-  markLanguageRegistered();
+  const alreadyRegistered = isLanguageRegistered();
+  if (!alreadyRegistered) {
+    markLanguageRegistered();
+    monaco.languages.register({ id: LANGUAGE_ID });
+  }
 
-  monaco.languages.register({ id: LANGUAGE_ID });
-
+  // Always (re-)apply language configuration so bracket pairs take effect on HMR
   monaco.languages.setLanguageConfiguration(LANGUAGE_ID, {
     wordPattern: /\$\.[\w.[\]]*|\$\w*|\w+/,
     brackets: [
@@ -101,6 +103,11 @@ export function registerLanguage(monaco: typeof import('monaco-editor')) {
       { open: "'", close: "'" },
     ],
   });
+
+  if (alreadyRegistered) {
+    applyDynamicTheme(monaco);
+    return;
+  }
 
   monaco.languages.setMonarchTokensProvider(LANGUAGE_ID, {
     defaultToken: '',
