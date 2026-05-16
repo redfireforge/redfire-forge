@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { highlightJsonHtml } from '../../utils/jsonHighlightHtml';
+import { prettyJson } from '../../utils/helpers';
 import type { FetchErrorDetail } from './types';
 
 interface FetchErrorBannerProps {
@@ -68,7 +70,7 @@ export default function FetchErrorBanner({ error }: FetchErrorBannerProps) {
               <summary className="dm-fetch-error-section-title">Response Body</summary>
               <pre
                 className="dm-fetch-error-body"
-                dangerouslySetInnerHTML={{ __html: highlightJson(formatBody(error.body)) }}
+                dangerouslySetInnerHTML={{ __html: highlightJsonHtml(prettyJson(error.body)) }}
               />
             </details>
           )}
@@ -78,30 +80,3 @@ export default function FetchErrorBanner({ error }: FetchErrorBannerProps) {
   );
 }
 
-function formatBody(raw: string): string {
-  try {
-    return JSON.stringify(JSON.parse(raw), null, 2);
-  } catch {
-    return raw;
-  }
-}
-
-function escapeHtml(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}
-
-function highlightJson(json: string): string {
-  return escapeHtml(json).replace(
-    /("(?:[^"\\]|\\.)*")\s*:/g,
-    '<span class="json-hl-key">$1</span>:',
-  ).replace(
-    /:\s*("(?:[^"\\]|\\.)*")/g,
-    (_m, val) => `: <span class="json-hl-str">${val}</span>`,
-  ).replace(
-    /:\s*(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)/g,
-    ': <span class="json-hl-num">$1</span>',
-  ).replace(
-    /:\s*(true|false|null)/g,
-    ': <span class="json-hl-kw">$1</span>',
-  );
-}

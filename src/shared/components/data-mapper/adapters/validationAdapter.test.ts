@@ -152,8 +152,8 @@ describe('serialize — include mode', () => {
     const result = adapter.serialize(mappings);
     expect(result.selectiveMode).toBe('include');
     expect(result.expectedFields).toEqual([
-      { jsonPath: 'data.id', expectedValue: '42' },
-      { jsonPath: 'data.name', expectedValue: 'Alice' },
+      { jsonPath: 'data.id', expectedValue: '42', operator: 'equals' },
+      { jsonPath: 'data.name', expectedValue: 'Alice', operator: 'equals' },
     ]);
     expect(result.excludedPaths).toEqual([]);
   });
@@ -180,7 +180,7 @@ describe('serialize — include mode', () => {
     ];
     const result = adapter.serialize(mappings);
     expect(result.expectedFields).toEqual([
-      { jsonPath: 'offers[0].code', expectedValue: 'A' },
+      { jsonPath: 'offers[0].code', expectedValue: 'A', operator: 'equals' },
     ]);
   });
 });
@@ -242,6 +242,7 @@ describe('deserialize — include mode', () => {
       sourceId: 'response-body',
       sourcePath: 'data.id',
       targetPath: 'data.id',
+      operator: 'equals',
       operatorValue: '42',
     });
     expect(result[1]).toEqual({
@@ -249,6 +250,7 @@ describe('deserialize — include mode', () => {
       sourceId: 'response-body',
       sourcePath: 'data.name',
       targetPath: 'data.name',
+      operator: 'equals',
       operatorValue: 'Alice',
     });
   });
@@ -353,6 +355,7 @@ describe('deserialize — exclude mode', () => {
         sourceId: 'response-body',
         sourcePath: 'a',
         targetPath: 'a',
+        operator: 'equals',
       },
     ]);
   });
@@ -374,6 +377,7 @@ describe('deserialize — exclude mode', () => {
       sourceId: 'response-body',
       sourcePath: 'beta',
       targetPath: 'beta',
+      operator: 'equals',
     });
     const alpha = mappings.find((m) => m.sourcePath === 'alpha');
     expect(alpha?.operator).toBe('equals');
@@ -702,7 +706,7 @@ describe('validationAdapter — operator round-trip', () => {
     const output = adapter.serialize(mappings);
     expect(output.expectedFields[0].operator).toBe('equals');
     expect(output.expectedFields[0].operatorValue).toBeUndefined();
-    expect(output.expectedFields[1].operator).toBeUndefined();
+    expect(output.expectedFields[1].operator).toBe('equals');
   });
 
   it('serialize resolves expectedValue from expression ref when expression is set', () => {
@@ -798,7 +802,7 @@ describe('validationAdapter — operator round-trip', () => {
     expect(deserialized[1].operatorValue).toBe('["active","pending"]');
   });
 
-  it('backward compatible: deserialize handles fields without operators', () => {
+  it('backward compatible: deserialize handles fields without operators (defaults to equals)', () => {
     const adapter = createValidationAdapter({
       sampleResponseBody: { name: 'Alice' },
       selectiveMode: 'include',
@@ -810,7 +814,7 @@ describe('validationAdapter — operator round-trip', () => {
       excludedPaths: [],
     };
     const mappings = adapter.deserialize(output);
-    expect(mappings[0].operator).toBeUndefined();
+    expect(mappings[0].operator).toBe('equals');
     expect(mappings[0].operatorValue).toBeUndefined();
   });
 

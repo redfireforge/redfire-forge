@@ -332,7 +332,7 @@ describe('useTargetFields', () => {
     expect(paths).toEqual(['z1', 'z2']);
     expect(
       result.current.effectiveTarget.fields?.find((f) => f.path === 'z1'),
-    ).toMatchObject({ label: 'z1', type: 'string', origin: 'adapter' });
+    ).toMatchObject({ label: 'z1', type: 'number', origin: 'adapter' });
   });
 
   it('handleReorderTargetField moves path; no-op for missing paths, empty, or same path', () => {
@@ -570,6 +570,86 @@ describe('useTargetFields', () => {
       result.current.handleReorderTargetField('b', 'a');
     });
     expect(result.current.draggedTargetFieldPathRef.current).toBeNull();
+  });
+
+  it('BUG REPRO: custom field type is preserved even when mappingTargetFields hydration runs', () => {
+    // Scenario: extraction adapter with no sample data, no fields.
+    // User drags a number source onto "+ Add Field" → AddFieldRow calls
+    // handleAddCustomField({ path: 'value', type: 'number', ... }).
+    // Then a mapping is created (sourcePath → 'value').
+    // The mappingTargetFields hydration should NOT overwrite type to 'string'.
+    const adapter = makeAdapter({
+      target: {
+        label: 'Extracted Variables',
+        sampleData: undefined as unknown as null,
+        allowCustomFields: true,
+        // no fields → shouldHydrateFromMappings = true
+      },
+    });
+    const mappings: Mapping[] = [
+      baseMapping({ id: 'm1', sourcePath: 'offers[0].duration.value', targetPath: 'value' }),
+    ];
+
+    const { result } = renderHook(() =>
+      useTargetFields({ adapter, mappings, removeMappings, updateMapping }),
+    );
+
+    // First add the custom field with type 'number'
+    act(() => {
+      result.current.handleAddCustomField({
+        path: 'value',
+        label: 'value',
+        type: 'number',
+        origin: 'custom',
+      });
+    });
+
+    // effectiveTarget.fields should have 'value' with type 'number', not 'string'
+    const valueField = result.current.effectiveTarget.fields?.find((f) => f.path === 'value');
+    expect(valueField).toBeDefined();
+    expect(valueField!.type).toBe('number');
+    expect(valueField!.origin).toBe('custom');
+  });
+
+  it('mappingTargetFields infers type from source sample data instead of hardcoding string', () => {
+    // Scenario: user mapped offers[0].duration.value (number) to target "value",
+    // then closed and reopened the mapper. The deserialized mapping has no target type,
+    // so mappingTargetFields must infer from the source sample data.
+    const adapter = makeAdapter({
+      sources: [{
+        id: 'src1',
+        label: 'Source',
+        sampleData: JSON.stringify({
+          offers: [{ duration: { value: 42 }, name: 'test', active: true }],
+        }),
+      }],
+      target: {
+        label: 'Extracted Variables',
+        sampleData: undefined as unknown as null,
+        allowCustomFields: true,
+      },
+    });
+    const mappings: Mapping[] = [
+      baseMapping({ id: 'm1', sourceId: 'src1', sourcePath: 'offers[0].duration.value', targetPath: 'value' }),
+      baseMapping({ id: 'm2', sourceId: 'src1', sourcePath: 'offers[0].name', targetPath: 'myName' }),
+      baseMapping({ id: 'm3', sourceId: 'src1', sourcePath: 'offers[0].active', targetPath: 'isActive' }),
+    ];
+
+    const { result } = renderHook(() =>
+      useTargetFields({ adapter, mappings, removeMappings, updateMapping }),
+    );
+
+    const valueField = result.current.effectiveTarget.fields?.find((f) => f.path === 'value');
+    expect(valueField).toBeDefined();
+    expect(valueField!.type).toBe('number');
+
+    const nameField = result.current.effectiveTarget.fields?.find((f) => f.path === 'myName');
+    expect(nameField).toBeDefined();
+    expect(nameField!.type).toBe('string');
+
+    const activeField = result.current.effectiveTarget.fields?.find((f) => f.path === 'isActive');
+    expect(activeField).toBeDefined();
+    expect(activeField!.type).toBe('boolean');
   });
 
   it('sort stable tie: fields missing from targetFieldOrder stay relative (both null index)', async () => {

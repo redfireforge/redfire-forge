@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback, useRef, createContext, useContext } from 'react';
 import { bestEffortFormat } from './jsonTreeShared';
+import { prettyJson } from '../utils/helpers';
 
 interface Props {
   data: string | Record<string, unknown> | unknown[] | unknown;
@@ -47,8 +48,7 @@ export default function JsonTreeViewer({
   const parsed = useMemo(() => parseValue(data), [data]);
   const rawString = useMemo(() => {
     if (typeof data === 'string') {
-      try { return JSON.stringify(JSON.parse(data), null, 2); }
-      catch { return data; }
+      return prettyJson(data);
     }
     return JSON.stringify(data, null, 2);
   }, [data]);

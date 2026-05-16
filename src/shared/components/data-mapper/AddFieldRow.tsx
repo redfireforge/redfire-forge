@@ -1,16 +1,19 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import type { TargetField, TargetFieldLocation } from './types';
-
+import { extractDragPayload } from './utils/targetTreeHelpers';
 const FIELD_TYPES = ['string', 'number', 'boolean', 'object', 'array'] as const;
 
 interface AddFieldRowProps {
   existingPaths: Set<string>;
   onAdd: (field: TargetField) => void;
   location?: TargetFieldLocation;
+  onDrop?: (targetPath: string, sourcePath: string, sourceId: string) => void;
+  getDraggedSource?: () => { path: string; sourceId: string } | null;
 }
 
-export default function AddFieldRow({ existingPaths, onAdd, location }: AddFieldRowProps) {
+export default function AddFieldRow({ existingPaths, onAdd, location, onDrop, getDraggedSource }: AddFieldRowProps) {
   const [editing, setEditing] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
   const [name, setName] = useState('');
   const [fieldType, setFieldType] = useState<string>('string');
   const [error, setError] = useState<string | null>(null);
@@ -19,6 +22,48 @@ export default function AddFieldRow({ existingPaths, onAdd, location }: AddField
   useEffect(() => {
     if (editing) inputRef.current?.focus();
   }, [editing]);
+
+  const extractSource = useCallback(
+    (e: React.DragEvent): { path: string; sourceId: string; type?: string } | null =>
+      extractDragPayload(e) ?? getDraggedSource?.() ?? null,
+    [getDraggedSource],
+  );
+
+  const createUniquePath = useCallback((basePath: string): string => {
+    const segments = basePath.split('.');
+    const base = segments[segments.length - 1] || 'field';
+    if (!existingPaths.has(base)) return base;
+    let index = 2;
+    let candidate = `${base}_${index}`;
+    while (existingPaths.has(candidate)) { index += 1; candidate = `${base}_${index}`; }
+    return candidate;
+  }, [existingPaths]);
+
+  const handleRowDragOver = useCallback((e: React.DragEvent) => {
+    if (!onDrop) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'link';
+    setDragOver(true);
+  }, [onDrop]);
+
+  const handleRowDragLeave = useCallback(() => { setDragOver(false); }, []);
+
+  const handleRowDrop = useCallback((e: React.DragEvent) => {
+    setDragOver(false);
+    if (!onDrop) return;
+    const source = extractSource(e);
+    if (!source) return;
+    e.preventDefault();
+    const targetPath = createUniquePath(source.path);
+    onAdd({
+      path: targetPath,
+      label: targetPath.includes('.') ? targetPath.split('.').pop()! : targetPath,
+      type: source.type ?? 'string',
+      origin: 'custom',
+      ...(location ? { location } : {}),
+    });
+    onDrop(targetPath, source.path, source.sourceId);
+  }, [onDrop, extractSource, createUniquePath, onAdd, location]);
 
   const handleSubmit = useCallback(() => {
     const trimmed = name.trim();
@@ -67,11 +112,15 @@ export default function AddFieldRow({ existingPaths, onAdd, location }: AddField
   if (!editing) {
     return (
       <button
-        className="dm-add-field-btn"
+        className={`dm-add-field-btn${dragOver ? ' dm-add-field-btn--drag-over' : ''}`}
         onClick={() => setEditing(true)}
+        onDragOver={handleRowDragOver}
+        onDragEnter={handleRowDragOver}
+        onDragLeave={handleRowDragLeave}
+        onDrop={handleRowDrop}
         aria-label="Add custom field"
       >
-        + Add Field
+        {dragOver ? 'Drop to create field & map' : '+ Add Field'}
       </button>
     );
   }

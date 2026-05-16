@@ -78,7 +78,7 @@ describe('SourceTreeNode', () => {
       effectAllowed: 'none',
     };
     fireEvent.dragStart(el, { dataTransfer });
-    expect(onDragStart).toHaveBeenCalledWith('name', 's1');
+    expect(onDragStart).toHaveBeenCalledWith('name', 's1', 'string');
     expect(store['application/mapper-source']).toContain('"path":"name"');
   });
 
@@ -107,7 +107,7 @@ describe('SourceTreeNode', () => {
       effectAllowed: 'none',
     };
     fireEvent.dragStart(el, { dataTransfer });
-    expect(onDragStart).toHaveBeenCalledWith('payload', 's1');
+    expect(onDragStart).toHaveBeenCalledWith('payload', 's1', 'object');
     expect(store['application/mapper-source']).toContain('"path":"payload"');
   });
 

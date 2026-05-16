@@ -1,6 +1,8 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import type { MapperAdapter, Mapping, MapperTarget, TargetField, FetchErrorDetail } from '../types';
 import { MapperFetchError } from '../types';
+import { inferType } from '../utils/typeMismatch';
+import { resolveSourceValue } from '../utils/mapperParsing';
 
 export interface UseTargetFieldsArgs<TOutput = unknown> {
   adapter: MapperAdapter<TOutput>;
@@ -46,15 +48,17 @@ export function useTargetFields<TOutput = unknown>({
       const path = m.targetPath?.trim();
       if (!path || seen.has(path)) continue;
       seen.add(path);
+      const sourceVal = resolveSourceValue(m, adapter.sources);
+      const inferredType = sourceVal !== undefined ? inferType(sourceVal) : 'string';
       fields.push({
         path,
         label: path,
-        type: 'string',
+        type: inferredType,
         origin: 'adapter',
       });
     }
     return fields;
-  }, [mappings]);
+  }, [mappings, adapter.sources]);
 
   const effectiveTarget = useMemo(() => {
     const shouldHydrateFromMappings =
@@ -78,9 +82,10 @@ export function useTargetFields<TOutput = unknown>({
       seenPaths.add(f.path);
       return true;
     });
+    const customPaths = new Set(customTargetFields.map((f) => f.path));
     const dedupedMapped = shouldHydrateFromMappings
       ? mappingTargetFields.filter((f) => {
-        if (seenPaths.has(f.path)) return false;
+        if (seenPaths.has(f.path) || customPaths.has(f.path)) return false;
         seenPaths.add(f.path);
         return true;
       })

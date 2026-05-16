@@ -188,8 +188,11 @@ The UI must be **professional, clean, and user-friendly** — matching the dark 
 
 ## Modal Design Rules
 
-- **Background overlay**: Always use `background: transparent` for modal overlays. Never use opaque or semi-transparent backdrops (`rgba(0,0,0,0.5)` etc.).
+- **Background overlay**: Always use `background: transparent` for modal overlays. Never use opaque or semi-transparent backdrops (`rgba(0,0,0,0.5)` etc.) or `backdrop-filter: blur()`.
 - **No redundant close buttons**: Do NOT add an "×" close button in the modal header if the modal already has a "Cancel" button in the footer. One close mechanism is sufficient. Escape key should always close modals.
+- **Action buttons at bottom-right**: Copy, Close, Cancel, Save — always place these in a footer bar at the bottom-right of the modal. Never in the header.
+- **Search bar**: If the modal displays content (code, JSON, logs, etc.), always include a search bar in the header with match counter (`N/M`) and up/down arrow navigation (▲/▼). Reuse the existing console search pattern (`WorkflowConsolePanel` / `ResultsExplorerConsolePanel`). Cmd+F should focus search. Enter/Shift+Enter for next/prev. Do not reinvent the wheel.
+- **Pretty-print JSON**: Always pretty-print JSON content (`JSON.stringify(parsed, null, 2)`). Never show minified JSON in modals.
 - **Undo/Redo**: Modals with editors (expression editor, code editor) must provide undo/redo buttons in the header.
 
 ## Code Quality — Fix All Errors

@@ -9,13 +9,11 @@ import { buildJsonTree } from '../../utils/jsonTreeModel';
 import { buildTreeFromFields, collectAllPaths } from './utils/targetTreeBuilder';
 import { normalizeMapperPath } from './utils/pathNormalization';
 import { stripJsonPathPrefix } from '../../utils/jsonPath';
-import { flashTreeNode } from './utils/targetTreeHelpers';
+import { extractDragPayload, flashTreeNode } from './utils/targetTreeHelpers';
 import TargetTreeNode from './TargetTreeNode';
 import AddFieldRow from './AddFieldRow';
 import LocationGroupPanel from './LocationGroupPanel';
 import FetchErrorBanner from './FetchErrorBanner';
-
-const SOURCE_TEXT_PREFIX = 'mapper-source:';
 
 interface TargetPanelProps {
   target: MapperTarget;
@@ -409,27 +407,11 @@ export default function TargetPanel({
     [leafPaths.length, mappedLeafCount],
   );
 
-  const extractDraggedSource = useCallback((e: React.DragEvent): { path: string; sourceId: string } | null => {
-    const parsePayload = (raw: string): { path: string; sourceId: string } | null => {
-      if (!raw) return null;
-      const cleaned = raw.startsWith(SOURCE_TEXT_PREFIX) ? raw.slice(SOURCE_TEXT_PREFIX.length) : raw;
-      try {
-        const parsed = JSON.parse(cleaned) as { path?: unknown; sourceId?: unknown };
-        if (typeof parsed.path === 'string' && typeof parsed.sourceId === 'string') {
-          return { path: parsed.path, sourceId: parsed.sourceId };
-        }
-      } catch {
-        // ignore invalid payload
-      }
-      return null;
-    };
-
-    const customMime = parsePayload(e.dataTransfer.getData('application/mapper-source'));
-    if (customMime) return customMime;
-    const textPayload = parsePayload(e.dataTransfer.getData('text/plain'));
-    if (textPayload) return textPayload;
-    return getDraggedSource?.() ?? null;
-  }, [getDraggedSource]);
+  const extractDraggedSource = useCallback(
+    (e: React.DragEvent): { path: string; sourceId: string; type?: string } | null =>
+      extractDragPayload(e) ?? getDraggedSource?.() ?? null,
+    [getDraggedSource],
+  );
 
   const createUniquePath = useCallback((basePath: string): string => {
     const base = basePath.trim() || 'field';
@@ -460,7 +442,7 @@ export default function TargetPanel({
     onAddCustomField({
       path: targetPath,
       label: targetPath.includes('.') ? targetPath.split('.').pop()! : targetPath,
-      type: 'string',
+      type: dragged.type ?? 'string',
       origin: 'custom',
     });
     onDrop(targetPath, dragged.path, dragged.sourceId);
@@ -714,6 +696,8 @@ export default function TargetPanel({
               <AddFieldRow
                 existingPaths={existingPaths}
                 onAdd={onAddCustomField}
+                onDrop={onDrop}
+                getDraggedSource={getDraggedSource}
               />
             )}
           </div>

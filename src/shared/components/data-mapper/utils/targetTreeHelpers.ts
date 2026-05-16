@@ -4,6 +4,7 @@
  * Split out of `TargetTreeNode.tsx` so the rendering component stays focused
  * on JSX while these stateless utilities can be unit-tested in isolation.
  */
+import type { DragEvent } from 'react';
 import type { JsonTreeNode } from '../../../utils/jsonTreeModel';
 import type { Assertion, ComparisonOperator } from '../../../types';
 import { normalizeMapperPath } from './pathNormalization';
@@ -14,6 +15,49 @@ export const SOURCE_TEXT_PREFIX = 'mapper-source:';
 export const TARGET_FIELD_TEXT_PREFIX = 'mapper-target-field:';
 /** Drag-and-drop text/plain payload prefix for mapping remap (move line to new target). */
 export const REMAP_TEXT_PREFIX = 'mapper-remap:';
+
+/** Strips known text/plain drag prefixes, then JSON.parse. */
+export function parseJsonPayload(raw: string): unknown {
+  if (!raw) return null;
+  const cleaned = raw.startsWith(SOURCE_TEXT_PREFIX)
+    ? raw.slice(SOURCE_TEXT_PREFIX.length)
+    : raw.startsWith(TARGET_FIELD_TEXT_PREFIX)
+      ? raw.slice(TARGET_FIELD_TEXT_PREFIX.length)
+      : raw.startsWith(REMAP_TEXT_PREFIX)
+        ? raw.slice(REMAP_TEXT_PREFIX.length)
+        : raw;
+  try {
+    return JSON.parse(cleaned) as unknown;
+  } catch {
+    return null;
+  }
+}
+
+function parseMapperSourceDragRaw(raw: string): { path: string; sourceId: string; type?: string } | null {
+  if (!raw) return null;
+  const cleaned = raw.startsWith(SOURCE_TEXT_PREFIX) ? raw.slice(SOURCE_TEXT_PREFIX.length) : raw;
+  try {
+    const parsed = JSON.parse(cleaned) as { path?: unknown; sourceId?: unknown; type?: unknown };
+    if (typeof parsed.path === 'string' && typeof parsed.sourceId === 'string') {
+      return {
+        path: parsed.path,
+        sourceId: parsed.sourceId,
+        type: typeof parsed.type === 'string' ? parsed.type : undefined,
+      };
+    }
+  } catch { /* invalid JSON payload */ }
+  return null;
+}
+
+export function extractDragPayload(e: DragEvent): { path: string; sourceId: string; type?: string } | null {
+  const dt = e.dataTransfer;
+  if (!dt || typeof dt.getData !== 'function') return null;
+  return (
+    parseMapperSourceDragRaw(dt.getData('application/mapper-source'))
+    ?? parseMapperSourceDragRaw(dt.getData('text/plain'))
+    ?? null
+  );
+}
 
 /** Compact type pills shown next to each node ("obj", "arr", …). */
 export const TYPE_LABELS: Record<string, string> = {

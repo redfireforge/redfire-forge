@@ -90,8 +90,8 @@ Registered in Gallery: `src/data/galleries/trainingPaths/contentPaths.ts` (path 
 
 | # | Surface | Files | What It Does | Interaction | Reusable? |
 |---|---------|-------|-------------|-------------|-----------|
-| 1 | **Extraction Editor** | `ExtractionEditor.tsx` _(formerly also `ExtractionPathPickerModal.tsx`, `ExtractionMapperModal.tsx` — removed)_ | Map HTTP response fields → workflow variables | Table rows + Visual Mapper (DataMapperModal) | Shared (workflow + test) |
-| 2 | **~~JSON Path Builder~~** | ~~`JsonPathBuilder.tsx`, `jsonPathTreeUtils.ts`~~ _(removed — replaced by DataMapperModal + validationAdapter)_ | Multi-select JSON paths for validation expected fields | Inline fields table + Visual Mapper (DataMapperModal) | Primary validation mapper |
+| 1 | **Extraction Editor** | `ExtractionEditor.tsx` _(formerly also `ExtractionPathPickerModal.tsx`, `ExtractionMapperModal.tsx` — removed)_ | Map HTTP response fields → workflow variables | Table rows + Data Mapper (DataMapperModal) | Shared (workflow + test) |
+| 2 | **~~JSON Path Builder~~** | ~~`JsonPathBuilder.tsx`, `jsonPathTreeUtils.ts`~~ _(removed — replaced by DataMapperModal + validationAdapter)_ | Multi-select JSON paths for validation expected fields | Inline fields table + Data Mapper (DataMapperModal) | Primary validation mapper |
 | 3 | **Regex Assertion Builder Modal** | `RegexAssertionBuilderModal.tsx` | Pick JSON path + build regex pattern | DM tree (`SelectableTreeNode`) + pattern library | Reusable tree picker (replaced old `RegexAssertionModal`) |
 | 4 | **Data Source Column Mapping** | `DataSourceEditor.tsx`, `dataSourceExpander.ts` | Map `{{column}}` placeholders to request fields | Column headers with type prefix (`path:`, `param:`, `body:`) | Parameterized tests |
 | 5 | **Populate from API** | `PopulateFromApiModal.tsx`, `usePopulateFromApi.ts` | Map API response → data source columns/rows | Two-step wizard: fetch → field mapping | Shared DS specific |
@@ -1173,7 +1173,7 @@ Replaced `ExtractionEditor`'s old picker modals with the Data Mapper. Source = H
 | 3A.4 | Wired via `ExtractionEditor.tsx` — `DataMapperModal` + `createExtractionAdapter` integrated inside `ExtractionEditor` itself (used by both `HttpConfig.tsx` and `TestEditorModal.tsx`). Picker-mode for single-row path editing + full mapper-mode for bulk mapping. `sampleResponseBody`, `nonBodyExtractions` threaded through adapter. | `ExtractionEditor.tsx` | ✅ |
 | 3A.5 | (Covered by 3A.4) `TestEditorModal.tsx` renders `ExtractionEditor` which now contains the Data Mapper wiring. No direct changes to `TestEditorModal.tsx` needed. | `TestEditorModal.tsx` | ✅ |
 | 3A.6 | 34 unit tests: adapter creation (9), serialize (5), deserialize (5), round-trip (3), validate (8), splitExtractions (4). Covers: JSON string parsing, invalid JSON, null/undefined input, expression passthrough, non-body merge, duplicate names, empty names, braces warning, empty expression. | `adapters/extractionAdapter.test.ts` **New** | ✅ |
-| 3A.7 | Integration tests in `ExtractionEditor.test.tsx` — updated mocks from old modals to `DataMapperModal`, verified picker-mode and full-mapper-mode onSave, button text "Visual Mapper", modal open/close flows. Also `adapterIntegration.test.ts` covers cross-adapter consistency. | `ExtractionEditor.test.tsx`, `adapterIntegration.test.ts` | ✅ |
+| 3A.7 | Integration tests in `ExtractionEditor.test.tsx` — updated mocks from old modals to `DataMapperModal`, verified picker-mode and full-mapper-mode onSave, button text "Data Mapper", modal open/close flows. Also `adapterIntegration.test.ts` covers cross-adapter consistency. | `ExtractionEditor.test.tsx`, `adapterIntegration.test.ts` | ✅ |
 
 **Success criteria:** Workflow HTTP node Extract tab and Test Editor Extract tab use the Data Mapper instead of the old extraction components. Header/status extractions still work as inline rows. All existing extraction tests pass. Round-trip: open existing extractions in mapper → save → `Extraction[]` is identical.
 
@@ -1220,11 +1220,11 @@ Replaced ~~`JsonPathBuilder`~~ (658 lines, now deleted) with the Data Mapper for
 | 3C.4 | `deserialize()` — include mode: reconstructs mappings from `expectedFields`. Exclude mode: inverts `excludedPaths` against full leaf set, uses existing `expectedValue` or falls back to sample data via `resolveValue()`. | Same file | ✅ |
 | 3C.5 | Mode toggle — `selectiveMode` option on `createValidationAdapter()`. Parent recreates adapter with new mode; serialize/deserialize logic switches automatically. | Same file | ✅ |
 | 3C.6 | Sample JSON management — `fetchSampleData` callback option, `supportsLiveFetch` flag. Paste JSON handled by Data Mapper's built-in source panel. | Same file | ✅ |
-| 3C.7 | Wired into `TestEditorValidationTab.tsx` — added `DataMapperModal` + `createValidationAdapter` as "⚡ Visual Mapper" button. `handleValidationMapperSave` writes `selectiveMode`, `expectedFields`, `excludedPaths`. _(Originally alongside `JsonPathBuilder`; `JsonPathBuilder` since deleted and replaced by inline `validation-fields-table`.)_ | `TestEditorValidationTab.tsx` | ✅ |
-| 3C.8 | Wired into `SetupStepValidate.tsx` — added `DataMapperModal` + `createValidationAdapter` (include mode only). "⚡ Visual Mapper" button. _(Originally alongside `JsonPathBuilder`; since replaced.)_ | `SetupStepValidate.tsx` | ✅ |
-| 3C.9 | Wired into `DataSourceRowDetailModal.tsx` — added `DataMapperModal` + `createValidationAdapter` (include mode only). "⚡ Visual Mapper" button. _(Originally alongside `JsonPathBuilder`; since replaced.)_ | `DataSourceRowDetailModal.tsx` | ✅ |
+| 3C.7 | Wired into `TestEditorValidationTab.tsx` — added `DataMapperModal` + `createValidationAdapter` as "⚡ Data Mapper" button. `handleValidationMapperSave` writes `selectiveMode`, `expectedFields`, `excludedPaths`. _(Originally alongside `JsonPathBuilder`; `JsonPathBuilder` since deleted and replaced by inline `validation-fields-table`.)_ | `TestEditorValidationTab.tsx` | ✅ |
+| 3C.8 | Wired into `SetupStepValidate.tsx` — added `DataMapperModal` + `createValidationAdapter` (include mode only). "⚡ Data Mapper" button. _(Originally alongside `JsonPathBuilder`; since replaced.)_ | `SetupStepValidate.tsx` | ✅ |
+| 3C.9 | Wired into `DataSourceRowDetailModal.tsx` — added `DataMapperModal` + `createValidationAdapter` (include mode only). "⚡ Data Mapper" button. _(Originally alongside `JsonPathBuilder`; since replaced.)_ | `DataSourceRowDetailModal.tsx` | ✅ |
 | 3C.10 | 32 unit tests: adapter creation (11), include serialize (3), exclude serialize (3), include deserialize (4), exclude deserialize (4), round-trip (3), validate (5). Covers: JSON parsing, mode toggle, leaf path computation, sample value fallback, empty/null input, duplicate paths, empty paths. | `adapters/validationAdapter.test.ts` **New** | ✅ |
-| 3C.11 | Integration tests in `TestEditorValidationTab.test.tsx` — mocked `DataMapperModal`, verified "⚡ Visual Mapper" button renders/opens, onSave writes expectedFields + excludedPaths + selectiveMode. `adapterIntegration.test.ts` covers cross-adapter round-trip. | `TestEditorValidationTab.test.tsx`, `adapterIntegration.test.ts` | ✅ |
+| 3C.11 | Integration tests in `TestEditorValidationTab.test.tsx` — mocked `DataMapperModal`, verified "⚡ Data Mapper" button renders/opens, onSave writes expectedFields + excludedPaths + selectiveMode. `adapterIntegration.test.ts` covers cross-adapter round-trip. | `TestEditorValidationTab.test.tsx`, `adapterIntegration.test.ts` | ✅ |
 
 **Success criteria:** `TestEditorValidationTab`, `SetupStepValidate`, and `DataSourceRowDetailModal` use the Data Mapper _(~~`JsonPathBuilder`~~ removed)_. Both include and exclude modes work. Sample JSON synced. All existing validation tests pass. Round-trip: open existing validation config → save → output is identical.
 
@@ -1308,7 +1308,7 @@ Replace the Populate from API wizard with a Data Mapper. Source = fetched API re
 
 #### Sub-Phase 4B: ColumnMappingAdapter
 
-Replace the column type/mapping inline UI in `DataSourceEditor` with a visual mapper. Source = data source column names; Target = request template placeholders (URL path segments, query params, body fields, headers, validation paths). This gives users a visual view of "which column feeds which part of the request."
+Replace the column type/mapping inline UI in `DataSourceEditor` with a Data Mapper. Source = data source column names; Target = request template placeholders (URL path segments, query params, body fields, headers, validation paths). This gives users a visual view of "which column feeds which part of the request."
 
 | # | Task | File(s) | Status |
 |---|------|---------|--------|
@@ -1381,7 +1381,7 @@ Build a single adapter that handles both Webhook Trigger and Correlation Wait pa
 | 5A.2 | `serialize()` — convert `Mapping[]` → `Array<{ name, jsonPath }>`. `sourcePath` → `jsonPath`, `targetPath` → `name`. | Same file | ✅ |
 | 5A.3 | `deserialize()` — convert existing `extractVariables` → `Mapping[]`. | Same file | ✅ |
 | 5A.4 | Correlation source handling — `CorrelationWaitConfig` supports `correlationSource: 'body' | 'header' | 'query'`. For body source, the mapper handles JSONPath selection. For header/query, keep as inline fields (same approach as extraction adapter 3A.3). | Same file | ✅ |
-| 5A.5 | Wire into `CorrelationWaitConfig.tsx` — add `<DataMapperModal>` "Visual Mapper" button alongside inline fields. Parse `samplePayload` as source sample. Thread `onChange` to update `data.extractVariables`. | `CorrelationWaitConfig.tsx` | ✅ |
+| 5A.5 | Wire into `CorrelationWaitConfig.tsx` — add `<DataMapperModal>` "Data Mapper" button alongside inline fields. Parse `samplePayload` as source sample. Thread `onChange` to update `data.extractVariables`. | `CorrelationWaitConfig.tsx` | ✅ |
 | 5A.6 | Wire into `WebhookConfig.tsx` — **add** `extractVariables` editing UI (previously missing from config panel). Use the same adapter. Parse `samplePayload` as source sample. | `WebhookConfig.tsx` | ✅ |
 | 5A.7 | Unit tests — adapter round-trip, path normalization, empty payload handling, validation. 32 tests. | `adapters/webhookExtractionAdapter.test.ts` **New** | ✅ |
 | 5A.8 | Integration tests — context ID uniqueness (9 adapters), validation, round-trip, category check. | `adapterIntegration.test.ts` | ✅ |
@@ -1390,7 +1390,7 @@ Build a single adapter that handles both Webhook Trigger and Correlation Wait pa
 
 #### Sub-Phase 5B: VariableBindingAdapter (Complete)
 
-Visual mapper for binding upstream node outputs to current node input variables. Source = available variables from upstream nodes (grouped by source node); Target = current node's input variable references (`{{var}}` in URL, headers, body).
+Data Mapper for binding upstream node outputs to current node input variables. Source = available variables from upstream nodes (grouped by source node); Target = current node's input variable references (`{{var}}` in URL, headers, body).
 
 | # | Task | File(s) | Status |
 |---|------|---------|--------|

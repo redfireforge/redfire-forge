@@ -18,28 +18,16 @@ import { generateJsonSchema } from '../../../shared/components/data-mapper/utils
 import { DataMapperModal, createValidationAdapter } from '../../../shared/components/data-mapper';
 import type { ValidationAdapterOutput } from '../../../shared/components/data-mapper';
 import { buildPivotedRulesFromExpectedFields } from './testEditorValidationPivot';
-import { ADD_ASSERTION_MENU_ROWS } from './testEditorValidationAddMenu';
-
-function getAssertionTypeBadgeLabel(type: string): string {
-  switch (type) {
-    case 'status': return 'STATUS';
-    case 'responseTime': return 'TIME';
-    case 'header': return 'HEADER';
-    case 'regex': return 'REGEX';
-    case 'arrayLength': return 'ARRAY';
-    case 'numeric': return 'NUMBER';
-    case 'date': return 'DATE';
-    case 'typeCheck': return 'TYPE';
-    case 'existence': return 'EXISTS';
-    case 'arrayContains': return 'CONTAINS';
-    case 'each': return 'EACH';
-    case 'jsonSchema': return 'SCHEMA';
-    case 'bodySize': return 'SIZE';
-    case 'datePrecise': return 'DATE⁺';
-    case 'custom': return 'CUSTOM';
-    default: return 'SUBSET';
-  }
-}
+import { ADD_ASSERTION_MENU_ROWS, ASSERTION_CATEGORIES } from './testEditorValidationAddMenu';
+import {
+  ARRAY_CONTAINS_MODE_OPTIONS,
+  CalendarIcon,
+  ComparisonSelect,
+  DATE_OP_OPTIONS,
+  FIELD_OP_OPTIONS,
+  getAssertionTypeBadgeLabel,
+  NUMERIC_OP_OPTIONS,
+} from './testEditorValidationConstants';
 
 export interface TestEditorValidationTabProps {
   draft: Scenario;
@@ -68,69 +56,6 @@ export interface TestEditorValidationTabProps {
   onFetchCancel?: () => void;
 }
 
-const NUMERIC_OP_OPTIONS: { value: ComparisonOperator; label: string }[] = [
-  { value: '=', label: 'equals (=)' },
-  { value: '!=', label: 'not equals (≠)' },
-  { value: '>', label: 'greater than (>)' },
-  { value: '>=', label: 'at least (≥)' },
-  { value: '<', label: 'less than (<)' },
-  { value: '<=', label: 'at most (≤)' },
-];
-const DATE_OP_OPTIONS: { value: ComparisonOperator; label: string }[] = [
-  { value: '=', label: 'equals (=)' },
-  { value: '!=', label: 'not equals (≠)' },
-  { value: '>', label: 'after (>)' },
-  { value: '>=', label: 'on or after (≥)' },
-  { value: '<', label: 'before (<)' },
-  { value: '<=', label: 'on or before (≤)' },
-];
-
-function ComparisonSelect({ value, onChange, options, className }: {
-  value: ComparisonOperator;
-  onChange: (op: ComparisonOperator) => void;
-  options: { value: ComparisonOperator; label: string }[];
-  className?: string;
-}) {
-  return (
-    <select value={value} onChange={(e) => onChange(e.target.value as ComparisonOperator)} className={className ?? 'assertion-select assertion-select-operator'}>
-      {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-    </select>
-  );
-}
-const FIELD_OP_OPTIONS: { value: FieldOperator; label: string }[] = [
-  { value: 'equals', label: 'equals' },
-  { value: 'not_equals', label: 'not equals' },
-  { value: 'greater_than', label: '>' },
-  { value: 'greater_than_or_equal', label: '>=' },
-  { value: 'less_than', label: '<' },
-  { value: 'less_than_or_equal', label: '<=' },
-  { value: 'contains', label: 'contains' },
-  { value: 'not_contains', label: 'not contains' },
-  { value: 'starts_with', label: 'starts with' },
-  { value: 'ends_with', label: 'ends with' },
-  { value: 'regex', label: 'regex' },
-  { value: 'is_true', label: 'is true' },
-  { value: 'is_false', label: 'is false' },
-  { value: 'is_null', label: 'is null' },
-  { value: 'is_not_null', label: 'is not null' },
-  { value: 'is_empty', label: 'is empty' },
-  { value: 'is_not_empty', label: 'is not empty' },
-  { value: 'exists', label: 'exists' },
-  { value: 'not_exists', label: 'not exists' },
-  { value: 'is_type', label: 'is type' },
-  { value: 'in', label: 'in' },
-  { value: 'not_in', label: 'not in' },
-  { value: 'between', label: 'between' },
-  { value: 'close_to', label: 'close to' },
-];
-
-const ARRAY_CONTAINS_MODE_OPTIONS: { value: 'any' | 'all' | 'only' | 'none'; label: string }[] = [
-  { value: 'any', label: 'any (at least one)' },
-  { value: 'all', label: 'all (every item)' },
-  { value: 'only', label: 'only (exact set)' },
-  { value: 'none', label: 'none (no match)' },
-];
-
 export default function TestEditorValidationTab({
   draft,
   onDraftChange,
@@ -154,8 +79,11 @@ export default function TestEditorValidationTab({
   onFetchCancel,
 }: TestEditorValidationTabProps) {
   const [showAddMenu, setShowAddMenu] = useState(false);
+  const [addMenuSearch, setAddMenuSearch] = useState('');
   const addMenuRef = useRef<HTMLDivElement>(null);
+  const addMenuSearchRef = useRef<HTMLInputElement>(null);
   const [regexModalIdx, setRegexModalIdx] = useState<number | null>(null);
+  const [assertionsExpanded, setAssertionsExpanded] = useState(true);
   const [validationMapperOpen, setValidationMapperOpen] = useState(false);
   const [openMapperAfterKeepRules, setOpenMapperAfterKeepRules] = useState(false);
   const [rulesViewMode, setRulesViewMode] = useState<'flat' | 'pivot'>('flat');
@@ -201,7 +129,8 @@ export default function TestEditorValidationTab({
   }, [onFetchKeepRules]);
 
   useEffect(() => {
-    if (!showAddMenu) return;
+    if (!showAddMenu) { setAddMenuSearch(''); return; }
+    requestAnimationFrame(() => addMenuSearchRef.current?.focus());
     const handleClick = (e: MouseEvent) => {
       if (addMenuRef.current && !addMenuRef.current.contains(e.target as Node)) {
         setShowAddMenu(false);
@@ -286,48 +215,95 @@ export default function TestEditorValidationTab({
       {/* ── Rich Assertions ────────────────────────────── */}
       <div className="assertions-section">
         <div className="assertions-header">
+          <button
+            type="button"
+            className="assertions-collapse-toggle"
+            onClick={() => setAssertionsExpanded(v => !v)}
+            aria-expanded={assertionsExpanded}
+            title={assertionsExpanded ? 'Collapse assertions' : 'Expand assertions'}
+          >
+            <span className={`assertions-collapse-arrow ${assertionsExpanded ? 'expanded' : ''}`}>▶</span>
+          </button>
           <span className="assertions-title">Assertions</span>
+          {assertions.length > 0 && (
+            <span className="assertions-count-badge">{assertions.length}</span>
+          )}
           <span className="assertions-hint">Run on every request regardless of validation mode</span>
           <AssertionPresetMenu onImport={importAssertions} />
           <div className="assertions-add-wrap" ref={addMenuRef}>
             <button type="button" className="btn btn-sm btn-accent" onClick={() => setShowAddMenu(!showAddMenu)}>+ Add</button>
             {showAddMenu && (
               <div className="assertions-add-menu">
-                {ADD_ASSERTION_MENU_ROWS.map((row, idx) => {
-                  if (row.kind === 'divider') {
-                    return <div key={`add-menu-div-${idx}`} className="aam-divider" />;
-                  }
-                  if (row.kind === 'regexBuilder') {
-                    return (
-                      <button
-                        key={`add-menu-${idx}`}
-                        type="button"
-                        onClick={() => {
-                          addAssertion({ type: 'regex', jsonPath: '', pattern: '' });
-                          setRegexModalIdx((draft.validation.assertions ?? []).length);
-                        }}
-                      >
-                        <span className="aam-icon">{row.icon}</span>
-                        <span className="aam-label">{row.label}</span>
-                        <span className="aam-desc">{row.desc}</span>
-                      </button>
+                <div className="aam-search-wrap">
+                  <input
+                    ref={addMenuSearchRef}
+                    className="aam-search"
+                    type="text"
+                    placeholder="Filter assertions…"
+                    value={addMenuSearch}
+                    onChange={(e) => setAddMenuSearch(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Escape') { setShowAddMenu(false); } }}
+                  />
+                </div>
+                <div className="aam-categories">
+                  {ASSERTION_CATEGORIES.map((cat) => {
+                    const q = addMenuSearch.trim().toLowerCase();
+                    const items = ADD_ASSERTION_MENU_ROWS.filter(
+                      (r): r is Exclude<typeof r, { kind: 'divider' }> =>
+                        r.kind !== 'divider' && r.category === cat &&
+                        (!q || r.label.toLowerCase().includes(q) || r.desc.toLowerCase().includes(q)),
                     );
-                  }
-                  const resolved = typeof row.assertion === 'function' ? row.assertion() : row.assertion;
-                  const iconClass = row.iconClassName ? `aam-icon ${row.iconClassName}` : 'aam-icon';
-                  return (
-                    <button key={`add-menu-${idx}`} type="button" onClick={() => addAssertion(resolved)}>
-                      <span className={iconClass}>{row.icon}</span>
-                      <span className="aam-label">{row.label}</span>
-                      <span className="aam-desc">{row.desc}</span>
-                    </button>
-                  );
-                })}
+                    if (items.length === 0) return null;
+                    return (
+                      <div key={cat} className="aam-category">
+                        <div className="aam-category-header">{cat}</div>
+                        <div className="aam-category-grid">
+                          {items.map((row, idx) => {
+                            if (row.kind === 'regexBuilder') {
+                              return (
+                                <button
+                                  key={`${cat}-${idx}`}
+                                  type="button"
+                                  className="aam-grid-item"
+                                  onClick={() => {
+                                    addAssertion({ type: 'regex', jsonPath: '', pattern: '' });
+                                    setRegexModalIdx((draft.validation.assertions ?? []).length);
+                                  }}
+                                >
+                                  <span className="aam-icon">{row.icon}</span>
+                                  <span className="aam-label">{row.label}</span>
+                                </button>
+                              );
+                            }
+                            const resolved = typeof row.assertion === 'function' ? row.assertion() : row.assertion;
+                            const iconClass = row.iconClassName ? `aam-icon ${row.iconClassName}` : 'aam-icon';
+                            return (
+                              <button key={`${cat}-${idx}`} type="button" className="aam-grid-item" title={row.desc} onClick={() => addAssertion(resolved)}>
+                                <span className={iconClass}>{row.icon}</span>
+                                <span className="aam-label">{row.label}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {ASSERTION_CATEGORIES.every((cat) => {
+                    const q = addMenuSearch.trim().toLowerCase();
+                    const items = ADD_ASSERTION_MENU_ROWS.filter(
+                      (r) => r.kind !== 'divider' && r.category === cat &&
+                        (!q || r.label.toLowerCase().includes(q) || r.desc.toLowerCase().includes(q)),
+                    );
+                    return items.length === 0;
+                  }) && (
+                    <div className="aam-no-results">No matching assertions</div>
+                  )}
+                </div>
               </div>
             )}
           </div>
         </div>
-        {assertions.length > 0 && (
+        {assertionsExpanded && assertions.length > 0 && (
           <div className="assertions-list">
             {assertions.map((a, i) => (
               <div key={i} className={`assertion-row${a.negate ? ' assertion-row--negated' : ''}`}>
@@ -421,7 +397,12 @@ export default function TestEditorValidationTab({
                       </select>
                     )}
                     {a.reference.kind === 'fixed' && (
-                      <input type="date" value={a.reference.iso} onChange={(e) => updateAssertion(i, { reference: { kind: 'fixed', iso: e.target.value } })} className="assertion-input assertion-input-sm" />
+                      <div className="assertion-date-wrap">
+                        <input type="date" value={a.reference.iso} onChange={(e) => updateAssertion(i, { reference: { kind: 'fixed', iso: e.target.value } })} className="assertion-input assertion-input-sm" />
+                        <button type="button" className="assertion-date-btn" title="Pick date" onClick={(e) => { const input = (e.currentTarget as HTMLElement).previousElementSibling as HTMLInputElement; input?.showPicker?.(); }}>
+                          <CalendarIcon />
+                        </button>
+                      </div>
                     )}
                   </div>
                 )}
@@ -632,23 +613,28 @@ export default function TestEditorValidationTab({
                       <option value="<">before</option>
                       <option value="<=">on or before</option>
                     </select>
-                    <input
-                      type="datetime-local"
-                      value={a.reference ? a.reference.slice(0, 16) : ''}
-                      onChange={(e) => updateAssertion(i, { reference: e.target.value ? new Date(e.target.value).toISOString() : '' })}
-                      className="assertion-input assertion-input-date"
-                    />
-                    <select
-                      value={a.precision}
-                      onChange={(e) => updateAssertion(i, { precision: e.target.value as 'day' | 'hour' | 'minute' | 'second' | 'millisecond' })}
-                      className="assertion-select assertion-select--precision"
-                    >
-                      <option value="day">Day</option>
-                      <option value="hour">Hour</option>
-                      <option value="minute">Minute</option>
-                      <option value="second">Second</option>
-                      <option value="millisecond">Millisecond</option>
-                    </select>
+                    <div className="assertion-date-wrap">
+                      <input
+                        type="datetime-local"
+                        value={a.reference ? a.reference.slice(0, 16) : ''}
+                        onChange={(e) => updateAssertion(i, { reference: e.target.value ? new Date(e.target.value).toISOString() : '' })}
+                        className="assertion-input assertion-input-date"
+                      />
+                      <button type="button" className="assertion-date-btn" title="Pick date/time" onClick={(e) => { const input = (e.currentTarget as HTMLElement).previousElementSibling as HTMLInputElement; input?.showPicker?.(); }}>
+                        <CalendarIcon />
+                      </button>
+                      <select
+                        value={a.precision}
+                        onChange={(e) => updateAssertion(i, { precision: e.target.value as 'day' | 'hour' | 'minute' | 'second' | 'millisecond' })}
+                        className="assertion-select assertion-select--precision"
+                      >
+                        <option value="day">Day</option>
+                        <option value="hour">Hour</option>
+                        <option value="minute">Minute</option>
+                        <option value="second">Second</option>
+                        <option value="millisecond">Millisecond</option>
+                      </select>
+                    </div>
                   </div>
                 )}
                 {a.type === 'custom' && (
@@ -768,11 +754,11 @@ export default function TestEditorValidationTab({
               disabled={!draft.validation.sampleJson?.trim() && !(draft.validation.expectedFields?.length)}
               title={
                 draft.validation.sampleJson?.trim() || draft.validation.expectedFields?.length
-                  ? 'Open Visual Mapper'
+                  ? 'Open Data Mapper'
                   : 'Fetch response or add rules first'
               }
             >
-              ⚡ Visual Mapper
+              ⚡ Data Mapper
             </button>
           </div>
           {fetchError && <FetchErrorBanner error={fetchError} />}

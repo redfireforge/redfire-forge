@@ -169,7 +169,8 @@ function applyDynamicTheme(monaco: typeof import('monaco-editor'), themeName = '
 function ensureCompletionProvider(
   monaco: typeof import('monaco-editor'),
 ) {
-  if (getStoredDisposable()) return;
+  const prev = getStoredDisposable();
+  if (prev) { prev.dispose(); setStoredDisposable(null); }
 
   const disposable = monaco.languages.registerCompletionItemProvider(LANGUAGE_ID, {
     triggerCharacters: ['.', '['],
@@ -212,19 +213,24 @@ function ensureCompletionProvider(
         };
       }
 
-      // After path — suggest operators
-      if (words.length === 1 || (words.length === 2 && !textUntilCursor.endsWith(' '))) {
-        const partial = words.length === 2 ? words[1].toLowerCase() : '';
-        const opRange = words.length === 2
+      // After path — suggest operators (also after NOT prefix)
+      const afterNot = words.length >= 2 && words[1].toUpperCase() === 'NOT';
+      const effectiveOpWordIndex = afterNot ? 2 : 1;
+      const effectiveWordCount = afterNot ? words.length - 1 : words.length;
+
+      if (effectiveWordCount === 1 || (effectiveWordCount === 2 && !textUntilCursor.endsWith(' '))) {
+        const partial = words[effectiveOpWordIndex]?.toLowerCase() ?? '';
+        const opRange = words[effectiveOpWordIndex]
           ? {
             startLineNumber: position.lineNumber,
-            startColumn: textUntilCursor.lastIndexOf(words[1]) + 1,
+            startColumn: textUntilCursor.lastIndexOf(words[effectiveOpWordIndex]) + 1,
             endLineNumber: position.lineNumber,
             endColumn: position.column,
           }
           : cursorRange;
         return {
           suggestions: OPERATOR_KEYWORDS
+            .filter(op => !afterNot || op !== 'NOT')
             .filter(op => !partial || op.toLowerCase().includes(partial))
             .map(op => ({
               label: op,
@@ -238,7 +244,8 @@ function ensureCompletionProvider(
 
       // After operator — suggest values
       if (words.length >= 2) {
-        const op = words[words.length - 1]?.toLowerCase() ?? words[words.length - 2]?.toLowerCase();
+        const opIdx = afterNot ? 2 : 1;
+        const op = (words[opIdx] ?? '').toLowerCase();
         if (op === 'is_type') {
           return {
             suggestions: TYPE_NAMES.map(t => ({

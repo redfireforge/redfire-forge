@@ -67,7 +67,7 @@ describe('useValidationCodeSync', () => {
 
     expect(mockOnUpdateFields).toHaveBeenCalledWith(
       expect.arrayContaining([
-        expect.objectContaining({ jsonPath: '$.name', operator: undefined }),
+        expect.objectContaining({ jsonPath: '$.name', operator: 'equals' }),
       ]),
     );
   });

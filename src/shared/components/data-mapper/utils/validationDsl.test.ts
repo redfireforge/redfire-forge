@@ -754,6 +754,7 @@ describe('dslToModel', () => {
     expect(model.fields).toHaveLength(1);
     expect(model.fields[0].jsonPath).toBe('$.name');
     expect(model.fields[0].expectedValue).toBe('Alice');
+    expect(model.fields[0].operator).toBe('equals');
   });
 
   it('converts no-value field rule', () => {

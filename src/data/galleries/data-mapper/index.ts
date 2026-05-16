@@ -38,7 +38,7 @@ export const dataMapperSampleCatalog: DataMapperSampleEntry[] = [
     id: 'dm-validation-mapping',
     domain: 'data-mapper',
     name: 'Validation Mapping',
-    description: 'Validate product fields with selective mode. Open "⚡ Visual Mapper" in the Validation tab.',
+    description: 'Validate product fields with selective mode. Open "⚡ Data Mapper" in the Validation tab.',
     icon: '🔀',
     category: 'mapping',
     difficulty: 'easy',
