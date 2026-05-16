@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Schema Drift &amp; Repair — Step-by-Step Walkthrough</title>
+  <style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; color: #1a1a2e; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 30px 24px; background: #fff; }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code { background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 1px 5px; border-radius: 3px; }
+  pre { background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto; margin: 10px 0 16px; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; }
+  .callout { background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px; margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warning { background: #fff3e0; border-left-color: #f57c00; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .step { background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 16px; margin: 12px 0; }
+  .step-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .step-num { width: 32px; height: 32px; background: #e63946; color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; flex-shrink: 0; }
+  .step-title { font-weight: 600; color: #1d3557; font-size: 15px; }
+  .expect { background: #d4edda; border-left: 4px solid #28a745; padding: 10px 14px; margin: 10px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+  .expect strong { color: #155724; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+  .badge-sample { background: #e8f4fd; color: #1d3557; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  </style>
+</head>
+<body>
+
+<h1>Schema Drift &amp; Repair</h1>
+<p><span class="badge badge-advanced">ADVANCED</span> &nbsp; <span class="badge badge-sample">Sample: dm-combo-mapper</span></p>
+<p>Learn how the Data Mapper detects when an API response changes shape (schema drift) and offers repair suggestions. This walkthrough uses the <strong>Full Combo</strong> sample to demonstrate drift detection.</p>
+
+<div class="callout">
+  <strong>Prerequisites</strong>
+  Import the <code>dm-combo-mapper</code> sample from Gallery. Open the first test <code>GET products → extract &amp; validate fields</code> and open the Data Mapper at least once (this creates a schema snapshot).
+</div>
+
+<h2>Part 1 — Understanding Schema Snapshots</h2>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">1</div><div class="step-title">Open the Data Mapper</div></div>
+  <p>Open the first test's <strong>Extract</strong> tab → click <strong>⚡ Data Mapper</strong>.</p>
+  <div class="expect"><strong>You should see:</strong> The toolbar shows <strong>✅ HEALTHY</strong> — meaning the current source schema matches the stored snapshot. The source tree shows the products list response.</div>
+</div>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">2</div><div class="step-title">What is a snapshot?</div></div>
+  <p>When you open the mapper, it takes a <strong>schema snapshot</strong> — a record of every field path and its type. For this sample, the snapshot includes:</p>
+  <pre>$.products        → array
+$.products[0].id  → number
+$.products[0].title → string
+$.products[0].price → number
+$.total           → number
+$.skip            → number
+$.limit           → number</pre>
+</div>
+
+<h2>Part 2 — Simulating Drift</h2>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">3</div><div class="step-title">What drift looks like</div></div>
+  <p>Schema drift occurs when the API response structure changes. Common drift types:</p>
+  <table>
+    <tr><th>Drift Type</th><th>Example</th><th>Visual Indicator</th></tr>
+    <tr><td><strong>Field removed</strong></td><td>API drops the <code>brand</code> field</td><td>🔴 Red badge on affected mapping</td></tr>
+    <tr><td><strong>Field renamed</strong></td><td><code>title</code> → <code>productName</code></td><td>⚠️ Warning with "field not found"</td></tr>
+    <tr><td><strong>Type changed</strong></td><td><code>price: 9.99</code> → <code>price: "9.99"</code></td><td>🟡 Type mismatch indicator</td></tr>
+    <tr><td><strong>Field added</strong></td><td>New <code>currency</code> field appears</td><td>ℹ️ "New field" indicator in source</td></tr>
+  </table>
+</div>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">4</div><div class="step-title">How repair works</div></div>
+  <p>When drift is detected, the mapper shows:</p>
+  <ul>
+    <li><strong>Drift banner</strong> — yellow bar at the top: "Schema changed: X fields added, Y removed"</li>
+    <li><strong>Schema Diff Modal</strong> — click the banner to see a side-by-side diff of old vs new schema</li>
+    <li><strong>Repair suggestions</strong> — auto-generated fixes like "rename mapping from <code>title</code> to <code>productName</code>"</li>
+    <li><strong>Health Dashboard</strong> — accessible from the toolbar, showing overall mapping health</li>
+  </ul>
+</div>
+
+<h2>Part 3 — Try It Yourself</h2>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">5</div><div class="step-title">Trigger drift by modifying the sample JSON</div></div>
+  <p>In the test editor's Validation tab, edit the <strong>Sample JSON</strong> field. Remove a field or rename one:</p>
+  <pre>// Change "title" to "productName" in the sample JSON
+// Then re-open the Data Mapper</pre>
+  <p>When you re-open the mapper, it compares the new schema against the stored snapshot and shows drift indicators on any affected mappings.</p>
+</div>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">6</div><div class="step-title">Review and accept repairs</div></div>
+  <p>Click the drift banner to open the Schema Diff Modal. Review each change and click <strong>Apply Repair</strong> for suggested fixes, or manually update mappings.</p>
+</div>
+
+<h2>Part 4 — Schema Contract &amp; Type Mismatch</h2>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">7</div><div class="step-title">Schema Contract Mode</div></div>
+  <p>The mapper supports <strong>strict</strong> and <strong>lenient</strong> schema locking. In strict mode, any field addition or removal is flagged as a contract violation. In lenient mode, only removals are violations (additions are allowed).</p>
+</div>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">8</div><div class="step-title">Type Mismatch Auto-Fix</div></div>
+  <p>When a source and target field have different types (e.g., number vs string), the mapper shows an inline warning bubble with fix suggestions. Operators like <code>exists</code>, <code>not_exists</code>, <code>is_empty</code>, <code>is_not_empty</code> skip type mismatch detection because they don't compare values.</p>
+</div>
+
+<h2>Summary</h2>
+<table>
+  <tr><th>Concept</th><th>What it does</th></tr>
+  <tr><td>Schema snapshot</td><td>Records field paths and types when mapper opens</td></tr>
+  <tr><td>Drift detection</td><td>Compares current schema to snapshot, flags differences</td></tr>
+  <tr><td>Repair suggestions</td><td>Auto-generates fixes for renamed/removed/changed fields</td></tr>
+  <tr><td>Health dashboard</td><td>Shows overall mapping health: broken count, drift status</td></tr>
+  <tr><td>Schema contract (strict vs lenient)</td><td>Step 7 — strict flags adds+removals; lenient flags removals only</td></tr>
+  <tr><td>Type mismatch auto-fix</td><td>Step 8 — inline warnings and suggestions; existence operators exempt</td></tr>
+</table>
+
+</body>
+</html>

@@ -35,9 +35,13 @@ export function applyThinkTime(getDelayMs: () => number, abortSignal?: AbortSign
   const delay = Math.round(getDelayMs());
   if (delay <= 0 || abortSignal?.aborted) return Promise.resolve();
   return new Promise((resolve) => {
-    const timer = setTimeout(resolve, delay);
+    let onAbort: (() => void) | undefined;
+    const timer = setTimeout(() => {
+      if (onAbort && abortSignal) abortSignal.removeEventListener('abort', onAbort);
+      resolve();
+    }, delay);
     if (abortSignal) {
-      const onAbort = () => { clearTimeout(timer); resolve(); };
+      onAbort = () => { clearTimeout(timer); resolve(); };
       abortSignal.addEventListener('abort', onAbort, { once: true });
     }
   });

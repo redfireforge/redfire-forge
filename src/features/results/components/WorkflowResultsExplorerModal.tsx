@@ -4,39 +4,26 @@ import { ReactFlowProvider } from '@xyflow/react';
 import type { WorkflowExecutionTrace, WorkflowIterationTrace, ExecutionEvent } from '../../../shared/types';
 import { isSampledIteration } from '../utils/sampledIterations';
 import FullPanelModal from '../../../shared/components/FullPanelModal';
-import WorkflowExecutionCanvas, { type NodeStateFilter, type CanvasScreenshotFn, type CanvasSvgFn } from './WorkflowExecutionCanvas';
+import WorkflowExecutionCanvas, { type NodeStateFilter } from './WorkflowExecutionCanvas';
 import ExecutionTimeline from './ExecutionTimeline';
 import ResultsExplorerDetailPanel from './ResultsExplorerDetailPanel';
 import IterationMatrixTable from './IterationMatrixTable';
 import IterationPicker from './IterationPicker';
-import { saveJsonFile, saveCsvFile, savePngFile, saveSvgFile, buildExportFilename } from '../../../shared/utils/fileSaver';
 import { formatDurationMs } from '../../../shared/utils/formatDuration';
 import type { BottleneckInsight } from '../utils/bottleneckAnalysis';
 import type { ForkJoinTopology } from '../utils/forkJoinDetection';
 import { getIterationByIndex } from '../utils/iterationLookup';
 import ResultsExplorerConsolePanel from './ResultsExplorerConsolePanel';
+import type { MappingTrace } from '../../../shared/components/data-mapper/utils/mappingTrace';
+import MappingTraceOverlay from './MappingTraceOverlay';
+import { useExplorerExport } from '../hooks/useExplorerExport';
+import { useIterationTransition } from '../hooks/useIterationTransition';
 
 type ReplaySnapshotNode = {
   id: string;
   type?: string;
   data?: { label?: string; name?: string };
 };
-
-function useIterationTransition(selectedIteration: number | undefined) {
-  const [transitioning, setTransitioning] = useState(false);
-  const prevIterRef = useRef(selectedIteration);
-
-  useEffect(() => {
-    if (prevIterRef.current !== selectedIteration) {
-      prevIterRef.current = selectedIteration;
-      setTransitioning(true);
-      const timer = setTimeout(() => setTransitioning(false), 280);
-      return () => clearTimeout(timer);
-    }
-  }, [selectedIteration]);
-
-  return transitioning;
-}
 
 interface Props {
   trace: WorkflowExecutionTrace;
@@ -76,6 +63,7 @@ export default function WorkflowResultsExplorerModal({ trace, onClose, importedF
   const [viewMode, setViewMode] = useState<'diagram' | 'timeline'>('diagram');
   const [detailCollapsed, setDetailCollapsed] = useState(false);
   const [consoleOpen, setConsoleOpen] = useState(false);
+  const [mapperOverlay, setMapperOverlay] = useState<{ traces: MappingTrace[]; nodeLabel: string } | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const sampledCount = useMemo(
@@ -191,7 +179,9 @@ export default function WorkflowResultsExplorerModal({ trace, onClose, importedF
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        if (consoleOpen) {
+        if (mapperOverlay) {
+          setMapperOverlay(null);
+        } else if (consoleOpen) {
           setConsoleOpen(false);
         } else if (selectedNodeId) {
           setSelectedNodeId(undefined);
@@ -252,7 +242,7 @@ export default function WorkflowResultsExplorerModal({ trace, onClose, importedF
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onClose, selectedNodeId, currentTrace.totalIterations, consoleOpen]);
+  }, [onClose, selectedNodeId, currentTrace.totalIterations, consoleOpen, mapperOverlay]);
 
   const handleNodeClick = useCallback((nodeId: string) => {
     setSelectedNodeId(nodeId || undefined);
@@ -305,120 +295,23 @@ export default function WorkflowResultsExplorerModal({ trace, onClose, importedF
     setFitViewTrigger(v => v + 1);
   }, []);
 
-  const handleExportTrace = useCallback(() => {
-    const date = new Date(currentTrace.iterations[0]?.events[0]?.timestamp || Date.now())
-      .toISOString().replace(/[:.]/g, '-').slice(0, 19);
-    const filename = buildExportFilename({
-      level: 'trace',
-      name: currentTrace.workflowName,
-      date,
-    });
-    saveJsonFile(currentTrace, filename);
-  }, [currentTrace]);
-
-  const handleExportCsv = useCallback(() => {
-    const httpNodes = (currentTrace.workflowSnapshot.nodes as ReplaySnapshotNode[]).filter(
-      (n) => n.type === 'http',
-    );
-    const rows: string[][] = [];
-    rows.push(['Node', 'Executions', 'Pass Rate (%)', 'Avg (ms)', 'Min (ms)', 'Max (ms)', 'P95 (ms)']);
-
-    for (const node of httpNodes) {
-      const durations: number[] = [];
-      let passCount = 0;
-      let totalCount = 0;
-      for (const iter of currentTrace.iterations) {
-        for (const ev of iter.events) {
-          if (ev.nodeId !== node.id) continue;
-          totalCount++;
-          if (ev.state === 'pass') passCount++;
-          if (ev.durationMs !== undefined) durations.push(ev.durationMs);
-        }
-      }
-      if (totalCount === 0) continue;
-      durations.sort((a, b) => a - b);
-      const avg = durations.length > 0
-        ? Math.round(durations.reduce((s, v) => s + v, 0) / durations.length * 100) / 100
-        : 0;
-      const min = durations.length > 0 ? Math.round(durations[0] * 100) / 100 : 0;
-      const max = durations.length > 0 ? Math.round(durations[durations.length - 1] * 100) / 100 : 0;
-      const p95Idx = Math.min(Math.ceil(durations.length * 0.95) - 1, durations.length - 1);
-      const p95 = durations.length > 0 ? Math.round(durations[Math.max(0, p95Idx)] * 100) / 100 : 0;
-      const passRate = Math.round(passCount / totalCount * 10000) / 100;
-      const label = node.data?.label || node.data?.name || node.id;
-      rows.push([label, String(totalCount), String(passRate), String(avg), String(min), String(max), String(p95)]);
-    }
-
-    const csv = rows.map(r => r.map(c => `"${c.replace(/"/g, '""')}"`).join(',')).join('\n');
-    const date = new Date(currentTrace.iterations[0]?.events[0]?.timestamp || Date.now())
-      .toISOString().replace(/[:.]/g, '-').slice(0, 19);
-    const filename = buildExportFilename({ level: 'metrics', name: currentTrace.workflowName, date, ext: 'csv' });
-    saveCsvFile(csv, filename);
-  }, [currentTrace]);
-
-  const screenshotFnRef = useRef<CanvasScreenshotFn | null>(null);
-  const [screenshotBusy, setScreenshotBusy] = useState(false);
-
-  const handleScreenshotReady = useCallback((fn: CanvasScreenshotFn) => {
-    screenshotFnRef.current = fn;
+  const handleOpenMapper = useCallback((traces: MappingTrace[], nodeLabel: string) => {
+    setMapperOverlay({ traces, nodeLabel });
   }, []);
 
-  const handleExportPng = useCallback(async () => {
-    if (!screenshotFnRef.current || screenshotBusy) return;
-    setScreenshotBusy(true);
-    try {
-      const dataUrl = await screenshotFnRef.current();
-      const date = new Date(currentTrace.iterations[0]?.events[0]?.timestamp || Date.now())
-        .toISOString().replace(/[:.]/g, '-').slice(0, 19);
-      const filename = buildExportFilename({ level: 'screenshot', name: currentTrace.workflowName, date, ext: 'png' });
-      await savePngFile(dataUrl, filename);
-    } catch {
-      // capture may fail in some environments (e.g. cross-origin)
-    } finally {
-      setScreenshotBusy(false);
-    }
-  }, [currentTrace, screenshotBusy]);
+  const {
+    exportMenuOpen, setExportMenuOpen, exportMenuRef, exportBusy,
+    screenshotBusy, svgBusy,
+    handleScreenshotReady, handleSvgReady,
+    handleExportTrace, handleExportCsv, handleExportPng, handleExportSvg,
+  } = useExplorerExport(currentTrace);
 
-  const svgFnRef = useRef<CanvasSvgFn | null>(null);
-  const [svgBusy, setSvgBusy] = useState(false);
-
-  const handleSvgReady = useCallback((fn: CanvasSvgFn) => {
-    svgFnRef.current = fn;
-  }, []);
-
-  const handleExportSvg = useCallback(async () => {
-    if (!svgFnRef.current || svgBusy) return;
-    setSvgBusy(true);
-    try {
-      const dataUrl = await svgFnRef.current();
-      const date = new Date(currentTrace.iterations[0]?.events[0]?.timestamp || Date.now())
-        .toISOString().replace(/[:.]/g, '-').slice(0, 19);
-      const filename = buildExportFilename({ level: 'diagram', name: currentTrace.workflowName, date, ext: 'svg' });
-      await saveSvgFile(dataUrl, filename);
-    } catch {
-      // capture may fail in some environments (e.g. cross-origin)
-    } finally {
-      setSvgBusy(false);
-    }
-  }, [currentTrace, svgBusy]);
-
-  const [exportMenuOpen, setExportMenuOpen] = useState(false);
-  const exportMenuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!exportMenuOpen) return;
-    const handleClickOutside = (e: MouseEvent) => {
-      if (exportMenuRef.current && !exportMenuRef.current.contains(e.target as Node)) {
-        setExportMenuOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [exportMenuOpen]);
-
-  const exportBusy = screenshotBusy || svgBusy;
-
-  const timestamp = new Date(currentTrace.iterations[0]?.events[0]?.timestamp || Date.now()).toLocaleString();
+  const timestampMs = currentTrace.iterations[0]?.events[0]?.timestamp;
+  const [fallbackTimestamp] = useState(() => Date.now());
+  const timestamp = useMemo(
+    () => new Date(timestampMs || fallbackTimestamp).toLocaleString(),
+    [timestampMs, fallbackTimestamp],
+  );
   const passedCount = currentTrace.iterations.filter(i => i.passed).length;
   const passRate = currentTrace.totalIterations > 0 ? (passedCount / currentTrace.totalIterations * 100).toFixed(0) : 0;
   const nodesOk = nodeStateCounts.pass;
@@ -751,6 +644,7 @@ export default function WorkflowResultsExplorerModal({ trace, onClose, importedF
                 fullTraceCaptured={currentTrace.fullTraceCaptured}
                 forkJoinTopology={forkJoinTopology}
                 onDrillDown={handleDrillDown}
+                onOpenMapper={handleOpenMapper}
               />
             ) : (
               <div className="results-explorer-empty-detail">
@@ -862,6 +756,15 @@ export default function WorkflowResultsExplorerModal({ trace, onClose, importedF
           )}
         </div>
       )}
+      {/* Mapping Trace Overlay */}
+      {mapperOverlay && (
+        <MappingTraceOverlay
+          traces={mapperOverlay.traces}
+          nodeLabel={mapperOverlay.nodeLabel}
+          onClose={() => setMapperOverlay(null)}
+        />
+      )}
     </FullPanelModal>
   );
 }
+

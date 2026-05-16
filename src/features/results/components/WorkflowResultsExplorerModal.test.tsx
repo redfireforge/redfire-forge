@@ -144,6 +144,7 @@ vi.mock('./ResultsExplorerDetailPanel', () => ({
     events,
     onDrillDown,
     nodeId,
+    onOpenMapper,
   }: {
     onClose?: () => void;
     onIterationChange?: (i: number) => void;
@@ -151,6 +152,7 @@ vi.mock('./ResultsExplorerDetailPanel', () => ({
     events?: Array<{ details?: { subWorkflowTrace?: import('../../../shared/types').WorkflowExecutionTrace } }>;
     onDrillDown?: (childTrace: import('../../../shared/types').WorkflowExecutionTrace, parentNodeId: string) => void;
     nodeId?: string;
+    onOpenMapper?: (traces: import('../../../shared/components/data-mapper/utils/mappingTrace').MappingTrace[], nodeLabel: string) => void;
   }) => (
     <div data-testid="mock-detail-panel">
       <span data-testid="detail-node-label">{nodeLabel}</span>
@@ -168,6 +170,18 @@ vi.mock('./ResultsExplorerDetailPanel', () => ({
           onClick={() => onDrillDown(events[0].details!.subWorkflowTrace!, nodeId || '')}
         >
           Drill Down
+        </button>
+      )}
+      {onOpenMapper && (
+        <button
+          type="button"
+          data-testid="mock-open-mapper-btn"
+          onClick={() => onOpenMapper(
+            [{ mappingId: 'm1', sourcePath: 'a.b', sourceId: 's1', targetPath: 'x.y', targetValue: 'val', durationMs: 1.5 }],
+            nodeLabel || 'Test Node',
+          )}
+        >
+          Open in Mapper
         </button>
       )}
     </div>
@@ -839,6 +853,110 @@ describe('WorkflowResultsExplorerModal', () => {
       render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} importedFileName="my-trace.json" />);
       expect(screen.queryByTestId('export-dropdown-trigger')).not.toBeInTheDocument();
     });
+
+    it('closes export menu on mousedown outside', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      openExportMenu();
+      expect(screen.getByTestId('export-dropdown-menu')).toBeInTheDocument();
+      fireEvent.mouseDown(document.body);
+      expect(screen.queryByTestId('export-dropdown-menu')).not.toBeInTheDocument();
+    });
+
+    it('exports CSV rows with zero timing stats when durationMs omitted', () => {
+      const traceNoDur: WorkflowExecutionTrace = {
+        ...mockTrace,
+        iterations: [
+          {
+            index: 0,
+            passed: true,
+            durationMs: 100,
+            traversedEdges: [],
+            events: [
+              { nodeId: 'n2', nodeType: 'http', nodeLabel: 'Get Users', timestamp: 1, state: 'pass', details: { statusCode: 200 } },
+            ],
+          },
+        ],
+        totalIterations: 1,
+      };
+      render(<WorkflowResultsExplorerModal trace={traceNoDur} onClose={mockOnClose} />);
+      openExportMenu();
+      fireEvent.click(screen.getByTestId('export-csv-btn'));
+      const csvContent = mockSaveCsvFile.mock.calls[0][0] as string;
+      expect(csvContent).toContain('Get Users');
+      expect(csvContent).toContain('"0","0","0"');
+    });
+
+    it('CSV skips http nodes that never executed', () => {
+      const traceOrphan: WorkflowExecutionTrace = {
+        ...mockTrace,
+        workflowSnapshot: {
+          ...mockTrace.workflowSnapshot,
+          nodes: [
+            ...mockTrace.workflowSnapshot.nodes,
+            { id: 'n-orphan', type: 'http', position: { x: 0, y: 0 }, data: { label: 'Never Run' } },
+          ],
+        },
+      };
+      render(<WorkflowResultsExplorerModal trace={traceOrphan} onClose={mockOnClose} />);
+      openExportMenu();
+      fireEvent.click(screen.getByTestId('export-csv-btn'));
+      const csvContent = mockSaveCsvFile.mock.calls[0][0] as string;
+      expect(csvContent).not.toContain('Never Run');
+    });
+
+    it('keeps export menu open when mousedown occurs inside menu', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      openExportMenu();
+      const menu = screen.getByTestId('export-dropdown-menu');
+      fireEvent.mouseDown(menu);
+      expect(screen.getByTestId('export-dropdown-menu')).toBeInTheDocument();
+    });
+
+    it('CSV uses node data.name when label missing', () => {
+      const traceName: WorkflowExecutionTrace = {
+        ...mockTrace,
+        workflowSnapshot: {
+          nodes: [
+            { id: 'nx', type: 'http', position: { x: 0, y: 0 }, data: { name: 'OnlyName' } },
+          ],
+          edges: [],
+        },
+        iterations: [
+          {
+            index: 0,
+            passed: true,
+            durationMs: 50,
+            traversedEdges: [],
+            events: [
+              { nodeId: 'nx', nodeType: 'http', nodeLabel: 'nx', timestamp: 1, state: 'pass', durationMs: 10 },
+            ],
+          },
+        ],
+        totalIterations: 1,
+      };
+      render(<WorkflowResultsExplorerModal trace={traceName} onClose={mockOnClose} />);
+      openExportMenu();
+      fireEvent.click(screen.getByTestId('export-csv-btn'));
+      const csvContent = mockSaveCsvFile.mock.calls[0][0] as string;
+      expect(csvContent).toContain('OnlyName');
+    });
+
+    it('CSV escapes quotes in node labels', () => {
+      const traceQuoted: WorkflowExecutionTrace = {
+        ...mockTrace,
+        workflowSnapshot: {
+          ...mockTrace.workflowSnapshot,
+          nodes: mockTrace.workflowSnapshot.nodes.map(n =>
+            n.id === 'n2' ? { ...n, data: { label: 'Try "quotes"' } } : n,
+          ),
+        },
+      };
+      render(<WorkflowResultsExplorerModal trace={traceQuoted} onClose={mockOnClose} />);
+      openExportMenu();
+      fireEvent.click(screen.getByTestId('export-csv-btn'));
+      const csvContent = mockSaveCsvFile.mock.calls[0][0] as string;
+      expect(csvContent).toContain('""');
+    });
   });
 
   describe('footer shortcuts text', () => {
@@ -1203,6 +1321,19 @@ describe('WorkflowResultsExplorerModal', () => {
       expect(mockSavePngFile).not.toHaveBeenCalled();
     });
 
+    it('handles savePngFile rejection after successful capture', async () => {
+      mockCaptureScreenshot.mockResolvedValue('data:image/png;base64,x');
+      mockSavePngFile.mockRejectedValueOnce(new Error('write failed'));
+
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      openExportMenu();
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('export-png-btn'));
+      });
+
+      expect(screen.getByTestId('export-dropdown-trigger')).not.toBeDisabled();
+    });
+
     it('uses screenshot level and png extension in filename', async () => {
       mockCaptureScreenshot.mockResolvedValue('data:image/png;base64,x');
       mockSavePngFile.mockResolvedValue(undefined);
@@ -1282,6 +1413,19 @@ describe('WorkflowResultsExplorerModal', () => {
 
       expect(screen.getByTestId('export-dropdown-trigger')).not.toBeDisabled();
       expect(mockSaveSvgFile).not.toHaveBeenCalled();
+    });
+
+    it('handles saveSvgFile rejection after successful capture', async () => {
+      mockCaptureSvg.mockResolvedValue('data:image/svg+xml;charset=utf-8,%3Csvg%3E%3C/svg%3E');
+      mockSaveSvgFile.mockRejectedValueOnce(new Error('write failed'));
+
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      openExportMenu();
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('export-svg-btn'));
+      });
+
+      expect(screen.getByTestId('export-dropdown-trigger')).not.toBeDisabled();
     });
 
     it('uses diagram level and svg extension in filename', async () => {
@@ -1942,6 +2086,61 @@ describe('WorkflowResultsExplorerModal', () => {
       expect(screen.getByTestId('workflow-info').querySelector('.workflow-info-parent-name'))
         .toHaveTextContent('Parent Workflow');
       expect(screen.queryByText('Root Workflow')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('mapping trace overlay', () => {
+    it('shows "Open in Mapper" button when a node is selected', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      fireEvent.click(screen.getByTestId('canvas-pick-n2'));
+      expect(screen.getByTestId('mock-open-mapper-btn')).toBeInTheDocument();
+    });
+
+    it('opens the mapping trace overlay when clicking "Open in Mapper"', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      fireEvent.click(screen.getByTestId('canvas-pick-n2'));
+      fireEvent.click(screen.getByTestId('mock-open-mapper-btn'));
+      expect(screen.getByTestId('mapper-trace-overlay')).toBeInTheDocument();
+      expect(screen.getByText(/Mapping Traces/)).toBeInTheDocument();
+      expect(screen.getByText('x.y')).toBeInTheDocument();
+      expect(screen.getByText('a.b')).toBeInTheDocument();
+    });
+
+    it('shows pass/fail badges in the overlay', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      fireEvent.click(screen.getByTestId('canvas-pick-n2'));
+      fireEvent.click(screen.getByTestId('mock-open-mapper-btn'));
+      expect(screen.getByText('1 passed')).toBeInTheDocument();
+      expect(screen.getByText('0 failed')).toBeInTheDocument();
+    });
+
+    it('closes the overlay when clicking the close button', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      fireEvent.click(screen.getByTestId('canvas-pick-n2'));
+      fireEvent.click(screen.getByTestId('mock-open-mapper-btn'));
+      expect(screen.getByTestId('mapper-trace-overlay')).toBeInTheDocument();
+      fireEvent.click(screen.getByLabelText('Close mapping traces'));
+      expect(screen.queryByTestId('mapper-trace-overlay')).not.toBeInTheDocument();
+    });
+
+    it('closes the overlay when pressing Escape', async () => {
+      const user = userEvent.setup();
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      fireEvent.click(screen.getByTestId('canvas-pick-n2'));
+      fireEvent.click(screen.getByTestId('mock-open-mapper-btn'));
+      expect(screen.getByTestId('mapper-trace-overlay')).toBeInTheDocument();
+      await user.keyboard('{Escape}');
+      expect(screen.queryByTestId('mapper-trace-overlay')).not.toBeInTheDocument();
+      expect(mockOnClose).not.toHaveBeenCalled();
+    });
+
+    it('closes the overlay when clicking the backdrop', () => {
+      render(<WorkflowResultsExplorerModal trace={mockTrace} onClose={mockOnClose} />);
+      fireEvent.click(screen.getByTestId('canvas-pick-n2'));
+      fireEvent.click(screen.getByTestId('mock-open-mapper-btn'));
+      const backdrop = screen.getByTestId('mapper-trace-overlay').querySelector('.mapper-trace-overlay-backdrop')!;
+      fireEvent.click(backdrop);
+      expect(screen.queryByTestId('mapper-trace-overlay')).not.toBeInTheDocument();
     });
   });
 });

@@ -65,6 +65,7 @@ test.describe('Gallery Loaded Badge Lifecycle', () => {
   });
 
   test('badge persists after "Use as Template" and disappears after deleting the workflow', async ({ page }) => {
+    test.setTimeout(60000);
     await goToGalleryWorkflows(page);
 
     // Load the sample

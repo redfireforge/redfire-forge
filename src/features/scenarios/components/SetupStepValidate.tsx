@@ -2,9 +2,16 @@
  * Step 3: Validate — Validation mode, field selection, array ordering.
  * Extracted from DataSourceSetupModal to reduce file size.
  */
+import { useState, useMemo, useCallback } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import type { Scenario, ExpectedField } from '../../../shared/types';
-import JsonPathBuilder from '../../requests/components/JsonPathBuilder';
+import type { FetchErrorDetail } from '../../../shared/components/data-mapper/types';
+import FetchErrorBanner from '../../../shared/components/data-mapper/FetchErrorBanner';
+import {
+  DataMapperModal,
+  createValidationAdapter,
+} from '../../../shared/components/data-mapper';
+import type { ValidationAdapterOutput } from '../../../shared/components/data-mapper';
 
 export interface SetupStepValidateProps {
   validationMode: 'none' | 'selective' | 'full';
@@ -17,7 +24,7 @@ export interface SetupStepValidateProps {
   setSampleJson: Dispatch<SetStateAction<string>>;
   handleFetchForValidate: () => Promise<void>;
   fetching: boolean;
-  fetchError: string | null;
+  fetchError: FetchErrorDetail | null;
   arrayPrefixes: string[];
   arrayModes: Record<string, 'ordered' | 'unordered'>;
   setArrayModes: Dispatch<SetStateAction<Record<string, 'ordered' | 'unordered'>>>;
@@ -33,6 +40,38 @@ export default function SetupStepValidate({
   arrayPrefixes, arrayModes, setArrayModes,
   test,
 }: SetupStepValidateProps) {
+  const [mapperOpen, setMapperOpen] = useState(false);
+
+  const validationAdapter = useMemo(
+    () => createValidationAdapter({
+      sampleResponseBody: sampleJson || undefined,
+      selectiveMode: 'include',
+      expectedFields: validateFields,
+    }),
+    [sampleJson, validateFields],
+  );
+
+  const mapperInitialData = useMemo<ValidationAdapterOutput>(() => ({
+    selectiveMode: 'include',
+    expectedFields: validateFields,
+    excludedPaths: validateExcluded,
+  }), [validateFields, validateExcluded]);
+
+  const handleMapperSave = useCallback((output: ValidationAdapterOutput, options?: { unorderedArrays?: boolean }) => {
+    setValidateFields(output.expectedFields);
+    setValidateExcluded(output.excludedPaths);
+    if (options?.unorderedArrays !== undefined) {
+      const mode = options.unorderedArrays ? 'unordered' as const : 'ordered' as const;
+      setArrayModes((prev) => {
+        const next: Record<string, 'ordered' | 'unordered'> = {};
+        for (const key of Object.keys(prev)) next[key] = mode;
+        for (const prefix of arrayPrefixes) next[prefix] = mode;
+        return next;
+      });
+    }
+    setMapperOpen(false);
+  }, [setValidateFields, setValidateExcluded, setArrayModes, arrayPrefixes]);
+
   return (
     <div className="excel-step-content parameterize-validate-step">
       {/* Validation mode selector */}
@@ -75,11 +114,7 @@ export default function SetupStepValidate({
           >
             {fetching ? '⏳ Fetching…' : '📡 Fetch Sample Response'}
           </button>
-          {fetchError && (
-            <div className="data-source-fetch-error">
-              <span>⚠️ {fetchError}</span>
-            </div>
-          )}
+          {fetchError && <FetchErrorBanner error={fetchError} />}
           {test.validation.sampleJson && (
             <button type="button" className="btn btn-sm" onClick={() => setSampleJson(test.validation.sampleJson!)} style={{ marginTop: 8 }}>
               Or use stored response ({(test.validation.sampleJson.length / 1024).toFixed(1)} KB)
@@ -100,18 +135,54 @@ export default function SetupStepValidate({
             </button>
           </div>
           <div className="parameterize-validate-content">
-            <JsonPathBuilder
-              sampleJson={sampleJson}
-              onSampleJsonChange={setSampleJson}
-              selectiveMode="include"
-              expectedFields={validateFields}
-              excludedPaths={validateExcluded}
-              onUpdate={(patch) => {
-                if (patch.expectedFields) setValidateFields(patch.expectedFields);
-                if (patch.excludedPaths) setValidateExcluded(patch.excludedPaths);
-              }}
-            />
+            <div className="validation-mapper-toggle">
+              <button
+                type="button"
+                className="btn btn-sm btn-accent"
+                onClick={() => setMapperOpen(true)}
+              >
+                ⚡ Data Mapper
+              </button>
+            </div>
+            {validateFields.length > 0 && (
+              <div className="validation-fields-summary">
+                <table className="validation-fields-table">
+                  <thead>
+                    <tr><th>JSON Path</th><th>Operator</th><th>Expected Value</th><th /></tr>
+                  </thead>
+                  <tbody>
+                    {validateFields.map((f: ExpectedField, idx: number) => (
+                      <tr key={idx}>
+                        <td><code>{f.jsonPath}</code></td>
+                        <td>
+                          <span className={`validation-field-op-badge validation-field-op-badge--${f.operator ?? 'equals'}`}>
+                            {f.operator ? f.operator.replace(/_/g, ' ') : 'equals'}
+                          </span>
+                        </td>
+                        <td><code>{f.operatorValue ?? f.expectedValue}</code></td>
+                        <td>
+                          <button type="button" className="btn-icon-sm" title="Remove" onClick={() => {
+                            const next = [...validateFields];
+                            next.splice(idx, 1);
+                            setValidateFields(next);
+                          }}>×</button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
+          {mapperOpen && (
+            <DataMapperModal
+              adapter={validationAdapter}
+              initialData={mapperInitialData}
+              onSave={handleMapperSave}
+              onCancel={() => setMapperOpen(false)}
+              unorderedArrays={Object.values(arrayModes).some((m) => m === 'unordered')}
+            />
+          )}
 
           {/* Array ordering mode toggles */}
           {arrayPrefixes.length > 0 && (

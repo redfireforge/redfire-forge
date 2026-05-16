@@ -7,18 +7,9 @@ import { buildAggregateSummary } from '../utils/buildAggregateSummary';
 import { inferCaptureLevel } from '../utils/inferCaptureLevel';
 import type { WorkflowExecutionTrace } from '../../../shared/types';
 import { isSampledIteration } from '../utils/sampledIterations';
-
-type PanelMode = 'docked' | 'maximized' | 'floating';
+import { type PanelMode, loadPanelMode, savePanelMode } from '../../../shared/utils/panelMode';
 
 const RE_CONSOLE_MODE_KEY = 're-console-default-mode';
-
-function loadDefaultMode(): PanelMode {
-  try {
-    const stored = localStorage.getItem(RE_CONSOLE_MODE_KEY);
-    if (stored === 'docked' || stored === 'maximized' || stored === 'floating') return stored;
-  } catch { /* SSR or restricted */ }
-  return 'docked';
-}
 
 const MIN_DOCKED_H = 80;
 const MAX_DOCKED_H = 600;
@@ -41,7 +32,7 @@ export default function ResultsExplorerConsolePanel({
   onNodeSelect,
   onClose,
 }: Props) {
-  const [mode, setMode] = useState<PanelMode>(loadDefaultMode);
+  const [mode, setMode] = useState<PanelMode>(() => loadPanelMode(RE_CONSOLE_MODE_KEY));
   const [dockedHeight, setDockedHeight] = useState(DEFAULT_DOCKED_H);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -105,8 +96,8 @@ export default function ResultsExplorerConsolePanel({
         }
       }
     }
-    const snapshotNodes = trace.workflowSnapshot?.nodes ?? [];
-    const orderMap = new Map(snapshotNodes.map((n: { id: string }, i: number) => [n.id, i]));
+    const snapshotNodes = (trace.workflowSnapshot?.nodes ?? []) as { id: string }[];
+    const orderMap = new Map(snapshotNodes.map((n, i) => [n.id, i]));
     return Array.from(seen.entries())
       .map(([id, label]) => ({ id, label }))
       .sort((a, b) => (orderMap.get(a.id) ?? Infinity) - (orderMap.get(b.id) ?? Infinity));
@@ -293,9 +284,7 @@ export default function ResultsExplorerConsolePanel({
     return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
   }, []);
 
-  const setAsDefault = (m: PanelMode) => {
-    try { localStorage.setItem(RE_CONSOLE_MODE_KEY, m); } catch { /* ignore */ }
-  };
+  const setAsDefault = (m: PanelMode) => savePanelMode(RE_CONSOLE_MODE_KEY, m);
 
   const handleLineClick = useCallback((nodeId?: string) => {
     if (nodeId && onNodeSelect) {

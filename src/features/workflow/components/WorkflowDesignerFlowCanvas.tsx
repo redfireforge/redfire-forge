@@ -85,6 +85,7 @@ export function WorkflowDesignerFlowCanvas({
   // Restore saved viewport when switching to a workflow that has one saved,
   // or fit view for workflows without a saved viewport.
   // onInit handles the initial mount; this handles subsequent workflow switches.
+  // Uses setTimeout to let ReactFlow finish measuring node dimensions first.
   const prevWorkflowIdRef = useRef<string | null>(null);
   useEffect(() => {
     if (previewWorkflow) return;
@@ -92,13 +93,17 @@ export function WorkflowDesignerFlowCanvas({
     if (prevWorkflowIdRef.current === selected.id) return;
     prevWorkflowIdRef.current = selected.id;
     if (selected.savedViewport) {
-      requestAnimationFrame(() => {
-        setViewport(selected.savedViewport!, { duration: 0 });
-      });
+      setTimeout(() => {
+        requestAnimationFrame(() => {
+          setViewport(selected.savedViewport!, { duration: 0 });
+        });
+      }, 120);
     } else {
-      requestAnimationFrame(() => {
-        fitView({ padding: 0.1, maxZoom: 1, duration: 200 });
-      });
+      setTimeout(() => {
+        requestAnimationFrame(() => {
+          fitView({ padding: 0.1, maxZoom: 1, duration: 200 });
+        });
+      }, 120);
     }
   }, [selected, previewWorkflow, setViewport, fitView]);
 

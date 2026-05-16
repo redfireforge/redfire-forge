@@ -1,7 +1,12 @@
 /**
+ * @deprecated Use `DataMapperModal` with `createPopulateFromApiAdapter` instead.
+ *
  * PopulateFromApiModal — Sends a request to the test's URL, detects arrays in the
  * JSON response, lets the user map response fields to data source columns, and
  * populates the data source with extracted rows.
+ *
+ * This modal has been replaced by the Data Mapper flow in Phase 4A.
+ * Retained temporarily for reference; will be removed in Phase 4D.
  *
  * This modal has been refactored to use:
  * - usePopulateFromApi hook for state management and business logic

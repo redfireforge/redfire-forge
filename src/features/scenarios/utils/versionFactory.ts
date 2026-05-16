@@ -27,5 +27,6 @@ export function createRulesVersion(v: Validation): RulesVersion {
     expectedFields: v.expectedFields ? [...v.expectedFields] : [],
     excludedPaths: v.excludedPaths ? [...v.excludedPaths] : [],
     unorderedArrays: v.unorderedArrays,
+    assertions: v.assertions ? structuredClone(v.assertions) : [],
   };
 }

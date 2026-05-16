@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import type { Scenario } from '../../shared/types';
+import { prettyJson } from '../../shared/utils/helpers';
 
 type PreviewTab = 'request' | 'response';
 
@@ -34,12 +35,7 @@ export default function RequestPreview({ scenario, onExpand }: Props) {
         body: scenario.method !== 'GET' && scenario.body ? scenario.body : undefined,
       });
       const text = await res.text();
-      let body: string;
-      try {
-        body = JSON.stringify(JSON.parse(text), null, 2);
-      } catch {
-        body = text;
-      }
+      const body = prettyJson(text);
       setResponseText(
         `// ${scenario.method} ${scenario.url}\n// Status: ${res.status}\n${body}`
       );

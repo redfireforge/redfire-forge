@@ -65,7 +65,12 @@ const $substring: ExpressionFunction = {
   ],
   returnType: 'string',
   examples: [{ input: '$substring("hello", 1, 3)', output: 'ell' }],
-  evaluate: (v, start, len) => len != null ? s(v).substr(n(start), n(len)) : s(v).substr(n(start)),
+  evaluate: (v, start, len) => {
+    const str = s(v);
+    const st = n(start);
+    if (len != null) return str.slice(st, st + n(len));
+    return str.slice(st);
+  },
 };
 
 const $replace: ExpressionFunction = {
@@ -148,7 +153,7 @@ const $padStart: ExpressionFunction = {
   ],
   returnType: 'string',
   examples: [{ input: '$padStart("42", 5, "0")', output: '00042' }],
-  evaluate: (v, len, pad) => s(v).padStart(n(len), pad != null ? s(pad) : ' '),
+  evaluate: (v, len, pad) => s(v).padStart(n(len), pad != null && s(pad) !== '' ? s(pad) : ' '),
 };
 
 const $padEnd: ExpressionFunction = {
@@ -162,7 +167,7 @@ const $padEnd: ExpressionFunction = {
   ],
   returnType: 'string',
   examples: [{ input: '$padEnd("hi", 5, ".")', output: 'hi...' }],
-  evaluate: (v, len, pad) => s(v).padEnd(n(len), pad != null ? s(pad) : ' '),
+  evaluate: (v, len, pad) => s(v).padEnd(n(len), pad != null && s(pad) !== '' ? s(pad) : ' '),
 };
 
 const $repeat: ExpressionFunction = {
@@ -175,7 +180,7 @@ const $repeat: ExpressionFunction = {
   ],
   returnType: 'string',
   examples: [{ input: '$repeat("ab", 3)', output: 'ababab' }],
-  evaluate: (v, count) => { const c = Math.max(0, Math.floor(n(count))); return s(v).repeat(c); },
+  evaluate: (v, count) => { const c = Math.min(Math.max(0, Math.floor(n(count))), 10000); return s(v).repeat(c); },
 };
 
 const $indexOf: ExpressionFunction = {
@@ -191,7 +196,281 @@ const $indexOf: ExpressionFunction = {
   evaluate: (v, search) => s(v).indexOf(s(search)),
 };
 
+const $toString: ExpressionFunction = {
+  name: '$toString', category: 'String',
+  signature: '$toString(value)',
+  description: 'Convert any value to its string representation.',
+  args: [{ name: 'value', type: 'any', required: true, description: 'Value to convert' }],
+  returnType: 'string',
+  examples: [{ input: '$toString(42)', output: '"42"' }, { input: '$toString(true)', output: '"true"' }],
+  evaluate: (v) => String(v ?? ''),
+};
+
+const $substringBefore: ExpressionFunction = {
+  name: '$substringBefore', category: 'String',
+  signature: '$substringBefore(str, separator) → string',
+  description: 'Return the substring before the first occurrence of separator. Returns the full string if separator is not found.',
+  args: [
+    { name: 'str', type: 'string', required: true, description: 'Input string' },
+    { name: 'separator', type: 'string', required: true, description: 'Separator to search for' },
+  ],
+  returnType: 'string',
+  examples: [{ input: '$substringBefore("hello-world", "-")', output: 'hello' }],
+  evaluate: (str, sep) => {
+    const text = s(str);
+    const separator = s(sep);
+    if (separator === '') return text;
+    const idx = text.indexOf(separator);
+    return idx === -1 ? text : text.slice(0, idx);
+  },
+};
+
+const $substringAfter: ExpressionFunction = {
+  name: '$substringAfter', category: 'String',
+  signature: '$substringAfter(str, separator) → string',
+  description: 'Return the substring after the first occurrence of separator. Returns empty string if separator is not found.',
+  args: [
+    { name: 'str', type: 'string', required: true, description: 'Input string' },
+    { name: 'separator', type: 'string', required: true, description: 'Separator to search for' },
+  ],
+  returnType: 'string',
+  examples: [{ input: '$substringAfter("hello-world", "-")', output: 'world' }],
+  evaluate: (str, sep) => {
+    const text = s(str);
+    const separator = s(sep);
+    if (separator === '') return '';
+    const idx = text.indexOf(separator);
+    return idx === -1 ? '' : text.slice(idx + separator.length);
+  },
+};
+
+const $capitalize: ExpressionFunction = {
+  name: '$capitalize', category: 'String',
+  signature: '$capitalize(str) → string',
+  description: 'Capitalize the first letter of the string.',
+  args: [{ name: 'str', type: 'string', required: true, description: 'Input string' }],
+  returnType: 'string',
+  examples: [{ input: '$capitalize("hello world")', output: 'Hello world' }],
+  evaluate: (str) => {
+    const text = s(str);
+    return text.length === 0 ? '' : text[0].toUpperCase() + text.slice(1);
+  },
+};
+
+const $camelCase: ExpressionFunction = {
+  name: '$camelCase', category: 'String',
+  signature: '$camelCase(str) → string',
+  description: 'Convert a string to camelCase.',
+  args: [{ name: 'str', type: 'string', required: true, description: 'Input string' }],
+  returnType: 'string',
+  examples: [
+    { input: '$camelCase("hello world")', output: 'helloWorld' },
+    { input: '$camelCase("foo-bar-baz")', output: 'fooBarBaz' },
+  ],
+  evaluate: (str) => {
+    const text = s(str);
+    return text
+      .replace(/[^a-zA-Z0-9]+(.)/g, (_m, ch: string) => ch.toUpperCase())
+      .replace(/^[A-Z]/, (ch) => ch.toLowerCase());
+  },
+};
+
+const $snakeCase: ExpressionFunction = {
+  name: '$snakeCase', category: 'String',
+  signature: '$snakeCase(str) → string',
+  description: 'Convert a string to snake_case.',
+  args: [{ name: 'str', type: 'string', required: true, description: 'Input string' }],
+  returnType: 'string',
+  examples: [
+    { input: '$snakeCase("helloWorld")', output: 'hello_world' },
+    { input: '$snakeCase("foo bar baz")', output: 'foo_bar_baz' },
+  ],
+  evaluate: (str) => {
+    const text = s(str);
+    return text
+      .replace(/([a-z])([A-Z])/g, '$1_$2')
+      .replace(/[^a-zA-Z0-9]+/g, '_')
+      .replace(/^_|_$/g, '')
+      .toLowerCase();
+  },
+};
+
+const $kebabCase: ExpressionFunction = {
+  name: '$kebabCase', category: 'String',
+  signature: '$kebabCase(str) → string',
+  description: 'Convert a string to kebab-case (lowercase with hyphens).',
+  args: [{ name: 'str', type: 'string', required: true, description: 'Input string' }],
+  returnType: 'string',
+  examples: [{ input: '$kebabCase("helloWorld")', output: '"hello-world"' }],
+  evaluate: (val) => {
+    const text = s(val);
+    return text
+      .replace(/([a-z])([A-Z])/g, '$1-$2')
+      .replace(/[^a-zA-Z0-9]+/g, '-')
+      .replace(/^-|-$/g, '')
+      .toLowerCase();
+  },
+};
+
+const $isAlpha: ExpressionFunction = {
+  name: '$isAlpha', category: 'String',
+  signature: '$isAlpha(str) → boolean',
+  description: 'Return true if the string contains only alphabetic characters.',
+  args: [{ name: 'str', type: 'string', required: true, description: 'Input string' }],
+  returnType: 'boolean',
+  examples: [{ input: '$isAlpha("Hello")', output: 'true' }, { input: '$isAlpha("Hello123")', output: 'false' }],
+  evaluate: (val) => {
+    const text = s(val);
+    return text.length > 0 && /^[a-zA-Z]+$/.test(text);
+  },
+};
+
+const $isNumeric: ExpressionFunction = {
+  name: '$isNumeric', category: 'String',
+  signature: '$isNumeric(str) → boolean',
+  description: 'Return true if the string represents a valid number.',
+  args: [{ name: 'str', type: 'string', required: true, description: 'Input string' }],
+  returnType: 'boolean',
+  examples: [{ input: '$isNumeric("123.45")', output: 'true' }, { input: '$isNumeric("abc")', output: 'false' }],
+  evaluate: (val) => {
+    const text = s(val);
+    return text.length > 0 && !isNaN(Number(text)) && isFinite(Number(text));
+  },
+};
+
+const $trimStart: ExpressionFunction = {
+  name: '$trimStart', category: 'String',
+  signature: '$trimStart(str) → string',
+  description: 'Remove leading whitespace from a string.',
+  args: [{ name: 'str', type: 'string', required: true, description: 'Input string' }],
+  returnType: 'string',
+  examples: [{ input: '$trimStart("  hello  ")', output: '"hello  "' }],
+  evaluate: (val) => s(val).trimStart(),
+};
+
+const $trimEnd: ExpressionFunction = {
+  name: '$trimEnd', category: 'String',
+  signature: '$trimEnd(str) → string',
+  description: 'Remove trailing whitespace from a string.',
+  args: [{ name: 'str', type: 'string', required: true, description: 'Input string' }],
+  returnType: 'string',
+  examples: [{ input: '$trimEnd("  hello  ")', output: '"  hello"' }],
+  evaluate: (val) => s(val).trimEnd(),
+};
+
+const $scan: ExpressionFunction = {
+  name: '$scan', category: 'String',
+  signature: '$scan(str, regex) → array',
+  description: 'Find all matches of a regular expression in a string.',
+  args: [
+    { name: 'str', type: 'string', required: true, description: 'Input string' },
+    { name: 'regex', type: 'string', required: true, description: 'Regular expression pattern' },
+  ],
+  returnType: 'array',
+  examples: [{ input: '$scan("a1b2c3", "[0-9]+")', output: '["1","2","3"]' }],
+  evaluate: (val, pattern) => {
+    const text = s(val);
+    const p = s(pattern);
+    try {
+      const re = new RegExp(p, 'g');
+      return [...text.matchAll(re)].map(m => m[0]);
+    } catch {
+      return [];
+    }
+  },
+};
+
+const $ltrimStr: ExpressionFunction = {
+  name: '$ltrimStr', category: 'String',
+  signature: '$ltrimStr(str, prefix) → string',
+  description: 'Remove a specific prefix string from the start (once). If the string does not start with the prefix, return it unchanged.',
+  args: [
+    { name: 'str', type: 'string', required: true, description: 'Input string' },
+    { name: 'prefix', type: 'string', required: true, description: 'Prefix to remove' },
+  ],
+  returnType: 'string',
+  examples: [{ input: '$ltrimStr("/api/users", "/api")', output: '"/users"' }],
+  evaluate: (val, prefix) => {
+    const text = s(val);
+    const pfx = s(prefix);
+    return text.startsWith(pfx) ? text.slice(pfx.length) : text;
+  },
+};
+
+const $rtrimStr: ExpressionFunction = {
+  name: '$rtrimStr', category: 'String',
+  signature: '$rtrimStr(str, suffix) → string',
+  description: 'Remove a specific suffix string from the end (once). If the string does not end with the suffix, return it unchanged.',
+  args: [
+    { name: 'str', type: 'string', required: true, description: 'Input string' },
+    { name: 'suffix', type: 'string', required: true, description: 'Suffix to remove' },
+  ],
+  returnType: 'string',
+  examples: [{ input: '$rtrimStr("file.json", ".json")', output: '"file"' }],
+  evaluate: (val, suffix) => {
+    const text = s(val);
+    const sfx = s(suffix);
+    if (!sfx) return text;
+    return text.endsWith(sfx) ? text.slice(0, -sfx.length) : text;
+  },
+};
+
+const $capture: ExpressionFunction = {
+  name: '$capture', category: 'String',
+  signature: '$capture(str, regex) → object',
+  description: 'Extract named capture groups from the first regex match. Returns an object with group names as keys, or an empty object if no match.',
+  args: [
+    { name: 'str', type: 'string', required: true, description: 'Input string' },
+    { name: 'regex', type: 'string', required: true, description: 'Regular expression with named groups (?<name>...)' },
+  ],
+  returnType: 'object',
+  examples: [
+    { input: '$capture("2024-01-15", "(?<year>\\d{4})-(?<month>\\d{2})-(?<day>\\d{2})")', output: '{"year":"2024","month":"01","day":"15"}' },
+  ],
+  evaluate: (val, pattern) => {
+    const text = s(val);
+    const p = s(pattern);
+    try {
+      const re = new RegExp(p);
+      const match = text.match(re);
+      if (!match?.groups) return {};
+      return { ...match.groups };
+    } catch {
+      return {};
+    }
+  },
+};
+
+const $indices: ExpressionFunction = {
+  name: '$indices', category: 'String',
+  signature: '$indices(str, search) → array',
+  description: 'Return an array of all starting index positions where the search string occurs.',
+  args: [
+    { name: 'str', type: 'string', required: true, description: 'Input string' },
+    { name: 'search', type: 'string', required: true, description: 'Substring to find' },
+  ],
+  returnType: 'array',
+  examples: [{ input: '$indices("abcabc", "bc")', output: '[1,4]' }],
+  evaluate: (val, search) => {
+    const text = s(val);
+    const needle = s(search);
+    if (!needle) return [];
+    const positions: number[] = [];
+    let idx = 0;
+    while (idx <= text.length - needle.length) {
+      const found = text.indexOf(needle, idx);
+      if (found < 0) break;
+      positions.push(found);
+      idx = found + 1;
+    }
+    return positions;
+  },
+};
+
 export const stringFunctions: ExpressionFunction[] = [
   $upper, $lower, $trim, $length, $concat, $substring, $replace, $split, $join,
-  $startsWith, $endsWith, $padStart, $padEnd, $repeat, $indexOf,
+  $startsWith, $endsWith, $padStart, $padEnd, $repeat, $indexOf, $toString,
+  $substringBefore, $substringAfter, $capitalize, $camelCase, $snakeCase,
+  $kebabCase, $isAlpha, $isNumeric, $trimStart, $trimEnd, $scan,
+  $ltrimStr, $rtrimStr, $capture, $indices,
 ];

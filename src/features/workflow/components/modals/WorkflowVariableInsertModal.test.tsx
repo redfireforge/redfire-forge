@@ -358,7 +358,7 @@ describe('WorkflowVariableInsertModal', () => {
     const varRows = document.body.querySelectorAll('.wf-var-insert-var-row');
     fireEvent.click(varRows[0]); // token
     fireEvent.click(varRows[1]); // status
-    fireEvent.click(screen.getByText('Insert All (2)'));
+    fireEvent.click(document.body.querySelector('.wf-var-insert-action-insert')!);
     expect(onPick).toHaveBeenCalledTimes(1);
     // Both Step A vars: token and status
     const template = onPick.mock.calls[0][0];
@@ -394,59 +394,27 @@ describe('WorkflowVariableInsertModal', () => {
     expect(counts[0].textContent).toBe('1');
   });
 
-  // ── Expand / Shrink tests ──
+  // ── Footer Close button ──
 
-  it('renders expand button in header', () => {
+  it('renders Close button in the footer', () => {
     render(<WorkflowVariableInsertModal {...defaultProps} />);
-    const expandBtn = document.body.querySelector('.modal-expand-btn');
-    expect(expandBtn).toBeTruthy();
-    expect(expandBtn!.getAttribute('aria-label')).toBe('Expand modal');
+    const closeBtn = document.body.querySelector('.wf-var-insert-close-btn');
+    expect(closeBtn).toBeTruthy();
+    expect(closeBtn!.textContent).toBe('Close');
   });
 
-  it('toggles fullscreen class on modal when expand button is clicked', () => {
-    render(<WorkflowVariableInsertModal {...defaultProps} />);
-    const modal = document.body.querySelector('.wf-var-insert-modal')!;
-    expect(modal.classList.contains('modal-fullscreen')).toBe(false);
-    const expandBtn = document.body.querySelector('.modal-expand-btn')!;
-    fireEvent.click(expandBtn);
-    expect(modal.classList.contains('modal-fullscreen')).toBe(true);
-    // aria-label should change to Shrink
-    expect(expandBtn.getAttribute('aria-label')).toBe('Shrink modal');
+  it('footer Close button calls onClose', () => {
+    const onClose = vi.fn();
+    render(<WorkflowVariableInsertModal {...defaultProps} onClose={onClose} />);
+    const closeBtn = document.body.querySelector('.wf-var-insert-close-btn')!;
+    fireEvent.click(closeBtn);
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it('shrinks back when expand button is clicked twice', () => {
+  it('does not render expand buttons', () => {
     render(<WorkflowVariableInsertModal {...defaultProps} />);
-    const modal = document.body.querySelector('.wf-var-insert-modal')!;
-    const expandBtn = document.body.querySelector('.modal-expand-btn')!;
-    fireEvent.click(expandBtn); // expand
-    fireEvent.click(expandBtn); // shrink
-    expect(modal.classList.contains('modal-fullscreen')).toBe(false);
-    expect(expandBtn.getAttribute('aria-label')).toBe('Expand modal');
-  });
-
-  it('renders expand button in detail bar (bottom-right)', () => {
-    render(<WorkflowVariableInsertModal {...defaultProps} />);
-    const bottomBtn = document.body.querySelector('.modal-expand-btn-bottom');
-    expect(bottomBtn).toBeTruthy();
-    expect(bottomBtn!.getAttribute('aria-label')).toBe('Expand modal');
-  });
-
-  it('bottom expand button also toggles expanded state', () => {
-    render(<WorkflowVariableInsertModal {...defaultProps} />);
-    const modal = document.body.querySelector('.wf-var-insert-modal')!;
-    const bottomBtn = document.body.querySelector('.modal-expand-btn-bottom')!;
-    fireEvent.click(bottomBtn);
-    expect(modal.classList.contains('modal-fullscreen')).toBe(true);
-    expect(bottomBtn.getAttribute('aria-label')).toBe('Shrink modal');
-  });
-
-  it('resets expanded state when modal closes and reopens', () => {
-    const { rerender } = render(<WorkflowVariableInsertModal {...defaultProps} />);
-    fireEvent.click(document.body.querySelector('.modal-expand-btn')!);
-    rerender(<WorkflowVariableInsertModal {...defaultProps} open={false} />);
-    rerender(<WorkflowVariableInsertModal {...defaultProps} open={true} />);
-    const modal = document.body.querySelector('.wf-var-insert-modal')!;
-    expect(modal.classList.contains('modal-fullscreen')).toBe(false);
+    expect(document.body.querySelector('.modal-expand-btn')).toBeNull();
+    expect(document.body.querySelector('.modal-expand-btn-bottom')).toBeNull();
   });
 
   it('expression tab calls onPick when compose mode is off', () => {

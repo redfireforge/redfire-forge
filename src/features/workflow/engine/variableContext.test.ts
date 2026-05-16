@@ -424,4 +424,17 @@ describe('VariableContext node-scoped refs', () => {
     const snap = ctx.snapshot();
     expect(snap['node:orphan.k']).toBe('v');
   });
+
+  it('resolves nested function calls via full evaluator fallback', () => {
+    const ctx = new VariableContext();
+    const result = ctx.resolve('{{$upper($concat("hello", " world"))}}');
+    expect(result).toBe('HELLO WORLD');
+  });
+
+  it('resolves expressions with variable references', () => {
+    const ctx = new VariableContext();
+    ctx.set('name', 'Alice');
+    const result = ctx.resolve('{{$upper(name)}}');
+    expect(result).toBe('ALICE');
+  });
 });

@@ -396,6 +396,63 @@ describe('TrainingPathsView', () => {
     expect(onImport).toHaveBeenCalledTimes(1);
   });
 
+  it('opens training manual in a new tab when manual row clicked', () => {
+    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+    render(<TrainingPathsView paths={minimalPaths} activePathId="tp-a" />);
+    const row = screen.getByText('Manual Alpha').closest('.training-manual-row');
+    expect(row).toBeTruthy();
+    fireEvent.click(row!);
+    expect(openSpy).toHaveBeenCalledWith('/docs/training-manuals/alpha.html', '_blank', 'noopener');
+    openSpy.mockRestore();
+  });
+
+  it('opens manual via Enter on focused manual row', () => {
+    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+    render(<TrainingPathsView paths={minimalPaths} activePathId="tp-a" />);
+    const row = screen.getByText('Manual Beta').closest('.training-manual-row') as HTMLElement;
+    row.focus();
+    fireEvent.keyDown(row, { key: 'Enter' });
+    expect(openSpy).toHaveBeenCalledWith('/docs/training-manuals/beta.html', '_blank', 'noopener');
+    openSpy.mockRestore();
+  });
+
+  it('calls onNavigateToSample when sample chip is clicked', () => {
+    const nav = vi.fn();
+    render(<TrainingPathsView paths={minimalPaths} activePathId="tp-a" onNavigateToSample={nav} />);
+    const chip = screen.getAllByTitle('View this sample in Samples tab')[0];
+    fireEvent.click(chip);
+    expect(nav).toHaveBeenCalledWith('sample-alpha');
+  });
+
+  it('shows updated sample badge on manual row', () => {
+    const sampleStatus = { 'sample-alpha': 'updated' as const };
+    const { container } = render(
+      <TrainingPathsView paths={minimalPaths} activePathId="tp-a" sampleStatus={sampleStatus} />,
+    );
+    expect(container.querySelector('.gallery-status-updated')).toBeTruthy();
+  });
+
+  it('collapse all hides manuals then expand all restores', () => {
+    render(<TrainingPathsView paths={minimalPaths} activePathId="tp-a" />);
+    fireEvent.click(screen.getByText('▼ Collapse All'));
+    expect(screen.queryByText('Manual Alpha')).toBeNull();
+    fireEvent.click(screen.getByText('▶ Expand All'));
+    expect(screen.getByText('Manual Alpha')).toBeTruthy();
+  });
+
+  it('manual without manualPath is not a link row', () => {
+    const paths: import('../../../data/galleries/trainingPaths').TrainingPath[] = [{
+      id: 'one',
+      name: 'One',
+      icon: '1',
+      description: 'd',
+      phases: [{ id: 1, name: 'Phase', manuals: [{ title: 'No link', description: 'x', difficulty: 'easy' }] }],
+    }];
+    render(<TrainingPathsView paths={paths} activePathId="one" />);
+    const row = screen.getByText('No link').closest('.training-manual-row');
+    expect(row?.classList.contains('training-manual-row--clickable')).toBe(false);
+  });
+
   /* ── Search Filtering ── */
 
   it('filters paths by search query matching path name', () => {
@@ -511,7 +568,7 @@ describe('TrainingPathsView', () => {
 
   it('renders sample chip with sampleId', () => {
     render(<TrainingPathsView paths={minimalPaths} activePathId="tp-a" />);
-    expect(screen.getByText('sample-alpha')).toBeTruthy();
+    expect(screen.getByText(/sample-alpha/)).toBeTruthy();
   });
 
   it('shows imported badge when sampleStatus is imported', () => {

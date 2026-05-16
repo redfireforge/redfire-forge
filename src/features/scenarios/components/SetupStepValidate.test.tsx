@@ -8,19 +8,26 @@ import '@testing-library/jest-dom';
 import SetupStepValidate from './SetupStepValidate';
 import type { SetupStepValidateProps } from './SetupStepValidate';
 
-// Mock JsonPathBuilder since it's complex
-vi.mock('../../requests/components/JsonPathBuilder', () => ({
-  default: ({ onUpdate }: { onUpdate: (patch: Record<string, unknown>) => void }) => (
-    <div data-testid="json-path-builder">
-      <button type="button" onClick={() => onUpdate({ expectedFields: [{ jsonPath: '$.name', expectedValue: '"test"' }] })}>
-        Update Fields
-      </button>
-      <button type="button" onClick={() => onUpdate({ excludedPaths: ['/skip'] })}>
-        Exclude Paths
-      </button>
-    </div>
-  ),
-}));
+vi.mock('../../../shared/components/data-mapper', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../shared/components/data-mapper')>();
+  return {
+    ...actual,
+    DataMapperModal: ({ onSave, onCancel, unorderedArrays }: { onSave: (output: { expectedFields: unknown[]; excludedPaths: string[] }, options?: { unorderedArrays?: boolean }) => void; onCancel: () => void; unorderedArrays?: boolean }) => (
+      <div data-testid="data-mapper-modal">
+        <span data-testid="mapper-unordered-prop">{String(!!unorderedArrays)}</span>
+        <button type="button" onClick={() => onSave({ expectedFields: [{ jsonPath: '$.mapped', expectedValue: '"yes"' }], excludedPaths: ['$.skip'] })}>
+          Save Mapper
+        </button>
+        <button type="button" onClick={() => onSave({ expectedFields: [], excludedPaths: [] }, { unorderedArrays: true })}>
+          Save Unordered
+        </button>
+        <button type="button" onClick={onCancel}>
+          Cancel Mapper
+        </button>
+      </div>
+    ),
+  };
+});
 
 function createDefaultProps(overrides: Partial<SetupStepValidateProps> = {}): SetupStepValidateProps {
   return {
@@ -117,8 +124,8 @@ describe('SetupStepValidate', () => {
   });
 
   it('shows error message when fetchError is present', () => {
-    render(<SetupStepValidate {...createDefaultProps({ fetchError: 'Connection failed' })} />);
-    expect(screen.getByText('⚠️ Connection failed')).toBeInTheDocument();
+    render(<SetupStepValidate {...createDefaultProps({ fetchError: { message: 'Connection failed' } })} />);
+    expect(screen.getByText('Connection failed')).toBeInTheDocument();
   });
 
   it('shows stored response button when test has sampleJson', () => {
@@ -128,9 +135,9 @@ describe('SetupStepValidate', () => {
     expect(screen.getByText(/Or use stored response/)).toBeInTheDocument();
   });
 
-  it('renders JsonPathBuilder when sampleJson is present', () => {
+  it('renders Data Mapper button when sampleJson is present', () => {
     render(<SetupStepValidate {...createDefaultProps({ sampleJson: '{"name": "test"}' })} />);
-    expect(screen.getByTestId('json-path-builder')).toBeInTheDocument();
+    expect(screen.getByText('⚡ Data Mapper')).toBeInTheDocument();
   });
 
   it('shows re-fetch button when sampleJson is present', () => {
@@ -193,26 +200,25 @@ describe('SetupStepValidate', () => {
     expect(setSampleJson).toHaveBeenCalledWith(stored);
   });
 
-  it('forwards excludedPaths from JsonPathBuilder', () => {
-    const setValidateExcluded = vi.fn();
+  it('renders validation fields table when fields present', () => {
     render(<SetupStepValidate {...createDefaultProps({
       sampleJson: '{}',
-      setValidateExcluded,
+      validateFields: [{ jsonPath: '$.name', expectedValue: '"test"' }],
     })} />);
-    fireEvent.click(screen.getByText('Exclude Paths'));
-    expect(setValidateExcluded).toHaveBeenCalledWith(['/skip']);
+    const table = document.querySelector('.validation-fields-table');
+    expect(table).toBeTruthy();
   });
 
-  it('forwards expectedFields from JsonPathBuilder', () => {
+  it('removes field via inline remove button', () => {
     const setValidateFields = vi.fn();
     render(<SetupStepValidate {...createDefaultProps({
       sampleJson: '{}',
       setValidateFields,
+      validateFields: [{ jsonPath: '$.name', expectedValue: '"test"' }],
     })} />);
-    fireEvent.click(screen.getByText('Update Fields'));
-    expect(setValidateFields).toHaveBeenCalledWith([
-      { jsonPath: '$.name', expectedValue: '"test"' },
-    ]);
+    const removeBtn = document.querySelector('.btn-icon-sm');
+    if (removeBtn) fireEvent.click(removeBtn);
+    expect(setValidateFields).toHaveBeenCalledWith([]);
   });
 
   it('disables re-fetch while fetching', () => {
@@ -240,5 +246,73 @@ describe('SetupStepValidate', () => {
     renderWithRealArrayModes(['items'], { items: 'unordered' });
     fireEvent.click(screen.getByText('↕ Ordered'));
     expect(screen.getByTestId('array-modes-json').textContent).toContain('"items":"ordered"');
+  });
+
+  // --- Data Mapper (DataMapperModal) ---
+
+  it('opens Data Mapper modal when button is clicked', () => {
+    render(<SetupStepValidate {...createDefaultProps({ sampleJson: '{"x":1}' })} />);
+    fireEvent.click(screen.getByText('⚡ Data Mapper'));
+    expect(screen.getByTestId('data-mapper-modal')).toBeInTheDocument();
+  });
+
+  it('saves mapper output and closes modal', () => {
+    const setValidateFields = vi.fn();
+    const setValidateExcluded = vi.fn();
+    render(<SetupStepValidate {...createDefaultProps({ sampleJson: '{}', setValidateFields, setValidateExcluded })} />);
+    fireEvent.click(screen.getByText('⚡ Data Mapper'));
+    fireEvent.click(screen.getByText('Save Mapper'));
+    expect(setValidateFields).toHaveBeenCalledWith([{ jsonPath: '$.mapped', expectedValue: '"yes"' }]);
+    expect(setValidateExcluded).toHaveBeenCalledWith(['$.skip']);
+    expect(screen.queryByTestId('data-mapper-modal')).toBeNull();
+  });
+
+  it('saves mapper output with unorderedArrays option and updates arrayModes', () => {
+    const Wrapper = () => {
+      const [arrayModes, setArrayModes] = useState<Record<string, 'ordered' | 'unordered'>>({ items: 'ordered' });
+      const [validateFields, setValidateFields] = useState<{ jsonPath: string; expectedValue: string }[]>([]);
+      const [validateExcluded, setValidateExcluded] = useState<string[]>([]);
+      return (
+        <>
+          <SetupStepValidate
+            {...createDefaultProps({
+              sampleJson: '{"items":[]}',
+              arrayPrefixes: ['items'],
+              arrayModes,
+              setArrayModes,
+              validateFields,
+              setValidateFields: setValidateFields as SetupStepValidateProps['setValidateFields'],
+              validateExcluded,
+              setValidateExcluded,
+            })}
+          />
+          <span data-testid="modes-json">{JSON.stringify(arrayModes)}</span>
+        </>
+      );
+    };
+    render(<Wrapper />);
+    fireEvent.click(screen.getByText('⚡ Data Mapper'));
+    fireEvent.click(screen.getByText('Save Unordered'));
+    expect(screen.getByTestId('modes-json').textContent).toContain('"items":"unordered"');
+    expect(screen.queryByTestId('data-mapper-modal')).toBeNull();
+  });
+
+  it('passes unorderedArrays prop to DataMapperModal', () => {
+    render(<SetupStepValidate {...createDefaultProps({
+      sampleJson: '{}',
+      arrayModes: { items: 'unordered' },
+    })} />);
+    fireEvent.click(screen.getByText('⚡ Data Mapper'));
+    expect(screen.getByTestId('mapper-unordered-prop').textContent).toBe('true');
+  });
+
+  it('cancels mapper modal without saving', () => {
+    const setValidateFields = vi.fn();
+    render(<SetupStepValidate {...createDefaultProps({ sampleJson: '{}', setValidateFields })} />);
+    fireEvent.click(screen.getByText('⚡ Data Mapper'));
+    expect(screen.getByTestId('data-mapper-modal')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('Cancel Mapper'));
+    expect(screen.queryByTestId('data-mapper-modal')).toBeNull();
+    expect(setValidateFields).not.toHaveBeenCalled();
   });
 });
