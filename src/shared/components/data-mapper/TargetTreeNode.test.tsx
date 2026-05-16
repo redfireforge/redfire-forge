@@ -2462,4 +2462,54 @@ describe('TargetTreeNode – verify display from fieldVerifyResults', () => {
     );
     expect(container.querySelector('.dm-verify-badge--pass')).not.toBeNull();
   });
+
+  it('hides mapping for parent with non-allowed operator', () => {
+    const parentNode: JsonTreeNode = {
+      key: 'parent', path: 'parent', type: 'object', value: undefined,
+      children: [{ key: 'child', path: 'parent.child', type: 'string', value: '', children: [] }],
+    };
+    const parentMapping: Mapping = { id: 'm1', sourcePath: 'src', sourceId: 's1', targetPath: 'parent', operator: 'equals' };
+    const { container } = render(
+      <TargetTreeNode
+        node={parentNode}
+        {...defaults}
+        mappings={[parentMapping]}
+        capabilities={capsOp}
+      />,
+    );
+    expect(container.querySelector('.dm-mapped-badge')).toBeNull();
+  });
+
+  it('shows mapping for parent with allowed operator', () => {
+    const parentNode: JsonTreeNode = {
+      key: 'parent', path: 'parent', type: 'object', value: undefined,
+      children: [{ key: 'child', path: 'parent.child', type: 'string', value: '', children: [] }],
+    };
+    const parentMapping: Mapping = { id: 'm1', sourcePath: 'src', sourceId: 's1', targetPath: 'parent', operator: 'is_empty' };
+    const { container } = render(
+      <TargetTreeNode
+        node={parentNode}
+        {...defaults}
+        mappings={[parentMapping]}
+        capabilities={capsOp}
+      />,
+    );
+    expect(container.querySelector('.dm-mapped-badge')).not.toBeNull();
+  });
+
+  it('context menu opens on right-click', () => {
+    const { container } = render(
+      <TargetTreeNode
+        node={leaf}
+        {...defaults}
+        mappings={[mapping]}
+        capabilities={capsOp}
+        onRemoveMapping={vi.fn()}
+      />,
+    );
+    const nodeEl = container.querySelector('.dm-tree-node--target')!;
+    fireEvent.contextMenu(nodeEl, { clientX: 100, clientY: 200 });
+    const ctxMenu = document.querySelector('.dm-context-menu');
+    expect(ctxMenu).not.toBeNull();
+  });
 });

@@ -8,6 +8,7 @@ import {
   exportAsJson,
   importFromJson,
   importAutoDetect,
+  countDslRuleLines,
   type ParsedRule,
   type ParseError,
 } from './validationDsl';
@@ -1409,5 +1410,115 @@ describe('ASSERT keyword — dslToModel round-trip', () => {
     const model = dslToModel(rules);
     expect(model.assertions).toHaveLength(1);
     expect(model.assertions[0].negate).toBe(true);
+  });
+});
+
+describe('Expression-based field rules — DSL round-trip', () => {
+  it('serializes field with expression using expr: prefix', () => {
+    const fields: ExpectedField[] = [
+      { jsonPath: '$.offers[0].rank', expectedValue: '3', operator: 'equals', expression: '$maxBy($.source.offers, x => x.rank)' },
+    ];
+    const dsl = serializeToDsl(fields, []);
+    expect(dsl).toContain('expr:$maxBy($.source.offers, x => x.rank)');
+    expect(dsl).not.toContain('"3"');
+  });
+
+  it('round-trips expression field through DSL serialize → parse → model', () => {
+    const fields: ExpectedField[] = [
+      { jsonPath: '$.price', expectedValue: '49.99', operator: 'equals', expression: '$maxBy($.source.offers, x => x.price)' },
+    ];
+    const dsl = serializeToDsl(fields, []);
+    const { rules, errors } = parseDsl(dsl);
+    expect(errors).toHaveLength(0);
+    expect(rules).toHaveLength(1);
+    expect(rules[0].expression).toBe('$maxBy($.source.offers, x => x.price)');
+    expect(rules[0].value).toBeUndefined();
+
+    const model = dslToModel(rules);
+    expect(model.fields).toHaveLength(1);
+    expect(model.fields[0].expression).toBe('$maxBy($.source.offers, x => x.price)');
+    expect(model.fields[0].operator).toBe('equals');
+  });
+
+  it('round-trips expression field with negation', () => {
+    const fields: ExpectedField[] = [
+      { jsonPath: '$.name', expectedValue: '', operator: 'contains', negate: true, expression: '$filter($.items, x => x.active)' },
+    ];
+    const dsl = serializeToDsl(fields, []);
+    expect(dsl).toContain('NOT contains');
+    expect(dsl).toContain('expr:$filter($.items, x => x.active)');
+
+    const { rules, errors } = parseDsl(dsl);
+    expect(errors).toHaveLength(0);
+    const model = dslToModel(rules);
+    expect(model.fields[0].negate).toBe(true);
+    expect(model.fields[0].expression).toBe('$filter($.items, x => x.active)');
+  });
+
+  it('mixes expression and non-expression fields correctly', () => {
+    const fields: ExpectedField[] = [
+      { jsonPath: '$.status', expectedValue: 'active', operator: 'equals' },
+      { jsonPath: '$.count', expectedValue: '42', operator: 'equals', expression: '$reduce($.items, (acc, x) => $add(acc, 1), 0)' },
+    ];
+    const dsl = serializeToDsl(fields, []);
+    expect(dsl).toContain('status');
+    expect(dsl).toContain('"active"');
+    expect(dsl).toContain('expr:$reduce($.items, (acc, x) => $add(acc, 1), 0)');
+
+    const { rules, errors } = parseDsl(dsl);
+    expect(errors).toHaveLength(0);
+    expect(rules).toHaveLength(2);
+    const statusRule = rules.find(r => r.path === 'status');
+    const countRule = rules.find(r => r.path === 'count');
+    expect(statusRule?.expression).toBeUndefined();
+    expect(statusRule?.value).toBe('active');
+    expect(countRule?.expression).toBe('$reduce($.items, (acc, x) => $add(acc, 1), 0)');
+    expect(countRule?.value).toBeUndefined();
+  });
+
+  it('exports and imports expression fields via JSON', () => {
+    const fields: ExpectedField[] = [
+      { jsonPath: '$.rank', expectedValue: '3', operator: 'equals', expression: '$maxBy($.offers, x => x.rank)' },
+    ];
+    const json = exportAsJson(fields, []);
+    const parsed = JSON.parse(json);
+    expect(parsed[0].expression).toBe('$maxBy($.offers, x => x.rank)');
+
+    const model = importAutoDetect(json);
+    expect('fields' in model).toBe(true);
+    if ('fields' in model) {
+      expect(model.fields[0].expression).toBe('$maxBy($.offers, x => x.rank)');
+    }
+  });
+
+  it('fields without expression do not emit expr: prefix', () => {
+    const fields: ExpectedField[] = [
+      { jsonPath: '$.name', expectedValue: 'Alice', operator: 'equals' },
+    ];
+    const dsl = serializeToDsl(fields, []);
+    expect(dsl).not.toContain('expr:');
+    expect(dsl).toContain('"Alice"');
+  });
+});
+
+describe('countDslRuleLines', () => {
+  it('counts non-blank non-comment lines', () => {
+    expect(countDslRuleLines('$.a equals 1\n$.b greater_than 2')).toBe(2);
+  });
+
+  it('excludes blank lines', () => {
+    expect(countDslRuleLines('$.a equals 1\n\n$.b greater_than 2\n')).toBe(2);
+  });
+
+  it('excludes comment lines', () => {
+    expect(countDslRuleLines('# comment\n$.a equals 1\n# another\n$.b greater_than 2')).toBe(2);
+  });
+
+  it('returns 0 for empty text', () => {
+    expect(countDslRuleLines('')).toBe(0);
+  });
+
+  it('returns 0 for comments only', () => {
+    expect(countDslRuleLines('# only comments\n# more comments')).toBe(0);
   });
 });

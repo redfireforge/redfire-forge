@@ -24,7 +24,7 @@ export interface EvalResult {
 
 // ── Tokenizer ──
 
-type TokenType = 'string' | 'number' | 'bool' | 'func' | 'lparen' | 'rparen' | 'comma' | 'var' | 'ident' | 'arrow' | 'lbracket' | 'rbracket';
+type TokenType = 'string' | 'number' | 'bool' | 'func' | 'lparen' | 'rparen' | 'comma' | 'var' | 'ident' | 'arrow' | 'lbracket' | 'rbracket' | 'dot_access';
 interface Token { type: TokenType; value: string; }
 
 function tokenize(expr: string): Token[] {
@@ -87,6 +87,15 @@ function tokenize(expr: string): Token[] {
     if (expr[i] === '(') { tokens.push({ type: 'lparen', value: '(' }); i++; continue; }
     if (expr[i] === ')') { tokens.push({ type: 'rparen', value: ')' }); i++; continue; }
 
+    // Dot — property access on function result (e.g. $fn(...).prop)
+    if (expr[i] === '.' && tokens.length > 0 && tokens[tokens.length - 1].type === 'rparen') {
+      i++; // consume .
+      let prop = '';
+      while (i < expr.length && /[a-zA-Z0-9_]/.test(expr[i])) { prop += expr[i]; i++; }
+      if (prop) tokens.push({ type: 'dot_access', value: prop });
+      continue;
+    }
+
     // Array brackets — only when not part of an ident path
     if (expr[i] === '[') { tokens.push({ type: 'lbracket', value: '[' }); i++; continue; }
     if (expr[i] === ']') { tokens.push({ type: 'rbracket', value: ']' }); i++; continue; }
@@ -128,7 +137,7 @@ function tokenize(expr: string): Token[] {
 // ── Parser ──
 
 export interface ASTNode {
-  kind: 'literal' | 'variable' | 'call' | 'lambda' | 'array';
+  kind: 'literal' | 'variable' | 'call' | 'lambda' | 'array' | 'prop_access';
   value?: unknown;
   varName?: string;
   funcName?: string;
@@ -136,6 +145,8 @@ export interface ASTNode {
   elements?: ASTNode[];
   params?: string[];
   body?: ASTNode;
+  object?: ASTNode;
+  property?: string;
 }
 
 function parse(tokens: Token[]): ASTNode {
@@ -210,7 +221,12 @@ function parse(tokens: Token[]): ASTNode {
         }
         if (pos < tokens.length) pos++; // consume )
       }
-      return { kind: 'call', funcName, args };
+      let node: ASTNode = { kind: 'call', funcName, args };
+      while (pos < tokens.length && tokens[pos].type === 'dot_access') {
+        node = { kind: 'prop_access', object: node, property: tokens[pos].value };
+        pos++;
+      }
+      return node;
     }
 
     // String literal
@@ -260,6 +276,14 @@ function evalNode(node: ASTNode, ctx: EvalContext): unknown {
 
     case 'lambda':
       return { __type: 'lambda', params: node.params!, body: node.body!, closureCtx: ctx } as LambdaValue;
+
+    case 'prop_access': {
+      const obj = evalNode(node.object!, ctx);
+      if (obj != null && typeof obj === 'object' && node.property) {
+        return (obj as Record<string, unknown>)[node.property];
+      }
+      return undefined;
+    }
 
     default:
       return '';

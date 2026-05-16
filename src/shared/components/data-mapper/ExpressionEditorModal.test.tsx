@@ -594,47 +594,53 @@ describe('ExpressionEditorModal – Step-Through Debugger', () => {
     expect(screen.getByText(/Step \d+ \/ \d+/)).toBeTruthy();
   });
 
-  it('allows clicking a step to select it', async () => {
+  it('allows clicking a step header to expand it', async () => {
     renderModal({ mapping: { ...baseMapping, expression: '$upper($.name)' } });
     fireEvent.click(screen.getByText('Step Debug'));
     await act(async () => { await new Promise((r) => setTimeout(r, 300)); });
-    const steps = document.querySelectorAll('.dm-expr-step');
-    if (steps.length > 1) {
-      fireEvent.click(steps[0]);
-      expect(steps[0].className).toContain('dm-expr-step--active');
+    const headers = document.querySelectorAll('.dm-expr-step-header');
+    if (headers.length > 0) {
+      expect(document.querySelectorAll('.dm-expr-step-result')).toHaveLength(0);
+      fireEvent.click(headers[0]);
+      expect(document.querySelectorAll('.dm-expr-step-result').length).toBeGreaterThan(0);
     }
   });
 
-  it('allows keyboard (Enter) to select a step', async () => {
+  it('allows keyboard (Enter) to expand a step', async () => {
     renderModal({ mapping: { ...baseMapping, expression: '$upper($.name)' } });
     fireEvent.click(screen.getByText('Step Debug'));
     await act(async () => { await new Promise((r) => setTimeout(r, 300)); });
-    const steps = document.querySelectorAll('.dm-expr-step');
-    if (steps.length > 1) {
-      fireEvent.keyDown(steps[0], { key: 'Enter' });
-      expect(steps[0].className).toContain('dm-expr-step--active');
+    const headers = document.querySelectorAll('.dm-expr-step-header');
+    if (headers.length > 0) {
+      fireEvent.keyDown(headers[0], { key: 'Enter' });
+      expect(document.querySelectorAll('.dm-expr-step-result').length).toBeGreaterThan(0);
     }
   });
 
-  it('allows keyboard (Space) to select a step', async () => {
+  it('allows keyboard (Space) to expand a step', async () => {
     renderModal({ mapping: { ...baseMapping, expression: '$upper($.name)' } });
     fireEvent.click(screen.getByText('Step Debug'));
     await act(async () => { await new Promise((r) => setTimeout(r, 300)); });
-    const steps = document.querySelectorAll('.dm-expr-step');
-    if (steps.length > 1) {
-      fireEvent.keyDown(steps[0], { key: ' ' });
-      expect(steps[0].className).toContain('dm-expr-step--active');
+    const headers = document.querySelectorAll('.dm-expr-step-header');
+    if (headers.length > 0) {
+      fireEvent.keyDown(headers[0], { key: ' ' });
+      expect(document.querySelectorAll('.dm-expr-step-result').length).toBeGreaterThan(0);
     }
   });
 
-  it('shows title tooltip on truncated step values', async () => {
-    const longExpr = '$concat($.name, "' + 'x'.repeat(100) + '")';
-    renderModal({ mapping: { ...baseMapping, expression: longExpr } });
+  it('clicking expanded result opens the detail popup', async () => {
+    renderModal({ mapping: { ...baseMapping, expression: '$upper($.name)' } });
     fireEvent.click(screen.getByText('Step Debug'));
     await act(async () => { await new Promise((r) => setTimeout(r, 300)); });
-    const codeEls = document.querySelectorAll('.dm-expr-step-value');
-    if (codeEls.length > 0) {
-      expect(codeEls[codeEls.length - 1].getAttribute('title')).toBeTruthy();
+    const headers = document.querySelectorAll('.dm-expr-step-header');
+    if (headers.length > 0) {
+      await act(async () => { fireEvent.click(headers[headers.length - 1]); });
+      const results = document.querySelectorAll('.dm-expr-step-result');
+      if (results.length > 0) {
+        await act(async () => { fireEvent.click(results[results.length - 1]); });
+        expect(document.querySelector('.dm-expr-detail-modal')).toBeTruthy();
+        expect(document.querySelector('.dm-expr-detail-badge')?.textContent).toBeTruthy();
+      }
     }
   });
 
