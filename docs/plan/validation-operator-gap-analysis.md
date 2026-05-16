@@ -23,7 +23,7 @@ RedfireForge scores **100% on the competitive feature matrix** (33 of 33 capabil
 ### Unique Differentiators
 
 RedfireForge is the only tool offering all of these in a single platform:
-- **Unified visual mapper** reused across 10 integration contexts
+- **Unified Data Mapper** reused across 10 integration contexts
 - **Bi-directional visual ↔ code sync** (debounced, lossless)
 - **Console-style Validation Rules Modal** — docked/floating/maximized with built-in DSL Reference (10 categories, 39 entries)
 - **Auto-verify on change** with per-rule inline pass/fail (fields + DSL assertions counted together)
@@ -174,7 +174,7 @@ Covers pairwise coercions: `string↔number`, `string↔boolean`, `string↔arra
 
 ### 4.1 Guiding Principle
 
-The Visual Mapper is a **single, shared visual authoring surface** used across 10 integration contexts. All operator and expression enhancements are universally applicable — or cleanly gated behind adapter capabilities — keeping the mapper cohesive regardless of where it's embedded.
+The Data Mapper is a **single, shared visual authoring surface** used across 10 integration contexts. All operator and expression enhancements are universally applicable — or cleanly gated behind adapter capabilities — keeping the mapper cohesive regardless of where it's embedded.
 
 ### 4.2 Adapter Inventory (10 adapters)
 
@@ -254,7 +254,7 @@ interface AdapterCapabilities {
 
 ---
 
-## 5. UX Design — Visual Mapper
+## 5. UX Design — Data Mapper
 
 ### 5.1 Two Modes, One Model
 

@@ -157,7 +157,7 @@ export function createValidationAdapter(
         if (!op && m.expression && (expectedValue === 'true' || expectedValue === 'false')) {
           op = 'is_true';
         }
-        if (op) field.operator = op;
+        field.operator = op || 'equals';
         if (m.operatorValue !== undefined) field.operatorValue = m.operatorValue;
         if (m.negate) field.negate = true;
         return field;
@@ -196,8 +196,8 @@ export function createValidationAdapter(
           sourceId: SOURCE_ID,
           sourcePath: stripDollarPrefix(f.jsonPath),
           targetPath: stripDollarPrefix(f.jsonPath),
+          operator: f.operator || 'equals',
         };
-        if (f.operator) m.operator = f.operator;
         if (f.operatorValue !== undefined) {
           m.operatorValue = f.operatorValue;
         } else if (f.expectedValue && getByPath(parsed, stripDollarPrefix(f.jsonPath)) === undefined) {
@@ -237,6 +237,7 @@ export function createValidationAdapter(
           sourceId: SOURCE_ID,
           sourcePath: path,
           targetPath: path,
+          operator: 'equals' as FieldOperator,
         };
       });
     },

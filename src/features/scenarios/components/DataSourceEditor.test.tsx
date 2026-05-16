@@ -380,7 +380,7 @@ describe('DataSourceEditor', () => {
     it('opens column mapper and applies mapped columns', () => {
       const onChange = vi.fn();
       render(<DataSourceEditor draft={makeScenario({ dataSource: makeDataSource() })} onDraftChange={onChange} />);
-      fireEvent.click(screen.getByTitle('Visual mapper: drag columns to URL path, query, body, header, or validate slots'));
+      fireEvent.click(screen.getByTitle('Data Mapper: drag columns to URL path, query, body, header, or validate slots'));
       expect(screen.getByText('Columns → Request Template')).toBeTruthy();
       fireEvent.click(screen.getByTestId('mock-column-mapper-save'));
       const updated = onChange.mock.calls[onChange.mock.calls.length - 1][0] as Scenario;
@@ -391,7 +391,7 @@ describe('DataSourceEditor', () => {
 
     it('closes column mapper via modal cancel', () => {
       render(<DataSourceEditor draft={makeScenario({ dataSource: makeDataSource() })} onDraftChange={vi.fn()} />);
-      fireEvent.click(screen.getByTitle('Visual mapper: drag columns to URL path, query, body, header, or validate slots'));
+      fireEvent.click(screen.getByTitle('Data Mapper: drag columns to URL path, query, body, header, or validate slots'));
       expect(screen.getByText('Columns → Request Template')).toBeTruthy();
       fireEvent.click(screen.getByText('Close Populate'));
       expect(screen.queryByText('Columns → Request Template')).toBeNull();

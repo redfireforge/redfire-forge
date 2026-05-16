@@ -46,8 +46,8 @@ td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; }
 <h2>Part 1 — The 24 Field Operators</h2>
 
 <div class="step">
-  <div class="step-header"><div class="step-num">1</div><div class="step-title">Open Validation tab → Visual Mapper</div></div>
-  <p>Open the sample request that includes validation mapping. Go to the <strong>Validation</strong> tab, then open <strong>Visual Mapper</strong> (or the equivalent visual validation surface for your node type). The left side shows the response JSON tree; the right side shows assertion targets with operator pills between the arrow and any value or source reference.</p>
+  <div class="step-header"><div class="step-num">1</div><div class="step-title">Open Validation tab → Data Mapper</div></div>
+  <p>Open the sample request that includes validation mapping. Go to the <strong>Validation</strong> tab, then open <strong>Data Mapper</strong> (or the equivalent visual validation surface for your node type). The left side shows the response JSON tree; the right side shows assertion targets with operator pills between the arrow and any value or source reference.</p>
   <div class="expect"><strong>You should see:</strong> Target fields with operator pills aligned with mapped paths; the canvas behaves like other Data Mapper contexts but optimized for assertions.</div>
 </div>
 
@@ -99,7 +99,7 @@ td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; }
 <div class="step">
   <div class="step-header"><div class="step-num">5</div><div class="step-title">Open Code Mode</div></div>
   <p>Click <strong>Rules</strong> in the bottom toolbar dock to open the code editor. The editor is backed by Monaco and uses the <strong>validation-dsl</strong> language mode: syntax highlighting, bracket matching, and validation-specific grammar.</p>
-  <div class="expect"><strong>You should see:</strong> Multi-line DSL with keywords, paths, operators, and comments distinguished by color; the dock stays available while you work in Visual Mapper.</div>
+  <div class="expect"><strong>You should see:</strong> Multi-line DSL with keywords, paths, operators, and comments distinguished by color; the dock stays available while you work in Data Mapper.</div>
 </div>
 
 <div class="step">
@@ -140,7 +140,7 @@ ASSERT $gt($.price, 0) // Price must be positive</pre>
 
 <div class="step">
   <div class="step-header"><div class="step-num">8</div><div class="step-title">Copy &amp; paste rules</div></div>
-  <p>The DSL editor is a standard Monaco text buffer — you can <strong>select all</strong> (<code>Ctrl+A</code> / <code>Cmd+A</code>), <strong>copy</strong>, and <strong>paste</strong> rules between editors, files, or team members. Pasted text is parsed on the fly: valid DSL lines sync to the visual mapper after the debounce period.</p>
+  <p>The DSL editor is a standard Monaco text buffer — you can <strong>select all</strong> (<code>Ctrl+A</code> / <code>Cmd+A</code>), <strong>copy</strong>, and <strong>paste</strong> rules between editors, files, or team members. Pasted text is parsed on the fly: valid DSL lines sync to the Data Mapper after the debounce period.</p>
   <div class="callout callout-tip">
     <strong>Tip</strong>
     <p>To back up your rules, simply select all text in the editor and copy it. To restore, paste the saved text back. The parser handles both DSL syntax and plain text — invalid lines show inline errors so you can fix them before verifying.</p>
@@ -172,13 +172,13 @@ ASSERT $gt($.price, 0) // Price must be positive</pre>
 
 <div class="step">
   <div class="step-header"><div class="step-num">12</div><div class="step-title">Visual → Code</div></div>
-  <p>Make a change in the visual mapper: drag a new target connection, or change an operator via the pill picker. The <strong>DSL text updates automatically</strong> to reflect the new rule — path, operator, NOT state, and values stay aligned.</p>
+  <p>Make a change in the Data Mapper: drag a new target connection, or change an operator via the pill picker. The <strong>DSL text updates automatically</strong> to reflect the new rule — path, operator, NOT state, and values stay aligned.</p>
   <div class="expect"><strong>You should see:</strong> Monaco content refreshes shortly after each visual edit; conflicting partial edits are rare because the mapper owns the authoritative structure for graphical changes.</div>
 </div>
 
 <div class="step">
   <div class="step-header"><div class="step-num">13</div><div class="step-title">Code → Visual</div></div>
-  <p>Edit the DSL directly — for example, change <code>exists</code> to <code>&gt;=</code> with a numeric literal. After a short <strong>debounce (~300&nbsp;ms)</strong>, the <strong>visual mapper</strong> reconciles:</p>
+  <p>Edit the DSL directly — for example, change <code>exists</code> to <code>&gt;=</code> with a numeric literal. After a short <strong>debounce (~300&nbsp;ms)</strong>, the <strong>Data Mapper</strong> reconciles:</p>
   <ul>
     <li>The operator <strong>pill&apos;s label and color</strong> update to the new operator family.</li>
     <li><strong>Value inputs</strong> appear or hide based on whether the operator requires operands (comparison vs existence-only).</li>

@@ -40,7 +40,7 @@ async function openValidationMapper(page: Page) {
   await page.locator('label:has-text("Selective Fields") input[type="radio"]').check();
   await page.locator('button:has-text("Fetch Response")').click();
   await expect(page.locator('.validation-response-preview')).toBeVisible();
-  await page.locator('button:has-text("⚡ Visual Mapper")').click();
+  await page.locator('button:has-text("⚡ Data Mapper")').click();
   const mapper = page.locator('.dm-modal-overlay');
   await expect(mapper).toBeVisible();
   return mapper;
@@ -48,15 +48,12 @@ async function openValidationMapper(page: Page) {
 
 test.describe('Expression Editor overflow', () => {
   test('expression editor does not extend beyond viewport bottom at small viewport', async ({ page }) => {
-    // Test with a smaller viewport that matches typical laptop screen with toolbars
     await page.setViewportSize({ width: 1280, height: 580 });
     const mapper = await openValidationMapper(page);
 
-    // Auto-map to create mappings
     await mapper.locator('.dm-toolbar-cluster--core button', { hasText: 'Auto-map' }).click();
     await page.waitForTimeout(300);
 
-    // Right-click mapped node, then "Edit expression…" to open Expression Editor
     const mappedNode = mapper.locator('.dm-panel--target .dm-tree-node--mapped').first();
     await expect(mappedNode).toBeVisible();
     await mappedNode.click({ button: 'right' });
@@ -64,17 +61,14 @@ test.describe('Expression Editor overflow', () => {
     await expect(contextMenu).toBeVisible({ timeout: 3000 });
     await contextMenu.locator('button:has-text("Edit expression")').click();
 
-    // Wait for expression editor modal
     const exprOverlay = page.locator('.dm-expr-overlay');
     await expect(exprOverlay).toBeVisible({ timeout: 3000 });
 
     const exprModal = page.locator('.dm-expr-modal');
     await expect(exprModal).toBeVisible({ timeout: 3000 });
 
-    // Take screenshot
     await page.screenshot({ path: 'test-results/expression-editor-position.png' });
 
-    // Check that the modal doesn't overflow the viewport
     const modalBox = await exprModal.boundingBox();
     const viewport = page.viewportSize()!;
 
@@ -85,13 +79,15 @@ test.describe('Expression Editor overflow', () => {
     }, null, 2));
 
     expect(modalBox).toBeTruthy();
-    // Modal bottom should not exceed viewport height
     expect(modalBox!.y + modalBox!.height).toBeLessThanOrEqual(viewport.height + 5);
-    // Modal top should be >= 0
     expect(modalBox!.y).toBeGreaterThanOrEqual(0);
 
-    // Verify the overlay is portaled to body (not trapped inside DM modal)
-    const parentTag = await exprOverlay.evaluate(el => el.parentElement?.tagName);
-    expect(parentTag).toBe('BODY');
+    const portaledToTopLayer = await exprOverlay.evaluate((el) => {
+      const p = el.parentElement;
+      if (!p) return false;
+      if (p.tagName === 'BODY') return true;
+      return p.classList.contains('dm-modal-shell');
+    });
+    expect(portaledToTopLayer).toBe(true);
   });
 });

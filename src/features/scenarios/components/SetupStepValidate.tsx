@@ -141,7 +141,7 @@ export default function SetupStepValidate({
                 className="btn btn-sm btn-accent"
                 onClick={() => setMapperOpen(true)}
               >
-                ⚡ Visual Mapper
+                ⚡ Data Mapper
               </button>
             </div>
             {validateFields.length > 0 && (

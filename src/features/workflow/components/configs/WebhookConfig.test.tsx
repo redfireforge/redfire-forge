@@ -368,17 +368,17 @@ describe('WebhookConfig', () => {
     expect(onChange).toHaveBeenCalledWith({ extractVariables: [{ name: '', jsonPath: '' }] });
   });
 
-  // --- Visual Mapper (DataMapperModal) ---
+  // --- Data Mapper (DataMapperModal) ---
 
-  it('opens Visual Mapper modal when button is clicked', () => {
+  it('opens Data Mapper modal when button is clicked', () => {
     render(<WebhookConfig data={makeData()} onChange={vi.fn()} />);
-    fireEvent.click(screen.getByText('Visual Mapper'));
+    fireEvent.click(screen.getByText('Data Mapper'));
     expect(document.querySelector('.dm-modal-overlay')).toBeTruthy();
   });
 
-  it('closes Visual Mapper when closed', async () => {
+  it('closes Data Mapper when closed', async () => {
     render(<WebhookConfig data={makeData()} onChange={vi.fn()} />);
-    fireEvent.click(screen.getByText('Visual Mapper'));
+    fireEvent.click(screen.getByText('Data Mapper'));
     expect(document.querySelector('.dm-modal-overlay')).toBeTruthy();
     const cancelBtn = screen.getByText('Cancel');
     fireEvent.click(cancelBtn);
@@ -388,7 +388,7 @@ describe('WebhookConfig', () => {
   it('saves mapper result and closes modal via Save', async () => {
     const onChange = vi.fn();
     render(<WebhookConfig data={makeData({ samplePayload: '{"id":1}' })} onChange={onChange} />);
-    fireEvent.click(screen.getByText('Visual Mapper'));
+    fireEvent.click(screen.getByText('Data Mapper'));
     expect(document.querySelector('.dm-modal-overlay')).toBeTruthy();
     const saveBtn = screen.getByText('Save');
     fireEvent.click(saveBtn);

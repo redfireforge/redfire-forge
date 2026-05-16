@@ -458,8 +458,12 @@ export default function DataMapperModal<TOutput = unknown>({
       <div className="dm-modal-shell">
         <div className="dm-modal-header">
           <div className="dm-modal-title-block">
-            <h2 id={titleId} className="dm-modal-title">{adapter.title}</h2>
-            <p className="dm-modal-subtitle">Map source fields to target outputs.</p>
+            <h2 id={titleId} className="dm-modal-title">
+              Data Mapper
+              <span className="dm-modal-context-badge" title={adapter.title}>
+                {adapter.title}
+              </span>
+            </h2>
           </div>
           <div className="dm-modal-header-actions">
             <button

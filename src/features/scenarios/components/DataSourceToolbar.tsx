@@ -175,7 +175,7 @@ export default function DataSourceToolbar({
           <button type="button" className="data-source-toolbar-btn" onClick={onShowPopulateModal} title="Send a request and populate rows from an array in the response" disabled={!!linkedSharedDs}>
             ⬇ From API
           </button>
-          <button type="button" className="data-source-toolbar-btn" onClick={onShowColumnMapper} title="Visual mapper: drag columns to URL path, query, body, header, or validate slots" disabled={!!linkedSharedDs || dt.columns.length === 0}>
+          <button type="button" className="data-source-toolbar-btn" onClick={onShowColumnMapper} title="Data Mapper: drag columns to URL path, query, body, header, or validate slots" disabled={!!linkedSharedDs || dt.columns.length === 0}>
             🔗 Map Columns
           </button>
         </div>

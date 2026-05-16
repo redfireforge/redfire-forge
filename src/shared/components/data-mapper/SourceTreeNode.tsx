@@ -18,7 +18,7 @@ interface SourceTreeNodeProps {
   depth: number;
   search: string;
   mappingFilter?: 'all' | 'mapped' | 'unmapped';
-  onDragStart: (path: string, sourceId: string) => void;
+  onDragStart: (path: string, sourceId: string, type?: string) => void;
   onDragEnd?: () => void;
   sourceId: string;
   onNodeSelect?: (path: string, sourceId: string) => void;
@@ -65,14 +65,14 @@ export default function SourceTreeNode({
 
   const handleDragStart = useCallback(
     (e: React.DragEvent) => {
-      const payload = JSON.stringify({ kind: 'source-field', path: node.path, sourceId });
+      const payload = JSON.stringify({ kind: 'source-field', path: node.path, sourceId, type: node.type });
       e.dataTransfer.setData('application/mapper-source', payload);
       // WKWebView/Safari can strip custom mime types; keep a text/plain fallback.
       e.dataTransfer.setData('text/plain', `mapper-source:${payload}`);
       e.dataTransfer.effectAllowed = 'link';
-      onDragStart(node.path, sourceId);
+      onDragStart(node.path, sourceId, node.type);
     },
-    [node.path, sourceId, onDragStart],
+    [node.path, sourceId, node.type, onDragStart],
   );
 
   const handleDragEnd = useCallback(() => {

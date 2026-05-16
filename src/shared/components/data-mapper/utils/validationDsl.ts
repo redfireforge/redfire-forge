@@ -436,7 +436,7 @@ export function dslToModel(rules: ParsedRule[]): DslModel {
         fields.push({
           jsonPath,
           expectedValue: rule.value ?? '',
-          operator: op === 'equals' ? undefined : op,
+          operator: op,
           operatorValue: NO_VALUE_OPERATORS.has(op) ? undefined : rule.value,
           ...(neg && { negate: true }),
         });

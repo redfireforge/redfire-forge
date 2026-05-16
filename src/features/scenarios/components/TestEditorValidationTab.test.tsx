@@ -50,7 +50,12 @@ vi.mock('../../../shared/components/data-mapper', async () => {
     ...actual,
     DataMapperModal: ({ onCancel, onSave, unorderedArrays }: {
       onCancel: () => void;
-      onSave: (output: { selectiveMode: string; expectedFields: { jsonPath: string; expectedValue: string }[]; excludedPaths: string[] }, options?: { unorderedArrays?: boolean }) => void;
+      onSave: (output: {
+        selectiveMode: string;
+        expectedFields: { jsonPath: string; expectedValue: string }[];
+        excludedPaths: string[];
+        assertions?: Assertion[];
+      }, options?: { unorderedArrays?: boolean }) => void;
       unorderedArrays?: boolean;
     }) => (
       <div data-testid="data-mapper-modal">
@@ -63,6 +68,18 @@ vi.mock('../../../shared/components/data-mapper', async () => {
           { selectiveMode: 'include', expectedFields: [{ jsonPath: '$.a', expectedValue: '1' }], excludedPaths: [] },
           { unorderedArrays: false }
         )}>Save Mapper Ordered</button>
+        <button data-testid="mapper-save-no-options" onClick={() => onSave(
+          { selectiveMode: 'include', expectedFields: [{ jsonPath: '$.a', expectedValue: '1' }], excludedPaths: [] },
+        )}>Save Mapper Default Options</button>
+        <button data-testid="mapper-save-with-assertions" onClick={() => onSave(
+          {
+            selectiveMode: 'include',
+            expectedFields: [{ jsonPath: '$.a', expectedValue: '1' }],
+            excludedPaths: [],
+            assertions: [{ type: 'status', expected: '201' }],
+          },
+          { unorderedArrays: false },
+        )}>Save Mapper With Assertions</button>
         <span data-testid="mapper-unordered-prop">{unorderedArrays ? 'true' : 'false'}</span>
       </div>
     ),
@@ -134,6 +151,51 @@ describe('TestEditorValidationTab', () => {
     it('shows the + Add button', () => {
       render(<TestEditorValidationTab {...makeProps()} />);
       expect(screen.getByText('+ Add')).toBeInTheDocument();
+    });
+
+    it('toggles assertions section collapsed state', () => {
+      const draft = makeDraft({
+        validation: { mode: 'none', assertions: [{ type: 'status', expected: '200' }] },
+      });
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef: { current: draft } })} />);
+      fireEvent.click(screen.getByTitle('Collapse assertions'));
+      expect(screen.getByTitle('Expand assertions')).toBeInTheDocument();
+    });
+
+    it('closes add menu when Escape pressed in filter input', () => {
+      render(<TestEditorValidationTab {...makeProps()} />);
+      fireEvent.click(screen.getByText('+ Add'));
+      fireEvent.keyDown(screen.getByPlaceholderText('Filter assertions…'), { key: 'Escape' });
+      expect(screen.queryByText('Status Code')).not.toBeInTheDocument();
+    });
+
+    it('shows no matching assertions when filter matches nothing', () => {
+      render(<TestEditorValidationTab {...makeProps()} />);
+      fireEvent.click(screen.getByText('+ Add'));
+      fireEvent.change(screen.getByPlaceholderText('Filter assertions…'), { target: { value: 'zzznomatchzzz' } });
+      expect(screen.getByText('No matching assertions')).toBeInTheDocument();
+    });
+
+    it('opens Regex Builder modal when Regex Builder menu item is clicked', () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft();
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef: { current: draft }, onDraftChange })} />);
+      fireEvent.click(screen.getByText('+ Add'));
+      fireEvent.click(screen.getByText('Regex Builder…'));
+      expect(onDraftChange).toHaveBeenCalled();
+      expect(screen.getByTestId('regex-assertion-modal')).toBeInTheDocument();
+    });
+
+    it('renders verify panel when expected fields exist but assertions key is absent', () => {
+      const draft = makeDraft({
+        validation: {
+          mode: 'selective',
+          expectedFields: [{ jsonPath: '$.id', expectedValue: '1' }],
+        },
+      });
+      delete (draft.validation as { assertions?: Assertion[] }).assertions;
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef: { current: draft } })} />);
+      expect(screen.getByRole('button', { name: 'Verify' })).toBeInTheDocument();
     });
 
     it('opens and closes the add-type menu', () => {
@@ -378,7 +440,7 @@ describe('TestEditorValidationTab', () => {
       const draft = makeDraft({ validation: { mode: 'selective', assertions: [] } });
       render(<TestEditorValidationTab {...makeProps({ draft, draftRef: { current: draft } })} />);
       expect(screen.getByText('Fetch Response')).toBeInTheDocument();
-      expect(screen.getByText('⚡ Visual Mapper')).toBeInTheDocument();
+      expect(screen.getByText('⚡ Data Mapper')).toBeInTheDocument();
     });
 
     it('shows fetching state on Fetch Response button', () => {
@@ -565,7 +627,7 @@ describe('TestEditorValidationTab', () => {
       expect(onFetchKeepRules).toHaveBeenCalled();
     });
 
-    it('opens Visual Mapper after keep-rules response is applied', async () => {
+    it('opens Data Mapper after keep-rules response is applied', async () => {
       const onFetchKeepRules = vi.fn();
       const draft = makeDraft({
         validation: {
@@ -609,6 +671,52 @@ describe('TestEditorValidationTab', () => {
 
       await waitFor(() => {
         expect(screen.getByTestId('data-mapper-modal')).toBeInTheDocument();
+      });
+    });
+
+    it('does not open Data Mapper after keep-rules when sample JSON is empty', async () => {
+      const onFetchKeepRules = vi.fn();
+      const draft = makeDraft({
+        validation: {
+          mode: 'selective',
+          assertions: [],
+          sampleJson: '{"id":1}',
+          expectedFields: [{ jsonPath: '$.id', expectedValue: '1' }],
+        },
+      });
+      const draftRef = createRef<Scenario>() as React.MutableRefObject<Scenario>;
+      draftRef.current = draft;
+      const { rerender } = render(<TestEditorValidationTab {...makeProps({
+        draft,
+        draftRef,
+        pendingFetchResponse: '{"id":2}',
+        onFetchKeepRules,
+        onFetchReplaceAll: vi.fn(),
+        onFetchCancel: vi.fn(),
+      })} />);
+
+      fireEvent.click(screen.getByText('Keep Rules & Update Response'));
+
+      const updatedDraft = makeDraft({
+        validation: {
+          mode: 'selective',
+          assertions: [],
+          sampleJson: '',
+          expectedFields: [{ jsonPath: '$.id', expectedValue: '2' }],
+        },
+      });
+      draftRef.current = updatedDraft;
+      rerender(<TestEditorValidationTab {...makeProps({
+        draft: updatedDraft,
+        draftRef,
+        pendingFetchResponse: null,
+        onFetchKeepRules,
+        onFetchReplaceAll: vi.fn(),
+        onFetchCancel: vi.fn(),
+      })} />);
+
+      await waitFor(() => {
+        expect(screen.queryByTestId('data-mapper-modal')).not.toBeInTheDocument();
       });
     });
 
@@ -782,6 +890,22 @@ describe('TestEditorValidationTab', () => {
       render(<TestEditorValidationTab {...makeProps({ draft, draftRef })} />);
       expect(screen.getByDisplayValue('2026-01-01')).toBeInTheDocument();
     });
+
+    it('invokes showPicker from date assertion calendar control when supported', () => {
+      const showPicker = vi.fn();
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{ type: 'date', jsonPath: '$.expiresAt', operator: '>', reference: { kind: 'fixed', iso: '2026-01-01' } }],
+        },
+      });
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef: { current: draft } })} />);
+      const row = screen.getByText('DATE').closest('.assertion-row')!;
+      const dateInput = row.querySelector('input[type="date"]') as HTMLInputElement;
+      Object.defineProperty(dateInput, 'showPicker', { configurable: true, value: showPicker });
+      fireEvent.click(screen.getByTitle('Pick date'));
+      expect(showPicker).toHaveBeenCalled();
+    });
   });
 
   describe('unordered arrays checkbox', () => {
@@ -806,7 +930,7 @@ describe('TestEditorValidationTab', () => {
       const draftRef = { current: draft };
       render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
 
-      fireEvent.click(screen.getByText('⚡ Visual Mapper'));
+      fireEvent.click(screen.getByText('⚡ Data Mapper'));
       expect(screen.getByTestId('data-mapper-modal')).toBeTruthy();
 
       fireEvent.click(screen.getByTestId('mapper-save'));
@@ -824,16 +948,49 @@ describe('TestEditorValidationTab', () => {
       const draftRef = { current: draft };
       render(<TestEditorValidationTab {...makeProps({ draft, draftRef })} />);
 
-      fireEvent.click(screen.getByText('⚡ Visual Mapper'));
+      fireEvent.click(screen.getByText('⚡ Data Mapper'));
       expect(screen.getByTestId('mapper-unordered-prop').textContent).toBe('true');
     });
 
-    it('closes Visual Mapper via modal cancel without saving', () => {
+    it('preserves draft unorderedArrays when mapper save is called without options argument', () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({
+        validation: { mode: 'selective', sampleJson: '{"a":1}', unorderedArrays: false, assertions: [] },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      fireEvent.click(screen.getByText('⚡ Data Mapper'));
+      fireEvent.click(screen.getByTestId('mapper-save-no-options'));
+      expect(onDraftChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          validation: expect.objectContaining({ unorderedArrays: false }),
+        }),
+      );
+    });
+
+    it('replaces assertions when mapper save output includes assertions', () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({
+        validation: {
+          mode: 'selective',
+          sampleJson: '{"a":1}',
+          assertions: [{ type: 'status', expected: '200' }],
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      fireEvent.click(screen.getByText('⚡ Data Mapper'));
+      fireEvent.click(screen.getByTestId('mapper-save-with-assertions'));
+      const updated = onDraftChange.mock.calls[0][0] as Scenario;
+      expect(updated.validation.assertions?.[0]).toMatchObject({ type: 'status', expected: '201' });
+    });
+
+    it('closes Data Mapper via modal cancel without saving', () => {
       const draft = makeDraft({
         validation: { mode: 'selective', sampleJson: '{"a":1}', assertions: [] },
       });
       render(<TestEditorValidationTab {...makeProps({ draft, draftRef: { current: draft } })} />);
-      fireEvent.click(screen.getByText('⚡ Visual Mapper'));
+      fireEvent.click(screen.getByText('⚡ Data Mapper'));
       expect(screen.getByTestId('data-mapper-modal')).toBeInTheDocument();
       fireEvent.click(screen.getByText('Close Mapper Modal'));
       expect(screen.queryByTestId('data-mapper-modal')).not.toBeInTheDocument();
@@ -2357,6 +2514,19 @@ describe('TestEditorValidationTab', () => {
       expect(screen.getByText('EACH')).toBeInTheDocument();
     });
 
+    it('hides value input on each-element row for operators without a value', () => {
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{ type: 'each', jsonPath: '$.items', fieldPath: 'flag', operator: 'is_true', value: '' }],
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef })} />);
+      const row = screen.getByText('EACH').closest('.assertion-row')!;
+      expect(row.querySelector('input[placeholder="value"]')).toBeNull();
+    });
+
     it('renders SUBSET badge for containsSubset assertion', () => {
       const draft = makeDraft({
         validation: {
@@ -2415,7 +2585,7 @@ describe('TestEditorValidationTab', () => {
       render(<TestEditorValidationTab {...makeProps()} />);
       fireEvent.click(screen.getByText('+ Add'));
       expect(screen.getByText('Custom Predicate')).toBeInTheDocument();
-      expect(screen.getByText('Write an expression that evaluates to truthy/falsy')).toBeInTheDocument();
+      expect(screen.getByTitle('Write an expression that evaluates to truthy/falsy')).toBeInTheDocument();
     });
 
     it('adds a custom assertion via +Add menu', () => {
@@ -2589,6 +2759,24 @@ describe('TestEditorValidationTab', () => {
       expect((updated.validation.assertions?.[0] as { schema: string }).schema).toContain('\n');
     });
 
+    it('minifies schema JSON via Minify toolbar button', () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{ type: 'jsonSchema', schema: '{\n  "a": 1\n}' }],
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      fireEvent.click(screen.getByTitle('Minify JSON to single line'));
+      expect(onDraftChange).toHaveBeenCalled();
+      const updated = onDraftChange.mock.calls[0][0] as Scenario;
+      const schema = (updated.validation.assertions?.[0] as { schema: string }).schema;
+      expect(schema).not.toContain('\n');
+      expect(() => JSON.parse(schema)).not.toThrow();
+    });
+
     it('generates schema from sample response when toolbar button is used', () => {
       const onDraftChange = vi.fn();
       const draft = makeDraft({
@@ -2608,6 +2796,21 @@ describe('TestEditorValidationTab', () => {
       expect(schema).toContain('type');
     });
 
+    it('generates schema from empty object sample using non-strict mode', () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          sampleJson: '{}',
+          assertions: [{ type: 'jsonSchema', schema: '{}' }],
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      fireEvent.click(screen.getByTitle('Generate schema from sample response'));
+      expect(onDraftChange).toHaveBeenCalled();
+    });
+
     it('shows schema parse error styling and message for invalid JSON', () => {
       const draft = makeDraft({
         validation: {
@@ -2619,6 +2822,24 @@ describe('TestEditorValidationTab', () => {
       render(<TestEditorValidationTab {...makeProps({ draft, draftRef })} />);
       expect(document.querySelector('.assertion-input-schema--invalid')).toBeInTheDocument();
       expect(document.querySelector('.assertion-schema-error')).toBeInTheDocument();
+    });
+
+    it('shows generic invalid label when schema parse throws non-Error', () => {
+      const orig = JSON.parse.bind(JSON);
+      const parseSpy = vi.spyOn(JSON, 'parse').mockImplementation((text: string, rev?: (k: string, v: unknown) => unknown) => {
+        if (text === '{"__throw_string__":1}') throw 'not an error object';
+        return orig(text, rev as (key: string, value: unknown) => unknown | undefined);
+      });
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{ type: 'jsonSchema', schema: '{"__throw_string__":1}' }],
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef })} />);
+      expect(document.querySelector('.assertion-schema-error')).toHaveTextContent('Invalid JSON');
+      parseSpy.mockRestore();
     });
 
     it('pastes schema from clipboard when Paste Schema is clicked', async () => {
@@ -2696,6 +2917,22 @@ describe('TestEditorValidationTab', () => {
       const last = onDraftChange.mock.calls.at(-1)![0] as Scenario;
       expect(last.validation.assertions?.[0]).toMatchObject({ type: 'bodySize', operator: '>', value: 10, unit: 'mb' });
     });
+
+    it('stores zero when body size number input is cleared', () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{ type: 'bodySize', operator: '<=', value: 10, unit: 'kb' }],
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      const row = screen.getByText('SIZE').closest('.assertion-row')!;
+      fireEvent.change(row.querySelector('input[type="number"]')!, { target: { value: '' } });
+      const updated = onDraftChange.mock.calls.at(-1)![0] as Scenario;
+      expect(updated.validation.assertions?.[0]).toMatchObject({ type: 'bodySize', value: 0 });
+    });
   });
 
   describe('datePrecise assertion row', () => {
@@ -2736,6 +2973,102 @@ describe('TestEditorValidationTab', () => {
       draftRef.current = onDraftChange.mock.calls.at(-1)![0] as Scenario;
       fireEvent.change(row.querySelector('.assertion-select--precision')!, { target: { value: 'minute' } });
       expect(onDraftChange).toHaveBeenCalled();
+    });
+
+    it('calendar button and precision dropdown are inside the date-wrap group', () => {
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{
+            type: 'datePrecise',
+            jsonPath: '$.t',
+            operator: '=',
+            reference: '2020-06-01T12:00:00.000Z',
+            precision: 'second',
+          }],
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef })} />);
+      const row = screen.getByText('DATE⁺').closest('.assertion-row')!;
+
+      const dateWrap = row.querySelector('.assertion-date-wrap')!;
+      const precisionSelect = row.querySelector('.assertion-select--precision')!;
+      const calendarBtn = row.querySelector('.assertion-date-btn')!;
+      const dateInput = row.querySelector('.assertion-input-date')!;
+
+      expect(dateWrap).toBeTruthy();
+      expect(precisionSelect).toBeTruthy();
+      expect(calendarBtn).toBeTruthy();
+      expect(dateInput).toBeTruthy();
+
+      // All three are inside the same date-wrap container
+      expect(dateWrap.contains(dateInput)).toBe(true);
+      expect(dateWrap.contains(calendarBtn)).toBe(true);
+      expect(dateWrap.contains(precisionSelect)).toBe(true);
+    });
+
+    it('invokes showPicker from datePrecise calendar control when supported', () => {
+      const showPicker = vi.fn();
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{
+            type: 'datePrecise',
+            jsonPath: '$.t',
+            operator: '=',
+            reference: '2020-06-01T12:00:00.000Z',
+            precision: 'second',
+          }],
+        },
+      });
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef: { current: draft } })} />);
+      const row = screen.getByText('DATE⁺').closest('.assertion-row')!;
+      const dt = row.querySelector('.assertion-input-date') as HTMLInputElement;
+      Object.defineProperty(dt, 'showPicker', { configurable: true, value: showPicker });
+      fireEvent.click(row.querySelector('.assertion-date-btn')!);
+      expect(showPicker).toHaveBeenCalled();
+    });
+
+    it('renders empty datetime-local when datePrecise reference is empty', () => {
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{
+            type: 'datePrecise',
+            jsonPath: '$.t',
+            operator: '=',
+            reference: '',
+            precision: 'second',
+          } as Assertion],
+        },
+      });
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef: { current: draft } })} />);
+      const dt = document.querySelector('.assertion-field--dateprecise input[type="datetime-local"]') as HTMLInputElement;
+      expect(dt.value).toBe('');
+    });
+
+    it('sets ISO reference when datetime-local receives a value', () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{
+            type: 'datePrecise',
+            jsonPath: '$.t',
+            operator: '=',
+            reference: '',
+            precision: 'second',
+          } as Assertion],
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      const dt = document.querySelector('.assertion-field--dateprecise input[type="datetime-local"]') as HTMLInputElement;
+      fireEvent.change(dt, { target: { value: '2020-06-15T10:30' } });
+      expect(onDraftChange).toHaveBeenCalled();
+      const updated = onDraftChange.mock.calls.at(-1)![0] as Scenario;
+      expect((updated.validation.assertions?.[0] as { reference: string }).reference).toContain('2020-06-15');
     });
 
     it('updates datePrecise jsonPath via path input', () => {

@@ -1,5 +1,5 @@
 /**
- * Integration test: DSL Rules ↔ Visual Mapper sync + failure display
+ * Integration test: DSL Rules ↔ Data Mapper sync + failure display
  *
  * Exercises every DSL rule kind through the full pipeline:
  *   DSL text → parseDsl → dslToModel → assertions/fields
@@ -184,7 +184,7 @@ function getByJsonPath(obj: unknown, jsonPath: string): unknown {
 
 // ────────────────────────────────────────────────────────────
 
-describe('DSL ↔ Visual Mapper full pipeline sync', () => {
+describe('DSL ↔ Data Mapper full pipeline sync', () => {
 
   describe('field-kind rules (go through fieldResults)', () => {
     it('equals — pass', () => {

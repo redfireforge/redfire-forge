@@ -58,7 +58,7 @@ export function useDataMapperDrop({
     setBulkTargetPath,
     autoMapDefaultOperator,
   }: UseDataMapperDropDeps) {
-  const draggedSourceRef = useRef<{ path: string; sourceId: string } | null>(null);
+  const draggedSourceRef = useRef<{ path: string; sourceId: string; type?: string } | null>(null);
   const prepareSubtreeDropPlanRef = useRef<PrepareSubtreeDropPlanFn | null>(null);
   const [propagationPreview, setPropagationPreview] = useState<PatternPropagationPreview | null>(null);
 
@@ -321,10 +321,10 @@ export function useDataMapperDrop({
 
   const getDraggedRemapId = useCallback(() => draggedRemapRef.current, []);
 
-  const handleDragStart = useCallback((path: string, sourceId: string) => {
+  const handleDragStart = useCallback((path: string, sourceId: string, type?: string) => {
     selectMapping(null);
     setSelectedIds(new Set());
-    draggedSourceRef.current = { path, sourceId };
+    draggedSourceRef.current = { path, sourceId, type };
   }, [selectMapping, setSelectedIds]);
 
   const handleSourceDragEnd = useCallback(() => {

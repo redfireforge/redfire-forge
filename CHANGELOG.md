@@ -21,7 +21,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
   - **`DslReferencePanel`** — professional card-based DSL reference with 10 categories, search, expand/collapse all, click-to-insert, and copy syntax.
   - **Bi-directional sync hardening** — `useValidationCodeSync` now uses error-aware updates (only pushes to visual model on zero parse errors) and `pendingCodeSyncs` counter to prevent sync echo overwrites.
 
-- **Visual Mapper UX Improvements**
+- **Data Mapper UX Improvements**
   - **Hover-to-Highlight** — hovering a tree node dims all non-connected lines/nodes.
   - **Toggle Line Visibility** — toolbar button to show/hide all mapping connection lines.
   - **Keyboard navigation** — Arrow Up/Down traverses tree nodes, highlighting both source and target sides. Tab switches panels. Home/End jump to first/last node. Root node (empty path) handled correctly.
@@ -415,7 +415,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
   - **New Expression Functions**: `$parseInt`, `$parseFloat`, `$toInt` (handles stringified booleans), `$toString`, `$toBool` added to the expression function registry
   - **Phase 3 Adapters**: `createExtractionAdapter` (HTTP body extraction → variables), `createAssertionAdapter` (regex assertion JSON path selection), `createValidationAdapter` (selective validation with include/exclude modes); 20 cross-cutting integration tests; old components (`ExtractionPathPickerModal`, `ExtractionMapperModal`, `JsonPathBuilder`, `PickerNode`) marked `@deprecated`
   - **608 unit tests** across 24 test files (531 data-mapper across 22 files + 39 jsonPath + 38 jsonTreeModel); adapters 97% stmts / 100% lines; CSS split into 3 files (814 + 363 + 170 lines)
-- **Data Mapper (Phase 4: Data Source Adapters)** — Three new adapters connecting data sources to the visual mapper
+- **Data Mapper (Phase 4: Data Source Adapters)** — Three new adapters connecting data sources to the Data Mapper
   - **PopulateFromApiAdapter (4A)**: `createPopulateFromApiAdapter` — maps API response JSON to data source columns/rows; mutable internal state for live-fetch with array detection and auto-selection; `getByPath` for nested dotted path resolution; wired into `DataSourceEditor` and `SharedDataSourceModal` replacing `PopulateFromApiModal`
   - **ColumnMappingAdapter (4B)**: `createColumnMappingAdapter` — visually maps data source columns to request template `{{placeholders}}`; `parseScenarioTemplate` extracts tokens from URL path/query, body, bodyForm, and headers; `type::name` target paths; handles duplicate column names via ID-based source keys; wired into `DataSourceEditor` via "Map Columns" button
   - **SharedDsFetchAdapter (4C)**: `createSharedDsFetchAdapter` — purpose-built adapter for shared data source "Populate from API" with dedicated `shared-ds-fetch` contextId; dynamic title from `fetchConfig` method + URL pathname; wired into `SharedDataSourceModal` replacing the generic populate adapter
@@ -423,8 +423,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
   - **7 adapters total** (extraction, assertion, validation, populate, column-mapping, shared-ds-fetch, demo) with 752 data-mapper tests across 27 files
 - **Data Mapper (Phase 5A: Webhook Extraction Adapter)** — New adapter for webhook/correlation payload variable extraction
   - **WebhookExtractionAdapter**: `createWebhookExtractionAdapter` — maps webhook payload JSON to `Array<{ name, jsonPath }>` (matching `extractVariables` shape on `WebhookTriggerNodeData` / `CorrelationWaitNodeData`); configurable source label and title for reuse across Webhook Trigger vs Correlation Wait contexts; path normalization (`$.` / `$[...]` safe); full validation (empty names, empty paths, duplicates, brace warnings)
-  - **CorrelationWaitConfig wiring**: "Visual Mapper" button opens `DataMapperModal` alongside existing inline fields; memoized adapter prevents state reset during 3s polling; paused-item click handler now error-safe
-  - **WebhookConfig wiring**: New "Extract Variables" section with inline rows + "Visual Mapper" button; `extractVariables` now editable in UI (previously missing)
+  - **CorrelationWaitConfig wiring**: "Data Mapper" button opens `DataMapperModal` alongside existing inline fields; memoized adapter prevents state reset during 3s polling; paused-item click handler now error-safe
+  - **WebhookConfig wiring**: New "Extract Variables" section with inline rows + "Data Mapper" button; `extractVariables` now editable in UI (previously missing)
   - **8 adapters total** (extraction, assertion, validation, populate, column-mapping, shared-ds-fetch, demo, webhook-extraction)
 - **Data Mapper (Phase 5B: Variable Binding Adapter)** — New adapter for visual upstream-variable-to-template-slot mapping
   - **VariableBindingAdapter**: `createVariableBindingAdapter` — groups upstream `WorkflowVariableHint[]` by producing node as sources, parses scenario `{{var}}` template refs as targets; `collectTemplateSlots()` and `extractTemplateRefs()` helper utilities; validates empty slots, empty bindings, duplicate bindings

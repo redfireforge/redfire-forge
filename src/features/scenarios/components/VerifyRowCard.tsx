@@ -3,6 +3,7 @@
  * Renders a single data row's verification status, request variables, and validation fields.
  */
 import type { DataSourceColumn, DataSourceRow } from '../../../shared/types';
+import { prettyJson } from '../../../shared/utils/helpers';
 import type { VerifyResult } from '../hooks/useVerifyEngine';
 
 interface VerifyRowCardProps {
@@ -91,7 +92,7 @@ export default function VerifyRowCard({
               {vr.responseBody && (
                 <div className="verify-error-body">
                   <span className="verify-detail-label">Response:</span>
-                  <pre className="verify-detail-pre">{(() => { try { return JSON.stringify(JSON.parse(vr.responseBody), null, 2); } catch { return vr.responseBody; } })()}</pre>
+                  <pre className="verify-detail-pre">{prettyJson(vr.responseBody)}</pre>
                 </div>
               )}
               {vr.requestHeaders && (

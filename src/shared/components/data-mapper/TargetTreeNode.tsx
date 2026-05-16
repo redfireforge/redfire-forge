@@ -5,9 +5,9 @@ import type { OperatorMeta } from './utils/operatorRegistry';
 import { normalizeMapperPath } from './utils/pathNormalization';
 import { OPERATOR_REGISTRY } from './utils/operatorRegistry';
 import {
-  SOURCE_TEXT_PREFIX,
   TARGET_FIELD_TEXT_PREFIX,
   REMAP_TEXT_PREFIX,
+  parseJsonPayload,
   TYPE_LABELS,
   matchesNodeVisibility,
   formatNodeDisplayKey,
@@ -90,7 +90,6 @@ export default function TargetTreeNode({
   const isLeaf = !hasChildren;
   const origin = fieldOrigins?.get(node.path);
   const isCustomOrFetched = origin === 'custom' || origin === 'fetched';
-  const isRenamableField = !!onUpdateCustomField && origin === 'custom';
 
   // Derive verify status from nodeStatusMap if not directly set
   const verifyStatus = verifyStatusProp ?? nodeStatusMap?.get(node.path) ?? nodeStatusMap?.get(`$.${node.path}`);
@@ -113,6 +112,8 @@ export default function TargetTreeNode({
     }
     return rawMapping;
   }, [rawMapping, node.type, node.children]);
+
+  const isRenamableField = !!onUpdateCustomField && (origin === 'custom' || (isLeaf && !!mapping));
 
   const mismatch = useMemo(
     () => mapping && typeMismatches
@@ -193,22 +194,6 @@ export default function TargetTreeNode({
           return e.dataTransfer.getData(type) ?? '';
         } catch {
           return '';
-        }
-      };
-
-      const parseJsonPayload = (raw: string): unknown => {
-        if (!raw) return null;
-        const cleaned = raw.startsWith(SOURCE_TEXT_PREFIX)
-          ? raw.slice(SOURCE_TEXT_PREFIX.length)
-          : raw.startsWith(TARGET_FIELD_TEXT_PREFIX)
-            ? raw.slice(TARGET_FIELD_TEXT_PREFIX.length)
-            : raw.startsWith(REMAP_TEXT_PREFIX)
-              ? raw.slice(REMAP_TEXT_PREFIX.length)
-              : raw;
-        try {
-          return JSON.parse(cleaned);
-        } catch {
-          return null;
         }
       };
 
@@ -322,7 +307,7 @@ export default function TargetTreeNode({
         setEditingOperatorValue(true);
       }
     } else {
-      onUpdateMappingOperator(mapping.id, op === 'equals' ? undefined : op, undefined);
+      onUpdateMappingOperator(mapping.id, op, undefined);
       setEditingOperatorValue(false);
       setLocalOperatorValue('');
     }
@@ -506,7 +491,11 @@ export default function TargetTreeNode({
             aria-label="Rename field"
           />
         ) : (
-          <span className="dm-node-key" title={nodePathTitle}>{displayKey}</span>
+          <span
+            className={`dm-node-key${isRenamableField ? ' dm-node-key--editable' : ''}`}
+            title={isRenamableField ? 'Click to rename' : nodePathTitle}
+            onClick={isRenamableField ? (e) => { e.stopPropagation(); handleStartRename(); } : undefined}
+          >{displayKey}</span>
         )}
         {!isMapped && !renaming && node.value != null && String(node.value) !== '' && (
           <span className="dm-default-value" title={`Default: ${String(node.value)}`}>

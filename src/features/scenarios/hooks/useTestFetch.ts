@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, type MutableRefObject } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import type { Scenario, AuthConfig, FailureDetail, ResponseVersion, RulesVersion, FeatureGroup, GlobalAuthProfile } from '../../../shared/types';
 import { serializeWithContentType, getEffectiveBodyType } from '../../../shared/utils/bodySerializer';
-import { toErrorMessage } from '../../../shared/utils/helpers';
+import { toErrorMessage, prettyJson } from '../../../shared/utils/helpers';
 import { proxyFetch } from '../../../engine/executor';
 import { acquireOAuth2Token } from '../../../engine/tokenManager';
 import { resolveAuthHeaders } from '../../../shared/utils/authHeaders';
@@ -286,13 +286,11 @@ export function useTestFetch({
           timing: result.timing ? { ttfb: result.timing.ttfb, total: result.timing.total } : undefined,
         });
         if (result.body) {
-          let pretty: string;
-          try { pretty = JSON.stringify(JSON.parse(result.body), null, 2); } catch { pretty = result.body; }
+          const pretty = prettyJson(result.body);
           onDraftChange({ ...latest, validation: { ...latest.validation, sampleJson: pretty } });
         }
       } else {
-        let pretty: string;
-        try { pretty = JSON.stringify(JSON.parse(result.body), null, 2); } catch { pretty = result.body; }
+        const pretty = prettyJson(result.body);
         const v = latest.validation;
         const hasExistingRules = (v.expectedFields || []).length > 0;
         const hasExistingSampleResponse = (v.sampleJson || '').trim().length > 0;
