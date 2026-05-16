@@ -199,12 +199,18 @@ export function ensureCompletionProvider(
       if (isAfterAssert) {
         const tokenMatch = textUntilCursor.match(/(\$[\w.]*)$/);
         const afterDelimiter = /[,(]\s*$/.test(textUntilCursor) || textUntilCursor.endsWith(' ');
+        // Detect lambda property access: x => x.prop or x => x.
+        const lambdaMatch = textUntilCursor.match(/(\w+)\s*=>\s*\1\.([\w.]*)$/);
 
-        if (tokenMatch || afterDelimiter) {
-          const partial = tokenMatch ? tokenMatch[1].toLowerCase() : '';
-          const tokenStart = tokenMatch
-            ? position.column - tokenMatch[1].length
-            : position.column;
+        if (tokenMatch || afterDelimiter || lambdaMatch) {
+          const partial = lambdaMatch
+            ? lambdaMatch[2].toLowerCase()
+            : (tokenMatch ? tokenMatch[1].toLowerCase() : '');
+          const tokenStart = lambdaMatch
+            ? position.column - lambdaMatch[2].length
+            : (tokenMatch
+              ? position.column - tokenMatch[1].length
+              : position.column);
           const fnRange = {
             startLineNumber: position.lineNumber,
             startColumn: tokenStart,
@@ -218,6 +224,43 @@ export function ensureCompletionProvider(
             ...rawPaths.map(p => `body.${p}`),
             ...rawPaths,
           ] : undefined;
+
+          // Lambda property access: suggest item-level fields from the array path
+          if (lambdaMatch) {
+            // Extract the array path from before the lambda (e.g., "$.body.offers" from "$map($.body.offers, x => x.")
+            const arrayPathMatch = textUntilCursor.match(/\$\.([\w.]+)\s*,\s*\w+\s*=>/);
+            const arrayPath = arrayPathMatch ? arrayPathMatch[1] : '';
+            // Find child paths: paths that start with the array's item prefix
+            const itemPaths: string[] = [];
+            if (rawPaths && arrayPath) {
+              // arrayPath might be "body.offers" — find paths like "body.offers[0].rank" → extract "rank"
+              const cleanArrayPath = arrayPath.replace(/^body\./, '');
+              for (const p of rawPaths) {
+                // Match paths like "offers[0].rank", "offers[0].name" → extract "rank", "name"
+                const itemPattern = new RegExp(`^${cleanArrayPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\[\\d+\\]\\.(.+)$`);
+                const m = p.match(itemPattern);
+                if (m) itemPaths.push(m[1]);
+                // Also match "offers.rank" flat format
+                const flatPattern = new RegExp(`^${cleanArrayPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\.(.+)$`);
+                const fm = p.match(flatPattern);
+                if (fm && !fm[1].includes('[')) itemPaths.push(fm[1]);
+              }
+            }
+            const uniqueItemPaths = [...new Set(itemPaths)];
+            const lambdaPartial = lambdaMatch[2].toLowerCase();
+            const lambdaSuggestions = uniqueItemPaths
+              .filter(p => !lambdaPartial || p.toLowerCase().includes(lambdaPartial))
+              .map(p => ({
+                label: p,
+                filterText: p,
+                kind: monaco.languages.CompletionItemKind.Property,
+                insertText: p,
+                range: fnRange,
+                detail: 'Item property',
+                sortText: p.toLowerCase().startsWith(lambdaPartial) ? '0' + p : '1' + p,
+              }));
+            if (lambdaSuggestions.length > 0) return { suggestions: lambdaSuggestions };
+          }
 
           const fnSuggestions = EXPRESSION_FUNCTIONS
             .filter(fn => {
