@@ -7,6 +7,7 @@ import { VariableContext } from './variableContext';
 import { resolveScenario } from './resolveScenario';
 import { ensureAbsoluteUrlWithBase } from './absoluteUrl';
 import { stripTrailingSlash } from '../utils/workflowHostResolve';
+import { prettyJson } from '../../../shared/utils/helpers';
 
 export type FetchScenarioSampleResult =
   | { ok: true; body: string; httpStatus: number; finalUrl: string }
@@ -106,12 +107,7 @@ export async function fetchScenarioSample(
         finalUrl: url,
       };
     }
-    let pretty: string;
-    try {
-      pretty = JSON.stringify(JSON.parse(result.body), null, 2);
-    } catch {
-      pretty = result.body;
-    }
+    const pretty = prettyJson(result.body);
     return { ok: true, body: pretty, httpStatus: result.status, finalUrl: url };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) };

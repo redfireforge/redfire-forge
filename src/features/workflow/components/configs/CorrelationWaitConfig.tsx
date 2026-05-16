@@ -39,7 +39,7 @@ export default function CorrelationWaitConfig({
   const [pausedCorrelations, setPausedCorrelations] = useState<PausedCorrelation[]>([]);
   const [loadingPaused, setLoadingPaused] = useState(false);
 
-  // ── Visual Mapper state ──
+  // ── Data Mapper state ──
   const [showMapper, setShowMapper] = useState(false);
 
   // Fetch currently paused correlations from the server
@@ -275,13 +275,13 @@ export default function CorrelationWaitConfig({
           <button
             className="wf-extract-var-mapper-btn"
             onClick={() => setShowMapper(true)}
-            title="Open Visual Mapper to drag-and-drop fields from the payload sample"
+            title="Open Data Mapper to drag-and-drop fields from the payload sample"
           >
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <rect x="3" y="3" width="7" height="7" /><rect x="14" y="14" width="7" height="7" />
               <path d="M10 7h4l-4 10h4" />
             </svg>
-            Visual Mapper
+            Data Mapper
           </button>
         </div>
       </div>

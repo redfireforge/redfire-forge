@@ -253,7 +253,7 @@ src/
 │   └── catalog/                # API Catalog (OpenAPI/Swagger browser & testing)
 ├── shared/
 │   ├── components/
-│   │   └── data-mapper/        # Unified Visual Mapper
+│   │   └── data-mapper/        # Unified Data Mapper
 │   │       ├── DataMapper.tsx             # Main container (895 lines)
 │   │       ├── ValidationRulesModal.tsx    # Three-mode validation rules panel (docked/floating/maximized)
 │   │       ├── DslReferencePanel.tsx      # Card-based DSL reference panel with search/insert
@@ -750,7 +750,7 @@ All execution settings are grouped in a single unified card below the Execution 
 2. Review the **Execution Plan Preview** — shows exact request count before you run.
 3. Configure concurrency, iterations, timeout, retry, and error policy.
 4. Optionally configure **Think Time** to add realistic delays between requests (None, Constant, Uniform random, or Gaussian distribution).
-5. Optionally add **Rich Assertions** in the Validation tab — 16 assertion types (status, responseTime, header, regex, arrayLength, numeric, date, typeCheck, existence, arrayContains, each, containsSubset, jsonSchema, bodySize, datePrecise, custom), 24 field operators, visual mapper with bi-directional DSL editor.
+5. Optionally add **Rich Assertions** in the Validation tab — 16 assertion types (status, responseTime, header, regex, arrayLength, numeric, date, typeCheck, existence, arrayContains, each, containsSubset, jsonSchema, bodySize, datePrecise, custom), 24 field operators, Data Mapper with bi-directional DSL editor.
 6. Click **▶ Run Test**.
 7. A live progress bar shows completion percentage, current TPS, average response time, and error rate.
 8. Click **■ Stop** to abort early. The circuit breaker may also stop the run automatically based on the error policy.

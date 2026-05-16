@@ -34,7 +34,7 @@ async function openMapper(page: Page): Promise<Locator> {
   await page.locator('label:has-text("Selective Fields") input[type="radio"]').check();
   await page.locator('button:has-text("Fetch Response")').click();
   await expect(page.locator('.validation-response-preview')).toBeVisible();
-  await page.locator('button:has-text("⚡ Visual Mapper")').click();
+  await page.locator('button:has-text("⚡ Data Mapper")').click();
   const mapper = page.locator('.dm-modal-overlay');
   await expect(mapper).toBeVisible();
   return mapper;
@@ -107,7 +107,7 @@ async function getMonacoEditorValue(page: Page): Promise<string> {
   });
 }
 
-test.describe('Validation Rules ↔ Visual Mapper bidirectional sync', () => {
+test.describe('Validation Rules ↔ Data Mapper bidirectional sync', () => {
   test.beforeEach(async ({ page }) => {
     await page.route('**/__proxy', async (route) => {
       await route.fulfill({
@@ -135,7 +135,7 @@ test.describe('Validation Rules ↔ Visual Mapper bidirectional sync', () => {
 
     await page.screenshot({ path: 'test-results/sync-02-after-length-assertion.png', fullPage: true });
 
-    // Verify the assertion row appeared in the visual mapper
+    // Verify the assertion row appeared in the Data Mapper
     const targetPanel = mapper.locator('.dm-panel--target');
     const assertionRows = targetPanel.locator('.dm-array-assertion-row');
     const rowCount = await assertionRows.count();
@@ -209,7 +209,7 @@ test.describe('Validation Rules ↔ Visual Mapper bidirectional sync', () => {
 
     await page.screenshot({ path: 'test-results/sync-07-two-assertions.png', fullPage: true });
 
-    // Verify both rows exist in the visual mapper
+    // Verify both rows exist in the Data Mapper
     const targetPanel = mapper.locator('.dm-panel--target');
     const assertionRows = targetPanel.locator('.dm-array-assertion-row');
     const rowCount = await assertionRows.count();
@@ -261,7 +261,7 @@ test.describe('Validation Rules ↔ Visual Mapper bidirectional sync', () => {
     // Rules panel should be closed
     await expect(page.locator('.vr-modal-panel')).not.toBeVisible();
 
-    // The assertion rows should still be visible in the visual mapper
+    // The assertion rows should still be visible in the Data Mapper
     const targetPanel = mapper.locator('.dm-panel--target');
     const assertionRows = targetPanel.locator('.dm-array-assertion-row');
     const rowCountAfterSave = await assertionRows.count();

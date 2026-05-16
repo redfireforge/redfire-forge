@@ -9,6 +9,7 @@ import {
   DataMapperModal,
   createValidationAdapter,
 } from '../../../shared/components/data-mapper';
+import { prettyJson } from '../../../shared/utils/helpers';
 import type { ValidationAdapterOutput } from '../../../shared/components/data-mapper';
 
 interface DataSourceRowDetailModalProps {
@@ -116,12 +117,7 @@ export default function DataSourceRowDetailModal({
 
       // Set the response JSON for validation
       if (result.body) {
-        let pretty: string;
-        try {
-          pretty = JSON.stringify(JSON.parse(result.body), null, 2);
-        } catch {
-          pretty = result.body;
-        }
+        const pretty = prettyJson(result.body);
 
         // If user already has selections, show confirmation bar instead of auto-applying
         if (expectedFields.length > 0) {
@@ -382,9 +378,9 @@ export default function DataSourceRowDetailModal({
               className="btn btn-sm btn-accent"
               onClick={() => setMapperOpen(true)}
               disabled={!sampleJson}
-              title={sampleJson ? 'Open Visual Mapper' : 'Fetch response first'}
+              title={sampleJson ? 'Open Data Mapper' : 'Fetch response first'}
             >
-              ⚡ Visual Mapper
+              ⚡ Data Mapper
             </button>
           </div>
           {expectedFields.length > 0 && (

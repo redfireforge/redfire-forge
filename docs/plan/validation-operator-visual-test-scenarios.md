@@ -4,7 +4,7 @@
 >
 > **How to use:** Work through each phase sequentially. Every scenario has **Setup**, **Steps**, and **Expected** sections. Check the box when each test passes.
 >
-> **Navigation to the Visual Mapper:**
+> **Navigation to the Validation Data Mapper:**
 > 1. Open RedfireForge (web: `npm run dev` → http://localhost:5173, or desktop app)
 > 2. Go to **Testing** → **Scenarios**
 > 3. Create or open a test scenario
@@ -12,7 +12,11 @@
 > 5. Go to the **Validation** tab
 > 6. Set **Body Validation** to **Selective Fields**
 > 7. Click **Fetch Response** (or paste sample JSON) to populate the response body
-> 8. Click **Visual Mapper** to open the Data Mapper Modal
+> 8. Click **Data Mapper** to open the Validation Data Mapper Modal
+>
+> **Note:** The same Data Mapper component is used in two contexts:
+> - **Validation Data Mapper** — opened from the **Validation** tab. Supports operators, assertions, verification, DSL rules.
+> - **Extraction Data Mapper** — opened from the **Extract** tab. Supports variable extraction only (no operators, no rules).
 >
 > **Sample JSON for testing** (paste into the sample area if Fetch is unavailable):
 > ```json
@@ -73,9 +77,11 @@
 
 ## Phase 0 — Adapter Capability Framework
 
+> **Context:** P0 tests compare the **Validation Data Mapper** (Validation tab → Data Mapper) vs the **Extraction Data Mapper** (Extract tab → Data Mapper) to verify capability gating.
+
 ### P0-01: Capability-gated UI — Operator pills only appear for validation adapter
 
-- [x] **Setup:** Open the Visual Mapper from the **Validation** tab (as described above).
+- [x] **Setup:** Open the Validation Data Mapper (from the **Validation** tab, as described above).
 - [x] **Steps:**
   1. Drag a source field (e.g., `status`) onto a target field.
   2. Observe that an **operator pill** (green `= equals`) appears between the arrow (←) and the source path on the target row.
@@ -83,7 +89,7 @@
 
 ### P0-02: Operator pills are NOT shown for non-validation adapters
 
-- [x] **Setup:** Open the Visual Mapper from the **Extraction** context (Test Editor → **Extract** tab → Visual Mapper).
+- [x] **Setup:** Open the Extraction Data Mapper (Test Editor → **Extract** tab → Data Mapper).
 - [x] **Steps:**
   1. Create a mapping by dragging a source field to a target.
   2. Inspect the target row.
@@ -93,7 +99,7 @@
 
 ### P0-03: Array assertions gated by capability
 
-- [x] **Setup:** In the Visual Mapper, locate an array node in the target tree (e.g., `offers`).
+- [x] **Setup:** In the Validation Data Mapper, locate an array node in the target tree (e.g., `offers`).
 - [x] **Steps:**
   1. Right-click on the `offers` array node.
   2. Check the context menu.
@@ -107,19 +113,21 @@
 
 ### P0-04: Code editor gated by capability
 
-- [x] **Setup:** Compare the Visual Mapper toolbar to the Extraction Mapper toolbar.
+- [x] **Setup:** Compare the Validation Data Mapper toolbar to the Extraction Data Mapper toolbar.
 - [x] **Steps:**
-  1. Open the Visual Mapper from the **Validation** tab. Look for the **Rules** button in the toolbar.
-  2. Close the mapper. Open the Visual Mapper from the **Extract** tab. Look for the **Rules** button.
+  1. Open the Validation Data Mapper (from the **Validation** tab). Look for the **Rules** button in the toolbar.
+  2. Close the mapper. Open the Extraction Data Mapper (from the **Extract** tab). Look for the **Rules** button.
 - [x] **Expected:** The **Rules** button is visible only in the validation context. It is **absent** in the extraction, variable binding, request body, and demo adapters — these adapters do not have validation rules to manage (`codeEditor` capability is `false`).
 
 ---
 
 ## Phase 1 — Field Operator Foundation (24 Operators)
 
+> **Context:** All P1 tests are performed inside the **Validation Data Mapper** (Validation tab → Data Mapper). Operators are exclusive to this context.
+
 ### P1-01: Default operator on auto-map
 
-- [x] **Setup:** Open the Visual Mapper with sample JSON loaded.
+- [x] **Setup:** Open the Validation Data Mapper with sample JSON loaded.
 - [x] **Steps:**
   1. Click the **Auto-map** button in the toolbar.
   2. Accept the suggested mappings.
@@ -233,6 +241,8 @@
 
 ## Phase 2 — Type & Existence Assertions
 
+> **Context:** All P2 tests are performed inside the **Validation Data Mapper** (Validation tab → Data Mapper).
+
 ### P2-01: Type-check operator (is_type)
 
 - [x] **Setup:** Map `count` from source to target.
@@ -269,6 +279,8 @@
 ---
 
 ## Phase 3 — Collection & Structural Assertions
+
+> **Context:** All P3 tests are performed inside the **Validation Data Mapper** (Validation tab → Data Mapper). Array assertions are exclusive to this context.
 
 ### P3-01: Array length assertion (inline row)
 
@@ -368,7 +380,7 @@
   1. Observe the assertion row: `# LENGTH  >=  [value]  ×`.
   2. Verify all elements are visible within the panel — the type pill, the `>=` select, the value display, and the remove button.
   3. Click the value to enter edit mode. Type a number and press Enter.
-  4. Resize the mapper to a narrower width. Verify the row still fits.
+  4. Resize the Validation Data Mapper to a narrower width. Verify the row still fits.
 - [x] **Expected:** The assertion row lays out correctly within the panel width. The `>=` select dropdown is compact (max ~50px wide), the value display takes remaining flex space, and nothing overflows off-screen. The value is clickable and editable at all panel widths.
 - [x] **Fixes applied:** Value display and input widths set to `min-width: 160px; flex: 1` so they never shrink when clicked or at narrow widths. Arrow key navigation works inside input fields (global keyboard hook now skips form controls).
 
@@ -376,9 +388,11 @@
 
 ## Phase 4 — Code Editor Mode (DSL)
 
+> **Context:** All P4 tests are performed inside the **Validation Data Mapper** (Validation tab → Data Mapper → toolbar → Rules button to open the Rules modal with the DSL editor).
+
 ### P4-01: Open the Validation Rules Modal
 
-- [x] **Setup:** In the Visual Mapper, locate the toolbar.
+- [x] **Setup:** In the Validation Data Mapper, locate the toolbar.
 - [x] **Steps:**
   1. Click the **Rules** button in the toolbar.
   2. The **Validation Rules Modal** opens (default mode: docked at bottom).
@@ -450,7 +464,7 @@
 
 ### P4-06: Bi-directional sync — Visual → Code
 
-- [x] **Setup:** Close the Rules modal. In the visual mapper, create a mapping: drag `status` to target, set operator to `equals`, value `"active"`.
+- [x] **Setup:** Close the Rules modal. In the Validation Data Mapper, create a mapping: drag `status` to target, set operator to `equals`, value `"active"`.
 - [x] **Steps:**
   1. Open the Rules modal again.
   2. Observe the editor content.
@@ -479,6 +493,8 @@
 ---
 
 ## Phase 5 — Live Validation Stage
+
+> **Context:** All P5 tests are performed inside the **Validation Data Mapper** (Validation tab → Data Mapper). Verification features (Verify All, Fetch & Verify, Auto-verify, filters) are exclusive to this context.
 
 ### P5-01: Verify All
 
@@ -551,6 +567,8 @@
 
 ## Phase 6 — JSON Schema Validation
 
+> **Context:** P6 tests are performed in the **Test Editor → Validation tab** (NOT inside the Data Mapper). JSON Schema is a Test Editor-level assertion.
+
 ### P6-01: JSON Schema assertion via Test Editor
 
 - [x] **Setup:** Open a test scenario → click **Edit** → go to the **Validation** tab.
@@ -572,15 +590,17 @@
   4. Click **Pretty** to format it with indentation.
   5. Click **Verify**. Confirm the assertion passes (response body is an object with an `offers` array containing at least 1 item).
   6. Change `"minItems": 1` to `"minItems": 100` and click **Verify** again. Confirm the assertion now fails with a clear error message.
-- [x] **Expected:** Schema validation passes when the response matches the schema, and fails with an informative error (including the violated constraint path) when it doesn't. The JSON Schema assertion is engine-level (evaluated by Ajv) and managed through the Test Editor Validation tab — not through the Visual Mapper DSL.
+- [x] **Expected:** Schema validation passes when the response matches the schema, and fails with an informative error (including the violated constraint path) when it doesn't. The JSON Schema assertion is engine-level (evaluated by Ajv) and managed through the Test Editor Validation tab — not through the Validation Data Mapper DSL.
 
 ---
 
 ## Phase 7 — Expression Engine Enrichment (125 Functions)
 
+> **Context:** P7-01, P7-03, P7-04 are performed inside the **Validation Data Mapper** (Validation tab → Data Mapper). P7-02 is performed inside the **Extraction Data Mapper** (Extract tab → Data Mapper).
+
 ### P7-01: Expression editor on a mapping
 
-- [x] **Setup:** Map any single source field to a target (e.g., drag `count` → `count`). Any mapped field works.
+- [x] **Setup:** Open the Validation Data Mapper. Map any single source field to a target (e.g., drag `count` → `count`). Any mapped field works.
 - [x] **Steps:**
   1. Right-click the mapped target node. Select **Edit expression...** from the context menu.
   2. The **Expression Editor Modal** opens.
@@ -592,129 +612,146 @@
   6. **Note:** Paths in the Expression Editor use `$.fieldName` format (as shown in autocomplete). The hint below the input says "Type `$.` for source paths".
 - [x] **Expected:** Expression editor has a function catalog. Live preview evaluates the expression against sample data. Result updates as you type.
 
-### P7-02: Expression Editor — Variable Name field (extraction adapter)
+### P7-02: Variable rename — inline click and Expression Editor (extraction adapter)
 
-- [ ] **Setup:** Open the Visual Mapper from the **Extract** tab. Map a source field to create an extraction.
-- [ ] **Steps:**
-  1. Right-click the mapped target node → **Edit expression…** to open the Expression Editor.
-  2. Observe the top of the modal: a **VARIABLE NAME** input field appears below the header, showing the current target path (e.g., `offers[0].associatedOfferingCode`).
-  3. Click into the Variable Name field, clear it, and type `myVar`.
+- [x] **Setup:** Open the Extraction Data Mapper (from the **Extract** tab). Map a source field to create an extraction.
+- [x] **Steps — Inline rename (single click):**
+  1. In the Target panel, observe mapped leaf field names (e.g., `associatedOfferingCode`). They display a dashed underline and turn blue on hover, indicating they are editable.
+  2. Single-click the field name text. An inline text input appears with the current path selected.
+  3. Type a new name (e.g., `myVar`) and press **Enter** to commit, or **Escape** to cancel.
+  4. Inspect the target tree — the field is now named `myVar`.
+- [x] **Steps — Expression Editor rename:**
+  1. Right-click the mapped target node → **Edit expression…** to open the Expression Editor (or double-click the row).
+  2. Observe the top of the modal: a **VARIABLE NAME** input field appears below the header, showing the current target path.
+  3. Click into the Variable Name field, clear it, and type `myVar2`.
   4. Press **Enter** to commit the rename.
   5. Close the Expression Editor.
-  6. Inspect the target tree — the field should now be named `myVar`.
-  7. Re-open the Expression Editor for the same field. Verify the Variable Name field shows `myVar`.
-- [ ] **Expected:** The Variable Name field is visible and editable in the Expression Editor for adapters that allow custom fields (extraction). Renaming via this field updates the target field name and all affected mappings. The field does NOT appear in the validation adapter Expression Editor (validation targets are fetched schema fields, not user-defined).
+  6. Inspect the target tree — the field should now be named `myVar2`.
+  7. Re-open the Expression Editor for the same field. Verify the Variable Name field shows `myVar2`.
+- [x] **Expected:** Two ways to rename: (1) **Inline click** on the field name text for quick rename — available on any mapped leaf field in adapters with `allowCustomFields: true` (extraction, column mapping, webhook extraction, etc.). The field name shows a dashed underline + blue hover to indicate editability. (2) **Expression Editor** rename via the VARIABLE NAME input field. Both methods update the target field name and all affected mappings. Neither rename method is available in the validation adapter (validation targets are schema fields, not user-defined).
 
-### P7-03: Expression Editor — stays within viewport
+### P7-03: Expression Editor — viewport fit and resize
 
-- [ ] **Setup:** Open the Expression Editor (either via right-click → Edit expression, or double-click a mapped node).
-- [ ] **Steps:**
+- [x] **Setup:** In the Validation Data Mapper, open the Expression Editor (right-click a mapped target node → Edit expression, or double-click a mapped node).
+- [x] **Steps:**
   1. Resize the browser window to a smaller height (e.g., 600px).
   2. Open the Expression Editor.
   3. Verify the modal stays fully within the viewport (no overflow past top or bottom edges).
-  4. Try dragging the modal by its header.
-- [ ] **Expected:** The Expression Editor modal is always fully visible within the viewport. It is portaled to `document.body` to escape CSS stacking context issues from ancestor elements with `backdrop-filter` or `transform`. The modal's `max-height` is clamped to `min(80vh, calc(100vh - 40px))`.
+  4. Try dragging the modal by its header — it supports drag repositioning.
+  5. Grab the bottom-right corner resize handle and drag to resize the modal.
+  6. Verify the modal respects minimum size constraints (480px width, 320px height).
+  7. Click **Full screen** to expand — verify resize handle disappears in fullscreen mode.
+- [x] **Expected:** The Expression Editor modal is portaled to escape CSS stacking context issues. `max-height` is clamped to `min(80vh, calc(100vh - 40px))`. The modal supports **drag** (via header) and **resize** (via bottom-right handle, `resize: both`). Minimum size prevents collapsing too small. Resize is disabled in fullscreen mode.
 
 ### P7-04: Expression function categories in catalog
 
-- [ ] **Setup:** In the Expression Editor Modal, open the function catalog.
-- [ ] **Steps:**
+- [x] **Setup:** In the Validation Data Mapper Expression Editor Modal, open the function catalog.
+- [x] **Steps:**
   1. Browse the 8 categories: **String** (31), **Math** (28), **Array** (16), **Object** (11), **Conditional** (11), **JSON** (15), **Date/Time** (8), **Encoding** (5).
   2. Click a function to see its signature and description.
   3. Click Insert to add it to the expression.
-- [ ] **Expected:** All 125 functions are listed, organized by category, with descriptions.
+- [x] **Expected:** All 125 functions are listed, organized by category, with descriptions.
 
 ---
 
 ## Phase 8 — Nice-to-Have Operators
 
+> **Context:** P8-01 and P8-02 are performed in the **Test Editor → Validation tab** (assertion rows). P8-03 and P8-04 are performed inside the **Validation Data Mapper** (Validation tab → Data Mapper).
+
 ### P8-01: Body size assertion
 
-- [ ] **Setup:** Open the Rules modal.
-- [ ] **Steps:**
-  1. This is tested via the engine. In a test scenario, add a `bodySize` assertion with `operator: ">"`, `value: 100`, `unit: "bytes"`.
-  2. Run the test.
-- [ ] **Expected:** Assertion passes if the response body is larger than 100 bytes.
+- [x] **Setup:** Open the **Validation** tab in the Test Editor. Click **+ Add** → under **Response** category, select **Body Size**.
+- [x] **Steps:**
+  1. A `SIZE` assertion row appears with a **NOT** toggle, an **operator** dropdown (less than / at most / exactly / at least / more than / not equal), a **numeric value** input, and a **unit** dropdown (Bytes / KB / MB).
+  2. Set operator to `more than`, value to `1024`, unit to `KB`.
+  3. Optionally toggle **NOT** to negate the assertion.
+  4. Click **Verify** or run the test.
+- [x] **Expected:** Assertion passes if the response body is larger than 1024 KB (or fails if NOT is toggled). The UI shows the SIZE badge, operator, value, and unit inline.
 
 ### P8-02: Date precision assertion
 
-- [ ] **Setup:** Map `createdAt` from source to target.
-- [ ] **Steps:**
+- [x] **Setup:** In the **Test Editor → Validation tab**, click **+ Add** → select **Date Precise**. Fill in the JSON path `createdAt`.
+- [x] **Steps:**
   1. Set operator to a comparison (e.g., `<=`).
   2. Enter a reference date value.
   3. The `datePrecise` assertion type supports `day`, `hour`, `min`, `sec`, `ms` precision.
-- [ ] **Expected:** Date comparison evaluates with the specified precision level.
+- [x] **Expected:** Date comparison evaluates with the specified precision level.
 
-### P8-03: Between operator (visual)
+### P8-03: Between operator (Validation Data Mapper)
 
-- [ ] **Setup:** Map `offers[0].price` to target.
-- [ ] **Steps:**
+- [x] **Setup:** In the Validation Data Mapper, map `offers[0].price` to target.
+- [x] **Steps:**
   1. Set operator to **↔ between** (amber pill).
   2. Enter `10, 100`.
   3. Click **Verify All**.
-- [ ] **Expected:** Passes (49.99 is between 10 and 100). Change to `50, 100` and re-verify: fails (49.99 < 50).
+- [x] **Expected:** Passes (49.99 is between 10 and 100). Change to `50, 100` and re-verify: fails (49.99 < 50).
 
-### P8-04: Close-to operator (visual)
+### P8-04: Close-to operator (Validation Data Mapper)
 
-- [ ] **Setup:** Map `latitude` to target.
-- [ ] **Steps:**
+- [x] **Setup:** In the Validation Data Mapper, map `latitude` to target.
+- [x] **Steps:**
   1. Set operator to **≈ close to** (amber pill).
   2. Enter `40.7, 0.1` (value=40.7, tolerance=0.1).
   3. Click **Verify All**.
-- [ ] **Expected:** Passes (40.7128 is within 0.1 of 40.7). Change tolerance to `0.001` and re-verify: fails.
+- [x] **Expected:** Passes (40.7128 is within 0.1 of 40.7). Change tolerance to `0.001` and re-verify: fails.
 
 ---
 
 ## Phase 9.1 — Universal Negation
 
+> **Context:** All P9.1 tests are performed inside the **Validation Data Mapper** (Validation tab → Data Mapper).
+
 ### P9.1-01: Negate via operator picker
 
-- [ ] **Setup:** Map `status` to target with `equals "active"`.
-- [ ] **Steps:**
+- [x] **Setup:** Open the Validation Data Mapper. Map `status` to target with `equals "active"`.
+- [x] **Steps:**
   1. Click the operator pill to open the picker.
   2. At the top, toggle the **Negate (NOT)** button. A checkmark appears.
   3. Close the picker.
-- [ ] **Expected:** The operator pill now shows a red `NOT` badge or visual indicator alongside the green `= equals`. The mapping's `negate` flag is `true`.
+- [x] **Expected:** The operator pill now shows a red `NOT` badge or visual indicator alongside the green `= equals`. The mapping's `negate` flag is `true`.
 
 ### P9.1-02: Negate via context menu
 
-- [ ] **Setup:** Map `isActive` to target with `is_true`.
-- [ ] **Steps:**
+- [x] **Setup:** In the Validation Data Mapper, map `isActive` to target with `is_true`.
+- [x] **Steps:**
   1. Right-click the `isActive` target node.
   2. Select **Negate (NOT)** from the context menu.
-- [ ] **Expected:** The pill shows `NOT is_true`. Toggling again removes negation.
+- [x] **Expected:** The pill shows `NOT is_true`. Toggling again removes negation.
 
 ### P9.1-03: Negate in DSL code
 
-- [ ] **Setup:** Open the Rules modal.
-- [ ] **Steps:**
-  1. Type: `status  NOT equals  "inactive"`.
+- [x] **Setup:** In the Validation Data Mapper, open the Rules modal (toolbar → Rules).
+- [x] **Steps:**
+  1. Type: `offers[0].offerName  not_equals  "Connected Access - 8 Years"`.
   2. Close the modal and inspect the visual tree.
-- [ ] **Expected:** The `status` field shows `NOT = equals` (negated) with value `"inactive"`. Syntax highlighting renders `NOT` in red.
+- [x] **Expected:** The `offers[0].offerName` field shows `≠ not equals` operator pill with value `"Connected Access - 8 Years"`. Alternatively, using `NOT equals` prefix syntax (`offers[0].offerName  NOT equals  "Connected Access - 8 Years"`) produces the same result — the `NOT` badge appears alongside the `= equals` pill, and syntax highlighting renders `NOT` in red.
 
 ### P9.1-04: NOT on array assertions in DSL
 
-- [ ] **Steps:** In the Rules editor, type:
+- [x] **Setup:** In the Validation Data Mapper, open the Rules modal.
+- [x] **Steps:** In the Rules editor, type:
   ```
   offers  NOT length >=  10
   offers[*].rank  NOT each >=  100
   ```
-- [ ] **Expected:** Negation applies to collection assertions. After verification, `NOT length >= 10` passes (because length is 3, which is NOT >= 10).
+- [x] **Expected:** Negation applies to collection assertions. After verification, `NOT length >= 10` passes (because length is 3, which is NOT >= 10).
 
 ### P9.1-05: Verification with negation
 
-- [ ] **Setup:** Set `count NOT equals 999`.
-- [ ] **Steps:**
-  1. Click **Verify All**.
-- [ ] **Expected:** Passes (count is 42, which is NOT equal to 999). Green ✓ badge.
+- [x] **Setup:** In the Validation Data Mapper, set `offers[0].offerName NOT equals "Cancelled Plan"` (via operator pill or DSL).
+- [x] **Steps:**
+  1. Click **Verify All** in the toolbar.
+- [x] **Expected:** Passes (offerName is "Connected Access - 8 Years", which is NOT equal to "Cancelled Plan"). Green ✓ badge.
 
 ---
 
 ## Phase 9.2 — Lambda Expression Syntax
 
+> **Context:** All P9.2 tests are performed inside the **Validation Data Mapper** (Validation tab → Data Mapper) using the Expression Editor (right-click a mapped target node → Edit expression…).
+
 ### P9.2-01: Lambda in expression editor
 
-- [ ] **Setup:** Open the expression editor on a mapping.
+- [ ] **Setup:** Open the Validation Data Mapper. Map any field to target, then right-click → **Edit expression…** to open the Expression Editor.
 - [ ] **Steps:**
   1. Type: `$filter($.source.offers, x => x.isActive)`.
   2. Observe the live preview.
@@ -722,13 +759,15 @@
 
 ### P9.2-02: Multi-param lambda
 
+- [ ] **Setup:** In the Validation Data Mapper Expression Editor (same as P9.2-01).
 - [ ] **Steps:**
-  1. In the expression editor, type: `$reduce($.source.offers, (acc, x) => $add(acc, x.price), 0)`.
+  1. Type: `$reduce($.source.offers, (acc, x) => $add(acc, x.price), 0)`.
   2. Observe the preview.
 - [ ] **Expected:** Preview shows `95.48` (sum of all prices). Multi-param `(acc, x) => body` syntax works.
 
 ### P9.2-03: Lambda with higher-order functions
 
+- [ ] **Setup:** In the Validation Data Mapper Expression Editor.
 - [ ] **Steps:** Test various HOFs:
   1. `$map($.source.offers, x => x.offerName)` → `["EV Access - 8 Years", "OnStar Safety Plan", "Premium Navigation"]`.
   2. `$any($.source.offers, x => $gt(x.rank, 2))` → `true` (rank 3 exists).
@@ -739,6 +778,7 @@
 
 ### P9.2-04: Comparison helper functions in lambdas
 
+- [ ] **Setup:** In the Validation Data Mapper Expression Editor.
 - [ ] **Steps:**
   1. `$filter($.source.offers, x => $gt(x.price, 20))` → 2 offers (49.99 and 29.99).
   2. `$filter($.source.offers, x => $lte(x.rank, 2))` → 2 offers (rank 1 and 2).
@@ -748,55 +788,63 @@
 
 ## Phase 9.3 — Custom Predicate Functions (ASSERT)
 
+> **Context:** All P9.3 tests are performed inside the **Validation Data Mapper** (Validation tab → Data Mapper → toolbar → Rules modal → DSL editor).
+
 ### P9.3-01: ASSERT keyword in DSL
 
-- [ ] **Setup:** Open the Rules modal.
+- [ ] **Setup:** Open the Validation Data Mapper, then open the Rules modal (toolbar → Rules).
 - [ ] **Steps:**
   1. Type: `ASSERT $gt($count($.body.offers), 0)`.
-  2. Close and verify.
+  2. Click **Save**, close the Rules modal, then click **Verify All** in the toolbar.
 - [ ] **Expected:** The custom assertion evaluates. Since `$count(offers) = 3 > 0`, it passes (✓).
 
 ### P9.3-02: ASSERT with description comment
 
+- [ ] **Setup:** In the Validation Data Mapper Rules modal DSL editor.
 - [ ] **Steps:**
   1. Type: `ASSERT $gt($.body.count, 0)  // count must be positive`.
-  2. Verify.
+  2. Save and verify.
 - [ ] **Expected:** Passes. The `// count must be positive` is treated as a description/comment.
 
 ### P9.3-03: ASSERT with complex expression
 
+- [ ] **Setup:** In the Validation Data Mapper Rules modal DSL editor.
 - [ ] **Steps:**
   1. Type:
      ```
      ASSERT $eq($sum($map($.body.offers, x => x.rank)), 6)
      ```
      (Sum of ranks: 1+2+3 = 6)
-  2. Verify.
+  2. Save and verify.
 - [ ] **Expected:** Passes. Lambda and HOFs work inside ASSERT expressions.
 
 ### P9.3-04: NOT ASSERT (negated custom predicate)
 
+- [ ] **Setup:** In the Validation Data Mapper Rules modal DSL editor.
 - [ ] **Steps:**
   1. Type: `NOT ASSERT $isEmpty($.body.offers)`.
-  2. Verify.
+  2. Save and verify.
 - [ ] **Expected:** Passes (offers is NOT empty). The negation inverts the predicate result.
 
 ### P9.3-05: ASSERT failure produces clear error
 
+- [ ] **Setup:** In the Validation Data Mapper Rules modal DSL editor.
 - [ ] **Steps:**
   1. Type: `ASSERT $gt($.body.count, 1000)`.
-  2. Verify.
+  2. Save and verify.
 - [ ] **Expected:** Fails (✗). The error message indicates the assertion failed, showing the expression and the actual value.
 
 ---
 
 ## Phase 9.4 — Validation Rules Modal (3-Mode Layout + DSL Reference)
 
+> **Context:** All P9.4 tests are performed inside the **Validation Data Mapper** (Validation tab → Data Mapper). The Rules modal is opened via the **Rules** button in the Validation Data Mapper toolbar.
+
 ### P9.4-01: Rules modal — Docked mode (default)
 
-- [ ] **Setup:** Click the **Rules** button in the toolbar.
+- [ ] **Setup:** Open the Validation Data Mapper. Click the **Rules** button in the toolbar.
 - [ ] **Steps:**
-  1. The modal opens at the bottom of the mapper (docked mode).
+  1. The modal opens at the bottom of the Validation Data Mapper (docked mode).
   2. A **resize handle** is visible at the top edge of the modal.
   3. Drag the resize handle upward to increase height (up to ~600px).
   4. Drag it down to decrease (minimum ~80px).
@@ -813,7 +861,7 @@
 
 ### P9.4-03: Floating mode — Drag and resize
 
-- [ ] **Setup:** Switch the modal to **Floating** mode.
+- [ ] **Setup:** In the Validation Data Mapper Rules modal, switch to **Floating** mode.
 - [ ] **Steps:**
   1. Drag the header to reposition the floating window.
   2. Drag the corner resize grip to resize the window.
@@ -822,7 +870,7 @@
 
 ### P9.4-04: Maximized mode
 
-- [ ] **Setup:** Switch the modal to **Full Screen** mode.
+- [ ] **Setup:** In the Validation Data Mapper Rules modal, switch to **Full Screen** mode.
 - [ ] **Steps:**
   1. The modal fills the entire mapper area.
   2. The mapper canvas is hidden (CSS `:has()` selector hides it).
@@ -831,7 +879,7 @@
 
 ### P9.4-05: Mode persistence
 
-- [ ] **Setup:** Switch to **Floating** mode.
+- [ ] **Setup:** In the Validation Data Mapper Rules modal, switch to **Floating** mode.
 - [ ] **Steps:**
   1. Close the Rules modal (Cancel button or Escape).
   2. Re-open the Rules modal (click Rules in toolbar).
@@ -839,7 +887,7 @@
 
 ### P9.4-06: DSL Reference Panel — Toggle
 
-- [ ] **Setup:** Open the Rules modal.
+- [ ] **Setup:** Open the Validation Data Mapper Rules modal (toolbar → Rules).
 - [ ] **Steps:**
   1. Locate the **Reference** button in the header — it toggles the panel.
   2. Also locate the **edge toggle button** (`▸`/`◂`) on the vertical boundary between the code editor and the reference panel.
@@ -905,7 +953,7 @@
 
 ### P9.4-12: Verify stats in modal header
 
-- [ ] **Setup:** Have several rules in the DSL editor. Click **Verify All**.
+- [ ] **Setup:** In the Validation Data Mapper, have several rules in the DSL editor. Click **Verify All** in the toolbar.
 - [ ] **Steps:**
   1. Observe the modal header.
   2. After verification completes, the header shows: **● N rules** (green dot if no errors) / **● N passed** (green) / **● M failed** (red).
@@ -913,7 +961,7 @@
 
 ### P9.4-13: DSL assertions counted in verify totals
 
-- [ ] **Setup:** Add mixed rules:
+- [ ] **Setup:** In the Validation Data Mapper Rules modal DSL editor, add mixed rules:
   ```
   status  equals  "active"
   count  >=  10
@@ -929,6 +977,7 @@
 
 ### P9.4-14: Escape key behavior
 
+- [ ] **Setup:** Open the Validation Data Mapper Rules modal.
 - [ ] **Steps:**
   1. With the Rules modal open, press **Escape**.
   2. The modal closes (Cancel behavior — reverts unsaved edits).
@@ -938,34 +987,37 @@
 
 ### P9.4-15: Portal stacking (z-index)
 
-- [ ] **Setup:** Open the Rules modal in **Floating** mode.
+- [ ] **Setup:** Open the Validation Data Mapper Rules modal in **Floating** mode.
 - [ ] **Steps:**
-  1. The floating modal renders within the mapper's modal overlay (portaled to closest `.dm-modal-overlay` or `.modal-overlay`).
-  2. Click outside the floating window but inside the Data Mapper Modal.
+  1. The floating modal renders within the Validation Data Mapper's modal overlay (portaled to closest `.dm-modal-overlay` or `.modal-overlay`).
+  2. Click outside the floating window but inside the Validation Data Mapper Modal.
   3. The floating Rules window stays visible (not hidden behind other elements).
-- [ ] **Expected:** Correct z-index stacking. The floating Rules window is always on top of the mapper content but within the modal boundary.
+- [ ] **Expected:** Correct z-index stacking. The floating Rules window is always on top of the Validation Data Mapper content but within the modal boundary.
 - [ ] **E2E verified:** `e2e/validation-rules-modal-zindex.spec.ts` confirms the modal is visible, interactive, and on top.
 
 ---
 
 ## Cross-Phase Integration Tests
 
+> **Context:** All integration tests are performed inside the **Validation Data Mapper** (Test Editor → Validation tab → Data Mapper) unless explicitly stated otherwise.
+
 ### INT-01: Full workflow — Visual + DSL + Verify
 
+- [ ] **Setup:** Open the Validation Data Mapper with sample JSON loaded.
 - [ ] **Steps:**
-  1. Open the Visual Mapper with sample JSON.
-  2. Auto-map all fields. Change some operators visually (equals, >=, contains).
-  3. Open the Rules modal. Observe that visual mappings appear as DSL.
-  4. Add additional rules via DSL: `ASSERT $gt($.body.count, 0)`.
-  5. Close the modal. Verify the visual tree reflects the DSL rules.
-  6. Click **Verify All**. Check pass/fail for all rules.
-  7. Enable **Auto-verify**. Change a value. Observe auto-re-verify.
+  1. Auto-map all fields. Change some operators visually (equals, >=, contains).
+  2. Open the Rules modal. Observe that visual mappings appear as DSL.
+  3. Add additional rules via DSL: `ASSERT $gt($.body.count, 0)`.
+  4. Close the modal. Verify the visual tree reflects the DSL rules.
+  5. Click **Verify All**. Check pass/fail for all rules.
+  6. Enable **Auto-verify**. Change a value. Observe auto-re-verify.
 - [ ] **Expected:** Complete round-trip: visual → code → verify. All modes stay in sync.
 
 ### INT-02: Negation + Lambda + ASSERT combined
 
+- [ ] **Setup:** Open the Validation Data Mapper Rules modal (toolbar → Rules).
 - [ ] **Steps:**
-  1. In the Rules editor:
+  1. In the Rules DSL editor, type:
      ```
      # Negated field assertion
      status  NOT equals  "deleted"
@@ -984,7 +1036,7 @@
 
 ### INT-03: Type mismatch detection and quick-fix
 
-- [ ] **Setup:** Map a string field (`name`) to target. Set operator to **> greater than** (expects numeric).
+- [ ] **Setup:** In the Validation Data Mapper, map a string field (`name`) to target. Set operator to **> greater than** (expects numeric).
 - [ ] **Steps:**
   1. Observe a **type mismatch warning** (indicator or tooltip) on the mapping.
   2. Look for a **quick-fix suggestion** (e.g., "Wrap with $parseInt" or "Change operator to contains").
@@ -992,16 +1044,48 @@
 
 ### INT-04: Save and reopen — persistence
 
-- [ ] **Setup:** Create several mappings with mixed operators, array assertions, and DSL rules.
+- [ ] **Setup:** In the Validation Data Mapper, create several mappings with mixed operators, array assertions, and DSL rules.
 - [ ] **Steps:**
-  1. Click **Save** in the Data Mapper Modal.
+  1. Click **Save** in the Validation Data Mapper Modal.
   2. Close the Test Editor.
-  3. Re-open the Test Editor → Validation tab → Visual Mapper.
+  3. Re-open the Test Editor → Validation tab → Validation Data Mapper.
 - [ ] **Expected:** All mappings, operators, operator values, negation flags, array assertions, and DSL rules are preserved exactly.
+
+### INT-04b: Operator persistence through Rules modal save cycle (regression fix)
+
+> **Bug history:** Operators set to `equals` (or any operator) were silently reverted when saving after the Rules modal had been opened. Root cause: a chain of 5 bugs caused data loss during the DSL round-trip:
+> 1. `dslToModel()` stripped `equals` to `undefined` (treating it as an implicit default)
+> 2. `handleUpdateValidationFields()` blindly overwrote mapping operators with `undefined` from the DSL round-trip
+> 3. `serialize()` omitted operator when `undefined` instead of defaulting to `equals`
+> 4. `deserialize()` left operator unset for fields without an explicit operator
+> 5. `TargetTreeNode` operator picker sent `undefined` instead of `'equals'` when selecting equals
+>
+> **Fixed in:** `validationDsl.ts`, `useDataMapperValidation.ts`, `validationAdapter.ts`, `TargetTreeNode.tsx`
+
+- [ ] **Setup:** Open the Validation Data Mapper with sample JSON. Manually map 3+ leaf fields via drag-and-drop.
+- [ ] **Steps — Basic persistence:**
+  1. Verify all mapped fields show the `= equals` operator pill (green).
+  2. Click **Save** on the Validation Data Mapper Modal.
+  3. Close and re-open the Test Editor → Validation tab → Validation Data Mapper.
+  4. Verify all fields still show `= equals`.
+- [ ] **Steps — Persistence through Rules modal:**
+  1. Open the Validation Data Mapper. Confirm fields show `= equals`.
+  2. Open the **Rules** modal (toolbar → Rules). DSL should show `equals` for each field.
+  3. **Without editing anything**, click **Save** on the Rules modal.
+  4. Click **Save** on the Validation Data Mapper Modal.
+  5. Close and re-open the Test Editor → Validation tab → Validation Data Mapper.
+  6. Verify all fields still show `= equals` — **not** `∃ exists` or any other operator.
+- [ ] **Steps — Mixed operators persist:**
+  1. Map 3 fields. Set one to `contains`, one to `close_to` with a value, leave one as `equals`.
+  2. Open the Rules modal → verify the DSL shows correct operators → click Save.
+  3. Save the Validation Data Mapper Modal.
+  4. Close and re-open.
+  5. Verify: `contains`, `close_to` (with value), and `equals` are all preserved exactly.
+- [ ] **Expected:** Operators are never silently changed during save/reopen cycles, including when the Rules modal is opened and saved.
 
 ### INT-05: Unordered array matching option
 
-- [ ] **Setup:** In the Data Mapper Modal footer, look for the **Unordered array matching** checkbox.
+- [ ] **Setup:** In the Validation Data Mapper Modal footer, look for the **Unordered array matching** checkbox.
 - [ ] **Steps:**
   1. Toggle the checkbox on.
   2. Save.
@@ -1010,7 +1094,7 @@
 
 ### INT-05b: Unmap selected source fields
 
-- [ ] **Setup:** Open the Visual Mapper. Auto-map fields so several source nodes are mapped.
+- [ ] **Setup:** Open the Validation Data Mapper. Auto-map fields so several source nodes are mapped.
 - [ ] **Steps:**
   1. In the **Source Panel**, use the checkboxes to select 2–3 mapped source nodes.
   2. A red **"Unmap (N)"** button appears in the Source Panel header (where N is the count of selected mapped items).
@@ -1022,7 +1106,7 @@
 
 ### INT-06: Bottom Dock — Code/Table views include assertions and verify status
 
-- [ ] **Setup:** Open the Visual Mapper. Create 6+ field mappings and 7+ array assertions (LENGTH, CONTAINS, EACH, SUBSET). Click **Verify All**.
+- [ ] **Setup:** Open the Validation Data Mapper. Create 6+ field mappings and 7+ array assertions (LENGTH, CONTAINS, EACH, SUBSET). Click **Verify All**.
 - [ ] **Steps:**
   1. Click **Code** in the bottom dock toolbar. The dock shows the header: **"6 mappings · 7 assertions"**.
   2. Scroll down in the Code view — below the field mappings, a separator line **"— Assertions —"** appears followed by each assertion (e.g., `offers  LENGTH  3`, `offers[*]  EACH  rank >= 0`). Assertion lines are styled in accent color.
@@ -1038,9 +1122,9 @@
 
 ### INT-07: Schema drift detection after re-fetch
 
-- [ ] **Setup:** Have a saved mapper with existing mappings.
+- [ ] **Setup:** Have a saved Validation Data Mapper with existing mappings.
 - [ ] **Steps:**
-  1. Re-open the mapper.
+  1. Re-open the Validation Data Mapper.
   2. If the source data schema has changed since the last save, a **Drift Banner** appears at the top.
   3. Click **Show Diff** to open the **Schema Diff Modal**.
   4. Review added/removed/renamed fields.
@@ -1174,6 +1258,61 @@
 
 ---
 
+## Version Panels — Preview & Compare Modals
+
+### VP-01: Response Version Preview Modal
+
+- [x] **Setup:** Open a test scenario with at least one saved Response Version.
+- [x] **Steps:**
+  1. In the **Response Versions** panel, click the **Preview** button on any version row.
+  2. A pop-up modal opens showing the full JSON response body.
+  3. Verify: **transparent background** (no dark overlay or blur).
+  4. Verify: the header shows version label, timestamp, and tags (e.g., "Selective · Include") — tags are properly capitalized.
+  5. Verify: **search bar** in the header with placeholder "Search… (Cmd+F)". Type a keyword (e.g., `offerName`). Match counter shows `N/M`. Use ▲/▼ buttons or Enter/Shift+Enter to navigate matches. Active match is highlighted with orange outline.
+  6. Verify: JSON is **pretty-printed** with syntax highlighting — blue keys, green strings, orange numbers, purple booleans, red nulls.
+  7. Verify: **line numbers** in a sticky gutter on the left.
+  8. Verify: footer at the bottom shows line count on the left and **Copy** + **Close** buttons on the bottom-right.
+  9. Click **Copy** → confirm clipboard contains the full JSON. Button briefly shows "✓ Copied".
+  10. Press **Escape** or click **Close** to dismiss. Click outside the modal also closes it.
+- [x] **Expected:** Professional code-viewer modal with syntax highlighting, search with navigation, and all action buttons in the footer. Only one scrollbar for the entire code area.
+
+### VP-02: Rules Version Preview Modal
+
+- [x] **Setup:** Open a test scenario with at least one saved Rules Version.
+- [x] **Steps:**
+  1. In the **Rules Versions** panel, click **Preview** on any version row.
+  2. A pop-up modal opens showing the rules in DSL format.
+  3. Verify: same modal design as VP-01 — transparent background, search bar, line numbers, footer buttons.
+  4. Verify: DSL syntax highlighting — cyan paths, purple operators, gray comments.
+  5. Verify: tags show capitalized values (e.g., "Selective · Include · 6 rules · Unordered").
+  6. Search for an operator name (e.g., `equals`) and verify matches are highlighted.
+  7. Copy and close work identically to VP-01.
+- [x] **Expected:** Same professional modal with DSL-appropriate syntax highlighting.
+
+### VP-03: Compare Versions Modal — Search & Layout
+
+- [x] **Setup:** Open a test scenario with at least 2 saved Response Versions or Rules Versions.
+- [x] **Steps:**
+  1. Click the **Compare** button to open the Compare Versions modal.
+  2. Verify: **transparent background** (no dark overlay or blur).
+  3. Verify: the header contains the title, controls (e.g., "Unordered Arrays" checkbox for Response), and a **search bar** with counter and ▲/▼ navigation.
+  4. Type a search term. Matches in the diff viewer are highlighted with orange background. Active match has an orange outline and auto-scrolls into view.
+  5. Verify: **Close** button is in the footer at the bottom-right (not in the header).
+  6. Verify: tags in the info bar are properly capitalized (e.g., "Selective · Include · 12 rule(s)").
+  7. Press **Escape** or click **Close** to dismiss.
+- [x] **Expected:** Compare modal follows the same conventions — transparent background, search with navigation, footer-positioned Close button.
+
+### Modal Design Conventions (memo)
+
+All pop-up modals in the app must follow these rules:
+
+1. **Background overlay**: Always `background: transparent`. Never use opaque/semi-transparent backdrops or `backdrop-filter: blur()`.
+2. **Action buttons at bottom-right**: Copy, Close, Cancel, Save — always in a footer bar at the bottom-right. Never in the header.
+3. **Search bar**: If the modal displays content (code, JSON, logs, diff), include a search bar in the header with match counter (`N/M`), ▲/▼ navigation, Cmd+F shortcut, Enter/Shift+Enter for next/prev.
+4. **Pretty-print JSON**: Always use `JSON.stringify(parsed, null, 2)`. Never show minified JSON in modals.
+
+---
+
 ## Summary Checklist
 
 | Phase | Tests | Done | Description |
@@ -1185,14 +1324,15 @@
 | P4 | 8 | 8/8 ✅ | DSL editor, syntax, autocomplete (auto-suggest), sync, line decorations |
 | P5 | 7 | 7/7 ✅ | Verify All, Fetch & Verify, auto-verify, filters |
 | P6 | 1 | 1/1 ✅ | JSON Schema validation (Test Editor) |
-| P7 | 4 | 1/4 | Expression engine, variable rename, viewport fit, 125 functions |
-| P8 | 4 | — | bodySize, datePrecise, between, close_to |
-| P9.1 | 5 | — | Universal negation |
+| P7 | 4 | 4/4 ✅ | Expression engine, variable rename (inline + modal), viewport fit + resize, 125 functions |
+| P8 | 4 | 4/4 ✅ | bodySize, datePrecise, between, close_to |
+| P9.1 | 5 | 5/5 ✅ | Universal negation |
 | P9.2 | 4 | — | Lambda syntax, HOFs |
 | P9.3 | 5 | — | ASSERT keyword, custom predicates |
 | P9.4 | 15 | — | 3-mode modal, DSL reference (accordion), edge toggle, verify stats |
-| Integration | 8 | — | Cross-phase workflows, unmap selected, bottom dock assertions |
-| **Total** | **87** | **43/87** | P0–P6 verified; P7-01 verified; P7-02+ pending |
+| VP | 3 | 3/3 ✅ | Version preview modals, compare modal search & layout |
+| Integration | 9 | — | Cross-phase workflows, unmap selected, bottom dock assertions, operator persistence regression |
+| **Total** | **91** | **55/91** | P0–P8 verified; VP verified; P9+ pending |
 
 ### Automated Test Coverage
 
@@ -1200,8 +1340,8 @@
 |-----------|-------|-------|
 | `fieldOperatorEvaluation.test.ts` | 33 | Original unit tests |
 | `fieldOperatorEvaluation.comprehensive.test.ts` | 167 | All 24 operators: pass, fail, edge cases, type coercion, boundaries |
-| `validationAdapter.integration.test.ts` | 73 | Full pipeline: adapter serialize → operator evaluate for all operators, negate, expressions |
-| `validationAdapter.test.ts` | 65 | Adapter unit tests |
+| `validationAdapter.integration.test.ts` | 84 | Full pipeline: adapter serialize → operator evaluate for all operators, negate, expressions |
+| `validationAdapter.test.ts` | 71 | Adapter unit tests (includes explicit operator persistence) |
 | `useValidationVerify.test.ts` | 37 | Verify hook tests |
 | `ValidationRulesModal.test.tsx` | 44 | Modal rendering, mode switching, Save/Cancel, edge toggle, reference panel toggle |
 | `ValidationCodeEditor.test.tsx` | — | Monaco editor mount, theme, decorations, selection guard |

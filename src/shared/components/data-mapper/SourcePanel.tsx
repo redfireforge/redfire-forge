@@ -14,7 +14,7 @@ interface SourcePanelProps {
   activeSourceId: string;
   sourceSampleOverrides: Record<string, unknown>;
   onSourceChange: (sourceId: string) => void;
-  onDragStart: (path: string, sourceId: string) => void;
+  onDragStart: (path: string, sourceId: string, type?: string) => void;
   onDragEnd?: () => void;
   onSourceSampleChange: (sourceId: string, data: unknown) => void;
   onFetchSample?: () => Promise<void>;

@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import type { FailureDetail } from '../../../shared/types';
+import { highlightJsonHtml } from '../../../shared/utils/jsonHighlightHtml';
+import { prettyJson } from '../../../shared/utils/helpers';
 
 interface ValidationResultData {
   passed: boolean;
@@ -162,7 +164,7 @@ export default function ValidationVerifyPanel({
                   <summary className="validate-response-detail-section-title">Response Body</summary>
                   <pre
                     className="validate-response-detail-body"
-                    dangerouslySetInnerHTML={{ __html: highlightJson(formatResponseBody(validationResult.responseJson)) }}
+                    dangerouslySetInnerHTML={{ __html: highlightJsonHtml(prettyJson(validationResult.responseJson)) }}
                   />
                 </details>
               )}
@@ -213,30 +215,3 @@ export default function ValidationVerifyPanel({
   );
 }
 
-function formatResponseBody(raw: string): string {
-  try {
-    return JSON.stringify(JSON.parse(raw), null, 2);
-  } catch {
-    return raw;
-  }
-}
-
-function escapeHtml(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}
-
-function highlightJson(json: string): string {
-  return escapeHtml(json).replace(
-    /("(?:[^"\\]|\\.)*")\s*:/g,
-    '<span class="json-hl-key">$1</span>:',
-  ).replace(
-    /:\s*("(?:[^"\\]|\\.)*")/g,
-    (_m, val) => `: <span class="json-hl-str">${val}</span>`,
-  ).replace(
-    /:\s*(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)/g,
-    ': <span class="json-hl-num">$1</span>',
-  ).replace(
-    /:\s*(true|false|null)/g,
-    ': <span class="json-hl-kw">$1</span>',
-  );
-}

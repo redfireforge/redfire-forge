@@ -114,7 +114,7 @@ export function useDataMapperValidation(deps: DataMapperValidationDeps) {
         matchedFieldPaths.add(matchingField.jsonPath);
         kept.push({
           ...m,
-          operator: matchingField.operator,
+          operator: matchingField.operator ?? m.operator,
           operatorValue: matchingField.operatorValue ?? matchingField.expectedValue ?? m.operatorValue,
           negate: matchingField.negate || undefined,
         });

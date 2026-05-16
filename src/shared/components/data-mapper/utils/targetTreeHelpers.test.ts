@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import type { DragEvent } from 'react';
 import type { JsonTreeNode } from '../../../utils/jsonTreeModel';
 import type { Assertion } from '../../../types';
 import {
@@ -16,7 +17,20 @@ import {
   matchesNodeVisibility,
   formatNodeDisplayKey,
   formatAssertionSummary,
+  extractDragPayload,
 } from './targetTreeHelpers';
+
+function mockDragEvent(mime: string, plain: string): DragEvent {
+  return {
+    dataTransfer: {
+      getData: (type: string) => {
+        if (type === 'application/mapper-source') return mime;
+        if (type === 'text/plain') return plain;
+        return '';
+      },
+    },
+  } as unknown as DragEvent;
+}
 
 function leaf(key: string, path: string, type: JsonTreeNode['type'] = 'string', value?: unknown): JsonTreeNode {
   return { key, path, type, value };
@@ -51,6 +65,50 @@ describe('targetTreeHelpers constants', () => {
 
   it('lists the six comparison operators', () => {
     expect(COMPARISON_OPS).toEqual(['=', '!=', '>', '>=', '<', '<=']);
+  });
+});
+
+describe('extractDragPayload', () => {
+  it('returns null when dataTransfer is missing', () => {
+    expect(extractDragPayload({} as unknown as DragEvent)).toBeNull();
+  });
+
+  it('parses application/mapper-source JSON', () => {
+    const payload = JSON.stringify({ path: 'a.b', sourceId: 'src', type: 'number' });
+    expect(extractDragPayload(mockDragEvent(payload, ''))).toEqual({
+      path: 'a.b',
+      sourceId: 'src',
+      type: 'number',
+    });
+  });
+
+  it('falls back to text/plain with SOURCE_TEXT_PREFIX', () => {
+    const inner = JSON.stringify({ path: 'x', sourceId: 'y' });
+    expect(extractDragPayload(mockDragEvent('', `${SOURCE_TEXT_PREFIX}${inner}`))).toEqual({
+      path: 'x',
+      sourceId: 'y',
+      type: undefined,
+    });
+  });
+
+  it('prefers application/mapper-source over text/plain', () => {
+    expect(
+      extractDragPayload(
+        mockDragEvent(
+          JSON.stringify({ path: 'mime', sourceId: '1' }),
+          `${SOURCE_TEXT_PREFIX}${JSON.stringify({ path: 'plain', sourceId: '2' })}`,
+        ),
+      ),
+    ).toEqual({ path: 'mime', sourceId: '1', type: undefined });
+  });
+
+  it('returns null for invalid JSON', () => {
+    expect(extractDragPayload(mockDragEvent('not-json', '{'))).toBeNull();
+  });
+
+  it('returns null when path or sourceId is not a string', () => {
+    expect(extractDragPayload(mockDragEvent(JSON.stringify({ path: 1, sourceId: 'a' }), ''))).toBeNull();
+    expect(extractDragPayload(mockDragEvent(JSON.stringify({ path: 'a', sourceId: null }), ''))).toBeNull();
   });
 });
 

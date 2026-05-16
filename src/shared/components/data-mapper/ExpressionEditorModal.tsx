@@ -61,6 +61,7 @@ export default function ExpressionEditorModal({
   const [snippets, setSnippets] = useState<ExpressionSnippet[]>([]);
   const [snippetName, setSnippetName] = useState('');
   const [snippetBusy, setSnippetBusy] = useState(false);
+  const modalRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<MonacoEditor.IStandaloneCodeEditor | null>(null);
   const completionDisposableRef = useRef<IDisposable | null>(null);
   const prevMappingIdRef = useRef(mapping.id);
@@ -430,9 +431,13 @@ export default function ExpressionEditorModal({
     }
   }, [handleSave, onCancel]);
 
+  const portalTarget = useMemo(() => {
+    return document.querySelector('.dm-modal-shell') ?? document.body;
+  }, []);
+
   return createPortal(
     <div className={`dm-expr-overlay ${isExpanded ? 'dm-expr--expanded' : ''}`} onKeyDown={handleKeyDown} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby={titleId}>
-      <div className="dm-expr-modal" style={!isExpanded && (dragOffset.x || dragOffset.y) ? { transform: `translate(${dragOffset.x}px, ${dragOffset.y}px)` } : undefined}>
+      <div ref={modalRef} className="dm-expr-modal" style={!isExpanded && (dragOffset.x || dragOffset.y) ? { transform: `translate(${dragOffset.x}px, ${dragOffset.y}px)` } : undefined}>
         <div className="dm-expr-header" onMouseDown={!isExpanded ? handleDragStart : undefined} style={!isExpanded ? { cursor: 'grab' } : undefined}>
           <span id={titleId} className="dm-expr-title">Expression Editor</span>
           {!onRename && (
@@ -461,7 +466,14 @@ export default function ExpressionEditorModal({
             <button
               type="button"
               className="dm-expr-action-btn"
-              onClick={() => { setIsExpanded((v) => !v); setDragOffset({ x: 0, y: 0 }); }}
+              onClick={() => {
+                if (modalRef.current) {
+                  modalRef.current.style.width = '';
+                  modalRef.current.style.height = '';
+                }
+                setIsExpanded((v) => !v);
+                setDragOffset({ x: 0, y: 0 });
+              }}
               title={isExpanded ? 'Shrink to default size' : 'Expand to full screen'}
               aria-label={isExpanded ? 'Shrink' : 'Expand'}
             >
@@ -524,7 +536,7 @@ export default function ExpressionEditorModal({
                       key={fn.name}
                       className={`dm-expr-fn-item ${selectedFn?.name === fn.name ? 'dm-expr-fn-item--active' : ''}`}
                       onClick={() => handleInsertFunction(fn)}
-                      title={fn.description}
+                      title="Click to insert template (see documentation on the right)"
                     >
                       <span className="dm-expr-fn-name">{fn.name}</span>
                       {fn.args.some(a => a.type === 'function') && (
@@ -738,13 +750,22 @@ export default function ExpressionEditorModal({
                     ))}
                   </div>
                 )}
-                <button
-                  type="button"
-                  className="dm-expr-inline-btn"
-                  onClick={() => handleComposeWithFunction(selectedFn)}
-                >
-                  Compose with current
-                </button>
+                <div className="dm-expr-doc-actions">
+                  <button
+                    type="button"
+                    className="dm-expr-inline-btn dm-expr-inline-btn--primary"
+                    onClick={() => handleInsertFunction(selectedFn)}
+                  >
+                    Insert
+                  </button>
+                  <button
+                    type="button"
+                    className="dm-expr-inline-btn"
+                    onClick={() => handleComposeWithFunction(selectedFn)}
+                  >
+                    Compose with current
+                  </button>
+                </div>
                 <div className="dm-expr-doc-returns">Returns: {selectedFn.returnType}</div>
               </>
             ) : (
@@ -815,6 +836,6 @@ export default function ExpressionEditorModal({
         </div>
       </div>
     </div>,
-    document.body,
+    portalTarget,
   );
 }

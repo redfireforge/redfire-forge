@@ -42,16 +42,17 @@ function createAdapter(overrides?: Partial<MapperAdapter<Mapping[]>>): MapperAda
 }
 
 describe('DataMapperModal', () => {
-  it('renders with adapter title', () => {
+  it('renders with adapter title in context badge', () => {
     const adapter = createAdapter();
     render(<DataMapperModal adapter={adapter} onSave={vi.fn()} onCancel={vi.fn()} />);
+    expect(screen.getByText('Data Mapper')).toBeTruthy();
     expect(screen.getByText('Test Mapper')).toBeTruthy();
   });
 
-  it('renders modal subtitle and footer helper text', () => {
+  it('renders context badge and footer helper text', () => {
     const adapter = createAdapter();
     render(<DataMapperModal adapter={adapter} onSave={vi.fn()} onCancel={vi.fn()} />);
-    expect(screen.getByText('Map source fields to target outputs.')).toBeTruthy();
+    expect(screen.getByText('Test Mapper')).toBeTruthy();
     expect(screen.getByText('Review mappings and save when ready')).toBeTruthy();
   });
 

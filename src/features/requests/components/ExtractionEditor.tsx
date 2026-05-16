@@ -134,7 +134,7 @@ export default function ExtractionEditor({ extractions, onChange, sampleResponse
             className="btn btn-sm btn-accent ext-fetch-btn"
             onClick={() => setMapperOpen(true)}
           >
-            ⚡ Visual Mapper
+            ⚡ Data Mapper
           </button>
           {fetchSample?.host && !fetchSample.host.enabled && fetchSample.host.resolvedBaseUrl && (
             <span className="ext-resolved-url">

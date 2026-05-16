@@ -31,8 +31,9 @@ test.describe('Custom Predicate Assertion (Phase 9.3)', () => {
     await openValidationTab(page);
     await addButton(page).click();
     await expect(page.locator('.assertions-add-menu')).toBeVisible();
-    await expect(page.locator('.assertions-add-menu button:has-text("Custom Predicate")')).toBeVisible();
-    await expect(page.locator('.assertions-add-menu :text("Write an expression that evaluates to truthy/falsy")')).toBeVisible();
+    const customPred = page.locator('.assertions-add-menu button:has-text("Custom Predicate")');
+    await expect(customPred).toBeVisible();
+    await expect(customPred).toHaveAttribute('title', 'Write an expression that evaluates to truthy/falsy');
   });
 
   test('add a Custom Predicate assertion and see CUSTOM badge', async ({ page }) => {

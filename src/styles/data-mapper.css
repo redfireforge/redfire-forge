@@ -1140,6 +1140,14 @@
   flex: 1 1 auto;
   max-width: none;
 }
+.dm-node-key--editable {
+  cursor: text;
+  border-bottom: 1px dashed rgba(205, 214, 244, 0.2);
+}
+.dm-node-key--editable:hover {
+  border-bottom-color: var(--accent, #89b4fa);
+  color: var(--accent, #89b4fa);
+}
 
 .dm-tree-node--target .dm-mapped-badge {
   max-width: min(48%, 320px);
@@ -1309,6 +1317,13 @@
 .dm-add-field-btn:hover {
   background: rgba(166, 227, 161, 0.06);
   border-color: rgba(166, 227, 161, 0.4);
+  color: #a6e3a1;
+}
+
+.dm-add-field-btn--drag-over {
+  background: rgba(166, 227, 161, 0.12);
+  border-color: rgba(166, 227, 161, 0.6);
+  border-style: solid;
   color: #a6e3a1;
 }
 

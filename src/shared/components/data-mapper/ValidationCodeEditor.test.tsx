@@ -756,7 +756,7 @@ describe('ValidationCodeEditor completion provider', () => {
     return mod.default;
   }
 
-  it('second beforeMount skips re-registering language and reuses completion provider', async () => {
+  it('second beforeMount re-registers completion provider (disposes previous)', async () => {
     const Fresh = await loadFreshEditor();
     const m1 = createMonacoForRegistration();
     const m2 = createMonacoForRegistration();
@@ -767,9 +767,9 @@ describe('ValidationCodeEditor completion provider', () => {
     });
     expect(m1.languages.register).toHaveBeenCalledTimes(1);
     expect(m2.languages.register).not.toHaveBeenCalled();
-    // Completion provider is registered once (on m1) and reused
+    // Completion provider is re-registered on m2 (old one disposed)
     expect(m1.languages.registerCompletionItemProvider).toHaveBeenCalledTimes(1);
-    expect(m2.languages.registerCompletionItemProvider).not.toHaveBeenCalled();
+    expect(m2.languages.registerCompletionItemProvider).toHaveBeenCalledTimes(1);
   });
 
   it('suggests matching paths through Monaco widget in path position', async () => {

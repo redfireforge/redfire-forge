@@ -46,7 +46,7 @@ async function openValidationMapper(page: Page) {
   await page.locator('button:has-text("Fetch Response")').click();
   await expect(page.locator('.validation-response-preview')).toBeVisible();
 
-  await page.locator('button:has-text("⚡ Visual Mapper")').click();
+  await page.locator('button:has-text("⚡ Data Mapper")').click();
   const mapper = page.locator('.dm-modal-overlay');
   await expect(mapper).toBeVisible();
 

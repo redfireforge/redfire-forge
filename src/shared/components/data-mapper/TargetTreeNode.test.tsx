@@ -1284,7 +1284,7 @@ describe('TargetTreeNode – operator picker coverage', () => {
     expect(screen.getByText('No matching operators')).toBeTruthy();
   });
 
-  it('selecting equals clears operator to undefined', () => {
+  it('selecting equals sets operator to equals', () => {
     const onUpdateMappingOperator = vi.fn();
     const mappingWithOp: Mapping = {
       ...mapping,
@@ -1303,7 +1303,7 @@ describe('TargetTreeNode – operator picker coverage', () => {
     fireEvent.click(screen.getByLabelText('Change operator from greater than'));
     const listEq = screen.getByRole('listbox', { name: 'Operators' });
     fireEvent.click(within(listEq).getByText('equals', { exact: true }));
-    expect(onUpdateMappingOperator).toHaveBeenCalledWith('m1', undefined, undefined);
+    expect(onUpdateMappingOperator).toHaveBeenCalledWith('m1', 'equals', undefined);
   });
 
   it('selecting needsValue operator preserves prior operatorValue', () => {

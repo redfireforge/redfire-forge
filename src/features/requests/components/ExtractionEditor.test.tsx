@@ -201,16 +201,16 @@ describe('ExtractionEditor', () => {
     expect(screen.queryByText(/No extractions configured/)).toBeNull();
   });
 
-  // Visual Mapper section
-  it('renders Visual Mapper button always', () => {
+  // Data Mapper section
+  it('renders Data Mapper button always', () => {
     render(<ExtractionEditor extractions={[]} onChange={vi.fn()} />);
-    expect(screen.getByText('⚡ Visual Mapper')).toBeTruthy();
+    expect(screen.getByText('⚡ Data Mapper')).toBeTruthy();
   });
 
-  it('renders Visual Mapper button with fetchSample', () => {
+  it('renders Data Mapper button with fetchSample', () => {
     const fetchSample = { onFetch: vi.fn(), fetching: false, error: null };
     render(<ExtractionEditor extractions={[]} onChange={vi.fn()} fetchSample={fetchSample} />);
-    expect(screen.getByText('⚡ Visual Mapper')).toBeTruthy();
+    expect(screen.getByText('⚡ Data Mapper')).toBeTruthy();
   });
 
   it('shows fetch error when present', () => {
@@ -291,23 +291,23 @@ describe('ExtractionEditor', () => {
   });
 
   // Full mapper modal
-  it('opens mapper modal when Visual Mapper clicked', () => {
+  it('opens mapper modal when Data Mapper clicked', () => {
     render(<ExtractionEditor extractions={[]} onChange={vi.fn()} />);
-    fireEvent.click(screen.getByText('⚡ Visual Mapper'));
+    fireEvent.click(screen.getByText('⚡ Data Mapper'));
     expect(screen.getByTestId('data-mapper-modal')).toBeTruthy();
   });
 
   it('applies mapper results', () => {
     const onChange = vi.fn();
     render(<ExtractionEditor extractions={[]} onChange={onChange} />);
-    fireEvent.click(screen.getByText('⚡ Visual Mapper'));
+    fireEvent.click(screen.getByText('⚡ Data Mapper'));
     fireEvent.click(screen.getByText('Apply Map'));
     expect(onChange).toHaveBeenCalledWith([{ name: 'mapped', source: 'body', expression: '$.x' }]);
   });
 
   it('closes mapper modal on cancel', () => {
     render(<ExtractionEditor extractions={[]} onChange={vi.fn()} />);
-    fireEvent.click(screen.getByText('⚡ Visual Mapper'));
+    fireEvent.click(screen.getByText('⚡ Data Mapper'));
     fireEvent.click(screen.getByText('Close Modal'));
     expect(screen.queryByTestId('data-mapper-modal')).toBeNull();
   });

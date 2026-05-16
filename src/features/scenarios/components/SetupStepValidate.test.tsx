@@ -135,9 +135,9 @@ describe('SetupStepValidate', () => {
     expect(screen.getByText(/Or use stored response/)).toBeInTheDocument();
   });
 
-  it('renders Visual Mapper button when sampleJson is present', () => {
+  it('renders Data Mapper button when sampleJson is present', () => {
     render(<SetupStepValidate {...createDefaultProps({ sampleJson: '{"name": "test"}' })} />);
-    expect(screen.getByText('⚡ Visual Mapper')).toBeInTheDocument();
+    expect(screen.getByText('⚡ Data Mapper')).toBeInTheDocument();
   });
 
   it('shows re-fetch button when sampleJson is present', () => {
@@ -248,11 +248,11 @@ describe('SetupStepValidate', () => {
     expect(screen.getByTestId('array-modes-json').textContent).toContain('"items":"ordered"');
   });
 
-  // --- Visual Mapper (DataMapperModal) ---
+  // --- Data Mapper (DataMapperModal) ---
 
-  it('opens Visual Mapper modal when button is clicked', () => {
+  it('opens Data Mapper modal when button is clicked', () => {
     render(<SetupStepValidate {...createDefaultProps({ sampleJson: '{"x":1}' })} />);
-    fireEvent.click(screen.getByText('⚡ Visual Mapper'));
+    fireEvent.click(screen.getByText('⚡ Data Mapper'));
     expect(screen.getByTestId('data-mapper-modal')).toBeInTheDocument();
   });
 
@@ -260,7 +260,7 @@ describe('SetupStepValidate', () => {
     const setValidateFields = vi.fn();
     const setValidateExcluded = vi.fn();
     render(<SetupStepValidate {...createDefaultProps({ sampleJson: '{}', setValidateFields, setValidateExcluded })} />);
-    fireEvent.click(screen.getByText('⚡ Visual Mapper'));
+    fireEvent.click(screen.getByText('⚡ Data Mapper'));
     fireEvent.click(screen.getByText('Save Mapper'));
     expect(setValidateFields).toHaveBeenCalledWith([{ jsonPath: '$.mapped', expectedValue: '"yes"' }]);
     expect(setValidateExcluded).toHaveBeenCalledWith(['$.skip']);
@@ -291,7 +291,7 @@ describe('SetupStepValidate', () => {
       );
     };
     render(<Wrapper />);
-    fireEvent.click(screen.getByText('⚡ Visual Mapper'));
+    fireEvent.click(screen.getByText('⚡ Data Mapper'));
     fireEvent.click(screen.getByText('Save Unordered'));
     expect(screen.getByTestId('modes-json').textContent).toContain('"items":"unordered"');
     expect(screen.queryByTestId('data-mapper-modal')).toBeNull();
@@ -302,14 +302,14 @@ describe('SetupStepValidate', () => {
       sampleJson: '{}',
       arrayModes: { items: 'unordered' },
     })} />);
-    fireEvent.click(screen.getByText('⚡ Visual Mapper'));
+    fireEvent.click(screen.getByText('⚡ Data Mapper'));
     expect(screen.getByTestId('mapper-unordered-prop').textContent).toBe('true');
   });
 
   it('cancels mapper modal without saving', () => {
     const setValidateFields = vi.fn();
     render(<SetupStepValidate {...createDefaultProps({ sampleJson: '{}', setValidateFields })} />);
-    fireEvent.click(screen.getByText('⚡ Visual Mapper'));
+    fireEvent.click(screen.getByText('⚡ Data Mapper'));
     expect(screen.getByTestId('data-mapper-modal')).toBeInTheDocument();
     fireEvent.click(screen.getByText('Cancel Mapper'));
     expect(screen.queryByTestId('data-mapper-modal')).toBeNull();

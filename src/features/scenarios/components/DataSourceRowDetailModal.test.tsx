@@ -143,12 +143,12 @@ describe('DataSourceRowDetailModal', () => {
     await waitFor(() => {
       const keepBtn = screen.queryByText(/Keep Rules/);
       if (keepBtn) return expect(keepBtn).toBeTruthy();
-      return expect(screen.getByText('⚡ Visual Mapper')).not.toBeDisabled();
+      return expect(screen.getByText('⚡ Data Mapper')).not.toBeDisabled();
     });
     const keepBtn = screen.queryByText(/Keep Rules/);
     if (keepBtn) fireEvent.click(keepBtn);
-    await waitFor(() => { expect(screen.getByText('⚡ Visual Mapper')).not.toBeDisabled(); });
-    fireEvent.click(screen.getByText('⚡ Visual Mapper'));
+    await waitFor(() => { expect(screen.getByText('⚡ Data Mapper')).not.toBeDisabled(); });
+    fireEvent.click(screen.getByText('⚡ Data Mapper'));
   }
 
   describe('rendering', () => {
@@ -228,9 +228,9 @@ describe('DataSourceRowDetailModal', () => {
       expect(screen.getByText('GET')).toBeInTheDocument();
     });
 
-    it('renders Visual Mapper button when sampleJson is set', () => {
+    it('renders Data Mapper button when sampleJson is set', () => {
       render(<DataSourceRowDetailModal {...defaultProps} />);
-      expect(screen.getByText('⚡ Visual Mapper')).toBeInTheDocument();
+      expect(screen.getByText('⚡ Data Mapper')).toBeInTheDocument();
     });
 
     it('shows column type badges', () => {
@@ -757,7 +757,7 @@ describe('DataSourceRowDetailModal', () => {
     });
   });
 
-  describe('Visual Mapper integration', () => {
+  describe('Data Mapper integration', () => {
     it('updates expected fields when mapper saves', async () => {
       render(<DataSourceRowDetailModal {...defaultProps} />);
       await fetchAndOpenMapper();

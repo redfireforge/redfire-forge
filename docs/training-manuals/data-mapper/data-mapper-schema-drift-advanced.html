@@ -40,14 +40,14 @@
 
 <div class="callout">
   <strong>Prerequisites</strong>
-  Import the <code>dm-combo-mapper</code> sample from Gallery. Open the first test <code>GET products → extract &amp; validate fields</code> and open the Visual Mapper at least once (this creates a schema snapshot).
+  Import the <code>dm-combo-mapper</code> sample from Gallery. Open the first test <code>GET products → extract &amp; validate fields</code> and open the Data Mapper at least once (this creates a schema snapshot).
 </div>
 
 <h2>Part 1 — Understanding Schema Snapshots</h2>
 
 <div class="step">
-  <div class="step-header"><div class="step-num">1</div><div class="step-title">Open the Visual Mapper</div></div>
-  <p>Open the first test's <strong>Extract</strong> tab → click <strong>⚡ Visual Mapper</strong>.</p>
+  <div class="step-header"><div class="step-num">1</div><div class="step-title">Open the Data Mapper</div></div>
+  <p>Open the first test's <strong>Extract</strong> tab → click <strong>⚡ Data Mapper</strong>.</p>
   <div class="expect"><strong>You should see:</strong> The toolbar shows <strong>✅ HEALTHY</strong> — meaning the current source schema matches the stored snapshot. The source tree shows the products list response.</div>
 </div>
 
@@ -94,7 +94,7 @@ $.limit           → number</pre>
   <div class="step-header"><div class="step-num">5</div><div class="step-title">Trigger drift by modifying the sample JSON</div></div>
   <p>In the test editor's Validation tab, edit the <strong>Sample JSON</strong> field. Remove a field or rename one:</p>
   <pre>// Change "title" to "productName" in the sample JSON
-// Then re-open the Visual Mapper</pre>
+// Then re-open the Data Mapper</pre>
   <p>When you re-open the mapper, it compares the new schema against the stored snapshot and shows drift indicators on any affected mappings.</p>
 </div>
 
