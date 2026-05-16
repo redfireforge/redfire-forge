@@ -4989,6 +4989,63 @@ button.dm-mismatch-badge {
   color: var(--red, #f38ba8);
 }
 
+/* ─── Custom Predicates Section (ASSERT rules in Target Panel) ─── */
+
+.dm-custom-predicates-section {
+  margin-top: 8px;
+  border-top: 1px solid color-mix(in srgb, var(--mauve, #cba6f7) 20%, transparent);
+  padding: 8px 12px 4px;
+}
+
+.dm-custom-predicates-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.dm-custom-predicates-icon {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--mauve, #cba6f7);
+  width: 18px;
+  text-align: center;
+}
+
+.dm-custom-predicates-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--subtext0, #a6adc8);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.dm-custom-predicates-count {
+  font-size: 10px;
+  font-weight: 600;
+  background: rgba(203, 166, 247, 0.15);
+  color: var(--mauve, #cba6f7);
+  padding: 1px 6px;
+  border-radius: 8px;
+  min-width: 16px;
+  text-align: center;
+}
+
+.dm-custom-predicates-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dm-custom-predicates-list .dm-array-assertion-row {
+  padding-left: 8px;
+}
+
+.dm-custom-predicates-list .dm-array-assertion-value {
+  font-family: var(--font-mono, 'JetBrains Mono', monospace);
+  font-size: 11px;
+}
+
 /* ─── Validation Code Editor ──────────────────────────── */
 
 .dm-validation-editor {
@@ -5064,6 +5121,19 @@ button.dm-mismatch-badge {
 }
 .dm-verify-glyph--fail {
   background: var(--danger, #ef4444) !important;
+}
+
+/* Inline end-of-line annotations */
+.dm-verify-inline--pass {
+  color: var(--success, #22c55e) !important;
+  font-style: italic;
+  opacity: 0.7;
+  font-size: 11px;
+}
+.dm-verify-inline--fail {
+  color: var(--danger, #ef4444) !important;
+  font-style: italic;
+  font-size: 11px;
 }
 
 .dm-validation-editor-body {

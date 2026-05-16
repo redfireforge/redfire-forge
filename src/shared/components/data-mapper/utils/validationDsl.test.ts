@@ -103,10 +103,11 @@ describe('parseDslLine', () => {
     expect(result.value).toBe('first');
   });
 
-  it('parses wildcard paths', () => {
+  it('parses wildcard paths as each assertions', () => {
     const result = parseDslLine('items[*].active is_true', 1) as ParsedRule;
     expect(result.path).toBe('items[*].active');
-    expect(result.operator).toBe('is_true');
+    expect(result.operator).toBe('each is_true');
+    expect(result.kind).toBe('each');
   });
 
   // Collection operators

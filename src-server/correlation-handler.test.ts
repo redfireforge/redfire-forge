@@ -481,14 +481,14 @@ describe('correlation-handler — HTTP routes', () => {
   let request: typeof import('supertest')['default'];
 
   beforeEach(async () => {
-    // Reset to a fresh in-memory store to guarantee isolation
-    setCorrelationStore(new InMemoryServerStore());
-    clearAllCorrelations();
-    clearIdempotency();
     // Dynamic import to avoid issues with vitest module resolution
     const supertest = await import('supertest');
     const { app } = await import('./webhook-server.js');
     request = supertest.default(app);
+    // Reset AFTER import to guarantee our store is active (import may set its own)
+    setCorrelationStore(new InMemoryServerStore());
+    clearAllCorrelations();
+    clearIdempotency();
   });
 
   it('POST /api/correlations/pause — registers a paused workflow', async () => {

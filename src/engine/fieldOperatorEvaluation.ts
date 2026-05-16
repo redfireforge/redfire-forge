@@ -57,25 +57,27 @@ export function evaluateFieldOperator(
     case 'equals': {
       let actualStr: string;
       try { actualStr = JSON.stringify(actualValue); } catch { actualStr = String(actualValue); }
+      const rawExpected = operatorValue ?? expectedValue;
       let expectedStr: string;
       try {
-        expectedStr = JSON.stringify(JSON.parse(expectedValue));
+        expectedStr = JSON.stringify(JSON.parse(rawExpected));
       } catch {
-        expectedStr = JSON.stringify(expectedValue);
+        expectedStr = JSON.stringify(rawExpected);
       }
-      return { pass: actualStr === expectedStr, expected: `equals ${expectedValue}`, actual: actualStr ?? 'undefined' };
+      return { pass: actualStr === expectedStr, expected: `equals ${rawExpected}`, actual: actualStr ?? 'undefined' };
     }
 
     case 'not_equals': {
       let actualStr: string;
       try { actualStr = JSON.stringify(actualValue); } catch { actualStr = String(actualValue); }
+      const rawExpected = operatorValue ?? expectedValue;
       let expectedStr: string;
       try {
-        expectedStr = JSON.stringify(JSON.parse(expectedValue));
+        expectedStr = JSON.stringify(JSON.parse(rawExpected));
       } catch {
-        expectedStr = JSON.stringify(expectedValue);
+        expectedStr = JSON.stringify(rawExpected);
       }
-      return { pass: actualStr !== expectedStr, expected: `not equals ${expectedValue}`, actual: actualStr ?? 'undefined' };
+      return { pass: actualStr !== expectedStr, expected: `not equals ${rawExpected}`, actual: actualStr ?? 'undefined' };
     }
 
     case 'greater_than': {
@@ -209,7 +211,7 @@ export function evaluateFieldOperator(
 
     case 'between': {
       const raw = operatorValue ?? expectedValue ?? '';
-      const parts = raw.split(',').map(s => s.trim());
+      const parts = raw.includes(',') ? raw.split(',').map(s => s.trim()) : raw.trim().split(/\s+/);
       const lo = Number(parts[0]);
       const hi = Number(parts[1]);
       const a = toNumber(actualValue);
@@ -219,7 +221,7 @@ export function evaluateFieldOperator(
 
     case 'close_to': {
       const raw = operatorValue ?? expectedValue ?? '';
-      const parts = raw.split(',').map(s => s.trim());
+      const parts = raw.includes(',') ? raw.split(',').map(s => s.trim()) : raw.trim().split(/\s+/);
       const target = Number(parts[0]);
       const tolerance = parts.length > 1 ? Number(parts[1]) : 0.01;
       const a = toNumber(actualValue);
