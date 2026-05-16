@@ -1,9 +1,10 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import {
   createValidationAdapter,
   type ValidationAdapterOutput,
 } from './validationAdapter';
 import type { Mapping } from '../types';
+import * as mapperExpr from '../utils/mapperExpressionEvaluator';
 
 // ── Fixtures ──────────────────────────────────────────────
 
@@ -241,12 +242,14 @@ describe('deserialize — include mode', () => {
       sourceId: 'response-body',
       sourcePath: 'data.id',
       targetPath: 'data.id',
+      operatorValue: '42',
     });
     expect(result[1]).toEqual({
       id: 'val-1',
       sourceId: 'response-body',
       sourcePath: 'data.name',
       targetPath: 'data.name',
+      operatorValue: 'Alice',
     });
   });
 
@@ -697,7 +700,7 @@ describe('validationAdapter — operator round-trip', () => {
       { id: 'v2', sourceId: 'response', sourcePath: 'age', targetPath: 'age' },
     ];
     const output = adapter.serialize(mappings);
-    expect(output.expectedFields[0].operator).toBe('exists');
+    expect(output.expectedFields[0].operator).toBe('equals');
     expect(output.expectedFields[0].operatorValue).toBeUndefined();
     expect(output.expectedFields[1].operator).toBeUndefined();
   });
@@ -739,22 +742,19 @@ describe('validationAdapter — operator round-trip', () => {
     expect(output.expectedFields[0].expectedValue).toBe('true');
   });
 
-  it('serialize stringifies non-string sample values resolved via expression', () => {
+  it('serialize skips array/object mappings from expectedFields', () => {
     const adapter = createValidationAdapter({
-      sampleResponseBody: { nums: [1, 2] },
+      sampleResponseBody: { nums: [1, 2], obj: { a: 1 }, leaf: 'ok' },
       selectiveMode: 'include',
     });
     const mappings: Mapping[] = [
-      {
-        id: 'v1',
-        sourceId: 'response-body',
-        sourcePath: 'nums',
-        targetPath: 'nums',
-        expression: 'nums',
-      },
+      { id: 'v1', sourceId: 'response-body', sourcePath: 'nums', targetPath: 'nums', expression: 'nums' },
+      { id: 'v2', sourceId: 'response-body', sourcePath: 'obj', targetPath: 'obj' },
+      { id: 'v3', sourceId: 'response-body', sourcePath: 'leaf', targetPath: 'leaf' },
     ];
     const output = adapter.serialize(mappings);
-    expect(output.expectedFields[0].expectedValue).toBe('[1,2]');
+    expect(output.expectedFields).toHaveLength(1);
+    expect(output.expectedFields[0].jsonPath).toBe('leaf');
   });
 
   it('deserialize restores operator and operatorValue into mappings', () => {
@@ -840,5 +840,119 @@ describe('validationAdapter — operator round-trip', () => {
     const m = mappings.find((x) => x.sourcePath === 'keep');
     expect(m?.negate).toBe(true);
     expect(m?.operator).toBe('greater_than');
+  });
+});
+
+describe('validationAdapter — resolveExpectedValue branches', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('uses getByPath fallback when evaluated expression stringifies to a template-like placeholder', () => {
+    vi.spyOn(mapperExpr, 'evaluateMapperExpression').mockReturnValue({
+      value: '{{token}}',
+      preview: '',
+    });
+    const adapter = createValidationAdapter({
+      sampleResponseBody: { exprLeaf: 'resolved-from-path' },
+      selectiveMode: 'include',
+    });
+    const out = adapter.serialize([
+      {
+        id: 'm1',
+        sourceId: 'response-body',
+        sourcePath: 'ignored',
+        targetPath: 'out',
+        expression: 'exprLeaf',
+      },
+    ]);
+    expect(out.expectedFields[0].expectedValue).toBe('resolved-from-path');
+  });
+
+  it('JSON-stringifies non-string path values resolved from expression-as-path', () => {
+    vi.spyOn(mapperExpr, 'evaluateMapperExpression').mockReturnValue({
+      value: '{{skip}}',
+      preview: '',
+    });
+    const adapter = createValidationAdapter({
+      sampleResponseBody: { exprLeaf: { nested: true } },
+      selectiveMode: 'include',
+    });
+    const out = adapter.serialize([
+      {
+        id: 'm1',
+        sourceId: 'response-body',
+        sourcePath: 'ignored',
+        targetPath: 'out',
+        expression: 'exprLeaf',
+      },
+    ]);
+    expect(out.expectedFields[0].expectedValue).toBe('{"nested":true}');
+  });
+
+  it('uses operatorValue when source sample does not contain sourcePath', () => {
+    const adapter = createValidationAdapter({
+      sampleResponseBody: { other: 1 },
+      selectiveMode: 'include',
+    });
+    const out = adapter.serialize([
+      {
+        id: 'm1',
+        sourceId: 'response-body',
+        sourcePath: 'missing.leaf',
+        targetPath: 'missing.leaf',
+        operatorValue: 'fallback-lit',
+      },
+    ]);
+    expect(out.expectedFields[0].expectedValue).toBe('fallback-lit');
+  });
+
+  it('falls back to targetPath when sample lacks sourcePath and operatorValue', () => {
+    const adapter = createValidationAdapter({
+      sampleResponseBody: { other: 1 },
+      selectiveMode: 'include',
+    });
+    const out = adapter.serialize([
+      {
+        id: 'm1',
+        sourceId: 'response-body',
+        sourcePath: 'missing.leaf',
+        targetPath: 'use-this-target',
+      },
+    ]);
+    expect(out.expectedFields[0].expectedValue).toBe('use-this-target');
+  });
+});
+
+describe('validationAdapter — deserialize container/object filtering', () => {
+  it('include mode drops object-shaped fields unless operator is a container op', () => {
+    const adapter = createValidationAdapter({
+      sampleResponseBody: { wrap: { inner: 1 } },
+      selectiveMode: 'include',
+    });
+    const mappings = adapter.deserialize({
+      selectiveMode: 'include',
+      expectedFields: [
+        { jsonPath: 'wrap', expectedValue: 'ignored', operator: 'equals' },
+        { jsonPath: 'wrap.inner', expectedValue: '1' },
+      ],
+      excludedPaths: [],
+    });
+    expect(mappings.map((m) => m.sourcePath)).toEqual(['wrap.inner']);
+  });
+
+  it('include mode retains object fields mapped with is_empty container operator', () => {
+    const adapter = createValidationAdapter({
+      sampleResponseBody: { wrap: { inner: 1 } },
+      selectiveMode: 'include',
+    });
+    const mappings = adapter.deserialize({
+      selectiveMode: 'include',
+      expectedFields: [{ jsonPath: 'wrap', expectedValue: '', operator: 'is_empty' }],
+      excludedPaths: [],
+    });
+    expect(mappings).toHaveLength(1);
+    expect(mappings[0].sourcePath).toBe('wrap');
+    expect(mappings[0].operator).toBe('is_empty');
   });
 });

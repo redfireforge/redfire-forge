@@ -2753,16 +2753,20 @@
   text-transform: uppercase;
 }
 .version-list {
-  max-height: 200px;
+  max-height: 400px;
   overflow-y: auto;
 }
 .version-item {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  flex-direction: column;
   padding: 8px 14px;
   border-bottom: 1px solid var(--border);
   font-size: 0.82rem;
+}
+.version-item-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 .version-item:last-child {
   border-bottom: none;
@@ -2815,6 +2819,29 @@
   display: flex;
   gap: 6px;
   flex-shrink: 0;
+}
+.version-preview {
+  margin-top: 8px;
+  border-top: 1px solid var(--border);
+  padding-top: 8px;
+}
+.version-preview-dsl {
+  margin: 0;
+  padding: 8px 12px;
+  background: var(--surface);
+  border-radius: 6px;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: var(--text);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 300px;
+  overflow-y: auto;
+}
+.btn-active {
+  background: var(--accent, #6c5ce7);
+  color: #fff;
 }
 
 /* Validate Response Section */
@@ -3239,6 +3266,143 @@
 }
 .val-expected { color: #22c55e; }
 .val-actual { color: #ef4444; }
+
+/* ── Validation Response Detail (double-click to expand) ─── */
+
+.validate-result-header--clickable {
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.validate-result-header--clickable:hover {
+  background: color-mix(in srgb, var(--surface) 85%, var(--accent) 15%);
+}
+
+.validate-detail-toggle {
+  font-size: 0.68rem;
+  opacity: 0.7;
+  white-space: nowrap;
+}
+
+.validate-response-detail {
+  border-top: 1px solid var(--border);
+  padding: 12px 14px;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  background: var(--bg);
+  max-height: 340px;
+  overflow-y: auto;
+}
+
+.validate-response-detail-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.validate-response-detail-label {
+  color: var(--text-muted);
+  min-width: 48px;
+  font-weight: 600;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.validate-response-detail-status-badge {
+  display: inline-block;
+  padding: 1px 10px;
+  border-radius: 4px;
+  font-weight: 700;
+  font-size: 0.72rem;
+  font-family: var(--font-mono);
+}
+.validate-response-detail-status-badge.status-5xx {
+  background: rgba(235, 111, 146, 0.15);
+  color: #eb6f92;
+}
+.validate-response-detail-status-badge.status-4xx {
+  background: rgba(245, 169, 127, 0.15);
+  color: #f5a97f;
+}
+.validate-response-detail-status-badge.status-ok {
+  background: rgba(34, 197, 94, 0.15);
+  color: #22c55e;
+}
+
+.validate-response-detail-value {
+  color: var(--text-primary);
+  word-break: break-all;
+}
+
+.validate-response-detail-section {
+  margin-top: 8px;
+}
+
+.validate-response-detail-section-title {
+  cursor: pointer;
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  padding: 4px 0;
+  user-select: none;
+  transition: color 0.15s;
+}
+
+.validate-response-detail-count {
+  font-weight: 400;
+  opacity: 0.7;
+}
+
+.validate-response-detail-section-title:hover {
+  color: var(--text-secondary);
+}
+
+.validate-response-detail-headers {
+  padding: 4px 0 4px 14px;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  line-height: 1.7;
+}
+
+.validate-response-detail-header-row {
+  display: flex;
+  gap: 0;
+}
+
+.validate-response-detail-header-key {
+  color: var(--accent);
+  font-weight: 500;
+}
+
+.validate-response-detail-header-sep {
+  color: var(--text-muted);
+  margin-right: 6px;
+}
+
+.validate-response-detail-header-val {
+  color: var(--text-secondary);
+  word-break: break-all;
+}
+
+.validate-response-detail-body {
+  margin: 6px 0 0;
+  padding: 10px 14px;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: var(--radius);
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  line-height: 1.6;
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 220px;
+  overflow-y: auto;
+}
 
 .validate-order-hint {
   background: rgba(245, 169, 127, 0.12);

@@ -1,13 +1,15 @@
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import type { Extraction, ExtractionSource } from '../../../shared/types';
 import type { WorkflowVariableHint } from '../../workflow/utils/workflowVariableHints';
+import type { FetchErrorDetail } from '../../../shared/components/data-mapper/types';
 import { suggestedVariableNameFromJsonPath } from '../../../shared/utils/jsonTreeModel';
 import ExpressionInput from '../../workflow/components/expression/ExpressionInput';
+import FetchErrorBanner from '../../../shared/components/data-mapper/FetchErrorBanner';
 
 export interface ExtractionFetchSampleProps {
   onFetch: () => void | Promise<void>;
   fetching: boolean;
-  error: string | null;
+  error: FetchErrorDetail | null;
   host?: {
     enabled: boolean;
     setEnabled: (v: boolean) => void;
@@ -141,7 +143,7 @@ export default function ExtractionEditor({ extractions, onChange, sampleResponse
           )}
         </div>
         {fetchSample?.error && (
-          <div className="ext-fetch-error">{fetchSample.error}</div>
+          <FetchErrorBanner error={fetchSample.error} />
         )}
       </div>
 

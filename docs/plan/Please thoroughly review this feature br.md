@@ -17,14 +17,5 @@ When you implement ui, pleaes data-mapper-edge-cases-mockup.html mockup for refe
 Make sure to follow the mockup design as your reference.
 
 
---------------------------------------------------------------------------
-File	New Tests	Coverage Before → After
-DataMapper.test.tsx
-12 tests (error popover, resize handles, array suggestion bar, deserialize error, repairTick)
-79.78% → 81.13% stmts
-DataMapperModal.test.tsx
-10 tests (serialize throw, validate throw, Escape handling, fullscreen, required fields, custom doneLabel)
-80.3% stmts (test refs fixed)
-ExpressionEditorModal.test.tsx
-8 tests (Ctrl+Enter, Escape, function insert fallback, step debugger toggle, sourcePath default)
-81.32% stmts
+Any existing code coverage / bug should also fixed. 
+And as I mentioned, any code with monorithic or under 90% code coverage should be fixed. And any duplcated codes should be extracted like template and reuse them. Don't reinvent wheel. 

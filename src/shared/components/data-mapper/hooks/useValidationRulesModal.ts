@@ -47,15 +47,40 @@ export function useValidationRulesModal() {
     });
   }, []);
 
+  // Shared drag-state helpers: set/clear body cursor + userSelect safely.
+  // All drag operations go through these so cleanup is guaranteed.
+  const activeDragCount = useRef(0);
+
+  const startBodyDrag = useCallback((cursor: string) => {
+    activeDragCount.current += 1;
+    document.body.style.cursor = cursor;
+    document.body.style.userSelect = 'none';
+  }, []);
+
+  const endBodyDrag = useCallback(() => {
+    activeDragCount.current = Math.max(0, activeDragCount.current - 1);
+    if (activeDragCount.current === 0) {
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    }
+  }, []);
+
+  // Safety net: on unmount, always clear body drag styles
+  useEffect(() => {
+    return () => {
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+  }, []);
+
   // ── Docked resize ──
   const dockedDragRef = useRef<{ startY: number; startH: number } | null>(null);
 
   const onDockedResizeStart = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     dockedDragRef.current = { startY: e.clientY, startH: dockedHeight };
-    document.body.style.cursor = 'row-resize';
-    document.body.style.userSelect = 'none';
-  }, [dockedHeight]);
+    startBodyDrag('row-resize');
+  }, [dockedHeight, startBodyDrag]);
 
   useEffect(() => {
     const onMove = (e: MouseEvent) => {
@@ -66,14 +91,13 @@ export function useValidationRulesModal() {
     const onUp = () => {
       if (dockedDragRef.current) {
         dockedDragRef.current = null;
-        document.body.style.cursor = '';
-        document.body.style.userSelect = '';
+        endBodyDrag();
       }
     };
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
     return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
-  }, []);
+  }, [endBodyDrag]);
 
   // ── Floating drag ──
   const floatDragRef = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
@@ -82,9 +106,8 @@ export function useValidationRulesModal() {
     if ((e.target as HTMLElement).closest('button, select, input')) return;
     e.preventDefault();
     floatDragRef.current = { startX: e.clientX, startY: e.clientY, origX: floatPos.x, origY: floatPos.y };
-    document.body.style.cursor = 'grabbing';
-    document.body.style.userSelect = 'none';
-  }, [floatPos]);
+    startBodyDrag('grabbing');
+  }, [floatPos, startBodyDrag]);
 
   useEffect(() => {
     const onMove = (e: MouseEvent) => {
@@ -96,14 +119,13 @@ export function useValidationRulesModal() {
     const onUp = () => {
       if (floatDragRef.current) {
         floatDragRef.current = null;
-        document.body.style.cursor = '';
-        document.body.style.userSelect = '';
+        endBodyDrag();
       }
     };
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
     return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
-  }, []);
+  }, [endBodyDrag]);
 
   // ── Floating corner resize ──
   const floatResizeRef = useRef<{ startX: number; startY: number; origW: number; origH: number } | null>(null);
@@ -112,9 +134,8 @@ export function useValidationRulesModal() {
     e.preventDefault();
     e.stopPropagation();
     floatResizeRef.current = { startX: e.clientX, startY: e.clientY, origW: floatSize.w, origH: floatSize.h };
-    document.body.style.cursor = 'nwse-resize';
-    document.body.style.userSelect = 'none';
-  }, [floatSize]);
+    startBodyDrag('nwse-resize');
+  }, [floatSize, startBodyDrag]);
 
   // ── Floating right-edge resize ──
   const floatEdgeRef = useRef<{ startX: number; origW: number } | null>(null);
@@ -123,9 +144,8 @@ export function useValidationRulesModal() {
     e.preventDefault();
     e.stopPropagation();
     floatEdgeRef.current = { startX: e.clientX, origW: floatSize.w };
-    document.body.style.cursor = 'ew-resize';
-    document.body.style.userSelect = 'none';
-  }, [floatSize]);
+    startBodyDrag('ew-resize');
+  }, [floatSize, startBodyDrag]);
 
   useEffect(() => {
     const onMove = (e: MouseEvent) => {
@@ -145,14 +165,13 @@ export function useValidationRulesModal() {
       if (floatResizeRef.current || floatEdgeRef.current) {
         floatResizeRef.current = null;
         floatEdgeRef.current = null;
-        document.body.style.cursor = '';
-        document.body.style.userSelect = '';
+        endBodyDrag();
       }
     };
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
     return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
-  }, []);
+  }, [endBodyDrag]);
 
   return {
     mode,

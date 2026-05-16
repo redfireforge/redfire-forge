@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
-import type { MapperTarget, Mapping, TargetField, TargetFieldOrigin, AdapterCapabilities, FieldOperator } from './types';
+import type { MapperTarget, Mapping, TargetField, TargetFieldOrigin, AdapterCapabilities, FieldOperator, FetchErrorDetail } from './types';
 import type { Assertion } from '../../types';
 import type { JsonTreeNode } from '../../utils/jsonTreeModel';
 import type { FocusRegion } from './hooks/useKeyboardNavigation';
@@ -13,6 +13,7 @@ import { flashTreeNode } from './utils/targetTreeHelpers';
 import TargetTreeNode from './TargetTreeNode';
 import AddFieldRow from './AddFieldRow';
 import LocationGroupPanel from './LocationGroupPanel';
+import FetchErrorBanner from './FetchErrorBanner';
 
 const SOURCE_TEXT_PREFIX = 'mapper-source:';
 
@@ -41,7 +42,7 @@ interface TargetPanelProps {
   onUpdateCustomField?: (oldPath: string, updated: TargetField) => void;
   onFetchTargetSchema?: () => Promise<void>;
   canFetchTarget?: boolean;
-  targetFetchError?: string | null;
+  targetFetchError?: FetchErrorDetail | null;
   onPasteTargetSample?: (data: unknown) => void;
   onReorderField?: (dragPath: string, dropPath: string) => void;
   onTargetFieldDragStart?: (path: string) => void;
@@ -64,6 +65,7 @@ interface TargetPanelProps {
   onUpdateArrayAssertion?: (index: number, patch: Partial<Assertion>) => void;
   onRemoveArrayAssertion?: (index: number) => void;
   arrayAssertions?: Assertion[];
+  assertionVerifyMap?: Map<number, { passed: boolean; actual?: string; expected?: string }>;
   filterFailedSignal?: number | null;
   highlightedPaths?: Set<string> | null;
   onRemapDrop?: (newTargetPath: string, mappingId: string) => void;
@@ -116,6 +118,7 @@ export default function TargetPanel({
   onUpdateArrayAssertion,
   onRemoveArrayAssertion,
   arrayAssertions,
+  assertionVerifyMap,
   filterFailedSignal,
   highlightedPaths,
   onRemapDrop,
@@ -335,6 +338,15 @@ export default function TargetPanel({
       for (const [path, status] of nodeStatusMap) {
         if (status === 'pass') passed.add(normalizeMapperPath(path));
       }
+      if (assertionVerifyMap && arrayAssertions) {
+        for (const [idx, result] of assertionVerifyMap) {
+          if (result.passed) {
+            const a = arrayAssertions[idx];
+            const jp = a && 'jsonPath' in a ? a.jsonPath : undefined;
+            if (jp) passed.add(normalizeMapperPath(jp));
+          }
+        }
+      }
       return passed;
     }
     if (mappingFilter === 'failed' && nodeStatusMap) {
@@ -342,15 +354,26 @@ export default function TargetPanel({
       for (const [path, status] of nodeStatusMap) {
         if (status === 'fail') failed.add(normalizeMapperPath(path));
       }
+      if (assertionVerifyMap && arrayAssertions) {
+        for (const [idx, result] of assertionVerifyMap) {
+          if (!result.passed) {
+            const a = arrayAssertions[idx];
+            const jp = a && 'jsonPath' in a ? a.jsonPath : undefined;
+            if (jp) failed.add(normalizeMapperPath(jp));
+          }
+        }
+      }
       return failed;
     }
     return null;
-  }, [mappingFilter, nodeStatusMap]);
+  }, [mappingFilter, nodeStatusMap, assertionVerifyMap, arrayAssertions]);
 
   const effectiveFilter = useMemo((): 'all' | 'mapped' | 'unmapped' => {
     if (mappingFilter === 'passed' || mappingFilter === 'failed') return 'mapped';
     return mappingFilter;
   }, [mappingFilter]);
+
+  const activeVerifyFilter = (mappingFilter === 'passed' || mappingFilter === 'failed') ? mappingFilter : null;
 
   const effectiveMappedPaths = useMemo(() => {
     if (verifyFilteredPaths !== null) return verifyFilteredPaths;
@@ -545,7 +568,7 @@ export default function TargetPanel({
             </span>
           </div>
 
-          {targetFetchError && <div className="dm-paste-error" role="alert">{targetFetchError}</div>}
+          {targetFetchError && <FetchErrorBanner error={targetFetchError} />}
 
           <div
             className="dm-tree-container"
@@ -595,6 +618,7 @@ export default function TargetPanel({
                 onUpdateArrayAssertion={onUpdateArrayAssertion}
                 onRemoveArrayAssertion={onRemoveArrayAssertion}
                 arrayAssertions={arrayAssertions}
+                assertionVerifyMap={assertionVerifyMap}
                 onRemapDrop={onRemapDrop}
                 onRemapDragStart={onRemapDragStart}
                 onRemapDragEnd={onRemapDragEnd}
@@ -606,6 +630,7 @@ export default function TargetPanel({
                 depth={0}
                 search={search}
                 mappingFilter={effectiveFilter}
+                verifyFilter={activeVerifyFilter}
                 mappedTargetPaths={effectiveMappedPaths}
                 onNodeSelect={onNodeSelect}
                 selectedNodePath={selectedNodePath}
@@ -640,6 +665,7 @@ export default function TargetPanel({
                 onUpdateArrayAssertion={onUpdateArrayAssertion}
                 onRemoveArrayAssertion={onRemoveArrayAssertion}
                 arrayAssertions={arrayAssertions}
+                assertionVerifyMap={assertionVerifyMap}
                 highlightedPaths={highlightedPaths}
                 onRemapDrop={onRemapDrop}
                 onRemapDragStart={onRemapDragStart}

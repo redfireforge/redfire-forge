@@ -1,7 +1,9 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import type { JsonTreeNode } from '../../utils/jsonTreeModel';
+import type { FetchErrorDetail } from './types';
 import { buildJsonTree, getAllLeafPaths } from '../../utils/jsonTreeModel';
 import FullPanelModal from '../FullPanelModal';
+import FetchErrorBanner from './FetchErrorBanner';
 import {
   PATTERN_LIBRARY,
   testPattern,
@@ -19,7 +21,7 @@ interface Props {
   sampleJson?: string;
   onFetchSampleResponse?: () => void | Promise<void>;
   fetchingResponse?: boolean;
-  fetchError?: string | null;
+  fetchError?: FetchErrorDetail | null;
   onSave: (result: AssertionAdapterResult) => void;
   onCancel: () => void;
 }
@@ -289,7 +291,7 @@ export default function RegexAssertionBuilderModal({
           )}
         </div>
 
-        {fetchError && <div className="dm-paste-error">{fetchError}</div>}
+        {fetchError && <FetchErrorBanner error={fetchError} />}
 
         {pasteMode ? (
           <div className="dm-paste-container">

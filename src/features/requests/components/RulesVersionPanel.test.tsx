@@ -616,6 +616,29 @@ describe('RulesVersionPanel', () => {
     });
   });
 
+  describe('rules preview toggle', () => {
+    it('hides preview panel when Preview is clicked twice', () => {
+      const v1 = mkRulesVersion({
+        timestamp: 1000,
+        label: 'L',
+        expectedFields: [{ jsonPath: '$.z', expectedValue: '9' }],
+      });
+      render(
+        <RulesVersionPanel
+          {...defaultProps()}
+          versions={[v1]}
+          currentValidation={{ ...baseValidation, expectedFields: [{ jsonPath: '$.z', expectedValue: '9' }] }}
+        />,
+      );
+      fireEvent.click(screen.getByText('Preview'));
+      expect(screen.getByText('Hide')).toBeTruthy();
+      expect(document.querySelector('.version-preview')).toBeTruthy();
+      fireEvent.click(screen.getByText('Hide'));
+      expect(screen.queryByText('Hide')).toBeNull();
+      expect(document.querySelector('.version-preview')).toBeNull();
+    });
+  });
+
   describe('compare modal edge cases', () => {
     it('clears diff when selected version ids are missing after rerender', () => {
       mocks.differDiff.mockClear();

@@ -1,20 +1,30 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { getByPath } from '../../utils/jsonPath';
+import type { Assertion } from '../../types';
 import type { ExpressionFunction, MapperSource, Mapping } from './types';
 import { evaluateMapperExpression, resolveMapperPath } from './utils/mapperExpressionEvaluator';
 import { coerceSampleData } from './utils/mapperParsing';
 import { normalizeMapperPath } from './utils/pathNormalization';
 import { debugExpression } from './utils/expressionStepDebugger';
+import {
+  formatAssertionLine,
+  formatAssertionSummary,
+  getAssertionJsonPath,
+  ARRAY_ASSERTION_LABELS,
+} from './utils/targetTreeHelpers';
 import type { MappingTrace } from './utils/mappingTrace';
 
 interface CodeViewProps {
   mappings: Mapping[];
+  assertions?: Assertion[];
   sources?: MapperSource[];
   activeSourceId?: string;
   targetSampleData?: unknown;
   customFunctions?: ExpressionFunction[];
   debugMode?: boolean;
   traceByMappingId?: Map<string, MappingTrace> | null;
+  verifyStatus?: string;
+  failedMappingIds?: Set<string>;
 }
 
 function formatMapping(m: Mapping): string {
@@ -60,7 +70,7 @@ interface MappingTableRow {
   errorText?: string;
   beforeValue: string;
   afterValue: string;
-  status: 'changed' | 'unchanged' | 'error';
+  status: 'changed' | 'unchanged' | 'error' | 'passed' | 'failed';
 }
 
 interface MappingTraceSnapshot {
@@ -87,24 +97,33 @@ function formatDuration(durationMs: number): string {
 
 export default function CodeView({
   mappings,
+  assertions = [],
   sources = [],
   activeSourceId,
   targetSampleData,
   customFunctions,
   debugMode = false,
   traceByMappingId = null,
+  verifyStatus: _verifyStatus,
+  failedMappingIds: _failedMappingIds,
 }: CodeViewProps) {
   const [viewMode, setViewMode] = useState<'code' | 'table'>('code');
   const [tableLayout, setTableLayout] = useState<'list' | 'pivot'>('list');
   const [tableSearch, setTableSearch] = useState('');
   const [focusMatches, setFocusMatches] = useState(false);
   const [selectedTraceRowId, setSelectedTraceRowId] = useState<string | null>(null);
+  const tracePanelRef = useRef<HTMLDivElement>(null);
+
+  const assertionLines = useMemo(() => {
+    if (assertions.length === 0) return [];
+    return assertions.map(formatAssertionLine);
+  }, [assertions]);
 
   const lines = useMemo(() => {
-    if (mappings.length === 0) return ['// No mappings defined'];
+    if (mappings.length === 0 && assertions.length === 0) return ['// No mappings or assertions defined'];
     const sorted = [...mappings].sort((a, b) => a.targetPath.localeCompare(b.targetPath));
     return sorted.map(formatMapping);
-  }, [mappings]);
+  }, [mappings, assertions]);
 
   const tableRows = useMemo<MappingTableRow[]>(() => {
     const sorted = [...mappings].sort((a, b) => a.targetPath.localeCompare(b.targetPath));
@@ -244,6 +263,12 @@ export default function CodeView({
     }
   }, [selectedTraceRowId, tableRows]);
 
+  useEffect(() => {
+    if (selectedTraceRowId && tracePanelRef.current?.scrollIntoView) {
+      tracePanelRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }, [selectedTraceRowId]);
+
   const selectedTraceRow = useMemo(
     () => selectedTraceRowId ? tableRows.find((row) => row.id === selectedTraceRowId) ?? null : null,
     [selectedTraceRowId, tableRows],
@@ -326,7 +351,10 @@ export default function CodeView({
     <div className="dm-code-view" role="region" aria-label="Mapping code view">
       <div className="dm-code-view-header">
         <span className="dm-code-view-title">Mapping View</span>
-        <span className="dm-code-view-count">{mappings.length} mapping{mappings.length !== 1 ? 's' : ''}</span>
+        <span className="dm-code-view-count">
+          {mappings.length} mapping{mappings.length !== 1 ? 's' : ''}
+          {assertions.length > 0 && ` · ${assertions.length} assertion${assertions.length !== 1 ? 's' : ''}`}
+        </span>
         <div className="dm-code-view-mode-toggle" role="tablist" aria-label="Mapping view mode">
           <button
             type="button"
@@ -351,11 +379,25 @@ export default function CodeView({
       {viewMode === 'code' ? (
         <pre className="dm-code-view-content">
           {lines.map((line, i) => (
-            <div key={i} className="dm-code-view-line">
+            <div key={`m-${i}`} className="dm-code-view-line">
               <span className="dm-code-view-line-no">{i + 1}</span>
               <span className="dm-code-view-line-text">{line}</span>
             </div>
           ))}
+          {assertionLines.length > 0 && (
+            <>
+              <div className="dm-code-view-line dm-code-view-separator">
+                <span className="dm-code-view-line-no" />
+                <span className="dm-code-view-line-text dm-code-view-section-label">— Assertions —</span>
+              </div>
+              {assertionLines.map((line, i) => (
+                <div key={`a-${i}`} className="dm-code-view-line dm-code-view-line--assertion">
+                  <span className="dm-code-view-line-no">{lines.length + i + 1}</span>
+                  <span className="dm-code-view-line-text">{line}</span>
+                </div>
+              ))}
+            </>
+          )}
         </pre>
       ) : (
         <div className="dm-code-table-wrap">
@@ -380,6 +422,7 @@ export default function CodeView({
               {normalizedSearch
                 ? `${matchingIds.size} match${matchingIds.size !== 1 ? 'es' : ''}`
                 : `${tableRows.length} row${tableRows.length !== 1 ? 's' : ''}`}
+              {assertions.length > 0 && ` · ${assertions.length} assertion${assertions.length !== 1 ? 's' : ''}`}
               {debugMode && traceByMappingId
                 ? ` · ${traceByMappingId.size} runtime trace${traceByMappingId.size !== 1 ? 's' : ''}`
                 : ''}
@@ -417,7 +460,7 @@ export default function CodeView({
                   <th>Before</th>
                   <th>After</th>
                   <th>Trace</th>
-                  <th>Status</th>
+                  <th title="Click Verify All for pass/fail">Status</th>
                 </tr>
               </thead>
               <tbody>
@@ -463,10 +506,41 @@ export default function CodeView({
                             {isSelectedTrace ? 'Hide' : 'Inspect'}
                           </button>
                         </td>
-                        <td>{row.status}</td>
+                        <td>
+                          <span className={`dm-code-table-status dm-code-table-status--${row.status}`}>
+                            {row.status === 'passed' ? '✓ pass'
+                              : row.status === 'failed' ? '✗ fail'
+                              : row.status === 'error' ? '⚠ error'
+                              : row.status === 'unchanged' ? '— same'
+                              : '△ changed'}
+                          </span>
+                        </td>
                       </tr>
                     );
                   })
+                )}
+                {assertions.length > 0 && (
+                  <>
+                    <tr className="dm-code-table-row dm-code-table-row--section">
+                      <td colSpan={7} className="dm-code-table-section-label">Assertions ({assertions.length})</td>
+                    </tr>
+                    {assertions.map((a, i) => {
+                      const meta = ARRAY_ASSERTION_LABELS[a.type];
+                      const label = meta?.label ?? a.type.toUpperCase();
+                      const jsonPath = getAssertionJsonPath(a);
+                      const summary = formatAssertionSummary(a);
+                      return (
+                        <tr key={`assertion-${i}`} className="dm-code-table-row dm-code-table-row--assertion">
+                          <td>{visibleRows.length + i + 1}</td>
+                          <td title={jsonPath}><span className="dm-code-table-cell-path">{jsonPath}</span></td>
+                          <td><span className="dm-code-table-cell-assertion-type">{label}</span></td>
+                          <td colSpan={2}><span className="dm-code-table-cell-value">{summary}</span></td>
+                          <td />
+                          <td>assertion</td>
+                        </tr>
+                      );
+                    })}
+                  </>
                 )}
               </tbody>
             </table>
@@ -505,10 +579,34 @@ export default function CodeView({
                   })}
                 </tbody>
               </table>
+              {assertions.length > 0 && (
+                <table className="dm-code-assertion-summary">
+                  <thead>
+                    <tr>
+                      <th>Path</th>
+                      <th>Type</th>
+                      <th>Rule</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {assertions.map((a, i) => {
+                      const meta = ARRAY_ASSERTION_LABELS[a.type];
+                      const label = meta?.label ?? a.type.toUpperCase();
+                      return (
+                        <tr key={`pa-${i}`} className="dm-code-table-row--assertion">
+                          <td>{getAssertionJsonPath(a)}</td>
+                          <td><span className="dm-code-table-cell-assertion-type">{label}</span></td>
+                          <td>{formatAssertionSummary(a)}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
             </div>
           )}
           {selectedTraceRow && selectedTrace && (
-            <div className="dm-code-trace-panel" role="region" aria-label="Row trace inspector">
+            <div ref={tracePanelRef} className="dm-code-trace-panel" role="region" aria-label="Row trace inspector">
               <div className="dm-code-trace-panel-head">
                 <span className="dm-code-trace-panel-title">Trace · {selectedTraceRow.targetPath}</span>
                 <span className={`dm-code-trace-panel-origin dm-code-trace-panel-origin--${selectedTrace.origin}`}>

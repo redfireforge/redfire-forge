@@ -2,6 +2,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import CodeView from './CodeView';
+import type { Assertion } from '../../types';
 import type { MapperSource, Mapping } from './types';
 import type { MappingTrace } from './utils/mappingTrace';
 import * as mapperExpr from './utils/mapperExpressionEvaluator';
@@ -11,9 +12,118 @@ describe('CodeView', () => {
     vi.restoreAllMocks();
   });
 
+  it('scrolls trace panel into view when scrollIntoView exists', () => {
+    const proto = HTMLElement.prototype as HTMLElement & { scrollIntoView?: typeof HTMLElement.prototype.scrollIntoView };
+    const prev = proto.scrollIntoView;
+    const scrollIntoView = vi.fn();
+    proto.scrollIntoView = scrollIntoView as typeof HTMLElement.prototype.scrollIntoView;
+    try {
+      const mappings: Mapping[] = [
+        { id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'user.name' },
+      ];
+      render(
+        <CodeView
+          mappings={mappings}
+          sources={[{ id: 's1', label: 'S', sampleData: { name: 'Pat' } }]}
+          activeSourceId="s1"
+        />,
+      );
+      fireEvent.click(screen.getByRole('tab', { name: 'Table' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Inspect trace for user.name' }));
+      expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'nearest' });
+    } finally {
+      proto.scrollIntoView = prev;
+    }
+  });
+
+  it('renders assertion label fallback for unknown assertion types in table list layout', () => {
+    const bizarre = { type: 'totallyUnknownAssertion', jsonPath: '$.z', operator: '=' as const, value: 1 } as unknown as Assertion;
+    const mappings: Mapping[] = [{ id: 'm1', sourcePath: 'a', sourceId: 's1', targetPath: 'b' }];
+    render(
+      <CodeView
+        mappings={mappings}
+        sources={[{ id: 's1', label: 'S', sampleData: { a: 1 } }]}
+        activeSourceId="s1"
+        assertions={[bizarre]}
+      />,
+    );
+    fireEvent.click(screen.getByRole('tab', { name: 'Table' }));
+    expect(screen.getByText('TOTALLYUNKNOWNASSERTION')).toBeTruthy();
+  });
+
+  it('renders assertion summary rows in pivot layout when assertions exist', () => {
+    const assertions: Assertion[] = [{ type: 'arrayLength', jsonPath: 'offers', operator: '>=', value: 1 }];
+    const arrayMappings: Mapping[] = [
+      { id: 'm1', sourcePath: 'offers[0].code', sourceId: 's1', targetPath: 'offers[0].code' },
+      { id: 'm2', sourcePath: 'offers[1].code', sourceId: 's1', targetPath: 'offers[1].code' },
+    ];
+    const arraySources: MapperSource[] = [
+      {
+        id: 's1',
+        label: 'Source',
+        sampleData: {
+          offers: [{ code: 'A1' }, { code: 'B2' }],
+        },
+      },
+    ];
+    render(
+      <CodeView mappings={arrayMappings} sources={arraySources} activeSourceId="s1" assertions={assertions} />,
+    );
+    fireEvent.click(screen.getByRole('tab', { name: 'Table' }));
+    const tableTabs = screen.getAllByRole('tab', { name: 'Table' });
+    fireEvent.click(tableTabs[1]);
+    expect(document.querySelector('.dm-code-assertion-summary')).toBeTruthy();
+    expect(screen.getByText('LENGTH')).toBeTruthy();
+  });
+
+  it('renders unknown assertion type labels in pivot assertion summary table', () => {
+    const bizarre = { type: 'customUnknown', jsonPath: '$.items', value: 'x' } as unknown as Assertion;
+    const arrayMappings: Mapping[] = [
+      { id: 'm1', sourcePath: 'items[0].n', sourceId: 's1', targetPath: 'items[0].n' },
+      { id: 'm2', sourcePath: 'items[1].n', sourceId: 's1', targetPath: 'items[1].n' },
+    ];
+    render(
+      <CodeView
+        mappings={arrayMappings}
+        sources={[{ id: 's1', label: 'S', sampleData: { items: [{ n: 1 }, { n: 2 }] } }]}
+        activeSourceId="s1"
+        assertions={[bizarre]}
+      />,
+    );
+    fireEvent.click(screen.getByRole('tab', { name: 'Table' }));
+    const tableTabs = screen.getAllByRole('tab', { name: 'Table' });
+    fireEvent.click(tableTabs[1]);
+    expect(screen.getByText('CUSTOMUNKNOWN')).toBeTruthy();
+  });
+
   it('renders empty state when no mappings', () => {
     const { container } = render(<CodeView mappings={[]} />);
-    expect(container.textContent).toContain('No mappings defined');
+    expect(container.textContent).toContain('No mappings or assertions defined');
+  });
+
+  it('renders assertions section in code view', () => {
+    const assertions: Assertion[] = [
+      { type: 'arrayLength', jsonPath: 'offers', operator: '>=', value: 1 },
+      { type: 'each', jsonPath: 'offers[*]', fieldPath: 'rank', operator: 'greater_than_or_equal', value: '0' },
+    ];
+    const { container } = render(<CodeView mappings={[]} assertions={assertions} />);
+    expect(container.textContent).toContain('Assertions');
+    expect(container.textContent).toContain('LENGTH');
+    expect(container.textContent).toContain('EACH');
+    expect(container.textContent).toContain('2 assertions');
+    expect(container.textContent).not.toContain('No mappings or assertions defined');
+  });
+
+  it('shows assertion count in header', () => {
+    const mappings: Mapping[] = [
+      { id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'userName' },
+    ];
+    const assertions: Assertion[] = [
+      { type: 'arrayContains', jsonPath: 'items', value: '"foo"', mode: 'any' },
+    ];
+    const { container } = render(<CodeView mappings={mappings} assertions={assertions} />);
+    expect(container.textContent).toContain('1 mapping');
+    expect(container.textContent).toContain('1 assertion');
   });
 
   it('renders mapping lines', () => {
@@ -137,8 +247,8 @@ describe('CodeView', () => {
 
     expect(screen.getByText('Target')).toBeTruthy();
     expect(screen.getByText('Source / Expression')).toBeTruthy();
-    expect(screen.getByText('changed')).toBeTruthy();
-    expect(screen.getByText('unchanged')).toBeTruthy();
+    expect(screen.getByText('△ changed')).toBeTruthy();
+    expect(screen.getByText('— same')).toBeTruthy();
     expect(screen.getByText('Bob')).toBeTruthy();
     expect(screen.getByText('Alice')).toBeTruthy();
   });
@@ -437,7 +547,7 @@ describe('CodeView', () => {
       />,
     );
     fireEvent.click(screen.getByRole('tab', { name: 'Table' }));
-    expect(screen.getByText('changed')).toBeTruthy();
+    expect(screen.getByText('△ changed')).toBeTruthy();
   });
 
   it('falls back when path resolution throws during table preview', () => {

@@ -1,9 +1,10 @@
-import { useRef, useCallback, useEffect, useMemo, type RefObject } from 'react';
+import { useRef, useState, useCallback, useEffect, useMemo, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
-import ValidationCodeEditor from './ValidationCodeEditor';
+import ValidationCodeEditor, { type LineVerifyResult } from './ValidationCodeEditor';
 import DslReferencePanel from './DslReferencePanel';
 import { useValidationRulesModal, type VrModalMode } from './hooks/useValidationRulesModal';
 import type { ParseError } from './utils/validationDsl';
+import { parseDsl } from './utils/validationDsl';
 import '../../../styles/validation-rules-modal.css';
 
 interface ValidationRulesModalProps {
@@ -17,6 +18,7 @@ interface ValidationRulesModalProps {
   verifyStatus?: 'idle' | 'running' | 'complete';
   verifyPassedCount?: number;
   verifyFailedCount?: number;
+  lineResults?: LineVerifyResult[];
 }
 
 export default function ValidationRulesModal({
@@ -30,6 +32,7 @@ export default function ValidationRulesModal({
   verifyStatus,
   verifyPassedCount = 0,
   verifyFailedCount = 0,
+  lineResults = [],
 }: ValidationRulesModalProps) {
   const {
     mode,
@@ -46,6 +49,48 @@ export default function ValidationRulesModal({
   } = useValidationRulesModal();
 
   const editorRef = useRef<import('monaco-editor').editor.IStandaloneCodeEditor | null>(null);
+  const revertValueRef = useRef(value);
+  const [localText, setLocalText] = useState(value);
+  const [localErrors, setLocalErrors] = useState<ParseError[]>(errors);
+  const userEditedRef = useRef(false);
+  const lastSyncedValueRef = useRef(value);
+  const lastSyncedErrorsRef = useRef(errors);
+
+  // Sync from external prop when user hasn't made local edits
+  if (value !== lastSyncedValueRef.current && !userEditedRef.current) {
+    lastSyncedValueRef.current = value;
+    setLocalText(value);
+    setLocalErrors(errors);
+    lastSyncedErrorsRef.current = errors;
+    revertValueRef.current = value;
+  }
+  // Also sync errors when value is unchanged but errors arrive later (e.g. on reopen)
+  if (errors !== lastSyncedErrorsRef.current && !userEditedRef.current) {
+    lastSyncedErrorsRef.current = errors;
+    setLocalErrors(errors);
+  }
+
+  const handleLocalChange = useCallback((text: string) => {
+    if (!userEditedRef.current) {
+      revertValueRef.current = localText;
+    }
+    userEditedRef.current = true;
+    setLocalText(text);
+    const { errors: parsed } = parseDsl(text);
+    setLocalErrors(parsed);
+  }, [localText]);
+
+  const handleSave = useCallback(() => {
+    onChange(localText);
+    onClose();
+  }, [localText, onChange, onClose]);
+
+  const handleCancel = useCallback(() => {
+    if (userEditedRef.current) {
+      onChange(revertValueRef.current);
+    }
+    onClose();
+  }, [onChange, onClose]);
 
   const handleInsert = useCallback((text: string) => {
     const editor = editorRef.current;
@@ -77,17 +122,17 @@ export default function ValidationRulesModal({
         const suggestWidget = editor.getDomNode()?.querySelector('.editor-widget.suggest-widget.visible');
         if (suggestWidget) return;
       }
-      onClose();
+      handleCancel();
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [onClose]);
+  }, [handleCancel]);
 
   const ruleCount = useMemo(
-    () => value.split('\n').filter(l => l.trim() && !l.trim().startsWith('#')).length,
-    [value],
+    () => localText.split('\n').filter(l => l.trim() && !l.trim().startsWith('#')).length,
+    [localText],
   );
-  const errorCount = errors.length;
+  const errorCount = localErrors.length;
 
   const handleModeChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
     setMode(e.target.value as VrModalMode);
@@ -151,15 +196,6 @@ export default function ValidationRulesModal({
           <option value="floating">{'\u29C9'} Floating</option>
           <option value="maximized">{'\u2B1C'} Full Screen</option>
         </select>
-        <button
-          type="button"
-          className="vr-modal-close-btn"
-          onClick={onClose}
-          title="Close"
-          aria-label="Close validation rules"
-        >
-          &#x2715;
-        </button>
       </div>
     </div>
   );
@@ -168,24 +204,49 @@ export default function ValidationRulesModal({
     <div className="vr-modal-body">
       <div className="vr-modal-editor-pane">
         <ValidationCodeEditor
-          value={value}
-          onChange={onChange}
-          errors={errors}
+          value={localText}
+          onChange={handleLocalChange}
+          errors={localErrors}
           samplePaths={samplePaths}
           onJumpToNode={onJumpToNode}
           height="100%"
           onEditorMount={handleEditorMount}
           hideHeader
           hideFooter
+          lineResults={lineResults}
         />
-        <div className="vr-modal-footer">
-          <span>Syntax: <code>path  operator  [value]</code></span>
-          <span><kbd>Ctrl</kbd>+<kbd>Space</kbd> suggestions</span>
-          {onJumpToNode && <span><kbd>Ctrl</kbd>+<kbd>G</kbd> jump to node</span>}
-          <span><code>#</code> comments</span>
-        </div>
       </div>
-      {referenceVisible && <DslReferencePanel onInsert={handleInsert} />}
+      <button
+        type="button"
+        className={`vr-ref-edge-toggle${referenceVisible ? '' : ' vr-ref-edge-toggle--collapsed'}`}
+        onClick={toggleReference}
+        title={referenceVisible ? 'Hide reference' : 'Show reference'}
+        aria-label={referenceVisible ? 'Hide reference panel' : 'Show reference panel'}
+      >
+        {referenceVisible
+          ? '\u25B8'
+          : <><span className="vr-ref-edge-label">REF</span>{'\u25C2'}</>}
+      </button>
+      {referenceVisible && <DslReferencePanel onInsert={handleInsert} onClose={toggleReference} />}
+    </div>
+  );
+
+  const footerActionsEl = (
+    <div className="vr-modal-actions">
+      <div className="vr-modal-actions-hints">
+        <span>Syntax: <code>path  operator  [value]</code></span>
+        <span>Auto-suggest while typing</span>
+        {onJumpToNode && <span><kbd>Ctrl</kbd>+<kbd>G</kbd> jump to node</span>}
+        <span><code>#</code> comments</span>
+      </div>
+      <div className="vr-modal-actions-buttons">
+        <button type="button" className="vr-modal-btn vr-modal-btn--secondary" onClick={handleCancel}>
+          Cancel
+        </button>
+        <button type="button" className="vr-modal-btn vr-modal-btn--primary" onClick={handleSave}>
+          Save
+        </button>
+      </div>
     </div>
   );
 
@@ -202,6 +263,7 @@ export default function ValidationRulesModal({
         <div className="vr-modal-resize-handle" onMouseDown={onDockedResizeStart} />
         {headerEl}
         {bodyEl}
+        {footerActionsEl}
       </div>,
       portalTarget,
     );
@@ -212,6 +274,7 @@ export default function ValidationRulesModal({
       <div className="vr-modal-panel vr-modal-panel--maximized" role="region" aria-label="Validation Rules">
         {headerEl}
         {bodyEl}
+        {footerActionsEl}
       </div>,
       portalTarget,
     );
@@ -226,6 +289,7 @@ export default function ValidationRulesModal({
     >
       {headerEl}
       {bodyEl}
+      {footerActionsEl}
       <div className="vr-modal-float-edge-right" onMouseDown={onRightEdgeResizeStart} />
       <div className="vr-modal-float-grip" onMouseDown={onFloatResizeStart} />
     </div>,

@@ -45,15 +45,41 @@ function setStoredDisposable(d: { dispose: () => void } | null): void {
   (globalThis as any)[HMR_KEY_DISPOSABLE] = d;
 }
 
+function rgbToHex(rgb: string): string {
+  const m = rgb.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+  if (!m) return rgb;
+  const r = parseInt(m[1], 10);
+  const g = parseInt(m[2], 10);
+  const b = parseInt(m[3], 10);
+  return `#${((1 << 24) | (r << 16) | (g << 8) | b).toString(16).slice(1)}`;
+}
+
+function getCssVar(name: string, fallback: string): string {
+  const val = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  if (!val) return fallback;
+  if (val.startsWith('rgb')) return rgbToHex(val);
+  return val;
+}
+
+const LIGHT_THEMES = new Set(['light', 'mist', 'frost', 'sage', 'sand']);
+
+function isLightTheme(): boolean {
+  const attr = document.documentElement.getAttribute('data-theme') ?? '';
+  if (LIGHT_THEMES.has(attr)) return true;
+  if (attr && !LIGHT_THEMES.has(attr)) return false;
+  const bg = getCssVar('--bg', '#0f172a');
+  const r = parseInt(bg.slice(1, 3), 16) || 0;
+  const g = parseInt(bg.slice(3, 5), 16) || 0;
+  const b = parseInt(bg.slice(5, 7), 16) || 0;
+  return (r * 299 + g * 587 + b * 114) / 1000 > 128;
+}
+
 function registerLanguage(monaco: typeof import('monaco-editor')) {
   if (isLanguageRegistered()) return;
   markLanguageRegistered();
 
   monaco.languages.register({ id: LANGUAGE_ID });
 
-  // Word pattern: only plain identifiers are "words" — dots, brackets, etc. are separators.
-  // This prevents Monaco from treating "offers[0].rank" as a single word and trying to
-  // extend partial text like "offers" into a longer path via its suggest widget.
   monaco.languages.setLanguageConfiguration(LANGUAGE_ID, {
     wordPattern: /[a-zA-Z_$]\w*/,
   });
@@ -86,35 +112,54 @@ function registerLanguage(monaco: typeof import('monaco-editor')) {
     },
   });
 
-  monaco.editor.defineTheme('validation-dsl-dark', {
-    base: 'vs-dark',
+  applyDynamicTheme(monaco);
+}
+
+function applyDynamicTheme(monaco: typeof import('monaco-editor'), themeName = 'validation-dsl-dark') {
+  const light = isLightTheme();
+  const bg = getCssVar('--bg', light ? '#eef2f7' : '#0f172a');
+  const surface = getCssVar('--surface', light ? '#ffffff' : '#1e293b');
+  const surfaceHover = getCssVar('--surface-hover', light ? '#f1f5f9' : '#2d3a4d');
+  const border = getCssVar('--border', light ? '#bcc8d8' : '#3b4a60');
+  const text = getCssVar('--text', light ? '#111827' : '#f1f5f9');
+  const textMuted = getCssVar('--text-muted', light ? '#3f4f63' : '#a8b8cc');
+  const primary = getCssVar('--primary', light ? '#2563eb' : '#3b82f6');
+  const accent = getCssVar('--accent', light ? '#7c3aed' : '#8b5cf6');
+  const danger = getCssVar('--danger', light ? '#dc2626' : '#ef4444');
+  const success = getCssVar('--success', light ? '#16a34a' : '#22c55e');
+  const warning = getCssVar('--warning', light ? '#d97706' : '#f59e0b');
+
+  const strip = (c: string) => c.replace('#', '');
+
+  monaco.editor.defineTheme(themeName, {
+    base: light ? 'vs' : 'vs-dark',
     inherit: true,
     rules: [
-      { token: 'comment', foreground: '6c7086', fontStyle: 'italic' },
-      { token: 'string', foreground: 'a6e3a1' },
-      { token: 'number', foreground: 'fab387' },
-      { token: 'keyword.boolean', foreground: 'f38ba8' },
-      { token: 'keyword.operator', foreground: 'cba6f7' },
-      { token: 'keyword.negate', foreground: 'f87171', fontStyle: 'bold' },
-      { token: 'keyword.assert', foreground: 'cba6f7', fontStyle: 'bold' },
-      { token: 'keyword.collection', foreground: '94e2d5' },
-      { token: 'type', foreground: '94e2d5' },
-      { token: 'operator', foreground: 'f9e2af' },
-      { token: 'identifier', foreground: '89dceb' },
-      { token: 'delimiter', foreground: '6c7086' },
-      { token: 'delimiter.path', foreground: '89dceb' },
+      { token: 'comment', foreground: strip(textMuted), fontStyle: 'italic' },
+      { token: 'string', foreground: strip(success) },
+      { token: 'number', foreground: strip(warning) },
+      { token: 'keyword.boolean', foreground: strip(danger) },
+      { token: 'keyword.operator', foreground: strip(accent) },
+      { token: 'keyword.negate', foreground: strip(danger), fontStyle: 'bold' },
+      { token: 'keyword.assert', foreground: strip(accent), fontStyle: 'bold' },
+      { token: 'keyword.collection', foreground: strip(success) },
+      { token: 'type', foreground: strip(success) },
+      { token: 'operator', foreground: strip(warning) },
+      { token: 'identifier', foreground: strip(primary) },
+      { token: 'delimiter', foreground: strip(textMuted) },
+      { token: 'delimiter.path', foreground: strip(primary) },
     ],
     colors: {
-      'editor.background': '#181825',
-      'editor.foreground': '#cdd6f4',
-      'editor.lineHighlightBackground': '#1e1e2e',
-      'editor.selectionBackground': '#45475a80',
-      'editorCursor.foreground': '#89b4fa',
-      'editorLineNumber.foreground': '#45475a',
-      'editorLineNumber.activeForeground': '#89b4fa',
-      'editor.inactiveSelectionBackground': '#31324440',
-      'editorGutter.background': '#11111b',
-      'editorIndentGuide.background': '#31324440',
+      'editor.background': surface,
+      'editor.foreground': text,
+      'editor.lineHighlightBackground': light ? bg : surfaceHover,
+      'editor.selectionBackground': border + '80',
+      'editorCursor.foreground': primary,
+      'editorLineNumber.foreground': border,
+      'editorLineNumber.activeForeground': primary,
+      'editor.inactiveSelectionBackground': border + '40',
+      'editorGutter.background': surface,
+      'editorIndentGuide.background': border + '40',
     },
   });
 }
@@ -127,10 +172,8 @@ function ensureCompletionProvider(
   if (getStoredDisposable()) return;
 
   const disposable = monaco.languages.registerCompletionItemProvider(LANGUAGE_ID, {
-    // No automatic triggerCharacters — quickSuggestions handles auto-trigger,
-    // and our provider decides what (if anything) to return per context.
-    // Paths are surfaced via the passive React hint strip, never through this widget.
-    provideCompletionItems: (model, position, context) => {
+    triggerCharacters: ['.', '['],
+    provideCompletionItems: (model, position) => {
       const lineContent = model.getLineContent(position.lineNumber);
       const textUntilCursor = lineContent.slice(0, position.column - 1);
       const words = textUntilCursor.trim().split(/\s+/);
@@ -144,14 +187,29 @@ function ensureCompletionProvider(
       const hasSpace = textUntilCursor.includes(' ');
       const isPathPosition = words.length <= 1 && !hasSpace;
       if (isPathPosition) {
-        // Paths are NEVER returned via Monaco's suggest widget — Monaco can't
-        // distinguish quickSuggestions auto-trigger from manual Ctrl+Space
-        // (both use triggerKind: Invoke), so any path return would auto-popup
-        // while the user types and hijack keystrokes. Path discovery is handled
-        // by the passive `dm-validation-editor-pathstrip` chips below the
-        // editor — which cannot intercept typing because it's not a Monaco widget.
-        void context; // kept for future use; intentionally unused here
-        return { suggestions: [] };
+        const partial = (words[0] ?? '').toLowerCase();
+        const paths = (window as unknown as Record<string, unknown>).__REDFIRE_VALIDATION_PATHS as string[] | undefined;
+        if (!paths?.length) return { suggestions: [] };
+
+        const pathRange = {
+          startLineNumber: position.lineNumber,
+          startColumn: 1,
+          endLineNumber: position.lineNumber,
+          endColumn: position.column,
+        };
+        return {
+          suggestions: paths
+            .filter(p => !partial || p.toLowerCase().includes(partial))
+            .slice(0, 30)
+            .map(p => ({
+              label: p,
+              kind: monaco.languages.CompletionItemKind.Field,
+              insertText: p + '  ',
+              range: pathRange,
+              detail: 'JSON path',
+              sortText: p.toLowerCase().startsWith(partial) ? '0' + p : '1' + p,
+            })),
+        };
       }
 
       // After path — suggest operators
@@ -211,6 +269,13 @@ function ensureCompletionProvider(
 
 // ─── Component ────────────────────────────────────────────
 
+export interface LineVerifyResult {
+  lineNumber: number;
+  passed: boolean;
+  actual?: string;
+  expected?: string;
+}
+
 interface ValidationCodeEditorProps {
   value: string;
   onChange: (text: string) => void;
@@ -222,6 +287,7 @@ interface ValidationCodeEditorProps {
   onEditorMount?: (editor: import('monaco-editor').editor.IStandaloneCodeEditor) => void;
   hideHeader?: boolean;
   hideFooter?: boolean;
+  lineResults?: LineVerifyResult[];
 }
 
 export default function ValidationCodeEditor({
@@ -235,9 +301,12 @@ export default function ValidationCodeEditor({
   onEditorMount,
   hideHeader = false,
   hideFooter = false,
+  lineResults = [],
 }: ValidationCodeEditorProps) {
   const editorRef = useRef<import('monaco-editor').editor.IStandaloneCodeEditor | null>(null);
   const monacoRef = useRef<typeof import('monaco-editor') | null>(null);
+  const [monacoReady, setMonacoReady] = useState(false);
+  const [themeKey, setThemeKey] = useState('validation-dsl-0');
   const samplePathsRef = useRef(samplePaths);
   const jumpToNodeRef = useRef(onJumpToNode);
   const [ruleCount, setRuleCount] = useState(0);
@@ -245,8 +314,14 @@ export default function ValidationCodeEditor({
   const [currentPrefix, setCurrentPrefix] = useState('');
   const lastJumpedLineRef = useRef<number | null>(null);
 
+  const matchingPathsRef = useRef<string[]>([]);
   samplePathsRef.current = samplePaths;
   jumpToNodeRef.current = onJumpToNode;
+
+  useEffect(() => {
+    (window as unknown as Record<string, unknown>).__REDFIRE_VALIDATION_PATHS = samplePaths;
+    return () => { (window as unknown as Record<string, unknown>).__REDFIRE_VALIDATION_PATHS = undefined; };
+  }, [samplePaths]);
 
   useEffect(() => {
     setRuleCount(value.split('\n').filter(l => l.trim() && !l.trim().startsWith('#')).length);
@@ -264,6 +339,8 @@ export default function ValidationCodeEditor({
       .filter(p => p.toLowerCase().includes(lower) && p !== prefix)
       .slice(0, 8);
   }, [currentPrefix, samplePaths]);
+
+  matchingPathsRef.current = matchingPaths;
 
   const insertPathAtCursor = useCallback((path: string) => {
     const editor = editorRef.current;
@@ -293,11 +370,13 @@ export default function ValidationCodeEditor({
   const handleBeforeMount: BeforeMount = useCallback((monaco) => {
     registerLanguage(monaco);
     ensureCompletionProvider(monaco);
+    applyDynamicTheme(monaco, 'validation-dsl-0');
   }, []);
 
   const handleMount: OnMount = useCallback((editor, monaco) => {
     editorRef.current = editor;
     monacoRef.current = monaco;
+    setMonacoReady(true);
     onEditorMount?.(editor);
 
     editor.addAction({
@@ -313,6 +392,48 @@ export default function ValidationCodeEditor({
         if (path && !path.startsWith('#') && onJumpToNode) {
           onJumpToNode(path);
         }
+      },
+    });
+
+    editor.addAction({
+      id: 'trigger-suggest-alt',
+      label: 'Trigger Suggestions',
+      keybindings: [
+        monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyI,
+        monaco.KeyMod.WinCtrl | monaco.KeyCode.Space,
+        monaco.KeyMod.Alt | monaco.KeyCode.Space,
+        monaco.KeyMod.CtrlCmd | monaco.KeyCode.Space,
+      ],
+      run: (ed) => {
+        ed.trigger('keyboard', 'editor.action.triggerSuggest', {});
+      },
+    });
+
+    editor.addAction({
+      id: 'accept-path-hint',
+      label: 'Accept Path Hint',
+      keybindings: [monaco.KeyCode.Tab],
+      precondition: '!suggestWidgetVisible',
+      run: (ed) => {
+        const paths = matchingPathsRef.current;
+        if (!paths.length) return;
+        const pos = ed.getPosition();
+        const model = ed.getModel();
+        if (!pos || !model) return;
+        const lineText = model.getLineContent(pos.lineNumber).slice(0, pos.column - 1);
+        const trimmed = lineText.trim();
+        if (!trimmed || trimmed.startsWith('#') || trimmed.includes(' ')) return;
+        const leadingSpaces = lineText.length - lineText.trimStart().length;
+        ed.executeEdits('accept-path-hint', [{
+          range: {
+            startLineNumber: pos.lineNumber,
+            startColumn: 1 + leadingSpaces,
+            endLineNumber: pos.lineNumber,
+            endColumn: pos.column,
+          },
+          text: paths[0],
+          forceMoveMarkers: true,
+        }]);
       },
     });
 
@@ -407,6 +528,13 @@ export default function ValidationCodeEditor({
       updatePrefix();
     });
     const cursorDisposable = editor.onDidChangeCursorPosition((e) => {
+      // Skip all side-effects when user is selecting text (mouse drag or
+      // Shift+Arrow). React state updates during selection cause re-renders
+      // that steal focus and break multi-line selection.
+      const sel = editor.getSelection();
+      const isSelecting = sel && !sel.isEmpty();
+      if (isSelecting) return;
+
       updatePrefix();
       const lineNum = e.position.lineNumber;
       if (lineNum === lastJumpedLineRef.current) return;
@@ -450,10 +578,90 @@ export default function ValidationCodeEditor({
     monaco.editor.setModelMarkers(model, LANGUAGE_ID, markers);
   }, [errors]);
 
+  // Parse-error line decorations (red background + gutter for error lines)
+  const errorDecorationsRef = useRef<string[]>([]);
+  useEffect(() => {
+    const editor = editorRef.current;
+    if (!editor || !monacoReady) return;
+    if (errors.length === 0) {
+      if (errorDecorationsRef.current.length > 0) {
+        errorDecorationsRef.current = editor.deltaDecorations(errorDecorationsRef.current, []);
+      }
+      return;
+    }
+    const newDecorations: import('monaco-editor').editor.IModelDeltaDecoration[] = errors.map(err => ({
+      range: {
+        startLineNumber: err.lineNumber,
+        startColumn: 1,
+        endLineNumber: err.lineNumber,
+        endColumn: 1,
+      },
+      options: {
+        isWholeLine: true,
+        className: 'dm-verify-line--fail',
+        linesDecorationsClassName: 'dm-verify-glyph--fail',
+        linesDecorationsTooltip: err.message,
+      },
+    }));
+    errorDecorationsRef.current = editor.deltaDecorations(errorDecorationsRef.current, newDecorations);
+  }, [errors, monacoReady]);
+
+  // Verify-result line decorations (pass/fail gutter + background)
+  const verifyDecorationsRef = useRef<string[]>([]);
+  useEffect(() => {
+    const editor = editorRef.current;
+    if (!editor || !monacoReady) return;
+    if (lineResults.length === 0) {
+      if (verifyDecorationsRef.current.length > 0) {
+        verifyDecorationsRef.current = editor.deltaDecorations(verifyDecorationsRef.current, []);
+      }
+      return;
+    }
+    const newDecorations: import('monaco-editor').editor.IModelDeltaDecoration[] = lineResults.map(lr => ({
+      range: {
+        startLineNumber: lr.lineNumber,
+        startColumn: 1,
+        endLineNumber: lr.lineNumber,
+        endColumn: 1,
+      },
+      options: lr.passed
+        ? {
+          isWholeLine: true,
+          className: 'dm-verify-line--pass',
+          linesDecorationsClassName: 'dm-verify-glyph--pass',
+          linesDecorationsTooltip: 'Passed',
+        }
+        : {
+          isWholeLine: true,
+          className: 'dm-verify-line--fail',
+          linesDecorationsClassName: 'dm-verify-glyph--fail',
+          linesDecorationsTooltip: `Failed${lr.expected ? ` — Expected: ${lr.expected}` : ''}${lr.actual ? `, Got: ${lr.actual}` : ''}`,
+        },
+    }));
+    verifyDecorationsRef.current = editor.deltaDecorations(verifyDecorationsRef.current, newDecorations);
+  }, [lineResults, monacoReady]);
+
+  const themeCounter = useRef(0);
+  useEffect(() => {
+    const monaco = monacoRef.current;
+    if (!monaco || !monacoReady) return;
+    const apply = () => {
+      themeCounter.current += 1;
+      const name = `validation-dsl-${themeCounter.current}`;
+      applyDynamicTheme(monaco, name);
+      monaco.editor.setTheme(name);
+      setThemeKey(name);
+    };
+    apply();
+    const observer = new MutationObserver(() => apply());
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'style'] });
+    return () => observer.disconnect();
+  }, [monacoReady]);
+
   const editorOptions = useMemo(() => ({
     minimap: { enabled: false },
     lineNumbers: 'on' as const,
-    glyphMargin: true,
+    glyphMargin: false,
     folding: false,
     wordWrap: 'off' as const,
     scrollBeyondLastLine: false,
@@ -478,10 +686,8 @@ export default function ValidationCodeEditor({
     // our `autocorrect="off"` attribute on the textarea actually take effect,
     // disabling macOS smart-substitution at its source.
     editContext: false,
-    // quickSuggestions ON so the operator/value helper auto-appears (e.g. "length"
-    // after `offers `). Path suggestions are gated INSIDE the completion provider
-    // so they only appear on explicit Invoke (Ctrl+Space) — never while typing
-    // the path itself.
+    // quickSuggestions ON so suggestions auto-appear while typing: paths at the
+    // first-word position, operators after a path, values after an operator.
     quickSuggestions: { other: true, comments: false, strings: false },
     suggestOnTriggerCharacters: true,
     wordBasedSuggestions: 'off' as const,
@@ -495,29 +701,48 @@ export default function ValidationCodeEditor({
     },
     contextmenu: true,
     fixedOverflowWidgets: true,
+    selectOnLineNumbers: true,
+    selectionHighlight: true,
+    columnSelection: false,
+    multiCursorModifier: 'ctrlCmd' as const,
   }), [readOnly]);
 
   return (
     <div className="dm-validation-editor" role="region" aria-label="Validation rules editor">
-      {!hideHeader && (
-        <div className="dm-validation-editor-header">
-          <span className="dm-validation-editor-title">Validation Rules</span>
-          <div className="dm-validation-editor-stats">
-            <span className="dm-validation-editor-stat">
-              {ruleCount} rule{ruleCount !== 1 ? 's' : ''}
-            </span>
-            {errorCount > 0 && (
-              <span className="dm-validation-editor-stat dm-validation-editor-stat--error">
-                {errorCount} error{errorCount !== 1 ? 's' : ''}
+      {!hideHeader && (() => {
+        const passCount = lineResults.filter(r => r.passed).length;
+        const failCount = lineResults.filter(r => !r.passed).length;
+        const hasResults = lineResults.length > 0;
+        return (
+          <div className="dm-validation-editor-header">
+            <span className="dm-validation-editor-title">Validation Rules</span>
+            <div className="dm-validation-editor-stats">
+              <span className="dm-validation-editor-stat">
+                {ruleCount} rule{ruleCount !== 1 ? 's' : ''}
               </span>
-            )}
+              {hasResults && passCount > 0 && (
+                <span className="dm-validation-editor-stat dm-validation-editor-stat--pass">
+                  {passCount} passed
+                </span>
+              )}
+              {hasResults && failCount > 0 && (
+                <span className="dm-validation-editor-stat dm-validation-editor-stat--fail">
+                  {failCount} failed
+                </span>
+              )}
+              {errorCount > 0 && (
+                <span className="dm-validation-editor-stat dm-validation-editor-stat--error">
+                  {errorCount} error{errorCount !== 1 ? 's' : ''}
+                </span>
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
       <div className="dm-validation-editor-body" style={{ height }}>
         <Editor
           language={LANGUAGE_ID}
-          theme="validation-dsl-dark"
+          theme={themeKey}
           value={value}
           onChange={(v) => onChange(v ?? '')}
           beforeMount={handleBeforeMount}
@@ -546,7 +771,7 @@ export default function ValidationCodeEditor({
       {!hideFooter && (
         <div className="dm-validation-editor-footer">
           <span className="dm-validation-editor-hint">
-            Syntax: <code>path  operator  [value]</code> · <kbd>Ctrl</kbd>+<kbd>Space</kbd> for full suggestions · Lines starting with <code>#</code> are comments
+            Syntax: <code>path  operator  [value]</code> · <kbd>⌘</kbd><kbd>I</kbd> suggestions · <kbd>Tab</kbd> accept path hint · <code>#</code> comments
           </span>
           {onJumpToNode && (
             <span className="dm-validation-editor-hint">

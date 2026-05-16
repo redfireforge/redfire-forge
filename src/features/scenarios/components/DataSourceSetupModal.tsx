@@ -7,6 +7,7 @@
  *  3. Apply (saves to inline data source) or Export (downloads .xlsx)
  */
 import { useState, useMemo, useRef, useCallback, useEffect } from 'react';
+import type { FetchErrorDetail } from '../../../shared/components/data-mapper/types';
 import { v4 as uuidv4 } from 'uuid';
 import type { Scenario, DataSource, DataSourceColumn, DataSourceRow, FeatureGroup, ExpectedField, AuthConfig } from '../../../shared/types';
 import type { HttpResponse } from '../../../shared/utils/httpClient';
@@ -307,7 +308,7 @@ export default function DataSourceSetupModal({ test, mode, onApply, onClose, onF
   });
   const [validateExcluded, setValidateExcluded] = useState<string[]>([]);
   const [fetching, setFetching] = useState(false);
-  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [fetchError, setFetchError] = useState<FetchErrorDetail | null>(null);
   const [arrayModes, setArrayModes] = useState<Record<string, 'ordered' | 'unordered'>>(existingDt?.arrayValidationMode ?? {});
 
   // Detect unique array prefixes from selected validate fields
@@ -342,11 +343,19 @@ export default function DataSourceSetupModal({ test, mode, onApply, onClose, onF
         result = await proxyFetch(test.url, test.method, headers, test.body || undefined);
       }
 
-      if (result.error) { setFetchError(result.error); setFetching(false); return; }
-      if (result.status >= 400) { setFetchError(`HTTP ${result.status}: ${result.statusText}`); setFetching(false); return; }
+      if (result.error) {
+        setFetchError({ message: result.error, status: result.status || undefined, headers: result.headers, body: result.body || undefined });
+        setFetching(false);
+        return;
+      }
+      if (result.status >= 400) {
+        setFetchError({ message: `HTTP ${result.status}: ${result.statusText}`, status: result.status, statusText: result.statusText, headers: result.headers, body: result.body || undefined });
+        setFetching(false);
+        return;
+      }
       setSampleJson(result.body);
     } catch (err) {
-      setFetchError(err instanceof Error ? err.message : String(err));
+      setFetchError({ message: err instanceof Error ? err.message : String(err) });
     }
     setFetching(false);
   }, [test, onFetchRow, workingAuth]);

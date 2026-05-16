@@ -413,7 +413,7 @@ describe('useTargetFields', () => {
     await act(async () => {
       try { await r1.current.handleFetchTargetSchema(); } catch { /* expected */ }
     });
-    expect(r1.current.targetFetchError).toBe('network down');
+    expect(r1.current.targetFetchError).toEqual({ message: 'network down' });
 
     const adapterStr = makeAdapter({
       fetchTargetSchema: vi.fn().mockRejectedValue('boom'),
@@ -424,7 +424,7 @@ describe('useTargetFields', () => {
     await act(async () => {
       try { await r2.current.handleFetchTargetSchema(); } catch { /* expected */ }
     });
-    expect(r2.current.targetFetchError).toBe('Failed to fetch target schema');
+    expect(r2.current.targetFetchError).toEqual({ message: 'Failed to fetch target schema' });
   });
 
   it('handleFetchTargetSchema clears prior error when starting a successful fetch', async () => {
@@ -442,7 +442,7 @@ describe('useTargetFields', () => {
     await act(async () => {
       try { await result.current.handleFetchTargetSchema(); } catch { /* expected */ }
     });
-    expect(result.current.targetFetchError).toBe('first');
+    expect(result.current.targetFetchError).toEqual({ message: 'first' });
 
     await act(async () => {
       await result.current.handleFetchTargetSchema();
@@ -524,7 +524,7 @@ describe('useTargetFields', () => {
     await act(async () => {
       try { await result.current.handleFetchTargetSchema(); } catch { /* expected */ }
     });
-    expect(result.current.targetFetchError).toBe('bad');
+    expect(result.current.targetFetchError).toEqual({ message: 'bad' });
 
     act(() => {
       result.current.handlePasteTargetSample({ pasted: 1 });

@@ -58,6 +58,7 @@ interface LocationGroupPanelProps {
   onUpdateArrayAssertion?: (index: number, patch: Partial<Assertion>) => void;
   onRemoveArrayAssertion?: (index: number) => void;
   arrayAssertions?: Assertion[];
+  assertionVerifyMap?: Map<number, { passed: boolean; actual?: string; expected?: string }>;
   onRemapDrop?: (newTargetPath: string, mappingId: string) => void;
   onRemapDragStart?: (mappingId: string) => void;
   onRemapDragEnd?: () => void;
@@ -110,6 +111,7 @@ export default function LocationGroupPanel({
   onUpdateArrayAssertion,
   onRemoveArrayAssertion,
   arrayAssertions,
+  assertionVerifyMap,
   onRemapDrop,
   onRemapDragStart,
   onRemapDragEnd,
@@ -231,6 +233,7 @@ export default function LocationGroupPanel({
               onUpdateArrayAssertion={onUpdateArrayAssertion}
               onRemoveArrayAssertion={onRemoveArrayAssertion}
               arrayAssertions={arrayAssertions}
+              assertionVerifyMap={assertionVerifyMap}
               onRemapDrop={onRemapDrop}
               onRemapDragStart={onRemapDragStart}
               onRemapDragEnd={onRemapDragEnd}
@@ -305,6 +308,7 @@ export default function LocationGroupPanel({
               onUpdateArrayAssertion={onUpdateArrayAssertion}
               onRemoveArrayAssertion={onRemoveArrayAssertion}
               arrayAssertions={arrayAssertions}
+              assertionVerifyMap={assertionVerifyMap}
               onRemapDrop={onRemapDrop}
               onRemapDragStart={onRemapDragStart}
               onRemapDragEnd={onRemapDragEnd}

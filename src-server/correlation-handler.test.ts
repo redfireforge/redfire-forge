@@ -894,9 +894,11 @@ describe('correlation-handler — HTTP routes', () => {
     expect(res.status).toBe(201);
 
     const listRes = await request.get('/api/correlations');
+    expect(listRes.body.correlations).toBeDefined();
     const entry = listRes.body.correlations.find((e: ServerPausedEntry) => e.correlationId === 'no-wf-node');
-    expect(entry.workflowId).toBe('unknown');
-    expect(entry.pausedNodeId).toBe('unknown');
+    expect(entry).toBeDefined();
+    expect(entry!.workflowId).toBe('unknown');
+    expect(entry!.pausedNodeId).toBe('unknown');
   });
 
   it('POST /api/correlations/pause — sets timeoutAt to 0 when timeoutMs is 0', async () => {

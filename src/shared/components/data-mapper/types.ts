@@ -198,6 +198,26 @@ export interface MapperAdapter<TOutput = unknown> {
   capabilities?: AdapterCapabilities;
 }
 
+// ─── Fetch Error Detail ──────────────────────────────────
+
+export interface FetchErrorDetail {
+  message: string;
+  status?: number;
+  statusText?: string;
+  headers?: Record<string, string>;
+  body?: string;
+  timing?: { ttfb?: number; total?: number };
+}
+
+export class MapperFetchError extends Error {
+  detail: FetchErrorDetail;
+  constructor(detail: FetchErrorDetail) {
+    super(detail.message);
+    this.name = 'MapperFetchError';
+    this.detail = detail;
+  }
+}
+
 // ─── State ────────────────────────────────────────────────
 
 export interface MapperState {
@@ -239,6 +259,7 @@ export interface TargetTreeNodeProps {
   depth: number;
   search: string;
   mappingFilter?: 'all' | 'mapped' | 'unmapped';
+  verifyFilter?: 'passed' | 'failed' | null;
   mappedTargetPaths?: Set<string>;
   onNodeSelect?: (path: string) => void;
   selectedNodePath?: string | null;
@@ -276,6 +297,7 @@ export interface TargetTreeNodeProps {
   onUpdateArrayAssertion?: (index: number, patch: Partial<Assertion>) => void;
   onRemoveArrayAssertion?: (index: number) => void;
   arrayAssertions?: Assertion[];
+  assertionVerifyMap?: Map<number, { passed: boolean; actual?: string; expected?: string }>;
   highlightedPaths?: Set<string> | null;
   onRemapDrop?: (newTargetPath: string, mappingId: string) => void;
   onRemapDragStart?: (mappingId: string) => void;

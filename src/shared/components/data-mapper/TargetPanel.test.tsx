@@ -1,8 +1,9 @@
 /** @vitest-environment jsdom */
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import TargetPanel from './TargetPanel';
 import type { MapperTarget, Mapping } from './types';
+import type { Assertion } from '../../types';
 
 const target: MapperTarget = {
   label: 'Output',
@@ -30,10 +31,15 @@ describe('TargetPanel', () => {
     expect(screen.getByText('email')).toBeTruthy();
   });
 
-  it('shows "Target" panel title', () => {
-    renderPanel();
-    expect(screen.getByText('Target')).toBeTruthy();
-  });
+    it('shows "Target" panel title', () => {
+      renderPanel();
+      expect(screen.getByText('Target')).toBeTruthy();
+    });
+
+    it('adds focused panel class when isFocusRegion is true', () => {
+      const { container } = renderPanel({ isFocusRegion: true });
+      expect(container.querySelector('.dm-panel--focused')).toBeTruthy();
+    });
 
   it('shows mapped badge when mappings exist', () => {
     renderPanel({ mappings: [mapping] });
@@ -480,7 +486,7 @@ describe('TargetPanel', () => {
     });
 
     it('displays target fetch error', () => {
-      renderPanel({ targetFetchError: 'Network error' });
+      renderPanel({ targetFetchError: { message: 'Network error' } });
       expect(screen.getByText('Network error')).toBeTruthy();
     });
 
@@ -491,6 +497,27 @@ describe('TargetPanel', () => {
       fireEvent.click(screen.getByLabelText('Fetch target schema'));
       expect(screen.getByText('…')).toBeTruthy();
       resolveFetch();
+    });
+
+    it('clears fetching state when onFetchTargetSchema rejects', async () => {
+      const fetchFn = vi.fn(() => Promise.reject(new Error('boom')));
+      renderPanel({ canFetchTarget: true, onFetchTargetSchema: fetchFn });
+      fireEvent.click(screen.getByLabelText('Fetch target schema'));
+      await waitFor(() => {
+        expect(screen.queryByText('…')).toBeNull();
+      });
+    });
+
+    it('shows paste parse error for thrown non-Error values', () => {
+      renderPanel({
+        onPasteTargetSample: vi.fn(() => {
+          throw 'not-an-error';
+        }),
+      });
+      fireEvent.click(screen.getByLabelText('Paste JSON'));
+      fireEvent.change(screen.getByLabelText('Paste target JSON'), { target: { value: '{}' } });
+      fireEvent.click(screen.getByText('Apply'));
+      expect(screen.getByText('Invalid JSON')).toBeTruthy();
     });
 
     it('pre-fills paste textarea with existing sampleData', () => {
@@ -746,6 +773,90 @@ describe('TargetPanel', () => {
       );
     });
 
+    it('extractDraggedSource ignores invalid JSON drag payload then uses fallback', () => {
+      const onAddCustomField = vi.fn();
+      const onDrop = vi.fn();
+      const customTarget: MapperTarget = {
+        label: 'Custom',
+        sampleData: null,
+        allowCustomFields: true,
+      };
+      const { container } = renderPanel({
+        target: customTarget,
+        onAddCustomField,
+        onDrop,
+        getDraggedSource: () => ({ path: 'after-invalid-json', sourceId: 's1' }),
+      });
+      const emptyState = container.querySelector('.dm-empty-state');
+      fireEvent.drop(emptyState!, {
+        dataTransfer: {
+          getData: (type: string) => (type === 'application/mapper-source' ? '{bad' : ''),
+          dropEffect: 'none',
+        },
+      });
+      expect(onAddCustomField).toHaveBeenCalledWith(
+        expect.objectContaining({ path: 'after-invalid-json' }),
+      );
+    });
+
+    it('extractDraggedSource ignores JSON with non-string path then uses fallback', () => {
+      const onAddCustomField = vi.fn();
+      const onDrop = vi.fn();
+      const customTarget: MapperTarget = {
+        label: 'Custom',
+        sampleData: null,
+        allowCustomFields: true,
+      };
+      const { container } = renderPanel({
+        target: customTarget,
+        onAddCustomField,
+        onDrop,
+        getDraggedSource: () => ({ path: 'after-bad-shape', sourceId: 's1' }),
+      });
+      const emptyState = container.querySelector('.dm-empty-state');
+      fireEvent.drop(emptyState!, {
+        dataTransfer: {
+          getData: (type: string) =>
+            type === 'text/plain' ? JSON.stringify({ path: 123, sourceId: 's9' }) : '',
+          dropEffect: 'none',
+        },
+      });
+      expect(onAddCustomField).toHaveBeenCalledWith(
+        expect.objectContaining({ path: 'after-bad-shape' }),
+      );
+    });
+
+    it('createUniquePath appends suffix when path collides with existing field paths', () => {
+      const onAddCustomField = vi.fn();
+      const onDrop = vi.fn();
+      const collisionTarget: MapperTarget = {
+        label: 'Collision',
+        sampleData: '{not-json',
+        fields: [
+          { path: 'dup', label: 'Dup', type: 'string' },
+          { path: 'dup_2', label: 'Dup 2', type: 'string' },
+        ],
+        allowCustomFields: true,
+      };
+      const { container } = renderPanel({
+        target: collisionTarget,
+        onAddCustomField,
+        onDrop,
+      });
+      const emptyState = container.querySelector('.dm-empty-state');
+      fireEvent.drop(emptyState!, {
+        dataTransfer: {
+          getData: (type: string) =>
+            type === 'text/plain' ? JSON.stringify({ path: 'dup', sourceId: 's1' }) : '',
+          dropEffect: 'none',
+        },
+      });
+      expect(onAddCustomField).toHaveBeenCalledWith(
+        expect.objectContaining({ path: 'dup_3', label: 'dup_3' }),
+      );
+      expect(onDrop).toHaveBeenCalledWith('dup_3', 'dup', 's1');
+    });
+
     it('onTreeKeyDown is invoked when provided', () => {
       const onTreeKeyDown = vi.fn();
       const { container } = renderPanel({ onTreeKeyDown });
@@ -761,6 +872,35 @@ describe('TargetPanel', () => {
         target: { label: 'Bad', sampleData: '{invalid-json', allowCustomFields: false },
       });
       expect(screen.getByText('Target')).toBeTruthy();
+    });
+
+    it('treats non-serializable sampleData as empty signature without throwing', () => {
+      const circular: Record<string, unknown> = {};
+      circular.self = circular;
+      renderPanel({
+        target: { label: 'Circular', sampleData: circular, allowCustomFields: false },
+      });
+      expect(screen.getByText('Target')).toBeTruthy();
+    });
+
+    it('resetViewSignal with null tree resets view state without throwing', () => {
+      const badFieldsTarget: MapperTarget = {
+        label: 'BadSampleWithFields',
+        sampleData: '{bad',
+        fields: [{ path: 'orphan', label: 'Orphan', type: 'string' }],
+        allowCustomFields: false,
+      };
+      const props = {
+        target: badFieldsTarget,
+        mappings: [] as Mapping[],
+        onDrop: vi.fn(),
+        selectedMappingId: null,
+        onSelectMapping: vi.fn(),
+      };
+      const { rerender } = render(<TargetPanel {...props} resetViewSignal={null} />);
+      rerender(<TargetPanel {...props} resetViewSignal={42} />);
+      expect(screen.getByText(/No target schema/)).toBeTruthy();
+      expect((screen.getByLabelText('Filter target fields') as HTMLSelectElement).value).toBe('all');
     });
 
     it('togglePasteMode catches invalid string sampleData and sets empty paste text', () => {
@@ -827,6 +967,70 @@ describe('TargetPanel', () => {
       const badge = container.querySelector('.dm-mapped-count-badge');
       expect(badge?.textContent).toContain('1 mapped');
       expect(badge?.textContent).toContain('4 unresolved');
+    });
+
+    it('shows 0 mapped label when resolved count is zero but unresolved is positive', () => {
+      const { container } = renderPanel({
+        mappings: [mapping],
+        resolvedMappingCount: 0,
+        unresolvedMappingCount: 3,
+      });
+      const badge = container.querySelector('.dm-mapped-count-badge');
+      expect(badge?.textContent).toContain('0 mapped');
+      expect(badge?.textContent).toContain('3 unresolved');
+    });
+
+    it('includes passing array assertion jsonPath in passed verify filter', () => {
+      const arrAssertion: Assertion = {
+        type: 'arrayLength',
+        jsonPath: 'email',
+        operator: '=',
+        value: 0,
+      };
+      renderPanel({
+        mappings: [mapping],
+        nodeStatusMap: new Map([
+          ['userName', 'fail'],
+          ['email', 'fail'],
+        ]),
+        arrayAssertions: [arrAssertion],
+        assertionVerifyMap: new Map([[0, { passed: true, actual: '0', expected: '0' }]]),
+      });
+      fireEvent.change(screen.getByLabelText('Filter target fields'), { target: { value: 'passed' } });
+      expect(screen.queryByText('userName')).toBeNull();
+      expect(screen.getByText('email')).toBeTruthy();
+    });
+
+    it('includes failing array assertion jsonPath in failed verify filter', () => {
+      const arrAssertion: Assertion = {
+        type: 'regex',
+        jsonPath: 'userName',
+        pattern: '.*',
+      };
+      renderPanel({
+        mappings: [mapping],
+        nodeStatusMap: new Map([
+          ['userName', 'pass'],
+          ['email', 'pass'],
+        ]),
+        arrayAssertions: [arrAssertion],
+        assertionVerifyMap: new Map([[0, { passed: false, actual: 'x', expected: 'y' }]]),
+      });
+      fireEvent.change(screen.getByLabelText('Filter target fields'), { target: { value: 'failed' } });
+      expect(screen.getByText('userName')).toBeTruthy();
+      expect(screen.queryByText('email')).toBeNull();
+    });
+
+    it('skips assertion paths without jsonPath when merging verify filters', () => {
+      const statusAssertion = { type: 'status' as const, expected: '200' };
+      renderPanel({
+        mappings: [mapping],
+        nodeStatusMap: new Map([['userName', 'pass']]),
+        arrayAssertions: [statusAssertion],
+        assertionVerifyMap: new Map([[0, { passed: true }]]),
+      });
+      fireEvent.change(screen.getByLabelText('Filter target fields'), { target: { value: 'passed' } });
+      expect(screen.getByText('userName')).toBeTruthy();
     });
   });
 

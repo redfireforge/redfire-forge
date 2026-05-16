@@ -1550,9 +1550,9 @@ describe('TargetTreeNode – custom field removal and tree chrome', () => {
       expect(document.querySelector('.dm-context-menu')).not.toBeNull();
       expect(screen.getByText('Array Assertions')).toBeInTheDocument();
       expect(screen.getByText('Check array size')).toBeInTheDocument();
-      expect(screen.getByText('Must contain value')).toBeInTheDocument();
+      expect(screen.getByText('Contains value (exact match)')).toBeInTheDocument();
       expect(screen.getByText('Every item must match')).toBeInTheDocument();
-      expect(screen.getByText('Contains JSON object')).toBeInTheDocument();
+      expect(screen.getByText('Contains object (deep partial match)')).toBeInTheDocument();
     });
 
     it('shows context menu on right-click when capabilities.operators is true', () => {
@@ -1648,9 +1648,9 @@ describe('TargetTreeNode – custom field removal and tree chrome', () => {
       fireEvent.contextMenu(nodeEl);
       expect(screen.getByText('Array Assertions')).toBeInTheDocument();
       expect(screen.getByText('Check array size')).toBeInTheDocument();
-      expect(screen.getByText('Must contain value')).toBeInTheDocument();
+      expect(screen.getByText('Contains value (exact match)')).toBeInTheDocument();
       expect(screen.getByText('Every item must match')).toBeInTheDocument();
-      expect(screen.getByText('Contains JSON object')).toBeInTheDocument();
+      expect(screen.getByText('Contains object (deep partial match)')).toBeInTheDocument();
     });
 
     it('does not show array assertion section for non-array nodes', () => {
@@ -1776,11 +1776,11 @@ describe('TargetTreeNode – custom field removal and tree chrome', () => {
 
       fireEvent.click(screen.getByText('Check array size'));
       fireEvent.contextMenu(nodeEl);
-      fireEvent.click(screen.getByText('Must contain value'));
+      fireEvent.click(screen.getByText('Contains value (exact match)'));
       fireEvent.contextMenu(nodeEl);
       fireEvent.click(screen.getByText('Every item must match'));
       fireEvent.contextMenu(nodeEl);
-      fireEvent.click(screen.getByText('Contains JSON object'));
+      fireEvent.click(screen.getByText('Contains object (deep partial match)'));
 
       expect(onAddArrayAssertion.mock.calls).toEqual([
         ['items', 'length'],
@@ -2270,6 +2270,158 @@ describe('TargetTreeNode – array assertion rows with InlineAssertionRow', () =
     expect(hint).not.toBeNull();
     fireEvent.click(hint!);
     expect(onAdd).toHaveBeenCalledWith('items', 'length');
+  });
+});
+
+describe('P3-05: Multiple array assertions on one node', () => {
+  const capsArr = { operators: false, arrayAssertions: true, codeEditor: false } as const;
+  const arrayNode: JsonTreeNode = {
+    key: 'offers', path: 'offers', type: 'array', value: undefined,
+    children: [
+      { key: '[0]', path: 'offers[0]', type: 'object', value: undefined, children: [] },
+      { key: '[1]', path: 'offers[1]', type: 'object', value: undefined, children: [] },
+      { key: '[2]', path: 'offers[2]', type: 'object', value: undefined, children: [] },
+    ],
+  };
+  const fourAssertions = [
+    { type: 'arrayLength' as const, jsonPath: '$.offers', operator: '>=' as const, value: 1 },
+    { type: 'arrayContains' as const, jsonPath: '$.offers', mode: 'any' as const, value: '{"offerName":"EV Access"}' },
+    { type: 'each' as const, jsonPath: '$.offers', fieldPath: 'rank', operator: '>=' as const, value: '0' },
+    { type: 'containsSubset' as const, jsonPath: '$.offers', expected: '{"offerName":"OnStar Safety Plan"}' },
+  ];
+  const expandedOffers = new Set(['__root__', '', 'offers']);
+
+  it('renders all four assertion rows stacked beneath the array node', () => {
+    const { container } = render(
+      <TargetTreeNode
+        node={arrayNode}
+        {...defaults}
+        expandedPaths={expandedOffers}
+        capabilities={capsArr}
+        arrayAssertions={fourAssertions}
+        onUpdateArrayAssertion={vi.fn()}
+        onRemoveArrayAssertion={vi.fn()}
+      />,
+    );
+    const rows = container.querySelectorAll('.dm-array-assertion-row');
+    expect(rows).toHaveLength(4);
+  });
+
+  it('shows "3 items · 4 assertions" header when expanded', () => {
+    const { container } = render(
+      <TargetTreeNode
+        node={arrayNode}
+        {...defaults}
+        expandedPaths={expandedOffers}
+        capabilities={capsArr}
+        arrayAssertions={fourAssertions}
+        onUpdateArrayAssertion={vi.fn()}
+        onRemoveArrayAssertion={vi.fn()}
+      />,
+    );
+    const badge = container.querySelector('.dm-node-count--assertions');
+    expect(badge).not.toBeNull();
+    expect(badge!.textContent).toBe('3 items · 4 assertions');
+  });
+
+  it('shows "3 items · 4 assertions" in collapsed badge', () => {
+    const { container } = render(
+      <TargetTreeNode
+        node={arrayNode}
+        {...defaults}
+        expandedPaths={new Set<string>()}
+        capabilities={capsArr}
+        arrayAssertions={fourAssertions}
+      />,
+    );
+    const badge = container.querySelector('.dm-node-count');
+    expect(badge).not.toBeNull();
+    expect(badge!.textContent).toBe('3 items · 4 assertions');
+  });
+
+  it('shows singular "assertion" when only one assertion exists', () => {
+    const oneAssertion = [fourAssertions[0]];
+    const { container } = render(
+      <TargetTreeNode
+        node={arrayNode}
+        {...defaults}
+        expandedPaths={new Set<string>()}
+        capabilities={capsArr}
+        arrayAssertions={oneAssertion}
+      />,
+    );
+    const badge = container.querySelector('.dm-node-count');
+    expect(badge!.textContent).toBe('3 items · 1 assertion');
+  });
+
+  it('shows plain child count when no assertions exist', () => {
+    const { container } = render(
+      <TargetTreeNode
+        node={arrayNode}
+        {...defaults}
+        expandedPaths={new Set<string>()}
+        capabilities={capsArr}
+        arrayAssertions={[]}
+      />,
+    );
+    const badge = container.querySelector('.dm-node-count');
+    expect(badge!.textContent).toBe('3');
+  });
+
+  it('each row has a remove button and calls onRemoveArrayAssertion', () => {
+    const onRemove = vi.fn();
+    const { container } = render(
+      <TargetTreeNode
+        node={arrayNode}
+        {...defaults}
+        expandedPaths={expandedOffers}
+        capabilities={capsArr}
+        arrayAssertions={fourAssertions}
+        onUpdateArrayAssertion={vi.fn()}
+        onRemoveArrayAssertion={onRemove}
+      />,
+    );
+    const removeBtns = container.querySelectorAll('.dm-array-assertion-remove');
+    expect(removeBtns).toHaveLength(4);
+    fireEvent.click(removeBtns[2]);
+    expect(onRemove).toHaveBeenCalledWith(2);
+  });
+
+  it('removing one assertion decrements the badge count', () => {
+    const threeAssertions = fourAssertions.slice(0, 3);
+    const { container } = render(
+      <TargetTreeNode
+        node={arrayNode}
+        {...defaults}
+        expandedPaths={expandedOffers}
+        capabilities={capsArr}
+        arrayAssertions={threeAssertions}
+        onUpdateArrayAssertion={vi.fn()}
+        onRemoveArrayAssertion={vi.fn()}
+      />,
+    );
+    const badge = container.querySelector('.dm-node-count--assertions');
+    expect(badge!.textContent).toBe('3 items · 3 assertions');
+    const rows = container.querySelectorAll('.dm-array-assertion-row');
+    expect(rows).toHaveLength(3);
+  });
+
+  it('renders correct type pills for each assertion type', () => {
+    render(
+      <TargetTreeNode
+        node={arrayNode}
+        {...defaults}
+        expandedPaths={expandedOffers}
+        capabilities={capsArr}
+        arrayAssertions={fourAssertions}
+        onUpdateArrayAssertion={vi.fn()}
+        onRemoveArrayAssertion={vi.fn()}
+      />,
+    );
+    expect(screen.getByTitle('Array size check')).toBeInTheDocument();
+    expect(screen.getByTitle('Has item with exact value')).toBeInTheDocument();
+    expect(screen.getByTitle('Every item must match')).toBeInTheDocument();
+    expect(screen.getByTitle('Has item matching partial object (nested)')).toBeInTheDocument();
   });
 });
 

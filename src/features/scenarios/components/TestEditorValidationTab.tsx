@@ -11,6 +11,8 @@ import JsonPathPicker from './JsonPathPicker';
 import ValidationRulesSummary from './ValidationRulesSummary';
 import ValidationVerifyPanel from './ValidationVerifyPanel';
 import ValidationResponsePreview from './ValidationResponsePreview';
+import FetchErrorBanner from '../../../shared/components/data-mapper/FetchErrorBanner';
+import type { FetchErrorDetail } from '../../../shared/components/data-mapper/types';
 import { getByPath, stripJsonPathPrefix } from '../../../shared/utils/jsonPath';
 import { generateJsonSchema } from '../../../shared/components/data-mapper/utils/schemaGenerator';
 import { DataMapperModal, createValidationAdapter } from '../../../shared/components/data-mapper';
@@ -45,7 +47,7 @@ export interface TestEditorValidationTabProps {
   draftRef: MutableRefObject<Scenario>;
   resolvedBaseUrl: string;
   fetchingResponse: boolean;
-  fetchError: string | null;
+  fetchError: FetchErrorDetail | null;
   fetchHostOverride: string;
   setFetchHostOverride: (v: string) => void;
   fetchHostEnabled: boolean;
@@ -53,8 +55,8 @@ export interface TestEditorValidationTabProps {
   onFetchSampleResponse: () => void | Promise<void>;
   fetchSampleDataForMapper?: () => Promise<unknown>;
   validating: boolean;
-  validationResult: { passed: boolean; failures: FailureDetail[]; httpStatus?: number; responseJson?: string; verifyScope?: 'assertions' | 'rules' | 'all' } | null;
-  setValidationResult: (v: { passed: boolean; failures: FailureDetail[]; httpStatus?: number; responseJson?: string; verifyScope?: 'assertions' | 'rules' | 'all' } | null) => void;
+  validationResult: { passed: boolean; failures: FailureDetail[]; httpStatus?: number; statusText?: string; responseJson?: string; responseHeaders?: Record<string, string>; verifyScope?: 'assertions' | 'rules' | 'all' } | null;
+  setValidationResult: (v: { passed: boolean; failures: FailureDetail[]; httpStatus?: number; statusText?: string; responseJson?: string; responseHeaders?: Record<string, string>; verifyScope?: 'assertions' | 'rules' | 'all' } | null) => void;
   onValidateResponse: (scope?: 'assertions' | 'rules' | 'all') => void | Promise<void>;
   /** When non-null, a new response was fetched but user has existing rules — show confirmation dialog */
   pendingFetchResponse?: string | null;
@@ -531,9 +533,22 @@ export default function TestEditorValidationTab({
                             updateAssertion(i, { schema: JSON.stringify(parsed, null, 2) });
                           } catch { /* ignore malformed JSON */ }
                         }}
-                        title="Format JSON"
+                        title="Pretty-print JSON with indentation"
                       >
-                        Format
+                        Pretty
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-xs btn-outline assertion-schema-action"
+                        onClick={() => {
+                          try {
+                            const parsed = JSON.parse(a.schema);
+                            updateAssertion(i, { schema: JSON.stringify(parsed) });
+                          } catch { /* ignore malformed JSON */ }
+                        }}
+                        title="Minify JSON to single line"
+                      >
+                        Minify
                       </button>
                       {draft.validation.sampleJson && (
                         <button
@@ -750,13 +765,17 @@ export default function TestEditorValidationTab({
               type="button"
               className="btn btn-sm btn-accent"
               onClick={() => setValidationMapperOpen(true)}
-              disabled={!draft.validation.sampleJson?.trim()}
-              title={draft.validation.sampleJson?.trim() ? 'Open Visual Mapper' : 'Fetch or paste sample JSON first'}
+              disabled={!draft.validation.sampleJson?.trim() && !(draft.validation.expectedFields?.length)}
+              title={
+                draft.validation.sampleJson?.trim() || draft.validation.expectedFields?.length
+                  ? 'Open Visual Mapper'
+                  : 'Fetch response or add rules first'
+              }
             >
               ⚡ Visual Mapper
             </button>
           </div>
-          {fetchError && <div className="fetch-error-inline">{fetchError}</div>}
+          {fetchError && <FetchErrorBanner error={fetchError} />}
           {pendingFetchResponse && (
             <div className="fetch-confirm-bar">
               <span className="fetch-confirm-msg">New response fetched. You have <strong>{(draft.validation.expectedFields || []).length}</strong> existing rule(s).</span>

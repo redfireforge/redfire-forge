@@ -5,9 +5,9 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import DslReferencePanel from './DslReferencePanel';
 
 describe('DslReferencePanel', () => {
-  it('renders the panel with DSL Reference title', () => {
+  it('renders the panel with Reference title', () => {
     render(<DslReferencePanel onInsert={vi.fn()} />);
-    expect(screen.getByText('DSL Reference')).toBeInTheDocument();
+    expect(screen.getByText('Reference')).toBeInTheDocument();
   });
 
   it('renders search input', () => {
@@ -15,29 +15,40 @@ describe('DslReferencePanel', () => {
     expect(screen.getByPlaceholderText(/filter operators/i)).toBeInTheDocument();
   });
 
-  it('renders default-open sections (Equality, Comparison, String)', () => {
+  it('all sections start collapsed', () => {
     render(<DslReferencePanel onInsert={vi.fn()} />);
     expect(screen.getByText('Equality')).toBeInTheDocument();
     expect(screen.getByText('Comparison')).toBeInTheDocument();
-    expect(screen.getByText('String')).toBeInTheDocument();
-    expect(screen.getByText('equals')).toBeInTheDocument();
-    expect(screen.getByText('contains')).toBeInTheDocument();
+    expect(screen.queryByText('Exact match')).not.toBeInTheDocument();
+    expect(screen.queryByText('Substring match')).not.toBeInTheDocument();
   });
 
-  it('collapses a section when its header is clicked', () => {
+  it('expands a section when its header is clicked', () => {
     render(<DslReferencePanel onInsert={vi.fn()} />);
-    expect(screen.getByText('equals')).toBeInTheDocument();
 
     fireEvent.click(screen.getByText('Equality'));
-    expect(screen.queryByText('Exact value match')).not.toBeInTheDocument();
+    expect(screen.getByText('Exact match')).toBeInTheDocument();
   });
 
-  it('expands a collapsed section when its header is clicked', () => {
+  it('only one section is open at a time (accordion)', () => {
     render(<DslReferencePanel onInsert={vi.fn()} />);
 
-    expect(screen.queryByText('ASSERT')).not.toBeInTheDocument();
-    fireEvent.click(screen.getByText('Custom Predicates'));
-    expect(screen.getByText('ASSERT')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('Equality'));
+    expect(screen.getByText('Exact match')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('Comparison'));
+    expect(screen.getByText('Greater than')).toBeInTheDocument();
+    expect(screen.queryByText('Exact match')).not.toBeInTheDocument();
+  });
+
+  it('collapses the open section when clicked again', () => {
+    render(<DslReferencePanel onInsert={vi.fn()} />);
+
+    fireEvent.click(screen.getByText('Equality'));
+    expect(screen.getByText('Exact match')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('Equality'));
+    expect(screen.queryByText('Exact match')).not.toBeInTheDocument();
   });
 
   it('filters entries by search query', () => {
@@ -56,19 +67,20 @@ describe('DslReferencePanel', () => {
     const searchInput = screen.getByPlaceholderText(/filter operators/i);
     fireEvent.change(searchInput, { target: { value: 'xyznonexistent' } });
 
-    expect(screen.getByText(/no matching operators/i)).toBeInTheDocument();
+    expect(screen.getByText(/no matches/i)).toBeInTheDocument();
   });
 
   it('calls onInsert with the example when insert button is clicked', () => {
     const onInsert = vi.fn();
     render(<DslReferencePanel onInsert={onInsert} />);
 
-    const insertButtons = screen.getAllByText('Insert');
+    fireEvent.click(screen.getByText('Equality'));
+    const insertButtons = screen.getAllByLabelText(/Insert .+ example/);
     fireEvent.click(insertButtons[0]);
     expect(onInsert).toHaveBeenCalledWith('status  equals  "active"');
   });
 
-  it('renders all 10 section headers', () => {
+  it('renders all 8 section headers', () => {
     render(<DslReferencePanel onInsert={vi.fn()} />);
 
     expect(screen.getByText('Equality')).toBeInTheDocument();
@@ -78,18 +90,16 @@ describe('DslReferencePanel', () => {
     expect(screen.getByText('Type & Existence')).toBeInTheDocument();
     expect(screen.getByText('Set Membership')).toBeInTheDocument();
     expect(screen.getByText('Collection')).toBeInTheDocument();
-    expect(screen.getByText('Custom Predicates')).toBeInTheDocument();
-    expect(screen.getByText('Modifiers')).toBeInTheDocument();
-    expect(screen.getByText('Syntax Guide')).toBeInTheDocument();
+    expect(screen.getByText('Custom & Modifiers')).toBeInTheDocument();
   });
 
-  it('search auto-expands collapsed sections', () => {
+  it('search auto-expands matching sections', () => {
     render(<DslReferencePanel onInsert={vi.fn()} />);
 
     expect(screen.queryByText('NOT')).not.toBeInTheDocument();
 
     const searchInput = screen.getByPlaceholderText(/filter operators/i);
-    fireEvent.change(searchInput, { target: { value: 'NOT' } });
+    fireEvent.change(searchInput, { target: { value: 'Negate' } });
 
     expect(screen.getByText('NOT')).toBeInTheDocument();
   });
@@ -100,12 +110,11 @@ describe('DslReferencePanel', () => {
     const searchInput = screen.getByPlaceholderText(/filter operators/i);
     fireEvent.change(searchInput, { target: { value: 'regex' } });
 
-    expect(screen.queryByText('equals')).not.toBeInTheDocument();
-
     const clearBtn = screen.getByLabelText('Clear search');
     fireEvent.click(clearBtn);
 
-    expect(screen.getByText('equals')).toBeInTheDocument();
+    expect(screen.getByText('Equality')).toBeInTheDocument();
+    expect(screen.getByText('String')).toBeInTheDocument();
   });
 
   it('expand all / collapse all buttons work', () => {
@@ -115,23 +124,25 @@ describe('DslReferencePanel', () => {
 
     fireEvent.click(screen.getByLabelText('Expand all sections'));
     expect(screen.getByText('ASSERT')).toBeInTheDocument();
+    expect(screen.getByText('Exact match')).toBeInTheDocument();
 
     fireEvent.click(screen.getByLabelText('Collapse all sections'));
     expect(screen.queryByText('ASSERT')).not.toBeInTheDocument();
-    expect(screen.queryByText('Exact value match')).not.toBeInTheDocument();
+    expect(screen.queryByText('Exact match')).not.toBeInTheDocument();
   });
 
-  it('shows description for each entry', () => {
+  it('shows description for each entry when section is open', () => {
     render(<DslReferencePanel onInsert={vi.fn()} />);
-    expect(screen.getByText('Exact value match')).toBeInTheDocument();
-    expect(screen.getByText('Substring match')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('Equality'));
+    expect(screen.getByText('Exact match')).toBeInTheDocument();
   });
 
-  it('each entry has a code block with syntax', () => {
+  it('each entry has a syntax code element', () => {
     const { container } = render(<DslReferencePanel onInsert={vi.fn()} />);
-    const codeBlocks = container.querySelectorAll('.vr-ref-code-block code');
-    expect(codeBlocks.length).toBeGreaterThan(0);
-    expect(codeBlocks[0].textContent).toContain('path');
+    fireEvent.click(screen.getByText('Equality'));
+    const syntaxElements = container.querySelectorAll('.vr-ref-syntax');
+    expect(syntaxElements.length).toBeGreaterThan(0);
+    expect(syntaxElements[0].textContent).toContain('path');
   });
 
   it('filters by description text too', () => {
@@ -147,7 +158,7 @@ describe('DslReferencePanel', () => {
     const { container } = render(<DslReferencePanel onInsert={vi.fn()} />);
     const badge = container.querySelector('.vr-ref-header-count');
     expect(badge).toBeInTheDocument();
-    expect(Number(badge!.textContent)).toBeGreaterThan(30);
+    expect(Number(badge!.textContent)).toBeGreaterThan(25);
   });
 
   // ── Copy button ──
@@ -157,11 +168,25 @@ describe('DslReferencePanel', () => {
     Object.assign(navigator, { clipboard: { writeText } });
 
     render(<DslReferencePanel onInsert={vi.fn()} />);
+    fireEvent.click(screen.getByText('Equality'));
 
-    const copyButtons = screen.getAllByTitle('Copy syntax');
+    const copyButtons = screen.getAllByLabelText(/Copy .+ syntax/);
     fireEvent.click(copyButtons[0]);
 
     expect(writeText).toHaveBeenCalledWith('path  equals  "value"');
+  });
+
+  it('shows checkmark feedback after copy', () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+
+    render(<DslReferencePanel onInsert={vi.fn()} />);
+    fireEvent.click(screen.getByText('Equality'));
+
+    const copyButtons = screen.getAllByLabelText(/Copy .+ syntax/);
+    fireEvent.click(copyButtons[0]);
+
+    expect(screen.getByTitle('Copied!')).toBeInTheDocument();
   });
 
   // ── Keyboard navigation on section headers ──
@@ -169,23 +194,23 @@ describe('DslReferencePanel', () => {
   it('toggles section on Enter key press', () => {
     render(<DslReferencePanel onInsert={vi.fn()} />);
 
-    expect(screen.getByText('equals')).toBeInTheDocument();
-
     const header = screen.getByText('Equality').closest('[role="button"]')!;
     fireEvent.keyDown(header, { key: 'Enter' });
+    expect(screen.getByText('Exact match')).toBeInTheDocument();
 
-    expect(screen.queryByText('Exact value match')).not.toBeInTheDocument();
+    fireEvent.keyDown(header, { key: 'Enter' });
+    expect(screen.queryByText('Exact match')).not.toBeInTheDocument();
   });
 
   it('toggles section on Space key press', () => {
     render(<DslReferencePanel onInsert={vi.fn()} />);
 
-    expect(screen.getByText('equals')).toBeInTheDocument();
-
     const header = screen.getByText('Equality').closest('[role="button"]')!;
     fireEvent.keyDown(header, { key: ' ' });
+    expect(screen.getByText('Exact match')).toBeInTheDocument();
 
-    expect(screen.queryByText('Exact value match')).not.toBeInTheDocument();
+    fireEvent.keyDown(header, { key: ' ' });
+    expect(screen.queryByText('Exact match')).not.toBeInTheDocument();
   });
 
   it('does not toggle section on other keys', () => {
@@ -194,7 +219,7 @@ describe('DslReferencePanel', () => {
     const header = screen.getByText('Equality').closest('[role="button"]')!;
     fireEvent.keyDown(header, { key: 'Tab' });
 
-    expect(screen.getByText('equals')).toBeInTheDocument();
+    expect(screen.queryByText('Exact match')).not.toBeInTheDocument();
   });
 
   // ── Search matching by syntax and example ──
@@ -203,7 +228,7 @@ describe('DslReferencePanel', () => {
     render(<DslReferencePanel onInsert={vi.fn()} />);
 
     const searchInput = screen.getByPlaceholderText(/filter operators/i);
-    fireEvent.change(searchInput, { target: { value: 'tolerance' } });
+    fireEvent.change(searchInput, { target: { value: 'tol' } });
 
     expect(screen.getByText('close_to')).toBeInTheDocument();
   });
@@ -242,8 +267,8 @@ describe('DslReferencePanel', () => {
     const { container } = render(<DslReferencePanel onInsert={vi.fn()} />);
 
     const counts = container.querySelectorAll('.vr-ref-count');
-    expect(counts.length).toBe(10);
-    expect(Number(counts[0].textContent)).toBe(2); // Equality has 2 entries
+    expect(counts.length).toBe(8);
+    expect(Number(counts[0].textContent)).toBe(2);
   });
 
   // ── Aria labels ──
@@ -258,6 +283,9 @@ describe('DslReferencePanel', () => {
     render(<DslReferencePanel onInsert={vi.fn()} />);
 
     const equalityHeader = screen.getByText('Equality').closest('[role="button"]')!;
+    expect(equalityHeader.getAttribute('aria-expanded')).toBe('false');
+
+    fireEvent.click(screen.getByText('Equality'));
     expect(equalityHeader.getAttribute('aria-expanded')).toBe('true');
 
     const booleanHeader = screen.getByText('Boolean & Null').closest('[role="button"]')!;
@@ -268,6 +296,7 @@ describe('DslReferencePanel', () => {
 
   it('insert buttons have aria-labels', () => {
     render(<DslReferencePanel onInsert={vi.fn()} />);
+    fireEvent.click(screen.getByText('Equality'));
 
     const insertBtns = screen.getAllByLabelText(/Insert .+ example/);
     expect(insertBtns.length).toBeGreaterThan(0);
@@ -275,6 +304,7 @@ describe('DslReferencePanel', () => {
 
   it('copy buttons have aria-labels', () => {
     render(<DslReferencePanel onInsert={vi.fn()} />);
+    fireEvent.click(screen.getByText('Equality'));
 
     const copyBtns = screen.getAllByLabelText(/Copy .+ syntax/);
     expect(copyBtns.length).toBeGreaterThan(0);
@@ -295,6 +325,7 @@ describe('DslReferencePanel', () => {
   it('open sections show open chevron', () => {
     const { container } = render(<DslReferencePanel onInsert={vi.fn()} />);
 
+    fireEvent.click(screen.getByText('Equality'));
     const sections = container.querySelectorAll('.vr-ref-section');
     const firstChevron = sections[0].querySelector('.vr-ref-chevron');
     expect(firstChevron!.classList.contains('vr-ref-chevron--open')).toBe(true);
@@ -315,7 +346,7 @@ describe('DslReferencePanel', () => {
 
     const badge = container.querySelector('.vr-ref-header-count')!;
     const fullCount = Number(badge.textContent);
-    expect(fullCount).toBeGreaterThan(30);
+    expect(fullCount).toBeGreaterThan(25);
 
     const searchInput = screen.getByPlaceholderText(/filter operators/i);
     fireEvent.change(searchInput, { target: { value: 'equals' } });

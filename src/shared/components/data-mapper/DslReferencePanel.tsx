@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useRef } from 'react';
 
 // ─── Reference Data ───────────────────────────────────────
 
@@ -14,7 +14,6 @@ interface RefSection {
   name: string;
   icon: string;
   color: string;
-  defaultOpen: boolean;
   entries: RefEntry[];
 }
 
@@ -24,10 +23,9 @@ const REF_SECTIONS: RefSection[] = [
     name: 'Equality',
     icon: '=',
     color: 'var(--success, #a6e3a1)',
-    defaultOpen: true,
     entries: [
-      { operator: 'equals', description: 'Exact value match', syntax: 'path  equals  "value"', example: 'status  equals  "active"' },
-      { operator: 'not_equals', description: 'Value does not match', syntax: 'path  not_equals  "value"', example: 'role  not_equals  "guest"' },
+      { operator: 'equals', description: 'Exact match', syntax: 'path  equals  "value"', example: 'status  equals  "active"' },
+      { operator: 'not_equals', description: 'Not equal', syntax: 'path  not_equals  "value"', example: 'role  not_equals  "guest"' },
     ],
   },
   {
@@ -35,14 +33,13 @@ const REF_SECTIONS: RefSection[] = [
     name: 'Comparison',
     icon: '\u2276',
     color: 'var(--warning, #f9e2af)',
-    defaultOpen: true,
     entries: [
-      { operator: '>', description: 'Greater than', syntax: 'path  >  number', example: 'price  >  0' },
-      { operator: '>=', description: 'Greater than or equal', syntax: 'path  >=  number', example: 'count  >=  1' },
-      { operator: '<', description: 'Less than', syntax: 'path  <  number', example: 'age  <  100' },
-      { operator: '<=', description: 'Less than or equal', syntax: 'path  <=  number', example: 'retries  <=  3' },
-      { operator: 'between', description: 'Value within range (inclusive)', syntax: 'path  between  min, max', example: 'score  between  0, 100' },
-      { operator: 'close_to', description: 'Approximate equality', syntax: 'path  close_to  value, tolerance', example: 'lat  close_to  40.71, 0.01' },
+      { operator: '>', description: 'Greater than', syntax: 'path > N', example: 'price  >  0' },
+      { operator: '>=', description: 'Greater or equal', syntax: 'path >= N', example: 'count  >=  1' },
+      { operator: '<', description: 'Less than', syntax: 'path < N', example: 'age  <  100' },
+      { operator: '<=', description: 'Less or equal', syntax: 'path <= N', example: 'retries  <=  3' },
+      { operator: 'between', description: 'Range (inclusive)', syntax: 'path between min, max', example: 'score  between  0, 100' },
+      { operator: 'close_to', description: 'Approx equal', syntax: 'path close_to val, tol', example: 'lat  close_to  40.71, 0.01' },
     ],
   },
   {
@@ -50,13 +47,12 @@ const REF_SECTIONS: RefSection[] = [
     name: 'String',
     icon: 'Aa',
     color: 'var(--purple, #cba6f7)',
-    defaultOpen: true,
     entries: [
-      { operator: 'contains', description: 'Substring match', syntax: 'path  contains  "text"', example: 'name  contains  "Star"' },
-      { operator: 'not_contains', description: 'Substring absent', syntax: 'path  not_contains  "text"', example: 'msg  not_contains  "error"' },
-      { operator: 'starts_with', description: 'Prefix match', syntax: 'path  starts_with  "prefix"', example: 'id  starts_with  "usr_"' },
-      { operator: 'ends_with', description: 'Suffix match', syntax: 'path  ends_with  "suffix"', example: 'email  ends_with  ".com"' },
-      { operator: 'regex', description: 'Regular expression match', syntax: 'path  regex  "pattern"', example: 'zip  regex  "^\\d{5}$"' },
+      { operator: 'contains', description: 'Substring match', syntax: 'path contains "text"', example: 'name  contains  "Star"' },
+      { operator: 'not_contains', description: 'Substring absent', syntax: 'path not_contains "text"', example: 'msg  not_contains  "error"' },
+      { operator: 'starts_with', description: 'Prefix match', syntax: 'path starts_with "pfx"', example: 'id  starts_with  "usr_"' },
+      { operator: 'ends_with', description: 'Suffix match', syntax: 'path ends_with "sfx"', example: 'email  ends_with  ".com"' },
+      { operator: 'regex', description: 'Regex match', syntax: 'path regex "pattern"', example: 'zip  regex  "^\\d{5}$"' },
     ],
   },
   {
@@ -64,14 +60,13 @@ const REF_SECTIONS: RefSection[] = [
     name: 'Boolean & Null',
     icon: '?!',
     color: 'var(--error, #f38ba8)',
-    defaultOpen: false,
     entries: [
-      { operator: 'is_true', description: 'Value is truthy', syntax: 'path  is_true', example: 'isActive  is_true' },
-      { operator: 'is_false', description: 'Value is falsy', syntax: 'path  is_false', example: 'isDeleted  is_false' },
-      { operator: 'is_null', description: 'Value is null', syntax: 'path  is_null', example: 'deletedAt  is_null' },
-      { operator: 'is_not_null', description: 'Value is not null', syntax: 'path  is_not_null', example: 'createdAt  is_not_null' },
-      { operator: 'is_empty', description: 'String/array is empty', syntax: 'path  is_empty', example: 'tags  is_empty' },
-      { operator: 'is_not_empty', description: 'String/array is not empty', syntax: 'path  is_not_empty', example: 'items  is_not_empty' },
+      { operator: 'is_true', description: 'Truthy', syntax: 'path is_true', example: 'isActive  is_true' },
+      { operator: 'is_false', description: 'Falsy', syntax: 'path is_false', example: 'isDeleted  is_false' },
+      { operator: 'is_null', description: 'Null', syntax: 'path is_null', example: 'deletedAt  is_null' },
+      { operator: 'is_not_null', description: 'Not null', syntax: 'path is_not_null', example: 'createdAt  is_not_null' },
+      { operator: 'is_empty', description: 'Empty str/arr', syntax: 'path is_empty', example: 'tags  is_empty' },
+      { operator: 'is_not_empty', description: 'Non-empty', syntax: 'path is_not_empty', example: 'items  is_not_empty' },
     ],
   },
   {
@@ -79,11 +74,10 @@ const REF_SECTIONS: RefSection[] = [
     name: 'Type & Existence',
     icon: 'T',
     color: 'var(--cyan, #89dceb)',
-    defaultOpen: false,
     entries: [
-      { operator: 'is_type', description: 'Check value type', syntax: 'path  is_type  string|number|boolean|array|object|null', example: 'name  is_type  string' },
-      { operator: 'exists', description: 'Path exists in response', syntax: 'path  exists', example: 'data.id  exists' },
-      { operator: 'not_exists', description: 'Path does not exist', syntax: 'path  not_exists', example: 'error  not_exists' },
+      { operator: 'is_type', description: 'Type check', syntax: 'path is_type string|number|...', example: 'name  is_type  string' },
+      { operator: 'exists', description: 'Path exists', syntax: 'path exists', example: 'data.id  exists' },
+      { operator: 'not_exists', description: 'Path absent', syntax: 'path not_exists', example: 'error  not_exists' },
     ],
   },
   {
@@ -91,10 +85,9 @@ const REF_SECTIONS: RefSection[] = [
     name: 'Set Membership',
     icon: '\u2208',
     color: 'var(--blue, #89b4fa)',
-    defaultOpen: false,
     entries: [
-      { operator: 'in', description: 'Value is one of listed values', syntax: 'path  in  "a", "b", "c"', example: 'status  in  "active", "pending"' },
-      { operator: 'not_in', description: 'Value is not in listed values', syntax: 'path  not_in  "a", "b"', example: 'role  not_in  "banned", "suspended"' },
+      { operator: 'in', description: 'One of values', syntax: 'path in "a", "b", "c"', example: 'status  in  "active", "pending"' },
+      { operator: 'not_in', description: 'Not in values', syntax: 'path not_in "a", "b"', example: 'role  not_in  "banned", "suspended"' },
     ],
   },
   {
@@ -102,50 +95,25 @@ const REF_SECTIONS: RefSection[] = [
     name: 'Collection',
     icon: '[]',
     color: 'var(--teal, #94e2d5)',
-    defaultOpen: false,
     entries: [
-      { operator: 'length =', description: 'Array/string length check', syntax: 'path  length >=  N', example: 'items  length >=  1' },
-      { operator: 'each', description: 'Assert on every element', syntax: 'path[*].field  each >=  0', example: 'scores[*]  each >=  0' },
-      { operator: 'contains_any', description: 'Array contains at least one', syntax: 'path  contains_any  "a", "b"', example: 'tags  contains_any  "vip"' },
-      { operator: 'contains_all', description: 'All values present', syntax: 'path  contains_all  "a", "b"', example: 'roles  contains_all  "admin", "user"' },
-      { operator: 'contains_only', description: 'Only listed values', syntax: 'path  contains_only  "a", "b"', example: 'colors  contains_only  "red", "blue"' },
-      { operator: 'contains_none', description: 'None of the values', syntax: 'path  contains_none  "x"', example: 'errors  contains_none  "fatal"' },
-      { operator: 'subset', description: 'Object subset match', syntax: 'path  subset  {"key": val}', example: 'config  subset  {"debug": true}' },
+      { operator: 'length', description: 'Array/string length', syntax: 'path length >= N', example: 'items  length >=  1' },
+      { operator: 'each', description: 'Assert every element', syntax: 'path[*].f each >= 0', example: 'scores[*]  each >=  0' },
+      { operator: 'contains_any', description: 'Has at least one', syntax: 'path contains_any "a"', example: 'tags  contains_any  "vip"' },
+      { operator: 'contains_all', description: 'Has all listed', syntax: 'path contains_all "a","b"', example: 'roles  contains_all  "admin", "user"' },
+      { operator: 'contains_only', description: 'Only listed values', syntax: 'path contains_only "a","b"', example: 'colors  contains_only  "red", "blue"' },
+      { operator: 'contains_none', description: 'None of values', syntax: 'path contains_none "x"', example: 'errors  contains_none  "fatal"' },
+      { operator: 'subset', description: 'Deep partial match', syntax: 'path subset {"k": v}', example: 'config  subset  {"debug": true}' },
     ],
   },
   {
     id: 'custom',
-    name: 'Custom Predicates',
+    name: 'Custom & Modifiers',
     icon: '\u03BB',
     color: 'var(--mauve, #cba6f7)',
-    defaultOpen: false,
     entries: [
-      { operator: 'ASSERT', description: 'Custom expression assertion', syntax: 'ASSERT  $fn($.body.path, val)', example: 'ASSERT $gt($.body.offers.length, 0)' },
-      { operator: 'ASSERT + comment', description: 'With inline description', syntax: 'ASSERT expr  // description', example: 'ASSERT $eq($.body.status, "ok")  // API healthy' },
-    ],
-  },
-  {
-    id: 'modifier',
-    name: 'Modifiers',
-    icon: '\u00AC',
-    color: 'var(--red, #f87171)',
-    defaultOpen: false,
-    entries: [
-      { operator: 'NOT', description: 'Negate any assertion', syntax: 'path  NOT operator  value', example: 'status  NOT equals  "error"' },
-      { operator: 'NOT ASSERT', description: 'Negate custom predicate', syntax: 'NOT ASSERT  expression', example: 'NOT ASSERT $contains($.body.msg, "fail")' },
-    ],
-  },
-  {
-    id: 'syntax',
-    name: 'Syntax Guide',
-    icon: '#',
-    color: 'var(--text-dim, #6c7086)',
-    defaultOpen: false,
-    entries: [
-      { operator: '# comment', description: 'Line comment (ignored)', syntax: '# This is a comment', example: '# Field assertions' },
-      { operator: 'Paths', description: 'JSONPath-style navigation', syntax: 'obj.field  arr[0].sub  arr[*].field', example: 'data.users[0].name  exists' },
-      { operator: 'Strings', description: 'Double-quoted values', syntax: '"double quoted values"', example: 'name  equals  "Alice"' },
-      { operator: 'Numbers', description: 'Integer or decimal values', syntax: '42  3.14  -1', example: 'count  >=  10' },
+      { operator: 'ASSERT', description: 'Custom expression', syntax: 'ASSERT $fn($.path, val)', example: 'ASSERT $gt($.body.offers.length, 0)' },
+      { operator: 'NOT', description: 'Negate assertion', syntax: 'path NOT op value', example: 'status  NOT equals  "error"' },
+      { operator: '# comment', description: 'Line comment', syntax: '# This is ignored', example: '# Field assertions' },
     ],
   },
 ];
@@ -154,20 +122,21 @@ const REF_SECTIONS: RefSection[] = [
 
 interface DslReferencePanelProps {
   onInsert: (text: string) => void;
+  onClose?: () => void;
 }
 
-export default function DslReferencePanel({ onInsert }: DslReferencePanelProps) {
+export default function DslReferencePanel({ onInsert, onClose }: DslReferencePanelProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [openSections, setOpenSections] = useState<Set<string>>(
-    () => new Set(REF_SECTIONS.filter(s => s.defaultOpen).map(s => s.id)),
+    () => new Set<string>(),
   );
+  const [copiedOp, setCopiedOp] = useState<string | null>(null);
+  const copyTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const toggleSection = useCallback((id: string) => {
     setOpenSections(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
+      if (prev.has(id)) return new Set<string>();
+      return new Set([id]);
     });
   }, []);
 
@@ -177,6 +146,13 @@ export default function DslReferencePanel({ onInsert }: DslReferencePanelProps) 
 
   const collapseAll = useCallback(() => {
     setOpenSections(new Set());
+  }, []);
+
+  const handleCopy = useCallback((text: string, opId: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedOp(opId);
+    if (copyTimeout.current) clearTimeout(copyTimeout.current);
+    copyTimeout.current = setTimeout(() => setCopiedOp(null), 1500);
   }, []);
 
   const filteredSections = useMemo(() => {
@@ -204,19 +180,22 @@ export default function DslReferencePanel({ onInsert }: DslReferencePanelProps) 
     <div className="vr-reference-pane" role="complementary" aria-label="DSL Reference">
       <div className="vr-ref-header">
         <div className="vr-ref-header-row">
-          <span className="vr-ref-header-title">DSL Reference</span>
+          <span className="vr-ref-header-title">Reference</span>
           <span className="vr-ref-header-count">{totalCount}</span>
           <div className="vr-ref-header-btns">
             <button type="button" className="vr-ref-toggle-btn" onClick={expandAll} title="Expand all" aria-label="Expand all sections">&#x25BC;</button>
             <button type="button" className="vr-ref-toggle-btn" onClick={collapseAll} title="Collapse all" aria-label="Collapse all sections">&#x25B2;</button>
+            {onClose && (
+              <button type="button" className="vr-ref-close-btn" onClick={onClose} title="Hide reference" aria-label="Hide reference panel">&#x2715;</button>
+            )}
           </div>
         </div>
         <div className="vr-ref-search-wrap">
-          <span className="vr-ref-search-icon">&#x1F50D;</span>
+          <span className="vr-ref-search-icon" aria-hidden="true">&#x1F50D;</span>
           <input
             className="vr-ref-search"
             type="text"
-            placeholder="Filter operators\u2026"
+            placeholder="Filter operators..."
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
             aria-label="Filter DSL reference"
@@ -254,37 +233,39 @@ export default function DslReferencePanel({ onInsert }: DslReferencePanelProps) 
               </div>
               {isOpen && (
                 <div className="vr-ref-section-body">
-                  {section.entries.map(entry => (
-                    <div className="vr-ref-card" key={entry.operator}>
-                      <div className="vr-ref-card-top">
-                        <span className="vr-ref-op" style={{ color: section.color }}>{entry.operator}</span>
-                        <span className="vr-ref-desc">{entry.description}</span>
+                  {section.entries.map(entry => {
+                    const entryId = `${section.id}-${entry.operator}`;
+                    const isCopied = copiedOp === entryId;
+                    return (
+                      <div className="vr-ref-entry" key={entry.operator}>
+                        <div className="vr-ref-entry-main">
+                          <span className="vr-ref-op" style={{ color: section.color }}>{entry.operator}</span>
+                          <span className="vr-ref-desc">{entry.description}</span>
+                          <div className="vr-ref-entry-actions">
+                            <button
+                              className="vr-ref-action-btn vr-ref-action-btn--insert"
+                              type="button"
+                              onClick={() => onInsert(entry.example)}
+                              title={`Insert: ${entry.example}`}
+                              aria-label={`Insert ${entry.operator} example`}
+                            >
+                              +
+                            </button>
+                            <button
+                              className={`vr-ref-action-btn vr-ref-action-btn--copy${isCopied ? ' vr-ref-action-btn--copied' : ''}`}
+                              type="button"
+                              onClick={() => handleCopy(entry.syntax, entryId)}
+                              title={isCopied ? 'Copied!' : 'Copy syntax'}
+                              aria-label={`Copy ${entry.operator} syntax`}
+                            >
+                              {isCopied ? '\u2713' : '\u2398'}
+                            </button>
+                          </div>
+                        </div>
+                        <code className="vr-ref-syntax">{entry.syntax}</code>
                       </div>
-                      <div className="vr-ref-code-block">
-                        <code>{entry.syntax}</code>
-                      </div>
-                      <div className="vr-ref-card-actions">
-                        <button
-                          className="vr-ref-insert-btn"
-                          type="button"
-                          onClick={() => onInsert(entry.example)}
-                          title={`Insert: ${entry.example}`}
-                          aria-label={`Insert ${entry.operator} example`}
-                        >
-                          <span className="vr-ref-insert-icon">&#x2B9E;</span> Insert
-                        </button>
-                        <button
-                          className="vr-ref-copy-btn"
-                          type="button"
-                          onClick={() => { navigator.clipboard.writeText(entry.syntax); }}
-                          title="Copy syntax"
-                          aria-label={`Copy ${entry.operator} syntax`}
-                        >
-                          &#x2398;
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -292,8 +273,7 @@ export default function DslReferencePanel({ onInsert }: DslReferencePanelProps) 
         })}
         {filteredSections.length === 0 && (
           <div className="vr-ref-empty">
-            <span className="vr-ref-empty-icon">&#x1F50D;</span>
-            <span>No matching operators for &ldquo;{searchQuery}&rdquo;</span>
+            No matches for &ldquo;{searchQuery}&rdquo;
           </div>
         )}
       </div>

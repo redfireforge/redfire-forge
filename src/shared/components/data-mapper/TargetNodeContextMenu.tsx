@@ -123,8 +123,8 @@ const TargetNodeContextMenu = forwardRef<HTMLDivElement, TargetNodeContextMenuPr
               disabled={!onAddArrayAssertion}
               onClick={close(() => onAddArrayAssertion?.(node.path, 'contains'))}
             >
-              <span className="dm-context-menu-item-title">Must contain value</span>
-              <span className="dm-context-menu-item-desc">e.g. {node.key} includes &quot;premium&quot;</span>
+              <span className="dm-context-menu-item-title">Contains value (exact match)</span>
+              <span className="dm-context-menu-item-desc">e.g. {node.key} has an item equal to &quot;premium&quot;</span>
             </button>
             <button
               type="button"
@@ -141,8 +141,8 @@ const TargetNodeContextMenu = forwardRef<HTMLDivElement, TargetNodeContextMenuPr
               disabled={!onAddArrayAssertion}
               onClick={close(() => onAddArrayAssertion?.(node.path, 'subset'))}
             >
-              <span className="dm-context-menu-item-title">Contains JSON object</span>
-              <span className="dm-context-menu-item-desc">e.g. {node.key} includes {'{'}&#34;type&#34;: &#34;active&#34;{'}'}</span>
+              <span className="dm-context-menu-item-title">Contains object (deep partial match)</span>
+              <span className="dm-context-menu-item-desc">e.g. {node.key} has item matching {'{'}&quot;type&quot;: &quot;active&quot;, ...{'}'}</span>
             </button>
           </>
         )}

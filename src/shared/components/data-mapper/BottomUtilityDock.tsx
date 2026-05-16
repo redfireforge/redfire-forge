@@ -1,3 +1,4 @@
+import type { Assertion } from '../../types';
 import type { Mapping, MapperSource, ExpressionFunction } from './types';
 import CodeView from './CodeView';
 import MappingTableView from './MappingTableView';
@@ -7,6 +8,7 @@ import type { MappingTrace } from './utils/mappingTrace';
 interface BottomUtilityDockProps {
   mode: 'code' | 'preview' | 'table';
   mappings: Mapping[];
+  assertions?: Assertion[];
   sources: MapperSource[];
   activeSourceId: string;
   targetSampleData: unknown;
@@ -16,11 +18,14 @@ interface BottomUtilityDockProps {
   selectedMappingId: string | null;
   onRemoveMapping: (id: string) => void;
   onSelectMapping: (id: string) => void;
+  verifyStatus?: string;
+  failedMappingIds?: Set<string>;
 }
 
 export default function BottomUtilityDock({
   mode,
   mappings,
+  assertions,
   sources,
   activeSourceId,
   targetSampleData,
@@ -30,18 +35,23 @@ export default function BottomUtilityDock({
   selectedMappingId,
   onRemoveMapping,
   onSelectMapping,
+  verifyStatus,
+  failedMappingIds,
 }: BottomUtilityDockProps) {
   return (
     <div className={`dm-bottom-utility-dock dm-bottom-utility-dock--${mode}`}>
       {mode === 'code' ? (
         <CodeView
           mappings={mappings}
+          assertions={assertions}
           sources={sources}
           activeSourceId={activeSourceId}
           targetSampleData={targetSampleData}
           customFunctions={customFunctions}
           debugMode={debugMode}
           traceByMappingId={traceByMappingId}
+          verifyStatus={verifyStatus}
+          failedMappingIds={failedMappingIds}
         />
       ) : mode === 'table' ? (
         <MappingTableView
