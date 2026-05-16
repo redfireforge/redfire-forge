@@ -134,16 +134,18 @@ export function createValidationAdapter(
     serialize(mappings: Mapping[]): ValidationAdapterOutput {
       const deduped = new Map<string, Mapping>();
       for (const m of mappings) {
-        deduped.set(stripDollarPrefix(m.targetPath), m);
+        const key = `${stripDollarPrefix(m.targetPath)}::${m.operator ?? 'equals'}::${m.negate ? 'NOT' : ''}`;
+        deduped.set(key, m);
       }
-      const CONTAINER_OPS = new Set(['is_empty', 'is_not_empty', 'is_type', 'is_null', 'is_not_null']);
+      const AUTO_MAP_ONLY_OPS = new Set(['equals']);
       const uniqueMappings = Array.from(deduped.values()).filter((m) => {
         if (!parsed) return true;
         const stripped = stripDollarPrefix(m.targetPath);
         if (stripped === '' || stripped === '$') return true;
         const val = getByPath(parsed, stripped);
         if (val === undefined || val === null || typeof val !== 'object') return true;
-        return CONTAINER_OPS.has((m.operator as string) ?? 'equals');
+        const op = (m.operator as string) ?? 'equals';
+        return !AUTO_MAP_ONLY_OPS.has(op) || m.operatorValue !== undefined;
       });
 
       const buildExpectedField = (m: Mapping): ExpectedField => {
@@ -181,14 +183,15 @@ export function createValidationAdapter(
 
       const effectiveMode = existing.selectiveMode === 'exclude' ? 'exclude' : 'include';
 
-      const CONTAINER_OPS_D = new Set(['is_empty', 'is_not_empty', 'is_type', 'is_null', 'is_not_null']);
+      const AUTO_MAP_ONLY_OPS_D = new Set(['equals']);
       const isLeafOrSpecialOp = (f: ExpectedField): boolean => {
         if (!parsed) return true;
         const stripped = stripDollarPrefix(f.jsonPath);
         if (stripped === '' || stripped === '$') return true;
         const val = getByPath(parsed, stripped);
         if (val === undefined || val === null || typeof val !== 'object') return true;
-        return CONTAINER_OPS_D.has((f.operator as string) ?? 'equals');
+        const op = (f.operator as string) ?? 'equals';
+        return !AUTO_MAP_ONLY_OPS_D.has(op) || f.operatorValue !== undefined;
       };
 
       const fieldToMapping = (f: ExpectedField, i: number): Mapping => {

@@ -2513,3 +2513,96 @@ describe('TargetTreeNode – verify display from fieldVerifyResults', () => {
     expect(ctxMenu).not.toBeNull();
   });
 });
+
+// ── Array Assertion verify filter ──
+
+describe('TargetTreeNode — verifyFilter for array assertions', () => {
+  const arrayNode: JsonTreeNode = {
+    key: 'offers', path: 'offers', type: 'array', value: undefined,
+    children: [{ key: '0', path: 'offers[0]', type: 'object', value: undefined, children: [] }],
+  };
+
+  const capsArray = {
+    operatorPicker: true,
+    arrayAssertions: true,
+    valueEditor: true,
+    contextMenu: true,
+    statusBadges: true,
+  };
+
+  const offersAssertions = [
+    { type: 'arrayLength', operator: 'greater_than_or_equal', value: '1', jsonPath: '$.offers' },
+    { type: 'each', operator: 'exists', value: '', jsonPath: '$.offers' },
+  ];
+
+  it('shows all array assertions when verifyFilter is undefined', () => {
+    const { container } = render(
+      <TargetTreeNode
+        node={arrayNode}
+        {...defaults}
+        expandedPaths={new Set(['', 'offers'])}
+        capabilities={capsArray}
+        arrayAssertions={offersAssertions as never}
+      />,
+    );
+    const rows = container.querySelectorAll('.dm-array-assertion-row');
+    expect(rows.length).toBe(2);
+  });
+
+  it('filters array assertions by verifyFilter=passed', () => {
+    const verifyMap = new Map<number, { passed: boolean }>([
+      [0, { passed: true }],
+      [1, { passed: false }],
+    ]);
+    const { container } = render(
+      <TargetTreeNode
+        node={arrayNode}
+        {...defaults}
+        expandedPaths={new Set(['', 'offers'])}
+        capabilities={capsArray}
+        arrayAssertions={offersAssertions as never}
+        verifyFilter="passed"
+        assertionVerifyMap={verifyMap as never}
+      />,
+    );
+    const rows = container.querySelectorAll('.dm-array-assertion-row');
+    expect(rows.length).toBe(1);
+  });
+
+  it('filters array assertions by verifyFilter=failed', () => {
+    const verifyMap = new Map<number, { passed: boolean }>([
+      [0, { passed: true }],
+      [1, { passed: false }],
+    ]);
+    const { container } = render(
+      <TargetTreeNode
+        node={arrayNode}
+        {...defaults}
+        expandedPaths={new Set(['', 'offers'])}
+        capabilities={capsArray}
+        arrayAssertions={offersAssertions as never}
+        verifyFilter="failed"
+        assertionVerifyMap={verifyMap as never}
+      />,
+    );
+    const rows = container.querySelectorAll('.dm-array-assertion-row');
+    expect(rows.length).toBe(1);
+  });
+
+  it('shows all assertions when verifyMap has no entry for the assertion', () => {
+    const verifyMap = new Map<number, { passed: boolean }>();
+    const { container } = render(
+      <TargetTreeNode
+        node={arrayNode}
+        {...defaults}
+        expandedPaths={new Set(['', 'offers'])}
+        capabilities={capsArray}
+        arrayAssertions={offersAssertions as never}
+        verifyFilter="passed"
+        assertionVerifyMap={verifyMap as never}
+      />,
+    );
+    const rows = container.querySelectorAll('.dm-array-assertion-row');
+    expect(rows.length).toBe(2);
+  });
+});

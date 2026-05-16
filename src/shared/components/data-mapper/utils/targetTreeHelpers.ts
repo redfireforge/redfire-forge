@@ -224,7 +224,7 @@ export function formatAssertionSummary(a: Assertion): string {
       return `${field} ${op} ${val}`.trim();
     }
     case 'containsSubset': return a.expected.length > 30 ? a.expected.slice(0, 27) + '…' : a.expected;
-    case 'custom': return a.expression.length > 30 ? a.expression.slice(0, 27) + '…' : a.expression;
+    case 'custom': return a.expression;
     default: return '';
   }
 }

@@ -105,13 +105,19 @@ export function useDataMapperValidation(deps: DataMapperValidationDeps) {
     const pm = (fieldPath: string, mappingPath: string): boolean =>
       normalizeMapperPath(fieldPath) === normalizeMapperPath(mappingPath);
 
-    const matchedFieldPaths = new Set<string>();
+    const fieldKey = (f: ExpectedField) => `${f.jsonPath}::${f.operator ?? 'equals'}::${f.negate ? 'NOT' : ''}`;
+    const matchedFieldKeys = new Set<string>();
 
     const kept: Mapping[] = [];
     for (const m of prev) {
-      const matchingField = fields.find(f => pm(f.jsonPath, m.targetPath) || pm(f.jsonPath, m.sourcePath));
+      const matchingField = fields.find(f =>
+        !matchedFieldKeys.has(fieldKey(f)) &&
+        (pm(f.jsonPath, m.targetPath) || pm(f.jsonPath, m.sourcePath)) &&
+        (f.operator ?? 'equals') === (m.operator ?? 'equals') &&
+        (!!f.negate) === (!!m.negate),
+      );
       if (matchingField) {
-        matchedFieldPaths.add(matchingField.jsonPath);
+        matchedFieldKeys.add(fieldKey(matchingField));
         kept.push({
           ...m,
           operator: matchingField.operator ?? m.operator,
@@ -124,7 +130,7 @@ export function useDataMapperValidation(deps: DataMapperValidationDeps) {
     }
 
     const newFields: Mapping[] = fields
-      .filter(f => !matchedFieldPaths.has(f.jsonPath))
+      .filter(f => !matchedFieldKeys.has(fieldKey(f)))
       .map(f => ({
         id: uuidv4(),
         sourcePath: f.jsonPath,
