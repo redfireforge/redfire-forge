@@ -1,6 +1,6 @@
 # Validation Operator — Visual Test Scenarios
 
-> **Purpose:** Step-by-step manual test guide covering every feature from each implementation phase (P0–P9.4) of the Validation & Assertion Operator system.
+> **Purpose:** Step-by-step manual test guide covering every feature from each implementation phase (P0–P9.5) of the Validation & Assertion Operator system.
 >
 > **How to use:** Work through each phase sequentially. Every scenario has **Setup**, **Steps**, and **Expected** sections. Check the box when each test passes.
 >
@@ -1123,6 +1123,117 @@
   5. Verify: `contains`, `close_to` (with value), and `equals` are all preserved exactly.
 - [ ] **Expected:** Operators are never silently changed during save/reopen cycles, including when the Rules modal is opened and saved.
 
+---
+
+## Phase 9.5 — Inline Verification Debugging (Rules Modal)
+
+> **Context:** All P9.5 tests are performed inside the **Validation Rules Modal** (Validation Data Mapper → Rules button). This feature allows step-by-step debugging of DSL rules directly in the Rules modal without saving and returning to the Data Mapper.
+
+### P9.5-01: Verify button in Rules modal header
+
+- [x] **Setup:** Open the Validation Data Mapper with sample JSON. Open the Rules modal (toolbar → Rules).
+- [x] **Steps:**
+  1. Verify: A **"▶ Verify"** button appears in the modal header, next to the verify stats.
+  2. When `sampleResponseData` is NOT available, the button is **disabled** (grayed out).
+  3. When sample data IS available (fetched or pasted), the button is **enabled** (blue).
+  4. Click the button. Verify stats update inline: shows `N passed` (green) and `N failed` (red).
+- [x] **Expected:** Inline verification runs locally against the current DSL text without saving.
+
+### P9.5-02: Inline verification results override parent stats
+
+- [x] **Setup:** In the Validation Data Mapper, click **Verify All** from the toolbar first (parent stats). Then open the Rules modal.
+- [x] **Steps:**
+  1. The header initially shows the parent verify stats (from the toolbar verify).
+  2. Click **▶ Verify** in the Rules modal.
+  3. The header now shows the **inline** verify stats (which may differ from parent if DSL was edited).
+  4. Edit the DSL text — the inline stats **clear automatically**.
+- [x] **Expected:** Inline results take precedence. Editing clears stale results.
+
+### P9.5-03: Failed Rules strip
+
+- [x] **Setup:** Add rules that will fail against the sample data (e.g., `offers[0].rank equals "999"`). Click **▶ Verify**.
+- [x] **Steps:**
+  1. A **"Failed Rules"** strip appears below the editor area with a close (×) button.
+  2. Each failed rule shows: line number, JSON path, expected/actual values.
+  3. Click a failed rule row to **expand** it, revealing debug details.
+  4. Click again to **collapse**. Keyboard `Enter` also toggles.
+  5. Click the **→** (go-to) button on a failed rule to jump the editor cursor to that line.
+  6. Click **×** on the strip header to dismiss the strip.
+- [x] **Expected:** Failed rules are listed with line/path context. Expand/collapse works. Jump-to-line navigates the Monaco editor.
+
+### P9.5-04: Debug detail panel — Evaluation Steps
+
+- [x] **Setup:** Expand a failed rule in the results strip.
+- [x] **Steps:**
+  1. An **"Evaluation Steps"** section appears showing numbered steps:
+     - Step 1: Path resolution (`offers[0].rank → 13`)
+     - Step 2: Operator evaluation (`equals "999"`)
+     - Step 3: Result (`FAIL`)
+  2. For **`each`** assertions, failed items are listed individually.
+  3. For **`ASSERT`** custom expressions, intermediate sub-expression evaluations are shown.
+  4. When a step value is **long** (>60 chars), a **▸** toggle appears. Click to expand to full pretty-printed value.
+  5. Keyboard `Enter` on a clickable step row also toggles the expanded view.
+- [x] **Expected:** Step-by-step evaluation with expandable long values.
+
+### P9.5-05: Debug detail panel — Input Data
+
+- [x] **Setup:** Expand a failed rule in the results strip.
+- [x] **Steps:**
+  1. An **"Input Data"** section shows the sample data relevant to the rule.
+  2. If the data is **small** (<200 chars), it shows inline as compact JSON.
+  3. If the data is **large** (>200 chars), it shows a preview with a clickable **"▸ Expand full"** link.
+  4. Click to expand — full pretty-printed JSON in a scrollable block.
+  5. Click again to collapse back to preview.
+  6. Keyboard `Enter` on the section title also toggles.
+- [x] **Expected:** Input data is shown with smart truncation and expand/collapse for large payloads.
+
+### P9.5-06: Undefined path enrichment
+
+- [x] **Setup:** Add a rule with a **typo** in the path (e.g., `offerss[0].rank equals "1"`). Click **▶ Verify**.
+- [x] **Steps:**
+  1. The rule fails. Expand the debug panel.
+  2. The path resolution step shows: `offerss → undefined`
+  3. Additionally, available keys at the parent level are listed as hints (e.g., `undefined (at root: offers, count, isActive, ...)`).
+- [x] **Expected:** When a path resolves to `undefined`, available sibling keys are shown to help identify typos.
+
+### P9.5-07: DSL assertion types in inline verify
+
+- [x] **Setup:** Add various DSL assertion types and click **▶ Verify**:
+  ```
+  offers  length >=  1
+  offers[*].rank  each >=  0
+  offers  contains_any  {"rank": 1}
+  ASSERT $gt($count($.body.offers), 0)
+  ```
+- [x] **Steps:**
+  1. All assertion types are evaluated: field operators, arrayLength, each, contains/subset, custom ASSERT.
+  2. Failed `each` assertions show which items failed and their indices.
+  3. Failed `contains_any/contains_all/subset` show the expected items vs actual array.
+  4. Failed `ASSERT` expressions show the intermediate `debugExpression` steps with `$.body.*` context.
+- [x] **Expected:** All DSL assertion types are handled correctly in inline verify with appropriate debug detail.
+
+### P9.5-08: Monaco inline end-of-line annotations
+
+- [x] **Setup:** Click **▶ Verify** with mixed passing and failing rules.
+- [x] **Steps:**
+  1. Passing lines show a **green ✓** gutter badge and a green `✓ Passed` annotation at end of line.
+  2. Failing lines show a **red ✗** gutter badge and a red `← Got: <actual value>` annotation at end of line.
+  3. When `lineResults` become empty (e.g., text changed), all annotations are cleared.
+- [x] **Expected:** Inline annotations provide instant visual feedback without opening the debug strip.
+
+### P9.5 — Architecture Note
+
+> **Module extraction:** The Monaco language registration, theming, and autocomplete logic was extracted from `ValidationCodeEditor.tsx` into `utils/monacoValidationLanguage.ts` to keep the editor component under the 900-line threshold. The public API exports: `LANGUAGE_ID`, `OPERATOR_KEYWORDS`, `registerLanguage`, `ensureCompletionProvider`, `applyDynamicTheme`, `isLightTheme`, `getCssVar`, `rgbToHex`.
+>
+> **Key files:**
+> - `ValidationRulesModal.tsx` — inline verify logic, results strip, debug panel rendering
+> - `ValidationCodeEditor.tsx` — Monaco editor with inline annotations (uses extracted language module)
+> - `utils/monacoValidationLanguage.ts` — Monaco language, tokenizer, theming, autocomplete provider
+> - `utils/expressionDebugHelpers.ts` — `prettyDebugValue`, `truncateDebugValue` formatting helpers
+> - `utils/expressionStepDebugger.ts` — `debugExpression` step-through evaluator
+
+---
+
 ### INT-05: Unordered array matching option
 
 - [ ] **Setup:** In the Validation Data Mapper Modal footer, look for the **Unordered array matching** checkbox.
@@ -1370,9 +1481,10 @@ All pop-up modals in the app must follow these rules:
 | P9.2 | 4 | 4/4 ✅ | Lambda syntax, HOFs |
 | P9.3 | 5 | 5/5 ✅ | ASSERT keyword, custom predicates |
 | P9.4 | 15 | 15/15 ✅ | 3-mode modal, DSL reference (accordion), edge toggle, verify stats |
+| P9.5 | 8 | 8/8 ✅ | Inline verification debugging (Verify button, results strip, debug steps, input data, annotations) |
 | VP | 3 | 3/3 ✅ | Version preview modals, compare modal search & layout |
 | Integration | 9 | — | Cross-phase workflows, unmap selected, bottom dock assertions, operator persistence regression |
-| **Total** | **91** | **72/91** | P0–P9.4 verified; VP verified; Integration tests pending |
+| **Total** | **99** | **80/99** | P0–P9.5 verified; VP verified; Integration tests pending |
 
 ### Automated Test Coverage
 
@@ -1383,16 +1495,31 @@ All pop-up modals in the app must follow these rules:
 | `validationAdapter.integration.test.ts` | 84 | Full pipeline: adapter serialize → operator evaluate for all operators, negate, expressions |
 | `validationAdapter.test.ts` | 71 | Adapter unit tests (includes explicit operator persistence) |
 | `useValidationVerify.test.ts` | 37 | Verify hook tests |
-| `ValidationRulesModal.test.tsx` | 44 | Modal rendering, mode switching, Save/Cancel, edge toggle, reference panel toggle |
-| `ValidationCodeEditor.test.tsx` | — | Monaco editor mount, theme, decorations, selection guard |
+| `ValidationRulesModal.test.tsx` | 97 | Modal rendering, mode switching, Save/Cancel, edge toggle, reference panel toggle, **inline verify, debug panel, DSL assertions, expand/collapse** |
+| `ValidationCodeEditor.test.tsx` | 69 | Monaco editor mount, theme, decorations, selection guard, **inline annotations (pass/fail)** |
+| `monacoValidationLanguage.test.ts` | 31 | Language registration, theming, autocomplete provider (path/operator/ASSERT/function suggestions) |
+| `expressionDebugHelpers.test.ts` | 10 | `prettyDebugValue` formatting, `truncateDebugValue` with custom limits |
 | `DslReferencePanel.test.tsx` | — | Accordion behavior, merged sections, search, insert/copy |
 | `CodeView.test.tsx` | — | Assertion rendering in code/table views, status column, empty state |
-| `targetTreeHelpers.test.ts` | — | `getAssertionJsonPath`, `formatAssertionLine` utilities |
+| `targetTreeHelpers.test.ts` | 58 | `getAssertionJsonPath`, `formatAssertionLine`, `formatAssertionSummary` (no truncation for custom) |
 | `InlineAssertionRow.test.tsx` | — | Inline editing, each fallback, verify badges |
 | `TestEditorValidationTab.test.tsx` | — | JSON Schema editor, Pretty/Minify buttons |
-| **Total automated** | **375+** | |
+| `TargetTreeNode.test.tsx` | 149 | Tree node rendering, drag-drop, context menu, operator picker, **verifyFilter for array assertions** |
+| `ExpressionDebugDetailModal.test.tsx` | 12 | Detail modal render, drag, keyboard, CSS classes |
+| **Total automated** | **500+** | |
+
+### Overall Code Coverage
+
+| Metric | Value |
+|--------|-------|
+| **Statements** | 98.34% |
+| **Branches** | 94.27% |
+| **Functions** | 98.78% |
+| **Lines** | 99.23% |
 
 ### E2E Test Coverage (Playwright)
+
+> **Total E2E tests: 652 passed** (across all spec files, 40 workers, 30s timeout)
 
 | Test File | Tests | Scope |
 |-----------|-------|-------|
@@ -1401,3 +1528,5 @@ All pop-up modals in the app must follow these rules:
 | `e2e/validation-rules-modal-zindex.spec.ts` | — | Portal stacking, z-index |
 | `e2e/validation-rules-visual-mapper-clear.spec.ts` | — | Clear/reset flows |
 | `e2e/validation-rules-edge-toggle.spec.ts` | 2 | Edge toggle visibility/toggle, line decorations after Verify All |
+| `e2e/validation-dsl-roundtrip.spec.ts` | — | DSL collection assertions save/reopen round-trip |
+| `e2e/custom-predicate-assertion.spec.ts` | — | Custom ASSERT expressions, visibility in Data Mapper |
