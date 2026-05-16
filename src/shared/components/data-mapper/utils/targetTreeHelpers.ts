@@ -26,12 +26,12 @@ export const TYPE_LABELS: Record<string, string> = {
 };
 
 /** Array-level assertion presentation metadata (icon, label, CSS class). */
-export const ARRAY_ASSERTION_LABELS: Record<string, { icon: string; label: string; cssClass: string }> = {
-  arrayLength: { icon: '#', label: 'length', cssClass: 'length' },
-  arrayContains: { icon: '∋', label: 'contains', cssClass: 'contains' },
-  each: { icon: '∀', label: 'each', cssClass: 'each' },
-  containsSubset: { icon: '⊆', label: 'subset', cssClass: 'subset' },
-  custom: { icon: 'ƒ', label: 'custom', cssClass: 'custom' },
+export const ARRAY_ASSERTION_LABELS: Record<string, { icon: string; label: string; description: string; cssClass: string }> = {
+  arrayLength: { icon: '#', label: 'LENGTH', description: 'Array size check', cssClass: 'length' },
+  arrayContains: { icon: '∋', label: 'CONTAINS', description: 'Has item with exact value', cssClass: 'contains' },
+  each: { icon: '∀', label: 'EACH', description: 'Every item must match', cssClass: 'each' },
+  containsSubset: { icon: '⊆', label: 'SUBSET', description: 'Has item matching partial object (nested)', cssClass: 'subset' },
+  custom: { icon: 'ƒ', label: 'CUSTOM', description: 'Custom assertion', cssClass: 'custom' },
 };
 
 /** Comparison operators rendered in inline assertion controls. */
@@ -82,13 +82,14 @@ export function matchesNodeVisibility(
     return searchMatch && matchesFilter(node.path, mappingFilter, mappedTargetPaths);
   }
 
+  const selfMatch = matchesFilter(node.path, mappingFilter, mappedTargetPaths);
   const childMatch = node.children!.some((child) =>
     matchesNodeVisibility(child, search, mappingFilter, mappedTargetPaths),
   );
   if (mappingFilter === 'all') {
     return searchMatch || childMatch;
   }
-  return childMatch;
+  return selfMatch || childMatch;
 }
 
 /**
@@ -110,14 +111,93 @@ export function flashTreeNode(el: Element | null, ms = 1500): void {
   setTimeout(() => (el as HTMLElement).classList.remove('dm-tree-node--flash'), ms);
 }
 
+export const OPERATOR_DISPLAY: Record<string, string> = {
+  equals: '=',
+  not_equals: '!=',
+  greater_than: '>',
+  greater_than_or_equal: '>=',
+  less_than: '<',
+  less_than_or_equal: '<=',
+  contains: 'contains',
+  not_contains: 'not_contains',
+  starts_with: 'starts_with',
+  ends_with: 'ends_with',
+  exists: 'exists',
+  not_exists: 'not_exists',
+  is_true: 'is_true',
+  is_false: 'is_false',
+  is_null: 'is_null',
+  is_not_null: 'is_not_null',
+  is_empty: 'is_empty',
+  is_not_empty: 'is_not_empty',
+  is_type: 'is_type',
+  regex: 'regex',
+  in: 'in',
+  not_in: 'not_in',
+  between: 'between',
+  close_to: 'close_to',
+};
+
+function displayOp(op: string): string {
+  return OPERATOR_DISPLAY[op] ?? op;
+}
+
+const DISPLAY_TO_OPERATOR: Record<string, string> = {};
+for (const [internal, display] of Object.entries(OPERATOR_DISPLAY)) {
+  DISPLAY_TO_OPERATOR[display] = internal;
+  DISPLAY_TO_OPERATOR[internal] = internal;
+}
+
+/**
+ * Parse a user-entered "each" assertion value string back into its components.
+ * Accepts formats like "rank >= 0", "* exists", "name contains foo".
+ * Returns { fieldPath, operator, value } or null if unparseable.
+ */
+export function parseEachInput(input: string): { fieldPath: string; operator: string; value: string } | null {
+  const trimmed = input.trim();
+  if (!trimmed) return null;
+
+  const tokens = trimmed.split(/\s+/);
+  if (tokens.length < 2) return null;
+
+  const fieldPath = tokens[0] === '*' ? '' : tokens[0];
+  const opToken = tokens[1];
+  const operator = DISPLAY_TO_OPERATOR[opToken] ?? opToken;
+  const value = tokens.slice(2).join(' ');
+
+  return { fieldPath, operator, value };
+}
+
 /** Short, one-line summary of an assertion for the inline row chip. */
 export function formatAssertionSummary(a: Assertion): string {
   switch (a.type) {
     case 'arrayLength': return String(a.value);
     case 'arrayContains': return `${a.mode}: ${a.value || '(empty)'}`;
-    case 'each': return `${a.fieldPath || '*'} ${a.operator} ${a.value ?? ''}`;
+    case 'each': {
+      const field = a.fieldPath || '*';
+      const op = displayOp(a.operator);
+      const val = a.value ?? '';
+      return `${field} ${op} ${val}`.trim();
+    }
     case 'containsSubset': return a.expected.length > 30 ? a.expected.slice(0, 27) + '…' : a.expected;
     case 'custom': return a.expression.length > 30 ? a.expression.slice(0, 27) + '…' : a.expression;
     default: return '';
   }
+}
+
+/** Safely extract jsonPath from any assertion variant that carries one. */
+export function getAssertionJsonPath(a: Assertion): string {
+  if ('jsonPath' in a && typeof (a as { jsonPath?: string }).jsonPath === 'string') {
+    return (a as { jsonPath: string }).jsonPath;
+  }
+  return '';
+}
+
+/** Full one-line description for Code view: "path  TYPE  summary". */
+export function formatAssertionLine(a: Assertion): string {
+  const meta = ARRAY_ASSERTION_LABELS[a.type];
+  const label = meta?.label ?? a.type.toUpperCase();
+  const shortPath = getAssertionJsonPath(a).replace(/^\$\.?/, '');
+  const summary = formatAssertionSummary(a);
+  return `${shortPath}  ${label}  ${summary}`;
 }

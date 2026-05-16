@@ -24,7 +24,7 @@
 }
 
 .dm-modal-shell {
-  background: var(--bg-surface, #1e1e2e);
+  background: var(--surface, #1e1e2e);
   border: 1px solid var(--border, #3b3f51);
   border-radius: 12px;
   display: flex;
@@ -53,7 +53,7 @@
   margin: 0;
   font-size: 1.02rem;
   font-weight: 600;
-  color: var(--text-primary, #cdd6f4);
+  color: var(--text, #cdd6f4);
 }
 
 .dm-modal-subtitle {
@@ -79,8 +79,8 @@
 }
 
 .dm-modal-header-btn:hover {
-  background: var(--bg-hover, #313244);
-  color: var(--text-primary, #cdd6f4);
+  background: var(--surface-hover, #313244);
+  color: var(--text, #cdd6f4);
 }
 
 .dm-modal-body {
@@ -103,7 +103,7 @@
   padding: 12px 18px;
   border-top: 1px solid var(--border, #3b3f51);
   flex-shrink: 0;
-  background: color-mix(in srgb, var(--bg-surface, #1e1e2e) 80%, #000 20%);
+  background: color-mix(in srgb, var(--surface, #1e1e2e) 80%, var(--bg, #000) 20%);
 }
 
 .dm-modal-footer-status {
@@ -158,12 +158,12 @@
 }
 
 .dm-modal-btn--secondary:hover {
-  background: var(--bg-hover, #313244);
+  background: var(--surface-hover, #313244);
 }
 
 .dm-modal-btn--primary {
-  background: var(--accent, #89b4fa);
-  color: #1e1e2e;
+  background: var(--primary, #3b82f6);
+  color: var(--bg, #1e1e2e);
   border-color: transparent;
   min-width: 112px;
   font-weight: 600;
@@ -197,7 +197,7 @@
   border-top: 1px solid var(--border, #3b3f51);
   padding: 8px 16px;
   flex-shrink: 0;
-  background: var(--bg-elevated, #181825);
+  background: color-mix(in srgb, var(--surface, #181825) 80%, var(--bg, #000) 20%);
 }
 
 .dm-validation-count {
@@ -295,7 +295,7 @@
 .dm-drift-banner-title {
   font-size: 0.82rem;
   font-weight: 600;
-  color: var(--text-primary, #cdd6f4);
+  color: var(--text, #cdd6f4);
   line-height: 1.4;
 }
 
@@ -360,8 +360,8 @@
 }
 
 .dm-drift-btn--accept {
-  background: var(--accent, #89b4fa);
-  color: #1e1e2e;
+  background: var(--primary, #3b82f6);
+  color: var(--bg, #1e1e2e);
   padding: 5px 12px;
 }
 
@@ -374,8 +374,8 @@
 }
 
 .dm-drift-btn--diff {
-  background: var(--bg-hover, #313244);
-  color: var(--text-primary, #cdd6f4);
+  background: var(--surface-hover, #313244);
+  color: var(--text, #cdd6f4);
   padding: 5px 12px;
   border: 1px solid var(--border, #3b3f51);
 }
@@ -395,7 +395,7 @@
 }
 
 .dm-diff-shell {
-  background: var(--bg-surface, #1e1e2e);
+  background: var(--surface, #1e1e2e);
   border: 1px solid var(--border, #3b3f51);
   border-radius: 10px;
   display: flex;
@@ -419,7 +419,7 @@
   margin: 0;
   font-size: 0.95rem;
   font-weight: 600;
-  color: var(--text-primary, #cdd6f4);
+  color: var(--text, #cdd6f4);
 }
 
 .dm-diff-summary-badges {
@@ -461,7 +461,7 @@
   justify-content: flex-end;
   padding: 8px 16px;
   border-bottom: 1px solid var(--border-subtle, rgba(59, 63, 81, 0.4));
-  background: var(--bg-elevated, #181825);
+  background: color-mix(in srgb, var(--surface, #181825) 80%, var(--bg, #000) 20%);
 }
 
 .dm-diff-table {
@@ -473,7 +473,7 @@
 .dm-diff-th {
   position: sticky;
   top: 0;
-  background: var(--bg-elevated, #181825);
+  background: color-mix(in srgb, var(--surface, #181825) 80%, var(--bg, #000) 20%);
   padding: 8px 12px;
   text-align: left;
   color: var(--text-secondary, #a6adc8);
@@ -487,7 +487,7 @@
 .dm-diff-td {
   padding: 6px 12px;
   border-bottom: 1px solid var(--border-subtle, rgba(59, 63, 81, 0.4));
-  color: var(--text-primary, #cdd6f4);
+  color: var(--text, #cdd6f4);
 }
 
 .dm-diff-row--breaking { background: rgba(235, 111, 146, 0.04); }
@@ -584,7 +584,7 @@
   right: 0;
   min-width: 280px;
   max-width: 360px;
-  background: var(--bg-surface, #24273a);
+  background: var(--surface, #24273a);
   border: 1px solid var(--border, #3b3f51);
   border-radius: 6px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
@@ -615,7 +615,7 @@
 .dm-repair-suggestion-path {
   font-family: 'SF Mono', 'Fira Code', monospace;
   font-size: 0.75rem;
-  color: var(--text-primary, #cdd6f4);
+  color: var(--text, #cdd6f4);
   font-weight: 600;
 }
 

@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import type { RulesVersion, ValidationConfig, ExpectedField, Assertion } from '../../../shared/types';
 import { buildRulesSnapshot } from '../utils/versionUtils';
+import { serializeToDsl } from '../../../shared/components/data-mapper/utils/validationDsl';
 import { Differ, Viewer } from 'json-diff-kit';
 import 'json-diff-kit/dist/viewer.css';
 import 'json-diff-kit/dist/viewer-monokai.css';
@@ -49,6 +50,7 @@ export default function RulesVersionPanel({
   const [compareLeft, setCompareLeft] = useState<string | null>(null);
   const [compareRight, setCompareRight] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
+  const [previewId, setPreviewId] = useState<string | null>(null);
 
   const sorted = useMemo(() => [...versions].sort((a, b) => b.timestamp - a.timestamp), [versions]);
 
@@ -213,36 +215,52 @@ export default function RulesVersionPanel({
             !!v.unorderedArrays,
             v.assertions || [],
           );
+          const isPreview = previewId === v.id;
           return (
             <div key={v.id} className={`version-item ${isCurrent ? 'version-current' : ''}`}>
-              <div className="version-item-info">
-                {editingLabel === v.id ? (
-                  <input
-                    className="version-label-input"
-                    autoFocus
-                    value={labelText}
-                    onChange={(e) => setLabelText(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') { onRenameVersion(v.id, labelText); setEditingLabel(null); }
-                      if (e.key === 'Escape') setEditingLabel(null);
-                    }}
-                    onBlur={() => { onRenameVersion(v.id, labelText); setEditingLabel(null); }}
-                  />
-                ) : (
-                  <span className="version-label" onClick={() => { setEditingLabel(v.id); setLabelText(v.label || ''); }}>
-                    {getVersionLabel(v, i)}
-                  </span>
-                )}
-                <span className="version-time">{formatTime(v.timestamp)}</span>
-                <span className="version-rules-tag">{rulesDescription(v)}</span>
-                {isCurrent && <span className="version-current-tag">current</span>}
+              <div className="version-item-row">
+                <div className="version-item-info">
+                  {editingLabel === v.id ? (
+                    <input
+                      className="version-label-input"
+                      autoFocus
+                      value={labelText}
+                      onChange={(e) => setLabelText(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') { onRenameVersion(v.id, labelText); setEditingLabel(null); }
+                        if (e.key === 'Escape') setEditingLabel(null);
+                      }}
+                      onBlur={() => { onRenameVersion(v.id, labelText); setEditingLabel(null); }}
+                    />
+                  ) : (
+                    <span className="version-label" onClick={() => { setEditingLabel(v.id); setLabelText(v.label || ''); }}>
+                      {getVersionLabel(v, i)}
+                    </span>
+                  )}
+                  <span className="version-time">{formatTime(v.timestamp)}</span>
+                  <span className="version-rules-tag">{rulesDescription(v)}</span>
+                  {isCurrent && <span className="version-current-tag">current</span>}
+                </div>
+                <div className="version-item-actions">
+                  <button
+                    type="button"
+                    className={`btn btn-xs ${isPreview ? 'btn-active' : ''}`}
+                    onClick={() => setPreviewId(isPreview ? null : v.id)}
+                    title="Preview rules"
+                  >
+                    {isPreview ? 'Hide' : 'Preview'}
+                  </button>
+                  {!isCurrent && (
+                    <button type="button" className="btn btn-xs" onClick={() => onRestore(v)}>Restore</button>
+                  )}
+                  <button type="button" className="btn btn-xs btn-danger" onClick={() => onDeleteVersion(v.id)}>Delete</button>
+                </div>
               </div>
-              <div className="version-item-actions">
-                {!isCurrent && (
-                  <button type="button" className="btn btn-xs" onClick={() => onRestore(v)}>Restore</button>
-                )}
-                <button type="button" className="btn btn-xs btn-danger" onClick={() => onDeleteVersion(v.id)}>Delete</button>
-              </div>
+              {isPreview && (
+                <div className="version-preview">
+                  <pre className="version-preview-dsl">{serializeToDsl(v.expectedFields || [], v.assertions || []) || '(no rules)'}</pre>
+                </div>
+              )}
             </div>
           );
         })}

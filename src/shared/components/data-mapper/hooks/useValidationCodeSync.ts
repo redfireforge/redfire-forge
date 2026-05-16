@@ -38,6 +38,8 @@ export function useValidationCodeSync({
   const syncDirection = useRef<'visual' | 'code' | null>(null);
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const nonDslAssertionsRef = useRef<Assertion[]>([]);
+  const dslTextRef = useRef(dslText);
+  dslTextRef.current = dslText;
 
   const ruleCount = useMemo(() => {
     return dslText.split('\n').filter(l => l.trim() && !l.trim().startsWith('#')).length;
@@ -46,21 +48,35 @@ export function useValidationCodeSync({
   // pendingCodeSyncs tracks how many code→visual updates are in-flight so
   // the visual→code guard isn't cleared until React has flushed all of them.
   const pendingCodeSyncs = useRef(0);
+  // When the last code→visual push had parse errors, suppress the echo
+  // re-serialization so the user's DSL text (including error lines) stays intact.
+  const lastCodeHadErrors = useRef(false);
 
   // Visual → Code: re-serialize when fields/assertions change from visual side
   const syncVisualToCode = useCallback(() => {
-    // Always keep nonDslAssertionsRef fresh so code→visual merges are correct
     nonDslAssertionsRef.current = assertions.filter(a => !DSL_ASSERTION_TYPES.has(a.type));
 
     if (syncDirection.current === 'code') {
-      // Visual state changed as a result of code→visual apply — cancel stale debounce
-      // and skip re-serializing to avoid overwriting the user's in-progress edit
       if (debounceTimer.current) {
         clearTimeout(debounceTimer.current);
         debounceTimer.current = null;
       }
       pendingCodeSyncs.current = Math.max(0, pendingCodeSyncs.current - 1);
-      if (pendingCodeSyncs.current === 0) syncDirection.current = null;
+      if (pendingCodeSyncs.current === 0) {
+        syncDirection.current = null;
+        if (lastCodeHadErrors.current) {
+          const { errors } = parseDsl(dslTextRef.current);
+          setParseErrors(errors);
+          return;
+        }
+      } else {
+        return;
+      }
+    }
+
+    if (lastCodeHadErrors.current) {
+      const { errors } = parseDsl(dslTextRef.current);
+      setParseErrors(errors);
       return;
     }
 
@@ -87,11 +103,12 @@ export function useValidationCodeSync({
       debounceTimer.current = null;
       const { rules, errors } = parseDsl(text);
       setParseErrors(errors);
+      lastCodeHadErrors.current = errors.length > 0;
 
-      // Only push to visual model when there are zero parse errors.
-      // This prevents mid-edit partial keywords (e.g. "exist" while
-      // typing "exists") from deleting the line from the visual model.
-      if (errors.length === 0 && (rules.length > 0 || text.trim() === '')) {
+      // Always push valid rules to the visual model, even when there are
+      // parse errors on some lines.  Only skip if the ENTIRE text is empty
+      // but there are errors (i.e. transient typing state).
+      if (rules.length > 0 || text.trim() === '') {
         const model = dslToModel(rules);
         onUpdateFields(model.fields);
         onUpdateAssertions([...nonDslAssertionsRef.current, ...model.assertions]);
@@ -100,8 +117,6 @@ export function useValidationCodeSync({
   }, [onUpdateFields, onUpdateAssertions]);
 
   // Flush pending debounce when disabled (instead of dropping edits), clear on unmount
-  const dslTextRef = useRef(dslText);
-  dslTextRef.current = dslText;
   const onUpdateFieldsRef = useRef(onUpdateFields);
   onUpdateFieldsRef.current = onUpdateFields;
   const onUpdateAssertionsRef = useRef(onUpdateAssertions);
@@ -113,7 +128,8 @@ export function useValidationCodeSync({
         clearTimeout(debounceTimer.current);
         debounceTimer.current = null;
         const text = dslTextRef.current;
-        const { rules } = parseDsl(text);
+        const { rules, errors } = parseDsl(text);
+        lastCodeHadErrors.current = errors.length > 0;
         if (rules.length > 0 || text.trim() === '') {
           const model = dslToModel(rules);
           onUpdateFieldsRef.current(model.fields);

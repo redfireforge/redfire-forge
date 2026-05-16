@@ -23,8 +23,13 @@ export function deepSubsetMatch(
   }
 
   if (typeof expected === 'object' && expected !== null) {
-    if (typeof actual !== 'object' || actual === null || Array.isArray(actual)) {
-      return { match: false, path: path || '(root)', expected: 'object', actual: actual === null ? 'null' : Array.isArray(actual) ? 'array' : typeof actual };
+    if (Array.isArray(actual)) {
+      const found = actual.some(item => deepSubsetMatch(item, expected, '').match);
+      if (found) return { match: true };
+      return { match: false, path: path || '(root)', expected: JSON.stringify(expected), actual: 'no matching element in array' };
+    }
+    if (typeof actual !== 'object' || actual === null) {
+      return { match: false, path: path || '(root)', expected: 'object', actual: actual === null ? 'null' : typeof actual };
     }
     const actObj = actual as Record<string, unknown>;
     const expObj = expected as Record<string, unknown>;

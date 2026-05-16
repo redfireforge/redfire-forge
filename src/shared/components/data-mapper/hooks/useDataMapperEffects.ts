@@ -1,5 +1,6 @@
 import { useEffect, useRef, useCallback, useMemo, useState } from 'react';
-import type { MapperAdapter, Mapping } from '../types';
+import type { MapperAdapter, Mapping, FetchErrorDetail } from '../types';
+import { MapperFetchError } from '../types';
 import { buildJsonTree, getAllLeafPaths } from '../../../utils/jsonTreeModel';
 import { savePattern } from '../utils/mappingPatterns';
 import { detectTypeMismatches } from '../utils/typeMismatch';
@@ -53,7 +54,7 @@ export function useDataMapperEffects({
   previousMappingCountRef,
   sourceSampleOverrides,
 }: UseDataMapperEffectsDeps) {
-  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [fetchError, setFetchError] = useState<FetchErrorDetail | null>(null);
 
   useEffect(() => {
     setFetchError(null);
@@ -126,7 +127,11 @@ export function useDataMapperEffects({
         setSourceSample(requestedSourceId, data);
       }
     } catch (e) {
-      setFetchError(e instanceof Error ? e.message : 'Failed to fetch sample data');
+      if (e instanceof MapperFetchError) {
+        setFetchError(e.detail);
+      } else {
+        setFetchError({ message: e instanceof Error ? e.message : 'Failed to fetch sample data' });
+      }
     }
   }, [adapter, setSourceSample]);
 

@@ -8,6 +8,9 @@ import {
   TYPE_LABELS,
   ARRAY_ASSERTION_LABELS,
   COMPARISON_OPS,
+  parseEachInput,
+  getAssertionJsonPath,
+  formatAssertionLine,
   matchesSearchTerm,
   matchesFilter,
   matchesNodeVisibility,
@@ -39,11 +42,11 @@ describe('targetTreeHelpers constants', () => {
   });
 
   it('declares the array-assertion presentation metadata', () => {
-    expect(ARRAY_ASSERTION_LABELS.arrayLength.label).toBe('length');
-    expect(ARRAY_ASSERTION_LABELS.arrayContains.label).toBe('contains');
-    expect(ARRAY_ASSERTION_LABELS.each.label).toBe('each');
-    expect(ARRAY_ASSERTION_LABELS.containsSubset.label).toBe('subset');
-    expect(ARRAY_ASSERTION_LABELS.custom.label).toBe('custom');
+    expect(ARRAY_ASSERTION_LABELS.arrayLength.label).toBe('LENGTH');
+    expect(ARRAY_ASSERTION_LABELS.arrayContains.label).toBe('CONTAINS');
+    expect(ARRAY_ASSERTION_LABELS.each.label).toBe('EACH');
+    expect(ARRAY_ASSERTION_LABELS.containsSubset.label).toBe('SUBSET');
+    expect(ARRAY_ASSERTION_LABELS.custom.label).toBe('CUSTOM');
   });
 
   it('lists the six comparison operators', () => {
@@ -171,11 +174,11 @@ describe('formatAssertionSummary', () => {
   });
   it('formats each with fieldPath/op/value', () => {
     const a: Assertion = { type: 'each', jsonPath: '$.x', fieldPath: 'name', operator: 'equals', value: 'Bob' };
-    expect(formatAssertionSummary(a)).toBe('name equals Bob');
+    expect(formatAssertionSummary(a)).toBe('name = Bob');
   });
   it('formats each with default field path "*"', () => {
     const a: Assertion = { type: 'each', jsonPath: '$.x', fieldPath: '', operator: 'is_true' };
-    expect(formatAssertionSummary(a)).toBe('* is_true ');
+    expect(formatAssertionSummary(a)).toBe('* is_true');
   });
   it('formats containsSubset short string verbatim', () => {
     const a: Assertion = { type: 'containsSubset', jsonPath: '$.x', expected: '{"a":1}' };
@@ -198,5 +201,86 @@ describe('formatAssertionSummary', () => {
   it('returns empty string for unsupported types', () => {
     const a = { type: 'status', expected: '200' } as Assertion;
     expect(formatAssertionSummary(a)).toBe('');
+  });
+});
+
+describe('parseEachInput', () => {
+  it('parses "rank >= 0" into fieldPath, operator, value', () => {
+    const result = parseEachInput('rank >= 0');
+    expect(result).toEqual({ fieldPath: 'rank', operator: 'greater_than_or_equal', value: '0' });
+  });
+
+  it('parses "* exists" into empty fieldPath + exists operator', () => {
+    const result = parseEachInput('* exists');
+    expect(result).toEqual({ fieldPath: '', operator: 'exists', value: '' });
+  });
+
+  it('parses "name = foo" with display symbol', () => {
+    const result = parseEachInput('name = foo');
+    expect(result).toEqual({ fieldPath: 'name', operator: 'equals', value: 'foo' });
+  });
+
+  it('parses "* is_true" with no value', () => {
+    const result = parseEachInput('* is_true');
+    expect(result).toEqual({ fieldPath: '', operator: 'is_true', value: '' });
+  });
+
+  it('parses "score > 10" with internal operator name', () => {
+    const result = parseEachInput('score > 10');
+    expect(result).toEqual({ fieldPath: 'score', operator: 'greater_than', value: '10' });
+  });
+
+  it('parses multi-word value like "name contains hello world"', () => {
+    const result = parseEachInput('name contains hello world');
+    expect(result).toEqual({ fieldPath: 'name', operator: 'contains', value: 'hello world' });
+  });
+
+  it('returns null for empty string', () => {
+    expect(parseEachInput('')).toBeNull();
+  });
+
+  it('returns null for single token', () => {
+    expect(parseEachInput('rank')).toBeNull();
+  });
+});
+
+describe('getAssertionJsonPath', () => {
+  it('extracts jsonPath from arrayLength assertion', () => {
+    const a: Assertion = { type: 'arrayLength', jsonPath: 'offers', operator: '>=', value: 1 };
+    expect(getAssertionJsonPath(a)).toBe('offers');
+  });
+
+  it('returns empty string for assertions without jsonPath', () => {
+    const a: Assertion = { type: 'custom', expression: 'x > 0' };
+    expect(getAssertionJsonPath(a)).toBe('');
+  });
+
+  it('extracts jsonPath from each assertion', () => {
+    const a: Assertion = { type: 'each', jsonPath: 'items[*]', fieldPath: 'rank', operator: 'exists' };
+    expect(getAssertionJsonPath(a)).toBe('items[*]');
+  });
+});
+
+describe('formatAssertionLine', () => {
+  it('formats arrayLength assertion', () => {
+    const a: Assertion = { type: 'arrayLength', jsonPath: 'offers', operator: '>=', value: 3 };
+    expect(formatAssertionLine(a)).toBe('offers  LENGTH  3');
+  });
+
+  it('formats each assertion with operator symbol', () => {
+    const a: Assertion = { type: 'each', jsonPath: 'offers[*]', fieldPath: 'rank', operator: 'greater_than_or_equal', value: '0' };
+    const line = formatAssertionLine(a);
+    expect(line).toContain('EACH');
+    expect(line).toContain('rank');
+  });
+
+  it('formats arrayContains assertion', () => {
+    const a: Assertion = { type: 'arrayContains', jsonPath: 'items', value: '"foo"', mode: 'any' };
+    expect(formatAssertionLine(a)).toBe('items  CONTAINS  any: "foo"');
+  });
+
+  it('strips leading $. from jsonPath', () => {
+    const a: Assertion = { type: 'arrayLength', jsonPath: '$.offers', operator: '=', value: 1 };
+    expect(formatAssertionLine(a)).toBe('offers  LENGTH  1');
   });
 });

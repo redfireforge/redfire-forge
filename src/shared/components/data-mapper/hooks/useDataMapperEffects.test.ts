@@ -263,7 +263,7 @@ describe('useDataMapperEffects', () => {
       await result.current.handleFetchSample();
     });
 
-    expect(result.current.fetchError).toBe('Failed to fetch sample data');
+    expect(result.current.fetchError).toEqual({ message: 'Failed to fetch sample data' });
   });
 
   it('effectiveSources merges sample overrides into adapter sources', () => {

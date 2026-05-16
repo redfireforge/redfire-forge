@@ -1,8 +1,10 @@
 import { useState, useMemo, useCallback, useEffect, useRef, memo } from 'react';
 import { buildJsonTree, getAllLeafPaths, nodeMatchesSearch } from '../../../shared/utils/jsonTreeModel';
 import type { JsonTreeNode } from '../../../shared/utils/jsonTreeModel';
+import type { FetchErrorDetail } from '../../../shared/components/data-mapper/types';
 import { typeColor, getValuePreview, ChevronIcon } from '../../../shared/components/jsonTreeShared';
 import FullPanelModal from '../../../shared/components/FullPanelModal';
+import FetchErrorBanner from '../../../shared/components/data-mapper/FetchErrorBanner';
 import { PATTERN_LIBRARY, testPattern, resolveValue, type PatternEntry } from './regexAssertionUtils';
 export type { MatchResult } from './regexAssertionUtils';
 
@@ -18,7 +20,7 @@ interface Props {
   sampleJson?: string;
   onFetchSampleResponse?: () => void | Promise<void>;
   fetchingResponse?: boolean;
-  fetchError?: string | null;
+  fetchError?: FetchErrorDetail | null;
   onApply: (result: RegexAssertionResult) => void;
   onClose: () => void;
 }
@@ -213,7 +215,7 @@ export default function RegexAssertionModal({
                 >
                   {fetchingResponse ? 'Fetching...' : 'Fetch Response'}
                 </button>
-                {fetchError && <span className="ram-fetch-error">{fetchError}</span>}
+                {fetchError && <FetchErrorBanner error={fetchError} />}
               </div>
             )}
 

@@ -91,8 +91,9 @@ export type {
   FieldOperator,
   SourceFormat,
   ValidationSeverity,
+  FetchErrorDetail,
 } from './types';
-export { defaultCapabilities, resolveCapabilities } from './types';
+export { defaultCapabilities, resolveCapabilities, MapperFetchError } from './types';
 export { default as MappingHealthDashboard } from './MappingHealthDashboard';
 export { computeHealthStats } from './utils/healthStats';
 export type { HealthStats } from './utils/healthStats';

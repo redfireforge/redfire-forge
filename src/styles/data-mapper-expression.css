@@ -232,7 +232,7 @@
 }
 
 .dm-expr-fn-item:hover {
-  background: var(--bg-hover, #45475a);
+  background: var(--surface-hover, #45475a);
 }
 
 .dm-expr-fn-item--active {
@@ -304,7 +304,7 @@
   padding: 10px;
   border: 1px solid var(--border, #3b3f51);
   border-radius: 6px;
-  background: var(--bg-input, #181825);
+  background: var(--bg, #181825);
   color: var(--text, #cdd6f4);
   outline: none;
 }
@@ -354,7 +354,7 @@
   width: 100%;
   border: 1px solid var(--border, #3b3f51);
   border-radius: 5px;
-  background: var(--bg-input, #181825);
+  background: var(--bg, #181825);
   color: var(--text, #cdd6f4);
   font-size: 0.74rem;
   padding: 5px 7px;
@@ -664,7 +664,7 @@
 }
 
 .dm-expr-btn--cancel:hover {
-  background: var(--bg-hover, #45475a);
+  background: var(--surface-hover, #45475a);
 }
 
 .dm-expr-btn--save {

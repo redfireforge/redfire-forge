@@ -167,6 +167,209 @@ describe('useValidationCodeSync', () => {
     expect(result.current.dslText).toContain('a');
   });
 
+  it('serializes array assertions (arrayLength, arrayContains) added via context menu', () => {
+    const fields: ExpectedField[] = [
+      { jsonPath: '$.name', expectedValue: '', operator: 'exists' },
+    ];
+    const assertions: Assertion[] = [];
+    const { result, rerender } = renderHook(
+      (props) => useValidationCodeSync(props),
+      { initialProps: { ...defaultOptions, fields, assertions } },
+    );
+
+    expect(result.current.dslText).toContain('name');
+    expect(result.current.dslText).toContain('exists');
+
+    // Simulate adding array assertions via context menu
+    const updatedAssertions: Assertion[] = [
+      { type: 'arrayLength', jsonPath: '$.offers', operator: '>=', value: 1 },
+      { type: 'arrayContains', jsonPath: '$.offers', value: '{"offerName":"Connected Access"}', mode: 'any' },
+    ];
+    rerender({ ...defaultOptions, fields, assertions: updatedAssertions });
+
+    expect(result.current.dslText).toContain('offers');
+    expect(result.current.dslText).toContain('length >=');
+    expect(result.current.dslText).toContain('contains_any');
+    expect(result.current.dslText).toContain('Connected Access');
+  });
+
+  it('picks up assertions added while disabled when re-enabled (modal open/close cycle)', () => {
+    const fields: ExpectedField[] = [
+      { jsonPath: '$.name', expectedValue: '', operator: 'exists' },
+    ];
+    const assertions: Assertion[] = [];
+
+    // Start with enabled=false (modal closed)
+    const { result, rerender } = renderHook(
+      (props) => useValidationCodeSync(props),
+      { initialProps: { ...defaultOptions, fields, assertions, enabled: false } },
+    );
+
+    // While disabled, dslText should be empty
+    expect(result.current.dslText).toBe('');
+
+    // Add array assertions while modal is closed (enabled=false)
+    const updatedAssertions: Assertion[] = [
+      { type: 'arrayLength', jsonPath: '$.offers', operator: '>=', value: 1 },
+      { type: 'arrayContains', jsonPath: '$.offers', value: '{"offerName":"Connected Access"}', mode: 'any' },
+    ];
+    rerender({ ...defaultOptions, fields, assertions: updatedAssertions, enabled: false });
+
+    // Still disabled — dslText should still be empty
+    expect(result.current.dslText).toBe('');
+
+    // Now enable (modal opens)
+    rerender({ ...defaultOptions, fields, assertions: updatedAssertions, enabled: true });
+
+    // After enabling, dslText should contain the array assertions
+    expect(result.current.dslText).toContain('offers');
+    expect(result.current.dslText).toContain('length >=');
+    expect(result.current.dslText).toContain('contains_any');
+    expect(result.current.dslText).toContain('Connected Access');
+    expect(result.current.dslText).toContain('name');
+    expect(result.current.dslText).toContain('exists');
+  });
+
+  it('handleCodeChange with empty text clears assertions via debounce', () => {
+    const fields: ExpectedField[] = [
+      { jsonPath: '$.name', expectedValue: '', operator: 'exists' },
+    ];
+    const assertions: Assertion[] = [
+      { type: 'arrayLength', jsonPath: '$.offers', operator: '>=', value: 1 },
+    ];
+
+    const { result } = renderHook(
+      (props) => useValidationCodeSync(props),
+      { initialProps: { ...defaultOptions, fields, assertions } },
+    );
+
+    expect(result.current.dslText).toContain('offers');
+
+    // Simulate: Cancel sends the old (empty) value via handleCodeChange
+    act(() => {
+      result.current.handleCodeChange('');
+      vi.advanceTimersByTime(350);
+    });
+
+    // After debounce, the empty text gets pushed to visual model
+    expect(mockOnUpdateFields).toHaveBeenCalledWith([]);
+    expect(mockOnUpdateAssertions).toHaveBeenCalled();
+    const lastCall = mockOnUpdateAssertions.mock.calls[mockOnUpdateAssertions.mock.calls.length - 1][0];
+    expect(lastCall).toEqual([]);
+  });
+
+  it('visual→code sync works after code→visual cycle (syncDirection not stuck)', () => {
+    const fields: ExpectedField[] = [
+      { jsonPath: '$.name', expectedValue: '', operator: 'exists' },
+    ];
+    const assertions: Assertion[] = [];
+
+    const { result, rerender } = renderHook(
+      (props) => useValidationCodeSync(props),
+      { initialProps: { ...defaultOptions, fields, assertions } },
+    );
+
+    expect(result.current.dslText).toContain('name');
+
+    // Simulate code→visual: user types in the code editor
+    act(() => {
+      result.current.handleCodeChange('name  exists\nstatus  equals  "ok"');
+      vi.advanceTimersByTime(350);
+    });
+
+    // The code→visual pushed new fields to visual model
+    expect(mockOnUpdateFields).toHaveBeenCalled();
+
+    // Now simulate that the visual model updated (from the code→visual push)
+    // AND additionally an array assertion was added via context menu
+    const newFields: ExpectedField[] = [
+      { jsonPath: '$.name', expectedValue: '', operator: 'exists' },
+      { jsonPath: '$.status', expectedValue: 'ok', operator: 'equals' },
+    ];
+    const newAssertions: Assertion[] = [
+      { type: 'arrayLength', jsonPath: '$.offers', operator: '>=', value: 1 },
+    ];
+
+    rerender({ ...defaultOptions, fields: newFields, assertions: newAssertions });
+
+    // The code→visual cycle consumed the pendingCodeSyncs for the fields update,
+    // but the assertions are NEW — dslText should include them
+    expect(result.current.dslText).toContain('offers');
+    expect(result.current.dslText).toContain('length >=');
+  });
+
+  it('visual→code sync works after disable/enable (modal close/open) with prior code edits', () => {
+    const fields: ExpectedField[] = [
+      { jsonPath: '$.name', expectedValue: '', operator: 'exists' },
+    ];
+    const assertions: Assertion[] = [];
+
+    const { result, rerender } = renderHook(
+      (props) => useValidationCodeSync(props),
+      { initialProps: { ...defaultOptions, fields, assertions, enabled: true } },
+    );
+
+    expect(result.current.dslText).toContain('name');
+
+    // Simulate user editing in the Rules modal (code direction)
+    act(() => {
+      result.current.handleCodeChange('name  exists\nstatus  equals  "ok"');
+      vi.advanceTimersByTime(350);
+    });
+
+    // Now disable (modal closes)
+    rerender({ ...defaultOptions, fields, assertions, enabled: false });
+
+    // While disabled, add array assertions via context menu
+    const newAssertions: Assertion[] = [
+      { type: 'arrayLength', jsonPath: '$.offers', operator: '>=', value: 1 },
+    ];
+    rerender({ ...defaultOptions, fields, assertions: newAssertions, enabled: false });
+
+    // dslText won't change while disabled
+    // Now re-enable (modal opens again)
+    rerender({ ...defaultOptions, fields, assertions: newAssertions, enabled: true });
+
+    // Should serialize ALL current state including the new array assertion
+    expect(result.current.dslText).toContain('offers');
+    expect(result.current.dslText).toContain('length >=');
+    expect(result.current.dslText).toContain('name');
+  });
+
+  it('reflects context-menu assertions added while modal is open AND user already made code edits', () => {
+    const fields: ExpectedField[] = [
+      { jsonPath: '$.name', expectedValue: '', operator: 'exists' },
+    ];
+    const assertions: Assertion[] = [];
+
+    const { result, rerender } = renderHook(
+      (props) => useValidationCodeSync(props),
+      { initialProps: { ...defaultOptions, fields, assertions, enabled: true } },
+    );
+
+    // User edits in code
+    act(() => {
+      result.current.handleCodeChange('name  exists');
+      vi.advanceTimersByTime(350);
+    });
+
+    // The code→visual cycle completes, fields update echoes back
+    const updatedFields: ExpectedField[] = [
+      { jsonPath: '$.name', expectedValue: '', operator: 'exists' },
+    ];
+    rerender({ ...defaultOptions, fields: updatedFields, assertions, enabled: true });
+
+    // Now user adds an array assertion via context menu (while modal is still open)
+    const withArrayAssertion: Assertion[] = [
+      { type: 'arrayLength', jsonPath: '$.offers', operator: '>=', value: 1 },
+    ];
+    rerender({ ...defaultOptions, fields: updatedFields, assertions: withArrayAssertion, enabled: true });
+
+    expect(result.current.dslText).toContain('offers');
+    expect(result.current.dslText).toContain('length >=');
+    expect(result.current.dslText).toContain('name');
+  });
+
   it('handles rapid code changes (debounce coalescence)', () => {
     const { result } = renderHook(() => useValidationCodeSync(defaultOptions));
 

@@ -4,7 +4,7 @@
 >
 > **How to use:** Work through each phase sequentially. Every scenario has **Setup**, **Steps**, and **Expected** sections. Check the box when each test passes.
 >
-> **Navigation to the Validation Mapper:**
+> **Navigation to the Visual Mapper:**
 > 1. Open RedfireForge (web: `npm run dev` → http://localhost:5173, or desktop app)
 > 2. Go to **Testing** → **Scenarios**
 > 3. Create or open a test scenario
@@ -93,7 +93,7 @@
 
 ### P0-03: Array assertions gated by capability
 
-- [x] **Setup:** In the Validation Mapper, locate an array node in the target tree (e.g., `offers`).
+- [x] **Setup:** In the Visual Mapper, locate an array node in the target tree (e.g., `offers`).
 - [x] **Steps:**
   1. Right-click on the `offers` array node.
   2. Check the context menu.
@@ -107,7 +107,7 @@
 
 ### P0-04: Code editor gated by capability
 
-- [x] **Setup:** Compare the Validation Mapper toolbar to the Extraction Mapper toolbar.
+- [x] **Setup:** Compare the Visual Mapper toolbar to the Extraction Mapper toolbar.
 - [x] **Steps:**
   1. Open the Visual Mapper from the **Validation** tab. Look for the **Rules** button in the toolbar.
   2. Close the mapper. Open the Visual Mapper from the **Extract** tab. Look for the **Rules** button.
@@ -119,7 +119,7 @@
 
 ### P1-01: Default operator on auto-map
 
-- [x] **Setup:** Open the Validation Mapper with sample JSON loaded.
+- [x] **Setup:** Open the Visual Mapper with sample JSON loaded.
 - [x] **Steps:**
   1. Click the **Auto-map** button in the toolbar.
   2. Accept the suggested mappings.
@@ -255,16 +255,16 @@
 
 ### P2-03: Existence assertion (existence assertion type)
 
-- [ ] **Setup:** Open the **Rules** modal (toolbar → Rules button).
-- [ ] **Steps:**
+- [x] **Setup:** Open the **Rules** modal (toolbar → Rules button).
+- [x] **Steps:**
   1. Type the following DSL:
      ```
      metadata.version  exists
      _internal         not_exists
      ```
-  2. Close the Rules modal.
+  2. Click **Save** to apply changes and close the Rules modal.
   3. Observe the target tree.
-- [ ] **Expected:** The target tree shows `metadata.version` with a gray `∃ exists` pill and a new virtual node `_internal` with `∄ not exists` pill (or the DSL rule is reflected in the rules summary).
+- [x] **Expected:** The target tree shows `metadata.version` with a gray `∃ exists` pill and a new virtual node `_internal` with `∄ not exists` pill (or the DSL rule is reflected in the rules summary). Clicking **Cancel** instead discards changes and reverts to the state when the modal was opened.
 
 ---
 
@@ -272,71 +272,105 @@
 
 ### P3-01: Array length assertion (inline row)
 
-- [ ] **Setup:** Locate `offers` (array node) in the target tree.
-- [ ] **Steps:**
-  1. Right-click on `offers`. Select **Add length assertion**.
-  2. An inline assertion row appears beneath the array node: `LENGTH  =  [0]`.
-  3. Change the comparison operator dropdown from `=` to `>=`.
-  4. Click the value `0` and change it to `3`.
-- [ ] **Expected:**
-  - Row shows: `# LENGTH  >= at least  [3]  Edit  ×`.
-  - The array node header updates to show `3 items · 1 assertion`.
+- [x] **Setup:** Locate `offers` (array node) in the target tree.
+- [x] **Steps:**
+  1. Right-click on `offers`. Select **Check array size** from the ARRAY ASSERTIONS section.
+  2. An inline assertion row appears beneath the array node: `LENGTH  >=  [1]`.
+  3. Change the comparison operator dropdown to a different operator (e.g. `=`).
+  4. Click the value `1` and change it to `3`.
+- [x] **Expected:**
+  - Row shows the updated assertion with operator and value.
+  - The array node header updates to show assertion count.
 
 ### P3-02: Array contains assertion (4 modes: any, all, only, none)
 
-- [ ] **Setup:** Right-click `offers` array → **Add contains assertion**.
-- [ ] **Steps:**
-  1. An inline assertion row appears: `∋ CONTAINS`.
-  2. Click the value area and type `offerName = "EV Access - 8 Years"`.
-  3. Observe the assertion row updates.
+- [x] **Setup:** Right-click `offers` array → **Contains value (exact match)**.
+- [x] **Steps:**
+  1. An inline assertion row appears: `∋ CONTAINS` with placeholder hint `"value" or {"key": "value"} — exact match`.
+  2. Click the value area and type `{"offerName": "Connected Access - 8 Years"}` (must be valid JSON for object matching, or a quoted string for literal matching).
+  3. Observe the assertion row updates and verify passes/fails.
   4. Repeat, adding assertions with different modes if mode selection is available (any/all/only/none).
-- [ ] **Expected:** The inline row shows the contains assertion with mode and value. Multiple contains assertions can coexist.
+- [x] **Expected:** The inline row shows the contains assertion with mode and value. Multiple contains assertions can coexist. Values use JSON format: `{"key": "value"}` for exact field matching, `"string"` for literal matching.
+
+> **CONTAINS vs SUBSET:** CONTAINS does exact value comparison on matched properties. SUBSET does deep recursive partial matching — extra fields in the actual data are ignored. Use CONTAINS for simple value checks; use SUBSET when you need to match nested objects without specifying every field.
 
 ### P3-03: Each assertion (element-level)
 
-- [ ] **Setup:** Right-click `offers` array → **Add each assertion**.
-- [ ] **Steps:**
-  1. An inline assertion row appears: `∀ EACH`.
+- [x] **Setup:** Right-click `offers` array → **Every item must match**.
+- [x] **Steps:**
+  1. An inline assertion row appears: `∀ EACH` with placeholder hint `value (applied to each item)`.
   2. Set the field path to `rank` and operator to `>=` with value `0`.
-- [ ] **Expected:** Row shows: `∀ EACH  rank  >=  [0]`. This asserts every `offers[*].rank >= 0`.
+- [x] **Expected:** Row shows: `∀ EACH  rank  >=  [0]`. This asserts every `offers[*].rank >= 0`.
 
 ### P3-04: Subset assertion (deep partial match)
 
-- [ ] **Setup:** Right-click `offers` array → **Add subset assertion**.
-- [ ] **Steps:**
-  1. An inline assertion row appears: `⊆ SUBSET`.
+- [x] **Setup:** Right-click `offers` array → **Contains object (deep partial match)**.
+- [x] **Steps:**
+  1. An inline assertion row appears: `⊆ SUBSET` with placeholder hint `{"key": "value", ...} — matches nested fields too`.
   2. Enter the expected JSON: `{"offerName": "OnStar Safety Plan"}`.
-- [ ] **Expected:** Row shows: `⊆ SUBSET  {"offerName": "OnStar..."`. Truncated if long.
+  3. Hover the SUBSET pill — tooltip shows "Has item matching partial object (nested)".
+- [x] **Expected:** Row shows: `⊆ SUBSET  {"offerName": "OnStar..."`. Truncated if long. Unlike CONTAINS, SUBSET ignores extra fields in the actual data and matches nested structures recursively.
+
+> **Example — when to use SUBSET instead of CONTAINS:**
+>
+> Given this response array:
+> ```json
+> "offers": [
+>   {
+>     "associatedOfferingCode": "CA2RCNCP08YUCMX",
+>     "rank": 13,
+>     "offerName": "Connected Access - 8 Years",
+>     "productCode": "Connected Access",
+>     "billingCadence": "Prepaid",
+>     "planType": "Trial",
+>     "duration": { "unit": "Years", "value": 8 }
+>   }
+> ]
+> ```
+>
+> | Assertion | Value | Matches? | Why |
+> |-----------|-------|----------|-----|
+> | `∋ CONTAINS` | `{"offerName": "Connected Access - 8 Years"}` | Yes | Exact field match — the item has that exact field/value |
+> | `⊆ SUBSET` | `{"offerName": "Connected Access - 8 Years"}` | Yes | Partial match — same result for flat objects |
+> | `∋ CONTAINS` | `{"duration": {"unit": "Years"}}` | **No** | CONTAINS compares the entire `duration` object — `{"unit": "Years"}` ≠ `{"unit": "Years", "value": 8}` |
+> | `⊆ SUBSET` | `{"duration": {"unit": "Years"}}` | **Yes** | SUBSET recursively matches — `{"unit": "Years"}` is a subset of `{"unit": "Years", "value": 8}` |
+>
+> **Rule of thumb:** Use CONTAINS for simple flat field checks. Use SUBSET when matching nested objects where the actual data has additional fields you don't care about.
 
 ### P3-05: Multiple array assertions on one node
 
-- [ ] **Setup:** Add all four assertion types to `offers`: length, contains, each, subset.
-- [ ] **Steps:**
+- [x] **Setup:** Add all four assertion types to `offers`: length, contains, each, subset.
+- [x] **Steps:**
   1. Observe the array node header.
   2. Observe all four inline assertion rows stacked beneath the node.
-- [ ] **Expected:**
+- [x] **Expected:**
   - Header: `3 items · 4 assertions`.
   - Four rows visible, each with its type pill, operator/value, and remove (×) button.
   - Removing one assertion (click ×) decrements the count.
+- [x] **Unit tests:** `TargetTreeNode.test.tsx` — 8 tests covering multiple assertion rendering, header badge text (expanded/collapsed), singular/plural, remove button dispatch, and correct type pills.
+- [x] **Bug fix applied:** Clicking an array parent node (e.g., `offers`) now correctly selects the mapping even when the operator is filtered by `PARENT_NODE_ALLOWED_OPS`. `TargetTreeNode.tsx` uses `rawMapping` (unfiltered) for click selection and `mapping` (filtered) for rendering details. This fixed the array suggestion bar not appearing when selecting parent nodes.
 
 ### P3-06: Inline editing of assertion values
 
-- [ ] **Setup:** Have a length assertion `>= 3` on `offers`.
-- [ ] **Steps:**
+- [x] **Setup:** Have a length assertion `>= 3` on `offers`.
+- [x] **Steps:**
   1. Click the value `3`. It becomes an editable input.
   2. Type `5` and press **Enter**. The value commits.
   3. Click the value again, type `2`, press **Escape**. The edit cancels (reverts to `5`).
-- [ ] **Expected:** Enter commits, Escape cancels. Value updates persist across save.
+- [x] **Expected:** Enter commits, Escape cancels. Value updates persist across save.
+- [x] **EACH editing:** For `EACH` assertions, clicking the value box shows the **full expression** (e.g., `rank >= 0`) — not just the raw value. Editing uses compound syntax: `fieldPath operator value`. On commit, the input is parsed back into its parts via `parseEachInput()`. This allows editing the field path, operator, and value all in one input.
+- [x] **E2E verified:** `e2e/validation-rules-sync.spec.ts` — 5 Playwright tests confirm bidirectional sync between visual assertions and the Rules panel (DSL editor), including value editing, Save/Cancel preservation, and open→close→reopen persistence.
 
 ### P3-07: Assertion row layout — value always visible
 
-- [ ] **Setup:** Add a length assertion (`>= N`) to an array node (e.g., `offers`).
-- [ ] **Steps:**
+- [x] **Setup:** Add a length assertion (`>= N`) to an array node (e.g., `offers`).
+- [x] **Steps:**
   1. Observe the assertion row: `# LENGTH  >=  [value]  ×`.
   2. Verify all elements are visible within the panel — the type pill, the `>=` select, the value display, and the remove button.
   3. Click the value to enter edit mode. Type a number and press Enter.
   4. Resize the mapper to a narrower width. Verify the row still fits.
-- [ ] **Expected:** The assertion row lays out correctly within the panel width. The `>=` select dropdown is compact (max ~50px wide), the value display takes remaining flex space, and nothing overflows off-screen. The value is clickable and editable at all panel widths.
+- [x] **Expected:** The assertion row lays out correctly within the panel width. The `>=` select dropdown is compact (max ~50px wide), the value display takes remaining flex space, and nothing overflows off-screen. The value is clickable and editable at all panel widths.
+- [x] **Fixes applied:** Value display and input widths set to `min-width: 160px; flex: 1` so they never shrink when clicked or at narrow widths. Arrow key navigation works inside input fields (global keyboard hook now skips form controls).
 
 ---
 
@@ -344,15 +378,16 @@
 
 ### P4-01: Open the Validation Rules Modal
 
-- [ ] **Setup:** In the Validation Mapper, locate the toolbar.
-- [ ] **Steps:**
+- [x] **Setup:** In the Visual Mapper, locate the toolbar.
+- [x] **Steps:**
   1. Click the **Rules** button in the toolbar.
   2. The **Validation Rules Modal** opens (default mode: docked at bottom).
-- [ ] **Expected:** Modal appears with a Monaco code editor on the left. Header shows rule count.
+- [x] **Expected:** Modal appears with a Monaco code editor on the left. Header shows rule count.
+- [x] **Implementation:** `MapperToolbar.tsx` renders a capability-gated **Rules** button (`onToggleRulesView`). `ValidationRulesModal.tsx` provides the 3-mode panel (docked/floating/maximized) with Monaco editor, DSL reference panel, and header showing verify stats (passed/failed counts). `ValidationRulesModal.test.tsx` covers modal rendering, mode switching, Save/Cancel, and rule count display.
 
 ### P4-02: Write DSL rules — field assertions
 
-- [ ] **Steps:** Type the following in the editor:
+- [x] **Steps:** Type the following in the editor:
   ```
   # Field assertions
   offers[0].associatedOfferingCode  equals  "ONZFCNCPR3MCAL4"
@@ -362,7 +397,7 @@
   offers[0].productCode  exists
   offers[0].duration.value  between  1, 365
   ```
-- [ ] **Expected:** Each line is syntax-highlighted:
+- [x] **Expected:** Each line is syntax-highlighted:
   - Paths in **cyan**.
   - Operators in their category color (green for equals, amber for >=, purple for contains, red for is_true, gray for exists).
   - Values in green (strings), amber (numbers).
@@ -370,58 +405,76 @@
 
 ### P4-03: Write DSL rules — collection assertions
 
-- [ ] **Steps:** Add these lines:
+- [x] **Steps:** Add these lines:
   ```
   # Collection assertions
   offers  length >=  3
-  offers  contains_any  offerName = "EV Access - 8 Years"
+  offers  contains_any  {"offerName": "EV Access - 8 Years"}
   offers[*].rank  each >=  0
   ```
-- [ ] **Expected:** Syntax highlighting applies. `length`, `contains_any`, `each` are recognized keywords.
+- [x] **Expected:** Syntax highlighting applies. `length`, `contains_any`, `each` are recognized keywords.
+- [x] **Note:** `contains_any` value must be valid **JSON** — use `{"field": "value"}` for object matching, or `"literal"` for primitive matching. The old `field = "value"` syntax does NOT work (it's treated as a raw string and won't match objects).
 
 ### P4-04: DSL autocomplete
 
-- [ ] **Steps:**
-  1. On a new line, type `off` and trigger autocomplete (Ctrl+Space or wait).
-  2. A suggestion list appears with paths starting with `off` (e.g., `offers`, `offers[0].offerName`).
-  3. Select `offers[0].offerName`. The path auto-completes.
-  4. Press Space. Type `cont` and trigger autocomplete.
-  5. Operator suggestions appear: `contains`, `contains_any`, etc.
-- [ ] **Expected:** Path completions from the JSON tree. Operator keyword completions.
+- [x] **Steps:**
+  1. On a new line, type `off` — suggestions auto-appear as you type (no shortcut needed).
+  2. A suggestion list appears with paths containing `off` (e.g., `offers`, `offers[0].offerName`, `offers[0].associatedOfferingCode`).
+  3. Select `offers[0].offerName` with Tab or Enter. The path auto-completes.
+  4. Press Space. Type `cont` — operator suggestions auto-appear: `contains_any`, `contains_all`, etc.
+  5. After selecting an operator, type a value — `true`/`false` suggestions appear for boolean operators, type names for `is_type`.
+- [x] **Expected:** Path completions from the JSON tree. Operator keyword completions. Value suggestions contextual to operator.
+- [x] **Implementation:** Autocomplete triggers **automatically while typing** via `quickSuggestions: { other: true }`. No manual shortcut needed — macOS intercepts `Ctrl+Space` (input source) and `Cmd+Space` (Spotlight), so relying on shortcuts is unreliable. Fallback shortcuts registered: `Cmd+I`, `Option+Space`, `Ctrl+Space` (Windows/Linux). The completion provider in `ValidationCodeEditor.tsx` uses a global `window.__REDFIRE_VALIDATION_PATHS` array (populated from `samplePaths` prop) to provide path suggestions at the first-word position, operator keywords after the path, and contextual values after the operator. Trigger characters `.` and `[` also activate suggestions for nested path navigation. Footer hint: "Auto-suggest while typing". E2E verified: `e2e/validation-dsl-roundtrip.spec.ts` confirms suggest widget appears with 12+ path suggestions after typing `of`.
 
-### P4-05: DSL inline errors
+### P4-05: DSL inline errors & pass/fail line decorations
 
-- [ ] **Steps:**
-  1. Type an invalid line: `nonexistent.path  equals  "foo"`.
-  2. Observe: a red squiggle appears under `nonexistent.path` (unknown path).
-  3. Type: `name  unknownOp  "bar"`.
-  4. Observe: a red squiggle appears under `unknownOp` (unknown operator).
-- [ ] **Expected:** Red underline markers for invalid paths and unknown operators.
+- [x] **Steps — Parse Errors:**
+  1. Type an invalid line: `name  unknownOp  "bar"`.
+  2. Observe: the line gets a **red background highlight** and a **red gutter bar** (same visual treatment as failed verification lines), plus a **red squiggle underline** from Monaco error markers.
+  3. The header shows the error count (e.g., "1 error").
+  4. Click **Save**, close the Rules panel, then reopen it.
+  5. Observe: the error line is **preserved** — it was not discarded during the save/reopen cycle. The red highlight and error count still display correctly.
+- [x] **Expected:** Parse error lines get red background + red gutter bar + squiggly underline. Error lines survive Save → close → reopen round-trips.
+
+- [x] **Steps — Pass/Fail Line Decorations (after Verify):**
+  1. Write valid rules (e.g., `status  equals  "active"` and `nonexistent.path  equals  "foo"`).
+  2. Close the Rules modal. Click **Verify All** in the toolbar.
+  3. Re-open the Rules modal.
+  4. Observe: each rule line has a **colored indicator bar** immediately to the left of the line number:
+     - **Green bar** (3px) = rule passed
+     - **Red bar** (3px) = rule failed
+  5. Each line also has a **subtle background tint**: green for passed, red for failed.
+  6. Hover over the indicator bar — a tooltip shows "Passed" or "Failed — Expected: X, Got: Y".
+- [x] **Expected:** Per-line pass/fail decorations appear in the Monaco editor after verification. Failed lines show red background + red indicator bar with a diagnostic tooltip. Passed lines show green. The toolbar verify summary also shows parse error count (e.g., "13 / 1 failed / 1 error") in amber alongside the red failed count.
+- [x] **Implementation:** `ValidationCodeEditor.tsx` accepts `errors: ParseError[]` and `lineResults: LineVerifyResult[]` props. Two separate `useEffect` hooks apply Monaco `deltaDecorations`: one for parse errors (red background + gutter with error message tooltip), one for verification results (pass/fail background + gutter). Both use `linesDecorationsClassName` (for the colored bar next to line numbers) and `className` (for the line background tint). `glyphMargin` is set to `false` so indicators sit tight against line numbers. CSS classes: `.dm-verify-glyph--pass`, `.dm-verify-glyph--fail`, `.dm-verify-line--pass`, `.dm-verify-line--fail` in `data-mapper.css`. The toolbar (`MapperToolbar.tsx`) displays `verifyParseErrorCount` in amber via `.dm-toolbar-verify-error`. Error line preservation is handled by `useValidationCodeSync.ts` via the `lastCodeHadErrors` ref — when the DSL contains parse errors, `syncVisualToCode` skips re-serialization from the visual model to avoid discarding error lines. The flush cleanup effect also sets `lastCodeHadErrors` when the Rules panel closes with a pending debounce. `ValidationRulesModal.tsx` syncs error props independently via `lastSyncedErrorsRef` so error indicators display on reopen. E2E verified: `e2e/validation-dsl-roundtrip.spec.ts` confirms red squiggle + red background on error lines, error lines surviving Save/reopen, and failed verification line highlighting.
 
 ### P4-06: Bi-directional sync — Visual → Code
 
-- [ ] **Setup:** Close the Rules modal. In the visual mapper, create a mapping: drag `status` to target, set operator to `equals`, value `"active"`.
-- [ ] **Steps:**
+- [x] **Setup:** Close the Rules modal. In the visual mapper, create a mapping: drag `status` to target, set operator to `equals`, value `"active"`.
+- [x] **Steps:**
   1. Open the Rules modal again.
   2. Observe the editor content.
-- [ ] **Expected:** The editor contains a line: `status  equals  "active"` (or equivalent), reflecting the visual mapping.
+- [x] **Expected:** The editor contains a line: `status  equals  "active"` (or equivalent), reflecting the visual mapping.
+- [x] **E2E verified:** `e2e/validation-rules-sync.spec.ts` confirms visual→code sync.
 
 ### P4-07: Bi-directional sync — Code → Visual
 
-- [ ] **Setup:** In the Rules editor, add a new line: `count  >=  10`.
-- [ ] **Steps:**
+- [x] **Setup:** In the Rules editor, add a new line: `count  >=  10`.
+- [x] **Steps:**
   1. Wait ~300ms for debounced sync.
   2. Close the Rules modal.
   3. Look at the target tree.
-- [ ] **Expected:** The target field `count` now shows an amber `>=` pill with value `10`, created from the DSL.
+- [x] **Expected:** The target field `count` now shows an amber `>=` pill with value `10`, created from the DSL.
+- [x] **E2E verified:** `e2e/validation-rules-sync.spec.ts` confirms code→visual sync.
 
 ### P4-08: Copy and paste DSL text
 
-- [ ] **Steps:**
-  1. In the Rules editor, select all (Ctrl+A) and copy (Ctrl+C).
+- [x] **Steps:**
+  1. In the Rules editor, select all (`⌘ A`) and copy (`⌘ C`).
   2. Clear the editor.
-  3. Paste (Ctrl+V).
-- [ ] **Expected:** All rules restore correctly. The parser re-validates on paste.
+  3. Paste (`⌘ V`).
+- [x] **Expected:** All rules restore correctly. The parser re-validates on paste.
+- [x] **Note:** Multi-line selection works with both mouse drag and `Shift+Up/Down` arrow keys. A guard in `onDidChangeCursorPosition` prevents React re-renders from interrupting active selection (checks `editor.getSelection().isEmpty()` before triggering side effects). Also, `useValidationRulesModal.ts` cleanup ensures `document.body.style.userSelect` is always reset on unmount, preventing lingering selection-disable from drag handlers.
 
 ---
 
@@ -429,93 +482,97 @@
 
 ### P5-01: Verify All
 
-- [ ] **Setup:** Have several field mappings with operators set (e.g., `status equals "active"`, `count >= 10`, `isActive is_true`).
-- [ ] **Steps:**
+- [x] **Setup:** Have several field mappings with operators set (e.g., `status equals "active"`, `count >= 10`, `isActive is_true`).
+- [x] **Steps:**
   1. Click **Verify All** in the toolbar.
   2. Observe the results.
-- [ ] **Expected:**
+- [x] **Expected:**
   - Per-node inline badges appear: green ✓ for passing rules, red ✗ for failing.
   - Toolbar shows aggregated results: `N passed · M failed`.
   - Canvas connection lines change color: green for passed, red for failed.
 
 ### P5-02: Verify with a failing rule
 
-- [ ] **Setup:** Set `count equals 999` (will fail since count is 42).
-- [ ] **Steps:**
+- [x] **Setup:** Set `count equals 999` (will fail since count is 42).
+- [x] **Steps:**
   1. Click **Verify All**.
   2. Observe the `count` node.
-- [ ] **Expected:** Red ✗ badge on `count`. The toolbar shows 1 failed. Connection line for `count` turns red.
+- [x] **Expected:** Red ✗ badge on `count`. The toolbar shows 1 failed. Connection line for `count` turns red.
 
 ### P5-03: Fetch & Verify (live HTTP request)
 
-- [ ] **Setup:** Ensure the test has a valid HTTP endpoint configured.
-- [ ] **Steps:**
+- [x] **Setup:** Ensure the test has a valid HTTP endpoint configured.
+- [x] **Steps:**
   1. Click **Fetch & Verify** in the toolbar.
   2. Wait for the HTTP response.
-- [ ] **Expected:** The sample data updates with the live response. All rules re-evaluate against the fresh data. Results (✓/✗) update accordingly.
+- [x] **Expected:** The sample data updates with the live response. All rules re-evaluate against the fresh data. Results (✓/✗) update accordingly.
 
 ### P5-04: Auto-verify toggle
 
-- [ ] **Setup:** Enable the **Auto** checkbox in the toolbar.
-- [ ] **Steps:**
+- [x] **Setup:** Enable the **Auto** checkbox in the toolbar.
+- [x] **Steps:**
   1. Change an operator value (e.g., change `count >= 10` to `count >= 100`).
   2. Wait ~500ms.
   3. Observe the badges update automatically without clicking Verify.
-- [ ] **Expected:** Badges and pass/fail counts update automatically after each edit when auto-verify is on.
+- [x] **Expected:** Badges and pass/fail counts update automatically after each edit when auto-verify is on.
 
 ### P5-05: Failure navigation
 
-- [ ] **Setup:** Have 2+ failing rules and 5+ passing rules.
-- [ ] **Steps:**
+- [x] **Setup:** Have 2+ failing rules and 5+ passing rules.
+- [x] **Steps:**
   1. Click the **failed count** in the toolbar. A dropdown of failed rules appears.
   2. Click a failed rule in the dropdown. The target tree scrolls to and highlights that node.
   3. Use **prev/next arrows** to navigate between failures.
-- [ ] **Expected:** Each failure is scrolled into view and highlighted. Navigation cycles through all failures.
+- [x] **Expected:** Each failure is scrolled into view and highlighted. Navigation cycles through all failures.
 
 ### P5-06: Filter by pass/fail
 
-- [ ] **Setup:** After verification, have mixed pass/fail results.
-- [ ] **Steps:**
+- [x] **Setup:** After verification, have mixed pass/fail results.
+- [x] **Steps:**
   1. In the target panel filter dropdown, select **Passed**. Only passing nodes are visible.
   2. Switch to **Failed**. Only failing nodes are visible.
   3. Switch back to **All**.
-- [ ] **Expected:** Filter correctly shows/hides nodes based on verification status.
+- [x] **Expected:** Filter correctly shows/hides nodes based on verification status.
 
 ### P5-07: DSL assertion evaluation in verify
 
-- [ ] **Setup:** Open the Rules modal. Type:
+- [x] **Setup:** Open the Rules modal. Type:
   ```
   offers  length >=  3
   isActive  is_true
   count  >=  10
   ```
-- [ ] **Steps:**
+- [x] **Steps:**
   1. Close the modal. Click **Verify All**.
   2. Observe the verify counts.
-- [ ] **Expected:** All three DSL-originated assertions are counted in the pass/fail totals. The verify stats in both the toolbar and the Rules modal header show the correct total (field operator assertions + DSL assertions combined).
+- [x] **Expected:** All three DSL-originated assertions are counted in the pass/fail totals. The verify stats in both the toolbar and the Rules modal header show the correct total (field operator assertions + DSL assertions combined).
 
 ---
 
 ## Phase 6 — JSON Schema Validation
 
-### P6-01: JSON Schema assertion via DSL
+### P6-01: JSON Schema assertion via Test Editor
 
-- [ ] **Setup:** Open the Rules modal.
-- [ ] **Steps:**
-  1. This phase is primarily engine-level (`jsonSchema` assertion type evaluated by Ajv).
-  2. If the UI supports adding a JSON Schema assertion, add one for the `offers` array:
+- [x] **Setup:** Open a test scenario → click **Edit** → go to the **Validation** tab.
+- [x] **Steps:**
+  1. Click the **Add assertion** button (or "+" menu) and select **JSON Schema**.
+  2. A schema editor row appears with buttons: **Paste Schema**, **Pretty**, **Minify**, **Generate from Response**.
+  3. Paste the following schema into the textarea:
      ```json
      {
-       "type": "array",
-       "minItems": 1,
-       "items": {
-         "type": "object",
-         "required": ["offerName", "rank"]
+       "type": "object",
+       "properties": {
+         "offers": {
+           "type": "array",
+           "minItems": 1
+         }
        }
      }
      ```
-  3. Verify the schema validates against the sample data.
-- [ ] **Expected:** Schema validation passes (✓). If the schema doesn't match the data, a clear error message indicates which constraint failed.
+  4. Click **Pretty** to format it with indentation.
+  5. Click **Verify**. Confirm the assertion passes (response body is an object with an `offers` array containing at least 1 item).
+  6. Change `"minItems": 1` to `"minItems": 100` and click **Verify** again. Confirm the assertion now fails with a clear error message.
+- [x] **Expected:** Schema validation passes when the response matches the schema, and fails with an informative error (including the violated constraint path) when it doesn't. The JSON Schema assertion is engine-level (evaluated by Ajv) and managed through the Test Editor Validation tab — not through the Visual Mapper DSL.
 
 ---
 
@@ -523,16 +580,17 @@
 
 ### P7-01: Expression editor on a mapping
 
-- [ ] **Setup:** Map `offers` (source) to a target field.
-- [ ] **Steps:**
+- [x] **Setup:** Map any single source field to a target (e.g., drag `count` → `count`). Any mapped field works.
+- [x] **Steps:**
   1. Right-click the mapped target node. Select **Edit expression...** from the context menu.
   2. The **Expression Editor Modal** opens.
-  3. In the expression input, type: `$count($.source.offers)`.
+  3. In the expression input, type `$count($.` — the autocomplete dropdown appears showing available paths including parent/array nodes (e.g., `$.offers`, `$.config`) and leaf paths (e.g., `$.offers[0].associatedOfferingCode`). Select or type `$.offers)` to complete: `$count($.offers)`.
   4. Observe the **live preview** showing the result (e.g., `3`).
   5. Try other expressions:
-     - `$sum($map($.source.offers, x => x.price))` → sum of all prices.
-     - `$upper($.source.name)` → `"ONSTAR PREMIUM PACKAGE"`.
-- [ ] **Expected:** Expression editor has a function catalog. Live preview evaluates the expression against sample data. Result updates as you type.
+     - `$sum($map($.offers, x => x.price))` → sum of all prices.
+     - `$upper($.name)` → `"ONSTAR PREMIUM PACKAGE"`.
+  6. **Note:** Paths in the Expression Editor use `$.fieldName` format (as shown in autocomplete). The hint below the input says "Type `$.` for source paths".
+- [x] **Expected:** Expression editor has a function catalog. Live preview evaluates the expression against sample data. Result updates as you type.
 
 ### P7-02: Expression Editor — Variable Name field (extraction adapter)
 
@@ -747,10 +805,10 @@
 ### P9.4-02: Rules modal — Mode switching
 
 - [ ] **Steps:**
-  1. In the modal header, find the mode selector dropdown (shows "Bottom" by default).
-  2. Change to **Floating**. The modal detaches and becomes a floating window.
-  3. Change to **Full Screen**. The modal fills the entire mapper area.
-  4. Change back to **Bottom**. The modal re-docks.
+  1. In the modal header, find the mode selector dropdown (shows "⬓ Bottom" by default).
+  2. Change to **⧉ Floating**. The modal detaches and becomes a floating window.
+  3. Change to **⬜ Full Screen**. The modal fills the entire mapper area.
+  4. Change back to **⬓ Bottom**. The modal re-docks.
 - [ ] **Expected:** Smooth transitions between all three modes. No layout glitches.
 
 ### P9.4-03: Floating mode — Drag and resize
@@ -775,7 +833,7 @@
 
 - [ ] **Setup:** Switch to **Floating** mode.
 - [ ] **Steps:**
-  1. Close the Rules modal (× button or Escape).
+  1. Close the Rules modal (Cancel button or Escape).
   2. Re-open the Rules modal (click Rules in toolbar).
 - [ ] **Expected:** The modal opens in **Floating** mode (persisted to `localStorage`).
 
@@ -783,27 +841,32 @@
 
 - [ ] **Setup:** Open the Rules modal.
 - [ ] **Steps:**
-  1. Locate the **Reference** button in the header.
-  2. Click it to hide the reference panel. The editor takes full width.
-  3. Click again to show the reference panel.
-- [ ] **Expected:** The reference panel slides in/out. State persists across close/reopen.
+  1. Locate the **Reference** button in the header — it toggles the panel.
+  2. Also locate the **edge toggle button** (`▸`/`◂`) on the vertical boundary between the code editor and the reference panel.
+  3. Click the edge toggle to hide the reference panel. The editor takes full width. The toggle becomes wider (26px) and shows a vertical **"REF"** label with a `◂` chevron, with a subtle purple-accent border for discoverability.
+  4. Click the edge toggle again to show the reference panel. It narrows back to 18px with just `▸`.
+  5. Alternatively, use the header **Reference** button — both controls toggle the same state.
+- [ ] **Expected:** The reference panel shows/hides. The edge toggle is always visible as a vertical strip — thin when the panel is open, wider with label when collapsed. State persists across close/reopen via `localStorage`.
+- [ ] **Implementation:** `ValidationRulesModal.tsx` renders a `<button className="vr-ref-edge-toggle">` between the editor pane and the reference panel inside `vr-modal-body`. CSS class `vr-ref-edge-toggle--collapsed` applies when reference is hidden, widening the button and adding the vertical "REF" label. E2E test: `e2e/validation-rules-edge-toggle.spec.ts`.
 
-### P9.4-07: DSL Reference Panel — 10 Categories
+### P9.4-07: DSL Reference Panel — Categories (Accordion)
 
 - [ ] **Steps:**
   1. With the reference panel open, observe the categories:
-     - **Equality** (= icon, green)
-     - **Comparison** (≶ icon, amber)
-     - **String** (Aa icon, purple)
-     - **Boolean & Null** (?! icon, red)
-     - **Type & Existence** (T icon, cyan)
-     - **Set Membership** (∈ icon, blue)
-     - **Collection** ([] icon, teal)
-     - **Custom Predicates** (λ icon, mauve)
-     - **Modifiers** (¬ icon, red)
-     - **Syntax Guide** (# icon, gray)
-  2. Click each category to expand/collapse.
-- [ ] **Expected:** All 10 categories are present with correct icon badges and colors. Default open: Equality, Comparison, String.
+     - **Equality** (= icon, green) — 2 operators
+     - **Comparison** (≶ icon, amber) — 6 operators
+     - **String** (Aa icon, purple) — 5 operators
+     - **Boolean & Null** (?! icon, red) — 6 operators
+     - **Type & Existence** (T icon, cyan) — 3 operators
+     - **Set Membership** (∈ icon, blue) — 2 operators
+     - **Collection** ([] icon, teal) — 4 operators
+     - **Custom & Modifiers** (λ icon, mauve) — merged section covering ASSERT, NOT, syntax guide
+  2. All sections start **collapsed** by default.
+  3. Click a category to expand it. Only **one section opens at a time** (accordion behavior) — clicking a new section auto-closes the previous one.
+  4. Operator entries are compact: name + description on one line, syntax below, with **Insert** (+) and **Copy** actions always visible inline.
+  5. Operator content is indented relative to the section header.
+- [ ] **Expected:** 8 categories (merged from original 10). Accordion mode — one open at a time. Compact layout with inline actions. Entry count badge shown next to each section header.
+- [ ] **Implementation:** `DslReferencePanel.tsx` uses `useState<Set<string>>(() => new Set())` for collapsed-by-default. `toggleSection` clears all other open sections for accordion behavior. "Custom Predicates", "Modifiers", and "Syntax Guide" merged into "Custom & Modifiers".
 
 ### P9.4-08: DSL Reference Panel — Search
 
@@ -811,7 +874,7 @@
   1. In the reference panel search box, type `"between"`.
   2. Only the Comparison section shows, filtered to the `between` entry.
   3. Clear the search. All sections reappear.
-  4. Type `"ASSERT"`. Custom Predicates and Modifiers sections show.
+  4. Type `"ASSERT"`. The Custom & Modifiers section shows.
 - [ ] **Expected:** Search filters entries across all sections by keyword, description, syntax, and example.
 
 ### P9.4-09: DSL Reference Panel — Insert
@@ -819,33 +882,34 @@
 - [ ] **Steps:**
   1. Place the cursor on an empty line in the DSL editor.
   2. In the reference panel, find the `equals` entry.
-  3. Click the **Insert** (+) button.
+  3. Click the **Insert** (+) button (always visible inline, no hover required).
 - [ ] **Expected:** The example syntax (e.g., `offers[0].name  equals  "Premium"`) is inserted at the cursor position in the editor.
 
 ### P9.4-10: DSL Reference Panel — Copy
 
 - [ ] **Steps:**
   1. In the reference panel, find the `contains` entry.
-  2. Click the **Copy** button.
-  3. Paste (Ctrl+V) into a text editor.
+  2. Click the **Copy** button (always visible inline next to Insert).
+  3. Paste (`⌘ V`) into a text editor.
 - [ ] **Expected:** The syntax template is copied to the clipboard.
 
 ### P9.4-11: DSL Reference Panel — Expand/Collapse All
 
 - [ ] **Steps:**
-  1. Click **Expand all** in the reference header.
-  2. All 10 sections expand.
-  3. Click **Collapse all**.
+  1. Click **Expand all** (▼) in the reference header.
+  2. All 8 sections expand.
+  3. Click **Collapse all** (▲).
   4. All sections collapse.
-- [ ] **Expected:** Bulk expand/collapse works for all categories.
+  5. Note: After using Expand All, clicking a single section still closes all others (accordion behavior resumes).
+- [ ] **Expected:** Bulk expand/collapse works for all categories. The header also has a **close** (×) button that hides the reference panel (equivalent to the edge toggle or header Reference button).
 
 ### P9.4-12: Verify stats in modal header
 
 - [ ] **Setup:** Have several rules in the DSL editor. Click **Verify All**.
 - [ ] **Steps:**
   1. Observe the modal header.
-  2. After verification completes, the header shows: **N passed** (green) / **M failed** (red).
-- [ ] **Expected:** Verify stats appear in the Rules modal header matching the toolbar counts.
+  2. After verification completes, the header shows: **● N rules** (green dot if no errors) / **● N passed** (green) / **● M failed** (red).
+- [ ] **Expected:** Verify stats appear in the Rules modal header matching the toolbar counts. E2E verified: header shows `7 rules · 7 passed` after successful verification.
 
 ### P9.4-13: DSL assertions counted in verify totals
 
@@ -867,19 +931,20 @@
 
 - [ ] **Steps:**
   1. With the Rules modal open, press **Escape**.
-  2. The modal closes.
-  3. Re-open the modal. Trigger autocomplete (Ctrl+Space).
+  2. The modal closes (Cancel behavior — reverts unsaved edits).
+  3. Re-open the modal. Start typing a path (e.g., `off`) to trigger the auto-suggest widget.
   4. With the suggest widget open, press **Escape**.
-- [ ] **Expected:** First Escape closes the suggest widget only (modal stays open). Press Escape again to close the modal.
+- [ ] **Expected:** First Escape closes the suggest widget only (modal stays open). Press Escape again to close the modal. Implementation: `handleKeyDown` checks for `.editor-widget.suggest-widget.visible` before closing.
 
 ### P9.4-15: Portal stacking (z-index)
 
 - [ ] **Setup:** Open the Rules modal in **Floating** mode.
 - [ ] **Steps:**
-  1. The floating modal renders within the mapper's modal overlay.
+  1. The floating modal renders within the mapper's modal overlay (portaled to closest `.dm-modal-overlay` or `.modal-overlay`).
   2. Click outside the floating window but inside the Data Mapper Modal.
   3. The floating Rules window stays visible (not hidden behind other elements).
 - [ ] **Expected:** Correct z-index stacking. The floating Rules window is always on top of the mapper content but within the modal boundary.
+- [ ] **E2E verified:** `e2e/validation-rules-modal-zindex.spec.ts` confirms the modal is visible, interactive, and on top.
 
 ---
 
@@ -888,7 +953,7 @@
 ### INT-01: Full workflow — Visual + DSL + Verify
 
 - [ ] **Steps:**
-  1. Open the Validation Mapper with sample JSON.
+  1. Open the Visual Mapper with sample JSON.
   2. Auto-map all fields. Change some operators visually (equals, >=, contains).
   3. Open the Rules modal. Observe that visual mappings appear as DSL.
   4. Add additional rules via DSL: `ASSERT $gt($.body.count, 0)`.
@@ -943,7 +1008,35 @@
   3. Reopen and verify the checkbox state persists.
 - [ ] **Expected:** The `unorderedArrays` option is saved and restored.
 
-### INT-06: Schema drift detection after re-fetch
+### INT-05b: Unmap selected source fields
+
+- [ ] **Setup:** Open the Visual Mapper. Auto-map fields so several source nodes are mapped.
+- [ ] **Steps:**
+  1. In the **Source Panel**, use the checkboxes to select 2–3 mapped source nodes.
+  2. A red **"Unmap (N)"** button appears in the Source Panel header (where N is the count of selected mapped items).
+  3. Click the **Unmap** button.
+  4. The selected mappings are removed. The source nodes revert to unmapped state.
+  5. If some selected items are mapped and others are not, both buttons appear: blue **"Map (N)"** for unmapped, red **"Unmap (N)"** for mapped.
+- [ ] **Expected:** Only the selected (checked) source fields are unmapped. Other mappings remain untouched. The checkbox styling uses a custom green checkmark on a subtle border (not the default browser blue box) for better dark-theme consistency.
+- [ ] **Implementation:** `SourcePanel.tsx` computes `selectedMappedCount` from `selectedSourcePaths` and `mappings`. `DataMapper.tsx` provides `handleUnmapSelectedFields` which normalizes paths via `normalizeMapperPath` and calls `removeMappings`. CSS for `.dm-source-checkbox` uses a green (`--success`) background with a custom CSS `::after` checkmark.
+
+### INT-06: Bottom Dock — Code/Table views include assertions and verify status
+
+- [ ] **Setup:** Open the Visual Mapper. Create 6+ field mappings and 7+ array assertions (LENGTH, CONTAINS, EACH, SUBSET). Click **Verify All**.
+- [ ] **Steps:**
+  1. Click **Code** in the bottom dock toolbar. The dock shows the header: **"6 mappings · 7 assertions"**.
+  2. Scroll down in the Code view — below the field mappings, a separator line **"— Assertions —"** appears followed by each assertion (e.g., `offers  LENGTH  3`, `offers[*]  EACH  rank >= 0`). Assertion lines are styled in accent color.
+  3. Switch to **Table** mode. Click **List**. The table shows:
+     - Field mapping rows (1–6) with columns: #, Target, Source/Expression, Before, After, Trace, Status.
+     - A section header: **"Assertions (7)"** followed by assertion rows with Path, Type (e.g., LENGTH, EACH), and Rule summary.
+     - The toolbar shows: **"6 rows · 7 assertions"**.
+  4. Check the **Status** column: after **Verify All**, it shows **"✓ pass"** (green) or **"✗ fail"** (red). Before verification, it shows **"— same"** or **"△ changed"**.
+  5. Switch to **Table > Table** (pivot view). Below the pivot grid, a compact 3-column assertion summary table appears: **Path**, **Type**, **Rule**.
+  6. Click **Inspect** on any mapping row. The **Trace panel** opens below the table and auto-scrolls into view, showing Source Input → Path Resolution → Target Output.
+- [ ] **Expected:** All three dock views (Code, List, Pivot) include assertions. The Status column reflects verification results (pass/fail) when available. Trace panel appears on Inspect click.
+- [ ] **Implementation:** `CodeView.tsx` accepts `assertions`, `verifyStatus`, and `failedMappingIds` props. `BottomUtilityDock.tsx` passes them through from `DataMapper.tsx`. Shared utilities `formatAssertionLine`, `getAssertionJsonPath`, `formatAssertionSummary` in `targetTreeHelpers.ts` — no duplicated code.
+
+### INT-07: Schema drift detection after re-fetch
 
 - [ ] **Setup:** Have a saved mapper with existing mappings.
 - [ ] **Steps:**
@@ -1083,23 +1176,23 @@
 
 ## Summary Checklist
 
-| Phase | Tests | Description |
-|-------|-------|-------------|
-| P0 | 4 | Adapter capability gating |
-| P1 | 12 | 24 field operators, picker, colors |
-| P2 | 3 | Type checks, existence assertions |
-| P3 | 7 | Array length, contains, each, subset, inline layout |
-| P4 | 8 | DSL editor, syntax, autocomplete, sync |
-| P5 | 7 | Verify All, Fetch & Verify, auto-verify, filters |
-| P6 | 1 | JSON Schema validation |
-| P7 | 4 | Expression engine, variable rename, viewport fit, 125 functions |
-| P8 | 4 | bodySize, datePrecise, between, close_to |
-| P9.1 | 5 | Universal negation |
-| P9.2 | 4 | Lambda syntax, HOFs |
-| P9.3 | 5 | ASSERT keyword, custom predicates |
-| P9.4 | 15 | 3-mode modal, DSL reference, verify stats |
-| Integration | 6 | Cross-phase workflows |
-| **Total** | **85** | |
+| Phase | Tests | Done | Description |
+|-------|-------|------|-------------|
+| P0 | 4 | 4/4 ✅ | Adapter capability gating |
+| P1 | 12 | 12/12 ✅ | 24 field operators, picker, colors |
+| P2 | 3 | 3/3 ✅ | Type checks, existence assertions |
+| P3 | 7 | 7/7 ✅ | Array length, contains, each, subset, inline layout |
+| P4 | 8 | 8/8 ✅ | DSL editor, syntax, autocomplete (auto-suggest), sync, line decorations |
+| P5 | 7 | 7/7 ✅ | Verify All, Fetch & Verify, auto-verify, filters |
+| P6 | 1 | 1/1 ✅ | JSON Schema validation (Test Editor) |
+| P7 | 4 | 1/4 | Expression engine, variable rename, viewport fit, 125 functions |
+| P8 | 4 | — | bodySize, datePrecise, between, close_to |
+| P9.1 | 5 | — | Universal negation |
+| P9.2 | 4 | — | Lambda syntax, HOFs |
+| P9.3 | 5 | — | ASSERT keyword, custom predicates |
+| P9.4 | 15 | — | 3-mode modal, DSL reference (accordion), edge toggle, verify stats |
+| Integration | 8 | — | Cross-phase workflows, unmap selected, bottom dock assertions |
+| **Total** | **87** | **43/87** | P0–P6 verified; P7-01 verified; P7-02+ pending |
 
 ### Automated Test Coverage
 
@@ -1110,4 +1203,21 @@
 | `validationAdapter.integration.test.ts` | 73 | Full pipeline: adapter serialize → operator evaluate for all operators, negate, expressions |
 | `validationAdapter.test.ts` | 65 | Adapter unit tests |
 | `useValidationVerify.test.ts` | 37 | Verify hook tests |
-| **Total automated** | **375** | |
+| `ValidationRulesModal.test.tsx` | 44 | Modal rendering, mode switching, Save/Cancel, edge toggle, reference panel toggle |
+| `ValidationCodeEditor.test.tsx` | — | Monaco editor mount, theme, decorations, selection guard |
+| `DslReferencePanel.test.tsx` | — | Accordion behavior, merged sections, search, insert/copy |
+| `CodeView.test.tsx` | — | Assertion rendering in code/table views, status column, empty state |
+| `targetTreeHelpers.test.ts` | — | `getAssertionJsonPath`, `formatAssertionLine` utilities |
+| `InlineAssertionRow.test.tsx` | — | Inline editing, each fallback, verify badges |
+| `TestEditorValidationTab.test.tsx` | — | JSON Schema editor, Pretty/Minify buttons |
+| **Total automated** | **375+** | |
+
+### E2E Test Coverage (Playwright)
+
+| Test File | Tests | Scope |
+|-----------|-------|-------|
+| `e2e/validation-rules-editor.spec.ts` | — | Typing, autocomplete, multi-line selection |
+| `e2e/validation-rules-sync.spec.ts` | 5 | Bidirectional visual ↔ DSL sync |
+| `e2e/validation-rules-modal-zindex.spec.ts` | — | Portal stacking, z-index |
+| `e2e/validation-rules-visual-mapper-clear.spec.ts` | — | Clear/reset flows |
+| `e2e/validation-rules-edge-toggle.spec.ts` | 2 | Edge toggle visibility/toggle, line decorations after Verify All |

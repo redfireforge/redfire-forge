@@ -33,6 +33,7 @@ import MapperFooter from './MapperFooter';
 import BulkActionsBar from './BulkActionsBar';
 import BottomUtilityDock from './BottomUtilityDock';
 import ValidationRulesModal from './ValidationRulesModal';
+import { buildAssertionVerifyMap, buildRulesLineResults } from './utils/validationRulesResults';
 import { useTargetFields } from './hooks/useTargetFields';
 import { usePanelResize } from './hooks/usePanelResize';
 import { useMapperKeyboard } from './hooks/useMapperKeyboard';
@@ -44,6 +45,10 @@ import { useMapperRepairActions } from './hooks/useMapperRepairActions';
 import { useBulkSubtreeActions } from './hooks/useBulkSubtreeActions';
 import { useHighlightedMappingPaths } from './hooks/useHighlightedMappingPaths';
 import { useMapperVisibleLines } from './hooks/useMapperVisibleLines';
+import { useDataMapperFocusCallbacks } from './hooks/useDataMapperFocusCallbacks';
+import { useSourcePathBulkMapHandlers } from './hooks/useSourcePathBulkMapHandlers';
+import DataMapperDebugTraceBar from './DataMapperDebugTraceBar';
+import DataMapperArraySuggestionBar from './DataMapperArraySuggestionBar';
 
 export default function DataMapper<TOutput = unknown>({
   adapter,
@@ -276,6 +281,13 @@ export default function DataMapper<TOutput = unknown>({
   } = dropHook;
 
   const resetDraggedSource = useCallback(() => { draggedSourceRef.current = null; }, [draggedSourceRef]);
+
+  const { handleMapSelectedFields, handleUnmapSelectedFields } = useSourcePathBulkMapHandlers({
+    handleMapFilteredFields,
+    setSelectedSourcePaths,
+    mappings: state.mappings,
+    removeMappings,
+  });
 
   const {
     prepareSubtreeDropPlan,
@@ -524,30 +536,26 @@ export default function DataMapper<TOutput = unknown>({
   const { targetPanelRef, verifyFailuresList, handleNavigateToFailure: rawNavigateToFailure } = useVerifyNavigation(verifyHook.result);
   const [scrollToPathSignal, setScrollToPathSignal] = useState<{ path: string; tick: number } | null>(null);
 
-  const handleNavigateToFailure = useCallback((path: string) => {
-    rawNavigateToFailure(path);
-    setScrollToPathSignal({ path, tick: Date.now() });
-  }, [rawNavigateToFailure]);
+  const {
+    handleSelectMappingExclusive,
+    handleNavigateToFailure,
+    handleJumpToNode,
+    handleToggleCompactMode,
+  } = useDataMapperFocusCallbacks({
+    selectMapping,
+    setSelectedIds,
+    clearHover,
+    rawNavigateToFailure,
+    setScrollToPathSignal,
+    setCompactMode,
+    setAdvancedControlsOpen,
+  });
 
   useEffect(() => {
     if (!toast) return;
     const t = setTimeout(() => setToast(null), 3000);
     return () => clearTimeout(t);
   }, [toast]);
-
-  const handleJumpToNode = useCallback((path: string) => {
-    setScrollToPathSignal({ path, tick: Date.now() });
-  }, []);
-
-  const handleToggleCompactMode = useCallback(() => {
-    setCompactMode((mode) => {
-      const nextMode = !mode;
-      if (nextMode) {
-        setAdvancedControlsOpen(false);
-      }
-      return nextMode;
-    });
-  }, []);
 
   const hasBulkSourceAndTarget = !!(
     bulkSourcePath
@@ -568,11 +576,15 @@ export default function DataMapper<TOutput = unknown>({
   const canPreviewPropagation = sourceLeafPathsForPropagation.length > 0
     && targetLeafPathsForPropagation.length > 0;
 
-  const handleSelectMappingExclusive = useCallback((id: string | null) => {
-    selectMapping(id);
-    setSelectedIds(new Set());
-    clearHover();
-  }, [selectMapping, clearHover]);
+  const rulesLineResults = useMemo(
+    () => buildRulesLineResults(verifyHook.result, validationSync.dslText),
+    [verifyHook.result, validationSync.dslText],
+  );
+
+  const assertionVerifyMap = useMemo(
+    () => buildAssertionVerifyMap(verifyHook.result, validationAssertions),
+    [verifyHook.result, validationAssertions],
+  );
 
   return (
     <div className="dm-container" ref={containerRef} style={{ height }}>
@@ -610,6 +622,7 @@ export default function DataMapper<TOutput = unknown>({
         verifyStatus={verifyHook.result.status}
         verifyPassedCount={verifyHook.result.passedCount}
         verifyFailedCount={verifyHook.result.failedCount}
+        verifyParseErrorCount={validationSync.parseErrors.length}
         verifyFailures={verifyFailuresList}
         onNavigateToFailure={handleNavigateToFailure}
         onLoadGallerySample={effectiveHideAdvanced ? undefined : handleLoadGallerySample}
@@ -645,16 +658,11 @@ export default function DataMapper<TOutput = unknown>({
         onApplyPropagation={handleApplyPropagation}
         onClosePropagation={() => setPropagationPreview(null)}
       />
-      {debugMode && hasTraceData && (
-        <div className="dm-debug-bar" role="status" aria-live="polite">
-          <span className="dm-debug-bar-label">Debug Overlay</span>
-          <span className="dm-debug-bar-stats">
-            {traceByMappingId!.size} trace{traceByMappingId!.size !== 1 ? 's' : ''}
-            {traceErrorCount > 0 && (
-              <span className="dm-debug-bar-errors"> · {traceErrorCount} error{traceErrorCount !== 1 ? 's' : ''}</span>
-            )}
-          </span>
-        </div>
+      {debugMode && hasTraceData && traceByMappingId && (
+        <DataMapperDebugTraceBar
+          traceCount={traceByMappingId.size}
+          traceErrorCount={traceErrorCount}
+        />
       )}
       <MappingHealthDashboard
         mappings={state.mappings}
@@ -696,6 +704,8 @@ export default function DataMapper<TOutput = unknown>({
             traceOverlay={sourceTraceOverlay}
             mappedPaths={mappedSourcePaths}
             onMapFilteredFields={handleMapFilteredFields}
+            onMapSelectedFields={handleMapSelectedFields}
+            onUnmapSelectedFields={handleUnmapSelectedFields}
             highlightedPaths={highlightedSourcePaths}
           />
         </div>
@@ -784,6 +794,7 @@ export default function DataMapper<TOutput = unknown>({
             onUpdateArrayAssertion={caps.arrayAssertions ? handleUpdateArrayAssertion : undefined}
             onRemoveArrayAssertion={caps.arrayAssertions ? handleRemoveArrayAssertion : undefined}
             arrayAssertions={caps.arrayAssertions ? validationAssertions : undefined}
+            assertionVerifyMap={assertionVerifyMap}
             filterFailedSignal={filterFailedSignal}
             highlightedPaths={highlightedTargetPaths}
             onRemapDrop={handleRemapDrop}
@@ -794,33 +805,18 @@ export default function DataMapper<TOutput = unknown>({
           />
         </div>
       </div>
-      {selectedArrayInfo && (
-        <div className="dm-array-suggestion-bar" role="status" aria-live="polite">
-          <span className="dm-array-suggestion-label">
-            {selectedArrayInfo.kind === 'loop'
-              ? '∞ Array → Array: elements will be mapped one-to-one'
-              : selectedArrayInfo.kind === 'aggregate'
-                ? 'Σ Array → Scalar: needs an aggregation expression'
-                : '⤑ Scalar → Array: value will be wrapped in an array'}
-          </span>
-          {selectedArrayInfo.suggestedExpression && (
-            <button
-              className="dm-array-suggestion-apply"
-              onClick={() => {
-                if (state.selectedMappingId && selectedArrayInfo.suggestedExpression) {
-                  updateMapping(state.selectedMappingId, { expression: selectedArrayInfo.suggestedExpression });
-                }
-              }}
-            >
-              Apply: {selectedArrayInfo.suggestedExpression}
-            </button>
-          )}
-        </div>
-      )}
+      <DataMapperArraySuggestionBar
+        selectedArrayInfo={selectedArrayInfo}
+        selectedMappingId={state.selectedMappingId}
+        onApplySuggestedExpression={(mappingId, expression) => {
+          updateMapping(mappingId, { expression });
+        }}
+      />
       {bottomUtilityMode !== 'none' && (
         <BottomUtilityDock
           mode={bottomUtilityMode}
           mappings={state.mappings}
+          assertions={validationAssertions}
           sources={effectiveSources}
           activeSourceId={state.activeSourceId}
           targetSampleData={effectiveTarget.sampleData}
@@ -830,6 +826,8 @@ export default function DataMapper<TOutput = unknown>({
           selectedMappingId={state.selectedMappingId}
           onRemoveMapping={removeMapping}
           onSelectMapping={handleSelectMappingExclusive}
+          verifyStatus={verifyHook.result.status}
+          failedMappingIds={verifyHook.result.failedMappingIds}
         />
       )}
       {rulesModalOpen && (
@@ -844,6 +842,7 @@ export default function DataMapper<TOutput = unknown>({
           verifyStatus={verifyHook.result.status}
           verifyPassedCount={verifyHook.result.passedCount}
           verifyFailedCount={verifyHook.result.failedCount}
+          lineResults={rulesLineResults}
         />
       )}
       {editingMapping && (

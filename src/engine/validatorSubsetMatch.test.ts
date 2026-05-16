@@ -33,10 +33,26 @@ describe('deepSubsetMatch', () => {
     expect(r.actual).toBe('null');
   });
 
-  it('fails object expected when actual is array', () => {
+  it('fails object expected when actual is array of non-matching items', () => {
     const r = deepSubsetMatch([1, 2], { k: 1 });
     expect(r.match).toBe(false);
-    expect(r.actual).toBe('array');
+    expect(r.actual).toBe('no matching element in array');
+  });
+
+  it('passes object expected when array has a matching element', () => {
+    const r = deepSubsetMatch(
+      [{ k: 1, extra: 'a' }, { k: 2 }],
+      { k: 1 },
+    );
+    expect(r.match).toBe(true);
+  });
+
+  it('fails object expected when no array element has matching subset', () => {
+    const r = deepSubsetMatch(
+      [{ k: 2 }, { k: 3 }],
+      { k: 1 },
+    );
+    expect(r.match).toBe(false);
   });
 
   it('fails object expected when actual is primitive', () => {

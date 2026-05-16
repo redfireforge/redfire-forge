@@ -5,6 +5,8 @@
 import { useState, useMemo, useCallback } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import type { Scenario, ExpectedField } from '../../../shared/types';
+import type { FetchErrorDetail } from '../../../shared/components/data-mapper/types';
+import FetchErrorBanner from '../../../shared/components/data-mapper/FetchErrorBanner';
 import {
   DataMapperModal,
   createValidationAdapter,
@@ -22,7 +24,7 @@ export interface SetupStepValidateProps {
   setSampleJson: Dispatch<SetStateAction<string>>;
   handleFetchForValidate: () => Promise<void>;
   fetching: boolean;
-  fetchError: string | null;
+  fetchError: FetchErrorDetail | null;
   arrayPrefixes: string[];
   arrayModes: Record<string, 'ordered' | 'unordered'>;
   setArrayModes: Dispatch<SetStateAction<Record<string, 'ordered' | 'unordered'>>>;
@@ -112,11 +114,7 @@ export default function SetupStepValidate({
           >
             {fetching ? '⏳ Fetching…' : '📡 Fetch Sample Response'}
           </button>
-          {fetchError && (
-            <div className="data-source-fetch-error">
-              <span>⚠️ {fetchError}</span>
-            </div>
-          )}
+          {fetchError && <FetchErrorBanner error={fetchError} />}
           {test.validation.sampleJson && (
             <button type="button" className="btn btn-sm" onClick={() => setSampleJson(test.validation.sampleJson!)} style={{ marginTop: 8 }}>
               Or use stored response ({(test.validation.sampleJson.length / 1024).toFixed(1)} KB)

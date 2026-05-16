@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo, useEffect } from 'react';
-import type { MapperSource } from './types';
+import type { MapperSource, FetchErrorDetail } from './types';
 import type { JsonTreeNode } from '../../utils/jsonTreeModel';
 import type { FocusRegion } from './hooks/useKeyboardNavigation';
 import type { DriftIndicator } from './SourceTreeNode';
@@ -7,6 +7,7 @@ import type { TraceValueOverlay } from './types';
 import { buildJsonTree } from '../../utils/jsonTreeModel';
 import { normalizeMapperPath } from './utils/pathNormalization';
 import SourceTreeNode from './SourceTreeNode';
+import FetchErrorBanner from './FetchErrorBanner';
 
 interface SourcePanelProps {
   sources: MapperSource[];
@@ -18,7 +19,7 @@ interface SourcePanelProps {
   onSourceSampleChange: (sourceId: string, data: unknown) => void;
   onFetchSample?: () => Promise<void>;
   canFetch?: boolean;
-  fetchError?: string | null;
+  fetchError?: FetchErrorDetail | null;
   onNodeSelect?: (path: string, sourceId: string) => void;
   selectedNodePath?: string | null;
   searchInputRef?: React.RefObject<HTMLInputElement | null>;
@@ -37,6 +38,8 @@ interface SourcePanelProps {
   traceOverlay?: Map<string, TraceValueOverlay>;
   mappedPaths?: Set<string>;
   onMapFilteredFields?: (paths: string[], sourceId: string) => void;
+  onMapSelectedFields?: (paths: string[], sourceId: string) => void;
+  onUnmapSelectedFields?: (paths: string[]) => void;
   highlightedPaths?: Set<string> | null;
 }
 
@@ -64,6 +67,8 @@ export default function SourcePanel({
   traceOverlay,
   mappedPaths,
   onMapFilteredFields,
+  onMapSelectedFields,
+  onUnmapSelectedFields,
   highlightedPaths,
 }: SourcePanelProps) {
   const [search, setSearch] = useState('');
@@ -203,6 +208,27 @@ export default function SourcePanel({
     onMapFilteredFields(filteredUnmappedLeaves, activeSourceId);
   }, [onMapFilteredFields, filteredUnmappedLeaves, activeSourceId]);
 
+  const selectedCount = selectedSourcePaths?.size ?? 0;
+
+  const selectedMappedCount = useMemo(() => {
+    if (!selectedSourcePaths || selectedSourcePaths.size === 0 || !mappedPaths) return 0;
+    let count = 0;
+    for (const p of selectedSourcePaths) {
+      if (mappedPaths.has(normalizeMapperPath(p))) count += 1;
+    }
+    return count;
+  }, [selectedSourcePaths, mappedPaths]);
+
+  const handleMapSelected = useCallback(() => {
+    if (!onMapSelectedFields || !selectedSourcePaths || selectedSourcePaths.size === 0) return;
+    onMapSelectedFields(Array.from(selectedSourcePaths), activeSourceId);
+  }, [onMapSelectedFields, selectedSourcePaths, activeSourceId]);
+
+  const handleUnmapSelected = useCallback(() => {
+    if (!onUnmapSelectedFields || !selectedSourcePaths || selectedSourcePaths.size === 0) return;
+    onUnmapSelectedFields(Array.from(selectedSourcePaths));
+  }, [onUnmapSelectedFields, selectedSourcePaths]);
+
   const togglePasteMode = useCallback(() => {
     setPasteMode((prev) => !prev);
     setPasteError(null);
@@ -225,7 +251,25 @@ export default function SourcePanel({
     >
       <div className="dm-panel-header">
         <span className="dm-panel-title">Source</span>
-        {!pasteMode && filteredUnmappedLeaves.length > 0 && onMapFilteredFields && (
+        {!pasteMode && selectedCount > 0 && selectedMappedCount > 0 && onUnmapSelectedFields && (
+          <button
+            className="dm-map-filtered-btn dm-map-filtered-btn--header dm-map-filtered-btn--unmap"
+            onClick={handleUnmapSelected}
+            aria-label={`Unmap ${selectedMappedCount} selected fields`}
+          >
+            Unmap ({selectedMappedCount})
+          </button>
+        )}
+        {!pasteMode && selectedCount > 0 && selectedCount > selectedMappedCount && onMapSelectedFields && (
+          <button
+            className="dm-map-filtered-btn dm-map-filtered-btn--header dm-map-filtered-btn--selected"
+            onClick={handleMapSelected}
+            aria-label={`Map ${selectedCount - selectedMappedCount} selected fields`}
+          >
+            Map ({selectedCount - selectedMappedCount})
+          </button>
+        )}
+        {!pasteMode && selectedCount === 0 && filteredUnmappedLeaves.length > 0 && onMapFilteredFields && (
           <button
             className="dm-map-filtered-btn dm-map-filtered-btn--header"
             onClick={handleMapFiltered}
@@ -328,7 +372,7 @@ export default function SourcePanel({
               {mappedLeafCount} mapped / {unmappedLeafCount} unmapped
             </span>
           </div>
-          {fetchError && <div className="dm-paste-error" role="alert">{fetchError}</div>}
+          {fetchError && <FetchErrorBanner error={fetchError} />}
 
           <div
             className="dm-tree-container"

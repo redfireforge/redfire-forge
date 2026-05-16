@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
-import type { MapperAdapter, Mapping, MapperTarget, TargetField } from '../types';
+import type { MapperAdapter, Mapping, MapperTarget, TargetField, FetchErrorDetail } from '../types';
+import { MapperFetchError } from '../types';
 
 export interface UseTargetFieldsArgs<TOutput = unknown> {
   adapter: MapperAdapter<TOutput>;
@@ -12,7 +13,7 @@ export interface UseTargetFieldsReturn {
   effectiveTarget: MapperTarget;
   customTargetFields: TargetField[];
   fetchedTargetFields: TargetField[];
-  targetFetchError: string | null;
+  targetFetchError: FetchErrorDetail | null;
   handleAddCustomField: (field: TargetField) => void;
   handleRemoveCustomField: (path: string) => void;
   handleUpdateCustomField: (oldPath: string, updated: TargetField) => void;
@@ -35,7 +36,7 @@ export function useTargetFields<TOutput = unknown>({
   const [customTargetFields, setCustomTargetFields] = useState<TargetField[]>([]);
   const [targetSampleOverride, setTargetSampleOverride] = useState<unknown>(undefined);
   const [fetchedTargetFields, setFetchedTargetFields] = useState<TargetField[]>([]);
-  const [targetFetchError, setTargetFetchError] = useState<string | null>(null);
+  const [targetFetchError, setTargetFetchError] = useState<FetchErrorDetail | null>(null);
   const draggedTargetFieldPathRef = useRef<string | null>(null);
 
   const mappingTargetFields = useMemo<TargetField[]>(() => {
@@ -193,8 +194,12 @@ export function useTargetFields<TOutput = unknown>({
         })));
       }
     } catch (e) {
+      if (e instanceof MapperFetchError) {
+        setTargetFetchError(e.detail);
+        throw e;
+      }
       const msg = e instanceof Error ? e.message : 'Failed to fetch target schema';
-      setTargetFetchError(msg);
+      setTargetFetchError({ message: msg });
       throw new Error(msg);
     }
   }, [adapter]);

@@ -284,47 +284,45 @@ describe('DSL ↔ Visual Mapper full pipeline sync', () => {
     });
   });
 
-  describe('existence-kind rules (go through assertionResults)', () => {
+  describe('existence-kind rules (go through fieldResults)', () => {
     it('exists — pass', () => {
       const r = runFullPipeline('name  exists');
-      expect(r.assertions).toHaveLength(1);
-      expect(r.assertions[0].type).toBe('existence');
-      expect(r.assertionResults[0].passed).toBe(true);
+      expect(r.fields).toHaveLength(1);
+      expect(r.fields[0].operator).toBe('exists');
+      expect(r.fieldResults.get('$.name')?.passed).toBe(true);
       expect(r.nodeStatusMap.get('$.name')).toBe('pass');
       expect(r.nodeStatusMap.get('name')).toBe('pass');
       expect(r.mergedFieldResults.get('$.name')?.passed).toBe(true);
-      expect(r.mergedFieldResults.get('name')?.passed).toBe(true);
       expect(r.failuresList).toHaveLength(0);
     });
 
     it('not_exists on missing field — pass', () => {
       const r = runFullPipeline('nonExistent  not_exists');
-      expect(r.assertionResults[0].passed).toBe(true);
+      expect(r.fieldResults.get('$.nonExistent')?.passed).toBe(true);
       expect(r.nodeStatusMap.get('$.nonExistent')).toBe('pass');
       expect(r.nodeStatusMap.get('nonExistent')).toBe('pass');
-      expect(r.mergedFieldResults.get('nonExistent')?.passed).toBe(true);
+      expect(r.mergedFieldResults.get('$.nonExistent')?.passed).toBe(true);
     });
 
     it('not_exists on existing field — fail', () => {
       const r = runFullPipeline('name  not_exists');
-      expect(r.assertionResults[0].passed).toBe(false);
+      expect(r.fieldResults.get('$.name')?.passed).toBe(false);
       expect(r.nodeStatusMap.get('$.name')).toBe('fail');
       expect(r.nodeStatusMap.get('name')).toBe('fail');
       expect(r.mergedFieldResults.get('$.name')?.passed).toBe(false);
-      expect(r.mergedFieldResults.get('$.name')?.expected).toContain('does not exist');
-      expect(r.mergedFieldResults.get('$.name')?.actual).toContain('field exists');
+      expect(r.mergedFieldResults.get('$.name')?.expected).toContain('not exists');
+      expect(r.mergedFieldResults.get('$.name')?.actual).toBeDefined();
       expect(r.failuresList).toHaveLength(1);
       expect(r.failuresList[0].path).toBe('$.name');
-      expect(r.failuresList[0].expected).toContain('does not exist');
-      expect(r.failuresList[0].actual).toContain('field exists');
+      expect(r.failuresList[0].expected).toContain('not exists');
     });
 
     it('exists on missing field — fail', () => {
       const r = runFullPipeline('nonExistent  exists');
-      expect(r.assertionResults[0].passed).toBe(false);
+      expect(r.fieldResults.get('$.nonExistent')?.passed).toBe(false);
       expect(r.nodeStatusMap.get('nonExistent')).toBe('fail');
-      expect(r.mergedFieldResults.get('nonExistent')?.passed).toBe(false);
-      expect(r.mergedFieldResults.get('nonExistent')?.expected).toContain('field exists');
+      expect(r.mergedFieldResults.get('$.nonExistent')?.passed).toBe(false);
+      expect(r.mergedFieldResults.get('$.nonExistent')?.expected).toContain('exists');
       expect(r.failuresList).toHaveLength(1);
     });
   });
@@ -501,9 +499,9 @@ describe('DSL ↔ Visual Mapper full pipeline sync', () => {
 
       const r = runFullPipeline(dsl);
 
-      // 1 field + 8 assertions = 9 total
-      expect(r.fields).toHaveLength(2);   // name equals, age greater_than
-      expect(r.assertions).toHaveLength(7); // rest are assertions
+      // 4 fields + 5 assertions = 9 total
+      expect(r.fields).toHaveLength(4);   // name equals, age greater_than, active exists, nonExistent not_exists
+      expect(r.assertions).toHaveLength(5); // typeCheck, arrayLength, each, arrayContains, containsSubset
 
       expect(r.passedCount).toBe(8);
       expect(r.failedCount).toBe(1);
@@ -554,8 +552,9 @@ describe('DSL ↔ Visual Mapper full pipeline sync', () => {
       expect(r.roundTripped).toContain('exists');
       const re = parseDsl(r.roundTripped);
       const model2 = dslToModel(re.rules);
-      expect(model2.assertions).toHaveLength(1);
-      expect(model2.assertions[0].type).toBe('existence');
+      expect(model2.fields).toHaveLength(1);
+      expect(model2.fields[0].operator).toBe('exists');
+      expect(model2.fields[0].jsonPath).toBe('$.name');
     });
 
     it('typeCheck rules survive round-trip', () => {

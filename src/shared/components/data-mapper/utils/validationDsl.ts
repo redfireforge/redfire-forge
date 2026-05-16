@@ -206,6 +206,18 @@ export function parseDslLine(line: string, lineNumber: number): ParsedRule | Par
 
   // "contains_*" operators (any/all/only/none + legacy contains_item)
   if (opLower === 'contains_item' || opLower === 'contains_any' || opLower === 'contains_all' || opLower === 'contains_only' || opLower === 'contains_none') {
+    if (rawValue) {
+      const trimVal = rawValue.trim();
+      const looksLikeJson = trimVal.startsWith('{') || trimVal.startsWith('[') || trimVal.startsWith('"');
+      if (!looksLikeJson) {
+        return { lineNumber, column: 1, message: `${opLower} value must be JSON: {"field": "value"}, ["item"], or "literal" — got: ${trimVal.length > 40 ? trimVal.slice(0, 40) + '…' : trimVal}` };
+      }
+      if (trimVal.startsWith('{') || trimVal.startsWith('[')) {
+        try { JSON.parse(trimVal); } catch {
+          return { lineNumber, column: 1, message: `Invalid JSON in ${opLower} value: ${trimVal.length > 40 ? trimVal.slice(0, 40) + '…' : trimVal}` };
+        }
+      }
+    }
     return {
       lineNumber, path, operator: opLower, value: rawValue,
       negate, kind: 'contains_item',
@@ -214,6 +226,16 @@ export function parseDslLine(line: string, lineNumber: number): ParsedRule | Par
 
   // "subset" operator
   if (opLower === 'subset') {
+    if (rawValue) {
+      const trimVal = rawValue.trim();
+      if (trimVal.startsWith('{') || trimVal.startsWith('[')) {
+        try { JSON.parse(trimVal); } catch {
+          return { lineNumber, column: 1, message: `Invalid JSON in subset value: ${trimVal.length > 40 ? trimVal.slice(0, 40) + '…' : trimVal}` };
+        }
+      } else if (!trimVal.startsWith('"')) {
+        return { lineNumber, column: 1, message: `subset value must be JSON: {"field": "value"} — got: ${trimVal.length > 40 ? trimVal.slice(0, 40) + '…' : trimVal}` };
+      }
+    }
     return {
       lineNumber, path, operator: 'subset', value: rawValue,
       negate, kind: 'subset',
@@ -480,10 +502,11 @@ export function dslToModel(rules: ParsedRule[]): DslModel {
         break;
       }
       case 'existence': {
-        assertions.push({
-          type: 'existence',
+        const existOp = rule.operator as FieldOperator;
+        fields.push({
           jsonPath,
-          expectExists: rule.operator === 'exists',
+          expectedValue: '',
+          operator: existOp,
           ...(neg && { negate: true }),
         });
         break;
