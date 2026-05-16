@@ -2,6 +2,7 @@ import { v4 as uuidv4 } from 'uuid';
 import type { HttpNodeData, WorkflowNode } from '../types/workflow';
 import { httpStepDisplayLabel, isHttpWorkflowNode } from '../utils/workflowVariableHints';
 import { EXPRESSION_FUNCTION_MAP } from '../utils/expressionFunctions';
+import { evaluateExpression, formatExpressionResult } from '../utils/expressionEvaluator';
 
 /**
  * Parsed inner template for node-scoped refs:
@@ -255,33 +256,39 @@ function resolveBuiltInGenerator(expr: string): string | undefined {
 }
 
 /**
- * Resolve an expression using the expression function registry.
- * Parses `$fnName(arg1, arg2, ...)` and evaluates with variable resolution.
+ * Resolve an expression using the full expression evaluator.
+ * Supports nested function calls, lambdas, and array literals.
+ * Falls back to the simple regex parser for single-level $fn(args).
  */
 function resolveExpressionFunction(
   expr: string,
   resolveVar: (name: string) => string | undefined,
 ): string {
   const m = GENERATOR_RE.exec(expr);
-  if (!m) return `{{${expr}}}`;
+  if (m) {
+    const [, name, rawArgs] = m;
+    const fn = EXPRESSION_FUNCTION_MAP.get(`$${name}`);
+    if (!fn) return `{{${expr}}}`;
 
-  const [, name, rawArgs] = m;
-  const fn = EXPRESSION_FUNCTION_MAP.get(`$${name}`);
-  if (!fn) return `{{${expr}}}`;
+    const args = rawArgs ? parseExpressionArgs(rawArgs, resolveVar) : [];
 
-  // Parse args: split by comma but respect quoted strings
-  const args = rawArgs ? parseExpressionArgs(rawArgs, resolveVar) : [];
-
-  try {
-    const result = fn.evaluate(...args);
-    if (result === null || result === undefined) return '';
-    if (typeof result === 'object') {
-      try { return JSON.stringify(result); } catch { return String(result); }
+    try {
+      const result = fn.evaluate(...args);
+      if (result === null || result === undefined) return '';
+      if (typeof result === 'object') {
+        try { return JSON.stringify(result); } catch { return String(result); }
+      }
+      return String(result);
+    } catch {
+      return `{{${expr}}}`;
     }
-    return String(result);
-  } catch {
-    return `{{${expr}}}`;
   }
+
+  if (!expr.includes('(')) return `{{${expr}}}`;
+  const evalResult = evaluateExpression(expr, { resolveVariable: resolveVar });
+  if (evalResult.error) return `{{${expr}}}`;
+  if (evalResult.value === null || evalResult.value === undefined) return '';
+  return formatExpressionResult(evalResult.value);
 }
 
 /**

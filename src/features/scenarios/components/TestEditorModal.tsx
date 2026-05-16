@@ -131,6 +131,7 @@ export default function TestEditorModal({
     resolveEffectiveAuth,
     handleFetchRow,
     handleFetchSampleResponse,
+    fetchSampleDataForMapper,
     handleFetchKeepRules, handleFetchReplaceAll, handleFetchCancel,
     handleValidateResponse,
   } = useTestFetch({
@@ -659,6 +660,7 @@ export default function TestEditorModal({
                   fetchHostEnabled={fetchHostEnabled}
                   setFetchHostEnabled={setFetchHostEnabled}
                   onFetchSampleResponse={handleFetchSampleResponse}
+                  fetchSampleDataForMapper={fetchSampleDataForMapper}
                   validating={validating}
                   validationResult={validationResult}
                   setValidationResult={setValidationResult}

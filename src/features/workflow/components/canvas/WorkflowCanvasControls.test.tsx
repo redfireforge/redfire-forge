@@ -254,7 +254,7 @@ describe('WorkflowCanvasControls', () => {
     );
     const btn = container.querySelector('.wf-pill-btn[title="Fit view"]');
     fireEvent.click(btn!);
-    expect(mockFitView).toHaveBeenCalledWith({ padding: 0.1, duration: 300 });
+    expect(mockFitView).toHaveBeenCalledWith({ padding: 0.1, maxZoom: 1, duration: 300 });
   });
 
   it('restores saved viewport when Fit view button clicked with savedViewport', () => {

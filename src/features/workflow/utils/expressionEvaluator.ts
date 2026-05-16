@@ -8,14 +8,14 @@
  *  - Variable references: {{varName}} or bare identifiers
  *  - Nested function calls: $upper($trim(value))
  *  - Multiple arguments: $concat("a", "b", "c")
+ *  - Lambda expressions: x => $upper(x), (acc, x) => $add(acc, x)
  */
 
 import { EXPRESSION_FUNCTION_MAP } from './expressionFunctions';
+import { registerEvalNode, isLambda, type EvalContext, type LambdaValue } from './lambdaUtils';
 
-export interface EvalContext {
-  /** Resolve a variable name to its value. Returns undefined if not found. */
-  resolveVariable?: (name: string) => string | undefined;
-}
+export type { EvalContext, LambdaValue };
+export { isLambda, applyLambda } from './lambdaUtils';
 
 export interface EvalResult {
   value: unknown;
@@ -24,7 +24,7 @@ export interface EvalResult {
 
 // ── Tokenizer ──
 
-type TokenType = 'string' | 'number' | 'bool' | 'func' | 'lparen' | 'rparen' | 'comma' | 'var' | 'ident';
+type TokenType = 'string' | 'number' | 'bool' | 'func' | 'lparen' | 'rparen' | 'comma' | 'var' | 'ident' | 'arrow' | 'lbracket' | 'rbracket';
 interface Token { type: TokenType; value: string; }
 
 function tokenize(expr: string): Token[] {
@@ -32,19 +32,18 @@ function tokenize(expr: string): Token[] {
   let i = 0;
 
   while (i < expr.length) {
-    // Skip whitespace
     if (/\s/.test(expr[i])) { i++; continue; }
 
     // String literal (double or single quotes)
     if (expr[i] === '"' || expr[i] === "'") {
       const q = expr[i];
       let val = '';
-      i++; // skip opening quote
+      i++;
       while (i < expr.length && expr[i] !== q) {
         if (expr[i] === '\\' && i + 1 < expr.length) { val += expr[i + 1]; i += 2; }
         else { val += expr[i]; i++; }
       }
-      i++; // skip closing quote
+      i++;
       tokens.push({ type: 'string', value: val });
       continue;
     }
@@ -56,13 +55,20 @@ function tokenize(expr: string): Token[] {
       while (i < expr.length && !(expr[i] === '}' && expr[i + 1] === '}')) {
         name += expr[i]; i++;
       }
-      i += 2; // skip }}
+      i += 2;
       tokens.push({ type: 'var', value: name.trim() });
       continue;
     }
 
+    // Arrow operator: =>
+    if (expr[i] === '=' && i + 1 < expr.length && expr[i + 1] === '>') {
+      tokens.push({ type: 'arrow', value: '=>' });
+      i += 2;
+      continue;
+    }
+
     // Number literal (including negative)
-    if (/[0-9]/.test(expr[i]) || (expr[i] === '-' && i + 1 < expr.length && /[0-9]/.test(expr[i + 1]) && (tokens.length === 0 || tokens[tokens.length - 1].type === 'comma' || tokens[tokens.length - 1].type === 'lparen'))) {
+    if (/[0-9]/.test(expr[i]) || (expr[i] === '-' && i + 1 < expr.length && /[0-9]/.test(expr[i + 1]) && (tokens.length === 0 || tokens[tokens.length - 1].type === 'comma' || tokens[tokens.length - 1].type === 'lparen' || tokens[tokens.length - 1].type === 'lbracket'))) {
       let num = expr[i]; i++;
       while (i < expr.length && /[0-9.]/.test(expr[i])) { num += expr[i]; i++; }
       tokens.push({ type: 'number', value: num });
@@ -81,6 +87,10 @@ function tokenize(expr: string): Token[] {
     if (expr[i] === '(') { tokens.push({ type: 'lparen', value: '(' }); i++; continue; }
     if (expr[i] === ')') { tokens.push({ type: 'rparen', value: ')' }); i++; continue; }
 
+    // Array brackets — only when not part of an ident path
+    if (expr[i] === '[') { tokens.push({ type: 'lbracket', value: '[' }); i++; continue; }
+    if (expr[i] === ']') { tokens.push({ type: 'rbracket', value: ']' }); i++; continue; }
+
     // Comma
     if (expr[i] === ',') { tokens.push({ type: 'comma', value: ',' }); i++; continue; }
 
@@ -93,9 +103,18 @@ function tokenize(expr: string): Token[] {
     }
 
     // Bare identifier (fallback — treated as variable name)
+    // Also consumes bracket notation (e.g. offers[0].offerName) so path
+    // references inside function args are kept as a single token.
     if (/[a-zA-Z_]/.test(expr[i])) {
-      let ident = ''; 
+      let ident = '';
       while (i < expr.length && /[a-zA-Z0-9_.]/.test(expr[i])) { ident += expr[i]; i++; }
+      while (i < expr.length && expr[i] === '[') {
+        ident += expr[i]; i++;
+        while (i < expr.length && expr[i] !== ']') { ident += expr[i]; i++; }
+        if (i < expr.length && expr[i] === ']') { ident += expr[i]; i++; }
+        if (i < expr.length && expr[i] === '.') { ident += expr[i]; i++; }
+        while (i < expr.length && /[a-zA-Z0-9_]/.test(expr[i])) { ident += expr[i]; i++; }
+      }
       tokens.push({ type: 'ident', value: ident });
       continue;
     }
@@ -108,25 +127,80 @@ function tokenize(expr: string): Token[] {
 
 // ── Parser ──
 
-interface ASTNode {
-  kind: 'literal' | 'variable' | 'call';
+export interface ASTNode {
+  kind: 'literal' | 'variable' | 'call' | 'lambda' | 'array';
   value?: unknown;
   varName?: string;
   funcName?: string;
   args?: ASTNode[];
+  elements?: ASTNode[];
+  params?: string[];
+  body?: ASTNode;
 }
 
 function parse(tokens: Token[]): ASTNode {
   let pos = 0;
 
+  function isLambdaParamList(): boolean {
+    let j = pos + 1;
+    while (j < tokens.length) {
+      if (tokens[j].type === 'rparen') {
+        return j + 1 < tokens.length && tokens[j + 1].type === 'arrow';
+      }
+      if (tokens[j].type !== 'ident' && tokens[j].type !== 'comma') return false;
+      j++;
+    }
+    return false;
+  }
+
+  function parseLambdaParams(): string[] {
+    const params: string[] = [];
+    pos++; // consume (
+    while (pos < tokens.length && tokens[pos].type !== 'rparen') {
+      if (tokens[pos].type === 'comma') { pos++; continue; }
+      if (tokens[pos].type === 'ident') { params.push(tokens[pos].value); pos++; }
+      else break;
+    }
+    if (pos < tokens.length) pos++; // consume )
+    if (pos < tokens.length && tokens[pos].type === 'arrow') pos++; // consume =>
+    return params;
+  }
+
   function parseExpr(): ASTNode {
     if (pos >= tokens.length) return { kind: 'literal', value: '' };
     const tok = tokens[pos];
 
+    // Lambda: single param — `x => body`
+    if (tok.type === 'ident' && pos + 1 < tokens.length && tokens[pos + 1].type === 'arrow') {
+      const paramName = tok.value;
+      pos += 2; // consume ident + =>
+      const body = parseExpr();
+      return { kind: 'lambda', params: [paramName], body };
+    }
+
+    // Lambda: multi param — `(a, b) => body`
+    if (tok.type === 'lparen' && isLambdaParamList()) {
+      const params = parseLambdaParams();
+      const body = parseExpr();
+      return { kind: 'lambda', params, body };
+    }
+
+    // Array literal: [expr, expr, ...]
+    if (tok.type === 'lbracket') {
+      pos++; // consume [
+      const elements: ASTNode[] = [];
+      while (pos < tokens.length && tokens[pos].type !== 'rbracket') {
+        if (tokens[pos].type === 'comma') { pos++; continue; }
+        elements.push(parseExpr());
+      }
+      if (pos < tokens.length) pos++; // consume ]
+      return { kind: 'array', elements };
+    }
+
     // Function call
     if (tok.type === 'func') {
       const funcName = tok.value;
-      pos++; // consume func name
+      pos++;
       const args: ASTNode[] = [];
       if (pos < tokens.length && tokens[pos].type === 'lparen') {
         pos++; // consume (
@@ -181,10 +255,18 @@ function evalNode(node: ASTNode, ctx: EvalContext): unknown {
       catch (e) { return `[Error: ${e instanceof Error ? e.message : String(e)}]`; }
     }
 
+    case 'array':
+      return (node.elements ?? []).map((el) => evalNode(el, ctx));
+
+    case 'lambda':
+      return { __type: 'lambda', params: node.params!, body: node.body!, closureCtx: ctx } as LambdaValue;
+
     default:
       return '';
   }
 }
+
+registerEvalNode(evalNode);
 
 /**
  * Evaluate an expression string.
@@ -209,8 +291,14 @@ export function evaluateExpression(expr: string, ctx: EvalContext = {}): EvalRes
  */
 export function formatExpressionResult(value: unknown): string {
   if (value === null || value === undefined) return '';
+  if (typeof value === 'bigint') return value.toString();
   if (typeof value === 'object') {
-    try { return JSON.stringify(value); } catch { return String(value); }
+    if (isLambda(value)) return `[Lambda: (${value.params.join(', ')}) => ...]`;
+    try {
+      return JSON.stringify(value, (_k, v) =>
+        typeof v === 'bigint' ? v.toString() : v,
+      );
+    } catch { return String(value); }
   }
   return String(value);
 }

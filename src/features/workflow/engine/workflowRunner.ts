@@ -193,7 +193,7 @@ async function executeWorkflowStep(
 
   const assertions = scenario.validation.assertions ?? [];
   const { failures: assertionFailures, statusAsserted } = assertions.length > 0
-    ? evaluateAssertions(assertions, { httpStatus, responseTimeMs, responseHeaders, responseBody: responseObj })
+    ? evaluateAssertions(assertions, { httpStatus, responseTimeMs, responseHeaders, responseBody: responseObj, rawBody: responseBody })
     : { failures: [], statusAsserted: false };
 
   const httpOk = httpStatus > 0 && httpStatus < 400;

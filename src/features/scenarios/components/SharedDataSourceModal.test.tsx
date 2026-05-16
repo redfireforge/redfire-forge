@@ -9,6 +9,9 @@ import { render, screen, fireEvent, act, waitFor, within } from '@testing-librar
 import userEvent from '@testing-library/user-event';
 import SharedDataSourceModal from './SharedDataSourceModal';
 import type { SharedDataSource, FeatureGroup, DataSource, GlobalAuthProfile } from '../../../shared/types';
+import { proxyFetch } from '../../../engine/executor';
+import { createSharedDsFetchAdapter } from '../../../shared/components/data-mapper';
+import { MapperFetchError } from '../../../shared/components/data-mapper/types';
 
 // Mock uuid to return predictable IDs
 vi.mock('uuid', () => ({
@@ -18,6 +21,7 @@ vi.mock('uuid', () => ({
 // Mock proxyFetch
 vi.mock('../../../engine/executor', () => ({
   proxyFetch: vi.fn(),
+  buildHeaders: vi.fn(() => ({})),
 }));
 
 /** Minimal frame so `onClose` (dirty gate) can be exercised — production uses closeButtonKind none + closeOnOverlayClick false */
@@ -104,27 +108,33 @@ vi.mock('./DataSourceSetupModal', () => ({
   ),
 }));
 
-vi.mock('./PopulateFromApiModal', () => ({
-  default: ({
-    onApply,
-    onClose,
-  }: {
-    onApply: (columns: DataSource['columns'], rows: DataSource['rows'], mode: 'append' | 'replace') => void;
-    onClose: () => void;
-  }) => (
-    <div data-testid="populate-from-api-mock">
-      <button type="button" onClick={() => onApply([], [{ id: 'nr', values: {}, enabled: true }], 'append')}>
-        Populate Append
-      </button>
-      <button type="button" onClick={() => onApply([], [], 'replace')}>
-        Populate Replace
-      </button>
-      <button type="button" onClick={onClose}>
-        Populate Close
-      </button>
-    </div>
-  ),
-}));
+vi.mock('../../../shared/components/data-mapper', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../shared/components/data-mapper')>();
+  const createSharedDsFetchAdapterMock = vi.fn(actual.createSharedDsFetchAdapter);
+  return {
+    ...actual,
+    createSharedDsFetchAdapter: createSharedDsFetchAdapterMock,
+    DataMapperModal: ({
+      onSave,
+      onCancel,
+    }: {
+      onSave: (output: { columns: DataSource['columns']; rows: DataSource['rows']; mode: 'append' | 'replace' }) => void;
+      onCancel: () => void;
+    }) => (
+      <div data-testid="populate-from-api-mock">
+        <button type="button" onClick={() => onSave({ columns: [], rows: [{ id: 'nr', values: {}, enabled: true }], mode: 'append' })}>
+          Populate Append
+        </button>
+        <button type="button" onClick={() => onSave({ columns: [], rows: [], mode: 'replace' })}>
+          Populate Replace
+        </button>
+        <button type="button" onClick={onCancel}>
+          Populate Close
+        </button>
+      </div>
+    ),
+  };
+});
 
 vi.mock('./SharedDsSaveConfirmModal', () => ({
   default: ({
@@ -226,12 +236,49 @@ function ModalHarness(
   return <SharedDataSourceModal {...rest} sharedDataSources={sharedDataSources} onUpdate={setSharedDataSources} />;
 }
 
+/** Drops fetchConfig on all sources so wizard apply exercises `ds.fetchConfig ?? defaultFetchConfig()` merges */
+function WizardStripHarness({ initial }: { initial: SharedDataSource[] }) {
+  const [sources, setSources] = useState<SharedDataSource[]>(initial);
+  return (
+    <>
+      <button
+        type="button"
+        data-testid="strip-shared-fetch-config"
+        onClick={() =>
+          setSources(prev =>
+            prev.map(ds => {
+              const next: SharedDataSource = { ...ds };
+              delete (next as Partial<SharedDataSource>).fetchConfig;
+              return next;
+            }),
+          )
+        }
+      >
+        Strip Fetch Config
+      </button>
+      <SharedDataSourceModal
+        sharedDataSources={sources}
+        onUpdate={setSources}
+        featureGroups={[]}
+        globalAuthProfiles={[]}
+        onClose={vi.fn()}
+      />
+    </>
+  );
+}
+
 
 // ─── Tests ────────────────────────────────────────────────────
 
 describe('SharedDataSourceModal', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(proxyFetch).mockResolvedValue({
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      body: '{"ok":true}',
+    });
   });
 
   describe('Initial Render', () => {
@@ -269,6 +316,16 @@ describe('SharedDataSourceModal', () => {
       expect(firstItem).toHaveClass('active');
     });
 
+    it('shows empty editor until list selection resolves a valid shared source id', async () => {
+      const sources = [makeSharedDs('s1', 'PickMe')];
+      render(
+        <SharedDataSourceModal {...defaultProps} sharedDataSources={sources} initialSelectedId="orphan-id" />,
+      );
+      expect(screen.getByText(/Create a shared data source to get started/i)).toBeInTheDocument();
+      await userEvent.click(screen.getByText('PickMe'));
+      expect(screen.getByDisplayValue('PickMe')).toBeInTheDocument();
+    });
+
     it('pre-selects data source when initialSelectedId is provided', () => {
       const sources = [
         makeSharedDs('s1', 'First'),
@@ -277,6 +334,14 @@ describe('SharedDataSourceModal', () => {
       render(<SharedDataSourceModal {...defaultProps} sharedDataSources={sources} initialSelectedId="s2" />);
       const secondItem = screen.getByText('Second').closest('.shared-ds-list-item');
       expect(secondItem).toHaveClass('active');
+    });
+
+    it('shows 0 rows in list meta when a source omits dataSource', () => {
+      const malformed = { id: 'bad', name: 'Broken', updatedAt: 1 } as SharedDataSource;
+      const sources = [makeSharedDs('ok', 'Healthy'), malformed];
+      render(<SharedDataSourceModal {...defaultProps} sharedDataSources={sources} />);
+      const brokenItem = screen.getByText('Broken').closest('.shared-ds-list-item') as HTMLElement;
+      expect(within(brokenItem).getByText(/0 rows/)).toBeInTheDocument();
     });
   });
 
@@ -468,32 +533,105 @@ describe('SharedDataSourceModal', () => {
       expect(screen.getByText(/used by 1 test/i)).toBeInTheDocument();
     });
 
-    it('marks editing draft in expanded used-by list', async () => {
+    it('lists every referencing catalog test in expanded used-by section', async () => {
       const sources = [makeSharedDs('s1', 'Shared')];
-      const currentEditingDraft = {
-        fgName: 'Feature',
-        scenarioName: 'Scenario',
-        test: {
+      const fg: FeatureGroup = {
+        id: 'fg1',
+        name: 'FG',
+        scenarios: [{
+          id: 'sc1',
+          name: 'Scenario',
+          tests: [
+            {
+              id: 't1',
+              name: 'Alpha Test',
+              url: 'http://a',
+              method: 'GET',
+              headers: [],
+              body: '',
+              validation: { mode: 'none' },
+              sharedDataSourceId: 's1',
+            },
+            {
+              id: 't2',
+              name: 'Beta Test',
+              url: 'http://b',
+              method: 'GET',
+              headers: [],
+              body: '',
+              validation: { mode: 'none' },
+              sharedDataSourceId: 's1',
+            },
+          ],
+          auth: { type: 'none' },
+          enabled: true,
+        }],
+      };
+      render(<SharedDataSourceModal {...defaultProps} sharedDataSources={sources} featureGroups={[fg]} />);
+      expect(screen.getByText(/used by 2 test\(s\)/i)).toBeInTheDocument();
+      await userEvent.click(screen.getByRole('button', { name: /used by 2 test\(s\)/i }));
+      expect(screen.getByTitle(/FG \/ Scenario \/ Alpha Test/)).toBeInTheDocument();
+      expect(screen.getByTitle(/FG \/ Scenario \/ Beta Test/)).toBeInTheDocument();
+    });
+
+    it('shows plural delete warning copy when two tests reference the shared source', async () => {
+      const sources = [makeSharedDs('s1', 'Shared')];
+      const fg = makeFeatureGroup('fg1', 'FG');
+      fg.scenarios[0].tests = [
+        {
           id: 't1',
-          name: 'Editing Test',
-          url: 'http://api',
-          method: 'GET' as const,
+          name: 'One',
+          url: 'http://x',
+          method: 'GET',
           headers: [],
           body: '',
-          validation: { mode: 'none' as const },
+          validation: { mode: 'none' },
           sharedDataSourceId: 's1',
         },
-      };
+        {
+          id: 't2',
+          name: 'Two',
+          url: 'http://y',
+          method: 'GET',
+          headers: [],
+          body: '',
+          validation: { mode: 'none' },
+          sharedDataSourceId: 's1',
+        },
+      ];
       render(
-        <SharedDataSourceModal
-          {...defaultProps}
-          sharedDataSources={sources}
-          featureGroups={[]}
-          currentEditingDraft={currentEditingDraft}
-        />,
+        <ModalHarness initialSources={sources} onClose={vi.fn()} featureGroups={[fg]} />,
       );
-      await userEvent.click(document.querySelector('.shared-ds-used-by-toggle') as HTMLElement);
-      expect(screen.getByText('Editing Test ✎')).toBeInTheDocument();
+      await userEvent.click(screen.getByTitle('More'));
+      await userEvent.click(screen.getByText('Delete'));
+      expect(screen.getByText(/used by 2 test\(s\)/i)).toBeInTheDocument();
+    });
+
+    it('keeps used-by references collapsed until the toggle is expanded', () => {
+      const sources = [makeSharedDs('s1', 'Shared')];
+      const fg: FeatureGroup = {
+        id: 'fg1',
+        name: 'FG',
+        scenarios: [{
+          id: 'sc1',
+          name: 'Scenario',
+          tests: [{
+            id: 't1',
+            name: 'Linked Test',
+            url: 'http://api',
+            method: 'GET',
+            headers: [],
+            body: '',
+            validation: { mode: 'none' },
+            sharedDataSourceId: 's1',
+          }],
+          auth: { type: 'none' },
+          enabled: true,
+        }],
+      };
+      render(<SharedDataSourceModal {...defaultProps} sharedDataSources={sources} featureGroups={[fg]} />);
+      expect(screen.getByText('▶')).toBeInTheDocument();
+      expect(screen.queryByTitle(/FG \/ Scenario \/ Linked Test/)).toBeNull();
     });
   });
 
@@ -809,6 +947,23 @@ describe('SharedDataSourceModal', () => {
       expect(authBtn.querySelector('.tab-badge-dot')).toBeTruthy();
     });
 
+    it('shows Auth tab badge when fetch auth type is bearer', () => {
+      const sources = [
+        makeSharedDs('s1', 'T', {
+          fetchConfig: {
+            url: 'https://api.test.com',
+            method: 'GET',
+            headers: [],
+            auth: { type: 'bearer', token: 'secret' },
+          },
+        }),
+      ];
+      render(<SharedDataSourceModal {...defaultProps} sharedDataSources={sources} />);
+      const tabs = document.querySelector('.builder-tabs') as HTMLElement;
+      const authBtn = within(tabs).getByRole('button', { name: /^auth\b/i });
+      expect(authBtn.querySelector('.tab-badge-dot')).toBeTruthy();
+    });
+
     it('does not show Body tab for GET method', () => {
       const sources = [makeSharedDs('s1', 'Test', { fetchConfig: { url: 'https://api.test.com', method: 'GET', headers: [], auth: { type: 'none' } } })];
       render(<SharedDataSourceModal {...defaultProps} sharedDataSources={sources} />);
@@ -881,6 +1036,26 @@ describe('SharedDataSourceModal', () => {
       await userEvent.click(screen.getByRole('button', { name: /\+ create first shared data source/i }));
       await waitFor(() => expect(focusSpy).toHaveBeenCalled());
       focusSpy.mockRestore();
+    });
+
+    it('focuses and selects header name after "+ New" when pending name focus matches selection', async () => {
+      const focusSpy = vi.spyOn(HTMLInputElement.prototype, 'focus').mockImplementation(() => {});
+      const selectSpy = vi.spyOn(HTMLInputElement.prototype, 'select').mockImplementation(() => {});
+      render(<ModalHarness initialSources={[makeSharedDs('s1', 'Existing')]} onClose={vi.fn()} featureGroups={[]} />);
+      await userEvent.click(screen.getByRole('button', { name: /\+ new/i }));
+      await waitFor(() => {
+        expect(focusSpy).toHaveBeenCalled();
+        expect(selectSpy).toHaveBeenCalled();
+      });
+      focusSpy.mockRestore();
+      selectSpy.mockRestore();
+    });
+
+    it('footer Cancel and Save stay disabled while snapshot is clean', () => {
+      render(<ModalHarness initialSources={[makeSharedDs('s1', 'One')]} onClose={vi.fn()} featureGroups={[]} />);
+      const footer = document.querySelector('.shared-ds-footer') as HTMLElement;
+      expect(within(footer).getByRole('button', { name: /^cancel$/i })).toBeDisabled();
+      expect(within(footer).getByRole('button', { name: /^save$/i })).toBeDisabled();
     });
 
     it('enables Save on edits and clears dirty state after Save', async () => {
@@ -1270,6 +1445,24 @@ describe('SharedDataSourceModal', () => {
       expect(next.fetchConfig?.pathVariables).toBeUndefined();
     });
 
+    it('wizard apply after stripping fetchConfig merges defaults and keeps flat URL empty', async () => {
+      render(
+        <WizardStripHarness
+          initial={[
+            makeSharedDs('s1', 'T', {
+              fetchConfig: { url: 'https://before-strip.example/', method: 'GET', headers: [], auth: { type: 'none' } },
+            }),
+          ]}
+        />,
+      );
+      await userEvent.click(screen.getByRole('button', { name: /configure variables \+ auth/i }));
+      await userEvent.click(screen.getByTestId('strip-shared-fetch-config'));
+      await userEvent.click(screen.getByText('Wizard Apply Flat URL'));
+      const urlInput = document.querySelector('.shared-ds-fetch-url') as HTMLInputElement;
+      await waitFor(() => expect(urlInput.value).toBe(''));
+      expect(screen.queryByTestId('setup-wizard-mock')).not.toBeInTheDocument();
+    });
+
     it('closes setup wizard without applying', async () => {
       const sources = [makeSharedDs('s1', 'T', { fetchConfig: { url: 'https://api.com/u', method: 'GET', headers: [], auth: { type: 'none' } } })];
       render(<SharedDataSourceModal {...defaultProps} sharedDataSources={sources} featureGroups={[]} />);
@@ -1288,12 +1481,163 @@ describe('SharedDataSourceModal', () => {
       await userEvent.click(screen.getByText('Populate Replace'));
     });
 
+    it('populate replace mode replaces rows instead of appending', async () => {
+      const tbl = makeDataSource('ds-pop', 1, 3);
+      const sources = [
+        makeSharedDs('s1', 'T', {
+          dataSource: tbl,
+          fetchConfig: { url: 'https://api.com/u', method: 'GET', headers: [], auth: { type: 'none' } },
+        }),
+      ];
+      render(<ModalHarness initialSources={sources} onClose={vi.fn()} featureGroups={[]} />);
+      expect(screen.getByTestId('data-source-editor-stub')).toBeInTheDocument();
+      await userEvent.click(screen.getByRole('button', { name: /populate rows from api/i }));
+      await userEvent.click(screen.getByText('Populate Replace'));
+      await waitFor(() => {
+        const footer = document.querySelector('.shared-ds-footer') as HTMLElement;
+        expect(within(footer).getByText(/total rows/i).textContent).toMatch(/0 total rows/);
+      });
+    });
+
     it('closes populate-from-API without applying', async () => {
       const sources = [makeSharedDs('s1', 'T', { fetchConfig: { url: 'https://api.com/u', method: 'GET', headers: [], auth: { type: 'none' } } })];
       render(<SharedDataSourceModal {...defaultProps} sharedDataSources={sources} featureGroups={[]} />);
       await userEvent.click(screen.getByRole('button', { name: /populate rows from api/i }));
       await userEvent.click(screen.getByText('Populate Close'));
       expect(screen.queryByTestId('populate-from-api-mock')).not.toBeInTheDocument();
+    });
+
+    it('populate adapter fetchSampleData throws for unresolved variables', async () => {
+      const createAdapterMock = vi.mocked(createSharedDsFetchAdapter);
+      const sources = [
+        makeSharedDs('s1', 'T', {
+          fetchConfig: { url: 'https://api.com/{{missing}}', method: 'GET', headers: [], auth: { type: 'none' } },
+        }),
+      ];
+      render(<SharedDataSourceModal {...defaultProps} sharedDataSources={sources} featureGroups={[]} />);
+      await userEvent.click(screen.getByRole('button', { name: /populate rows from api/i }));
+      const adapterOptions = createAdapterMock.mock.calls.at(-1)?.[0] as { fetchSampleData?: () => Promise<unknown> } | undefined;
+      expect(adapterOptions?.fetchSampleData).toBeDefined();
+      await expect(adapterOptions!.fetchSampleData!()).rejects.toThrow(/Unresolved variables/i);
+    });
+
+    it('populate adapter fetchSampleData throws for fetch error and HTTP error', async () => {
+      const createAdapterMock = vi.mocked(createSharedDsFetchAdapter);
+      const sources = [
+        makeSharedDs('s1', 'T', {
+          fetchConfig: { url: 'https://api.com/items', method: 'GET', headers: [], auth: { type: 'none' } },
+        }),
+      ];
+      render(<SharedDataSourceModal {...defaultProps} sharedDataSources={sources} featureGroups={[]} />);
+      await userEvent.click(screen.getByRole('button', { name: /populate rows from api/i }));
+      const adapterOptions = createAdapterMock.mock.calls.at(-1)?.[0] as { fetchSampleData?: () => Promise<unknown> } | undefined;
+      expect(adapterOptions?.fetchSampleData).toBeDefined();
+
+      vi.mocked(proxyFetch).mockResolvedValueOnce({
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        body: '{}',
+        error: 'network fail',
+      });
+      await expect(adapterOptions!.fetchSampleData!()).rejects.toThrow('network fail');
+
+      vi.mocked(proxyFetch).mockResolvedValueOnce({
+        status: 503,
+        statusText: 'Service Unavailable',
+        headers: {},
+        body: '{}',
+      });
+      await expect(adapterOptions!.fetchSampleData!()).rejects.toThrow('HTTP 503: Service Unavailable');
+    });
+
+    it('populate adapter fetchSampleData throws when draft scenario becomes unavailable', async () => {
+      const createAdapterMock = vi.mocked(createSharedDsFetchAdapter);
+      const sources = [
+        makeSharedDs('s1', 'T', {
+          fetchConfig: { url: 'https://api.com/items', method: 'GET', headers: [], auth: { type: 'none' } },
+        }),
+      ];
+      render(<ModalHarness initialSources={sources} onClose={vi.fn()} featureGroups={[]} />);
+      await userEvent.click(screen.getByRole('button', { name: /populate rows from api/i }));
+      const adapterOptions = createAdapterMock.mock.calls.at(-1)?.[0] as { fetchSampleData?: () => Promise<unknown> } | undefined;
+      expect(adapterOptions?.fetchSampleData).toBeDefined();
+      const fetchSampleData = adapterOptions!.fetchSampleData!;
+
+      const urlInput = document.querySelector('.shared-ds-fetch-url') as HTMLInputElement;
+      fireEvent.change(urlInput, { target: { value: '' } });
+      await waitFor(() => expect(screen.queryByTestId('populate-from-api-mock')).not.toBeInTheDocument());
+
+      await expect(fetchSampleData()).rejects.toThrow(/Fetch configuration unavailable/i);
+    });
+
+    it('populate adapter fetchSampleData wraps proxy errors in MapperFetchError with timing detail', async () => {
+      const createAdapterMock = vi.mocked(createSharedDsFetchAdapter);
+      const sources = [
+        makeSharedDs('s1', 'T', {
+          fetchConfig: { url: 'https://api.com/items', method: 'GET', headers: [], auth: { type: 'none' } },
+        }),
+      ];
+      render(<SharedDataSourceModal {...defaultProps} sharedDataSources={sources} featureGroups={[]} />);
+      await userEvent.click(screen.getByRole('button', { name: /populate rows from api/i }));
+      const adapterOptions = createAdapterMock.mock.calls.at(-1)?.[0] as { fetchSampleData?: () => Promise<unknown> } | undefined;
+
+      vi.mocked(proxyFetch).mockResolvedValueOnce({
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        body: '',
+        error: 'boom',
+        timing: { ttfb: 11, total: 22 },
+      });
+      try {
+        await adapterOptions!.fetchSampleData!();
+        expect.fail('expected rejection');
+      } catch (e) {
+        expect(e).toBeInstanceOf(MapperFetchError);
+        expect((e as MapperFetchError).detail.timing).toEqual({ ttfb: 11, total: 22 });
+      }
+
+      vi.mocked(proxyFetch).mockResolvedValueOnce({
+        status: 422,
+        statusText: 'Nope',
+        headers: {},
+        body: '',
+        timing: { ttfb: 3, total: 9 },
+      });
+      try {
+        await adapterOptions!.fetchSampleData!();
+        expect.fail('expected rejection');
+      } catch (e) {
+        expect(e).toBeInstanceOf(MapperFetchError);
+        expect((e as MapperFetchError).detail.status).toBe(422);
+        expect((e as MapperFetchError).detail.timing).toEqual({ ttfb: 3, total: 9 });
+      }
+    });
+
+    it('populate adapter fetchSampleData parses body and uses draft scenario when all rows disabled', async () => {
+      const createAdapterMock = vi.mocked(createSharedDsFetchAdapter);
+      const ds = makeDataSource('ds1', 1, 2);
+      ds.rows = ds.rows.map(row => ({ ...row, enabled: false }));
+      const sources = [
+        makeSharedDs('s1', 'T', {
+          dataSource: ds,
+          fetchConfig: { url: 'https://api.com/items', method: 'GET', headers: [], auth: { type: 'none' } },
+        }),
+      ];
+      render(<SharedDataSourceModal {...defaultProps} sharedDataSources={sources} featureGroups={[]} />);
+      await userEvent.click(screen.getByRole('button', { name: /populate rows from api/i }));
+      const adapterOptions = createAdapterMock.mock.calls.at(-1)?.[0] as { fetchSampleData?: () => Promise<unknown> } | undefined;
+      expect(adapterOptions?.fetchSampleData).toBeDefined();
+
+      vi.mocked(proxyFetch).mockResolvedValueOnce({
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        body: '{"hello":"world"}',
+      });
+      await expect(adapterOptions!.fetchSampleData!()).resolves.toEqual({ hello: 'world' });
+      expect(proxyFetch).toHaveBeenCalledWith('https://api.com/items', 'GET', {}, undefined);
     });
 
     it('mapping chips and warning affordances toggle fetch sections', async () => {
@@ -1314,6 +1658,23 @@ describe('SharedDataSourceModal', () => {
       await userEvent.click(screen.getByRole('button', { name: /^header:/i }));
       await userEvent.click(screen.getByRole('button', { name: /^validate:/i }));
       await userEvent.click(screen.getByRole('button', { name: /^validate:/i }));
+    });
+
+    it('param tab shows literal query parameter values when URL includes plain query pairs', async () => {
+      const sources = [
+        makeSharedDs('s1', 'T', {
+          fetchConfig: {
+            url: 'https://api.example.com/items?tag=prod&sort=name',
+            method: 'GET',
+            headers: [],
+            auth: { type: 'none' },
+          },
+        }),
+      ];
+      render(<SharedDataSourceModal {...defaultProps} sharedDataSources={sources} featureGroups={[]} />);
+      await userEvent.click(screen.getByRole('button', { name: /^params\b/i }));
+      expect(screen.getByText('prod')).toBeInTheDocument();
+      expect(screen.getByText('name')).toBeInTheDocument();
     });
 
     it('collapses a tab when clicking the active tab again', async () => {
@@ -1603,6 +1964,54 @@ describe('SharedDataSourceModal', () => {
       const popup = screen.getByText('Create Test from Shared Data Source').closest('[data-testid="app-modal-frame"]')!;
       await userEvent.click(within(popup).getByTestId('app-modal-frame-onclose'));
       expect(screen.queryByText('Create Test from Shared Data Source')).not.toBeInTheDocument();
+    });
+
+    it('create-test: empty featureGroups yields blank target ids from fallback', async () => {
+      const sources = [makeSharedDs('s1', 'D', { fetchConfig: { url: 'https://x.com', method: 'GET', headers: [], auth: { type: 'none' } } })];
+      render(
+        <SharedDataSourceModal
+          {...defaultProps}
+          sharedDataSources={sources}
+          featureGroups={[]}
+          onCreateTestFromSharedDs={vi.fn()}
+        />,
+      );
+      await userEvent.click(screen.getByRole('button', { name: /\+ create test/i }));
+      const popup = screen.getByText('Create Test from Shared Data Source').closest('[data-testid="app-modal-frame"]')!;
+      const fgSelect = within(popup).getAllByRole('combobox')[0] as HTMLSelectElement;
+      const scSelect = within(popup).getAllByRole('combobox')[1] as HTMLSelectElement;
+      expect(fgSelect.value).toBe('');
+      expect(scSelect.value).toBe('');
+      expect(within(popup).getByRole('button', { name: /^create test$/i })).toBeDisabled();
+    });
+
+    it('used-by expanded list shows editing marker for current draft reference', async () => {
+      const sources = [makeSharedDs('s1', 'Shared')];
+      const currentEditingDraft = {
+        fgName: 'FG',
+        scenarioName: 'Scenario',
+        test: {
+          id: 'tx',
+          name: 'Draft Linked',
+          url: 'http://api',
+          method: 'GET' as const,
+          headers: [],
+          body: '',
+          validation: { mode: 'none' as const },
+          sharedDataSourceId: 's1',
+        },
+      };
+      render(
+        <SharedDataSourceModal
+          {...defaultProps}
+          sharedDataSources={sources}
+          featureGroups={[]}
+          currentEditingDraft={currentEditingDraft}
+        />,
+      );
+      await userEvent.click(screen.getByRole('button', { name: /used by 1 test/i }));
+      expect(screen.getByText(/Draft Linked/)).toBeInTheDocument();
+      expect(screen.getByText(/✎/)).toBeInTheDocument();
     });
   });
 });

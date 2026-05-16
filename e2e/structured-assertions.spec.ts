@@ -164,6 +164,49 @@ test.describe('Structured Assertions UI', () => {
   });
 });
 
+test.describe('Date Precise — calendar/precision layout', () => {
+  test('calendar button and precision dropdown do not overlap', async ({ page }) => {
+    await openValidationTab(page);
+
+    await addButton(page).click();
+    await page.click('.assertions-add-menu button:has-text("Date Precise")');
+
+    const row = page.locator('.assertion-row').last();
+    await expect(row.locator('.assertion-type-badge')).toHaveText('DATE⁺');
+
+    const calBtn = row.locator('.assertion-date-btn');
+    const precisionSelect = row.locator('.assertion-select--precision');
+    await expect(calBtn).toBeVisible();
+    await expect(precisionSelect).toBeVisible();
+
+    const calBox = await calBtn.boundingBox();
+    const precBox = await precisionSelect.boundingBox();
+    expect(calBox).toBeTruthy();
+    expect(precBox).toBeTruthy();
+
+    // Calendar button's right edge must not exceed precision dropdown's left edge
+    const calRight = calBox!.x + calBox!.width;
+    const overlap = calRight - precBox!.x;
+    expect(overlap).toBeLessThanOrEqual(1); // allow 1px for rounding
+  });
+
+  test('precision dropdown text is fully visible (not clipped)', async ({ page }) => {
+    await openValidationTab(page);
+
+    await addButton(page).click();
+    await page.click('.assertions-add-menu button:has-text("Date Precise")');
+
+    const row = page.locator('.assertion-row').last();
+    const precisionSelect = row.locator('.assertion-select--precision');
+    await expect(precisionSelect).toBeVisible();
+
+    const precBox = await precisionSelect.boundingBox();
+    expect(precBox).toBeTruthy();
+    // The select should be at least 80px wide to fit "Second" + dropdown arrow
+    expect(precBox!.width).toBeGreaterThanOrEqual(80);
+  });
+});
+
 test.describe('Assertion Presets', () => {
   test('Presets menu opens and shows preset cards', async ({ page }) => {
     await openValidationTab(page);
@@ -180,9 +223,9 @@ test.describe('Assertion Presets', () => {
     const tabs = menu.locator('.apm-tab');
     await expect(tabs).toHaveCount(4); // All, API Validation, Data Quality, Security
 
-    // Verify preset cards are visible (5 presets total)
+    // Verify preset cards are visible (7 presets total: 5 original + Data Type Guard + Required Fields)
     const cards = menu.locator('.apm-card');
-    await expect(cards).toHaveCount(5);
+    await expect(cards).toHaveCount(7);
 
     // Verify first card has expected structure
     const firstCard = cards.first();

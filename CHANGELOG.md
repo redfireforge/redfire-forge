@@ -9,6 +9,326 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
 ## [Unreleased]
 
 ### Added
+- **Validation & Data Mapper — Architecture Refactoring**
+  - **Validator module decomposition** — `validator.ts` (1012 → 830 lines) split into focused modules: `validatorDateHelpers.ts`, `validatorHttpHelpers.ts`, `validatorSubsetMatch.ts`, `validatorCustomExpression.ts`.
+  - **DataMapper hook extraction** — `DataMapper.tsx` (1001 → 895 lines) split into: `useBottomUtilityDock.ts`, `useDataMapperTreeInteraction.ts`, `useHighlightedMappingPaths.ts`, `useMapperVisibleLines.ts`.
+  - **TestEditorValidationTab decomposition** — (936 → 865 lines) split into: `testEditorValidationAddMenu.ts`, `testEditorValidationPivot.ts`.
+  - **Zero monolithic files** — all source files now under 900 lines.
+  - **Quality gate** — 16,356 unit tests (576 files), 613 E2E tests, >90% coverage (statements/branches/functions/lines) across all files, 0 ESLint errors, 0 TypeScript errors.
+
+- **Validation Rules Modal** (replaced `FloatingEditorModal`)
+  - **`ValidationRulesModal`** — three-mode panel (docked / floating / maximized) with split-pane DSL editor + reference panel. Portals into closest modal overlay for correct stacking context.
+  - **`DslReferencePanel`** — professional card-based DSL reference with 10 categories, search, expand/collapse all, click-to-insert, and copy syntax.
+  - **Bi-directional sync hardening** — `useValidationCodeSync` now uses error-aware updates (only pushes to visual model on zero parse errors) and `pendingCodeSyncs` counter to prevent sync echo overwrites.
+
+- **Data Mapper UX Improvements**
+  - **Hover-to-Highlight** — hovering a tree node dims all non-connected lines/nodes.
+  - **Toggle Line Visibility** — toolbar button to show/hide all mapping connection lines.
+  - **Keyboard navigation** — Arrow Up/Down traverses tree nodes, highlighting both source and target sides. Tab switches panels. Home/End jump to first/last node. Root node (empty path) handled correctly.
+  - **Click highlighting** — clicking a tree node or canvas line highlights both connected source and target nodes.
+  - **Failure Navigation System** — toolbar shows failed rule count with ◀/▶ navigation to cycle through failures.
+  - **Verify scope selector** — Assertions, Validation Rules, or All.
+  - **`JsonPathPicker`** for `each` assertion field path.
+  - **Auto-map default operator** — validation adapter defaults to `exists`, preventing false failures on type differences.
+  - **Type mismatch suppression** — operators like `exists`, `not_exists`, `is_empty`, `is_not_empty` skip type mismatch detection.
+  - **Target schema type inference** — `validationAdapter.fetchTargetSchema` now infers actual types from sample data instead of hardcoding `string`.
+
+- **Data Mapper Phase 9E — Hardening**
+  - **Full test suite pass** — 515 test files, 13,713 tests, all passing with zero failures.
+  - **Type safety** — `tsc --noEmit` zero errors.
+  - **Coverage boost** — overall project 97.62% statements / 93.39% branches / 98.05% functions / 98.48% lines. Key improvements: MapperToolbar 81→95%, expressionStepDebugger 87→96%, mappingTrace 87→93%, ExpressionEditorModal 75→81%.
+  - **57 new unit tests** across 6 test files: expression step debugger edge cases (8), mapping trace error paths (5), DataMapperModal drift/repair/validation (10), ExpressionEditorModal debugger interaction (12), DataMapper debug mode/resize/keyboard/toast (15), MapperToolbar samples menu (7).
+  - **Phase 11 (Visual Polish) added to plan** — new phase to align Data Mapper UI with the mockup HTML design reference (sub-phases 11A–11D: tree nodes, canvas/lines, footer, hardening).
+
+- **Data Mapper Phase 9D — Historical Comparison & Results Integration**
+  - **Trace comparison engine** (`traceComparison.ts`) — compares two sets of `MappingTrace[]` (from different test runs) per `mappingId`, classifying each as: unchanged, changed, regression (was passing → now failing), fixed (was failing → now passing), added, or removed. Produces summary counts.
+  - **MappingCompare component** (`MappingCompare.tsx`) — side-by-side comparison table showing baseline vs current values for each mapping. Summary bar with color-coded badges (regressions in red, fixes in green, changes in amber). Filter controls: All, Regressions, Changes, Fixed. Custom column labels (e.g., "Run #5" vs "Run #6"). Truncated values with tooltips.
+  - **"Open in Mapper" from Results Explorer** — Variables tab in `ResultsExplorerDetailPanel` now shows a "Mapping Traces" section when `event.details.mappingTraces` exists. Each trace row shows source→target path, `fx` badge for expression mappings, and error highlighting for failed mappings. "Open in Mapper" button triggers `onOpenMapper(traces, nodeLabel)` callback for integration. Variables tab is now enabled even when only mapping traces exist.
+  - **Trace export/import** (`traceExportImport.ts`) — `exportMappingTraces` packages traces in a versioned JSON envelope (v1) with workflow/node metadata. `importMappingTraces` validates and reconstructs traces from parsed JSON with comprehensive error messages. `extractAllMappingTraces` flattens all mapping traces from a `WorkflowExecutionTrace` with iteration/node context tagging.
+  - **CSS** — 200+ lines of comparison table styles in `data-mapper.css` (badges, filters, status icons, row highlighting). "Open in Mapper" button and mapping trace row styles in `results-explorer.css`.
+  - **48 new unit tests** — comparison engine (16), MappingCompare UI (11), export/import round-trip (16), Results Explorer mapping traces (5).
+
+- **Data Mapper Phase 9C — Step-Through & Failure Pinpointing**
+  - **Step-through expression debugger** — "Step Debug" button in the expression editor opens a panel showing each intermediate evaluation step: path resolutions (`$.price` → `29.99`), nested function evaluations (`$upper($.name)` → `WIDGET`), and the final result. Step-by-step navigation with ◀/▶ controls and click-to-select.
+  - **`expressionStepDebugger.ts`** — new utility that breaks expressions into `EvalStep[]` by extracting path refs and nested function calls, evaluating each incrementally (innermost-first) to show the full data flow. Uses string-aware scanning to skip `$.path` and `$fn()` inside quoted strings.
+  - **Failure pinpointing** — in debug mode, failed mapping lines show an inline "⚠ Click for details" label below the connection line, styled in red. Non-error lines remain clean.
+  - **Error detail popover** — clicking a failed mapping line opens a floating popover with: source path, target path, expression (if any), source value, target value, and the error message. Rendered in DataMapper (not canvas wrapper) to avoid `overflow: hidden` clipping. Closes on button click, outside click, Escape key, or when debugMode/traceData is removed.
+  - **`onShowErrorDetail` callback on MappingCanvas** — lifts popover rendering to DataMapper via callback pattern.
+  - **CSS styling** — step-through debugger styles in `data-mapper-expression.css` (controls, step list, active/done/error states, expression/value columns). Error inline label and popover styles in `data-mapper.css` (positioning, colors, close button, error highlight). Preview label flex layout for button alignment.
+  - **Unit tests** — step-through evaluator (13 incl string-awareness regressions), expression editor debugger UI (8), failure pinpointing callbacks (6), error popover lifecycle (3).
+
+- **Data Mapper Phase 9B — Data Flow Overlay**
+  - **Debug mode toggle** — "Debug" button in `MapperToolbar` activates runtime data flow overlay. Only visible when trace data (`MappingTrace[]`) is provided. Shows error count badge when mapping errors exist.
+  - **Value badges on connection lines** — in debug mode, each connection line displays a floating badge showing the runtime value that flowed through it (truncated to 16 chars, full value on hover). Green badges for successful values, red for errors/undefined.
+  - **Connection line styling** — debug mode colors lines green (`dm-connection-line--trace-ok`) for successful flows and dashed red (`dm-connection-line--trace-error`) for failed mappings.
+  - **Source tree trace overlay** — source nodes show runtime values from trace data instead of sample data. `TraceValueOverlay` type (`{ value, isError }`) passed via `traceOverlay` prop. Error values styled in red.
+  - **Target tree trace overlay** — target nodes show written values with `=` prefix. Error values highlighted in red.
+  - **Debug status bar** — shows trace count and error count when debug mode is active.
+  - **`traceData` prop on DataMapper** — accepts `MappingTrace[]` from Phase 9A. Computes `traceByMappingId`, `sourceTraceOverlay`, `targetTraceOverlay` maps via `useMemo`. Enriches `ConnectionLine` with `traceValue`/`traceError` fields.
+  - **CSS styling** — 120+ lines of debug overlay styles in `data-mapper.css`: debug bar, toolbar button, line badges, trace values, connection line states.
+  - **25 new unit tests** — toolbar debug toggle visibility/interaction (7), canvas trace badge rendering/truncation/classes (7), source tree trace overlay values/errors/propagation (6), target tree trace overlay values/errors/propagation (5).
+
+- **Data Mapper Phase 9A — Mapping Execution Trace**
+  - **`MappingTrace` type** — per-mapping trace record capturing `mappingId`, `sourcePath`, `sourceValue`, `expression`, `evaluatedValue`, `targetPath`, `targetValue`, `timestamp`, `durationMs`, and optional `error`. Foundation for the Mapping Debugger (Phase 9B+).
+  - **`captureMappingTraces()`** — evaluates mappings against source data using the mapper expression evaluator, producing a `MappingTrace[]` array. Handles direct paths, nested paths, expression evaluation, error capture, multi-source resolution, and JSON string sources.
+  - **Trace level gating** — `shouldCaptureMappingTraces()` returns true only for `'full'` or `'debug'` trace levels. Mapping traces are not captured at `'minimal'` or `'standard'` levels to minimize performance overhead.
+  - **`ExecutionEventDetails.mappingTraces`** — optional field on the shared event details type. Populated during workflow execution at full/debug level.
+  - **`CapturedHttpNodeDetails.mappingTraces`** — optional field on the HTTP node capture type. Populated in `graphRunnerHttpHandler.ts` when extraction mappings exist and trace level is full/debug.
+  - **`graphRunner.ts` integration** — mapping traces flow from `CapturedHttpNodeDetails` into `ExecutionEventDetails` alongside request/response bodies at full/debug level.
+  - **Utility functions** — `summarizeMappingTraces()` (totals, success/fail counts, error list), `formatTraceValue()` (truncated display string with ellipsis), `isTraceError()` (error/null/undefined detection).
+  - **40 new unit tests** in `mappingTrace.test.ts` covering all trace capture scenarios, summarization, value formatting, error detection, and trace level gating.
+
+### Fixed
+- **Data Mapper Pre-9C Audit — 3 HIGH + 4 MEDIUM fixes**
+  - **HIGH: `debugMode` stuck when `traceData` cleared** — No effect reset `debugMode` to false when trace data disappeared, leaving the debug toggle hidden (gated by `hasTraceData`) with no way to turn off debug mode. Added `useEffect` that auto-disables debug mode when valid traces drop to zero.
+  - **HIGH: `sourceTraceOverlay` ignored `sourceId`** — Multi-source mappings with overlapping path strings showed wrong runtime values. Source overlay keyed only by `sourcePath`; now filters traces by `sourceId` matching the active source tab.
+  - **HIGH: `traceByMappingId` included stale traces** — Traces from removed/replaced mappings could appear on tree nodes. Now filtered to only include traces whose `mappingId` exists in `state.mappings`.
+  - **MEDIUM: Double `onChange` on repair tick** — Repair effect called `onChange(repaired)`, then `state.mappings` update re-triggered the effect, calling `onChange(state.mappings)` again. Added `skipNextOnChangeRef` to suppress the duplicate emission.
+  - **MEDIUM: `repairTick` without `repairedMappingsRef` left `prevRepairTickRef` stuck** — If tick advanced but ref was null, tick and prev stayed out of sync indefinitely. Now always updates `prevRepairTickRef` when tick changes.
+  - **MEDIUM: Empty string `traceValue` rendered empty badge** — `formatTraceValue("")` returns `""`, which passed `!= null` guard. Added `!== ''` check in MappingCanvas for both badge rendering and trace-ok class.
+  - **MEDIUM: `TraceValueOverlay` type scattered across files** — Defined in `SourceTreeNode.tsx`, imported by `TargetTreeNode` (target→source dependency). Moved to `types.ts` as canonical location; all consumers updated.
+  - **`hasTraceData` now derived from filtered traces** — Previously based on raw `traceData` prop; now based on `traceByMappingId` (post-filtering), so debug button is hidden when all traces are stale.
+  - 5 new unit tests: debug mode reset (1), stale trace filtering (1), source-scoped overlay (1), repair double-fire prevention (1), empty-string badge suppression (1).
+
+- **Data Mapper Pre-9B Audit (Round 2) — 1 CRITICAL + 3 HIGH + 3 MEDIUM fixes**
+  - **CRITICAL: HTTP mapping trace used wrong extraction fields** — `graphRunnerHttpHandler.ts` filtered extractions by `jsonPath` and mapped `variable`, but `Extraction` type uses `expression` and `name`. Mapping traces were effectively never produced for real workflow executions. Fixed to use `e.expression` (source path) and `e.name` (target path), filtering only `body`-source extractions.
+  - **HIGH: `evaluateMapperExpression` could throw unhandled errors** — Used `try/finally` with no `catch`; errors from malformed expressions or edge cases propagated to callers (expression modal preview, preview bar). Added `catch` returning `{ value: undefined, preview: '', error }`.
+  - **HIGH: Repair tick + onChange effect ordering caused stale mappings** — Passive `useEffect` for repair and `onChange` ran in the same commit, so `onChange` could fire with pre-repair `state.mappings`, temporarily setting `currentMappingsRef` to stale data. Merged both into a single effect that calls `onChange` with repaired mappings directly when repair tick fires.
+  - **HIGH: Circular import graphRunner ↔ graphRunnerHttpHandler** — `graphRunnerHttpHandler.ts` imported `resolveTraceLevel` from `graphRunner.ts`, which imports handlers from the same module tree. Extracted `resolveTraceLevel` into a leaf module `graphRunnerTraceLevel.ts` imported by both.
+  - **MEDIUM: `isTraceError` treated null targetValue as error** — A mapping that intentionally produces `null` was misclassified as an error. Narrowed condition to only treat `undefined` (not `null`) as an error indicator.
+  - **MEDIUM: `adapter.validate` not wrapped in try/catch** — A throwing `validate` in `handleDone` could crash the Done button. Wrapped in try/catch with fallback to a validation warning message.
+  - **MEDIUM: Wrong `ExpressionFunction` import path** — `mappingTrace.ts` imported `ExpressionFunction` from `expressionEvaluator.ts` which doesn't export it. Fixed to import from `expressionFunctions/types.ts`.
+  - 2 new unit tests: custom function throw handling (1), `isTraceError` null-is-not-error (1 updated).
+
+- **Data Mapper Pre-9B Audit — 4 HIGH + 4 MEDIUM fixes**
+  - **HIGH: Unstable `initialData` in WebhookConfig/CorrelationWaitConfig** — `data.extractVariables ?? []` created a new empty array on every render, resetting mapper state while modal was open. Added module-level `EMPTY_EXTRACT_VARS` constant for stable reference.
+  - **HIGH: Stale body sync mappings** — `useBodyBuilderSync` carried forward stale mappings when body transitioned from unparseable to valid JSON. Now falls back to `syncFromTemplate` (fresh derivation) when old body is unparseable.
+  - **HIGH: `$count` returned `undefined`** — `JSON.parse(sv).length` could be `undefined` for non-array JSON strings starting with `[`. Added `Array.isArray(parsed)` guard before accessing `.length`.
+  - **MEDIUM: `$hash` metadata/API mismatch** — Listed an unused `algorithm` argument. Removed from `args` array and updated signature/description to reflect djb2-only behavior.
+  - **MEDIUM: `$random` broken when `max < min`** — Produced values outside expected range. Added automatic swap of bounds.
+  - **MEDIUM: `$padStart`/`$padEnd` throw on empty pad string** — Empty `pad` argument caused `TypeError`. Now defaults to space when pad is empty.
+  - **MEDIUM: `$urlEncode` throws on lone surrogates** — `encodeURIComponent` can throw `URIError`. Wrapped in try/catch, returns raw string on error.
+  - 5 new unit tests: `$count` non-array edge (2), `$random` swapped bounds (1), `$padStart` empty pad (1), body sync invalid→valid transition (1).
+
+- **Data Mapper Pre-9A Audit — 1 CRITICAL + 3 HIGH + 2 MEDIUM fixes**
+  - **CRITICAL: Repair→state desync** — `handleRepairMapping` only updated `currentMappingsRef` without propagating to `DataMapper` React state, causing canvas/connection lines to show stale paths while Done serialized the repaired ref. Added `repairTick` counter and `repairedMappingsRef` props; DataMapper now applies repaired mappings via `setMappings` when tick changes.
+  - **HIGH: Multi-source repair snapshot mismatch** — `repairSuggestions` always used `savedSnapshotsRef.current[0]`, producing wrong/empty suggestions for the second+ source in multi-source adapters. Drifts now carry `sourceId`; repair logic finds the matching snapshot pair.
+  - **HIGH: Cross-source false positives in `findAffectedMappings`** — Ignored `mapping.sourceId`, so path collisions across different sources caused false-positive drift highlighting. Now filters by `drift.sourceId` when available.
+  - **HIGH: Preview `[*]` wildcard as literal string** — `setNestedValue` in `previewCompute.ts` treated `[*]` as a literal key, building wrong object structure. Now maps `*` to `0` index in `parsePathSegments`.
+  - **MEDIUM: Zero-affected breaking drift rows not removed** — `handleRepairMapping` filter kept breaking rows with zero affected mappings when path didn't match. Simplified to remove any breaking drift with no affected mappings.
+  - **MEDIUM: Stale `savedSnapshotsRef`** — Accept/dismiss didn't clear snapshot pairs, leaving stale data for future repair computations. Now clears `savedSnapshotsRef.current = []` in both handlers.
+  - Added `sourceId` field to `SchemaDrift` interface for multi-source drift tracking.
+  - 3 new unit tests: sourceId-filtered `findAffectedMappings` (2 tests), preview `[*]` wildcard handling (1 test).
+
+### Added
+- **Data Mapper Pre-Phase 9 — Gap Closure**
+  - **Repair UI** — `SchemaDiffModal` now has a "Repair" column for breaking drifts. Shows per-path suggestions with confidence scores (high/medium/low color coding), "Apply" button to fix broken mappings in-place. `DataMapperModal` computes repair suggestions via `suggestRepairs()` and applies via `applyRepair()`, updating mappings and clearing drift entries.
+  - **Assertion adapter documented as API-only** — `createAssertionAdapter` JSDoc updated to clarify it's for testing/programmatic use. Production UI is `RegexAssertionBuilderModal`. Removed `createAssertionAdapter` from barrel export (types kept).
+  - **Plan hygiene** — Fixed 6 stale items: 1E.4 deferral aligned to "Phase 9+", 2B success criteria updated for Monaco, overall success criteria checkbox checked (9 production surfaces), 8D.2 deferral updated to Pre-9.1, file structure updated with `schemaRepair.ts`/`schemaContract.ts`.
+  - **7 new tests** — SchemaDiffModal repair column (rendering, dropdown, apply callback, "No suggestions", confidence colors, no-repair-column when not provided)
+  - Full suite: 13,497 tests pass across 510 files, 0 type errors
+- **Data Mapper Phase 8D — Auto-Repair & Contract Mode**
+  - **`schemaRepair.ts`** — `levenshtein()` edit distance, `suggestRepairs()` (similar-name + renamed-candidate strategies, confidence scoring), `generateRepairResults()` for batch repair across breaking drifts, `applyRepair()` to update mapping sourcePath
+  - **`schemaContract.ts`** — `SchemaContractConfig` (enabled/disabled, strict/lenient modes), `validateContract()` compares runtime response against saved snapshot, `contractViolationsToFailures()` converts to validator-compatible `FailureDetail[]`, `loadContractConfig()`/`saveContractConfig()` async storage
+  - **33 new tests** — schemaRepair (18: levenshtein, suggestions, repairs, apply), schemaContract (15: validate strict/lenient, violations, storage)
+  - Full suite: 1,339 data-mapper tests pass, 0 type errors
+- **Data Mapper — Pre-8E Audit Fixes (3 HIGH + 3 MEDIUM)**
+  - **HIGH: `lastSegment()` path corruption** — `schemaRepair.ts` `lastSegment()` stripped `.[*]` segments then joined, corrupting paths like `foo.bar.[*].baz` → `barbaz`. Fixed to split on `.` and take real last segment, skipping trailing `[*]`.
+  - **HIGH: `validateContract` JSON string bodies** — `schemaContract.ts` `validateContract()` didn't parse JSON string response bodies, causing false mass-removal violations. Fixed to `JSON.parse` string responses before snapshot capture.
+  - **HIGH: Drift detection ignores paste/fetch overrides** — `DataMapperModal.tsx` `runDriftDetection` used only adapter default `sampleData`, not `sourceSampleOverridesRef`. Fixed to merge overrides (same as save/accept paths).
+  - **MEDIUM: Root-array `driftMap` path mismatch** — `DataMapperModal.tsx` `driftMap` didn't alias `[*].name` → `.[*].name` for root-level arrays; tree nodes with normalized paths missed drift indicators. Fixed with leading-`[*]` alias registration.
+  - **MEDIUM: MappingCanvas drift+array badge overlap** — drift badge Y-offset didn't account for array badge, causing overlapping text. Fixed to stack drift badge above array badge (same as expression badge stacking).
+  - **MEDIUM: `generateRepairResults` unused `mappings` parameter** — removed unused parameter and cleaned up `SchemaFieldEntry` import.
+  - **5 new tests** — 3 schemaRepair (array paths, deeply nested `.[*]`, empty snapshots), 2 schemaContract (JSON string response, non-JSON string response)
+  - Full suite: 13,490 tests pass across 510 files, 0 type errors
+- **Data Mapper — Pre-8D Audit Fixes (8 HIGH + 1 MEDIUM)**
+  - **SchemaDiffModal Escape:** Escape now closes the diff modal (not the whole mapper) via capture-phase keydown + `stopPropagation`. `DataMapperModal` Escape handler checks for `.dm-diff-overlay`.
+  - **SchemaDiffModal focus:** Focus moves into shell on mount (`useEffect` + `tabIndex={-1}`), restored to previous element on unmount.
+  - **Drift path normalization:** `driftMap` keys now include `[*]→[0]` aliases; `SourceTreeNode` fallback-normalizes `node.path` for lookup. Array field drift badges now render correctly.
+  - **Gallery sample multi-source:** `handleLoadGallerySample` loops all `sample.sources` and matches by ID against adapter sources instead of only applying `sources[0]`.
+  - **Expression editor falsy roots:** `getSourceLeafPaths` uses `== null` checks (not falsy) so `0`, `false`, `""` JSON roots produce leaf completions.
+  - **Keyboard Tab trap:** `useKeyboardNavigation` Tab intercept only fires when `e.target` is inside `.dm-tree-container` or `.dm-tree-node`, allowing normal Tab to escape the mapper region.
+  - **variableBindingAdapter deserialize:** Rebuilt with `refToCandidates` index and deterministic exact-match-first logic to resolve slot ambiguity for duplicate `templateRef` across locations.
+  - **requestBodyAdapter serialize:** Returns `existingBody` unchanged when `parsedBody` is null (invalid JSON), preventing silent wipe to `{}`.
+  - **MappingCanvas drift+expression:** Drift badge now renders alongside expression badge (stacked Y offset) instead of being hidden.
+  - **5 new tests** — keyboard trap escape, SchemaDiffModal Escape/focus, SourceTreeNode `[*]` normalization, requestBodyAdapter invalid preserve
+- **Data Mapper Phase 8C — Visual Drift Overlay**
+  - **Source tree drift indicators** — `SourceTreeNode` accepts `driftMap` prop with per-path severity badges: green `●` for added (info), amber `⚠` for type changes (warning), red `✕` with strikethrough for removed (breaking). Breaking nodes are non-draggable. `driftMap` flows through `DataMapper` → `SourcePanel` → `SourceTreeNode`.
+  - **Affected mapping lines** — `ConnectionLine` extended with `driftSeverity` field. Breaking: red dashed line with `✕` badge. Warning: amber dashed line with `⚠` badge. `driftMappingIds` computed from classified drifts and injected into lines via `useMemo` in `DataMapper`.
+  - **Schema diff modal** — `SchemaDiffModal` shows tabular diff (severity, field path, change type, saved vs current type, affected mapping count). Sorted breaking-first. Launched via "Show Diff" button on `DriftBanner`. CSS animation, z-index 1100.
+  - **DriftBanner "Show Diff"** — optional `onShowDiff` prop renders "Show Diff" button alongside "Accept & Update" and dismiss
+  - **CSS** — `data-mapper.css` extended with `.dm-tree-node--drift-*`, `.dm-node-key--removed`, `.dm-drift-badge--*`, `.dm-connection-line--drift-*`, `.dm-drift-line-badge--*` styles. `data-mapper-modal.css` extended with `.dm-diff-*` schema diff modal styles.
+  - **23 new tests** — SourceTreeNode (7 drift indicator tests), MappingCanvas (5 drift line tests), SchemaDiffModal (11 tests: rendering, sorting, badges, callbacks)
+  - Full suite: 13,444 tests pass, 0 type errors
+- **Data Mapper — Post-8B Audit Fixes**
+  - **`classifyDrift()`** — classifies each `SchemaDrift` entry by severity: `info` (added fields, nullable changes), `warning` (type changes, unused removals), `breaking` (removed fields with affected mappings); exported `ClassifiedDrift`, `DriftSeverity`, `ClassifiedDriftSummary` types
+  - **`summarizeClassifiedDrift()`** — extends `DriftSummary` with `breakingCount`/`warningCount`/`infoCount`
+  - **`DriftBanner` component** — dismissible notification banner rendered between modal header and body; warning (amber) or breaking (red) styles; shows summary counts, affected mapping count, and individual breaking items list; accessible with `role="alert"` and `aria-live="polite"`
+  - **`DataMapperModal` drift detection** — on mount, loads saved snapshot, compares against current adapter source data via `diffSchemas` + `findAffectedMappings` + `classifyDrift`, shows `DriftBanner` if drift detected
+  - **Accept & Update flow** — re-captures and saves fresh `SchemaSnapshotPair` with effective sources (including user paste/fetch overrides), clears banner
+  - **CSS** — `data-mapper-modal.css` extended with `.dm-drift-banner*` styles: slide-in animation, warning/breaking color variants, detail items, action buttons
+  - **22 new tests** — `schemaDrift.test.ts` (12 tests: `classifyDrift` 9 + `summarizeClassifiedDrift` 3), `DriftBanner.test.tsx` (10 tests: rendering, severity styles, callbacks, accessibility)
+  - Full suite: 13,412 tests pass, 0 type errors
+- **Data Mapper — Post-8B Audit Fixes**
+  - **1 HIGH bug fixed:** `extractionAdapter.deserialize([])` now clears `nonBodyIndices`/`fallbackMap` before early return, preventing stale interleaving state from prior calls
+  - **Modal drift timing:** drift detection deferred via `mappingsReadyRef` + `requestAnimationFrame` loop (up to 500ms) so `findAffectedMappings` uses real deserialized mappings, not empty ref
+  - **requestBodyAdapter.validate:** warning message updated from misleading "Last mapping wins" to accurate "values will be concatenated as {{ref1}}{{ref2}}"
+  - **bodyTemplateSync duplicate ref fix:** `syncFromTemplate` now tracks consumed candidate IDs via `usedCandidateIds` Set, preventing `{{ref}}{{ref}}` from reusing the same mapping object twice (duplicate IDs)
+  - **schemaDrift.ts JSDoc fix:** aligned classification comment with implementation — `nullableChanged` is `info`, not `warning`
+  - **9 new tests:** DriftBanner (5 — title text, all-info, singular grammar, zero-affected), schemaDrift integration (2 — full pipeline, all-removed-warning), bodyTemplateSync (2 — duplicate ref IDs), extractionAdapter (1 — stale state clearing)
+  - Full suite: 13,421 tests pass, 0 type errors
+- **Data Mapper Phase 8A — Schema Snapshot Engine**
+  - **`schemaSnapshot.ts`** — `SchemaSnapshot`, `SchemaFieldEntry`, `SchemaSnapshotPair` types; `collectFieldEntries()` recursive JSON walker (captures paths, types, depth, nullable, array context); `captureSchemaSnapshot()` and `captureSnapshotPair()` factory functions; `loadSnapshot()`/`saveSnapshot()`/`deleteSnapshot()` async storage via `readKey`/`writeKey`
+  - **`schemaDrift.ts`** — `SchemaDrift` type with 4 drift types (added/removed/typeChanged/nullableChanged); `diffSchemas()` path-based comparison engine; `findAffectedMappings()` links drifts to mapping IDs (exact + child path matching); `summarizeDrift()` + `formatDriftMessage()` helpers
+  - **`DataMapperModal.tsx`** — on successful save, captures `SchemaSnapshotPair` for all source panels + target, persists via `saveSnapshot()` (fire-and-forget)
+  - **68 new tests** — `schemaSnapshot.test.ts` (34 tests: field walking, snapshot capture, storage round-trip, cycle detection, heterogeneous arrays, prototype keys, dot-in-keys), `schemaDrift.test.ts` (34 tests: drift detection, affected mappings, path normalization, summary, formatting, integration)
+  - **Post-8A audit fixes:**
+    - `DataMapperModal` snapshot now captures effective source data (paste/fetch overrides) via `onSourceSampleChange` callback, not stale `adapter.sources`
+    - `findAffectedMappings` normalizes `items[0].name` → `items.[*].name` before matching drift paths
+    - `collectFieldEntries` adds `WeakSet` cycle detection + `MAX_DEPTH=20` to prevent stack overflow
+    - `collectFieldEntries` uses `Array.find(non-null)` for heterogeneous/null-first arrays
+- **Data Mapper — Pre-8A Audit Fixes (#2)**
+  - **1 critical bug fixed:** `buildBodyFromMappings` now concatenates placeholders for multi-ref fields (`{{a}}{{b}}`) instead of last-write-wins overwrite
+  - **`syncFromTemplate` multi-ref fix:** changed `existingByTarget` from `Map<string, Mapping>` to `Map<string, Mapping[]>` so all mappings for a shared `targetPath` are preserved on re-sync
+  - **`DataMapperModal` Escape hardening:** added `contentEditable === 'true'` check alongside INPUT/TEXTAREA/SELECT guards
+  - **12 new tests:** modal Escape stacking (5 tests), multi-ref round-trip (2 tests), bodyTemplateSync multi-ref (2 tests), variable binding disambiguation (4 tests), bulk drop (1 test)
+- **Data Mapper — Pre-8A Audit Fixes**
+  - **7 bugs fixed:**
+    - Modal Escape stacking — parent `DataMapperModal` no longer closes when `ExpressionEditorModal` is open (checks for `.dm-expr-overlay`); also skips when focus is in editable fields
+    - Bulk drop — dragged source now maps to the actual drop target; remaining selections map by name
+    - Extraction adapter ordering — `serialize` now re-interleaves non-body extractions at their original positions
+    - Request body multi-ref — `deserialize` and `syncFromTemplate` now extract all `{{ref}}` placeholders, not just the first
+    - Variable binding adapter — disambiguates duplicate `ref` paths with `ref::location` suffix; strips on serialize
+    - Duplicate `.dm-tree-node--selected` CSS rule removed (kept custom property version)
+    - Auto-map algorithm no longer claims expression strings as source paths
+  - **Expression function doc fixes:** `$parseInt` description corrected to "Returns 0"; `$hash` example corrected to hex output
+  - **Gallery sample fixes:** "Conditional Mapping" now uses `$default`, `$if`, `$concat`; "Array Mapping" description corrected
+  - **Training manual versions:** all 4 manuals updated from v0.6.0 to v0.5.7
+  - **131 new tests:** `stringFunctions.test.ts` (57 tests), `conditionalFunctions.test.ts` (44 tests), `encodingFunctions.test.ts` (19 tests) + updated adapter tests
+  - Full suite: 13,309 tests pass, 0 type errors
+- **Data Mapper — Remaining Gap Fixes (post-7F batch 2)**
+  - **Gallery samples wired to UI** — added `📖 Samples` dropdown button to `MapperToolbar` with `onLoadGallerySample` prop; loads source data and mappings from gallery presets; CSS for difficulty badges (easy/medium/advanced)
+  - **Modal Escape handler** — `DataMapperModal` now closes on Escape via `window` keydown listener
+  - **Monaco Escape reliability** — registered `editor.addCommand(KeyCode.Escape)` inside `ExpressionEditorModal` so Escape works even when Monaco has focus
+  - **Training manual fixes** — updated version from v0.6.0 to v0.5.7; merged duplicate keyboard shortcut sections (8 and 12) into one accurate section; corrected Escape key description from "close the mapper" to "clear selection; close modal from Modal"; renumbered remaining sections
+  - Full suite: 13,178 tests pass, 0 type errors
+- **Data Mapper — Deferred Item Fixes (post-7F batch 1)**
+  - **`$jsonpath` wildcard support** — full rewrite of `$jsonpath` evaluate with `parseJsonPathSegments` and `resolveJsonPath`: bracket notation (`[0]`, `["key"]`), wildcard array iteration (`$[*].name`, `items[*].price`), nested post-wildcard paths; 37 new unit tests covering all JSON function categories
+  - **Async storage migration** — `mappingProfiles.ts` migrated from direct `localStorage` to `readKey`/`writeKey` abstraction (supports Tauri file-system store); all callers updated to async; 13 profile tests + 16 toolbar profile tests updated
+  - **Unique modal IDs** — `DataMapperModal` and `ExpressionEditorModal` replaced static `id="dm-modal-title"` / `id="dm-expr-title"` with `useId()` for valid HTML when multiple instances exist
+  - Full suite: 13,178 tests pass, 0 type errors
+- **Data Mapper Phase 7F — Hardening**
+  - **Audit fixes** — fixed CSS type badge token rotation (number/boolean/array colors swapped), fixed root node expand/collapse via keyboard (empty path → `__root__` normalization), removed contradictory `role="alert"` from PreviewBar error list, added CSS reset for `<button>` mismatch badge
+  - **Coverage boost** — 25 new tests for MapperToolbar (profiles save/load/delete/rename, menu open/close, click-outside, code view toggle) and useKeyboardNavigation (ArrowLeft collapse, root path normalization, Tab/Shift+Tab cycling); overall mapper coverage 91.35% lines
+  - **Test file split** — split monolithic `DataMapper.test.tsx` (921 lines) into `DataMapper.test.tsx` (610) + `DataMapper.integration.test.tsx` (327)
+  - Full suite: 13,116+ tests pass, 0 type errors, all files under 900-line threshold
+- **Data Mapper Phase 7E — Gallery Samples & Accessibility**
+  - **Gallery samples** — 6 pre-built mapping presets: direct field mapping, expression transformations, array mapping, multi-source combine, type conversion, conditional mapping; 11 unit tests
+  - **WCAG AA compliance** — `aria-labelledby` on dialogs, `aria-label` on icon buttons (replaced `title`), `aria-expanded` on tree toggles, `aria-pressed` on paste toggle, `role="tab"` + `aria-selected` on source tabs, `aria-invalid`/`role="alert"` on error states, `role="separator"` on resize handles, `aria-hidden` on SVG canvas
+  - **Screen reader support** — `aria-live="polite"` on preview output, error lists, validation bar, expression preview, suggestion bar; mismatch badge converted to `<button>` when actionable
+  - **High contrast mode** — 26 CSS custom properties for all mapper accent colors, type badges, connection lines, focus rings, selected/mapped backgrounds; overridable for high-contrast themes
+  - **Training manual** — 5 new sections in basics manual: Mapping Profiles, Bulk Operations, Keyboard Shortcuts, Code View, Expression Editor (Monaco)
+- **Data Mapper Phase 7D — Monaco Editor Upgrade**
+  - **Monaco expression editor** — replaced `<textarea>` with lazy-loaded `@monaco-editor/react` in `ExpressionEditorModal`; `vs-dark` theme, word wrap, no minimap, Suspense fallback textarea during load
+  - **Function autocomplete** — typing `$` triggers completion items from the expression registry with snippet-mode argument placeholders, category/return-type detail, and signature documentation
+  - **Source path autocomplete** — typing `$.` triggers completion items from `getAllLeafPaths(sourceTree)`, reactively updated when source data changes
+  - **Keyboard shortcuts** — `Ctrl/Cmd+Enter` saves expression via Monaco command and overlay handler; `Escape` cancels
+  - 8 new unit tests for Monaco integration (editor mock, value changes, hint text, Ctrl/Cmd+Enter, string/null sampleData handling)
+- **Data Mapper Phase 7C — Keyboard Navigation & Code View**
+  - **Keyboard navigation** — new `useKeyboardNavigation` hook: Tab/Shift+Tab cycles between source and target panels; Arrow Up/Down moves focus between visible tree nodes; Arrow Right/Left expands/collapses nodes; Home/End jumps to first/last
+  - **Focus management** — visual focus ring on active panel (`.dm-panel--focused`), highlight on keyboard-focused tree node (`.dm-tree-node--focused`), `role="group"` ARIA semantics on tree containers
+  - **Code view** — new `CodeView` component shows read-only code representation of mappings (`target ← source` or `target ← $expr()`), sorted by target path, with line numbers and real-time updates; toggled via `<> Code` button in toolbar
+  - 14 new unit tests (7 for keyboard navigation, 7 for code view rendering)
+
+### Fixed
+- **Tab key captured toolbar buttons** — keyboard navigation `Tab` handler now only intercepts within tree containers, not the entire mapper container; toolbar buttons are reachable via normal Tab
+- **tabindex leak** — focused tree nodes set `tabindex="0"` but never cleared previous node; now tracks last focused element and removes `tabindex` before focusing new node
+- **canvas in focus cycle** — removed non-functional `canvas` region from Tab cycle (was `source → canvas → target`, now `source ↔ target`)
+- **Profile rename silently ignored failure** — `handleRename` now checks `renameProfile` return value; only exits edit mode on success
+- **`role="tree"` without treeitem semantics** — downgraded to `role="group"` on both tree containers until full ARIA tree pattern is implemented
+- **`$dateFormat` → `$formatDate`** — date suggestion in `typeMismatch.ts` was using wrong function name that doesn't exist in the expression registry
+- **`$sum` → `$count`, `$map` → `$flatten`/`$jsonpath`** — array mapping suggestions in `arrayMapping.ts` were referencing unregistered functions; now uses only functions from the expression catalog
+- **Target panel selection didn't clear multi-select** — selecting a mapping from the target tree panel now properly clears the canvas multi-select `selectedIds` set
+- **PreviewBar duplicate React keys** — error list used `targetPath` as key which could duplicate; now uses composite `targetPath+error` key
+
+- **Data Mapper Phase 7B — Array Handling & Type Coercion**
+  - **Array mapping detection** — new `utils/arrayMapping.ts` utility classifies mappings into four kinds: `loop` (array→array), `aggregate` (array→scalar), `spread` (scalar→array), and `direct` (scalar→scalar)
+  - **Smart aggregate suggestions** — element-type-aware: `$sum` for number arrays→number target, `$join` for string arrays→string target, `$count` for object arrays→number target
+  - **Array indicators on connection lines** — dashed lines with color-coded badges: green `∞ for each` for loop, orange `Σ` for aggregate, purple `⤑` for spread
+  - **Array suggestion bar** — contextual bar below canvas when an array mapping is selected, showing kind description and one-click "Apply" button for suggested expression
+  - **Enhanced type coercion** — extended `FIX_MAP` with `array→string` (`$join`), `string→array` (`$split`), `array→number` (`$count`), `array→boolean` (`$toBool($count(…))`)
+  - **Date format detection** — `looksLikeDate()` recognizes ISO 8601, MM/DD/YYYY, YYYY/MM/DD, and RFC 2822 date strings; suggests `$dateFormat(…)` for date-like values
+  - Utility helpers: `isArrayWildcardPath()` for `[*]`/`[]` detection, `generateForEachExpression()` for `$map(…)` generation
+  - 32 new unit tests across `arrayMapping.test.ts`, `typeMismatch.test.ts`, and `DataMapper.test.tsx`
+
+### Fixed
+- **Selection state not cleared on source tab change** — `selectedSourcePaths` and `selectedIds` now reset when switching source tabs to prevent stale selections across different sources
+- **Profile load retains stale selection** — loading a mapping profile now clears both `selectedIds` and `selectedSourcePaths`
+- **localStorage quota safety** — `persistProfiles()` now wrapped in try/catch to handle quota exceeded or private mode
+- **Profile rename lost on blur** — clicking away from the rename input now saves the new name (previously only Enter committed)
+
+- **Data Mapper Phase 7A — Mapping Profiles & Bulk Operations**
+  - **Mapping profiles** — save, load, rename, and delete named mapping configurations per adapter context; profiles stored in localStorage keyed by `contextId`
+  - New `utils/mappingProfiles.ts` utility with `saveProfile`, `loadProfiles`, `deleteProfile`, `renameProfile`, `getProfileById` functions
+  - **Profile manager UI** — dropdown menu in `MapperToolbar` with save input, profile list, inline rename, and delete; wired through `DataMapper` via `contextId`, `mappings`, `onLoadProfile` props
+  - **Bulk source select** — hold Shift/Ctrl and click multiple source tree leaf nodes to select a group; drag any selected field to create mappings for all selected simultaneously; selection visualized with `.dm-tree-node--selected` highlight
+  - **Multi-select delete** — Shift/Ctrl+click connection lines on canvas to toggle selection into `selectedMappingIds` set; press Delete/Backspace to remove all selected mappings at once
+  - New `REMOVE_MAPPINGS` action in `useMapperState` reducer for batch removal with undo support
+  - `DataMapperModal` gains `doneLabel` prop for customizable button text (used by HttpConfig variable modal → "Close")
+  - 21 new unit tests: 13 profile CRUD tests, 4 `removeMappings` state tests, 4 integration tests (profiles UI, multi-select, bulk select)
+  - Full CSS for profile menu and bulk select highlight in `data-mapper.css`
+
+### Fixed
+- **Audit fixes (Phase 1–6 pre-7A)**
+  - BUG: `populateFromApiAdapter` and `sharedDsFetchAdapter` `validate()` now errors when `storedArrayPath` is empty but mappings exist (prevents silent 0-row serialize)
+  - BUG: HttpConfig Visual Variables modal Save was a no-op (data not persisted) — changed to Close-only with `doneLabel="Close"`, removed unused `VariableBinding` import
+  - BUG: `syncFromVisual` was replacing non-JSON body with generated JSON when mappings > 0 — now preserves raw body when `parseBodyJson` returns null regardless of mapping count
+  - GAP: `syncFromTemplate` kept stale mappings when body became invalid JSON — now clears to `[]` with `mappingsChanged: true` to sync with DataMapper deserialize
+  - WARNING: removed dead `colNameToId` variable from `columnMappingAdapter`
+
+- **Data Mapper Phase 6A — RequestBodyAdapter** (10th adapter)
+  - New `createRequestBodyAdapter` factory: visual request body construction by mapping variables → JSON body fields
+  - Multi-source architecture: upstream workflow variables (grouped by producing node), built-in generators (`$uuid`, `$timestamp`, `$isoDate`, `$randomInt`, `$randomFloat`, `$randomString`, `$sequenceId`), and environment variables
+  - Target tree auto-populated from existing JSON body template with `{{var}}` detection, or from schema fields
+  - `serialize()`: Mapping[] → JSON body string with `{{variableName}}` placeholders at correct positions, preserving unmapped fields
+  - `deserialize()`: Parse existing body template, detect `{{var}}` references, reconstruct Mapping[] with correct source attribution
+  - `validate()`: Missing targets, unbound fields, duplicate mappings detection
+  - Round-trip tested: serialize → deserialize produces equivalent mappings across all source types
+  - 91 unit tests covering helpers, factory, sources, target building, serialize, deserialize, round-trip, validation, and edge cases
+  - Exported from barrel: `createRequestBodyAdapter`, `extractBodyTemplateRefs`, `parseBodyJson`, `collectBodyLeafPaths`, `buildBodyFromMappings` + types
+- **Data Mapper Phase 6B — Bi-Directional Sync Engine** (`utils/bodyTemplateSync.ts`)
+  - `syncFromTemplate()`: detects `{{var}}` refs in body text, produces/updates Mapping[] preserving existing mapping IDs
+  - `syncFromVisual()`: takes Mapping[], produces updated body string with `{{var}}` placeholders, preserving unmapped fields
+  - `resolveConflict()`: latest-edit-wins when both body and mappings changed simultaneously
+  - `diffTemplateRefs()`: computes added/removed refs between two body strings
+  - `applyTemplateDiff()`: incremental sync — only adds/removes mappings for changed refs, preserving all others
+  - `mappingsEqual()`: shallow equality check for mapping arrays
+  - `createSyncState()`: initialize sync state with body + mappings
+  - 43 unit tests covering all sync directions, conflict resolution, diff detection, and edge cases
+- **Data Mapper Phase 6C — Body Type Support & Integration**
+  - `BodyBuilderPanel` component: three-mode visual body construction (JSON Builder, Form Fields, Raw Template)
+  - JSON Builder mode: uses `DataMapper` with `createRequestBodyAdapter` for drag-and-drop variable mapping onto JSON body fields
+  - Form Fields mode: key-value editor for `form-urlencoded`/`form-data` bodies with `{{var}}` autocomplete via `datalist`
+  - Raw Template mode: plain textarea with live `{{var}}` ref detection, template ref tag display, and variable chip insertion
+  - `useBodyBuilderSync` hook: React wrapper around `bodyTemplateSync` engine for bi-directional body ↔ mappings sync
+  - Wired into `HttpConfig.tsx` Body tab: Raw/Visual Builder toggle, both views stay in sync via 6B engine
+  - 30 unit tests (20 component + 10 hook) covering all three modes, mode switching, form CRUD, template refs, and sync lifecycle
+  - Exported from barrel: `BodyBuilderPanel`, `useBodyBuilderSync` + associated types
+- **Data Mapper Phase 6D — Hardening & Audit Fixes**
+  - `previewCompute.ts` `setNestedValue`: added prototype pollution guard (blocks `__proto__`, `prototype`, `constructor` segments)
+  - `syncFromVisual`: preserves non-JSON body when mappings are empty (prevents body wipe during mid-edit)
+  - `HttpConfig.tsx` raw body tab: removed double `update()` call per keystroke
+  - `BodyBuilderPanel`: `activeMode` now re-derives from `bodyType` prop changes; removed unused `mappings` prop
+  - `useBodyBuilderSync`: initializes mappings from existing `{{ref}}` body on mount
+  - `demoAdapter`: serialize uses `::` delimiter (safe for dotted sourceIds); deserialize supports both `::` and legacy `.`
+  - `populateFromApiAdapter` & `sharedDsFetchAdapter`: keyed column mapping by `mapping.id` instead of `sourcePath` (fixes data loss with duplicate source paths)
+  - `validationAdapter`: replaced custom `resolveValue` with canonical `getByPathAsString` from `jsonPath.ts`
+  - Extracted `findSourceForRef` and `hasUnsafePathSegment` into shared `bodyMappingShared.ts` (deduplication)
+  - `requestBodyAdapter.validate()` now warns on unsafe path segments (`__proto__`, `prototype`, `constructor`)
+  - `webhookExtractionAdapter` `normalizePath` strips leading dots, handles bracket-first paths (`[0].name → $[0].name`)
+  - `variableBindingAdapter` falls back to first source group instead of orphan `__unknown__` sourceId
+  - `validationAdapter.serialize()` deduplicates by normalized path (last mapping wins), message updated to match
+  - Coverage: all Phase 6 files >90% statements/lines/functions (adapter: 97.93%/98.98%, sync: 98.82%/98.63%, hook: 100%/100%)
 - **Results Explorer Debug Console** — Full-featured console panel in the Results Explorer for debugging multi-iteration workflow runs
   - Console toggle via header toolbar button or `⌘J` / `Ctrl+J` keyboard shortcut
   - Three display modes: docked (bottom), floating (draggable/resizable), and maximized (full screen)
@@ -82,6 +402,43 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
   - New hooks: `useTrainingProgress`, `useWhatsNew`, `useManualSearch`
   - 164 unit tests for all new components and hooks
 
+- **Data Mapper (Phases 1–3)** — Reusable visual field mapping component for connecting source data to target schemas
+  - **Core Architecture**: Adapter pattern (`MapperAdapter` interface) for context-agnostic integration; `useMapperState` hook with full undo/redo via `useReducer`; unified `JsonTreeNode` model (`buildJsonTree`) and canonical JSONPath engine (`getByPath`, `tokenizeJsonPath`)
+  - **Visual Mapping**: Drag-and-drop from source tree nodes to target tree drop zones (native HTML5 DnD); SVG bezier connection lines with real-time position updates via `ResizeObserver`/`MutationObserver` (`useLayoutTick`); click-to-select with dimming of unrelated lines
+  - **Expression Editor**: Textarea-based expression modal with `$fn()` syntax; function reference sidebar (String, Math, JSON, DateTime, Conditional, Encoding categories); live preview with 250ms debounce; cursor-position-aware function insertion
+  - **Auto-Map with Accept/Reject**: Fuzzy name-matching algorithm generates pending mappings (`isPending` flag); dashed cyan connection lines with ✓/✗ SVG badges for individual accept/reject; toolbar buttons for bulk Accept All / Reject All; toast notification showing candidate count
+  - **Preview Bar**: Collapsible live preview showing source JSON → mapped target JSON; evaluates all mappings in real-time with error counting; unmapped fields shown as `null`; supports bracket-notation paths (`items[0].name`)
+  - **Type Mismatch Detection**: `detectTypeMismatches` engine infers source/target types from field constraints, schema, and sample data; ⚠ (warning) and ℹ (info) badges on target nodes; dashed amber connection lines; one-click quick-fix applies suggested `$parseInt`/`$toString`/`$toBool`/`$toInt` expressions
+  - **Modal Shell & Validation**: Full-screen `DataMapperModal` wrapper with Done/Cancel/fullscreen-toggle; `adapter.validate()` integration; unmapped required field detection; inline validation bar with error/warning counts and individual issue details; Done button disabled when errors exist
+  - **UX Polish**: Inline ✕ remove button on hover for mapped target nodes; `/` keyboard shortcut to focus source search; `Delete`/`Backspace` to remove selected mapping; `Escape` to clear selection; draggable vertical panel resize handles; source panel paste JSON / fetch live sample with error display
+  - **Demo Adapter**: Self-contained `createDemoAdapter` for testing and documentation with sample data, field constraints, and custom validation
+  - **New Expression Functions**: `$parseInt`, `$parseFloat`, `$toInt` (handles stringified booleans), `$toString`, `$toBool` added to the expression function registry
+  - **Phase 3 Adapters**: `createExtractionAdapter` (HTTP body extraction → variables), `createAssertionAdapter` (regex assertion JSON path selection), `createValidationAdapter` (selective validation with include/exclude modes); 20 cross-cutting integration tests; old components (`ExtractionPathPickerModal`, `ExtractionMapperModal`, `JsonPathBuilder`, `PickerNode`) marked `@deprecated`
+  - **608 unit tests** across 24 test files (531 data-mapper across 22 files + 39 jsonPath + 38 jsonTreeModel); adapters 97% stmts / 100% lines; CSS split into 3 files (814 + 363 + 170 lines)
+- **Data Mapper (Phase 4: Data Source Adapters)** — Three new adapters connecting data sources to the Data Mapper
+  - **PopulateFromApiAdapter (4A)**: `createPopulateFromApiAdapter` — maps API response JSON to data source columns/rows; mutable internal state for live-fetch with array detection and auto-selection; `getByPath` for nested dotted path resolution; wired into `DataSourceEditor` and `SharedDataSourceModal` replacing `PopulateFromApiModal`
+  - **ColumnMappingAdapter (4B)**: `createColumnMappingAdapter` — visually maps data source columns to request template `{{placeholders}}`; `parseScenarioTemplate` extracts tokens from URL path/query, body, bodyForm, and headers; `type::name` target paths; handles duplicate column names via ID-based source keys; wired into `DataSourceEditor` via "Map Columns" button
+  - **SharedDsFetchAdapter (4C)**: `createSharedDsFetchAdapter` — purpose-built adapter for shared data source "Populate from API" with dedicated `shared-ds-fetch` contextId; dynamic title from `fetchConfig` method + URL pathname; wired into `SharedDataSourceModal` replacing the generic populate adapter
+  - **Deprecation & Hardening (4D)**: `PopulateFromApiModal`, `PopulateFetchStep`, `PopulateMapStep`, `usePopulateFromApi` marked `@deprecated`; no live imports of deprecated components remain; full test suite (12,655 tests, 0 failures); adapter coverage 97.57% stmts / 90.18% branches / 100% functions / 99.54% lines
+  - **7 adapters total** (extraction, assertion, validation, populate, column-mapping, shared-ds-fetch, demo) with 752 data-mapper tests across 27 files
+- **Data Mapper (Phase 5A: Webhook Extraction Adapter)** — New adapter for webhook/correlation payload variable extraction
+  - **WebhookExtractionAdapter**: `createWebhookExtractionAdapter` — maps webhook payload JSON to `Array<{ name, jsonPath }>` (matching `extractVariables` shape on `WebhookTriggerNodeData` / `CorrelationWaitNodeData`); configurable source label and title for reuse across Webhook Trigger vs Correlation Wait contexts; path normalization (`$.` / `$[...]` safe); full validation (empty names, empty paths, duplicates, brace warnings)
+  - **CorrelationWaitConfig wiring**: "Data Mapper" button opens `DataMapperModal` alongside existing inline fields; memoized adapter prevents state reset during 3s polling; paused-item click handler now error-safe
+  - **WebhookConfig wiring**: New "Extract Variables" section with inline rows + "Data Mapper" button; `extractVariables` now editable in UI (previously missing)
+  - **8 adapters total** (extraction, assertion, validation, populate, column-mapping, shared-ds-fetch, demo, webhook-extraction)
+- **Data Mapper (Phase 5B: Variable Binding Adapter)** — New adapter for visual upstream-variable-to-template-slot mapping
+  - **VariableBindingAdapter**: `createVariableBindingAdapter` — groups upstream `WorkflowVariableHint[]` by producing node as sources, parses scenario `{{var}}` template refs as targets; `collectTemplateSlots()` and `extractTemplateRefs()` helper utilities; validates empty slots, empty bindings, duplicate bindings
+  - **HttpConfig wiring**: "Visual Variables (N slots)" button above tabs when template slots exist; memoized adapter; `DataMapperModal` for drag-and-drop variable binding visualization
+  - **9 adapters total** (extraction, assertion, validation, populate, column-mapping, shared-ds-fetch, demo, webhook-extraction, variable-binding)
+- **Data Mapper (Phase 5C: Unified Path Engine)** — Canonical path resolution across all extraction and variable handling
+  - Verified `extractPayloadVariables` in `graphRunnerHelpers.ts`, `graphRunnerTriggerHandlers.ts`, and `correlationWaitHelpers.ts` all use canonical `getByPath` from `src/shared/utils/jsonPath.ts`
+  - New `setByPath` utility in `jsonPath.ts` for writing values at JSONPath locations (creates intermediate objects)
+  - Refactored `CorrelationWaitConfig.tsx` — replaced 3 manual path-walking code blocks with `getByPath` / `setByPath`
+- **Data Mapper (Phase 5D: Hardening)** — Final verification and quality pass for Phase 5
+  - Comprehensive audit of all 9 adapters, core components, utilities, hooks, and UI wiring
+  - Fixed 5 runtime bugs: `ExtractionEditor` picker adapter re-creation, `DataMapper` unguarded `deserialize`, stale `activeSourceId` on async fetch, `typeMismatch` suggesting `$parseInt` instead of `$parseFloat`, `populateFromApiUtils` cross-type fallback match
+  - Fixed 3 gaps: reducer missing `default` arm, `autoMapAlgorithm` expression mappings not claiming source path, webhook adapter `deserialize` not normalizing paths
+  - 12,843 tests across 489 files — zero failures; adapter coverage >90% on all metrics
 - **Edge Traversal Percentages** — Branching edges in workflow canvas show traversal percentage labels in aggregate view
   - Percentage labels (e.g., "67%") on edges from nodes with 2+ outgoing paths
   - 0% shown on untraversed branching edges for untested path visibility

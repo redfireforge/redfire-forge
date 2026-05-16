@@ -42,7 +42,7 @@ describe('GalleryPage', () => {
   it('renders domain filter buttons', () => {
     const { container } = render(<GalleryPage />);
     const domainBtns = container.querySelectorAll('.gallery-domain-btn');
-    expect(domainBtns.length).toBe(6);
+    expect(domainBtns.length).toBe(7);
     const labels = Array.from(domainBtns).map(b => b.textContent);
     expect(labels.some(l => l?.includes('Requests'))).toBe(true);
     expect(labels.some(l => l?.includes('Tests'))).toBe(true);

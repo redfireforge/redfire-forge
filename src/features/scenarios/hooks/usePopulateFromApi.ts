@@ -1,4 +1,8 @@
 /**
+ * @deprecated Part of the legacy PopulateFromApiModal flow.
+ * Replaced by `DataMapperModal` with `createPopulateFromApiAdapter` (Phase 4A)
+ * or `createSharedDsFetchAdapter` (Phase 4C).
+ *
  * Hook for PopulateFromApiModal logic.
  * Handles fetching, array detection, field mapping, and row population.
  */

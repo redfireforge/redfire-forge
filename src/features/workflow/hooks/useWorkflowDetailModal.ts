@@ -40,7 +40,7 @@ export function useWorkflowDetailModal({
   // Extraction sample state
   const [extractionSampleJson, setExtractionSampleJson] = useState('');
   const [extractionFetching, setExtractionFetching] = useState(false);
-  const [extractionFetchError, setExtractionFetchError] = useState<string | null>(null);
+  const [extractionFetchError, setExtractionFetchError] = useState<import('../../../shared/components/data-mapper/types').FetchErrorDetail | null>(null);
 
   const openStepDetail = useCallback((nodeId: string) => {
     setDetailModal({ type: 'step', nodeId });

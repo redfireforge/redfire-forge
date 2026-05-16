@@ -67,6 +67,29 @@ describe('populateFromApiUtils', () => {
       expect(detectArrays('hello')).toEqual([]);
       expect(detectArrays(null)).toEqual([]);
     });
+
+    it('detects arrays with null first element when later elements are objects', () => {
+      const data = { items: [null, { id: 1, name: 'Alice' }, { id: 2, name: 'Bob' }] };
+      const result = detectArrays(data);
+      expect(result).toHaveLength(1);
+      expect(result[0].path).toBe('items');
+      expect(result[0].length).toBe(3);
+      expect(result[0].sampleKeys).toEqual(['id', 'name']);
+    });
+
+    it('skips arrays where all elements are null or primitive', () => {
+      const data = { items: [null, undefined, 42] };
+      const result = detectArrays(data);
+      expect(result).toHaveLength(0);
+    });
+
+    it('handles circular references without stack overflow', () => {
+      const obj: Record<string, unknown> = { id: 1, items: [{ a: 1 }] };
+      obj.self = obj;
+      const result = detectArrays(obj);
+      expect(result).toHaveLength(1);
+      expect(result[0].path).toBe('items');
+    });
   });
 
   describe('resolvePath', () => {
@@ -235,6 +258,13 @@ describe('populateFromApiUtils', () => {
 
     it('returns undefined when no match', () => {
       expect(findMatchingColumn(columns, 'missing', 'path')).toBeUndefined();
+    });
+
+    it('does not match columns of wrong type in fallback', () => {
+      const mixed: DataSourceColumn[] = [
+        { id: '1', name: 'status', type: 'validate', mapping: '' },
+      ];
+      expect(findMatchingColumn(mixed, 'status', 'path')).toBeUndefined();
     });
   });
 

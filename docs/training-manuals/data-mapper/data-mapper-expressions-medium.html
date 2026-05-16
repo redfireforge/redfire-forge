@@ -3,268 +3,133 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Expression &amp; Function Mapping — Training Manual</title>
+  <title>Body Builder Mapping — Step-by-Step Walkthrough</title>
   <style>
-  @page { size: A4; margin: 20mm 18mm; }
-  @media print {
-    .page-break { page-break-before: always; }
-    body { font-size: 10pt; }
-    h1 { font-size: 20pt; }
-    h2 { font-size: 16pt; }
-    h3 { font-size: 13pt; }
-  }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-    color: #1a1a2e; line-height: 1.6; max-width: 900px;
-    margin: 0 auto; padding: 30px 24px; background: #fff;
-  }
-  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; color: #1a1a2e; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 30px 24px; background: #fff; }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; }
   h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
   h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
-  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
   p, li { font-size: 13px; margin-bottom: 8px; }
   ul, ol { padding-left: 22px; }
-  code {
-    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
-    font-size: 12px; padding: 1px 5px; border-radius: 3px;
-  }
-  pre {
-    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
-    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
-    margin: 10px 0 16px; line-height: 1.5;
-  }
+  code { background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 1px 5px; border-radius: 3px; }
+  pre { background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto; margin: 10px 0 16px; }
   table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
-  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
-  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
-  tr:nth-child(even) td { background: #f8f9fa; }
-  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; vertical-align: middle; }
-  .badge-medium { background: #fff3cd; color: #856404; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; }
   .callout { background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px; margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
   .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
-  .callout-warning { background: #fff3e0; border-left-color: #f57c00; }
   .callout strong { display: block; margin-bottom: 4px; }
-  .cover-page { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 60vh; text-align: center; }
-  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-top: 8px; }
-  .cover-page .meta { font-size: 12px; color: #6c757d; margin-top: 16px; }
-  .step-grid { display: grid; grid-template-columns: 40px 1fr; gap: 0 12px; margin: 16px 0; }
-  .step-num { width: 32px; height: 32px; background: #e63946; color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; }
-  .step-body { padding: 4px 0 20px; }
-  .step-body h4 { margin-top: 0; }
-  .key-combo { background: #1d3557; color: #fff; padding: 1px 6px; border-radius: 3px; font-size: 11px; font-family: 'JetBrains Mono', monospace; }
+  .step { background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 16px; margin: 12px 0; }
+  .step-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .step-num { width: 32px; height: 32px; background: #e63946; color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; flex-shrink: 0; }
+  .step-title { font-weight: 600; color: #1d3557; font-size: 15px; }
+  .expect { background: #d4edda; border-left: 4px solid #28a745; padding: 10px 14px; margin: 10px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+  .expect strong { color: #155724; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+  .badge-sample { background: #e8f4fd; color: #1d3557; }
+  .badge-medium { background: #fff3cd; color: #856404; }
   </style>
 </head>
 <body>
 
-<div class="cover-page">
-  <h1>Expression &amp; Function Mapping</h1>
-  <div class="subtitle">Transformations, Functions &amp; Conditional Logic</div>
-  <div><span class="badge badge-medium">Medium</span></div>
-  <div class="meta">RedfireForge — Redfire Performance Workbench<br>v0.6.0 · Data Mapper Series 2 of 4</div>
-</div>
-
-<div class="page-break"></div>
-
-<h2>Prerequisites</h2>
-<ul>
-  <li>Completed <em>Data Mapper Basics</em> manual (drag-and-drop mapping)</li>
-  <li>Familiarity with JSON field types (string, number, boolean, array, object)</li>
-</ul>
-
-<h2>1. Beyond Direct Mapping</h2>
-
-<p>A direct mapping copies a source value as-is to the target. But many real-world scenarios require <strong>transformations</strong>: combining fields, converting types, formatting dates, or applying conditional logic. The Data Mapper supports these through <strong>expressions</strong> and the <strong>function palette</strong>.</p>
-
-<h2>2. The Expression Editor</h2>
-
-<p>Every target field has a <code>ƒx</code> button that appears on hover. Clicking it opens the inline expression editor.</p>
-
-<h3>2.1 Writing Expressions</h3>
-
-<p>Expressions use a JavaScript-like syntax with access to all source fields via <code>source.*</code> notation:</p>
-
-<pre>
-// String concatenation
-source.firstName + " " + source.lastName
-
-// Arithmetic
-source.price * source.quantity
-
-// Ternary conditional
-source.status === "active" ? "ENABLED" : "DISABLED"
-</pre>
-
-<div class="callout callout-tip">
-  <strong>💡 Autocomplete</strong>
-  As you type <code>source.</code>, the expression editor shows a dropdown of available source fields with their types and sample values. Press <span class="key-combo">Tab</span> to accept a suggestion.
-</div>
-
-<h3>2.2 Live Preview</h3>
-
-<p>The expression editor shows a live preview of the result below the input. As you type, the expression is evaluated against the sample data and the result updates in real time.</p>
-
-<table>
-  <tr><th>Preview State</th><th>Meaning</th></tr>
-  <tr><td>Green check + value</td><td>Expression is valid and produced a result</td></tr>
-  <tr><td>Red <code>⚠ Error</code></td><td>Syntax error or runtime error — check the message</td></tr>
-  <tr><td>Gray <code>undefined</code></td><td>Expression returned undefined — source field may be null</td></tr>
-</table>
-
-<h2>3. Function Palette</h2>
-
-<p>The function palette provides <strong>80+ built-in functions</strong> organized in 9 categories. Access it by clicking <code>ƒx</code> → <strong>Browse Functions</strong>, or press <span class="key-combo">Ctrl+Shift+F</span>.</p>
-
-<h3>3.1 String Functions</h3>
-
-<table>
-  <tr><th>Function</th><th>Example</th><th>Result</th></tr>
-  <tr><td><code>$uppercase(value)</code></td><td><code>$uppercase("hello")</code></td><td><code>"HELLO"</code></td></tr>
-  <tr><td><code>$lowercase(value)</code></td><td><code>$lowercase("Hello")</code></td><td><code>"hello"</code></td></tr>
-  <tr><td><code>$trim(value)</code></td><td><code>$trim("  hi  ")</code></td><td><code>"hi"</code></td></tr>
-  <tr><td><code>$replace(value, search, replacement)</code></td><td><code>$replace("foo-bar", "-", "_")</code></td><td><code>"foo_bar"</code></td></tr>
-  <tr><td><code>$substring(value, start, length)</code></td><td><code>$substring("abcdef", 0, 3)</code></td><td><code>"abc"</code></td></tr>
-  <tr><td><code>$split(value, delimiter)</code></td><td><code>$split("a,b,c", ",")</code></td><td><code>["a","b","c"]</code></td></tr>
-  <tr><td><code>$join(array, delimiter)</code></td><td><code>$join(["a","b"], "-")</code></td><td><code>"a-b"</code></td></tr>
-  <tr><td><code>$contains(value, search)</code></td><td><code>$contains("hello", "ell")</code></td><td><code>true</code></td></tr>
-  <tr><td><code>$truncate(value, maxLen)</code></td><td><code>$truncate("hello world", 5)</code></td><td><code>"hello…"</code></td></tr>
-</table>
-
-<h3>3.2 Math Functions</h3>
-
-<table>
-  <tr><th>Function</th><th>Example</th><th>Result</th></tr>
-  <tr><td><code>$round(value, decimals)</code></td><td><code>$round(3.14159, 2)</code></td><td><code>3.14</code></td></tr>
-  <tr><td><code>$floor(value)</code></td><td><code>$floor(3.7)</code></td><td><code>3</code></td></tr>
-  <tr><td><code>$ceil(value)</code></td><td><code>$ceil(3.2)</code></td><td><code>4</code></td></tr>
-  <tr><td><code>$abs(value)</code></td><td><code>$abs(-5)</code></td><td><code>5</code></td></tr>
-  <tr><td><code>$toFixed(value, digits)</code></td><td><code>$toFixed(9.99, 2)</code></td><td><code>"9.99"</code></td></tr>
-</table>
-
-<h3>3.3 Date Functions</h3>
-
-<table>
-  <tr><th>Function</th><th>Example</th><th>Result</th></tr>
-  <tr><td><code>$now()</code></td><td><code>$now()</code></td><td>Current ISO timestamp</td></tr>
-  <tr><td><code>$dateFormat(date, format)</code></td><td><code>$dateFormat(source.created, "YYYY-MM-DD")</code></td><td><code>"2026-05-10"</code></td></tr>
-  <tr><td><code>$dateParse(str, format)</code></td><td><code>$dateParse("10/05/2026", "DD/MM/YYYY")</code></td><td>Date object</td></tr>
-  <tr><td><code>$dateAdd(date, amount, unit)</code></td><td><code>$dateAdd($now(), 7, "days")</code></td><td>Date + 7 days</td></tr>
-  <tr><td><code>$dateDiff(date1, date2, unit)</code></td><td><code>$dateDiff(a, b, "hours")</code></td><td>Difference in hours</td></tr>
-</table>
-
-<h3>3.4 Type Conversion</h3>
-
-<table>
-  <tr><th>Function</th><th>When to Use</th></tr>
-  <tr><td><code>$toString(value)</code></td><td>Number or boolean → string</td></tr>
-  <tr><td><code>$toNumber(value)</code></td><td>String → number (e.g., <code>"42"</code> → <code>42</code>)</td></tr>
-  <tr><td><code>$toBoolean(value)</code></td><td>String → boolean (<code>"true"</code>/<code>"1"</code> → <code>true</code>)</td></tr>
-  <tr><td><code>$parseInt(value, radix)</code></td><td>Parse integer from string with optional radix</td></tr>
-  <tr><td><code>$parseFloat(value)</code></td><td>Parse float from string</td></tr>
-</table>
+<h1>Body Builder &amp; Expression Mapping</h1>
+<p><span class="badge badge-medium">MEDIUM</span> &nbsp; <span class="badge badge-sample">Sample: dm-body-builder</span></p>
+<p>Learn how extracted variables are used to build a POST request body with <code>{{variable}}</code> templates. This walkthrough uses the <strong>Body Builder</strong> sample.</p>
 
 <div class="callout">
-  <strong>ℹ️ Type mismatch auto-detection</strong>
-  When you drag a source field onto a target with a different type (e.g., string → number), the mapper shows an amber <code>⚠</code> badge and suggests the appropriate conversion function. Click <strong>Apply Fix</strong> to accept the suggestion.
+  <strong>Prerequisites</strong>
+  Import the <code>dm-body-builder</code> sample from Gallery → Data Mapper → "Body Builder Mapping" → <strong>Load Sample</strong>.
 </div>
 
-<h2>4. Conditional Logic</h2>
+<h2>Part 1 — Understand the Extraction Step</h2>
 
-<h3>4.1 If-Else</h3>
-
-<pre>
-$if(source.status === "active", "ENABLED", "DISABLED")
-</pre>
-
-<p>The <code>$if(condition, trueValue, falseValue)</code> function evaluates the condition and returns one of two values.</p>
-
-<h3>4.2 Switch / Case</h3>
-
-<pre>
-$switch(source.type, {
-  "A": "Alpha",
-  "B": "Beta",
-  "C": "Gamma"
-}, "Unknown")
-</pre>
-
-<p>The <code>$switch(value, cases, default)</code> function maps a value to one of several results, with a default fallback.</p>
-
-<h3>4.3 Coalesce (Null Fallback)</h3>
-
-<pre>
-$coalesce(source.mobile, source.home, source.work, "N/A")
-</pre>
-
-<p>Returns the first non-null, non-undefined value from the argument list. Essential for handling optional fields.</p>
-
-<h2>5. Combining Multiple Sources</h2>
-
-<p>When a target field needs data from multiple source fields, drag the first source to the target, then drag the second source to the <strong>same target</strong>. A combine mode picker appears:</p>
-
-<table>
-  <tr><th>Mode</th><th>Use Case</th><th>Expression</th></tr>
-  <tr><td><strong>Concatenate</strong></td><td>Join text fields</td><td><code>source.first + " " + source.last</code></td></tr>
-  <tr><td><strong>Arithmetic</strong></td><td>Math on numbers</td><td><code>source.price * source.quantity</code></td></tr>
-  <tr><td><strong>Coalesce</strong></td><td>First non-null</td><td><code>$coalesce(source.mobile, source.home)</code></td></tr>
-  <tr><td><strong>Custom</strong></td><td>Free expression</td><td>Opens expression editor with both sources</td></tr>
-</table>
-
-<h2>6. Splitting One Source to Many Targets</h2>
-
-<p>Drag a single source field to multiple target fields. Each mapping gets its own expression:</p>
-
-<pre>
-// Source: source.fullName = "John Michael Doe"
-target.first  = source.fullName.split(" ")[0]   // "John"
-target.middle = source.fullName.split(" ")[1]   // "Michael"
-target.last   = source.fullName.split(" ")[2]   // "Doe"
-</pre>
-
-<h2>7. Null Handling Patterns</h2>
-
-<table>
-  <tr><th>Pattern</th><th>How</th></tr>
-  <tr><td>Default value if null</td><td><code>$coalesce(source.phone, "N/A")</code></td></tr>
-  <tr><td>Skip if null</td><td>Toggle "Skip if null" on the mapping — shows dashed line</td></tr>
-  <tr><td>Null propagation</td><td>Default behavior — null passes through as null</td></tr>
-</table>
-
-<div class="callout callout-warning">
-  <strong>⚠ Common Pitfall</strong>
-  Expressions like <code>source.user.name</code> will throw an error if <code>source.user</code> is null. Use <code>$get(source, "user.name")</code> or <code>source.user?.name</code> for safe navigation.
+<div class="step">
+  <div class="step-header"><div class="step-num">1</div><div class="step-title">Open the first test</div></div>
+  <p>Navigate to <strong>Scenarios</strong> → <code>Gallery: Data Mapper — Body Builder</code> → <code>GET user → extract fields for next request</code>.</p>
 </div>
 
-<h2>8. Function Chaining</h2>
+<div class="step">
+  <div class="step-header"><div class="step-num">2</div><div class="step-title">Review the Extract tab</div></div>
+  <p>Click <strong>Extract</strong>. You'll see 6 extractions that pull fields from the user response:</p>
+  <table>
+    <tr><th>Variable</th><th>Expression</th><th>Previewed Value</th></tr>
+    <tr><td><code>userId</code></td><td><code>$.id</code></td><td>1</td></tr>
+    <tr><td><code>userName</code></td><td><code>$.name</code></td><td>"Leanne Graham"</td></tr>
+    <tr><td><code>userEmail</code></td><td><code>$.email</code></td><td>"Sincere@april.biz"</td></tr>
+    <tr><td><code>userPhone</code></td><td><code>$.phone</code></td><td>"1-770-736-8031 x56442"</td></tr>
+    <tr><td><code>companyName</code></td><td><code>$.company.name</code></td><td>"Romaguera-Crona"</td></tr>
+    <tr><td><code>companyCatchPhrase</code></td><td><code>$.company.catchPhrase</code></td><td>"Multi-layered client-server neural-net"</td></tr>
+  </table>
+</div>
 
-<p>Functions can be nested or chained for multi-step transforms:</p>
+<div class="step">
+  <div class="step-header"><div class="step-num">3</div><div class="step-title">Open Data Mapper to verify</div></div>
+  <p>Click <strong>⚡ Data Mapper</strong>. The source tree shows the full user JSON. The target shows all 6 variable names with mapping lines.</p>
+  <div class="expect"><strong>You should see:</strong> Source panel populated with user data (name: "Leanne Graham", company.name: "Romaguera-Crona", etc.) and 6 mapped target variables.</div>
+</div>
 
-<pre>
-// Trim, then uppercase
-$uppercase($trim(source.name))
+<h2>Part 2 — Inspect the Body Template</h2>
 
-// Parse date, then format
-$dateFormat($dateParse(source.created, "MM/DD/YYYY"), "YYYY-MM-DD")
+<div class="step">
+  <div class="step-header"><div class="step-num">4</div><div class="step-title">Open the second test (POST)</div></div>
+  <p>Go back and open <code>POST /posts with mapped body template</code>.</p>
+</div>
 
-// Coalesce, then truncate
-$truncate($coalesce(source.bio, "No bio"), 100)
-</pre>
+<div class="step">
+  <div class="step-header"><div class="step-num">5</div><div class="step-title">Look at the Body tab</div></div>
+  <p>The request body contains <code>{{variable}}</code> placeholders that will be replaced with extracted values at runtime:</p>
+  <pre>{
+  "userId": "{{userId}}",
+  "title": "Post by {{userName}}",
+  "body": "Contact: {{userEmail}} / {{userPhone}}. Company: {{companyName}} — {{companyCatchPhrase}}"
+}</pre>
+  <div class="expect"><strong>You should see:</strong> The body editor highlighting <code>{{...}}</code> placeholders in a distinct color. Each corresponds to a variable extracted in the previous step.</div>
+</div>
+
+<h2>Part 3 — Run and Verify</h2>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">6</div><div class="step-title">Run the scenario</div></div>
+  <p>Go to the <strong>Runner</strong> tab, select this scenario, and run it. The first request fetches the user, extracts variables, and the second request sends the POST with the substituted body.</p>
+</div>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">7</div><div class="step-title">Check the result</div></div>
+  <p>After execution, open the second test's result. The sent body should contain the actual values:</p>
+  <pre>{
+  "userId": "1",
+  "title": "Post by Leanne Graham",
+  "body": "Contact: Sincere@april.biz / 1-770-736-8031 x56442. Company: Romaguera-Crona — Multi-layered client-server neural-net"
+}</pre>
+</div>
+
+<h2>Part 4 — Expression Editor</h2>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">8</div><div class="step-title">Expression Editor</div></div>
+  <p>In the Data Mapper, click the <code>fx</code> button on any mapping. This opens the Expression Editor with a function catalog of 125 functions (String, Math, Array, Object, Conditional, JSON, Date/Time, Encoding) and live preview.</p>
+</div>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">9</div><div class="step-title">Mapping Profiles</div></div>
+  <p>Click <strong>Profiles</strong> in the toolbar to save the current mapping as a named preset. Load it later to restore all mappings instantly.</p>
+</div>
+
+<h2>Summary</h2>
+<table>
+  <tr><th>Concept</th><th>Where you saw it</th></tr>
+  <tr><td>Extraction from nested JSON</td><td>Step 2 — <code>$.company.name</code>, <code>$.company.catchPhrase</code></td></tr>
+  <tr><td>Variable templates in body</td><td>Step 5 — <code>{{userName}}</code>, <code>{{companyName}}</code></td></tr>
+  <tr><td>Cross-request variable passing</td><td>Steps 6-7 — first request extracts, second consumes</td></tr>
+  <tr><td>Data Mapper with real data</td><td>Step 3 — source tree populated, mapping lines visible</td></tr>
+  <tr><td>Expression Editor (<code>fx</code>)</td><td>Step 8 — 125-function catalog with live preview</td></tr>
+  <tr><td>Mapping profiles</td><td>Step 9 — save/load named mapping presets from toolbar</td></tr>
+</table>
 
 <div class="callout callout-tip">
-  <strong>💡 Visual Function Chain</strong>
-  For complex multi-step transforms, you can also chain functions visually on the canvas. Each function appears as a small card on the connection line, showing its name and parameters. Click any card to edit its settings.
-</div>
-
-<h2>9. Practice Exercises</h2>
-
-<ol>
-  <li>Map a user API response where <code>first_name</code> and <code>last_name</code> must be combined into a single <code>displayName</code> target field.</li>
-  <li>Map a product response where the string <code>"29.99"</code> must become the number <code>29.99</code> using the appropriate type conversion.</li>
-  <li>Create a conditional mapping where <code>status</code> → <code>isActive</code> (boolean), treating <code>"active"</code> and <code>"enabled"</code> as <code>true</code>, everything else as <code>false</code>.</li>
-  <li>Handle a nullable <code>phone</code> field with a cascade: try <code>mobile</code>, then <code>home</code>, then <code>"N/A"</code>.</li>
-</ol>
-
-<div style="margin-top: 40px; padding-top: 16px; border-top: 2px solid #e63946; font-size: 11px; color: #6c757d; text-align: center;">
-  RedfireForge Training Manual · Expression &amp; Function Mapping · Medium · v0.6.0
+  <strong>Next: Multi-Step Chain</strong>
+  Try the <code>dm-multi-step-chain</code> sample for a 3-step extraction chain (User → Posts → Comments).
 </div>
 
 </body>

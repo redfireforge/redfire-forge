@@ -254,8 +254,12 @@ test.describe('Radio button CSS styling', () => {
     const configSection = page.locator('.workflow-runner-config-section');
     await configSection.waitFor({ timeout: 5000 });
 
+    // Scope to the execution mode option box (contains "Execution Mode:" label)
+    const execModeBox = configSection.locator('.runner-option-box:has-text("Execution Mode:")');
+    await execModeBox.waitFor({ timeout: 5000 });
+
     // Verify all 4 execution mode radio buttons are present (name is prefixed to avoid cross-instance collisions)
-    const allExecRadios = configSection.locator('input[type="radio"][name="workflow-runner-execMode"]');
+    const allExecRadios = execModeBox.locator('input[type="radio"][name="workflow-runner-execMode"]');
     await expect(allExecRadios).toHaveCount(4);
 
     // Verify exactly one is checked initially
@@ -266,7 +270,7 @@ test.describe('Radio button CSS styling', () => {
     expect(checkedCount, 'Exactly one execution mode should be selected by default').toBe(1);
 
     // Verify the mode labels are correct
-    const labels = configSection.locator('.runner-option-box .radio-label');
+    const labels = execModeBox.locator('.radio-label');
     await expect(labels).toHaveCount(4);
     await expect(labels.nth(0)).toContainText('Sequential');
     await expect(labels.nth(1)).toContainText('Batch');

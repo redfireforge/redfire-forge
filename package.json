@@ -1,5 +1,5 @@
 {
-  "name": "performance-test",
+  "name": "redfire-forge",
   "private": true,
   "version": "0.5.7-beta.2",
   "type": "module",
@@ -38,6 +38,8 @@
     "@tauri-apps/plugin-http": "^2.5.8",
     "@tauri-apps/plugin-shell": "^2.3.5",
     "@xyflow/react": "^12.10.2",
+    "ajv": "^8.20.0",
+    "ajv-formats": "^3.0.1",
     "better-sqlite3": "^12.9.0",
     "commander": "^14.0.3",
     "express": "^4.21.2",

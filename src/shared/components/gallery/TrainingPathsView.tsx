@@ -9,6 +9,8 @@ interface TrainingPathsViewProps {
   activePathId?: string;
   /** Called when the user clicks an Import button on a manual row. */
   onImportSample?: (sampleId: string) => void;
+  /** Called when the user clicks the sample chip — navigates to the sample card in Samples view. */
+  onNavigateToSample?: (sampleId: string) => void;
   /** Map of gallery sample ID → import status for showing badges. */
   sampleStatus?: Record<string, GallerySampleStatus>;
   /** Search query to filter paths, phases, and manuals. */
@@ -44,6 +46,7 @@ export function TrainingPathsView({
   paths,
   activePathId,
   onImportSample,
+  onNavigateToSample,
   sampleStatus,
   search,
   onClearActivePath,
@@ -88,6 +91,7 @@ export function TrainingPathsView({
             path={tp}
             highlighted={tp.id === activePathId}
             onImportSample={onImportSample}
+            onNavigateToSample={onNavigateToSample}
             sampleStatus={sampleStatus}
             search={query}
           />
@@ -106,12 +110,14 @@ function TrainingPathCard({
   path,
   highlighted,
   onImportSample,
+  onNavigateToSample,
   sampleStatus,
   search,
 }: {
   path: TrainingPath;
   highlighted: boolean;
   onImportSample?: (sampleId: string) => void;
+  onNavigateToSample?: (sampleId: string) => void;
   sampleStatus?: Record<string, GallerySampleStatus>;
   search?: string;
 }) {
@@ -220,6 +226,7 @@ function TrainingPathCard({
               key={phase.id}
               phase={phase}
               onImportSample={onImportSample}
+              onNavigateToSample={onNavigateToSample}
               sampleStatus={sampleStatus}
               expanded={isSearching || (phaseExpanded[phase.id] ?? true)}
               onToggle={() => togglePhase(phase.id)}
@@ -236,12 +243,14 @@ function TrainingPathCard({
 function PhaseSection({
   phase,
   onImportSample,
+  onNavigateToSample,
   sampleStatus,
   expanded,
   onToggle,
 }: {
   phase: TrainingPhase;
   onImportSample?: (sampleId: string) => void;
+  onNavigateToSample?: (sampleId: string) => void;
   sampleStatus?: Record<string, GallerySampleStatus>;
   expanded: boolean;
   onToggle: () => void;
@@ -266,6 +275,7 @@ function PhaseSection({
               key={manual.title}
               manual={manual}
               onImportSample={onImportSample}
+              onNavigateToSample={onNavigateToSample}
               sampleStatus={manual.sampleId ? sampleStatus?.[manual.sampleId] : undefined}
             />
           ))}
@@ -280,33 +290,53 @@ function PhaseSection({
 function ManualRow({
   manual,
   onImportSample,
+  onNavigateToSample,
   sampleStatus: status,
 }: {
   manual: TrainingManual;
   onImportSample?: (sampleId: string) => void;
+  onNavigateToSample?: (sampleId: string) => void;
   sampleStatus?: GallerySampleStatus;
 }) {
+  const handleOpen = manual.manualPath
+    ? () => window.open(`/docs/training-manuals/${manual.manualPath}`, '_blank', 'noopener')
+    : undefined;
+
   return (
-    <div className="training-manual-row">
+    <div
+      className={`training-manual-row${handleOpen ? ' training-manual-row--clickable' : ''}`}
+      onClick={handleOpen}
+      role={handleOpen ? 'link' : undefined}
+      tabIndex={handleOpen ? 0 : undefined}
+      onKeyDown={handleOpen ? (e) => { if (e.key === 'Enter') handleOpen(); } : undefined}
+    >
       <span className="training-manual-icon">📄</span>
       <div className="training-manual-info">
-        <div className="training-manual-title">{manual.title}</div>
+        <div className="training-manual-title">
+          {manual.title}
+          {handleOpen && <span className="training-manual-open-hint" title="Open manual in new tab">↗</span>}
+        </div>
         <div className="training-manual-desc">{manual.description}</div>
       </div>
       <DifficultyDots level={manual.difficulty} />
       {manual.sampleId && (
         <div className="training-manual-sample">
-          <span className="training-manual-sample-chip">
-            {manual.sampleId}
+          <button
+            className="training-manual-sample-chip training-manual-sample-chip--clickable"
+            onClick={(e) => { e.stopPropagation(); onNavigateToSample?.(manual.sampleId!); }}
+            type="button"
+            title="View this sample in Samples tab"
+          >
+            🔗 {manual.sampleId}
             {status && (
               <span className={`gallery-card-status-badge gallery-status-${status}`}>
                 {status === 'imported' ? '✓' : '↻'}
               </span>
             )}
-          </span>
+          </button>
           <button
             className="training-manual-import-btn"
-            onClick={() => onImportSample?.(manual.sampleId!)}
+            onClick={(e) => { e.stopPropagation(); onImportSample?.(manual.sampleId!); }}
             type="button"
           >
             Import

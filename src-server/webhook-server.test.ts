@@ -4,7 +4,7 @@
 import http from 'node:http';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import request from 'supertest';
-import { app } from './webhook-server';
+import { app } from './webhook-server.js';
 import type { Workflow } from '../src/features/workflow/types/workflow';
 
 // Mock file storage
@@ -298,11 +298,22 @@ describe('webhook-server', () => {
   describe('CORS', () => {
     it('allows cross-origin requests', async () => {
       const res = await request(app)
-        .options('/health')
+        .get('/health')
         .set('Origin', 'http://localhost:5173');
 
       expect(res.status).toBe(200);
       expect(res.headers['access-control-allow-origin']).toBe('*');
+    });
+
+    it('responds to OPTIONS preflight with 200', async () => {
+      const res = await request(app)
+        .options('/health')
+        .set('Origin', 'http://localhost:5173')
+        .set('Access-Control-Request-Method', 'POST');
+
+      expect(res.status).toBe(200);
+      expect(res.headers['access-control-allow-origin']).toBe('*');
+      expect(res.headers['access-control-allow-methods']).toContain('POST');
     });
   });
 

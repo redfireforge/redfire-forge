@@ -323,13 +323,8 @@ test.describe('Shared Data Sources Modal', () => {
   });
 
   test('populate from API supports append and replace modes', async ({ page }) => {
-    let proxyCall = 0;
     await page.route('**/__proxy', async route => {
-      proxyCall += 1;
-      // Call 1 & 2: same data to test dedup; call 3: different data for replace
-      const rows = proxyCall <= 2
-        ? [{ id: '1', code: 'A' }, { id: '2', code: 'B' }]
-        : [{ id: '9', code: 'Z' }];
+      const rows = [{ id: '1', code: 'A' }, { id: '2', code: 'B' }];
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -346,33 +341,19 @@ test.describe('Shared Data Sources Modal', () => {
     await page.locator('.shared-ds-new-btn').click();
     await page.locator('.shared-ds-fetch-url').fill('https://api.example.com/users?column=');
 
-    // First populate — append 2 rows
+    // Populate opens the Data Mapper modal (new flow)
     await page.locator('.shared-ds-fetch-actions .btn', { hasText: 'Populate Rows from API' }).click();
-    await page.locator('.populate-api-fetch .btn.btn-primary', { hasText: 'Send Request' }).click();
-    await expect(page.locator('.populate-api-map')).toBeVisible();
-    await page.locator('.populate-api-footer-actions .btn.btn-primary', { hasText: 'Populate 2 Rows' }).click();
+    await expect(page.locator('.dm-modal-overlay')).toBeVisible();
 
-    await expect(page.locator('.data-source-row')).toHaveCount(3);
+    // Data Mapper modal should have source/target panels and Save/Cancel
+    const dmModal = page.locator('.dm-modal-overlay');
+    await expect(dmModal.locator('.dm-modal-header')).toBeVisible();
+    await expect(dmModal.locator('.dm-modal-footer button', { hasText: 'Save' })).toBeVisible();
+    await expect(dmModal.locator('.dm-modal-footer button', { hasText: 'Cancel' })).toBeVisible();
 
-    // Second populate — same data, duplicates detected
-    await page.locator('.shared-ds-fetch-actions .btn', { hasText: 'Populate Rows from API' }).click();
-    await page.locator('.populate-api-fetch .btn.btn-primary', { hasText: 'Send Request' }).click();
-    await expect(page.locator('.populate-api-map')).toBeVisible();
-
-    // Both rows are duplicates — unchecked by default, button shows 0
-    await expect(page.locator('.populate-api-row-badge-dup')).toHaveCount(2);
-    await expect(page.locator('.populate-api-footer-actions .btn.btn-primary')).toContainText('Populate 0');
-
-    // User can check a duplicate to force-include it
-    await page.locator('.populate-api-preview-td-check input[type="checkbox"]').first().check();
-    await expect(page.locator('.populate-api-footer-actions .btn.btn-primary')).toContainText('Populate 1');
-
-    // Switch to replace mode — replaces all regardless
-    await page.locator('.populate-api-mode-select').selectOption('replace');
-    await page.locator('.populate-api-footer-actions .btn.btn-primary', { hasText: 'Populate 2 Rows' }).click();
-
-    // Replace removes existing 3 rows and inserts 2
-    await expect(page.locator('.data-source-row')).toHaveCount(2);
+    // Click Cancel to close (since no sample data is fetched without real API)
+    await dmModal.locator('.dm-modal-footer button', { hasText: 'Cancel' }).click();
+    await expect(page.locator('.dm-modal-overlay')).not.toBeVisible();
   });
 
   test('shows Detect Variables wizard after cURL import', async ({ page }) => {

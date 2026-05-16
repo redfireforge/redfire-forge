@@ -8,6 +8,8 @@ import { executeHttpNode, logHttpResult } from './graphRunnerHelpers';
 import { formatHttpNodeRunDetail, summarizeRequestFailure } from '../utils/workflowRunErrors';
 import { humanizeError } from '../../../shared/utils/helpers';
 import { expandDataSource } from '../../../engine/dataSourceExpander';
+import { captureMappingTraces, shouldCaptureMappingTraces } from '../../../shared/components/data-mapper/utils/mappingTrace';
+import { resolveTraceLevel } from './graphRunnerTraceLevel';
 
 /** Maximum response body size to capture (100KB) */
 const MAX_RESPONSE_BODY_SIZE = 102400;
@@ -117,6 +119,32 @@ export async function handleHttpNode(
       variablesSnapshot: hCtx.ctx.snapshot(),
       extractedVariables: Object.keys(result.extracted).length > 0 ? result.extracted : undefined,
     };
+
+    // Capture mapping traces at full/debug level when body extraction mappings exist
+    const traceLevel = resolveTraceLevel(hCtx.traceOptions);
+    if (shouldCaptureMappingTraces(traceLevel) && httpData.scenario?.extractions?.length) {
+      const extractionSource = {
+        id: 'response',
+        label: 'Response',
+        sampleData: responseBody,
+      };
+      const extractionMappings = httpData.scenario.extractions
+        .filter((e) => e.source === 'body' && !!e.expression)
+        .map((e, i) => ({
+          id: `ext-${nodeId}-${i}`,
+          sourcePath: e.expression,
+          sourceId: 'response',
+          targetPath: e.name,
+        }));
+      if (extractionMappings.length > 0) {
+        captured.mappingTraces = captureMappingTraces({
+          mappings: extractionMappings,
+          sources: [extractionSource],
+          activeSourceId: 'response',
+        });
+      }
+    }
+
     hCtx.capturedHttpDetails.set(nodeId, captured);
   }
 
@@ -137,7 +165,7 @@ function buildAssertionResults(requestResult: import('../../../shared/types').Re
     results.push({
       type: 'status',
       description: `Status code is ${requestResult.httpStatus}`,
-      passed: requestResult.passed || requestResult.failureDetails?.every(f => f.path !== 'status') !== false,
+      passed: requestResult.passed || requestResult.failureDetails?.every(f => f.path !== '(status)' && f.path !== '(http)') !== false,
       expected: requestResult.httpStatus?.toString(),
       actual: requestResult.httpStatus?.toString(),
     });

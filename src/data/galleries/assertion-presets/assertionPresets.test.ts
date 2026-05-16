@@ -215,8 +215,8 @@ describe('createApiContractAssertions', () => {
 // ─── Catalog & categories ────────────────────────────────────────────────────
 
 describe('assertionPresetCatalog', () => {
-  it('contains 5 presets', () => {
-    expect(assertionPresetCatalog).toHaveLength(5);
+  it('contains 7 presets', () => {
+    expect(assertionPresetCatalog).toHaveLength(7);
   });
 
   it('each entry has unique id', () => {

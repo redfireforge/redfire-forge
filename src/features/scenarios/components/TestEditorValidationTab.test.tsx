@@ -6,19 +6,11 @@ import '@testing-library/jest-dom';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import TestEditorValidationTab from './TestEditorValidationTab';
 import type { TestEditorValidationTabProps } from './TestEditorValidationTab';
-import type { Scenario } from '../../../shared/types';
+import type { Assertion, Scenario } from '../../../shared/types';
 import { createRef } from 'react';
 
 // ── Shared mock setup ────────────────────────────────────────────────────────
 
-vi.mock('../../requests/components/JsonPathBuilder', () => ({
-  default: ({ onSampleJsonChange, onUpdate }: { onSampleJsonChange?: (json: string) => void; onUpdate?: (patch: Record<string, unknown>) => void }) => (
-    <div data-testid="json-path-builder">
-      {onSampleJsonChange && <button data-testid="change-sample" onClick={() => onSampleJsonChange('{"new":"json"}')}>Change Sample</button>}
-      {onUpdate && <button data-testid="update-fields" onClick={() => onUpdate({ expectedFields: [{ jsonPath: '$.x', expectedValue: '1' }] })}>Update Fields</button>}
-    </div>
-  ),
-}));
 vi.mock('../../requests/components/ResponseVersionPanel', () => ({
   default: ({ onSaveVersion, onRestore, onDeleteVersion, onRenameVersion, versions }: {
     onSaveVersion: () => void;
@@ -52,14 +44,53 @@ vi.mock('../../requests/components/RulesVersionPanel', () => ({
     </div>
   ),
 }));
-vi.mock('../../requests/components/RegexAssertionModal', () => ({
-  default: ({ onClose, onApply }: { onClose: () => void; onApply: (result: { jsonPath: string; pattern: string }) => void }) => (
-    <div data-testid="regex-assertion-modal">
-      <button onClick={onClose}>Close Regex Modal</button>
-      <button data-testid="apply-regex" onClick={() => onApply({ jsonPath: '$.name', pattern: '^[A-Z]+$' })}>Apply Regex</button>
-    </div>
-  ),
-}));
+vi.mock('../../../shared/components/data-mapper', async () => {
+  const actual = await vi.importActual<Record<string, unknown>>('../../../shared/components/data-mapper');
+  return {
+    ...actual,
+    DataMapperModal: ({ onCancel, onSave, unorderedArrays }: {
+      onCancel: () => void;
+      onSave: (output: {
+        selectiveMode: string;
+        expectedFields: { jsonPath: string; expectedValue: string }[];
+        excludedPaths: string[];
+        assertions?: Assertion[];
+      }, options?: { unorderedArrays?: boolean }) => void;
+      unorderedArrays?: boolean;
+    }) => (
+      <div data-testid="data-mapper-modal">
+        <button onClick={onCancel}>Close Mapper Modal</button>
+        <button data-testid="mapper-save" onClick={() => onSave(
+          { selectiveMode: 'include', expectedFields: [{ jsonPath: '$.a', expectedValue: '1' }], excludedPaths: [] },
+          { unorderedArrays: true }
+        )}>Save Mapper</button>
+        <button data-testid="mapper-save-ordered" onClick={() => onSave(
+          { selectiveMode: 'include', expectedFields: [{ jsonPath: '$.a', expectedValue: '1' }], excludedPaths: [] },
+          { unorderedArrays: false }
+        )}>Save Mapper Ordered</button>
+        <button data-testid="mapper-save-no-options" onClick={() => onSave(
+          { selectiveMode: 'include', expectedFields: [{ jsonPath: '$.a', expectedValue: '1' }], excludedPaths: [] },
+        )}>Save Mapper Default Options</button>
+        <button data-testid="mapper-save-with-assertions" onClick={() => onSave(
+          {
+            selectiveMode: 'include',
+            expectedFields: [{ jsonPath: '$.a', expectedValue: '1' }],
+            excludedPaths: [],
+            assertions: [{ type: 'status', expected: '201' }],
+          },
+          { unorderedArrays: false },
+        )}>Save Mapper With Assertions</button>
+        <span data-testid="mapper-unordered-prop">{unorderedArrays ? 'true' : 'false'}</span>
+      </div>
+    ),
+    RegexAssertionBuilderModal: ({ onCancel, onSave }: { onCancel: () => void; onSave: (result: { jsonPath: string; pattern: string }) => void }) => (
+      <div data-testid="regex-assertion-modal">
+        <button onClick={onCancel}>Close Regex Modal</button>
+        <button data-testid="apply-regex" onClick={() => onSave({ jsonPath: '$.name', pattern: '^[A-Z]+$' })}>Apply Regex</button>
+      </div>
+    ),
+  };
+});
 
 function makeDraft(overrides: Partial<Scenario> = {}): Scenario {
   return {
@@ -120,6 +151,51 @@ describe('TestEditorValidationTab', () => {
     it('shows the + Add button', () => {
       render(<TestEditorValidationTab {...makeProps()} />);
       expect(screen.getByText('+ Add')).toBeInTheDocument();
+    });
+
+    it('toggles assertions section collapsed state', () => {
+      const draft = makeDraft({
+        validation: { mode: 'none', assertions: [{ type: 'status', expected: '200' }] },
+      });
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef: { current: draft } })} />);
+      fireEvent.click(screen.getByTitle('Collapse assertions'));
+      expect(screen.getByTitle('Expand assertions')).toBeInTheDocument();
+    });
+
+    it('closes add menu when Escape pressed in filter input', () => {
+      render(<TestEditorValidationTab {...makeProps()} />);
+      fireEvent.click(screen.getByText('+ Add'));
+      fireEvent.keyDown(screen.getByPlaceholderText('Filter assertions…'), { key: 'Escape' });
+      expect(screen.queryByText('Status Code')).not.toBeInTheDocument();
+    });
+
+    it('shows no matching assertions when filter matches nothing', () => {
+      render(<TestEditorValidationTab {...makeProps()} />);
+      fireEvent.click(screen.getByText('+ Add'));
+      fireEvent.change(screen.getByPlaceholderText('Filter assertions…'), { target: { value: 'zzznomatchzzz' } });
+      expect(screen.getByText('No matching assertions')).toBeInTheDocument();
+    });
+
+    it('opens Regex Builder modal when Regex Builder menu item is clicked', () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft();
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef: { current: draft }, onDraftChange })} />);
+      fireEvent.click(screen.getByText('+ Add'));
+      fireEvent.click(screen.getByText('Regex Builder…'));
+      expect(onDraftChange).toHaveBeenCalled();
+      expect(screen.getByTestId('regex-assertion-modal')).toBeInTheDocument();
+    });
+
+    it('renders verify panel when expected fields exist but assertions key is absent', () => {
+      const draft = makeDraft({
+        validation: {
+          mode: 'selective',
+          expectedFields: [{ jsonPath: '$.id', expectedValue: '1' }],
+        },
+      });
+      delete (draft.validation as { assertions?: Assertion[] }).assertions;
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef: { current: draft } })} />);
+      expect(screen.getByRole('button', { name: 'Verify' })).toBeInTheDocument();
     });
 
     it('opens and closes the add-type menu', () => {
@@ -364,7 +440,7 @@ describe('TestEditorValidationTab', () => {
       const draft = makeDraft({ validation: { mode: 'selective', assertions: [] } });
       render(<TestEditorValidationTab {...makeProps({ draft, draftRef: { current: draft } })} />);
       expect(screen.getByText('Fetch Response')).toBeInTheDocument();
-      expect(screen.getByTestId('json-path-builder')).toBeInTheDocument();
+      expect(screen.getByText('⚡ Data Mapper')).toBeInTheDocument();
     });
 
     it('shows fetching state on Fetch Response button', () => {
@@ -375,8 +451,139 @@ describe('TestEditorValidationTab', () => {
 
     it('shows fetch error when present', () => {
       const draft = makeDraft({ validation: { mode: 'selective', assertions: [] } });
-      render(<TestEditorValidationTab {...makeProps({ draft, draftRef: { current: draft }, fetchError: 'Network error' })} />);
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef: { current: draft }, fetchError: { message: 'Network error' } })} />);
       expect(screen.getByText('Network error')).toBeInTheDocument();
+    });
+
+    it('shows current sample response preview when sampleJson exists', () => {
+      const draft = makeDraft({
+        validation: {
+          mode: 'selective',
+          assertions: [],
+          sampleJson: '{"id":1}',
+        },
+      });
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef: { current: draft } })} />);
+      expect(screen.getByText('Current sample response')).toBeInTheDocument();
+      expect(screen.getByLabelText('Current sample response')).toHaveValue('{"id":1}');
+    });
+
+    describe('response search box', () => {
+      const sampleJson = JSON.stringify({
+        offers: [
+          { code: 'AAA', name: 'Alpha' },
+          { code: 'BBB', name: 'Beta' },
+          { code: 'AAA', name: 'Echo' },
+        ],
+      }, null, 2);
+
+      function renderWithSample() {
+        const draft = makeDraft({
+          validation: { mode: 'selective', assertions: [], sampleJson },
+        });
+        return render(<TestEditorValidationTab {...makeProps({ draft, draftRef: { current: draft } })} />);
+      }
+
+      it('shows the search box when a sample response is present', () => {
+        renderWithSample();
+        expect(screen.getByPlaceholderText('Search response…')).toBeInTheDocument();
+      });
+
+      it('shows match count when search term has matches (no auto-jump)', () => {
+        renderWithSample();
+        const input = screen.getByPlaceholderText('Search response…');
+        fireEvent.change(input, { target: { value: 'AAA' } });
+        expect(screen.getByText('2 matches')).toBeInTheDocument();
+      });
+
+      it('shows singular match label when exactly one match exists', () => {
+        renderWithSample();
+        const input = screen.getByPlaceholderText('Search response…');
+        fireEvent.change(input, { target: { value: 'Echo' } });
+        expect(screen.getByText('1 match')).toBeInTheDocument();
+      });
+
+      it('shows "No matches" when search term has no matches', () => {
+        renderWithSample();
+        const input = screen.getByPlaceholderText('Search response…');
+        fireEvent.change(input, { target: { value: 'NOTFOUND' } });
+        expect(screen.getByText('No matches')).toBeInTheDocument();
+      });
+
+      it('navigates with Previous after Next advances active match index', () => {
+        renderWithSample();
+        const input = screen.getByPlaceholderText('Search response…');
+        fireEvent.change(input, { target: { value: 'AAA' } });
+        fireEvent.click(screen.getByLabelText('Next match'));
+        expect(screen.getByText('1 / 2')).toBeInTheDocument();
+        fireEvent.click(screen.getByLabelText('Next match'));
+        expect(screen.getByText('2 / 2')).toBeInTheDocument();
+        fireEvent.click(screen.getByLabelText('Previous match'));
+        expect(screen.getByText('1 / 2')).toBeInTheDocument();
+      });
+
+      it('wraps around when navigating past last match', () => {
+        renderWithSample();
+        const input = screen.getByPlaceholderText('Search response…');
+        fireEvent.change(input, { target: { value: 'AAA' } });
+        fireEvent.click(screen.getByLabelText('Next match'));
+        fireEvent.click(screen.getByLabelText('Next match'));
+        fireEvent.click(screen.getByLabelText('Next match'));
+        expect(screen.getByText('1 / 2')).toBeInTheDocument();
+      });
+
+      it('clears search with the clear button', () => {
+        renderWithSample();
+        const input = screen.getByPlaceholderText('Search response…') as HTMLInputElement;
+        fireEvent.change(input, { target: { value: 'AAA' } });
+        expect(input.value).toBe('AAA');
+        fireEvent.click(screen.getByLabelText('Clear search'));
+        expect(input.value).toBe('');
+        expect(screen.queryByText(/\/ \d+/)).not.toBeInTheDocument();
+      });
+
+      it('navigates to first match on Enter key', () => {
+        renderWithSample();
+        const input = screen.getByPlaceholderText('Search response…');
+        fireEvent.change(input, { target: { value: 'AAA' } });
+        fireEvent.keyDown(input, { key: 'Enter' });
+        expect(screen.getByText('1 / 2')).toBeInTheDocument();
+      });
+
+      it('does not steal focus while typing', () => {
+        renderWithSample();
+        const input = screen.getByPlaceholderText('Search response…') as HTMLInputElement;
+        input.focus();
+        expect(document.activeElement).toBe(input);
+        fireEvent.change(input, { target: { value: 'A' } });
+        expect(document.activeElement).toBe(input);
+        fireEvent.change(input, { target: { value: 'AA' } });
+        expect(document.activeElement).toBe(input);
+        fireEvent.change(input, { target: { value: 'AAA' } });
+        expect(document.activeElement).toBe(input);
+      });
+
+      it('clears search on Escape key', () => {
+        renderWithSample();
+        const input = screen.getByPlaceholderText('Search response…') as HTMLInputElement;
+        fireEvent.change(input, { target: { value: 'AAA' } });
+        fireEvent.keyDown(input, { key: 'Escape' });
+        expect(input.value).toBe('');
+      });
+
+      it('disables nav buttons when there are no matches', () => {
+        renderWithSample();
+        const input = screen.getByPlaceholderText('Search response…');
+        fireEvent.change(input, { target: { value: 'NOTFOUND' } });
+        expect(screen.getByLabelText('Next match')).toBeDisabled();
+        expect(screen.getByLabelText('Previous match')).toBeDisabled();
+      });
+
+      it('does not show the search box when there is no sample response', () => {
+        const draft = makeDraft({ validation: { mode: 'selective', assertions: [] } });
+        render(<TestEditorValidationTab {...makeProps({ draft, draftRef: { current: draft } })} />);
+        expect(screen.queryByPlaceholderText('Search response…')).not.toBeInTheDocument();
+      });
     });
 
     it('shows pending fetch confirmation when pendingFetchResponse is set', () => {
@@ -397,6 +604,8 @@ describe('TestEditorValidationTab', () => {
       expect(screen.getByText(/New response fetched/)).toBeInTheDocument();
       expect(screen.getByText('Keep Rules & Update Response')).toBeInTheDocument();
       expect(screen.getByText('Replace All')).toBeInTheDocument();
+      expect(screen.getByText('Fetched response (pending apply)')).toBeInTheDocument();
+      expect(screen.getByLabelText('Fetched response preview')).toHaveValue('{"id":2}');
     });
 
     it('calls onFetchKeepRules when "Keep Rules" clicked', () => {
@@ -416,6 +625,99 @@ describe('TestEditorValidationTab', () => {
       })} />);
       fireEvent.click(screen.getByText('Keep Rules & Update Response'));
       expect(onFetchKeepRules).toHaveBeenCalled();
+    });
+
+    it('opens Data Mapper after keep-rules response is applied', async () => {
+      const onFetchKeepRules = vi.fn();
+      const draft = makeDraft({
+        validation: {
+          mode: 'selective',
+          assertions: [],
+          sampleJson: '{"id":1}',
+          expectedFields: [{ jsonPath: '$.id', expectedValue: '1' }],
+        },
+      });
+      const draftRef = createRef<Scenario>() as React.MutableRefObject<Scenario>;
+      draftRef.current = draft;
+      const { rerender } = render(<TestEditorValidationTab {...makeProps({
+        draft,
+        draftRef,
+        pendingFetchResponse: '{"id":2}',
+        onFetchKeepRules,
+        onFetchReplaceAll: vi.fn(),
+        onFetchCancel: vi.fn(),
+      })} />);
+
+      fireEvent.click(screen.getByText('Keep Rules & Update Response'));
+      expect(onFetchKeepRules).toHaveBeenCalledTimes(1);
+
+      const updatedDraft = makeDraft({
+        validation: {
+          mode: 'selective',
+          assertions: [],
+          sampleJson: '{"id":2}',
+          expectedFields: [{ jsonPath: '$.id', expectedValue: '2' }],
+        },
+      });
+      draftRef.current = updatedDraft;
+      rerender(<TestEditorValidationTab {...makeProps({
+        draft: updatedDraft,
+        draftRef,
+        pendingFetchResponse: null,
+        onFetchKeepRules,
+        onFetchReplaceAll: vi.fn(),
+        onFetchCancel: vi.fn(),
+      })} />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('data-mapper-modal')).toBeInTheDocument();
+      });
+    });
+
+    it('does not open Data Mapper after keep-rules when sample JSON is empty', async () => {
+      const onFetchKeepRules = vi.fn();
+      const draft = makeDraft({
+        validation: {
+          mode: 'selective',
+          assertions: [],
+          sampleJson: '{"id":1}',
+          expectedFields: [{ jsonPath: '$.id', expectedValue: '1' }],
+        },
+      });
+      const draftRef = createRef<Scenario>() as React.MutableRefObject<Scenario>;
+      draftRef.current = draft;
+      const { rerender } = render(<TestEditorValidationTab {...makeProps({
+        draft,
+        draftRef,
+        pendingFetchResponse: '{"id":2}',
+        onFetchKeepRules,
+        onFetchReplaceAll: vi.fn(),
+        onFetchCancel: vi.fn(),
+      })} />);
+
+      fireEvent.click(screen.getByText('Keep Rules & Update Response'));
+
+      const updatedDraft = makeDraft({
+        validation: {
+          mode: 'selective',
+          assertions: [],
+          sampleJson: '',
+          expectedFields: [{ jsonPath: '$.id', expectedValue: '2' }],
+        },
+      });
+      draftRef.current = updatedDraft;
+      rerender(<TestEditorValidationTab {...makeProps({
+        draft: updatedDraft,
+        draftRef,
+        pendingFetchResponse: null,
+        onFetchKeepRules,
+        onFetchReplaceAll: vi.fn(),
+        onFetchCancel: vi.fn(),
+      })} />);
+
+      await waitFor(() => {
+        expect(screen.queryByTestId('data-mapper-modal')).not.toBeInTheDocument();
+      });
     });
 
     it('calls onFetchReplaceAll when "Replace All" clicked', () => {
@@ -470,7 +772,7 @@ describe('TestEditorValidationTab', () => {
         },
       })} />);
       expect(screen.getByText('FAILED')).toBeInTheDocument();
-      expect(screen.getByText('$.id')).toBeInTheDocument();
+      expect(screen.getAllByText('$.id').length).toBeGreaterThanOrEqual(1);
     });
 
     it('closes validation result on × click', () => {
@@ -482,12 +784,12 @@ describe('TestEditorValidationTab', () => {
           expectedFields: [{ jsonPath: '$.id', expectedValue: '1' }],
         },
       });
-      render(<TestEditorValidationTab {...makeProps({
+      const { container } = render(<TestEditorValidationTab {...makeProps({
         draft, draftRef: { current: draft },
         validationResult: { passed: true, failures: [] },
         setValidationResult,
       })} />);
-      const closeBtn = screen.getByRole('button', { name: '×' });
+      const closeBtn = container.querySelector('.validate-result-header .btn.btn-xs') as HTMLElement;
       fireEvent.click(closeBtn);
       expect(setValidationResult).toHaveBeenCalledWith(null);
     });
@@ -588,6 +890,22 @@ describe('TestEditorValidationTab', () => {
       render(<TestEditorValidationTab {...makeProps({ draft, draftRef })} />);
       expect(screen.getByDisplayValue('2026-01-01')).toBeInTheDocument();
     });
+
+    it('invokes showPicker from date assertion calendar control when supported', () => {
+      const showPicker = vi.fn();
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{ type: 'date', jsonPath: '$.expiresAt', operator: '>', reference: { kind: 'fixed', iso: '2026-01-01' } }],
+        },
+      });
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef: { current: draft } })} />);
+      const row = screen.getByText('DATE').closest('.assertion-row')!;
+      const dateInput = row.querySelector('input[type="date"]') as HTMLInputElement;
+      Object.defineProperty(dateInput, 'showPicker', { configurable: true, value: showPicker });
+      fireEvent.click(screen.getByTitle('Pick date'));
+      expect(showPicker).toHaveBeenCalled();
+    });
   });
 
   describe('unordered arrays checkbox', () => {
@@ -602,6 +920,91 @@ describe('TestEditorValidationTab', () => {
           validation: expect.objectContaining({ unorderedArrays: true }),
         })
       );
+    });
+
+    it('persists unorderedArrays when saved via DataMapper modal', () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({
+        validation: { mode: 'selective', sampleJson: '{"a":1}', assertions: [] },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+
+      fireEvent.click(screen.getByText('⚡ Data Mapper'));
+      expect(screen.getByTestId('data-mapper-modal')).toBeTruthy();
+
+      fireEvent.click(screen.getByTestId('mapper-save'));
+      expect(onDraftChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          validation: expect.objectContaining({ unorderedArrays: true }),
+        })
+      );
+    });
+
+    it('passes saved unorderedArrays back to DataMapper modal on reopen', () => {
+      const draft = makeDraft({
+        validation: { mode: 'selective', sampleJson: '{"a":1}', unorderedArrays: true, assertions: [] },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef })} />);
+
+      fireEvent.click(screen.getByText('⚡ Data Mapper'));
+      expect(screen.getByTestId('mapper-unordered-prop').textContent).toBe('true');
+    });
+
+    it('preserves draft unorderedArrays when mapper save is called without options argument', () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({
+        validation: { mode: 'selective', sampleJson: '{"a":1}', unorderedArrays: false, assertions: [] },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      fireEvent.click(screen.getByText('⚡ Data Mapper'));
+      fireEvent.click(screen.getByTestId('mapper-save-no-options'));
+      expect(onDraftChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          validation: expect.objectContaining({ unorderedArrays: false }),
+        }),
+      );
+    });
+
+    it('replaces assertions when mapper save output includes assertions', () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({
+        validation: {
+          mode: 'selective',
+          sampleJson: '{"a":1}',
+          assertions: [{ type: 'status', expected: '200' }],
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      fireEvent.click(screen.getByText('⚡ Data Mapper'));
+      fireEvent.click(screen.getByTestId('mapper-save-with-assertions'));
+      const updated = onDraftChange.mock.calls[0][0] as Scenario;
+      expect(updated.validation.assertions?.[0]).toMatchObject({ type: 'status', expected: '201' });
+    });
+
+    it('closes Data Mapper via modal cancel without saving', () => {
+      const draft = makeDraft({
+        validation: { mode: 'selective', sampleJson: '{"a":1}', assertions: [] },
+      });
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef: { current: draft } })} />);
+      fireEvent.click(screen.getByText('⚡ Data Mapper'));
+      expect(screen.getByTestId('data-mapper-modal')).toBeInTheDocument();
+      fireEvent.click(screen.getByText('Close Mapper Modal'));
+      expect(screen.queryByTestId('data-mapper-modal')).not.toBeInTheDocument();
+    });
+
+    it('shows checkbox checked when unorderedArrays is true in draft', () => {
+      const draft = makeDraft({
+        validation: { mode: 'selective', unorderedArrays: true, assertions: [] },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef })} />);
+
+      const checkbox = screen.getByRole('checkbox', { name: /Unordered array matching/i }) as HTMLInputElement;
+      expect(checkbox.checked).toBe(true);
     });
   });
 
@@ -691,19 +1094,20 @@ describe('TestEditorValidationTab', () => {
         },
       })} />);
       expect(screen.getByText('FAILED')).toBeInTheDocument();
-      expect(screen.getByText('$.a')).toBeInTheDocument();
+      expect(screen.getAllByText('$.a').length).toBeGreaterThanOrEqual(1);
     });
 
     it('dismisses validation result on × click', () => {
       const setValidationResult = vi.fn();
       const draft = makeDraft({ validation: { mode: 'selective', assertions: [], expectedFields: [{ jsonPath: '$.a', expectedValue: '1' }] } });
-      render(<TestEditorValidationTab {...makeProps({
+      const { container } = render(<TestEditorValidationTab {...makeProps({
         draft,
         draftRef: { current: draft },
         validationResult: { passed: true, failures: [] },
         setValidationResult,
       })} />);
-      fireEvent.click(screen.getByText('×'));
+      const closeBtn = container.querySelector('.validate-result-header .btn.btn-xs') as HTMLElement;
+      fireEvent.click(closeBtn);
       expect(setValidationResult).toHaveBeenCalledWith(null);
     });
   });
@@ -750,28 +1154,6 @@ describe('TestEditorValidationTab', () => {
       })} />);
       fireEvent.click(screen.getByText(/Replace All/));
       expect(onFetchReplaceAll).toHaveBeenCalled();
-    });
-  });
-
-  describe('JsonPathBuilder callbacks', () => {
-    it('updates sample JSON through JsonPathBuilder', () => {
-      const onDraftChange = vi.fn();
-      const draft = makeDraft({ validation: { mode: 'selective', assertions: [] } });
-      render(<TestEditorValidationTab {...makeProps({ draft, draftRef: { current: draft }, onDraftChange })} />);
-      fireEvent.click(screen.getByTestId('change-sample'));
-      expect(onDraftChange).toHaveBeenCalledWith(expect.objectContaining({
-        validation: expect.objectContaining({ sampleJson: '{"new":"json"}' }),
-      }));
-    });
-
-    it('updates validation fields through JsonPathBuilder', () => {
-      const onDraftChange = vi.fn();
-      const draft = makeDraft({ validation: { mode: 'selective', assertions: [] } });
-      render(<TestEditorValidationTab {...makeProps({ draft, draftRef: { current: draft }, onDraftChange })} />);
-      fireEvent.click(screen.getByTestId('update-fields'));
-      expect(onDraftChange).toHaveBeenCalledWith(expect.objectContaining({
-        validation: expect.objectContaining({ expectedFields: [{ jsonPath: '$.x', expectedValue: '1' }] }),
-      }));
     });
   });
 
@@ -1171,13 +1553,13 @@ describe('TestEditorValidationTab', () => {
       expect(onFetchSampleResponse).toHaveBeenCalled();
     });
 
-    it('calls onValidateResponse when Verify Rules clicked', () => {
+    it('calls onValidateResponse when Verify clicked', () => {
       const onValidateResponse = vi.fn();
       const draft = makeDraft({
         validation: { mode: 'selective', assertions: [], expectedFields: [{ jsonPath: '$.a', expectedValue: '1' }] },
       });
       render(<TestEditorValidationTab {...makeProps({ draft, draftRef: { current: draft }, onValidateResponse })} />);
-      fireEvent.click(screen.getByText('Verify Rules'));
+      fireEvent.click(screen.getByText('Verify'));
       expect(onValidateResponse).toHaveBeenCalled();
     });
 
@@ -1643,6 +2025,1447 @@ describe('TestEditorValidationTab', () => {
       const updated = onDraftChange.mock.calls[0][0] as Scenario;
       expect(updated.validation.rulesVersions?.[0].label).toBe('renamed-rule');
       expect(updated.validation.rulesVersions?.[1].label).toBeUndefined();
+    });
+  });
+
+  describe('validation rules table view', () => {
+    const arrayDraft = makeDraft({
+      validation: {
+        mode: 'selective',
+        assertions: [],
+        expectedFields: [
+          { jsonPath: '$.offers[0].associatedOfferingCode', expectedValue: '"AAA"' },
+          { jsonPath: '$.offers[0].offerName', expectedValue: '"Alpha"' },
+          { jsonPath: '$.offers[1].associatedOfferingCode', expectedValue: '"BBB"' },
+          { jsonPath: '$.offers[1].offerName', expectedValue: '"Beta"' },
+        ],
+      },
+    });
+
+    it('shows List/Table toggle when rules contain array entries', () => {
+      render(<TestEditorValidationTab {...makeProps({ draft: arrayDraft, draftRef: { current: arrayDraft } })} />);
+      expect(screen.getByRole('tab', { name: 'List' })).toBeInTheDocument();
+      expect(screen.getByRole('tab', { name: 'Table' })).toBeInTheDocument();
+    });
+
+    it('hides List/Table toggle when there are no array rules', () => {
+      const flatDraft = makeDraft({
+        validation: {
+          mode: 'selective',
+          assertions: [],
+          expectedFields: [{ jsonPath: '$.id', expectedValue: '1' }],
+        },
+      });
+      render(<TestEditorValidationTab {...makeProps({ draft: flatDraft, draftRef: { current: flatDraft } })} />);
+      expect(screen.queryByRole('tab', { name: 'Table' })).not.toBeInTheDocument();
+    });
+
+    it('renders flat list view by default', () => {
+      render(<TestEditorValidationTab {...makeProps({ draft: arrayDraft, draftRef: { current: arrayDraft } })} />);
+      expect(screen.getByText('$.offers[0].associatedOfferingCode')).toBeInTheDocument();
+      expect(screen.getByText('$.offers[1].offerName')).toBeInTheDocument();
+    });
+
+    it('renders pivot table with field columns and indexed rows when Table is selected', () => {
+      render(<TestEditorValidationTab {...makeProps({ draft: arrayDraft, draftRef: { current: arrayDraft } })} />);
+      fireEvent.click(screen.getByRole('tab', { name: 'Table' }));
+
+      expect(screen.getByRole('columnheader', { name: 'associatedOfferingCode' })).toBeInTheDocument();
+      expect(screen.getByRole('columnheader', { name: 'offerName' })).toBeInTheDocument();
+      expect(screen.getByText('#0')).toBeInTheDocument();
+      expect(screen.getByText('#1')).toBeInTheDocument();
+      expect(screen.getByText('AAA')).toBeInTheDocument();
+      expect(screen.getByText('Alpha')).toBeInTheDocument();
+      expect(screen.getByText('BBB')).toBeInTheDocument();
+      expect(screen.getByText('Beta')).toBeInTheDocument();
+    });
+
+    it('List tab remains selectable when rules pivot mode can be toggled', () => {
+      render(<TestEditorValidationTab {...makeProps({ draft: arrayDraft, draftRef: { current: arrayDraft } })} />);
+      fireEvent.click(screen.getByRole('tab', { name: 'Table' }));
+      fireEvent.click(screen.getByRole('tab', { name: 'List' }));
+      expect(screen.getByRole('tab', { name: 'List' })).toHaveAttribute('aria-selected', 'true');
+      expect(screen.getByText('$.offers[0].associatedOfferingCode')).toBeInTheDocument();
+    });
+
+    it('removes a single rule from list view', () => {
+      const onDraftChange = vi.fn();
+      render(<TestEditorValidationTab {...makeProps({
+        draft: arrayDraft,
+        draftRef: { current: arrayDraft },
+        onDraftChange,
+      })} />);
+      const removeBtn = screen.getByRole('button', { name: 'Remove $.offers[1].offerName' });
+      fireEvent.click(removeBtn);
+      const updated = onDraftChange.mock.calls[0][0] as Scenario;
+      expect(updated.validation.expectedFields).toHaveLength(3);
+      expect(updated.validation.expectedFields?.find((f) => f.jsonPath === '$.offers[1].offerName')).toBeUndefined();
+    });
+
+    it('removes all rules for the row when remove is clicked in pivot view', () => {
+      const onDraftChange = vi.fn();
+      render(<TestEditorValidationTab {...makeProps({
+        draft: arrayDraft,
+        draftRef: { current: arrayDraft },
+        onDraftChange,
+      })} />);
+      fireEvent.click(screen.getByRole('tab', { name: 'Table' }));
+      const removeBtn = screen.getByRole('button', { name: 'Remove $.offers[1]' });
+      fireEvent.click(removeBtn);
+      const updated = onDraftChange.mock.calls[0][0] as Scenario;
+      expect(updated.validation.expectedFields).toHaveLength(2);
+      expect(updated.validation.expectedFields?.every((f) => !f.jsonPath.startsWith('$.offers[1]'))).toBe(true);
+    });
+  });
+
+  describe('typeCheck assertion row', () => {
+    it('adds a typeCheck assertion from + Add menu', () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft();
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      fireEvent.click(screen.getByText('+ Add'));
+      fireEvent.click(screen.getByText('Type Check'));
+      expect(onDraftChange).toHaveBeenCalled();
+      const updated = onDraftChange.mock.calls[0][0] as Scenario;
+      expect(updated.validation.assertions?.[0]).toMatchObject({ type: 'typeCheck', expectedType: 'string' });
+    });
+
+    it('renders TYPE badge and type selector', () => {
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{ type: 'typeCheck', jsonPath: '$.price', expectedType: 'number' }],
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef })} />);
+      expect(screen.getByText('TYPE')).toBeInTheDocument();
+      const select = screen.getByDisplayValue('number') as HTMLSelectElement;
+      expect(select).toBeInTheDocument();
+    });
+
+    it('updates typeCheck jsonPath', () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{ type: 'typeCheck', jsonPath: '$.a', expectedType: 'string' }],
+          sampleJson: '{}',
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      fireEvent.change(screen.getByPlaceholderText('$.price'), { target: { value: '$.name' } });
+      expect(onDraftChange).toHaveBeenCalled();
+    });
+
+    it('updates typeCheck expectedType', () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{ type: 'typeCheck', jsonPath: '$.a', expectedType: 'string' }],
+          sampleJson: '{}',
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      const select = screen.getByDisplayValue('string') as HTMLSelectElement;
+      fireEvent.change(select, { target: { value: 'array' } });
+      expect(onDraftChange).toHaveBeenCalled();
+      const updated = onDraftChange.mock.calls[0][0] as Scenario;
+      const assertion = updated.validation.assertions?.[0];
+      expect(assertion).toMatchObject({ type: 'typeCheck', expectedType: 'array' });
+    });
+
+    it('picks jsonPath from JsonPathPicker for typeCheck', async () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{ type: 'typeCheck', jsonPath: '', expectedType: 'string' }],
+          sampleJson: '{"age":25}',
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      fireEvent.click(screen.getAllByTitle('Pick JSON path from sample response')[0]!);
+      await waitFor(() => {
+        expect(screen.getByText('$.age')).toBeInTheDocument();
+      });
+      fireEvent.click(screen.getByText('$.age'));
+      expect(onDraftChange).toHaveBeenCalled();
+    });
+  });
+
+  describe('existence assertion row', () => {
+    it('adds an existence assertion from + Add menu', () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft();
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      fireEvent.click(screen.getByText('+ Add'));
+      fireEvent.click(screen.getByText('Field Exists'));
+      expect(onDraftChange).toHaveBeenCalled();
+      const updated = onDraftChange.mock.calls[0][0] as Scenario;
+      expect(updated.validation.assertions?.[0]).toMatchObject({ type: 'existence', expectExists: true });
+    });
+
+    it('renders EXISTS badge and exists/not_exists selector', () => {
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{ type: 'existence', jsonPath: '$.id', expectExists: true }],
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef })} />);
+      expect(screen.getByText('EXISTS')).toBeInTheDocument();
+      const select = screen.getByDisplayValue('exists') as HTMLSelectElement;
+      expect(select).toBeInTheDocument();
+    });
+
+    it('updates existence jsonPath', () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{ type: 'existence', jsonPath: '$.old', expectExists: true }],
+          sampleJson: '{}',
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      fireEvent.change(screen.getByPlaceholderText('$.metadata.tags'), { target: { value: '$.new' } });
+      expect(onDraftChange).toHaveBeenCalled();
+    });
+
+    it('toggles from exists to does not exist', () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{ type: 'existence', jsonPath: '$.id', expectExists: true }],
+          sampleJson: '{}',
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      const select = screen.getByDisplayValue('exists') as HTMLSelectElement;
+      fireEvent.change(select, { target: { value: 'not_exists' } });
+      expect(onDraftChange).toHaveBeenCalled();
+      const updated = onDraftChange.mock.calls[0][0] as Scenario;
+      const assertion = updated.validation.assertions?.[0];
+      expect(assertion).toMatchObject({ type: 'existence', expectExists: false });
+    });
+
+    it('picks jsonPath from JsonPathPicker for existence', async () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{ type: 'existence', jsonPath: '', expectExists: true }],
+          sampleJson: '{"tags":["a"]}',
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      fireEvent.click(screen.getAllByTitle('Pick JSON path from sample response')[0]!);
+      await waitFor(() => {
+        expect(screen.getByText('$.tags')).toBeInTheDocument();
+      });
+      fireEvent.click(screen.getByText('$.tags'));
+      expect(onDraftChange).toHaveBeenCalled();
+    });
+
+    it('toggles existence back from does not exist to exists', () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{ type: 'existence', jsonPath: '$.id', expectExists: false }],
+          sampleJson: '{}',
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      const select = screen.getByDisplayValue('does not exist') as HTMLSelectElement;
+      fireEvent.change(select, { target: { value: 'exists' } });
+      const updated = onDraftChange.mock.calls[0][0] as Scenario;
+      expect(updated.validation.assertions?.[0]).toMatchObject({ type: 'existence', expectExists: true });
+    });
+
+    it('updates typeCheck expectedType to boolean, object, and null', () => {
+      const types = ['boolean', 'object', 'null'] as const;
+      for (const expectedType of types) {
+        const onDraftChange = vi.fn();
+        const draft = makeDraft({
+          validation: {
+            mode: 'none',
+            assertions: [{ type: 'typeCheck', jsonPath: '$.x', expectedType: 'string' }],
+            sampleJson: '{}',
+          },
+        });
+        const draftRef = { current: draft };
+        const { unmount } = render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+        const sel = screen.getByDisplayValue('string') as HTMLSelectElement;
+        fireEvent.change(sel, { target: { value: expectedType } });
+        expect(onDraftChange).toHaveBeenCalled();
+        const next = onDraftChange.mock.calls[0][0] as Scenario;
+        expect(next.validation.assertions?.[0]).toMatchObject({ type: 'typeCheck', expectedType });
+        unmount();
+      }
+    });
+  });
+
+  describe('validation order mismatch hint', () => {
+    it('shows ordering hint and enables unordered matching then re-verifies', () => {
+      const onDraftChange = vi.fn();
+      const onValidateResponse = vi.fn();
+      const draft = makeDraft({
+        validation: {
+          mode: 'selective',
+          unorderedArrays: false,
+          assertions: [],
+          expectedFields: [{ jsonPath: '$.items[0].id', expectedValue: '"1"' }],
+        },
+      });
+      render(<TestEditorValidationTab {...makeProps({
+        draft,
+        draftRef: { current: draft },
+        validationResult: {
+          passed: false,
+          failures: [
+            {
+              path: '$.items[0].id',
+              expected: '"1"',
+              actual: '2 (matched by code=AAA at [1])',
+            },
+          ],
+          httpStatus: 200,
+        },
+        onDraftChange,
+        onValidateResponse,
+      })} />);
+
+      expect(screen.getByText(/array ordering mismatches/i)).toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: /Enable unordered matching/i }));
+      expect(onDraftChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          validation: expect.objectContaining({ unorderedArrays: true }),
+        }),
+      );
+      expect(onValidateResponse).toHaveBeenCalled();
+    });
+
+    it('does not show ordering hint when unorderedArrays already enabled', () => {
+      const draft = makeDraft({
+        validation: {
+          mode: 'selective',
+          unorderedArrays: true,
+          assertions: [],
+          expectedFields: [{ jsonPath: '$.items[0].id', expectedValue: '"1"' }],
+        },
+      });
+      render(<TestEditorValidationTab {...makeProps({
+        draft,
+        draftRef: { current: draft },
+        validationResult: {
+          passed: false,
+          failures: [
+            {
+              path: '$.items[0].id',
+              expected: '"1"',
+              actual: 'x (matched by y=z at [2])',
+            },
+          ],
+        },
+      })} />);
+      expect(screen.queryByText(/array ordering mismatches/i)).not.toBeInTheDocument();
+    });
+
+    it('does not show ordering hint when a failure lacks matched-by wording', () => {
+      const draft = makeDraft({
+        validation: {
+          mode: 'selective',
+          unorderedArrays: false,
+          assertions: [],
+          expectedFields: [{ jsonPath: '$.items[0].id', expectedValue: '"1"' }],
+        },
+      });
+      render(<TestEditorValidationTab {...makeProps({
+        draft,
+        draftRef: { current: draft },
+        validationResult: {
+          passed: false,
+          failures: [
+            { path: '$.items[0].id', expected: '"1"', actual: 'plain mismatch' },
+          ],
+        },
+      })} />);
+      expect(screen.queryByText(/array ordering mismatches/i)).not.toBeInTheDocument();
+    });
+  });
+
+  describe('header assertion regex operator', () => {
+    it('renders value input for regex and updates pattern', () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{ type: 'header', name: 'etag', operator: 'regex', value: '^v[0-9]+$' }],
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      expect(screen.getByPlaceholderText('Expected value')).toBeInTheDocument();
+      fireEvent.change(screen.getByPlaceholderText('Expected value'), { target: { value: '^abc$' } });
+      expect(onDraftChange).toHaveBeenCalled();
+    });
+
+    it('switches header operator to regex from equals', () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{ type: 'header', name: 'x', operator: 'equals', value: 'y' }],
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      fireEvent.change(screen.getByDisplayValue('equals'), { target: { value: 'regex' } });
+      expect(onDraftChange).toHaveBeenCalled();
+    });
+  });
+
+  describe('Phase 3 — collection assertion types in +Add menu', () => {
+    it('shows Array Contains, Each Element, Contains Subset in the add menu', () => {
+      render(<TestEditorValidationTab {...makeProps()} />);
+      fireEvent.click(screen.getByText('+ Add'));
+      expect(screen.getByText('Array Contains')).toBeInTheDocument();
+      expect(screen.getByText('Each Element')).toBeInTheDocument();
+      expect(screen.getByText('Contains Subset')).toBeInTheDocument();
+    });
+
+    it('adds arrayContains assertion via +Add', () => {
+      const onDraftChange = vi.fn();
+      render(<TestEditorValidationTab {...makeProps({ onDraftChange })} />);
+      fireEvent.click(screen.getByText('+ Add'));
+      fireEvent.click(screen.getByText('Array Contains'));
+      expect(onDraftChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          validation: expect.objectContaining({
+            assertions: [{ type: 'arrayContains', jsonPath: '', value: '', mode: 'any' }],
+          }),
+        }),
+      );
+    });
+
+    it('adds each assertion via +Add', () => {
+      const onDraftChange = vi.fn();
+      render(<TestEditorValidationTab {...makeProps({ onDraftChange })} />);
+      fireEvent.click(screen.getByText('+ Add'));
+      fireEvent.click(screen.getByText('Each Element'));
+      expect(onDraftChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          validation: expect.objectContaining({
+            assertions: [{ type: 'each', jsonPath: '', fieldPath: '', operator: 'greater_than_or_equal', value: '0' }],
+          }),
+        }),
+      );
+    });
+
+    it('adds containsSubset assertion via +Add', () => {
+      const onDraftChange = vi.fn();
+      render(<TestEditorValidationTab {...makeProps({ onDraftChange })} />);
+      fireEvent.click(screen.getByText('+ Add'));
+      fireEvent.click(screen.getByText('Contains Subset'));
+      expect(onDraftChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          validation: expect.objectContaining({
+            assertions: [{ type: 'containsSubset', jsonPath: '$', expected: '{}' }],
+          }),
+        }),
+      );
+    });
+
+    it('renders CONTAINS badge for arrayContains assertion', () => {
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{ type: 'arrayContains', jsonPath: '$.items', value: '1', mode: 'any' }],
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef })} />);
+      expect(screen.getByText('CONTAINS')).toBeInTheDocument();
+    });
+
+    it('renders EACH badge for each assertion', () => {
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{ type: 'each', jsonPath: '$.items', fieldPath: 'rank', operator: 'greater_than_or_equal', value: '0' }],
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef })} />);
+      expect(screen.getByText('EACH')).toBeInTheDocument();
+    });
+
+    it('hides value input on each-element row for operators without a value', () => {
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{ type: 'each', jsonPath: '$.items', fieldPath: 'flag', operator: 'is_true', value: '' }],
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef })} />);
+      const row = screen.getByText('EACH').closest('.assertion-row')!;
+      expect(row.querySelector('input[placeholder="value"]')).toBeNull();
+    });
+
+    it('renders SUBSET badge for containsSubset assertion', () => {
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{ type: 'containsSubset', jsonPath: '$', expected: '{}' }],
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef })} />);
+      expect(screen.getByText('SUBSET')).toBeInTheDocument();
+    });
+
+    it('renders mode dropdown for arrayContains', () => {
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{ type: 'arrayContains', jsonPath: '$.items', value: '1', mode: 'any' }],
+        },
+      });
+      const draftRef = { current: draft };
+      const onDraftChange = vi.fn();
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      const modeSelect = screen.getByDisplayValue('any (at least one)');
+      expect(modeSelect).toBeInTheDocument();
+      fireEvent.change(modeSelect, { target: { value: 'all' } });
+      expect(onDraftChange).toHaveBeenCalled();
+    });
+
+    it('renders operator dropdown for each assertion', () => {
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{ type: 'each', jsonPath: '$.items', fieldPath: 'rank', operator: 'greater_than_or_equal', value: '0' }],
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef })} />);
+      expect(screen.getByDisplayValue('>=')).toBeInTheDocument();
+    });
+
+    it('renders JSON textarea for containsSubset', () => {
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{ type: 'containsSubset', jsonPath: '$', expected: '{"status": "ok"}' }],
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef })} />);
+      expect(screen.getByDisplayValue('{"status": "ok"}')).toBeInTheDocument();
+    });
+  });
+
+  describe('custom predicate assertion', () => {
+    it('shows Custom Predicate in the +Add menu', () => {
+      render(<TestEditorValidationTab {...makeProps()} />);
+      fireEvent.click(screen.getByText('+ Add'));
+      expect(screen.getByText('Custom Predicate')).toBeInTheDocument();
+      expect(screen.getByTitle('Write an expression that evaluates to truthy/falsy')).toBeInTheDocument();
+    });
+
+    it('adds a custom assertion via +Add menu', () => {
+      const onDraftChange = vi.fn();
+      render(<TestEditorValidationTab {...makeProps({ onDraftChange })} />);
+      fireEvent.click(screen.getByText('+ Add'));
+      fireEvent.click(screen.getByText('Custom Predicate'));
+      expect(onDraftChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          validation: expect.objectContaining({
+            assertions: [{ type: 'custom', expression: '', description: '' }],
+          }),
+        }),
+      );
+    });
+
+    it('renders custom assertion row with CUSTOM badge', () => {
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{ type: 'custom', expression: '$eq($.status, 200)', description: 'Status OK' }],
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef })} />);
+      expect(screen.getByText('CUSTOM')).toBeInTheDocument();
+    });
+
+    it('renders expression textarea and description input', () => {
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{ type: 'custom', expression: '$gt($.body.age, 18)', description: 'Must be adult' }],
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef })} />);
+      expect(screen.getByDisplayValue('$gt($.body.age, 18)')).toBeInTheDocument();
+      expect(screen.getByDisplayValue('Must be adult')).toBeInTheDocument();
+    });
+
+    it('renders help hint with variable reference info', () => {
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{ type: 'custom', expression: '' }],
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef })} />);
+      expect(screen.getByText(/\$\.body/)).toBeInTheDocument();
+      expect(screen.getByText(/\$\.status/)).toBeInTheDocument();
+    });
+
+    it('updates expression when textarea changes', () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{ type: 'custom', expression: '', description: '' }],
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ onDraftChange, draft, draftRef })} />);
+      const textarea = screen.getByLabelText('Custom predicate expression');
+      fireEvent.change(textarea, { target: { value: '$eq($.status, 200)' } });
+      expect(onDraftChange).toHaveBeenCalled();
+    });
+
+    it('sets description to undefined when description input is cleared', () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{ type: 'custom', expression: 'true', description: 'note' }],
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      fireEvent.change(screen.getByLabelText('Custom predicate description'), { target: { value: '' } });
+      const updated = onDraftChange.mock.calls[0][0] as Scenario;
+      expect(updated.validation.assertions?.[0]).toMatchObject({ type: 'custom', description: undefined });
+    });
+  });
+
+  describe('body validation radios — selective to none', () => {
+    it('switches from selective mode to none', () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({ validation: { mode: 'selective', assertions: [] } });
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef: { current: draft }, onDraftChange })} />);
+      fireEvent.click(screen.getByLabelText('No Body Validation'));
+      expect(onDraftChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          validation: expect.objectContaining({ mode: 'none' }),
+        }),
+      );
+    });
+  });
+
+  describe('assertion negate toggle', () => {
+    it('sets negate on status assertion when NOT is clicked', () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{ type: 'status', expected: '200' }],
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      fireEvent.click(screen.getByRole('button', { name: 'Negate assertion' }));
+      expect(onDraftChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          validation: expect.objectContaining({
+            assertions: [expect.objectContaining({ type: 'status', negate: true })],
+          }),
+        }),
+      );
+    });
+
+    it('clears negate when NOT is clicked again', () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{ type: 'status', expected: '200', negate: true }],
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      fireEvent.click(screen.getByRole('button', { name: 'Remove negation' }));
+      expect(onDraftChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          validation: expect.objectContaining({
+            assertions: [expect.objectContaining({ type: 'status', negate: undefined })],
+          }),
+        }),
+      );
+    });
+  });
+
+  describe('jsonSchema assertion row', () => {
+    it('adds jsonSchema assertion from + Add menu', () => {
+      const onDraftChange = vi.fn();
+      render(<TestEditorValidationTab {...makeProps({ onDraftChange })} />);
+      fireEvent.click(screen.getByText('+ Add'));
+      fireEvent.click(screen.getByText('JSON Schema'));
+      expect(onDraftChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          validation: expect.objectContaining({
+            assertions: [{ type: 'jsonSchema', schema: '{}' }],
+          }),
+        }),
+      );
+    });
+
+    it('formats schema JSON via Pretty toolbar button', () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{ type: 'jsonSchema', schema: '{"a":1}' }],
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      fireEvent.click(screen.getByTitle('Pretty-print JSON with indentation'));
+      expect(onDraftChange).toHaveBeenCalled();
+      const updated = onDraftChange.mock.calls[0][0] as Scenario;
+      expect(updated.validation.assertions?.[0]).toMatchObject({ type: 'jsonSchema' });
+      expect((updated.validation.assertions?.[0] as { schema: string }).schema).toContain('\n');
+    });
+
+    it('minifies schema JSON via Minify toolbar button', () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{ type: 'jsonSchema', schema: '{\n  "a": 1\n}' }],
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      fireEvent.click(screen.getByTitle('Minify JSON to single line'));
+      expect(onDraftChange).toHaveBeenCalled();
+      const updated = onDraftChange.mock.calls[0][0] as Scenario;
+      const schema = (updated.validation.assertions?.[0] as { schema: string }).schema;
+      expect(schema).not.toContain('\n');
+      expect(() => JSON.parse(schema)).not.toThrow();
+    });
+
+    it('generates schema from sample response when toolbar button is used', () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          sampleJson: '{"id":1,"name":"x"}',
+          assertions: [{ type: 'jsonSchema', schema: '{}' }],
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      fireEvent.click(screen.getByTitle('Generate schema from sample response'));
+      expect(onDraftChange).toHaveBeenCalled();
+      const updated = onDraftChange.mock.calls[0][0] as Scenario;
+      const schema = (updated.validation.assertions?.[0] as { schema: string }).schema;
+      expect(() => JSON.parse(schema)).not.toThrow();
+      expect(schema).toContain('type');
+    });
+
+    it('generates schema from empty object sample using non-strict mode', () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          sampleJson: '{}',
+          assertions: [{ type: 'jsonSchema', schema: '{}' }],
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      fireEvent.click(screen.getByTitle('Generate schema from sample response'));
+      expect(onDraftChange).toHaveBeenCalled();
+    });
+
+    it('shows schema parse error styling and message for invalid JSON', () => {
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{ type: 'jsonSchema', schema: '{not json' }],
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef })} />);
+      expect(document.querySelector('.assertion-input-schema--invalid')).toBeInTheDocument();
+      expect(document.querySelector('.assertion-schema-error')).toBeInTheDocument();
+    });
+
+    it('shows generic invalid label when schema parse throws non-Error', () => {
+      const orig = JSON.parse.bind(JSON);
+      const parseSpy = vi.spyOn(JSON, 'parse').mockImplementation((text: string, rev?: (k: string, v: unknown) => unknown) => {
+        if (text === '{"__throw_string__":1}') throw 'not an error object';
+        return orig(text, rev as (key: string, value: unknown) => unknown | undefined);
+      });
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{ type: 'jsonSchema', schema: '{"__throw_string__":1}' }],
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef })} />);
+      expect(document.querySelector('.assertion-schema-error')).toHaveTextContent('Invalid JSON');
+      parseSpy.mockRestore();
+    });
+
+    it('pastes schema from clipboard when Paste Schema is clicked', async () => {
+      const readText = vi.fn().mockResolvedValue('{"type":"array"}');
+      Object.assign(navigator, { clipboard: { readText } });
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{ type: 'jsonSchema', schema: '{}' }],
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      fireEvent.click(screen.getByTitle('Paste schema from clipboard'));
+      await waitFor(() => {
+        expect(onDraftChange).toHaveBeenCalled();
+      });
+      const updated = onDraftChange.mock.calls.at(-1)![0] as Scenario;
+      expect((updated.validation.assertions?.[0] as { schema: string }).schema).toBe('{"type":"array"}');
+    });
+
+    it('does not call onDraftChange when Paste Schema clicked without clipboard.readText', () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{ type: 'jsonSchema', schema: '{}' }],
+        },
+      });
+      const draftRef = { current: draft };
+      const nav = navigator as Navigator & { clipboard?: { readText?: () => Promise<string> } };
+      const prev = nav.clipboard;
+      Object.defineProperty(nav, 'clipboard', { value: {}, configurable: true });
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      fireEvent.click(screen.getByTitle('Paste schema from clipboard'));
+      expect(onDraftChange).not.toHaveBeenCalled();
+      Object.defineProperty(nav, 'clipboard', { value: prev, configurable: true });
+    });
+  });
+
+  describe('bodySize assertion row', () => {
+    it('adds bodySize assertion from + Add menu', () => {
+      const onDraftChange = vi.fn();
+      render(<TestEditorValidationTab {...makeProps({ onDraftChange })} />);
+      fireEvent.click(screen.getByText('+ Add'));
+      fireEvent.click(screen.getByText('Body Size'));
+      expect(onDraftChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          validation: expect.objectContaining({
+            assertions: [expect.objectContaining({ type: 'bodySize', unit: 'kb' })],
+          }),
+        }),
+      );
+    });
+
+    it('updates body size operator, value, and unit', () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{ type: 'bodySize', operator: '<=', value: 1024, unit: 'kb' }],
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      expect(screen.getByText('SIZE')).toBeInTheDocument();
+      const row = screen.getByText('SIZE').closest('.assertion-row')!;
+      fireEvent.change(row.querySelector('.assertion-select--operator')!, { target: { value: '>' } });
+      draftRef.current = onDraftChange.mock.calls.at(-1)![0] as Scenario;
+      fireEvent.change(row.querySelector('input[type="number"]')!, { target: { value: '10' } });
+      draftRef.current = onDraftChange.mock.calls.at(-1)![0] as Scenario;
+      fireEvent.change(row.querySelector('.assertion-select--unit')!, { target: { value: 'mb' } });
+      expect(onDraftChange).toHaveBeenCalled();
+      const last = onDraftChange.mock.calls.at(-1)![0] as Scenario;
+      expect(last.validation.assertions?.[0]).toMatchObject({ type: 'bodySize', operator: '>', value: 10, unit: 'mb' });
+    });
+
+    it('stores zero when body size number input is cleared', () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{ type: 'bodySize', operator: '<=', value: 10, unit: 'kb' }],
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      const row = screen.getByText('SIZE').closest('.assertion-row')!;
+      fireEvent.change(row.querySelector('input[type="number"]')!, { target: { value: '' } });
+      const updated = onDraftChange.mock.calls.at(-1)![0] as Scenario;
+      expect(updated.validation.assertions?.[0]).toMatchObject({ type: 'bodySize', value: 0 });
+    });
+  });
+
+  describe('datePrecise assertion row', () => {
+    it('adds datePrecise assertion from + Add menu', () => {
+      const onDraftChange = vi.fn();
+      render(<TestEditorValidationTab {...makeProps({ onDraftChange })} />);
+      fireEvent.click(screen.getByText('+ Add'));
+      fireEvent.click(screen.getByText('Date Precise'));
+      expect(onDraftChange).toHaveBeenCalled();
+      const updated = onDraftChange.mock.calls[0][0] as Scenario;
+      expect(updated.validation.assertions?.[0]).toMatchObject({
+        type: 'datePrecise',
+        jsonPath: '',
+        precision: 'second',
+      });
+    });
+
+    it('updates datePrecise fields', () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          sampleJson: '{"t":"x"}',
+          assertions: [{
+            type: 'datePrecise',
+            jsonPath: '$.t',
+            operator: '=',
+            reference: '2020-06-01T12:00:00.000Z',
+            precision: 'second',
+          }],
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      expect(screen.getByText('DATE⁺')).toBeInTheDocument();
+      const row = screen.getByText('DATE⁺').closest('.assertion-row')!;
+      fireEvent.change(row.querySelector('.assertion-select--operator')!, { target: { value: '>' } });
+      draftRef.current = onDraftChange.mock.calls.at(-1)![0] as Scenario;
+      fireEvent.change(row.querySelector('.assertion-select--precision')!, { target: { value: 'minute' } });
+      expect(onDraftChange).toHaveBeenCalled();
+    });
+
+    it('calendar button and precision dropdown are inside the date-wrap group', () => {
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{
+            type: 'datePrecise',
+            jsonPath: '$.t',
+            operator: '=',
+            reference: '2020-06-01T12:00:00.000Z',
+            precision: 'second',
+          }],
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef })} />);
+      const row = screen.getByText('DATE⁺').closest('.assertion-row')!;
+
+      const dateWrap = row.querySelector('.assertion-date-wrap')!;
+      const precisionSelect = row.querySelector('.assertion-select--precision')!;
+      const calendarBtn = row.querySelector('.assertion-date-btn')!;
+      const dateInput = row.querySelector('.assertion-input-date')!;
+
+      expect(dateWrap).toBeTruthy();
+      expect(precisionSelect).toBeTruthy();
+      expect(calendarBtn).toBeTruthy();
+      expect(dateInput).toBeTruthy();
+
+      // All three are inside the same date-wrap container
+      expect(dateWrap.contains(dateInput)).toBe(true);
+      expect(dateWrap.contains(calendarBtn)).toBe(true);
+      expect(dateWrap.contains(precisionSelect)).toBe(true);
+    });
+
+    it('invokes showPicker from datePrecise calendar control when supported', () => {
+      const showPicker = vi.fn();
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{
+            type: 'datePrecise',
+            jsonPath: '$.t',
+            operator: '=',
+            reference: '2020-06-01T12:00:00.000Z',
+            precision: 'second',
+          }],
+        },
+      });
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef: { current: draft } })} />);
+      const row = screen.getByText('DATE⁺').closest('.assertion-row')!;
+      const dt = row.querySelector('.assertion-input-date') as HTMLInputElement;
+      Object.defineProperty(dt, 'showPicker', { configurable: true, value: showPicker });
+      fireEvent.click(row.querySelector('.assertion-date-btn')!);
+      expect(showPicker).toHaveBeenCalled();
+    });
+
+    it('renders empty datetime-local when datePrecise reference is empty', () => {
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{
+            type: 'datePrecise',
+            jsonPath: '$.t',
+            operator: '=',
+            reference: '',
+            precision: 'second',
+          } as Assertion],
+        },
+      });
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef: { current: draft } })} />);
+      const dt = document.querySelector('.assertion-field--dateprecise input[type="datetime-local"]') as HTMLInputElement;
+      expect(dt.value).toBe('');
+    });
+
+    it('sets ISO reference when datetime-local receives a value', () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{
+            type: 'datePrecise',
+            jsonPath: '$.t',
+            operator: '=',
+            reference: '',
+            precision: 'second',
+          } as Assertion],
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      const dt = document.querySelector('.assertion-field--dateprecise input[type="datetime-local"]') as HTMLInputElement;
+      fireEvent.change(dt, { target: { value: '2020-06-15T10:30' } });
+      expect(onDraftChange).toHaveBeenCalled();
+      const updated = onDraftChange.mock.calls.at(-1)![0] as Scenario;
+      expect((updated.validation.assertions?.[0] as { reference: string }).reference).toContain('2020-06-15');
+    });
+
+    it('updates datePrecise jsonPath via path input', () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{
+            type: 'datePrecise',
+            jsonPath: '$.old',
+            operator: '=',
+            reference: '2020-06-01T12:00:00.000Z',
+            precision: 'second',
+          }],
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      fireEvent.change(screen.getByPlaceholderText('$.timestamp'), { target: { value: '$.createdAt' } });
+      expect(onDraftChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          validation: expect.objectContaining({
+            assertions: [expect.objectContaining({ type: 'datePrecise', jsonPath: '$.createdAt' })],
+          }),
+        }),
+      );
+    });
+
+    it('clears datePrecise ISO reference when datetime-local is cleared', () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{
+            type: 'datePrecise',
+            jsonPath: '$.t',
+            operator: '=',
+            reference: '2020-06-15T10:30:00.000Z',
+            precision: 'hour',
+          }],
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      const dt = document.querySelector('.assertion-field--dateprecise input[type="datetime-local"]') as HTMLInputElement;
+      fireEvent.change(dt, { target: { value: '' } });
+      expect(onDraftChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          validation: expect.objectContaining({
+            assertions: [expect.objectContaining({ type: 'datePrecise', reference: '' })],
+          }),
+        }),
+      );
+    });
+  });
+
+  describe('assertion type badge labels', () => {
+    it('renders expected badge text for each assertion type', () => {
+      const unknown = { type: 'totallyUnknown' } as unknown as Assertion;
+      const assertionsList: Assertion[] = [
+        { type: 'status', expected: '200' },
+        { type: 'responseTime', maxMs: 1 },
+        { type: 'header', name: 'h', operator: 'exists' },
+        { type: 'regex', jsonPath: '$', pattern: '.' },
+        { type: 'arrayLength', jsonPath: '$', operator: '=', value: 0 },
+        { type: 'numeric', jsonPath: '$', operator: '=', value: 0 },
+        { type: 'date', jsonPath: '$', operator: '=', reference: { kind: 'today', timezone: 'utc' } },
+        { type: 'typeCheck', jsonPath: '$', expectedType: 'string' },
+        { type: 'existence', jsonPath: '$', expectExists: true },
+        { type: 'arrayContains', jsonPath: '$', value: '', mode: 'any' },
+        { type: 'each', jsonPath: '$', fieldPath: 'a', operator: 'exists' },
+        { type: 'containsSubset', jsonPath: '$', expected: '{}' },
+        { type: 'jsonSchema', schema: '{}' },
+        { type: 'bodySize', operator: '=', value: 1, unit: 'bytes' },
+        {
+          type: 'datePrecise',
+          jsonPath: '$',
+          operator: '=',
+          reference: '2020-01-01T00:00:00.000Z',
+          precision: 'day',
+        },
+        { type: 'custom', expression: 'true' },
+        unknown,
+      ];
+      const draft = makeDraft({
+        validation: { mode: 'none', assertions: assertionsList },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef })} />);
+      expect(screen.getByText('STATUS')).toBeInTheDocument();
+      expect(screen.getByText('TIME')).toBeInTheDocument();
+      expect(screen.getByText('HEADER')).toBeInTheDocument();
+      expect(screen.getByText('REGEX')).toBeInTheDocument();
+      expect(screen.getByText('ARRAY')).toBeInTheDocument();
+      expect(screen.getByText('NUMBER')).toBeInTheDocument();
+      expect(screen.getByText('DATE')).toBeInTheDocument();
+      expect(screen.getByText('TYPE')).toBeInTheDocument();
+      expect(screen.getByText('EXISTS')).toBeInTheDocument();
+      expect(screen.getByText('CONTAINS')).toBeInTheDocument();
+      expect(screen.getByText('EACH')).toBeInTheDocument();
+      expect(screen.getByText('SCHEMA')).toBeInTheDocument();
+      expect(screen.getByText('SIZE')).toBeInTheDocument();
+      expect(screen.getByText('DATE⁺')).toBeInTheDocument();
+      expect(screen.getByText('CUSTOM')).toBeInTheDocument();
+      expect(screen.getAllByText('SUBSET')).toHaveLength(2);
+    });
+  });
+
+  describe('interaction coverage — remaining assertion handlers', () => {
+    it('returns early when Keep Rules is clicked without onFetchKeepRules callback', () => {
+      const draft = makeDraft({
+        validation: {
+          mode: 'selective',
+          sampleJson: '{}',
+          expectedFields: [{ jsonPath: '$.a', expectedValue: '1' }],
+          assertions: [],
+        },
+      });
+      render(<TestEditorValidationTab {...makeProps({
+        draft,
+        draftRef: { current: draft },
+        pendingFetchResponse: '{"b":2}',
+        onFetchReplaceAll: vi.fn(),
+        onFetchCancel: vi.fn(),
+      })} />);
+      fireEvent.click(screen.getByText('Keep Rules & Update Response'));
+    });
+
+    it('updates jsonSchema textarea via direct typing', () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{ type: 'jsonSchema', schema: '{"a":1}' }],
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      const ta = document.querySelector('.assertion-input-schema') as HTMLTextAreaElement;
+      fireEvent.change(ta, { target: { value: '{"b":2}' } });
+      expect(onDraftChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          validation: expect.objectContaining({
+            assertions: [expect.objectContaining({ type: 'jsonSchema', schema: '{"b":2}' })],
+          }),
+        }),
+      );
+    });
+
+    it('updates arrayContains JSON textarea', () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          sampleJson: '[]',
+          assertions: [{ type: 'arrayContains', jsonPath: '$.items', value: '', mode: 'any' }],
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      fireEvent.change(screen.getByPlaceholderText(/\{"name": "example"\}/), { target: { value: '{"id":1}' } });
+      expect(onDraftChange).toHaveBeenCalled();
+    });
+
+    it('updates containsSubset expected textarea', () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{ type: 'containsSubset', jsonPath: '$', expected: '{}' }],
+          sampleJson: '{}',
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      const tas = screen.getAllByPlaceholderText(/\{"status": "active"/);
+      fireEvent.change(tas[0]!, { target: { value: '{"status":"ok"}' } });
+      expect(onDraftChange).toHaveBeenCalled();
+    });
+
+    it('picks jsonPath on datePrecise row via JsonPathPicker', async () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          sampleJson: '{"when":"2024-01-01"}',
+          assertions: [{
+            type: 'datePrecise',
+            jsonPath: '',
+            operator: '=',
+            reference: '2024-06-01T12:00:00.000Z',
+            precision: 'day',
+          }],
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      fireEvent.click(screen.getAllByTitle('Pick JSON path from sample response')[0]!);
+      await waitFor(() => {
+        expect(screen.getByText('$.when')).toBeInTheDocument();
+      });
+      fireEvent.click(screen.getByText('$.when'));
+      expect(onDraftChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          validation: expect.objectContaining({
+            assertions: [expect.objectContaining({ type: 'datePrecise', jsonPath: '$.when' })],
+          }),
+        }),
+      );
+    });
+
+    it('maps each-element JsonPathPicker selection from $.field form', async () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          sampleJson: '[{"score":99}]',
+          assertions: [{
+            type: 'each',
+            jsonPath: '$',
+            fieldPath: '',
+            operator: 'greater_than',
+            value: '0',
+          }],
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      const pickButtons = screen.getAllByTitle('Pick JSON path from sample response');
+      fireEvent.click(pickButtons[pickButtons.length - 1]!);
+      await waitFor(() => {
+        expect(screen.getByText('$.score')).toBeInTheDocument();
+      });
+      fireEvent.click(screen.getByText('$.score'));
+      expect(onDraftChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          validation: expect.objectContaining({
+            assertions: [expect.objectContaining({ type: 'each', fieldPath: 'score' })],
+          }),
+        }),
+      );
+    });
+
+    it('maps each-element JsonPathPicker root $ to empty fieldPath', async () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          sampleJson: '[{"score":99}]',
+          assertions: [{
+            type: 'each',
+            jsonPath: '$',
+            fieldPath: 'score',
+            operator: 'greater_than',
+            value: '0',
+          }],
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      const row = screen.getByText('EACH').closest('.assertion-row')!;
+      const innerWrap = row.querySelectorAll('.jpp-wrap')[1];
+      fireEvent.click(innerWrap!.querySelector('.jpp-btn')!);
+      await waitFor(() => {
+        expect(innerWrap!.querySelectorAll('button.jpp-item').length).toBeGreaterThan(0);
+      });
+      fireEvent.click(innerWrap!.querySelector('button.jpp-item')!);
+      expect(onDraftChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          validation: expect.objectContaining({
+            assertions: [expect.objectContaining({ type: 'each', fieldPath: '' })],
+          }),
+        }),
+      );
+    });
+
+    it('updates arrayContains jsonPath via input', () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          sampleJson: '{"items":[]}',
+          assertions: [{ type: 'arrayContains', jsonPath: '', value: '', mode: 'any' }],
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      fireEvent.change(screen.getByPlaceholderText('$.items'), { target: { value: '$.items' } });
+      expect(onDraftChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          validation: expect.objectContaining({
+            assertions: [expect.objectContaining({ type: 'arrayContains', jsonPath: '$.items' })],
+          }),
+        }),
+      );
+    });
+
+    it('selects jsonPath on arrayContains row via JsonPathPicker', async () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          sampleJson: '{"items":[1]}',
+          assertions: [{ type: 'arrayContains', jsonPath: '', value: '', mode: 'any' }],
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      fireEvent.click(screen.getAllByTitle('Pick JSON path from sample response')[0]!);
+      await waitFor(() => expect(screen.getByText('$.items')).toBeInTheDocument());
+      fireEvent.click(screen.getAllByRole('button').find((b) => b.querySelector('.jpp-path')?.textContent === '$.items')!);
+      expect(onDraftChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          validation: expect.objectContaining({
+            assertions: [expect.objectContaining({ type: 'arrayContains', jsonPath: '$.items' })],
+          }),
+        }),
+      );
+    });
+
+    it('updates each assertion jsonPath, fieldPath, operator, and hides value when operator is exists', () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          sampleJson: '[{"id":1}]',
+          assertions: [{
+            type: 'each',
+            jsonPath: '',
+            fieldPath: '',
+            operator: 'greater_than',
+            value: '5',
+          }],
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      fireEvent.change(screen.getByPlaceholderText('$.items'), { target: { value: '$' } });
+      draftRef.current = onDraftChange.mock.calls.at(-1)![0] as Scenario;
+      fireEvent.change(screen.getByPlaceholderText('field (e.g. rank)'), { target: { value: 'id' } });
+      draftRef.current = onDraftChange.mock.calls.at(-1)![0] as Scenario;
+      fireEvent.change(screen.getByDisplayValue('>'), { target: { value: 'exists' } });
+      const updated = onDraftChange.mock.calls.at(-1)![0] as Scenario;
+      expect(updated.validation.assertions?.[0]).toMatchObject({
+        type: 'each',
+        jsonPath: '$',
+        fieldPath: 'id',
+        operator: 'exists',
+      });
+    });
+
+    it('updates containsSubset jsonPath via input and picker', async () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          sampleJson: '{"data":{"x":1}}',
+          assertions: [{ type: 'containsSubset', jsonPath: '$', expected: '{}' }],
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      fireEvent.change(screen.getByPlaceholderText('$'), { target: { value: '$.data' } });
+      draftRef.current = onDraftChange.mock.calls.at(-1)![0] as Scenario;
+      fireEvent.click(screen.getAllByTitle('Pick JSON path from sample response')[0]!);
+      await waitFor(() => expect(screen.getByText('$.data')).toBeInTheDocument());
+      fireEvent.click(screen.getAllByRole('button').find((b) => b.querySelector('.jpp-path')?.textContent === '$.data')!);
+      expect(onDraftChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          validation: expect.objectContaining({
+            assertions: [expect.objectContaining({ type: 'containsSubset', jsonPath: '$.data' })],
+          }),
+        }),
+      );
+    });
+  });
+
+  describe('AssertionPresetMenu — merge import', () => {
+    it('appends preset assertions without replacing existing ones', async () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{ type: 'status', expected: '404' }],
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      fireEvent.click(screen.getByText('📋 Presets'));
+      await waitFor(() => {
+        expect(screen.getByText('API Health Check')).toBeInTheDocument();
+      });
+      fireEvent.click(screen.getByText('API Health Check'));
+      expect(onDraftChange).toHaveBeenCalled();
+      const updated = onDraftChange.mock.calls[0][0] as Scenario;
+      expect(updated.validation.assertions?.length).toBeGreaterThan(1);
+      expect(updated.validation.assertions?.[0]).toMatchObject({ type: 'status', expected: '404' });
     });
   });
 });

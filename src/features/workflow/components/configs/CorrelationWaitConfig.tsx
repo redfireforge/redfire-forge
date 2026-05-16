@@ -3,6 +3,11 @@ import type { CorrelationWaitNodeData } from '../../types/workflow';
 import type { WorkflowVariableHint } from '../../utils/workflowVariableHints';
 import InsertVarField from '../expression/InsertVarField';
 import AvailableVariables from '../expression/AvailableVariables';
+import { DataMapperModal, createWebhookExtractionAdapter } from '../../../../shared/components/data-mapper';
+import type { WebhookExtractionOutput } from '../../../../shared/components/data-mapper';
+import { getByPath, setByPath } from '../../../../shared/utils/jsonPath';
+
+const EMPTY_EXTRACT_VARS: WebhookExtractionOutput = [];
 
 const SOURCE_OPTIONS: { value: CorrelationWaitNodeData['correlationSource']; label: string }[] = [
   { value: 'body', label: 'Request Body (JSONPath)' },
@@ -34,6 +39,9 @@ export default function CorrelationWaitConfig({
   const [pausedCorrelations, setPausedCorrelations] = useState<PausedCorrelation[]>([]);
   const [loadingPaused, setLoadingPaused] = useState(false);
 
+  // ── Data Mapper state ──
+  const [showMapper, setShowMapper] = useState(false);
+
   // Fetch currently paused correlations from the server
   const fetchPausedCorrelations = useCallback(async () => {
     setLoadingPaused(true);
@@ -61,28 +69,12 @@ export default function CorrelationWaitConfig({
   // Build a default payload structure based on correlation source and extract variables
   const buildDefaultPayload = useCallback(() => {
     const payload: Record<string, unknown> = {};
-    // Add correlation ID field based on source config
     if (data.correlationSource === 'body' && data.correlationJsonPath) {
-      const path = data.correlationJsonPath.replace(/^\$\.?/, '');
-      const keys = path.split('.');
-      let current = payload;
-      for (let i = 0; i < keys.length - 1; i++) {
-        current[keys[i]] = current[keys[i]] || {};
-        current = current[keys[i]] as Record<string, unknown>;
-      }
-      current[keys[keys.length - 1]] = data.correlationIdExpression || '<correlationId>';
+      setByPath(payload, data.correlationJsonPath, data.correlationIdExpression || '<correlationId>');
     }
-    // Add extract variables
     for (const ev of data.extractVariables ?? []) {
       if (ev.name && ev.jsonPath) {
-        const path = ev.jsonPath.replace(/^\$\.?/, '');
-        const keys = path.split('.');
-        let current = payload;
-        for (let i = 0; i < keys.length - 1; i++) {
-          current[keys[i]] = current[keys[i]] || {};
-          current = current[keys[i]] as Record<string, unknown>;
-        }
-        current[keys[keys.length - 1]] = `<${ev.name}>`;
+        setByPath(payload, ev.jsonPath, `<${ev.name}>`);
       }
     }
     return payload;
@@ -93,17 +85,28 @@ export default function CorrelationWaitConfig({
     return JSON.stringify(buildDefaultPayload(), null, 2);
   }, [buildDefaultPayload]);
 
+  const mapperAdapter = useMemo(
+    () => createWebhookExtractionAdapter({
+      samplePayload: testPayload || defaultPayload,
+      sourceLabel: 'Correlation Payload',
+      title: 'Correlation Payload → Variables',
+    }),
+    [testPayload, defaultPayload],
+  );
+
   const handleSendTestWebhook = useCallback(async () => {
     setTestSending(true);
     setTestResult(null);
     try {
       const payloadStr = testPayload || defaultPayload;
       const body = JSON.parse(payloadStr);
+      const corrPath = data.correlationJsonPath || '$.correlationId';
+      const corrValue = getByPath(body, corrPath);
       const response = await fetch('/api/correlations/resume', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          correlationId: body[data.correlationJsonPath?.replace(/^\$\.?/, '') ?? 'correlationId'] ?? data.correlationIdExpression,
+          correlationId: corrValue ?? data.correlationIdExpression,
           webhookData: body,
         }),
       });
@@ -256,18 +259,31 @@ export default function CorrelationWaitConfig({
             </div>
           ))}
         </div>
-        <button
-          className="wf-extract-var-add"
-          onClick={() => {
-            const vars = [...(data.extractVariables ?? []), { name: '', jsonPath: '' }];
-            onChange({ ...data, extractVariables: vars });
-          }}
-        >
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-            <path d="M12 5v14M5 12h14" />
-          </svg>
-          Add Variable
-        </button>
+        <div className="wf-extract-var-actions">
+          <button
+            className="wf-extract-var-add"
+            onClick={() => {
+              const vars = [...(data.extractVariables ?? []), { name: '', jsonPath: '' }];
+              onChange({ ...data, extractVariables: vars });
+            }}
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+            Add Variable
+          </button>
+          <button
+            className="wf-extract-var-mapper-btn"
+            onClick={() => setShowMapper(true)}
+            title="Open Data Mapper to drag-and-drop fields from the payload sample"
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <rect x="3" y="3" width="7" height="7" /><rect x="14" y="14" width="7" height="7" />
+              <path d="M10 7h4l-4 10h4" />
+            </svg>
+            Data Mapper
+          </button>
+        </div>
       </div>
 
       {/* ── Timeout ── */}
@@ -353,18 +369,14 @@ export default function CorrelationWaitConfig({
                   key={pc.correlationId}
                   className="wf-paused-item"
                   onClick={() => {
-                    // Update the payload with the actual correlation ID
-                    const payloadObj = JSON.parse(testPayload || defaultPayload);
-                    const path = data.correlationJsonPath?.replace(/^\$\.?/, '') ?? 'correlationId';
-                    const keys = path.split('.');
-                    let current = payloadObj;
-                    for (let i = 0; i < keys.length - 1; i++) {
-                      current[keys[i]] = current[keys[i]] || {};
-                      current = current[keys[i]] as Record<string, unknown>;
+                    try {
+                      const payloadObj = JSON.parse(testPayload || defaultPayload);
+                      setByPath(payloadObj, data.correlationJsonPath || '$.correlationId', pc.correlationId);
+                      setTestPayload(JSON.stringify(payloadObj, null, 2));
+                      setTestResult(null);
+                    } catch {
+                      setTestResult({ ok: false, message: 'Invalid JSON in test payload. Fix the payload first.' });
                     }
-                    current[keys[keys.length - 1]] = pc.correlationId;
-                    setTestPayload(JSON.stringify(payloadObj, null, 2));
-                    setTestResult(null);
                   }}
                   title={`Click to use this correlation ID in the payload`}
                 >
@@ -408,6 +420,18 @@ export default function CorrelationWaitConfig({
       </div>
 
       <AvailableVariables hints={variableHints} />
+
+      {showMapper && (
+        <DataMapperModal
+          adapter={mapperAdapter}
+          initialData={data.extractVariables ?? EMPTY_EXTRACT_VARS}
+          onSave={(result: WebhookExtractionOutput) => {
+            onChange({ ...data, extractVariables: result });
+            setShowMapper(false);
+          }}
+          onCancel={() => setShowMapper(false)}
+        />
+      )}
     </div>
   );
 }

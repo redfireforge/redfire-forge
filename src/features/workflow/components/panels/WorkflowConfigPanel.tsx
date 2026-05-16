@@ -21,7 +21,7 @@ import ConditionConfig from '../configs/ConditionConfig';
 import DelayConfig from '../configs/DelayConfig';
 import VariablesSection from './VariablesSection';
 import WorkflowModalScrollBody from '../modals/WorkflowModalScrollBody';
-import type { ExtractionFetchSampleProps } from '../../../requests/components/ExtractionPathPickerModal';
+import type { ExtractionFetchSampleProps } from '../../../requests/components/ExtractionEditor';
 
 interface Props {
   node: WorkflowNode | null;

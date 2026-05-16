@@ -3,329 +3,156 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Data Mapper in Workflows — Training Manual</title>
+  <title>Full Combo — Extract + Validate + Body — Step-by-Step Walkthrough</title>
   <style>
-  @page { size: A4; margin: 20mm 18mm; }
-  @media print {
-    .page-break { page-break-before: always; }
-    body { font-size: 10pt; }
-    h1 { font-size: 20pt; }
-    h2 { font-size: 16pt; }
-    h3 { font-size: 13pt; }
-  }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-    color: #1a1a2e; line-height: 1.6; max-width: 900px;
-    margin: 0 auto; padding: 30px 24px; background: #fff;
-  }
-  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; color: #1a1a2e; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 30px 24px; background: #fff; }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; }
   h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
-  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
-  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
   p, li { font-size: 13px; margin-bottom: 8px; }
   ul, ol { padding-left: 22px; }
-  code {
-    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
-    font-size: 12px; padding: 1px 5px; border-radius: 3px;
-  }
-  pre {
-    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
-    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
-    margin: 10px 0 16px; line-height: 1.5;
-  }
+  code { background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 1px 5px; border-radius: 3px; }
+  pre { background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto; margin: 10px 0 16px; }
   table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
-  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
-  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
-  tr:nth-child(even) td { background: #f8f9fa; }
-  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; vertical-align: middle; }
-  .badge-advanced { background: #f8d7da; color: #721c24; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; }
   .callout { background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px; margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
   .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
-  .callout-warning { background: #fff3e0; border-left-color: #f57c00; }
-  .callout-danger { background: #fce4ec; border-left-color: #c62828; }
   .callout strong { display: block; margin-bottom: 4px; }
-  .cover-page { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 60vh; text-align: center; }
-  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-top: 8px; }
-  .cover-page .meta { font-size: 12px; color: #6c757d; margin-top: 16px; }
-  .topo-diagram { background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 20px; margin: 12px 0; text-align: center; font-family: 'JetBrains Mono', monospace; font-size: 12px; line-height: 2; }
-  .topo-node { display: inline-block; background: #1d3557; color: #fff; padding: 3px 10px; border-radius: 5px; margin: 0 4px; }
-  .topo-active { background: #e63946; }
-  .topo-arrow { color: #457b9d; font-weight: 700; }
+  .step { background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 16px; margin: 12px 0; }
+  .step-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .step-num { width: 32px; height: 32px; background: #e63946; color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; flex-shrink: 0; }
+  .step-title { font-weight: 600; color: #1d3557; font-size: 15px; }
+  .expect { background: #d4edda; border-left: 4px solid #28a745; padding: 10px 14px; margin: 10px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+  .expect strong { color: #155724; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+  .badge-sample { background: #e8f4fd; color: #1d3557; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .surface-tag { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; margin: 2px; }
+  .surface-ext { background: #d4edda; color: #155724; }
+  .surface-val { background: #fff3cd; color: #856404; }
+  .surface-body { background: #cce5ff; color: #004085; }
   </style>
 </head>
 <body>
 
-<div class="cover-page">
-  <h1>Data Mapper in Workflows</h1>
-  <div class="subtitle">Upstream Variables, Fork/Join, Collisions &amp; Advanced Topologies</div>
-  <div><span class="badge badge-advanced">Advanced</span></div>
-  <div class="meta">RedfireForge — Redfire Performance Workbench<br>v0.6.0 · Data Mapper Series 4 of 4</div>
+<h1>Full Combo — Extract + Validate + Body</h1>
+<p><span class="badge badge-advanced">ADVANCED</span> &nbsp; <span class="badge badge-sample">Sample: dm-combo-mapper</span></p>
+<p>This walkthrough demonstrates <strong>all three Data Mapper surfaces</strong> in a single scenario:
+  <span class="surface-tag surface-ext">Extraction</span>
+  <span class="surface-tag surface-val">Validation</span>
+  <span class="surface-tag surface-body">Body Builder</span>
+</p>
+
+<div class="callout">
+  <strong>Prerequisites</strong>
+  Import the <code>dm-combo-mapper</code> sample from Gallery → Data Mapper → "Full Combo — Extract + Validate + Body" → <strong>Load Sample</strong>.
 </div>
 
-<div class="page-break"></div>
+<h2>Request 1 — GET Products (Extract + Validate)</h2>
 
-<h2>Prerequisites</h2>
-<ul>
-  <li>Completed <em>Data Mapper Basics</em>, <em>Expression &amp; Function Mapping</em>, and <em>Array &amp; Loop Mapping</em> manuals</li>
-  <li>Familiarity with the Workflow Designer (nodes, edges, variables)</li>
-  <li>Understanding of fork/join patterns (see <em>Workflow: Flow Control</em> path)</li>
-</ul>
+<div class="step">
+  <div class="step-header"><div class="step-num">1</div><div class="step-title">Open "GET products → extract &amp; validate fields"</div></div>
+  <p>URL: <code>https://dummyjson.com/products?limit=5</code></p>
+  <p>This request does <strong>two things at once</strong>: extracts 4 variables AND selectively validates 2 fields.</p>
+</div>
 
-<h2>1. The Mapper in Workflow Context</h2>
+<div class="step">
+  <div class="step-header"><div class="step-num">2</div><div class="step-title">Check the Extract tab</div></div>
+  <p><span class="surface-tag surface-ext">Extraction</span> Open the Extract tab. You'll see 4 extractions from the products array:</p>
+  <table>
+    <tr><th>Variable</th><th>Expression</th><th>Value from sample</th></tr>
+    <tr><td><code>totalProducts</code></td><td><code>$.total</code></td><td>194</td></tr>
+    <tr><td><code>firstProductId</code></td><td><code>$.products[0].id</code></td><td>1</td></tr>
+    <tr><td><code>firstProductName</code></td><td><code>$.products[0].title</code></td><td>"Essence Mascara Lash Princess"</td></tr>
+    <tr><td><code>firstProductPrice</code></td><td><code>$.products[0].price</code></td><td>9.99</td></tr>
+  </table>
+  <p>Click <strong>⚡ Data Mapper</strong> to see the source tree with a <code>products</code> array of 5 items and the 4 mapped target variables.</p>
+</div>
 
-<p>When you open the Data Mapper from a workflow node, it operates differently from the standalone (request/test) mode:</p>
+<div class="step">
+  <div class="step-header"><div class="step-num">3</div><div class="step-title">Check the Validation tab</div></div>
+  <p><span class="surface-tag surface-val">Validation</span> Open the Validation tab. It's in <strong>Selective Mode (Include)</strong> with 2 expected fields:</p>
+  <table>
+    <tr><th>JSON Path</th><th>Expected Value</th></tr>
+    <tr><td><code>$.limit</code></td><td>5</td></tr>
+    <tr><td><code>$.skip</code></td><td>0</td></tr>
+  </table>
+  <p>Click <strong>⚡ Data Mapper</strong> here too — the same source data appears, but the target shows the 2 validation fields instead of extraction variables.</p>
+</div>
 
+<h2>Advanced Validation Features</h2>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">3a</div><div class="step-title">Operator Selection</div></div>
+  <p>In the Validation mapper, click a target field's operator pill to change from default <code>exists</code> to <code>equals</code>, <code>&gt;=</code>, <code>contains</code>, etc.</p>
+</div>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">3b</div><div class="step-title">Code Mode</div></div>
+  <p>Click <strong>Rules</strong> in the bottom dock to see/edit rules as DSL text. Use ↗ to float the editor.</p>
+</div>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">3c</div><div class="step-title">Verify Scope</div></div>
+  <p>Use the verify dropdown to choose scope: <strong>Assertions</strong>, <strong>Validation Rules</strong>, or <strong>All</strong>.</p>
+</div>
+
+<h2>Request 2 — Search Products (Uses extracted variable)</h2>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">4</div><div class="step-title">Open "GET product search using extracted name"</div></div>
+  <p>URL: <code>https://dummyjson.com/products/search?q={{firstProductName}}</code></p>
+  <div class="expect"><strong>Key point:</strong> The search query <code>q=</code> uses <code>{{firstProductName}}</code> — the value "Essence Mascara Lash Princess" extracted from Request 1.</div>
+</div>
+
+<h2>Request 3 — POST Product (Body template with mapped variables)</h2>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">5</div><div class="step-title">Open "POST add product with mapped body"</div></div>
+  <p><span class="surface-tag surface-body">Body Builder</span> This request uses extracted variables in a POST body:</p>
+  <pre>{
+  "title": "Copy of {{firstProductName}}",
+  "price": "{{firstProductPrice}}",
+  "description": "Cloned from product #{{firstProductId}}",
+  "category": "test"
+}</pre>
+  <p>At runtime, this becomes:</p>
+  <pre>{
+  "title": "Copy of Essence Mascara Lash Princess",
+  "price": "9.99",
+  "description": "Cloned from product #1",
+  "category": "test"
+}</pre>
+</div>
+
+<h2>Run the Full Scenario</h2>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">6</div><div class="step-title">Execute and verify</div></div>
+  <p>Run the scenario from the <strong>Runner</strong> tab. All 3 requests execute in sequence:</p>
+  <ol>
+    <li>GET products → extracts 4 variables, validates 2 fields</li>
+    <li>GET search → uses <code>{{firstProductName}}</code> in query</li>
+    <li>POST add → sends body with all 3 extracted variables substituted</li>
+  </ol>
+  <div class="expect"><strong>You should see:</strong> All 3 requests pass. The Results tab shows extracted variable values and validation results for each step.</div>
+</div>
+
+<h2>Summary — All Three Mapper Surfaces</h2>
 <table>
-  <tr><th>Aspect</th><th>Standalone Mode</th><th>Workflow Mode</th></tr>
-  <tr><td>Source</td><td>Single response (body/headers/status)</td><td>All upstream node variables, grouped by origin node</td></tr>
-  <tr><td>Target</td><td>Request body / extraction rules</td><td>This node's input fields or body builder</td></tr>
-  <tr><td>Source groups</td><td>Tabs (Body / Headers / Status)</td><td>Collapsible groups — one per upstream node</td></tr>
-  <tr><td>Variable scope</td><td>Single request</td><td>Full upstream chain via graph traversal</td></tr>
+  <tr><th>Surface</th><th>Where</th><th>What you see</th></tr>
+  <tr><td><span class="surface-tag surface-ext">Extraction</span></td><td>Request 1, Extract tab</td><td>Source tree → Target variables with mapping lines</td></tr>
+  <tr><td><span class="surface-tag surface-val">Validation</span></td><td>Request 1, Validation tab</td><td>Source tree → Target expected fields with values</td></tr>
+  <tr><td><span class="surface-tag surface-body">Body Builder</span></td><td>Request 3, Body tab</td><td><code>{{variable}}</code> templates in request body</td></tr>
+  <tr><td>Validation operators</td><td>Advanced Validation Features, Step 3a</td><td>Operator pill overrides default <code>exists</code></td></tr>
+  <tr><td>Validation DSL / Rules</td><td>Advanced Validation Features, Step 3b</td><td>Bottom dock Rules; floating editor</td></tr>
+  <tr><td>Verify scope</td><td>Advanced Validation Features, Step 3c</td><td>Assertions vs Validation Rules vs All</td></tr>
 </table>
-
-<h2>2. Opening the Mapper from a Node</h2>
-
-<ol>
-  <li><strong>Double-click</strong> a workflow node to open the Node Config Modal.</li>
-  <li>In the body builder or variable assignment section, click <strong>Open Mapper</strong>.</li>
-  <li>The Data Mapper opens with the source panel pre-populated with all upstream variables.</li>
-</ol>
-
-<h2>3. Source Panel: Upstream Variables</h2>
-
-<p>The source panel groups variables by their origin node. Each group is a collapsible section with the node name and icon.</p>
-
-<h3>3.1 Linear Chain</h3>
-
-<div class="topo-diagram">
-  <span class="topo-node">Get User</span>
-  <span class="topo-arrow">→</span>
-  <span class="topo-node">Get Orders</span>
-  <span class="topo-arrow">→</span>
-  <span class="topo-node topo-active">Create Report</span> ← you are here
-</div>
-
-<p>Source panel shows:</p>
-<pre>
-▸ From: Get User (HTTP)
-   userId        num    42
-   userEmail     str    "john@example.com"
-   userName      str    "John Doe"
-
-▸ From: Get Orders (HTTP)
-   orders        arr[5]
-   totalAmount   num    1250.00
-</pre>
-
-<p>All fields from both upstream nodes are available. Drag any field to this node's target.</p>
-
-<h3>3.2 Fork Pattern (Multiple Parallel Upstream Branches)</h3>
-
-<div class="topo-diagram">
-  <span class="topo-node">Start</span>
-  <span class="topo-arrow">→</span>
-  <span class="topo-node">Fork</span>
-  <span class="topo-arrow">↗</span>
-  <span class="topo-node">Get User</span><br>
-  <span style="visibility:hidden">Start → Fork</span>
-  <span class="topo-arrow">↘</span>
-  <span class="topo-node">Get Products</span><br>
-  <span style="visibility:hidden">Start → Fork → →</span>
-  <span class="topo-arrow">↘ ↗</span><br>
-  <span style="visibility:hidden">Start → Fork → →</span>
-  <span class="topo-node">Join</span>
-  <span class="topo-arrow">→</span>
-  <span class="topo-node topo-active">Build Report</span>
-</div>
-
-<p>After a Join node, the source panel shows variables from <strong>all converging branches</strong>:</p>
-
-<pre>
-▸ From: Start (HTTP)
-   initialToken   str    "abc123"
-
-▸ From: Get User (HTTP)   [Branch A]
-   userId          num    42
-   userName        str    "John"
-
-▸ From: Get Products (HTTP)   [Branch B]
-   products        arr[10]
-   totalProducts   num    10
-</pre>
 
 <div class="callout callout-tip">
-  <strong>💡 Branch labels</strong>
-  When variables come from parallel branches, the source panel adds branch labels (e.g., [Branch A], [Branch B]) to help you identify which branch each variable came from.
-</div>
-
-<h3>3.3 Variable Collisions</h3>
-
-<p>When two upstream branches produce variables with the <strong>same name</strong>, the mapper detects this and shows a collision warning:</p>
-
-<pre>
-▸ From: Service A (HTTP)
-   <span style="color: #f57c00;">⚠ status      str    "active"</span>
-
-▸ From: Service B (HTTP)
-   <span style="color: #f57c00;">⚠ status      str    "pending"</span>
-</pre>
-
-<div class="callout callout-warning">
-  <strong>⚠ Variable Collision Detected</strong>
-  Two upstream nodes produce a variable named <code>status</code>. To avoid ambiguity, use node-scoped references:
-  <ul style="margin-top: 6px;">
-    <li><code>serviceA.status</code> — from Service A node</li>
-    <li><code>serviceB.status</code> — from Service B node</li>
-  </ul>
-  The mapper automatically creates scoped references when you drag from a collision group. You can also rename variables in the node config to eliminate collisions.
-</div>
-
-<h2>4. Diamond Topology: Fork → Work → Join</h2>
-
-<h3>4.1 Simple Diamond</h3>
-
-<div class="topo-diagram">
-  <span class="topo-node">A</span>
-  <span class="topo-arrow">→</span>
-  <span class="topo-node">Fork</span>
-  <span class="topo-arrow">→</span>
-  <span class="topo-node">B</span> &amp; <span class="topo-node">C</span>
-  <span class="topo-arrow">→</span>
-  <span class="topo-node">Join</span>
-  <span class="topo-arrow">→</span>
-  <span class="topo-node topo-active">D</span>
-</div>
-
-<p>At node D, the source panel contains variables from A, B, and C. Variables from A pass through the fork unchanged. Variables from B and C arrive after the join.</p>
-
-<h3>4.2 Chained Diamonds</h3>
-
-<div class="topo-diagram">
-  <span class="topo-node">A</span>
-  <span class="topo-arrow">→</span>
-  <span class="topo-node">Fork₁</span>
-  <span class="topo-arrow">→</span>
-  B &amp; C
-  <span class="topo-arrow">→</span>
-  <span class="topo-node">Join₁</span>
-  <span class="topo-arrow">→</span>
-  <span class="topo-node">Fork₂</span>
-  <span class="topo-arrow">→</span>
-  D &amp; E
-  <span class="topo-arrow">→</span>
-  <span class="topo-node">Join₂</span>
-  <span class="topo-arrow">→</span>
-  <span class="topo-node topo-active">F</span>
-</div>
-
-<p>At node F, <strong>all</strong> ancestor variables (A, B, C, D, E) are available. The mapper groups them by origin and shows collision warnings for any duplicates.</p>
-
-<h3>4.3 Nested Diamonds (Fork within Fork)</h3>
-
-<div class="topo-diagram">
-  <span class="topo-node">A</span> → <span class="topo-node">Fork₁</span> → <span class="topo-node">B</span> → <span class="topo-node">Fork₂</span> → <span class="topo-node">D</span> &amp; <span class="topo-node">E</span> → <span class="topo-node">Join₂</span> → <span class="topo-node">Join₁</span> → <span class="topo-node topo-active">G</span>
-</div>
-
-<p>The mapper resolves the full ancestor graph recursively. At G, you see variables from A, B, D, E, and any other branches. The grouping hierarchy reflects the nesting:</p>
-
-<pre>
-▸ From: A (HTTP)
-   ...
-
-▸ From: B (HTTP)
-   ...
-
-▸ From: D (HTTP)   [Fork₂ → Branch 1]
-   ...
-
-▸ From: E (HTTP)   [Fork₂ → Branch 2]
-   ...
-</pre>
-
-<h2>5. Entry Points in the Workflow</h2>
-
-<table>
-  <tr><th>Where</th><th>Action</th><th>Mapper Opens With</th></tr>
-  <tr><td>HTTP Node body</td><td>Click <strong>Open Mapper</strong> in body editor</td><td>Source = upstream vars. Target = request body schema.</td></tr>
-  <tr><td>HTTP Node headers</td><td>Click <strong>Map Headers</strong></td><td>Source = upstream vars. Target = header key-value pairs.</td></tr>
-  <tr><td>Script Node inputs</td><td>Click <strong>Map Inputs</strong></td><td>Source = upstream vars. Target = script input parameters.</td></tr>
-  <tr><td>Condition Node</td><td>Click <strong>Map Condition</strong></td><td>Source = upstream vars. Target = condition expression fields.</td></tr>
-  <tr><td>Edge (connection line)</td><td>Double-click an edge</td><td>Source = from-node outputs. Target = to-node inputs.</td></tr>
-</table>
-
-<h2>6. Working with Workflow Variables</h2>
-
-<h3>6.1 Referencing Upstream Variables</h3>
-
-<p>In expressions, upstream variables use node-scoped notation:</p>
-
-<pre>
-// Reference specific node's output
-getUser.userId
-getOrders.orders[0].total
-
-// Unscoped reference (works if unique across all upstream nodes)
-userId
-</pre>
-
-<h3>6.2 Variable Types in Source Panel</h3>
-
-<table>
-  <tr><th>Badge</th><th>Origin</th><th>Description</th></tr>
-  <tr><td><code>HTTP</code></td><td>HTTP node extraction</td><td>Values extracted from API responses</td></tr>
-  <tr><td><code>Script</code></td><td>Script node output</td><td>Values computed by JavaScript code</td></tr>
-  <tr><td><code>Trigger</code></td><td>Webhook trigger</td><td>Incoming webhook payload fields</td></tr>
-  <tr><td><code>Global</code></td><td>Workflow variables</td><td>Variables defined at workflow level (shared across all nodes)</td></tr>
-</table>
-
-<h2>7. Best Practices</h2>
-
-<h3>7.1 Avoid Variable Naming Collisions</h3>
-
-<ul>
-  <li>Use descriptive, node-specific variable names: <code>userEmail</code> not <code>email</code>.</li>
-  <li>When parallel branches extract similar data, prefix with the branch context: <code>serviceA_status</code>, <code>serviceB_status</code>.</li>
-</ul>
-
-<h3>7.2 Keep Mappings Simple</h3>
-
-<ul>
-  <li>Prefer multiple simple mappings over one complex expression.</li>
-  <li>If a mapping requires more than 3 chained functions, consider using a Script node instead.</li>
-</ul>
-
-<h3>7.3 Verify with Quick Test</h3>
-
-<p>After setting up mappings, use <strong>Quick Test</strong> (debug mode) to step through the workflow and verify that each node receives the expected mapped values. The debugger shows the actual runtime values at each step.</p>
-
-<div class="callout callout-tip">
-  <strong>💡 Schema Drift Detection</strong>
-  When an upstream API changes its response shape, the Data Mapper detects the drift and shows a warning banner: "Source schema changed — review affected mappings." This helps catch breaking changes before they cause test failures.
-</div>
-
-<h2>8. Troubleshooting</h2>
-
-<table>
-  <tr><th>Symptom</th><th>Cause</th><th>Fix</th></tr>
-  <tr><td>Source panel is empty</td><td>No upstream nodes or no extractions configured</td><td>Add extraction rules to upstream HTTP nodes</td></tr>
-  <tr><td>Variable shows <code>undefined</code></td><td>Upstream node hasn't been executed (no sample data)</td><td>Run Quick Test or Fetch Sample on the upstream node</td></tr>
-  <tr><td>Collision warning won't go away</td><td>Two nodes produce same variable name</td><td>Rename one variable or use node-scoped references</td></tr>
-  <tr><td>Mapping line is red</td><td>Source field was removed (schema drift)</td><td>Re-fetch source sample, check drift report, re-map</td></tr>
-  <tr><td>Expression error in loop</td><td>Using <code>source.field</code> instead of <code>item.field</code> inside loop</td><td>Inside a loop, reference the loop variable (<code>item</code>), not the root source</td></tr>
-</table>
-
-<h2>9. Practice Exercises</h2>
-
-<ol>
-  <li>Create a 3-node linear workflow (Get User → Get Orders → Build Report). Open the mapper at Build Report and map <code>userName</code> and <code>orders[]</code> into a report JSON.</li>
-  <li>Create a fork/join diamond where Branch A fetches users and Branch B fetches products. At the join target, map fields from both branches and handle any naming collisions.</li>
-  <li>In a loop workflow (paginated fetcher), open the mapper inside the loop body and map the current page's items to the accumulator array using a flatten pattern.</li>
-  <li>Set up a Script node after two HTTP nodes. Use the mapper to feed both HTTP responses as inputs to the script.</li>
-</ol>
-
-<div style="margin-top: 40px; padding-top: 16px; border-top: 2px solid #e63946; font-size: 11px; color: #6c757d; text-align: center;">
-  RedfireForge Training Manual · Data Mapper in Workflows · Advanced · v0.6.0
+  <strong>What you've learned</strong>
+  You've seen all three ways the Data Mapper integrates with test scenarios: extracting from responses, validating specific fields, and building request bodies from extracted variables. Each surface uses the same visual mapping UI but in a different context.
 </div>
 
 </body>

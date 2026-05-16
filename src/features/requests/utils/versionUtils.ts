@@ -8,5 +8,6 @@ export function buildRulesSnapshot(v: ResponseVersion | RulesVersion) {
     expectedFields: [...(v.expectedFields || [])].sort((a, b) => a.jsonPath.localeCompare(b.jsonPath)),
     excludedPaths: [...(v.excludedPaths || [])].sort(),
     unorderedArrays: !!v.unorderedArrays,
+    assertions: 'assertions' in v && v.assertions ? [...v.assertions] : [],
   };
 }
