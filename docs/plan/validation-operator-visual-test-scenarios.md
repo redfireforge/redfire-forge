@@ -1043,20 +1043,20 @@
 
 ### INT-01: Full workflow — Visual + DSL + Verify
 
-- [ ] **Setup:** Open the Validation Data Mapper with sample JSON loaded.
-- [ ] **Steps:**
+- [x] **Setup:** Open the Validation Data Mapper with sample JSON loaded.
+- [x] **Steps:**
   1. Auto-map all fields. Change some operators visually (equals, >=, contains).
   2. Open the Rules modal. Observe that visual mappings appear as DSL.
   3. Add additional rules via DSL: `ASSERT $gt($.body.count, 0)`.
   4. Close the modal. Verify the visual tree reflects the DSL rules.
   5. Click **Verify All**. Check pass/fail for all rules.
   6. Enable **Auto-verify**. Change a value. Observe auto-re-verify.
-- [ ] **Expected:** Complete round-trip: visual → code → verify. All modes stay in sync.
+- [x] **Expected:** Complete round-trip: visual → code → verify. All modes stay in sync.
 
 ### INT-02: Negation + Lambda + ASSERT combined
 
-- [ ] **Setup:** Open the Validation Data Mapper Rules modal (toolbar → Rules).
-- [ ] **Steps:**
+- [x] **Setup:** Open the Validation Data Mapper Rules modal (toolbar → Rules).
+- [x] **Steps:**
   1. In the Rules DSL editor, type:
      ```
      # Negated field assertion
@@ -1072,24 +1072,24 @@
      offers  NOT length >=  100
      ```
   2. Verify all.
-- [ ] **Expected:** All 4 rules pass. Negation, lambdas, ASSERT, and collection assertions all work together.
+- [x] **Expected:** All 4 rules pass. Negation, lambdas, ASSERT, and collection assertions all work together.
 
-### INT-03: Type mismatch detection and quick-fix
+### INT-03: Type mismatch detection and quick-fix ✅
 
-- [ ] **Setup:** In the Validation Data Mapper, map a string field (`name`) to target. Set operator to **> greater than** (expects numeric).
-- [ ] **Steps:**
+- [x] **Setup:** In the Validation Data Mapper, map a string field (`name`) to target. Set operator to **> greater than** (expects numeric).
+- [x] **Steps:**
   1. Observe a **type mismatch warning** (indicator or tooltip) on the mapping.
   2. Look for a **quick-fix suggestion** (e.g., "Wrap with $parseInt" or "Change operator to contains").
-- [ ] **Expected:** Type mismatch is detected. Quick-fix suggestions are actionable.
+- [x] **Expected:** Type mismatch is detected. Quick-fix suggestions are actionable.
 
-### INT-04: Save and reopen — persistence
+### INT-04: Save and reopen — persistence ✅
 
-- [ ] **Setup:** In the Validation Data Mapper, create several mappings with mixed operators, array assertions, and DSL rules.
-- [ ] **Steps:**
+- [x] **Setup:** In the Validation Data Mapper, create several mappings with mixed operators, array assertions, and DSL rules.
+- [x] **Steps:**
   1. Click **Save** in the Validation Data Mapper Modal.
   2. Close the Test Editor.
   3. Re-open the Test Editor → Validation tab → Validation Data Mapper.
-- [ ] **Expected:** All mappings, operators, operator values, negation flags, array assertions, and DSL rules are preserved exactly.
+- [x] **Expected:** All mappings, operators, operator values, negation flags, array assertions, and DSL rules are preserved exactly.
 
 ### INT-04b: Operator persistence through Rules modal save cycle (regression fix)
 
