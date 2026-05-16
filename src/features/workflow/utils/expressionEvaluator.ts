@@ -302,6 +302,22 @@ export function evaluateExpression(expr: string, ctx: EvalContext = {}): EvalRes
     const trimmed = expr.trim();
     if (!trimmed) return { value: '' };
     const tokens = tokenize(trimmed);
+
+    let parenDepth = 0;
+    let bracketDepth = 0;
+    for (const t of tokens) {
+      if (t.type === 'lparen') parenDepth++;
+      else if (t.type === 'rparen') { parenDepth--; if (parenDepth < 0) break; }
+      else if (t.type === 'lbracket') bracketDepth++;
+      else if (t.type === 'rbracket') { bracketDepth--; if (bracketDepth < 0) break; }
+    }
+    if (parenDepth !== 0) {
+      return { value: null, error: `Unmatched parentheses: ${parenDepth > 0 ? `${parenDepth} unclosed "("` : `${-parenDepth} extra ")"`}` };
+    }
+    if (bracketDepth !== 0) {
+      return { value: null, error: `Unmatched brackets: ${bracketDepth > 0 ? `${bracketDepth} unclosed "["` : `${-bracketDepth} extra "]"`}` };
+    }
+
     const ast = parse(tokens);
     const value = evalNode(ast, ctx);
     return { value };

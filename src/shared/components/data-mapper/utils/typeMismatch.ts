@@ -141,8 +141,66 @@ function classifySeverity(sourceType: string, targetType: string): MismatchSever
 }
 
 /**
+ * Operators that require numeric operands.
+ */
+const NUMERIC_OPERATORS = new Set([
+  'greater_than', 'greater_than_or_equal',
+  'less_than', 'less_than_or_equal',
+  'between', 'close_to',
+]);
+
+/**
+ * Operators that require boolean operands.
+ */
+const BOOLEAN_OPERATORS = new Set([
+  'is_true', 'is_false',
+]);
+
+/**
+ * Operators that require string operands.
+ */
+const STRING_OPERATORS = new Set([
+  'starts_with', 'ends_with', 'regex', 'contains', 'not_contains',
+]);
+
+/**
+ * Operators that require array operands.
+ */
+const ARRAY_OPERATORS = new Set([
+  'length', 'each', 'contains_item', 'contains_any',
+  'contains_all', 'contains_only', 'contains_none', 'subset',
+]);
+
+/**
+ * Get the type expected by an operator, or null if the operator is type-agnostic.
+ */
+export function getOperatorExpectedType(operator: string | undefined): string | null {
+  if (!operator) return null;
+  if (NUMERIC_OPERATORS.has(operator)) return 'number';
+  if (BOOLEAN_OPERATORS.has(operator)) return 'boolean';
+  if (STRING_OPERATORS.has(operator)) return 'string';
+  if (ARRAY_OPERATORS.has(operator)) return 'array';
+  return null;
+}
+
+/**
+ * Build operator mismatch message with suggested fix.
+ */
+function buildOperatorMismatchMessage(
+  actualType: string,
+  operator: string,
+  expectedType: string,
+  suggestedFix?: string,
+): string {
+  const base = `Operator "${operator}" expects ${expectedType}, but field is ${actualType}.`;
+  if (suggestedFix) return `${base} Try changing the operator or wrapping with \`${suggestedFix}\`.`;
+  return `${base} Consider changing the operator.`;
+}
+
+/**
  * Detect type mismatches for all mappings.
  *
+ * Checks both source↔target type compatibility AND operator↔field type compatibility.
  * Skips mappings that have expressions (the expression is assumed to handle
  * type coercion) and mappings where either side has no inferrable type.
  */
@@ -162,6 +220,23 @@ export function detectTypeMismatches(
 
     const sourceType = resolveSourceType(mapping, sources, activeSourceId);
     const targetType = resolveTargetType(mapping.targetPath, target);
+
+    // Check operator-type compatibility (e.g., greater_than on a string field)
+    const expectedByOp = getOperatorExpectedType(effectiveOp);
+    if (expectedByOp && sourceType && sourceType !== expectedByOp && sourceType !== 'null') {
+      const suggestedFix = suggestTypeFixExpression(sourceType, expectedByOp, mapping.sourcePath);
+      mismatches.push({
+        mappingId: mapping.id,
+        sourcePath: mapping.sourcePath,
+        targetPath: mapping.targetPath,
+        sourceType,
+        targetType: expectedByOp,
+        severity: 'warning',
+        message: buildOperatorMismatchMessage(sourceType, effectiveOp!, expectedByOp, suggestedFix),
+        suggestedFix,
+      });
+      continue;
+    }
 
     if (!sourceType || !targetType) continue;
     if (typesCompatible(sourceType, targetType)) continue;

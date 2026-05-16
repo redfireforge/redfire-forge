@@ -5002,6 +5002,28 @@ button.dm-mismatch-badge {
   align-items: center;
   gap: 6px;
   margin-bottom: 6px;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  width: 100%;
+  font: inherit;
+  color: inherit;
+}
+
+.dm-custom-predicates-header:hover {
+  opacity: 0.85;
+}
+
+.dm-custom-predicates-arrow {
+  font-size: 9px;
+  color: var(--subtext0, #a6adc8);
+  transition: transform 0.15s ease;
+  display: inline-block;
+}
+
+.dm-custom-predicates-arrow.expanded {
+  transform: rotate(90deg);
 }
 
 .dm-custom-predicates-icon {
