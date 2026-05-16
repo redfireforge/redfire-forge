@@ -960,3 +960,60 @@ describe('validationAdapter — deserialize container/object filtering', () => {
     expect(mappings[0].operator).toBe('is_empty');
   });
 });
+
+describe('expression round-trip through serialize/deserialize', () => {
+  it('serialize preserves expression on ExpectedField', () => {
+    const adapter = createValidationAdapter({
+      sampleResponseBody: { name: 'Alice', items: [1, 2, 3] },
+      selectiveMode: 'include',
+    });
+    const mappings: Mapping[] = [
+      { id: 'v1', sourceId: 'response-body', sourcePath: 'name', targetPath: 'name', expression: '$upper($.name)', operator: 'equals' },
+    ];
+    const output = adapter.serialize(mappings);
+    expect(output.expectedFields[0].expression).toBe('$upper($.name)');
+  });
+
+  it('serialize omits expression when mapping has none', () => {
+    const adapter = createValidationAdapter({
+      sampleResponseBody: { name: 'Alice' },
+      selectiveMode: 'include',
+    });
+    const mappings: Mapping[] = [
+      { id: 'v1', sourceId: 'response-body', sourcePath: 'name', targetPath: 'name', operator: 'equals' },
+    ];
+    const output = adapter.serialize(mappings);
+    expect(output.expectedFields[0].expression).toBeUndefined();
+  });
+
+  it('deserialize restores expression onto Mapping', () => {
+    const adapter = createValidationAdapter({
+      sampleResponseBody: { name: 'Alice' },
+      selectiveMode: 'include',
+    });
+    const mappings = adapter.deserialize({
+      selectiveMode: 'include',
+      expectedFields: [
+        { jsonPath: 'name', expectedValue: 'ALICE', operator: 'equals', expression: '$upper($.name)' },
+      ],
+      excludedPaths: [],
+    });
+    expect(mappings).toHaveLength(1);
+    expect(mappings[0].expression).toBe('$upper($.name)');
+  });
+
+  it('full round-trip: serialize → deserialize preserves expression', () => {
+    const adapter = createValidationAdapter({
+      sampleResponseBody: { name: 'Alice', score: 42 },
+      selectiveMode: 'include',
+    });
+    const original: Mapping[] = [
+      { id: 'v1', sourceId: 'response-body', sourcePath: 'score', targetPath: 'score', expression: '$add($.score, 1)', operator: 'equals' },
+    ];
+    const serialized = adapter.serialize(original);
+    expect(serialized.expectedFields[0].expression).toBe('$add($.score, 1)');
+
+    const deserialized = adapter.deserialize(serialized);
+    expect(deserialized[0].expression).toBe('$add($.score, 1)');
+  });
+});

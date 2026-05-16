@@ -4,7 +4,7 @@ import ValidationCodeEditor, { type LineVerifyResult } from './ValidationCodeEdi
 import DslReferencePanel from './DslReferencePanel';
 import { useValidationRulesModal, type VrModalMode } from './hooks/useValidationRulesModal';
 import type { ParseError } from './utils/validationDsl';
-import { parseDsl } from './utils/validationDsl';
+import { parseDsl, countDslRuleLines } from './utils/validationDsl';
 import '../../../styles/validation-rules-modal.css';
 
 interface ValidationRulesModalProps {
@@ -128,10 +128,7 @@ export default function ValidationRulesModal({
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [handleCancel]);
 
-  const ruleCount = useMemo(
-    () => localText.split('\n').filter(l => l.trim() && !l.trim().startsWith('#')).length,
-    [localText],
-  );
+  const ruleCount = useMemo(() => countDslRuleLines(localText), [localText]);
   const errorCount = localErrors.length;
 
   const handleModeChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {

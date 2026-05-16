@@ -755,7 +755,22 @@
 - [ ] **Steps:**
   1. Type: `$filter($.source.offers, x => x.isActive)`.
   2. Observe the live preview.
-- [ ] **Expected:** Preview shows an array of 2 offers (the ones with `isActive: true`). Lambda syntax `x => x.isActive` is parsed correctly.
+  3. Try additional examples:
+     - `$map($.source.offers, x => x.offerName)` → extract just the names.
+     - `$find($.source.offers, x => $eq(x.productCode, "SAFE-24"))` → find a specific offer by product code.
+     - `$sortBy($.source.offers, x => x.price)` → sort offers by price ascending.
+     - `$minBy($.source.offers, x => x.price)` → get the cheapest offer.
+     - `$maxBy($.source.offers, x => x.rank)` → get the highest-ranked offer.
+     - `$distinctBy($.source.offers, x => x.isActive)` → one offer per unique `isActive` value.
+- [ ] **Expected:**
+  - `$filter` → array of 2 offers (`isActive: true`): "EV Access - 8 Years" and "OnStar Safety Plan".
+  - `$map` → `["EV Access - 8 Years", "OnStar Safety Plan", "Premium Navigation"]`.
+  - `$find` → single object: `{ "offerName": "OnStar Safety Plan", "productCode": "SAFE-24", ... }`.
+  - `$sortBy` → offers ordered: Premium Navigation (15.50), OnStar Safety Plan (29.99), EV Access (49.99).
+  - `$minBy` → the "Premium Navigation" offer object (lowest price 15.50).
+  - `$maxBy` → the "Premium Navigation" offer object (highest rank 3).
+  - `$distinctBy` → 2 offers (one `true`, one `false`).
+  - Lambda syntax `x => expr` is parsed correctly in all cases. No errors in preview.
 
 ### P9.2-02: Multi-param lambda
 
@@ -763,7 +778,16 @@
 - [ ] **Steps:**
   1. Type: `$reduce($.source.offers, (acc, x) => $add(acc, x.price), 0)`.
   2. Observe the preview.
-- [ ] **Expected:** Preview shows `95.48` (sum of all prices). Multi-param `(acc, x) => body` syntax works.
+  3. Try additional multi-param examples:
+     - `$reduce($.source.offers, (acc, x) => $add(acc, 1), 0)` → count items manually (should be `3`).
+     - `$reduce($.source.tags, (acc, t) => $concat(acc, $concat(", ", t)), "")` → join tags into a comma-separated string.
+     - `$zip($.source.tags, $.source.offers, (tag, offer) => $concat(tag, ": ", offer.offerName))` → pair tags with offer names.
+- [ ] **Expected:**
+  - First `$reduce` → `95.48` (sum of all prices: 49.99 + 29.99 + 15.50).
+  - Count `$reduce` → `3`.
+  - Tag join `$reduce` → `", vip, premium, early-access"` (leading comma from initial empty string).
+  - `$zip` → `["vip: EV Access - 8 Years", "premium: OnStar Safety Plan", "early-access: Premium Navigation"]`.
+  - Multi-param `(acc, x) => body` and `(a, b) => body` syntax works without error.
 
 ### P9.2-03: Lambda with higher-order functions
 
@@ -774,7 +798,11 @@
   3. `$all($.source.offers, x => $gte(x.rank, 1))` → `true` (all ranks >= 1).
   4. `$sortBy($.source.offers, x => x.price)` → sorted by price ascending.
   5. `$find($.source.offers, x => $eq(x.offerName, "OnStar Safety Plan"))` → the matching offer object.
-- [ ] **Expected:** Each function evaluates correctly with lambda syntax.
+  6. `$findAll($.source.offers, x => $gt(x.price, 20))` → 2 offers (EV Access + OnStar Safety Plan).
+  7. `$map($.source.offers, x => x.duration.value)` → `[365, 180, 90]` (nested property access).
+  8. `$mapValues($.source.config, v => $multiply(v, 2))` → `{ "retryCount": 6, "timeout": 10000 }`.
+  9. `$mapKeys($.source.config, k => $upper(k))` → `{ "RETRYCOUNT": 3, "TIMEOUT": 5000 }`.
+- [ ] **Expected:** Each function evaluates correctly with lambda syntax. Nested property access (`x.duration.value`) resolves correctly inside lambdas. Object HOFs (`$mapValues`, `$mapKeys`) work on the `config` object.
 
 ### P9.2-04: Comparison helper functions in lambdas
 
@@ -782,7 +810,11 @@
 - [ ] **Steps:**
   1. `$filter($.source.offers, x => $gt(x.price, 20))` → 2 offers (49.99 and 29.99).
   2. `$filter($.source.offers, x => $lte(x.rank, 2))` → 2 offers (rank 1 and 2).
-- [ ] **Expected:** `$gt`, `$gte`, `$lt`, `$lte`, `$eq`, `$neq` work correctly inside lambda bodies.
+  3. `$filter($.source.offers, x => $eq(x.isActive, false))` → 1 offer ("Premium Navigation").
+  4. `$filter($.source.offers, x => $neq(x.productCode, "NAV-P"))` → 2 offers (excludes Premium Navigation).
+  5. `$filter($.source.offers, x => $gte(x.duration.value, 180))` → 2 offers (365 days and 180 days).
+  6. `$filter($.source.offers, x => $lt(x.price, 30))` → 2 offers (29.99 and 15.50).
+- [ ] **Expected:** `$gt`, `$gte`, `$lt`, `$lte`, `$eq`, `$neq` all work correctly inside lambda bodies, including with nested property access (`x.duration.value`).
 
 ---
 
