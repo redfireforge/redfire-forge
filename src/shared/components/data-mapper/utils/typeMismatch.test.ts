@@ -304,7 +304,7 @@ describe('operator-type mismatch detection', () => {
     expect(result[0].severity).toBe('warning');
     expect(result[0].message).toContain('greater_than');
     expect(result[0].message).toContain('expects number');
-    expect(result[0].suggestedFix).toContain('$parseFloat');
+    expect(result[0].suggestedOperator).toBe('equals');
   });
 
   it('detects number field with starts_with operator', () => {
@@ -317,7 +317,7 @@ describe('operator-type mismatch detection', () => {
     expect(result[0].sourceType).toBe('number');
     expect(result[0].targetType).toBe('string');
     expect(result[0].message).toContain('starts_with');
-    expect(result[0].suggestedFix).toContain('$toString');
+    expect(result[0].suggestedOperator).toBe('greater_than_or_equal');
   });
 
   it('detects string field with is_true operator', () => {

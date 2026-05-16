@@ -13,6 +13,7 @@ export interface TypeMismatch {
   severity: MismatchSeverity;
   message: string;
   suggestedFix?: string;
+  suggestedOperator?: string;
 }
 
 const FIX_MAP: Record<string, string> = {
@@ -184,17 +185,29 @@ export function getOperatorExpectedType(operator: string | undefined): string | 
 }
 
 /**
+ * Suggest a compatible operator for a given field type.
+ */
+export function suggestOperatorForType(actualType: string): string {
+  switch (actualType) {
+    case 'string': return 'equals';
+    case 'number': return 'greater_than_or_equal';
+    case 'boolean': return 'is_true';
+    case 'array': return 'length';
+    case 'object': return 'exists';
+    default: return 'equals';
+  }
+}
+
+/**
  * Build operator mismatch message with suggested fix.
  */
 function buildOperatorMismatchMessage(
   actualType: string,
   operator: string,
   expectedType: string,
-  suggestedFix?: string,
+  suggestedOperator: string,
 ): string {
-  const base = `Operator "${operator}" expects ${expectedType}, but field is ${actualType}.`;
-  if (suggestedFix) return `${base} Try changing the operator or wrapping with \`${suggestedFix}\`.`;
-  return `${base} Consider changing the operator.`;
+  return `Operator "${operator}" expects ${expectedType}, but field is ${actualType}. Click Fix to change operator to "${suggestedOperator}".`;
 }
 
 /**
@@ -224,7 +237,7 @@ export function detectTypeMismatches(
     // Check operator-type compatibility (e.g., greater_than on a string field)
     const expectedByOp = getOperatorExpectedType(effectiveOp);
     if (expectedByOp && sourceType && sourceType !== expectedByOp && sourceType !== 'null') {
-      const suggestedFix = suggestTypeFixExpression(sourceType, expectedByOp, mapping.sourcePath);
+      const suggestedOp = suggestOperatorForType(sourceType);
       mismatches.push({
         mappingId: mapping.id,
         sourcePath: mapping.sourcePath,
@@ -232,8 +245,8 @@ export function detectTypeMismatches(
         sourceType,
         targetType: expectedByOp,
         severity: 'warning',
-        message: buildOperatorMismatchMessage(sourceType, effectiveOp!, expectedByOp, suggestedFix),
-        suggestedFix,
+        message: buildOperatorMismatchMessage(sourceType, effectiveOp!, expectedByOp, suggestedOp),
+        suggestedOperator: suggestedOp,
       });
       continue;
     }

@@ -1091,7 +1091,7 @@
   3. Re-open the Test Editor → Validation tab → Validation Data Mapper.
 - [x] **Expected:** All mappings, operators, operator values, negation flags, array assertions, and DSL rules are preserved exactly.
 
-### INT-04b: Operator persistence through Rules modal save cycle (regression fix)
+### INT-04b: Operator persistence through Rules modal save cycle (regression fix) ✅
 
 > **Bug history:** Operators set to `equals` (or any operator) were silently reverted when saving after the Rules modal had been opened. Root cause: a chain of 5 bugs caused data loss during the DSL round-trip:
 > 1. `dslToModel()` stripped `equals` to `undefined` (treating it as an implicit default)
@@ -1102,26 +1102,26 @@
 >
 > **Fixed in:** `validationDsl.ts`, `useDataMapperValidation.ts`, `validationAdapter.ts`, `TargetTreeNode.tsx`
 
-- [ ] **Setup:** Open the Validation Data Mapper with sample JSON. Manually map 3+ leaf fields via drag-and-drop.
-- [ ] **Steps — Basic persistence:**
+- [x] **Setup:** Open the Validation Data Mapper with sample JSON. Manually map 3+ leaf fields via drag-and-drop.
+- [x] **Steps — Basic persistence:**
   1. Verify all mapped fields show the `= equals` operator pill (green).
   2. Click **Save** on the Validation Data Mapper Modal.
   3. Close and re-open the Test Editor → Validation tab → Validation Data Mapper.
   4. Verify all fields still show `= equals`.
-- [ ] **Steps — Persistence through Rules modal:**
+- [x] **Steps — Persistence through Rules modal:**
   1. Open the Validation Data Mapper. Confirm fields show `= equals`.
   2. Open the **Rules** modal (toolbar → Rules). DSL should show `equals` for each field.
   3. **Without editing anything**, click **Save** on the Rules modal.
   4. Click **Save** on the Validation Data Mapper Modal.
   5. Close and re-open the Test Editor → Validation tab → Validation Data Mapper.
   6. Verify all fields still show `= equals` — **not** `∃ exists` or any other operator.
-- [ ] **Steps — Mixed operators persist:**
+- [x] **Steps — Mixed operators persist:**
   1. Map 3 fields. Set one to `contains`, one to `close_to` with a value, leave one as `equals`.
   2. Open the Rules modal → verify the DSL shows correct operators → click Save.
   3. Save the Validation Data Mapper Modal.
   4. Close and re-open.
   5. Verify: `contains`, `close_to` (with value), and `equals` are all preserved exactly.
-- [ ] **Expected:** Operators are never silently changed during save/reopen cycles, including when the Rules modal is opened and saved.
+- [x] **Expected:** Operators are never silently changed during save/reopen cycles, including when the Rules modal is opened and saved.
 
 ---
 
