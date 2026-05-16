@@ -917,7 +917,7 @@ describe('handleHttpNode — trace status assertion (requestResult.statusCode)',
           ...out.requestResult,
           statusCode: 200,
           passed: false,
-          failureDetails: [{ path: 'status', expected: '200', actual: '500' }],
+          failureDetails: [{ path: '(status)', expected: '200', actual: '500' }],
         },
       };
     });

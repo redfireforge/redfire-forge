@@ -1,6 +1,6 @@
 import type { Extraction } from '../../../shared/types';
 import type { VariableContext } from '../engine/variableContext';
-import { getByPath } from '../../../engine/validator';
+import { getByPath } from '../../../shared/utils/jsonPath';
 
 export interface ResponseData {
   status: number;

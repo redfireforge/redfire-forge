@@ -1541,6 +1541,12 @@
   display: flex; justify-content: flex-end;
 }
 
+.wf-var-mapper-bar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 6px;
+}
+
 .wf-config-tabs {
   display: flex; gap: 2px; margin-bottom: 8px; border-bottom: 1px solid var(--border); padding-bottom: 4px;
 }
@@ -1671,11 +1677,12 @@
   z-index: 10090;
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0, 0, 0, 0.55);
-  backdrop-filter: blur(2px);
+  background: transparent;
+  backdrop-filter: none;
   display: flex;
   align-items: center;
   justify-content: center;
+  pointer-events: none;
 }
 .wf-var-insert-modal {
   max-width: 680px;
@@ -1686,14 +1693,20 @@
   border-radius: 12px;
   overflow: hidden;
   transition: max-width 0.2s ease, max-height 0.2s ease;
+  pointer-events: auto;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45), 0 2px 8px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.06);
 }
 .wf-var-insert-modal .ram-header {
-  gap: 12px;
-  padding: 12px 16px;
+  gap: 10px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
 }
 .wf-var-insert-modal .ram-header h3 {
   flex-shrink: 0;
   white-space: nowrap;
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
 }
 .wf-var-insert-search {
   flex: 1;
@@ -1942,7 +1955,7 @@
   flex-shrink: 0;
 }
 
-/* Detail bar at bottom of Insert Variable modal */
+/* Detail bar (hover info) */
 .wf-var-insert-detail-bar {
   display: flex;
   align-items: center;
@@ -1953,6 +1966,76 @@
   font-size: 0.72rem;
   min-height: 32px;
   flex-shrink: 0;
+}
+/* Hide ComposeStrip's built-in action buttons inside the insert modal (consolidated into action bar) */
+.wf-var-insert-modal .wf-compose-strip-btns {
+  display: none;
+}
+
+/* Bottom action bar — always visible */
+.wf-var-insert-action-bar {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-top: 1px solid var(--border);
+  background: var(--bg);
+  flex-shrink: 0;
+}
+.wf-var-insert-action-clear {
+  padding: 6px 16px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.wf-var-insert-action-clear:hover:not(:disabled) {
+  background: var(--surface);
+  color: var(--text);
+}
+.wf-var-insert-action-clear:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.wf-var-insert-action-insert {
+  padding: 6px 16px;
+  border: 1px solid var(--primary);
+  border-radius: 6px;
+  background: var(--primary);
+  color: #fff;
+  font-size: 0.76rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.wf-var-insert-action-insert:hover:not(:disabled) {
+  opacity: 0.85;
+}
+.wf-var-insert-action-insert:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.wf-var-insert-close-btn {
+  flex-shrink: 0;
+  padding: 6px 22px;
+  border: 1px solid var(--primary);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--primary) 15%, transparent);
+  color: var(--primary);
+  font-size: 0.76rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  letter-spacing: 0.01em;
+}
+.wf-var-insert-close-btn:hover {
+  background: var(--primary);
+  color: #fff;
 }
 .wf-var-insert-detail-name code {
   font-weight: 600;
@@ -3106,6 +3189,12 @@
   text-align: center;
 }
 
+/* Transparent overlay for context modal */
+.wf-vars-modal-overlay.modal-overlay {
+  background: transparent;
+  backdrop-filter: none;
+  pointer-events: none;
+}
 /* Centered card (not full screen); overrides ram-modal full-viewport shell */
 .wf-vars-modal.wf-vars-modal--card.modal.ram-modal {
   display: flex;
@@ -3116,10 +3205,39 @@
   max-height: min(85vh, 720px);
   margin: 0;
   border-radius: 12px;
-  border: 1px solid var(--border);
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45), 0 2px 8px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.06);
   flex: 0 1 auto;
   align-self: center;
+  pointer-events: auto;
+}
+/* Search input in context modal */
+.wf-vars-modal-search {
+  width: 100%;
+  padding: 7px 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 0.78rem;
+  margin-bottom: 12px;
+  flex-shrink: 0;
+}
+.wf-vars-modal-search:focus {
+  border-color: var(--primary);
+  outline: none;
+}
+.wf-vars-modal-search::placeholder {
+  color: var(--text-muted);
+  opacity: 0.6;
+}
+.wf-vars-modal-no-results {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  padding: 20px 0;
+  font-style: italic;
+  opacity: 0.7;
 }
 .wf-vars-modal-header {
   flex-shrink: 0;
@@ -6090,6 +6208,34 @@
   background: rgba(99,102,241,0.06);
 }
 .wf-extract-var-add svg {
+  width: 12px;
+  height: 12px;
+}
+
+.wf-extract-var-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 4px;
+}
+.wf-extract-var-mapper-btn {
+  all: unset;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  padding: 4px 10px;
+  border: 1px dashed var(--border-secondary, #3a3f4b);
+  border-radius: 6px;
+  color: var(--accent, #a78bfa);
+  transition: border-color 0.15s, background 0.15s;
+}
+.wf-extract-var-mapper-btn:hover {
+  border-color: var(--accent, #a78bfa);
+  background: rgba(167,139,250,0.08);
+}
+.wf-extract-var-mapper-btn svg {
   width: 12px;
   height: 12px;
 }

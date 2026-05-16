@@ -45,6 +45,12 @@ export const galleryDomains: GalleryDomainConfig[] = [
     icon: '✅',
     description: 'Pre-built assertion sets for common validation patterns',
   },
+  {
+    key: 'data-mapper',
+    label: 'Data Mapper',
+    icon: '🔀',
+    description: 'Visual mapping samples demonstrating drag-and-drop, expressions, and advanced features',
+  },
 ];
 
 export const galleryDomainMap = new Map(

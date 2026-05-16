@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Custom Assertions &amp; ASSERT Keyword</title>
+  <style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Segoe UI', system-ui, sans-serif; color: #1a1a2e; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 30px 24px; background: #fff; }
+h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; }
+h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+p, li { font-size: 13px; margin-bottom: 8px; }
+ul, ol { padding-left: 22px; }
+code { background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 1px 5px; border-radius: 3px; }
+pre { background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto; margin: 10px 0 16px; }
+table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; }
+td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; }
+.callout { background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px; margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+.callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+.callout-warning { background: #fff3e0; border-left-color: #f57c00; }
+.callout strong { display: block; margin-bottom: 4px; }
+.step { background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 16px; margin: 12px 0; }
+.step-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.step-num { width: 32px; height: 32px; background: #e63946; color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; flex-shrink: 0; }
+.step-title { font-weight: 600; color: #1d3557; font-size: 15px; }
+.expect { background: #d4edda; border-left: 4px solid #28a745; padding: 10px 14px; margin: 10px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+.expect strong { color: #155724; }
+.badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+.badge-sample { background: #e8f4fd; color: #1d3557; }
+.badge-advanced { background: #f8d7da; color: #721c24; }
+  </style>
+</head>
+<body>
+
+<h1>Custom Assertions &amp; ASSERT Keyword</h1>
+<p><span class="badge badge-advanced">ADVANCED</span> &nbsp; <span class="badge badge-sample">Sample: dm-validation-mapping</span></p>
+<p>Write custom predicate assertions using the <strong>ASSERT</strong> keyword and the shared <strong>125-function expression engine</strong>. This manual assumes you already know how validation rules are edited visually and as DSL.</p>
+
+<div class="callout">
+  <strong>Prerequisites</strong>
+  Import the <code>dm-validation-mapping</code> sample from the Gallery. Work through <a href="data-mapper-operators-dsl-advanced.html">Validation Operators &amp; DSL Editor</a> first so terms like Rules dock, validation-dsl, and Verify are familiar.
+</div>
+
+<h2>Part 1 — The ASSERT Keyword</h2>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">1</div><div class="step-title">Open DSL editor in the validation mapper</div></div>
+  <p>Navigate to your validation-capable step, open <strong>Data Mapper</strong> as needed, then focus the <strong>Rules</strong> tab in the bottom dock so Monaco shows the validation DSL buffer.</p>
+  <div class="expect"><strong>You should see:</strong> Existing field rules mixed with optional <code>ASSERT</code> lines if the sample shipped with custom checks.</div>
+</div>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">2</div><div class="step-title">Basic ASSERT</div></div>
+  <p>Append a line such as:</p>
+<pre>ASSERT $gt($.price, 0) // Price must be positive</pre>
+  <ul>
+    <li><strong><code>ASSERT</code></strong> marks the remainder of the line as an expression-backed predicate wired into the validation engine.</li>
+    <li>The expression <code>$gt($.price, 0)</code> runs against the resolved response JSON (see Part 2 for other roots).</li>
+    <li>Everything after <code>//</code> is treated as the <strong>human-readable description</strong> surfaced beside pass/fail rows in verification output.</li>
+  </ul>
+  <div class="expect"><strong>You should see:</strong> Syntax highlighting separates <code>ASSERT</code>, the expression, and the trailing comment trail.</div>
+</div>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">3</div><div class="step-title">How ASSERT works</div></div>
+  <p>When Verify runs:</p>
+  <ol>
+    <li>The parser extracts the predicate expression following <code>ASSERT</code>.</li>
+    <li>The <strong>125-function expression engine</strong> evaluates that expression.</li>
+    <li>Dollar-sign paths such as <code>$.price</code> resolve against the <strong>response body</strong> (and related roots described below).</li>
+    <li>The engine coerces the outcome to a boolean truth test: <strong>truthy ⇒ pass</strong>, <strong>falsy ⇒ fail</strong> with your <code>//</code> description as context.</li>
+  </ol>
+  <div class="callout callout-warning">
+    <strong>Runtime clarity</strong>
+    <p>Keep comments short and outcome-oriented (“Price must remain positive”) so failed runs remain scannable in large suites.</p>
+  </div>
+</div>
+
+<h2>Part 2 — Expression Context</h2>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">4</div><div class="step-title">Available variables</div></div>
+  <p>ASSERT expressions share the mapper&apos;s familiarity with dollar paths. Typical roots include:</p>
+  <table>
+    <tr><th>Symbol / path</th><th>Role</th></tr>
+    <tr><td><code>$.body</code> or root <code>$</code></td><td>The primary <strong>response body</strong> object (often you write <code>$.field</code> directly).</td></tr>
+    <tr><td><code>$.status</code></td><td>Numeric <strong>HTTP status code</strong> of the captured response.</td></tr>
+    <tr><td><code>$.responseTime</code></td><td>Elapsed <strong>latency in milliseconds</strong> end-to-end for the HTTP call.</td></tr>
+    <tr><td><code>$.headers</code></td><td>Map-like <strong>response headers</strong> for header-level ASSERTs (<code>$contains($.headers.X-Trace-Id, &quot;-&quot;)</code>, etc.).</td></tr>
+    <tr><td><code>$.rawBody</code></td><td>Raw <strong>string payload</strong> before JSON parsing — useful when the body is not JSON.</td></tr>
+  </table>
+  <div class="expect"><strong>You should see:</strong> Autocomplete proposing matching segments when typing <code>$.</code>; invalid paths underline in Monaco.</div>
+</div>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">5</div><div class="step-title">Combining functions</div></div>
+  <p>Assertions become powerful when composing numeric, string, and collection helpers:</p>
+<pre>ASSERT $gt($count($.products), 0) // Response has products
+
+ASSERT $contains($lower($.brand), "essence") // Brand contains essence
+
+ASSERT $all($.reviews, x => $gte(x.rating, 1)) // All ratings >= 1
+
+ASSERT $eq($type($.price), "number") // Price is a number</pre>
+  <p>Each line remains a single validation rule with an independent pass/fail channel and description.</p>
+</div>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">6</div><div class="step-title">Lambda support</div></div>
+  <p>Higher-order helpers accept inline lambdas using arrow syntax:</p>
+  <ul>
+    <li><strong>Single parameter</strong> — <code>x => body</code></li>
+    <li><strong>Multiple parameters</strong> — <code>(a, b) => body</code></li>
+  </ul>
+  <p>Typical consumers include <code>$map</code>, <code>$filter</code>, <code>$all</code>, <code>$any</code>, and <code>$reduce</code>. Inside the lambda, use dotted paths on the parameter (for example <code>x.rating</code>) exactly as with outer <code>$.</code> paths.</p>
+  <div class="expect"><strong>You should see:</strong> Parsing errors when arrow syntax is malformed; successful checks highlight whichever collection items caused failure when the debugger surfaces iteration detail.</div>
+</div>
+
+<h2>Part 3 — Verification</h2>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">7</div><div class="step-title">Verify custom assertions</div></div>
+  <p>Click <strong>Verify All</strong> (or the equivalent validation run control). Field rules and ASSERT lines evaluate together.</p>
+  <ul>
+    <li>Custom ASSERT rows show the trailing <strong>comment text</strong> as the assertion title or subtitle in result panes.</li>
+    <li>Failures bubble with the evaluated expression snippet when diagnostics are expanded.</li>
+  </ul>
+  <div class="expect"><strong>You should see:</strong> Assertions interleaved with mapper-driven rules in summaries; PASS rows stay green while FAIL rows show red cues consistent with pill rules.</div>
+</div>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">8</div><div class="step-title">Negation</div></div>
+  <p>Prefix with <strong>NOT</strong> when you want inverted truth:</p>
+<pre>NOT ASSERT $isEmpty($.products) // Products should NOT be empty</pre>
+  <p>Here the assertion passes when <code>$isEmpty($.products)</code> evaluates to falsy — that is, when the collection has one or more items.</p>
+  <div class="expect"><strong>You should see:</strong> NOT ASSERT lines flagged distinctly in tooling so operators can differentiate negated custom checks from plain NOT field operators.</div>
+</div>
+
+<h2>Part 4 — 125 Functions Reference</h2>
+
+<p>The expression engine organizes helpers into thematic groups. Approximate catalogue sizes:</p>
+
+<table>
+  <tr><th>Category</th><th>Function count (approx.)</th><th>Typical ASSERT uses</th></tr>
+  <tr><td>String</td><td>31</td><td>Cleaning, slicing, casing, substring tests, templating snippets.</td></tr>
+  <tr><td>Math</td><td>28</td><td>Rounding, min/max clamps, deterministic tolerances beside <code>$close_to</code> field rules.</td></tr>
+  <tr><td>Array</td><td>16</td><td><code>$count</code>, <code>$all</code>, <code>$any</code>, transforms prior to aggregates.</td></tr>
+  <tr><td>Object</td><td>11</td><td>Keys/values traversal, merges, guarded property reads.</td></tr>
+  <tr><td>Conditional</td><td>11</td><td>Inline branching without leaving the DSL line.</td></tr>
+  <tr><td>JSON</td><td>15</td><td>Parse/stringify safeguards for semi-structured payloads.</td></tr>
+  <tr><td>Date / time</td><td>8</td><td>Comparing server timestamps skew, SLA guards.</td></tr>
+  <tr><td>Encoding</td><td>5</td><td>Base64 and URI helpers when headers or bodies encode binary metadata.</td></tr>
+</table>
+
+<h3>Top 10 shortcuts for assertions</h3>
+<ol>
+  <li><code>$gt</code> — strict greater-than numeric guard</li>
+  <li><code>$gte</code> — inclusive lower bound</li>
+  <li><code>$lt</code> — strict less-than numeric guard</li>
+  <li><code>$lte</code> — inclusive upper bound</li>
+  <li><code>$eq</code> — exact equality without field-operator sugar</li>
+  <li><code>$contains</code> — substring / membership-style checks inside expressions</li>
+  <li><code>$isEmpty</code> — collections or strings devoid of meaningful content</li>
+  <li><code>$count</code> — length-aware ASSERT chains</li>
+  <li><code>$type</code> — dynamic schema guards when <code>is_type</code> field rules need composition</li>
+  <li><code>$all</code> — “every element satisfies…” predicates with lambdas</li>
+</ol>
+<p>Expand beyond these by exploring the searchable function catalog embedded in Expression tooling elsewhere in the app.</p>
+
+<h2>Summary</h2>
+<table>
+  <tr><th>Topic</th><th>Takeaway</th></tr>
+  <tr><td><code>ASSERT</code></td><td>Bridges Monaco DSL lines to expression evaluation plus human descriptions after <code>//</code>.</td></tr>
+  <tr><td>Truthiness</td><td>Truthy expressions pass; falsy expressions fail with diagnostic context.</td></tr>
+  <tr><td>Roots</td><td>Body/status/latency/headers/raw payload exposed via documented <code>$.</code> paths.</td></tr>
+  <tr><td>Composition</td><td>Nested helpers (counts, lowers, predicates) unlock multi-step checks in one ASSERT.</td></tr>
+  <tr><td>Lambdas</td><td>Arrow syntax powers high-order iterators without leaving DSL.</td></tr>
+  <tr><td>Verify All</td><td>Runs field rules alongside ASSERT statements; comments label results.</td></tr>
+  <tr><td><code>NOT ASSERT</code></td><td>Inverts custom predicate semantics when that reads clearer than rewriting logic.</td></tr>
+  <tr><td>125-function surface</td><td>Broad catalogue across strings, math, collections, JSON, dates, encoding.</td></tr>
+</table>
+
+<div class="callout callout-tip">
+  <strong>Tip</strong>
+  For a workflow-driven tour of dozens oflive functions with copy-ready snippets, continue to the <a href="../workflow/api-patterns/expression-functions-advanced.html">Expression Functions Showcase</a> training manual (<code>workflow/api-patterns/expression-functions-advanced.html</code>).
+</div>
+
+</body>
+</html>

@@ -129,7 +129,7 @@ vi.mock('./SetupStepValidate', () => ({
     sampleJson?: string;
     handleFetchForValidate: () => void | Promise<void>;
     fetching?: boolean;
-    fetchError?: string | null;
+    fetchError?: { message: string } | null;
     setArrayModes?: (
       next:
         | Record<string, 'ordered' | 'unordered'>
@@ -142,7 +142,7 @@ vi.mock('./SetupStepValidate', () => ({
       <span data-testid="sample-json-preview">{sampleJson ?? ''}</span>
       <span data-testid="first-validate-path">{validateFields[0]?.jsonPath ?? ''}</span>
       <span data-testid="fetching">{fetching ? 'yes' : 'no'}</span>
-      <span data-testid="fetch-error">{fetchError ?? ''}</span>
+      <span data-testid="fetch-error">{fetchError?.message ?? ''}</span>
       <button type="button" data-testid="set-mode-none" onClick={() => setValidationMode('none')}>
         None
       </button>

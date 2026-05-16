@@ -2,12 +2,14 @@ import { useState, useCallback, useEffect, type MutableRefObject } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import type { Scenario, AuthConfig, FailureDetail, ResponseVersion, RulesVersion, FeatureGroup, GlobalAuthProfile } from '../../../shared/types';
 import { serializeWithContentType, getEffectiveBodyType } from '../../../shared/utils/bodySerializer';
-import { toErrorMessage } from '../../../shared/utils/helpers';
+import { toErrorMessage, prettyJson } from '../../../shared/utils/helpers';
 import { proxyFetch } from '../../../engine/executor';
 import { acquireOAuth2Token } from '../../../engine/tokenManager';
 import { resolveAuthHeaders } from '../../../shared/utils/authHeaders';
-import { validate } from '../../../engine/validator';
+import { MapperFetchError, type FetchErrorDetail } from '../../../shared/components/data-mapper/types';
+import { validate, evaluateAssertions, type AssertionContext } from '../../../engine/validator';
 import { jsonEqual } from '../utils/testEditorUtils';
+import { getByPath } from '../../../shared/utils/jsonPath';
 
 // ─── Shared helpers ──────────────────────────────────────────
 
@@ -150,7 +152,7 @@ export function useTestFetch({
   draftId,
 }: UseTestFetchOptions) {
   const [fetchingResponse, setFetchingResponse] = useState(false);
-  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [fetchError, setFetchError] = useState<FetchErrorDetail | null>(null);
   const [fetchHostOverride, setFetchHostOverride] = useState(draftRef.current.fetchHostOverride || '');
   const [fetchHostEnabled, setFetchHostEnabled] = useState(!!draftRef.current.fetchHostEnabled);
 
@@ -159,7 +161,10 @@ export function useTestFetch({
     passed: boolean;
     failures: FailureDetail[];
     httpStatus?: number;
+    statusText?: string;
     responseJson?: string;
+    responseHeaders?: Record<string, string>;
+    verifyScope?: 'all' | 'assertions' | 'rules';
   } | null>(null);
 
   const [pendingFetchResponse, setPendingFetchResponse] = useState<string | null>(null);
@@ -243,7 +248,7 @@ export function useTestFetch({
   const handleFetchSampleResponse = useCallback(async () => {
     const cur = draftRef.current;
     if (!cur.url.trim()) {
-      setFetchError('URL is required');
+      setFetchError({ message: 'URL is required' });
       return;
     }
     setFetchingResponse(true);
@@ -253,7 +258,7 @@ export function useTestFetch({
       const { headers: reqHeaders, body: reqBody, fetchError: authError } = await buildAuthedRequest(cur, effectiveAuth, authSource);
 
       if (authError) {
-        setFetchError(authError);
+        setFetchError({ message: authError });
         setFetchingResponse(false);
         return;
       }
@@ -263,21 +268,36 @@ export function useTestFetch({
       const latest = draftRef.current;
 
       if (result.error) {
-        setFetchError(result.error);
+        setFetchError({
+          message: result.error,
+          status: result.status || undefined,
+          statusText: result.statusText || undefined,
+          headers: result.headers,
+          body: result.body || undefined,
+          timing: result.timing ? { ttfb: result.timing.ttfb, total: result.timing.total } : undefined,
+        });
       } else if (result.status >= 400) {
-        setFetchError(`HTTP ${result.status}: ${result.statusText}`);
+        setFetchError({
+          message: `HTTP ${result.status}: ${result.statusText}`,
+          status: result.status,
+          statusText: result.statusText,
+          headers: result.headers,
+          body: result.body || undefined,
+          timing: result.timing ? { ttfb: result.timing.ttfb, total: result.timing.total } : undefined,
+        });
         if (result.body) {
-          let pretty: string;
-          try { pretty = JSON.stringify(JSON.parse(result.body), null, 2); } catch { pretty = result.body; }
+          const pretty = prettyJson(result.body);
           onDraftChange({ ...latest, validation: { ...latest.validation, sampleJson: pretty } });
         }
       } else {
-        let pretty: string;
-        try { pretty = JSON.stringify(JSON.parse(result.body), null, 2); } catch { pretty = result.body; }
+        const pretty = prettyJson(result.body);
         const v = latest.validation;
         const hasExistingRules = (v.expectedFields || []).length > 0;
+        const hasExistingSampleResponse = (v.sampleJson || '').trim().length > 0;
 
-        if (hasExistingRules) {
+        // Keep fetch behavior consistent with real tests: when a response already exists
+        // (or rules exist), require explicit confirmation before replacing it.
+        if (hasExistingRules || hasExistingSampleResponse) {
           setPendingFetchResponse(pretty);
         } else {
           const prevVersions = v.responseVersions || [];
@@ -299,7 +319,7 @@ export function useTestFetch({
         setFetchError(null);
       }
     } catch (err) {
-      setFetchError(toErrorMessage(err));
+      setFetchError({ message: toErrorMessage(err) });
     } finally {
       setFetchingResponse(false);
     }
@@ -316,9 +336,29 @@ export function useTestFetch({
     const updatedVersions = shouldAutoSave
       ? [...prevVersions, buildResponseVersion(v, v.sampleJson || '')]
       : prevVersions;
+    const currentExpectedFields = v.expectedFields || [];
+    let updatedExpectedFields = currentExpectedFields;
+    try {
+      const parsed = JSON.parse(pendingFetchResponse);
+      updatedExpectedFields = currentExpectedFields.map((field) => {
+        const nextValue = getByPath(parsed, field.jsonPath);
+        if (nextValue === undefined) return field;
+        return {
+          ...field,
+          expectedValue: JSON.stringify(nextValue),
+        };
+      });
+    } catch {
+      // Keep existing expected values when fetched response is not JSON.
+    }
     onDraftChange({
       ...latest,
-      validation: { ...latest.validation, sampleJson: pendingFetchResponse, responseVersions: updatedVersions },
+      validation: {
+        ...latest.validation,
+        sampleJson: pendingFetchResponse,
+        expectedFields: updatedExpectedFields,
+        responseVersions: updatedVersions,
+      },
     });
     setPendingFetchResponse(null);
   }, [pendingFetchResponse, onDraftChange, draftRef]);
@@ -354,17 +394,57 @@ export function useTestFetch({
     setPendingFetchResponse(null);
   }, []);
 
+  // ── Fetch for mapper (returns body without updating draft) ──
+
+  const fetchSampleDataForMapper = useCallback(async (): Promise<unknown> => {
+    const cur = draftRef.current;
+    if (!cur.url.trim()) throw new Error('URL is required');
+    const { auth: effectiveAuth, source: authSource } = resolveEffectiveAuth();
+    const { headers: reqHeaders, body: reqBody, fetchError: authError } = await buildAuthedRequest(cur, effectiveAuth, authSource);
+    if (authError) throw new Error(authError);
+    const fetchUrl = applyFetchUrlOverrides(cur.url, effectiveAuth);
+    const result = await proxyFetch(fetchUrl, cur.method, reqHeaders, reqBody);
+    if (result.error) throw new MapperFetchError({
+      message: result.error,
+      status: result.status || undefined,
+      statusText: result.statusText || undefined,
+      headers: result.headers,
+      body: result.body || undefined,
+      timing: result.timing ? { ttfb: result.timing.ttfb, total: result.timing.total } : undefined,
+    });
+    if (result.status >= 400) throw new MapperFetchError({
+      message: `HTTP ${result.status}: ${result.statusText}`,
+      status: result.status,
+      statusText: result.statusText,
+      headers: result.headers,
+      body: result.body || undefined,
+      timing: result.timing ? { ttfb: result.timing.ttfb, total: result.timing.total } : undefined,
+    });
+    try { return JSON.parse(result.body); } catch { return result.body; }
+  }, [draftRef, applyFetchUrlOverrides, resolveEffectiveAuth]);
+
   // ── Validate response ──
 
-  const handleValidateResponse = useCallback(async () => {
+  const handleValidateResponse = useCallback(async (scope: 'assertions' | 'rules' | 'all' = 'all') => {
     const cur = draftRef.current;
     if (!cur.url.trim()) {
       setValidationResult({ passed: false, failures: [{ path: '(url)', expected: 'a URL', actual: 'empty' }] });
       return;
     }
     const v = cur.validation;
-    if (v.mode === 'none' || ((v.expectedFields || []).length === 0 && v.mode === 'selective')) {
+    const hasRules = v.mode !== 'none' && (v.expectedFields || []).length > 0;
+    const hasAssertions = (v.assertions || []).length > 0;
+
+    if (scope === 'rules' && !hasRules) {
       setValidationResult({ passed: false, failures: [{ path: '(config)', expected: 'validation rules', actual: 'no rules configured' }] });
+      return;
+    }
+    if (scope === 'assertions' && !hasAssertions) {
+      setValidationResult({ passed: false, failures: [{ path: '(config)', expected: 'assertions', actual: 'no assertions configured' }] });
+      return;
+    }
+    if (scope === 'all' && !hasRules && !hasAssertions) {
+      setValidationResult({ passed: false, failures: [{ path: '(config)', expected: 'validation rules or assertions', actual: 'none configured' }] });
       return;
     }
 
@@ -391,8 +471,10 @@ export function useTestFetch({
         setValidationResult({
           passed: false,
           httpStatus: result.status,
+          statusText: result.statusText,
           failures: [{ path: '(http)', expected: '2xx', actual: `${result.status} ${result.statusText}` }],
           responseJson: result.body,
+          responseHeaders: result.headers,
         });
         return;
       }
@@ -400,12 +482,39 @@ export function useTestFetch({
       let responseObj: unknown;
       try { responseObj = JSON.parse(result.body); } catch { responseObj = result.body; }
 
-      const failures = validate(v, responseObj);
+      const allFailures: FailureDetail[] = [];
+
+      if (scope === 'rules' || scope === 'all') {
+        if (hasRules) {
+          allFailures.push(...validate(v, responseObj));
+        }
+      }
+
+      if (scope === 'assertions' || scope === 'all') {
+        if (hasAssertions) {
+          const responseHeaders: Record<string, string> = {};
+          if (result.headers) {
+            for (const [k, val] of Object.entries(result.headers)) {
+              if (typeof val === 'string') responseHeaders[k] = val;
+            }
+          }
+          const ctx: AssertionContext = {
+            httpStatus: result.status ?? 200,
+            responseTimeMs: 0,
+            responseHeaders,
+            responseBody: responseObj,
+          };
+          const assertionResult = evaluateAssertions(v.assertions!, ctx);
+          allFailures.push(...assertionResult.failures);
+        }
+      }
+
       setValidationResult({
-        passed: failures.length === 0,
-        failures,
+        passed: allFailures.length === 0,
+        failures: allFailures,
         httpStatus: result.status,
         responseJson: result.body,
+        verifyScope: scope,
       });
     } catch (err) {
       setValidationResult({ passed: false, failures: [{ path: '(error)', expected: 'success', actual: toErrorMessage(err) }] });
@@ -431,6 +540,7 @@ export function useTestFetch({
     applyFetchUrlOverrides,
     handleFetchRow,
     handleFetchSampleResponse,
+    fetchSampleDataForMapper,
     handleFetchKeepRules,
     handleFetchReplaceAll,
     handleFetchCancel,

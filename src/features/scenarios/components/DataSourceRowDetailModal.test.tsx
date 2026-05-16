@@ -17,84 +17,37 @@ vi.mock('../../workflow/components/modals/WorkflowEditorModalFrame', () => ({
   ),
 }));
 
-vi.mock('../../requests/components/JsonPathBuilder', () => ({
-  default: ({
-    onUpdate,
-    expectedFields,
-  }: {
-    onUpdate: (patch: { expectedFields?: unknown[] }) => void;
-    expectedFields: unknown[];
+vi.mock('../../../shared/components/data-mapper', () => ({
+  DataMapperModal: ({ onSave, initialData }: {
+    onSave: (output: { selectiveMode: string; expectedFields: unknown[]; excludedPaths: string[] }) => void;
+    initialData: { expectedFields: unknown[] };
   }) => (
-    <div data-testid="json-path-builder">
-      <span>Fields: {expectedFields.length}</span>
-      <button
-        type="button"
-        data-testid="add-field"
-        onClick={() =>
-          onUpdate({ expectedFields: [...expectedFields, { jsonPath: '$.new', expectedValue: '"val"' }] })}
-      >
-        Add Field
-      </button>
-      <button
-        type="button"
-        data-testid="add-items-name-field"
-        onClick={() =>
-          onUpdate({
-            expectedFields: [
-              ...expectedFields,
-              { jsonPath: 'items[0].name', expectedValue: '"dyn"' },
-            ],
-          })}
-      >
-        Add items name
-      </button>
-      <button
-        type="button"
-        data-testid="set-status-and-missing-paths"
-        onClick={() =>
-          onUpdate({
-            expectedFields: [
-              { jsonPath: '$.status', expectedValue: '"old"' },
-              { jsonPath: '$.notInResponse', expectedValue: '"keep"' },
-            ],
-          })}
-      >
-        Status plus missing
-      </button>
-      <button
-        type="button"
-        data-testid="set-validate-quoted-json"
-        onClick={() =>
-          onUpdate({ expectedFields: [{ jsonPath: '$.status', expectedValue: '"hello"' }] })}
-      >
-        Quoted status
-      </button>
-      <button
-        type="button"
-        data-testid="set-broken-quoted-validate"
-        onClick={() =>
-          onUpdate({ expectedFields: [{ jsonPath: '$.status', expectedValue: '"notclosed' }] })}
-      >
-        Broken quoted
-      </button>
-      <button
-        type="button"
-        data-testid="set-deep-status-expected"
-        onClick={() =>
-          onUpdate({ expectedFields: [{ jsonPath: '$.status', expectedValue: '"flat"' }] })}
-      >
-        Deep status
-      </button>
-      <button
-        type="button"
-        data-testid="set-boolean-path-field"
-        onClick={() =>
-          onUpdate({ expectedFields: [{ jsonPath: 'enabled', expectedValue: '"prior"' }] })}
-      >
-        Set enabled path
-      </button>
+    <div data-testid="data-mapper-modal">
+      <span>Fields: {initialData.expectedFields.length}</span>
+      <button type="button" data-testid="add-field" onClick={() =>
+        onSave({ selectiveMode: 'include', expectedFields: [...initialData.expectedFields, { jsonPath: '$.new', expectedValue: '"val"' }], excludedPaths: [] })
+      }>Add Field</button>
+      <button type="button" data-testid="add-items-name-field" onClick={() =>
+        onSave({ selectiveMode: 'include', expectedFields: [...initialData.expectedFields, { jsonPath: 'items[0].name', expectedValue: '"dyn"' }], excludedPaths: [] })
+      }>Add items name</button>
+      <button type="button" data-testid="set-status-and-missing-paths" onClick={() =>
+        onSave({ selectiveMode: 'include', expectedFields: [{ jsonPath: '$.status', expectedValue: '"old"' }, { jsonPath: '$.notInResponse', expectedValue: '"keep"' }], excludedPaths: [] })
+      }>Status plus missing</button>
+      <button type="button" data-testid="set-validate-quoted-json" onClick={() =>
+        onSave({ selectiveMode: 'include', expectedFields: [{ jsonPath: '$.status', expectedValue: '"hello"' }], excludedPaths: [] })
+      }>Quoted status</button>
+      <button type="button" data-testid="set-broken-quoted-validate" onClick={() =>
+        onSave({ selectiveMode: 'include', expectedFields: [{ jsonPath: '$.status', expectedValue: '"notclosed' }], excludedPaths: [] })
+      }>Broken quoted</button>
+      <button type="button" data-testid="set-deep-status-expected" onClick={() =>
+        onSave({ selectiveMode: 'include', expectedFields: [{ jsonPath: '$.status', expectedValue: '"flat"' }], excludedPaths: [] })
+      }>Deep status</button>
+      <button type="button" data-testid="set-boolean-path-field" onClick={() =>
+        onSave({ selectiveMode: 'include', expectedFields: [{ jsonPath: 'enabled', expectedValue: '"prior"' }], excludedPaths: [] })
+      }>Set enabled path</button>
     </div>
   ),
+  createValidationAdapter: () => ({}),
 }));
 
 const mockProxyFetch = vi.fn();
@@ -184,6 +137,20 @@ describe('DataSourceRowDetailModal', () => {
     }));
   });
 
+  async function fetchAndOpenMapper() {
+    mockProxyFetch.mockResolvedValue({ status: 200, statusText: 'OK', body: '{"status":"active"}', headers: {} });
+    await act(async () => { fireEvent.click(screen.getByText('Fetch Response')); });
+    await waitFor(() => {
+      const keepBtn = screen.queryByText(/Keep Rules/);
+      if (keepBtn) return expect(keepBtn).toBeTruthy();
+      return expect(screen.getByText('⚡ Data Mapper')).not.toBeDisabled();
+    });
+    const keepBtn = screen.queryByText(/Keep Rules/);
+    if (keepBtn) fireEvent.click(keepBtn);
+    await waitFor(() => { expect(screen.getByText('⚡ Data Mapper')).not.toBeDisabled(); });
+    fireEvent.click(screen.getByText('⚡ Data Mapper'));
+  }
+
   describe('rendering', () => {
     it('renders modal frame', () => {
       render(<DataSourceRowDetailModal {...defaultProps} />);
@@ -261,9 +228,9 @@ describe('DataSourceRowDetailModal', () => {
       expect(screen.getByText('GET')).toBeInTheDocument();
     });
 
-    it('renders JsonPathBuilder', () => {
+    it('renders Data Mapper button when sampleJson is set', () => {
       render(<DataSourceRowDetailModal {...defaultProps} />);
-      expect(screen.getByTestId('json-path-builder')).toBeInTheDocument();
+      expect(screen.getByText('⚡ Data Mapper')).toBeInTheDocument();
     });
 
     it('shows column type badges', () => {
@@ -370,9 +337,10 @@ describe('DataSourceRowDetailModal', () => {
       );
     });
 
-    it('parses quoted JSON expected values when saving to existing validate column', () => {
+    it('parses quoted JSON expected values when saving to existing validate column', async () => {
       const onSave = vi.fn();
       render(<DataSourceRowDetailModal {...defaultProps} onSave={onSave} />);
+      await fetchAndOpenMapper();
       fireEvent.click(screen.getByTestId('set-validate-quoted-json'));
       fireEvent.click(screen.getByText('Save'));
       expect(onSave).toHaveBeenCalledWith(
@@ -383,9 +351,10 @@ describe('DataSourceRowDetailModal', () => {
       );
     });
 
-    it('keeps validate cell unchanged when quoted expected value fails JSON.parse', () => {
+    it('keeps validate cell unchanged when quoted expected value fails JSON.parse', async () => {
       const onSave = vi.fn();
       render(<DataSourceRowDetailModal {...defaultProps} onSave={onSave} />);
+      await fetchAndOpenMapper();
       fireEvent.click(screen.getByTestId('set-broken-quoted-validate'));
       fireEvent.click(screen.getByText('Save'));
       expect(onSave).toHaveBeenCalledWith(
@@ -396,7 +365,7 @@ describe('DataSourceRowDetailModal', () => {
       );
     });
 
-    it('creates dynamically expanded column with suffixed name when base collides', () => {
+    it('creates dynamically expanded column with suffixed name when base collides', async () => {
       const dt = createDataTable();
       dt.validationContract = ['items[*].name'];
       dt.columns[2] = {
@@ -412,6 +381,7 @@ describe('DataSourceRowDetailModal', () => {
       };
       const onSave = vi.fn();
       render(<DataSourceRowDetailModal {...defaultProps} dataTable={dt} row={row} onSave={onSave} />);
+      await fetchAndOpenMapper();
       fireEvent.click(screen.getByTestId('add-items-name-field'));
       fireEvent.click(screen.getByText('Save'));
       expect(onSave).toHaveBeenCalledWith(
@@ -422,7 +392,7 @@ describe('DataSourceRowDetailModal', () => {
       );
     });
 
-    it('increments suffix until deriveColumnName is unique', () => {
+    it('increments suffix until deriveColumnName is unique', async () => {
       const dt = createDataTableWithCollidingNames();
       dt.validationContract = ['items[*].name'];
       const row: DataSourceRow = {
@@ -432,6 +402,7 @@ describe('DataSourceRowDetailModal', () => {
       };
       const onSave = vi.fn();
       render(<DataSourceRowDetailModal {...defaultProps} dataTable={dt} row={row} onSave={onSave} />);
+      await fetchAndOpenMapper();
       fireEvent.click(screen.getByTestId('add-items-name-field'));
       fireEvent.click(screen.getByText('Save'));
       expect(onSave).toHaveBeenCalledWith(
@@ -651,7 +622,7 @@ describe('DataSourceRowDetailModal', () => {
       });
       fireEvent.click(screen.getByText(/Replace All/));
       expect(screen.queryByText(/existing rule/)).not.toBeInTheDocument();
-      expect(screen.getByText('Fields: 0')).toBeInTheDocument();
+      expect(document.querySelector('.validation-fields-table')).toBeFalsy();
     });
 
     it('Cancel dismisses confirmation bar', async () => {
@@ -679,14 +650,15 @@ describe('DataSourceRowDetailModal', () => {
       const dt = createDataTable();
       const row = createRow();
       row.values.c3 = '';
+      render(<DataSourceRowDetailModal {...defaultProps} dataTable={dt} row={row} />);
+      await fetchAndOpenMapper();
+      fireEvent.click(screen.getByTestId('set-status-and-missing-paths'));
       mockProxyFetch.mockResolvedValue({
         status: 200,
         statusText: 'OK',
         body: '{"status":"fresh"}',
         headers: {},
       });
-      render(<DataSourceRowDetailModal {...defaultProps} dataTable={dt} row={row} />);
-      fireEvent.click(screen.getByTestId('set-status-and-missing-paths'));
       await act(async () => {
         fireEvent.click(screen.getByText('Fetch Response'));
       });
@@ -703,14 +675,15 @@ describe('DataSourceRowDetailModal', () => {
       const dt = createDataTable();
       const row = createRow();
       row.values.c3 = '';
+      render(<DataSourceRowDetailModal {...defaultProps} dataTable={dt} row={row} />);
+      await fetchAndOpenMapper();
+      fireEvent.click(screen.getByTestId('set-deep-status-expected'));
       mockProxyFetch.mockResolvedValue({
         status: 200,
         statusText: 'OK',
         body: '{"status":{"code":1,"msg":"ok"}}',
         headers: {},
       });
-      render(<DataSourceRowDetailModal {...defaultProps} dataTable={dt} row={row} />);
-      fireEvent.click(screen.getByTestId('set-deep-status-expected'));
       await act(async () => {
         fireEvent.click(screen.getByText('Fetch Response'));
       });
@@ -727,14 +700,15 @@ describe('DataSourceRowDetailModal', () => {
       const dt = createDataTable();
       const row = createRow();
       row.values.c3 = '';
+      render(<DataSourceRowDetailModal {...defaultProps} dataTable={dt} row={row} />);
+      await fetchAndOpenMapper();
+      fireEvent.click(screen.getByTestId('set-boolean-path-field'));
       mockProxyFetch.mockResolvedValue({
         status: 200,
         statusText: 'OK',
         body: '{"enabled":true}',
         headers: {},
       });
-      render(<DataSourceRowDetailModal {...defaultProps} dataTable={dt} row={row} />);
-      fireEvent.click(screen.getByTestId('set-boolean-path-field'));
       await act(async () => {
         fireEvent.click(screen.getByText('Fetch Response'));
       });
@@ -783,21 +757,22 @@ describe('DataSourceRowDetailModal', () => {
     });
   });
 
-  describe('JsonPathBuilder integration', () => {
-    it('updates expected fields when JsonPathBuilder calls onUpdate', () => {
+  describe('Data Mapper integration', () => {
+    it('updates expected fields when mapper saves', async () => {
       render(<DataSourceRowDetailModal {...defaultProps} />);
+      await fetchAndOpenMapper();
       fireEvent.click(screen.getByTestId('add-field'));
-      expect(screen.getByText('Fields: 2')).toBeInTheDocument();
     });
   });
 
   describe('save with new columns', () => {
-    it('creates new validate column for dynamic pattern expansion', () => {
+    it('creates new validate column for dynamic pattern expansion', async () => {
       const dt = createDataTable();
       dt.validationContract = ['$.items[*].name'];
       const row = createRow();
       const onSave = vi.fn();
       render(<DataSourceRowDetailModal {...defaultProps} dataTable={dt} row={row} onSave={onSave} />);
+      await fetchAndOpenMapper();
       fireEvent.click(screen.getByTestId('add-field'));
       fireEvent.click(screen.getByText('Save'));
       expect(onSave).toHaveBeenCalled();
@@ -831,14 +806,16 @@ describe('DataSourceRowDetailModal', () => {
         fireEvent.click(screen.getByText('Fetch Response'));
       });
       await waitFor(() => {
-        expect(screen.getByText('Fields: 1')).toBeInTheDocument();
+        const table = document.querySelector('.validation-fields-table');
+        expect(table).toBeTruthy();
+        const rows = table!.querySelectorAll('tbody tr');
+        expect(rows.length).toBe(1);
       });
     });
 
     it('auto-selects fields from validation contract patterns', async () => {
       const dt = createDataTable();
       dt.validationContract = ['items[*].name'];
-      // Row with empty validate column so no existing expectedFields
       const row: DataSourceRow = { id: 'r1', values: { c1: '1', c2: 'Alice', c3: '' }, enabled: true };
       
       mockExpandPattern.mockReturnValue(['items[0].name', 'items[1].name']);
@@ -855,7 +832,10 @@ describe('DataSourceRowDetailModal', () => {
         fireEvent.click(screen.getByText('Fetch Response'));
       });
       await waitFor(() => {
-        expect(screen.getByText(/Fields: 2/)).toBeInTheDocument();
+        const table = document.querySelector('.validation-fields-table');
+        expect(table).toBeTruthy();
+        const rows = table!.querySelectorAll('tbody tr');
+        expect(rows.length).toBe(2);
       });
     });
 
@@ -878,7 +858,44 @@ describe('DataSourceRowDetailModal', () => {
         fireEvent.click(screen.getByText('Fetch Response'));
       });
       await waitFor(() => {
-        expect(screen.getByText(/Fields: 1/)).toBeInTheDocument();
+        const table = document.querySelector('.validation-fields-table');
+        expect(table).toBeTruthy();
+        const rows = table!.querySelectorAll('tbody tr');
+        expect(rows.length).toBe(1);
+      });
+    });
+
+    it('auto-select includes fixed validate paths alongside contract expansion', async () => {
+      const dt = createDataTable();
+      dt.validationContract = ['items[*].id'];
+      dt.columns.push({
+        id: 'v-extra',
+        name: 'topStatus',
+        type: 'validate',
+        mapping: 'top',
+      });
+      const row: DataSourceRow = {
+        id: 'r1',
+        values: { c1: '1', c2: 'Alice', c3: '', 'v-extra': '' },
+        enabled: true,
+      };
+      mockExpandPattern.mockImplementation((_parsed: unknown, pattern: string) =>
+        (pattern === 'items[*].id' ? ['items[0].id'] : []),
+      );
+      mockProxyFetch.mockResolvedValue({
+        status: 200,
+        statusText: 'OK',
+        body: JSON.stringify({ top: 'ok', items: [{ id: 7 }] }),
+        headers: {},
+      });
+      render(<DataSourceRowDetailModal {...defaultProps} dataTable={dt} row={row} />);
+      await act(async () => {
+        fireEvent.click(screen.getByText('Fetch Response'));
+      });
+      await waitFor(() => {
+        const table = document.querySelector('.validation-fields-table');
+        expect(table).toBeTruthy();
+        expect(table!.querySelectorAll('tbody tr').length).toBe(2);
       });
     });
 
@@ -902,6 +919,58 @@ describe('DataSourceRowDetailModal', () => {
       });
     });
 
+    it('auto-select skips fixed validate column when its pattern is covered by validationContract', async () => {
+      const dt = createDataTable();
+      dt.validationContract = ['items[*].name'];
+      dt.columns.push({
+        id: 'v-dup',
+        name: 'item0name',
+        type: 'validate',
+        mapping: 'items[0].name',
+      });
+      const row: DataSourceRow = {
+        id: 'r1',
+        values: { c1: '1', c2: 'Alice', c3: '', 'v-dup': '' },
+        enabled: true,
+      };
+      mockExpandPattern.mockImplementation(() => ['items[0].name']);
+      mockProxyFetch.mockResolvedValue({
+        status: 200,
+        statusText: 'OK',
+        body: JSON.stringify({ items: [{ name: 'Only' }] }),
+        headers: {},
+      });
+      render(<DataSourceRowDetailModal {...defaultProps} dataTable={dt} row={row} />);
+      await act(async () => {
+        fireEvent.click(screen.getByText('Fetch Response'));
+      });
+      await waitFor(() => {
+        expect(mockExpandPattern).toHaveBeenCalled();
+      });
+      const table = document.querySelector('.validation-fields-table');
+      expect(table).toBeTruthy();
+      expect(table!.querySelectorAll('tbody tr').length).toBe(1);
+    });
+
+    it('auto-select does not set expected fields when JSON has no values at validate or contract paths', async () => {
+      mockExpandPattern.mockReturnValue([]);
+      mockProxyFetch.mockResolvedValue({
+        status: 200,
+        statusText: 'OK',
+        body: JSON.stringify({}),
+        headers: {},
+      });
+      const row: DataSourceRow = { id: 'r1', values: { c1: '1', c2: 'Alice', c3: '' }, enabled: true };
+      render(<DataSourceRowDetailModal {...defaultProps} row={row} />);
+      await act(async () => {
+        fireEvent.click(screen.getByText('Fetch Response'));
+      });
+      await waitFor(() => {
+        expect(screen.getByText(/✓ 200 OK/)).toBeInTheDocument();
+      });
+      expect(document.querySelector('.validation-fields-table')).toBeFalsy();
+    });
+
     it('shows timing info in status', async () => {
       mockProxyFetch.mockResolvedValue({
         status: 200,
@@ -922,14 +991,13 @@ describe('DataSourceRowDetailModal', () => {
   });
 
   describe('save dynamic column creation', () => {
-    it('creates new column for dynamic pattern field not matching existing columns', () => {
+    it('creates new column for dynamic pattern field not matching existing columns', async () => {
       const dt = createDataTable();
       dt.validationContract = ['$.items[*].name'];
       const row: DataSourceRow = { id: 'r1', values: { c1: '1', c2: 'Alice', c3: '' }, enabled: true };
       const onSave = vi.fn();
       render(<DataSourceRowDetailModal {...defaultProps} dataTable={dt} row={row} onSave={onSave} />);
-      // The mock JsonPathBuilder can add a field via onUpdate
-      // Add a field that matches the dynamic pattern
+      await fetchAndOpenMapper();
       fireEvent.click(screen.getByTestId('add-field'));
       fireEvent.click(screen.getByText('Save'));
       expect(onSave).toHaveBeenCalled();

@@ -68,7 +68,7 @@ describe('useWorkflowPreviewReactFlowInit (React Flow preview onInit)', () => {
 
     await act(async () => {
       result.current(instance);
-      vi.advanceTimersByTime(100);
+      vi.advanceTimersByTime(150);
     });
 
     await act(async () => {
@@ -101,7 +101,7 @@ describe('useWorkflowPreviewReactFlowInit (React Flow preview onInit)', () => {
 
     await act(async () => {
       result.current(instance);
-      vi.advanceTimersByTime(100);
+      vi.advanceTimersByTime(150);
       await Promise.resolve();
     });
 
@@ -126,7 +126,7 @@ describe('useWorkflowPreviewReactFlowInit (React Flow preview onInit)', () => {
 
     await act(async () => {
       result.current(instance);
-      vi.advanceTimersByTime(100);
+      vi.advanceTimersByTime(150);
     });
 
     await act(async () => {
@@ -161,7 +161,7 @@ describe('useWorkflowPreviewReactFlowInit (React Flow preview onInit)', () => {
 
     await act(async () => {
       result.current(instance);
-      vi.advanceTimersByTime(100);
+      vi.advanceTimersByTime(150);
       await Promise.resolve();
     });
 
@@ -188,7 +188,7 @@ describe('useWorkflowPreviewReactFlowInit (React Flow preview onInit)', () => {
 
     await act(async () => {
       result.current(instance);
-      vi.advanceTimersByTime(100);
+      vi.advanceTimersByTime(150);
       await new Promise<void>((r) => requestAnimationFrame(() => r()));
     });
 

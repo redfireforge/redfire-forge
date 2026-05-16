@@ -15,7 +15,7 @@ import {
   createCorrelationRouter,
   notifyResume,
   type ServerPausedEntry,
-} from './correlation-handler';
+} from './correlation-handler.js';
 import { InMemoryServerStore } from './correlation-store-memory.js';
 import { configureWebhookSecurity, generateHmacSignature } from './webhook-security.js';
 import { clearIdempotency } from './webhook-idempotency.js';
@@ -43,6 +43,7 @@ const TEST_HMAC_SECRET = '01234567890123456789012345678901';
 
 describe('correlation-handler — store functions', () => {
   beforeEach(() => {
+    setCorrelationStore(new InMemoryServerStore());
     clearAllCorrelations();
   });
 
@@ -266,6 +267,7 @@ describe('extractCorrelationId', () => {
 
 describe('matchCorrelation', () => {
   beforeEach(() => {
+    setCorrelationStore(new InMemoryServerStore());
     clearAllCorrelations();
   });
 
@@ -457,12 +459,13 @@ describe('setCorrelationStore / getCorrelationStore', () => {
 
 describe('getUnmatchedWebhooks', () => {
   beforeEach(() => {
+    setCorrelationStore(new InMemoryServerStore());
     clearAllCorrelations();
   });
 
   it('returns paths logged by unmatched webhook callbacks', async () => {
     const supertest = await import('supertest');
-    const { app } = await import('./webhook-server');
+    const { app } = await import('./webhook-server.js');
     const request = supertest.default(app);
     await request.post('/webhooks/callback/get-unmatched-test').send({ x: 1 });
     const list = getUnmatchedWebhooks();
@@ -478,11 +481,13 @@ describe('correlation-handler — HTTP routes', () => {
   let request: typeof import('supertest')['default'];
 
   beforeEach(async () => {
+    // Reset to a fresh in-memory store to guarantee isolation
+    setCorrelationStore(new InMemoryServerStore());
     clearAllCorrelations();
     clearIdempotency();
     // Dynamic import to avoid issues with vitest module resolution
     const supertest = await import('supertest');
-    const { app } = await import('./webhook-server');
+    const { app } = await import('./webhook-server.js');
     request = supertest.default(app);
   });
 
@@ -824,7 +829,7 @@ describe('correlation-handler — HTTP routes', () => {
 
     it('cleans up waiters when the client disconnects before resume', async () => {
       const http = await import('node:http');
-      const { app } = await import('./webhook-server');
+      const { app } = await import('./webhook-server.js');
       const server = http.createServer(app);
       await new Promise<void>(r => server.listen(0, r));
       const port = (server.address() as import('net').AddressInfo).port;
@@ -889,9 +894,11 @@ describe('correlation-handler — HTTP routes', () => {
     expect(res.status).toBe(201);
 
     const listRes = await request.get('/api/correlations');
+    expect(listRes.body.correlations).toBeDefined();
     const entry = listRes.body.correlations.find((e: ServerPausedEntry) => e.correlationId === 'no-wf-node');
-    expect(entry.workflowId).toBe('unknown');
-    expect(entry.pausedNodeId).toBe('unknown');
+    expect(entry).toBeDefined();
+    expect(entry!.workflowId).toBe('unknown');
+    expect(entry!.pausedNodeId).toBe('unknown');
   });
 
   it('POST /api/correlations/pause — sets timeoutAt to 0 when timeoutMs is 0', async () => {
@@ -946,6 +953,7 @@ describe('correlation-handler — HTTP routes', () => {
 
 describe('correlation-handler — webhook callback string body', () => {
   beforeEach(() => {
+    setCorrelationStore(new InMemoryServerStore());
     clearAllCorrelations();
     clearIdempotency();
     configureWebhookSecurity({
@@ -1029,6 +1037,7 @@ describe('correlation-handler — webhook security integration', () => {
   let request: typeof import('supertest')['default'];
 
   beforeEach(async () => {
+    setCorrelationStore(new InMemoryServerStore());
     clearAllCorrelations();
     clearIdempotency();
     configureWebhookSecurity({
@@ -1037,7 +1046,7 @@ describe('correlation-handler — webhook security integration', () => {
       ipWhitelist: [],
     });
     const supertest = await import('supertest');
-    const { app } = await import('./webhook-server');
+    const { app } = await import('./webhook-server.js');
     request = supertest.default(app);
   });
 
@@ -1207,7 +1216,7 @@ describe('correlation-handler — idempotent cache + wait abort', () => {
     await store.init();
     setCorrelationStore(store);
     const supertest = await import('supertest');
-    const { app } = await import('./webhook-server');
+    const { app } = await import('./webhook-server.js');
     request = supertest.default(app);
   });
 
@@ -1269,7 +1278,7 @@ describe('notifyResume', () => {
     clearIdempotency();
 
     const supertest = await import('supertest');
-    const { app } = await import('./webhook-server');
+    const { app } = await import('./webhook-server.js');
     server = await new Promise<import('http').Server>((resolve, reject) => {
       const s = app.listen(0, () => resolve(s));
       s.on('error', reject);
@@ -1327,7 +1336,7 @@ describe('resume queue cleanup behavior', () => {
     clearIdempotency();
 
     const supertest = await import('supertest');
-    const { app } = await import('./webhook-server');
+    const { app } = await import('./webhook-server.js');
     server = await new Promise<import('http').Server>((resolve, reject) => {
       const s = app.listen(0, () => resolve(s));
       s.on('error', reject);
@@ -1340,6 +1349,42 @@ describe('resume queue cleanup behavior', () => {
     clearIdempotency();
     server?.close();
   });
+
+  it('wait times out when no resume arrives within timeout', async () => {
+    const res = await request
+      .get('/api/correlations/timeout-test/wait')
+      .query({ timeoutMs: 1000 });
+
+    expect(res.status).toBe(200);
+    expect(res.body.resumed).toBe(false);
+    expect(res.body.timedOut).toBe(true);
+    expect(res.body.correlationId).toBe('timeout-test');
+  }, 10000);
+
+  it('second resume for same correlation is queued after first settles waiter', async () => {
+    const waitPromise = request
+      .get('/api/correlations/dup-settle/wait')
+      .query({ timeoutMs: 5000 });
+
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    notifyResume('dup-settle', {
+      executionId: 'exec-dup-1',
+      workflowId: 'wf-dup',
+      ts: Date.now(),
+    });
+
+    const res = await waitPromise;
+    expect(res.status).toBe(200);
+    expect(res.body.resumed).toBe(true);
+    expect(res.body.executionId).toBe('exec-dup-1');
+
+    const res2 = await request
+      .get('/api/correlations/dup-settle/wait')
+      .query({ timeoutMs: 1000 });
+    expect(res2.body.resumed).toBe(false);
+    expect(res2.body.timedOut).toBe(true);
+  }, 10000);
 
   it('picks up queued resume data immediately', async () => {
     // Queue resume data before any waiter

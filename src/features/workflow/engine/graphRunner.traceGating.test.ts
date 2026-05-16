@@ -280,4 +280,63 @@ describe('runGraph trace gating', () => {
     expect(last.text).toContain(`[... log capped at ${MAX_LOG_LINES_PER_NODE} lines]`);
     expect(last.prefix).toBe('*');
   });
+
+  it('standard level: failed HTTP with alwaysCaptureFailures exposes assertions without bodies', async () => {
+    mockFetch.mockResolvedValueOnce({
+      status: 500,
+      statusText: 'Server Error',
+      headers: {},
+      body: '{"err":true}',
+    });
+
+    const failNode = {
+      ...httpNode('h-fail', 'Fail Step'),
+      data: {
+        ...httpNode('h-fail', 'Fail Step').data,
+        scenario: {
+          ...(httpNode('h-fail', 'Fail Step').data as HttpNodeData).scenario,
+          validation: {
+            mode: 'status' as const,
+            statusCode: 200,
+          },
+        },
+      },
+    } as WorkflowNode;
+
+    const { cbs, getTrace } = makeCallbacks();
+    const opts: ExecutionTraceOptions = {
+      captureFullTrace: false,
+      traceLevel: 'standard',
+      alwaysCaptureFailures: true,
+    };
+
+    await runGraph([failNode], [], {}, cbs,
+      undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, opts);
+
+    const trace = getTrace()!;
+    const ev = trace.events.find(e => e.nodeId === 'h-fail' && e.state === 'fail');
+    expect(ev?.details?.assertions).toBeDefined();
+    expect(ev?.details?.request).toBeUndefined();
+    expect(ev?.details?.response).toBeUndefined();
+  });
+
+  it('debug level: script exception still records buffered log lines on failure', async () => {
+    mockExecuteScript.mockImplementation(() => {
+      throw new Error('script exploded');
+    });
+
+    const scId = 'sc1';
+    const workflowNodes = [startNode, scriptNode(scId)];
+    const workflowEdges: WorkflowEdge[] = [{ id: 'e1', source: 's1', target: scId }];
+    const { cbs, getTrace } = makeCallbacks();
+    const opts: ExecutionTraceOptions = { captureFullTrace: false, traceLevel: 'debug' };
+
+    await runGraph(workflowNodes, workflowEdges, {}, cbs,
+      undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, opts);
+
+    const trace = getTrace()!;
+    const ev = trace.events.find(e => e.nodeId === scId && e.state === 'fail');
+    expect(ev?.details?.logLines?.length).toBeGreaterThan(0);
+    expect(ev?.details?.error).toBeDefined();
+  });
 });

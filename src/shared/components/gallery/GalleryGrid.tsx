@@ -324,6 +324,15 @@ export function GalleryGrid<T = unknown>({
               const entry = entries.find(e => e.id === sampleId);
               if (entry) onAction(entry);
             } : undefined}
+            onNavigateToSample={(sampleId) => {
+              const entry = entries.find(e => e.id === sampleId);
+              if (!entry) return;
+              setMode('samples');
+              setActivePathId(undefined);
+              setFilters(f => ({ ...f, domain: entry.domain, search: '' }));
+              setSelectedId(sampleId);
+              setPage(0);
+            }}
             sampleStatus={sampleStatus}
           />
           </div>

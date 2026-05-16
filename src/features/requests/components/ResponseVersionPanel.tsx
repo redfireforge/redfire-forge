@@ -1,6 +1,8 @@
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import type { ResponseVersion, ValidationConfig } from '../../../shared/types';
 import { buildRulesSnapshot } from '../utils/versionUtils';
+import VersionPreviewModal from './VersionPreviewModal';
+import { prettyJson } from '../../../shared/utils/helpers';
 import { Differ, Viewer } from 'json-diff-kit';
 import 'json-diff-kit/dist/viewer.css';
 import 'json-diff-kit/dist/viewer-monokai.css';
@@ -50,15 +52,36 @@ export default function ResponseVersionPanel({ versions, currentJson, currentVal
   const [unorderedArrays, setUnorderedArrays] = useState(false);
   const [diffTab, setDiffTab] = useState<'response' | 'rules'>('response');
   const [showDuplicateConfirm, setShowDuplicateConfirm] = useState(false);
+  const [previewId, setPreviewId] = useState<string | null>(null);
+  const [diffSearch, setDiffSearch] = useState('');
+  const [diffMatchIdx, setDiffMatchIdx] = useState(0);
+  const [diffMatchCount, setDiffMatchCount] = useState(0);
+  const diffSearchRef = useRef<HTMLInputElement>(null);
+  const diffViewerRef = useRef<HTMLDivElement>(null);
+  const [expanded, setExpanded] = useState(true);
 
   const sorted = useMemo(() => [...versions].sort((a, b) => b.timestamp - a.timestamp), [versions]);
 
   useEffect(() => {
     if (!showModal) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setShowModal(false); };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setShowModal(false);
+      if ((e.metaKey || e.ctrlKey) && e.key === 'f') { e.preventDefault(); diffSearchRef.current?.focus(); }
+    };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [showModal]);
+
+  useEffect(() => { setDiffSearch(''); setDiffMatchIdx(0); setDiffMatchCount(0); }, [showModal, diffTab]);
+
+  const diffGoNext = useCallback(() => {
+    if (diffMatchCount === 0) return;
+    setDiffMatchIdx(prev => prev < diffMatchCount - 1 ? prev + 1 : 0);
+  }, [diffMatchCount]);
+  const diffGoPrev = useCallback(() => {
+    if (diffMatchCount === 0) return;
+    setDiffMatchIdx(prev => prev > 0 ? prev - 1 : diffMatchCount - 1);
+  }, [diffMatchCount]);
 
   const diffResult = useMemo(() => {
     if (!showModal || !compareLeft || !compareRight) return null;
@@ -100,9 +123,60 @@ export default function ResponseVersionPanel({ versions, currentJson, currentVal
     return rulesDiffResult.every(segment => segment.every(line => line.type === 'equal'));
   }, [rulesDiffResult]);
 
+  useEffect(() => {
+    if (!diffViewerRef.current) return;
+    const container = diffViewerRef.current;
+    container.querySelectorAll('.version-diff-search-hit, .version-diff-search-hit--active').forEach(el => {
+      const parent = el.parentNode;
+      if (parent) { parent.replaceChild(document.createTextNode(el.textContent || ''), el); parent.normalize(); }
+    });
+    if (!diffSearch.trim()) { setDiffMatchCount(0); setDiffMatchIdx(0); return; }
+    const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, null);
+    const matches: { node: Text; start: number }[] = [];
+    const q = diffSearch.toLowerCase();
+    while (walker.nextNode()) {
+      const textNode = walker.currentNode as Text;
+      const text = textNode.textContent || '';
+      let idx = text.toLowerCase().indexOf(q);
+      while (idx !== -1) {
+        matches.push({ node: textNode, start: idx });
+        idx = text.toLowerCase().indexOf(q, idx + q.length);
+      }
+    }
+    setDiffMatchCount(matches.length);
+    if (matches.length === 0) { setDiffMatchIdx(0); return; }
+    const safeIdx = Math.min(diffMatchIdx, matches.length - 1);
+    if (safeIdx !== diffMatchIdx) setDiffMatchIdx(safeIdx);
+    for (let i = matches.length - 1; i >= 0; i--) {
+      const { node, start } = matches[i];
+      const text = node.textContent || '';
+      const before = text.slice(0, start);
+      const match = text.slice(start, start + q.length);
+      const after = text.slice(start + q.length);
+      const mark = document.createElement('mark');
+      mark.className = i === safeIdx ? 'version-diff-search-hit--active' : 'version-diff-search-hit';
+      mark.textContent = match;
+      const frag = document.createDocumentFragment();
+      if (before) frag.appendChild(document.createTextNode(before));
+      frag.appendChild(mark);
+      if (after) frag.appendChild(document.createTextNode(after));
+      node.parentNode?.replaceChild(frag, node);
+      if (i === safeIdx) mark.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }
+  }, [diffSearch, diffMatchIdx, diffResult, rulesDiffResult, diffTab]);
+
   const formatTime = (ts: number) => {
     const d = new Date(ts);
     return d.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  };
+
+  const formatValidationLabel = (mode?: string, selectiveMode?: string) => {
+    if (!mode || mode === 'none') return '';
+    const modeMap: Record<string, string> = { selective: 'Selective', full: 'Full', strict: 'Strict' };
+    const selMap: Record<string, string> = { include: 'Include', exclude: 'Exclude' };
+    const parts = [modeMap[mode] || mode];
+    if (selectiveMode) parts.push(selMap[selectiveMode] || selectiveMode);
+    return parts.join(' · ');
   };
 
   const getVersionLabel = useCallback((v: ResponseVersion, idx: number) => {
@@ -204,7 +278,22 @@ export default function ResponseVersionPanel({ versions, currentJson, currentVal
   return (
     <div className="version-panel">
       <div className="version-panel-header">
+        <button
+          type="button"
+          className="version-collapse-toggle"
+          onClick={() => setExpanded(v => !v)}
+          aria-expanded={expanded}
+          title={expanded ? 'Collapse' : 'Expand'}
+        >
+          <span className={`version-collapse-arrow ${expanded ? 'expanded' : ''}`}>▶</span>
+        </button>
         <h4>Response Versions ({sorted.length})</h4>
+        {!expanded && sorted[0] && (
+          <span className="version-collapsed-summary">
+            Latest: {getVersionLabel(sorted[0], 0)} · {formatTime(sorted[0].timestamp)}
+            {sorted[0].json === currentJson && <span className="version-current-tag">current</span>}
+          </span>
+        )}
         <div className="version-panel-actions">
           {currentJson.trim() && (
             <>
@@ -229,52 +318,83 @@ export default function ResponseVersionPanel({ versions, currentJson, currentVal
         </div>
       </div>
 
-      {showDuplicateConfirm && (
-        <div className="version-duplicate-confirm">
-          <span>This is identical to <strong>{duplicateOfLabel}</strong>. Save anyway?</span>
-          <button type="button" className="btn btn-xs btn-accent" onClick={() => { onSaveVersion(); setShowDuplicateConfirm(false); }}>Save Anyway</button>
-          <button type="button" className="btn btn-xs" onClick={() => setShowDuplicateConfirm(false)}>Cancel</button>
-        </div>
-      )}
+      {expanded && (
+        <>
+          {showDuplicateConfirm && (
+            <div className="version-duplicate-confirm">
+              <span>This is identical to <strong>{duplicateOfLabel}</strong>. Save anyway?</span>
+              <button type="button" className="btn btn-xs btn-accent" onClick={() => { onSaveVersion(); setShowDuplicateConfirm(false); }}>Save Anyway</button>
+              <button type="button" className="btn btn-xs" onClick={() => setShowDuplicateConfirm(false)}>Cancel</button>
+            </div>
+          )}
 
-      <div className="version-list">
+          <div className="version-list">
         {sorted.map((v, i) => {
           const isCurrent = v.json === currentJson;
           const hasRules = v.validationMode && v.validationMode !== 'none';
           return (
             <div key={v.id} className={`version-item ${isCurrent ? 'version-current' : ''}`}>
-              <div className="version-item-info">
-                {editingLabel === v.id ? (
-                  <input
-                    className="version-label-input"
-                    autoFocus
-                    value={labelText}
-                    onChange={(e) => setLabelText(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') { onRenameVersion(v.id, labelText); setEditingLabel(null); }
-                      if (e.key === 'Escape') setEditingLabel(null);
-                    }}
-                    onBlur={() => { onRenameVersion(v.id, labelText); setEditingLabel(null); }}
-                  />
-                ) : (
-                  <span className="version-label" onClick={() => { setEditingLabel(v.id); setLabelText(v.label || ''); }}>
-                    {getVersionLabel(v, i)}
-                  </span>
-                )}
-                <span className="version-time">{formatTime(v.timestamp)}</span>
-                {hasRules && <span className="version-rules-tag">{v.validationMode}{v.selectiveMode ? `·${v.selectiveMode}` : ''}</span>}
-                {isCurrent && <span className="version-current-tag">current</span>}
-              </div>
-              <div className="version-item-actions">
-                {!isCurrent && (
-                  <button type="button" className="btn btn-xs" onClick={() => onRestore(v)}>Restore</button>
-                )}
-                <button type="button" className="btn btn-xs btn-danger" onClick={() => onDeleteVersion(v.id)}>Delete</button>
+              <div className="version-item-row">
+                <div className="version-item-info">
+                  {editingLabel === v.id ? (
+                    <input
+                      className="version-label-input"
+                      autoFocus
+                      value={labelText}
+                      onChange={(e) => setLabelText(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') { onRenameVersion(v.id, labelText); setEditingLabel(null); }
+                        if (e.key === 'Escape') setEditingLabel(null);
+                      }}
+                      onBlur={() => { onRenameVersion(v.id, labelText); setEditingLabel(null); }}
+                    />
+                  ) : (
+                    <span className="version-label" onClick={() => { setEditingLabel(v.id); setLabelText(v.label || ''); }}>
+                      {getVersionLabel(v, i)}
+                    </span>
+                  )}
+                  <span className="version-time">{formatTime(v.timestamp)}</span>
+                  {hasRules && <span className="version-rules-tag">{formatValidationLabel(v.validationMode, v.selectiveMode)}</span>}
+                  {isCurrent && <span className="version-current-tag">current</span>}
+                </div>
+                <div className="version-item-actions">
+                  <button type="button" className="btn btn-xs" onClick={() => setPreviewId(v.id)}>
+                    Preview
+                  </button>
+                  {!isCurrent && (
+                    <button type="button" className="btn btn-xs" onClick={() => onRestore(v)}>Restore</button>
+                  )}
+                  <button type="button" className="btn btn-xs btn-danger" onClick={() => onDeleteVersion(v.id)}>Delete</button>
+                </div>
               </div>
             </div>
           );
         })}
       </div>
+      </>
+      )}
+
+      {previewId && (() => {
+        const pv = versions.find(v => v.id === previewId);
+        if (!pv) return null;
+        const idx = sorted.indexOf(pv);
+        const label = getVersionLabel(pv, idx >= 0 ? idx : 0);
+        const previewJson = prettyJson(pv.json);
+        const tags: { label: string; color?: string }[] = [];
+        if (pv.validationMode && pv.validationMode !== 'none') {
+          tags.push({ label: formatValidationLabel(pv.validationMode, pv.selectiveMode) });
+        }
+        return (
+          <VersionPreviewModal
+            title={`Response — ${label}`}
+            subtitle={formatTime(pv.timestamp)}
+            tags={tags}
+            content={previewJson}
+            language="json"
+            onClose={() => setPreviewId(null)}
+          />
+        );
+      })()}
 
       {showModal && (
         <div className="version-diff-overlay" onClick={(e) => { if (e.target === e.currentTarget) setShowModal(false); }}>
@@ -286,7 +406,33 @@ export default function ResponseVersionPanel({ versions, currentJson, currentVal
                   <input type="checkbox" checked={unorderedArrays} onChange={(e) => setUnorderedArrays(e.target.checked)} />
                   <span>Unordered Arrays</span>
                 </label>
-                <button type="button" className="btn btn-sm" onClick={() => setShowModal(false)}>✕</button>
+                <div className="version-diff-search-bar">
+                  <input
+                    ref={diffSearchRef}
+                    className="version-diff-search-input"
+                    type="text"
+                    placeholder="Search… (Cmd+F)"
+                    value={diffSearch}
+                    onChange={(e) => { setDiffSearch(e.target.value); setDiffMatchIdx(0); }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Escape' && diffSearch.trim()) {
+                        e.stopPropagation();
+                        setDiffSearch('');
+                        setDiffMatchIdx(0);
+                        return;
+                      }
+                      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); diffGoNext(); }
+                      if (e.key === 'Enter' && e.shiftKey) { e.preventDefault(); diffGoPrev(); }
+                    }}
+                  />
+                  {diffSearch && (
+                    <span className="version-diff-search-count">
+                      {diffMatchCount > 0 ? `${diffMatchIdx + 1}/${diffMatchCount}` : 'No match'}
+                    </span>
+                  )}
+                  <button type="button" className="version-diff-search-nav" onClick={diffGoPrev} title="Previous (Shift+Enter)" disabled={diffMatchCount === 0}>▲</button>
+                  <button type="button" className="version-diff-search-nav" onClick={diffGoNext} title="Next (Enter)" disabled={diffMatchCount === 0}>▼</button>
+                </div>
               </div>
             </div>
             <div className="version-diff-modal-selectors">
@@ -325,7 +471,7 @@ export default function ResponseVersionPanel({ versions, currentJson, currentVal
                       <span className="version-diff-info-label">{getVersionLabel(lv, li)}</span>
                       <span className="version-diff-info-time">{formatTime(lv.timestamp)}</span>
                       {lv.validationMode && lv.validationMode !== 'none' && (
-                        <span className="version-rules-tag">{lv.validationMode}{lv.selectiveMode ? `·${lv.selectiveMode}` : ''} · {(lv.expectedFields || []).length} rule(s)</span>
+                        <span className="version-rules-tag">{formatValidationLabel(lv.validationMode, lv.selectiveMode)} · {(lv.expectedFields || []).length} rule(s)</span>
                       )}
                     </div>
                     {sameVersion ? (
@@ -339,7 +485,7 @@ export default function ResponseVersionPanel({ versions, currentJson, currentVal
                       <span className="version-diff-info-label">{getVersionLabel(rv, ri)}</span>
                       <span className="version-diff-info-time">{formatTime(rv.timestamp)}</span>
                       {rv.validationMode && rv.validationMode !== 'none' && (
-                        <span className="version-rules-tag">{rv.validationMode}{rv.selectiveMode ? `·${rv.selectiveMode}` : ''} · {(rv.expectedFields || []).length} rule(s)</span>
+                        <span className="version-rules-tag">{formatValidationLabel(rv.validationMode, rv.selectiveMode)} · {(rv.expectedFields || []).length} rule(s)</span>
                       )}
                     </div>
                   </div>
@@ -356,7 +502,7 @@ export default function ResponseVersionPanel({ versions, currentJson, currentVal
                 </>
               );
             })()}
-            <div className="version-diff-viewer">
+            <div className="version-diff-viewer" ref={diffViewerRef}>
               {compareLeft && compareRight && compareLeft === compareRight ? (
                 <div className="version-diff-identical">Select different versions on each side to compare.</div>
               ) : diffTab === 'response' && diffResult ? (
@@ -380,6 +526,9 @@ export default function ResponseVersionPanel({ versions, currentJson, currentVal
               ) : (
                 <div className="version-diff-identical">Select two versions above to compare.</div>
               )}
+            </div>
+            <div className="version-diff-footer">
+              <button type="button" className="btn btn-sm" onClick={() => setShowModal(false)}>Close</button>
             </div>
           </div>
         </div>

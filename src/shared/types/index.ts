@@ -45,9 +45,38 @@ export interface AuthConfig {
 
 export type ValidationMode = 'none' | 'full' | 'selective';
 
+export type FieldOperator =
+  | 'equals'
+  | 'not_equals'
+  | 'greater_than'
+  | 'greater_than_or_equal'
+  | 'less_than'
+  | 'less_than_or_equal'
+  | 'contains'
+  | 'not_contains'
+  | 'starts_with'
+  | 'ends_with'
+  | 'regex'
+  | 'is_true'
+  | 'is_false'
+  | 'is_null'
+  | 'is_not_null'
+  | 'is_empty'
+  | 'is_not_empty'
+  | 'exists'
+  | 'not_exists'
+  | 'is_type'
+  | 'in'
+  | 'not_in'
+  | 'between'
+  | 'close_to';
+
 export interface ExpectedField {
   jsonPath: string;
   expectedValue: string;
+  operator?: FieldOperator;
+  operatorValue?: string;
+  negate?: boolean;
 }
 
 export type SelectiveMode = 'include' | 'exclude';
@@ -73,6 +102,7 @@ export interface RulesVersion {
   expectedFields: ExpectedField[];
   excludedPaths?: string[];
   unorderedArrays?: boolean;
+  assertions?: Assertion[];
 }
 
 export type AssertionOperator = 'equals' | 'contains' | 'regex' | 'exists';
@@ -83,14 +113,27 @@ export type DateReference =
   | { kind: 'today'; timezone: 'utc' | 'local' }
   | { kind: 'fixed'; iso: string };
 
+export type JsonTypeName = 'string' | 'number' | 'boolean' | 'array' | 'object' | 'null';
+
+type AssertionBase = { negate?: boolean };
+
 export type Assertion =
-  | { type: 'status'; expected: string }
-  | { type: 'responseTime'; maxMs: number }
-  | { type: 'header'; name: string; operator: AssertionOperator; value?: string }
-  | { type: 'regex'; jsonPath: string; pattern: string }
-  | { type: 'arrayLength'; jsonPath: string; operator: ComparisonOperator; value: number }
-  | { type: 'numeric'; jsonPath: string; operator: ComparisonOperator; value: number }
-  | { type: 'date'; jsonPath: string; operator: ComparisonOperator; reference: DateReference };
+  | (AssertionBase & { type: 'status'; expected: string })
+  | (AssertionBase & { type: 'responseTime'; maxMs: number })
+  | (AssertionBase & { type: 'header'; name: string; operator: AssertionOperator; value?: string })
+  | (AssertionBase & { type: 'regex'; jsonPath: string; pattern: string })
+  | (AssertionBase & { type: 'arrayLength'; jsonPath: string; operator: ComparisonOperator; value: number })
+  | (AssertionBase & { type: 'numeric'; jsonPath: string; operator: ComparisonOperator; value: number })
+  | (AssertionBase & { type: 'date'; jsonPath: string; operator: ComparisonOperator; reference: DateReference })
+  | (AssertionBase & { type: 'typeCheck'; jsonPath: string; expectedType: JsonTypeName })
+  | (AssertionBase & { type: 'existence'; jsonPath: string; expectExists: boolean })
+  | (AssertionBase & { type: 'arrayContains'; jsonPath: string; value: string; mode: 'any' | 'all' | 'only' | 'none' })
+  | (AssertionBase & { type: 'each'; jsonPath: string; fieldPath: string; operator: FieldOperator; value?: string })
+  | (AssertionBase & { type: 'containsSubset'; jsonPath: string; expected: string })
+  | (AssertionBase & { type: 'jsonSchema'; schema: string })
+  | (AssertionBase & { type: 'bodySize'; operator: ComparisonOperator; value: number; unit: 'bytes' | 'kb' | 'mb' })
+  | (AssertionBase & { type: 'datePrecise'; jsonPath: string; operator: ComparisonOperator; reference: string; precision: 'day' | 'hour' | 'minute' | 'second' | 'millisecond' })
+  | (AssertionBase & { type: 'custom'; expression: string; description?: string });
 
 export interface ValidationConfig {
   mode: ValidationMode;
@@ -603,6 +646,10 @@ export interface ExecutionEventDetails {
     method?: string;
     path?: string;
   };
+
+  // Mapping traces (Phase 9A — captured at 'full' or 'debug' level)
+  /** Per-mapping data flow traces showing source→expression→target values */
+  mappingTraces?: import('../components/data-mapper/utils/mappingTrace').MappingTrace[];
 
   // Errors
   error?: string;

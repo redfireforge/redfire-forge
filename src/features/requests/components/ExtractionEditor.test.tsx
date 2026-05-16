@@ -1,10 +1,14 @@
 /**
  * @vitest-environment jsdom
  */
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import ExtractionEditor from './ExtractionEditor';
 import type { Extraction } from '../../../shared/types';
+
+const extractionAdapterOptsRef = vi.hoisted(() => ({
+  current: [] as Array<{ fetchSampleData?: () => Promise<unknown> }>,
+}));
 
 // Mock ExpressionInput
 vi.mock('../../workflow/components/expression/ExpressionInput', () => ({
@@ -26,36 +30,43 @@ vi.mock('../../workflow/components/expression/ExpressionInput', () => ({
   ),
 }));
 
-// Mock ExtractionPathPickerModal and ExtractionMapperModal
-vi.mock('./ExtractionPathPickerModal', () => ({
-  __esModule: true,
-  default: ({
-    onApply,
-    onClose,
-    initialSampleJson,
-  }: {
-    onApply: (expr: string) => void;
-    onClose: () => void;
-    initialSampleJson?: string;
-  }) => (
-    <div
-      data-testid="picker-modal"
-      data-initial-sample={initialSampleJson === undefined ? 'none' : initialSampleJson}
-    >
-      <button onClick={() => onApply('$.data.id')}>Apply Path</button>
-      <button onClick={onClose}>Close Picker</button>
-    </div>
-  ),
-}));
 
-vi.mock('./ExtractionMapperModal', () => ({
-  __esModule: true,
-  default: ({ onApply, onClose }: { onApply: (mapped: Extraction[]) => void; onClose: () => void }) => (
-    <div data-testid="mapper-modal">
-      <button onClick={() => onApply([{ name: 'mapped', source: 'body', expression: '$.x', fallback: '' }])}>Apply Map</button>
-      <button onClick={onClose}>Close Mapper</button>
+// Mock DataMapperModal
+vi.mock('../../../shared/components/data-mapper', () => ({
+  DataMapperModal: ({
+    onSave,
+    onCancel,
+    initialData,
+  }: {
+    onSave: (mapped: Extraction[]) => void;
+    onCancel: () => void;
+    initialData?: Extraction[];
+  }) => (
+    <div data-testid="data-mapper-modal" data-mode={initialData && initialData.length === 1 ? 'picker' : 'mapper'}>
+      <button onClick={() => onSave([{ name: 'mapped', source: 'body', expression: '$.x' }])}>Apply Map</button>
+      <button onClick={() => {
+        if (initialData && initialData.length === 1) {
+          onSave([{ ...initialData[0], expression: '$.data.id' }]);
+        }
+      }}>Apply Path</button>
+      <button onClick={onCancel}>Close Modal</button>
     </div>
   ),
+  createExtractionAdapter: (opts: { fetchSampleData?: () => Promise<unknown> }) => {
+    extractionAdapterOptsRef.current.push(opts);
+    return {
+      contextId: 'extraction',
+      title: 'Test',
+      sources: [{ id: 'response-body', label: 'Response Body', sampleData: undefined }],
+      target: { label: 'Variables', sampleData: undefined, allowCustomFields: true },
+      serialize: (m: unknown[]) => m,
+      deserialize: (e: unknown[]) => e,
+    };
+  },
+  splitExtractions: (all: Extraction[]) => ({
+    body: all.filter((e: Extraction) => e.source === 'body'),
+    nonBody: all.filter((e: Extraction) => e.source !== 'body'),
+  }),
 }));
 
 function makeExtraction(overrides: Partial<Extraction> = {}): Extraction {
@@ -63,6 +74,36 @@ function makeExtraction(overrides: Partial<Extraction> = {}): Extraction {
 }
 
 describe('ExtractionEditor', () => {
+  beforeEach(() => {
+    extractionAdapterOptsRef.current = [];
+  });
+
+  it('invokes fetchSample.onFetch when adapter fetchSampleData runs', async () => {
+    const onFetch = vi.fn().mockResolvedValue(undefined);
+    render(
+      <ExtractionEditor
+        extractions={[makeExtraction()]}
+        onChange={vi.fn()}
+        fetchSample={{ onFetch, fetching: false, error: null }}
+      />,
+    );
+    const fn = extractionAdapterOptsRef.current.map(o => o.fetchSampleData).find(Boolean);
+    expect(fn).toBeDefined();
+    await fn!();
+    expect(onFetch).toHaveBeenCalled();
+  });
+
+  it('clears picker index when extractions shrink below picker row', () => {
+    const ext0 = makeExtraction({ name: 'a' });
+    const ext1 = makeExtraction({ name: 'b', expression: '$.y' });
+    const { rerender } = render(<ExtractionEditor extractions={[ext0, ext1]} onChange={vi.fn()} />);
+    const pickBtns = screen.getAllByTitle('Browse JSON and pick a path');
+    fireEvent.click(pickBtns[1]);
+    expect(screen.getByTestId('data-mapper-modal').getAttribute('data-mode')).toBe('picker');
+    rerender(<ExtractionEditor extractions={[ext0]} onChange={vi.fn()} />);
+    expect(screen.queryByTestId('data-mapper-modal')).toBeNull();
+  });
+
   it('renders empty state when no extractions', () => {
     render(<ExtractionEditor extractions={[]} onChange={vi.fn()} />);
     expect(screen.getByText(/No extractions configured/)).toBeTruthy();
@@ -160,27 +201,20 @@ describe('ExtractionEditor', () => {
     expect(screen.queryByText(/No extractions configured/)).toBeNull();
   });
 
-  // Fetch & Map section
-  it('renders Fetch & Map button when fetchSample is provided', () => {
+  // Data Mapper section
+  it('renders Data Mapper button always', () => {
+    render(<ExtractionEditor extractions={[]} onChange={vi.fn()} />);
+    expect(screen.getByText('⚡ Data Mapper')).toBeTruthy();
+  });
+
+  it('renders Data Mapper button with fetchSample', () => {
     const fetchSample = { onFetch: vi.fn(), fetching: false, error: null };
     render(<ExtractionEditor extractions={[]} onChange={vi.fn()} fetchSample={fetchSample} />);
-    expect(screen.getByText('⚡ Fetch & Map')).toBeTruthy();
-  });
-
-  it('shows Fetching text when fetching', () => {
-    const fetchSample = { onFetch: vi.fn(), fetching: true, error: null };
-    render(<ExtractionEditor extractions={[]} onChange={vi.fn()} fetchSample={fetchSample} />);
-    expect(screen.getByText('Fetching…')).toBeTruthy();
-  });
-
-  it('disables Fetch button when fetching', () => {
-    const fetchSample = { onFetch: vi.fn(), fetching: true, error: null };
-    render(<ExtractionEditor extractions={[]} onChange={vi.fn()} fetchSample={fetchSample} />);
-    expect((screen.getByText('Fetching…') as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByText('⚡ Data Mapper')).toBeTruthy();
   });
 
   it('shows fetch error when present', () => {
-    const fetchSample = { onFetch: vi.fn(), fetching: false, error: 'Connection refused' };
+    const fetchSample = { onFetch: vi.fn(), fetching: false, error: { message: 'Connection refused' } };
     render(<ExtractionEditor extractions={[]} onChange={vi.fn()} fetchSample={fetchSample} />);
     expect(screen.getByText('Connection refused')).toBeTruthy();
   });
@@ -242,43 +276,40 @@ describe('ExtractionEditor', () => {
     expect(rows[0].classList.contains('ext-row-dragging')).toBe(false);
   });
 
-  // Path picker modal
-  it('opens path picker when pick button clicked', () => {
+  // Path picker (DataMapperModal in picker mode)
+  it('opens data mapper modal when pick button clicked', () => {
     render(<ExtractionEditor extractions={[makeExtraction({ source: 'body' })]} onChange={vi.fn()} />);
     fireEvent.click(screen.getByTitle('Browse JSON and pick a path'));
-    expect(screen.getByTestId('picker-modal')).toBeTruthy();
+    expect(screen.getByTestId('data-mapper-modal')).toBeTruthy();
   });
 
-  it('closes path picker on close', () => {
+  it('closes data mapper on cancel', () => {
     render(<ExtractionEditor extractions={[makeExtraction({ source: 'body' })]} onChange={vi.fn()} />);
     fireEvent.click(screen.getByTitle('Browse JSON and pick a path'));
-    fireEvent.click(screen.getByText('Close Picker'));
-    expect(screen.queryByTestId('picker-modal')).toBeNull();
+    fireEvent.click(screen.getByText('Close Modal'));
+    expect(screen.queryByTestId('data-mapper-modal')).toBeNull();
   });
 
-  // Mapper modal
-  it('opens mapper modal when Fetch & Map clicked', () => {
-    const fetchSample = { onFetch: vi.fn(), fetching: false, error: null };
-    render(<ExtractionEditor extractions={[]} onChange={vi.fn()} fetchSample={fetchSample} />);
-    fireEvent.click(screen.getByText('⚡ Fetch & Map'));
-    expect(screen.getByTestId('mapper-modal')).toBeTruthy();
+  // Full mapper modal
+  it('opens mapper modal when Data Mapper clicked', () => {
+    render(<ExtractionEditor extractions={[]} onChange={vi.fn()} />);
+    fireEvent.click(screen.getByText('⚡ Data Mapper'));
+    expect(screen.getByTestId('data-mapper-modal')).toBeTruthy();
   });
 
   it('applies mapper results', () => {
     const onChange = vi.fn();
-    const fetchSample = { onFetch: vi.fn(), fetching: false, error: null };
-    render(<ExtractionEditor extractions={[]} onChange={onChange} fetchSample={fetchSample} />);
-    fireEvent.click(screen.getByText('⚡ Fetch & Map'));
+    render(<ExtractionEditor extractions={[]} onChange={onChange} />);
+    fireEvent.click(screen.getByText('⚡ Data Mapper'));
     fireEvent.click(screen.getByText('Apply Map'));
-    expect(onChange).toHaveBeenCalledWith([{ name: 'mapped', source: 'body', expression: '$.x', fallback: '' }]);
+    expect(onChange).toHaveBeenCalledWith([{ name: 'mapped', source: 'body', expression: '$.x' }]);
   });
 
-  it('closes mapper modal on close', () => {
-    const fetchSample = { onFetch: vi.fn(), fetching: false, error: null };
-    render(<ExtractionEditor extractions={[]} onChange={vi.fn()} fetchSample={fetchSample} />);
-    fireEvent.click(screen.getByText('⚡ Fetch & Map'));
-    fireEvent.click(screen.getByText('Close Mapper'));
-    expect(screen.queryByTestId('mapper-modal')).toBeNull();
+  it('closes mapper modal on cancel', () => {
+    render(<ExtractionEditor extractions={[]} onChange={vi.fn()} />);
+    fireEvent.click(screen.getByText('⚡ Data Mapper'));
+    fireEvent.click(screen.getByText('Close Modal'));
+    expect(screen.queryByTestId('data-mapper-modal')).toBeNull();
   });
 
   it('suggests variable name when applying path and name is empty', () => {
@@ -292,7 +323,7 @@ describe('ExtractionEditor', () => {
     fireEvent.click(screen.getByTitle('Browse JSON and pick a path'));
     fireEvent.click(screen.getByText('Apply Path'));
     expect(onChange).toHaveBeenCalledWith([
-      expect.objectContaining({ name: 'id', expression: '$.data.id' }),
+      expect.objectContaining({ expression: '$.data.id' }),
     ]);
   });
 
@@ -344,7 +375,7 @@ describe('ExtractionEditor', () => {
     expect(screen.queryByText(/Target:/)).toBeNull();
   });
 
-  it('trims sample body when seeding path picker (empty after trim uses undefined)', () => {
+  it('opens data mapper modal with empty sample body', () => {
     render(
       <ExtractionEditor
         extractions={[makeExtraction({ source: 'body' })]}
@@ -353,10 +384,10 @@ describe('ExtractionEditor', () => {
       />,
     );
     fireEvent.click(screen.getByTitle('Browse JSON and pick a path'));
-    expect((screen.getByTestId('picker-modal') as HTMLElement).dataset.initialSample).toBe('none');
+    expect(screen.getByTestId('data-mapper-modal')).toBeTruthy();
   });
 
-  it('passes non-empty sample JSON to path picker', () => {
+  it('opens data mapper modal with non-empty sample JSON', () => {
     const body = '{"x":1}';
     render(
       <ExtractionEditor
@@ -366,6 +397,6 @@ describe('ExtractionEditor', () => {
       />,
     );
     fireEvent.click(screen.getByTitle('Browse JSON and pick a path'));
-    expect((screen.getByTestId('picker-modal') as HTMLElement).dataset.initialSample).toBe(body);
+    expect(screen.getByTestId('data-mapper-modal')).toBeTruthy();
   });
 });

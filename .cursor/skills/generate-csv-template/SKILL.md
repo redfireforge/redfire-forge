@@ -24,7 +24,7 @@ Ask which environment/database to use. Available MCP servers follow the naming
 pattern `user-pg-{env}`. Check available servers in the MCP folder:
 
 ```
-/Users/dz5jxr/.cursor/projects/Users-dz5jxr-workspace-gmai-performance-test/mcps/
+/Users/dz5jxr/.cursor/projects/Users-dz5jxr-workspace-gmai-redfire-forge/mcps/
 ```
 
 ### Step 2: Discover the Schema
@@ -66,7 +66,7 @@ LIMIT 300
 Save the MCP query result to a temp file for processing:
 
 ```
-/Users/dz5jxr/workspace/gmai/performance-test/_raw_{env}.json
+/Users/dz5jxr/workspace/gmai/redfire-forge/_raw_{env}.json
 ```
 
 ### Step 5: Generate CSV via Script
@@ -74,7 +74,7 @@ Save the MCP query result to a temp file for processing:
 Run the generator script (see [scripts/generate.cjs](scripts/generate.cjs)):
 
 ```bash
-cd /Users/dz5jxr/workspace/gmai/performance-test
+cd /Users/dz5jxr/workspace/gmai/redfire-forge
 ENV=t01 COUNT=100 node scripts/generate-csv-from-db.cjs
 ```
 

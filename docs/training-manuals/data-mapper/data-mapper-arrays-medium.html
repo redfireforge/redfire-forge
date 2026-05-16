@@ -3,274 +3,148 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Array &amp; Loop Mapping — Training Manual</title>
+  <title>Multi-Step Extraction Chain — Step-by-Step Walkthrough</title>
   <style>
-  @page { size: A4; margin: 20mm 18mm; }
-  @media print {
-    .page-break { page-break-before: always; }
-    body { font-size: 10pt; }
-    h1 { font-size: 20pt; }
-    h2 { font-size: 16pt; }
-    h3 { font-size: 13pt; }
-  }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-    color: #1a1a2e; line-height: 1.6; max-width: 900px;
-    margin: 0 auto; padding: 30px 24px; background: #fff;
-  }
-  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; color: #1a1a2e; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 30px 24px; background: #fff; }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; }
   h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
-  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
-  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
   p, li { font-size: 13px; margin-bottom: 8px; }
   ul, ol { padding-left: 22px; }
-  code {
-    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
-    font-size: 12px; padding: 1px 5px; border-radius: 3px;
-  }
-  pre {
-    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
-    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
-    margin: 10px 0 16px; line-height: 1.5;
-  }
+  code { background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 1px 5px; border-radius: 3px; }
+  pre { background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto; margin: 10px 0 16px; }
   table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
-  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
-  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
-  tr:nth-child(even) td { background: #f8f9fa; }
-  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; vertical-align: middle; }
-  .badge-medium { background: #fff3cd; color: #856404; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; }
   .callout { background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px; margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
   .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
-  .callout-warning { background: #fff3e0; border-left-color: #f57c00; }
   .callout strong { display: block; margin-bottom: 4px; }
-  .cover-page { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 60vh; text-align: center; }
-  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-top: 8px; }
-  .cover-page .meta { font-size: 12px; color: #6c757d; margin-top: 16px; }
-  .pattern-box { border: 2px solid #dee2e6; border-radius: 8px; padding: 16px; margin: 12px 0; }
-  .pattern-box h4 { color: #e63946; margin-top: 0; }
-  .arrow { color: #457b9d; font-weight: 700; font-size: 16px; text-align: center; margin: 6px 0; }
+  .step { background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 16px; margin: 12px 0; }
+  .step-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .step-num { width: 32px; height: 32px; background: #e63946; color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; flex-shrink: 0; }
+  .step-title { font-weight: 600; color: #1d3557; font-size: 15px; }
+  .expect { background: #d4edda; border-left: 4px solid #28a745; padding: 10px 14px; margin: 10px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+  .expect strong { color: #155724; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+  .badge-sample { background: #e8f4fd; color: #1d3557; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .chain { display: flex; align-items: center; gap: 8px; justify-content: center; margin: 20px 0; font-size: 15px; font-weight: 600; color: #1d3557; }
+  .chain-arrow { color: #e63946; font-size: 20px; }
   </style>
 </head>
 <body>
 
-<div class="cover-page">
-  <h1>Array &amp; Loop Mapping</h1>
-  <div class="subtitle">Iterating, Filtering, Aggregating &amp; Flattening Collections</div>
-  <div><span class="badge badge-medium">Medium</span></div>
-  <div class="meta">RedfireForge — Redfire Performance Workbench<br>v0.6.0 · Data Mapper Series 3 of 4</div>
+<h1>Multi-Step Extraction Chain</h1>
+<p><span class="badge badge-medium">MEDIUM</span> &nbsp; <span class="badge badge-sample">Sample: dm-multi-step-chain</span></p>
+<p>A 3-step extraction chain: <strong>User → Posts → Comments</strong>. Each step extracts variables and passes them to the next request via <code>{{variable}}</code> placeholders in the URL.</p>
+
+<div class="chain">
+  <span>User</span> <span class="chain-arrow">→</span>
+  <span>Posts</span> <span class="chain-arrow">→</span>
+  <span>Comments</span>
 </div>
-
-<div class="page-break"></div>
-
-<h2>Prerequisites</h2>
-<ul>
-  <li>Completed <em>Data Mapper Basics</em> and <em>Expression &amp; Function Mapping</em> manuals</li>
-  <li>Understanding of JSON arrays and nested objects</li>
-</ul>
-
-<h2>1. Array Mapping Overview</h2>
-
-<p>Arrays are the most common complex structure in API responses. The Data Mapper provides visual patterns for every array transformation scenario:</p>
-
-<table>
-  <tr><th>Pattern</th><th>Source</th><th>Target</th><th>Visual Badge</th></tr>
-  <tr><td>Array → Array (map)</td><td><code>arr[n]</code></td><td><code>arr[n]</code></td><td><code>∞</code> loop</td></tr>
-  <tr><td>Array → Scalar (aggregate)</td><td><code>arr[n]</code></td><td>single value</td><td><code>Σ</code> aggregate</td></tr>
-  <tr><td>Array → Filtered array</td><td><code>arr[n]</code></td><td><code>arr[≤n]</code></td><td><code>⧩</code> filter</td></tr>
-  <tr><td>Nested → Flat (flatten)</td><td><code>arr[arr[]]</code></td><td><code>arr[]</code></td><td><code>⊏</code> flatten</td></tr>
-  <tr><td>Scalar → Array (wrap)</td><td>single value</td><td><code>arr[1]</code></td><td>wrap badge</td></tr>
-</table>
-
-<h2>2. Array → Array: The Loop Pattern</h2>
-
-<p>This is the most common array mapping. You have a source array and need to transform each element into a different shape.</p>
-
-<div class="pattern-box">
-  <h4>Example: Orders → Line Items</h4>
-  <pre>
-// Source
-{
-  "orders": [
-    { "orderId": 1001, "product": "Widget A", "quantity": 5, "unitPrice": 29.99 },
-    { "orderId": 1002, "product": "Gadget B", "quantity": 2, "unitPrice": 49.99 }
-  ]
-}
-</pre>
-  <div class="arrow">↓ map each element ↓</div>
-  <pre>
-// Target
-{
-  "lineItems": [
-    { "sku": "Widget A", "qty": 5, "total": 149.95 },
-    { "sku": "Gadget B", "qty": 2, "total": 99.98 }
-  ]
-}
-</pre>
-</div>
-
-<h3>2.1 Creating a Loop Mapping</h3>
-
-<ol>
-  <li><strong>Drag the source array node</strong> (<code>orders</code>) onto the <strong>target array node</strong> (<code>lineItems</code>).</li>
-  <li>A pink <code>∞ for each order</code> badge appears on the connection line, indicating iteration.</li>
-  <li>Both arrays auto-expand to show their child elements as <code>[each]</code>.</li>
-  <li>Now drag <strong>inner fields</strong>: <code>product</code> → <code>sku</code>, <code>quantity</code> → <code>qty</code>.</li>
-  <li>For the computed <code>total</code>, click <code>ƒx</code> on <code>total</code> and type: <code>item.quantity * item.unitPrice</code>.</li>
-</ol>
-
-<div class="callout callout-tip">
-  <strong>💡 Loop variable naming</strong>
-  Inside a loop, the current element is referenced as <code>item</code> by default. You can rename it by clicking the loop badge and editing the variable name (e.g., <code>order</code> instead of <code>item</code>).
-</div>
-
-<h3>2.2 Accessing the Index</h3>
-
-<p>Inside a loop, <code>$index</code> gives the current zero-based position:</p>
-
-<pre>
-// Add a sequential line number
-item.lineNumber = $index + 1
-</pre>
-
-<h2>3. Array → Scalar: Aggregation</h2>
-
-<p>When you drag a source <strong>array</strong> onto a scalar <strong>target field</strong>, the aggregation picker appears:</p>
-
-<table>
-  <tr><th>Function</th><th>Description</th><th>Example Result</th></tr>
-  <tr><td><code>$count(arr)</code></td><td>Number of elements</td><td><code>5</code></td></tr>
-  <tr><td><code>$sum(arr, "field")</code></td><td>Sum of a numeric field</td><td><code>249.93</code></td></tr>
-  <tr><td><code>$avg(arr, "field")</code></td><td>Average</td><td><code>39.99</code></td></tr>
-  <tr><td><code>$min(arr, "field")</code></td><td>Minimum value</td><td><code>29.99</code></td></tr>
-  <tr><td><code>$max(arr, "field")</code></td><td>Maximum value</td><td><code>49.99</code></td></tr>
-  <tr><td><code>$join(arr, "field", sep)</code></td><td>Join string field values</td><td><code>"Widget A, Gadget B"</code></td></tr>
-  <tr><td><code>$first(arr)</code></td><td>First element</td><td><code>{orderId: 1001, ...}</code></td></tr>
-  <tr><td><code>$last(arr)</code></td><td>Last element</td><td><code>{orderId: 1002, ...}</code></td></tr>
-  <tr><td><code>$median(arr, "field")</code></td><td>Median value</td><td><code>39.99</code></td></tr>
-</table>
 
 <div class="callout">
-  <strong>ℹ️ Aggregation picker</strong>
-  The picker automatically suggests the most relevant aggregation based on the target field's type. If the target is a number, it suggests <code>$sum</code> or <code>$count</code>. If the target is a string, it suggests <code>$join</code>.
+  <strong>Prerequisites</strong>
+  Import the <code>dm-multi-step-chain</code> sample from Gallery → Data Mapper → "Multi-Step Chain" → <strong>Load Sample</strong>.
 </div>
 
-<h2>4. Filtered Arrays</h2>
+<h2>Step 1 — GET User (extract userId, userName, userCity)</h2>
 
-<p>To map only a subset of array elements:</p>
-
-<ol>
-  <li>Create a loop mapping (source array → target array).</li>
-  <li>Click the <strong>filter icon</strong> <code>⧩</code> on the connection line.</li>
-  <li>The filter builder opens with field, operator, and value inputs.</li>
-  <li>Set condition, e.g., <code>item.status === "shipped"</code>.</li>
-</ol>
-
-<pre>
-// Generated expression
-source.orders.filter(item => item.status === "shipped")
-              .map(item => ({ sku: item.product, qty: item.quantity }))
-</pre>
-
-<h2>5. Nested Arrays: Flatten &amp; Collect</h2>
-
-<h3>5.1 Flattening</h3>
-
-<p>When the source has nested arrays (array of arrays) and the target expects a flat array:</p>
-
-<div class="pattern-box">
-  <h4>Flatten Example</h4>
-  <pre>
-// Source: departments[].employees[]
-{
-  "departments": [
-    { "name": "Eng", "employees": [{"name":"Alice"}, {"name":"Bob"}] },
-    { "name": "Sales", "employees": [{"name":"Carol"}] }
-  ]
-}
-</pre>
-  <div class="arrow">↓ flatten ↓</div>
-  <pre>
-// Target: allEmployees[]
-{
-  "allEmployees": [
-    {"name":"Alice"}, {"name":"Bob"}, {"name":"Carol"}
-  ]
-}
-</pre>
+<div class="step">
+  <div class="step-header"><div class="step-num">1</div><div class="step-title">Open "Step 1: GET user → extract userId"</div></div>
+  <p>URL: <code>https://jsonplaceholder.typicode.com/users/3</code></p>
+  <p>Go to the <strong>Extract</strong> tab. You'll see 3 extractions:</p>
+  <table>
+    <tr><th>Variable</th><th>Expression</th><th>Value</th></tr>
+    <tr><td><code>userId</code></td><td><code>$.id</code></td><td>3</td></tr>
+    <tr><td><code>userName</code></td><td><code>$.name</code></td><td>"Clementine Bauch"</td></tr>
+    <tr><td><code>userCity</code></td><td><code>$.address.city</code></td><td>"McKenziehaven"</td></tr>
+  </table>
 </div>
 
-<p>Drag the nested <code>employees</code> array onto the flat <code>allEmployees</code> target. A <code>⊏ flatten</code> badge appears.</p>
+<div class="step">
+  <div class="step-header"><div class="step-num">2</div><div class="step-title">Open Data Mapper</div></div>
+  <p>Click <strong>⚡ Data Mapper</strong>. The source tree shows user #3's full JSON object with nested <code>address</code> and <code>company</code> objects.</p>
+  <div class="expect"><strong>You should see:</strong> Source populated with "Clementine Bauch", address.city: "McKenziehaven". Target shows 3 mapped variables.</div>
+</div>
 
-<h3>5.2 Collecting with Context</h3>
+<h2>Step 2 — GET Posts (uses {{userId}}, extracts postId)</h2>
 
-<p>When flattening, you often need to carry parent context. The mapper supports this with the <strong>carry fields</strong> option on the flatten badge:</p>
+<div class="step">
+  <div class="step-header"><div class="step-num">3</div><div class="step-title">Open "Step 2: GET posts by userId → extract postId"</div></div>
+  <p>URL: <code>https://jsonplaceholder.typicode.com/posts?userId={{userId}}</code></p>
+  <div class="expect"><strong>Key point:</strong> The URL uses <code>{{userId}}</code> — the value <code>3</code> extracted from Step 1 will be substituted here at runtime.</div>
+</div>
 
+<div class="step">
+  <div class="step-header"><div class="step-num">4</div><div class="step-title">Open Data Mapper for array extraction</div></div>
+  <p>Click <strong>⚡ Data Mapper</strong>. The source shows an <strong>array</strong> of posts. The extractions use array indexing:</p>
+  <table>
+    <tr><th>Variable</th><th>Expression</th><th>What it does</th></tr>
+    <tr><td><code>postId</code></td><td><code>$[0].id</code></td><td>Gets the <code>id</code> of the first post in the array</td></tr>
+    <tr><td><code>postTitle</code></td><td><code>$[0].title</code></td><td>Gets the <code>title</code> of the first post</td></tr>
+  </table>
+  <div class="expect"><strong>You should see:</strong> Source shows an array with 3 post objects. Target has 2 mapped variables using <code>$[0]</code> array syntax.</div>
+</div>
+
+<h2>Step 3 — GET Comments (uses {{postId}}, validates email)</h2>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">5</div><div class="step-title">Open "Step 3: GET comments by postId → validate"</div></div>
+  <p>URL: <code>https://jsonplaceholder.typicode.com/comments?postId={{postId}}</code></p>
+  <p>This step uses <code>{{postId}}</code> extracted from Step 2. It also has a <strong>regex assertion</strong> checking that the first comment's email matches <code>.+@.+</code>.</p>
+</div>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">6</div><div class="step-title">Open Data Mapper</div></div>
+  <p>The source shows an array of comments. Two fields are extracted:</p>
+  <table>
+    <tr><th>Variable</th><th>Expression</th><th>Value</th></tr>
+    <tr><td><code>commentEmail</code></td><td><code>$[0].email</code></td><td>"Elise_Russel@yahoo.com"</td></tr>
+    <tr><td><code>commentBody</code></td><td><code>$[0].body</code></td><td>"et officiis id praesentium..."</td></tr>
+  </table>
+</div>
+
+<h2>Part — Validation &amp; Assertions</h2>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">7</div><div class="step-title">Validation with Operators</div></div>
+  <p>In Step 3's test (comments), switch to the <strong>Validation</strong> tab and open Data Mapper. Use the operator picker on target fields to set operators like <code>exists</code>, <code>contains</code>, <code>regex</code>. Each operator shows a color-coded pill: green (equality), amber (comparison), purple (string), gray (existence).</p>
+</div>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">8</div><div class="step-title">Verify Rules</div></div>
+  <p>Click <strong>Verify All</strong> in the toolbar. Each rule shows inline pass/fail badges. Use the <strong>Fetch &amp; Verify</strong> button to send a live request and verify against the actual response.</p>
+</div>
+
+<h2>Full Chain Summary</h2>
 <pre>
-// Flatten but include department name
-source.departments.flatMap(dept =>
-  dept.employees.map(emp => ({
-    ...emp,
-    department: dept.name
-  }))
-)
+Request 1: GET /users/3
+  → Extracts: userId=3, userName="Clementine Bauch", userCity="McKenziehaven"
+
+Request 2: GET /posts?userId={{userId}}     ← userId=3 from Request 1
+  → Extracts: postId=21, postTitle="..."
+
+Request 3: GET /comments?postId={{postId}}  ← postId=21 from Request 2
+  → Extracts: commentEmail, commentBody
+  → Validates: email matches .+@.+
 </pre>
 
-<p>Click the flatten badge → "Carry parent fields" → select <code>department.name</code>.</p>
-
-<h2>6. Grouping</h2>
-
-<p>The <code>$groupBy</code> function transforms a flat array into groups:</p>
-
-<pre>
-// Group orders by status
-$groupBy(source.orders, "status")
-
-// Result:
-// { "shipped": [{...}, {...}], "pending": [{...}] }
-</pre>
-
 <table>
-  <tr><th>Function</th><th>Description</th></tr>
-  <tr><td><code>$groupBy(arr, key)</code></td><td>Group elements by a field value → object of arrays</td></tr>
-  <tr><td><code>$countBy(arr, key)</code></td><td>Count elements per group → object of numbers</td></tr>
-  <tr><td><code>$keyBy(arr, key)</code></td><td>Index array by unique key → object of elements</td></tr>
-  <tr><td><code>$chunk(arr, size)</code></td><td>Split array into equal-sized groups</td></tr>
+  <tr><th>Concept</th><th>Where you saw it</th></tr>
+  <tr><td>Simple field extraction</td><td>Step 1 — <code>$.id</code>, <code>$.name</code></td></tr>
+  <tr><td>Nested field extraction</td><td>Step 1 — <code>$.address.city</code></td></tr>
+  <tr><td>Array element extraction</td><td>Steps 4, 6 — <code>$[0].id</code>, <code>$[0].email</code></td></tr>
+  <tr><td>Variable chaining across requests</td><td>Steps 3, 5 — <code>{{userId}}</code>, <code>{{postId}}</code> in URLs</td></tr>
+  <tr><td>Regex assertion</td><td>Step 5 — email pattern validation</td></tr>
+  <tr><td>Validation with operators</td><td>Step 7 — operator picker, color-coded pills</td></tr>
+  <tr><td>Verify rules</td><td>Step 8 — Verify All, Fetch &amp; Verify</td></tr>
 </table>
 
-<h2>7. Sorting &amp; Deduplication</h2>
-
-<table>
-  <tr><th>Function</th><th>Description</th><th>Example</th></tr>
-  <tr><td><code>$sort(arr, key, dir)</code></td><td>Sort array by field</td><td><code>$sort(orders, "price", "desc")</code></td></tr>
-  <tr><td><code>$unique(arr, key)</code></td><td>Deduplicate by field</td><td><code>$unique(orders, "product")</code></td></tr>
-  <tr><td><code>$reverse(arr)</code></td><td>Reverse order</td><td><code>$reverse(orders)</code></td></tr>
-  <tr><td><code>$slice(arr, start, end)</code></td><td>Extract sub-array</td><td><code>$slice(orders, 0, 5)</code> — first 5</td></tr>
-</table>
-
-<h2>8. Common Patterns Reference</h2>
-
-<table>
-  <tr><th>Scenario</th><th>Expression</th></tr>
-  <tr><td>Map + filter in one step</td><td><code>source.items.filter(i => i.active).map(i => i.name)</code></td></tr>
-  <tr><td>Reduce to single object</td><td><code>$reduce(source.pairs, (acc, p) => ({...acc, [p.key]: p.value}), {})</code></td></tr>
-  <tr><td>Find first match</td><td><code>$find(source.users, item => item.role === "admin")</code></td></tr>
-  <tr><td>Check all pass</td><td><code>$every(source.tests, item => item.passed === true)</code></td></tr>
-  <tr><td>Check any passes</td><td><code>$some(source.tests, item => item.score > 90)</code></td></tr>
-  <tr><td>Zip two arrays</td><td><code>$zip(source.keys, source.values)</code> → array of pairs</td></tr>
-</table>
-
-<h2>9. Practice Exercises</h2>
-
-<ol>
-  <li>Map a <code>products[]</code> array to a <code>catalog[]</code> array, renaming fields and computing <code>total = price × stock</code> per item.</li>
-  <li>Aggregate <code>orders[]</code> into <code>orderCount</code> (count) and <code>totalRevenue</code> (sum of <code>amount</code>).</li>
-  <li>Filter <code>users[]</code> to only <code>active</code> users, then sort by <code>name</code> ascending.</li>
-  <li>Flatten <code>categories[].products[]</code> into a single <code>allProducts[]</code> carrying the <code>categoryName</code>.</li>
-</ol>
-
-<div style="margin-top: 40px; padding-top: 16px; border-top: 2px solid #e63946; font-size: 11px; color: #6c757d; text-align: center;">
-  RedfireForge Training Manual · Array &amp; Loop Mapping · Medium · v0.6.0
+<div class="callout callout-tip">
+  <strong>Next: Validation Mapping</strong>
+  Try the <code>dm-validation-mapping</code> sample to learn selective field validation with the Data Mapper.
 </div>
 
 </body>

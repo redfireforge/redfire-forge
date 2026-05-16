@@ -1,20 +1,26 @@
 import { useMemo, useRef, useEffect } from 'react';
 import type { ReactNode, RefObject } from 'react';
 import { ChevronIcon, bestEffortFormat, countTextMatches } from '../../../shared/components/jsonTreeShared';
+import { buildJsonTree } from '../../../shared/utils/jsonTreeModel';
+import type { JsonTreeNode } from '../../../shared/utils/jsonTreeModel';
 
-export interface JNode {
-  key: string;
-  value: unknown;
-  type: 'object' | 'array' | 'string' | 'number' | 'boolean' | 'null';
-  children?: JNode[];
-}
+/** @deprecated Use `JsonTreeNode` from `shared/utils/jsonTreeModel` */
+export type JNode = JsonTreeNode;
 
 // eslint-disable-next-line react-refresh/only-export-components
 export function buildJTree(val: unknown, key: string): JNode {
-  if (val === null || val === undefined) return { key, value: null, type: 'null' };
-  if (Array.isArray(val)) return { key, value: val, type: 'array', children: val.map((v, i) => buildJTree(v, String(i))) };
-  if (typeof val === 'object') return { key, value: val, type: 'object', children: Object.entries(val as Record<string, unknown>).map(([k, v]) => buildJTree(v, k)) };
-  return { key, value: val, type: typeof val as 'string' | 'number' | 'boolean' };
+  const node = buildJsonTree(val, key, '', { trackPaths: false });
+  fixArrayKeys(node);
+  return node;
+}
+
+/** The unified model uses `[i]` keys for array children; legacy JNode uses plain `"i"`. */
+function fixArrayKeys(node: JNode): void {
+  if (!node.children) return;
+  if (node.type === 'array') {
+    node.children.forEach((child, i) => { child.key = String(i); });
+  }
+  node.children.forEach(fixArrayKeys);
 }
 
 // eslint-disable-next-line react-refresh/only-export-components
