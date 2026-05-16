@@ -82,14 +82,14 @@ test.describe('Validation Rules Modal z-index', () => {
     expect(isOnTop).toBe(true);
   });
 
-  test('close button dismisses the rules modal', async ({ page }) => {
+  test('Cancel dismisses the rules modal', async ({ page }) => {
     await openValidationMapper(page);
 
     await page.locator('.dm-toolbar button:has-text("Rules")').click();
     const modal = page.locator('.vr-modal-panel');
     await expect(modal).toBeVisible({ timeout: 3000 });
 
-    await modal.locator('.vr-modal-close-btn').click();
+    await modal.locator('button.vr-modal-btn--secondary', { hasText: 'Cancel' }).click();
     await expect(modal).not.toBeVisible();
   });
 

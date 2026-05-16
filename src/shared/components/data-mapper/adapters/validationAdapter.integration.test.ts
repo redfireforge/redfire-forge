@@ -6,9 +6,10 @@
 import { describe, it, expect } from 'vitest';
 import { createValidationAdapter } from './validationAdapter';
 import type { Mapping } from '../types';
-import type { FieldOperator, ExpectedField } from '../../../types';
+import type { FieldOperator, ExpectedField, ValidationConfig } from '../../../types';
 import { evaluateFieldOperator } from '../../../../engine/fieldOperatorEvaluation';
 import { getByPath } from '../../../utils/jsonPath';
+import { validate } from '../../../../engine/validator';
 
 // ─── Sample response data ────────────────────────────────
 const RESPONSE = {
@@ -553,7 +554,7 @@ describe('Integration: expression with operator', () => {
     expect(output.expectedFields[0].expectedValue).toBe('52');
   });
 
-  it('auto-mapped field gets autoMapDefaultOperator (exists)', () => {
+  it('auto-mapped field gets autoMapDefaultOperator (equals)', () => {
     const adapter = createValidationAdapter({
       sampleResponseBody: RESPONSE,
       selectiveMode: 'include',
@@ -566,7 +567,7 @@ describe('Integration: expression with operator', () => {
       isAutoMapped: true,
     }];
     const output = adapter.serialize(mappings);
-    expect(output.expectedFields[0].operator).toBe('exists');
+    expect(output.expectedFields[0].operator).toBe('equals');
   });
 });
 
@@ -603,5 +604,163 @@ describe('Integration: multiple operators on same response', () => {
     expect(results[0].passed).toBe(false);
     expect(results[1].passed).toBe(false);
     expect(results[2].passed).toBe(false);
+  });
+});
+
+// ────────────────────────────────────────────────────────────
+// 12. ARRAY/OBJECT NODE FILTERING ($.offers bug reproduction)
+// ────────────────────────────────────────────────────────────
+
+describe('Integration: array/object node filtering', () => {
+  it('serialize() filters out array node with equals operator', () => {
+    const mappings: Mapping[] = [
+      { id: 'a1', sourceId: 'response-body', sourcePath: 'offers', targetPath: 'offers' },
+      { id: 'a2', sourceId: 'response-body', sourcePath: 'name', targetPath: 'name' },
+    ];
+    const { expectedFields } = serializeAndVerify(RESPONSE, mappings);
+    const paths = expectedFields.map(f => f.jsonPath);
+    expect(paths).toContain('name');
+    expect(paths).not.toContain('offers');
+  });
+
+  it('serialize() filters out array node with exists operator', () => {
+    const mappings: Mapping[] = [
+      { id: 'a1', sourceId: 'response-body', sourcePath: 'offers', targetPath: 'offers', operator: 'exists' },
+      { id: 'a2', sourceId: 'response-body', sourcePath: 'name', targetPath: 'name' },
+    ];
+    const { expectedFields } = serializeAndVerify(RESPONSE, mappings);
+    const paths = expectedFields.map(f => f.jsonPath);
+    expect(paths).toContain('name');
+    expect(paths).not.toContain('offers');
+  });
+
+  it('serialize() keeps array node with is_empty operator', () => {
+    const mappings: Mapping[] = [
+      { id: 'a1', sourceId: 'response-body', sourcePath: 'offers', targetPath: 'offers', operator: 'is_empty' },
+    ];
+    const { expectedFields } = serializeAndVerify(RESPONSE, mappings);
+    expect(expectedFields).toHaveLength(1);
+    expect(expectedFields[0].jsonPath).toBe('offers');
+  });
+
+  it('serialize() keeps array node with is_type operator', () => {
+    const mappings: Mapping[] = [
+      { id: 'a1', sourceId: 'response-body', sourcePath: 'offers', targetPath: 'offers', operator: 'is_type', operatorValue: 'array' },
+    ];
+    const { expectedFields } = serializeAndVerify(RESPONSE, mappings);
+    expect(expectedFields).toHaveLength(1);
+    expect(expectedFields[0].operator).toBe('is_type');
+  });
+
+  it('serialize() filters out object node with auto-mapped equals', () => {
+    const mappings: Mapping[] = [
+      { id: 'a1', sourceId: 'response-body', sourcePath: 'address', targetPath: 'address', isAutoMapped: true },
+      { id: 'a2', sourceId: 'response-body', sourcePath: 'address.city', targetPath: 'address.city', isAutoMapped: true },
+    ];
+    const { expectedFields } = serializeAndVerify(RESPONSE, mappings);
+    const paths = expectedFields.map(f => f.jsonPath);
+    expect(paths).not.toContain('address');
+    expect(paths).toContain('address.city');
+  });
+
+  it('deserialize() filters out stale offers entry with exists operator', () => {
+    const adapter = createValidationAdapter({
+      sampleResponseBody: RESPONSE,
+      selectiveMode: 'include',
+      expectedFields: [
+        { jsonPath: 'offers', expectedValue: '', operator: 'exists' },
+        { jsonPath: 'name', expectedValue: '"John Doe"', operator: 'equals' },
+        { jsonPath: 'count', expectedValue: '42', operator: 'equals' },
+      ],
+    });
+    const output: ValidationAdapterOutput = {
+      selectiveMode: 'include',
+      expectedFields: [
+        { jsonPath: 'offers', expectedValue: '', operator: 'exists' },
+        { jsonPath: 'name', expectedValue: '"John Doe"', operator: 'equals' },
+        { jsonPath: 'count', expectedValue: '42', operator: 'equals' },
+      ],
+      excludedPaths: [],
+    };
+    const mappings = adapter.deserialize(output);
+    const paths = mappings.map(m => m.targetPath);
+    expect(paths).not.toContain('offers');
+    expect(paths).toContain('name');
+    expect(paths).toContain('count');
+  });
+
+  it('deserialize() filters out stale offers entry with equals operator', () => {
+    const adapter = createValidationAdapter({
+      sampleResponseBody: RESPONSE,
+      selectiveMode: 'include',
+      expectedFields: [
+        { jsonPath: 'offers', expectedValue: '[{"planType":"Trial"}]', operator: 'equals' },
+        { jsonPath: 'name', expectedValue: '"John Doe"', operator: 'equals' },
+      ],
+    });
+    const output: ValidationAdapterOutput = {
+      selectiveMode: 'include',
+      expectedFields: [
+        { jsonPath: 'offers', expectedValue: '[{"planType":"Trial"}]', operator: 'equals' },
+        { jsonPath: 'name', expectedValue: '"John Doe"', operator: 'equals' },
+      ],
+      excludedPaths: [],
+    };
+    const mappings = adapter.deserialize(output);
+    const paths = mappings.map(m => m.targetPath);
+    expect(paths).not.toContain('offers');
+    expect(paths).toContain('name');
+  });
+
+  it('full pipeline: auto-map with offers array does NOT produce offers in expectedFields', () => {
+    const allLeafMappings: Mapping[] = [
+      { id: 'l1', sourceId: 'response-body', sourcePath: 'offers', targetPath: 'offers', isAutoMapped: true },
+      { id: 'l2', sourceId: 'response-body', sourcePath: 'offers[0].planType', targetPath: 'offers[0].planType', isAutoMapped: true },
+      { id: 'l3', sourceId: 'response-body', sourcePath: 'offers[0].price', targetPath: 'offers[0].price', isAutoMapped: true },
+      { id: 'l4', sourceId: 'response-body', sourcePath: 'name', targetPath: 'name', isAutoMapped: true },
+    ];
+    const { expectedFields, results } = serializeAndVerify(RESPONSE, allLeafMappings);
+    const paths = expectedFields.map(f => f.jsonPath);
+    expect(paths).not.toContain('offers');
+    expect(paths).toContain('offers[0].planType');
+    expect(paths).toContain('offers[0].price');
+    expect(paths).toContain('name');
+    for (const r of results) {
+      expect(r.passed).toBe(true);
+    }
+  });
+
+  it('validate() with exists on offers array PASSES (array exists)', () => {
+    const config: ValidationConfig = {
+      mode: 'selective',
+      expectedFields: [
+        { jsonPath: 'offers', expectedValue: '', operator: 'exists' },
+        { jsonPath: 'name', expectedValue: '"John Doe"', operator: 'equals' },
+      ],
+    };
+    const failures = validate(config, RESPONSE);
+    expect(failures).toHaveLength(0);
+  });
+
+  it('validate() fails for offers with no operator (raw equals comparison)', () => {
+    const config: ValidationConfig = {
+      mode: 'selective',
+      expectedFields: [
+        { jsonPath: 'offers', expectedValue: '[object Object]' },
+      ],
+    };
+    const failures = validate(config, RESPONSE);
+    expect(failures.length).toBeGreaterThan(0);
+  });
+
+  it('validate() fails for offers with equals and wrong expected value', () => {
+    const config: ValidationConfig = {
+      mode: 'selective',
+      expectedFields: [
+        { jsonPath: 'offers', expectedValue: '{"wrong": true}', operator: 'equals' },
+      ],
+    };
+    const failures = validate(config, RESPONSE);
+    expect(failures.length).toBeGreaterThan(0);
   });
 });

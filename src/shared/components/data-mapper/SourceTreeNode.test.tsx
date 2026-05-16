@@ -1,6 +1,7 @@
 /** @vitest-environment jsdom */
-import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import '@testing-library/jest-dom/vitest';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 import SourceTreeNode from './SourceTreeNode';
 import type { JsonTreeNode } from '../../utils/jsonTreeModel';
 
@@ -312,6 +313,254 @@ describe('SourceTreeNode', () => {
     const driftMap = new Map([['items.[*].name', { severity: 'warning' as const, label: 'Type changed' }]]);
     const { container } = render(<SourceTreeNode node={arrayChild} {...defaults} driftMap={driftMap} />);
     expect(container.querySelector('.dm-drift-badge--warning')).not.toBeNull();
+  });
+
+  it('matches drift via [*] normalization when tree path uses [*] index', () => {
+    const wildcardChild: JsonTreeNode = {
+      key: 'name',
+      path: 'items[*].name',
+      type: 'string',
+      value: 'x',
+      children: [],
+    };
+    const driftMap = new Map([['items.[*].name', { severity: 'info' as const, label: 'Array wildcard' }]]);
+    const { container } = render(<SourceTreeNode node={wildcardChild} {...defaults} driftMap={driftMap} />);
+    expect(container.querySelector('.dm-drift-badge--info')).not.toBeNull();
+  });
+
+  it('prefers exact drift map entry over normalized fallback', () => {
+    const driftMap = new Map([
+      ['items[0].name', { severity: 'info' as const, label: 'Exact slot' }],
+      ['items.[*].name', { severity: 'breaking' as const, label: 'Wildcard' }],
+    ]);
+    const arrayChild: JsonTreeNode = {
+      key: 'name', path: 'items[0].name', type: 'string', value: 'v', children: [],
+    };
+    const { container } = render(<SourceTreeNode node={arrayChild} {...defaults} driftMap={driftMap} />);
+    expect(container.querySelector('.dm-drift-badge--info')).not.toBeNull();
+    expect(container.querySelector('.dm-drift-badge--breaking')).toBeNull();
+    expect(screen.getByLabelText('Exact slot')).toBeTruthy();
+  });
+
+  it('sets tree node title to drift label when drift is present', () => {
+    const driftMap = new Map([['name', { severity: 'warning' as const, label: 'Schema drift note' }]]);
+    render(<SourceTreeNode node={leaf} {...defaults} driftMap={driftMap} />);
+    expect(screen.getByTitle('Schema drift note')).toBeTruthy();
+  });
+
+  describe('copy-to-clipboard sample value', () => {
+    beforeEach(() => {
+      vi.stubGlobal(
+        'navigator',
+        Object.assign(navigator, { clipboard: { writeText: vi.fn().mockResolvedValue(undefined) } }),
+      );
+    });
+
+    afterEach(() => {
+      vi.unstubAllGlobals();
+      vi.useRealTimers();
+    });
+
+    it('writes full leaf value to clipboard when copyable sample is clicked', () => {
+      const writeText = vi.fn().mockResolvedValue(undefined);
+      Object.assign(navigator, { clipboard: { writeText } });
+      render(<SourceTreeNode node={leaf} {...defaults} />);
+      const copyable = document.querySelector('.dm-node-sample-value--copyable');
+      expect(copyable).not.toBeNull();
+      fireEvent.click(copyable!);
+      expect(writeText).toHaveBeenCalledTimes(1);
+      expect(writeText).toHaveBeenCalledWith('Alice');
+    });
+
+    it('copies full untruncated string when display is truncated', () => {
+      const writeText = vi.fn().mockResolvedValue(undefined);
+      Object.assign(navigator, { clipboard: { writeText } });
+      const longVal = 'B'.repeat(50);
+      const longLeaf: JsonTreeNode = {
+        key: 'bio', path: 'bio', type: 'string', value: longVal, children: [],
+      };
+      render(<SourceTreeNode node={longLeaf} {...defaults} />);
+      fireEvent.click(document.querySelector('.dm-node-sample-value--copyable')!);
+      expect(writeText).toHaveBeenCalledWith(longVal);
+    });
+
+    it('shows Copied! feedback then restores sample text after timeout', () => {
+      vi.useFakeTimers();
+      const writeText = vi.fn().mockResolvedValue(undefined);
+      Object.assign(navigator, { clipboard: { writeText } });
+      render(<SourceTreeNode node={leaf} {...defaults} />);
+      fireEvent.click(document.querySelector('.dm-node-sample-value--copyable')!);
+      expect(screen.getByText('Copied!')).toBeTruthy();
+      act(() => {
+        vi.advanceTimersByTime(1200);
+      });
+      expect(screen.queryByText('Copied!')).toBeNull();
+      expect(screen.getByText('Alice')).toBeTruthy();
+    });
+
+    it('does not invoke onNodeSelect when sample value is clicked (stopPropagation)', () => {
+      const writeText = vi.fn().mockResolvedValue(undefined);
+      Object.assign(navigator, { clipboard: { writeText } });
+      const onNodeSelect = vi.fn();
+      render(<SourceTreeNode node={leaf} {...defaults} onNodeSelect={onNodeSelect} />);
+      fireEvent.click(document.querySelector('.dm-node-sample-value--copyable')!);
+      expect(onNodeSelect).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('expand/collapse chrome', () => {
+    it('shows Expand on toggle when root branch is collapsed', () => {
+      const collapsed = { ...defaults, expandedPaths: new Set<string>() };
+      render(<SourceTreeNode node={nested} {...collapsed} />);
+      expect(screen.getByLabelText('Expand')).toBeTruthy();
+    });
+
+    it('shows Collapse on toggle when nested branches are expanded', () => {
+      render(<SourceTreeNode node={nested} {...defaults} />);
+      expect(screen.getAllByLabelText('Collapse').length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('adds open chevron class when branch is expanded', () => {
+      const { container } = render(<SourceTreeNode node={nested} {...defaults} />);
+      expect(container.querySelector('.dm-chevron--open')).not.toBeNull();
+    });
+
+    it('omits open chevron class when branch is collapsed', () => {
+      const collapsed = { ...defaults, expandedPaths: new Set<string>() };
+      const { container } = render(<SourceTreeNode node={nested} {...collapsed} />);
+      expect(container.querySelector('.dm-chevron--open')).toBeNull();
+    });
+  });
+
+  describe('node selection and mapping chrome', () => {
+    it('invokes onNodeSelect with path and sourceId on plain leaf click', () => {
+      const onNodeSelect = vi.fn();
+      render(<SourceTreeNode node={leaf} {...defaults} onNodeSelect={onNodeSelect} />);
+      fireEvent.click(screen.getByText('name').closest('.dm-tree-node')!);
+      expect(onNodeSelect).toHaveBeenCalledWith('name', 's1');
+    });
+
+    it('invokes onNodeSelect when parent object row is clicked', () => {
+      const onNodeSelect = vi.fn();
+      render(<SourceTreeNode node={nested} {...defaults} onNodeSelect={onNodeSelect} />);
+      fireEvent.click(screen.getByText('(root)').closest('.dm-tree-node')!);
+      expect(onNodeSelect).toHaveBeenCalledWith('', 's1');
+    });
+
+    it('marks checkbox checked when selectedPaths contains the leaf path', () => {
+      render(
+        <SourceTreeNode
+          node={leaf}
+          {...defaults}
+          onToggleSelect={vi.fn()}
+          selectedPaths={new Set(['name'])}
+        />,
+      );
+      expect(screen.getByRole('checkbox', { name: /Select name/i })).toBeChecked();
+    });
+
+    it('invokes onToggleSelect when checkbox is toggled', () => {
+      const onToggleSelect = vi.fn();
+      render(<SourceTreeNode node={leaf} {...defaults} onToggleSelect={onToggleSelect} />);
+      fireEvent.click(screen.getByRole('checkbox', { name: /Select name/i }));
+      expect(onToggleSelect).toHaveBeenCalledWith('name');
+    });
+
+    it('does not invoke onNodeSelect when checkbox is clicked', () => {
+      const onNodeSelect = vi.fn();
+      const onToggleSelect = vi.fn();
+      render(
+        <SourceTreeNode node={leaf} {...defaults} onNodeSelect={onNodeSelect} onToggleSelect={onToggleSelect} />,
+      );
+      fireEvent.click(screen.getByRole('checkbox', { name: /Select name/i }));
+      expect(onToggleSelect).toHaveBeenCalled();
+      expect(onNodeSelect).not.toHaveBeenCalled();
+    });
+
+    it('applies focused class when focusedPath matches leaf', () => {
+      const { container } = render(<SourceTreeNode node={leaf} {...defaults} focusedPath="name" />);
+      expect(container.querySelector('.dm-tree-node--focused')).not.toBeNull();
+    });
+
+    it('applies bulk-selected class when selectedNodePath matches leaf', () => {
+      const { container } = render(<SourceTreeNode node={leaf} {...defaults} selectedNodePath="name" />);
+      expect(container.querySelector('.dm-tree-node--bulk-selected')).not.toBeNull();
+    });
+
+    it('applies mapped class when mappedPaths contains leaf path', () => {
+      const { container } = render(
+        <SourceTreeNode node={leaf} {...defaults} mappedPaths={new Set(['name'])} />,
+      );
+      expect(container.querySelector('.dm-tree-node--mapped')).not.toBeNull();
+    });
+
+    it('applies hover-highlight class when highlightedPaths matches normalized path', () => {
+      const { container } = render(
+        <SourceTreeNode node={leaf} {...defaults} highlightedPaths={new Set(['name'])} />,
+      );
+      expect(container.querySelector('.dm-tree-node--hover-highlight')).not.toBeNull();
+    });
+
+    it('hides leaf when mappingFilter is mapped and path is absent from mappedPaths', () => {
+      const solo: JsonTreeNode = { key: 'solo', path: 'solo', type: 'string', value: 'v', children: [] };
+      const { container } = render(
+        <SourceTreeNode node={solo} {...defaults} mappingFilter="mapped" mappedPaths={new Set()} />,
+      );
+      expect(container.innerHTML).toBe('');
+    });
+
+    it('shows leaf when mappingFilter is mapped and path is listed in mappedPaths', () => {
+      const solo: JsonTreeNode = { key: 'solo', path: 'solo', type: 'string', value: 'v', children: [] };
+      render(
+        <SourceTreeNode node={solo} {...defaults} mappingFilter="mapped" mappedPaths={new Set(['solo'])} />,
+      );
+      expect(screen.getByText('solo')).toBeTruthy();
+    });
+
+    it('hides mapped leaf when mappingFilter is unmapped', () => {
+      const solo: JsonTreeNode = { key: 'solo', path: 'solo', type: 'string', value: 'v', children: [] };
+      const { container } = render(
+        <SourceTreeNode node={solo} {...defaults} mappingFilter="unmapped" mappedPaths={new Set(['solo'])} />,
+      );
+      expect(container.innerHTML).toBe('');
+    });
+  });
+
+  describe('node types', () => {
+    it('renders boolean leaf with bool pill and false value', () => {
+      const boolLeaf: JsonTreeNode = {
+        key: 'flag', path: 'flag', type: 'boolean', value: false, children: [],
+      };
+      render(<SourceTreeNode node={boolLeaf} {...defaults} />);
+      expect(screen.getByText('bool')).toBeTruthy();
+      expect(screen.getByText('false')).toBeTruthy();
+    });
+
+    it('renders array container with arr pill', () => {
+      const arrNode: JsonTreeNode = {
+        key: 'items',
+        path: 'items',
+        type: 'array',
+        value: [],
+        children: [{ key: '[0]', path: 'items[0]', type: 'number', value: 1, children: [] }],
+      };
+      render(<SourceTreeNode node={arrNode} {...defaults} expandedPaths={new Set(['items'])} />);
+      expect(screen.getByText('arr')).toBeTruthy();
+      expect(screen.getByText('items[0]')).toBeTruthy();
+    });
+
+    it('does not render copyable sample when leaf string value is empty', () => {
+      const emptyStr: JsonTreeNode = { key: 'e', path: 'e', type: 'string', value: '', children: [] };
+      const { container } = render(<SourceTreeNode node={emptyStr} {...defaults} />);
+      expect(container.querySelector('.dm-node-sample-value--copyable')).toBeNull();
+    });
+
+    it('renders numeric zero as copyable sample text', () => {
+      const zeroLeaf: JsonTreeNode = { key: 'z', path: 'z', type: 'number', value: 0, children: [] };
+      render(<SourceTreeNode node={zeroLeaf} {...defaults} />);
+      expect(screen.getByText('0')).toBeTruthy();
+      expect(document.querySelector('.dm-node-sample-value--copyable')).not.toBeNull();
+    });
   });
 });
 

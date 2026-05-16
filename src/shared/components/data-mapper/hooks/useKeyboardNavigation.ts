@@ -75,6 +75,9 @@ export function useKeyboardNavigation({
       const container = containerRef.current;
       if (!container) return;
 
+      const activeTag = (e.target as HTMLElement)?.tagName?.toLowerCase();
+      if (activeTag === 'input' || activeTag === 'textarea' || activeTag === 'select') return;
+
       if (e.key === 'Tab') {
         // Only intercept Tab within tree panels to avoid trapping keyboard focus
         const target = e.target as HTMLElement;

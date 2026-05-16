@@ -214,7 +214,7 @@ describe('ExtractionEditor', () => {
   });
 
   it('shows fetch error when present', () => {
-    const fetchSample = { onFetch: vi.fn(), fetching: false, error: 'Connection refused' };
+    const fetchSample = { onFetch: vi.fn(), fetching: false, error: { message: 'Connection refused' } };
     render(<ExtractionEditor extractions={[]} onChange={vi.fn()} fetchSample={fetchSample} />);
     expect(screen.getByText('Connection refused')).toBeTruthy();
   });

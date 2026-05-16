@@ -194,6 +194,12 @@ export function useDataMapperDrop({
         return;
       }
 
+      if (!sourceHasChildren && targetHasChildren) {
+        setToast('Cannot map a leaf field onto an array/object node — drop on a specific child instead');
+        draggedSourceRef.current = null;
+        return;
+      }
+
       const suggestedExpression = suggestDropExpression(sourcePath, sourceId, targetPath);
       const applied = upsertTargetMapping(mappings, sourcePath, sourceId, targetPath, suggestedExpression);
       if (applied.changed) {

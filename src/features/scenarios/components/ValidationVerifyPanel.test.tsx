@@ -54,6 +54,7 @@ describe('ValidationVerifyPanel', () => {
         onUseSettingsUrl={vi.fn()}
         validationResult={null}
         onDismissResult={vi.fn()}
+        unorderedArrays={false}
         onEnableUnorderedAndReVerify={vi.fn()}
       />,
     );
@@ -79,9 +80,11 @@ describe('ValidationVerifyPanel', () => {
 
   it('calls onVerifyScopeChange when scope select changes', () => {
     const onVerifyScopeChange = vi.fn();
-    renderPanel({ onVerifyScopeChange });
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'rules' } });
-    expect(onVerifyScopeChange).toHaveBeenCalledWith('rules');
+    renderPanel({ onVerifyScopeChange, verifyScope: 'rules' });
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'assertions' } });
+    expect(onVerifyScopeChange).toHaveBeenCalledWith('assertions');
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'all' } });
+    expect(onVerifyScopeChange).toHaveBeenCalledWith('all');
   });
 
   it('shows Use Settings when host override is on with empty override', () => {
@@ -134,6 +137,30 @@ describe('ValidationVerifyPanel', () => {
     expect(hostInput.placeholder).toBe('Enter base URL');
   });
 
+  it('disables host URL input when Host Override is off', () => {
+    renderPanel({ fetchHostEnabled: false });
+    const hostInput = document.querySelector('.validate-host-input') as HTMLInputElement;
+    expect(hostInput).toBeDisabled();
+  });
+
+  it('does not show Use Settings when override is already filled', () => {
+    renderPanel({
+      fetchHostEnabled: true,
+      fetchHostOverride: 'https://filled.example',
+      resolvedBaseUrl: 'https://cfg.example',
+    });
+    expect(screen.queryByTitle('Use Settings base URL')).not.toBeInTheDocument();
+  });
+
+  it('does not show Use Settings when resolvedBaseUrl is empty string', () => {
+    renderPanel({
+      fetchHostEnabled: true,
+      fetchHostOverride: '',
+      resolvedBaseUrl: '',
+    });
+    expect(screen.queryByTitle('Use Settings base URL')).not.toBeInTheDocument();
+  });
+
   it('shows combined passed summary with only field rules when assertions count is zero', () => {
     renderPanel({
       expectedFieldCount: 2,
@@ -164,6 +191,22 @@ describe('ValidationVerifyPanel', () => {
     expect(screen.getByText('HTTP 201')).toBeInTheDocument();
     expect(screen.getByText(/1 assertion/)).toBeInTheDocument();
     expect(screen.getByText(/1 field rule/)).toBeInTheDocument();
+  });
+
+  it('does not show HTTP label when httpStatus is missing on passed result', () => {
+    renderPanel({
+      validationResult: { passed: true, failures: [], verifyScope: 'all' },
+    });
+    expect(screen.queryByText(/^HTTP /)).not.toBeInTheDocument();
+  });
+
+  it('defaults verifyScope to all for passed summary when omitted', () => {
+    renderPanel({
+      expectedFieldCount: 2,
+      assertionCount: 3,
+      validationResult: { passed: true, failures: [] },
+    });
+    expect(screen.getByText(/5 rules passed/)).toBeInTheDocument();
   });
 
   it('uses plural passed summary for all scope', () => {
@@ -307,6 +350,228 @@ describe('ValidationVerifyPanel', () => {
             path: '$.items.id',
             expected: '"1"',
             actual: '2 (matched by x at [1])',
+          },
+        ],
+      },
+    });
+    expect(screen.queryByText(/array ordering mismatches/i)).not.toBeInTheDocument();
+  });
+
+  it('does not show response toggle when there is no response JSON or headers', () => {
+    renderPanel({
+      validationResult: { passed: true, failures: [] },
+    });
+    expect(screen.queryByRole('button', { name: /Toggle response details/i })).not.toBeInTheDocument();
+    expect(document.querySelector('.validate-result-header--clickable')).toBeNull();
+  });
+
+  it('toggles response details via button and updates aria-expanded', () => {
+    renderPanel({
+      validationResult: {
+        passed: false,
+        failures: [{ path: '$.x', expected: '1', actual: '2' }],
+        responseHeaders: { 'X-Test': '1' },
+      },
+    });
+    const toggle = screen.getByRole('button', { name: /Toggle response details/i });
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(document.querySelector('.validate-response-detail')).toBeNull();
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByText('X-Test')).toBeInTheDocument();
+    fireEvent.click(toggle);
+    expect(document.querySelector('.validate-response-detail')).toBeNull();
+  });
+
+  it('toggles response details when header is double-clicked', () => {
+    renderPanel({
+      validationResult: {
+        passed: true,
+        failures: [],
+        responseJson: '{"a":1}',
+      },
+    });
+    const header = document.querySelector('.validate-result-header--clickable');
+    expect(header).toBeTruthy();
+    fireEvent.doubleClick(header as Element);
+    expect(document.querySelector('.validate-response-detail')).toBeInTheDocument();
+    fireEvent.doubleClick(header as Element);
+    expect(document.querySelector('.validate-response-detail')).toBeNull();
+  });
+
+  it('renders status-ok badge for 3xx responses in detail panel', () => {
+    renderPanel({
+      validationResult: {
+        passed: true,
+        failures: [],
+        httpStatus: 399,
+        statusText: 'OKish',
+        responseJson: '{}',
+      },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Toggle response details/i }));
+    const badge = document.querySelector('.validate-response-detail-status-badge.status-ok');
+    expect(badge).toBeInTheDocument();
+    expect(badge).toHaveTextContent('399');
+    expect(screen.getByText('OKish')).toBeInTheDocument();
+  });
+
+  it('renders status-4xx badge for client errors', () => {
+    renderPanel({
+      validationResult: {
+        passed: false,
+        failures: [{ path: '$.a', expected: '1', actual: '2' }],
+        httpStatus: 404,
+        statusText: 'Not Found',
+        responseJson: '{}',
+      },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Toggle response details/i }));
+    expect(document.querySelector('.status-4xx')).toBeInTheDocument();
+    expect(screen.getByText('Not Found')).toBeInTheDocument();
+  });
+
+  it('renders status-5xx badge for server errors', () => {
+    renderPanel({
+      validationResult: {
+        passed: false,
+        failures: [{ path: '$.a', expected: '1', actual: '2' }],
+        httpStatus: 500,
+        responseJson: '{}',
+      },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Toggle response details/i }));
+    expect(document.querySelector('.status-5xx')).toBeInTheDocument();
+  });
+
+  it('renders empty status text when statusText is omitted', () => {
+    renderPanel({
+      validationResult: {
+        passed: true,
+        failures: [],
+        httpStatus: 200,
+        responseJson: '{}',
+      },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Toggle response details/i }));
+    const valueSpan = document.querySelector('.validate-response-detail-value');
+    expect(valueSpan).toBeTruthy();
+    expect(valueSpan?.textContent).toBe('');
+  });
+
+  it('omits Response Headers section when headers object is empty', () => {
+    renderPanel({
+      validationResult: {
+        passed: true,
+        failures: [],
+        responseHeaders: {},
+        responseJson: '{"x":1}',
+      },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Toggle response details/i }));
+    expect(screen.queryByText(/Response Headers/)).not.toBeInTheDocument();
+  });
+
+  it('lists response headers with count when headers are present', () => {
+    renderPanel({
+      validationResult: {
+        passed: true,
+        failures: [],
+        responseHeaders: { 'Content-Type': 'application/json', Server: 'nginx' },
+      },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Toggle response details/i }));
+    expect(screen.getByText('(2)')).toBeInTheDocument();
+    expect(screen.getByText('Content-Type')).toBeInTheDocument();
+    expect(screen.getByText('application/json')).toBeInTheDocument();
+    expect(screen.getByText('nginx')).toBeInTheDocument();
+  });
+
+  it('formats valid JSON and applies syntax highlight spans in response body', () => {
+    const raw = JSON.stringify({
+      key: 'val',
+      n: 42,
+      f: -1.5e2,
+      b: true,
+      z: null,
+    });
+    renderPanel({
+      validationResult: {
+        passed: true,
+        failures: [],
+        responseJson: raw,
+      },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Toggle response details/i }));
+    const pre = document.querySelector('.validate-response-detail-body');
+    expect(pre).toBeTruthy();
+    const html = pre?.innerHTML ?? '';
+    expect(html).toContain('json-hl-key');
+    expect(html).toContain('json-hl-str');
+    expect(html).toContain('json-hl-num');
+    expect(html).toContain('json-hl-kw');
+    expect(html).not.toContain('<script');
+  });
+
+  it('shows non-JSON response body verbatim and escapes HTML', () => {
+    renderPanel({
+      validationResult: {
+        passed: true,
+        failures: [],
+        responseJson: '<div a="b">&y',
+      },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Toggle response details/i }));
+    const pre = document.querySelector('.validate-response-detail-body');
+    expect(pre?.innerHTML).toContain('&lt;div');
+    expect(pre?.innerHTML).toContain('&amp;');
+  });
+
+  it('shows response controls when only empty headers object is present (no JSON)', () => {
+    renderPanel({
+      validationResult: {
+        passed: true,
+        failures: [],
+        responseHeaders: {},
+      },
+    });
+    expect(screen.getByRole('button', { name: /Toggle response details/i })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Toggle response details/i }));
+    expect(screen.queryByText(/Response Body/)).not.toBeInTheDocument();
+  });
+
+  it('shows order hint when every failure matches ordering mismatch pattern', () => {
+    renderPanel({
+      unorderedArrays: false,
+      validationResult: {
+        passed: false,
+        failures: [
+          {
+            path: '$.items[0].id',
+            expected: '"1"',
+            actual: '2 (matched by code=AAA at [1])',
+          },
+          {
+            path: '$.items[1].id',
+            expected: '"2"',
+            actual: '1 (matched by code=BBB at [0])',
+          },
+        ],
+      },
+    });
+    expect(screen.getByText(/array ordering mismatches/i)).toBeInTheDocument();
+  });
+
+  it('does not show order hint when actual text lacks matched-by wording', () => {
+    renderPanel({
+      unorderedArrays: false,
+      validationResult: {
+        passed: false,
+        failures: [
+          {
+            path: '$.items[0].id',
+            expected: '"1"',
+            actual: '2 (wrong order)',
           },
         ],
       },

@@ -389,7 +389,7 @@ describe('TestEditorValidationTab', () => {
 
     it('shows fetch error when present', () => {
       const draft = makeDraft({ validation: { mode: 'selective', assertions: [] } });
-      render(<TestEditorValidationTab {...makeProps({ draft, draftRef: { current: draft }, fetchError: 'Network error' })} />);
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef: { current: draft }, fetchError: { message: 'Network error' } })} />);
       expect(screen.getByText('Network error')).toBeInTheDocument();
     });
 
@@ -2572,7 +2572,7 @@ describe('TestEditorValidationTab', () => {
       );
     });
 
-    it('formats schema JSON via Format toolbar button', () => {
+    it('formats schema JSON via Pretty toolbar button', () => {
       const onDraftChange = vi.fn();
       const draft = makeDraft({
         validation: {
@@ -2582,7 +2582,7 @@ describe('TestEditorValidationTab', () => {
       });
       const draftRef = { current: draft };
       render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
-      fireEvent.click(screen.getByTitle('Format JSON'));
+      fireEvent.click(screen.getByTitle('Pretty-print JSON with indentation'));
       expect(onDraftChange).toHaveBeenCalled();
       const updated = onDraftChange.mock.calls[0][0] as Scenario;
       expect(updated.validation.assertions?.[0]).toMatchObject({ type: 'jsonSchema' });

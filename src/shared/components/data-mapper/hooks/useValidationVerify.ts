@@ -89,6 +89,24 @@ export function useValidationVerify({
       }
     } catch { /* ignore serialization errors */ }
 
+    // Filter out fields pointing to arrays/objects — only allow operators
+    // that genuinely apply to container types (is_empty, is_type, etc.).
+    // Other operators (equals, exists, contains, etc.) on array/object
+    // nodes produce confusing "Expected: object Got: array" errors.
+    const CONTAINER_ALLOWED_OPS = new Set([
+      'is_empty', 'is_not_empty', 'is_type', 'is_null', 'is_not_null',
+    ]);
+    const responseBody = parseSampleData(sampleResponseData);
+    if (responseBody !== undefined) {
+      expectedFields = expectedFields.filter(f => {
+        const p = f.jsonPath;
+        if (!p || p === '$' || p === '$.') return true;
+        const val = getByPath(responseBody, p);
+        if (val === undefined || val === null || typeof val !== 'object') return true;
+        return CONTAINER_ALLOWED_OPS.has(f.operator ?? 'equals');
+      });
+    }
+
     const dslAssertions = assertions.filter(a => DSL_ASSERTION_TYPES.has(a.type));
 
     if (expectedFields.length === 0 && dslAssertions.length === 0) {
@@ -101,8 +119,6 @@ export function useValidationVerify({
     const failedMappingIds = new Set<string>();
     let passedCount = 0;
     let failedCount = 0;
-
-    const responseBody = parseSampleData(sampleResponseData);
 
     if (unorderedArrays && expectedFields.length > 0 && responseBody !== undefined) {
       const failures = validateFieldsUnordered(expectedFields, responseBody);

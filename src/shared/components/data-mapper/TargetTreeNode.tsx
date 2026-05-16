@@ -16,11 +16,16 @@ import InlineAssertionRow from './InlineAssertionRow';
 import TargetNodeOperatorPicker from './TargetNodeOperatorPicker';
 import TargetNodeContextMenu from './TargetNodeContextMenu';
 
+const PARENT_NODE_ALLOWED_OPS = new Set([
+  'is_empty', 'is_not_empty', 'is_type', 'is_null', 'is_not_null',
+]);
+
 export default function TargetTreeNode({
   node,
   depth,
   search,
   mappingFilter = 'all',
+  verifyFilter = null,
   mappedTargetPaths,
   onNodeSelect,
   selectedNodePath,
@@ -58,6 +63,7 @@ export default function TargetTreeNode({
   onUpdateArrayAssertion,
   onRemoveArrayAssertion,
   arrayAssertions,
+  assertionVerifyMap,
   highlightedPaths,
   onRemapDrop,
   onRemapDragStart,
@@ -94,10 +100,19 @@ export default function TargetTreeNode({
   const verifyMatchContext = fieldResult?.matchContext;
   const normalizedNodePath = useMemo(() => normalizeMapperPath(node.path), [node.path]);
 
-  const mapping = useMemo(
+  const rawMapping = useMemo(
     () => mappings.find((m) => normalizeMapperPath(m.targetPath) === normalizedNodePath),
     [mappings, normalizedNodePath],
   );
+
+  const mapping = useMemo(() => {
+    if (!rawMapping) return undefined;
+    if ((node.type === 'array' || node.type === 'object') && node.children && node.children.length > 0) {
+      const op = rawMapping.operator as string | undefined;
+      if (!op || !PARENT_NODE_ALLOWED_OPS.has(op)) return undefined;
+    }
+    return rawMapping;
+  }, [rawMapping, node.type, node.children]);
 
   const mismatch = useMemo(
     () => mapping && typeMismatches
@@ -424,8 +439,8 @@ export default function TargetTreeNode({
 
   if (!isVisible) return null;
 
-  const isMapped = !!mapping || (mappedTargetPaths?.has(normalizedNodePath) ?? false);
-  const isSelected = mapping?.id === selectedMappingId && !!selectedMappingId;
+  const isMapped = !!mapping || !!rawMapping || (mappedTargetPaths?.has(normalizedNodePath) ?? false);
+  const isSelected = ((mapping?.id ?? rawMapping?.id) === selectedMappingId) && !!selectedMappingId;
   const isBulkSelected = selectedNodePath === node.path;
   const isFocused = focusedPath === node.path;
   const isHoverHighlighted = isLeaf && (highlightedPaths?.has(normalizedNodePath) ?? false);
@@ -434,7 +449,7 @@ export default function TargetTreeNode({
   const nodePathTitle = normalizedNodePath ? `Path: ${normalizedNodePath}` : '(root)';
 
   const childPassthroughProps: Omit<TargetTreeNodeProps, 'node' | 'depth'> = {
-    search, mappingFilter, mappedTargetPaths, onNodeSelect, selectedNodePath,
+    search, mappingFilter, verifyFilter, mappedTargetPaths, onNodeSelect, selectedNodePath,
     mappings, onDrop, expandedPaths, onToggle, selectedMappingId, onSelectMapping,
     onEditExpression, typeMismatches, onQuickFix, onRemoveMapping, focusedPath,
     traceOverlay, fieldOrigins, onRemoveCustomField, onUpdateCustomField,
@@ -442,7 +457,7 @@ export default function TargetTreeNode({
     getDraggedTargetFieldPath, unorderedDefault, onToggleUnorderedArray, capabilities,
     onUpdateMappingOperator, onToggleMappingNegate, nodeStatusMap, fieldVerifyResults,
     onAddArrayAssertion, onUpdateArrayAssertion, onRemoveArrayAssertion,
-    arrayAssertions, highlightedPaths, onRemapDrop, onRemapDragStart, onRemapDragEnd,
+    arrayAssertions, assertionVerifyMap, highlightedPaths, onRemapDrop, onRemapDragStart, onRemapDragEnd,
     getDraggedRemapId,
   };
 
@@ -460,7 +475,8 @@ export default function TargetTreeNode({
         onDragEnd={(isLeaf && onReorderField) || canRemapDrag ? handleNodeDragEnd : undefined}
         onClick={() => {
           onNodeSelect?.(node.path);
-          if (mapping) onSelectMapping(isSelected ? null : mapping.id);
+          const selectableMapping = mapping ?? rawMapping;
+          if (selectableMapping) onSelectMapping(isSelected ? null : selectableMapping.id);
         }}
         onDoubleClick={handleDoubleClick}
         onContextMenu={handleContextMenu}
@@ -503,25 +519,25 @@ export default function TargetTreeNode({
         {origin === 'fetched' && !renaming && (
           <span className="dm-origin-badge dm-origin-badge--fetched" title="Fetched from API">fetched</span>
         )}
-        {isMapped && (
+        {isMapped && mapping && (
           <span
             className="dm-mapped-badge"
-            onDoubleClick={(e) => { e.stopPropagation(); if (mapping && onEditExpression) onEditExpression(mapping.id); }}
+            onDoubleClick={(e) => { e.stopPropagation(); if (onEditExpression) onEditExpression(mapping.id); }}
           >
-            {mapping!.expression ? (
+            {mapping.expression ? (
               <>
                 <span className="dm-mapped-fx-pill">fx</span>
-                <span className="dm-mapped-src-ref" title={mapping!.expression}>{mapping!.sourcePath}</span>
+                <span className="dm-mapped-src-ref" title={mapping.expression}>{mapping.sourcePath}</span>
               </>
             ) : (
               <>
                 <span className="dm-mapped-arrow">←</span>
-                {showOperators && mapping?.negate && (
+                {showOperators && mapping.negate && (
                   <button
                     type="button"
                     className="dm-negate-badge"
                     title="Negated — click to remove NOT"
-                    onClick={(e) => { e.stopPropagation(); onToggleMappingNegate?.(mapping!.id); }}
+                    onClick={(e) => { e.stopPropagation(); onToggleMappingNegate?.(mapping.id); }}
                     aria-label="Remove negation"
                   >NOT</button>
                 )}
@@ -529,8 +545,8 @@ export default function TargetTreeNode({
                   <button
                     ref={operatorPillRef}
                     type="button"
-                    className={`dm-operator-pill dm-operator-pill--${currentOpMeta.cssClass}${mapping?.negate ? ' dm-operator-pill--negated' : ''}`}
-                    title={`Operator: ${mapping?.negate ? 'NOT ' : ''}${currentOpMeta.label} (click to change)`}
+                    className={`dm-operator-pill dm-operator-pill--${currentOpMeta.cssClass}${mapping.negate ? ' dm-operator-pill--negated' : ''}`}
+                    title={`Operator: ${mapping.negate ? 'NOT ' : ''}${currentOpMeta.label} (click to change)`}
                     onClick={(e) => {
                       e.stopPropagation();
                       if (!showOperatorPicker && operatorPillRef.current) {
@@ -663,14 +679,14 @@ export default function TargetTreeNode({
                       title="Click to edit value"
                       onClick={(e) => { e.stopPropagation(); startEditOperatorValue(); }}
                     >
-                      {mapping!.operatorValue || mapping!.sourcePath}
+                      {mapping.operatorValue || mapping.sourcePath}
                     </span>
                   )
                 ) : !showOperators ? (
-                  <span className="dm-mapped-src-ref" title={mapping!.sourcePath}>{mapping!.sourcePath}</span>
+                  <span className="dm-mapped-src-ref" title={mapping.sourcePath}>{mapping.sourcePath}</span>
                 ) : null}
                 {showOperators && !currentOpMeta.needsValue && (
-                  <span className="dm-mapped-src-ref" title={mapping!.sourcePath}>{mapping!.sourcePath}</span>
+                  <span className="dm-mapped-src-ref" title={mapping.sourcePath}>{mapping.sourcePath}</span>
                 )}
               </>
             )}
@@ -758,7 +774,16 @@ export default function TargetTreeNode({
           <span className="dm-drop-zone-hint">Drop here</span>
         )}
         {hasChildren && !isExpanded && (
-          <span className="dm-node-count">{node.children!.length}</span>
+          <span className="dm-node-count">
+            {node.type === 'array' && nodeAssertions.length > 0
+              ? `${node.children!.length} items · ${nodeAssertions.length} assertion${nodeAssertions.length !== 1 ? 's' : ''}`
+              : node.children!.length}
+          </span>
+        )}
+        {node.type === 'array' && isExpanded && nodeAssertions.length > 0 && (
+          <span className="dm-node-count dm-node-count--assertions">
+            {node.children!.length} items · {nodeAssertions.length} assertion{nodeAssertions.length !== 1 ? 's' : ''}
+          </span>
         )}
       </div>
       {showOperatorPicker && showOperators && (
@@ -802,13 +827,21 @@ export default function TargetTreeNode({
       )}
       {node.type === 'array' && isExpanded && capabilities?.arrayAssertions && (
         <div className="dm-array-assertion-rows" style={{ paddingLeft: (depth + 1) * 16 + 4 }}>
-          {nodeAssertions.map(({ assertion, globalIndex }) => (
+          {nodeAssertions
+            .filter(({ globalIndex }) => {
+              if (!verifyFilter) return true;
+              const vr = assertionVerifyMap?.get(globalIndex);
+              if (!vr) return true;
+              return verifyFilter === 'passed' ? vr.passed : !vr.passed;
+            })
+            .map(({ assertion, globalIndex }) => (
             <InlineAssertionRow
               key={globalIndex}
               assertion={assertion}
               globalIndex={globalIndex}
               onUpdate={onUpdateArrayAssertion}
               onRemove={onRemoveArrayAssertion}
+              verifyResult={assertionVerifyMap?.get(globalIndex)}
             />
           ))}
           {onAddArrayAssertion && (

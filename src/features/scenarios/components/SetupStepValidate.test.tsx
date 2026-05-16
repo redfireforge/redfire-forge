@@ -124,8 +124,8 @@ describe('SetupStepValidate', () => {
   });
 
   it('shows error message when fetchError is present', () => {
-    render(<SetupStepValidate {...createDefaultProps({ fetchError: 'Connection failed' })} />);
-    expect(screen.getByText('⚠️ Connection failed')).toBeInTheDocument();
+    render(<SetupStepValidate {...createDefaultProps({ fetchError: { message: 'Connection failed' } })} />);
+    expect(screen.getByText('Connection failed')).toBeInTheDocument();
   });
 
   it('shows stored response button when test has sampleJson', () => {

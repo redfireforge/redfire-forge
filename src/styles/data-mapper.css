@@ -1,29 +1,29 @@
 /* ─── Data Mapper ─────────────────────────────────────────── */
 
-/* Mapper color tokens — override these for high-contrast themes */
+/* Mapper color tokens — inherit from global theme variables */
 :root {
   --dm-accent: var(--accent, #89b4fa);
-  --dm-success: #a6e3a1;
-  --dm-warning: #f5a623;
-  --dm-error: #eb6f92;
-  --dm-info: #89dceb;
-  --dm-expression: #cba6f7;
-  --dm-type-string: #a6e3a1;
-  --dm-type-number: #89b4fa;
-  --dm-type-boolean: #fab387;
-  --dm-type-array: #f9e2af;
-  --dm-type-object: #cba6f7;
-  --dm-type-null: #6c7086;
-  --dm-mapped-bg: rgba(166, 227, 161, 0.06);
-  --dm-mapped-border: rgba(166, 227, 161, 0.25);
-  --dm-selected-bg: rgba(137, 180, 250, 0.12);
-  --dm-selected-border: rgba(137, 180, 250, 0.4);
-  --dm-focus-ring: rgba(137, 180, 250, 0.6);
+  --dm-success: var(--success, #a6e3a1);
+  --dm-warning: var(--warning, #f5a623);
+  --dm-error: var(--danger, #eb6f92);
+  --dm-info: var(--primary, #89dceb);
+  --dm-expression: var(--accent, #cba6f7);
+  --dm-type-string: var(--success, #a6e3a1);
+  --dm-type-number: var(--primary, #89b4fa);
+  --dm-type-boolean: var(--warning, #fab387);
+  --dm-type-array: var(--warning, #f9e2af);
+  --dm-type-object: var(--accent, #cba6f7);
+  --dm-type-null: var(--text-muted, #6c7086);
+  --dm-mapped-bg: color-mix(in srgb, var(--success, #a6e3a1) 6%, transparent);
+  --dm-mapped-border: color-mix(in srgb, var(--success, #a6e3a1) 25%, transparent);
+  --dm-selected-bg: color-mix(in srgb, var(--accent, #89b4fa) 12%, transparent);
+  --dm-selected-border: color-mix(in srgb, var(--accent, #89b4fa) 40%, transparent);
+  --dm-focus-ring: color-mix(in srgb, var(--accent, #89b4fa) 60%, transparent);
   --dm-line-color: var(--accent, #89b4fa);
   --dm-line-dimmed-opacity: 0.2;
-  --dm-line-loop: #a6e3a1;
-  --dm-line-aggregate: #f5a623;
-  --dm-line-spread: #cba6f7;
+  --dm-line-loop: var(--success, #a6e3a1);
+  --dm-line-aggregate: var(--warning, #f5a623);
+  --dm-line-spread: var(--accent, #cba6f7);
 }
 
 .dm-container {
@@ -33,7 +33,7 @@
   border: 1px solid var(--border);
   border-radius: 8px;
   overflow: hidden;
-  background: var(--bg-card, var(--bg, #1e1e2e));
+  background: var(--surface, var(--bg, #1e1e2e));
   font-size: 0.85rem;
 }
 
@@ -91,7 +91,7 @@
 }
 
 .dm-toolbar-btn:hover:not(:disabled) {
-  background: var(--bg-hover, rgba(255, 255, 255, 0.06));
+  background: var(--surface-hover, rgba(255, 255, 255, 0.06));
 }
 
 .dm-toolbar-btn:disabled {
@@ -110,7 +110,7 @@
 }
 
 .dm-toolbar--dense .dm-toolbar-btn--quiet:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--bg-hover, rgba(255, 255, 255, 0.06)) 80%, transparent);
+  background: color-mix(in srgb, var(--surface-hover, rgba(255, 255, 255, 0.06)) 80%, transparent);
 }
 
 .dm-toolbar-btn--primary {
@@ -205,7 +205,7 @@
   padding: 8px;
   border: 1px solid var(--border, #3b3f51);
   border-radius: 8px;
-  background: var(--bg-card, #1e1e2e);
+  background: var(--surface, #1e1e2e);
   box-shadow: 0 10px 26px rgba(0, 0, 0, 0.35);
 }
 
@@ -319,7 +319,7 @@
 }
 
 .dm-btn-icon:hover {
-  background: var(--bg-hover, rgba(255, 255, 255, 0.06));
+  background: var(--surface-hover, rgba(255, 255, 255, 0.06));
   color: var(--text, #cdd6f4);
 }
 
@@ -329,7 +329,7 @@
   gap: 8px;
   padding: 6px 10px;
   border-bottom: 1px solid var(--border);
-  background: color-mix(in srgb, var(--bg-card, #1e1e2e) 90%, #000 10%);
+  background: color-mix(in srgb, var(--surface, #1e1e2e) 90%, #000 10%);
   flex-wrap: wrap;
 }
 
@@ -516,7 +516,7 @@
 
 .dm-source-tab:hover {
   color: var(--text, #cdd6f4);
-  background: var(--bg-hover, rgba(255, 255, 255, 0.04));
+  background: var(--surface-hover, rgba(255, 255, 255, 0.04));
 }
 
 .dm-source-tab--active {
@@ -538,7 +538,7 @@
 .dm-search-input {
   flex: 1 1 0;
   min-width: 0;
-  background: var(--bg-card, #1e1e2e);
+  background: var(--surface, #1e1e2e);
   border: 1px solid var(--border, #3b3f51);
   color: var(--text, #cdd6f4);
   font-size: 0.78rem;
@@ -571,7 +571,7 @@
 .dm-search-clear:hover { opacity: 1; }
 
 .dm-filter-select {
-  background: var(--bg-card, #1e1e2e);
+  background: var(--surface, #1e1e2e);
   border: 1px solid var(--border, #3b3f51);
   color: var(--text, #cdd6f4);
   font-size: 0.72rem;
@@ -645,7 +645,7 @@
   align-items: center;
   padding: 6px 12px;
   border-bottom: 1px solid var(--border, #3b3f51);
-  background: color-mix(in srgb, var(--bg-card, #1e1e2e) 80%, #000 20%);
+  background: color-mix(in srgb, var(--surface, #1e1e2e) 80%, #000 20%);
   font-size: 0.7rem;
   font-weight: 600;
   text-transform: uppercase;
@@ -768,7 +768,7 @@
 }
 
 .dm-tree-node:hover {
-  background: var(--bg-hover, rgba(255, 255, 255, 0.04));
+  background: var(--surface-hover, rgba(255, 255, 255, 0.04));
 }
 
 .dm-tree-node--leaf.dm-tree-node--source {
@@ -910,6 +910,38 @@
   flex-shrink: 0;
 }
 
+.dm-node-sample-value--copyable {
+  cursor: pointer;
+  border-radius: 3px;
+  padding: 1px 5px;
+  transition: background 0.15s, opacity 0.15s;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.dm-node-sample-value--copyable:hover {
+  opacity: 1;
+  background: color-mix(in srgb, var(--accent, #89b4fa) 15%, transparent);
+}
+
+.dm-copy-icon {
+  font-size: 10px;
+  opacity: 0;
+  transition: opacity 0.15s;
+  color: var(--accent, #89b4fa);
+}
+
+.dm-node-sample-value--copyable:hover .dm-copy-icon {
+  opacity: 0.8;
+}
+
+.dm-copy-feedback {
+  font-size: 10px;
+  color: var(--green, #a6e3a1);
+  font-weight: 600;
+}
+
 /* Legacy class — keep for existing references */
 .dm-node-value {
   color: var(--text-muted, #6c7086);
@@ -928,11 +960,81 @@
   flex-shrink: 0;
 }
 
+.dm-node-count--assertions {
+  color: var(--accent-teal, #94e2d5);
+}
+
 .dm-selected-check {
   color: #a6e3a1;
   font-size: 0.75rem;
   margin-left: auto;
   flex-shrink: 0;
+}
+
+/* 11A.5a — source multi-select checkbox (left of type pill) */
+.dm-source-checkbox {
+  appearance: none;
+  width: 13px;
+  height: 13px;
+  border: 1.5px solid var(--border, #3b4a60);
+  border-radius: 3px;
+  background: transparent;
+  margin: 0 4px 0 0;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: border-color 0.12s, background 0.12s;
+  position: relative;
+  outline: none;
+}
+.dm-source-checkbox:checked {
+  background: var(--success, #22c55e);
+  border-color: var(--success, #22c55e);
+}
+.dm-source-checkbox:checked::after {
+  content: '';
+  position: absolute;
+  top: 1px;
+  left: 3.5px;
+  width: 4px;
+  height: 7px;
+  border: solid var(--bg, #11111b);
+  border-width: 0 1.5px 1.5px 0;
+  transform: rotate(45deg);
+}
+.dm-source-checkbox:hover {
+  border-color: var(--text-muted, #8b949e);
+}
+.dm-source-checkbox:focus-visible {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--success, #22c55e) 30%, transparent);
+}
+.dm-tree-node--source .dm-source-checkbox {
+  opacity: 0.35;
+}
+.dm-tree-node--source:hover .dm-source-checkbox,
+.dm-tree-node--source .dm-source-checkbox:checked {
+  opacity: 1;
+}
+
+/* "Map selected" button accent variant */
+.dm-map-filtered-btn--selected {
+  background: var(--primary, #3b82f6) !important;
+  color: var(--bg, #11111b) !important;
+  border-color: var(--primary, #3b82f6) !important;
+}
+.dm-map-filtered-btn--selected:hover {
+  background: var(--primary-hover, #2563eb) !important;
+  border-color: var(--primary-hover, #2563eb) !important;
+}
+
+/* "Unmap selected" button danger variant */
+.dm-map-filtered-btn--unmap {
+  background: color-mix(in srgb, var(--danger, #ef4444) 15%, transparent) !important;
+  color: var(--danger, #ef4444) !important;
+  border-color: color-mix(in srgb, var(--danger, #ef4444) 30%, transparent) !important;
+}
+.dm-map-filtered-btn--unmap:hover {
+  background: color-mix(in srgb, var(--danger, #ef4444) 25%, transparent) !important;
+  border-color: color-mix(in srgb, var(--danger, #ef4444) 50%, transparent) !important;
 }
 
 /* 11A.5 — drag handle (hover-only grip icon on source leaves) */
@@ -1765,7 +1867,7 @@ g:hover > .dm-remap-handle-fo {
 }
 
 .dm-empty-action-btn:hover:not(:disabled) {
-  background: var(--bg-hover, rgba(255, 255, 255, 0.06));
+  background: var(--surface-hover, rgba(255, 255, 255, 0.06));
 }
 
 .dm-empty-action-btn--primary {
@@ -1817,6 +1919,194 @@ g:hover > .dm-remap-handle-fo {
   padding: 0 4px;
 }
 
+/* ── Fetch Error Banner ─────────────────────────────────── */
+
+.dm-fetch-error-banner {
+  margin: 4px;
+  border-radius: 6px;
+  background: rgba(235, 111, 146, 0.06);
+  border: 1px solid rgba(235, 111, 146, 0.2);
+  overflow: hidden;
+}
+
+.dm-fetch-error-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  color: #eb6f92;
+  font-size: 0.75rem;
+  gap: 8px;
+}
+
+.dm-fetch-error-clickable {
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.dm-fetch-error-clickable:hover {
+  background: rgba(235, 111, 146, 0.1);
+}
+
+.dm-fetch-error-message {
+  font-weight: 600;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dm-fetch-error-toggle {
+  font-size: 0.68rem;
+  white-space: nowrap;
+  opacity: 0.7;
+  flex-shrink: 0;
+}
+
+.dm-fetch-error-detail {
+  border-top: 1px solid rgba(235, 111, 146, 0.12);
+  padding: 10px 12px;
+  font-size: 0.72rem;
+  color: var(--text-secondary, #a0a0b0);
+  max-height: 300px;
+  overflow-y: auto;
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.dm-fetch-error-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+}
+
+.dm-fetch-error-label {
+  color: var(--text-muted, #888);
+  min-width: 48px;
+  flex-shrink: 0;
+  font-weight: 600;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.dm-fetch-error-status-badge {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 4px;
+  font-weight: 700;
+  font-size: 0.7rem;
+  font-family: var(--font-mono, 'JetBrains Mono', monospace);
+}
+.dm-fetch-error-status-badge.status-5xx {
+  background: rgba(235, 111, 146, 0.15);
+  color: #eb6f92;
+}
+.dm-fetch-error-status-badge.status-4xx {
+  background: rgba(245, 169, 127, 0.15);
+  color: #f5a97f;
+}
+.dm-fetch-error-status-badge.status-ok {
+  background: rgba(34, 197, 94, 0.15);
+  color: #22c55e;
+}
+
+.dm-fetch-error-value {
+  color: var(--text, #cdd6f4);
+  word-break: break-all;
+}
+
+.dm-fetch-error-timing {
+  font-family: var(--font-mono, 'JetBrains Mono', monospace);
+  font-size: 0.68rem;
+}
+
+.dm-fetch-error-timing-label {
+  color: var(--text-muted, #888);
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.dm-fetch-error-timing-sep {
+  opacity: 0.4;
+}
+
+.dm-fetch-error-section {
+  margin-top: 8px;
+}
+
+.dm-fetch-error-section-title {
+  cursor: pointer;
+  color: var(--text-muted, #888);
+  font-weight: 600;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  padding: 3px 0;
+  user-select: none;
+  transition: color 0.15s;
+}
+
+.dm-fetch-error-count {
+  font-weight: 400;
+  opacity: 0.7;
+}
+
+.dm-fetch-error-section-title:hover {
+  color: var(--text-secondary, #a0a0b0);
+}
+
+.dm-fetch-error-headers {
+  padding: 4px 0 4px 12px;
+  font-family: var(--font-mono, 'JetBrains Mono', monospace);
+  font-size: 0.65rem;
+  line-height: 1.7;
+}
+
+.dm-fetch-error-header-row {
+  display: flex;
+  gap: 0;
+}
+
+.dm-fetch-error-header-key {
+  color: var(--accent, #89b4fa);
+  font-weight: 500;
+}
+
+.dm-fetch-error-header-sep {
+  color: var(--text-muted, #888);
+  margin-right: 4px;
+}
+
+.dm-fetch-error-header-val {
+  color: var(--text-secondary, #a0a0b0);
+  word-break: break-all;
+}
+
+.dm-fetch-error-body {
+  margin: 6px 0 0;
+  padding: 10px 12px;
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  font-family: var(--font-mono, 'JetBrains Mono', monospace);
+  font-size: 0.68rem;
+  line-height: 1.6;
+  color: var(--text, #cdd6f4);
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+/* ── JSON syntax highlight (shared) ─────────────────────── */
+.json-hl-key { color: #89b4fa; }
+.json-hl-str { color: #a6e3a1; }
+.json-hl-num { color: #fab387; }
+.json-hl-kw  { color: #cba6f7; }
+
 .dm-paste-actions {
   display: flex;
   gap: 6px;
@@ -1845,7 +2135,7 @@ g:hover > .dm-remap-handle-fo {
 }
 
 .dm-paste-btn--cancel:hover {
-  background: var(--bg-hover, #45475a);
+  background: var(--surface-hover, #45475a);
 }
 
 .dm-btn-icon--active {
@@ -2036,7 +2326,7 @@ button.dm-mismatch-badge {
   flex-direction: column;
   border: 1px solid var(--border, #3b3f51);
   border-radius: 6px;
-  background: var(--bg-card, var(--bg, #1e1e2e));
+  background: var(--surface, var(--bg, #1e1e2e));
   overflow: hidden;
 }
 
@@ -2062,7 +2352,7 @@ button.dm-mismatch-badge {
 
 .body-builder-mode-tab:hover {
   color: var(--text, #cdd6f4);
-  background: var(--bg-hover, rgba(255, 255, 255, 0.04));
+  background: var(--surface-hover, rgba(255, 255, 255, 0.04));
 }
 
 .body-builder-mode-tab.active {
@@ -2265,7 +2555,7 @@ button.dm-mismatch-badge {
   min-width: 260px;
   max-height: 320px;
   overflow-y: auto;
-  background: var(--bg-card, var(--bg, #1e1e2e));
+  background: var(--surface, var(--bg, #1e1e2e));
   border: 1px solid var(--border, #3b3f51);
   border-radius: 6px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
@@ -2311,7 +2601,7 @@ button.dm-mismatch-badge {
 }
 
 .dm-profile-item:hover {
-  background: var(--bg-hover, rgba(255, 255, 255, 0.04));
+  background: var(--surface-hover, rgba(255, 255, 255, 0.04));
 }
 
 .dm-profile-name {
@@ -2382,7 +2672,7 @@ button.dm-mismatch-badge {
 }
 
 .dm-sample-item:hover {
-  background: var(--bg-hover, rgba(255, 255, 255, 0.04));
+  background: var(--surface-hover, rgba(255, 255, 255, 0.04));
   color: var(--accent, #89b4fa);
 }
 
@@ -2607,8 +2897,23 @@ button.dm-mismatch-badge {
   word-break: break-all;
 }
 
+.dm-code-view-separator {
+  opacity: 0.5;
+  margin-top: 2px;
+}
+.dm-code-view-section-label {
+  color: var(--text-secondary, #8b8fa3);
+  font-style: italic;
+  letter-spacing: 0.04em;
+}
+.dm-code-view-line--assertion .dm-code-view-line-text {
+  color: var(--accent, #6c8cff);
+}
+
 .dm-code-table-wrap {
   padding: 6px 8px 8px;
+  overflow: auto;
+  max-height: 100%;
 }
 
 .dm-code-table-toolbar {
@@ -2678,7 +2983,7 @@ button.dm-mismatch-badge {
 
 .dm-code-table th:nth-child(7),
 .dm-code-table td:nth-child(7) {
-  width: 70px;
+  width: 84px;
 }
 
 .dm-code-table th:nth-child(2),
@@ -2862,6 +3167,64 @@ button.dm-mismatch-badge {
 
 .dm-code-table-empty {
   color: var(--text-muted, #6c7086);
+}
+.dm-code-table-row--section td {
+  font-weight: 600;
+  font-size: 0.78rem;
+  letter-spacing: 0.03em;
+  color: var(--text-secondary, #8b8fa3);
+  border-top: 1px solid rgba(137, 180, 250, 0.15);
+  padding-top: 6px;
+}
+.dm-code-table-section-label {
+  font-style: italic;
+}
+.dm-code-table-row--assertion td {
+  color: var(--accent, #6c8cff);
+}
+.dm-code-table-cell-assertion-type {
+  font-weight: 600;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.dm-code-table-status {
+  font-size: 0.72rem;
+  font-weight: 500;
+}
+.dm-code-table-status--passed {
+  color: #a6e3a1;
+}
+.dm-code-table-status--failed {
+  color: #f38ba8;
+}
+.dm-code-table-status--error {
+  color: #f38ba8;
+}
+.dm-code-table-status--unchanged {
+  color: var(--text-muted, #6c7086);
+}
+.dm-code-table-status--changed {
+  color: #f9e2af;
+}
+.dm-code-assertion-summary {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 8px;
+  border-top: 1px solid rgba(137, 180, 250, 0.15);
+  font-size: 0.8rem;
+}
+.dm-code-assertion-summary thead th {
+  text-align: left;
+  padding: 5px 8px;
+  font-weight: 600;
+  font-size: 0.75rem;
+  color: var(--text-secondary, #8b8fa3);
+  letter-spacing: 0.03em;
+}
+.dm-code-assertion-summary tbody td {
+  padding: 3px 8px;
+  color: var(--accent, #6c8cff);
 }
 
 .dm-bottom-utility-dock {
@@ -3152,14 +3515,14 @@ button.dm-mismatch-badge {
   gap: 8px;
   flex-wrap: wrap;
   padding: 8px 12px;
-  background: var(--bg-surface, #1e1e2e);
+  background: var(--surface, #1e1e2e);
   border-radius: 6px;
   border: 1px solid var(--border-subtle, #313244);
 }
 
 .dm-compare-total {
   font-weight: 600;
-  color: var(--text-primary, #cdd6f4);
+  color: var(--text, #cdd6f4);
   margin-right: auto;
 }
 
@@ -3212,8 +3575,8 @@ button.dm-mismatch-badge {
 }
 
 .dm-compare-filter-btn:hover:not(:disabled) {
-  background: var(--bg-hover, #313244);
-  color: var(--text-primary, #cdd6f4);
+  background: var(--surface-hover, #313244);
+  color: var(--text, #cdd6f4);
 }
 
 .dm-compare-filter-btn--active {
@@ -3242,7 +3605,7 @@ button.dm-mismatch-badge {
 .dm-compare-table th {
   text-align: left;
   padding: 6px 10px;
-  background: var(--bg-elevated, #181825);
+  background: color-mix(in srgb, var(--surface, #181825) 80%, var(--bg, #000) 20%);
   color: var(--text-muted, #6c7086);
   font-weight: 600;
   font-size: 0.7rem;
@@ -3352,7 +3715,7 @@ button.dm-mismatch-badge {
 }
 
 .dm-compare-target {
-  color: var(--text-primary, #cdd6f4);
+  color: var(--text, #cdd6f4);
   font-weight: 500;
 }
 
@@ -4207,7 +4570,7 @@ button.dm-mismatch-badge {
 .dm-operator-picker {
   position: absolute;
   z-index: 1001;
-  background: var(--bg-card, #1e1e2e);
+  background: var(--surface, #1e1e2e);
   border: 1px solid var(--border, #313244);
   border-radius: 8px;
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
@@ -4488,6 +4851,35 @@ button.dm-mismatch-badge {
   color: var(--mauve, #cba6f7);
 }
 
+/* Assertion row verify status */
+.dm-array-assertion-row--pass {
+  border-left: 3px solid var(--success, #22c55e);
+}
+.dm-array-assertion-row--fail {
+  border-left: 3px solid var(--danger, #ef4444);
+  background: color-mix(in srgb, var(--danger, #ef4444) 8%, transparent);
+}
+.dm-array-assertion-verify-badge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  flex-shrink: 0;
+  line-height: 1;
+}
+.dm-array-assertion-verify-badge--pass {
+  background: color-mix(in srgb, var(--success, #22c55e) 20%, transparent);
+  color: var(--success, #22c55e);
+}
+.dm-array-assertion-verify-badge--fail {
+  background: color-mix(in srgb, var(--danger, #ef4444) 20%, transparent);
+  color: var(--danger, #ef4444);
+}
+
 .dm-array-assertion-op-select {
   background: transparent;
   border: 1px solid var(--surface2, #45475a);
@@ -4516,8 +4908,8 @@ button.dm-mismatch-badge {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  min-width: 32px;
-  max-width: 150px;
+  min-width: 160px;
+  flex: 1;
   padding: 2px 8px;
   font-weight: 600;
 }
@@ -4542,7 +4934,8 @@ button.dm-mismatch-badge {
   font-size: 11px;
   font-weight: 600;
   padding: 2px 8px;
-  width: 64px;
+  min-width: 160px;
+  flex: 1;
   outline: none;
 }
 
@@ -4586,8 +4979,8 @@ button.dm-mismatch-badge {
 .dm-validation-editor {
   display: flex;
   flex-direction: column;
-  background: #181825;
-  border-top: 1px solid rgba(137, 180, 250, 0.12);
+  background: var(--surface, #1e293b);
+  border-top: 1px solid color-mix(in srgb, var(--primary, #3b82f6) 12%, transparent);
   overflow: hidden;
   height: 100%;
 }
@@ -4597,8 +4990,8 @@ button.dm-mismatch-badge {
   align-items: center;
   justify-content: space-between;
   padding: 6px 12px;
-  border-bottom: 1px solid rgba(137, 180, 250, 0.08);
-  background: rgba(17, 17, 27, 0.6);
+  border-bottom: 1px solid var(--border, #3b4a60);
+  background: color-mix(in srgb, var(--surface, #1e293b) 70%, var(--bg, #0f172a) 30%);
 }
 
 .dm-validation-editor-title {
@@ -4619,13 +5012,43 @@ button.dm-mismatch-badge {
   color: var(--text-muted, #6c7086);
   padding: 1px 8px;
   border-radius: 8px;
-  background: rgba(137, 180, 250, 0.08);
+  background: color-mix(in srgb, var(--primary, #3b82f6) 8%, transparent);
 }
 
 .dm-validation-editor-stat--error {
-  background: rgba(243, 139, 168, 0.15);
-  color: #f38ba8;
+  background: color-mix(in srgb, var(--danger, #ef4444) 15%, transparent);
+  color: var(--danger, #ef4444);
   font-weight: 600;
+}
+.dm-validation-editor-stat--pass {
+  background: color-mix(in srgb, var(--success, #22c55e) 12%, transparent);
+  color: var(--success, #22c55e);
+  font-weight: 600;
+}
+.dm-validation-editor-stat--fail {
+  background: color-mix(in srgb, var(--danger, #ef4444) 15%, transparent);
+  color: var(--danger, #ef4444);
+  font-weight: 600;
+}
+
+/* Verify result line decorations in Monaco editor */
+.dm-verify-line--pass {
+  background: color-mix(in srgb, var(--success, #22c55e) 8%, transparent) !important;
+}
+.dm-verify-line--fail {
+  background: color-mix(in srgb, var(--danger, #ef4444) 12%, transparent) !important;
+}
+.dm-verify-glyph--pass,
+.dm-verify-glyph--fail {
+  width: 3px !important;
+  margin-left: 1px !important;
+  border-radius: 1px;
+}
+.dm-verify-glyph--pass {
+  background: var(--success, #22c55e) !important;
+}
+.dm-verify-glyph--fail {
+  background: var(--danger, #ef4444) !important;
 }
 
 .dm-validation-editor-body {
@@ -4646,8 +5069,8 @@ button.dm-mismatch-badge {
   justify-content: space-between;
   gap: 12px;
   padding: 4px 12px;
-  border-top: 1px solid rgba(137, 180, 250, 0.06);
-  background: rgba(17, 17, 27, 0.4);
+  border-top: 1px solid var(--border, #3b4a60);
+  background: color-mix(in srgb, var(--surface, #1e293b) 70%, var(--bg, #0f172a) 30%);
 }
 
 .dm-validation-editor-pathstrip {
@@ -4656,8 +5079,8 @@ button.dm-mismatch-badge {
   flex-wrap: wrap;
   gap: 6px;
   padding: 4px 12px;
-  border-top: 1px solid rgba(137, 180, 250, 0.06);
-  background: rgba(17, 17, 27, 0.55);
+  border-top: 1px solid var(--border, #3b4a60);
+  background: color-mix(in srgb, var(--surface, #1e293b) 60%, var(--bg, #0f172a) 40%);
   max-height: 64px;
   overflow-y: auto;
 }
@@ -4673,9 +5096,9 @@ button.dm-mismatch-badge {
 .dm-validation-editor-pathstrip-chip {
   font-family: 'JetBrains Mono', 'Fira Code', monospace;
   font-size: 0.7rem;
-  background: rgba(137, 180, 250, 0.1);
-  color: #89dceb;
-  border: 1px solid rgba(137, 180, 250, 0.2);
+  background: color-mix(in srgb, var(--primary, #3b82f6) 10%, transparent);
+  color: var(--primary, #3b82f6);
+  border: 1px solid color-mix(in srgb, var(--primary, #3b82f6) 20%, transparent);
   border-radius: 4px;
   padding: 2px 8px;
   cursor: pointer;
@@ -4683,12 +5106,12 @@ button.dm-mismatch-badge {
 }
 
 .dm-validation-editor-pathstrip-chip:hover {
-  background: rgba(137, 180, 250, 0.2);
-  border-color: rgba(137, 180, 250, 0.4);
+  background: color-mix(in srgb, var(--primary, #3b82f6) 20%, transparent);
+  border-color: color-mix(in srgb, var(--primary, #3b82f6) 40%, transparent);
 }
 
 .dm-validation-editor-pathstrip-chip:focus-visible {
-  outline: 2px solid #89b4fa;
+  outline: 2px solid var(--primary, #3b82f6);
   outline-offset: 1px;
 }
 
@@ -4703,17 +5126,17 @@ button.dm-mismatch-badge {
 .dm-validation-editor-hint code {
   font-family: 'JetBrains Mono', 'Fira Code', monospace;
   font-size: 0.62rem;
-  background: rgba(137, 180, 250, 0.08);
+  background: color-mix(in srgb, var(--primary, #3b82f6) 8%, transparent);
   padding: 1px 4px;
   border-radius: 3px;
-  color: #89dceb;
+  color: var(--primary, #3b82f6);
 }
 
 .dm-validation-editor-hint kbd {
   font-family: system-ui, -apple-system, sans-serif;
   font-size: 0.58rem;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: color-mix(in srgb, var(--text-muted, #6c7086) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border, #3b4a60) 40%, transparent);
   border-radius: 3px;
   padding: 0 3px;
   color: var(--text-muted, #6c7086);
@@ -4747,20 +5170,20 @@ button.dm-mismatch-badge {
 }
 
 .dm-verify-badge--pass {
-  background: rgba(166, 227, 161, 0.18);
-  color: #a6e3a1;
-  border: 1px solid rgba(166, 227, 161, 0.35);
+  background: color-mix(in srgb, var(--success, #22c55e) 18%, transparent);
+  color: var(--success, #22c55e);
+  border: 1px solid color-mix(in srgb, var(--success, #22c55e) 35%, transparent);
 }
 
 .dm-verify-badge--fail {
-  background: rgba(243, 139, 168, 0.18);
-  color: #f38ba8;
-  border: 1px solid rgba(243, 139, 168, 0.35);
+  background: color-mix(in srgb, var(--danger, #ef4444) 18%, transparent);
+  color: var(--danger, #ef4444);
+  border: 1px solid color-mix(in srgb, var(--danger, #ef4444) 35%, transparent);
 }
 
 .dm-verify-actual {
   font-size: 0.62rem;
-  color: #f38ba8;
+  color: var(--danger, #ef4444);
   margin-left: 4px;
   max-width: 140px;
   overflow: hidden;
@@ -4770,7 +5193,7 @@ button.dm-mismatch-badge {
 }
 
 .dm-connection-line--verify-fail {
-  stroke: #f38ba8 !important;
+  stroke: var(--danger, #ef4444) !important;
   stroke-dasharray: 4 2;
   opacity: 0.9;
 }
@@ -4778,13 +5201,13 @@ button.dm-mismatch-badge {
 /* Toolbar verify cluster */
 
 .dm-toolbar-btn--verify {
-  border-color: rgba(148, 226, 213, 0.5);
-  color: #94e2d5;
+  border-color: color-mix(in srgb, var(--success, #22c55e) 50%, transparent);
+  color: var(--success, #22c55e);
   font-weight: 600;
 }
 
 .dm-toolbar-btn--verify:hover:not(:disabled) {
-  background: rgba(148, 226, 213, 0.12);
+  background: color-mix(in srgb, var(--success, #22c55e) 12%, transparent);
 }
 
 .dm-toolbar-btn--spinning {
@@ -4846,6 +5269,11 @@ button.dm-mismatch-badge {
   color: #ff7eb3;
 }
 
+.dm-toolbar-verify-error {
+  color: #fab387;
+  font-weight: 600;
+}
+
 /* ── Failure navigation ── */
 .dm-toolbar-failure-nav {
   display: inline-flex;
@@ -4871,7 +5299,7 @@ button.dm-mismatch-badge {
   line-height: 1;
 }
 .dm-toolbar-btn--icon:hover {
-  background: var(--bg-hover, #313244);
+  background: var(--surface-hover, #313244);
   color: #f38ba8;
 }
 
@@ -4913,7 +5341,7 @@ button.dm-mismatch-badge {
   top: 100%;
   right: 0;
   z-index: 100;
-  background: var(--bg-surface, #1e1e2e);
+  background: var(--surface, #1e1e2e);
   border: 1px solid var(--border-subtle, #45475a);
   border-radius: 6px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
@@ -4942,13 +5370,13 @@ button.dm-mismatch-badge {
   cursor: pointer;
   border-bottom: 1px solid var(--border-subtle, #313244);
   font-size: 0.68rem;
-  color: var(--text-primary, #cdd6f4);
+  color: var(--text, #cdd6f4);
 }
 .dm-toolbar-failure-item:last-child {
   border-bottom: none;
 }
 .dm-toolbar-failure-item:hover {
-  background: var(--bg-hover, #313244);
+  background: var(--surface-hover, #313244);
 }
 .dm-toolbar-failure-item--active {
   background: rgba(243, 139, 168, 0.1);

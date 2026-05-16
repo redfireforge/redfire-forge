@@ -179,7 +179,7 @@ describe('useTestFetch hook', () => {
         await result.current.handleFetchSampleResponse();
       });
 
-      expect(result.current.fetchError).toBe('URL is required');
+      expect(result.current.fetchError?.message).toBe('URL is required');
     });
 
     it('fetches and stores response', async () => {
@@ -212,7 +212,7 @@ describe('useTestFetch hook', () => {
         await result.current.handleFetchSampleResponse();
       });
 
-      expect(result.current.fetchError).toBe('Connection refused');
+      expect(result.current.fetchError?.message).toBe('Connection refused');
     });
 
     it('sets fetchError on HTTP error', async () => {
@@ -229,7 +229,7 @@ describe('useTestFetch hook', () => {
         await result.current.handleFetchSampleResponse();
       });
 
-      expect(result.current.fetchError).toBe('HTTP 500: Internal Server Error');
+      expect(result.current.fetchError?.message).toBe('HTTP 500: Internal Server Error');
       expect(onDraftChange).toHaveBeenCalled();
     });
 
@@ -242,7 +242,7 @@ describe('useTestFetch hook', () => {
         await result.current.handleFetchSampleResponse();
       });
 
-      expect(result.current.fetchError).toBe('Network timeout');
+      expect(result.current.fetchError?.message).toBe('Network timeout');
     });
 
     it('sets pendingFetchResponse when existing rules present', async () => {
@@ -297,7 +297,7 @@ describe('useTestFetch hook', () => {
         await result.current.handleFetchSampleResponse();
       });
 
-      expect(result.current.fetchError).toMatch(/OAuth2 missing/i);
+      expect(result.current.fetchError?.message).toMatch(/OAuth2 missing/i);
       expect(result.current.fetchingResponse).toBe(false);
     });
 

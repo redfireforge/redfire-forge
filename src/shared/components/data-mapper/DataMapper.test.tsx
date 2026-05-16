@@ -12,6 +12,7 @@ import * as autoMapAlgorithm from './utils/autoMapAlgorithm';
 import * as mappingProfiles from './utils/mappingProfiles';
 import * as dropMappingNs from './utils/dropMapping';
 import * as subtreeMappingNs from './utils/subtreeMapping';
+import type { Assertion } from '../../../types';
 
 const sampleSource = { name: 'Alice', email: 'a@b.com', age: 30 };
 const sampleTarget = { userName: '', userEmail: '', userAge: 0 };
@@ -1204,9 +1205,9 @@ describe('DataMapper – fetch error handling', () => {
     const fetchBtn = screen.getByLabelText('Fetch live sample');
     fireEvent.click(fetchBtn);
     await act(async () => {});
-    const errorDiv = container.querySelector('.dm-paste-error');
-    expect(errorDiv).toBeTruthy();
-    expect(errorDiv?.textContent).toContain('Network error');
+    const errorBanner = container.querySelector('.dm-fetch-error-banner');
+    expect(errorBanner).toBeTruthy();
+    expect(errorBanner?.textContent).toContain('Network error');
   });
 
   it('shows fetch error for non-Error thrown values', async () => {
@@ -1218,8 +1219,8 @@ describe('DataMapper – fetch error handling', () => {
     const fetchBtn = screen.getByLabelText('Fetch live sample');
     fireEvent.click(fetchBtn);
     await act(async () => {});
-    const errorDiv = container.querySelector('.dm-paste-error');
-    expect(errorDiv?.textContent).toContain('Failed to fetch sample data');
+    const errorBanner = container.querySelector('.dm-fetch-error-banner');
+    expect(errorBanner?.textContent).toContain('Failed to fetch sample data');
   });
 
   it('fetches sample data successfully', async () => {
@@ -4279,6 +4280,235 @@ describe('DataMapper – capability-gated branch coverage', () => {
     };
     const { container } = render(<DataMapper adapter={adapter} />);
     expect(container.querySelector('.dm-container')).toBeTruthy();
+  });
+});
+
+describe('DataMapper – targeted branch coverage (unmap, dock, verify nav, errors)', () => {
+  let scrollIntoViewSpy: ReturnType<typeof vi.fn>;
+
+  function deserializeMappingsPayload(data: unknown): Mapping[] {
+    if (Array.isArray(data)) return data as Mapping[];
+    if (data && typeof data === 'object' && 'mappings' in data && Array.isArray((data as { mappings: Mapping[] }).mappings)) {
+      return (data as { mappings: Mapping[] }).mappings;
+    }
+    return [];
+  }
+
+  beforeEach(() => {
+    scrollIntoViewSpy = vi.fn();
+    Object.defineProperty(Element.prototype, 'scrollIntoView', {
+      configurable: true,
+      writable: true,
+      value: scrollIntoViewSpy,
+    });
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      if (this.classList.contains('dm-body')) {
+        return {
+          x: 0, y: 0, top: 0, left: 0, width: 900, height: 500, bottom: 500, right: 900, toJSON: () => ({}),
+        } as DOMRect;
+      }
+      const path = this.getAttribute('data-path') ?? '';
+      const t = path === 'name' ? 50 : path === 'email' ? 70 : path === 'userAge' ? 150 : path === 'userName' ? 120 : path === 'userEmail' ? 100 : path === 'tagSummary' ? 140 : path === 'tags' ? 90 : 80;
+      return {
+        x: 0, y: t, top: t, left: 0, width: 40, height: 20, bottom: t + 20, right: 40, toJSON: () => ({}),
+      } as DOMRect;
+    });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('removes mappings via source multi-select Unmap for mapped leaf paths', () => {
+    const adapter: MapperAdapter<unknown> = {
+      ...createTestAdapter(),
+      serialize: (m) => m,
+      deserialize: deserializeMappingsPayload,
+    };
+    const initial: Mapping[] = [
+      { id: 'u1', sourcePath: 'name', sourceId: 's1', targetPath: 'userName' },
+      { id: 'u2', sourcePath: 'email', sourceId: 's1', targetPath: 'userEmail' },
+    ];
+    const { container } = render(<DataMapper adapter={adapter as MapperAdapter<Mapping[]>} initialData={initial} />);
+    expect(container.querySelector('.dm-stat-value--mapped')?.textContent).toBe('2');
+
+    const nameLeaf = container.querySelector('.dm-panel--source .dm-tree-node[data-path="name"]')!;
+    const emailLeaf = container.querySelector('.dm-panel--source .dm-tree-node[data-path="email"]')!;
+    fireEvent.click(nameLeaf, { ctrlKey: true });
+    fireEvent.click(emailLeaf, { ctrlKey: true });
+
+    fireEvent.click(screen.getByLabelText(/Unmap 2 selected fields/));
+
+    expect(container.querySelector('.dm-stat-value--mapped')?.textContent).toBe('0');
+  });
+
+  it('renders validation assertions in bottom Code dock when bundled initial assertions exist', () => {
+    const assertions: Assertion[] = [{ type: 'arrayLength', jsonPath: '$.userName', operator: '=', value: 5 }];
+    const adapter: MapperAdapter<unknown> = {
+      ...createTestAdapter(),
+      capabilities: { codeEditor: true },
+      serialize: (m) => m,
+      deserialize: deserializeMappingsPayload,
+    };
+    const bundle = {
+      mappings: [{ id: 'c1', sourcePath: 'name', sourceId: 's1', targetPath: 'userName' }] satisfies Mapping[],
+      assertions,
+    };
+    render(<DataMapper adapter={adapter as MapperAdapter<Mapping[]>} initialData={bundle} />);
+
+    fireEvent.click(screen.getByTitle('Show code view'));
+    expect(document.querySelector('.dm-bottom-utility-dock--code')).toBeTruthy();
+    const codeRegion = screen.getByRole('region', { name: 'Mapping code view' });
+    expect(codeRegion.textContent).toMatch(/1 assertion/);
+    expect(codeRegion.textContent).toMatch(/— Assertions —/);
+  });
+
+  it('shows target fetch error banner when fetchTargetSchema rejects', async () => {
+    const fetchTargetSchema = vi.fn().mockRejectedValue(new Error('schema_unreachable'));
+    const adapter: MapperAdapter<Mapping[]> = { ...createTestAdapter(), fetchTargetSchema };
+    const { container } = render(<DataMapper adapter={adapter} />);
+    await act(async () => {
+      fireEvent.click(screen.getByLabelText('Fetch target schema'));
+    });
+    await waitFor(() => {
+      expect(container.querySelector('.dm-fetch-error-banner')).toBeTruthy();
+    });
+    expect(container.querySelector('.dm-fetch-error-banner')?.textContent).toContain('schema_unreachable');
+  });
+
+  it('hides advanced toolbar affordances when hideAdvanced prop is set', () => {
+    const adapter = createTestAdapter();
+    render(<DataMapper adapter={adapter} hideAdvanced />);
+    expect(screen.queryByTitle('Load a gallery sample')).toBeNull();
+  });
+
+  it('opens toolbar failure list and navigates via onNavigateToFailure', async () => {
+    const initial: Mapping[] = [{ id: 'v1', sourcePath: 'name', sourceId: 's1', targetPath: 'userName' }];
+    const adapter: MapperAdapter<Mapping[]> = {
+      ...createTestAdapter(),
+      capabilities: { verification: true },
+      serialize: (_mappings) => ({
+        expectedFields: [
+          {
+            jsonPath: '$.userName',
+            operator: 'equals',
+            expectedValue: '"Someone Else"',
+            operatorValue: '"Someone Else"',
+          },
+        ],
+      }),
+      deserialize: (existing) => existing as Mapping[],
+    };
+
+    render(<DataMapper adapter={adapter} initialData={initial} />);
+    fireEvent.click(screen.getByRole('button', { name: /Verify All/i }));
+
+    await waitFor(() => {
+      expect(screen.getByTitle('Click to see failures')).toBeTruthy();
+    });
+
+    fireEvent.click(screen.getByTitle('Click to see failures'));
+    expect(document.querySelector('.dm-toolbar-failure-list')).toBeTruthy();
+    const row = document.querySelector('.dm-toolbar-failure-item');
+    expect(row).toBeTruthy();
+    fireEvent.click(row!);
+
+    await waitFor(() => {
+      expect(document.querySelector('.dm-toolbar-failure-list')).toBeNull();
+    });
+    expect(scrollIntoViewSpy).toHaveBeenCalled();
+  });
+
+  it('syncs DSL in Rules modal so Verify All fills rulesLineResults and assertionVerifyMap', async () => {
+    const assertions: Assertion[] = [{ type: 'arrayLength', jsonPath: '$.tags', operator: '>=', value: 1 }];
+    const base = createTestAdapter();
+    const adapter: MapperAdapter<unknown> = {
+      ...base,
+      capabilities: { codeEditor: true, verification: true },
+      target: {
+        ...base.target,
+        sampleData: { ...sampleTarget, tags: [1, 2] },
+      },
+      serialize: (_mappings) => ({
+        expectedFields: [
+          {
+            jsonPath: '$.userName',
+            operator: 'equals',
+            expectedValue: '"Alice"',
+            operatorValue: '"Alice"',
+          },
+        ],
+      }),
+      deserialize: deserializeMappingsPayload,
+    };
+    const bundle = {
+      mappings: [{ id: 'dsl1', sourcePath: 'name', sourceId: 's1', targetPath: 'userName' }] satisfies Mapping[],
+      assertions,
+    };
+    render(<DataMapper adapter={adapter as MapperAdapter<Mapping[]>} initialData={bundle} />);
+
+    fireEvent.click(screen.getByRole('button', { name: /^Rules$/ }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('region', { name: 'Validation Rules' })).toBeTruthy();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /Verify All/i }));
+
+    await waitFor(() => {
+      expect(document.querySelector('.dm-toolbar-verify-pass')).toBeTruthy();
+    });
+    expect(screen.getByRole('button', { name: /Verify All/i }).textContent).not.toMatch(/Verifying/);
+  });
+
+  it('invokes custom-field rename from expression editor variable name commit', async () => {
+    const base = createTestAdapter();
+    const adapter: MapperAdapter<Mapping[]> = {
+      ...base,
+      target: { ...base.target, allowCustomFields: true },
+    };
+    const initial: Mapping[] = [{ id: 'rn1', sourcePath: 'name', sourceId: 's1', targetPath: 'userName' }];
+    render(<DataMapper adapter={adapter} initialData={initial} />);
+
+    const mapped = screen.getByText('userName').closest('.dm-tree-node');
+    expect(mapped).toBeTruthy();
+    fireEvent.doubleClick(mapped!);
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Variable name (target path)')).toBeTruthy();
+    });
+
+    const nameInput = screen.getByLabelText('Variable name (target path)');
+    fireEvent.change(nameInput, { target: { value: 'exprRenamedField' } });
+    fireEvent.blur(nameInput);
+
+    await waitFor(() => {
+      expect(screen.getByText('exprRenamedField')).toBeTruthy();
+    });
+  });
+
+  it('applies array aggregate suggestion from the suggestion bar', () => {
+    const adapter: MapperAdapter<Mapping[]> = {
+      ...createTestAdapter(),
+      sources: [{ id: 's1', label: 'S', sampleData: { tags: [1, 2, 3] } }],
+      target: { label: 'T', sampleData: { tagSummary: 0 }, allowCustomFields: false },
+      serialize: (m) => m,
+      deserialize: (m) => m,
+    };
+    const initial: Mapping[] = [{ id: 'agg1', sourcePath: 'tags', sourceId: 's1', targetPath: 'tagSummary' }];
+    const onChange = vi.fn();
+    const { container } = render(<DataMapper adapter={adapter} initialData={initial} onChange={onChange} />);
+
+    const tgtSummary = container.querySelector('.dm-panel--target .dm-tree-node[data-path="tagSummary"]')!;
+    fireEvent.click(tgtSummary);
+
+    const applyBtn = screen.getByRole('button', { name: /^Apply: / });
+    expect(applyBtn.textContent).toContain('$count');
+    fireEvent.click(applyBtn);
+
+    const last = onChange.mock.calls[onChange.mock.calls.length - 1]?.[0] as Mapping[];
+    const m = last?.find((x) => x.id === 'agg1');
+    expect(m?.expression).toContain('$count');
   });
 });
 

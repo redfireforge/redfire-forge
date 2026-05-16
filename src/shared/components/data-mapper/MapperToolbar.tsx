@@ -55,6 +55,7 @@ interface MapperToolbarProps {
   verifyStatus?: 'idle' | 'running' | 'complete';
   verifyPassedCount?: number;
   verifyFailedCount?: number;
+  verifyParseErrorCount?: number;
   verifyFailures?: { path: string; expected?: string; actual?: string }[];
   onNavigateToFailure?: (path: string) => void;
 }
@@ -109,6 +110,7 @@ export default function MapperToolbar({
   verifyStatus = 'idle',
   verifyPassedCount = 0,
   verifyFailedCount = 0,
+  verifyParseErrorCount = 0,
   verifyFailures = [],
   onNavigateToFailure,
 }: MapperToolbarProps) {
@@ -397,21 +399,33 @@ export default function MapperToolbar({
           )}
           {verifyStatus === 'complete' && (
             <span className="dm-toolbar-verify-summary">
-              {verifyFailedCount === 0 ? (
+              {verifyFailedCount === 0 && verifyParseErrorCount === 0 ? (
                 <span className="dm-toolbar-verify-pass">{verifyPassedCount} passed</span>
               ) : (
                 <>
                   <span className="dm-toolbar-verify-pass">{verifyPassedCount}</span>
-                  <span className="dm-toolbar-verify-sep">/</span>
-                  <span
-                    className="dm-toolbar-verify-fail dm-toolbar-verify-fail--clickable"
-                    onClick={() => setFailureListOpen(prev => !prev)}
-                    role="button"
-                    tabIndex={0}
-                    title="Click to see failures"
-                  >
-                    {verifyFailedCount} failed
-                  </span>
+                  {verifyFailedCount > 0 && (
+                    <>
+                      <span className="dm-toolbar-verify-sep">/</span>
+                      <span
+                        className="dm-toolbar-verify-fail dm-toolbar-verify-fail--clickable"
+                        onClick={() => setFailureListOpen(prev => !prev)}
+                        role="button"
+                        tabIndex={0}
+                        title="Click to see failures"
+                      >
+                        {verifyFailedCount} failed
+                      </span>
+                    </>
+                  )}
+                  {verifyParseErrorCount > 0 && (
+                    <>
+                      <span className="dm-toolbar-verify-sep">/</span>
+                      <span className="dm-toolbar-verify-error" title="DSL parse errors">
+                        {verifyParseErrorCount} error{verifyParseErrorCount !== 1 ? 's' : ''}
+                      </span>
+                    </>
+                  )}
                 </>
               )}
             </span>

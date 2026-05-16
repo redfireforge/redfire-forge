@@ -170,7 +170,7 @@ describe('RegexAssertionModal', () => {
   });
 
   it('shows fetch error message', () => {
-    renderModal({ onFetchSampleResponse: vi.fn(), fetchError: 'Network error' });
+    renderModal({ onFetchSampleResponse: vi.fn(), fetchError: { message: 'Network error' } });
     expect(screen.getByText('Network error')).toBeTruthy();
   });
 

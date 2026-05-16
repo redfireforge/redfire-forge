@@ -141,9 +141,9 @@ describe('TargetNodeContextMenu', () => {
     const onAddArrayAssertion = vi.fn();
     renderMenu({ node: arrayNode, onAddArrayAssertion, isMapped: false, mapping: undefined });
     fireEvent.click(screen.getByText('Check array size'));
-    fireEvent.click(screen.getByText('Must contain value'));
+    fireEvent.click(screen.getByText('Contains value (exact match)'));
     fireEvent.click(screen.getByText('Every item must match'));
-    fireEvent.click(screen.getByText('Contains JSON object'));
+    fireEvent.click(screen.getByText('Contains object (deep partial match)'));
     expect(onAddArrayAssertion).toHaveBeenCalledTimes(4);
     expect(onAddArrayAssertion.mock.calls.map(c => c[1])).toEqual(['length', 'contains', 'each', 'subset']);
   });

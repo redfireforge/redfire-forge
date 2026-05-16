@@ -70,7 +70,9 @@ describe('useWorkflowExtractionSample', () => {
     });
     const { result } = renderExtraction(opts);
     await act(async () => { await result.current.handleExtractionFetchSample(); });
-    expect(setters.setExtractionFetchError).toHaveBeenCalledWith(expect.stringContaining('HTTP step'));
+    expect(setters.setExtractionFetchError).toHaveBeenCalledWith(
+      expect.objectContaining({ message: expect.stringContaining('HTTP step') }),
+    );
     expect(mockedFetch).not.toHaveBeenCalled();
   });
 
@@ -78,7 +80,9 @@ describe('useWorkflowExtractionSample', () => {
     const { setters, opts } = makeOpts({ selectedNode: null as never });
     const { result } = renderExtraction(opts);
     await act(async () => { await result.current.handleExtractionFetchSample(); });
-    expect(setters.setExtractionFetchError).toHaveBeenCalledWith(expect.stringContaining('HTTP step'));
+    expect(setters.setExtractionFetchError).toHaveBeenCalledWith(
+      expect.objectContaining({ message: expect.stringContaining('HTTP step') }),
+    );
     expect(mockedFetch).not.toHaveBeenCalled();
   });
 
@@ -162,20 +166,24 @@ describe('useWorkflowExtractionSample', () => {
   });
 
   it('pretty-prints JSON error body when fetch returns ok:false', async () => {
-    mockedFetch.mockResolvedValue({ ok: false, error: 'HTTP 500', body: '{"err":"boom"}', status: 500 } as never);
+    mockedFetch.mockResolvedValue({ ok: false, error: 'HTTP 500', body: '{"err":"boom"}', httpStatus: 500 } as never);
     const { opts, setters } = makeOpts();
     const { result } = renderExtraction(opts);
     await act(async () => { await result.current.handleExtractionFetchSample(); });
-    expect(setters.setExtractionFetchError).toHaveBeenCalledWith('HTTP 500');
+    expect(setters.setExtractionFetchError).toHaveBeenCalledWith(
+      expect.objectContaining({ message: 'HTTP 500', status: 500, body: '{"err":"boom"}' }),
+    );
     expect(setters.setExtractionSampleJson).toHaveBeenCalledWith('{\n  "err": "boom"\n}');
   });
 
   it('ignores non-JSON error body without throwing', async () => {
-    mockedFetch.mockResolvedValue({ ok: false, error: 'connection refused', body: 'plain text', status: 0 } as never);
+    mockedFetch.mockResolvedValue({ ok: false, error: 'connection refused', body: 'plain text', httpStatus: 0 } as never);
     const { opts, setters } = makeOpts();
     const { result } = renderExtraction(opts);
     await act(async () => { await result.current.handleExtractionFetchSample(); });
-    expect(setters.setExtractionFetchError).toHaveBeenCalledWith('connection refused');
+    expect(setters.setExtractionFetchError).toHaveBeenCalledWith(
+      expect.objectContaining({ message: 'connection refused' }),
+    );
     // setExtractionSampleJson is only called once during mount (reset to '') — not for non-JSON body
     expect(setters.setExtractionSampleJson).toHaveBeenCalledTimes(1);
     expect(setters.setExtractionSampleJson).toHaveBeenCalledWith('');
@@ -241,11 +249,13 @@ describe('useWorkflowExtractionSample', () => {
   });
 
   it('treats failed fetch without body like non-JSON (no extra sample set)', async () => {
-    mockedFetch.mockResolvedValue({ ok: false, error: 'err', status: 500 } as never);
+    mockedFetch.mockResolvedValue({ ok: false, error: 'err', httpStatus: 500 } as never);
     const { opts, setters } = makeOpts();
     const { result } = renderExtraction(opts);
     await act(async () => { await result.current.handleExtractionFetchSample(); });
-    expect(setters.setExtractionFetchError).toHaveBeenCalledWith('err');
+    expect(setters.setExtractionFetchError).toHaveBeenCalledWith(
+      expect.objectContaining({ message: 'err' }),
+    );
     expect(setters.setExtractionSampleJson).toHaveBeenCalledTimes(1);
   });
 });

@@ -227,7 +227,7 @@ describe('SourcePanel – fetch sample', () => {
   });
 
   it('shows fetch error message when fetchError is set', () => {
-    renderPanel({ fetchError: 'Network failure' });
+    renderPanel({ fetchError: { message: 'Network failure' } });
     expect(screen.getByText('Network failure')).toBeTruthy();
   });
 

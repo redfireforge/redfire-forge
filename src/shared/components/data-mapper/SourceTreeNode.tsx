@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import type { JsonTreeNode } from '../../utils/jsonTreeModel';
 import type { DriftSeverity } from './utils/schemaDrift';
 import { normalizeMapperPath } from './utils/pathNormalization';
@@ -56,6 +56,7 @@ export default function SourceTreeNode({
 }: SourceTreeNodeProps) {
   const hasChildren = (node.children?.length ?? 0) > 0;
   const isExpanded = expandedPaths.has(node.path || '__root__');
+  const [copied, setCopied] = useState(false);
 
   const isVisible = useMemo(
     () => matchesNodeVisibility(node, search, mappingFilter, mappedPaths),
@@ -132,6 +133,16 @@ export default function SourceTreeNode({
         ) : (
           <span className="dm-tree-toggle dm-tree-toggle--spacer" />
         )}
+        {isLeaf && onToggleSelect && (
+          <input
+            type="checkbox"
+            className="dm-source-checkbox"
+            checked={isSelected}
+            onChange={() => onToggleSelect(node.path)}
+            onClick={(e) => e.stopPropagation()}
+            aria-label={`Select ${displayKey}`}
+          />
+        )}
         <span className={`dm-type-pill dm-type-pill--${node.type}`}>{TYPE_LABELS[node.type] ?? '?'}</span>
         <span
           className={`dm-node-key ${drift?.severity === 'breaking' ? 'dm-node-key--removed' : ''}`}
@@ -145,7 +156,19 @@ export default function SourceTreeNode({
           </span>
         )}
         {isLeaf && truncValue && !traceVal && (
-          <span className="dm-node-sample-value" title={valueStr}>{truncValue}</span>
+          <span
+            className="dm-node-sample-value dm-node-sample-value--copyable"
+            title={valueStr}
+            onClick={(e) => {
+              e.stopPropagation();
+              navigator.clipboard.writeText(valueStr);
+              setCopied(true);
+              setTimeout(() => setCopied(false), 1200);
+            }}
+          >
+            {copied ? <span className="dm-copy-feedback">Copied!</span> : truncValue}
+            <span className="dm-copy-icon" aria-hidden="true">⧉</span>
+          </span>
         )}
         {traceVal && (
           <span

@@ -1,4 +1,5 @@
 import { useCallback, useEffect } from 'react';
+import type { FetchErrorDetail } from '../../../shared/components/data-mapper/types';
 import { isHttpWorkflowNode } from '../utils/workflowVariableHints';
 import { resolveHttpNodeBaseUrl } from '../utils/workflowHostResolve';
 import { fetchScenarioSample } from '../engine/fetchScenarioSample';
@@ -26,7 +27,7 @@ interface UseWorkflowExtractionSampleOpts {
   resolvedBaseUrl: string;
   setExtractionSampleJson: (s: string) => void;
   setExtractionFetching: (b: boolean) => void;
-  setExtractionFetchError: (e: string | null) => void;
+  setExtractionFetchError: (e: FetchErrorDetail | null) => void;
 }
 
 /**
@@ -51,7 +52,7 @@ export function useWorkflowExtractionSample(opts: UseWorkflowExtractionSampleOpt
 
   const handleExtractionFetchSample = useCallback(async () => {
     if (!selectedNode || !isHttpWorkflowNode(selectedNode)) {
-      setExtractionFetchError('Select an HTTP step and open Pick path from the Extract tab.');
+      setExtractionFetchError({ message: 'Select an HTTP step and open Pick path from the Extract tab.' });
       return;
     }
     const scenario = selectedNode.data.scenario;
@@ -88,7 +89,11 @@ export function useWorkflowExtractionSample(opts: UseWorkflowExtractionSampleOpt
       if (result.ok) {
         setExtractionSampleJson(result.body);
       } else {
-        setExtractionFetchError(result.error);
+        setExtractionFetchError({
+          message: result.error,
+          status: result.httpStatus,
+          body: result.body,
+        });
         // Still surface the error body if it parses as JSON.
         if (result.body) {
           try { setExtractionSampleJson(JSON.stringify(JSON.parse(result.body), null, 2)); }

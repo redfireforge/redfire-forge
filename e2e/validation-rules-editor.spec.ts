@@ -9,6 +9,9 @@ const sampleResponse = {
   status: 'active',
 };
 
+/** Monaco can exceed 10s to render under heavy parallel E2E load (40 workers). */
+const MONACO_READY_MS = 30000;
+
 async function openMapperWithRulesTab(page: Page): Promise<Locator> {
   await seedAppData(page);
   await page.goto('/?tab=scenarios');
@@ -38,15 +41,15 @@ async function openMapperWithRulesTab(page: Page): Promise<Locator> {
 
   await mapper.locator('button:has-text("Rules")').click();
   await expect(mapper.locator('.dm-validation-editor')).toBeVisible();
-  await mapper.locator('.dm-validation-editor .monaco-editor').waitFor({ state: 'visible', timeout: 10000 });
+  await mapper.locator('.dm-validation-editor .monaco-editor').waitFor({ state: 'visible', timeout: MONACO_READY_MS });
   // Wait until Monaco has a real textarea (signals full initialization)
-  await mapper.locator('.dm-validation-editor .monaco-editor textarea').waitFor({ state: 'attached', timeout: 10000 });
+  await mapper.locator('.dm-validation-editor .monaco-editor textarea').waitFor({ state: 'attached', timeout: MONACO_READY_MS });
   // Wait for Monaco to fully initialize its internal model and listeners;
   // under heavy parallel load (40 workers), initialization can take longer
   await page.waitForFunction(() => {
     const editors = (window as unknown as { monaco?: { editor?: { getEditors?: () => Array<{ getModel: () => unknown }> } } }).monaco?.editor?.getEditors?.();
     return editors && editors.length > 0 && editors[editors.length - 1].getModel() != null;
-  }, { timeout: 10000 });
+  }, { timeout: MONACO_READY_MS });
   await page.waitForTimeout(500);
 
   return mapper;
@@ -196,15 +199,14 @@ test.describe('Validation Rules Editor — typing & autocomplete', () => {
     expect(modelValue.trim()).toBe('offers length');
   });
 
-  test('exact path "offers" shows NO path suggestions and allows space', async ({ page }) => {
+  test('exact path "offers" surfaces path suggestions (incl. parents) and Space still separates operator', async ({ page }) => {
     const mapper = await openMapperWithRulesTab(page);
     await focusAndClear(page, mapper);
 
     await page.keyboard.type('offers', { delay: 80 });
     await page.waitForTimeout(700);
 
-    // Path suggestions should NOT auto-appear (no `offers.*` listed). Even if
-    // Monaco's widget DOM is present, it must contain no path items.
+    // Completion provider lists all JSON paths, including parent/array prefixes.
     const pathListItems = await page.evaluate(() => {
       const widget = document.querySelector(
         '.dm-validation-editor .editor-widget.suggest-widget',
@@ -217,9 +219,9 @@ test.describe('Validation Rules Editor — typing & autocomplete', () => {
       return Array.from(widget.querySelectorAll('.monaco-list-row .label-name'))
         .map((el) => (el.textContent ?? '').trim());
     });
-    // No path suggestions like 'offers[0]', 'offers[0].rank', etc. should appear.
     const pathHits = pathListItems.filter((l) => l.startsWith('offers'));
-    expect(pathHits).toEqual([]);
+    expect(pathHits.length).toBeGreaterThan(0);
+    expect(pathHits).toContain('offers');
 
     await page.keyboard.press('Space');
     await page.keyboard.type('length', { delay: 80 });

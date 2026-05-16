@@ -87,7 +87,10 @@ export function createValidationAdapter(
       }
     }
     const sourceValue = getByPath(parsed, m.sourcePath);
-    if (sourceValue === undefined) return m.targetPath;
+    if (sourceValue === undefined) {
+      if (m.operatorValue !== undefined) return m.operatorValue;
+      return m.targetPath;
+    }
     if (typeof sourceValue === 'string') return sourceValue;
     return JSON.stringify(sourceValue);
   };
@@ -117,7 +120,7 @@ export function createValidationAdapter(
     profiles: true,
     unorderedArrays: true,
     hideAdvanced: true,
-    autoMapDefaultOperator: 'exists',
+    autoMapDefaultOperator: 'equals',
   };
 
   return {
@@ -133,7 +136,15 @@ export function createValidationAdapter(
       for (const m of mappings) {
         deduped.set(stripDollarPrefix(m.targetPath), m);
       }
-      const uniqueMappings = Array.from(deduped.values());
+      const CONTAINER_OPS = new Set(['is_empty', 'is_not_empty', 'is_type', 'is_null', 'is_not_null']);
+      const uniqueMappings = Array.from(deduped.values()).filter((m) => {
+        if (!parsed) return true;
+        const stripped = stripDollarPrefix(m.targetPath);
+        if (stripped === '' || stripped === '$') return true;
+        const val = getByPath(parsed, stripped);
+        if (val === undefined || val === null || typeof val !== 'object') return true;
+        return CONTAINER_OPS.has((m.operator as string) ?? 'equals');
+      });
 
       const buildExpectedField = (m: Mapping): ExpectedField => {
         const expectedValue = resolveExpectedValue(m);
@@ -158,8 +169,7 @@ export function createValidationAdapter(
       }
 
       const mappedPaths = new Set(uniqueMappings.map((m) => stripDollarPrefix(m.targetPath)));
-      const allLeaves = getLeafPaths(parsed);
-      const excludedPaths = allLeaves.filter((p) => !mappedPaths.has(p));
+      const excludedPaths = getLeafPaths(parsed).filter((p) => !mappedPaths.has(p));
       const expectedFields = uniqueMappings.map(buildExpectedField);
 
       return { selectiveMode: 'exclude', expectedFields, excludedPaths };
@@ -170,6 +180,16 @@ export function createValidationAdapter(
 
       const effectiveMode = existing.selectiveMode === 'exclude' ? 'exclude' : 'include';
 
+      const CONTAINER_OPS_D = new Set(['is_empty', 'is_not_empty', 'is_type', 'is_null', 'is_not_null']);
+      const isLeafOrSpecialOp = (f: ExpectedField): boolean => {
+        if (!parsed) return true;
+        const stripped = stripDollarPrefix(f.jsonPath);
+        if (stripped === '' || stripped === '$') return true;
+        const val = getByPath(parsed, stripped);
+        if (val === undefined || val === null || typeof val !== 'object') return true;
+        return CONTAINER_OPS_D.has((f.operator as string) ?? 'equals');
+      };
+
       const fieldToMapping = (f: ExpectedField, i: number): Mapping => {
         const m: Mapping = {
           id: `val-${i}`,
@@ -178,14 +198,18 @@ export function createValidationAdapter(
           targetPath: stripDollarPrefix(f.jsonPath),
         };
         if (f.operator) m.operator = f.operator;
-        if (f.operatorValue !== undefined) m.operatorValue = f.operatorValue;
+        if (f.operatorValue !== undefined) {
+          m.operatorValue = f.operatorValue;
+        } else if (f.expectedValue && getByPath(parsed, stripDollarPrefix(f.jsonPath)) === undefined) {
+          m.operatorValue = f.expectedValue;
+        }
         if (f.negate) m.negate = true;
         return m;
       };
 
       if (effectiveMode === 'include') {
         if (!existing.expectedFields?.length) return [];
-        return existing.expectedFields.map(fieldToMapping);
+        return existing.expectedFields.filter(isLeafOrSpecialOp).map(fieldToMapping);
       }
 
       // exclude mode: invert excludedPaths against all leaves

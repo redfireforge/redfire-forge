@@ -15,6 +15,7 @@ import PopupModal from '../../../shared/components/PopupModal';
 import SharedDsSaveConfirmModal from './SharedDsSaveConfirmModal';
 import DataSourceEditor from './DataSourceEditor';
 import { DataMapperModal, createSharedDsFetchAdapter, type SharedDsFetchOutput } from '../../../shared/components/data-mapper';
+import { MapperFetchError } from '../../../shared/components/data-mapper/types';
 import { buildHeaders } from '../../../engine/executor';
 import { resolveScenarioFromDataRow } from '../../../engine/dataSourceExpander';
 import { findUnresolvedTokens } from '../utils/populateFromApiUtils';
@@ -172,8 +173,22 @@ export default function SharedDataSourceModal({
         const result = await handleFetchRow(
           resolved.url, resolved.method, headers, baseBody || undefined,
         );
-        if (result.error) throw new Error(result.error);
-        if (result.status >= 400) throw new Error(`HTTP ${result.status}: ${result.statusText}`);
+        if (result.error) throw new MapperFetchError({
+          message: result.error,
+          status: result.status || undefined,
+          statusText: result.statusText || undefined,
+          headers: result.headers,
+          body: result.body || undefined,
+          timing: result.timing ? { ttfb: result.timing.ttfb, total: result.timing.total } : undefined,
+        });
+        if (result.status >= 400) throw new MapperFetchError({
+          message: `HTTP ${result.status}: ${result.statusText}`,
+          status: result.status,
+          statusText: result.statusText,
+          headers: result.headers,
+          body: result.body || undefined,
+          timing: result.timing ? { ttfb: result.timing.ttfb, total: result.timing.total } : undefined,
+        });
         return JSON.parse(result.body);
       },
     });

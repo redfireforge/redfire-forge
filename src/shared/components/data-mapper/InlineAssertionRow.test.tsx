@@ -30,7 +30,7 @@ function renderRow(overrides: Partial<{
 describe('InlineAssertionRow', () => {
   it('renders the type pill with label and icon', () => {
     renderRow();
-    expect(screen.getByTitle('length')).toBeInTheDocument();
+    expect(screen.getByTitle('Array size check')).toBeInTheDocument();
   });
 
   it('renders comparison operator select when arrayLength + onUpdate provided', () => {
@@ -129,20 +129,23 @@ describe('InlineAssertionRow', () => {
     expect(onUpdate).toHaveBeenCalledWith(0, { value: 'bar' });
   });
 
-  it('each: edits commit value', () => {
+  it('each: edits pre-fill with full summary and commit parses back', () => {
     const onUpdate = vi.fn();
     renderRow({
       onUpdate,
       assertion: { type: 'each', jsonPath: '$.x', fieldPath: 'name', operator: 'equals', value: 'a' },
     });
-    fireEvent.click(screen.getByText('name equals a'));
-    const input = screen.getByLabelText('Assertion value');
-    fireEvent.change(input, { target: { value: 'z' } });
+    // formatAssertionSummary renders: "name = a"
+    fireEvent.click(screen.getByText('name = a'));
+    const input = screen.getByLabelText('Assertion value') as HTMLInputElement;
+    expect(input.value).toBe('name = a');
+    // Edit to a new compound value
+    fireEvent.change(input, { target: { value: 'score >= 5' } });
     fireEvent.keyDown(input, { key: 'Enter' });
-    expect(onUpdate).toHaveBeenCalledWith(0, { value: 'z' });
+    expect(onUpdate).toHaveBeenCalledWith(0, { fieldPath: 'score', operator: 'greater_than_or_equal', value: '5' });
   });
 
-  it('each: pre-fills with empty string when value undefined', () => {
+  it('each: pre-fills with full summary when value undefined', () => {
     const onUpdate = vi.fn();
     renderRow({
       onUpdate,
@@ -150,7 +153,7 @@ describe('InlineAssertionRow', () => {
     });
     fireEvent.click(screen.getByText('* is_true'));
     const input = screen.getByLabelText('Assertion value') as HTMLInputElement;
-    expect(input.value).toBe('');
+    expect(input.value).toBe('* is_true');
   });
 
   it('containsSubset: edits commit expected', () => {
@@ -189,7 +192,7 @@ describe('InlineAssertionRow', () => {
     const onUpdate = vi.fn();
     const unknown = { type: 'mystery', someField: 'x' } as unknown as Assertion;
     render(<InlineAssertionRow assertion={unknown} globalIndex={0} onUpdate={onUpdate} />);
-    expect(screen.getByTitle('custom')).toBeInTheDocument();
+    expect(screen.getByTitle('Custom assertion')).toBeInTheDocument();
   });
 
   it('does not dispatch onUpdate when commitEdit is called without handler', () => {
@@ -225,5 +228,67 @@ describe('InlineAssertionRow', () => {
     );
     fireEvent.click(container.querySelector('.dm-array-assertion-op-select')!);
     expect(parentClick).not.toHaveBeenCalled();
+  });
+
+  it('each: falls back to raw value when parseEachInput returns null', () => {
+    const onUpdate = vi.fn();
+    renderRow({
+      onUpdate,
+      assertion: { type: 'each', jsonPath: '$.x', fieldPath: 'rank', operator: 'exists' },
+    });
+    fireEvent.click(screen.getByText('rank exists'));
+    const input = screen.getByLabelText('Assertion value');
+    fireEvent.change(input, { target: { value: 'gibberish' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(onUpdate).toHaveBeenCalledWith(0, { value: 'gibberish' });
+  });
+
+  it('clicking the input while editing does not bubble to parent', () => {
+    const parentClick = vi.fn();
+    const onUpdate = vi.fn();
+    render(
+      <div onClick={parentClick}>
+        <InlineAssertionRow
+          assertion={{ type: 'arrayLength', jsonPath: '$.x', operator: '=', value: 5 }}
+          globalIndex={0}
+          onUpdate={onUpdate}
+        />
+      </div>,
+    );
+    fireEvent.click(screen.getByText('5'));
+    const input = screen.getByLabelText('Assertion value');
+    fireEvent.click(input);
+    expect(parentClick).not.toHaveBeenCalled();
+  });
+
+  it('renders verify badge with pass status', () => {
+    renderRow({
+      assertion: { type: 'arrayLength', jsonPath: '$.x', operator: '=', value: 3 },
+    });
+    const { container } = render(
+      <InlineAssertionRow
+        assertion={{ type: 'arrayLength', jsonPath: '$.x', operator: '=', value: 3 }}
+        globalIndex={0}
+        verifyResult={{ passed: true }}
+      />,
+    );
+    const badge = container.querySelector('.dm-array-assertion-verify-badge--pass');
+    expect(badge).toBeTruthy();
+    expect(badge?.textContent).toBe('✓');
+  });
+
+  it('renders verify badge with fail status including expected/actual', () => {
+    const { container } = render(
+      <InlineAssertionRow
+        assertion={{ type: 'arrayLength', jsonPath: '$.x', operator: '>=', value: 5 }}
+        globalIndex={0}
+        verifyResult={{ passed: false, expected: '5', actual: '3' }}
+      />,
+    );
+    const badge = container.querySelector('.dm-array-assertion-verify-badge--fail');
+    expect(badge).toBeTruthy();
+    expect(badge?.textContent).toBe('✗');
+    expect(badge?.getAttribute('title')).toContain('Expected: 5');
+    expect(badge?.getAttribute('title')).toContain('Got: 3');
   });
 });

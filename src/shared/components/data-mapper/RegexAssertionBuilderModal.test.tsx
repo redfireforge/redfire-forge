@@ -263,7 +263,7 @@ describe('RegexAssertionBuilderModal', () => {
     });
 
     it('shows error when fetchError is set', () => {
-      renderModal({ fetchError: 'Connection refused' });
+      renderModal({ fetchError: { message: 'Connection refused' } });
       expect(screen.getByText('Connection refused')).toBeInTheDocument();
     });
   });

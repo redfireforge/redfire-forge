@@ -1392,7 +1392,7 @@ describe('DataMapperModal', () => {
         render(<DataMapperModal adapter={adapter} onSave={onSave} onCancel={vi.fn()} />);
       });
 
-      const checkbox = screen.getByRole('checkbox') as HTMLInputElement;
+      const checkbox = screen.getByRole('checkbox', { name: /unordered/i }) as HTMLInputElement;
       expect(checkbox.checked).toBe(false);
       fireEvent.click(checkbox);
       expect(checkbox.checked).toBe(true);
@@ -1418,7 +1418,7 @@ describe('DataMapperModal', () => {
         render(<DataMapperModal adapter={adapter} onSave={vi.fn()} onCancel={vi.fn()} unorderedArrays={true} />);
       });
 
-      const checkbox = screen.getByRole('checkbox') as HTMLInputElement;
+      const checkbox = screen.getByRole('checkbox', { name: /unordered/i }) as HTMLInputElement;
       expect(checkbox.checked).toBe(true);
     });
 
@@ -1430,7 +1430,7 @@ describe('DataMapperModal', () => {
         render(<DataMapperModal adapter={adapter} onSave={onSave} onCancel={vi.fn()} />)
       );
 
-      fireEvent.click(screen.getByRole('checkbox'));
+      fireEvent.click(screen.getByRole('checkbox', { name: /unordered/i }));
       fireEvent.click(screen.getByText('Save'));
       const savedValue = onSave.mock.calls[0][1]?.unorderedArrays;
       expect(savedValue).toBe(true);
@@ -1440,7 +1440,7 @@ describe('DataMapperModal', () => {
       await act(async () => {
         render(<DataMapperModal adapter={adapter} onSave={vi.fn()} onCancel={vi.fn()} unorderedArrays={savedValue} />);
       });
-      expect((screen.getByRole('checkbox') as HTMLInputElement).checked).toBe(true);
+      expect((screen.getByRole('checkbox', { name: /unordered/i }) as HTMLInputElement).checked).toBe(true);
     });
   });
 
@@ -1450,7 +1450,7 @@ describe('DataMapperModal', () => {
       await act(async () => {
         render(<DataMapperModal adapter={adapter} onSave={vi.fn()} onCancel={vi.fn()} />);
       });
-      expect(screen.queryByRole('checkbox')).toBeNull();
+      expect(screen.queryByRole('checkbox', { name: /unordered/i })).toBeNull();
     });
 
     it('shows unordered array checkbox when capabilities.unorderedArrays is true', async () => {
@@ -1458,7 +1458,7 @@ describe('DataMapperModal', () => {
       await act(async () => {
         render(<DataMapperModal adapter={adapter} onSave={vi.fn()} onCancel={vi.fn()} />);
       });
-      expect(screen.getByRole('checkbox')).toBeTruthy();
+      expect(screen.getByRole('checkbox', { name: /unordered/i })).toBeTruthy();
     });
 
     it('hides unordered array checkbox when capabilities is undefined (defaults)', async () => {
@@ -1466,7 +1466,7 @@ describe('DataMapperModal', () => {
       await act(async () => {
         render(<DataMapperModal adapter={adapter} onSave={vi.fn()} onCancel={vi.fn()} />);
       });
-      expect(screen.queryByRole('checkbox')).toBeNull();
+      expect(screen.queryByRole('checkbox', { name: /unordered/i })).toBeNull();
     });
   });
 
