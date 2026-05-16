@@ -54,7 +54,7 @@ export function useMapperRepairActions({
 
   const handleFixRepairIssue = useCallback((issue: MapperRepairIssue) => {
     if (issue.suggestedOperator) {
-      updateMapping(issue.mappingId, { operator: issue.suggestedOperator as FieldOperator });
+      updateMapping(issue.mappingId, { operator: issue.suggestedOperator as FieldOperator, operatorValue: undefined });
       setToast(`Changed operator to "${issue.suggestedOperator}"`);
       return;
     }
