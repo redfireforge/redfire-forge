@@ -131,6 +131,8 @@ alwaysApply: true
 | `src/shared/components/data-mapper/hooks/useValidationCodeSync.ts` | Bi-directional visual ↔ DSL code sync with error-aware debounce |
 | `src/shared/components/data-mapper/hooks/useValidationVerify.ts` | Verification engine: evaluates field operators + DSL assertions, passedCount/failedCount |
 | `src/shared/components/data-mapper/utils/validationDsl.ts` | DSL parser/serializer: serializeToDsl, parseDsl, parseDslLine, importAutoDetect |
+| `src/shared/components/data-mapper/utils/monacoValidationLanguage.ts` | Monaco DSL language registration, theming, autocomplete provider (extracted from ValidationCodeEditor) |
+| `src/shared/components/data-mapper/utils/expressionDebugHelpers.ts` | Debug formatting helpers: prettyDebugValue, truncateDebugValue |
 | `src/features/scenarios/components/testEditorValidationAddMenu.ts` | Data-driven assertion factory menu (ADD_ASSERTION_MENU_ROWS) |
 | `src/features/scenarios/components/testEditorValidationPivot.ts` | Pivoted rules table model: buildPivotedRulesFromExpectedFields |
 | `src-tauri/tauri.conf.json` | Tauri app config |
