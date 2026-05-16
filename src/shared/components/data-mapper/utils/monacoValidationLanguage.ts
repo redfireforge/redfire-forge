@@ -84,6 +84,22 @@ export function registerLanguage(monaco: typeof import('monaco-editor')) {
 
   monaco.languages.setLanguageConfiguration(LANGUAGE_ID, {
     wordPattern: /\$\.[\w.[\]]*|\$\w*|\w+/,
+    brackets: [
+      ['(', ')'],
+      ['[', ']'],
+    ],
+    autoClosingPairs: [
+      { open: '(', close: ')' },
+      { open: '[', close: ']' },
+      { open: '"', close: '"' },
+      { open: "'", close: "'" },
+    ],
+    surroundingPairs: [
+      { open: '(', close: ')' },
+      { open: '[', close: ']' },
+      { open: '"', close: '"' },
+      { open: "'", close: "'" },
+    ],
   });
 
   monaco.languages.setMonarchTokensProvider(LANGUAGE_ID, {
@@ -108,7 +124,9 @@ export function registerLanguage(monaco: typeof import('monaco-editor')) {
         [/[><=!]+/, 'operator'],
         [/-?\d+(\.\d+)?/, 'number'],
         [/[\w$]+/, 'identifier'],
-        [/[.[\]]/, 'delimiter.path'],
+        [/[()]/, '@brackets'],
+        [/[[\]]/, 'delimiter.path'],
+        [/\./, 'delimiter.path'],
         [/,/, 'delimiter'],
         [/\s+/, 'white'],
       ],
@@ -163,6 +181,14 @@ export function applyDynamicTheme(monaco: typeof import('monaco-editor'), themeN
       'editor.inactiveSelectionBackground': border + '40',
       'editorGutter.background': surface,
       'editorIndentGuide.background': border + '40',
+      'editorBracketMatch.background': light ? '#3b82f620' : '#3b82f630',
+      'editorBracketMatch.border': primary,
+      'editorBracketHighlight.foreground1': light ? '#2563eb' : '#ffd700',
+      'editorBracketHighlight.foreground2': light ? '#7c3aed' : '#da70d6',
+      'editorBracketHighlight.foreground3': light ? '#16a34a' : '#87ceeb',
+      'editorBracketHighlight.foreground4': light ? '#d97706' : '#ffa07a',
+      'editorBracketHighlight.foreground5': light ? '#dc2626' : '#98fb98',
+      'editorBracketHighlight.foreground6': light ? '#059669' : '#dda0dd',
     },
   });
 }
