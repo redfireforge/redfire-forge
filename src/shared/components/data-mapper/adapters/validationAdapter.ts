@@ -160,6 +160,7 @@ export function createValidationAdapter(
         field.operator = op || 'equals';
         if (m.operatorValue !== undefined) field.operatorValue = m.operatorValue;
         if (m.negate) field.negate = true;
+        if (m.expression) field.expression = m.expression;
         return field;
       };
 
@@ -204,6 +205,7 @@ export function createValidationAdapter(
           m.operatorValue = f.expectedValue;
         }
         if (f.negate) m.negate = true;
+        if (f.expression) m.expression = f.expression;
         return m;
       };
 

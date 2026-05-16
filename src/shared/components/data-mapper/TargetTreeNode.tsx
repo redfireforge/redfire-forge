@@ -5,9 +5,6 @@ import type { OperatorMeta } from './utils/operatorRegistry';
 import { normalizeMapperPath } from './utils/pathNormalization';
 import { OPERATOR_REGISTRY } from './utils/operatorRegistry';
 import {
-  TARGET_FIELD_TEXT_PREFIX,
-  REMAP_TEXT_PREFIX,
-  parseJsonPayload,
   TYPE_LABELS,
   matchesNodeVisibility,
   formatNodeDisplayKey,
@@ -15,6 +12,7 @@ import {
 import InlineAssertionRow from './InlineAssertionRow';
 import TargetNodeOperatorPicker from './TargetNodeOperatorPicker';
 import TargetNodeContextMenu from './TargetNodeContextMenu';
+import { useTargetNodeDnD } from './hooks/useTargetNodeDnD';
 
 const PARENT_NODE_ALLOWED_OPS = new Set([
   'is_empty', 'is_not_empty', 'is_type', 'is_null', 'is_not_null',
@@ -70,7 +68,6 @@ export default function TargetTreeNode({
   onRemapDragEnd,
   getDraggedRemapId,
 }: TargetTreeNodeProps) {
-  const [dragOver, setDragOver] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState('');
   const [showOperatorPicker, setShowOperatorPicker] = useState(false);
@@ -126,123 +123,25 @@ export default function TargetTreeNode({
     [node, search, mappingFilter, mappedTargetPaths],
   );
 
-  const handleFieldDragStart = useCallback((e: React.DragEvent) => {
-    if (!isLeaf || !onReorderField || !node.path) return;
-    onTargetFieldDragStart?.(node.path);
-    e.dataTransfer.effectAllowed = 'move';
-    const payload = JSON.stringify({ kind: 'target-field', path: node.path });
-    if (typeof e.dataTransfer.setData === 'function') {
-      e.dataTransfer.setData('application/mapper-target-field', payload);
-      // Keep text fallback for WebKit drag/drop compatibility.
-      e.dataTransfer.setData('text/plain', `${TARGET_FIELD_TEXT_PREFIX}${payload}`);
-    }
-  }, [isLeaf, onReorderField, node.path, onTargetFieldDragStart]);
-
-  const hasMapping = !!mapping;
-  const canRemapDrag = isLeaf && hasMapping && !!onRemapDrop;
-
-  const handleRemapDragStart = useCallback((e: React.DragEvent) => {
-    if (!mapping || !onRemapDrop) return;
-    e.dataTransfer.effectAllowed = 'move';
-    const payload = JSON.stringify({ kind: 'remap', mappingId: mapping.id });
-    e.dataTransfer.setData('application/mapper-remap', payload);
-    e.dataTransfer.setData('text/plain', `${REMAP_TEXT_PREFIX}${payload}`);
-    onRemapDragStart?.(mapping.id);
-  }, [mapping, onRemapDrop, onRemapDragStart]);
-
-  const handleNodeDragStart = useCallback((e: React.DragEvent) => {
-    if (isLeaf && onReorderField && node.path) {
-      handleFieldDragStart(e);
-    } else if (canRemapDrag) {
-      handleRemapDragStart(e);
-    }
-  }, [isLeaf, onReorderField, node.path, handleFieldDragStart, canRemapDrag, handleRemapDragStart]);
-
-  const handleNodeDragEnd = useCallback(() => {
-    onTargetFieldDragEnd?.();
-    onRemapDragEnd?.();
-  }, [onTargetFieldDragEnd, onRemapDragEnd]);
-
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    if (!node.path) return;
-    e.preventDefault();
-    const activeTargetPath = getDraggedTargetFieldPath?.();
-    const hasSourceDrag = !!getDraggedSource?.();
-    const hasRemapDrag = !!getDraggedRemapId?.();
-    e.dataTransfer.dropEffect = (activeTargetPath && isLeaf && !hasSourceDrag) || hasRemapDrag ? 'move' : 'link';
-    setDragOver(true);
-  }, [isLeaf, node.path, getDraggedTargetFieldPath, getDraggedSource, getDraggedRemapId]);
-
-  const handleDragEnter = useCallback((e: React.DragEvent) => {
-    if (!node.path) return;
-    e.preventDefault();
-    setDragOver(true);
-  }, [node.path]);
-
-  const handleDragLeave = useCallback(() => {
-    setDragOver(false);
-  }, []);
-
-  const handleDrop = useCallback(
-    (e: React.DragEvent) => {
-      e.preventDefault();
-      setDragOver(false);
-      if (!node.path) return;
-      const getDragData = (type: string): string => {
-        if (typeof e.dataTransfer.getData !== 'function') return '';
-        try {
-          return e.dataTransfer.getData(type) ?? '';
-        } catch {
-          return '';
-        }
-      };
-
-      try {
-        const targetFieldRaw = getDragData('application/mapper-target-field') || getDragData('text/plain');
-        const targetFieldData = parseJsonPayload(targetFieldRaw) as { kind?: string; path?: string } | null;
-        const fallbackTargetPath = getDraggedSource?.() ? null : (getDraggedTargetFieldPath?.() ?? null);
-        const dragPath = targetFieldData?.kind === 'target-field' && typeof targetFieldData.path === 'string'
-          ? targetFieldData.path
-          : fallbackTargetPath;
-        if (
-          isLeaf
-          && !!onReorderField
-          && typeof dragPath === 'string'
-          && dragPath !== node.path
-        ) {
-          onReorderField?.(dragPath, node.path);
-          onTargetFieldDragEnd?.();
-          return;
-        }
-      } catch { /* not a target-field reorder drop */ }
-
-      try {
-        const remapRaw = getDragData('application/mapper-remap') || getDragData('text/plain');
-        const remapData = parseJsonPayload(remapRaw) as { kind?: string; mappingId?: string } | null;
-        const fallbackRemapId = getDraggedRemapId?.() ?? null;
-        const mappingId = remapData?.kind === 'remap' && typeof remapData.mappingId === 'string'
-          ? remapData.mappingId
-          : fallbackRemapId;
-        if (typeof mappingId === 'string' && onRemapDrop) {
-          onRemapDrop(node.path, mappingId);
-          return;
-        }
-      } catch { /* not a remap drop */ }
-
-      try {
-        const sourceRaw = getDragData('application/mapper-source') || getDragData('text/plain');
-        const data = parseJsonPayload(sourceRaw) as { path?: string; sourceId?: string } | null;
-        const fallbackSource = getDraggedSource?.() ?? null;
-        const dropSourcePath = typeof data?.path === 'string' ? data.path : fallbackSource?.path;
-        const dropSourceId = typeof data?.sourceId === 'string' ? data.sourceId : fallbackSource?.sourceId;
-        if (typeof dropSourcePath === 'string' && typeof dropSourceId === 'string') {
-          onDrop(node.path, dropSourcePath, dropSourceId);
-          onTargetFieldDragEnd?.();
-        }
-      } catch { /* ignore invalid drag data */ }
-    },
-    [node.path, onDrop, isLeaf, onReorderField, getDraggedSource, getDraggedTargetFieldPath, onTargetFieldDragEnd, onRemapDrop, getDraggedRemapId],
-  );
+  const {
+    dragOver, canRemapDrag,
+    handleNodeDragStart, handleNodeDragEnd,
+    handleDragOver, handleDragEnter, handleDragLeave, handleDrop,
+  } = useTargetNodeDnD({
+    nodePath: node.path,
+    isLeaf,
+    mappingId: mapping?.id,
+    onDrop,
+    onReorderField,
+    onRemapDrop,
+    onTargetFieldDragStart,
+    onTargetFieldDragEnd,
+    onRemapDragStart,
+    onRemapDragEnd,
+    getDraggedTargetFieldPath,
+    getDraggedSource,
+    getDraggedRemapId,
+  });
 
   useEffect(() => {
     if (renaming) {
@@ -318,6 +217,36 @@ export default function TargetTreeNode({
   const isRangeOperator = currentOp === 'between' || currentOp === 'close_to';
   const rangeSecondRef = useRef<HTMLInputElement>(null);
   const typeSelectRef = useRef<HTMLSelectElement>(null);
+
+  const toggleOperatorPicker = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!showOperatorPicker && operatorPillRef.current) {
+      const rect = operatorPillRef.current.getBoundingClientRect();
+      const dmBody = operatorPillRef.current.closest('.dm-body');
+      const sourcePanel = dmBody?.querySelector('.dm-panel-wrapper');
+      const sourcePanelRect = sourcePanel?.getBoundingClientRect();
+      const pickerWidth = 240;
+      const pickerHeight = 400;
+      let left: number;
+      if (sourcePanelRect) {
+        const fitWidth = Math.min(pickerWidth, sourcePanelRect.width - 16);
+        left = sourcePanelRect.left + 8;
+        if (fitWidth < pickerWidth) {
+          left = sourcePanelRect.left + 4;
+        }
+      } else {
+        left = 8;
+      }
+      const spaceBelow = window.innerHeight - rect.top;
+      const openUp = spaceBelow < pickerHeight && rect.top > spaceBelow;
+      setPickerPos({
+        top: openUp ? Math.max(8, rect.top - pickerHeight + 30) : rect.top,
+        left: Math.max(8, left),
+        openUp,
+      });
+    }
+    setShowOperatorPicker(prev => !prev);
+  }, [showOperatorPicker]);
 
   const handleOperatorValueCommit = useCallback(() => {
     if (!mapping || !onUpdateMappingOperator) return;
@@ -516,6 +445,92 @@ export default function TargetTreeNode({
             {mapping.expression ? (
               <>
                 <span className="dm-mapped-fx-pill">fx</span>
+                {showOperators && mapping.negate && (
+                  <button
+                    type="button"
+                    className="dm-negate-badge"
+                    title="Negated — click to remove NOT"
+                    onClick={(e) => { e.stopPropagation(); onToggleMappingNegate?.(mapping.id); }}
+                    aria-label="Remove negation"
+                  >NOT</button>
+                )}
+                {showOperators && (
+                  <button
+                    ref={operatorPillRef}
+                    type="button"
+                    className={`dm-operator-pill dm-operator-pill--${currentOpMeta.cssClass}${mapping.negate ? ' dm-operator-pill--negated' : ''}`}
+                    title={`Operator: ${mapping.negate ? 'NOT ' : ''}${currentOpMeta.label} (click to change)`}
+                    onClick={toggleOperatorPicker}
+                    onDoubleClick={(e) => e.stopPropagation()}
+                    aria-label={`Change operator from ${currentOpMeta.label}`}
+                    aria-expanded={showOperatorPicker}
+                    aria-haspopup="listbox"
+                  >
+                    <span className="dm-op-icon">{currentOpMeta.icon}</span> {currentOpMeta.label}
+                  </button>
+                )}
+                {showOperators && isRangeOperator ? (
+                  editingOperatorValue ? (
+                    <span className="dm-range-inputs" onClick={(e) => e.stopPropagation()}>
+                      <input
+                        ref={rangeSecondRef}
+                        className="dm-operator-value-input dm-range-input"
+                        defaultValue={(localOperatorValue.split(',')[1] ?? '').trim()}
+                        placeholder={currentOp === 'between' ? 'max' : 'tolerance'}
+                        type="number"
+                        aria-label={currentOp === 'between' ? 'max' : 'tolerance'}
+                        autoFocus
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            const tol = rangeSecondRef.current?.value ?? '';
+                            onUpdateMappingOperator?.(mapping.id, mapping.operator, `, ${tol.trim()}`);
+                            setEditingOperatorValue(false);
+                          } else if (e.key === 'Escape') { e.preventDefault(); setEditingOperatorValue(false); }
+                        }}
+                        onBlur={() => {
+                          const tol = rangeSecondRef.current?.value ?? '';
+                          onUpdateMappingOperator?.(mapping.id, mapping.operator, `, ${tol.trim()}`);
+                          setEditingOperatorValue(false);
+                        }}
+                      />
+                    </span>
+                  ) : (
+                    <span
+                      className="dm-operator-value-display"
+                      title="Click to set tolerance"
+                      onClick={(e) => { e.stopPropagation(); startEditOperatorValue(); }}
+                    >
+                      {(() => {
+                        const parts = (mapping.operatorValue ?? '').split(',');
+                        const tol = (parts[1] ?? '').trim();
+                        return tol ? `± ${tol}` : 'set tolerance…';
+                      })()}
+                    </span>
+                  )
+                ) : showOperators && currentOpMeta.needsValue && !isRangeOperator ? (
+                  editingOperatorValue ? (
+                    <input
+                      ref={operatorValueRef}
+                      className="dm-operator-value-input"
+                      value={localOperatorValue}
+                      onChange={(e) => setLocalOperatorValue(e.target.value)}
+                      onKeyDown={handleOperatorValueKeyDown}
+                      onBlur={handleOperatorValueCommit}
+                      onClick={(e) => e.stopPropagation()}
+                      placeholder="Enter value"
+                      aria-label="Operator comparison value"
+                    />
+                  ) : (
+                    <span
+                      className="dm-operator-value-display"
+                      title="Click to edit value"
+                      onClick={(e) => { e.stopPropagation(); startEditOperatorValue(); }}
+                    >
+                      {mapping.operatorValue || 'set value…'}
+                    </span>
+                  )
+                ) : null}
                 <span className="dm-mapped-src-ref" title={mapping.expression}>{mapping.sourcePath}</span>
               </>
             ) : (
@@ -536,35 +551,7 @@ export default function TargetTreeNode({
                     type="button"
                     className={`dm-operator-pill dm-operator-pill--${currentOpMeta.cssClass}${mapping.negate ? ' dm-operator-pill--negated' : ''}`}
                     title={`Operator: ${mapping.negate ? 'NOT ' : ''}${currentOpMeta.label} (click to change)`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (!showOperatorPicker && operatorPillRef.current) {
-                        const rect = operatorPillRef.current.getBoundingClientRect();
-                        const dmBody = operatorPillRef.current.closest('.dm-body');
-                        const sourcePanel = dmBody?.querySelector('.dm-panel-wrapper');
-                        const sourcePanelRect = sourcePanel?.getBoundingClientRect();
-                        const pickerWidth = 240;
-                        const pickerHeight = 400;
-                        let left: number;
-                        if (sourcePanelRect) {
-                          const fitWidth = Math.min(pickerWidth, sourcePanelRect.width - 16);
-                          left = sourcePanelRect.left + 8;
-                          if (fitWidth < pickerWidth) {
-                            left = sourcePanelRect.left + 4;
-                          }
-                        } else {
-                          left = 8;
-                        }
-                        const spaceBelow = window.innerHeight - rect.top;
-                        const openUp = spaceBelow < pickerHeight && rect.top > spaceBelow;
-                        setPickerPos({
-                          top: openUp ? Math.max(8, rect.top - pickerHeight + 30) : rect.top,
-                          left: Math.max(8, left),
-                          openUp,
-                        });
-                      }
-                      setShowOperatorPicker(prev => !prev);
-                    }}
+                    onClick={toggleOperatorPicker}
                     onDoubleClick={(e) => e.stopPropagation()}
                     aria-label={`Change operator from ${currentOpMeta.label}`}
                     aria-expanded={showOperatorPicker}
