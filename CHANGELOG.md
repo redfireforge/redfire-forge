@@ -9,6 +9,24 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
 ## [Unreleased]
 
 ### Added
+- **Validation Operators — Complete Integration**
+  - **24 field operators fully integrated** — equality, comparison, string, boolean, existence/null, type check, set membership operators all working in Data Mapper with color-coded pills, inline value editors, and operator picker dropdown.
+  - **Array assertions** — LENGTH, CONTAINS, EACH, SUBSET inline assertions on array nodes with edit/remove controls.
+  - **Universal negation** — NOT modifier on any operator/assertion, red NOT badge in UI, `NOT <operator>` syntax in DSL.
+  - **ASSERT custom predicates** — `ASSERT $expression()` syntax with 125+ function expression engine, lambda support (`x => expr`), and `NOT ASSERT` for inverted predicates.
+  - **DSL code editor improvements** — Monaco autocomplete for paths, operators, and NOT/ASSERT keywords; inline error markers; pass/fail line decorations after verification.
+  - **Mapping View enhancements** — Code/List/Pivot views in bottom dock; Status column shows "✓ pass" / "✗ fail" after Verify All; assertion rows display verification results; pivot table for array data comparison.
+  - **Panel collapse/expand** — Hide Source/Target panels to give Mapping View full height; drag-to-resize handle between panels and dock.
+  - **Font consistency** — standardized all Mapping View text to 0.7rem with perceptual adjustment for uppercase labels.
+
+- **Documentation & Training Refresh**
+  - **New guide**: `data-mapper-validation-guide.md` — comprehensive reference for 24 operators, array assertions, DSL rules, ASSERT expressions, verification, Mapping View.
+  - **3 new gallery samples**: `dm-validation-operators` (24 operators on DummyJSON products), `dm-array-assertions-dsl` (array assertions + DSL + ASSERT + negation), `dm-users-validation` (nested object validation on JSONPlaceholder users).
+  - **3 new training manuals**: operators-products-medium, users-validation-medium, array-assertions-advanced — all using public APIs (DummyJSON, JSONPlaceholder).
+  - **Updated guides**: assertions-guide.md, validation-modes-guide.md, guides README — cross-references to new Data Mapper validation guide.
+  - **Updated README.md**: Data Mapper feature reference expanded; fixed cross-platform guide link.
+  - **Updated ROADMAP.md**: test counts, training manual counts, competitive advantages for validation engine.
+
 - **Validation & Data Mapper — Architecture Refactoring**
   - **Validator module decomposition** — `validator.ts` (1012 → 830 lines) split into focused modules: `validatorDateHelpers.ts`, `validatorHttpHelpers.ts`, `validatorSubsetMatch.ts`, `validatorCustomExpression.ts`.
   - **DataMapper hook extraction** — `DataMapper.tsx` (1001 → 895 lines) split into: `useBottomUtilityDock.ts`, `useDataMapperTreeInteraction.ts`, `useHighlightedMappingPaths.ts`, `useMapperVisibleLines.ts`.

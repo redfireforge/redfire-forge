@@ -135,6 +135,10 @@ alwaysApply: true
 | `src/shared/components/data-mapper/utils/expressionDebugHelpers.ts` | Debug formatting helpers: prettyDebugValue, truncateDebugValue |
 | `src/features/scenarios/components/testEditorValidationAddMenu.ts` | Data-driven assertion factory menu (ADD_ASSERTION_MENU_ROWS) |
 | `src/features/scenarios/components/testEditorValidationPivot.ts` | Pivoted rules table model: buildPivotedRulesFromExpectedFields |
+| `src/data/galleries/data-mapper/presets.ts` | Data Mapper gallery presets: 8 sample factories with embedded API responses |
+| `src/data/galleries/data-mapper/index.ts` | Data Mapper gallery entries: DataMapperSampleEntry[] catalog |
+| `src/data/galleries/trainingPaths/contentPaths.ts` | Training paths: Requests, Tests, Catalog, Data Mapper manual definitions |
+| `docs/guides/data-mapper-validation-guide.md` | Data Mapper validation guide: 24 operators, array assertions, DSL, ASSERT |
 | `src-tauri/tauri.conf.json` | Tauri app config |
 | `scripts/version.sh` | Version bump script |
 

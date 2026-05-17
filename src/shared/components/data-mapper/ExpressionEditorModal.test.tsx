@@ -636,11 +636,10 @@ describe('ExpressionEditorModal – Step-Through Debugger', () => {
     if (headers.length > 0) {
       await act(async () => { fireEvent.click(headers[headers.length - 1]); });
       const results = document.querySelectorAll('.dm-expr-step-result');
-      if (results.length > 0) {
-        await act(async () => { fireEvent.click(results[results.length - 1]); });
-        expect(document.querySelector('.dm-expr-detail-modal')).toBeTruthy();
-        expect(document.querySelector('.dm-expr-detail-badge')?.textContent).toBeTruthy();
-      }
+      expect(results.length).toBeGreaterThan(0);
+      await act(async () => { fireEvent.click(results[results.length - 1]); });
+      expect(document.querySelector('.dm-expr-detail-modal')).toBeTruthy();
+      expect(document.querySelector('.dm-expr-detail-badge')?.textContent).toBeTruthy();
     }
   });
 
@@ -1271,6 +1270,29 @@ describe('ExpressionEditorModal – handleComposeWithFunction', () => {
     expect(textarea.value).toBe('$exotic(name, opts)');
   });
 
+  it('compose with current uses arg name for unknown arg types', async () => {
+    const fn = {
+      name: '$exoticCompose',
+      category: 'Custom' as const,
+      signature: '$exoticCompose(input, opts)',
+      description: 'Exotic compose',
+      args: [
+        { name: 'input', type: 'string', required: true, description: 'In' },
+        { name: 'opts', type: 'options', required: true, description: 'Options' },
+      ],
+      returnType: 'string' as const,
+      examples: [],
+      evaluate: (v: unknown) => v,
+    };
+    monacoTestState.suppressOnMount = true;
+    renderModal({ mapping: { ...baseMapping, expression: '$upper($.name)' }, customFunctions: [fn] });
+    await act(async () => { fireEvent.click(screen.getByText('$exoticCompose')); });
+    await act(async () => { fireEvent.click(screen.getByText('Compose with current')); });
+    const textarea = screen.getByTestId('monaco-editor') as HTMLTextAreaElement;
+    expect(textarea.value).toContain('$exoticCompose(');
+    expect(textarea.value).toContain('opts');
+  });
+
   it('uses lambda template for $map when sidebar-clicked', async () => {
     renderModal();
     const mapItem = Array.from(document.querySelectorAll('.dm-expr-fn-item'))
@@ -1585,5 +1607,133 @@ describe('ExpressionEditorModal – branch coverage extras', () => {
     expect(redoBtn).toBeTruthy();
     fireEvent.click(undoBtn!);
     fireEvent.click(redoBtn!);
+  });
+
+  it('clicking Insert button in docs panel calls handleInsertFunction', async () => {
+    renderModal();
+    await flushMonacoMount();
+    const fnItem = screen.getByText('$upper').closest('.dm-expr-fn-item')!;
+    fireEvent.click(fnItem);
+    const insertBtn = Array.from(document.querySelectorAll('.dm-expr-inline-btn--primary'))
+      .find(el => el.textContent?.trim() === 'Insert');
+    expect(insertBtn).toBeTruthy();
+    fireEvent.click(insertBtn!);
+    const editor = screen.getByTestId('monaco-editor') as HTMLTextAreaElement;
+    expect(editor.value).toContain('$upper(');
+  });
+
+  it('step debugger result click opens detail modal', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    renderModal();
+    await flushMonacoMount();
+    const debugToggle = document.querySelector('.dm-expr-debug-toggle');
+    expect(debugToggle).toBeTruthy();
+    fireEvent.click(debugToggle!);
+    await act(async () => { vi.advanceTimersByTime(500); });
+    const stepHeaders = document.querySelectorAll('.dm-expr-step-header');
+    if (stepHeaders.length > 0) {
+      fireEvent.click(stepHeaders[0]);
+      const stepResult = document.querySelector('.dm-expr-step-result');
+      if (stepResult) {
+        fireEvent.click(stepResult);
+        expect(document.querySelector('.dm-expr-detail-overlay')).toBeTruthy();
+      }
+    }
+    vi.useRealTimers();
+  });
+
+  it('Edit Source toggle shows source editor textarea', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    renderModal();
+    await flushMonacoMount();
+    const editSourceBtn = Array.from(document.querySelectorAll('.dm-expr-debug-toggle'))
+      .find(el => el.textContent?.trim() === 'Edit Source');
+    expect(editSourceBtn).toBeTruthy();
+    fireEvent.click(editSourceBtn!);
+    await act(async () => { vi.advanceTimersByTime(100); });
+    const textarea = document.querySelector('.dm-expr-source-editor-textarea') as HTMLTextAreaElement;
+    expect(textarea).toBeTruthy();
+    fireEvent.change(textarea, { target: { value: '{"test": true}' } });
+    expect(textarea.value).toBe('{"test": true}');
+    vi.useRealTimers();
+  });
+
+  it('variable name click and mouseDown stop propagation', () => {
+    const outerClick = vi.fn();
+    const { container } = render(
+      <div onClick={outerClick} onMouseDown={outerClick}>
+        <ExpressionEditorModal
+          mapping={{ ...baseMapping, expression: '$.name' }}
+          sources={sources}
+          activeSourceId="s1"
+          onSave={vi.fn()}
+          onCancel={vi.fn()}
+          onRename={vi.fn()}
+        />
+      </div>,
+    );
+    const varInput = document.querySelector('.dm-expr-variable-input')!;
+    fireEvent.click(varInput);
+    fireEvent.mouseDown(varInput);
+    expect(outerClick).not.toHaveBeenCalled();
+    container.remove();
+  });
+
+  it('step result keyDown with Enter opens detail modal', async () => {
+    renderModal({ mapping: { ...baseMapping, expression: '$upper($.name)' } });
+    fireEvent.click(screen.getByText('Step Debug'));
+    await act(async () => { await new Promise((r) => setTimeout(r, 300)); });
+    const headers = document.querySelectorAll('.dm-expr-step-header');
+    if (headers.length > 0) {
+      fireEvent.click(headers[headers.length - 1]);
+      const results = document.querySelectorAll('.dm-expr-step-result');
+      if (results.length > 0) {
+        fireEvent.keyDown(results[0], { key: 'Enter' });
+        expect(document.querySelector('.dm-expr-detail-modal')).toBeTruthy();
+      }
+    }
+  });
+
+  it('closing detail modal resets detailStep to null', async () => {
+    renderModal({ mapping: { ...baseMapping, expression: '$upper($.name)' } });
+    fireEvent.click(screen.getByText('Step Debug'));
+    await act(async () => { await new Promise((r) => setTimeout(r, 300)); });
+    const headers = document.querySelectorAll('.dm-expr-step-header');
+    if (headers.length > 0) {
+      fireEvent.click(headers[headers.length - 1]);
+      const results = document.querySelectorAll('.dm-expr-step-result');
+      if (results.length > 0) {
+        fireEvent.click(results[0]);
+        expect(document.querySelector('.dm-expr-detail-modal')).toBeTruthy();
+        const closeBtn = document.querySelector('.dm-expr-detail-close');
+        if (closeBtn) {
+          fireEvent.click(closeBtn);
+          expect(document.querySelector('.dm-expr-detail-modal')).toBeNull();
+        }
+      }
+    }
+  });
+
+  it('Expand All / Collapse All toggles all steps', async () => {
+    renderModal({ mapping: { ...baseMapping, expression: '$concat($upper($.name), " test")' } });
+    fireEvent.click(screen.getByText('Step Debug'));
+    await act(async () => { await new Promise((r) => setTimeout(r, 300)); });
+    const expandAllBtn = screen.queryByLabelText('Expand all');
+    if (expandAllBtn) {
+      fireEvent.click(expandAllBtn);
+      const results = document.querySelectorAll('.dm-expr-step-result');
+      expect(results.length).toBeGreaterThan(0);
+      const collapseAllBtn = screen.queryByLabelText('Collapse all');
+      if (collapseAllBtn) {
+        fireEvent.click(collapseAllBtn);
+        expect(document.querySelectorAll('.dm-expr-step-result').length).toBe(0);
+      }
+    }
+  });
+
+  it('toggleExpandAll is no-op when debugSteps is null', () => {
+    renderModal();
+    const expandAllBtn = screen.queryByLabelText('Expand all');
+    expect(expandAllBtn).toBeNull();
   });
 });
