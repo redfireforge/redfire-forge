@@ -437,3 +437,207 @@ export function createComboMapperSample(): FeatureGroup {
     ],
   };
 }
+
+// ─── 6. Validation Operators Showcase (Medium) ─────────────────────────────
+// Uses DummyJSON products — demonstrates all operator categories with real data.
+
+const PRODUCTS_SEARCH_RESPONSE = {
+  products: [
+    {
+      id: 1, title: 'Essence Mascara Lash Princess', category: 'beauty',
+      price: 9.99, discountPercentage: 7.17, rating: 4.94, stock: 5,
+      tags: ['beauty', 'mascara'], brand: 'Essence', sku: 'RCH45Q1A',
+      availabilityStatus: 'Low Stock',
+      dimensions: { width: 23.17, height: 14.43, depth: 28.01 },
+      reviews: [
+        { rating: 2, comment: 'Very unhappy with my purchase!', date: '2024-05-23', reviewerName: 'John Doe' },
+        { rating: 5, comment: 'Very satisfied!', date: '2024-05-23', reviewerName: 'Nolan Gonzalez' },
+      ],
+      meta: { createdAt: '2024-05-23T08:56:21.618Z', updatedAt: '2024-05-23T08:56:21.618Z', barcode: '9164035109868' },
+    },
+    {
+      id: 2, title: 'Eyeshadow Palette with Mirror', category: 'beauty',
+      price: 19.99, discountPercentage: 5.5, rating: 3.28, stock: 44,
+      tags: ['beauty', 'eyeshadow'], brand: 'Glamour Beauty', sku: 'MVCFH27F',
+      availabilityStatus: 'In Stock',
+      dimensions: { width: 12.1, height: 8.2, depth: 2.3 },
+      reviews: [
+        { rating: 4, comment: 'Great palette!', date: '2024-05-23', reviewerName: 'Alice Brown' },
+        { rating: 3, comment: 'Colors are decent', date: '2024-05-23', reviewerName: 'Bob Wilson' },
+      ],
+      meta: { createdAt: '2024-05-23T08:56:21.618Z', updatedAt: '2024-05-23T08:56:21.618Z', barcode: '2817839095220' },
+    },
+    {
+      id: 3, title: 'Powder Canister', category: 'beauty',
+      price: 14.99, discountPercentage: 18.14, rating: 3.82, stock: 59,
+      tags: ['beauty', 'powder'], brand: 'Velvet Touch', sku: 'SFXM1CCB',
+      availabilityStatus: 'In Stock',
+      dimensions: { width: 8.5, height: 10.5, depth: 8.5 },
+      reviews: [
+        { rating: 5, comment: 'Love this powder!', date: '2024-05-23', reviewerName: 'Carol Davis' },
+      ],
+      meta: { createdAt: '2024-05-23T08:56:21.618Z', updatedAt: '2024-05-23T08:56:21.618Z', barcode: '0516267971277' },
+    },
+  ],
+  total: 194,
+  skip: 0,
+  limit: 3,
+};
+
+export function createValidationOperatorsSample(): FeatureGroup {
+  return {
+    id: 'dm-validation-operators',
+    name: 'Data Mapper — Validation Operators',
+    scenarios: [
+      ts({
+        id: 'dm-valops-products',
+        name: 'Product Operators Showcase',
+        tests: [
+          sc({
+            id: 'dm-valops-search',
+            name: 'GET products → validate with operators',
+            url: 'https://dummyjson.com/products?limit=3',
+            method: 'GET',
+            assertions: [
+              { type: 'status', expected: '200' },
+              { type: 'numeric', jsonPath: '$.total', operator: '>', value: 0 },
+              { type: 'arrayLength', jsonPath: '$.products', operator: '>=', value: 1 },
+            ],
+            validation: {
+              mode: 'selective',
+              selectiveMode: 'include',
+              expectedFields: [
+                { jsonPath: '$.products[0].category', expectedValue: 'beauty', operator: 'equals' },
+                { jsonPath: '$.products[0].availabilityStatus', expectedValue: 'Discontinued', operator: 'not_equals' },
+                { jsonPath: '$.products[0].price', expectedValue: '', operator: 'greater_than', operatorValue: '0' },
+                { jsonPath: '$.products[0].rating', expectedValue: '', operator: 'between', operatorValue: '1, 5' },
+                { jsonPath: '$.products[0].stock', expectedValue: '', operator: 'greater_than_or_equal', operatorValue: '0' },
+                { jsonPath: '$.total', expectedValue: '', operator: 'greater_than', operatorValue: '100' },
+                { jsonPath: '$.products[0].title', expectedValue: '', operator: 'contains', operatorValue: 'Mascara' },
+                { jsonPath: '$.products[0].brand', expectedValue: '', operator: 'starts_with', operatorValue: 'Ess' },
+                { jsonPath: '$.products[0].sku', expectedValue: '', operator: 'regex', operatorValue: '^[A-Z0-9]+$' },
+                { jsonPath: '$.products[0].meta', expectedValue: '', operator: 'exists' },
+                { jsonPath: '$.products[0].tags', expectedValue: '', operator: 'is_not_empty' },
+                { jsonPath: '$.products[0].price', expectedValue: '', operator: 'is_type', operatorValue: 'number' },
+                { jsonPath: '$.products[0].category', expectedValue: '', operator: 'in', operatorValue: 'beauty, electronics, furniture' },
+              ],
+              sampleJson: JSON.stringify(PRODUCTS_SEARCH_RESPONSE),
+            },
+          }),
+        ],
+      }),
+    ],
+  };
+}
+
+// ─── 7. Array Assertions & DSL Showcase (Advanced) ─────────────────────────
+
+export function createArrayAssertionsDslSample(): FeatureGroup {
+  return {
+    id: 'dm-array-assertions-dsl',
+    name: 'Data Mapper — Array Assertions & DSL',
+    scenarios: [
+      ts({
+        id: 'dm-arraydsl-products',
+        name: 'Array Assertions & DSL Rules',
+        tests: [
+          sc({
+            id: 'dm-arraydsl-search',
+            name: 'GET products → array assertions + ASSERT',
+            url: 'https://dummyjson.com/products?limit=3',
+            method: 'GET',
+            assertions: [
+              { type: 'status', expected: '200' },
+              { type: 'arrayLength', jsonPath: '$.products', operator: '>=', value: 3 },
+              { type: 'each', jsonPath: '$.products', fieldPath: 'price', operator: 'greater_than', value: '0' },
+              { type: 'each', jsonPath: '$.products', fieldPath: 'rating', operator: 'between', value: '0, 5' },
+              { type: 'containsSubset', jsonPath: '$.products', expected: JSON.stringify({ category: 'beauty' }) },
+              { type: 'custom', expression: '$gt($count($.body.products), 0)', description: 'Products array is non-empty' },
+              { type: 'custom', expression: '$all($.body.products, x => $gte(x.price, 0))', description: 'All prices are non-negative' },
+              { type: 'custom', expression: '$all($.body.products, x => $gte(x.rating, 1))', description: 'All ratings >= 1' },
+            ],
+            validation: {
+              mode: 'selective',
+              selectiveMode: 'include',
+              expectedFields: [
+                { jsonPath: '$.total', expectedValue: '', operator: 'greater_than', operatorValue: '0' },
+                { jsonPath: '$.products[0].title', expectedValue: '', operator: 'is_not_empty' },
+                { jsonPath: '$.products[0].price', expectedValue: '', operator: 'greater_than', operatorValue: '0' },
+                { jsonPath: '$.products[0].category', expectedValue: 'beauty', operator: 'equals' },
+                { jsonPath: '$.products[0].brand', expectedValue: '', operator: 'exists' },
+                { jsonPath: '$.products[0].title', expectedValue: '', operator: 'is_empty', negate: true },
+                { jsonPath: '$.products[0].availabilityStatus', expectedValue: 'Discontinued', operator: 'equals', negate: true },
+              ],
+              sampleJson: JSON.stringify(PRODUCTS_SEARCH_RESPONSE),
+            },
+          }),
+        ],
+      }),
+    ],
+  };
+}
+
+// ─── 8. Users Validation (Medium) ─────────────────────────────────────────
+
+const USERS_LIST_RESPONSE = [
+  {
+    id: 1, name: 'Leanne Graham', username: 'Bret', email: 'Sincere@april.biz',
+    address: { street: 'Kulas Light', suite: 'Apt. 556', city: 'Gwenborough', zipcode: '92998-3874', geo: { lat: '-37.3159', lng: '81.1496' } },
+    phone: '1-770-736-8031 x56442', website: 'hildegard.org',
+    company: { name: 'Romaguera-Crona', catchPhrase: 'Multi-layered client-server neural-net', bs: 'harness real-time e-markets' },
+  },
+  {
+    id: 2, name: 'Ervin Howell', username: 'Antonette', email: 'Shanna@melissa.tv',
+    address: { street: 'Victor Plains', suite: 'Suite 879', city: 'Wisokyburgh', zipcode: '90566-7771', geo: { lat: '-43.9509', lng: '-34.4618' } },
+    phone: '010-692-6593 x09125', website: 'anastasia.net',
+    company: { name: 'Deckow-Crist', catchPhrase: 'Proactive didactic contingency', bs: 'synergize scalable supply-chains' },
+  },
+  {
+    id: 3, name: 'Clementine Bauch', username: 'Samantha', email: 'Nathan@yesenia.net',
+    address: { street: 'Douglas Extension', suite: 'Suite 847', city: 'McKenziehaven', zipcode: '59590-4157', geo: { lat: '-68.6102', lng: '-47.0653' } },
+    phone: '1-463-123-4447', website: 'ramiro.info',
+    company: { name: 'Romaguera-Jacobson', catchPhrase: 'Face to face bifurcated interface', bs: 'e-enable strategic applications' },
+  },
+];
+
+export function createUsersValidationSample(): FeatureGroup {
+  return {
+    id: 'dm-users-validation',
+    name: 'Data Mapper — Users Validation',
+    scenarios: [
+      ts({
+        id: 'dm-usrval-list',
+        name: 'Validate User Fields',
+        tests: [
+          sc({
+            id: 'dm-usrval-get-users',
+            name: 'GET users → validate nested structure',
+            url: 'https://jsonplaceholder.typicode.com/users',
+            method: 'GET',
+            assertions: [
+              { type: 'status', expected: '200' },
+              { type: 'arrayLength', jsonPath: '$', operator: '>=', value: 3 },
+              { type: 'each', jsonPath: '$', fieldPath: 'email', operator: 'regex', value: '.+@.+' },
+              { type: 'custom', expression: '$all($.body, x => $gt(x.id, 0))', description: 'All user IDs are positive' },
+            ],
+            validation: {
+              mode: 'selective',
+              selectiveMode: 'include',
+              expectedFields: [
+                { jsonPath: '$[0].name', expectedValue: '', operator: 'is_not_empty' },
+                { jsonPath: '$[0].email', expectedValue: '', operator: 'contains', operatorValue: '@' },
+                { jsonPath: '$[0].address.city', expectedValue: '', operator: 'exists' },
+                { jsonPath: '$[0].address.geo.lat', expectedValue: '', operator: 'is_type', operatorValue: 'string' },
+                { jsonPath: '$[0].company.name', expectedValue: '', operator: 'is_not_empty' },
+                { jsonPath: '$[0].website', expectedValue: '', operator: 'regex', operatorValue: '^[a-z]' },
+                { jsonPath: '$[0].id', expectedValue: '', operator: 'greater_than', operatorValue: '0' },
+                { jsonPath: '$[0].phone', expectedValue: '', operator: 'exists' },
+              ],
+              sampleJson: JSON.stringify(USERS_LIST_RESPONSE),
+            },
+          }),
+        ],
+      }),
+    ],
+  };
+}

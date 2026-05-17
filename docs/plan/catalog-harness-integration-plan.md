@@ -4,6 +4,31 @@
 
 ---
 
+## Design Principle: Unified Harness Experience
+
+**From the user's perspective, there is only ONE Harness.** Whether a test originated from:
+- A hand-crafted `Scenario` in the Requests tab
+- An auto-generated test from a Catalog OpenAPI spec
+
+...the experience should be **identical**:
+
+| Aspect | Unified Behavior |
+|--------|------------------|
+| **Selection UI** | Same `ScenarioSelector` with checkboxes |
+| **Assertions** | Same Data Mapper, same 24 operators, same DSL |
+| **Results** | Same results grid, same pass/fail badges |
+| **Host override** | Same `HostSelector` component applies to both |
+| **Auth** | Same auth config applies to both |
+| **Execution modes** | Same sequential/batch/pool/load-profile options |
+| **Results Explorer** | Same detailed view (request/response/assertions) |
+| **Export** | Same JUnit/HTML/CSV export formats |
+
+The only difference is **where the test definition comes from** — user-authored vs spec-derived. But once a test is in the execution queue, it's just a `Scenario` like any other.
+
+**Key Implication:** All new features built for Harness tests (e.g., Data Mapper validation, DSL code view, Results Explorer) must work seamlessly with catalog-generated tests. No second-class citizens.
+
+---
+
 ## 0. The Core Question: Why Have Both Catalog and Requests?
 
 ### The Problem
@@ -116,13 +141,13 @@ Step 5: Execute (existing — unchanged)
 | `executor.ts` | **No** | Receives `Scenario[]` — doesn't care about source |
 | `runTest()` | **No** | Same contract: `TestConfig + Scenario[]` |
 | `TestConfig` | **No** | Same interface |
-| `Scenario` type | **No** | Generated scenarios are standard `Scenario` objects |
+| `Scenario` type | **Yes** (minor) | Add optional `catalogMeta` field (Phase 1.1). Generated scenarios are otherwise standard `Scenario` objects. |
 | `useTestExecution.ts` | **No** | Calls `runTest()` with whatever it receives |
 | `ScenarioSelector.tsx` | **Yes** | New "CATALOG SPECS" section rendering `CatalogEntry[]` |
 | `buildSelectedTests.ts` | **Yes** | New branch for catalog-backed selections → `testGenerator` |
 | `useRunnerOrchestration.ts` | **Yes** | Pass catalog entries + selections to `buildSelectedTests` |
 | `TestRunner.tsx` | **Yes** | Pass catalog props to `ScenarioSelector` |
-| `App.tsx` | **Yes** | Pass `CatalogEntry[]` to Test Runner |
+| `App.tsx` (`src/app/App.tsx`) | **Yes** | Pass `CatalogEntry[]` to Test Runner |
 
 ### Unified Host Resolution
 
@@ -239,9 +264,9 @@ The core utility that everything else depends on: converting `CatalogEndpoint` �
 Currently `Scenario` has no `catalogMeta` field (only `RequestItem` does). Add an optional field so generated scenarios carry traceability back to their origin spec.
 
 **Steps:**
-1. Open `src/shared/types/index.ts`, locate the `Scenario` interface (~line 283)
-2. Add `catalogMeta?: CatalogRequestMeta` as an optional field
-3. Also add two new fields to `CatalogRequestMeta` (~line 761) for entry/endpoint tracking:
+1. Open `src/shared/types/index.ts`, locate the `Scenario` interface (line 300)
+2. Add `catalogMeta?: CatalogRequestMeta` as an optional field after `sourceTestId`
+3. Also add three new fields to `CatalogRequestMeta` (line 778) for entry/endpoint tracking:
    - `catalogEntryId?: string` — links back to the `CatalogEntry.id`
    - `catalogEndpointId?: string` — links back to the `CatalogEndpoint.id`
    - `catalogVersion?: string` — records the spec version at generation time
@@ -467,11 +492,11 @@ After analyzing the codebase, the test generator will use two assertion mechanis
 
 | Mechanism | Used By | Already Supported |
 |---|---|---|
-| `Assertion` with `type: 'status'` | All levels | ✅ `evaluateAssertions` handles `status` via `matchesStatusPattern` |
-| `ExpectedField` with `operator: 'is_type'` | `full` level | ✅ `validateFields` handles `is_type` (~line 221) |
-| `ExpectedField` with `operator: 'exists'` | `full` level | ✅ `validateFields` handles `exists` (~line 214) |
-| `ExpectedField` with `operator: 'in'` | `full` level | ✅ `validateFields` handles `in` (~line 230) |
-| `ExpectedField` with `operator: 'regex'` | `full` level | ✅ `validateFields` handles `regex` (~line 194) |
+| `Assertion` with `type: 'status'` | All levels | ✅ `evaluateAssertions` in `validator.ts` handles `status` via `matchesStatusPattern` |
+| `ExpectedField` with `operator: 'is_type'` | `full` level | ✅ `evaluateFieldOperator` in `fieldOperatorEvaluation.ts` (line 187) |
+| `ExpectedField` with `operator: 'exists'` | `full` level | ✅ `evaluateFieldOperator` in `fieldOperatorEvaluation.ts` (line 181) |
+| `ExpectedField` with `operator: 'in'` | `full` level | ✅ `evaluateFieldOperator` in `fieldOperatorEvaluation.ts` (line 196) |
+| `ExpectedField` with `operator: 'regex'` | `full` level | ✅ `evaluateFieldOperator` in `fieldOperatorEvaluation.ts` (line 135) |
 
 The initial plan mentioned needing `type` and `oneOf` as new `Assertion` operators, but those are unnecessary because the `ExpectedField` system (used by selective validation mode) already provides `is_type` and `in` operators with full implementation. This avoids touching the stable `validator.ts` code.
 
@@ -796,7 +821,7 @@ This ensures catalog specs are available in both standard and parameterized runn
 
 #### 2.7 Update `App.tsx`
 
-**File:** `src/App.tsx`
+**File:** `src/app/App.tsx`
 
 **Step 1 — Resolve catalog base URL and auth for the currently selected catalog entry:**
 
@@ -1947,7 +1972,208 @@ Results Dashboard shows all 9 results
 
 ---
 
-## 10. Future Enhancements (Out of Scope)
+## 10. Competitive Analysis
+
+### 10.1 Market Landscape
+
+The API testing market has several tools that address parts of the OpenAPI-to-test workflow. This section analyzes competitors to validate our approach and identify differentiation opportunities.
+
+### 10.2 Commercial Tools
+
+| Tool | Vendor | Pricing | Key Approach |
+|------|--------|---------|--------------|
+| **ReadyAPI** | SmartBear | $$$$ (Enterprise) | Full-featured desktop IDE with AI-powered test generation, coverage dashboards |
+| **Postman + Portman** | Postman Labs | Freemium | Collection-centric; Portman CLI converts OpenAPI → Postman tests |
+| **noSwag** | noSwag.io | SaaS | AI-powered test generation, exports to pytest/Postman |
+| **Pactflow** | SmartBear | $$$$ | Consumer-driven contract testing with Pact broker |
+| **Swagger Contract Testing** | SmartBear | Part of Swagger tooling | AI-powered Pact generation from specs |
+
+#### ReadyAPI (SmartBear)
+
+**Strengths:**
+- ✅ Comprehensive coverage tracking (parameters, payloads, response codes)
+- ✅ AI-powered test generation from natural language + spec
+- ✅ Visual dashboard with coverage metrics
+- ✅ Enterprise features (team collaboration, CI/CD integration)
+
+**Weaknesses:**
+- ❌ Tests are **separate artifacts** from the spec (not virtual)
+- ❌ Expensive enterprise licensing
+- ❌ Windows-centric desktop application
+- ❌ No mixed hand-built + spec-generated test runs
+
+**Our Differentiator:** Virtual test source that regenerates tests from live spec each run, eliminating stale test copies.
+
+#### Postman + Portman
+
+**Strengths:**
+- ✅ Portman generates contract tests with minimal config
+- ✅ Familiar Postman UI for test execution
+- ✅ Good CI/CD integration via Postman CLI
+
+**Weaknesses:**
+- ❌ **One-way export** — OpenAPI → Postman collection (no sync)
+- ❌ No coverage tracking built-in
+- ❌ No drift detection
+- ❌ Tests become disconnected from spec after generation
+
+**Our Differentiator:** Bidirectional flow — tests stay connected to spec, can be saved to Harness when needed.
+
+#### Pactflow
+
+**Strengths:**
+- ✅ Industry-standard contract testing
+- ✅ Broker-based verification between services
+- ✅ Can generate Pact contracts from OpenAPI
+
+**Weaknesses:**
+- ❌ **Consumer-driven** — requires coordinating producer/consumer
+- ❌ Focused on inter-service contracts, not API testing
+- ❌ Complex setup for simple use cases
+- ❌ No GUI for interactive testing
+
+**Our Differentiator:** Simpler provider-side testing with immediate execution, no broker setup required.
+
+### 10.3 Open-Source Tools
+
+| Tool | Language | Key Approach | GitHub Stars |
+|------|----------|--------------|--------------|
+| **Dredd** | Node.js | Spec-as-test — validates API against documented examples | ~4.1k |
+| **Schemathesis** | Python | Property-based fuzzing from OpenAPI schemas | ~2.2k |
+| **Portman** | Node.js | OpenAPI → Postman collection converter | ~700 |
+| **swagger-coverage** | Python | Coverage reporting for pytest + requests | ~200 |
+| **TraceCov** | Web | Schema-level coverage analysis | New |
+
+#### Dredd — **Closest Conceptual Match**
+
+**How it works:**
+```bash
+dredd api-description.yml http://127.0.0.1:3000
+```
+Dredd treats the spec as the test. It makes HTTP requests based on documented examples and validates responses match the spec.
+
+**Strengths:**
+- ✅ **Spec IS the test** — no separate test creation (similar to our virtual source)
+- ✅ Automatic drift detection (tests fail when spec changes)
+- ✅ Multiple language hooks for setup/teardown
+
+**Weaknesses:**
+- ❌ **CLI-only** — no GUI, no interactive experience
+- ❌ No mixed test sources (can't combine with hand-built tests)
+- ❌ Limited assertion customization (pass/fail only)
+- ❌ No coverage tracking beyond pass/fail
+- ❌ No "Save to permanent test" capability
+- ❌ Maintenance concerns (less active development)
+
+**Our Differentiator:** GUI-integrated experience with 3-level assertions (basic/contract/full), mixed test runs, and Save to Harness capability.
+
+#### Schemathesis — **Most Sophisticated**
+
+**How it works:**
+```bash
+schemathesis run https://api.example.com/openapi.json
+```
+Uses property-based testing (Hypothesis) to generate thousands of test cases from schema constraints.
+
+**Strengths:**
+- ✅ **Tests regenerated fresh each run** (like our virtual source)
+- ✅ Property-based fuzzing finds edge cases humans miss
+- ✅ Schema-level coverage tracking
+- ✅ Adaptive testing learns from responses
+- ✅ Active development and community
+
+**Weaknesses:**
+- ❌ **Fuzzing-focused** — finds crashes/500s, not contract validation
+- ❌ CLI/Python only — no GUI
+- ❌ Can't mix with hand-built tests
+- ❌ No human-readable test names (generated hashes)
+- ❌ Overkill for simple "does endpoint return 200?" testing
+
+**Our Differentiator:** Contract testing focus with human-readable tests, GUI integration, and explicit control over assertion depth.
+
+#### swagger-coverage / TraceCov — **Coverage-Only**
+
+**How they work:**
+Record HTTP traffic during test runs and compare against OpenAPI spec to calculate coverage.
+
+**Strengths:**
+- ✅ Detailed coverage metrics (endpoints, parameters, status codes, schema keywords)
+- ✅ Works with any test framework (passive recording)
+- ✅ TraceCov has beautiful visualizations
+
+**Weaknesses:**
+- ❌ **Coverage only** — doesn't generate tests
+- ❌ Requires separate test execution tool
+- ❌ No assertions, just measurement
+
+**Our Differentiator:** Integrated test generation + coverage in one tool.
+
+### 10.4 Feature Comparison Matrix
+
+| Capability | ReadyAPI | Postman+Portman | Dredd | Schemathesis | **RedfireForge (Planned)** |
+|------------|----------|-----------------|-------|--------------|---------------------------|
+| **GUI Test Selection** | ✅ | ✅ | ❌ | ❌ | ✅ |
+| **Virtual Test Source** | ❌ | ❌ | ✅ | ✅ | ✅ |
+| **Mixed Test Runs** | ❌ | ❌ | ❌ | ❌ | ✅ |
+| **3-Level Assertions** | ⚠️ Manual | ⚠️ Manual | ❌ | ❌ | ✅ |
+| **Coverage Tracking** | ✅ | ⚠️ Via Portman | ❌ | ✅ | ✅ |
+| **Drift Detection** | ⚠️ Manual | ❌ | ✅ Auto | ✅ Auto | ✅ With test impact |
+| **Save to Permanent** | N/A | ❌ | ❌ | ❌ | ✅ |
+| **Bidirectional Nav** | ❌ | ❌ | ❌ | ❌ | ✅ |
+| **Load Testing** | ✅ | ❌ | ❌ | ❌ | ✅ |
+| **Schema Validation** | ✅ | ⚠️ | ✅ | ✅ | ✅ |
+| **Cost** | $$$$ | Free/$$$ | Free | Free | Free (OSS) |
+
+### 10.5 Unique Value Proposition
+
+Based on competitive analysis, RedfireForge's Catalog ↔ Harness integration offers a **unique combination** not found in any single tool:
+
+1. **Virtual + Permanent in One Tool**
+   - Competitors: Either spec-as-test (Dredd/Schemathesis) OR separate test artifacts (Postman/ReadyAPI)
+   - RedfireForge: Both — start virtual, save to permanent when needed
+
+2. **Mixed Test Runs**
+   - Competitors: Run spec tests OR hand-built tests separately
+   - RedfireForge: Mix both in same ScenarioSelector, same execution, same results
+
+3. **GUI-Integrated Contract Testing**
+   - Competitors: CLI tools (Dredd, Schemathesis) or expensive enterprise (ReadyAPI)
+   - RedfireForge: Free GUI with interactive test selection
+
+4. **Assertion Level Control**
+   - Competitors: All-or-nothing (full schema validation or pass/fail)
+   - RedfireForge: User-selectable basic/contract/full depth
+
+5. **Drift Detection with Test Impact**
+   - Competitors: Drift breaks tests (Dredd) or no drift detection (Postman)
+   - RedfireForge: "Parameter 'country' removed — 2 tests affected" with navigation
+
+6. **Load Testing Integration**
+   - Competitors: Separate load testing tools
+   - RedfireForge: Same catalog virtual tests can run in load-profile mode
+
+### 10.6 Risks and Mitigation
+
+| Risk | Mitigation |
+|------|------------|
+| **Schemathesis is "good enough"** | Target users who want GUI + mixed tests, not CLI power users |
+| **ReadyAPI has more features** | Position as free OSS alternative with virtual source innovation |
+| **Users prefer Postman workflow** | Support Postman collection export from catalog tests |
+| **Contract testing is niche** | Market as "spec coverage" and "API documentation validation" |
+
+### 10.7 Future Competitive Features (Inspired by Research)
+
+| Feature | Inspired By | Priority | Description |
+|---------|-------------|----------|-------------|
+| **Fuzz Testing Mode** | Schemathesis | Medium | Add `fuzz` level that generates boundary/negative cases |
+| **HAR Import for Coverage** | TraceCov | Low | Import HAR recordings to auto-match traffic to spec |
+| **Pact Export** | Pactflow | Low | Export generated tests as Pact contracts |
+| **Spec Linting** | Spectral | Medium | Lint spec quality before test generation |
+| **Adaptive Testing** | Schemathesis | Future | Learn from responses to refine test cases |
+
+---
+
+## 11. Future Enhancements (Out of Scope)
 
 | Feature | Description | When |
 |---|---|---|
@@ -1959,6 +2185,375 @@ Results Dashboard shows all 9 results
 | Contract test in CLI | `redfireforge contract spec.yaml --level full` | After Phase 2 |
 | Catalog virtual source in Workflow Runner | Select catalog endpoints as HTTP nodes in workflow tests | Future |
 | Per-entry host/auth in Test Runner | Let user configure different host/auth per catalog entry in the runner | After Phase 2 |
+| Fuzz testing mode | Add `fuzz` level with boundary/negative test generation (inspired by Schemathesis) | After Phase 2 |
+| HAR import for coverage | Import HAR recordings to auto-match traffic to spec (inspired by TraceCov) | Future |
+| Pact export | Export generated tests as Pact contracts (inspired by Pactflow) | Future |
+| Spec linting integration | Lint spec quality before test generation (inspired by Spectral) | After Phase 1 |
+
+---
+
+## 12. Implementation Status Audit (2026-05-16)
+
+### Current Codebase State
+
+| Component | Planned Location | Status | Notes |
+|---|---|---|---|
+| **Phase 1: Test Generator Engine** ||||
+| `catalogMeta` on `Scenario` type | `src/shared/types/index.ts` | ❌ **Missing** | `catalogMeta` exists on `RequestItem` (line 830) but NOT on `Scenario` (lines 300-327). Must add. |
+| `catalogEntryId`, `catalogEndpointId`, `catalogVersion` on `CatalogRequestMeta` | `src/shared/types/index.ts` | ❌ **Missing** | `CatalogRequestMeta` (lines 778-797) only has `sourceSpec`. Must add all three fields. |
+| `schemaStubGenerator.ts` | `src/features/catalog/utils/schemaStubGenerator.ts` | ✅ **Exists** | `generateStub()` and `generateStubJson()` implemented with allOf/oneOf/anyOf support. Can be reused. |
+| `catalogEndpointCollector.ts` | `src/features/catalog/utils/catalogEndpointCollector.ts` | ❌ **Not created** | Note: Similar `collectEndpoints()` exists in `catalogSpecDiff.ts` (line 3-13) but lacks `tagName`/`folderId` tracking. Extract + enhance. |
+| `testGenerator.ts` | `src/features/catalog/utils/testGenerator.ts` | ❌ **Not created** | |
+| **Phase 2: Virtual Test Source** ||||
+| `catalogTestCount.ts` | `src/features/catalog/utils/catalogTestCount.ts` | ❌ **Not created** | |
+| `ScenarioSelector` catalog section | `src/features/test-runner/components/ScenarioSelector.tsx` | ❌ **Not implemented** | Currently only renders YOUR TESTS and Gallery sections. |
+| `buildSelectedTests` catalog branch | `src/features/test-runner/utils/buildSelectedTests.ts` | ❌ **Not implemented** | Currently only processes `FeatureGroup[]`. |
+| `useRunnerOrchestration` catalog state | `src/features/test-runner/hooks/useRunnerOrchestration.ts` | ❌ **Not implemented** | No catalog-related state or props. |
+| `TestRunner` catalog props | `src/features/test-runner/TestRunner.tsx` | ❌ **Not implemented** | Props don't include `catalogEntries`. |
+| `ParameterizedRunner` catalog props | `src/features/test-runner/ParameterizedRunner.tsx` | ❌ **Not implemented** | Props don't include `catalogEntries`. |
+| `App.tsx` catalog→runner pass-through | `src/app/App.tsx` | ❌ **Not implemented** | `<TestRunner>` (lines 712-723) doesn't receive `catalogEntries`. Catalog entries available via `catalog.entries` from `useCatalog`. |
+| **Phase 3: Endpoint Detail View** ||||
+| `CatalogEndpointDetail.tsx` | `src/features/catalog/components/CatalogEndpointDetail.tsx` | ❌ **Not created** | |
+| `CatalogSpecContract.tsx` | `src/features/catalog/components/CatalogSpecContract.tsx` | ❌ **Not created** | |
+| `CatalogSchemaMatch.tsx` | `src/features/catalog/components/CatalogSchemaMatch.tsx` | ❌ **Not created** | |
+| `schemaValidator.ts` | `src/features/catalog/utils/schemaValidator.ts` | ❌ **Not created** | |
+| **Phase 4: Coverage Tracking** ||||
+| `coverage.ts` types | `src/features/catalog/types/coverage.ts` | ❌ **Not created** | |
+| `coverageAnalyzer.ts` | `src/features/catalog/utils/coverageAnalyzer.ts` | ❌ **Not created** | |
+| `CatalogCoverageSummary.tsx` | `src/features/catalog/components/CatalogCoverageSummary.tsx` | ❌ **Not created** | |
+| `CatalogTestCoverage.tsx` | `src/features/catalog/components/CatalogTestCoverage.tsx` | ❌ **Not created** | |
+| **Phase 5: Save to Harness** ||||
+| `resultClassifier.ts` | `src/features/results/utils/resultClassifier.ts` | ❌ **Not created** | |
+| `SaveToHarnessModal.tsx` | `src/features/results/components/SaveToHarnessModal.tsx` | ❌ **Not created** | |
+| **Phase 6: Drift Detection** ||||
+| `driftAnalyzer.ts` | `src/features/catalog/utils/driftAnalyzer.ts` | ❌ **Not created** | |
+| `DriftBanner.tsx` (catalog) | `src/features/catalog/components/DriftBanner.tsx` | ❌ **Not created** | Note: A different `DriftBanner.tsx` exists for Data Mapper schema drift. |
+| `EndpointDiff` test impact fields | `src/features/catalog/types/catalog.ts` | ❌ **Not added** | `EndpointDiff` exists (line 167) but lacks `affectedTestCount` and `affectedTests`. |
+| **Phase 7: Bidirectional Navigation** ||||
+| NavigationCommand pattern | `src/app/App.tsx` | ❌ **Not implemented** | |
+| "View in Catalog" from Harness | `src/features/scenarios/components/TestEditorModal.tsx` | ❌ **Not implemented** | |
+| "Run in Harness" from Catalog | `src/features/catalog/components/CatalogEndpointDetail.tsx` | ❌ **Not created** | |
+
+### Existing Infrastructure to Reuse
+
+| Component | Location | How to Reuse |
+|---|---|---|
+| `schemaStubGenerator.ts` | `src/features/catalog/utils/schemaStubGenerator.ts` | Call `generateStub()` in `testGenerator.ts` for request body generation. Already handles allOf/oneOf/anyOf, format-aware string stubs (date-time, email, uuid, uri, ipv4, ipv6). |
+| `catalogSpecDiff.ts` | `src/features/catalog/utils/catalogSpecDiff.ts` | Provides `diffCatalogEntries()` for spec diff computation. **Also has internal `collectEndpoints()` (line 3-13) that does folder traversal** — consider extracting to shared `catalogEndpointCollector.ts`. |
+| `catalogCurlGenerator.ts` | `src/features/catalog/utils/catalogCurlGenerator.ts` | **Key functions:** `buildFullUrl()` (line 154-175) for URL + path param + query construction, `resolveBaseUrl()` (line 123-152) for host resolution. `testGenerator.ts` should import these directly. |
+| `replaceHost()` | `src/shared/utils/urlUtils.ts` | Already used in `buildSelectedTests.ts` for host override. Same pattern for catalog tests. |
+| `resolveAuth()` | `src/features/requests/utils/authResolver.ts` | May need adaptation for catalog auth resolution. |
+| `ExpectedField` operators | `src/engine/fieldOperatorEvaluation.ts` | All operators confirmed: `is_type` (line 187), `exists` (line 181), `in` (line 196), `regex` (line 135). No new validators needed. |
+| `FieldOperator` type | `src/shared/types/index.ts` (lines 48-72) | Includes: `is_type`, `exists`, `in`, `not_in`, `regex`, plus 18 others. Full operator set available. |
+
+### Key Blockers for Phase 1
+
+Before any other phase can proceed, these must be completed:
+
+1. **Add `catalogMeta` to `Scenario` interface** (critical path)
+   - Without this, generated scenarios cannot carry traceability metadata
+   - Affects: coverage tracking, save-to-harness, drift detection, navigation
+
+2. **Extend `CatalogRequestMeta` with entry/endpoint IDs** (critical path)
+   - Add `catalogEntryId?: string`
+   - Add `catalogEndpointId?: string`  
+   - Add `catalogVersion?: string`
+   - These enable cross-referencing between generated tests and their spec origin
+
+3. **Create `collectAllEndpoints` helper** (dependency for test generator)
+   - Flattens nested `CatalogFolder[]` tree to `TaggedEndpoint[]`
+   - Used by: testGenerator, ScenarioSelector rendering, coverageAnalyzer
+
+4. **Create `testGenerator.ts`** (core engine)
+   - The 3-level generation logic (basic/contract/full)
+   - URL construction with path param substitution
+   - Assertion generation using `ExpectedField[]`
+
+### Recommendation: Implementation Order
+
+```
+Week 1: Phase 1.1-1.4 (Type updates + testGenerator + tests)
+        ↓
+Week 2: Phase 2.1-2.4 (ScenarioSelector + buildSelectedTests)
+        ↓
+Week 3: Phase 2.5-2.8 (Runner integration + App.tsx wiring)
+        ↓
+Week 4: Phase 3 (Detail view + schema validation)
+        ↓
+Week 5: Phase 4 (Coverage tracking)
+        ↓
+Week 6: Phase 5-6 (Save to Harness + Drift detection)
+        ↓
+Week 7: Phase 7 (Bidirectional navigation polish)
+```
+
+---
+
+## 13. Data Mapper Integration
+
+### 13.1 Overview
+
+The **Data Mapper** component is a visual tool for creating field-level mappings and validation rules. It has an **adapter pattern** that allows different use cases to plug into the same visual UI. The existing `validationAdapter.ts` already bridges the Data Mapper to the validation workflow.
+
+**Unified Experience Principle:** Users should configure assertions for catalog-generated tests using the **exact same Data Mapper UI** they use for hand-built Harness tests. No separate "catalog assertion editor" — just one tool, one workflow, one learning curve.
+
+**Key Integration Opportunity:** Instead of generating `ExpectedField[]` assertions in `testGenerator.ts` with hardcoded logic, we can leverage the Data Mapper's existing infrastructure to:
+
+1. **Visually configure assertions** for catalog-generated tests — same UI as Harness
+2. **Reuse the DSL parser/serializer** (`validationDsl.ts`) for code view — same syntax
+3. **Leverage operator evaluation** already implemented in `fieldOperatorEvaluation.ts` — same 24 operators
+
+### 13.2 Existing Data Mapper Capabilities (Reusable)
+
+| Component | Location | How It Helps |
+|-----------|----------|--------------|
+| `validationAdapter.ts` | `src/shared/components/data-mapper/adapters/validationAdapter.ts` | Converts `Mapping[]` → `ExpectedField[]` with operator support |
+| `validationDsl.ts` | `src/shared/components/data-mapper/utils/validationDsl.ts` | DSL parser/serializer for text-based rule editing |
+| `ValidationRulesModal.tsx` | `src/shared/components/data-mapper/ValidationRulesModal.tsx` | 3-mode UI (docked/floating/maximized) with DSL Reference panel |
+| `ValidationCodeEditor.tsx` | `src/shared/components/data-mapper/ValidationCodeEditor.tsx` | Monaco-based DSL editor with syntax highlighting + autocomplete |
+| `useValidationVerify.ts` | `src/shared/components/data-mapper/hooks/useValidationVerify.ts` | Verification engine: evaluates operators, shows pass/fail counts |
+| `DslReferencePanel.tsx` | `src/shared/components/data-mapper/DslReferencePanel.tsx` | 10-category, 39-entry reference for operators |
+| All 24 `FieldOperator` types | `src/shared/types/index.ts` | `equals`, `is_type`, `exists`, `in`, `regex`, `between`, etc. |
+
+### 13.3 Proposed Integration: Catalog Validation Adapter
+
+Create a new **`catalogValidationAdapter.ts`** that generates validation rules from OpenAPI response schemas:
+
+**File:** `src/shared/components/data-mapper/adapters/catalogValidationAdapter.ts` (new)
+
+```typescript
+export interface CatalogValidationAdapterOptions {
+  responseSchema: SchemaObject;        // from CatalogResponse.schema
+  sampleResponseBody?: unknown;        // live response or generated stub
+  specResponses: CatalogResponse[];    // all expected responses for status code mapping
+  level: GenerationLevel;              // basic / contract / full
+}
+
+export function createCatalogValidationAdapter(
+  opts: CatalogValidationAdapterOptions,
+): MapperAdapter<ValidationAdapterOutput>;
+```
+
+**Behavior:**
+
+| Level | Adapter Behavior |
+|-------|------------------|
+| `basic` | Empty mappings — no field-level assertions |
+| `contract` | Auto-generate `exists` for required fields, `is_type` for all fields |
+| `full` | Full schema walk: `exists` + `is_type` + `in` (enums) + `regex` (patterns) |
+
+**How it differs from `validationAdapter.ts`:**
+
+| Aspect | `validationAdapter` | `catalogValidationAdapter` |
+|--------|---------------------|---------------------------|
+| **Source** | User-provided sample JSON | OpenAPI schema (with optional sample) |
+| **Target** | User-defined expected fields | Schema-derived expected fields |
+| **Auto-map** | Name matching | Schema constraint-based (required, enum, pattern) |
+| **Mode** | Manual field selection | Level-based auto-generation |
+
+### 13.4 Integration Points with Existing Phases
+
+#### Phase 1.3: testGenerator.ts Enhancement
+
+Instead of hardcoding assertion generation in `testGenerator.ts`, delegate to the catalog validation adapter:
+
+```typescript
+// In testGenerator.ts — generateTestsFromEndpoint()
+
+import { createCatalogValidationAdapter } from '../../shared/components/data-mapper/adapters/catalogValidationAdapter';
+
+// For 'full' level, use the adapter to generate ExpectedField[]
+if (options.level === 'full' && responseSchema) {
+  const adapter = createCatalogValidationAdapter({
+    responseSchema,
+    sampleResponseBody: generateStub(responseSchema),
+    specResponses: endpoint.responses,
+    level: 'full',
+  });
+  
+  // Generate initial mappings from schema
+  const autoMappings = adapter.autoMapFromSchema?.() ?? [];
+  
+  // Serialize to ExpectedField[]
+  const { expectedFields } = adapter.serialize(autoMappings);
+  
+  scenario.validation.expectedFields = expectedFields;
+  scenario.validation.mode = 'selective';
+  scenario.validation.selectiveMode = 'include';
+}
+```
+
+#### Phase 3.2: CatalogEndpointDetail Enhancement
+
+Add a **"Configure Assertions"** button that opens the Data Mapper with `catalogValidationAdapter`:
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  ← Back to Endpoints                                    │
+│                                                          │
+│  [GET]  /vehicles/{vin}/offers                          │
+│  [▶ Send]  [Configure Assertions]  [cURL]              │
+│                                                          │
+│  ...                                                     │
+└─────────────────────────────────────────────────────────┘
+```
+
+Clicking **"Configure Assertions"** opens `DataMapperModal` with the catalog validation adapter:
+
+```typescript
+<DataMapperModal
+  adapter={createCatalogValidationAdapter({
+    responseSchema: endpoint.responses.find(r => r.statusCode === '200')?.schema,
+    sampleResponseBody: lastResponse?.body,
+    specResponses: endpoint.responses,
+    level: selectedLevel,
+  })}
+  initialMappings={existingMappings}
+  onSave={(mappings) => {
+    // Store customized assertions for this endpoint
+    setEndpointAssertions(endpoint.id, mappings);
+  }}
+/>
+```
+
+#### Phase 4: Coverage with Assertion Depth
+
+Extend coverage tracking to consider assertion depth:
+
+| Coverage Level | Criteria |
+|----------------|----------|
+| `untested` | No tests for this endpoint |
+| `basic` | Has test with status assertion only |
+| `contract` | Has test with type/existence assertions |
+| `full` | Has test with enum/pattern assertions |
+
+### 13.5 User Workflow with Data Mapper
+
+**Scenario: User wants to customize assertions for a catalog endpoint**
+
+1. User selects endpoint in Catalog → "Configure Assertions"
+2. Data Mapper opens with schema-derived source tree (left) and target tree (right)
+3. Auto-generated mappings show `is_type`, `exists` checks from schema
+4. User can:
+   - **Drag additional fields** to add assertions
+   - **Change operators** (e.g., `equals` → `contains`)
+   - **Add custom expressions** (e.g., `$.price > 0`)
+   - **Edit in DSL mode** (code editor with autocomplete)
+5. User clicks "Done" → assertions saved
+6. When running catalog tests, custom assertions override auto-generated ones
+
+### 13.6 Benefits of Data Mapper Integration
+
+| Benefit | Description |
+|---------|-------------|
+| **Unified Experience** | Same visual UI for catalog tests and hand-built tests — users learn one tool |
+| **No code duplication** | Reuse 180+ existing Data Mapper files instead of recreating assertion logic |
+| **Visual editing** | Users can see schema structure and configure assertions visually |
+| **DSL support** | Power users can write assertions in text format with autocomplete |
+| **Operator parity** | All 24 `FieldOperator` types available without extra work |
+| **Live verification** | `useValidationVerify` shows pass/fail counts against sample data |
+| **Schema drift** | Existing `schemaDrift.ts` can detect when response schema changes |
+| **Profiles** | Users can save assertion profiles per endpoint (via `mappingProfiles.ts`) |
+| **Results consistency** | Same `AssertionResult[]` format flows to Results Explorer for both test types |
+
+### 13.7 Implementation Checklist
+
+| Task | Phase | Effort | Description |
+|------|-------|--------|-------------|
+| Create `catalogValidationAdapter.ts` | 1 | Medium | New adapter for schema → mappings |
+| Add `autoMapFromSchema()` method | 1 | Small | Schema-based auto-mapping (required, types, enums) |
+| Integrate adapter in `testGenerator.ts` | 1 | Small | Delegate `full` level assertion generation |
+| Add "Configure Assertions" to `CatalogEndpointDetail` | 3 | Small | Button + modal integration |
+| Store per-endpoint custom assertions | 3 | Small | Persist in `CatalogEntry.customAssertions` |
+| Extend coverage levels | 4 | Small | Track assertion depth in coverage |
+
+---
+
+## 14. Missing Plan Items Identified
+
+### 14.1 Workflow Runner Integration (Future Enhancement)
+
+The plan mentions "Catalog virtual source in Workflow Runner" as a future enhancement but lacks detail. When implemented:
+
+- Workflow HTTP nodes should be able to reference catalog endpoints
+- The node editor would show a "From Catalog" option
+- Selecting a catalog endpoint would:
+  - Pre-fill URL, method, headers from the endpoint
+  - Attach `catalogMeta` for traceability
+  - Enable response schema validation against spec
+
+**Suggested location:** `src/features/workflow/components/HttpNodeConfig.tsx`
+
+### 14.2 Catalog CLI Commands (Future Enhancement)
+
+For CI/CD integration, add CLI commands:
+
+```bash
+# Run contract tests from catalog
+redfireforge catalog run <spec-file-or-url> --level full --output results.json
+
+# Check coverage
+redfireforge catalog coverage --harness harness.json --spec spec.yaml --min-coverage 80
+
+# Detect drift
+redfireforge catalog drift --old-spec v1.yaml --new-spec v2.yaml --harness harness.json
+```
+
+**Suggested location:** `cli/commands/catalog.ts` (new)
+
+### 14.3 Per-Entry Host/Auth Override in Test Runner
+
+When multiple catalog entries are selected, the user may want different host/auth per entry:
+
+```
+CATALOG SPECS
+☑ Sales Auto Assign v1.0.0     [Host: staging-sales.api.com ▼]  [Auth: Sales Bearer ▼]
+  ☑ VehiclePurchaseOffers
+  ☑ TrialOffers
+☑ Inventory Service v2.1.0     [Host: staging-inv.api.com ▼]   [Auth: Inventory Key ▼]
+  ☑ GetInventory
+```
+
+This requires extending `RunnerOrchestrationOptions` with `catalogEntryOverrides: Map<entryId, { baseUrl, auth }>`.
+
+### 14.4 Catalog Test Results Grouping
+
+When displaying results from mixed Harness + Catalog runs:
+
+- Results should show a "Source" badge: `[Harness]` or `[Catalog v1.0.0]`
+- Catalog results should show the spec response expectation alongside the actual response
+- Filter controls: "Show Harness Only" | "Show Catalog Only" | "Show All"
+
+**Affected files:**
+- `src/features/results/components/ResultsTable.tsx`
+- `src/features/results/components/ResultsDashboard.tsx`
+
+### 14.5 Schema Validation Severity Levels
+
+For `schemaValidator.ts`, add configurable severity:
+
+| Issue | Strict Mode | Lenient Mode |
+|---|---|---|
+| Missing required field | FAIL | FAIL |
+| Wrong type | FAIL | FAIL |
+| Extra field not in schema | FAIL | WARN |
+| Nullable field is null | PASS | PASS |
+| Enum value not in list | FAIL | WARN |
+
+User setting: `catalogValidationStrictness: 'strict' | 'lenient'`
+
+### 14.6 Test Generator Parameter Strategies
+
+For `full` level, the test generator should support different parameter value strategies:
+
+| Strategy | Description |
+|---|---|
+| `example-first` | Use spec examples, fall back to defaults, then placeholders |
+| `boundary` | Generate min/max values for numeric params, empty/max-length for strings |
+| `negative` | Generate invalid values to test error handling (e.g., wrong types, out-of-range) |
+| `combinatorial` | Generate multiple tests covering different enum value combinations |
+
+This is an advanced enhancement for Phase 1.3 — initially implement `example-first` only.
 
 ---
 
@@ -1966,6 +2561,10 @@ Results Dashboard shows all 9 results
 
 | Date | Change |
 |------|--------|
+| 2026-05-16 | **Unified Harness Experience principle.** Added new design principle section emphasizing that catalog-generated tests and hand-built tests should feel identical to users: same ScenarioSelector, same Data Mapper, same results, same host/auth override, same execution modes. "No second-class citizens." Updated Section 13 (Data Mapper Integration) to reinforce this unified approach. |
+| 2026-05-16 | **Data Mapper integration.** Added Section 13 documenting how to leverage the existing Data Mapper component (180+ files) for catalog validation. Proposed `catalogValidationAdapter.ts` that generates mappings from OpenAPI schemas. Identified integration points with Phases 1, 3, and 4. Added implementation checklist with 6 tasks. Benefits: visual editing, DSL support, 24 operators, live verification, schema drift detection, profiles. Renumbered Section 14 (Missing Items). |
+| 2026-05-16 | **Competitive analysis.** Added Section 10 with comprehensive market research: analyzed ReadyAPI, Postman+Portman, Pactflow (commercial) and Dredd, Schemathesis, swagger-coverage, TraceCov (open-source). Created feature comparison matrix. Identified unique value proposition: virtual + permanent in one tool, mixed test runs, GUI-integrated contract testing, assertion level control, drift detection with test impact, load testing integration. Added 4 new future enhancements inspired by competitors: fuzz testing mode, HAR import, Pact export, spec linting. Renumbered sections 11→12, 12→13. |
+| 2026-05-16 | **Implementation status audit.** Added Section 12 with detailed codebase audit showing all phases are unimplemented. Confirmed `schemaStubGenerator.ts` exists and can be reused. Identified that `catalogMeta` is missing from `Scenario` type (only on `RequestItem`). Added Section 14 with 6 missing plan items: Workflow Runner integration, CLI commands, per-entry host/auth, results grouping, validation severity, and parameter strategies. Updated status to "Not Started". |
 | 2026-05-13 | **Unified host resolution.** Added "Unified Host Resolution" section to Architecture Decision: catalog tests use catalog's `hostConfig` as default URL, but the Test Runner's HostSelector can override it (same `replaceHost()` logic as Harness tests). Updated Phase 2.3 `buildSelectedTests` with two-step host resolution (generate with catalog URL, then apply runner override). Added 4 new host-related unit tests. |
 | 2026-05-13 | **Thorough detail pass.** Expanded all 7 phases with precise implementation steps, file paths, code signatures, design decisions (Assertion vs ExpectedField system), edge cases, and per-phase unit/E2E test matrices. Added `catalogEndpointCollector`, `catalogTestCount`, `resultClassifier`, `driftAnalyzer` utilities. Corrected assertion strategy: test generator uses existing `ExpectedField` operators (`is_type`, `in`, `exists`, `regex`) — no new operators needed in `validator.ts`. Added NavigationCommand pattern for Phase 7. Updated component architecture table with phase assignments. |
 | 2026-05-13 | Restructured plan around **Option 4: Virtual Test Source**. Catalog specs become a second test source directly in `ScenarioSelector`. Tests generated on-the-fly from live spec at run time, never saved. Reordered phases: (1) Test Generator Engine, (2) Virtual Test Source in ScenarioSelector, (3) Detail View, (4) Coverage, (5) Save to Harness bridge, (6) Drift, (7) Navigation. Added complete end-to-end data flow and modified component list. |
@@ -1974,4 +2573,4 @@ Results Dashboard shows all 9 results
 
 ---
 
-_Created: 2026-05-13 | Status: **Draft — Option 4 (Virtual Test Source), Detailed** | Related: [Workflow-Harness Integration](finished/workflow-harness-integration-plan.md), [Catalog Guide](../guides/catalog-guide.md)_
+_Created: 2026-05-13 | Last Updated: 2026-05-16 | Status: **Not Started — Detailed Plan Complete** | Related: [Workflow-Harness Integration](finished/workflow-harness-integration-plan.md), [Catalog Guide](../guides/catalog-guide.md)_

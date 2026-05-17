@@ -38,6 +38,7 @@ Welcome to the RedfireForge documentation. These guides cover all features of th
 | [Parameterized Testing Guide](./parameterized-testing-guide.md) | Data sources, CSV/JSON import, variable substitution |
 | [Assertions Guide](./assertions-guide.md) | Assertion types, JSONPath, regex, custom assertions |
 | [Validation Modes Guide](./validation-modes-guide.md) | None, selective, full validation modes |
+| [Data Mapper Validation Guide](./data-mapper-validation-guide.md) | Visual validation with 24 operators, array assertions, DSL rules, live verification, ASSERT expressions |
 | [Shared Data Sources Guide](./shared-data-sources-guide.md) | Creating and using shared data sources |
 
 ### Workflow Designer
@@ -131,8 +132,9 @@ Welcome to the RedfireForge documentation. These guides cover all features of th
 3. [Request Auth Guide](./request-auth-guide.md) — Configure auth
 4. [Scenarios Guide](./scenarios-guide.md) — Organize tests
 5. [Assertions Guide](./assertions-guide.md) — Validate responses
-6. [Test Runner Guide](./test-runner-guide.md) — Run tests
-7. [Results Guide](./results-guide.md) — Analyze results
+6. [Data Mapper Validation Guide](./data-mapper-validation-guide.md) — Visual validation with operators, DSL, and live verification
+7. [Test Runner Guide](./test-runner-guide.md) — Run tests
+8. [Results Guide](./results-guide.md) — Analyze results
 
 ### For Performance Testing
 

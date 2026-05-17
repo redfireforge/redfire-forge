@@ -1149,55 +1149,35 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
 .assertion-select--unit { flex: 0 0 auto; min-width: 70px; }
 .assertion-select--precision { flex: 0 0 auto; min-width: 95px; }
 
-/* Custom Predicate Assertion */
-.assertion-field--custom {
-  display: flex; flex-direction: column; gap: 8px; flex: 1; min-width: 0;
+/* Custom Predicate Assertion — compact inline layout */
+.assertion-field--custom-inline {
+  display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0;
 }
-.assertion-custom-expression-wrap {
-  display: flex; flex-direction: column; gap: 4px; flex: 1;
-}
-.assertion-custom-description-wrap {
-  display: flex; align-items: center; gap: 8px;
-}
-.assertion-custom-description-wrap .assertion-field-label {
-  flex-shrink: 0; min-width: 72px;
-}
-.assertion-field-label--mono {
+.assertion-input--expression-inline {
+  flex: 1; min-width: 140px;
   font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
-  letter-spacing: .3px;
+  font-size: 12px; letter-spacing: -.2px;
 }
-.assertion-textarea--expression {
-  background: var(--surface); border: 1px solid var(--border); border-radius: 6px;
-  padding: 8px 10px; color: var(--text); font-size: 12px; font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
-  line-height: 1.5; resize: vertical; min-height: 48px;
-  transition: border-color .15s, box-shadow .15s;
-}
-.assertion-textarea--expression:focus {
-  border-color: #d946ef; outline: none;
+.assertion-input--expression-inline:focus {
+  border-color: #d946ef;
   box-shadow: 0 0 0 2px rgba(217, 70, 239, .15);
 }
-.assertion-textarea--expression::placeholder {
-  color: var(--text-muted); font-style: italic; opacity: .6;
+.assertion-input--expression-inline::placeholder {
+  font-style: italic; opacity: .55;
 }
-.assertion-input--description {
-  flex: 1; min-width: 120px;
+.assertion-input--desc-inline {
+  flex: 1 1 200px; min-width: 120px;
+  font-size: 11px; color: var(--text, #e2e8f0);
 }
-.assertion-custom-hint {
-  display: flex; align-items: flex-start; gap: 6px; padding: 6px 10px;
-  background: var(--surface); border-radius: 6px; border: 1px solid var(--border);
-  font-size: 11px; color: var(--text-muted); line-height: 1.5;
-}
-.assertion-custom-hint code {
-  font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
-  font-size: 10.5px; background: #d946ef12; color: #e879f9;
-  padding: 1px 4px; border-radius: 3px; white-space: nowrap;
-}
-.assertion-custom-hint-icon {
+.assertion-input--desc-inline::placeholder { color: #8892a4; opacity: 1; }
+.assertion-custom-hint-tip {
   flex-shrink: 0; width: 16px; height: 16px; display: inline-flex;
   align-items: center; justify-content: center; border-radius: 50%;
   background: #d946ef20; color: #e879f9; font-size: 10px; font-weight: 700;
-  font-style: italic; line-height: 1;
+  font-style: italic; line-height: 1; cursor: help;
+  transition: background .15s;
 }
+.assertion-custom-hint-tip:hover { background: #d946ef40; }
 
 /* Lambda icon in Add Assertion menu */
 .aam-icon--lambda {

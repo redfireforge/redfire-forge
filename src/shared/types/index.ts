@@ -77,6 +77,8 @@ export interface ExpectedField {
   operator?: FieldOperator;
   operatorValue?: string;
   negate?: boolean;
+  /** Original mapper expression (e.g. `$maxBy(...)`) — preserved for DSL round-trip. */
+  expression?: string;
 }
 
 export type SelectiveMode = 'include' | 'exclude';
