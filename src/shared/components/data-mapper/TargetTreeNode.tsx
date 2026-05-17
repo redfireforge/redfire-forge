@@ -12,8 +12,9 @@ import {
 import InlineAssertionRow from './InlineAssertionRow';
 import TargetNodeOperatorPicker from './TargetNodeOperatorPicker';
 import TargetNodeContextMenu from './TargetNodeContextMenu';
+import OperatorValueEditor from './OperatorValueEditor';
 import { useTargetNodeDnD } from './hooks/useTargetNodeDnD';
-
+import { useOperatorEditing } from './hooks/useOperatorEditing';
 const PARENT_NODE_ALLOWED_OPS = new Set([
   'is_empty', 'is_not_empty', 'is_type', 'is_null', 'is_not_null',
 ]);
@@ -70,18 +71,11 @@ export default function TargetTreeNode({
 }: TargetTreeNodeProps) {
   const [renaming, setRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState('');
-  const [showOperatorPicker, setShowOperatorPicker] = useState(false);
-  const [operatorSearch, setOperatorSearch] = useState('');
-  const [editingOperatorValue, setEditingOperatorValue] = useState(false);
-  const [localOperatorValue, setLocalOperatorValue] = useState('');
-  const [pickerPos, setPickerPos] = useState<{ top: number; left: number; openUp: boolean }>({ top: 0, left: 0, openUp: false });
   const [showContextMenu, setShowContextMenu] = useState(false);
   const [contextMenuPos, setContextMenuPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const contextMenuRef = useRef<HTMLDivElement>(null);
   const renameInputRef = useRef<HTMLInputElement>(null);
   const operatorPillRef = useRef<HTMLButtonElement>(null);
-  const operatorValueRef = useRef<HTMLInputElement>(null);
-  const pickerRef = useRef<HTMLDivElement>(null);
   const hasChildren = (node.children?.length ?? 0) > 0;
   const isExpanded = expandedPaths.has(node.path || '__root__');
   const isLeaf = !hasChildren;
@@ -189,116 +183,14 @@ export default function TargetTreeNode({
     }
   }, [mapping, onEditExpression, isRenamableField, handleStartRename]);
 
-  const currentOp = mapping?.operator
-    ?? (mapping?.isAutoMapped ? capabilities?.autoMapDefaultOperator : undefined)
-    ?? 'equals';
-  const currentOpMeta = OPERATOR_REGISTRY[currentOp] ?? OPERATOR_REGISTRY['equals'];
-  const showOperators = capabilities?.operators && !!mapping && !!onUpdateMappingOperator;
-
-  const handleOperatorSelect = useCallback((op: FieldOperator) => {
-    if (!mapping || !onUpdateMappingOperator) return;
-    const meta = OPERATOR_REGISTRY[op];
-    if (meta.needsValue) {
-      const existingValue = mapping.operatorValue ?? '';
-      onUpdateMappingOperator(mapping.id, op, existingValue);
-      setLocalOperatorValue(existingValue);
-      if (!existingValue) {
-        setEditingOperatorValue(true);
-      }
-    } else {
-      onUpdateMappingOperator(mapping.id, op, undefined);
-      setEditingOperatorValue(false);
-      setLocalOperatorValue('');
-    }
-    setShowOperatorPicker(false);
-    setOperatorSearch('');
-  }, [mapping, onUpdateMappingOperator]);
-
-  const isRangeOperator = currentOp === 'between' || currentOp === 'close_to';
-  const rangeSecondRef = useRef<HTMLInputElement>(null);
-  const typeSelectRef = useRef<HTMLSelectElement>(null);
-
-  const toggleOperatorPicker = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (!showOperatorPicker && operatorPillRef.current) {
-      const rect = operatorPillRef.current.getBoundingClientRect();
-      const dmBody = operatorPillRef.current.closest('.dm-body');
-      const sourcePanel = dmBody?.querySelector('.dm-panel-wrapper');
-      const sourcePanelRect = sourcePanel?.getBoundingClientRect();
-      const pickerWidth = 240;
-      const pickerHeight = 400;
-      let left: number;
-      if (sourcePanelRect) {
-        const fitWidth = Math.min(pickerWidth, sourcePanelRect.width - 16);
-        left = sourcePanelRect.left + 8;
-        if (fitWidth < pickerWidth) {
-          left = sourcePanelRect.left + 4;
-        }
-      } else {
-        left = 8;
-      }
-      const spaceBelow = window.innerHeight - rect.top;
-      const openUp = spaceBelow < pickerHeight && rect.top > spaceBelow;
-      setPickerPos({
-        top: openUp ? Math.max(8, rect.top - pickerHeight + 30) : rect.top,
-        left: Math.max(8, left),
-        openUp,
-      });
-    }
-    setShowOperatorPicker(prev => !prev);
-  }, [showOperatorPicker]);
-
-  const handleOperatorValueCommit = useCallback(() => {
-    if (!mapping || !onUpdateMappingOperator) return;
-    onUpdateMappingOperator(mapping.id, mapping.operator, localOperatorValue);
-    setEditingOperatorValue(false);
-  }, [mapping, onUpdateMappingOperator, localOperatorValue]);
-
-  const handleRangeCommit = useCallback((part1: string, part2: string) => {
-    if (!mapping || !onUpdateMappingOperator) return;
-    const combined = `${part1.trim()}, ${part2.trim()}`;
-    onUpdateMappingOperator(mapping.id, mapping.operator, combined);
-    setEditingOperatorValue(false);
-  }, [mapping, onUpdateMappingOperator]);
-
-  const handleOperatorValueKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') { e.preventDefault(); handleOperatorValueCommit(); }
-    else if (e.key === 'Escape') { e.preventDefault(); setEditingOperatorValue(false); }
-  }, [handleOperatorValueCommit]);
-
-  const startEditOperatorValue = useCallback(() => {
-    if (!mapping) return;
-    setLocalOperatorValue(mapping.operatorValue ?? '');
-    setEditingOperatorValue(true);
-  }, [mapping]);
-
-  useEffect(() => {
-    if (editingOperatorValue) {
-      if (currentOp === 'is_type') {
-        typeSelectRef.current?.focus();
-      } else {
-        operatorValueRef.current?.focus();
-      }
-    }
-  }, [editingOperatorValue, currentOp]);
-
-  useEffect(() => {
-    if (!showOperatorPicker) return;
-    const handleClickOutside = (e: MouseEvent) => {
-      if (pickerRef.current && !pickerRef.current.contains(e.target as Node) &&
-          operatorPillRef.current && !operatorPillRef.current.contains(e.target as Node)) {
-        setShowOperatorPicker(false);
-        setOperatorSearch('');
-      }
-    };
-    const timer = setTimeout(() => {
-      document.addEventListener('mousedown', handleClickOutside);
-    }, 50);
-    return () => {
-      clearTimeout(timer);
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [showOperatorPicker]);
+  const {
+    currentOp, currentOpMeta, showOperators, isRangeOperator,
+    showOperatorPicker, operatorSearch, editingOperatorValue, localOperatorValue,
+    pickerPos, rangeSecondRef, typeSelectRef, operatorValueRef, pickerRef,
+    setPickerPos, setOperatorSearch, setShowOperatorPicker, setLocalOperatorValue, setEditingOperatorValue,
+    handleOperatorSelect, toggleOperatorPicker, handleOperatorValueCommit,
+    handleRangeCommit, handleOperatorValueKeyDown, startEditOperatorValue, handleTypeSelectChange,
+  } = useOperatorEditing({ mapping, capabilities, onUpdateMappingOperator, operatorPillRef });
 
   useEffect(() => {
     if (!showContextMenu) return;
@@ -469,68 +361,26 @@ export default function TargetTreeNode({
                     <span className="dm-op-icon">{currentOpMeta.icon}</span> {currentOpMeta.label}
                   </button>
                 )}
-                {showOperators && isRangeOperator ? (
-                  editingOperatorValue ? (
-                    <span className="dm-range-inputs" onClick={(e) => e.stopPropagation()}>
-                      <input
-                        ref={rangeSecondRef}
-                        className="dm-operator-value-input dm-range-input"
-                        defaultValue={(localOperatorValue.split(',')[1] ?? '').trim()}
-                        placeholder={currentOp === 'between' ? 'max' : 'tolerance'}
-                        type="number"
-                        aria-label={currentOp === 'between' ? 'max' : 'tolerance'}
-                        autoFocus
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            const tol = rangeSecondRef.current?.value ?? '';
-                            onUpdateMappingOperator?.(mapping.id, mapping.operator, `, ${tol.trim()}`);
-                            setEditingOperatorValue(false);
-                          } else if (e.key === 'Escape') { e.preventDefault(); setEditingOperatorValue(false); }
-                        }}
-                        onBlur={() => {
-                          const tol = rangeSecondRef.current?.value ?? '';
-                          onUpdateMappingOperator?.(mapping.id, mapping.operator, `, ${tol.trim()}`);
-                          setEditingOperatorValue(false);
-                        }}
-                      />
-                    </span>
-                  ) : (
-                    <span
-                      className="dm-operator-value-display"
-                      title="Click to set tolerance"
-                      onClick={(e) => { e.stopPropagation(); startEditOperatorValue(); }}
-                    >
-                      {(() => {
-                        const parts = (mapping.operatorValue ?? '').split(',');
-                        const tol = (parts[1] ?? '').trim();
-                        return tol ? `± ${tol}` : 'set tolerance…';
-                      })()}
-                    </span>
-                  )
-                ) : showOperators && currentOpMeta.needsValue && !isRangeOperator ? (
-                  editingOperatorValue ? (
-                    <input
-                      ref={operatorValueRef}
-                      className="dm-operator-value-input"
-                      value={localOperatorValue}
-                      onChange={(e) => setLocalOperatorValue(e.target.value)}
-                      onKeyDown={handleOperatorValueKeyDown}
-                      onBlur={handleOperatorValueCommit}
-                      onClick={(e) => e.stopPropagation()}
-                      placeholder="Enter value"
-                      aria-label="Operator comparison value"
-                    />
-                  ) : (
-                    <span
-                      className="dm-operator-value-display"
-                      title="Click to edit value"
-                      onClick={(e) => { e.stopPropagation(); startEditOperatorValue(); }}
-                    >
-                      {mapping.operatorValue || 'set value…'}
-                    </span>
-                  )
-                ) : null}
+                {showOperators && (
+                  <OperatorValueEditor
+                    mapping={mapping}
+                    currentOp={currentOp}
+                    currentOpMeta={currentOpMeta}
+                    isRangeOperator={isRangeOperator}
+                    editingOperatorValue={editingOperatorValue}
+                    localOperatorValue={localOperatorValue}
+                    operatorValueRef={operatorValueRef}
+                    rangeSecondRef={rangeSecondRef}
+                    typeSelectRef={typeSelectRef}
+                    setLocalOperatorValue={setLocalOperatorValue}
+                    setEditingOperatorValue={setEditingOperatorValue}
+                    handleTypeSelectChange={handleTypeSelectChange}
+                    handleOperatorValueCommit={handleOperatorValueCommit}
+                    handleOperatorValueKeyDown={handleOperatorValueKeyDown}
+                    handleRangeCommit={handleRangeCommit}
+                    startEditOperatorValue={startEditOperatorValue}
+                  />
+                )}
                 <span className="dm-mapped-src-ref" title={mapping.expression}>{mapping.sourcePath}</span>
               </>
             ) : (
@@ -560,105 +410,27 @@ export default function TargetTreeNode({
                     <span className="dm-op-icon">{currentOpMeta.icon}</span> {currentOpMeta.label}
                   </button>
                 )}
-                {showOperators && currentOpMeta.needsValue ? (
-                  editingOperatorValue ? (
-                    currentOp === 'is_type' ? (
-                      <select
-                        ref={typeSelectRef}
-                        className="dm-operator-value-input dm-type-select"
-                        value={localOperatorValue}
-                        onChange={(e) => {
-                          const v = e.target.value;
-                          setLocalOperatorValue(v);
-                          if (mapping && onUpdateMappingOperator) {
-                            onUpdateMappingOperator(mapping.id, mapping.operator, v);
-                          }
-                          setEditingOperatorValue(false);
-                        }}
-                        onBlur={handleOperatorValueCommit}
-                        onClick={(e) => e.stopPropagation()}
-                        aria-label="Select expected type"
-                      >
-                        <option value="">select type…</option>
-                        <option value="string">string</option>
-                        <option value="number">number</option>
-                        <option value="boolean">boolean</option>
-                        <option value="object">object</option>
-                        <option value="array">array</option>
-                        <option value="null">null</option>
-                      </select>
-                    ) :
-                    isRangeOperator ? (() => {
-                      const parts = localOperatorValue.split(',').map(s => s.trim());
-                      const val1 = parts[0] ?? '';
-                      const val2 = parts[1] ?? '';
-                      const label1 = currentOp === 'between' ? 'min' : 'value';
-                      const label2 = currentOp === 'between' ? 'max' : 'tolerance';
-                      return (
-                        <span className="dm-range-inputs" onClick={(e) => e.stopPropagation()}>
-                          <input
-                            ref={operatorValueRef}
-                            className="dm-operator-value-input dm-range-input"
-                            defaultValue={val1}
-                            placeholder={label1}
-                            type="number"
-                            aria-label={label1}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') {
-                                e.preventDefault();
-                                rangeSecondRef.current?.focus();
-                              } else if (e.key === 'Escape') { e.preventDefault(); setEditingOperatorValue(false); }
-                            }}
-                          />
-                          <span className="dm-range-separator">–</span>
-                          <input
-                            ref={rangeSecondRef}
-                            className="dm-operator-value-input dm-range-input"
-                            defaultValue={val2}
-                            placeholder={label2}
-                            type="number"
-                            aria-label={label2}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') {
-                                e.preventDefault();
-                                handleRangeCommit(
-                                  operatorValueRef.current?.value ?? '',
-                                  rangeSecondRef.current?.value ?? '',
-                                );
-                              } else if (e.key === 'Escape') { e.preventDefault(); setEditingOperatorValue(false); }
-                            }}
-                            onBlur={() => {
-                              handleRangeCommit(
-                                operatorValueRef.current?.value ?? '',
-                                rangeSecondRef.current?.value ?? '',
-                              );
-                            }}
-                          />
-                        </span>
-                      );
-                    })()
-                  : (
-                    <input
-                      ref={operatorValueRef}
-                      className="dm-operator-value-input"
-                      value={localOperatorValue}
-                      onChange={(e) => setLocalOperatorValue(e.target.value)}
-                      onKeyDown={handleOperatorValueKeyDown}
-                      onBlur={handleOperatorValueCommit}
-                      onClick={(e) => e.stopPropagation()}
-                      placeholder="Enter value"
-                      aria-label="Operator comparison value"
-                    />
-                  )) : (
-                    <span
-                      className="dm-operator-value-display"
-                      title="Click to edit value"
-                      onClick={(e) => { e.stopPropagation(); startEditOperatorValue(); }}
-                    >
-                      {mapping.operatorValue || mapping.sourcePath}
-                    </span>
-                  )
-                ) : !showOperators ? (
+                {showOperators && (
+                  <OperatorValueEditor
+                    mapping={mapping}
+                    currentOp={currentOp}
+                    currentOpMeta={currentOpMeta}
+                    isRangeOperator={isRangeOperator}
+                    editingOperatorValue={editingOperatorValue}
+                    localOperatorValue={localOperatorValue}
+                    operatorValueRef={operatorValueRef}
+                    rangeSecondRef={rangeSecondRef}
+                    typeSelectRef={typeSelectRef}
+                    setLocalOperatorValue={setLocalOperatorValue}
+                    setEditingOperatorValue={setEditingOperatorValue}
+                    handleTypeSelectChange={handleTypeSelectChange}
+                    handleOperatorValueCommit={handleOperatorValueCommit}
+                    handleOperatorValueKeyDown={handleOperatorValueKeyDown}
+                    handleRangeCommit={handleRangeCommit}
+                    startEditOperatorValue={startEditOperatorValue}
+                  />
+                )}
+                {!showOperators ? (
                   <span className="dm-mapped-src-ref" title={mapping.sourcePath}>{mapping.sourcePath}</span>
                 ) : null}
                 {showOperators && !currentOpMeta.needsValue && (

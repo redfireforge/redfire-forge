@@ -6,7 +6,7 @@ A **cross-platform** desktop & web API performance testing tool built with React
 
 **✅ Supports:** macOS (Intel & Apple Silicon) • Windows 10/11 • Linux (Ubuntu, Debian, Fedora)
 
-📖 **[Full Cross-Platform Guide](docs/CROSS-PLATFORM.md)** — Installation, building, and platform-specific notes
+📖 **[Full Cross-Platform Guide](docs/guides/cross-platform.md)** — Installation, building, and platform-specific notes
 
 ---
 
@@ -1001,7 +1001,7 @@ After running a workflow, click **📊 Results Explorer** to open a full-screen 
 | Collapsible sidebar | Toggle sidebar visibility from anywhere, including modals |
 | Drag-and-drop | Move and reorder scenarios between Feature Groups and tests between scenarios via drag handles |
 | Feature presence indicator | Sidebar color-codes items with/without Feature Groups |
-| **Data Mapper** | Visual field mapping component: drag source fields to target drop zones, expression editor (125 functions + lambda syntax with live preview), auto-map with accept/reject, type mismatch detection & auto-fix, live preview bar, floating pop-out DSL editor, bi-directional visual ↔ code sync, schema drift/repair, mapping profiles, keyboard navigation, hover-to-highlight, failure navigation. 10 adapters: validation, extraction, requestBody (JSON/Form/Raw), assertion, columnMapping, populateFromApi, sharedDsFetch, variableBinding, webhookExtraction, demo |
+| **Data Mapper** | Visual field mapping component: drag source fields to target drop zones, expression editor (125 functions + lambda syntax with live preview), auto-map with accept/reject, type mismatch detection & auto-fix, live preview bar, **24 field operators** (equality, comparison, string, boolean, existence, type check, set membership with color-coded pills), **array assertions** (LENGTH, CONTAINS, EACH, SUBSET), **universal negation** (NOT modifier on any operator), **Validation Rules Modal** (docked/floating/maximized Monaco code editor with syntax highlighting, autocomplete, inline errors, pass/fail decorations), **DSL Reference Panel** (8-category accordion with search, insert, copy), **ASSERT custom predicates** (125+ expression functions, lambda syntax), **live verification** (per-node pass/fail badges, canvas line coloring, toolbar stats, Mapping View status column), **Mapping View** (Code/List/Pivot table with resize, panel collapse), bi-directional visual ↔ code sync, schema drift/repair, mapping profiles, keyboard navigation, hover-to-highlight, failure navigation. 10 adapters: validation, extraction, requestBody (JSON/Form/Raw), assertion, columnMapping, populateFromApi, sharedDsFetch, variableBinding, webhookExtraction, demo |
 | **Parameterized Testing** | Data-driven testing with inline data sources — define one test pattern, run against N data rows |
 | Data Source Editor | Inline spreadsheet-style table editor with columns (path, param, header, body, validate) and rows |
 | Column types | `path:` replaces URL variables, `param:` adds query params, `header:` sets headers, `body:` fills body placeholders, `validate:` asserts response values |

@@ -381,8 +381,27 @@ Comparing different types:
 - Verify auth is working (401 returns different body)
 - Use **Fetch Response** to debug
 
+## Validation Data Mapper
+
+For **visual, operator-based validation** with 24 field operators, array assertions, DSL rules, and live verification, use the **Validation Data Mapper**:
+
+1. Go to **Validation** tab → set mode to **Selective Fields**
+2. Click **Fetch Response** to load sample data
+3. Click **Data Mapper** to open the visual validation builder
+4. Drag fields, set operators, add assertions, and verify live
+
+See the [Data Mapper Validation Guide](./data-mapper-validation-guide.md) for complete documentation including:
+- 24 field operators (equals, contains, between, regex, is_type, etc.)
+- Array assertions (LENGTH, CONTAINS, EACH, SUBSET)
+- DSL code editor with syntax highlighting and autocomplete
+- ASSERT custom predicates with 125+ expression functions
+- Universal negation (NOT modifier)
+- Live verification with pass/fail indicators
+
 ## Related Guides
 
+- [Data Mapper Validation Guide](./data-mapper-validation-guide.md) — Visual validation with operators, DSL, ASSERT
+- [Validation Modes Guide](./validation-modes-guide.md) — None, Selective, Full modes
 - [Scenarios Guide](./scenarios-guide.md) — Test organization
 - [Test Runner Guide](./test-runner-guide.md) — Running tests
 - [Parameterized Testing Guide](./parameterized-testing-guide.md) — Data-driven testing

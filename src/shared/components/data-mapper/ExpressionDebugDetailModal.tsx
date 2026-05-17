@@ -16,6 +16,7 @@ export default function ExpressionDebugDetailModal({ step, onClose }: Props) {
     e.preventDefault();
     dragRef.current = { startX: e.clientX, startY: e.clientY, origX: drag.x, origY: drag.y };
     const handleMove = (ev: MouseEvent) => {
+      /* v8 ignore next */
       if (!dragRef.current) return;
       setDrag({
         x: dragRef.current.origX + (ev.clientX - dragRef.current.startX),

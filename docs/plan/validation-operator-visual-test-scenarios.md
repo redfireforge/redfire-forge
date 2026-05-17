@@ -1041,7 +1041,7 @@
 
 > **Context:** All integration tests are performed inside the **Validation Data Mapper** (Test Editor → Validation tab → Data Mapper) unless explicitly stated otherwise.
 
-### INT-01: Full workflow — Visual + DSL + Verify
+### INT-01: Full workflow — Visual + DSL + Verify ✅
 
 - [x] **Setup:** Open the Validation Data Mapper with sample JSON loaded.
 - [x] **Steps:**
@@ -1053,7 +1053,7 @@
   6. Enable **Auto-verify**. Change a value. Observe auto-re-verify.
 - [x] **Expected:** Complete round-trip: visual → code → verify. All modes stay in sync.
 
-### INT-02: Negation + Lambda + ASSERT combined
+### INT-02: Negation + Lambda + ASSERT combined ✅
 
 - [x] **Setup:** Open the Validation Data Mapper Rules modal (toolbar → Rules).
 - [x] **Steps:**
@@ -1234,54 +1234,54 @@
 
 ---
 
-### INT-05: Unordered array matching option
+### INT-05: Unordered array matching option ✅
 
-- [ ] **Setup:** In the Validation Data Mapper Modal footer, look for the **Unordered array matching** checkbox.
-- [ ] **Steps:**
+- [x] **Setup:** In the Validation Data Mapper Modal footer, look for the **Unordered array matching** checkbox.
+- [x] **Steps:**
   1. Toggle the checkbox on.
   2. Save.
   3. Reopen and verify the checkbox state persists.
-- [ ] **Expected:** The `unorderedArrays` option is saved and restored.
+- [x] **Expected:** The `unorderedArrays` option is saved and restored.
 
-### INT-05b: Unmap selected source fields
+### INT-05b: Unmap selected source fields ✅
 
-- [ ] **Setup:** Open the Validation Data Mapper. Auto-map fields so several source nodes are mapped.
-- [ ] **Steps:**
+- [x] **Setup:** Open the Validation Data Mapper. Auto-map fields so several source nodes are mapped.
+- [x] **Steps:**
   1. In the **Source Panel**, use the checkboxes to select 2–3 mapped source nodes.
   2. A red **"Unmap (N)"** button appears in the Source Panel header (where N is the count of selected mapped items).
   3. Click the **Unmap** button.
   4. The selected mappings are removed. The source nodes revert to unmapped state.
   5. If some selected items are mapped and others are not, both buttons appear: blue **"Map (N)"** for unmapped, red **"Unmap (N)"** for mapped.
-- [ ] **Expected:** Only the selected (checked) source fields are unmapped. Other mappings remain untouched. The checkbox styling uses a custom green checkmark on a subtle border (not the default browser blue box) for better dark-theme consistency.
-- [ ] **Implementation:** `SourcePanel.tsx` computes `selectedMappedCount` from `selectedSourcePaths` and `mappings`. `DataMapper.tsx` provides `handleUnmapSelectedFields` which normalizes paths via `normalizeMapperPath` and calls `removeMappings`. CSS for `.dm-source-checkbox` uses a green (`--success`) background with a custom CSS `::after` checkmark.
+- [x] **Expected:** Only the selected (checked) source fields are unmapped. Other mappings remain untouched. The checkbox styling uses a custom green checkmark on a subtle border (not the default browser blue box) for better dark-theme consistency.
+- [x] **Implementation:** `SourcePanel.tsx` computes `selectedMappedCount` from `selectedSourcePaths` and `mappings`. `DataMapper.tsx` provides `handleUnmapSelectedFields` which normalizes paths via `normalizeMapperPath` and calls `removeMappings`. CSS for `.dm-source-checkbox` uses a green (`--success`) background with a custom CSS `::after` checkmark.
 
-### INT-06: Bottom Dock — Code/Table views include assertions and verify status
+### INT-06: Code/Table views include assertions and verify status ✅
 
-- [ ] **Setup:** Open the Validation Data Mapper. Create 6+ field mappings and 7+ array assertions (LENGTH, CONTAINS, EACH, SUBSET). Click **Verify All**.
-- [ ] **Steps:**
-  1. Click **Code** in the bottom dock toolbar. The dock shows the header: **"6 mappings · 7 assertions"**.
+- [x] **Setup:** Open the Validation Data Mapper. Create 6+ field mappings and 7+ array assertions (LENGTH, CONTAINS, EACH, SUBSET). Click **Verify All**.
+- [x] **Steps:**
+  1. Click **Code** in the top toolbar. The Code view shows the header: **"6 mappings · 7 assertions"**.
   2. Scroll down in the Code view — below the field mappings, a separator line **"— Assertions —"** appears followed by each assertion (e.g., `offers  LENGTH  3`, `offers[*]  EACH  rank >= 0`). Assertion lines are styled in accent color.
-  3. Switch to **Table** mode. Click **List**. The table shows:
+  3. Click **Table** in the top toolbar. Click **List**. The table shows:
      - Field mapping rows (1–6) with columns: #, Target, Source/Expression, Before, After, Trace, Status.
      - A section header: **"Assertions (7)"** followed by assertion rows with Path, Type (e.g., LENGTH, EACH), and Rule summary.
      - The toolbar shows: **"6 rows · 7 assertions"**.
   4. Check the **Status** column: after **Verify All**, it shows **"✓ pass"** (green) or **"✗ fail"** (red). Before verification, it shows **"— same"** or **"△ changed"**.
-  5. Switch to **Table > Table** (pivot view). Below the pivot grid, a compact 3-column assertion summary table appears: **Path**, **Type**, **Rule**.
+  5. Switch to **Table > Pivot** (pivot view). Below the pivot grid, a compact 3-column assertion summary table appears: **Path**, **Type**, **Rule**.
   6. Click **Inspect** on any mapping row. The **Trace panel** opens below the table and auto-scrolls into view, showing Source Input → Path Resolution → Target Output.
-- [ ] **Expected:** All three dock views (Code, List, Pivot) include assertions. The Status column reflects verification results (pass/fail) when available. Trace panel appears on Inspect click.
-- [ ] **Implementation:** `CodeView.tsx` accepts `assertions`, `verifyStatus`, and `failedMappingIds` props. `BottomUtilityDock.tsx` passes them through from `DataMapper.tsx`. Shared utilities `formatAssertionLine`, `getAssertionJsonPath`, `formatAssertionSummary` in `targetTreeHelpers.ts` — no duplicated code.
+- [x] **Expected:** All three views (Code, List, Pivot) include assertions. The Status column reflects verification results (pass/fail) when available. Trace panel appears on Inspect click.
+- [x] **Implementation:** `CodeView.tsx` accepts `assertions`, `verifyStatus`, `failedMappingIds`, and `assertionVerifyMap` props. `BottomUtilityDock.tsx` passes them through from `DataMapper.tsx`. When `verifyStatus === 'complete'`, mapping rows check `failedMappingIds` for pass/fail status; assertion rows use `assertionVerifyMap` (indexed by position) for their pass/fail status. Font sizes are standardized to `0.7rem` across all Mapping View elements. The List/Pivot toggle is always visible (Pivot is disabled with a tooltip when data doesn't support pivoting). Pivot row key extraction uses the first `[N]` array index segment for correct grouping of nested paths (e.g., `offers[0].duration.value` groups under `offers[0]`). Shared utilities `formatAssertionLine`, `getAssertionJsonPath`, `formatAssertionSummary` in `targetTreeHelpers.ts` — no duplicated code.
 
-### INT-07: Schema drift detection after re-fetch
+### INT-07: Schema drift detection after re-fetch ✅
 
-- [ ] **Setup:** Have a saved Validation Data Mapper with existing mappings.
-- [ ] **Steps:**
+- [x] **Setup:** Have a saved Validation Data Mapper with existing mappings.
+- [x] **Steps:**
   1. Re-open the Validation Data Mapper.
   2. If the source data schema has changed since the last save, a **Drift Banner** appears at the top.
   3. Click **Show Diff** to open the **Schema Diff Modal**.
   4. Review added/removed/renamed fields.
   5. Apply repair suggestions for broken mappings.
   6. Click **Accept & Update** to dismiss the drift.
-- [ ] **Expected:** Drift detection, diff modal, and repair suggestions work correctly.
+- [x] **Expected:** Drift detection, diff modal, and repair suggestions work correctly.
 
 ---
 
@@ -1483,8 +1483,8 @@ All pop-up modals in the app must follow these rules:
 | P9.4 | 15 | 15/15 ✅ | 3-mode modal, DSL reference (accordion), edge toggle, verify stats |
 | P9.5 | 8 | 8/8 ✅ | Inline verification debugging (Verify button, results strip, debug steps, input data, annotations) |
 | VP | 3 | 3/3 ✅ | Version preview modals, compare modal search & layout |
-| Integration | 9 | — | Cross-phase workflows, unmap selected, bottom dock assertions, operator persistence regression |
-| **Total** | **99** | **80/99** | P0–P9.5 verified; VP verified; Integration tests pending |
+| Integration | 9 | 9/9 ✅ | Cross-phase workflows, unmap selected, bottom dock assertions, operator persistence regression |
+| **Total** | **99** | **99/99 ✅** | All phases verified |
 
 ### Automated Test Coverage
 

@@ -28,7 +28,7 @@ export function useMapperKeyboard({
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (editingMappingId) return;
-      if (document.querySelector('.dm-expr-overlay') || document.querySelector('.dm-diff-overlay')) return;
+      if (document.querySelector('.dm-expr-overlay') || document.querySelector('.dm-diff-overlay') || document.querySelector('.dm-example-overlay')) return;
       const tag = (e.target as HTMLElement)?.tagName;
       const isEditable = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (e.target as HTMLElement)?.isContentEditable;
       if ((e.metaKey || e.ctrlKey) && e.key === 'z') {

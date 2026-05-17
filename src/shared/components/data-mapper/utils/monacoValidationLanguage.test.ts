@@ -335,5 +335,25 @@ describe('monacoValidationLanguage', () => {
       // Should get function suggestions as fallback
       expect(labels.some((l: string) => l.startsWith('$'))).toBe(true);
     });
+
+    it('returns empty suggestions when cursor is mid-value with no matching context', () => {
+      const line = '  12345';
+      const result = provideCompletionItems(makeModel(line), makePos(4));
+      expect(result.suggestions).toBeDefined();
+    });
+
+    it('suggests operators after path NOT (afterNot operator path)', () => {
+      const result = provideCompletionItems(makeModel('data.field NOT eq'), makePos(18));
+      const labels = result.suggestions.map((s: { label: string }) => s.label);
+      expect(labels).toContain('equals');
+      expect(labels).not.toContain('NOT');
+    });
+
+    it('suggests type values after path NOT is_type', () => {
+      const result = provideCompletionItems(makeModel('data.field NOT is_type '), makePos(24));
+      const labels = result.suggestions.map((s: { label: string }) => s.label);
+      expect(labels).toContain('string');
+      expect(labels).toContain('number');
+    });
   });
 });

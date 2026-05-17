@@ -419,6 +419,7 @@ export default function DataMapperModal<TOutput = unknown>({
       // Don't close if a nested dialog (expression editor or schema diff) is open
       if (document.querySelector('.dm-expr-overlay')) return;
       if (document.querySelector('.dm-diff-overlay')) return;
+      if (document.querySelector('.dm-example-overlay')) return;
       // Don't close if focus is in an editable field (let the field handle Escape)
       const el = e.target as HTMLElement;
       const tag = el?.tagName;

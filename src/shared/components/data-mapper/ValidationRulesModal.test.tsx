@@ -1421,4 +1421,68 @@ describe('ValidationRulesModal', () => {
     fireEvent.click(stripItems[1]);
     expect(document.querySelectorAll('.vr-results-strip-debug').length).toBe(1);
   });
+
+  it('verifies ASSERT custom expression failure shows debug steps', () => {
+    const dsl = 'ASSERT $gt($.body.nonExistentField.deep, 0)';
+    render(
+      <ValidationRulesModal
+        {...baseProps}
+        value={dsl}
+        sampleResponseData={{ offers: [{ rank: 13 }] }}
+      />,
+    );
+    fireEvent.click(screen.getByText(/▶ Verify/));
+    expect(screen.getByText(/1 failed/)).toBeInTheDocument();
+    const stripItem = document.querySelector('.vr-results-strip-item');
+    expect(stripItem).toBeTruthy();
+    if (stripItem) {
+      fireEvent.click(stripItem);
+      expect(document.querySelectorAll('.vr-results-strip-debug').length).toBeGreaterThanOrEqual(1);
+    }
+  });
+
+  it('verifies each assertion with failing items shows debug info', () => {
+    const dsl = 'offers[*].rank  each >  100';
+    render(
+      <ValidationRulesModal
+        {...baseProps}
+        value={dsl}
+        sampleResponseData={{ offers: [{ rank: 13 }, { rank: 14 }, { rank: 5 }] }}
+      />,
+    );
+    fireEvent.click(screen.getByText(/▶ Verify/));
+    expect(screen.getByText(/1 failed/)).toBeInTheDocument();
+    const stripItem = document.querySelector('.vr-results-strip-item');
+    expect(stripItem).toBeTruthy();
+    if (stripItem) {
+      fireEvent.click(stripItem);
+      expect(document.querySelectorAll('.vr-results-strip-debug').length).toBeGreaterThanOrEqual(1);
+    }
+  });
+
+  it('verifies ASSERT with valid path passes verification', () => {
+    const dsl = 'ASSERT $gt($count($.body.offers), 0)';
+    render(
+      <ValidationRulesModal
+        {...baseProps}
+        value={dsl}
+        sampleResponseData={{ offers: [{ rank: 13 }, { rank: 14 }] }}
+      />,
+    );
+    fireEvent.click(screen.getByText(/▶ Verify/));
+    expect(screen.getByText(/1 passed/)).toBeInTheDocument();
+  });
+
+  it('verifies length assertion on arrays', () => {
+    const dsl = 'offers  length >=  2';
+    render(
+      <ValidationRulesModal
+        {...baseProps}
+        value={dsl}
+        sampleResponseData={{ offers: [{ rank: 13 }, { rank: 14 }] }}
+      />,
+    );
+    fireEvent.click(screen.getByText(/▶ Verify/));
+    expect(screen.getByText(/1 passed/)).toBeInTheDocument();
+  });
 });

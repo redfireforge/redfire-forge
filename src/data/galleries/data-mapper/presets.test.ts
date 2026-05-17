@@ -32,8 +32,8 @@ describe('Data Mapper presets', () => {
     expect(scenario.validation.mode).toBe('full');
   });
 
-  it('catalog has 5 entries', () => {
-    expect(dataMapperSampleCatalog).toHaveLength(5);
+  it('catalog has 8 entries', () => {
+    expect(dataMapperSampleCatalog).toHaveLength(8);
   });
 
   it('all entries have domain data-mapper', () => {
