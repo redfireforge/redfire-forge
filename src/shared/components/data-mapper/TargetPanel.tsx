@@ -14,6 +14,7 @@ import TargetTreeNode from './TargetTreeNode';
 import AddFieldRow from './AddFieldRow';
 import LocationGroupPanel from './LocationGroupPanel';
 import FetchErrorBanner from './FetchErrorBanner';
+import InlineAssertionRow from './InlineAssertionRow';
 
 interface TargetPanelProps {
   target: MapperTarget;
@@ -130,6 +131,7 @@ export default function TargetPanel({
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set(['__root__']));
   const [pasteMode, setPasteMode] = useState(false);
   const [pasteText, setPasteText] = useState('');
+  const [customPredicatesExpanded, setCustomPredicatesExpanded] = useState(true);
   const [pasteError, setPasteError] = useState<string | null>(null);
   const [fetching, setFetching] = useState(false);
 
@@ -551,6 +553,51 @@ export default function TargetPanel({
           </div>
 
           {targetFetchError && <FetchErrorBanner error={targetFetchError} />}
+
+          {/* Custom ASSERT predicates (global, not tied to a specific node) */}
+          {arrayAssertions && arrayAssertions.some(a => a.type === 'custom') && (() => {
+            const customEntries = arrayAssertions
+              .map((a, idx) => ({ assertion: a, globalIndex: idx }))
+              .filter(({ assertion }) => assertion.type === 'custom')
+              .filter(({ globalIndex }) => {
+                if (!activeVerifyFilter) return true;
+                const vr = assertionVerifyMap?.get(globalIndex);
+                if (!vr) return true;
+                return activeVerifyFilter === 'passed' ? vr.passed : !vr.passed;
+              });
+            if (customEntries.length === 0) return null;
+            return (
+              <div className="dm-custom-predicates-section">
+                <button
+                  type="button"
+                  className="dm-custom-predicates-header"
+                  onClick={() => setCustomPredicatesExpanded(v => !v)}
+                  aria-expanded={customPredicatesExpanded}
+                >
+                  <span className={`dm-custom-predicates-arrow ${customPredicatesExpanded ? 'expanded' : ''}`}>▶</span>
+                  <span className="dm-custom-predicates-icon">ƒ</span>
+                  <span className="dm-custom-predicates-title">Custom Predicates</span>
+                  <span className="dm-custom-predicates-count">
+                    {customEntries.length}
+                  </span>
+                </button>
+                {customPredicatesExpanded && (
+                  <div className="dm-custom-predicates-list">
+                    {customEntries.map(({ assertion, globalIndex }) => (
+                      <InlineAssertionRow
+                        key={globalIndex}
+                        assertion={assertion}
+                        globalIndex={globalIndex}
+                        onUpdate={onUpdateArrayAssertion}
+                        onRemove={onRemoveArrayAssertion}
+                        verifyResult={assertionVerifyMap?.get(globalIndex)}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
           <div
             className="dm-tree-container"

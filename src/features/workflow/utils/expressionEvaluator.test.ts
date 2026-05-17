@@ -63,6 +63,28 @@ describe('expressionEvaluator', () => {
       expect(r.value).toBe('{{$nonexistent}}');
     });
 
+    it('supports chained property access on function result', () => {
+      const data = [{ rank: 5, name: 'Premium' }, { rank: 1, name: 'Basic' }];
+      const r = evaluateExpression('$maxBy({{items}}, x => x.rank).rank', {
+        resolveVariable: (n) => n === 'items' ? data : undefined,
+      });
+      expect(r.error).toBeUndefined();
+      expect(r.value).toBe(5);
+    });
+
+    it('supports chained property access returning a string', () => {
+      const data = [{ rank: 5, name: 'Premium' }, { rank: 1, name: 'Basic' }];
+      const r = evaluateExpression('$maxBy({{items}}, x => x.rank).name', {
+        resolveVariable: (n) => n === 'items' ? data : undefined,
+      });
+      expect(r.value).toBe('Premium');
+    });
+
+    it('returns undefined for chained property on non-object result', () => {
+      const r = evaluateExpression('$upper("hello").length');
+      expect(r.value).toBeUndefined();
+    });
+
     it('evaluates bare identifier as variable', () => {
       const r = evaluateExpression('$upper(myVar)', {
         resolveVariable: (name) => name === 'myVar' ? 'test' : undefined,
@@ -317,8 +339,22 @@ describe('expressionEvaluator', () => {
       expect(formatExpressionResult(circular)).toBe('[object Object]');
     });
 
-    it('evaluateExpression returns empty literal for leading rparen token', () => {
-      expect(evaluateExpression(')')).toEqual({ value: '' });
+    it('evaluateExpression returns error for unmatched rparen token', () => {
+      const result = evaluateExpression(')');
+      expect(result.value).toBeNull();
+      expect(result.error).toContain('Unmatched parentheses');
+    });
+
+    it('evaluateExpression returns error for unclosed lparen', () => {
+      const result = evaluateExpression('$eq($sum(1)');
+      expect(result.value).toBeNull();
+      expect(result.error).toContain('1 unclosed "("');
+    });
+
+    it('evaluateExpression returns error for unclosed bracket', () => {
+      const result = evaluateExpression('[1, 2');
+      expect(result.value).toBeNull();
+      expect(result.error).toContain('Unmatched brackets');
     });
 
     it('evaluateExpression error path surfaces non-Error throws', () => {

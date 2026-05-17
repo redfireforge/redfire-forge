@@ -89,6 +89,7 @@ export function debugExpression(
 
 const HOF_FUNCTIONS = [
   '$map', '$filter', '$reduce', '$sortBy', '$minBy', '$maxBy', '$distinctBy', '$zip',
+  '$find', '$findAll',
   '$mapValues', '$mapKeys', '$withEntries',
 ];
 

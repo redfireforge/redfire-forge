@@ -251,10 +251,10 @@ describe('formatAssertionSummary', () => {
     const a: Assertion = { type: 'custom', expression: 'x > 5' };
     expect(formatAssertionSummary(a)).toBe('x > 5');
   });
-  it('truncates long custom expression', () => {
+  it('does not truncate custom expression', () => {
     const long = 'a'.repeat(40);
     const a: Assertion = { type: 'custom', expression: long };
-    expect(formatAssertionSummary(a)).toBe('a'.repeat(27) + '…');
+    expect(formatAssertionSummary(a)).toBe(long);
   });
   it('returns empty string for unsupported types', () => {
     const a = { type: 'status', expected: '200' } as Assertion;

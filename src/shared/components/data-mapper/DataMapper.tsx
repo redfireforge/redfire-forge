@@ -22,8 +22,8 @@ import { useDataMapperTreeInteraction, type LineFocusNode } from './hooks/useDat
 import '../../../styles/data-mapper.css';
 import '../../../styles/data-mapper-expression.css';
 
-import { enrichConnectionLines } from './utils/lineEnrichment';
 import { safeDeserialize } from './utils/bottomUtilityHelpers';
+import { enrichConnectionLines } from './utils/lineEnrichment';
 import ExampleInferenceModal from './ExampleInferenceModal';
 import ErrorPopover from './ErrorPopover';
 import { useDebugOverlay } from './hooks/useDebugOverlay';
@@ -38,15 +38,16 @@ import { useTargetFields } from './hooks/useTargetFields';
 import { usePanelResize } from './hooks/usePanelResize';
 import { useMapperKeyboard } from './hooks/useMapperKeyboard';
 import { useMappingOverlay } from './hooks/useMappingOverlay';
-import { buildTargetTree } from './utils/mapperTreeBuilders';
-import { getArrayParentPath } from './utils/subtreeMapping';
 import { useMappingDiagnostics } from './hooks/useMappingDiagnostics';
 import { useMapperRepairActions } from './hooks/useMapperRepairActions';
 import { useBulkSubtreeActions } from './hooks/useBulkSubtreeActions';
+import { buildTargetTree } from './utils/mapperTreeBuilders';
+import { getArrayParentPath } from './utils/subtreeMapping';
 import { useHighlightedMappingPaths } from './hooks/useHighlightedMappingPaths';
 import { useMapperVisibleLines } from './hooks/useMapperVisibleLines';
 import { useDataMapperFocusCallbacks } from './hooks/useDataMapperFocusCallbacks';
 import { useSourcePathBulkMapHandlers } from './hooks/useSourcePathBulkMapHandlers';
+import { useDockResize } from './hooks/useDockResize';
 import DataMapperDebugTraceBar from './DataMapperDebugTraceBar';
 import DataMapperArraySuggestionBar from './DataMapperArraySuggestionBar';
 
@@ -78,6 +79,7 @@ export default function DataMapper<TOutput = unknown>({
     [adapter, initialData],
   );
 
+  const containerRef = useRef<HTMLDivElement | null>(null);
   const [editingMappingId, setEditingMappingId] = useState<string | null>(null);
   const {
     bottomUtilityMode,
@@ -89,6 +91,7 @@ export default function DataMapper<TOutput = unknown>({
     handleCloseRulesModal,
   } = useBottomUtilityDock();
   const [showMappingLines, setShowMappingLines] = useState(true);
+  const { dockHeight, panelsCollapsed, handleDockResizeStart, togglePanelsCollapsed } = useDockResize(containerRef);
   const [nodeFocusMode, setNodeFocusMode] = useState(false);
   const [lineFocusNode, setLineFocusNode] = useState<LineFocusNode>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -136,7 +139,6 @@ export default function DataMapper<TOutput = unknown>({
     replaceMappingsFromProps(safeDeserialize(adapter, initialData));
   }, [initialData, adapter, replaceMappingsFromProps]);
 
-  const containerRef = useRef<HTMLDivElement | null>(null);
   const layoutTick = useLayoutTick(containerRef);
   const [showExampleModal, setShowExampleModal] = useState(false);
   const [compactMode, setCompactMode] = useState(false);
@@ -394,18 +396,11 @@ export default function DataMapper<TOutput = unknown>({
     clearIgnoredRepairIssues();
   }, [state.mappings, clearIgnoredRepairIssues]);
 
-  const mappingResolution = useMemo(
-    () => ({
-      unresolved: mappingDiagnostics.unresolved,
-      resolved: mappingDiagnostics.resolved,
-    }),
-    [mappingDiagnostics.unresolved, mappingDiagnostics.resolved],
-  );
+  const mappingResolution = useMemo(() => ({
+    unresolved: mappingDiagnostics.unresolved, resolved: mappingDiagnostics.resolved,
+  }), [mappingDiagnostics.unresolved, mappingDiagnostics.resolved]);
 
-  const arrayMappingInfos = useMemo(
-    () => detectArrayMappings(state.mappings, effectiveSources, effectiveTarget, state.activeSourceId),
-    [state.mappings, effectiveSources, effectiveTarget, state.activeSourceId],
-  );
+  const arrayMappingInfos = useMemo(() => detectArrayMappings(state.mappings, effectiveSources, effectiveTarget, state.activeSourceId), [state.mappings, effectiveSources, effectiveTarget, state.activeSourceId]);
 
   const arrayInfoMap = useMemo(() => {
     const map = new Map<string, { kind: ArrayLineKind; label?: string }>();
@@ -504,21 +499,9 @@ export default function DataMapper<TOutput = unknown>({
     unorderedArrays: unorderedDefault,
   });
 
-
-  const selectedArrayInfo = useMemo(() => {
-    if (!state.selectedMappingId) return null;
-    return arrayMappingInfos.find((i) => i.mappingId === state.selectedMappingId) ?? null;
-  }, [state.selectedMappingId, arrayMappingInfos]);
-
-  const healthTargetTree = useMemo(
-    () => buildTargetTree(effectiveTarget).tree,
-    [effectiveTarget],
-  );
-
-  const editingMapping = useMemo(
-    () => editingMappingId ? state.mappings.find((m) => m.id === editingMappingId) ?? null : null,
-    [editingMappingId, state.mappings],
-  );
+  const selectedArrayInfo = useMemo(() => !state.selectedMappingId ? null : arrayMappingInfos.find((i) => i.mappingId === state.selectedMappingId) ?? null, [state.selectedMappingId, arrayMappingInfos]);
+  const healthTargetTree = useMemo(() => buildTargetTree(effectiveTarget).tree, [effectiveTarget]);
+  const editingMapping = useMemo(() => editingMappingId ? state.mappings.find((m) => m.id === editingMappingId) ?? null : null, [editingMappingId, state.mappings]);
 
   useMapperKeyboard({
     undo,
@@ -557,24 +540,16 @@ export default function DataMapper<TOutput = unknown>({
     return () => clearTimeout(t);
   }, [toast]);
 
-  const hasBulkSourceAndTarget = !!(
-    bulkSourcePath
-    && bulkTargetPath
-    && bulkSourceId
-    && bulkSourceId === state.activeSourceId
-  );
+  const hasBulkSourceAndTarget = !!(bulkSourcePath && bulkTargetPath && bulkSourceId && bulkSourceId === state.activeSourceId);
   const canMapSiblingSubtrees = useMemo(() => {
     if (!hasBulkSourceAndTarget || !bulkSourcePath || !bulkTargetPath) return false;
     return getArrayParentPath(bulkSourcePath) != null && getArrayParentPath(bulkTargetPath) != null;
   }, [hasBulkSourceAndTarget, bulkSourcePath, bulkTargetPath]);
   const selectedMapping = useMemo(
-    () => state.selectedMappingId
-      ? state.mappings.find((mapping) => mapping.id === state.selectedMappingId) ?? null
-      : null,
+    () => state.selectedMappingId ? state.mappings.find((m) => m.id === state.selectedMappingId) ?? null : null,
     [state.selectedMappingId, state.mappings],
   );
-  const canPreviewPropagation = sourceLeafPathsForPropagation.length > 0
-    && targetLeafPathsForPropagation.length > 0;
+  const canPreviewPropagation = sourceLeafPathsForPropagation.length > 0 && targetLeafPathsForPropagation.length > 0;
 
   const rulesLineResults = useMemo(
     () => buildRulesLineResults(verifyHook.result, validationSync.dslText),
@@ -678,7 +653,7 @@ export default function DataMapper<TOutput = unknown>({
         onIgnoreOnce={handleIgnoreRepairIssue}
         onOpenNode={handleOpenRepairIssue}
       />
-      <div className="dm-body" onClickCapture={handleTreeNodeClickForLineFocus} onClick={handleTreeNodeClickForKeyboard} onMouseOver={handleTreeNodeHover} onMouseLeave={handleBodyMouseLeave}>
+      <div className={`dm-body${panelsCollapsed ? ' dm-body--collapsed' : ''}`} onClickCapture={handleTreeNodeClickForLineFocus} onClick={handleTreeNodeClickForKeyboard} onMouseOver={handleTreeNodeHover} onMouseLeave={handleBodyMouseLeave}>
         <div className="dm-panel-wrapper" style={sourcePanelWidth ? { width: sourcePanelWidth, flex: 'none' } : undefined}>
           <SourcePanel
             sources={effectiveSources}
@@ -813,8 +788,27 @@ export default function DataMapper<TOutput = unknown>({
         }}
       />
       {bottomUtilityMode !== 'none' && (
-        <BottomUtilityDock
-          mode={bottomUtilityMode}
+        <>
+          <div className="dm-dock-resize-bar">
+            <button
+              type="button"
+              className="dm-dock-collapse-toggle"
+              onClick={togglePanelsCollapsed}
+              title={panelsCollapsed ? 'Show Source/Target panels' : 'Hide Source/Target panels'}
+              aria-label={panelsCollapsed ? 'Show panels' : 'Hide panels'}
+            >
+              <span className={`dm-dock-collapse-arrow ${panelsCollapsed ? 'down' : 'up'}`}>▲</span>
+              {panelsCollapsed ? 'Show Panels' : 'Hide Panels'}
+            </button>
+            <div
+              className="dm-dock-resize-handle"
+              onMouseDown={handleDockResizeStart}
+              title="Drag to resize"
+            />
+          </div>
+          <BottomUtilityDock
+            mode={bottomUtilityMode}
+            style={panelsCollapsed ? { flex: 1, maxHeight: 'none' } : dockHeight != null ? { height: dockHeight, maxHeight: 'none' } : undefined}
           mappings={state.mappings}
           assertions={validationAssertions}
           sources={effectiveSources}
@@ -828,7 +822,9 @@ export default function DataMapper<TOutput = unknown>({
           onSelectMapping={handleSelectMappingExclusive}
           verifyStatus={verifyHook.result.status}
           failedMappingIds={verifyHook.result.failedMappingIds}
+          assertionVerifyMap={assertionVerifyMap}
         />
+        </>
       )}
       {rulesModalOpen && (
         <ValidationRulesModal
@@ -843,6 +839,8 @@ export default function DataMapper<TOutput = unknown>({
           verifyPassedCount={verifyHook.result.passedCount}
           verifyFailedCount={verifyHook.result.failedCount}
           lineResults={rulesLineResults}
+          sampleResponseData={effectiveTarget.sampleData}
+          unorderedArrays={unorderedDefault}
         />
       )}
       {editingMapping && (

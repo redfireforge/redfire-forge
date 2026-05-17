@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import type { Mapping } from '../types';
+import type { FieldOperator, Mapping } from '../types';
 import type { MapperRepairIssue } from '../ValidationRepairPanel';
 import type { MappingDiagnosticsResult } from './useMappingDiagnostics';
 import { normalizeMapperPath, isSameMapperPath } from '../utils/pathNormalization';
@@ -53,6 +53,11 @@ export function useMapperRepairActions({
   );
 
   const handleFixRepairIssue = useCallback((issue: MapperRepairIssue) => {
+    if (issue.suggestedOperator) {
+      updateMapping(issue.mappingId, { operator: issue.suggestedOperator as FieldOperator, operatorValue: undefined });
+      setToast(`Changed operator to "${issue.suggestedOperator}"`);
+      return;
+    }
     if (!issue.suggestedFixExpression) {
       setToast('No automatic fix available for this issue');
       return;

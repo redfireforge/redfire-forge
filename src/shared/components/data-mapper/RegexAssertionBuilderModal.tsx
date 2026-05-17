@@ -11,6 +11,7 @@ import {
   type PatternEntry,
 } from '../../../features/requests/components/regexAssertionUtils';
 import type { AssertionAdapterResult } from './adapters/assertionAdapter';
+import { TYPE_LABELS } from './utils/targetTreeHelpers';
 import '../../../styles/data-mapper.css';
 
 export type { AssertionAdapterResult };
@@ -27,15 +28,6 @@ interface Props {
 }
 
 const CATEGORIES = [...new Set(PATTERN_LIBRARY.map(p => p.category))];
-
-const TYPE_LABELS: Record<string, string> = {
-  object: 'obj',
-  array: 'arr',
-  string: 'str',
-  number: 'num',
-  boolean: 'bool',
-  null: 'null',
-};
 
 function matchesSearch(node: JsonTreeNode, term: string): boolean {
   if (!term) return true;
