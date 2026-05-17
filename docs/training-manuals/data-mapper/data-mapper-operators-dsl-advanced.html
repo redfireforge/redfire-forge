@@ -36,7 +36,7 @@ td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; }
 
 <h1>Validation Operators &amp; DSL Editor</h1>
 <p><span class="badge badge-advanced">ADVANCED</span> &nbsp; <span class="badge badge-sample">Sample: dm-validation-mapping</span></p>
-<p>Deep dive into the 24 field operators, the validation DSL code editor, and the floating pop-out editor. This walkthrough uses the <strong>Validation Mapping</strong> sample so you can follow each step with real JSON and rules.</p>
+<p>Deep dive into the 24 field operators, the validation DSL code editor, and the floating pop-out editor. This walkthrough uses the <strong>Validation Mapping</strong> sample with <strong>DummyJSON</strong> product data (<code>dummyjson.com/products/1</code>) so you can follow each step with real JSON and rules.</p>
 
 <div class="callout">
   <strong>Prerequisites</strong>
@@ -105,7 +105,7 @@ td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; }
 <div class="step">
   <div class="step-header"><div class="step-num">6</div><div class="step-title">Syntax examples</div></div>
   <p>Below are representative patterns you can paste and adapt. Line up paths with your actual JSON (the sample catalog uses product-style fields).</p>
-<pre># Exact match
+<pre># Exact match (DummyJSON product fields)
 $.title          equals          "Essence Mascara Lash Princess"
 
 # Numeric comparison
@@ -120,10 +120,9 @@ $.description    NOT is_empty
 $.category       exists
 $.rating         is_type         number
 
-# Array assertions
-$.tags           length >=       2
-$.reviews        contains_item   rating = 5
-$.reviews[*].body each contains  "great"
+# Array assertions (use with /products?limit=3)
+$.tags           length >=       1
+$.reviews[*].rating each >=      1
 
 # Custom assertion
 ASSERT $gt($.price, 0) // Price must be positive</pre>

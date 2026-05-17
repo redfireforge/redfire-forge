@@ -115,6 +115,55 @@ describe('ExpressionDebugDetailModal', () => {
     expect(pre?.classList.contains('dm-expr-detail-code--result')).toBe(true);
   });
 
+  it('does not apply transform style when drag position is (0,0)', () => {
+    render(<ExpressionDebugDetailModal step={makeStep()} onClose={vi.fn()} />);
+    const modal = document.querySelector('.dm-expr-detail-modal') as HTMLElement;
+    expect(modal.style.transform).toBe('');
+  });
+
+  it('applies transform style after dragging to non-zero position', () => {
+    render(<ExpressionDebugDetailModal step={makeStep()} onClose={vi.fn()} />);
+    const header = document.querySelector('.dm-expr-detail-header')!;
+    fireEvent.mouseDown(header, { clientX: 100, clientY: 100 });
+    act(() => {
+      window.dispatchEvent(new MouseEvent('mousemove', { clientX: 110, clientY: 100 }));
+    });
+    act(() => {
+      window.dispatchEvent(new MouseEvent('mouseup'));
+    });
+    const modal = document.querySelector('.dm-expr-detail-modal') as HTMLElement;
+    expect(modal.style.transform).toBe('translate(10px, 0px)');
+  });
+
+  it('applies transform when only y offset is non-zero', () => {
+    render(<ExpressionDebugDetailModal step={makeStep()} onClose={vi.fn()} />);
+    const header = document.querySelector('.dm-expr-detail-header')!;
+    fireEvent.mouseDown(header, { clientX: 100, clientY: 100 });
+    act(() => {
+      window.dispatchEvent(new MouseEvent('mousemove', { clientX: 100, clientY: 115 }));
+    });
+    act(() => {
+      window.dispatchEvent(new MouseEvent('mouseup'));
+    });
+    const modal = document.querySelector('.dm-expr-detail-modal') as HTMLElement;
+    expect(modal.style.transform).toBe('translate(0px, 15px)');
+  });
+
+  it('accumulates drag offset across multiple drags', () => {
+    render(<ExpressionDebugDetailModal step={makeStep()} onClose={vi.fn()} />);
+    const header = document.querySelector('.dm-expr-detail-header')!;
+    // First drag
+    fireEvent.mouseDown(header, { clientX: 0, clientY: 0 });
+    act(() => { window.dispatchEvent(new MouseEvent('mousemove', { clientX: 30, clientY: 20 })); });
+    act(() => { window.dispatchEvent(new MouseEvent('mouseup')); });
+    // Second drag starting from offset
+    fireEvent.mouseDown(header, { clientX: 50, clientY: 50 });
+    act(() => { window.dispatchEvent(new MouseEvent('mousemove', { clientX: 60, clientY: 50 })); });
+    act(() => { window.dispatchEvent(new MouseEvent('mouseup')); });
+    const modal = document.querySelector('.dm-expr-detail-modal') as HTMLElement;
+    expect(modal.style.transform).toBe('translate(40px, 20px)');
+  });
+
   it('mousemove without prior mouseDown does nothing (guard branch)', () => {
     render(<ExpressionDebugDetailModal step={makeStep()} onClose={vi.fn()} />);
     act(() => {
