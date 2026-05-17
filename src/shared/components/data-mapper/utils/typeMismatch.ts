@@ -13,6 +13,7 @@ export interface TypeMismatch {
   severity: MismatchSeverity;
   message: string;
   suggestedFix?: string;
+  suggestedOperator?: string;
 }
 
 const FIX_MAP: Record<string, string> = {
@@ -141,8 +142,78 @@ function classifySeverity(sourceType: string, targetType: string): MismatchSever
 }
 
 /**
+ * Operators that require numeric operands.
+ */
+const NUMERIC_OPERATORS = new Set([
+  'greater_than', 'greater_than_or_equal',
+  'less_than', 'less_than_or_equal',
+  'between', 'close_to',
+]);
+
+/**
+ * Operators that require boolean operands.
+ */
+const BOOLEAN_OPERATORS = new Set([
+  'is_true', 'is_false',
+]);
+
+/**
+ * Operators that require string operands.
+ */
+const STRING_OPERATORS = new Set([
+  'starts_with', 'ends_with', 'regex', 'contains', 'not_contains',
+]);
+
+/**
+ * Operators that require array operands.
+ */
+const ARRAY_OPERATORS = new Set([
+  'length', 'each', 'contains_item', 'contains_any',
+  'contains_all', 'contains_only', 'contains_none', 'subset',
+]);
+
+/**
+ * Get the type expected by an operator, or null if the operator is type-agnostic.
+ */
+export function getOperatorExpectedType(operator: string | undefined): string | null {
+  if (!operator) return null;
+  if (NUMERIC_OPERATORS.has(operator)) return 'number';
+  if (BOOLEAN_OPERATORS.has(operator)) return 'boolean';
+  if (STRING_OPERATORS.has(operator)) return 'string';
+  if (ARRAY_OPERATORS.has(operator)) return 'array';
+  return null;
+}
+
+/**
+ * Suggest a compatible operator for a given field type.
+ */
+export function suggestOperatorForType(actualType: string): string {
+  switch (actualType) {
+    case 'string': return 'equals';
+    case 'number': return 'greater_than_or_equal';
+    case 'boolean': return 'is_true';
+    case 'array': return 'length';
+    case 'object': return 'exists';
+    default: return 'equals';
+  }
+}
+
+/**
+ * Build operator mismatch message with suggested fix.
+ */
+function buildOperatorMismatchMessage(
+  actualType: string,
+  operator: string,
+  expectedType: string,
+  suggestedOperator: string,
+): string {
+  return `Operator "${operator}" expects ${expectedType}, but field is ${actualType}. Click Fix to change operator to "${suggestedOperator}".`;
+}
+
+/**
  * Detect type mismatches for all mappings.
  *
+ * Checks both source↔target type compatibility AND operator↔field type compatibility.
  * Skips mappings that have expressions (the expression is assumed to handle
  * type coercion) and mappings where either side has no inferrable type.
  */
@@ -162,6 +233,23 @@ export function detectTypeMismatches(
 
     const sourceType = resolveSourceType(mapping, sources, activeSourceId);
     const targetType = resolveTargetType(mapping.targetPath, target);
+
+    // Check operator-type compatibility (e.g., greater_than on a string field)
+    const expectedByOp = getOperatorExpectedType(effectiveOp);
+    if (expectedByOp && sourceType && sourceType !== expectedByOp && sourceType !== 'null') {
+      const suggestedOp = suggestOperatorForType(sourceType);
+      mismatches.push({
+        mappingId: mapping.id,
+        sourcePath: mapping.sourcePath,
+        targetPath: mapping.targetPath,
+        sourceType,
+        targetType: expectedByOp,
+        severity: 'warning',
+        message: buildOperatorMismatchMessage(sourceType, effectiveOp!, expectedByOp, suggestedOp),
+        suggestedOperator: suggestedOp,
+      });
+      continue;
+    }
 
     if (!sourceType || !targetType) continue;
     if (typesCompatible(sourceType, targetType)) continue;

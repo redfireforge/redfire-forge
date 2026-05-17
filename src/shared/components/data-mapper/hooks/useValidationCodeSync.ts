@@ -2,7 +2,7 @@ import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import type { ExpectedField, Assertion } from '../../../types';
 import type { Mapping } from '../types';
 import type { ParseError, DslModel } from '../utils/validationDsl';
-import { serializeToDsl, parseDsl, dslToModel, exportAsJson, importAutoDetect, DSL_ASSERTION_TYPES } from '../utils/validationDsl';
+import { serializeToDsl, parseDsl, dslToModel, exportAsJson, importAutoDetect, DSL_ASSERTION_TYPES, countDslRuleLines } from '../utils/validationDsl';
 
 export interface ValidationCodeSyncState {
   dslText: string;
@@ -41,9 +41,7 @@ export function useValidationCodeSync({
   const dslTextRef = useRef(dslText);
   dslTextRef.current = dslText;
 
-  const ruleCount = useMemo(() => {
-    return dslText.split('\n').filter(l => l.trim() && !l.trim().startsWith('#')).length;
-  }, [dslText]);
+  const ruleCount = useMemo(() => countDslRuleLines(dslText), [dslText]);
 
   // pendingCodeSyncs tracks how many code→visual updates are in-flight so
   // the visual→code guard isn't cleared until React has flushed all of them.

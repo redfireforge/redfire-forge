@@ -1,6 +1,6 @@
 # Validation Operator — Visual Test Scenarios
 
-> **Purpose:** Step-by-step manual test guide covering every feature from each implementation phase (P0–P9.4) of the Validation & Assertion Operator system.
+> **Purpose:** Step-by-step manual test guide covering every feature from each implementation phase (P0–P9.5) of the Validation & Assertion Operator system.
 >
 > **How to use:** Work through each phase sequentially. Every scenario has **Setup**, **Steps**, and **Expected** sections. Check the box when each test passes.
 >
@@ -438,7 +438,7 @@
   4. Press Space. Type `cont` — operator suggestions auto-appear: `contains_any`, `contains_all`, etc.
   5. After selecting an operator, type a value — `true`/`false` suggestions appear for boolean operators, type names for `is_type`.
 - [x] **Expected:** Path completions from the JSON tree. Operator keyword completions. Value suggestions contextual to operator.
-- [x] **Implementation:** Autocomplete triggers **automatically while typing** via `quickSuggestions: { other: true }`. No manual shortcut needed — macOS intercepts `Ctrl+Space` (input source) and `Cmd+Space` (Spotlight), so relying on shortcuts is unreliable. Fallback shortcuts registered: `Cmd+I`, `Option+Space`, `Ctrl+Space` (Windows/Linux). The completion provider in `ValidationCodeEditor.tsx` uses a global `window.__REDFIRE_VALIDATION_PATHS` array (populated from `samplePaths` prop) to provide path suggestions at the first-word position, operator keywords after the path, and contextual values after the operator. Trigger characters `.` and `[` also activate suggestions for nested path navigation. Footer hint: "Auto-suggest while typing". E2E verified: `e2e/validation-dsl-roundtrip.spec.ts` confirms suggest widget appears with 12+ path suggestions after typing `of`.
+- [x] **Implementation:** Autocomplete triggers **automatically while typing** via `quickSuggestions: { other: true }` and expanded `triggerCharacters` covering all letters, `.`, `[`, and space. No manual shortcut needed — macOS intercepts `Ctrl+Space` (input source) and `Cmd+Space` (Spotlight), so relying on shortcuts is unreliable. Fallback shortcuts registered: `Cmd+I`, `Option+Space`, `Ctrl+Space` (Windows/Linux). The completion provider in `ValidationCodeEditor.tsx` handles **5 distinct input positions**: (1) **Line start** — suggests `ASSERT`, `NOT` keywords + JSON paths from `window.__REDFIRE_VALIDATION_PATHS`; (2) **After `NOT` at line start** — suggests `ASSERT` keyword + JSON paths; (3) **After path** — all 31 operator keywords + `NOT`; (4) **After `path NOT`** — all operators except `NOT`; (5) **After operator** — contextual values (boolean true/false, type names for `is_type`, empty for no-value ops). After `ASSERT` or `NOT ASSERT`, the provider returns no suggestions (free-form expression). Monaco range scoping ensures the label matches the current word prefix for correct filtering. HMR-safe: completion provider disposes/re-registers on hot reload. Footer hint: "Auto-suggest while typing". E2E verified: exhaustive 17-position Playwright test confirms all keyword, path, operator, and value suggestions at every valid DSL cursor position.
 
 ### P4-05: DSL inline errors & pass/fail line decorations
 
@@ -751,88 +751,122 @@
 
 ### P9.2-01: Lambda in expression editor
 
-- [ ] **Setup:** Open the Validation Data Mapper. Map any field to target, then right-click → **Edit expression…** to open the Expression Editor.
-- [ ] **Steps:**
-  1. Type: `$filter($.source.offers, x => x.isActive)`.
+- [x] **Setup:** Open the Validation Data Mapper. Map any field to target, then right-click → **Edit expression…** to open the Expression Editor.
+- [x] **Steps:**
+  1. Type: `$filter($.offers, x => x.isActive)`.
   2. Observe the live preview.
-- [ ] **Expected:** Preview shows an array of 2 offers (the ones with `isActive: true`). Lambda syntax `x => x.isActive` is parsed correctly.
+  3. Try additional examples:
+     - `$map($.offers, x => x.offerName)` → extract just the names.
+     - `$find($.offers, x => $eq(x.productCode, "SAFE-24"))` → find a specific offer by product code.
+     - `$sortBy($.offers, x => x.price)` → sort offers by price ascending.
+     - `$minBy($.offers, x => x.price)` → get the cheapest offer.
+     - `$maxBy($.offers, x => x.rank)` → get the highest-ranked offer.
+     - `$distinctBy($.offers, x => x.isActive)` → one offer per unique `isActive` value.
+- [x] **Expected:**
+  - `$filter` → array of 2 offers (`isActive: true`): "EV Access - 8 Years" and "OnStar Safety Plan".
+  - `$map` → `["EV Access - 8 Years", "OnStar Safety Plan", "Premium Navigation"]`.
+  - `$find` → single object: `{ "offerName": "OnStar Safety Plan", "productCode": "SAFE-24", ... }`.
+  - `$sortBy` → offers ordered: Premium Navigation (15.50), OnStar Safety Plan (29.99), EV Access (49.99).
+  - `$minBy` → the "Premium Navigation" offer object (lowest price 15.50).
+  - `$maxBy` → the "Premium Navigation" offer object (highest rank 3).
+  - `$distinctBy` → 2 offers (one `true`, one `false`).
+  - Lambda syntax `x => expr` is parsed correctly in all cases. No errors in preview.
 
 ### P9.2-02: Multi-param lambda
 
-- [ ] **Setup:** In the Validation Data Mapper Expression Editor (same as P9.2-01).
-- [ ] **Steps:**
-  1. Type: `$reduce($.source.offers, (acc, x) => $add(acc, x.price), 0)`.
+- [x] **Setup:** In the Validation Data Mapper Expression Editor (same as P9.2-01).
+- [x] **Steps:**
+  1. Type: `$reduce($.offers, (acc, x) => $add(acc, x.price), 0)`.
   2. Observe the preview.
-- [ ] **Expected:** Preview shows `95.48` (sum of all prices). Multi-param `(acc, x) => body` syntax works.
+  3. Try additional multi-param examples:
+     - `$reduce($.offers, (acc, x) => $add(acc, 1), 0)` → count items manually (should be `3`).
+     - `$reduce($.tags, (acc, t) => $concat(acc, $concat(", ", t)), "")` → join tags into a comma-separated string.
+     - `$zip($.tags, $.offers, (tag, offer) => $concat(tag, ": ", offer.offerName))` → pair tags with offer names.
+- [x] **Expected:**
+  - First `$reduce` → `95.48` (sum of all prices: 49.99 + 29.99 + 15.50).
+  - Count `$reduce` → `3`.
+  - Tag join `$reduce` → `", vip, premium, early-access"` (leading comma from initial empty string).
+  - `$zip` → `["vip: EV Access - 8 Years", "premium: OnStar Safety Plan", "early-access: Premium Navigation"]`.
+  - Multi-param `(acc, x) => body` and `(a, b) => body` syntax works without error.
 
 ### P9.2-03: Lambda with higher-order functions
 
-- [ ] **Setup:** In the Validation Data Mapper Expression Editor.
-- [ ] **Steps:** Test various HOFs:
-  1. `$map($.source.offers, x => x.offerName)` → `["EV Access - 8 Years", "OnStar Safety Plan", "Premium Navigation"]`.
-  2. `$any($.source.offers, x => $gt(x.rank, 2))` → `true` (rank 3 exists).
-  3. `$all($.source.offers, x => $gte(x.rank, 1))` → `true` (all ranks >= 1).
-  4. `$sortBy($.source.offers, x => x.price)` → sorted by price ascending.
-  5. `$find($.source.offers, x => $eq(x.offerName, "OnStar Safety Plan"))` → the matching offer object.
-- [ ] **Expected:** Each function evaluates correctly with lambda syntax.
+- [x] **Setup:** In the Validation Data Mapper Expression Editor.
+- [x] **Steps:** Test various HOFs:
+  1. `$map($.offers, x => x.offerName)` → `["EV Access - 8 Years", "OnStar Safety Plan", "Premium Navigation"]`.
+  2. `$any($.offers, x => $gt(x.rank, 2))` → `true` (rank 3 exists).
+  3. `$all($.offers, x => $gte(x.rank, 1))` → `true` (all ranks >= 1).
+  4. `$sortBy($.offers, x => x.price)` → sorted by price ascending.
+  5. `$find($.offers, x => $eq(x.offerName, "OnStar Safety Plan"))` → the matching offer object.
+  6. `$findAll($.offers, x => $gt(x.price, 20))` → 2 offers (EV Access + OnStar Safety Plan).
+  7. `$map($.offers, x => x.duration.value)` → `[365, 180, 90]` (nested property access).
+  8. `$mapValues($.config, v => $multiply(v, 2))` → `{ "retryCount": 6, "timeout": 10000 }`.
+  9. `$mapKeys($.config, k => $upper(k))` → `{ "RETRYCOUNT": 3, "TIMEOUT": 5000 }`.
+- [x] **Expected:** Each function evaluates correctly with lambda syntax. Nested property access (`x.duration.value`) resolves correctly inside lambdas. Object HOFs (`$mapValues`, `$mapKeys`) work on the `config` object.
 
 ### P9.2-04: Comparison helper functions in lambdas
 
-- [ ] **Setup:** In the Validation Data Mapper Expression Editor.
-- [ ] **Steps:**
-  1. `$filter($.source.offers, x => $gt(x.price, 20))` → 2 offers (49.99 and 29.99).
-  2. `$filter($.source.offers, x => $lte(x.rank, 2))` → 2 offers (rank 1 and 2).
-- [ ] **Expected:** `$gt`, `$gte`, `$lt`, `$lte`, `$eq`, `$neq` work correctly inside lambda bodies.
+- [x] **Setup:** In the Validation Data Mapper Expression Editor.
+- [x] **Steps:**
+  1. `$filter($.offers, x => $gt(x.price, 20))` → 2 offers (49.99 and 29.99).
+  2. `$filter($.offers, x => $lte(x.rank, 2))` → 2 offers (rank 1 and 2).
+  3. `$filter($.offers, x => $eq(x.isActive, false))` → 1 offer ("Premium Navigation").
+  4. `$filter($.offers, x => $neq(x.productCode, "NAV-P"))` → 2 offers (excludes Premium Navigation).
+  5. `$filter($.offers, x => $gte(x.duration.value, 180))` → 2 offers (365 days and 180 days).
+  6. `$filter($.offers, x => $lt(x.price, 30))` → 2 offers (29.99 and 15.50).
+- [x] **Expected:** `$gt`, `$gte`, `$lt`, `$lte`, `$eq`, `$neq` all work correctly inside lambda bodies, including with nested property access (`x.duration.value`).
 
 ---
 
 ## Phase 9.3 — Custom Predicate Functions (ASSERT)
 
 > **Context:** All P9.3 tests are performed inside the **Validation Data Mapper** (Validation tab → Data Mapper → toolbar → Rules modal → DSL editor).
+>
+> **UI Note:** The Test Editor's Custom Predicate assertion rows (in the Validation tab → Assertions section) use a **compact inline layout** matching all other assertion types — monospace expression input, inline description input, and a hover-tooltip info icon. The old vertical card layout (textarea + description block + hint box) was replaced for consistency.
 
 ### P9.3-01: ASSERT keyword in DSL
 
-- [ ] **Setup:** Open the Validation Data Mapper, then open the Rules modal (toolbar → Rules).
-- [ ] **Steps:**
+- [x] **Setup:** Open the Validation Data Mapper, then open the Rules modal (toolbar → Rules).
+- [x] **Steps:**
   1. Type: `ASSERT $gt($count($.body.offers), 0)`.
   2. Click **Save**, close the Rules modal, then click **Verify All** in the toolbar.
-- [ ] **Expected:** The custom assertion evaluates. Since `$count(offers) = 3 > 0`, it passes (✓).
+- [x] **Expected:** The custom assertion evaluates. Since `$count(offers) = 3 > 0`, it passes (✓).
 
 ### P9.3-02: ASSERT with description comment
 
-- [ ] **Setup:** In the Validation Data Mapper Rules modal DSL editor.
-- [ ] **Steps:**
+- [x] **Setup:** In the Validation Data Mapper Rules modal DSL editor.
+- [x] **Steps:**
   1. Type: `ASSERT $gt($.body.count, 0)  // count must be positive`.
   2. Save and verify.
-- [ ] **Expected:** Passes. The `// count must be positive` is treated as a description/comment.
+- [x] **Expected:** Passes. The `// count must be positive` is treated as a description/comment.
 
 ### P9.3-03: ASSERT with complex expression
 
-- [ ] **Setup:** In the Validation Data Mapper Rules modal DSL editor.
-- [ ] **Steps:**
+- [x] **Setup:** In the Validation Data Mapper Rules modal DSL editor.
+- [x] **Steps:**
   1. Type:
      ```
      ASSERT $eq($sum($map($.body.offers, x => x.rank)), 6)
      ```
      (Sum of ranks: 1+2+3 = 6)
   2. Save and verify.
-- [ ] **Expected:** Passes. Lambda and HOFs work inside ASSERT expressions.
+- [x] **Expected:** Passes. Lambda and HOFs work inside ASSERT expressions.
 
 ### P9.3-04: NOT ASSERT (negated custom predicate)
 
-- [ ] **Setup:** In the Validation Data Mapper Rules modal DSL editor.
-- [ ] **Steps:**
+- [x] **Setup:** In the Validation Data Mapper Rules modal DSL editor.
+- [x] **Steps:**
   1. Type: `NOT ASSERT $isEmpty($.body.offers)`.
   2. Save and verify.
-- [ ] **Expected:** Passes (offers is NOT empty). The negation inverts the predicate result.
+- [x] **Expected:** Passes (offers is NOT empty). The negation inverts the predicate result.
 
 ### P9.3-05: ASSERT failure produces clear error
 
-- [ ] **Setup:** In the Validation Data Mapper Rules modal DSL editor.
-- [ ] **Steps:**
+- [x] **Setup:** In the Validation Data Mapper Rules modal DSL editor.
+- [x] **Steps:**
   1. Type: `ASSERT $gt($.body.count, 1000)`.
   2. Save and verify.
-- [ ] **Expected:** Fails (✗). The error message indicates the assertion failed, showing the expression and the actual value.
+- [x] **Expected:** Fails (✗). The error message indicates the assertion failed, showing the expression and the actual value.
 
 ---
 
@@ -842,64 +876,64 @@
 
 ### P9.4-01: Rules modal — Docked mode (default)
 
-- [ ] **Setup:** Open the Validation Data Mapper. Click the **Rules** button in the toolbar.
-- [ ] **Steps:**
+- [x] **Setup:** Open the Validation Data Mapper. Click the **Rules** button in the toolbar.
+- [x] **Steps:**
   1. The modal opens at the bottom of the Validation Data Mapper (docked mode).
   2. A **resize handle** is visible at the top edge of the modal.
   3. Drag the resize handle upward to increase height (up to ~600px).
   4. Drag it down to decrease (minimum ~80px).
-- [ ] **Expected:** Docked panel with resizable height. The mapper canvas shrinks/grows to accommodate.
+- [x] **Expected:** Docked panel with resizable height. The mapper canvas shrinks/grows to accommodate.
 
 ### P9.4-02: Rules modal — Mode switching
 
-- [ ] **Steps:**
+- [x] **Steps:**
   1. In the modal header, find the mode selector dropdown (shows "⬓ Bottom" by default).
   2. Change to **⧉ Floating**. The modal detaches and becomes a floating window.
   3. Change to **⬜ Full Screen**. The modal fills the entire mapper area.
   4. Change back to **⬓ Bottom**. The modal re-docks.
-- [ ] **Expected:** Smooth transitions between all three modes. No layout glitches.
+- [x] **Expected:** Smooth transitions between all three modes. No layout glitches.
 
 ### P9.4-03: Floating mode — Drag and resize
 
-- [ ] **Setup:** In the Validation Data Mapper Rules modal, switch to **Floating** mode.
-- [ ] **Steps:**
+- [x] **Setup:** In the Validation Data Mapper Rules modal, switch to **Floating** mode.
+- [x] **Steps:**
   1. Drag the header to reposition the floating window.
   2. Drag the corner resize grip to resize the window.
   3. Drag the right edge to resize width only.
-- [ ] **Expected:** The floating window can be freely positioned and resized. Editor content remains intact.
+- [x] **Expected:** The floating window can be freely positioned and resized. Editor content remains intact.
 
 ### P9.4-04: Maximized mode
 
-- [ ] **Setup:** In the Validation Data Mapper Rules modal, switch to **Full Screen** mode.
-- [ ] **Steps:**
+- [x] **Setup:** In the Validation Data Mapper Rules modal, switch to **Full Screen** mode.
+- [x] **Steps:**
   1. The modal fills the entire mapper area.
   2. The mapper canvas is hidden (CSS `:has()` selector hides it).
   3. The editor is fully visible with maximum space.
-- [ ] **Expected:** Full-screen editor with no visible canvas. Switching back to another mode restores the canvas.
+- [x] **Expected:** Full-screen editor with no visible canvas. Switching back to another mode restores the canvas.
 
 ### P9.4-05: Mode persistence
 
-- [ ] **Setup:** In the Validation Data Mapper Rules modal, switch to **Floating** mode.
-- [ ] **Steps:**
+- [x] **Setup:** In the Validation Data Mapper Rules modal, switch to **Floating** mode.
+- [x] **Steps:**
   1. Close the Rules modal (Cancel button or Escape).
   2. Re-open the Rules modal (click Rules in toolbar).
-- [ ] **Expected:** The modal opens in **Floating** mode (persisted to `localStorage`).
+- [x] **Expected:** The modal opens in **Floating** mode (persisted to `localStorage`).
 
 ### P9.4-06: DSL Reference Panel — Toggle
 
-- [ ] **Setup:** Open the Validation Data Mapper Rules modal (toolbar → Rules).
-- [ ] **Steps:**
+- [x] **Setup:** Open the Validation Data Mapper Rules modal (toolbar → Rules).
+- [x] **Steps:**
   1. Locate the **Reference** button in the header — it toggles the panel.
   2. Also locate the **edge toggle button** (`▸`/`◂`) on the vertical boundary between the code editor and the reference panel.
   3. Click the edge toggle to hide the reference panel. The editor takes full width. The toggle becomes wider (26px) and shows a vertical **"REF"** label with a `◂` chevron, with a subtle purple-accent border for discoverability.
   4. Click the edge toggle again to show the reference panel. It narrows back to 18px with just `▸`.
   5. Alternatively, use the header **Reference** button — both controls toggle the same state.
-- [ ] **Expected:** The reference panel shows/hides. The edge toggle is always visible as a vertical strip — thin when the panel is open, wider with label when collapsed. State persists across close/reopen via `localStorage`.
-- [ ] **Implementation:** `ValidationRulesModal.tsx` renders a `<button className="vr-ref-edge-toggle">` between the editor pane and the reference panel inside `vr-modal-body`. CSS class `vr-ref-edge-toggle--collapsed` applies when reference is hidden, widening the button and adding the vertical "REF" label. E2E test: `e2e/validation-rules-edge-toggle.spec.ts`.
+- [x] **Expected:** The reference panel shows/hides. The edge toggle is always visible as a vertical strip — thin when the panel is open, wider with label when collapsed. State persists across close/reopen via `localStorage`.
+- [x] **Implementation:** `ValidationRulesModal.tsx` renders a `<button className="vr-ref-edge-toggle">` between the editor pane and the reference panel inside `vr-modal-body`. CSS class `vr-ref-edge-toggle--collapsed` applies when reference is hidden, widening the button and adding the vertical "REF" label. E2E test: `e2e/validation-rules-edge-toggle.spec.ts`.
 
 ### P9.4-07: DSL Reference Panel — Categories (Accordion)
 
-- [ ] **Steps:**
+- [x] **Steps:**
   1. With the reference panel open, observe the categories:
      - **Equality** (= icon, green) — 2 operators
      - **Comparison** (≶ icon, amber) — 6 operators
@@ -913,55 +947,61 @@
   3. Click a category to expand it. Only **one section opens at a time** (accordion behavior) — clicking a new section auto-closes the previous one.
   4. Operator entries are compact: name + description on one line, syntax below, with **Insert** (+) and **Copy** actions always visible inline.
   5. Operator content is indented relative to the section header.
-- [ ] **Expected:** 8 categories (merged from original 10). Accordion mode — one open at a time. Compact layout with inline actions. Entry count badge shown next to each section header.
-- [ ] **Implementation:** `DslReferencePanel.tsx` uses `useState<Set<string>>(() => new Set())` for collapsed-by-default. `toggleSection` clears all other open sections for accordion behavior. "Custom Predicates", "Modifiers", and "Syntax Guide" merged into "Custom & Modifiers".
+- [x] **Expected:** 8 categories (merged from original 10). Accordion mode — one open at a time. Compact layout with inline actions. Entry count badge shown next to each section header.
+- [x] **Implementation:** `DslReferencePanel.tsx` uses `useState<Set<string>>(() => new Set())` for collapsed-by-default. `toggleSection` clears all other open sections for accordion behavior. "Custom Predicates", "Modifiers", and "Syntax Guide" merged into "Custom & Modifiers".
 
 ### P9.4-08: DSL Reference Panel — Search
 
-- [ ] **Steps:**
-  1. In the reference panel search box, type `"between"`.
-  2. Only the Comparison section shows, filtered to the `between` entry.
-  3. Clear the search. All sections reappear.
-  4. Type `"ASSERT"`. The Custom & Modifiers section shows.
-- [ ] **Expected:** Search filters entries across all sections by keyword, description, syntax, and example.
+- [x] **Setup:** Open the DSL Reference Panel (click "Reference" in the Rules modal header). The search box is at the top of the reference panel.
+- [x] **Steps:**
+  1. Click into the search input at the top of the reference panel.
+  2. Type `"between"` — only the **Comparison** section should remain visible, auto-expanded, showing the `between` entry. All other sections are hidden.
+  3. Verify the match highlights or filters by: operator name (`between`), description text ("Check if value falls within a range"), and syntax example.
+  4. Clear the search by clicking the `×` clear button (or selecting all text and deleting).
+  5. All 8 sections reappear in their collapsed state.
+  6. Type `"ASSERT"` — only the **Custom & Modifiers** section shows, displaying the ASSERT entry.
+  7. Type a partial match: `"grea"` — the **Comparison** section shows with `greater_than` and `greater_than_or_equal`.
+  8. Type a non-matching term: `"xyznonexistent"` — an empty state message appears (e.g., "No matching operators").
+  9. Clear the search again — all sections return.
+- [x] **Expected:** Search filters entries across all sections by operator name, description text, syntax, and example. Matching sections auto-expand to show results. Non-matching sections are hidden entirely. Empty search restores the default collapsed state. Clear button (×) appears when text is present. Case-insensitive matching. Partial matches work (e.g., "grea" matches "greater_than").
 
 ### P9.4-09: DSL Reference Panel — Insert
 
-- [ ] **Steps:**
+- [x] **Steps:**
   1. Place the cursor on an empty line in the DSL editor.
   2. In the reference panel, find the `equals` entry.
   3. Click the **Insert** (+) button (always visible inline, no hover required).
-- [ ] **Expected:** The example syntax (e.g., `offers[0].name  equals  "Premium"`) is inserted at the cursor position in the editor.
+- [x] **Expected:** The example syntax (e.g., `offers[0].name  equals  "Premium"`) is inserted at the cursor position in the editor.
 
 ### P9.4-10: DSL Reference Panel — Copy
 
-- [ ] **Steps:**
+- [x] **Steps:**
   1. In the reference panel, find the `contains` entry.
   2. Click the **Copy** button (always visible inline next to Insert).
   3. Paste (`⌘ V`) into a text editor.
-- [ ] **Expected:** The syntax template is copied to the clipboard.
+- [x] **Expected:** The syntax template is copied to the clipboard.
 
 ### P9.4-11: DSL Reference Panel — Expand/Collapse All
 
-- [ ] **Steps:**
+- [x] **Steps:**
   1. Click **Expand all** (▼) in the reference header.
   2. All 8 sections expand.
   3. Click **Collapse all** (▲).
   4. All sections collapse.
   5. Note: After using Expand All, clicking a single section still closes all others (accordion behavior resumes).
-- [ ] **Expected:** Bulk expand/collapse works for all categories. The header also has a **close** (×) button that hides the reference panel (equivalent to the edge toggle or header Reference button).
+- [x] **Expected:** Bulk expand/collapse works for all categories. The header also has a **close** (×) button that hides the reference panel (equivalent to the edge toggle or header Reference button).
 
 ### P9.4-12: Verify stats in modal header
 
-- [ ] **Setup:** In the Validation Data Mapper, have several rules in the DSL editor. Click **Verify All** in the toolbar.
-- [ ] **Steps:**
+- [x] **Setup:** In the Validation Data Mapper, have several rules in the DSL editor. Click **Verify All** in the toolbar.
+- [x] **Steps:**
   1. Observe the modal header.
   2. After verification completes, the header shows: **● N rules** (green dot if no errors) / **● N passed** (green) / **● M failed** (red).
-- [ ] **Expected:** Verify stats appear in the Rules modal header matching the toolbar counts. E2E verified: header shows `7 rules · 7 passed` after successful verification.
+- [x] **Expected:** Verify stats appear in the Rules modal header matching the toolbar counts. E2E verified: header shows `7 rules · 7 passed` after successful verification.
 
 ### P9.4-13: DSL assertions counted in verify totals
 
-- [ ] **Setup:** In the Validation Data Mapper Rules modal DSL editor, add mixed rules:
+- [x] **Setup:** In the Validation Data Mapper Rules modal DSL editor, add mixed rules:
   ```
   status  equals  "active"
   count  >=  10
@@ -969,31 +1009,31 @@
   isActive  is_true
   ASSERT $gt($.body.count, 0)
   ```
-- [ ] **Steps:**
+- [x] **Steps:**
   1. Click **Verify All**.
   2. Count the total rules: 5 (3 field assertions + 1 collection + 1 custom).
   3. Check the verify stats.
-- [ ] **Expected:** Stats show `5 passed` (assuming all pass). DSL-originated assertions (`length`, `ASSERT`) are counted alongside field operators.
+- [x] **Expected:** Stats show `5 passed` (assuming all pass). DSL-originated assertions (`length`, `ASSERT`) are counted alongside field operators.
 
 ### P9.4-14: Escape key behavior
 
-- [ ] **Setup:** Open the Validation Data Mapper Rules modal.
-- [ ] **Steps:**
+- [x] **Setup:** Open the Validation Data Mapper Rules modal.
+- [x] **Steps:**
   1. With the Rules modal open, press **Escape**.
   2. The modal closes (Cancel behavior — reverts unsaved edits).
   3. Re-open the modal. Start typing a path (e.g., `off`) to trigger the auto-suggest widget.
   4. With the suggest widget open, press **Escape**.
-- [ ] **Expected:** First Escape closes the suggest widget only (modal stays open). Press Escape again to close the modal. Implementation: `handleKeyDown` checks for `.editor-widget.suggest-widget.visible` before closing.
+- [x] **Expected:** First Escape closes the suggest widget only (modal stays open). Press Escape again to close the modal. Implementation: `handleKeyDown` checks for `.editor-widget.suggest-widget.visible` before closing.
 
 ### P9.4-15: Portal stacking (z-index)
 
-- [ ] **Setup:** Open the Validation Data Mapper Rules modal in **Floating** mode.
-- [ ] **Steps:**
+- [x] **Setup:** Open the Validation Data Mapper Rules modal in **Floating** mode.
+- [x] **Steps:**
   1. The floating modal renders within the Validation Data Mapper's modal overlay (portaled to closest `.dm-modal-overlay` or `.modal-overlay`).
   2. Click outside the floating window but inside the Validation Data Mapper Modal.
   3. The floating Rules window stays visible (not hidden behind other elements).
-- [ ] **Expected:** Correct z-index stacking. The floating Rules window is always on top of the Validation Data Mapper content but within the modal boundary.
-- [ ] **E2E verified:** `e2e/validation-rules-modal-zindex.spec.ts` confirms the modal is visible, interactive, and on top.
+- [x] **Expected:** Correct z-index stacking. The floating Rules window is always on top of the Validation Data Mapper content but within the modal boundary.
+- [x] **E2E verified:** `e2e/validation-rules-modal-zindex.spec.ts` confirms the modal is visible, interactive, and on top.
 
 ---
 
@@ -1001,22 +1041,22 @@
 
 > **Context:** All integration tests are performed inside the **Validation Data Mapper** (Test Editor → Validation tab → Data Mapper) unless explicitly stated otherwise.
 
-### INT-01: Full workflow — Visual + DSL + Verify
+### INT-01: Full workflow — Visual + DSL + Verify ✅
 
-- [ ] **Setup:** Open the Validation Data Mapper with sample JSON loaded.
-- [ ] **Steps:**
+- [x] **Setup:** Open the Validation Data Mapper with sample JSON loaded.
+- [x] **Steps:**
   1. Auto-map all fields. Change some operators visually (equals, >=, contains).
   2. Open the Rules modal. Observe that visual mappings appear as DSL.
   3. Add additional rules via DSL: `ASSERT $gt($.body.count, 0)`.
   4. Close the modal. Verify the visual tree reflects the DSL rules.
   5. Click **Verify All**. Check pass/fail for all rules.
   6. Enable **Auto-verify**. Change a value. Observe auto-re-verify.
-- [ ] **Expected:** Complete round-trip: visual → code → verify. All modes stay in sync.
+- [x] **Expected:** Complete round-trip: visual → code → verify. All modes stay in sync.
 
-### INT-02: Negation + Lambda + ASSERT combined
+### INT-02: Negation + Lambda + ASSERT combined ✅
 
-- [ ] **Setup:** Open the Validation Data Mapper Rules modal (toolbar → Rules).
-- [ ] **Steps:**
+- [x] **Setup:** Open the Validation Data Mapper Rules modal (toolbar → Rules).
+- [x] **Steps:**
   1. In the Rules DSL editor, type:
      ```
      # Negated field assertion
@@ -1032,26 +1072,26 @@
      offers  NOT length >=  100
      ```
   2. Verify all.
-- [ ] **Expected:** All 4 rules pass. Negation, lambdas, ASSERT, and collection assertions all work together.
+- [x] **Expected:** All 4 rules pass. Negation, lambdas, ASSERT, and collection assertions all work together.
 
-### INT-03: Type mismatch detection and quick-fix
+### INT-03: Type mismatch detection and quick-fix ✅
 
-- [ ] **Setup:** In the Validation Data Mapper, map a string field (`name`) to target. Set operator to **> greater than** (expects numeric).
-- [ ] **Steps:**
+- [x] **Setup:** In the Validation Data Mapper, map a string field (`name`) to target. Set operator to **> greater than** (expects numeric).
+- [x] **Steps:**
   1. Observe a **type mismatch warning** (indicator or tooltip) on the mapping.
   2. Look for a **quick-fix suggestion** (e.g., "Wrap with $parseInt" or "Change operator to contains").
-- [ ] **Expected:** Type mismatch is detected. Quick-fix suggestions are actionable.
+- [x] **Expected:** Type mismatch is detected. Quick-fix suggestions are actionable.
 
-### INT-04: Save and reopen — persistence
+### INT-04: Save and reopen — persistence ✅
 
-- [ ] **Setup:** In the Validation Data Mapper, create several mappings with mixed operators, array assertions, and DSL rules.
-- [ ] **Steps:**
+- [x] **Setup:** In the Validation Data Mapper, create several mappings with mixed operators, array assertions, and DSL rules.
+- [x] **Steps:**
   1. Click **Save** in the Validation Data Mapper Modal.
   2. Close the Test Editor.
   3. Re-open the Test Editor → Validation tab → Validation Data Mapper.
-- [ ] **Expected:** All mappings, operators, operator values, negation flags, array assertions, and DSL rules are preserved exactly.
+- [x] **Expected:** All mappings, operators, operator values, negation flags, array assertions, and DSL rules are preserved exactly.
 
-### INT-04b: Operator persistence through Rules modal save cycle (regression fix)
+### INT-04b: Operator persistence through Rules modal save cycle (regression fix) ✅
 
 > **Bug history:** Operators set to `equals` (or any operator) were silently reverted when saving after the Rules modal had been opened. Root cause: a chain of 5 bugs caused data loss during the DSL round-trip:
 > 1. `dslToModel()` stripped `equals` to `undefined` (treating it as an implicit default)
@@ -1062,75 +1102,186 @@
 >
 > **Fixed in:** `validationDsl.ts`, `useDataMapperValidation.ts`, `validationAdapter.ts`, `TargetTreeNode.tsx`
 
-- [ ] **Setup:** Open the Validation Data Mapper with sample JSON. Manually map 3+ leaf fields via drag-and-drop.
-- [ ] **Steps — Basic persistence:**
+- [x] **Setup:** Open the Validation Data Mapper with sample JSON. Manually map 3+ leaf fields via drag-and-drop.
+- [x] **Steps — Basic persistence:**
   1. Verify all mapped fields show the `= equals` operator pill (green).
   2. Click **Save** on the Validation Data Mapper Modal.
   3. Close and re-open the Test Editor → Validation tab → Validation Data Mapper.
   4. Verify all fields still show `= equals`.
-- [ ] **Steps — Persistence through Rules modal:**
+- [x] **Steps — Persistence through Rules modal:**
   1. Open the Validation Data Mapper. Confirm fields show `= equals`.
   2. Open the **Rules** modal (toolbar → Rules). DSL should show `equals` for each field.
   3. **Without editing anything**, click **Save** on the Rules modal.
   4. Click **Save** on the Validation Data Mapper Modal.
   5. Close and re-open the Test Editor → Validation tab → Validation Data Mapper.
   6. Verify all fields still show `= equals` — **not** `∃ exists` or any other operator.
-- [ ] **Steps — Mixed operators persist:**
+- [x] **Steps — Mixed operators persist:**
   1. Map 3 fields. Set one to `contains`, one to `close_to` with a value, leave one as `equals`.
   2. Open the Rules modal → verify the DSL shows correct operators → click Save.
   3. Save the Validation Data Mapper Modal.
   4. Close and re-open.
   5. Verify: `contains`, `close_to` (with value), and `equals` are all preserved exactly.
-- [ ] **Expected:** Operators are never silently changed during save/reopen cycles, including when the Rules modal is opened and saved.
+- [x] **Expected:** Operators are never silently changed during save/reopen cycles, including when the Rules modal is opened and saved.
 
-### INT-05: Unordered array matching option
+---
 
-- [ ] **Setup:** In the Validation Data Mapper Modal footer, look for the **Unordered array matching** checkbox.
-- [ ] **Steps:**
+## Phase 9.5 — Inline Verification Debugging (Rules Modal)
+
+> **Context:** All P9.5 tests are performed inside the **Validation Rules Modal** (Validation Data Mapper → Rules button). This feature allows step-by-step debugging of DSL rules directly in the Rules modal without saving and returning to the Data Mapper.
+
+### P9.5-01: Verify button in Rules modal header
+
+- [x] **Setup:** Open the Validation Data Mapper with sample JSON. Open the Rules modal (toolbar → Rules).
+- [x] **Steps:**
+  1. Verify: A **"▶ Verify"** button appears in the modal header, next to the verify stats.
+  2. When `sampleResponseData` is NOT available, the button is **disabled** (grayed out).
+  3. When sample data IS available (fetched or pasted), the button is **enabled** (blue).
+  4. Click the button. Verify stats update inline: shows `N passed` (green) and `N failed` (red).
+- [x] **Expected:** Inline verification runs locally against the current DSL text without saving.
+
+### P9.5-02: Inline verification results override parent stats
+
+- [x] **Setup:** In the Validation Data Mapper, click **Verify All** from the toolbar first (parent stats). Then open the Rules modal.
+- [x] **Steps:**
+  1. The header initially shows the parent verify stats (from the toolbar verify).
+  2. Click **▶ Verify** in the Rules modal.
+  3. The header now shows the **inline** verify stats (which may differ from parent if DSL was edited).
+  4. Edit the DSL text — the inline stats **clear automatically**.
+- [x] **Expected:** Inline results take precedence. Editing clears stale results.
+
+### P9.5-03: Failed Rules strip
+
+- [x] **Setup:** Add rules that will fail against the sample data (e.g., `offers[0].rank equals "999"`). Click **▶ Verify**.
+- [x] **Steps:**
+  1. A **"Failed Rules"** strip appears below the editor area with a close (×) button.
+  2. Each failed rule shows: line number, JSON path, expected/actual values.
+  3. Click a failed rule row to **expand** it, revealing debug details.
+  4. Click again to **collapse**. Keyboard `Enter` also toggles.
+  5. Click the **→** (go-to) button on a failed rule to jump the editor cursor to that line.
+  6. Click **×** on the strip header to dismiss the strip.
+- [x] **Expected:** Failed rules are listed with line/path context. Expand/collapse works. Jump-to-line navigates the Monaco editor.
+
+### P9.5-04: Debug detail panel — Evaluation Steps
+
+- [x] **Setup:** Expand a failed rule in the results strip.
+- [x] **Steps:**
+  1. An **"Evaluation Steps"** section appears showing numbered steps:
+     - Step 1: Path resolution (`offers[0].rank → 13`)
+     - Step 2: Operator evaluation (`equals "999"`)
+     - Step 3: Result (`FAIL`)
+  2. For **`each`** assertions, failed items are listed individually.
+  3. For **`ASSERT`** custom expressions, intermediate sub-expression evaluations are shown.
+  4. When a step value is **long** (>60 chars), a **▸** toggle appears. Click to expand to full pretty-printed value.
+  5. Keyboard `Enter` on a clickable step row also toggles the expanded view.
+- [x] **Expected:** Step-by-step evaluation with expandable long values.
+
+### P9.5-05: Debug detail panel — Input Data
+
+- [x] **Setup:** Expand a failed rule in the results strip.
+- [x] **Steps:**
+  1. An **"Input Data"** section shows the sample data relevant to the rule.
+  2. If the data is **small** (<200 chars), it shows inline as compact JSON.
+  3. If the data is **large** (>200 chars), it shows a preview with a clickable **"▸ Expand full"** link.
+  4. Click to expand — full pretty-printed JSON in a scrollable block.
+  5. Click again to collapse back to preview.
+  6. Keyboard `Enter` on the section title also toggles.
+- [x] **Expected:** Input data is shown with smart truncation and expand/collapse for large payloads.
+
+### P9.5-06: Undefined path enrichment
+
+- [x] **Setup:** Add a rule with a **typo** in the path (e.g., `offerss[0].rank equals "1"`). Click **▶ Verify**.
+- [x] **Steps:**
+  1. The rule fails. Expand the debug panel.
+  2. The path resolution step shows: `offerss → undefined`
+  3. Additionally, available keys at the parent level are listed as hints (e.g., `undefined (at root: offers, count, isActive, ...)`).
+- [x] **Expected:** When a path resolves to `undefined`, available sibling keys are shown to help identify typos.
+
+### P9.5-07: DSL assertion types in inline verify
+
+- [x] **Setup:** Add various DSL assertion types and click **▶ Verify**:
+  ```
+  offers  length >=  1
+  offers[*].rank  each >=  0
+  offers  contains_any  {"rank": 1}
+  ASSERT $gt($count($.body.offers), 0)
+  ```
+- [x] **Steps:**
+  1. All assertion types are evaluated: field operators, arrayLength, each, contains/subset, custom ASSERT.
+  2. Failed `each` assertions show which items failed and their indices.
+  3. Failed `contains_any/contains_all/subset` show the expected items vs actual array.
+  4. Failed `ASSERT` expressions show the intermediate `debugExpression` steps with `$.body.*` context.
+- [x] **Expected:** All DSL assertion types are handled correctly in inline verify with appropriate debug detail.
+
+### P9.5-08: Monaco inline end-of-line annotations
+
+- [x] **Setup:** Click **▶ Verify** with mixed passing and failing rules.
+- [x] **Steps:**
+  1. Passing lines show a **green ✓** gutter badge and a green `✓ Passed` annotation at end of line.
+  2. Failing lines show a **red ✗** gutter badge and a red `← Got: <actual value>` annotation at end of line.
+  3. When `lineResults` become empty (e.g., text changed), all annotations are cleared.
+- [x] **Expected:** Inline annotations provide instant visual feedback without opening the debug strip.
+
+### P9.5 — Architecture Note
+
+> **Module extraction:** The Monaco language registration, theming, and autocomplete logic was extracted from `ValidationCodeEditor.tsx` into `utils/monacoValidationLanguage.ts` to keep the editor component under the 900-line threshold. The public API exports: `LANGUAGE_ID`, `OPERATOR_KEYWORDS`, `registerLanguage`, `ensureCompletionProvider`, `applyDynamicTheme`, `isLightTheme`, `getCssVar`, `rgbToHex`.
+>
+> **Key files:**
+> - `ValidationRulesModal.tsx` — inline verify logic, results strip, debug panel rendering
+> - `ValidationCodeEditor.tsx` — Monaco editor with inline annotations (uses extracted language module)
+> - `utils/monacoValidationLanguage.ts` — Monaco language, tokenizer, theming, autocomplete provider
+> - `utils/expressionDebugHelpers.ts` — `prettyDebugValue`, `truncateDebugValue` formatting helpers
+> - `utils/expressionStepDebugger.ts` — `debugExpression` step-through evaluator
+
+---
+
+### INT-05: Unordered array matching option ✅
+
+- [x] **Setup:** In the Validation Data Mapper Modal footer, look for the **Unordered array matching** checkbox.
+- [x] **Steps:**
   1. Toggle the checkbox on.
   2. Save.
   3. Reopen and verify the checkbox state persists.
-- [ ] **Expected:** The `unorderedArrays` option is saved and restored.
+- [x] **Expected:** The `unorderedArrays` option is saved and restored.
 
-### INT-05b: Unmap selected source fields
+### INT-05b: Unmap selected source fields ✅
 
-- [ ] **Setup:** Open the Validation Data Mapper. Auto-map fields so several source nodes are mapped.
-- [ ] **Steps:**
+- [x] **Setup:** Open the Validation Data Mapper. Auto-map fields so several source nodes are mapped.
+- [x] **Steps:**
   1. In the **Source Panel**, use the checkboxes to select 2–3 mapped source nodes.
   2. A red **"Unmap (N)"** button appears in the Source Panel header (where N is the count of selected mapped items).
   3. Click the **Unmap** button.
   4. The selected mappings are removed. The source nodes revert to unmapped state.
   5. If some selected items are mapped and others are not, both buttons appear: blue **"Map (N)"** for unmapped, red **"Unmap (N)"** for mapped.
-- [ ] **Expected:** Only the selected (checked) source fields are unmapped. Other mappings remain untouched. The checkbox styling uses a custom green checkmark on a subtle border (not the default browser blue box) for better dark-theme consistency.
-- [ ] **Implementation:** `SourcePanel.tsx` computes `selectedMappedCount` from `selectedSourcePaths` and `mappings`. `DataMapper.tsx` provides `handleUnmapSelectedFields` which normalizes paths via `normalizeMapperPath` and calls `removeMappings`. CSS for `.dm-source-checkbox` uses a green (`--success`) background with a custom CSS `::after` checkmark.
+- [x] **Expected:** Only the selected (checked) source fields are unmapped. Other mappings remain untouched. The checkbox styling uses a custom green checkmark on a subtle border (not the default browser blue box) for better dark-theme consistency.
+- [x] **Implementation:** `SourcePanel.tsx` computes `selectedMappedCount` from `selectedSourcePaths` and `mappings`. `DataMapper.tsx` provides `handleUnmapSelectedFields` which normalizes paths via `normalizeMapperPath` and calls `removeMappings`. CSS for `.dm-source-checkbox` uses a green (`--success`) background with a custom CSS `::after` checkmark.
 
-### INT-06: Bottom Dock — Code/Table views include assertions and verify status
+### INT-06: Code/Table views include assertions and verify status ✅
 
-- [ ] **Setup:** Open the Validation Data Mapper. Create 6+ field mappings and 7+ array assertions (LENGTH, CONTAINS, EACH, SUBSET). Click **Verify All**.
-- [ ] **Steps:**
-  1. Click **Code** in the bottom dock toolbar. The dock shows the header: **"6 mappings · 7 assertions"**.
+- [x] **Setup:** Open the Validation Data Mapper. Create 6+ field mappings and 7+ array assertions (LENGTH, CONTAINS, EACH, SUBSET). Click **Verify All**.
+- [x] **Steps:**
+  1. Click **Code** in the top toolbar. The Code view shows the header: **"6 mappings · 7 assertions"**.
   2. Scroll down in the Code view — below the field mappings, a separator line **"— Assertions —"** appears followed by each assertion (e.g., `offers  LENGTH  3`, `offers[*]  EACH  rank >= 0`). Assertion lines are styled in accent color.
-  3. Switch to **Table** mode. Click **List**. The table shows:
+  3. Click **Table** in the top toolbar. Click **List**. The table shows:
      - Field mapping rows (1–6) with columns: #, Target, Source/Expression, Before, After, Trace, Status.
      - A section header: **"Assertions (7)"** followed by assertion rows with Path, Type (e.g., LENGTH, EACH), and Rule summary.
      - The toolbar shows: **"6 rows · 7 assertions"**.
   4. Check the **Status** column: after **Verify All**, it shows **"✓ pass"** (green) or **"✗ fail"** (red). Before verification, it shows **"— same"** or **"△ changed"**.
-  5. Switch to **Table > Table** (pivot view). Below the pivot grid, a compact 3-column assertion summary table appears: **Path**, **Type**, **Rule**.
+  5. Switch to **Table > Pivot** (pivot view). Below the pivot grid, a compact 3-column assertion summary table appears: **Path**, **Type**, **Rule**.
   6. Click **Inspect** on any mapping row. The **Trace panel** opens below the table and auto-scrolls into view, showing Source Input → Path Resolution → Target Output.
-- [ ] **Expected:** All three dock views (Code, List, Pivot) include assertions. The Status column reflects verification results (pass/fail) when available. Trace panel appears on Inspect click.
-- [ ] **Implementation:** `CodeView.tsx` accepts `assertions`, `verifyStatus`, and `failedMappingIds` props. `BottomUtilityDock.tsx` passes them through from `DataMapper.tsx`. Shared utilities `formatAssertionLine`, `getAssertionJsonPath`, `formatAssertionSummary` in `targetTreeHelpers.ts` — no duplicated code.
+- [x] **Expected:** All three views (Code, List, Pivot) include assertions. The Status column reflects verification results (pass/fail) when available. Trace panel appears on Inspect click.
+- [x] **Implementation:** `CodeView.tsx` accepts `assertions`, `verifyStatus`, `failedMappingIds`, and `assertionVerifyMap` props. `BottomUtilityDock.tsx` passes them through from `DataMapper.tsx`. When `verifyStatus === 'complete'`, mapping rows check `failedMappingIds` for pass/fail status; assertion rows use `assertionVerifyMap` (indexed by position) for their pass/fail status. Font sizes are standardized to `0.7rem` across all Mapping View elements. The List/Pivot toggle is always visible (Pivot is disabled with a tooltip when data doesn't support pivoting). Pivot row key extraction uses the first `[N]` array index segment for correct grouping of nested paths (e.g., `offers[0].duration.value` groups under `offers[0]`). Shared utilities `formatAssertionLine`, `getAssertionJsonPath`, `formatAssertionSummary` in `targetTreeHelpers.ts` — no duplicated code.
 
-### INT-07: Schema drift detection after re-fetch
+### INT-07: Schema drift detection after re-fetch ✅
 
-- [ ] **Setup:** Have a saved Validation Data Mapper with existing mappings.
-- [ ] **Steps:**
+- [x] **Setup:** Have a saved Validation Data Mapper with existing mappings.
+- [x] **Steps:**
   1. Re-open the Validation Data Mapper.
   2. If the source data schema has changed since the last save, a **Drift Banner** appears at the top.
   3. Click **Show Diff** to open the **Schema Diff Modal**.
   4. Review added/removed/renamed fields.
   5. Apply repair suggestions for broken mappings.
   6. Click **Accept & Update** to dismiss the drift.
-- [ ] **Expected:** Drift detection, diff modal, and repair suggestions work correctly.
+- [x] **Expected:** Drift detection, diff modal, and repair suggestions work correctly.
 
 ---
 
@@ -1327,12 +1478,13 @@ All pop-up modals in the app must follow these rules:
 | P7 | 4 | 4/4 ✅ | Expression engine, variable rename (inline + modal), viewport fit + resize, 125 functions |
 | P8 | 4 | 4/4 ✅ | bodySize, datePrecise, between, close_to |
 | P9.1 | 5 | 5/5 ✅ | Universal negation |
-| P9.2 | 4 | — | Lambda syntax, HOFs |
-| P9.3 | 5 | — | ASSERT keyword, custom predicates |
-| P9.4 | 15 | — | 3-mode modal, DSL reference (accordion), edge toggle, verify stats |
+| P9.2 | 4 | 4/4 ✅ | Lambda syntax, HOFs |
+| P9.3 | 5 | 5/5 ✅ | ASSERT keyword, custom predicates |
+| P9.4 | 15 | 15/15 ✅ | 3-mode modal, DSL reference (accordion), edge toggle, verify stats |
+| P9.5 | 8 | 8/8 ✅ | Inline verification debugging (Verify button, results strip, debug steps, input data, annotations) |
 | VP | 3 | 3/3 ✅ | Version preview modals, compare modal search & layout |
-| Integration | 9 | — | Cross-phase workflows, unmap selected, bottom dock assertions, operator persistence regression |
-| **Total** | **91** | **55/91** | P0–P8 verified; VP verified; P9+ pending |
+| Integration | 9 | 9/9 ✅ | Cross-phase workflows, unmap selected, bottom dock assertions, operator persistence regression |
+| **Total** | **99** | **99/99 ✅** | All phases verified |
 
 ### Automated Test Coverage
 
@@ -1343,16 +1495,31 @@ All pop-up modals in the app must follow these rules:
 | `validationAdapter.integration.test.ts` | 84 | Full pipeline: adapter serialize → operator evaluate for all operators, negate, expressions |
 | `validationAdapter.test.ts` | 71 | Adapter unit tests (includes explicit operator persistence) |
 | `useValidationVerify.test.ts` | 37 | Verify hook tests |
-| `ValidationRulesModal.test.tsx` | 44 | Modal rendering, mode switching, Save/Cancel, edge toggle, reference panel toggle |
-| `ValidationCodeEditor.test.tsx` | — | Monaco editor mount, theme, decorations, selection guard |
+| `ValidationRulesModal.test.tsx` | 97 | Modal rendering, mode switching, Save/Cancel, edge toggle, reference panel toggle, **inline verify, debug panel, DSL assertions, expand/collapse** |
+| `ValidationCodeEditor.test.tsx` | 69 | Monaco editor mount, theme, decorations, selection guard, **inline annotations (pass/fail)** |
+| `monacoValidationLanguage.test.ts` | 31 | Language registration, theming, autocomplete provider (path/operator/ASSERT/function suggestions) |
+| `expressionDebugHelpers.test.ts` | 10 | `prettyDebugValue` formatting, `truncateDebugValue` with custom limits |
 | `DslReferencePanel.test.tsx` | — | Accordion behavior, merged sections, search, insert/copy |
 | `CodeView.test.tsx` | — | Assertion rendering in code/table views, status column, empty state |
-| `targetTreeHelpers.test.ts` | — | `getAssertionJsonPath`, `formatAssertionLine` utilities |
+| `targetTreeHelpers.test.ts` | 58 | `getAssertionJsonPath`, `formatAssertionLine`, `formatAssertionSummary` (no truncation for custom) |
 | `InlineAssertionRow.test.tsx` | — | Inline editing, each fallback, verify badges |
 | `TestEditorValidationTab.test.tsx` | — | JSON Schema editor, Pretty/Minify buttons |
-| **Total automated** | **375+** | |
+| `TargetTreeNode.test.tsx` | 149 | Tree node rendering, drag-drop, context menu, operator picker, **verifyFilter for array assertions** |
+| `ExpressionDebugDetailModal.test.tsx` | 12 | Detail modal render, drag, keyboard, CSS classes |
+| **Total automated** | **500+** | |
+
+### Overall Code Coverage
+
+| Metric | Value |
+|--------|-------|
+| **Statements** | 98.34% |
+| **Branches** | 94.27% |
+| **Functions** | 98.78% |
+| **Lines** | 99.23% |
 
 ### E2E Test Coverage (Playwright)
+
+> **Total E2E tests: 652 passed** (across all spec files, 40 workers, 30s timeout)
 
 | Test File | Tests | Scope |
 |-----------|-------|-------|
@@ -1361,3 +1528,5 @@ All pop-up modals in the app must follow these rules:
 | `e2e/validation-rules-modal-zindex.spec.ts` | — | Portal stacking, z-index |
 | `e2e/validation-rules-visual-mapper-clear.spec.ts` | — | Clear/reset flows |
 | `e2e/validation-rules-edge-toggle.spec.ts` | 2 | Edge toggle visibility/toggle, line decorations after Verify All |
+| `e2e/validation-dsl-roundtrip.spec.ts` | — | DSL collection assertions save/reopen round-trip |
+| `e2e/custom-predicate-assertion.spec.ts` | — | Custom ASSERT expressions, visibility in Data Mapper |

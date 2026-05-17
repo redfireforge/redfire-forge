@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Users Validation — Nested Objects</title>
+  <style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Segoe UI', system-ui, sans-serif; color: #1a1a2e; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 30px 24px; background: #fff; }
+h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; }
+h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+p, li { font-size: 13px; margin-bottom: 8px; }
+ul, ol { padding-left: 22px; }
+code { background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 1px 5px; border-radius: 3px; }
+pre { background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto; margin: 10px 0 16px; }
+table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; }
+td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; }
+.callout { background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px; margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+.callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+.callout-warning { background: #fff3e0; border-left-color: #f57c00; }
+.callout strong { display: block; margin-bottom: 4px; }
+.step { background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 16px; margin: 12px 0; }
+.step-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.step-num { width: 32px; height: 32px; background: #e63946; color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; flex-shrink: 0; }
+.step-title { font-weight: 600; color: #1d3557; font-size: 15px; }
+.expect { background: #d4edda; border-left: 4px solid #28a745; padding: 10px 14px; margin: 10px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+.expect strong { color: #155724; }
+.badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+.badge-sample { background: #e8f4fd; color: #1d3557; }
+.badge-medium { background: #fff3cd; color: #856404; }
+  </style>
+</head>
+<body>
+
+<h1>Users Validation — Nested Objects</h1>
+<p><span class="badge badge-medium">MEDIUM</span> &nbsp; <span class="badge badge-sample">Sample: dm-users-validation</span></p>
+<p>Validate deeply nested JSON structures from <strong>JSONPlaceholder</strong> (<code>jsonplaceholder.typicode.com/users</code>). This walkthrough demonstrates how operators work with nested objects like <code>address.geo</code> and <code>company</code>.</p>
+
+<div class="callout">
+  <strong>Prerequisites</strong>
+  Import the <code>dm-users-validation</code> sample from <strong>Gallery → Data Mapper</strong>. This gives you a test hitting <code>https://jsonplaceholder.typicode.com/users</code> with 8 validation rules across nested paths.
+</div>
+
+<h2>Part 1 — The API Response</h2>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">1</div><div class="step-title">Understand the data</div></div>
+  <p>The JSONPlaceholder <code>/users</code> endpoint returns an array of 10 users. Each user has:</p>
+<pre>[
+  {
+    "id": 1,
+    "name": "Leanne Graham",
+    "username": "Bret",
+    "email": "Sincere@april.biz",
+    "address": {
+      "street": "Kulas Light",
+      "suite": "Apt. 556",
+      "city": "Gwenborough",
+      "zipcode": "92998-3874",
+      "geo": { "lat": "-37.3159", "lng": "81.1496" }
+    },
+    "phone": "1-770-736-8031 x56442",
+    "website": "hildegard.org",
+    "company": {
+      "name": "Romaguera-Crona",
+      "catchPhrase": "Multi-layered client-server neural-net"
+    }
+  },
+  ...
+]</pre>
+  <p>This structure is ideal for practicing operators on <strong>deeply nested paths</strong> like <code>$[0].address.geo.lat</code>.</p>
+</div>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">2</div><div class="step-title">Import and open Data Mapper</div></div>
+  <p>Import the sample → open the test → <strong>Validation</strong> tab → <strong>Data Mapper</strong>. The Source panel shows the 3-user array. The Target panel shows 8 mapped rules.</p>
+</div>
+
+<h2>Part 2 — Validating Root Fields</h2>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">3</div><div class="step-title">Name — is_not_empty</div></div>
+  <p>Find <code>$[0].name</code> with <strong style="color: #6c757d;">is_not_empty</strong>. This asserts the name field has content — "Leanne Graham" is not empty, passes.</p>
+  <p>The <code>is_not_empty</code> operator is ideal for string fields where you care about presence but not exact value.</p>
+</div>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">4</div><div class="step-title">Email — contains "@"</div></div>
+  <p>Find <code>$[0].email</code> with <strong style="color: #7b2d8e;">contains</strong> <code>@</code>. This is a lightweight email format check — "Sincere@april.biz" contains "@", passes.</p>
+  <div class="callout callout-tip">
+    <strong>Tip</strong>
+    For stricter email validation, use <code>regex</code> with a pattern like <code>^[^@]+@[^@]+\.[^@]+$</code>.
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">5</div><div class="step-title">ID — greater_than 0</div></div>
+  <p>Find <code>$[0].id</code> with <strong style="color: #d4a017;">greater_than</strong> <code>0</code>. User IDs are positive integers. This confirms the API returns valid IDs.</p>
+</div>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">6</div><div class="step-title">Website — regex pattern</div></div>
+  <p>Find <code>$[0].website</code> with <strong style="color: #7b2d8e;">regex</strong> <code>^[a-z]</code>. This asserts the website starts with a lowercase letter. "hildegard.org" matches — passes.</p>
+</div>
+
+<h2>Part 3 — Validating Nested Objects</h2>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">7</div><div class="step-title">Address city — exists</div></div>
+  <p>Find <code>$[0].address.city</code> with <strong style="color: #6c757d;">exists</strong>. This asserts the path <code>address → city</code> exists in the nested structure. "Gwenborough" is present — passes.</p>
+  <p>Using <code>exists</code> is good for structural validation: "I expect this nested path to be present, regardless of its value."</p>
+</div>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">8</div><div class="step-title">Geo latitude — is_type string</div></div>
+  <p>Find <code>$[0].address.geo.lat</code> with <strong style="color: #00897b;">is_type</strong> <code>string</code>. JSONPlaceholder returns geo coordinates as <strong>strings</strong> (not numbers): <code>"-37.3159"</code>.</p>
+  <p>This catches a real-world API quirk — the coordinates look numeric but are actually strings.</p>
+  <div class="expect"><strong>Try it:</strong> Change is_type to <code>number</code> — the assertion fails because the value is a string.</div>
+</div>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">9</div><div class="step-title">Company name — is_not_empty</div></div>
+  <p>Find <code>$[0].company.name</code> with <strong style="color: #6c757d;">is_not_empty</strong>. Two levels deep: <code>company → name</code>. "Romaguera-Crona" is present — passes.</p>
+</div>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">10</div><div class="step-title">Phone — exists</div></div>
+  <p>Find <code>$[0].phone</code> with <strong style="color: #6c757d;">exists</strong>. Simple presence check for the phone field.</p>
+</div>
+
+<h2>Part 4 — Assertions (Test Editor Level)</h2>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">11</div><div class="step-title">Array-level and ASSERT assertions</div></div>
+  <p>This sample also includes Test Editor assertions (visible above the Data Mapper):</p>
+  <table>
+    <tr><th>Type</th><th>Rule</th><th>Purpose</th></tr>
+    <tr><td>Status</td><td><code>200</code></td><td>HTTP success</td></tr>
+    <tr><td>Array Length</td><td><code>$ >= 3</code></td><td>At least 3 users returned</td></tr>
+    <tr><td>Each</td><td><code>$.email regex .+@.+</code></td><td>Every user has an email with @</td></tr>
+    <tr><td>ASSERT</td><td><code>$all($.body, x => $gt(x.id, 0))</code></td><td>All user IDs positive</td></tr>
+  </table>
+  <p>These assertions work <em>alongside</em> the Data Mapper rules. When you click Verify All, both sets are evaluated.</p>
+</div>
+
+<h2>Part 5 — Verify All</h2>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">12</div><div class="step-title">Run verification</div></div>
+  <p>Click <strong>Verify All</strong>. All 8 Data Mapper rules and 4 Test Editor assertions should pass.</p>
+  <p>Open the <strong>Mapping View</strong> → <strong>Table</strong> view. Each row shows "✓ pass" in the Status column.</p>
+  <div class="expect"><strong>You should see:</strong> Green ✓ on every target node. Canvas lines all green. The assertion rows (STATUS, ARRAYLENGTH, EACH, CUSTOM) also show pass.</div>
+</div>
+
+<h2>Summary</h2>
+<table>
+  <tr><th>Path Depth</th><th>Example</th><th>Operator</th></tr>
+  <tr><td>Root field</td><td><code>$[0].name</code></td><td>is_not_empty</td></tr>
+  <tr><td>Root field</td><td><code>$[0].email</code></td><td>contains "@"</td></tr>
+  <tr><td>Root field</td><td><code>$[0].id</code></td><td>greater_than 0</td></tr>
+  <tr><td>Nested (2 levels)</td><td><code>$[0].address.city</code></td><td>exists</td></tr>
+  <tr><td>Nested (3 levels)</td><td><code>$[0].address.geo.lat</code></td><td>is_type string</td></tr>
+  <tr><td>Nested (2 levels)</td><td><code>$[0].company.name</code></td><td>is_not_empty</td></tr>
+</table>
+
+<div class="callout callout-tip">
+  <strong>Key Takeaway</strong>
+  <p>Validation operators work at any nesting depth. Use <code>exists</code> for structural checks, <code>is_type</code> to catch API quirks (like string numbers), and <code>is_not_empty</code> for "must have content" without committing to a specific value.</p>
+</div>
+
+<div class="callout callout-tip">
+  <strong>Next Steps</strong>
+  <ul>
+    <li>For all 24 operators including comparison (between, close_to) and set (in, not_in), see <a href="data-mapper-operators-products-medium.html">Validation Operators — Products</a>.</li>
+    <li>For array assertions and DSL rules, see <a href="data-mapper-array-assertions-advanced.html">Array Assertions &amp; DSL Rules</a>.</li>
+  </ul>
+</div>
+
+</body>
+</html>

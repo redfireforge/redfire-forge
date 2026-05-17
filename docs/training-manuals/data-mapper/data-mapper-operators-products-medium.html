@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Validation Operators — Products</title>
+  <style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Segoe UI', system-ui, sans-serif; color: #1a1a2e; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 30px 24px; background: #fff; }
+h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; }
+h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+p, li { font-size: 13px; margin-bottom: 8px; }
+ul, ol { padding-left: 22px; }
+code { background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 1px 5px; border-radius: 3px; }
+pre { background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto; margin: 10px 0 16px; }
+table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; }
+td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; }
+.callout { background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px; margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+.callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+.callout-warning { background: #fff3e0; border-left-color: #f57c00; }
+.callout strong { display: block; margin-bottom: 4px; }
+.step { background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 16px; margin: 12px 0; }
+.step-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.step-num { width: 32px; height: 32px; background: #e63946; color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; flex-shrink: 0; }
+.step-title { font-weight: 600; color: #1d3557; font-size: 15px; }
+.expect { background: #d4edda; border-left: 4px solid #28a745; padding: 10px 14px; margin: 10px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+.expect strong { color: #155724; }
+.badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+.badge-sample { background: #e8f4fd; color: #1d3557; }
+.badge-medium { background: #fff3cd; color: #856404; }
+  </style>
+</head>
+<body>
+
+<h1>Validation Operators — Products</h1>
+<p><span class="badge badge-medium">MEDIUM</span> &nbsp; <span class="badge badge-sample">Sample: dm-validation-operators</span></p>
+<p>Walk through all 24 field operators using real product data from <strong>DummyJSON</strong> (<code>dummyjson.com/products</code>). Every operator category is demonstrated with live data you can verify immediately.</p>
+
+<div class="callout">
+  <strong>Prerequisites</strong>
+  Import the <code>dm-validation-operators</code> sample from <strong>Gallery → Data Mapper</strong>. This gives you a pre-configured test hitting <code>https://dummyjson.com/products?limit=3</code> with 13 validation rules across all 7 operator categories.
+</div>
+
+<h2>Part 1 — Import & Open</h2>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">1</div><div class="step-title">Import the sample</div></div>
+  <p>Go to <strong>Gallery → Data Mapper → Validation Operators Showcase</strong>. Click <strong>Import</strong>. A new Feature Group named "Data Mapper — Validation Operators" appears in your test list.</p>
+</div>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">2</div><div class="step-title">Open the test editor</div></div>
+  <p>Expand the Feature Group → <strong>Product Operators Showcase</strong> → click <strong>GET products → validate with operators</strong>. The test editor opens.</p>
+</div>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">3</div><div class="step-title">Open Data Mapper</div></div>
+  <p>Go to the <strong>Validation</strong> tab. The mode is set to <strong>Selective Fields</strong>. Click <strong>Data Mapper</strong> to open the visual mapper. The Source panel shows the DummyJSON response; the Target panel shows 13 mapped fields with operator pills.</p>
+  <div class="expect"><strong>You should see:</strong> Source tree with <code>products</code> array, <code>total</code>, <code>skip</code>, <code>limit</code>. Target tree with color-coded operator pills: green (equals), amber (greater_than, between), purple (contains, starts_with, regex), gray (exists, is_not_empty), teal (is_type), blue (in).</div>
+</div>
+
+<h2>Part 2 — Equality Operators (Green)</h2>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">4</div><div class="step-title">equals — exact match</div></div>
+  <p>Find the <code>$.products[0].category</code> target node. Its pill shows <strong style="color: #28a745;">equals</strong> (green) with value <code>"beauty"</code>.</p>
+  <p>This asserts the first product's category is exactly <code>"beauty"</code>. The DummyJSON <code>/products?limit=3</code> endpoint returns beauty products, so this passes.</p>
+  <div class="expect"><strong>Try it:</strong> Click Verify All. The category node shows ✓ (pass). Change the value to <code>"electronics"</code> and verify again — it shows ✗ (fail).</div>
+</div>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">5</div><div class="step-title">not_equals — negative match</div></div>
+  <p>Find <code>$.products[0].availabilityStatus</code>. Its pill shows <strong style="color: #28a745;">not_equals</strong> with value <code>"Discontinued"</code>.</p>
+  <p>This asserts the product status is anything <em>except</em> "Discontinued". Since it's "Low Stock", it passes.</p>
+</div>
+
+<h2>Part 3 — Comparison Operators (Amber)</h2>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">6</div><div class="step-title">greater_than — numeric guard</div></div>
+  <p>Find <code>$.products[0].price</code> with <strong style="color: #d4a017;">greater_than</strong> &gt; <code>0</code>. The product price is 9.99, so this passes.</p>
+  <p>Also check <code>$.total</code> with <strong>greater_than</strong> &gt; <code>100</code>. DummyJSON has 194 total products.</p>
+</div>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">7</div><div class="step-title">between — range check</div></div>
+  <p>Find <code>$.products[0].rating</code> with <strong style="color: #d4a017;">between</strong> <code>1, 5</code>. This asserts the rating is between 1 and 5 (inclusive). The rating is 4.94 — passes.</p>
+  <div class="expect"><strong>Try it:</strong> Click the pill, change to <code>4.9, 5.0</code> — still passes. Change to <code>5.0, 5.5</code> — fails because 4.94 &lt; 5.0.</div>
+</div>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">8</div><div class="step-title">greater_than_or_equal</div></div>
+  <p>Find <code>$.products[0].stock</code> with <strong style="color: #d4a017;">greater_than_or_equal</strong> ≥ <code>0</code>. Stock is 5 — passes. This is useful for "non-negative" checks.</p>
+</div>
+
+<h2>Part 4 — String Operators (Purple)</h2>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">9</div><div class="step-title">contains — substring</div></div>
+  <p>Find <code>$.products[0].title</code> with <strong style="color: #7b2d8e;">contains</strong> <code>"Mascara"</code>. The title is "Essence Mascara Lash Princess" — contains "Mascara", passes.</p>
+</div>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">10</div><div class="step-title">starts_with — prefix</div></div>
+  <p>Find <code>$.products[0].brand</code> with <strong style="color: #7b2d8e;">starts_with</strong> <code>"Ess"</code>. Brand is "Essence" — starts with "Ess", passes.</p>
+</div>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">11</div><div class="step-title">regex — pattern match</div></div>
+  <p>Find <code>$.products[0].sku</code> with <strong style="color: #7b2d8e;">regex</strong> <code>^[A-Z0-9]+$</code>. The SKU is "RCH45Q1A" — all uppercase letters and digits, passes.</p>
+  <div class="expect"><strong>Try it:</strong> Change the pattern to <code>^[a-z]+$</code> (lowercase only) — fails because SKU has uppercase.</div>
+</div>
+
+<h2>Part 5 — Existence, Type & Set Operators</h2>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">12</div><div class="step-title">exists and is_not_empty (Gray)</div></div>
+  <p>Find <code>$.products[0].meta</code> with <strong style="color: #6c757d;">exists</strong> — asserts the path is present (even if null). Find <code>$.products[0].tags</code> with <strong style="color: #6c757d;">is_not_empty</strong> — asserts the tags array has at least one element.</p>
+</div>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">13</div><div class="step-title">is_type (Teal)</div></div>
+  <p>Find <code>$.products[0].price</code> (second mapping) with <strong style="color: #00897b;">is_type</strong> <code>number</code>. This asserts the price is a JavaScript number type. Since 9.99 is a number, it passes.</p>
+  <div class="callout callout-tip">
+    <strong>Tip</strong>
+    Available types: <code>string</code>, <code>number</code>, <code>boolean</code>, <code>object</code>, <code>array</code>, <code>null</code>.
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">14</div><div class="step-title">in — set membership (Blue)</div></div>
+  <p>Find <code>$.products[0].category</code> (second mapping) with <strong style="color: #1565c0;">in</strong> <code>beauty, electronics, furniture</code>. This asserts the category is one of the listed values. "beauty" is in the set — passes.</p>
+  <div class="expect"><strong>Try it:</strong> Remove "beauty" from the set, leaving only "electronics, furniture" — the assertion fails.</div>
+</div>
+
+<h2>Part 6 — Verify All</h2>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">15</div><div class="step-title">Run verification</div></div>
+  <p>Click <strong>Verify All</strong> in the toolbar. All 13 rules should pass with green ✓ badges on each target node.</p>
+  <p>Open the <strong>Mapping View</strong> (bottom section) and switch to <strong>Table</strong> view. The Status column shows "✓ pass" for every row.</p>
+  <div class="expect"><strong>You should see:</strong> 13/13 passed. Canvas lines are all green. Toolbar shows aggregated pass count.</div>
+</div>
+
+<h2>Summary</h2>
+<table>
+  <tr><th>Category</th><th>Operators Used</th><th>Fields Tested</th></tr>
+  <tr><td style="color: #28a745;">Equality (green)</td><td><code>equals</code>, <code>not_equals</code></td><td>category, availabilityStatus</td></tr>
+  <tr><td style="color: #d4a017;">Comparison (amber)</td><td><code>greater_than</code>, <code>between</code>, <code>greater_than_or_equal</code></td><td>price, rating, stock, total</td></tr>
+  <tr><td style="color: #7b2d8e;">String (purple)</td><td><code>contains</code>, <code>starts_with</code>, <code>regex</code></td><td>title, brand, sku</td></tr>
+  <tr><td style="color: #6c757d;">Existence (gray)</td><td><code>exists</code>, <code>is_not_empty</code></td><td>meta, tags</td></tr>
+  <tr><td style="color: #00897b;">Type (teal)</td><td><code>is_type</code></td><td>price (number)</td></tr>
+  <tr><td style="color: #1565c0;">Set (blue)</td><td><code>in</code></td><td>category (beauty/electronics/furniture)</td></tr>
+</table>
+
+<div class="callout callout-tip">
+  <strong>Next Steps</strong>
+  <ul>
+    <li>For array-level assertions (LENGTH, EACH, CONTAINS, SUBSET) and the DSL code editor, see <a href="data-mapper-array-assertions-advanced.html">Array Assertions &amp; DSL Rules</a>.</li>
+    <li>For the deep-dive on all 24 operators including <code>close_to</code>, <code>not_contains</code>, <code>ends_with</code>, <code>is_true/is_false</code>, <code>is_null</code>, <code>not_in</code>, see <a href="data-mapper-operators-dsl-advanced.html">Validation Operators &amp; DSL Editor</a>.</li>
+  </ul>
+</div>
+
+</body>
+</html>
