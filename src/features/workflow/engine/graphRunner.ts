@@ -74,6 +74,8 @@ export async function runGraph(
   pollSemaphore?: Semaphore,
   /** Options for trace capture (Results Explorer). */
   traceOptions?: import('../../../shared/types').ExecutionTraceOptions,
+  /** Per-request HTTP timeout in milliseconds for HTTP nodes. Defaults to 30 000 ms. */
+  httpTimeoutMs?: number,
 ): Promise<RequestResult[]> {
   const start = performance.now();
   const ctx = new VariableContext(initialVariables, environmentLayer);
@@ -211,6 +213,7 @@ export async function runGraph(
       capturedHttpDetails,
       capturedSubWorkflowTraces,
       capturedScriptOutput,
+      httpTimeoutMs: httpTimeoutMs ?? 30_000,
     };
 
     // Phase 7e: Record node execution start
