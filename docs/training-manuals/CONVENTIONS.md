@@ -39,6 +39,14 @@ docs/training-manuals/
     assertions.html                   ← domain overview
     api-healthcheck-easy.html
     ...
+  data-mapper/                        ← Data Mapper gallery (12 files)
+    data-mapper-basics-easy.html
+    data-mapper-operators-products-medium.html
+    data-mapper-users-validation-medium.html
+    data-mapper-array-assertions-advanced.html
+    data-mapper-operators-dsl-advanced.html
+    data-mapper-custom-assertions-advanced.html
+    ...
   workflow/                           ← Workflow gallery (36 files)
     workflow.html                     ← master overview
     api-patterns/
@@ -80,3 +88,4 @@ docs/training-manuals/
 | `src/data/galleries/catalog-specs/` | `docs/training-manuals/catalog/` |
 | `src/data/galleries/assertion-presets/` | `docs/training-manuals/assertions/` |
 | `src/data/galleries/workflows/` | `docs/training-manuals/workflow/` |
+| `src/data/galleries/data-mapper/` | `docs/training-manuals/data-mapper/` |

@@ -100,6 +100,13 @@ describe('useMapperRepairActions', () => {
     expect(mocks.setToast).toHaveBeenCalledWith('No automatic fix available for this issue');
   });
 
+  it('handleFixRepairIssue changes operator and clears operatorValue when suggestedOperator is set', () => {
+    const { result, mocks } = setup();
+    act(() => result.current.handleFixRepairIssue(makeIssue({ suggestedOperator: 'equals' })));
+    expect(mocks.updateMapping).toHaveBeenCalledWith('m1', { operator: 'equals', operatorValue: undefined });
+    expect(mocks.setToast).toHaveBeenCalledWith('Changed operator to "equals"');
+  });
+
   it('handleReplaceRepairIssue toasts if mapping not found', () => {
     const { result, mocks } = setup({ mappings: [] });
     act(() => result.current.handleReplaceRepairIssue(makeIssue()));

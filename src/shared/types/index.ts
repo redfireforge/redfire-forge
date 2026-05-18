@@ -8,7 +8,7 @@ export interface Microservice {
   name: string;
   baseUrls: Record<string, string>;        // environmentId -> base URL
   authProfileIds?: Record<string, string>; // environmentId -> GlobalAuthProfile id
-  customEnvs?: Environment[];              // microservice-specific environments
+  customEnvs?: Environment[];              // additional (service-specific) environments
 }
 
 export interface KeyValue {
@@ -77,6 +77,8 @@ export interface ExpectedField {
   operator?: FieldOperator;
   operatorValue?: string;
   negate?: boolean;
+  /** Original mapper expression (e.g. `$maxBy(...)`) — preserved for DSL round-trip. */
+  expression?: string;
 }
 
 export type SelectiveMode = 'include' | 'exclude';
@@ -322,6 +324,12 @@ export interface Scenario {
   dataRowLabel?: string;
   /** ID of the test this was created from via "Create Parameterized Copy" */
   sourceTestId?: string;
+  /** When created from a versioned request: the originating request ID */
+  sourceRequestId?: string;
+  /** When created from a versioned request: the spec version snapshot ID */
+  sourceSpecVersionId?: string;
+  /** Human label for the pinned spec version (e.g. "1.0.7") */
+  sourceSpecVersionLabel?: string;
 }
 
 export type ScenarioKind = 'standard' | 'parameterized';
@@ -774,6 +782,9 @@ export interface TestRun {
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
 export interface CatalogRequestMeta {
+  catalogEntryId?: string;
+  catalogEndpointId?: string;
+  catalogVersion?: string;
   operationId?: string;
   description?: string;
   originalPath: string;
@@ -814,6 +825,23 @@ export interface RequestDefinitionVersion {
   snapshot: RequestDefinitionSnapshot;
 }
 
+/** Snapshot of a request as it was when exported from a specific spec version. */
+export interface SpecVersion {
+  id: string;
+  catalogVersion: string;
+  catalogEntryId: string;
+  catalogEndpointId: string;
+  importedAt: number;
+  url: string;
+  method: HttpMethod;
+  headers: KeyValue[];
+  body: string;
+  bodyType?: BodyType;
+  bodyForm?: KeyValue[];
+  savedQueryParams?: { key: string; value: string; enabled: boolean; description?: string }[];
+  savedPathParams?: { key: string; value: string; description?: string; required?: boolean }[];
+}
+
 export interface RequestItem {
   id: string;
   name: string;
@@ -825,8 +853,12 @@ export interface RequestItem {
   bodyForm?: KeyValue[];
   auth: AuthConfig;
   savedQueryParams?: { key: string; value: string; enabled: boolean; description?: string }[];
+  savedPathParams?: { key: string; value: string; description?: string; required?: boolean }[];
   catalogMeta?: CatalogRequestMeta;
   definitionVersions?: RequestDefinitionVersion[];
+  specVersions?: SpecVersion[];
+  activeSpecVersionId?: string;
+  promotedToHarness?: boolean;
 }
 
 export interface RequestFolder {

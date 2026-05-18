@@ -8,6 +8,8 @@ export interface ParsedRule {
   operator: string;
   value?: string;
   negate?: boolean;
+  /** Original mapper expression (preserved for DSL round-trip). */
+  expression?: string;
   kind: 'field' | 'length' | 'each' | 'contains_item' | 'subset' | 'type_check' | 'existence' | 'custom';
 }
 
@@ -134,13 +136,13 @@ function unquote(val: string): string {
 
 export function parseDslLine(line: string, lineNumber: number): ParsedRule | ParseError | null {
   const trimmedRaw = line.trim();
-  if (!trimmedRaw || trimmedRaw.startsWith('#')) return null;
+  if (!trimmedRaw || trimmedRaw.startsWith('#') || trimmedRaw.startsWith('//')) return null;
 
   // ASSERT keyword — custom predicate assertion
-  const assertMatch = trimmedRaw.match(/^(NOT\s+)?ASSERT(\s+(.*))?$/i);
+  const assertMatch = trimmedRaw.match(/^(NOT\s+)?ASSERT\s*(.*)?$/i);
   if (assertMatch) {
     const negate = !!assertMatch[1];
-    const afterAssert = (assertMatch[3] ?? '').trim();
+    const afterAssert = (assertMatch[2] ?? '').trim();
     if (!afterAssert) {
       return { lineNumber, message: 'ASSERT requires an expression' };
     }
@@ -261,6 +263,23 @@ export function parseDslLine(line: string, lineNumber: number): ParsedRule | Par
   }
 
   const listOperators = new Set(['in', 'not_in', 'between', 'close_to']);
+
+  // Auto-detect: if path contains [*], treat as "each" assertion even without explicit "each" keyword
+  if (path.includes('[*]')) {
+    return {
+      lineNumber, path, operator: `each ${fieldOp}`,
+      value: rawValue ? (listOperators.has(fieldOp) ? rawValue : unquote(rawValue)) : undefined,
+      negate, kind: 'each',
+    };
+  }
+
+  if (rawValue && rawValue.startsWith('expr:')) {
+    const expression = rawValue.slice(5);
+    return {
+      lineNumber, path, operator: fieldOp,
+      value: undefined, expression, negate, kind: 'field',
+    };
+  }
   return {
     lineNumber, path, operator: fieldOp,
     value: rawValue ? (listOperators.has(fieldOp) ? rawValue : unquote(rawValue)) : undefined,
@@ -336,6 +355,8 @@ export function serializeToDsl(fields: ExpectedField[], assertions: Assertion[])
     const neg = f.negate ? 'NOT ' : '';
     if (NO_VALUE_OPERATORS.has(op)) {
       fieldLines.push(`${paddedPath}${neg}${keyword}`);
+    } else if (f.expression) {
+      fieldLines.push(`${paddedPath}${neg}${keyword.padEnd(20)}expr:${f.expression}`);
     } else {
       const val = f.operatorValue ?? f.expectedValue;
       fieldLines.push(`${paddedPath}${neg}${keyword.padEnd(20)}${quoteValue(val, op)}`);
@@ -439,6 +460,7 @@ export function dslToModel(rules: ParsedRule[]): DslModel {
           operator: op,
           operatorValue: NO_VALUE_OPERATORS.has(op) ? undefined : rule.value,
           ...(neg && { negate: true }),
+          ...(rule.expression && { expression: rule.expression }),
         });
         break;
       }
@@ -537,6 +559,7 @@ export interface ExportableRule {
   operator: string;
   value?: string;
   negate?: boolean;
+  expression?: string;
 }
 
 export function exportAsJson(fields: ExpectedField[], assertions: Assertion[]): string {
@@ -547,6 +570,7 @@ export function exportAsJson(fields: ExpectedField[], assertions: Assertion[]): 
     operator: r.operator,
     ...(r.value !== undefined ? { value: r.value } : {}),
     ...(r.negate ? { negate: true } : {}),
+    ...(r.expression ? { expression: r.expression } : {}),
   }));
   return JSON.stringify(exportable, null, 2);
 }
@@ -559,7 +583,7 @@ export function importFromJson(text: string): DslModel | ParseError {
     }
     const rules: ParsedRule[] = arr.map((item: ExportableRule, i: number) => {
       const kind = detectKind(item.operator);
-      return { lineNumber: i + 1, path: item.path, operator: item.operator, value: item.value, negate: item.negate, kind };
+      return { lineNumber: i + 1, path: item.path, operator: item.operator, value: item.value, negate: item.negate, expression: item.expression, kind };
     });
     return dslToModel(rules);
   } catch {
@@ -576,6 +600,10 @@ function detectKind(operator: string): ParsedRule['kind'] {
   if (operator === 'is_type') return 'type_check';
   if (operator === 'exists' || operator === 'not_exists') return 'existence';
   return 'field';
+}
+
+export function countDslRuleLines(text: string): number {
+  return text.split('\n').filter(l => l.trim() && !l.trim().startsWith('#')).length;
 }
 
 export function importAutoDetect(text: string): DslModel | ParseError {

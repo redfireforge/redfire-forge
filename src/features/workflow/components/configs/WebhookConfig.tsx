@@ -223,6 +223,7 @@ export default function WebhookConfig({ data, onChange, workflowId, nodeId }: Pr
             setShowMapper(false);
           }}
           onCancel={() => setShowMapper(false)}
+          contextScope={nodeId}
         />
       )}
     </>

@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Additional Environments — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warn { background: #fff8e1; border-left-color: #f6ad55; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .amber-pill {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    background: #fef3e2; color: #c05621; border: 1px dashed #f6ad55;
+  }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">🌐</div>
+    <h1>Additional Environments</h1>
+    <div class="subtitle">Microservice-Specific Environments — Training Manual</div>
+    <p><span class="badge badge-easy">Easy ★☆☆</span> · Environment Config · Visual Indicators</p>
+    <div class="meta">RedfireForge v0.5.7</div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <h2>1. What Are Additional Environments?</h2>
+  <p><strong>Additional environments</strong> (also called "custom environments") are deployment targets that belong to a <em>single microservice</em> rather than being shared globally across all services.</p>
+
+  <h3>Global vs. Additional Environments</h3>
+  <table>
+    <thead>
+      <tr><th>Type</th><th>Scope</th><th>Example</th><th>Visual</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Global</strong></td>
+        <td>Available to all microservices</td>
+        <td><code>dev</code>, <code>staging</code>, <code>production</code></td>
+        <td>Standard blue badge</td>
+      </tr>
+      <tr>
+        <td><strong>Additional</strong></td>
+        <td>Specific to one microservice</td>
+        <td><code>perf-env</code>, <code>hotfix-qa</code>, <code>canary</code></td>
+        <td><span class="amber-pill">+ amber badge</span></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>When to Use Additional Environments</h3>
+  <ul>
+    <li><strong>Performance testing</strong> — A dedicated perf environment for a single service</li>
+    <li><strong>Hotfix QA</strong> — Temporary environment for validating a specific fix</li>
+    <li><strong>Canary deployments</strong> — A canary slice that only one service uses</li>
+    <li><strong>Partner integrations</strong> — External partner sandbox for one API</li>
+    <li><strong>Feature flags</strong> — An env with specific feature flags enabled</li>
+  </ul>
+
+  <div class="callout callout-tip">
+    <strong>Key Benefit</strong>
+    Additional environments keep your global environment list clean while still supporting specialized deployment targets that only one service needs.
+  </div>
+
+  <div class="page-break"></div>
+
+  <h2>2. Creating Additional Environments</h2>
+
+  <h3>Step 1: Open Microservice Configuration</h3>
+  <ol>
+    <li>Go to <strong>Settings</strong> (gear icon in sidebar)</li>
+    <li>Navigate to the <strong>Microservices</strong> section</li>
+    <li>Click on the microservice that needs the custom environment</li>
+  </ol>
+
+  <h3>Step 2: Add the Environment</h3>
+  <ol>
+    <li>Scroll to the <strong>Additional Environments</strong> section</li>
+    <li>Type the environment name (e.g., <code>perf-env</code>)</li>
+    <li>Click <strong>+ Add</strong></li>
+    <li>Enter the base URL for that environment</li>
+    <li>Click <strong>Save</strong></li>
+  </ol>
+
+  <pre>Microservice: user-service
+
+Global environments:
+  dev:     https://dev.api.example.com/users
+  staging: https://staging.api.example.com/users
+  prod:    https://api.example.com/users
+
+Additional environments:
+  perf-env:   https://perf.api.example.com/users    ← only for user-service
+  hotfix-qa:  https://hotfix.api.example.com/users  ← only for user-service</pre>
+
+  <h2>3. Visual Indicators</h2>
+  <p>Additional environments are visually distinguished throughout the entire application with a consistent <strong>amber/orange color scheme</strong>:</p>
+
+  <h3>Sidebar</h3>
+  <pre>▼ Environments
+  ▼ dev
+      user-service
+      order-api
+  ▼ staging
+      user-service
+      order-api
+  ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─
+  Additional Environments              ← amber dashed divider
+  ▼ perf-env (user-service)  [+]      ← amber badge
+      user-service</pre>
+
+  <h3>Page Headers</h3>
+  <p>When an additional environment is selected, the environment badge in page headers (Feature Groups, Test Runner, Parameterized Runner) changes to:</p>
+  <ul>
+    <li><strong>Amber/orange background</strong> with dashed border</li>
+    <li>A <strong>+</strong> suffix indicator showing it's non-global</li>
+    <li>The parent microservice name in parentheses in dropdowns</li>
+  </ul>
+
+  <table>
+    <thead>
+      <tr><th>Location</th><th>Global Env</th><th>Additional Env</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Sidebar item</td><td>Standard styling</td><td>Amber text + <code>[+]</code></td></tr>
+      <tr><td>Section divider</td><td>Gray line</td><td>Amber dashed line</td></tr>
+      <tr><td>Header badge</td><td>Blue pill</td><td>Amber dashed pill + <code>+</code></td></tr>
+      <tr><td>Dropdown</td><td>Environment name</td><td>Name <code>(microservice)</code></td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout callout-warn">
+    <strong>Consistency</strong>
+    The amber color (<code>#f6ad55</code>) is used consistently everywhere. If you see amber, the environment is additional — scoped to a single microservice.
+  </div>
+
+  <div class="page-break"></div>
+
+  <h2>4. Using Additional Environments</h2>
+
+  <h3>In Environment Dropdown</h3>
+  <p>When selecting environments from any dropdown in the application, additional environments appear below a divider with their parent microservice name:</p>
+  <pre>Environment: [Select ▼]
+  ├── dev
+  ├── staging
+  ├── production
+  ├── ─ ─ ─ ─ ─ ─ ─ ─
+  ├── perf-env (user-service)       ← amber
+  └── hotfix-qa (user-service)      ← amber</pre>
+
+  <h3>In Test Runner</h3>
+  <ol>
+    <li>Select the additional environment from the environment dropdown</li>
+    <li>The header badge turns amber with a <code>+</code> indicator</li>
+    <li>Only the parent microservice is available for that environment</li>
+    <li>Run tests as normal — URL resolution uses the additional env's base URL</li>
+  </ol>
+
+  <h3>In Workflow Runner</h3>
+  <p>Additional environments work the same as global environments in workflow execution. The services registry resolves URLs from the additional environment's configured base URL.</p>
+
+  <h2>5. Use Cases</h2>
+
+  <h3>Performance Testing</h3>
+  <pre>user-service:
+  perf-env: https://perf.internal.company.com/users
+  
+  → Run load tests against perf-env without affecting global envs
+  → Other services still use dev/staging normally</pre>
+
+  <h3>Hotfix Validation</h3>
+  <pre>payment-gateway:
+  hotfix-7234: https://hotfix-7234.preview.company.com/payments
+  
+  → Validate the fix in isolation
+  → Delete the environment once merged</pre>
+
+  <h3>Partner Sandbox</h3>
+  <pre>notification-service:
+  partner-sandbox: https://sandbox.partner-api.com/notifications
+  
+  → Test against partner's sandbox
+  → Only notification-service needs this env</pre>
+
+  <h2>6. Tips</h2>
+  <ul>
+    <li><strong>Keep names descriptive</strong> — Include the purpose: <code>perf-env</code>, <code>hotfix-7234</code>, <code>partner-sandbox</code></li>
+    <li><strong>Clean up when done</strong> — Delete temporary environments after hotfix/feature validation</li>
+    <li><strong>Use for isolation</strong> — When only one service needs a target, don't pollute the global list</li>
+    <li><strong>Check the amber indicator</strong> — If you see amber, you're testing against a service-specific environment</li>
+  </ul>
+
+  <footer>
+    RedfireForge Training Manual — Additional Environments · May 2026
+  </footer>
+
+</body>
+</html>

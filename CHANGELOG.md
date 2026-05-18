@@ -9,6 +9,46 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
 ## [Unreleased]
 
 ### Added
+- **Additional Environment Visual Indicator**
+  - Amber/orange color scheme (dashed border, `+` badge) across all pages when an additional (microservice-specific) environment is selected.
+  - Sidebar: "Additional Environments" section divider, tag labels, and selected-item outline use consistent amber theme.
+  - Feature Groups, Test Runner, Parameterized Runner: header badge changes from green to amber dashed with "+" indicator and tooltip.
+
+- **Catalog Export — Schema-Based Sample Body Generation**
+  - When exporting from Catalog to Harness, POST/PUT/PATCH endpoints now auto-generate a sample request body from the OpenAPI schema when no explicit `example` is available.
+  - Handles nested objects, arrays, enums (picks first value), all primitive types, default values, and date formats.
+  - Prevents 405/400 errors when "Fetch Response" is used after Catalog → Harness export.
+
+- **Catalog Host Warning for Placeholder URLs**
+  - Proactive amber warning banner in the Try It Out panel when the spec server URL contains `example.com`, `example.org`, `.test`, `.local`, or `localhost`.
+  - Improved error message for ENOTFOUND errors when using "From Spec" host strategy — now suggests switching to "Custom URL" or "Environment" mode.
+
+- **Workflow Canvas Viewport Persistence on Tab Switch**
+  - IntersectionObserver saves the current viewport (pan + zoom) when the Workflow tab becomes hidden and restores it when the tab becomes visible again.
+  - Eliminates the "reset to top-left corner" issue that occurred when switching between tabs.
+
+- **Numeric Input Freeform Editing**
+  - `NumericInput` helper component in RunnerExecutionConfig allows users to freely clear and type in numeric fields (concurrency, iterations, timeouts) without immediate value resetting.
+  - Values are clamped to min/max on blur; parent state only updates on valid input.
+
+- **Validation Operators — Complete Integration**
+  - **24 field operators fully integrated** — equality, comparison, string, boolean, existence/null, type check, set membership operators all working in Data Mapper with color-coded pills, inline value editors, and operator picker dropdown.
+  - **Array assertions** — LENGTH, CONTAINS, EACH, SUBSET inline assertions on array nodes with edit/remove controls.
+  - **Universal negation** — NOT modifier on any operator/assertion, red NOT badge in UI, `NOT <operator>` syntax in DSL.
+  - **ASSERT custom predicates** — `ASSERT $expression()` syntax with 125+ function expression engine, lambda support (`x => expr`), and `NOT ASSERT` for inverted predicates.
+  - **DSL code editor improvements** — Monaco autocomplete for paths, operators, and NOT/ASSERT keywords; inline error markers; pass/fail line decorations after verification.
+  - **Mapping View enhancements** — Code/List/Pivot views in bottom dock; Status column shows "✓ pass" / "✗ fail" after Verify All; assertion rows display verification results; pivot table for array data comparison.
+  - **Panel collapse/expand** — Hide Source/Target panels to give Mapping View full height; drag-to-resize handle between panels and dock.
+  - **Font consistency** — standardized all Mapping View text to 0.7rem with perceptual adjustment for uppercase labels.
+
+- **Documentation & Training Refresh**
+  - **New guide**: `data-mapper-validation-guide.md` — comprehensive reference for 24 operators, array assertions, DSL rules, ASSERT expressions, verification, Mapping View.
+  - **3 new gallery samples**: `dm-validation-operators` (24 operators on DummyJSON products), `dm-array-assertions-dsl` (array assertions + DSL + ASSERT + negation), `dm-users-validation` (nested object validation on JSONPlaceholder users).
+  - **3 new training manuals**: operators-products-medium, users-validation-medium, array-assertions-advanced — all using public APIs (DummyJSON, JSONPlaceholder).
+  - **Updated guides**: assertions-guide.md, validation-modes-guide.md, guides README — cross-references to new Data Mapper validation guide.
+  - **Updated README.md**: Data Mapper feature reference expanded; fixed cross-platform guide link.
+  - **Updated ROADMAP.md**: test counts, training manual counts, competitive advantages for validation engine.
+
 - **Validation & Data Mapper — Architecture Refactoring**
   - **Validator module decomposition** — `validator.ts` (1012 → 830 lines) split into focused modules: `validatorDateHelpers.ts`, `validatorHttpHelpers.ts`, `validatorSubsetMatch.ts`, `validatorCustomExpression.ts`.
   - **DataMapper hook extraction** — `DataMapper.tsx` (1001 → 895 lines) split into: `useBottomUtilityDock.ts`, `useDataMapperTreeInteraction.ts`, `useHighlightedMappingPaths.ts`, `useMapperVisibleLines.ts`.

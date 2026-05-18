@@ -2,6 +2,7 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import type { ParsedSpec, CatalogEntry } from '../types/catalog';
 import { parseOpenApiSpec, getSpecFormatLabel, countEndpoints } from '../utils/openApiParser';
 import { isTauri } from '../../../shared/utils/platform';
+import { httpFetch } from '../../../shared/utils/httpClient';
 import FullPanelModal from '../../../shared/components/FullPanelModal';
 import { catalogSpecCatalog, CATALOG_SPEC_CATEGORIES, type CatalogSpecCategory } from '../../../data/galleries/catalog-specs';
 
@@ -16,7 +17,7 @@ interface Props {
 }
 
 type Step = 'pick' | 'preview' | 'error';
-type InputMode = 'file' | 'paste' | 'gallery';
+type InputMode = 'file' | 'paste' | 'url' | 'gallery';
 
 export default function CatalogImportModal({ existingEntries, onImport, onReimport, onClose, reimportEntryId, initialSpec }: Props) {
   const [step, setStep] = useState<Step>('pick');
@@ -28,6 +29,8 @@ export default function CatalogImportModal({ existingEntries, onImport, onReimpo
   const [tauriDragHover, setTauriDragHover] = useState(false);
   const [gallerySearch, setGallerySearch] = useState('');
   const [galleryCategory, setGalleryCategory] = useState<CatalogSpecCategory | 'all'>('all');
+  const [specUrl, setSpecUrl] = useState('');
+  const [urlLoading, setUrlLoading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const handleFileRef = useRef<(text: string, name: string) => void>(undefined);
 
@@ -89,6 +92,36 @@ export default function CatalogImportModal({ existingEntries, onImport, onReimpo
     if (!pasteText.trim()) return;
     handleFile(pasteText, 'pasted-spec.yaml');
   }, [pasteText, handleFile]);
+
+  const handleFetchUrl = useCallback(async () => {
+    const trimmedUrl = specUrl.trim();
+    if (!trimmedUrl) return;
+
+    setUrlLoading(true);
+    setError('');
+
+    try {
+      const response = await httpFetch(trimmedUrl, 'GET', {
+        'Accept': 'application/json, application/x-yaml, text/yaml, */*',
+      });
+
+      if (response.error) {
+        throw new Error(response.error);
+      }
+
+      if (response.status >= 400) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const urlFileName = trimmedUrl.split('/').pop()?.split('?')[0] || 'spec-from-url.yaml';
+      handleFile(response.body, urlFileName);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+      setStep('error');
+    } finally {
+      setUrlLoading(false);
+    }
+  }, [specUrl, handleFile]);
 
   const handleFileInput = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -173,6 +206,8 @@ export default function CatalogImportModal({ existingEntries, onImport, onReimpo
                   onClick={() => setInputMode('file')}>Upload File</button>
                 <button className={`cat-import-tab ${inputMode === 'paste' ? 'active' : ''}`}
                   onClick={() => setInputMode('paste')}>Paste YAML / JSON</button>
+                <button className={`cat-import-tab ${inputMode === 'url' ? 'active' : ''}`}
+                  onClick={() => setInputMode('url')}>From URL</button>
                 <button className={`cat-import-tab ${inputMode === 'gallery' ? 'active' : ''}`}
                   onClick={() => setInputMode('gallery')}>Sample Gallery</button>
               </div>
@@ -229,6 +264,49 @@ export default function CatalogImportModal({ existingEntries, onImport, onReimpo
                     <span className="cat-dropzone-hint">
                       Supported: OpenAPI 3.0, 3.1, Swagger 2.0
                     </span>
+                  </div>
+                </div>
+              ) : inputMode === 'url' ? (
+                <div className="cat-import-url">
+                  <div className="cat-url-description">
+                    Enter the URL of an OpenAPI / Swagger specification file (YAML or JSON).
+                  </div>
+                  <div className="cat-url-input-row">
+                    <input
+                      type="url"
+                      className="cat-url-input"
+                      placeholder="https://api.example.com/openapi.yaml"
+                      value={specUrl}
+                      onChange={e => setSpecUrl(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter' && specUrl.trim()) handleFetchUrl(); }}
+                      disabled={urlLoading}
+                      spellCheck={false}
+                    />
+                    <button
+                      className="cat-btn cat-btn-primary"
+                      onClick={handleFetchUrl}
+                      disabled={!specUrl.trim() || urlLoading}
+                    >
+                      {urlLoading ? 'Fetching...' : 'Fetch'}
+                    </button>
+                  </div>
+                  <div className="cat-url-examples">
+                    <div className="cat-url-examples-label">Examples:</div>
+                    <button
+                      className="cat-url-example"
+                      onClick={() => setSpecUrl('https://petstore3.swagger.io/api/v3/openapi.json')}
+                    >
+                      Petstore v3
+                    </button>
+                    <button
+                      className="cat-url-example"
+                      onClick={() => setSpecUrl('https://raw.githubusercontent.com/APIs-guru/openapi-directory/main/APIs/stripe.com/2022-11-15/openapi.yaml')}
+                    >
+                      Stripe API
+                    </button>
+                  </div>
+                  <div className="cat-dropzone-hint">
+                    Supported: OpenAPI 3.0, 3.1, Swagger 2.0
                   </div>
                 </div>
               ) : inputMode === 'gallery' ? (

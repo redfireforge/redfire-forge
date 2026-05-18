@@ -122,6 +122,9 @@ export function useWorkflowNodeActions({
       id: uuidv4(), name: req.name, url: req.url, method: req.method as Scenario['method'],
       headers: req.headers ?? [], body: req.body ?? '', bodyType: req.bodyType,
       bodyForm: req.bodyForm, auth: req.auth ?? { type: 'none' }, validation: { mode: 'none' },
+      sourceRequestId: req.id,
+      sourceSpecVersionId: req.activeSpecVersionId,
+      sourceSpecVersionLabel: req.specVersions?.find(v => v.id === req.activeSpecVersionId)?.catalogVersion,
     };
     const hostPatch = resolveQuickTestHostForRequest(
       col,
@@ -136,6 +139,9 @@ export function useWorkflowNodeActions({
       scenario,
       sourceType: 'requests',
       sourceId: req.id,
+      sourceSpecVersionId: req.activeSpecVersionId,
+      sourceSpecVersionLabel: req.specVersions?.find(v => v.id === req.activeSpecVersionId)?.catalogVersion,
+      specVersionMode: 'latest',
       ...hostPatch,
     };
     addNodeToCanvas('http', data);

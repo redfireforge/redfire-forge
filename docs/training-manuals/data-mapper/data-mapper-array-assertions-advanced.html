@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Array Assertions &amp; DSL Rules</title>
+  <style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Segoe UI', system-ui, sans-serif; color: #1a1a2e; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 30px 24px; background: #fff; }
+h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; }
+h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+p, li { font-size: 13px; margin-bottom: 8px; }
+ul, ol { padding-left: 22px; }
+code { background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 1px 5px; border-radius: 3px; }
+pre { background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto; margin: 10px 0 16px; }
+table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; }
+td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; }
+.callout { background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px; margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+.callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+.callout-warning { background: #fff3e0; border-left-color: #f57c00; }
+.callout strong { display: block; margin-bottom: 4px; }
+.step { background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 16px; margin: 12px 0; }
+.step-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.step-num { width: 32px; height: 32px; background: #e63946; color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; flex-shrink: 0; }
+.step-title { font-weight: 600; color: #1d3557; font-size: 15px; }
+.expect { background: #d4edda; border-left: 4px solid #28a745; padding: 10px 14px; margin: 10px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+.expect strong { color: #155724; }
+.badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+.badge-sample { background: #e8f4fd; color: #1d3557; }
+.badge-advanced { background: #f8d7da; color: #721c24; }
+  </style>
+</head>
+<body>
+
+<h1>Array Assertions &amp; DSL Rules</h1>
+<p><span class="badge badge-advanced">ADVANCED</span> &nbsp; <span class="badge badge-sample">Sample: dm-array-assertions-dsl</span></p>
+<p>Master array-level assertions (LENGTH, EACH, CONTAINS, SUBSET), the DSL code editor, ASSERT custom predicates with lambda syntax, and universal negation — all using real product data from <strong>DummyJSON</strong>.</p>
+
+<div class="callout">
+  <strong>Prerequisites</strong>
+  Import the <code>dm-array-assertions-dsl</code> sample from <strong>Gallery → Data Mapper</strong>. Familiarity with basic field operators is recommended — see <a href="data-mapper-operators-products-medium.html">Validation Operators — Products</a> first.
+</div>
+
+<h2>Part 1 — Array Assertions in the Test Editor</h2>
+
+<p>The sample test includes array-level assertions at the Test Editor level. Open the test and check the <strong>Assertions</strong> section:</p>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">1</div><div class="step-title">Array Length</div></div>
+  <p>The assertion <code>$.products LENGTH >= 3</code> verifies the products array has at least 3 items. Since <code>dummyjson.com/products?limit=3</code> returns exactly 3 products, this passes.</p>
+  <p>In DSL syntax:</p>
+<pre>$.products                    length >=       3</pre>
+</div>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">2</div><div class="step-title">EACH — every item must match</div></div>
+  <p>Two EACH assertions are configured:</p>
+  <ul>
+    <li><code>$.products EACH price > 0</code> — every product's price must be positive</li>
+    <li><code>$.products EACH rating BETWEEN 0, 5</code> — every product's rating must be 0–5</li>
+  </ul>
+  <p>In DSL syntax:</p>
+<pre>$.products[*].price           each >          0
+$.products[*].rating          each between     0, 5</pre>
+  <div class="expect"><strong>All 3 products pass:</strong> prices are 9.99, 19.99, 14.99 (all > 0) and ratings are 4.94, 3.28, 3.82 (all 0–5).</div>
+</div>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">3</div><div class="step-title">SUBSET — partial object match</div></div>
+  <p>The assertion <code>$.products SUBSET {"category": "beauty"}</code> checks that at least one product contains a <code>category</code> field equal to <code>"beauty"</code>. SUBSET uses <strong>deep recursive partial matching</strong> — extra fields are ignored.</p>
+  <div class="callout callout-tip">
+    <strong>SUBSET vs CONTAINS</strong>
+    <p><code>CONTAINS</code> does exact match on every specified field. <code>SUBSET</code> is more lenient — it only checks the fields you specify and ignores the rest. Use SUBSET when you don't want to specify every field in a complex object.</p>
+  </div>
+</div>
+
+<h2>Part 2 — ASSERT Custom Predicates</h2>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">4</div><div class="step-title">ASSERT with $count</div></div>
+  <p>The first custom assertion:</p>
+<pre>ASSERT $gt($count($.body.products), 0) // Products array is non-empty</pre>
+  <p>This uses <code>$count()</code> to get the array length and <code>$gt()</code> for a "greater than 0" check. The <code>$.body</code> prefix gives access to the full response body within ASSERT expressions.</p>
+</div>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">5</div><div class="step-title">ASSERT with $all and lambda</div></div>
+  <p>Two lambda-based assertions:</p>
+<pre>ASSERT $all($.body.products, x => $gte(x.price, 0))   // All prices are non-negative
+ASSERT $all($.body.products, x => $gte(x.rating, 1))  // All ratings >= 1</pre>
+  <p><code>$all(array, predicate)</code> returns true only when every element passes the predicate. The lambda <code>x => $gte(x.price, 0)</code> binds each product to <code>x</code> and checks <code>x.price >= 0</code>.</p>
+  <div class="expect"><strong>Try it:</strong> Change <code>$gte(x.rating, 1)</code> to <code>$gte(x.rating, 4)</code>. Products with rating 3.28 and 3.82 fail — the assertion turns red.</div>
+</div>
+
+<h2>Part 3 — Universal Negation (NOT)</h2>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">6</div><div class="step-title">Open the Data Mapper</div></div>
+  <p>Go to <strong>Validation</strong> tab → <strong>Data Mapper</strong>. The Target panel shows 7 rules, including two with <strong style="color: #dc3545;">NOT</strong> badges.</p>
+</div>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">7</div><div class="step-title">NOT is_empty</div></div>
+  <p>Find <code>$.products[0].title</code> with <strong style="color: #dc3545;">NOT</strong> <strong style="color: #6c757d;">is_empty</strong>. This asserts the title is NOT empty — the logical inverse of <code>is_empty</code>. "Essence Mascara Lash Princess" is not empty — passes.</p>
+  <p>In DSL syntax:</p>
+<pre>$.products[0].title           NOT is_empty</pre>
+</div>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">8</div><div class="step-title">NOT equals</div></div>
+  <p>Find <code>$.products[0].availabilityStatus</code> with <strong style="color: #dc3545;">NOT</strong> <strong style="color: #28a745;">equals</strong> <code>"Discontinued"</code>. This asserts the status is anything except "Discontinued". The actual value is "Low Stock" — passes.</p>
+  <p>In DSL syntax:</p>
+<pre>$.products[0].availabilityStatus NOT equals     "Discontinued"</pre>
+  <div class="callout callout-warning">
+    <strong>NOT vs not_equals</strong>
+    <p><code>NOT equals</code> and <code>not_equals</code> are semantically identical. Use whichever reads better in your team's conventions. NOT is a universal modifier that works with <em>any</em> operator — including <code>NOT contains</code>, <code>NOT exists</code>, <code>NOT between</code>.</p>
+  </div>
+</div>
+
+<h2>Part 4 — DSL Code Editor</h2>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">9</div><div class="step-title">Open the Rules modal</div></div>
+  <p>Click <strong>Rules</strong> in the toolbar to open the Validation Rules Modal. The Monaco editor shows the DSL representation of all rules.</p>
+  <p>Your DSL should look like:</p>
+<pre># Field operators
+$.total                       >               0
+$.products[0].title           is_not_empty
+$.products[0].price           >               0
+$.products[0].category        equals          "beauty"
+$.products[0].brand           exists
+
+# Negation
+$.products[0].title           NOT is_empty
+$.products[0].availabilityStatus NOT equals   "Discontinued"</pre>
+</div>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">10</div><div class="step-title">Add a new rule via DSL</div></div>
+  <p>Type a new line at the end:</p>
+<pre>$.products[0].sku             regex           "^[A-Z0-9]+$"</pre>
+  <p>After the debounce (~300ms), the Data Mapper updates: a new target node appears with a purple <code>regex</code> pill.</p>
+  <div class="expect"><strong>You should see:</strong> The visual mapper and DSL editor stay synchronized. Adding a rule in either location updates the other.</div>
+</div>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">11</div><div class="step-title">Add an ASSERT via DSL</div></div>
+  <p>Append:</p>
+<pre>ASSERT $eq($sum($map($.body.products, x => x.price)), 44.97) // Total price check</pre>
+  <p>This sums all product prices (9.99 + 19.99 + 14.99 = 44.97) and asserts the total. Click <strong>Verify</strong> in the modal to confirm.</p>
+</div>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">12</div><div class="step-title">DSL Reference Panel</div></div>
+  <p>Click <strong>Reference</strong> in the modal header to open the DSL Reference Panel. Browse 8 categories of operators, assertion types, and ASSERT syntax. Click any entry to <strong>insert</strong> it at the cursor position.</p>
+</div>
+
+<h2>Part 5 — Verify & Review</h2>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">13</div><div class="step-title">Verify All</div></div>
+  <p>Close the Rules modal. Click <strong>Verify All</strong> in the toolbar. All rules — field operators, negated rules, and ASSERT predicates — are evaluated together.</p>
+  <p>Open <strong>Mapping View → Table</strong> to see the complete results:</p>
+  <ul>
+    <li>Field rules show "✓ pass" / "✗ fail" in the Status column</li>
+    <li>Assertion rows (STATUS, ARRAYLENGTH, EACH, SUBSET, CUSTOM) show "✓ pass" / "✗ fail"</li>
+    <li>NOT-negated rules show the NOT badge in the operator column</li>
+  </ul>
+</div>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">14</div><div class="step-title">Pivot view for array data</div></div>
+  <p>Switch the Table view to <strong>Pivot</strong> (if available). The pivot table shows array indices as rows and fields as columns — useful for comparing <code>products[0]</code>, <code>products[1]</code>, <code>products[2]</code> side by side.</p>
+</div>
+
+<h2>Summary</h2>
+<table>
+  <tr><th>Feature</th><th>What Was Demonstrated</th></tr>
+  <tr><td>Array Assertions</td><td>LENGTH (>= 3), EACH (price > 0, rating 0–5), SUBSET (category: beauty)</td></tr>
+  <tr><td>ASSERT</td><td><code>$gt($count(...))</code>, <code>$all(... x => ...)</code> with lambdas</td></tr>
+  <tr><td>Negation</td><td><code>NOT is_empty</code>, <code>NOT equals</code> with red NOT badge</td></tr>
+  <tr><td>DSL Editor</td><td>Write, edit, and sync rules; Monaco with autocomplete and highlighting</td></tr>
+  <tr><td>DSL Reference</td><td>8-category accordion panel with search, insert, copy</td></tr>
+  <tr><td>Mapping View</td><td>Table view with Status column after Verify; Pivot for array comparison</td></tr>
+</table>
+
+<div class="callout callout-tip">
+  <strong>API Reference</strong>
+  <p>This manual uses <code>https://dummyjson.com/products?limit=3</code> — a free, public API that returns product data with rich nested structures. Anyone with internet access can use this sample without configuration.</p>
+</div>
+
+</body>
+</html>

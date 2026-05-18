@@ -1,5 +1,6 @@
 import type { Assertion } from '../../types';
 import type { Mapping, MapperSource, ExpressionFunction } from './types';
+import type { AssertionRowVerifyResult } from './InlineAssertionRow';
 import CodeView from './CodeView';
 import MappingTableView from './MappingTableView';
 import PreviewBar from './PreviewBar';
@@ -20,6 +21,8 @@ interface BottomUtilityDockProps {
   onSelectMapping: (id: string) => void;
   verifyStatus?: string;
   failedMappingIds?: Set<string>;
+  assertionVerifyMap?: Map<number, AssertionRowVerifyResult>;
+  style?: React.CSSProperties;
 }
 
 export default function BottomUtilityDock({
@@ -37,9 +40,11 @@ export default function BottomUtilityDock({
   onSelectMapping,
   verifyStatus,
   failedMappingIds,
+  assertionVerifyMap,
+  style,
 }: BottomUtilityDockProps) {
   return (
-    <div className={`dm-bottom-utility-dock dm-bottom-utility-dock--${mode}`}>
+    <div className={`dm-bottom-utility-dock dm-bottom-utility-dock--${mode}`} style={style}>
       {mode === 'code' ? (
         <CodeView
           mappings={mappings}
@@ -52,6 +57,7 @@ export default function BottomUtilityDock({
           traceByMappingId={traceByMappingId}
           verifyStatus={verifyStatus}
           failedMappingIds={failedMappingIds}
+          assertionVerifyMap={assertionVerifyMap}
         />
       ) : mode === 'table' ? (
         <MappingTableView

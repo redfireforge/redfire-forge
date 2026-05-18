@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   detectTypeMismatches,
   getMismatchForMapping,
+  getOperatorExpectedType,
   inferType,
   suggestTypeFixExpression,
   typesCompatible,
@@ -255,6 +256,117 @@ describe('detectTypeMismatches', () => {
     const result = detectTypeMismatches(mappings, sources, tgt);
     expect(result).toHaveLength(1);
     expect(result[0].targetType).toBe('number');
+  });
+});
+
+describe('getOperatorExpectedType', () => {
+  it('returns number for numeric operators', () => {
+    expect(getOperatorExpectedType('greater_than')).toBe('number');
+    expect(getOperatorExpectedType('less_than_or_equal')).toBe('number');
+    expect(getOperatorExpectedType('between')).toBe('number');
+    expect(getOperatorExpectedType('close_to')).toBe('number');
+  });
+
+  it('returns boolean for boolean operators', () => {
+    expect(getOperatorExpectedType('is_true')).toBe('boolean');
+    expect(getOperatorExpectedType('is_false')).toBe('boolean');
+  });
+
+  it('returns string for string operators', () => {
+    expect(getOperatorExpectedType('starts_with')).toBe('string');
+    expect(getOperatorExpectedType('regex')).toBe('string');
+    expect(getOperatorExpectedType('contains')).toBe('string');
+  });
+
+  it('returns array for collection operators', () => {
+    expect(getOperatorExpectedType('length')).toBe('array');
+    expect(getOperatorExpectedType('each')).toBe('array');
+    expect(getOperatorExpectedType('contains_any')).toBe('array');
+  });
+
+  it('returns null for type-agnostic operators', () => {
+    expect(getOperatorExpectedType('equals')).toBeNull();
+    expect(getOperatorExpectedType('not_equals')).toBeNull();
+    expect(getOperatorExpectedType(undefined)).toBeNull();
+  });
+});
+
+describe('operator-type mismatch detection', () => {
+  it('detects string field with greater_than operator', () => {
+    const mappings: Mapping[] = [
+      { id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'name', operator: 'greater_than' },
+    ];
+    const tgt = target({ sampleData: { name: 'Alice' } });
+    const result = detectTypeMismatches(mappings, sources, tgt);
+    expect(result).toHaveLength(1);
+    expect(result[0].sourceType).toBe('string');
+    expect(result[0].targetType).toBe('number');
+    expect(result[0].severity).toBe('warning');
+    expect(result[0].message).toContain('greater_than');
+    expect(result[0].message).toContain('expects number');
+    expect(result[0].suggestedOperator).toBe('equals');
+  });
+
+  it('detects number field with starts_with operator', () => {
+    const mappings: Mapping[] = [
+      { id: 'm1', sourcePath: 'age', sourceId: 's1', targetPath: 'age', operator: 'starts_with' },
+    ];
+    const tgt = target({ sampleData: { age: 30 } });
+    const result = detectTypeMismatches(mappings, sources, tgt);
+    expect(result).toHaveLength(1);
+    expect(result[0].sourceType).toBe('number');
+    expect(result[0].targetType).toBe('string');
+    expect(result[0].message).toContain('starts_with');
+    expect(result[0].suggestedOperator).toBe('greater_than_or_equal');
+  });
+
+  it('detects string field with is_true operator', () => {
+    const mappings: Mapping[] = [
+      { id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'name', operator: 'is_true' },
+    ];
+    const tgt = target({ sampleData: { name: 'Alice' } });
+    const result = detectTypeMismatches(mappings, sources, tgt);
+    expect(result).toHaveLength(1);
+    expect(result[0].targetType).toBe('boolean');
+    expect(result[0].message).toContain('is_true');
+  });
+
+  it('detects string field with length operator (expects array)', () => {
+    const mappings: Mapping[] = [
+      { id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'name', operator: 'length' },
+    ];
+    const tgt = target({ sampleData: { name: 'Alice' } });
+    const result = detectTypeMismatches(mappings, sources, tgt);
+    expect(result).toHaveLength(1);
+    expect(result[0].targetType).toBe('array');
+    expect(result[0].message).toContain('length');
+  });
+
+  it('does not flag numeric field with greater_than operator', () => {
+    const mappings: Mapping[] = [
+      { id: 'm1', sourcePath: 'age', sourceId: 's1', targetPath: 'age', operator: 'greater_than' },
+    ];
+    const tgt = target({ sampleData: { age: 30 } });
+    const result = detectTypeMismatches(mappings, sources, tgt);
+    expect(result).toHaveLength(0);
+  });
+
+  it('does not flag boolean field with is_true operator', () => {
+    const mappings: Mapping[] = [
+      { id: 'm1', sourcePath: 'active', sourceId: 's1', targetPath: 'active', operator: 'is_true' },
+    ];
+    const tgt = target({ sampleData: { active: true } });
+    const result = detectTypeMismatches(mappings, sources, tgt);
+    expect(result).toHaveLength(0);
+  });
+
+  it('does not flag null source with numeric operator', () => {
+    const mappings: Mapping[] = [
+      { id: 'm1', sourcePath: 'score', sourceId: 's1', targetPath: 'score', operator: 'greater_than' },
+    ];
+    const tgt = target({ sampleData: { score: null } });
+    const result = detectTypeMismatches(mappings, sources, tgt);
+    expect(result).toHaveLength(0);
   });
 });
 

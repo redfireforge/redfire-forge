@@ -1090,4 +1090,47 @@ describe('TargetPanel', () => {
       expect(container.querySelector('[data-path="userName"]')).not.toBeNull();
     });
   });
+
+  describe('custom predicates section', () => {
+    it('renders custom predicates when arrayAssertions contain custom type', () => {
+      const customAssertions: Assertion[] = [
+        { type: 'custom', expression: '$gt($.body.count, 0)' } as unknown as Assertion,
+        { type: 'custom', expression: '$lt($.body.total, 100)' } as unknown as Assertion,
+      ];
+      render(
+        <TargetPanel
+          target={target}
+          mappings={[]}
+          onDrop={vi.fn()}
+          selectedMappingId={null}
+          onSelectMapping={vi.fn()}
+          arrayAssertions={customAssertions}
+        />,
+      );
+      expect(screen.getByText('Custom Predicates')).toBeTruthy();
+      expect(screen.getByText('2')).toBeTruthy();
+    });
+
+    it('toggles custom predicates section expand/collapse', () => {
+      const customAssertions: Assertion[] = [
+        { type: 'custom', expression: '$gt($.body.count, 0)' } as unknown as Assertion,
+      ];
+      render(
+        <TargetPanel
+          target={target}
+          mappings={[]}
+          onDrop={vi.fn()}
+          selectedMappingId={null}
+          onSelectMapping={vi.fn()}
+          arrayAssertions={customAssertions}
+          onUpdateArrayAssertion={vi.fn()}
+          onRemoveArrayAssertion={vi.fn()}
+        />,
+      );
+      const header = screen.getByText('Custom Predicates').closest('button')!;
+      expect(header.getAttribute('aria-expanded')).toBe('true');
+      fireEvent.click(header);
+      expect(header.getAttribute('aria-expanded')).toBe('false');
+    });
+  });
 });

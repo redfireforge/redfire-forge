@@ -463,6 +463,12 @@ export const workflowPaths: TrainingPath[] = [
             manualPath: 'workflow/webhook-delivery-logs-easy.html',
           },
           {
+            title: 'Viewport Persistence',
+            description: 'Canvas viewport memory — pan/zoom preserved on tab switch, saved with workflow for cross-session restore.',
+            difficulty: 'easy',
+            manualPath: 'workflow/viewport-persistence-easy.html',
+          },
+          {
             title: 'Sub-Workflow Samples Guide',
             description: 'Standalone guide to all sub-workflow gallery samples with architecture diagrams.',
             difficulty: 'advanced',

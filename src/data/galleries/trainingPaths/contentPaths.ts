@@ -484,6 +484,24 @@ export const contentPaths: TrainingPath[] = [
           },
         ],
       },
+      {
+        id: 4,
+        name: 'Export & Environments',
+        manuals: [
+          {
+            title: 'Send to Harness',
+            description: 'Direct export from Catalog to Test Harness — schema-based body generation, host strategies, and query parameters.',
+            difficulty: 'easy',
+            manualPath: 'catalog/send-to-harness-easy.html',
+          },
+          {
+            title: 'Additional Environments',
+            description: 'Microservice-specific environments — amber visual indicators, creation, and usage across the app.',
+            difficulty: 'easy',
+            manualPath: 'catalog/additional-environments-easy.html',
+          },
+        ],
+      },
     ],
   },
 
@@ -532,6 +550,20 @@ export const contentPaths: TrainingPath[] = [
             manualPath: 'data-mapper/data-mapper-target-schema-medium.html',
             sampleId: 'dm-validation-mapping',
           },
+          {
+            title: 'Validation Operators — Products',
+            description: 'All 24 field operators demonstrated on DummyJSON products: equality, comparison, string, boolean, existence, type check, set membership.',
+            difficulty: 'medium',
+            manualPath: 'data-mapper/data-mapper-operators-products-medium.html',
+            sampleId: 'dm-validation-operators',
+          },
+          {
+            title: 'Users Validation — Nested Objects',
+            description: 'Validate deeply nested user data (address, geo, company) from JSONPlaceholder with diverse operators and ASSERT expressions.',
+            difficulty: 'medium',
+            manualPath: 'data-mapper/data-mapper-users-validation-medium.html',
+            sampleId: 'dm-users-validation',
+          },
         ],
       },
       {
@@ -572,6 +604,13 @@ export const contentPaths: TrainingPath[] = [
             difficulty: 'advanced',
             manualPath: 'data-mapper/data-mapper-custom-assertions-advanced.html',
             sampleId: 'dm-validation-mapping',
+          },
+          {
+            title: 'Array Assertions & DSL Rules',
+            description: 'LENGTH, EACH, CONTAINS, SUBSET array assertions plus DSL rules, ASSERT custom predicates, and universal negation — using DummyJSON products.',
+            difficulty: 'advanced',
+            manualPath: 'data-mapper/data-mapper-array-assertions-advanced.html',
+            sampleId: 'dm-array-assertions-dsl',
           },
         ],
       },

@@ -78,7 +78,7 @@ export const manualMetadata: ManualMetadata[] = [
   // ============================================================================
   // API Catalog Path
   // ============================================================================
-  { manualPath: 'catalog/catalog.html', addedAt: date('2024-01-10') },
+  { manualPath: 'catalog/catalog.html', addedAt: date('2024-01-10'), updatedAt: date('2026-05-17'), changeNote: 'Added Section 6: Send to Harness, Host Warnings, Additional Environments' },
   { manualPath: 'catalog/jsonplaceholder-easy.html', addedAt: date('2024-01-15') },
   { manualPath: 'catalog/fakestore-easy.html', addedAt: date('2024-01-15') },
   { manualPath: 'catalog/dummyjson-medium.html', addedAt: date('2024-01-20') },
@@ -87,6 +87,8 @@ export const manualMetadata: ManualMetadata[] = [
   { manualPath: 'catalog/pet-store-api-easy.html', addedAt: date('2026-05-04') },
   { manualPath: 'catalog/correlation-wait-api-medium.html', addedAt: date('2026-05-04') },
   { manualPath: 'catalog/httpbin-advanced.html', addedAt: date('2024-02-01') },
+  { manualPath: 'catalog/send-to-harness-easy.html', addedAt: date('2026-05-17') },
+  { manualPath: 'catalog/additional-environments-easy.html', addedAt: date('2026-05-17') },
 
   // ============================================================================
   // Versioning Path
@@ -121,6 +123,7 @@ export const manualMetadata: ManualMetadata[] = [
   { manualPath: 'workflow/console-easy.html', addedAt: date('2026-04-20') },
   { manualPath: 'workflow/execution-history-easy.html', addedAt: date('2026-04-20') },
   { manualPath: 'workflow/webhook-delivery-logs-easy.html', addedAt: date('2026-04-25') },
+  { manualPath: 'workflow/viewport-persistence-easy.html', addedAt: date('2026-05-17') },
 
   // Edge Traversal Percentages
   { manualPath: 'edge-traversal-percentages-guide.html', addedAt: date('2026-05-07') },
