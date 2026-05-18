@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import type { Environment, Microservice, GlobalAuthProfile } from '../../shared/types';
+import type { Environment, Microservice, GlobalAuthProfile, FeatureGroup } from '../../shared/types';
 import {
   logEnvironmentCreated, logEnvironmentDeleted,
   logMicroserviceCreated, logMicroserviceDeleted, logMicroserviceUpdated,
@@ -13,7 +13,12 @@ export interface EnvironmentManagerProps {
   microservices: Microservice[];
   setMicroservices: React.Dispatch<React.SetStateAction<Microservice[]>>;
   appGlobalAuthProfiles: GlobalAuthProfile[];
-  confirm: (message: string, onConfirm: () => void) => void;
+  featureGroups: FeatureGroup[];
+  selectedEnvId: string;
+  selectedSvcId: string;
+  setSelectedEnvId: (id: string) => void;
+  setSelectedSvcId: (id: string) => void;
+  confirm: (message: string, onConfirm: () => void, detail?: string) => void;
 }
 
 export default function EnvironmentManager({
@@ -22,13 +27,18 @@ export default function EnvironmentManager({
   microservices,
   setMicroservices,
   appGlobalAuthProfiles,
+  featureGroups,
+  selectedEnvId,
+  selectedSvcId,
+  setSelectedEnvId,
+  setSelectedSvcId,
   confirm,
 }: EnvironmentManagerProps) {
   const [newEnvName, setNewEnvName] = useState('');
   const [newSvcName, setNewSvcName] = useState('');
   const [editingBaseUrls, setEditingBaseUrls] = useState<string | null>(null);
   const [editingUrl, setEditingUrl] = useState<{ svcId: string; envId: string; value: string } | null>(null);
-  const [newCustomEnvName, setNewCustomEnvName] = useState('');
+  const [newAdditionalEnvName, setNewAdditionalEnvName] = useState('');
   const [draggingEnvIdx, setDraggingEnvIdx] = useState<number | null>(null);
   const [draggingSvcIdx, setDraggingSvcIdx] = useState<number | null>(null);
 
@@ -47,8 +57,9 @@ export default function EnvironmentManager({
       delete next[env.id];
       return { ...s, baseUrls: next };
     }));
+    if (selectedEnvId === env.id) setSelectedEnvId('');
     void logEnvironmentDeleted(env.name, env.id);
-  }, [setEnvironments, setMicroservices]);
+  }, [setEnvironments, setMicroservices, selectedEnvId, setSelectedEnvId]);
 
   const addSvc = useCallback((name: string) => {
     const id = uuidv4();
@@ -58,8 +69,9 @@ export default function EnvironmentManager({
 
   const deleteSvc = useCallback((svc: Microservice) => {
     setMicroservices((prev) => prev.filter((s) => s.id !== svc.id));
+    if (selectedSvcId === svc.id) setSelectedSvcId('');
     void logMicroserviceDeleted(svc.name, svc.id);
-  }, [setMicroservices]);
+  }, [setMicroservices, selectedSvcId, setSelectedSvcId]);
 
   const saveBaseUrl = useCallback((svc: Microservice, envId: string, url: string) => {
     const oldUrl = svc.baseUrls[envId] ?? '';
@@ -141,9 +153,19 @@ export default function EnvironmentManager({
                 <span className="chip-grip">⠿</span>
                 <span>{env.name}</span>
                 <button type="button" className="settings-chip-delete" onClick={() => {
+                  const affectedGroups = featureGroups.filter(g => g.environmentId === env.id);
+                  const affectedScenarios = affectedGroups.reduce((n, g) => n + g.scenarios.length, 0);
+                  const affectedTests = affectedGroups.reduce((n, g) => n + g.scenarios.reduce((m, s) => m + s.tests.length, 0), 0);
+                  const affectedSvcs = microservices.filter(s => env.id in s.baseUrls);
+                  const parts: string[] = [];
+                  if (affectedSvcs.length > 0) parts.push(`${affectedSvcs.length} microservice${affectedSvcs.length !== 1 ? 's' : ''} will lose their base URL for this environment`);
+                  if (affectedGroups.length > 0) parts.push(`${affectedGroups.length} feature group${affectedGroups.length !== 1 ? 's' : ''} (${affectedScenarios} scenario${affectedScenarios !== 1 ? 's' : ''}, ${affectedTests} test${affectedTests !== 1 ? 's' : ''}) will become unassociated`);
+                  const detail = parts.length > 0
+                    ? `Warning: ${parts.join('. ')}. They will NOT be deleted but will lose their environment association.`
+                    : undefined;
                   confirm(`Delete environment "${env.name}"?`, () => {
                     deleteEnv(env);
-                  });
+                  }, detail);
                 }} title="Delete">×</button>
               </div>
             ))}
@@ -201,9 +223,15 @@ export default function EnvironmentManager({
                     <span className="settings-svc-count">{deployedCount}/{environments.length} envs</span>
                     <button type="button" className="btn btn-xs" onClick={() => setEditingBaseUrls(isSvcExpanded ? null : svc.id)}>{isSvcExpanded ? 'Collapse' : 'Configure'}</button>
                     <button type="button" className="btn btn-xs btn-danger" onClick={() => {
+                      const affectedGroups = featureGroups.filter(g => g.microserviceId === svc.id);
+                      const affectedScenarios = affectedGroups.reduce((n, g) => n + g.scenarios.length, 0);
+                      const affectedTests = affectedGroups.reduce((n, g) => n + g.scenarios.reduce((m, s) => m + s.tests.length, 0), 0);
+                      const detail = affectedGroups.length > 0
+                        ? `Warning: ${affectedGroups.length} feature group${affectedGroups.length !== 1 ? 's' : ''} (${affectedScenarios} scenario${affectedScenarios !== 1 ? 's' : ''}, ${affectedTests} test${affectedTests !== 1 ? 's' : ''}) will become unassociated. They will NOT be deleted but will lose their microservice association.`
+                        : undefined;
                       confirm(`Delete microservice "${svc.name}"?`, () => {
                         deleteSvc(svc);
-                      });
+                      }, detail);
                     }}>Delete</button>
                   </div>
                   {isSvcExpanded && (
@@ -288,7 +316,7 @@ export default function EnvironmentManager({
                             })}
                             {(svc.customEnvs ?? []).length > 0 && (
                               <tr className="svc-env-separator-row">
-                                <td colSpan={4} className="svc-env-separator-td">Custom Environments</td>
+                                <td colSpan={4} className="svc-env-separator-td">Additional Environments</td>
                               </tr>
                             )}
                             {(svc.customEnvs ?? []).map((cEnv) => {
@@ -308,7 +336,7 @@ export default function EnvironmentManager({
                                     }} />
                                   </td>
                                   <td className="svc-env-td-env">
-                                    <span className="svc-env-name svc-env-custom-tag">{cEnv.name}</span>
+                                    <span className="svc-env-name svc-env-additional-tag">{cEnv.name}</span>
                                   </td>
                                   <td className="svc-env-td-url">
                                     {deployed && (
@@ -337,7 +365,7 @@ export default function EnvironmentManager({
                                     )}
                                   </td>
                                   <td className="svc-env-td-auth">
-                                    <div className="svc-env-custom-auth-cell">
+                                    <div className="svc-env-additional-auth-cell">
                                       {deployed && (
                                         <select
                                           className="env-auth-select"
@@ -353,8 +381,8 @@ export default function EnvironmentManager({
                                           ))}
                                         </select>
                                       )}
-                                      <button type="button" className="btn btn-xs btn-danger svc-env-custom-del"
-                                        title="Remove custom environment"
+                                      <button type="button" className="btn btn-xs btn-danger svc-env-additional-del"
+                                        title="Remove additional environment"
                                         onClick={() => {
                                           setMicroservices((prev) => prev.map((s) => {
                                             if (s.id !== svc.id) return s;
@@ -381,7 +409,7 @@ export default function EnvironmentManager({
                               <td colSpan={4}>
                                 <form className="svc-env-add-form" onSubmit={(e) => {
                                   e.preventDefault();
-                                  const name = newCustomEnvName.trim();
+                                  const name = newAdditionalEnvName.trim();
                                   if (!name) return;
                                   const allEnvNames = [
                                     ...environments.map((e) => e.name.toLowerCase()),
@@ -397,13 +425,13 @@ export default function EnvironmentManager({
                                       baseUrls: { ...s.baseUrls, [id]: '' },
                                     };
                                   }));
-                                  setNewCustomEnvName('');
+                                  setNewAdditionalEnvName('');
                                 }}>
                                   <input
                                     className="svc-env-add-input"
-                                    value={newCustomEnvName}
-                                    onChange={(e) => setNewCustomEnvName(e.target.value)}
-                                    placeholder="+ Add custom environment (e.g. staging-2)"
+                                    value={newAdditionalEnvName}
+                                    onChange={(e) => setNewAdditionalEnvName(e.target.value)}
+                                    placeholder="+ Add additional environment (e.g. staging-2)"
                                   />
                                 </form>
                               </td>

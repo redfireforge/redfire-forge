@@ -175,6 +175,16 @@ export default function ScenarioSelector({
                     <span>{sc.name}</span>
                     <span className="count-badge">{sc.tests.length} test{sc.tests.length !== 1 ? 's' : ''}</span>
                     {(() => {
+                      const versioned = sc.tests.filter(t => t.sourceSpecVersionLabel);
+                      if (versioned.length === 0) return null;
+                      const labels = [...new Set(versioned.map(t => t.sourceSpecVersionLabel!))];
+                      return <span className="count-badge count-badge-version" title={`Spec version${labels.length > 1 ? 's' : ''}: ${labels.join(', ')}`}>v{labels[0]}{labels.length > 1 ? ` +${labels.length - 1}` : ''}</span>;
+                    })()}
+                    {(() => {
+                      const fromReqs = sc.tests.filter(t => t.sourceRequestId).length;
+                      return fromReqs > 0 ? <span className="count-badge count-badge-origin" title={`${fromReqs} test${fromReqs !== 1 ? 's' : ''} from Requests`}>&#128279; {fromReqs}</span> : null;
+                    })()}
+                    {(() => {
                       const totalRows = sc.tests.reduce((sum, t) => sum + (t.dataSource?.rows.filter(r => r.enabled).length ?? 0), 0);
                       return totalRows > 0 ? <span className="count-badge count-badge-data">📊 {totalRows} rows</span> : null;
                     })()}

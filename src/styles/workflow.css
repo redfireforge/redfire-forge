@@ -520,7 +520,7 @@
 .tg-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.55);
+  background: transparent;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1494,6 +1494,16 @@
 .wf-config-field label {
   display: block; font-size: 0.68rem; color: var(--text-muted);
   text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 3px; font-weight: 600;
+}
+.wf-config-version-mode-row {
+  display: flex; align-items: center; gap: 8px;
+}
+.wf-config-version-select {
+  flex: 1; max-width: 280px;
+}
+.wf-config-version-label {
+  font-size: 0.72rem; font-weight: 600; color: #6c63ff;
+  padding: 1px 6px; border-radius: 3px; background: #6c63ff22; white-space: nowrap;
 }
 .wf-config-field input, .wf-config-field select, .wf-config-field textarea {
   width: 100%; padding: 5px 8px; background: var(--bg); border: 1px solid var(--border);
@@ -3145,8 +3155,8 @@
   z-index: 10090;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.55);
-  backdrop-filter: blur(1px);
+  background: transparent;
+  backdrop-filter: none;
 }
 
 /* ── Variable context badge (modal on click) ─────────── */
@@ -5702,7 +5712,7 @@
 /* ── Keyboard Shortcuts Overlay ───────────────────────── */
 
 .wf-shortcuts-backdrop {
-  position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+  position: fixed; inset: 0; background: transparent;
   z-index: 500; animation: fadeIn 0.15s ease;
 }
 .wf-shortcuts-overlay {
@@ -5749,7 +5759,7 @@
 /* ── Command Palette ──────────────────────────────────── */
 
 .wf-cmd-backdrop {
-  position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+  position: fixed; inset: 0; background: transparent;
   z-index: 500; animation: fadeIn 0.15s ease;
 }
 .wf-cmd-palette {

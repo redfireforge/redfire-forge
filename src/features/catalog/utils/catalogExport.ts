@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
-import type { RequestCollection, RequestItem, RequestFolder, KeyValue, CatalogRequestMeta } from '../../../shared/types';
+import type { RequestCollection, RequestItem, RequestFolder, KeyValue, CatalogRequestMeta, SpecVersion } from '../../../shared/types';
 import type { CatalogEndpoint, CatalogServer, SavedEndpointValues } from '../types/catalog';
 import { extractServerPathPrefix } from './catalogCurlGenerator';
 
@@ -25,6 +25,7 @@ export interface CatalogExportContext {
   existingWbEnvNames: Map<string, string>; // envName -> wbEnvId
   groupId?: string;
   catalogEntryName?: string;
+  catalogEntryId?: string;
 }
 
 export interface CatalogExportResult {
@@ -40,6 +41,8 @@ export function buildExportRequests(
   sampleEpIds: Set<string>,
   epVals: Record<string, SavedEndpointValues>,
   sourceSpec?: string,
+  catalogEntryId?: string,
+  catalogVersion?: string,
 ): RequestItem[] {
   return endpoints.map(ep => {
     const reqName = customNames[ep.id]?.trim() || ep.summary || `${ep.method} ${ep.path}`;
@@ -55,7 +58,21 @@ export function buildExportRequests(
 
     const queryParams = ep.parameters
       .filter(p => p.in === 'query')
-      .map(p => ({ key: p.name, value: saved?.params?.[p.name] ?? '', enabled: true }));
+      .map(p => ({
+        key: p.name,
+        value: saved?.params?.[p.name] ?? '',
+        enabled: true,
+        description: p.description,
+      }));
+
+    const pathParams = ep.parameters
+      .filter(p => p.in === 'path')
+      .map(p => ({
+        key: p.name,
+        value: saved?.params?.[p.name] ?? '',
+        description: p.description,
+        required: p.required,
+      }));
 
     let pathUrl = ep.path;
     for (const p of ep.parameters.filter(pp => pp.in === 'path')) {
@@ -64,7 +81,11 @@ export function buildExportRequests(
     }
 
     const normalizedPath = pathUrl.startsWith('/') ? pathUrl : `/${pathUrl}`;
-    let fullUrl = baseUrl.replace(/\/+$/, '') + serverPathPrefix + normalizedPath;
+    const baseNoTrail = baseUrl.replace(/\/+$/, '');
+    const baseAlreadyHasPrefix = serverPathPrefix && baseNoTrail.endsWith(serverPathPrefix);
+    const pathAlreadyHasPrefix = serverPathPrefix && normalizedPath.startsWith(serverPathPrefix);
+    const effectivePrefix = (baseAlreadyHasPrefix || pathAlreadyHasPrefix) ? '' : serverPathPrefix;
+    let fullUrl = baseNoTrail + effectivePrefix + normalizedPath;
 
     const filledQp = queryParams.filter(q => q.value);
     if (filledQp.length > 0) {
@@ -73,6 +94,9 @@ export function buildExportRequests(
     }
 
     const catalogMeta: CatalogRequestMeta = {
+      catalogEntryId,
+      catalogEndpointId: ep.id,
+      catalogVersion,
       operationId: ep.operationId,
       description: ep.description,
       originalPath: ep.path,
@@ -94,8 +118,26 @@ export function buildExportRequests(
     };
 
     const body = saved?.body ?? '';
+    const reqId = uuidv4();
+    const firstVersionId = uuidv4();
+
+    const firstSpecVersion: SpecVersion = {
+      id: firstVersionId,
+      catalogVersion: catalogVersion ?? '',
+      catalogEntryId: catalogEntryId ?? '',
+      catalogEndpointId: ep.id,
+      importedAt: Date.now(),
+      url: fullUrl,
+      method: ep.method,
+      headers: [...headers],
+      body,
+      bodyType: body ? 'json' as const : undefined,
+      savedQueryParams: queryParams.length > 0 ? queryParams : undefined,
+      savedPathParams: pathParams.length > 0 ? pathParams : undefined,
+    };
+
     return {
-      id: uuidv4(),
+      id: reqId,
       name: reqName,
       method: ep.method,
       url: fullUrl,
@@ -103,8 +145,11 @@ export function buildExportRequests(
       body,
       bodyType: body ? 'json' as const : undefined,
       auth: { type: 'inherit' as const },
-      savedQueryParams: queryParams,
+      savedQueryParams: queryParams.length > 0 ? queryParams : undefined,
+      savedPathParams: pathParams.length > 0 ? pathParams : undefined,
       catalogMeta,
+      specVersions: [firstSpecVersion],
+      activeSpecVersionId: firstVersionId,
     };
   });
 }
@@ -114,7 +159,7 @@ export function buildCatalogExport(
   context: CatalogExportContext,
 ): CatalogExportResult {
   const { collectionName, envs, endpoints, customNames, sampleEpIds, savedEpValues: epVals } = payload;
-  const { servers, microserviceId, versionLabel, existingWbEnvNames, groupId, catalogEntryName } = context;
+  const { servers, microserviceId, versionLabel, existingWbEnvNames, groupId, catalogEntryName, catalogEntryId } = context;
 
   const envIdMap: Record<string, string> = {};
   const baseUrls: Record<string, string> = {};
@@ -136,7 +181,7 @@ export function buildCatalogExport(
   const folders: RequestFolder[] = envs.map(env => ({
     id: uuidv4(),
     name: env.envName,
-    requests: buildExportRequests(endpoints, env.baseUrl, serverPathPrefix, customNames, sampleEpIds, epVals, sourceSpec),
+    requests: buildExportRequests(endpoints, env.baseUrl, serverPathPrefix, customNames, sampleEpIds, epVals, sourceSpec, catalogEntryId, versionLabel),
     folders: [] as RequestFolder[],
     isSubCollection: true,
     selectedEnvId: envIdMap[env.envId],

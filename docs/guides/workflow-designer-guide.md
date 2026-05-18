@@ -320,6 +320,16 @@ Automatically arrange nodes:
 2. Nodes are arranged hierarchically
 3. Adjust manually if needed
 
+## Canvas Viewport Persistence
+
+The Workflow Designer remembers your pan and zoom position:
+
+- **Tab switching**: When you switch away from the Workflow tab and return, the canvas restores exactly where you left it — same pan position and zoom level.
+- **Save with workflow**: Click **Save** to persist the current viewport as the default view. Next time you open this workflow, it loads at the saved position.
+- **Fit to View**: Use the **Fit** button in the toolbar to auto-zoom to show all nodes, regardless of saved viewport.
+
+> This uses an `IntersectionObserver` to detect visibility changes — no data loss even when rapidly switching between tabs.
+
 ## Workflow Services
 
 ### Service Registry

@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import type { CatalogEntry, SavedEndpointValues } from '../types/catalog';
+import type { CatalogEntry, CatalogEndpoint, SavedEndpointValues } from '../types/catalog';
 import type { AuthConfig, GlobalAuthProfile, Environment, Microservice } from '../../../shared/types';
+import type { EndpointCoverage } from '../utils/coverageChecker';
+import { getEndpointCoverage } from '../utils/coverageChecker';
 import CatalogEndpointCard from './CatalogEndpointCard';
 import CatalogAuthPanel from './CatalogAuthPanel';
 import { resolveBaseUrl } from '../utils/catalogCurlGenerator';
@@ -15,9 +17,13 @@ interface Props {
   appEnvironments?: Environment[];
   appMicroservices?: Microservice[];
   onEditEntry?: () => void;
+  onExportSingle?: (endpoint: CatalogEndpoint, savedValues?: SavedEndpointValues) => void;
+  onSendToHarness?: (endpoint: CatalogEndpoint, fromTryItOut?: boolean) => void;
+  coverageMap?: Map<string, EndpointCoverage>;
+  onNavigateToRequest?: (collectionId: string, requestId: string) => void;
 }
 
-export default function CatalogEndpointBrowser({ entry, auth, onAuthChange, onHostChange, globalAuthProfiles, appEnvironments, appMicroservices, onEditEntry }: Props) {
+export default function CatalogEndpointBrowser({ entry, auth, onAuthChange, onHostChange, globalAuthProfiles, appEnvironments, appMicroservices, onEditEntry, onExportSingle, onSendToHarness, coverageMap, onNavigateToRequest }: Props) {
   const [filter, setFilter] = useState('');
   const [collapsedTags, setCollapsedTags] = useState<Set<string>>(new Set());
   const [showAuthPanel, setShowAuthPanel] = useState(false);
@@ -270,6 +276,10 @@ export default function CatalogEndpointBrowser({ entry, auth, onAuthChange, onHo
                     onValuesChange={(vals) => handleEpValuesChange(ep.id, vals)}
                     environments={entry.environments}
                     linkedMicroservice={linkedSvc}
+                    onExportSingle={onExportSingle}
+                    onSendToHarness={onSendToHarness}
+                    coverage={coverageMap ? getEndpointCoverage(ep.method, ep.path, coverageMap) : undefined}
+                    onNavigateToRequest={onNavigateToRequest}
                   />
                 ))}
               </div>
@@ -297,6 +307,10 @@ export default function CatalogEndpointBrowser({ entry, auth, onAuthChange, onHo
                     onValuesChange={(vals) => handleEpValuesChange(ep.id, vals)}
                     environments={entry.environments}
                     linkedMicroservice={linkedSvc}
+                    onExportSingle={onExportSingle}
+                    onSendToHarness={onSendToHarness}
+                    coverage={coverageMap ? getEndpointCoverage(ep.method, ep.path, coverageMap) : undefined}
+                    onNavigateToRequest={onNavigateToRequest}
                   />
                 ))}
               </div>
