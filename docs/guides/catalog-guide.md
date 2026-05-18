@@ -114,8 +114,20 @@ Complex schemas shown with expandable tree:
    - Query parameters
    - Headers
    - Request body
-3. Click **Send**
+3. Click **Execute**
 4. View response
+
+### Host Strategy
+
+Choose how the base URL is resolved:
+
+| Strategy | Description |
+|----------|-------------|
+| **From Spec** | Uses server URLs defined in the OpenAPI spec |
+| **Environment** | Uses base URL from a linked microservice's environment |
+| **Custom URL** | Enter any base URL manually |
+
+> **Host Warning**: When using "From Spec" with a placeholder URL (e.g., `example.com`, `.test`, `.local`), an amber warning banner appears: *"Server URL 'api.example.com' from the spec is likely a placeholder. Switch to 'Custom URL' or 'Environment' mode to use your real server."*
 
 ### Parameter Input
 
@@ -138,7 +150,7 @@ Complex schemas shown with expandable tree:
 │                                            │
 │ Server: [Production ▼]                     │
 │                                            │
-│ [Cancel]                      [Send]       │
+│ [Cancel]                      [Execute]    │
 └────────────────────────────────────────────┘
 ```
 
@@ -155,6 +167,47 @@ servers:
 ```
 
 Select which server to use for requests.
+
+## Send to Harness
+
+### Direct Export to Test Harness
+
+Export an endpoint directly from the Catalog to the Harness as a test scenario:
+
+1. Click **Send to Harness** on an endpoint (in Try It mode or the Execute bar)
+2. Choose the target Feature Group and Scenario (or create new ones)
+3. Select environment and microservice
+4. Click **Confirm** — the test is created and the Harness tab opens
+
+### What's Included
+
+- **URL**: Full URL with path variables resolved
+- **Method**: HTTP method from the endpoint
+- **Headers**: Declared header parameters
+- **Body**: Auto-generated from schema (see below)
+- **Query Parameters**: From endpoint parameter definitions
+- **Path Parameters**: Declared path variables with empty values for you to fill
+- **Catalog Metadata**: Original path, operationId, source spec, version
+
+### Schema-Based Body Generation
+
+When exporting POST/PUT/PATCH endpoints to Harness, the request body is automatically populated:
+
+| Priority | Source | Example |
+|----------|--------|---------|
+| 1st | Content-type level `example` | Explicit example in spec |
+| 2nd | Schema-level `example` | `schema: { example: {...} }` |
+| 3rd | **Generated from schema** | Auto-built from properties/types |
+
+The schema generator handles:
+- **Objects** with nested properties (recursive)
+- **Arrays** with typed items
+- **Enums** (picks first value, e.g., `"available"`)
+- **Primitives** — `string` → `"string"`, `integer` → `0`, `boolean` → `true`
+- **Date formats** — `"2024-01-01T00:00:00Z"` for date-time, `"2024-01-01"` for date
+- **Default values** — used when specified in schema
+
+This prevents empty-body errors (405/400) when testing POST endpoints after export.
 
 ## Send to Requests
 
@@ -270,14 +323,22 @@ Export an entire tag to maintain grouping in your collection.
 
 ### 4. Check Server URLs
 
-Ensure the correct server is selected in multi-environment specs.
+Ensure the correct server is selected in multi-environment specs. Watch for the **amber host warning** — it appears when the spec contains placeholder domains that won't resolve (e.g., `api.petstore.example.com`). Switch to "Custom URL" or "Environment" mode to point at your real server.
 
 ### 5. Review Generated Bodies
 
-Exported request bodies are templates — fill in actual values before sending.
+Exported request bodies are templates — fill in actual values before sending. When bodies are auto-generated from schema, they use sensible defaults (`"string"`, `0`, `true`) that should be replaced with real data.
+
+### 6. Use Send to Harness for Quick Test Setup
+
+Instead of exporting to Requests first, use **Send to Harness** to jump straight into testing:
+- Body is auto-populated from schema
+- Query parameters are pre-filled
+- You can start assertions immediately
 
 ## Related Guides
 
 - [Catalog Import Guide](./catalog-import-guide.md) — Import details
 - [Requests Guide](./requests-guide.md) — Working with requests
+- [Environments Guide](./environments-guide.md) — Multi-environment testing
 - [Getting Started](./getting-started.md) — Quick start

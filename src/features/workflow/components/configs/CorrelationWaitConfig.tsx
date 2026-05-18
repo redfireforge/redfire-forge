@@ -430,6 +430,7 @@ export default function CorrelationWaitConfig({
             setShowMapper(false);
           }}
           onCancel={() => setShowMapper(false)}
+          contextScope={data.label}
         />
       )}
     </div>

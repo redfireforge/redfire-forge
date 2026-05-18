@@ -832,6 +832,7 @@ export default function TestEditorValidationTab({
           onSave={handleValidationMapperSave}
           onCancel={() => setValidationMapperOpen(false)}
           unorderedArrays={draft.validation.unorderedArrays}
+          contextScope={draft.id}
         />
       )}
 

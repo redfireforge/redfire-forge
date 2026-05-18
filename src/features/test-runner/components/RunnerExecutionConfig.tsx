@@ -1,7 +1,33 @@
+import { useState, useEffect } from 'react';
 import type { ExecutionMode, ErrorPolicy, LoadProfileConfig, LoadProfileType, ThinkTimeConfig, ThinkTimeMode } from '../../../shared/types';
 import { ProfilePreview } from '../../requests/components/ProfilePreview';
 import { profileDescriptions } from '../utils/runnerProgressStorage';
 import { getExecutionModeMeta } from '../../../shared/utils/executionMode';
+
+function NumericInput({ value, onChange, min = 0, max = Infinity, step, disabled, className }: {
+  value: number; onChange: (n: number) => void;
+  min?: number; max?: number; step?: number; disabled?: boolean; className?: string;
+}) {
+  const [text, setText] = useState(String(value));
+  useEffect(() => { setText(String(value)); }, [value]);
+  return (
+    <input
+      type="number" min={min} max={max} step={step}
+      className={className} disabled={disabled}
+      value={text}
+      onChange={(e) => {
+        setText(e.target.value);
+        const v = parseInt(e.target.value);
+        if (!isNaN(v)) onChange(Math.min(max, Math.max(min, v)));
+      }}
+      onBlur={() => {
+        const v = parseInt(text);
+        if (isNaN(v) || v < min) { onChange(min); setText(String(min)); }
+        else if (v > max) { onChange(max); setText(String(max)); }
+      }}
+    />
+  );
+}
 
 // Test Runner only shows these modes - 'workflow' mode is for the dedicated Workflow Runner
 const testRunnerModes: ExecutionMode[] = ['sequential', 'batch', 'pool', 'load-profile'];
@@ -100,14 +126,14 @@ export default function RunnerExecutionConfig({
         <div className="resilience-row">
           <div className="resilience-field resilience-field-sm">
             <label>Concurrency</label>
-            <input type="number" min={1} max={100} value={forceSingleIteration ? 1 : (executionMode === 'sequential' ? 1 : effectiveConcurrency)} onChange={(e) => onConcurrencyChange(Math.max(1, parseInt(e.target.value) || 1))} disabled={isRunning || executionMode === 'sequential' || isLoadProfile || forceSingleIteration} />
+            <NumericInput min={1} max={100} value={forceSingleIteration ? 1 : (executionMode === 'sequential' ? 1 : effectiveConcurrency)} onChange={onConcurrencyChange} disabled={isRunning || executionMode === 'sequential' || isLoadProfile || forceSingleIteration} />
             {forceSingleIteration && <span className="field-hint">Fixed to 1</span>}
             {!forceSingleIteration && executionMode === 'sequential' && <span className="field-hint">Fixed to 1</span>}
             {!forceSingleIteration && isLoadProfile && <span className="field-hint">Set in profile</span>}
           </div>
           <div className="resilience-field resilience-field-sm">
             <label>Iterations</label>
-            <input type="number" min={1} max={100000} value={forceSingleIteration ? 1 : effectiveIterations} onChange={(e) => onIterationsChange(Math.max(1, parseInt(e.target.value) || 1))} disabled={isRunning || isLoadProfile || forceSingleIteration} />
+            <NumericInput min={1} max={100000} value={forceSingleIteration ? 1 : effectiveIterations} onChange={onIterationsChange} disabled={isRunning || isLoadProfile || forceSingleIteration} />
             {forceSingleIteration && <span className="field-hint">Fixed to 1</span>}
             {!forceSingleIteration && !isLoadProfile && iterations < activeTestCount && <span className="field-hint">{activeTestCount} active</span>}
             {!forceSingleIteration && isLoadProfile && <span className="field-hint">Time-based</span>}
@@ -116,7 +142,7 @@ export default function RunnerExecutionConfig({
           <div className="resilience-field resilience-field-sm">
             <label>Timeout</label>
             <div className="input-with-unit">
-              <input type="number" min={0} max={300} value={timeoutSec} onChange={(e) => onTimeoutSecChange(Math.max(0, parseInt(e.target.value) || 0))} disabled={isRunning} />
+              <NumericInput min={0} max={300} value={timeoutSec} onChange={onTimeoutSecChange} disabled={isRunning} />
               <span className="unit">sec</span>
             </div>
             {timeoutSec === 0 && <span className="field-hint">No timeout</span>}
@@ -124,7 +150,7 @@ export default function RunnerExecutionConfig({
           <div className="resilience-field resilience-field-sm">
             <label>Retry</label>
             <div className="input-with-unit">
-              <input type="number" min={0} max={10} value={retryCount} onChange={(e) => onRetryCountChange(Math.max(0, parseInt(e.target.value) || 0))} disabled={isRunning} />
+              <NumericInput min={0} max={10} value={retryCount} onChange={onRetryCountChange} disabled={isRunning} />
               <span className="unit">times</span>
             </div>
             {retryCount === 0 && <span className="field-hint">No retry</span>}
@@ -133,7 +159,7 @@ export default function RunnerExecutionConfig({
             <div className="resilience-field resilience-field-sm">
               <label>Retry Delay</label>
               <div className="input-with-unit">
-                <input type="number" min={0} max={30000} step={100} value={retryDelayMs} onChange={(e) => onRetryDelayMsChange(Math.max(0, parseInt(e.target.value) || 0))} disabled={isRunning} />
+                <NumericInput min={0} max={30000} step={100} value={retryDelayMs} onChange={onRetryDelayMsChange} disabled={isRunning} />
                 <span className="unit">ms</span>
               </div>
             </div>
@@ -158,12 +184,12 @@ export default function RunnerExecutionConfig({
           </div>
           <div className="resilience-field resilience-field-xs">
             <label>Max Errors</label>
-            <input type="number" min={1} max={10000} value={maxErrors} onChange={(e) => onMaxErrorsChange(Math.max(1, parseInt(e.target.value) || 1))} disabled={isRunning || errorPolicy !== 'stop-threshold'} />
+            <NumericInput min={1} max={10000} value={maxErrors} onChange={onMaxErrorsChange} disabled={isRunning || errorPolicy !== 'stop-threshold'} />
           </div>
           <div className="resilience-field resilience-field-xs">
             <label>Error Rate</label>
             <div className="input-with-unit">
-              <input type="number" min={1} max={100} value={maxErrorRate} onChange={(e) => onMaxErrorRateChange(Math.max(1, parseInt(e.target.value) || 1))} disabled={isRunning || errorPolicy !== 'stop-threshold'} />
+              <NumericInput min={1} max={100} value={maxErrorRate} onChange={onMaxErrorRateChange} disabled={isRunning || errorPolicy !== 'stop-threshold'} />
               <span className="unit">%</span>
             </div>
           </div>
@@ -187,10 +213,10 @@ export default function RunnerExecutionConfig({
           ))}
           {thinkTime.mode === 'constant' && (
             <span className="think-time-inline-params">
-              <input
-                type="number" min={0} max={60000} step={100}
+              <NumericInput
+                min={0} max={60000} step={100}
                 value={thinkTime.constantMs ?? 1000}
-                onChange={(e) => onThinkTimeChange({ constantMs: Math.max(0, parseInt(e.target.value) || 0) })}
+                onChange={(v) => onThinkTimeChange({ constantMs: v })}
                 disabled={isRunning}
                 className="think-time-inline-input"
               />
@@ -199,18 +225,18 @@ export default function RunnerExecutionConfig({
           )}
           {thinkTime.mode === 'uniform' && (
             <span className="think-time-inline-params">
-              <input
-                type="number" min={0} max={60000} step={100}
+              <NumericInput
+                min={0} max={60000} step={100}
                 value={thinkTime.minMs ?? 500}
-                onChange={(e) => onThinkTimeChange({ minMs: Math.max(0, parseInt(e.target.value) || 0) })}
+                onChange={(v) => onThinkTimeChange({ minMs: v })}
                 disabled={isRunning}
                 className="think-time-inline-input"
               />
               <span className="unit">–</span>
-              <input
-                type="number" min={0} max={60000} step={100}
+              <NumericInput
+                min={0} max={60000} step={100}
                 value={thinkTime.maxMs ?? 2000}
-                onChange={(e) => onThinkTimeChange({ maxMs: Math.max(0, parseInt(e.target.value) || 0) })}
+                onChange={(v) => onThinkTimeChange({ maxMs: v })}
                 disabled={isRunning}
                 className="think-time-inline-input"
               />
@@ -220,18 +246,18 @@ export default function RunnerExecutionConfig({
           {thinkTime.mode === 'gaussian' && (
             <span className="think-time-inline-params">
               <span className="unit">μ</span>
-              <input
-                type="number" min={0} max={60000} step={100}
+              <NumericInput
+                min={0} max={60000} step={100}
                 value={thinkTime.meanMs ?? 1000}
-                onChange={(e) => onThinkTimeChange({ meanMs: Math.max(0, parseInt(e.target.value) || 0) })}
+                onChange={(v) => onThinkTimeChange({ meanMs: v })}
                 disabled={isRunning}
                 className="think-time-inline-input"
               />
               <span className="unit">σ</span>
-              <input
-                type="number" min={0} max={30000} step={50}
+              <NumericInput
+                min={0} max={30000} step={50}
                 value={thinkTime.stdDevMs ?? 300}
-                onChange={(e) => onThinkTimeChange({ stdDevMs: Math.max(0, parseInt(e.target.value) || 0) })}
+                onChange={(v) => onThinkTimeChange({ stdDevMs: v })}
                 disabled={isRunning}
                 className="think-time-inline-input"
               />
@@ -272,67 +298,31 @@ export default function RunnerExecutionConfig({
                 <div className="profile-field-row">
                   <div className="profile-field">
                     <label>Duration (sec)</label>
-                    <input
-                      type="number" min={5} max={3600}
-                      value={loadProfile.durationSec}
-                      onChange={(e) => onLoadProfileChange({ durationSec: parseInt(e.target.value) || 0 })}
-                      onBlur={() => onLoadProfileChange({ durationSec: Math.min(3600, Math.max(5, loadProfile.durationSec || 5)) })}
-                      disabled={isRunning}
-                    />
+                    <NumericInput min={5} max={3600} value={loadProfile.durationSec} onChange={(v) => onLoadProfileChange({ durationSec: v })} disabled={isRunning} />
                   </div>
                   <div className="profile-field">
                     <label>{loadProfile.type === 'spike' ? 'Base Concurrency' : 'Max Concurrency'}</label>
-                    <input
-                      type="number" min={1} max={100}
-                      value={loadProfile.maxConcurrency}
-                      onChange={(e) => onLoadProfileChange({ maxConcurrency: parseInt(e.target.value) || 0 })}
-                      onBlur={() => onLoadProfileChange({ maxConcurrency: Math.min(100, Math.max(1, loadProfile.maxConcurrency || 1)) })}
-                      disabled={isRunning}
-                    />
+                    <NumericInput min={1} max={100} value={loadProfile.maxConcurrency} onChange={(v) => onLoadProfileChange({ maxConcurrency: v })} disabled={isRunning} />
                   </div>
                   {loadProfile.type === 'ramp-up' && (
                     <div className="profile-field">
                       <label>Ramp (sec)</label>
-                      <input
-                        type="number" min={1} max={loadProfile.durationSec}
-                        value={loadProfile.rampUpSec ?? 30}
-                        onChange={(e) => onLoadProfileChange({ rampUpSec: parseInt(e.target.value) || 0 })}
-                        onBlur={() => onLoadProfileChange({ rampUpSec: Math.min(loadProfile.durationSec, Math.max(1, loadProfile.rampUpSec || 1)) })}
-                        disabled={isRunning}
-                      />
+                      <NumericInput min={1} max={loadProfile.durationSec} value={loadProfile.rampUpSec ?? 30} onChange={(v) => onLoadProfileChange({ rampUpSec: v })} disabled={isRunning} />
                     </div>
                   )}
                   {loadProfile.type === 'spike' && (
                     <>
                       <div className="profile-field">
                         <label>Spike Concurrency</label>
-                        <input
-                          type="number" min={1} max={500}
-                          value={loadProfile.spikeConcurrency ?? 30}
-                          onChange={(e) => onLoadProfileChange({ spikeConcurrency: parseInt(e.target.value) || 0 })}
-                          onBlur={() => onLoadProfileChange({ spikeConcurrency: Math.min(500, Math.max(1, loadProfile.spikeConcurrency || 1)) })}
-                          disabled={isRunning}
-                        />
+                        <NumericInput min={1} max={500} value={loadProfile.spikeConcurrency ?? 30} onChange={(v) => onLoadProfileChange({ spikeConcurrency: v })} disabled={isRunning} />
                       </div>
                       <div className="profile-field">
                         <label>Spike Start (sec)</label>
-                        <input
-                          type="number" min={0} max={loadProfile.durationSec}
-                          value={loadProfile.spikeStartSec ?? 20}
-                          onChange={(e) => onLoadProfileChange({ spikeStartSec: parseInt(e.target.value) || 0 })}
-                          onBlur={() => onLoadProfileChange({ spikeStartSec: Math.min(loadProfile.durationSec, Math.max(0, loadProfile.spikeStartSec || 0)) })}
-                          disabled={isRunning}
-                        />
+                        <NumericInput min={0} max={loadProfile.durationSec} value={loadProfile.spikeStartSec ?? 20} onChange={(v) => onLoadProfileChange({ spikeStartSec: v })} disabled={isRunning} />
                       </div>
                       <div className="profile-field">
                         <label>Spike Duration (sec)</label>
-                        <input
-                          type="number" min={1} max={loadProfile.durationSec}
-                          value={loadProfile.spikeDurationSec ?? 10}
-                          onChange={(e) => onLoadProfileChange({ spikeDurationSec: parseInt(e.target.value) || 0 })}
-                          onBlur={() => onLoadProfileChange({ spikeDurationSec: Math.min(loadProfile.durationSec, Math.max(1, loadProfile.spikeDurationSec || 1)) })}
-                          disabled={isRunning}
-                        />
+                        <NumericInput min={1} max={loadProfile.durationSec} value={loadProfile.spikeDurationSec ?? 10} onChange={(v) => onLoadProfileChange({ spikeDurationSec: v })} disabled={isRunning} />
                       </div>
                     </>
                   )}

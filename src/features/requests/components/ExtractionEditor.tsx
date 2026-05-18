@@ -33,6 +33,8 @@ interface Props {
   fetchSample?: ExtractionFetchSampleProps;
   /** Variable hints for autocomplete in expression/fallback fields. */
   variableHints?: WorkflowVariableHint[];
+  /** Scope prefix for schema snapshots (e.g. test ID) to prevent cross-instance drift false positives. */
+  contextScope?: string;
 }
 
 const SOURCES: { value: ExtractionSource; label: string; hint: string }[] = [
@@ -41,7 +43,7 @@ const SOURCES: { value: ExtractionSource; label: string; hint: string }[] = [
   { value: 'status', label: 'Status', hint: '(auto)' },
 ];
 
-export default function ExtractionEditor({ extractions, onChange, sampleResponseBody, fetchSample, variableHints = [] }: Props) {
+export default function ExtractionEditor({ extractions, onChange, sampleResponseBody, fetchSample, variableHints = [], contextScope }: Props) {
   const [pickerIdx, setPickerIdx] = useState<number | null>(null);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
@@ -274,6 +276,7 @@ export default function ExtractionEditor({ extractions, onChange, sampleResponse
             setPickerIdx(null);
           }}
           onCancel={() => setPickerIdx(null)}
+          contextScope={contextScope}
         />
       )}
 
@@ -286,6 +289,7 @@ export default function ExtractionEditor({ extractions, onChange, sampleResponse
             setMapperOpen(false);
           }}
           onCancel={() => setMapperOpen(false)}
+          contextScope={contextScope}
         />
       )}
     </div>
