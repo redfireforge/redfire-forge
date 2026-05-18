@@ -4,7 +4,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { useTestExecution } from './useTestExecution';
-import type { Scenario, TestConfig, RequestResult } from '../../../shared/types';
+import type { TestConfig, RequestResult } from '../../../shared/types';
+import { makeScenario, makeResult, makeConfig } from '../../../test-utils/factories';
 
 // Mock dependencies
 vi.mock('../../../engine/executor', () => ({
@@ -26,6 +27,13 @@ vi.mock('../../../shared/utils/storage', () => ({
 
 vi.mock('../../../shared/utils/platform', () => ({
   supportsWorkers: vi.fn(),
+  isTauri: vi.fn(() => false),
+}));
+
+vi.mock('../utils/rustBridge', () => ({
+  isRustExecutorAvailable: vi.fn(async () => false),
+  canUseRustExecutor: vi.fn(() => false),
+  runTestViaRust: vi.fn(),
 }));
 
 vi.mock('uuid', () => ({
@@ -45,46 +53,9 @@ const mockSaveTestRun = vi.mocked(saveTestRun);
 const mockForceSaveTestRun = vi.mocked(forceSaveTestRun);
 const mockSupportsWorkers = vi.mocked(supportsWorkers);
 
-function createMockScenario(id = 'sc-1'): Scenario {
-  return {
-    id,
-    name: 'Test Scenario',
-    url: 'https://api.example.com/test',
-    method: 'GET',
-    headers: [],
-    body: '',
-    auth: { type: 'none' },
-    validation: { mode: 'none' },
-  };
-}
-
-function createMockConfig(): TestConfig {
-  return {
-    executionMode: 'sequential',
-    iterations: 10,
-    concurrentUsers: 1,
-    thinkTimeMs: 0,
-    errorPolicy: 'continue',
-  };
-}
-
-function createMockResult(overrides: Partial<RequestResult> = {}): RequestResult {
-  return {
-    id: 'result-1',
-    scenarioId: 'sc-1',
-    scenarioName: 'Test Scenario',
-    url: 'https://api.example.com/test',
-    method: 'GET',
-    httpStatus: 200,
-    responseTimeMs: 100,
-    responseBody: '{}',
-    timestamp: Date.now(),
-    passed: true,
-    validationMode: 'none',
-    failureDetails: [],
-    ...overrides,
-  };
-}
+const createMockScenario = (id = 'sc-1') => makeScenario({ id });
+const createMockConfig = (overrides: Partial<TestConfig> = {}) => makeConfig(overrides);
+const createMockResult = (overrides: Partial<RequestResult> = {}) => makeResult(overrides);
 
 function createMockSummary() {
   return {

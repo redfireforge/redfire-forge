@@ -1,21 +1,17 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import type { Scenario, ScenarioWeight, LoadProfileConfig } from '../shared/types';
+import type { ScenarioWeight, LoadProfileConfig } from '../shared/types';
 import { runLoadProfile } from './loadProfileRunner';
 import { TokenManager } from './tokenManager';
 import { CircuitBreaker } from './circuitBreaker';
 import { clearPrepCache, type RunOpts } from './requestExecution';
+import { makeScenario as _makeScenario } from '../test-utils/factories';
 
 vi.mock('../shared/utils/httpClient', () => ({
   httpFetch: vi.fn().mockResolvedValue({ status: 200, statusText: 'OK', headers: {}, body: '{"ok":true}' }),
 }));
 
-function makeScenario(id: string): Scenario {
-  return {
-    id, name: `Scenario_${id}`, url: 'https://api.example.com',
-    method: 'GET', headers: [], body: '', auth: { type: 'none' },
-    validation: { mode: 'none' },
-  };
-}
+const makeScenario = (id: string) =>
+  _makeScenario({ id, name: `Scenario_${id}` });
 
 function makeOpts(overrides: Partial<RunOpts> = {}): RunOpts {
   return {
