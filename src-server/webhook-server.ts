@@ -8,8 +8,7 @@ import {
 } from './file-storage.js';
 import { extractWebhookVariables } from './webhook-extractor.js';
 import { executeWorkflow, saveErrorResult } from './executeWorkflow.js';
-import { createCorrelationRouter, setCorrelationStore } from './correlation-handler.js';
-import { createCorrelationStore } from './correlation-store-factory.js';
+import { createCorrelationRouter } from './correlation-handler.js';
 import type { WebhookTriggerNodeData } from '../src/features/workflow/types/workflow';
 import type { LogLine } from '../src/shared/types/server-api';
 import { generateExecutionId, getErrorMessage } from '../src/features/test-runner/utils/serverFormatters';
@@ -299,7 +298,7 @@ app.use((req: Request, res: Response) => {
 });
 
 // Error handler
-app.use((err: Error, req: Request, res: Response, next: Function) => {
+app.use((err: Error, _req: Request, res: Response, _next: (...args: unknown[]) => void) => {
   console.error('[Server] Unhandled error:', err);
   res.status(500).json({
     error: 'Internal server error',

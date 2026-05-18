@@ -101,22 +101,22 @@ async function getStructureLog(page: import('@playwright/test').Page, fgId: stri
             getReq.onsuccess = () => {
               const fgs = getReq.result;
               if (fgs && Array.isArray(fgs)) {
-                const fg = fgs.find((f: any) => f.id === id);
+                const fg = fgs.find((f: Record<string, unknown>) => f.id === id);
                 resolve(fg?.structureLog ?? null);
               } else {
                 // Fall back to localStorage
                 const raw = localStorage.getItem('perf-test-v3-feature-groups');
                 if (!raw) { resolve(null); return; }
                 const lfgs = JSON.parse(raw);
-                const lfg = lfgs.find((f: any) => f.id === id);
-                resolve(lfg?.structureLog ?? null);
+                const lfg = lfgs.find((f: Record<string, unknown>) => f.id === id);
+              resolve(lfg?.structureLog ?? null);
               }
             };
             getReq.onerror = () => {
               const raw = localStorage.getItem('perf-test-v3-feature-groups');
               if (!raw) { resolve(null); return; }
               const lfgs = JSON.parse(raw);
-              const lfg = lfgs.find((f: any) => f.id === id);
+              const lfg = lfgs.find((f: Record<string, unknown>) => f.id === id);
               resolve(lfg?.structureLog ?? null);
             };
           } catch {

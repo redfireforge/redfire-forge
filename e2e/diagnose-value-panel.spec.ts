@@ -164,7 +164,7 @@ test('diagnose value panel scrollbar', async ({ page }) => {
       scrollbarColor: cs.scrollbarColor,
       sbWidth: sbStyle.width,
       sbHeight: sbStyle.height,
-      sbAppearance: (sbStyle as any).webkitAppearance,
+      sbAppearance: (sbStyle as Record<string, string>).webkitAppearance,
       // Compute reserved scrollbar gutter width:
       gutter: scroll.offsetWidth - scroll.clientWidth,
     };

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { executeWorkflow, saveErrorResult } from './executeWorkflow';
-import type { Workflow } from '../src/features/workflow/types/workflow';
+import type { Workflow, NodeRunStatus } from '../src/features/workflow/types/workflow';
 import type { WorkflowIterationTrace } from '../src/shared/types/index';
 
 // Mock dependencies
@@ -131,7 +131,7 @@ describe('executeWorkflow', () => {
     ];
 
     mockRunGraph.mockImplementation(async (_n, _e, _v, callbacks) => {
-      callbacks.onComplete?.(mockResults as any, false, 150);
+      callbacks.onComplete?.(mockResults as unknown as Parameters<NonNullable<typeof callbacks.onComplete>>[0], false, 150);
     });
 
     const result = await executeWorkflow({
@@ -174,7 +174,7 @@ describe('executeWorkflow', () => {
     const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
 
     mockRunGraph.mockImplementation(async (_n, _e, _v, callbacks) => {
-      callbacks.onNodeStateChange?.('node-42', { state: 'fail' } as any);
+      callbacks.onNodeStateChange?.('node-42', { state: 'fail' } as unknown as NodeRunStatus);
       callbacks.onComplete?.([], false, 10);
     });
 
@@ -195,8 +195,8 @@ describe('executeWorkflow', () => {
     const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
 
     mockRunGraph.mockImplementation(async (_n, _e, _v, callbacks) => {
-      callbacks.onNodeStateChange?.('node-99', { state: 'running' } as any);
-      callbacks.onNodeStateChange?.('node-99', { state: 'success' } as any);
+      callbacks.onNodeStateChange?.('node-99', { state: 'running' } as unknown as NodeRunStatus);
+      callbacks.onNodeStateChange?.('node-99', { state: 'success' } as unknown as NodeRunStatus);
       callbacks.onComplete?.([], true, 10);
     });
 
