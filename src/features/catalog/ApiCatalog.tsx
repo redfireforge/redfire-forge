@@ -1,9 +1,13 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import type { UseCatalogReturn } from './hooks/useCatalog';
-import type { AuthConfig, GlobalAuthProfile, Environment, Microservice } from '../../shared/types';
+import type { AuthConfig, GlobalAuthProfile, Environment, Microservice, RequestCollection } from '../../shared/types';
+import type { CatalogEndpoint, SavedEndpointValues } from './types/catalog';
+import type { SendToRequestsPayload } from './components/CatalogSendToRequestsModal';
+import { buildCoverageMap } from './utils/coverageChecker';
 import CatalogWelcome from './components/CatalogWelcome';
 import CatalogEndpointBrowser from './components/CatalogEndpointBrowser';
 import CatalogOverview from './components/CatalogOverview';
+import CatalogSendToRequestsModal from './components/CatalogSendToRequestsModal';
 
 interface Props {
   catalog: UseCatalogReturn;
@@ -12,15 +16,21 @@ interface Props {
   onVersionHistory?: (entryId: string) => void;
   onExportSpec?: (entryId: string) => void;
   onSendToRequests?: (entry: NonNullable<UseCatalogReturn['selectedEntry']>) => void;
+  onExportSingleEndpoint?: (entry: NonNullable<UseCatalogReturn['selectedEntry']>, endpoint: CatalogEndpoint, savedValues?: SavedEndpointValues) => void;
   onEditEntry?: (entryId: string) => void;
   globalAuthProfiles?: GlobalAuthProfile[];
   appEnvironments?: Environment[];
   appMicroservices?: Microservice[];
+  collections?: RequestCollection[];
+  onNavigateToRequest?: (collectionId: string, requestId: string) => void;
+  savedEpValues?: Record<string, SavedEndpointValues>;
+  onExportConfirm?: (payload: SendToRequestsPayload) => void;
+  onSendEndpointToHarness?: (entry: NonNullable<UseCatalogReturn['selectedEntry']>, endpoint: CatalogEndpoint, fromTryItOut?: boolean) => void;
 }
 
-type View = 'overview' | 'endpoints';
+type View = 'overview' | 'endpoints' | 'export';
 
-export default function ApiCatalog({ catalog, onImport, onReimport, onVersionHistory, onExportSpec, onSendToRequests, onEditEntry, globalAuthProfiles, appEnvironments, appMicroservices }: Props) {
+export default function ApiCatalog({ catalog, onImport, onReimport, onVersionHistory, onExportSpec, onSendToRequests, onExportSingleEndpoint, onEditEntry, globalAuthProfiles, appEnvironments, appMicroservices, collections, onNavigateToRequest, savedEpValues, onExportConfirm, onSendEndpointToHarness }: Props) {
   const [auth, setAuth] = useState<AuthConfig>({ type: 'none' });
   const [view, setView] = useState<View>('endpoints');
   const prevEntryId = useRef<string | undefined>(undefined);
@@ -114,6 +124,25 @@ export default function ApiCatalog({ catalog, onImport, onReimport, onVersionHis
     });
   }, [catalog]);
 
+  const handleExportSingle = useCallback((endpoint: CatalogEndpoint, savedValues?: SavedEndpointValues) => {
+    if (catalog.selectedEntry && onExportSingleEndpoint) {
+      onExportSingleEndpoint(catalog.selectedEntry, endpoint, savedValues);
+    }
+  }, [catalog.selectedEntry, onExportSingleEndpoint]);
+
+  const handleSendToHarness = useCallback((endpoint: CatalogEndpoint, fromTryItOut?: boolean) => {
+    if (catalog.selectedEntry && onSendEndpointToHarness) {
+      onSendEndpointToHarness(catalog.selectedEntry, endpoint, fromTryItOut);
+    }
+  }, [catalog.selectedEntry, onSendEndpointToHarness]);
+
+  const coverageMap = useMemo(
+    () => catalog.selectedEntry && collections
+      ? buildCoverageMap(catalog.selectedEntry.id, catalog.selectedEntry.name, collections)
+      : new Map(),
+    [catalog.selectedEntry, collections],
+  );
+
   if (!catalog.loaded) {
     return <div className="cat-loading">Loading API Catalog...</div>;
   }
@@ -133,9 +162,9 @@ export default function ApiCatalog({ catalog, onImport, onReimport, onVersionHis
         <button className={`cat-view-tab ${view === 'endpoints' ? 'active' : ''}`} onClick={() => setView('endpoints')}>
           Endpoints
         </button>
-        {onSendToRequests && (
-          <button className="cat-view-tab cat-req-send" onClick={() => onSendToRequests(entry)}>
-            Send All to Requests
+        {(onSendToRequests || onExportConfirm) && (
+          <button className={`cat-view-tab ${view === 'export' ? 'active' : ''}`} onClick={() => setView('export')}>
+            Export to Requests
           </button>
         )}
       </div>
@@ -158,8 +187,26 @@ export default function ApiCatalog({ catalog, onImport, onReimport, onVersionHis
           appEnvironments={appEnvironments}
           appMicroservices={appMicroservices}
           onEditEntry={onEditEntry ? () => onEditEntry(entry.id) : undefined}
+          onExportSingle={onExportSingleEndpoint ? handleExportSingle : undefined}
+          onSendToHarness={onSendEndpointToHarness ? handleSendToHarness : undefined}
+          coverageMap={coverageMap}
+          onNavigateToRequest={onNavigateToRequest}
         />
       </div>
+      {view === 'export' && onExportConfirm && (
+        <div className="cat-view-pane" style={{ display: 'flex' }}>
+          <CatalogSendToRequestsModal
+            entry={entry}
+            appEnvironments={appEnvironments ?? []}
+            appMicroservices={appMicroservices ?? []}
+            savedEpValues={savedEpValues ?? {}}
+            collections={collections ?? []}
+            onSend={onExportConfirm}
+            onClose={() => setView('endpoints')}
+            inline
+          />
+        </div>
+      )}
     </div>
   );
 }

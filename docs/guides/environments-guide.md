@@ -113,14 +113,53 @@ The sidebar shows your hierarchy:
   ▼ staging
       user-service
       order-api
-      
+  ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─
+  Additional Environments       ← amber section divider
+  ▼ perf-env (user-service)     ← amber badge with "+"
+      user-service
+
 ▼ Microservices
   ▼ user-service
       dev
       staging
+      perf-env  [+]             ← amber "+" indicator
   ▼ order-api
       dev
       staging
+```
+
+### Additional Environments
+
+Microservices can define **additional (custom) environments** beyond the global list. These are specific to a single microservice (e.g., a dedicated perf-testing environment for `user-service`).
+
+#### Visual Indicator
+
+Additional environments are distinguished throughout the UI with an **amber/orange color scheme**:
+
+| Location | Indicator |
+|----------|-----------|
+| **Sidebar** | Amber section divider "Additional Environments", amber tag showing parent microservice |
+| **Feature Groups header** | Amber-dashed env badge with `+` suffix |
+| **Test Runner header** | Amber-dashed env badge with `+` suffix |
+| **Parameterized Runner header** | Amber-dashed env badge with `+` suffix |
+| **Environment dropdown** | Grouped below divider, shows `(microservice-name)` suffix |
+
+#### Creating Additional Environments
+
+1. Go to **Settings** → **Microservices**
+2. Select a microservice
+3. Under **Additional Environments**, click **+ Add**
+4. Enter the name and base URL
+5. The environment is now available only for that microservice
+
+```
+user-service:
+  Global envs:
+    dev:     https://dev.api.example.com/users
+    staging: https://staging.api.example.com/users
+  Additional envs:
+    perf-env:  https://perf.api.example.com/users   ← amber "+"
+    custom-qa: https://qa.api.example.com/users     ← amber "+"
 ```
 
 ### Switching Views

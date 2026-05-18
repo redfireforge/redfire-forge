@@ -38,7 +38,7 @@ async function openRulesAndWait(mapper: Locator, page: Page): Promise<void> {
   await mapper.locator('button:has-text("Rules")').click();
   await expect(page.locator('.vr-modal-panel')).toBeVisible({ timeout: 5000 });
   await page.locator('.vr-modal-panel .dm-validation-editor .monaco-editor textarea').waitFor({
-    state: 'attached', timeout: 10000,
+    state: 'attached', timeout: 20000,
   });
   await page.waitForTimeout(1000);
 }

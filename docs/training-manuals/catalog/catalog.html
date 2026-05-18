@@ -213,8 +213,23 @@
     After importing a catalog spec, try generating requests for multiple endpoints and organizing them into a test workflow to simulate real-world API usage patterns.
   </div>
 
+  <div class="page-break"></div>
+
+  <!-- Section 6 -->
+  <h2>6. New Features</h2>
+
+  <h3>Send to Harness (Direct Export)</h3>
+  <p>Export any endpoint directly from the Catalog into the Test Harness as a ready-to-run scenario. The request body is <strong>auto-generated from the OpenAPI schema</strong> when no explicit example exists — preventing empty-body errors for POST/PUT/PATCH endpoints.</p>
+  <p>See the <strong>Send to Harness</strong> training manual for full details.</p>
+
+  <h3>Host Strategy &amp; Placeholder Warnings</h3>
+  <p>When using "Try It" mode, an <strong>amber warning banner</strong> appears if the spec's server URL is a placeholder domain (e.g., <code>example.com</code>, <code>localhost</code>). Switch to "Custom URL" or "Environment" mode to use a real server.</p>
+
+  <h3>Additional Environments</h3>
+  <p>Microservices can now define <strong>additional (custom) environments</strong> that are specific to a single service. These are marked with amber indicators throughout the UI. See the <strong>Additional Environments</strong> training manual for details.</p>
+
   <footer>
-    RedfireForge Training Manual — API Catalog Gallery Overview · April 2026
+    RedfireForge Training Manual — API Catalog Gallery Overview · May 2026
   </footer>
 
 </body>

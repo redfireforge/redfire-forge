@@ -97,6 +97,14 @@ vi.mock('../../../data/galleries/catalog-specs', () => ({
   ],
 }));
 
+const httpClientMocks = vi.hoisted(() => ({
+  httpFetch: vi.fn(),
+}));
+
+vi.mock('../../../shared/utils/httpClient', () => ({
+  httpFetch: (...args: unknown[]) => httpClientMocks.httpFetch(...args),
+}));
+
 describe('CatalogImportModal', () => {
   const defaultProps = {
     existingEntries: [],
@@ -109,6 +117,7 @@ describe('CatalogImportModal', () => {
     platformMocks.isTauri = false;
     tauriMocks.reset();
     tauriMocks.readTextFile.mockResolvedValue('openapi: 3.0\ninfo:\n  title: TauriSpec');
+    httpClientMocks.httpFetch.mockReset();
   });
 
   afterEach(() => {
@@ -129,6 +138,7 @@ describe('CatalogImportModal', () => {
     render(<CatalogImportModal {...defaultProps} />);
     expect(screen.getByText('Upload File')).toBeInTheDocument();
     expect(screen.getByText('Paste YAML / JSON')).toBeInTheDocument();
+    expect(screen.getByText('From URL')).toBeInTheDocument();
     expect(screen.getByText('Sample Gallery')).toBeInTheDocument();
   });
 
@@ -773,5 +783,210 @@ describe('CatalogImportModal', () => {
     await flushTauriDragRegistration();
     unmount();
     expect(unlisten).toHaveBeenCalled();
+  });
+
+  describe('URL import', () => {
+    it('switches to URL tab and shows input field', () => {
+      render(<CatalogImportModal {...defaultProps} />);
+      fireEvent.click(screen.getByText('From URL'));
+      expect(screen.getByPlaceholderText(/https:\/\/api\.example\.com/)).toBeInTheDocument();
+      expect(screen.getByText('Fetch')).toBeInTheDocument();
+    });
+
+    it('shows Fetch button disabled when URL input is empty', () => {
+      render(<CatalogImportModal {...defaultProps} />);
+      fireEvent.click(screen.getByText('From URL'));
+      expect(screen.getByText('Fetch')).toBeDisabled();
+    });
+
+    it('enables Fetch button when URL is entered', () => {
+      render(<CatalogImportModal {...defaultProps} />);
+      fireEvent.click(screen.getByText('From URL'));
+      const urlInput = screen.getByPlaceholderText(/https:\/\/api\.example\.com/);
+      fireEvent.change(urlInput, { target: { value: 'https://example.com/spec.yaml' } });
+      expect(screen.getByText('Fetch')).not.toBeDisabled();
+    });
+
+    it('fetches and parses spec from URL successfully', async () => {
+      httpClientMocks.httpFetch.mockResolvedValue({
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        body: 'openapi: 3.0\ninfo:\n  title: UrlAPI',
+      });
+      render(<CatalogImportModal {...defaultProps} />);
+      fireEvent.click(screen.getByText('From URL'));
+      const urlInput = screen.getByPlaceholderText(/https:\/\/api\.example\.com/);
+      fireEvent.change(urlInput, { target: { value: 'https://example.com/openapi.yaml' } });
+      fireEvent.click(screen.getByText('Fetch'));
+      await waitFor(() => {
+        expect(screen.getByText('Import')).toBeInTheDocument();
+      });
+      expect(httpClientMocks.httpFetch).toHaveBeenCalledWith(
+        'https://example.com/openapi.yaml',
+        'GET',
+        expect.objectContaining({ 'Accept': expect.stringContaining('application/json') }),
+      );
+    });
+
+    it('shows error when HTTP fetch returns error', async () => {
+      httpClientMocks.httpFetch.mockResolvedValue({
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        body: '',
+        error: 'Network error',
+      });
+      render(<CatalogImportModal {...defaultProps} />);
+      fireEvent.click(screen.getByText('From URL'));
+      const urlInput = screen.getByPlaceholderText(/https:\/\/api\.example\.com/);
+      fireEvent.change(urlInput, { target: { value: 'https://example.com/spec.yaml' } });
+      fireEvent.click(screen.getByText('Fetch'));
+      await waitFor(() => {
+        expect(screen.getByText(/Network error/)).toBeInTheDocument();
+      });
+    });
+
+    it('shows error when HTTP response is 404', async () => {
+      httpClientMocks.httpFetch.mockResolvedValue({
+        status: 404,
+        statusText: 'Not Found',
+        headers: {},
+        body: '',
+      });
+      render(<CatalogImportModal {...defaultProps} />);
+      fireEvent.click(screen.getByText('From URL'));
+      const urlInput = screen.getByPlaceholderText(/https:\/\/api\.example\.com/);
+      fireEvent.change(urlInput, { target: { value: 'https://example.com/missing.yaml' } });
+      fireEvent.click(screen.getByText('Fetch'));
+      await waitFor(() => {
+        expect(screen.getByText(/HTTP 404/)).toBeInTheDocument();
+      });
+    });
+
+    it('shows error when fetch throws exception', async () => {
+      httpClientMocks.httpFetch.mockRejectedValue(new Error('Connection refused'));
+      render(<CatalogImportModal {...defaultProps} />);
+      fireEvent.click(screen.getByText('From URL'));
+      const urlInput = screen.getByPlaceholderText(/https:\/\/api\.example\.com/);
+      fireEvent.change(urlInput, { target: { value: 'https://example.com/spec.yaml' } });
+      fireEvent.click(screen.getByText('Fetch'));
+      await waitFor(() => {
+        expect(screen.getByText(/Connection refused/)).toBeInTheDocument();
+      });
+    });
+
+    it('shows Fetching... text while loading', async () => {
+      let resolvePromise: (value: unknown) => void;
+      httpClientMocks.httpFetch.mockReturnValue(new Promise(resolve => { resolvePromise = resolve; }));
+      render(<CatalogImportModal {...defaultProps} />);
+      fireEvent.click(screen.getByText('From URL'));
+      const urlInput = screen.getByPlaceholderText(/https:\/\/api\.example\.com/);
+      fireEvent.change(urlInput, { target: { value: 'https://example.com/spec.yaml' } });
+      fireEvent.click(screen.getByText('Fetch'));
+      expect(screen.getByText('Fetching...')).toBeInTheDocument();
+      expect(urlInput).toBeDisabled();
+      resolvePromise!({ status: 200, statusText: 'OK', headers: {}, body: 'openapi: 3.0' });
+      await waitFor(() => {
+        expect(screen.queryByText('Fetching...')).not.toBeInTheDocument();
+      });
+    });
+
+    it('handles Enter key to trigger fetch', async () => {
+      httpClientMocks.httpFetch.mockResolvedValue({
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        body: 'openapi: 3.0\ninfo:\n  title: EnterAPI',
+      });
+      render(<CatalogImportModal {...defaultProps} />);
+      fireEvent.click(screen.getByText('From URL'));
+      const urlInput = screen.getByPlaceholderText(/https:\/\/api\.example\.com/);
+      fireEvent.change(urlInput, { target: { value: 'https://example.com/spec.yaml' } });
+      fireEvent.keyDown(urlInput, { key: 'Enter' });
+      await waitFor(() => {
+        expect(screen.getByText('Import')).toBeInTheDocument();
+      });
+    });
+
+    it('does not trigger fetch on Enter with empty URL', () => {
+      render(<CatalogImportModal {...defaultProps} />);
+      fireEvent.click(screen.getByText('From URL'));
+      const urlInput = screen.getByPlaceholderText(/https:\/\/api\.example\.com/);
+      fireEvent.keyDown(urlInput, { key: 'Enter' });
+      expect(httpClientMocks.httpFetch).not.toHaveBeenCalled();
+    });
+
+    it('shows example buttons that populate URL input', () => {
+      render(<CatalogImportModal {...defaultProps} />);
+      fireEvent.click(screen.getByText('From URL'));
+      fireEvent.click(screen.getByText('Petstore v3'));
+      const urlInput = screen.getByPlaceholderText(/https:\/\/api\.example\.com/) as HTMLInputElement;
+      expect(urlInput.value).toBe('https://petstore3.swagger.io/api/v3/openapi.json');
+    });
+
+    it('extracts filename from URL for display', async () => {
+      httpClientMocks.httpFetch.mockResolvedValue({
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        body: 'openapi: 3.0\ninfo:\n  title: MyAPI',
+      });
+      render(<CatalogImportModal {...defaultProps} />);
+      fireEvent.click(screen.getByText('From URL'));
+      const urlInput = screen.getByPlaceholderText(/https:\/\/api\.example\.com/);
+      fireEvent.change(urlInput, { target: { value: 'https://example.com/path/to/openapi.json' } });
+      fireEvent.click(screen.getByText('Fetch'));
+      await waitFor(() => {
+        expect(screen.getByText(/openapi\.json/)).toBeInTheDocument();
+      });
+    });
+
+    it('uses fallback filename when URL has no filename', async () => {
+      httpClientMocks.httpFetch.mockResolvedValue({
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        body: 'openapi: 3.0\ninfo:\n  title: NoFileAPI',
+      });
+      render(<CatalogImportModal {...defaultProps} />);
+      fireEvent.click(screen.getByText('From URL'));
+      const urlInput = screen.getByPlaceholderText(/https:\/\/api\.example\.com/);
+      fireEvent.change(urlInput, { target: { value: 'https://example.com/' } });
+      fireEvent.click(screen.getByText('Fetch'));
+      await waitFor(() => {
+        expect(screen.getByText(/spec-from-url\.yaml/)).toBeInTheDocument();
+      });
+    });
+
+    it('strips query params from filename', async () => {
+      httpClientMocks.httpFetch.mockResolvedValue({
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        body: 'openapi: 3.0\ninfo:\n  title: QueryAPI',
+      });
+      render(<CatalogImportModal {...defaultProps} />);
+      fireEvent.click(screen.getByText('From URL'));
+      const urlInput = screen.getByPlaceholderText(/https:\/\/api\.example\.com/);
+      fireEvent.change(urlInput, { target: { value: 'https://example.com/spec.yaml?token=abc' } });
+      fireEvent.click(screen.getByText('Fetch'));
+      await waitFor(() => {
+        expect(screen.getByText(/spec\.yaml/)).toBeInTheDocument();
+      });
+      expect(screen.queryByText(/token=abc/)).not.toBeInTheDocument();
+    });
+
+    it('handles non-Error throws from fetch', async () => {
+      httpClientMocks.httpFetch.mockRejectedValue('plain string error');
+      render(<CatalogImportModal {...defaultProps} />);
+      fireEvent.click(screen.getByText('From URL'));
+      const urlInput = screen.getByPlaceholderText(/https:\/\/api\.example\.com/);
+      fireEvent.change(urlInput, { target: { value: 'https://example.com/spec.yaml' } });
+      fireEvent.click(screen.getByText('Fetch'));
+      await waitFor(() => {
+        expect(screen.getByText('plain string error')).toBeInTheDocument();
+      });
+    });
   });
 });

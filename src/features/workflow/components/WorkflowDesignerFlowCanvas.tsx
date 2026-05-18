@@ -82,6 +82,38 @@ export function WorkflowDesignerFlowCanvas({
 
   const { getViewport, setViewport, fitView } = useReactFlow();
 
+  // Track the last known viewport so we can restore it when the tab becomes visible again.
+  const lastViewportRef = useRef<{ x: number; y: number; zoom: number } | null>(null);
+  const selectedRef = useRef(selected);
+  selectedRef.current = selected;
+
+  // Detect when the canvas becomes hidden/visible (parent has hidden attribute).
+  // Save viewport before hiding, restore it when shown again.
+  const visibilityRef = useRef(true);
+  useEffect(() => {
+    const container = canvasAreaRef.current;
+    if (!container) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        const isVisible = entry.isIntersecting;
+        if (!isVisible && visibilityRef.current) {
+          lastViewportRef.current = getViewport();
+        } else if (isVisible && !visibilityRef.current) {
+          const vp = lastViewportRef.current ?? selectedRef.current?.savedViewport;
+          if (vp) {
+            setTimeout(() => {
+              requestAnimationFrame(() => setViewport(vp, { duration: 0 }));
+            }, 50);
+          }
+        }
+        visibilityRef.current = isVisible;
+      },
+      { threshold: 0.01 },
+    );
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, [canvasAreaRef, getViewport, setViewport]);
+
   // Restore saved viewport when switching to a workflow that has one saved,
   // or fit view for workflows without a saved viewport.
   // onInit handles the initial mount; this handles subsequent workflow switches.
