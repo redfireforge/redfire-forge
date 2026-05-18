@@ -2627,7 +2627,7 @@ describe('TestEditorValidationTab', () => {
       expect(screen.getByDisplayValue('Must be adult')).toBeInTheDocument();
     });
 
-    it('renders help hint with variable reference info', () => {
+    it('renders info tooltip with variable reference info', () => {
       const draft = makeDraft({
         validation: {
           mode: 'none',
@@ -2636,8 +2636,9 @@ describe('TestEditorValidationTab', () => {
       });
       const draftRef = { current: draft };
       render(<TestEditorValidationTab {...makeProps({ draft, draftRef })} />);
-      expect(screen.getByText(/\$\.body/)).toBeInTheDocument();
-      expect(screen.getByText(/\$\.status/)).toBeInTheDocument();
+      const tip = screen.getByTitle(/\$\.body/);
+      expect(tip).toBeInTheDocument();
+      expect(tip.getAttribute('title')).toContain('$.status');
     });
 
     it('updates expression when textarea changes', () => {

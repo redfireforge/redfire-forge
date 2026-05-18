@@ -459,6 +459,7 @@ export default function DataSourceEditor({ draft, onDraftChange, onFetchRow, onC
           adapter={populateAdapter}
           onSave={handlePopulateApply}
           onCancel={() => setShowPopulateModal(false)}
+          contextScope={draft.id}
         />
       )}
 
@@ -469,6 +470,7 @@ export default function DataSourceEditor({ draft, onDraftChange, onFetchRow, onC
           initialData={dt.columns}
           onSave={handleColumnMapperApply}
           onCancel={() => setShowColumnMapper(false)}
+          contextScope={draft.id}
         />
       )}
 

@@ -429,8 +429,22 @@ Run a few requests with full validation first, then switch to selective for perf
 
 Keep expected responses in version control alongside test definitions.
 
+## Validation Data Mapper (Selective Mode)
+
+When using **Selective** mode, the **Validation Data Mapper** provides a visual interface for building validation rules:
+
+1. Set mode to **Selective Fields** → click **Data Mapper**
+2. Drag source fields to target fields to create mappings
+3. Set operators (equals, contains, between, regex, etc.) on each mapping
+4. Add array assertions (LENGTH, CONTAINS, EACH, SUBSET)
+5. Write DSL rules in the code editor for bulk rule creation
+6. Click **Verify All** for live pass/fail feedback
+
+See the [Data Mapper Validation Guide](./data-mapper-validation-guide.md) for complete documentation.
+
 ## Related Guides
 
+- [Data Mapper Validation Guide](./data-mapper-validation-guide.md) — Visual validation builder
 - [Assertions Guide](./assertions-guide.md) — Assertion types
 - [Scenarios Guide](./scenarios-guide.md) — Test organization
 - [Test Runner Guide](./test-runner-guide.md) — Running tests

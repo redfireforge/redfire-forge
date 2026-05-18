@@ -2,277 +2,12 @@ import { useRef, useEffect, useCallback, useMemo, useState } from 'react';
 import Editor, { type OnMount, type BeforeMount } from '@monaco-editor/react';
 import type { ParseError } from './utils/validationDsl';
 import { installTextareaHardening } from './utils/monacoTextareaHardening';
-
-// ─── Monaco Language Registration ─────────────────────────
-
-const LANGUAGE_ID = 'validation-dsl';
-
-const OPERATOR_KEYWORDS = [
-  'NOT',
-  'equals', 'not_equals', 'greater_than', 'greater_than_or_equal',
-  'less_than', 'less_than_or_equal', 'contains', 'not_contains',
-  'starts_with', 'ends_with', 'regex', 'is_true', 'is_false',
-  'is_null', 'is_not_null', 'is_empty', 'is_not_empty',
-  'exists', 'not_exists', 'is_type', 'in', 'not_in',
-  'between', 'close_to', 'length', 'each', 'contains_item',
-  'contains_any', 'contains_all', 'contains_only', 'contains_none', 'subset',
-];
-
-const TYPE_NAMES = ['string', 'number', 'boolean', 'array', 'object', 'null'];
-
-// HMR-safe globals: stored on globalThis so previous module instances can be cleaned up.
-// Paths are NOT surfaced through Monaco's suggest widget (they live on the passive hint
-// strip beneath the editor), so we only need to remember language registration and the
-// single completion-provider disposable across hot-reload cycles.
-const HMR_KEY_LANG = '__validationDsl_languageRegistered';
-const HMR_KEY_DISPOSABLE = '__validationDsl_completionDisposable';
-
-function isLanguageRegistered(): boolean {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return !!(globalThis as any)[HMR_KEY_LANG];
-}
-function markLanguageRegistered(): void {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (globalThis as any)[HMR_KEY_LANG] = true;
-}
-
-function getStoredDisposable(): { dispose: () => void } | null {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return (globalThis as any)[HMR_KEY_DISPOSABLE] ?? null;
-}
-function setStoredDisposable(d: { dispose: () => void } | null): void {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (globalThis as any)[HMR_KEY_DISPOSABLE] = d;
-}
-
-function rgbToHex(rgb: string): string {
-  const m = rgb.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
-  if (!m) return rgb;
-  const r = parseInt(m[1], 10);
-  const g = parseInt(m[2], 10);
-  const b = parseInt(m[3], 10);
-  return `#${((1 << 24) | (r << 16) | (g << 8) | b).toString(16).slice(1)}`;
-}
-
-function getCssVar(name: string, fallback: string): string {
-  const val = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-  if (!val) return fallback;
-  if (val.startsWith('rgb')) return rgbToHex(val);
-  return val;
-}
-
-const LIGHT_THEMES = new Set(['light', 'mist', 'frost', 'sage', 'sand']);
-
-function isLightTheme(): boolean {
-  const attr = document.documentElement.getAttribute('data-theme') ?? '';
-  if (LIGHT_THEMES.has(attr)) return true;
-  if (attr && !LIGHT_THEMES.has(attr)) return false;
-  const bg = getCssVar('--bg', '#0f172a');
-  const r = parseInt(bg.slice(1, 3), 16) || 0;
-  const g = parseInt(bg.slice(3, 5), 16) || 0;
-  const b = parseInt(bg.slice(5, 7), 16) || 0;
-  return (r * 299 + g * 587 + b * 114) / 1000 > 128;
-}
-
-function registerLanguage(monaco: typeof import('monaco-editor')) {
-  if (isLanguageRegistered()) return;
-  markLanguageRegistered();
-
-  monaco.languages.register({ id: LANGUAGE_ID });
-
-  monaco.languages.setLanguageConfiguration(LANGUAGE_ID, {
-    wordPattern: /[a-zA-Z_$]\w*/,
-  });
-
-  monaco.languages.setMonarchTokensProvider(LANGUAGE_ID, {
-    defaultToken: '',
-    tokenPostfix: '.validation-dsl',
-
-    operators: OPERATOR_KEYWORDS,
-    symbols: /[=><!]+/,
-
-    tokenizer: {
-      root: [
-        [/#.*$/, 'comment'],
-        [/"[^"]*"/, 'string'],
-        [/'[^']*'/, 'string'],
-        [/\b(true|false)\b/, 'keyword.boolean'],
-        [/\b(string|number|boolean|array|object|null)\b/, 'type'],
-        [/\bNOT\b/, 'keyword.negate'],
-        [/\bASSERT\b/, 'keyword.assert'],
-        [/\b(length|each|contains_item|contains_any|contains_all|contains_only|contains_none|subset)\b/, 'keyword.collection'],
-        [/\b(equals|not_equals|contains|not_contains|starts_with|ends_with|regex|is_true|is_false|is_null|is_not_null|is_empty|is_not_empty|exists|not_exists|is_type|in|not_in|between|close_to|greater_than|greater_than_or_equal|less_than|less_than_or_equal)\b/, 'keyword.operator'],
-        [/[><=!]+/, 'operator'],
-        [/-?\d+(\.\d+)?/, 'number'],
-        [/[\w$]+/, 'identifier'],
-        [/[.[\]]/, 'delimiter.path'],
-        [/,/, 'delimiter'],
-        [/\s+/, 'white'],
-      ],
-    },
-  });
-
-  applyDynamicTheme(monaco);
-}
-
-function applyDynamicTheme(monaco: typeof import('monaco-editor'), themeName = 'validation-dsl-dark') {
-  const light = isLightTheme();
-  const bg = getCssVar('--bg', light ? '#eef2f7' : '#0f172a');
-  const surface = getCssVar('--surface', light ? '#ffffff' : '#1e293b');
-  const surfaceHover = getCssVar('--surface-hover', light ? '#f1f5f9' : '#2d3a4d');
-  const border = getCssVar('--border', light ? '#bcc8d8' : '#3b4a60');
-  const text = getCssVar('--text', light ? '#111827' : '#f1f5f9');
-  const textMuted = getCssVar('--text-muted', light ? '#3f4f63' : '#a8b8cc');
-  const primary = getCssVar('--primary', light ? '#2563eb' : '#3b82f6');
-  const accent = getCssVar('--accent', light ? '#7c3aed' : '#8b5cf6');
-  const danger = getCssVar('--danger', light ? '#dc2626' : '#ef4444');
-  const success = getCssVar('--success', light ? '#16a34a' : '#22c55e');
-  const warning = getCssVar('--warning', light ? '#d97706' : '#f59e0b');
-
-  const strip = (c: string) => c.replace('#', '');
-
-  monaco.editor.defineTheme(themeName, {
-    base: light ? 'vs' : 'vs-dark',
-    inherit: true,
-    rules: [
-      { token: 'comment', foreground: strip(textMuted), fontStyle: 'italic' },
-      { token: 'string', foreground: strip(success) },
-      { token: 'number', foreground: strip(warning) },
-      { token: 'keyword.boolean', foreground: strip(danger) },
-      { token: 'keyword.operator', foreground: strip(accent) },
-      { token: 'keyword.negate', foreground: strip(danger), fontStyle: 'bold' },
-      { token: 'keyword.assert', foreground: strip(accent), fontStyle: 'bold' },
-      { token: 'keyword.collection', foreground: strip(success) },
-      { token: 'type', foreground: strip(success) },
-      { token: 'operator', foreground: strip(warning) },
-      { token: 'identifier', foreground: strip(primary) },
-      { token: 'delimiter', foreground: strip(textMuted) },
-      { token: 'delimiter.path', foreground: strip(primary) },
-    ],
-    colors: {
-      'editor.background': surface,
-      'editor.foreground': text,
-      'editor.lineHighlightBackground': light ? bg : surfaceHover,
-      'editor.selectionBackground': border + '80',
-      'editorCursor.foreground': primary,
-      'editorLineNumber.foreground': border,
-      'editorLineNumber.activeForeground': primary,
-      'editor.inactiveSelectionBackground': border + '40',
-      'editorGutter.background': surface,
-      'editorIndentGuide.background': border + '40',
-    },
-  });
-}
-
-// ─── Autocomplete Provider ────────────────────────────────
-
-function ensureCompletionProvider(
-  monaco: typeof import('monaco-editor'),
-) {
-  const prev = getStoredDisposable();
-  if (prev) { prev.dispose(); setStoredDisposable(null); }
-
-  const disposable = monaco.languages.registerCompletionItemProvider(LANGUAGE_ID, {
-    triggerCharacters: ['.', '['],
-    provideCompletionItems: (model, position) => {
-      const lineContent = model.getLineContent(position.lineNumber);
-      const textUntilCursor = lineContent.slice(0, position.column - 1);
-      const words = textUntilCursor.trim().split(/\s+/);
-      const cursorRange = {
-        startLineNumber: position.lineNumber,
-        startColumn: position.column,
-        endLineNumber: position.lineNumber,
-        endColumn: position.column,
-      };
-
-      const hasSpace = textUntilCursor.includes(' ');
-      const isPathPosition = words.length <= 1 && !hasSpace;
-      if (isPathPosition) {
-        const partial = (words[0] ?? '').toLowerCase();
-        const paths = (window as unknown as Record<string, unknown>).__REDFIRE_VALIDATION_PATHS as string[] | undefined;
-        if (!paths?.length) return { suggestions: [] };
-
-        const pathRange = {
-          startLineNumber: position.lineNumber,
-          startColumn: 1,
-          endLineNumber: position.lineNumber,
-          endColumn: position.column,
-        };
-        return {
-          suggestions: paths
-            .filter(p => !partial || p.toLowerCase().includes(partial))
-            .slice(0, 30)
-            .map(p => ({
-              label: p,
-              kind: monaco.languages.CompletionItemKind.Field,
-              insertText: p + '  ',
-              range: pathRange,
-              detail: 'JSON path',
-              sortText: p.toLowerCase().startsWith(partial) ? '0' + p : '1' + p,
-            })),
-        };
-      }
-
-      // After path — suggest operators (also after NOT prefix)
-      const afterNot = words.length >= 2 && words[1].toUpperCase() === 'NOT';
-      const effectiveOpWordIndex = afterNot ? 2 : 1;
-      const effectiveWordCount = afterNot ? words.length - 1 : words.length;
-
-      if (effectiveWordCount === 1 || (effectiveWordCount === 2 && !textUntilCursor.endsWith(' '))) {
-        const partial = words[effectiveOpWordIndex]?.toLowerCase() ?? '';
-        const opRange = words[effectiveOpWordIndex]
-          ? {
-            startLineNumber: position.lineNumber,
-            startColumn: textUntilCursor.lastIndexOf(words[effectiveOpWordIndex]) + 1,
-            endLineNumber: position.lineNumber,
-            endColumn: position.column,
-          }
-          : cursorRange;
-        return {
-          suggestions: OPERATOR_KEYWORDS
-            .filter(op => !afterNot || op !== 'NOT')
-            .filter(op => !partial || op.toLowerCase().includes(partial))
-            .map(op => ({
-              label: op,
-              kind: monaco.languages.CompletionItemKind.Keyword,
-              insertText: op + ' ',
-              range: opRange,
-              detail: 'Operator',
-            })),
-        };
-      }
-
-      // After operator — suggest values
-      if (words.length >= 2) {
-        const opIdx = afterNot ? 2 : 1;
-        const op = (words[opIdx] ?? '').toLowerCase();
-        if (op === 'is_type') {
-          return {
-            suggestions: TYPE_NAMES.map(t => ({
-              label: t,
-              kind: monaco.languages.CompletionItemKind.Value,
-              insertText: t,
-              range: cursorRange,
-              detail: 'Type name',
-            })),
-          };
-        }
-        if (['is_true', 'is_false'].some(k => op?.includes(k))) {
-          return { suggestions: [] };
-        }
-        return {
-          suggestions: [
-            { label: 'true', kind: monaco.languages.CompletionItemKind.Value, insertText: 'true', range: cursorRange, detail: 'Boolean' },
-            { label: 'false', kind: monaco.languages.CompletionItemKind.Value, insertText: 'false', range: cursorRange, detail: 'Boolean' },
-          ],
-        };
-      }
-
-      return { suggestions: [] };
-    },
-  });
-  setStoredDisposable(disposable);
-}
+import {
+  LANGUAGE_ID,
+  registerLanguage,
+  ensureCompletionProvider,
+  applyDynamicTheme,
+} from './utils/monacoValidationLanguage';
 
 // ─── Component ────────────────────────────────────────────
 
@@ -613,38 +348,76 @@ export default function ValidationCodeEditor({
     errorDecorationsRef.current = editor.deltaDecorations(errorDecorationsRef.current, newDecorations);
   }, [errors, monacoReady]);
 
-  // Verify-result line decorations (pass/fail gutter + background)
+  // Verify-result line decorations (pass/fail gutter + background + inline annotations)
   const verifyDecorationsRef = useRef<string[]>([]);
   useEffect(() => {
     const editor = editorRef.current;
-    if (!editor || !monacoReady) return;
+    const model = editor?.getModel();
+    if (!editor || !model || !monacoReady) return;
     if (lineResults.length === 0) {
       if (verifyDecorationsRef.current.length > 0) {
         verifyDecorationsRef.current = editor.deltaDecorations(verifyDecorationsRef.current, []);
       }
       return;
     }
-    const newDecorations: import('monaco-editor').editor.IModelDeltaDecoration[] = lineResults.map(lr => ({
-      range: {
-        startLineNumber: lr.lineNumber,
-        startColumn: 1,
-        endLineNumber: lr.lineNumber,
-        endColumn: 1,
-      },
-      options: lr.passed
-        ? {
-          isWholeLine: true,
-          className: 'dm-verify-line--pass',
-          linesDecorationsClassName: 'dm-verify-glyph--pass',
-          linesDecorationsTooltip: 'Passed',
-        }
-        : {
-          isWholeLine: true,
-          className: 'dm-verify-line--fail',
-          linesDecorationsClassName: 'dm-verify-glyph--fail',
-          linesDecorationsTooltip: `Failed${lr.expected ? ` — Expected: ${lr.expected}` : ''}${lr.actual ? `, Got: ${lr.actual}` : ''}`,
+    const newDecorations: import('monaco-editor').editor.IModelDeltaDecoration[] = [];
+    for (const lr of lineResults) {
+      const lineLength = model.getLineLength(lr.lineNumber);
+      // Gutter + line background
+      newDecorations.push({
+        range: {
+          startLineNumber: lr.lineNumber,
+          startColumn: 1,
+          endLineNumber: lr.lineNumber,
+          endColumn: 1,
         },
-    }));
+        options: lr.passed
+          ? {
+            isWholeLine: true,
+            className: 'dm-verify-line--pass',
+            linesDecorationsClassName: 'dm-verify-glyph--pass',
+            linesDecorationsTooltip: 'Passed',
+          }
+          : {
+            isWholeLine: true,
+            className: 'dm-verify-line--fail',
+            linesDecorationsClassName: 'dm-verify-glyph--fail',
+            linesDecorationsTooltip: `Failed${lr.expected ? ` — Expected: ${lr.expected}` : ''}${lr.actual ? `, Got: ${lr.actual}` : ''}`,
+          },
+      });
+      // Inline end-of-line annotation for failed/passed rules
+      if (!lr.passed && lr.actual) {
+        newDecorations.push({
+          range: {
+            startLineNumber: lr.lineNumber,
+            startColumn: lineLength + 1,
+            endLineNumber: lr.lineNumber,
+            endColumn: lineLength + 1,
+          },
+          options: {
+            after: {
+              content: `  ← Got: ${lr.actual.length > 40 ? lr.actual.slice(0, 37) + '…' : lr.actual}`,
+              inlineClassName: 'dm-verify-inline--fail',
+            },
+          },
+        });
+      } else if (lr.passed) {
+        newDecorations.push({
+          range: {
+            startLineNumber: lr.lineNumber,
+            startColumn: lineLength + 1,
+            endLineNumber: lr.lineNumber,
+            endColumn: lineLength + 1,
+          },
+          options: {
+            after: {
+              content: '  ✓',
+              inlineClassName: 'dm-verify-inline--pass',
+            },
+          },
+        });
+      }
+    }
     verifyDecorationsRef.current = editor.deltaDecorations(verifyDecorationsRef.current, newDecorations);
   }, [lineResults, monacoReady]);
 
@@ -706,6 +479,9 @@ export default function ValidationCodeEditor({
       snippetsPreventQuickSuggestions: false,
       showWords: false,
     },
+    matchBrackets: 'always' as const,
+    bracketPairColorization: { enabled: true, independentColorPoolPerBracketType: false },
+    guides: { bracketPairs: 'active' as const, bracketPairsHorizontal: 'active' as const, indentation: false },
     contextmenu: true,
     fixedOverflowWidgets: true,
     selectOnLineNumbers: true,

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { getByPath } from '../../utils/jsonPath';
 import type { Assertion } from '../../types';
 import type { ExpressionFunction, MapperSource, Mapping } from './types';
+import type { AssertionRowVerifyResult } from './InlineAssertionRow';
 import { evaluateMapperExpression, resolveMapperPath } from './utils/mapperExpressionEvaluator';
 import { coerceSampleData } from './utils/mapperParsing';
 import { normalizeMapperPath } from './utils/pathNormalization';
@@ -25,6 +26,7 @@ interface CodeViewProps {
   traceByMappingId?: Map<string, MappingTrace> | null;
   verifyStatus?: string;
   failedMappingIds?: Set<string>;
+  assertionVerifyMap?: Map<number, AssertionRowVerifyResult>;
 }
 
 function formatMapping(m: Mapping): string {
@@ -104,8 +106,9 @@ export default function CodeView({
   customFunctions,
   debugMode = false,
   traceByMappingId = null,
-  verifyStatus: _verifyStatus,
-  failedMappingIds: _failedMappingIds,
+  verifyStatus,
+  failedMappingIds,
+  assertionVerifyMap,
 }: CodeViewProps) {
   const [viewMode, setViewMode] = useState<'code' | 'table'>('code');
   const [tableLayout, setTableLayout] = useState<'list' | 'pivot'>('list');
@@ -177,6 +180,10 @@ export default function CodeView({
         afterValue = `Error: ${errorText}`;
       }
 
+      if (verifyStatus === 'complete' && status !== 'error') {
+        status = failedMappingIds?.has(mapping.id) ? 'failed' : 'passed';
+      }
+
       return {
         id: mapping.id,
         lineNo: index + 1,
@@ -194,7 +201,7 @@ export default function CodeView({
         status,
       };
     });
-  }, [mappings, sources, activeSourceId, targetSampleData, customFunctions]);
+  }, [mappings, sources, activeSourceId, targetSampleData, customFunctions, verifyStatus, failedMappingIds]);
 
   const normalizedSearch = tableSearch.trim().toLowerCase();
   const matchingIds = useMemo(() => {
@@ -220,9 +227,9 @@ export default function CodeView({
     const rowMap = new Map<string, Map<string, { afterValue: string; beforeValue: string }>>();
 
     for (const r of rows) {
-      const lastDot = r.targetPath.lastIndexOf('.');
-      const rowKey = lastDot === -1 ? '(root)' : r.targetPath.slice(0, lastDot);
-      const field = lastDot === -1 ? r.targetPath : r.targetPath.slice(lastDot + 1);
+      const match = r.targetPath.match(/^(.+?\[\d+\])\.(.+)$/);
+      const rowKey = match ? match[1] : '(root)';
+      const field = match ? match[2] : r.targetPath;
       colSet.add(field);
       let row = rowMap.get(rowKey);
       if (!row) { row = new Map(); rowMap.set(rowKey, row); }
@@ -427,28 +434,28 @@ export default function CodeView({
                 ? ` · ${traceByMappingId.size} runtime trace${traceByMappingId.size !== 1 ? 's' : ''}`
                 : ''}
             </span>
-            {canPivot && (
-              <div className="validation-fields-view-toggle" role="tablist" aria-label="Table layout mode">
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={tableLayout === 'list'}
-                  className={`validation-fields-view-btn ${tableLayout === 'list' ? 'is-active' : ''}`}
-                  onClick={() => setTableLayout('list')}
-                >
-                  List
-                </button>
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={tableLayout === 'pivot'}
-                  className={`validation-fields-view-btn ${tableLayout === 'pivot' ? 'is-active' : ''}`}
-                  onClick={() => setTableLayout('pivot')}
-                >
-                  Table
-                </button>
-              </div>
-            )}
+            <div className="validation-fields-view-toggle" role="tablist" aria-label="Table layout mode">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={tableLayout === 'list'}
+                className={`validation-fields-view-btn ${tableLayout === 'list' ? 'is-active' : ''}`}
+                onClick={() => setTableLayout('list')}
+              >
+                List
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={tableLayout === 'pivot'}
+                className={`validation-fields-view-btn ${tableLayout === 'pivot' ? 'is-active' : ''}`}
+                onClick={() => canPivot && setTableLayout('pivot')}
+                disabled={!canPivot}
+                title={canPivot ? 'Pivot table view' : 'Pivot requires array data with a common prefix'}
+              >
+                Pivot
+              </button>
+            </div>
           </div>
           {(!canPivot || tableLayout === 'list') ? (
             <table className="dm-code-table">
@@ -529,6 +536,10 @@ export default function CodeView({
                       const label = meta?.label ?? a.type.toUpperCase();
                       const jsonPath = getAssertionJsonPath(a);
                       const summary = formatAssertionSummary(a);
+                      const aResult = assertionVerifyMap?.get(i);
+                      const aStatus = verifyStatus === 'complete' && aResult
+                        ? (aResult.passed ? 'passed' : 'failed')
+                        : undefined;
                       return (
                         <tr key={`assertion-${i}`} className="dm-code-table-row dm-code-table-row--assertion">
                           <td>{visibleRows.length + i + 1}</td>
@@ -536,7 +547,13 @@ export default function CodeView({
                           <td><span className="dm-code-table-cell-assertion-type">{label}</span></td>
                           <td colSpan={2}><span className="dm-code-table-cell-value">{summary}</span></td>
                           <td />
-                          <td>assertion</td>
+                          <td>
+                            <span className={`dm-code-table-status ${aStatus ? `dm-code-table-status--${aStatus}` : ''}`}>
+                              {aStatus === 'passed' ? '✓ pass'
+                                : aStatus === 'failed' ? '✗ fail'
+                                : 'assertion'}
+                            </span>
+                          </td>
                         </tr>
                       );
                     })}
@@ -558,7 +575,8 @@ export default function CodeView({
                 <tbody>
                   {pivotData.rows.map((row) => {
                     const indexMatch = row.key.match(/\[(\d+)\]$/);
-                    const label = pivotData.arrayPrefix && indexMatch ? `#${indexMatch[1]}` : row.key;
+                    const matchesPrefix = pivotData.arrayPrefix && row.key.startsWith(pivotData.arrayPrefix + '[');
+                    const label = matchesPrefix && indexMatch ? `#${indexMatch[1]}` : row.key;
                     return (
                       <tr key={row.key}>
                         <td className="validation-fields-pivot-row-header"><code>{label}</code></td>

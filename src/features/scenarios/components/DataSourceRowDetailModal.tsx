@@ -413,6 +413,7 @@ export default function DataSourceRowDetailModal({
               initialData={mapperInitialData}
               onSave={handleMapperSave}
               onCancel={() => setMapperOpen(false)}
+              contextScope={`row:${draft.id}:${row.id}`}
             />
           )}
         </div>

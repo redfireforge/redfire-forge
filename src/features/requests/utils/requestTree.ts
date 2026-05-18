@@ -118,6 +118,18 @@ export function countAllRequests(col: RequestCollection): number {
   return col.requests.length + countReqsInFolders(col.folders ?? []);
 }
 
+export function collectAllRequestsFromCollection(collection: RequestCollection): RequestItem[] {
+  const result: RequestItem[] = [...collection.requests];
+  const walkFolders = (folders: RequestFolder[]) => {
+    for (const f of folders) {
+      result.push(...f.requests);
+      if (f.folders) walkFolders(f.folders);
+    }
+  };
+  if (collection.folders) walkFolders(collection.folders);
+  return result;
+}
+
 export function mapReqInFolders(folders: RequestFolder[], reqId: string, fn: (r: RequestItem) => RequestItem): RequestFolder[] {
   return folders.map((f) => ({
     ...f,

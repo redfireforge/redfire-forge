@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useLayoutEffect } from 'react';
 import type { RequestCollection, RequestFolder } from '../../../shared/types';
 import { collectAllGroups, collectGroupIds, countGroupRequests, findFolderDeep, findSiblingFolders, countFolderReqs } from '../utils/requestTree';
 import type { CtxMenuData } from './RequestsSidebar';
@@ -42,6 +42,8 @@ interface Props {
   onDuplicateGroup: (groupId: string) => void;
   onMoveToGroup: (colId: string, targetGroupId: string | undefined) => void;
   handleExportGroup: (groupId: string) => void;
+  onSendCollectionToHarness?: (colId: string) => void;
+  onSendFolderToHarness?: (colId: string, folderId: string) => void;
 }
 
 function collectAllFolders(folders: RequestFolder[], depth = 0): { folder: RequestFolder; depth: number }[] {
@@ -117,6 +119,8 @@ export default function SidebarContextMenu({
   setConfirmDelete,
   onNewCollection, startAddGroup, startRenameGroup,
   onDeleteGroup, onDuplicateGroup, onMoveToGroup, handleExportGroup,
+  onSendCollectionToHarness,
+  onSendFolderToHarness,
 }: Props) {
   const [showColMoveMenu, setShowColMoveMenu] = useState(false);
   const ctxCol = collections.find(c => c.id === contextMenu.colId) ?? null;
@@ -127,8 +131,21 @@ export default function SidebarContextMenu({
 
   const allGroupsFlat = collectAllGroups(collections);
 
+  const menuRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const el = menuRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    if (rect.bottom > window.innerHeight - 10) {
+      el.style.top = `${Math.max(10, window.innerHeight - rect.height - 10)}px`;
+    }
+    if (rect.right > window.innerWidth - 10) {
+      el.style.left = `${Math.max(10, window.innerWidth - rect.width - 10)}px`;
+    }
+  });
+
   return (
-    <div className="req-context-menu" style={{ left: contextMenu.x, top: contextMenu.y }}
+    <div ref={menuRef} className="req-context-menu" style={{ left: contextMenu.x, top: contextMenu.y }}
       onClick={(e) => e.stopPropagation()}>
 
       {/* ── Group context menu ── */}
@@ -224,6 +241,12 @@ export default function SidebarContextMenu({
         <hr className="req-ctx-divider" />
         <button onClick={() => handleExportCollection(contextMenu.colId)}>Export Collection</button>
         <button onClick={() => handleImportToCollection(contextMenu.colId)}>Import into Collection</button>
+        {onSendCollectionToHarness && (
+          <>
+            <hr className="req-ctx-divider" />
+            <button onClick={() => { onSendCollectionToHarness(contextMenu.colId); dismiss(); }}>Send to Harness</button>
+          </>
+        )}
         <hr className="req-ctx-divider" />
         <button className="danger" onClick={() => {
           const colId = contextMenu.colId;
@@ -316,6 +339,12 @@ export default function SidebarContextMenu({
           <button onClick={() => handleImportToFolder(contextMenu.colId, contextMenu.folderId!)}>
             {isSub ? 'Import into Sub-Collection' : 'Import into Folder'}
           </button>
+          {onSendFolderToHarness && (
+            <>
+              <hr className="req-ctx-divider" />
+              <button onClick={() => { onSendFolderToHarness(contextMenu.colId, contextMenu.folderId!); dismiss(); }}>Send to Harness</button>
+            </>
+          )}
           <hr className="req-ctx-divider" />
           <button className="danger" onClick={() => {
             const colId = contextMenu.colId;

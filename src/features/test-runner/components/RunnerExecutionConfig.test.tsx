@@ -226,6 +226,7 @@ describe('RunnerExecutionConfig', () => {
     renderConfig({ onConcurrencyChange } as unknown as OverrideProps);
     const input = screen.getByText('Concurrency').closest('.resilience-field')?.querySelector('input') as HTMLInputElement;
     fireEvent.change(input, { target: { value: '' } });
+    fireEvent.blur(input);
     expect(onConcurrencyChange).toHaveBeenCalledWith(1);
   });
 
@@ -353,8 +354,10 @@ describe('RunnerExecutionConfig', () => {
     renderConfig({ thinkTime: { mode: 'uniform', minMs: 100, maxMs: 200 }, onThinkTimeChange } as unknown as OverrideProps);
     const inputs = document.querySelectorAll('.think-time-inline-input');
     fireEvent.change(inputs[0] as HTMLInputElement, { target: { value: '' } });
+    fireEvent.blur(inputs[0] as HTMLInputElement);
     expect(onThinkTimeChange).toHaveBeenCalledWith({ minMs: 0 });
     fireEvent.change(inputs[1] as HTMLInputElement, { target: { value: '' } });
+    fireEvent.blur(inputs[1] as HTMLInputElement);
     expect(onThinkTimeChange).toHaveBeenCalledWith({ maxMs: 0 });
   });
 
@@ -363,8 +366,10 @@ describe('RunnerExecutionConfig', () => {
     renderConfig({ thinkTime: { mode: 'gaussian', meanMs: 100, stdDevMs: 50 }, onThinkTimeChange } as unknown as OverrideProps);
     const inputs = document.querySelectorAll('.think-time-inline-input');
     fireEvent.change(inputs[0] as HTMLInputElement, { target: { value: '' } });
+    fireEvent.blur(inputs[0] as HTMLInputElement);
     expect(onThinkTimeChange).toHaveBeenCalledWith({ meanMs: 0 });
     fireEvent.change(inputs[1] as HTMLInputElement, { target: { value: '' } });
+    fireEvent.blur(inputs[1] as HTMLInputElement);
     expect(onThinkTimeChange).toHaveBeenCalledWith({ stdDevMs: 0 });
   });
 
@@ -663,9 +668,11 @@ describe('RunnerExecutionConfig', () => {
     renderConfig({ onTimeoutSecChange, onRetryCountChange } as unknown as OverrideProps);
     const timeoutInput = screen.getByText('Timeout').closest('.resilience-field')?.querySelector('input') as HTMLInputElement;
     fireEvent.change(timeoutInput, { target: { value: '' } });
+    fireEvent.blur(timeoutInput);
     expect(onTimeoutSecChange).toHaveBeenCalledWith(0);
     const retryInput = screen.getByText('Retry').closest('.resilience-field')?.querySelector('input') as HTMLInputElement;
     fireEvent.change(retryInput, { target: { value: '' } });
+    fireEvent.blur(retryInput);
     expect(onRetryCountChange).toHaveBeenCalledWith(0);
   });
 
@@ -679,9 +686,11 @@ describe('RunnerExecutionConfig', () => {
     } as unknown as OverrideProps);
     const maxErr = screen.getByText('Max Errors').closest('.resilience-field')?.querySelector('input') as HTMLInputElement;
     fireEvent.change(maxErr, { target: { value: '' } });
+    fireEvent.blur(maxErr);
     expect(onMaxErrorsChange).toHaveBeenCalledWith(1);
     const rate = screen.getByText('Error Rate').closest('.resilience-field')?.querySelector('input') as HTMLInputElement;
     fireEvent.change(rate, { target: { value: '' } });
+    fireEvent.blur(rate);
     expect(onMaxErrorRateChange).toHaveBeenCalledWith(1);
   });
 
@@ -690,6 +699,7 @@ describe('RunnerExecutionConfig', () => {
     renderConfig({ thinkTime: { mode: 'constant', constantMs: 500 }, onThinkTimeChange } as unknown as OverrideProps);
     const input = document.querySelector('.think-time-inline-input') as HTMLInputElement;
     fireEvent.change(input, { target: { value: '' } });
+    fireEvent.blur(input);
     expect(onThinkTimeChange).toHaveBeenCalledWith({ constantMs: 0 });
   });
 

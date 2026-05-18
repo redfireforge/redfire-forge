@@ -422,4 +422,116 @@ describe('catalogMeta on exported requests', () => {
     const customHeader = reqs[0].headers.find(h => h.key === 'X-Custom');
     expect(customHeader?.value).toBe('saved-value');
   });
+
+  it('sets catalogEntryId when provided', () => {
+    const ep = makeEndpoint();
+    const reqs = buildExportRequests([ep], 'https://api.com', '', {}, new Set(), {}, undefined, 'entry-abc');
+    expect(reqs[0].catalogMeta!.catalogEntryId).toBe('entry-abc');
+  });
+
+  it('sets catalogEndpointId from endpoint id', () => {
+    const ep = makeEndpoint({ id: 'ep-xyz' });
+    const reqs = buildExportRequests([ep], 'https://api.com', '', {}, new Set(), {});
+    expect(reqs[0].catalogMeta!.catalogEndpointId).toBe('ep-xyz');
+  });
+
+  it('sets catalogVersion when provided', () => {
+    const ep = makeEndpoint();
+    const reqs = buildExportRequests([ep], 'https://api.com', '', {}, new Set(), {}, undefined, undefined, '2.1.0');
+    expect(reqs[0].catalogMeta!.catalogVersion).toBe('2.1.0');
+  });
+
+  it('leaves catalogEntryId/catalogVersion undefined when not provided', () => {
+    const ep = makeEndpoint();
+    const reqs = buildExportRequests([ep], 'https://api.com', '', {}, new Set(), {});
+    expect(reqs[0].catalogMeta!.catalogEntryId).toBeUndefined();
+    expect(reqs[0].catalogMeta!.catalogVersion).toBeUndefined();
+  });
+});
+
+// ─── specVersions on exported requests ──────────────────
+
+describe('specVersions on exported requests', () => {
+  it('creates specVersions array with one entry on first export', () => {
+    const ep = makeEndpoint({ id: 'ep-1' });
+    const reqs = buildExportRequests([ep], 'https://api.com', '', {}, new Set(), {}, undefined, 'entry-1', '1.0.0');
+    expect(reqs[0].specVersions).toHaveLength(1);
+    expect(reqs[0].activeSpecVersionId).toBe(reqs[0].specVersions![0].id);
+  });
+
+  it('specVersion snapshot matches request fields', () => {
+    const ep = makeEndpoint({ id: 'ep-1', method: 'POST', path: '/items' });
+    const reqs = buildExportRequests([ep], 'https://api.com', '', {}, new Set(), {}, undefined, 'entry-1', '2.0.0');
+    const sv = reqs[0].specVersions![0];
+    expect(sv.url).toBe(reqs[0].url);
+    expect(sv.method).toBe(reqs[0].method);
+    expect(sv.catalogVersion).toBe('2.0.0');
+    expect(sv.catalogEntryId).toBe('entry-1');
+    expect(sv.catalogEndpointId).toBe('ep-1');
+    expect(sv.importedAt).toBeGreaterThan(0);
+  });
+
+  it('specVersion includes savedQueryParams', () => {
+    const ep = makeEndpoint({
+      id: 'ep-1',
+      path: '/search',
+      parameters: [{ name: 'q', in: 'query', required: false, schema: { type: 'string' } }],
+    });
+    const reqs = buildExportRequests([ep], 'https://api.com', '', {}, new Set(), {}, undefined, 'entry-1', '1.0.0');
+    expect(reqs[0].specVersions![0].savedQueryParams).toEqual(reqs[0].savedQueryParams);
+  });
+});
+
+// ─── catalogMeta via buildCatalogExport ─────────────────
+
+describe('catalogMeta fields via buildCatalogExport', () => {
+  it('populates catalogEntryId and catalogVersion from context', () => {
+    const payload: CatalogExportPayload = {
+      collectionName: 'test-api',
+      envs: [{ envId: 'env-1', envName: 'dev', baseUrl: 'https://dev.api.com' }],
+      endpoints: [makeEndpoint({ id: 'ep-42' })],
+      customNames: {},
+      sampleEpIds: new Set(),
+      savedEpValues: {},
+    };
+    const ctx: CatalogExportContext = {
+      servers: [{ url: 'https://api.com' }] as CatalogServer[],
+      versionLabel: '3.0.1',
+      existingWbEnvNames: new Map(),
+      catalogEntryName: 'My API',
+      catalogEntryId: 'entry-99',
+    };
+    const { collection } = buildCatalogExport(payload, ctx);
+    const req = collection.folders![0].requests[0];
+    expect(req.catalogMeta!.catalogEntryId).toBe('entry-99');
+    expect(req.catalogMeta!.catalogEndpointId).toBe('ep-42');
+    expect(req.catalogMeta!.catalogVersion).toBe('3.0.1');
+    expect(req.catalogMeta!.sourceSpec).toBe('My API 3.0.1');
+  });
+
+  it('sets catalogEndpointId per endpoint when multiple endpoints', () => {
+    const payload: CatalogExportPayload = {
+      collectionName: 'multi',
+      envs: [{ envId: 'env-1', envName: 'dev', baseUrl: 'https://dev.api.com' }],
+      endpoints: [
+        makeEndpoint({ id: 'ep-a', summary: 'A', path: '/a' }),
+        makeEndpoint({ id: 'ep-b', summary: 'B', path: '/b' }),
+      ],
+      customNames: {},
+      sampleEpIds: new Set(),
+      savedEpValues: {},
+    };
+    const ctx: CatalogExportContext = {
+      servers: [] as CatalogServer[],
+      existingWbEnvNames: new Map(),
+      catalogEntryId: 'entry-1',
+      versionLabel: '1.0.0',
+    };
+    const { collection } = buildCatalogExport(payload, ctx);
+    const reqs = collection.folders![0].requests;
+    expect(reqs[0].catalogMeta!.catalogEndpointId).toBe('ep-a');
+    expect(reqs[1].catalogMeta!.catalogEndpointId).toBe('ep-b');
+    expect(reqs[0].catalogMeta!.catalogEntryId).toBe('entry-1');
+    expect(reqs[1].catalogMeta!.catalogEntryId).toBe('entry-1');
+  });
 });

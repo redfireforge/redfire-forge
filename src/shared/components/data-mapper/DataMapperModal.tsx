@@ -21,6 +21,8 @@ interface DataMapperModalProps<TOutput = unknown> {
   fullScreenDefault?: boolean;
   doneLabel?: string;
   unorderedArrays?: boolean;
+  /** Scope prefix for schema snapshots (e.g. test ID) to prevent cross-instance drift false positives. */
+  contextScope?: string;
 }
 
 interface SnapshotPairRef {
@@ -80,8 +82,12 @@ export default function DataMapperModal<TOutput = unknown>({
   fullScreenDefault = false,
   doneLabel = 'Save',
   unorderedArrays: initialUnorderedArrays,
+  contextScope,
 }: DataMapperModalProps<TOutput>) {
   const caps = useMemo(() => resolveCapabilities(adapter.capabilities), [adapter.capabilities]);
+  const scopedContextId = contextScope
+    ? `${adapter.contextId}:${contextScope}`
+    : adapter.contextId;
   const titleId = useId();
   const [isFullScreen, setIsFullScreen] = useState(fullScreenDefault);
   const [validationIssues, setValidationIssues] = useState<ValidationIssue[]>([]);
@@ -110,7 +116,7 @@ export default function DataMapperModal<TOutput = unknown>({
         if (cancelled) return;
       }
 
-      const savedPair = await loadSnapshot(adapter.contextId).catch(() => null);
+      const savedPair = await loadSnapshot(scopedContextId).catch(() => null);
       if (cancelled || !savedPair) return;
 
       const allDrifts: ClassifiedDrift[] = [];
@@ -121,7 +127,7 @@ export default function DataMapperModal<TOutput = unknown>({
         const adapterSrc = adapter.sources.find((s) => s.id === savedSource.sourceId);
         const sourceData = overrides[savedSource.sourceId ?? ''] ?? adapterSrc?.sampleData;
         if (sourceData == null) continue;
-        const currentSnap = captureSchemaSnapshot(adapter.contextId, 'source', sourceData, savedSource.sourceId);
+        const currentSnap = captureSchemaSnapshot(scopedContextId, 'source', sourceData, savedSource.sourceId);
         const rawDrifts = diffSchemas(savedSource, currentSnap);
         if (rawDrifts.length > 0) {
           const tagged = rawDrifts.map((d) => ({ ...d, sourceId: savedSource.sourceId }));
@@ -138,7 +144,7 @@ export default function DataMapperModal<TOutput = unknown>({
 
       if (savedPair.target && adapter.target.sampleData != null) {
         const currentTargetSnap = captureSchemaSnapshot(
-          adapter.contextId,
+          scopedContextId,
           'target',
           adapter.target.sampleData,
         );
@@ -164,7 +170,7 @@ export default function DataMapperModal<TOutput = unknown>({
     runDriftDetection();
 
     return () => { cancelled = true; };
-  }, [adapter]);
+  }, [adapter, scopedContextId]);
 
   const handleMappingsChange = useCallback((mappings: Mapping[]) => {
     currentMappingsRef.current = mappings;
@@ -192,15 +198,15 @@ export default function DataMapperModal<TOutput = unknown>({
       sampleData: overrides[s.id] ?? s.sampleData,
     }));
     const pair = captureSnapshotPair(
-      adapter.contextId,
+      scopedContextId,
       effectiveSources,
       adapter.target.sampleData,
     );
-    saveSnapshot(adapter.contextId, pair).catch(() => {});
+    saveSnapshot(scopedContextId, pair).catch(() => {});
     savedSnapshotsRef.current = [];
     setDriftEntries([]);
     setShowDriftBanner(false);
-  }, [adapter]);
+  }, [adapter, scopedContextId]);
 
   const handleDismissDrift = useCallback(() => {
     setShowDriftBanner(false);
@@ -399,11 +405,11 @@ export default function DataMapperModal<TOutput = unknown>({
       sampleData: overrides[s.id] ?? s.sampleData,
     }));
     const pair = captureSnapshotPair(
-      adapter.contextId,
+      scopedContextId,
       effectiveSources,
       adapter.target.sampleData,
     );
-    saveSnapshot(adapter.contextId, pair).catch(() => {});
+    saveSnapshot(scopedContextId, pair).catch(() => {});
 
     const assertions = currentAssertionsRef.current;
     if (output && typeof output === 'object' && !Array.isArray(output)) {
@@ -411,7 +417,7 @@ export default function DataMapperModal<TOutput = unknown>({
     }
 
     onSave(output, { unorderedArrays });
-  }, [adapter, driftEntries, onSave, unorderedArrays]);
+  }, [adapter, driftEntries, onSave, unorderedArrays, scopedContextId]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -419,6 +425,7 @@ export default function DataMapperModal<TOutput = unknown>({
       // Don't close if a nested dialog (expression editor or schema diff) is open
       if (document.querySelector('.dm-expr-overlay')) return;
       if (document.querySelector('.dm-diff-overlay')) return;
+      if (document.querySelector('.dm-example-overlay')) return;
       // Don't close if focus is in an editable field (let the field handle Escape)
       const el = e.target as HTMLElement;
       const tag = el?.tagName;

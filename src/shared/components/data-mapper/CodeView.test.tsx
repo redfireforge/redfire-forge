@@ -70,8 +70,7 @@ describe('CodeView', () => {
       <CodeView mappings={arrayMappings} sources={arraySources} activeSourceId="s1" assertions={assertions} />,
     );
     fireEvent.click(screen.getByRole('tab', { name: 'Table' }));
-    const tableTabs = screen.getAllByRole('tab', { name: 'Table' });
-    fireEvent.click(tableTabs[1]);
+    fireEvent.click(screen.getByRole('tab', { name: 'Pivot' }));
     expect(document.querySelector('.dm-code-assertion-summary')).toBeTruthy();
     expect(screen.getByText('LENGTH')).toBeTruthy();
   });
@@ -91,8 +90,7 @@ describe('CodeView', () => {
       />,
     );
     fireEvent.click(screen.getByRole('tab', { name: 'Table' }));
-    const tableTabs = screen.getAllByRole('tab', { name: 'Table' });
-    fireEvent.click(tableTabs[1]);
+    fireEvent.click(screen.getByRole('tab', { name: 'Pivot' }));
     expect(screen.getByText('CUSTOMUNKNOWN')).toBeTruthy();
   });
 
@@ -709,13 +707,12 @@ describe('CodeView', () => {
       },
     ];
 
-    it('shows List/Table toggle for array mappings', () => {
+    it('shows List/Pivot toggle for array mappings', () => {
       render(<CodeView mappings={arrayMappings} sources={arraySources} activeSourceId="s1" />);
       fireEvent.click(screen.getByRole('tab', { name: 'Table' }));
 
       expect(screen.getByRole('tab', { name: 'List' })).toBeTruthy();
-      const tableTabs = screen.getAllByRole('tab', { name: 'Table' });
-      expect(tableTabs.length).toBe(2);
+      expect(screen.getByRole('tab', { name: 'Pivot' })).toBeTruthy();
     });
 
     it('defaults to list layout', () => {
@@ -732,8 +729,7 @@ describe('CodeView', () => {
       render(<CodeView mappings={arrayMappings} sources={arraySources} activeSourceId="s1" />);
       fireEvent.click(screen.getByRole('tab', { name: 'Table' }));
 
-      const tableTabs = screen.getAllByRole('tab', { name: 'Table' });
-      fireEvent.click(tableTabs[1]);
+      fireEvent.click(screen.getByRole('tab', { name: 'Pivot' }));
 
       expect(screen.getByText('code')).toBeTruthy();
       expect(screen.getByText('name')).toBeTruthy();
@@ -746,8 +742,7 @@ describe('CodeView', () => {
       render(<CodeView mappings={arrayMappings} sources={arraySources} activeSourceId="s1" />);
       fireEvent.click(screen.getByRole('tab', { name: 'Table' }));
 
-      const tableTabs = screen.getAllByRole('tab', { name: 'Table' });
-      fireEvent.click(tableTabs[1]);
+      fireEvent.click(screen.getByRole('tab', { name: 'Pivot' }));
 
       expect(screen.getByText('A1')).toBeTruthy();
       expect(screen.getByText('Offer A')).toBeTruthy();
@@ -762,13 +757,12 @@ describe('CodeView', () => {
       ];
       render(<CodeView mappings={sparse} sources={arraySources} activeSourceId="s1" />);
       fireEvent.click(screen.getByRole('tab', { name: 'Table' }));
-      const tableTabs = screen.getAllByRole('tab', { name: 'Table' });
-      fireEvent.click(tableTabs[1]);
+      fireEvent.click(screen.getByRole('tab', { name: 'Pivot' }));
       const dashes = document.querySelectorAll('.validation-fields-pivot-empty');
       expect(dashes.length).toBeGreaterThan(0);
     });
 
-    it('does not show List/Table toggle for non-array mappings', () => {
+    it('disables Pivot button for non-array mappings', () => {
       const flatMappings: Mapping[] = [
         { id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'user.name' },
         { id: 'm2', sourcePath: 'age', sourceId: 's1', targetPath: 'user.age' },
@@ -776,7 +770,9 @@ describe('CodeView', () => {
       render(<CodeView mappings={flatMappings} />);
       fireEvent.click(screen.getByRole('tab', { name: 'Table' }));
 
-      expect(screen.queryByRole('tab', { name: 'List' })).toBeNull();
+      const pivotBtn = screen.getByRole('tab', { name: 'Pivot' });
+      expect(pivotBtn).toBeTruthy();
+      expect((pivotBtn as HTMLButtonElement).disabled).toBe(true);
     });
   });
 
@@ -802,5 +798,51 @@ describe('CodeView', () => {
       fireEvent.click(listBtn);
       expect(listBtn.className).toContain('is-active');
     }
+  });
+});
+
+describe('CodeView verify status integration', () => {
+  it('shows passed/failed status when verifyStatus is complete', () => {
+    const mappings: Mapping[] = [
+      { id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'userName' },
+      { id: 'm2', sourcePath: 'age', sourceId: 's1', targetPath: 'userAge' },
+    ];
+    const sources = [{ id: 's1', label: 'Source', sampleData: { name: 'Alice', age: 30 } }];
+    render(
+      <CodeView
+        mappings={mappings}
+        sources={sources}
+        activeSourceId="s1"
+        verifyStatus="complete"
+        failedMappingIds={new Set(['m2'])}
+      />,
+    );
+    fireEvent.click(screen.getByRole('tab', { name: 'Table' }));
+    const cells = document.querySelectorAll('td');
+    const statusTexts = Array.from(cells).map(c => c.textContent);
+    expect(statusTexts.some(t => t?.includes('pass'))).toBe(true);
+    expect(statusTexts.some(t => t?.includes('fail'))).toBe(true);
+  });
+
+  it('shows assertion verify results in table view', () => {
+    const mappings: Mapping[] = [
+      { id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'userName', operator: 'equals' as never },
+    ];
+    const sources = [{ id: 's1', label: 'Source', sampleData: { name: 'Alice' } }];
+    const assertionVerifyMap = new Map([
+      ['m1', { pass: true, actual: 'Alice', expected: 'Alice' }],
+    ]);
+    render(
+      <CodeView
+        mappings={mappings}
+        sources={sources}
+        activeSourceId="s1"
+        verifyStatus="complete"
+        failedMappingIds={new Set()}
+        assertionVerifyMap={assertionVerifyMap as never}
+      />,
+    );
+    fireEvent.click(screen.getByRole('tab', { name: 'Table' }));
+    expect(screen.getByText('userName')).toBeTruthy();
   });
 });

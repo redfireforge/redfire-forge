@@ -6,7 +6,7 @@ A **cross-platform** desktop & web API performance testing tool built with React
 
 **✅ Supports:** macOS (Intel & Apple Silicon) • Windows 10/11 • Linux (Ubuntu, Debian, Fedora)
 
-📖 **[Full Cross-Platform Guide](docs/CROSS-PLATFORM.md)** — Installation, building, and platform-specific notes
+📖 **[Full Cross-Platform Guide](docs/guides/cross-platform.md)** — Installation, building, and platform-specific notes
 
 ---
 
@@ -425,6 +425,7 @@ The left sidebar organizes your data by environment or microservice.
 - **Selection**: Click an environment/microservice name to select it. The selected context filters what you see in Feature Groups, Test Runner, and Results. Click a child item (e.g., a microservice under an environment) to select both simultaneously.
 - **Feature indicator**: Items with associated Feature Groups show a colored dot — green for items that have features, gray for those that don't.
 - **Selected item highlight**: The currently selected child item shows a colored left border and bold text for clear identification.
+- **Additional Environments**: Microservice-specific environments appear in a separate "Additional Environments" section with amber/orange styling (dashed divider, amber tag showing the parent microservice name). When selected, the Feature Groups/Runner header badge also turns amber with a `+` indicator to distinguish from standard environments.
 
 ### Feature Groups & Scenarios
 
@@ -631,8 +632,10 @@ The **Catalog** section is the third pillar of RedfireForge — an OpenAPI/Swagg
 
 - Click **Try It** to execute the endpoint against a real server. Results display in a JSON tree viewer.
 - **Host Strategy**: Choose "From Spec" (use servers from the spec), "Custom URL" (type any base URL), or "Environment" (per-API named environments configured via Edit).
+- **Host Warning**: When using "From Spec" with a placeholder URL (e.g., `example.com`, `.test`, `.local`), an amber warning banner appears suggesting to switch to "Custom URL" or "Environment" mode.
 - **Auth**: Configure authentication per API — Inherit from Spec, Global Auth Profile (OAuth2/Bearer/Basic/API Key), or manual credentials.
 - **Verify Auth**: Test OAuth2 token acquisition with a single click.
+- **Send to Harness**: Export endpoints directly to the Harness as test scenarios. POST/PUT/PATCH endpoints automatically get a sample request body generated from the OpenAPI schema (handles nested objects, arrays, enums, defaults).
 
 **cURL Integration:**
 
@@ -857,6 +860,7 @@ Fork and Join nodes enable true parallel execution:
 - Workflows are saved automatically in local storage (browser) or Tauri's app-data directory (desktop)
 - Node positions, connections, variables, and service configurations are all persisted
 - Export/import workflows via JSON for sharing or version control
+- **Viewport persistence**: Canvas pan/zoom position is saved when switching tabs and restored when returning to the Workflow tab. Click "Save layout" in the canvas controls to persist the viewport across sessions.
 
 ### Results Dashboard
 
@@ -1001,7 +1005,7 @@ After running a workflow, click **📊 Results Explorer** to open a full-screen 
 | Collapsible sidebar | Toggle sidebar visibility from anywhere, including modals |
 | Drag-and-drop | Move and reorder scenarios between Feature Groups and tests between scenarios via drag handles |
 | Feature presence indicator | Sidebar color-codes items with/without Feature Groups |
-| **Data Mapper** | Visual field mapping component: drag source fields to target drop zones, expression editor (125 functions + lambda syntax with live preview), auto-map with accept/reject, type mismatch detection & auto-fix, live preview bar, floating pop-out DSL editor, bi-directional visual ↔ code sync, schema drift/repair, mapping profiles, keyboard navigation, hover-to-highlight, failure navigation. 10 adapters: validation, extraction, requestBody (JSON/Form/Raw), assertion, columnMapping, populateFromApi, sharedDsFetch, variableBinding, webhookExtraction, demo |
+| **Data Mapper** | Visual field mapping component: drag source fields to target drop zones, expression editor (125 functions + lambda syntax with live preview), auto-map with accept/reject, type mismatch detection & auto-fix, live preview bar, **24 field operators** (equality, comparison, string, boolean, existence, type check, set membership with color-coded pills), **array assertions** (LENGTH, CONTAINS, EACH, SUBSET), **universal negation** (NOT modifier on any operator), **Validation Rules Modal** (docked/floating/maximized Monaco code editor with syntax highlighting, autocomplete, inline errors, pass/fail decorations), **DSL Reference Panel** (8-category accordion with search, insert, copy), **ASSERT custom predicates** (125+ expression functions, lambda syntax), **live verification** (per-node pass/fail badges, canvas line coloring, toolbar stats, Mapping View status column), **Mapping View** (Code/List/Pivot table with resize, panel collapse), bi-directional visual ↔ code sync, schema drift/repair, mapping profiles, keyboard navigation, hover-to-highlight, failure navigation. 10 adapters: validation, extraction, requestBody (JSON/Form/Raw), assertion, columnMapping, populateFromApi, sharedDsFetch, variableBinding, webhookExtraction, demo |
 | **Parameterized Testing** | Data-driven testing with inline data sources — define one test pattern, run against N data rows |
 | Data Source Editor | Inline spreadsheet-style table editor with columns (path, param, header, body, validate) and rows |
 | Column types | `path:` replaces URL variables, `param:` adds query params, `header:` sets headers, `body:` fills body placeholders, `validate:` asserts response values |

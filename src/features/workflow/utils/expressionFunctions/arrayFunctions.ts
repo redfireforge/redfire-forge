@@ -138,20 +138,25 @@ const $groupBy: ExpressionFunction = {
 
 const $any: ExpressionFunction = {
   name: '$any', category: 'Array',
-  signature: '$any(array, field, operator, value) → boolean',
-  description: 'Return true if any array element matches the condition.',
+  signature: '$any(array, field, operator, value) or $any(array, fn) → boolean',
+  description: 'Return true if any array element matches the condition. Supports both 4-arg form (field, operator, value) and lambda form (fn).',
   args: [
     { name: 'array', type: 'array', required: true, description: 'Array of objects' },
-    { name: 'field', type: 'string', required: true, description: 'Field path to test' },
-    { name: 'operator', type: 'string', required: true, description: 'Comparison operator (=, !=, >, >=, <, <=, contains)' },
-    { name: 'value', type: 'any', required: true, description: 'Value to compare against' },
+    { name: 'field/fn', type: 'string|function', required: true, description: 'Field path to test, or lambda: element => boolean' },
+    { name: 'operator', type: 'string', required: false, description: 'Comparison operator (=, !=, >, >=, <, <=, contains)' },
+    { name: 'value', type: 'any', required: false, description: 'Value to compare against' },
   ],
   returnType: 'boolean',
   examples: [
     { input: '$any([{rank:3},{rank:7}], "rank", ">", 5)', output: 'true' },
+    { input: '$any([{rank:3},{rank:7}], x => $gt(x.rank, 5))', output: 'true' },
   ],
   evaluate: (arr, field, operator, value) => {
     const items = asArray(arr);
+    if (isLambda(field)) {
+      const lambda = field as LambdaValue;
+      return items.some((item, idx) => !!applyLambda(lambda, [item, idx]));
+    }
     const fieldPath = s(field);
     const op = s(operator);
     return items.some(item => compareValues(getNestedValue(item, fieldPath), op, value));
@@ -160,21 +165,26 @@ const $any: ExpressionFunction = {
 
 const $all: ExpressionFunction = {
   name: '$all', category: 'Array',
-  signature: '$all(array, field, operator, value) → boolean',
-  description: 'Return true if all array elements match the condition.',
+  signature: '$all(array, field, operator, value) or $all(array, fn) → boolean',
+  description: 'Return true if all array elements match the condition. Supports both 4-arg form (field, operator, value) and lambda form (fn).',
   args: [
     { name: 'array', type: 'array', required: true, description: 'Array of objects' },
-    { name: 'field', type: 'string', required: true, description: 'Field path to test' },
-    { name: 'operator', type: 'string', required: true, description: 'Comparison operator (=, !=, >, >=, <, <=, contains)' },
-    { name: 'value', type: 'any', required: true, description: 'Value to compare against' },
+    { name: 'field/fn', type: 'string|function', required: true, description: 'Field path to test, or lambda: element => boolean' },
+    { name: 'operator', type: 'string', required: false, description: 'Comparison operator (=, !=, >, >=, <, <=, contains)' },
+    { name: 'value', type: 'any', required: false, description: 'Value to compare against' },
   ],
   returnType: 'boolean',
   examples: [
     { input: '$all([{rank:7},{rank:9}], "rank", ">", 5)', output: 'true' },
+    { input: '$all([{rank:7},{rank:9}], x => $gt(x.rank, 5))', output: 'true' },
   ],
   evaluate: (arr, field, operator, value) => {
     const items = asArray(arr);
     if (items.length === 0) return true;
+    if (isLambda(field)) {
+      const lambda = field as LambdaValue;
+      return items.every((item, idx) => !!applyLambda(lambda, [item, idx]));
+    }
     const fieldPath = s(field);
     const op = s(operator);
     return items.every(item => compareValues(getNestedValue(item, fieldPath), op, value));

@@ -184,6 +184,7 @@ Start over if needed:
 | **Workflows** | Multi-step flows |
 | **Performance** | Load testing examples |
 | **Authentication** | Auth configuration |
+| **Catalog** | API spec import, export, and testing |
 
 ### By Difficulty
 

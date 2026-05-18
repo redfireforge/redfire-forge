@@ -1,10 +1,10 @@
-import { useState, useCallback, useRef, useMemo } from 'react';
+import { useState, useCallback, useRef, useMemo, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import type { Scenario, TestScenario, FeatureGroup, Microservice, AuthType, GlobalAuthProfile, SharedDataSource, DataSource, KeyValue, AuthConfig } from '../../shared/types';
 import MoveModal, { type MoveType, type MoveTarget } from './components/MoveModal';
 import CsvImportModal from './components/CsvImportModal';
 import { useAuthVerify } from '../requests/hooks/useAuthVerify';
-import { buildSearchText, evaluateQuery, parseSearchQuery } from './utils/scenarioSearch';
+import { useScenarioBuilderSearch } from './hooks/useScenarioBuilderSearch';
 import TestEditorModal from './components/TestEditorModal';
 import AuthConfigPanel from '../requests/components/AuthConfigPanel';
 import CopyTestModal from './components/CopyTestModal';
@@ -32,15 +32,19 @@ interface Props {
   selectedSvcName?: string;
   selectedEnvId?: string;
   selectedEnvName?: string;
+  isAdditionalEnv?: boolean;
   unassociatedFeatureGroups?: FeatureGroup[];
   microservices?: Microservice[];
   environments?: { id: string; name: string }[];
   globalAuthProfiles?: GlobalAuthProfile[];
   onMoveScenario?: (scenarioId: string, sourceFgId: string, targetFgId: string) => void;
   onMoveTest?: (testId: string, sourceScenarioId: string, sourceFgId: string, targetScenarioId: string, targetFgId: string) => void;
+  pendingEditTest?: { featureId: string; scenarioId: string; testId: string };
+  onPendingEditConsumed?: () => void;
+  onLocateRequest?: (requestId: string) => void;
 }
 
-export default function ScenarioBuilder({ featureGroups, setFeatureGroups, sharedDataSources, setSharedDataSources, resolvedBaseUrl, selectedSvcId, selectedSvcName, selectedEnvId, selectedEnvName, unassociatedFeatureGroups = [], microservices = [], environments = [], globalAuthProfiles = [], onMoveScenario, onMoveTest }: Props) {
+export default function ScenarioBuilder({ featureGroups, setFeatureGroups, sharedDataSources, setSharedDataSources, resolvedBaseUrl, selectedSvcId, selectedSvcName, selectedEnvId, selectedEnvName, isAdditionalEnv, unassociatedFeatureGroups = [], microservices = [], environments = [], globalAuthProfiles = [], onMoveScenario, onMoveTest, pendingEditTest, onPendingEditConsumed, onLocateRequest }: Props) {
   const allAuthProfiles = globalAuthProfiles;
 
   const featureAuthTypeOptions = useMemo(
@@ -86,6 +90,17 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, share
     handleVersionRestore, handleVersionDelete, handleVersionRename,
     toggleFeature, toggleScenario,
   } = mutations;
+
+  useEffect(() => {
+    if (!pendingEditTest) return;
+    const fg = featureGroups.find(f => f.id === pendingEditTest.featureId);
+    const sc = fg?.scenarios.find(s => s.id === pendingEditTest.scenarioId);
+    const test = sc?.tests.find(t => t.id === pendingEditTest.testId);
+    if (test) {
+      startEditTest(fg!.id, sc!.id, test);
+    }
+    onPendingEditConsumed?.();
+  }, [pendingEditTest]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [showStructureLog, setShowStructureLog] = useState<string | null>(null);
   const [showSharedDsModal, setShowSharedDsModal] = useState(false);
@@ -227,9 +242,17 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, share
     confirm: showConfirm,
   });
 
-  // Search state
-  const [searchQuery, setSearchQuery] = useState('');
-  const [showSearchHelp, setShowSearchHelp] = useState(false);
+  const {
+    searchQuery,
+    setSearchQuery,
+    showSearchHelp,
+    setShowSearchHelp,
+    isSearching,
+    testMatches,
+    scenarioMatches,
+    featureMatches,
+    matchCount,
+  } = useScenarioBuilderSearch(featureGroups);
 
   // ── Drag-and-drop (extracted hook) ──
   const {
@@ -257,39 +280,6 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, share
     setMoveDialog(null);
   }, [moveDialog, onMoveScenario, onMoveTest]);
 
-  const parsedQuery = useMemo(() => parseSearchQuery(searchQuery), [searchQuery]);
-  const isSearching = parsedQuery !== null;
-
-  const testMatches = useCallback((t: Scenario): boolean => {
-    if (!parsedQuery) return true;
-    return evaluateQuery(parsedQuery, buildSearchText(t));
-  }, [parsedQuery]);
-
-  const scenarioMatches = useCallback((sc: TestScenario): boolean => {
-    if (!parsedQuery) return true;
-    if (evaluateQuery(parsedQuery, sc.name)) return true;
-    return sc.tests.some((t) => testMatches(t));
-  }, [parsedQuery, testMatches]);
-
-  const featureMatches = useCallback((fg: FeatureGroup): boolean => {
-    if (!parsedQuery) return true;
-    if (evaluateQuery(parsedQuery, fg.name)) return true;
-    return fg.scenarios.some((sc) => scenarioMatches(sc));
-  }, [parsedQuery, scenarioMatches]);
-
-  const matchCount = useMemo(() => {
-    if (!isSearching) return 0;
-    let count = 0;
-    for (const fg of featureGroups) {
-      if (!featureMatches(fg)) continue;
-      for (const sc of fg.scenarios) {
-        if (!scenarioMatches(sc)) continue;
-        count += sc.tests.filter(testMatches).length;
-      }
-    }
-    return count;
-  }, [featureGroups, isSearching, featureMatches, scenarioMatches, testMatches]);
-
   return (
     <div className="page">
       <div className="page-header">
@@ -297,7 +287,7 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, share
           <h2>Feature Groups</h2>
           <div className="context-tags">
             {selectedSvcName && <span className="context-tag svc-tag">{selectedSvcName}</span>}
-            {selectedEnvName && <span className="context-tag env-tag">{selectedEnvName}</span>}
+            {selectedEnvName && <span className={`context-tag env-tag${isAdditionalEnv ? ' env-tag-additional' : ''}`}>{selectedEnvName}{isAdditionalEnv && <span className="additional-env-indicator" title="Additional environment (microservice-specific)">+</span>}</span>}
           </div>
         </div>
         <div className="header-actions">
@@ -628,6 +618,16 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, share
                               <span className={`method-badge method-${t.method.toLowerCase()}`}>{t.method}</span>
                               {t.dataSource && <span className="tag data-source-badge" title="Has data source">📋</span>}
                               <strong>{t.name}</strong>
+                              {t.sourceRequestId && (
+                                <span
+                                  className={`test-origin-badge${onLocateRequest ? ' test-origin-badge--clickable' : ''}`}
+                                  title={`From: ${t.sourceSpecVersionLabel ? `v${t.sourceSpecVersionLabel}` : 'Request'}${onLocateRequest ? ' — click to locate' : ''}`}
+                                  onClick={onLocateRequest ? (e) => { e.stopPropagation(); onLocateRequest(t.sourceRequestId!); } : undefined}
+                                  role={onLocateRequest ? 'button' : undefined}
+                                >
+                                  {t.sourceSpecVersionLabel ? `v${t.sourceSpecVersionLabel}` : 'From Requests'}
+                                </span>
+                              )}
                             </div>
                             <div className="test-card-meta">
                               {t.dataSource && <span className="tag parameterized-tag">Param</span>}
@@ -733,6 +733,9 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, share
                       {environments.map((env) => (
                         <option key={env.id} value={env.id}>{env.name}</option>
                       ))}
+                      {microservices.flatMap(s => (s.customEnvs ?? []).map(ce => (
+                        <option key={ce.id} value={ce.id}>{ce.name} ({s.name})</option>
+                      )))}
                     </select>
                     <button className="btn btn-sm btn-primary" onClick={() => {
                       const svcEl = document.getElementById(`svc-${fg.id}`) as HTMLSelectElement;

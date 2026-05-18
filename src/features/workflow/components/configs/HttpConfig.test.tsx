@@ -1,9 +1,10 @@
 /**
  * @vitest-environment jsdom
  */
+import '@testing-library/jest-dom';
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import HttpConfig from './HttpConfig';
 import type { HttpNodeData, WorkflowService } from '../../types/workflow';
 import type { Scenario, KeyValue } from '../../../../shared/types';
@@ -785,5 +786,58 @@ describe('HttpConfig', () => {
     fireEvent.click(screen.getByRole('button', { name: /Visual Variables/ }));
     fireEvent.click(screen.getByText('var-mapper-cancel'));
     expect(screen.queryByTestId('mock-var-mapper-modal')).toBeNull();
+  });
+
+  it('shows catalog pinning controls whenever a spec linkage exists', () => {
+    const onChange = vi.fn();
+    const data = makeHttpData({
+      sourceSpecVersionId: 'spec-1',
+      specVersionMode: 'latest',
+      sourceSpecVersionLabel: '3.4.5',
+    });
+    render(<HttpConfig {...defaultProps} data={data} onChange={onChange} />);
+    const modeSelect = document.querySelector('.wf-config-version-select') as HTMLSelectElement;
+    expect(modeSelect).toBeTruthy();
+    expect(modeSelect.value).toBe('latest');
+    fireEvent.change(modeSelect, { target: { value: 'pinned' } });
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ specVersionMode: 'pinned' }));
+    expect(document.querySelector('.wf-config-version-label')?.textContent).toContain('3.4.5');
+  });
+
+  it('renders pinned copy without supplementary label badges when unspecified', () => {
+    const data = makeHttpData({
+      sourceSpecVersionId: 'spec-2',
+      specVersionMode: 'pinned',
+    });
+    render(<HttpConfig {...defaultProps} data={data} />);
+    const pinned = Array.from(document.querySelectorAll('.wf-config-version-select option')).find(o => o.value === 'pinned');
+    expect(pinned?.textContent).toBe('Pinned');
+    expect(document.querySelector('.wf-config-version-label')).toBeNull();
+  });
+
+  it('omits datatype chips for minimalist variable hints', () => {
+    const { container } = render(<HttpConfig {...defaultProps} activeTab="url" variableHints={[
+      { ref: 'plain', label: 'Plain', description: 'no type' },
+    ]} />);
+    const row = container.querySelector('.wf-http-var-hints-item');
+    expect(row).toBeTruthy();
+    expect(row?.querySelector('.wf-http-var-hints-type')).toBeNull();
+  });
+
+  it('uses plural copy when multiple upstream template slots are detected', () => {
+    const data = makeHttpData({ scenario: makeScenario({ url: 'https://svc/{{slotA}}/x/{{slotB}}/y' }) });
+    render(<HttpConfig {...defaultProps} data={data} />);
+    expect(screen.getByRole('button', { name: /Visual Variables \(2 slots\)/ })).toBeInTheDocument();
+  });
+
+  it('normalizes percent-encoded braces via onChange hydration', async () => {
+    const onChange = vi.fn();
+    const encoded = '/api/route?marker=%7B%7Bx%7D%7D';
+    render(<HttpConfig {...defaultProps} data={makeHttpData({ scenario: makeScenario({ url: encoded }) })} onChange={onChange} />);
+    await waitFor(() =>
+      expect(onChange).toHaveBeenCalledWith(
+        expect.objectContaining({ scenario: expect.objectContaining({ url: '/api/route?marker={{x}}' }) }),
+      ),
+    );
   });
 });
