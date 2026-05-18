@@ -1,22 +1,11 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import type { WorkflowRunHistoryEntry } from '../../hooks/useWorkflowRunCache';
-
-function timeAgo(ts: number): string {
-  const diff = Date.now() - ts;
-  const sec = Math.floor(diff / 1000);
-  if (sec < 60) return 'Just now';
-  const min = Math.floor(sec / 60);
-  if (min < 60) return `${min} min ago`;
-  const hrs = Math.floor(min / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  const days = Math.floor(hrs / 24);
-  return `${days}d ago`;
-}
-
-function formatTime(ts: number): string {
-  const d = new Date(ts);
-  return d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-}
+import {
+  formatDurationCompactMs,
+  formatRelativeTime,
+  formatTimeWithSeconds,
+} from '../../../../shared/utils/formatRelativeTime';
+import { truncate } from '../../../../shared/utils/helpers';
 
 function groupLabel(ts: number): string {
   const now = new Date();
@@ -30,10 +19,6 @@ function groupLabel(ts: number): string {
   const diffDays = Math.floor(diffMs / 86_400_000);
   if (diffDays < 7) return 'This Week';
   return 'Older';
-}
-
-function fmtDuration(ms: number): string {
-  return ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}s`;
 }
 
 interface Props {
@@ -64,7 +49,9 @@ export default function WorkflowRunHistoryDropdown({ history, activeEntryId, onR
   }, [onRestore]);
 
   const activeEntry = history.find(h => h.id === activeEntryId);
-  const triggerLabel = activeEntry ? timeAgo(activeEntry.timestamp) : 'Run History';
+  const triggerLabel = activeEntry
+    ? formatRelativeTime(activeEntry.timestamp, undefined, { minuteFormat: 'long', justNow: 'title' })
+    : 'Run History';
 
   const groups: { label: string; entries: WorkflowRunHistoryEntry[] }[] = [];
   for (const entry of history) {
@@ -134,9 +121,9 @@ export default function WorkflowRunHistoryDropdown({ history, activeEntryId, onR
                             {failCount > 0 && <span className="wf-rh-count fail">{failCount} ✗</span>}
                             {skippedCount > 0 && <span className="wf-rh-count skip">{skippedCount} ⊘</span>}
                           </span>
-                          <span className="wf-run-history-duration">{fmtDuration(entry.durationMs)}</span>
+                          <span className="wf-run-history-duration">{formatDurationCompactMs(entry.durationMs)}</span>
                         </span>
-                        <span className="wf-run-history-time">{formatTime(entry.timestamp)}</span>
+                        <span className="wf-run-history-time">{formatTimeWithSeconds(entry.timestamp)}</span>
                       </button>
 
                       {/* Expand toggle for step details */}
@@ -162,16 +149,16 @@ export default function WorkflowRunHistoryDropdown({ history, activeEntryId, onR
                               </span>
                               <span className="wf-rh-step-label" title={step.label}>{step.label}</span>
                               {step.responseTimeMs != null && (
-                                <span className="wf-rh-step-time">{fmtDuration(step.responseTimeMs)}</span>
+                                <span className="wf-rh-step-time">{formatDurationCompactMs(step.responseTimeMs)}</span>
                               )}
                               {step.error && (
-                                <span className="wf-rh-step-error" title={step.error}>⚠</span>
+                                <span className="wf-rh-step-error" title={step.error}><svg className="wf-inline-icon" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>
                               )}
                             </div>
                           ))}
                           {entry.error && (
                             <div className="wf-rh-run-error" title={entry.error}>
-                              {entry.error.length > 80 ? entry.error.slice(0, 80) + '…' : entry.error}
+                              {truncate(entry.error, 80, '…', false)}
                             </div>
                           )}
                         </div>

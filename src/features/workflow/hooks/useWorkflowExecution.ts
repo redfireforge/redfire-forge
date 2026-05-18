@@ -276,6 +276,10 @@ export function useWorkflowExecution(opts: UseWorkflowExecutionOptions) {
         return undefined;
       },
       new RemoteCorrelationStore(),
+      undefined, // loadTestMode
+      undefined, // correlationWaitConfig
+      undefined, // pollSemaphore
+      { traceLevel: 'debug' as const, captureFullTrace: true },
     ).catch(() => {
       // If the user already stopped the run, don't override with 'fail'
       if (abortRef.current?.signal.aborted) return;
@@ -297,6 +301,7 @@ export function useWorkflowExecution(opts: UseWorkflowExecutionOptions) {
     previewWorkflow, workflows, sampleWorkflowCatalog,
     nodesRef, edgesRef, workflowVariablesRef, nodeInitialVarsRef,
     consoleOpenRef, consoleRunBehaviorRef, consoleLinesRef,
+    toast,
   ]);
 
   const handleQuickTest = useCallback(() => {
@@ -308,7 +313,7 @@ export function useWorkflowExecution(opts: UseWorkflowExecutionOptions) {
       return;
     }
     executeWorkflowRun();
-  }, [isRunning, executeWorkflowRun]);
+  }, [isRunning, executeWorkflowRun, setLastRunStatus, setLastRunError]);
 
   const handleDebugQuickTest = useCallback(() => {
     if (isRunning) {
@@ -324,7 +329,7 @@ export function useWorkflowExecution(opts: UseWorkflowExecutionOptions) {
     const dc = new DebugController();
     debugControllerRef.current = dc;
     executeWorkflowRun(dc);
-  }, [isRunning, executeWorkflowRun]);
+  }, [isRunning, executeWorkflowRun, setLastRunStatus, setLastRunError]);
 
   const handleDebugStep = useCallback((nodeId: string) => {
     debugControllerRef.current?.stepNode(nodeId);

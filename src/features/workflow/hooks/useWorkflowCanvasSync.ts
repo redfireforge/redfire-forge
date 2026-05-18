@@ -32,7 +32,7 @@ interface UseWorkflowCanvasSyncOpts {
   setWorkflowServices: React.Dispatch<React.SetStateAction<WorkflowService[]>>;
   setWorkflowErrorConfig: React.Dispatch<React.SetStateAction<WorkflowErrorConfig | undefined>>;
   setNodeInitialVars: React.Dispatch<React.SetStateAction<Record<string, Record<string, string>>>>;
-  nextNodeY: React.MutableRefObject<number>;
+  nextNodeYRef: React.MutableRefObject<number>;
   // execution abort
   isRunning: boolean;
   abortRef: React.MutableRefObject<AbortController | null>;
@@ -58,7 +58,7 @@ export function useWorkflowCanvasSync({
   setWorkflowServices,
   setWorkflowErrorConfig,
   setNodeInitialVars,
-  nextNodeY,
+  nextNodeYRef,
   isRunning,
   abortRef,
   setIsRunning,
@@ -81,6 +81,7 @@ export function useWorkflowCanvasSync({
       }));
       const rfEdges: WorkflowRFEdge[] = selected.edges.map(e => ({
         id: e.id, source: e.source, target: e.target, sourceHandle: e.sourceHandle, label: e.label, animated: false,
+        className: e.sourceHandle === 'false' ? 'wf-edge-false-branch' : undefined,
       }));
       setNodes(rfNodes);
       setEdges(rfEdges);
@@ -104,7 +105,7 @@ export function useWorkflowCanvasSync({
       }
       setNodeInitialVars(ivMap);
       const ys = selected.nodes.map(n => (n.position?.y ?? 0) + 120);
-      nextNodeY.current = ys.length ? Math.max(100, ...ys) : 100;
+      nextNodeYRef.current = ys.length ? Math.max(100, ...ys) : 100;
       if (previewWorkflow) {
         setLayoutVersion(v => v + 1);
       }

@@ -369,6 +369,34 @@
   border-left: 3px solid #4ec9b0;
   padding-left: 9px;
 }
+.sidebar-additional-env-tag {
+  margin-left: 6px;
+  font-size: 0.6rem;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: rgba(246, 173, 85, 0.15);
+  color: #f6ad55;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+.sidebar-section-divider {
+  font-size: 0.62rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #f6ad55;
+  padding: 10px 12px 4px;
+  border-top: 1px dashed rgba(246, 173, 85, 0.3);
+  margin-top: 6px;
+}
+.sidebar-item--additional {
+  padding-left: 12px;
+}
+.sidebar-item--additional.selected {
+  outline-color: #f6ad55;
+  background: rgba(246, 173, 85, 0.08);
+}
 .sidebar-settings-btn {
   margin-top: auto;
   width: 100%;

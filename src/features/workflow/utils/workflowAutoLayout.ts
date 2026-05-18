@@ -9,6 +9,8 @@ const COMPACT_NODE_TYPES = new Set(['start', 'fork', 'join', 'condition', 'delay
 const COMPACT_WIDTH = 160;
 const COMPACT_HEIGHT = 60;
 
+const SWITCH_LIKE_TYPES = new Set<string>(['switch', 'errorHandler']);
+
 /** Minimum gap between nodes on the same rank after overlap resolution. */
 const MIN_GAP = 30;
 
@@ -69,12 +71,10 @@ function getSubtreeBounds(
 ) {
   let min = Infinity, max = -Infinity;
   for (const id of nodeIds) {
-    const p = positions.get(id);
-    const w = sizeMap.get(id) ?? 0;
-    if (p) {
-      min = Math.min(min, p[axis]);
-      max = Math.max(max, p[axis] + w);
-    }
+    const p = positions.get(id)!;
+    const w = sizeMap.get(id)!;
+    min = Math.min(min, p[axis]);
+    max = Math.max(max, p[axis] + w);
   }
   return { min, max, width: max - min };
 }
@@ -247,8 +247,7 @@ function alignForkChildren<N extends Node>(
       // Collect subtree from this child down to (but not including) join nodes
       const subtree = collectSubtree(cp.id, childrenOf, joinNodes);
       for (const id of subtree) {
-        const p = positions.get(id);
-        if (p) p[rankAxis] -= delta;
+        positions.get(id)![rankAxis] -= delta;
       }
     }
   }
@@ -276,9 +275,8 @@ function resolveOverlaps<N extends Node>(
   const ranks: { id: string; pos: { x: number; y: number }; size: number }[][] = [];
 
   for (const node of nodes) {
-    const p = positions.get(node.id);
-    if (!p) continue;
-    const size = sizeMap.get(node.id) ?? 0;
+    const p = positions.get(node.id)!;
+    const size = sizeMap.get(node.id)!;
     const rankVal = p[rankAxis];
 
     let found = false;
@@ -349,9 +347,8 @@ function fixBranchOrdering(
     }
     if (!leftEdge || !rightEdge) continue;
 
-    const leftPos = positions.get(leftEdge.target);
-    const rightPos = positions.get(rightEdge.target);
-    if (!leftPos || !rightPos) continue;
+    const leftPos = positions.get(leftEdge.target)!;
+    const rightPos = positions.get(rightEdge.target)!;
 
     // In TB direction, left-branch should have smaller x; in LR, smaller y
     const needsSwap = direction === 'TB'
@@ -434,15 +431,13 @@ function alignLinearChains<N extends Node>(
     visited.add(childId);
 
     // Center child under parent
-    const parentPos = positions.get(nodeId);
+    const parentPos = positions.get(nodeId)!;
     const parentW = nodeWidths.get(nodeId) ?? 0;
-    const childPos = positions.get(childId);
+    const childPos = positions.get(childId)!;
     const childW = nodeWidths.get(childId) ?? 0;
 
-    if (parentPos && childPos) {
-      const parentCenter = parentPos[axis] + parentW / 2;
-      childPos[axis] = parentCenter - childW / 2;
-    }
+    const parentCenter = parentPos[axis] + parentW / 2;
+    childPos[axis] = parentCenter - childW / 2;
 
     // Continue propagating
     propagateDown(childId);
@@ -497,9 +492,8 @@ function centerConditionBranches<N extends Node>(
     }
     if (!leftEdge || !rightEdge) continue;
 
-    const condPos = positions.get(node.id);
+    const condPos = positions.get(node.id)!;
     const condW = nodeWidths.get(node.id) ?? 0;
-    if (!condPos) continue;
     const condCenter = condPos[axis] + condW / 2;
 
     // Collect each branch's subtree (stop at join)
@@ -531,15 +525,13 @@ function centerConditionBranches<N extends Node>(
     // Shift left subtree
     const leftDelta = desiredLeftPos - leftBounds.min;
     for (const id of leftSubtree) {
-      const p = positions.get(id);
-      if (p) p[axis] += leftDelta;
+      positions.get(id)![axis] += leftDelta;
     }
 
     // Shift right subtree
     const rightDelta = desiredRightPos - rightBounds.min;
     for (const id of rightSubtree) {
-      const p = positions.get(id);
-      if (p) p[axis] += rightDelta;
+      positions.get(id)![axis] += rightDelta;
     }
 
     // Center shared convergence nodes (e.g. single end node fed by both branches)
@@ -550,11 +542,9 @@ function centerConditionBranches<N extends Node>(
       const shiftedRightBounds = getSubtreeBounds(rightSubtree, positions, nodeWidths, axis);
       const branchesCenter = (shiftedLeftBounds.min + shiftedRightBounds.max) / 2;
       for (const id of shared) {
-        const p = positions.get(id);
+        const p = positions.get(id)!;
         const w = nodeWidths.get(id) ?? 0;
-        if (p) {
-          p[axis] = branchesCenter - w / 2;
-        }
+        p[axis] = branchesCenter - w / 2;
       }
     }
   }
@@ -603,11 +593,10 @@ function centerForkJoinNodes<N extends Node>(
 
     const bounds = subtreeNodes
       .map(id => {
-        const p = positions.get(id);
+        const p = positions.get(id)!;
         const w = nodeWidths.get(id) ?? 0;
-        return p ? { left: p[axis], right: p[axis] + w } : null;
-      })
-      .filter((v): v is { left: number; right: number } => v !== null);
+        return { left: p[axis], right: p[axis] + w };
+      });
 
     const minLeft = Math.min(...bounds.map(b => b.left));
     const maxRight = Math.max(...bounds.map(b => b.right));
@@ -618,7 +607,7 @@ function centerForkJoinNodes<N extends Node>(
     forkPos[axis] = forkCenter - forkW / 2;
   }
 
-  // Center join nodes horizontally AND push below the deepest parent
+  // Center join nodes horizontally over their incoming branches
   for (const node of nodes) {
     if (node.type !== 'join') continue;
     const parents = incoming.get(node.id);
@@ -626,12 +615,11 @@ function centerForkJoinNodes<N extends Node>(
 
     const bounds = parents
       .map(pid => {
-        const p = positions.get(pid);
+        const p = positions.get(pid)!;
         const w = nodeWidths.get(pid) ?? 0;
         const h = rankSizeMap.get(pid) ?? 0;
-        return p ? { left: p[axis], right: p[axis] + w, bottom: p[rankAxis] + h } : null;
-      })
-      .filter((v): v is { left: number; right: number; bottom: number } => v !== null);
+        return { left: p[axis], right: p[axis] + w, bottom: p[rankAxis] + h };
+      });
 
     if (bounds.length < 2) continue;
 
@@ -643,13 +631,6 @@ function centerForkJoinNodes<N extends Node>(
 
     const joinPos = positions.get(node.id)!;
     joinPos[axis] = joinCenter - joinW / 2;
-
-    // Push below the deepest parent + gap
-    const deepestBottom = Math.max(...bounds.map(b => b.bottom));
-    const JOIN_GAP = 40;
-    if (joinPos[rankAxis] < deepestBottom + JOIN_GAP) {
-      joinPos[rankAxis] = deepestBottom + JOIN_GAP;
-    }
   }
 
   // Also center start node if it feeds directly into a fork
@@ -660,13 +641,11 @@ function centerForkJoinNodes<N extends Node>(
     const child = nodeMap.get(children[0]);
     if (child?.type !== 'fork') continue;
 
-    const forkPos = positions.get(child.id);
+    const forkPos = positions.get(child.id)!;
     const forkW = nodeWidths.get(child.id) ?? 0;
     const startW = nodeWidths.get(node.id) ?? 0;
-    if (forkPos) {
-      const startPos = positions.get(node.id)!;
-      startPos[axis] = forkPos[axis] + (forkW - startW) / 2;
-    }
+    const startPos = positions.get(node.id)!;
+    startPos[axis] = forkPos[axis] + (forkW - startW) / 2;
   }
 
   // Center end nodes over their parent(s)
@@ -679,26 +658,19 @@ function centerForkJoinNodes<N extends Node>(
     const endPos = positions.get(node.id)!;
 
     if (parents.length === 1) {
-      // Single parent: center under it
-      const parentPos = positions.get(parents[0]);
+      const parentPos = positions.get(parents[0])!;
       const parentW = nodeWidths.get(parents[0]) ?? 0;
-      if (parentPos) {
-        endPos[axis] = parentPos[axis] + (parentW - endW) / 2;
-      }
+      endPos[axis] = parentPos[axis] + (parentW - endW) / 2;
     } else {
-      // Multiple parents: center over the bounding box
       const bounds = parents
         .map(pid => {
-          const p = positions.get(pid);
+          const p = positions.get(pid)!;
           const w = nodeWidths.get(pid) ?? 0;
-          return p ? { left: p[axis], right: p[axis] + w } : null;
-        })
-        .filter((v): v is { left: number; right: number } => v !== null);
-      if (bounds.length > 0) {
-        const minLeft = Math.min(...bounds.map(b => b.left));
-        const maxRight = Math.max(...bounds.map(b => b.right));
-        endPos[axis] = (minLeft + maxRight) / 2 - endW / 2;
-      }
+          return { left: p[axis], right: p[axis] + w };
+        });
+      const minLeft = Math.min(...bounds.map(b => b.left));
+      const maxRight = Math.max(...bounds.map(b => b.right));
+      endPos[axis] = (minLeft + maxRight) / 2 - endW / 2;
     }
   }
 }
@@ -732,13 +704,12 @@ function centerSwitchBranches<N extends Node>(
   }
 
   for (const node of nodes) {
-    if (node.type !== 'switch' && node.type !== 'errorHandler') continue;
+    if (!SWITCH_LIKE_TYPES.has(node.type ?? '')) continue;
     const outEdges = bySource.get(node.id) ?? [];
     if (outEdges.length < 2) continue;
 
-    const switchPos = positions.get(node.id);
+    const switchPos = positions.get(node.id)!;
     const switchW = nodeWidths.get(node.id) ?? 0;
-    if (!switchPos) continue;
 
     // Collect each case branch subtree and compute its bounding box width
     const branches: { edge: Edge; subtree: Set<string>; bounds: { min: number; max: number; width: number } }[] = [];
@@ -767,22 +738,6 @@ function centerSwitchBranches<N extends Node>(
     };
     branches.sort((a, b) => handleOrder(a.edge.sourceHandle) - handleOrder(b.edge.sourceHandle));
 
-    // Remove shared nodes from all subtrees (convergence points)
-    const allIds = new Map<string, number>();
-    for (const b of branches) {
-      for (const id of b.subtree) {
-        allIds.set(id, (allIds.get(id) ?? 0) + 1);
-      }
-    }
-    const shared = new Set<string>();
-    for (const [id, count] of allIds) {
-      if (count > 1) shared.add(id);
-    }
-    for (const b of branches) {
-      for (const id of shared) b.subtree.delete(id);
-      b.bounds = getSubtreeBounds(b.subtree, positions, nodeWidths, axis);
-    }
-
     // Compute total width needed: sum of all branch widths + gaps
     const BRANCH_GAP = MIN_GAP + 20; // extra gap for switch cases
     const totalWidth = branches.reduce((sum, b) => sum + b.bounds.width, 0) + BRANCH_GAP * (branches.length - 1);
@@ -794,8 +749,7 @@ function centerSwitchBranches<N extends Node>(
     for (const branch of branches) {
       const delta = cursor - branch.bounds.min;
       for (const id of branch.subtree) {
-        const p = positions.get(id);
-        if (p) p[axis] += delta;
+        positions.get(id)![axis] += delta;
       }
       cursor += branch.bounds.width + BRANCH_GAP;
     }
@@ -806,21 +760,7 @@ function centerSwitchBranches<N extends Node>(
       for (const id of b.subtree) allBranchNodes.add(id);
     }
     const allBounds = getSubtreeBounds(allBranchNodes, positions, nodeWidths, axis);
-    if (isFinite(allBounds.min)) {
-      const branchesCenter = (allBounds.min + allBounds.max) / 2;
-      switchPos[axis] = branchesCenter - switchW / 2;
-    }
-
-    // Center shared convergence nodes under all branches
-    if (shared.size > 0) {
-      for (const id of shared) {
-        const p = positions.get(id);
-        const w = nodeWidths.get(id) ?? 0;
-        if (p) {
-          const branchesCenter = (allBounds.min + allBounds.max) / 2;
-          p[axis] = branchesCenter - w / 2;
-        }
-      }
-    }
+    const branchesCenter = (allBounds.min + allBounds.max) / 2;
+    switchPos[axis] = branchesCenter - switchW / 2;
   }
 }

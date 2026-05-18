@@ -438,6 +438,49 @@
   line-height: 1.4;
 }
 
+/* ---- Section card (used in Step 1: Detect Variables) ---- */
+.step-section-card {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  margin-bottom: 10px;
+}
+.step-section-card:last-child {
+  margin-bottom: 0;
+}
+.step-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 7px 12px;
+  background: color-mix(in srgb, var(--surface-hover) 60%, var(--bg));
+  border-bottom: 1px solid var(--border);
+  border-radius: 6px 6px 0 0;
+}
+.step-section-title {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text);
+}
+.step-section-count {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--accent);
+  font-weight: 600;
+}
+.step-section-body {
+  padding: 10px 12px;
+}
+.step-section-body .csv-panel-desc {
+  margin-bottom: 6px;
+}
+.step-section-muted {
+  opacity: 0.7;
+}
+
 /* Path segments */
 .path-segment-list {
   display: flex;
@@ -500,6 +543,64 @@
   color: var(--text);
 }
 
+.url-template-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 0.76rem;
+  line-height: 1.45;
+  resize: vertical;
+  font-family: var(--font-mono, monospace);
+}
+
+.url-template-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.csv-auth-config {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.csv-auth-select {
+  width: 100%;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 0.8rem;
+}
+
+.csv-auth-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.csv-auth-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 0.8rem;
+}
+
+.csv-auth-select:focus,
+.csv-auth-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
 /* Column list */
 .csv-col-list {
   display: flex;
@@ -543,11 +644,43 @@
   font-size: 0.8rem;
   color: var(--text-muted);
   padding: 3px 0;
+  flex-wrap: nowrap;
 }
 .csv-fixed-key {
   font-weight: 600;
   color: var(--text);
-  min-width: 80px;
+  min-width: 120px;
+  white-space: nowrap;
+}
+
+.csv-variable-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 200px;
+  flex-shrink: 0;
+}
+
+.csv-variable-name-input {
+  width: 160px;
+  min-width: 100px;
+  flex-shrink: 1;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 0.78rem;
+  font-family: monospace;
+}
+
+.csv-variable-name-input:disabled {
+  opacity: 0.55;
+}
+
+.csv-variable-name-input:focus {
+  outline: none;
+  border-color: var(--accent);
 }
 
 /* Reused by import modal */
@@ -628,7 +761,43 @@
   flex-direction: column;
   padding: 16px 20px;
   overflow-y: auto;
-  gap: 16px;
+  gap: 12px;
+}
+
+/* Step 2 header */
+.step-columns-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+.step-columns-stats {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-shrink: 0;
+}
+.step-col-stat {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 10px;
+  font-weight: 600;
+}
+.step-col-stat-path {
+  background: rgba(155, 89, 182, 0.12);
+  color: #9b59b6;
+}
+.step-col-stat-param {
+  background: rgba(52, 152, 219, 0.12);
+  color: #3498db;
+}
+.step-col-stat-validate {
+  background: rgba(39, 174, 96, 0.12);
+  color: #27ae60;
+}
+.step-col-stat-total {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 500;
 }
 
 /* Footer navigation */
@@ -643,6 +812,17 @@
 /* ---------------------------------------------------------------------------
    Step 2: Column Names Table
    --------------------------------------------------------------------------- */
+.excel-col-order-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.excel-col-order-label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
 .excel-col-table-wrap {
   flex: 1;
   overflow-y: auto;
@@ -686,6 +866,37 @@
   font-size: 0.75rem;
   word-break: break-all;
   color: var(--text-muted);
+}
+.excel-col-dynamic-badge,
+.excel-col-fixed-badge {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  vertical-align: middle;
+  cursor: pointer;
+}
+.excel-col-dynamic-badge {
+  background: color-mix(in srgb, var(--success) 15%, transparent);
+  color: var(--success);
+  border: 1px solid color-mix(in srgb, var(--success) 30%, transparent);
+}
+.excel-col-dynamic-badge:hover {
+  background: color-mix(in srgb, var(--success) 25%, transparent);
+}
+.excel-col-fixed-badge {
+  background: color-mix(in srgb, var(--warning, #f0ad4e) 15%, transparent);
+  color: var(--warning, #f0ad4e);
+  border: 1px solid color-mix(in srgb, var(--warning, #f0ad4e) 30%, transparent);
+}
+.excel-col-fixed-badge:hover {
+  background: color-mix(in srgb, var(--warning, #f0ad4e) 30%, transparent);
+  color: var(--success);
+  border-color: var(--success);
 }
 .excel-col-auto {
   font-family: monospace;
@@ -734,6 +945,20 @@
 }
 .excel-col-row-error td {
   background: rgba(231, 76, 60, 0.04);
+}
+.excel-col-delete-btn {
+  background: none;
+  border: none;
+  color: #888;
+  font-size: 1.1rem;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 3px;
+  line-height: 1;
+}
+.excel-col-delete-btn:hover {
+  color: #e74c3c;
+  background: rgba(231, 76, 60, 0.1);
 }
 
 /* ---------------------------------------------------------------------------
@@ -827,4 +1052,502 @@
 .text-muted {
   color: var(--text-muted);
   font-style: italic;
+}
+
+/* ═══════════════════════════════════════
+   Parameterize wizard — Steps 3 & 4
+   ═══════════════════════════════════════ */
+
+/* Step 3: Validate field selection */
+.parameterize-validate-step {
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Empty state — no response fetched yet */
+.parameterize-fetch-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 48px 32px;
+  text-align: center;
+  flex: 1;
+}
+.parameterize-fetch-icon {
+  font-size: 40px;
+  line-height: 1;
+  opacity: 0.7;
+}
+.parameterize-fetch-empty h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text);
+}
+.parameterize-fetch-empty p {
+  max-width: 420px;
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* Builder — response loaded, showing validation fields */
+.parameterize-validate-builder {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+}
+.parameterize-validate-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-hover);
+  flex-shrink: 0;
+}
+.parameterize-validate-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.parameterize-validate-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+.parameterize-validate-meta {
+  font-size: 12px;
+  color: var(--text-muted);
+  padding: 2px 8px;
+  background: var(--bg);
+  border-radius: 10px;
+  border: 1px solid var(--border);
+}
+.parameterize-validate-content {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+/* Inside validate step, hide the manual-add button (fields come from tree only) */
+.parameterize-validate-content .jpb-manual-add {
+  display: none;
+}
+
+/* Array validation mode toggles */
+.parameterize-array-modes {
+  flex-shrink: 0;
+  border-top: 1px solid var(--border);
+  background: var(--surface-hover);
+  padding: 10px 16px;
+}
+.parameterize-array-modes-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.parameterize-array-modes-title {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+}
+.parameterize-array-mode-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 10px;
+  border-radius: 5px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  margin-bottom: 4px;
+}
+.parameterize-array-mode-path {
+  font-size: 12px;
+  color: var(--accent);
+}
+.parameterize-array-mode-toggle {
+  display: flex;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.parameterize-mode-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  padding: 4px 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.12s, color 0.12s;
+}
+.parameterize-mode-btn:first-child {
+  border-right: 1px solid var(--border);
+}
+.parameterize-mode-btn.active {
+  font-weight: 600;
+  color: #fff;
+  background: var(--primary);
+}
+.parameterize-mode-btn:not(.active):hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+/* Make the validation builder fill the available space */
+.parameterize-validate-content .json-path-builder {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.parameterize-validate-content .jpb-columns {
+  flex: 1;
+  overflow: hidden;
+}
+.parameterize-validate-content .jpb-left {
+  max-height: none;
+}
+.parameterize-validate-content .json-tree-container {
+  flex: 1;
+  overflow-y: auto;
+}
+
+/* Make the validation summary section fit in the wizard */
+.parameterize-validate-content .jpb-summary {
+  flex-shrink: 0;
+  max-height: 200px;
+  overflow-y: auto;
+  border-top: 1px solid var(--border);
+}
+
+/* Step 4: Create step */
+.parameterize-create-step {
+  flex-direction: column;
+  padding: 16px 20px;
+  overflow-y: auto;
+  gap: 0;
+}
+.review-page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+}
+.review-page-stats {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.review-stat {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--accent);
+  font-weight: 600;
+}
+.review-stat-validate {
+  background: rgba(200, 80, 200, 0.12);
+  color: #c850c8;
+}
+.review-stat-vars {
+  background: rgba(255, 165, 0, 0.12);
+  color: #ffa500;
+}
+.parameterize-create-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.review-form-row {
+  display: flex;
+  gap: 12px;
+}
+.review-form-row > label {
+  flex: 1;
+  min-width: 0;
+}
+.review-cards-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.parameterize-form-label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+.parameterize-name-input {
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--input-bg);
+  color: var(--text);
+  font-size: 14px;
+}
+.parameterize-destination-row {
+  display: flex;
+  gap: 12px;
+}
+.parameterize-destination-row > label {
+  flex: 1;
+}
+.parameterize-select {
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--input-bg);
+  color: var(--text);
+  font-size: 13px;
+}
+
+/* Summary */
+.parameterize-summary {
+  margin-top: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+}
+.parameterize-summary:first-child {
+  margin-top: 0;
+}
+.parameterize-summary-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 12px;
+  background: color-mix(in srgb, var(--surface-hover) 60%, var(--bg));
+  border-bottom: 1px solid var(--border);
+  border-radius: 6px 6px 0 0;
+}
+.parameterize-summary-header .csv-panel-title {
+  margin: 0;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.parameterize-summary-actions {
+  display: flex;
+  gap: 4px;
+  position: relative;
+}
+.parameterize-summary-items {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 0;
+  background: transparent;
+  border-radius: 0;
+}
+.parameterize-summary-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 12px;
+  padding: 4px 12px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 40%, transparent);
+}
+.parameterize-summary-item:last-child {
+  border-bottom: none;
+}
+.parameterize-summary-item:hover {
+  background: color-mix(in srgb, var(--surface-hover) 50%, transparent);
+}
+.parameterize-summary-label {
+  color: var(--text-muted);
+  font-weight: 500;
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+.parameterize-summary-value {
+  font-weight: 500;
+  text-align: right;
+  max-width: 60%;
+  word-break: break-all;
+}
+
+/* Review page type tags */
+.review-type-tag {
+  display: inline-block;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+.review-type-path { background: rgba(255, 165, 0, 0.15); color: #ffa500; }
+.review-type-param { background: rgba(80, 200, 120, 0.15); color: #50c878; }
+.review-type-name { background: rgba(76, 141, 255, 0.15); color: #6ba5ff; }
+.review-type-validate { background: rgba(200, 80, 200, 0.15); color: #c850c8; }
+.review-type-array { background: rgba(255, 200, 40, 0.15); color: #e5b320; }
+.review-section-label {
+  background: color-mix(in srgb, var(--surface-hover) 40%, transparent);
+}
+.review-url-row {
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-start;
+}
+.review-url-value {
+  font-size: 10px;
+  color: var(--text-muted);
+  word-break: break-all;
+  text-align: left;
+  max-width: 100%;
+  line-height: 1.5;
+}
+
+/* Tree preview */
+.parameterize-tree-preview {
+  margin-top: 12px;
+}
+.parameterize-tree-preview .csv-panel-title {
+  margin-bottom: 6px;
+}
+.parameterize-tree {
+  padding: 8px 12px;
+  background: var(--surface-hover);
+  border-radius: 6px;
+  font-size: 13px;
+  line-height: 1.8;
+}
+.parameterize-tree-node {
+  white-space: nowrap;
+}
+.parameterize-tree-indent {
+  padding-left: 20px;
+}
+.parameterize-tree-indent2 {
+  padding-left: 40px;
+}
+.parameterize-tree-new {
+  color: var(--accent);
+  font-weight: 600;
+}
+.parameterize-tree-badge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: var(--accent);
+  color: var(--bg);
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
+/* Empty state for Parameterize tab */
+.parameterize-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 40px 20px;
+  text-align: center;
+}
+.parameterize-icon {
+  font-size: 48px;
+  line-height: 1;
+}
+
+/* ─── Validation mode radio group ────────────────────────── */
+.parameterize-validation-mode {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 14px;
+  margin: 0;
+  background: var(--surface-hover);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.parameterize-validation-mode-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.parameterize-validation-mode-label {
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.parameterize-validation-mode-options {
+  display: flex;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  overflow: hidden;
+}
+.parameterize-radio-pill {
+  cursor: pointer;
+  margin: 0;
+}
+.parameterize-radio-pill input[type="radio"] {
+  display: none;
+}
+.parameterize-radio-pill-label {
+  display: block;
+  padding: 4px 14px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+  border-right: 1px solid var(--border);
+  transition: background 0.12s, color 0.12s;
+  white-space: nowrap;
+}
+.parameterize-radio-pill:last-child .parameterize-radio-pill-label {
+  border-right: none;
+}
+.parameterize-radio-pill input[type="radio"]:checked + .parameterize-radio-pill-label {
+  background: var(--primary, var(--accent));
+  color: #fff;
+  font-weight: 600;
+}
+.parameterize-radio-pill:hover .parameterize-radio-pill-label {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+.parameterize-radio-pill input[type="radio"]:checked + .parameterize-radio-pill-label:hover {
+  background: var(--primary, var(--accent));
+}
+.parameterize-validate-field-count {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 10px;
+  background: rgba(39, 174, 96, 0.12);
+  color: #27ae60;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.parameterize-radio {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.78rem;
+  color: var(--text-primary, #e6edf3);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.parameterize-radio input[type="radio"] {
+  accent-color: #58a6ff;
+  margin: 0;
+  cursor: pointer;
 }

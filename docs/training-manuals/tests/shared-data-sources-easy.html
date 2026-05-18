@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Shared Data Sources Basics — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warning { background: #fff3e0; border-left-color: #f57c00; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">📦</div>
+    <h1>Shared Data Sources Basics</h1>
+    <div class="subtitle">Centralized Test Data Management — Training Manual</div>
+    <p><span class="badge badge-easy">Easy ★☆☆</span> · Shared Data · jsonplaceholder.typicode.com</p>
+    <div class="meta">RedfireForge v0.5.7</div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 1 -->
+  <h2>1. Purpose &amp; Use Case</h2>
+  <p><strong>Shared Data Sources</strong> let you define test data <em>once</em> and reuse it across <em>multiple tests</em>. Instead of duplicating the same user IDs, product codes, or credentials in every test, you create a single shared data source and link tests to it.</p>
+  
+  <p>This manual teaches the fundamentals using the <strong>Shared User IDs</strong> gallery sample — 10 JSONPlaceholder users shared between 2 tests that verify profile data and user posts.</p>
+
+  <div class="callout">
+    <strong>Before You Start</strong>
+    No setup required. This tutorial uses JSONPlaceholder (<code>jsonplaceholder.typicode.com</code>), a free public API that always returns predictable data.
+  </div>
+
+  <h2>2. Concepts You'll Learn</h2>
+  <ul>
+    <li><strong>Shared Data Source</strong> — A top-level data table that exists independently of any test.</li>
+    <li><strong>Linking</strong> — How a test references a shared data source by ID instead of having inline data.</li>
+    <li><strong>Single source of truth</strong> — Change the shared data once, all linked tests use the updated data.</li>
+    <li><strong>Cross-test reuse</strong> — Multiple tests can share the same data rows.</li>
+  </ul>
+
+  <h2>3. Shared Data Sources vs. Inline Data</h2>
+
+  <table>
+    <tr><th>Feature</th><th>Inline Data Source</th><th>Shared Data Source</th></tr>
+    <tr><td>Location</td><td>Embedded in the test</td><td>Top-level, accessible from sidebar</td></tr>
+    <tr><td>Scope</td><td>Single test only</td><td>Any test in any feature group</td></tr>
+    <tr><td>Editing</td><td>Edit within test editor</td><td>Edit in Shared Data Sources modal</td></tr>
+    <tr><td>Updates</td><td>Only affects that test</td><td>All linked tests see the change</td></tr>
+    <tr><td>Best for</td><td>Test-specific data</td><td>Shared credentials, IDs, baselines</td></tr>
+  </table>
+
+  <h2>4. Step-by-Step Tutorial</h2>
+
+  <h3>Step 1: Load the Gallery Sample</h3>
+  <ol>
+    <li>Open the <strong>Gallery</strong> panel from the sidebar.</li>
+    <li>Switch to the <strong>Tests</strong> tab.</li>
+    <li>Find <strong>"Shared User IDs"</strong> (tagged 📦 shared-data-source).</li>
+    <li>Click <strong>Load Test</strong>.</li>
+  </ol>
+  <p>This creates:</p>
+  <ul>
+    <li>A new <strong>Shared Data Source</strong> called "User IDs (1–10)" with 10 rows</li>
+    <li>A new <strong>Feature Group</strong> with 2 tests that reference this shared data source</li>
+  </ul>
+
+  <h3>Step 2: Explore the Shared Data Source</h3>
+  <ol>
+    <li>Click <strong>Shared Data Sources</strong> in the sidebar (📦 icon).</li>
+    <li>You'll see "User IDs (1–10)" in the list panel.</li>
+    <li>Click it to view the data table:</li>
+  </ol>
+
+  <table>
+    <tr><th>id (path)</th><th>expectedName (validate)</th><th>expectedEmail (validate)</th></tr>
+    <tr><td>1</td><td>Leanne Graham</td><td>Sincere@april.biz</td></tr>
+    <tr><td>2</td><td>Ervin Howell</td><td>Shanna@melissa.tv</td></tr>
+    <tr><td>…</td><td>…</td><td>…</td></tr>
+    <tr><td>10</td><td>Clementina DuBuque</td><td>Rey.Padberg@karina.biz</td></tr>
+  </table>
+
+  <div class="callout callout-tip">
+    <strong>💡 Fetch Config</strong>
+    Notice the <strong>URL</strong> at the top of the fetch bar: <code>https://jsonplaceholder.typicode.com/users/{{id}}</code>. This lets you verify or re-populate data directly from the API. We'll cover this in the <a href="shared-data-sources-fetch-medium.html">Fetch Config</a> tutorial.
+  </div>
+
+  <h3>Step 3: See the Linked Tests</h3>
+  <ol>
+    <li>In the Shared Data Sources modal, look at the <strong>Used by</strong> section below the data table.</li>
+    <li>You'll see two test badges:
+      <ul>
+        <li><code>GET /users/{{id}} — Profile</code></li>
+        <li><code>GET /users/{{id}}/posts — User Posts</code></li>
+      </ul>
+    </li>
+    <li>Hover a badge to see the full test path in a tooltip (badges are not clickable).</li>
+  </ol>
+
+  <h3>Step 4: Inspect a Linked Test</h3>
+  <ol>
+    <li>Close the modal and go to the <strong>Feature Groups</strong> tab.</li>
+    <li>Expand the "Gallery: Shared User IDs" feature group.</li>
+    <li>Click <strong>Edit</strong> on one of the tests.</li>
+    <li>Go to the <strong>Data Source</strong> tab.</li>
+    <li>Notice the badge: <strong>📋 User IDs (1–10)</strong> (linked shared sources show <code>📋 {name}</code> in the toolbar).</li>
+    <li>The data table is <strong>read-only</strong> — you can't edit it here because it's linked to a shared source.</li>
+  </ol>
+
+  <div class="callout callout-warning">
+    <strong>⚠️ Read-Only When Linked</strong>
+    A test linked to a shared data source shows the data for reference, but edits must be made in the Shared Data Sources modal. This prevents accidental changes that could affect other tests.
+  </div>
+
+  <h3>Step 5: Run the Tests</h3>
+  <ol>
+    <li>Go to <strong>Testing → Parameterized Runner</strong>.</li>
+    <li>Check the "Gallery: Shared User IDs" feature group.</li>
+    <li>Notice: <strong>"2 tests × 10 data rows = 20 requests"</strong>.</li>
+    <li>Click <strong>Run</strong>.</li>
+  </ol>
+  <p>Both tests execute against the same 10 user IDs. Results are grouped by test, then by data row.</p>
+
+  <h3>Step 6: Update the Shared Data</h3>
+  <ol>
+    <li>Open <strong>Shared Data Sources</strong> (sidebar).</li>
+    <li>Select "User IDs (1–10)".</li>
+    <li>Change the <code>expectedName</code> for user 1 to something wrong (e.g., "Wrong Name").</li>
+    <li>Click <strong>Save</strong>.</li>
+    <li>Re-run the tests — user 1 now fails validation in <em>both</em> tests.</li>
+    <li>Fix it back to "Leanne Graham" and save.</li>
+  </ol>
+
+  <div class="callout callout-tip">
+    <strong>💡 Single Source of Truth</strong>
+    This is the power of shared data sources: one change propagates to all linked tests automatically.
+  </div>
+
+  <h2>5. Managing Linked Tests</h2>
+
+  <h3>Detaching a Test</h3>
+  <p>If you want a test to have its own independent copy of the data:</p>
+  <ol>
+    <li>Open the test in the Test Editor → Data Source tab.</li>
+    <li>Click the <strong>✂ Detach</strong> dropdown.</li>
+    <li>Choose <strong>Copy to Inline</strong>.</li>
+  </ol>
+  <p>The shared data is copied into the test's inline data source. Changes to the shared DS no longer affect this test.</p>
+
+  <h3>Linking an Existing Test</h3>
+  <p>To link an existing parameterized test to a shared data source:</p>
+  <ol>
+    <li>Open the test in the Test Editor → Data Source tab.</li>
+    <li>Click <strong>Use Shared…</strong> dropdown.</li>
+    <li>Select the shared data source to use.</li>
+  </ol>
+
+  <h2>6. Creating a Shared Data Source from Scratch</h2>
+  <ol>
+    <li>Open <strong>Shared Data Sources</strong> (sidebar).</li>
+    <li>Click <strong>+ New</strong>.</li>
+    <li>Enter a name (e.g., "Product IDs").</li>
+    <li>Add columns: click <strong>+ Column</strong> in the toolbar.</li>
+    <li>Set column types (path, param, validate, etc.).</li>
+    <li>Add rows with your test data.</li>
+    <li>Click <strong>Save</strong>.</li>
+  </ol>
+
+  <h2>7. Try It Yourself</h2>
+  <p>Create a shared data source for the JSONPlaceholder Posts API:</p>
+  <ol>
+    <li>Create a shared DS with columns: <code>id</code> (path) and <code>expectedTitle</code> (validate: <code>$.title</code>)</li>
+    <li>Add 3 rows with post IDs 1, 2, 3 and their expected titles</li>
+    <li>Create a test: <code>https://jsonplaceholder.typicode.com/posts/{{id}}</code></li>
+    <li>Link the test to your shared DS using "Use Shared…"</li>
+    <li>Create another test for comments: <code>https://jsonplaceholder.typicode.com/posts/{{id}}/comments</code></li>
+    <li>Link it to the same shared DS</li>
+    <li>Run both tests and verify they share the same data</li>
+  </ol>
+
+  <h2>8. Related Manuals</h2>
+  <ul>
+    <li><a href="shared-data-sources-fetch-medium.html">Shared DS with Fetch Config</a> — configure API-driven population and verification</li>
+    <li><a href="shared-data-sources-cross-fg-medium.html">Cross-FG Shared Data</a> — one shared DS used across multiple feature groups</li>
+    <li><a href="shared-data-sources-advanced.html">Shared DS Advanced</a> — tags, CSV import, cURL export</li>
+    <li><a href="parameterized-basics-easy.html">Parameterized Testing Basics</a> — inline data sources (comparison)</li>
+  </ul>
+
+  <footer>
+    RedfireForge Training Manual · Shared Data Sources Basics · Easy
+  </footer>
+</body>
+</html>

@@ -13,6 +13,12 @@ export const corePaths: TrainingPath[] = [
         name: 'Workflow Versioning',
         manuals: [
           {
+            title: 'Versioning Overview',
+            description: 'How versioning works across all entity types — snapshots, diffs, and restore.',
+            difficulty: 'easy',
+            manualPath: 'versioning/versioning.html',
+          },
+          {
             title: 'Workflow Version History',
             description: 'Create, browse, rename, and restore workflow version snapshots',
             difficulty: 'easy',

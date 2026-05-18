@@ -1,5 +1,5 @@
 /**
- * Request Gallery — 12 ready-to-run API request samples.
+ * Request Gallery — 13 ready-to-run API request samples.
  */
 
 import type { RequestSampleEntry } from './types';
@@ -16,6 +16,7 @@ import {
   createDeleteResourceScenario,
   createAuthLoginScenario,
   createEchoHeadersScenario,
+  createMultiEnvProductLookupScenario,
 } from './presets';
 
 export type { RequestSampleEntry } from './types';
@@ -194,5 +195,19 @@ export const requestSampleCatalog: RequestSampleEntry[] = [
     method: 'POST',
     previewPath: '/post',
     factory: createEchoHeadersScenario,
+  },
+  {
+    id: 'req-multi-env-product',
+    domain: 'requests',
+    name: 'Multi-Env Product Lookup',
+    description: 'Search products with query params — demonstrates host strategy switching for environment-based testing',
+    icon: '🌐',
+    category: 'search',
+    difficulty: 'easy',
+    tags: ['get', 'search', 'query', 'environment', 'host-strategy', 'multi-env'],
+    liveApis: ['dummyjson.com'],
+    method: 'GET',
+    previewPath: '/products/search?q=laptop&limit=3',
+    factory: createMultiEnvProductLookupScenario,
   },
 ];

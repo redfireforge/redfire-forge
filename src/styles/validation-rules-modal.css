@@ -1,0 +1,1066 @@
+/* ═══════════════════════════════════════════════════════════
+   VALIDATION RULES MODAL — Phase 9.4
+   Console-style 3-mode panel with DSL Reference
+   Matches validation-rules-modal.html mockup exactly
+   ═══════════════════════════════════════════════════════════ */
+
+/* ─── Common Panel Shell ─────────────────────────────────── */
+
+.vr-modal-panel {
+  background: var(--surface, #181825);
+  display: flex;
+  flex-direction: column;
+  font-size: 13px;
+  overflow: hidden;
+}
+
+/* ─── Docked Mode (fixed at viewport bottom) ───────────── */
+
+.vr-modal-panel--docked {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1200;
+  border-top: 1px solid var(--border, #30363d);
+  box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.35);
+}
+
+/* ─── Floating Mode ──────────────────────────────────────── */
+
+.vr-modal-panel--floating {
+  position: fixed;
+  z-index: 1200;
+  border-radius: 10px;
+  border: 1px solid var(--border, #30363d);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.45), 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+/* ─── Maximized Mode (covers full viewport) ─────────────── */
+
+.vr-modal-panel--maximized {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+}
+
+/* ─── Resize Handle (docked top edge) ────────────────────── */
+
+.vr-modal-resize-handle {
+  height: 4px;
+  background: color-mix(in srgb, var(--surface, #1c2333) 80%, var(--bg, #000) 20%);
+  cursor: row-resize;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.vr-modal-resize-handle::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 32px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--text-muted, #6c7086);
+  opacity: 0.3;
+  transition: opacity 0.15s;
+}
+
+.vr-modal-resize-handle:hover::after {
+  opacity: 0.7;
+}
+
+/* ─── Header ─────────────────────────────────────────────── */
+
+.vr-modal-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border, #30363d);
+  background: color-mix(in srgb, var(--surface, #1c2333) 80%, var(--bg, #000) 20%);
+  flex-shrink: 0;
+  min-height: 38px;
+  user-select: none;
+}
+
+.vr-modal-header-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text, #cdd6f4);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.vr-modal-header-icon {
+  font-size: 14px;
+  opacity: 0.7;
+}
+
+.vr-modal-header-stats {
+  display: flex;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--text-muted, #6c7086);
+}
+
+.vr-modal-stat {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.vr-modal-stat--error {
+  color: var(--danger, #f38ba8);
+}
+
+.vr-modal-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.vr-modal-dot--ok {
+  background: var(--success, #a6e3a1);
+}
+
+.vr-modal-dot--err {
+  background: var(--danger, #f38ba8);
+}
+
+.vr-modal-dot--pass {
+  background: var(--success, #a6e3a1);
+}
+
+.vr-modal-stat--pass {
+  color: var(--success, #a6e3a1);
+}
+
+.vr-modal-stat--fail {
+  color: var(--danger, #f38ba8);
+}
+
+.vr-modal-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.vr-modal-action-btn {
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  color: var(--text-muted, #8b949e);
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+  font-family: inherit;
+}
+
+.vr-modal-action-btn:hover {
+  background: var(--surface-hover, #1f2937);
+  color: var(--text, #cdd6f4);
+}
+
+.vr-modal-action-btn--active {
+  background: color-mix(in srgb, var(--primary, #3b82f6) 12%, transparent);
+  color: var(--primary, #3b82f6);
+}
+
+.vr-modal-action-sep {
+  width: 1px;
+  height: 16px;
+  background: var(--border, #30363d);
+  margin: 0 2px;
+}
+
+.vr-modal-mode-select {
+  font-size: 11px;
+  padding: 3px 6px;
+  border-radius: 4px;
+  background: var(--bg, #161b22);
+  border: 1px solid var(--border, #30363d);
+  color: var(--text-muted, #8b949e);
+  cursor: pointer;
+  outline: none;
+  font-family: inherit;
+}
+
+.vr-modal-mode-select:hover {
+  border-color: var(--accent, #89b4fa);
+  color: var(--text, #cdd6f4);
+}
+
+/* ─── Footer Actions (Cancel / Save) ─────────────────────── */
+
+.vr-modal-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px;
+  border-top: 1px solid var(--border, #30363d);
+  flex-shrink: 0;
+}
+
+.vr-modal-actions-hints {
+  display: flex;
+  gap: 12px;
+  font-size: 11px;
+  color: var(--text-muted, #6c7086);
+}
+
+.vr-modal-actions-hints code {
+  font-size: 10px;
+  background: color-mix(in srgb, var(--text, #cdd6f4) 8%, transparent);
+  padding: 1px 3px;
+  border-radius: 2px;
+}
+
+.vr-modal-actions-hints kbd {
+  font-size: 10px;
+  background: color-mix(in srgb, var(--text, #cdd6f4) 10%, transparent);
+  border: 1px solid var(--border, #30363d);
+  border-radius: 3px;
+  padding: 0 3px;
+  font-family: inherit;
+}
+
+.vr-modal-actions-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.vr-modal-btn {
+  padding: 5px 14px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: inherit;
+  border: 1px solid var(--border, #30363d);
+}
+
+.vr-modal-btn--secondary {
+  background: none;
+  color: var(--text-muted, #6c7086);
+}
+
+.vr-modal-btn--secondary:hover {
+  background: color-mix(in srgb, var(--text, #cdd6f4) 8%, transparent);
+  color: var(--text, #cdd6f4);
+  border-color: var(--text-muted, #6c7086);
+}
+
+.vr-modal-btn--primary {
+  background: var(--primary, #3b82f6);
+  color: #fff;
+  border-color: var(--primary, #3b82f6);
+}
+
+.vr-modal-btn--primary:hover {
+  background: color-mix(in srgb, var(--primary, #3b82f6) 85%, white);
+  border-color: color-mix(in srgb, var(--primary, #3b82f6) 85%, white);
+}
+
+/* ─── Verify Button ──────────────────────────────────────── */
+
+.vr-modal-action-btn--verify {
+  background: color-mix(in srgb, var(--success, #22c55e) 15%, transparent);
+  color: var(--success, #22c55e);
+  border: 1px solid color-mix(in srgb, var(--success, #22c55e) 30%, transparent);
+  font-weight: 600;
+}
+.vr-modal-action-btn--verify:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--success, #22c55e) 25%, transparent);
+  border-color: var(--success, #22c55e);
+}
+.vr-modal-action-btn--verify:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ─── Results Strip ──────────────────────────────────────── */
+
+.vr-results-strip {
+  border-top: 1px solid color-mix(in srgb, var(--danger, #ef4444) 30%, transparent);
+  background: color-mix(in srgb, var(--danger, #ef4444) 5%, var(--surface, #1e293b));
+  max-height: 240px;
+  overflow-y: auto;
+  flex-shrink: 0;
+}
+
+.vr-results-strip-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 10px;
+  border-bottom: 1px solid color-mix(in srgb, var(--danger, #ef4444) 15%, transparent);
+  position: sticky;
+  top: 0;
+  background: inherit;
+  z-index: 1;
+}
+
+.vr-results-strip-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--danger, #ef4444);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.vr-results-strip-close {
+  background: none;
+  border: none;
+  color: var(--text-muted, #6c7086);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 0 4px;
+  line-height: 1;
+}
+.vr-results-strip-close:hover { color: var(--text, #cdd6f4); }
+
+.vr-results-strip-list {
+  padding: 2px 0;
+}
+
+.vr-results-strip-item {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 3px 10px;
+  cursor: pointer;
+  font-size: 11px;
+  transition: background 0.1s;
+}
+.vr-results-strip-item:hover {
+  background: color-mix(in srgb, var(--danger, #ef4444) 10%, transparent);
+}
+
+.vr-results-strip-line {
+  color: var(--text-muted, #6c7086);
+  font-weight: 600;
+  min-width: 28px;
+  font-family: var(--font-mono, monospace);
+}
+
+.vr-results-strip-path {
+  color: var(--text, #cdd6f4);
+  font-family: var(--font-mono, monospace);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
+}
+
+.vr-results-strip-detail {
+  display: flex;
+  gap: 8px;
+  color: var(--text-muted, #6c7086);
+  font-size: 10px;
+  flex: 1;
+  min-width: 0;
+}
+
+.vr-results-strip-expected {
+  color: var(--yellow, #f9e2af);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.vr-results-strip-actual {
+  color: var(--danger, #ef4444);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.vr-results-strip-expand {
+  color: var(--text-muted, #6c7086);
+  font-size: 10px;
+  width: 12px;
+  flex-shrink: 0;
+}
+
+.vr-results-strip-goto {
+  background: none;
+  border: none;
+  color: var(--text-muted, #6c7086);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 0 4px;
+  margin-left: auto;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.vr-results-strip-item:hover .vr-results-strip-goto { opacity: 1; }
+.vr-results-strip-goto:hover { color: var(--primary, #3b82f6); }
+
+.vr-results-strip-item--expanded {
+  background: color-mix(in srgb, var(--danger, #ef4444) 8%, transparent);
+}
+
+.vr-results-strip-entry {
+  border-bottom: 1px solid color-mix(in srgb, var(--danger, #ef4444) 8%, transparent);
+}
+.vr-results-strip-entry:last-child { border-bottom: none; }
+
+/* ─── Debug Detail Panel ─────────────────────────────────── */
+
+.vr-results-strip-debug {
+  padding: 6px 10px 8px 32px;
+  background: color-mix(in srgb, var(--surface, #1e293b) 90%, black);
+  border-top: 1px solid color-mix(in srgb, var(--text-muted, #6c7086) 10%, transparent);
+}
+
+.vr-debug-section {
+  margin-bottom: 6px;
+}
+.vr-debug-section:last-child { margin-bottom: 0; }
+
+.vr-debug-section-title {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--text-muted, #6c7086);
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.vr-debug-section-title--clickable {
+  cursor: pointer;
+  user-select: none;
+}
+.vr-debug-section-title--clickable:hover {
+  color: var(--text, #cdd6f4);
+}
+
+.vr-debug-section-toggle {
+  font-size: 9px;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--primary, #3b82f6);
+}
+
+.vr-debug-json--preview {
+  max-height: 60px;
+  opacity: 0.7;
+  cursor: pointer;
+}
+
+.vr-debug-json {
+  font-family: var(--font-mono, monospace);
+  font-size: 10px;
+  color: var(--text, #cdd6f4);
+  background: color-mix(in srgb, var(--surface, #1e293b) 70%, black);
+  border: 1px solid color-mix(in srgb, var(--text-muted, #6c7086) 15%, transparent);
+  border-radius: 4px;
+  padding: 6px 8px;
+  margin: 0;
+  max-height: 120px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.vr-debug-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.vr-debug-step {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--surface, #1e293b) 70%, black);
+}
+
+.vr-debug-step--error {
+  background: color-mix(in srgb, var(--danger, #ef4444) 8%, transparent);
+}
+
+.vr-debug-step-num {
+  color: var(--text-muted, #6c7086);
+  font-size: 9px;
+  font-weight: 700;
+  min-width: 14px;
+  text-align: center;
+}
+
+.vr-debug-step-label {
+  color: var(--text-muted, #6c7086);
+  font-size: 10px;
+  min-width: 90px;
+  flex-shrink: 0;
+}
+
+.vr-debug-step-expr {
+  font-family: var(--font-mono, monospace);
+  color: var(--mauve, #cba6f7);
+  font-size: 10px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
+}
+
+.vr-debug-step-arrow {
+  color: var(--text-muted, #6c7086);
+  font-size: 10px;
+  flex-shrink: 0;
+}
+
+.vr-debug-step-value {
+  font-family: var(--font-mono, monospace);
+  color: var(--success, #22c55e);
+  font-size: 10px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 40%;
+  flex-shrink: 0;
+}
+
+.vr-debug-step-value--err {
+  color: var(--danger, #ef4444);
+}
+
+.vr-debug-step--clickable {
+  cursor: pointer;
+  transition: background 0.1s;
+}
+.vr-debug-step--clickable:hover {
+  background: color-mix(in srgb, var(--primary, #3b82f6) 10%, transparent);
+}
+
+.vr-debug-step-toggle {
+  color: var(--text-muted, #6c7086);
+  font-size: 9px;
+  margin-left: 4px;
+  flex-shrink: 0;
+}
+
+.vr-debug-step-full {
+  font-family: var(--font-mono, monospace);
+  font-size: 10px;
+  color: var(--text, #cdd6f4);
+  background: color-mix(in srgb, var(--surface, #1e293b) 50%, black);
+  border: 1px solid color-mix(in srgb, var(--primary, #3b82f6) 20%, transparent);
+  border-radius: 4px;
+  padding: 6px 8px;
+  margin: 2px 0 4px 20px;
+  max-height: 200px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.vr-debug-no-data {
+  color: var(--text-muted, #6c7086);
+  font-size: 11px;
+  font-style: italic;
+}
+
+/* ─── Body — Split Layout ────────────────────────────────── */
+
+.vr-modal-body {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.vr-modal-editor-pane {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.vr-modal-editor-pane .dm-validation-editor {
+  flex: 1;
+  border-top: none;
+}
+
+.vr-modal-editor-pane .dm-validation-editor-body {
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+}
+
+
+/* ─── Floating Resize Handles ────────────────────────────── */
+
+.vr-modal-float-grip {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 16px;
+  height: 16px;
+  cursor: nwse-resize;
+  opacity: 0.3;
+  transition: opacity 0.15s;
+}
+
+.vr-modal-float-grip:hover {
+  opacity: 0.7;
+}
+
+.vr-modal-float-grip::before {
+  content: '';
+  position: absolute;
+  bottom: 3px;
+  right: 3px;
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid var(--text-muted, #6c7086);
+  border-bottom: 2px solid var(--text-muted, #6c7086);
+}
+
+.vr-modal-float-edge-right {
+  position: absolute;
+  top: 40px;
+  right: -3px;
+  width: 6px;
+  bottom: 16px;
+  cursor: ew-resize;
+}
+
+/* ─── Reference Edge Toggle (boundary chevron) ───────────── */
+
+.vr-ref-edge-toggle {
+  z-index: 10;
+  width: 18px;
+  min-width: 18px;
+  flex-shrink: 0;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--border, #30363d) 50%, var(--surface, #1e293b) 50%);
+  border: none;
+  border-left: 1px solid var(--border, #30363d);
+  border-right: 1px solid var(--border, #30363d);
+  cursor: pointer;
+  color: var(--text-muted, #8b949e);
+  font-size: 13px;
+  padding: 0;
+  margin: 0;
+  outline: none;
+  transition: background 0.15s, color 0.15s;
+}
+
+.vr-ref-edge-toggle:hover {
+  background: color-mix(in srgb, var(--accent, #7c3aed) 22%, var(--surface, #1e293b) 78%);
+  color: var(--text, #cdd6f4);
+}
+
+/* When reference panel is hidden — wider, with vertical label */
+.vr-ref-edge-toggle--collapsed {
+  width: 26px;
+  min-width: 26px;
+  flex-direction: column;
+  gap: 4px;
+  border-right: none;
+  background: color-mix(in srgb, var(--accent, #7c3aed) 10%, var(--surface, #1e293b) 90%);
+  border-left: 1px solid color-mix(in srgb, var(--accent, #7c3aed) 30%, var(--border, #30363d) 70%);
+}
+
+.vr-ref-edge-toggle--collapsed:hover {
+  background: color-mix(in srgb, var(--accent, #7c3aed) 25%, var(--surface, #1e293b) 75%);
+}
+
+.vr-ref-edge-label {
+  writing-mode: vertical-lr;
+  text-orientation: mixed;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--text-muted, #8b949e);
+  pointer-events: none;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   DSL REFERENCE PANEL — Compact Redesign
+   ═══════════════════════════════════════════════════════════ */
+
+.vr-reference-pane {
+  width: 280px;
+  min-width: 240px;
+  flex-shrink: 0;
+  border-left: 1px solid var(--border, #30363d);
+  display: flex;
+  flex-direction: column;
+  background: var(--bg, #161b22);
+  overflow: hidden;
+}
+
+/* ─── Header ─────────────────────────────────────────────── */
+
+.vr-ref-header {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 8px 10px 6px;
+  border-bottom: 1px solid var(--border, #30363d);
+  flex-shrink: 0;
+  background: color-mix(in srgb, var(--bg, #0d1117) 70%, var(--surface, #1e293b) 30%);
+}
+
+.vr-ref-header-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.vr-ref-header-title {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text, #cdd6f4);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  white-space: nowrap;
+}
+
+.vr-ref-header-count {
+  font-size: 9px;
+  font-weight: 500;
+  color: var(--text-muted, #6c7086);
+  background: rgba(139, 148, 158, 0.12);
+  padding: 1px 5px;
+  border-radius: 8px;
+  min-width: 16px;
+  text-align: center;
+}
+
+.vr-ref-header-btns {
+  margin-left: auto;
+  display: flex;
+  gap: 1px;
+}
+
+.vr-ref-toggle-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted, #6c7086);
+  font-size: 8px;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 3px;
+  transition: all 0.15s;
+  line-height: 1;
+}
+
+.vr-ref-toggle-btn:hover {
+  background: var(--surface-hover, #1f2937);
+  color: var(--text, #cdd6f4);
+}
+
+.vr-ref-close-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted, #6c7086);
+  font-size: 10px;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 3px;
+  transition: all 0.15s;
+  line-height: 1;
+  margin-left: 2px;
+}
+.vr-ref-close-btn:hover {
+  background: color-mix(in srgb, var(--danger, #ef4444) 15%, transparent);
+  color: var(--danger, #ef4444);
+}
+
+/* ─── Search ─────────────────────────────────────────────── */
+
+.vr-ref-search-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.vr-ref-search-icon {
+  position: absolute;
+  left: 7px;
+  font-size: 10px;
+  color: var(--text-muted, #6c7086);
+  pointer-events: none;
+  line-height: 1;
+}
+
+.vr-ref-search {
+  width: 100%;
+  padding: 4px 24px 4px 24px;
+  border-radius: 5px;
+  background: var(--bg, #11111b);
+  border: 1px solid var(--border, #30363d);
+  color: var(--text, #cdd6f4);
+  font-size: 11px;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  font-family: inherit;
+}
+
+.vr-ref-search:focus {
+  border-color: var(--primary, #3b82f6);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--primary, #3b82f6) 15%, transparent);
+}
+
+.vr-ref-search::placeholder {
+  color: var(--text-muted, #6c7086);
+}
+
+.vr-ref-search-clear {
+  position: absolute;
+  right: 3px;
+  background: none;
+  border: none;
+  color: var(--text-muted, #6c7086);
+  font-size: 9px;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 3px;
+  transition: all 0.15s;
+  line-height: 1;
+}
+
+.vr-ref-search-clear:hover {
+  color: var(--text, #cdd6f4);
+  background: var(--surface-hover, #1f2937);
+}
+
+/* ─── Body ───────────────────────────────────────────────── */
+
+.vr-ref-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 2px 0;
+}
+
+.vr-ref-body::-webkit-scrollbar { width: 5px; }
+.vr-ref-body::-webkit-scrollbar-track { background: transparent; }
+.vr-ref-body::-webkit-scrollbar-thumb {
+  background: var(--border, #30363d);
+  border-radius: 3px;
+}
+
+/* ─── Section ────────────────────────────────────────────── */
+
+.vr-ref-section {
+  margin-bottom: 1px;
+}
+
+.vr-ref-section-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  cursor: pointer;
+  user-select: none;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--text-muted, #8b949e);
+  transition: all 0.12s;
+}
+
+.vr-ref-section-header:hover {
+  background: var(--surface-hover, #1f2937);
+  color: var(--text, #cdd6f4);
+}
+
+.vr-ref-chevron {
+  font-size: 8px;
+  color: var(--text-muted, #6c7086);
+  transition: transform 0.15s ease;
+  width: 8px;
+  text-align: center;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.vr-ref-chevron--open {
+  transform: rotate(90deg);
+}
+
+.vr-ref-section-badge {
+  width: 18px;
+  height: 18px;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--bg, #161b22);
+  flex-shrink: 0;
+  font-family: var(--mono, 'JetBrains Mono', 'Fira Code', monospace);
+  line-height: 1;
+}
+
+.vr-ref-section-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vr-ref-count {
+  font-size: 9px;
+  color: var(--text-muted, #6c7086);
+  font-weight: 400;
+  background: rgba(139, 148, 158, 0.08);
+  padding: 0 4px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.vr-ref-section-body {
+  padding: 1px 6px 3px 38px;
+}
+
+/* ─── Compact Entry Row ──────────────────────────────────── */
+
+.vr-ref-entry {
+  padding: 4px 6px;
+  border-radius: 4px;
+  transition: background 0.12s;
+  cursor: default;
+}
+
+.vr-ref-entry:hover {
+  background: var(--surface-hover, #1f2937);
+}
+
+.vr-ref-entry-main {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 22px;
+}
+
+.vr-ref-op {
+  font-family: var(--mono, 'JetBrains Mono', 'Fira Code', monospace);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.vr-ref-desc {
+  font-size: 10px;
+  color: var(--text-muted, #6c7086);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  flex: 1;
+}
+
+.vr-ref-syntax {
+  display: block;
+  font-family: var(--mono, 'JetBrains Mono', 'Fira Code', monospace);
+  font-size: 9.5px;
+  color: color-mix(in srgb, var(--text-muted, #6c7086) 80%, transparent);
+  padding: 1px 0 0 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ─── Entry Actions (always visible, compact) ────────────── */
+
+.vr-ref-entry-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+  margin-left: auto;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+
+.vr-ref-entry:hover .vr-ref-entry-actions {
+  opacity: 1;
+}
+
+.vr-ref-action-btn {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.12s;
+  border: none;
+  line-height: 1;
+  padding: 0;
+  font-family: inherit;
+}
+
+.vr-ref-action-btn--insert {
+  background: color-mix(in srgb, var(--primary, #3b82f6) 12%, transparent);
+  color: var(--primary, #3b82f6);
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.vr-ref-action-btn--insert:hover {
+  background: color-mix(in srgb, var(--primary, #3b82f6) 22%, transparent);
+}
+
+.vr-ref-action-btn--copy {
+  background: transparent;
+  color: var(--text-muted, #6c7086);
+  font-size: 10px;
+}
+
+.vr-ref-action-btn--copy:hover {
+  background: rgba(139, 148, 158, 0.12);
+  color: var(--text, #cdd6f4);
+}
+
+.vr-ref-action-btn--copied {
+  color: var(--success, #22c55e) !important;
+}
+
+/* ─── Empty State ────────────────────────────────────────── */
+
+.vr-ref-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 12px;
+  font-size: 11px;
+  color: var(--text-muted, #6c7086);
+  text-align: center;
+}

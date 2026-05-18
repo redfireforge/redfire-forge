@@ -218,7 +218,12 @@ describe('runGraph - Error Handler Node', () => {
     });
 
     it('exhausts retries then executes catch', async () => {
-      mockFetch.mockResolvedValue(failResponse());
+      // Body fails on each attempt; catch (the recovery step) succeeds.
+      mockFetch
+        .mockResolvedValueOnce(failResponse())  // body attempt 0
+        .mockResolvedValueOnce(failResponse())  // body attempt 1 (retry)
+        .mockResolvedValueOnce(failResponse())  // body attempt 2 (retry)
+        .mockResolvedValue(okResponse());        // catch HTTP succeeds
       const eh = errorHandlerNode('eh1', { retryCount: 2, retryDelayMs: 0 });
       const bodyHttp = httpNode('body1', 'HTTP', true);
       const catchHttp = httpNode('catch1');
@@ -242,8 +247,11 @@ describe('runGraph - Error Handler Node', () => {
 
   describe('error filter', () => {
     it('does not retry when error type does not match filter', async () => {
-      // Returns 500 (http-error) but filter is 'network-error'
-      mockFetch.mockResolvedValue(failResponse());
+      // Body returns 500 (http-error) but filter is 'network-error', so no retry.
+      // Catch (the recovery step) then succeeds.
+      mockFetch
+        .mockResolvedValueOnce(failResponse())  // body attempt 0 — fails, no retry
+        .mockResolvedValue(okResponse());        // catch HTTP succeeds
       const eh = errorHandlerNode('eh1', {
         retryCount: 3,
         retryDelayMs: 0,
@@ -298,10 +306,16 @@ describe('runGraph - Error Handler Node', () => {
 
   describe('retry timeout', () => {
     it('stops retrying when timeout exceeded', async () => {
+      // Body call is slow + fail (50ms vs 1ms timeout → no retries).
+      // Catch (recovery) is fast + succeeds.
+      let callCount = 0;
       mockFetch.mockImplementation(async () => {
-        // Simulate slow call
-        await new Promise(r => setTimeout(r, 50));
-        return failResponse();
+        callCount++;
+        if (callCount === 1) {
+          await new Promise(r => setTimeout(r, 50));
+          return failResponse();
+        }
+        return okResponse(); // catch HTTP and beyond
       });
       const eh = errorHandlerNode('eh1', {
         retryCount: 10,

@@ -141,7 +141,7 @@ test.describe('Webhook Delivery Logs', () => {
   });
 
   test('date navigation changes the date and reloads', async ({ page }) => {
-    let requestedDates: string[] = [];
+    const requestedDates: string[] = [];
     await page.route('**/api/webhook-deliveries*', (route) => {
       const url = new URL(route.request().url());
       const date = url.searchParams.get('date');

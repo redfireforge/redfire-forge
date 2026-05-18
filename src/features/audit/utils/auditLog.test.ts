@@ -259,3 +259,12 @@ describe('formatEntityType', () => {
     expect(formatEntityType('authProfile')).toBe('Auth Profile');
   });
 });
+
+describe('logAuthProfileUpdated edge cases', () => {
+  it('skips when no changes provided', async () => {
+    const result = await logAuthProfileUpdated('auth', 'a1', []);
+    expect(result).toBeUndefined();
+    const log = await loadAuditLog();
+    expect(log).toHaveLength(0);
+  });
+});

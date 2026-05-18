@@ -7,6 +7,15 @@ import WorkflowVariableInsertModal from './WorkflowVariableInsertModal';
 import type { WorkflowVariableHint } from '../../utils/workflowVariableHints';
 import type { WorkflowVariableHintSource } from '../../utils/workflowVariableHints';
 
+vi.mock('../expression/ExpressionBuilderView', () => ({
+  __esModule: true,
+  default: ({ onInsert }: { onInsert: (t: string) => void }) => (
+    <div data-testid="mock-expression-builder">
+      <button type="button" onClick={() => onInsert('{{$upper(x)}}')}>InsertExpr</button>
+    </div>
+  ),
+}));
+
 const wfSource: WorkflowVariableHintSource = { nodeLabel: 'Workflow Defaults', nodeType: 'workflow', category: 'Workflow' };
 const stepASource: WorkflowVariableHintSource = { nodeId: 'a1', nodeLabel: 'Step A', nodeType: 'http', category: 'HTTP Steps' };
 const stepBSource: WorkflowVariableHintSource = { nodeId: 'b1', nodeLabel: 'Step B', nodeType: 'http', category: 'HTTP Steps' };
@@ -349,7 +358,7 @@ describe('WorkflowVariableInsertModal', () => {
     const varRows = document.body.querySelectorAll('.wf-var-insert-var-row');
     fireEvent.click(varRows[0]); // token
     fireEvent.click(varRows[1]); // status
-    fireEvent.click(screen.getByText('Insert All (2)'));
+    fireEvent.click(document.body.querySelector('.wf-var-insert-action-insert')!);
     expect(onPick).toHaveBeenCalledTimes(1);
     // Both Step A vars: token and status
     const template = onPick.mock.calls[0][0];
@@ -385,58 +394,73 @@ describe('WorkflowVariableInsertModal', () => {
     expect(counts[0].textContent).toBe('1');
   });
 
-  // ── Expand / Shrink tests ──
+  // ── Footer Close button ──
 
-  it('renders expand button in header', () => {
+  it('renders Close button in the footer', () => {
     render(<WorkflowVariableInsertModal {...defaultProps} />);
-    const expandBtn = document.body.querySelector('.modal-expand-btn');
-    expect(expandBtn).toBeTruthy();
-    expect(expandBtn!.getAttribute('aria-label')).toBe('Expand modal');
+    const closeBtn = document.body.querySelector('.wf-var-insert-close-btn');
+    expect(closeBtn).toBeTruthy();
+    expect(closeBtn!.textContent).toBe('Close');
   });
 
-  it('toggles fullscreen class on modal when expand button is clicked', () => {
-    render(<WorkflowVariableInsertModal {...defaultProps} />);
-    const modal = document.body.querySelector('.wf-var-insert-modal')!;
-    expect(modal.classList.contains('modal-fullscreen')).toBe(false);
-    const expandBtn = document.body.querySelector('.modal-expand-btn')!;
-    fireEvent.click(expandBtn);
-    expect(modal.classList.contains('modal-fullscreen')).toBe(true);
-    // aria-label should change to Shrink
-    expect(expandBtn.getAttribute('aria-label')).toBe('Shrink modal');
+  it('footer Close button calls onClose', () => {
+    const onClose = vi.fn();
+    render(<WorkflowVariableInsertModal {...defaultProps} onClose={onClose} />);
+    const closeBtn = document.body.querySelector('.wf-var-insert-close-btn')!;
+    fireEvent.click(closeBtn);
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it('shrinks back when expand button is clicked twice', () => {
+  it('does not render expand buttons', () => {
     render(<WorkflowVariableInsertModal {...defaultProps} />);
-    const modal = document.body.querySelector('.wf-var-insert-modal')!;
-    const expandBtn = document.body.querySelector('.modal-expand-btn')!;
-    fireEvent.click(expandBtn); // expand
-    fireEvent.click(expandBtn); // shrink
-    expect(modal.classList.contains('modal-fullscreen')).toBe(false);
-    expect(expandBtn.getAttribute('aria-label')).toBe('Expand modal');
+    expect(document.body.querySelector('.modal-expand-btn')).toBeNull();
+    expect(document.body.querySelector('.modal-expand-btn-bottom')).toBeNull();
   });
 
-  it('renders expand button in detail bar (bottom-right)', () => {
-    render(<WorkflowVariableInsertModal {...defaultProps} />);
-    const bottomBtn = document.body.querySelector('.modal-expand-btn-bottom');
-    expect(bottomBtn).toBeTruthy();
-    expect(bottomBtn!.getAttribute('aria-label')).toBe('Expand modal');
+  it('expression tab calls onPick when compose mode is off', () => {
+    const onPick = vi.fn();
+    render(<WorkflowVariableInsertModal {...defaultProps} onPick={onPick} />);
+    fireEvent.click(screen.getByText('Expression'));
+    fireEvent.click(screen.getByText('InsertExpr'));
+    expect(onPick).toHaveBeenCalledWith('{{$upper(x)}}');
   });
 
-  it('bottom expand button also toggles expanded state', () => {
+  it('expression tab adds compose token when compose mode is on', () => {
     render(<WorkflowVariableInsertModal {...defaultProps} />);
-    const modal = document.body.querySelector('.wf-var-insert-modal')!;
-    const bottomBtn = document.body.querySelector('.modal-expand-btn-bottom')!;
-    fireEvent.click(bottomBtn);
-    expect(modal.classList.contains('modal-fullscreen')).toBe(true);
-    expect(bottomBtn.getAttribute('aria-label')).toBe('Shrink modal');
+    fireEvent.click(screen.getByLabelText('Compose mode'));
+    fireEvent.click(screen.getByText('Expression'));
+    fireEvent.click(screen.getByText('InsertExpr'));
+    expect(document.querySelector('.wf-compose-token-expression')).toBeTruthy();
+    expect(document.querySelector('.wf-compose-strip-preview-value')?.textContent).toContain('$upper(x)');
   });
 
-  it('resets expanded state when modal closes and reopens', () => {
-    const { rerender } = render(<WorkflowVariableInsertModal {...defaultProps} />);
-    fireEvent.click(document.body.querySelector('.modal-expand-btn')!);
-    rerender(<WorkflowVariableInsertModal {...defaultProps} open={false} />);
-    rerender(<WorkflowVariableInsertModal {...defaultProps} open={true} />);
-    const modal = document.body.querySelector('.wf-var-insert-modal')!;
-    expect(modal.classList.contains('modal-fullscreen')).toBe(false);
+  it('parses node refs without quotes in varName', () => {
+    const src: WorkflowVariableHintSource = { nodeId: 'step1', nodeLabel: 'Step X', nodeType: 'http', category: 'HTTP Steps' };
+    const hints: WorkflowVariableHint[] = [
+      { ref: 'node:step1.foo', label: 'foo', source: src },
+    ];
+    render(<WorkflowVariableInsertModal {...defaultProps} hints={hints} />);
+    const rows = document.body.querySelectorAll('.wf-var-insert-var-row');
+    expect(rows[0].textContent).toContain('foo');
+  });
+
+  it('keeps hover details when leaving a row that is not the active hover target', () => {
+    render(<WorkflowVariableInsertModal {...defaultProps} />);
+    const rows = document.body.querySelectorAll('.wf-var-insert-var-row');
+    fireEvent.mouseEnter(rows[0]);
+    fireEvent.mouseEnter(rows[1]);
+    fireEvent.mouseLeave(rows[0]);
+    expect(screen.getByText('HTTP status')).toBeTruthy();
+  });
+
+  it('replaces unscoped hint with scoped when both share a name', () => {
+    const dedupHints: WorkflowVariableHint[] = [
+      { ref: 'token', label: 'latest', source: stepASource },
+      { ref: 'node:"Step A".token', label: 'scoped', source: stepASource },
+    ];
+    render(<WorkflowVariableInsertModal {...defaultProps} hints={dedupHints} />);
+    const rows = document.body.querySelectorAll('.wf-var-insert-var-row');
+    expect(rows.length).toBe(1);
+    expect(rows[0].textContent).toContain('node:"Step A".token');
   });
 });

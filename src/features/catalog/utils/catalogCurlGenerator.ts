@@ -111,12 +111,15 @@ export async function buildDefaultCurlCommand(
 
 export function extractServerPathPrefix(servers: CatalogServer[]): string {
   if (servers.length === 0) return '';
+  const raw = servers[0].url;
   try {
-    const parsed = new URL(servers[0].url);
+    const parsed = new URL(raw);
     const p = parsed.pathname.replace(/\/+$/, '');
     return p === '/' ? '' : p;
   } catch {
-    return '';
+    if (!raw.startsWith('/')) return '';
+    const trimmed = raw.replace(/\/+$/, '');
+    return trimmed || '';
   }
 }
 
@@ -151,6 +154,16 @@ export function resolveBaseUrl(
   return '';
 }
 
+function extractPathSuffix(baseUrl: string): string {
+  try {
+    const parsed = new URL(baseUrl);
+    const p = parsed.pathname.replace(/\/+$/, '');
+    return p === '' || p === '/' ? '' : p;
+  } catch {
+    return '';
+  }
+}
+
 export function buildFullUrl(
   baseUrl: string,
   path: string,
@@ -170,6 +183,12 @@ export function buildFullUrl(
     if (value) queryParts.push(`${encodeURIComponent(p.name)}=${encodeURIComponent(value)}`);
   }
 
-  const full = `${baseUrl}${resolvedPath}`;
+  const normalizedPath = resolvedPath.startsWith('/') ? resolvedPath : `/${resolvedPath}`;
+  const baseNoTrail = baseUrl.replace(/\/+$/, '');
+  const pathPrefix = extractPathSuffix(baseNoTrail);
+  const effectivePath = pathPrefix && normalizedPath.startsWith(pathPrefix)
+    ? normalizedPath.slice(pathPrefix.length) || '/'
+    : normalizedPath;
+  const full = `${baseNoTrail}${effectivePath}`;
   return queryParts.length > 0 ? `${full}?${queryParts.join('&')}` : full;
 }

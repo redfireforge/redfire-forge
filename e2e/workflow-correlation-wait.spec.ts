@@ -157,12 +157,12 @@ test.describe('Correlation Wait Node — Config Modal', () => {
     await expect(labelInput).toHaveValue('Wait for Payment');
   });
 
-  test('config modal closes on Cancel', async ({ page }) => {
+  test('config modal closes on Close button', async ({ page }) => {
     await page.locator('.wf-node-correlationWait .wf-node-configure-badge').click();
     const modal = page.locator('[aria-labelledby="wf-config-modal-title"]');
     await expect(modal).toBeVisible({ timeout: 3000 });
-    await modal.getByRole('button', { name: 'Cancel' }).click();
-    await expect(modal).not.toBeVisible();
+    await modal.getByRole('button', { name: 'Close' }).click();
+    await expect(modal).not.toBeVisible({ timeout: 3000 });
   });
 });
 
@@ -241,12 +241,21 @@ test.describe('Correlation Wait Node — Test Webhook', () => {
 test.describe('Execution History — Paused Tab', () => {
   test('paused filter option exists in execution history', async ({ page }) => {
     await seedAppData(page);
+
+    // Mock API endpoints so the component renders without a real backend
+    await page.route('**/api/executions*', route =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ executions: [] }) })
+    );
+    await page.route('**/api/correlations', route =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ correlations: [] }) })
+    );
+
     await page.goto('/?tab=workflow-executions');
     await page.waitForSelector('.app-header', { timeout: 10000 });
     await page.waitForLoadState('networkidle');
 
     // The dropdown should have a paused option
-    const select = page.locator('.exh-filter-dropdown select, .exh-controls select').first();
+    const select = page.locator('.exh-select').first();
     await expect(select).toBeVisible({ timeout: 5000 });
     const options = await select.locator('option').allTextContents();
     const hasPaused = options.some(t => t.includes('Paused'));

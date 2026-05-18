@@ -16,7 +16,7 @@ defaults:
 
 config:
   concurrency: 1
-  transactions: 3
+  iterations: 3
 
 tests:
   - name: Token Has Valid Format and Future Expiry

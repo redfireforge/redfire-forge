@@ -8,7 +8,16 @@
 
 export type GalleryDifficulty = 'easy' | 'medium' | 'advanced';
 
-export type GalleryDomain = 'requests' | 'catalog' | 'tests' | 'workflows' | 'assertions';
+export type GalleryDomain = 'requests' | 'catalog' | 'tests' | 'workflows' | 'assertions' | 'data-mapper';
+
+/** Reference to a training manual related to a gallery sample. */
+export interface RelatedManual {
+  title: string;
+  description: string;
+  difficulty: GalleryDifficulty;
+  /** Relative path from docs/training-manuals/ */
+  path: string;
+}
 
 export interface GalleryEntry<T> {
   id: string;
@@ -27,4 +36,9 @@ export interface GalleryEntry<T> {
    * (value is the id of the main sample). Used to group pairs in the gallery.
    */
   simulatorOf?: string;
+  /**
+   * Training manuals related to this sample. Built automatically from training paths
+   * that reference this sample's ID via sampleId.
+   */
+  relatedManuals?: RelatedManual[];
 }

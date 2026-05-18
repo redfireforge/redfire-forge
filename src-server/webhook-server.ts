@@ -8,8 +8,7 @@ import {
 } from './file-storage.js';
 import { extractWebhookVariables } from './webhook-extractor.js';
 import { executeWorkflow, saveErrorResult } from './executeWorkflow.js';
-import { createCorrelationRouter, setCorrelationStore } from './correlation-handler.js';
-import { createCorrelationStore } from './correlation-store-factory.js';
+import { createCorrelationRouter } from './correlation-handler.js';
 import type { WebhookTriggerNodeData } from '../src/features/workflow/types/workflow';
 import type { LogLine } from '../src/shared/types/server-api';
 import { generateExecutionId, getErrorMessage } from '../src/features/test-runner/utils/serverFormatters';
@@ -127,8 +126,11 @@ app.all('/webhooks/:workflowId/:triggerId', async (req: Request, res: Response) 
   const { method, headers, query, body } = req;
   const startTime = Date.now();
   const executionId = generateExecutionId(workflowId, triggerId);
+  
+  // Check for trace capture request via query parameter
+  const captureTrace = query._trace === 'true' || query._trace === '1';
 
-  console.log(`[Webhook] Received ${method} /webhooks/${workflowId}/${triggerId}`);
+  console.log(`[Webhook] Received ${method} /webhooks/${workflowId}/${triggerId}${captureTrace ? ' (trace capture enabled)' : ''}`);
 
   try {
     // 1. Load workflow from AppData
@@ -185,6 +187,7 @@ app.all('/webhooks/:workflowId/:triggerId', async (req: Request, res: Response) 
       triggerId,
       startTime,
       onLog: broadcastLog,
+      traceOptions: captureTrace ? { captureFullTrace: true, alwaysCaptureFailures: true } : undefined,
     });
 
     // 6. Log webhook delivery
@@ -199,7 +202,7 @@ app.all('/webhooks/:workflowId/:triggerId', async (req: Request, res: Response) 
 
     // 7. Return results
     console.log(`[Webhook] Execution successful: ${executionId}`);
-    res.status(200).json({
+    const response: Record<string, unknown> = {
       message: 'Workflow executed successfully',
       executionId,
       workflowId,
@@ -214,7 +217,14 @@ app.all('/webhooks/:workflowId/:triggerId', async (req: Request, res: Response) 
         responseTime: r.responseTimeMs,
         passed: r.passed,
       })),
-    });
+    };
+    
+    // Include iteration trace if capture was requested
+    if (captureTrace && result.iterationTrace) {
+      response.iterationTrace = result.iterationTrace;
+    }
+    
+    res.status(200).json(response);
   } catch (error) {
     const totalDuration = Date.now() - startTime;
     const errorMessage = getErrorMessage(error);
@@ -271,6 +281,13 @@ app.get('/api/logs/stream', (req: Request, res: Response) => {
   });
 });
 
+// Covered by tests via next(err) — only registered under Vitest.
+if (process.env.VITEST) {
+  app.get('/__vitest_unhandled_error__', (_req: Request, _res: Response, next) => {
+    next(new Error('vitest'));
+  });
+}
+
 // 404 handler
 app.use((req: Request, res: Response) => {
   res.status(404).json({
@@ -281,7 +298,7 @@ app.use((req: Request, res: Response) => {
 });
 
 // Error handler
-app.use((err: Error, req: Request, res: Response, next: Function) => {
+app.use((err: Error, _req: Request, res: Response, _next: (...args: unknown[]) => void) => {
   console.error('[Server] Unhandled error:', err);
   res.status(500).json({
     error: 'Internal server error',

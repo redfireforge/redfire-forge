@@ -43,7 +43,7 @@ interface UseWorkflowNodeActionsOpts {
   create: (name: string) => void;
   toast: ToastApi;
   /** Shared Y-cursor ref for placing newly-added nodes; provided by parent so other hooks can read/advance it. */
-  nextNodeY: React.MutableRefObject<number>;
+  nextNodeYRef: React.MutableRefObject<number>;
 }
 
 export function useWorkflowNodeActions({
@@ -70,14 +70,14 @@ export function useWorkflowNodeActions({
   workflows,
   create,
   toast,
-  nextNodeY,
+  nextNodeYRef,
 }: UseWorkflowNodeActionsOpts) {
 
   const addNodeToCanvas = useCallback((type: WorkflowNodeType, data?: WorkflowNodeData) => {
     if (!selected) return;
     undoRedo.takeSnapshot('Add node');
-    const y = nextNodeY.current;
-    nextNodeY.current += 120;
+    const y = nextNodeYRef.current;
+    nextNodeYRef.current += 120;
     const newNode: WorkflowRFNode = {
       id: uuidv4(),
       type,
@@ -122,6 +122,9 @@ export function useWorkflowNodeActions({
       id: uuidv4(), name: req.name, url: req.url, method: req.method as Scenario['method'],
       headers: req.headers ?? [], body: req.body ?? '', bodyType: req.bodyType,
       bodyForm: req.bodyForm, auth: req.auth ?? { type: 'none' }, validation: { mode: 'none' },
+      sourceRequestId: req.id,
+      sourceSpecVersionId: req.activeSpecVersionId,
+      sourceSpecVersionLabel: req.specVersions?.find(v => v.id === req.activeSpecVersionId)?.catalogVersion,
     };
     const hostPatch = resolveQuickTestHostForRequest(
       col,
@@ -136,6 +139,9 @@ export function useWorkflowNodeActions({
       scenario,
       sourceType: 'requests',
       sourceId: req.id,
+      sourceSpecVersionId: req.activeSpecVersionId,
+      sourceSpecVersionLabel: req.specVersions?.find(v => v.id === req.activeSpecVersionId)?.catalogVersion,
+      specVersionMode: 'latest',
       ...hostPatch,
     };
     addNodeToCanvas('http', data);
@@ -221,11 +227,11 @@ export function useWorkflowNodeActions({
     setEdges((eds) => eds.filter((e) => !result.extractedEdgeIds.has(e.id)));
     queueMicrotask(() => persistWorkflow());
     toast.show('success', 'Extracted', `Created sub-workflow "${childName.trim()}"`);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- undoRedo, create, update object identity
+     
   }, [selected, serializeNodes, serializeEdges, workflows, create, update, setNodes, setEdges, persistWorkflow, toast, nodesRef, edgesRef, undoRedo]);
 
   return {
-    nextNodeY,
+    nextNodeYRef,
     addNodeToCanvas,
     handleAddNode,
     handleAddFromRequest,

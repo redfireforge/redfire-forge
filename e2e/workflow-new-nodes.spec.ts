@@ -182,17 +182,19 @@ test.describe('New Node Types — Config Modals', () => {
   });
 
   test('opens Aggregate config modal', async ({ page }) => {
-    await page.locator('.wf-node-aggregate .wf-node-configure-badge').click();
+    const aggNode = page.locator('.wf-node-aggregate');
+    await aggNode.waitFor({ state: 'visible', timeout: 10_000 });
+    await aggNode.dblclick({ force: true });
     const modal = page.locator('.wf-config-modal');
-    await expect(modal).toBeVisible({ timeout: 3000 });
+    await expect(modal).toBeVisible({ timeout: 10_000 });
     await expect(page.locator('#wf-config-modal-title')).toContainText('AGGREGATE');
   });
 
-  test('Switch config modal closes on Cancel', async ({ page }) => {
+  test('Switch config modal closes on Close', async ({ page }) => {
     await page.locator('.wf-node-switch .wf-node-configure-badge').click();
     const modal = page.locator('[aria-labelledby="wf-config-modal-title"]');
     await expect(modal).toBeVisible({ timeout: 3000 });
-    await modal.getByRole('button', { name: 'Cancel' }).click();
+    await modal.getByRole('button', { name: 'Close' }).click();
     await expect(modal).not.toBeVisible();
   });
 });

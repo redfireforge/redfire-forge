@@ -3,6 +3,7 @@ import type { CorrelationWaitNodeData } from '../../types/workflow';
 import { useNodeBase } from './useNodeBase';
 import { NodeIcon, getNodeCategory } from './NodeIcon';
 import { NodePausedOverlay } from './NodePausedOverlay';
+import { NodeStatusBadge } from './NodeStatusBadge';
 import { NodeConfigureButton } from './NodeConfigureButton';
 
 type CorrelationWaitWorkflowNode = Node<CorrelationWaitNodeData, 'correlationWait'>;
@@ -35,18 +36,22 @@ export default function CorrelationWaitNode({ id, data, selected }: Props) {
       </div>
       <div className="wf-correlation-details">
         <div className="wf-correlation-id" title={data.correlationIdExpression}>
-          🔗 {corrIdPreview}
+          <svg className="wf-inline-icon" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></svg>
+          {corrIdPreview}
         </div>
         <div className="wf-correlation-path" title={data.webhookPath}>
-          📡 {data.webhookPath || '/webhooks/...'}
+          <svg className="wf-inline-icon" viewBox="0 0 24 24"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7S2 12 2 12z" /><circle cx="12" cy="12" r="3" /></svg>
+          {data.webhookPath || '/webhooks/...'}
         </div>
         <div className="wf-correlation-timeout">
-          ⏱ {formatTimeout(data.timeoutMs)}
+          <svg className="wf-inline-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
+          {formatTimeout(data.timeoutMs)}
         </div>
       </div>
       <div className="wf-node-footer">
         <NodeConfigureButton title="Configure correlation wait" onClick={handleConfigure} />
       </div>
+      <NodeStatusBadge rs={rs} />
       <NodePausedOverlay nodeId={id} state={rs?.state} debugStep={debugStep} />
       <Handle type="target" position={Position.Top} className="wf-handle" />
       <Handle type="source" position={Position.Bottom} id="out" className="wf-handle" />

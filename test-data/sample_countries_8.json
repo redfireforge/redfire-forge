@@ -1,0 +1,24 @@
+{
+  "version": "1.0",
+  "metadata": {
+    "name": "Country Validation Suite",
+    "description": "8 countries with expected capitals and regions — for REST Countries API validation",
+    "api": "https://restcountries.com/v3.1/name/{{name}}",
+    "exportedFrom": "RedfireForge"
+  },
+  "columns": [
+    { "name": "name", "type": "path", "mapping": "name" },
+    { "name": "expectedCapital", "type": "validate", "mapping": "$[0].capital[0]" },
+    { "name": "expectedRegion", "type": "validate", "mapping": "$[0].region" }
+  ],
+  "rows": [
+    { "name": "japan",     "expectedCapital": "Tokyo",     "expectedRegion": "Asia" },
+    { "name": "france",    "expectedCapital": "Paris",     "expectedRegion": "Europe" },
+    { "name": "brazil",    "expectedCapital": "Brasília",  "expectedRegion": "Americas" },
+    { "name": "australia", "expectedCapital": "Canberra",  "expectedRegion": "Oceania" },
+    { "name": "egypt",     "expectedCapital": "Cairo",     "expectedRegion": "Africa" },
+    { "name": "canada",    "expectedCapital": "Ottawa",    "expectedRegion": "Americas" },
+    { "name": "germany",   "expectedCapital": "Berlin",    "expectedRegion": "Europe" },
+    { "name": "india",     "expectedCapital": "New Delhi", "expectedRegion": "Asia" }
+  ]
+}

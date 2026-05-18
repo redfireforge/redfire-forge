@@ -1,37 +1,90 @@
-import { useState, useMemo, useEffect, useCallback, Fragment } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef, Fragment } from 'react';
 import type { TestRun, RequestResult } from '../../shared/types';
 import ResponseDetailModal from '../requests/components/ResponseDetailModal';
 import { AggregatedTimingTable } from '../test-runner/components/WaterfallBar';
-import { loadTestRuns, deleteTestRun } from '../../shared/utils/storage';
+import { loadTestRunsLite, loadTraceForRun, deleteTestRun } from '../../shared/utils/storage';
 import { exportJson, exportCsv } from '../../shared/utils/export';
-import { buildGroups, type GroupByLevel, type GroupNode } from '../test-runner/utils/resultsGrouping';
+import { buildGroups, hasWorkflowData, type GroupByLevel, type GroupNode } from '../test-runner/utils/resultsGrouping';
 import { thinkTimeLabel } from '../test-runner/utils/runnerProgressStorage';
 import { RunComparisonPanel, TrendChart } from './components/RunComparisonPanel';
 import { ResponseTimeHistogram } from './components/ResponseTimeHistogram';
+import { DataRowSummaryTable } from './components/DataRowSummaryTable';
+import { WorkflowResultsSummary } from './components/WorkflowResultsSummary';
+import { generateReport, downloadReport } from './utils/reportGenerator';
 import { loadBaselines, markAsBaseline, unmarkBaseline, isBaseline, type BaselineMark } from './utils/runBaselines';
+import WorkflowResultsExplorerModal from './components/WorkflowResultsExplorerModal';
+import { hasExecutionTrace, decompressTrace, validateTrace } from '../../shared/utils/traceCompression';
+import type { WorkflowExecutionTrace } from '../../shared/types';
 
 interface Props {
   envName?: string;
   svcName?: string;
+  onRerunFailed?: (run: TestRun, failedRowIds: string[]) => void;
+  isRerunning?: boolean;
+  /** Initial run type filter (can be set from post-run navigation) */
+  initialRunTypeFilter?: 'all' | 'test' | 'workflow';
 }
 
-export default function ResultsDashboard({ envName, svcName }: Props) {
+type RunTypeFilter = 'all' | 'test' | 'workflow';
+
+export default function ResultsDashboard({ envName, svcName, onRerunFailed, isRerunning, initialRunTypeFilter }: Props) {
   const [allRuns, setAllRuns] = useState<TestRun[]>([]);
   const [baselines, setBaselines] = useState<BaselineMark[]>([]);
   const [compareBaselineId, setCompareBaselineId] = useState<string>('');
   const [showTrend, setShowTrend] = useState(false);
+  const [runTypeFilter, setRunTypeFilter] = useState<RunTypeFilter>(initialRunTypeFilter ?? 'all');
+
+  // Update filter when initialRunTypeFilter changes (e.g., from post-run navigation)
+  useEffect(() => {
+    if (initialRunTypeFilter) {
+      setRunTypeFilter(initialRunTypeFilter);
+    }
+  }, [initialRunTypeFilter]);
+
+  const prevRerunning = useRef(false);
 
   useEffect(() => {
-    loadTestRuns().then(setAllRuns);
+    loadTestRunsLite().then(setAllRuns);
     loadBaselines().then(setBaselines);
   }, []);
 
+  // Auto-refresh when a re-run completes
+  useEffect(() => {
+    if (prevRerunning.current && !isRerunning) {
+      loadTestRunsLite().then(setAllRuns);
+    }
+    prevRerunning.current = !!isRerunning;
+  }, [isRerunning]);
+
   const runs = useMemo(() => {
     return allRuns.filter((r) => {
+      // For workflow runs, don't filter by env/svc since workflows aren't microservice-specific
+      const isWorkflowRun = r.config.executionMode === 'workflow';
+      if (!isWorkflowRun) {
+        if (envName && r.envName !== envName) return false;
+        if (svcName && r.svcName !== svcName) return false;
+      }
+      // Filter by run type
+      if (runTypeFilter === 'workflow' && !isWorkflowRun) return false;
+      if (runTypeFilter === 'test' && isWorkflowRun) return false;
+      return true;
+    });
+  }, [allRuns, envName, svcName, runTypeFilter]);
+
+  const runCounts = useMemo(() => {
+    // Test runs are filtered by env/svc, workflow runs are not
+    const testRuns = allRuns.filter((r) => {
+      if (r.config.executionMode === 'workflow') return false;
       if (envName && r.envName !== envName) return false;
       if (svcName && r.svcName !== svcName) return false;
       return true;
     });
+    const workflowRuns = allRuns.filter(r => r.config.executionMode === 'workflow');
+    return {
+      all: testRuns.length + workflowRuns.length,
+      test: testRuns.length,
+      workflow: workflowRuns.length,
+    };
   }, [allRuns, envName, svcName]);
 
   const [selectedRunId, setSelectedRunId] = useState<string>(runs[0]?.id ?? '');
@@ -42,6 +95,9 @@ export default function ResultsDashboard({ envName, svcName }: Props) {
   const [searchTerm, setSearchTerm] = useState('');
   const [page, setPage] = useState(0);
   const pageSize = 50;
+  const [showReplayModal, setShowReplayModal] = useState(false);
+  const [replayTrace, setReplayTrace] = useState<WorkflowExecutionTrace | null>(null);
+  const [traceLoading, setTraceLoading] = useState(false);
 
   useEffect(() => {
     if (runs.length > 0 && !runs.find((r) => r.id === selectedRunId)) {
@@ -53,6 +109,32 @@ export default function ResultsDashboard({ envName, svcName }: Props) {
 
   const selectedRun = runs.find((r) => r.id === selectedRunId) ?? null;
   const summary = selectedRun?.summary ?? null;
+
+  const handleOpenResultsExplorer = useCallback(async () => {
+    if (!selectedRun) return;
+    if (selectedRun.executionTrace) {
+      setReplayTrace(selectedRun.executionTrace);
+      setShowReplayModal(true);
+      return;
+    }
+    if (selectedRun.compressedTrace) {
+      setReplayTrace(decompressTrace(selectedRun.compressedTrace));
+      setShowReplayModal(true);
+      return;
+    }
+    if (selectedRun.hasTrace) {
+      setTraceLoading(true);
+      try {
+        const compressed = await loadTraceForRun(selectedRun.id);
+        if (compressed) {
+          setReplayTrace(decompressTrace(compressed));
+          setShowReplayModal(true);
+        }
+      } finally {
+        setTraceLoading(false);
+      }
+    }
+  }, [selectedRun]);
 
   const handleDelete = async (runId: string) => {
     await deleteTestRun(runId);
@@ -69,11 +151,36 @@ export default function ResultsDashboard({ envName, svcName }: Props) {
   };
 
   const refreshRuns = async () => {
-    const fresh = await loadTestRuns();
+    const fresh = await loadTestRunsLite();
     setAllRuns(fresh);
     const bl = await loadBaselines();
     setBaselines(bl);
   };
+
+  const importFileRef = useRef<HTMLInputElement>(null);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [importedFileName, setImportedFileName] = useState<string | null>(null);
+
+  const handleImportTrace = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImportError(null);
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const data = JSON.parse(reader.result as string);
+        const trace = validateTrace(data);
+        setReplayTrace(trace);
+        setImportedFileName(file.name);
+        setShowReplayModal(true);
+      } catch (err) {
+        setImportError(err instanceof Error ? err.message : 'Failed to parse trace file');
+      }
+    };
+    reader.onerror = () => setImportError('Failed to read file');
+    reader.readAsText(file);
+    e.target.value = '';
+  }, []);
 
   const toggleBaseline = useCallback(async (runId: string) => {
     if (isBaseline(baselines, runId)) {
@@ -96,12 +203,14 @@ export default function ResultsDashboard({ envName, svcName }: Props) {
     return selectedRun.results.filter((r) => {
       if (filterPassed === 'passed' && !r.passed) return false;
       if (filterPassed === 'failed' && r.passed) return false;
+      if (filterPassed === 'failed-data-rows' && (r.passed || !r.dataRowId)) return false;
       if (q && !(
         r.scenarioName.toLowerCase().includes(q) ||
         r.url.toLowerCase().includes(q) ||
         (r.featureGroupName?.toLowerCase().includes(q)) ||
         (r.groupName?.toLowerCase().includes(q)) ||
-        (r.errorMessage?.toLowerCase().includes(q))
+        (r.errorMessage?.toLowerCase().includes(q)) ||
+        (r.dataRowLabel?.toLowerCase().includes(q))
       )) return false;
       return true;
     });
@@ -109,14 +218,18 @@ export default function ResultsDashboard({ envName, svcName }: Props) {
 
 
   const groupLevels: GroupByLevel[] = useMemo(() => {
+    if (groupBy === 'test' && subGroupBy === 'dataRow') return ['test', 'dataRow'];
     if (groupBy === 'test') return ['test'];
     if (groupBy === 'group') return subGroupBy === 'test' ? ['group', 'test'] : ['group'];
+    // Workflow grouping options
+    if (groupBy === 'iteration') return subGroupBy === 'workflowStep' ? ['iteration', 'workflowStep'] : ['iteration'];
+    if (groupBy === 'workflowStep') return subGroupBy === 'iteration' ? ['workflowStep', 'iteration'] : ['workflowStep'];
     // feature
     if (subGroupBy === 'group') return ['feature', 'group'];
     return ['feature', 'test'];
   }, [groupBy, subGroupBy]);
 
-  const isFlat = groupBy === 'test';
+  const isFlat = groupBy === 'test' && subGroupBy !== 'dataRow';
 
   const groupTree = useMemo(() => {
     if (isFlat) return [];
@@ -152,20 +265,43 @@ export default function ResultsDashboard({ envName, svcName }: Props) {
     });
   };
 
+  const isWorkflowRun = selectedRun?.config.executionMode === 'workflow' && hasWorkflowData(selectedRun.results);
+
   const subGroupOptions = useMemo((): { value: GroupByLevel; label: string }[] => {
     if (groupBy === 'feature') return [{ value: 'group', label: 'Then by Scenario' }, { value: 'test', label: 'Then by Test Name' }];
     if (groupBy === 'group') return [{ value: 'test', label: 'Then by Test Name' }];
+    if (groupBy === 'test') {
+      const hasDataRows = filteredResults.some(r => r.dataRowId);
+      if (hasDataRows) return [{ value: 'dataRow', label: 'Then by Data Row' }];
+    }
+    if (groupBy === 'iteration') return [{ value: 'workflowStep', label: 'Then by Step' }];
+    if (groupBy === 'workflowStep') return [{ value: 'iteration', label: 'Then by Iteration' }];
     return [];
-  }, [groupBy]);
+  }, [groupBy, filteredResults]);
 
   const handleGroupByChange = (val: GroupByLevel) => {
     setGroupBy(val);
     setExpanded(new Set());
     if (val === 'feature') setSubGroupBy('group');
     else if (val === 'group') setSubGroupBy('test');
+    else if (val === 'test') setSubGroupBy('test'); // reset; user can pick dataRow from sub-group
+    else if (val === 'iteration') setSubGroupBy('workflowStep');
+    else if (val === 'workflowStep') setSubGroupBy('iteration');
   };
 
   const [responseModal, setResponseModal] = useState<RequestResult | null>(null);
+  const [reportMenuOpen, setReportMenuOpen] = useState(false);
+
+  const handleGenerateReport = (format: 'html' | 'json' | 'markdown') => {
+    if (!selectedRun) return;
+    const content = generateReport(selectedRun, { format });
+    const date = new Date(selectedRun.timestamp).toISOString().slice(0, 10);
+    const base = [selectedRun.svcName, selectedRun.envName, date].filter(Boolean).join('_');
+    const ext = format === 'markdown' ? 'md' : format;
+    const mime = format === 'html' ? 'text/html' : format === 'json' ? 'application/json' : 'text/markdown';
+    downloadReport(content, `${base}_report.${ext}`, mime);
+    setReportMenuOpen(false);
+  };
 
   const renderErrorSnippet = (r: RequestResult) => {
     const hasError = !r.passed && (r.errorMessage || r.responseBody);
@@ -188,6 +324,7 @@ export default function ResultsDashboard({ envName, svcName }: Props) {
       <td className="group-detail-name">
         <span className={`method-badge method-${r.method.toLowerCase()}`}>{r.method}</span>
         {' '}{r.scenarioName}
+        {r.dataRowLabel && <span className="data-row-label">{r.dataRowLabel}</span>}
       </td>
       <td colSpan={2} className="url-cell">{r.url}</td>
       <td>{r.httpStatus || 'ERR'}</td>
@@ -231,17 +368,26 @@ export default function ResultsDashboard({ envName, svcName }: Props) {
         {isOpen && hasChildren && g.children.map((child) => renderGroupRow(child, depth + 1, nodeKey))}
         {isOpen && !hasChildren && (
           <>
-            <tr className="detail-header-row">
-              <th></th>
-              <th>Test Name</th>
-              <th colSpan={2}>URL</th>
-              <th>Status</th>
-              <th>Validation</th>
-              <th>Time (ms)</th>
-              <th>Passed</th>
-              <th>Error / Details</th>
-            </tr>
-            {g.results.map(renderDetailRow)}
+            {g.results.some(r => r.dataRowId) && (
+              <tr><td colSpan={9} className="data-row-summary-cell">
+                <DataRowSummaryTable results={g.results} scenarioName={g.key} onResultClick={setResponseModal} />
+              </td></tr>
+            )}
+            {!g.results.some(r => r.dataRowId) && (
+              <>
+                <tr className="detail-header-row">
+                  <th></th>
+                  <th>Test Name</th>
+                  <th colSpan={2}>URL</th>
+                  <th>Status</th>
+                  <th>Validation</th>
+                  <th>Time (ms)</th>
+                  <th>Passed</th>
+                  <th>Error / Details</th>
+                </tr>
+                {g.results.map(renderDetailRow)}
+              </>
+            )}
           </>
         )}
       </Fragment>
@@ -253,9 +399,23 @@ export default function ResultsDashboard({ envName, svcName }: Props) {
       <div className="page">
         <div className="page-header">
           <h2>Results</h2>
-          <button className="btn" onClick={refreshRuns}>Refresh</button>
+          <div className="results-top-actions">
+            <button className="btn" onClick={refreshRuns}>Refresh</button>
+            <button className="btn" onClick={() => importFileRef.current?.click()} title="Import a previously exported trace JSON file">
+              📂 Import Trace
+            </button>
+            <input ref={importFileRef} type="file" accept=".json" onChange={handleImportTrace} style={{ display: 'none' }} data-testid="import-trace-input" />
+          </div>
         </div>
+        {importError && <div className="results-import-error">{importError}</div>}
         <div className="empty-state">No test runs yet. Run a test first.</div>
+        {showReplayModal && replayTrace && (
+          <WorkflowResultsExplorerModal
+            trace={replayTrace}
+            onClose={() => { setShowReplayModal(false); setReplayTrace(null); setImportedFileName(null); }}
+            importedFileName={importedFileName ?? undefined}
+          />
+        )}
       </div>
     );
   }
@@ -267,12 +427,18 @@ export default function ResultsDashboard({ envName, svcName }: Props) {
           <h2>Results</h2>
           {selectedRun && (
             <div className="context-tags">
-              {selectedRun.svcName && <span className="context-tag svc-tag">{selectedRun.svcName}</span>}
+              {/* Hide svcName for workflow runs — microservice context doesn't apply */}
+              {selectedRun.svcName && selectedRun.config.executionMode !== 'workflow' && (
+                <span className="context-tag svc-tag">{selectedRun.svcName}</span>
+              )}
               {selectedRun.envName && <span className="context-tag env-tag">{selectedRun.envName}</span>}
-              {selectedRun.baseUrl
-                ? <span className="context-tag base-url-tag" title={selectedRun.baseUrl}>Host: {selectedRun.baseUrl}</span>
-                : <span className="context-tag base-url-tag hardcoded">Host: hardcoded</span>
-              }
+              {selectedRun.config.executionMode === 'workflow' && selectedRun.workflowName ? (
+                <span className="context-tag workflow-name-tag" title={selectedRun.workflowName}>⚡ {selectedRun.workflowName}</span>
+              ) : selectedRun.baseUrl ? (
+                <span className="context-tag base-url-tag" title={selectedRun.baseUrl}>Host: {selectedRun.baseUrl}</span>
+              ) : (
+                <span className="context-tag base-url-tag hardcoded">Host: hardcoded</span>
+              )}
               <span className="context-tag exec-mode-tag">
                 {selectedRun.config.executionMode === 'load-profile' && selectedRun.config.loadProfile ? (
                   <>
@@ -283,8 +449,8 @@ export default function ResultsDashboard({ envName, svcName }: Props) {
                   </>
                 ) : (
                   <>
-                    {selectedRun.config.executionMode === 'pool' ? 'Pool' : selectedRun.config.executionMode === 'sequential' ? 'Sequential' : 'Batch'}
-                    {' · '}C:{selectedRun.config.concurrency}{' · '}T:{selectedRun.config.totalTransactions}
+                    {selectedRun.config.executionMode === 'pool' ? 'Pool' : selectedRun.config.executionMode === 'sequential' ? 'Sequential' : selectedRun.config.executionMode === 'workflow' ? 'Workflow' : 'Batch'}
+                    {' · '}C:{selectedRun.config.concurrency}{' · '}I:{selectedRun.config.iterations}
                   </>
                 )}
               </span>
@@ -293,22 +459,72 @@ export default function ResultsDashboard({ envName, svcName }: Props) {
               )}
             </div>
           )}
+          {importError && <div className="results-import-error">{importError}</div>}
           <div className="results-top-actions">
             <button className="btn" onClick={refreshRuns}>Refresh</button>
+            <button className="btn" onClick={() => importFileRef.current?.click()} title="Import a previously exported trace JSON file">
+              📂 Import Trace
+            </button>
+            <input ref={importFileRef} type="file" accept=".json" onChange={handleImportTrace} style={{ display: 'none' }} data-testid="import-trace-input" />
             {selectedRun && (
               <>
+                {/* Results Explorer button (workflow runs only) */}
+                {hasExecutionTrace(selectedRun) && (
+                  <button
+                    className="btn btn-primary"
+                    onClick={handleOpenResultsExplorer}
+                    disabled={traceLoading}
+                    title="Explore execution results"
+                  >
+                    {traceLoading ? '⏳ Loading trace…' : '📊 Results Explorer'}
+                  </button>
+                )}
                 <button className="btn" onClick={() => exportJson(selectedRun)}>Export JSON</button>
                 <button className="btn" onClick={() => exportCsv(selectedRun.results, selectedRun.envName, selectedRun.svcName)}>Export CSV</button>
+                <div className="report-menu-wrapper">
+                  <button className="btn" onClick={() => setReportMenuOpen(!reportMenuOpen)}>Generate Report ▾</button>
+                  {reportMenuOpen && (
+                    <div className="report-menu-dropdown">
+                      <button className="report-menu-item" onClick={() => handleGenerateReport('html')}>HTML Report</button>
+                      <button className="report-menu-item" onClick={() => handleGenerateReport('json')}>JSON Report</button>
+                      <button className="report-menu-item" onClick={() => handleGenerateReport('markdown')}>Markdown Report</button>
+                    </div>
+                  )}
+                </div>
                 <button className="btn btn-danger btn-sm" onClick={() => handleDelete(selectedRun.id)}>Delete</button>
               </>
             )}
           </div>
         </div>
+        {/* Run Type Filter Tabs */}
+        <div className="results-run-filter-tabs">
+          <button
+            className={`run-filter-tab ${runTypeFilter === 'all' ? 'active' : ''}`}
+            onClick={() => setRunTypeFilter('all')}
+          >
+            All Runs ({runCounts.all})
+          </button>
+          <button
+            className={`run-filter-tab ${runTypeFilter === 'test' ? 'active' : ''}`}
+            onClick={() => setRunTypeFilter('test')}
+          >
+            🧪 Test Runs ({runCounts.test})
+          </button>
+          <button
+            className={`run-filter-tab ${runTypeFilter === 'workflow' ? 'active' : ''}`}
+            onClick={() => setRunTypeFilter('workflow')}
+          >
+            ⚡ Workflow Runs ({runCounts.workflow})
+          </button>
+        </div>
+
         <select className="results-run-select" value={selectedRunId} onChange={(e) => setSelectedRunId(e.target.value)}>
           {runs.map((r) => {
             const bl = isBaseline(baselines, r.id);
+            const isWf = r.config.executionMode === 'workflow';
             const label = [
               bl ? '★' : '',
+              isWf ? '⚡' : '🧪',
               new Date(r.timestamp).toLocaleString(),
               r.projectName,
               r.svcName,
@@ -390,8 +606,22 @@ export default function ResultsDashboard({ envName, svcName }: Props) {
             </div>
             <div className="metric-card">
               <div className="metric-value">{summary.avgResponseTime} ms</div>
-              <div className="metric-label">Avg Response</div>
+              <div className="metric-label">
+                Avg Response
+                {summary.avgIterationTime !== undefined && (
+                  <span className="metric-info" data-tooltip="Average HTTP request duration">ⓘ</span>
+                )}
+              </div>
             </div>
+            {summary.avgIterationTime !== undefined && (
+              <div className="metric-card highlight">
+                <div className="metric-value">{summary.avgIterationTime} ms</div>
+                <div className="metric-label">
+                  Avg Iteration
+                  <span className="metric-info" data-tooltip="Average workflow iteration duration (all nodes)">ⓘ</span>
+                </div>
+              </div>
+            )}
             <div className="metric-card">
               <div className="metric-value">{summary.minResponseTime} ms</div>
               <div className="metric-label">Min</div>
@@ -434,6 +664,27 @@ export default function ResultsDashboard({ envName, svcName }: Props) {
         </>
       )}
 
+      {/* Re-run Failed Rows action bar */}
+      {selectedRun && onRerunFailed && (() => {
+        const failedDataRowResults = selectedRun.results.filter(r => !r.passed && r.dataRowId);
+        const failedRowIds = [...new Set(failedDataRowResults.map(r => r.dataRowId!))];
+        if (failedRowIds.length === 0) return null;
+        return (
+          <div className="rerun-failed-bar">
+            <span className="rerun-failed-info">
+              {failedRowIds.length} data row{failedRowIds.length > 1 ? 's' : ''} failed
+            </span>
+            <button
+              className="btn btn-sm btn-warning"
+              disabled={isRerunning}
+              onClick={() => onRerunFailed(selectedRun, failedRowIds)}
+            >
+              {isRerunning ? 'Re-running…' : `Re-run Failed (${failedRowIds.length})`}
+            </button>
+          </div>
+        );
+      })()}
+
       {/* Error breakdown */}
       {summary && Object.keys(summary.errorsByStatus).length > 0 && (
         <div className="section">
@@ -446,6 +697,11 @@ export default function ResultsDashboard({ envName, svcName }: Props) {
             ))}
           </div>
         </div>
+      )}
+
+      {/* Workflow Results Summary */}
+      {selectedRun && selectedRun.config.executionMode === 'workflow' && hasWorkflowData(selectedRun.results) && (
+        <WorkflowResultsSummary run={selectedRun} onResultClick={setResponseModal} />
       )}
 
       {/* Response Time Distribution Chart */}
@@ -464,6 +720,9 @@ export default function ResultsDashboard({ envName, svcName }: Props) {
             <option value="all">All Results</option>
             <option value="passed">Passed Only</option>
             <option value="failed">Failed Only</option>
+            {selectedRun?.results.some(r => r.dataRowId) && (
+              <option value="failed-data-rows">Failed Data Rows</option>
+            )}
           </select>
 
           <div className="group-by-controls">
@@ -472,6 +731,8 @@ export default function ResultsDashboard({ envName, svcName }: Props) {
               <option value="feature">Feature</option>
               <option value="group">Scenario</option>
               <option value="test">Test Name (flat)</option>
+              {isWorkflowRun && <option value="iteration">Iteration</option>}
+              {isWorkflowRun && <option value="workflowStep">Workflow Step</option>}
             </select>
             {subGroupOptions.length > 0 && (
               <select value={subGroupBy} onChange={(e) => { setSubGroupBy(e.target.value as GroupByLevel); setExpanded(new Set()); }}>
@@ -537,7 +798,7 @@ export default function ResultsDashboard({ envName, svcName }: Props) {
               <tbody>
                 {filteredResults.slice(page * pageSize, (page + 1) * pageSize).map((r) => (
                   <tr key={r.id} className={`${r.passed ? '' : 'row-failed'} clickable-row`} onClick={() => setResponseModal(r)}>
-                    <td>{r.scenarioName}</td>
+                    <td>{r.scenarioName}{r.dataRowLabel && <span className="data-row-label">{r.dataRowLabel}</span>}</td>
                     <td><span className={`method-badge method-${r.method.toLowerCase()}`}>{r.method}</span></td>
                     <td className="url-cell">{r.url}</td>
                     <td>{r.httpStatus || 'ERR'}</td>
@@ -572,6 +833,15 @@ export default function ResultsDashboard({ envName, svcName }: Props) {
       </div>
 
       <ResponseDetailModal result={responseModal} onClose={() => setResponseModal(null)} />
+
+      {/* Results Explorer Modal */}
+      {showReplayModal && replayTrace && (
+        <WorkflowResultsExplorerModal
+          trace={replayTrace}
+          onClose={() => { setShowReplayModal(false); setReplayTrace(null); setImportedFileName(null); }}
+          importedFileName={importedFileName ?? undefined}
+        />
+      )}
     </div>
   );
 }

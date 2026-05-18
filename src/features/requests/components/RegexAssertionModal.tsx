@@ -1,8 +1,10 @@
 import { useState, useMemo, useCallback, useEffect, useRef, memo } from 'react';
-import { buildTree, getAllLeafPaths, nodeMatchesSearch } from '../utils/jsonPathTreeUtils';
-import type { JsonNode } from '../utils/jsonPathTreeUtils';
+import { buildJsonTree, getAllLeafPaths, nodeMatchesSearch } from '../../../shared/utils/jsonTreeModel';
+import type { JsonTreeNode } from '../../../shared/utils/jsonTreeModel';
+import type { FetchErrorDetail } from '../../../shared/components/data-mapper/types';
 import { typeColor, getValuePreview, ChevronIcon } from '../../../shared/components/jsonTreeShared';
 import FullPanelModal from '../../../shared/components/FullPanelModal';
+import FetchErrorBanner from '../../../shared/components/data-mapper/FetchErrorBanner';
 import { PATTERN_LIBRARY, testPattern, resolveValue, type PatternEntry } from './regexAssertionUtils';
 export type { MatchResult } from './regexAssertionUtils';
 
@@ -18,7 +20,7 @@ interface Props {
   sampleJson?: string;
   onFetchSampleResponse?: () => void | Promise<void>;
   fetchingResponse?: boolean;
-  fetchError?: string | null;
+  fetchError?: FetchErrorDetail | null;
   onApply: (result: RegexAssertionResult) => void;
   onClose: () => void;
 }
@@ -28,19 +30,16 @@ const CATEGORIES = [...new Set(PATTERN_LIBRARY.map(p => p.category))];
 /* ── Tree Node (click-to-select, no checkboxes) ────── */
 
 interface PickerNodeProps {
-  node: JsonNode;
+  node: JsonTreeNode;
   depth: number;
   selectedPath: string;
   onSelect: (path: string) => void;
   searchTerm: string;
   expandAll?: boolean;
-  /** Set of JSONPath expressions already mapped (shown with a check indicator). */
   mappedPaths?: Set<string>;
-  /** When true, onSelect fires on double-click instead of single-click. */
   selectOnDoubleClick?: boolean;
 }
 
-/** Shared JSON tree row picker (also used by ExtractionPathPickerModal). */
 export const PickerNode = memo(function PickerNode({ node, depth, selectedPath, onSelect, searchTerm, expandAll, mappedPaths, selectOnDoubleClick }: PickerNodeProps) {
   const [manualExpanded, setManualExpanded] = useState<boolean | null>(null);
   const hasChildren = node.children && node.children.length > 0;
@@ -142,7 +141,7 @@ export default function RegexAssertionModal({
   const prevExternalRef = useRef(externalJson);
   useEffect(() => {
     if (externalJson && externalJson !== prevExternalRef.current) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync local copy when external prop updates
+       
       setSampleJson(externalJson);
     }
     prevExternalRef.current = externalJson;
@@ -152,7 +151,7 @@ export default function RegexAssertionModal({
     if (!sampleJson.trim()) return { parsedTree: null, parseError: null };
     try {
       const obj = JSON.parse(sampleJson);
-      return { parsedTree: buildTree(obj, '', '(root)'), parseError: null };
+      return { parsedTree: buildJsonTree(obj, '(root)', ''), parseError: null };
     } catch (e) {
       return { parsedTree: null, parseError: e instanceof Error ? e.message : 'Invalid JSON' };
     }
@@ -216,7 +215,7 @@ export default function RegexAssertionModal({
                 >
                   {fetchingResponse ? 'Fetching...' : 'Fetch Response'}
                 </button>
-                {fetchError && <span className="ram-fetch-error">{fetchError}</span>}
+                {fetchError && <FetchErrorBanner error={fetchError} />}
               </div>
             )}
 

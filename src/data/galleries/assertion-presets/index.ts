@@ -5,6 +5,8 @@ export {
   createTokenExpiryAssertions,
   createPriceGuardAssertions,
   createApiContractAssertions,
+  createDataTypeGuardAssertions,
+  createRequiredFieldsAssertions,
 } from './presets';
 
 import type { AssertionPresetEntry } from './types';
@@ -14,6 +16,8 @@ import {
   createTokenExpiryAssertions,
   createPriceGuardAssertions,
   createApiContractAssertions,
+  createDataTypeGuardAssertions,
+  createRequiredFieldsAssertions,
 } from './presets';
 
 export const ASSERTION_PRESET_CATEGORIES: { key: AssertionPresetEntry['category'] | 'all'; label: string }[] = [
@@ -93,5 +97,33 @@ export const assertionPresetCatalog: AssertionPresetEntry[] = [
     assertionCount: 5,
     assertionTypes: ['status', 'numeric', 'regex'],
     factory: createApiContractAssertions,
+  },
+  {
+    id: 'preset-data-type-guard',
+    domain: 'assertions',
+    name: 'Data Type Guard',
+    description: 'Verify core fields have the expected JSON types (string, number, boolean, array)',
+    icon: '🏷',
+    category: 'data-quality',
+    difficulty: 'easy',
+    tags: ['type', 'typeCheck', 'schema', 'contract'],
+    liveApis: ['jsonplaceholder.typicode.com'],
+    assertionCount: 4,
+    assertionTypes: ['typeCheck'],
+    factory: createDataTypeGuardAssertions,
+  },
+  {
+    id: 'preset-required-fields',
+    domain: 'assertions',
+    name: 'Required Fields Check',
+    description: 'Assert required fields exist and deprecated fields are absent',
+    icon: '🔍',
+    category: 'data-quality',
+    difficulty: 'easy',
+    tags: ['existence', 'required', 'optional', 'field'],
+    liveApis: ['jsonplaceholder.typicode.com'],
+    assertionCount: 4,
+    assertionTypes: ['existence'],
+    factory: createRequiredFieldsAssertions,
   },
 ];

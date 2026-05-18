@@ -36,7 +36,7 @@ describe('NodeConfigOutputTab', () => {
 
   it('renders status code and duration for a passing run', () => {
     render(<NodeConfigOutputTab nodeRunStatus={makeStatus()} />);
-    expect(screen.getByText('200')).toBeTruthy();
+    expect(screen.getAllByText('200').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText('42ms')).toBeTruthy();
     expect(screen.getByText('Last Quick Test')).toBeTruthy();
   });
@@ -96,6 +96,18 @@ describe('NodeConfigOutputTab', () => {
 
   it('falls back to state text when no statusCode', () => {
     render(<NodeConfigOutputTab nodeRunStatus={{ state: 'pass' }} />);
-    expect(screen.getByText(/pass/)).toBeTruthy();
+    expect(screen.getAllByText(/Passed/).length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('shows Result meta card for non-HTTP nodes without statusCode or responseTimeMs', () => {
+    const { container } = render(<NodeConfigOutputTab nodeRunStatus={{ state: 'fail', error: 'timeout' }} />);
+    expect(container.querySelector('.wf-output-meta-label')?.textContent).toBe('Result');
+    expect(screen.getAllByText(/Failed/).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText('timeout')).toBeTruthy();
+  });
+
+  it('shows skipped state label', () => {
+    render(<NodeConfigOutputTab nodeRunStatus={{ state: 'skipped' }} />);
+    expect(screen.getAllByText(/Skipped/).length).toBeGreaterThanOrEqual(1);
   });
 });

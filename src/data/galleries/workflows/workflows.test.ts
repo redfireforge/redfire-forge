@@ -1,11 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import { sampleWorkflowCatalog, type SampleCategory } from './index';
 
-const VALID_CATEGORIES: SampleCategory[] = ['api-patterns', 'flow-control', 'event-driven', 'orchestration'];
+const VALID_CATEGORIES: SampleCategory[] = ['api-patterns', 'flow-control', 'event-driven', 'orchestration', 'performance'];
 
 describe('galleries/workflows — sampleWorkflowCatalog', () => {
-  it('has 30 entries', () => {
-    expect(sampleWorkflowCatalog).toHaveLength(30);
+  it('has 36 entries', () => {
+    expect(sampleWorkflowCatalog).toHaveLength(36);
   });
 
   it('every entry has a unique id', () => {

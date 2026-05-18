@@ -16,5 +16,5 @@ export interface ExpressionFunction {
   evaluate: (...args: unknown[]) => unknown;
 }
 
-export const EXPRESSION_CATEGORIES = ['String', 'Math', 'Conditional', 'JSON', 'Date/Time', 'Encoding'] as const;
+export const EXPRESSION_CATEGORIES = ['String', 'Math', 'Array', 'Object', 'Conditional', 'JSON', 'Date/Time', 'Encoding'] as const;
 export type ExpressionCategory = (typeof EXPRESSION_CATEGORIES)[number];

@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Full Combo — Extract + Validate + Body — Step-by-Step Walkthrough</title>
+  <style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; color: #1a1a2e; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 30px 24px; background: #fff; }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code { background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 1px 5px; border-radius: 3px; }
+  pre { background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto; margin: 10px 0 16px; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; }
+  .callout { background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px; margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .step { background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 16px; margin: 12px 0; }
+  .step-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .step-num { width: 32px; height: 32px; background: #e63946; color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; flex-shrink: 0; }
+  .step-title { font-weight: 600; color: #1d3557; font-size: 15px; }
+  .expect { background: #d4edda; border-left: 4px solid #28a745; padding: 10px 14px; margin: 10px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+  .expect strong { color: #155724; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+  .badge-sample { background: #e8f4fd; color: #1d3557; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .surface-tag { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; margin: 2px; }
+  .surface-ext { background: #d4edda; color: #155724; }
+  .surface-val { background: #fff3cd; color: #856404; }
+  .surface-body { background: #cce5ff; color: #004085; }
+  </style>
+</head>
+<body>
+
+<h1>Full Combo — Extract + Validate + Body</h1>
+<p><span class="badge badge-advanced">ADVANCED</span> &nbsp; <span class="badge badge-sample">Sample: dm-combo-mapper</span></p>
+<p>This walkthrough demonstrates <strong>all three Data Mapper surfaces</strong> in a single scenario:
+  <span class="surface-tag surface-ext">Extraction</span>
+  <span class="surface-tag surface-val">Validation</span>
+  <span class="surface-tag surface-body">Body Builder</span>
+</p>
+
+<div class="callout">
+  <strong>Prerequisites</strong>
+  Import the <code>dm-combo-mapper</code> sample from Gallery → Data Mapper → "Full Combo — Extract + Validate + Body" → <strong>Load Sample</strong>.
+</div>
+
+<h2>Request 1 — GET Products (Extract + Validate)</h2>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">1</div><div class="step-title">Open "GET products → extract &amp; validate fields"</div></div>
+  <p>URL: <code>https://dummyjson.com/products?limit=5</code></p>
+  <p>This request does <strong>two things at once</strong>: extracts 4 variables AND selectively validates 2 fields.</p>
+</div>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">2</div><div class="step-title">Check the Extract tab</div></div>
+  <p><span class="surface-tag surface-ext">Extraction</span> Open the Extract tab. You'll see 4 extractions from the products array:</p>
+  <table>
+    <tr><th>Variable</th><th>Expression</th><th>Value from sample</th></tr>
+    <tr><td><code>totalProducts</code></td><td><code>$.total</code></td><td>194</td></tr>
+    <tr><td><code>firstProductId</code></td><td><code>$.products[0].id</code></td><td>1</td></tr>
+    <tr><td><code>firstProductName</code></td><td><code>$.products[0].title</code></td><td>"Essence Mascara Lash Princess"</td></tr>
+    <tr><td><code>firstProductPrice</code></td><td><code>$.products[0].price</code></td><td>9.99</td></tr>
+  </table>
+  <p>Click <strong>⚡ Data Mapper</strong> to see the source tree with a <code>products</code> array of 5 items and the 4 mapped target variables.</p>
+</div>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">3</div><div class="step-title">Check the Validation tab</div></div>
+  <p><span class="surface-tag surface-val">Validation</span> Open the Validation tab. It's in <strong>Selective Mode (Include)</strong> with 2 expected fields:</p>
+  <table>
+    <tr><th>JSON Path</th><th>Expected Value</th></tr>
+    <tr><td><code>$.limit</code></td><td>5</td></tr>
+    <tr><td><code>$.skip</code></td><td>0</td></tr>
+  </table>
+  <p>Click <strong>⚡ Data Mapper</strong> here too — the same source data appears, but the target shows the 2 validation fields instead of extraction variables.</p>
+</div>
+
+<h2>Advanced Validation Features</h2>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">3a</div><div class="step-title">Operator Selection</div></div>
+  <p>In the Validation mapper, click a target field's operator pill to change from default <code>exists</code> to <code>equals</code>, <code>&gt;=</code>, <code>contains</code>, etc.</p>
+</div>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">3b</div><div class="step-title">Code Mode</div></div>
+  <p>Click <strong>Rules</strong> in the bottom dock to see/edit rules as DSL text. Use ↗ to float the editor.</p>
+</div>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">3c</div><div class="step-title">Verify Scope</div></div>
+  <p>Use the verify dropdown to choose scope: <strong>Assertions</strong>, <strong>Validation Rules</strong>, or <strong>All</strong>.</p>
+</div>
+
+<h2>Request 2 — Search Products (Uses extracted variable)</h2>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">4</div><div class="step-title">Open "GET product search using extracted name"</div></div>
+  <p>URL: <code>https://dummyjson.com/products/search?q={{firstProductName}}</code></p>
+  <div class="expect"><strong>Key point:</strong> The search query <code>q=</code> uses <code>{{firstProductName}}</code> — the value "Essence Mascara Lash Princess" extracted from Request 1.</div>
+</div>
+
+<h2>Request 3 — POST Product (Body template with mapped variables)</h2>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">5</div><div class="step-title">Open "POST add product with mapped body"</div></div>
+  <p><span class="surface-tag surface-body">Body Builder</span> This request uses extracted variables in a POST body:</p>
+  <pre>{
+  "title": "Copy of {{firstProductName}}",
+  "price": "{{firstProductPrice}}",
+  "description": "Cloned from product #{{firstProductId}}",
+  "category": "test"
+}</pre>
+  <p>At runtime, this becomes:</p>
+  <pre>{
+  "title": "Copy of Essence Mascara Lash Princess",
+  "price": "9.99",
+  "description": "Cloned from product #1",
+  "category": "test"
+}</pre>
+</div>
+
+<h2>Run the Full Scenario</h2>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">6</div><div class="step-title">Execute and verify</div></div>
+  <p>Run the scenario from the <strong>Runner</strong> tab. All 3 requests execute in sequence:</p>
+  <ol>
+    <li>GET products → extracts 4 variables, validates 2 fields</li>
+    <li>GET search → uses <code>{{firstProductName}}</code> in query</li>
+    <li>POST add → sends body with all 3 extracted variables substituted</li>
+  </ol>
+  <div class="expect"><strong>You should see:</strong> All 3 requests pass. The Results tab shows extracted variable values and validation results for each step.</div>
+</div>
+
+<h2>Summary — All Three Mapper Surfaces</h2>
+<table>
+  <tr><th>Surface</th><th>Where</th><th>What you see</th></tr>
+  <tr><td><span class="surface-tag surface-ext">Extraction</span></td><td>Request 1, Extract tab</td><td>Source tree → Target variables with mapping lines</td></tr>
+  <tr><td><span class="surface-tag surface-val">Validation</span></td><td>Request 1, Validation tab</td><td>Source tree → Target expected fields with values</td></tr>
+  <tr><td><span class="surface-tag surface-body">Body Builder</span></td><td>Request 3, Body tab</td><td><code>{{variable}}</code> templates in request body</td></tr>
+  <tr><td>Validation operators</td><td>Advanced Validation Features, Step 3a</td><td>Operator pill overrides default <code>exists</code></td></tr>
+  <tr><td>Validation DSL / Rules</td><td>Advanced Validation Features, Step 3b</td><td>Bottom dock Rules; floating editor</td></tr>
+  <tr><td>Verify scope</td><td>Advanced Validation Features, Step 3c</td><td>Assertions vs Validation Rules vs All</td></tr>
+</table>
+
+<div class="callout callout-tip">
+  <strong>What you've learned</strong>
+  You've seen all three ways the Data Mapper integrates with test scenarios: extracting from responses, validating specific fields, and building request bodies from extracted variables. Each surface uses the same visual mapping UI but in a different context.
+</div>
+
+</body>
+</html>

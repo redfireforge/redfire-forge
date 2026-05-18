@@ -1,6 +1,6 @@
 [package]
 name = "redfireforge"
-version = "0.5.6"
+version = "0.5.8"
 description = "RedfireForge - API Performance Testing Tool"
 authors = ["you"]
 license = "MIT"
@@ -25,3 +25,4 @@ tauri-plugin-fs = "2"
 tauri-plugin-http = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-shell = "2"
+clap = { version = "4", features = ["derive"] }

@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 import WebhookConfig from './WebhookConfig';
 import type { WebhookTriggerNodeData } from '../../types/workflow';
 
@@ -99,6 +99,44 @@ describe('WebhookConfig', () => {
     expect(mockClipboard.writeText).toHaveBeenCalledWith('http://127.0.0.1:3001/webhooks/wf1/n1');
   });
 
+  it('handles clipboard failure when copying URL', async () => {
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    mockClipboard.writeText.mockRejectedValueOnce(new Error('denied'));
+    render(<WebhookConfig data={makeData()} onChange={vi.fn()} workflowId="wf1" nodeId="n1" />);
+    await act(async () => {
+      fireEvent.click(screen.getByText('Copy'));
+    });
+    expect(errSpy).toHaveBeenCalled();
+    errSpy.mockRestore();
+    mockClipboard.writeText.mockResolvedValue(undefined);
+  });
+
+  it('handles clipboard failure when copying cURL', async () => {
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    mockClipboard.writeText.mockRejectedValueOnce(new Error('denied'));
+    render(<WebhookConfig data={makeData()} onChange={vi.fn()} workflowId="wf1" nodeId="n1" />);
+    await act(async () => {
+      fireEvent.click(screen.getByText('Copy cURL'));
+    });
+    expect(errSpy).toHaveBeenCalled();
+    errSpy.mockRestore();
+    mockClipboard.writeText.mockResolvedValue(undefined);
+  });
+
+  it('Copy cURL uses empty JSON when sample payload is whitespace only', async () => {
+    render(
+      <WebhookConfig
+        data={makeData({ samplePayload: '   \n\t  ' })}
+        onChange={vi.fn()}
+        workflowId="wf1"
+        nodeId="n1"
+      />,
+    );
+    fireEvent.click(screen.getByText('Copy cURL'));
+    const curlArg = mockClipboard.writeText.mock.calls[0][0] as string;
+    expect(curlArg).toContain("-d '{}'");
+  });
+
   it('copies cURL command to clipboard on Copy cURL click', async () => {
     render(<WebhookConfig data={makeData()} onChange={vi.fn()} workflowId="wf1" nodeId="n1" />);
     fireEvent.click(screen.getByText('Copy cURL'));
@@ -181,6 +219,46 @@ describe('WebhookConfig', () => {
     await vi.waitFor(() => expect(screen.getByText('✓ Copied!')).toBeTruthy());
   });
 
+  it('resets URL copy button label after copy timeout', async () => {
+    vi.useFakeTimers();
+    try {
+      render(<WebhookConfig data={makeData()} onChange={vi.fn()} workflowId="wf1" nodeId="n1" />);
+      await act(async () => {
+        fireEvent.click(screen.getByText('Copy'));
+      });
+      await act(async () => {
+        await Promise.resolve();
+      });
+      expect(screen.getByText('✓ Copied!')).toBeTruthy();
+      await act(() => {
+        vi.advanceTimersByTime(2000);
+      });
+      expect(screen.getByText('Copy')).toBeTruthy();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('resets cURL copy button label after copy timeout', async () => {
+    vi.useFakeTimers();
+    try {
+      render(<WebhookConfig data={makeData()} onChange={vi.fn()} workflowId="wf1" nodeId="n1" />);
+      await act(async () => {
+        fireEvent.click(screen.getByText('Copy cURL'));
+      });
+      await act(async () => {
+        await Promise.resolve();
+      });
+      expect(screen.getByText('✓ Copied!')).toBeTruthy();
+      await act(() => {
+        vi.advanceTimersByTime(2000);
+      });
+      expect(screen.getByText('Copy cURL')).toBeTruthy();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('does not show webhook URL panel when only workflowId is provided', () => {
     render(<WebhookConfig data={makeData()} onChange={vi.fn()} workflowId="wf1" />);
     expect(document.querySelector('.wf-webhook-url-panel')).toBeNull();
@@ -195,5 +273,125 @@ describe('WebhookConfig', () => {
     render(<WebhookConfig data={makeData({ notes: undefined })} onChange={vi.fn()} />);
     const textarea = screen.getByPlaceholderText(/Documentation or notes about this webhook/);
     expect((textarea as HTMLTextAreaElement).value).toBe('');
+  });
+
+  it('uses PATCH method in cURL command', async () => {
+    render(<WebhookConfig data={makeData({ method: 'PATCH' })} onChange={vi.fn()} workflowId="wf1" nodeId="n1" />);
+    fireEvent.click(screen.getByText('Copy cURL'));
+    const curlArg = mockClipboard.writeText.mock.calls[0][0] as string;
+    expect(curlArg).toContain('-X PATCH');
+  });
+
+  it('calls onChange with PATCH when method selected', () => {
+    const onChange = vi.fn();
+    render(<WebhookConfig data={makeData()} onChange={onChange} />);
+    fireEvent.change(screen.getByDisplayValue('POST'), { target: { value: 'PATCH' } });
+    expect(onChange).toHaveBeenCalledWith({ method: 'PATCH' });
+  });
+
+  it('uses {} when samplePayload is undefined', async () => {
+    render(<WebhookConfig data={makeData({ samplePayload: undefined })} onChange={vi.fn()} workflowId="wf1" nodeId="n1" />);
+    fireEvent.click(screen.getByText('Copy cURL'));
+    const curlArg = mockClipboard.writeText.mock.calls[0][0] as string;
+    expect(curlArg).toContain("'{}'");
+  });
+
+  // --- Extract Variables section ---
+
+  it('renders existing extractVariables rows', () => {
+    const vars = [{ name: 'orderId', jsonPath: '$.id' }, { name: 'status', jsonPath: '$.status' }];
+    render(<WebhookConfig data={makeData({ extractVariables: vars })} onChange={vi.fn()} />);
+    expect(screen.getByDisplayValue('orderId')).toBeTruthy();
+    expect(screen.getByDisplayValue('$.id')).toBeTruthy();
+    expect(screen.getByDisplayValue('status')).toBeTruthy();
+    expect(screen.getByDisplayValue('$.status')).toBeTruthy();
+  });
+
+  it('calls onChange when variable name is edited', () => {
+    const onChange = vi.fn();
+    const vars = [{ name: 'orderId', jsonPath: '$.id' }];
+    render(<WebhookConfig data={makeData({ extractVariables: vars })} onChange={onChange} />);
+    fireEvent.change(screen.getByDisplayValue('orderId'), { target: { value: 'myOrder' } });
+    expect(onChange).toHaveBeenCalledWith({ extractVariables: [{ name: 'myOrder', jsonPath: '$.id' }] });
+  });
+
+  it('calls onChange when variable jsonPath is edited', () => {
+    const onChange = vi.fn();
+    const vars = [{ name: 'orderId', jsonPath: '$.id' }];
+    render(<WebhookConfig data={makeData({ extractVariables: vars })} onChange={onChange} />);
+    fireEvent.change(screen.getByDisplayValue('$.id'), { target: { value: '$.orderId' } });
+    expect(onChange).toHaveBeenCalledWith({ extractVariables: [{ name: 'orderId', jsonPath: '$.orderId' }] });
+  });
+
+  it('removes a variable when remove button is clicked', () => {
+    const onChange = vi.fn();
+    const vars = [{ name: 'a', jsonPath: '$.a' }, { name: 'b', jsonPath: '$.b' }];
+    render(<WebhookConfig data={makeData({ extractVariables: vars })} onChange={onChange} />);
+    const removeBtns = screen.getAllByLabelText('Remove variable');
+    fireEvent.click(removeBtns[0]);
+    expect(onChange).toHaveBeenCalledWith({ extractVariables: [{ name: 'b', jsonPath: '$.b' }] });
+  });
+
+  it('adds a new empty variable when Add Variable is clicked', () => {
+    const onChange = vi.fn();
+    render(<WebhookConfig data={makeData({ extractVariables: [] })} onChange={onChange} />);
+    fireEvent.click(screen.getByText('Add Variable'));
+    expect(onChange).toHaveBeenCalledWith({ extractVariables: [{ name: '', jsonPath: '' }] });
+  });
+
+  it('appends to existing variables when Add Variable is clicked', () => {
+    const onChange = vi.fn();
+    const vars = [{ name: 'x', jsonPath: '$.x' }];
+    render(<WebhookConfig data={makeData({ extractVariables: vars })} onChange={onChange} />);
+    fireEvent.click(screen.getByText('Add Variable'));
+    expect(onChange).toHaveBeenCalledWith({
+      extractVariables: [{ name: 'x', jsonPath: '$.x' }, { name: '', jsonPath: '' }],
+    });
+  });
+
+  it('handles undefined extractVariables when Add Variable is clicked', () => {
+    const onChange = vi.fn();
+    render(<WebhookConfig data={makeData()} onChange={onChange} />);
+    fireEvent.click(screen.getByText('Add Variable'));
+    expect(onChange).toHaveBeenCalledWith({ extractVariables: [{ name: '', jsonPath: '' }] });
+  });
+
+  it('handles null extractVariables when adding variable', () => {
+    const onChange = vi.fn();
+    render(
+      <WebhookConfig
+        data={makeData({ extractVariables: null as unknown as undefined })}
+        onChange={onChange}
+      />,
+    );
+    fireEvent.click(screen.getByText('Add Variable'));
+    expect(onChange).toHaveBeenCalledWith({ extractVariables: [{ name: '', jsonPath: '' }] });
+  });
+
+  // --- Data Mapper (DataMapperModal) ---
+
+  it('opens Data Mapper modal when button is clicked', () => {
+    render(<WebhookConfig data={makeData()} onChange={vi.fn()} />);
+    fireEvent.click(screen.getByText('Data Mapper'));
+    expect(document.querySelector('.dm-modal-overlay')).toBeTruthy();
+  });
+
+  it('closes Data Mapper when closed', async () => {
+    render(<WebhookConfig data={makeData()} onChange={vi.fn()} />);
+    fireEvent.click(screen.getByText('Data Mapper'));
+    expect(document.querySelector('.dm-modal-overlay')).toBeTruthy();
+    const cancelBtn = screen.getByText('Cancel');
+    fireEvent.click(cancelBtn);
+    expect(document.querySelector('.dm-modal-overlay')).toBeNull();
+  });
+
+  it('saves mapper result and closes modal via Save', async () => {
+    const onChange = vi.fn();
+    render(<WebhookConfig data={makeData({ samplePayload: '{"id":1}' })} onChange={onChange} />);
+    fireEvent.click(screen.getByText('Data Mapper'));
+    expect(document.querySelector('.dm-modal-overlay')).toBeTruthy();
+    const saveBtn = screen.getByText('Save');
+    fireEvent.click(saveBtn);
+    expect(document.querySelector('.dm-modal-overlay')).toBeNull();
   });
 });

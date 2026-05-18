@@ -1,14 +1,33 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import type { MutableRefObject } from 'react';
-import type { Assertion, AssertionOperator, ComparisonOperator, DateReference, FailureDetail, Scenario, ValidationMode } from '../../../shared/types';
-import JsonPathBuilder from '../../requests/components/JsonPathBuilder';
+import type { Assertion, AssertionOperator, ComparisonOperator, DateReference, FailureDetail, FieldOperator, JsonTypeName, Scenario, ValidationMode } from '../../../shared/types';
 import ResponseVersionPanel from '../../requests/components/ResponseVersionPanel';
 import RulesVersionPanel from '../../requests/components/RulesVersionPanel';
-import RegexAssertionModal from '../../requests/components/RegexAssertionModal';
-import type { RegexAssertionResult } from '../../requests/components/RegexAssertionModal';
+import { RegexAssertionBuilderModal } from '../../../shared/components/data-mapper';
+import type { AssertionAdapterResult } from '../../../shared/components/data-mapper';
 import AssertionPresetMenu from './AssertionPresetMenu';
-import { createResponseVersion, createRulesVersion } from '../utils/versionFactory';
+import { useValidationVersionHandlers } from '../hooks/useValidationVersionHandlers';
 import JsonPathPicker from './JsonPathPicker';
+import ValidationRulesSummary from './ValidationRulesSummary';
+import ValidationVerifyPanel from './ValidationVerifyPanel';
+import ValidationResponsePreview from './ValidationResponsePreview';
+import FetchErrorBanner from '../../../shared/components/data-mapper/FetchErrorBanner';
+import type { FetchErrorDetail } from '../../../shared/components/data-mapper/types';
+import { getByPath, stripJsonPathPrefix } from '../../../shared/utils/jsonPath';
+import { generateJsonSchema } from '../../../shared/components/data-mapper/utils/schemaGenerator';
+import { DataMapperModal, createValidationAdapter } from '../../../shared/components/data-mapper';
+import type { ValidationAdapterOutput } from '../../../shared/components/data-mapper';
+import { buildPivotedRulesFromExpectedFields } from './testEditorValidationPivot';
+import { ADD_ASSERTION_MENU_ROWS, ASSERTION_CATEGORIES } from './testEditorValidationAddMenu';
+import {
+  ARRAY_CONTAINS_MODE_OPTIONS,
+  CalendarIcon,
+  ComparisonSelect,
+  DATE_OP_OPTIONS,
+  FIELD_OP_OPTIONS,
+  getAssertionTypeBadgeLabel,
+  NUMERIC_OP_OPTIONS,
+} from './testEditorValidationConstants';
 
 export interface TestEditorValidationTabProps {
   draft: Scenario;
@@ -16,16 +35,17 @@ export interface TestEditorValidationTabProps {
   draftRef: MutableRefObject<Scenario>;
   resolvedBaseUrl: string;
   fetchingResponse: boolean;
-  fetchError: string | null;
+  fetchError: FetchErrorDetail | null;
   fetchHostOverride: string;
   setFetchHostOverride: (v: string) => void;
   fetchHostEnabled: boolean;
   setFetchHostEnabled: (v: boolean) => void;
   onFetchSampleResponse: () => void | Promise<void>;
+  fetchSampleDataForMapper?: () => Promise<unknown>;
   validating: boolean;
-  validationResult: { passed: boolean; failures: FailureDetail[]; httpStatus?: number; responseJson?: string } | null;
-  setValidationResult: (v: { passed: boolean; failures: FailureDetail[]; httpStatus?: number; responseJson?: string } | null) => void;
-  onValidateResponse: () => void | Promise<void>;
+  validationResult: { passed: boolean; failures: FailureDetail[]; httpStatus?: number; statusText?: string; responseJson?: string; responseHeaders?: Record<string, string>; verifyScope?: 'assertions' | 'rules' | 'all' } | null;
+  setValidationResult: (v: { passed: boolean; failures: FailureDetail[]; httpStatus?: number; statusText?: string; responseJson?: string; responseHeaders?: Record<string, string>; verifyScope?: 'assertions' | 'rules' | 'all' } | null) => void;
+  onValidateResponse: (scope?: 'assertions' | 'rules' | 'all') => void | Promise<void>;
   /** When non-null, a new response was fetched but user has existing rules — show confirmation dialog */
   pendingFetchResponse?: string | null;
   /** Accept new response but keep existing validation rules */
@@ -34,37 +54,6 @@ export interface TestEditorValidationTabProps {
   onFetchReplaceAll?: () => void;
   /** Discard the fetched response entirely */
   onFetchCancel?: () => void;
-}
-
-const NUMERIC_OP_OPTIONS: { value: ComparisonOperator; label: string }[] = [
-  { value: '=', label: 'equals (=)' },
-  { value: '!=', label: 'not equals (≠)' },
-  { value: '>', label: 'greater than (>)' },
-  { value: '>=', label: 'at least (≥)' },
-  { value: '<', label: 'less than (<)' },
-  { value: '<=', label: 'at most (≤)' },
-];
-
-const DATE_OP_OPTIONS: { value: ComparisonOperator; label: string }[] = [
-  { value: '=', label: 'equals (=)' },
-  { value: '!=', label: 'not equals (≠)' },
-  { value: '>', label: 'after (>)' },
-  { value: '>=', label: 'on or after (≥)' },
-  { value: '<', label: 'before (<)' },
-  { value: '<=', label: 'on or before (≤)' },
-];
-
-function ComparisonSelect({ value, onChange, options, className }: {
-  value: ComparisonOperator;
-  onChange: (op: ComparisonOperator) => void;
-  options: { value: ComparisonOperator; label: string }[];
-  className?: string;
-}) {
-  return (
-    <select value={value} onChange={(e) => onChange(e.target.value as ComparisonOperator)} className={className ?? 'assertion-select assertion-select-operator'}>
-      {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-    </select>
-  );
 }
 
 export default function TestEditorValidationTab({
@@ -79,6 +68,7 @@ export default function TestEditorValidationTab({
   fetchHostEnabled,
   setFetchHostEnabled,
   onFetchSampleResponse,
+  fetchSampleDataForMapper,
   validating,
   validationResult,
   setValidationResult,
@@ -89,11 +79,58 @@ export default function TestEditorValidationTab({
   onFetchCancel,
 }: TestEditorValidationTabProps) {
   const [showAddMenu, setShowAddMenu] = useState(false);
+  const [addMenuSearch, setAddMenuSearch] = useState('');
   const addMenuRef = useRef<HTMLDivElement>(null);
+  const addMenuSearchRef = useRef<HTMLInputElement>(null);
   const [regexModalIdx, setRegexModalIdx] = useState<number | null>(null);
+  const [assertionsExpanded, setAssertionsExpanded] = useState(true);
+  const [validationMapperOpen, setValidationMapperOpen] = useState(false);
+  const [openMapperAfterKeepRules, setOpenMapperAfterKeepRules] = useState(false);
+  const [rulesViewMode, setRulesViewMode] = useState<'flat' | 'pivot'>('flat');
+  const [verifyScope, setVerifyScope] = useState<'assertions' | 'rules' | 'all'>('all');
+
+  const validationAdapter = useMemo(
+    () => createValidationAdapter({
+      sampleResponseBody: draft.validation.sampleJson || undefined,
+      selectiveMode: draft.validation.selectiveMode || 'include',
+      expectedFields: draft.validation.expectedFields || [],
+      fetchSampleData: fetchSampleDataForMapper,
+    }),
+    [draft.validation.sampleJson, draft.validation.selectiveMode, draft.validation.expectedFields, fetchSampleDataForMapper],
+  );
+
+  const validationMapperInitialData = useMemo<ValidationAdapterOutput>(() => ({
+    selectiveMode: draft.validation.selectiveMode || 'include',
+    expectedFields: draft.validation.expectedFields || [],
+    excludedPaths: draft.validation.excludedPaths || [],
+    assertions: draft.validation.assertions || [],
+  }), [draft.validation.selectiveMode, draft.validation.expectedFields, draft.validation.excludedPaths, draft.validation.assertions]);
+
+  const handleValidationMapperSave = useCallback((output: ValidationAdapterOutput, options?: { unorderedArrays?: boolean }) => {
+    const prev = draftRef.current;
+    onDraftChange({
+      ...prev,
+      validation: {
+        ...prev.validation,
+        selectiveMode: output.selectiveMode,
+        expectedFields: output.expectedFields,
+        excludedPaths: output.excludedPaths,
+        unorderedArrays: options?.unorderedArrays ?? prev.validation.unorderedArrays,
+        assertions: output.assertions !== undefined ? output.assertions : prev.validation.assertions,
+      },
+    });
+    setValidationMapperOpen(false);
+  }, [draftRef, onDraftChange]);
+
+  const handleFetchKeepRulesClick = useCallback(() => {
+    if (!onFetchKeepRules) return;
+    setOpenMapperAfterKeepRules(true);
+    onFetchKeepRules();
+  }, [onFetchKeepRules]);
 
   useEffect(() => {
-    if (!showAddMenu) return;
+    if (!showAddMenu) { setAddMenuSearch(''); return; }
+    requestAnimationFrame(() => addMenuSearchRef.current?.focus());
     const handleClick = (e: MouseEvent) => {
       if (addMenuRef.current && !addMenuRef.current.contains(e.target as Node)) {
         setShowAddMenu(false);
@@ -102,7 +139,42 @@ export default function TestEditorValidationTab({
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
   }, [showAddMenu]);
+
+  useEffect(() => {
+    if (!openMapperAfterKeepRules || pendingFetchResponse) return;
+    setOpenMapperAfterKeepRules(false);
+    if (draft.validation.sampleJson?.trim()) {
+      setValidationMapperOpen(true);
+    }
+  }, [openMapperAfterKeepRules, pendingFetchResponse, draft.validation.sampleJson]);
+
   const assertions = draft.validation.assertions ?? [];
+  const responsePreviewJson = pendingFetchResponse ?? draft.validation.sampleJson ?? '';
+  const hasResponsePreview = responsePreviewJson.trim().length > 0;
+
+  const removeExpectedField = useCallback((index: number) => {
+    const prev = draftRef.current;
+    const next = [...(prev.validation.expectedFields || [])];
+    next.splice(index, 1);
+    onDraftChange({ ...prev, validation: { ...prev.validation, expectedFields: next } });
+  }, [draftRef, onDraftChange]);
+
+  const removeExpectedFieldsByPathPrefix = useCallback((rowKey: string) => {
+    const prev = draftRef.current;
+    const next = (prev.validation.expectedFields || []).filter((f) => {
+      const lastDot = f.jsonPath.lastIndexOf('.');
+      const itsRowKey = lastDot === -1 ? '(root)' : f.jsonPath.slice(0, lastDot);
+      return itsRowKey !== rowKey;
+    });
+    onDraftChange({ ...prev, validation: { ...prev.validation, expectedFields: next } });
+  }, [draftRef, onDraftChange]);
+
+  const pivotedRules = useMemo(
+    () => buildPivotedRulesFromExpectedFields(draft.validation.expectedFields || []),
+    [draft.validation.expectedFields],
+  );
+
+  const canPivot = !!pivotedRules.arrayPrefix && pivotedRules.rows.length > 0;
 
   function updateAssertion(idx: number, patch: Partial<Assertion>) {
     const prev = draftRef.current;
@@ -127,71 +199,126 @@ export default function TestEditorValidationTab({
     onDraftChange({ ...prev, validation: { ...prev.validation, assertions: list } });
   }
 
+  const {
+    handleSaveResponseVersion,
+    handleRestoreResponseVersion,
+    handleDeleteResponseVersion,
+    handleRenameResponseVersion,
+    handleSaveRulesVersion,
+    handleRestoreRulesVersion,
+    handleDeleteRulesVersion,
+    handleRenameRulesVersion,
+  } = useValidationVersionHandlers({ draftRef, onDraftChange });
+
   return (
     <div>
       {/* ── Rich Assertions ────────────────────────────── */}
       <div className="assertions-section">
         <div className="assertions-header">
+          <button
+            type="button"
+            className="assertions-collapse-toggle"
+            onClick={() => setAssertionsExpanded(v => !v)}
+            aria-expanded={assertionsExpanded}
+            title={assertionsExpanded ? 'Collapse assertions' : 'Expand assertions'}
+          >
+            <span className={`assertions-collapse-arrow ${assertionsExpanded ? 'expanded' : ''}`}>▶</span>
+          </button>
           <span className="assertions-title">Assertions</span>
+          {assertions.length > 0 && (
+            <span className="assertions-count-badge">{assertions.length}</span>
+          )}
           <span className="assertions-hint">Run on every request regardless of validation mode</span>
           <AssertionPresetMenu onImport={importAssertions} />
           <div className="assertions-add-wrap" ref={addMenuRef}>
             <button type="button" className="btn btn-sm btn-accent" onClick={() => setShowAddMenu(!showAddMenu)}>+ Add</button>
             {showAddMenu && (
               <div className="assertions-add-menu">
-                <button type="button" onClick={() => addAssertion({ type: 'status', expected: '200' })}>
-                  <span className="aam-icon">🔢</span>
-                  <span className="aam-label">Status Code</span>
-                  <span className="aam-desc">Assert HTTP status (200, 404…)</span>
-                </button>
-                <button type="button" onClick={() => addAssertion({ type: 'responseTime', maxMs: 500 })}>
-                  <span className="aam-icon">⏱</span>
-                  <span className="aam-label">Response Time SLA</span>
-                  <span className="aam-desc">Set max response time threshold</span>
-                </button>
-                <button type="button" onClick={() => addAssertion({ type: 'header', name: 'content-type', operator: 'contains', value: 'json' })}>
-                  <span className="aam-icon">📋</span>
-                  <span className="aam-label">Response Header</span>
-                  <span className="aam-desc">Check header name &amp; value</span>
-                </button>
-                <button type="button" onClick={() => addAssertion({ type: 'regex', jsonPath: '$.name', pattern: '^[A-Z].*' })}>
-                  <span className="aam-icon">🔤</span>
-                  <span className="aam-label">Regex Match</span>
-                  <span className="aam-desc">Quick regex on a JSON path</span>
-                </button>
-                <div className="aam-divider" />
-                <button type="button" onClick={() => { addAssertion({ type: 'regex', jsonPath: '', pattern: '' }); setRegexModalIdx((draft.validation.assertions ?? []).length); }}>
-                  <span className="aam-icon">🛠</span>
-                  <span className="aam-label">Regex Builder…</span>
-                  <span className="aam-desc">Visual builder with pattern library</span>
-                </button>
-                <div className="aam-divider" />
-                <button type="button" onClick={() => addAssertion({ type: 'arrayLength', jsonPath: '', operator: '>=', value: 1 })}>
-                  <span className="aam-icon">📏</span>
-                  <span className="aam-label">Array Length</span>
-                  <span className="aam-desc">Assert array size at a JSON path</span>
-                </button>
-                <button type="button" onClick={() => addAssertion({ type: 'numeric', jsonPath: '', operator: '=', value: 0 })}>
-                  <span className="aam-icon">🔢</span>
-                  <span className="aam-label">Numeric Compare</span>
-                  <span className="aam-desc">Compare number at a JSON path</span>
-                </button>
-                <button type="button" onClick={() => addAssertion({ type: 'date', jsonPath: '', operator: '>', reference: { kind: 'today', timezone: 'utc' } })}>
-                  <span className="aam-icon">📅</span>
-                  <span className="aam-label">Date Compare</span>
-                  <span className="aam-desc">Compare date at a JSON path</span>
-                </button>
+                <div className="aam-search-wrap">
+                  <input
+                    ref={addMenuSearchRef}
+                    className="aam-search"
+                    type="text"
+                    placeholder="Filter assertions…"
+                    value={addMenuSearch}
+                    onChange={(e) => setAddMenuSearch(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Escape') { setShowAddMenu(false); } }}
+                  />
+                </div>
+                <div className="aam-categories">
+                  {ASSERTION_CATEGORIES.map((cat) => {
+                    const q = addMenuSearch.trim().toLowerCase();
+                    const items = ADD_ASSERTION_MENU_ROWS.filter(
+                      (r): r is Exclude<typeof r, { kind: 'divider' }> =>
+                        r.kind !== 'divider' && r.category === cat &&
+                        (!q || r.label.toLowerCase().includes(q) || r.desc.toLowerCase().includes(q)),
+                    );
+                    if (items.length === 0) return null;
+                    return (
+                      <div key={cat} className="aam-category">
+                        <div className="aam-category-header">{cat}</div>
+                        <div className="aam-category-grid">
+                          {items.map((row, idx) => {
+                            if (row.kind === 'regexBuilder') {
+                              return (
+                                <button
+                                  key={`${cat}-${idx}`}
+                                  type="button"
+                                  className="aam-grid-item"
+                                  onClick={() => {
+                                    addAssertion({ type: 'regex', jsonPath: '', pattern: '' });
+                                    setRegexModalIdx((draft.validation.assertions ?? []).length);
+                                  }}
+                                >
+                                  <span className="aam-icon">{row.icon}</span>
+                                  <span className="aam-label">{row.label}</span>
+                                </button>
+                              );
+                            }
+                            const resolved = typeof row.assertion === 'function' ? row.assertion() : row.assertion;
+                            const iconClass = row.iconClassName ? `aam-icon ${row.iconClassName}` : 'aam-icon';
+                            return (
+                              <button key={`${cat}-${idx}`} type="button" className="aam-grid-item" title={row.desc} onClick={() => addAssertion(resolved)}>
+                                <span className={iconClass}>{row.icon}</span>
+                                <span className="aam-label">{row.label}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {ASSERTION_CATEGORIES.every((cat) => {
+                    const q = addMenuSearch.trim().toLowerCase();
+                    const items = ADD_ASSERTION_MENU_ROWS.filter(
+                      (r) => r.kind !== 'divider' && r.category === cat &&
+                        (!q || r.label.toLowerCase().includes(q) || r.desc.toLowerCase().includes(q)),
+                    );
+                    return items.length === 0;
+                  }) && (
+                    <div className="aam-no-results">No matching assertions</div>
+                  )}
+                </div>
               </div>
             )}
           </div>
         </div>
-        {assertions.length > 0 && (
+        {assertionsExpanded && assertions.length > 0 && (
           <div className="assertions-list">
             {assertions.map((a, i) => (
-              <div key={i} className="assertion-row">
+              <div key={i} className={`assertion-row${a.negate ? ' assertion-row--negated' : ''}`}>
                 <span className={`assertion-type-badge assertion-type-${a.type}`}>
-                  {a.type === 'status' ? 'STATUS' : a.type === 'responseTime' ? 'TIME' : a.type === 'header' ? 'HEADER' : a.type === 'regex' ? 'REGEX' : a.type === 'arrayLength' ? 'ARRAY' : a.type === 'numeric' ? 'NUMBER' : 'DATE'}
+                  {getAssertionTypeBadgeLabel(a.type)}
                 </span>
+                <button
+                  type="button"
+                  className={`assertion-negate-toggle${a.negate ? ' assertion-negate-toggle--active' : ''}`}
+                  title={a.negate ? 'Negated — click to remove NOT' : 'Click to negate this assertion (NOT)'}
+                  onClick={() => updateAssertion(i, { negate: a.negate ? undefined : true } as Partial<Assertion>)}
+                  aria-label={a.negate ? 'Remove negation' : 'Negate assertion'}
+                >
+                  NOT
+                </button>
                 {a.type === 'status' && (
                   <div className="assertion-field">
                     <span className="assertion-field-label">Expected</span>
@@ -270,8 +397,264 @@ export default function TestEditorValidationTab({
                       </select>
                     )}
                     {a.reference.kind === 'fixed' && (
-                      <input type="date" value={a.reference.iso} onChange={(e) => updateAssertion(i, { reference: { kind: 'fixed', iso: e.target.value } })} className="assertion-input assertion-input-sm" />
+                      <div className="assertion-date-wrap">
+                        <input type="date" value={a.reference.iso} onChange={(e) => updateAssertion(i, { reference: { kind: 'fixed', iso: e.target.value } })} className="assertion-input assertion-input-sm" />
+                        <button type="button" className="assertion-date-btn" title="Pick date" onClick={(e) => { const input = (e.currentTarget as HTMLElement).previousElementSibling as HTMLInputElement; input?.showPicker?.(); }}>
+                          <CalendarIcon />
+                        </button>
+                      </div>
                     )}
+                  </div>
+                )}
+                {a.type === 'typeCheck' && (
+                  <div className="assertion-field">
+                    <input value={a.jsonPath} onChange={(e) => updateAssertion(i, { jsonPath: e.target.value })} placeholder="$.price" className="assertion-input assertion-input-path" />
+                    <JsonPathPicker sampleJson={draft.validation.sampleJson || ''} onSelect={(p) => updateAssertion(i, { jsonPath: p })} />
+                    <span className="assertion-field-label assertion-field-label-fixed">is</span>
+                    <select value={a.expectedType} onChange={(e) => updateAssertion(i, { expectedType: e.target.value as JsonTypeName })} className="assertion-select">
+                      <option value="string">string</option>
+                      <option value="number">number</option>
+                      <option value="boolean">boolean</option>
+                      <option value="array">array</option>
+                      <option value="object">object</option>
+                      <option value="null">null</option>
+                    </select>
+                  </div>
+                )}
+                {a.type === 'existence' && (
+                  <div className="assertion-field">
+                    <input value={a.jsonPath} onChange={(e) => updateAssertion(i, { jsonPath: e.target.value })} placeholder="$.metadata.tags" className="assertion-input assertion-input-path" />
+                    <JsonPathPicker sampleJson={draft.validation.sampleJson || ''} onSelect={(p) => updateAssertion(i, { jsonPath: p })} />
+                    <select value={a.expectExists ? 'exists' : 'not_exists'} onChange={(e) => updateAssertion(i, { expectExists: e.target.value === 'exists' })} className="assertion-select">
+                      <option value="exists">exists</option>
+                      <option value="not_exists">does not exist</option>
+                    </select>
+                  </div>
+                )}
+                {a.type === 'arrayContains' && (
+                  <div className="assertion-field">
+                    <input value={a.jsonPath} onChange={(e) => updateAssertion(i, { jsonPath: e.target.value })} placeholder="$.items" className="assertion-input assertion-input-path" />
+                    <JsonPathPicker sampleJson={draft.validation.sampleJson || ''} onSelect={(p) => updateAssertion(i, { jsonPath: p })} />
+                    <select value={a.mode} onChange={(e) => updateAssertion(i, { mode: e.target.value as 'any' | 'all' | 'only' | 'none' })} className="assertion-select">
+                      {ARRAY_CONTAINS_MODE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    </select>
+                    <textarea
+                      value={a.value}
+                      onChange={(e) => updateAssertion(i, { value: e.target.value })}
+                      placeholder='{"name": "example"} or "value"'
+                      className="assertion-input assertion-input-json"
+                      rows={1}
+                    />
+                  </div>
+                )}
+                {a.type === 'each' && (
+                  <div className="assertion-field">
+                    <input value={a.jsonPath} onChange={(e) => updateAssertion(i, { jsonPath: e.target.value })} placeholder="$.items" className="assertion-input assertion-input-path" />
+                    <JsonPathPicker sampleJson={draft.validation.sampleJson || ''} onSelect={(p) => updateAssertion(i, { jsonPath: p })} />
+                    <input value={a.fieldPath} onChange={(e) => updateAssertion(i, { fieldPath: e.target.value })} placeholder="field (e.g. rank)" className="assertion-input assertion-input-sm" />
+                    <JsonPathPicker
+                      sampleJson={(() => {
+                        try {
+                          const parsed = JSON.parse(draft.validation.sampleJson || '');
+                          const arr = a.jsonPath ? getByPath(parsed, a.jsonPath) : parsed;
+                          if (Array.isArray(arr) && arr.length > 0 && typeof arr[0] === 'object' && arr[0] !== null) {
+                            return JSON.stringify(arr[0]);
+                          }
+                        } catch { /* ignore */ }
+                        return '';
+                      })()}
+                      onSelect={(p) => {
+                        const field = stripJsonPathPrefix(p);
+                        updateAssertion(i, { fieldPath: field });
+                      }}
+                    />
+                    <select value={a.operator} onChange={(e) => updateAssertion(i, { operator: e.target.value as FieldOperator })} className="assertion-select">
+                      {FIELD_OP_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    </select>
+                    {!['is_true', 'is_false', 'is_null', 'is_not_null', 'is_empty', 'is_not_empty', 'exists', 'not_exists'].includes(a.operator) && (
+                      <input value={a.value ?? ''} onChange={(e) => updateAssertion(i, { value: e.target.value })} placeholder="value" className="assertion-input assertion-input-sm" />
+                    )}
+                  </div>
+                )}
+                {a.type === 'containsSubset' && (
+                  <div className="assertion-field">
+                    <input value={a.jsonPath} onChange={(e) => updateAssertion(i, { jsonPath: e.target.value })} placeholder="$" className="assertion-input assertion-input-path" />
+                    <JsonPathPicker sampleJson={draft.validation.sampleJson || ''} onSelect={(p) => updateAssertion(i, { jsonPath: p })} />
+                    <textarea
+                      value={a.expected}
+                      onChange={(e) => updateAssertion(i, { expected: e.target.value })}
+                      placeholder='{"status": "active", "enabled": true}'
+                      className="assertion-input assertion-input-json"
+                      rows={2}
+                    />
+                  </div>
+                )}
+                {a.type === 'jsonSchema' && (
+                  <div className="assertion-field assertion-field--schema">
+                    <div className="assertion-schema-toolbar">
+                      <button
+                        type="button"
+                        className="btn btn-xs btn-outline assertion-schema-action"
+                        onClick={() => {
+                          if (!navigator.clipboard?.readText) return;
+                          navigator.clipboard.readText().then(text => {
+                            updateAssertion(i, { schema: text });
+                          }).catch(() => {});
+                        }}
+                        title="Paste schema from clipboard"
+                      >
+                        Paste Schema
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-xs btn-outline assertion-schema-action"
+                        onClick={() => {
+                          try {
+                            const parsed = JSON.parse(a.schema);
+                            updateAssertion(i, { schema: JSON.stringify(parsed, null, 2) });
+                          } catch { /* ignore malformed JSON */ }
+                        }}
+                        title="Pretty-print JSON with indentation"
+                      >
+                        Pretty
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-xs btn-outline assertion-schema-action"
+                        onClick={() => {
+                          try {
+                            const parsed = JSON.parse(a.schema);
+                            updateAssertion(i, { schema: JSON.stringify(parsed) });
+                          } catch { /* ignore malformed JSON */ }
+                        }}
+                        title="Minify JSON to single line"
+                      >
+                        Minify
+                      </button>
+                      {draft.validation.sampleJson && (
+                        <button
+                          type="button"
+                          className="btn btn-xs btn-outline assertion-schema-action assertion-schema-action--generate"
+                        onClick={() => {
+                          try {
+                            const sample = JSON.parse(draft.validation.sampleJson || '{}');
+                            const schema = generateJsonSchema(sample, { strict: Object.keys(sample as object).length > 0 });
+                            updateAssertion(i, { schema: JSON.stringify(schema, null, 2) });
+                          } catch { /* ignore malformed JSON */ }
+                        }}
+                          title="Generate schema from sample response"
+                        >
+                          Generate from Response
+                        </button>
+                      )}
+                    </div>
+                    <textarea
+                      value={a.schema}
+                      onChange={(e) => updateAssertion(i, { schema: e.target.value })}
+                      placeholder={'{\n  "type": "object",\n  "required": ["id", "name"],\n  "properties": {\n    "id": { "type": "integer" },\n    "name": { "type": "string" }\n  }\n}'}
+                      className={`assertion-input assertion-input-schema${(() => { try { JSON.parse(a.schema); return ''; } catch { return ' assertion-input-schema--invalid'; } })()}`}
+                      rows={6}
+                      spellCheck={false}
+                    />
+                    {(() => { try { JSON.parse(a.schema); return null; } catch (e) { return <span className="assertion-schema-error">{e instanceof Error ? e.message : 'Invalid JSON'}</span>; } })()}
+                  </div>
+                )}
+                {a.type === 'bodySize' && (
+                  <div className="assertion-field assertion-field--bodysize">
+                    <select
+                      value={a.operator}
+                      onChange={(e) => updateAssertion(i, { operator: e.target.value as ComparisonOperator })}
+                      className="assertion-select assertion-select--operator"
+                    >
+                      <option value="<">less than</option>
+                      <option value="<=">at most</option>
+                      <option value="=">exactly</option>
+                      <option value=">=">at least</option>
+                      <option value=">">more than</option>
+                      <option value="!=">not equal</option>
+                    </select>
+                    <input
+                      type="number"
+                      value={a.value}
+                      onChange={(e) => updateAssertion(i, { value: Number(e.target.value) || 0 })}
+                      className="assertion-input assertion-input-num"
+                      min={0}
+                      step={1}
+                    />
+                    <select
+                      value={a.unit}
+                      onChange={(e) => updateAssertion(i, { unit: e.target.value as 'bytes' | 'kb' | 'mb' })}
+                      className="assertion-select assertion-select--unit"
+                    >
+                      <option value="bytes">Bytes</option>
+                      <option value="kb">KB</option>
+                      <option value="mb">MB</option>
+                    </select>
+                  </div>
+                )}
+                {a.type === 'datePrecise' && (
+                  <div className="assertion-field assertion-field--dateprecise">
+                    <input
+                      value={a.jsonPath}
+                      onChange={(e) => updateAssertion(i, { jsonPath: e.target.value })}
+                      placeholder="$.timestamp"
+                      className="assertion-input assertion-input-path"
+                    />
+                    <JsonPathPicker sampleJson={draft.validation.sampleJson || ''} onSelect={(p) => updateAssertion(i, { jsonPath: p })} />
+                    <select
+                      value={a.operator}
+                      onChange={(e) => updateAssertion(i, { operator: e.target.value as ComparisonOperator })}
+                      className="assertion-select assertion-select--operator"
+                    >
+                      <option value="=">equals</option>
+                      <option value="!=">not equals</option>
+                      <option value=">">after</option>
+                      <option value=">=">on or after</option>
+                      <option value="<">before</option>
+                      <option value="<=">on or before</option>
+                    </select>
+                    <div className="assertion-date-wrap">
+                      <input
+                        type="datetime-local"
+                        value={a.reference ? a.reference.slice(0, 16) : ''}
+                        onChange={(e) => updateAssertion(i, { reference: e.target.value ? new Date(e.target.value).toISOString() : '' })}
+                        className="assertion-input assertion-input-date"
+                      />
+                      <button type="button" className="assertion-date-btn" title="Pick date/time" onClick={(e) => { const input = (e.currentTarget as HTMLElement).previousElementSibling as HTMLInputElement; input?.showPicker?.(); }}>
+                        <CalendarIcon />
+                      </button>
+                      <select
+                        value={a.precision}
+                        onChange={(e) => updateAssertion(i, { precision: e.target.value as 'day' | 'hour' | 'minute' | 'second' | 'millisecond' })}
+                        className="assertion-select assertion-select--precision"
+                      >
+                        <option value="day">Day</option>
+                        <option value="hour">Hour</option>
+                        <option value="minute">Minute</option>
+                        <option value="second">Second</option>
+                        <option value="millisecond">Millisecond</option>
+                      </select>
+                    </div>
+                  </div>
+                )}
+                {a.type === 'custom' && (
+                  <div className="assertion-field assertion-field--custom-inline">
+                    <input
+                      value={a.expression}
+                      onChange={(e) => updateAssertion(i, { expression: e.target.value })}
+                      placeholder='$gt($count($.body.offers), 0)'
+                      className="assertion-input assertion-input--expression-inline"
+                      spellCheck={false}
+                      aria-label="Custom predicate expression"
+                    />
+                    <input
+                      value={a.description ?? ''}
+                      onChange={(e) => updateAssertion(i, { description: e.target.value || undefined })}
+                      placeholder="Optional — describe what this checks"
+                      className="assertion-input assertion-input--desc-inline"
+                      aria-label="Custom predicate description"
+                    />
+                    <span className="assertion-custom-hint-tip" title="Use $.body, $.status, $.headers, $.responseTime — supports all 113 expression functions including lambdas">i</span>
                   </div>
                 )}
                 <button type="button" className="btn btn-xs btn-danger assertion-remove" onClick={() => removeAssertion(i)} title="Remove assertion">×</button>
@@ -354,194 +737,121 @@ export default function TestEditorValidationTab({
             {fetchHostEnabled && resolvedBaseUrl && !fetchHostOverride && (
               <button type="button" className="btn btn-sm" onClick={() => setFetchHostOverride(resolvedBaseUrl)} title="Use Settings base URL">Use Settings</button>
             )}
+            <button
+              type="button"
+              className="btn btn-sm btn-accent"
+              onClick={() => setValidationMapperOpen(true)}
+              disabled={!draft.validation.sampleJson?.trim() && !(draft.validation.expectedFields?.length)}
+              title={
+                draft.validation.sampleJson?.trim() || draft.validation.expectedFields?.length
+                  ? 'Open Data Mapper'
+                  : 'Fetch response or add rules first'
+              }
+            >
+              ⚡ Data Mapper
+            </button>
           </div>
-          {fetchError && <div className="fetch-error-inline">{fetchError}</div>}
+          {fetchError && <FetchErrorBanner error={fetchError} />}
           {pendingFetchResponse && (
             <div className="fetch-confirm-bar">
               <span className="fetch-confirm-msg">New response fetched. You have <strong>{(draft.validation.expectedFields || []).length}</strong> existing rule(s).</span>
               <div className="fetch-confirm-actions">
-                <button type="button" className="btn btn-sm btn-accent" onClick={onFetchKeepRules}>Keep Rules &amp; Update Response</button>
+                <button type="button" className="btn btn-sm btn-accent" onClick={handleFetchKeepRulesClick}>Keep Rules &amp; Update Response</button>
                 <button type="button" className="btn btn-sm btn-danger" onClick={onFetchReplaceAll}>Replace All</button>
                 <button type="button" className="btn btn-sm" onClick={onFetchCancel}>Cancel</button>
               </div>
             </div>
           )}
-          <JsonPathBuilder
-            sampleJson={draft.validation.sampleJson || ''}
-            onSampleJsonChange={(json) => {
-              const prev = draftRef.current;
-              onDraftChange({ ...prev, validation: { ...prev.validation, sampleJson: json } });
-            }}
-            selectiveMode={draft.validation.selectiveMode || 'include'}
+          {hasResponsePreview && (
+            <ValidationResponsePreview
+              responsePreviewJson={responsePreviewJson}
+              isPending={!!pendingFetchResponse}
+            />
+          )}
+          <ValidationRulesSummary
             expectedFields={draft.validation.expectedFields || []}
-            excludedPaths={draft.validation.excludedPaths || []}
-            onUpdate={(patch) => {
-              const prev = draftRef.current;
-              onDraftChange({ ...prev, validation: { ...prev.validation, ...patch } });
-            }}
+            pivotedRules={pivotedRules}
+            canPivot={canPivot}
+            rulesViewMode={rulesViewMode}
+            onViewModeChange={setRulesViewMode}
+            onRemoveField={removeExpectedField}
+            onRemoveRowPrefix={removeExpectedFieldsByPathPrefix}
           />
 
-          {(draft.validation.expectedFields || []).length > 0 && (
-            <div className="validate-response-section">
-              <div className="validate-response-row">
-                <button
-                  type="button"
-                  className="btn btn-sm btn-validate"
-                  onClick={() => void onValidateResponse()}
-                  disabled={validating}
-                >
-                  {validating ? 'Validating...' : 'Verify Rules'}
-                </button>
-                <label className="checkbox-label fetch-host-toggle">
-                  <input
-                    type="checkbox"
-                    checked={fetchHostEnabled}
-                    onChange={(e) => setFetchHostEnabled(e.target.checked)}
-                  />
-                  Host Override
-                </label>
-                <input
-                  className="validate-host-input"
-                  value={fetchHostOverride}
-                  onChange={(e) => setFetchHostOverride(e.target.value)}
-                  placeholder={resolvedBaseUrl || 'Enter base URL'}
-                  disabled={!fetchHostEnabled}
-                />
-                {fetchHostEnabled && resolvedBaseUrl && !fetchHostOverride && (
-                  <button type="button" className="btn btn-sm" onClick={() => setFetchHostOverride(resolvedBaseUrl)} title="Use Settings base URL">Use Settings</button>
-                )}
-              </div>
-              {validationResult && (
-                <div className={`validate-result ${validationResult.passed ? 'validate-pass' : 'validate-fail'}`}>
-                  <div className="validate-result-header">
-                    <span className={`validate-badge ${validationResult.passed ? 'badge-pass' : 'badge-fail'}`}>
-                      {validationResult.passed ? 'PASSED' : 'FAILED'}
-                    </span>
-                    {validationResult.httpStatus && (
-                      <span className="validate-http-status">HTTP {validationResult.httpStatus}</span>
-                    )}
-                    <span className="validate-summary">
-                      {validationResult.passed
-                        ? `All ${(draft.validation.expectedFields || []).length} rules matched`
-                        : `${validationResult.failures.length} discrepanc${validationResult.failures.length === 1 ? 'y' : 'ies'} found`}
-                    </span>
-                    <button className="btn btn-xs" onClick={() => setValidationResult(null)}>×</button>
-                  </div>
-                  {!validationResult.passed && validationResult.failures.length > 0 && (
-                    <table className="validate-failures-table">
-                      <thead>
-                        <tr>
-                          <th>Path</th>
-                          <th>Expected</th>
-                          <th>Actual</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {validationResult.failures.map((f, i) => (
-                          <tr key={i}>
-                            <td><code>{f.path}</code></td>
-                            <td className="val-expected">{f.expected}</td>
-                            <td className="val-actual">{f.actual}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
+          <ValidationVerifyPanel
+            expectedFieldCount={(draft.validation.expectedFields || []).length}
+            assertionCount={(draft.validation.assertions || []).length}
+            validating={validating}
+            verifyScope={verifyScope}
+            onVerifyScopeChange={setVerifyScope}
+            onValidate={() => void onValidateResponse(verifyScope)}
+            fetchHostEnabled={fetchHostEnabled}
+            onFetchHostEnabledChange={setFetchHostEnabled}
+            fetchHostOverride={fetchHostOverride}
+            onFetchHostOverrideChange={setFetchHostOverride}
+            resolvedBaseUrl={resolvedBaseUrl}
+            onUseSettingsUrl={() => setFetchHostOverride(resolvedBaseUrl || '')}
+            validationResult={validationResult}
+            onDismissResult={() => setValidationResult(null)}
+            unorderedArrays={draft.validation.unorderedArrays}
+            onEnableUnorderedAndReVerify={() => {
+              const prev = draftRef.current;
+              const updated = { ...prev, validation: { ...prev.validation, unorderedArrays: true } };
+              draftRef.current = updated;
+              onDraftChange(updated);
+              void onValidateResponse(verifyScope);
+            }}
+          />
 
           <ResponseVersionPanel
             versions={draft.validation.responseVersions || []}
             currentJson={draft.validation.sampleJson || ''}
             currentValidation={draft.validation}
             excludedPaths={draft.validation.excludedPaths}
-            onSaveVersion={() => {
-              const prev = draftRef.current;
-              const v = prev.validation;
-              const json = v.sampleJson || '';
-              if (!json.trim()) return;
-              const prevVersions = v.responseVersions || [];
-              onDraftChange({ ...prev, validation: { ...v, responseVersions: [...prevVersions, createResponseVersion(v, json)] } });
-            }}
-            onRestore={(ver) => {
-              const prev = draftRef.current;
-              onDraftChange({
-                ...prev,
-                validation: {
-                  ...prev.validation,
-                  sampleJson: ver.json,
-                  mode: ver.validationMode || prev.validation.mode,
-                  selectiveMode: ver.selectiveMode || prev.validation.selectiveMode,
-                  expectedFields: ver.expectedFields || [],
-                  excludedPaths: ver.excludedPaths || prev.validation.excludedPaths || [],
-                  unorderedArrays: ver.unorderedArrays ?? prev.validation.unorderedArrays,
-                },
-              });
-            }}
-            onDeleteVersion={(id) => {
-              const prev = draftRef.current;
-              onDraftChange({ ...prev, validation: { ...prev.validation, responseVersions: (prev.validation.responseVersions || []).filter((v) => v.id !== id) } });
-            }}
-            onRenameVersion={(id, label) => {
-              const prev = draftRef.current;
-              onDraftChange({ ...prev, validation: { ...prev.validation, responseVersions: (prev.validation.responseVersions || []).map((v) => v.id === id ? { ...v, label } : v) } });
-            }}
+            onSaveVersion={handleSaveResponseVersion}
+            onRestore={handleRestoreResponseVersion}
+            onDeleteVersion={handleDeleteResponseVersion}
+            onRenameVersion={handleRenameResponseVersion}
           />
 
           <RulesVersionPanel
             versions={draft.validation.rulesVersions || []}
             currentValidation={draft.validation}
-            onSaveVersion={() => {
-              const prev = draftRef.current;
-              const v = prev.validation;
-              if (!(v.expectedFields || []).length) return;
-              const prevVersions = v.rulesVersions || [];
-              onDraftChange({ ...prev, validation: { ...v, rulesVersions: [...prevVersions, createRulesVersion(v)] } });
-            }}
-            onRestore={(ver) => {
-              const prev = draftRef.current;
-              onDraftChange({
-                ...prev,
-                validation: {
-                  ...prev.validation,
-                  mode: ver.validationMode || prev.validation.mode,
-                  selectiveMode: ver.selectiveMode || prev.validation.selectiveMode,
-                  expectedFields: ver.expectedFields || [],
-                  excludedPaths: ver.excludedPaths || prev.validation.excludedPaths || [],
-                  unorderedArrays: ver.unorderedArrays ?? prev.validation.unorderedArrays,
-                },
-              });
-            }}
-            onDeleteVersion={(id) => {
-              const prev = draftRef.current;
-              onDraftChange({ ...prev, validation: { ...prev.validation, rulesVersions: (prev.validation.rulesVersions || []).filter((v) => v.id !== id) } });
-            }}
-            onRenameVersion={(id, label) => {
-              const prev = draftRef.current;
-              onDraftChange({ ...prev, validation: { ...prev.validation, rulesVersions: (prev.validation.rulesVersions || []).map((v) => v.id === id ? { ...v, label } : v) } });
-            }}
+            onSaveVersion={handleSaveRulesVersion}
+            onRestore={handleRestoreRulesVersion}
+            onDeleteVersion={handleDeleteRulesVersion}
+            onRenameVersion={handleRenameRulesVersion}
           />
         </>
+      )}
+
+      {validationMapperOpen && (
+        <DataMapperModal
+          adapter={validationAdapter}
+          initialData={validationMapperInitialData}
+          onSave={handleValidationMapperSave}
+          onCancel={() => setValidationMapperOpen(false)}
+          unorderedArrays={draft.validation.unorderedArrays}
+          contextScope={draft.id}
+        />
       )}
 
       {regexModalIdx !== null && (() => {
         const a = (draft.validation.assertions ?? [])[regexModalIdx];
         const regexA = a?.type === 'regex' ? a : undefined;
         return (
-          <RegexAssertionModal
+          <RegexAssertionBuilderModal
             initialJsonPath={regexA?.jsonPath || ''}
             initialPattern={regexA?.pattern || ''}
             sampleJson={draft.validation.sampleJson || ''}
             onFetchSampleResponse={onFetchSampleResponse}
             fetchingResponse={fetchingResponse}
             fetchError={fetchError}
-            onApply={(result: RegexAssertionResult) => {
+            onSave={(result: AssertionAdapterResult) => {
               updateAssertion(regexModalIdx, { jsonPath: result.jsonPath, pattern: result.pattern });
               setRegexModalIdx(null);
             }}
-            onClose={() => setRegexModalIdx(null)}
+            onCancel={() => setRegexModalIdx(null)}
           />
         );
       })()}

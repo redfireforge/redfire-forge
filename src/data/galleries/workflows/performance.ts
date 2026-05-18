@@ -1,0 +1,670 @@
+/**
+ * Performance testing workflow samples.
+ * These workflows are designed specifically for load testing demonstrations.
+ */
+
+import type { Workflow } from '../../../features/workflow/types/workflow';
+
+/**
+ * Simple 2-step workflow for basic load testing introduction.
+ * POST creates a post, GET verifies it.
+ * Uses JSONPlaceholder API.
+ */
+export function createPerfSimpleWorkflow(): Workflow {
+  return {
+    id: 'perf-workflow-simple',
+    name: 'Perf: Simple POST → GET',
+    description: 'Simplest workflow for load testing: create a post, then verify it exists.',
+    variables: {
+      userId: '1',
+    },
+    nodes: [
+      {
+        id: 'ps-start',
+        type: 'start',
+        position: { x: 250, y: 0 },
+        data: { label: 'Start', inputVariables: {} },
+      },
+      {
+        id: 'ps-create',
+        type: 'http',
+        position: { x: 200, y: 100 },
+        data: {
+          label: '1. Create Post',
+          scenario: {
+            id: 'ps-s1',
+            name: 'Create Post',
+            url: 'https://jsonplaceholder.typicode.com/posts',
+            method: 'POST',
+            headers: [
+              { key: 'Content-Type', value: 'application/json' },
+            ],
+            body: JSON.stringify({
+              title: 'Load Test Post',
+              body: 'This post was created during a performance test iteration.',
+              userId: 1,
+            }, null, 2),
+            bodyType: 'json',
+            auth: { type: 'none' },
+            validation: {
+              mode: 'selective',
+              assertions: [
+                { path: '$.status', operator: 'equals', expected: '201' },
+              ],
+            },
+            extractions: [
+              { name: 'newPostId', source: 'body', expression: '$.id' },
+            ],
+          },
+        },
+      },
+      {
+        id: 'ps-verify',
+        type: 'http',
+        position: { x: 200, y: 250 },
+        data: {
+          label: '2. Get User Posts',
+          scenario: {
+            id: 'ps-s2',
+            name: 'Get User Posts',
+            url: 'https://jsonplaceholder.typicode.com/users/{{userId}}/posts',
+            method: 'GET',
+            headers: [
+              { key: 'Accept', value: 'application/json' },
+            ],
+            body: '',
+            auth: { type: 'none' },
+            validation: {
+              mode: 'selective',
+              assertions: [
+                { path: '$.status', operator: 'equals', expected: '200' },
+              ],
+            },
+            extractions: [
+              { name: 'postCount', source: 'body', expression: '$.length' },
+            ],
+          },
+        },
+      },
+    ],
+    edges: [
+      { id: 'ps-e1', source: 'ps-start', target: 'ps-create' },
+      { id: 'ps-e2', source: 'ps-create', target: 'ps-verify' },
+    ],
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  };
+}
+
+/**
+ * Workflow with conditional branching for load testing.
+ * Searches for a country, branches based on found/not-found.
+ * Uses REST Countries API.
+ */
+export function createPerfBranchingWorkflow(): Workflow {
+  return {
+    id: 'perf-workflow-branching',
+    name: 'Perf: Conditional Branching',
+    description: 'Load test a workflow with conditional paths: search country, branch on result.',
+    variables: {
+      searchTerm: 'germany',
+      fallbackCode: 'US',
+    },
+    nodes: [
+      {
+        id: 'pb-start',
+        type: 'start',
+        position: { x: 250, y: 0 },
+        data: { label: 'Start', inputVariables: {} },
+      },
+      {
+        id: 'pb-search',
+        type: 'http',
+        position: { x: 200, y: 100 },
+        data: {
+          label: '1. Search Country',
+          scenario: {
+            id: 'pb-s1',
+            name: 'Search Country',
+            url: 'https://restcountries.com/v3.1/name/{{searchTerm}}?fullText=false',
+            method: 'GET',
+            headers: [{ key: 'Accept', value: 'application/json' }],
+            body: '',
+            auth: { type: 'none' },
+            validation: { mode: 'none' },
+            extractions: [
+              { name: 'countryCode', source: 'body', expression: '$[0].cca2' },
+              { name: 'searchStatus', source: 'status', expression: '' },
+            ],
+          },
+        },
+      },
+      {
+        id: 'pb-cond',
+        type: 'condition',
+        position: { x: 240, y: 250 },
+        data: {
+          label: '2. Country Found?',
+          left: '{{searchStatus}}',
+          operator: '==',
+          right: '200',
+        },
+      },
+      {
+        id: 'pb-details',
+        type: 'http',
+        position: { x: 50, y: 380 },
+        data: {
+          label: '3a. Get Details',
+          scenario: {
+            id: 'pb-s2',
+            name: 'Get Country Details',
+            url: 'https://restcountries.com/v3.1/alpha/{{countryCode}}',
+            method: 'GET',
+            headers: [{ key: 'Accept', value: 'application/json' }],
+            body: '',
+            auth: { type: 'none' },
+            validation: {
+              mode: 'selective',
+              assertions: [
+                { path: '$.status', operator: 'equals', expected: '200' },
+              ],
+            },
+            extractions: [
+              { name: 'countryName', source: 'body', expression: '$[0].name.common' },
+            ],
+          },
+        },
+      },
+      {
+        id: 'pb-fallback',
+        type: 'http',
+        position: { x: 350, y: 380 },
+        data: {
+          label: '3b. Fallback (US)',
+          scenario: {
+            id: 'pb-s3',
+            name: 'Fallback Country',
+            url: 'https://restcountries.com/v3.1/alpha/{{fallbackCode}}',
+            method: 'GET',
+            headers: [{ key: 'Accept', value: 'application/json' }],
+            body: '',
+            auth: { type: 'none' },
+            validation: {
+              mode: 'selective',
+              assertions: [
+                { path: '$.status', operator: 'equals', expected: '200' },
+              ],
+            },
+            extractions: [
+              { name: 'countryName', source: 'body', expression: '$[0].name.common' },
+            ],
+          },
+        },
+      },
+    ],
+    edges: [
+      { id: 'pb-e1', source: 'pb-start', target: 'pb-search' },
+      { id: 'pb-e2', source: 'pb-search', target: 'pb-cond' },
+      { id: 'pb-e3', source: 'pb-cond', target: 'pb-details', sourceHandle: 'true', label: 'Yes' },
+      { id: 'pb-e4', source: 'pb-cond', target: 'pb-fallback', sourceHandle: 'false', label: 'No' },
+    ],
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  };
+}
+
+/**
+ * Fork/Join parallel workflow for load testing.
+ * Fetches user, then forks to get posts, todos, and albums in parallel.
+ * Uses JSONPlaceholder API.
+ */
+export function createPerfParallelWorkflow(): Workflow {
+  return {
+    id: 'perf-workflow-parallel',
+    name: 'Perf: Parallel Fork/Join',
+    description: 'Load test a workflow with parallel paths: fetch user data across 3 endpoints simultaneously.',
+    variables: {
+      userId: '1',
+    },
+    nodes: [
+      {
+        id: 'pp-start',
+        type: 'start',
+        position: { x: 300, y: 0 },
+        data: { label: 'Start', inputVariables: {} },
+      },
+      {
+        id: 'pp-user',
+        type: 'http',
+        position: { x: 250, y: 100 },
+        data: {
+          label: '1. Get User',
+          scenario: {
+            id: 'pp-s1',
+            name: 'Get User',
+            url: 'https://jsonplaceholder.typicode.com/users/{{userId}}',
+            method: 'GET',
+            headers: [{ key: 'Accept', value: 'application/json' }],
+            body: '',
+            auth: { type: 'none' },
+            validation: {
+              mode: 'selective',
+              assertions: [
+                { path: '$.status', operator: 'equals', expected: '200' },
+              ],
+            },
+            extractions: [
+              { name: 'userName', source: 'body', expression: '$.name' },
+            ],
+          },
+        },
+      },
+      {
+        id: 'pp-fork',
+        type: 'fork',
+        position: { x: 300, y: 220 },
+        data: { label: 'Fork: Parallel Fetch' },
+      },
+      {
+        id: 'pp-posts',
+        type: 'http',
+        position: { x: 50, y: 340 },
+        data: {
+          label: '2a. Get Posts',
+          scenario: {
+            id: 'pp-s2',
+            name: 'Get User Posts',
+            url: 'https://jsonplaceholder.typicode.com/users/{{userId}}/posts',
+            method: 'GET',
+            headers: [{ key: 'Accept', value: 'application/json' }],
+            body: '',
+            auth: { type: 'none' },
+            validation: { mode: 'none' },
+            extractions: [
+              { name: 'postCount', source: 'body', expression: '$.length' },
+            ],
+          },
+        },
+      },
+      {
+        id: 'pp-todos',
+        type: 'http',
+        position: { x: 250, y: 340 },
+        data: {
+          label: '2b. Get Todos',
+          scenario: {
+            id: 'pp-s3',
+            name: 'Get User Todos',
+            url: 'https://jsonplaceholder.typicode.com/users/{{userId}}/todos',
+            method: 'GET',
+            headers: [{ key: 'Accept', value: 'application/json' }],
+            body: '',
+            auth: { type: 'none' },
+            validation: { mode: 'none' },
+            extractions: [
+              { name: 'todoCount', source: 'body', expression: '$.length' },
+            ],
+          },
+        },
+      },
+      {
+        id: 'pp-albums',
+        type: 'http',
+        position: { x: 450, y: 340 },
+        data: {
+          label: '2c. Get Albums',
+          scenario: {
+            id: 'pp-s4',
+            name: 'Get User Albums',
+            url: 'https://jsonplaceholder.typicode.com/users/{{userId}}/albums',
+            method: 'GET',
+            headers: [{ key: 'Accept', value: 'application/json' }],
+            body: '',
+            auth: { type: 'none' },
+            validation: { mode: 'none' },
+            extractions: [
+              { name: 'albumCount', source: 'body', expression: '$.length' },
+            ],
+          },
+        },
+      },
+      {
+        id: 'pp-join',
+        type: 'join',
+        position: { x: 300, y: 480 },
+        data: { label: 'Join: Wait for All' },
+      },
+      {
+        id: 'pp-verify',
+        type: 'http',
+        position: { x: 250, y: 580 },
+        data: {
+          label: '3. Verify User',
+          scenario: {
+            id: 'pp-s5',
+            name: 'Verify User Still Exists',
+            url: 'https://jsonplaceholder.typicode.com/users/{{userId}}',
+            method: 'GET',
+            headers: [{ key: 'Accept', value: 'application/json' }],
+            body: '',
+            auth: { type: 'none' },
+            validation: {
+              mode: 'selective',
+              assertions: [
+                { path: '$.status', operator: 'equals', expected: '200' },
+              ],
+            },
+            extractions: [],
+          },
+        },
+      },
+    ],
+    edges: [
+      { id: 'pp-e1', source: 'pp-start', target: 'pp-user' },
+      { id: 'pp-e2', source: 'pp-user', target: 'pp-fork' },
+      { id: 'pp-e3', source: 'pp-fork', target: 'pp-posts' },
+      { id: 'pp-e4', source: 'pp-fork', target: 'pp-todos' },
+      { id: 'pp-e5', source: 'pp-fork', target: 'pp-albums' },
+      { id: 'pp-e6', source: 'pp-posts', target: 'pp-join' },
+      { id: 'pp-e7', source: 'pp-todos', target: 'pp-join' },
+      { id: 'pp-e8', source: 'pp-albums', target: 'pp-join' },
+      { id: 'pp-e9', source: 'pp-join', target: 'pp-verify' },
+    ],
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  };
+}
+
+/**
+ * Bottleneck analysis demo workflow.
+ * Multiple HTTP nodes with varying response characteristics:
+ * - Fast endpoint (JSONPlaceholder /posts/1) — consistently fast
+ * - Slow endpoint (httpbin.org/delay/1) — intentionally slow (1s delay), will dominate timing
+ * - Variable endpoint (JSONPlaceholder /comments?postId=random) — response size varies
+ * - Failing endpoint (JSONPlaceholder /posts/999999) — always 404, triggers high-failure bottleneck
+ * Run with 10+ iterations. Open Results Explorer to see:
+ * - Heatmap coloring (slow node = red, fast = green)
+ * - Bottleneck pulsing borders and insights panel
+ * - Search/filter to isolate problem nodes
+ */
+export function createPerfBottleneckDemoWorkflow(): Workflow {
+  return {
+    id: 'perf-workflow-bottleneck',
+    name: 'Perf: Bottleneck Analysis Demo',
+    description: 'Workflow with fast, slow, and failing endpoints to demonstrate bottleneck detection, heatmap coloring, and the Results Explorer insights panel.',
+    variables: {},
+    nodes: [
+      {
+        id: 'bn-start',
+        type: 'start',
+        position: { x: 250, y: 0 },
+        data: { label: 'Start', inputVariables: {} },
+      },
+      {
+        id: 'bn-fast',
+        type: 'http',
+        position: { x: 200, y: 100 },
+        data: {
+          label: '1. Fast Fetch',
+          scenario: {
+            id: 'bn-s1',
+            name: 'Fast Fetch',
+            url: 'https://jsonplaceholder.typicode.com/posts/1',
+            method: 'GET',
+            headers: [{ key: 'Accept', value: 'application/json' }],
+            body: '',
+            auth: { type: 'none' },
+            validation: {
+              mode: 'selective',
+              assertions: [{ path: '$.status', operator: 'equals', expected: '200' }],
+            },
+            extractions: [{ name: 'postTitle', source: 'body', expression: '$.title' }],
+          },
+        },
+      },
+      {
+        id: 'bn-slow',
+        type: 'http',
+        position: { x: 200, y: 250 },
+        data: {
+          label: '2. Slow Service',
+          scenario: {
+            id: 'bn-s2',
+            name: 'Slow Service',
+            url: 'https://httpbin.org/delay/1',
+            method: 'GET',
+            headers: [{ key: 'Accept', value: 'application/json' }],
+            body: '',
+            auth: { type: 'none' },
+            validation: {
+              mode: 'selective',
+              assertions: [{ path: '$.status', operator: 'equals', expected: '200' }],
+            },
+            extractions: [],
+          },
+        },
+      },
+      {
+        id: 'bn-variable',
+        type: 'http',
+        position: { x: 200, y: 400 },
+        data: {
+          label: '3. Variable Load',
+          scenario: {
+            id: 'bn-s3',
+            name: 'Variable Load',
+            url: 'https://jsonplaceholder.typicode.com/posts/1/comments',
+            method: 'GET',
+            headers: [{ key: 'Accept', value: 'application/json' }],
+            body: '',
+            auth: { type: 'none' },
+            validation: {
+              mode: 'selective',
+              assertions: [{ path: '$.status', operator: 'equals', expected: '200' }],
+            },
+            extractions: [{ name: 'commentCount', source: 'body', expression: '$.length' }],
+          },
+        },
+      },
+      {
+        id: 'bn-cond',
+        type: 'condition',
+        position: { x: 240, y: 540 },
+        data: {
+          label: '4. Check Title?',
+          left: '{{postTitle}}',
+          operator: '!=',
+          right: '',
+        },
+      },
+      {
+        id: 'bn-failing',
+        type: 'http',
+        position: { x: 50, y: 680 },
+        data: {
+          label: '5a. Verify (404)',
+          scenario: {
+            id: 'bn-s4',
+            name: 'Verify Nonexistent',
+            url: 'https://jsonplaceholder.typicode.com/posts/999999',
+            method: 'GET',
+            headers: [{ key: 'Accept', value: 'application/json' }],
+            body: '',
+            auth: { type: 'none' },
+            validation: {
+              mode: 'selective',
+              assertions: [{ path: '$.status', operator: 'equals', expected: '200' }],
+            },
+            extractions: [],
+          },
+        },
+      },
+      {
+        id: 'bn-final',
+        type: 'http',
+        position: { x: 350, y: 680 },
+        data: {
+          label: '5b. Final Check',
+          scenario: {
+            id: 'bn-s5',
+            name: 'Final Check',
+            url: 'https://jsonplaceholder.typicode.com/users/1',
+            method: 'GET',
+            headers: [{ key: 'Accept', value: 'application/json' }],
+            body: '',
+            auth: { type: 'none' },
+            validation: {
+              mode: 'selective',
+              assertions: [{ path: '$.status', operator: 'equals', expected: '200' }],
+            },
+            extractions: [],
+          },
+        },
+      },
+    ],
+    edges: [
+      { id: 'bn-e1', source: 'bn-start', target: 'bn-fast' },
+      { id: 'bn-e2', source: 'bn-fast', target: 'bn-slow' },
+      { id: 'bn-e3', source: 'bn-slow', target: 'bn-variable' },
+      { id: 'bn-e4', source: 'bn-variable', target: 'bn-cond' },
+      { id: 'bn-e5', source: 'bn-cond', target: 'bn-failing', sourceHandle: 'true', label: 'Yes' },
+      { id: 'bn-e6', source: 'bn-cond', target: 'bn-final', sourceHandle: 'false', label: 'No' },
+    ],
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  };
+}
+
+/**
+ * Branching workflow designed to show edge traversal percentages.
+ * A SetVariable node generates a random postId (1–150) each iteration.
+ * JSONPlaceholder IDs 1–100 exist (200), 101+ return 404.
+ * Condition branches: found → get comments, not found → create post.
+ * Expected split: ~67% Found / ~33% Not Found.
+ * Run with 20+ iterations to see natural percentage split in Results Explorer.
+ */
+export function createPerfEdgePercentageWorkflow(): Workflow {
+  return {
+    id: 'perf-workflow-edge-pct',
+    name: 'Perf: Edge Traversal Demo',
+    description: 'Demonstrates edge traversal percentages: random postId branches found vs not-found (~67/33 split). Open Results Explorer aggregate view to see % on edges.',
+    variables: {},
+    nodes: [
+      {
+        id: 'ep-start',
+        type: 'start',
+        position: { x: 250, y: 0 },
+        data: { label: 'Start', inputVariables: {} },
+      },
+      {
+        id: 'ep-setvar',
+        type: 'setVariable',
+        position: { x: 200, y: 80 },
+        data: {
+          label: 'Random Post ID',
+          assignments: [
+            { name: 'postId', expression: '{{$randomInt(1, 150)}}' },
+          ],
+        },
+      },
+      {
+        id: 'ep-fetch',
+        type: 'http',
+        position: { x: 200, y: 180 },
+        data: {
+          label: '1. Fetch Post',
+          scenario: {
+            id: 'ep-s1',
+            name: 'Fetch Random Post',
+            url: 'https://jsonplaceholder.typicode.com/posts/{{postId}}',
+            method: 'GET',
+            headers: [{ key: 'Accept', value: 'application/json' }],
+            body: '',
+            auth: { type: 'none' },
+            validation: { mode: 'none' },
+            extractions: [
+              { name: 'fetchStatus', source: 'status', expression: '' },
+              { name: 'postTitle', source: 'body', expression: '$.title' },
+            ],
+          },
+        },
+      },
+      {
+        id: 'ep-cond',
+        type: 'condition',
+        position: { x: 240, y: 310 },
+        data: {
+          label: '2. Post Found?',
+          left: '{{fetchStatus}}',
+          operator: '==',
+          right: '200',
+        },
+      },
+      {
+        id: 'ep-found',
+        type: 'http',
+        position: { x: 50, y: 450 },
+        data: {
+          label: '3a. Get Comments',
+          scenario: {
+            id: 'ep-s2',
+            name: 'Get Post Comments',
+            url: 'https://jsonplaceholder.typicode.com/posts/{{postId}}/comments',
+            method: 'GET',
+            headers: [{ key: 'Accept', value: 'application/json' }],
+            body: '',
+            auth: { type: 'none' },
+            validation: {
+              mode: 'selective',
+              assertions: [
+                { path: '$.status', operator: 'equals', expected: '200' },
+              ],
+            },
+            extractions: [],
+          },
+        },
+      },
+      {
+        id: 'ep-notfound',
+        type: 'http',
+        position: { x: 420, y: 450 },
+        data: {
+          label: '3b. Create Post',
+          scenario: {
+            id: 'ep-s3',
+            name: 'Create New Post',
+            url: 'https://jsonplaceholder.typicode.com/posts',
+            method: 'POST',
+            headers: [
+              { key: 'Content-Type', value: 'application/json' },
+            ],
+            body: JSON.stringify({
+              title: 'Fallback Post',
+              body: 'Created because the random post ID was not found.',
+              userId: 1,
+            }, null, 2),
+            bodyType: 'json',
+            auth: { type: 'none' },
+            validation: {
+              mode: 'selective',
+              assertions: [
+                { path: '$.status', operator: 'equals', expected: '201' },
+              ],
+            },
+            extractions: [],
+          },
+        },
+      },
+    ],
+    edges: [
+      { id: 'ep-e1', source: 'ep-start', target: 'ep-setvar' },
+      { id: 'ep-e2', source: 'ep-setvar', target: 'ep-fetch' },
+      { id: 'ep-e3', source: 'ep-fetch', target: 'ep-cond' },
+      { id: 'ep-e4', source: 'ep-cond', target: 'ep-found', sourceHandle: 'true', label: 'Found' },
+      { id: 'ep-e5', source: 'ep-cond', target: 'ep-notfound', sourceHandle: 'false', label: 'Not Found' },
+    ],
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  };
+}

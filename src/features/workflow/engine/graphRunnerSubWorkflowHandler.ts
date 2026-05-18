@@ -3,7 +3,7 @@
  * to keep file sizes manageable.
  */
 import type { WorkflowNode, NodeRunStatus } from '../types/workflow';
-import type { RequestResult } from '../../../shared/types';
+import type { RequestResult, WorkflowIterationTrace, WorkflowExecutionTrace } from '../../../shared/types';
 import type { NodeHandlerContext, PassedFlag } from './graphRunnerNodeHandlers';
 import type { GraphRunCallbacks } from './graphRunner';
 
@@ -63,6 +63,7 @@ export async function handleSubWorkflowNode(
     childDurationMs: number;
     finalAttempt: number;
     childNodeStates: Record<string, NodeRunStatus>;
+    childIterationTrace?: WorkflowIterationTrace;
   }> => {
     const childInputs: Record<string, string> = {};
     for (const m of data.inputMappings) {
@@ -89,6 +90,7 @@ export async function handleSubWorkflowNode(
     let childResults: RequestResult[] = [];
     let finalAttempt = 0;
     const childNodeStates: Record<string, NodeRunStatus> = {};
+    let childIterationTrace: WorkflowIterationTrace | undefined;
     const childStart = performance.now();
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
@@ -101,11 +103,12 @@ export async function handleSubWorkflowNode(
 
       childFinalVars = {};
       childAllPassed = true;
+      childIterationTrace = undefined;
       for (const k of Object.keys(childNodeStates)) delete childNodeStates[k];
       const childCallbacks: GraphRunCallbacks = {
         onNodeStateChange: (nid, status) => { childNodeStates[nid] = status; },
         onVariablesChange: (vars) => { childFinalVars = vars; },
-        onComplete: (_r, p) => { childAllPassed = p; },
+        onComplete: (_r, p, _d, trace) => { childAllPassed = p; childIterationTrace = trace; },
         onLog: hCtx.callbacks.onLog ? (line) => {
           hCtx.callbacks.onLog?.({ ...line, text: `  [sub] ${line.text}` });
         } : undefined,
@@ -124,6 +127,11 @@ export async function handleSubWorkflowNode(
           hCtx.debugController,
           childWorkflow.errorConfig,
           hCtx.resolveSubWorkflow,
+          undefined, // correlationStore
+          hCtx.loadTestMode,
+          undefined, // correlationWaitConfig
+          undefined, // pollSemaphore
+          hCtx.traceOptions,
         );
       } finally {
         if (timeoutHandle) clearTimeout(timeoutHandle);
@@ -136,7 +144,7 @@ export async function handleSubWorkflowNode(
 
     const childDurationMs = performance.now() - childStart;
     const childPassed = childAllPassed && childResults.every(r => r.passed);
-    return { childResults, childPassed, childFinalVars, childDurationMs, finalAttempt, childNodeStates };
+    return { childResults, childPassed, childFinalVars, childDurationMs, finalAttempt, childNodeStates, childIterationTrace };
   };
 
   // Helper to build child steps summary for callback
@@ -158,6 +166,7 @@ export async function handleSubWorkflowNode(
   // 4. Execute
   let aggregateResults: RequestResult[] = [];
   let aggregatePassed = true;
+  const childIterationTraces: WorkflowIterationTrace[] = [];
 
   if (iterationItems) {
     // ── Multi-instance execution ──
@@ -175,6 +184,9 @@ export async function handleSubWorkflowNode(
       aggregateResults.push(...run.childResults);
       if (!run.childPassed) aggregatePassed = false;
       perItemResults[idx] = { passed: run.childPassed, vars: run.childFinalVars };
+      if (run.childIterationTrace) {
+        childIterationTraces.push({ ...run.childIterationTrace, index: idx });
+      }
 
       if (hCtx.callbacks.onSubWorkflowComplete) {
         hCtx.callbacks.onSubWorkflowComplete({
@@ -205,6 +217,9 @@ export async function handleSubWorkflowNode(
     const run = await executeOneChild();
     aggregateResults = run.childResults;
     aggregatePassed = run.childPassed;
+    if (run.childIterationTrace) {
+      childIterationTraces.push({ ...run.childIterationTrace, index: 0 });
+    }
 
     for (const m of data.outputMappings) {
       const val = run.childFinalVars[m.sourceVariable] ?? '';
@@ -228,6 +243,26 @@ export async function handleSubWorkflowNode(
         attempt: run.finalAttempt,
       });
     }
+  }
+
+  // Build sub-workflow trace for drill-down in Results Explorer
+  if (childIterationTraces.length > 0 && hCtx.capturedSubWorkflowTraces) {
+    const totalDurationMs = childIterationTraces.reduce((sum, t) => sum + t.durationMs, 0);
+    const traversedEdges = [...new Set(childIterationTraces.flatMap(t => t.traversedEdges))];
+    const childTrace: WorkflowExecutionTrace = {
+      iterations: childIterationTraces,
+      traversedEdges,
+      workflowSnapshot: {
+        nodes: childWorkflow.nodes,
+        edges: childWorkflow.edges,
+      },
+      workflowId: childWorkflow.id,
+      workflowName: childWorkflow.name,
+      totalIterations: childIterationTraces.length,
+      totalDurationMs,
+      fullTraceCaptured: hCtx.traceOptions?.captureFullTrace,
+    };
+    hCtx.capturedSubWorkflowTraces.set(nodeId, childTrace);
   }
 
   // 5. Aggregate child results

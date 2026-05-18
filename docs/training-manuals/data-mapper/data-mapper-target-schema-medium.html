@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Validation Mapping — Step-by-Step Walkthrough</title>
+  <style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; color: #1a1a2e; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 30px 24px; background: #fff; }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code { background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 1px 5px; border-radius: 3px; }
+  pre { background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto; margin: 10px 0 16px; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; }
+  .callout { background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px; margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warning { background: #fff3e0; border-left-color: #f57c00; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .step { background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 16px; margin: 12px 0; }
+  .step-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .step-num { width: 32px; height: 32px; background: #e63946; color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; flex-shrink: 0; }
+  .step-title { font-weight: 600; color: #1d3557; font-size: 15px; }
+  .expect { background: #d4edda; border-left: 4px solid #28a745; padding: 10px 14px; margin: 10px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+  .expect strong { color: #155724; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+  .badge-sample { background: #e8f4fd; color: #1d3557; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  </style>
+</head>
+<body>
+
+<h1>Validation Mapping (Selective Mode)</h1>
+<p><span class="badge badge-medium">MEDIUM</span> &nbsp; <span class="badge badge-sample">Sample: dm-validation-mapping</span></p>
+<p>Learn how to validate specific response fields using the Data Mapper's <strong>Selective Validation</strong> mode. Instead of checking every field, you pick exactly which fields to assert on.</p>
+
+<div class="callout">
+  <strong>Prerequisites</strong>
+  Import the <code>dm-validation-mapping</code> sample from Gallery → Data Mapper → "Validation Mapping" → <strong>Load Sample</strong>.
+</div>
+
+<h2>Part 1 — Understand the Test</h2>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">1</div><div class="step-title">Open the test</div></div>
+  <p>Navigate to <strong>Scenarios</strong> → <code>Gallery: Data Mapper — Validation</code> → <code>GET product/1 → validate name, price, category</code>.</p>
+  <p>URL: <code>https://dummyjson.com/products/1</code></p>
+</div>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">2</div><div class="step-title">Go to the Validation tab</div></div>
+  <p>Click the <strong>Validation</strong> tab. You'll see it's in <strong>Selective Mode (Include)</strong> — only the listed fields are validated.</p>
+  <div class="expect"><strong>You should see:</strong> 5 expected fields listed in a table:
+  <table>
+    <tr><th>JSON Path</th><th>Expected Value</th></tr>
+    <tr><td><code>$.title</code></td><td>Essence Mascara Lash Princess</td></tr>
+    <tr><td><code>$.price</code></td><td>9.99</td></tr>
+    <tr><td><code>$.category</code></td><td>beauty</td></tr>
+    <tr><td><code>$.brand</code></td><td>Essence</td></tr>
+    <tr><td><code>$.stock</code></td><td>5</td></tr>
+  </table>
+  </div>
+</div>
+
+<h2>Part 2 — Open the Data Mapper</h2>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">3</div><div class="step-title">Click "⚡ Data Mapper" on the Validation tab</div></div>
+  <p>The Data Mapper opens in <strong>validation context</strong>.</p>
+</div>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">4</div><div class="step-title">Inspect the Source panel</div></div>
+  <p>The source shows the embedded product response — a rich JSON with nested objects:</p>
+  <pre>{
+  "id": 1,
+  "title": "Essence Mascara Lash Princess",
+  "description": "The Essence Mascara...",
+  "category": "beauty",
+  "price": 9.99,
+  "stock": 5,
+  "brand": "Essence",
+  "dimensions": { "width": 23.17, "height": 14.43, "depth": 28.01 },
+  "reviews": [ ... ],
+  "meta": { "createdAt": "2024-05-23", ... },
+  ...
+}</pre>
+  <div class="expect"><strong>You should see:</strong> A fully populated tree with ~25+ fields including nested <code>dimensions</code>, <code>meta</code>, and <code>reviews</code> arrays. Expand nodes to explore the full structure.</div>
+</div>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">5</div><div class="step-title">Inspect the Target panel</div></div>
+  <p>The target shows the 5 fields selected for validation, each with its expected value:</p>
+  <div class="expect"><strong>You should see:</strong> 5 target fields: <code>title</code>, <code>price</code>, <code>category</code>, <code>brand</code>, <code>stock</code>. Each shows a mapping line back to the corresponding source field and the expected value.</div>
+</div>
+
+<h2>Part 3 — Modify Validation Rules</h2>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">6</div><div class="step-title">Add a new validation field</div></div>
+  <p>In the Target panel, try adding a new expected field. For example, drag <code>rating</code> from the source to the target, or click "Add Field" and type <code>$.rating</code> with expected value <code>4.94</code>.</p>
+  <div class="expect"><strong>You should see:</strong> The target now shows 6 fields. The new field appears with a mapping line to the source.</div>
+</div>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">7</div><div class="step-title">Use Preview to verify</div></div>
+  <p>Click <strong>Preview</strong>. Each validation field shows the actual value from the source JSON next to the expected value, letting you verify they match.</p>
+</div>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">8</div><div class="step-title">Click Done</div></div>
+  <p>Click <strong>Done</strong> to save your changes back to the Validation tab. The expected fields table updates with your additions.</p>
+</div>
+
+<h2>Part 4 — Field Operators (NEW)</h2>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">9</div><div class="step-title">Operator Picker</div></div>
+  <p>Click any target field's operator pill (defaults to <code>exists</code>). A searchable, categorized dropdown opens with 24 operators grouped by: <strong>Equality</strong> (<code>equals</code>, <code>not_equals</code>), <strong>Comparison</strong> (<code>greater_than</code>, <code>less_than</code>, <code>between</code>, <code>close_to</code>), <strong>String</strong> (<code>contains</code>, <code>starts_with</code>, <code>ends_with</code>, <code>regex</code>), <strong>Boolean</strong> (<code>is_true</code>, <code>is_false</code>), <strong>Type</strong> (<code>is_type</code>), <strong>Existence</strong> (<code>exists</code>, <code>not_exists</code>, <code>is_null</code>, <code>is_empty</code>), <strong>Set</strong> (<code>in</code>, <code>not_in</code>).</p>
+</div>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">10</div><div class="step-title">Color-Coded Operator Pills</div></div>
+  <p>Each operator category has a distinct color: <strong>green</strong> = equality, <strong>amber</strong> = comparison, <strong>purple</strong> = string, <strong>red</strong> = boolean, <strong>teal</strong> = type check, <strong>gray</strong> = existence, <strong>blue</strong> = set membership.</p>
+</div>
+
+<h2>Part 5 — DSL Code Editor (NEW)</h2>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">11</div><div class="step-title">Switch to Code Mode</div></div>
+  <p>Click <strong>Rules</strong> in the bottom toolbar dock. A Monaco-based DSL editor appears with syntax highlighting (paths in cyan, operators color-coded, values in green/amber/red, comments in gray).</p>
+</div>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">12</div><div class="step-title">DSL Syntax</div></div>
+  <p>Type validation rules as text. Example:</p>
+  <pre>$.title   equals   "Essence Mascara Lash Princess"
+$.price   >=       5
+$.stock   exists
+$.brand   NOT is_empty</pre>
+</div>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">13</div><div class="step-title">Floating Pop-Out Editor</div></div>
+  <p>Click the ↗ button to pop the DSL editor out as a floating window. Drag the title bar to move it, resize from the bottom-right corner. Click ↙ or press Escape to dock it back.</p>
+</div>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">14</div><div class="step-title">Bi-Directional Sync</div></div>
+  <p>Edit rules in the DSL editor. Changes sync back to the Data Mapper in real-time (300ms debounce). Edit in the Data Mapper — changes sync to the code editor. Both directions are lossless.</p>
+</div>
+
+<h2>Part 6 — Verify &amp; Navigate Failures (NEW)</h2>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">15</div><div class="step-title">Verify Rules</div></div>
+  <p>Click <strong>Verify All</strong> in the toolbar. Each target node shows an inline pass (green check) or fail (red X) badge. The footer shows aggregate counts.</p>
+</div>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">16</div><div class="step-title">Fetch &amp; Verify</div></div>
+  <p>Click <strong>Fetch &amp; Verify</strong> to send a live HTTP request and re-verify all rules against the actual response.</p>
+</div>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">17</div><div class="step-title">Failure Navigation</div></div>
+  <p>When failures exist, use the ◀/▶ buttons in the toolbar to cycle through failed rules. The mapper scrolls to and highlights each failure.</p>
+</div>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">18</div><div class="step-title">Filter by Status</div></div>
+  <p>Use the target panel filter dropdown to show only: All, Mapped, Unmapped, Passed, or Failed rules.</p>
+</div>
+
+<h2>Summary</h2>
+<table>
+  <tr><th>Concept</th><th>Where you saw it</th></tr>
+  <tr><td>Selective validation mode</td><td>Step 2 — only 5 specific fields are checked</td></tr>
+  <tr><td>Source tree from sampleJson</td><td>Step 4 — full product response with nested objects</td></tr>
+  <tr><td>Target fields = expected values</td><td>Step 5 — 5 fields with specific expected values</td></tr>
+  <tr><td>Adding validation rules via mapper</td><td>Step 6 — drag or add new fields</td></tr>
+  <tr><td>Preview to verify values</td><td>Step 7 — compare actual vs expected</td></tr>
+  <tr><td>Operator picker (24 operators, grouped)</td><td>Step 9 — searchable dropdown on operator pill</td></tr>
+  <tr><td>Color-coded operator pills</td><td>Step 10 — category colors on pills</td></tr>
+  <tr><td>Rules / DSL editor (Monaco)</td><td>Step 11 — bottom dock Rules tab</td></tr>
+  <tr><td>Validation DSL syntax</td><td>Step 12 — text rules like <code>$.path operator value</code></td></tr>
+  <tr><td>Floating DSL editor</td><td>Step 13 — ↗ pop-out, resize, dock with ↙ or Escape</td></tr>
+  <tr><td>Bi-directional DSL ↔ visual sync</td><td>Step 14 — real-time, 300ms debounce</td></tr>
+  <tr><td>Verify All</td><td>Step 15 — pass/fail badges and footer counts</td></tr>
+  <tr><td>Fetch &amp; Verify</td><td>Step 16 — live HTTP then re-verify</td></tr>
+  <tr><td>Failure navigation</td><td>Step 17 — ◀/▶ jump to failures</td></tr>
+  <tr><td>Target filter by status</td><td>Step 18 — All / Mapped / Unmapped / Passed / Failed</td></tr>
+</table>
+
+<div class="callout callout-tip">
+  <strong>Next: Full Combo</strong>
+  Try the <code>dm-combo-mapper</code> sample to see extraction, validation, and body building all combined in one scenario.
+</div>
+
+</body>
+</html>

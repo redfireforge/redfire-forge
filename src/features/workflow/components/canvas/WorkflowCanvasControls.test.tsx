@@ -2,13 +2,14 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, vi } from 'vitest';
-import { render, fireEvent } from '@testing-library/react';
+import { render, fireEvent, act } from '@testing-library/react';
 import WorkflowCanvasControls from './WorkflowCanvasControls';
 import { ReactFlowProvider } from '@xyflow/react';
 
 const mockZoomIn = vi.fn();
 const mockZoomOut = vi.fn();
 const mockFitView = vi.fn();
+const mockSetViewport = vi.fn();
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual<typeof import('@xyflow/react')>('@xyflow/react');
@@ -18,6 +19,7 @@ vi.mock('@xyflow/react', async () => {
       zoomIn: mockZoomIn,
       zoomOut: mockZoomOut,
       fitView: mockFitView,
+      setViewport: mockSetViewport,
     }),
   };
 });
@@ -30,8 +32,7 @@ describe('WorkflowCanvasControls', () => {
   const baseProps = {
     showMinimap: true,
     onToggleMinimap: vi.fn(),
-    onRestoreLayout: vi.fn(),
-    onAutoLayout: vi.fn(),
+    onSaveLayout: vi.fn(),
   };
 
   it('renders zoom and layout controls', () => {
@@ -40,8 +41,8 @@ describe('WorkflowCanvasControls', () => {
     );
     expect(container.querySelector('.wf-pill-controls')).toBeTruthy();
     const buttons = container.querySelectorAll('.wf-pill-btn');
-    // Zoom in, Zoom out, Fit, Restore, Auto-layout, Minimap = 6
-    expect(buttons.length).toBe(6);
+    // Zoom in, Zoom out, Fit, Save Layout, Minimap = 5
+    expect(buttons.length).toBe(5);
   });
 
   it('calls onToggleMinimap when minimap button is clicked', () => {
@@ -71,33 +72,45 @@ describe('WorkflowCanvasControls', () => {
     expect(minimapBtn?.classList.contains('wf-pill-btn-active')).toBe(false);
   });
 
-  it('calls onAutoLayout when auto-layout button is clicked', () => {
-    const onAutoLayout = vi.fn();
+  it('calls onSaveLayout when save layout button is clicked', () => {
+    const onSaveLayout = vi.fn();
     const { container } = renderWithProvider(
-      <WorkflowCanvasControls {...baseProps} onAutoLayout={onAutoLayout} />,
+      <WorkflowCanvasControls {...baseProps} onSaveLayout={onSaveLayout} />,
     );
-    const btn = container.querySelector('.wf-pill-btn[title="Auto-layout"]');
+    const btn = container.querySelector(
+      '[data-testid="save-layout-btn"]',
+    ) as HTMLButtonElement;
     expect(btn).toBeTruthy();
-    fireEvent.click(btn!);
-    expect(onAutoLayout).toHaveBeenCalledTimes(1);
+    fireEvent.click(btn);
+    expect(onSaveLayout).toHaveBeenCalledTimes(1);
   });
 
-  it('calls onRestoreLayout when restore button is clicked', () => {
-    const onRestoreLayout = vi.fn();
-    const { container } = renderWithProvider(
-      <WorkflowCanvasControls {...baseProps} onRestoreLayout={onRestoreLayout} />,
-    );
-    const btn = container.querySelector('.wf-pill-btn[title="Restore saved layout"]');
-    expect(btn).toBeTruthy();
-    fireEvent.click(btn!);
-    expect(onRestoreLayout).toHaveBeenCalledTimes(1);
+  it('applies save-flash class then clears it after timer', () => {
+    vi.useFakeTimers();
+    try {
+      const { container } = renderWithProvider(
+        <WorkflowCanvasControls {...baseProps} />,
+      );
+      const btn = container.querySelector(
+        '[data-testid="save-layout-btn"]',
+      ) as HTMLButtonElement;
+      expect(btn.classList.contains('save-flash')).toBe(false);
+      fireEvent.click(btn);
+      expect(btn.classList.contains('save-flash')).toBe(true);
+      act(() => {
+        vi.advanceTimersByTime(1200);
+      });
+      expect(btn.classList.contains('save-flash')).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
-  it('restore button is disabled when disableLayout is true', () => {
+  it('save layout button is disabled when disableLayout is true', () => {
     const { container } = renderWithProvider(
       <WorkflowCanvasControls {...baseProps} disableLayout={true} />,
     );
-    const btn = container.querySelector('.wf-pill-btn[title="Restore saved layout"]') as HTMLButtonElement;
+    const btn = container.querySelector('.wf-pill-btn[title="Save current node layout"]') as HTMLButtonElement;
     expect(btn.disabled).toBe(true);
   });
 
@@ -210,8 +223,8 @@ describe('WorkflowCanvasControls', () => {
       />,
     );
     const buttons = container.querySelectorAll('.wf-pill-btn');
-    // Undo, Redo, Zoom in, Zoom out, Fit, Restore, Auto-layout, Minimap = 8
-    expect(buttons.length).toBe(8);
+    // Undo, Redo, Zoom in, Zoom out, Fit, Save Layout, Minimap = 7
+    expect(buttons.length).toBe(7);
   });
 
   it('calls zoomIn when Zoom in button clicked', () => {
@@ -234,13 +247,26 @@ describe('WorkflowCanvasControls', () => {
     expect(mockZoomOut).toHaveBeenCalledWith({ duration: 200 });
   });
 
-  it('calls fitView when Fit view button clicked', () => {
+  it('calls fitView when Fit view button clicked and no saved viewport', () => {
     mockFitView.mockClear();
     const { container } = renderWithProvider(
       <WorkflowCanvasControls {...baseProps} />,
     );
     const btn = container.querySelector('.wf-pill-btn[title="Fit view"]');
     fireEvent.click(btn!);
-    expect(mockFitView).toHaveBeenCalledWith({ padding: 0.2, duration: 300 });
+    expect(mockFitView).toHaveBeenCalledWith({ padding: 0.1, maxZoom: 1, duration: 300 });
+  });
+
+  it('restores saved viewport when Fit view button clicked with savedViewport', () => {
+    mockSetViewport.mockClear();
+    mockFitView.mockClear();
+    const vp = { x: 100, y: 200, zoom: 1.5 };
+    const { container } = renderWithProvider(
+      <WorkflowCanvasControls {...baseProps} savedViewport={vp} />,
+    );
+    const btn = container.querySelector('.wf-pill-btn[title="Restore saved view"]');
+    fireEvent.click(btn!);
+    expect(mockSetViewport).toHaveBeenCalledWith(vp, { duration: 300 });
+    expect(mockFitView).not.toHaveBeenCalled();
   });
 });

@@ -58,6 +58,7 @@ export async function handleErrorHandlerNode(
 
     const preResultCount = hCtx.results.length;
     for (const e of bodyEdges) {
+      hCtx.traceCollector?.onEdgeTraversed(e.id);
       await hCtx.visit(e.target, `${hCtx.threadId}-try-${attempt}`);
     }
 
@@ -125,11 +126,13 @@ export async function handleErrorHandlerNode(
     }
 
     for (const e of catchEdges) {
+      hCtx.traceCollector?.onEdgeTraversed(e.id);
       await hCtx.visit(e.target, `${hCtx.threadId}-catch`);
     }
   }
 
   for (const e of doneEdges) {
+    hCtx.traceCollector?.onEdgeTraversed(e.id);
     await hCtx.visit(e.target, hCtx.threadId);
   }
 }

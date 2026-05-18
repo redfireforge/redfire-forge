@@ -13,7 +13,10 @@ interface ParamsEditorProps {
   onChange: (params: ParamEntry[]) => void;
   /** Per row: open variable picker; parent appends `{{…}}` to this row’s value. */
   onInsertVariable?: (rowIndex: number, paramKey: string) => void;  /** Variable hints used to display the source of each param value. */
-  variableHints?: WorkflowVariableHint[];}
+  variableHints?: WorkflowVariableHint[];
+  /** Re-import params from the current URL. If not provided, Import from URL button is hidden. */
+  onImportFromUrl?: () => void;
+}
 
 const EMPTY_ROW: ParamEntry = { key: '', value: '', enabled: true, description: '' };
 
@@ -28,13 +31,14 @@ export function fromParamEntries(entries: ParamEntry[]): KeyValue[] {
   return entries.filter((e) => e.enabled && e.key.trim()).map(({ key, value }) => ({ key, value }));
 }
 
-export function ParamsEditor({ params, onChange, onInsertVariable, variableHints = [] }: ParamsEditorProps) {
+export function ParamsEditor({ params, onChange, onInsertVariable, variableHints = [], onImportFromUrl }: ParamsEditorProps) {
   const [bulkEdit, setBulkEdit] = useState(false);
   const [showDesc, setShowDesc] = useState(false);
 
   const activeCount = useMemo(() => params.filter((p) => p.key.trim() && p.enabled).length, [params]);
 
   const sourceMap = useMemo(() => buildVariableSourceMap(variableHints), [variableHints]);
+  const showSource = variableHints.length > 0;
 
   const update = useCallback(
     (idx: number, patch: Partial<ParamEntry>) => {
@@ -62,11 +66,10 @@ export function ParamsEditor({ params, onChange, onInsertVariable, variableHints
   }, [onChange]);
 
   const importFromUrl = useCallback(() => {
-    // Placeholder — parent handles this via the URL field already.
-    // This fires onChange with params re-parsed from the URL, but the parent already syncs.
-    // Kept as a UX action that clears manual additions and re-imports from URL.
-    onChange([{ ...EMPTY_ROW }]);
-  }, [onChange]);
+    if (onImportFromUrl) {
+      onImportFromUrl();
+    }
+  }, [onImportFromUrl]);
 
   const bulkText = useMemo(() => {
     return params
@@ -97,9 +100,11 @@ export function ParamsEditor({ params, onChange, onInsertVariable, variableHints
           {activeCount > 0 && <span className="tab-badge">{activeCount}</span>}
         </div>
         <div className="params-toolbar-right">
-          <button type="button" className="btn-link-sm" onClick={importFromUrl}>
-            Import from URL
-          </button>
+          {onImportFromUrl && (
+            <button type="button" className="btn-link-sm" onClick={importFromUrl}>
+              Import from URL
+            </button>
+          )}
           <button
             type="button"
             className={`btn-link-sm ${bulkEdit ? 'active' : ''}`}
@@ -137,10 +142,10 @@ export function ParamsEditor({ params, onChange, onInsertVariable, variableHints
             </button>
           </div>
 
-          <div className={`params-grid-header ${showDesc ? 'with-desc' : ''}`}>
+          <div className={`params-grid-header ${showDesc ? 'with-desc' : ''} ${!showSource ? 'no-source' : ''}`}>
             <span />
             <span>name</span>
-            <span>source</span>
+            {showSource && <span>source</span>}
             <span>value</span>
             {showDesc && <span>description</span>}
             <span />
@@ -150,7 +155,7 @@ export function ParamsEditor({ params, onChange, onInsertVariable, variableHints
           {params.map((p, i) => {
             const { source, displayValue } = resolveVariableSource(p.value, sourceMap);
             return (
-            <div key={i} className={`params-row ${showDesc ? 'with-desc' : ''} ${!p.enabled ? 'disabled' : ''}`}>
+            <div key={i} className={`params-row ${showDesc ? 'with-desc' : ''} ${!showSource ? 'no-source' : ''} ${!p.enabled ? 'disabled' : ''}`}>
               <span className="params-drag-handle" title="Drag to reorder">⠿</span>
               <input
                 className="params-input"
@@ -159,13 +164,15 @@ export function ParamsEditor({ params, onChange, onInsertVariable, variableHints
                 placeholder="name"
                 disabled={!p.enabled}
               />
-              <input
-                className="params-input params-source-cell"
-                readOnly
-                value={source}
-                title={source}
-                tabIndex={-1}
-              />
+              {showSource && (
+                <input
+                  className="params-input params-source-cell"
+                  readOnly
+                  value={source}
+                  title={source}
+                  tabIndex={-1}
+                />
+              )}
               <div className="params-value-with-insert">
                 <input
                   className="params-input"

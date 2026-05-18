@@ -1,9 +1,12 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import type { FeatureGroup, Scenario } from '../../../shared/types';
+import { v4 as uuidv4 } from 'uuid';
+import type { FeatureGroup, Scenario, DataSource, DataSourceColumn, DataSourceRow } from '../../../shared/types';
 import { parseCsvToScenarios, parseExcelToScenarios, downloadCsv } from '../utils/csvTemplate';
 import { parseJsonToScenarios } from '../utils/csvTemplateJson';
 import type { CsvParseResult } from '../utils/csvTemplate';
 import PopupModal from '../../../shared/components/PopupModal';
+
+type ImportMode = 'tests' | 'parameterized';
 
 interface Props {
   featureGroups: FeatureGroup[];
@@ -22,6 +25,7 @@ export default function CsvImportModal({ featureGroups, onImport, onClose }: Pro
   const [createNewScenario, setCreateNewScenario] = useState(false);
   const [fileName, setFileName] = useState('');
   const [duplicateMode, setDuplicateMode] = useState<'skip' | 'append'>('append');
+  const [importMode, setImportMode] = useState<ImportMode>('tests');
   const [dragging, setDragging] = useState(false);
   const [expandedErrors, setExpandedErrors] = useState<Set<number>>(new Set());
   const dragCounter = useRef(0);
@@ -165,7 +169,13 @@ export default function CsvImportModal({ featureGroups, onImport, onClose }: Pro
       : selectedScenarioId;
     if (!scenId) return;
 
-    onImport(fgId, scenId, tests);
+    if (importMode === 'parameterized') {
+      // Build a single Scenario with a DataSource from all valid rows
+      const paramTest = buildParameterizedTest(tests, parseResult!);
+      onImport(fgId, scenId, [paramTest]);
+    } else {
+      onImport(fgId, scenId, tests);
+    }
   };
 
   const canImport = validTests.length > 0
@@ -184,7 +194,9 @@ export default function CsvImportModal({ featureGroups, onImport, onClose }: Pro
           <div style={{ flex: 1 }} />
           <button className="btn" onClick={onClose}>Cancel</button>
           <button className="btn btn-primary" onClick={handleImport} disabled={!canImport}>
-            Import {validTests.length} Test{validTests.length !== 1 ? 's' : ''}
+            {importMode === 'parameterized'
+              ? `Import as Parameterized Test (${validTests.length} rows)`
+              : `Import ${validTests.length} Test${validTests.length !== 1 ? 's' : ''}`}
           </button>
         </>
       )}
@@ -426,6 +438,15 @@ export default function CsvImportModal({ featureGroups, onImport, onClose }: Pro
                   )}
                 </div>
 
+                {/* Import mode */}
+                <div className="csv-dest-row">
+                  <span className="csv-dest-row-label">Import As</span>
+                  <select className="csv-dest-select" value={importMode} onChange={(e) => setImportMode(e.target.value as ImportMode)}>
+                    <option value="tests">Individual Tests — each row becomes a separate test</option>
+                    <option value="parameterized">Parameterized Test — one test with all rows as data source</option>
+                  </select>
+                </div>
+
                 {/* Duplicate handling */}
                 <div className="csv-dest-row">
                   <span className="csv-dest-row-label">Duplicates</span>
@@ -439,4 +460,170 @@ export default function CsvImportModal({ featureGroups, onImport, onClose }: Pro
           )}
     </PopupModal>
   );
+}
+
+// ─── Helper: build a single parameterized test from parsed rows ───
+
+function buildParameterizedTest(tests: Scenario[], parseResult: CsvParseResult): Scenario {
+  const meta = parseResult.meta;
+  const baseTest = tests[0];
+
+  // Build a set of known path variable names from metadata
+  const pathVarNames = new Set(meta?.pathVariables ?? []);
+
+  // Column type map from Excel metadata (most reliable source)
+  const columnTypes = parseResult.columnTypes;
+
+  // Extract query param names from the URL pattern (e.g. "channel={{channel}}" → "channel")
+  const paramNames = new Set<string>();
+  if (meta?.urlPattern) {
+    const qIdx = meta.urlPattern.indexOf('?');
+    if (qIdx >= 0) {
+      const qs = meta.urlPattern.slice(qIdx + 1);
+      for (const pair of qs.split('&')) {
+        const eqIdx = pair.indexOf('=');
+        if (eqIdx >= 0) paramNames.add(pair.slice(0, eqIdx));
+      }
+    }
+  }
+
+  // Determine columns from the parse result columns list
+  const columns: DataSourceColumn[] = [];
+  const colNames = parseResult.columns;
+
+  // Skip these meta-level fields — they define the test, not data source columns
+  const skipFields = new Set(['name', 'method', 'url', 'body', 'auth_type']);
+
+  for (const colName of colNames) {
+    let type: DataSourceColumn['type'] = 'param';
+    let mapping = colName;
+    let displayName = colName;
+
+    // 1. Check for explicit prefixes (CSV format)
+    if (colName.startsWith('path:')) {
+      type = 'path';
+      mapping = colName.slice(5);
+      displayName = mapping;
+    } else if (colName.startsWith('param:')) {
+      type = 'param';
+      mapping = colName.slice(6);
+      displayName = mapping;
+    } else if (colName.startsWith('validate:') || colName.startsWith('expect:')) {
+      type = 'validate';
+      mapping = colName.startsWith('validate:') ? colName.slice(9) : colName.slice(7);
+      displayName = mapping;
+    } else if (colName.startsWith('header:')) {
+      type = 'header';
+      mapping = colName.slice(7);
+      displayName = mapping;
+    } else if (colName.startsWith('body:')) {
+      type = 'body';
+      mapping = colName.slice(5);
+      displayName = mapping;
+    } else if (skipFields.has(colName)) {
+      // Skip test-level fields
+      continue;
+    } else {
+      // 2. No prefix (Excel format) — use columnTypes map from metadata first
+      const colInfo = columnTypes?.get(colName);
+      if (colInfo) {
+        type = colInfo.type as DataSourceColumn['type'];
+        mapping = colInfo.mapping || colName;
+        if (type === 'name' as string) continue; // skip 'name' type column
+      } else if (pathVarNames.has(colName)) {
+        type = 'path';
+        mapping = colName;
+      } else if (paramNames.has(colName)) {
+        type = 'param';
+        mapping = colName;
+      } else {
+        // Everything else is a validate column
+        type = 'validate';
+        mapping = colName;
+      }
+      displayName = colName;
+    }
+
+    columns.push({
+      id: uuidv4(),
+      name: displayName,
+      type,
+      mapping,
+    });
+  }
+
+  // Build rows from valid parsed data
+  const rows: DataSourceRow[] = [];
+  for (const parsedRow of parseResult.rows) {
+    if (!parsedRow.scenario) continue;
+    const values: Record<string, string> = {};
+    for (const col of columns) {
+      // Find value from raw data — try the original column name in all prefix variants
+      const rawKey = colNames.find(cn => {
+        if (cn === col.name) return true;
+        if (cn === col.mapping) return true;
+        if (cn === `path:${col.mapping}`) return true;
+        if (cn === `param:${col.mapping}`) return true;
+        if (cn === `validate:${col.mapping}` || cn === `expect:${col.mapping}`) return true;
+        if (cn === `header:${col.mapping}`) return true;
+        if (cn === `body:${col.mapping}`) return true;
+        return false;
+      });
+      values[col.id] = rawKey ? (parsedRow.raw[rawKey] ?? '') : '';
+    }
+    rows.push({
+      id: uuidv4(),
+      label: parsedRow.scenario.name,
+      values,
+      enabled: true,
+    });
+  }
+
+  // Build URL template from metadata
+  const urlTemplate = meta?.urlPattern || baseTest.url;
+
+  // Determine validation contract from dynamic validate columns
+  const validateCols = columns.filter(c => c.type === 'validate');
+  let validationContract: string[] | undefined;
+  const patternSet = new Set<string>();
+  for (const vc of validateCols) {
+    const wildcarded = vc.mapping.replace(/\[\d+\]/g, '[*]');
+    if (wildcarded !== vc.mapping) {
+      patternSet.add(wildcarded);
+    }
+  }
+  if (patternSet.size > 0) {
+    validationContract = Array.from(patternSet);
+  }
+
+  // Use metadata-provided contract/mode if available (more reliable than re-deriving)
+  const finalContract = parseResult.validationContract ?? validationContract;
+  const finalArrayMode = parseResult.arrayValidationMode;
+
+  const dataTable: DataSource = {
+    id: uuidv4(),
+    columns,
+    rows,
+    source: { type: 'inline' },
+    urlTemplate,
+    validationContract: finalContract,
+    arrayValidationMode: finalArrayMode,
+  };
+
+  // Build the parameterized test scenario
+  const paramTest: Scenario = {
+    id: uuidv4(),
+    name: baseTest.name.replace(/\s*-\s*\S+$/, '') || baseTest.name, // Strip VIN/suffix from name
+    method: baseTest.method,
+    url: urlTemplate,
+    headers: baseTest.headers,
+    body: baseTest.body,
+    bodyType: baseTest.bodyType,
+    bodyForm: baseTest.bodyForm,
+    auth: baseTest.auth,
+    validation: baseTest.validation,
+    dataSource: dataTable,
+  };
+
+  return paramTest;
 }

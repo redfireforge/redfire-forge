@@ -6,6 +6,8 @@ import { createWebhookTriggerWorkflow, createScheduleTriggerWorkflow, createWait
 import { createSubWorkflowOrchestrator, createSubWorkflowChild, createOrderPipelineWorkflow, createShippingChildWorkflow, createDeployOrchestratorWorkflow, createRegionDeployChildWorkflow, createRollbackChildWorkflow, createScriptAdvancedWorkflow } from './orchestration';
 import { createPaymentCallbackEasyWorkflow, createApprovalWorkflowMediumWorkflow, createParallelPaymentAdvancedWorkflow, createPaymentCallbackSimulatorWorkflow, createApprovalSimulatorWorkflow, createParallelPaymentSimulatorWorkflow } from './asyncCorrelation';
 import { createPokemonEvolutionWorkflow, createCountryCurrencyWorkflow, createProductCartWorkflow, createBookSearchWorkflow, createMultiApiDashboardWorkflow } from './diverseApis';
+import { createPerfSimpleWorkflow, createPerfBranchingWorkflow, createPerfParallelWorkflow, createPerfEdgePercentageWorkflow, createPerfBottleneckDemoWorkflow } from './performance';
+import { createParallelShowcaseWorkflow } from './parallelShowcase';
 import type { SampleWorkflowEntry } from './types';
 
 // Re-export all factory functions
@@ -15,6 +17,8 @@ export { createWebhookTriggerWorkflow, createScheduleTriggerWorkflow, createWait
 export { createSubWorkflowOrchestrator, createSubWorkflowChild, createOrderPipelineWorkflow, createShippingChildWorkflow, createDeployOrchestratorWorkflow, createRegionDeployChildWorkflow, createRollbackChildWorkflow, createScriptAdvancedWorkflow } from './orchestration';
 export { createPaymentCallbackEasyWorkflow, createApprovalWorkflowMediumWorkflow, createParallelPaymentAdvancedWorkflow, createPaymentCallbackSimulatorWorkflow, createApprovalSimulatorWorkflow, createParallelPaymentSimulatorWorkflow } from './asyncCorrelation';
 export { createPokemonEvolutionWorkflow, createCountryCurrencyWorkflow, createProductCartWorkflow, createBookSearchWorkflow, createMultiApiDashboardWorkflow } from './diverseApis';
+export { createPerfSimpleWorkflow, createPerfBranchingWorkflow, createPerfParallelWorkflow, createPerfEdgePercentageWorkflow } from './performance';
+export { createParallelShowcaseWorkflow } from './parallelShowcase';
 
 /** All available sample workflows. */
 export const sampleWorkflowCatalog: SampleWorkflowEntry[] = [
@@ -480,5 +484,97 @@ export const sampleWorkflowCatalog: SampleWorkflowEntry[] = [
     primaryNodes: ['Fork', 'Join'],
     secondaryNodes: ['HTTP', 'SetVariable'],
     factory: createMultiApiDashboardWorkflow,
+  },
+
+  // ── Performance Testing Samples ───────────────────────
+  {
+    id: 'perf-workflow-simple',
+    name: 'Perf: Simple POST → GET',
+    description: 'Simplest workflow for load testing: create a post, then verify it exists.',
+    domain: 'workflows',
+    tags: ['performance', 'load-testing', 'post', 'get', 'simple'],
+    liveApis: ['jsonplaceholder.typicode.com'],
+    category: 'performance',
+    difficulty: 'easy',
+    icon: '⚡',
+    nodeCount: 3,
+    primaryNodes: ['HTTP'],
+    secondaryNodes: [],
+    factory: createPerfSimpleWorkflow,
+  },
+  {
+    id: 'perf-workflow-branching',
+    name: 'Perf: Conditional Branching',
+    description: 'Load test a workflow with conditional paths: search country, branch on result.',
+    domain: 'workflows',
+    tags: ['performance', 'load-testing', 'branching', 'condition'],
+    liveApis: ['restcountries.com'],
+    category: 'performance',
+    difficulty: 'medium',
+    icon: '⚡',
+    nodeCount: 5,
+    primaryNodes: ['Condition'],
+    secondaryNodes: ['HTTP'],
+    factory: createPerfBranchingWorkflow,
+  },
+  {
+    id: 'perf-workflow-parallel',
+    name: 'Perf: Parallel Fork/Join',
+    description: 'Load test a workflow with parallel paths: fetch user data across 3 endpoints simultaneously.',
+    domain: 'workflows',
+    tags: ['performance', 'load-testing', 'fork-join', 'parallel'],
+    liveApis: ['jsonplaceholder.typicode.com'],
+    category: 'performance',
+    difficulty: 'medium',
+    icon: '⚡',
+    nodeCount: 8,
+    primaryNodes: ['Fork', 'Join'],
+    secondaryNodes: ['HTTP'],
+    factory: createPerfParallelWorkflow,
+  },
+  {
+    id: 'perf-workflow-bottleneck',
+    name: 'Perf: Bottleneck Analysis Demo',
+    description: 'Workflow with fast, slow, and failing endpoints to demonstrate bottleneck detection, heatmap coloring, and the Results Explorer insights panel.',
+    domain: 'workflows',
+    tags: ['performance', 'load-testing', 'bottleneck', 'heatmap', 'results-explorer', 'tutorial'],
+    liveApis: ['jsonplaceholder.typicode.com', 'httpbin.org'],
+    category: 'performance',
+    difficulty: 'medium',
+    icon: '🔥',
+    nodeCount: 7,
+    primaryNodes: ['Condition', 'HTTP'],
+    secondaryNodes: [],
+    factory: createPerfBottleneckDemoWorkflow,
+  },
+  {
+    id: 'perf-workflow-edge-pct',
+    name: 'Perf: Edge Traversal Demo',
+    description: 'Demonstrates edge traversal percentages: random postId branches found vs not-found (~67/33 split).',
+    domain: 'workflows',
+    tags: ['performance', 'load-testing', 'branching', 'edge-traversal', 'condition', 'tutorial'],
+    liveApis: ['jsonplaceholder.typicode.com'],
+    category: 'performance',
+    difficulty: 'easy',
+    icon: '📊',
+    nodeCount: 6,
+    primaryNodes: ['Condition', 'SetVariable'],
+    secondaryNodes: ['HTTP'],
+    factory: createPerfEdgePercentageWorkflow,
+  },
+  {
+    id: 'sample-workflow-parallel-showcase',
+    name: 'Sample: Parallel Showcase (3 Branches)',
+    description: 'Three parallel branches with different depths — demonstrates swim-lane grouping, critical path detection, and branch comparison table in the Results Explorer.',
+    domain: 'workflows',
+    tags: ['fork-join', 'parallel', 'swim-lane', 'critical-path', 'results-explorer', 'tutorial'],
+    liveApis: ['jsonplaceholder.typicode.com'],
+    category: 'api-patterns',
+    difficulty: 'medium',
+    icon: '🏊',
+    nodeCount: 11,
+    primaryNodes: ['Fork', 'Join'],
+    secondaryNodes: ['HTTP'],
+    factory: createParallelShowcaseWorkflow,
   },
 ];

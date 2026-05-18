@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Send to Harness — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warn { background: #fff8e1; border-left-color: #f6ad55; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">🚀</div>
+    <h1>Send to Harness</h1>
+    <div class="subtitle">Direct Catalog-to-Test Export — Training Manual</div>
+    <p><span class="badge badge-easy">Easy ★☆☆</span> · API Catalog · Export Workflow</p>
+    <div class="meta">RedfireForge v0.5.7</div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <h2>1. Overview</h2>
+  <p><strong>Send to Harness</strong> allows you to export any endpoint directly from the API Catalog into the Test Harness as a ready-to-run scenario. This eliminates the manual step of creating test definitions from scratch.</p>
+  <p>Key capabilities:</p>
+  <ul>
+    <li>One-click export from any catalog endpoint to a Harness scenario</li>
+    <li>Automatic request body generation from OpenAPI schema</li>
+    <li>Query parameters pre-populated from the spec definition</li>
+    <li>Host strategy awareness with placeholder URL warnings</li>
+  </ul>
+
+  <h2>2. Step-by-Step Workflow</h2>
+
+  <h3>Step 1: Open an API Catalog Spec</h3>
+  <ol>
+    <li>Navigate to the <strong>Catalog</strong> tab</li>
+    <li>Import or select an existing API specification</li>
+    <li>Browse to the endpoint you want to test (e.g., <code>POST /pets</code>)</li>
+  </ol>
+
+  <h3>Step 2: Open Try It Mode</h3>
+  <ol>
+    <li>Click <strong>Try It</strong> on the endpoint card</li>
+    <li>Review the pre-populated parameters and body</li>
+    <li>Optionally adjust values for your test scenario</li>
+  </ol>
+
+  <h3>Step 3: Send to Harness</h3>
+  <ol>
+    <li>Click the <strong>Send to Harness</strong> button (in the Execute bar)</li>
+    <li>Select the target <strong>Feature Group</strong> (or create a new one)</li>
+    <li>Choose the <strong>Scenario</strong> to add the test into</li>
+    <li>Select <strong>Environment</strong> and <strong>Microservice</strong></li>
+    <li>Click <strong>Confirm</strong></li>
+  </ol>
+
+  <div class="callout callout-tip">
+    <strong>Result</strong>
+    The test scenario is created instantly. The Harness tab opens with your new scenario ready for assertions and execution.
+  </div>
+
+  <div class="page-break"></div>
+
+  <h2>3. Schema-Based Body Generation</h2>
+  <p>When the spec defines a <code>requestBody</code> with a JSON schema (but no explicit example), RedfireForge <strong>automatically generates</strong> a sample payload from the schema definition.</p>
+
+  <h3>How It Works</h3>
+  <table>
+    <thead>
+      <tr><th>Priority</th><th>Source</th><th>Example</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>1st</td><td>Content-type level <code>example</code></td><td>Explicit example in spec</td></tr>
+      <tr><td>2nd</td><td>Schema-level <code>example</code></td><td><code>schema: { example: {...} }</code></td></tr>
+      <tr><td>3rd</td><td><strong>Generated from schema</strong></td><td>Auto-built from properties/types</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Schema Type Mapping</h3>
+  <table>
+    <thead>
+      <tr><th>Schema Type</th><th>Generated Value</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>string</code></td><td><code>"string"</code></td></tr>
+      <tr><td><code>string</code> (format: date-time)</td><td><code>"2024-01-01T00:00:00Z"</code></td></tr>
+      <tr><td><code>string</code> (format: date)</td><td><code>"2024-01-01"</code></td></tr>
+      <tr><td><code>integer</code> / <code>number</code></td><td><code>0</code></td></tr>
+      <tr><td><code>boolean</code></td><td><code>true</code></td></tr>
+      <tr><td><code>array</code></td><td><code>[<generated item>]</code></td></tr>
+      <tr><td><code>object</code></td><td>Recursive property generation</td></tr>
+      <tr><td><code>enum</code></td><td>First enum value</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Example: Pet Store POST /pets</h3>
+  <p>Given this OpenAPI schema:</p>
+  <pre>{
+  "type": "object",
+  "properties": {
+    "name": { "type": "string" },
+    "status": { "type": "string", "enum": ["available", "pending", "sold"] },
+    "category": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "integer" },
+        "name": { "type": "string" }
+      }
+    }
+  }
+}</pre>
+
+  <p>The generated body will be:</p>
+  <pre>{
+  "name": "string",
+  "status": "available",
+  "category": {
+    "id": 0,
+    "name": "string"
+  }
+}</pre>
+
+  <div class="callout">
+    <strong>Why this matters</strong>
+    Without body generation, exporting POST/PUT/PATCH endpoints would create empty-body requests, resulting in <code>405 Method Not Allowed</code> or <code>400 Bad Request</code> errors from the server.
+  </div>
+
+  <div class="page-break"></div>
+
+  <h2>4. Host Strategy &amp; Placeholder Warnings</h2>
+  <p>When using <strong>Try It</strong> or <strong>Send to Harness</strong>, RedfireForge resolves the endpoint's base URL using one of three strategies:</p>
+
+  <table>
+    <thead>
+      <tr><th>Strategy</th><th>Source</th><th>When to Use</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>From Spec</strong></td><td>OpenAPI <code>servers[].url</code></td><td>Spec has a real, reachable URL</td></tr>
+      <tr><td><strong>Environment</strong></td><td>Microservice base URL for selected env</td><td>You have env/svc configured</td></tr>
+      <tr><td><strong>Custom URL</strong></td><td>Manual entry</td><td>One-off testing or local dev</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Placeholder URL Warning</h3>
+  <p>Many public specs use placeholder domains that don't resolve to real servers:</p>
+  <pre>servers:
+  - url: https://api.petstore.example.com   # example.com won't resolve!
+  - url: http://localhost:3000              # only works locally</pre>
+
+  <p>When detected, an <strong>amber warning banner</strong> appears:</p>
+  <pre style="background: #fff8e1; color: #856404; border-left: 4px solid #f6ad55;">
+⚠ Server URL 'api.petstore.example.com' from the spec is likely a placeholder.
+  Switch to "Custom URL" or "Environment" mode to use your real server.</pre>
+
+  <p>Placeholder domains detected: <code>example.com</code>, <code>example.org</code>, <code>.test</code>, <code>.local</code>, <code>localhost</code>, <code>127.0.0.1</code></p>
+
+  <div class="callout callout-warn">
+    <strong>Common Error: ENOTFOUND</strong>
+    If you see <code>fetch failed — getaddrinfo ENOTFOUND</code>, the URL cannot be resolved by DNS. Switch to "Custom URL" or "Environment" strategy to point at an actual server.
+  </div>
+
+  <div class="page-break"></div>
+
+  <h2>5. Query Parameter Handling</h2>
+  <p>When exporting to Harness, query parameters are handled intelligently to avoid duplication:</p>
+  <ul>
+    <li>Parameters defined in the spec's <code>parameters</code> array are extracted</li>
+    <li>If the URL string already contains query parameters (e.g., <code>/search?q=test</code>), the base URL is stripped before appending spec parameters</li>
+    <li>Only <strong>enabled</strong> parameters with non-empty keys are included in the final URL</li>
+  </ul>
+
+  <h3>Before (Broken — Double Parameters)</h3>
+  <pre>URL: /search?q=test&amp;limit=10
+Params: [{key: "q", value: "test"}, {key: "limit", value: "10"}]
+
+Result: /search?q=test&amp;limit=10&amp;q=test&amp;limit=10  ← DUPLICATED!</pre>
+
+  <h3>After (Fixed — Clean URL)</h3>
+  <pre>URL: /search?q=test&amp;limit=10
+Params: [{key: "q", value: "test"}, {key: "limit", value: "10"}]
+
+Result: /search?q=test&amp;limit=10  ← Parameters from params[] are authoritative</pre>
+
+  <h2>6. What Gets Exported</h2>
+  <table>
+    <thead>
+      <tr><th>Field</th><th>Source</th><th>Notes</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>URL</td><td>Server URL + path</td><td>Path variables included as <code>{param}</code></td></tr>
+      <tr><td>Method</td><td>HTTP method</td><td>GET, POST, PUT, DELETE, PATCH</td></tr>
+      <tr><td>Headers</td><td>Header parameters + Content-Type</td><td>Auto-adds <code>application/json</code> for body requests</td></tr>
+      <tr><td>Body</td><td>Schema or example</td><td>Auto-generated when no example exists</td></tr>
+      <tr><td>Query Params</td><td>Query parameters array</td><td>De-duplicated, enabled only</td></tr>
+      <tr><td>Auth</td><td>Security schemes</td><td>If defined in spec</td></tr>
+    </tbody>
+  </table>
+
+  <h2>7. Tips &amp; Troubleshooting</h2>
+  <ul>
+    <li><strong>405/400 errors after export?</strong> — Check that the body was generated. If still empty, the spec may lack both examples and a schema definition.</li>
+    <li><strong>ENOTFOUND errors?</strong> — Switch host strategy from "From Spec" to "Environment" or "Custom URL".</li>
+    <li><strong>Duplicate query params?</strong> — This is now automatically handled. If you see duplicates in legacy scenarios, re-export from the catalog.</li>
+    <li><strong>Missing auth?</strong> — Configure credentials in the Catalog's auth panel before exporting.</li>
+  </ul>
+
+  <footer>
+    RedfireForge Training Manual — Send to Harness · May 2026
+  </footer>
+
+</body>
+</html>

@@ -3,8 +3,9 @@ import { parse as parseYaml } from 'yaml';
 import { v4 as uuidv4 } from 'uuid';
 import type {
   Scenario, TestConfig, AuthConfig, ValidationConfig, Assertion, Extraction,
-  KeyValue, ExecutionMode, ErrorPolicy, LoadProfileConfig,
+  KeyValue, ExecutionMode, ErrorPolicy, LoadProfileConfig, DataSource,
 } from '../src/types';
+import { buildDataSourceFromInline } from './dataLoader';
 
 // ── YAML/JSON test file schema ──────────────────────────────
 
@@ -28,6 +29,8 @@ interface TestFileScenario {
   weight?: number;
   featureGroup?: string;
   scenario?: string;
+  /** Inline data source for parameterized testing */
+  data?: { columns?: string[]; rows: (string[] | Record<string, unknown>)[] };
 }
 
 interface TestFileAuth {
@@ -68,6 +71,8 @@ export interface TestFile {
   };
   config?: {
     concurrency?: number;
+    iterations?: number;
+    /** @deprecated Use `iterations` instead */
     transactions?: number;
     mode?: string;
     errorPolicy?: string;
@@ -149,7 +154,7 @@ function resolveUrl(url: string, baseUrl?: string): string {
   return `${base}${path}`;
 }
 
-export function buildScenarios(file: TestFile, cliBaseUrl?: string): Scenario[] {
+export function buildScenarios(file: TestFile, cliBaseUrl?: string, externalDataSource?: DataSource): Scenario[] {
   const base = cliBaseUrl || file.baseUrl;
   const defaultAuth = toAuth(file.defaults?.auth);
   const defaultHeaders = toHeaders(file.defaults?.headers);
@@ -170,6 +175,12 @@ export function buildScenarios(file: TestFile, cliBaseUrl?: string): Scenario[] 
       fallback: e.fallback,
     }));
 
+    // Data source: CLI --data flag takes priority, then inline YAML data
+    let dataSource: DataSource | undefined = externalDataSource;
+    if (!dataSource && t.data) {
+      dataSource = buildDataSourceFromInline(t.data);
+    }
+
     return {
       id: uuidv4(),
       name: t.name,
@@ -183,6 +194,7 @@ export function buildScenarios(file: TestFile, cliBaseUrl?: string): Scenario[] 
       extractions,
       featureGroupName: t.featureGroup,
       groupName: t.scenario,
+      dataSource,
     };
   });
 }
@@ -205,7 +217,11 @@ export function buildTestConfig(
 ): TestConfig {
   const fc = file.config ?? {};
   const concurrency = cliOverrides.concurrency ?? fc.concurrency ?? 1;
-  const transactions = cliOverrides.transactions ?? fc.transactions ?? scenarios.length;
+  const expandedCount = scenarios.reduce((n, s) => {
+    const rowCount = s.dataSource?.rows.filter(r => r.enabled).length ?? 0;
+    return n + (rowCount > 0 ? rowCount : 1);
+  }, 0);
+  const transactions = cliOverrides.transactions ?? fc.iterations ?? fc.transactions ?? expandedCount;
   const mode = (cliOverrides.mode ?? fc.mode ?? 'batch') as ExecutionMode;
   const timeout = cliOverrides.timeout ?? file.defaults?.timeout ?? 10;
   const retries = cliOverrides.retries ?? file.defaults?.retries ?? 0;
@@ -228,7 +244,7 @@ export function buildTestConfig(
 
   return {
     concurrency,
-    totalTransactions: transactions,
+    iterations: transactions,
     scenarioWeights: scenarios.map(s => ({
       scenarioId: s.id,
       weight: file.tests.find(t => t.name === s.name)?.weight ?? 1,

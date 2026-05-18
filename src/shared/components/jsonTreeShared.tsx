@@ -1,6 +1,6 @@
 /**
- * Shared utilities for all JSON tree viewers (JsonTreePreview, JsonPathBuilder, PickerNode).
- * Eliminates duplicated type-color maps, value preview logic, and SVG toggle icons.
+ * Shared utilities for JSON tree viewers (JsonTreePreview, RegexAssertionModal, etc.).
+ * Provides type-color maps, value preview logic, and SVG toggle icons.
  */
 
 /** Canonical type → color map used by all tree nodes. */
@@ -34,6 +34,59 @@ export function getValuePreview(
   }
   if (type === 'null') return 'null';
   return String(value);
+}
+
+/**
+ * Best-effort JSON formatting for truncated/malformed JSON strings.
+ * Adds newlines and indentation by tracking brace/bracket depth.
+ * Returns plain text unchanged if it doesn't look like JSON.
+ */
+// eslint-disable-next-line react-refresh/only-export-components
+export function bestEffortFormat(text: string): string {
+  try { return JSON.stringify(JSON.parse(text), null, 2); } catch { /* fall through */ }
+
+  const looksLikeJson = text.trimStart().startsWith('{') || text.trimStart().startsWith('[');
+  if (!looksLikeJson) return text;
+
+  let result = '';
+  let indent = 0;
+  let inString = false;
+  let escaped = false;
+
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (escaped) { result += ch; escaped = false; continue; }
+    if (ch === '\\' && inString) { result += ch; escaped = true; continue; }
+    if (ch === '"') { inString = !inString; result += ch; continue; }
+    if (inString) { result += ch; continue; }
+
+    if (ch === '{' || ch === '[') {
+      result += ch + '\n' + '  '.repeat(++indent);
+    } else if (ch === '}' || ch === ']') {
+      result += '\n' + '  '.repeat(--indent < 0 ? (indent = 0) : indent) + ch;
+    } else if (ch === ',') {
+      result += ',\n' + '  '.repeat(indent);
+    } else if (ch === ':') {
+      result += ': ';
+    } else if (ch !== ' ' && ch !== '\n' && ch !== '\r' && ch !== '\t') {
+      result += ch;
+    }
+  }
+  return result;
+}
+
+/**
+ * Count text-level occurrences of a search term (case-insensitive).
+ */
+// eslint-disable-next-line react-refresh/only-export-components
+export function countTextMatches(text: string, term: string): number {
+  if (!term) return 0;
+  const lower = text.toLowerCase();
+  const t = term.toLowerCase();
+  let count = 0;
+  let pos = 0;
+  while ((pos = lower.indexOf(t, pos)) !== -1) { count++; pos += t.length; }
+  return count;
 }
 
 /** Shared SVG chevron icon for tree toggle buttons. Uses .jt-toggle CSS for rotation. */

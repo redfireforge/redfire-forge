@@ -4,7 +4,13 @@ import type { GallerySampleStatus } from '../../../features/gallery/types';
 import { galleryDomains } from '../../../data/galleries/registry';
 import { trainingPaths } from '../../../data/galleries/trainingPaths';
 import { GalleryCard } from './GalleryCard';
-import { GalleryFilters, defaultFilterState, apiHostname, type GalleryFilterState, type GalleryMode } from './GalleryFilters';
+import { GalleryFilters } from './GalleryFilters';
+import {
+  apiHostname,
+  defaultFilterState,
+  type GalleryFilterState,
+  type GalleryMode,
+} from './galleryFiltersUtils';
 import { GalleryDetailPanel } from './GalleryDetailPanel';
 import { TrainingPathsView } from './TrainingPathsView';
 
@@ -105,7 +111,8 @@ export function GalleryGrid<T = unknown>({
     });
   }, [entries, filters, externalSearch]);
 
-  // Reset page when filters change
+  // Reset page when filters change.
+  // This is an intentional response to external filter/search state changes.
   const prevFilteredLen = useRef(filtered.length);
   useEffect(() => {
     if (filtered.length !== prevFilteredLen.current) {
@@ -317,6 +324,15 @@ export function GalleryGrid<T = unknown>({
               const entry = entries.find(e => e.id === sampleId);
               if (entry) onAction(entry);
             } : undefined}
+            onNavigateToSample={(sampleId) => {
+              const entry = entries.find(e => e.id === sampleId);
+              if (!entry) return;
+              setMode('samples');
+              setActivePathId(undefined);
+              setFilters(f => ({ ...f, domain: entry.domain, search: '' }));
+              setSelectedId(sampleId);
+              setPage(0);
+            }}
             sampleStatus={sampleStatus}
           />
           </div>

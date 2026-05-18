@@ -2,9 +2,12 @@ import { useCallback, useMemo } from 'react';
 import type { Node, Edge } from '@xyflow/react';
 import type { Environment, Microservice, FeatureGroup, Scenario, RequestCollection, RequestItem } from '../../shared/types';
 import type { GalleryEntry } from '../../data/galleries/types';
+import type { TestSampleEntry } from '../../data/galleries/tests/types';
+import { saveSharedDataSources, loadSharedDataSources } from '../../shared/utils/storage';
 import type { Workflow } from '../../features/workflow/types/workflow';
 import type { PreviewRequest } from '../../features/requests/Requests';
 import { gallerySampleHash } from '../../shared/utils/gallerySampleHash';
+import { LOADED_SENTINEL } from '../../features/gallery/GalleryPage';
 import { getAutoLayoutNodes } from '../../features/workflow/utils/workflowAutoLayout';
 import { savePreviewSampleId } from '../../shared/utils/storage';
 
@@ -18,6 +21,10 @@ export interface UseGalleryImportDeps {
   featureGroups: FeatureGroup[];
   environments: Environment[];
   microservices: Microservice[];
+  /** Currently-previewed workflow (passed through for onImportWorkflow). */
+  previewWorkflow: Workflow | null;
+  /** User's saved workflows (used to detect gallery samples that were "Use as Template"'d). */
+  workflows: Workflow[];
   setActiveTab: (tab: 'environments' | 'preferences' | 'requests' | 'catalog' | 'workflow' | 'workflow-executions' | 'webhook-deliveries' | 'gallery' | 'scenarios' | 'runner' | 'results') => void;
   setPreviewRequest: (req: PreviewRequest | null) => void;
   setPreviewWorkflow: (wf: Workflow | null) => void;
@@ -32,7 +39,7 @@ export interface UseGalleryImportDeps {
 
 export function useGalleryImport(deps: UseGalleryImportDeps) {
   const {
-    wb, featureGroups, environments, microservices,
+    wb, featureGroups, environments, microservices, workflows,
     setActiveTab, setPreviewRequest, setPreviewWorkflow,
     setCatalogInitialSpec, setShowCatalogImport,
     setFeatureGroups, setEnvironments, setMicroservices,
@@ -54,8 +61,14 @@ export function useGalleryImport(deps: UseGalleryImportDeps) {
         }
       }
     }
+    // Track saved workflows that were imported from gallery samples.
+    for (const wf of workflows) {
+      if (wf.gallerySampleId) {
+        map[wf.gallerySampleId] = LOADED_SENTINEL;
+      }
+    }
     return map;
-  }, [featureGroups]);
+  }, [featureGroups, workflows]);
 
   const onImportRequest = useCallback((entry: GalleryEntry<unknown>) => {
     const scenario = entry.factory() as Scenario;
@@ -103,7 +116,7 @@ export function useGalleryImport(deps: UseGalleryImportDeps) {
     setShowCatalogImport(true);
   }, [setCatalogInitialSpec, setShowCatalogImport]);
 
-  const onImportTest = useCallback((entry: GalleryEntry<unknown>) => {
+  const onImportTest = useCallback(async (entry: GalleryEntry<unknown>) => {
     const fg = entry.factory() as FeatureGroup;
     const sampleHash = gallerySampleHash(fg);
 
@@ -125,7 +138,8 @@ export function useGalleryImport(deps: UseGalleryImportDeps) {
       setMicroservices(prev => prev.map(s => s.id === gallerySvc!.id ? gallerySvc! : s));
     }
 
-    setFeatureGroups(prev => [...prev, {
+    // Build the main feature group
+    const mainFg: FeatureGroup = {
       ...fg,
       id: crypto.randomUUID(),
       name: `Gallery: ${fg.name}`,
@@ -134,11 +148,45 @@ export function useGalleryImport(deps: UseGalleryImportDeps) {
       gallerySampleHash: sampleHash,
       microserviceId: gallerySvc!.id,
       environmentId: galleryEnv!.id,
-    }]);
+    };
+
+    // Check for additional feature groups (e.g., cross-FG samples)
+    const testEntry = entry as TestSampleEntry;
+    const additionalFgs: FeatureGroup[] = [];
+    if (testEntry.additionalFeatureGroupsFactory) {
+      for (const addFg of testEntry.additionalFeatureGroupsFactory()) {
+        additionalFgs.push({
+          ...addFg,
+          id: crypto.randomUUID(),
+          name: `Gallery: ${addFg.name}`,
+          source: 'gallery',
+          gallerySampleId: entry.id,
+          gallerySampleHash: sampleHash,
+          microserviceId: gallerySvc!.id,
+          environmentId: galleryEnv!.id,
+        });
+      }
+    }
+
+    // Add all feature groups
+    setFeatureGroups(prev => [...prev, mainFg, ...additionalFgs]);
+
+    // Check for shared data sources
+    if (testEntry.sharedDataSourceFactory) {
+      const newSharedDs = testEntry.sharedDataSourceFactory();
+      // Load existing, merge, save
+      const existing = await loadSharedDataSources();
+      const existingIds = new Set(existing.map(ds => ds.id));
+      const toAdd = newSharedDs.filter(ds => !existingIds.has(ds.id));
+      if (toAdd.length > 0) {
+        await saveSharedDataSources([...existing, ...toAdd]);
+      }
+    }
 
     setSelectedEnvId(galleryEnv.id);
     setSelectedSvcId(gallerySvc.id);
-  }, [environments, microservices, setEnvironments, setMicroservices, setFeatureGroups, setSelectedEnvId, setSelectedSvcId]);
+    setActiveTab('scenarios');
+  }, [environments, microservices, setEnvironments, setMicroservices, setFeatureGroups, setSelectedEnvId, setSelectedSvcId, setActiveTab]);
 
   const onImportWorkflow = useCallback((entry: GalleryEntry<unknown>) => {
     const sample = entry.factory() as Workflow;
@@ -148,6 +196,23 @@ export function useGalleryImport(deps: UseGalleryImportDeps) {
     setActiveTab('workflow');
   }, [setPreviewWorkflow, setActiveTab]);
 
+  /**
+   * Navigate to wherever an already-imported sample lives, without re-importing.
+   * Tests → scenarios tab, workflows → workflow tab, requests → requests tab,
+   * catalog → catalog tab.
+   */
+  const onNavigateTo = useCallback((entry: GalleryEntry<unknown>) => {
+    const domainTabMap: Partial<Record<typeof entry.domain, Parameters<typeof setActiveTab>[0]>> = {
+      tests: 'scenarios',
+      workflows: 'workflow',
+      requests: 'requests',
+      catalog: 'catalog',
+      'data-mapper': 'scenarios',
+    };
+    const tab = domainTabMap[entry.domain];
+    if (tab) setActiveTab(tab);
+  }, [setActiveTab]);
+
   return {
     importedSamples,
     onImportRequest,
@@ -155,5 +220,6 @@ export function useGalleryImport(deps: UseGalleryImportDeps) {
     onImportCatalog,
     onImportTest,
     onImportWorkflow,
+    onNavigateTo,
   };
 }

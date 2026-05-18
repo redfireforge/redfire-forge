@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { requestSampleCatalog } from './index';
 
 describe('requestSampleCatalog', () => {
-  it('has 12 entries', () => {
-    expect(requestSampleCatalog).toHaveLength(12);
+  it('has 13 entries', () => {
+    expect(requestSampleCatalog).toHaveLength(13);
   });
 
   it('every entry has a unique id', () => {

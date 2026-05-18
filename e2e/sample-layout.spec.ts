@@ -28,7 +28,7 @@ test.describe('Sample auto-layout on load', () => {
 
     // Click the first workflow card and note its name
     const firstCard = page.locator('.gallery-card').first();
-    const sampleName = await firstCard.locator('.gallery-card-name').textContent();
+    const _sampleName = await firstCard.locator('.gallery-card-name').textContent();
     await firstCard.click();
     await page.waitForTimeout(300);
 
@@ -83,7 +83,7 @@ test.describe('Sample auto-layout on load', () => {
 
     // Nodes should have diverse positions (not all stacked)
     expect(positions.length).toBeGreaterThanOrEqual(3);
-    const uniqueY = new Set(positions.map((p: any) => Math.round(p.y / 10)));
+    const uniqueY = new Set(positions.map((p: Record<string, number>) => Math.round(p.y / 10)));
     expect(uniqueY.size).toBeGreaterThanOrEqual(2); // at least 2 distinct rows
   });
 

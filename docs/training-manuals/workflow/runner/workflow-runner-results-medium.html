@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Workflow Runner: Results — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warning { background: #fff3cd; border-left-color: #ffc107; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  .metric-box {
+    display: inline-block; background: #f8f9fa; border: 1px solid #dee2e6;
+    border-radius: 8px; padding: 12px 20px; margin: 4px; text-align: center;
+  }
+  .metric-box .value { font-size: 24px; font-weight: 700; color: #1d3557; }
+  .metric-box .label { font-size: 11px; color: #6c757d; }
+  .pass-rate-good { background: #d4edda; border-color: #28a745; }
+  .pass-rate-warn { background: #fff3cd; border-color: #ffc107; }
+  .pass-rate-bad { background: #f8d7da; border-color: #dc3545; }
+  .chart-placeholder {
+    background: #f8f9fa; border: 2px dashed #dee2e6; border-radius: 8px;
+    padding: 40px; text-align: center; color: #6c757d; margin: 16px 0;
+  }
+  .step-number {
+    display: inline-block; width: 24px; height: 24px; background: #e63946;
+    color: #fff; border-radius: 50%; text-align: center; line-height: 24px;
+    font-weight: 600; font-size: 12px; margin-right: 8px;
+  }
+  </style>
+</head>
+<body>
+
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">📊</div>
+    <h1>Workflow Runner: Results</h1>
+    <div class="subtitle">Interpret Metrics, Charts, and Per-Step Analysis — Training Manual</div>
+    <p><span class="badge badge-medium">Medium ★★☆</span> · Workflow · Performance Testing</p>
+    <div class="meta">RedfireForge v0.5.7</div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <h2>1. Learning Objectives</h2>
+  <p>By the end of this manual, you will be able to:</p>
+  <ul>
+    <li>Read and understand the Workflow Execution Summary</li>
+    <li>Interpret pass rate at the workflow level</li>
+    <li>Analyze per-step metrics in the table</li>
+    <li>Use the Iteration Performance chart</li>
+    <li>Drill into per-iteration detail</li>
+    <li>Identify and debug failed iterations</li>
+  </ul>
+
+  <h2>2. Navigating to Workflow Results</h2>
+  <p>After running a workflow test, click <strong>View Full Results →</strong> to see detailed metrics.</p>
+
+  <p>Alternatively:</p>
+  <ol>
+    <li>Go to <strong>Testing → Results</strong> in the sidebar</li>
+    <li>Click the <strong>Workflow</strong> filter tab at the top</li>
+    <li>Select a workflow run from the list</li>
+  </ol>
+
+  <div class="callout callout-tip">
+    <strong>💡 Filtering Results</strong>
+    The Results page has filter tabs: <strong>All</strong>, <strong>Test</strong>, and <strong>Workflow</strong>. Use the "Workflow" tab to see only workflow runs.
+  </div>
+
+  <h2>3. The Workflow Execution Summary</h2>
+  <p>At the top of the results, you'll see the <strong>⚡ Workflow Execution Summary</strong> header.</p>
+
+  <h3>Summary Metrics</h3>
+  <div style="margin: 20px 0;">
+    <div class="metric-box">
+      <div class="value">10</div>
+      <div class="label">Iterations</div>
+    </div>
+    <div class="metric-box">
+      <div class="value">2</div>
+      <div class="label">Steps</div>
+    </div>
+    <div class="metric-box">
+      <div class="value">20</div>
+      <div class="label">Total Requests</div>
+    </div>
+  </div>
+
+  <table>
+    <tr><th>Metric</th><th>What It Means</th></tr>
+    <tr>
+      <td><strong>Iterations</strong></td>
+      <td>How many times the complete workflow ran</td>
+    </tr>
+    <tr>
+      <td><strong>Steps</strong></td>
+      <td>Number of HTTP nodes in the workflow</td>
+    </tr>
+    <tr>
+      <td><strong>Total Requests</strong></td>
+      <td>Iterations × Steps = total HTTP calls made</td>
+    </tr>
+  </table>
+
+  <h3>Pass Rate Indicator</h3>
+  <p>The pass rate shows the percentage of successful requests:</p>
+
+  <div style="margin: 20px 0;">
+    <div class="metric-box pass-rate-good">
+      <div class="value">100%</div>
+      <div class="label">Pass Rate</div>
+    </div>
+    <div class="metric-box pass-rate-warn">
+      <div class="value">95%</div>
+      <div class="label">Pass Rate</div>
+    </div>
+    <div class="metric-box pass-rate-bad">
+      <div class="value">78%</div>
+      <div class="label">Pass Rate</div>
+    </div>
+  </div>
+
+  <table>
+    <tr><th>Pass Rate</th><th>Color</th><th>Interpretation</th></tr>
+    <tr>
+      <td>100%</td>
+      <td>🟢 Green</td>
+      <td>All requests succeeded</td>
+    </tr>
+    <tr>
+      <td>90-99%</td>
+      <td>🟡 Yellow</td>
+      <td>Some failures, investigate</td>
+    </tr>
+    <tr>
+      <td>&lt;90%</td>
+      <td>🔴 Red</td>
+      <td>Significant failures</td>
+    </tr>
+  </table>
+
+  <h3>Performance Metrics</h3>
+  <div style="margin: 20px 0;">
+    <div class="metric-box">
+      <div class="value">142ms</div>
+      <div class="label">Avg</div>
+    </div>
+    <div class="metric-box">
+      <div class="value">185ms</div>
+      <div class="label">p95</div>
+    </div>
+    <div class="metric-box">
+      <div class="value">8.5</div>
+      <div class="label">TPS</div>
+    </div>
+  </div>
+
+  <table>
+    <tr><th>Metric</th><th>Definition</th></tr>
+    <tr>
+      <td><strong>Avg</strong></td>
+      <td>Average response time across all requests</td>
+    </tr>
+    <tr>
+      <td><strong>p95</strong></td>
+      <td>95th percentile — 95% of requests were faster than this</td>
+    </tr>
+    <tr>
+      <td><strong>TPS</strong></td>
+      <td>Requests per second</td>
+    </tr>
+  </table>
+
+  <div class="page-break"></div>
+
+  <h2>4. The Iteration Performance Chart</h2>
+  <p>Below the summary, you'll find a bar chart showing each iteration's performance.</p>
+
+  <div class="chart-placeholder">
+    📊 Iteration Performance Chart<br>
+    <small>Bar chart showing total duration for each iteration</small>
+  </div>
+
+  <h3>Reading the Chart</h3>
+  <ul>
+    <li><strong>X-axis:</strong> Iteration number (#1, #2, #3, ...)</li>
+    <li><strong>Y-axis:</strong> Total iteration duration in milliseconds</li>
+    <li><strong>Green bars:</strong> All steps in this iteration passed</li>
+    <li><strong>Red bars:</strong> At least one step failed</li>
+    <li><strong>Dotted line:</strong> Average iteration duration</li>
+  </ul>
+
+  <h3>Chart Statistics</h3>
+  <p>Above the chart, you'll see summary stats:</p>
+  <table>
+    <tr><th>Stat</th><th>Description</th></tr>
+    <tr><td>Min</td><td>Fastest iteration</td></tr>
+    <tr><td>Avg</td><td>Average iteration time</td></tr>
+    <tr><td>p95</td><td>95th percentile iteration time</td></tr>
+    <tr><td>Max</td><td>Slowest iteration</td></tr>
+  </table>
+
+  <h3>Tooltip Interaction</h3>
+  <p>Hover over any bar to see details:</p>
+  <pre>Iteration #5: 312ms (2/2 passed)</pre>
+
+  <h2>5. Per-Step Metrics Table</h2>
+  <p>The <strong>Per-Step Metrics</strong> table breaks down performance by workflow node.</p>
+
+  <h3>Example Table</h3>
+  <table>
+    <tr>
+      <th>Step</th>
+      <th>Count</th>
+      <th>Pass %</th>
+      <th>Avg</th>
+      <th>p50</th>
+      <th>p95</th>
+      <th>Min</th>
+      <th>Max</th>
+    </tr>
+    <tr>
+      <td><span class="step-number">1</span>Create Post</td>
+      <td>10</td>
+      <td style="color: #28a745;">100%</td>
+      <td>142ms</td>
+      <td>138ms</td>
+      <td>165ms</td>
+      <td>120ms</td>
+      <td>180ms</td>
+    </tr>
+    <tr>
+      <td><span class="step-number">2</span>Verify Post</td>
+      <td>10</td>
+      <td style="color: #28a745;">100%</td>
+      <td>89ms</td>
+      <td>85ms</td>
+      <td>112ms</td>
+      <td>72ms</td>
+      <td>125ms</td>
+    </tr>
+  </table>
+
+  <h3>Column Definitions</h3>
+  <table>
+    <tr><th>Column</th><th>Description</th></tr>
+    <tr>
+      <td><strong>Step</strong></td>
+      <td>HTTP node label from workflow (numbered)</td>
+    </tr>
+    <tr>
+      <td><strong>Count</strong></td>
+      <td>Total executions of this step (= iterations)</td>
+    </tr>
+    <tr>
+      <td><strong>Pass %</strong></td>
+      <td>Success rate for this specific step</td>
+    </tr>
+    <tr>
+      <td><strong>Avg</strong></td>
+      <td>Average response time</td>
+    </tr>
+    <tr>
+      <td><strong>p50</strong></td>
+      <td>Median response time (50th percentile)</td>
+    </tr>
+    <tr>
+      <td><strong>p95</strong></td>
+      <td>95th percentile response time</td>
+    </tr>
+    <tr>
+      <td><strong>Min / Max</strong></td>
+      <td>Fastest and slowest response</td>
+    </tr>
+  </table>
+
+  <div class="callout callout-tip">
+    <strong>💡 Finding Bottlenecks</strong>
+    If one step has significantly higher Avg/p95 than others, it's likely a performance bottleneck. Focus optimization efforts there.
+  </div>
+
+  <h2>6. Per-Iteration Detail</h2>
+  <p>Click <strong>▶ Per-Iteration Detail</strong> to expand the iteration list.</p>
+
+  <h3>Iteration List</h3>
+  <p>Each iteration shows:</p>
+  <ul>
+    <li><strong>Status icon:</strong> ✅ (all passed) or ❌ (has failures)</li>
+    <li><strong>Iteration number:</strong> #1, #2, etc.</li>
+    <li><strong>Total time:</strong> Duration in milliseconds</li>
+    <li><strong>Pass count:</strong> (2/2 passed)</li>
+  </ul>
+
+  <h3>Expanding an Iteration</h3>
+  <p>Click any iteration to see its individual requests:</p>
+  <pre>
+▼ ✅ Iteration #3    285ms    (2/2 passed)
+    ┣ POST  Create Post    201    156ms    ✓
+    ┗ GET   Verify Post    200     89ms    ✓
+  </pre>
+
+  <h3>Request Details</h3>
+  <p>Each request row shows:</p>
+  <table>
+    <tr><th>Field</th><th>Description</th></tr>
+    <tr><td>Method badge</td><td>GET, POST, PUT, DELETE, etc.</td></tr>
+    <tr><td>Step name</td><td>From workflow node label</td></tr>
+    <tr><td>HTTP status</td><td>200, 201, 404, 500, etc.</td></tr>
+    <tr><td>Response time</td><td>Duration in milliseconds</td></tr>
+    <tr><td>Pass/fail</td><td>✓ or ✗</td></tr>
+  </table>
+
+  <h2>7. Debugging Failed Iterations</h2>
+  <p>When you see red bars or ❌ icons, here's how to investigate:</p>
+
+  <h3>Step 1: Find Failed Iterations</h3>
+  <ol>
+    <li>Look for red bars in the Iteration Performance chart</li>
+    <li>Or expand Per-Iteration Detail and look for ❌ icons</li>
+  </ol>
+
+  <h3>Step 2: Expand the Failed Iteration</h3>
+  <ol>
+    <li>Click the failed iteration to expand it</li>
+    <li>Look for the request with ✗ (fail) status</li>
+  </ol>
+
+  <h3>Step 3: View Request Details</h3>
+  <ol>
+    <li>Click the failed request row</li>
+    <li>A detail modal opens showing:
+      <ul>
+        <li>Full URL and method</li>
+        <li>Request headers and body</li>
+        <li>Response status and body</li>
+        <li>Error message (if any)</li>
+        <li>Assertion results (if validation was enabled)</li>
+      </ul>
+    </li>
+  </ol>
+
+  <h3>Common Failure Causes</h3>
+  <table>
+    <tr><th>Symptom</th><th>Likely Cause</th></tr>
+    <tr>
+      <td>Status 0, "Network error"</td>
+      <td>API unreachable, CORS issue, timeout</td>
+    </tr>
+    <tr>
+      <td>Status 429</td>
+      <td>Rate limiting — reduce concurrency</td>
+    </tr>
+    <tr>
+      <td>Status 500</td>
+      <td>Server error — check API logs</td>
+    </tr>
+    <tr>
+      <td>Status 404</td>
+      <td>Resource not found — check URL/extractions</td>
+    </tr>
+    <tr>
+      <td>Assertion failed</td>
+      <td>Response didn't match expected — check assertions</td>
+    </tr>
+  </table>
+
+  <div class="page-break"></div>
+
+  <h2>8. Hands-On Exercise</h2>
+  <p>Run a 10-iteration test and explore the results.</p>
+
+  <h3>Setup</h3>
+  <ol>
+    <li>Go to <strong>Workflow Runner</strong></li>
+    <li>Select a 2-step workflow (e.g., "Sample: Create → Extract → Verify")</li>
+    <li>Set: <strong>10 iterations, concurrency 2</strong></li>
+    <li>Click <strong>▶ Run Workflow</strong></li>
+    <li>Click <strong>View Full Results →</strong></li>
+  </ol>
+
+  <h3>Exploration Tasks</h3>
+  <ol>
+    <li>Verify the summary shows: 10 iterations, 2 steps, 20 total requests</li>
+    <li>Check the pass rate (should be 100% green)</li>
+    <li>Hover over bars in the Iteration Performance chart</li>
+    <li>Note which iteration was fastest and slowest</li>
+    <li>Check the Per-Step Metrics table:
+      <ul>
+        <li>Which step is faster on average?</li>
+        <li>What's the p95 for each step?</li>
+      </ul>
+    </li>
+    <li>Expand Per-Iteration Detail</li>
+    <li>Click on iteration #5 to see its requests</li>
+    <li>Click a request to open the detail modal</li>
+  </ol>
+
+  <h2>9. Exporting Results</h2>
+  <p>You can export workflow results for reporting or analysis:</p>
+
+  <table>
+    <tr><th>Format</th><th>Use Case</th></tr>
+    <tr>
+      <td>JSON</td>
+      <td>Full data for programmatic analysis</td>
+    </tr>
+    <tr>
+      <td>CSV</td>
+      <td>Import into Excel/spreadsheets</td>
+    </tr>
+    <tr>
+      <td>Markdown</td>
+      <td>Include in documentation/reports</td>
+    </tr>
+    <tr>
+      <td>JUnit XML</td>
+      <td>CI/CD integration</td>
+    </tr>
+  </table>
+
+  <h2>10. Summary</h2>
+
+  <table>
+    <tr><th>Section</th><th>Key Information</th></tr>
+    <tr>
+      <td>Execution Summary</td>
+      <td>Iterations, steps, total requests, pass rate</td>
+    </tr>
+    <tr>
+      <td>Performance Metrics</td>
+      <td>Avg, p95, TPS across all requests</td>
+    </tr>
+    <tr>
+      <td>Iteration Chart</td>
+      <td>Visual: per-iteration timing, pass/fail coloring</td>
+    </tr>
+    <tr>
+      <td>Per-Step Metrics</td>
+      <td>Breakdown by workflow node (bottleneck analysis)</td>
+    </tr>
+    <tr>
+      <td>Per-Iteration Detail</td>
+      <td>Drill-down to individual requests</td>
+    </tr>
+    <tr>
+      <td>Request Detail</td>
+      <td>Full request/response for debugging</td>
+    </tr>
+  </table>
+
+  <div class="callout callout-tip">
+    <strong>Visual Analysis: Results Explorer</strong>
+    For deeper analysis with an interactive workflow diagram, heatmap coloring, bottleneck detection,
+    search &amp; filter, and a full iteration matrix, open the <strong>Results Explorer</strong>
+    from the Results Dashboard. See the <a href="results-explorer-medium.html">Results Explorer training manual</a>.
+  </div>
+
+  <h2>11. Next Steps</h2>
+  <ul>
+    <li><strong>Results Explorer</strong> — Visual workflow execution analysis with diagram, heatmap, and bottleneck insights</li>
+    <li><strong>Runner Comparison</strong> — When to use Test Runner vs. Workflow Runner</li>
+    <li><strong>CLI Usage</strong> — Run workflow tests from command line</li>
+  </ul>
+
+  <footer>
+    RedfireForge Training Manual · Workflow Runner: Results · Medium ★★☆
+  </footer>
+
+</body>
+</html>

@@ -1,24 +1,89 @@
 import type { ExpressionFunction } from './types';
 import { s, n } from './helpers';
 
+/**
+ * Parse a JSONPath-like string into segments.
+ * Supports: dot notation ("a.b.c"), bracket notation ("[0]", "[*]"),
+ * and leading "$" root reference ("$.items[*].name" or "$[*].name").
+ */
+function parseJsonPathSegments(raw: string): string[] {
+  let p = raw.trim();
+  if (p.startsWith('$')) p = p.slice(1);
+  if (p.startsWith('.')) p = p.slice(1);
+  if (!p) return [];
+
+  const segs: string[] = [];
+  let i = 0;
+  while (i < p.length) {
+    if (p[i] === '[') {
+      const close = p.indexOf(']', i);
+      if (close === -1) { segs.push(p.slice(i)); break; }
+      const inner = p.slice(i + 1, close).replace(/^["']|["']$/g, '');
+      segs.push(inner);
+      i = close + 1;
+      if (p[i] === '.') i++;
+    } else {
+      let end = i;
+      while (end < p.length && p[end] !== '.' && p[end] !== '[') end++;
+      segs.push(p.slice(i, end));
+      i = end;
+      if (p[i] === '.') i++;
+    }
+  }
+  return segs;
+}
+
+function walkJsonPath(root: unknown, segments: string[]): unknown {
+  let current: unknown = root;
+  for (const seg of segments) {
+    if (current == null) return null;
+    if (seg === '*') {
+      if (!Array.isArray(current)) return null;
+      return current;
+    }
+    if (typeof current !== 'object') return null;
+    current = (current as Record<string, unknown>)[seg];
+  }
+  return current;
+}
+
+/**
+ * Resolve a JSONPath expression against a value.
+ * Handles wildcards: segments after a `*` are mapped over each array element.
+ * E.g. "$[*].name" on [{name:"A"},{name:"B"}] → ["A","B"]
+ */
+function resolveJsonPath(root: unknown, pathStr: string): unknown {
+  const segments = parseJsonPathSegments(pathStr);
+  const starIdx = segments.indexOf('*');
+  if (starIdx === -1) return walkJsonPath(root, segments);
+
+  const before = segments.slice(0, starIdx);
+  const after = segments.slice(starIdx + 1);
+
+  const arr = walkJsonPath(root, before);
+  if (!Array.isArray(arr)) return null;
+
+  if (after.length === 0) return arr;
+  return arr.map((item) => walkJsonPath(item, after));
+}
+
 const $jsonpath: ExpressionFunction = {
   name: '$jsonpath', category: 'JSON',
   signature: '$jsonpath(object, path) → any',
-  description: 'Extract a value using a simple dot-path (e.g. "data.items.0.name").',
+  description: 'Extract a value using a dot/bracket path. Supports wildcards: "$[*].name" extracts the "name" field from every array element.',
   args: [
     { name: 'object', type: 'object | string', required: true, description: 'Object or JSON string' },
-    { name: 'path', type: 'string', required: true, description: 'Dot-separated path' },
+    { name: 'path', type: 'string', required: true, description: 'JSONPath-like expression (dot, bracket, wildcard [*])' },
   ],
   returnType: 'any',
-  examples: [{ input: '$jsonpath(\'{"a":{"b":1}}\', "a.b")', output: '1' }],
+  examples: [
+    { input: '$jsonpath(\'{"a":{"b":1}}\', "a.b")', output: '1' },
+    { input: '$jsonpath([{"name":"A"},{"name":"B"}], "$[*].name")', output: '["A","B"]' },
+  ],
   evaluate: (v, path) => {
-    let obj: unknown = typeof v === 'string' ? (() => { try { return JSON.parse(v); } catch { return null; } })() : v;
+    const obj: unknown = typeof v === 'string' ? (() => { try { return JSON.parse(v); } catch { return null; } })() : v;
     if (obj == null) return null;
-    for (const seg of s(path).split('.')) {
-      if (obj == null || typeof obj !== 'object') return null;
-      obj = (obj as Record<string, unknown>)[seg];
-    }
-    return obj;
+    return resolveJsonPath(obj, s(path));
   },
 };
 
@@ -78,7 +143,12 @@ const $count: ExpressionFunction = {
   evaluate: (v) => {
     if (Array.isArray(v)) return v.length;
     const sv = s(v);
-    if (sv.startsWith('[')) { try { return JSON.parse(sv).length; } catch { /* fall through */ } }
+    if (sv.startsWith('[')) {
+      try {
+        const parsed = JSON.parse(sv);
+        if (Array.isArray(parsed)) return parsed.length;
+      } catch { /* fall through */ }
+    }
     return sv.length;
   },
 };
@@ -184,7 +254,12 @@ const $first: ExpressionFunction = {
   evaluate: (v) => {
     if (Array.isArray(v)) return v[0] ?? null;
     const sv = s(v);
-    if (sv.startsWith('[')) { try { const arr = JSON.parse(sv); return Array.isArray(arr) ? arr[0] ?? null : sv[0] ?? ''; } catch { /* fall through */ } }
+    if (sv.startsWith('[')) {
+      try {
+        const arr = JSON.parse(sv);
+        if (Array.isArray(arr)) return arr[0] ?? null;
+      } catch { /* fall through */ }
+    }
     return sv[0] ?? '';
   },
 };
@@ -199,7 +274,12 @@ const $last: ExpressionFunction = {
   evaluate: (v) => {
     if (Array.isArray(v)) return v[v.length - 1] ?? null;
     const sv = s(v);
-    if (sv.startsWith('[')) { try { const arr = JSON.parse(sv); return Array.isArray(arr) ? arr[arr.length - 1] ?? null : sv[sv.length - 1] ?? ''; } catch { /* fall through */ } }
+    if (sv.startsWith('[')) {
+      try {
+        const arr = JSON.parse(sv);
+        if (Array.isArray(arr)) return arr[arr.length - 1] ?? null;
+      } catch { /* fall through */ }
+    }
     return sv[sv.length - 1] ?? '';
   },
 };

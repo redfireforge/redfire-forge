@@ -1,0 +1,48 @@
+# CLI Load Profile Example
+# Demonstrates time-based load testing with load profiles
+#
+# Run with duration-based load:
+#   npx tsx cli/index.ts run examples/cli-load-profile.yaml -m load-profile --duration 30
+#
+# Run with fixed iterations:
+#   npx tsx cli/index.ts run examples/cli-load-profile.yaml -c 10 -i 500
+#
+# Stress test:
+#   npx tsx cli/index.ts run examples/cli-load-profile.yaml -c 20 -i 1000
+
+name: CLI Load Profile Test
+env: demo
+baseUrl: https://jsonplaceholder.typicode.com
+
+# Default execution settings (can be overridden by CLI)
+config:
+  concurrency: 5
+  mode: pool
+
+tests:
+  - name: List Users (Light)
+    method: GET
+    url: /users
+    headers:
+      Accept: application/json
+    assertions:
+      - type: status
+        expected: "200"
+
+  - name: Get User Details (Medium)
+    method: GET
+    url: /users/1
+    headers:
+      Accept: application/json
+    assertions:
+      - type: status
+        expected: "200"
+
+  - name: Get User Posts (Heavy)
+    method: GET
+    url: /users/1/posts
+    headers:
+      Accept: application/json
+    assertions:
+      - type: status
+        expected: "200"

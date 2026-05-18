@@ -138,7 +138,7 @@
   <table>
     <tr><th>Metric</th><th>Improved When</th><th>Regressed When</th></tr>
     <tr><td>Response times (Avg, P50, P95, P99, Min, Max)</td><td>delta &lt; 0 (faster)</td><td>deltaPercent &gt; threshold</td></tr>
-    <tr><td>TPS (transactions per second)</td><td>delta &gt; 0 (higher throughput)</td><td>deltaPercent &lt; −threshold</td></tr>
+    <tr><td>TPS (requests per second)</td><td>delta &gt; 0 (higher throughput)</td><td>deltaPercent &lt; −threshold</td></tr>
     <tr><td>Error Rate</td><td>delta &lt; 0 (fewer errors)</td><td>delta &gt; threshold (absolute pp)</td></tr>
   </table>
 
@@ -188,7 +188,7 @@
   p99Percent: 15,           // P99 response time ± 15%
   avgPercent: 10,           // Average response time ± 10%
   errorRateAbsolute: 1,     // Error rate ± 1 percentage point (absolute, not relative)
-  tpsPercent: 10,           // Transactions per second ± 10%
+  tpsPercent: 10,           // Requests per second ± 10%
 };</pre>
 
   <p>Why these values?</p>

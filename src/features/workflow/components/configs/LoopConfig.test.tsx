@@ -6,6 +6,29 @@ import { render, fireEvent, screen } from '@testing-library/react';
 import LoopConfig from './LoopConfig';
 import type { LoopNodeData } from '../../types/workflow';
 
+vi.mock('../../../scenarios/components/DataSourceEditor', () => ({
+  __esModule: true,
+  default: ({ onDraftChange }: { onDraftChange: (s: { dataSource?: unknown }) => void }) => (
+    <div data-testid="loop-ds-editor">
+      <button
+        type="button"
+        onClick={() =>
+          onDraftChange({
+            dataSource: {
+              id: 'ds',
+              columns: [],
+              rows: [{ id: 'r1', values: {}, enabled: true }],
+              source: { type: 'inline' },
+            },
+          })
+        }
+      >
+        Mock add row
+      </button>
+    </div>
+  ),
+}));
+
 function makeData(overrides: Partial<LoopNodeData> = {}): LoopNodeData {
   return {
     label: 'Test Loop',
@@ -265,5 +288,39 @@ describe('LoopConfig', () => {
     const applyFn = onRequest.mock.calls[0][0];
     applyFn('{{val}}');
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ whileRight: '{{val}}' }));
+  });
+
+  it('toggles data source section in forEach mode', () => {
+    const onChange = vi.fn();
+    const data = makeData({ mode: 'forEach', sourceExpression: '{{x}}', itemVariable: 'item', indexVariable: 'i' });
+    render(<LoopConfig data={data} onChange={onChange} />);
+    expect(screen.queryByTestId('loop-ds-editor')).toBeNull();
+    fireEvent.click(screen.getByText(/Data Source/));
+    expect(screen.getByTestId('loop-ds-editor')).toBeTruthy();
+    fireEvent.click(screen.getByText('Mock add row'));
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        dataSource: expect.objectContaining({
+          rows: [expect.objectContaining({ enabled: true })],
+        }),
+      }),
+    );
+  });
+
+  it('shows data source override hint and disables source expression when loop has dataSource', () => {
+    const ds = {
+      id: 'd1',
+      columns: [],
+      rows: [{ id: 'r1', values: {}, enabled: true }],
+      source: { type: 'inline' as const },
+    };
+    render(
+      <LoopConfig
+        data={makeData({ mode: 'forEach', sourceExpression: '{{items}}', itemVariable: 'item', indexVariable: 'i', dataSource: ds })}
+        onChange={vi.fn()}
+      />,
+    );
+    expect(screen.getByText(/Using data source/)).toBeTruthy();
+    expect((screen.getByDisplayValue('{{items}}') as HTMLInputElement).disabled).toBe(true);
   });
 });

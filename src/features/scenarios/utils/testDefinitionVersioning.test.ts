@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import {
   createSnapshot,
   computeSnapshotFingerprint,
@@ -12,7 +12,7 @@ import {
   stripDefinitionVersions,
   hasDefinitionVersions,
 } from './testDefinitionVersioning';
-import type { Scenario, TestDefinitionVersion, TestDefinitionSnapshot } from '../../../shared/types';
+import type { Scenario, TestDefinitionVersion } from '../../../shared/types';
 
 const baseScenario: Scenario = {
   id: 'test-1',
@@ -58,6 +58,14 @@ describe('createSnapshot', () => {
     expect(snap.bodyType).toBe('json');
     expect(snap.bodyForm).toHaveLength(1);
     expect(snap.extractions).toHaveLength(1);
+  });
+
+  it('prefers dataSource urlTemplate over scenario url', () => {
+    const s = mkScenario({
+      url: 'https://draft.example.com',
+      dataSource: { urlTemplate: 'https://template.example.com/{{vin}}', columns: [], rows: [] },
+    });
+    expect(createSnapshot(s).url).toBe('https://template.example.com/{{vin}}');
   });
 });
 
@@ -137,6 +145,93 @@ describe('generateChangeSummary', () => {
   it('returns empty string when nothing changed', () => {
     const snap = createSnapshot(baseScenario);
     expect(generateChangeSummary(snap, snap)).toBe('no changes detected');
+  });
+
+  it('detects name change', () => {
+    const oldSnap = createSnapshot(baseScenario);
+    const newSnap = createSnapshot(mkScenario({ name: 'Renamed' }));
+    expect(generateChangeSummary(oldSnap, newSnap)).toContain('name changed');
+  });
+
+  it('detects bodyType change in summary', () => {
+    const oldSnap = createSnapshot(baseScenario);
+    const newSnap = createSnapshot(mkScenario({ bodyType: 'json' }));
+    expect(generateChangeSummary(oldSnap, newSnap)).toContain('body type');
+  });
+
+  it('detects plural header additions', () => {
+    const oldSnap = createSnapshot(baseScenario);
+    const newSnap = createSnapshot(mkScenario({
+      headers: [
+        ...baseScenario.headers,
+        { key: 'X-A', value: '1', enabled: true },
+        { key: 'X-B', value: '2', enabled: true },
+      ],
+    }));
+    expect(generateChangeSummary(oldSnap, newSnap)).toContain('2 headers added');
+  });
+
+  it('detects plural header removals', () => {
+    const oldSnap = createSnapshot(mkScenario({
+      headers: [
+        { key: 'A', value: '1', enabled: true },
+        { key: 'B', value: '2', enabled: true },
+      ],
+    }));
+    const newSnap = createSnapshot(mkScenario({ headers: [] }));
+    expect(generateChangeSummary(oldSnap, newSnap)).toContain('2 headers removed');
+  });
+
+  it('detects header value modifications when count unchanged', () => {
+    const oldSnap = createSnapshot(baseScenario);
+    const newSnap = createSnapshot(mkScenario({
+      headers: [{ key: 'Accept', value: 'text/plain', enabled: true }],
+    }));
+    expect(generateChangeSummary(oldSnap, newSnap)).toContain('headers modified');
+  });
+
+  it('detects form data changes', () => {
+    const oldSnap = createSnapshot(mkScenario({ bodyForm: [{ key: 'a', value: '1', type: 'text', enabled: true }] }));
+    const newSnap = createSnapshot(mkScenario({ bodyForm: [{ key: 'a', value: '2', type: 'text', enabled: true }] }));
+    expect(generateChangeSummary(oldSnap, newSnap)).toContain('form data modified');
+  });
+
+  it('detects auth type change in summary', () => {
+    const oldSnap = createSnapshot(baseScenario);
+    const newSnap = createSnapshot(mkScenario({ auth: { type: 'bearer', token: 't' } as Scenario['auth'] }));
+    expect(generateChangeSummary(oldSnap, newSnap)).toMatch(/auth.*none.*bearer/);
+  });
+
+  it('detects plural extraction additions', () => {
+    const oldSnap = createSnapshot(baseScenario);
+    const newSnap = createSnapshot(mkScenario({
+      extractions: [
+        { source: 'body', path: '$.a', variable: 'a' },
+        { source: 'body', path: '$.b', variable: 'b' },
+      ],
+    }));
+    expect(generateChangeSummary(oldSnap, newSnap)).toContain('2 extractions added');
+  });
+
+  it('detects plural extraction removals', () => {
+    const oldSnap = createSnapshot(mkScenario({
+      extractions: [
+        { source: 'body', path: '$.a', variable: 'a' },
+        { source: 'body', path: '$.b', variable: 'b' },
+      ],
+    }));
+    const newSnap = createSnapshot(baseScenario);
+    expect(generateChangeSummary(oldSnap, newSnap)).toContain('2 extractions removed');
+  });
+
+  it('detects extraction modifications when length unchanged', () => {
+    const oldSnap = createSnapshot(mkScenario({
+      extractions: [{ source: 'body', path: '$.id', variable: 'x' }],
+    }));
+    const newSnap = createSnapshot(mkScenario({
+      extractions: [{ source: 'body', path: '$.id', variable: 'y' }],
+    }));
+    expect(generateChangeSummary(oldSnap, newSnap)).toContain('extractions modified');
   });
 });
 
@@ -285,7 +380,7 @@ describe('computeSnapshotDiff', () => {
 
   it('detects auth change', () => {
     const old = createSnapshot(baseScenario);
-    const newer = createSnapshot(mkScenario({ auth: { type: 'bearer', token: 'abc' } as any }));
+    const newer = createSnapshot(mkScenario({ auth: { type: 'bearer', token: 'abc' } }));
     expect(computeSnapshotDiff(old, newer).authChanged).toBe(true);
   });
 
@@ -313,6 +408,11 @@ describe('countDefinitionVersions', () => {
 });
 
 describe('stripDefinitionVersions', () => {
+  it('returns same scenario when definitionVersions absent or empty', () => {
+    expect(stripDefinitionVersions(baseScenario)).toBe(baseScenario);
+    expect(stripDefinitionVersions(mkScenario({ definitionVersions: [] }))).toEqual(mkScenario({ definitionVersions: [] }));
+  });
+
   it('removes definitionVersions from scenario', () => {
     const s = mkScenario({
       definitionVersions: [{ id: 'v1', timestamp: 1000, snapshot: createSnapshot(baseScenario) }],

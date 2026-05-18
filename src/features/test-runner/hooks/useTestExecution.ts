@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import type { Scenario, TestConfig, RequestResult, TestSummary, TestRun } from '../../../shared/types';
+import type { Workflow } from '../../workflow/types/workflow';
 import { runTest } from '../../../engine/executor';
 import type { ProgressMeta } from '../../../engine/executor';
 import { runTestInWorker } from '../../../engine/workerBridge';
@@ -156,7 +157,6 @@ export function useTestExecution() {
     const summary = computeIncrementalSummary(elapsed);
 
     const elapsedSec = Math.round(elapsed / 1000);
-    let newPoint: TimeSeriesPoint | null = null;
 
     if (elapsedSec > lastSnapshotRef.current && pending.allResults.length > 0) {
       const intervalMs = now - prevSnapshotTimeRef.current;
@@ -167,9 +167,9 @@ export function useTestExecution() {
       const avgRecent = recentWindow.reduce((s, r) => s + r.responseTimeMs, 0) / recentWindow.length;
 
       const failedInWindow = recentWindow.filter(r => r.httpStatus >= 400 || r.httpStatus === 0).length;
-      const errorPct = recentWindow.length > 0 ? (failedInWindow / recentWindow.length) * 100 : 0;
+      const errorPct = (failedInWindow / recentWindow.length) * 100;
 
-      newPoint = {
+      const point: TimeSeriesPoint = {
         elapsedSec,
         avgResponseTime: Math.round(avgRecent * 10) / 10,
         tps: Math.round(intervalTps * 10) / 10,
@@ -183,7 +183,7 @@ export function useTestExecution() {
       prevCompletedRef.current = pending.completed;
       prevSnapshotTimeRef.current = now;
 
-      if (newPoint) timeSeriesRef.current = [...timeSeriesRef.current, newPoint];
+      timeSeriesRef.current = [...timeSeriesRef.current, point];
     }
 
     setState((prev) => ({
@@ -191,14 +191,17 @@ export function useTestExecution() {
       completed: pending.completed,
       total: pending.total,
       liveResults: capResults(pending.allResults),
-      liveSummary: summary,
+      liveSummary: {
+        ...summary,
+        avgIterationTime: pending.profileMeta?.avgIterationTimeMs ?? prev.liveSummary?.avgIterationTime ?? summary.avgIterationTime,
+      },
       profileMeta: pending.profileMeta ?? prev.profileMeta,
       timeSeries: timeSeriesRef.current,
     }));
     lastFlushRef.current = now;
   }, []);
 
-  const execute = useCallback(async (config: TestConfig, scenarios: Scenario[], meta?: { projectName?: string; envName?: string; svcName?: string; baseUrl?: string }) => {
+  const execute = useCallback(async (config: TestConfig, scenarios: Scenario[], meta?: { projectName?: string; envName?: string; svcName?: string; baseUrl?: string }, workflow?: Workflow, resolveSubWorkflow?: (id: string) => Workflow | undefined) => {
     abortRef.current = new AbortController();
     startTimeRef.current = performance.now();
     lastSnapshotRef.current = 0;
@@ -216,7 +219,7 @@ export function useTestExecution() {
     setState({
       isRunning: true,
       completed: 0,
-      total: config.executionMode === 'load-profile' ? -1 : config.totalTransactions,
+      total: config.executionMode === 'load-profile' ? -1 : config.iterations,
       liveResults: [],
       liveSummary: null,
       finalRun: null,
@@ -227,39 +230,37 @@ export function useTestExecution() {
     });
 
     let lastTrackedCount = 0;
-    const useWorker = supportsWorkers();
-    const executeFn = useWorker ? runTestInWorker : runTest;
+    const useWorker = supportsWorkers() && !resolveSubWorkflow;
+
+    const onProgress = (completed: number, total: number, allResults: RequestResult[], profileMeta?: ProgressMeta) => {
+      for (let i = lastTrackedCount; i < allResults.length; i++) {
+        trackResult(allResults[i]);
+      }
+      lastTrackedCount = allResults.length;
+
+      pendingUpdateRef.current = { completed, total, allResults, profileMeta };
+
+      const now = performance.now();
+      const sinceLast = now - lastFlushRef.current;
+
+      if (sinceLast >= PROGRESS_THROTTLE_MS) {
+        if (flushTimerRef.current) {
+          clearTimeout(flushTimerRef.current);
+          flushTimerRef.current = null;
+        }
+        flushToState();
+      } else if (!flushTimerRef.current) {
+        flushTimerRef.current = setTimeout(() => {
+          flushTimerRef.current = null;
+          flushToState();
+        }, PROGRESS_THROTTLE_MS - sinceLast);
+      }
+    };
 
     try {
-      const results = await executeFn(
-        config,
-        scenarios,
-        (completed, total, allResults, profileMeta) => {
-          for (let i = lastTrackedCount; i < allResults.length; i++) {
-            trackResult(allResults[i]);
-          }
-          lastTrackedCount = allResults.length;
-
-          pendingUpdateRef.current = { completed, total, allResults, profileMeta };
-
-          const now = performance.now();
-          const sinceLast = now - lastFlushRef.current;
-
-          if (sinceLast >= PROGRESS_THROTTLE_MS) {
-            if (flushTimerRef.current) {
-              clearTimeout(flushTimerRef.current);
-              flushTimerRef.current = null;
-            }
-            flushToState();
-          } else if (!flushTimerRef.current) {
-            flushTimerRef.current = setTimeout(() => {
-              flushTimerRef.current = null;
-              flushToState();
-            }, PROGRESS_THROTTLE_MS - sinceLast);
-          }
-        },
-        abortRef.current.signal
-      );
+      const testResult = useWorker
+        ? await runTestInWorker(config, scenarios, onProgress, abortRef.current.signal, workflow)
+        : await runTest(config, scenarios, onProgress, abortRef.current.signal, workflow, resolveSubWorkflow);
 
       if (flushTimerRef.current) {
         clearTimeout(flushTimerRef.current);
@@ -267,40 +268,54 @@ export function useTestExecution() {
       }
 
       const totalDuration = performance.now() - startTimeRef.current;
-      const summary = computeMetrics(results, totalDuration);
+      const summary = computeMetrics(testResult.results, totalDuration);
+
+      // Calculate avgIterationTime from trace for workflow runs
+      if (testResult.trace && testResult.trace.iterations.length > 0) {
+        const iterationDurations = testResult.trace.iterations.map(iter => iter.durationMs);
+        summary.avgIterationTime = Math.round(
+          iterationDurations.reduce((a, b) => a + b, 0) / iterationDurations.length * 100
+        ) / 100;
+      }
+
       const testRun: TestRun = {
         id: uuidv4(),
         timestamp: Date.now(),
         config,
         summary,
-        results,
+        results: testResult.results,
         projectName: meta?.projectName,
         envName: meta?.envName,
         svcName: meta?.svcName,
         baseUrl: meta?.baseUrl,
+        workflowName: workflow?.name,
+        executionTrace: testResult.trace, // Phase 7e: Store execution trace
       };
 
       const saveResult = await saveTestRun(testRun);
+
+      const finalCompleted = config.executionMode === 'workflow' ? (config.iterations || 1) : testResult.results.length;
+      const finalTotal = finalCompleted;
 
       if (saveResult.quotaError) {
         setState((prev) => ({
           ...prev,
           isRunning: false,
-          completed: results.length,
-          total: prev.total === -1 ? -1 : results.length,
+          completed: finalCompleted,
+          total: finalTotal,
           pendingRun: testRun,
           liveSummary: summary,
-          liveResults: capResults(results),
+          liveResults: capResults(testResult.results),
         }));
       } else {
         setState((prev) => ({
           ...prev,
           isRunning: false,
-          completed: results.length,
-          total: prev.total === -1 ? -1 : results.length,
+          completed: finalCompleted,
+          total: finalTotal,
           finalRun: testRun,
           liveSummary: summary,
-          liveResults: capResults(results),
+          liveResults: capResults(testResult.results),
           pendingRun: null,
         }));
       }
@@ -336,5 +351,153 @@ export function useTestExecution() {
     abortRef.current?.abort();
   }, []);
 
-  return { ...state, execute, abort, confirmSavePendingRun, dismissPendingRun };
+  /**
+   * Start tracking progress for an external execution (e.g., webhook load driver).
+   * Returns callbacks to report progress and completion.
+   */
+  const startExternalExecution = useCallback((total: number, meta?: { projectName?: string }) => {
+    abortRef.current = new AbortController();
+    startTimeRef.current = performance.now();
+    lastSnapshotRef.current = 0;
+    prevCompletedRef.current = 0;
+    prevSnapshotTimeRef.current = performance.now();
+    lastFlushRef.current = 0;
+    pendingUpdateRef.current = null;
+    resetIncrementals();
+
+    if (flushTimerRef.current) {
+      clearTimeout(flushTimerRef.current);
+      flushTimerRef.current = null;
+    }
+
+    setState({
+      isRunning: true,
+      completed: 0,
+      total,
+      liveResults: [],
+      liveSummary: null,
+      finalRun: null,
+      error: null,
+      pendingRun: null,
+      profileMeta: null,
+      timeSeries: [],
+    });
+
+    let lastTrackedCount = 0;
+    const allResults: RequestResult[] = [];
+
+    const reportProgress = (results: RequestResult[], completed: number) => {
+      // Add new results
+      for (const r of results) {
+        if (!allResults.find(existing => existing.id === r.id)) {
+          allResults.push(r);
+        }
+      }
+
+      // Track metrics for new results
+      for (let i = lastTrackedCount; i < allResults.length; i++) {
+        trackResult(allResults[i]);
+      }
+      lastTrackedCount = allResults.length;
+
+      const profileMeta: ProgressMeta = {
+        elapsedMs: performance.now() - startTimeRef.current,
+        targetConcurrency: 1,
+        currentInFlight: 0,
+        durationMs: 0,
+      };
+
+      pendingUpdateRef.current = { completed, total, allResults, profileMeta };
+
+      const now = performance.now();
+      const sinceLast = now - lastFlushRef.current;
+
+      if (sinceLast >= PROGRESS_THROTTLE_MS) {
+        if (flushTimerRef.current) {
+          clearTimeout(flushTimerRef.current);
+          flushTimerRef.current = null;
+        }
+        flushToState();
+      } else if (!flushTimerRef.current) {
+        flushTimerRef.current = setTimeout(() => {
+          flushTimerRef.current = null;
+          flushToState();
+        }, PROGRESS_THROTTLE_MS - sinceLast);
+      }
+    };
+
+    const complete = async (config: TestConfig, executionTrace?: import('../../../shared/types').WorkflowExecutionTrace) => {
+      if (flushTimerRef.current) {
+        clearTimeout(flushTimerRef.current);
+        flushTimerRef.current = null;
+      }
+
+      const totalDuration = performance.now() - startTimeRef.current;
+      const summary = computeMetrics(allResults, totalDuration);
+      
+      // Calculate avgIterationTime from trace for workflow runs (reuse existing pattern)
+      if (executionTrace && executionTrace.iterations.length > 0) {
+        const iterationDurations = executionTrace.iterations.map(iter => iter.durationMs);
+        summary.avgIterationTime = Math.round(
+          iterationDurations.reduce((a, b) => a + b, 0) / iterationDurations.length * 100
+        ) / 100;
+      }
+
+      const testRun: TestRun = {
+        id: uuidv4(),
+        timestamp: Date.now(),
+        config,
+        summary,
+        results: allResults,
+        projectName: meta?.projectName,
+        executionTrace, // Include execution trace for Results Explorer
+      };
+
+      const saveResult = await saveTestRun(testRun);
+
+      if (saveResult.quotaError) {
+        setState((prev) => ({
+          ...prev,
+          isRunning: false,
+          completed: allResults.length,
+          total: allResults.length,
+          pendingRun: testRun,
+          liveSummary: summary,
+          liveResults: capResults(allResults),
+        }));
+      } else {
+        setState((prev) => ({
+          ...prev,
+          isRunning: false,
+          completed: allResults.length,
+          total: allResults.length,
+          finalRun: testRun,
+          liveSummary: summary,
+          liveResults: capResults(allResults),
+          pendingRun: null,
+        }));
+      }
+    };
+
+    const fail = (error: string) => {
+      if (flushTimerRef.current) {
+        clearTimeout(flushTimerRef.current);
+        flushTimerRef.current = null;
+      }
+      setState((prev) => ({
+        ...prev,
+        isRunning: false,
+        error,
+      }));
+    };
+
+    return {
+      reportProgress,
+      complete,
+      fail,
+      abortSignal: abortRef.current.signal,
+    };
+  }, [flushToState]);
+
+  return { ...state, execute, abort, confirmSavePendingRun, dismissPendingRun, startExternalExecution };
 }

@@ -1,9 +1,19 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { Scenario, TestConfig } from '../shared/types';
+import type { Workflow } from '../features/workflow/types/workflow';
 import { buildHeaders, buildUrl, runTest, proxyFetch } from './executor';
 
 vi.mock('../shared/utils/httpClient', () => ({
   httpFetch: vi.fn().mockResolvedValue({ status: 200, statusText: 'OK', headers: {}, body: '{"ok":true}' }),
+}));
+
+vi.mock('../features/workflow/engine', () => ({
+  runWorkflow: vi.fn(() => Promise.resolve([])),
+  runWorkflowLoad: vi.fn(() => Promise.resolve([])),
+  runGraphLoad: vi.fn(() => Promise.resolve([])),
+  VariableContext: class VariableContext {
+    constructor(_initial?: Record<string, string>) {}
+  },
 }));
 
 function makeScenario(overrides: Partial<Scenario> = {}): Scenario {
@@ -12,6 +22,33 @@ function makeScenario(overrides: Partial<Scenario> = {}): Scenario {
     method: 'POST', headers: [], body: '{}',
     auth: { type: 'none' }, validation: { mode: 'none' },
     ...overrides,
+  };
+}
+
+function makeScenarioWithDataRows(rowCount: number): Scenario {
+  const rows = Array.from({ length: rowCount }, (_, i) => ({
+    id: `r${i}`,
+    values: { c1: String(i) },
+    enabled: true,
+  }));
+  return makeScenario({
+    id: 'ds1',
+    dataSource: {
+      columns: [{ id: 'c1', name: 'vin', type: 'param', mapping: 'vin' }],
+      rows,
+    },
+  });
+}
+
+function minimalWorkflow(id: string): Workflow {
+  return {
+    id,
+    name: 'WF',
+    variables: {},
+    nodes: [],
+    edges: [],
+    createdAt: 0,
+    updatedAt: 0,
   };
 }
 
@@ -190,7 +227,7 @@ describe('runTest', () => {
   function makeConfig(overrides: Partial<TestConfig> = {}): TestConfig {
     return {
       concurrency: 1,
-      totalTransactions: 2,
+      iterations: 2,
       scenarioWeights: [{ scenarioId: 's1', weight: 1 }],
       executionMode: 'sequential',
       ...overrides,
@@ -201,7 +238,7 @@ describe('runTest', () => {
     const s = makeScenario();
     const config = makeConfig();
     const onProgress = vi.fn();
-    const results = await runTest(config, [s], onProgress);
+    const { results } = await runTest(config, [s], onProgress);
     expect(results.length).toBe(2);
     expect(onProgress).toHaveBeenCalled();
   });
@@ -209,14 +246,14 @@ describe('runTest', () => {
   it('runs test with batch mode', async () => {
     const s = makeScenario();
     const config = makeConfig({ executionMode: 'batch', concurrency: 2 });
-    const results = await runTest(config, [s], vi.fn());
+    const { results } = await runTest(config, [s], vi.fn());
     expect(results.length).toBe(2);
   });
 
   it('runs test with pool mode', async () => {
     const s = makeScenario();
-    const config = makeConfig({ executionMode: 'pool', concurrency: 2, totalTransactions: 3 });
-    const results = await runTest(config, [s], vi.fn());
+    const config = makeConfig({ executionMode: 'pool', concurrency: 2, iterations: 3 });
+    const { results } = await runTest(config, [s], vi.fn());
     expect(results.length).toBe(3);
   });
 
@@ -224,68 +261,65 @@ describe('runTest', () => {
     const s = makeScenario();
     const config = makeConfig({
       executionMode: 'load-profile',
-      totalTransactions: 1,
+      iterations: 1,
       loadProfile: { type: 'sustained', durationSec: 0.08, maxConcurrency: 1 },
     });
-    const results = await runTest(config, [s], vi.fn());
+    const { results } = await runTest(config, [s], vi.fn());
     expect(results.length).toBeGreaterThanOrEqual(0);
   });
 
-  it('distributes scenarios by weight', async () => {
+  it('runs each active scenario the configured iterations times', async () => {
     const s1 = makeScenario({ id: 's1', name: 'Scenario1' });
     const s2 = makeScenario({ id: 's2', name: 'Scenario2' });
     const config = makeConfig({
-      totalTransactions: 10,
+      iterations: 5,
       scenarioWeights: [
         { scenarioId: 's1', weight: 7 },
         { scenarioId: 's2', weight: 3 },
       ],
     });
-    const results = await runTest(config, [s1, s2], vi.fn());
-    expect(results.length).toBe(10);
+    const { results } = await runTest(config, [s1, s2], vi.fn());
+    expect(results.length).toBe(10); // 5 per test × 2 tests
     const s1Count = results.filter(r => r.scenarioName === 'Scenario1').length;
     const s2Count = results.filter(r => r.scenarioName === 'Scenario2').length;
-    expect(s1Count).toBeGreaterThan(0);
-    expect(s2Count).toBeGreaterThan(0);
+    expect(s1Count).toBe(5);
+    expect(s2Count).toBe(5);
   });
 
-  it('handles fewer transactions than scenarios', async () => {
+  it('iterations means per-test count even with many scenarios', async () => {
     const s1 = makeScenario({ id: 's1' });
     const s2 = makeScenario({ id: 's2' });
     const s3 = makeScenario({ id: 's3' });
     const config = makeConfig({
-      totalTransactions: 2,
+      iterations: 2,
       scenarioWeights: [
         { scenarioId: 's1', weight: 3 },
         { scenarioId: 's2', weight: 2 },
         { scenarioId: 's3', weight: 1 },
       ],
     });
-    const results = await runTest(config, [s1, s2, s3], vi.fn());
-    expect(results.length).toBe(2);
+    const { results } = await runTest(config, [s1, s2, s3], vi.fn());
+    expect(results.length).toBe(6); // 2 per test × 3 tests
   });
 
-  it('breaks equal scenario weights with Math.random when undersampling', async () => {
-    const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0.25);
+  it('single iteration with two scenarios produces two results', async () => {
     const s1 = makeScenario({ id: 's1', name: 'Eq1' });
     const s2 = makeScenario({ id: 's2', name: 'Eq2' });
     const config = makeConfig({
-      totalTransactions: 1,
+      iterations: 1,
       scenarioWeights: [
         { scenarioId: 's1', weight: 4 },
         { scenarioId: 's2', weight: 4 },
       ],
     });
-    const results = await runTest(config, [s1, s2], vi.fn());
-    randomSpy.mockRestore();
-    expect(results).toHaveLength(1);
-    expect(['Eq1', 'Eq2']).toContain(results[0].scenarioName);
+    const { results } = await runTest(config, [s1, s2], vi.fn());
+    expect(results).toHaveLength(2); // 1 per test × 2 tests
   });
 
   it('applies timeout config', async () => {
     const s = makeScenario();
     const config = makeConfig({ timeoutSec: 5 });
-    const results = await runTest(config, [s], vi.fn());
+    const { results } = await runTest(config, [s], vi.fn());
     expect(results.length).toBe(2);
   });
 
@@ -293,13 +327,13 @@ describe('runTest', () => {
     const s1 = makeScenario({ id: 's1', name: 'Active' });
     const s2 = makeScenario({ id: 's2', name: 'Inactive' });
     const config = makeConfig({
-      totalTransactions: 3,
+      iterations: 3,
       scenarioWeights: [
         { scenarioId: 's1', weight: 1 },
         { scenarioId: 's2', weight: 0 },
       ],
     });
-    const results = await runTest(config, [s1, s2], vi.fn());
+    const { results } = await runTest(config, [s1, s2], vi.fn());
     expect(results.every(r => r.scenarioName === 'Active')).toBe(true);
   });
 
@@ -308,7 +342,7 @@ describe('runTest', () => {
     const config = makeConfig({
       thinkTime: { mode: 'constant', constantMs: 0 },
     });
-    const results = await runTest(config, [s], vi.fn());
+    const { results } = await runTest(config, [s], vi.fn());
     expect(results.length).toBe(2);
   });
 
@@ -319,7 +353,7 @@ describe('runTest', () => {
       concurrency: 2,
       thinkTime: { mode: 'uniform', minMs: 0, maxMs: 0 },
     });
-    const results = await runTest(config, [s], vi.fn());
+    const { results } = await runTest(config, [s], vi.fn());
     expect(results.length).toBe(2);
   });
 
@@ -328,10 +362,10 @@ describe('runTest', () => {
     const config = makeConfig({
       executionMode: 'pool',
       concurrency: 2,
-      totalTransactions: 3,
+      iterations: 3,
       thinkTime: { mode: 'gaussian', meanMs: 0, stdDevMs: 0 },
     });
-    const results = await runTest(config, [s], vi.fn());
+    const { results } = await runTest(config, [s], vi.fn());
     expect(results.length).toBe(3);
   });
 
@@ -339,14 +373,145 @@ describe('runTest', () => {
     const s = makeScenario();
     const config = makeConfig();
     expect(config.thinkTime).toBeUndefined();
-    const results = await runTest(config, [s], vi.fn());
+    const { results } = await runTest(config, [s], vi.fn());
     expect(results.length).toBe(2);
   });
 
   it('treats mode none same as no thinkTime', async () => {
     const s = makeScenario();
     const config = makeConfig({ thinkTime: { mode: 'none' } });
-    const results = await runTest(config, [s], vi.fn());
+    const { results } = await runTest(config, [s], vi.fn());
     expect(results.length).toBe(2);
+  });
+
+  it('expands data-source fully without capping', async () => {
+    const s = makeScenarioWithDataRows(3);
+    const config = makeConfig({
+      iterations: 2,
+      executionMode: 'sequential',
+      scenarioWeights: [{ scenarioId: 'ds1', weight: 1 }],
+    });
+    const { results } = await runTest(config, [s], vi.fn());
+    expect(results.length).toBe(6); // 2 iterations × 3 rows
+  });
+
+  it('uses runWorkflow for workflow mode with a single iteration', async () => {
+    const { runWorkflow } = await import('../features/workflow/engine');
+    const s = makeScenario();
+    const config = makeConfig({ executionMode: 'workflow', iterations: 1, concurrency: 1 });
+    await runTest(config, [s], vi.fn());
+    expect(vi.mocked(runWorkflow)).toHaveBeenCalled();
+  });
+
+  it('uses runWorkflowLoad for workflow mode with multiple iterations', async () => {
+    const { runWorkflowLoad } = await import('../features/workflow/engine');
+    const s = makeScenario();
+    const config = makeConfig({ executionMode: 'workflow', iterations: 4, concurrency: 2 });
+    await runTest(config, [s], vi.fn());
+    expect(vi.mocked(runWorkflowLoad)).toHaveBeenCalled();
+  });
+
+  it('uses runGraphLoad when workflowId and workflow definition are set', async () => {
+    const { runGraphLoad } = await import('../features/workflow/engine');
+    const s = makeScenario();
+    const config = makeConfig({
+      executionMode: 'workflow',
+      workflowId: 'w1',
+      iterations: 3,
+      concurrency: 2,
+    });
+    await runTest(config, [s], vi.fn(), undefined, minimalWorkflow('w1'));
+    expect(vi.mocked(runGraphLoad)).toHaveBeenCalled();
+  });
+
+  it('uses runGraphLoad with iterations 1 when iterations is 0', async () => {
+    const { runGraphLoad } = await import('../features/workflow/engine');
+    const s = makeScenario();
+    const config = makeConfig({
+      executionMode: 'workflow',
+      workflowId: 'w1',
+      iterations: 0,
+      concurrency: 1,
+    });
+    await runTest(config, [s], vi.fn(), undefined, minimalWorkflow('w1'));
+    expect(vi.mocked(runGraphLoad)).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ iterations: 1 }),
+    );
+  });
+
+  it('uses runWorkflow when workflowId is set but workflow definition is missing', async () => {
+    const { runWorkflow, runGraphLoad } = await import('../features/workflow/engine');
+    const s = makeScenario();
+    const config = makeConfig({ executionMode: 'workflow', workflowId: 'missing', iterations: 1 });
+    await runTest(config, [s], vi.fn(), undefined, undefined);
+    expect(vi.mocked(runWorkflow)).toHaveBeenCalled();
+    expect(vi.mocked(runGraphLoad)).not.toHaveBeenCalled();
+  });
+
+  it('defaults executionMode to batch', async () => {
+    const s = makeScenario();
+    const config = {
+      concurrency: 1,
+      iterations: 2,
+      scenarioWeights: [{ scenarioId: 's1', weight: 1 }],
+    } as TestConfig;
+    const { results } = await runTest(config, [s], vi.fn());
+    expect(results.length).toBe(2);
+  });
+
+  it('fills queue from first scenario when active weights reference missing ids', async () => {
+    const s = makeScenario({ id: 's1' });
+    const config = makeConfig({
+      iterations: 3,
+      scenarioWeights: [
+        { scenarioId: 'ghost', weight: 1 },
+        { scenarioId: 's1', weight: 1 },
+      ],
+    });
+    const { results } = await runTest(config, [s], vi.fn());
+    expect(results.length).toBe(3);
+  });
+
+  it('uses runWorkflowLoad when workflowId is set but workflow object is missing and iterations > 1', async () => {
+    const { runWorkflowLoad, runGraphLoad } = await import('../features/workflow/engine');
+    const s = makeScenario();
+    const config = makeConfig({
+      executionMode: 'workflow',
+      workflowId: 'orphan',
+      iterations: 4,
+      concurrency: 2,
+    });
+    await runTest(config, [s], vi.fn(), undefined, undefined);
+    expect(vi.mocked(runWorkflowLoad)).toHaveBeenCalled();
+    expect(vi.mocked(runGraphLoad)).not.toHaveBeenCalled();
+  });
+
+  it('undersampling skips weight ids that are missing from scenarios list', async () => {
+    const s1 = makeScenario({ id: 's1', name: 'Only' });
+    const config = makeConfig({
+      iterations: 1,
+      scenarioWeights: [
+        { scenarioId: 'missing', weight: 5 },
+        { scenarioId: 's1', weight: 1 },
+      ],
+    });
+    const { results } = await runTest(config, [s1], vi.fn());
+    expect(results.every(r => r.scenarioName === 'Only')).toBe(true);
+  });
+
+  it('gives each scenario equal iterations regardless of weight values', async () => {
+    const s1 = makeScenario({ id: 's1' });
+    const s2 = makeScenario({ id: 's2', name: 'S2' });
+    const config = makeConfig({
+      iterations: 12,
+      scenarioWeights: [
+        { scenarioId: 's1', weight: 3 },
+        { scenarioId: 's2', weight: 1 },
+      ],
+      executionMode: 'sequential',
+    });
+    const { results } = await runTest(config, [s1, s2], vi.fn());
+    expect(results.length).toBe(24); // 12 per test × 2 tests
   });
 });

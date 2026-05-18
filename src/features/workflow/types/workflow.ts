@@ -1,4 +1,4 @@
-import type { AuthConfig, Scenario, RequestResult } from '../../../shared/types';
+import type { AuthConfig, Scenario, RequestResult, DataSource } from '../../../shared/types';
 
 export interface WorkflowHostProfile {
   id: string;
@@ -88,6 +88,14 @@ export interface HttpNodeData {
    * extractions when the step runs; highest priority for this step’s request resolution.
    */
   initialVariables?: Record<string, string>;
+  /** Optional data source for parameterized execution of this HTTP node. */
+  dataSource?: DataSource;
+  /** When sourced from a versioned request: the pinned spec version ID */
+  sourceSpecVersionId?: string;
+  /** Human label for the pinned spec version (e.g. "1.0.7") */
+  sourceSpecVersionLabel?: string;
+  /** 'latest' (default) tracks the request's active version; 'pinned' freezes to sourceSpecVersionId */
+  specVersionMode?: 'pinned' | 'latest';
 }
 
 export interface ConditionNodeData {
@@ -204,6 +212,8 @@ export interface LoopNodeData {
   whileRight?: string;
   /** Safety cap to prevent infinite loops. Default 100. */
   maxIterations?: number;
+  /** Inline data source for forEach mode. When set, the loop iterates over its enabled rows. */
+  dataSource?: DataSource;
 }
 
 // ── Set Variable node ────────────────────────────────
@@ -359,6 +369,26 @@ export interface ScriptNodeData {
 
 // ── Correlation Wait node ────────────────────────────
 
+/** Behavior modes for CorrelationWait nodes during load/performance tests. */
+export type CorrelationWaitLoadTestMode = 'wait-for-real' | 'auto-resume' | 'synthetic-inject';
+
+/** Configuration for CorrelationWait behavior during load tests. */
+export interface CorrelationWaitLoadTestBehavior {
+  /**
+   * How to handle the correlation wait during load tests:
+   * - 'wait-for-real': Wait for actual external webhook (default, same as normal execution)
+   * - 'auto-resume': Immediately resume with mock payload (skip the wait, for CI/smoke tests)
+   * - 'synthetic-inject': Wait for synthetic event injector to fire callback with configurable delay
+   */
+  mode: CorrelationWaitLoadTestMode;
+  /** Mock payload to inject when mode is 'auto-resume' or 'synthetic-inject'. */
+  mockPayload?: Record<string, unknown>;
+  /** Delay before synthetic injection (ms). Only used when mode is 'synthetic-inject'. */
+  syntheticDelayMs?: number;
+  /** Random jitter range (±ms) added to syntheticDelayMs. */
+  syntheticJitterMs?: number;
+}
+
 export interface CorrelationWaitNodeData {
   [key: string]: unknown;
   label: string;
@@ -382,6 +412,8 @@ export interface CorrelationWaitNodeData {
   webhookFilter?: string;
   /** Optional notes. */
   notes?: string;
+  /** How this node behaves during load/performance tests. When omitted, defaults to 'wait-for-real'. */
+  loadTestBehavior?: CorrelationWaitLoadTestBehavior;
 }
 
 export type WorkflowNodeType = 'http' | 'condition' | 'delay' | 'start' | 'fork' | 'join' | 'end' | 'webhook' | 'schedule' | 'switch' | 'loop' | 'setVariable' | 'aggregate' | 'errorHandler' | 'logDebug' | 'waitForCondition' | 'subWorkflow' | 'script' | 'correlationWait';
@@ -420,6 +452,19 @@ export interface WorkflowVersion {
   services?: WorkflowService[];
 }
 
+// ── Workflow folders ─────────────────────────────────
+
+export interface WorkflowFolder {
+  id: string;
+  name: string;
+  /** null / undefined = root-level folder. */
+  parentId?: string;
+  /** Position among siblings within the same parent. */
+  order: number;
+  /** Whether the folder is collapsed in the sidebar. */
+  collapsed?: boolean;
+}
+
 // ── Saved workflow ───────────────────────────────────
 
 export interface Workflow {
@@ -443,6 +488,14 @@ export interface Workflow {
   versions?: WorkflowVersion[];
   /** Last environment selected when this workflow was active. */
   lastSelectedEnvId?: string;
+  /** Gallery catalog entry ID this workflow was imported from (via "Use as Template"). */
+  gallerySampleId?: string;
+  /** Folder this workflow belongs to (undefined = unfiled / root). */
+  folderId?: string;
+  /** Position within the folder for drag-and-drop reordering. */
+  folderOrder?: number;
+  /** Saved canvas viewport (zoom + pan) from "Save layout". */
+  savedViewport?: { x: number; y: number; zoom: number };
   createdAt: number;
   updatedAt: number;
 }
