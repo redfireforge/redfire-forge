@@ -14,6 +14,8 @@ const envProxyCtor = vi.hoisted(() =>
   }),
 );
 
+const mockTauriFetch = vi.hoisted(() => vi.fn());
+
 vi.mock('./platform', () => ({
   isTauri: () => mockedIsTauri(),
   isNode: () => mockedIsNode(),
@@ -26,8 +28,18 @@ vi.mock('undici', () => ({
 }));
 
 vi.mock('@tauri-apps/plugin-http', () => ({
-  fetch: vi.fn(),
+  fetch: mockTauriFetch,
 }));
+
+function makeFetchResponse(body = 'ok', status = 200, headersMap = new Map<string, string>()) {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    statusText: status === 200 ? 'OK' : 'Error',
+    headers: { forEach: (fn: (v: string, k: string) => void) => headersMap.forEach((v, k) => fn(v, k)) },
+    text: () => Promise.resolve(body),
+  };
+}
 
 describe('httpClient connection pooling', () => {
   let httpFetch: typeof import('./httpClient').httpFetch;
@@ -48,25 +60,20 @@ describe('httpClient connection pooling', () => {
   });
 
   function mockFetchResponse(body = 'ok', status = 200) {
-    const mockHeaders = new Map<string, string>();
-    vi.mocked(globalThis.fetch).mockResolvedValue({
-      status,
-      statusText: 'OK',
-      headers: { forEach: (fn: (v: string, k: string) => void) => mockHeaders.forEach((v, k) => fn(v, k)) },
-      text: () => Promise.resolve(body),
-    });
+    vi.mocked(globalThis.fetch).mockResolvedValue(makeFetchResponse(body, status));
   }
 
   describe('pooled Agent (no proxy)', () => {
-    it('creates an undici.Agent with keep-alive settings', async () => {
+    it('creates an undici.Agent with Tier 1 pool settings', async () => {
       mockFetchResponse();
       await httpFetch('http://example.com', 'GET', {});
       expect(agentCtor).toHaveBeenCalledWith(
         expect.objectContaining({
           keepAliveTimeout: 30_000,
           keepAliveMaxTimeout: 60_000,
-          connections: 128,
-          pipelining: 1,
+          connect: { timeout: 10_000 },
+          connections: 512,
+          pipelining: 10,
         }),
       );
     });
@@ -112,6 +119,175 @@ describe('httpClient connection pooling', () => {
     });
   });
 
+  describe('request body handling (Node)', () => {
+    it('omits body for GET requests', async () => {
+      mockFetchResponse();
+      await httpFetch('http://example.com', 'GET', {}, 'should-be-ignored');
+      const callOpts = vi.mocked(globalThis.fetch).mock.calls[0][1];
+      expect(callOpts.body).toBeUndefined();
+    });
+
+    it('includes body for POST requests', async () => {
+      mockFetchResponse();
+      await httpFetch('http://example.com', 'POST', {}, '{"data":1}');
+      const callOpts = vi.mocked(globalThis.fetch).mock.calls[0][1];
+      expect(callOpts.body).toBe('{"data":1}');
+    });
+  });
+
+  describe('timing breakdown (Node)', () => {
+    it('returns timing with ttfb, download, and total', async () => {
+      mockFetchResponse('response-body');
+      const result = await httpFetch('http://example.com', 'GET', {});
+      expect(result.timing).toBeDefined();
+      expect(result.timing!.ttfb).toBeGreaterThanOrEqual(0);
+      expect(result.timing!.download).toBeGreaterThanOrEqual(0);
+      expect(result.timing!.total).toBeGreaterThanOrEqual(0);
+      expect(result.timing!.dnsLookup).toBe(0);
+      expect(result.timing!.tcpConnect).toBe(0);
+      expect(result.timing!.tlsHandshake).toBe(0);
+    });
+  });
+
+  describe('Node fetch error handling', () => {
+    it('returns error response when fetch throws', async () => {
+      vi.mocked(globalThis.fetch).mockRejectedValue(new Error('ECONNREFUSED'));
+      const result = await httpFetch('http://example.com', 'GET', {});
+      expect(result.status).toBe(0);
+      expect(result.error).toContain('ECONNREFUSED');
+      expect(result.body).toBe('');
+    });
+
+    it('walks error cause chain for detailed messages', async () => {
+      const root = new Error('connect failed');
+      const wrapper = new Error('fetch error');
+      (wrapper as { cause?: unknown }).cause = root;
+      vi.mocked(globalThis.fetch).mockRejectedValue(wrapper);
+      const result = await httpFetch('http://example.com', 'GET', {});
+      expect(result.error).toContain('fetch error');
+      expect(result.error).toContain('connect failed');
+    });
+
+    it('includes error code in deep message', async () => {
+      const err = new Error('connect ECONNREFUSED') as NodeJS.ErrnoException;
+      err.code = 'ECONNREFUSED';
+      vi.mocked(globalThis.fetch).mockRejectedValue(err);
+      const result = await httpFetch('http://example.com', 'GET', {});
+      expect(result.error).toContain('[ECONNREFUSED]');
+    });
+
+    it('handles non-Error cause in error chain', async () => {
+      const err = new Error('wrapper');
+      (err as { cause?: unknown }).cause = 'string-cause';
+      vi.mocked(globalThis.fetch).mockRejectedValue(err);
+      const result = await httpFetch('http://example.com', 'GET', {});
+      expect(result.error).toContain('wrapper');
+      expect(result.error).toContain('string-cause');
+    });
+
+    it('handles non-Error thrown directly', async () => {
+      vi.mocked(globalThis.fetch).mockRejectedValue('plain-string');
+      const result = await httpFetch('http://example.com', 'GET', {});
+      expect(result.error).toContain('plain-string');
+    });
+  });
+
+  describe('proxy error retry (Node)', () => {
+    it('retries without dispatcher on proxy ECONNREFUSED', async () => {
+      process.env.HTTP_PROXY = 'http://proxy:8080';
+      vi.resetModules();
+      vi.clearAllMocks();
+      globalThis.fetch = vi.fn();
+      const mod = await import('./httpClient');
+
+      const proxyErr = new Error('connect') as NodeJS.ErrnoException;
+      proxyErr.code = 'ECONNREFUSED';
+      vi.mocked(globalThis.fetch)
+        .mockRejectedValueOnce(proxyErr)
+        .mockResolvedValueOnce(makeFetchResponse('ok', 200));
+
+      const result = await mod.httpFetch('http://example.com', 'GET', {});
+      expect(result.status).toBe(200);
+      expect(vi.mocked(globalThis.fetch)).toHaveBeenCalledTimes(2);
+      const retryOpts = vi.mocked(globalThis.fetch).mock.calls[1][1];
+      expect(retryOpts.dispatcher).toBeUndefined();
+    });
+
+    it('retries on UND_ERR_CONNECT_TIMEOUT', async () => {
+      process.env.HTTPS_PROXY = 'http://proxy:8080';
+      vi.resetModules();
+      vi.clearAllMocks();
+      globalThis.fetch = vi.fn();
+      const mod = await import('./httpClient');
+
+      const proxyErr = new Error('timeout') as NodeJS.ErrnoException;
+      proxyErr.code = 'UND_ERR_CONNECT_TIMEOUT';
+      vi.mocked(globalThis.fetch)
+        .mockRejectedValueOnce(proxyErr)
+        .mockResolvedValueOnce(makeFetchResponse('ok'));
+
+      const result = await mod.httpFetch('http://example.com', 'GET', {});
+      expect(result.status).toBe(200);
+    });
+
+    it('retries on proxy tunnel error message', async () => {
+      process.env.http_proxy = 'http://proxy:8080';
+      vi.resetModules();
+      vi.clearAllMocks();
+      globalThis.fetch = vi.fn();
+      const mod = await import('./httpClient');
+
+      vi.mocked(globalThis.fetch)
+        .mockRejectedValueOnce(new Error('Proxy response (407) !== 200 when HTTP Tunneling'))
+        .mockResolvedValueOnce(makeFetchResponse('ok'));
+
+      const result = await mod.httpFetch('http://example.com', 'GET', {});
+      expect(result.status).toBe(200);
+    });
+
+    it('does not retry non-proxy errors', async () => {
+      process.env.HTTP_PROXY = 'http://proxy:8080';
+      vi.resetModules();
+      vi.clearAllMocks();
+      globalThis.fetch = vi.fn();
+      const mod = await import('./httpClient');
+
+      vi.mocked(globalThis.fetch).mockRejectedValue(new Error('DNS lookup failed'));
+
+      const result = await mod.httpFetch('http://example.com', 'GET', {});
+      expect(result.status).toBe(0);
+      expect(result.error).toContain('DNS lookup failed');
+      expect(vi.mocked(globalThis.fetch)).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not retry proxy errors when not using a proxy', async () => {
+      mockFetchResponse();
+      const err = new Error('timeout') as NodeJS.ErrnoException;
+      err.code = 'ECONNREFUSED';
+      vi.mocked(globalThis.fetch).mockRejectedValue(err);
+
+      const result = await httpFetch('http://example.com', 'GET', {});
+      expect(result.status).toBe(0);
+      expect(vi.mocked(globalThis.fetch)).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not retry when error cause is non-Error', async () => {
+      process.env.HTTP_PROXY = 'http://proxy:8080';
+      vi.resetModules();
+      vi.clearAllMocks();
+      globalThis.fetch = vi.fn();
+      const mod = await import('./httpClient');
+
+      const err = new Error('proxy fail');
+      (err as { cause?: unknown }).cause = 'string-cause';
+      vi.mocked(globalThis.fetch).mockRejectedValue(err);
+
+      const result = await mod.httpFetch('http://example.com', 'GET', {});
+      expect(result.status).toBe(0);
+      expect(vi.mocked(globalThis.fetch)).toHaveBeenCalledTimes(1);
+    });
+  });
+
   describe('proxy mode', () => {
     it('uses EnvHttpProxyAgent when proxy env is set', async () => {
       process.env.HTTP_PROXY = 'http://proxy:8080';
@@ -153,5 +329,230 @@ describe('httpClient connection pooling', () => {
     it('is safe to call when no pool exists', async () => {
       await expect(closeNodePool()).resolves.toBeUndefined();
     });
+  });
+});
+
+// ────────────────────────────────────────────────────────
+// setHttpTransport / transport override
+// ────────────────────────────────────────────────────────
+
+describe('httpClient — setHttpTransport', () => {
+  beforeEach(() => {
+    vi.resetModules();
+    vi.clearAllMocks();
+    mockedIsNode.mockReturnValue(false);
+    mockedIsTauri.mockReturnValue(false);
+  });
+
+  it('routes requests through the custom transport', async () => {
+    const mod = await import('./httpClient');
+    const customTransport = vi.fn().mockResolvedValue({
+      status: 201, statusText: 'Created', headers: {}, body: '{"id":1}',
+    });
+    mod.setHttpTransport(customTransport);
+
+    const result = await mod.httpFetch('http://api.test', 'POST', { 'X-Custom': 'yes' }, '{}');
+    expect(customTransport).toHaveBeenCalledWith('http://api.test', 'POST', { 'X-Custom': 'yes' }, '{}');
+    expect(result.status).toBe(201);
+
+    mod.setHttpTransport(null);
+  });
+
+  it('restores default transport when set to null', async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue(makeFetchResponse('proxy-ok'));
+    const mod = await import('./httpClient');
+    const custom = vi.fn().mockResolvedValue({ status: 200, statusText: 'OK', headers: {}, body: '' });
+    mod.setHttpTransport(custom);
+    await mod.httpFetch('http://x.test', 'GET', {});
+    expect(custom).toHaveBeenCalledTimes(1);
+
+    mod.setHttpTransport(null);
+    await mod.httpFetch('http://y.test', 'GET', {});
+    expect(custom).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ────────────────────────────────────────────────────────
+// Tauri fetch path
+// ────────────────────────────────────────────────────────
+
+describe('httpClient — Tauri transport', () => {
+  beforeEach(() => {
+    vi.resetModules();
+    vi.clearAllMocks();
+    mockedIsNode.mockReturnValue(false);
+    mockedIsTauri.mockReturnValue(true);
+  });
+
+  it('uses @tauri-apps/plugin-http fetch and returns timing', async () => {
+    const headers = new Map([['content-type', 'application/json']]);
+    mockTauriFetch.mockResolvedValue({
+      status: 200,
+      statusText: 'OK',
+      headers: { forEach: (fn: (v: string, k: string) => void) => headers.forEach((v, k) => fn(v, k)) },
+      text: () => Promise.resolve('{"ok":true}'),
+    });
+
+    const mod = await import('./httpClient');
+    const result = await mod.httpFetch('http://api.test/data', 'GET', { Accept: 'application/json' });
+    expect(result.status).toBe(200);
+    expect(result.body).toBe('{"ok":true}');
+    expect(result.headers['content-type']).toBe('application/json');
+    expect(result.timing).toBeDefined();
+    expect(result.timing!.total).toBeGreaterThanOrEqual(0);
+  });
+
+  it('omits body for GET in Tauri mode', async () => {
+    mockTauriFetch.mockResolvedValue({
+      status: 200, statusText: 'OK',
+      headers: { forEach: vi.fn() },
+      text: () => Promise.resolve('ok'),
+    });
+
+    const mod = await import('./httpClient');
+    await mod.httpFetch('http://api.test', 'GET', {}, 'ignored');
+    const opts = mockTauriFetch.mock.calls[0][1];
+    expect(opts.body).toBeUndefined();
+  });
+
+  it('includes body for POST in Tauri mode', async () => {
+    mockTauriFetch.mockResolvedValue({
+      status: 200, statusText: 'OK',
+      headers: { forEach: vi.fn() },
+      text: () => Promise.resolve('ok'),
+    });
+
+    const mod = await import('./httpClient');
+    await mod.httpFetch('http://api.test', 'POST', {}, '{"x":1}');
+    const opts = mockTauriFetch.mock.calls[0][1];
+    expect(opts.body).toBe('{"x":1}');
+  });
+
+  it('returns error response when Tauri fetch throws', async () => {
+    mockTauriFetch.mockRejectedValue(new Error('Tauri plugin unavailable'));
+    const mod = await import('./httpClient');
+    const result = await mod.httpFetch('http://api.test', 'GET', {});
+    expect(result.status).toBe(0);
+    expect(result.error).toContain('Tauri plugin unavailable');
+  });
+});
+
+// ────────────────────────────────────────────────────────
+// Vite proxy path (browser, non-Tauri, non-Node)
+// ────────────────────────────────────────────────────────
+
+describe('httpClient — Vite proxy (browser)', () => {
+  beforeEach(() => {
+    vi.resetModules();
+    vi.clearAllMocks();
+    mockedIsNode.mockReturnValue(false);
+    mockedIsTauri.mockReturnValue(false);
+  });
+
+  it('sends POST to /__proxy and parses JSON response', async () => {
+    const proxyPayload = { status: 200, statusText: 'OK', headers: { 'x-req': '1' }, body: '{"data":true}' };
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true, status: 200, text: () => Promise.resolve(JSON.stringify(proxyPayload)),
+    });
+
+    const mod = await import('./httpClient');
+    const result = await mod.httpFetch('http://api.test/proxy', 'GET', { Accept: '*/*' });
+
+    expect(globalThis.fetch).toHaveBeenCalledWith('/__proxy', expect.objectContaining({
+      method: 'POST',
+      body: expect.stringContaining('"url":"http://api.test/proxy"'),
+    }));
+    expect(result.status).toBe(200);
+    expect(result.body).toBe('{"data":true}');
+  });
+
+  it('returns error when proxy returns non-200', async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: false, status: 502, statusText: 'Bad Gateway',
+      text: () => Promise.resolve('upstream error'),
+    });
+
+    const mod = await import('./httpClient');
+    const result = await mod.httpFetch('http://api.test', 'GET', {});
+    expect(result.status).toBe(0);
+    expect(result.error).toContain('502');
+    expect(result.error).toContain('Bad Gateway');
+  });
+
+  it('returns error when proxy returns non-JSON', async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true, status: 200, text: () => Promise.resolve('<html>not json</html>'),
+    });
+
+    const mod = await import('./httpClient');
+    const result = await mod.httpFetch('http://api.test', 'GET', {});
+    expect(result.status).toBe(0);
+    expect(result.error).toContain('non-JSON');
+  });
+
+  it('returns error when proxy returns invalid JSON shape', async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true, status: 200, text: () => Promise.resolve('"just-a-string"'),
+    });
+
+    const mod = await import('./httpClient');
+    const result = await mod.httpFetch('http://api.test', 'GET', {});
+    expect(result.status).toBe(0);
+    expect(result.error).toContain('Invalid JSON');
+  });
+
+  it('returns error when proxy returns object without status', async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true, status: 200, text: () => Promise.resolve('{"body":"ok"}'),
+    });
+
+    const mod = await import('./httpClient');
+    const result = await mod.httpFetch('http://api.test', 'GET', {});
+    expect(result.status).toBe(0);
+    expect(result.error).toContain('Invalid JSON');
+  });
+
+  it('returns hint when fetch throws TypeError (no proxy running)', async () => {
+    globalThis.fetch = vi.fn().mockRejectedValue(new TypeError('Failed to fetch'));
+
+    const mod = await import('./httpClient');
+    const result = await mod.httpFetch('http://api.test', 'GET', {});
+    expect(result.status).toBe(0);
+    expect(result.error).toContain('POST /__proxy');
+  });
+
+  it('returns deep error message for non-TypeError failures', async () => {
+    globalThis.fetch = vi.fn().mockRejectedValue(new Error('NetworkError: DNS resolution failed'));
+
+    const mod = await import('./httpClient');
+    const result = await mod.httpFetch('http://api.test', 'GET', {});
+    expect(result.status).toBe(0);
+    expect(result.error).toContain('DNS resolution failed');
+  });
+
+  it('handles "Failed to fetch" Error message as proxy hint', async () => {
+    const err = new Error('Failed to fetch');
+    globalThis.fetch = vi.fn().mockRejectedValue(err);
+
+    const mod = await import('./httpClient');
+    const result = await mod.httpFetch('http://api.test', 'GET', {});
+    expect(result.error).toContain('POST /__proxy');
+  });
+});
+
+// ────────────────────────────────────────────────────────
+// httpFetchViaViteProxy (exported directly)
+// ────────────────────────────────────────────────────────
+
+describe('httpFetchViaViteProxy — direct export', () => {
+  beforeEach(() => {
+    vi.resetModules();
+    vi.clearAllMocks();
+  });
+
+  it('is the same function used by the browser proxy path', async () => {
+    const mod = await import('./httpClient');
+    expect(mod.httpFetchViaViteProxy).toBeDefined();
+    expect(typeof mod.httpFetchViaViteProxy).toBe('function');
   });
 });

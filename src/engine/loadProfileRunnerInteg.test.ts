@@ -3,7 +3,7 @@ import type { Scenario, ScenarioWeight, LoadProfileConfig } from '../shared/type
 import { runLoadProfile } from './loadProfileRunner';
 import { TokenManager } from './tokenManager';
 import { CircuitBreaker } from './circuitBreaker';
-import type { RunOpts } from './requestExecution';
+import { clearPrepCache, type RunOpts } from './requestExecution';
 
 vi.mock('../shared/utils/httpClient', () => ({
   httpFetch: vi.fn().mockResolvedValue({ status: 200, statusText: 'OK', headers: {}, body: '{"ok":true}' }),
@@ -34,6 +34,7 @@ describe('runLoadProfile', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.useRealTimers();
+    clearPrepCache();
   });
 
   afterEach(() => {
@@ -104,27 +105,24 @@ describe('runLoadProfile', () => {
   });
 
   it('records breaker and failure when token acquisition rejects', async () => {
-    const breaker = new CircuitBreaker('continue');
-    const controller = new AbortController();
+    const breaker = new CircuitBreaker('stop-first');
     const tokenManager = {
       getToken: vi.fn().mockRejectedValue(new Error('token unavailable')),
     } as unknown as TokenManager;
-    const onProgress = vi.fn(() => {
-      controller.abort();
-    });
+    const onProgress = vi.fn();
     const profile: LoadProfileConfig = { type: 'sustained', durationSec: 60, maxConcurrency: 1 };
-    const scenarios = [makeScenario('s1')];
+    const scenarios = [{ ...makeScenario('s1'), auth: { type: 'oauth2' as const } }];
     const weights: ScenarioWeight[] = [{ scenarioId: 's1', weight: 1 }];
     const results = await runLoadProfile(profile, scenarios, weights, makeOpts({
       tokenManager,
       breaker,
-      abortSignal: controller.signal,
       onProgress,
     }));
-    expect(results).toHaveLength(1);
+    expect(results.length).toBeGreaterThanOrEqual(1);
     expect(results[0].passed).toBe(false);
     expect(results[0].errorMessage).toBe('token unavailable');
     expect(results[0].failureDetails[0].path).toBe('(error)');
+    expect(breaker.shouldStop).toBe(true);
   });
 
   it('finishes in-flight work after duration elapses on ticker while requests are pending', async () => {

@@ -107,6 +107,8 @@ export interface NodeHandlerContext {
    * Populated by handleScriptNode, consumed when onNodeComplete builds eventDetails.
    */
   capturedScriptOutput?: Map<string, string[]>;
+  /** Per-request timeout in milliseconds for HTTP nodes. */
+  httpTimeoutMs?: number;
 }
 
 /**

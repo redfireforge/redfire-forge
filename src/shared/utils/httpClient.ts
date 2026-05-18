@@ -221,9 +221,9 @@ async function getNodeDispatcher(): Promise<{ dispatcher: unknown; isProxy: bool
       _nodeDispatcher = new undici.Agent({
         keepAliveTimeout: 30_000,
         keepAliveMaxTimeout: 60_000,
-        connect: { timeout: 30_000 },
-        connections: 128,
-        pipelining: 1,
+        connect: { timeout: 10_000 },
+        connections: 512,
+        pipelining: 10,
       });
       _nodeDispatcherIsProxy = false;
     }
