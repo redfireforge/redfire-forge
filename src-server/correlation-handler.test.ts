@@ -1100,6 +1100,11 @@ describe('correlation-handler — webhook security integration', () => {
   });
 
   it('POST /webhooks/callback/* — 401 when HMAC signature invalid', async () => {
+    configureWebhookSecurity({
+      enabled: true,
+      secret: TEST_HMAC_SECRET,
+      ipWhitelist: [],
+    });
     await request.post('/api/correlations/pause').send({
       correlationId: 'sig-bad',
       webhookPath: '/webhooks/callback/paysec',

@@ -265,4 +265,41 @@ describe('useDerivedViewState', () => {
     expect(result.current.selectedEnv?.id).toBe('env-a');
     expect(result.current.selectedSvc?.id).toBe('svc-1');
   });
+
+  it('detects microservice-scoped custom environments as add-on tenants', () => {
+    const ms: Microservice[] = [{
+      id: 'edge-svc',
+      name: 'Edge API',
+      baseUrls: { 'cust-edge': 'https://edge.example/api' },
+      customEnvs: [{ id: 'cust-edge', name: 'Custom Edge' }],
+    }];
+    const envs: Environment[] = [{ id: 'tenant-a', name: 'Dev', baseUrls: {}, customEnvs: [] }];
+
+    const { result } = renderHook(() =>
+      useDerivedViewState({
+        environments: envs,
+        microservices: ms,
+        featureGroups: [],
+        globalAuthProfiles: [],
+        selectedEnvId: 'cust-edge',
+        selectedSvcId: 'edge-svc',
+      }),
+    );
+
+    expect(result.current.isAdditionalEnv).toBe(true);
+    expect(result.current.selectedEnv?.name).toBe('Custom Edge');
+    expect(result.current.resolvedBaseUrl).toBe('https://edge.example/api');
+
+    const core = renderHook(() =>
+      useDerivedViewState({
+        environments: envs,
+        microservices: ms,
+        featureGroups: [],
+        globalAuthProfiles: [],
+        selectedEnvId: 'tenant-a',
+        selectedSvcId: 'edge-svc',
+      }),
+    );
+    expect(core.result.current.isAdditionalEnv).toBe(false);
+  });
 });

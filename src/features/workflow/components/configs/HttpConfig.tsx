@@ -257,6 +257,25 @@ export default function HttpConfig({ data, onChange, activeTab, onTabChange, las
         <input value={data.label} onChange={(e) => onChange({ label: e.target.value })} />
       </div>
 
+      {data.sourceSpecVersionId && (
+        <div className="wf-config-field wf-config-version-mode">
+          <label>Spec Version</label>
+          <div className="wf-config-version-mode-row">
+            <select
+              value={data.specVersionMode ?? 'latest'}
+              onChange={(e) => onChange({ specVersionMode: e.target.value as 'pinned' | 'latest' })}
+              className="wf-config-version-select"
+            >
+              <option value="latest">Latest (tracks active version)</option>
+              <option value="pinned">Pinned{data.sourceSpecVersionLabel ? ` — v${data.sourceSpecVersionLabel}` : ''}</option>
+            </select>
+            {data.sourceSpecVersionLabel && (
+              <span className="wf-config-version-label">v{data.sourceSpecVersionLabel}</span>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="wf-config-url-row">
         <select value={s.method} onChange={(e) => update({ method: e.target.value as Scenario['method'] })} className="wf-config-method-select">
           {['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].map(m => <option key={m}>{m}</option>)}
@@ -465,6 +484,7 @@ export default function HttpConfig({ data, onChange, activeTab, onTabChange, las
                   }
                 : undefined
             }
+            contextScope={s.id}
           />
         )}
 
@@ -482,6 +502,7 @@ export default function HttpConfig({ data, onChange, activeTab, onTabChange, las
           onSave={() => setShowVarMapper(false)}
           onCancel={() => setShowVarMapper(false)}
           doneLabel="Close"
+          contextScope={s.id}
         />
       )}
     </div>

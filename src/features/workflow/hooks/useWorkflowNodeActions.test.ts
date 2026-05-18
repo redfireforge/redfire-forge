@@ -266,6 +266,82 @@ describe('useWorkflowNodeActions', () => {
     expect(opts.setNodes).toHaveBeenCalled();
   });
 
+  it('handleAddFromRequest sets specVersionMode to latest by default', () => {
+    const opts = defaultOpts();
+    opts.collections = [{
+      id: 'col-1',
+      requests: [{
+        id: 'req-v', name: 'Versioned', url: '/v', method: 'GET',
+        headers: [], body: '', auth: { type: 'none' },
+        specVersions: [{
+          id: 'sv-1', catalogVersion: '1.0.0', catalogEntryId: 'e1', catalogEndpointId: 'ep-1',
+          importedAt: 1000, url: '/v', method: 'GET', headers: [], body: '',
+        }],
+        activeSpecVersionId: 'sv-1',
+      }],
+      folders: [],
+    }];
+    let capturedNodes: WorkflowRFNode[] = [];
+    opts.setNodes = vi.fn((fn: SetStateAction<WorkflowRFNode[]>) => {
+      capturedNodes = typeof fn === 'function' ? fn([]) : fn;
+      return capturedNodes;
+    });
+    const { result } = renderHook(() => useWorkflowNodeActions(opts));
+    act(() => result.current.handleAddFromRequest('col-1', 'req-v'));
+    expect(capturedNodes).toHaveLength(1);
+    const nodeData = capturedNodes[0].data;
+    expect(nodeData.specVersionMode).toBe('latest');
+    expect(nodeData.sourceSpecVersionId).toBe('sv-1');
+  });
+
+  it('handleAddFromRequest populates scenario sourceRequestId and sourceSpecVersionId', () => {
+    const opts = defaultOpts();
+    opts.collections = [{
+      id: 'col-1',
+      requests: [{
+        id: 'req-v2', name: 'V2', url: '/v2', method: 'POST',
+        headers: [], body: '', auth: { type: 'none' },
+        specVersions: [
+          { id: 'sv-a', catalogVersion: '1.0.0', catalogEntryId: 'e1', catalogEndpointId: 'ep-1', importedAt: 1000, url: '/v', method: 'GET', headers: [], body: '' },
+          { id: 'sv-b', catalogVersion: '2.0.0', catalogEntryId: 'e1', catalogEndpointId: 'ep-1', importedAt: 2000, url: '/v2', method: 'POST', headers: [], body: '' },
+        ],
+        activeSpecVersionId: 'sv-b',
+      }],
+      folders: [],
+    }];
+    let capturedNodes: WorkflowRFNode[] = [];
+    opts.setNodes = vi.fn((fn: SetStateAction<WorkflowRFNode[]>) => {
+      capturedNodes = typeof fn === 'function' ? fn([]) : fn;
+      return capturedNodes;
+    });
+    const { result } = renderHook(() => useWorkflowNodeActions(opts));
+    act(() => result.current.handleAddFromRequest('col-1', 'req-v2'));
+    const scenario = capturedNodes[0].data.scenario;
+    expect(scenario.sourceRequestId).toBe('req-v2');
+    expect(scenario.sourceSpecVersionId).toBe('sv-b');
+    expect(scenario.sourceSpecVersionLabel).toBe('2.0.0');
+  });
+
+  it('handleAddFromRequest omits version fields for non-versioned request', () => {
+    const opts = defaultOpts();
+    opts.collections = [{
+      id: 'col-1',
+      requests: [{ id: 'req-plain', name: 'Plain', url: '/p', method: 'GET', headers: [], body: '', auth: { type: 'none' } }],
+      folders: [],
+    }];
+    let capturedNodes: WorkflowRFNode[] = [];
+    opts.setNodes = vi.fn((fn: SetStateAction<WorkflowRFNode[]>) => {
+      capturedNodes = typeof fn === 'function' ? fn([]) : fn;
+      return capturedNodes;
+    });
+    const { result } = renderHook(() => useWorkflowNodeActions(opts));
+    act(() => result.current.handleAddFromRequest('col-1', 'req-plain'));
+    const scenario = capturedNodes[0].data.scenario;
+    expect(scenario.sourceRequestId).toBe('req-plain');
+    expect(scenario.sourceSpecVersionId).toBeUndefined();
+    expect(scenario.sourceSpecVersionLabel).toBeUndefined();
+  });
+
   it('handleUpdateNode with initialVariables AND other patch fields', () => {
     const opts = defaultOpts();
     opts.setNodes = vi.fn((fn: SetStateAction<WorkflowRFNode[]>) => {

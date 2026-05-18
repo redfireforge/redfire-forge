@@ -4,11 +4,35 @@ import type { Plugin, PreviewServer, ViteDevServer } from 'vite'
 import { readFileSync, existsSync } from 'fs'
 import { resolve, join } from 'path'
 
+const PROXY_RETRY_CODES = new Set([
+  'ENOTFOUND', 'ECONNREFUSED', 'ETIMEDOUT', 'ECONNRESET',
+  'UND_ERR_ABORTED', 'UND_ERR_CONNECT_TIMEOUT', 'UND_ERR_SOCKET',
+]);
+
+function isProxyError(err: unknown): boolean {
+  const codes = new Set<string>();
+  const messages: string[] = [];
+  let cur: unknown = err;
+  const seen = new Set<unknown>();
+  while (cur && !seen.has(cur)) {
+    seen.add(cur);
+    if (cur instanceof Error) {
+      const code = (cur as NodeJS.ErrnoException).code;
+      if (code) codes.add(code);
+      messages.push(cur.message);
+      cur = cur.cause;
+    } else break;
+  }
+  if ([...codes].some(c => PROXY_RETRY_CODES.has(c))) return true;
+  return messages.some(m => /Proxy response \(\d+\) !== 200 when HTTP Tunneling/i.test(m));
+}
+
 function proxyPlugin(): Plugin {
   let pooledDispatcher: import('undici').Dispatcher | undefined;
+  let isProxyDispatcher = false;
 
-  async function getDispatcher(): Promise<import('undici').Dispatcher | undefined> {
-    if (pooledDispatcher) return pooledDispatcher;
+  async function getDispatcher(): Promise<{ dispatcher: import('undici').Dispatcher | undefined; isProxy: boolean }> {
+    if (pooledDispatcher) return { dispatcher: pooledDispatcher, isProxy: isProxyDispatcher };
     try {
       const undici = await import('undici');
       const proxy = process.env.HTTPS_PROXY || process.env.https_proxy
@@ -17,6 +41,7 @@ function proxyPlugin(): Plugin {
         pooledDispatcher = undici.EnvHttpProxyAgent
           ? new undici.EnvHttpProxyAgent()
           : new undici.ProxyAgent(proxy);
+        isProxyDispatcher = true;
       } else {
         pooledDispatcher = new undici.Agent({
           keepAliveTimeout: 30_000,
@@ -24,9 +49,10 @@ function proxyPlugin(): Plugin {
           connections: 128,
           pipelining: 1,
         });
+        isProxyDispatcher = false;
       }
     } catch { /* undici not available — fall back to default dispatcher */ }
-    return pooledDispatcher;
+    return { dispatcher: pooledDispatcher, isProxy: isProxyDispatcher };
   }
 
   function attachProxyMiddleware(server: ViteDevServer | PreviewServer) {
@@ -71,7 +97,7 @@ function proxyPlugin(): Plugin {
             fetchOpts.body = payload.body;
           }
 
-          const dispatcher = await getDispatcher();
+          const { dispatcher, isProxy } = await getDispatcher();
           if (dispatcher) fetchOpts.dispatcher = dispatcher;
 
           const round2 = (n: number) => Math.round(n * 100) / 100;
@@ -101,10 +127,7 @@ function proxyPlugin(): Plugin {
           try {
             result = await doFetch(fetchOpts);
           } catch (proxyErr) {
-            // If proxy is unreachable (DNS/connection error), retry without proxy
-            const code = (proxyErr as NodeJS.ErrnoException).code
-              ?? ((proxyErr as { cause?: NodeJS.ErrnoException }).cause as NodeJS.ErrnoException | undefined)?.code;
-            if (dispatcher && (code === 'ENOTFOUND' || code === 'ECONNREFUSED' || code === 'ETIMEDOUT')) {
+            if (isProxy && isProxyError(proxyErr)) {
               const directOpts = { ...fetchOpts };
               delete directOpts.dispatcher;
               result = await doFetch(directOpts);

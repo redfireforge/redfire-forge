@@ -13,6 +13,7 @@ interface Props {
   svcName?: string;
   envId?: string;
   svcId?: string;
+  isAdditionalEnv?: boolean;
   resolvedBaseUrl?: string;
   globalAuthProfiles?: GlobalAuthProfile[];
   envFallbackAuth?: import('../../shared/types').AuthConfig;
@@ -20,7 +21,7 @@ interface Props {
 }
 
 export default function TestRunner({
-  featureGroups, onComplete, envName, svcName, envId, svcId,
+  featureGroups, onComplete, envName, svcName, envId, svcId, isAdditionalEnv,
   resolvedBaseUrl, globalAuthProfiles = [], envFallbackAuth, sharedDataSources = [],
 }: Props) {
   const runner = useRunnerOrchestration({
@@ -59,7 +60,7 @@ export default function TestRunner({
         <h2>Test Runner</h2>
         <div className="context-tags">
           {svcName && <span className="context-tag svc-tag">{svcName}</span>}
-          {envName && <span className="context-tag env-tag">{envName}</span>}
+          {envName && <span className={`context-tag env-tag${isAdditionalEnv ? ' env-tag-additional' : ''}`}>{envName}{isAdditionalEnv && <span className="additional-env-indicator" title="Additional environment (microservice-specific)">+</span>}</span>}
         </div>
       </div>
 

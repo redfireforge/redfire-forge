@@ -87,11 +87,16 @@ export interface HttpNodeData {
    * `{{name}}` values for this HTTP step only. Merged with workflow-level defaults and upstream
    * extractions when the step runs; highest priority for this step’s request resolution.
    */
-  initialVariables?: Record<string, string>;  /**
-   * Optional data source for parameterized execution of this HTTP node.
-   * When set, the node executes once per enabled data row.
-   */
-  dataSource?: DataSource;}
+  initialVariables?: Record<string, string>;
+  /** Optional data source for parameterized execution of this HTTP node. */
+  dataSource?: DataSource;
+  /** When sourced from a versioned request: the pinned spec version ID */
+  sourceSpecVersionId?: string;
+  /** Human label for the pinned spec version (e.g. "1.0.7") */
+  sourceSpecVersionLabel?: string;
+  /** 'latest' (default) tracks the request's active version; 'pinned' freezes to sourceSpecVersionId */
+  specVersionMode?: 'pinned' | 'latest';
+}
 
 export interface ConditionNodeData {
   [key: string]: unknown;
