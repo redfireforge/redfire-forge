@@ -12,6 +12,35 @@ const sampleResponse = {
 /** Monaco can exceed 10s to render under heavy parallel E2E load (40 workers). */
 const MONACO_READY_MS = 30000;
 
+/** Select-all is Meta+A on macOS and Control+A on Linux/Windows (CI). */
+function selectAllShortcut(): 'Meta+A' | 'Control+A' {
+  return process.platform === 'darwin' ? 'Meta+A' : 'Control+A';
+}
+
+/**
+ * Read the validation Rules editor model by resolving the Monaco instance that
+ * owns `.dm-validation-editor` — not `getEditors().at(-1)` (fragile when other
+ * editors exist or init order differs under parallel E2E).
+ */
+async function getValidationEditorModelValue(mapper: Locator): Promise<string> {
+  const holder = mapper.locator('.dm-validation-editor .monaco-editor').first();
+  await holder.waitFor({ state: 'visible', timeout: MONACO_READY_MS });
+  return holder.evaluate((el) => {
+    type Ed = {
+      getDomNode: () => HTMLElement | null;
+      getModel: () => { getValue: () => string } | null;
+    };
+    const w = window as unknown as { monaco?: { editor: { getEditors: () => Ed[] } } };
+    const editors = w.monaco?.editor?.getEditors?.() ?? [];
+    const ed = editors.find((e) => {
+      const dn = e.getDomNode();
+      return !!dn && (dn === el || dn.contains(el));
+    });
+    const v = ed?.getModel()?.getValue();
+    return v ?? 'NO_MODEL';
+  });
+}
+
 async function openMapperWithRulesTab(page: Page): Promise<Locator> {
   await seedAppData(page);
   await page.goto('/?tab=scenarios');
@@ -47,8 +76,14 @@ async function openMapperWithRulesTab(page: Page): Promise<Locator> {
   // Wait for Monaco to fully initialize its internal model and listeners;
   // under heavy parallel load (40 workers), initialization can take longer
   await page.waitForFunction(() => {
-    const editors = (window as unknown as { monaco?: { editor?: { getEditors?: () => Array<{ getModel: () => unknown }> } } }).monaco?.editor?.getEditors?.();
-    return editors && editors.length > 0 && editors[editors.length - 1].getModel() != null;
+    const holder = document.querySelector('.dm-validation-editor .monaco-editor');
+    const w = (window as unknown as { monaco?: { editor?: { getEditors?: () => Array<{ getDomNode: () => HTMLElement | null; getModel: () => unknown }> } } }).monaco?.editor?.getEditors?.();
+    if (!holder || !w?.length) return false;
+    const ed = w.find((e) => {
+      const dn = e.getDomNode();
+      return !!dn && (dn === holder || dn.contains(holder));
+    });
+    return ed?.getModel() != null;
   }, { timeout: MONACO_READY_MS });
   await page.waitForTimeout(500);
 
@@ -59,7 +94,7 @@ async function focusAndClear(page: Page, mapper: Locator) {
   const editorArea = mapper.locator('.dm-validation-editor .monaco-editor .overflow-guard');
   await editorArea.click({ position: { x: 50, y: 30 } });
   await page.waitForTimeout(200);
-  await page.keyboard.press('Meta+a');
+  await page.keyboard.press(selectAllShortcut());
   await page.keyboard.press('Backspace');
   await page.waitForTimeout(200);
 }
@@ -188,13 +223,7 @@ test.describe('Validation Rules Editor — typing & autocomplete', () => {
     await page.keyboard.type('length', { delay: 80 });
     await page.waitForTimeout(500);
 
-    const modelValue = await page.evaluate(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const editors = (window as any).monaco?.editor?.getEditors?.();
-      if (!editors?.length) return 'NO_EDITORS';
-      const model = editors[editors.length - 1].getModel();
-      return model ? model.getValue() : 'NO_MODEL';
-    });
+    const modelValue = await getValidationEditorModelValue(mapper);
 
     expect(modelValue.trim()).toBe('offers length');
   });
@@ -227,13 +256,7 @@ test.describe('Validation Rules Editor — typing & autocomplete', () => {
     await page.keyboard.type('length', { delay: 80 });
     await page.waitForTimeout(500);
 
-    const modelValue = await page.evaluate(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const editors = (window as any).monaco?.editor?.getEditors?.();
-      if (!editors?.length) return 'NO_EDITORS';
-      const model = editors[editors.length - 1].getModel();
-      return model ? model.getValue() : 'NO_MODEL';
-    });
+    const modelValue = await getValidationEditorModelValue(mapper);
     expect(modelValue.trim()).toBe('offers length');
   });
 
@@ -253,13 +276,7 @@ test.describe('Validation Rules Editor — typing & autocomplete', () => {
     await page.keyboard.type('length', { delay: 80 });
     await page.waitForTimeout(500);
 
-    const modelValue = await page.evaluate(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const editors = (window as any).monaco?.editor?.getEditors?.();
-      if (!editors?.length) return 'NO_EDITORS';
-      const model = editors[editors.length - 1].getModel();
-      return model ? model.getValue() : 'NO_MODEL';
-    });
+    const modelValue = await getValidationEditorModelValue(mapper);
 
     // The key assertion: model should contain "offers length", NOT
     // "offers[0].associatedOfferingCode" or "offers." or anything else
@@ -330,11 +347,19 @@ test.describe('Validation Rules Editor — typing & autocomplete', () => {
     // Step 2: simulate macOS substitution. On real macOS, the OS replaces the
     // prior trailing space + the new Space keystroke with `. ` — i.e., a
     // 1-char delete + 2-char insert in a single model edit.
-    await page.evaluate(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const editors = (window as any).monaco?.editor?.getEditors?.();
-      if (!editors?.length) return;
-      const ed = editors[editors.length - 1];
+    await mapper.locator('.dm-validation-editor .monaco-editor').first().evaluate((el) => {
+      type Ed = {
+        getDomNode: () => HTMLElement | null;
+        getPosition: () => { lineNumber: number; column: number } | null;
+        executeEdits: (source: string, edits: Array<Record<string, unknown>>) => void;
+      };
+      const w = window as unknown as { monaco?: { editor: { getEditors: () => Ed[] } } };
+      const editors = w.monaco?.editor?.getEditors?.() ?? [];
+      const ed = editors.find((e) => {
+        const dn = e.getDomNode();
+        return !!dn && (dn === el || dn.contains(el));
+      });
+      if (!ed) return;
       const pos = ed.getPosition();
       if (!pos) return;
       // Replace the char to the LEFT of the cursor (the trailing space) with `. `
@@ -357,13 +382,7 @@ test.describe('Validation Rules Editor — typing & autocomplete', () => {
     await page.keyboard.type('length', { delay: 40 });
     await page.waitForTimeout(200);
 
-    const modelValue = await page.evaluate(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const editors = (window as any).monaco?.editor?.getEditors?.();
-      if (!editors?.length) return 'NO_EDITORS';
-      const model = editors[editors.length - 1].getModel();
-      return model ? model.getValue() : 'NO_MODEL';
-    });
+    const modelValue = await getValidationEditorModelValue(mapper);
     expect(modelValue.trim()).toBe('offers length');
   });
 
@@ -458,13 +477,7 @@ test.describe('Validation Rules Editor — typing & autocomplete', () => {
     await page.keyboard.press('Space');
     await page.waitForTimeout(150);
 
-    const modelValue = await page.evaluate(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const editors = (window as any).monaco?.editor?.getEditors?.();
-      if (!editors?.length) return 'NO_EDITORS';
-      const model = editors[editors.length - 1].getModel();
-      return model ? model.getValue() : 'NO_MODEL';
-    });
+    const modelValue = await getValidationEditorModelValue(mapper);
     expect(modelValue).toBe('offers ');
   });
 

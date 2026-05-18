@@ -77,6 +77,13 @@ describe('resolveBaseUrl', () => {
     expect(result).toBe('https://dev.example.com/api');
   });
 
+  it('falls back to environments when microservice omits base url for tenant', () => {
+    const hc: HostConfig = { strategy: 'environment', environmentId: 'env1' };
+    const svc: Microservice = { id: 's1', name: 'S', baseUrls: {}, customEnvs: [] };
+    const envs = [{ id: 'env1', name: 'dev', baseUrl: 'https://catalog-fallback.example/' }];
+    expect(resolveBaseUrl(hc, [{ url: '/p', description: '' }], envs, svc)).toBe('https://catalog-fallback.example');
+  });
+
   it('defaults selectedServerIndex to 0', () => {
     const hc: HostConfig = { strategy: 'inherited' };
     expect(resolveBaseUrl(hc, servers)).toBe('https://api.example.com/v1');
@@ -98,6 +105,10 @@ describe('extractServerPathPrefix', () => {
 
   it('returns empty for invalid URL', () => {
     expect(extractServerPathPrefix([{ url: 'not-a-url', description: '' }])).toBe('');
+  });
+
+  it('treats slash-prefixed literals as relative prefixes', () => {
+    expect(extractServerPathPrefix([{ url: '/service-root/', description: '' }])).toBe('/service-root');
   });
 });
 

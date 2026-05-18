@@ -181,6 +181,7 @@ export default function SetupStepValidate({
               onSave={handleMapperSave}
               onCancel={() => setMapperOpen(false)}
               unorderedArrays={Object.values(arrayModes).some((m) => m === 'unordered')}
+              contextScope="setup-wizard"
             />
           )}
 

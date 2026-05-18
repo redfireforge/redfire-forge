@@ -9,13 +9,15 @@ interface Props {
   selectedSvcId: string;
   onEnvSelect: (envId: string) => void;
   onSvcSelect: (svcId: string) => void;
+  sidebarView: 'env' | 'svc';
+  onSidebarViewChange: (view: 'env' | 'svc') => void;
 }
 
 export default function Sidebar({
   environments, microservices, featureGroups,
   selectedEnvId, selectedSvcId, onEnvSelect, onSvcSelect,
+  sidebarView, onSidebarViewChange,
 }: Props) {
-  const [sidebarView, setSidebarView] = useState<'env' | 'svc'>('env');
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
 
   // Auto-expand the selected environment/microservice on initial load
@@ -59,8 +61,8 @@ export default function Sidebar({
   return (
     <div className="config-sidebar-inner">
       <div className="sidebar-toggle">
-        <button className={`sidebar-toggle-btn ${sidebarView === 'env' ? 'active' : ''}`} onClick={() => { setSidebarView('env'); setExpandedNodes(new Set()); }}>Environments</button>
-        <button className={`sidebar-toggle-btn ${sidebarView === 'svc' ? 'active' : ''}`} onClick={() => { setSidebarView('svc'); setExpandedNodes(new Set()); }}>Microservices</button>
+        <button className={`sidebar-toggle-btn ${sidebarView === 'env' ? 'active' : ''}`} onClick={() => { onSidebarViewChange('env'); setExpandedNodes(new Set()); }}>Environments</button>
+        <button className={`sidebar-toggle-btn ${sidebarView === 'svc' ? 'active' : ''}`} onClick={() => { onSidebarViewChange('svc'); setExpandedNodes(new Set()); }}>Microservices</button>
       </div>
       <div className="sidebar-expand-all">
         <button className="btn btn-xs" onClick={allExpanded ? collapseAll : expandAll}>
@@ -106,6 +108,26 @@ export default function Sidebar({
               </div>
             );
           })}
+          {/* Additional (service-specific) environments */}
+          {microservices.flatMap(svc => (svc.customEnvs ?? []).map(ce => ({ ...ce, svcId: svc.id, svcName: svc.name }))).length > 0 && (
+            <>
+              <div className="sidebar-section-divider">Additional Environments</div>
+              {microservices.flatMap(svc =>
+                (svc.customEnvs ?? []).map(ce => {
+                  const envHasFeatures = featureGroups.some(fg => fg.environmentId === ce.id);
+                  return (
+                    <div key={ce.id} className="sidebar-tree-node">
+                      <div className={`sidebar-item sidebar-item--additional ${selectedEnvId === ce.id ? 'selected' : ''} ${envHasFeatures ? 'has-features' : 'no-features'}`}
+                        onClick={() => { onEnvSelect(ce.id); onSvcSelect(svc.id); }}>
+                        <span className="sidebar-item-name">{ce.name}</span>
+                        <span className="sidebar-additional-env-tag">{svc.name}</span>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </>
+          )}
         </div>
       )}
 
@@ -113,7 +135,10 @@ export default function Sidebar({
         <div className="sidebar-list">
           {microservices.length === 0 && <div className="empty-hint">No microservices. Go to Environments to add.</div>}
           {microservices.map((svc) => {
-            const envsForSvc = environments.filter((e) => e.id in svc.baseUrls);
+            const envsForSvc = [
+              ...environments.filter((e) => e.id in svc.baseUrls),
+              ...(svc.customEnvs ?? []).filter((e) => e.id in svc.baseUrls),
+            ];
             const isExpanded = expandedNodes.has(svc.id);
             const svcHasFeatures = featureGroups.some((fg) => fg.microserviceId === svc.id);
             return (
@@ -131,10 +156,12 @@ export default function Sidebar({
                       ? <div className="empty-hint">Not deployed to any environment.</div>
                       : envsForSvc.map((env) => {
                         const hasFeatures = featureGroups.some((fg) => fg.microserviceId === svc.id && fg.environmentId === env.id);
+                        const isAdditional = !environments.some((e) => e.id === env.id);
                         return (
                           <div key={env.id} className={`sidebar-child ${selectedSvcId === svc.id && selectedEnvId === env.id ? 'selected' : ''} ${hasFeatures ? 'has-features' : 'no-features'}`}
                             onClick={() => { onSvcSelect(svc.id); onEnvSelect(env.id); }}>
                             {env.name}
+                            {isAdditional && <span className="sidebar-additional-env-tag">additional</span>}
                           </div>
                         );
                       })

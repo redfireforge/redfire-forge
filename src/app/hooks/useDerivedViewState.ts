@@ -14,8 +14,11 @@ export function useDerivedViewState({
   environments, microservices, featureGroups, globalAuthProfiles,
   selectedEnvId, selectedSvcId,
 }: UseDerivedViewStateArgs) {
-  const selectedEnv = environments.find((e) => e.id === selectedEnvId);
   const selectedSvc = microservices.find((s) => s.id === selectedSvcId);
+  const isAdditionalEnv = !environments.some((e) => e.id === selectedEnvId)
+    && !!selectedSvc?.customEnvs?.some((e) => e.id === selectedEnvId);
+  const selectedEnv = environments.find((e) => e.id === selectedEnvId)
+    ?? selectedSvc?.customEnvs?.find((e) => e.id === selectedEnvId);
   const resolvedBaseUrl = selectedEnv && selectedSvc ? (selectedSvc.baseUrls[selectedEnv.id] ?? '') : '';
 
   const envAuthProfileId = selectedSvc?.authProfileIds?.[selectedEnvId];
@@ -36,6 +39,9 @@ export function useDerivedViewState({
   const unassociatedFeatureGroups = useMemo(() => {
     const svcIds = new Set(microservices.map((s) => s.id));
     const envIds = new Set(environments.map((e) => e.id));
+    for (const svc of microservices) {
+      for (const ce of (svc.customEnvs ?? [])) envIds.add(ce.id);
+    }
     const needsEnvAssignment = selectedSvcId
       ? featureGroups.filter((fg) => fg.microserviceId === selectedSvcId && !fg.environmentId)
       : [];
@@ -53,7 +59,7 @@ export function useDerivedViewState({
   }, [featureGroups, microservices, environments, selectedSvcId]);
 
   return {
-    selectedEnv, selectedSvc, resolvedBaseUrl,
+    selectedEnv, selectedSvc, resolvedBaseUrl, isAdditionalEnv,
     envFallbackAuth, filteredFeatureGroups, unassociatedFeatureGroups,
   };
 }
