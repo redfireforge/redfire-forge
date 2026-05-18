@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { promises as fs } from 'fs';
 import { join } from 'path';
 import os from 'os';
@@ -39,7 +39,7 @@ const mockFs = vi.mocked(fs);
 
 vi.mock('os', async () => {
   const actual = await vi.importActual('os');
-  return { ...actual, default: { ...(actual as any).default, platform: vi.fn(), homedir: vi.fn() } };
+  return { ...actual, default: { ...(actual as Record<string, unknown>).default as Record<string, unknown>, platform: vi.fn(), homedir: vi.fn() } };
 });
 
 const mockOs = vi.mocked(os);
@@ -155,7 +155,7 @@ describe('saveWorkflow', () => {
     mockFs.mkdir.mockResolvedValue(undefined);
     mockFs.writeFile.mockResolvedValue(undefined);
 
-    const workflow = { id: 'w1', name: 'Test', nodes: [], edges: [] } as any;
+    const workflow = { id: 'w1', name: 'Test', nodes: [], edges: [] } as unknown as Parameters<typeof saveWorkflow>[0];
     await saveWorkflow(workflow);
 
     expect(mockFs.writeFile).toHaveBeenCalledWith(
@@ -169,7 +169,7 @@ describe('listWorkflows', () => {
   beforeEach(() => vi.clearAllMocks());
 
   it('returns workflow IDs from directory', async () => {
-    mockFs.readdir.mockResolvedValue(['w1.json', 'w2.json', 'readme.txt'] as any);
+    mockFs.readdir.mockResolvedValue(['w1.json', 'w2.json', 'readme.txt'] as never);
     const result = await listWorkflows();
     expect(result).toEqual(['w1', 'w2']);
   });
@@ -223,9 +223,9 @@ describe('getExecutionHistory', () => {
 
   it('returns executions sorted by date (newest first)', async () => {
     mockFs.readdir
-      .mockResolvedValueOnce(['2025-01-14', '2025-01-15'] as any) // date folders
-      .mockResolvedValueOnce(['e1.json'] as any) // files in 2025-01-15
-      .mockResolvedValueOnce(['e2.json'] as any); // files in 2025-01-14
+      .mockResolvedValueOnce(['2025-01-14', '2025-01-15'] as never) // date folders
+      .mockResolvedValueOnce(['e1.json'] as never) // files in 2025-01-15
+      .mockResolvedValueOnce(['e2.json'] as never); // files in 2025-01-14
 
     const exec1: ExecutionResult = {
       id: 'e1', workflowId: 'w1', triggerId: 't1', triggerType: 'webhook',
@@ -238,7 +238,7 @@ describe('getExecutionHistory', () => {
       timestamp: '2025-01-14T10:00:00Z',
     };
 
-    mockFs.stat.mockResolvedValue({ isDirectory: () => true } as any);
+    mockFs.stat.mockResolvedValue({ isDirectory: () => true } as never);
     mockFs.readFile
       .mockResolvedValueOnce(JSON.stringify(exec1))
       .mockResolvedValueOnce(JSON.stringify(exec2));
@@ -259,8 +259,8 @@ describe('getExecutionHistory', () => {
 
   it('filters by workflowId when provided', async () => {
     mockFs.readdir
-      .mockResolvedValueOnce(['2025-01-15'] as any)
-      .mockResolvedValueOnce(['e1.json', 'e2.json'] as any);
+      .mockResolvedValueOnce(['2025-01-15'] as never)
+      .mockResolvedValueOnce(['e1.json', 'e2.json'] as never);
 
     const exec1: ExecutionResult = {
       id: 'e1', workflowId: 'w1', triggerId: 't1', triggerType: 'webhook',
@@ -273,7 +273,7 @@ describe('getExecutionHistory', () => {
       timestamp: '2025-01-15T09:00:00Z',
     };
 
-    mockFs.stat.mockResolvedValue({ isDirectory: () => true } as any);
+    mockFs.stat.mockResolvedValue({ isDirectory: () => true } as never);
     mockFs.readFile
       .mockResolvedValueOnce(JSON.stringify(exec1))
       .mockResolvedValueOnce(JSON.stringify(exec2));
@@ -285,8 +285,8 @@ describe('getExecutionHistory', () => {
 
   it('respects limit parameter', async () => {
     mockFs.readdir
-      .mockResolvedValueOnce(['2025-01-15'] as any)
-      .mockResolvedValueOnce(['e1.json', 'e2.json'] as any);
+      .mockResolvedValueOnce(['2025-01-15'] as never)
+      .mockResolvedValueOnce(['e1.json', 'e2.json'] as never);
 
     const exec1: ExecutionResult = {
       id: 'e1', workflowId: 'w1', triggerId: 't1', triggerType: 'webhook',
@@ -294,7 +294,7 @@ describe('getExecutionHistory', () => {
       timestamp: '2025-01-15T10:00:00Z',
     };
 
-    mockFs.stat.mockResolvedValue({ isDirectory: () => true } as any);
+    mockFs.stat.mockResolvedValue({ isDirectory: () => true } as never);
     mockFs.readFile.mockResolvedValue(JSON.stringify(exec1));
 
     const result = await getExecutionHistory(undefined, 1);
@@ -303,8 +303,8 @@ describe('getExecutionHistory', () => {
 
   it('skips non-json files', async () => {
     mockFs.readdir
-      .mockResolvedValueOnce(['2025-01-15'] as any)
-      .mockResolvedValueOnce(['.DS_Store', 'e1.json'] as any);
+      .mockResolvedValueOnce(['2025-01-15'] as never)
+      .mockResolvedValueOnce(['.DS_Store', 'e1.json'] as never);
 
     const exec1: ExecutionResult = {
       id: 'e1', workflowId: 'w1', triggerId: 't1', triggerType: 'webhook',
@@ -312,7 +312,7 @@ describe('getExecutionHistory', () => {
       timestamp: '2025-01-15T10:00:00Z',
     };
 
-    mockFs.stat.mockResolvedValue({ isDirectory: () => true } as any);
+    mockFs.stat.mockResolvedValue({ isDirectory: () => true } as never);
     mockFs.readFile.mockResolvedValue(JSON.stringify(exec1));
 
     const result = await getExecutionHistory();
@@ -322,8 +322,8 @@ describe('getExecutionHistory', () => {
 
   it('skips non-directory entries in date folders', async () => {
     mockFs.readdir
-      .mockResolvedValueOnce(['2025-01-15', 'random-file.txt'] as any)
-      .mockResolvedValueOnce(['e1.json'] as any);
+      .mockResolvedValueOnce(['2025-01-15', 'random-file.txt'] as never)
+      .mockResolvedValueOnce(['e1.json'] as never);
 
     const exec1: ExecutionResult = {
       id: 'e1', workflowId: 'w1', triggerId: 't1', triggerType: 'webhook',
@@ -332,8 +332,8 @@ describe('getExecutionHistory', () => {
     };
 
     mockFs.stat
-      .mockResolvedValueOnce({ isDirectory: () => true } as any)
-      .mockResolvedValueOnce({ isDirectory: () => false } as any);
+      .mockResolvedValueOnce({ isDirectory: () => true } as never)
+      .mockResolvedValueOnce({ isDirectory: () => false } as never);
     mockFs.readFile.mockResolvedValue(JSON.stringify(exec1));
 
     const result = await getExecutionHistory();

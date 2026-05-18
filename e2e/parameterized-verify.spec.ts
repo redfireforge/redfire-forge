@@ -8,7 +8,7 @@ import { test, expect, type Page } from '@playwright/test';
  * to confirm the Authorization header is present.
  */
 
-async function seedWithOAuth2Test(page: Page) {
+async function _seedWithOAuth2Test(page: Page) {
   await page.addInitScript(() => {
     localStorage.setItem('perf-test-v3-environments', JSON.stringify([{ id: 'env-1', name: 't01' }]));
     localStorage.setItem('perf-test-v3-microservices', JSON.stringify([{
