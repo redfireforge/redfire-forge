@@ -16,6 +16,7 @@ export interface MapperRepairIssue {
   sourcePath: string;
   targetPath: string;
   suggestedFixExpression?: string;
+  suggestedOperator?: string;
 }
 
 interface ValidationRepairPanelProps {
@@ -86,8 +87,10 @@ export default function ValidationRepairPanel({
                 type="button"
                 className="dm-validation-repair-btn"
                 onClick={() => onFix(issue)}
-                disabled={!issue.suggestedFixExpression}
-                title={issue.suggestedFixExpression ? 'Apply suggested fix' : 'No automatic fix available'}
+                disabled={!issue.suggestedFixExpression && !issue.suggestedOperator}
+                title={issue.suggestedOperator
+                  ? `Change operator to "${issue.suggestedOperator}"`
+                  : (issue.suggestedFixExpression ? 'Apply suggested fix' : 'No automatic fix available')}
               >
                 Fix
               </button>

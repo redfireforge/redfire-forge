@@ -110,11 +110,28 @@ test.describe('WorkflowDesigner Refactored Components', () => {
 
   test('keyboard shortcut L triggers auto-layout', async ({ page }) => {
     await expect(page.locator('.react-flow__node').first()).toBeVisible({ timeout: 5000 });
-    // Click canvas to focus it
+    const shortcut = process.platform === 'darwin' ? 'Meta+KeyL' : 'Control+KeyL';
+    const sumNodeViewportOffset = async () =>
+      page.locator('.react-flow__node').evaluateAll((els) =>
+        els.reduce((sum, el) => {
+          const r = el.getBoundingClientRect();
+          return sum + r.left + r.top;
+        }, 0),
+      );
+
+    const before = await sumNodeViewportOffset();
+
     await page.locator('.react-flow__pane').click();
-    // Press L for auto-layout
-    await page.keyboard.press('l');
-    // Nodes should still be present
+    await page.keyboard.press(shortcut);
+
+    // Auto-layout repositions nodes; bare "l" does nothing (shortcut is ⌘L / Ctrl+L).
+    await expect
+      .poll(async () => {
+        const after = await sumNodeViewportOffset();
+        return Math.abs(after - before);
+      }, { timeout: 8000 })
+      .toBeGreaterThan(15);
+
     await expect(page.locator('.react-flow__node')).toHaveCount(3);
   });
 });

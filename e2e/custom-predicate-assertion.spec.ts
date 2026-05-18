@@ -46,25 +46,26 @@ test.describe('Custom Predicate Assertion (Phase 9.3)', () => {
     await expect(row.locator('.assertion-type-badge')).toHaveText('CUSTOM');
   });
 
-  test('custom assertion row has expression textarea and description input', async ({ page }) => {
+  test('custom assertion row has expression input and description input', async ({ page }) => {
     await openValidationTab(page);
     await addButton(page).click();
     await page.click('.assertions-add-menu button:has-text("Custom Predicate")');
 
     const row = page.locator('.assertion-row').last();
-    await expect(row.locator('textarea.assertion-textarea--expression')).toBeVisible();
-    await expect(row.locator('input.assertion-input--description')).toBeVisible();
+    await expect(row.locator('input.assertion-input--expression-inline')).toBeVisible();
+    await expect(row.locator('input.assertion-input--desc-inline')).toBeVisible();
   });
 
-  test('custom assertion row displays hint with variable references', async ({ page }) => {
+  test('custom assertion row displays info tooltip', async ({ page }) => {
     await openValidationTab(page);
     await addButton(page).click();
     await page.click('.assertions-add-menu button:has-text("Custom Predicate")');
 
-    const hint = page.locator('.assertion-custom-hint');
-    await expect(hint).toBeVisible();
-    await expect(hint.locator('code:has-text("$.body")')).toBeVisible();
-    await expect(hint.locator('code:has-text("$.status")')).toBeVisible();
+    const tip = page.locator('.assertion-custom-hint-tip');
+    await expect(tip).toBeVisible();
+    const title = await tip.getAttribute('title');
+    expect(title).toContain('$.body');
+    expect(title).toContain('$.status');
   });
 
   test('type expression and description in custom assertion', async ({ page }) => {
@@ -73,11 +74,11 @@ test.describe('Custom Predicate Assertion (Phase 9.3)', () => {
     await page.click('.assertions-add-menu button:has-text("Custom Predicate")');
 
     const row = page.locator('.assertion-row').last();
-    const textarea = row.locator('textarea.assertion-textarea--expression');
-    await textarea.fill('$gt($.body.count, 0)');
-    await expect(textarea).toHaveValue('$gt($.body.count, 0)');
+    const exprInput = row.locator('input.assertion-input--expression-inline');
+    await exprInput.fill('$gt($.body.count, 0)');
+    await expect(exprInput).toHaveValue('$gt($.body.count, 0)');
 
-    const descInput = row.locator('input.assertion-input--description');
+    const descInput = row.locator('input.assertion-input--desc-inline');
     await descInput.fill('Count must be positive');
     await expect(descInput).toHaveValue('Count must be positive');
   });

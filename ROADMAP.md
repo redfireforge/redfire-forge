@@ -8,7 +8,7 @@
 ## Positioning & Strategy
 
 > Competitive analysis against k6, Gatling, Locust, Artillery, JMeter, Bruno, Hoppscotch, Postman.
-> Last re-evaluated: 2026-05-14 (after completing workflow designer, results explorer with debug console, trace levels, 3-runner architecture, data-driven testing, API catalog, validation engine (16 assertion types, 24 operators, 125 functions), and Data Mapper (10 adapters, floating DSL editor)).
+> Last re-evaluated: 2026-05-16 (after completing workflow designer, results explorer with debug console, trace levels, 3-runner architecture, data-driven testing, API catalog, validation engine (16 assertion types, 24 operators, 125 functions, array assertions, DSL editor, ASSERT predicates, universal negation), and Data Mapper (10 adapters, 8 gallery samples, 12 training manuals)).
 
 ### Identity
 
@@ -50,7 +50,7 @@ RedfireForge is a **visual API testing and workflow automation workbench** — n
 |---|---|---|---|
 | Visual workflow load testing | Full DAG with 15+ node types | JMeter (XML tree) | Modern React Flow canvas vs 2000s Java Swing |
 | Execution debugging | Results Explorer + Debug Console | JMeter (View Results Tree) | Tiered trace levels, aggregate summary, sub-workflow drill-down |
-| Assertion builder | Visual + regex + structured + presets | Postman (scripted) | No-code assertion composition with live preview |
+| Assertion builder | Visual Data Mapper + 24 operators + DSL + ASSERT + array assertions | Postman (scripted) | No-code assertion composition with live verification, color-coded operator pills, and DSL code editor |
 | API Catalog integration | OpenAPI import → load test pipeline | None | Unique: catalog → test in one tool |
 | Data-driven testing | CSV/Excel/JSON/API with row validation | JMeter (CSV DataSet) | Visual editor, populate-from-API, re-run failed rows |
 | Desktop app size | ~15 MB (Tauri) | ~250 MB (Postman/Electron) | 15x smaller, native performance |
@@ -59,12 +59,12 @@ RedfireForge is a **visual API testing and workflow automation workbench** — n
 
 | Risk | Status | Mitigation |
 |---|---|---|
-| ~~No tests~~ | **RESOLVED** | 11,000+ unit tests (>94% coverage), 463 E2E tests (Playwright), pre-commit hooks, CI pipeline |
+| ~~No tests~~ | **RESOLVED** | 16,000+ unit tests (>90% coverage), 613 E2E tests (Playwright), pre-commit hooks, CI pipeline |
 | ~~No CLI / CI~~ | **RESOLVED** | CLI runner with JUnit/JSON/Markdown reports; GitHub Actions CI; `--trace-level` flag |
 | ~~No request chaining~~ | **RESOLVED** | 15+ node types: HTTP, Condition, Loop, Switch, Fork/Join, Sub-Workflow, Script, Correlation Wait, etc. |
 | ~~Monolithic codebase~~ | **RESOLVED** | Feature-based `src/features/` structure; all files under 900 lines; shared hooks/utils |
 | Browser-based executor | **Known limit** | Honest about ~500-2,000 RPS ceiling; Tauri sidecar (Rust) planned for 1.x to reach 10K+ RPS |
-| Solo developer vs funded teams | **Active risk** | Open-source community + clean architecture lowers contribution barrier; comprehensive training manuals (123+ files) |
+| Solo developer vs funded teams | **Active risk** | Open-source community + clean architecture lowers contribution barrier; comprehensive training manuals (180+ files) |
 | No server-side deployment | **Future** | Client-side architecture works for dev/QA use cases now; server deployment plan documented for production scenarios |
 
 ### Load Testing Maturity Levels

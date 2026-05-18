@@ -662,6 +662,26 @@
   color: #68d391;
   border: 1px solid rgba(104, 211, 145, 0.3);
 }
+.env-tag-additional {
+  background: rgba(246, 173, 85, 0.15);
+  color: #f6ad55;
+  border: 1px solid rgba(246, 173, 85, 0.4);
+  border-style: dashed;
+}
+.additional-env-indicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 5px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: rgba(246, 173, 85, 0.25);
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #f6ad55;
+  line-height: 1;
+}
 .base-url-tag {
   background: rgba(183, 148, 244, 0.15);
   color: #b794f4;
@@ -749,11 +769,11 @@ fieldset {
 legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8px; }
 
 .radio-group { display: flex; gap: 16px; margin-bottom: 12px; flex-wrap: wrap; }
-.radio-label { display: flex; align-items: center; gap: 6px; font-size: 0.85rem; cursor: pointer; color: var(--text); }
-.radio-label input[type="radio"] { width: 16px; height: 16px; cursor: pointer; accent-color: #3b82f6; }
+.radio-label { display: flex; align-items: center; gap: 6px; font-size: 0.78rem; cursor: pointer; color: var(--text); }
+.radio-label input[type="radio"] { width: 14px; height: 14px; cursor: pointer; accent-color: #3b82f6; }
 
 .validation-options { margin-bottom: 10px; padding: 8px 12px; background: var(--bg); border-radius: var(--radius); border: 1px solid var(--border); }
-.checkbox-label { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; cursor: pointer; color: var(--text); }
+.checkbox-label { display: flex; align-items: center; gap: 8px; font-size: 0.78rem; cursor: pointer; color: var(--text); }
 .checkbox-label input[type="checkbox"] { width: auto; cursor: pointer; }
 .option-hint { color: var(--text-muted); font-size: 0.78rem; }
 
@@ -808,7 +828,7 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
   right: 0;
   bottom: 0;
   left: 0;
-  background: var(--bg);
+  background: transparent;
   display: flex;
   align-items: stretch;
   transition: left 0.25s ease;
@@ -848,8 +868,7 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
 .confirm-overlay {
   position: fixed;
   inset: 0;
-  background: var(--overlay-bg);
-  backdrop-filter: blur(3px);
+  background: transparent;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -876,10 +895,45 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
   color: #f6ad55;
 }
 .confirm-message {
-  margin: 0 0 22px;
+  margin: 0 0 12px;
   font-size: 13.5px;
   line-height: 1.55;
   color: var(--text-muted);
+}
+.confirm-detail {
+  margin: 0 0 18px;
+  padding: 10px 12px;
+  background: rgba(245, 101, 101, 0.12);
+  border: 1px solid rgba(245, 101, 101, 0.3);
+  border-radius: 6px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: #f56565;
+  font-weight: 500;
+}
+.confirm-icon-warn {
+  color: #f6ad55;
+}
+.confirm-icon-danger {
+  color: #f56565;
+  font-size: 24px;
+}
+.confirm-dialog:has(.confirm-icon-danger) {
+  box-shadow: 0 0 0 1px rgba(245,101,101,.35), 0 12px 40px var(--confirm-shadow);
+}
+.confirm-dialog:has(.confirm-icon-danger) .confirm-title {
+  color: #f56565;
+}
+.confirm-final-note {
+  margin: 0 0 18px;
+  padding: 8px 12px;
+  background: rgba(245, 101, 101, 0.08);
+  border-left: 3px solid #f56565;
+  border-radius: 0 4px 4px 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: #f56565;
+  font-weight: 600;
 }
 .confirm-actions {
   display: flex;
@@ -914,8 +968,8 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
 /* ── Rich Assertions ─────────────────────────────────── */
 .assertions-section { margin-bottom: 16px; padding-bottom: 14px; border-bottom: 1px solid var(--border); }
 .assertions-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
-.assertions-title { font-weight: 600; font-size: 13px; }
-.assertions-hint { font-size: 11px; color: var(--text-muted); flex: 1; }
+.assertions-title { font-weight: 600; font-size: 0.82rem; }
+.assertions-hint { font-size: 0.72rem; color: var(--text-muted); flex: 1; }
 
 .assertions-collapse-toggle {
   background: none; border: none; color: var(--text-muted); cursor: pointer;
@@ -935,12 +989,12 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
 /* ── Body Validation Section ─────────────────────────── */
 .body-validation-section { margin-bottom: 12px; }
 .body-validation-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
-.body-validation-title { font-weight: 600; font-size: 13px; }
-.body-validation-hint { font-size: 11px; color: var(--text-muted); }
+.body-validation-title { font-weight: 600; font-size: 0.82rem; }
+.body-validation-hint { font-size: 0.72rem; color: var(--text-muted); }
 .validation-empty-warning {
   margin-top: 8px; padding: 8px 12px; border-radius: 6px;
   background: rgba(234, 179, 8, 0.1); border: 1px solid rgba(234, 179, 8, 0.3);
-  color: #eab308; font-size: 12px; line-height: 1.5;
+  color: #eab308; font-size: 0.75rem; line-height: 1.5;
 }
 .validation-empty-warning .link-btn {
   background: none; border: none; color: var(--accent); cursor: pointer;
@@ -1149,55 +1203,35 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
 .assertion-select--unit { flex: 0 0 auto; min-width: 70px; }
 .assertion-select--precision { flex: 0 0 auto; min-width: 95px; }
 
-/* Custom Predicate Assertion */
-.assertion-field--custom {
-  display: flex; flex-direction: column; gap: 8px; flex: 1; min-width: 0;
+/* Custom Predicate Assertion — compact inline layout */
+.assertion-field--custom-inline {
+  display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0;
 }
-.assertion-custom-expression-wrap {
-  display: flex; flex-direction: column; gap: 4px; flex: 1;
-}
-.assertion-custom-description-wrap {
-  display: flex; align-items: center; gap: 8px;
-}
-.assertion-custom-description-wrap .assertion-field-label {
-  flex-shrink: 0; min-width: 72px;
-}
-.assertion-field-label--mono {
+.assertion-input--expression-inline {
+  flex: 1; min-width: 140px;
   font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
-  letter-spacing: .3px;
+  font-size: 12px; letter-spacing: -.2px;
 }
-.assertion-textarea--expression {
-  background: var(--surface); border: 1px solid var(--border); border-radius: 6px;
-  padding: 8px 10px; color: var(--text); font-size: 12px; font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
-  line-height: 1.5; resize: vertical; min-height: 48px;
-  transition: border-color .15s, box-shadow .15s;
-}
-.assertion-textarea--expression:focus {
-  border-color: #d946ef; outline: none;
+.assertion-input--expression-inline:focus {
+  border-color: #d946ef;
   box-shadow: 0 0 0 2px rgba(217, 70, 239, .15);
 }
-.assertion-textarea--expression::placeholder {
-  color: var(--text-muted); font-style: italic; opacity: .6;
+.assertion-input--expression-inline::placeholder {
+  font-style: italic; opacity: .55;
 }
-.assertion-input--description {
-  flex: 1; min-width: 120px;
+.assertion-input--desc-inline {
+  flex: 1 1 200px; min-width: 120px;
+  font-size: 11px; color: var(--text, #e2e8f0);
 }
-.assertion-custom-hint {
-  display: flex; align-items: flex-start; gap: 6px; padding: 6px 10px;
-  background: var(--surface); border-radius: 6px; border: 1px solid var(--border);
-  font-size: 11px; color: var(--text-muted); line-height: 1.5;
-}
-.assertion-custom-hint code {
-  font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
-  font-size: 10.5px; background: #d946ef12; color: #e879f9;
-  padding: 1px 4px; border-radius: 3px; white-space: nowrap;
-}
-.assertion-custom-hint-icon {
+.assertion-input--desc-inline::placeholder { color: #8892a4; opacity: 1; }
+.assertion-custom-hint-tip {
   flex-shrink: 0; width: 16px; height: 16px; display: inline-flex;
   align-items: center; justify-content: center; border-radius: 50%;
   background: #d946ef20; color: #e879f9; font-size: 10px; font-weight: 700;
-  font-style: italic; line-height: 1;
+  font-style: italic; line-height: 1; cursor: help;
+  transition: background .15s;
 }
+.assertion-custom-hint-tip:hover { background: #d946ef40; }
 
 /* Lambda icon in Add Assertion menu */
 .aam-icon--lambda {
@@ -1466,7 +1500,7 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
 .full-panel-overlay.modal-overlay {
   position: absolute;
   top: 0; left: 0; right: 0; bottom: 0;
-  background: var(--bg);
+  background: transparent;
   display: flex;
   align-items: stretch;
   justify-content: stretch;
@@ -1484,7 +1518,7 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
 
 /* ─── Popup modal — centered dialog, no resize/drag ─── */
 .popup-modal-overlay.modal-overlay {
-  background: rgba(0, 0, 0, 0.25);
+  background: transparent;
   position: absolute;
   top: 0; left: 0; right: 0; bottom: 0;
   align-items: center;
@@ -1723,8 +1757,8 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
   right: 0;
   bottom: 0;
   left: 0;
-  background: rgba(0, 0, 0, 0.55);
-  backdrop-filter: blur(2px);
+  background: transparent;
+  backdrop-filter: none;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2002,7 +2036,7 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
 .emm-overlay {
   z-index: 1200;
   position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0,0,0,0.5);
+  background: transparent;
   display: flex; align-items: center; justify-content: center;
   overflow: hidden;
 }

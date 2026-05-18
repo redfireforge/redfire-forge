@@ -674,6 +674,7 @@ export default function SharedDataSourceModal({
           adapter={populateAdapter}
           onSave={handlePopulateFromApiApply}
           onCancel={() => setShowPopulateFromApi(false)}
+          contextScope={selected?.id}
         />
       )}
 

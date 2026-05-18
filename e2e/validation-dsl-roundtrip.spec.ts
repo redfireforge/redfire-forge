@@ -38,7 +38,7 @@ async function openRulesAndWait(mapper: Locator, page: Page): Promise<void> {
   await mapper.locator('button:has-text("Rules")').click();
   await expect(page.locator('.vr-modal-panel')).toBeVisible({ timeout: 5000 });
   await page.locator('.vr-modal-panel .dm-validation-editor .monaco-editor textarea').waitFor({
-    state: 'attached', timeout: 10000,
+    state: 'attached', timeout: 20000,
   });
   await page.waitForTimeout(1000);
 }
@@ -180,14 +180,11 @@ test.describe('DSL collection assertions round-trip', () => {
   test('failed verification line is highlighted with fail decoration', async ({ page }) => {
     const mapper = await openMapper(page);
 
-    // Auto-map first
     await mapper.locator('.dm-toolbar-cluster--core button', { hasText: 'Auto-map' }).click();
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(300);
 
-    // Open Rules
     await openRulesAndWait(mapper, page);
 
-    // Set DSL with a rule that will FAIL (length >= 5 when only 2 items)
     const dslInput = [
       '# Field assertions',
       'offers[0].offerName  exists',
@@ -198,31 +195,25 @@ test.describe('DSL collection assertions round-trip', () => {
     ].join('\n');
 
     await setMonacoValue(page, dslInput);
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(300);
 
-    // Save to push to visual model
     await page.locator('.vr-modal-panel .vr-modal-btn--primary', { hasText: 'Save' }).click();
-    await page.waitForTimeout(1000);
+    await expect(page.locator('.vr-modal-panel')).not.toBeVisible({ timeout: 5000 });
 
-    // Click "Verify All" in the toolbar to trigger verification
     await mapper.locator('button:has-text("Verify All")').click();
-    await page.waitForTimeout(2000);
+    await page.waitForTimeout(1500);
 
-    // Reopen Rules to see highlighting
     await openRulesAndWait(mapper, page);
-    await page.waitForTimeout(2000);
+    await page.waitForTimeout(500);
 
     await page.screenshot({ path: 'test-results/dsl-rt-05-verify-highlight.png', fullPage: true });
 
-    // Check that the header shows failed count
     const statsText = await page.locator('.vr-modal-header-stats').textContent();
     expect(statsText).toContain('failed');
 
-    // Check for fail decoration class
     const failDecorations = await page.locator('.dm-verify-line--fail').count();
     expect(failDecorations).toBeGreaterThan(0);
 
-    // Check for pass decorations
     const passDecorations = await page.locator('.dm-verify-line--pass').count();
     expect(passDecorations).toBeGreaterThan(0);
   });

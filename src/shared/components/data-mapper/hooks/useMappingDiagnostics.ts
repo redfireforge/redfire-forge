@@ -131,6 +131,7 @@ export function useMappingDiagnostics(
         sourcePath: mapping.sourcePath,
         targetPath: mapping.targetPath,
         suggestedFixExpression: mismatch.suggestedFix,
+        suggestedOperator: mismatch.suggestedOperator,
       });
     }
 

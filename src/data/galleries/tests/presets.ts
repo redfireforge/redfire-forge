@@ -723,3 +723,90 @@ export function createMultiApiLoadTest(): FeatureGroup {
     ],
   };
 }
+
+// ─── 9. Catalog Export Demo (Easy) ─────────────────────────────────────────
+
+export function createCatalogExportDemoTest(): FeatureGroup {
+  return {
+    id: 'test-catalog-export-demo',
+    name: 'Catalog Export Demo',
+    scenarios: [
+      ts({
+        id: 'ts-catalog-post-product',
+        name: 'POST Product (Schema Body)',
+        tests: [
+          s({
+            id: 'ts-catalog-post-product-add',
+            name: 'POST /products/add — schema-generated body',
+            url: 'https://dummyjson.com/products/add',
+            method: 'POST',
+            headers: [{ key: 'Content-Type', value: 'application/json' }],
+            body: JSON.stringify({
+              title: 'string',
+              description: 'string',
+              price: 0,
+              discountPercentage: 0,
+              rating: 0,
+              stock: 0,
+              brand: 'string',
+              category: 'string',
+            }, null, 2),
+            bodyType: 'json',
+            assertions: [
+              { type: 'status', expected: '201' },
+              { type: 'numeric', jsonPath: '$.id', operator: '>', value: 0 },
+            ],
+            sampleJson: JSON.stringify({
+              id: 195, title: 'string', description: 'string',
+              price: 0, discountPercentage: 0, rating: 0,
+              stock: 0, brand: 'string', category: 'string',
+            }),
+          }),
+        ],
+      }),
+      ts({
+        id: 'ts-catalog-get-query',
+        name: 'GET with Query Params',
+        tests: [
+          s({
+            id: 'ts-catalog-get-query-search',
+            name: 'GET /products/search?q=phone — query params from spec',
+            url: 'https://dummyjson.com/products/search?q=phone',
+            method: 'GET',
+            assertions: [
+              { type: 'status', expected: '200' },
+              { type: 'arrayLength', jsonPath: '$.products', operator: '>=', value: 1 },
+            ],
+            sampleJson: JSON.stringify({
+              products: [{ id: 1, title: 'iPhone 9', price: 549, category: 'smartphones' }],
+              total: 4, skip: 0, limit: 30,
+            }),
+          }),
+        ],
+      }),
+      ts({
+        id: 'ts-catalog-put-update',
+        name: 'PUT Update (Schema Body)',
+        tests: [
+          s({
+            id: 'ts-catalog-put-update-product',
+            name: 'PUT /products/1 — schema-generated update body',
+            url: 'https://dummyjson.com/products/1',
+            method: 'PUT',
+            headers: [{ key: 'Content-Type', value: 'application/json' }],
+            body: JSON.stringify({ title: 'Updated Title', price: 99 }, null, 2),
+            bodyType: 'json',
+            assertions: [
+              { type: 'status', expected: '200' },
+              { type: 'regex', jsonPath: '$.title', pattern: 'Updated Title' },
+            ],
+            sampleJson: JSON.stringify({
+              id: 1, title: 'Updated Title', price: 99,
+              description: 'An apple mobile', brand: 'Apple',
+            }),
+          }),
+        ],
+      }),
+    ],
+  };
+}

@@ -1,18 +1,18 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
-import type { Node, Edge } from '@xyflow/react';
-import type { Environment, Microservice, FeatureGroup, GlobalAuthProfile } from '../shared/types';
-import type { CatalogEntry, SavedEndpointValues } from '../features/catalog/types/catalog';
-import { buildCatalogExport } from '../features/catalog/utils/catalogExport';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useConfirmDialog } from './hooks/useConfirmDialog';
 import { useGalleryImport } from './hooks/useGalleryImport';
 import { useWorkbenchActions } from './hooks/useWorkbenchActions';
 import ThemeCustomizer from './ThemeCustomizer';
 import { isCustomThemeId, findSavedTheme } from './themeCustomizerUtils';
-import { loadCatalogEndpointValues, loadPreviewSampleId, savePreviewSampleId } from '../shared/utils/storage';
-import { saveFile } from '../shared/utils/fileSaver';
-import { mergeById } from '../shared/utils/helpers';
 
 import { useWorkflowImportExport } from './hooks/useWorkflowImportExport';
 import { useDerivedViewState } from './hooks/useDerivedViewState';
+import { useHarnessPromotion } from './hooks/useHarnessPromotion';
+import { useCatalogExport } from './hooks/useCatalogExport';
+import { useCatalogState } from './hooks/useCatalogState';
+import { usePreferencesImport } from './hooks/usePreferencesImport';
+import { useGalleryWorkflowPreviewState } from './hooks/useGalleryWorkflowPreviewState';
+import AppWorkbenchModals from './components/AppWorkbenchModals';
 import { useRerunFailed } from './hooks/useRerunFailed';
 import { useTheme } from './hooks/useTheme';
 import { useProjects } from '../features/scenarios/hooks/useProjects';
@@ -29,12 +29,6 @@ import Requests from '../features/requests/Requests';
 import type { PreviewRequest } from '../features/requests/Requests';
 import ApiCatalog from '../features/catalog/ApiCatalog';
 import CatalogSidebar from '../features/catalog/components/CatalogSidebar';
-import CatalogImportModal from '../features/catalog/components/CatalogImportModal';
-import CatalogVersionHistory from '../features/catalog/components/CatalogVersionHistory';
-import CatalogEditModal from '../features/catalog/components/CatalogEditModal';
-import CatalogSendToRequestsModal from '../features/catalog/components/CatalogSendToRequestsModal';
-import type { SendToRequestsPayload } from '../features/catalog/components/CatalogSendToRequestsModal';
-
 import Sidebar from './Sidebar';
 import RequestsSidebar from '../features/requests/components/RequestsSidebar';
 import SettingsPage from '../features/settings/SettingsModal';
@@ -49,9 +43,6 @@ import { GalleryPage } from '../features/gallery/GalleryPage';
 import TrainingTracksView from '../features/training/TrainingTracksView';
 import { useWorkflows } from '../features/workflow/hooks/useWorkflows';
 import { useWorkflowFolders } from '../features/workflow/hooks/useWorkflowFolders';
-import { sampleWorkflowCatalog } from '../data/galleries/workflows';
-import { getAutoLayoutNodes } from '../features/workflow/utils/workflowAutoLayout';
-import type { Workflow } from '../features/workflow/types/workflow';
 import RequestCollectionModal from '../features/requests/components/RequestCollectionModal';
 import SubCollectionModal from '../features/requests/components/SubCollectionModal';
 import { useToast } from '../shared/hooks/useToast';
@@ -84,9 +75,20 @@ export default function App() {
     initialTheme, initialTestRuns,
   } = useProjects();
 
+  const [sidebarView, setSidebarView] = useState<'env' | 'svc'>('env');
+
   const wb = useRequests();
   const catalog = useCatalog();
   const wfHook = useWorkflows();
+  const {
+    previewWorkflow,
+    setPreviewWorkflow,
+    pendingTemplateImport,
+    setPendingTemplateImport,
+    handleTemplatePickFolder,
+    handleUseWorkflowAsTemplate,
+    clearPreviewWorkflow,
+  } = useGalleryWorkflowPreviewState(wfHook);
   const wfFolders = useWorkflowFolders();
   const { theme, setTheme, showCustomizer, setShowCustomizer, themePickerOpen, setThemePickerOpen, themePickerRef, reapplyTheme, THEMES, THEME_ICONS } = useTheme();
   const toast = useToast();
@@ -95,6 +97,13 @@ export default function App() {
   });
   // ---- App shell state ----
   const [activeTab, setActiveTab] = useState<Tab>(() => readTabFromUrl());
+  const { handleImportData } = usePreferencesImport({
+    setEnvironments,
+    setMicroservices,
+    setFeatureGroups,
+    setAppGlobalAuthProfiles,
+    setActiveTab,
+  });
   const [resultsRunTypeFilter, setResultsRunTypeFilter] = useState<'all' | 'test' | 'workflow' | undefined>();
   const [workflowRunnerInitialId, setWorkflowRunnerInitialId] = useState<string | null>(null);
 
@@ -110,7 +119,7 @@ export default function App() {
     setActiveTab('workflow-runner');
   };
 
-  const [confirmAction, setConfirmAction] = useState<{ message: string; onConfirm: () => void } | null>(null);
+  const { confirm, confirmDialogElement } = useConfirmDialog();
   const wbActions = useWorkbenchActions({ wb, activeTab, setActiveTab: (t) => setActiveTab(t as Tab) });
   const {
     showWbCollectionModal, setShowWbCollectionModal,
@@ -120,33 +129,59 @@ export default function App() {
     handleWbNewCollection, handleWbEditCollection, handleWbSaveCollection,
     handleWbNewRequest, handleEditSubCollection,
   } = wbActions;
-  const [showCatalogImport, setShowCatalogImport] = useState(false);
-  const [catalogReimportId, setCatalogReimportId] = useState<string | undefined>();
-  const [catalogInitialSpec, setCatalogInitialSpec] = useState<{ yaml: string; name: string } | undefined>();
-  const [catalogVersionHistoryId, setCatalogVersionHistoryId] = useState<string | undefined>();
-  const [previewWorkflow, setPreviewWorkflow] = useState<Workflow | null>(() => {
-    const savedId = loadPreviewSampleId();
-    if (!savedId) return null;
-    const entry = sampleWorkflowCatalog.find(e => e.id === savedId);
-    if (!entry) return null;
-    const sample = entry.factory();
-    const laidOut = getAutoLayoutNodes(sample.nodes as unknown as Node[], sample.edges as unknown as Edge[], 'TB');
-    return { ...sample, nodes: laidOut as unknown as typeof sample.nodes };
+  const {
+    showSendToHarness,
+    setShowSendToHarness,
+    batchHarnessTarget,
+    setBatchHarnessTarget,
+    catalogHarnessEndpoint,
+    setCatalogHarnessEndpoint,
+    pendingEditTest,
+    setPendingEditTest,
+    handleSendToHarnessConfirm,
+    handleBatchSendToHarnessConfirm,
+    harnessPromotionContext,
+    catalogHarnessPromotionCtx,
+  } = useHarnessPromotion({
+    wb,
+    featureGroups,
+    setFeatureGroups,
+    selectedEnvId,
+    selectedSvcId,
+    setSelectedEnvId,
+    setSelectedSvcId,
+    appGlobalAuthProfiles,
+    microservices,
+    environments,
+    toast,
+    setActiveTab,
   });
+  const {
+    sendToReqEntry,
+    setSendToReqEntry,
+    sendToReqEpValues,
+    sendToReqSingleEndpoint,
+    setSendToReqSingleEndpoint,
+    inlineExportEpValues,
+    handleSendToRequests,
+    handleExportSingleEndpoint,
+    handleSendToReqConfirm,
+    handleInlineExportConfirm,
+  } = useCatalogExport({ wb, catalog, setActiveTab });
+  const {
+    showCatalogImport,
+    setShowCatalogImport,
+    catalogReimportId,
+    setCatalogReimportId,
+    catalogInitialSpec,
+    setCatalogInitialSpec,
+    catalogVersionHistoryId,
+    setCatalogVersionHistoryId,
+    catalogEditId,
+    setCatalogEditId,
+    handleExportSpec,
+  } = useCatalogState(catalog);
   const [previewRequest, setPreviewRequest] = useState<PreviewRequest | null>(null);
-  const [pendingTemplateImport, setPendingTemplateImport] = useState<Workflow | null>(null);
-  const [catalogEditId, setCatalogEditId] = useState<string | undefined>();
-  const [sendToReqEntry, setSendToReqEntry] = useState<CatalogEntry | undefined>();
-  const [sendToReqEpValues, setSendToReqEpValues] = useState<Record<string, SavedEndpointValues>>({});
-
-  useEffect(() => {
-    if (sendToReqEntry) {
-      loadCatalogEndpointValues(sendToReqEntry.id).then(setSendToReqEpValues);
-    } else {
-      setSendToReqEpValues({});
-    }
-  }, [sendToReqEntry]);
-
   // ---- Sync theme from loaded data ----
   useEffect(() => {
     if (!loading) {
@@ -189,12 +224,24 @@ export default function App() {
   // ---- Derived view state ----
 
   const {
-    selectedEnv, selectedSvc, resolvedBaseUrl,
+    selectedEnv, selectedSvc, resolvedBaseUrl, isAdditionalEnv,
     envFallbackAuth, filteredFeatureGroups, unassociatedFeatureGroups,
   } = useDerivedViewState({
     environments, microservices, featureGroups,
     globalAuthProfiles: appGlobalAuthProfiles, selectedEnvId, selectedSvcId,
   });
+
+  const harnessRequestIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const fg of featureGroups) {
+      for (const sc of fg.scenarios) {
+        for (const t of sc.tests) {
+          if (t.sourceRequestId) ids.add(t.sourceRequestId);
+        }
+      }
+    }
+    return ids;
+  }, [featureGroups]);
 
   const { isRerunning, handleRerunFailed } = useRerunFailed({
     featureGroups, resolvedBaseUrl, globalAuthProfiles: appGlobalAuthProfiles, envFallbackAuth,
@@ -208,91 +255,6 @@ export default function App() {
     setFeatureGroups, setEnvironments, setMicroservices,
     setSelectedEnvId, setSelectedSvcId,
   });
-
-  // ---- Helpers ----
-  const confirm = (message: string, onConfirm: () => void) => setConfirmAction({ message, onConfirm });
-
-  const handleSendToRequests = useCallback((entry: CatalogEntry) => {
-    setSendToReqEntry(entry);
-  }, []);
-
-  const handleSendToReqConfirm = useCallback((payload: SendToRequestsPayload) => {
-    if (sendToReqEntry) {
-      catalog.updateEntry(sendToReqEntry.id, { customEndpointNames: payload.customNames });
-    }
-
-    let groupId: string | undefined;
-    if (payload.newGroupName) {
-      groupId = wb.addGroup(payload.newGroupName);
-    } else if (payload.targetGroupId) {
-      groupId = payload.targetGroupId;
-    }
-
-    const currentVersion = sendToReqEntry?.versions.find(v => v.id === sendToReqEntry.currentVersionId);
-    const existingWbEnvNames = new Map(wb.environments.map(e => [e.name, e.id]));
-
-    const { collection, newEnvironments } = buildCatalogExport(payload, {
-      servers: sendToReqEntry?.servers ?? [],
-      microserviceId: sendToReqEntry?.microserviceId,
-      versionLabel: currentVersion?.version,
-      existingWbEnvNames,
-      groupId,
-      catalogEntryName: sendToReqEntry?.name,
-    });
-
-    if (newEnvironments.length > 0) wb.addEnvironments(newEnvironments);
-    wb.importCollection(collection);
-    setSendToReqEntry(undefined);
-    setActiveTab('requests');
-  }, [wb, sendToReqEntry, catalog]);
-
-  const handleExportSpec = useCallback(async (entryId: string) => {
-    const entry = catalog.entries.find(e => e.id === entryId);
-    if (!entry) return;
-    const raw = await catalog.loadRawSpec(entryId, entry.currentVersionId);
-    if (!raw) return;
-    const filename = `${entry.name.replace(/[^a-zA-Z0-9_-]/g, '_')}-v${entry.versions[0]?.version ?? 'unknown'}.yaml`;
-    const blob = new Blob([raw], { type: 'text/yaml' });
-    await saveFile(blob, { filename, mimeType: 'text/yaml', description: 'YAML spec' });
-  }, [catalog]);
-
-  const handleTemplatePickFolder = useCallback((folderId: string | null) => {
-    if (!pendingTemplateImport) return;
-    const copy = { ...pendingTemplateImport, folderId: folderId ?? undefined };
-    const catalogEntry = sampleWorkflowCatalog.find(e => e.id === pendingTemplateImport.gallerySampleId);
-    if (catalogEntry?.companionFactories) {
-      for (const cf of catalogEntry.companionFactories) {
-        const companion = cf();
-        const companionCopy = { ...structuredClone(companion), id: companion.id, name: companion.name.replace(/^Sample: /, ''), folderId: folderId ?? undefined, createdAt: Date.now(), updatedAt: Date.now() };
-        wfHook.insert(companionCopy);
-      }
-    }
-    wfHook.insert(copy);
-    setPreviewWorkflow(null);
-    savePreviewSampleId(null);
-    setPendingTemplateImport(null);
-  }, [pendingTemplateImport, wfHook]);
-
-  const handleImportData = useCallback(async (data: {
-    environments?: Environment[];
-    microservices?: Microservice[];
-    featureGroups?: FeatureGroup[];
-    globalAuthProfiles?: GlobalAuthProfile[];
-  }) => {
-    if (data.environments?.length) {
-      setEnvironments((prev) => mergeById(prev, data.environments!));
-    }
-    if (data.microservices?.length) {
-      setMicroservices((prev) => mergeById(prev, data.microservices!));
-    }
-    if (data.featureGroups?.length) {
-      setFeatureGroups((prev) => [...prev, ...data.featureGroups!]);
-    }
-    if (data.globalAuthProfiles?.length) {
-      setAppGlobalAuthProfiles((prev) => mergeById(prev, data.globalAuthProfiles!));
-    }
-    setActiveTab('environments');
-  }, [setEnvironments, setMicroservices, setFeatureGroups, setAppGlobalAuthProfiles]);
 
   // ---- Loading screen ----
   if (loading) {
@@ -317,6 +279,13 @@ export default function App() {
             <select value={selectedEnvId} onChange={(e) => setSelectedEnvId(e.target.value)}>
               <option value="">Environment…</option>
               {environments.map((env) => <option key={env.id} value={env.id}>{env.name}</option>)}
+              {microservices.some(s => (s.customEnvs ?? []).length > 0) && (
+                <optgroup label="Additional">
+                  {microservices.flatMap(s => (s.customEnvs ?? []).map(ce => (
+                    <option key={ce.id} value={ce.id}>{ce.name} ({s.name})</option>
+                  )))}
+                </optgroup>
+              )}
             </select>
           </div>
           <div className="header-select-group">
@@ -479,6 +448,9 @@ export default function App() {
                 onDeleteGroup={wb.deleteGroup}
                 onMoveToGroup={wb.moveToGroup}
                 onDuplicateGroup={wb.duplicateGroup}
+                onSendCollectionToHarness={(colId) => setBatchHarnessTarget({ colId })}
+                onSendFolderToHarness={(colId, folderId) => setBatchHarnessTarget({ colId, folderId })}
+                harnessRequestIds={harnessRequestIds}
               />
             )}
           </div>
@@ -527,6 +499,8 @@ export default function App() {
               selectedSvcId={selectedSvcId}
               onEnvSelect={setSelectedEnvId}
               onSvcSelect={setSelectedSvcId}
+              sidebarView={sidebarView}
+              onSidebarViewChange={setSidebarView}
             />
           )}
         </div>
@@ -607,12 +581,8 @@ export default function App() {
               onSvcSelect={setSelectedSvcId}
               resolvedBaseUrl={resolvedBaseUrl}
               previewWorkflow={previewWorkflow}
-              onClearPreview={() => { setPreviewWorkflow(null); savePreviewSampleId(null); }}
-              onUseAsTemplate={(wf) => {
-                const gallerySampleId = sampleWorkflowCatalog.find(e => e.id === wf.id)?.id;
-                const copy: Workflow = { ...structuredClone(wf), id: crypto.randomUUID(), name: wf.name.replace(/^Sample: /, ''), gallerySampleId, createdAt: Date.now(), updatedAt: Date.now() };
-                setPendingTemplateImport(copy);
-              }}
+              onClearPreview={clearPreviewWorkflow}
+              onUseAsTemplate={handleUseWorkflowAsTemplate}
               onRunInHarness={handleRunInHarness}
             />
           </div>
@@ -672,6 +642,11 @@ export default function App() {
               microservices={microservices}
               setMicroservices={setMicroservices}
               appGlobalAuthProfiles={appGlobalAuthProfiles}
+              featureGroups={featureGroups}
+              selectedEnvId={selectedEnvId}
+              selectedSvcId={selectedSvcId}
+              setSelectedEnvId={setSelectedEnvId}
+              setSelectedSvcId={setSelectedSvcId}
               confirm={confirm}
             />
           )}
@@ -699,12 +674,27 @@ export default function App() {
               selectedSvcName={selectedSvc?.name}
               selectedEnvId={selectedEnvId}
               selectedEnvName={selectedEnv?.name}
+              isAdditionalEnv={isAdditionalEnv}
               unassociatedFeatureGroups={unassociatedFeatureGroups}
               microservices={microservices}
               environments={environments}
               globalAuthProfiles={appGlobalAuthProfiles}
               onMoveScenario={moveScenario}
               onMoveTest={moveTest}
+              pendingEditTest={pendingEditTest}
+              onPendingEditConsumed={() => setPendingEditTest(undefined)}
+              onLocateRequest={(requestId) => {
+                for (const col of wb.collections) {
+                  const found = col.requests.find(r => r.id === requestId)
+                    || col.folders?.flatMap(f => f.requests).find(r => r.id === requestId);
+                  if (found) {
+                    wb.selectRequest(col.id, found.id);
+                    setActiveTab('requests');
+                    return;
+                  }
+                }
+                toast.show('warning', 'Source request not found', 'The originating request may have been deleted');
+              }}
             />
           )}
           {/* Keep TestRunner mounted so in-flight tests survive tab switches */}
@@ -716,6 +706,7 @@ export default function App() {
               svcName={selectedSvc?.name}
               envId={selectedEnvId}
               svcId={selectedSvcId}
+              isAdditionalEnv={isAdditionalEnv}
               resolvedBaseUrl={resolvedBaseUrl}
               globalAuthProfiles={appGlobalAuthProfiles}
               envFallbackAuth={envFallbackAuth}
@@ -731,6 +722,7 @@ export default function App() {
               svcName={selectedSvc?.name}
               envId={selectedEnvId}
               svcId={selectedSvcId}
+              isAdditionalEnv={isAdditionalEnv}
               resolvedBaseUrl={resolvedBaseUrl}
               globalAuthProfiles={appGlobalAuthProfiles}
               envFallbackAuth={envFallbackAuth}
@@ -754,10 +746,19 @@ export default function App() {
               onVersionHistory={(entryId) => setCatalogVersionHistoryId(entryId)}
               onExportSpec={handleExportSpec}
               onSendToRequests={handleSendToRequests}
+              onExportSingleEndpoint={handleExportSingleEndpoint}
               onEditEntry={(entryId) => setCatalogEditId(entryId)}
               globalAuthProfiles={appGlobalAuthProfiles}
               appEnvironments={environments}
               appMicroservices={microservices}
+              collections={wb.collections}
+              onNavigateToRequest={(colId, reqId) => { wb.selectRequest(colId, reqId); setActiveTab('requests'); }}
+              savedEpValues={inlineExportEpValues}
+              onExportConfirm={handleInlineExportConfirm}
+              onSendEndpointToHarness={(entry, endpoint, fromTryItOut) => {
+                setCatalogHarnessEndpoint({ entry, endpoint, fromTryItOut });
+                setShowSendToHarness(true);
+              }}
             />
           </div>
           <div className="app-tab-pane" style={{ display: activeTab === 'requests' ? 'flex' : 'none' }}>
@@ -768,6 +769,8 @@ export default function App() {
               appEnvironments={environments}
               previewRequest={previewRequest}
               onClearPreview={() => { setPreviewRequest(null); setActiveTab('gallery'); }}
+              onSendToHarness={() => setShowSendToHarness(true)}
+              harnessRequestIds={harnessRequestIds}
               onImportPreview={() => {
                 if (!previewRequest) return;
                 const req = previewRequest.request;
@@ -793,56 +796,40 @@ export default function App() {
               }}
             />
           </div>
-          {sendToReqEntry && (
-            <CatalogSendToRequestsModal
-              entry={sendToReqEntry}
-              appEnvironments={environments}
-              appMicroservices={microservices}
-              savedEpValues={sendToReqEpValues}
-              collections={wb.collections}
-              onSend={handleSendToReqConfirm}
-              onClose={() => setSendToReqEntry(undefined)}
-            />
-          )}
-
-          {showCatalogImport && (
-            <CatalogImportModal
-              existingEntries={catalog.entries}
-              reimportEntryId={catalogReimportId}
-              initialSpec={catalogInitialSpec}
-              onImport={(entry, rawSpec) => { catalog.addEntry(entry, rawSpec); setActiveTab('catalog'); }}
-              onReimport={(entryId, parsed) => { catalog.addVersionToEntry(entryId, parsed); setActiveTab('catalog'); }}
-              onClose={() => { setShowCatalogImport(false); setCatalogReimportId(undefined); setCatalogInitialSpec(undefined); }}
-            />
-          )}
-
-          {catalogVersionHistoryId && (() => {
-            const vhEntry = catalog.entries.find(e => e.id === catalogVersionHistoryId);
-            if (!vhEntry) return null;
-            return (
-              <CatalogVersionHistory
-                entry={vhEntry}
-                onClose={() => setCatalogVersionHistoryId(undefined)}
-                onSwitchVersion={(versionId) => catalog.switchVersion(catalogVersionHistoryId, versionId)}
-                onReimport={() => { setCatalogReimportId(catalogVersionHistoryId); setShowCatalogImport(true); }}
-                loadRawSpec={catalog.loadRawSpec}
-              />
-            );
-          })()}
-
-          {catalogEditId && (() => {
-            const editEntry = catalog.entries.find(e => e.id === catalogEditId);
-            if (!editEntry) return null;
-            return (
-              <CatalogEditModal
-                entry={editEntry}
-                microservices={microservices}
-                environments={environments}
-                onSave={(patch) => catalog.updateEntry(catalogEditId, patch)}
-                onClose={() => setCatalogEditId(undefined)}
-              />
-            );
-          })()}
+          <AppWorkbenchModals
+            catalog={catalog}
+            wb={wb}
+            environments={environments}
+            microservices={microservices}
+            featureGroups={featureGroups}
+            sendToReqEntry={sendToReqEntry}
+            setSendToReqEntry={setSendToReqEntry}
+            sendToReqEpValues={sendToReqEpValues}
+            sendToReqSingleEndpoint={sendToReqSingleEndpoint}
+            setSendToReqSingleEndpoint={setSendToReqSingleEndpoint}
+            handleSendToReqConfirm={handleSendToReqConfirm}
+            showSendToHarness={showSendToHarness}
+            setShowSendToHarness={setShowSendToHarness}
+            catalogHarnessEndpoint={catalogHarnessEndpoint}
+            setCatalogHarnessEndpoint={setCatalogHarnessEndpoint}
+            catalogHarnessPromotionCtx={catalogHarnessPromotionCtx}
+            handleSendToHarnessConfirm={handleSendToHarnessConfirm}
+            harnessPromotionContext={harnessPromotionContext}
+            batchHarnessTarget={batchHarnessTarget}
+            setBatchHarnessTarget={setBatchHarnessTarget}
+            handleBatchSendToHarnessConfirm={handleBatchSendToHarnessConfirm}
+            showCatalogImport={showCatalogImport}
+            catalogReimportId={catalogReimportId}
+            catalogInitialSpec={catalogInitialSpec}
+            setShowCatalogImport={setShowCatalogImport}
+            setCatalogReimportId={setCatalogReimportId}
+            setCatalogInitialSpec={setCatalogInitialSpec}
+            setActiveTab={setActiveTab}
+            catalogVersionHistoryId={catalogVersionHistoryId}
+            setCatalogVersionHistoryId={setCatalogVersionHistoryId}
+            catalogEditId={catalogEditId}
+            setCatalogEditId={setCatalogEditId}
+          />
         </main>
       </div>
 
@@ -872,19 +859,7 @@ export default function App() {
         />
       )}
 
-      {confirmAction && (
-        <div className="confirm-overlay">
-          <div className="confirm-dialog">
-            <div className="confirm-icon">&#9888;</div>
-            <p className="confirm-title">Are you sure?</p>
-            <p className="confirm-message">{confirmAction.message}</p>
-            <div className="confirm-actions">
-              <button className="btn-cancel" onClick={() => setConfirmAction(null)}>Cancel</button>
-              <button className="btn-danger" onClick={() => { confirmAction.onConfirm(); setConfirmAction(null); }}>Delete</button>
-            </div>
-          </div>
-        </div>
-      )}
+      {confirmDialogElement}
 
       <FolderPickerModal
         open={pendingTemplateImport !== null}

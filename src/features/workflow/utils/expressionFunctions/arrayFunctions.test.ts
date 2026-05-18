@@ -152,6 +152,51 @@ describe('arrayFunctions', () => {
       const items = [{ name: 'hello' }, { name: 'hey' }];
       expect(fn('$all')(items, 'name', 'starts_with', 'he')).toBe(true);
     });
+
+    it('supports lambda: all match', () => {
+      const vars = { items: [{ rank: 7 }, { rank: 9 }] };
+      expect(eval$('$all(items, x => $gt(x.rank, 5))', vars)).toBe(true);
+    });
+
+    it('supports lambda: some do not match', () => {
+      const vars = { items: [{ rank: 7 }, { rank: 3 }] };
+      expect(eval$('$all(items, x => $gt(x.rank, 5))', vars)).toBe(false);
+    });
+
+    it('supports lambda: empty array returns true', () => {
+      expect(eval$('$all([], x => $gt(x, 5))')).toBe(true);
+    });
+
+    it('supports lambda with $gte', () => {
+      const vars = { offers: [{ rank: 13 }, { rank: 13 }, { rank: 13 }] };
+      expect(eval$('$all(offers, x => $gte(x.rank, 1))', vars)).toBe(true);
+    });
+
+    it('supports lambda with nested dot access', () => {
+      const vars = { items: [{ data: { score: 10 } }, { data: { score: 20 } }] };
+      expect(eval$('$all(items, x => $gte(x.data.score, 5))', vars)).toBe(true);
+    });
+  });
+
+  describe('$any (lambda)', () => {
+    it('supports lambda: some match', () => {
+      const vars = { items: [{ rank: 3 }, { rank: 7 }] };
+      expect(eval$('$any(items, x => $gt(x.rank, 5))', vars)).toBe(true);
+    });
+
+    it('supports lambda: none match', () => {
+      const vars = { items: [{ rank: 1 }, { rank: 2 }] };
+      expect(eval$('$any(items, x => $gt(x.rank, 5))', vars)).toBe(false);
+    });
+
+    it('supports lambda: empty array returns false', () => {
+      expect(eval$('$any([], x => $gt(x, 5))')).toBe(false);
+    });
+
+    it('supports lambda with $eq', () => {
+      const vars = { items: [{ name: 'Alice' }, { name: 'Bob' }] };
+      expect(eval$('$any(items, x => $eq(x.name, "Alice"))', vars)).toBe(true);
+    });
   });
 
   describe('$map (lambda)', () => {

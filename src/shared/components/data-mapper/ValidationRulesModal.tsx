@@ -4,7 +4,8 @@ import ValidationCodeEditor, { type LineVerifyResult } from './ValidationCodeEdi
 import DslReferencePanel from './DslReferencePanel';
 import { useValidationRulesModal, type VrModalMode } from './hooks/useValidationRulesModal';
 import type { ParseError } from './utils/validationDsl';
-import { parseDsl } from './utils/validationDsl';
+import { countDslRuleLines, parseDsl } from './utils/validationDsl';
+import { runInlineVerify, type InlineVerifyResult } from './utils/inlineVerify';
 import '../../../styles/validation-rules-modal.css';
 
 interface ValidationRulesModalProps {
@@ -19,6 +20,8 @@ interface ValidationRulesModalProps {
   verifyPassedCount?: number;
   verifyFailedCount?: number;
   lineResults?: LineVerifyResult[];
+  sampleResponseData?: unknown;
+  unorderedArrays?: boolean;
 }
 
 export default function ValidationRulesModal({
@@ -33,6 +36,8 @@ export default function ValidationRulesModal({
   verifyPassedCount = 0,
   verifyFailedCount = 0,
   lineResults = [],
+  sampleResponseData,
+  unorderedArrays: _unorderedArrays = false,
 }: ValidationRulesModalProps) {
   const {
     mode,
@@ -95,8 +100,22 @@ export default function ValidationRulesModal({
   const handleInsert = useCallback((text: string) => {
     const editor = editorRef.current;
     if (!editor) return;
+    const model = editor.getModel();
     const pos = editor.getPosition();
-    if (!pos) return;
+    if (!pos || !model) return;
+
+    const lineContent = model.getLineContent(pos.lineNumber);
+    const textBeforeCursor = lineContent.slice(0, pos.column - 1).trim();
+
+    let insertText = text;
+    // If cursor is on a line that already has a path, only insert the operator
+    if (textBeforeCursor && !textBeforeCursor.startsWith('#')) {
+      const match = text.match(/^\S+\s{2,}(\S+)/);
+      if (match) {
+        insertText = '  ' + match[1] + '  ';
+      }
+    }
+
     editor.executeEdits('dsl-ref-insert', [{
       range: {
         startLineNumber: pos.lineNumber,
@@ -104,7 +123,7 @@ export default function ValidationRulesModal({
         endLineNumber: pos.lineNumber,
         endColumn: pos.column,
       },
-      text: text + '\n',
+      text: textBeforeCursor ? insertText : insertText + '\n',
       forceMoveMarkers: true,
     }]);
     editor.focus();
@@ -128,11 +147,46 @@ export default function ValidationRulesModal({
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [handleCancel]);
 
-  const ruleCount = useMemo(
-    () => localText.split('\n').filter(l => l.trim() && !l.trim().startsWith('#')).length,
-    [localText],
-  );
+  const ruleCount = useMemo(() => countDslRuleLines(localText), [localText]);
   const errorCount = localErrors.length;
+
+  // ── Inline Verify ──
+  const [inlineResults, setInlineResults] = useState<InlineVerifyResult[]>([]);
+  const [inlineVerifyStatus, setInlineVerifyStatus] = useState<'idle' | 'complete'>('idle');
+  const [showResultsStrip, setShowResultsStrip] = useState(false);
+
+  const handleVerifyInline = useCallback(() => {
+    const results = runInlineVerify(localText, sampleResponseData);
+    setInlineResults(results);
+    setInlineVerifyStatus('complete');
+    setShowResultsStrip(results.some(r => !r.passed));
+  }, [localText, sampleResponseData]);
+
+  // Clear inline results when text changes
+  useEffect(() => {
+    if (inlineVerifyStatus === 'complete') {
+      setInlineResults([]);
+      setInlineVerifyStatus('idle');
+      setShowResultsStrip(false);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [localText]);
+
+  const inlineLineResults: LineVerifyResult[] = useMemo(() =>
+    inlineResults.map(r => ({
+      lineNumber: r.lineNumber,
+      passed: r.passed,
+      actual: r.actual,
+      expected: r.expected,
+    })),
+  [inlineResults]);
+
+  const effectiveLineResults = inlineResults.length > 0 ? inlineLineResults : lineResults;
+  const inlinePassedCount = inlineResults.filter(r => r.passed).length;
+  const inlineFailedCount = inlineResults.filter(r => !r.passed).length;
+  const failedResults = inlineResults.filter(r => !r.passed);
+  const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
+  const [expandedStepKey, setExpandedStepKey] = useState<string | null>(null);
 
   const handleModeChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
     setMode(e.target.value as VrModalMode);
@@ -161,13 +215,25 @@ export default function ValidationRulesModal({
             {errorCount} error{errorCount !== 1 ? 's' : ''}
           </span>
         )}
-        {verifyStatus === 'complete' && verifyPassedCount > 0 && (
+        {inlineVerifyStatus === 'complete' && inlinePassedCount > 0 && (
+          <span className="vr-modal-stat vr-modal-stat--pass">
+            <span className="vr-modal-dot vr-modal-dot--pass" />
+            {inlinePassedCount} passed
+          </span>
+        )}
+        {inlineVerifyStatus === 'complete' && inlineFailedCount > 0 && (
+          <span className="vr-modal-stat vr-modal-stat--fail">
+            <span className="vr-modal-dot vr-modal-dot--err" />
+            {inlineFailedCount} failed
+          </span>
+        )}
+        {inlineVerifyStatus === 'idle' && verifyStatus === 'complete' && verifyPassedCount > 0 && (
           <span className="vr-modal-stat vr-modal-stat--pass">
             <span className="vr-modal-dot vr-modal-dot--pass" />
             {verifyPassedCount} passed
           </span>
         )}
-        {verifyStatus === 'complete' && verifyFailedCount > 0 && (
+        {inlineVerifyStatus === 'idle' && verifyStatus === 'complete' && verifyFailedCount > 0 && (
           <span className="vr-modal-stat vr-modal-stat--fail">
             <span className="vr-modal-dot vr-modal-dot--err" />
             {verifyFailedCount} failed
@@ -175,6 +241,17 @@ export default function ValidationRulesModal({
         )}
       </div>
       <div className="vr-modal-header-actions">
+        <button
+          type="button"
+          className="vr-modal-action-btn vr-modal-action-btn--verify"
+          onClick={handleVerifyInline}
+          title="Verify rules against sample response (without saving)"
+          aria-label="Verify inline"
+          disabled={!sampleResponseData}
+        >
+          ▶ Verify
+        </button>
+        <span className="vr-modal-action-sep" />
         <button
           type="button"
           className={`vr-modal-action-btn${referenceVisible ? ' vr-modal-action-btn--active' : ''}`}
@@ -200,6 +277,14 @@ export default function ValidationRulesModal({
     </div>
   );
 
+  const handleJumpToLine = useCallback((lineNumber: number) => {
+    const editor = editorRef.current;
+    if (!editor) return;
+    editor.revealLineInCenter(lineNumber);
+    editor.setPosition({ lineNumber, column: 1 });
+    editor.focus();
+  }, []);
+
   const bodyEl = (
     <div className="vr-modal-body">
       <div className="vr-modal-editor-pane">
@@ -213,8 +298,130 @@ export default function ValidationRulesModal({
           onEditorMount={handleEditorMount}
           hideHeader
           hideFooter
-          lineResults={lineResults}
+          lineResults={effectiveLineResults}
         />
+        {showResultsStrip && failedResults.length > 0 && (
+          <div className="vr-results-strip">
+            <div className="vr-results-strip-header">
+              <span className="vr-results-strip-title">
+                Failed Rules ({failedResults.length})
+              </span>
+              <button
+                type="button"
+                className="vr-results-strip-close"
+                onClick={() => setShowResultsStrip(false)}
+                aria-label="Close results"
+              >
+                ×
+              </button>
+            </div>
+            <div className="vr-results-strip-list">
+              {failedResults.map((r, i) => (
+                <div key={i} className="vr-results-strip-entry">
+                  <div
+                    className={`vr-results-strip-item${expandedIndex === i ? ' vr-results-strip-item--expanded' : ''}`}
+                    onClick={() => setExpandedIndex(expandedIndex === i ? null : i)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => { if (e.key === 'Enter') setExpandedIndex(expandedIndex === i ? null : i); }}
+                  >
+                    <span className="vr-results-strip-expand">{expandedIndex === i ? '▾' : '▸'}</span>
+                    <span className="vr-results-strip-line">L{r.lineNumber}</span>
+                    <span className="vr-results-strip-path">{r.expression || r.path || ''}</span>
+                    <span className="vr-results-strip-detail">
+                      {r.expected && <span className="vr-results-strip-expected">Expected: {r.expected}</span>}
+                      {r.actual && <span className="vr-results-strip-actual">Got: {r.actual}</span>}
+                    </span>
+                    <button
+                      type="button"
+                      className="vr-results-strip-goto"
+                      onClick={(e) => { e.stopPropagation(); handleJumpToLine(r.lineNumber); }}
+                      title="Jump to line"
+                      aria-label="Jump to line"
+                    >
+                      ↗
+                    </button>
+                  </div>
+                  {expandedIndex === i && (
+                    <div className="vr-results-strip-debug">
+                      {r.inputData != null && (() => {
+                        const fullJson = JSON.stringify(r.inputData, null, 2);
+                        const isLarge = fullJson.length > 200;
+                        const inputKey = `input-${i}`;
+                        const isInputExpanded = expandedStepKey === inputKey;
+                        return (
+                          <div className="vr-debug-section">
+                            <div
+                              className="vr-debug-section-title vr-debug-section-title--clickable"
+                              onClick={() => setExpandedStepKey(isInputExpanded ? null : inputKey)}
+                              role="button"
+                              tabIndex={0}
+                              onKeyDown={(e) => { if (e.key === 'Enter') setExpandedStepKey(isInputExpanded ? null : inputKey); }}
+                            >
+                              <span>Input Data</span>
+                              <span className="vr-debug-section-toggle">
+                                {isInputExpanded ? '▾ Collapse' : `▸ ${isLarge ? 'Expand full' : 'Show'}`}
+                              </span>
+                            </div>
+                            {!isInputExpanded && isLarge && (
+                              <pre className="vr-debug-json vr-debug-json--preview">{fullJson.slice(0, 150)}…</pre>
+                            )}
+                            {(!isLarge || isInputExpanded) && (
+                              <pre className="vr-debug-json">{fullJson}</pre>
+                            )}
+                          </div>
+                        );
+                      })()}
+                      {r.debugSteps && r.debugSteps.length > 0 && (
+                        <div className="vr-debug-section">
+                          <div className="vr-debug-section-title">Evaluation Steps</div>
+                          <div className="vr-debug-steps">
+                            {r.debugSteps.map((step, si) => {
+                              const stepKey = `${i}-${si}`;
+                              const isStepExpanded = expandedStepKey === stepKey;
+                              const fullValue = step.value !== undefined
+                                ? (typeof step.value === 'object' ? JSON.stringify(step.value, null, 2) : String(step.value))
+                                : step.displayValue;
+                              const isTruncated = fullValue.length > 60;
+                              return (
+                                <div key={si}>
+                                  <div
+                                    className={`vr-debug-step${step.error ? ' vr-debug-step--error' : ''}${isTruncated ? ' vr-debug-step--clickable' : ''}`}
+                                    onClick={isTruncated ? () => setExpandedStepKey(isStepExpanded ? null : stepKey) : undefined}
+                                    role={isTruncated ? 'button' : undefined}
+                                    tabIndex={isTruncated ? 0 : undefined}
+                                    onKeyDown={isTruncated ? (e) => { if (e.key === 'Enter') setExpandedStepKey(isStepExpanded ? null : stepKey); } : undefined}
+                                  >
+                                    <span className="vr-debug-step-num">{si + 1}</span>
+                                    <span className="vr-debug-step-label">{step.label}</span>
+                                    <code className="vr-debug-step-expr">{step.expression}</code>
+                                    <span className="vr-debug-step-arrow">→</span>
+                                    <code className={`vr-debug-step-value${step.error ? ' vr-debug-step-value--err' : ''}`}>
+                                      {step.displayValue}
+                                    </code>
+                                    {isTruncated && <span className="vr-debug-step-toggle">{isStepExpanded ? '▾' : '▸'}</span>}
+                                  </div>
+                                  {isStepExpanded && (
+                                    <pre className="vr-debug-step-full">{fullValue}</pre>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                      {!r.debugSteps && !r.inputData && (
+                        <div className="vr-debug-section">
+                          <div className="vr-debug-no-data">No additional debug information available</div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
       <button
         type="button"

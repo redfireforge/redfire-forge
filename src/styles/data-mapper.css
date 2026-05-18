@@ -216,6 +216,14 @@
   flex: 1;
   overflow: hidden;
   min-height: 0;
+  transition: flex 0.2s ease, min-height 0.2s ease;
+}
+
+.dm-body--collapsed {
+  flex: 0;
+  min-height: 0;
+  max-height: 0;
+  overflow: hidden;
 }
 
 /* ─── Panels ───────────────────────────────────────────────── */
@@ -2835,8 +2843,11 @@ button.dm-mismatch-badge {
 .dm-code-view {
   border-top: 1px solid rgba(137, 180, 250, 0.15);
   background: rgba(0, 0, 0, 0.2);
-  max-height: 220px;
-  overflow-y: auto;
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .dm-code-view-header {
@@ -2848,13 +2859,13 @@ button.dm-mismatch-badge {
 }
 
 .dm-code-view-title {
-  font-size: 0.76rem;
+  font-size: 0.7rem;
   font-weight: 600;
   color: var(--text, #cdd6f4);
 }
 
 .dm-code-view-count {
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   color: var(--text-muted, #6c7086);
   margin-left: auto;
 }
@@ -2870,7 +2881,7 @@ button.dm-mismatch-badge {
   border: none;
   background: transparent;
   color: var(--text-muted, #6c7086);
-  font-size: 0.68rem;
+  font-size: 0.7rem;
   padding: 3px 8px;
   cursor: pointer;
 }
@@ -2884,9 +2895,12 @@ button.dm-mismatch-badge {
   margin: 0;
   padding: 6px 0;
   font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   line-height: 1.5;
   color: var(--text, #cdd6f4);
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
 }
 
 .dm-code-view-line {
@@ -2922,13 +2936,14 @@ button.dm-mismatch-badge {
   letter-spacing: 0.04em;
 }
 .dm-code-view-line--assertion .dm-code-view-line-text {
-  color: var(--accent, #6c8cff);
+  color: var(--lavender, #b4befe);
 }
 
 .dm-code-table-wrap {
   padding: 6px 8px 8px;
   overflow: auto;
-  max-height: 100%;
+  flex: 1;
+  min-height: 0;
 }
 
 .dm-code-table-toolbar {
@@ -2946,7 +2961,7 @@ button.dm-mismatch-badge {
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid color-mix(in srgb, var(--border, #3b3f51) 80%, transparent);
   color: var(--text, #cdd6f4);
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   border-radius: 6px;
   padding: 4px 8px;
 }
@@ -2963,7 +2978,7 @@ button.dm-mismatch-badge {
 
 .dm-code-table-meta {
   margin-left: auto;
-  font-size: 0.68rem;
+  font-size: 0.7rem;
   color: var(--text-muted, #6c7086);
   white-space: nowrap;
 }
@@ -3093,7 +3108,7 @@ button.dm-mismatch-badge {
 }
 
 .dm-code-trace-panel-title {
-  font-size: 0.73rem;
+  font-size: 0.7rem;
   font-weight: 600;
   color: var(--text, #cdd6f4);
 }
@@ -3185,7 +3200,7 @@ button.dm-mismatch-badge {
 }
 .dm-code-table-row--section td {
   font-weight: 600;
-  font-size: 0.78rem;
+  font-size: 0.7rem;
   letter-spacing: 0.03em;
   color: var(--text-secondary, #8b8fa3);
   border-top: 1px solid rgba(137, 180, 250, 0.15);
@@ -3195,16 +3210,18 @@ button.dm-mismatch-badge {
   font-style: italic;
 }
 .dm-code-table-row--assertion td {
-  color: var(--accent, #6c8cff);
+  color: var(--lavender, #b4befe);
+  font-size: inherit;
 }
 .dm-code-table-cell-assertion-type {
   font-weight: 600;
-  font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.04em;
+  color: var(--mauve, #cba6f7);
+  font-size: 0.62rem;
 }
 .dm-code-table-status {
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   font-weight: 500;
 }
 .dm-code-table-status--passed {
@@ -3239,7 +3256,7 @@ button.dm-mismatch-badge {
 }
 .dm-code-assertion-summary tbody td {
   padding: 3px 8px;
-  color: var(--accent, #6c8cff);
+  color: var(--lavender, #b4befe);
 }
 
 .dm-bottom-utility-dock {
@@ -3247,6 +3264,71 @@ button.dm-mismatch-badge {
   background: rgba(0, 0, 0, 0.16);
   flex-shrink: 0;
   max-height: 40%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.dm-dock-resize-bar {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  border-top: 1px solid rgba(137, 180, 250, 0.12);
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.dm-dock-collapse-toggle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 10px;
+  background: none;
+  border: none;
+  border-right: 1px solid rgba(137, 180, 250, 0.1);
+  color: var(--subtext0, #a6adc8);
+  font-size: 0.7rem;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.15s;
+}
+
+.dm-dock-collapse-toggle:hover {
+  color: var(--text, #cdd6f4);
+}
+
+.dm-dock-collapse-arrow {
+  font-size: 8px;
+  display: inline-block;
+  transition: transform 0.2s ease;
+}
+
+.dm-dock-collapse-arrow.down {
+  transform: rotate(180deg);
+}
+
+.dm-dock-resize-handle {
+  flex: 1;
+  height: 18px;
+  cursor: ns-resize;
+  background: transparent;
+  position: relative;
+}
+
+.dm-dock-resize-handle::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 32px;
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(137, 180, 250, 0.2);
+  transition: background 0.15s;
+}
+
+.dm-dock-resize-handle:hover::after {
+  background: rgba(137, 180, 250, 0.5);
 }
 
 .dm-bottom-utility-dock .dm-code-view,
@@ -4989,6 +5071,85 @@ button.dm-mismatch-badge {
   color: var(--red, #f38ba8);
 }
 
+/* ─── Custom Predicates Section (ASSERT rules in Target Panel) ─── */
+
+.dm-custom-predicates-section {
+  margin-top: 8px;
+  border-top: 1px solid color-mix(in srgb, var(--mauve, #cba6f7) 20%, transparent);
+  padding: 8px 12px 4px;
+}
+
+.dm-custom-predicates-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  width: 100%;
+  font: inherit;
+  color: inherit;
+}
+
+.dm-custom-predicates-header:hover {
+  opacity: 0.85;
+}
+
+.dm-custom-predicates-arrow {
+  font-size: 9px;
+  color: var(--subtext0, #a6adc8);
+  transition: transform 0.15s ease;
+  display: inline-block;
+}
+
+.dm-custom-predicates-arrow.expanded {
+  transform: rotate(90deg);
+}
+
+.dm-custom-predicates-icon {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--mauve, #cba6f7);
+  width: 18px;
+  text-align: center;
+}
+
+.dm-custom-predicates-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--subtext0, #a6adc8);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.dm-custom-predicates-count {
+  font-size: 10px;
+  font-weight: 600;
+  background: rgba(203, 166, 247, 0.15);
+  color: var(--mauve, #cba6f7);
+  padding: 1px 6px;
+  border-radius: 8px;
+  min-width: 16px;
+  text-align: center;
+}
+
+.dm-custom-predicates-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dm-custom-predicates-list .dm-array-assertion-row {
+  padding-left: 8px;
+}
+
+.dm-custom-predicates-list .dm-array-assertion-value {
+  font-family: var(--font-mono, 'JetBrains Mono', monospace);
+  font-size: 11px;
+}
+
 /* ─── Validation Code Editor ──────────────────────────── */
 
 .dm-validation-editor {
@@ -5064,6 +5225,19 @@ button.dm-mismatch-badge {
 }
 .dm-verify-glyph--fail {
   background: var(--danger, #ef4444) !important;
+}
+
+/* Inline end-of-line annotations */
+.dm-verify-inline--pass {
+  color: var(--success, #22c55e) !important;
+  font-style: italic;
+  opacity: 0.7;
+  font-size: 11px;
+}
+.dm-verify-inline--fail {
+  color: var(--danger, #ef4444) !important;
+  font-style: italic;
+  font-size: 11px;
 }
 
 .dm-validation-editor-body {
