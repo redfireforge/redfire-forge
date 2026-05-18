@@ -5,7 +5,7 @@ import { getEffectiveBodyType } from '../shared/utils/bodySerializer';
 import { resolveAuthHeaders } from '../shared/utils/authHeaders';
 import { TokenManager } from './tokenManager';
 import { CircuitBreaker } from './circuitBreaker';
-import { runSequential, runBatch, runPool, type RunOpts } from './requestExecution';
+import { runSequential, runBatch, runPool, resetResultIdCounter, clearPrepCache, type RunOpts } from './requestExecution';
 import { runLoadProfile } from './loadProfileRunner';
 import { createThinkTimeDelay } from './thinkTime';
 import { runWorkflow, runWorkflowLoad, runGraphLoad, VariableContext } from '../features/workflow/engine';
@@ -35,12 +35,10 @@ export async function proxyFetch(
 export function buildHeaders(scenario: Scenario, token?: string, contentType?: string | null): Record<string, string> {
   const headers: Record<string, string> = {};
   for (const h of scenario.headers) {
-    if (h.key.trim()) {
-      if (h.key.trim().toLowerCase() === 'authorization' && scenario.auth.type !== 'none') {
-        continue;
-      }
-      headers[h.key.trim()] = h.value;
-    }
+    const key = h.key.trim();
+    if (!key) continue;
+    if (key.toLowerCase() === 'authorization' && scenario.auth.type !== 'none') continue;
+    headers[key] = h.value;
   }
   Object.assign(headers, resolveAuthHeaders(scenario.auth, token));
   const bt = getEffectiveBodyType(scenario);
@@ -82,6 +80,8 @@ export async function runTest(
   /** Resolver for sub-workflow nodes — returns the child workflow by ID. */
   resolveSubWorkflow?: (workflowId: string) => Workflow | undefined,
 ): Promise<TestResult> {
+  resetResultIdCounter();
+  clearPrepCache();
   const tokenManager = new TokenManager();
   const timeoutMs = (config.timeoutSec ?? 0) > 0 ? (config.timeoutSec! * 1000) : undefined;
   const retryCount = config.retryCount ?? 0;

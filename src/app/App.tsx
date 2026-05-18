@@ -3,8 +3,6 @@ import { useConfirmDialog } from './hooks/useConfirmDialog';
 import { useGalleryImport } from './hooks/useGalleryImport';
 import { useWorkbenchActions } from './hooks/useWorkbenchActions';
 import ThemeCustomizer from './ThemeCustomizer';
-import { isCustomThemeId, findSavedTheme } from './themeCustomizerUtils';
-
 import { useWorkflowImportExport } from './hooks/useWorkflowImportExport';
 import { useDerivedViewState } from './hooks/useDerivedViewState';
 import { useHarnessPromotion } from './hooks/useHarnessPromotion';
@@ -13,6 +11,9 @@ import { useCatalogState } from './hooks/useCatalogState';
 import { usePreferencesImport } from './hooks/usePreferencesImport';
 import { useGalleryWorkflowPreviewState } from './hooks/useGalleryWorkflowPreviewState';
 import AppWorkbenchModals from './components/AppWorkbenchModals';
+import AppHeader from './components/AppHeader';
+import AppActivityBar from './components/AppActivityBar';
+import AppSubNav from './components/AppSubNav';
 import { useRerunFailed } from './hooks/useRerunFailed';
 import { useTheme } from './hooks/useTheme';
 import { useProjects } from '../features/scenarios/hooks/useProjects';
@@ -23,7 +24,6 @@ import ScenarioBuilder from '../features/scenarios/ScenarioBuilder';
 import TestRunner from '../features/test-runner/TestRunner';
 import ParameterizedRunner from '../features/test-runner/ParameterizedRunner';
 import WorkflowRunner from '../features/test-runner/WorkflowRunner';
-import MigrationBanner from '../features/test-runner/components/MigrationBanner';
 import ResultsDashboard from '../features/results/ResultsDashboard';
 import Requests from '../features/requests/Requests';
 import type { PreviewRequest } from '../features/requests/Requests';
@@ -37,7 +37,6 @@ import WorkflowDesigner from '../features/workflow/WorkflowDesigner';
 import WorkflowExecutionHistory from '../features/workflow/WorkflowExecutionHistory';
 import WebhookDeliveryLogs from '../features/webhooks/WebhookDeliveryLogs';
 import WorkflowSidebar from '../features/workflow/components/panels/WorkflowSidebar';
-import ServerStatusIndicator from '../features/workflow/components/panels/ServerStatusIndicator';
 import FolderPickerModal from '../features/workflow/components/modals/FolderPickerModal';
 import { GalleryPage } from '../features/gallery/GalleryPage';
 import TrainingTracksView from '../features/training/TrainingTracksView';
@@ -52,14 +51,16 @@ import {
   isApiTab,
   isWorkflowTab,
   isHarnessTab,
-  isGalleryTab,
-  isSettingsTab,
   readTabFromUrl,
   writeTabToUrl,
 } from './utils/appTabUtils';
 import '../styles/index.css';
+import { lazy, Suspense } from 'react';
+import type { ComponentType } from 'react';
 
-declare const __APP_VERSION__: string;
+const RustExecutorTestPanel = import.meta.env.DEV
+  ? lazy(() => import('../features/test-runner/components/RustExecutorTestPanel'))
+  : null;
 
 export default function App() {
   const {
@@ -270,65 +271,23 @@ export default function App() {
 
   return (
     <div className={`app ${sidebarCollapsed ? '' : 'sidebar-visible'}`}>
-      <header ref={headerRef} className="app-header">
-        <h1>🔥 RedfireForge
-          <span style={{ fontSize: '0.4em', fontWeight: 400, opacity: 0.5, marginLeft: '0.6em', verticalAlign: 'middle', background: 'rgba(255,255,255,0.1)', padding: '2px 8px', borderRadius: '10px' }}>v{__APP_VERSION__}</span>
-        </h1>
-        <div className="header-selectors">
-          <div className="header-select-group">
-            <select value={selectedEnvId} onChange={(e) => setSelectedEnvId(e.target.value)}>
-              <option value="">Environment…</option>
-              {environments.map((env) => <option key={env.id} value={env.id}>{env.name}</option>)}
-              {microservices.some(s => (s.customEnvs ?? []).length > 0) && (
-                <optgroup label="Additional">
-                  {microservices.flatMap(s => (s.customEnvs ?? []).map(ce => (
-                    <option key={ce.id} value={ce.id}>{ce.name} ({s.name})</option>
-                  )))}
-                </optgroup>
-              )}
-            </select>
-          </div>
-          <div className="header-select-group">
-            <select value={selectedSvcId} onChange={(e) => setSelectedSvcId(e.target.value)}>
-              <option value="">Service…</option>
-              {microservices.map((svc) => <option key={svc.id} value={svc.id}>{svc.name}</option>)}
-            </select>
-          </div>
-          <div className={`theme-picker${themePickerOpen ? ' open' : ''}`} ref={themePickerRef}>
-            <button className="theme-toggle" onClick={() => setThemePickerOpen(o => !o)}
-              title={`Theme: ${isCustomThemeId(theme) ? (findSavedTheme(theme)?.name ?? 'Custom') : theme}`}>
-              {THEME_ICONS[theme] ?? '🎨'}
-            </button>
-            <div className="theme-dropdown">
-              {THEMES.map(g => (
-                <div key={g.group}>
-                  <div className="theme-dropdown-label">{g.group}</div>
-                  {g.items.map(t => (
-                    <button key={t.id} className={`theme-option${theme === t.id ? ' active' : ''}`}
-                      onClick={() => { setTheme(t.id); setThemePickerOpen(false); }}>
-                      <span className="theme-opt-icon">{t.icon}</span>
-                      {t.label}
-                      <span className="theme-opt-swatch" style={{ background: t.bg }} />
-                    </button>
-                  ))}
-                </div>
-              ))}
-              <div className="theme-dropdown-divider" />
-              {isCustomThemeId(theme) && (
-                <div className="theme-active-custom">
-                  <span className="theme-opt-icon">🎨</span>
-                  {findSavedTheme(theme)?.name ?? 'Custom'}
-                  <span className="theme-active-badge">active</span>
-                </div>
-              )}
-              <button className={`theme-customize-btn${isCustomThemeId(theme) ? ' active' : ''}`}
-                onClick={() => { setThemePickerOpen(false); setShowCustomizer(true); }}>
-                🎨 Customize…
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
+      <AppHeader
+        headerRef={headerRef}
+        environments={environments}
+        microservices={microservices}
+        selectedEnvId={selectedEnvId}
+        setSelectedEnvId={setSelectedEnvId}
+        selectedSvcId={selectedSvcId}
+        setSelectedSvcId={setSelectedSvcId}
+        theme={theme}
+        setTheme={setTheme}
+        themePickerOpen={themePickerOpen}
+        setThemePickerOpen={setThemePickerOpen}
+        themePickerRef={themePickerRef}
+        THEMES={THEMES}
+        THEME_ICONS={THEME_ICONS}
+        setShowCustomizer={setShowCustomizer}
+      />
       {showCustomizer && (
         <ThemeCustomizer
           currentTheme={theme}
@@ -342,49 +301,7 @@ export default function App() {
 
       <div className="app-body">
       {/* ── Activity Bar ── */}
-      <nav className="activity-bar">
-        <button
-          className={`ab-btn ${domainOf(activeTab) === 'api' ? 'active' : ''}`}
-          onClick={() => { if (!isApiTab(activeTab)) setActiveTab('requests'); }}
-          title="API"
-        >
-          <span className="ab-icon">🔌</span>
-          <span className="ab-label">API</span>
-        </button>
-        <button
-          className={`ab-btn ${domainOf(activeTab) === 'workflow' ? 'active' : ''}`}
-          onClick={() => { if (!isWorkflowTab(activeTab)) setActiveTab('workflow'); }}
-          title="Workflow"
-        >
-          <span className="ab-icon">🔧</span>
-          <span className="ab-label">Workflow</span>
-        </button>
-        <button
-          className={`ab-btn ${domainOf(activeTab) === 'testing' ? 'active' : ''}`}
-          onClick={() => { if (!isHarnessTab(activeTab)) setActiveTab('scenarios'); }}
-          title="Harness"
-        >
-          <span className="ab-icon">🏋</span>
-          <span className="ab-label">Harness</span>
-        </button>
-        <button
-          className={`ab-btn ${domainOf(activeTab) === 'gallery' ? 'active' : ''}`}
-          onClick={() => { if (!isGalleryTab(activeTab)) setActiveTab('gallery'); }}
-          title="Gallery"
-        >
-          <span className="ab-icon">🏪</span>
-          <span className="ab-label">Gallery</span>
-        </button>
-        <div className="ab-spacer" />
-        <button
-          className={`ab-btn ${domainOf(activeTab) === 'settings' ? 'active' : ''}`}
-          onClick={() => { if (!isSettingsTab(activeTab)) setActiveTab('environments'); }}
-          title="Settings"
-        >
-          <span className="ab-icon">⚙️</span>
-          <span className="ab-label">Settings</span>
-        </button>
-      </nav>
+      <AppActivityBar activeTab={activeTab} setActiveTab={setActiveTab} />
 
       {/* ── Sidebar (contextual per domain) ── */}
       {!sidebarCollapsed && domainOf(activeTab) !== 'settings' && domainOf(activeTab) !== 'gallery' && (
@@ -522,49 +439,7 @@ export default function App() {
 
         <main className="app-main">
           {/* ── Contextual sub-nav ── */}
-          {!showCatalogImport && (
-          <div className="sub-nav">
-            {domainOf(activeTab) === 'api' && (
-              <div className="sub-nav-tabs">
-                <button className={`sub-nav-tab ${activeTab === 'requests' ? 'active' : ''}`} onClick={() => setActiveTab('requests')}>Requests</button>
-                <button className={`sub-nav-tab ${activeTab === 'catalog' ? 'active' : ''}`} onClick={() => setActiveTab('catalog')}>Catalog</button>
-              </div>
-            )}
-            {domainOf(activeTab) === 'workflow' && (
-              <div className="sub-nav-tabs">
-                <button className={`sub-nav-tab ${activeTab === 'workflow' ? 'active' : ''}`} onClick={() => setActiveTab('workflow')}>Designer</button>
-                <button className={`sub-nav-tab ${activeTab === 'workflow-executions' ? 'active' : ''}`} onClick={() => setActiveTab('workflow-executions')}>Executions</button>
-                <button className={`sub-nav-tab ${activeTab === 'webhook-deliveries' ? 'active' : ''}`} onClick={() => setActiveTab('webhook-deliveries')}>Webhooks</button>
-                <div className="sub-nav-spacer" />
-                <ServerStatusIndicator />
-              </div>
-            )}
-            {domainOf(activeTab) === 'testing' && (
-              <>
-                <div className="sub-nav-tabs">
-                  <button className={`sub-nav-tab ${activeTab === 'scenarios' ? 'active' : ''}`} onClick={() => setActiveTab('scenarios')}>Feature Groups</button>
-                  <button className={`sub-nav-tab ${activeTab === 'runner' ? 'active' : ''}`} onClick={() => setActiveTab('runner')}>Test Runner</button>
-                  <button className={`sub-nav-tab ${activeTab === 'param-runner' ? 'active' : ''}`} onClick={() => setActiveTab('param-runner')}>Parameterized Runner</button>
-                  <button className={`sub-nav-tab ${activeTab === 'workflow-runner' ? 'active' : ''}`} onClick={() => setActiveTab('workflow-runner')}>Workflow Runner</button>
-                  <button className={`sub-nav-tab ${activeTab === 'results' ? 'active' : ''}`} onClick={() => setActiveTab('results')}>Results</button>
-                </div>
-                <MigrationBanner onNavigateToParamRunner={() => setActiveTab('param-runner')} />
-              </>
-            )}
-            {domainOf(activeTab) === 'gallery' && (
-              <div className="sub-nav-tabs">
-                <button className={`sub-nav-tab ${activeTab === 'gallery' ? 'active' : ''}`} onClick={() => setActiveTab('gallery')}>Samples</button>
-                <button className={`sub-nav-tab ${activeTab === 'training' ? 'active' : ''}`} onClick={() => setActiveTab('training')}>Training Tracks</button>
-              </div>
-            )}
-            {domainOf(activeTab) === 'settings' && (
-              <div className="sub-nav-tabs">
-                <button className={`sub-nav-tab ${activeTab === 'environments' ? 'active' : ''}`} onClick={() => setActiveTab('environments')}>Environments</button>
-                <button className={`sub-nav-tab ${activeTab === 'preferences' ? 'active' : ''}`} onClick={() => setActiveTab('preferences')}>Preferences</button>
-              </div>
-            )}
-          </div>
-          )}
+          {!showCatalogImport && <AppSubNav activeTab={activeTab} setActiveTab={setActiveTab} />}
           {/* Keep mounted when hidden so canvas state (per-step initial variables, etc.) survives tab switches; still persisted via Save + storage on refresh. */}
           <div hidden={activeTab !== 'workflow'} className="workflow-designer-mount">
             <WorkflowDesigner
@@ -869,6 +744,36 @@ export default function App() {
         onPick={handleTemplatePickFolder}
       />
 
+      {RustExecutorTestPanel && <RustTestPanelOverlay Panel={RustExecutorTestPanel} />}
+
+    </div>
+  );
+}
+
+/** Dev-only overlay for the Rust executor integration test panel. */
+function RustTestPanelOverlay({ Panel }: { Panel: ComponentType }) {
+  const [show, setShow] = useState(() => new URLSearchParams(window.location.search).has('rust-test'));
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'T') {
+        e.preventDefault();
+        setShow(v => !v);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);
+  if (!show) return null;
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 99999, overflow: 'auto', background: 'var(--background, #0d1117)' }}>
+      <div style={{ position: 'absolute', top: 8, right: 12, zIndex: 1 }}>
+        <button onClick={() => setShow(false)} style={{ background: 'none', border: '1px solid var(--border, #30363d)', color: 'var(--text-muted, #8b949e)', borderRadius: 4, padding: '4px 10px', cursor: 'pointer', fontSize: '12px' }}>
+          Close (Cmd+Shift+T)
+        </button>
+      </div>
+      <Suspense fallback={<div style={{ padding: 20, color: '#8b949e' }}>Loading test panel...</div>}>
+        <Panel />
+      </Suspense>
     </div>
   );
 }

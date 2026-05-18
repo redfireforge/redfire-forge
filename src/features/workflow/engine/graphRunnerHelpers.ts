@@ -16,7 +16,7 @@ import { buildValidationResult } from '../../../engine/validationResult';
 import { resolveScenario } from './resolveScenario';
 import { extractVariables } from './extractVariables';
 import { ensureAbsoluteUrlWithBase } from './absoluteUrl';
-import { v4 as uuidv4 } from 'uuid';
+import { nextResultId, withTimeout } from '../../../engine/requestExecution';
 import { stripTrailingSlash } from '../utils/workflowHostResolve';
 import { escapeRegExp, toErrorMessage } from '../../../shared/utils/helpers';
 
@@ -38,6 +38,27 @@ export function applyTemplateLiteralsFromMap(template: string, flat: Record<stri
   return out;
 }
 
+/**
+ * Pre-compile a single combined regex from all variable names to avoid
+ * O(N) regex compilations per string substitution. Returns a resolver
+ * function that replaces all `{{varName}}` in one pass.
+ */
+export function buildCombinedResolver(flat: Record<string, string>): (template: string) => string {
+  const entries = Object.entries(flat).filter(([k]) => k.trim());
+  if (entries.length === 0) return (t) => t;
+  const pattern = entries.map(([k]) => `\\{\\{\\s*${escapeRegExp(k.trim())}\\s*\\}\\}`).join('|');
+  const re = new RegExp(pattern, 'g');
+  const stripRe = /\{\{\s*|\s*\}\}/g;
+  const lookup = new Map(entries.map(([k, v]) => [k.trim(), v]));
+  return (template: string): string => {
+    if (!template.includes('{{')) return template;
+    return template.replace(re, (match) => {
+      const key = match.replace(stripRe, '');
+      return lookup.get(key) ?? match;
+    });
+  };
+}
+
 /** Coerce workflow / per-step maps so substitution never sees `undefined`. */
 export function coerceStringMap(source: Record<string, string> | undefined): Record<string, string> {
   const out: Record<string, string> = {};
@@ -50,9 +71,9 @@ export function coerceStringMap(source: Record<string, string> | undefined): Rec
   return out;
 }
 
-export function applyTemplateLiteralsToScenario(scenario: Scenario, flat: Record<string, string>): Scenario {
+export function applyTemplateLiteralsToScenario(scenario: Scenario, flat: Record<string, string>, resolver?: (t: string) => string): Scenario {
   if (Object.keys(flat).length === 0) return scenario;
-  const p = (s: string) => applyTemplateLiteralsFromMap(s, flat);
+  const p = resolver ?? ((s: string) => applyTemplateLiteralsFromMap(s, flat));
   return {
     ...scenario,
     url: p(scenario.url),
@@ -144,6 +165,7 @@ export async function executeHttpNode(
   workflowDefaults: Record<string, string>,
   resolveHttpBaseUrl?: (data: HttpNodeData) => string | undefined,
   resolveHttpAuth?: (data: HttpNodeData) => Scenario['auth'] | undefined,
+  timeoutMs?: number,
 ): Promise<{ requestResult: RequestResult; extracted: Record<string, string>; fullResponseBody: string; requestHeaders: Record<string, string>; requestBody: string; responseHeaders: Record<string, string> }> {
   const wfVars = coerceStringMap(workflowDefaults);
   const perStepVars = coerceStringMap(data.initialVariables);
@@ -168,7 +190,8 @@ export async function executeHttpNode(
     ...stepCtx.snapshot(),
     ...perStepVars,
   };
-  const afterLiterals = applyTemplateLiteralsToScenario(resolved, flatLiterals);
+  const resolve = buildCombinedResolver(flatLiterals);
+  const afterLiterals = applyTemplateLiteralsToScenario(resolved, flatLiterals, resolve);
   const resolvedAbs: Scenario = {
     ...afterLiterals,
     url: ensureAbsoluteUrlWithBase(afterLiterals.url, stepCtx),
@@ -178,7 +201,7 @@ export async function executeHttpNode(
   const headers = buildHeaders(resolvedAbs, token, contentType);
   let url = buildUrl(resolvedAbs);
   if (url.includes('{{')) {
-    url = applyTemplateLiteralsFromMap(url, flatLiterals);
+    url = resolve(url);
   }
 
   const start = performance.now();
@@ -189,14 +212,24 @@ export async function executeHttpNode(
   let errorMessage: string | undefined;
 
   try {
-    const result = await httpFetch(url, resolvedAbs.method, headers, reqBody);
+    const result = await withTimeout(httpFetch(url, resolvedAbs.method, headers, reqBody), timeoutMs ?? 0);
     if (result.error) {
       errorMessage = result.error;
     } else {
       httpStatus = result.status;
       responseBody = result.body;
       responseHeaders = result.headers;
-      try { responseObj = JSON.parse(responseBody); } catch { responseObj = responseBody; }
+      const isHttpError = httpStatus >= 400 || httpStatus === 0;
+      const needsParse = isHttpError
+        || resolvedAbs.validation.mode !== 'none'
+        || (resolvedAbs.validation.assertions?.length ?? 0) > 0
+        || (resolvedAbs.validation.expectedFields?.length ?? 0) > 0
+        || (data.scenario.extractions?.length ?? 0) > 0;
+      if (needsParse && responseBody) {
+        try { responseObj = JSON.parse(responseBody); } catch { responseObj = responseBody; }
+      } else {
+        responseObj = responseBody;
+      }
     }
   } catch (err) {
     errorMessage = toErrorMessage(err);
@@ -226,7 +259,7 @@ export async function executeHttpNode(
   if (!extracted.httpStatus) extracted = { ...extracted, httpStatus: statusStr };
 
   const requestResult: RequestResult = {
-    id: uuidv4(),
+    id: nextResultId(),
     scenarioId: data.scenario.id,
     scenarioName: data.scenario.name || data.label,
     featureGroupName: data.scenario.featureGroupName,

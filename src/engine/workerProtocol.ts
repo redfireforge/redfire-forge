@@ -5,7 +5,7 @@ import type { Workflow } from '../features/workflow/types/workflow';
 
 /** Messages sent from the main thread to the execution worker. */
 export type MainToWorkerMessage =
-  | { type: 'start'; config: TestConfig; scenarios: Scenario[]; useTauriProxy: boolean; workflow?: Workflow }
+  | { type: 'start'; config: TestConfig; scenarios: Scenario[]; useTauriProxy: boolean; workflow?: Workflow; workerIndex?: number; totalWorkers?: number }
   | { type: 'abort' }
   | { type: 'http-response'; id: string; response: HttpResponse };
 

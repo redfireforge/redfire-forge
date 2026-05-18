@@ -10,8 +10,11 @@ describe('Semaphore', () => {
     });
 
     it('throws if maxConcurrent is less than 1', () => {
-      expect(() => new Semaphore(0)).toThrow('must be at least 1');
       expect(() => new Semaphore(-1)).toThrow('must be at least 1');
+    });
+
+    it('throws when maxConcurrent is 0', () => {
+      expect(() => new Semaphore(0)).toThrow('Semaphore maxConcurrent must be at least 1');
     });
   });
 
