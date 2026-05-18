@@ -1,6 +1,8 @@
-import { useState, useCallback, useEffect, useRef, type MouseEvent, type ReactNode } from 'react';
+import { useState, useCallback, useEffect, useRef, useMemo, type MouseEvent, type ReactNode } from 'react';
+import { SWAGGER_METHOD_COLORS } from '../../../shared/constants/httpMethodColors';
 import type { CatalogEndpoint, CatalogServer, HostConfig, CatalogResponse, CatalogParameter, SavedEndpointValues, CatalogEnvironment } from '../types/catalog';
 import type { AuthConfig, Microservice } from '../../../shared/types';
+import type { EndpointCoverage } from '../utils/coverageChecker';
 import { generateStubJson } from '../utils/schemaStubGenerator';
 import { prettyJson } from '../../../shared/utils/helpers';
 import { buildCatalogCurlCommand, buildCatalogCurlSingleLine, buildDefaultCurlCommand, resolveBaseUrl, buildFullUrl } from '../utils/catalogCurlGenerator';
@@ -17,18 +19,19 @@ interface Props {
   onValuesChange?: (vals: SavedEndpointValues) => void;
   environments?: CatalogEnvironment[];
   linkedMicroservice?: Microservice;
+  onExportSingle?: (endpoint: CatalogEndpoint, savedValues?: SavedEndpointValues) => void;
+  onSendToHarness?: (endpoint: CatalogEndpoint, fromTryItOut?: boolean) => void;
+  coverage?: EndpointCoverage;
+  onNavigateToRequest?: (collectionId: string, requestId: string) => void;
 }
 
-const MC: Record<string, string> = {
-  GET: '#49cc90', POST: '#fca130', PUT: '#61affe', PATCH: '#50e3c2', DELETE: '#f93e3e',
-};
 const MBG: Record<string, string> = {
   GET: 'rgba(73,204,144,0.1)', POST: 'rgba(252,161,48,0.1)',
   PUT: 'rgba(97,175,254,0.1)', PATCH: 'rgba(80,227,194,0.1)',
   DELETE: 'rgba(249,62,62,0.1)',
 };
 
-export default function CatalogEndpointCard({ endpoint, servers, hostConfig, auth, savedValues, onValuesChange, environments, linkedMicroservice }: Props) {
+export default function CatalogEndpointCard({ endpoint, servers, hostConfig, auth, savedValues, onValuesChange, environments, linkedMicroservice, onExportSingle, onSendToHarness, coverage, onNavigateToRequest }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [tryItOpen, setTryItOpen] = useState(false);
   const [paramValues, setParamValues] = useState<Record<string, string>>(() => savedValues?.params ?? {});
@@ -45,6 +48,7 @@ export default function CatalogEndpointCard({ endpoint, servers, hostConfig, aut
   const [curlMultiline, setCurlMultiline] = useState(true);
   const [copied, setCopied] = useState(false);
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number } | null>(null);
+  const [showCoveragePopover, setShowCoveragePopover] = useState(false);
 
   const valuesChanged = useRef(false);
   useEffect(() => {
@@ -69,6 +73,18 @@ export default function CatalogEndpointCard({ endpoint, servers, hostConfig, aut
     valuesChanged.current = true;
     setBodyText(val);
   }, []);
+
+  const hostWarning = useMemo(() => {
+    if (hostConfig.strategy !== 'inherited') return null;
+    const base = resolveBaseUrl(hostConfig, servers, environments, linkedMicroservice);
+    if (!base) return 'No server URL configured. Switch to "Custom URL" mode and enter a valid base URL.';
+    try {
+      const host = new URL(base).hostname;
+      if (/\bexample\.(com|org|net)\b/i.test(host) || host === 'localhost' || host.endsWith('.invalid') || host.endsWith('.test') || host.endsWith('.local'))
+        return `Server URL "${host}" from the spec is likely a placeholder. Switch to "Custom URL" or "Environment" mode to use your real server.`;
+    } catch { /* ignore parse errors */ }
+    return null;
+  }, [hostConfig, servers, environments, linkedMicroservice]);
 
   const jsonCT = endpoint.requestBody?.contentTypes.find(ct => ct.mediaType.includes('json'));
   const hasBody = !!(endpoint.requestBody && jsonCT);
@@ -143,7 +159,7 @@ export default function CatalogEndpointCard({ endpoint, servers, hostConfig, aut
   }, [endpoint, hostConfig, servers, auth, environments, linkedMicroservice, copy]);
 
   const hasSec = endpoint.security && endpoint.security.length > 0;
-  const color = MC[endpoint.method] ?? '#888';
+  const color = SWAGGER_METHOD_COLORS[endpoint.method] ?? '#888';
 
   return (
     <div className="sw-card" style={{ borderColor: color }}>
@@ -155,10 +171,48 @@ export default function CatalogEndpointCard({ endpoint, servers, hostConfig, aut
         <span className="sw-method" style={{ background: color }}>{endpoint.method}</span>
         <span className="sw-path">{endpoint.path}</span>
         <span className="sw-summary">{endpoint.summary}</span>
+        {coverage?.exported && (
+          <span className="sw-coverage-badge"
+            title={`Exported to Requests (${coverage.count})`}
+            role="button"
+            tabIndex={0}
+            onClick={(e) => { e.stopPropagation(); setShowCoveragePopover(v => !v); }}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); e.preventDefault(); setShowCoveragePopover(v => !v); } }}>
+            IN REQUESTS{coverage.count > 1 ? ` (${coverage.count})` : ''}
+          </span>
+        )}
         {endpoint.deprecated && <span className="sw-deprecated">deprecated</span>}
         {hasSec && <span className="sw-lock">🔒</span>}
         <span className={`sw-chevron ${expanded ? 'open' : ''}`}>&#9662;</span>
       </div>
+
+      {/* ── COVERAGE POPOVER ────────────────────────── */}
+      {showCoveragePopover && coverage?.locations && coverage.locations.length > 0 && (
+        <div className="sw-coverage-popover">
+          <div className="sw-coverage-popover-header">
+            <span>Exported to {coverage.count} request{coverage.count > 1 ? 's' : ''}</span>
+            <button className="sw-coverage-popover-close" onClick={() => setShowCoveragePopover(false)}>&times;</button>
+          </div>
+          <div className="sw-coverage-popover-list">
+            {coverage.locations.map(loc => (
+              <button
+                key={`${loc.collectionId}-${loc.requestId}`}
+                className="sw-coverage-popover-item"
+                onClick={() => {
+                  if (onNavigateToRequest) {
+                    onNavigateToRequest(loc.collectionId, loc.requestId);
+                    setShowCoveragePopover(false);
+                  }
+                }}
+                title={loc.folderPath}
+              >
+                <span className="sw-coverage-popover-path">{loc.folderPath}</span>
+                <span className="sw-coverage-popover-arrow">→</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* ── CONTEXT MENU ─────────────────────────── */}
       {ctxMenu && (
@@ -220,6 +274,11 @@ export default function CatalogEndpointCard({ endpoint, servers, hostConfig, aut
             </div>
           )}
 
+          {/* ── HOST WARNING ─────────────────────── */}
+          {tryItOpen && hostWarning && (
+            <div className="sw-host-warning">{hostWarning}</div>
+          )}
+
           {/* ── EXECUTE BAR ───────────────────────── */}
           {tryItOpen && (
             <div className="sw-exec-bar">
@@ -230,6 +289,20 @@ export default function CatalogEndpointCard({ endpoint, servers, hostConfig, aut
               <button className="sw-curl-btn" onClick={() => setShowCurl(v => !v)}>
                 {showCurl ? 'Hide cURL' : 'cURL'}
               </button>
+              {onExportSingle && (
+                <button className="sw-export-btn" onClick={() => onExportSingle(endpoint, {
+                  params: paramValues,
+                  headers: headerValues,
+                  body: bodyText,
+                })}>
+                  Export to Requests
+                </button>
+              )}
+              {onSendToHarness && (
+                <button className="sw-export-btn" style={{ borderColor: '#6c63ff44', color: '#6c63ff' }} onClick={() => onSendToHarness(endpoint)}>
+                  Send to Harness
+                </button>
+              )}
               <span className="sw-auth-status">
                 {auth.type === 'none' ? '⚠ No auth' :
                  auth.type === 'oauth2' ? (auth.tokenUrl ? `🔒 OAuth2 (${auth.clientId?.slice(0, 8) ?? '?'}…)` : '⚠ OAuth2 not configured') :
@@ -270,7 +343,9 @@ export default function CatalogEndpointCard({ endpoint, servers, hostConfig, aut
                   <div className="sw-error-message">{liveResponse.error}</div>
                   <div className="sw-error-hint">
                     {liveResponse.error.includes('ENOTFOUND') || liveResponse.error.includes('ECONNREFUSED')
-                      ? 'The server could not be reached. Check the hostname and ensure you are connected to the correct network/VPN.'
+                      ? hostConfig.strategy === 'inherited'
+                        ? 'The spec server URL is unreachable. Switch to "Custom URL" or "Environment" mode in the host bar above to use a real server.'
+                        : 'The server could not be reached. Check the hostname and ensure you are connected to the correct network/VPN.'
                       : liveResponse.error.includes('CERT') || liveResponse.error.includes('SSL') || liveResponse.error.includes('certificate')
                         ? 'SSL/TLS certificate error. The server may use a self-signed or corporate certificate.'
                         : liveResponse.error.includes('CORS') || liveResponse.error.includes('Failed to fetch')
@@ -309,6 +384,17 @@ export default function CatalogEndpointCard({ endpoint, servers, hostConfig, aut
                       )}
                     </div>
                   </div>
+                </div>
+              )}
+              {!liveResponse.error && onSendToHarness && liveResponse.status >= 200 && liveResponse.status < 300 && (
+                <div style={{ marginTop: 8, textAlign: 'right' }}>
+                  <button
+                    className="sw-export-btn"
+                    style={{ borderColor: '#6c63ff44', color: '#6c63ff' }}
+                    onClick={() => onSendToHarness(endpoint, true)}
+                  >
+                    Save as Test
+                  </button>
                 </div>
               )}
             </div>

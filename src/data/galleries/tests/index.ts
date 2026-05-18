@@ -1,5 +1,5 @@
 /**
- * Tests Gallery — 8 pre-built test scenario samples.
+ * Tests Gallery — 20 pre-built test scenario samples.
  */
 
 import type { TestSampleEntry } from './types';
@@ -12,6 +12,7 @@ import {
   createAuthFlowTest,
   createEcommerceFullSuiteTest,
   createMultiApiLoadTest,
+  createCatalogExportDemoTest,
 } from './presets';
 import {
   createUserLookupSweepTest,
@@ -154,6 +155,20 @@ export const testSampleCatalog: TestSampleEntry[] = [
     scenarioCount: 5,
     assertionTypes: ['status', 'responseTime'],
     factory: createMultiApiLoadTest,
+  },
+  {
+    id: 'test-catalog-export-demo',
+    domain: 'tests',
+    name: 'Catalog Export Demo',
+    description: 'Demonstrates tests created via "Send to Harness" — POST with schema-generated body, GET with query params, PUT update',
+    icon: '🚀',
+    category: 'smoke',
+    difficulty: 'easy',
+    tags: ['catalog', 'export', 'harness', 'schema-body', 'post', 'query-params'],
+    liveApis: ['dummyjson.com'],
+    scenarioCount: 3,
+    assertionTypes: ['status', 'numeric', 'arrayLength', 'regex'],
+    factory: createCatalogExportDemoTest,
   },
 
   // ── Parameterized (Data-Driven) ───────────────────────

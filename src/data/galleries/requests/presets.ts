@@ -252,3 +252,22 @@ export function createEchoHeadersScenario(): Scenario {
     },
   });
 }
+
+// ─── 13. Multi-Env Product Lookup (Easy) ─────────────────────────────────────
+
+export function createMultiEnvProductLookupScenario(): Scenario {
+  return scenario({
+    id: 'req-multi-env-product',
+    name: 'Multi-Env Product Lookup',
+    url: 'https://dummyjson.com/products/search?q=laptop&limit=3',
+    method: 'GET',
+    validation: {
+      mode: 'full',
+      assertions: [
+        { type: 'status', expected: '200' },
+        { type: 'arrayLength', jsonPath: '$.products', operator: '>=', value: 1 },
+        { type: 'numeric', jsonPath: '$.total', operator: '>=', value: 1 },
+      ],
+    },
+  });
+}

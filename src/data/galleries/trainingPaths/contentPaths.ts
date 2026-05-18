@@ -484,6 +484,24 @@ export const contentPaths: TrainingPath[] = [
           },
         ],
       },
+      {
+        id: 4,
+        name: 'Export & Environments',
+        manuals: [
+          {
+            title: 'Send to Harness',
+            description: 'Direct export from Catalog to Test Harness — schema-based body generation, host strategies, and query parameters.',
+            difficulty: 'easy',
+            manualPath: 'catalog/send-to-harness-easy.html',
+          },
+          {
+            title: 'Additional Environments',
+            description: 'Microservice-specific environments — amber visual indicators, creation, and usage across the app.',
+            difficulty: 'easy',
+            manualPath: 'catalog/additional-environments-easy.html',
+          },
+        ],
+      },
     ],
   },
 

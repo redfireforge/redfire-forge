@@ -1004,7 +1004,7 @@ tr:hover td { background: var(--surface-hover); }
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.35);
+  background: transparent;
   backdrop-filter: blur(1px);
 }
 .response-detail-modal.wf-config-modal.modal.ram-modal {
@@ -1217,6 +1217,11 @@ tr:hover td { background: var(--surface-hover); }
 .count-badge-data {
   background: color-mix(in srgb, #5b9cf6 15%, transparent);
   color: #5b9cf6;
+}
+.count-badge-version {
+  background: #6c63ff22;
+  color: #6c63ff;
+  font-weight: 600;
 }
 
 /* 4.2: Expansion summary */
@@ -3270,7 +3275,7 @@ tr:hover td { background: var(--surface-hover); }
 .mwt-modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.55);
+  background: transparent;
   display: flex;
   align-items: center;
   justify-content: center;

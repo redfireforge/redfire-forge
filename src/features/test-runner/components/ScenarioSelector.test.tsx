@@ -460,6 +460,26 @@ describe('ScenarioSelector', () => {
     expect(screen.getByText('Real Scenario')).toBeInTheDocument();
   });
 
+  it('renders spec lineage and multi-version chips on scenario rows', () => {
+    const fgs: FeatureGroup[] = [{
+      id: 'fg1',
+      name: 'Lineage',
+      scenarios: [{
+        id: 'sc-lined',
+        name: 'Traced',
+        tests: [
+          { id: 't1', name: 'A', method: 'GET', url: '/', headers: [], validation: { mode: 'none' }, auth: { type: 'none' }, sourceSpecVersionLabel: '1.0.0' },
+          { id: 't2', name: 'B', method: 'GET', url: '/', headers: [], validation: { mode: 'none' }, auth: { type: 'none' }, sourceSpecVersionLabel: '2.0.0' },
+          { id: 't3', name: 'C', method: 'GET', url: '/', headers: [], validation: { mode: 'none' }, auth: { type: 'none' }, sourceRequestId: 'rq-9' },
+          { id: 't4', name: 'D', method: 'GET', url: '/', headers: [], validation: { mode: 'none' }, auth: { type: 'none' }, sourceRequestId: 'rq-8' },
+        ],
+      }],
+    }];
+    render(<ScenarioSelector {...defaultProps} featureGroups={fgs} />);
+    expect(screen.getByTitle(/Spec versions:/)).toHaveTextContent(/v1\.0\.0/);
+    expect(screen.getByTitle(/2 tests from Requests/)).toHaveTextContent('2');
+  });
+
   describe('kind filter', () => {
     const mixedFgs: FeatureGroup[] = [
       {

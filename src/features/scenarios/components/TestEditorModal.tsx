@@ -693,6 +693,7 @@ export default function TestEditorModal({
                       resolvedBaseUrl,
                     },
                   }}
+                  contextScope={draft.id}
                 />
               )}
 

@@ -38,6 +38,7 @@ export function ParamsEditor({ params, onChange, onInsertVariable, variableHints
   const activeCount = useMemo(() => params.filter((p) => p.key.trim() && p.enabled).length, [params]);
 
   const sourceMap = useMemo(() => buildVariableSourceMap(variableHints), [variableHints]);
+  const showSource = variableHints.length > 0;
 
   const update = useCallback(
     (idx: number, patch: Partial<ParamEntry>) => {
@@ -141,10 +142,10 @@ export function ParamsEditor({ params, onChange, onInsertVariable, variableHints
             </button>
           </div>
 
-          <div className={`params-grid-header ${showDesc ? 'with-desc' : ''}`}>
+          <div className={`params-grid-header ${showDesc ? 'with-desc' : ''} ${!showSource ? 'no-source' : ''}`}>
             <span />
             <span>name</span>
-            <span>source</span>
+            {showSource && <span>source</span>}
             <span>value</span>
             {showDesc && <span>description</span>}
             <span />
@@ -154,7 +155,7 @@ export function ParamsEditor({ params, onChange, onInsertVariable, variableHints
           {params.map((p, i) => {
             const { source, displayValue } = resolveVariableSource(p.value, sourceMap);
             return (
-            <div key={i} className={`params-row ${showDesc ? 'with-desc' : ''} ${!p.enabled ? 'disabled' : ''}`}>
+            <div key={i} className={`params-row ${showDesc ? 'with-desc' : ''} ${!showSource ? 'no-source' : ''} ${!p.enabled ? 'disabled' : ''}`}>
               <span className="params-drag-handle" title="Drag to reorder">⠿</span>
               <input
                 className="params-input"
@@ -163,13 +164,15 @@ export function ParamsEditor({ params, onChange, onInsertVariable, variableHints
                 placeholder="name"
                 disabled={!p.enabled}
               />
-              <input
-                className="params-input params-source-cell"
-                readOnly
-                value={source}
-                title={source}
-                tabIndex={-1}
-              />
+              {showSource && (
+                <input
+                  className="params-input params-source-cell"
+                  readOnly
+                  value={source}
+                  title={source}
+                  tabIndex={-1}
+                />
+              )}
               <div className="params-value-with-insert">
                 <input
                   className="params-input"
