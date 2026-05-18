@@ -319,8 +319,9 @@ mod tests {
     fn concurrency_zero_clamped_to_one() {
         assert_eq!(get_target_concurrency("sustained", 0, 5.0, 60, None, None, None, None), 1);
         assert_eq!(get_target_concurrency("ramp-up", 0, 30.0, 60, Some(60), None, None, None), 1);
-        // spike: max(1) * 3 = 3; elapsed 5.0 is inside default window [18, 30)
-        assert_eq!(get_target_concurrency("spike", 0, 20.0, 60, None, None, None, None), 3);
+        // spike: raw 0*3=0 → spike_c.max(1)=1 inside window [18, 30); baseline max(0,1)=1 outside
+        assert_eq!(get_target_concurrency("spike", 0, 20.0, 60, None, None, None, None), 1);
+        assert_eq!(get_target_concurrency("spike", 0, 5.0, 60, None, None, None, None), 1);
     }
 
     #[test]
@@ -335,6 +336,37 @@ mod tests {
         // elapsed=35.0 is after spike window → baseline=100
         let after = get_target_concurrency("spike", 100, 35.0, 60, None, None, None, None);
         assert_eq!(after, 100);
+    }
+
+    #[test]
+    fn spike_defaults_dur100_max5() {
+        // Match JS test: durationSec=100, maxConcurrency=5
+        // start=floor(100*0.3)=30, dur=ceil(100*0.2)=20, peak=5*3=15
+        // Window is [30, 50)
+        assert_eq!(get_target_concurrency("spike", 5, 10.0, 100, None, None, None, None), 5);
+        assert_eq!(get_target_concurrency("spike", 5, 35.0, 100, None, None, None, None), 15);
+    }
+
+    #[test]
+    fn ramp_up_m1_constant() {
+        // maxConcurrency=1 → ceil(1 + 0*t) = 1 always
+        assert_eq!(get_target_concurrency("ramp-up", 1, 0.0, 60, Some(60), None, None, None), 1);
+        assert_eq!(get_target_concurrency("ramp-up", 1, 30.0, 60, Some(60), None, None, None), 1);
+        assert_eq!(get_target_concurrency("ramp-up", 1, 60.0, 60, Some(60), None, None, None), 1);
+    }
+
+    #[test]
+    fn ramp_up_small_values() {
+        // M=10, ramp=10, t=0.5 → ceil(1 + 9*0.5) = ceil(5.5) = 6
+        assert_eq!(get_target_concurrency("ramp-up", 10, 5.0, 60, Some(10), None, None, None), 6);
+        // M=10, ramp=10, t=0.1 → ceil(1 + 9*0.1) = ceil(1.9) = 2
+        assert_eq!(get_target_concurrency("ramp-up", 10, 1.0, 60, Some(10), None, None, None), 2);
+    }
+
+    #[test]
+    fn ramp_up_duration_zero() {
+        // durationSec=0 with None rampUpSec → ramp=0 → ramp<=0 → return max_c
+        assert_eq!(get_target_concurrency("ramp-up", 100, 0.0, 0, None, None, None, None), 100);
     }
 
     // ── Body Capping ─────────────────────────────────────
