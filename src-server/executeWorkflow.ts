@@ -7,7 +7,6 @@ import { saveExecutionResult } from './file-storage.js';
 import type { ExecutionResult, LogLine } from '../src/shared/types/server-api';
 import type { Workflow, NodeRunStatus } from '../src/features/workflow/types/workflow';
 import type { RequestResult, WorkflowIterationTrace, ExecutionTraceOptions } from '../src/shared/types/index';
-import { getErrorMessage } from '../src/features/test-runner/utils/serverFormatters';
 
 export interface WorkflowExecutionInput {
   executionId: string;
