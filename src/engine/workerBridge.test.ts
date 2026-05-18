@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import type { TestConfig, Scenario, RequestResult, LoadProfileConfig } from '../shared/types';
+import type { TestConfig, LoadProfileConfig } from '../shared/types';
 import type { MainToWorkerMessage, WorkerToMainMessage } from './workerProtocol';
+import { makeScenario as _makeScenario, makeResult as _makeResult, makeConfig as _makeConfig } from '../test-utils/factories';
 
 vi.mock('../shared/utils/platform', () => ({
   isTauri: vi.fn(() => false),
@@ -72,45 +73,14 @@ import { isTauri } from '../shared/utils/platform';
 const mockedHttpFetch = vi.mocked(httpFetch);
 const mockedIsTauri = vi.mocked(isTauri);
 
-function makeConfig(overrides: Partial<TestConfig> = {}): TestConfig {
-  return {
-    concurrency: 2,
-    iterations: 5,
-    scenarioWeights: [],
-    executionMode: 'batch',
-    ...overrides,
-  };
-}
+const makeConfig = (overrides: Partial<TestConfig> = {}) =>
+  _makeConfig({ concurrency: 2, iterations: 5, executionMode: 'batch', scenarioWeights: [], ...overrides });
 
-function makeScenario(id = 's1'): Scenario {
-  return {
-    id,
-    name: `Scenario ${id}`,
-    url: 'http://example.com/api',
-    method: 'GET',
-    headers: [],
-    body: '',
-    auth: { type: 'none' },
-    validation: { mode: 'none' },
-  };
-}
+const makeScenario = (id = 's1') =>
+  _makeScenario({ id, name: `Scenario ${id}` });
 
-function makeResult(id: string, passed = true): RequestResult {
-  return {
-    id,
-    scenarioId: 's1',
-    scenarioName: 'Test',
-    url: 'http://example.com',
-    method: 'GET',
-    httpStatus: passed ? 200 : 500,
-    responseTimeMs: 50,
-    responseBody: '',
-    timestamp: Date.now(),
-    passed,
-    validationMode: 'none',
-    failureDetails: [],
-  };
-}
+const makeResult = (id: string, passed = true) =>
+  _makeResult({ id, passed, httpStatus: passed ? 200 : 500, responseTimeMs: 50, responseBody: '' });
 
 describe('workerBridge — runTestInWorker', () => {
   beforeEach(() => {

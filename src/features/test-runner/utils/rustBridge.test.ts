@@ -1,0 +1,696 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+vi.mock('../../../shared/utils/platform', () => ({
+  isTauri: vi.fn(() => false),
+}));
+
+import {
+  isRustExecutorAvailable,
+  resetAvailabilityCache,
+  abortRustLoadTest,
+  startRustLoadTest,
+  canUseRustExecutor,
+  buildExecutionPlan,
+  prepareRustScenario,
+  mapRustResult,
+  buildExpandedQueue,
+} from './rustBridge';
+import type { RustExecutionResult } from './rustBridge';
+import { isTauri } from '../../../shared/utils/platform';
+import type { Scenario, TestConfig } from '../../../shared/types';
+
+const mockIsTauri = vi.mocked(isTauri);
+
+function makeScenario(overrides: Partial<Scenario> = {}): Scenario {
+  return {
+    id: 'sc-1',
+    name: 'Test Scenario',
+    url: 'https://api.example.com/users',
+    method: 'GET',
+    headers: [{ key: 'X-Custom', value: 'test' }],
+    body: '',
+    auth: { type: 'none' },
+    validation: { mode: 'none' },
+    ...overrides,
+  };
+}
+
+function makeConfig(overrides: Partial<TestConfig> = {}): TestConfig {
+  return {
+    concurrency: 4,
+    iterations: 10,
+    scenarioWeights: [{ scenarioId: 'sc-1', weight: 1 }],
+    executionMode: 'pool',
+    ...overrides,
+  };
+}
+
+function makeRustResult(overrides: Partial<RustExecutionResult> = {}): RustExecutionResult {
+  return {
+    id: 'r-1',
+    scenarioId: 'sc-1',
+    scenarioName: 'Test Scenario',
+    url: 'https://api.example.com/users',
+    method: 'GET',
+    httpStatus: 200,
+    responseTimeMs: 42.5,
+    responseBody: '{"ok":true}',
+    responseHeaders: { 'content-type': 'application/json' },
+    timestamp: Date.now(),
+    requestLog: { headers: { 'X-Custom': 'test' }, body: null },
+    timing: { dnsLookup: 1, tcpConnect: 2, tlsHandshake: 3, ttfb: 30, download: 5, total: 41 },
+    retryCount: 0,
+    ...overrides,
+  };
+}
+
+beforeEach(() => {
+  resetAvailabilityCache();
+  mockIsTauri.mockClear();
+  mockIsTauri.mockReturnValue(false);
+});
+
+/* ── isRustExecutorAvailable ─────────────────────────────────────── */
+
+describe('isRustExecutorAvailable', () => {
+  it('returns false when not in Tauri', async () => {
+    expect(await isRustExecutorAvailable()).toBe(false);
+  });
+
+  it('caches the result on subsequent calls', async () => {
+    await isRustExecutorAvailable();
+    mockIsTauri.mockClear();
+    await isRustExecutorAvailable();
+    expect(mockIsTauri).toHaveBeenCalledTimes(0);
+  });
+
+  it('resets cache with resetAvailabilityCache', async () => {
+    await isRustExecutorAvailable();
+    resetAvailabilityCache();
+    mockIsTauri.mockClear();
+    await isRustExecutorAvailable();
+    expect(mockIsTauri).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns false if Tauri invoke throws', async () => {
+    mockIsTauri.mockReturnValue(true);
+    vi.doMock('@tauri-apps/api/core', () => ({
+      invoke: vi.fn(() => Promise.reject(new Error('not available'))),
+    }));
+    resetAvailabilityCache();
+    const result = await isRustExecutorAvailable();
+    expect(result).toBe(false);
+  });
+});
+
+describe('resetAvailabilityCache', () => {
+  it('allows re-evaluation after reset', async () => {
+    const first = await isRustExecutorAvailable();
+    expect(first).toBe(false);
+
+    resetAvailabilityCache();
+    mockIsTauri.mockClear();
+
+    const second = await isRustExecutorAvailable();
+    expect(second).toBe(false);
+    expect(mockIsTauri).toHaveBeenCalledTimes(1);
+  });
+});
+
+/* ── abortRustLoadTest ───────────────────────────────────────────── */
+
+describe('abortRustLoadTest', () => {
+  it('is a no-op when not in Tauri', async () => {
+    mockIsTauri.mockReturnValue(false);
+    await expect(abortRustLoadTest()).resolves.toBeUndefined();
+  });
+});
+
+/* ── startRustLoadTest ───────────────────────────────────────────── */
+
+describe('startRustLoadTest', () => {
+  it('throws when not in Tauri and no onError', async () => {
+    mockIsTauri.mockReturnValue(false);
+    await expect(startRustLoadTest(
+      { mode: 'pool', scenarios: [], concurrency: 1, timeoutMs: 0, retryCount: 0, retryDelayMs: 0, thinkTime: { type: 'none' }, circuitBreaker: { policy: 'continue' } },
+      () => {},
+      () => {},
+    )).rejects.toThrow('startRustLoadTest called outside Tauri');
+  });
+
+  it('calls onError when not in Tauri and onError provided', async () => {
+    mockIsTauri.mockReturnValue(false);
+    const onError = vi.fn();
+    const result = await startRustLoadTest(
+      { mode: 'pool', scenarios: [], concurrency: 1, timeoutMs: 0, retryCount: 0, retryDelayMs: 0, thinkTime: { type: 'none' }, circuitBreaker: { policy: 'continue' } },
+      () => {},
+      () => {},
+      onError,
+    );
+    expect(onError).toHaveBeenCalledOnce();
+    expect(result.unlisten).toBeTypeOf('function');
+  });
+});
+
+/* ── canUseRustExecutor ──────────────────────────────────────────── */
+
+describe('canUseRustExecutor', () => {
+  it('returns true for pool mode with no OAuth2', () => {
+    const config = makeConfig({ executionMode: 'pool' });
+    const scenarios = [makeScenario()];
+    expect(canUseRustExecutor(config, scenarios)).toBe(true);
+  });
+
+  it('returns true for sequential mode', () => {
+    const config = makeConfig({ executionMode: 'sequential' });
+    expect(canUseRustExecutor(config, [makeScenario()])).toBe(true);
+  });
+
+  it('returns true for batch mode (maps to pool)', () => {
+    const config = makeConfig({ executionMode: 'batch' });
+    expect(canUseRustExecutor(config, [makeScenario()])).toBe(true);
+  });
+
+  it('returns true for load-profile mode', () => {
+    const config = makeConfig({
+      executionMode: 'load-profile',
+      loadProfile: { type: 'sustained', durationSec: 30, maxConcurrency: 10 },
+    });
+    expect(canUseRustExecutor(config, [makeScenario()])).toBe(true);
+  });
+
+  it('returns false for workflow mode', () => {
+    const config = makeConfig({ executionMode: 'workflow' });
+    expect(canUseRustExecutor(config, [makeScenario()])).toBe(false);
+  });
+
+  it('returns false when any scenario has OAuth2', () => {
+    const config = makeConfig();
+    const scenarios = [
+      makeScenario(),
+      makeScenario({ id: 'sc-2', auth: { type: 'oauth2' } }),
+    ];
+    expect(canUseRustExecutor(config, scenarios)).toBe(false);
+  });
+
+  it('returns false when resolveSubWorkflow is provided', () => {
+    const config = makeConfig();
+    expect(canUseRustExecutor(config, [makeScenario()], () => undefined)).toBe(false);
+  });
+
+  it('returns true when auth is basic (not OAuth2)', () => {
+    const scenarios = [makeScenario({ auth: { type: 'basic', username: 'u', password: 'p' } })];
+    expect(canUseRustExecutor(makeConfig(), scenarios)).toBe(true);
+  });
+
+  it('returns true when auth is bearer', () => {
+    const scenarios = [makeScenario({ auth: { type: 'bearer', token: 'tok' } })];
+    expect(canUseRustExecutor(makeConfig(), scenarios)).toBe(true);
+  });
+
+  it('returns true when auth is apikey', () => {
+    const scenarios = [makeScenario({ auth: { type: 'apikey', apiKeyName: 'key', apiKeyValue: 'val', apiKeyIn: 'header' } })];
+    expect(canUseRustExecutor(makeConfig(), scenarios)).toBe(true);
+  });
+});
+
+/* ── prepareRustScenario ─────────────────────────────────────────── */
+
+describe('prepareRustScenario', () => {
+  it('resolves headers and URL for a GET scenario', () => {
+    const scenario = makeScenario();
+    const result = prepareRustScenario(scenario);
+    expect(result.id).toBe('sc-1');
+    expect(result.url).toBe('https://api.example.com/users');
+    expect(result.method).toBe('GET');
+    expect(result.headers['X-Custom']).toBe('test');
+    expect(result.body).toBeNull();
+  });
+
+  it('sets body for POST scenario with JSON body', () => {
+    const scenario = makeScenario({
+      method: 'POST',
+      body: '{"name":"test"}',
+      bodyType: 'json',
+    });
+    const result = prepareRustScenario(scenario);
+    expect(result.body).toBe('{"name":"test"}');
+    expect(result.headers['Content-Type']).toBe('application/json');
+  });
+
+  it('resolves basic auth into Authorization header', () => {
+    const scenario = makeScenario({
+      auth: { type: 'basic', username: 'admin', password: 'secret' },
+    });
+    const result = prepareRustScenario(scenario);
+    const expected = 'Basic ' + btoa('admin:secret');
+    expect(result.headers['Authorization']).toBe(expected);
+  });
+
+  it('resolves bearer auth into Authorization header', () => {
+    const scenario = makeScenario({
+      auth: { type: 'bearer', token: 'my-token' },
+    });
+    const result = prepareRustScenario(scenario);
+    expect(result.headers['Authorization']).toBe('Bearer my-token');
+  });
+
+  it('resolves API key in query param into URL', () => {
+    const scenario = makeScenario({
+      auth: { type: 'apikey', apiKeyName: 'key', apiKeyValue: 'secret123', apiKeyIn: 'query' },
+    });
+    const result = prepareRustScenario(scenario);
+    expect(result.url).toContain('key=secret123');
+  });
+
+  it('resolves API key in header', () => {
+    const scenario = makeScenario({
+      auth: { type: 'apikey', apiKeyName: 'X-Api-Key', apiKeyValue: 'abc', apiKeyIn: 'header' },
+    });
+    const result = prepareRustScenario(scenario);
+    expect(result.headers['X-Api-Key']).toBe('abc');
+  });
+
+  it('preserves data row fields for parameterized scenarios', () => {
+    const scenario = makeScenario({ dataRowId: 'row-5', dataRowLabel: 'Row 5: user=admin' });
+    const result = prepareRustScenario(scenario);
+    expect(result.dataRowId).toBe('row-5');
+    expect(result.dataRowLabel).toBe('Row 5: user=admin');
+  });
+
+  it('sets featureGroupName and groupName', () => {
+    const scenario = makeScenario({ featureGroupName: 'Auth API', groupName: 'Login' });
+    const result = prepareRustScenario(scenario);
+    expect(result.featureGroupName).toBe('Auth API');
+    expect(result.groupName).toBe('Login');
+  });
+
+  it('handles form-urlencoded body', () => {
+    const scenario = makeScenario({
+      method: 'POST',
+      bodyType: 'form-urlencoded',
+      bodyForm: [{ key: 'user', value: 'admin' }, { key: 'pass', value: 'secret' }],
+    });
+    const result = prepareRustScenario(scenario);
+    expect(result.body).toContain('user=admin');
+    expect(result.body).toContain('pass=secret');
+    expect(result.headers['Content-Type']).toBe('application/x-www-form-urlencoded');
+  });
+});
+
+/* ── buildExecutionPlan ──────────────────────────────────────────── */
+
+describe('buildExecutionPlan', () => {
+  it('returns null for workflow mode', () => {
+    const config = makeConfig({ executionMode: 'workflow' });
+    expect(buildExecutionPlan(config, [makeScenario()])).toBeNull();
+  });
+
+  it('builds pool plan for pool mode', () => {
+    const config = makeConfig({ executionMode: 'pool', concurrency: 8 });
+    const plan = buildExecutionPlan(config, [makeScenario()]);
+    expect(plan).not.toBeNull();
+    expect(plan!.mode).toBe('pool');
+    if (plan!.mode === 'pool') {
+      expect(plan!.concurrency).toBe(8);
+      expect(plan!.scenarios.length).toBe(10);
+    }
+  });
+
+  it('maps batch mode to pool', () => {
+    const config = makeConfig({ executionMode: 'batch', concurrency: 5 });
+    const plan = buildExecutionPlan(config, [makeScenario()]);
+    expect(plan!.mode).toBe('pool');
+  });
+
+  it('builds sequential plan', () => {
+    const config = makeConfig({ executionMode: 'sequential' });
+    const plan = buildExecutionPlan(config, [makeScenario()]);
+    expect(plan!.mode).toBe('sequential');
+  });
+
+  it('builds load-profile plan', () => {
+    const config = makeConfig({
+      executionMode: 'load-profile',
+      loadProfile: {
+        type: 'ramp-up',
+        durationSec: 60,
+        maxConcurrency: 20,
+        rampUpSec: 30,
+      },
+    });
+    const plan = buildExecutionPlan(config, [makeScenario()]);
+    expect(plan).not.toBeNull();
+    expect(plan!.mode).toBe('load-profile');
+    if (plan!.mode === 'load-profile') {
+      expect(plan!.durationSec).toBe(60);
+      expect(plan!.concurrency).toBe(20);
+      expect(plan!.profileType).toBe('ramp-up');
+      expect(plan!.rampUpSec).toBe(30);
+    }
+  });
+
+  it('maps think time: none', () => {
+    const config = makeConfig({ thinkTime: { mode: 'none' } });
+    const plan = buildExecutionPlan(config, [makeScenario()])!;
+    expect(plan.thinkTime).toEqual({ type: 'none' });
+  });
+
+  it('maps think time: constant', () => {
+    const config = makeConfig({ thinkTime: { mode: 'constant', constantMs: 500 } });
+    const plan = buildExecutionPlan(config, [makeScenario()])!;
+    expect(plan.thinkTime).toEqual({ type: 'constant', delayMs: 500 });
+  });
+
+  it('maps think time: uniform', () => {
+    const config = makeConfig({ thinkTime: { mode: 'uniform', minMs: 100, maxMs: 500 } });
+    const plan = buildExecutionPlan(config, [makeScenario()])!;
+    expect(plan.thinkTime).toEqual({ type: 'uniform', minMs: 100, maxMs: 500 });
+  });
+
+  it('maps think time: gaussian', () => {
+    const config = makeConfig({ thinkTime: { mode: 'gaussian', meanMs: 200, stdDevMs: 50 } });
+    const plan = buildExecutionPlan(config, [makeScenario()])!;
+    expect(plan.thinkTime).toEqual({ type: 'gaussian', meanMs: 200, stdDevMs: 50 });
+  });
+
+  it('maps circuit breaker: continue', () => {
+    const config = makeConfig({ errorPolicy: 'continue' });
+    const plan = buildExecutionPlan(config, [makeScenario()])!;
+    expect(plan.circuitBreaker).toEqual({ policy: 'continue' });
+  });
+
+  it('maps circuit breaker: stop-first', () => {
+    const config = makeConfig({ errorPolicy: 'stop-first' });
+    const plan = buildExecutionPlan(config, [makeScenario()])!;
+    expect(plan.circuitBreaker).toEqual({ policy: 'stop-first' });
+  });
+
+  it('maps circuit breaker: stop-threshold (converts percent to fraction)', () => {
+    const config = makeConfig({ errorPolicy: 'stop-threshold', maxErrors: 5, maxErrorRate: 25 });
+    const plan = buildExecutionPlan(config, [makeScenario()])!;
+    expect(plan.circuitBreaker).toEqual({
+      policy: 'stop-threshold',
+      maxErrors: 5,
+      maxErrorRate: 0.25,
+      minSampleSize: 10,
+    });
+  });
+
+  it('maps timeout correctly', () => {
+    const config = makeConfig({ timeoutSec: 30 });
+    const plan = buildExecutionPlan(config, [makeScenario()])!;
+    expect(plan.timeoutMs).toBe(30000);
+  });
+
+  it('maps zero timeout to 0', () => {
+    const config = makeConfig({ timeoutSec: 0 });
+    const plan = buildExecutionPlan(config, [makeScenario()])!;
+    expect(plan.timeoutMs).toBe(0);
+  });
+
+  it('maps retry count and delay', () => {
+    const config = makeConfig({ retryCount: 3, retryDelayMs: 2000 });
+    const plan = buildExecutionPlan(config, [makeScenario()])!;
+    expect(plan.retryCount).toBe(3);
+    expect(plan.retryDelayMs).toBe(2000);
+  });
+
+  it('filters scenarios by scenarioWeights', () => {
+    const config = makeConfig({
+      iterations: 5,
+      scenarioWeights: [
+        { scenarioId: 'sc-1', weight: 1 },
+        { scenarioId: 'sc-2', weight: 0 },
+      ],
+    });
+    const scenarios = [makeScenario({ id: 'sc-1' }), makeScenario({ id: 'sc-2' })];
+    const plan = buildExecutionPlan(config, scenarios)!;
+    const ids = plan.scenarios.map((s) => s.id);
+    expect(ids.every((id) => id === 'sc-1')).toBe(true);
+  });
+
+  it('uses all scenarios when no weights have weight > 0', () => {
+    const config = makeConfig({
+      iterations: 3,
+      scenarioWeights: [],
+    });
+    const scenarios = [makeScenario({ id: 'sc-1' }), makeScenario({ id: 'sc-2', name: 'Second' })];
+    const plan = buildExecutionPlan(config, scenarios)!;
+    expect(plan.scenarios.length).toBe(6);
+  });
+
+  it('ensures concurrency is at least 1', () => {
+    const config = makeConfig({ concurrency: 0 });
+    const plan = buildExecutionPlan(config, [makeScenario()])!;
+    if (plan.mode === 'pool') {
+      expect(plan.concurrency).toBeGreaterThanOrEqual(1);
+    }
+  });
+
+  it('propagates scenario weights for load-profile mode', () => {
+    const config = makeConfig({
+      executionMode: 'load-profile',
+      loadProfile: { type: 'sustained', durationSec: 30, maxConcurrency: 10 },
+      scenarioWeights: [
+        { scenarioId: 'sc-1', weight: 3 },
+        { scenarioId: 'sc-2', weight: 1 },
+      ],
+    });
+    const scenarios = [makeScenario({ id: 'sc-1' }), makeScenario({ id: 'sc-2', name: 'Second' })];
+    const plan = buildExecutionPlan(config, scenarios)!;
+    expect(plan.mode).toBe('load-profile');
+    const s1 = plan.scenarios.find((s) => s.id === 'sc-1');
+    const s2 = plan.scenarios.find((s) => s.id === 'sc-2');
+    expect(s1?.weight).toBe(3);
+    expect(s2?.weight).toBe(1);
+  });
+
+  it('handles spike load profile', () => {
+    const config = makeConfig({
+      executionMode: 'load-profile',
+      loadProfile: {
+        type: 'spike',
+        durationSec: 30,
+        maxConcurrency: 10,
+        spikeConcurrency: 50,
+        spikeStartSec: 10,
+        spikeDurationSec: 5,
+      },
+    });
+    const plan = buildExecutionPlan(config, [makeScenario()])!;
+    if (plan.mode === 'load-profile') {
+      expect(plan.profileType).toBe('spike');
+      expect(plan.spikeConcurrency).toBe(50);
+      expect(plan.spikeStartSec).toBe(10);
+      expect(plan.spikeDurationSec).toBe(5);
+    }
+  });
+
+  it('defaults undefined thinkTime to none', () => {
+    const config = makeConfig();
+    delete config.thinkTime;
+    const plan = buildExecutionPlan(config, [makeScenario()])!;
+    expect(plan.thinkTime).toEqual({ type: 'none' });
+  });
+
+  it('defaults undefined errorPolicy to continue', () => {
+    const config = makeConfig();
+    delete config.errorPolicy;
+    const plan = buildExecutionPlan(config, [makeScenario()])!;
+    expect(plan.circuitBreaker).toEqual({ policy: 'continue' });
+  });
+});
+
+/* ── buildExpandedQueue ──────────────────────────────────────────── */
+
+describe('buildExpandedQueue', () => {
+  it('builds correct queue size for single scenario', () => {
+    const config = makeConfig({ iterations: 5 });
+    const queue = buildExpandedQueue(config, [makeScenario()]);
+    expect(queue.length).toBe(5);
+  });
+
+  it('filters by scenario weights', () => {
+    const config = makeConfig({
+      iterations: 3,
+      scenarioWeights: [
+        { scenarioId: 'sc-1', weight: 1 },
+        { scenarioId: 'sc-2', weight: 0 },
+      ],
+    });
+    const scenarios = [makeScenario(), makeScenario({ id: 'sc-2' })];
+    const queue = buildExpandedQueue(config, scenarios);
+    expect(queue.every((s) => s.id === 'sc-1')).toBe(true);
+  });
+
+  it('includes all scenarios when weights are empty', () => {
+    const config = makeConfig({ iterations: 2, scenarioWeights: [] });
+    const scenarios = [makeScenario(), makeScenario({ id: 'sc-2', name: 'Second' })];
+    const queue = buildExpandedQueue(config, scenarios);
+    expect(queue.length).toBe(4);
+  });
+
+  it('returns empty queue for 0 iterations', () => {
+    const config = makeConfig({ iterations: 0 });
+    const queue = buildExpandedQueue(config, [makeScenario()]);
+    expect(queue.length).toBe(0);
+  });
+});
+
+/* ── mapRustResult ───────────────────────────────────────────────── */
+
+describe('mapRustResult', () => {
+  it('maps a successful result with no validation', () => {
+    const scenario = makeScenario();
+    const rustResult = makeRustResult();
+    const result = mapRustResult(rustResult, scenario);
+
+    expect(result.id).toBe('r-1');
+    expect(result.scenarioId).toBe('sc-1');
+    expect(result.httpStatus).toBe(200);
+    expect(result.responseTimeMs).toBe(42.5);
+    expect(result.passed).toBe(true);
+    expect(result.validationMode).toBe('none');
+    expect(result.failureDetails).toEqual([]);
+    expect(result.timing).toEqual(rustResult.timing);
+  });
+
+  it('maps a failed HTTP result (status 500)', () => {
+    const scenario = makeScenario();
+    const rustResult = makeRustResult({
+      httpStatus: 500,
+      responseBody: '{"error":"Internal Server Error"}',
+    });
+    const result = mapRustResult(rustResult, scenario);
+
+    expect(result.passed).toBe(false);
+    expect(result.failureDetails.length).toBeGreaterThan(0);
+    expect(result.failureDetails[0].path).toBe('(http)');
+  });
+
+  it('maps a network error (status 0)', () => {
+    const scenario = makeScenario();
+    const rustResult = makeRustResult({
+      httpStatus: 0,
+      responseBody: '',
+      errorMessage: 'Connection refused',
+    });
+    const result = mapRustResult(rustResult, scenario);
+
+    expect(result.passed).toBe(false);
+    expect(result.errorMessage).toContain('Connection refused');
+  });
+
+  it('applies JSON validation when scenario has full validation mode', () => {
+    const scenario = makeScenario({
+      validation: { mode: 'full', expectedJson: '{"ok":true}' },
+    });
+    const rustResult = makeRustResult({ responseBody: '{"ok":true}' });
+    const result = mapRustResult(rustResult, scenario);
+    expect(result.passed).toBe(true);
+    expect(result.validationMode).toBe('full');
+  });
+
+  it('detects validation failure when expected JSON does not match', () => {
+    const scenario = makeScenario({
+      validation: { mode: 'full', expectedJson: '{"ok":false}' },
+    });
+    const rustResult = makeRustResult({ responseBody: '{"ok":true}' });
+    const result = mapRustResult(rustResult, scenario);
+    expect(result.passed).toBe(false);
+    expect(result.validationMode).toBe('full');
+    expect(result.failureDetails.length).toBeGreaterThan(0);
+  });
+
+  it('preserves timing breakdown', () => {
+    const timing = { dnsLookup: 5, tcpConnect: 10, tlsHandshake: 15, ttfb: 50, download: 8, total: 88 };
+    const rustResult = makeRustResult({ timing });
+    const result = mapRustResult(rustResult, makeScenario());
+    expect(result.timing).toEqual(timing);
+  });
+
+  it('preserves request log', () => {
+    const requestLog = { headers: { 'X-Test': 'val' }, body: '{"req":1}' };
+    const rustResult = makeRustResult({ requestLog });
+    const result = mapRustResult(rustResult, makeScenario());
+    expect(result.requestLog).toEqual({ headers: { 'X-Test': 'val' }, body: '{"req":1}' });
+  });
+
+  it('converts null requestLog.body to undefined', () => {
+    const rustResult = makeRustResult({ requestLog: { headers: {}, body: null } });
+    const result = mapRustResult(rustResult, makeScenario());
+    expect(result.requestLog?.body).toBeUndefined();
+  });
+
+  it('converts null optional fields to undefined', () => {
+    const rustResult = makeRustResult({
+      featureGroupName: null,
+      groupName: null,
+      errorMessage: null,
+      dataRowId: null,
+      dataRowLabel: null,
+    });
+    const result = mapRustResult(rustResult, makeScenario());
+    expect(result.featureGroupName).toBeUndefined();
+    expect(result.groupName).toBeUndefined();
+    expect(result.dataRowId).toBeUndefined();
+    expect(result.dataRowLabel).toBeUndefined();
+  });
+
+  it('preserves data row fields', () => {
+    const rustResult = makeRustResult({ dataRowId: 'row-3', dataRowLabel: 'Row 3: VIN=123' });
+    const result = mapRustResult(rustResult, makeScenario());
+    expect(result.dataRowId).toBe('row-3');
+    expect(result.dataRowLabel).toBe('Row 3: VIN=123');
+  });
+
+  it('appends retry count info to error message when retries > 0 and failed', () => {
+    const scenario = makeScenario();
+    const rustResult = makeRustResult({
+      httpStatus: 0,
+      responseBody: '',
+      errorMessage: 'timeout',
+      retryCount: 2,
+    });
+    const result = mapRustResult(rustResult, scenario);
+    expect(result.errorMessage).toContain('3 attempts');
+  });
+
+  it('does not append retry info when retries > 0 but result passed', () => {
+    const scenario = makeScenario();
+    const rustResult = makeRustResult({ retryCount: 1, httpStatus: 200 });
+    const result = mapRustResult(rustResult, scenario);
+    expect(result.errorMessage).toBeUndefined();
+  });
+
+  it('extracts error message from JSON response body for HTTP failures', () => {
+    const rustResult = makeRustResult({
+      httpStatus: 422,
+      responseBody: '{"message":"Validation failed"}',
+      errorMessage: null,
+    });
+    const result = mapRustResult(rustResult, makeScenario());
+    expect(result.errorMessage).toContain('Validation failed');
+  });
+
+  it('falls back to truncated body when no standard error field', () => {
+    const rustResult = makeRustResult({
+      httpStatus: 503,
+      responseBody: 'Service Unavailable - please try again later',
+      errorMessage: null,
+    });
+    const result = mapRustResult(rustResult, makeScenario());
+    expect(result.errorMessage).toContain('Service Unavailable');
+  });
+
+  it('handles non-JSON response body for error extraction', () => {
+    const rustResult = makeRustResult({
+      httpStatus: 502,
+      responseBody: '<html>Bad Gateway</html>',
+      errorMessage: null,
+    });
+    const result = mapRustResult(rustResult, makeScenario());
+    expect(result.errorMessage).toContain('Bad Gateway');
+  });
+});
