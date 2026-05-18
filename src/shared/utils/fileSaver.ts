@@ -118,6 +118,18 @@ export async function saveCsvFile(content: string, filename: string): Promise<vo
   await saveFile(blob, { filename, mimeType: 'text/csv', description: 'CSV file' });
 }
 
+export async function savePngFile(dataUrl: string, filename: string): Promise<void> {
+  const res = await fetch(dataUrl);
+  const blob = await res.blob();
+  await saveFile(blob, { filename, mimeType: 'image/png', description: 'PNG image' });
+}
+
+export async function saveSvgFile(dataUrl: string, filename: string): Promise<void> {
+  const decoded = decodeURIComponent(dataUrl.split(',')[1] || '');
+  const blob = new Blob([decoded], { type: 'image/svg+xml' });
+  await saveFile(blob, { filename, mimeType: 'image/svg+xml', description: 'SVG image' });
+}
+
 export async function openJsonFile(): Promise<{ name: string; content: string } | null> {
   if (!isTauri()) return null;
   const { open } = await import('@tauri-apps/plugin-dialog');

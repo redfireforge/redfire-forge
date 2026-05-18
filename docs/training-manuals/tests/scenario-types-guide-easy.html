@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Scenario Types Guide — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .badge-standard { background: #d1ecf1; color: #0c5460; }
+  .badge-param { background: #e8d5f5; color: #6f42c1; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warning { background: #fff3cd; border-left-color: #ffc107; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  .type-card {
+    border: 2px solid #dee2e6; border-radius: 12px; padding: 20px;
+    margin: 16px 0; background: #fff;
+  }
+  .type-card h3 {
+    display: flex; align-items: center; gap: 10px;
+    margin: 0 0 12px 0; color: #1d3557;
+  }
+  .type-card .icon { font-size: 28px; }
+  .type-card.standard { border-color: #457b9d; }
+  .type-card.parameterized { border-color: #6f42c1; }
+  .step-box {
+    background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px;
+    padding: 16px; margin: 12px 0;
+  }
+  .step-box h4 { color: #1d3557; margin-bottom: 8px; font-size: 14px; }
+  .step-number {
+    display: inline-block; width: 24px; height: 24px; background: #e63946;
+    color: #fff; border-radius: 50%; text-align: center; line-height: 24px;
+    font-weight: 600; font-size: 12px; margin-right: 8px;
+  }
+  </style>
+</head>
+<body>
+
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">🏷️</div>
+    <h1>Scenario Types Guide</h1>
+    <div class="subtitle">Standard vs Parameterized Scenarios — Training Manual</div>
+    <p><span class="badge badge-easy">Easy ★☆☆</span> · Testing · Organization</p>
+    <div class="meta">RedfireForge v0.5.8</div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <h2>1. Learning Objectives</h2>
+  <p>By the end of this manual, you will be able to:</p>
+  <ul>
+    <li>Understand the two scenario types (Standard and Parameterized)</li>
+    <li>Know why scenarios are typed and how it prevents confusion</li>
+    <li>Create scenarios of each type</li>
+    <li>Understand the Feature Group summary badges</li>
+    <li>Know the rules for moving and copying tests between scenarios</li>
+  </ul>
+
+  <h2>2. Why Scenario Types?</h2>
+  <p>RedfireForge enforces scenario types to prevent confusion about how tests execute. Standard and parameterized tests have fundamentally different execution models:</p>
+
+  <table>
+    <tr><th>Aspect</th><th>Standard Test</th><th>Parameterized Test</th></tr>
+    <tr>
+      <td>Input</td>
+      <td>Fixed URL, headers, body</td>
+      <td>URL/headers/body use <code>{{column}}</code> placeholders from data rows</td>
+    </tr>
+    <tr>
+      <td>5 iterations</td>
+      <td>5 identical requests</td>
+      <td>5 × (number of <strong>enabled</strong> data rows) requests</td>
+    </tr>
+    <tr>
+      <td>Results</td>
+      <td>Per-request metrics</td>
+      <td>Per-row metrics with data context</td>
+    </tr>
+    <tr>
+      <td>Runner</td>
+      <td>Test Runner</td>
+      <td>Parameterized Runner</td>
+    </tr>
+  </table>
+
+  <p>Mixing these in one scenario would make "iterations" ambiguous — does it mean repeats per-test or repeats per-row? Typed scenarios eliminate this confusion by design.</p>
+
+  <h2>3. The Two Scenario Types</h2>
+
+  <div class="type-card standard">
+    <h3><span class="icon">🏃</span> Standard Scenario</h3>
+    <p><strong>Contains:</strong> Regular HTTP tests without data sources</p>
+    <p><strong>Runs in:</strong> Test Runner tab</p>
+    <p><strong>Badge:</strong> No badge (default type)</p>
+    <p><strong>Execution:</strong> Each test runs <code>iterations</code> times</p>
+    <p><strong>Example:</strong> "Smoke Test" scenario with GET /users, GET /products, GET /orders</p>
+  </div>
+
+  <div class="type-card parameterized">
+    <h3><span class="icon">📊</span> Parameterized Scenario <span class="badge badge-param">PARAM</span></h3>
+    <p><strong>Contains:</strong> Tests with CSV/Excel/JSON data sources</p>
+    <p><strong>Runs in:</strong> Parameterized Runner tab</p>
+    <p><strong>Badge:</strong> <span class="badge badge-param">PARAM</span> badge on the scenario header</p>
+    <p><strong>Execution:</strong> Each test runs <code>iterations × enabled rows</code> times</p>
+    <p><strong>Example:</strong> "User Sweep" scenario with GET /users/{{userId}} driven by 100 user IDs from CSV</p>
+  </div>
+
+  <h2>4. Creating a Scenario</h2>
+
+  <div class="step-box">
+    <h4><span class="step-number">1</span> Navigate to Feature Groups</h4>
+    <p>Click <strong>Testing</strong> in the Activity Bar, then select <strong>Feature Groups</strong>.</p>
+  </div>
+
+  <div class="step-box">
+    <h4><span class="step-number">2</span> Add a Scenario</h4>
+    <p>Open a Feature Group and click <strong>+ Add Scenario</strong>. You'll see two radio buttons:</p>
+    <ul>
+      <li><strong>Standard</strong> — for regular tests (no data sources)</li>
+      <li><strong>Parameterized</strong> — for data-driven tests (with data sources)</li>
+    </ul>
+    <p>Choose the type and enter a name.</p>
+  </div>
+
+  <div class="step-box">
+    <h4><span class="step-number">3</span> Add Tests</h4>
+    <p>The available actions depend on the scenario type:</p>
+    <table>
+      <tr><th>Action</th><th>Standard</th><th>Parameterized</th></tr>
+      <tr><td>Add Test</td><td>✅</td><td>✅ (with data source tab)</td></tr>
+      <tr><td>Add Data Source</td><td>❌</td><td>✅</td></tr>
+      <tr><td>Parameterize tab</td><td>Hidden</td><td>Visible</td></tr>
+    </table>
+  </div>
+
+  <h2>5. Feature Group Summary</h2>
+  <p>Each Feature Group header shows a breakdown of its scenarios:</p>
+  <pre>My Feature Group    3 scenarios (2S · 1P)    8 tests</pre>
+  <p>Where <strong>S</strong> = Standard and <strong>P</strong> = Parameterized. Hover for a tooltip showing the full count.</p>
+
+  <h2>6. Moving and Copying Tests</h2>
+  <p>When you move or copy a test between scenarios, the target must be the <strong>same type</strong>:</p>
+
+  <table>
+    <tr><th>Source Scenario</th><th>Valid Targets</th></tr>
+    <tr>
+      <td>Standard</td>
+      <td>Other Standard scenarios only</td>
+    </tr>
+    <tr>
+      <td>Parameterized</td>
+      <td>Other Parameterized scenarios only</td>
+    </tr>
+  </table>
+
+  <p>The Move and Copy modals automatically filter the target dropdown to show only matching scenario types.</p>
+
+  <div class="callout callout-warning">
+    <strong>⚠️ Cannot Change Scenario Type After Creation</strong>
+    Once a scenario is created as Standard or Parameterized, its type cannot be changed. To convert tests from one type to another, use the <strong>Create Parameterized Copy</strong> feature (available in Standard scenarios) or create a new scenario of the desired type and copy tests individually.
+  </div>
+
+  <h2>7. Automatic Migration</h2>
+  <p>If you upgraded from a version before scenario types were introduced, RedfireForge automatically migrates your existing scenarios:</p>
+  <ul>
+    <li>Scenarios with <strong>only standard tests</strong> → set to Standard type</li>
+    <li>Scenarios with <strong>only parameterized tests</strong> → set to Parameterized type</li>
+    <li>Scenarios with <strong>mixed tests</strong> → automatically split into two scenarios (one Standard, one Parameterized with " (Parameterized)" suffix)</li>
+  </ul>
+  <p>A one-time migration banner appears at the top of the page to inform you about any splits.</p>
+
+  <h2>8. Quick Reference</h2>
+
+  <table>
+    <tr><th>Question</th><th>Answer</th></tr>
+    <tr>
+      <td>Does my test use data sources?</td>
+      <td><strong>Yes</strong> → Parameterized scenario<br><strong>No</strong> → Standard scenario</td>
+    </tr>
+    <tr>
+      <td>Which runner shows my scenario?</td>
+      <td>Standard → Test Runner<br>Parameterized → Parameterized Runner</td>
+    </tr>
+    <tr>
+      <td>Can I have both types in one Feature Group?</td>
+      <td>Yes! Feature Groups can contain both Standard and Parameterized scenarios.</td>
+    </tr>
+    <tr>
+      <td>Can I move a parameterized test to a standard scenario?</td>
+      <td>No. The move/copy modals only show matching types.</td>
+    </tr>
+  </table>
+
+  <h2>9. Related Manuals</h2>
+  <ul>
+    <li><strong>Test Runner Guide</strong> — Running standard scenarios</li>
+    <li><strong>Parameterized Runner Guide</strong> — Running parameterized scenarios</li>
+    <li><strong>Runner Comparison</strong> — When to use each runner</li>
+    <li><strong>Parameterized Testing Basics</strong> — Data sources, column types</li>
+    <li><strong>Create Parameterized Copy</strong> — Convert a standard test to parameterized</li>
+  </ul>
+
+  <footer>
+    RedfireForge Training Manual · Scenario Types Guide · Easy ★☆☆
+  </footer>
+
+</body>
+</html>

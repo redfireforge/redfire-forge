@@ -1,15 +1,19 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import type { Node, Edge } from '@xyflow/react';
-import type { RequestCollection, Environment, Microservice, FeatureGroup, GlobalAuthProfile } from '../shared/types';
-import type { CatalogEntry, SavedEndpointValues } from '../features/catalog/types/catalog';
-import { buildCatalogExport } from '../features/catalog/utils/catalogExport';
+import { useConfirmDialog } from './hooks/useConfirmDialog';
 import { useGalleryImport } from './hooks/useGalleryImport';
-import { findFolderDeep } from '../features/requests/utils/requestTree';
-import ThemeCustomizer, { isCustomThemeId, findSavedTheme } from './ThemeCustomizer';
-import { loadCatalogEndpointValues, loadPreviewSampleId, savePreviewSampleId } from '../shared/utils/storage';
-import { saveFile } from '../shared/utils/fileSaver';
-import { mergeById } from '../shared/utils/helpers';
+import { useWorkbenchActions } from './hooks/useWorkbenchActions';
+import ThemeCustomizer from './ThemeCustomizer';
+import { isCustomThemeId, findSavedTheme } from './themeCustomizerUtils';
+
 import { useWorkflowImportExport } from './hooks/useWorkflowImportExport';
+import { useDerivedViewState } from './hooks/useDerivedViewState';
+import { useHarnessPromotion } from './hooks/useHarnessPromotion';
+import { useCatalogExport } from './hooks/useCatalogExport';
+import { useCatalogState } from './hooks/useCatalogState';
+import { usePreferencesImport } from './hooks/usePreferencesImport';
+import { useGalleryWorkflowPreviewState } from './hooks/useGalleryWorkflowPreviewState';
+import AppWorkbenchModals from './components/AppWorkbenchModals';
+import { useRerunFailed } from './hooks/useRerunFailed';
 import { useTheme } from './hooks/useTheme';
 import { useProjects } from '../features/scenarios/hooks/useProjects';
 import { useRequests } from '../features/requests/hooks/useRequests';
@@ -17,17 +21,14 @@ import { useCatalog } from '../features/catalog/hooks/useCatalog';
 import { useSidebarResize } from './hooks/useSidebarResize';
 import ScenarioBuilder from '../features/scenarios/ScenarioBuilder';
 import TestRunner from '../features/test-runner/TestRunner';
+import ParameterizedRunner from '../features/test-runner/ParameterizedRunner';
+import WorkflowRunner from '../features/test-runner/WorkflowRunner';
+import MigrationBanner from '../features/test-runner/components/MigrationBanner';
 import ResultsDashboard from '../features/results/ResultsDashboard';
 import Requests from '../features/requests/Requests';
 import type { PreviewRequest } from '../features/requests/Requests';
 import ApiCatalog from '../features/catalog/ApiCatalog';
 import CatalogSidebar from '../features/catalog/components/CatalogSidebar';
-import CatalogImportModal from '../features/catalog/components/CatalogImportModal';
-import CatalogVersionHistory from '../features/catalog/components/CatalogVersionHistory';
-import CatalogEditModal from '../features/catalog/components/CatalogEditModal';
-import CatalogSendToRequestsModal from '../features/catalog/components/CatalogSendToRequestsModal';
-import type { SendToRequestsPayload } from '../features/catalog/components/CatalogSendToRequestsModal';
-
 import Sidebar from './Sidebar';
 import RequestsSidebar from '../features/requests/components/RequestsSidebar';
 import SettingsPage from '../features/settings/SettingsModal';
@@ -37,73 +38,26 @@ import WorkflowExecutionHistory from '../features/workflow/WorkflowExecutionHist
 import WebhookDeliveryLogs from '../features/webhooks/WebhookDeliveryLogs';
 import WorkflowSidebar from '../features/workflow/components/panels/WorkflowSidebar';
 import ServerStatusIndicator from '../features/workflow/components/panels/ServerStatusIndicator';
+import FolderPickerModal from '../features/workflow/components/modals/FolderPickerModal';
 import { GalleryPage } from '../features/gallery/GalleryPage';
-// WorkflowRequestsSettingsModal removed — replaced by WorkflowServiceRegistryModal in WorkflowDesigner
+import TrainingTracksView from '../features/training/TrainingTracksView';
 import { useWorkflows } from '../features/workflow/hooks/useWorkflows';
-import { sampleWorkflowCatalog } from '../data/galleries/workflows';
-import { getAutoLayoutNodes } from '../features/workflow/utils/workflowAutoLayout';
-import type { Workflow } from '../features/workflow/types/workflow';
+import { useWorkflowFolders } from '../features/workflow/hooks/useWorkflowFolders';
 import RequestCollectionModal from '../features/requests/components/RequestCollectionModal';
 import SubCollectionModal from '../features/requests/components/SubCollectionModal';
 import { useToast } from '../shared/hooks/useToast';
+import {
+  type Tab,
+  domainOf,
+  isApiTab,
+  isWorkflowTab,
+  isHarnessTab,
+  isGalleryTab,
+  isSettingsTab,
+  readTabFromUrl,
+  writeTabToUrl,
+} from './utils/appTabUtils';
 import '../styles/index.css';
-
-type Tab = 'environments' | 'preferences' | 'requests' | 'catalog' | 'workflow' | 'workflow-executions' | 'webhook-deliveries' | 'gallery' | 'scenarios' | 'runner' | 'results';
-
-type Domain = 'api' | 'workflow' | 'testing' | 'gallery' | 'settings';
-
-const HARNESS_TABS = new Set<Tab>(['scenarios', 'runner', 'results']);
-const isHarnessTab = (t: Tab) => HARNESS_TABS.has(t);
-const WORKFLOW_TABS = new Set<Tab>(['workflow', 'workflow-executions', 'webhook-deliveries']);
-const isWorkflowTab = (t: Tab) => WORKFLOW_TABS.has(t);
-const GALLERY_TABS = new Set<Tab>(['gallery']);
-const isGalleryTab = (t: Tab) => GALLERY_TABS.has(t);
-const API_TABS = new Set<Tab>(['requests', 'catalog']);
-const isApiTab = (t: Tab) => API_TABS.has(t);
-const SETTINGS_TABS = new Set<Tab>(['environments', 'preferences']);
-const isSettingsTab = (t: Tab) => SETTINGS_TABS.has(t);
-
-/** Derive the active domain from the current tab. */
-function domainOf(tab: Tab): Domain {
-  if (isApiTab(tab)) return 'api';
-  if (isWorkflowTab(tab)) return 'workflow';
-  if (isGalleryTab(tab)) return 'gallery';
-  if (isHarnessTab(tab)) return 'testing';
-  return 'settings'; // environments
-}
-
-const ALL_TABS = new Set<Tab>(['environments', 'preferences', 'requests', 'catalog', 'workflow', 'workflow-executions', 'webhook-deliveries', 'gallery', 'scenarios', 'runner', 'results']);
-const TAB_QUERY = 'tab';
-const DEFAULT_TAB: Tab = 'requests';
-
-/** Read active tab from ?tab= so refresh keeps Environments / Workflow / Harness / etc. */
-function readTabFromUrl(): Tab {
-  try {
-    const q = new URLSearchParams(window.location.search).get(TAB_QUERY);
-    if (q && ALL_TABS.has(q as Tab)) return q as Tab;
-  } catch {
-    /* ignore */
-  }
-  return DEFAULT_TAB;
-}
-
-function writeTabToUrl(tab: Tab): void {
-  try {
-    const url = new URL(window.location.href);
-    if (tab === DEFAULT_TAB) {
-      url.searchParams.delete(TAB_QUERY);
-    } else {
-      url.searchParams.set(TAB_QUERY, tab);
-    }
-    const serialized = url.pathname + (url.search ? url.search : '') + url.hash;
-    const current = window.location.pathname + window.location.search + window.location.hash;
-    if (serialized !== current) {
-      window.history.replaceState(window.history.state, '', serialized);
-    }
-  } catch {
-    /* ignore */
-  }
-}
 
 declare const __APP_VERSION__: string;
 
@@ -114,73 +68,126 @@ export default function App() {
     microservices, setMicroservices,
     featureGroups, setFeatureGroups,
     appGlobalAuthProfiles, setAppGlobalAuthProfiles,
+    sharedDataSources, setSharedDataSources,
     selectedEnvId, setSelectedEnvId,
     selectedSvcId, setSelectedSvcId,
     moveScenario, moveTest,
     initialTheme, initialTestRuns,
   } = useProjects();
 
+  const [sidebarView, setSidebarView] = useState<'env' | 'svc'>('env');
+
   const wb = useRequests();
   const catalog = useCatalog();
   const wfHook = useWorkflows();
+  const {
+    previewWorkflow,
+    setPreviewWorkflow,
+    pendingTemplateImport,
+    setPendingTemplateImport,
+    handleTemplatePickFolder,
+    handleUseWorkflowAsTemplate,
+    clearPreviewWorkflow,
+  } = useGalleryWorkflowPreviewState(wfHook);
+  const wfFolders = useWorkflowFolders();
   const { theme, setTheme, showCustomizer, setShowCustomizer, themePickerOpen, setThemePickerOpen, themePickerRef, reapplyTheme, THEMES, THEME_ICONS } = useTheme();
   const toast = useToast();
   const { handleWorkflowExport, handleWorkflowImport } = useWorkflowImportExport({
     wfHook, setActiveTab: (t) => setActiveTab(t as Tab), showToast: toast.show,
   });
-
   // ---- App shell state ----
   const [activeTab, setActiveTab] = useState<Tab>(() => readTabFromUrl());
+  const { handleImportData } = usePreferencesImport({
+    setEnvironments,
+    setMicroservices,
+    setFeatureGroups,
+    setAppGlobalAuthProfiles,
+    setActiveTab,
+  });
+  const [resultsRunTypeFilter, setResultsRunTypeFilter] = useState<'all' | 'test' | 'workflow' | undefined>();
+  const [workflowRunnerInitialId, setWorkflowRunnerInitialId] = useState<string | null>(null);
 
   const { sidebarWidth, sidebarCollapsed, setSidebarCollapsed, handleResizeStart } = useSidebarResize();
 
-  const [confirmAction, setConfirmAction] = useState<{ message: string; onConfirm: () => void } | null>(null);
-  const [showWbCollectionModal, setShowWbCollectionModal] = useState(false);
-  const [editingWbCollection, setEditingWbCollection] = useState<RequestCollection | null>(null);
-  const [editingSubCol, setEditingSubCol] = useState<{ colId: string; folderId: string } | null>(null);
-  const [showCatalogImport, setShowCatalogImport] = useState(false);
-  const [catalogReimportId, setCatalogReimportId] = useState<string | undefined>();
-  const [catalogInitialSpec, setCatalogInitialSpec] = useState<{ yaml: string; name: string } | undefined>();
-  const [catalogVersionHistoryId, setCatalogVersionHistoryId] = useState<string | undefined>();
-  const [previewWorkflow, setPreviewWorkflow] = useState<Workflow | null>(() => {
-    const savedId = loadPreviewSampleId();
-    if (!savedId) return null;
-    const entry = sampleWorkflowCatalog.find(e => e.id === savedId);
-    if (!entry) return null;
-    const sample = entry.factory();
-    const laidOut = getAutoLayoutNodes(sample.nodes as unknown as Node[], sample.edges as unknown as Edge[], 'TB');
-    return { ...sample, nodes: laidOut as unknown as typeof sample.nodes };
+  const handleCompleteToResults = (runType?: 'test' | 'workflow') => {
+    setResultsRunTypeFilter(runType);
+    setActiveTab('results');
+  };
+
+  const handleRunInHarness = (workflowId: string) => {
+    setWorkflowRunnerInitialId(workflowId);
+    setActiveTab('workflow-runner');
+  };
+
+  const { confirm, confirmDialogElement } = useConfirmDialog();
+  const wbActions = useWorkbenchActions({ wb, activeTab, setActiveTab: (t) => setActiveTab(t as Tab) });
+  const {
+    showWbCollectionModal, setShowWbCollectionModal,
+    editingWbCollection, setEditingWbCollection,
+    editingSubCol, setEditingSubCol,
+    newColMode, setNewColMode, setNewColGroupId, subColForEdit,
+    handleWbNewCollection, handleWbEditCollection, handleWbSaveCollection,
+    handleWbNewRequest, handleEditSubCollection,
+  } = wbActions;
+  const {
+    showSendToHarness,
+    setShowSendToHarness,
+    batchHarnessTarget,
+    setBatchHarnessTarget,
+    catalogHarnessEndpoint,
+    setCatalogHarnessEndpoint,
+    pendingEditTest,
+    setPendingEditTest,
+    handleSendToHarnessConfirm,
+    handleBatchSendToHarnessConfirm,
+    harnessPromotionContext,
+    catalogHarnessPromotionCtx,
+  } = useHarnessPromotion({
+    wb,
+    featureGroups,
+    setFeatureGroups,
+    selectedEnvId,
+    selectedSvcId,
+    setSelectedEnvId,
+    setSelectedSvcId,
+    appGlobalAuthProfiles,
+    microservices,
+    environments,
+    toast,
+    setActiveTab,
   });
+  const {
+    sendToReqEntry,
+    setSendToReqEntry,
+    sendToReqEpValues,
+    sendToReqSingleEndpoint,
+    setSendToReqSingleEndpoint,
+    inlineExportEpValues,
+    handleSendToRequests,
+    handleExportSingleEndpoint,
+    handleSendToReqConfirm,
+    handleInlineExportConfirm,
+  } = useCatalogExport({ wb, catalog, setActiveTab });
+  const {
+    showCatalogImport,
+    setShowCatalogImport,
+    catalogReimportId,
+    setCatalogReimportId,
+    catalogInitialSpec,
+    setCatalogInitialSpec,
+    catalogVersionHistoryId,
+    setCatalogVersionHistoryId,
+    catalogEditId,
+    setCatalogEditId,
+    handleExportSpec,
+  } = useCatalogState(catalog);
   const [previewRequest, setPreviewRequest] = useState<PreviewRequest | null>(null);
-  // Gallery is now a proper tab — no separate modal state needed.
-  const [catalogEditId, setCatalogEditId] = useState<string | undefined>();
-  const [sendToReqEntry, setSendToReqEntry] = useState<CatalogEntry | undefined>();
-  const [sendToReqEpValues, setSendToReqEpValues] = useState<Record<string, SavedEndpointValues>>({});
-
-  useEffect(() => {
-    if (sendToReqEntry) {
-      loadCatalogEndpointValues(sendToReqEntry.id).then(setSendToReqEpValues);
-    } else {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync reset when entry is cleared
-      setSendToReqEpValues({});
-    }
-  }, [sendToReqEntry]);
-
-  const subColForEdit = useMemo(() => {
-    if (!editingSubCol) return null;
-    const col = wb.collections.find(c => c.id === editingSubCol.colId);
-    const folder = col ? findFolderDeep(col.folders ?? [], editingSubCol.folderId) : null;
-    return col && folder ? { col, folder } : null;
-  }, [editingSubCol, wb.collections]);
-
   // ---- Sync theme from loaded data ----
   useEffect(() => {
     if (!loading) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync local state from persisted data on load
       setTheme(initialTheme);
-       
     }
-  }, [loading, initialTheme, initialTestRuns]);
+  }, [loading, initialTheme, initialTestRuns, setTheme]);
 
   // Keep ?tab= in sync so refresh restores Workflow / Catalog / Harness / etc.
   useEffect(() => {
@@ -200,8 +207,6 @@ export default function App() {
     return () => window.removeEventListener('resize', syncHeaderHeight);
   }, [syncHeaderHeight]);
 
-  // ---- Theme ----
-
   // ---- Fix Gallery Samples microservice baseUrls (migration for pre-0.9.1 data) ----
   const galleryFixApplied = useRef(false);
   useEffect(() => {
@@ -218,138 +223,38 @@ export default function App() {
 
   // ---- Derived view state ----
 
-  const selectedEnv = environments.find((e) => e.id === selectedEnvId);
-  const selectedSvc = microservices.find((s) => s.id === selectedSvcId);
-  const resolvedBaseUrl = selectedEnv && selectedSvc ? (selectedSvc.baseUrls[selectedEnv.id] ?? '') : '';
+  const {
+    selectedEnv, selectedSvc, resolvedBaseUrl, isAdditionalEnv,
+    envFallbackAuth, filteredFeatureGroups, unassociatedFeatureGroups,
+  } = useDerivedViewState({
+    environments, microservices, featureGroups,
+    globalAuthProfiles: appGlobalAuthProfiles, selectedEnvId, selectedSvcId,
+  });
 
-  const envAuthProfileId = selectedSvc?.authProfileIds?.[selectedEnvId];
-  const envFallbackAuth = envAuthProfileId
-    ? appGlobalAuthProfiles.find((p) => p.id === envAuthProfileId)?.auth
-    : undefined;
+  const harnessRequestIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const fg of featureGroups) {
+      for (const sc of fg.scenarios) {
+        for (const t of sc.tests) {
+          if (t.sourceRequestId) ids.add(t.sourceRequestId);
+        }
+      }
+    }
+    return ids;
+  }, [featureGroups]);
 
-  const filteredFeatureGroups = (selectedSvcId && selectedEnvId)
-    ? featureGroups.filter((fg) => fg.microserviceId === selectedSvcId && fg.environmentId === selectedEnvId)
-    : selectedSvcId
-      ? featureGroups.filter((fg) => fg.microserviceId === selectedSvcId)
-      : [];
-
-  const svcIds = new Set(microservices.map((s) => s.id));
-  const envIds = new Set(environments.map((e) => e.id));
-  const needsEnvAssignment = selectedSvcId
-    ? featureGroups.filter((fg) => fg.microserviceId === selectedSvcId && !fg.environmentId)
-    : [];
-  const fullyUnassociated = featureGroups.filter((fg) => !fg.microserviceId);
-  const orphanedFGs = featureGroups.filter((fg) =>
-    (fg.microserviceId && !svcIds.has(fg.microserviceId)) ||
-    (fg.environmentId && !envIds.has(fg.environmentId))
-  );
-  const seenIds = new Set([...needsEnvAssignment, ...fullyUnassociated].map((fg) => fg.id));
-  const unassociatedFeatureGroups = [
-    ...needsEnvAssignment,
-    ...fullyUnassociated,
-    ...orphanedFGs.filter((fg) => !seenIds.has(fg.id)),
-  ];
+  const { isRerunning, handleRerunFailed } = useRerunFailed({
+    featureGroups, resolvedBaseUrl, globalAuthProfiles: appGlobalAuthProfiles, envFallbackAuth,
+    onComplete: () => handleCompleteToResults('test'),
+  });
 
   const gallery = useGalleryImport({
-    wb, featureGroups, environments, microservices,
+    wb, featureGroups, environments, microservices, previewWorkflow, workflows: wfHook.workflows,
     setActiveTab, setPreviewRequest, setPreviewWorkflow,
     setCatalogInitialSpec, setShowCatalogImport,
     setFeatureGroups, setEnvironments, setMicroservices,
     setSelectedEnvId, setSelectedSvcId,
   });
-
-  // ---- Helpers ----
-  const confirm = (message: string, onConfirm: () => void) => setConfirmAction({ message, onConfirm });
-
-  const [newColGroupId, setNewColGroupId] = useState<string | undefined>();
-  const [newColMode, setNewColMode] = useState<'direct' | 'multi-env' | undefined>();
-  const handleWbNewCollection = useCallback((mode?: 'direct' | 'multi-env', groupId?: string) => {
-    setNewColMode(mode); setNewColGroupId(groupId);
-    setEditingWbCollection(null); setShowWbCollectionModal(true);
-  }, []);
-  const handleWbEditCollection = useCallback((col: RequestCollection) => {
-    setEditingWbCollection(col); setShowWbCollectionModal(true);
-  }, []);
-  const handleWbSaveCollection = useCallback((col: Omit<RequestCollection, 'id' | 'requests'> & { id?: string }) => {
-    if (col.id) {
-      wb.updateCollection(col.id, { name: col.name, mode: col.mode, microserviceId: col.microserviceId, baseUrls: col.baseUrls, auth: col.auth, authPerEnv: col.authPerEnv });
-    } else {
-      wb.addCollection({ name: col.name, mode: col.mode, groupId: newColGroupId, microserviceId: col.microserviceId, baseUrls: col.baseUrls, auth: col.auth, authPerEnv: col.authPerEnv });
-    }
-    setShowWbCollectionModal(false); setEditingWbCollection(null); setNewColGroupId(undefined); setNewColMode(undefined);
-  }, [wb, newColGroupId]);
-  const handleWbNewRequest = useCallback((colId: string, folderId?: string) => {
-    wb.addRequest(colId, folderId);
-    if (activeTab !== 'requests') setActiveTab('requests');
-  }, [wb, activeTab]);
-  const handleEditSubCollection = useCallback((colId: string, folderId: string) => {
-    setEditingSubCol({ colId, folderId });
-  }, []);
-
-  const handleSendToRequests = useCallback((entry: CatalogEntry) => {
-    setSendToReqEntry(entry);
-  }, []);
-
-  const handleSendToReqConfirm = useCallback((payload: SendToRequestsPayload) => {
-    if (sendToReqEntry) {
-      catalog.updateEntry(sendToReqEntry.id, { customEndpointNames: payload.customNames });
-    }
-
-    let groupId: string | undefined;
-    if (payload.newGroupName) {
-      groupId = wb.addGroup(payload.newGroupName);
-    } else if (payload.targetGroupId) {
-      groupId = payload.targetGroupId;
-    }
-
-    const currentVersion = sendToReqEntry?.versions.find(v => v.id === sendToReqEntry.currentVersionId);
-    const existingWbEnvNames = new Map(wb.environments.map(e => [e.name, e.id]));
-
-    const { collection, newEnvironments } = buildCatalogExport(payload, {
-      servers: sendToReqEntry?.servers ?? [],
-      microserviceId: sendToReqEntry?.microserviceId,
-      versionLabel: currentVersion?.version,
-      existingWbEnvNames,
-      groupId,
-      catalogEntryName: sendToReqEntry?.name,
-    });
-
-    if (newEnvironments.length > 0) wb.addEnvironments(newEnvironments);
-    wb.importCollection(collection);
-    setSendToReqEntry(undefined);
-    setActiveTab('requests');
-  }, [wb, sendToReqEntry, catalog]);
-
-  const handleExportSpec = useCallback(async (entryId: string) => {
-    const entry = catalog.entries.find(e => e.id === entryId);
-    if (!entry) return;
-    const raw = await catalog.loadRawSpec(entryId, entry.currentVersionId);
-    if (!raw) return;
-    const filename = `${entry.name.replace(/[^a-zA-Z0-9_-]/g, '_')}-v${entry.versions[0]?.version ?? 'unknown'}.yaml`;
-    const blob = new Blob([raw], { type: 'text/yaml' });
-    await saveFile(blob, { filename, mimeType: 'text/yaml', description: 'YAML spec' });
-  }, [catalog]);
-
-  const handleImportData = useCallback(async (data: {
-    environments?: Environment[];
-    microservices?: Microservice[];
-    featureGroups?: FeatureGroup[];
-    globalAuthProfiles?: GlobalAuthProfile[];
-  }) => {
-    if (data.environments?.length) {
-      setEnvironments((prev) => mergeById(prev, data.environments!));
-    }
-    if (data.microservices?.length) {
-      setMicroservices((prev) => mergeById(prev, data.microservices!));
-    }
-    if (data.featureGroups?.length) {
-      setFeatureGroups((prev) => [...prev, ...data.featureGroups!]);
-    }
-    if (data.globalAuthProfiles?.length) {
-      setAppGlobalAuthProfiles((prev) => mergeById(prev, data.globalAuthProfiles!));
-    }
-    setActiveTab('environments');
-  }, [setEnvironments, setMicroservices, setFeatureGroups, setAppGlobalAuthProfiles]);
 
   // ---- Loading screen ----
   if (loading) {
@@ -374,6 +279,13 @@ export default function App() {
             <select value={selectedEnvId} onChange={(e) => setSelectedEnvId(e.target.value)}>
               <option value="">Environment…</option>
               {environments.map((env) => <option key={env.id} value={env.id}>{env.name}</option>)}
+              {microservices.some(s => (s.customEnvs ?? []).length > 0) && (
+                <optgroup label="Additional">
+                  {microservices.flatMap(s => (s.customEnvs ?? []).map(ce => (
+                    <option key={ce.id} value={ce.id}>{ce.name} ({s.name})</option>
+                  )))}
+                </optgroup>
+              )}
             </select>
           </div>
           <div className="header-select-group">
@@ -536,6 +448,9 @@ export default function App() {
                 onDeleteGroup={wb.deleteGroup}
                 onMoveToGroup={wb.moveToGroup}
                 onDuplicateGroup={wb.duplicateGroup}
+                onSendCollectionToHarness={(colId) => setBatchHarnessTarget({ colId })}
+                onSendFolderToHarness={(colId, folderId) => setBatchHarnessTarget({ colId, folderId })}
+                harnessRequestIds={harnessRequestIds}
               />
             )}
           </div>
@@ -545,6 +460,8 @@ export default function App() {
             <WorkflowSidebar
               workflows={wfHook.workflows}
               selectedId={wfHook.selectedId}
+              folders={wfFolders.folders}
+              foldersLoaded={wfFolders.loaded}
               onSelect={(id) => { wfHook.select(id); setActiveTab('workflow'); }}
               onNew={(name: string) => {
                 wfHook.create(name); setActiveTab('workflow');
@@ -557,6 +474,20 @@ export default function App() {
               onDuplicate={(id) => { wfHook.duplicate(id); }}
               onExport={handleWorkflowExport}
               onImport={handleWorkflowImport}
+              onToggleFolderCollapse={wfFolders.toggleCollapse}
+              onSetFolderCollapsed={wfFolders.setCollapsed}
+              onCreateFolder={wfFolders.create}
+              onRenameFolder={wfFolders.rename}
+              onDeleteFolder={(id) => wfFolders.remove(id, wfFolders.folders)}
+              onMoveWorkflowToFolder={(wfId, folderId) => {
+                wfHook.update(wfId, { folderId: folderId ?? undefined, folderOrder: Date.now() });
+              }}
+              onMoveWorkflowsToFolder={(wfIds, folderId) => {
+                wfIds.forEach((id) => {
+                  wfHook.update(id, { folderId: folderId ?? undefined, folderOrder: Date.now() });
+                });
+              }}
+              onMoveFolder={wfFolders.move}
             />
           )}
           {isHarnessTab(activeTab) && (
@@ -568,6 +499,8 @@ export default function App() {
               selectedSvcId={selectedSvcId}
               onEnvSelect={setSelectedEnvId}
               onSvcSelect={setSelectedSvcId}
+              sidebarView={sidebarView}
+              onSidebarViewChange={setSidebarView}
             />
           )}
         </div>
@@ -607,10 +540,21 @@ export default function App() {
               </div>
             )}
             {domainOf(activeTab) === 'testing' && (
+              <>
+                <div className="sub-nav-tabs">
+                  <button className={`sub-nav-tab ${activeTab === 'scenarios' ? 'active' : ''}`} onClick={() => setActiveTab('scenarios')}>Feature Groups</button>
+                  <button className={`sub-nav-tab ${activeTab === 'runner' ? 'active' : ''}`} onClick={() => setActiveTab('runner')}>Test Runner</button>
+                  <button className={`sub-nav-tab ${activeTab === 'param-runner' ? 'active' : ''}`} onClick={() => setActiveTab('param-runner')}>Parameterized Runner</button>
+                  <button className={`sub-nav-tab ${activeTab === 'workflow-runner' ? 'active' : ''}`} onClick={() => setActiveTab('workflow-runner')}>Workflow Runner</button>
+                  <button className={`sub-nav-tab ${activeTab === 'results' ? 'active' : ''}`} onClick={() => setActiveTab('results')}>Results</button>
+                </div>
+                <MigrationBanner onNavigateToParamRunner={() => setActiveTab('param-runner')} />
+              </>
+            )}
+            {domainOf(activeTab) === 'gallery' && (
               <div className="sub-nav-tabs">
-                <button className={`sub-nav-tab ${activeTab === 'scenarios' ? 'active' : ''}`} onClick={() => setActiveTab('scenarios')}>Scenarios</button>
-                <button className={`sub-nav-tab ${activeTab === 'runner' ? 'active' : ''}`} onClick={() => setActiveTab('runner')}>Runner</button>
-                <button className={`sub-nav-tab ${activeTab === 'results' ? 'active' : ''}`} onClick={() => setActiveTab('results')}>Results</button>
+                <button className={`sub-nav-tab ${activeTab === 'gallery' ? 'active' : ''}`} onClick={() => setActiveTab('gallery')}>Samples</button>
+                <button className={`sub-nav-tab ${activeTab === 'training' ? 'active' : ''}`} onClick={() => setActiveTab('training')}>Training Tracks</button>
               </div>
             )}
             {domainOf(activeTab) === 'settings' && (
@@ -627,6 +571,7 @@ export default function App() {
               collections={wb.collections}
               catalogEntries={catalog.entries}
               wfHook={wfHook}
+              folders={wfFolders.folders}
               environments={environments}
               microservices={microservices}
               globalAuthProfiles={appGlobalAuthProfiles}
@@ -636,23 +581,9 @@ export default function App() {
               onSvcSelect={setSelectedSvcId}
               resolvedBaseUrl={resolvedBaseUrl}
               previewWorkflow={previewWorkflow}
-              onClearPreview={() => { setPreviewWorkflow(null); savePreviewSampleId(null); }}
-              onUseAsTemplate={(wf) => {
-                const copy = { ...structuredClone(wf), id: crypto.randomUUID(), name: wf.name.replace(/^Sample: /, ''), createdAt: Date.now(), updatedAt: Date.now() };
-                // If this sample has companion workflows (e.g. child sub-workflows), insert them too
-                const catalogEntry = sampleWorkflowCatalog.find(e => e.id === wf.id);
-                if (catalogEntry?.companionFactories) {
-                  for (const cf of catalogEntry.companionFactories) {
-                    const companion = cf();
-                    // Update sub-workflow references in the copy to point to the companion
-                    const companionCopy = { ...structuredClone(companion), id: companion.id, name: companion.name.replace(/^Sample: /, ''), createdAt: Date.now(), updatedAt: Date.now() };
-                    wfHook.insert(companionCopy);
-                  }
-                }
-                wfHook.insert(copy);
-                setPreviewWorkflow(null);
-                savePreviewSampleId(null);
-              }}
+              onClearPreview={clearPreviewWorkflow}
+              onUseAsTemplate={handleUseWorkflowAsTemplate}
+              onRunInHarness={handleRunInHarness}
             />
           </div>
           {activeTab === 'gallery' && (
@@ -664,6 +595,33 @@ export default function App() {
                 onImportCatalog={gallery.onImportCatalog}
                 onImportTest={gallery.onImportTest}
                 onImportWorkflow={gallery.onImportWorkflow}
+                onNavigateTo={gallery.onNavigateTo}
+              />
+            </div>
+          )}
+          {activeTab === 'training' && (
+            <div className="app-tab-pane training-pane">
+              <TrainingTracksView onNavigateToSample={(_sampleId) => setActiveTab('gallery')} />
+            </div>
+          )}
+          {activeTab === 'workflow-runner' && (
+            <div className="app-tab-pane" style={{ display: 'flex', flexDirection: 'column', overflow: 'auto' }}>
+              <WorkflowRunner
+                workflows={wfHook.workflows}
+                folders={wfFolders.folders}
+                onComplete={handleCompleteToResults}
+                initialWorkflowId={workflowRunnerInitialId}
+                onClearInitialWorkflowId={() => setWorkflowRunnerInitialId(null)}
+                resolvedBaseUrl={resolvedBaseUrl}
+                onImportSample={(wf) => {
+                  const existing = wfHook.workflows.find(w => w.id === wf.id);
+                  if (existing) {
+                    wfHook.update(wf.id, { nodes: wf.nodes, edges: wf.edges, variables: wf.variables, name: wf.name, description: wf.description });
+                  } else {
+                    wfHook.insert(wf);
+                  }
+                  return wf.id;
+                }}
               />
             </div>
           )}
@@ -684,6 +642,11 @@ export default function App() {
               microservices={microservices}
               setMicroservices={setMicroservices}
               appGlobalAuthProfiles={appGlobalAuthProfiles}
+              featureGroups={featureGroups}
+              selectedEnvId={selectedEnvId}
+              selectedSvcId={selectedSvcId}
+              setSelectedEnvId={setSelectedEnvId}
+              setSelectedSvcId={setSelectedSvcId}
               confirm={confirm}
             />
           )}
@@ -704,37 +667,75 @@ export default function App() {
             <ScenarioBuilder
               featureGroups={filteredFeatureGroups}
               setFeatureGroups={setFeatureGroups}
+              sharedDataSources={sharedDataSources}
+              setSharedDataSources={setSharedDataSources}
               resolvedBaseUrl={resolvedBaseUrl}
               selectedSvcId={selectedSvcId}
               selectedSvcName={selectedSvc?.name}
               selectedEnvId={selectedEnvId}
               selectedEnvName={selectedEnv?.name}
+              isAdditionalEnv={isAdditionalEnv}
               unassociatedFeatureGroups={unassociatedFeatureGroups}
               microservices={microservices}
               environments={environments}
               globalAuthProfiles={appGlobalAuthProfiles}
               onMoveScenario={moveScenario}
               onMoveTest={moveTest}
+              pendingEditTest={pendingEditTest}
+              onPendingEditConsumed={() => setPendingEditTest(undefined)}
+              onLocateRequest={(requestId) => {
+                for (const col of wb.collections) {
+                  const found = col.requests.find(r => r.id === requestId)
+                    || col.folders?.flatMap(f => f.requests).find(r => r.id === requestId);
+                  if (found) {
+                    wb.selectRequest(col.id, found.id);
+                    setActiveTab('requests');
+                    return;
+                  }
+                }
+                toast.show('warning', 'Source request not found', 'The originating request may have been deleted');
+              }}
             />
           )}
           {/* Keep TestRunner mounted so in-flight tests survive tab switches */}
           <div hidden={activeTab !== 'runner'}>
             <TestRunner
               featureGroups={filteredFeatureGroups}
-              onComplete={() => setActiveTab('results')}
+              onComplete={handleCompleteToResults}
               envName={selectedEnv?.name}
               svcName={selectedSvc?.name}
               envId={selectedEnvId}
               svcId={selectedSvcId}
+              isAdditionalEnv={isAdditionalEnv}
               resolvedBaseUrl={resolvedBaseUrl}
               globalAuthProfiles={appGlobalAuthProfiles}
               envFallbackAuth={envFallbackAuth}
+              sharedDataSources={sharedDataSources}
+            />
+          </div>
+          {/* Keep ParameterizedRunner mounted so in-flight tests survive tab switches */}
+          <div hidden={activeTab !== 'param-runner'}>
+            <ParameterizedRunner
+              featureGroups={filteredFeatureGroups}
+              onComplete={handleCompleteToResults}
+              envName={selectedEnv?.name}
+              svcName={selectedSvc?.name}
+              envId={selectedEnvId}
+              svcId={selectedSvcId}
+              isAdditionalEnv={isAdditionalEnv}
+              resolvedBaseUrl={resolvedBaseUrl}
+              globalAuthProfiles={appGlobalAuthProfiles}
+              envFallbackAuth={envFallbackAuth}
+              sharedDataSources={sharedDataSources}
             />
           </div>
           {activeTab === 'results' && (
             <ResultsDashboard
               envName={selectedEnv?.name}
               svcName={selectedSvc?.name}
+              onRerunFailed={handleRerunFailed}
+              isRerunning={isRerunning}
+              initialRunTypeFilter={resultsRunTypeFilter}
             />
           )}
           <div className="app-tab-pane" style={{ display: activeTab === 'catalog' ? 'flex' : 'none' }}>
@@ -745,10 +746,19 @@ export default function App() {
               onVersionHistory={(entryId) => setCatalogVersionHistoryId(entryId)}
               onExportSpec={handleExportSpec}
               onSendToRequests={handleSendToRequests}
+              onExportSingleEndpoint={handleExportSingleEndpoint}
               onEditEntry={(entryId) => setCatalogEditId(entryId)}
               globalAuthProfiles={appGlobalAuthProfiles}
               appEnvironments={environments}
               appMicroservices={microservices}
+              collections={wb.collections}
+              onNavigateToRequest={(colId, reqId) => { wb.selectRequest(colId, reqId); setActiveTab('requests'); }}
+              savedEpValues={inlineExportEpValues}
+              onExportConfirm={handleInlineExportConfirm}
+              onSendEndpointToHarness={(entry, endpoint, fromTryItOut) => {
+                setCatalogHarnessEndpoint({ entry, endpoint, fromTryItOut });
+                setShowSendToHarness(true);
+              }}
             />
           </div>
           <div className="app-tab-pane" style={{ display: activeTab === 'requests' ? 'flex' : 'none' }}>
@@ -759,11 +769,13 @@ export default function App() {
               appEnvironments={environments}
               previewRequest={previewRequest}
               onClearPreview={() => { setPreviewRequest(null); setActiveTab('gallery'); }}
+              onSendToHarness={() => setShowSendToHarness(true)}
+              harnessRequestIds={harnessRequestIds}
               onImportPreview={() => {
                 if (!previewRequest) return;
                 const req = previewRequest.request;
                 const GALLERY_COL_NAME = 'Gallery Samples';
-                let col = wb.collections.find(c => c.name === GALLERY_COL_NAME);
+                const col = wb.collections.find(c => c.name === GALLERY_COL_NAME);
                 let colId: string;
                 if (col) {
                   colId = col.id;
@@ -784,57 +796,40 @@ export default function App() {
               }}
             />
           </div>
-          {sendToReqEntry && (
-            <CatalogSendToRequestsModal
-              entry={sendToReqEntry}
-              appEnvironments={environments}
-              appMicroservices={microservices}
-              savedEpValues={sendToReqEpValues}
-              collections={wb.collections}
-              onSend={handleSendToReqConfirm}
-              onClose={() => setSendToReqEntry(undefined)}
-            />
-          )}
-
-          {showCatalogImport && (
-            <CatalogImportModal
-              existingEntries={catalog.entries}
-              reimportEntryId={catalogReimportId}
-              initialSpec={catalogInitialSpec}
-              onImport={(entry, rawSpec) => { catalog.addEntry(entry, rawSpec); setActiveTab('catalog'); }}
-              onReimport={(entryId, parsed) => { catalog.addVersionToEntry(entryId, parsed); setActiveTab('catalog'); }}
-              onClose={() => { setShowCatalogImport(false); setCatalogReimportId(undefined); setCatalogInitialSpec(undefined); }}
-            />
-          )}
-
-          {catalogVersionHistoryId && (() => {
-            const vhEntry = catalog.entries.find(e => e.id === catalogVersionHistoryId);
-            if (!vhEntry) return null;
-            return (
-              <CatalogVersionHistory
-                entry={vhEntry}
-                onClose={() => setCatalogVersionHistoryId(undefined)}
-                onSwitchVersion={(versionId) => catalog.switchVersion(catalogVersionHistoryId, versionId)}
-                onReimport={() => { setCatalogReimportId(catalogVersionHistoryId); setShowCatalogImport(true); }}
-                loadRawSpec={catalog.loadRawSpec}
-              />
-            );
-          })()}
-
-          {catalogEditId && (() => {
-            const editEntry = catalog.entries.find(e => e.id === catalogEditId);
-            if (!editEntry) return null;
-            return (
-              <CatalogEditModal
-                entry={editEntry}
-                microservices={microservices}
-                environments={environments}
-                onSave={(patch) => catalog.updateEntry(catalogEditId, patch)}
-                onClose={() => setCatalogEditId(undefined)}
-              />
-            );
-          })()}
-
+          <AppWorkbenchModals
+            catalog={catalog}
+            wb={wb}
+            environments={environments}
+            microservices={microservices}
+            featureGroups={featureGroups}
+            sendToReqEntry={sendToReqEntry}
+            setSendToReqEntry={setSendToReqEntry}
+            sendToReqEpValues={sendToReqEpValues}
+            sendToReqSingleEndpoint={sendToReqSingleEndpoint}
+            setSendToReqSingleEndpoint={setSendToReqSingleEndpoint}
+            handleSendToReqConfirm={handleSendToReqConfirm}
+            showSendToHarness={showSendToHarness}
+            setShowSendToHarness={setShowSendToHarness}
+            catalogHarnessEndpoint={catalogHarnessEndpoint}
+            setCatalogHarnessEndpoint={setCatalogHarnessEndpoint}
+            catalogHarnessPromotionCtx={catalogHarnessPromotionCtx}
+            handleSendToHarnessConfirm={handleSendToHarnessConfirm}
+            harnessPromotionContext={harnessPromotionContext}
+            batchHarnessTarget={batchHarnessTarget}
+            setBatchHarnessTarget={setBatchHarnessTarget}
+            handleBatchSendToHarnessConfirm={handleBatchSendToHarnessConfirm}
+            showCatalogImport={showCatalogImport}
+            catalogReimportId={catalogReimportId}
+            catalogInitialSpec={catalogInitialSpec}
+            setShowCatalogImport={setShowCatalogImport}
+            setCatalogReimportId={setCatalogReimportId}
+            setCatalogInitialSpec={setCatalogInitialSpec}
+            setActiveTab={setActiveTab}
+            catalogVersionHistoryId={catalogVersionHistoryId}
+            setCatalogVersionHistoryId={setCatalogVersionHistoryId}
+            catalogEditId={catalogEditId}
+            setCatalogEditId={setCatalogEditId}
+          />
         </main>
       </div>
 
@@ -864,19 +859,15 @@ export default function App() {
         />
       )}
 
-      {confirmAction && (
-        <div className="confirm-overlay">
-          <div className="confirm-dialog">
-            <div className="confirm-icon">&#9888;</div>
-            <p className="confirm-title">Are you sure?</p>
-            <p className="confirm-message">{confirmAction.message}</p>
-            <div className="confirm-actions">
-              <button className="btn-cancel" onClick={() => setConfirmAction(null)}>Cancel</button>
-              <button className="btn-danger" onClick={() => { confirmAction.onConfirm(); setConfirmAction(null); }}>Delete</button>
-            </div>
-          </div>
-        </div>
-      )}
+      {confirmDialogElement}
+
+      <FolderPickerModal
+        open={pendingTemplateImport !== null}
+        folders={wfFolders.folders}
+        title="Save Template To..."
+        onCancel={() => setPendingTemplateImport(null)}
+        onPick={handleTemplatePickFolder}
+      />
 
     </div>
   );

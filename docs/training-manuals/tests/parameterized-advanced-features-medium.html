@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Advanced Data Source Features — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warn { background: #fff8e1; border-left-color: #f57f17; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">🏷️</div>
+    <h1>Advanced Data Source Features</h1>
+    <div class="subtitle">Tags, Subsets, Bulk Ops &amp; Distribution — Training Manual</div>
+    <p><span class="badge badge-medium">Medium ★★☆</span> · Data-Driven · All APIs</p>
+    <div class="meta">RedfireForge v0.5.7</div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 1 -->
+  <h2>1. Purpose &amp; Use Case</h2>
+  <p>As your data sources grow beyond a handful of rows, you need tools to <strong>organize, filter, and control</strong> how rows are used during execution. This manual covers the features that make large data sources manageable.</p>
+
+  <div class="callout">
+    <strong>Prerequisite</strong>
+    Complete <a href="parameterized-basics-easy.html">Parameterized Testing Basics</a> first. You should be comfortable creating data sources with columns and rows.
+  </div>
+
+  <h2>2. Row Tags</h2>
+  <p>Tags are labels you attach to individual rows to categorize them. Examples: <code>smoke</code>, <code>regression</code>, <code>edge-case</code>, <code>premium</code>.</p>
+
+  <h3>Adding Tags</h3>
+  <ol>
+    <li>In the Data Source tab, hover over a row and click the <strong>🏷️</strong> tag icon.</li>
+    <li>Type a tag name (e.g., "smoke") and press Enter.</li>
+    <li>Tags appear as colored pills next to the row's checkbox.</li>
+    <li>Add multiple tags to a single row — each row can have any number of tags.</li>
+  </ol>
+
+  <h3>Tag Filtering</h3>
+  <ol>
+    <li>In the toolbar, click the tag filter dropdown.</li>
+    <li>Select a tag to show only rows with that tag.</li>
+    <li>Select "Untagged" to see rows without any tags.</li>
+    <li>The filter affects which rows are visible and executed.</li>
+  </ol>
+
+  <h3>Bulk Tagging</h3>
+  <ol>
+    <li>Select multiple rows (Ctrl+click or Shift+click).</li>
+    <li>Click <strong>+ Tag…</strong> to add a tag to all selected rows at once.</li>
+    <li>Click <strong>− Untag…</strong> to remove a tag from all selected rows.</li>
+  </ol>
+
+  <div class="callout callout-tip">
+    <strong>💡 Built-in Tag Suggestions</strong>
+    The tag editor suggests common tags like "smoke", "regression", "critical", "edge-case". You can also create any custom tag you want.
+  </div>
+
+  <h2>3. Named Subsets</h2>
+  <p>A <strong>subset</strong> is a saved tag-based filter. Instead of manually selecting tags each time, you define a subset once and reuse it.</p>
+
+  <h3>Creating a Subset</h3>
+  <ol>
+    <li>Click the tag filter dropdown → <strong>+ Add Subset</strong>.</li>
+    <li>Enter a name (e.g., "CI Quick Check").</li>
+    <li>Select which tags to include.</li>
+    <li>Choose mode: <strong>Any</strong> (row matches if it has ANY of the selected tags) or <strong>All</strong> (row must have ALL selected tags).</li>
+    <li>Click Save.</li>
+  </ol>
+
+  <h3>Using Subsets</h3>
+  <p>Subsets appear in the tag filter dropdown alongside individual tags. Select a subset to filter rows. Subsets are stored in the data source definition and persist across sessions, exports, and imports.</p>
+
+  <table>
+    <tr><th>Mode</th><th>Tags</th><th>Result</th></tr>
+    <tr><td>Any</td><td>"smoke", "critical"</td><td>Rows tagged with smoke OR critical</td></tr>
+    <tr><td>All</td><td>"smoke", "critical"</td><td>Only rows tagged with BOTH smoke AND critical</td></tr>
+  </table>
+
+  <h2>4. Sample Rows &amp; Validation Modes</h2>
+  <p><strong>Sample rows</strong> are marked with a 📌 badge. They serve as validation representatives — used with selective validation mode to only validate a subset of rows during execution.</p>
+
+  <h3>Marking Sample Rows</h3>
+  <ol>
+    <li>Click <strong>+ Sample Row</strong> in the toolbar to add a new pre-marked sample row.</li>
+    <li>Or hover over any existing row and click the 📌 icon to toggle its sample flag.</li>
+    <li>Sample rows show a green <strong>S</strong> badge in the table.</li>
+  </ol>
+
+  <h3>Validation Modes</h3>
+  <table>
+    <tr><th>Mode</th><th>Behavior</th><th>Use Case</th></tr>
+    <tr><td><strong>None</strong></td><td>Skip all validation — only send requests</td><td>Load testing without assertions</td></tr>
+    <tr><td><strong>Selective</strong></td><td>Only validate sample rows (📌); other rows are sent but not assertion-checked</td><td>Large data sets where you want fast execution but still verify key rows</td></tr>
+    <tr><td><strong>Full</strong></td><td>Validate all enabled rows</td><td>Regression testing — check every row</td></tr>
+  </table>
+  <p>Set the mode using the <strong>Validation</strong> toolbar select.</p>
+
+  <h2>5. Row Labels &amp; Notes</h2>
+
+  <h3>Row Labels</h3>
+  <p>Give a row a human-readable label (e.g., "happy-path", "max-boundary"). Labels appear in test results, making it easy to identify which data row a result belongs to.</p>
+  <ol>
+    <li>Click the ✎ icon on a row to open the row detail modal.</li>
+    <li>Enter a label in the Label field.</li>
+    <li>The label shows as a colored badge in the data table.</li>
+  </ol>
+
+  <h3>Row Notes</h3>
+  <p>Notes are freeform annotations — add context like "Known to fail on weekends" or "Requires VPN".</p>
+  <ol>
+    <li>Click the 🗒️ icon on a row.</li>
+    <li>Enter your note text.</li>
+    <li>A 📝 icon appears on annotated rows.</li>
+  </ol>
+
+  <h2>6. Bulk Operations</h2>
+  <p>Select multiple rows and operate on them all at once:</p>
+
+  <h3>Selection Methods</h3>
+  <table>
+    <tr><th>Method</th><th>How</th></tr>
+    <tr><td>Single select</td><td>Click a row's checkbox</td></tr>
+    <tr><td>Add to selection</td><td>Ctrl+click (Cmd+click on Mac)</td></tr>
+    <tr><td>Range select</td><td>Click first row, then Shift+click last row</td></tr>
+    <tr><td>Select all</td><td>Click the header checkbox</td></tr>
+  </table>
+
+  <h3>Bulk Actions</h3>
+  <p>Once rows are selected, these actions appear in the toolbar:</p>
+  <ul>
+    <li><strong>Enable/Disable</strong> — toggle selected rows on/off</li>
+    <li><strong>Delete</strong> — remove all selected rows</li>
+    <li><strong>Duplicate</strong> — clone selected rows (inserted after the last selected row)</li>
+    <li><strong>+ Tag… / − Untag…</strong> — add or remove a tag from all selected rows</li>
+  </ul>
+
+  <h2>7. Distribution Modes</h2>
+  <p>Control the order in which data rows are executed:</p>
+  <table>
+    <tr><th>Mode</th><th>Behavior</th><th>Use Case</th></tr>
+    <tr><td><strong>Sequential</strong></td><td>Rows execute in table order (top to bottom)</td><td>Default — predictable ordering</td></tr>
+    <tr><td><strong>Random</strong></td><td>Rows are shuffled before execution</td><td>Avoid order-dependent test passes</td></tr>
+    <tr><td><strong>Round Robin</strong></td><td>Rows cycle in order, wrapping around</td><td>Load testing with continuous cycling</td></tr>
+  </table>
+  <p>Set the mode using the <strong>Distribution</strong> toolbar select.</p>
+
+  <h2>8. Drag, Sort &amp; Search</h2>
+  <ul>
+    <li><strong>Drag to reorder</strong> — grab the ⠿ handle on the left of any row and drag it to a new position.</li>
+    <li><strong>Sort by column</strong> — click any column header to sort ascending/descending. Click again to toggle.</li>
+    <li><strong>Search</strong> — type in the 🔍 search box to filter rows by matching cell values.</li>
+    <li><strong>Keyboard navigation</strong> — focus a cell and use Tab (next cell), Enter (below), arrow keys to navigate.</li>
+    <li><strong>Column resize</strong> — drag the border between column headers to resize.</li>
+  </ul>
+
+  <h2>9. Try It Yourself</h2>
+  <ol>
+    <li>Load the <strong>User Lookup Sweep</strong> gallery sample (10 rows).</li>
+    <li>Tag rows 1–3 as "smoke", rows 4–7 as "regression", rows 8–10 as "edge-case".</li>
+    <li>Create a subset called "CI Quick" with tags "smoke" and "critical" in "Any" mode.</li>
+    <li>Mark rows 1, 5, and 10 as sample rows.</li>
+    <li>Set validation mode to "Selective" and run — only sample rows are validated.</li>
+    <li>Set distribution to "Random" and run again — notice the shuffled execution order.</li>
+    <li>Use bulk select (Shift+click rows 4–7) and delete them. Undo by re-importing.</li>
+  </ol>
+
+  <h2>10. Related Manuals</h2>
+  <ul>
+    <li><a href="parameterized-basics-easy.html">Parameterized Testing Basics</a> — create data sources from scratch</li>
+    <li><a href="parameterized-file-import-easy.html">File Import</a> — import CSV/JSON/Excel files with tags and notes</li>
+    <li><a href="parameterized-populate-api-medium.html">Populate from API</a> — auto-generate rows from API responses</li>
+    <li><a href="parameterized-verify-contract-advanced.html">Verify &amp; Validation Contract</a> — verify data against live APIs</li>
+    <li><a href="parameterized-auth-rotation-advanced.html">Auth Token Rotation</a> — tags for auth credential rotation</li>
+  </ul>
+
+  <footer>
+    RedfireForge Training Manual · Advanced Data Source Features · Medium
+  </footer>
+</body>
+</html>

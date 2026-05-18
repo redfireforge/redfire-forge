@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Shared DS with Fetch Config — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warning { background: #fff3e0; border-left-color: #f57c00; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">🔄</div>
+    <h1>Shared DS with Fetch Config</h1>
+    <div class="subtitle">API-Driven Data Population — Training Manual</div>
+    <p><span class="badge badge-medium">Medium ★★☆</span> · Fetch Config · dummyjson.com</p>
+    <div class="meta">RedfireForge v0.5.7</div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 1 -->
+  <h2>1. Purpose &amp; Use Case</h2>
+  <p><strong>Fetch Config</strong> is an optional setting on shared data sources that stores the API endpoint and request details used to populate or verify the data. This enables:</p>
+  <ul>
+    <li><strong>Pre-Validation</strong> — Verify your expected values against live API responses</li>
+    <li><strong>Auto-Population</strong> — Fetch real data from an API to build your test data</li>
+    <li><strong>Contract Updates</strong> — Re-fetch when APIs change to update baselines</li>
+  </ul>
+
+  <p>This manual uses the <strong>Shared Product Catalog</strong> gallery sample — 8 DummyJSON products with a configured fetch URL for API-driven verification.</p>
+
+  <div class="callout">
+    <strong>Before You Start</strong>
+    This tutorial builds on <a href="shared-data-sources-easy.html">Shared DS Basics</a>. Make sure you understand how to create and link shared data sources before continuing.
+  </div>
+
+  <h2>2. What is Fetch Config?</h2>
+  <p>Fetch Config consists of:</p>
+  <table>
+    <tr><th>Field</th><th>Description</th><th>Example</th></tr>
+    <tr><td><code>url</code></td><td>API endpoint with variable placeholders</td><td><code>https://dummyjson.com/products/{{id}}</code></td></tr>
+    <tr><td><code>method</code></td><td>HTTP method (GET, POST, etc.)</td><td><code>GET</code></td></tr>
+    <tr><td><code>headers</code></td><td>Request headers</td><td><code>Accept: application/json</code></td></tr>
+    <tr><td><code>body</code></td><td>Request body (for POST/PUT)</td><td><code>{"username":"{{username}}"}</code></td></tr>
+    <tr><td><code>auth</code></td><td>Authentication config</td><td><code>none</code> or <code>inherit</code></td></tr>
+  </table>
+
+  <div class="callout callout-tip">
+    <strong>💡 Key Insight</strong>
+    The URL uses the same <code>{{variable}}</code> placeholders as your data source columns. When you verify or fetch data, each row substitutes its values into the URL template.
+  </div>
+
+  <h2>3. Step-by-Step Tutorial</h2>
+
+  <h3>Step 1: Load the Gallery Sample</h3>
+  <ol>
+    <li>Open the <strong>Gallery</strong> panel.</li>
+    <li>Find <strong>"Shared Product Catalog"</strong> in the Tests tab.</li>
+    <li>Click <strong>Load Test</strong>.</li>
+  </ol>
+  <p>This creates:</p>
+  <ul>
+    <li>A shared data source "Product Catalog (8 products)" with fetch config</li>
+    <li>A feature group with 2 tests using this shared data</li>
+  </ul>
+
+  <h3>Step 2: Explore the Fetch Config</h3>
+  <ol>
+    <li>Open <strong>Shared Data Sources</strong> (sidebar).</li>
+    <li>Select "Product Catalog (8 products)".</li>
+    <li>At the top of the editor, use the <strong>method</strong> and <strong>URL</strong> bar, then open the <strong>Params</strong>, <strong>Auth</strong>, <strong>Headers</strong>, and (for non-GET) <strong>Body</strong> tabs to match your request. The same area includes <strong>Configure Variables + Auth…</strong>, <strong>cURL Import</strong>, and <strong>Populate Rows from API</strong>. You should see a URL template like:</li>
+  </ol>
+
+  <pre>URL: https://dummyjson.com/products/{{id}}
+Method: GET
+Headers: Accept: application/json</pre>
+
+  <p>This URL uses the <code>id</code> column from your data to fetch each product individually.</p>
+
+  <h3>Step 3: Understand the Data</h3>
+  <p>The sample includes 8 products with validation columns:</p>
+
+  <table>
+    <tr><th>id (path)</th><th>expectedTitle (validate)</th><th>expectedCategory (validate)</th><th>expectedBrand (validate)</th></tr>
+    <tr><td>1</td><td>Essence Mascara Lash Princess</td><td>beauty</td><td>Essence</td></tr>
+    <tr><td>2</td><td>Eyeshadow Palette with Mirror</td><td>beauty</td><td>Glamour Beauty</td></tr>
+    <tr><td>6</td><td>Calvin Klein CK One</td><td>fragrances</td><td>Calvin Klein</td></tr>
+    <tr><td>…</td><td>…</td><td>…</td><td>…</td></tr>
+  </table>
+
+  <div class="callout">
+    <strong>Column Mappings</strong>
+    <ul>
+      <li><code>id</code> → type: <strong>path</strong>, mapping: <code>id</code> — replaces <code>{{id}}</code> in the URL</li>
+      <li><code>expectedTitle</code> → type: <strong>validate</strong>, mapping: <code>$.title</code> — checked against response</li>
+      <li><code>expectedCategory</code> → type: <strong>validate</strong>, mapping: <code>$.category</code></li>
+      <li><code>expectedBrand</code> → type: <strong>validate</strong>, mapping: <code>$.brand</code></li>
+    </ul>
+  </div>
+
+  <h3>Step 4: Verify Data Against the API</h3>
+  <ol>
+    <li>In the Shared Data Sources modal, click <strong>▶ Verify All</strong> in the data toolbar.</li>
+    <li>The <strong>Verify &amp; Inspect</strong> modal opens.</li>
+    <li>Click <strong>▶ Verify All</strong> in the modal to run checks (after a pass, the same control reads <strong>▶ Re-verify</strong>).</li>
+    <li>Each row shows:
+      <ul>
+        <li><strong>✓ Pass</strong> — All validate columns match the live API</li>
+        <li><strong>✗ Fail</strong> — One or more columns don't match</li>
+        <li>HTTP status code for each request</li>
+      </ul>
+    </li>
+    <li>Click a row to see the full response and field comparisons.</li>
+  </ol>
+
+  <div class="callout callout-tip">
+    <strong>💡 When to Verify</strong>
+    Run verification periodically to catch API changes. If a product title changes in DummyJSON, verification will show the mismatch so you can update your expected values.
+  </div>
+
+  <h3>Step 5: Auto-Populate from API (Optional)</h3>
+  <p>If you want to replace expected values with fresh data from the API:</p>
+  <ol>
+    <li>In the Verify modal, check the rows you want to update.</li>
+    <li>Click <strong>✓ Accept All Changes</strong>.</li>
+    <li>The validate columns are updated with the live API response.</li>
+    <li>Save the shared data source.</li>
+  </ol>
+
+  <div class="callout callout-warning">
+    <strong>⚠️ Caution</strong>
+    Applying actual values overwrites your expected data. This is useful for building initial baselines but should be used carefully after tests are established.
+  </div>
+
+  <h3>Step 6: Run Linked Tests</h3>
+  <ol>
+    <li>Go to <strong>Testing → Parameterized Runner</strong>.</li>
+    <li>Select the "Gallery: Shared Product Catalog" feature group.</li>
+    <li>Run the tests.</li>
+  </ol>
+  <p>Both tests (Product Validation and Product Reviews) use the same 8 products from the shared data source.</p>
+
+  <h2>4. Setting Up Fetch Config</h2>
+
+  <h3>For a New Shared Data Source</h3>
+  <ol>
+    <li>Create or open a shared data source in <strong>Shared Data Sources</strong>.</li>
+    <li>In the editor header, set <strong>HTTP method</strong> and <strong>URL</strong> (with <code>{{variable}}</code> placeholders matching your columns).</li>
+    <li>Use the <strong>Params</strong>, <strong>Auth</strong>, <strong>Headers</strong>, and <strong>Body</strong> tabs for query, auth, headers, and body; use <strong>Configure Variables + Auth…</strong> for the full mapping wizard when needed.</li>
+    <li>Optional: <strong>cURL Import</strong> → paste a command → <strong>Import &amp; Apply</strong>; or <strong>Populate Rows from API</strong> after the URL is set.</li>
+    <li>Click <strong>Save</strong> in the modal footer when finished.</li>
+  </ol>
+
+  <h3>For POST/PUT APIs</h3>
+  <p>For APIs that require a request body (like login endpoints), add a body template:</p>
+
+  <pre>URL: https://dummyjson.com/auth/login
+Method: POST
+Headers: Content-Type: application/json
+Body: {"username":"{{username}}","password":"{{password}}"}</pre>
+
+  <p>The <code>{{username}}</code> and <code>{{password}}</code> placeholders are filled from columns with those mappings.</p>
+
+  <h2>5. Practical Patterns</h2>
+
+  <h3>Pattern A: ID-Based Lookup</h3>
+  <p>Most common pattern — fetch by ID:</p>
+  <pre>URL: https://api.example.com/users/{{id}}
+Columns: id (path), expectedName (validate: $.name)</pre>
+
+  <h3>Pattern B: Search/Query Parameters</h3>
+  <p>For search endpoints:</p>
+  <pre>URL: https://api.example.com/search
+Columns: query (param → q), expectedCount (validate: $.total)</pre>
+
+  <h3>Pattern C: Auth Token Verification</h3>
+  <p>For login/auth endpoints:</p>
+  <pre>URL: https://api.example.com/auth/login
+Method: POST
+Body: {"user":"{{username}}","pass":"{{password}}"}
+Columns: username (body), password (body), expectedToken (validate: $.token)</pre>
+
+  <h2>6. Try It Yourself</h2>
+  <p>Create a shared data source with fetch config for REST Countries:</p>
+  <ol>
+    <li>Create a new shared DS named "Countries by Code"</li>
+    <li>Add columns: <code>code</code> (path), <code>expectedName</code> (validate: <code>$[0].name.common</code>)</li>
+    <li>Add rows: <code>US</code>, <code>GB</code>, <code>JP</code>, <code>FR</code>, <code>DE</code></li>
+    <li>Set fetch config:
+      <ul>
+        <li>URL: <code>https://restcountries.com/v3.1/alpha/{{code}}</code></li>
+        <li>Method: GET</li>
+      </ul>
+    </li>
+    <li>Run verification — all rows should pass</li>
+    <li>Create a test linked to this shared DS</li>
+  </ol>
+
+  <h2>7. Related Manuals</h2>
+  <ul>
+    <li><a href="shared-data-sources-easy.html">Shared DS Basics</a> — introduction to shared data sources</li>
+    <li><a href="shared-data-sources-cross-fg-medium.html">Cross-FG Shared Data</a> — sharing data across feature groups</li>
+    <li><a href="shared-data-sources-advanced.html">Shared DS Advanced</a> — tags, CSV import, cURL export</li>
+    <li><a href="parameterized-verify-contract-advanced.html">Verify &amp; Validation Contract</a> — similar concepts for inline data</li>
+  </ul>
+
+  <footer>
+    RedfireForge Training Manual · Shared DS with Fetch Config · Medium
+  </footer>
+</body>
+</html>

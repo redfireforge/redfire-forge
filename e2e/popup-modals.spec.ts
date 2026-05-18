@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { seedAppDataWithTest } from './helpers';
+import { seedAppDataWithTest as _seedAppDataWithTest } from './helpers';
 
 /**
  * E2E tests for popup modals (CopyTestModal, MoveModal).

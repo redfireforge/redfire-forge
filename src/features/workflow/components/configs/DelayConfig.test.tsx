@@ -92,4 +92,18 @@ describe('DelayConfig', () => {
     render(<DelayConfig data={makeData({ mode: 'random', delayMs: 3000, maxMs: undefined })} onChange={vi.fn()} />);
     expect(screen.getByDisplayValue('3000')).toBeTruthy();
   });
+
+  it('coerces invalid minMs input to 0 in random mode', () => {
+    const onChange = vi.fn();
+    render(<DelayConfig data={makeData({ mode: 'random', minMs: 100, maxMs: 500 })} onChange={onChange} />);
+    fireEvent.change(screen.getByDisplayValue('100'), { target: { value: 'not-a-number' } });
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ minMs: 0 }));
+  });
+
+  it('coerces invalid maxMs input to 0 in random mode', () => {
+    const onChange = vi.fn();
+    render(<DelayConfig data={makeData({ mode: 'random', minMs: 10, maxMs: 500 })} onChange={onChange} />);
+    fireEvent.change(screen.getByDisplayValue('500'), { target: { value: 'xyz' } });
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ maxMs: 0 }));
+  });
 });

@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Parameterized Validation — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warn { background: #fff8e1; border-left-color: #f9a825; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">✅</div>
+    <h1>Parameterized Validation</h1>
+    <div class="subtitle">Data-Driven Testing — Training Manual</div>
+    <p><span class="badge badge-medium">Medium ★★☆</span> · Validation Columns · Baseline Capture · Regression Detection</p>
+    <div class="meta">RedfireForge v0.5.7</div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <h2>1. Purpose &amp; Use Case</h2>
+  <p>Beyond simply sweeping URLs with different IDs, parameterized tests become powerful when each row defines <strong>expected values</strong> to validate against API responses. This transforms your data table into a <em>regression contract</em>.</p>
+  <p>This manual teaches you to:</p>
+  <ul>
+    <li>Add <strong>validate columns</strong> that check response JSON paths per data row.</li>
+    <li><strong>Capture baselines</strong> from a known-good API response.</li>
+    <li>Detect <strong>regressions</strong> when an API changes its response shape or values.</li>
+  </ul>
+
+  <h2>2. Prerequisite</h2>
+  <p>Complete <a href="parameterized-basics-easy.html">Parameterized Testing Basics</a> first. This tutorial builds on that knowledge.</p>
+
+  <h2>3. Tutorial: Country Validation Suite</h2>
+
+  <h3>Step 1: Load the Gallery Sample</h3>
+  <ol>
+    <li>Open <strong>Gallery → Tests</strong>.</li>
+    <li>Load the <strong>"Country Validation Suite"</strong> sample.</li>
+    <li>Open the test editor for <strong>GET /v3.1/name/{{name}}</strong>.</li>
+  </ol>
+
+  <h3>Step 2: Understand Validate Columns</h3>
+  <p>In the Data Source tab, notice the three columns:</p>
+  <table>
+    <tr><th>Column</th><th>Type</th><th>Mapping</th><th>Purpose</th></tr>
+    <tr><td>name</td><td>path</td><td><code>name</code></td><td>Replaces <code>{{name}}</code> in URL</td></tr>
+    <tr><td>expectedCapital</td><td>validate</td><td><code>$[0].capital[0]</code></td><td>Checks the first capital name in response</td></tr>
+    <tr><td>expectedRegion</td><td>validate</td><td><code>$[0].region</code></td><td>Checks the region field</td></tr>
+  </table>
+
+  <p>For each row, the engine:</p>
+  <ol>
+    <li>Substitutes <code>{{name}}</code> with the row's <code>name</code> value (e.g., "japan").</li>
+    <li>Sends <code>GET https://restcountries.com/v3.1/name/japan</code>.</li>
+    <li>Extracts <code>$[0].capital[0]</code> from the response → compares to "Tokyo".</li>
+    <li>Extracts <code>$[0].region</code> from the response → compares to "Asia".</li>
+  </ol>
+
+  <h3>Step 3: Run and Review Results</h3>
+  <ol>
+    <li>Run the test from <strong>Testing → Parameterized Runner</strong>.</li>
+    <li>In Results, expand the test row to see per-row validation outcomes.</li>
+    <li>Green rows = all validate columns matched. Red rows = at least one mismatch.</li>
+  </ol>
+
+  <div class="callout callout-tip">
+    <strong>💡 Spot a regression</strong>
+    Try changing "Tokyo" to "Kyoto" in row 1. Re-run — that row will fail with a clear diff showing expected "Kyoto" vs actual "Tokyo". This is exactly how regressions are caught.
+  </div>
+
+  <h3>Step 4: Capture a Baseline</h3>
+  <p>Instead of typing expected values manually, you can capture them from a live response:</p>
+  <ol>
+    <li>In the Test Editor, click <strong>Fetch Sample Response</strong>.</li>
+    <li>Review the response body.</li>
+    <li>Click <strong>Keep Rules &amp; Update Response</strong> or <strong>Replace All</strong> to save the response as your validation baseline.</li>
+    <li>The validate columns now contain the actual API values — any future changes will trigger failures.</li>
+  </ol>
+
+  <h2>4. Adding Validate Columns to Existing Tests</h2>
+  <ol>
+    <li>In the Data Source tab, click <strong>+ Column</strong>.</li>
+    <li>Set type to <strong>validate</strong>.</li>
+    <li>Enter a JSON path in the <strong>mapping</strong> field (e.g., <code>$.status</code>, <code>$.data[0].name</code>).</li>
+    <li>Fill in expected values for each row.</li>
+  </ol>
+
+  <div class="callout callout-warn">
+    <strong>⚠️ JSON Path Tips</strong>
+    REST Countries returns an <em>array</em>, so paths start with <code>$[0]</code>. Most APIs return an object, so paths start with <code>$.</code> — check your API's response shape first.
+  </div>
+
+  <h2>5. Pokémon Contract Sweep</h2>
+  <p>For a more complex example, load the <strong>"Pokémon Contract Sweep"</strong> gallery sample. It validates 10 Pokémon against their expected primary types and Pokédex IDs — demonstrating multi-field validation per row with deeply nested JSON paths like <code>$.types[0].type.name</code>.</p>
+
+  <h2>6. Try It Yourself</h2>
+  <ol>
+    <li>Load the <strong>User Lookup Sweep</strong> sample.</li>
+    <li>Add a third validate column: <code>$.company.name</code> (expected company name).</li>
+    <li>Fill in expected values (hint: user 1's company is "Romaguera-Crona").</li>
+    <li>Run and verify all rows pass.</li>
+    <li>Intentionally break one value and confirm the regression is detected.</li>
+  </ol>
+
+  <h2>7. Beyond Manual Validation</h2>
+  <p>Once you're comfortable setting up validate columns manually, explore these powerful automation features:</p>
+  <ul>
+    <li><strong>Verify Modal</strong> — Click <strong>▶ Verify All</strong> in the Data Source toolbar to open the Verify &amp; Inspect modal. It sends requests for every enabled row, compares response values against your expected values, and shows pass/fail per row with failure pattern grouping.</li>
+    <li><strong>Run &amp; Capture</strong> — In the Verify modal, click <strong>⬇ Run &amp; Capture</strong> to auto-populate validate columns from live API responses — no manual data entry needed. This is the fastest way to create a baseline.</li>
+    <li><strong>Accept Changes</strong> — When the API returns new values, click <strong>✓ Accept All Changes</strong> to update your expected values to match the current API state.</li>
+    <li><strong>Populate from API</strong> — Click <strong>⬇ From API</strong> to detect arrays in an API response and auto-generate data rows from them (e.g., populate 100 product rows from <code>/api/products</code>).</li>
+    <li><strong>Validation Contract</strong> — Define which JSON paths must always be present in responses, with support for dynamic array patterns like <code>items[*].price</code>.</li>
+  </ul>
+
+  <h2>8. Related Manuals</h2>
+  <ul>
+    <li><a href="parameterized-basics-easy.html">Parameterized Testing Basics</a> — start here if you haven't</li>
+    <li><a href="parameterized-verify-contract-advanced.html">Verify &amp; Validation Contract</a> — deep dive into the Verify modal and validation contracts</li>
+    <li><a href="parameterized-populate-api-medium.html">Populate from API</a> — auto-generate data rows from API responses</li>
+    <li><a href="parameterized-pre-validate-medium.html">Pre-Validation (Dry Run)</a> — validate data against the live API before committing</li>
+    <li><a href="../versioning/test/run-baselines-easy.html">Run Baselines</a> — how baselines work for non-parameterized tests</li>
+  </ul>
+
+  <footer>
+    RedfireForge Training Manual · Parameterized Validation · Medium
+  </footer>
+</body>
+</html>

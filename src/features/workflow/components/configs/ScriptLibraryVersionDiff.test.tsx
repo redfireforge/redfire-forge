@@ -7,9 +7,12 @@ import ScriptLibraryVersionDiff from './ScriptLibraryVersionDiff';
 import type { ScriptLibraryVersion } from '../../engine/scriptLibraries';
 import type { ScriptLibraryDiffResult } from '../../engine/scriptLibraryVersioning';
 
-// Mock json-diff-kit
+const { mockDifferDiff } = vi.hoisted(() => ({
+  mockDifferDiff: vi.fn(() => [[]]),
+}));
+
 vi.mock('json-diff-kit', () => ({
-  Differ: class { diff() { return [[]]; } },
+  Differ: class { diff(..._args: unknown[]) { return mockDifferDiff(); } },
   Viewer: () => <div data-testid="diff-viewer">json-diff-viewer</div>,
 }));
 vi.mock('json-diff-kit/dist/viewer.css', () => ({}));
@@ -63,12 +66,13 @@ describe('ScriptLibraryVersionDiff', () => {
     expect(screen.getByText('No metadata changes — code may differ.')).toBeTruthy();
   });
 
-  it('shows name change on overview tab', () => {
+  it('shows name change without description section when only name differs', () => {
     const diff: ScriptLibraryDiffResult = { ...baseDiff, nameChanged: true, oldName: 'OldLib', newName: 'NewLib' };
     render(<ScriptLibraryVersionDiff older={older} newer={newer} diff={diff} onClose={onClose} />);
     expect(screen.getByText('Name')).toBeTruthy();
     expect(screen.getByText('OldLib')).toBeTruthy();
     expect(screen.getByText('NewLib')).toBeTruthy();
+    expect(screen.queryByText('Description')).toBeNull();
   });
 
   it('shows description change on overview tab', () => {
@@ -99,5 +103,37 @@ describe('ScriptLibraryVersionDiff', () => {
     const badges = document.querySelectorAll('.script-lib-diff-tab-badge');
     expect(badges[0].textContent).toBe('2');
     expect(badges[1].textContent).toBe('1');
+  });
+
+  it('falls back to side-by-side code when differ throws', () => {
+    mockDifferDiff.mockImplementationOnce(() => {
+      throw new Error('diff failed');
+    });
+    const diff: ScriptLibraryDiffResult = { ...baseDiff, codeChanged: true, oldCode: 'a', newCode: 'b' };
+    render(<ScriptLibraryVersionDiff older={older} newer={newer} diff={diff} onClose={onClose} />);
+    fireEvent.click(screen.getByText('Code'));
+    expect(screen.queryByTestId('diff-viewer')).toBeNull();
+    expect(screen.getByText('Before')).toBeTruthy();
+    expect(screen.getByText('After')).toBeTruthy();
+    mockDifferDiff.mockImplementation(() => [[]]);
+  });
+
+  it('uses formatted timestamps when version labels are missing', () => {
+    const o = makeVersion({ id: 'va', label: undefined });
+    const n = makeVersion({ id: 'vb', label: undefined, timestamp: o.timestamp + 1 });
+    render(<ScriptLibraryVersionDiff older={o} newer={n} diff={baseDiff} onClose={onClose} />);
+    expect(screen.getByText(/→/)).toBeTruthy();
+  });
+
+  it('renders empty placeholder for cleared description on overview tab', () => {
+    const diff: ScriptLibraryDiffResult = {
+      ...baseDiff,
+      descriptionChanged: true,
+      oldDescription: 'Was',
+      newDescription: '',
+    };
+    render(<ScriptLibraryVersionDiff older={older} newer={newer} diff={diff} onClose={onClose} />);
+    const empties = screen.getAllByText('(empty)');
+    expect(empties.length).toBeGreaterThanOrEqual(1);
   });
 });

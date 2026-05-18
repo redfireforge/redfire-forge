@@ -1,6 +1,6 @@
 import type { RequestResult } from '../../../shared/types';
 
-export type GroupByLevel = 'feature' | 'group' | 'test';
+export type GroupByLevel = 'feature' | 'group' | 'test' | 'dataRow' | 'workflowStep' | 'iteration';
 
 export interface GroupNode {
   key: string;
@@ -13,18 +13,26 @@ export interface GroupNode {
   avgTime: number;
   minTime: number;
   maxTime: number;
+  /** Percentile metrics for workflow step summaries */
+  p50Time?: number;
+  p95Time?: number;
+  p99Time?: number;
 }
 
 export function computeStats(results: RequestResult[]): Omit<GroupNode, 'key' | 'results' | 'children'> {
-  const times = results.map((r) => r.responseTimeMs);
+  const times = results.map((r) => r.responseTimeMs).sort((a, b) => a - b);
+  const n = times.length;
   return {
     total: results.length,
     passed: results.filter((r) => r.passed).length,
     failed: results.filter((r) => !r.passed && r.errorMessage).length,
     validationFailed: results.filter((r) => !r.passed && !r.errorMessage && r.failureDetails.length > 0).length,
-    avgTime: times.length ? Math.round(times.reduce((a, b) => a + b, 0) / times.length) : 0,
-    minTime: times.length ? Math.min(...times) : 0,
-    maxTime: times.length ? Math.max(...times) : 0,
+    avgTime: n ? Math.round(times.reduce((a, b) => a + b, 0) / n) : 0,
+    minTime: n ? times[0] : 0,
+    maxTime: n ? times[n - 1] : 0,
+    p50Time: n ? times[Math.floor(n * 0.5)] : 0,
+    p95Time: n ? times[Math.floor(n * 0.95)] : 0,
+    p99Time: n ? times[Math.floor(n * 0.99)] : 0,
   };
 }
 
@@ -38,16 +46,109 @@ export function buildGroups(results: RequestResult[], levels: GroupByLevel[]): G
     let key: string;
     if (level === 'feature') key = r.featureGroupName || '(unknown feature)';
     else if (level === 'group') key = r.groupName || '(unknown group)';
+    else if (level === 'dataRow') key = r.dataRowLabel || r.dataRowId || '(no data row)';
+    else if (level === 'workflowStep') key = r.workflowNodeId || r.scenarioName || '(unknown step)';
+    else if (level === 'iteration') key = r.iterationIndex !== undefined ? `Iteration #${r.iterationIndex}` : '(unknown iteration)';
     else key = r.scenarioName;
     const arr = map.get(key);
     if (arr) arr.push(r);
     else map.set(key, [r]);
   }
 
-  return Array.from(map.entries()).map(([key, items]) => ({
+  const entries = Array.from(map.entries());
+  
+  if (level === 'iteration') {
+    entries.sort((a, b) => {
+      const aNum = parseInt(a[0].replace('Iteration #', '')) || 0;
+      const bNum = parseInt(b[0].replace('Iteration #', '')) || 0;
+      return aNum - bNum;
+    });
+  }
+
+  return entries.map(([key, items]) => ({
     key,
     results: items,
     children: rest.length > 0 ? buildGroups(items, rest) : [],
     ...computeStats(items),
   }));
+}
+
+/** Check if results have workflow iteration data */
+export function hasWorkflowData(results: RequestResult[]): boolean {
+  return results.some(r => r.iterationIndex !== undefined || r.workflowNodeId !== undefined);
+}
+
+/** Get unique workflow step names from results */
+export function getWorkflowSteps(results: RequestResult[]): string[] {
+  const steps = new Set<string>();
+  for (const r of results) {
+    if (r.workflowNodeId) steps.add(r.workflowNodeId);
+    else if (r.scenarioName) steps.add(r.scenarioName);
+  }
+  return Array.from(steps);
+}
+
+/** Get iteration count from results */
+export function getIterationCount(results: RequestResult[]): number {
+  const iterations = new Set<number>();
+  for (const r of results) {
+    if (r.iterationIndex !== undefined) iterations.add(r.iterationIndex);
+  }
+  return iterations.size;
+}
+
+/** Compute per-step summary for workflow results */
+export interface WorkflowStepSummary {
+  stepName: string;
+  total: number;
+  passed: number;
+  passRate: number;
+  avgTime: number;
+  minTime: number;
+  maxTime: number;
+  p50Time: number;
+  p95Time: number;
+  p99Time: number;
+}
+
+export function computeWorkflowStepSummaries(results: RequestResult[]): WorkflowStepSummary[] {
+  const stepGroups = buildGroups(results, ['workflowStep']);
+  return stepGroups.map(g => ({
+    stepName: g.key,
+    total: g.total,
+    passed: g.passed,
+    passRate: g.total > 0 ? Math.round((g.passed / g.total) * 100) : 0,
+    avgTime: g.avgTime,
+    minTime: g.minTime,
+    maxTime: g.maxTime,
+    p50Time: g.p50Time ?? 0,
+    p95Time: g.p95Time ?? 0,
+    p99Time: g.p99Time ?? 0,
+  }));
+}
+
+/** Compute per-iteration summary for workflow results */
+export interface WorkflowIterationSummary {
+  iterationIndex: number;
+  total: number;
+  passed: number;
+  allPassed: boolean;
+  totalTime: number;
+  results: RequestResult[];
+}
+
+export function computeWorkflowIterationSummaries(results: RequestResult[]): WorkflowIterationSummary[] {
+  const iterGroups = buildGroups(results, ['iteration']);
+  return iterGroups.map(g => {
+    const idx = parseInt(g.key.replace('Iteration #', '')) || 0;
+    const totalTime = Math.round(g.results.reduce((sum, r) => sum + r.responseTimeMs, 0) * 10) / 10;
+    return {
+      iterationIndex: idx,
+      total: g.total,
+      passed: g.passed,
+      allPassed: g.passed === g.total,
+      totalTime,
+      results: g.results,
+    };
+  }).sort((a, b) => a.iterationIndex - b.iterationIndex);
 }

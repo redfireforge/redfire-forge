@@ -18,9 +18,11 @@ interface Props {
   previewRequest?: PreviewRequest | null;
   onClearPreview?: () => void;
   onImportPreview?: () => void;
+  onSendToHarness?: () => void;
+  harnessRequestIds?: Set<string>;
 }
 
-export default function Requests({ wb, appGlobalAuthProfiles, appMicroservices, appEnvironments, previewRequest, onClearPreview, onImportPreview }: Props) {
+export default function Requests({ wb, appGlobalAuthProfiles, appMicroservices, appEnvironments, previewRequest, onClearPreview, onImportPreview, onSendToHarness, harnessRequestIds }: Props) {
   const handleUpdateRequest = useCallback((reqPatch: Partial<RequestItem>) => {
     if (previewRequest) return; // preview is read-only
     if (wb.selectedCollection && wb.selectedRequest) {
@@ -76,6 +78,8 @@ export default function Requests({ wb, appGlobalAuthProfiles, appMicroservices, 
             onEnvChange={previewRequest ? () => {} : wb.setSelectedEnvId}
             onUpdateRequest={handleUpdateRequest}
             appGlobalAuthProfiles={appGlobalAuthProfiles}
+            onSendToHarness={previewRequest ? undefined : onSendToHarness}
+            isInHarness={!previewRequest && !!request && !!harnessRequestIds?.has(request.id)}
           />
         ) : (
           <div className="req-empty-state">

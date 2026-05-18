@@ -370,7 +370,7 @@ describe('VariableContext node-scoped refs', () => {
 
   it('expression function that returns an object gets JSON.stringified', () => {
     const ctx = new VariableContext();
-    const result = ctx.resolve('{{$merge("{\\\"a\\\":1}", "{\\\"b\\\":2}")}}');
+    const result = ctx.resolve('{{$merge("{\\"a\\":1}", "{\\"b\\":2}")}}');
     expect(typeof result).toBe('string');
   });
 
@@ -423,5 +423,18 @@ describe('VariableContext node-scoped refs', () => {
     ctx.setForNode('orphan', 'k', 'v');
     const snap = ctx.snapshot();
     expect(snap['node:orphan.k']).toBe('v');
+  });
+
+  it('resolves nested function calls via full evaluator fallback', () => {
+    const ctx = new VariableContext();
+    const result = ctx.resolve('{{$upper($concat("hello", " world"))}}');
+    expect(result).toBe('HELLO WORLD');
+  });
+
+  it('resolves expressions with variable references', () => {
+    const ctx = new VariableContext();
+    ctx.set('name', 'Alice');
+    const result = ctx.resolve('{{$upper(name)}}');
+    expect(result).toBe('ALICE');
   });
 });

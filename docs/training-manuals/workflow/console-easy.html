@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Workflow Console — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">🖥️</div>
+    <h1>Workflow Console</h1>
+    <div class="subtitle">Real-Time Logs, Timeline View &amp; Debugging — Training Manual</div>
+    <p><span class="badge badge-easy">Easy ★☆☆</span> · Workflow · Debugging</p>
+    <div class="meta">RedfireForge v0.5.6</div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <h2>1. Purpose</h2>
+  <p>The <strong>Workflow Console</strong> shows real-time log output as your workflow executes. It's the primary debugging tool — see exactly what each node does, when it runs, and what data flows between steps.</p>
+
+  <h2>2. Opening the Console</h2>
+  <ol>
+    <li>Open a workflow in the Workflow Designer.</li>
+    <li>Click the <strong>🖥️ Console</strong> button in the bottom toolbar.</li>
+    <li>The console panel slides up from the bottom of the designer.</li>
+  </ol>
+
+  <h2>3. Console Views</h2>
+
+  <h3>Log View</h3>
+  <p>The default view. Each log entry has an icon indicating its type:</p>
+  <table>
+    <tr><th>Icon</th><th>Meaning</th><th>Example</th></tr>
+    <tr><td>●</td><td>Node started</td><td>"HTTP Request → GET /api/users started"</td></tr>
+    <tr><td>→</td><td>Request sent</td><td>"→ GET https://api.example.com/users"</td></tr>
+    <tr><td>←</td><td>Response received</td><td>"← 200 OK (142ms)"</td></tr>
+    <tr><td>⬡</td><td>Data transform</td><td>"Transform: extracted 10 items from $.data"</td></tr>
+    <tr><td>✗</td><td>Error</td><td>"✗ 500 Internal Server Error"</td></tr>
+  </table>
+
+  <h3>Timeline View</h3>
+  <p>Switch to Timeline view for a higher-level summary of each step:</p>
+  <ul>
+    <li>Step name and node type</li>
+    <li>Duration bar (visual width proportional to time)</li>
+    <li>Status icon (✅/❌/⏸)</li>
+    <li>Click any step to jump to its detailed logs</li>
+  </ul>
+
+  <h2>4. Search &amp; Filter</h2>
+  <ol>
+    <li>Type in the 🔍 search box to filter log entries by keyword.</li>
+    <li>Matching entries are highlighted; non-matching entries are dimmed.</li>
+    <li>Use the ↑/↓ arrows to navigate between matches.</li>
+    <li>The match count badge shows "3 of 12 matches" etc.</li>
+  </ol>
+
+  <h2>5. Run Behavior</h2>
+  <p>Control how the console handles logs across multiple runs:</p>
+  <table>
+    <tr><th>Mode</th><th>Behavior</th></tr>
+    <tr><td><strong>Auto-clear</strong></td><td>Clear previous logs when a new run starts (default)</td></tr>
+    <tr><td><strong>Append</strong></td><td>Keep previous logs and append new ones with a separator</td></tr>
+  </table>
+  <p>Toggle between modes using the ⚙️ gear icon in the console toolbar.</p>
+
+  <h2>6. Display Modes</h2>
+  <p>Resize and reposition the console to fit your workflow:</p>
+  <table>
+    <tr><th>Mode</th><th>How</th><th>When to Use</th></tr>
+    <tr><td><strong>Bottom</strong></td><td>Default — docked to bottom of designer</td><td>General use</td></tr>
+    <tr><td><strong>Floating</strong></td><td>Drag the console title bar to undock</td><td>Need to see the workflow canvas underneath</td></tr>
+    <tr><td><strong>Full Screen</strong></td><td>Click the ⛶ expand button</td><td>Debugging complex logs with lots of output</td></tr>
+  </table>
+  <p>In Bottom and Floating modes, drag the top edge to resize vertically.</p>
+
+  <h2>7. Walkthrough</h2>
+  <ol>
+    <li>Open a workflow sample from the Gallery (e.g., "Parallel Fan-Out").</li>
+    <li>Click <strong>🖥️ Console</strong> to open the console panel.</li>
+    <li>Click <strong>▶ Run</strong> to execute the workflow.</li>
+    <li>Watch log entries appear in real time — each node's start/response/complete.</li>
+    <li>Switch to <strong>Timeline</strong> view to see the step summary with duration bars.</li>
+    <li>Click a step in the timeline to jump to its detailed log entries.</li>
+    <li>Type "error" in the search box — if any errors occurred, they're highlighted.</li>
+    <li>Toggle to <strong>Append</strong> mode and run again — both runs' logs are visible.</li>
+    <li>Try <strong>Full Screen</strong> mode to see all logs without scrolling.</li>
+  </ol>
+
+  <div class="callout callout-tip">
+    <strong>💡 Pro Tip</strong>
+    Use the console alongside the Execution History. The console shows real-time output; history shows persisted results you can review later.
+  </div>
+
+  <h2>8. Trace Levels &amp; Results Explorer Console</h2>
+  <p>This manual covers the <strong>Designer Console</strong> — the real-time view during Quick Test execution. RedfireForge also has a <strong>Results Explorer Console</strong> for reviewing logs after a Workflow Runner execution.</p>
+
+  <h3>Trace Levels</h3>
+  <p>In the Workflow Runner, you can set a <strong>Trace Level</strong> that controls how much detail is captured:</p>
+  <table>
+    <tr><th>Level</th><th>What's Captured</th></tr>
+    <tr><td><strong>Minimal</strong></td><td>Pass/fail + error messages only</td></tr>
+    <tr><td><strong>Standard</strong></td><td>HTTP status/timing, assertions, variable extractions</td></tr>
+    <tr><td><strong>Full</strong></td><td>Standard + complete HTTP request/response bodies</td></tr>
+    <tr><td><strong>Debug</strong></td><td>Full + raw console.log() output from Script nodes</td></tr>
+  </table>
+  <p>The Designer Console (Quick Test) always runs at <strong>Debug</strong> level for maximum visibility.</p>
+
+  <h3>Results Explorer Console</h3>
+  <p>After running a workflow from the <strong>Workflow Runner</strong>, open the <strong>Results Explorer</strong> and press <strong>⌘J</strong> (or click the Console button in the toolbar) to see a per-iteration console. This console reconstructs log lines from the stored trace data — the higher the trace level, the more detail is available.</p>
+
+  <div class="callout callout-tip">
+    <strong>💡 Two Consoles, One Purpose</strong>
+    The Designer Console is <strong>live</strong> during Quick Test execution. The Results Explorer Console is <strong>post-hoc</strong> — reviewing stored trace data iteration by iteration after a Workflow Runner execution.
+  </div>
+
+  <h2>9. Related Manuals</h2>
+  <ul>
+    <li><a href="runner/results-explorer-medium.html">Results Explorer</a> — three-panel visual execution analysis with Console panel</li>
+    <li><a href="execution-history-easy.html">Execution History</a> — review past runs and per-step results</li>
+    <li><a href="webhook-delivery-logs-easy.html">Webhook Delivery Logs</a> — inspect incoming webhook payloads</li>
+    <li><a href="../workflow-patterns/">Workflow Patterns</a> — common workflow design patterns</li>
+  </ul>
+
+  <footer>
+    RedfireForge Training Manual · Workflow Console · Easy
+  </footer>
+</body>
+</html>

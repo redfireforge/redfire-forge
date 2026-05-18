@@ -55,7 +55,7 @@ function evaluateJsonPath(path: string, data: unknown): unknown {
   // Prevent prototype pollution / internal property access
   const BLOCKED_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 
-  let current: any = data;
+  let current: unknown = data;
   
   for (const part of parts) {
     // Remove quotes from string keys
@@ -69,7 +69,7 @@ function evaluateJsonPath(path: string, data: unknown): unknown {
       return undefined;
     }
     
-    current = current[key];
+    current = (current as Record<string, unknown>)[key];
   }
   
   return current;

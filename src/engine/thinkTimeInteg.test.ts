@@ -206,12 +206,12 @@ describe('runTest with thinkTime config', () => {
     const s = makeScenario();
     const config: TestConfig = {
       concurrency: 1,
-      totalTransactions: 2,
+      iterations: 2,
       scenarioWeights: [{ scenarioId: 's1', weight: 1 }],
       executionMode: 'sequential',
       thinkTime: { mode: 'constant', constantMs: 0 },
     };
-    const results = await runTest(config, [s], vi.fn());
+    const { results } = await runTest(config, [s], vi.fn());
     expect(results).toHaveLength(2);
     expect(results.every(r => r.passed)).toBe(true);
   });
@@ -221,11 +221,11 @@ describe('runTest with thinkTime config', () => {
     const s = makeScenario();
     const config: TestConfig = {
       concurrency: 1,
-      totalTransactions: 2,
+      iterations: 2,
       scenarioWeights: [{ scenarioId: 's1', weight: 1 }],
       executionMode: 'sequential',
     };
-    const results = await runTest(config, [s], vi.fn());
+    const { results } = await runTest(config, [s], vi.fn());
     expect(results).toHaveLength(2);
     expect(results.every(r => r.passed)).toBe(true);
   });
@@ -235,12 +235,12 @@ describe('runTest with thinkTime config', () => {
     const s = makeScenario();
     const config: TestConfig = {
       concurrency: 2,
-      totalTransactions: 3,
+      iterations: 3,
       scenarioWeights: [{ scenarioId: 's1', weight: 1 }],
       executionMode: 'batch',
       thinkTime: { mode: 'uniform', minMs: 0, maxMs: 0 },
     };
-    const results = await runTest(config, [s], vi.fn());
+    const { results } = await runTest(config, [s], vi.fn());
     expect(results).toHaveLength(3);
   });
 
@@ -249,12 +249,12 @@ describe('runTest with thinkTime config', () => {
     const s = makeScenario();
     const config: TestConfig = {
       concurrency: 2,
-      totalTransactions: 3,
+      iterations: 3,
       scenarioWeights: [{ scenarioId: 's1', weight: 1 }],
       executionMode: 'pool',
       thinkTime: { mode: 'gaussian', meanMs: 0, stdDevMs: 0 },
     };
-    const results = await runTest(config, [s], vi.fn());
+    const { results } = await runTest(config, [s], vi.fn());
     expect(results).toHaveLength(3);
   });
 });

@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import type { Scenario, TestScenario, FeatureGroup, AuthConfig } from '../../../shared/types';
+import type { Scenario, TestScenario, FeatureGroup, AuthConfig, ScenarioKind } from '../../../shared/types';
 import type { TestDefinitionVersion } from '../../../shared/types';
 import { emptyTest } from '../utils/testEditorUtils';
 import { autoSaveVersion } from '../utils/testDefinitionVersioning';
@@ -41,6 +41,7 @@ export function useScenarioMutations({
   const [namingFeature, setNamingFeature] = useState(false);
   const [namingScenario, setNamingScenario] = useState<string | null>(null);
   const [newName, setNewName] = useState('');
+  const [newScenarioKind, setNewScenarioKind] = useState<ScenarioKind>('standard');
 
   const [editingFeatureName, setEditingFeatureName] = useState<string | null>(null);
   const [editingScenarioName, setEditingScenarioName] = useState<string | null>(null);
@@ -49,7 +50,7 @@ export function useScenarioMutations({
   const [editingFeatureAuth, setEditingFeatureAuth] = useState<string | null>(null);
   const [editingScenarioAuth, setEditingScenarioAuth] = useState<string | null>(null);
 
-  const [editingTest, setEditingTest] = useState<{ featureId: string; scenarioId: string; testId: string | 'new' } | null>(null);
+  const [editingTest, setEditingTest] = useState<{ featureId: string; scenarioId: string; testId: string | 'new'; parameterized?: boolean } | null>(null);
   const [draft, setDraft] = useState<Scenario>(emptyTest());
   const [inputMode, setInputMode] = useState<TestEditorInputMode>('builder');
   const [activeTab, setActiveTab] = useState<TestEditorTab>('params');
@@ -103,15 +104,16 @@ export function useScenarioMutations({
 
   // ── Scenario CRUD ──
 
-  const addScenario = (featureId: string) => {
+  const addScenario = (featureId: string, kind?: ScenarioKind) => {
     if (!newName.trim()) return;
-    const sc: TestScenario = { id: uuidv4(), name: newName.trim(), tests: [] };
+    const sc: TestScenario = { id: uuidv4(), name: newName.trim(), kind: kind ?? newScenarioKind, tests: [] };
     setFeatureGroups((prev) => prev.map((fg) =>
       fg.id === featureId ? logScenarioAdded({ ...fg, scenarios: [...fg.scenarios, sc] }, sc.name) : fg
     ));
     setExpandedScenarios((prev) => new Set(prev).add(sc.id));
     setNamingScenario(null);
     setNewName('');
+    setNewScenarioKind('standard');
   };
 
   const removeScenario = (featureId: string, scenarioId: string) => {
@@ -201,13 +203,22 @@ export function useScenarioMutations({
     clearAuthVerifyResult?.();
   };
 
+  const startNewParameterizedTest = (featureId: string, scenarioId: string) => {
+    const t = emptyTest();
+    setDraft(t);
+    setEditingTest({ featureId, scenarioId, testId: 'new', parameterized: true });
+    setInputMode('builder');
+    setActiveTab('data');
+    clearAuthVerifyResult?.();
+  };
+
   const startEditTest = (featureId: string, scenarioId: string, test: Scenario) => {
     setDraft({
       ...test,
       headers: [...test.headers],
       validation: { ...test.validation, expectedFields: test.validation.expectedFields ? [...test.validation.expectedFields] : [] },
     });
-    setEditingTest({ featureId, scenarioId, testId: test.id });
+    setEditingTest({ featureId, scenarioId, testId: test.id, parameterized: !!test.dataSource });
     setInputMode('builder');
     setActiveTab('params');
   };
@@ -215,6 +226,13 @@ export function useScenarioMutations({
   const saveTest = () => {
     if (!editingTest || !draft.name.trim() || !draft.url.trim()) return;
     const { featureId, scenarioId, testId } = editingTest;
+
+    const parentFg = allFgs.find(f => f.id === featureId);
+    const parentSc = parentFg?.scenarios.find(s => s.id === scenarioId);
+
+    if (parentSc?.kind === 'parameterized' && !draft.dataSource && !draft.sharedDataSourceId) {
+      return;
+    }
 
     let finalDraft = draft;
 
@@ -340,6 +358,22 @@ export function useScenarioMutations({
     setCopyingTest(null);
   };
 
+  const createParameterizedCopy = (featureId: string, scenarioId: string, source: Scenario) => {
+    const copy: Scenario = {
+      ...source,
+      id: uuidv4(),
+      name: `${source.name} (Parameterized)`,
+      headers: source.headers.map((h) => ({ ...h })),
+      validation: { ...source.validation, expectedFields: source.validation.expectedFields?.map((f) => ({ ...f })) },
+      sourceTestId: source.id,
+    };
+    setDraft(copy);
+    setEditingTest({ featureId, scenarioId, testId: 'new', parameterized: true });
+    setInputMode('builder');
+    setActiveTab('data');
+    clearAuthVerifyResult?.();
+  };
+
   // ── Toggle helpers ──
 
   const toggleFeature = (id: string) => {
@@ -356,6 +390,7 @@ export function useScenarioMutations({
     namingFeature, setNamingFeature,
     namingScenario, setNamingScenario,
     newName, setNewName,
+    newScenarioKind, setNewScenarioKind,
     editingFeatureName, setEditingFeatureName,
     editingScenarioName, setEditingScenarioName,
     editName, setEditName,
@@ -375,8 +410,8 @@ export function useScenarioMutations({
     updateFeatureAuth, toggleFeatureAuth,
     updateScenarioAuth, toggleScenarioAuth,
     // Test
-    startNewTest, startEditTest, saveTest, removeTest,
-    startCopyTest, confirmCopyTest,
+    startNewTest, startNewParameterizedTest, startEditTest, saveTest, removeTest,
+    startCopyTest, confirmCopyTest, createParameterizedCopy,
     // Version
     handleVersionRestore, handleVersionDelete, handleVersionRename,
     // Toggle

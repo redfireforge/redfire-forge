@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Auth Token Rotation — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warning { background: #fff3cd; border-left-color: #856404; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">🔐</div>
+    <h1>Auth Token Rotation</h1>
+    <div class="subtitle">Multi-User Authentication Testing — Training Manual</div>
+    <p><span class="badge badge-advanced">Advanced ★★★</span> · Security · dummyjson.com</p>
+    <div class="meta">RedfireForge v0.5.6</div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <h2>1. Purpose &amp; Use Case</h2>
+  <p>The <strong>Auth Token Rotation</strong> sample demonstrates parameterized authentication testing — logging in multiple users via POST and validating that each receives a valid access token.</p>
+  <p>This pattern is essential for:</p>
+  <ul>
+    <li>Testing login functionality across user roles (admin, user, guest)</li>
+    <li>Verifying token generation for multiple accounts</li>
+    <li>Security regression testing after auth changes</li>
+    <li>Load testing authentication endpoints</li>
+  </ul>
+
+  <h2>2. Sample Overview</h2>
+
+  <table>
+    <tr><th>Property</th><th>Value</th></tr>
+    <tr><td>API</td><td>DummyJSON Auth — <code>dummyjson.com/auth/login</code></td></tr>
+    <tr><td>Method</td><td><code>POST</code></td></tr>
+    <tr><td>Data Rows</td><td>5 users (Emily, Michael, Sophia, James, Emma)</td></tr>
+    <tr><td>Columns</td><td>3 — username (body), password (body), expectedFirst (validate)</td></tr>
+    <tr><td>Assertions</td><td>Status 200, regex <code>.+</code> on accessToken</td></tr>
+  </table>
+
+  <h2>3. Body Parameter Columns</h2>
+
+  <p>Unlike path or query parameters, this sample uses <strong>body</strong> columns to construct the POST payload:</p>
+
+  <h3>Column Definitions</h3>
+  <table>
+    <tr><th>Column</th><th>Type</th><th>Mapping</th><th>Purpose</th></tr>
+    <tr><td><code>username</code></td><td>body</td><td><code>username</code></td><td>Replaces <code>{{username}}</code> in body</td></tr>
+    <tr><td><code>password</code></td><td>body</td><td><code>password</code></td><td>Replaces <code>{{password}}</code> in body</td></tr>
+    <tr><td><code>expectedFirst</code></td><td>validate</td><td><code>$.firstName</code></td><td>Validates response firstName</td></tr>
+  </table>
+
+  <h3>Request Body Template</h3>
+  <pre>{"username":"{{username}}","password":"{{password}}"}</pre>
+
+  <h2>4. Sample Data with Role Tags</h2>
+
+  <table>
+    <tr><th>username</th><th>password</th><th>expectedFirst</th><th>Tags</th></tr>
+    <tr><td>emilys</td><td>emilyspass</td><td>Emily</td><td><code>admin</code></td></tr>
+    <tr><td>michaelw</td><td>michaelwpass</td><td>Michael</td><td><code>user</code></td></tr>
+    <tr><td>sophiab</td><td>sophiabpass</td><td>Sophia</td><td><code>user</code></td></tr>
+    <tr><td>jamesd</td><td>jamesdpass</td><td>James</td><td><code>user</code></td></tr>
+    <tr><td>emmaj</td><td>emmajpass</td><td>Emma</td><td><code>admin</code></td></tr>
+  </table>
+
+  <div class="callout callout-warning">
+    <strong>⚠️ Security Note</strong>
+    These are DummyJSON test credentials. Never store real passwords in data sources. For production testing, use environment variables or secure credential management.
+  </div>
+
+  <h2>5. Step-by-Step Tutorial</h2>
+
+  <h3>Step 1: Examine the Token Validation</h3>
+  <p>This sample uses a <strong>regex assertion</strong> to verify the token exists:</p>
+  <pre>{ "type": "regex", "jsonPath": "$.accessToken", "pattern": ".+" }</pre>
+  <p>This passes if <code>accessToken</code> is any non-empty string.</p>
+
+  <h3>Step 2: Run and Inspect Tokens</h3>
+  <ol>
+    <li>Load and run the sample.</li>
+    <li>In Results, expand any row to see the response.</li>
+    <li>Note that each user gets a unique <code>accessToken</code>.</li>
+  </ol>
+
+  <h3>Step 3: Filter by Role</h3>
+  <ol>
+    <li>Enable Tag Filter and select <code>admin</code>.</li>
+    <li>Run — only Emily and Emma (admin users) execute.</li>
+  </ol>
+
+  <h2>6. Advanced: Token Extraction</h2>
+
+  <p>To use the received token in subsequent tests, add an <strong>extraction</strong>:</p>
+  <ol>
+    <li>In the Test Editor, go to the <strong>Extractions</strong> tab.</li>
+    <li>Add extraction: <code>authToken</code> from <code>$.accessToken</code></li>
+    <li>In subsequent tests, use <code>{{authToken}}</code> in the Authorization header.</li>
+  </ol>
+
+  <div class="callout callout-tip">
+    <strong>💡 Multi-Step Auth Flow</strong>
+    Combine this sample with a follow-up test that uses the extracted token:
+    <ol>
+      <li>First test: Login (this sample)</li>
+      <li>Second test: <code>GET /auth/me</code> with <code>Authorization: Bearer {{authToken}}</code></li>
+    </ol>
+  </div>
+
+  <h2>7. Customization Ideas</h2>
+  <ul>
+    <li><strong>Test invalid credentials</strong> — Add rows with wrong passwords, expect 401</li>
+    <li><strong>Test locked accounts</strong> — If your API has lockout, test that scenario</li>
+    <li><strong>Validate token expiry</strong> — Check <code>$.expiresIn</code> value</li>
+    <li><strong>Extract refresh token</strong> — For APIs that return both access and refresh tokens</li>
+  </ul>
+
+  <h2>8. Related Manuals</h2>
+  <ul>
+    <li><a href="../auth-strategies/basics/auth-basic-easy.html">Auth Strategies: Basics</a></li>
+    <li><a href="../auth-strategies/basics/auth-oauth2-easy.html">OAuth2 Authentication</a></li>
+    <li><a href="parameterized-multi-endpoint-advanced.html">Multi-Endpoint Regression</a></li>
+  </ul>
+
+  <footer>
+    RedfireForge Training Manual · Auth Token Rotation · Advanced
+  </footer>
+</body>
+</html>

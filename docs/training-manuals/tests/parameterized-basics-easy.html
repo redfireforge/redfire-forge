@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Parameterized Basics — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">📊</div>
+    <h1>Parameterized Testing Basics</h1>
+    <div class="subtitle">Data-Driven Testing — Training Manual</div>
+    <p><span class="badge badge-easy">Easy ★☆☆</span> · Data-Driven · jsonplaceholder.typicode.com</p>
+    <div class="meta">RedfireForge v0.5.7</div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 1 -->
+  <h2>1. Purpose &amp; Use Case</h2>
+  <p>Parameterized testing (also called <em>data-driven testing</em>) lets you define <strong>one test pattern</strong> and run it against <strong>many data rows</strong>. Instead of copying the same test 10 times with different IDs, you create a single test with a data source table.</p>
+  <p>This manual teaches the fundamentals using the <strong>User Lookup Sweep</strong> gallery sample — a simple GET request tested against 10 different user IDs.</p>
+
+  <div class="callout">
+    <strong>Before You Start</strong>
+    No setup required. This tutorial uses JSONPlaceholder (<code>jsonplaceholder.typicode.com</code>), a free public API that always returns predictable data.
+  </div>
+
+  <h2>2. Concepts You'll Learn</h2>
+  <ul>
+    <li><strong>Data Source</strong> — an inline table of test data rows attached to a test.</li>
+    <li><strong>Path variables</strong> — columns that replace <code>{{variable}}</code> placeholders in the URL.</li>
+    <li><strong>Row expansion</strong> — how one test becomes N requests at execution time.</li>
+    <li><strong>Grouped results</strong> — how results are displayed per data row.</li>
+  </ul>
+
+  <h2>3. Step-by-Step Tutorial</h2>
+
+  <h3>Step 1: Load the Gallery Sample</h3>
+  <ol>
+    <li>Open the <strong>Gallery</strong> panel (sidebar icon; <code>Ctrl+Shift+G</code> is optional if your keybindings include it).</li>
+    <li>Switch to the <strong>Tests</strong> tab.</li>
+    <li>Find <strong>"User Lookup Sweep"</strong> (tagged 📊 parameterized).</li>
+    <li>Click <strong>Load Test</strong>.</li>
+  </ol>
+  <p>A new feature group appears in the Feature Groups tab with one scenario containing one test — but that test has 10 data rows attached.</p>
+
+  <h3>Step 2: Explore the Data Source</h3>
+  <ol>
+    <li>Click the test name to open the <strong>Test Editor</strong>.</li>
+    <li>Switch to the <strong>Data Source</strong> tab.</li>
+    <li>You'll see an inline table with 3 columns and 10 rows:</li>
+  </ol>
+
+  <table>
+    <tr><th>id (path)</th><th>expectedName (validate)</th><th>expectedEmail (validate)</th></tr>
+    <tr><td>1</td><td>Leanne Graham</td><td>Sincere@april.biz</td></tr>
+    <tr><td>2</td><td>Ervin Howell</td><td>Shanna@melissa.tv</td></tr>
+    <tr><td>3</td><td>Clementine Bauch</td><td>Nathan@yesenia.net</td></tr>
+    <tr><td>…</td><td>…</td><td>…</td></tr>
+    <tr><td>10</td><td>Clementina DuBuque</td><td>Rey.Padberg@karina.biz</td></tr>
+  </table>
+
+  <div class="callout callout-tip">
+    <strong>💡 How it works</strong>
+    The <code>id</code> column has type <strong>path</strong> — it replaces <code>{{id}}</code> in the URL <code>/users/{{id}}</code>. The <code>expectedName</code> and <code>expectedEmail</code> columns have type <strong>validate</strong> — they're checked against the response JSON paths <code>$.name</code> and <code>$.email</code>.
+  </div>
+
+  <h3>Step 3: Run the Test</h3>
+  <ol>
+    <li>Go to <strong>Testing → Parameterized Runner</strong>.</li>
+    <li>Check the "User Lookup Sweep" feature group.</li>
+    <li>Notice the execution summary: <strong>"1 test × 10 data rows = 10 requests"</strong>.</li>
+    <li>Click <strong>Run</strong>.</li>
+  </ol>
+  <p>The Parameterized Runner expands the single test into 10 separate HTTP requests — one per row — each with the user ID substituted into the URL.</p>
+
+  <h3>Step 4: View Grouped Results</h3>
+  <ol>
+    <li>Switch to the <strong>Results</strong> tab after execution completes.</li>
+    <li>Results are grouped by data row — you can see which rows passed and which failed.</li>
+    <li>Click any row to see the full request/response details for that specific data point.</li>
+  </ol>
+
+  <h2>4. How Data Source Columns Work</h2>
+
+  <table>
+    <tr><th>Column Type</th><th>What It Does</th><th>Example</th></tr>
+    <tr><td><code>path</code></td><td>Replaces <code>{{var}}</code> in the URL</td><td><code>id</code> → <code>/users/1</code></td></tr>
+    <tr><td><code>param</code></td><td>Adds a query parameter</td><td><code>q</code> → <code>?q=phone</code></td></tr>
+    <tr><td><code>header</code></td><td>Sets a request header</td><td><code>X-Token</code> → header value</td></tr>
+    <tr><td><code>body</code></td><td>Replaces <code>{{var}}</code> in the body</td><td><code>username</code> → body field</td></tr>
+    <tr><td><code>validate</code></td><td>Checks response JSON path</td><td><code>$.name</code> → expected value</td></tr>
+  </table>
+
+  <h2>5. Creating Your Own Data Source</h2>
+  <ol>
+    <li>Open any test in the Test Editor.</li>
+    <li>Switch to the <strong>Data Source</strong> tab.</li>
+    <li>Click <strong>+ Column</strong> to define your columns.</li>
+    <li>Set the column <strong>type</strong> (path, param, body, header, or validate).</li>
+    <li>Set the column <strong>mapping</strong> (the variable name or JSON path).</li>
+    <li>Add rows with your test data.</li>
+    <li>Your URL should use <code>{{variable}}</code> placeholders matching your path/param column mappings.</li>
+  </ol>
+
+  <h2>6. Try It Yourself</h2>
+  <p>Create a parameterized test for the JSONPlaceholder Posts API:</p>
+  <ol>
+    <li>Create a new test with URL: <code>https://jsonplaceholder.typicode.com/posts/{{id}}</code></li>
+    <li>Add a Data Source with columns: <code>id</code> (path) and <code>expectedTitle</code> (validate: <code>$.title</code>)</li>
+    <li>Add 3 rows with post IDs 1, 2, 3 and their expected titles</li>
+    <li>Run and verify all 3 rows pass</li>
+  </ol>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip: Find expected values</strong>
+    Visit <code>https://jsonplaceholder.typicode.com/posts/1</code> in your browser to see the real response and copy the title for your expected value.
+  </div>
+
+  <h2>7. Additional Data Source Features</h2>
+  <p>Once you're comfortable with the basics, explore these features available in the Data Source tab toolbar:</p>
+
+  <table>
+    <tr><th>Feature</th><th>What It Does</th><th>How to Use</th></tr>
+    <tr><td><strong>Sample Rows</strong></td><td>Mark specific rows as "samples" — used with selective validation mode to only validate sample rows during execution</td><td>Click <strong>+ Sample Row</strong> or toggle the 📌 icon on any row</td></tr>
+    <tr><td><strong>Row Labels</strong></td><td>Give rows a human-readable label shown in results (e.g., "happy-path", "edge-case")</td><td>Click the ✎ icon on a row → enter a label</td></tr>
+    <tr><td><strong>Row Notes</strong></td><td>Add annotations to rows (e.g., "Known to fail on weekends")</td><td>Click the 🗒️ icon on a row → enter a note</td></tr>
+    <tr><td><strong>Bulk Operations</strong></td><td>Select multiple rows (click, Ctrl+click, Shift+click) then enable/disable/delete/duplicate them all at once</td><td>Select rows → use the bulk action buttons that appear</td></tr>
+    <tr><td><strong>Distribution Mode</strong></td><td>Control row execution order: Sequential (default), Random, or Round Robin</td><td>Use the <strong>Distribution</strong> toolbar select</td></tr>
+    <tr><td><strong>Validation Mode</strong></td><td>None (skip validation), Selective (sample rows only), or Full (all rows)</td><td>Use the <strong>Validation</strong> toolbar select</td></tr>
+    <tr><td><strong>Drag to Reorder</strong></td><td>Reorder rows by dragging the ⠿ handle</td><td>Drag the grip icon on the left of any row</td></tr>
+    <tr><td><strong>Sort &amp; Search</strong></td><td>Sort by any column or search/filter rows by text</td><td>Click column headers to sort; use the 🔍 search box</td></tr>
+    <tr><td><strong>Keyboard Navigation</strong></td><td>Navigate cells with Tab, Enter, and arrow keys</td><td>Focus a cell and press Tab/Enter/arrows</td></tr>
+  </table>
+
+  <div class="callout callout-tip">
+    <strong>💡 Learn More</strong>
+    See <a href="parameterized-advanced-features-medium.html">Advanced Data Source Features</a> for detailed tutorials on tags, subsets, bulk operations, and distribution modes.
+  </div>
+
+  <h2>8. Related Manuals</h2>
+  <ul>
+    <li><a href="parameterized-create-copy-easy.html">Create Parameterized Copy</a> — convert existing tests into data-driven versions</li>
+    <li><a href="parameterized-file-import-easy.html">Import CSV/JSON Files as Data Source</a> — load data from external files</li>
+    <li><a href="parameterized-validation-medium.html">Parameterized Validation</a> — add validate columns and capture baselines</li>
+    <li><a href="parameterized-advanced-features-medium.html">Advanced Data Source Features</a> — tags, subsets, bulk ops, distribution modes</li>
+    <li><a href="parameterized-populate-api-medium.html">Populate from API</a> — auto-populate data rows from an API response</li>
+    <li><a href="parameterized-verify-contract-advanced.html">Verify &amp; Validation Contract</a> — verify data against live APIs</li>
+    <li><a href="user-api-smoke-easy.html">User API Smoke Test</a> — the non-parameterized version of this tutorial</li>
+  </ul>
+
+  <footer>
+    RedfireForge Training Manual · Parameterized Testing Basics · Easy
+  </footer>
+</body>
+</html>

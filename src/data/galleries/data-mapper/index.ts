@@ -1,0 +1,138 @@
+/**
+ * Data Mapper gallery entries — real end-to-end test scenarios that demonstrate
+ * Data Mapper features. Users can import these and open the Data Mapper from
+ * within the test editor to visually verify extraction, validation, and body mapping.
+ */
+
+import type { GalleryEntry } from '../types';
+import type { FeatureGroup } from '../../../shared/types';
+import {
+  createExtractionMappingSample,
+  createValidationMappingSample,
+  createBodyBuilderMappingSample,
+  createMultiStepChainSample,
+  createComboMapperSample,
+  createValidationOperatorsSample,
+  createArrayAssertionsDslSample,
+  createUsersValidationSample,
+} from './presets';
+
+interface DataMapperSampleEntry extends GalleryEntry<FeatureGroup> {
+  scenarioCount: number;
+  mapperSurfaces: string[];
+}
+
+export const dataMapperSampleCatalog: DataMapperSampleEntry[] = [
+  {
+    id: 'dm-extraction-mapping',
+    domain: 'data-mapper',
+    name: 'Extraction Mapping',
+    description: 'Fetch a user, extract 5 fields, pass them to a follow-up request. Open "Map Fields" in the Extract tab.',
+    icon: '🔀',
+    category: 'mapping',
+    difficulty: 'easy',
+    tags: ['extraction', 'drag-drop', 'variables', 'jsonplaceholder'],
+    liveApis: ['jsonplaceholder.typicode.com'],
+    scenarioCount: 2,
+    mapperSurfaces: ['extraction'],
+    factory: createExtractionMappingSample,
+  },
+  {
+    id: 'dm-validation-mapping',
+    domain: 'data-mapper',
+    name: 'Validation Mapping',
+    description: 'Validate product fields with selective mode. Open "⚡ Data Mapper" in the Validation tab.',
+    icon: '🔀',
+    category: 'mapping',
+    difficulty: 'easy',
+    tags: ['validation', 'selective', 'expected-fields', 'dummyjson'],
+    liveApis: ['dummyjson.com'],
+    scenarioCount: 1,
+    mapperSurfaces: ['validation'],
+    factory: createValidationMappingSample,
+  },
+  {
+    id: 'dm-body-builder',
+    domain: 'data-mapper',
+    name: 'Body Builder Mapping',
+    description: 'Extract user fields, then build a POST body template with {{variables}}. Open "Open Mapper" in the Body tab.',
+    icon: '🔀',
+    category: 'mapping',
+    difficulty: 'medium',
+    tags: ['body', 'template', 'post', 'variables', 'jsonplaceholder'],
+    liveApis: ['jsonplaceholder.typicode.com'],
+    scenarioCount: 2,
+    mapperSurfaces: ['extraction', 'body'],
+    factory: createBodyBuilderMappingSample,
+  },
+  {
+    id: 'dm-multi-step-chain',
+    domain: 'data-mapper',
+    name: 'Multi-Step Chain',
+    description: 'User → Posts → Comments chain. Each step extracts and passes variables to the next.',
+    icon: '🔀',
+    category: 'mapping',
+    difficulty: 'medium',
+    tags: ['chain', 'multi-step', 'extraction', 'variables', 'jsonplaceholder'],
+    liveApis: ['jsonplaceholder.typicode.com'],
+    scenarioCount: 3,
+    mapperSurfaces: ['extraction'],
+    factory: createMultiStepChainSample,
+  },
+  {
+    id: 'dm-combo-mapper',
+    domain: 'data-mapper',
+    name: 'Full Combo — Extract + Validate + Body',
+    description: 'All Data Mapper surfaces in one scenario: extraction, selective validation, and body template with mapped variables.',
+    icon: '🔀',
+    category: 'mapping',
+    difficulty: 'advanced',
+    tags: ['combo', 'extraction', 'validation', 'body', 'dummyjson'],
+    liveApis: ['dummyjson.com'],
+    scenarioCount: 3,
+    mapperSurfaces: ['extraction', 'validation', 'body'],
+    factory: createComboMapperSample,
+  },
+  {
+    id: 'dm-validation-operators',
+    domain: 'data-mapper',
+    name: 'Validation Operators Showcase',
+    description: 'All 24 field operators in action: equality, comparison, string, boolean, existence, type check, and set membership — using DummyJSON products.',
+    icon: '🔀',
+    category: 'validation',
+    difficulty: 'medium',
+    tags: ['validation', 'operators', 'selective', 'dummyjson', 'between', 'regex', 'is_type'],
+    liveApis: ['dummyjson.com'],
+    scenarioCount: 1,
+    mapperSurfaces: ['validation'],
+    factory: createValidationOperatorsSample,
+  },
+  {
+    id: 'dm-array-assertions-dsl',
+    domain: 'data-mapper',
+    name: 'Array Assertions & DSL Editor',
+    description: 'LENGTH, EACH, CONTAINS, SUBSET array assertions plus DSL rules, ASSERT custom predicates, and universal negation (NOT) — using DummyJSON products.',
+    icon: '🔀',
+    category: 'validation',
+    difficulty: 'advanced',
+    tags: ['validation', 'array', 'dsl', 'assert', 'negation', 'each', 'length', 'subset', 'dummyjson'],
+    liveApis: ['dummyjson.com'],
+    scenarioCount: 1,
+    mapperSurfaces: ['validation'],
+    factory: createArrayAssertionsDslSample,
+  },
+  {
+    id: 'dm-users-validation',
+    domain: 'data-mapper',
+    name: 'Users Validation (Nested Objects)',
+    description: 'Validate deeply nested user objects — address, geo, company — with diverse operators and ASSERT expressions using JSONPlaceholder.',
+    icon: '🔀',
+    category: 'validation',
+    difficulty: 'medium',
+    tags: ['validation', 'nested', 'operators', 'jsonplaceholder', 'regex', 'exists'],
+    liveApis: ['jsonplaceholder.typicode.com'],
+    scenarioCount: 1,
+    mapperSurfaces: ['validation'],
+    factory: createUsersValidationSample,
+  },
+];

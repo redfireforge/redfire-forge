@@ -85,14 +85,49 @@ async function openHistory(page: import('@playwright/test').Page, fgName: string
   await page.waitForTimeout(300);
 }
 
-/** Get structure log from localStorage for a given FG id. */
+/** Get structure log from IndexedDB (or localStorage fallback) for a given FG id. */
 async function getStructureLog(page: import('@playwright/test').Page, fgId: string) {
   return page.evaluate((id) => {
-    const raw = localStorage.getItem('perf-test-v3-feature-groups');
-    if (!raw) return null;
-    const fgs = JSON.parse(raw);
-    const fg = fgs.find((f: any) => f.id === id);
-    return fg?.structureLog ?? null;
+    return new Promise((resolve) => {
+      // Try IndexedDB first (app stores feature groups there)
+      try {
+        const req = indexedDB.open('redfireforge', 3);
+        req.onsuccess = () => {
+          try {
+            const db = req.result;
+            const tx = db.transaction('featureGroups', 'readonly');
+            const store = tx.objectStore('featureGroups');
+            const getReq = store.get('all');
+            getReq.onsuccess = () => {
+              const fgs = getReq.result;
+              if (fgs && Array.isArray(fgs)) {
+                const fg = fgs.find((f: Record<string, unknown>) => f.id === id);
+                resolve(fg?.structureLog ?? null);
+              } else {
+                // Fall back to localStorage
+                const raw = localStorage.getItem('perf-test-v3-feature-groups');
+                if (!raw) { resolve(null); return; }
+                const lfgs = JSON.parse(raw);
+                const lfg = lfgs.find((f: Record<string, unknown>) => f.id === id);
+              resolve(lfg?.structureLog ?? null);
+              }
+            };
+            getReq.onerror = () => {
+              const raw = localStorage.getItem('perf-test-v3-feature-groups');
+              if (!raw) { resolve(null); return; }
+              const lfgs = JSON.parse(raw);
+              const lfg = lfgs.find((f: Record<string, unknown>) => f.id === id);
+              resolve(lfg?.structureLog ?? null);
+            };
+          } catch {
+            resolve(null);
+          }
+        };
+        req.onerror = () => resolve(null);
+      } catch {
+        resolve(null);
+      }
+    });
   }, fgId);
 }
 
@@ -102,7 +137,7 @@ async function addScenarioViaUI(page: import('@playwright/test').Page, fgName: s
   const fgCard = page.locator('.feature-group-card', { hasText: fgName });
   await fgCard.locator('.feature-group-actions button', { hasText: '+ Scenario' }).click();
   await page.waitForTimeout(200);
-  const nameInput = fgCard.locator('.inline-name-form input');
+  const nameInput = fgCard.locator('.inline-name-form input[placeholder]');
   await nameInput.fill(scenarioName);
   await nameInput.press('Enter');
   await page.waitForTimeout(500);

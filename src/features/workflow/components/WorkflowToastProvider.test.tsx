@@ -13,6 +13,11 @@ function TestConsumer() {
       <button onClick={() => api?.show('success', 'Saved', 'Details')}>Show</button>
       <button onClick={() => api?.show('error', 'Failed')}>Error</button>
       <button onClick={() => api?.show('info', 'Note', undefined, 0)}>Persistent</button>
+      <button onClick={() => api?.show('warning', 'Caution', 'Look out')}>Warn</button>
+      <button onClick={() => api?.show('info', 'FYI', 'More info')}>InfoToast</button>
+      <button onClick={() => api?.show('success', 'NoAuto', undefined, -1)}>NonPositiveDuration</button>
+      <button onClick={() => api?.show('success', 'Nullish', undefined, null as unknown as number)}>NullDuration</button>
+      <button onClick={() => api?.dismiss('toast-nonexistent')}>DismissUnknown</button>
       <span data-testid="has-api">{api ? 'yes' : 'no'}</span>
     </div>
   );
@@ -155,5 +160,63 @@ describe('WorkflowToastProvider', () => {
     );
     const stack = document.querySelector('.wf-toast-stack');
     expect(stack?.getAttribute('role')).toBe('status');
+  });
+
+  it('renders warning icon and subtitle', () => {
+    render(
+      <WorkflowToastProvider>
+        <TestConsumer />
+      </WorkflowToastProvider>,
+    );
+    fireEvent.click(screen.getByText('Warn'));
+    expect(screen.getByText('!')).toBeTruthy();
+    expect(screen.getByText('Look out')).toBeTruthy();
+    expect(document.querySelector('.wf-toast-warning')).toBeTruthy();
+  });
+
+  it('renders info timed toast with icon and progress', () => {
+    render(
+      <WorkflowToastProvider>
+        <TestConsumer />
+      </WorkflowToastProvider>,
+    );
+    fireEvent.click(screen.getByText('InfoToast'));
+    expect(screen.getByText('i')).toBeTruthy();
+    expect(screen.getByText('More info')).toBeTruthy();
+    expect(document.querySelector('.wf-toast-progress-info')).toBeTruthy();
+  });
+
+  it('omits auto-dismiss timer and progress when duration is not positive', () => {
+    render(
+      <WorkflowToastProvider>
+        <TestConsumer />
+      </WorkflowToastProvider>,
+    );
+    fireEvent.click(screen.getByText('NonPositiveDuration'));
+    expect(screen.getByText('NoAuto')).toBeTruthy();
+    expect(document.querySelector('.wf-toast-progress')).toBeNull();
+  });
+
+  it('dismiss with unknown id leaves toasts unchanged', () => {
+    render(
+      <WorkflowToastProvider>
+        <TestConsumer />
+      </WorkflowToastProvider>,
+    );
+    fireEvent.click(screen.getByText('Show'));
+    expect(screen.getByText('Saved')).toBeTruthy();
+    fireEvent.click(screen.getByText('DismissUnknown'));
+    expect(screen.getByText('Saved')).toBeTruthy();
+  });
+
+  it('uses nullish duration for progress visibility coalescing', () => {
+    render(
+      <WorkflowToastProvider>
+        <TestConsumer />
+      </WorkflowToastProvider>,
+    );
+    fireEvent.click(screen.getByText('NullDuration'));
+    expect(screen.getByText('Nullish')).toBeTruthy();
+    expect(document.querySelector('.wf-toast-progress')).toBeNull();
   });
 });

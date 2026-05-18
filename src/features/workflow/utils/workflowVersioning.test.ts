@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
   MAX_WORKFLOW_VERSIONS,
   computeWorkflowFingerprint,
@@ -12,7 +12,9 @@ import {
   stripWorkflowVersions,
   countWorkflowVersions,
 } from './workflowVersioning';
-import type { WorkflowVersion } from '../types/workflow';
+import type { WorkflowVersion, WorkflowNode, WorkflowEdge, WorkflowService } from '../types/workflow';
+
+type ChangeSummaryInput = Pick<WorkflowVersion, 'nodeCount' | 'edgeCount' | 'nodes' | 'edges' | 'variables'>;
 
 vi.mock('uuid', () => ({
   v4: (() => {
@@ -23,18 +25,18 @@ vi.mock('uuid', () => ({
 
 // ── Helpers ──
 
-const makeNode = (id: string, type = 'request', data: Record<string, unknown> = {}) => ({
+const makeNode = (id: string, type = 'request', data: Record<string, unknown> = {}): WorkflowNode => ({
   id,
-  type,
+  type: type as WorkflowNode['type'],
   position: { x: 0, y: 0 },
-  data: { label: id, ...data },
+  data: { label: id, ...data } as WorkflowNode['data'],
 });
 
-const makeEdge = (id: string, source: string, target: string) => ({
+const makeEdge = (id: string, source: string, target: string): WorkflowEdge => ({
   id,
   source,
   target,
-  sourceHandle: null,
+  sourceHandle: undefined,
   label: '',
 });
 
@@ -44,8 +46,8 @@ const makeVersion = (overrides: Partial<WorkflowVersion> = {}): WorkflowVersion 
   fingerprint: 'fp1',
   nodeCount: 1,
   edgeCount: 0,
-  nodes: [makeNode('n1')] as unknown as WorkflowVersion['nodes'],
-  edges: [] as unknown as WorkflowVersion['edges'],
+  nodes: [makeNode('n1')],
+  edges: [],
   variables: {},
   ...overrides,
 });
@@ -60,8 +62,8 @@ describe('computeWorkflowFingerprint', () => {
   });
 
   it('returns same hash for same data', () => {
-    const nodes = [makeNode('n1')] as any;
-    const edges = [makeEdge('e1', 'n1', 'n2')] as any;
+    const nodes = [makeNode('n1')];
+    const edges = [makeEdge('e1', 'n1', 'n2')];
     const vars = { foo: 'bar' };
     const fp1 = computeWorkflowFingerprint(nodes, edges, vars);
     const fp2 = computeWorkflowFingerprint(nodes, edges, vars);
@@ -69,8 +71,8 @@ describe('computeWorkflowFingerprint', () => {
   });
 
   it('returns different hash for different nodes', () => {
-    const fp1 = computeWorkflowFingerprint([makeNode('n1')] as any, [], {});
-    const fp2 = computeWorkflowFingerprint([makeNode('n2')] as any, [], {});
+    const fp1 = computeWorkflowFingerprint([makeNode('n1')], [], {});
+    const fp2 = computeWorkflowFingerprint([makeNode('n2')], [], {});
     expect(fp1).not.toBe(fp2);
   });
 
@@ -81,13 +83,13 @@ describe('computeWorkflowFingerprint', () => {
   });
 
   it('returns different hash for different edges', () => {
-    const fp1 = computeWorkflowFingerprint([], [makeEdge('e1', 'a', 'b')] as any, {});
-    const fp2 = computeWorkflowFingerprint([], [makeEdge('e1', 'a', 'c')] as any, {});
+    const fp1 = computeWorkflowFingerprint([], [makeEdge('e1', 'a', 'b')], {});
+    const fp2 = computeWorkflowFingerprint([], [makeEdge('e1', 'a', 'c')], {});
     expect(fp1).not.toBe(fp2);
   });
 
   it('includes services in fingerprint', () => {
-    const svc = [{ id: 's1', name: 'Svc', endpoints: [], defaultAuth: undefined, microserviceId: undefined }] as any;
+    const svc: WorkflowService[] = [{ id: 's1', name: 'Svc', endpoints: [], defaultAuth: undefined, microserviceId: undefined }];
     const fp1 = computeWorkflowFingerprint([], [], {}, svc);
     const fp2 = computeWorkflowFingerprint([], [], {});
     expect(fp1).not.toBe(fp2);
@@ -104,8 +106,8 @@ describe('computeWorkflowFingerprint', () => {
 
 describe('createWorkflowVersion', () => {
   it('creates a new version with correct properties', () => {
-    const nodes = [makeNode('n1')] as any;
-    const edges = [makeEdge('e1', 'n1', 'n2')] as any;
+    const nodes = [makeNode('n1')];
+    const edges = [makeEdge('e1', 'n1', 'n2')];
     const vars = { key: 'val' };
     const v = createWorkflowVersion(nodes, edges, vars, undefined, []);
     expect(v).not.toBeNull();
@@ -117,7 +119,7 @@ describe('createWorkflowVersion', () => {
   });
 
   it('returns null if fingerprint matches latest version', () => {
-    const nodes = [makeNode('n1')] as any;
+    const nodes = [makeNode('n1')];
     const fp = computeWorkflowFingerprint(nodes, [], {});
     const existing = [makeVersion({ fingerprint: fp })];
     const v = createWorkflowVersion(nodes, [], {}, undefined, existing);
@@ -126,12 +128,12 @@ describe('createWorkflowVersion', () => {
 
   it('creates version if fingerprint differs from latest', () => {
     const existing = [makeVersion({ fingerprint: 'different' })];
-    const v = createWorkflowVersion([makeNode('n1')] as any, [], {}, undefined, existing);
+    const v = createWorkflowVersion([makeNode('n1')], [], {}, undefined, existing);
     expect(v).not.toBeNull();
   });
 
   it('deep clones the data', () => {
-    const nodes = [makeNode('n1')] as any;
+    const nodes = [makeNode('n1')];
     const vars = { key: 'val' };
     const v = createWorkflowVersion(nodes, [], vars, undefined, []);
     vars.key = 'changed';
@@ -146,7 +148,7 @@ describe('createWorkflowVersion', () => {
   });
 
   it('includes services when provided', () => {
-    const svcs = [{ id: 's1', name: 'Svc' }] as any;
+    const svcs: WorkflowService[] = [{ id: 's1', name: 'Svc', endpoints: [] }];
     const v = createWorkflowVersion([], [], {}, svcs, []);
     expect(v!.services).toEqual(svcs);
   });
@@ -197,43 +199,63 @@ describe('generateChangeSummary', () => {
   it('reports added nodes', () => {
     const older = { nodeCount: 1, edgeCount: 0, nodes: [makeNode('n1')], edges: [], variables: {} };
     const newer = { nodeCount: 3, edgeCount: 0, nodes: [makeNode('n1'), makeNode('n2'), makeNode('n3')], edges: [], variables: {} };
-    expect(generateChangeSummary(older as any, newer as any)).toContain('2 nodes added');
+    expect(generateChangeSummary(older as ChangeSummaryInput, newer as ChangeSummaryInput)).toContain('2 nodes added');
+  });
+
+  it('uses singular phrasing for single node add/remove and edges', () => {
+    const older0 = { nodeCount: 0, edgeCount: 0, nodes: [], edges: [], variables: {} };
+    const newer1 = { nodeCount: 1, edgeCount: 0, nodes: [makeNode('n1')], edges: [], variables: {} };
+    expect(generateChangeSummary(older0 as ChangeSummaryInput, newer1 as ChangeSummaryInput)).toContain('1 node added');
+    expect(generateChangeSummary(newer1 as ChangeSummaryInput, older0 as ChangeSummaryInput)).toContain('1 node removed');
+    const olderE = { nodeCount: 0, edgeCount: 1, nodes: [], edges: [makeEdge('e1', 'a', 'b')], variables: {} };
+    const newerE0 = { nodeCount: 0, edgeCount: 0, nodes: [], edges: [], variables: {} };
+    expect(generateChangeSummary(newerE0 as ChangeSummaryInput, olderE as ChangeSummaryInput)).toContain('1 edge added');
+    expect(generateChangeSummary(olderE as ChangeSummaryInput, newerE0 as ChangeSummaryInput)).toContain('1 edge removed');
+  });
+
+  it('uses singular phrasing for variable deltas', () => {
+    const empty = { nodeCount: 0, edgeCount: 0, nodes: [], edges: [], variables: {} };
+    const oneVar = { nodeCount: 0, edgeCount: 0, nodes: [], edges: [], variables: { a: '1' } };
+    expect(generateChangeSummary(empty as ChangeSummaryInput, oneVar as ChangeSummaryInput)).toContain('1 var added');
+    expect(generateChangeSummary(oneVar as ChangeSummaryInput, empty as ChangeSummaryInput)).toContain('1 var removed');
+    const changed = { nodeCount: 0, edgeCount: 0, nodes: [], edges: [], variables: { a: '2' } };
+    expect(generateChangeSummary(oneVar as ChangeSummaryInput, changed as ChangeSummaryInput)).toContain('1 var changed');
   });
 
   it('reports removed nodes', () => {
     const older = { nodeCount: 3, edgeCount: 0, nodes: [], edges: [], variables: {} };
     const newer = { nodeCount: 1, edgeCount: 0, nodes: [], edges: [], variables: {} };
-    expect(generateChangeSummary(older as any, newer as any)).toContain('2 nodes removed');
+    expect(generateChangeSummary(older as ChangeSummaryInput, newer as ChangeSummaryInput)).toContain('2 nodes removed');
   });
 
   it('reports added edges', () => {
     const older = { nodeCount: 0, edgeCount: 0, nodes: [], edges: [], variables: {} };
     const newer = { nodeCount: 0, edgeCount: 1, nodes: [], edges: [], variables: {} };
-    expect(generateChangeSummary(older as any, newer as any)).toContain('1 edge added');
+    expect(generateChangeSummary(older as ChangeSummaryInput, newer as ChangeSummaryInput)).toContain('1 edge added');
   });
 
   it('reports removed edges', () => {
     const older = { nodeCount: 0, edgeCount: 2, nodes: [], edges: [], variables: {} };
     const newer = { nodeCount: 0, edgeCount: 0, nodes: [], edges: [], variables: {} };
-    expect(generateChangeSummary(older as any, newer as any)).toContain('2 edges removed');
+    expect(generateChangeSummary(older as ChangeSummaryInput, newer as ChangeSummaryInput)).toContain('2 edges removed');
   });
 
   it('reports added variables', () => {
     const older = { nodeCount: 0, edgeCount: 0, nodes: [], edges: [], variables: {} };
     const newer = { nodeCount: 0, edgeCount: 0, nodes: [], edges: [], variables: { a: '1', b: '2' } };
-    expect(generateChangeSummary(older as any, newer as any)).toContain('2 vars added');
+    expect(generateChangeSummary(older as ChangeSummaryInput, newer as ChangeSummaryInput)).toContain('2 vars added');
   });
 
   it('reports removed variables', () => {
     const older = { nodeCount: 0, edgeCount: 0, nodes: [], edges: [], variables: { a: '1' } };
     const newer = { nodeCount: 0, edgeCount: 0, nodes: [], edges: [], variables: {} };
-    expect(generateChangeSummary(older as any, newer as any)).toContain('1 var removed');
+    expect(generateChangeSummary(older as ChangeSummaryInput, newer as ChangeSummaryInput)).toContain('1 var removed');
   });
 
   it('reports changed variables', () => {
     const older = { nodeCount: 0, edgeCount: 0, nodes: [], edges: [], variables: { a: '1' } };
     const newer = { nodeCount: 0, edgeCount: 0, nodes: [], edges: [], variables: { a: '2' } };
-    expect(generateChangeSummary(older as any, newer as any)).toContain('1 var changed');
+    expect(generateChangeSummary(older as ChangeSummaryInput, newer as ChangeSummaryInput)).toContain('1 var changed');
   });
 
   it('reports modified nodes when count is same', () => {
@@ -241,18 +263,28 @@ describe('generateChangeSummary', () => {
     const n1mod = makeNode('n1', 'request', { url: '/b' });
     const older = { nodeCount: 1, edgeCount: 0, nodes: [n1], edges: [], variables: {} };
     const newer = { nodeCount: 1, edgeCount: 0, nodes: [n1mod], edges: [], variables: {} };
-    expect(generateChangeSummary(older as any, newer as any)).toContain('1 node modified');
+    expect(generateChangeSummary(older as ChangeSummaryInput, newer as ChangeSummaryInput)).toContain('1 node modified');
+  });
+
+  it('reports multiple nodes modified with plural label', () => {
+    const a = makeNode('a', 'request', { url: '/1' });
+    const b = makeNode('b', 'request', { url: '/2' });
+    const am = makeNode('a', 'request', { url: '/x' });
+    const bm = makeNode('b', 'request', { url: '/y' });
+    const older = { nodeCount: 2, edgeCount: 0, nodes: [a, b], edges: [], variables: {} };
+    const newer = { nodeCount: 2, edgeCount: 0, nodes: [am, bm], edges: [], variables: {} };
+    expect(generateChangeSummary(older as ChangeSummaryInput, newer as ChangeSummaryInput)).toContain('2 nodes modified');
   });
 
   it('returns "No structural changes" when nothing changed', () => {
     const v = { nodeCount: 0, edgeCount: 0, nodes: [], edges: [], variables: {} };
-    expect(generateChangeSummary(v as any, v as any)).toBe('No structural changes');
+    expect(generateChangeSummary(v as ChangeSummaryInput, v as ChangeSummaryInput)).toBe('No structural changes');
   });
 
   it('combines multiple changes', () => {
     const older = { nodeCount: 1, edgeCount: 1, nodes: [makeNode('n1')], edges: [], variables: { a: '1' } };
     const newer = { nodeCount: 2, edgeCount: 0, nodes: [makeNode('n1'), makeNode('n2')], edges: [], variables: {} };
-    const summary = generateChangeSummary(older as any, newer as any);
+    const summary = generateChangeSummary(older as ChangeSummaryInput, newer as ChangeSummaryInput);
     expect(summary).toContain('1 node added');
     expect(summary).toContain('1 edge removed');
     expect(summary).toContain('1 var removed');
@@ -263,16 +295,16 @@ describe('generateChangeSummary', () => {
 
 describe('computeVersionDiff', () => {
   it('detects added nodes', () => {
-    const older = makeVersion({ nodes: [] as any });
-    const newer = makeVersion({ nodes: [makeNode('n1')] as any });
+    const older = makeVersion({ nodes: [] });
+    const newer = makeVersion({ nodes: [makeNode('n1')] });
     const diff = computeVersionDiff(older, newer);
     expect(diff.addedNodes).toHaveLength(1);
     expect(diff.removedNodes).toHaveLength(0);
   });
 
   it('detects removed nodes', () => {
-    const older = makeVersion({ nodes: [makeNode('n1')] as any });
-    const newer = makeVersion({ nodes: [] as any });
+    const older = makeVersion({ nodes: [makeNode('n1')] });
+    const newer = makeVersion({ nodes: [] });
     const diff = computeVersionDiff(older, newer);
     expect(diff.removedNodes).toHaveLength(1);
     expect(diff.addedNodes).toHaveLength(0);
@@ -281,23 +313,33 @@ describe('computeVersionDiff', () => {
   it('detects modified nodes', () => {
     const n1 = makeNode('n1', 'request', { url: '/a' });
     const n1mod = makeNode('n1', 'request', { url: '/b' });
-    const older = makeVersion({ nodes: [n1] as any });
-    const newer = makeVersion({ nodes: [n1mod] as any });
+    const older = makeVersion({ nodes: [n1] });
+    const newer = makeVersion({ nodes: [n1mod] });
     const diff = computeVersionDiff(older, newer);
     expect(diff.modifiedNodes).toHaveLength(1);
     expect(diff.modifiedNodes[0].id).toBe('n1');
   });
 
+  it('uses node id for modified node label when data has no label', () => {
+    const plain: WorkflowNode = { id: 'nx', type: 'http', position: { x: 0, y: 0 }, data: { url: '/a' } as WorkflowNode['data'] };
+    const plainMod: WorkflowNode = { id: 'nx', type: 'http', position: { x: 0, y: 0 }, data: { url: '/b' } as WorkflowNode['data'] };
+    const diff = computeVersionDiff(
+      makeVersion({ nodes: [plain] }),
+      makeVersion({ nodes: [plainMod] }),
+    );
+    expect(diff.modifiedNodes[0].label).toBe('nx');
+  });
+
   it('detects added edges', () => {
-    const older = makeVersion({ edges: [] as any });
-    const newer = makeVersion({ edges: [makeEdge('e1', 'a', 'b')] as any });
+    const older = makeVersion({ edges: [] });
+    const newer = makeVersion({ edges: [makeEdge('e1', 'a', 'b')] });
     const diff = computeVersionDiff(older, newer);
     expect(diff.addedEdges).toHaveLength(1);
   });
 
   it('detects removed edges', () => {
-    const older = makeVersion({ edges: [makeEdge('e1', 'a', 'b')] as any });
-    const newer = makeVersion({ edges: [] as any });
+    const older = makeVersion({ edges: [makeEdge('e1', 'a', 'b')] });
+    const newer = makeVersion({ edges: [] });
     const diff = computeVersionDiff(older, newer);
     expect(diff.removedEdges).toHaveLength(1);
   });
@@ -324,7 +366,7 @@ describe('computeVersionDiff', () => {
   });
 
   it('detects added services', () => {
-    const svc = { id: 's1', name: 'Svc' } as any;
+    const svc: WorkflowService = { id: 's1', name: 'Svc', endpoints: [] };
     const older = makeVersion({ services: [] });
     const newer = makeVersion({ services: [svc] });
     const diff = computeVersionDiff(older, newer);
@@ -332,7 +374,7 @@ describe('computeVersionDiff', () => {
   });
 
   it('detects removed services', () => {
-    const svc = { id: 's1', name: 'Svc' } as any;
+    const svc: WorkflowService = { id: 's1', name: 'Svc', endpoints: [] };
     const older = makeVersion({ services: [svc] });
     const newer = makeVersion({ services: [] });
     const diff = computeVersionDiff(older, newer);
@@ -340,8 +382,8 @@ describe('computeVersionDiff', () => {
   });
 
   it('detects modified services', () => {
-    const svc1 = { id: 's1', name: 'Svc' } as any;
-    const svc2 = { id: 's1', name: 'Updated' } as any;
+    const svc1: WorkflowService = { id: 's1', name: 'Svc', endpoints: [] };
+    const svc2: WorkflowService = { id: 's1', name: 'Updated', endpoints: [] };
     const older = makeVersion({ services: [svc1] });
     const newer = makeVersion({ services: [svc2] });
     const diff = computeVersionDiff(older, newer);
@@ -351,13 +393,13 @@ describe('computeVersionDiff', () => {
 
   it('handles undefined services in older version', () => {
     const older = makeVersion({ services: undefined });
-    const newer = makeVersion({ services: [{ id: 's1', name: 'Svc' } as any] });
+    const newer = makeVersion({ services: [{ id: 's1', name: 'Svc', endpoints: [] }] });
     const diff = computeVersionDiff(older, newer);
     expect(diff.serviceChanges.added).toHaveLength(1);
   });
 
   it('handles undefined services in newer version', () => {
-    const older = makeVersion({ services: [{ id: 's1', name: 'Svc' } as any] });
+    const older = makeVersion({ services: [{ id: 's1', name: 'Svc', endpoints: [] }] });
     const newer = makeVersion({ services: undefined });
     const diff = computeVersionDiff(older, newer);
     expect(diff.serviceChanges.removed).toHaveLength(1);

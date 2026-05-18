@@ -41,6 +41,15 @@ vi.mock('./ScriptLibraryManager', () => ({
   ),
 }));
 
+vi.mock('./ScriptCodeModal', () => ({
+  __esModule: true,
+  default: ({ onClose }: { onClose: () => void }) => (
+    <div data-testid="mock-script-code-modal">
+      <button type="button" onClick={onClose}>Close Code Modal</button>
+    </div>
+  ),
+}));
+
 // Mock scriptLibraries
 vi.mock('../../engine/scriptLibraries', () => ({
   loadScriptLibraries: () => [],
@@ -329,8 +338,8 @@ describe('ScriptConfig', () => {
 
   it('shows complexity warnings for dangerous code', () => {
     const data = makeData({ code: 'eval("x"); while(true) { break; }' });
-    render(<ScriptConfig data={data} onChange={vi.fn()} />);
-    const warnings = screen.getAllByText(/⚠/);
+    const { container } = render(<ScriptConfig data={data} onChange={vi.fn()} />);
+    const warnings = container.querySelectorAll('.wf-script-warning');
     expect(warnings.length).toBeGreaterThanOrEqual(2);
   });
 
@@ -378,14 +387,14 @@ describe('ScriptConfig', () => {
 
   it('shows Templates and Libraries buttons', () => {
     render(<ScriptConfig data={makeData()} onChange={vi.fn()} />);
-    expect(screen.getByText('📋 Templates')).toBeTruthy();
-    expect(screen.getByText('📚 Libraries')).toBeTruthy();
+    expect(screen.getByText('Templates')).toBeTruthy();
+    expect(screen.getByText('Libraries')).toBeTruthy();
   });
 
   it('toggles template gallery on Templates button click', () => {
     render(<ScriptConfig data={makeData()} onChange={vi.fn()} />);
     expect(screen.queryByTestId('mock-template-gallery')).toBeNull();
-    fireEvent.click(screen.getByText('📋 Templates'));
+    fireEvent.click(screen.getByText('Templates'));
     expect(screen.getByTestId('mock-template-gallery')).toBeTruthy();
     expect(screen.getByText('Hide Templates')).toBeTruthy();
     fireEvent.click(screen.getByText('Hide Templates'));
@@ -395,7 +404,7 @@ describe('ScriptConfig', () => {
   it('toggles library manager on Libraries button click', () => {
     render(<ScriptConfig data={makeData()} onChange={vi.fn()} />);
     expect(screen.queryByTestId('mock-library-manager')).toBeNull();
-    fireEvent.click(screen.getByText('📚 Libraries'));
+    fireEvent.click(screen.getByText('Libraries'));
     expect(screen.getByTestId('mock-library-manager')).toBeTruthy();
     expect(screen.getByText('Hide Libraries')).toBeTruthy();
     fireEvent.click(screen.getByText('Hide Libraries'));
@@ -405,7 +414,7 @@ describe('ScriptConfig', () => {
   it('applies template via gallery onSelect', () => {
     const onChange = vi.fn();
     render(<ScriptConfig data={makeData()} onChange={onChange} />);
-    fireEvent.click(screen.getByText('📋 Templates'));
+    fireEvent.click(screen.getByText('Templates'));
     fireEvent.click(screen.getByText('Apply Template'));
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({
       code: '// template',
@@ -419,7 +428,7 @@ describe('ScriptConfig', () => {
 
   it('closes template gallery via onClose', () => {
     render(<ScriptConfig data={makeData()} onChange={vi.fn()} />);
-    fireEvent.click(screen.getByText('📋 Templates'));
+    fireEvent.click(screen.getByText('Templates'));
     expect(screen.getByTestId('mock-template-gallery')).toBeTruthy();
     fireEvent.click(screen.getByText('Close Gallery'));
     expect(screen.queryByTestId('mock-template-gallery')).toBeNull();
@@ -428,7 +437,7 @@ describe('ScriptConfig', () => {
   it('updates library selection via library manager', () => {
     const onChange = vi.fn();
     render(<ScriptConfig data={makeData()} onChange={onChange} />);
-    fireEvent.click(screen.getByText('📚 Libraries'));
+    fireEvent.click(screen.getByText('Libraries'));
     fireEvent.click(screen.getByText('Select Lib'));
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({
       libraryIds: ['lib-1'],
@@ -437,9 +446,23 @@ describe('ScriptConfig', () => {
 
   it('closes library manager via onClose', () => {
     render(<ScriptConfig data={makeData()} onChange={vi.fn()} />);
-    fireEvent.click(screen.getByText('📚 Libraries'));
+    fireEvent.click(screen.getByText('Libraries'));
     expect(screen.getByTestId('mock-library-manager')).toBeTruthy();
     fireEvent.click(screen.getByText('Close Libraries'));
     expect(screen.queryByTestId('mock-library-manager')).toBeNull();
+  });
+
+  it('opens full-screen code modal from Open Editor', () => {
+    render(<ScriptConfig data={makeData()} onChange={vi.fn()} />);
+    expect(screen.queryByTestId('mock-script-code-modal')).toBeNull();
+    fireEvent.click(screen.getByText(/Open Editor/));
+    expect(screen.getByTestId('mock-script-code-modal')).toBeTruthy();
+  });
+
+  it('closes code modal', () => {
+    render(<ScriptConfig data={makeData()} onChange={vi.fn()} />);
+    fireEvent.click(screen.getByText(/Open Editor/));
+    fireEvent.click(screen.getByText('Close Code Modal'));
+    expect(screen.queryByTestId('mock-script-code-modal')).toBeNull();
   });
 });

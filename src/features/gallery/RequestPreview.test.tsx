@@ -63,6 +63,13 @@ describe('RequestPreview', () => {
     expect(screen.getByText(/Fetch a sample response/)).toBeTruthy();
   });
 
+  it('can switch back to the request tab', () => {
+    render(<RequestPreview scenario={makeScenario()} />);
+    fireEvent.click(screen.getByText('Response'));
+    fireEvent.click(screen.getByText('Request'));
+    expect(screen.getByText(/GET/)).toBeTruthy();
+  });
+
   it('shows Fetch Sample button on response tab', () => {
     render(<RequestPreview scenario={makeScenario()} />);
     fireEvent.click(screen.getByText('Response'));
@@ -70,8 +77,7 @@ describe('RequestPreview', () => {
   });
 
   it('fetches response when Fetch Sample clicked', async () => {
-    const mockResponse = { ok: true, status: 200, text: () => Promise.resolve('{"id":1,"name":"Leanne"}') };
-    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(mockResponse as any);
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(new Response('{"id":1,"name":"Leanne"}', { status: 200 }));
 
     const { container } = render(<RequestPreview scenario={makeScenario()} />);
     fireEvent.click(screen.getByText('Response'));
@@ -101,8 +107,7 @@ describe('RequestPreview', () => {
   });
 
   it('shows non-JSON response as plain text', async () => {
-    const mockResponse = { ok: true, status: 200, text: () => Promise.resolve('plain text response') };
-    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(mockResponse as any);
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(new Response('plain text response', { status: 200 }));
 
     const { container } = render(<RequestPreview scenario={makeScenario()} />);
     fireEvent.click(screen.getByText('Response'));
@@ -126,8 +131,7 @@ describe('RequestPreview', () => {
 
   it('calls onExpand with response tab content after fetch', async () => {
     const onExpand = vi.fn();
-    const mockResponse = { ok: true, status: 200, text: () => Promise.resolve('{"data":1}') };
-    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(mockResponse as any);
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(new Response('{"data":1}', { status: 200 }));
 
     render(<RequestPreview scenario={makeScenario()} onExpand={onExpand} />);
     fireEvent.click(screen.getByText('Response'));
@@ -151,7 +155,7 @@ describe('RequestPreview', () => {
           { type: 'jsonPath', path: '$.name', expected: 'Leanne' },
         ],
       },
-    } as any);
+    } as Scenario);
     const { container } = render(<RequestPreview scenario={scenario} />);
     const code = container.querySelector('.gallery-tab-code');
     expect(code?.textContent).toContain('assertions');
@@ -164,9 +168,7 @@ describe('RequestPreview', () => {
   });
 
   it('sends body for non-GET requests', async () => {
-    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
-      ok: true, status: 201, text: () => Promise.resolve('{}'),
-    } as any);
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(new Response('{}', { status: 201 }));
 
     render(<RequestPreview scenario={makeScenario({ method: 'POST', body: '{"name":"test"}' })} />);
     fireEvent.click(screen.getByText('Response'));
@@ -180,5 +182,61 @@ describe('RequestPreview', () => {
     });
 
     vi.restoreAllMocks();
+  });
+
+  it('uses raw URL as host label when URL is invalid', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(new Response('{}', { status: 200 }));
+    render(<RequestPreview scenario={makeScenario({ url: 'not-a-url' })} />);
+    fireEvent.click(screen.getByText('Response'));
+    fireEvent.click(screen.getByText('Fetch Sample'));
+    await waitFor(() => {
+      expect(screen.getByText(/Fetching from not-a-url/)).toBeTruthy();
+    });
+    vi.restoreAllMocks();
+  });
+
+  it('stringifies non-Error fetch failures', async () => {
+    vi.spyOn(globalThis, 'fetch').mockRejectedValueOnce('offline');
+    render(<RequestPreview scenario={makeScenario()} />);
+    fireEvent.click(screen.getByText('Response'));
+    fireEvent.click(screen.getByText('Fetch Sample'));
+    await waitFor(() => {
+      expect(screen.getByText(/offline/)).toBeTruthy();
+    });
+    vi.restoreAllMocks();
+  });
+
+  it('does not throw when expand is clicked without onExpand', () => {
+    render(<RequestPreview scenario={makeScenario()} />);
+    expect(() => fireEvent.click(screen.getByTitle(/View full request/))).not.toThrow();
+  });
+
+  it('omits fetch headers when scenario has none', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(new Response('{}', { status: 200 }));
+    render(<RequestPreview scenario={makeScenario({ headers: undefined })} />);
+    fireEvent.click(screen.getByText('Response'));
+    fireEvent.click(screen.getByText('Fetch Sample'));
+    await waitFor(() => {
+      const [, init] = fetchSpy.mock.calls[0];
+      expect(init).toMatchObject({ headers: undefined });
+    });
+    vi.restoreAllMocks();
+  });
+
+  it('buildRequestPreview omits headers when empty and adds jsonPath assertion parts', () => {
+    const scenario = makeScenario({
+      headers: [],
+      validation: {
+        assertions: [
+          { type: 'jsonPath', jsonPath: '$.id', operator: 'eq', value: 42 },
+        ],
+      },
+    } as Scenario);
+    const { container } = render(<RequestPreview scenario={scenario} />);
+    const code = container.querySelector('.gallery-tab-code');
+    expect(code?.textContent).not.toContain('"headers"');
+    expect(code?.textContent).toContain('jsonPath');
+    expect(code?.textContent).toContain('op');
+    expect(code?.textContent).toContain('42');
   });
 });

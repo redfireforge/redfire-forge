@@ -1,3 +1,6 @@
+/**
+ * @vitest-environment jsdom
+ */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { RemoteCorrelationStore } from './remoteCorrelationStore';
 import type { WorkflowPausedState } from '../types/workflow';
@@ -192,6 +195,84 @@ describe('RemoteCorrelationStore', () => {
     store.cancel('a');
   });
 
+  it('cancel() returns false for unknown correlation id', () => {
+    expect(store.cancel('no-such-id')).toBe(false);
+  });
+
+  it('resolves base URL from window location when baseUrl omitted', async () => {
+    const fetchImpl = vi.fn()
+      .mockResolvedValueOnce(ok({ paused: true }, 201))
+      .mockResolvedValueOnce(ok({ resumed: true, webhookData: {} }));
+    const s = new RemoteCorrelationStore({
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+    await s.pause('pid', '/wh', makeState(), 5000);
+    expect(String(fetchImpl.mock.calls[0][0])).toBe('http://localhost:3001/api/correlations/pause');
+  });
+
+  it('retries wait poll when response is not ok', async () => {
+    fetchMock
+      .mockResolvedValueOnce(ok({ paused: true }, 201))
+      .mockResolvedValueOnce(ok({ err: true }, 500))
+      .mockResolvedValueOnce(ok({ resumed: true, webhookData: { z: 2 } }));
+
+    const r = await store.pause('c-retry-notok', '/wh', makeState(), 60_000);
+    expect(r).toEqual({ z: 2 });
+    expect(fetchMock.mock.calls.filter(([u]) => String(u).includes('/wait')).length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('backs off and retries when wait fetch throws (network blip)', async () => {
+    fetchMock
+      .mockResolvedValueOnce(ok({ paused: true }, 201))
+      .mockRejectedValueOnce(new Error('net down'))
+      .mockResolvedValueOnce(ok({ resumed: true, webhookData: { r: 1 } }));
+
+    const r = await store.pause('c-net', '/wh', makeState(), 60_000);
+    expect(r).toEqual({ r: 1 });
+  });
+
+  it('fails wait loop when overall deadline elapses', async () => {
+    vi.useFakeTimers();
+    try {
+      const start = 1_000_000;
+      vi.setSystemTime(start);
+      fetchMock
+        .mockResolvedValueOnce(ok({ paused: true }, 201))
+        .mockImplementation((url: string) => {
+          if (String(url).includes('/wait')) {
+            vi.advanceTimersByTime(90_000);
+            return Promise.resolve(ok({ resumed: false }));
+          }
+          return Promise.resolve(ok({}));
+        });
+
+      const p = store.pause('c-dead', '/wh', makeState(), 60_000);
+      const assertReject = expect(p).rejects.toThrow(/timed out/);
+      await vi.runAllTimersAsync();
+      await assertReject;
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('failAndDelete on unexpected wait error surfaces on pause promise', async () => {
+    fetchMock
+      .mockResolvedValueOnce(ok({ paused: true }, 201))
+      .mockImplementation((url: string) => {
+        if (String(url).includes('/wait')) {
+          return Promise.resolve({
+            get ok() {
+              throw new Error('wait boom');
+            },
+            json: async () => ({}),
+          } as unknown as Response);
+        }
+        return Promise.resolve(ok({}));
+      });
+
+    await expect(store.pause('c-boom', '/wh', makeState(), 60_000)).rejects.toThrow('wait boom');
+  });
+
   it('cleanup() removes expired and rejects their promises', async () => {
     vi.useFakeTimers();
     try {
@@ -213,5 +294,250 @@ describe('RemoteCorrelationStore', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('includes webhookFilter and header/query config in pause payload', async () => {
+    fetchMock
+      .mockResolvedValueOnce(ok({ paused: true }, 201))
+      .mockResolvedValueOnce(ok({ resumed: true, webhookData: { x: 1 } }));
+
+    await store.pause(
+      'wf-cid',
+      '/wh',
+      makeState(),
+      1000,
+      'filter-x',
+      {
+        correlationSource: 'header',
+        correlationJsonPath: '$.x',
+        correlationHeader: 'X-Cor',
+        correlationQueryParam: 'q',
+      },
+    );
+
+    const body = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string);
+    expect(body.webhookFilter).toBe('filter-x');
+    expect(body.correlationSource).toBe('header');
+    expect(body.correlationHeader).toBe('X-Cor');
+    expect(body.correlationQueryParam).toBe('q');
+  });
+
+  it('settles with empty object when resumed without webhookData', async () => {
+    fetchMock
+      .mockResolvedValueOnce(ok({ paused: true }, 201))
+      .mockResolvedValueOnce(ok({ resumed: true }));
+
+    const r = await store.pause('no-data', '/wh', makeState(), 60_000);
+    expect(r).toEqual({});
+  });
+
+  it('accepts registration response with 200 OK', async () => {
+    fetchMock
+      .mockResolvedValueOnce(ok({ paused: true }, 200))
+      .mockResolvedValueOnce(ok({ resumed: true, webhookData: { k: 1 } }));
+
+    await expect(store.pause('ok200', '/wh', makeState(), 60_000)).resolves.toEqual({ k: 1 });
+  });
+
+  it('uses pollTimeoutMs cap in wait URL when deadline far away', async () => {
+    const fetchImpl = vi.fn()
+      .mockResolvedValueOnce(ok({ paused: true }, 201))
+      .mockResolvedValueOnce(ok({ resumed: false, timedOut: true }))
+      .mockResolvedValueOnce(ok({ resumed: true, webhookData: {} }));
+    const s = new RemoteCorrelationStore({
+      baseUrl: 'http://test',
+      pollTimeoutMs: 333,
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+    await s.pause('poll-cap', '/wh', makeState(), 600_000);
+    const waits = fetchImpl.mock.calls.filter(c => String(c[0]).includes('/wait'));
+    expect(waits.length).toBeGreaterThanOrEqual(2);
+    expect(String(waits[0][0])).toContain('timeoutMs=333');
+  });
+
+  it('strips trailing slash from explicit baseUrl', () => {
+    const trailingStore = new RemoteCorrelationStore({
+      baseUrl: 'http://test/',
+      pollTimeoutMs: 1000,
+      fetchImpl: fetchMock as unknown as typeof fetch,
+    });
+    fetchMock
+      .mockResolvedValueOnce(ok({ paused: true }, 201))
+      .mockResolvedValueOnce(ok({ resumed: true, webhookData: {} }));
+
+    void trailingStore.pause('trail', '/wh', makeState(), 5000);
+    expect(fetchMock.mock.calls[0][0]).toBe('http://test/api/correlations/pause');
+  });
+
+  it('uses MAX_OVERALL_TIMEOUT when timeoutMs is 0', () => {
+    fetchMock
+      .mockResolvedValueOnce(ok({ paused: true }, 201))
+      .mockImplementation((_u: string, init?: RequestInit) =>
+        new Promise((_, reject) => {
+          init?.signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')));
+        }),
+      );
+
+    void store.pause('zero-timeout', '/wh', makeState(), 0);
+    const registerBody = JSON.parse(fetchMock.mock.calls[0][1].body as string);
+    expect(registerBody.timeoutMs).toBe(3600000);
+    store.cancel('zero-timeout');
+  });
+
+  it('retries after json() throws on wait response', async () => {
+    let waitCalls = 0;
+    fetchMock
+      .mockResolvedValueOnce(ok({ paused: true }, 201))
+      .mockImplementation((url: string) => {
+        if (String(url).includes('/wait')) {
+          waitCalls++;
+          if (waitCalls === 1) {
+            return Promise.resolve({
+              ok: true,
+              status: 200,
+              json: async () => { throw new Error('bad json'); },
+              text: async () => '',
+            });
+          }
+          return Promise.resolve(ok({ resumed: true, webhookData: { retry: true } }));
+        }
+        return Promise.resolve(ok({}));
+      });
+
+    const result = await store.pause('json-fail', '/wh', makeState(), 60000);
+    expect(result).toEqual({ retry: true });
+    expect(waitCalls).toBe(2);
+  });
+
+  it('failAndDelete is a no-op when entry was already removed', async () => {
+    fetchMock
+      .mockResolvedValueOnce(ok({ paused: true }, 201))
+      .mockImplementation((_u: string, init?: RequestInit) =>
+        new Promise((_, reject) => {
+          init?.signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')));
+        }),
+      );
+
+    const p = store.pause('double-fail', '/wh', makeState(), 60000);
+    await Promise.resolve();
+    store.cancel('double-fail');
+    await expect(p).rejects.toThrow();
+    expect(store.size).toBe(0);
+  });
+
+  it('cancel() swallows DELETE failures', async () => {
+    fetchMock
+      .mockResolvedValueOnce(ok({ paused: true }, 201))
+      .mockImplementation((url: string, init?: RequestInit) => {
+        if (String(url).includes('/wait')) {
+          return new Promise((_, reject) => {
+            init?.signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')));
+          });
+        }
+        if (
+          (init as RequestInit | undefined)?.method === 'DELETE'
+          && String(url).includes('cancel-del-fail')
+        ) {
+          return Promise.reject(new Error('delete failed'));
+        }
+        return Promise.resolve(ok({}));
+      });
+
+    const promise = store.pause('cancel-del-fail', '/wh', makeState(), 60000);
+    await Promise.resolve();
+    expect(store.cancel('cancel-del-fail')).toBe(true);
+    await expect(promise).rejects.toThrow(/cancelled/);
+  });
+
+  it('409 recovery swallows DELETE failure and still retries pause', async () => {
+    fetchMock
+      .mockResolvedValueOnce(ok({ error: 'conflict' }, 409))
+      .mockRejectedValueOnce(new Error('stale delete failed'))
+      .mockResolvedValueOnce(ok({ paused: true }, 201))
+      .mockResolvedValueOnce(ok({ resumed: true, webhookData: { recovered: true } }));
+
+    const r = await store.pause('409-del-fail', '/wh', makeState(), 1000);
+    expect(r).toEqual({ recovered: true });
+  });
+
+  it('failAndDelete swallows DELETE failures after timeout', async () => {
+    vi.useFakeTimers();
+    try {
+      const start = 1_000_000;
+      vi.setSystemTime(start);
+      fetchMock
+        .mockResolvedValueOnce(ok({ paused: true }, 201))
+        .mockImplementation((url: string, init?: RequestInit) => {
+          if (String(url).includes('/wait')) {
+            vi.advanceTimersByTime(90_000);
+            return Promise.resolve(ok({ resumed: false }));
+          }
+          if ((init as RequestInit | undefined)?.method === 'DELETE') {
+            return Promise.reject(new Error('cleanup delete failed'));
+          }
+          return Promise.resolve(ok({}));
+        });
+
+      const p = store.pause('timeout-del-fail', '/wh', makeState(), 60_000);
+      const assertReject = expect(p).rejects.toThrow(/timed out/);
+      await vi.runAllTimersAsync();
+      await assertReject;
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('wait loop maps non-Error throws through failAndDelete', async () => {
+    fetchMock
+      .mockResolvedValueOnce(ok({ paused: true }, 201))
+      .mockImplementation((url: string) => {
+        if (String(url).includes('/wait')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({
+              get resumed() {
+                throw 'not-an-error-instance';
+              },
+            }),
+            text: async () => '',
+          } as unknown as Response);
+        }
+        return Promise.resolve(ok({}));
+      });
+
+    await expect(
+      store.pause('non-error-throw', '/wh', makeState(), 60_000),
+    ).rejects.toThrow(/not-an-error-instance/);
+  });
+
+  it('failAndDelete skips cleanup when entry is already gone', () => {
+    const raw = store as unknown as {
+      failAndDelete(correlationId: string, err: Error): void;
+    };
+    expect(() => raw.failAndDelete('missing-entry', new Error('x'))).not.toThrow();
+  });
+
+  it('server resume is ignored after local resume removed the entry', async () => {
+    fetchMock
+      .mockResolvedValueOnce(ok({ paused: true }, 201))
+      .mockImplementation((url: string) => {
+        if (String(url).includes('/wait')) {
+          return new Promise((resolve) => {
+            setTimeout(
+              () => resolve(ok({ resumed: true, webhookData: { late: true } })),
+              30,
+            );
+          });
+        }
+        return Promise.resolve(ok({}));
+      });
+
+    const p = store.pause('race-resume', '/wh', makeState(), 60_000);
+    await Promise.resolve();
+    expect(store.resume('race-resume', { local: true })).toBe(true);
+    await expect(p).resolves.toEqual({ local: true });
+    await new Promise(r => setTimeout(r, 80));
+    expect(store.size).toBe(0);
   });
 });

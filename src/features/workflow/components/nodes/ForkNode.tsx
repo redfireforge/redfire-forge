@@ -3,6 +3,7 @@ import type { ForkNodeData } from '../../types/workflow';
 import { useNodeBase } from './useNodeBase';
 import { NodeIcon, getNodeCategory } from './NodeIcon';
 import { NodePausedOverlay } from './NodePausedOverlay';
+import { NodeStatusBadge } from './NodeStatusBadge';
 
 type ForkWorkflowNode = Node<ForkNodeData, 'fork'>;
 type Props = NodeProps<ForkWorkflowNode>;
@@ -19,6 +20,7 @@ export default function ForkNode({ id, data, selected }: Props) {
           <div className="wf-node-sublabel">{getNodeCategory('fork')}</div>
         </div>
       </div>
+      <NodeStatusBadge rs={rs} />
       <NodePausedOverlay nodeId={id} state={rs?.state} debugStep={debugStep} />
 
       <Handle type="target" position={Position.Top} className="wf-handle" />

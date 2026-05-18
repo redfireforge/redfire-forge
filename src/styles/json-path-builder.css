@@ -22,6 +22,7 @@
 .fetch-host-override-row input[type="text"],
 .fetch-host-override-row input:not([type]) {
   flex: 1;
+  max-width: 420px;
   font-size: 0.82rem;
 }
 .fetch-host-override-row input:disabled {
@@ -31,6 +32,10 @@
 .fetch-host-toggle {
   flex-shrink: 0;
   gap: 4px;
+}
+.fetch-host-override-row > .btn-accent:last-child {
+  margin-left: auto;
+  flex-shrink: 0;
 }
 .fetch-error-inline {
   color: var(--danger);

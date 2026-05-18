@@ -2,6 +2,7 @@ import { v4 as uuidv4 } from 'uuid';
 import type { HttpNodeData, WorkflowNode } from '../types/workflow';
 import { httpStepDisplayLabel, isHttpWorkflowNode } from '../utils/workflowVariableHints';
 import { EXPRESSION_FUNCTION_MAP } from '../utils/expressionFunctions';
+import { evaluateExpression, formatExpressionResult } from '../utils/expressionEvaluator';
 
 /**
  * Parsed inner template for node-scoped refs:
@@ -103,6 +104,10 @@ export class VariableContext {
     this.extracted.set(name, value);
   }
 
+  delete(name: string): boolean {
+    return this.extracted.delete(name);
+  }
+
   get(name: string): string | undefined {
     const scoped = parseNodeScopedInner(name);
     if (scoped) {
@@ -178,12 +183,22 @@ export class VariableContext {
 
   snapshot(): Record<string, string> {
     const out: Record<string, string> = {};
-    for (const [k, v] of this.environment) out[k] = v;
-    for (const [k, v] of this.manual) out[k] = v;
-    for (const [k, v] of this.extracted) out[k] = v;
+    // Internal variables used only for trace capture (not visible to user)
+    const internalVars = new Set(['__webhookInput', '__webhookMethod', '__webhookPath', '__webhookPayload']);
+    for (const [k, v] of this.environment) {
+      if (!internalVars.has(k)) out[k] = v;
+    }
+    for (const [k, v] of this.manual) {
+      if (!internalVars.has(k)) out[k] = v;
+    }
+    for (const [k, v] of this.extracted) {
+      if (!internalVars.has(k)) out[k] = v;
+    }
     for (const [nodeId, inner] of this.byNode) {
       for (const [name, v] of inner) {
-        out[this.snapshotKeyForNodeVar(nodeId, name)] = v;
+        if (!internalVars.has(name)) {
+          out[this.snapshotKeyForNodeVar(nodeId, name)] = v;
+        }
       }
     }
     return out;
@@ -241,33 +256,39 @@ function resolveBuiltInGenerator(expr: string): string | undefined {
 }
 
 /**
- * Resolve an expression using the expression function registry.
- * Parses `$fnName(arg1, arg2, ...)` and evaluates with variable resolution.
+ * Resolve an expression using the full expression evaluator.
+ * Supports nested function calls, lambdas, and array literals.
+ * Falls back to the simple regex parser for single-level $fn(args).
  */
 function resolveExpressionFunction(
   expr: string,
   resolveVar: (name: string) => string | undefined,
 ): string {
   const m = GENERATOR_RE.exec(expr);
-  if (!m) return `{{${expr}}}`;
+  if (m) {
+    const [, name, rawArgs] = m;
+    const fn = EXPRESSION_FUNCTION_MAP.get(`$${name}`);
+    if (!fn) return `{{${expr}}}`;
 
-  const [, name, rawArgs] = m;
-  const fn = EXPRESSION_FUNCTION_MAP.get(`$${name}`);
-  if (!fn) return `{{${expr}}}`;
+    const args = rawArgs ? parseExpressionArgs(rawArgs, resolveVar) : [];
 
-  // Parse args: split by comma but respect quoted strings
-  const args = rawArgs ? parseExpressionArgs(rawArgs, resolveVar) : [];
-
-  try {
-    const result = fn.evaluate(...args);
-    if (result === null || result === undefined) return '';
-    if (typeof result === 'object') {
-      try { return JSON.stringify(result); } catch { return String(result); }
+    try {
+      const result = fn.evaluate(...args);
+      if (result === null || result === undefined) return '';
+      if (typeof result === 'object') {
+        try { return JSON.stringify(result); } catch { return String(result); }
+      }
+      return String(result);
+    } catch {
+      return `{{${expr}}}`;
     }
-    return String(result);
-  } catch {
-    return `{{${expr}}}`;
   }
+
+  if (!expr.includes('(')) return `{{${expr}}}`;
+  const evalResult = evaluateExpression(expr, { resolveVariable: resolveVar });
+  if (evalResult.error) return `{{${expr}}}`;
+  if (evalResult.value === null || evalResult.value === undefined) return '';
+  return formatExpressionResult(evalResult.value);
 }
 
 /**

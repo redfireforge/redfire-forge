@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { setMaxRuns, getStorageUsage, deleteRunsOlderThan, clearAllTestRuns, loadTestRuns } from '../../shared/utils/storage';
+import React, { useState, useCallback } from 'react';
+import { setMaxRuns, getStorageUsage, deleteRunsOlderThan, clearAllTestRuns, loadTestRunsLite } from '../../shared/utils/storage';
 import { isTauri } from '../../shared/utils/platform';
 import { formatBytes } from '../../shared/utils/helpers';
 
@@ -34,23 +34,23 @@ export default function SettingsStorageTab({
 
   // Load run count on first render
   React.useEffect(() => {
-    loadTestRuns().then(runs => setRunCount(runs.length));
+    loadTestRunsLite().then(runs => setRunCount(runs.length));
   }, []);
 
-  const refreshUsage = async () => {
+  const refreshUsage = useCallback(async () => {
     const usage = await getStorageUsage();
     setStorageUsage(usage);
-    const runs = await loadTestRuns();
+    const runs = await loadTestRunsLite();
     setRunCount(runs.length);
-  };
+  }, [setStorageUsage]);
 
-  const handleDeleteOlderThan = async (days: number) => {
+  const handleDeleteOlderThan = useCallback(async (days: number) => {
     const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
     const deleted = await deleteRunsOlderThan(cutoff);
     setActionMsg(deleted > 0 ? `Deleted ${deleted} run${deleted > 1 ? 's' : ''}.` : 'No runs matched.');
     await refreshUsage();
     setTimeout(() => setActionMsg(null), 3000);
-  };
+  }, [refreshUsage]);
 
   const handleClearAll = async () => {
     await clearAllTestRuns();

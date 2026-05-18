@@ -4,6 +4,7 @@ import { useNodeBase } from './useNodeBase';
 import { NodeIcon, getNodeCategory } from './NodeIcon';
 import { NodeConfigureButton } from './NodeConfigureButton';
 import { NodePausedOverlay } from './NodePausedOverlay';
+import { NodeStatusBadge } from './NodeStatusBadge';
 
 type ErrorHandlerWorkflowNode = Node<ErrorHandlerNodeData, 'errorHandler'>;
 type Props = NodeProps<ErrorHandlerWorkflowNode>;
@@ -38,6 +39,7 @@ export default function ErrorHandlerNode({ id, data, selected }: Props) {
       <Handle type="source" position={Position.Bottom} id="catch" className="wf-handle wf-handle-errhandler-catch" style={{ left: '50%' }} />
       <Handle type="source" position={Position.Bottom} id="done" className="wf-handle wf-handle-errhandler-done" style={{ left: '75%' }} />
 
+      <NodeStatusBadge rs={rs} />
       <NodePausedOverlay nodeId={id} state={rs?.state} debugStep={debugStep} />
 
       <span className="wf-handle-label wf-handle-label-errhandler-body">Body</span>

@@ -4,7 +4,8 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import WorkflowVersionPanel from './WorkflowVersionPanel';
-import type { WorkflowVersion } from '../../types/workflow';
+import type { WorkflowVersion, WorkflowNode, WorkflowEdge } from '../../types/workflow';
+import * as workflowVersioning from '../../utils/workflowVersioning';
 
 const makeVersion = (overrides: Partial<WorkflowVersion> = {}): WorkflowVersion => ({
   id: 'v1',
@@ -12,8 +13,8 @@ const makeVersion = (overrides: Partial<WorkflowVersion> = {}): WorkflowVersion 
   fingerprint: 'fp1',
   nodeCount: 3,
   edgeCount: 2,
-  nodes: [] as any,
-  edges: [] as any,
+  nodes: [] as WorkflowNode[],
+  edges: [] as WorkflowEdge[],
   variables: {},
   ...overrides,
 });
@@ -90,9 +91,25 @@ describe('WorkflowVersionPanel', () => {
     fireEvent.click(checkboxes[1]);
     fireEvent.click(screen.getByText('Compare'));
     expect(props.onCompare).toHaveBeenCalled();
-    // Older (v2, earlier timestamp) should be first arg
     const [older, newer] = props.onCompare.mock.calls[0];
     expect(older.timestamp).toBeLessThanOrEqual(newer.timestamp);
+  });
+
+  it('calls onCompare with older first when user selects newer timestamp before older', () => {
+    const tOld = Date.now() - 200_000;
+    const tNew = Date.now() - 100_000;
+    const older = makeVersion({ id: 'old', timestamp: tOld, label: 'Old' });
+    const newer = makeVersion({ id: 'new', timestamp: tNew, label: 'New' });
+    const props = { ...defaultProps(), versions: [newer, older] };
+    render(<WorkflowVersionPanel {...props} />);
+    const checkboxes = screen.getAllByRole('checkbox');
+    fireEvent.click(checkboxes[0]);
+    fireEvent.click(checkboxes[1]);
+    fireEvent.click(screen.getByText('Compare'));
+    const [a, b] = props.onCompare.mock.calls[0];
+    expect(a.id).toBe('old');
+    expect(b.id).toBe('new');
+    expect(a.timestamp).toBeLessThanOrEqual(b.timestamp);
   });
 
   it('shows node/edge counts in version items', () => {
@@ -149,6 +166,23 @@ describe('WorkflowVersionPanel', () => {
   it('singular version text for 1 version', () => {
     render(<WorkflowVersionPanel {...defaultProps()} versions={[makeVersion()]} />);
     expect(screen.getByText('1 version')).toBeTruthy();
+  });
+
+  it('starts rename with empty input when version label omitted', () => {
+    const v = makeVersion({ id: 'nl', label: undefined, timestamp: Date.now() });
+    render(<WorkflowVersionPanel {...defaultProps()} versions={[v, makeVersion({ id: 'v2', timestamp: Date.now() - 1 })]} />);
+    fireEvent.click(screen.getAllByTitle('Rename this version')[0]);
+    const input = screen.getByPlaceholderText('Version label…') as HTMLInputElement;
+    expect(input.value).toBe('');
+  });
+
+  it('renders empty summary when change summary is null', () => {
+    const spy = vi.spyOn(workflowVersioning, 'generateChangeSummary').mockReturnValue(null as unknown as string);
+    render(<WorkflowVersionPanel {...defaultProps()} />);
+    const summaries = document.querySelectorAll('.wf-version-item-summary');
+    expect(summaries.length).toBeGreaterThan(1);
+    expect(summaries[0].textContent).toBe('');
+    spy.mockRestore();
   });
 
   it('toggles selection via row click', () => {
@@ -219,6 +253,46 @@ describe('WorkflowVersionPanel', () => {
     expect(timeEl.textContent).not.toContain('d ago');
   });
 
+  it('compare does nothing when Compare clicked while disabled', () => {
+    const props = defaultProps();
+    render(<WorkflowVersionPanel {...props} />);
+    const btn = screen.getByText('Compare') as HTMLButtonElement;
+    btn.disabled = false;
+    fireEvent.click(btn);
+    expect(props.onCompare).not.toHaveBeenCalled();
+  });
+
+  it('compare does nothing when a selected version id is stale', () => {
+    const props = defaultProps();
+    const { rerender } = render(<WorkflowVersionPanel {...props} />);
+    fireEvent.click(screen.getAllByRole('checkbox')[0]);
+    fireEvent.click(screen.getAllByRole('checkbox')[1]);
+    rerender(<WorkflowVersionPanel {...props} versions={[props.versions[0]]} />);
+    fireEvent.click(screen.getByText('Compare'));
+    expect(props.onCompare).not.toHaveBeenCalled();
+  });
+
+  it('compare button shows enabled title when two versions selected', () => {
+    render(<WorkflowVersionPanel {...defaultProps()} />);
+    const checkboxes = screen.getAllByRole('checkbox');
+    fireEvent.click(checkboxes[0]);
+    fireEvent.click(checkboxes[1]);
+    expect(screen.getByTitle('Compare selected versions')).toBeTruthy();
+  });
+
+  it('compare button shows helper title when selection incomplete', () => {
+    render(<WorkflowVersionPanel {...defaultProps()} />);
+    expect(screen.getByTitle('Select 2 versions to compare')).toBeTruthy();
+  });
+
+  it('renders empty change summary when generator returns blank', () => {
+    const spy = vi.spyOn(workflowVersioning, 'generateChangeSummary').mockReturnValue('');
+    render(<WorkflowVersionPanel {...defaultProps()} />);
+    const s = document.querySelector('.wf-version-item-summary');
+    expect(s?.textContent).toBe('');
+    spy.mockRestore();
+  });
+
   it('deselects third checkbox if two are already selected', () => {
     const props = defaultProps();
     props.versions.push(makeVersion({ id: 'v3', timestamp: Date.now() - 180_000, label: 'Third' }));
@@ -230,5 +304,43 @@ describe('WorkflowVersionPanel', () => {
     fireEvent.click(checkboxes[2]);
     const checked = (screen.getAllByRole('checkbox') as HTMLInputElement[]).filter(c => c.checked);
     expect(checked.length).toBeLessThanOrEqual(2);
+  });
+
+  it('rename input stops click propagation', () => {
+    render(<WorkflowVersionPanel {...defaultProps()} />);
+    fireEvent.click(screen.getAllByTitle('Rename this version')[0]);
+    const input = screen.getByPlaceholderText('Version label…');
+    fireEvent.click(input);
+    expect(document.body.contains(input)).toBe(true);
+  });
+
+  it('renders change summary row for each version in a chain', () => {
+    const t = Date.now();
+    const versions = [
+      makeVersion({ id: 'va', timestamp: t - 300_000 }),
+      makeVersion({ id: 'vb', timestamp: t - 200_000 }),
+      makeVersion({ id: 'vc', timestamp: t - 100_000 }),
+    ];
+    render(<WorkflowVersionPanel {...defaultProps()} versions={versions} />);
+    expect(document.querySelectorAll('.wf-version-item-summary').length).toBe(3);
+  });
+
+  it('rename commits trimmed label', () => {
+    const props = defaultProps();
+    render(<WorkflowVersionPanel {...props} />);
+    fireEvent.click(screen.getAllByTitle('Rename this version')[0]);
+    const input = screen.getByPlaceholderText('Version label…');
+    fireEvent.change(input, { target: { value: '  spaced  ' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(props.onRename).toHaveBeenCalledWith('v1', 'spaced');
+  });
+
+  it('checkbox toggles selection off on second click', () => {
+    render(<WorkflowVersionPanel {...defaultProps()} />);
+    const cb = screen.getAllByRole('checkbox')[0] as HTMLInputElement;
+    fireEvent.click(cb);
+    expect(cb.checked).toBe(true);
+    fireEvent.click(cb);
+    expect(cb.checked).toBe(false);
   });
 });

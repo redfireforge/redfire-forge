@@ -102,6 +102,13 @@ export const workflowPaths: TrainingPath[] = [
             sampleId: 'sample-workflow-parallel',
             manualPath: 'workflow/api-patterns/parallel-api-calls-easy.html',
           },
+          {
+            title: 'Parallel Showcase: Swim Lanes & Critical Path',
+            description: 'Three uneven parallel branches demonstrating swim-lane grouping, critical path detection, and branch comparison in the Results Explorer.',
+            difficulty: 'medium',
+            sampleId: 'sample-workflow-parallel-showcase',
+            manualPath: 'workflow/api-patterns/parallel-showcase-medium.html',
+          },
         ],
       },
       {
@@ -306,6 +313,13 @@ export const workflowPaths: TrainingPath[] = [
             sampleId: 'sample-workflow-payment-callback-easy',
             manualPath: 'workflow/async-correlation/payment-callback-easy.html',
           },
+          {
+            title: 'Payment Callback Simulator',
+            description: 'Companion simulator that POSTs a fake gateway callback to test the Payment Gateway workflow.',
+            difficulty: 'easy',
+            sampleId: 'sample-workflow-payment-callback-simulator',
+            manualPath: 'workflow/async-correlation/payment-callback-simulator-easy.html',
+          },
         ],
       },
       {
@@ -320,11 +334,25 @@ export const workflowPaths: TrainingPath[] = [
             manualPath: 'workflow/async-correlation/approval-workflow-medium.html',
           },
           {
+            title: 'Manager Approval Simulator',
+            description: 'Companion simulator that POSTs a fake approval webhook with header correlation.',
+            difficulty: 'easy',
+            sampleId: 'sample-workflow-approval-simulator',
+            manualPath: 'workflow/async-correlation/approval-simulator-easy.html',
+          },
+          {
             title: 'Parallel Payment Processing',
             description: 'Fork payments to multiple gateways, wait for all callbacks, then reconcile.',
             difficulty: 'advanced',
             sampleId: 'sample-workflow-parallel-payment-advanced',
             manualPath: 'workflow/async-correlation/parallel-payment-advanced.html',
+          },
+          {
+            title: 'Parallel Payment Simulator',
+            description: 'Companion simulator that sends both card and loyalty callbacks in parallel.',
+            difficulty: 'medium',
+            sampleId: 'sample-workflow-parallel-payment-simulator',
+            manualPath: 'workflow/async-correlation/parallel-payment-simulator-medium.html',
           },
         ],
       },
@@ -410,11 +438,130 @@ export const workflowPaths: TrainingPath[] = [
             difficulty: 'medium',
             manualPath: 'workflow/node-reference/node-reference.html',
           },
+        ],
+      },
+      {
+        id: 2,
+        name: 'Designer Tools',
+        manuals: [
+          {
+            title: 'Designer Console',
+            description: 'Live log output during Quick Test — prefix icons, search, dock/float/maximize.',
+            difficulty: 'easy',
+            manualPath: 'workflow/console-easy.html',
+          },
+          {
+            title: 'Execution History',
+            description: 'Browse past Quick Test runs — status, timing, variable snapshots, and re-run.',
+            difficulty: 'easy',
+            manualPath: 'workflow/execution-history-easy.html',
+          },
+          {
+            title: 'Webhook Delivery Logs',
+            description: 'Inspect inbound webhook payloads — headers, body, correlation matches, and replay.',
+            difficulty: 'easy',
+            manualPath: 'workflow/webhook-delivery-logs-easy.html',
+          },
+          {
+            title: 'Viewport Persistence',
+            description: 'Canvas viewport memory — pan/zoom preserved on tab switch, saved with workflow for cross-session restore.',
+            difficulty: 'easy',
+            manualPath: 'workflow/viewport-persistence-easy.html',
+          },
           {
             title: 'Sub-Workflow Samples Guide',
             description: 'Standalone guide to all sub-workflow gallery samples with architecture diagrams.',
             difficulty: 'advanced',
             manualPath: 'sub-workflow-samples-guide.html',
+          },
+        ],
+      },
+    ],
+  },
+
+  /* ── Workflow: Runner ── */
+  {
+    id: 'wf-runner',
+    name: 'Workflow: Runner',
+    icon: '⚡',
+    description: 'Run workflows as performance tests — iterations, concurrency, variables, and results analysis.',
+    phases: [
+      {
+        id: 1,
+        name: 'Getting Started',
+        manuals: [
+          {
+            title: 'Workflow Runner Basics',
+            description: 'Navigate to the Workflow Runner, select a workflow, run with defaults, and view results.',
+            difficulty: 'easy',
+            sampleId: 'perf-workflow-simple',
+            manualPath: 'workflow/runner/workflow-runner-basics-easy.html',
+          },
+          {
+            title: 'Runner Comparison',
+            description: 'Choose between Test Runner, Parameterized Runner, and Workflow Runner based on your testing goals.',
+            difficulty: 'easy',
+            manualPath: 'tests/runner-comparison-easy.html',
+          },
+        ],
+      },
+      {
+        id: 2,
+        name: 'Configuration',
+        manuals: [
+          {
+            title: 'Workflow Variables',
+            description: 'Edit initial variables, use variable history, label configurations, and reset to defaults.',
+            difficulty: 'medium',
+            sampleId: 'perf-workflow-branching',
+            manualPath: 'workflow/runner/workflow-runner-variables-medium.html',
+          },
+          {
+            title: 'Iterations & Load',
+            description: 'Configure iterations, concurrency, load profiles, and think time for performance testing.',
+            difficulty: 'medium',
+            sampleId: 'perf-workflow-parallel',
+            manualPath: 'workflow/runner/workflow-runner-iterations-medium.html',
+          },
+        ],
+      },
+      {
+        id: 3,
+        name: 'Results Analysis',
+        manuals: [
+          {
+            title: 'Workflow Results',
+            description: 'Interpret workflow execution summary, per-step metrics, iteration chart, and drill-down.',
+            difficulty: 'medium',
+            manualPath: 'workflow/runner/workflow-runner-results-medium.html',
+          },
+          {
+            title: 'Results Explorer',
+            description: 'Visual execution analysis — diagram/timeline views, detail panel, iteration matrix, search/filter, heatmap, bottleneck insights, swim lanes, sub-workflow drill-down, and export.',
+            difficulty: 'medium',
+            sampleId: 'perf-workflow-bottleneck',
+            manualPath: 'workflow/runner/results-explorer-medium.html',
+          },
+          {
+            title: 'Timeline View (Gantt Chart)',
+            description: 'Visualize workflow execution as a horizontal Gantt chart — time axis, bar colors, aggregate markers, zoom, and sub-workflow indicators.',
+            difficulty: 'medium',
+            sampleId: 'perf-workflow-bottleneck',
+            manualPath: 'workflow/runner/results-explorer-timeline-medium.html',
+          },
+          {
+            title: 'Sub-Workflow Drill-Down',
+            description: 'Navigate into nested workflow executions from the Results Explorer — breadcrumb navigation, visual cues, and timeline drill-down.',
+            difficulty: 'medium',
+            sampleId: 'sample-workflow-sub-workflow',
+            manualPath: 'workflow/runner/results-explorer-drilldown-medium.html',
+          },
+          {
+            title: 'Edge Traversal Percentages',
+            description: 'Visualize branch path distribution across iterations — see which paths are taken and how often.',
+            difficulty: 'easy',
+            sampleId: 'perf-workflow-edge-pct',
+            manualPath: 'edge-traversal-percentages-guide.html',
           },
         ],
       },

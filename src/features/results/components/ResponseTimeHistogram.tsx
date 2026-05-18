@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ReferenceLine } from 'recharts';
+
 import type { TestRun } from '../../../shared/types';
 import { computeHistogramBins, computeOverlayHistogram, computeDistributionStats } from '../utils/responseTimeHistogram';
 
@@ -50,7 +51,12 @@ export function ResponseTimeHistogram({ run }: SingleHistogramProps) {
             label={{ value: 'Requests', angle: -90, position: 'insideLeft', offset: -5, fontSize: 11, fill: 'var(--text-muted)' }}
           />
           <Tooltip
-            formatter={((value: number, name: string) => [name === 'percent' ? `${value}%` : value, name === 'percent' ? 'Percentage' : 'Count']) as any}
+            formatter={
+              ((value: number, name: string) => [
+                name === 'percent' ? `${value}%` : value,
+                name === 'percent' ? 'Percentage' : 'Count',
+              ]) as never
+            }
             labelFormatter={(label) => `${label} ms`}
             contentStyle={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 4, fontSize: 12 }}
           />
@@ -135,10 +141,12 @@ export function ResponseTimeOverlayHistogram({ baselineRun, currentRun }: Overla
             label={{ value: mode === 'percent' ? '%' : 'Requests', angle: -90, position: 'insideLeft', offset: -5, fontSize: 11, fill: 'var(--text-muted)' }}
           />
           <Tooltip
-            formatter={((value: number, name: string) => [
-              mode === 'percent' ? `${value}%` : value,
-              name === 'baseline' ? 'Baseline' : 'Current',
-            ]) as any}
+            formatter={
+              ((value: number, name: string) => [
+                mode === 'percent' ? `${value}%` : value,
+                name === 'baseline' ? 'Baseline' : 'Current',
+              ]) as never
+            }
             labelFormatter={(label) => `${label} ms`}
             contentStyle={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 4, fontSize: 12 }}
           />

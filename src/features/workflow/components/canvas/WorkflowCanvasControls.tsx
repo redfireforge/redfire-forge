@@ -1,10 +1,11 @@
+import { useState, useCallback } from 'react';
 import { useReactFlow } from '@xyflow/react';
 
 interface Props {
   showMinimap: boolean;
   onToggleMinimap: () => void;
-  onRestoreLayout: () => void;
-  onAutoLayout: () => void;
+  onSaveLayout: () => void;
+  savedViewport?: { x: number; y: number; zoom: number };
   disableLayout?: boolean;
   canUndo?: boolean;
   canRedo?: boolean;
@@ -15,15 +16,30 @@ interface Props {
 export default function WorkflowCanvasControls({
   showMinimap,
   onToggleMinimap,
-  onRestoreLayout,
-  onAutoLayout,
+  onSaveLayout,
+  savedViewport,
   disableLayout,
   canUndo,
   canRedo,
   onUndo,
   onRedo,
 }: Props) {
-  const { zoomIn, zoomOut, fitView } = useReactFlow();
+  const { zoomIn, zoomOut, fitView, setViewport } = useReactFlow();
+  const [saveFlash, setSaveFlash] = useState(false);
+
+  const handleFitView = useCallback(() => {
+    if (savedViewport) {
+      setViewport(savedViewport, { duration: 300 });
+    } else {
+      fitView({ padding: 0.1, maxZoom: 1, duration: 300 });
+    }
+  }, [savedViewport, setViewport, fitView]);
+
+  const handleSave = useCallback(() => {
+    onSaveLayout();
+    setSaveFlash(true);
+    setTimeout(() => setSaveFlash(false), 1200);
+  }, [onSaveLayout]);
 
   return (
     <div className="wf-pill-controls">
@@ -58,35 +74,24 @@ export default function WorkflowCanvasControls({
 
       <div className="wf-pill-sep" />
 
-      <button type="button" className="wf-pill-btn" title="Fit view" onClick={() => fitView({ padding: 0.2, duration: 300 })}>
+      <button type="button" className="wf-pill-btn" title={savedViewport ? 'Restore saved view' : 'Fit view'} onClick={handleFitView}>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>
         </svg>
       </button>
 
-      <button type="button" className="wf-pill-btn" title="Restore saved layout" onClick={onRestoreLayout} disabled={disableLayout}>
-        <svg viewBox="0 0 24 24" fill="currentColor">
-          <rect x="7" y="1" width="10" height="6" rx="1" />
-          <rect x="1" y="17" width="10" height="6" rx="1" />
-          <rect x="13" y="17" width="10" height="6" rx="1" />
-          <rect x="11" y="7" width="2" height="4" />
-          <rect x="5" y="11" width="2" height="6" />
-          <rect x="6" y="10" width="12" height="2" />
-          <rect x="17" y="11" width="2" height="6" />
-        </svg>
-      </button>
-
-      <button type="button" className="wf-pill-btn" title="Auto-layout" onClick={onAutoLayout}>
-        <svg viewBox="0 0 24 24" fill="currentColor">
-          <rect x="7" y="1" width="10" height="5" rx="1" />
-          <rect x="1" y="18" width="10" height="5" rx="1" />
-          <rect x="13" y="18" width="10" height="5" rx="1" />
-          <rect x="11" y="6" width="2" height="4" />
-          <rect x="5" y="10" width="2" height="8" />
-          <rect x="6" y="10" width="12" height="2" />
-          <rect x="17" y="10" width="2" height="8" />
-          <path d="M19 3 L21 5 L19 7" fill="none" stroke="currentColor" strokeWidth="1.5" />
-          <line x1="15" y1="5" x2="21" y2="5" stroke="currentColor" strokeWidth="1.5" />
+      <button
+        type="button"
+        className={`wf-pill-btn ${saveFlash ? 'save-flash' : ''}`}
+        title="Save current node layout"
+        onClick={handleSave}
+        disabled={disableLayout}
+        data-testid="save-layout-btn"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+          <polyline points="17 21 17 13 7 13 7 21"/>
+          <polyline points="7 3 7 8 15 8"/>
         </svg>
       </button>
 

@@ -2,8 +2,9 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
-import JsonPathPicker, { extractJsonPaths } from './JsonPathPicker';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import JsonPathPicker from './JsonPathPicker';
+import { extractJsonPaths } from './jsonPathPickerUtils';
 
 describe('extractJsonPaths', () => {
   it('returns empty array for invalid JSON', () => {
@@ -104,6 +105,44 @@ describe('JsonPathPicker component', () => {
     fireEvent.click(screen.getByTitle('Pick JSON path from sample response'));
     fireEvent.change(screen.getByPlaceholderText('Filter paths…'), { target: { value: 'zzzzz' } });
     expect(screen.getByText('No matching paths')).toBeDefined();
+  });
+
+  it('filters paths matching type field alone', () => {
+    render(<JsonPathPicker sampleJson={sampleJson} onSelect={() => {}} />);
+    fireEvent.click(screen.getByTitle('Pick JSON path from sample response'));
+    fireEvent.change(screen.getByPlaceholderText('Filter paths…'), { target: { value: 'array' } });
+    expect(screen.getByText('$.items')).toBeTruthy();
+    expect(screen.queryByText('$.name')).toBeNull();
+  });
+
+  it('closes the menu when the toggle button is clicked again', () => {
+    render(<JsonPathPicker sampleJson={sampleJson} onSelect={() => {}} />);
+    const btn = screen.getByTitle('Pick JSON path from sample response');
+    fireEvent.click(btn);
+    expect(screen.getByPlaceholderText('Filter paths…')).toBeTruthy();
+    fireEvent.click(btn);
+    expect(screen.queryByPlaceholderText('Filter paths…')).toBeNull();
+  });
+
+  it('does not open when picker has zero paths from invalid JSON', () => {
+    render(<JsonPathPicker sampleJson="not json at all" onSelect={() => {}} />);
+    fireEvent.click(screen.getByTitle('Fetch a sample response first'));
+    expect(screen.queryByPlaceholderText('Filter paths…')).toBeNull();
+  });
+
+  it('mousedown inside the menu keeps it open', () => {
+    render(<JsonPathPicker sampleJson={sampleJson} onSelect={() => {}} />);
+    fireEvent.click(screen.getByTitle('Pick JSON path from sample response'));
+    fireEvent.mouseDown(screen.getByPlaceholderText('Filter paths…'));
+    expect(screen.getByPlaceholderText('Filter paths…')).toBeTruthy();
+  });
+
+  it('focuses filter input when opened', async () => {
+    const spy = vi.spyOn(HTMLInputElement.prototype, 'focus');
+    render(<JsonPathPicker sampleJson={sampleJson} onSelect={() => {}} />);
+    fireEvent.click(screen.getByTitle('Pick JSON path from sample response'));
+    await waitFor(() => expect(spy).toHaveBeenCalled());
+    spy.mockRestore();
   });
 
   it('closes on click outside', () => {

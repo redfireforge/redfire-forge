@@ -6,7 +6,7 @@ A **cross-platform** desktop & web API performance testing tool built with React
 
 **✅ Supports:** macOS (Intel & Apple Silicon) • Windows 10/11 • Linux (Ubuntu, Debian, Fedora)
 
-📖 **[Full Cross-Platform Guide](docs/CROSS-PLATFORM.md)** — Installation, building, and platform-specific notes
+📖 **[Full Cross-Platform Guide](docs/guides/cross-platform.md)** — Installation, building, and platform-specific notes
 
 ---
 
@@ -109,78 +109,45 @@ Press `Ctrl+C` in the terminal running the dev command.
 
 Run API performance tests from the command line using YAML or JSON test files. The CLI reuses the same execution engine, validators, and reporters as the GUI — so tests behave identically in CI/CD and on your desktop.
 
-### Quick Example
+📖 **[Full CLI Reference](docs/guides/cli-reference.md)** — Complete command documentation  
+📖 **[CI/CD Integration Guide](docs/guides/cli-ci-cd.md)** — GitHub Actions, GitLab CI, Jenkins, Azure DevOps examples
+
+### Quick Start
 
 ```bash
-# Run tests (development — uses tsx)
-npx tsx cli/index.ts run examples/sample-api-test.yaml -c 5 -t 20
+# Validate a test file
+npx tsx cli/index.ts validate examples/cli-basic-test.yaml
 
-# Build distributable CLI, then run
-npm run build:cli
-node dist-cli/redfireforge.mjs run examples/sample-api-test.yaml -c 5 -t 20
+# Run a simple test
+npx tsx cli/index.ts run examples/cli-basic-test.yaml
+
+# Run with concurrency and iterations
+npx tsx cli/index.ts run examples/cli-basic-test.yaml -c 5 -i 50
+
+# Run parameterized tests with tags
+npx tsx cli/index.ts run examples/cli-parameterized.yaml --tags smoke,critical
+
+# Run workflow performance test
+npx tsx cli/index.ts workflow examples/workflow-cli-parallel.yaml -i 20 -c 3
 ```
 
-### Test File Format (YAML)
+### Commands
 
-```yaml
-name: My API Tests
-baseUrl: https://api.example.com
+| Command | Description |
+|---|---|
+| `run <file>` | Execute a test file |
+| `workflow <file>` | Execute a workflow file as a performance test |
+| `validate <file>` | Validate a test file without running |
+| `validate-workflow <file>` | Validate a workflow file without running |
 
-defaults:
-  headers:
-    Accept: application/json
-  timeout: 10
-  retries: 1
-
-config:
-  concurrency: 5
-  transactions: 50
-  mode: batch                  # sequential | batch | pool | load-profile
-
-tests:
-  - name: List Users
-    url: /users
-    method: GET
-    weight: 2
-    validation:
-      mode: selective
-      expectedFields:
-        - jsonPath: "$.data[0].name"
-          expectedValue: "Alice"
-
-  - name: Create User
-    url: /users
-    method: POST
-    headers:
-      Content-Type: application/json
-    body: '{"name": "Test User"}'
-    auth:
-      type: bearer
-      token: my-jwt-token
-```
-
-### CLI Commands
-
-```bash
-# Run a test file
-redfireforge run <file> [options]
-
-# Validate a test file without running
-redfireforge validate <file>
-```
-
-### Run Options
+### Common Options
 
 | Flag | Description |
 |---|---|
 | `-c, --concurrency <n>` | Number of concurrent requests |
-| `-t, --transactions <n>` | Total number of requests |
-| `-m, --mode <mode>` | `sequential`, `batch`, `pool`, `load-profile` |
+| `-i, --iterations <n>` | Number of iterations (how many times each test runs) |
 | `--timeout <sec>` | Per-request timeout |
-| `--retries <n>` | Retry count on failure |
 | `--base-url <url>` | Override the base URL for all tests |
-| `--env <name>` | Environment name (metadata for reports) |
-| `--duration <sec>` | Duration in seconds (load-profile mode) |
 | `-o, --output <path>` | Write JSON report |
 | `--junit <path>` | Write JUnit XML report |
 | `--markdown <path>` | Write Markdown report |
@@ -188,24 +155,65 @@ redfireforge validate <file>
 | `--fail-threshold <pct>` | Exit code 1 if error rate exceeds % |
 | `-q, --quiet` | Suppress progress output |
 
-### Report Outputs
+### Test File Example (YAML)
 
-**JSON** (`-o report.json`) — Full `TestRun` object compatible with the GUI's import format.
+```yaml
+name: My API Tests
+baseUrl: https://jsonplaceholder.typicode.com
 
-**JUnit XML** (`--junit report.xml`) — Standard JUnit format for CI/CD dashboards (GitHub Actions, Jenkins, GitLab CI).
+tests:
+  - name: List Users
+    method: GET
+    url: /users
+    assertions:
+      - type: status
+        expected: "200"
 
-**Markdown** (`--markdown report.md`) — Human-readable summary table with TPS, percentiles, error rates.
+  - name: Get User
+    method: GET
+    url: /users/1
+    assertions:
+      - type: status
+        expected: "200"
+      - type: jsonPath
+        jsonPath: $.name
+        operator: exists
+```
 
-### CI/CD Usage
+### CI/CD Quick Example
 
 ```bash
-# In GitHub Actions, Jenkins, etc.
-npx tsx cli/index.ts run tests/smoke.yaml \
+# GitHub Actions, Jenkins, etc.
+npx tsx cli/index.ts run tests/api-test.yaml \
   --concurrency 10 \
-  --transactions 100 \
+  --iterations 100 \
+  --junit results.xml \
   --fail-on-error \
-  --junit results/junit.xml \
-  --markdown results/summary.md
+  -q
+```
+
+### Example Scripts
+
+Ready-to-use scripts are available in `examples/scripts/`:
+
+```bash
+# Basic test run with reports
+./examples/scripts/run-basic-test.sh
+
+# Parameterized tests with tag filtering
+./examples/scripts/run-parameterized-test.sh smoke
+
+# Load test with configurable concurrency
+./examples/scripts/run-load-test.sh 10 500
+
+# Workflow performance test
+./examples/scripts/run-workflow-test.sh 50 5
+
+# CI/CD smoke test (quick validation)
+./examples/scripts/ci-smoke-test.sh
+
+# CI/CD full test suite
+./examples/scripts/ci-full-test.sh
 ```
 
 Exit codes: `0` = all passed, `1` = failures exceed threshold, `2` = invalid file or runtime error.
@@ -216,103 +224,79 @@ Exit codes: `0` = all passed, `1` = failures exceed threshold, `2` = invalid fil
 
 ```
 src/
-├── App.tsx                  # Root component: tabs, sidebar, settings modal
-├── App.css                  # Root styles & imports
-├── styles/                  # Modular CSS (sidebar, settings, scenario-builder, etc.)
+├── App.tsx                     # Root component: tabs, sidebar, settings modal
+├── styles/                     # Modular CSS files
 ├── pages/
-│   ├── ScenarioBuilder.tsx     # Feature Groups → Scenarios → Tests editor
-│   ├── TestRunner.tsx          # Configure & execute performance runs
-│   ├── ResultsDashboard.tsx    # View & analyze historical test results
-│   ├── Requests.tsx            # Requests: ad-hoc API testing (Insomnia/Postman-style)
-│   ├── ApiCatalog.tsx          # API Catalog: OpenAPI/Swagger browser & interactive testing
-│   └── EnvironmentManager.tsx  # Unified environment, microservice, and auth profile management
+│   └── EnvironmentManager.tsx  # Unified env/microservice/auth config page
 ├── engine/
-│   ├── executor.ts          # Orchestration layer (re-exports from focused modules)
-│   ├── tokenManager.ts      # OAuth2 token cache with JWT expiry detection
-│   ├── circuitBreaker.ts    # Error policy: continue, stop-first, stop-threshold
-│   ├── requestExecution.ts  # executeRequest, executeWithRetry, runSequential/Batch/Pool
-│   ├── loadProfileRunner.ts # getTargetConcurrency, buildWeightedIterator, runLoadProfile
-│   ├── validator.ts         # Response validation (full, selective, unordered)
-│   ├── metrics.ts           # Summary statistics computation
-│   ├── executionWorker.ts   # Web Worker entry point for off-thread test execution
-│   ├── workerBridge.ts      # Main-thread bridge wrapping worker with runTest() interface
-│   └── workerProtocol.ts    # Typed message protocol for Main ↔ Worker communication
-├── hooks/
-│   ├── useProjects.ts       # Project state, CRUD, moves, persistence
-│   ├── useRequests.ts       # Requests state management (collections, folders, requests, drag-and-drop)
-│   ├── useCatalog.ts        # API Catalog CRUD, persistence, import, versioning
-│   ├── useResponseCache.ts  # Per-request response caching with automatic sync on navigation
-│   ├── useTestExecution.ts  # React hook wrapping the executor
-│   └── useAuthVerify.ts     # Shared auth verification logic (OAuth2 token test, config check)
-├── components/
-│   ├── JsonPathBuilder.tsx      # Visual JSON path selector for validation
-│   ├── ResponseVersionPanel.tsx # Response + validation version history with diff comparison
-│   ├── SettingsModal.tsx        # Split-panel settings shell (delegates to tab components)
-│   ├── SettingsStorageTab.tsx   # Storage usage tab
-│   ├── Sidebar.tsx              # Hierarchical sidebar with project/env/svc navigation
-│   ├── TestEditorModal.tsx      # Test editor shell (delegates to tab components)
-│   ├── TestEditorAuthTab.tsx    # Auth tab: auth type selector, credentials, verify
-│   ├── TestEditorValidationTab.tsx # Validation tab: mode, rules, fetch, JSON path builder, assertions
-│   ├── RegexAssertionModal.tsx    # Regex assertion builder: JSON tree picker, pattern library, live preview
-│   ├── AuthConfigPanel.tsx      # Shared auth config form (used by Feature & Scenario panels)
-│   ├── LiveCharts.tsx           # Live time-series charts (response time, TPS, error rate)
-│   ├── ProfilePreview.tsx       # SVG load profile shape preview
-│   ├── ResponseDetailModal.tsx  # Full response detail for failed requests
-│   ├── CsvTemplateExportModal.tsx # Excel template export with 3-step wizard
-│   ├── CsvImportModal.tsx       # Excel/CSV import with validation and drag-and-drop
-│   ├── ExportCenter.tsx         # Multi-select data export modal
-│   ├── ImportCenter.tsx         # Import with per-item conflict resolution
-│   ├── requests/               # Requests (ad-hoc API testing) components
-│   │   ├── RequestEditor.tsx           # Request editor: URL, params, headers, body, auth, send
-│   │   ├── RequestsSidebar.tsx         # Collection/folder/request tree with drag-and-drop
-│   │   ├── RequestCollectionModal.tsx  # Collection create/edit modal
-│   │   ├── SubCollectionModal.tsx      # Sub-collection settings (env, auth, base URLs)
-│   │   ├── SidebarContextMenu.tsx      # Right-click context menu (collection/folder/request)
-│   │   ├── RequestAuthEditor.tsx       # Auth type selector and credentials form
-│   │   ├── JsonTreePreview.tsx         # Collapsible JSON tree viewer with search
-│   │   ├── ConsoleLog.tsx             # Request/response trace console
-│   │   └── MultiEnvResultRow.tsx      # Multi-environment result row
-│   └── catalog/                # API Catalog (OpenAPI/Swagger browser) components
-│       ├── CatalogSidebar.tsx         # API list with version badges and endpoint counts
-│       ├── CatalogImportModal.tsx     # OpenAPI/Swagger spec import with preview
-│       ├── CatalogOverview.tsx        # API summary: endpoint stats, servers, security schemes
-│       ├── CatalogEndpointBrowser.tsx # Tag-grouped endpoint list with search/filter
-│       ├── CatalogEndpointCard.tsx    # Swagger-UI-style endpoint detail with "Try It"
-│       ├── CatalogAuthPanel.tsx       # Per-API auth config (Inherit/Global/OAuth2/Bearer/Basic)
-│       ├── CatalogEditModal.tsx       # API settings: environments, auth, host strategy
-│       ├── CatalogVersionHistory.tsx  # Version list with re-import and restore
-│       ├── CatalogSendToRequestsModal.tsx # Two-panel modal for exporting catalog endpoints to Requests
-│       ├── CatalogVersionDiff.tsx     # Visual endpoint diff between spec versions
-│       └── CatalogWelcome.tsx         # Empty-state welcome page
+│   ├── executor.ts             # Orchestration layer (re-exports from focused modules)
+│   ├── allocationEngine.ts     # Shared allocation engine (computeAllocation)
+│   ├── validator.ts            # Response validation barrel (16 assertion types)
+│   ├── validatorDateHelpers.ts # Date assertion: resolveDate, toDayString, truncateToUnit
+│   ├── validatorHttpHelpers.ts # HTTP assertion: matchesStatusPattern, findHeader, evaluateHeaderOp
+│   ├── validatorSubsetMatch.ts # Deep recursive partial match: deepSubsetMatch
+│   ├── validatorCustomExpression.ts # Custom ASSERT: isTruthy, wrapCustomExprDollarPaths
+│   ├── fieldOperatorEvaluation.ts   # 24-operator evaluator: evaluateFieldOperator
+│   ├── executionWorker.ts      # Web Worker entry point for off-thread test execution
+│   ├── workerBridge.ts         # Main-thread bridge wrapping worker with runTest() interface
+│   └── workerProtocol.ts       # Typed message protocol for Main ↔ Worker communication
+├── features/
+│   ├── scenarios/              # Feature Groups → Scenarios → Tests editor
+│   │   └── components/
+│   │       ├── TestEditorValidationTab.tsx  # Validation tab: 16 assertion types, rules pivot
+│   │       ├── testEditorValidationAddMenu.ts  # Assertion factory menu definitions
+│   │       └── testEditorValidationPivot.ts    # Pivoted rules table model
+│   ├── test-runner/            # Standard, Parameterized, Workflow runners
+│   ├── results/                # Results Explorer (canvas, detail panel, iteration matrix)
+│   ├── requests/               # Requests: ad-hoc API testing (collections, folders)
+│   ├── workflow/               # Workflow designer + 125 expression functions (8 categories)
+│   └── catalog/                # API Catalog (OpenAPI/Swagger browser & testing)
+├── shared/
+│   ├── components/
+│   │   └── data-mapper/        # Unified Data Mapper
+│   │       ├── DataMapper.tsx             # Main container (895 lines)
+│   │       ├── ValidationRulesModal.tsx    # Three-mode validation rules panel (docked/floating/maximized)
+│   │       ├── DslReferencePanel.tsx      # Card-based DSL reference panel with search/insert
+│   │       ├── ValidationCodeEditor.tsx   # Monaco DSL editor with syntax highlighting
+│   │       ├── BodyBuilderPanel.tsx       # Three-mode body construction (JSON/Form/Raw)
+│   │       ├── MappingCompare.tsx         # Side-by-side mapping trace comparison
+│   │       ├── adapters/                  # 10 context-specific adapters
+│   │       │   ├── validationAdapter.ts   # Selective validation (ExpectedField[])
+│   │       │   ├── extractionAdapter.ts   # Variable extraction (Extraction[])
+│   │       │   ├── requestBodyAdapter.ts  # Request body builder (JSON/Form/Raw)
+│   │       │   ├── assertionAdapter.ts    # Regex assertion (jsonPath + pattern)
+│   │       │   ├── columnMappingAdapter.ts    # CSV columns ↔ request slots
+│   │       │   ├── populateFromApiAdapter.ts  # API response → data source
+│   │       │   ├── sharedDsFetchAdapter.ts    # Shared data source fetch
+│   │       │   ├── variableBindingAdapter.ts  # Workflow variable wiring
+│   │       │   ├── webhookExtractionAdapter.ts # Webhook payload extraction
+│   │       │   └── demoAdapter.ts             # Sandbox/gallery demos
+│   │       ├── hooks/                     # State management hooks
+│   │       │   ├── useMapperState.ts      # Mapping CRUD + undo/redo
+│   │       │   ├── useKeyboardNavigation.ts   # Arrow keys, Tab, Home/End
+│   │       │   ├── useBottomUtilityDock.ts    # Dock mode + floating pop-out
+│   │       │   ├── useDataMapperTreeInteraction.ts # Hover/click/keyboard bridge
+│   │       │   ├── useHighlightedMappingPaths.ts  # Highlight set derivation
+│   │       │   ├── useMapperVisibleLines.ts       # Connection line filtering
+│   │       │   └── useValidationCodeSync.ts       # Bi-directional DSL sync
+│   │       └── utils/                     # Algorithms & engines
+│   │           ├── autoMapAlgorithm.ts    # 3-tier auto-map matching
+│   │           ├── validationDsl.ts       # DSL parser/serializer
+│   │           ├── schemaDrift.ts         # Schema drift detection
+│   │           ├── schemaRepair.ts        # Levenshtein-based repair
+│   │           ├── schemaContract.ts      # Strict/lenient lock mode
+│   │           ├── mappingTrace.ts        # Execution trace capture
+│   │           ├── expressionStepDebugger.ts  # Step-through debugger
+│   │           └── typeMismatch.ts        # Type mismatch detection & auto-fix
+│   ├── types/index.ts          # Core types (16 Assertion variants, 24 FieldOperator, ExpectedField)
+│   └── utils/                  # JSONPath engine, JSON tree model, scenario migration
 ├── utils/
 │   ├── storage.ts           # Dual-mode persistence (Tauri fs / localStorage)
-│   ├── httpClient.ts        # Quad-mode HTTP client with connection pooling (Worker override / Tauri native / Vite proxy / Node fetch)
-│   ├── platform.ts          # Runtime platform & capability detection (Tauri / browser / Node / Workers)
-│   ├── tauriStore.ts        # Tauri file-system storage backend
-│   ├── curlParser.ts        # cURL command → test config parser
-│   ├── curlGenerator.ts     # Test config → cURL command builder
-│   ├── csvTemplate.ts       # Barrel re-export (delegates to focused modules below)
-│   ├── csvTemplateTypes.ts  # Shared interfaces & constants for CSV/Excel templates
-│   ├── csvTemplateUrl.ts    # URL parsing, path variable detection, URL rebuilding
-│   ├── csvTemplateCsv.ts    # CSV template generation and parsing
-│   ├── csvTemplateExcel.ts  # Excel template generation, styling, and parsing
-│   ├── testEditorUtils.ts   # Test editor helpers (canonicalize, stripPaths, rebuildUrl)
-│   ├── scenarioSearch.ts    # Boolean search parser (AND, OR, NOT, phrases, parens)
-│   ├── scenarioImportExport.ts # Scenario JSON import/export utilities
-│   ├── resultsGrouping.ts   # Multi-level result grouping and stats computation
-│   ├── runnerProgressStorage.ts # Test runner progress persistence
-│   ├── jsonPathTreeUtils.ts # JSON tree building, path enumeration, search
-│   ├── fileSaver.ts         # Native save dialog (Tauri dialog / File System Access API)
-│   ├── export.ts            # JSON & CSV export utilities
-│   ├── requestTree.ts       # Requests tree manipulation (find, map, clone, move, reorder)
-│   ├── requestAuthState.ts  # Auth config ↔ UI state mapping for request collection modals
-│   ├── requestUrlResolver.ts # Base URL resolution and display URL building for multi-env collections
-│   ├── catalogExport.ts     # Catalog-to-requests export: build collections with env folders, requests, auth
-│   ├── catalogCurlGenerator.ts # cURL generation for catalog endpoints with OAuth2 token acquisition
-│   └── catalogSpecDiff.ts   # Spec diff engine: detect added/removed/changed endpoints between versions
+│   ├── httpClient.ts        # Quad-mode HTTP client with connection pooling
+│   ├── platform.ts          # Runtime platform & capability detection
+│   └── ...                  # cURL, CSV/Excel templates, search, export utilities
 └── types/
-    ├── index.ts             # Shared TypeScript interfaces
-    └── catalog.ts           # API Catalog types (CatalogEntry, CatalogEndpoint, CatalogVersion)
+    └── catalog.ts           # API Catalog types
 
 cli/                            # CLI Runner (headless, Node.js)
 ├── index.ts                 # Entry point: `run` and `validate` commands (commander)
@@ -441,6 +425,7 @@ The left sidebar organizes your data by environment or microservice.
 - **Selection**: Click an environment/microservice name to select it. The selected context filters what you see in Feature Groups, Test Runner, and Results. Click a child item (e.g., a microservice under an environment) to select both simultaneously.
 - **Feature indicator**: Items with associated Feature Groups show a colored dot — green for items that have features, gray for those that don't.
 - **Selected item highlight**: The currently selected child item shows a colored left border and bold text for clear identification.
+- **Additional Environments**: Microservice-specific environments appear in a separate "Additional Environments" section with amber/orange styling (dashed divider, amber tag showing the parent microservice name). When selected, the Feature Groups/Runner header badge also turns amber with a `+` indicator to distinguish from standard environments.
 
 ### Feature Groups & Scenarios
 
@@ -647,8 +632,10 @@ The **Catalog** section is the third pillar of RedfireForge — an OpenAPI/Swagg
 
 - Click **Try It** to execute the endpoint against a real server. Results display in a JSON tree viewer.
 - **Host Strategy**: Choose "From Spec" (use servers from the spec), "Custom URL" (type any base URL), or "Environment" (per-API named environments configured via Edit).
+- **Host Warning**: When using "From Spec" with a placeholder URL (e.g., `example.com`, `.test`, `.local`), an amber warning banner appears suggesting to switch to "Custom URL" or "Environment" mode.
 - **Auth**: Configure authentication per API — Inherit from Spec, Global Auth Profile (OAuth2/Bearer/Basic/API Key), or manual credentials.
 - **Verify Auth**: Test OAuth2 token acquisition with a single click.
+- **Send to Harness**: Export endpoints directly to the Harness as test scenarios. POST/PUT/PATCH endpoints automatically get a sample request body generated from the OpenAPI schema (handles nested objects, arrays, enums, defaults).
 
 **cURL Integration:**
 
@@ -710,9 +697,21 @@ The left sidebar uses a vertical **Requests | Catalog | Harness** nav rail:
 - The sidebar is resizable (drag the right edge) and collapsible (toggle button).
 - **Settings** is always accessible at the bottom of the sidebar.
 
-### Test Runner
+### Test Runners
 
-Navigate to the **Test Runner** tab (second tab).
+RedfireForge provides three specialized runners for different test types:
+
+| Runner | Purpose | Input |
+|---|---|---|
+| **Test Runner** | Standard scenario load testing | Standard scenarios (no data sources) |
+| **Parameterized Runner** | Data-driven testing | Parameterized scenarios (CSV/Excel data) |
+| **Workflow Runner** | Multi-step flow testing | Workflows from the Designer |
+
+Navigate to **Testing** in the Activity Bar, then select the appropriate runner tab.
+
+**Scenario Types:**
+
+When creating a scenario in Feature Groups, you choose its type — **Standard** or **Parameterized**. Each runner only shows matching scenarios. This prevents confusion about how iterations interact with data rows.
 
 **Host Selection:**
 
@@ -724,10 +723,7 @@ Choose which hostname is used at runtime:
 | **Settings** | Replaces the hostname/port with the base URL configured in Settings for the current environment/microservice. Disabled if no URL is configured. |
 | **Custom** | Type a temporary base URL — useful for testing against a specific instance without changing Settings. |
 
-**Options:**
-
-- **Skip Validation**: Disables all response validation for the run. Useful for pure throughput testing.
-- **Execution Mode**:
+**Execution Modes:**
 
 | Mode | Concurrency | How It Works |
 |---|---|---|
@@ -742,7 +738,7 @@ All execution settings are grouped in a single unified card below the Execution 
 | Field | Description |
 |---|---|
 | **Concurrency** | Number of parallel requests (1–100). Fixed to 1 in Sequential mode. Disabled (visible) in Load Profile mode. |
-| **Transactions** | Total number of requests to execute. Disabled in Load Profile mode (time-based). |
+| **Iterations** | How many times each test runs. For parameterized tests: iterations × data rows = total requests. |
 | **Timeout** | Per-request timeout in seconds (0 = unlimited, default 10s). Timed-out requests are recorded as failures. |
 | **Retry** | Number of retry attempts on failure (0–10). When > 0, a Retry Delay field appears. |
 | **Retry Delay** | Milliseconds to wait between retry attempts (shown only when Retry > 0). |
@@ -750,20 +746,20 @@ All execution settings are grouped in a single unified card below the Execution 
 | **Max Errors** | Stop after this many errors (only active in Threshold mode). |
 | **Error Rate** | Stop when error percentage exceeds this value (only active in Threshold mode, requires minimum 10 samples). |
 | **Skip Validation** | Checkbox in the scenario selection header. Disables all response validation for pure throughput testing. |
-| **Test Distribution (Weights)** | Set relative weights per test. A test with weight `2` runs roughly twice as often as one with weight `1`. Set to `0` to skip a test without deselecting it. |
 
 **Running a Test:**
 
-1. Select one or more Scenarios using the checkboxes. Use **Skip validation** to disable response checks or **Unordered arrays** to force order-independent array matching for all tests.
-2. Configure concurrency, transactions, timeout, retry, and error policy.
-3. Optionally configure **Think Time** to add realistic delays between requests (None, Constant, Uniform random, or Gaussian distribution).
-4. Optionally add **Rich Assertions** in the Validation tab — status code, response time SLA, header checks, or regex matches that run on every request.
-5. Click **▶ Run Test**.
-5. A live progress bar shows completion percentage, current TPS, average response time, and error rate. Tags next to "Progress" show the execution mode, concurrency, total transactions, think time config (if active), and active host.
-6. Click **■ Stop** to abort early. The circuit breaker may also stop the run automatically based on the error policy.
-7. When complete, results auto-navigate to the Results tab.
+1. Select one or more scenarios using the checkboxes. Use **Skip validation** to disable response checks or **Unordered arrays** to force order-independent array matching for all tests.
+2. Review the **Execution Plan Preview** — shows exact request count before you run.
+3. Configure concurrency, iterations, timeout, retry, and error policy.
+4. Optionally configure **Think Time** to add realistic delays between requests (None, Constant, Uniform random, or Gaussian distribution).
+5. Optionally add **Rich Assertions** in the Validation tab — 16 assertion types (status, responseTime, header, regex, arrayLength, numeric, date, typeCheck, existence, arrayContains, each, containsSubset, jsonSchema, bodySize, datePrecise, custom), 24 field operators, Data Mapper with bi-directional DSL editor.
+6. Click **▶ Run Test**.
+7. A live progress bar shows completion percentage, current TPS, average response time, and error rate.
+8. Click **■ Stop** to abort early. The circuit breaker may also stop the run automatically based on the error policy.
+9. When complete, results auto-navigate to the Results tab.
 
-All runner settings (concurrency, transactions, timeout, retry, error policy, think time, selected scenarios, weights, host mode, execution mode, skip validation) are **persisted across sessions**.
+All runner settings (concurrency, iterations, timeout, retry, error policy, think time, selected scenarios, host mode, execution mode, skip validation) are **persisted across sessions**.
 
 **Worker Thread Architecture:**
 
@@ -864,6 +860,7 @@ Fork and Join nodes enable true parallel execution:
 - Workflows are saved automatically in local storage (browser) or Tauri's app-data directory (desktop)
 - Node positions, connections, variables, and service configurations are all persisted
 - Export/import workflows via JSON for sharing or version control
+- **Viewport persistence**: Canvas pan/zoom position is saved when switching tabs and restored when returning to the Workflow tab. Click "Save layout" in the canvas controls to persist the viewport across sessions.
 
 ### Results Dashboard
 
@@ -871,7 +868,7 @@ Navigate to the **Results** tab (third tab).
 
 **Layout:**
 
-- **Row 1**: "Results" heading, context tags (environment, microservice, host, execution mode with `C:` and `T:`), and action buttons (Refresh, Export JSON, Export CSV, Delete) aligned to the far right.
+- **Row 1**: "Results" heading, context tags (environment, microservice, host, execution mode with `C:` and `I:`), and action buttons (Refresh, Export JSON, Export CSV, Delete) aligned to the far right.
 - **Row 2**: Full-width dropdown listing historical runs filtered by the selected environment/microservice. Each entry shows timestamp, service, environment, request count, and TPS.
 
 **Summary Metrics (Row 1):**
@@ -913,6 +910,31 @@ A bar chart shows the distribution of response times in histogram buckets.
 - **Export CSV**: Flat table suitable for spreadsheets.
 - All exports use a native "Save As" dialog with sensible default filenames.
 
+#### Results Explorer (Workflow Runs)
+
+After running a workflow, click **📊 Results Explorer** to open a full-screen modal for visual execution analysis.
+
+**Three-Panel Layout:**
+
+- **Left — Workflow Diagram**: Read-only React Flow canvas showing execution state. Nodes colored green (pass), red (fail), or gray (skipped). Traversed edges show animated flowing dash; untaken edges are gray dashed. Heatmap gradient colors nodes by avg response time. Bottleneck nodes get a pulsing border.
+- **Right — Detail Panel**: Click any node for tabbed details (Overview, Request, Response, Variables, Assertions). Shows hero stats, timing breakdown, per-iteration drill-down.
+- **Bottom — Iteration Matrix**: Collapsible table (rows = iterations, columns = HTTP nodes) with sort, filter, error search, and cell click to jump to node+iteration.
+
+**Key Features:**
+
+| Feature | Description |
+|---------|-------------|
+| **Search & Filter** | Search bar to find nodes by name; filter buttons (All / Pass / Fail / Skipped). Non-matching nodes dimmed. Press `/` to focus. |
+| **Save Layout** | Drag nodes to custom positions and save via pill controls. Restored automatically on next open. |
+| **Heatmap** | Nodes colored green→yellow→orange→red by avg duration. |
+| **Bottleneck Analysis** | Identifies time-dominant, high-variance, and high-failure nodes with suggestions. |
+| **Edge Traversal %** | Branching edges show traversal percentage labels in aggregate view. |
+| **Iteration Picker** | Rich dropdown with filter tabs (All / Failed / Slowest), jump-to-# search. |
+| **Export** | Export trace as JSON or aggregate metrics as CSV. Import previously exported traces. |
+| **Keyboard Shortcuts** | `←/→` iterate, `1-9` jump, `Space` toggle, `A` aggregate, `M` matrix, `/` search, `Esc` close. |
+
+**Requirements:** Enable **"Capture Full Trace"** in Workflow Runner config before running to capture request/response details. Without it, only timing and pass/fail data are available.
+
 ---
 
 ## Feature Reference
@@ -948,7 +970,7 @@ A bar chart shows the distribution of response times in histogram buckets.
 | Request timeout | Per-request timeout (0–300s, default 10s); timed-out requests move to next test |
 | Retry on failure | Retry failed requests up to N times with configurable delay between attempts |
 | Error policy (circuit breaker) | Continue, stop on first error, or stop at error count/rate threshold |
-| Unified execution config | Execution Mode, Concurrency, Transactions, Timeout, Retry, Error Policy in one card |
+| Unified execution config | Execution Mode, Concurrency, Iterations, Timeout, Retry, Error Policy in one card |
 | Skip validation toggle | Disable response checks for raw throughput testing |
 | Unordered arrays toggle | Force unordered array matching globally — handles APIs returning arrays in non-deterministic order |
 | Rich assertions | Status code (`200`, `2xx`, `200-299`), response time SLA (`≤ 500ms`), header validation (`equals`/`contains`/`regex`/`exists`), regex on JSONPath values — run on every request alongside JSON validation; **Regex Builder modal** with JSON tree picker, pattern library (17 presets), and live match preview; assertion type badges on test cards |
@@ -983,6 +1005,31 @@ A bar chart shows the distribution of response times in histogram buckets.
 | Collapsible sidebar | Toggle sidebar visibility from anywhere, including modals |
 | Drag-and-drop | Move and reorder scenarios between Feature Groups and tests between scenarios via drag handles |
 | Feature presence indicator | Sidebar color-codes items with/without Feature Groups |
+| **Data Mapper** | Visual field mapping component: drag source fields to target drop zones, expression editor (125 functions + lambda syntax with live preview), auto-map with accept/reject, type mismatch detection & auto-fix, live preview bar, **24 field operators** (equality, comparison, string, boolean, existence, type check, set membership with color-coded pills), **array assertions** (LENGTH, CONTAINS, EACH, SUBSET), **universal negation** (NOT modifier on any operator), **Validation Rules Modal** (docked/floating/maximized Monaco code editor with syntax highlighting, autocomplete, inline errors, pass/fail decorations), **DSL Reference Panel** (8-category accordion with search, insert, copy), **ASSERT custom predicates** (125+ expression functions, lambda syntax), **live verification** (per-node pass/fail badges, canvas line coloring, toolbar stats, Mapping View status column), **Mapping View** (Code/List/Pivot table with resize, panel collapse), bi-directional visual ↔ code sync, schema drift/repair, mapping profiles, keyboard navigation, hover-to-highlight, failure navigation. 10 adapters: validation, extraction, requestBody (JSON/Form/Raw), assertion, columnMapping, populateFromApi, sharedDsFetch, variableBinding, webhookExtraction, demo |
+| **Parameterized Testing** | Data-driven testing with inline data sources — define one test pattern, run against N data rows |
+| Data Source Editor | Inline spreadsheet-style table editor with columns (path, param, header, body, validate) and rows |
+| Column types | `path:` replaces URL variables, `param:` adds query params, `header:` sets headers, `body:` fills body placeholders, `validate:` asserts response values |
+| CSV/Excel/JSON import | Import data from external files with column detection and validation |
+| Row tags & filtering | Categorize rows with tags (e.g., `smoke`, `regression`); filter by tag when running |
+| Row enable/disable | Toggle individual rows without deleting; disabled rows are skipped during execution |
+| Bulk operations | Select multiple rows (Ctrl+click, Shift+click) for bulk enable/disable/delete/duplicate |
+| Drag-to-reorder rows | Reorder data rows via drag handles |
+| Row labels & notes | Human-readable labels and annotations per row, shown in results |
+| Distribution modes | Sequential, Random, or Round Robin row execution order |
+| Sample rows | Mark rows as samples for selective validation mode |
+| Pre-validation (Verify All) | Test all rows against the live API before committing to a full run |
+| Populate from API | Send a request, extract an array from the response, map fields to columns — auto-generate data rows |
+| Create Parameterized Copy | Convert any normal test into a parameterized version with auto-detected variables |
+| Re-run failed rows | After a run, re-run only the rows that failed — saves time on large data sets |
+| Grouped results | Results dashboard groups parameterized test results by data row with pass/fail status |
+| **Shared Data Sources** | Top-level data sources shared across multiple tests — edit once, update everywhere |
+| Shared DS modal | Dedicated modal for managing shared data sources with list panel, editor, and fetch config |
+| Cross-test linking | Link any parameterized test to a shared data source; changes propagate automatically |
+| "Used by" section | See which tests are linked to each shared data source |
+| Promote/demote | Promote inline data to a shared source, or demote (detach) to create an independent copy |
+| Impact warnings | Save confirmation modal shows affected tests when modifying shared data |
+| Auth inheritance | Shared data sources can inherit auth from linked tests for API verification |
+| Fetch config | Optional URL/method/headers/body for API-driven population and verification |
 | **API Catalog** | Import OpenAPI 3.0/3.1 and Swagger 2.0 specs; browse endpoints in Swagger-UI-style detail view |
 | Catalog endpoint browser | Tag-grouped endpoint list with search/filter, parameter forms, request body editor, response schemas |
 | Catalog "Try It" testing | Execute endpoints interactively with host strategy (From Spec / Custom URL / Environment) and auth config |
@@ -1096,10 +1143,10 @@ This launches the native desktop window with **hot-reload** — any changes to R
 | `npm run preview` | Serve the production web build locally |
 | `npm run tauri:dev` | Launch desktop app with hot-reload |
 | `npm run tauri:build` | Build desktop app for current OS |
-| `npm test` | Run unit + integration test suite (Vitest, 1781 tests) |
+| `npm test` | Run unit + integration test suite (Vitest, 16,356 tests) |
 | `npm run test:watch` | Run tests in watch mode |
-| `npm run test:coverage` | Run tests with coverage report |
-| `npm run test:e2e` | Run Playwright E2E tests (109 tests, Chromium) |
+| `npm run test:coverage` | Run tests with coverage report (>90% all files) |
+| `npm run test:e2e` | Run Playwright E2E tests (613 tests, Chromium) |
 | `npm run test:e2e:headed` | Run E2E tests with visible browser |
 | `npm run lint` | Run ESLint |
 | `./scripts/version.sh` | Bump version across all config files |
@@ -1168,19 +1215,35 @@ This means data persists across browsers and is shareable via file copy.
 
 ### Web Mode (Browser)
 
-All data is stored in the browser's **localStorage**:
+Data is stored using a tiered storage strategy:
+
+**IndexedDB (Primary — for large data)**
+
+| Store | Content |
+|---|---|
+| `featureGroups` | Feature Groups, Scenarios, Tests, and inline Data Sources |
+| `testRuns` | Historical test run results |
+| `sharedDataSources` | Top-level shared data sources (harness-wide) |
+
+IndexedDB is used for large data that would exceed localStorage's ~5 MB limit. The database (`redfireforge`, version 3) uses a blob-per-store pattern with automatic migration from localStorage on first load.
+
+**localStorage (Secondary — for small data)**
 
 | Key | Content |
 |---|---|
-| `perf-test-feature-groups` | Feature Groups, Scenarios, and Tests |
 | `perf-test-environments` | Environment definitions |
 | `perf-test-microservices` | Microservice definitions and base URLs |
 | `perf-test-global-auth` | Global Auth Profile definitions |
-| `perf-test-runs` | Historical test run results (auto-pruned, response bodies truncated to 2 KB) |
 | `perf-test-runner-config` | Runner settings (concurrency, weights, host mode, execution mode, etc.) |
 | `perf-test-max-runs` | Maximum number of stored runs (default 50, configurable 1–500) |
 | `perf-test-selected-env` | Currently selected environment ID |
 | `perf-test-selected-svc` | Currently selected microservice ID |
 | `perf-test-theme` | Theme preference (`dark` or `light`) |
 
-**Storage limits:** localStorage is typically capped at ~5 MB per origin. The Storage section in Settings shows current usage and per-key breakdown. If a test run cannot be saved due to a full quota, a confirmation banner appears offering to automatically remove old runs to make room. To reset all data manually, clear localStorage for the site in your browser's DevTools (Application → Storage → Clear site data).
+**Fallback Behavior:**
+- If IndexedDB is blocked (e.g., private browsing, DevTools lock), the app falls back to localStorage with a 3-second timeout
+- Feature groups and test runs auto-migrate from localStorage to IndexedDB on first load
+- Response bodies are truncated to 2 KB; results per run capped at 2,000
+
+**Storage Management:**
+The Storage section in Settings shows current usage and per-key breakdown. If a test run cannot be saved due to a full quota, a confirmation banner appears offering to automatically remove old runs to make room. To reset all data manually, clear site data in your browser's DevTools (Application → Storage → Clear site data).

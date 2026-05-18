@@ -22,8 +22,8 @@ export const ToastContext = createContext<ToastApi | null>(null);
 const ICON_MAP: Record<ToastType, string> = {
   success: '✓',
   error: '✗',
-  info: 'ℹ',
-  warning: '⚠',
+  info: 'i',
+  warning: '!',
 };
 
 export default function WorkflowToastProvider({ children }: { children: ReactNode }) {

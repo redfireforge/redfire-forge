@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Multi-Endpoint Regression — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">📊</div>
+    <h1>Multi-Endpoint Regression</h1>
+    <div class="subtitle">Data-Driven Testing — Training Manual</div>
+    <p><span class="badge badge-advanced">Advanced ★★★</span> · 4 Endpoints · 20 Data Rows · dummyjson.com</p>
+    <div class="meta">RedfireForge v0.5.6</div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <h2>1. Purpose &amp; Use Case</h2>
+  <p>Real-world regression suites test <strong>multiple API endpoints</strong> — not just one. This sample demonstrates how to build a comprehensive data-driven regression suite that covers users, products, recipes, and quotes across a single API platform (DummyJSON).</p>
+  <p>Each endpoint gets its own scenario with its own data source, but they share a single feature group — making them runnable as one cohesive suite.</p>
+
+  <h2>2. Architecture</h2>
+  <table>
+    <tr><th>Scenario</th><th>Endpoint</th><th>Rows</th><th>Validate Column</th></tr>
+    <tr><td>Users Sweep</td><td><code>GET /users/{{id}}</code></td><td>5</td><td><code>$.firstName</code></td></tr>
+    <tr><td>Products Sweep</td><td><code>GET /products/{{id}}</code></td><td>5</td><td><code>$.category</code></td></tr>
+    <tr><td>Recipes Sweep</td><td><code>GET /recipes/{{id}}</code></td><td>5</td><td><code>$.cuisine</code></td></tr>
+    <tr><td>Quotes Sweep</td><td><code>GET /quotes/{{id}}</code></td><td>5</td><td><code>$.author</code></td></tr>
+  </table>
+  <p><strong>Total:</strong> 4 scenarios × 5 rows = 20 requests per test run.</p>
+
+  <h2>3. Tutorial</h2>
+
+  <h3>Step 1: Load the Sample</h3>
+  <ol>
+    <li>Open <strong>Gallery → Tests</strong>.</li>
+    <li>Load <strong>"Multi-Endpoint Regression"</strong>.</li>
+    <li>In the Feature Groups tab, you'll see 4 scenarios under one feature group.</li>
+  </ol>
+
+  <h3>Step 2: Explore Each Data Source</h3>
+  <ol>
+    <li>Click each test to open its editor.</li>
+    <li>Each has its own Data Source tab with endpoint-specific columns and data.</li>
+    <li>Note how each uses <code>path:id</code> to sweep different IDs on different endpoints.</li>
+  </ol>
+
+  <h3>Step 3: Run All at Once</h3>
+  <ol>
+    <li>Go to <strong>Testing → Parameterized Runner</strong>.</li>
+    <li>Check the entire "Multi-Endpoint Regression" feature group.</li>
+    <li>The execution summary shows: <strong>"4 tests × 5 data rows each = 20 requests"</strong>.</li>
+    <li>Click <strong>Run</strong>.</li>
+  </ol>
+
+  <h3>Step 4: Analyze Results</h3>
+  <ol>
+    <li>In <strong>Results</strong>, expand each scenario to see per-row outcomes.</li>
+    <li>The data row summary table shows pass/fail breakdown per endpoint.</li>
+    <li>Use the <strong>Failed Row Quick Filter</strong> to focus on regressions.</li>
+  </ol>
+
+  <div class="callout callout-tip">
+    <strong>💡 Real-world pattern</strong>
+    In production, you'd target your own API microservices: <code>/api/v2/users/{{id}}</code>, <code>/api/v2/orders/{{id}}</code>, etc. Each scenario tests one microservice endpoint, and the feature group runs them all as a regression gate.
+  </div>
+
+  <h2>4. Design Patterns</h2>
+
+  <h3>4.1 One Scenario per Endpoint</h3>
+  <p>Each endpoint gets its own scenario with tailored columns. Don't mix <code>/users</code> and <code>/products</code> data in one table — their response shapes are different, so their validate columns differ too.</p>
+
+  <h3>4.2 Shared Feature Group</h3>
+  <p>Grouping related endpoints into one feature group means they run together and their results are shown side-by-side. Use separate feature groups for unrelated APIs.</p>
+
+  <h3>4.3 Row Tags for Selective Runs</h3>
+  <p>Add tags to data rows (e.g., "smoke", "critical", "edge-case") and use the <strong>Parameterized Runner's</strong> tag filter to run only critical rows during quick CI checks, or all rows for nightly regression.</p>
+
+  <h2>5. Try It Yourself</h2>
+  <ol>
+    <li>Add a 5th scenario: <strong>Posts Sweep</strong> targeting <code>https://dummyjson.com/posts/{{id}}</code>.</li>
+    <li>Add columns: <code>id</code> (path) and <code>expectedUserId</code> (validate: <code>$.userId</code>).</li>
+    <li>Add 5 rows with post IDs 1–5.</li>
+    <li>Run the full suite (now 25 requests) and verify all pass.</li>
+  </ol>
+
+  <h2>6. Scaling Up: Subsets &amp; Populate from API</h2>
+  <p>When managing large multi-endpoint suites, these features help:</p>
+  <ul>
+    <li><strong>Named Subsets</strong> — Save tag-based filters like "smoke" or "nightly" that apply across all data rows. Use them in the <strong>Parameterized Runner</strong> or CLI to run only a subset of rows per endpoint.</li>
+    <li><strong>Populate from API</strong> — Instead of manually entering 100 product rows, call <code>⬇ From API</code> to fetch <code>/products</code> and auto-generate rows from the response array. Each array item becomes a data row with columns auto-mapped to JSON fields.</li>
+    <li><strong>Verify All</strong> — After populating, click <strong>▶ Verify All</strong> to validate every row against the live API. The Verify modal groups failure patterns so you can spot systematic issues across endpoints.</li>
+  </ul>
+
+  <h2>7. Related Manuals</h2>
+  <ul>
+    <li><a href="parameterized-validation-medium.html">Parameterized Validation</a> — deeper dive into validate columns</li>
+    <li><a href="parameterized-populate-api-medium.html">Populate from API</a> — auto-generate data rows from API responses</li>
+    <li><a href="parameterized-verify-contract-advanced.html">Verify &amp; Validation Contract</a> — the Verify modal and validation contracts</li>
+    <li><a href="parameterized-auth-rotation-advanced.html">Auth Token Rotation</a> — POST body parameterization</li>
+    <li><a href="ecommerce-full-advanced.html">E-Commerce Full Suite</a> — the non-parameterized multi-endpoint approach</li>
+  </ul>
+
+  <footer>
+    RedfireForge Training Manual · Multi-Endpoint Regression · Advanced
+  </footer>
+</body>
+</html>

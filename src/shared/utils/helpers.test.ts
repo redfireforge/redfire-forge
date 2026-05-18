@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { formatBytes, toErrorMessage, humanizeError, snapshot, prettyJson, mergeById } from './helpers';
+import { formatBytes, toErrorMessage, humanizeError, snapshot, prettyJson, mergeById, deepClone, formatJson, truncate } from './helpers';
 
 describe('formatBytes', () => {
   it('formats small values as bytes', () => {
@@ -299,6 +299,45 @@ describe('prettyJson', () => {
   });
 });
 
+describe('formatJson', () => {
+  it('returns empty string for undefined and empty', () => {
+    expect(formatJson(undefined)).toBe('');
+    expect(formatJson('')).toBe('');
+  });
+
+  it('matches prettyJson for non-empty input', () => {
+    const input = '{"a":1}';
+    expect(formatJson(input)).toBe(prettyJson(input));
+  });
+});
+
+describe('truncate', () => {
+  it('returns short strings when prefix limit not exceeded (suffix appended mode)', () => {
+    expect(truncate('hi', 100, '...', false)).toBe('hi');
+  });
+
+  it('truncates with default append style like former truncateValue', () => {
+    const s = 'a'.repeat(101);
+    expect(truncate(s, 100, '...', false)).toBe('a'.repeat(100) + '...');
+  });
+
+  it('does not truncate when length equals maxLength in append mode', () => {
+    const s = 'a'.repeat(100);
+    expect(truncate(s, 100, '...', false)).toBe(s);
+  });
+
+  it('respects custom maxLength in append mode', () => {
+    expect(truncate('hello world', 5, '...', false)).toBe('hello...');
+  });
+
+  it('caps total length including suffix when suffixInsideBudget is true', () => {
+    expect(truncate('hello world', 5, '…')).toBe('hell…');
+    const label = 'a'.repeat(15);
+    expect(truncate(label, 15, '…')).toBe(label);
+    expect(truncate('a'.repeat(16), 15, '…')).toBe('a'.repeat(14) + '…');
+  });
+});
+
 describe('mergeById', () => {
   it('appends items with new ids', () => {
     const existing = [{ id: '1', name: 'A' }];
@@ -336,5 +375,36 @@ describe('mergeById', () => {
     const existing = [{ id: '3' }, { id: '1' }];
     const incoming = [{ id: '2' }, { id: '1' }, { id: '4' }];
     expect(mergeById(existing, incoming).map(x => x.id)).toEqual(['3', '1', '2', '4']);
+  });
+});
+
+describe('deepClone', () => {
+  it('creates a deep copy of an object', () => {
+    const original = { a: 1, b: { c: 2 } };
+    const cloned = deepClone(original);
+    expect(cloned).toEqual(original);
+    expect(cloned).not.toBe(original);
+    expect(cloned.b).not.toBe(original.b);
+  });
+
+  it('handles arrays', () => {
+    const original = [{ id: 1 }, { id: 2 }];
+    const cloned = deepClone(original);
+    expect(cloned).toEqual(original);
+    cloned[0].id = 99;
+    expect(original[0].id).toBe(1);
+  });
+
+  it('handles primitives', () => {
+    expect(deepClone(42)).toBe(42);
+    expect(deepClone('hello')).toBe('hello');
+    expect(deepClone(null)).toBe(null);
+  });
+
+  it('snapshot delegates to deepClone', () => {
+    const obj = { x: [1, 2, 3] };
+    const result = snapshot(obj);
+    expect(result).toEqual(obj);
+    expect(result).not.toBe(obj);
   });
 });

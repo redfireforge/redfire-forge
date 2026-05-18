@@ -30,7 +30,10 @@ dist-ssr
 
 # Test coverage
 coverage/
+cov-*/
+coverage-*/
 
-# Playwright test results
+# Playwright test results & reports
 test-results/
+playwright-report/
 test-script-paste.cjs

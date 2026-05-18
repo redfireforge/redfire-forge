@@ -765,6 +765,57 @@
   padding: 0;
 }
 
+/* Related Training Manuals Section */
+.gallery-detail-manuals {
+  margin-top: 12px;
+  padding: 10px 12px;
+  background: var(--bg-secondary, rgba(255,255,255,0.03));
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle, rgba(255,255,255,0.06));
+}
+.gallery-detail-manuals-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary, #9ca3af);
+}
+.gallery-detail-manuals-icon {
+  font-size: 0.85rem;
+}
+.gallery-detail-manuals-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.gallery-detail-manual-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: var(--bg-tertiary, rgba(255,255,255,0.02));
+  text-decoration: none;
+  color: var(--text-primary, #e5e7eb);
+  font-size: 0.8rem;
+  transition: background 0.15s, transform 0.1s;
+}
+.gallery-detail-manual-link:hover {
+  background: var(--bg-hover, rgba(129,140,248,0.12));
+  transform: translateX(2px);
+}
+.gallery-detail-manual-title {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .gallery-detail-actions {
   display: flex;
   gap: 8px;
@@ -1119,9 +1170,17 @@
   transition: border-color 0.12s;
 }
 .training-manual-row:hover { border-color: rgba(139, 92, 246, 0.2); }
+.training-manual-row--clickable { cursor: pointer; }
+.training-manual-row--clickable:hover { border-color: rgba(139, 92, 246, 0.4); background: rgba(139, 92, 246, 0.06); }
+.training-manual-row--clickable:active { background: rgba(139, 92, 246, 0.1); }
 .training-manual-icon { font-size: 1rem; flex-shrink: 0; }
 .training-manual-info { flex: 1; min-width: 0; }
 .training-manual-title { font-size: 0.78rem; font-weight: 600; color: var(--text); }
+.training-manual-open-hint {
+  margin-left: 4px; font-size: 0.65rem; color: var(--text-muted);
+  opacity: 0; transition: opacity 0.12s;
+}
+.training-manual-row--clickable:hover .training-manual-open-hint { opacity: 1; }
 .training-manual-desc { font-size: 0.68rem; color: var(--text-muted); margin-top: 1px; }
 .training-manual-sample {
   display: flex;
@@ -1138,6 +1197,16 @@
   display: flex;
   align-items: center;
   gap: 4px;
+  border: none;
+  font-family: inherit;
+}
+.training-manual-sample-chip--clickable {
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.training-manual-sample-chip--clickable:hover {
+  background: rgba(56, 189, 248, 0.25);
+  color: #38bdf8;
 }
 .training-manual-import-btn {
   background: rgba(139, 92, 246, 0.8);

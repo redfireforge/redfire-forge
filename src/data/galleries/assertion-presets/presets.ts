@@ -50,3 +50,25 @@ export function createApiContractAssertions(): Assertion[] {
     { type: 'regex', jsonPath: '$.title', pattern: '.{3,}' },
   ];
 }
+
+// ─── 6. Data Type Guard (Easy) ───────────────────────────────────────────────
+
+export function createDataTypeGuardAssertions(): Assertion[] {
+  return [
+    { type: 'typeCheck', jsonPath: '$.id', expectedType: 'number' },
+    { type: 'typeCheck', jsonPath: '$.name', expectedType: 'string' },
+    { type: 'typeCheck', jsonPath: '$.active', expectedType: 'boolean' },
+    { type: 'typeCheck', jsonPath: '$.tags', expectedType: 'array' },
+  ];
+}
+
+// ─── 7. Required Fields Check (Easy) ─────────────────────────────────────────
+
+export function createRequiredFieldsAssertions(): Assertion[] {
+  return [
+    { type: 'existence', jsonPath: '$.id', expectExists: true },
+    { type: 'existence', jsonPath: '$.name', expectExists: true },
+    { type: 'existence', jsonPath: '$.email', expectExists: true },
+    { type: 'existence', jsonPath: '$.deletedAt', expectExists: false },
+  ];
+}

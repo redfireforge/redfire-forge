@@ -52,7 +52,7 @@ Before merging any feature branch into `develop`, complete ALL of the following:
 1. **Full unit tests above 90% code coverage** — Run `npx vitest run --coverage` and confirm all four metrics (statements, branches, functions, lines) are above 90%. Add tests for any gaps. (During development, only run tests for touched files: `npx vitest run src/path/to/file.test.ts`).
 2. **Update documentation** — Update `CHANGELOG.md`, `README.md`, `ROADMAP.md`, and `.cursor/rules/project-conventions.mdc` with the new feature content.
 3. **Thorough code evaluation** — Review all new and modified code for bugs, monolithic classes, and refactoring opportunities. Fix any issues found, along with unit tests.
-4. **Final full test suite run** — Run `npx vitest run` and `npx tsc --noEmit` to confirm zero failures and zero type errors.
+4. **Final full test suite run** — Run `npx vitest run` and `npx tsc -b --noEmit` to confirm zero failures and zero type errors.
 5. **STOP — ask user to verify and test** before merging.
 
 **Note:** E2E tests are NOT required for feature → develop merges to maintain development velocity.
