@@ -12,6 +12,13 @@ type ProgressCallback = (
   meta?: ProgressMeta,
 ) => void;
 
+const MIN_SCENARIOS_FOR_MULTI = 8;
+
+export function getWorkerCount(): number {
+  const cores = typeof navigator !== 'undefined' ? (navigator.hardwareConcurrency ?? 2) : 2;
+  return Math.max(1, Math.min(cores - 1, 8));
+}
+
 /**
  * Run a test inside a Web Worker. Has the same signature as `runTest`
  * so it can be used as a drop-in replacement.
@@ -49,12 +56,12 @@ export function runTestInWorker(
 
       switch (msg.type) {
         case 'progress':
-          allResults.push(...msg.newResults);
+          for (const r of msg.newResults) allResults.push(r);
           onProgress(msg.completed, msg.total, allResults, msg.meta);
           break;
 
         case 'done':
-          allResults.push(...msg.newResults);
+          for (const r of msg.newResults) allResults.push(r);
           executionTrace = msg.trace;
           settled = true;
           cleanup();
@@ -120,5 +127,150 @@ export function runTestInWorker(
       useTauriProxy: isTauri(),
       workflow,
     } satisfies MainToWorkerMessage);
+  });
+}
+
+/**
+ * Run a test across N Web Workers for multi-core utilization.
+ * Splits scenarios evenly, aggregates results, and coordinates abort/circuit-breaker.
+ * Falls back to single-worker for workflow mode or small scenario counts.
+ */
+export function runTestMultiWorker(
+  config: TestConfig,
+  scenarios: Scenario[],
+  onProgress: ProgressCallback,
+  abortSignal?: AbortSignal,
+  workflow?: Workflow,
+): Promise<TestResult> {
+  const isLoadProfile = config.executionMode === 'load-profile' && !!config.loadProfile;
+  const N = getWorkerCount();
+  if (N <= 1 || workflow || (!isLoadProfile && scenarios.length < MIN_SCENARIOS_FOR_MULTI)) {
+    return runTestInWorker(config, scenarios, onProgress, abortSignal, workflow);
+  }
+
+  const actualWorkerCount = isLoadProfile
+    ? Math.min(N, config.concurrency ?? 1)
+    : N;
+  const chunks: Scenario[][] = [];
+  if (isLoadProfile) {
+    for (let i = 0; i < actualWorkerCount; i++) chunks.push(scenarios);
+  } else {
+    const chunkSize = Math.ceil(scenarios.length / actualWorkerCount);
+    for (let i = 0; i < actualWorkerCount; i++) {
+      const chunk = scenarios.slice(i * chunkSize, (i + 1) * chunkSize);
+      if (chunk.length > 0) chunks.push(chunk);
+    }
+  }
+  const workerCount = chunks.length;
+  if (workerCount <= 1) {
+    return runTestInWorker(config, scenarios, onProgress, abortSignal, workflow);
+  }
+  const perWorkerConcurrency = Math.max(1, Math.ceil((config.concurrency ?? 1) / workerCount));
+
+  return new Promise<TestResult>((resolve, reject) => {
+    const allResults: RequestResult[] = [];
+    const workers: Worker[] = [];
+    const completedPerWorker: number[] = new Array(workerCount).fill(0);
+    let doneCount = 0;
+    let settled = false;
+    const useTauriProxy = isTauri();
+
+    function cleanupAll() {
+      for (const w of workers) {
+        try { w.terminate(); } catch { /* ignore */ }
+      }
+    }
+
+    function abortAll() {
+      for (const w of workers) {
+        try { w.postMessage({ type: 'abort' } satisfies MainToWorkerMessage); } catch { /* ignore */ }
+      }
+    }
+
+    function createWorkerHandler(workerIdx: number, w: Worker) {
+      return (e: MessageEvent<WorkerToMainMessage>) => {
+        if (settled) return;
+        const msg = e.data;
+
+        switch (msg.type) {
+          case 'progress':
+            for (const r of msg.newResults) allResults.push(r);
+            completedPerWorker[workerIdx] = msg.completed;
+            onProgress(
+              completedPerWorker.reduce((a, b) => a + b, 0),
+              isLoadProfile ? -1 : scenarios.length,
+              allResults,
+              msg.meta,
+            );
+            break;
+
+          case 'done':
+            for (const r of msg.newResults) allResults.push(r);
+            doneCount++;
+            if (doneCount >= workerCount) {
+              settled = true;
+              cleanupAll();
+              resolve({ results: allResults });
+            }
+            break;
+
+          case 'error':
+            if (!settled) {
+              settled = true;
+              abortAll();
+              cleanupAll();
+              reject(new Error(msg.message));
+            }
+            break;
+
+          case 'http-request':
+            httpFetch(msg.url, msg.method, msg.headers, msg.body)
+              .then((response) => {
+                w.postMessage({ type: 'http-response', id: msg.id, response } satisfies MainToWorkerMessage);
+              })
+              .catch((err) => {
+                w.postMessage({
+                  type: 'http-response', id: msg.id,
+                  response: { status: 0, statusText: '', headers: {}, body: '', error: err instanceof Error ? err.message : String(err) },
+                } satisfies MainToWorkerMessage);
+              });
+            break;
+        }
+      };
+    }
+
+    if (abortSignal) {
+      if (abortSignal.aborted) {
+        reject(new Error('Aborted'));
+        return;
+      }
+      abortSignal.addEventListener('abort', () => {
+        if (!settled) abortAll();
+      }, { once: true });
+    }
+
+    for (let i = 0; i < workerCount; i++) {
+      const w = new Worker(
+        new URL('./executionWorker.ts', import.meta.url),
+        { type: 'module' },
+      );
+      workers.push(w);
+      w.addEventListener('message', createWorkerHandler(i, w));
+      w.addEventListener('error', (e) => {
+        if (settled) return;
+        settled = true;
+        abortAll();
+        cleanupAll();
+        reject(new Error(e.message || 'Worker error'));
+      });
+      w.postMessage({
+        type: 'start',
+        config: { ...config, concurrency: perWorkerConcurrency },
+        scenarios: chunks[i],
+        useTauriProxy,
+        workerIndex: i,
+        totalWorkers: workerCount,
+      } satisfies MainToWorkerMessage);
+    }
   });
 }

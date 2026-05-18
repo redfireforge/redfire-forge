@@ -1,6 +1,5 @@
-import { v4 as uuidv4 } from 'uuid';
 import type { Scenario, RequestResult, TimingBreakdown } from '../shared/types';
-import { httpFetch, type HttpResponse } from '../shared/utils/httpClient';
+import { httpFetch } from '../shared/utils/httpClient';
 import { serializeWithContentType } from '../shared/utils/bodySerializer';
 import { buildHeaders, buildUrl, type ProgressMeta } from './executor';
 import type { TokenManager } from './tokenManager';
@@ -8,13 +7,75 @@ import { CircuitBreaker } from './circuitBreaker';
 import { applyThinkTime } from './thinkTime';
 import { buildValidationResult } from './validationResult';
 
+let _resultIdCounter = 0;
+export function resetResultIdCounter(): void { _resultIdCounter = 0; }
+export function nextResultId(): string { return `r-${++_resultIdCounter}`; }
+
+export function buildErrorResult(scenario: Scenario, err: unknown, reqBody?: string): RequestResult {
+  const msg = err instanceof Error ? err.message : String(err);
+  return {
+    id: nextResultId(),
+    scenarioId: scenario.id,
+    scenarioName: scenario.name,
+    featureGroupName: scenario.featureGroupName,
+    groupName: scenario.groupName,
+    url: scenario.url,
+    method: scenario.method,
+    httpStatus: 0,
+    responseTimeMs: 0,
+    responseBody: '',
+    timestamp: Date.now(),
+    passed: false,
+    validationMode: scenario.validation.mode,
+    failureDetails: [{ path: '(error)', expected: 'success', actual: msg }],
+    errorMessage: msg,
+    responseHeaders: {},
+    requestLog: { headers: {}, body: reqBody },
+  };
+}
+
+export function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+  if (!timeoutMs || timeoutMs <= 0) return promise;
+  let timerId: ReturnType<typeof setTimeout>;
+  const timeoutPromise = new Promise<T>((_, reject) => {
+    timerId = setTimeout(() => reject(new Error(`Request timeout (${(timeoutMs / 1000).toFixed(0)}s)`)), timeoutMs);
+  });
+  return Promise.race([promise, timeoutPromise]).finally(() => clearTimeout(timerId!));
+}
+
+interface PreparedScenario {
+  body: string | undefined;
+  contentType: string | null;
+  baseHeaders: Record<string, string>;
+  resolvedUrl: string;
+  needsOAuth: boolean;
+}
+
+const _prepCache = new Map<string, PreparedScenario>();
+
+export function clearPrepCache(): void { _prepCache.clear(); }
+
+export function prepareScenario(scenario: Scenario): PreparedScenario {
+  const cacheKey = scenario.dataRowId ? `${scenario.id}::${scenario.dataRowId}` : scenario.id;
+  const cached = _prepCache.get(cacheKey);
+  if (cached) return cached;
+  const { body, contentType } = serializeWithContentType(scenario);
+  const baseHeaders = buildHeaders(scenario, undefined, contentType);
+  const resolvedUrl = buildUrl(scenario);
+  const needsOAuth = scenario.auth.type === 'oauth2';
+  const prep: PreparedScenario = { body, contentType, baseHeaders, resolvedUrl, needsOAuth };
+  _prepCache.set(cacheKey, prep);
+  return prep;
+}
+
 async function executeRequest(
   scenario: Scenario,
   headers: Record<string, string>,
   reqBody: string | undefined,
-  timeoutMs?: number
+  timeoutMs?: number,
+  resolvedUrl?: string,
 ): Promise<RequestResult> {
-  const id = uuidv4();
+  const id = nextResultId();
   const start = performance.now();
   let httpStatus = 0;
   let responseBody = '';
@@ -24,18 +85,9 @@ async function executeRequest(
   let timing: TimingBreakdown | undefined;
 
   try {
-    const url = buildUrl(scenario);
+    const url = resolvedUrl ?? buildUrl(scenario);
 
-    let resultPromise: Promise<HttpResponse> = httpFetch(url, scenario.method, headers, reqBody);
-
-    if (timeoutMs && timeoutMs > 0) {
-      const timeoutPromise = new Promise<HttpResponse>((_, reject) => {
-        setTimeout(() => reject(new Error(`Request timeout (${(timeoutMs / 1000).toFixed(0)}s)`)), timeoutMs);
-      });
-      resultPromise = Promise.race([resultPromise, timeoutPromise]);
-    }
-
-    const result = await resultPromise;
+    const result = await withTimeout(httpFetch(url, scenario.method, headers, reqBody), timeoutMs ?? 0);
     timing = result.timing;
 
     if (result.error) {
@@ -45,9 +97,14 @@ async function executeRequest(
       httpStatus = result.status;
       responseBody = result.body;
       responseHeaders = result.headers;
-      try {
-        responseObj = JSON.parse(responseBody);
-      } catch {
+      const isHttpError = httpStatus >= 400 || httpStatus === 0;
+      const needsParse = isHttpError
+        || scenario.validation.mode !== 'none'
+        || (scenario.validation.assertions?.length ?? 0) > 0
+        || (scenario.validation.expectedFields?.length ?? 0) > 0;
+      if (needsParse && responseBody) {
+        try { responseObj = JSON.parse(responseBody); } catch { responseObj = responseBody; }
+      } else {
         responseObj = responseBody;
       }
     }
@@ -108,14 +165,15 @@ async function executeWithRetry(
   reqBody: string | undefined,
   timeoutMs?: number,
   retryCount = 0,
-  retryDelayMs = 1000
+  retryDelayMs = 1000,
+  resolvedUrl?: string,
 ): Promise<RequestResult> {
-  let result = await executeRequest(scenario, headers, reqBody, timeoutMs);
+  let result = await executeRequest(scenario, headers, reqBody, timeoutMs, resolvedUrl);
   let attempt = 0;
   while (!result.passed && attempt < retryCount) {
     attempt++;
     if (retryDelayMs > 0) await new Promise((r) => setTimeout(r, retryDelayMs));
-    result = await executeRequest(scenario, headers, reqBody, timeoutMs);
+    result = await executeRequest(scenario, headers, reqBody, timeoutMs, resolvedUrl);
   }
   if (attempt > 0) {
     result.errorMessage = result.passed
@@ -142,10 +200,10 @@ export async function runSequential(queue: Scenario[], opts: RunOpts): Promise<R
 
   for (const scenario of queue) {
     if (abortSignal?.aborted || breaker.shouldStop) break;
-    const { body: reqBody, contentType } = serializeWithContentType(scenario);
-    const token = await tokenManager.getToken(scenario);
-    const headers = buildHeaders(scenario, token, contentType);
-    const result = await executeWithRetry(scenario, headers, reqBody, timeoutMs, retryCount, retryDelayMs);
+    const prep = prepareScenario(scenario);
+    const token = prep.needsOAuth ? await tokenManager.getToken(scenario) : undefined;
+    const headers = token ? { ...prep.baseHeaders, Authorization: `Bearer ${token}` } : prep.baseHeaders;
+    const result = await executeWithRetry(scenario, headers, prep.body, timeoutMs, retryCount, retryDelayMs, prep.resolvedUrl);
     allResults.push(result);
     breaker.record(result);
     onProgress(allResults.length, queue.length, allResults);
@@ -165,10 +223,10 @@ export async function runBatch(queue: Scenario[], concurrency: number, opts: Run
 
     const batch = queue.slice(i, i + concurrency);
     const batchPromises = batch.map(async (scenario) => {
-      const { body: reqBody, contentType } = serializeWithContentType(scenario);
-      const token = await tokenManager.getToken(scenario);
-      const headers = buildHeaders(scenario, token, contentType);
-      return executeWithRetry(scenario, headers, reqBody, timeoutMs, retryCount, retryDelayMs);
+      const prep = prepareScenario(scenario);
+      const token = prep.needsOAuth ? await tokenManager.getToken(scenario) : undefined;
+      const headers = token ? { ...prep.baseHeaders, Authorization: `Bearer ${token}` } : prep.baseHeaders;
+      return executeWithRetry(scenario, headers, prep.body, timeoutMs, retryCount, retryDelayMs, prep.resolvedUrl);
     });
 
     const batchResults = await Promise.all(batchPromises);
@@ -200,33 +258,16 @@ export async function runPool(queue: Scenario[], concurrency: number, opts: RunO
         if (abortSignal?.aborted || breaker.shouldStop) break;
         const scenario = queue[nextIdx++];
         inFlight++;
-        const { body: reqBody, contentType } = serializeWithContentType(scenario);
-        tokenManager.getToken(scenario).then((token) => {
-          const headers = buildHeaders(scenario, token, contentType);
-          return executeWithRetry(scenario, headers, reqBody, timeoutMs, retryCount, retryDelayMs);
+        const prep = prepareScenario(scenario);
+        const tokenPromise = prep.needsOAuth ? tokenManager.getToken(scenario) : Promise.resolve(undefined);
+        tokenPromise.then((token) => {
+          const headers = token ? { ...prep.baseHeaders, Authorization: `Bearer ${token}` } : prep.baseHeaders;
+          return executeWithRetry(scenario, headers, prep.body, timeoutMs, retryCount, retryDelayMs, prep.resolvedUrl);
         }).then((result) => {
           allResults.push(result);
           breaker.record(result);
         }).catch((err) => {
-          const errorResult: RequestResult = {
-            id: `err-${Date.now()}`,
-            scenarioId: scenario.id,
-            scenarioName: scenario.name,
-            featureGroupName: scenario.featureGroupName,
-            groupName: scenario.groupName,
-            url: scenario.url,
-            method: scenario.method,
-            httpStatus: 0,
-            responseTimeMs: 0,
-            responseBody: '',
-            timestamp: Date.now(),
-            passed: false,
-            validationMode: scenario.validation.mode,
-            failureDetails: [{ path: '(error)', expected: 'success', actual: err instanceof Error ? err.message : String(err) }],
-            errorMessage: err instanceof Error ? err.message : String(err),
-            responseHeaders: {},
-            requestLog: { headers: {}, body: reqBody },
-          };
+          const errorResult = buildErrorResult(scenario, err, prep.body);
           allResults.push(errorResult);
           breaker.record(errorResult);
         }).finally(() => {

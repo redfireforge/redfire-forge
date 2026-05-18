@@ -245,6 +245,7 @@ describe('graphLoadRunner', () => {
         undefined,          // correlationWaitConfig
         undefined,          // pollSemaphore
         undefined,          // traceOptions
+        undefined,          // httpTimeoutMs
       );
     });
 
@@ -740,6 +741,7 @@ describe('graphLoadRunner', () => {
         undefined,
         undefined,
         undefined,
+        undefined, // httpTimeoutMs
       );
     });
   });
@@ -771,6 +773,7 @@ describe('graphLoadRunner', () => {
         undefined,
         undefined,
         undefined,
+        undefined, // httpTimeoutMs
       );
     });
 
@@ -805,6 +808,7 @@ describe('graphLoadRunner', () => {
         config, // correlationWaitConfig passed through
         undefined,
         undefined,
+        undefined, // httpTimeoutMs
       );
     });
 
@@ -835,6 +839,7 @@ describe('graphLoadRunner', () => {
         expect.anything(),
         undefined,
         undefined,
+        undefined, // httpTimeoutMs
       );
     });
 
@@ -885,6 +890,7 @@ describe('graphLoadRunner', () => {
         expect.objectContaining({ mode: 'synthetic-inject' }),
         undefined,
         undefined,
+        undefined, // httpTimeoutMs
       );
     });
 
@@ -1050,6 +1056,7 @@ describe('graphLoadRunner', () => {
         undefined,
         undefined,
         traceOpts, // traceOptions passed through
+        undefined, // httpTimeoutMs
       );
     });
 
@@ -1158,6 +1165,7 @@ describe('graphLoadRunner', () => {
         undefined,
         expect.anything(), // pollSemaphore should be defined
         undefined,
+        undefined, // httpTimeoutMs
       );
     });
 
@@ -1188,6 +1196,7 @@ describe('graphLoadRunner', () => {
         undefined,
         undefined, // No pollSemaphore
         undefined,
+        undefined, // httpTimeoutMs
       );
     });
   });
