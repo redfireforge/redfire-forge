@@ -5,6 +5,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { RequestResult } from '../../../shared/types';
 import type { CircuitBreaker } from '../../../engine/circuitBreaker';
 import type { Workflow, WorkflowNode, WorkflowEdge } from '../types/workflow';
+import { makeResult as _makeResult } from '../../../test-utils/factories';
 
 const { syntheticStart, syntheticStop, SyntheticEventInjectorMock } = vi.hoisted(() => {
   const syntheticStart = vi.fn();
@@ -58,24 +59,8 @@ function createMockWorkflow(name = 'Test Workflow'): Workflow {
   };
 }
 
-function createMockResult(overrides: Partial<RequestResult> = {}): RequestResult {
-  return {
-    id: crypto.randomUUID(),
-    scenarioId: 'http1',
-    scenarioName: 'Get Users',
-    url: 'https://api.example.com/users',
-    method: 'GET',
-    httpStatus: 200,
-    responseTimeMs: 100,
-    responseBody: '{}',
-    timestamp: Date.now(),
-    passed: true,
-    validationMode: 'none',
-    failureDetails: [],
-    workflowNodeId: 'http1', // Phase 7e: Set by executeHttpNode
-    ...overrides,
-  };
-}
+const createMockResult = (overrides: Partial<RequestResult> = {}) =>
+  _makeResult({ id: crypto.randomUUID(), scenarioId: 'http1', scenarioName: 'Get Users', workflowNodeId: 'http1', ...overrides });
 
 describe('graphLoadRunner', () => {
   beforeEach(() => {
@@ -245,6 +230,7 @@ describe('graphLoadRunner', () => {
         undefined,          // correlationWaitConfig
         undefined,          // pollSemaphore
         undefined,          // traceOptions
+        undefined,          // httpTimeoutMs
       );
     });
 
@@ -740,6 +726,7 @@ describe('graphLoadRunner', () => {
         undefined,
         undefined,
         undefined,
+        undefined, // httpTimeoutMs
       );
     });
   });
@@ -771,6 +758,7 @@ describe('graphLoadRunner', () => {
         undefined,
         undefined,
         undefined,
+        undefined, // httpTimeoutMs
       );
     });
 
@@ -805,6 +793,7 @@ describe('graphLoadRunner', () => {
         config, // correlationWaitConfig passed through
         undefined,
         undefined,
+        undefined, // httpTimeoutMs
       );
     });
 
@@ -835,6 +824,7 @@ describe('graphLoadRunner', () => {
         expect.anything(),
         undefined,
         undefined,
+        undefined, // httpTimeoutMs
       );
     });
 
@@ -885,6 +875,7 @@ describe('graphLoadRunner', () => {
         expect.objectContaining({ mode: 'synthetic-inject' }),
         undefined,
         undefined,
+        undefined, // httpTimeoutMs
       );
     });
 
@@ -1050,6 +1041,7 @@ describe('graphLoadRunner', () => {
         undefined,
         undefined,
         traceOpts, // traceOptions passed through
+        undefined, // httpTimeoutMs
       );
     });
 
@@ -1158,6 +1150,7 @@ describe('graphLoadRunner', () => {
         undefined,
         expect.anything(), // pollSemaphore should be defined
         undefined,
+        undefined, // httpTimeoutMs
       );
     });
 
@@ -1188,6 +1181,7 @@ describe('graphLoadRunner', () => {
         undefined,
         undefined, // No pollSemaphore
         undefined,
+        undefined, // httpTimeoutMs
       );
     });
   });

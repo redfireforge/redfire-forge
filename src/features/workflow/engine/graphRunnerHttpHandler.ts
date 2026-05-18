@@ -42,6 +42,7 @@ export async function handleHttpNode(
         hCtx.initialVariables,
         hCtx.resolveHttpBaseUrl,
         hCtx.resolveHttpAuth,
+        hCtx.httpTimeoutMs,
       );
       hCtx.results.push(result.requestResult);
       if (!result.requestResult.passed) {
@@ -72,6 +73,7 @@ export async function handleHttpNode(
     hCtx.initialVariables,
     hCtx.resolveHttpBaseUrl,
     hCtx.resolveHttpAuth,
+    hCtx.httpTimeoutMs,
   );
   hCtx.results.push(result.requestResult);
 

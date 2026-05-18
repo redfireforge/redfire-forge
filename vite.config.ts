@@ -27,6 +27,8 @@ function isProxyError(err: unknown): boolean {
   return messages.some(m => /Proxy response \(\d+\) !== 200 when HTTP Tunneling/i.test(m));
 }
 
+function proxyRound2(n: number): number { return Math.round(n * 100) / 100; }
+
 function proxyPlugin(): Plugin {
   let pooledDispatcher: import('undici').Dispatcher | undefined;
   let isProxyDispatcher = false;
@@ -46,8 +48,9 @@ function proxyPlugin(): Plugin {
         pooledDispatcher = new undici.Agent({
           keepAliveTimeout: 30_000,
           keepAliveMaxTimeout: 60_000,
-          connections: 128,
-          pipelining: 1,
+          connect: { timeout: 10_000 },
+          connections: 512,
+          pipelining: 10,
         });
         isProxyDispatcher = false;
       }
@@ -68,10 +71,11 @@ function proxyPlugin(): Plugin {
           return;
         }
 
-        let rawBody = '';
+        const chunks: Buffer[] = [];
         for await (const chunk of req) {
-          rawBody += chunk;
+          chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk);
         }
+        const rawBody = Buffer.concat(chunks).toString('utf8');
 
         let payload: {
           url: string;
@@ -88,10 +92,10 @@ function proxyPlugin(): Plugin {
         }
 
         try {
-          const headers = { ...payload.headers, 'Connection': 'keep-alive' };
+          payload.headers['Connection'] = 'keep-alive';
           const fetchOpts: Record<string, unknown> = {
             method: payload.method,
-            headers,
+            headers: payload.headers,
           };
           if (payload.body && payload.method !== 'GET') {
             fetchOpts.body = payload.body;
@@ -100,25 +104,28 @@ function proxyPlugin(): Plugin {
           const { dispatcher, isProxy } = await getDispatcher();
           if (dispatcher) fetchOpts.dispatcher = dispatcher;
 
-          const round2 = (n: number) => Math.round(n * 100) / 100;
+          const MAX_PROXY_BODY = 2 * 1024 * 1024; // 2 MB cap to prevent pathological responses
 
           /** Perform the fetch and format the result. */
           const doFetch = async (opts: Record<string, unknown>) => {
             const t0 = performance.now();
             const response = await fetch(payload.url, opts as RequestInit);
             const tFirstByte = performance.now();
-            const responseBody = await response.text();
+            const rawBody = await response.text();
+            const responseBody = rawBody.length > MAX_PROXY_BODY ? rawBody.slice(0, MAX_PROXY_BODY) : rawBody;
             const tDone = performance.now();
+            const resHeaders: Record<string, string> = {};
+            response.headers.forEach((v, k) => { resHeaders[k] = v; });
             return {
               status: response.status,
               statusText: response.statusText,
-              headers: Object.fromEntries(response.headers.entries()),
+              headers: resHeaders,
               body: responseBody,
               timing: {
                 dnsLookup: 0, tcpConnect: 0, tlsHandshake: 0,
-                ttfb: round2(tFirstByte - t0),
-                download: round2(tDone - tFirstByte),
-                total: round2(tDone - t0),
+                ttfb: proxyRound2(tFirstByte - t0),
+                download: proxyRound2(tDone - tFirstByte),
+                total: proxyRound2(tDone - t0),
               },
             };
           };
