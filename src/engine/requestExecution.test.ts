@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { Scenario } from '../shared/types';
-import { executeWithRetry, runSequential, runBatch, runPool, type RunOpts } from './requestExecution';
+import { executeWithRetry, runSequential, runBatch, runPool, clearPrepCache, buildErrorResult, withTimeout, type RunOpts } from './requestExecution';
 import { TokenManager } from './tokenManager';
 import { CircuitBreaker } from './circuitBreaker';
 
@@ -44,6 +44,7 @@ function makeRunOpts(overrides: Partial<RunOpts> = {}): RunOpts {
 describe('executeWithRetry', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    clearPrepCache();
   });
 
   afterEach(() => {
@@ -255,6 +256,7 @@ describe('executeWithRetry', () => {
 describe('runSequential', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    clearPrepCache();
   });
 
   it('runs scenarios one by one', async () => {
@@ -289,6 +291,7 @@ describe('runSequential', () => {
 describe('runBatch', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    clearPrepCache();
   });
 
   it('runs scenarios in batches', async () => {
@@ -317,6 +320,7 @@ describe('runBatch', () => {
 describe('runPool', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    clearPrepCache();
   });
 
   it('runs scenarios with concurrency pool', async () => {
@@ -356,7 +360,7 @@ describe('runPool', () => {
     const tokenManager = {
       getToken: vi.fn().mockRejectedValue(new Error('token pool fail')),
     } as unknown as TokenManager;
-    const results = await runPool([makeScenario()], 1, makeRunOpts({ tokenManager }));
+    const results = await runPool([makeScenario({ auth: { type: 'oauth2' } })], 1, makeRunOpts({ tokenManager }));
     expect(results).toHaveLength(1);
     expect(results[0].passed).toBe(false);
     expect(results[0].errorMessage).toBe('token pool fail');
@@ -367,5 +371,91 @@ describe('runPool', () => {
     mockedFetch.mockResolvedValue(successResponse());
     const results = await runPool([], 2, makeRunOpts());
     expect(results).toEqual([]);
+  });
+});
+
+// ────────────────────────────────────────────────────────
+// buildErrorResult
+// ────────────────────────────────────────────────────────
+
+describe('buildErrorResult', () => {
+  it('builds a result from an Error', () => {
+    const scenario = makeScenario();
+    const result = buildErrorResult(scenario, new Error('Connection refused'), '{"req":1}');
+    expect(result.httpStatus).toBe(0);
+    expect(result.passed).toBe(false);
+    expect(result.errorMessage).toBe('Connection refused');
+    expect(result.scenarioId).toBe('s1');
+    expect(result.validationMode).toBe('none');
+    expect(result.responseHeaders).toEqual({});
+    expect(result.requestLog).toEqual({ headers: {}, body: '{"req":1}' });
+    expect(result.failureDetails).toEqual([
+      { path: '(error)', expected: 'success', actual: 'Connection refused' },
+    ]);
+  });
+
+  it('builds a result from a non-Error', () => {
+    const result = buildErrorResult(makeScenario(), 'string error');
+    expect(result.errorMessage).toBe('string error');
+    expect(result.failureDetails[0].actual).toBe('string error');
+  });
+
+  it('populates scenario fields correctly', () => {
+    const scenario = makeScenario({
+      id: 'x1', name: 'X', url: 'http://x', method: 'POST',
+      featureGroupName: 'FG', groupName: 'G',
+    });
+    const result = buildErrorResult(scenario, new Error('fail'));
+    expect(result.scenarioId).toBe('x1');
+    expect(result.scenarioName).toBe('X');
+    expect(result.url).toBe('http://x');
+    expect(result.method).toBe('POST');
+    expect(result.featureGroupName).toBe('FG');
+    expect(result.groupName).toBe('G');
+  });
+
+  it('generates unique IDs on successive calls', () => {
+    const s = makeScenario();
+    const r1 = buildErrorResult(s, new Error('a'));
+    const r2 = buildErrorResult(s, new Error('b'));
+    expect(r1.id).not.toBe(r2.id);
+  });
+});
+
+// ────────────────────────────────────────────────────────
+// withTimeout
+// ────────────────────────────────────────────────────────
+
+describe('withTimeout', () => {
+  it('returns the resolved value when no timeout', async () => {
+    const result = await withTimeout(Promise.resolve('ok'), 0);
+    expect(result).toBe('ok');
+  });
+
+  it('returns the resolved value when negative timeout', async () => {
+    const result = await withTimeout(Promise.resolve('ok'), -1);
+    expect(result).toBe('ok');
+  });
+
+  it('resolves when promise finishes before timeout', async () => {
+    const result = await withTimeout(Promise.resolve(42), 5000);
+    expect(result).toBe(42);
+  });
+
+  it('rejects with timeout error when promise takes too long', async () => {
+    const neverResolve = new Promise<string>(() => {});
+    await expect(withTimeout(neverResolve, 50)).rejects.toThrow('Request timeout (0s)');
+  });
+
+  it('clears timer when promise resolves first', async () => {
+    const clearSpy = vi.spyOn(globalThis, 'clearTimeout');
+    await withTimeout(Promise.resolve('fast'), 10000);
+    expect(clearSpy).toHaveBeenCalled();
+    clearSpy.mockRestore();
+  });
+
+  it('formats timeout message in seconds', async () => {
+    const neverResolve = new Promise<string>(() => {});
+    await expect(withTimeout(neverResolve, 100)).rejects.toThrow('Request timeout (0s)');
   });
 });

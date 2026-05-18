@@ -4,7 +4,7 @@ import type { Scenario, TestConfig, RequestResult, TestSummary, TestRun } from '
 import type { Workflow } from '../../workflow/types/workflow';
 import { runTest } from '../../../engine/executor';
 import type { ProgressMeta } from '../../../engine/executor';
-import { runTestInWorker } from '../../../engine/workerBridge';
+import { runTestMultiWorker } from '../../../engine/workerBridge';
 import { computeMetrics } from '../../../engine/metrics';
 import { saveTestRun, forceSaveTestRun } from '../../../shared/utils/storage';
 import { supportsWorkers } from '../../../shared/utils/platform';
@@ -259,7 +259,7 @@ export function useTestExecution() {
 
     try {
       const testResult = useWorker
-        ? await runTestInWorker(config, scenarios, onProgress, abortRef.current.signal, workflow)
+        ? await runTestMultiWorker(config, scenarios, onProgress, abortRef.current.signal, workflow)
         : await runTest(config, scenarios, onProgress, abortRef.current.signal, workflow, resolveSubWorkflow);
 
       if (flushTimerRef.current) {

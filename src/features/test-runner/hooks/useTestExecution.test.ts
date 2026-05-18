@@ -12,7 +12,7 @@ vi.mock('../../../engine/executor', () => ({
 }));
 
 vi.mock('../../../engine/workerBridge', () => ({
-  runTestInWorker: vi.fn(),
+  runTestMultiWorker: vi.fn(),
 }));
 
 vi.mock('../../../engine/metrics', () => ({
@@ -33,13 +33,13 @@ vi.mock('uuid', () => ({
 }));
 
 import { runTest } from '../../../engine/executor';
-import { runTestInWorker } from '../../../engine/workerBridge';
+import { runTestMultiWorker } from '../../../engine/workerBridge';
 import { computeMetrics } from '../../../engine/metrics';
 import { saveTestRun, forceSaveTestRun } from '../../../shared/utils/storage';
 import { supportsWorkers } from '../../../shared/utils/platform';
 
 const mockRunTest = vi.mocked(runTest);
-const mockRunTestInWorker = vi.mocked(runTestInWorker);
+const mockRunTestInWorker = vi.mocked(runTestMultiWorker);
 const mockComputeMetrics = vi.mocked(computeMetrics);
 const mockSaveTestRun = vi.mocked(saveTestRun);
 const mockForceSaveTestRun = vi.mocked(forceSaveTestRun);
@@ -169,7 +169,7 @@ describe('useTestExecution', () => {
       });
     });
 
-    it('uses runTestInWorker when workers are supported', async () => {
+    it('uses runTestMultiWorker when workers are supported', async () => {
       mockSupportsWorkers.mockReturnValue(true);
       mockRunTestInWorker.mockResolvedValue({ results: [createMockResult()] });
 
@@ -496,7 +496,7 @@ describe('useTestExecution', () => {
       expect(result.current.finalRun).not.toBeNull();
     });
 
-    it('clears pending throttle timer when runTestInWorker resolves before deferred flush fires', async () => {
+    it('clears pending throttle timer when runTestMultiWorker resolves before deferred flush fires', async () => {
       mockSupportsWorkers.mockReturnValue(true);
       mockRunTestInWorker.mockImplementation(async (_config, _scenarios, onProgress) => {
         onProgress(1, 10, [createMockResult({ id: 'wr-1' })]);
