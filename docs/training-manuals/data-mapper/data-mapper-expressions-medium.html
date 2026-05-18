@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Body Builder Mapping — Step-by-Step Walkthrough</title>
+  <style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; color: #1a1a2e; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 30px 24px; background: #fff; }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code { background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 1px 5px; border-radius: 3px; }
+  pre { background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto; margin: 10px 0 16px; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; }
+  .callout { background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px; margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .step { background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 16px; margin: 12px 0; }
+  .step-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .step-num { width: 32px; height: 32px; background: #e63946; color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; flex-shrink: 0; }
+  .step-title { font-weight: 600; color: #1d3557; font-size: 15px; }
+  .expect { background: #d4edda; border-left: 4px solid #28a745; padding: 10px 14px; margin: 10px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+  .expect strong { color: #155724; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+  .badge-sample { background: #e8f4fd; color: #1d3557; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  </style>
+</head>
+<body>
+
+<h1>Body Builder &amp; Expression Mapping</h1>
+<p><span class="badge badge-medium">MEDIUM</span> &nbsp; <span class="badge badge-sample">Sample: dm-body-builder</span></p>
+<p>Learn how extracted variables are used to build a POST request body with <code>{{variable}}</code> templates. This walkthrough uses the <strong>Body Builder</strong> sample.</p>
+
+<div class="callout">
+  <strong>Prerequisites</strong>
+  Import the <code>dm-body-builder</code> sample from Gallery → Data Mapper → "Body Builder Mapping" → <strong>Load Sample</strong>.
+</div>
+
+<h2>Part 1 — Understand the Extraction Step</h2>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">1</div><div class="step-title">Open the first test</div></div>
+  <p>Navigate to <strong>Scenarios</strong> → <code>Gallery: Data Mapper — Body Builder</code> → <code>GET user → extract fields for next request</code>.</p>
+</div>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">2</div><div class="step-title">Review the Extract tab</div></div>
+  <p>Click <strong>Extract</strong>. You'll see 6 extractions that pull fields from the user response:</p>
+  <table>
+    <tr><th>Variable</th><th>Expression</th><th>Previewed Value</th></tr>
+    <tr><td><code>userId</code></td><td><code>$.id</code></td><td>1</td></tr>
+    <tr><td><code>userName</code></td><td><code>$.name</code></td><td>"Leanne Graham"</td></tr>
+    <tr><td><code>userEmail</code></td><td><code>$.email</code></td><td>"Sincere@april.biz"</td></tr>
+    <tr><td><code>userPhone</code></td><td><code>$.phone</code></td><td>"1-770-736-8031 x56442"</td></tr>
+    <tr><td><code>companyName</code></td><td><code>$.company.name</code></td><td>"Romaguera-Crona"</td></tr>
+    <tr><td><code>companyCatchPhrase</code></td><td><code>$.company.catchPhrase</code></td><td>"Multi-layered client-server neural-net"</td></tr>
+  </table>
+</div>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">3</div><div class="step-title">Open Data Mapper to verify</div></div>
+  <p>Click <strong>⚡ Data Mapper</strong>. The source tree shows the full user JSON. The target shows all 6 variable names with mapping lines.</p>
+  <div class="expect"><strong>You should see:</strong> Source panel populated with user data (name: "Leanne Graham", company.name: "Romaguera-Crona", etc.) and 6 mapped target variables.</div>
+</div>
+
+<h2>Part 2 — Inspect the Body Template</h2>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">4</div><div class="step-title">Open the second test (POST)</div></div>
+  <p>Go back and open <code>POST /posts with mapped body template</code>.</p>
+</div>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">5</div><div class="step-title">Look at the Body tab</div></div>
+  <p>The request body contains <code>{{variable}}</code> placeholders that will be replaced with extracted values at runtime:</p>
+  <pre>{
+  "userId": "{{userId}}",
+  "title": "Post by {{userName}}",
+  "body": "Contact: {{userEmail}} / {{userPhone}}. Company: {{companyName}} — {{companyCatchPhrase}}"
+}</pre>
+  <div class="expect"><strong>You should see:</strong> The body editor highlighting <code>{{...}}</code> placeholders in a distinct color. Each corresponds to a variable extracted in the previous step.</div>
+</div>
+
+<h2>Part 3 — Run and Verify</h2>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">6</div><div class="step-title">Run the scenario</div></div>
+  <p>Go to the <strong>Runner</strong> tab, select this scenario, and run it. The first request fetches the user, extracts variables, and the second request sends the POST with the substituted body.</p>
+</div>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">7</div><div class="step-title">Check the result</div></div>
+  <p>After execution, open the second test's result. The sent body should contain the actual values:</p>
+  <pre>{
+  "userId": "1",
+  "title": "Post by Leanne Graham",
+  "body": "Contact: Sincere@april.biz / 1-770-736-8031 x56442. Company: Romaguera-Crona — Multi-layered client-server neural-net"
+}</pre>
+</div>
+
+<h2>Part 4 — Expression Editor</h2>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">8</div><div class="step-title">Expression Editor</div></div>
+  <p>In the Data Mapper, click the <code>fx</code> button on any mapping. This opens the Expression Editor with a function catalog of 125 functions (String, Math, Array, Object, Conditional, JSON, Date/Time, Encoding) and live preview.</p>
+</div>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">9</div><div class="step-title">Mapping Profiles</div></div>
+  <p>Click <strong>Profiles</strong> in the toolbar to save the current mapping as a named preset. Load it later to restore all mappings instantly.</p>
+</div>
+
+<h2>Summary</h2>
+<table>
+  <tr><th>Concept</th><th>Where you saw it</th></tr>
+  <tr><td>Extraction from nested JSON</td><td>Step 2 — <code>$.company.name</code>, <code>$.company.catchPhrase</code></td></tr>
+  <tr><td>Variable templates in body</td><td>Step 5 — <code>{{userName}}</code>, <code>{{companyName}}</code></td></tr>
+  <tr><td>Cross-request variable passing</td><td>Steps 6-7 — first request extracts, second consumes</td></tr>
+  <tr><td>Data Mapper with real data</td><td>Step 3 — source tree populated, mapping lines visible</td></tr>
+  <tr><td>Expression Editor (<code>fx</code>)</td><td>Step 8 — 125-function catalog with live preview</td></tr>
+  <tr><td>Mapping profiles</td><td>Step 9 — save/load named mapping presets from toolbar</td></tr>
+</table>
+
+<div class="callout callout-tip">
+  <strong>Next: Multi-Step Chain</strong>
+  Try the <code>dm-multi-step-chain</code> sample for a 3-step extraction chain (User → Posts → Comments).
+</div>
+
+</body>
+</html>

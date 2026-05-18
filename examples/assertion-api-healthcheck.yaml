@@ -1,11 +1,11 @@
 # RedfireForge CLI — API Health Check Assertions (Easy)
 # Preset: API Health Check
-# Verifies a health endpoint returns 2xx and the response array has at least one entry.
+# Verifies a health endpoint returns 2xx and the response contains expected structure.
 #
-# Run: npx redfireforge run examples/assertion-api-healthcheck.yaml --base-url https://jsonplaceholder.typicode.com
+# Run: npx redfireforge run examples/assertion-api-healthcheck.yaml --base-url https://httpbin.org
 
 name: API Health Check
-baseUrl: https://jsonplaceholder.typicode.com
+baseUrl: https://httpbin.org
 
 defaults:
   headers:
@@ -14,11 +14,11 @@ defaults:
 
 config:
   concurrency: 1
-  transactions: 3
+  iterations: 3
 
 tests:
-  - name: Health Endpoint Returns Services
-    url: /users
+  - name: Health Endpoint Returns OK
+    url: /get?svc=auth&svc=api&svc=db
     method: GET
     validation:
       mode: none
@@ -27,8 +27,6 @@ tests:
         - type: status
           expected: "2xx"
 
-        # Assert the root array has at least 1 item
-        - type: arrayLength
-          jsonPath: "$"
-          operator: ">="
-          value: 1
+        # Assert the response contains the expected query params
+        - type: exists
+          jsonPath: "$.args.svc"

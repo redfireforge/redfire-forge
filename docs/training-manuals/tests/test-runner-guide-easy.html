@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Test Runner Guide — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warning { background: #fff3cd; border-left-color: #ffc107; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  .step-box {
+    background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px;
+    padding: 16px; margin: 12px 0;
+  }
+  .step-box h4 { color: #1d3557; margin-bottom: 8px; font-size: 14px; }
+  .step-number {
+    display: inline-block; width: 24px; height: 24px; background: #e63946;
+    color: #fff; border-radius: 50%; text-align: center; line-height: 24px;
+    font-weight: 600; font-size: 12px; margin-right: 8px;
+  }
+  </style>
+</head>
+<body>
+
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">🏃</div>
+    <h1>Test Runner Guide</h1>
+    <div class="subtitle">Run Standard Tests as Performance Tests — Training Manual</div>
+    <p><span class="badge badge-easy">Easy ★☆☆</span> · Testing · Performance</p>
+    <div class="meta">RedfireForge v0.5.8</div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <h2>1. Learning Objectives</h2>
+  <p>By the end of this manual, you will be able to:</p>
+  <ul>
+    <li>Navigate to the Test Runner tab</li>
+    <li>Understand what scenarios appear in the Test Runner</li>
+    <li>Configure iterations, concurrency, and execution mode</li>
+    <li>Read the execution plan preview</li>
+    <li>Run a test and view results</li>
+  </ul>
+
+  <h2>2. What is the Test Runner?</h2>
+  <p>The <strong>Test Runner</strong> executes <strong>standard</strong> test scenarios as load tests. It runs individual HTTP requests independently — each test runs N times based on the configured <strong>iterations</strong>.</p>
+
+  <div class="callout">
+    <strong>Standard Scenarios Only</strong>
+    The Test Runner only shows scenarios created with the <strong>Standard</strong> type. Parameterized scenarios (with data sources) appear in the <strong>Parameterized Runner</strong> tab instead.
+  </div>
+
+  <h3>When to use the Test Runner:</h3>
+  <ul>
+    <li>API endpoint load testing</li>
+    <li>Regression testing across multiple endpoints</li>
+    <li>Contract validation (response schema checks)</li>
+    <li>Baseline performance measurement</li>
+  </ul>
+
+  <h2>3. Getting Started</h2>
+
+  <div class="step-box">
+    <h4><span class="step-number">1</span> Navigate to the Test Runner</h4>
+    <p>Click <strong>Testing</strong> in the Activity Bar (left sidebar), then select <strong>Test Runner</strong> from the sub-navigation tabs.</p>
+  </div>
+
+  <div class="step-box">
+    <h4><span class="step-number">2</span> Select Scenarios</h4>
+    <p>The scenario selector shows all <strong>standard</strong> scenarios organized by Feature Group. Check the boxes next to the scenarios you want to include in the test run.</p>
+    <p>Use <strong>Select All</strong> to include all available scenarios, or pick individual ones.</p>
+  </div>
+
+  <div class="step-box">
+    <h4><span class="step-number">3</span> Configure Execution</h4>
+    <p>Set the execution parameters:</p>
+    <table>
+      <tr><th>Setting</th><th>Description</th></tr>
+      <tr><td><strong>Iterations</strong></td><td>How many times each test runs (e.g., 10 = each test executes 10 times)</td></tr>
+      <tr><td><strong>Concurrency</strong></td><td>Parallel in-flight limit: <strong>Batch</strong> and <strong>Continuous Pool</strong> support 1–100; <strong>Sequential</strong> is fixed at 1; <strong>Load Profile</strong> uses the concurrency fields in the profile (not this control).</td></tr>
+      <tr><td><strong>Execution Mode</strong></td><td>Sequential, Batch, Continuous Pool, or Load Profile</td></tr>
+      <tr><td><strong>Timeout</strong></td><td>Per-request timeout in seconds</td></tr>
+    </table>
+  </div>
+
+  <div class="step-box">
+    <h4><span class="step-number">4</span> Review the Execution Plan</h4>
+    <p>The <strong>Execution Plan Preview</strong> shows exactly what will happen:</p>
+    <pre>5 iterations × 3 tests = 15 requests</pre>
+    <p>This preview uses the same <code>computeAllocation()</code> engine as the executor, so the numbers always match the actual run.</p>
+  </div>
+
+  <div class="step-box">
+    <h4><span class="step-number">5</span> Run the Test</h4>
+    <p>Click <strong>▶ Run Test</strong>. The live progress panel shows completion percentage, TPS, average response time, and error rate. Click <strong>■ Stop</strong> to abort early.</p>
+  </div>
+
+  <h2>4. Execution Modes</h2>
+
+  <table>
+    <tr><th>Mode</th><th>Concurrency</th><th>Behavior</th></tr>
+    <tr>
+      <td><strong>Sequential</strong></td>
+      <td>1</td>
+      <td>One request at a time, in order.</td>
+    </tr>
+    <tr>
+      <td><strong>Batch</strong></td>
+      <td>N</td>
+      <td>Fire N requests simultaneously, wait for all to complete, then fire next N.</td>
+    </tr>
+    <tr>
+      <td><strong>Continuous Pool</strong></td>
+      <td>N</td>
+      <td>Maintain exactly N requests in-flight. When one completes, a new one starts immediately.</td>
+    </tr>
+    <tr>
+      <td><strong>Load Profile</strong></td>
+      <td>Variable</td>
+      <td>Time-based execution with ramp-up, sustained, or spike patterns.</td>
+    </tr>
+  </table>
+
+  <h2>5. Host Selection</h2>
+  <p>Choose which base URL is used for requests:</p>
+  <table>
+    <tr><th>Option</th><th>Behavior</th></tr>
+    <tr><td><strong>Original</strong></td><td>Uses the URL from the test definition as-is</td></tr>
+    <tr><td><strong>Settings</strong></td><td>Replaces the hostname with the base URL from environment settings</td></tr>
+    <tr><td><strong>Custom</strong></td><td>Type a temporary base URL for one-off testing</td></tr>
+  </table>
+
+  <h2>6. Understanding Results</h2>
+  <p>After a test run completes, results are automatically shown in the <strong>Results</strong> tab. Key metrics:</p>
+  <table>
+    <tr><th>Metric</th><th>Description</th></tr>
+    <tr><td><strong>Avg Response</strong></td><td>Average response time across all requests</td></tr>
+    <tr><td><strong>TPS</strong></td><td>Requests per second (throughput)</td></tr>
+    <tr><td><strong>Error Rate</strong></td><td>Percentage of failed requests</td></tr>
+    <tr><td><strong>P95</strong></td><td>95th percentile response time</td></tr>
+  </table>
+
+  <h2>7. Tips</h2>
+  <ul>
+    <li>Start with low iterations (5–10) and sequential mode to validate your tests before scaling up</li>
+    <li>Use <strong>Skip Validation</strong> for pure throughput testing when you don't need response checks</li>
+    <li>All settings (concurrency, iterations, host mode, execution mode) are persisted across sessions</li>
+    <li>The execution plan preview always matches the actual execution — if it says 50 requests, exactly 50 will run</li>
+  </ul>
+
+  <div class="callout callout-tip">
+    <strong>💡 Iteration = Per-Test Count</strong>
+    Setting iterations to 5 with 3 selected tests means each test runs 5 times, for 15 total requests. Unlike the old "Transactions" setting which was a total budget, iterations are straightforward and predictable.
+  </div>
+
+  <h2>8. Related Manuals</h2>
+  <ul>
+    <li><strong>Runner Comparison</strong> — When to use Test Runner vs Parameterized Runner vs Workflow Runner</li>
+    <li><strong>Parameterized Runner</strong> — Data-driven testing with CSV/Excel inputs</li>
+    <li><strong>Workflow Runner Basics</strong> — Running multi-step workflows as load tests</li>
+  </ul>
+
+  <footer>
+    RedfireForge Training Manual · Test Runner Guide · Easy ★☆☆
+  </footer>
+
+</body>
+</html>

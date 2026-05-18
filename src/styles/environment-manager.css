@@ -183,7 +183,7 @@
   color: var(--text);
 }
 
-/* ── Custom env separator ── */
+/* ── Additional env separator ── */
 .svc-env-separator-row td {
   padding: 0;
 }
@@ -199,29 +199,29 @@
   border-top: 1px dashed var(--border);
 }
 
-/* ── Custom env badge ── */
-.svc-env-custom-tag {
+/* ── Additional env badge ── */
+.svc-env-additional-tag {
   color: var(--primary);
   font-style: italic;
 }
 
-/* ── Custom env auth cell (with delete btn) ── */
-.svc-env-custom-auth-cell {
+/* ── Additional env auth cell (with delete btn) ── */
+.svc-env-additional-auth-cell {
   display: flex;
   align-items: center;
   gap: 6px;
 }
-.svc-env-custom-auth-cell .env-auth-select {
+.svc-env-additional-auth-cell .env-auth-select {
   flex: 1;
 }
-.svc-env-custom-del {
+.svc-env-additional-del {
   flex-shrink: 0;
   padding: 2px 6px;
   font-size: 0.85rem;
   line-height: 1;
 }
 
-/* ── Add custom env row ── */
+/* ── Add additional env row ── */
 .svc-env-add-row td {
   padding: 0 !important;
   border-right: none !important;

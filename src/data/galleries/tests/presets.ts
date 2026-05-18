@@ -3,25 +3,48 @@
  * Each returns a FeatureGroup with pre-configured TestScenarios hitting real public APIs.
  */
 
-import type { FeatureGroup, Scenario, Assertion } from '../../../shared/types';
+import type { FeatureGroup, Scenario, Assertion, TestScenario } from '../../../shared/types';
 
 const noAuth = { type: 'none' as const };
 
-function s(partial: Pick<Scenario, 'id' | 'name' | 'url' | 'method'> & { assertions?: Assertion[]; body?: string; bodyType?: Scenario['bodyType']; headers?: Scenario['headers'] }): Scenario {
+function ts(partial: Omit<TestScenario, 'kind'>): TestScenario {
+  return { ...partial, kind: 'standard' };
+}
+
+function s(partial: Pick<Scenario, 'id' | 'name' | 'url' | 'method'> & {
+  assertions?: Assertion[];
+  body?: string;
+  bodyType?: Scenario['bodyType'];
+  headers?: Scenario['headers'];
+  extractions?: Scenario['extractions'];
+  sampleJson?: string;
+}): Scenario {
   return {
     headers: partial.headers ?? [],
     body: partial.body ?? '',
     bodyType: partial.bodyType,
     auth: noAuth,
+    extractions: partial.extractions,
     validation: {
       mode: partial.assertions ? 'full' : 'none',
       assertions: partial.assertions,
+      sampleJson: partial.sampleJson,
     },
     id: partial.id,
     name: partial.name,
     url: partial.url,
     method: partial.method,
   };
+}
+
+/** Minimal scenario omitting assertions to exercise presets helper branch (validation mode none). */
+export function presetsBareScenarioProbe(): Scenario {
+  return s({
+    id: 'cov-presets-s-probe',
+    name: 'Presets probe',
+    url: 'https://dummyjson.com/products/1',
+    method: 'GET',
+  });
 }
 
 // ─── 1. User API Smoke Test (Easy) ───────────────────────────────────────────
@@ -31,7 +54,7 @@ export function createUserApiSmokeTest(): FeatureGroup {
     id: 'test-user-api-smoke',
     name: 'User API Smoke Test',
     scenarios: [
-      {
+      ts({
         id: 'ts-users-list',
         name: 'List Users',
         tests: [
@@ -44,10 +67,14 @@ export function createUserApiSmokeTest(): FeatureGroup {
               { type: 'status', expected: '200' },
               { type: 'arrayLength', jsonPath: '$', operator: '=', value: 10 },
             ],
+            sampleJson: JSON.stringify([
+              { id: 1, name: 'Leanne Graham', username: 'Bret', email: 'Sincere@april.biz', phone: '1-770-736-8031 x56442', website: 'hildegard.org', company: { name: 'Romaguera-Crona' } },
+              { id: 2, name: 'Ervin Howell', username: 'Antonette', email: 'Shanna@melissa.tv', phone: '010-692-6593 x09125', website: 'anastasia.net', company: { name: 'Deckow-Crist' } },
+            ]),
           }),
         ],
-      },
-      {
+      }),
+      ts({
         id: 'ts-users-single',
         name: 'Get Single User',
         tests: [
@@ -61,10 +88,21 @@ export function createUserApiSmokeTest(): FeatureGroup {
               { type: 'numeric', jsonPath: '$.id', operator: '=', value: 1 },
               { type: 'regex', jsonPath: '$.email', pattern: '.+@.+' },
             ],
+            extractions: [
+              { name: 'userId', source: 'body', expression: '$.id' },
+              { name: 'userName', source: 'body', expression: '$.name' },
+              { name: 'userEmail', source: 'body', expression: '$.email' },
+            ],
+            sampleJson: JSON.stringify({
+              id: 1, name: 'Leanne Graham', username: 'Bret', email: 'Sincere@april.biz',
+              address: { street: 'Kulas Light', suite: 'Apt. 556', city: 'Gwenborough', zipcode: '92998-3874', geo: { lat: '-37.3159', lng: '81.1496' } },
+              phone: '1-770-736-8031 x56442', website: 'hildegard.org',
+              company: { name: 'Romaguera-Crona', catchPhrase: 'Multi-layered client-server neural-net', bs: 'harness real-time e-markets' },
+            }),
           }),
         ],
-      },
-      {
+      }),
+      ts({
         id: 'ts-users-posts',
         name: 'User Posts',
         tests: [
@@ -77,9 +115,17 @@ export function createUserApiSmokeTest(): FeatureGroup {
               { type: 'status', expected: '200' },
               { type: 'arrayLength', jsonPath: '$', operator: '>=', value: 1 },
             ],
+            extractions: [
+              { name: 'firstPostId', source: 'body', expression: '$[0].id' },
+              { name: 'firstPostTitle', source: 'body', expression: '$[0].title' },
+            ],
+            sampleJson: JSON.stringify([
+              { userId: 1, id: 1, title: 'sunt aut facere repellat provident occaecati excepturi optio reprehenderit', body: 'quia et suscipit...' },
+              { userId: 1, id: 2, title: 'qui est esse', body: 'est rerum tempore vitae...' },
+            ]),
           }),
         ],
-      },
+      }),
     ],
   };
 }
@@ -91,7 +137,7 @@ export function createProductListingTest(): FeatureGroup {
     id: 'test-product-listing',
     name: 'Product Listing Check',
     scenarios: [
-      {
+      ts({
         id: 'ts-products-all',
         name: 'All Products',
         tests: [
@@ -105,10 +151,22 @@ export function createProductListingTest(): FeatureGroup {
               { type: 'arrayLength', jsonPath: '$.products', operator: '>=', value: 1 },
               { type: 'numeric', jsonPath: '$.total', operator: '>', value: 0 },
             ],
+            extractions: [
+              { name: 'totalProducts', source: 'body', expression: '$.total' },
+              { name: 'firstProductId', source: 'body', expression: '$.products[0].id' },
+              { name: 'firstProductTitle', source: 'body', expression: '$.products[0].title' },
+            ],
+            sampleJson: JSON.stringify({
+              products: [
+                { id: 1, title: 'Essence Mascara Lash Princess', category: 'beauty', price: 9.99, rating: 4.94, stock: 5, brand: 'Essence' },
+                { id: 2, title: 'Eyeshadow Palette with Mirror', category: 'beauty', price: 19.99, rating: 3.28, stock: 44, brand: 'Glamour Beauty' },
+              ],
+              total: 194, skip: 0, limit: 5,
+            }),
           }),
         ],
-      },
-      {
+      }),
+      ts({
         id: 'ts-products-single',
         name: 'Single Product',
         tests: [
@@ -122,9 +180,22 @@ export function createProductListingTest(): FeatureGroup {
               { type: 'numeric', jsonPath: '$.id', operator: '=', value: 1 },
               { type: 'numeric', jsonPath: '$.price', operator: '>', value: 0 },
             ],
+            extractions: [
+              { name: 'productId', source: 'body', expression: '$.id' },
+              { name: 'productTitle', source: 'body', expression: '$.title' },
+              { name: 'productPrice', source: 'body', expression: '$.price' },
+              { name: 'productBrand', source: 'body', expression: '$.brand' },
+            ],
+            sampleJson: JSON.stringify({
+              id: 1, title: 'Essence Mascara Lash Princess', description: 'Popular mascara known for volumizing...',
+              category: 'beauty', price: 9.99, discountPercentage: 7.17, rating: 4.94, stock: 5,
+              brand: 'Essence', sku: 'RCH45Q1A', weight: 2,
+              dimensions: { width: 23.17, height: 14.43, depth: 28.01 },
+              reviews: [{ rating: 5, comment: 'Very satisfied!', reviewerName: 'Nolan Gonzalez' }],
+            }),
           }),
         ],
-      },
+      }),
     ],
   };
 }
@@ -136,7 +207,7 @@ export function createPaginatedRegressionTest(): FeatureGroup {
     id: 'test-paginated-regression',
     name: 'Paginated API Regression',
     scenarios: [
-      {
+      ts({
         id: 'ts-page1',
         name: 'Page 1',
         tests: [
@@ -152,8 +223,8 @@ export function createPaginatedRegressionTest(): FeatureGroup {
             ],
           }),
         ],
-      },
-      {
+      }),
+      ts({
         id: 'ts-page2',
         name: 'Page 2',
         tests: [
@@ -169,8 +240,8 @@ export function createPaginatedRegressionTest(): FeatureGroup {
             ],
           }),
         ],
-      },
-      {
+      }),
+      ts({
         id: 'ts-page-beyond',
         name: 'Page Beyond Range',
         tests: [
@@ -185,8 +256,8 @@ export function createPaginatedRegressionTest(): FeatureGroup {
             ],
           }),
         ],
-      },
-      {
+      }),
+      ts({
         id: 'ts-total-consistency',
         name: 'Total Consistency',
         tests: [
@@ -202,7 +273,7 @@ export function createPaginatedRegressionTest(): FeatureGroup {
             ],
           }),
         ],
-      },
+      }),
     ],
   };
 }
@@ -214,7 +285,7 @@ export function createPokemonContractTest(): FeatureGroup {
     id: 'test-pokemon-contract',
     name: 'Pokémon Data Contract',
     scenarios: [
-      {
+      ts({
         id: 'ts-pokemon-pikachu',
         name: 'Pikachu Contract',
         tests: [
@@ -231,8 +302,8 @@ export function createPokemonContractTest(): FeatureGroup {
             ],
           }),
         ],
-      },
-      {
+      }),
+      ts({
         id: 'ts-pokemon-types',
         name: 'Type List Contract',
         tests: [
@@ -247,8 +318,8 @@ export function createPokemonContractTest(): FeatureGroup {
             ],
           }),
         ],
-      },
-      {
+      }),
+      ts({
         id: 'ts-pokemon-404',
         name: 'Not Found Contract',
         tests: [
@@ -262,7 +333,7 @@ export function createPokemonContractTest(): FeatureGroup {
             ],
           }),
         ],
-      },
+      }),
     ],
   };
 }
@@ -274,7 +345,7 @@ export function createCountrySearchTest(): FeatureGroup {
     id: 'test-country-search',
     name: 'Country Search Suite',
     scenarios: [
-      {
+      ts({
         id: 'ts-country-name',
         name: 'Search by Name',
         tests: [
@@ -289,8 +360,8 @@ export function createCountrySearchTest(): FeatureGroup {
             ],
           }),
         ],
-      },
-      {
+      }),
+      ts({
         id: 'ts-country-code',
         name: 'Search by Code',
         tests: [
@@ -305,8 +376,8 @@ export function createCountrySearchTest(): FeatureGroup {
             ],
           }),
         ],
-      },
-      {
+      }),
+      ts({
         id: 'ts-country-region',
         name: 'Search by Region',
         tests: [
@@ -321,8 +392,8 @@ export function createCountrySearchTest(): FeatureGroup {
             ],
           }),
         ],
-      },
-      {
+      }),
+      ts({
         id: 'ts-country-not-found',
         name: 'Not Found',
         tests: [
@@ -336,7 +407,7 @@ export function createCountrySearchTest(): FeatureGroup {
             ],
           }),
         ],
-      },
+      }),
     ],
   };
 }
@@ -348,7 +419,7 @@ export function createAuthFlowTest(): FeatureGroup {
     id: 'test-auth-flow',
     name: 'Auth Flow Validation',
     scenarios: [
-      {
+      ts({
         id: 'ts-auth-login-success',
         name: 'Login Success',
         tests: [
@@ -366,8 +437,8 @@ export function createAuthFlowTest(): FeatureGroup {
             ],
           }),
         ],
-      },
-      {
+      }),
+      ts({
         id: 'ts-auth-login-fail',
         name: 'Login Failure',
         tests: [
@@ -384,8 +455,8 @@ export function createAuthFlowTest(): FeatureGroup {
             ],
           }),
         ],
-      },
-      {
+      }),
+      ts({
         id: 'ts-auth-get-profile',
         name: 'Get Auth Profile',
         tests: [
@@ -401,7 +472,7 @@ export function createAuthFlowTest(): FeatureGroup {
             ],
           }),
         ],
-      },
+      }),
     ],
   };
 }
@@ -413,7 +484,7 @@ export function createEcommerceFullSuiteTest(): FeatureGroup {
     id: 'test-ecommerce-full',
     name: 'E-Commerce Full Suite',
     scenarios: [
-      {
+      ts({
         id: 'ts-ecom-products',
         name: 'Product Listing',
         tests: [
@@ -427,10 +498,23 @@ export function createEcommerceFullSuiteTest(): FeatureGroup {
               { type: 'arrayLength', jsonPath: '$.products', operator: '>=', value: 1 },
               { type: 'numeric', jsonPath: '$.total', operator: '>', value: 0 },
             ],
+            extractions: [
+              { name: 'totalProducts', source: 'body', expression: '$.total' },
+              { name: 'firstProductId', source: 'body', expression: '$.products[0].id' },
+              { name: 'firstProductTitle', source: 'body', expression: '$.products[0].title' },
+              { name: 'firstProductPrice', source: 'body', expression: '$.products[0].price' },
+            ],
+            sampleJson: JSON.stringify({
+              products: [
+                { id: 1, title: 'Essence Mascara Lash Princess', category: 'beauty', price: 9.99, brand: 'Essence' },
+                { id: 2, title: 'Eyeshadow Palette with Mirror', category: 'beauty', price: 19.99, brand: 'Glamour Beauty' },
+              ],
+              total: 194, skip: 0, limit: 5,
+            }),
           }),
         ],
-      },
-      {
+      }),
+      ts({
         id: 'ts-ecom-search',
         name: 'Product Search',
         tests: [
@@ -443,10 +527,18 @@ export function createEcommerceFullSuiteTest(): FeatureGroup {
               { type: 'status', expected: '200' },
               { type: 'arrayLength', jsonPath: '$.products', operator: '>=', value: 1 },
             ],
+            extractions: [
+              { name: 'searchResultCount', source: 'body', expression: '$.total' },
+              { name: 'topResultTitle', source: 'body', expression: '$.products[0].title' },
+            ],
+            sampleJson: JSON.stringify({
+              products: [{ id: 7, title: 'Samsung Galaxy S24', category: 'smartphones', price: 849.99, brand: 'Samsung' }],
+              total: 3, skip: 0, limit: 5,
+            }),
           }),
         ],
-      },
-      {
+      }),
+      ts({
         id: 'ts-ecom-categories',
         name: 'Categories',
         tests: [
@@ -461,8 +553,8 @@ export function createEcommerceFullSuiteTest(): FeatureGroup {
             ],
           }),
         ],
-      },
-      {
+      }),
+      ts({
         id: 'ts-ecom-single',
         name: 'Single Product Detail',
         tests: [
@@ -477,10 +569,22 @@ export function createEcommerceFullSuiteTest(): FeatureGroup {
               { type: 'numeric', jsonPath: '$.price', operator: '>', value: 0 },
               { type: 'regex', jsonPath: '$.title', pattern: '.{2,}' },
             ],
+            extractions: [
+              { name: 'productId', source: 'body', expression: '$.id' },
+              { name: 'productTitle', source: 'body', expression: '$.title' },
+              { name: 'productPrice', source: 'body', expression: '$.price' },
+              { name: 'productCategory', source: 'body', expression: '$.category' },
+            ],
+            sampleJson: JSON.stringify({
+              id: 1, title: 'Essence Mascara Lash Princess', category: 'beauty', price: 9.99,
+              rating: 4.94, stock: 5, brand: 'Essence', sku: 'RCH45Q1A',
+              dimensions: { width: 23.17, height: 14.43, depth: 28.01 },
+              reviews: [{ rating: 5, comment: 'Very satisfied!', reviewerName: 'Nolan Gonzalez' }],
+            }),
           }),
         ],
-      },
-      {
+      }),
+      ts({
         id: 'ts-ecom-add-cart',
         name: 'Add to Cart',
         tests: [
@@ -496,10 +600,19 @@ export function createEcommerceFullSuiteTest(): FeatureGroup {
               { type: 'status', expected: '201' },
               { type: 'arrayLength', jsonPath: '$.products', operator: '>=', value: 1 },
             ],
+            extractions: [
+              { name: 'cartId', source: 'body', expression: '$.id' },
+              { name: 'cartTotal', source: 'body', expression: '$.total' },
+              { name: 'cartItemCount', source: 'body', expression: '$.totalProducts' },
+            ],
+            sampleJson: JSON.stringify({
+              id: 21, products: [{ id: 1, title: 'Essence Mascara Lash Princess', price: 9.99, quantity: 2, total: 19.98 }],
+              total: 19.98, discountedTotal: 18.55, userId: 1, totalProducts: 1, totalQuantity: 2,
+            }),
           }),
         ],
-      },
-      {
+      }),
+      ts({
         id: 'ts-ecom-users',
         name: 'User Listing',
         tests: [
@@ -515,7 +628,7 @@ export function createEcommerceFullSuiteTest(): FeatureGroup {
             ],
           }),
         ],
-      },
+      }),
     ],
   };
 }
@@ -527,7 +640,7 @@ export function createMultiApiLoadTest(): FeatureGroup {
     id: 'test-multi-api-load',
     name: 'Multi-API Load Profile',
     scenarios: [
-      {
+      ts({
         id: 'ts-load-jsonplaceholder',
         name: 'JSONPlaceholder Load',
         tests: [
@@ -542,8 +655,8 @@ export function createMultiApiLoadTest(): FeatureGroup {
             ],
           }),
         ],
-      },
-      {
+      }),
+      ts({
         id: 'ts-load-fakestore',
         name: 'FakeStore Load',
         tests: [
@@ -558,8 +671,8 @@ export function createMultiApiLoadTest(): FeatureGroup {
             ],
           }),
         ],
-      },
-      {
+      }),
+      ts({
         id: 'ts-load-dummyjson',
         name: 'DummyJSON Load',
         tests: [
@@ -574,8 +687,8 @@ export function createMultiApiLoadTest(): FeatureGroup {
             ],
           }),
         ],
-      },
-      {
+      }),
+      ts({
         id: 'ts-load-dog',
         name: 'Dog CEO Load',
         tests: [
@@ -590,8 +703,8 @@ export function createMultiApiLoadTest(): FeatureGroup {
             ],
           }),
         ],
-      },
-      {
+      }),
+      ts({
         id: 'ts-load-countries',
         name: 'REST Countries Load',
         tests: [
@@ -606,7 +719,94 @@ export function createMultiApiLoadTest(): FeatureGroup {
             ],
           }),
         ],
-      },
+      }),
+    ],
+  };
+}
+
+// ─── 9. Catalog Export Demo (Easy) ─────────────────────────────────────────
+
+export function createCatalogExportDemoTest(): FeatureGroup {
+  return {
+    id: 'test-catalog-export-demo',
+    name: 'Catalog Export Demo',
+    scenarios: [
+      ts({
+        id: 'ts-catalog-post-product',
+        name: 'POST Product (Schema Body)',
+        tests: [
+          s({
+            id: 'ts-catalog-post-product-add',
+            name: 'POST /products/add — schema-generated body',
+            url: 'https://dummyjson.com/products/add',
+            method: 'POST',
+            headers: [{ key: 'Content-Type', value: 'application/json' }],
+            body: JSON.stringify({
+              title: 'string',
+              description: 'string',
+              price: 0,
+              discountPercentage: 0,
+              rating: 0,
+              stock: 0,
+              brand: 'string',
+              category: 'string',
+            }, null, 2),
+            bodyType: 'json',
+            assertions: [
+              { type: 'status', expected: '201' },
+              { type: 'numeric', jsonPath: '$.id', operator: '>', value: 0 },
+            ],
+            sampleJson: JSON.stringify({
+              id: 195, title: 'string', description: 'string',
+              price: 0, discountPercentage: 0, rating: 0,
+              stock: 0, brand: 'string', category: 'string',
+            }),
+          }),
+        ],
+      }),
+      ts({
+        id: 'ts-catalog-get-query',
+        name: 'GET with Query Params',
+        tests: [
+          s({
+            id: 'ts-catalog-get-query-search',
+            name: 'GET /products/search?q=phone — query params from spec',
+            url: 'https://dummyjson.com/products/search?q=phone',
+            method: 'GET',
+            assertions: [
+              { type: 'status', expected: '200' },
+              { type: 'arrayLength', jsonPath: '$.products', operator: '>=', value: 1 },
+            ],
+            sampleJson: JSON.stringify({
+              products: [{ id: 1, title: 'iPhone 9', price: 549, category: 'smartphones' }],
+              total: 4, skip: 0, limit: 30,
+            }),
+          }),
+        ],
+      }),
+      ts({
+        id: 'ts-catalog-put-update',
+        name: 'PUT Update (Schema Body)',
+        tests: [
+          s({
+            id: 'ts-catalog-put-update-product',
+            name: 'PUT /products/1 — schema-generated update body',
+            url: 'https://dummyjson.com/products/1',
+            method: 'PUT',
+            headers: [{ key: 'Content-Type', value: 'application/json' }],
+            body: JSON.stringify({ title: 'Updated Title', price: 99 }, null, 2),
+            bodyType: 'json',
+            assertions: [
+              { type: 'status', expected: '200' },
+              { type: 'regex', jsonPath: '$.title', pattern: 'Updated Title' },
+            ],
+            sampleJson: JSON.stringify({
+              id: 1, title: 'Updated Title', price: 99,
+              description: 'An apple mobile', brand: 'Apple',
+            }),
+          }),
+        ],
+      }),
     ],
   };
 }

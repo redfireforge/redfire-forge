@@ -140,19 +140,14 @@ test.describe('Workflow End Node', () => {
   test('can add End node to workflow', async ({ page }) => {
     const workflow = makeWorkflowWithEndNode();
     await seedWorkflowData(page, workflow);
-    await page.goto('/');
+    await page.goto('/?tab=workflow');
     await page.waitForLoadState('networkidle');
 
-    await page.click('.ab-btn[title="Workflow"]');
-    await page.waitForSelector('.react-flow', { timeout: 5000 });
+    await page.waitForSelector('.react-flow', { timeout: 10000 });
 
-    // Verify End node exists
-    const endNode = page.locator('[data-id="end"]');
-    await expect(endNode).toBeVisible();
-
-    // Verify End node has correct label
-    const endLabel = endNode.locator('text=End');
-    await expect(endLabel).toBeVisible();
+    const endNode = page.locator('.react-flow__node[data-id="end"]');
+    await expect(endNode).toBeVisible({ timeout: 10000 });
+    await expect(endNode.locator('.wf-node-label')).toHaveText('End');
   });
 
   test('End node appears in node palette', async ({ page }) => {

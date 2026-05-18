@@ -11,7 +11,7 @@ test.describe('Run Test flow', () => {
 
   test('navigate to Test Runner tab', async ({ page }) => {
     // Already on Test Runner tab from beforeEach
-    await expect(page.locator('.sub-nav-tab.active')).toHaveText('Runner');
+    await expect(page.locator('.sub-nav-tab.active')).toHaveText('Test Runner');
   });
 
   test('shows scenarios to select', async ({ page }) => {

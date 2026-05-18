@@ -2,14 +2,14 @@
 # Run: npx redfireforge run examples/load-profile-test.yaml --duration 30
 
 name: Load Profile - Ramp Up
-baseUrl: https://jsonplaceholder.typicode.com
+baseUrl: https://httpbin.org
 
 defaults:
   timeout: 15
 
 config:
   concurrency: 10
-  transactions: 100
+  iterations: 100
   mode: load-profile
   errorPolicy: stop-threshold
   maxErrorRate: 25
@@ -21,16 +21,16 @@ config:
 
 tests:
   - name: Get Users
-    url: /users
+    url: /get?type=users
     method: GET
     weight: 3
 
   - name: Get Posts
-    url: /posts
+    url: /get?type=posts
     method: GET
     weight: 2
 
   - name: Get Comments
-    url: /comments?postId=1
+    url: /get?type=comments&postId=1
     method: GET
     weight: 1

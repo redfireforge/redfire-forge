@@ -4,6 +4,8 @@ export type { ExpressionCategory } from './types';
 
 import { stringFunctions } from './stringFunctions';
 import { mathFunctions } from './mathFunctions';
+import { arrayFunctions } from './arrayFunctions';
+import { objectFunctions } from './objectFunctions';
 import { conditionalFunctions } from './conditionalFunctions';
 import { jsonFunctions } from './jsonFunctions';
 import { dateTimeFunctions } from './dateTimeFunctions';
@@ -14,6 +16,8 @@ import { EXPRESSION_CATEGORIES } from './types';
 export const EXPRESSION_FUNCTIONS: ExpressionFunction[] = [
   ...stringFunctions,
   ...mathFunctions,
+  ...arrayFunctions,
+  ...objectFunctions,
   ...conditionalFunctions,
   ...jsonFunctions,
   ...dateTimeFunctions,

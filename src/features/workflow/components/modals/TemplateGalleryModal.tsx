@@ -37,7 +37,7 @@ interface Props {
 }
 
 /** Standalone gallery content — used directly in the Gallery tab pane. */
-export function TemplateGalleryContent({ onSelect }: { onSelect: (entry: SampleWorkflowEntry) => void }) {
+export function TemplateGalleryContent({ onSelect, loadedSampleIds }: { onSelect: (entry: SampleWorkflowEntry) => void; loadedSampleIds?: Set<string> }) {
   const [category, setCategory] = useState<SampleCategory | 'all'>('all');
   const [nodeFilter, setNodeFilter] = useState<string>('');
 
@@ -176,19 +176,19 @@ export function TemplateGalleryContent({ onSelect }: { onSelect: (entry: SampleW
             return (
               <div key={group.key} className="tg-pair" data-cat={catKeyOf(group.main.category)}>
                 <div className="tg-pair-header">
-                  <span className="tg-pair-icon">🔗</span>
+                  <span className="tg-pair-icon"><svg className="wf-inline-icon" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></span>
                   <span className="tg-pair-title">Paired Sample &amp; Simulator</span>
                   <span className="tg-pair-hint">Run main first → it pauses → run simulator → main resumes</span>
                 </div>
                 <div className="tg-pair-body">
-                  <SampleCard entry={group.main} role="main" onSelect={onSelect} />
+                  <SampleCard entry={group.main} role="main" onSelect={onSelect} isLoaded={loadedSampleIds?.has(group.main.id)} />
                   <span className="tg-pair-arrow" aria-hidden>→</span>
-                  <SampleCard entry={group.simulator} role="simulator" onSelect={onSelect} />
+                  <SampleCard entry={group.simulator} role="simulator" onSelect={onSelect} isLoaded={loadedSampleIds?.has(group.simulator.id)} />
                 </div>
               </div>
             );
           }
-          return <SampleCard key={group.key} entry={group.main} role="solo" onSelect={onSelect} />;
+          return <SampleCard key={group.key} entry={group.main} role="solo" onSelect={onSelect} isLoaded={loadedSampleIds?.has(group.main.id)} />;
         })}
       </div>
     </div>
@@ -206,16 +206,20 @@ interface SampleCardProps {
   entry: SampleWorkflowEntry;
   role: 'main' | 'simulator' | 'solo';
   onSelect: (entry: SampleWorkflowEntry) => void;
+  isLoaded?: boolean;
 }
 
-function SampleCard({ entry, role, onSelect }: SampleCardProps) {
+function SampleCard({ entry, role, onSelect, isLoaded }: SampleCardProps) {
   const catKey = catKeyOf(entry.category);
   return (
     <button
-      className={`tg-card${role === 'simulator' ? ' tg-card-sim' : ''}${role === 'main' ? ' tg-card-paired-main' : ''}`}
+      className={`tg-card${role === 'simulator' ? ' tg-card-sim' : ''}${role === 'main' ? ' tg-card-paired-main' : ''}${isLoaded ? ' tg-card-loaded' : ''}`}
       data-cat={catKey}
       onClick={() => onSelect(entry)}
     >
+      {isLoaded && (
+        <div className="tg-card-loaded-badge">✓ Loaded</div>
+      )}
       {role === 'simulator' && (
         <div className="tg-card-role-tag" data-role="simulator">SIMULATOR</div>
       )}

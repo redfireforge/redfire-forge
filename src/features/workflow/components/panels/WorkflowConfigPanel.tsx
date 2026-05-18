@@ -21,7 +21,7 @@ import ConditionConfig from '../configs/ConditionConfig';
 import DelayConfig from '../configs/DelayConfig';
 import VariablesSection from './VariablesSection';
 import WorkflowModalScrollBody from '../modals/WorkflowModalScrollBody';
-import type { ExtractionFetchSampleProps } from '../../../requests/components/ExtractionPathPickerModal';
+import type { ExtractionFetchSampleProps } from '../../../requests/components/ExtractionEditor';
 
 interface Props {
   node: WorkflowNode | null;
@@ -79,7 +79,7 @@ export default function WorkflowConfigPanel({ node, workflowVariables, onUpdateW
 
   // Reset to inline view when a different node is selected
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset UI state on node selection change
+     
     setExpanded(false);
   }, [node?.id]);
 

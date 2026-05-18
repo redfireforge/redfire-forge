@@ -27,6 +27,8 @@ export interface HttpResponse {
   body: string;
   error?: string;
   timing?: TimingBreakdown;
+  /** The actual request headers sent (including auth). Populated by auth-aware callers. */
+  sentHeaders?: Record<string, string>;
 }
 
 export type HttpTransportFn = (
@@ -201,9 +203,10 @@ async function proxyFetch(
 
 let _nodeDispatcher: unknown = undefined;
 let _nodeDispatcherInited = false;
+let _nodeDispatcherIsProxy = false;
 
-async function getNodeDispatcher(): Promise<unknown> {
-  if (_nodeDispatcherInited) return _nodeDispatcher;
+async function getNodeDispatcher(): Promise<{ dispatcher: unknown; isProxy: boolean }> {
+  if (_nodeDispatcherInited) return { dispatcher: _nodeDispatcher, isProxy: _nodeDispatcherIsProxy };
   _nodeDispatcherInited = true;
   try {
     const undici = await import('undici');
@@ -213,16 +216,19 @@ async function getNodeDispatcher(): Promise<unknown> {
       _nodeDispatcher = undici.EnvHttpProxyAgent
         ? new undici.EnvHttpProxyAgent()
         : new undici.ProxyAgent(proxy);
+      _nodeDispatcherIsProxy = true;
     } else {
       _nodeDispatcher = new undici.Agent({
         keepAliveTimeout: 30_000,
         keepAliveMaxTimeout: 60_000,
+        connect: { timeout: 30_000 },
         connections: 128,
         pipelining: 1,
       });
+      _nodeDispatcherIsProxy = false;
     }
   } catch { /* undici not available — use default global dispatcher */ }
-  return _nodeDispatcher;
+  return { dispatcher: _nodeDispatcher, isProxy: _nodeDispatcherIsProxy };
 }
 
 /** Closes the shared Node dispatcher and resets the cache. */
@@ -232,6 +238,27 @@ export async function closeNodePool(): Promise<void> {
   }
   _nodeDispatcher = undefined;
   _nodeDispatcherInited = false;
+  _nodeDispatcherIsProxy = false;
+}
+
+const PROXY_RETRY_CODES = new Set([
+  'ENOTFOUND', 'ECONNREFUSED', 'ETIMEDOUT', 'ECONNRESET',
+  'UND_ERR_ABORTED', 'UND_ERR_CONNECT_TIMEOUT', 'UND_ERR_SOCKET',
+]);
+
+function isProxyError(err: unknown): boolean {
+  let cur: unknown = err;
+  const seen = new Set<unknown>();
+  while (cur && !seen.has(cur)) {
+    seen.add(cur);
+    if (cur instanceof Error) {
+      const code = (cur as NodeJS.ErrnoException).code;
+      if (code && PROXY_RETRY_CODES.has(code)) return true;
+      if (/Proxy response \(\d+\) !== 200 when HTTP Tunneling/i.test(cur.message)) return true;
+      cur = cur.cause;
+    } else break;
+  }
+  return false;
 }
 
 async function nodeFetch(
@@ -241,30 +268,44 @@ async function nodeFetch(
   body?: string
 ): Promise<HttpResponse> {
   try {
-    const dispatcher = await getNodeDispatcher();
+    const { dispatcher, isProxy } = await getNodeDispatcher();
     const pooledHeaders = { ...headers, 'Connection': 'keep-alive' };
     const opts: Record<string, unknown> = { method, headers: pooledHeaders };
     if (body && method !== 'GET') opts.body = body;
     if (dispatcher) opts.dispatcher = dispatcher;
 
-    const t0 = performance.now();
-    const response = await fetch(url, opts as RequestInit);
-    const tFirstByte = performance.now();
-    const responseBody = await response.text();
-    const tDone = performance.now();
+    const doFetch = async (fetchOpts: Record<string, unknown>) => {
+      const t0 = performance.now();
+      const response = await fetch(url, fetchOpts as RequestInit);
+      const tFirstByte = performance.now();
+      const responseBody = await response.text();
+      const tDone = performance.now();
 
-    const responseHeaders: Record<string, string> = {};
-    response.headers.forEach((v, k) => { responseHeaders[k] = v; });
+      const responseHeaders: Record<string, string> = {};
+      response.headers.forEach((v, k) => { responseHeaders[k] = v; });
 
-    const total = round2(tDone - t0);
-    const download = round2(tDone - tFirstByte);
-    const ttfb = round2(tFirstByte - t0);
-
-    return {
-      status: response.status, statusText: response.statusText,
-      headers: responseHeaders, body: responseBody,
-      timing: { dnsLookup: 0, tcpConnect: 0, tlsHandshake: 0, ttfb, download, total },
+      return {
+        status: response.status, statusText: response.statusText,
+        headers: responseHeaders, body: responseBody,
+        timing: {
+          dnsLookup: 0, tcpConnect: 0, tlsHandshake: 0,
+          ttfb: round2(tFirstByte - t0),
+          download: round2(tDone - tFirstByte),
+          total: round2(tDone - t0),
+        },
+      };
     };
+
+    try {
+      return await doFetch(opts);
+    } catch (proxyErr) {
+      if (isProxy && isProxyError(proxyErr)) {
+        const directOpts = { ...opts };
+        delete directOpts.dispatcher;
+        return await doFetch(directOpts);
+      }
+      throw proxyErr;
+    }
   } catch (err) {
     return { status: 0, statusText: '', headers: {}, body: '', error: deepErrorMessage(err) };
   }

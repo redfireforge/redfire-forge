@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Shared Data Sources Advanced — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warning { background: #fff3e0; border-left-color: #f57c00; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">⚙️</div>
+    <h1>Shared Data Sources Advanced</h1>
+    <div class="subtitle">Tags, Import/Export, Promotion — Training Manual</div>
+    <p><span class="badge badge-advanced">Advanced ★★★</span> · Power Features · dummyjson.com</p>
+    <div class="meta">RedfireForge v0.5.7</div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 1 -->
+  <h2>1. Overview</h2>
+  <p>This manual covers advanced features for power users managing shared data sources at scale:</p>
+  <ul>
+    <li><strong>Row Tags</strong> — Filter and categorize data rows</li>
+    <li><strong>CSV/Excel Import</strong> — Bulk load data from spreadsheets</li>
+    <li><strong>Export Options</strong> — Export as CSV, JSON, or cURL commands</li>
+    <li><strong>Promote/Demote</strong> — Convert between inline and shared data sources</li>
+    <li><strong>Auth Inheritance</strong> — Share authentication across linked tests</li>
+    <li><strong>Impact Warnings</strong> — Understand save confirmation dialogs</li>
+  </ul>
+
+  <p>This manual uses the <strong>Shared Auth Users</strong> gallery sample — 5 DummyJSON credentials demonstrating POST body variable substitution.</p>
+
+  <div class="callout">
+    <strong>Before You Start</strong>
+    This tutorial assumes you've completed <a href="shared-data-sources-easy.html">Basics</a>, <a href="shared-data-sources-fetch-medium.html">Fetch Config</a>, and <a href="shared-data-sources-cross-fg-medium.html">Cross-FG</a> manuals.
+  </div>
+
+  <h2>2. Row Tags</h2>
+  <p>Tags let you categorize rows for filtering and selective execution.</p>
+
+  <h3>Adding Tags</h3>
+  <ol>
+    <li>Open a shared data source.</li>
+    <li>Click the <strong>🏷️ Tags</strong> button on any row.</li>
+    <li>Enter comma-separated tags (e.g., <code>admin, priority</code>).</li>
+    <li>Tags appear as small badges on the row.</li>
+  </ol>
+
+  <h3>Filtering by Tag</h3>
+  <ol>
+    <li>In the toolbar, click <strong>🏷️ Tags</strong> dropdown.</li>
+    <li>Select tags to filter by.</li>
+    <li>Only rows with matching tags are shown.</li>
+    <li>Clear filter to show all rows.</li>
+  </ol>
+
+  <h3>Tag Use Cases</h3>
+  <table>
+    <tr><th>Tag</th><th>Purpose</th></tr>
+    <tr><td><code>smoke</code></td><td>Quick sanity check rows (run first)</td></tr>
+    <tr><td><code>admin</code></td><td>Admin-only test accounts</td></tr>
+    <tr><td><code>edge-case</code></td><td>Boundary/error condition data</td></tr>
+    <tr><td><code>deprecated</code></td><td>Rows kept for history but not run</td></tr>
+    <tr><td><code>production</code></td><td>Data that exists in production environment</td></tr>
+  </table>
+
+  <p>The <strong>Shared Auth Users</strong> sample includes tags: <code>admin</code> for Emily and Emma, <code>user</code> for others.</p>
+
+  <h2>3. CSV/Excel Import</h2>
+  <p>Bulk load data from spreadsheets or external sources.</p>
+
+  <h3>Import Steps (Shared Data Sources modal)</h3>
+  <ol>
+    <li>Open <strong>Shared Data Sources</strong> and select a source.</li>
+    <li>Edit the grid directly (<strong>+ Row</strong>, <strong>+ Column</strong>) or open <strong>⚙ Configure</strong> for the column wizard (names, types, mappings).</li>
+    <li>For API-driven rows: set the <strong>method</strong> and <strong>URL</strong> at the top, then use <strong>cURL Import</strong> + <strong>Import &amp; Apply</strong> and/or <strong>Populate Rows from API</strong> as needed.</li>
+    <li>For large spreadsheet workflows, prepare CSV/Excel with the prefix conventions below, then merge values using the grid or the <strong>⚙ Configure</strong> review step; file-picker import with merge modes is available from the <strong>Test Editor</strong> (see <a href="parameterized-file-import-easy.html">File Import</a>).</li>
+    <li>Click <strong>Save</strong> in the modal footer when done.</li>
+  </ol>
+
+  <h3>CSV Column Prefix Convention</h3>
+  <p>Use prefixes in your CSV headers to auto-detect column types:</p>
+  <pre>path:id,header:X-Auth,param:limit,validate:$.name,body:username
+1,token123,10,John,john_doe
+2,token456,20,Jane,jane_doe</pre>
+
+  <table>
+    <tr><th>Prefix</th><th>Column Type</th><th>Example Header</th></tr>
+    <tr><td><code>path:</code></td><td>URL path variable</td><td><code>path:id</code></td></tr>
+    <tr><td><code>param:</code></td><td>Query parameter</td><td><code>param:limit</code></td></tr>
+    <tr><td><code>header:</code></td><td>Request header</td><td><code>header:Authorization</code></td></tr>
+    <tr><td><code>body:</code></td><td>Request body variable</td><td><code>body:username</code></td></tr>
+    <tr><td><code>validate:</code></td><td>Response validation</td><td><code>validate:$.status</code></td></tr>
+  </table>
+
+  <h2>4. Export Options</h2>
+  <p>Export shared data for external use or backup.</p>
+
+  <h3>Export Formats</h3>
+  <p>The <strong>Shared Data Sources</strong> modal does not include a data <strong>Export ▾</strong> menu. To download data as CSV or JSON, open a test that uses this shared source in the <strong>Test Editor</strong> and use <strong>Export ▾</strong> there → <strong>Data as CSV</strong> or <strong>Data as JSON</strong>. For command-line snippets per row, use <strong>cURL Export</strong> from the same test editor when fetch details are available.</p>
+  <ul>
+    <li><strong>CSV</strong> — spreadsheet-compatible, includes type prefixes</li>
+    <li><strong>JSON</strong> — full structure with column metadata</li>
+    <li><strong>cURL</strong> — one cURL command per row (requires fetch config on the test)</li>
+  </ul>
+
+  <h3>cURL Export</h3>
+  <p>Generates shell commands for each row:</p>
+  <pre>curl -X POST 'https://dummyjson.com/auth/login' \
+  -H 'Content-Type: application/json' \
+  -d '{"username":"emilys","password":"emilyspass"}'
+
+curl -X POST 'https://dummyjson.com/auth/login' \
+  -H 'Content-Type: application/json' \
+  -d '{"username":"michaelw","password":"michaelwpass"}'
+
+# ... one per row</pre>
+
+  <div class="callout callout-tip">
+    <strong>💡 cURL Export Use Cases</strong>
+    <ul>
+      <li>Share test commands with teammates who don't use RedfireForge</li>
+      <li>Debug in terminal outside the app</li>
+      <li>Include in documentation or runbooks</li>
+      <li>Import into other tools (Postman, Insomnia)</li>
+    </ul>
+  </div>
+
+  <h2>5. Promote &amp; Demote</h2>
+  <p>Convert between inline (test-specific) and shared data sources.</p>
+
+  <h3>Promote: Inline → Shared</h3>
+  <p>When you have a test with inline data that should be shared:</p>
+  <ol>
+    <li>Open the test in Test Editor → Data Source tab.</li>
+    <li>Click <strong>⬆ Promote to Shared</strong>.</li>
+    <li>Enter a name for the new shared data source.</li>
+    <li>Click <strong>⬆ Promote &amp; Link</strong>.</li>
+  </ol>
+  <p>The inline data becomes a new shared DS, and the test is automatically linked to it.</p>
+
+  <h3>Demote: Shared → Inline</h3>
+  <p>When you want a test to have its own independent copy:</p>
+  <ol>
+    <li>Open the test in Test Editor → Data Source tab.</li>
+    <li>Click <strong>✂ Detach</strong> dropdown.</li>
+    <li>Choose <strong>Copy to Inline</strong>.</li>
+  </ol>
+  <p>The shared data is copied into the test. Changes to the original shared DS no longer affect this test.</p>
+
+  <div class="callout callout-warning">
+    <strong>⚠️ Demotion Creates a Copy</strong>
+    After demotion, you have two copies: the original shared DS (unchanged) and the test's inline copy. They evolve independently.
+  </div>
+
+  <h2>6. Auth Inheritance</h2>
+  <p>Shared data sources can store auth configuration that tests inherit.</p>
+
+  <h3>Setting Up Auth</h3>
+  <ol>
+    <li>Open a shared data source.</li>
+    <li>Click <strong>🔐 Auth</strong> in the toolbar.</li>
+    <li>Choose auth type:
+      <ul>
+        <li><strong>None</strong> — no authentication</li>
+        <li><strong>Inherit</strong> — use global auth profile</li>
+        <li><strong>Bearer Token</strong> — static or variable token</li>
+        <li><strong>Basic Auth</strong> — username/password</li>
+      </ul>
+    </li>
+    <li>Save the shared DS.</li>
+  </ol>
+
+  <h3>How Linked Tests Use It</h3>
+  <p>When a test is linked to a shared DS with auth:</p>
+  <ul>
+    <li>The test's own auth setting takes priority if set</li>
+    <li>If test auth is "Inherit", it uses the shared DS auth</li>
+    <li>If shared DS auth is also "Inherit", it falls back to global profiles</li>
+  </ul>
+
+  <h3>Variable Tokens</h3>
+  <p>Use <code>{{variable}}</code> in auth fields to pull from data rows:</p>
+  <pre>Bearer Token: {{accessToken}}</pre>
+  <p>Where <code>accessToken</code> is a column in the shared DS (type: header).</p>
+
+  <h2>7. Impact Warnings</h2>
+  <p>When you save a shared DS with changes, a confirmation modal appears if tests are linked.</p>
+
+  <h3>What the Modal Shows</h3>
+  <ul>
+    <li><strong>Data Sources Changed</strong> — which shared DS you modified</li>
+    <li><strong>Affected Tests</strong> — tests that will see the changes</li>
+    <li><strong>Changes Summary</strong> — rows added/removed, columns changed, cells modified</li>
+  </ul>
+
+  <h3>Actions</h3>
+  <ul>
+    <li><strong>Save Changes</strong> — apply changes, all linked tests use new data</li>
+    <li><strong>Discard</strong> — revert to last saved state</li>
+    <li><strong>Cancel</strong> — return to editing without saving or discarding</li>
+  </ul>
+
+  <div class="callout">
+    <strong>Best Practice</strong>
+    Review the affected tests list before saving. If you're uncertain about impact, use the "Used by" section (hover badges for full paths) and open each test from <strong>Feature Groups</strong> to verify it's ready for the data change.
+  </div>
+
+  <h2>8. Managing Large Data Sets</h2>
+
+  <h3>Performance Tips</h3>
+  <ul>
+    <li><strong>Pagination</strong> — Very large shared DS (1000+ rows) may load slowly. Consider splitting by category.</li>
+    <li><strong>Tags for Subsets</strong> — Use tags to create logical subsets (e.g., "smoke", "full") and filter in the UI.</li>
+    <li><strong>Lazy Loading</strong> — The app lazy-loads row details. Initial load shows just the grid.</li>
+  </ul>
+
+  <h3>Organization Strategies</h3>
+  <table>
+    <tr><th>Strategy</th><th>When to Use</th></tr>
+    <tr><td>One DS per entity type</td><td>"Users", "Products", "Orders" as separate DS</td></tr>
+    <tr><td>One DS per environment</td><td>"Staging Users", "Prod Users" separate</td></tr>
+    <tr><td>One DS with tags</td><td>All users in one DS, tagged by env/role</td></tr>
+    <tr><td>Domain-based DS</td><td>"Auth Data", "Catalog Data", "Config Data"</td></tr>
+  </table>
+
+  <h2>9. Try It Yourself</h2>
+  <ol>
+    <li>Load the <strong>"Shared Auth Users"</strong> gallery sample.</li>
+    <li>Add a new user row with tag <code>test-only</code>.</li>
+    <li>Export as CSV and verify the format.</li>
+    <li>Create a new test that uses the same shared DS.</li>
+    <li>Modify the shared DS and observe the impact warning.</li>
+    <li>Detach one test and verify it now has inline data.</li>
+    <li>Promote a different inline data source to shared.</li>
+  </ol>
+
+  <h2>10. Related Manuals</h2>
+  <ul>
+    <li><a href="shared-data-sources-easy.html">Shared DS Basics</a> — introduction</li>
+    <li><a href="shared-data-sources-fetch-medium.html">Shared DS with Fetch Config</a> — API-driven population</li>
+    <li><a href="shared-data-sources-cross-fg-medium.html">Cross-FG Shared Data</a> — sharing across feature groups</li>
+    <li><a href="parameterized-file-import-easy.html">File Import (Parameterized)</a> — CSV/JSON import for inline data</li>
+    <li><a href="parameterized-auth-rotation-advanced.html">Auth Token Rotation</a> — similar patterns with inline data</li>
+  </ul>
+
+  <footer>
+    RedfireForge Training Manual · Shared Data Sources Advanced · Advanced
+  </footer>
+</body>
+</html>

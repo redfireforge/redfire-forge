@@ -34,10 +34,13 @@ interface Props extends UseModalFrameOptions {
   closeButtonLabel?: string;
   closeButtonText?: ReactNode;
   closeOnOverlayClick?: boolean;
+  showExpandButton?: boolean;
   titleId?: string;
   bodyStyle?: CSSProperties;
   headerContent?: (state: AppModalFrameRenderState) => ReactNode;
   footerContent?: (state: AppModalFrameRenderState) => ReactNode;
+  disableDrag?: boolean;
+  showResizeHandles?: boolean;
 }
 
 function joinClasses(...classes: Array<string | undefined>) {
@@ -63,10 +66,13 @@ export default function AppModalFrame({
   closeButtonLabel = 'Close',
   closeButtonText = 'Close',
   closeOnOverlayClick = true,
+  showExpandButton = true,
   titleId,
   bodyStyle,
   headerContent,
   footerContent,
+  disableDrag = false,
+  showResizeHandles = true,
   initialExpanded,
   expandMode,
   minWidth,
@@ -109,14 +115,14 @@ export default function AppModalFrame({
     ? <h3 id={titleId} className={titleClassName}>{title}</h3>
     : <div id={titleId} className={titleClassName}>{title}</div>;
 
-  const headerExpandButton = <ModalExpandButton expanded={expanded} onToggle={toggleExpand} />;
-  const footerExpandButton = <ModalExpandButton expanded={expanded} onToggle={toggleExpand} position="footer" />;
+  const headerExpandButton = showExpandButton ? <ModalExpandButton expanded={expanded} onToggle={toggleExpand} /> : null;
+  const footerExpandButton = showExpandButton ? <ModalExpandButton expanded={expanded} onToggle={toggleExpand} position="footer" /> : null;
   const closeButton = renderCloseButton();
   const renderState: AppModalFrameRenderState = {
     expanded,
     toggleExpand,
-    headerDragStyle,
-    onHeaderMouseDown,
+    headerDragStyle: disableDrag ? undefined : headerDragStyle,
+    onHeaderMouseDown: disableDrag ? undefined : onHeaderMouseDown,
     headerExpandButton,
     footerExpandButton,
     closeButton,
@@ -133,7 +139,11 @@ export default function AppModalFrame({
         style={dialogStyle}
       >
         {headerContent ? headerContent(renderState) : (
-          <div className={headerClassName} style={headerDragStyle} onMouseDown={onHeaderMouseDown}>
+          <div
+            className={headerClassName}
+            style={disableDrag ? undefined : headerDragStyle}
+            onMouseDown={disableDrag ? undefined : onHeaderMouseDown}
+          >
             {titleContent}
             <div className={controlsClassName} style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
               {headerActions}
@@ -150,11 +160,10 @@ export default function AppModalFrame({
         {footerContent ? footerContent(renderState) : footer ? (
           <div className={footerClassName}>
             {footer}
-            {footerExpandButton}
           </div>
         ) : null}
 
-        <ModalResizeHandles onRightEdge={onRightEdge} onCorner={onCorner} />
+        {showResizeHandles ? <ModalResizeHandles onRightEdge={onRightEdge} onCorner={onCorner} /> : null}
       </div>
     </div>
   );

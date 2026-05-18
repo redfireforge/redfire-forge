@@ -37,17 +37,116 @@ alwaysApply: true
 | `src/utils/requestUrlResolver.ts` | Base URL resolution for multi-env collections |
 | `src/utils/requestAuthState.ts` | Auth config ↔ UI state mapping |
 | `src/utils/catalogExport.ts` | Catalog → Requests export transformation |
+| `src/features/requests/utils/requestToScenario.ts` | Request → Scenario promotion (createScenarioFromRequest, resolveRequestAuth) |
+| `src/features/requests/utils/promoteToHarness.ts` | Harness promotion: single (promoteToFeatureGroups) + batch (batchPromoteCollection) |
+| `src/features/requests/components/SendToHarnessModal.tsx` | Send to Harness: 2-step modal (target + preview/options) |
+| `src/features/requests/components/BatchSendToHarnessModal.tsx` | Batch Send to Harness: checkbox selection + options |
+| `src/features/catalog/utils/catalogEndpointToRequest.ts` | Catalog endpoint → temporary RequestItem for direct-to-Harness promotion (incl. schema-based sample body generation) |
+| `src/app/hooks/useDerivedViewState.ts` | Derived view state (selectedEnv, selectedSvc, isAdditionalEnv, resolvedBaseUrl, filteredFeatureGroups) |
+| `src/features/workflow/components/WorkflowDesignerFlowCanvas.tsx` | Workflow canvas: ReactFlow wrapper with viewport persistence (IntersectionObserver) and tab-switch restoration |
+| `src/features/workflow/engine/resolveNodeSpecVersion.ts` | Workflow spec version resolution (pinned/latest mode) + detectNewerVersion |
 | `src/utils/workflowAutoLayout.ts` | Dagre-based hierarchical auto-layout with post-processing |
 | `src/engine/executor.ts` | HTTP test execution engine |
+| `src/engine/allocationEngine.ts` | Shared allocation engine (computeAllocation) |
+| `src/shared/utils/scenarioMigration.ts` | Scenario kind migration (migrateScenarioKinds) |
+| `src/features/test-runner/ParameterizedRunner.tsx` | Parameterized Runner page |
+| `src/features/test-runner/hooks/useRunnerOrchestration.ts` | Shared runner logic hook |
+| `src/features/test-runner/components/ExecutionPlanPreview.tsx` | Execution plan preview |
 | `src/engine/thinkTime.ts` | Think time delay factory and apply function |
-| `src/engine/validator.ts` | JSON validation + rich assertion evaluator (evaluateAssertions) |
+| `src/engine/validator.ts` | JSON validation + rich assertion evaluator (evaluateAssertions) — barrel re-exports from extracted modules |
+| `src/engine/validatorDateHelpers.ts` | Date assertion helpers: resolveDate, toDayString, truncateToUnit |
+| `src/engine/validatorHttpHelpers.ts` | HTTP assertion helpers: matchesStatusPattern, getJsonTypeName, findHeader, evaluateHeaderOp |
+| `src/engine/validatorSubsetMatch.ts` | Deep recursive partial match: deepSubsetMatch |
+| `src/engine/validatorCustomExpression.ts` | Custom ASSERT expression preprocessing: isTruthy, wrapCustomExprDollarPaths |
+| `src/engine/fieldOperatorEvaluation.ts` | 24-operator evaluator: evaluateFieldOperator, stringify, toNumber |
 | `src/engine/workflow/graphRunner.ts` | Workflow execution engine with topological traversal, parallel fork/join |
 | `src/engine/workflow/debugController.ts` | Step-through debugging controller for Quick Test |
 | `src/engine/workflow/fetchScenarioSample.ts` | One-off HTTP fetch for Extract → Pick JSON path |
-| `src/components/RegexAssertionModal.tsx` | Regex assertion builder modal: JSON tree picker, pattern library, live preview |
+| `src/shared/components/data-mapper/RegexAssertionBuilderModal.tsx` | Regex assertion builder modal: DM tree picker, pattern library, live preview (replaced old RegexAssertionModal) |
+| `src/shared/components/data-mapper/utils/mappingProfiles.ts` | Named mapping profile CRUD — save/load/rename/delete per adapter contextId |
+| `src/shared/components/data-mapper/utils/arrayMapping.ts` | Array mapping detection — classify loop/aggregate/spread/direct, smart aggregate suggestions |
+| `src/shared/components/data-mapper/utils/gallerySamples.ts` | 6 pre-built mapping gallery presets — direct, expression, array, multi-source, type conversion, conditional |
+| `src/shared/components/data-mapper/hooks/useKeyboardNavigation.ts` | Keyboard navigation hook — Tab between panels, arrow keys for tree traversal, Home/End |
+| `src/shared/components/data-mapper/hooks/useBottomUtilityDock.ts` | Bottom dock mode toggles (preview, code, table, rules) + floating pop-out/pop-in |
+| `src/shared/components/data-mapper/hooks/useDataMapperTreeInteraction.ts` | Mouse/keyboard tree node interaction — hover, click, keyboard navigation bridge |
+| `src/shared/components/data-mapper/hooks/useHighlightedMappingPaths.ts` | Derives highlight sets for tree nodes/connections from hover > focus > selection |
+| `src/shared/components/data-mapper/hooks/useMapperVisibleLines.ts` | Connection line filtering for node-focus and hide-lines modes |
+| `src/shared/components/data-mapper/CodeView.tsx` | Read-only code view of mappings (target ← source format), sorted, with line numbers |
 | `src/engine/executionWorker.ts` | Web Worker entry point for off-thread execution |
 | `src/engine/workerBridge.ts` | Main-thread bridge wrapping worker (drop-in for runTest) |
 | `src/engine/workerProtocol.ts` | Typed message protocol for Main ↔ Worker comms |
+| `src/features/results/components/WorkflowResultsExplorerModal.tsx` | Results Explorer: three-panel modal (diagram + detail + matrix) |
+| `src/features/results/components/WorkflowExecutionCanvas.tsx` | Results Explorer: ReactFlow canvas with execution state overlay, search/filter dimming, save layout |
+| `src/features/results/components/ResultsExplorerDetailPanel.tsx` | Results Explorer: tabbed detail panel (overview/request/response/variables/assertions) |
+| `src/features/results/components/IterationMatrixTable.tsx` | Results Explorer: iteration × node matrix table |
+| `src/features/workflow/engine/traceCollector.ts` | Trace capture during workflow execution |
+| `src/shared/components/data-mapper/utils/traceComparison.ts` | Mapping trace comparison engine (Phase 9D) |
+| `src/shared/components/data-mapper/utils/traceExportImport.ts` | Mapping trace export/import round-trip (Phase 9D) |
+| `src/shared/components/data-mapper/MappingCompare.tsx` | Side-by-side mapping trace comparison UI (Phase 9D) |
+| `src/features/results/utils/bottleneckAnalysis.ts` | Bottleneck identification engine for Results Explorer |
+| `src/shared/utils/jsonPath.ts` | Canonical JSONPath engine (getByPath, getByPathAsString, setByPath) |
+| `src/shared/utils/jsonTreeModel.ts` | Unified JSON tree model (buildJsonTree, JsonTreeNode) |
+| `src/shared/components/data-mapper/DataMapper.tsx` | Data Mapper: main container component |
+| `src/shared/components/data-mapper/DataMapperModal.tsx` | Data Mapper: modal shell with validation + Done/Cancel |
+| `src/shared/components/data-mapper/SourcePanel.tsx` | Data Mapper: source tree panel with paste/fetch |
+| `src/shared/components/data-mapper/TargetPanel.tsx` | Data Mapper: target tree panel with drop zones |
+| `src/shared/components/data-mapper/SourceTreeNode.tsx` | Data Mapper: draggable source tree node |
+| `src/shared/components/data-mapper/TargetTreeNode.tsx` | Data Mapper: droppable target tree node |
+| `src/shared/components/data-mapper/MappingCanvas.tsx` | Data Mapper: SVG connection lines canvas |
+| `src/shared/components/data-mapper/MapperToolbar.tsx` | Data Mapper: toolbar (auto-map, undo/redo, preview) |
+| `src/shared/components/data-mapper/ExpressionEditorModal.tsx` | Data Mapper: expression editor with function catalog & live preview |
+| `src/shared/components/data-mapper/PreviewBar.tsx` | Data Mapper: live preview output bar |
+| `src/shared/components/data-mapper/types.ts` | Data Mapper: core types (Mapping, MapperAdapter, etc.) |
+| `src/shared/components/data-mapper/hooks/useMapperState.ts` | Data Mapper: mapping CRUD + undo/redo state |
+| `src/shared/components/data-mapper/hooks/useConnectionLines.ts` | Data Mapper: connection line position calculator |
+| `src/shared/components/data-mapper/utils/autoMapAlgorithm.ts` | Data Mapper: auto-mapping engine (3-tier name matching) |
+| `src/shared/components/data-mapper/utils/mapperExpressionEvaluator.ts` | Data Mapper: expression evaluator bridge ($.path resolution) |
+| `src/shared/components/data-mapper/utils/previewCompute.ts` | Data Mapper: preview evaluation engine |
+| `src/shared/components/data-mapper/utils/mappingSerializer.ts` | Data Mapper: mapping serialization/deserialization |
+| `src/shared/components/data-mapper/utils/typeMismatch.ts` | Data Mapper: type mismatch detection & quick-fix suggestions |
+| `src/shared/components/data-mapper/index.ts` | Data Mapper: barrel export (public API) |
+| `src/styles/results-explorer.css` | All Results Explorer CSS (2400+ lines) |
+| `src/styles/data-mapper.css` | Data Mapper: base CSS (container, panels, tree, canvas) |
+| `src/styles/data-mapper-expression.css` | Data Mapper: expression editor modal CSS |
+| `src/styles/data-mapper-modal.css` | Data Mapper: modal shell + validation bar CSS |
+| `src/shared/components/data-mapper/adapters/demoAdapter.ts` | Data Mapper: demo/reference adapter for sandbox testing |
+| `src/shared/components/data-mapper/adapters/extractionAdapter.ts` | Data Mapper: HTTP extraction adapter (Extraction[] ↔ Mapping[]) |
+| `src/shared/components/data-mapper/adapters/assertionAdapter.ts` | Data Mapper: regex assertion adapter (AssertionAdapterResult ↔ Mapping) |
+| `src/shared/components/data-mapper/adapters/validationAdapter.ts` | Data Mapper: selective validation adapter (ValidationAdapterOutput ↔ Mapping[]) |
+| `src/shared/components/data-mapper/adapters/populateFromApiAdapter.ts` | Data Mapper: populate from API adapter (PopulateOutput ↔ Mapping[]) with mutable internal state for live-fetch |
+| `src/shared/components/data-mapper/adapters/columnMappingAdapter.ts` | Data Mapper: column ↔ request template adapter (DataSourceColumn[] ↔ Mapping[]) with parseScenarioTemplate |
+| `src/shared/components/data-mapper/adapters/sharedDsFetchAdapter.ts` | Data Mapper: shared DS fetch adapter (SharedDsFetchOutput ↔ Mapping[]) with fetchConfig-aware title |
+| `src/shared/components/data-mapper/adapters/webhookExtractionAdapter.ts` | Data Mapper: webhook payload extraction adapter (WebhookExtractionOutput ↔ Mapping[]) for CorrelationWait + WebhookTrigger |
+| `src/shared/components/data-mapper/adapters/variableBindingAdapter.ts` | Data Mapper: variable binding adapter (VariableBinding[] ↔ Mapping[]) for HttpConfig upstream variable visualization |
+| `src/shared/components/data-mapper/adapters/requestBodyAdapter.ts` | Data Mapper: request body builder adapter (string ↔ Mapping[]) for visual JSON body construction with {{var}} placeholders |
+| `src/shared/components/data-mapper/utils/bodyTemplateSync.ts` | Bi-directional sync engine: template↔visual mapping sync with conflict resolution and incremental diff |
+| `src/shared/components/data-mapper/utils/bodyMappingShared.ts` | Shared helpers for body builder: findSourceForRef, hasUnsafePathSegment |
+| `src/shared/components/data-mapper/BodyBuilderPanel.tsx` | Body Builder: three-mode visual body construction (JSON/Form/Raw) with DataMapper integration |
+| `src/shared/components/data-mapper/hooks/useBodyBuilderSync.ts` | Body Builder: React hook wrapping bodyTemplateSync for bi-directional sync lifecycle |
+| `src/shared/components/data-mapper/utils/schemaSnapshot.ts` | Schema Drift: snapshot capture (collectFieldEntries, captureSchemaSnapshot, load/save/delete) |
+| `src/shared/components/data-mapper/utils/schemaDrift.ts` | Schema Drift: diff engine, classifyDrift severity, summarize, findAffectedMappings |
+| `src/shared/components/data-mapper/DriftBanner.tsx` | Schema Drift: dismissible notification banner with Accept & Update / Show Diff |
+| `src/shared/components/data-mapper/SchemaDiffModal.tsx` | Schema Drift: tabular diff modal with repair UI (severity, path, change type, affected mappings, repair suggestions with Apply) |
+| `src/shared/components/data-mapper/utils/schemaRepair.ts` | Schema Repair: Levenshtein + renamed-candidate repair suggestions for broken mappings |
+| `src/shared/components/data-mapper/utils/schemaContract.ts` | Schema Contract: strict/lenient lock mode, validateContract, config persistence |
+| `src/shared/components/data-mapper/utils/mappingTrace.ts` | Mapping Execution Trace: per-mapping data flow capture, trace level gating, summarization (Phase 9A) |
+| `src/shared/components/data-mapper/utils/expressionStepDebugger.ts` | Step-through expression debugger: breaks expressions into EvalStep[] for incremental visualization (Phase 9C) |
+| `src/shared/components/data-mapper/ValidationRulesModal.tsx` | Validation Rules Modal: 3-mode (docked/floating/maximized) panel with DSL Reference |
+| `src/shared/components/data-mapper/DslReferencePanel.tsx` | DSL Reference Panel: 10-category card-based reference (39 entries) with search, insert, copy, expand/collapse all |
+| `src/shared/components/data-mapper/hooks/useValidationRulesModal.ts` | Modal state: mode/resize/reference persistence (mirrors WorkflowConsolePanel) |
+| `src/styles/validation-rules-modal.css` | Validation Rules Modal + DSL Reference Panel CSS |
+| `src/shared/components/data-mapper/ValidationCodeEditor.tsx` | Monaco-based DSL editor with syntax highlighting, autocomplete, inline error markers |
+| `src/shared/components/data-mapper/hooks/useValidationCodeSync.ts` | Bi-directional visual ↔ DSL code sync with error-aware debounce |
+| `src/shared/components/data-mapper/hooks/useValidationVerify.ts` | Verification engine: evaluates field operators + DSL assertions, passedCount/failedCount |
+| `src/shared/components/data-mapper/utils/validationDsl.ts` | DSL parser/serializer: serializeToDsl, parseDsl, parseDslLine, importAutoDetect |
+| `src/shared/components/data-mapper/utils/monacoValidationLanguage.ts` | Monaco DSL language registration, theming, autocomplete provider (extracted from ValidationCodeEditor) |
+| `src/shared/components/data-mapper/utils/expressionDebugHelpers.ts` | Debug formatting helpers: prettyDebugValue, truncateDebugValue |
+| `src/features/scenarios/components/testEditorValidationAddMenu.ts` | Data-driven assertion factory menu (ADD_ASSERTION_MENU_ROWS) |
+| `src/features/scenarios/components/testEditorValidationPivot.ts` | Pivoted rules table model: buildPivotedRulesFromExpectedFields |
+| `src/data/galleries/data-mapper/presets.ts` | Data Mapper gallery presets: 8 sample factories with embedded API responses |
+| `src/data/galleries/data-mapper/index.ts` | Data Mapper gallery entries: DataMapperSampleEntry[] catalog |
+| `src/data/galleries/trainingPaths/contentPaths.ts` | Training paths: Requests, Tests, Catalog, Data Mapper manual definitions |
+| `docs/guides/data-mapper-validation-guide.md` | Data Mapper validation guide: 24 operators, array assertions, DSL, ASSERT |
 | `src-tauri/tauri.conf.json` | Tauri app config |
 | `scripts/version.sh` | Version bump script |
 
@@ -62,24 +161,58 @@ alwaysApply: true
 
 | Test Type | When to Run | Command |
 |---|---|---|
+| **TypeScript check** | **MANDATORY after every code change** | `npx tsc -b --noEmit` |
 | Unit tests (touched files only) | During development, after each change | `npx vitest run src/path/to/changed.test.ts` |
-| TypeScript check | During development, after each change | `npx tsc --noEmit` |
 | Full unit test suite | **Only before merging** to `develop`, `release/*`, or `master` | `npx vitest run` |
 | Unit test coverage | Before merging to develop/release/master | `npx vitest run --coverage` |
 | E2E tests (Playwright) | **Only before merging** to `develop`, `release/*`, or `master` | `npx playwright test --reporter=list` |
 
 ### Rules
-- **During development, only run tests for the files you touched** — do NOT run the full test suite. Use `npx vitest run src/path/to/file.test.ts` to target specific test files.
+- **CRITICAL: Always run `npx tsc -b --noEmit` after making code changes.** This is NOT optional. The `-b` flag is required because the root `tsconfig.json` uses project references (`"files": []`); without `-b`, tsc checks nothing. Vitest and Playwright do NOT type-check source files — only `tsc` catches missing properties, bad imports, and type mismatches. Skipping this step causes Tauri build failures that are expensive to debug later. Run it after every batch of edits, not just before merging.
+- **During development, only run unit tests for the files you touched** — do NOT run the full test suite. Use `npx vitest run src/path/to/file.test.ts` to target specific test files.
 - **Do NOT run E2E tests during regular feature development** — they are slow and only needed at merge gates.
 - **Full test suite and E2E tests are ONLY run before merging** to `develop`, `release/*`, or `master`.
-- During development, rely on scoped unit tests and TypeScript (`npx tsc --noEmit`) for fast feedback.
+- During development, rely on `tsc -b --noEmit` + scoped unit tests for fast feedback.
 - E2E tests require the dev server running on port 5173 (`npm run dev`).
 - Target >90% code coverage on all four metrics (statements, branches, functions, lines).
+
+## Pre-Commit Hooks (Automated)
+
+A husky pre-commit hook is configured to automatically run before every `git commit`:
+1. `npx tsc -b --noEmit` — blocks commit if type errors exist
+2. `npx lint-staged` — runs ESLint on staged `.ts`/`.tsx` files
+
+This means **no commit can enter git with type errors**. If the hook blocks your commit, fix the errors first — do NOT bypass with `--no-verify`.
+
+## Validation Operator UI/UX Reference
+
+All 12 implementation phases (P0–P9.3) of the validation operator feature are **completed**. See `docs/plan/validation-operator-gap-analysis.md` for the full gap analysis, module architecture, and competitive benchmarks. The interactive HTML mockup at `docs/mockups/validation-operators-visual-mapper.html` remains the reference for UI/UX conventions:
+
+- **Color scheme**: green (equality), amber (comparison), purple (string ops), teal (type checks), red (boolean), gray (existence/null), blue (set membership)
+- **Operator pill placement**: inline on target tree nodes between the arrow (←) and source reference
+- **Inline value editors**: appear next to operator pills when the operator requires a value; hidden for no-value operators (is_true, exists, is_null, type checks)
+- **Array assertion rows**: render directly below array nodes with inline operator select, value input, edit, and remove controls
+- **Operator picker dropdown**: categorized, searchable, with icon + name + description per operator
+- **Right-click context menu**: quick assertion setup on target nodes
+- **Code editor mode**: DSL syntax with syntax highlighting, autocomplete, and inline errors in the bottom dock
+- **Validation stage**: per-node pass/fail badges (✓/✗), canvas line coloring (red for failed), footer aggregation, filter by status
+- **Rules summary table**: bottom dock with operator column, status column, and color-coded operator pills
+
+The UI must be **professional, clean, and user-friendly** — matching the dark theme tokens in `src/styles/data-mapper.css`. Avoid emoji-first labels; use symbols and structured typography. Every interactive element must have hover states, focus indicators, and appropriate `aria-label` attributes.
+
+## Modal Design Rules
+
+- **Background overlay**: Always use `background: transparent` for modal overlays. Never use opaque or semi-transparent backdrops (`rgba(0,0,0,0.5)` etc.) or `backdrop-filter: blur()`.
+- **No redundant close buttons**: Do NOT add an "×" close button in the modal header if the modal already has a "Cancel" button in the footer. One close mechanism is sufficient. Escape key should always close modals.
+- **Action buttons at bottom-right**: Copy, Close, Cancel, Save — always place these in a footer bar at the bottom-right of the modal. Never in the header.
+- **Search bar**: If the modal displays content (code, JSON, logs, etc.), always include a search bar in the header with match counter (`N/M`) and up/down arrow navigation (▲/▼). Reuse the existing console search pattern (`WorkflowConsolePanel` / `ResultsExplorerConsolePanel`). Cmd+F should focus search. Enter/Shift+Enter for next/prev. Do not reinvent the wheel.
+- **Pretty-print JSON**: Always pretty-print JSON content (`JSON.stringify(parsed, null, 2)`). Never show minified JSON in modals.
+- **Undo/Redo**: Modals with editors (expression editor, code editor) must provide undo/redo buttons in the header.
 
 ## Code Quality — Fix All Errors
 
 - **Fix ALL lint, type, and test errors across the entire codebase** — not just the files you touched. If you discover pre-existing issues while working on a feature, fix them as part of the same branch.
 - Before merging, `npx eslint src/ cli/` must report **0 errors and 0 warnings**.
-- Before merging, `npx tsc --noEmit` must report **0 errors**.
+- Before merging, `npx tsc -b --noEmit` must report **0 errors**.
 - Before merging, `npx vitest run` must report **0 failures**.
 - Do NOT ignore pre-existing problems. Own the codebase quality.

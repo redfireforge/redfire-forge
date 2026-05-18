@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RedfireForge — Edge Traversal Percentages Training Manual</title>
+<style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  pre .comment { color: #6c757d; }
+  pre .keyword { color: #e63946; }
+  pre .string { color: #a8dadc; }
+  pre .field { color: #f4a261; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .flow-diagram {
+    background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px;
+    padding: 16px; margin: 12px 0 18px; font-family: monospace; font-size: 12px;
+    line-height: 1.8; white-space: pre; overflow-x: auto;
+  }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-warn {
+    background: #fff8e1; border-left-color: #f4a261;
+  }
+  .callout-tip {
+    background: #e8f5e9; border-left-color: #2e7d32;
+  }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  .toc { margin: 20px 0; }
+  .toc a { color: #1d3557; text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+  .toc li { margin-bottom: 6px; font-size: 13.5px; }
+  .feature-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 10px 0 18px; }
+  .feature-card {
+    background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 6px; padding: 10px 14px;
+  }
+  .feature-card strong { font-size: 12.5px; display: block; margin-bottom: 4px; color: #1d3557; }
+  .feature-card p { font-size: 11.5px; margin: 0; color: #495057; }
+  .step-num {
+    display: inline-block; width: 24px; height: 24px; background: #e63946; color: #fff;
+    border-radius: 50%; text-align: center; line-height: 24px; font-size: 12px; font-weight: 700;
+    margin-right: 6px;
+  }
+  .pct-label {
+    display: inline-block; background: #6c5ce7; color: #fff; padding: 2px 10px;
+    border-radius: 12px; font-size: 12px; font-weight: 700;
+  }
+  .pct-label-zero {
+    display: inline-block; background: #b2bec3; color: #fff; padding: 2px 10px;
+    border-radius: 12px; font-size: 12px; font-weight: 700;
+  }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- COVER PAGE                                  -->
+<!-- ════════════════════════════════════════════ -->
+<div class="cover-page">
+  <div style="font-size: 48px; margin-bottom: 16px;">📊</div>
+  <h1>Edge Traversal Percentages</h1>
+  <div class="subtitle">Training Manual &amp; Feature Guide</div>
+  <p style="max-width: 520px; color: #495057; font-size: 14px;">
+    Learn how to visualize branch path distribution in your workflow load tests.
+    Edge traversal percentages show what fraction of iterations took each path
+    at every branching point — essential for understanding real-world traffic flow.
+  </p>
+  <div class="meta">
+    <strong>RedfireForge v0.5.8</strong><br>
+    Document Version 1.0 — May 2026<br>
+    <em>Print this page to PDF: Ctrl/Cmd + P &rarr; Save as PDF</em>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- TABLE OF CONTENTS                           -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2>Table of Contents</h2>
+<ol class="toc">
+  <li><a href="#overview">Feature Overview</a></li>
+  <li><a href="#how-it-works">How It Works</a></li>
+  <li><a href="#sample">Gallery Sample — Edge Traversal Demo</a>
+    <ol>
+      <li>Architecture &amp; Flow Diagram</li>
+      <li>Node-by-Node Walkthrough</li>
+      <li>Why ~67% / ~33%?</li>
+    </ol>
+  </li>
+  <li><a href="#step-by-step">Step-by-Step: Running the Demo</a></li>
+  <li><a href="#reading-results">Reading the Results Explorer</a></li>
+  <li><a href="#own-workflows">Using with Your Own Workflows</a></li>
+  <li><a href="#faq">FAQ &amp; Troubleshooting</a></li>
+</ol>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 1. OVERVIEW                                 -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="overview">1. Feature Overview</h2>
+<p>
+  When you run a workflow load test with multiple iterations, each iteration may
+  take a different path through the workflow graph. <strong>Edge traversal
+  percentages</strong> answer the question: <em>"How often did each branch path
+  get taken?"</em>
+</p>
+
+<div class="feature-grid">
+  <div class="feature-card">
+    <strong>Branching Visibility</strong>
+    <p>See percentage labels on each outgoing edge from Condition and Switch nodes.</p>
+  </div>
+  <div class="feature-card">
+    <strong>Aggregate View</strong>
+    <p>Percentages appear in the aggregate "All Iterations" canvas view — not per-iteration.</p>
+  </div>
+  <div class="feature-card">
+    <strong>Zero-Path Detection</strong>
+    <p>Edges that were never traversed show <span class="pct-label-zero">0%</span> so you can see untested paths.</p>
+  </div>
+  <div class="feature-card">
+    <strong>Multi-Iteration Required</strong>
+    <p>Percentages only appear when 2+ iterations ran. Single iterations don't show labels.</p>
+  </div>
+</div>
+
+<div class="callout callout-tip">
+  <strong>Tip: When do percentages appear?</strong>
+  Edge traversal percentages are displayed when:
+  <ul>
+    <li>The workflow has at least one <strong>branching node</strong> (a node with 2+ outgoing edges)</li>
+    <li>The test ran with <strong>2 or more iterations</strong></li>
+    <li>You are viewing the <strong>aggregate view</strong> (the canvas shown by default when opening Results Explorer)</li>
+  </ul>
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 2. HOW IT WORKS                             -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="how-it-works">2. How It Works</h2>
+
+<h3>Calculation</h3>
+<p>For each branching node (a node with 2+ outgoing edges):</p>
+<ol>
+  <li>Count how many iterations traversed each outgoing edge</li>
+  <li>Divide by the total number of (non-sampled-out) iterations</li>
+  <li>Display the result as a percentage label on the edge</li>
+</ol>
+
+<h3>Visual Display</h3>
+<p>
+  Percentage labels appear as <span class="pct-label">67%</span> badges on edges
+  in the aggregate workflow canvas. The label is styled with a purple background
+  and white text for maximum visibility.
+</p>
+
+<h3>Edge Cases</h3>
+<table>
+  <tr><th>Scenario</th><th>Behavior</th></tr>
+  <tr><td>Linear workflow (no branching)</td><td>No percentage labels shown</td></tr>
+  <tr><td>Single iteration</td><td>No percentage labels (needs 2+ iterations)</td></tr>
+  <tr><td>Edge never traversed</td><td>Shows <span class="pct-label-zero">0%</span></td></tr>
+  <tr><td>All iterations take same path</td><td>Shows <span class="pct-label">100%</span> on that edge, <span class="pct-label-zero">0%</span> on others</td></tr>
+  <tr><td>Sampled-out iterations</td><td>Excluded from percentage calculation</td></tr>
+  <tr><td>Per-iteration view</td><td>No percentage labels (aggregate only)</td></tr>
+</table>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 3. GALLERY SAMPLE                           -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="sample">3. Gallery Sample — Edge Traversal Demo</h2>
+
+<table>
+  <tr><th>Property</th><th>Value</th></tr>
+  <tr><td>Gallery ID</td><td><code>perf-workflow-edge-pct</code></td></tr>
+  <tr><td>Name</td><td>Perf: Edge Traversal Demo</td></tr>
+  <tr><td>Difficulty</td><td><span class="badge badge-easy">Easy</span></td></tr>
+  <tr><td>Nodes</td><td>6 (Start, SetVariable, 2× HTTP, Condition)</td></tr>
+  <tr><td>Live APIs</td><td><code>jsonplaceholder.typicode.com</code></td></tr>
+  <tr><td>Expected Split</td><td>~67% Found / ~33% Not Found</td></tr>
+</table>
+
+<h3>3.1 Architecture &amp; Flow Diagram</h3>
+<div class="flow-diagram">
+    ┌─────────┐
+    │  Start  │
+    └────┬────┘
+         │
+    ┌────▼────────────┐
+    │  Random Post ID  │  SetVariable: postId = $randomInt(1, 150)
+    └────┬────────────┘
+         │
+    ┌────▼────────────┐
+    │  1. Fetch Post   │  GET /posts/{{postId}}
+    │  (extract status)│  → fetchStatus, postTitle
+    └────┬────────────┘
+         │
+    ┌────▼────────────┐
+    │  2. Post Found?  │  Condition: fetchStatus == 200
+    └──┬───────────┬──┘
+       │           │
+  ┌────▼────┐ ┌───▼──────┐
+  │ Found   │ │ Not Found│
+  │ ~67%    │ │  ~33%    │
+  └─────────┘ └──────────┘
+       │           │
+  ┌────▼────────┐ ┌▼──────────┐
+  │3a. Get      │ │3b. Create │
+  │   Comments  │ │    Post   │
+  │ GET /posts/ │ │ POST /posts│
+  │ {id}/comment│ │           │
+  └─────────────┘ └───────────┘
+</div>
+
+<h3>3.2 Node-by-Node Walkthrough</h3>
+
+<h4><span class="step-num">1</span> Start Node</h4>
+<p>Entry point. No input variables needed — the SetVariable node generates them.</p>
+
+<h4><span class="step-num">2</span> SetVariable: Random Post ID</h4>
+<p>
+  Assigns <code>postId</code> to <code>{{$randomInt(1, 150)}}</code>.
+  Each iteration gets a fresh random integer between 1 and 150.
+</p>
+<div class="callout">
+  <strong>Why SetVariable instead of workflow variables?</strong>
+  Workflow variables (<code>workflow.variables</code>) are set once at initialization.
+  Using a SetVariable node ensures <code>postId</code> is re-randomized <em>every iteration</em>,
+  creating the branch split naturally.
+</div>
+
+<h4><span class="step-num">3</span> HTTP: Fetch Post</h4>
+<p>
+  <code>GET https://jsonplaceholder.typicode.com/posts/{{postId}}</code><br>
+  Extracts <code>fetchStatus</code> (HTTP status code) and <code>postTitle</code> (JSON body).
+  Posts 1–100 return <code>200 OK</code>; posts 101+ return <code>404 Not Found</code>.
+</p>
+
+<h4><span class="step-num">4</span> Condition: Post Found?</h4>
+<p>
+  Evaluates <code>{{fetchStatus}} == 200</code>.
+  This is the <strong>branching node</strong> that creates two outgoing edges.
+</p>
+
+<h4><span class="step-num">5</span> HTTP: Get Comments (Found path)</h4>
+<p>
+  <code>GET /posts/{{postId}}/comments</code><br>
+  Fetches comments for the found post. Validates status 200.
+</p>
+
+<h4><span class="step-num">6</span> HTTP: Create Post (Not Found path)</h4>
+<p>
+  <code>POST /posts</code> with a fallback body.<br>
+  Creates a new post as a fallback action. Validates status 201.
+</p>
+
+<h3>3.3 Why ~67% / ~33%?</h3>
+<p>
+  The random range is <strong>1–150</strong>. JSONPlaceholder has posts with IDs
+  <strong>1–100</strong> (returning 200) and IDs <strong>101–150</strong> do not
+  exist (returning 404).
+</p>
+<ul>
+  <li>100 out of 150 possible IDs → <strong>~67% Found</strong></li>
+  <li>50 out of 150 possible IDs → <strong>~33% Not Found</strong></li>
+</ul>
+<div class="callout callout-tip">
+  <strong>Adjusting the split:</strong>
+  Edit the SetVariable expression to change the ratio:
+  <ul>
+    <li><code>$randomInt(1, 100)</code> → 100% Found / 0% Not Found</li>
+    <li><code>$randomInt(1, 200)</code> → 50% Found / 50% Not Found</li>
+    <li><code>$randomInt(101, 200)</code> → 0% Found / 100% Not Found</li>
+  </ul>
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 4. STEP-BY-STEP                             -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="step-by-step">4. Step-by-Step: Running the Demo</h2>
+
+<h3><span class="step-num">1</span> Import the Sample</h3>
+<ol>
+  <li>Open the <strong>Workflows</strong> tab</li>
+  <li>Click the <strong>Gallery</strong> button (bookshelf icon)</li>
+  <li>Find <strong>"Perf: Edge Traversal Demo"</strong> in the Performance section</li>
+  <li>Click <strong>Import</strong></li>
+</ol>
+
+<h3><span class="step-num">2</span> Configure the Load Test</h3>
+<ol>
+  <li>Open the <strong>Workflow Runner</strong> tab</li>
+  <li>Select <strong>"Perf: Edge Traversal Demo"</strong> from the workflow picker</li>
+  <li>Set <strong>Iterations: 30</strong> (more iterations = more stable percentages)</li>
+  <li>Set <strong>Concurrency: 5</strong></li>
+  <li>Leave other settings as default</li>
+</ol>
+
+<div class="callout callout-warn">
+  <strong>Minimum iterations:</strong>
+  With fewer than 20 iterations, the percentages may be noisy. 30+ iterations
+  give a reliable split close to the expected 67/33%.
+</div>
+
+<h3><span class="step-num">3</span> Run the Test</h3>
+<ol>
+  <li>Click <strong>Run</strong></li>
+  <li>Watch the progress bar — iterations should complete quickly (JSONPlaceholder is fast)</li>
+  <li>Wait for the run to finish</li>
+</ol>
+
+<h3><span class="step-num">4</span> View Results</h3>
+<ol>
+  <li>Go to the <strong>Results</strong> tab</li>
+  <li>Click the workflow run entry</li>
+  <li>Click <strong>Results Explorer</strong> (the canvas icon button)</li>
+  <li>The aggregate view opens by default — you should see percentage labels on the branching edges</li>
+</ol>
+
+<h3><span class="step-num">5</span> Read the Percentages</h3>
+<p>On the aggregate canvas, look for the <strong>Condition node</strong> ("2. Post Found?").
+  Its two outgoing edges should display labels like:</p>
+<ul>
+  <li><strong>Found</strong> edge: <span class="pct-label">67%</span></li>
+  <li><strong>Not Found</strong> edge: <span class="pct-label">33%</span></li>
+</ul>
+<p>The exact numbers will vary slightly due to randomness.</p>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 5. READING THE RESULTS EXPLORER             -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="reading-results">5. Reading the Results Explorer</h2>
+
+<h3>Aggregate View (default)</h3>
+<ul>
+  <li><strong>Node colors</strong>: Green = all passed, Red = any failed, Yellow = mixed</li>
+  <li><strong>Node tooltips</strong>: Hover over a node to see execution count, pass rate, and average duration</li>
+  <li><strong>Edge labels</strong>: Purple percentage badges on branching edges</li>
+  <li><strong>Non-branching edges</strong>: No percentage label (100% implied)</li>
+</ul>
+
+<h3>Per-Iteration View</h3>
+<p>
+  Use the iteration slider or dropdown to view a specific iteration.
+  In per-iteration view, edge percentages are <strong>not shown</strong> —
+  each iteration follows exactly one path so percentages are meaningless.
+</p>
+
+<h3>Combining with Other Features</h3>
+<table>
+  <tr><th>Feature</th><th>How It Combines</th></tr>
+  <tr><td>Node Tooltips</td><td>Hover a branching target to see how many times it executed</td></tr>
+  <tr><td>Iteration Matrix</td><td>Scroll the matrix to see which path each iteration took</td></tr>
+  <tr><td>Export Trace JSON</td><td>Exported traces contain <code>traversedEdges</code> data for offline analysis</td></tr>
+  <tr><td>Trace Sampling</td><td>Sampled-out iterations are excluded from percentage calculation</td></tr>
+</table>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 6. YOUR OWN WORKFLOWS                       -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="own-workflows">6. Using with Your Own Workflows</h2>
+
+<h3>Requirements</h3>
+<p>Edge traversal percentages work automatically on any workflow that has:</p>
+<ol>
+  <li>At least one <strong>branching node</strong> — a node with 2+ outgoing edges (e.g., Condition, Switch)</li>
+  <li>A load test run with <strong>2+ iterations</strong></li>
+</ol>
+
+<h3>Common Branching Patterns</h3>
+<table>
+  <tr><th>Pattern</th><th>Node Type</th><th>Edges</th></tr>
+  <tr><td>If/Else</td><td>Condition</td><td>2 edges (true/false)</td></tr>
+  <tr><td>Multi-way routing</td><td>Switch</td><td>N edges (one per case + default)</td></tr>
+  <tr><td>Error handling</td><td>Error Handler</td><td>2 edges (success/error)</td></tr>
+</table>
+
+<h3>Design Tips</h3>
+<div class="callout callout-tip">
+  <strong>Make branch decisions data-driven:</strong>
+  Use <code>SetVariable</code> with <code>$randomInt</code> or <code>$randomChoice</code>
+  to create realistic branch splits during load testing. This simulates production
+  traffic patterns where different requests take different paths.
+</div>
+
+<ul>
+  <li>Use <strong>SetVariable</strong> with <code>{{$randomInt(...)}}</code> for numeric thresholds</li>
+  <li>Use <strong>SetVariable</strong> with <code>{{$randomChoice(a, b, c)}}</code> for category-based routing</li>
+  <li>Use <strong>HTTP response data</strong> for realistic API-driven branching</li>
+  <li>Combine with <strong>Switch nodes</strong> for 3+ way splits</li>
+</ul>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 7. FAQ                                      -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="faq">7. FAQ &amp; Troubleshooting</h2>
+
+<h4>Q: I don't see any percentage labels on edges.</h4>
+<p><strong>A:</strong> Check these conditions:</p>
+<ul>
+  <li>Your workflow must have a <strong>branching node</strong> (2+ outgoing edges from one node)</li>
+  <li>You must have run <strong>2+ iterations</strong></li>
+  <li>You must be viewing the <strong>aggregate view</strong> (not a specific iteration)</li>
+  <li>If your Condition node only has 1 outgoing edge connected, it's not a branching node</li>
+</ul>
+
+<h4>Q: My percentages don't match the expected 67/33 split.</h4>
+<p><strong>A:</strong> With fewer iterations, randomness causes variance. Run 50+ iterations
+  for more stable percentages. With 30 iterations, seeing 60/40 or 73/27 is normal.</p>
+
+<h4>Q: Can I see percentages in the per-iteration view?</h4>
+<p><strong>A:</strong> No. Per-iteration view shows the exact path that one iteration took.
+  Percentages are only meaningful across multiple iterations (aggregate view).</p>
+
+<h4>Q: What about Switch nodes with 3+ branches?</h4>
+<p><strong>A:</strong> Fully supported. Each outgoing edge from a Switch node will show its
+  traversal percentage. The percentages sum to 100% across all branches.</p>
+
+<h4>Q: How does trace sampling affect percentages?</h4>
+<p><strong>A:</strong> Sampled-out iterations (marked <code>sampled: true</code>) are excluded from
+  the percentage calculation. This means percentages reflect only the retained iterations,
+  which may differ slightly from the true distribution if sampling rate is low.</p>
+
+<footer>
+  RedfireForge — Redfire Performance Workbench &bull; Edge Traversal Percentages Training Manual &bull; v1.0
+</footer>
+
+</body>
+</html>

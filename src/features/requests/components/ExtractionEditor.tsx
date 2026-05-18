@@ -1,10 +1,28 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import type { Extraction, ExtractionSource } from '../../../shared/types';
 import type { WorkflowVariableHint } from '../../workflow/utils/workflowVariableHints';
-import { suggestedVariableNameFromJsonPath } from '../utils/jsonPathTreeUtils';
-import ExtractionPathPickerModal, { type ExtractionFetchSampleProps } from './ExtractionPathPickerModal';
-import ExtractionMapperModal from './ExtractionMapperModal';
+import type { FetchErrorDetail } from '../../../shared/components/data-mapper/types';
+import { suggestedVariableNameFromJsonPath } from '../../../shared/utils/jsonTreeModel';
 import ExpressionInput from '../../workflow/components/expression/ExpressionInput';
+import FetchErrorBanner from '../../../shared/components/data-mapper/FetchErrorBanner';
+
+export interface ExtractionFetchSampleProps {
+  onFetch: () => void | Promise<void>;
+  fetching: boolean;
+  error: FetchErrorDetail | null;
+  host?: {
+    enabled: boolean;
+    setEnabled: (v: boolean) => void;
+    override: string;
+    setOverride: (v: string) => void;
+    resolvedBaseUrl: string;
+  };
+}
+import {
+  DataMapperModal,
+  createExtractionAdapter,
+  splitExtractions,
+} from '../../../shared/components/data-mapper';
 
 interface Props {
   extractions: Extraction[];
@@ -15,6 +33,8 @@ interface Props {
   fetchSample?: ExtractionFetchSampleProps;
   /** Variable hints for autocomplete in expression/fallback fields. */
   variableHints?: WorkflowVariableHint[];
+  /** Scope prefix for schema snapshots (e.g. test ID) to prevent cross-instance drift false positives. */
+  contextScope?: string;
 }
 
 const SOURCES: { value: ExtractionSource; label: string; hint: string }[] = [
@@ -23,11 +43,60 @@ const SOURCES: { value: ExtractionSource; label: string; hint: string }[] = [
   { value: 'status', label: 'Status', hint: '(auto)' },
 ];
 
-export default function ExtractionEditor({ extractions, onChange, sampleResponseBody, fetchSample, variableHints = [] }: Props) {
+export default function ExtractionEditor({ extractions, onChange, sampleResponseBody, fetchSample, variableHints = [], contextScope }: Props) {
   const [pickerIdx, setPickerIdx] = useState<number | null>(null);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
   const [mapperOpen, setMapperOpen] = useState(false);
+
+  useEffect(() => {
+    if (pickerIdx !== null && pickerIdx >= extractions.length) {
+      setPickerIdx(null);
+    }
+  }, [pickerIdx, extractions.length]);
+
+  const { nonBody: nonBodyExtractions } = useMemo(
+    () => splitExtractions(extractions),
+    [extractions],
+  );
+
+  const nonBodyFingerprint = useMemo(
+    () => JSON.stringify(nonBodyExtractions),
+    [nonBodyExtractions],
+  );
+
+  const fetchSampleData = useMemo(() => {
+    if (!fetchSample?.onFetch) return undefined;
+    return async () => {
+      await fetchSample.onFetch();
+      return undefined;
+    };
+  }, [fetchSample]);
+
+  const extractionAdapter = useMemo(
+    () => createExtractionAdapter({
+      sampleResponseBody,
+      nonBodyExtractions,
+      fetchSampleData,
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [sampleResponseBody, nonBodyFingerprint, fetchSampleData],
+  );
+
+  const pickerInitialData = useMemo(
+    () => pickerIdx !== null && extractions[pickerIdx] ? [extractions[pickerIdx]] : null,
+    [pickerIdx, extractions],
+  );
+
+  const pickerAdapter = useMemo(
+    () => pickerIdx !== null ? createExtractionAdapter({
+      sampleResponseBody,
+      nonBodyExtractions,
+      fetchSampleData,
+    }) : null,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [pickerIdx, sampleResponseBody, nonBodyFingerprint, fetchSampleData],
+  );
 
   const update = (idx: number, patch: Partial<Extraction>) => {
     const next = extractions.map((e, i) => i === idx ? { ...e, ...patch } : e);
@@ -56,32 +125,29 @@ export default function ExtractionEditor({ extractions, onChange, sampleResponse
   return (
     <div className="extraction-editor">
       <p className="extraction-hint">
-        Extract response values into <code>{'{{variables}}'}</code> for subsequent steps.
+        Extract response values into <code>{'{{variables}}'}</code> for workflow/chained steps. In a single standalone request, extractions are optional unless you reference them later.
       </p>
 
-      {/* ── Fetch Response → opens Extraction Mapper Modal ── */}
-      {fetchSample && (
-        <div className="ext-fetch-section">
-          <div className="ext-fetch-bar">
-            <button
-              type="button"
-              className="btn btn-sm btn-accent ext-fetch-btn"
-              onClick={() => setMapperOpen(true)}
-              disabled={fetchSample.fetching}
-            >
-              {fetchSample.fetching ? 'Fetching…' : '⚡ Fetch & Map'}
-            </button>
-            {fetchSample.host && !fetchSample.host.enabled && fetchSample.host.resolvedBaseUrl && (
-              <span className="ext-resolved-url">
-                Target: <code>{fetchSample.host.resolvedBaseUrl}</code>
-              </span>
-            )}
-          </div>
-          {fetchSample.error && (
-            <div className="ext-fetch-error">{fetchSample.error}</div>
+      {/* ── Open Data Mapper for body extractions ── */}
+      <div className="ext-fetch-section">
+        <div className="ext-fetch-bar">
+          <button
+            type="button"
+            className="btn btn-sm btn-accent ext-fetch-btn"
+            onClick={() => setMapperOpen(true)}
+          >
+            ⚡ Data Mapper
+          </button>
+          {fetchSample?.host && !fetchSample.host.enabled && fetchSample.host.resolvedBaseUrl && (
+            <span className="ext-resolved-url">
+              Target: <code>{fetchSample.host.resolvedBaseUrl}</code>
+            </span>
           )}
         </div>
-      )}
+        {fetchSample?.error && (
+          <FetchErrorBanner error={fetchSample.error} />
+        )}
+      </div>
 
       {extractions.length === 0 && (
         <p className="extraction-empty">No extractions configured. Add one to capture response values.</p>
@@ -190,35 +256,40 @@ export default function ExtractionEditor({ extractions, onChange, sampleResponse
         + Add Extraction
       </button>
 
-      {pickerIdx !== null && extractions[pickerIdx]?.source === 'body' && (
-        <ExtractionPathPickerModal
-          initialExpression={extractions[pickerIdx].expression}
-          initialSampleJson={sampleResponseBody?.trim() ? sampleResponseBody : undefined}
-          fetchSample={fetchSample}
-          onApply={(expression) => {
-            const row = extractions[pickerIdx];
-            const nameEmpty = !row?.name?.trim();
-            const suggested = suggestedVariableNameFromJsonPath(expression);
-            update(pickerIdx, {
-              expression,
-              ...(nameEmpty && suggested ? { name: suggested } : {}),
-            });
+      {pickerIdx !== null && pickerInitialData && extractions[pickerIdx]?.source === 'body' && pickerAdapter && (
+        <DataMapperModal
+          adapter={pickerAdapter}
+          initialData={pickerInitialData}
+          onSave={(result) => {
+            const bodyResult = result.filter(e => e.source === 'body');
+            if (bodyResult.length > 0) {
+              const mapped = bodyResult[0];
+              const row = extractions[pickerIdx];
+              const nameEmpty = !row?.name?.trim();
+              const suggested = suggestedVariableNameFromJsonPath(mapped.expression);
+              update(pickerIdx, {
+                expression: mapped.expression,
+                ...(mapped.fallback !== undefined ? { fallback: mapped.fallback } : {}),
+                ...(nameEmpty && suggested ? { name: suggested } : {}),
+              });
+            }
             setPickerIdx(null);
           }}
-          onClose={() => setPickerIdx(null)}
+          onCancel={() => setPickerIdx(null)}
+          contextScope={contextScope}
         />
       )}
 
-      {mapperOpen && fetchSample && (
-        <ExtractionMapperModal
-          existingExtractions={extractions}
-          sampleResponseBody={sampleResponseBody}
-          fetchSample={fetchSample}
-          onApply={(mapped) => {
+      {mapperOpen && (
+        <DataMapperModal
+          adapter={extractionAdapter}
+          initialData={extractions}
+          onSave={(mapped) => {
             onChange(mapped);
             setMapperOpen(false);
           }}
-          onClose={() => setMapperOpen(false)}
+          onCancel={() => setMapperOpen(false)}
+          contextScope={contextScope}
         />
       )}
     </div>

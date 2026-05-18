@@ -46,8 +46,11 @@ export function useWorkflowResolvers({
   const prevWfIdForEnv = useRef<string | null>(null);
   useEffect(() => {
     if (selected && selected.id !== prevWfIdForEnv.current) {
+      const wasSwitch = prevWfIdForEnv.current !== null;
       prevWfIdForEnv.current = selected.id;
-      if (selected.lastSelectedEnvId && environments.some(e => e.id === selected.lastSelectedEnvId)) {
+      // Only restore the workflow's env when the user switches between workflows,
+      // not on initial page load (which would overwrite the persisted selection).
+      if (wasSwitch && selected.lastSelectedEnvId && environments.some(e => e.id === selected.lastSelectedEnvId)) {
         onEnvSelect(selected.lastSelectedEnvId);
       }
     } else if (!selected) {

@@ -1,20 +1,26 @@
 import { useMemo, useRef, useEffect } from 'react';
 import type { ReactNode, RefObject } from 'react';
-import { ChevronIcon } from '../../../shared/components/jsonTreeShared';
+import { ChevronIcon, bestEffortFormat, countTextMatches } from '../../../shared/components/jsonTreeShared';
+import { buildJsonTree } from '../../../shared/utils/jsonTreeModel';
+import type { JsonTreeNode } from '../../../shared/utils/jsonTreeModel';
 
-export interface JNode {
-  key: string;
-  value: unknown;
-  type: 'object' | 'array' | 'string' | 'number' | 'boolean' | 'null';
-  children?: JNode[];
-}
+/** @deprecated Use `JsonTreeNode` from `shared/utils/jsonTreeModel` */
+export type JNode = JsonTreeNode;
 
 // eslint-disable-next-line react-refresh/only-export-components
 export function buildJTree(val: unknown, key: string): JNode {
-  if (val === null || val === undefined) return { key, value: null, type: 'null' };
-  if (Array.isArray(val)) return { key, value: val, type: 'array', children: val.map((v, i) => buildJTree(v, String(i))) };
-  if (typeof val === 'object') return { key, value: val, type: 'object', children: Object.entries(val as Record<string, unknown>).map(([k, v]) => buildJTree(v, k)) };
-  return { key, value: val, type: typeof val as 'string' | 'number' | 'boolean' };
+  const node = buildJsonTree(val, key, '', { trackPaths: false });
+  fixArrayKeys(node);
+  return node;
+}
+
+/** The unified model uses `[i]` keys for array children; legacy JNode uses plain `"i"`. */
+function fixArrayKeys(node: JNode): void {
+  if (!node.children) return;
+  if (node.type === 'array') {
+    node.children.forEach((child, i) => { child.key = String(i); });
+  }
+  node.children.forEach(fixArrayKeys);
 }
 
 // eslint-disable-next-line react-refresh/only-export-components
@@ -154,6 +160,64 @@ function JsonTreeNode({ node, depth, search, activeMatchNode, activeMatchRef, co
   );
 }
 
+/**
+ * Renders best-effort-formatted raw body with text search + match highlighting.
+ * Used when the response body is truncated/malformed JSON that cannot be parsed into a tree.
+ */
+function RawBodyWithSearch({ body, search, currentMatchIdx = 0, onMatchCountChange }: {
+  body: string;
+  search?: string;
+  currentMatchIdx?: number;
+  onMatchCountChange?: (count: number) => void;
+}) {
+  const formatted = useMemo(() => bestEffortFormat(body), [body]);
+  const activeRef = useRef<HTMLElement>(null);
+
+  const matchCount = useMemo(() => countTextMatches(formatted, search ?? ''), [formatted, search]);
+
+  useEffect(() => {
+    onMatchCountChange?.(matchCount);
+  }, [matchCount, onMatchCountChange]);
+
+  useEffect(() => {
+    activeRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }, [currentMatchIdx, search]);
+
+  const highlighted = useMemo((): ReactNode => {
+    if (!search) return formatted;
+    const lower = formatted.toLowerCase();
+    const term = search.toLowerCase();
+    const parts: ReactNode[] = [];
+    let last = 0;
+    let idx = lower.indexOf(term, last);
+    let matchNum = 0;
+    while (idx !== -1) {
+      if (idx > last) parts.push(formatted.slice(last, idx));
+      const isActive = matchNum === currentMatchIdx;
+      parts.push(
+        <mark
+          key={idx}
+          ref={isActive ? activeRef : undefined}
+          className={isActive ? 'req-search-highlight jt-active-match' : 'req-search-highlight'}
+        >
+          {formatted.slice(idx, idx + search.length)}
+        </mark>,
+      );
+      matchNum++;
+      last = idx + search.length;
+      idx = lower.indexOf(term, last);
+    }
+    if (last < formatted.length) parts.push(formatted.slice(last));
+    return <>{parts}</>;
+  }, [formatted, search, currentMatchIdx]);
+
+  return (
+    <div className="req-json-preview-wrapper">
+      <pre className="jt-raw jt-raw-formatted">{highlighted}</pre>
+    </div>
+  );
+}
+
 export default function JsonPreview({ body, error, search, currentMatchIdx = 0, onMatchCountChange, collapsedSet, onToggle, prebuiltTree }: {
   body: string; error?: string; search?: string;
   currentMatchIdx?: number;
@@ -202,9 +266,12 @@ export default function JsonPreview({ body, error, search, currentMatchIdx = 0, 
   if (!body) return <div className="req-json-preview-wrapper"><pre className="jt-error">(empty response)</pre></div>;
   if (!tree) {
     return (
-      <div className="req-json-preview-wrapper">
-        <pre className="jt-raw">{body}</pre>
-      </div>
+      <RawBodyWithSearch
+        body={body}
+        search={search}
+        currentMatchIdx={currentMatchIdx}
+        onMatchCountChange={onMatchCountChange}
+      />
     );
   }
 

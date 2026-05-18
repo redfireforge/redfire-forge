@@ -9,7 +9,7 @@ const makeRequest = (
 
 describe('extractWebhookVariables', () => {
   it('returns empty object when extractConfig is undefined', () => {
-    const result = extractWebhookVariables(undefined as any, makeRequest());
+    const result = extractWebhookVariables(undefined as unknown as Parameters<typeof extractWebhookVariables>[0], makeRequest());
     expect(result).toEqual({});
   });
 

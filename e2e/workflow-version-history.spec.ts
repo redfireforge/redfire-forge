@@ -580,7 +580,7 @@ test.describe('Workflow Version — Auto-Save on Save', () => {
     await expect(page.locator('.wf-toolbar-saved-msg')).toBeVisible({ timeout: 5000 });
 
     // Wait for saved msg to disappear
-    await page.waitForTimeout(3000);
+    await expect(page.locator('.wf-toolbar-saved-msg')).not.toBeVisible({ timeout: 5000 });
 
     // Second save with same content — should NOT create a new version (fingerprint dedup)
     await saveBtn.click();
@@ -653,8 +653,10 @@ test.describe('Workflow Sidebar — Export/Import Context Menu', () => {
   test('context menu shows a divider between Import and Delete', async ({ page }) => {
     const sidebarItem = page.locator('.wf-sidebar-item', { hasText: 'Version Test WF' });
     await sidebarItem.click({ button: 'right' });
-    const divider = page.locator('.wf-sidebar-ctx-divider');
-    await expect(divider).toBeVisible();
+    const menu = page.locator('.wf-sidebar-ctx-menu');
+    await expect(menu).toBeVisible();
+    // Multiple dividers render when folders are loaded (before Move / before Delete); assert within menu scope.
+    await expect(menu.locator('.wf-sidebar-ctx-divider').first()).toBeVisible();
   });
 
   test('context menu still has Rename, Duplicate, Delete items', async ({ page }) => {

@@ -38,7 +38,7 @@ export default function WorkflowDefaultsModal({
   useEffect(() => {
     if (open) {
       originalRef.current = snapshot(workflowVariables);
-      setDraft(snapshot(workflowVariables)); // eslint-disable-line react-hooks/set-state-in-effect -- reset draft on modal open
+      setDraft(snapshot(workflowVariables));  
       originalErrorRef.current = errorConfig ? snapshot(errorConfig) : undefined;
       setErrorDraft(errorConfig ? snapshot(errorConfig) : undefined);  
     }

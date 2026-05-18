@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RedfireForge — Results Explorer Training Manual</title>
+<style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .flow-diagram {
+    background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px;
+    padding: 16px; margin: 12px 0 18px; font-family: monospace; font-size: 12px;
+    line-height: 1.8; white-space: pre; overflow-x: auto;
+  }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-warn {
+    background: #fff8e1; border-left-color: #f4a261;
+  }
+  .callout-tip {
+    background: #e8f5e9; border-left-color: #2e7d32;
+  }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  .toc { margin: 20px 0; }
+  .toc a { color: #1d3557; text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+  .toc li { margin-bottom: 6px; font-size: 13.5px; }
+  .feature-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 10px 0 18px; }
+  .feature-card {
+    background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 6px; padding: 10px 14px;
+  }
+  .feature-card strong { font-size: 12.5px; display: block; margin-bottom: 4px; color: #1d3557; }
+  .feature-card p { font-size: 11.5px; margin: 0; color: #495057; }
+  .step-num {
+    display: inline-block; width: 24px; height: 24px; background: #e63946; color: #fff;
+    border-radius: 50%; text-align: center; line-height: 24px; font-size: 12px; font-weight: 700;
+    margin-right: 6px;
+  }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- COVER PAGE                                  -->
+<!-- ════════════════════════════════════════════ -->
+<div class="cover-page">
+  <h1>Results Explorer</h1>
+  <div class="subtitle">Visual Workflow Execution Analysis</div>
+  <p style="margin-bottom: 12px;">
+    <span class="badge badge-medium">Medium</span>
+  </p>
+  <p style="max-width: 560px; color: #495057; font-size: 14px;">
+    A three-panel modal for digging into workflow load-test results: inspect the execution graph or
+    switch to a Gantt-chart timeline, drill into any node&rsquo;s request, response, variables, and assertions,
+    navigate into sub-workflow child traces, visualize parallel swim lanes, and scan iteration-by-iteration
+    timing in the matrix. Built for aggregate trends and single-iteration forensics.
+  </p>
+  <div class="meta">
+    <strong>RedfireForge — Redfire Performance Workbench</strong><br>
+    Document — May 2026<br>
+    <em>Print this page to PDF: Ctrl/Cmd + P &rarr; Save as PDF</em>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- TABLE OF CONTENTS                           -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2>Table of Contents</h2>
+<ol class="toc">
+  <li><a href="#what-is">What is the Results Explorer?</a></li>
+  <li><a href="#prerequisites">Prerequisites</a></li>
+  <li><a href="#opening">Opening the Results Explorer</a></li>
+  <li><a href="#layout">The Three-Panel Layout</a></li>
+  <li><a href="#diagram">Workflow Diagram Panel</a></li>
+  <li><a href="#search">Search &amp; Filter</a></li>
+  <li><a href="#save-layout">Save Layout</a></li>
+  <li><a href="#detail-tabs">Detail Panel Tabs</a></li>
+  <li><a href="#matrix">Iteration Matrix</a></li>
+  <li><a href="#iteration-nav">Iteration Navigation</a></li>
+  <li><a href="#export">Export &amp; Import</a></li>
+  <li><a href="#bottleneck">Bottleneck Analysis Panel</a></li>
+  <li><a href="#timeline">Timeline View (Gantt Chart)</a></li>
+  <li><a href="#drilldown">Sub-Workflow Drill-Down</a></li>
+  <li><a href="#swim-lanes">Parallel Swim Lanes &amp; Critical Path</a></li>
+  <li><a href="#console">Console Panel</a></li>
+  <li><a href="#shortcuts">Keyboard Shortcuts</a></li>
+  <li><a href="#tips">Tips &amp; Best Practices</a></li>
+  <li><a href="#related">Related Training</a></li>
+</ol>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- WHAT IS THE RESULTS EXPLORER?               -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="what-is">What is the Results Explorer?</h2>
+<p>
+  The <strong>Results Explorer</strong> is a full-screen modal you open from a completed workflow run.
+  It combines three synchronized views:
+</p>
+<ul>
+  <li><strong>Workflow diagram or timeline (left)</strong> &mdash; Toggle between a <strong>graph view</strong> (the same DAG
+    you design in the editor, overlaid with execution state, heatmap, swim lanes, and bottleneck highlights) and a
+    <strong>timeline/Gantt view</strong> (horizontal bars on a time axis showing when and how long each node ran).
+    Press <code>T</code> to switch.</li>
+  <li><strong>Detail panel (right)</strong> &mdash; Tabs for overview stats, HTTP request/response, variables, and assertion results
+    for the node you select. For sub-workflow nodes, a <strong>Drill Down</strong> button navigates into the child trace.
+    When nothing is selected, this area shows aggregate bottleneck insights.</li>
+  <li><strong>Iteration matrix (bottom, collapsible)</strong> &mdash; A table of iterations versus nodes: click a cell to jump that
+    iteration and node, sort and filter the grid, and scan for errors or slow steps.</li>
+</ul>
+<p>
+  Together, these panels let you answer &ldquo;where did time go?&rdquo;, &ldquo;which branch did traffic take?&rdquo;, and
+  &ldquo;what broke on iteration 7?&rdquo; without leaving the run.
+</p>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- PREREQUISITES                               -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="prerequisites">Prerequisites</h2>
+<ol>
+  <li>
+    <strong>Trace level (recommended for deep inspection).</strong> In <strong>Workflow Runner</strong>, select a <strong>Trace Level</strong> using
+    the radio buttons before you run: <strong>Minimal</strong> (errors only), <strong>Standard</strong> (summary + assertions),
+    <strong>Full</strong> (request/response bodies), <strong>Debug</strong> (full + log lines). For full request/response visibility in
+    Results Explorer, use <strong>Full</strong> or <strong>Debug</strong>; those levels persist headers, bodies, variable snapshots, and rich assertion
+    detail. With <strong>Minimal</strong> or <strong>Standard</strong>, the explorer still opens and shows timing and pass/fail, but detailed Request/Response/Variables
+    content may be limited.
+  </li>
+  <li>
+    <strong>Trace sampling (optional).</strong> A <strong>Trace sampling</strong> checkbox with a <strong>threshold</strong> input limits how many iterations retain
+    the selected trace detail (default <strong>50</strong> iterations). Use it on large runs to balance forensics against memory and export size.
+  </li>
+  <li>
+    <strong>Multiple iterations (for aggregate features).</strong> Run the workflow with <strong>2 or more iterations</strong> so aggregate
+    views, edge traversal percentages on branches, and stable averages are meaningful. Single-iteration runs still work for per-step inspection.
+  </li>
+</ol>
+<div class="callout callout-warn">
+  <strong>Large runs, trace level, and sampling</strong>
+  For <strong>Full</strong> or <strong>Debug</strong> trace level, <strong>&le;100 iterations recommended</strong> to keep runs responsive and exports manageable.
+  For very high iteration counts, the product may retain full trace data for a subset of iterations; combine reasonable iteration counts with
+  <strong>Trace sampling</strong> where needed. Watch for sampled badges in the UI;
+  aggregate metrics still reflect the run, but not every row may carry full payloads.
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- OPENING THE RESULTS EXPLORER                -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="opening">Opening the Results Explorer</h2>
+
+<h3><span class="step-num">1</span> Run the workflow</h3>
+<p>Execute your workflow from the <strong>Workflow Runner</strong> tab with your desired iterations and concurrency.</p>
+
+<h3><span class="step-num">2</span> Open the Results Dashboard</h3>
+<p>Switch to the <strong>Results</strong> tab (sometimes labeled Results Dashboard in docs) where completed runs are listed.</p>
+
+<h3><span class="step-num">3</span> Select a run and open the explorer</h3>
+<ol>
+  <li>Click the workflow run you want to analyze.</li>
+  <li>Click the <strong>Results Explorer</strong> button (canvas-style control that opens the three-panel modal).</li>
+</ol>
+<p>The modal opens in <strong>aggregate</strong> mode by default when multiple iterations exist, so you see combined statistics on the diagram.</p>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- THREE-PANEL LAYOUT                          -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="layout">The Three-Panel Layout</h2>
+<div class="flow-diagram">
+┌─────────────────────────────────────────────────────────────────┐
+│  Toolbar: iteration controls, export/import, matrix toggle      │
+├──────────────────────────────┬──────────────────────────────────┤
+│  [Diagram] [Timeline]        │                                   │
+│                              │   Detail panel (tabs)            │
+│   Workflow diagram / Gantt   │   Overview | Request | Response  │
+│   Search + state filters     │   | Variables | Assertions        │
+│   Swim lanes (fork/join)     │   + Drill Down (sub-workflows)   │
+│                              │                                   │
+├──────────────────────────────┴──────────────────────────────────┤
+│   Iteration matrix (collapsible): iterations x nodes              │
+└─────────────────────────────────────────────────────────────────┘
+</div>
+
+<div class="feature-grid">
+  <div class="feature-card">
+    <strong>Diagram / Timeline (left)</strong>
+    <p>Graph layout with execution overlay, heatmap, swim lanes, bottleneck borders &mdash; or Gantt chart with time-axis bars, zoom, and aggregate markers. Press <code>T</code> to toggle.</p>
+  </div>
+  <div class="feature-card">
+    <strong>Detail panel (right)</strong>
+    <p>Context for the selected node and iteration: stats, HTTP exchange, variables, and assertion outcomes.</p>
+  </div>
+  <div class="feature-card">
+    <strong>Iteration matrix (bottom)</strong>
+    <p>Spreadsheet-like grid of per-cell timing; collapse to maximize canvas. Toggle with <code>M</code> or the UI control.</p>
+  </div>
+  <div class="feature-card">
+    <strong>Synchronized selection</strong>
+    <p>Click a node, matrix cell, or bottleneck insight to keep diagram, detail, and iteration context aligned.</p>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- WORKFLOW DIAGRAM PANEL                      -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="diagram">Workflow Diagram Panel</h2>
+
+<h3>Node colors</h3>
+<p>Node backgrounds encode rollout outcome for the current view (aggregate or selected iteration):</p>
+<table>
+  <tr><th>Color</th><th>Meaning</th></tr>
+  <tr><td>Green</td><td>Pass &mdash; step succeeded for the scope you are viewing.</td></tr>
+  <tr><td>Red</td><td>Fail &mdash; assertion or execution failure.</td></tr>
+  <tr><td>Gray</td><td>Skipped &mdash; not executed on this path (e.g., branch not taken).</td></tr>
+  <tr><td>Purple highlight</td><td>Selected &mdash; the node currently driving the detail panel.</td></tr>
+</table>
+
+<h3>Heatmap overlay</h3>
+<p>
+  Optional heatmap mode tints nodes along a <strong>green &rarr; yellow &rarr; orange &rarr; red</strong> gradient from
+  fastest to slowest <em>average</em> duration (within the current dataset). Use it to spot slow steps before opening the detail tabs.
+</p>
+
+<h3>Edge highlighting</h3>
+<ul>
+  <li><strong>Traversed edges</strong> appear as an <strong>animated purple</strong> stroke in the active view, showing the path traffic followed.</li>
+  <li><strong>Non-traversed edges</strong> are de-emphasized with a <strong>gray dashed</strong> style so unused branches are obvious.</li>
+</ul>
+
+<h3>Edge traversal percentages</h3>
+<p>
+  On branching nodes (for example Condition or Switch), the <strong>aggregate</strong> canvas labels each outgoing edge with the
+  percentage of iterations that took that branch. This only appears when <strong>two or more iterations</strong> were recorded.
+  Switch to a single iteration to see its exact path without percentage badges.
+</p>
+
+<h3>Bottleneck indicators</h3>
+<p>
+  Nodes flagged by bottleneck analysis show a <strong>pulsing border</strong> treatment on the diagram, with severity reflected in the
+  border treatment (critical, warning, or info). These cues mirror the insights listed in the right panel when no node is selected.
+</p>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- SEARCH & FILTER                             -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="search">Search &amp; Filter</h2>
+<p>
+  At the top of the diagram column, a <strong>search bar</strong> filters nodes by <strong>label/name</strong> as you type. Only nodes
+  whose names match the query stay fully bright; <strong>non-matching nodes are dimmed</strong> so large workflows stay navigable.
+</p>
+<ul>
+  <li>Press <code>/</code> from anywhere in the modal (except when typing in another field) to <strong>focus the search box</strong>.</li>
+  <li>With focus inside the search field, press <strong>Escape</strong> to <strong>clear the query</strong> and blur the field.</li>
+</ul>
+
+<h3>State filters</h3>
+<p>
+  <strong>All / Pass / Fail / Skipped</strong> toggle buttons filter which node states remain emphasized. Badge counts on the buttons show
+  how many nodes fall into each bucket for the current iteration scope.
+</p>
+
+<h3>Combining search and state</h3>
+<p>
+  Apply both together: text search narrows by name, and the state chips restrict by outcome. A node must satisfy <em>both</em> the name match
+  (if any) and the active state filter to appear fully highlighted.
+</p>
+<div class="callout callout-tip">
+  <strong>Tip:</strong>
+  On huge graphs, search for a fragment of the HTTP step name, then switch to <strong>Fail</strong> to jump straight to red nodes that match.
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- SAVE LAYOUT                                 -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="save-layout">Save Layout</h2>
+<ol>
+  <li><strong>Drag</strong> nodes on the canvas to arrange the graph for readability (similar to the workflow editor).</li>
+  <li>Use the <strong>save</strong> control in the diagram&rsquo;s pill-style toolbar to persist positions.</li>
+</ol>
+<p>
+  Layout is stored in <strong>browser localStorage</strong>, keyed per workflow, and is <strong>restored automatically</strong> the next time
+  you open Results Explorer for that workflow. Clearing site data for the app will remove saved positions.
+</p>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- DETAIL PANEL TABS                           -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="detail-tabs">Detail Panel Tabs</h2>
+<p>After you select a node (and, when relevant, an iteration), the right-hand panel offers these tabs:</p>
+<table>
+  <tr><th>Tab</th><th>Contents</th></tr>
+  <tr>
+    <td><strong>Overview</strong></td>
+    <td>Hero statistics for the node: status, timing summary, and breakdowns (including special handling for wait vs processing on supported node types).</td>
+  </tr>
+  <tr>
+    <td><strong>Request</strong></td>
+    <td>HTTP method, URL, headers, and body when captured; structured body may appear as an expandable JSON tree.</td>
+  </tr>
+  <tr>
+    <td><strong>Response</strong></td>
+    <td>Status line and body (with JSON tree when applicable); truncation flags if payloads were capped.</td>
+  </tr>
+  <tr>
+    <td><strong>Variables</strong></td>
+    <td>Inputs available to the step plus extracted values produced during execution.</td>
+  </tr>
+  <tr>
+    <td><strong>Assertions</strong></td>
+    <td>Per-rule results: passed/failed messages, expected vs actual where recorded.</td>
+  </tr>
+</table>
+<div class="callout">
+  <strong>Trace level and the detail tabs</strong>
+  Set <strong>Trace level</strong> to <strong>Full</strong> or <strong>Debug</strong> before running to populate headers, bodies, and variable panes fully. <strong>Minimal</strong> and <strong>Standard</strong> traces still support
+  timing-focused analysis but may show prompts to raise trace level for deep inspection.
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- ITERATION MATRIX                            -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="matrix">Iteration Matrix</h2>
+<ul>
+  <li><strong>Layout:</strong> Rows (or columns, depending on current framing) correspond to <strong>iterations</strong>; the other axis lists workflow nodes.</li>
+  <li><strong>Cell click:</strong> Select a cell to <strong>jump</strong> the explorer to that iteration and node, updating the diagram selection and detail tabs.</li>
+  <li><strong>Sort and filter:</strong> Use matrix controls to reorder rows, limit to failures, highlight slow cells, and similar presets (e.g., slowest fraction).</li>
+  <li><strong>Error search:</strong> Quickly locate cells with errors or assert failures without scanning visually.</li>
+  <li><strong>Overhead column:</strong> Extra timing column capturing non-HTTP or orchestration overhead where applicable so you can compare service time vs coordination time.</li>
+  <li><strong>Toggle visibility:</strong> Press <code>M</code> to collapse or expand the matrix and reclaim vertical space for the canvas.</li>
+</ul>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- ITERATION NAVIGATION                        -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="iteration-nav">Iteration Navigation</h2>
+
+<h3>Aggregate vs single iteration</h3>
+<p>
+  <strong>Aggregate (All)</strong> merges metrics across iterations: node colors summarize all runs, branching edges show traversal percentages,
+  and tooltips reflect pooled stats. Choosing a <strong>specific iteration</strong> replays that run exactly: one path through the graph,
+  no branch percentages, edge highlighting follows that lone trace.
+</p>
+
+<h3>Keyboard shortcuts (summary)</h3>
+<ul>
+  <li><strong>Left / Right arrows:</strong> Previous or next iteration (disabled when only one iteration exists).</li>
+  <li><strong>Digit keys 1&ndash;9:</strong> Jump directly to iteration index <code>n&minus;1</code> when within range.</li>
+  <li><strong>Space:</strong> Toggle between aggregate view and the first iteration.</li>
+  <li><strong>A:</strong> Return to aggregate (All iterations).</li>
+  <li><strong>M:</strong> Expand or collapse the iteration matrix.</li>
+  <li><strong>/</strong> and <strong>Escape:</strong> Search focus and clear, as described in Search &amp; Filter.</li>
+</ul>
+
+<h3>Iteration Picker dropdown</h3>
+<p>
+  The <strong>Iteration Picker</strong> control lists iterations with duration and pass/fail metadata. Inside the dropdown, <strong>filter tabs</strong>
+  narrow the list to <strong>All</strong>, <strong>Failed</strong> only, or <strong>Slowest</strong> (iterations at or above an approximate 90th-percentile
+  duration threshold). A jump field lets you type an iteration number to filter the list before selecting.
+</p>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- EXPORT & IMPORT                             -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="export">Export &amp; Import</h2>
+<table>
+  <tr><th>Action</th><th>Format</th><th>Purpose</th></tr>
+  <tr>
+    <td><strong>Export JSON</strong></td>
+    <td>Structured trace file</td>
+    <td>Archive the <strong>full execution trace</strong> (iterations, events, timings, captured HTTP payloads when present) for debugging or external tooling.</td>
+  </tr>
+  <tr>
+    <td><strong>Export CSV</strong></td>
+    <td>Spreadsheet-friendly</td>
+    <td>Download <strong>aggregate per-node HTTP metrics</strong> (executions, pass rate, avg/min/max, percentile columns as implemented) to share with stakeholders who prefer Excel or data warehouses.</td>
+  </tr>
+  <tr>
+    <td><strong>Import trace</strong></td>
+    <td>Previously exported JSON</td>
+    <td>Reload a saved trace into Results Explorer without re-running the load test &mdash; useful for regressions, bug reports, and demos.</td>
+  </tr>
+</table>
+<div class="callout callout-warn">
+  <strong>Privacy</strong>
+  JSON exports may contain real URLs, tokens, and bodies captured during the run. Scrub files before sharing outside trusted channels.
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- BOTTLENECK ANALYSIS                         -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="bottleneck">Bottleneck Analysis Panel</h2>
+<p>
+  When <strong>no diagram node</strong> is selected, the right-hand panel surfaces a <strong>Bottleneck Analysis</strong> section with ranked
+  insights. Each insight has a <strong>severity</strong>: <span class="badge badge-advanced">Critical</span>,
+  <span class="badge badge-medium">Warning</span>, or <span class="badge badge-easy">Info</span>. Click an insight to
+  <strong>select the corresponding node</strong> on the workflow canvas and open its detail tabs.
+</p>
+
+<h3>What triggers each insight type</h3>
+<table>
+  <tr><th>Severity</th><th>Typical trigger</th><th>What it means</th></tr>
+  <tr>
+    <td>Critical / Warning</td>
+    <td><strong>Time-dominant</strong> node</td>
+    <td>The node accounts for a large share of total workflow time (for example roughly 40% or more). Higher share thresholds escalate to Critical. Start/end and pure fork/join scaffolding are skipped.</td>
+  </tr>
+  <tr>
+    <td>Critical / Warning</td>
+    <td><strong>High variance</strong></td>
+    <td>Duration coefficient of variation exceeds soft limits with enough samples, flagging unstable latency. Larger CV drives Critical.</td>
+  </tr>
+  <tr>
+    <td>Critical / Warning</td>
+    <td><strong>High failure rate</strong></td>
+    <td>A material fraction of executions failed (for example 20% or more, with multiple observations). Larger failure rates escalate to Critical.</td>
+  </tr>
+  <tr>
+    <td>Info</td>
+    <td><strong>Critical-path pointer</strong></td>
+    <td>Marks the slowest average node when it was not already covered above &mdash; the practical lower bound for iteration time.</td>
+  </tr>
+  <tr>
+    <td>Info</td>
+    <td><strong>Residual actionable nodes</strong></td>
+    <td>Additional HTTP, script, sub-workflow, aggregate, or webhook nodes receive informational entries so no important step is invisible once primary issues are surfaced.</td>
+  </tr>
+</table>
+<p>
+  Insights use only iterations that retained trace samples (<code>sampled !== false</code>), matching the aggregate statistics you see elsewhere.
+</p>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- TIMELINE VIEW                               -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="timeline">Timeline View (Gantt Chart)</h2>
+<p>
+  The Results Explorer offers two visualization modes for the left panel: <strong>Diagram</strong> (the default
+  graph view) and <strong>Timeline</strong> (a horizontal Gantt chart). Toggle between them using the buttons
+  at the top of the panel, or press <code>T</code>.
+</p>
+<h3>What the Timeline shows</h3>
+<ul>
+  <li>Each workflow node becomes a <strong>horizontal bar</strong> on a time axis, positioned by start time and sized by duration.</li>
+  <li>A <strong>label column</strong> on the left lists nodes in topological order with colored status dots.</li>
+  <li><strong>Sub-workflow bars</strong> render in <strong>indigo</strong> with a &ldquo;SUB&rdquo; badge, distinct from green HTTP bars.</li>
+  <li>In <strong>aggregate mode</strong>, bars from all iterations overlay at 50% opacity, with <strong>Avg</strong> and <strong>P95</strong> vertical markers.</li>
+</ul>
+<h3>Key interactions</h3>
+<ul>
+  <li>Click a bar or label to select the node (same detail panel as Diagram).</li>
+  <li>Hover a bar for a tooltip with node name, duration, and status code.</li>
+  <li>Zoom in/out for detail on fast nodes; horizontal scroll when zoomed.</li>
+  <li>Search and state filters work identically to Diagram mode.</li>
+</ul>
+<div class="callout callout-tip">
+  <strong>Tip:</strong>
+  Use Diagram to understand <em>structure</em>, Timeline to understand <em>timing</em>. The two complement
+  each other &mdash; your selection syncs across both.
+</div>
+<p>
+  <strong>Full guide:</strong> See <a href="./results-explorer-timeline-medium.html">Timeline View (Gantt Chart)</a> for zoom controls,
+  aggregate markers, sub-workflow drill-down from timeline, and more.
+</p>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- SUB-WORKFLOW DRILL-DOWN                     -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="drilldown">Sub-Workflow Drill-Down</h2>
+<p>
+  When a workflow contains <strong>Sub-Workflow nodes</strong>, you can navigate into the child workflow&rsquo;s
+  full execution trace without leaving the Results Explorer.
+</p>
+<h3>How to drill down</h3>
+<ul>
+  <li><strong>From Diagram:</strong> Select the sub-workflow node, then click <strong>Drill Down</strong> in the detail panel&rsquo;s Overview tab.</li>
+  <li><strong>From Timeline:</strong> Click the <strong>&#x2935; drill-down icon</strong> at the right end of the indigo sub-workflow bar.</li>
+</ul>
+<h3>Breadcrumb navigation</h3>
+<p>
+  After drilling down, a <strong>breadcrumb bar</strong> appears at the top:
+  <code>Parent Workflow &rsaquo; Child Workflow</code>. Click any breadcrumb segment to jump back to that level.
+  Multi-level nesting is fully supported.
+</p>
+<div class="callout">
+  <strong>Requirement:</strong> Drill-down requires <strong>Trace level</strong> set to <strong>Full</strong> or <strong>Debug</strong> and a
+  <strong>specific iteration</strong> selected (not aggregate mode).
+</div>
+<p>
+  <strong>Full guide:</strong> See <a href="./results-explorer-drilldown-medium.html">Sub-Workflow Drill-Down</a> for
+  visual cues, multi-level nesting, and sample workflows to practice.
+</p>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- PARALLEL SWIM LANES & CRITICAL PATH         -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="swim-lanes">Parallel Swim Lanes &amp; Critical Path</h2>
+<p>
+  Workflows with <strong>Fork/Join</strong> patterns (parallel branches) get automatic visual enhancements
+  in the Diagram view:
+</p>
+<h3>Swim-lane overlay</h3>
+<ul>
+  <li>Each parallel branch is enclosed in a <strong>colored swim lane</strong> with a tab-style label above it.</li>
+  <li>Labels use <strong>descriptive branch names</strong> derived from the first node in each branch.</li>
+  <li>Colors are assigned automatically from a palette to distinguish branches visually.</li>
+</ul>
+<h3>Critical path detection</h3>
+<ul>
+  <li>The <strong>slowest branch</strong> (by average duration) is marked with a <strong>&ldquo;&#x23F1; Critical Path&rdquo;</strong>
+    badge on its swim-lane tab. A threshold of &ge;10% or &ge;5ms difference is required.</li>
+  <li>This tells you which parallel branch is the bottleneck &mdash; optimizing faster branches won&rsquo;t reduce total time.</li>
+</ul>
+<h3>Branch comparison table</h3>
+<p>
+  Select a <strong>Fork</strong> or <strong>Join</strong> node and the detail panel shows a <strong>branch comparison
+  table</strong> with columns: branch name, node count, average time, pass rate, and critical path indicator.
+</p>
+<p>
+  <strong>Full guide:</strong> See <a href="../../api-patterns/parallel-showcase-medium.html">Parallel Showcase: Swim Lanes &amp; Critical Path</a>
+  for a hands-on walkthrough with the 3-branch showcase sample.
+</p>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- CONSOLE PANEL                               -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="console">Console Panel</h2>
+<p>
+  The <strong>Console panel</strong> shows a narrative log of what happened during each iteration&rsquo;s execution.
+  It reconstructs log lines from the structured trace data &mdash; HTTP requests/responses, variable extractions,
+  assertions, errors, and (at Debug level) raw <code>console.log()</code> output from Script nodes.
+</p>
+
+<h3>Opening the Console</h3>
+<ul>
+  <li>Click the <strong>Console</strong> button in the Results Explorer header toolbar (next to Diagram/Timeline).</li>
+  <li>Or press <strong>&lcub;Cmd&rcub;+J</strong> (macOS) / <strong>Ctrl+J</strong> (Windows/Linux).</li>
+  <li>The console appears docked at the bottom of the modal, below the diagram and detail panel.</li>
+</ul>
+
+<h3>Console Header</h3>
+<p>
+  The header shows the <strong>Console</strong> title, a <strong>trace level badge</strong> (e.g., &ldquo;standard&rdquo;, &ldquo;full&rdquo;, &ldquo;debug&rdquo;)
+  indicating what level of detail is available, and a <strong>line count</strong>.
+</p>
+
+<h3>Behavior by Trace Level</h3>
+<table>
+  <tr><th>Trace Level</th><th>Console Content</th></tr>
+  <tr>
+    <td><strong>Minimal</strong></td>
+    <td>Shows captured errors only. If no errors occurred, displays &ldquo;No errors captured.&rdquo;</td>
+  </tr>
+  <tr>
+    <td><strong>Standard</strong></td>
+    <td>Reconstructed narrative: HTTP summaries, assertion results, variable extractions, errors.
+      No HTTP bodies or raw logs.</td>
+  </tr>
+  <tr>
+    <td><strong>Full</strong></td>
+    <td>Same as Standard plus inline HTTP body previews (truncated).</td>
+  </tr>
+  <tr>
+    <td><strong>Debug</strong></td>
+    <td>Full fidelity &mdash; raw <code>onLog</code> lines and Script <code>console.log()</code> output.
+      Identical to the Designer Console experience, but per-iteration and persistent.</td>
+  </tr>
+</table>
+
+<h3>Features</h3>
+<table>
+  <tr><th>Feature</th><th>Description</th></tr>
+  <tr>
+    <td><strong>Iteration-scoped</strong></td>
+    <td>Shows logs for the currently selected iteration. Switch iterations with the picker or arrow keys.</td>
+  </tr>
+  <tr>
+    <td><strong>Node filter</strong></td>
+    <td>Dropdown to filter by a specific node (topologically sorted). Default: &ldquo;All Nodes&rdquo;.</td>
+  </tr>
+  <tr>
+    <td><strong>Search</strong></td>
+    <td>Filter lines by keyword with match count and &uarr;/&darr; navigation between matches.</td>
+  </tr>
+  <tr>
+    <td><strong>Click to select</strong></td>
+    <td>Click a console line to select that node in the diagram and open its detail panel.</td>
+  </tr>
+  <tr>
+    <td><strong>Auto-scroll to error</strong></td>
+    <td>When opened, scrolls to the first error line if errors exist.</td>
+  </tr>
+  <tr>
+    <td><strong>Aggregate view</strong></td>
+    <td>When viewing &ldquo;All iterations&rdquo;, shows a professional summary with pass rate, timing stats, and failures.</td>
+  </tr>
+  <tr>
+    <td><strong>Sub-workflow expansion</strong></td>
+    <td>Sub-workflow execution logs are recursively expanded with depth indentation.</td>
+  </tr>
+  <tr>
+    <td><strong>Display modes</strong></td>
+    <td>Docked (default), floating, or maximized. Drag to resize.</td>
+  </tr>
+</table>
+
+<h3>Log Line Prefixes</h3>
+<table>
+  <tr><th>Prefix</th><th>Meaning</th></tr>
+  <tr><td><code>*</code></td><td>Info / node lifecycle</td></tr>
+  <tr><td><code>&gt;</code></td><td>Outbound request</td></tr>
+  <tr><td><code>&lt;</code></td><td>Inbound response</td></tr>
+  <tr><td><code>#</code></td><td>Variable extraction or script output</td></tr>
+  <tr><td><code>&check;</code></td><td>Assertion passed</td></tr>
+  <tr><td><code>&cross;</code></td><td>Assertion failed</td></tr>
+  <tr><td><code>!</code></td><td>Error</td></tr>
+</table>
+
+<div class="callout callout-tip">
+  <strong>&lcub;Tip&rcub; Use Debug trace level for console-heavy debugging</strong>
+  At Debug level, the Console shows raw <code>console.log()</code> output from Script nodes &mdash;
+  exactly what you&rsquo;d see in the Designer Console, but preserved per-iteration in the trace data
+  so you can review it any time after the run.
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- KEYBOARD SHORTCUTS                          -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="shortcuts">Keyboard Shortcuts</h2>
+<table>
+  <tr><th>Key</th><th>Action</th></tr>
+  <tr><td><code>T</code></td><td>Toggle between Diagram and Timeline view.</td></tr>
+  <tr><td><code>&lcub;Cmd&rcub;+J</code> / <code>Ctrl+J</code></td><td>Toggle Console panel open/closed.</td></tr>
+  <tr><td><code>&larr;</code> / <code>&rarr;</code></td><td>Move to previous / next iteration (multi-iteration runs only).</td></tr>
+  <tr><td><code>1</code> &ndash; <code>9</code></td><td>Jump to iteration 1 &ndash; 9 when that iteration exists.</td></tr>
+  <tr><td><code>Space</code></td><td>Toggle between aggregate view and iteration 1.</td></tr>
+  <tr><td><code>A</code></td><td>Select aggregate (All iterations).</td></tr>
+  <tr><td><code>M</code></td><td>Toggle iteration matrix expanded/collapsed.</td></tr>
+  <tr><td><code>/</code></td><td>Focus node search (when not already typing in an input).</td></tr>
+  <tr><td><code>Escape</code></td><td>Clear selected node if any; otherwise close the modal. When the search field is focused, clears the query and blurs the field.</td></tr>
+</table>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- TIPS & BEST PRACTICES                       -->
+<!-- ════════════════════════════════════════════ -->
+<h2 id="tips">Tips &amp; Best Practices</h2>
+<ul>
+  <li><strong>Use Trace level Full or Debug</strong> whenever you expect to debug payloads, variables, or assertion text &mdash; the marginal storage cost beats another rerun.</li>
+  <li><strong>Use search</strong> on wide DAGs to avoid panning; combine with heatmap to spotlight slow nodes inside a subsystem.</li>
+  <li><strong>Use the Fail filter</strong> after a flaky run to see only red nodes, then step iterations with arrow keys.</li>
+  <li><strong>Save layout</strong> once you arrange a busy workflow; teammates opening the same workflow ID reuse your layout locally.</li>
+  <li><strong>Lean on the matrix</strong> for pattern spotting (stripes of slow cells, systemic errors on one node).</li>
+  <li><strong>Export CSV</strong> for managers or data teams; keep JSON exports for engineering deep dives.</li>
+</ul>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- RELATED TRAINING                            -->
+<!-- ════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 id="related">Related Training</h2>
+<ul>
+  <li><a href="./results-explorer-timeline-medium.html">Timeline View (Gantt Chart)</a> &mdash; full guide to the time-axis visualization.</li>
+  <li><a href="./results-explorer-drilldown-medium.html">Sub-Workflow Drill-Down</a> &mdash; navigating into nested workflow executions.</li>
+  <li><a href="../../api-patterns/parallel-showcase-medium.html">Parallel Showcase: Swim Lanes &amp; Critical Path</a> &mdash; parallel branch visualization.</li>
+  <li><a href="./workflow-runner-basics-easy.html">Workflow Runner Basics</a> &mdash; configuring runs, iterations, and trace capture.</li>
+  <li><a href="../../edge-traversal-percentages-guide.html">Edge Traversal Percentages</a> &mdash; deep dive on branch labels in aggregate view.</li>
+  <li><a href="./workflow-runner-results-medium.html">Workflow Results</a> &mdash; dashboard concepts before opening the explorer.</li>
+</ul>
+
+<footer>
+  RedfireForge Training Manual &mdash; Results Explorer &mdash; Medium &mdash; May 2026
+</footer>
+
+</body>
+</html>

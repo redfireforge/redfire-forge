@@ -97,6 +97,8 @@ async function executeRequest(
     errorMessage: vr.errorMessage,
     timing,
     requestLog: { headers, body: reqBody },
+    dataRowId: scenario.dataRowId,
+    dataRowLabel: scenario.dataRowLabel,
   };
 }
 

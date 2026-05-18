@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pet Store API — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">🐾</div>
+    <h1>Pet Store API</h1>
+    <div class="subtitle">Classic REST API Example — Training Manual</div>
+    <p><span class="badge badge-easy">Easy ★☆☆</span> · REST API · petstore.swagger.io</p>
+    <div class="meta">RedfireForge v0.5.6</div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <h2>1. Purpose &amp; Use Case</h2>
+  <p>The <strong>Pet Store API</strong> is the classic example used in OpenAPI/Swagger documentation. It provides a fully-functional REST API for managing pets, orders, and users.</p>
+  <p>Use this spec to:</p>
+  <ul>
+    <li>Learn API Catalog features with a familiar example</li>
+    <li>Practice CRUD operations (Create, Read, Update, Delete)</li>
+    <li>Test against a live public API</li>
+  </ul>
+
+  <h2>2. Spec Overview</h2>
+
+  <table>
+    <tr><th>Property</th><th>Value</th></tr>
+    <tr><td>Spec Version</td><td>OpenAPI 3.0.x</td></tr>
+    <tr><td>Base URL</td><td><code>https://petstore.swagger.io/v2</code></td></tr>
+    <tr><td>Authentication</td><td>API Key (optional)</td></tr>
+    <tr><td>Categories</td><td>pet, store, user</td></tr>
+  </table>
+
+  <h2>3. API Categories</h2>
+
+  <h3>🐾 Pet Operations</h3>
+  <table>
+    <tr><th>Method</th><th>Path</th><th>Description</th></tr>
+    <tr><td>GET</td><td><code>/pet/{petId}</code></td><td>Find pet by ID</td></tr>
+    <tr><td>POST</td><td><code>/pet</code></td><td>Add a new pet</td></tr>
+    <tr><td>PUT</td><td><code>/pet</code></td><td>Update existing pet</td></tr>
+    <tr><td>DELETE</td><td><code>/pet/{petId}</code></td><td>Delete a pet</td></tr>
+    <tr><td>GET</td><td><code>/pet/findByStatus</code></td><td>Find pets by status</td></tr>
+    <tr><td>GET</td><td><code>/pet/findByTags</code></td><td>Find pets by tags</td></tr>
+  </table>
+
+  <h3>🛒 Store Operations</h3>
+  <table>
+    <tr><th>Method</th><th>Path</th><th>Description</th></tr>
+    <tr><td>GET</td><td><code>/store/inventory</code></td><td>Returns pet inventories</td></tr>
+    <tr><td>POST</td><td><code>/store/order</code></td><td>Place an order</td></tr>
+    <tr><td>GET</td><td><code>/store/order/{orderId}</code></td><td>Find order by ID</td></tr>
+    <tr><td>DELETE</td><td><code>/store/order/{orderId}</code></td><td>Delete order</td></tr>
+  </table>
+
+  <h3>👤 User Operations</h3>
+  <table>
+    <tr><th>Method</th><th>Path</th><th>Description</th></tr>
+    <tr><td>POST</td><td><code>/user</code></td><td>Create user</td></tr>
+    <tr><td>GET</td><td><code>/user/{username}</code></td><td>Get user by name</td></tr>
+    <tr><td>PUT</td><td><code>/user/{username}</code></td><td>Update user</td></tr>
+    <tr><td>DELETE</td><td><code>/user/{username}</code></td><td>Delete user</td></tr>
+    <tr><td>GET</td><td><code>/user/login</code></td><td>Logs user in</td></tr>
+  </table>
+
+  <h2>4. Step-by-Step Tutorial</h2>
+
+  <h3>Step 1: Import the Spec</h3>
+  <ol>
+    <li>Open the <strong>Gallery</strong> and find <strong>"Pet Store API"</strong>.</li>
+    <li>Click <strong>Import to Catalog</strong>.</li>
+    <li>The spec appears in your API Catalog.</li>
+  </ol>
+
+  <h3>Step 2: Try a GET Request</h3>
+  <ol>
+    <li>Expand the Pet category.</li>
+    <li>Click <code>GET /pet/{petId}</code>.</li>
+    <li>Enter pet ID: <code>1</code></li>
+    <li>Click <strong>Try It</strong>.</li>
+  </ol>
+
+  <h3>Step 3: Create a Test Request</h3>
+  <ol>
+    <li>Right-click the endpoint.</li>
+    <li>Select <strong>Export to Requests</strong>.</li>
+    <li>Customize and add assertions.</li>
+    <li>Save to your Requests collection.</li>
+  </ol>
+
+  <div class="callout callout-tip">
+    <strong>💡 Quick Test Tip</strong>
+    Use the "Find pets by status" endpoint with <code>?status=available</code> to get a list of pets, then use one of their IDs for other operations.
+  </div>
+
+  <h2>5. Pet Schema</h2>
+
+  <pre>{
+  "id": 1,
+  "category": { "id": 1, "name": "Dogs" },
+  "name": "Buddy",
+  "photoUrls": ["https://example.com/buddy.jpg"],
+  "tags": [{ "id": 1, "name": "friendly" }],
+  "status": "available"  // available, pending, sold
+}</pre>
+
+  <h2>6. Testing Ideas</h2>
+  <ul>
+    <li><strong>CRUD flow</strong> — Create pet → Read → Update → Delete</li>
+    <li><strong>Status filtering</strong> — Test <code>/pet/findByStatus?status=sold</code></li>
+    <li><strong>Invalid IDs</strong> — Test <code>/pet/99999</code> for 404</li>
+    <li><strong>Order lifecycle</strong> — Place order → Check status → Delete</li>
+  </ul>
+
+  <h2>7. Related Manuals</h2>
+  <ul>
+    <li><a href="jsonplaceholder-easy.html">JSONPlaceholder API</a></li>
+    <li><a href="dummyjson-medium.html">DummyJSON API</a></li>
+    <li><a href="../requests/get-all-users-easy.html">Basic GET Request Tutorial</a></li>
+  </ul>
+
+  <footer>
+    RedfireForge Training Manual · Pet Store API · Easy
+  </footer>
+</body>
+</html>

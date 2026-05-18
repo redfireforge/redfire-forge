@@ -15,8 +15,8 @@ export function getTargetConcurrency(profile: LoadProfileConfig, elapsedMs: numb
       return maxConcurrency;
 
     case 'ramp-up': {
-      const rampSec = profile.rampUpSec ?? durationSec;
-      if (elapsed >= rampSec) return maxConcurrency;
+      const rampSec = profile.rampUpSec || durationSec;
+      if (rampSec <= 0 || elapsed >= rampSec) return maxConcurrency;
       const t = elapsed / rampSec;
       return Math.max(1, Math.ceil(1 + (maxConcurrency - 1) * t));
     }

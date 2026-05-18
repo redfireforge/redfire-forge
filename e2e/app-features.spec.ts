@@ -17,7 +17,7 @@ test.describe('Theme Customization', () => {
   test.beforeEach(async ({ page }) => {
     await seedAppData(page);
     await page.goto('/');
-    await page.waitForTimeout(500);
+    await expect(page.locator('.app-header')).toBeVisible({ timeout: 10_000 });
   });
 
   test('theme picker button is visible in header', async ({ page }) => {
@@ -29,18 +29,17 @@ test.describe('Theme Customization', () => {
     // Click theme picker button
     const themePicker = page.locator('.theme-toggle').first();
     await themePicker.click();
-    await page.waitForTimeout(300);
     
     // Check that theme picker is open
     const pickerDropdown = page.locator('.theme-picker.open');
-    await expect(pickerDropdown).toBeVisible();
+    await expect(pickerDropdown).toBeVisible({ timeout: 3_000 });
   });
 
   test('can switch between themes', async ({ page }) => {
     // Open theme picker
     const themePicker = page.locator('.theme-toggle').first();
     await themePicker.click();
-    await page.waitForTimeout(300);
+    await expect(page.locator('.theme-picker.open')).toBeVisible({ timeout: 3_000 });
     
     // Get initial theme
     const htmlElement = page.locator('html');
@@ -52,21 +51,20 @@ test.describe('Theme Customization', () => {
     
     if (count > 1) {
       await themeOptions.nth(1).click();
-      await page.waitForTimeout(300);
       
-      // Verify theme changed
-      const newTheme = await htmlElement.getAttribute('data-theme');
-      expect(newTheme).not.toBe(initialTheme);
+      // Verify theme changed - wait for attribute to change
+      await expect(htmlElement).not.toHaveAttribute('data-theme', initialTheme ?? '', { timeout: 3_000 });
     }
   });
 
   test('theme persists after page reload', async ({ page }) => {
+    test.slow(); // Involves page reload
     const htmlElement = page.locator('html');
     const initialTheme = await htmlElement.getAttribute('data-theme');
     
     // Reload page
     await page.reload();
-    await page.waitForTimeout(500);
+    await expect(page.locator('.app-header')).toBeVisible({ timeout: 10_000 });
     
     // Verify theme persisted
     const reloadedTheme = await htmlElement.getAttribute('data-theme');
@@ -77,19 +75,18 @@ test.describe('Theme Customization', () => {
     // Open theme picker first
     const themePicker = page.locator('.theme-toggle').first();
     await themePicker.click();
-    await page.waitForTimeout(300);
+    await expect(page.locator('.theme-picker.open')).toBeVisible({ timeout: 3_000 });
     
     // Look for customize button
     const customizeButton = page.locator('.theme-customize-btn').first();
     
     if (await customizeButton.isVisible()) {
       await customizeButton.click();
-      await page.waitForTimeout(300);
       
       // Check that customizer modal opened
       const customizerModal = page.locator('.theme-customizer-modal');
       if (await customizerModal.count() > 0) {
-        await expect(customizerModal).toBeVisible();
+        await expect(customizerModal).toBeVisible({ timeout: 3_000 });
       }
     }
   });
@@ -99,7 +96,7 @@ test.describe('Sidebar Resize', () => {
   test.beforeEach(async ({ page }) => {
     await seedAppData(page);
     await page.goto('/');
-    await page.waitForTimeout(500);
+    await expect(page.locator('.app-header')).toBeVisible({ timeout: 10_000 });
   });
 
   test('sidebar is visible on page load', async ({ page }) => {
@@ -122,15 +119,18 @@ test.describe('Sidebar Resize', () => {
       
       // Click toggle
       await toggleButton.click();
-      await page.waitForTimeout(300);
       
-      // Sidebar visibility should change
-      const afterToggle = await sidebar.isVisible();
-      expect(afterToggle).not.toBe(initialVisible);
+      // Sidebar visibility should change - wait for visibility state to change
+      if (initialVisible) {
+        await expect(sidebar).not.toBeVisible({ timeout: 3_000 });
+      } else {
+        await expect(sidebar).toBeVisible({ timeout: 3_000 });
+      }
     }
   });
 
   test('sidebar width persists between sessions', async ({ page }) => {
+    test.slow(); // Involves page reload
     const sidebar = page.locator('.unified-sidebar').first();
     
     if (await sidebar.isVisible()) {
@@ -138,7 +138,7 @@ test.describe('Sidebar Resize', () => {
       
       // Reload page
       await page.reload();
-      await page.waitForTimeout(500);
+      await expect(page.locator('.app-header')).toBeVisible({ timeout: 10_000 });
       
       const reloadedWidth = await sidebar.evaluate(el => el.getBoundingClientRect().width);
       expect(reloadedWidth).toBe(initialWidth);
@@ -160,10 +160,12 @@ test.describe('Sidebar Resize', () => {
         await page.mouse.down();
         await page.mouse.move(handleBox.x + 50, handleBox.y + handleBox.height / 2);
         await page.mouse.up();
-        await page.waitForTimeout(300);
         
-        const newWidth = await sidebar.evaluate(el => el.getBoundingClientRect().width);
-        expect(newWidth).not.toBe(initialWidth);
+        // Wait for resize to take effect
+        await expect(async () => {
+          const newWidth = await sidebar.evaluate(el => el.getBoundingClientRect().width);
+          expect(newWidth).not.toBe(initialWidth);
+        }).toPass({ timeout: 3_000 });
       }
     }
   });
@@ -174,7 +176,7 @@ test.describe('Workflow Export', () => {
     await seedAppData(page);
     // Navigate directly to workflow tab
     await page.goto('/?tab=workflow');
-    await page.waitForTimeout(500);
+    await expect(page.locator('.wf-designer')).toBeVisible({ timeout: 10_000 });
   });
 
   test('workflow designer loads correctly', async ({ page }) => {
@@ -184,14 +186,14 @@ test.describe('Workflow Export', () => {
   });
 
   test('can navigate to workflow via activity bar', async ({ page }) => {
+    test.slow(); // Involves page navigation
     // Go to home first
     await page.goto('/');
-    await page.waitForTimeout(500);
+    await expect(page.locator('.app-header')).toBeVisible({ timeout: 10_000 });
     
     // Click Workflow button in activity bar
     const workflowButton = page.locator('.ab-btn:has(.ab-label:text("Workflow"))');
     await workflowButton.click();
-    await page.waitForTimeout(500);
     
     // Workflow designer should be visible
     const designer = page.locator('.wf-designer');
@@ -220,7 +222,7 @@ test.describe('Execution Mode Selector', () => {
   test.beforeEach(async ({ page }) => {
     await seedAppData(page);
     await page.goto('/?tab=scenarios');
-    await page.waitForTimeout(1000);
+    await expect(page.locator('.app-header')).toBeVisible({ timeout: 10_000 });
   });
 
   test('execution mode selector exists on scenarios tab', async ({ page }) => {
@@ -253,18 +255,14 @@ test.describe('Execution Mode Selector', () => {
   });
 
   test('execution mode selector is on runner tab', async ({ page }) => {
+    test.slow(); // Involves navigation
     // Navigate to runner tab where execution mode lives
     await page.goto('/?tab=runner');
-    await page.waitForTimeout(500);
+    await expect(page.locator('.app-header')).toBeVisible({ timeout: 10_000 });
 
-    // Execution mode uses radio buttons, not a select
-    const execLabel = page.locator('.runner-exec-label');
-    if (await execLabel.isVisible()) {
-      await expect(execLabel).toContainText('Execution Mode');
-      // Verify at least one radio button exists
-      const radios = page.locator('input[name="execMode"]');
-      const count = await radios.count();
-      expect(count).toBeGreaterThanOrEqual(2);
-    }
+    const visibleRunner = page.locator('div:not([hidden]) > .page').first();
+    await expect(visibleRunner.getByText('Execution Mode:')).toBeVisible();
+    await expect(visibleRunner.getByText('Sequential')).toBeVisible();
+    await expect(visibleRunner.getByText('Batch')).toBeVisible();
   });
 });

@@ -1,0 +1,364 @@
+import { useState, useMemo, useCallback } from 'react';
+import { SWAGGER_METHOD_COLORS } from '../../../shared/constants/httpMethodColors';
+import type {
+  Environment,
+  FeatureGroup,
+  Microservice,
+  RequestItem,
+  Scenario,
+  TestScenario,
+} from '../../../shared/types';
+import type { PromotionContext, PromotionOptions } from '../utils/requestToScenario';
+import { createScenarioFromRequest } from '../utils/requestToScenario';
+import { CascadeSelect } from './CascadeSelect';
+import { useEscapeKey } from '../../../shared/hooks/useEscapeKey';
+
+export interface SendToHarnessPayload {
+  scenario: Scenario;
+  targetGroupId?: string;
+  targetScenarioId?: string;
+  newGroupName?: string;
+  newScenarioName?: string;
+  openEditorAfter: boolean;
+  environmentId?: string;
+  microserviceId?: string;
+}
+
+interface Props {
+  request: RequestItem;
+  promotionContext: PromotionContext;
+  featureGroups: FeatureGroup[];
+  environments: Environment[];
+  microservices: Microservice[];
+  onConfirm: (payload: SendToHarnessPayload) => void;
+  onClose: () => void;
+  defaultValidationPreset?: 'none' | 'status-200';
+}
+
+type Step = 'target' | 'options';
+
+export default function SendToHarnessModal({
+  request, promotionContext, featureGroups, environments, microservices, onConfirm, onClose, defaultValidationPreset,
+}: Props) {
+  const [step, setStep] = useState<Step>('target');
+
+  // Cascade selections
+  const [envId, setEnvId] = useState('');
+  const [svcId, setSvcId] = useState('');
+  const [groupId, setGroupId] = useState('');
+  const [scenarioId, setScenarioId] = useState('');
+
+  // New item names (only for Feature Group and Scenario — env/svc must be created in Settings)
+  const [newGroupName, setNewGroupName] = useState('');
+  const [newScenarioName, setNewScenarioName] = useState('');
+
+  // Options
+  const [authMode, setAuthMode] = useState<'concrete' | 'inherit'>('concrete');
+  const [validationPreset, setValidationPreset] = useState<'none' | 'status-200'>(defaultValidationPreset ?? 'none');
+  const [openEditorAfter, setOpenEditorAfter] = useState(false);
+
+  const isNewGroup = groupId === '__new__';
+  const isNewScenario = scenarioId === '__new__';
+
+  // Environment options: global envs + all additional envs from all microservices
+  const envOptions = useMemo(() => {
+    const opts = environments.map(e => ({ id: e.id, name: e.name }));
+    for (const svc of microservices) {
+      for (const ce of (svc.customEnvs ?? [])) {
+        if (!opts.some(o => o.id === ce.id)) {
+          opts.push({ id: ce.id, name: `${ce.name} (${svc.name})` });
+        }
+      }
+    }
+    return opts;
+  }, [environments, microservices]);
+
+  // Filtered microservices based on selected environment (global or additional)
+  const filteredMicroservices = useMemo(() => {
+    if (!envId) return microservices;
+    return microservices.filter(s =>
+      envId in s.baseUrls || (s.customEnvs ?? []).some(ce => ce.id === envId)
+    );
+  }, [envId, microservices]);
+
+  // Filtered feature groups based on env + svc
+  const filteredGroups = useMemo(() => {
+    return featureGroups.filter(g => {
+      if (envId && g.environmentId && g.environmentId !== envId) return false;
+      if (svcId && g.microserviceId && g.microserviceId !== svcId) return false;
+      return true;
+    });
+  }, [featureGroups, envId, svcId]);
+
+  // Scenarios: empty if new group, otherwise from selected group
+  const scenarios: TestScenario[] = useMemo(
+    () => isNewGroup ? [] : (filteredGroups.find(g => g.id === groupId)?.scenarios ?? []),
+    [filteredGroups, groupId, isNewGroup],
+  );
+
+  // Reset child selections when parent changes
+  const handleEnvChange = (id: string) => {
+    setEnvId(id);
+    setSvcId('');
+    setGroupId('');
+    setScenarioId('');
+    setNewGroupName('');
+    setNewScenarioName('');
+  };
+
+  const handleSvcChange = (id: string) => {
+    setSvcId(id);
+    setGroupId('');
+    setScenarioId('');
+    setNewGroupName('');
+    setNewScenarioName('');
+  };
+
+  const handleGroupChange = (id: string) => {
+    setGroupId(id);
+    setNewGroupName('');
+    if (id === '__new__') {
+      setScenarioId('__new__');
+      setNewScenarioName('');
+    } else {
+      setScenarioId('');
+      setNewScenarioName('');
+    }
+  };
+
+  // Validation
+  const envReady = !!envId;
+  const svcReady = !!svcId;
+  const groupReady = isNewGroup ? newGroupName.trim() : groupId;
+  const scenarioReady = isNewScenario ? newScenarioName.trim() : scenarioId;
+  const canProceed = step === 'target'
+    ? !!(envReady && svcReady && groupReady && scenarioReady)
+    : true;
+
+  const activeVersion = useMemo(
+    () => request.specVersions?.find(v => v.id === request.activeSpecVersionId),
+    [request],
+  );
+
+  const previewScenario = useMemo(() => {
+    const options: PromotionOptions = { validationPreset, authMode };
+    return createScenarioFromRequest(request, promotionContext, options);
+  }, [request, promotionContext, validationPreset, authMode]);
+
+  const handleConfirm = useCallback(() => {
+    const options: PromotionOptions = { validationPreset, authMode };
+    const scenario = createScenarioFromRequest(request, promotionContext, options);
+
+    onConfirm({
+      scenario,
+      targetGroupId: isNewGroup ? undefined : groupId,
+      targetScenarioId: (isNewGroup || isNewScenario) ? undefined : scenarioId,
+      newGroupName: isNewGroup ? newGroupName.trim() : undefined,
+      newScenarioName: (isNewGroup || isNewScenario) ? newScenarioName.trim() : undefined,
+      openEditorAfter,
+      environmentId: envId || undefined,
+      microserviceId: svcId || undefined,
+    });
+  }, [
+    request, promotionContext, validationPreset, authMode,
+    envId, svcId, groupId, scenarioId,
+    isNewGroup, isNewScenario,
+    newGroupName, newScenarioName,
+    openEditorAfter, onConfirm,
+  ]);
+
+  useEscapeKey(onClose);
+
+  // Build breadcrumb summary for step 2
+  const targetSummary = useMemo(() => {
+    const envName = envOptions.find(e => e.id === envId)?.name ?? '';
+    const svcName = microservices.find(s => s.id === svcId)?.name ?? '';
+    const grpName = isNewGroup ? newGroupName.trim() : filteredGroups.find(g => g.id === groupId)?.name ?? '';
+    const scName = isNewScenario ? newScenarioName.trim() : scenarios.find(s => s.id === scenarioId)?.name ?? '';
+    return { envName, svcName, grpName, scName };
+  }, [envId, svcId, groupId, scenarioId, isNewGroup, isNewScenario,
+    newGroupName, newScenarioName, envOptions, microservices, filteredGroups, scenarios]);
+
+  return (
+    <div className="send-harness-overlay">
+      <div className="send-harness-modal" onClick={e => e.stopPropagation()}>
+        {/* Header */}
+        <div className="send-harness-header">
+          <div className="send-harness-title-row">
+            <h3>Send to Harness</h3>
+            <div className="send-harness-steps">
+              <span className={`send-harness-step${step === 'target' ? ' active' : ''}`}>1 Target</span>
+              <span className="send-harness-step-arrow">&rsaquo;</span>
+              <span className={`send-harness-step${step === 'options' ? ' active' : ''}`}>2 Options</span>
+            </div>
+          </div>
+          <div className="send-harness-origin-row">
+            <span className="send-harness-method-pill" style={{ background: SWAGGER_METHOD_COLORS[request.method] + '22', color: SWAGGER_METHOD_COLORS[request.method] }}>{request.method}</span>
+            <span className="send-harness-origin-path">{request.catalogMeta?.originalPath || request.url}</span>
+            {request.catalogMeta?.sourceSpec && <span className="send-harness-origin-spec">{request.catalogMeta.sourceSpec}</span>}
+            {activeVersion?.catalogVersion && <span className="send-harness-origin-ver">v{activeVersion.catalogVersion}</span>}
+          </div>
+        </div>
+
+        {/* Step 1: Cascading Target Selection */}
+        {step === 'target' && (
+          <div className="send-harness-body">
+            <CascadeSelect
+              label="Environment"
+              placeholder="Select environment..."
+              value={envId}
+              onChange={handleEnvChange}
+              options={envOptions}
+              settingsHint="Need a new environment? Go to Settings to create one."
+            />
+
+            <CascadeSelect
+              label="Microservice"
+              placeholder={envReady ? 'Select microservice...' : 'Select environment first...'}
+              value={svcId}
+              onChange={handleSvcChange}
+              options={filteredMicroservices.map(s => ({ id: s.id, name: s.name }))}
+              settingsHint="Need a new microservice? Go to Settings to create one."
+            />
+
+            <CascadeSelect
+              label="Feature Group"
+              placeholder={svcReady ? 'Select feature group...' : 'Select microservice first...'}
+              value={groupId}
+              onChange={handleGroupChange}
+              options={filteredGroups.map(g => ({
+                id: g.id,
+                name: g.name,
+                detail: `${g.scenarios.length} scenario${g.scenarios.length !== 1 ? 's' : ''}`,
+              }))}
+              onCreate={svcReady ? () => handleGroupChange('__new__') : undefined}
+              newValue={newGroupName}
+              onNewValueChange={setNewGroupName}
+              isCreating={isNewGroup}
+            />
+
+            <CascadeSelect
+              label="Test Scenario"
+              placeholder={groupReady ? 'Select scenario...' : 'Select feature group first...'}
+              value={scenarioId}
+              onChange={setScenarioId}
+              options={scenarios.map(s => ({
+                id: s.id,
+                name: s.name,
+                detail: `${s.tests.length} test${s.tests.length !== 1 ? 's' : ''}`,
+              }))}
+              onCreate={groupReady ? () => setScenarioId('__new__') : undefined}
+              newValue={newScenarioName}
+              onNewValueChange={setNewScenarioName}
+              isCreating={isNewScenario}
+            />
+          </div>
+        )}
+
+        {/* Step 2: Options */}
+        {step === 'options' && (
+          <div className="send-harness-body">
+            {/* Target summary breadcrumb */}
+            <div className="send-harness-target-summary">
+              <span className="send-harness-summary-item send-harness-summary-env">{targetSummary.envName}</span>
+              <span className="send-harness-summary-sep">/</span>
+              <span className="send-harness-summary-item send-harness-summary-svc">{targetSummary.svcName}</span>
+              <span className="send-harness-summary-sep">/</span>
+              <span className="send-harness-summary-item">{targetSummary.grpName}</span>
+              <span className="send-harness-summary-sep">/</span>
+              <span className="send-harness-summary-item">{targetSummary.scName}</span>
+            </div>
+
+            <div className="send-harness-preview-card">
+              <div className="send-harness-preview-main">
+                <span className="send-harness-preview-method" style={{ color: SWAGGER_METHOD_COLORS[previewScenario.method] }}>
+                  {previewScenario.method}
+                </span>
+                <span className="send-harness-preview-url" title={previewScenario.url}>
+                  {previewScenario.url}
+                </span>
+              </div>
+              <div className="send-harness-preview-meta">
+                <span>Auth: {previewScenario.auth.type}</span>
+                {previewScenario.headers.filter(h => h.key.trim()).length > 0 && (
+                  <span>{previewScenario.headers.filter(h => h.key.trim()).length} header{previewScenario.headers.filter(h => h.key.trim()).length !== 1 ? 's' : ''}</span>
+                )}
+              </div>
+            </div>
+
+            <div className="send-harness-options-grid">
+              <div className="send-harness-option-group">
+                <label className="send-harness-label">Auth Mode</label>
+                <div className="send-harness-option-cards">
+                  <label className={`send-harness-option-card${authMode === 'concrete' ? ' selected' : ''}`}>
+                    <input type="radio" checked={authMode === 'concrete'} onChange={() => setAuthMode('concrete')} />
+                    <div>
+                      <span className="send-harness-option-title">Snapshot</span>
+                      <span className="send-harness-option-desc">Freeze current auth</span>
+                    </div>
+                  </label>
+                  <label className={`send-harness-option-card${authMode === 'inherit' ? ' selected' : ''}`}>
+                    <input type="radio" checked={authMode === 'inherit'} onChange={() => setAuthMode('inherit')} />
+                    <div>
+                      <span className="send-harness-option-title">Inherit</span>
+                      <span className="send-harness-option-desc">Use Harness auth</span>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              <div className="send-harness-option-group">
+                <label className="send-harness-label">Validation</label>
+                <div className="send-harness-option-cards">
+                  <label className={`send-harness-option-card${validationPreset === 'none' ? ' selected' : ''}`}>
+                    <input type="radio" checked={validationPreset === 'none'} onChange={() => setValidationPreset('none')} />
+                    <div>
+                      <span className="send-harness-option-title">None</span>
+                      <span className="send-harness-option-desc">No validation rules</span>
+                    </div>
+                  </label>
+                  <label className={`send-harness-option-card${validationPreset === 'status-200' ? ' selected' : ''}`}>
+                    <input type="radio" checked={validationPreset === 'status-200'} onChange={() => setValidationPreset('status-200')} />
+                    <div>
+                      <span className="send-harness-option-title">Status 200</span>
+                      <span className="send-harness-option-desc">Assert HTTP 200 OK</span>
+                    </div>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <label className="send-harness-editor-toggle">
+              <input type="checkbox" checked={openEditorAfter} onChange={e => setOpenEditorAfter(e.target.checked)} />
+              <span>Open test editor after creation</span>
+            </label>
+          </div>
+        )}
+
+        {/* Footer */}
+        <div className="send-harness-footer">
+          <button className="send-harness-cancel-btn" onClick={onClose}>Cancel</button>
+          <div className="send-harness-footer-right">
+            {step === 'options' && (
+              <button className="send-harness-back-btn" onClick={() => setStep('target')}>Back</button>
+            )}
+            {step === 'target' && (
+              <button
+                className="send-harness-next-btn"
+                disabled={!canProceed}
+                onClick={() => setStep('options')}
+              >
+                Next
+              </button>
+            )}
+            {step === 'options' && (
+              <button className="send-harness-confirm-btn" onClick={handleConfirm}>
+                Send to Harness
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

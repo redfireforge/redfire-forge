@@ -1,4 +1,3 @@
-/// <reference types="vitest" />
 /**
  * @vitest-environment jsdom
  */
@@ -63,7 +62,7 @@ function makeOpts(overrides: Partial<Parameters<typeof useWorkflowPersistence>[0
       undoRedo,
       toast,
       ...overrides,
-    } as Omit<Parameters<typeof useWorkflowPersistence>[0], 'nodeInitialVarsRef' | 'nodesRef' | 'nextNodeY' | 'workflowVariablesRef'>,
+    } as Omit<Parameters<typeof useWorkflowPersistence>[0], 'nodeInitialVarsRef' | 'nodesRef' | 'nextNodeYRef' | 'workflowVariablesRef'>,
   };
 }
 
@@ -71,13 +70,13 @@ function renderPersistence(opts: ReturnType<typeof makeOpts>['opts'], initialVar
   return renderHook(() => {
     const nodeInitialVarsRef = useRef(initialVars);
     const nodesRef = useRef(opts.nodes);
-    const nextNodeY = useRef(100);
+    const nextNodeYRef = useRef(100);
     const workflowVariablesRef = useRef(opts.workflowVariables);
     return useWorkflowPersistence({
       ...opts,
       nodeInitialVarsRef,
       nodesRef,
-      nextNodeY,
+      nextNodeYRef,
       workflowVariablesRef,
     });
   });
@@ -90,6 +89,10 @@ describe('serializeRFNodes', () => {
   });
   it('falls back to existing initialVariables when no override', () => {
     const out = serializeRFNodes([makeHttpRFNode('h1')], {});
+    expect((out[0].data as { initialVariables: Record<string, string> }).initialVariables).toEqual({ a: '1' });
+  });
+  it('falls back to node data initialVariables when override map entry is null', () => {
+    const out = serializeRFNodes([makeHttpRFNode('h1')], { h1: null as unknown as Record<string, string> });
     expect((out[0].data as { initialVariables: Record<string, string> }).initialVariables).toEqual({ a: '1' });
   });
   it('passes through non-http nodes untouched', () => {
@@ -121,6 +124,78 @@ describe('useWorkflowPersistence hook', () => {
     expect(fetchMock).toHaveBeenCalledWith('/api/workflows/wf1', expect.objectContaining({ method: 'PUT' }));
   });
 
+  it('persistWorkflow tolerates webhook register fetch rejection', async () => {
+    fetchMock.mockRejectedValueOnce(new Error('offline'));
+    const webhookNode = { id: 'wb1', type: 'webhook' as const, position: { x: 0, y: 0 }, data: { label: 'WB' } };
+    const { handles, opts } = makeOpts({ nodes: [webhookNode as never, makeHttpRFNode('h1')] });
+    const { result } = renderPersistence(opts);
+    await act(async () => {
+      result.current.persistWorkflow();
+      await Promise.resolve();
+    });
+    expect(handles.update).toHaveBeenCalled();
+  });
+
+  it('persistWorkflow no-ops when no workflow is selected', () => {
+    const { handles, opts } = makeOpts({ selected: null });
+    const { result } = renderPersistence(opts);
+    act(() => { result.current.persistWorkflow(); });
+    expect(handles.update).not.toHaveBeenCalled();
+  });
+
+  it('insertNodeAndPersist no-ops when no workflow is selected', () => {
+    const { handles, opts } = makeOpts({ selected: null });
+    const { result } = renderPersistence(opts);
+    const newNode = { id: 'x', type: 'http' as const, position: { x: 0, y: 0 }, data: { label: 'X', scenario: { method: 'GET', url: '/' }, initialVariables: {} } };
+    act(() => { result.current.insertNodeAndPersist(newNode as never, 'Add'); });
+    expect(handles.undoRedo.takeSnapshot).not.toHaveBeenCalled();
+    expect(handles.setNodes).not.toHaveBeenCalled();
+  });
+
+  it('handlePasteNode no-ops when no workflow is selected', () => {
+    const { handles, opts } = makeOpts({ selected: null });
+    const { result } = renderPersistence(opts);
+    act(() => { result.current.handlePasteNode(); });
+    expect(handles.setNodes).not.toHaveBeenCalled();
+    expect(handles.toast.show).not.toHaveBeenCalled();
+  });
+
+  it('handlePasteNode no-ops when clipboard yields no node', () => {
+    const { handles, opts } = makeOpts({
+      clipboard: {
+        copyNode: vi.fn(),
+        buildPasteNode: vi.fn(() => null),
+        buildDuplicateNode: vi.fn(() => null),
+      } as never,
+    });
+    const { result } = renderPersistence(opts);
+    act(() => { result.current.handlePasteNode(); });
+    expect(handles.setNodes).not.toHaveBeenCalled();
+    expect(handles.toast.show).not.toHaveBeenCalled();
+  });
+
+  it('handleDuplicateNode no-ops when no workflow is selected', () => {
+    const { handles, opts } = makeOpts({ selected: null });
+    const { result } = renderPersistence(opts);
+    act(() => { result.current.handleDuplicateNode(); });
+    expect(handles.setNodes).not.toHaveBeenCalled();
+    expect(handles.toast.show).not.toHaveBeenCalled();
+  });
+
+  it('handleDuplicateNode no-ops when clipboard yields no node', () => {
+    const { handles, opts } = makeOpts({
+      clipboard: {
+        copyNode: vi.fn(),
+        buildPasteNode: vi.fn(() => null),
+        buildDuplicateNode: vi.fn(() => null),
+      } as never,
+    });
+    const { result } = renderPersistence(opts);
+    act(() => { result.current.handleDuplicateNode(); });
+    expect(handles.setNodes).not.toHaveBeenCalled();
+    expect(handles.toast.show).not.toHaveBeenCalled();
+  });
+
   it('persistWorkflow does NOT PUT when no webhook trigger', () => {
     const { handles, opts } = makeOpts();
     const { result } = renderPersistence(opts);
@@ -141,7 +216,7 @@ describe('useWorkflowPersistence hook', () => {
     }));
   });
 
-  it('handlePasteNode advances nextNodeY and pushes snapshot', () => {
+  it('handlePasteNode advances nextNodeYRef and pushes snapshot', () => {
     const { handles, opts } = makeOpts();
     const { result } = renderPersistence(opts);
     act(() => { result.current.handlePasteNode(); });
@@ -166,8 +241,33 @@ describe('useWorkflowPersistence hook', () => {
     expect(handles.toast.show).toHaveBeenCalledWith('info', 'Redo: Snapshot B');
   });
 
+  it('handleUndoAction / handleRedoAction skip toast when label is falsy', () => {
+    const { handles, opts } = makeOpts({
+      undoRedo: {
+        takeSnapshot: vi.fn(),
+        undo: vi.fn(() => undefined),
+        redo: vi.fn(() => ''),
+        clear: vi.fn(),
+      } as never,
+    });
+    const { result } = renderPersistence(opts);
+    act(() => {
+      result.current.handleUndoAction();
+      result.current.handleRedoAction();
+    });
+    expect(handles.toast.show).not.toHaveBeenCalled();
+  });
+
   it('handleSave skips when previewWorkflow is set', () => {
     const { handles, opts } = makeOpts({ previewWorkflow: { id: 'preview' } as never });
+    const { result } = renderPersistence(opts);
+    act(() => { result.current.handleSave(); });
+    expect(handles.update).not.toHaveBeenCalled();
+    expect(handles.toast.show).not.toHaveBeenCalled();
+  });
+
+  it('handleSave no-ops when no workflow is selected', () => {
+    const { handles, opts } = makeOpts({ selected: null, previewWorkflow: null });
     const { result } = renderPersistence(opts);
     act(() => { result.current.handleSave(); });
     expect(handles.update).not.toHaveBeenCalled();
@@ -188,5 +288,28 @@ describe('useWorkflowPersistence hook', () => {
     act(() => { result.current.handleUpdateWorkflowVariables({ next: 'val' }); });
     expect(handles.setWorkflowVariables).toHaveBeenCalledWith({ next: 'val' });
     expect(handles.update).toHaveBeenCalledWith('wf1', expect.objectContaining({ variables: { next: 'val' } }));
+  });
+
+  it('handleCopyNode delegates to clipboard', () => {
+    const { handles, opts } = makeOpts();
+    const { result } = renderPersistence(opts);
+    act(() => { result.current.handleCopyNode('nid'); });
+    expect(handles.clipboard.copyNode).toHaveBeenCalledWith('nid');
+    act(() => { result.current.handleCopyNode(); });
+    expect(handles.clipboard.copyNode).toHaveBeenLastCalledWith(undefined);
+  });
+
+  it('insertNodeAndPersist takes snapshot, appends node, and queues persist', async () => {
+    const { handles, opts } = makeOpts();
+    handles.setNodes.mockImplementation((updater: (n: typeof opts.nodes) => typeof opts.nodes) => updater(opts.nodes));
+    const newNode = { id: 'extra', type: 'http' as const, position: { x: 10, y: 20 }, data: { label: 'Extra', scenario: { method: 'GET', url: '/x' }, initialVariables: {} } };
+    const { result } = renderPersistence(opts);
+    await act(async () => {
+      result.current.insertNodeAndPersist(newNode as never, 'Add node');
+      await new Promise<void>((r) => queueMicrotask(r));
+    });
+    expect(handles.undoRedo.takeSnapshot).toHaveBeenCalledWith('Add node');
+    expect(handles.setNodes).toHaveBeenCalled();
+    expect(handles.update).toHaveBeenCalledWith('wf1', expect.objectContaining({ nodes: expect.any(Array) }));
   });
 });

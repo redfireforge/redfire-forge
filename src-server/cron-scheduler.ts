@@ -151,7 +151,7 @@ export async function reloadSchedules(): Promise<void> {
 export function stopScheduler(): void {
   console.log('[Scheduler] Stopping all scheduled jobs...');
 
-  for (const [id, task] of activeJobs.entries()) {
+  for (const [_id, task] of activeJobs.entries()) {
     task.stop();
   }
 

@@ -12,14 +12,12 @@ vi.mock('../../../shared/utils/storage', () => {
 
 import {
   loadBaselines,
-  saveBaselines,
   markAsBaseline,
   unmarkBaseline,
   renameBaseline,
   isBaseline,
   compareRuns,
   computeTrend,
-  DEFAULT_THRESHOLDS,
   type BaselineMark,
 } from './runBaselines';
 import type { TestRun } from '../../../shared/types';
@@ -51,7 +49,7 @@ function makeRun(id: string, summaryOverrides: Partial<TestRun['summary']> = {},
     config: {
       scenarios: [],
       concurrency: 5,
-      totalTransactions: 100,
+      iterations: 100,
       executionMode: 'pool' as const,
     } as TestRun['config'],
     summary: makeSummary(summaryOverrides),
@@ -237,5 +235,138 @@ describe('computeTrend', () => {
     expect(trend[0].tps).toBe(42);
     expect(trend[0].p95ResponseTime).toBe(99);
     expect(trend[0].errorRate).toBe(2.5);
+  });
+});
+
+describe('loadBaselines edge cases', () => {
+  it('returns empty array when storage throws or contains invalid JSON', async () => {
+    const { readKey } = await import('../../../shared/utils/storage');
+    vi.mocked(readKey).mockRejectedValueOnce(new Error('storage error'));
+    expect(await loadBaselines()).toEqual([]);
+  });
+
+  it('returns empty array when stored data is not an array', async () => {
+    const { writeKey } = await import('../../../shared/utils/storage');
+    await writeKey('perf-test-baselines', JSON.stringify({ notAnArray: true }));
+    expect(await loadBaselines()).toEqual([]);
+  });
+});
+
+describe('compareRuns edge cases', () => {
+  it('handles zero baseline values for percentage calculations', () => {
+    const baseline = makeRun('b', { tps: 0, avgResponseTime: 0, errorRate: 0 });
+    const current = makeRun('c', { tps: 100, avgResponseTime: 50, errorRate: 1 });
+    const result = compareRuns(baseline, current);
+
+    const tps = result.metricDeltas.find((d) => d.metric === 'TPS');
+    expect(tps?.deltaPercent).toBe(0);
+
+    const avg = result.metricDeltas.find((d) => d.metric === 'Avg Response Time');
+    expect(avg?.deltaPercent).toBe(0);
+  });
+
+  it('handles scenarios that only exist in current run', () => {
+    const baseline = makeRun('b', {}, [makeResult('Login', 100)]);
+    const current = makeRun('c', {}, [makeResult('NewFeature', 50)]);
+    const result = compareRuns(baseline, current);
+
+    const newFeatureDelta = result.scenarioDeltas.find((d) => d.scenarioName === 'NewFeature');
+    expect(newFeatureDelta).toBeTruthy();
+    expect(newFeatureDelta!.baselineAvgTime).toBe(0);
+    expect(newFeatureDelta!.baselineCount).toBe(0);
+  });
+
+  it('handles scenarios that only exist in baseline run', () => {
+    const baseline = makeRun('b', {}, [makeResult('OldFeature', 100)]);
+    const current = makeRun('c', {}, [makeResult('Login', 50)]);
+    const result = compareRuns(baseline, current);
+
+    const oldFeatureDelta = result.scenarioDeltas.find((d) => d.scenarioName === 'OldFeature');
+    expect(oldFeatureDelta).toBeTruthy();
+    expect(oldFeatureDelta!.currentAvgTime).toBe(0);
+    expect(oldFeatureDelta!.currentCount).toBe(0);
+  });
+
+  it('detects critical TPS regression when drop exceeds 2x threshold', () => {
+    const baseline = makeRun('b', { tps: 100 });
+    const current = makeRun('c', { tps: 70 }); // -30% vs 10% threshold
+    const result = compareRuns(baseline, current);
+
+    const tpsAlert = result.regressions.find((r) => r.metric === 'TPS');
+    expect(tpsAlert?.severity).toBe('critical');
+  });
+
+  it('detects critical error rate regression when 2x threshold', () => {
+    const baseline = makeRun('b', { errorRate: 0 });
+    const current = makeRun('c', { errorRate: 5 }); // +5pp vs 1pp threshold, > 2pp
+    const result = compareRuns(baseline, current);
+
+    const errorAlert = result.regressions.find((r) => r.metric === 'Error Rate');
+    expect(errorAlert?.severity).toBe('critical');
+  });
+
+  it('detects P50 critical regression', () => {
+    const baseline = makeRun('b', { p50ResponseTime: 100 });
+    const current = makeRun('c', { p50ResponseTime: 145 }); // +45% vs 15% threshold, > 30%
+    const result = compareRuns(baseline, current);
+
+    const p50Alert = result.regressions.find((r) => r.metric === 'P50 Response Time');
+    expect(p50Alert?.severity).toBe('critical');
+  });
+
+  it('detects P99 critical regression', () => {
+    const baseline = makeRun('b', { p99ResponseTime: 100 });
+    const current = makeRun('c', { p99ResponseTime: 140 }); // +40% vs 15% threshold, > 30%
+    const result = compareRuns(baseline, current);
+
+    const p99Alert = result.regressions.find((r) => r.metric === 'P99 Response Time');
+    expect(p99Alert?.severity).toBe('critical');
+  });
+
+  it('detects avg response time critical regression', () => {
+    const baseline = makeRun('b', { avgResponseTime: 100 });
+    const current = makeRun('c', { avgResponseTime: 130 }); // +30% vs 10% threshold, > 20%
+    const result = compareRuns(baseline, current);
+
+    const avgAlert = result.regressions.find((r) => r.metric === 'Avg Response Time');
+    expect(avgAlert?.severity).toBe('critical');
+  });
+
+  it('calculates scenario error rates correctly', () => {
+    const baseline = makeRun('b', {}, [
+      makeResult('Login', 100, 200),
+      makeResult('Login', 110, 500),
+      makeResult('Login', 120, 200),
+    ]);
+    const current = makeRun('c', {}, [
+      makeResult('Login', 100, 200),
+      makeResult('Login', 110, 200),
+    ]);
+    const result = compareRuns(baseline, current);
+
+    const loginDelta = result.scenarioDeltas.find((d) => d.scenarioName === 'Login');
+    expect(loginDelta).toBeTruthy();
+    expect(loginDelta!.baselineErrorRate).toBeCloseTo(33.33, 1); // 1 error out of 3
+    expect(loginDelta!.currentErrorRate).toBe(0);
+  });
+
+  it('detects scenario regression when time delta exceeds threshold', () => {
+    const baseline = makeRun('b', {}, [makeResult('Login', 100)]);
+    const current = makeRun('c', {}, [makeResult('Login', 120)]); // +20% vs 10% threshold
+    const result = compareRuns(baseline, current);
+
+    const loginDelta = result.scenarioDeltas.find((d) => d.scenarioName === 'Login');
+    expect(loginDelta?.regressed).toBe(true);
+  });
+
+  it('handles status 0 as error', () => {
+    const run = makeRun('r', {}, [
+      makeResult('API', 100, 0), // status 0 = error (e.g., network failure)
+      makeResult('API', 110, 200),
+    ]);
+    const result = compareRuns(run, run);
+
+    const apiDelta = result.scenarioDeltas.find((d) => d.scenarioName === 'API');
+    expect(apiDelta?.baselineErrorRate).toBe(50); // 1 error out of 2
   });
 });

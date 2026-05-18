@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import type { Scenario, BodyType, KeyValue } from '../../../shared/types';
+import { CodeTextarea } from './CodeTextarea';
 
 const BODY_TYPE_GROUPS: { label: string; icon: string; types: { value: BodyType; label: string }[] }[] = [
   {
@@ -197,12 +198,11 @@ export function BodyEditor({ draft, onDraftChange }: BodyEditorProps) {
       )}
 
       {isTextType && (
-        <textarea
-          className="body-editor"
-          rows={14}
+        <CodeTextarea
           value={draft.body}
-          onChange={(e) => onDraftChange({ ...draft, body: e.target.value })}
+          onChange={(body) => onDraftChange({ ...draft, body })}
           placeholder={PLACEHOLDER_MAP[bodyType] || ''}
+          bodyType={bodyType}
         />
       )}
 

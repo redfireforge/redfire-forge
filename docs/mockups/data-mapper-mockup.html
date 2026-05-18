@@ -1,0 +1,1190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Data Mapper — RedfireForge Mockup</title>
+<style>
+  /* ─── Theme tokens (matching RedfireForge dark) ─── */
+  :root {
+    --bg: #0f172a;
+    --surface: #1e293b;
+    --surface-hover: #2d3a4d;
+    --border: #3b4a60;
+    --text: #f1f5f9;
+    --text-muted: #a8b8cc;
+    --primary: #3b82f6;
+    --primary-hover: #2563eb;
+    --danger: #ef4444;
+    --success: #22c55e;
+    --warning: #f59e0b;
+    --accent: #8b5cf6;
+    --radius: 8px;
+    --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --overlay-bg: rgba(0, 0, 0, 0.6);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ─── Modal overlay ─── */
+  .mapper-overlay {
+    position: fixed; inset: 0;
+    background: var(--overlay-bg);
+    z-index: 1000;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .mapper-modal {
+    width: 96vw; height: 94vh;
+    background: var(--bg);
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    display: flex; flex-direction: column;
+    box-shadow: 0 25px 60px rgba(0,0,0,0.5);
+    overflow: hidden;
+  }
+
+  /* ─── Header ─── */
+  .mapper-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    flex-shrink: 0;
+  }
+  .mapper-header-left { display: flex; align-items: center; gap: 12px; }
+  .mapper-header-left h2 { font-size: 1rem; font-weight: 600; }
+  .mapper-header-left .mapper-context {
+    font-size: 0.75rem; color: var(--text-muted);
+    background: rgba(139, 92, 246, 0.12);
+    padding: 3px 10px; border-radius: 12px;
+    border: 1px solid rgba(139, 92, 246, 0.25);
+  }
+  .mapper-header-right { display: flex; align-items: center; gap: 8px; }
+
+  /* ─── Toolbar ─── */
+  .mapper-toolbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 20px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    flex-shrink: 0;
+    gap: 8px;
+  }
+  .toolbar-group { display: flex; align-items: center; gap: 6px; }
+
+  /* ─── Buttons ─── */
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 6px 14px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    font-size: 0.8rem;
+    font-family: var(--font);
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .btn:hover { background: var(--surface-hover); border-color: var(--text-muted); }
+  .btn-primary { background: var(--primary); border-color: var(--primary); color: #fff; }
+  .btn-primary:hover { background: var(--primary-hover); }
+  .btn-success { background: var(--success); border-color: var(--success); color: #fff; }
+  .btn-success:hover { opacity: 0.9; }
+  .btn-ghost { border-color: transparent; background: transparent; }
+  .btn-ghost:hover { background: var(--surface-hover); }
+  .btn-sm { padding: 4px 10px; font-size: 0.75rem; }
+  .btn-icon { padding: 5px 8px; font-size: 0.85rem; }
+  .btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+  .view-toggle { display: flex; border-radius: 6px; overflow: hidden; border: 1px solid var(--border); }
+  .view-toggle .btn { border-radius: 0; border: none; border-right: 1px solid var(--border); }
+  .view-toggle .btn:last-child { border-right: none; }
+
+  /* ─── Main body ─── */
+  .mapper-body {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* ─── Source / Target panels ─── */
+  .panel {
+    display: flex; flex-direction: column;
+    border-right: 1px solid var(--border);
+    min-width: 0;
+  }
+  .panel:last-child { border-right: none; }
+  .source-panel { width: 32%; }
+  .target-panel { width: 32%; border-left: 1px solid var(--border); }
+  .canvas-panel { flex: 1; position: relative; overflow: hidden; }
+
+  .panel-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    flex-shrink: 0;
+  }
+  .panel-title {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+    display: flex; align-items: center; gap: 6px;
+  }
+  .panel-title .count {
+    background: rgba(59, 130, 246, 0.15);
+    color: var(--primary);
+    padding: 1px 7px; border-radius: 10px;
+    font-size: 0.7rem;
+  }
+
+  /* Source tabs */
+  .source-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    flex-shrink: 0;
+  }
+  .source-tab {
+    padding: 8px 16px;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.15s;
+    display: flex; align-items: center; gap: 5px;
+  }
+  .source-tab:hover { color: var(--text); background: var(--surface-hover); }
+  .source-tab.active {
+    color: var(--primary);
+    border-bottom-color: var(--primary);
+    background: rgba(59, 130, 246, 0.06);
+  }
+  .source-tab .dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    display: inline-block;
+  }
+  .dot-body { background: var(--primary); }
+  .dot-headers { background: var(--accent); }
+  .dot-status { background: var(--success); }
+
+  /* Search */
+  .panel-search {
+    padding: 8px 14px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .search-input {
+    width: 100%;
+    padding: 6px 10px 6px 30px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    font-size: 0.8rem;
+    font-family: var(--font);
+    outline: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23a8b8cc' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='8'%3E%3C/circle%3E%3Cline x1='21' y1='21' x2='16.65' y2='16.65'%3E%3C/line%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: 8px center;
+  }
+  .search-input::placeholder { color: var(--text-muted); opacity: 0.6; }
+  .search-input:focus { border-color: var(--primary); }
+
+  /* Tree */
+  .tree-container {
+    flex: 1; overflow-y: auto; overflow-x: hidden;
+    padding: 6px 0;
+  }
+  .tree-container::-webkit-scrollbar { width: 6px; }
+  .tree-container::-webkit-scrollbar-track { background: transparent; }
+  .tree-container::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  .tree-node {
+    display: flex; align-items: center;
+    padding: 5px 14px 5px calc(14px + var(--depth, 0) * 18px);
+    cursor: pointer;
+    transition: background 0.1s;
+    position: relative;
+    user-select: none;
+  }
+  .tree-node:hover { background: var(--surface-hover); }
+  .tree-node.dragging { opacity: 0.4; }
+  .tree-node.drag-over {
+    background: rgba(59, 130, 246, 0.12);
+    outline: 1px dashed var(--primary);
+    outline-offset: -1px;
+  }
+  .tree-node.mapped {
+    background: rgba(34, 197, 94, 0.06);
+  }
+  .tree-node.mapped::before {
+    content: '';
+    position: absolute; left: 0; top: 0; bottom: 0;
+    width: 3px;
+    background: var(--success);
+    border-radius: 0 2px 2px 0;
+  }
+
+  .tree-chevron {
+    width: 16px; height: 16px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    flex-shrink: 0;
+    transition: transform 0.15s;
+  }
+  .tree-chevron.expanded { transform: rotate(90deg); }
+  .tree-chevron.leaf { visibility: hidden; }
+
+  .tree-key {
+    font-size: 0.82rem;
+    margin-left: 4px;
+    font-weight: 500;
+  }
+  .tree-type {
+    font-size: 0.65rem;
+    padding: 1px 5px;
+    border-radius: 3px;
+    margin-left: 6px;
+    font-weight: 500;
+    flex-shrink: 0;
+  }
+  .type-string { color: #86efac; background: rgba(34, 197, 94, 0.1); }
+  .type-number { color: #93c5fd; background: rgba(59, 130, 246, 0.1); }
+  .type-boolean { color: #fcd34d; background: rgba(245, 158, 11, 0.1); }
+  .type-object { color: #c4b5fd; background: rgba(139, 92, 246, 0.1); }
+  .type-array { color: #f9a8d4; background: rgba(236, 72, 153, 0.1); }
+  .type-null { color: #94a3b8; background: rgba(100, 116, 139, 0.1); }
+
+  .tree-value {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-left: auto;
+    padding-left: 12px;
+    max-width: 180px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    opacity: 0.7;
+  }
+
+  .tree-drag-handle {
+    opacity: 0;
+    margin-left: 6px;
+    cursor: grab;
+    color: var(--text-muted);
+    font-size: 0.7rem;
+    flex-shrink: 0;
+    transition: opacity 0.15s;
+  }
+  .tree-node:hover .tree-drag-handle { opacity: 1; }
+
+  /* Target specific */
+  .target-mapped-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 0.7rem;
+    color: var(--success);
+    margin-left: auto;
+    padding-left: 8px;
+    flex-shrink: 0;
+  }
+  .target-mapped-badge .source-ref {
+    background: rgba(34, 197, 94, 0.12);
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 0.68rem;
+  }
+  .target-expression-badge {
+    display: inline-flex; align-items: center; gap: 3px;
+    font-size: 0.68rem;
+    color: var(--accent);
+    margin-left: auto;
+    padding-left: 8px;
+    flex-shrink: 0;
+    cursor: pointer;
+  }
+  .target-expression-badge:hover { color: #a78bfa; }
+
+  .target-unmapped {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    opacity: 0.4;
+    margin-left: auto;
+    padding-left: 8px;
+  }
+
+  .target-required::after {
+    content: '*';
+    color: var(--danger);
+    margin-left: 2px;
+    font-weight: 700;
+  }
+
+  .target-fx-btn {
+    opacity: 0;
+    margin-left: 4px;
+    padding: 1px 5px;
+    border-radius: 3px;
+    border: 1px solid var(--accent);
+    background: transparent;
+    color: var(--accent);
+    font-size: 0.6rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-family: var(--font);
+  }
+  .tree-node:hover .target-fx-btn { opacity: 1; }
+  .target-fx-btn:hover { background: var(--accent); color: #fff; }
+
+  /* ─── Canvas (SVG connections) ─── */
+  .canvas-panel {
+    background:
+      radial-gradient(circle, rgba(148,163,184,0.06) 1px, transparent 1px);
+    background-size: 20px 20px;
+  }
+  .canvas-panel svg {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+  }
+  .mapping-line {
+    fill: none;
+    stroke: var(--success);
+    stroke-width: 2;
+    opacity: 0.6;
+    transition: opacity 0.2s;
+  }
+  .mapping-line.highlighted {
+    stroke-width: 2.5;
+    opacity: 1;
+    filter: drop-shadow(0 0 4px rgba(34, 197, 94, 0.4));
+  }
+  .mapping-line.expression {
+    stroke: var(--accent);
+    stroke-dasharray: 6 3;
+  }
+  .mapping-line.auto-mapped {
+    stroke: var(--warning);
+    stroke-dasharray: 4 4;
+    opacity: 0.5;
+  }
+
+  .canvas-label {
+    position: absolute;
+    font-size: 0.65rem;
+    padding: 2px 8px;
+    border-radius: 4px;
+    white-space: nowrap;
+    pointer-events: auto;
+    cursor: pointer;
+  }
+  .canvas-label-mapped {
+    background: rgba(34, 197, 94, 0.15);
+    color: var(--success);
+    border: 1px solid rgba(34, 197, 94, 0.3);
+  }
+  .canvas-label-expr {
+    background: rgba(139, 92, 246, 0.15);
+    color: #c4b5fd;
+    border: 1px solid rgba(139, 92, 246, 0.3);
+  }
+  .canvas-label-auto {
+    background: rgba(245, 158, 11, 0.15);
+    color: var(--warning);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+  }
+
+  .canvas-empty {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    gap: 12px;
+    opacity: 0;
+    pointer-events: none;
+  }
+  .canvas-empty .icon { font-size: 2.5rem; opacity: 0.3; }
+  .canvas-empty .hint { font-size: 0.82rem; text-align: center; line-height: 1.6; }
+
+  /* ─── Preview bar ─── */
+  .preview-bar {
+    border-top: 1px solid var(--border);
+    background: var(--surface);
+    flex-shrink: 0;
+    overflow: hidden;
+    transition: height 0.2s;
+  }
+  .preview-bar.collapsed { height: 36px; }
+  .preview-bar.expanded { height: 220px; }
+  .preview-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 20px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .preview-header:hover { background: var(--surface-hover); }
+  .preview-header-left { display: flex; align-items: center; gap: 8px; }
+  .preview-header-left .label {
+    font-size: 0.75rem; font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+  }
+  .preview-header-left .status {
+    font-size: 0.7rem;
+    padding: 2px 8px;
+    border-radius: 10px;
+  }
+  .status-ok { background: rgba(34, 197, 94, 0.12); color: var(--success); }
+  .status-warn { background: rgba(245, 158, 11, 0.12); color: var(--warning); }
+
+  .preview-body {
+    display: flex;
+    height: calc(100% - 36px);
+    overflow: hidden;
+  }
+  .preview-pane {
+    flex: 1;
+    padding: 8px 16px;
+    overflow: auto;
+    font-size: 0.75rem;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    line-height: 1.5;
+  }
+  .preview-pane:first-child { border-right: 1px solid var(--border); }
+  .preview-pane-label {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+    font-family: var(--font);
+    font-weight: 600;
+  }
+  .preview-pane pre {
+    color: var(--text);
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .json-key { color: #93c5fd; }
+  .json-string { color: #86efac; }
+  .json-number { color: #fcd34d; }
+  .json-bool { color: #f9a8d4; }
+  .json-null { color: #94a3b8; }
+
+  /* ─── Expression editor modal ─── */
+  .expr-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 2000;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .expr-modal {
+    width: 640px;
+    background: var(--surface);
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    box-shadow: 0 20px 50px rgba(0,0,0,0.4);
+    overflow: hidden;
+  }
+  .expr-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .expr-header h3 { font-size: 0.9rem; font-weight: 600; }
+  .expr-body { display: flex; flex-direction: column; }
+  .expr-editor {
+    padding: 12px 16px;
+    min-height: 120px;
+    border-bottom: 1px solid var(--border);
+  }
+  .expr-editor textarea {
+    width: 100%;
+    min-height: 80px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 0.82rem;
+    padding: 10px;
+    resize: vertical;
+    outline: none;
+  }
+  .expr-editor textarea:focus { border-color: var(--accent); }
+
+  .expr-functions {
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .expr-fn-label {
+    font-size: 0.7rem; color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 6px;
+  }
+  .expr-fn-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+  .expr-fn-chip {
+    padding: 3px 8px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--accent);
+    font-size: 0.7rem;
+    font-family: 'SF Mono', monospace;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .expr-fn-chip:hover { background: rgba(139, 92, 246, 0.12); border-color: var(--accent); }
+
+  .expr-preview {
+    padding: 10px 16px;
+  }
+  .expr-preview-label {
+    font-size: 0.7rem; color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 4px;
+  }
+  .expr-preview-value {
+    font-family: 'SF Mono', monospace;
+    font-size: 0.8rem;
+    color: var(--success);
+    background: var(--bg);
+    padding: 6px 10px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+  }
+  .expr-footer {
+    display: flex; align-items: center; justify-content: flex-end;
+    padding: 10px 16px;
+    gap: 8px;
+    border-top: 1px solid var(--border);
+  }
+
+  /* ─── Auto-map notification ─── */
+  .automap-banner {
+    position: absolute;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(245, 158, 11, 0.12);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    color: var(--warning);
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    display: flex; align-items: center; gap: 10px;
+    z-index: 10;
+    backdrop-filter: blur(8px);
+  }
+  .automap-banner .btn { font-size: 0.72rem; padding: 3px 10px; }
+
+  /* ─── Footer ─── */
+  .mapper-footer {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 20px;
+    border-top: 1px solid var(--border);
+    background: var(--surface);
+    flex-shrink: 0;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+  }
+  .mapper-footer .stats { display: flex; gap: 16px; }
+  .mapper-footer .stat { display: flex; align-items: center; gap: 4px; }
+  .stat-value { color: var(--text); font-weight: 600; }
+
+  .kbd {
+    display: inline-block;
+    padding: 1px 5px;
+    border-radius: 3px;
+    border: 1px solid var(--border);
+    background: var(--surface-hover);
+    font-size: 0.65rem;
+    font-family: var(--font);
+    margin: 0 1px;
+  }
+
+  /* ─── Animations ─── */
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .mapper-modal { animation: fadeIn 0.2s ease-out; }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 1; }
+  }
+  .mapping-line.auto-mapped { animation: pulse 2s ease-in-out infinite; }
+
+  /* ─── Data source option badges ─── */
+  .source-option-group {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .source-option-label {
+    font-size: 0.68rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 8px;
+  }
+  .source-options { display: flex; gap: 6px; flex-wrap: wrap; }
+  .source-option {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 6px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    font-size: 0.78rem;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .source-option:hover { border-color: var(--primary); background: rgba(59,130,246,0.06); }
+  .source-option.active { border-color: var(--primary); background: rgba(59,130,246,0.1); color: var(--primary); }
+  .source-option .opt-icon { font-size: 0.9rem; }
+  .source-option .opt-label { font-weight: 500; }
+  .source-option .opt-desc { font-size: 0.68rem; color: var(--text-muted); }
+
+  /* ─── Responsive ─── */
+  @media (max-width: 1200px) {
+    .source-panel, .target-panel { width: 30%; }
+    .tree-value { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════════════════════ -->
+<!--  UNIVERSAL MAPPER MODAL                                     -->
+<!-- ════════════════════════════════════════════════════════════ -->
+<div class="mapper-overlay">
+  <div class="mapper-modal">
+
+    <!-- ── Header ── -->
+    <div class="mapper-header">
+      <div class="mapper-header-left">
+        <h2>⚡ Data Mapper</h2>
+        <span class="mapper-context">HTTP Extraction — Get User Profile</span>
+      </div>
+      <div class="mapper-header-right">
+        <button class="btn btn-ghost btn-sm" title="Help">? Help</button>
+        <button class="btn btn-ghost btn-icon" title="Close mapper" onclick="document.querySelector('.expr-overlay').style.display='flex'">✕</button>
+      </div>
+    </div>
+
+    <!-- ── Toolbar ── -->
+    <div class="mapper-toolbar">
+      <div class="toolbar-group">
+        <button class="btn btn-sm" title="Auto-map fields by matching names">
+          <span>✨</span> Auto-map
+        </button>
+        <button class="btn btn-sm" title="Clear all mappings">
+          <span>🗑</span> Clear All
+        </button>
+        <span style="width: 1px; height: 20px; background: var(--border);"></span>
+        <button class="btn btn-sm" title="Import mapping profile">↑ Import</button>
+        <button class="btn btn-sm" title="Export mapping profile">↓ Export</button>
+      </div>
+      <div class="toolbar-group">
+        <div class="view-toggle">
+          <button class="btn btn-sm active">Visual</button>
+          <button class="btn btn-sm">Code</button>
+        </div>
+        <span style="width: 1px; height: 20px; background: var(--border);"></span>
+        <button class="btn btn-sm btn-primary" title="Test mappings with sample data">
+          ▶ Test
+        </button>
+        <button class="btn btn-sm btn-success">
+          ✓ Apply
+        </button>
+      </div>
+    </div>
+
+    <!-- ── Main Body: Source | Canvas | Target ── -->
+    <div class="mapper-body">
+
+      <!-- ─── SOURCE PANEL ─── -->
+      <div class="panel source-panel">
+        <div class="panel-header">
+          <div class="panel-title">
+            Source
+            <span class="count">12 fields</span>
+          </div>
+          <button class="btn btn-sm btn-ghost" title="Fetch fresh sample">⬇ Fetch Sample</button>
+        </div>
+
+        <!-- Source data options -->
+        <div class="source-option-group">
+          <div class="source-option-label">Data Source</div>
+          <div class="source-options">
+            <div class="source-option active">
+              <span class="opt-icon">⬇</span>
+              <span class="opt-label">Fetch Sample</span>
+            </div>
+            <div class="source-option">
+              <span class="opt-icon">📋</span>
+              <span class="opt-label">Paste JSON</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Source tabs (body/headers/status) -->
+        <div class="source-tabs">
+          <div class="source-tab active">
+            <span class="dot dot-body"></span> Body
+          </div>
+          <div class="source-tab">
+            <span class="dot dot-headers"></span> Headers
+          </div>
+          <div class="source-tab">
+            <span class="dot dot-status"></span> Status
+          </div>
+        </div>
+
+        <div class="panel-search">
+          <input type="text" class="search-input" placeholder="Search fields...">
+        </div>
+
+        <!-- Source Tree -->
+        <div class="tree-container">
+          <!-- Root object -->
+          <div class="tree-node" style="--depth: 0" draggable="true">
+            <span class="tree-chevron expanded">▶</span>
+            <span class="tree-key">response</span>
+            <span class="tree-type type-object">obj</span>
+          </div>
+
+          <!-- data object -->
+          <div class="tree-node" style="--depth: 1" draggable="true">
+            <span class="tree-chevron expanded">▶</span>
+            <span class="tree-key">data</span>
+            <span class="tree-type type-object">obj</span>
+          </div>
+
+          <!-- user object -->
+          <div class="tree-node" style="--depth: 2" draggable="true">
+            <span class="tree-chevron expanded">▶</span>
+            <span class="tree-key">user</span>
+            <span class="tree-type type-object">obj</span>
+          </div>
+
+          <!-- Leaf fields -->
+          <div class="tree-node" style="--depth: 3" draggable="true" id="src-user-id">
+            <span class="tree-chevron leaf">▶</span>
+            <span class="tree-key">id</span>
+            <span class="tree-type type-number">num</span>
+            <span class="tree-value">42</span>
+            <span class="tree-drag-handle">⠿</span>
+          </div>
+
+          <div class="tree-node" style="--depth: 3" draggable="true" id="src-user-email">
+            <span class="tree-chevron leaf">▶</span>
+            <span class="tree-key">email</span>
+            <span class="tree-type type-string">str</span>
+            <span class="tree-value">"john@example.com"</span>
+            <span class="tree-drag-handle">⠿</span>
+          </div>
+
+          <div class="tree-node" style="--depth: 3" draggable="true" id="src-user-firstName">
+            <span class="tree-chevron leaf">▶</span>
+            <span class="tree-key">firstName</span>
+            <span class="tree-type type-string">str</span>
+            <span class="tree-value">"John"</span>
+            <span class="tree-drag-handle">⠿</span>
+          </div>
+
+          <div class="tree-node" style="--depth: 3" draggable="true" id="src-user-lastName">
+            <span class="tree-chevron leaf">▶</span>
+            <span class="tree-key">lastName</span>
+            <span class="tree-type type-string">str</span>
+            <span class="tree-value">"Doe"</span>
+            <span class="tree-drag-handle">⠿</span>
+          </div>
+
+          <div class="tree-node" style="--depth: 3" draggable="true">
+            <span class="tree-chevron leaf">▶</span>
+            <span class="tree-key">isActive</span>
+            <span class="tree-type type-boolean">bool</span>
+            <span class="tree-value">true</span>
+            <span class="tree-drag-handle">⠿</span>
+          </div>
+
+          <div class="tree-node" style="--depth: 3" draggable="true">
+            <span class="tree-chevron leaf">▶</span>
+            <span class="tree-key">role</span>
+            <span class="tree-type type-string">str</span>
+            <span class="tree-value">"admin"</span>
+            <span class="tree-drag-handle">⠿</span>
+          </div>
+
+          <!-- addresses array -->
+          <div class="tree-node" style="--depth: 2" draggable="true">
+            <span class="tree-chevron expanded">▶</span>
+            <span class="tree-key">addresses</span>
+            <span class="tree-type type-array">arr[2]</span>
+          </div>
+
+          <div class="tree-node" style="--depth: 3" draggable="true">
+            <span class="tree-chevron expanded">▶</span>
+            <span class="tree-key">[0]</span>
+            <span class="tree-type type-object">obj</span>
+          </div>
+
+          <div class="tree-node" style="--depth: 4" draggable="true" id="src-addr-city">
+            <span class="tree-chevron leaf">▶</span>
+            <span class="tree-key">city</span>
+            <span class="tree-type type-string">str</span>
+            <span class="tree-value">"New York"</span>
+            <span class="tree-drag-handle">⠿</span>
+          </div>
+
+          <div class="tree-node" style="--depth: 4" draggable="true" id="src-addr-zip">
+            <span class="tree-chevron leaf">▶</span>
+            <span class="tree-key">zipCode</span>
+            <span class="tree-type type-string">str</span>
+            <span class="tree-value">"10001"</span>
+            <span class="tree-drag-handle">⠿</span>
+          </div>
+
+          <!-- metadata -->
+          <div class="tree-node" style="--depth: 1" draggable="true">
+            <span class="tree-chevron expanded">▶</span>
+            <span class="tree-key">metadata</span>
+            <span class="tree-type type-object">obj</span>
+          </div>
+
+          <div class="tree-node" style="--depth: 2" draggable="true" id="src-timestamp">
+            <span class="tree-chevron leaf">▶</span>
+            <span class="tree-key">timestamp</span>
+            <span class="tree-type type-string">str</span>
+            <span class="tree-value">"2026-05-10T14:30:00Z"</span>
+            <span class="tree-drag-handle">⠿</span>
+          </div>
+
+          <div class="tree-node" style="--depth: 2" draggable="true">
+            <span class="tree-chevron leaf">▶</span>
+            <span class="tree-key">requestId</span>
+            <span class="tree-type type-string">str</span>
+            <span class="tree-value">"req_abc123"</span>
+            <span class="tree-drag-handle">⠿</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ─── CANVAS PANEL (connection lines) ─── -->
+      <div class="canvas-panel">
+        <svg viewBox="0 0 1000 800" preserveAspectRatio="none">
+          <!-- Mapping: id → userId (direct) -->
+          <path class="mapping-line highlighted" d="M 0,148 C 160,148 340,100 500,100" />
+          <!-- Mapping: email → userEmail (direct) -->
+          <path class="mapping-line" d="M 0,178 C 160,178 340,140 500,140" />
+          <!-- Mapping: firstName+lastName → fullName (expression) -->
+          <path class="mapping-line expression highlighted" d="M 0,208 C 140,208 340,180 500,180" />
+          <path class="mapping-line expression" d="M 0,238 C 140,238 340,184 500,184" style="opacity: 0.35" />
+          <!-- Mapping: city → city (auto-mapped, pending) -->
+          <path class="mapping-line auto-mapped" d="M 0,348 C 160,348 340,300 500,300" />
+          <!-- Mapping: timestamp → extractedAt (direct) -->
+          <path class="mapping-line" d="M 0,418 C 160,418 340,340 500,340" />
+        </svg>
+
+        <!-- Auto-map banner -->
+        <div class="automap-banner">
+          <span>✨</span>
+          <span><strong>3 auto-mapped fields</strong> found by name matching</span>
+          <button class="btn btn-sm" style="background: rgba(245,158,11,0.2); border-color: var(--warning); color: var(--warning);">Accept All</button>
+          <button class="btn btn-sm btn-ghost" style="color: var(--text-muted);">Dismiss</button>
+        </div>
+
+        <!-- Expression badge on canvas -->
+        <div class="canvas-label canvas-label-expr" style="top: 180px; left: calc(50% - 80px);" onclick="document.querySelector('.expr-overlay').style.display='flex'">
+          ƒx concat(first, last)
+        </div>
+        <div class="canvas-label canvas-label-auto" style="top: 290px; left: calc(50% - 50px);">
+          ≈ auto: city
+        </div>
+      </div>
+
+      <!-- ─── TARGET PANEL ─── -->
+      <div class="panel target-panel">
+        <div class="panel-header">
+          <div class="panel-title">
+            Target — Extraction Variables
+            <span class="count">6 fields</span>
+          </div>
+          <button class="btn btn-sm btn-ghost" title="Add custom field">+ Field</button>
+        </div>
+
+        <div class="panel-search">
+          <input type="text" class="search-input" placeholder="Search target fields...">
+        </div>
+
+        <div class="tree-container">
+          <!-- Mapped: userId ← data.user.id -->
+          <div class="tree-node mapped" style="--depth: 0" id="tgt-userId">
+            <span class="tree-chevron leaf">▶</span>
+            <span class="tree-key target-required">userId</span>
+            <span class="tree-type type-number">num</span>
+            <span class="target-mapped-badge">
+              ← <span class="source-ref">$.data.user.id</span>
+            </span>
+            <button class="target-fx-btn" title="Add expression">ƒx</button>
+          </div>
+
+          <!-- Mapped: userEmail ← data.user.email -->
+          <div class="tree-node mapped" style="--depth: 0" id="tgt-userEmail">
+            <span class="tree-chevron leaf">▶</span>
+            <span class="tree-key target-required">userEmail</span>
+            <span class="tree-type type-string">str</span>
+            <span class="target-mapped-badge">
+              ← <span class="source-ref">$.data.user.email</span>
+            </span>
+            <button class="target-fx-btn" title="Add expression">ƒx</button>
+          </div>
+
+          <!-- Expression: fullName ← firstName + " " + lastName -->
+          <div class="tree-node mapped" style="--depth: 0" id="tgt-fullName" onclick="document.querySelector('.expr-overlay').style.display='flex'">
+            <span class="tree-chevron leaf">▶</span>
+            <span class="tree-key">fullName</span>
+            <span class="tree-type type-string">str</span>
+            <span class="target-expression-badge" title="Click to edit expression">
+              ƒx firstName + " " + lastName
+            </span>
+          </div>
+
+          <!-- Unmapped targets -->
+          <div class="tree-node" style="--depth: 0" id="tgt-status">
+            <span class="tree-chevron leaf">▶</span>
+            <span class="tree-key target-required">userStatus</span>
+            <span class="tree-type type-string">str</span>
+            <span class="target-unmapped">— drop source field here</span>
+            <button class="target-fx-btn" title="Add expression">ƒx</button>
+          </div>
+
+          <!-- Auto-mapped (pending): city -->
+          <div class="tree-node" style="--depth: 0; background: rgba(245,158,11,0.06);" id="tgt-city">
+            <span class="tree-chevron leaf">▶</span>
+            <span class="tree-key">city</span>
+            <span class="tree-type type-string">str</span>
+            <span class="target-mapped-badge" style="color: var(--warning);">
+              ≈ <span class="source-ref" style="background: rgba(245,158,11,0.12); color: var(--warning);">$.data.addresses[0].city</span>
+            </span>
+            <button class="target-fx-btn" title="Add expression">ƒx</button>
+          </div>
+
+          <!-- Mapped: extractedAt -->
+          <div class="tree-node mapped" style="--depth: 0" id="tgt-extractedAt">
+            <span class="tree-chevron leaf">▶</span>
+            <span class="tree-key">extractedAt</span>
+            <span class="tree-type type-string">str</span>
+            <span class="target-mapped-badge">
+              ← <span class="source-ref">$.metadata.timestamp</span>
+            </span>
+            <button class="target-fx-btn" title="Add expression">ƒx</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Preview Bar ── -->
+    <div class="preview-bar expanded" id="previewBar">
+      <div class="preview-header" onclick="togglePreview()">
+        <div class="preview-header-left">
+          <span style="font-size: 0.7rem;">▼</span>
+          <span class="label">Live Preview</span>
+          <span class="status status-ok">✓ 5/6 mapped</span>
+          <span class="status status-warn">⚠ 1 required unmapped</span>
+        </div>
+        <div style="font-size: 0.7rem; color: var(--text-muted);">
+          Last tested: just now
+        </div>
+      </div>
+      <div class="preview-body">
+        <div class="preview-pane">
+          <div class="preview-pane-label">Sample Input (from Fetch)</div>
+          <pre>{
+  <span class="json-key">"data"</span>: {
+    <span class="json-key">"user"</span>: {
+      <span class="json-key">"id"</span>: <span class="json-number">42</span>,
+      <span class="json-key">"email"</span>: <span class="json-string">"john@example.com"</span>,
+      <span class="json-key">"firstName"</span>: <span class="json-string">"John"</span>,
+      <span class="json-key">"lastName"</span>: <span class="json-string">"Doe"</span>,
+      <span class="json-key">"isActive"</span>: <span class="json-bool">true</span>,
+      <span class="json-key">"role"</span>: <span class="json-string">"admin"</span>
+    },
+    <span class="json-key">"addresses"</span>: [
+      { <span class="json-key">"city"</span>: <span class="json-string">"New York"</span>, <span class="json-key">"zipCode"</span>: <span class="json-string">"10001"</span> }
+    ]
+  },
+  <span class="json-key">"metadata"</span>: {
+    <span class="json-key">"timestamp"</span>: <span class="json-string">"2026-05-10T14:30:00Z"</span>,
+    <span class="json-key">"requestId"</span>: <span class="json-string">"req_abc123"</span>
+  }
+}</pre>
+        </div>
+        <div class="preview-pane">
+          <div class="preview-pane-label">Mapped Output</div>
+          <pre>{
+  <span class="json-key">"userId"</span>: <span class="json-number">42</span>,
+  <span class="json-key">"userEmail"</span>: <span class="json-string">"john@example.com"</span>,
+  <span class="json-key">"fullName"</span>: <span class="json-string">"John Doe"</span>,
+  <span class="json-key">"userStatus"</span>: <span class="json-null">null</span>,  <span style="color: var(--danger); font-size: 0.7rem;">← unmapped (required)</span>
+  <span class="json-key">"city"</span>: <span class="json-string">"New York"</span>,  <span style="color: var(--warning); font-size: 0.7rem;">← auto-mapped (pending)</span>
+  <span class="json-key">"extractedAt"</span>: <span class="json-string">"2026-05-10T14:30:00Z"</span>
+}</pre>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Footer ── -->
+    <div class="mapper-footer">
+      <div class="stats">
+        <span class="stat"><span class="stat-value" style="color: var(--success);">4</span> mapped</span>
+        <span class="stat"><span class="stat-value" style="color: var(--warning);">1</span> auto (pending)</span>
+        <span class="stat"><span class="stat-value" style="color: var(--danger);">1</span> unmapped</span>
+        <span class="stat"><span class="stat-value" style="color: var(--accent);">1</span> with expression</span>
+      </div>
+      <div>
+        <kbd class="kbd">Drag</kbd> to map · 
+        <kbd class="kbd">ƒx</kbd> for expression · 
+        <kbd class="kbd">Del</kbd> to remove · 
+        <kbd class="kbd">Esc</kbd> to close
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════ -->
+<!--  EXPRESSION EDITOR MODAL                                    -->
+<!-- ════════════════════════════════════════════════════════════ -->
+<div class="expr-overlay" style="display: none;" id="exprOverlay">
+  <div class="expr-modal">
+    <div class="expr-header">
+      <h3>ƒx Expression — fullName</h3>
+      <button class="btn btn-ghost btn-icon" onclick="document.querySelector('.expr-overlay').style.display='none'">✕</button>
+    </div>
+    <div class="expr-body">
+      <div class="expr-editor">
+        <div style="font-size: 0.7rem; color: var(--text-muted); margin-bottom: 6px;">EXPRESSION</div>
+        <textarea>source.data.user.firstName + " " + source.data.user.lastName</textarea>
+      </div>
+
+      <div class="expr-functions">
+        <div class="expr-fn-label">Available Functions</div>
+        <div class="expr-fn-chips">
+          <span class="expr-fn-chip">$uppercase()</span>
+          <span class="expr-fn-chip">$lowercase()</span>
+          <span class="expr-fn-chip">$trim()</span>
+          <span class="expr-fn-chip">$default()</span>
+          <span class="expr-fn-chip">$dateFormat()</span>
+          <span class="expr-fn-chip">$parseInt()</span>
+          <span class="expr-fn-chip">$join()</span>
+          <span class="expr-fn-chip">$split()</span>
+          <span class="expr-fn-chip">$length()</span>
+          <span class="expr-fn-chip">$substring()</span>
+          <span class="expr-fn-chip">$replace()</span>
+          <span class="expr-fn-chip">$match()</span>
+          <span class="expr-fn-chip">$map()</span>
+          <span class="expr-fn-chip">$filter()</span>
+          <span class="expr-fn-chip">$first()</span>
+          <span class="expr-fn-chip">$last()</span>
+        </div>
+      </div>
+
+      <div style="padding: 10px 16px; border-bottom: 1px solid var(--border);">
+        <div class="expr-fn-label">Available Source Fields</div>
+        <div class="expr-fn-chips">
+          <span class="expr-fn-chip" style="color: var(--primary); border-color: rgba(59,130,246,0.3);">source.data.user.id</span>
+          <span class="expr-fn-chip" style="color: var(--primary); border-color: rgba(59,130,246,0.3);">source.data.user.email</span>
+          <span class="expr-fn-chip" style="color: var(--primary); border-color: rgba(59,130,246,0.3); background: rgba(59,130,246,0.08);">source.data.user.firstName</span>
+          <span class="expr-fn-chip" style="color: var(--primary); border-color: rgba(59,130,246,0.3); background: rgba(59,130,246,0.08);">source.data.user.lastName</span>
+          <span class="expr-fn-chip" style="color: var(--primary); border-color: rgba(59,130,246,0.3);">source.data.user.isActive</span>
+          <span class="expr-fn-chip" style="color: var(--primary); border-color: rgba(59,130,246,0.3);">source.data.user.role</span>
+          <span class="expr-fn-chip" style="color: var(--primary); border-color: rgba(59,130,246,0.3);">source.data.addresses[0].city</span>
+          <span class="expr-fn-chip" style="color: var(--primary); border-color: rgba(59,130,246,0.3);">source.metadata.timestamp</span>
+        </div>
+      </div>
+
+      <div class="expr-preview">
+        <div class="expr-preview-label">Preview (against sample data)</div>
+        <div class="expr-preview-value">"John Doe"</div>
+      </div>
+    </div>
+    <div class="expr-footer">
+      <button class="btn btn-sm" onclick="document.querySelector('.expr-overlay').style.display='none'">Cancel</button>
+      <button class="btn btn-sm btn-primary" onclick="document.querySelector('.expr-overlay').style.display='none'">Apply Expression</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  function togglePreview() {
+    const bar = document.getElementById('previewBar');
+    bar.classList.toggle('collapsed');
+    bar.classList.toggle('expanded');
+  }
+
+  // Simple hover highlight on mapping lines
+  document.querySelectorAll('.tree-node').forEach(node => {
+    node.addEventListener('mouseenter', () => {
+      node.style.background = 'var(--surface-hover)';
+    });
+    node.addEventListener('mouseleave', () => {
+      if (!node.classList.contains('mapped')) {
+        node.style.background = '';
+      } else {
+        node.style.background = 'rgba(34, 197, 94, 0.06)';
+      }
+    });
+  });
+
+  // Source option toggle
+  document.querySelectorAll('.source-option').forEach(opt => {
+    opt.addEventListener('click', () => {
+      document.querySelectorAll('.source-option').forEach(o => o.classList.remove('active'));
+      opt.classList.add('active');
+    });
+  });
+
+  // Source tab toggle
+  document.querySelectorAll('.source-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.source-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+    });
+  });
+
+  // View toggle
+  document.querySelectorAll('.view-toggle .btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.view-toggle .btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    });
+  });
+</script>
+
+</body>
+</html>

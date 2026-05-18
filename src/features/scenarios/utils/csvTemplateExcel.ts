@@ -62,6 +62,13 @@ function shortNameFromJsonPath(jsonPath: string): string {
   return `${parent}_${leaf}`;
 }
 
+/** Extract the first array index from a mapping like "offers[2].code" → 2. Returns 0 if no index.
+function extractArrayIndex(mapping: string): number {
+  const match = mapping.match(/\[(\d+)\]/);
+  return match ? parseInt(match[1], 10) : 0;
+}
+*/
+
 /**
  * Build ColumnDef array from export options. Each entry has an auto-generated
  * short name that the user can override before export.
@@ -96,10 +103,26 @@ export function buildColumnDefs(opts: ExportOptions): ColumnDef[] {
     defs.push({ type: 'param', fullKey: `${PARAM_PREFIX}${p.key}`, mapping: p.key, autoName: auto, customName: auto });
   }
 
+  // Static validate columns from expectedFields
+  const seenMappings = new Set<string>();
   for (const f of expectedFields) {
+    seenMappings.add(f.jsonPath);
     const raw = shortNameFromJsonPath(f.jsonPath);
     const auto = dedupe(raw);
     defs.push({ type: 'validate', fullKey: `${VALIDATE_PREFIX}${f.jsonPath}`, mapping: f.jsonPath, autoName: auto, customName: auto });
+  }
+
+  // Dynamic validate columns from dataSource.columns (created by validationContract expansion)
+  const dt = test.dataSource;
+  if (dt) {
+    for (const col of dt.columns) {
+      if (col.type === 'validate' && !seenMappings.has(col.mapping)) {
+        seenMappings.add(col.mapping);
+        const raw = shortNameFromJsonPath(col.mapping);
+        const auto = dedupe(raw);
+        defs.push({ type: 'validate', fullKey: `${VALIDATE_PREFIX}${col.mapping}`, mapping: col.mapping, autoName: auto, customName: auto });
+      }
+    }
   }
 
   return defs;
@@ -163,7 +186,7 @@ function applyStyle(sheet: XLSX.WorkSheet, r: number, c: number, style: XLSX.Cel
 }
 
 export function generateExcelTemplate(opts: ExcelExportOptions): XLSX.WorkBook {
-  const { test, pathVariables, columnDefs } = opts;
+  const { test, pathVariables, columnDefs, dataRows } = opts;
   const { origin, pathname, params } = parseUrl(test.url);
   const pathParts = pathname.split('/').filter(Boolean);
 
@@ -181,27 +204,52 @@ export function generateExcelTemplate(opts: ExcelExportOptions): XLSX.WorkBook {
 
   const requestCols = columnDefs.filter(d => d.type !== 'validate');
   const responseCols = columnDefs.filter(d => d.type === 'validate');
+
+  // Respect the user's column order — no re-sorting.
+  // The columnDefs arrive in the order the user configured.
+  const orderedDefs = [...requestCols, ...responseCols];
   const firstValidateIdx = requestCols.length;
 
-  const categoryRow: string[] = columnDefs.map((_d, i) => {
+  const categoryRow: string[] = orderedDefs.map((_d, i) => {
     if (i === 0) return 'Request';
     if (i === firstValidateIdx) return 'Response (Validation)';
     return '';
   });
 
-  const headers = columnDefs.map(d => d.customName);
-  const sampleRow: string[] = columnDefs.map(d => {
-    if (d.type === 'name') return test.name;
-    if (d.type === 'path') return pathParts[pathVariables.find(pv => pv.variableName === d.mapping)?.segmentIndex ?? -1] || '';
-    if (d.type === 'param') return params.find(p => p.key === d.mapping)?.value ?? '';
-    if (d.type === 'validate') {
-      const ef = (test.validation.expectedFields ?? []).find(f => f.jsonPath === d.mapping);
-      return ef?.expectedValue ?? '';
-    }
-    return '';
-  });
+  const headers = orderedDefs.map(d => d.customName);
 
-  const dataAoa = [categoryRow, headers, sampleRow];
+  // Build data rows
+  let rowsData: string[][];
+  if (dataRows && dataRows.length > 0) {
+    // Export actual data source rows
+    rowsData = dataRows.map(row => {
+      return orderedDefs.map(d => {
+        // Find matching value by column mapping/type
+        // dataRows values are keyed by column id, so we need the columnDef's mapping
+        // The caller should pass values keyed by columnDef mapping
+        return row.values[d.mapping] ?? row.values[d.customName] ?? '';
+      });
+    });
+  } else {
+    // Single sample row derived from the test scenario
+    const sampleRow: string[] = orderedDefs.map(d => {
+      if (d.type === 'name') return test.name;
+      if (d.type === 'path') {
+        const segIdx = pathVariables.find(pv => pv.variableName === d.mapping)?.segmentIndex ?? -1;
+        const raw = pathParts[segIdx] || '';
+        try { return decodeURIComponent(raw); } catch { return raw; }
+      }
+      if (d.type === 'param') return params.find(p => p.key === d.mapping)?.value ?? '';
+      if (d.type === 'validate') {
+        const ef = (test.validation.expectedFields ?? []).find(f => f.jsonPath === d.mapping);
+        return ef?.expectedValue ?? '';
+      }
+      return '';
+    });
+    rowsData = [sampleRow];
+  }
+
+  const dataAoa = [categoryRow, headers, ...rowsData];
   const dataSheet = XLSX.utils.aoa_to_sheet(dataAoa);
 
   // Merge category cells
@@ -210,22 +258,23 @@ export function generateExcelTemplate(opts: ExcelExportOptions): XLSX.WorkBook {
     merges.push({ s: { r: 0, c: 0 }, e: { r: 0, c: firstValidateIdx - 1 } });
   }
   if (responseCols.length > 1) {
-    merges.push({ s: { r: 0, c: firstValidateIdx }, e: { r: 0, c: columnDefs.length - 1 } });
+    merges.push({ s: { r: 0, c: firstValidateIdx }, e: { r: 0, c: orderedDefs.length - 1 } });
   }
   dataSheet['!merges'] = merges;
 
   // Apply styles to category row
-  for (let c = 0; c < columnDefs.length; c++) {
+  for (let c = 0; c < orderedDefs.length; c++) {
     applyStyle(dataSheet, 0, c, c < firstValidateIdx ? S_CATEGORY_REQUEST : S_CATEGORY_RESPONSE);
   }
 
   // Apply styles to header row
-  for (let c = 0; c < columnDefs.length; c++) {
-    applyStyle(dataSheet, 1, c, columnDefs[c].type === 'validate' ? S_DATA_HEADER_VALIDATE : S_DATA_HEADER);
+  for (let c = 0; c < orderedDefs.length; c++) {
+    applyStyle(dataSheet, 1, c, orderedDefs[c].type === 'validate' ? S_DATA_HEADER_VALIDATE : S_DATA_HEADER);
   }
 
   const colWidths = headers.map((h, i) => {
-    const maxLen = Math.max(h.length, (sampleRow[i] || '').length, 8);
+    const maxDataLen = Math.max(...rowsData.map(r => (r[i] || '').length), 0);
+    const maxLen = Math.max(h.length, maxDataLen, 8);
     return { wch: Math.min(maxLen + 2, 40) };
   });
   dataSheet['!cols'] = colWidths;
@@ -237,7 +286,7 @@ export function generateExcelTemplate(opts: ExcelExportOptions): XLSX.WorkBook {
   // Section: COLUMN MAPPINGS
   metaRows.push(['COLUMN MAPPINGS', '', '']);              // row 0
   metaRows.push(['column', 'type', 'mapping']);            // row 1
-  for (const d of columnDefs) {
+  for (const d of orderedDefs) {
     metaRows.push([d.customName, d.type, d.mapping]);
   }
 
@@ -263,6 +312,14 @@ export function generateExcelTemplate(opts: ExcelExportOptions): XLSX.WorkBook {
   if (test.validation.mode === 'full' && test.validation.expectedJson) {
     metaRows.push(['expectedJson', test.validation.expectedJson]);
   };
+  // Dynamic validation contract
+  const dt = test.dataSource;
+  if (dt?.validationContract && dt.validationContract.length > 0) {
+    metaRows.push(['validationContract', JSON.stringify(dt.validationContract)]);
+  }
+  if (dt?.arrayValidationMode && Object.keys(dt.arrayValidationMode).length > 0) {
+    metaRows.push(['arrayValidationMode', JSON.stringify(dt.arrayValidationMode)]);
+  }
 
   metaRows.push([]);                                       // blank separator
 
@@ -374,6 +431,12 @@ function parseMetadataSheet(sheet: XLSX.WorkSheet): ExcelMeta | null {
   let bodyForm: KeyValue[] | undefined;
   try { bodyForm = config['bodyForm'] ? JSON.parse(config['bodyForm']) : undefined; } catch { /* ignore */ }
 
+  let validationContract: string[] | undefined;
+  try { validationContract = config['validationContract'] ? JSON.parse(config['validationContract']) : undefined; } catch { /* ignore */ }
+
+  let arrayValidationMode: Record<string, 'ordered' | 'unordered'> | undefined;
+  try { arrayValidationMode = config['arrayValidationMode'] ? JSON.parse(config['arrayValidationMode']) : undefined; } catch { /* ignore */ }
+
   return {
     version: parseInt(config['version'] || '2'),
     method: config['method'] || 'GET',
@@ -389,6 +452,8 @@ function parseMetadataSheet(sheet: XLSX.WorkSheet): ExcelMeta | null {
     expectedJson: config['expectedJson'] || '',
     headers,
     columnMap,
+    validationContract,
+    arrayValidationMode,
   };
 }
 
@@ -603,5 +668,8 @@ export function parseExcelToScenarios(buffer: ArrayBuffer): CsvParseResult {
     meta: templateMeta,
     fileErrors,
     warnings,
+    columnTypes: excelMeta.columnMap,
+    validationContract: excelMeta.validationContract,
+    arrayValidationMode: excelMeta.arrayValidationMode,
   };
 }

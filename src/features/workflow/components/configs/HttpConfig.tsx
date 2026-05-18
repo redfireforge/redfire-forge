@@ -8,13 +8,19 @@ import {
 } from '../../utils/workflowVariableHints';
 import type { Scenario, KeyValue } from '../../../../shared/types';
 import ExtractionEditor from '../../../requests/components/ExtractionEditor';
-import type { ExtractionFetchSampleProps } from '../../../requests/components/ExtractionPathPickerModal';
+import type { ExtractionFetchSampleProps } from '../../../requests/components/ExtractionEditor';
 import { ParamsEditor } from '../../../requests/components/ParamsEditor';
 import type { ParamEntry } from '../../../requests/components/ParamsEditor';
 import ExpressionInput from '../expression/ExpressionInput';
 import ExpressionTextarea from '../expression/ExpressionTextarea';
+import DataSourceEditor from '../../../scenarios/components/DataSourceEditor';
+import { DataMapperModal, createVariableBindingAdapter, collectTemplateSlots } from '../../../../shared/components/data-mapper';
+import BodyBuilderPanel from '../../../../shared/components/data-mapper/BodyBuilderPanel';
+import { useBodyBuilderSync } from '../../../../shared/components/data-mapper/hooks/useBodyBuilderSync';
+import { createRequestBodyAdapter } from '../../../../shared/components/data-mapper/adapters/requestBodyAdapter';
+import type { VariableHintForBody } from '../../../../shared/components/data-mapper/adapters/requestBodyAdapter';
 
-export type HttpTab = 'url' | 'headers' | 'body' | 'extract';
+export type HttpTab = 'url' | 'headers' | 'body' | 'extract' | 'data';
 
 // ── Query-param utilities ─────────────────────────────
 
@@ -107,6 +113,52 @@ export default function HttpConfig({ data, onChange, activeTab, onTabChange, las
   const s = data.scenario;
   const update = useCallback((patch: Partial<Scenario>) => onChange({ scenario: { ...s, ...patch } }), [onChange, s]);
   const urlInputRef = useRef<HTMLInputElement>(null);
+  const [showVarMapper, setShowVarMapper] = useState(false);
+  const [bodyViewMode, setBodyViewMode] = useState<'raw' | 'visual'>('raw');
+
+  const bodyHints: VariableHintForBody[] = useMemo(
+    () => variableHints.map((h) => ({
+      ref: h.ref,
+      label: h.label,
+      description: h.description,
+      type: h.type,
+      source: h.source,
+    })),
+    [variableHints],
+  );
+
+  const bodySources = useMemo(() => {
+    const adapter = createRequestBodyAdapter({
+      existingBody: s.body,
+      variableHints: bodyHints,
+    });
+    return adapter.sources;
+  }, [s.body, bodyHints]);
+
+  const bodySync = useBodyBuilderSync(
+    s.body,
+    useCallback((newBody: string) => update({ body: newBody }), [update]),
+    { sources: bodySources },
+  );
+
+  const templateSlots = useMemo(
+    () => collectTemplateSlots({ url: s.url, headers: s.headers, body: s.body, bodyForm: s.bodyForm }),
+    [s.url, s.headers, s.body, s.bodyForm],
+  );
+
+  const varBindingAdapter = useMemo(
+    () => createVariableBindingAdapter({
+      variableHints: variableHints.map((h) => ({
+        ref: h.ref,
+        label: h.label,
+        description: h.description,
+        type: h.type,
+        source: h.source,
+      })),
+      templateSlots,
+    }),
+    [variableHints, templateSlots],
+  );
 
   // Normalize encoded template vars on mount / when URL changes externally
   useEffect(() => {
@@ -130,6 +182,7 @@ export default function HttpConfig({ data, onChange, activeTab, onTabChange, las
   }, [s.url, extraEmptyRows]);
 
   const paramCount = useMemo(() => queryParams.filter(p => p.key.trim() && p.enabled).length, [queryParams]);
+  const dataSourceRowCount = useMemo(() => s.dataSource?.rows?.filter(r => r.enabled).length ?? 0, [s.dataSource]);
 
   const handleParamsChange = useCallback((entries: ParamEntry[]) => {
     // Count trailing empty rows to preserve them as local state
@@ -195,7 +248,7 @@ export default function HttpConfig({ data, onChange, activeTab, onTabChange, las
         </select>
         {workflowServices.length === 0 && (
           <p className="wf-config-managed-note-text">
-            Click the <strong>🔗 Services</strong> button in the toolbar to register external services.
+            Click the <strong>Services</strong> button in the toolbar to register external services.
           </p>
         )}
       </div>
@@ -203,6 +256,25 @@ export default function HttpConfig({ data, onChange, activeTab, onTabChange, las
         <label>Label</label>
         <input value={data.label} onChange={(e) => onChange({ label: e.target.value })} />
       </div>
+
+      {data.sourceSpecVersionId && (
+        <div className="wf-config-field wf-config-version-mode">
+          <label>Spec Version</label>
+          <div className="wf-config-version-mode-row">
+            <select
+              value={data.specVersionMode ?? 'latest'}
+              onChange={(e) => onChange({ specVersionMode: e.target.value as 'pinned' | 'latest' })}
+              className="wf-config-version-select"
+            >
+              <option value="latest">Latest (tracks active version)</option>
+              <option value="pinned">Pinned{data.sourceSpecVersionLabel ? ` — v${data.sourceSpecVersionLabel}` : ''}</option>
+            </select>
+            {data.sourceSpecVersionLabel && (
+              <span className="wf-config-version-label">v{data.sourceSpecVersionLabel}</span>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="wf-config-url-row">
         <select value={s.method} onChange={(e) => update({ method: e.target.value as Scenario['method'] })} className="wf-config-method-select">
@@ -244,13 +316,31 @@ export default function HttpConfig({ data, onChange, activeTab, onTabChange, las
         </div>
       </div>
 
+      {templateSlots.length > 0 && (
+        <div className="wf-var-mapper-bar">
+          <button
+            type="button"
+            className="wf-extract-var-mapper-btn"
+            onClick={() => setShowVarMapper(true)}
+            title="Visually map upstream variables to this step's template slots"
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <rect x="3" y="3" width="7" height="7" /><rect x="14" y="14" width="7" height="7" />
+              <path d="M10 7h4l-4 10h4" />
+            </svg>
+            Visual Variables ({templateSlots.length} slot{templateSlots.length !== 1 ? 's' : ''})
+          </button>
+        </div>
+      )}
+
       <div className="wf-config-tabs">
-        {(['url', 'headers', 'body', 'extract'] as HttpTab[]).map(tab => (
+        {(['url', 'headers', 'body', 'extract', 'data'] as HttpTab[]).map(tab => (
           <button key={tab} className={`wf-config-tab ${activeTab === tab ? 'active' : ''}`} onClick={() => onTabChange(tab)}>
-            {tab === 'url' ? 'Params' : tab === 'extract' ? 'Extract' : tab.charAt(0).toUpperCase() + tab.slice(1)}
+            {tab === 'url' ? 'Params' : tab === 'extract' ? 'Extract' : tab === 'data' ? 'Data Source' : tab.charAt(0).toUpperCase() + tab.slice(1)}
             {tab === 'url' && paramCount > 0 && <span className="tab-badge">{paramCount}</span>}
             {tab === 'extract' && (s.extractions?.length ?? 0) > 0 && <span className="tab-badge">{s.extractions!.length}</span>}
             {tab === 'headers' && s.headers.filter(h => h.key.trim()).length > 0 && <span className="tab-badge">{s.headers.filter(h => h.key.trim()).length}</span>}
+            {tab === 'data' && dataSourceRowCount > 0 && <span className="tab-badge">{dataSourceRowCount}</span>}
           </button>
         ))}
       </div>
@@ -319,25 +409,58 @@ export default function HttpConfig({ data, onChange, activeTab, onTabChange, las
 
         {activeTab === 'body' && (
           <div className="wf-config-field wf-config-body-field-wrap">
-            <label>Body (supports {'{{var}}'})</label>
-            <div className="wf-config-body-insert-row">
-              <button
-                type="button"
-                className="btn btn-sm"
-                title="Insert variable from workflow or upstream step"
-                onClick={() => onRequestVariableInsert((snippet) => update({ body: s.body + snippet }), true)}
-              >
-                Insert variable…
-              </button>
+            <div className="wf-config-body-header">
+              <label>Body (supports {'{{var}}'})</label>
+              <div className="wf-config-body-view-toggle">
+                <button
+                  type="button"
+                  className={`btn btn-sm ${bodyViewMode === 'raw' ? 'btn-primary' : ''}`}
+                  onClick={() => setBodyViewMode('raw')}
+                >
+                  Raw
+                </button>
+                <button
+                  type="button"
+                  className={`btn btn-sm ${bodyViewMode === 'visual' ? 'btn-primary' : ''}`}
+                  onClick={() => setBodyViewMode('visual')}
+                >
+                  Visual Builder
+                </button>
+              </div>
             </div>
-            <ExpressionTextarea
-              value={s.body}
-              onChange={(val) => update({ body: val })}
-              placeholder='{"key": "{{value}}"}'
-              rows={6}
-              className="wf-config-textarea"
-              variableHints={variableHints}
-            />
+            {bodyViewMode === 'raw' ? (
+              <>
+                <div className="wf-config-body-insert-row">
+                  <button
+                    type="button"
+                    className="btn btn-sm"
+                    title="Insert variable from workflow or upstream step"
+                    onClick={() => onRequestVariableInsert((snippet) => update({ body: s.body + snippet }), true)}
+                  >
+                    Insert variable…
+                  </button>
+                </div>
+                <ExpressionTextarea
+                  value={s.body}
+                  onChange={(val) => bodySync.onBodyChange(val)}
+                  placeholder='{"key": "{{value}}"}'
+                  rows={6}
+                  className="wf-config-textarea"
+                  variableHints={variableHints}
+                />
+              </>
+            ) : (
+              <BodyBuilderPanel
+                body={s.body}
+                bodyType={s.bodyType ?? 'json'}
+                bodyForm={s.bodyForm}
+                variableHints={bodyHints}
+                onBodyChange={(val) => bodySync.onBodyChange(val)}
+                onMappingsChange={bodySync.onMappingsChange}
+                onBodyTypeChange={(bt) => update({ bodyType: bt })}
+                onBodyFormChange={(bf) => update({ bodyForm: bf })}
+              />
+            )}
           </div>
         )}
 
@@ -361,9 +484,27 @@ export default function HttpConfig({ data, onChange, activeTab, onTabChange, las
                   }
                 : undefined
             }
+            contextScope={s.id}
+          />
+        )}
+
+        {activeTab === 'data' && (
+          <DataSourceEditor
+            draft={s}
+            onDraftChange={(updated) => update(updated)}
           />
         )}
       </div>
+
+      {showVarMapper && (
+        <DataMapperModal
+          adapter={varBindingAdapter}
+          onSave={() => setShowVarMapper(false)}
+          onCancel={() => setShowVarMapper(false)}
+          doneLabel="Close"
+          contextScope={s.id}
+        />
+      )}
     </div>
   );
 }

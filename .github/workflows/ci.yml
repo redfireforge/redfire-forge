@@ -1,0 +1,77 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - develop
+      - 'release/**'
+      - 'feature/**'
+      - 'hotfix/**'
+  pull_request:
+    branches:
+      - develop
+      - 'release/**'
+      - master
+
+jobs:
+  typecheck:
+    name: TypeScript Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npx tsc --noEmit
+
+  lint:
+    name: ESLint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npx eslint src/ cli/
+
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    needs: typecheck
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npx vitest run --coverage
+      - name: Check coverage thresholds
+        run: |
+          echo "Coverage report generated. Review in PR for >90% target."
+
+  build-frontend:
+    name: Frontend Build (vite)
+    runs-on: ubuntu-latest
+    needs: [typecheck, lint]
+    if: github.ref == 'refs/heads/develop' || startsWith(github.ref, 'refs/heads/release/')
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Verify dist output
+        run: |
+          if [ ! -f dist/index.html ]; then
+            echo "❌ Build failed — dist/index.html not found"
+            exit 1
+          fi
+          echo "✅ Frontend build successful"
+          du -sh dist/

@@ -9,7 +9,7 @@ import {
 } from '../../../shared/utils/storage';
 import { migrateWorkflowSchema } from '../utils/workflowMigrations';
 
-const WORKFLOW_SCHEMA_VERSION = 5;
+const WORKFLOW_SCHEMA_VERSION = 6;
 
 export function useWorkflows() {
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
@@ -60,7 +60,7 @@ export function useWorkflows() {
     if (!missing && !invalid) return;
     const sorted = [...workflows].sort((a, b) => b.updatedAt - a.updatedAt);
     const pick = sorted[0]?.id ?? null;
-    setSelectedId(pick); // eslint-disable-line react-hooks/set-state-in-effect
+    setSelectedId(pick);  
     void saveSelectedWorkflowId(pick);
   }, [loaded, workflows, selectedId]);
 

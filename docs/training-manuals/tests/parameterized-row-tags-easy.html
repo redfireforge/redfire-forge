@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Row Tags Demo — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">🏷️</div>
+    <h1>Row Tags Demo</h1>
+    <div class="subtitle">Categorizing Data Rows — Training Manual</div>
+    <p><span class="badge badge-easy">Easy ★☆☆</span> · Regression · jsonplaceholder.typicode.com</p>
+    <div class="meta">RedfireForge v0.5.6</div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <h2>1. Purpose &amp; Use Case</h2>
+  <p><strong>Row Tags</strong> let you categorize data rows for selective execution. Instead of running all rows every time, you can filter by tag to run only "smoke" tests, only "edge-case" rows, or only "critical" validations.</p>
+  <p>This pattern is essential for:</p>
+  <ul>
+    <li>Quick smoke tests (run only tagged "smoke" rows)</li>
+    <li>Focused debugging (run only "edge-case" rows)</li>
+    <li>CI/CD pipelines (run "critical" tags in PRs, full suite nightly)</li>
+  </ul>
+
+  <h2>2. Sample Overview</h2>
+
+  <table>
+    <tr><th>Property</th><th>Value</th></tr>
+    <tr><td>API</td><td>JSONPlaceholder — <code>jsonplaceholder.typicode.com</code></td></tr>
+    <tr><td>Endpoint</td><td><code>GET /posts/{{id}}</code></td></tr>
+    <tr><td>Data Rows</td><td>8 posts with various tags</td></tr>
+    <tr><td>Columns</td><td>2 — id (path), expectedTitle (validate)</td></tr>
+    <tr><td>Tags Used</td><td>smoke, regression, edge-case, critical, boundary, slow</td></tr>
+  </table>
+
+  <h2>3. Data Source with Tags</h2>
+
+  <table>
+    <tr><th>id</th><th>expectedTitle</th><th>Tags</th></tr>
+    <tr><td>1</td><td>sunt aut</td><td><code>smoke</code>, <code>critical</code></td></tr>
+    <tr><td>2</td><td>qui est</td><td><code>smoke</code></td></tr>
+    <tr><td>3</td><td>ea molestias</td><td><code>regression</code></td></tr>
+    <tr><td>10</td><td>optio</td><td><code>regression</code></td></tr>
+    <tr><td>20</td><td>doloremque</td><td><code>edge-case</code></td></tr>
+    <tr><td>50</td><td>repellendus</td><td><code>edge-case</code>, <code>slow</code></td></tr>
+    <tr><td>99</td><td>temporibus</td><td><code>edge-case</code></td></tr>
+    <tr><td>100</td><td>at nam</td><td><code>boundary</code>, <code>critical</code></td></tr>
+  </table>
+
+  <h2>4. Step-by-Step Tutorial</h2>
+
+  <h3>Step 1: View Tags in the Data Source</h3>
+  <ol>
+    <li>Load <strong>"Row Tags Demo"</strong> from the Gallery.</li>
+    <li>Open the test in the Test Editor.</li>
+    <li>Go to the <strong>Data Source</strong> tab.</li>
+    <li>Notice the <strong>Tags</strong> column showing colored badges.</li>
+  </ol>
+
+  <h3>Step 2: Run Only Smoke Tests</h3>
+  <ol>
+    <li>Go to <strong>Testing → Parameterized Runner</strong>.</li>
+    <li>Expand the test options.</li>
+    <li>Enable <strong>Tag Filter</strong>.</li>
+    <li>Select <code>smoke</code>.</li>
+    <li>Click <strong>Run</strong>.</li>
+  </ol>
+  <p>Only rows 1 and 2 execute — the rows tagged with "smoke".</p>
+
+  <h3>Step 3: Run Critical Tests Only</h3>
+  <ol>
+    <li>Change the tag filter to <code>critical</code>.</li>
+    <li>Run again — only rows 1 and 100 execute.</li>
+  </ol>
+
+  <h3>Step 4: Combine Tags (OR logic)</h3>
+  <ol>
+    <li>Select both <code>smoke</code> and <code>edge-case</code>.</li>
+    <li>Run — rows matching <em>either</em> tag execute (1, 2, 20, 50, 99).</li>
+  </ol>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tag Filtering is OR-based</strong>
+    When you select multiple tags, rows matching <em>any</em> of the selected tags are included. This is intentional — it lets you build larger sets by combining categories.
+  </div>
+
+  <h2>5. Adding Tags to Your Data</h2>
+
+  <h3>In the UI</h3>
+  <ol>
+    <li>Click on any row in the Data Source grid.</li>
+    <li>Click the <strong>🏷️ Tags</strong> button or right-click → "Edit Tags".</li>
+    <li>Add comma-separated tags: <code>smoke, critical</code></li>
+  </ol>
+
+  <h3>In JSON/CSV Import</h3>
+  <p>When importing, include a <code>_tags</code> column with comma-separated values:</p>
+  <pre>id,expectedTitle,_tags
+1,"sunt aut","smoke,critical"
+2,"qui est","smoke"</pre>
+
+  <h2>6. Common Tagging Strategies</h2>
+
+  <table>
+    <tr><th>Tag</th><th>Purpose</th><th>When to Run</th></tr>
+    <tr><td><code>smoke</code></td><td>Quick sanity checks</td><td>Every PR, pre-deploy</td></tr>
+    <tr><td><code>regression</code></td><td>Full regression coverage</td><td>Nightly builds</td></tr>
+    <tr><td><code>edge-case</code></td><td>Unusual inputs</td><td>After bug fixes</td></tr>
+    <tr><td><code>critical</code></td><td>Must-pass tests</td><td>Release gates</td></tr>
+    <tr><td><code>slow</code></td><td>Long-running rows</td><td>Exclude from fast runs</td></tr>
+    <tr><td><code>flaky</code></td><td>Known unstable</td><td>Exclude temporarily</td></tr>
+  </table>
+
+  <h2>7. Related Manuals</h2>
+  <ul>
+    <li><a href="parameterized-basics-easy.html">Parameterized Testing Basics</a></li>
+    <li><a href="parameterized-advanced-features-medium.html">Advanced Data Source Features</a></li>
+    <li><a href="parameterized-rerun-failed-easy.html">Rerun Failed Rows</a></li>
+  </ul>
+
+  <footer>
+    RedfireForge Training Manual · Row Tags Demo · Easy
+  </footer>
+</body>
+</html>

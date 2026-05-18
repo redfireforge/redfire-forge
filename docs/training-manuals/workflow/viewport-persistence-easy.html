@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Workflow Canvas Persistence — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">🗺️</div>
+    <h1>Workflow Canvas Persistence</h1>
+    <div class="subtitle">Viewport Memory &amp; Tab Switching — Training Manual</div>
+    <p><span class="badge badge-easy">Easy ★☆☆</span> · Workflow Designer · UX Enhancement</p>
+    <div class="meta">RedfireForge v0.5.7</div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <h2>1. Overview</h2>
+  <p>The Workflow Designer canvas now <strong>remembers your viewport position</strong> (pan and zoom level) when you switch between tabs. Previously, returning to the Workflow tab would reset the canvas to the top-left corner — now it restores exactly where you left off.</p>
+
+  <h3>What Changed</h3>
+  <table>
+    <thead>
+      <tr><th>Before</th><th>After</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Canvas resets to origin (0, 0) after switching tabs</td>
+        <td>Canvas restores last position automatically</td>
+      </tr>
+      <tr>
+        <td>Zoom level resets to default</td>
+        <td>Zoom level preserved between tab switches</td>
+      </tr>
+      <tr>
+        <td>Lost context when checking test results</td>
+        <td>Seamless multi-tab workflow</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>2. How Viewport Persistence Works</h2>
+
+  <h3>Automatic (Tab Switching)</h3>
+  <p>Viewport persistence is <strong>automatic</strong> — no action needed from you:</p>
+  <ol>
+    <li>You're working on a workflow, zoomed into a specific area</li>
+    <li>You switch to another tab (Tests, Requests, Catalog, etc.)</li>
+    <li>You come back to the Workflow tab</li>
+    <li>The canvas is exactly where you left it — same pan, same zoom</li>
+  </ol>
+
+  <h3>Saved with Workflow (Persistent)</h3>
+  <p>For long-term persistence across sessions:</p>
+  <ol>
+    <li>Position your viewport where you want the default view</li>
+    <li>Click <strong>Save</strong> in the workflow toolbar</li>
+    <li>The viewport is now saved with the workflow definition</li>
+    <li>Next time you open this workflow, it loads at the saved viewport</li>
+  </ol>
+
+  <div class="callout callout-tip">
+    <strong>Priority Order</strong>
+    When returning to a workflow, the canvas uses: (1) last session viewport (from tab switch) → (2) saved workflow viewport → (3) fit-to-view as final fallback.
+  </div>
+
+  <div class="page-break"></div>
+
+  <h2>3. Toolbar Controls</h2>
+
+  <table>
+    <thead>
+      <tr><th>Control</th><th>Action</th><th>Shortcut</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>Fit</strong></td><td>Auto-zoom to show all nodes</td><td>—</td></tr>
+      <tr><td><strong>Zoom In</strong></td><td>Zoom into canvas center</td><td><code>Ctrl +</code></td></tr>
+      <tr><td><strong>Zoom Out</strong></td><td>Zoom out from canvas center</td><td><code>Ctrl -</code></td></tr>
+      <tr><td><strong>Pan</strong></td><td>Click and drag on empty canvas</td><td>Hold <code>Space</code> + drag</td></tr>
+      <tr><td><strong>Scroll Zoom</strong></td><td>Scroll wheel to zoom</td><td>Mouse wheel</td></tr>
+    </tbody>
+  </table>
+
+  <h2>4. Common Workflows</h2>
+
+  <h3>Editing While Checking Results</h3>
+  <pre>1. Working on workflow → zoomed into "Payment" section
+2. Switch to Results tab → check last run output
+3. Switch back to Workflow tab → still zoomed on "Payment"</pre>
+
+  <h3>Multi-Tab Context</h3>
+  <pre>1. Design workflow → pan to error handling section
+2. Switch to Tests tab → verify assertion config
+3. Switch to Requests tab → check endpoint details
+4. Return to Workflow → error handling section is still visible</pre>
+
+  <h3>Saving a "Home View"</h3>
+  <pre>1. Zoom out to see entire workflow overview
+2. Click Save → viewport saved as default
+3. Later: open workflow → loads at overview zoom level
+4. Zoom into specific area → work on nodes
+5. Switch tabs and return → stays in zoomed area
+6. Close and reopen → back to saved overview</pre>
+
+  <h2>5. Technical Details</h2>
+  <p>For developers and curious users:</p>
+  <ul>
+    <li>Uses <code>IntersectionObserver</code> to detect when the canvas becomes hidden/visible</li>
+    <li>Viewport state is stored in-memory (not persisted to disk) for tab-switch persistence</li>
+    <li>The <strong>Save</strong> button persists viewport to the workflow JSON for cross-session persistence</li>
+    <li>ReactFlow's internal resize observer is handled gracefully when the container is hidden</li>
+  </ul>
+
+  <footer>
+    RedfireForge Training Manual — Workflow Canvas Persistence · May 2026
+  </footer>
+
+</body>
+</html>

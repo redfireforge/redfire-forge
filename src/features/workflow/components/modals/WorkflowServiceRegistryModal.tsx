@@ -87,7 +87,7 @@ export default function WorkflowServiceRegistryModal({
       ...svc,
       endpoints: ensureAllEnvRows(svc.endpoints ?? [], environments),
     }));
-    setDrafts(cloned); // eslint-disable-line react-hooks/set-state-in-effect
+    setDrafts(cloned);  
     setSelectedId(cloned[0]?.id ?? null);
     setExpandedEnvId(null);
   }, [open, services, environments]);
@@ -212,8 +212,8 @@ export default function WorkflowServiceRegistryModal({
                   onClick={() => { setSelectedId(svc.id); setExpandedEnvId(null); }}
                 >
                   <span className="wf-svc-registry-row-name">
-                    {status === 'missing' && <span className="wf-svc-env-dot missing" title={`Not configured for selected env`}>●</span>}
-                    {status === 'ready' && <span className="wf-svc-env-dot ready" title="Configured for selected env">●</span>}
+                    {status === 'missing' && <span className="wf-svc-env-dot missing" title={`Not configured for selected env`}><svg className="wf-inline-icon" viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="12" cy="12" r="6"/></svg></span>}
+                    {status === 'ready' && <span className="wf-svc-env-dot ready" title="Configured for selected env"><svg className="wf-inline-icon" viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="12" cy="12" r="6"/></svg></span>}
                     {svc.name}
                   </span>
                   <span className="wf-svc-registry-row-mode">{endpointCount(svc)} envs</span>
@@ -287,7 +287,7 @@ export default function WorkflowServiceRegistryModal({
                                 readOnly={!!linkedMs}
                                 className={linkedMs ? 'wf-svc-url-linked' : ''}
                               />
-                            {linkedMs && <span className="wf-svc-linked-icon" title="Managed by microservice config">🔗</span>}
+                            {linkedMs && <span className="wf-svc-linked-icon" title="Managed by microservice config"><svg className="wf-inline-icon" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></span>}
                           </span>
                           <span className="wf-svc-matrix-col-auth">
                             <button

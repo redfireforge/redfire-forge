@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
-import type { Workflow, HttpNodeData, WorkflowHostProfile, WorkflowAuthProfile, WorkflowService, WorkflowServiceUrlMode, ServiceEndpoint } from '../types/workflow';
+import type { Workflow, HttpNodeData, WorkflowHostProfile, WorkflowAuthProfile, WorkflowService, WorkflowServiceUrlMode, ServiceEndpoint, WorkflowNode } from '../types/workflow';
 import type { AuthConfig } from '../../../shared/types';
 
 // ── v1 → v2: Inline host/auth fields → hostProfiles / authProfiles ──
@@ -96,7 +96,7 @@ function migrateV1ToV2(wf: Workflow): Workflow {
  * Try to extract protocol + host from a URL string.
  * Returns null for relative URLs, template-only URLs, or unparseable strings.
  */
-function extractUrlOrigin(url: string): string | null {
+export function extractUrlOrigin(url: string): string | null {
   if (!url) return null;
   const trimmed = url.trim();
   if (/^\{\{/.test(trimmed)) return null;
@@ -110,12 +110,12 @@ function extractUrlOrigin(url: string): string | null {
   }
 }
 
-function deriveServiceNameFromLabel(label: string): string {
+export function deriveServiceNameFromLabel(label: string): string {
   const cleaned = label.replace(/\s*-\s*[A-Z0-9_]+\.{0,3}$/, '').trim();
   return cleaned || label;
 }
 
-function commonLabelPrefix(labels: string[]): string {
+export function commonLabelPrefix(labels: string[]): string {
   if (labels.length === 0) return '';
   if (labels.length === 1) return deriveServiceNameFromLabel(labels[0]);
   let prefix = labels[0];
@@ -125,6 +125,21 @@ function commonLabelPrefix(labels: string[]): string {
     }
   }
   return prefix.replace(/[\s\-–—:,]+$/, '').trim() || deriveServiceNameFromLabel(labels[0]);
+}
+
+/** v2→v3 phase 4: assign serviceId from orphan-group map to HTTP nodes still missing one. */
+export function applyServiceIdsFromOrphanMap(
+  phase2Nodes: WorkflowNode[],
+  nodeIdToService: Map<string, string>,
+): WorkflowNode[] {
+  return phase2Nodes.map((node) => {
+    if (node.type !== 'http') return node;
+    const data = node.data as HttpNodeData;
+    if (data.serviceId) return node;
+    const svcId = nodeIdToService.get(node.id);
+    if (svcId) return { ...node, data: { ...data, serviceId: svcId } };
+    return node;
+  });
 }
 
 function migrateV2ToV3(wf: Workflow): Workflow {
@@ -283,14 +298,7 @@ function migrateV2ToV3(wf: Workflow): Workflow {
   }
 
   // Phase 4: Assign serviceId to all remaining nodes
-  const finalNodes = phase2Nodes.map((node) => {
-    if (node.type !== 'http') return node;
-    const data = node.data as HttpNodeData;
-    if (data.serviceId) return node;
-    const svcId = nodeIdToService.get(node.id);
-    if (svcId) return { ...node, data: { ...data, serviceId: svcId } };
-    return node;
-  });
+  const finalNodes = applyServiceIdsFromOrphanMap(phase2Nodes, nodeIdToService);
 
   return {
     ...wf,
@@ -303,7 +311,7 @@ function migrateV2ToV3(wf: Workflow): Workflow {
 // ── Post-migration fixups ──
 
 /** Convert legacy service format (urlMode/directUrl/baseUrls) to endpoints array. */
-function convertLegacyEndpoints(services: WorkflowService[]): WorkflowService[] {
+export function convertLegacyEndpoints(services: WorkflowService[]): WorkflowService[] {
   return services.map((svc) => {
     if (svc.endpoints?.length) return svc;
     const endpoints: ServiceEndpoint[] = [];
@@ -435,7 +443,7 @@ function fixupOverGroupedServices(migrated: Workflow): Workflow {
 
 // ── v3 → v4: Auto-insert a Start node for workflows that lack one ──
 
-function migrateV3ToV4(wf: Workflow): Workflow {
+export function migrateV3ToV4(wf: Workflow): Workflow {
   if ((wf.schemaVersion ?? 1) >= 4) return wf;
   const hasStart = wf.nodes.some(n => n.type === 'start');
   if (hasStart || wf.nodes.length === 0) return { ...wf, schemaVersion: 4 };
@@ -476,13 +484,58 @@ function migrateV3ToV4(wf: Workflow): Workflow {
 
 // ── v4 → v5: Sub-workflow node support (structural bump, no data changes) ──
 
-function migrateV4ToV5(wf: Workflow): Workflow {
+export function migrateV4ToV5(wf: Workflow): Workflow {
   if ((wf.schemaVersion ?? 1) >= 5) return wf;
   return { ...wf, schemaVersion: 5 };
 }
 
+// ── v5 → v6: Remove orphaned Start nodes from webhook/schedule triggered workflows ──
+
+export function migrateV5ToV6(wf: Workflow): Workflow {
+  if ((wf.schemaVersion ?? 1) >= 6) return wf;
+  
+  // Check if workflow has webhook or schedule trigger nodes
+  const webhookNode = wf.nodes.find(n => n.type === 'webhook');
+  const scheduleNode = wf.nodes.find(n => n.type === 'schedule');
+  const triggerNode = webhookNode || scheduleNode;
+  
+  if (!triggerNode) {
+    // Not a trigger-based workflow, no changes needed
+    return { ...wf, schemaVersion: 6 };
+  }
+  
+  // Find Start nodes that only connect to the trigger node (orphaned)
+  const startNodesToRemove: string[] = [];
+  
+  for (const node of wf.nodes) {
+    if (node.type !== 'start') continue;
+    
+    const outgoingEdges = wf.edges.filter(e => e.source === node.id);
+    
+    // Remove if: no outgoing edges, or only connects to the trigger node
+    if (outgoingEdges.length === 0) {
+      startNodesToRemove.push(node.id);
+    } else if (outgoingEdges.length === 1 && outgoingEdges[0].target === triggerNode.id) {
+      startNodesToRemove.push(node.id);
+    }
+  }
+  
+  if (startNodesToRemove.length === 0) {
+    return { ...wf, schemaVersion: 6 };
+  }
+  
+  const removedSet = new Set(startNodesToRemove);
+  
+  return {
+    ...wf,
+    schemaVersion: 6,
+    nodes: wf.nodes.filter(n => !removedSet.has(n.id)),
+    edges: wf.edges.filter(e => !removedSet.has(e.source) && !removedSet.has(e.target)),
+  };
+}
+
 /**
- * Run all schema migrations on a workflow (v1 → v2 → v3 → v4 → v5 + fixups).
+ * Run all schema migrations on a workflow (v1 → v2 → v3 → v4 → v5 → v6 + fixups).
  * Pure function — no React dependencies.
  */
 export function migrateWorkflowSchema(wf: Workflow): Workflow {
@@ -492,6 +545,7 @@ export function migrateWorkflowSchema(wf: Workflow): Workflow {
   if ((migrated.schemaVersion ?? 1) < 3) migrated = migrateV2ToV3(migrated);
   if ((migrated.schemaVersion ?? 1) < 4) migrated = migrateV3ToV4(migrated);
   if ((migrated.schemaVersion ?? 1) < 5) migrated = migrateV4ToV5(migrated);
+  if ((migrated.schemaVersion ?? 1) < 6) migrated = migrateV5ToV6(migrated);
 
   migrated = {
     ...migrated,
@@ -504,3 +558,5 @@ export function migrateWorkflowSchema(wf: Workflow): Workflow {
 
   return migrated;
 }
+
+export { migrateV1ToV2, migrateV2ToV3 };

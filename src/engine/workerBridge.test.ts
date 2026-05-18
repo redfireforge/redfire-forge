@@ -76,7 +76,7 @@ const mockedIsTauri = vi.mocked(isTauri);
 function makeConfig(overrides: Partial<TestConfig> = {}): TestConfig {
   return {
     concurrency: 2,
-    totalTransactions: 5,
+    iterations: 5,
     scenarioWeights: [],
     executionMode: 'batch',
     ...overrides,
@@ -168,7 +168,7 @@ describe('workerBridge — runTestInWorker', () => {
       type: 'done', newResults: [r3],
     });
 
-    const results = await promise;
+    const { results } = await promise;
     expect(results).toHaveLength(3);
     expect(results[0].id).toBe('r1');
     expect(results[2].id).toBe('r3');
@@ -323,7 +323,7 @@ describe('workerBridge — runTestInWorker', () => {
     const promise = runTestInWorker(makeConfig(), [makeScenario()], vi.fn());
 
     mockWorkerInstance.simulateMessage({ type: 'done', newResults: [makeResult('r1')] });
-    const results = await promise;
+    const { results } = await promise;
     expect(results).toHaveLength(1);
 
     // Second done should not cause issues

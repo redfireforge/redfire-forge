@@ -1,6 +1,6 @@
 import { useRef, useCallback, useEffect } from 'react';
 import Editor, { type OnMount } from '@monaco-editor/react';
-import type { editor as MonacoEditor, IDisposable } from 'monaco-editor';
+import type { editor as MonacoEditor, IDisposable, Position } from 'monaco-editor';
 
 export interface ScriptCodeEditorProps {
   value: string;
@@ -47,7 +47,7 @@ export default function ScriptCodeEditor({
     // Register completion provider for `input.` and `output.` properties
     completionDisposableRef.current = monaco.languages.registerCompletionItemProvider('javascript', {
       triggerCharacters: ['.'],
-      provideCompletionItems(model: any, position: any) {
+      provideCompletionItems(model: MonacoEditor.ITextModel, position: Position) {
         const textUntilPosition = model.getValueInRange({
           startLineNumber: position.lineNumber,
           startColumn: 1,

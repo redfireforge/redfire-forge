@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RedfireForge — Parallel Showcase: Swim Lanes &amp; Critical Path (Medium)</title>
+<style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .badge-node { background: #e8f4fd; color: #1d3557; }
+  .flow-diagram {
+    background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px;
+    padding: 16px; margin: 12px 0 18px; font-family: monospace; font-size: 12px;
+    line-height: 1.8; white-space: pre; overflow-x: auto;
+  }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-warn { background: #fff8e1; border-left-color: #f4a261; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  .toc { margin: 20px 0; }
+  .toc a { color: #1d3557; text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+  .toc li { margin-bottom: 6px; font-size: 13.5px; }
+  .step-num {
+    display: inline-block; width: 24px; height: 24px; background: #e63946; color: #fff;
+    border-radius: 50%; text-align: center; line-height: 24px; font-size: 12px; font-weight: 700;
+    margin-right: 6px;
+  }
+  .swim-lane-demo {
+    display: flex; gap: 12px; margin: 16px 0;
+  }
+  .swim-lane-box {
+    flex: 1; padding: 12px; border-radius: 8px; border: 2px dashed;
+    font-size: 12px; text-align: center;
+  }
+  .lane-a { background: rgba(59, 130, 246, 0.08); border-color: rgba(59, 130, 246, 0.4); }
+  .lane-b { background: rgba(168, 85, 247, 0.08); border-color: rgba(168, 85, 247, 0.4); }
+  .lane-c { background: rgba(245, 158, 11, 0.08); border-color: rgba(245, 158, 11, 0.4); }
+  .lane-critical { border-style: solid; font-weight: 700; }
+</style>
+</head>
+<body>
+
+<!-- Cover Page -->
+<div class="cover-page">
+  <h1>🏊 Parallel Showcase</h1>
+  <div class="subtitle">Swim Lanes &amp; Critical Path Detection</div>
+  <p><span class="badge badge-medium">MEDIUM</span></p>
+  <p style="max-width: 500px; margin: 16px auto; color: #457b9d;">
+    Learn how the Results Explorer visualizes parallel execution —
+    swim lanes group nodes by branch, and the critical path shows
+    which branch is the bottleneck.
+  </p>
+  <div class="meta">
+    <strong>Sample:</strong> Parallel Showcase (3 Branches)<br>
+    <strong>Nodes:</strong> 11 &nbsp;|&nbsp;
+    <strong>API:</strong> JSONPlaceholder<br>
+    <strong>Focus:</strong> <span class="badge badge-node">Fork</span>
+    <span class="badge badge-node">Join</span>
+    <span class="badge badge-node">HTTP</span>
+  </div>
+</div>
+
+<div class="page-break"></div>
+
+<!-- Table of Contents -->
+<h2>Contents</h2>
+<ol class="toc">
+  <li><a href="#overview">What Are Swim Lanes?</a></li>
+  <li><a href="#workflow">The Showcase Workflow</a></li>
+  <li><a href="#run">Running the Workflow</a></li>
+  <li><a href="#swimlanes">Reading the Swim Lanes</a></li>
+  <li><a href="#critical">Understanding Critical Path</a></li>
+  <li><a href="#comparison">Branch Comparison Table</a></li>
+  <li><a href="#tips">Tips &amp; Best Practices</a></li>
+</ol>
+
+<div class="page-break"></div>
+
+<!-- Section 1 -->
+<h2 id="overview">1. What Are Swim Lanes?</h2>
+
+<p>When a workflow uses <strong>Fork/Join</strong> nodes, multiple branches execute <em>in parallel</em>. The Results Explorer automatically detects these parallel groups and draws <strong>colored rectangles</strong> (swim lanes) behind each branch's nodes.</p>
+
+<div class="swim-lane-demo">
+  <div class="swim-lane-box lane-a lane-critical">
+    <strong>Content Pipeline</strong><br>
+    Fetch Posts → Fetch Comments → Create Summary<br>
+    <span style="color: #f59e0b; font-size: 11px;">⏱ CRITICAL PATH</span>
+  </div>
+  <div class="swim-lane-box lane-b">
+    <strong>Quick Check</strong><br>
+    Fetch Albums
+  </div>
+  <div class="swim-lane-box lane-c">
+    <strong>Activity Pipeline</strong><br>
+    Fetch Todos → Check Status
+  </div>
+</div>
+
+<p><strong>Why it matters:</strong></p>
+<ul>
+  <li><strong>Visual grouping</strong> — instantly see which nodes run simultaneously</li>
+  <li><strong>Critical path</strong> — identifies the slowest branch (the bottleneck that gates the Join)</li>
+  <li><strong>Branch comparison</strong> — compare timing, pass rates, and node counts across branches</li>
+</ul>
+
+<div class="callout">
+  <strong>Key Concept</strong>
+  The <strong>critical path</strong> is the slowest parallel branch. The Join node waits for ALL branches to complete, so the total parallel section time equals the critical path's duration. Optimizing the critical path directly reduces overall workflow time.
+</div>
+
+<!-- Section 2 -->
+<h2 id="workflow">2. The Showcase Workflow</h2>
+
+<p>This sample has <strong>11 nodes</strong> organized as:</p>
+
+<div class="flow-diagram">
+   Start
+     │
+   1. Authenticate (GET /users/1)
+     │
+   2. Parallel Data Fetch (FORK)
+     ├─────────────────────┬──────────────┐
+     │                     │              │
+  <strong>Branch A (3 steps)</strong>   <strong>Branch C (2)</strong>  <strong>Branch B (1)</strong>
+  3a. Fetch Posts       5a. Fetch Todos  4a. Fetch Albums
+     │                     │
+  3b. Fetch Comments    5b. Check Status
+     │
+  3c. Create Summary
+     │                     │              │
+     └─────────────────────┴──────────────┘
+     │
+   6. Wait for All (JOIN)
+     │
+   7. Publish Report (POST)
+</div>
+
+<table>
+  <tr><th>Branch</th><th>Steps</th><th>Description</th></tr>
+  <tr>
+    <td><strong>A — Content Pipeline</strong></td>
+    <td>3</td>
+    <td>Fetches posts, then comments for the first post, then creates a summary. Sequential chain = longest path.</td>
+  </tr>
+  <tr>
+    <td><strong>B — Quick Check</strong></td>
+    <td>1</td>
+    <td>Single API call to fetch albums. Fast — finishes first.</td>
+  </tr>
+  <tr>
+    <td><strong>C — Activity Pipeline</strong></td>
+    <td>2</td>
+    <td>Fetches todos, then checks status of the first one. Medium length.</td>
+  </tr>
+</table>
+
+<div class="callout callout-tip">
+  <strong>Design Insight</strong>
+  This workflow is deliberately unbalanced — Branch A has 3 steps while Branch B has 1. This creates a clear critical path, making the swim-lane visualization and branch comparison meaningful.
+</div>
+
+<!-- Section 3 -->
+<h2 id="run">3. Running the Workflow</h2>
+
+<ol>
+  <li><span class="step-num">1</span> Open the <strong>Gallery</strong> (🏪) and find <strong>"Sample: Parallel Showcase (3 Branches)"</strong></li>
+  <li><span class="step-num">2</span> Click <strong>"Use as Template"</strong> to import it</li>
+  <li><span class="step-num">3</span> Go to <strong>Workflow Runner</strong> (🏋) and select the imported workflow</li>
+  <li><span class="step-num">4</span> Set <strong>Iterations: 5–10</strong> for meaningful statistics</li>
+  <li><span class="step-num">5</span> Click <strong>Run</strong></li>
+  <li><span class="step-num">6</span> After completion, go to <strong>Results</strong> → select the run → click <strong>Results Explorer</strong></li>
+</ol>
+
+<!-- Section 4 -->
+<h2 id="swimlanes">4. Reading the Swim Lanes</h2>
+
+<p>In the Results Explorer diagram view, you'll see three colored rectangles behind the parallel nodes:</p>
+
+<table>
+  <tr><th>Color</th><th>Branch</th><th>Nodes Inside</th><th>Border Style</th></tr>
+  <tr>
+    <td style="color: rgba(59,130,246,1);">&#9632; Blue</td>
+    <td>Content Pipeline</td>
+    <td>3a → 3b → 3c</td>
+    <td>Solid (if critical)</td>
+  </tr>
+  <tr>
+    <td style="color: rgba(168,85,247,1);">&#9632; Purple</td>
+    <td>Quick Check</td>
+    <td>4a</td>
+    <td>Dashed</td>
+  </tr>
+  <tr>
+    <td style="color: rgba(245,158,11,1);">&#9632; Amber</td>
+    <td>Activity Pipeline</td>
+    <td>5a → 5b</td>
+    <td>Dashed</td>
+  </tr>
+</table>
+
+<h4>What Each Visual Cue Means</h4>
+<ul>
+  <li><strong>Colored background</strong> — groups nodes that belong to the same parallel branch</li>
+  <li><strong>Label in top-left</strong> — shows the branch name (derived from first/last node names)</li>
+  <li><strong>Dashed border</strong> — regular branch</li>
+  <li><strong>Solid border + "⏱ Critical Path"</strong> — the slowest branch (bottleneck)</li>
+</ul>
+
+<div class="callout callout-warn">
+  <strong>When No Critical Path Appears</strong>
+  If all branches have similar durations (within 10% or 5ms), no branch is marked as critical — this means your parallel execution is well-balanced. The critical path only appears when there's a meaningful performance difference.
+</div>
+
+<!-- Section 5 -->
+<h2 id="critical">5. Understanding Critical Path</h2>
+
+<p>The <strong>critical path</strong> determines the total time of the parallel section:</p>
+
+<pre>
+Total parallel time = max(Branch A time, Branch B time, Branch C time)
+
+Example:
+  Branch A (3 steps): 120ms + 80ms + 45ms = <strong>245ms</strong>  ← Critical Path
+  Branch B (1 step):  35ms                 = 35ms
+  Branch C (2 steps): 40ms + 55ms          = 95ms
+
+Join node waits: 245ms (gated by Branch A)
+</pre>
+
+<p><strong>Optimization insight:</strong> Speeding up Branch B or C won't help — the Join still waits for Branch A. To reduce parallel section time, you must optimize Branch A.</p>
+
+<h4>When Critical Path Shifts</h4>
+<p>Under load testing with many iterations, the critical path can shift between branches:</p>
+<ul>
+  <li>At low load: Branch A (most steps) is typically critical</li>
+  <li>At high load: a single-step branch might become critical if its endpoint slows under pressure</li>
+  <li>Comparing iterations helps identify if the bottleneck is consistent or variable</li>
+</ul>
+
+<!-- Section 6 -->
+<h2 id="comparison">6. Branch Comparison Table</h2>
+
+<p>Click the <strong>Fork</strong> or <strong>Join</strong> node in the diagram. The detail panel shows a <strong>Parallel Branches</strong> table at the bottom:</p>
+
+<table>
+  <tr><th>Column</th><th>Meaning</th></tr>
+  <tr><td><strong>Branch</strong></td><td>Name derived from node labels (e.g., "Fetch Posts → … → Create Summary")</td></tr>
+  <tr><td><strong>Nodes</strong></td><td>Number of nodes in that branch</td></tr>
+  <tr><td><strong>Avg Time</strong></td><td>Average total duration across all iterations</td></tr>
+  <tr><td><strong>Pass Rate</strong></td><td>Percentage of executions that passed</td></tr>
+  <tr><td><strong>⏱ Critical</strong></td><td>Badge appears on the slowest branch (when meaningfully slower)</td></tr>
+</table>
+
+<div class="callout callout-tip">
+  <strong>Pro Tip</strong>
+  You can click the Fork node OR the Join node — both show the same branch comparison table for the same fork/join pair. Use whichever is easier to find in the diagram.
+</div>
+
+<!-- Section 7 -->
+<h2 id="tips">7. Tips &amp; Best Practices</h2>
+
+<h4>Designing Parallel Workflows</h4>
+<ul>
+  <li><strong>Balance branches</strong> — distribute work evenly to minimize idle time at the Join</li>
+  <li><strong>Keep branches independent</strong> — don't share variables between parallel branches (race conditions)</li>
+  <li><strong>Use extractions wisely</strong> — variable extractions in one branch are NOT available in other branches until after the Join</li>
+</ul>
+
+<h4>Analyzing Results</h4>
+<ul>
+  <li><strong>Run 5+ iterations</strong> for meaningful averages in the branch comparison</li>
+  <li><strong>Watch for shifting critical paths</strong> — if the slowest branch changes between runs, investigate endpoint stability</li>
+  <li><strong>Check pass rates per branch</strong> — a branch with low pass rate might be failing silently</li>
+  <li><strong>Use the Timeline view</strong> for a time-based Gantt chart showing when each node executed</li>
+</ul>
+
+<h4>Performance Optimization</h4>
+<ul>
+  <li>Always optimize the <strong>critical path first</strong> — other branches won't reduce total time</li>
+  <li>Consider splitting a heavy branch into smaller independent branches</li>
+  <li>Add <code>Delay</code> nodes to simulate network latency and test how it affects the critical path</li>
+</ul>
+
+</body>
+</html>

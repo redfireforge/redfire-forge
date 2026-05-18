@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Multi-Step Extraction Chain — Step-by-Step Walkthrough</title>
+  <style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; color: #1a1a2e; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 30px 24px; background: #fff; }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code { background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 1px 5px; border-radius: 3px; }
+  pre { background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto; margin: 10px 0 16px; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; }
+  .callout { background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px; margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .step { background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 16px; margin: 12px 0; }
+  .step-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .step-num { width: 32px; height: 32px; background: #e63946; color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; flex-shrink: 0; }
+  .step-title { font-weight: 600; color: #1d3557; font-size: 15px; }
+  .expect { background: #d4edda; border-left: 4px solid #28a745; padding: 10px 14px; margin: 10px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+  .expect strong { color: #155724; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+  .badge-sample { background: #e8f4fd; color: #1d3557; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .chain { display: flex; align-items: center; gap: 8px; justify-content: center; margin: 20px 0; font-size: 15px; font-weight: 600; color: #1d3557; }
+  .chain-arrow { color: #e63946; font-size: 20px; }
+  </style>
+</head>
+<body>
+
+<h1>Multi-Step Extraction Chain</h1>
+<p><span class="badge badge-medium">MEDIUM</span> &nbsp; <span class="badge badge-sample">Sample: dm-multi-step-chain</span></p>
+<p>A 3-step extraction chain: <strong>User → Posts → Comments</strong>. Each step extracts variables and passes them to the next request via <code>{{variable}}</code> placeholders in the URL.</p>
+
+<div class="chain">
+  <span>User</span> <span class="chain-arrow">→</span>
+  <span>Posts</span> <span class="chain-arrow">→</span>
+  <span>Comments</span>
+</div>
+
+<div class="callout">
+  <strong>Prerequisites</strong>
+  Import the <code>dm-multi-step-chain</code> sample from Gallery → Data Mapper → "Multi-Step Chain" → <strong>Load Sample</strong>.
+</div>
+
+<h2>Step 1 — GET User (extract userId, userName, userCity)</h2>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">1</div><div class="step-title">Open "Step 1: GET user → extract userId"</div></div>
+  <p>URL: <code>https://jsonplaceholder.typicode.com/users/3</code></p>
+  <p>Go to the <strong>Extract</strong> tab. You'll see 3 extractions:</p>
+  <table>
+    <tr><th>Variable</th><th>Expression</th><th>Value</th></tr>
+    <tr><td><code>userId</code></td><td><code>$.id</code></td><td>3</td></tr>
+    <tr><td><code>userName</code></td><td><code>$.name</code></td><td>"Clementine Bauch"</td></tr>
+    <tr><td><code>userCity</code></td><td><code>$.address.city</code></td><td>"McKenziehaven"</td></tr>
+  </table>
+</div>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">2</div><div class="step-title">Open Data Mapper</div></div>
+  <p>Click <strong>⚡ Data Mapper</strong>. The source tree shows user #3's full JSON object with nested <code>address</code> and <code>company</code> objects.</p>
+  <div class="expect"><strong>You should see:</strong> Source populated with "Clementine Bauch", address.city: "McKenziehaven". Target shows 3 mapped variables.</div>
+</div>
+
+<h2>Step 2 — GET Posts (uses {{userId}}, extracts postId)</h2>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">3</div><div class="step-title">Open "Step 2: GET posts by userId → extract postId"</div></div>
+  <p>URL: <code>https://jsonplaceholder.typicode.com/posts?userId={{userId}}</code></p>
+  <div class="expect"><strong>Key point:</strong> The URL uses <code>{{userId}}</code> — the value <code>3</code> extracted from Step 1 will be substituted here at runtime.</div>
+</div>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">4</div><div class="step-title">Open Data Mapper for array extraction</div></div>
+  <p>Click <strong>⚡ Data Mapper</strong>. The source shows an <strong>array</strong> of posts. The extractions use array indexing:</p>
+  <table>
+    <tr><th>Variable</th><th>Expression</th><th>What it does</th></tr>
+    <tr><td><code>postId</code></td><td><code>$[0].id</code></td><td>Gets the <code>id</code> of the first post in the array</td></tr>
+    <tr><td><code>postTitle</code></td><td><code>$[0].title</code></td><td>Gets the <code>title</code> of the first post</td></tr>
+  </table>
+  <div class="expect"><strong>You should see:</strong> Source shows an array with 3 post objects. Target has 2 mapped variables using <code>$[0]</code> array syntax.</div>
+</div>
+
+<h2>Step 3 — GET Comments (uses {{postId}}, validates email)</h2>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">5</div><div class="step-title">Open "Step 3: GET comments by postId → validate"</div></div>
+  <p>URL: <code>https://jsonplaceholder.typicode.com/comments?postId={{postId}}</code></p>
+  <p>This step uses <code>{{postId}}</code> extracted from Step 2. It also has a <strong>regex assertion</strong> checking that the first comment's email matches <code>.+@.+</code>.</p>
+</div>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">6</div><div class="step-title">Open Data Mapper</div></div>
+  <p>The source shows an array of comments. Two fields are extracted:</p>
+  <table>
+    <tr><th>Variable</th><th>Expression</th><th>Value</th></tr>
+    <tr><td><code>commentEmail</code></td><td><code>$[0].email</code></td><td>"Elise_Russel@yahoo.com"</td></tr>
+    <tr><td><code>commentBody</code></td><td><code>$[0].body</code></td><td>"et officiis id praesentium..."</td></tr>
+  </table>
+</div>
+
+<h2>Part — Validation &amp; Assertions</h2>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">7</div><div class="step-title">Validation with Operators</div></div>
+  <p>In Step 3's test (comments), switch to the <strong>Validation</strong> tab and open Data Mapper. Use the operator picker on target fields to set operators like <code>exists</code>, <code>contains</code>, <code>regex</code>. Each operator shows a color-coded pill: green (equality), amber (comparison), purple (string), gray (existence).</p>
+</div>
+
+<div class="step">
+  <div class="step-header"><div class="step-num">8</div><div class="step-title">Verify Rules</div></div>
+  <p>Click <strong>Verify All</strong> in the toolbar. Each rule shows inline pass/fail badges. Use the <strong>Fetch &amp; Verify</strong> button to send a live request and verify against the actual response.</p>
+</div>
+
+<h2>Full Chain Summary</h2>
+<pre>
+Request 1: GET /users/3
+  → Extracts: userId=3, userName="Clementine Bauch", userCity="McKenziehaven"
+
+Request 2: GET /posts?userId={{userId}}     ← userId=3 from Request 1
+  → Extracts: postId=21, postTitle="..."
+
+Request 3: GET /comments?postId={{postId}}  ← postId=21 from Request 2
+  → Extracts: commentEmail, commentBody
+  → Validates: email matches .+@.+
+</pre>
+
+<table>
+  <tr><th>Concept</th><th>Where you saw it</th></tr>
+  <tr><td>Simple field extraction</td><td>Step 1 — <code>$.id</code>, <code>$.name</code></td></tr>
+  <tr><td>Nested field extraction</td><td>Step 1 — <code>$.address.city</code></td></tr>
+  <tr><td>Array element extraction</td><td>Steps 4, 6 — <code>$[0].id</code>, <code>$[0].email</code></td></tr>
+  <tr><td>Variable chaining across requests</td><td>Steps 3, 5 — <code>{{userId}}</code>, <code>{{postId}}</code> in URLs</td></tr>
+  <tr><td>Regex assertion</td><td>Step 5 — email pattern validation</td></tr>
+  <tr><td>Validation with operators</td><td>Step 7 — operator picker, color-coded pills</td></tr>
+  <tr><td>Verify rules</td><td>Step 8 — Verify All, Fetch &amp; Verify</td></tr>
+</table>
+
+<div class="callout callout-tip">
+  <strong>Next: Validation Mapping</strong>
+  Try the <code>dm-validation-mapping</code> sample to learn selective field validation with the Data Mapper.
+</div>
+
+</body>
+</html>

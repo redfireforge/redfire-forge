@@ -62,7 +62,8 @@ export function buildTemplateMetaAndSample(opts: ExportOptions): TemplateGenResu
   // Build sample row
   const sampleRow: Record<string, string> = { name: test.name };
   for (const pv of pathVariables) {
-    sampleRow[`${PATH_PREFIX}${pv.variableName}`] = pathParts[pv.segmentIndex] || '';
+    const raw = pathParts[pv.segmentIndex] || '';
+    try { sampleRow[`${PATH_PREFIX}${pv.variableName}`] = decodeURIComponent(raw); } catch { sampleRow[`${PATH_PREFIX}${pv.variableName}`] = raw; }
   }
   for (const p of params) {
     sampleRow[`${PARAM_PREFIX}${p.key}`] = p.value;

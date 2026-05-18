@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Workflow Runner: Iterations &amp; Load — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warning { background: #fff3cd; border-left-color: #ffc107; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  .step-box {
+    background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px;
+    padding: 16px; margin: 12px 0;
+  }
+  .step-box h4 { color: #1d3557; margin-bottom: 8px; font-size: 14px; }
+  .step-number {
+    display: inline-block; width: 24px; height: 24px; background: #e63946;
+    color: #fff; border-radius: 50%; text-align: center; line-height: 24px;
+    font-weight: 600; font-size: 12px; margin-right: 8px;
+  }
+  .config-example {
+    background: #f8f9fa; border: 2px solid #1d3557; border-radius: 8px;
+    padding: 16px; margin: 16px 0;
+  }
+  .config-example h4 { color: #1d3557; margin-bottom: 12px; }
+  .formula {
+    background: #1a1a2e; color: #a8dadc; padding: 10px 16px; border-radius: 6px;
+    font-family: 'JetBrains Mono', monospace; font-size: 13px; text-align: center;
+    margin: 12px 0;
+  }
+  </style>
+</head>
+<body>
+
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">🔄</div>
+    <h1>Workflow Runner: Iterations</h1>
+    <div class="subtitle">Configure Load Testing Parameters — Training Manual</div>
+    <p><span class="badge badge-medium">Medium ★★☆</span> · Workflow · Performance Testing</p>
+    <div class="meta">RedfireForge v0.5.7</div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <h2>1. Learning Objectives</h2>
+  <p>By the end of this manual, you will be able to:</p>
+  <ul>
+    <li>Configure total iterations (how many times to run the workflow)</li>
+    <li>Configure concurrency (parallel iteration limit)</li>
+    <li>Understand the relationship between iterations, steps, and total requests</li>
+    <li>Use Load Profile mode for time-based testing</li>
+    <li>Configure think time between iterations</li>
+  </ul>
+
+  <h2>2. Key Concepts</h2>
+
+  <h3>Iterations vs. Requests</h3>
+  <p>Understanding the difference is crucial:</p>
+
+  <table>
+    <tr><th>Term</th><th>Definition</th><th>Example</th></tr>
+    <tr>
+      <td><strong>Iteration</strong></td>
+      <td>One complete execution of your workflow from Start to End</td>
+      <td>10 iterations = workflow runs 10 times</td>
+    </tr>
+    <tr>
+      <td><strong>HTTP Steps</strong></td>
+      <td>Number of HTTP request nodes in your workflow</td>
+      <td>3 HTTP steps = 3 API calls per iteration</td>
+    </tr>
+    <tr>
+      <td><strong>Total Requests</strong></td>
+      <td>Iterations × HTTP Steps</td>
+      <td>10 iterations × 3 steps = 30 requests</td>
+    </tr>
+  </table>
+
+  <div class="formula">
+    Total Requests = Iterations × HTTP Steps per Iteration
+  </div>
+
+  <h3>Concurrency</h3>
+  <p>Concurrency controls how many iterations run <strong>simultaneously</strong>:</p>
+  <ul>
+    <li><strong>Concurrency 1</strong> — Iterations run one at a time (sequential)</li>
+    <li><strong>Concurrency 5</strong> — Up to 5 iterations run in parallel</li>
+    <li><strong>Concurrency 10</strong> — Up to 10 iterations run in parallel</li>
+  </ul>
+
+  <div class="callout callout-tip">
+    <strong>💡 Higher Concurrency = Faster Tests</strong>
+    Running 100 iterations at concurrency 10 completes roughly 10× faster than at concurrency 1 (assuming the API can handle the load).
+  </div>
+
+  <h2>3. The Execution Config Panel</h2>
+  <p>Below the workflow picker, you'll find the execution configuration controls:</p>
+
+  <table>
+    <tr><th>Setting</th><th>Description</th><th>Default</th></tr>
+    <tr>
+      <td>Execution Mode</td>
+      <td>How iterations are scheduled: Sequential, Batch, Continuous Pool, or Load Profile</td>
+      <td>Sequential</td>
+    </tr>
+    <tr>
+      <td>Iterations</td>
+      <td>Total workflow runs</td>
+      <td>5</td>
+    </tr>
+    <tr>
+      <td>Concurrency</td>
+      <td>Max parallel iterations</td>
+      <td>1</td>
+    </tr>
+    <tr>
+      <td>Think Time</td>
+      <td>Delay between iterations</td>
+      <td>None</td>
+    </tr>
+    <tr>
+      <td>Timeout</td>
+      <td>Max time per HTTP request</td>
+      <td>30s</td>
+    </tr>
+  </table>
+  <p>The <strong>Execution Mode</strong> radio group offers four choices (same semantics as other runners, applied to whole workflow iterations):</p>
+  <ul>
+    <li><strong>Sequential</strong> — one iteration at a time, in order (no parallelism; concurrency stays 1).</li>
+    <li><strong>Batch</strong> — start up to N iterations, wait for all of them to finish, then start the next N, until the total iteration count is done.</li>
+    <li><strong>Continuous Pool</strong> — keep up to N iterations in flight at all times; when one finishes, another starts until the run completes.</li>
+    <li><strong>Load Profile</strong> — time-based run with shaped concurrency (e.g. ramp-up, sustained, spike) instead of a fixed iteration count.</li>
+  </ul>
+
+  <h2>4. Hands-On Exercise: User Data Workflow</h2>
+  <p>We'll create and run a 3-step workflow with different load configurations.</p>
+
+  <h3>Setup: Import or Create the Workflow</h3>
+  <p>Create a workflow called <strong>"User Data Flow"</strong> with these steps:</p>
+
+  <div class="step-box">
+    <h4><span class="step-number">1</span>Get User</h4>
+    <pre>GET https://jsonplaceholder.typicode.com/users/1
+Extract: userId from $.id</pre>
+  </div>
+
+  <div class="step-box">
+    <h4><span class="step-number">2</span>Get User's Posts</h4>
+    <pre>GET https://jsonplaceholder.typicode.com/users/{{userId}}/posts
+Extract: firstPostId from $[0].id</pre>
+  </div>
+
+  <div class="step-box">
+    <h4><span class="step-number">3</span>Get Post Comments</h4>
+    <pre>GET https://jsonplaceholder.typicode.com/posts/{{firstPostId}}/comments
+Assert: Status 200</pre>
+  </div>
+
+  <div class="page-break"></div>
+
+  <h2>5. Exercise A: Basic Load Test</h2>
+
+  <div class="config-example">
+    <h4>Configuration</h4>
+    <table>
+      <tr><td>Iterations</td><td><strong>10</strong></td></tr>
+      <tr><td>Concurrency</td><td><strong>2</strong></td></tr>
+    </table>
+  </div>
+
+  <h3>Steps</h3>
+  <ol>
+    <li>Go to <strong>Testing → Workflow Runner</strong></li>
+    <li>Select <strong>"User Data Flow"</strong></li>
+    <li>Set <strong>Iterations = 10</strong></li>
+    <li>Set <strong>Concurrency = 2</strong></li>
+    <li>Click <strong>▶ Run Workflow</strong></li>
+  </ol>
+
+  <h3>What to Expect</h3>
+  <ul>
+    <li><strong>Total Requests:</strong> 30 (3 steps × 10 iterations)</li>
+    <li><strong>Parallel Iterations:</strong> 2 at a time</li>
+    <li><strong>Duration:</strong> ~5 seconds (varies by network)</li>
+  </ul>
+
+  <p>Watch the progress bar — it shows iteration progress, not request count:</p>
+  <pre>Progress: 5/10 iterations (50%)</pre>
+
+  <h2>6. Exercise B: Higher Concurrency</h2>
+
+  <div class="config-example">
+    <h4>Configuration</h4>
+    <table>
+      <tr><td>Iterations</td><td><strong>20</strong></td></tr>
+      <tr><td>Concurrency</td><td><strong>5</strong></td></tr>
+    </table>
+  </div>
+
+  <h3>Steps</h3>
+  <ol>
+    <li>Change <strong>Iterations = 20</strong></li>
+    <li>Change <strong>Concurrency = 5</strong></li>
+    <li>Click <strong>▶ Run Workflow</strong></li>
+  </ol>
+
+  <h3>Compare with Exercise A</h3>
+  <table>
+    <tr><th>Metric</th><th>Exercise A</th><th>Exercise B</th></tr>
+    <tr><td>Iterations</td><td>10</td><td>20</td></tr>
+    <tr><td>Concurrency</td><td>2</td><td>5</td></tr>
+    <tr><td>Total Requests</td><td>30</td><td>60</td></tr>
+    <tr><td>Expected Duration</td><td>~5s</td><td>~4s (faster despite 2× work)</td></tr>
+  </table>
+
+  <div class="callout">
+    <strong>Why Is It Faster?</strong>
+    Higher concurrency means more iterations run in parallel. Even though we doubled the iterations, we more than doubled the parallelism (2→5), so the total time decreases.
+  </div>
+
+  <h2>7. Exercise C: Load Profile Mode</h2>
+  <p>Load Profile mode runs for a <strong>fixed duration</strong> rather than fixed iterations.</p>
+
+  <div class="config-example">
+    <h4>Configuration</h4>
+    <table>
+      <tr><td>Execution Mode</td><td><strong>Load Profile</strong></td></tr>
+      <tr><td>Profile Type</td><td><strong>Ramp Up</strong></td></tr>
+      <tr><td>Duration</td><td><strong>30 seconds</strong></td></tr>
+      <tr><td>Start Concurrency</td><td><strong>1</strong></td></tr>
+      <tr><td>Max Concurrency</td><td><strong>5</strong></td></tr>
+    </table>
+  </div>
+
+  <h3>Steps</h3>
+  <ol>
+    <li>Under <strong>Execution Mode</strong>, select <strong>Load Profile</strong></li>
+    <li>Choose profile type: <strong>Ramp Up</strong></li>
+    <li>Set Duration: <strong>30</strong> seconds</li>
+    <li>Set Start Concurrency: <strong>1</strong></li>
+    <li>Set Max Concurrency: <strong>5</strong></li>
+    <li>Click <strong>▶ Run Workflow</strong></li>
+  </ol>
+
+  <h3>What Happens</h3>
+  <ul>
+    <li>Test runs for exactly 30 seconds</li>
+    <li>Starts with 1 concurrent iteration</li>
+    <li>Gradually increases to 5 concurrent</li>
+    <li>Number of iterations depends on how fast each completes</li>
+  </ul>
+
+  <h3>Load Profile Types</h3>
+  <table>
+    <tr><th>Type</th><th>Description</th><th>Use Case</th></tr>
+    <tr>
+      <td>Constant</td>
+      <td>Fixed concurrency for duration</td>
+      <td>Sustained load testing</td>
+    </tr>
+    <tr>
+      <td>Ramp Up</td>
+      <td>Gradually increase concurrency</td>
+      <td>Find breaking point</td>
+    </tr>
+    <tr>
+      <td>Ramp Down</td>
+      <td>Start high, decrease over time</td>
+      <td>Recovery testing</td>
+    </tr>
+    <tr>
+      <td>Spike</td>
+      <td>Sudden burst then sustain</td>
+      <td>Burst capacity testing</td>
+    </tr>
+  </table>
+
+  <div class="page-break"></div>
+
+  <h2>8. Exercise D: Adding Think Time</h2>
+  <p>Think time adds a delay between iterations, simulating real user behavior.</p>
+
+  <div class="config-example">
+    <h4>Configuration</h4>
+    <table>
+      <tr><td>Iterations</td><td><strong>10</strong></td></tr>
+      <tr><td>Concurrency</td><td><strong>2</strong></td></tr>
+      <tr><td>Think Time</td><td><strong>Fixed 500ms</strong></td></tr>
+    </table>
+  </div>
+
+  <h3>Steps</h3>
+  <ol>
+    <li>Return to <strong>Sequential</strong> execution mode</li>
+    <li>Set Iterations: <strong>10</strong></li>
+    <li>Set Concurrency: <strong>2</strong></li>
+    <li>Click <strong>Think Time</strong> dropdown</li>
+    <li>Select <strong>Fixed</strong></li>
+    <li>Enter <strong>500</strong> ms</li>
+    <li>Click <strong>▶ Run Workflow</strong></li>
+  </ol>
+
+  <h3>Observe the Difference</h3>
+  <p>Compare total duration with Exercise A (same iterations/concurrency):</p>
+  <ul>
+    <li><strong>Without think time:</strong> ~5 seconds</li>
+    <li><strong>With 500ms think time:</strong> ~10 seconds (+ 500ms × 10 iterations)</li>
+  </ul>
+
+  <h3>Think Time Options</h3>
+  <table>
+    <tr><th>Type</th><th>Description</th></tr>
+    <tr>
+      <td>None</td>
+      <td>No delay between iterations</td>
+    </tr>
+    <tr>
+      <td>Fixed</td>
+      <td>Exact delay (e.g., 500ms)</td>
+    </tr>
+    <tr>
+      <td>Random</td>
+      <td>Random delay between min and max</td>
+    </tr>
+    <tr>
+      <td>Gaussian</td>
+      <td>Normal distribution around mean</td>
+    </tr>
+  </table>
+
+  <h2>9. Quick Reference: Configuration Combinations</h2>
+
+  <table>
+    <tr><th>Goal</th><th>Config</th></tr>
+    <tr>
+      <td>Smoke test (quick check)</td>
+      <td>5 iterations, concurrency 1</td>
+    </tr>
+    <tr>
+      <td>Basic load test</td>
+      <td>50 iterations, concurrency 5</td>
+    </tr>
+    <tr>
+      <td>Stress test</td>
+      <td>100 iterations, concurrency 20</td>
+    </tr>
+    <tr>
+      <td>Soak test (sustained)</td>
+      <td>Load Profile: Constant, 5 min, concurrency 3</td>
+    </tr>
+    <tr>
+      <td>Spike test</td>
+      <td>Load Profile: Spike, 2 min, max 10</td>
+    </tr>
+    <tr>
+      <td>Realistic user simulation</td>
+      <td>20 iterations, concurrency 3, random think time 1-3s</td>
+    </tr>
+  </table>
+
+  <h2>10. Understanding the Live Progress</h2>
+  <p>While the test runs, the progress panel shows:</p>
+
+  <table>
+    <tr><th>Element</th><th>What It Shows</th></tr>
+    <tr>
+      <td>Progress bar</td>
+      <td>"7/10 iterations (70%)"</td>
+    </tr>
+    <tr>
+      <td>Elapsed time</td>
+      <td>"Running for 4.2s"</td>
+    </tr>
+    <tr>
+      <td>TPS</td>
+      <td>Requests per second</td>
+    </tr>
+    <tr>
+      <td>Avg response</td>
+      <td>Average response time in ms</td>
+    </tr>
+    <tr>
+      <td>Errors</td>
+      <td>Count of failed requests</td>
+    </tr>
+    <tr>
+      <td>Chart</td>
+      <td>Real-time response time visualization</td>
+    </tr>
+  </table>
+
+  <h2>11. Summary</h2>
+
+  <div class="formula">
+    Total Requests = Iterations × HTTP Steps
+  </div>
+
+  <table>
+    <tr><th>Setting</th><th>Effect</th></tr>
+    <tr>
+      <td>↑ Iterations</td>
+      <td>More total work, longer test</td>
+    </tr>
+    <tr>
+      <td>↑ Concurrency</td>
+      <td>Faster completion, higher server load</td>
+    </tr>
+    <tr>
+      <td>Load Profile</td>
+      <td>Time-based testing with shaped load</td>
+    </tr>
+    <tr>
+      <td>Think Time</td>
+      <td>Simulates real user pauses</td>
+    </tr>
+  </table>
+
+  <h2>12. Next Steps</h2>
+  <ul>
+    <li><strong>Workflow Runner: Results</strong> — Analyze per-step and per-iteration metrics</li>
+    <li><strong>Runner Comparison</strong> — When to use Test Runner vs. Workflow Runner</li>
+  </ul>
+
+  <footer>
+    RedfireForge Training Manual · Workflow Runner: Iterations · Medium ★★☆
+  </footer>
+
+</body>
+</html>

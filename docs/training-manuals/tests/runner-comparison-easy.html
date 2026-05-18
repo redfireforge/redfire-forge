@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Choosing the Right Runner — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warning { background: #fff3cd; border-left-color: #ffc107; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  .runner-card {
+    border: 2px solid #dee2e6; border-radius: 12px; padding: 20px;
+    margin: 16px 0; background: #fff;
+  }
+  .runner-card h3 {
+    display: flex; align-items: center; gap: 10px;
+    margin: 0 0 12px 0; color: #1d3557;
+  }
+  .runner-card .icon { font-size: 28px; }
+  .runner-card.test-runner { border-color: #457b9d; }
+  .runner-card.param-runner { border-color: #6f42c1; }
+  .runner-card.workflow-runner { border-color: #e63946; }
+  .decision-tree {
+    background: #f8f9fa; border-radius: 8px; padding: 20px;
+    font-family: 'JetBrains Mono', monospace; font-size: 12px;
+    line-height: 2;
+  }
+  .decision-tree .question { color: #1d3557; font-weight: 600; }
+  .decision-tree .yes { color: #28a745; }
+  .decision-tree .no { color: #dc3545; }
+  .decision-tree .answer { 
+    background: #1d3557; color: #fff; padding: 2px 8px; 
+    border-radius: 4px; font-weight: 600;
+  }
+  .answer-param {
+    background: #6f42c1 !important;
+  }
+  .answer-wf {
+    background: #e63946 !important;
+  }
+  .vs-table td:first-child { font-weight: 600; width: 22%; }
+  </style>
+</head>
+<body>
+
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">🏃 📊 ⚡</div>
+    <h1>Choosing the Right Runner</h1>
+    <div class="subtitle">Test Runner · Parameterized Runner · Workflow Runner — Training Manual</div>
+    <p><span class="badge badge-easy">Easy ★☆☆</span> · Testing · Decision Guide</p>
+    <div class="meta">RedfireForge v0.5.8</div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <h2>1. Learning Objectives</h2>
+  <p>By the end of this manual, you will be able to:</p>
+  <ul>
+    <li>Understand the purpose of each of the three runners</li>
+    <li>Know what each runner is optimized for</li>
+    <li>Choose the right runner for your testing scenario</li>
+    <li>Understand how scenarios and runners are connected</li>
+    <li>Navigate between runners efficiently</li>
+  </ul>
+
+  <h2>2. The Three Runners</h2>
+  <p>RedfireForge provides three specialized tools for running performance tests. Each runner is designed for a specific type of testing:</p>
+
+  <div class="runner-card test-runner">
+    <h3><span class="icon">🏃</span> Test Runner</h3>
+    <p><strong>Purpose:</strong> Run <strong>standard</strong> test scenarios as load tests</p>
+    <p><strong>Best for:</strong> API endpoint testing, regression testing, contract validation</p>
+    <p><strong>Input:</strong> Standard scenarios from Feature Groups (no data sources)</p>
+    <p><strong>Key setting:</strong> <code>Iterations</code> — how many times each test runs</p>
+    <p><strong>Results grouped by:</strong> Environment → Feature → Scenario → Test</p>
+  </div>
+
+  <div class="runner-card param-runner">
+    <h3><span class="icon">📊</span> Parameterized Runner</h3>
+    <p><strong>Purpose:</strong> Run <strong>parameterized</strong> scenarios with data-driven testing</p>
+    <p><strong>Best for:</strong> CSV/Excel data sweeps, boundary testing, multi-variant validation</p>
+    <p><strong>Input:</strong> Parameterized scenarios (tests with data sources)</p>
+    <p><strong>Key setting:</strong> <code>Iterations</code> × <code>Data Rows</code> = total requests</p>
+    <p><strong>Results grouped by:</strong> Environment → Feature → Scenario → Test → Data Row</p>
+  </div>
+
+  <div class="runner-card workflow-runner">
+    <h3><span class="icon">⚡</span> Workflow Runner</h3>
+    <p><strong>Purpose:</strong> Run workflows as load tests with full graph execution</p>
+    <p><strong>Best for:</strong> Multi-step business flows, conditional logic, end-to-end journeys</p>
+    <p><strong>Input:</strong> Workflows from the Workflow Designer</p>
+    <p><strong>Key setting:</strong> <code>Iterations</code> — how many times the full workflow runs</p>
+    <p><strong>Results grouped by:</strong> Workflow → Step → Iteration</p>
+  </div>
+
+  <h2>3. Scenarios and Runners</h2>
+  <p>The connection between scenarios and runners is enforced by design:</p>
+
+  <div class="callout">
+    <strong>Key Concept: Scenario Types</strong>
+    When you create a scenario in a Feature Group, you choose its type:
+    <ul style="margin-top: 6px;">
+      <li><strong>Standard</strong> — contains regular HTTP tests → runs in <strong>Test Runner</strong></li>
+      <li><strong>Parameterized</strong> (PARAM badge) — contains data-driven tests → runs in <strong>Parameterized Runner</strong></li>
+    </ul>
+    A scenario can only contain one type of test. This prevents confusion about how iterations and data rows interact.
+  </div>
+
+  <h2>4. Detailed Comparison</h2>
+
+  <table class="vs-table">
+    <tr>
+      <th>Aspect</th>
+      <th>🏃 Test Runner</th>
+      <th>📊 Param Runner</th>
+      <th>⚡ Workflow Runner</th>
+    </tr>
+    <tr>
+      <td>Input</td>
+      <td>Standard scenarios</td>
+      <td>Parameterized scenarios</td>
+      <td>Workflow graph</td>
+    </tr>
+    <tr>
+      <td>Execution Model</td>
+      <td>Independent requests in parallel</td>
+      <td>Each test × each data row</td>
+      <td>Sequential/parallel graph topology</td>
+    </tr>
+    <tr>
+      <td>Iterations</td>
+      <td>Each test runs N times</td>
+      <td>Each test × rows runs N times</td>
+      <td>Full workflow runs N times</td>
+    </tr>
+    <tr>
+      <td>Data Passing</td>
+      <td>None (independent)</td>
+      <td>CSV/Excel data sources per row</td>
+      <td>Workflow variables flow between steps</td>
+    </tr>
+    <tr>
+      <td>Conditional Logic</td>
+      <td>Assertions on responses</td>
+      <td>Assertions + per-row validation</td>
+      <td>Condition/Switch nodes in graph</td>
+    </tr>
+    <tr>
+      <td>Parallel Paths</td>
+      <td>All tests run independently</td>
+      <td>All rows run independently</td>
+      <td>Fork/Join for controlled parallelism</td>
+    </tr>
+    <tr>
+      <td>Results View</td>
+      <td>Per-request metrics</td>
+      <td>Per-row metrics with data context</td>
+      <td>Per-step + per-iteration metrics</td>
+    </tr>
+    <tr>
+      <td>Use Case</td>
+      <td>Load testing APIs</td>
+      <td>Data-driven testing</td>
+      <td>End-to-end flow testing</td>
+    </tr>
+  </table>
+
+  <h2>5. Decision Flowchart</h2>
+  <p>Use this flowchart to decide which runner to use:</p>
+
+  <div class="decision-tree">
+    <span class="question">What are you testing?</span><br>
+    │<br>
+    ├─ <span class="question">A single API endpoint (no data variations)?</span><br>
+    │  └─ <span class="yes">YES →</span> <span class="answer">Test Runner</span><br>
+    │<br>
+    ├─ <span class="question">Same endpoint with different data inputs (CSV/Excel)?</span><br>
+    │  └─ <span class="yes">YES →</span> <span class="answer answer-param">Parameterized Runner</span><br>
+    │<br>
+    ├─ <span class="question">Multiple independent endpoints?</span><br>
+    │  └─ <span class="yes">YES →</span> <span class="answer">Test Runner</span> (multiple tests in one scenario)<br>
+    │<br>
+    ├─ <span class="question">Multiple endpoints in sequence with data sharing?</span><br>
+    │  └─ <span class="yes">YES →</span> <span class="answer answer-wf">Workflow Runner</span><br>
+    │<br>
+    ├─ <span class="question">Need conditional logic (if/else)?</span><br>
+    │  └─ <span class="yes">YES →</span> <span class="answer answer-wf">Workflow Runner</span><br>
+    │<br>
+    └─ <span class="question">Testing a user journey (login → action → logout)?</span><br>
+       └─ <span class="yes">YES →</span> <span class="answer answer-wf">Workflow Runner</span>
+  </div>
+
+  <h2>6. Use Case Examples</h2>
+
+  <h3>Use Test Runner For:</h3>
+  <ul>
+    <li><strong>API Load Testing</strong> — "Can /users handle 1000 requests/second?"</li>
+    <li><strong>Regression Testing</strong> — "Do all 50 endpoints still return 200 OK?"</li>
+    <li><strong>Contract Validation</strong> — "Does the response match the expected schema?"</li>
+    <li><strong>Comparing Endpoints</strong> — "Which version (v1 vs v2) is faster?"</li>
+  </ul>
+
+  <h3>Use Parameterized Runner For:</h3>
+  <ul>
+    <li><strong>Data-Driven Testing</strong> — "Test search with 100 different keywords from CSV"</li>
+    <li><strong>Boundary Testing</strong> — "Test with valid/invalid/edge-case inputs from a spreadsheet"</li>
+    <li><strong>User Sweep</strong> — "Look up 500 user IDs and validate each response"</li>
+    <li><strong>Multi-Variant Validation</strong> — "Check 50 products have correct prices from Excel"</li>
+  </ul>
+
+  <h3>Use Workflow Runner For:</h3>
+  <ul>
+    <li><strong>User Journeys</strong> — "Login → Browse → Add to Cart → Checkout"</li>
+    <li><strong>Data Dependencies</strong> — "Create user → Get user ID → Create user's order"</li>
+    <li><strong>Conditional Flows</strong> — "If user exists, update; otherwise, create"</li>
+    <li><strong>Business Process Testing</strong> — "Submit order → Wait for processing → Verify status"</li>
+  </ul>
+
+  <div class="page-break"></div>
+
+  <h2>7. Hands-On Exercise: All Three Runners</h2>
+
+  <h3>Part A: Test Runner</h3>
+  <ol>
+    <li>Go to <strong>Gallery</strong> → <strong>Samples</strong></li>
+    <li>Find <strong>"JSONPlaceholder — List Users"</strong></li>
+    <li>Click <strong>Import</strong> to add it as a test scenario</li>
+    <li>Go to <strong>Testing → Test Runner</strong></li>
+    <li>Select the imported scenario</li>
+    <li>Set: <strong>5 iterations, concurrency 2</strong></li>
+    <li>Click <strong>▶ Run Test</strong></li>
+    <li>Observe: Results show 5 requests (one per iteration)</li>
+  </ol>
+
+  <h3>Part B: Parameterized Runner</h3>
+  <ol>
+    <li>Go to <strong>Gallery</strong> → <strong>Samples</strong></li>
+    <li>Find <strong>"User Lookup Sweep"</strong> (parameterized sample)</li>
+    <li>Click <strong>Import</strong> to add it as a parameterized scenario</li>
+    <li>Go to <strong>Testing → Parameterized Runner</strong></li>
+    <li>Select the imported scenario</li>
+    <li>Set: <strong>2 iterations</strong></li>
+    <li>Click <strong>▶ Run Parameterized Test</strong></li>
+    <li>Observe: Results show <em>2 × N rows</em> requests (each data row runs twice)</li>
+  </ol>
+
+  <h3>Part C: Workflow Runner</h3>
+  <ol>
+    <li>Go to <strong>Gallery</strong> → <strong>Samples</strong></li>
+    <li>Find <strong>"Sample: Create → Extract → Verify"</strong></li>
+    <li>Click <strong>Import</strong> to add it as a workflow</li>
+    <li>Go to <strong>Testing → Workflow Runner</strong></li>
+    <li>Select the imported workflow</li>
+    <li>Set: <strong>5 iterations, concurrency 2</strong></li>
+    <li>Click <strong>▶ Run Workflow</strong></li>
+    <li>Observe: Results show 10 requests (2 steps × 5 iterations)</li>
+  </ol>
+
+  <h3>Compare the Results</h3>
+  <table>
+    <tr><th>Aspect</th><th>Test Runner</th><th>Param Runner</th><th>Workflow Runner</th></tr>
+    <tr>
+      <td>Requests</td>
+      <td>5 (one GET per iteration)</td>
+      <td>2 × N rows</td>
+      <td>10 (POST + GET × 5 iterations)</td>
+    </tr>
+    <tr>
+      <td>Grouping</td>
+      <td>By scenario name</td>
+      <td>By data row</td>
+      <td>By step → by iteration</td>
+    </tr>
+    <tr>
+      <td>Metrics</td>
+      <td>Per-request timing</td>
+      <td>Per-row timing</td>
+      <td>Per-step + per-iteration timing</td>
+    </tr>
+    <tr>
+      <td>Data flow</td>
+      <td>None</td>
+      <td>CSV columns → request fields</td>
+      <td>Extracted variables → next step</td>
+    </tr>
+  </table>
+
+  <h2>8. Complementary Testing Strategy</h2>
+  <p>The three runners complement each other for complete test coverage:</p>
+
+  <div class="callout callout-tip">
+    <strong>💡 Recommended Approach</strong>
+    <ol>
+      <li><strong>Test Runner:</strong> Load test individual endpoints to find baseline performance</li>
+      <li><strong>Parameterized Runner:</strong> Validate correctness with diverse data inputs</li>
+      <li><strong>Workflow Runner:</strong> Test the full user journey to find integration issues</li>
+    </ol>
+  </div>
+
+  <h3>Example: E-commerce Testing</h3>
+  <table>
+    <tr><th>Test Type</th><th>Runner</th><th>What You Learn</th></tr>
+    <tr>
+      <td>Product search endpoint</td>
+      <td>Test Runner</td>
+      <td>Search handles 500 req/s</td>
+    </tr>
+    <tr>
+      <td>Search with 200 keywords</td>
+      <td>Param Runner</td>
+      <td>All keywords return valid results</td>
+    </tr>
+    <tr>
+      <td>Checkout endpoint</td>
+      <td>Test Runner</td>
+      <td>Checkout handles 100 req/s</td>
+    </tr>
+    <tr>
+      <td>Browse → Add → Checkout flow</td>
+      <td>Workflow Runner</td>
+      <td>Full journey takes 2.5s average</td>
+    </tr>
+  </table>
+
+  <h2>9. Quick Reference: Navigation</h2>
+
+  <table>
+    <tr><th>To...</th><th>Navigate to...</th></tr>
+    <tr>
+      <td>Create standard scenarios</td>
+      <td>Testing → Feature Groups → Add Scenario (Standard)</td>
+    </tr>
+    <tr>
+      <td>Create parameterized scenarios</td>
+      <td>Testing → Feature Groups → Add Scenario (Parameterized)</td>
+    </tr>
+    <tr>
+      <td>Run standard tests</td>
+      <td>Testing → Test Runner</td>
+    </tr>
+    <tr>
+      <td>Run parameterized tests</td>
+      <td>Testing → Parameterized Runner</td>
+    </tr>
+    <tr>
+      <td>Create workflows</td>
+      <td>Workflow → Designer</td>
+    </tr>
+    <tr>
+      <td>Run workflows</td>
+      <td>Testing → Workflow Runner</td>
+    </tr>
+    <tr>
+      <td>View all results</td>
+      <td>Testing → Results</td>
+    </tr>
+  </table>
+
+  <h2>10. Summary</h2>
+
+  <table>
+    <tr><th>Runner</th><th>Choose When...</th></tr>
+    <tr>
+      <td>🏃 Test Runner</td>
+      <td>
+        • Testing individual endpoints<br>
+        • Independent requests without data files<br>
+        • API contract validation<br>
+        • Baseline performance measurement
+      </td>
+    </tr>
+    <tr>
+      <td>📊 Param Runner</td>
+      <td>
+        • Testing with CSV/Excel data variations<br>
+        • Boundary and edge-case testing<br>
+        • Multi-variant validation<br>
+        • Data-driven regression testing
+      </td>
+    </tr>
+    <tr>
+      <td>⚡ Workflow Runner</td>
+      <td>
+        • Multi-step flows<br>
+        • Data dependencies between requests<br>
+        • Conditional/branching logic<br>
+        • User journey simulation
+      </td>
+    </tr>
+  </table>
+
+  <div class="callout">
+    <strong>Remember</strong>
+    Test Runner and Parameterized Runner execute scenarios through the HTTP test execution engine (requests and, for parameterized tests, data rows). Workflow Runner executes the workflow graph through the dedicated graph execution engine. All runs appear under Results, but grouping and drill-down differ: per-request metrics, per-row context, or per-step / per-iteration workflow detail. Scenario type (Standard or Parameterized) determines whether Test Runner or Parameterized Runner can use the scenario.
+  </div>
+
+  <h2>11. Next Steps</h2>
+  <ul>
+    <li><strong>Test Runner Deep Dive</strong> — Concurrency modes, execution config, iterations</li>
+    <li><strong>Parameterized Runner</strong> — Data sources, CSV import, row filtering</li>
+    <li><strong>Workflow Runner Basics</strong> — Your first workflow test</li>
+    <li><strong>Results Analysis</strong> — Interpreting metrics and charts</li>
+  </ul>
+
+  <footer>
+    RedfireForge Training Manual · Choosing the Right Runner · Easy ★☆☆
+  </footer>
+
+</body>
+</html>

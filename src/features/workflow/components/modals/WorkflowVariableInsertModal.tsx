@@ -4,7 +4,6 @@ import type { WorkflowVariableHint } from '../../utils/workflowVariableHints';
 import { NODE_TYPE_DISPLAY } from '../../utils/workflowVariableHints';
 import type { VariableSourceCategory } from '../../utils/workflowVariableHints';
 import { useModalFrame } from '../../../../shared/hooks/useModalFrame';
-import ModalExpandButton from '../../../../shared/components/ModalExpandButton';
 import ModalResizeHandles from '../../../../shared/components/ModalResizeHandles';
 import ComposeStrip from '../ComposeStrip';
 import type { ComposeToken } from '../ComposeStrip';
@@ -53,7 +52,7 @@ export default function WorkflowVariableInsertModal({ open, hints, shortRef = fa
   const [composeMode, setComposeMode] = useState(false);
   const [composeTokens, setComposeTokens] = useState<ComposeToken[]>([]);
   const [view, setView] = useState<ModalView>('browse');
-  const { expanded, setExpanded, toggleExpand, expandClass, overlayStyle, dialogStyle, headerDragStyle, onHeaderMouseDown, onRightEdge, onCorner } = useModalFrame({ open, expandMode: 'fullscreen' });
+  const { expanded: _expanded, setExpanded, toggleExpand: _toggleExpand, expandClass, overlayStyle, dialogStyle, headerDragStyle, onHeaderMouseDown, onRightEdge, onCorner } = useModalFrame({ open, expandMode: 'fullscreen' });
 
   /** Group hints by source. */
   const groups = useMemo((): VarGroup[] => {
@@ -119,7 +118,7 @@ export default function WorkflowVariableInsertModal({ open, hints, shortRef = fa
   // Runs before browser paint so user never sees a flash of empty search
   useLayoutEffect(() => {
     if (open) {
-      setQ(initialSearch); // eslint-disable-line react-hooks/set-state-in-effect -- reset UI on modal open
+      setQ(initialSearch);  
       setActiveCategory('All');  
       setSelectedGroup((prev) => prev ?? (groups.length > 0 ? groups[0].key : null));  
       setView('browse');  
@@ -282,8 +281,6 @@ export default function WorkflowVariableInsertModal({ open, hints, shortRef = fa
             />
             <span className="wf-var-insert-compose-toggle-label">Compose</span>
           </label>
-          <ModalExpandButton expanded={expanded} onToggle={toggleExpand} />
-          <button type="button" className="ram-modal-close" onClick={onClose} aria-label="Close">&times;</button>
         </div>
         {/* View toggle tabs */}
         <div className="wf-var-insert-view-tabs">
@@ -337,7 +334,7 @@ export default function WorkflowVariableInsertModal({ open, hints, shortRef = fa
           </>
         ) : hints.length === 0 ? (
           <div className="wf-var-insert-empty-state">
-            <div className="wf-var-insert-empty-icon">📋</div>
+            <div className="wf-var-insert-empty-icon"><svg className="wf-inline-icon" style={{ width: 32, height: 32 }} viewBox="0 0 24 24"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg></div>
             <p>No variables available yet.</p>
             <p className="wf-var-insert-empty-hint">
               Add variables under <strong>Initial Variables</strong> or <strong>Workflow Defaults</strong>,
@@ -426,7 +423,6 @@ export default function WorkflowVariableInsertModal({ open, hints, shortRef = fa
             ) : (
               <span className="wf-var-insert-detail-placeholder">Hover a variable to see details</span>
             )}
-            <ModalExpandButton expanded={expanded} onToggle={toggleExpand} position="footer" />
           </div>
           {composeMode && (
             <ComposeStrip
@@ -436,6 +432,11 @@ export default function WorkflowVariableInsertModal({ open, hints, shortRef = fa
               onClear={handleComposeClear}
             />
           )}
+          <div className="wf-var-insert-action-bar">
+            <button type="button" className="wf-var-insert-action-clear" onClick={handleComposeClear} disabled={!composeMode || composeTokens.length === 0}>Clear</button>
+            <button type="button" className="wf-var-insert-action-insert" onClick={handleInsertAll} disabled={!composeMode || composeTokens.length === 0}>Insert All{composeMode && composeTokens.length > 0 ? ` (${composeTokens.length})` : ''}</button>
+            <button type="button" className="wf-var-insert-close-btn" onClick={onClose}>Close</button>
+          </div>
           </>
         )}
         <ModalResizeHandles onRightEdge={onRightEdge} onCorner={onCorner} />

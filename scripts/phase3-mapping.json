@@ -34,7 +34,6 @@
   "src/hooks/useAuthVerify.ts": "src/features/requests/hooks/useAuthVerify.ts",
 
   "src/utils/requestTree.ts": "src/features/requests/utils/requestTree.ts",
-  "src/utils/requestTree.test.ts": "src/features/requests/utils/requestTree.test.ts",
   "src/utils/requestUrlResolver.ts": "src/features/requests/utils/requestUrlResolver.ts",
   "src/utils/requestUrlResolver.test.ts": "src/features/requests/utils/requestUrlResolver.test.ts",
   "src/utils/requestAuthState.ts": "src/features/requests/utils/requestAuthState.ts",

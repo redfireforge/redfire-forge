@@ -1,18 +1,20 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import type { Environment, Microservice, FeatureGroup, GlobalAuthProfile, TestRun, TestScenario } from '../../../shared/types';
+import type { Environment, Microservice, FeatureGroup, GlobalAuthProfile, TestRun, TestScenario, SharedDataSource } from '../../../shared/types';
 import {
   loadEnvironments, saveEnvironments,
   loadMicroservices, saveMicroservices,
   loadFeatureGroups, saveFeatureGroups,
   loadGlobalAuthProfiles, saveGlobalAuthProfiles,
+  loadSharedDataSources, saveSharedDataSources,
   loadSelectedEnvId, saveSelectedEnvId,
   loadSelectedSvcId, saveSelectedSvcId,
   migrateToFlat,
+  migratePerFgSharedDataSourcesToTopLevel,
   getMaxRuns, getStorageUsage,
-  loadTestRuns,
+  loadTestRunsLite,
   loadTheme,
 } from '../../../shared/utils/storage';
-import { isCustomThemeId, findSavedTheme, applyCustomTheme } from '../../../app/ThemeCustomizer';
+import { isCustomThemeId, findSavedTheme, applyCustomTheme } from '../../../app/themeCustomizerUtils';
 
 export interface UseProjectsReturn {
   loading: boolean;
@@ -25,6 +27,8 @@ export interface UseProjectsReturn {
   setFeatureGroups: React.Dispatch<React.SetStateAction<FeatureGroup[]>>;
   appGlobalAuthProfiles: GlobalAuthProfile[];
   setAppGlobalAuthProfiles: React.Dispatch<React.SetStateAction<GlobalAuthProfile[]>>;
+  sharedDataSources: SharedDataSource[];
+  setSharedDataSources: React.Dispatch<React.SetStateAction<SharedDataSource[]>>;
 
   selectedEnvId: string;
   setSelectedEnvId: (id: string) => void;
@@ -46,8 +50,9 @@ export function useProjects(): UseProjectsReturn {
   const [microservices, setMicroservices] = useState<Microservice[]>([]);
   const [featureGroups, setFeatureGroups] = useState<FeatureGroup[]>([]);
   const [appGlobalAuthProfiles, setAppGlobalAuthProfiles] = useState<GlobalAuthProfile[]>([]);
-  const [selectedEnvId, _setSelectedEnvId] = useState('');
-  const [selectedSvcId, _setSelectedSvcId] = useState('');
+  const [sharedDataSources, setSharedDataSources] = useState<SharedDataSource[]>([]);
+  const [selectedEnvId, _setSelectedEnvId] = useState(() => localStorage.getItem('perf-test-v3-selected-env') ?? '');
+  const [selectedSvcId, _setSelectedSvcId] = useState(() => localStorage.getItem('perf-test-v3-selected-svc') ?? '');
 
   const [initialMaxRuns, setInitialMaxRuns] = useState(50);
   const [initialStorageUsage, setInitialStorageUsage] = useState<{ usedBytes: number; entries: Record<string, number> }>({ usedBytes: 0, entries: {} });
@@ -63,24 +68,28 @@ export function useProjects(): UseProjectsReturn {
     initDone.current = true;
     (async () => {
       await migrateToFlat();
+      // Migrate any per-FG sharedDataSources to top-level (one-time, idempotent)
+      await migratePerFgSharedDataSourcesToTopLevel();
 
-      const [envs, svcs, fgs, auth, selEnv, selSvc, maxR, usage, savedTheme, runs] = await Promise.all([
+      const [envs, svcs, fgs, auth, sharedDs, selEnv, selSvc, maxR, usage, savedTheme, runs] = await Promise.all([
         loadEnvironments(),
         loadMicroservices(),
         loadFeatureGroups(),
         loadGlobalAuthProfiles(),
+        loadSharedDataSources(),
         loadSelectedEnvId(),
         loadSelectedSvcId(),
         getMaxRuns(),
         getStorageUsage(),
         loadTheme(),
-        loadTestRuns(),
+        loadTestRunsLite(),
       ]);
 
       setEnvironments(envs);
       setMicroservices(svcs);
       setFeatureGroups(fgs);
       setAppGlobalAuthProfiles(auth);
+      setSharedDataSources(sharedDs);
       _setSelectedEnvId(selEnv);
       _setSelectedSvcId(selSvc);
       setInitialMaxRuns(maxR);
@@ -103,6 +112,7 @@ export function useProjects(): UseProjectsReturn {
   useEffect(() => { if (!loading) void saveMicroservices(microservices); }, [microservices, loading]);
   useEffect(() => { if (!loading) void saveFeatureGroups(featureGroups); }, [featureGroups, loading]);
   useEffect(() => { if (!loading) void saveGlobalAuthProfiles(appGlobalAuthProfiles); }, [appGlobalAuthProfiles, loading]);
+  useEffect(() => { if (!loading) void saveSharedDataSources(sharedDataSources); }, [sharedDataSources, loading]);
   useEffect(() => { if (!loading) void saveSelectedEnvId(selectedEnvId); }, [selectedEnvId, loading]);
   useEffect(() => { if (!loading) void saveSelectedSvcId(selectedSvcId); }, [selectedSvcId, loading]);
 
@@ -155,6 +165,7 @@ export function useProjects(): UseProjectsReturn {
     microservices, setMicroservices,
     featureGroups, setFeatureGroups,
     appGlobalAuthProfiles, setAppGlobalAuthProfiles,
+    sharedDataSources, setSharedDataSources,
     selectedEnvId, setSelectedEnvId,
     selectedSvcId, setSelectedSvcId,
     moveScenario, moveTest,

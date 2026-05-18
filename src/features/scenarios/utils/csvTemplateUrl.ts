@@ -29,10 +29,12 @@ export function analyzeUrlPath(url: string): { segments: PathSegmentChoice[]; or
   const parts = pathname.split('/').filter(Boolean);
 
   const segments: PathSegmentChoice[] = parts.map((seg, i) => {
-    const suggested = looksLikeVariable(seg);
+    // Decode percent-encoded segments (e.g. %7B%7Bvin%7D%7D → {{vin}})
+    const decoded = decodeURIComponent(seg);
+    const suggested = looksLikeVariable(decoded);
     return {
       index: i,
-      segment: seg,
+      segment: decoded,
       suggestedVariable: suggested,
       variableName: suggested ? `path_var_${i}` : '',
     };
