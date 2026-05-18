@@ -336,17 +336,25 @@ pub fn get_target_concurrency(
     let max_c = max_concurrency.max(1);
     match profile_type {
         "ramp-up" => {
-            let ramp = ramp_up_sec.unwrap_or(duration_sec) as f64;
-            if ramp <= 0.0 {
+            // Match JS: rampUpSec of 0 or None → use durationSec (JS `|| durationSec`)
+            let ramp = match ramp_up_sec {
+                Some(r) if r > 0 => r as f64,
+                _ => duration_sec as f64,
+            };
+            if ramp <= 0.0 || elapsed_sec >= ramp {
                 return max_c;
             }
-            let ratio = (elapsed_sec / ramp).min(1.0);
-            (ratio * max_c as f64).ceil().max(1.0) as u32
+            // Match JS: affine interpolation 1 → max_c (not linear from 0)
+            let t = elapsed_sec / ramp;
+            let m = max_c as f64;
+            (1.0 + (m - 1.0) * t).ceil().max(1.0) as u32
         }
         "spike" => {
-            let start = spike_start_sec.unwrap_or(0) as f64;
-            let dur = spike_duration_sec.unwrap_or(10) as f64;
-            let spike_c = spike_concurrency.unwrap_or(max_c * 2);
+            // Match JS: defaults derived from duration/concurrency, not hardcoded
+            let dur_f = duration_sec as f64;
+            let start = spike_start_sec.unwrap_or((dur_f * 0.3).floor() as u64) as f64;
+            let dur = spike_duration_sec.unwrap_or((dur_f * 0.2).ceil() as u64) as f64;
+            let spike_c = spike_concurrency.unwrap_or(max_concurrency.max(1) * 3);
             if elapsed_sec >= start && elapsed_sec < start + dur {
                 spike_c.max(1)
             } else {

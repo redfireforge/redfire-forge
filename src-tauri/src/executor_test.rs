@@ -254,22 +254,27 @@ mod tests {
     }
 
     #[test]
-    fn ramp_up_linear() {
+    fn ramp_up_affine() {
+        // JS formula: ceil(1 + (M-1) * t) — affine 1→M, not linear from 0
         assert_eq!(get_target_concurrency("ramp-up", 100, 0.0, 60, Some(60), None, None, None), 1);
-        assert_eq!(get_target_concurrency("ramp-up", 100, 30.0, 60, Some(60), None, None, None), 50);
+        // t=0.5 → ceil(1 + 99*0.5) = ceil(50.5) = 51
+        assert_eq!(get_target_concurrency("ramp-up", 100, 30.0, 60, Some(60), None, None, None), 51);
         assert_eq!(get_target_concurrency("ramp-up", 100, 60.0, 60, Some(60), None, None, None), 100);
+        // Beyond ramp → stays at max
         assert_eq!(get_target_concurrency("ramp-up", 100, 90.0, 60, Some(60), None, None, None), 100);
     }
 
     #[test]
     fn ramp_up_zero_ramp() {
-        assert_eq!(get_target_concurrency("ramp-up", 100, 0.0, 60, Some(0), None, None, None), 100);
+        // rampUpSec=0 → use durationSec as ramp (match JS `|| durationSec`)
+        // t=0 with ramp=60 → ceil(1 + 99*0) = 1
+        assert_eq!(get_target_concurrency("ramp-up", 100, 0.0, 60, Some(0), None, None, None), 1);
     }
 
     #[test]
     fn ramp_up_no_ramp_specified() {
-        // Falls back to duration_sec as ramp
-        assert_eq!(get_target_concurrency("ramp-up", 100, 30.0, 60, None, None, None, None), 50);
+        // None → use durationSec=60 as ramp, t=0.5 → ceil(1 + 99*0.5) = 51
+        assert_eq!(get_target_concurrency("ramp-up", 100, 30.0, 60, None, None, None, None), 51);
     }
 
     #[test]
@@ -314,16 +319,22 @@ mod tests {
     fn concurrency_zero_clamped_to_one() {
         assert_eq!(get_target_concurrency("sustained", 0, 5.0, 60, None, None, None, None), 1);
         assert_eq!(get_target_concurrency("ramp-up", 0, 30.0, 60, Some(60), None, None, None), 1);
-        assert_eq!(get_target_concurrency("spike", 0, 5.0, 60, None, None, None, None), 2); // 0.max(1) * 2
+        // spike: max(1) * 3 = 3; elapsed 5.0 is inside default window [18, 30)
+        assert_eq!(get_target_concurrency("spike", 0, 20.0, 60, None, None, None, None), 3);
     }
 
     #[test]
     fn spike_defaults() {
-        // No spike params → defaults: start=0, dur=10, concurrency=max*2
-        let c = get_target_concurrency(
-            "spike", 100, 5.0, 60, None, None, None, None,
-        );
-        assert_eq!(c, 200); // max_concurrency * 2
+        // Match JS: start=floor(60*0.3)=18, dur=ceil(60*0.2)=12, peak=100*3=300
+        // elapsed=5.0 is before spike window [18, 30) → baseline=100
+        let before = get_target_concurrency("spike", 100, 5.0, 60, None, None, None, None);
+        assert_eq!(before, 100);
+        // elapsed=20.0 is inside spike window [18, 30) → peak=300
+        let during = get_target_concurrency("spike", 100, 20.0, 60, None, None, None, None);
+        assert_eq!(during, 300);
+        // elapsed=35.0 is after spike window → baseline=100
+        let after = get_target_concurrency("spike", 100, 35.0, 60, None, None, None, None);
+        assert_eq!(after, 100);
     }
 
     // ── Body Capping ─────────────────────────────────────
