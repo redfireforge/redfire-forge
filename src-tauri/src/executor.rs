@@ -354,7 +354,7 @@ pub fn get_target_concurrency(
             let dur_f = duration_sec as f64;
             let start = spike_start_sec.unwrap_or((dur_f * 0.3).floor() as u64) as f64;
             let dur = spike_duration_sec.unwrap_or((dur_f * 0.2).ceil() as u64) as f64;
-            let spike_c = spike_concurrency.unwrap_or(max_concurrency.max(1) * 3);
+            let spike_c = spike_concurrency.unwrap_or(max_concurrency * 3);
             if elapsed_sec >= start && elapsed_sec < start + dur {
                 spike_c.max(1)
             } else {
