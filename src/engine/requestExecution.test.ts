@@ -3,6 +3,7 @@ import type { Scenario } from '../shared/types';
 import { executeWithRetry, runSequential, runBatch, runPool, clearPrepCache, buildErrorResult, withTimeout, type RunOpts } from './requestExecution';
 import { TokenManager } from './tokenManager';
 import { CircuitBreaker } from './circuitBreaker';
+import { makeScenario as _makeScenario } from '../test-utils/factories';
 
 vi.mock('../shared/utils/httpClient', () => ({
   httpFetch: vi.fn(),
@@ -11,14 +12,8 @@ vi.mock('../shared/utils/httpClient', () => ({
 import { httpFetch } from '../shared/utils/httpClient';
 const mockedFetch = vi.mocked(httpFetch);
 
-function makeScenario(overrides: Partial<Scenario> = {}): Scenario {
-  return {
-    id: 's1', name: 'TestScenario', url: 'https://api.example.com/users',
-    method: 'GET', headers: [], body: '', auth: { type: 'none' },
-    validation: { mode: 'none' },
-    ...overrides,
-  };
-}
+const makeScenario = (overrides: Partial<Scenario> = {}) =>
+  _makeScenario({ id: 's1', name: 'TestScenario', ...overrides });
 
 function successResponse(body = '{"ok":true}') {
   return { status: 200, statusText: 'OK', headers: { 'content-type': 'application/json' }, body };

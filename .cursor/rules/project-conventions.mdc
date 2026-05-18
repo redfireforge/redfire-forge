@@ -27,7 +27,11 @@ alwaysApply: true
 
 | File | Purpose |
 |---|---|
-| `src/App.tsx` | Main app, routing, global state |
+| `src/app/App.tsx` | Main app, routing, global state |
+| `src/app/components/AppHeader.tsx` | App header: env/svc selectors, theme picker |
+| `src/app/components/AppActivityBar.tsx` | Left activity bar navigation |
+| `src/app/components/AppSubNav.tsx` | Contextual sub-navigation tabs |
+| `src/test-utils/factories.ts` | Shared test factories: makeScenario, makeResult, makeConfig |
 | `src/pages/EnvironmentManager.tsx` | Unified env/microservice/auth config page |
 | `src/utils/storage.ts` | Dual-mode persistence layer |
 | `src/utils/tauriStore.ts` | Tauri file-system storage |
@@ -168,6 +172,7 @@ alwaysApply: true
 | E2E tests (Playwright) | **Only before merging** to `develop`, `release/*`, or `master` | `npx playwright test --reporter=list` |
 
 ### Rules
+- **Use shared test factories** — Import `makeScenario`, `makeResult`, `makeConfig` from `src/test-utils/factories.ts` instead of defining local factory functions in each test file. Wrap with thin local aliases if you need different defaults (e.g. `const makeScenario = (id) => _makeScenario({ id })`).
 - **CRITICAL: Always run `npx tsc -b --noEmit` after making code changes.** This is NOT optional. The `-b` flag is required because the root `tsconfig.json` uses project references (`"files": []`); without `-b`, tsc checks nothing. Vitest and Playwright do NOT type-check source files — only `tsc` catches missing properties, bad imports, and type mismatches. Skipping this step causes Tauri build failures that are expensive to debug later. Run it after every batch of edits, not just before merging.
 - **During development, only run unit tests for the files you touched** — do NOT run the full test suite. Use `npx vitest run src/path/to/file.test.ts` to target specific test files.
 - **Do NOT run E2E tests during regular feature development** — they are slow and only needed at merge gates.
