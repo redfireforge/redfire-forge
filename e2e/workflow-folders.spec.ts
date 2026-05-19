@@ -172,8 +172,8 @@ test.describe('Workflow Picker (Runner)', () => {
 
     const panel = page.locator('.workflow-picker .wfp-dropdown-panel');
     await expect(panel).toBeVisible();
-    await expect(panel.getByRole('button', { name: /^📁 Performance \(\d+\) ›$/ })).toBeVisible();
-    await expect(panel.getByRole('button', { name: /^📁 Integration \(\d+\) ›$/ })).toBeVisible();
+    await expect(panel.locator('.wft-dropdown-folder:has-text("Performance")')).toBeVisible();
+    await expect(panel.locator('.wft-dropdown-folder:has-text("Integration")')).toBeVisible();
     await expect(panel.locator('.wfp-dropdown-item:has-text("Health Check")')).toBeVisible();
   });
 

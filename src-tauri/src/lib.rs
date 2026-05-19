@@ -1,9 +1,41 @@
+pub mod assertion_evaluator;
 mod commands;
+pub mod date_helpers;
+pub mod deep_compare;
 mod executor;
+pub mod field_operator;
+pub mod http_helpers;
+pub mod json_path;
+pub mod json_validator;
+pub mod subset_match;
 mod types;
+pub mod validation_result;
+pub mod validation_types;
 
 #[cfg(test)]
+mod assertion_evaluator_test;
+#[cfg(test)]
+mod cross_module_test;
+#[cfg(test)]
+mod date_helpers_test;
+#[cfg(test)]
+mod deep_compare_test;
+#[cfg(test)]
 mod executor_test;
+#[cfg(test)]
+mod field_operator_test;
+#[cfg(test)]
+mod http_helpers_test;
+#[cfg(test)]
+mod json_path_test;
+#[cfg(test)]
+mod json_validator_test;
+#[cfg(test)]
+mod subset_match_test;
+#[cfg(test)]
+mod validation_result_test;
+#[cfg(test)]
+mod validation_types_test;
 
 use commands::ExecutorState;
 

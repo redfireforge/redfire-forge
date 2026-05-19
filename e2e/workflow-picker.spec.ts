@@ -93,8 +93,8 @@ test.describe('Workflow Picker Smoke Tests', () => {
     await expect(page.locator('.workflow-step-count')).toContainText('2 HTTP steps');
     await expect(page.locator('.workflow-step-names')).toContainText('Create Order');
 
-    await expect(page.locator('.wf-vars-list')).toBeVisible();
-    await expect(page.locator('input.wf-var-value-input').first()).toHaveValue('test-key-123');
+    await expect(page.locator('.wfp-vars-grid')).toBeVisible();
+    await expect(page.locator('input.wfp-var-input').first()).toHaveValue('test-key-123');
   });
 
   test('shows Clear button when workflow is selected', async ({ page }) => {
@@ -120,7 +120,7 @@ test.describe('Workflow Picker Smoke Tests', () => {
 
     await clearBtn.click();
 
-    await expect(page.locator('.workflow-picker-hint')).toContainText('Select a workflow above');
+    await expect(page.locator('.workflow-picker-hint')).toContainText('Select a workflow');
   });
 
   test('shows Presets button and panel', async ({ page }) => {
@@ -178,14 +178,14 @@ test.describe('Workflow Picker Smoke Tests', () => {
 
     await selectWorkflow(page, 'Restore Test');
 
-    await expect(page.locator('input.wf-var-value-input').first()).toHaveValue('https://default.com');
+    await expect(page.locator('input.wfp-var-input').first()).toHaveValue('https://default.com');
 
     await page.getByRole('button', { name: /Presets/ }).click();
     const restoreBtn = page.locator('button[title="Restore these variable values"]');
     await expect(restoreBtn).toBeVisible();
     await restoreBtn.click();
 
-    await expect(page.locator('input.wf-var-value-input').first()).toHaveValue('https://staging.com');
+    await expect(page.locator('input.wfp-var-input').first()).toHaveValue('https://staging.com');
   });
 
   test('shows modified state when variables differ from defaults', async ({ page }) => {
@@ -206,8 +206,8 @@ test.describe('Workflow Picker Smoke Tests', () => {
 
     await selectWorkflow(page, 'Modified Test');
 
-    await page.locator('input.wf-var-value-input').first().fill('changed-key');
-    await page.locator('input.wf-var-value-input').first().blur();
+    await page.locator('input.wfp-var-input').first().fill('changed-key');
+    await page.locator('input.wfp-var-input').first().blur();
     
     await page.waitForTimeout(300);
 
@@ -232,12 +232,12 @@ test.describe('Workflow Picker Smoke Tests', () => {
 
     await selectWorkflow(page, 'Reset Test');
 
-    await page.locator('input.wf-var-value-input').first().fill('modified-value');
-    await expect(page.locator('input.wf-var-value-input').first()).toHaveValue('modified-value');
+    await page.locator('input.wfp-var-input').first().fill('modified-value');
+    await expect(page.locator('input.wfp-var-input').first()).toHaveValue('modified-value');
 
     await page.getByRole('button', { name: 'Reset', exact: true }).click();
 
-    await expect(page.locator('input.wf-var-value-input').first()).toHaveValue('original-value');
+    await expect(page.locator('input.wfp-var-input').first()).toHaveValue('original-value');
   });
 
   test('workflow runner has dedicated tab', async ({ page }) => {

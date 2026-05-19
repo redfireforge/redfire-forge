@@ -35,6 +35,7 @@ import {
   buildUrlTemplate,
 } from '../utils/dataSourceSetupUtils';
 import { isTemplateToken } from '../../../shared/utils/templateHelpers';
+import { toErrorMessage } from '../../../shared/utils/helpers';
 import type { SetupMode } from '../utils/dataSourceSetupUtils';
 
 export type { SetupMode };
@@ -355,7 +356,7 @@ export default function DataSourceSetupModal({ test, mode, onApply, onClose, onF
       }
       setSampleJson(result.body);
     } catch (err) {
-      setFetchError({ message: err instanceof Error ? err.message : String(err) });
+      setFetchError({ message: toErrorMessage(err) });
     }
     setFetching(false);
   }, [test, onFetchRow, workingAuth]);

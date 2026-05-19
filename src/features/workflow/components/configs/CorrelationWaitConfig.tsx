@@ -6,6 +6,7 @@ import AvailableVariables from '../expression/AvailableVariables';
 import { DataMapperModal, createWebhookExtractionAdapter } from '../../../../shared/components/data-mapper';
 import type { WebhookExtractionOutput } from '../../../../shared/components/data-mapper';
 import { getByPath, setByPath } from '../../../../shared/utils/jsonPath';
+import { toErrorMessage } from '../../../../shared/utils/helpers';
 
 const EMPTY_EXTRACT_VARS: WebhookExtractionOutput = [];
 
@@ -116,7 +117,7 @@ export default function CorrelationWaitConfig({
         message: result.resumed ? `Resumed execution ${result.executionId ?? ''}` : 'No matching paused workflow found',
       });
     } catch (err) {
-      setTestResult({ ok: false, message: err instanceof Error ? err.message : String(err) });
+      setTestResult({ ok: false, message: toErrorMessage(err) });
     } finally {
       setTestSending(false);
     }

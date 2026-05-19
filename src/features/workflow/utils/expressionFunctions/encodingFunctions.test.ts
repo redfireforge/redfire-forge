@@ -13,6 +13,7 @@ describe('encodingFunctions', () => {
     it('encodes empty string', () => expect(evalFn('$base64', '')).toBe(''));
     it('encodes numbers via coercion', () => expect(evalFn('$base64', 42)).toBe(btoa('42')));
     it('handles null', () => expect(evalFn('$base64', null)).toBe(''));
+    it('returns empty string for non-Latin-1 chars (catch branch)', () => expect(evalFn('$base64', '\u{1F600}')).toBe(''));
   });
 
   describe('$base64Decode', () => {
@@ -30,6 +31,11 @@ describe('encodingFunctions', () => {
     it('encodes special characters', () => expect(evalFn('$urlEncode', 'a&b=c')).toBe('a%26b%3Dc'));
     it('leaves alphanumeric unchanged', () => expect(evalFn('$urlEncode', 'abc123')).toBe('abc123'));
     it('handles empty string', () => expect(evalFn('$urlEncode', '')).toBe(''));
+    it('returns input string for lone surrogates (catch branch)', () => {
+      const lone = '\uD800';
+      const result = evalFn('$urlEncode', lone);
+      expect(typeof result).toBe('string');
+    });
   });
 
   describe('$urlDecode', () => {

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import type { MutableRefObject } from 'react';
 import type { Assertion, AssertionOperator, ComparisonOperator, DateReference, FailureDetail, FieldOperator, JsonTypeName, Scenario, ValidationMode } from '../../../shared/types';
 import ResponseVersionPanel from '../../requests/components/ResponseVersionPanel';
@@ -19,6 +20,7 @@ import { DataMapperModal, createValidationAdapter } from '../../../shared/compon
 import type { ValidationAdapterOutput } from '../../../shared/components/data-mapper';
 import { buildPivotedRulesFromExpectedFields } from './testEditorValidationPivot';
 import { ADD_ASSERTION_MENU_ROWS, ASSERTION_CATEGORIES } from './testEditorValidationAddMenu';
+import { prettyJson, isValidJson } from '../../../shared/utils/helpers';
 import {
   ARRAY_CONTAINS_MODE_OPTIONS,
   CalendarIcon,
@@ -80,7 +82,9 @@ export default function TestEditorValidationTab({
 }: TestEditorValidationTabProps) {
   const [showAddMenu, setShowAddMenu] = useState(false);
   const [addMenuSearch, setAddMenuSearch] = useState('');
+  const [addMenuPos, setAddMenuPos] = useState<{ top?: number; bottom?: number; right: number }>({ right: 0 });
   const addMenuRef = useRef<HTMLDivElement>(null);
+  const addBtnRef = useRef<HTMLButtonElement>(null);
   const addMenuSearchRef = useRef<HTMLInputElement>(null);
   const [regexModalIdx, setRegexModalIdx] = useState<number | null>(null);
   const [assertionsExpanded, setAssertionsExpanded] = useState(true);
@@ -130,9 +134,24 @@ export default function TestEditorValidationTab({
 
   useEffect(() => {
     if (!showAddMenu) { setAddMenuSearch(''); return; }
-    requestAnimationFrame(() => addMenuSearchRef.current?.focus());
+    requestAnimationFrame(() => {
+      addMenuSearchRef.current?.focus();
+      const btn = addBtnRef.current;
+      if (btn) {
+        const rect = btn.getBoundingClientRect();
+        const menuHeight = 460;
+        const dropUp = rect.bottom + menuHeight > window.innerHeight;
+        const right = Math.max(4, window.innerWidth - rect.right);
+        if (dropUp) {
+          setAddMenuPos({ bottom: window.innerHeight - rect.top + 4, right });
+        } else {
+          setAddMenuPos({ top: rect.bottom + 4, right });
+        }
+      }
+    });
     const handleClick = (e: MouseEvent) => {
-      if (addMenuRef.current && !addMenuRef.current.contains(e.target as Node)) {
+      if (addMenuRef.current && !addMenuRef.current.contains(e.target as Node) &&
+          addBtnRef.current && !addBtnRef.current.contains(e.target as Node)) {
         setShowAddMenu(false);
       }
     };
@@ -230,10 +249,18 @@ export default function TestEditorValidationTab({
           )}
           <span className="assertions-hint">Run on every request regardless of validation mode</span>
           <AssertionPresetMenu onImport={importAssertions} />
-          <div className="assertions-add-wrap" ref={addMenuRef}>
-            <button type="button" className="btn btn-sm btn-accent" onClick={() => setShowAddMenu(!showAddMenu)}>+ Add</button>
-            {showAddMenu && (
-              <div className="assertions-add-menu">
+          <div className="assertions-add-wrap">
+            <button ref={addBtnRef} type="button" className="btn btn-sm btn-accent" onClick={() => setShowAddMenu(!showAddMenu)}>+ Add</button>
+            {showAddMenu && createPortal(
+              <div
+                ref={addMenuRef}
+                className="assertions-add-menu"
+                style={{
+                  ...(addMenuPos.top != null ? { top: addMenuPos.top } : {}),
+                  ...(addMenuPos.bottom != null ? { bottom: addMenuPos.bottom } : {}),
+                  right: addMenuPos.right,
+                }}
+              >
                 <div className="aam-search-wrap">
                   <input
                     ref={addMenuSearchRef}
@@ -299,7 +326,8 @@ export default function TestEditorValidationTab({
                     <div className="aam-no-results">No matching assertions</div>
                   )}
                 </div>
-              </div>
+              </div>,
+              document.body,
             )}
           </div>
         </div>
@@ -508,12 +536,7 @@ export default function TestEditorValidationTab({
                       <button
                         type="button"
                         className="btn btn-xs btn-outline assertion-schema-action"
-                        onClick={() => {
-                          try {
-                            const parsed = JSON.parse(a.schema);
-                            updateAssertion(i, { schema: JSON.stringify(parsed, null, 2) });
-                          } catch { /* ignore malformed JSON */ }
-                        }}
+                        onClick={() => updateAssertion(i, { schema: prettyJson(a.schema) })}
                         title="Pretty-print JSON with indentation"
                       >
                         Pretty
@@ -552,7 +575,7 @@ export default function TestEditorValidationTab({
                       value={a.schema}
                       onChange={(e) => updateAssertion(i, { schema: e.target.value })}
                       placeholder={'{\n  "type": "object",\n  "required": ["id", "name"],\n  "properties": {\n    "id": { "type": "integer" },\n    "name": { "type": "string" }\n  }\n}'}
-                      className={`assertion-input assertion-input-schema${(() => { try { JSON.parse(a.schema); return ''; } catch { return ' assertion-input-schema--invalid'; } })()}`}
+                      className={`assertion-input assertion-input-schema${isValidJson(a.schema) ? '' : ' assertion-input-schema--invalid'}`}
                       rows={6}
                       spellCheck={false}
                     />

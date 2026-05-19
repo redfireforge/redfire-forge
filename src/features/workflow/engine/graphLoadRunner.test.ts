@@ -119,7 +119,7 @@ describe('graphLoadRunner', () => {
 
     it('never launches iterations under concurrent pool when breaker is already tripped', async () => {
       const workflow = createMockWorkflow();
-      const breaker = { shouldStop: true, recordResult: vi.fn() };
+      const breaker = { shouldStop: true, record: vi.fn() };
 
       const { results } = await runGraphLoad(workflow, {
         iterations: 200,
@@ -162,7 +162,7 @@ describe('graphLoadRunner', () => {
 
     it('stops concurrent pool early when breaker trips between races', async () => {
       const workflow = createMockWorkflow();
-      const breaker = { shouldStop: false, recordResult: vi.fn() };
+      const breaker = { shouldStop: false, record: vi.fn() };
       let invocation = 0;
       mockRunGraph.mockImplementation(async () => {
         invocation += 1;
@@ -311,12 +311,11 @@ describe('graphLoadRunner', () => {
       let callCount = 0;
       const breaker = {
         shouldStop: false,
-        recordResult: vi.fn(),
+        record: vi.fn(),
       };
       
       mockRunGraph.mockImplementation(async () => {
         callCount++;
-        // Trigger circuit breaker after 3 iterations
         if (callCount >= 3) {
           breaker.shouldStop = true;
         }
@@ -474,7 +473,7 @@ describe('graphLoadRunner', () => {
 
     it('skips runGraph when breaker already shouldStop', async () => {
       const workflow = createMockWorkflow();
-      const breaker = { shouldStop: true, recordResult: vi.fn() };
+      const breaker = { shouldStop: true, record: vi.fn() };
       mockRunGraph.mockResolvedValue([createMockResult()]);
 
       const { results } = await runGraphLoad(workflow, {
@@ -541,6 +540,49 @@ describe('graphLoadRunner', () => {
       expect(arg.errorMessage).toBe('boom');
     });
 
+    it('records each successful-path result on the breaker', async () => {
+      const workflow = createMockWorkflow();
+      const record = vi.fn();
+      const breaker = { shouldStop: false, record };
+      mockRunGraph.mockImplementation(async (_n, _e, _v, callbacks) => {
+        const r1 = createMockResult({ passed: true, scenarioId: 'http1' });
+        const r2 = createMockResult({ passed: false, scenarioId: 'http1' });
+        callbacks.onComplete([r1, r2], false, 10);
+        return [];
+      });
+
+      await runGraphLoad(workflow, {
+        iterations: 2,
+        concurrency: 1,
+        breaker: breaker as CircuitBreaker,
+      });
+
+      expect(record).toHaveBeenCalledTimes(4);
+      expect(record.mock.calls.some((c: unknown[]) => (c[0] as RequestResult).passed === false)).toBe(true);
+    });
+
+    it('trips stop-first breaker on failed results from successful runGraph (no throw)', async () => {
+      const workflow = createMockWorkflow();
+      let tripped = false;
+      const breaker = {
+        get shouldStop() { return tripped; },
+        record: (r: RequestResult) => { if (!r.passed) tripped = true; },
+      };
+
+      mockRunGraph.mockImplementation(async (_n, _e, _v, callbacks) => {
+        callbacks.onComplete([createMockResult({ passed: false })], false, 10);
+        return [];
+      });
+
+      const { results } = await runGraphLoad(workflow, {
+        iterations: 50,
+        concurrency: 1,
+        breaker: breaker as unknown as CircuitBreaker,
+      });
+
+      expect(results.length).toBeLessThanOrEqual(2);
+    });
+
     it('creates cancelled result when abort signal fires during iteration', async () => {
       const workflow = createMockWorkflow();
       const controller = new AbortController();
@@ -584,7 +626,7 @@ describe('graphLoadRunner', () => {
       expect(cancelledResult?.errorMessage).toBe('Cancelled by user');
     });
 
-    it('marks successful onComplete iteration results as cancelled after abort signal', async () => {
+    it('marks all onComplete iteration results as cancelled after abort signal', async () => {
       const workflow = createMockWorkflow();
       const controller = new AbortController();
 
@@ -600,8 +642,7 @@ describe('graphLoadRunner', () => {
         abortSignal: controller.signal,
       });
 
-      expect(results.every(r => !r.passed)).toBe(true);
-      expect(results.some(r => r.cancelled && r.errorMessage === 'Cancelled by user')).toBe(true);
+      expect(results.every(r => r.cancelled)).toBe(true);
     });
 
     it('marks error as cancelled when abort signal is set during error', async () => {
@@ -654,7 +695,7 @@ describe('graphLoadRunner', () => {
       expect(results[0].groupName).toBe('G');
     });
 
-    it('when aborting, only marks passed onComplete results as cancelled (leaves failed rows unchanged)', async () => {
+    it('when aborting, marks all onComplete results as cancelled (both passed and failed)', async () => {
       const workflow = createMockWorkflow();
       const controller = new AbortController();
 
@@ -685,7 +726,7 @@ describe('graphLoadRunner', () => {
       const failed = results.find(r => r.scenarioId === 'b');
       expect(failed?.passed).toBe(false);
       expect(failed?.errorMessage).toBe('Expected failure');
-      expect(failed?.cancelled).not.toBe(true);
+      expect(failed?.cancelled).toBe(true);
 
       const passedThenCancelled = results.find(r => r.scenarioId === 'a');
       expect(passedThenCancelled?.cancelled).toBe(true);

@@ -46,10 +46,15 @@ import { computeMetrics } from '../../../engine/metrics';
 import { saveTestRun, forceSaveTestRun } from '../../../shared/utils/storage';
 import { supportsWorkers } from '../../../shared/utils/platform';
 
+import { isRustExecutorAvailable, canUseRustExecutor, runTestViaRust } from '../utils/rustBridge';
+
 const mockRunTest = vi.mocked(runTest);
 const mockRunTestInWorker = vi.mocked(runTestMultiWorker);
 const mockComputeMetrics = vi.mocked(computeMetrics);
 const mockSaveTestRun = vi.mocked(saveTestRun);
+const mockIsRustAvailable = vi.mocked(isRustExecutorAvailable);
+const mockCanUseRust = vi.mocked(canUseRustExecutor);
+const mockRunTestViaRust = vi.mocked(runTestViaRust);
 const mockForceSaveTestRun = vi.mocked(forceSaveTestRun);
 const mockSupportsWorkers = vi.mocked(supportsWorkers);
 
@@ -80,7 +85,9 @@ describe('useTestExecution', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.useFakeTimers({ shouldAdvanceTime: true });
-    mockSupportsWorkers.mockReturnValue(false); // Default to direct execution
+    mockSupportsWorkers.mockReturnValue(false);
+    mockCanUseRust.mockReturnValue(false);
+    mockIsRustAvailable.mockResolvedValue(false);
     mockComputeMetrics.mockReturnValue(createMockSummary());
     mockSaveTestRun.mockResolvedValue({ ok: true, quotaError: false });
   });
@@ -189,6 +196,22 @@ describe('useTestExecution', () => {
         workflow,
         resolveSubWorkflow,
       );
+      expect(mockRunTestInWorker).not.toHaveBeenCalled();
+    });
+
+    it('uses runTestViaRust when Rust executor is available', async () => {
+      mockCanUseRust.mockReturnValue(true);
+      mockIsRustAvailable.mockResolvedValue(true);
+      mockRunTestViaRust.mockResolvedValue({ results: [createMockResult()] });
+
+      const { result } = renderHook(() => useTestExecution());
+
+      await act(async () => {
+        await result.current.execute(createMockConfig(), [createMockScenario()]);
+      });
+
+      expect(mockRunTestViaRust).toHaveBeenCalled();
+      expect(mockRunTest).not.toHaveBeenCalled();
       expect(mockRunTestInWorker).not.toHaveBeenCalled();
     });
 
@@ -557,6 +580,39 @@ describe('useTestExecution', () => {
       });
 
       expect(abortSignal?.aborted).toBe(true);
+    });
+
+    it('uses active (non-cancelled) result count when aborted', async () => {
+      const cancelledResult = createMockResult({ id: 'cancelled-1', cancelled: true });
+      const activeResult = createMockResult({ id: 'active-1', passed: true });
+      let resolveRun: ((v: { results: RequestResult[] }) => void) | undefined;
+
+      mockRunTest.mockImplementation(async (_config, _scenarios, _onProgress, signal) => {
+        return new Promise<{ results: RequestResult[] }>((resolve) => {
+          resolveRun = resolve;
+          signal.addEventListener('abort', () => {
+            resolve({ results: [activeResult, cancelledResult] });
+          });
+        });
+      });
+
+      const { result } = renderHook(() => useTestExecution());
+
+      act(() => {
+        result.current.execute(createMockConfig(), [createMockScenario()]);
+      });
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(10);
+      });
+
+      await act(async () => {
+        result.current.abort();
+        await vi.advanceTimersByTimeAsync(10);
+      });
+
+      expect(resolveRun).toBeDefined();
+      expect(result.current.completed).toBe(1);
     });
   });
 

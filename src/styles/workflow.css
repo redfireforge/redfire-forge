@@ -1217,51 +1217,61 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 5px 8px;
+  padding: 6px 12px;
   border-bottom: 1px solid var(--border);
-  font-size: 0.72rem;
+  font-size: 0.74rem;
   color: var(--text-muted);
   flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.02);
 }
 .wft-breadcrumb-back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   background: none;
   border: none;
   color: var(--accent, #58a6ff);
-  font-size: 0.85rem;
   cursor: pointer;
-  padding: 0 4px;
+  padding: 3px 5px;
+  border-radius: 3px;
   line-height: 1;
+  transition: background 0.12s;
 }
-.wft-breadcrumb-back:hover { color: var(--text); }
+.wft-breadcrumb-back:hover { color: var(--text); background: rgba(255,255,255,0.06); }
 .wft-breadcrumb-root {
   color: var(--accent, #58a6ff);
   cursor: pointer;
+  font-weight: 500;
 }
 .wft-breadcrumb-root:hover { text-decoration: underline; }
 .wft-breadcrumb-sep { margin: 0 2px; color: var(--text-muted); }
+.wft-breadcrumb-sep-icon { margin: 0 1px; color: var(--text-muted); opacity: 0.5; vertical-align: middle; }
 .wft-breadcrumb-current { color: var(--text); font-weight: 600; }
-.wft-breadcrumb-seg { color: var(--text-muted); }
+.wft-breadcrumb-seg { color: var(--text-muted); cursor: pointer; }
+.wft-breadcrumb-seg:hover { color: var(--text); }
 
 /* ── Toolbar Dropdown: Folder Item ────────────────────── */
 .wft-dropdown-folder {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   width: 100%;
-  padding: 6px 12px;
+  padding: 8px 14px;
   border: none;
   background: none;
   color: var(--text);
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   text-align: left;
   cursor: pointer;
-  transition: background 0.1s;
+  transition: background 0.12s;
 }
 .wft-dropdown-folder:hover { background: var(--bg-hover); }
 .wft-folder-icon { font-size: 0.85rem; flex-shrink: 0; }
+.wft-folder-icon-svg { flex-shrink: 0; color: var(--text-muted); opacity: 0.7; }
 .wft-folder-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
-.wft-folder-count { color: var(--text-muted); font-size: 0.7rem; flex-shrink: 0; }
+.wft-folder-count { color: var(--text-muted); font-size: 0.68rem; flex-shrink: 0; background: rgba(255,255,255,0.04); padding: 1px 5px; border-radius: 8px; }
 .wft-folder-arrow { color: var(--text-muted); font-size: 0.9rem; flex-shrink: 0; }
+.wft-folder-arrow-svg { flex-shrink: 0; color: var(--text-muted); opacity: 0.5; }
 
 /* ── Toolbar Dropdown: Search Result Item ─────────────── */
 .wft-dropdown-item-search {
@@ -5433,6 +5443,14 @@
 .wf-config-tab-empty {
   padding: 32px 16px; text-align: center; color: var(--text-muted); font-size: 13px;
 }
+
+/* ── Validation tab ── */
+.wf-config-validation-tab { display: flex; flex-direction: column; gap: 8px; }
+.wf-config-empty-state {
+  padding: 24px 16px; text-align: center; color: var(--text-muted); font-size: 0.82rem;
+  border: 1px dashed var(--border); border-radius: 6px; margin-top: 4px;
+}
+.wf-config-empty-state p { margin: 0; }
 
 /* Variable table (Input tab) */
 .wf-config-var-table { width: 100%; font-size: 12px; border-collapse: collapse; }

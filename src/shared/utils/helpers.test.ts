@@ -10,6 +10,8 @@ import {
   formatJson,
   truncate,
   escapeRegExp,
+  parseJsonOrRaw,
+  isValidJson,
 } from './helpers';
 
 describe('formatBytes', () => {
@@ -528,5 +530,52 @@ describe('escapeRegExp', () => {
 
   it('leaves alphanumeric text unchanged', () => {
     expect(escapeRegExp('hello_9')).toBe('hello_9');
+  });
+});
+
+describe('parseJsonOrRaw', () => {
+  it('parses valid JSON', () => {
+    expect(parseJsonOrRaw('{"a":1}')).toEqual({ a: 1 });
+  });
+
+  it('parses JSON arrays', () => {
+    expect(parseJsonOrRaw('[1,2,3]')).toEqual([1, 2, 3]);
+  });
+
+  it('returns raw string for invalid JSON', () => {
+    expect(parseJsonOrRaw('not json')).toBe('not json');
+  });
+
+  it('returns raw string for empty string', () => {
+    expect(parseJsonOrRaw('')).toBe('');
+  });
+
+  it('parses primitives', () => {
+    expect(parseJsonOrRaw('null')).toBe(null);
+    expect(parseJsonOrRaw('42')).toBe(42);
+    expect(parseJsonOrRaw('"text"')).toBe('text');
+  });
+});
+
+describe('isValidJson', () => {
+  it('returns true for valid JSON objects', () => {
+    expect(isValidJson('{"a":1}')).toBe(true);
+  });
+
+  it('returns true for valid JSON arrays', () => {
+    expect(isValidJson('[1,2]')).toBe(true);
+  });
+
+  it('returns false for invalid JSON', () => {
+    expect(isValidJson('not json')).toBe(false);
+  });
+
+  it('returns false for empty string', () => {
+    expect(isValidJson('')).toBe(false);
+  });
+
+  it('returns true for primitives', () => {
+    expect(isValidJson('null')).toBe(true);
+    expect(isValidJson('42')).toBe(true);
   });
 });

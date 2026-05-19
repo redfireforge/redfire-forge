@@ -11,6 +11,7 @@ import { resolveScenarioFromDataRow } from '../../../engine/dataSourceExpander';
 import { proxyFetch, buildHeaders } from '../../../engine/executor';
 import { validate as validateResponse } from '../../../engine/validator';
 import { extractJsonPath, expandPatternFromResponse } from '../utils/dataSourceImport';
+import { toErrorMessage } from '../../../shared/utils/helpers';
 
 // ─── Types ────────────────────────────────────────────────────
 
@@ -207,7 +208,7 @@ export function useVerifyEngine(
         accumulated.set(row.id, {
           rowId: row.id,
           status: 'error',
-          error: err instanceof Error ? err.message : String(err),
+          error: toErrorMessage(err),
           failedCells: {},
           actualCells: {},
         });
