@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect, useCallback, useRef } from 'react';
-import JsonPreview, { buildJTree, collectMatchNodes } from '../../../requests/components/JsonTreePreview';
+import JsonPreview, { buildJTree, collectMatchNodes, collectJTreePaths } from '../../../requests/components/JsonTreePreview';
 import { useDebounce } from '../../../../shared/hooks/useDebounce';
 import { escapeRegExp } from '../../../../shared/utils/helpers';
 
@@ -100,17 +100,7 @@ export function splitWorkflowResponseDetail(body: string): { meta: string; jsonT
 }
 
 /** Collect all paths in a JTree for expand/collapse-all. */
-function collectAllPaths(node: { key: string; children?: { key: string; children?: unknown[] }[] }, prefix: string): string[] {
-  const paths: string[] = [];
-  if (node.children) {
-    for (const child of node.children) {
-      const p = `${prefix}/${child.key}`;
-      paths.push(p);
-      paths.push(...collectAllPaths(child as Parameters<typeof collectAllPaths>[0], p));
-    }
-  }
-  return paths;
-}
+const collectAllPaths = collectJTreePaths;
 
 interface Props {
   body: string;

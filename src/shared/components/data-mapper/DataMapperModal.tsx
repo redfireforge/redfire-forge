@@ -11,6 +11,7 @@ import type { SchemaSnapshot } from './utils/schemaSnapshot';
 import { diffSchemas, findAffectedMappings, classifyDrift } from './utils/schemaDrift';
 import { suggestRepairs, applyRepair } from './utils/schemaRepair';
 import type { RepairSuggestion } from './utils/schemaRepair';
+import { toErrorMessage } from '../../utils/helpers';
 import '../../../styles/data-mapper-modal.css';
 
 interface DataMapperModalProps<TOutput = unknown> {
@@ -367,7 +368,7 @@ export default function DataMapperModal<TOutput = unknown>({
     } catch (err) {
       adapterIssues = [{
         severity: 'warning' as const,
-        message: `Validation error: ${err instanceof Error ? err.message : String(err)}`,
+        message: `Validation error: ${toErrorMessage(err)}`,
       }];
     }
     const requiredIssues = findUnmappedRequired(adapter, mappings);
@@ -391,7 +392,7 @@ export default function DataMapperModal<TOutput = unknown>({
         ...prev.filter(i => !i.message.startsWith('Save failed:')),
         {
           severity: 'warning',
-          message: `Save failed: ${err instanceof Error ? err.message : String(err)}. Try again or adjust mappings.`,
+          message: `Save failed: ${toErrorMessage(err)}. Try again or adjust mappings.`,
         },
       ]);
       return;

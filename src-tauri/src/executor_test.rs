@@ -184,6 +184,8 @@ mod tests {
             weight,
             data_row_id: None,
             data_row_label: None,
+            validation: Default::default(),
+            assertions: vec![],
         }
     }
 
@@ -774,6 +776,9 @@ mod tests {
             request_log: RequestLog { headers: Default::default(), body: None },
             timing: TimingBreakdown { dns_lookup: 0.0, tcp_connect: 0.0, tls_handshake: 0.0, ttfb: 0.0, download: 0.0, total: 0.0 },
             retry_count: 0,
+            passed: None,
+            failure_details: vec![],
+            validation_mode: String::new(),
         };
         let json = serde_json::to_string(&result).unwrap();
         assert!(json.contains("scenarioId"), "Expected camelCase: {json}");
@@ -818,6 +823,9 @@ mod tests {
                 total: 12.34,
             },
             retry_count: 1,
+            passed: None,
+            failure_details: vec![],
+            validation_mode: String::new(),
         };
         let json = serde_json::to_string(&result).unwrap();
         let parsed: ExecutionResult = serde_json::from_str(&json).unwrap();

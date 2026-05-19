@@ -32,6 +32,7 @@ export async function handleHttpNode(
 
     let anyFailed = false;
     for (const expanded of expandedScenarios) {
+      if (hCtx.abortSignal?.aborted) break;
       hCtx.log({ prefix: '>', text: `[${hCtx.nodeLabel(nodeId)}] ${expanded.dataRowLabel ?? 'row'}: ${expanded.method} request...` });
       const expandedData: HttpNodeData = { ...httpData, scenario: expanded };
       const result = await executeHttpNode(
@@ -43,6 +44,7 @@ export async function handleHttpNode(
         hCtx.resolveHttpBaseUrl,
         hCtx.resolveHttpAuth,
         hCtx.httpTimeoutMs,
+        hCtx.abortSignal,
       );
       hCtx.results.push(result.requestResult);
       if (!result.requestResult.passed) {
@@ -74,6 +76,7 @@ export async function handleHttpNode(
     hCtx.resolveHttpBaseUrl,
     hCtx.resolveHttpAuth,
     hCtx.httpTimeoutMs,
+    hCtx.abortSignal,
   );
   hCtx.results.push(result.requestResult);
 

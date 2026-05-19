@@ -11,6 +11,7 @@ import {
   type PatternEntry,
 } from '../../../features/requests/components/regexAssertionUtils';
 import type { AssertionAdapterResult } from './adapters/assertionAdapter';
+import { prettyJson, isValidJson } from '../../utils/helpers';
 import { TYPE_LABELS } from './utils/targetTreeHelpers';
 import '../../../styles/data-mapper.css';
 
@@ -218,12 +219,7 @@ export default function RegexAssertionBuilderModal({
     setPasteMode(prev => !prev);
     setPasteError(null);
     if (!pasteMode && sampleJson.trim()) {
-      try {
-        const obj = JSON.parse(sampleJson);
-        setPasteText(JSON.stringify(obj, null, 2));
-      } catch {
-        setPasteText(sampleJson);
-      }
+      setPasteText(isValidJson(sampleJson) ? prettyJson(sampleJson) : sampleJson);
     }
   }, [pasteMode, sampleJson]);
 

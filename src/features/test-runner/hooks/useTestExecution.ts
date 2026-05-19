@@ -9,6 +9,7 @@ import { computeMetrics } from '../../../engine/metrics';
 import { saveTestRun, forceSaveTestRun } from '../../../shared/utils/storage';
 import { supportsWorkers } from '../../../shared/utils/platform';
 import { isRustExecutorAvailable, canUseRustExecutor, runTestViaRust } from '../utils/rustBridge';
+import { toErrorMessage } from '../../../shared/utils/helpers';
 
 export interface TimeSeriesPoint {
   elapsedSec: number;
@@ -133,6 +134,7 @@ export function useTestExecution() {
   };
 
   const trackResult = (r: RequestResult) => {
+    if (r.cancelled) return;
     const inc = incrementalRef.current;
     inc.count++;
     inc.sum += r.responseTimeMs;
@@ -273,6 +275,7 @@ export function useTestExecution() {
         clearTimeout(flushTimerRef.current);
         flushTimerRef.current = null;
       }
+      flushToState();
 
       const totalDuration = performance.now() - startTimeRef.current;
       const summary = computeMetrics(testResult.results, totalDuration);
@@ -301,8 +304,14 @@ export function useTestExecution() {
 
       const saveResult = await saveTestRun(testRun);
 
-      const finalCompleted = config.executionMode === 'workflow' ? (config.iterations || 1) : testResult.results.length;
-      const finalTotal = finalCompleted;
+      const wasAborted = abortRef.current?.signal.aborted ?? false;
+      const activeResults = testResult.results.filter(r => !r.cancelled);
+      const finalCompleted = wasAborted
+        ? activeResults.length
+        : (config.executionMode === 'workflow' ? (config.iterations || 1) : testResult.results.length);
+      const finalTotal = wasAborted
+        ? (config.executionMode === 'workflow' ? (config.iterations || 1) : testResult.results.length)
+        : finalCompleted;
 
       if (saveResult.quotaError) {
         setState((prev) => ({
@@ -334,7 +343,7 @@ export function useTestExecution() {
       setState((prev) => ({
         ...prev,
         isRunning: false,
-        error: err instanceof Error ? err.message : String(err),
+        error: toErrorMessage(err),
       }));
     }
   }, [flushToState]);

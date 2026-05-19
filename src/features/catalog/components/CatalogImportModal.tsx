@@ -5,6 +5,7 @@ import { isTauri } from '../../../shared/utils/platform';
 import { httpFetch } from '../../../shared/utils/httpClient';
 import FullPanelModal from '../../../shared/components/FullPanelModal';
 import { catalogSpecCatalog, CATALOG_SPEC_CATEGORIES, type CatalogSpecCategory } from '../../../data/galleries/catalog-specs';
+import { toErrorMessage } from '../../../shared/utils/helpers';
 
 interface Props {
   existingEntries: CatalogEntry[];
@@ -41,7 +42,7 @@ export default function CatalogImportModal({ existingEntries, onImport, onReimpo
       setParsed(result);
       setStep('preview');
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(toErrorMessage(err));
       setStep('error');
     }
   }, []);
@@ -116,7 +117,7 @@ export default function CatalogImportModal({ existingEntries, onImport, onReimpo
       const urlFileName = trimmedUrl.split('/').pop()?.split('?')[0] || 'spec-from-url.yaml';
       handleFile(response.body, urlFileName);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(toErrorMessage(err));
       setStep('error');
     } finally {
       setUrlLoading(false);

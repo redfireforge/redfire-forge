@@ -8,6 +8,7 @@ import type { Workflow } from '../types/workflow';
 import type { RequestResult, WorkflowIterationTrace, WorkflowExecutionTrace, ExecutionTraceOptions } from '../../../shared/types';
 import { runGraph, resolveTraceLevel, type GraphRunCallbacks, type CorrelationWaitRunnerConfig } from './graphRunner';
 import { CircuitBreaker } from '../../../engine/circuitBreaker';
+import { toErrorMessage } from '../../../shared/utils/helpers';
 
 function buildWorkflowMarkerResult(
   workflowName: string,
@@ -198,16 +199,14 @@ export async function runGraphLoad(
 
       // Check if iteration was aborted - mark all its results as cancelled
       if (abortSignal?.aborted) {
-        // Mark any successful results from this iteration as cancelled
-        for (const r of iterationResults) {
-          if (r.passed) {
-            (r as RequestResult).passed = false;
+        const targetResults = iterationResults.length > 0 ? iterationResults : results;
+        for (const r of targetResults) {
+          (r as RequestResult).cancelled = true;
+          if (!r.errorMessage) {
             (r as RequestResult).errorMessage = 'Cancelled by user';
-            (r as RequestResult).cancelled = true;
           }
         }
-        // Add a cancelled marker result if no results yet
-        if (iterationResults.length === 0) {
+        if (targetResults.length === 0) {
           iterationResults.push(buildWorkflowMarkerResult(workflow.name, myIterationIndex, {
             cancelled: true, errorMessage: 'Cancelled by user',
             scenarioId: 'workflow-cancelled', groupName: 'Cancelled', workflowNodeId: 'cancelled',
@@ -215,12 +214,16 @@ export async function runGraphLoad(
         }
       }
       
-      allResults.push(...(iterationResults.length > 0 ? iterationResults : results));
+      const finalResults = iterationResults.length > 0 ? iterationResults : results;
+      for (const r of finalResults) {
+        if (!r.cancelled) breaker?.record(r);
+      }
+      allResults.push(...finalResults);
     } catch (err) {
       const isCancelled = abortSignal?.aborted;
       const errorResult = buildWorkflowMarkerResult(workflow.name, myIterationIndex, {
         cancelled: isCancelled,
-        errorMessage: isCancelled ? 'Cancelled by user' : (err instanceof Error ? err.message : String(err)),
+        errorMessage: isCancelled ? 'Cancelled by user' : toErrorMessage(err),
         scenarioId: isCancelled ? 'workflow-cancelled' : 'workflow-error',
         groupName: isCancelled ? 'Cancelled' : 'Error',
         workflowNodeId: isCancelled ? 'cancelled' : 'error',

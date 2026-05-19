@@ -369,6 +369,17 @@ describe('HttpConfig', () => {
     expect(screen.getByText(/Variables you can paste/)).toBeTruthy();
   });
 
+  it('sorts hints with same prefix alphabetically by ref', () => {
+    const { container } = render(<HttpConfig {...defaultProps} activeTab="url" variableHints={[
+      { ref: 'node:step2.b', label: 'B', type: 'string', description: '' },
+      { ref: 'node:step1.a', label: 'A', type: 'string', description: '' },
+      { ref: 'globalZ', label: 'Z', type: 'string', description: '' },
+      { ref: 'globalA', label: 'GA', type: 'string', description: '' },
+    ]} />);
+    const items = container.querySelectorAll('.wf-http-var-hints-item');
+    expect(items.length).toBe(4);
+  });
+
   it('does not render hints section with empty hints', () => {
     render(<HttpConfig {...defaultProps} activeTab="url" variableHints={[]} />);
     expect(screen.queryByText(/Variables you can paste/)).toBeNull();

@@ -39,31 +39,23 @@ import {
 import { isTauri } from '../../../shared/utils/platform';
 import type { Scenario, TestConfig } from '../../../shared/types';
 import type { ProgressMeta } from '../../../engine/executor';
+import { makeScenario as _makeScenario, makeConfig as _makeConfig } from '../../../test-utils/factories';
 
 const mockIsTauri = vi.mocked(isTauri);
 
 function makeScenario(overrides: Partial<Scenario> = {}): Scenario {
-  return {
-    id: 'sc-1',
-    name: 'Test Scenario',
-    url: 'https://api.example.com/users',
-    method: 'GET',
+  return _makeScenario({
     headers: [{ key: 'X-Custom', value: 'test' }],
-    body: '',
-    auth: { type: 'none' },
-    validation: { mode: 'none' },
     ...overrides,
-  };
+  });
 }
 
 function makeConfig(overrides: Partial<TestConfig> = {}): TestConfig {
-  return {
+  return _makeConfig({
     concurrency: 4,
-    iterations: 10,
-    scenarioWeights: [{ scenarioId: 'sc-1', weight: 1 }],
     executionMode: 'pool',
     ...overrides,
-  };
+  });
 }
 
 function makeRustResult(overrides: Partial<RustExecutionResult> = {}): RustExecutionResult {

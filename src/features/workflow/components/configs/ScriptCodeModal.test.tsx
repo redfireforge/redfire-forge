@@ -59,6 +59,11 @@ vi.mock('../../../requests/components/JsonTreePreview', () => ({
     );
   },
   buildJTree: (obj: unknown) => ({ key: 'root', value: obj, type: 'object', children: [{ key: 'a', value: 1, children: [] }] }),
+  collectJTreePaths: (node: { children?: { key: string }[] }, prefix: string) => {
+    const paths: string[] = [];
+    if (node.children) node.children.forEach(c => paths.push(`${prefix}/${c.key}`));
+    return paths;
+  },
 }));
 
 vi.mock('../../../../shared/hooks/useDebounce', () => ({
@@ -69,11 +74,15 @@ vi.mock('../../../../shared/hooks/useSplitterDrag', () => ({
   useSplitterDrag: () => vi.fn(),
 }));
 
-vi.mock('../../../../shared/utils/helpers', () => ({
-  prettyJson: (text: string) => {
-    try { return JSON.stringify(JSON.parse(text), null, 2); } catch { return text; }
-  },
-}));
+vi.mock('../../../../shared/utils/helpers', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../../shared/utils/helpers')>();
+  return {
+    ...actual,
+    prettyJson: (text: string) => {
+      try { return JSON.stringify(JSON.parse(text), null, 2); } catch { return text; }
+    },
+  };
+});
 
 const mockHandleTestScript = vi.fn();
 const mockHandleAutoDetect = vi.fn().mockReturnValue([]);

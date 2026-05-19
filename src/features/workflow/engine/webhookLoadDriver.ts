@@ -12,6 +12,7 @@
 
 import type { RequestResult, WorkflowIterationTrace } from '../../../shared/types';
 import { expandPayloadTemplate, type PayloadGeneratorContext } from './payloadTemplateEngine';
+import { toErrorMessage } from '../../../shared/utils/helpers';
 
 export type WebhookRateMode = 'fixed' | 'ramp' | 'burst';
 
@@ -229,7 +230,7 @@ export async function runWebhookLoadTest(
         passed: false,
         validationMode: 'none',
         failureDetails: [],
-        errorMessage: err instanceof Error ? err.message : String(err),
+        errorMessage: toErrorMessage(err),
         iterationIndex: myIndex,
         cancelled: abortSignal?.aborted,
       };

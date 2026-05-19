@@ -7,11 +7,6 @@ export function formatTimestamp(timestamp: string): string {
   return new Date(timestamp).toLocaleString();
 }
 
-/** Safely extract a message string from an unknown error value. */
-export function getErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
-
 /** Pretty-print an unknown payload as indented JSON (or fallback to String). */
 export function formatPayload(payload: unknown): string {
   try {

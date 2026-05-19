@@ -16,21 +16,16 @@ import {
   resolveSharedDataSources,
 } from './dataSourceExpander';
 import type { Scenario, DataSource, DataSourceColumn, DataSourceRow, SharedDataSource } from '../shared/types';
+import { makeScenario as _makeScenario } from '../test-utils/factories';
 
 // ─── Test Helpers ─────────────────────────────────────────────
 
 function makeScenario(overrides: Partial<Scenario> = {}): Scenario {
-  return {
-    id: 'sc-1',
-    name: 'Test Scenario',
+  return _makeScenario({
     url: 'https://api.example.com/users/{{userId}}/posts?channel={{channel}}',
-    method: 'GET',
     headers: [{ key: 'X-Custom', value: 'static' }],
-    body: '',
-    auth: { type: 'none' },
-    validation: { mode: 'none' },
     ...overrides,
-  };
+  });
 }
 
 function makeColumns(): DataSourceColumn[] {

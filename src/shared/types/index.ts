@@ -525,6 +525,8 @@ export interface TestSummary {
   totalDurationMs: number;
   /** Average workflow iteration duration (only for workflow runs) */
   avgIterationTime?: number;
+  /** Number of requests cancelled by user abort (excluded from error metrics) */
+  cancelledRequests?: number;
 }
 
 // ─── Workflow Execution Trace (Phase 7e) ────────────────────

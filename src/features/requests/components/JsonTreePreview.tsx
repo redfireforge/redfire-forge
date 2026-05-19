@@ -24,6 +24,19 @@ function fixArrayKeys(node: JNode): void {
 }
 
 // eslint-disable-next-line react-refresh/only-export-components
+export function collectJTreePaths(node: { key: string; children?: { key: string; children?: unknown[] }[] }, prefix: string): string[] {
+  const paths: string[] = [];
+  if (node.children) {
+    for (const child of node.children) {
+      const p = `${prefix}/${child.key}`;
+      paths.push(p);
+      paths.push(...collectJTreePaths(child as Parameters<typeof collectJTreePaths>[0], p));
+    }
+  }
+  return paths;
+}
+
+// eslint-disable-next-line react-refresh/only-export-components
 export function nodeMatches(node: JNode, term: string): boolean {
   if (!term) return false;
   const lower = term.toLowerCase();
