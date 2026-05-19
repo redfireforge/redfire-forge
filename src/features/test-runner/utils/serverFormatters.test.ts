@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import {
   formatTimestamp,
-  getErrorMessage,
   formatPayload,
   generateExecutionId,
 } from './serverFormatters';
@@ -23,32 +22,6 @@ describe('formatTimestamp', () => {
   it('returns "Invalid Date" for invalid input', () => {
     const result = formatTimestamp('not-a-date');
     expect(result).toBe('Invalid Date');
-  });
-});
-
-describe('getErrorMessage', () => {
-  it('extracts message from Error instance', () => {
-    expect(getErrorMessage(new Error('something broke'))).toBe('something broke');
-  });
-
-  it('converts string to string', () => {
-    expect(getErrorMessage('plain string error')).toBe('plain string error');
-  });
-
-  it('converts number to string', () => {
-    expect(getErrorMessage(42)).toBe('42');
-  });
-
-  it('converts null to string', () => {
-    expect(getErrorMessage(null)).toBe('null');
-  });
-
-  it('converts undefined to string', () => {
-    expect(getErrorMessage(undefined)).toBe('undefined');
-  });
-
-  it('converts object to string', () => {
-    expect(getErrorMessage({ code: 500 })).toBe('[object Object]');
   });
 });
 

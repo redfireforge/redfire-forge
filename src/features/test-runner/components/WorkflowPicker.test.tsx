@@ -207,7 +207,7 @@ describe('WorkflowPicker', () => {
       />
     );
 
-    expect(screen.getByText('(modified)')).toBeInTheDocument();
+    expect(screen.getByText('Modified')).toBeInTheDocument();
   });
 
   it('shows Reset button when variables modified', () => {
@@ -326,7 +326,7 @@ describe('WorkflowPicker', () => {
       />
     );
 
-    expect(screen.getByText(/Select a workflow above to run it as a performance test/)).toBeInTheDocument();
+    expect(screen.getByText(/Select a workflow to run it as a load test/)).toBeInTheDocument();
   });
 
   it('shows History button with count', () => {
@@ -450,7 +450,7 @@ describe('WorkflowPicker', () => {
     );
 
     const btn = screen.getByRole('button', { name: /Presets/ });
-    expect(btn.textContent).toMatch(/📋 Presets/);
+    expect(btn.textContent).toMatch(/Presets/);
   });
 
   it('collapses history panel when History is clicked twice', () => {
@@ -551,12 +551,13 @@ describe('WorkflowPicker', () => {
       />
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /Presets/ }));
+    fireEvent.click(screen.getByTitle('View and restore saved variable presets'));
     fireEvent.click(screen.getByTitle('Rename this entry'));
 
     const input = screen.getByPlaceholderText('Give this run a name...');
     fireEvent.change(input, { target: { value: 'Prod run' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    const editRow = document.querySelector('.history-edit-row') as HTMLElement;
+    fireEvent.click(within(editRow).getByRole('button', { name: 'Save' }));
 
     expect(screen.getByText('Prod run')).toBeInTheDocument();
     const stored = JSON.parse(localStorage.getItem('workflow-run-configs') ?? '[]') as { id: string; label?: string }[];
@@ -735,9 +736,9 @@ describe('WorkflowPicker', () => {
     );
 
     const presetsBtn = screen.getByRole('button', { name: /Presets/ });
-    expect(presetsBtn.className).not.toContain('btn-primary');
+    expect(presetsBtn.className).not.toContain('active');
     fireEvent.click(presetsBtn);
-    expect(presetsBtn.className).toContain('btn-primary');
+    expect(presetsBtn.className).toContain('active');
   });
 
   it('does not render performance sample shortcuts when workflows list is empty and onImportSample is omitted', () => {
@@ -825,9 +826,9 @@ describe('WorkflowPicker', () => {
       />
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /Save preset/ }));
+    fireEvent.click(screen.getByTitle('Save the current variable values as a named preset'));
     fireEvent.change(screen.getByPlaceholderText(/Staging config/), { target: { value: 'Staging A' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    fireEvent.click(within(document.querySelector('.history-save-form') as HTMLElement).getByRole('button', { name: 'Save' }));
 
     const stored = JSON.parse(localStorage.getItem('workflow-run-configs') ?? '[]') as Array<{ workflowId?: string; label?: string }>;
     expect(stored.some(c => c.workflowId === 'wf1' && c.label === 'Staging A')).toBe(true);
@@ -847,7 +848,7 @@ describe('WorkflowPicker', () => {
       />
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /Save preset/ }));
+    fireEvent.click(screen.getByTitle('Save the current variable values as a named preset'));
     const input = screen.getByPlaceholderText(/Staging config/);
     fireEvent.change(input, { target: { value: 'From Enter preset' } });
     fireEvent.keyDown(input, { key: 'Enter' });
@@ -867,7 +868,7 @@ describe('WorkflowPicker', () => {
       />
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /Save preset/ }));
+    fireEvent.click(screen.getByTitle('Save the current variable values as a named preset'));
     const input = screen.getByPlaceholderText(/Staging config/);
     fireEvent.change(input, { target: { value: 'Discarded preset' } });
     fireEvent.keyDown(input, { key: 'Escape' });
@@ -889,7 +890,7 @@ describe('WorkflowPicker', () => {
       />
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /Save preset/ }));
+    fireEvent.click(screen.getByTitle('Save the current variable values as a named preset'));
     expect(screen.getByPlaceholderText(/Staging config/)).toBeInTheDocument();
 
     const savePanel = document.querySelector('.history-save-form');
@@ -1176,7 +1177,9 @@ describe('WorkflowPicker', () => {
     );
 
     fireEvent.click(screen.getByTestId('workflow-select'));
-    expect(screen.getByTestId('workflow-select')).toHaveTextContent('▲');
+    const chevron = screen.getByTestId('workflow-select').querySelector('.wfp-dropdown-chevron');
+    expect(chevron).toBeTruthy();
+    expect(chevron?.getAttribute('style')).toContain('rotate(180deg)');
   });
 
   it('does not open dropdown when trigger is disabled', () => {
@@ -1264,7 +1267,7 @@ describe('WorkflowPicker', () => {
 
     expect(document.querySelector('.wft-breadcrumb-current')?.textContent).toContain('Beta');
 
-    fireEvent.click(screen.getByRole('button', { name: '←' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Go back' }));
     expect(screen.getByRole('button', { name: /Beta/ })).toBeInTheDocument();
   });
 

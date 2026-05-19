@@ -25,7 +25,7 @@ vi.mock('@tauri-apps/plugin-http', () => ({
   fetch: (...args: unknown[]) => mockTFetch(...args),
 }));
 
-import { httpFetch } from './httpClient';
+import { httpFetch, setHttpTransport } from './httpClient';
 
 describe('httpFetch', () => {
   beforeEach(() => {
@@ -255,6 +255,73 @@ describe('httpFetch', () => {
         expect.objectContaining({
           dispatcher: expect.objectContaining({ __kind: 'EnvHttpProxyAgent' }),
         }),
+      );
+    });
+  });
+
+  describe('abort signal handling', () => {
+    beforeEach(() => {
+      setHttpTransport(null);
+    });
+
+    it('returns Aborted immediately when signal is already aborted', async () => {
+      const ac = new AbortController();
+      ac.abort();
+      const result = await httpFetch('https://api.example/test', 'GET', {}, undefined, ac.signal);
+      expect(result.error).toBe('Aborted');
+      expect(result.status).toBe(0);
+    });
+
+    it('returns result from transport override without signal', async () => {
+      const mockTransport = vi.fn().mockResolvedValue({ status: 200, statusText: 'OK', headers: {}, body: 'ok' });
+      setHttpTransport(mockTransport);
+      const result = await httpFetch('https://api.example/test', 'POST', { 'X-Custom': 'val' }, 'body');
+      expect(mockTransport).toHaveBeenCalledWith('https://api.example/test', 'POST', { 'X-Custom': 'val' }, 'body');
+      expect(result.body).toBe('ok');
+      setHttpTransport(null);
+    });
+
+    it('races transport override against abort signal', async () => {
+      const ac = new AbortController();
+      const mockTransport = vi.fn().mockImplementation(() => new Promise(r => setTimeout(() => r({ status: 200, statusText: 'OK', headers: {}, body: 'late' }), 5000)));
+      setHttpTransport(mockTransport);
+      setTimeout(() => ac.abort(), 10);
+      const result = await httpFetch('https://api.example/test', 'GET', {}, undefined, ac.signal);
+      expect(result.error).toBe('Aborted');
+      expect(result.status).toBe(0);
+      setHttpTransport(null);
+    });
+
+    it('returns transport result when it resolves before abort', async () => {
+      const ac = new AbortController();
+      const mockTransport = vi.fn().mockResolvedValue({ status: 201, statusText: 'Created', headers: {}, body: 'done' });
+      setHttpTransport(mockTransport);
+      const result = await httpFetch('https://api.example/test', 'PUT', {}, 'data', ac.signal);
+      expect(result.status).toBe(201);
+      expect(result.body).toBe('done');
+      setHttpTransport(null);
+    });
+
+    it('propagates non-abort errors from transport override', async () => {
+      const ac = new AbortController();
+      const mockTransport = vi.fn().mockRejectedValue(new Error('Network failure'));
+      setHttpTransport(mockTransport);
+      await expect(httpFetch('https://api.example/test', 'GET', {}, undefined, ac.signal)).rejects.toThrow('Network failure');
+      setHttpTransport(null);
+    });
+
+    it('passes signal to Tauri fetch', async () => {
+      mockedIsTauri.mockReturnValue(true);
+      mockTFetch.mockResolvedValue({
+        ok: true, status: 200, statusText: 'OK',
+        headers: new Headers(), text: () => Promise.resolve('tauri-body'),
+      });
+      const ac = new AbortController();
+      const result = await httpFetch('https://api.example/test', 'GET', {}, undefined, ac.signal);
+      expect(result.status).toBe(200);
+      expect(mockTFetch).toHaveBeenCalledWith(
+        'https://api.example/test',
+        expect.objectContaining({ signal: ac.signal }),
       );
     });
   });

@@ -6,6 +6,7 @@ import { renderHook, act } from '@testing-library/react';
 import { useDataSourceImport } from './useDataSourceImport';
 import type { Scenario, DataSource, DataSourceColumn, DataSourceRow } from '../../../shared/types';
 import type { CsvParseResult } from '../utils/csvTemplateTypes';
+import { makeScenario as _makeScenario } from '../../../test-utils/factories';
 import { parseJsonImport, parseExcelSimple } from '../utils/dataSourceImport';
 import { parseExcelToScenarios } from '../utils/csvTemplateExcel';
 
@@ -52,18 +53,12 @@ vi.mock('../utils/dataSourceUtils', () => ({
 vi.mock('uuid', () => ({ v4: () => 'mock-uuid' }));
 
 function makeScenario(overrides?: Partial<Scenario>): Scenario {
-  return {
+  return _makeScenario({
     id: 's1',
-    name: 'Test',
     url: 'https://api.example.com/items',
-    method: 'GET',
-    headers: [],
-    body: '',
     bodyType: 'none',
-    auth: { type: 'none' },
-    validation: { mode: 'none' },
     ...overrides,
-  };
+  });
 }
 
 function makeDataSource(overrides?: Partial<DataSource>): DataSource {

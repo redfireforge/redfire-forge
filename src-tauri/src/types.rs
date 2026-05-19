@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+use crate::validation_types::{Assertion, FailureDetail, ValidationConfig};
+
 /// A fully-prepared scenario ready for HTTP execution.
 /// JS resolves all headers (including auth), URL (including API key query params),
 /// and body (including form serialization) BEFORE sending to Rust.
@@ -18,6 +20,10 @@ pub struct RustScenario {
     pub weight: Option<f64>,
     pub data_row_id: Option<String>,
     pub data_row_label: Option<String>,
+    #[serde(default)]
+    pub validation: ValidationConfig,
+    #[serde(default)]
+    pub assertions: Vec<Assertion>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -146,6 +152,12 @@ pub struct ExecutionResult {
     pub request_log: RequestLog,
     pub timing: TimingBreakdown,
     pub retry_count: u32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub passed: Option<bool>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub failure_details: Vec<FailureDetail>,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub validation_mode: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

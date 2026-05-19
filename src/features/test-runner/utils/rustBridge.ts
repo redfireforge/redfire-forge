@@ -13,7 +13,7 @@
  */
 
 import { isTauri } from '../../../shared/utils/platform';
-import type { TestConfig, Scenario, RequestResult, ScenarioWeight } from '../../../shared/types';
+import type { TestConfig, Scenario, RequestResult, ScenarioWeight, FailureDetail, ValidationMode } from '../../../shared/types';
 import type { ProgressMeta } from '../../../engine/executor';
 import type { TestResult } from '../../../engine/executor';
 import { buildHeaders, buildUrl } from '../../../engine/executor';
@@ -21,8 +21,22 @@ import { serializeWithContentType } from '../../../shared/utils/bodySerializer';
 import { expandQueue } from '../../../engine/dataSourceExpander';
 import { computeAllocation } from '../../../engine/allocationEngine';
 import { buildValidationResult } from '../../../engine/validationResult';
+import { evaluateAssertions } from '../../../engine/validator';
 
 /* ── Rust-side types (must match src-tauri/src/types.rs) ─────────── */
+
+export interface RustScenarioValidation {
+  mode: string;
+  expectedJson?: string;
+  expectedFields?: Array<{
+    jsonPath: string;
+    expectedValue: string;
+    operator?: string;
+    operatorValue?: string;
+    negate?: boolean;
+  }>;
+  unorderedArrays?: boolean;
+}
 
 export interface RustScenario {
   id: string;
@@ -36,6 +50,8 @@ export interface RustScenario {
   weight?: number | null;
   dataRowId?: string | null;
   dataRowLabel?: string | null;
+  validation?: RustScenarioValidation;
+  assertions?: Record<string, unknown>[];
 }
 
 export type RustThinkTimeConfig =
@@ -119,6 +135,9 @@ export interface RustExecutionResult {
   requestLog: RustRequestLog;
   timing: RustTimingBreakdown;
   retryCount: number;
+  passed?: boolean;
+  failureDetails?: FailureDetail[];
+  validationMode?: string;
 }
 
 export interface RustProgressBatch {
@@ -268,6 +287,9 @@ export function prepareRustScenario(scenario: Scenario): RustScenario {
   const headers = buildHeaders(scenario, undefined, contentType);
   const url = buildUrl(scenario);
 
+  const allAssertions = scenario.validation.assertions ?? [];
+  const rustAssertions = allAssertions.filter(a => a.type !== 'custom');
+
   return {
     id: scenario.id,
     name: scenario.name,
@@ -280,6 +302,21 @@ export function prepareRustScenario(scenario: Scenario): RustScenario {
     weight: null,
     dataRowId: scenario.dataRowId ?? null,
     dataRowLabel: scenario.dataRowLabel ?? null,
+    validation: {
+      mode: scenario.validation.mode,
+      expectedJson: scenario.validation.expectedJson,
+      expectedFields: scenario.validation.expectedFields?.map(f => ({
+        jsonPath: f.jsonPath,
+        expectedValue: f.expectedValue,
+        operator: f.operator,
+        operatorValue: f.operatorValue,
+        negate: f.negate,
+      })),
+      unorderedArrays: scenario.validation.unorderedArrays,
+    },
+    assertions: rustAssertions.length > 0
+      ? rustAssertions as unknown as Record<string, unknown>[]
+      : undefined,
   };
 }
 
@@ -390,16 +427,113 @@ export function buildExpandedQueue(config: TestConfig, scenarios: Scenario[]): S
 /* ── Phase 2C: Result mapper ─────────────────────────────────────── */
 
 /**
- * Map a RustExecutionResult to a RequestResult with JS-side validation.
- * Calls buildValidationResult() to compute passed/failureDetails using the original
- * Scenario's validation config (assertions, expected JSON, expected fields, etc.).
+ * Map a RustExecutionResult to a RequestResult.
  *
- * Note: Rust retries on network error only (httpStatus==0). JS retries on !passed.
- * The retryCount field on the result reflects the Rust-side retry count.
+ * When Rust emits `passed` (not undefined), we passthrough the Rust validation results
+ * and only run custom assertions JS-side (Rust skips them). When `passed` is undefined
+ * (backward compat with older Rust binary), we fall back to full JS-side validation.
  */
 export function mapRustResult(
   rustResult: RustExecutionResult,
   scenario: Scenario,
+): RequestResult {
+  let errorMessage = rustResult.errorMessage ?? undefined;
+
+  const httpFailed = rustResult.httpStatus >= 400 || rustResult.httpStatus === 0;
+  if (httpFailed && !errorMessage && rustResult.responseBody) {
+    try {
+      const parsed = JSON.parse(rustResult.responseBody);
+      const obj = typeof parsed === 'object' && parsed !== null
+        ? (parsed as Record<string, unknown>)
+        : null;
+      const raw = obj?.message ?? obj?.error ?? obj?.detail ?? obj?.errorMessage;
+      if (typeof raw === 'string') errorMessage = raw;
+      else if (raw != null) errorMessage = JSON.stringify(raw);
+      else errorMessage = rustResult.responseBody.slice(0, 300);
+    } catch {
+      errorMessage = rustResult.responseBody.slice(0, 300);
+    }
+  }
+
+  if (rustResult.passed !== undefined) {
+    return mapRustResultPassthrough(rustResult, scenario, errorMessage);
+  }
+  return mapRustResultJsFallback(rustResult, scenario, errorMessage);
+}
+
+/**
+ * Passthrough path: Rust validated — trust passed/failureDetails from Rust,
+ * then evaluate any custom assertions JS-side and merge.
+ */
+function mapRustResultPassthrough(
+  rustResult: RustExecutionResult,
+  scenario: Scenario,
+  errorMessage: string | undefined,
+): RequestResult {
+  let passed = rustResult.passed!;
+  let failureDetails: FailureDetail[] = rustResult.failureDetails ?? [];
+
+  const customAssertions = (scenario.validation.assertions ?? [])
+    .filter(a => a.type === 'custom');
+
+  if (customAssertions.length > 0) {
+    let responseObj: unknown = null;
+    if (rustResult.responseBody) {
+      try { responseObj = JSON.parse(rustResult.responseBody); } catch { /* use null */ }
+    }
+    const { failures: customFailures } = evaluateAssertions(customAssertions, {
+      httpStatus: rustResult.httpStatus,
+      responseTimeMs: rustResult.responseTimeMs,
+      responseHeaders: rustResult.responseHeaders,
+      responseBody: responseObj,
+      rawBody: rustResult.responseBody,
+    });
+    if (customFailures.length > 0) {
+      failureDetails = [...failureDetails, ...customFailures];
+      passed = false;
+    }
+  }
+
+  let finalErrorMessage = errorMessage;
+  if (rustResult.retryCount > 0 && !passed) {
+    finalErrorMessage = `${finalErrorMessage ?? 'Failed'} (after ${rustResult.retryCount + 1} attempts)`;
+  }
+
+  return {
+    id: rustResult.id,
+    scenarioId: rustResult.scenarioId,
+    scenarioName: rustResult.scenarioName,
+    featureGroupName: rustResult.featureGroupName ?? undefined,
+    groupName: rustResult.groupName ?? undefined,
+    url: rustResult.url,
+    method: rustResult.method,
+    httpStatus: rustResult.httpStatus,
+    responseTimeMs: rustResult.responseTimeMs,
+    responseBody: rustResult.responseBody,
+    responseHeaders: rustResult.responseHeaders,
+    timestamp: rustResult.timestamp,
+    passed,
+    validationMode: (rustResult.validationMode ?? scenario.validation.mode) as ValidationMode,
+    failureDetails,
+    errorMessage: finalErrorMessage,
+    timing: rustResult.timing,
+    requestLog: {
+      headers: rustResult.requestLog.headers,
+      body: rustResult.requestLog.body ?? undefined,
+    },
+    dataRowId: rustResult.dataRowId ?? undefined,
+    dataRowLabel: rustResult.dataRowLabel ?? undefined,
+  };
+}
+
+/**
+ * Fallback path: Rust didn't validate (passed === undefined) — run full JS-side validation.
+ * Backward compatible with older Rust binaries that don't emit validation fields.
+ */
+function mapRustResultJsFallback(
+  rustResult: RustExecutionResult,
+  scenario: Scenario,
+  errorMessage: string | undefined,
 ): RequestResult {
   let responseObj: unknown = null;
   const needsParse =
@@ -416,23 +550,6 @@ export function mapRustResult(
     }
   } else {
     responseObj = rustResult.responseBody;
-  }
-
-  let errorMessage = rustResult.errorMessage ?? undefined;
-
-  const httpFailed = rustResult.httpStatus >= 400 || rustResult.httpStatus === 0;
-  if (httpFailed && !errorMessage && rustResult.responseBody) {
-    try {
-      const parsed = typeof responseObj === 'object' && responseObj !== null
-        ? (responseObj as Record<string, unknown>)
-        : null;
-      const raw = parsed?.message ?? parsed?.error ?? parsed?.detail ?? parsed?.errorMessage;
-      if (typeof raw === 'string') errorMessage = raw;
-      else if (raw != null) errorMessage = JSON.stringify(raw);
-      else errorMessage = rustResult.responseBody.slice(0, 300);
-    } catch {
-      errorMessage = rustResult.responseBody.slice(0, 300);
-    }
   }
 
   const assertions = scenario.validation.assertions ?? [];
@@ -510,11 +627,11 @@ function findScenario(lookup: Map<string, Scenario>, result: RustExecutionResult
 }
 
 /**
- * Execute a test plan via the Rust executor with streaming progress and JS-side validation.
+ * Execute a test plan via the Rust executor with streaming progress.
  *
  * Calls buildExecutionPlan(), sends to Rust via startRustLoadTest(), accumulates results
- * across progress batches, runs mapRustResult() + buildValidationResult() on each result,
- * and calls the standard onProgress() callback with cumulative results.
+ * across progress batches, runs mapRustResult() on each result (passthrough when Rust
+ * validated, JS fallback otherwise), and calls the standard onProgress() callback.
  */
 export function runTestViaRust(
   config: TestConfig,

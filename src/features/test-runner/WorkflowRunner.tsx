@@ -14,6 +14,7 @@ import { type PersistedProgress, saveProgress, loadProgress, clearProgress } fro
 import { runWebhookLoadTest, calculateTotalRequests } from '../workflow/engine/webhookLoadDriver';
 import { loadWebhookScenarios, saveWebhookScenario, deleteWebhookScenario, fireWebhook, buildPayloadWithCorrelationId } from './utils/webhookScenarioStorage';
 import { sampleWorkflowCatalog } from '../../data/galleries/workflows';
+import { toErrorMessage } from '../../shared/utils/helpers';
 
 interface Props {
   workflows: Workflow[];
@@ -296,7 +297,7 @@ export default function WorkflowRunner({ workflows, folders, onComplete, initial
         }
       } catch (regErr) {
         // If registration fails, it's likely the server isn't running
-        const errMsg = regErr instanceof Error ? regErr.message : String(regErr);
+        const errMsg = toErrorMessage(regErr);
         if (errMsg.includes('Failed to fetch') || errMsg.includes('NetworkError')) {
           fail('Webhook server not running. Start it with: npm run server');
           return;
@@ -386,7 +387,7 @@ export default function WorkflowRunner({ workflows, folders, onComplete, initial
       await complete(config, executionTrace);
     } catch (err) {
       if (!abortSignal.aborted) {
-        fail(err instanceof Error ? err.message : String(err));
+        fail(toErrorMessage(err));
       }
     }
   };

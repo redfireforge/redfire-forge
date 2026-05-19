@@ -6,6 +6,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useScenarioExportImport, type VersionImportOptions } from './useScenarioExportImport';
 import type { FeatureGroup, Scenario, SharedDataSource, TestScenario } from '../../../shared/types';
+import { makeScenario as _makeScenario } from '../../../test-utils/factories';
 
 // Mock external dependencies
 vi.mock('../../../shared/utils/fileSaver', () => ({
@@ -40,11 +41,8 @@ const makeFg = (id: string, name: string, scenarios: TestScenario[] = []): Featu
   id, name, scenarios,
 });
 
-const makeScenario = (overrides: Partial<Scenario> = {}): Scenario => ({
-  id: 'test-1', name: 'Test', url: 'http://x', method: 'GET',
-  headers: [], body: '', auth: { type: 'none' }, validation: { mode: 'none' },
-  ...overrides,
-});
+const makeScenario = (overrides: Partial<Scenario> = {}): Scenario =>
+  _makeScenario({ id: 'test-1', url: 'http://x', ...overrides });
 
 const makeTestScenario = (id: string, name: string, tests: Scenario[] = []): TestScenario => ({
   id, name, tests,

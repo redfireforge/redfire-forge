@@ -79,8 +79,10 @@ export async function runTest(
   workflow?: Workflow,
   /** Resolver for sub-workflow nodes — returns the child workflow by ID. */
   resolveSubWorkflow?: (workflowId: string) => Workflow | undefined,
+  /** Worker index for result ID prefixing in multi-worker mode. */
+  workerIndex?: number,
 ): Promise<TestResult> {
-  resetResultIdCounter();
+  resetResultIdCounter(workerIndex);
   clearPrepCache();
   const tokenManager = new TokenManager();
   const timeoutMs = (config.timeoutSec ?? 0) > 0 ? (config.timeoutSec! * 1000) : undefined;

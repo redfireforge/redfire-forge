@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { Scenario } from '../shared/types';
-import { executeWithRetry, runSequential, runBatch, runPool, clearPrepCache, buildErrorResult, withTimeout, type RunOpts } from './requestExecution';
+import { executeWithRetry, runSequential, runBatch, runPool, clearPrepCache, buildErrorResult, withTimeout, resetResultIdCounter, nextResultId, type RunOpts } from './requestExecution';
 import { TokenManager } from './tokenManager';
 import { CircuitBreaker } from './circuitBreaker';
 import { makeScenario as _makeScenario } from '../test-utils/factories';
@@ -452,5 +452,38 @@ describe('withTimeout', () => {
   it('formats timeout message in seconds', async () => {
     const neverResolve = new Promise<string>(() => {});
     await expect(withTimeout(neverResolve, 100)).rejects.toThrow('Request timeout (0s)');
+  });
+});
+
+describe('result ID counter', () => {
+  it('generates sequential IDs with default prefix', () => {
+    resetResultIdCounter();
+    expect(nextResultId()).toBe('r-1');
+    expect(nextResultId()).toBe('r-2');
+    expect(nextResultId()).toBe('r-3');
+  });
+
+  it('resets counter to 0', () => {
+    resetResultIdCounter();
+    nextResultId();
+    nextResultId();
+    resetResultIdCounter();
+    expect(nextResultId()).toBe('r-1');
+  });
+
+  it('uses worker prefix when workerIndex is provided', () => {
+    resetResultIdCounter(0);
+    expect(nextResultId()).toBe('w0-1');
+    expect(nextResultId()).toBe('w0-2');
+
+    resetResultIdCounter(3);
+    expect(nextResultId()).toBe('w3-1');
+  });
+
+  it('reverts to default prefix when workerIndex is undefined', () => {
+    resetResultIdCounter(2);
+    expect(nextResultId()).toBe('w2-1');
+    resetResultIdCounter();
+    expect(nextResultId()).toBe('r-1');
   });
 });

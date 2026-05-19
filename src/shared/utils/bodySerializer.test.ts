@@ -8,13 +8,15 @@ import {
   bodyFormToString,
   stringToBodyForm,
 } from './bodySerializer';
+import { makeScenario as _makeScenario } from '../../test-utils/factories';
 
 function makeScenario(overrides: Partial<Scenario> = {}): Scenario {
-  return {
-    id: 's1', name: 'Test', url: 'https://example.com', method: 'POST',
-    headers: [], body: '', auth: { type: 'none' }, validation: { mode: 'none' },
+  return _makeScenario({
+    id: 's1',
+    url: 'https://example.com',
+    method: 'POST',
     ...overrides,
-  };
+  });
 }
 
 describe('getEffectiveBodyType', () => {
