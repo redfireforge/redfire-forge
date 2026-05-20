@@ -753,18 +753,10 @@ describe('HttpConfig', () => {
     }));
   });
 
-  it('routes body tab through visual BodyBuilderPanel callbacks', () => {
-    const onChange = vi.fn();
-    render(<HttpConfig {...defaultProps} activeTab="body" onChange={onChange} />);
-    fireEvent.click(screen.getByText('Visual Builder'));
-    expect(screen.getByTestId('mock-body-builder')).toBeTruthy();
-    fireEvent.click(screen.getByText('bb-body'));
-    fireEvent.click(screen.getByText('bb-mappings'));
-    fireEvent.click(screen.getByText('bb-type'));
-    fireEvent.click(screen.getByText('bb-form'));
-    expect(onChange.mock.calls.length).toBeGreaterThan(1);
-    fireEvent.click(screen.getByText('Raw'));
+  it('shows raw editor and Data Mapper button on body tab', () => {
+    render(<HttpConfig {...defaultProps} activeTab="body" />);
     expect(screen.getByTestId('expression-textarea')).toBeTruthy();
+    expect(screen.getByText('⚡ Data Mapper')).toBeTruthy();
   });
 
   it('updates extractions via ExtractionEditor onChange', () => {

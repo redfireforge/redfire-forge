@@ -810,3 +810,55 @@ export function createCatalogExportDemoTest(): FeatureGroup {
     ],
   };
 }
+
+// ─── 10. Trash Recovery Demo (Easy) ──────────────────────────────────────────
+
+export function createTrashRecoveryDemo(): FeatureGroup {
+  return {
+    id: 'test-trash-recovery-demo',
+    name: 'Trash Box — Recovery Demo',
+    scenarios: [
+      ts({
+        id: 'ts-trash-sample',
+        name: 'Sample Scenario',
+        tests: [
+          s({
+            id: 'ts-trash-get-post',
+            name: 'GET /posts/1',
+            url: 'https://jsonplaceholder.typicode.com/posts/1',
+            method: 'GET',
+            assertions: [
+              { type: 'status', expected: '200' },
+              { type: 'regex', jsonPath: '$.title', pattern: '.+' },
+            ],
+            sampleJson: JSON.stringify({
+              userId: 1, id: 1,
+              title: 'sunt aut facere repellat provident occaecati',
+              body: 'quia et suscipit\nsuscipit recusandae',
+            }),
+          }),
+        ],
+      }),
+      ts({
+        id: 'ts-trash-another',
+        name: 'Another Scenario',
+        tests: [
+          s({
+            id: 'ts-trash-get-users',
+            name: 'GET /users',
+            url: 'https://jsonplaceholder.typicode.com/users',
+            method: 'GET',
+            assertions: [
+              { type: 'status', expected: '200' },
+              { type: 'arrayLength', jsonPath: '$', operator: '=', value: 10 },
+            ],
+            sampleJson: JSON.stringify([
+              { id: 1, name: 'Leanne Graham', email: 'Sincere@april.biz' },
+              { id: 2, name: 'Ervin Howell', email: 'Shanna@melissa.tv' },
+            ]),
+          }),
+        ],
+      }),
+    ],
+  };
+}

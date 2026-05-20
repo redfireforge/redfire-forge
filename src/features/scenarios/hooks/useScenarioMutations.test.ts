@@ -174,6 +174,35 @@ describe('useScenarioMutations', () => {
       expect(getFeatureGroups()[0].environmentId).toBe('env-2');
     });
 
+    it('assignFeatureGroup with multi-FG only updates target', () => {
+      const fg1 = makeFg({ id: 'fg-1', name: 'F1' });
+      const fg2 = makeFg({ id: 'fg-2', name: 'F2' });
+      const { result, getFeatureGroups } = setup([fg1, fg2]);
+      act(() => { result.current.assignFeatureGroup('fg-1', 'svc-new', 'env-new'); });
+      expect(getFeatureGroups()[0].microserviceId).toBe('svc-new');
+      expect(getFeatureGroups()[1].microserviceId).toBe('svc-1');
+    });
+
+    it('renameFeatureGroup with multi-FG only updates target', () => {
+      const fg1 = makeFg({ id: 'fg-1', name: 'F1' });
+      const fg2 = makeFg({ id: 'fg-2', name: 'F2' });
+      const { result, getFeatureGroups } = setup([fg1, fg2]);
+      act(() => { result.current.setEditingFeatureName('fg-1'); });
+      act(() => { result.current.setEditName('Renamed'); });
+      act(() => { result.current.renameFeatureGroup('fg-1'); });
+      expect(getFeatureGroups()[0].name).toBe('Renamed');
+      expect(getFeatureGroups()[1].name).toBe('F2');
+    });
+
+    it('renameFeatureGroup is no-op when name unchanged', () => {
+      const fg1 = makeFg({ id: 'fg-1', name: 'Same' });
+      const { result, getFeatureGroups } = setup([fg1]);
+      act(() => { result.current.setEditingFeatureName('fg-1'); });
+      act(() => { result.current.setEditName('Same'); });
+      act(() => { result.current.renameFeatureGroup('fg-1'); });
+      expect(getFeatureGroups()[0].name).toBe('Same');
+    });
+
     it('removeFeatureGroup sets confirm dialog', () => {
       const fg = makeFg();
       const { result } = setup([fg]);
@@ -217,6 +246,68 @@ describe('useScenarioMutations', () => {
       act(() => { result.current.setEditName('New Name'); });
       act(() => { result.current.renameScenario('fg-1', 'sc-1'); });
       expect(getFeatureGroups()[0].scenarios[0].name).toBe('New Name');
+    });
+
+    it('addScenario with multi-FG only adds to target FG', () => {
+      const fg1 = makeFg({ id: 'fg-1', name: 'F1' });
+      const fg2 = makeFg({ id: 'fg-2', name: 'F2' });
+      const { result, getFeatureGroups } = setup([fg1, fg2]);
+      act(() => { result.current.setNewName('New SC'); });
+      act(() => { result.current.addScenario('fg-1'); });
+      expect(getFeatureGroups()[0].scenarios).toHaveLength(1);
+      expect(getFeatureGroups()[1].scenarios).toHaveLength(0);
+    });
+
+    it('removeScenario with multi-FG only removes from target FG', () => {
+      const fg1 = makeFg({
+        id: 'fg-1', name: 'F1',
+        scenarios: [{ id: 'sc-1', name: 'SC1', tests: [] }],
+      });
+      const fg2 = makeFg({
+        id: 'fg-2', name: 'F2',
+        scenarios: [{ id: 'sc-2', name: 'SC2', tests: [] }],
+      });
+      const { result, getFeatureGroups } = setup([fg1, fg2]);
+      act(() => { result.current.removeScenario('fg-1', 'sc-1'); });
+      act(() => { result.current.confirmDialog!.onConfirm(); });
+      expect(getFeatureGroups()[0].scenarios).toHaveLength(0);
+      expect(getFeatureGroups()[1].scenarios).toHaveLength(1);
+    });
+
+    it('renameScenario with multi-FG only renames in target FG', () => {
+      const fg1 = makeFg({
+        id: 'fg-1', name: 'F1',
+        scenarios: [{ id: 'sc-1', name: 'Old', tests: [] }, { id: 'sc-2', name: 'Other', tests: [] }],
+      });
+      const fg2 = makeFg({ id: 'fg-2', name: 'F2', scenarios: [{ id: 'sc-3', name: 'X', tests: [] }] });
+      const { result, getFeatureGroups } = setup([fg1, fg2]);
+      act(() => { result.current.setEditName('Renamed SC'); });
+      act(() => { result.current.renameScenario('fg-1', 'sc-1'); });
+      expect(getFeatureGroups()[0].scenarios[0].name).toBe('Renamed SC');
+      expect(getFeatureGroups()[0].scenarios[1].name).toBe('Other');
+      expect(getFeatureGroups()[1].scenarios[0].name).toBe('X');
+    });
+
+    it('renameScenario is no-op when name unchanged', () => {
+      const fg = makeFg({ scenarios: [{ id: 'sc-1', name: 'Same', tests: [] }] });
+      const { result, getFeatureGroups } = setup([fg]);
+      act(() => { result.current.setEditName('Same'); });
+      act(() => { result.current.renameScenario('fg-1', 'sc-1'); });
+      expect(getFeatureGroups()[0].scenarios[0].name).toBe('Same');
+    });
+
+    it('removeScenario with multi-SC keeps non-target SC', () => {
+      const fg = makeFg({
+        scenarios: [
+          { id: 'sc-1', name: 'SC1', tests: [] },
+          { id: 'sc-2', name: 'SC2', tests: [] },
+        ],
+      });
+      const { result, getFeatureGroups } = setup([fg]);
+      act(() => { result.current.removeScenario('fg-1', 'sc-1'); });
+      act(() => { result.current.confirmDialog!.onConfirm(); });
+      expect(getFeatureGroups()[0].scenarios).toHaveLength(1);
+      expect(getFeatureGroups()[0].scenarios[0].id).toBe('sc-2');
     });
   });
 
@@ -280,6 +371,31 @@ describe('useScenarioMutations', () => {
       const { result, getFeatureGroups } = setup([fg]);
       act(() => { result.current.updateFeatureAuth('fg-1', { type: 'bearer', token: 'abc' }); });
       expect(getFeatureGroups()[0].auth).toEqual({ type: 'bearer', token: 'abc' });
+    });
+
+    it('updateFeatureAuth with multi-FG only updates target', () => {
+      const fg1 = makeFg({ id: 'fg-1', name: 'F1' });
+      const fg2 = makeFg({ id: 'fg-2', name: 'F2' });
+      const { result, getFeatureGroups } = setup([fg1, fg2]);
+      act(() => { result.current.updateFeatureAuth('fg-1', { type: 'bearer', token: 'x' }); });
+      expect(getFeatureGroups()[0].auth).toEqual({ type: 'bearer', token: 'x' });
+      expect(getFeatureGroups()[1].auth).toBeUndefined();
+    });
+
+    it('updateScenarioAuth with multi-FG/SC only updates target', () => {
+      const fg1 = makeFg({
+        id: 'fg-1', name: 'F1',
+        scenarios: [
+          { id: 'sc-1', name: 'SC1', tests: [] },
+          { id: 'sc-2', name: 'SC2', tests: [] },
+        ],
+      });
+      const fg2 = makeFg({ id: 'fg-2', name: 'F2', scenarios: [{ id: 'sc-3', name: 'SC3', tests: [] }] });
+      const { result, getFeatureGroups } = setup([fg1, fg2]);
+      act(() => { result.current.updateScenarioAuth('fg-1', 'sc-1', { type: 'bearer', token: 'y' }); });
+      expect(getFeatureGroups()[0].scenarios[0].auth).toEqual({ type: 'bearer', token: 'y' });
+      expect(getFeatureGroups()[0].scenarios[1].auth).toBeUndefined();
+      expect(getFeatureGroups()[1].scenarios[0].auth).toBeUndefined();
     });
   });
 
@@ -467,6 +583,15 @@ describe('useScenarioMutations', () => {
     });
   });
 
+    it('handleVersionRename with undefined definitionVersions', () => {
+      const test = scenarioFixture({ id: 't-1', name: 'T', url: '/api' });
+      const fg = makeFg({ scenarios: [{ id: 'sc-1', name: 'Sc', tests: [test] }] });
+      const { result } = setup([fg]);
+      act(() => { result.current.startEditTest('fg-1', 'sc-1', test); });
+      act(() => { result.current.handleVersionRename('v1', 'renamed'); });
+      expect(result.current.draft.definitionVersions).toEqual([]);
+    });
+
   describe('removeTest', () => {
     it('removeTest sets confirm dialog and onConfirm deletes test', () => {
       const test = scenarioFixture({ id: 't-1', name: 'Test', url: '/api', validation: { mode: 'none' } });
@@ -603,6 +728,44 @@ describe('useScenarioMutations', () => {
       act(() => { result.current.saveTest(); });
       expect(getFeatureGroups()[0].scenarios[0].tests[0].url).toBe('/b');
       expect(vi.mocked(logTestRenamed)).not.toHaveBeenCalled();
+    });
+
+    it('saveTest with multi-FG/SC only updates target', () => {
+      const test = scenarioFixture({ id: 't-1', name: 'Test', url: '/api', validation: { mode: 'none' } });
+      const fg1 = makeFg({
+        id: 'fg-1', name: 'F1',
+        scenarios: [
+          { id: 'sc-1', name: 'SC1', tests: [test] },
+          { id: 'sc-2', name: 'SC2', tests: [scenarioFixture({ id: 't-2', name: 'T2' })] },
+        ],
+      });
+      const fg2 = makeFg({
+        id: 'fg-2', name: 'F2',
+        scenarios: [{ id: 'sc-3', name: 'SC3', tests: [scenarioFixture({ id: 't-3', name: 'T3' })] }],
+      });
+      const { result, getFeatureGroups } = setup([fg1, fg2]);
+      act(() => { result.current.startEditTest('fg-1', 'sc-1', test); });
+      act(() => {
+        result.current.setDraft((prev: Scenario) => ({ ...prev, name: 'Updated', url: '/updated' }));
+      });
+      act(() => { result.current.saveTest(); });
+      expect(getFeatureGroups()[0].scenarios[0].tests[0].name).toBe('Updated');
+      expect(getFeatureGroups()[0].scenarios[1].tests[0].name).toBe('T2');
+      expect(getFeatureGroups()[1].scenarios[0].tests[0].name).toBe('T3');
+    });
+
+    it('saveTest bails when parameterized scenario has no dataSource', () => {
+      const test = scenarioFixture({ id: 't-param', name: 'Param Test', url: '/api' });
+      const fg = makeFg({
+        scenarios: [{ id: 'sc-param', name: 'Parameterized Sc', kind: 'parameterized', tests: [test] }],
+      });
+      const { result, getFeatureGroups } = setup([fg]);
+      act(() => { result.current.startEditTest('fg-1', 'sc-param', test); });
+      act(() => {
+        result.current.setDraft((prev: Scenario) => ({ ...prev, name: 'Changed', url: '/changed' }));
+      });
+      act(() => { result.current.saveTest(); });
+      expect(getFeatureGroups()[0].scenarios[0].tests[0].name).toBe('Param Test');
     });
 
     it('saveTest downgrades full validation when no expected JSON', () => {
@@ -782,6 +945,169 @@ describe('useScenarioMutations', () => {
       const { result } = setup([fg]);
       act(() => { result.current.removeScenario('fg-1', 'sc-z'); });
       expect(result.current.confirmDialog!.message).not.toContain('It contains');
+    });
+  });
+
+  describe('soft-delete (moveToTrash)', () => {
+    function setupWithTrash(initialFgs: FeatureGroup[] = []) {
+      const moveToTrash = vi.fn();
+      const clearAuthVerifyResult = vi.fn();
+      let fgs = initialFgs;
+      const setFeatureGroups = vi.fn((updater: SetStateAction<FeatureGroup[]>) => {
+        fgs = typeof updater === 'function' ? updater(fgs) : updater;
+      });
+      const hookResult = renderHook(() =>
+        useScenarioMutations({
+          featureGroups: fgs,
+          setFeatureGroups,
+          unassociatedFeatureGroups: [],
+          selectedSvcId: 'svc-1',
+          selectedEnvId: 'env-1',
+          clearAuthVerifyResult,
+          moveToTrash,
+        }),
+      );
+      return { ...hookResult, getFeatureGroups: () => fgs, setFeatureGroups, moveToTrash };
+    }
+
+    it('removeFeatureGroup shows Move to Trash dialog', () => {
+      const fg = makeFg({ scenarios: [{ id: 'sc-1', name: 'Sc', tests: [scenarioFixture()] }] });
+      const { result } = setupWithTrash([fg]);
+      act(() => { result.current.removeFeatureGroup('fg-1'); });
+      expect(result.current.confirmDialog!.title).toBe('Move to Trash');
+      expect(result.current.confirmDialog!.confirmLabel).toBe('Move to Trash');
+      expect(result.current.confirmDialog!.message).toContain('restore it within 30 days');
+    });
+
+    it('removeFeatureGroup confirm calls moveToTrash with correct args', () => {
+      const fg = makeFg({ scenarios: [{ id: 'sc-1', name: 'Sc', tests: [scenarioFixture()] }] });
+      const { result, moveToTrash, getFeatureGroups } = setupWithTrash([fg]);
+      act(() => { result.current.removeFeatureGroup('fg-1'); });
+      act(() => { result.current.confirmDialog!.onConfirm(); });
+      expect(moveToTrash).toHaveBeenCalledWith(
+        'featureGroup', fg, 'Feature 1', '',
+        { environmentId: 'env-1', microserviceId: 'svc-1' },
+      );
+      expect(getFeatureGroups()).toHaveLength(0);
+    });
+
+    it('removeFeatureGroup dialog message includes child counts', () => {
+      const fg = makeFg({
+        scenarios: [
+          { id: 'sc-1', name: 'Sc', tests: [scenarioFixture(), scenarioFixture({ id: 't-2' })] },
+        ],
+      });
+      const { result } = setupWithTrash([fg]);
+      act(() => { result.current.removeFeatureGroup('fg-1'); });
+      expect(result.current.confirmDialog!.message).toContain('1 scenario(s) and 2 test(s)');
+    });
+
+    it('removeScenario shows Move to Trash dialog', () => {
+      const fg = makeFg({ scenarios: [{ id: 'sc-1', name: 'Login Tests', tests: [scenarioFixture()] }] });
+      const { result } = setupWithTrash([fg]);
+      act(() => { result.current.removeScenario('fg-1', 'sc-1'); });
+      expect(result.current.confirmDialog!.title).toBe('Move to Trash');
+      expect(result.current.confirmDialog!.confirmLabel).toBe('Move to Trash');
+      expect(result.current.confirmDialog!.message).toContain('restore it within 30 days');
+    });
+
+    it('removeScenario confirm calls moveToTrash with correct args', () => {
+      const fg = makeFg({ scenarios: [{ id: 'sc-1', name: 'Login Tests', tests: [scenarioFixture()] }] });
+      const { result, moveToTrash, getFeatureGroups } = setupWithTrash([fg]);
+      act(() => { result.current.removeScenario('fg-1', 'sc-1'); });
+      act(() => { result.current.confirmDialog!.onConfirm(); });
+      expect(moveToTrash).toHaveBeenCalledWith(
+        'scenario',
+        expect.objectContaining({ id: 'sc-1', name: 'Login Tests' }),
+        'Login Tests',
+        'Feature 1',
+        { parentFeatureGroupId: 'fg-1', environmentId: 'env-1', microserviceId: 'svc-1' },
+      );
+      expect(getFeatureGroups()[0].scenarios).toHaveLength(0);
+    });
+
+    it('removeTest shows Move to Trash dialog', () => {
+      const fg = makeFg({ scenarios: [{ id: 'sc-1', name: 'SC', tests: [scenarioFixture({ id: 't-1', name: 'GET /users' })] }] });
+      const { result } = setupWithTrash([fg]);
+      act(() => { result.current.removeTest('fg-1', 'sc-1', 't-1'); });
+      expect(result.current.confirmDialog!.title).toBe('Move to Trash');
+      expect(result.current.confirmDialog!.confirmLabel).toBe('Move to Trash');
+      expect(result.current.confirmDialog!.message).toContain('GET /users');
+    });
+
+    it('removeTest confirm calls moveToTrash with correct args', () => {
+      const fg = makeFg({ scenarios: [{ id: 'sc-1', name: 'SC', tests: [scenarioFixture({ id: 't-1', name: 'GET /users' })] }] });
+      const { result, moveToTrash, getFeatureGroups } = setupWithTrash([fg]);
+      act(() => { result.current.removeTest('fg-1', 'sc-1', 't-1'); });
+      act(() => { result.current.confirmDialog!.onConfirm(); });
+      expect(moveToTrash).toHaveBeenCalledWith(
+        'test',
+        expect.objectContaining({ id: 't-1', name: 'GET /users' }),
+        'GET /users',
+        'Feature 1 > SC',
+        { parentFeatureGroupId: 'fg-1', parentScenarioId: 'sc-1', environmentId: 'env-1', microserviceId: 'svc-1' },
+      );
+      expect(getFeatureGroups()[0].scenarios[0].tests).toHaveLength(0);
+    });
+
+    it('removeTest clears confirmDialog after confirm', () => {
+      const fg = makeFg({ scenarios: [{ id: 'sc-1', name: 'SC', tests: [scenarioFixture()] }] });
+      const { result } = setupWithTrash([fg]);
+      act(() => { result.current.removeTest('fg-1', 'sc-1', 't-1'); });
+      act(() => { result.current.confirmDialog!.onConfirm(); });
+      expect(result.current.confirmDialog).toBeNull();
+    });
+
+    it('removeTest with trash: multi-FG keeps non-target FG untouched', () => {
+      const fg1 = makeFg({
+        id: 'fg-1', name: 'F1',
+        scenarios: [{ id: 'sc-1', name: 'SC1', tests: [scenarioFixture({ id: 't-1', name: 'T1' })] }],
+      });
+      const fg2 = makeFg({
+        id: 'fg-2', name: 'F2',
+        scenarios: [{ id: 'sc-2', name: 'SC2', tests: [scenarioFixture({ id: 't-2', name: 'T2' })] }],
+      });
+      const { result, getFeatureGroups } = setupWithTrash([fg1, fg2]);
+      act(() => { result.current.removeTest('fg-1', 'sc-1', 't-1'); });
+      act(() => { result.current.confirmDialog!.onConfirm(); });
+      expect(getFeatureGroups()).toHaveLength(2);
+      expect(getFeatureGroups()[0].scenarios[0].tests).toHaveLength(0);
+      expect(getFeatureGroups()[1].scenarios[0].tests).toHaveLength(1);
+    });
+
+    it('removeTest with trash: multi-SC keeps non-target SC untouched', () => {
+      const fg = makeFg({
+        scenarios: [
+          { id: 'sc-1', name: 'SC1', tests: [scenarioFixture({ id: 't-1', name: 'T1' })] },
+          { id: 'sc-2', name: 'SC2', tests: [scenarioFixture({ id: 't-2', name: 'T2' })] },
+        ],
+      });
+      const { result, getFeatureGroups } = setupWithTrash([fg]);
+      act(() => { result.current.removeTest('fg-1', 'sc-1', 't-1'); });
+      act(() => { result.current.confirmDialog!.onConfirm(); });
+      expect(getFeatureGroups()[0].scenarios[0].tests).toHaveLength(0);
+      expect(getFeatureGroups()[0].scenarios[1].tests).toHaveLength(1);
+    });
+
+    it('removeTest without trash: multi-FG/SC keeps others untouched', () => {
+      const fg1 = makeFg({
+        id: 'fg-1', name: 'F1',
+        scenarios: [
+          { id: 'sc-1', name: 'SC1', tests: [scenarioFixture({ id: 't-1', name: 'T1' })] },
+          { id: 'sc-x', name: 'SCx', tests: [scenarioFixture({ id: 't-x', name: 'Tx' })] },
+        ],
+      });
+      const fg2 = makeFg({
+        id: 'fg-2', name: 'F2',
+        scenarios: [{ id: 'sc-2', name: 'SC2', tests: [scenarioFixture({ id: 't-2', name: 'T2' })] }],
+      });
+      const { result, getFeatureGroups } = setup([fg1, fg2]);
+      act(() => { result.current.removeTest('fg-1', 'sc-1', 't-1'); });
+      act(() => { result.current.confirmDialog!.onConfirm(); });
+      expect(getFeatureGroups()).toHaveLength(2);
+      expect(getFeatureGroups()[0].scenarios[0].tests).toHaveLength(0);
+      expect(getFeatureGroups()[0].scenarios[1].tests).toHaveLength(1);
+      expect(getFeatureGroups()[1].scenarios[0].tests).toHaveLength(1);
     });
   });
 

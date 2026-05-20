@@ -165,9 +165,8 @@ export function useWorkflowDesignerControllerPartB(
     selected, workflows, select, persistWorkflow,
   });
 
-  const handleNew = useCallback(() => {
-    const name = prompt('Workflow name:');
-    if (!name?.trim()) return;
+  const handleNew = useCallback((name: string) => {
+    if (!name.trim()) return;
     onClearPreview();
     create(name.trim());
   }, [create, onClearPreview]);
