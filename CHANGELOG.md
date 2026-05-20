@@ -8,6 +8,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
 
 ## [Unreleased]
 
+## [0.5.9] — 2026-05-20
+
 ### Changed
 - **WorkflowExecutionCanvas Refactored** — Extracted `ReplayCanvasControls` (zoom/fit/save/minimap toolbar), `ReplayCanvasOverlays` (`EdgePercentageOverlay` + `SwimLaneOverlay`), `heatmapColor` utility, and `replayLayoutStorage` (per-workflow node-position persistence) into focused modules. Reduced `WorkflowExecutionCanvas.tsx` from 891 → 634 lines.
 - **App.tsx Refactored** — Extracted `AppHeader`, `AppActivityBar`, `AppSubNav` into `src/app/components/`, reducing `App.tsx` from 910 → 779 lines (below 900-line monolithic threshold).
