@@ -4,7 +4,7 @@ import type { CatalogEndpoint, CatalogServer, HostConfig, CatalogResponse, Catal
 import type { AuthConfig, Microservice } from '../../../shared/types';
 import type { EndpointCoverage } from '../utils/coverageChecker';
 import { generateStubJson } from '../utils/schemaStubGenerator';
-import { prettyJson } from '../../../shared/utils/helpers';
+import { prettyJson, toErrorMessage } from '../../../shared/utils/helpers';
 import { buildCatalogCurlCommand, buildCatalogCurlSingleLine, buildDefaultCurlCommand, resolveBaseUrl, buildFullUrl } from '../utils/catalogCurlGenerator';
 import { httpFetch } from '../../../shared/utils/httpClient';
 import { applyAuthHeaders } from '../../../shared/utils/applyAuthHeaders';
@@ -117,7 +117,7 @@ export default function CatalogEndpointCard({ endpoint, servers, hostConfig, aut
       await applyAuthHeaders(auth, hdrs);
     } catch (err) {
       setLiveResponse({ status: 0, statusText: '', headers: {}, body: '', timeMs: 0,
-        error: `Auth failed: ${err instanceof Error ? err.message : String(err)}` });
+        error: `Auth failed: ${toErrorMessage(err)}` });
       setLoading(false);
       return;
     }

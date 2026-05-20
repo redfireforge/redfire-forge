@@ -7,20 +7,17 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import VersionPreviewModal from './VersionPreviewModal';
+import { installClipboardMock } from '../../../test-utils/clipboardMock';
+import { stubScrollIntoView } from '../../../test-utils/domMocks';
 
 describe('VersionPreviewModal', { timeout: 30_000 }, () => {
   const onClose = vi.fn();
-  const clipboardWriteText = vi.fn().mockResolvedValue(undefined);
+  let clipboardWriteText: ReturnType<typeof installClipboardMock>;
 
   beforeEach(() => {
     onClose.mockClear();
-    clipboardWriteText.mockClear();
-    Object.defineProperty(globalThis.navigator, 'clipboard', {
-      value: { writeText: clipboardWriteText },
-      configurable: true,
-      writable: true,
-    });
-    Element.prototype.scrollIntoView = vi.fn() as unknown as typeof Element.prototype.scrollIntoView;
+    clipboardWriteText = installClipboardMock();
+    stubScrollIntoView();
   });
 
   function renderModal(props: Partial<ComponentProps<typeof VersionPreviewModal>> = {}) {

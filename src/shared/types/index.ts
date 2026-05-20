@@ -525,235 +525,28 @@ export interface TestSummary {
   totalDurationMs: number;
   /** Average workflow iteration duration (only for workflow runs) */
   avgIterationTime?: number;
+  /** Number of requests cancelled by user abort (excluded from error metrics) */
+  cancelledRequests?: number;
 }
 
-// ─── Workflow Execution Trace (Phase 7e) ────────────────────
 
-/**
- * Controls how much data the execution engine captures per node/iteration.
- * - minimal: pass/fail + errors only (production monitoring)
- * - standard: + HTTP summary, variables, assertions (default)
- * - full: + complete HTTP request/response bodies
- * - debug: + raw onLog lines, scriptOutput (Phase 2)
- */
-export type TraceCaptureLevel = 'minimal' | 'standard' | 'full' | 'debug';
+// ─── Workflow Execution Trace (Phase 7e) — extracted to ./trace ─────
+import type {
+  ExecutionTraceOptions,
+  WorkflowExecutionTrace,
+} from './trace';
+export type {
+  TraceCaptureLevel,
+  ExecutionTraceOptions,
+  CapturedHttpRequest,
+  CapturedHttpResponse,
+  AssertionResult,
+  ExecutionEventDetails,
+  ExecutionEvent,
+  WorkflowIterationTrace,
+  WorkflowExecutionTrace,
+} from './trace';
 
-/**
- * Options for controlling how much data is captured during workflow execution.
- * Used to enable full trace capture for debugging vs minimal capture for performance.
- */
-export interface ExecutionTraceOptions {
-  /** Capture full request/response bodies (increases memory usage) */
-  captureFullTrace: boolean;
-  /** Maximum response body size to store (bytes). Default: 102400 (100KB) */
-  maxResponseBodySize?: number;
-  /** Always capture full trace for failed iterations regardless of captureFullTrace setting */
-  alwaysCaptureFailures?: boolean;
-  /** Whether to sample iterations for large runs. Default: true */
-  samplingEnabled?: boolean;
-  /** Iteration count threshold above which sampling activates. Default: 50 */
-  samplingThreshold?: number;
-  /** Tiered trace level controlling capture depth. When set, takes precedence over captureFullTrace. */
-  traceLevel?: TraceCaptureLevel;
-}
-
-/**
- * Full HTTP request details captured when captureFullTrace is enabled.
- */
-export interface CapturedHttpRequest {
-  method: string;
-  url: string;
-  headers?: Record<string, string>;
-  /** Original body template with {{variables}} */
-  bodyTemplate?: string;
-  /** Body after variable substitution */
-  bodyResolved?: string;
-}
-
-/**
- * Full HTTP response details captured when captureFullTrace is enabled.
- */
-export interface CapturedHttpResponse {
-  statusCode: number;
-  statusText?: string;
-  headers?: Record<string, string>;
-  /** Response body (may be truncated if too large) */
-  body?: string;
-  /** True if body was truncated due to size limits */
-  bodyTruncated?: boolean;
-}
-
-/**
- * Assertion result for a single assertion.
- */
-export interface AssertionResult {
-  /** Assertion type (status, responseTime, header, regex, etc.) */
-  type: string;
-  /** Human-readable description of the assertion */
-  description: string;
-  /** Did the assertion pass? */
-  passed: boolean;
-  /** Expected value (for display) */
-  expected?: string;
-  /** Actual value (for display) */
-  actual?: string;
-}
-
-/**
- * Details about a single node's execution during workflow run.
- * Captures execution state, timing, and type-specific details.
- */
-export interface ExecutionEventDetails {
-  // HTTP nodes (basic - always captured)
-  statusCode?: number;
-  responseTimeMs?: number;
-  requestResultId?: string;  // Links to RequestResult for full data
-  method?: string;
-  url?: string;
-
-  // HTTP nodes (full trace - when captureFullTrace enabled)
-  request?: CapturedHttpRequest;
-  response?: CapturedHttpResponse;
-  assertions?: AssertionResult[];
-
-  // Condition nodes
-  conditionResult?: boolean;
-  conditionExpression?: string;
-
-  // Loop nodes
-  loopIterationCount?: number;
-  currentLoopIndex?: number;
-
-  // Script nodes
-  scriptOutput?: unknown;
-
-  // Debug-level capture (Phase 2: populated at 'debug' trace level)
-  /** Raw onLog lines captured during this node's execution */
-  logLines?: { prefix: string; text: string; ts: number }[];
-
-  // Sub-workflow nodes
-  subWorkflowId?: string;
-  subWorkflowPassed?: boolean;
-  /** Full execution trace of the child workflow (for drill-down in Results Explorer). */
-  subWorkflowTrace?: WorkflowExecutionTrace;
-
-  // Variables
-  inputVariables?: Record<string, string>;
-  extractedVariables?: Record<string, string>;
-  /** All variables at time of node execution (when captureFullTrace enabled) */
-  variablesSnapshot?: Record<string, string>;
-
-  // CorrelationWait nodes — split timing
-  /** Wall-clock time spent waiting for the external webhook/event (ms) */
-  waitDurationMs?: number;
-
-  // Webhook trigger nodes
-  /** The webhook payload that triggered this execution */
-  webhookInput?: {
-    payload: string;  // JSON string
-    method?: string;
-    path?: string;
-  };
-
-  // Mapping traces (Phase 9A — captured at 'full' or 'debug' level)
-  /** Per-mapping data flow traces showing source→expression→target values */
-  mappingTraces?: import('../components/data-mapper/utils/mappingTrace').MappingTrace[];
-
-  // Errors
-  error?: string;
-  errorStack?: string;
-}
-
-/**
- * Single node execution event within a workflow iteration.
- * Ordered list of these events represents the execution path.
- */
-export interface ExecutionEvent {
-  /** React Flow node ID (e.g., "n1", "n2") */
-  nodeId: string;
-  
-  /** Node type */
-  nodeType: 'http' | 'condition' | 'delay' | 'fork' | 'join' | 
-           'loop' | 'setVariable' | 'script' | 'aggregate' | 
-           'correlationWait' | 'waitForCondition' | 'subWorkflow' | 
-           'webhook' | 'schedule' | 'start' | 'errorHandler';
-  
-  /** User-visible node label */
-  nodeLabel: string;
-  
-  /** When this node started executing (epoch ms) */
-  timestamp: number;
-  
-  /** Execution state */
-  state: 'pass' | 'fail' | 'skipped';
-  
-  /** How long this node took (ms) */
-  durationMs?: number;
-  
-  /** Type-specific execution details */
-  details?: ExecutionEventDetails;
-}
-
-/**
- * Execution trace for a single iteration of a workflow run.
- * Contains ordered events and final variable state.
- */
-export interface WorkflowIterationTrace {
-  /** Iteration number (0-based) */
-  index: number;
-  
-  /** Did all nodes pass? */
-  passed: boolean;
-  
-  /** Total time for this iteration */
-  durationMs: number;
-  
-  /** Ordered list of node execution events */
-  events: ExecutionEvent[];
-  
-  /** Variable state before iteration starts (for sampling re-execution) */
-  initialVariables?: Record<string, string>;
-
-  /** Variable state after iteration completes */
-  finalVariables: Record<string, string>;
-  
-  /** Edges traversed in this specific iteration */
-  traversedEdges: string[];
-
-  /** False if this iteration was stripped during trace sampling (events/variables unavailable) */
-  sampled?: boolean;
-}
-
-/**
- * Complete execution trace for a workflow run.
- * Includes per-iteration traces and workflow snapshot.
- * (Phase 7e: Visual Execution Replay → Results Explorer)
- */
-export interface WorkflowExecutionTrace {
-  /** Per-iteration execution traces */
-  iterations: WorkflowIterationTrace[];
-  
-  /** Edge IDs that were traversed (union across all iterations) */
-  traversedEdges: string[];
-  
-  /** Workflow definition snapshot (nodes + edges) at time of execution */
-  workflowSnapshot: {
-    nodes: unknown[];  // WorkflowNode[] (avoid circular import)
-    edges: unknown[];  // WorkflowEdge[]
-  };
-  
-  /** Metadata */
-  workflowId: string;
-  workflowName: string;
-  totalIterations: number;
-  totalDurationMs: number;
-  
-  /** Whether full trace was captured (request/response bodies) */
-  fullTraceCaptured?: boolean;
-
-  /** Trace capture level used for this run. Absent on pre-existing traces (infer from content). */
-  captureLevel?: TraceCaptureLevel;
-}
 
 // ─────────────────────────────────────────────────────────────
 

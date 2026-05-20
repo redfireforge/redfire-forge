@@ -83,6 +83,12 @@ export async function runLoadProfile(
       resolved = true;
       timerStopped = true;
       clearInterval(ticker);
+      onProgress(allResults.length, -1, allResults, {
+        elapsedMs: durationMs,
+        targetConcurrency: getTargetConcurrency(profile, durationMs),
+        currentInFlight: 0,
+        durationMs,
+      });
       resolve(allResults);
     }
 

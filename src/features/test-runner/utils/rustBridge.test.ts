@@ -4,45 +4,27 @@ vi.mock('../../../shared/utils/platform', () => ({
   isTauri: vi.fn(() => false),
 }));
 
-import {
-  isRustExecutorAvailable,
-  resetAvailabilityCache,
-  abortRustLoadTest,
-  startRustLoadTest,
-  canUseRustExecutor,
-  buildExecutionPlan,
-  prepareRustScenario,
-  mapRustResult,
-  buildExpandedQueue,
-} from './rustBridge';
-import type { RustExecutionResult } from './rustBridge';
+import { isRustExecutorAvailable, resetAvailabilityCache, abortRustLoadTest, startRustLoadTest, canUseRustExecutor, buildExecutionPlan, prepareRustScenario, mapRustResult, buildExpandedQueue, } from './rustBridge';
+import { RustExecutionResult } from './rustBridge';
 import { isTauri } from '../../../shared/utils/platform';
-import type { Scenario, TestConfig } from '../../../shared/types';
+import { Scenario, TestConfig } from '../../../shared/types';
+import { makeScenario as _makeScenario, makeConfig as _makeConfig } from '../../../test-utils/factories';
 
 const mockIsTauri = vi.mocked(isTauri);
 
 function makeScenario(overrides: Partial<Scenario> = {}): Scenario {
-  return {
-    id: 'sc-1',
-    name: 'Test Scenario',
-    url: 'https://api.example.com/users',
-    method: 'GET',
+  return _makeScenario({
     headers: [{ key: 'X-Custom', value: 'test' }],
-    body: '',
-    auth: { type: 'none' },
-    validation: { mode: 'none' },
     ...overrides,
-  };
+  });
 }
 
 function makeConfig(overrides: Partial<TestConfig> = {}): TestConfig {
-  return {
+  return _makeConfig({
     concurrency: 4,
-    iterations: 10,
-    scenarioWeights: [{ scenarioId: 'sc-1', weight: 1 }],
     executionMode: 'pool',
     ...overrides,
-  };
+  });
 }
 
 function makeRustResult(overrides: Partial<RustExecutionResult> = {}): RustExecutionResult {
@@ -296,6 +278,91 @@ describe('prepareRustScenario', () => {
     expect(result.body).toContain('pass=secret');
     expect(result.headers['Content-Type']).toBe('application/x-www-form-urlencoded');
   });
+
+  it('includes validation config with mode and expectedFields', () => {
+    const scenario = makeScenario({
+      validation: {
+        mode: 'selective',
+        expectedFields: [
+          { jsonPath: 'name', expectedValue: '"Alice"', operator: 'equals' },
+          { jsonPath: 'age', expectedValue: '30' },
+        ],
+        unorderedArrays: true,
+      },
+    });
+    const result = prepareRustScenario(scenario);
+    expect(result.validation).toBeDefined();
+    expect(result.validation!.mode).toBe('selective');
+    expect(result.validation!.expectedFields).toHaveLength(2);
+    expect(result.validation!.expectedFields![0].jsonPath).toBe('name');
+    expect(result.validation!.expectedFields![0].operator).toBe('equals');
+    expect(result.validation!.unorderedArrays).toBe(true);
+  });
+
+  it('includes validation config with full mode and expectedJson', () => {
+    const scenario = makeScenario({
+      validation: { mode: 'full', expectedJson: '{"ok":true}' },
+    });
+    const result = prepareRustScenario(scenario);
+    expect(result.validation!.mode).toBe('full');
+    expect(result.validation!.expectedJson).toBe('{"ok":true}');
+  });
+
+  it('strips UI-only fields from validation config', () => {
+    const scenario = makeScenario({
+      validation: {
+        mode: 'selective',
+        selectiveMode: 'field' as never,
+        sampleJson: '{"sample":true}' as never,
+        excludedPaths: ['$.meta'] as never,
+        responseVersions: [] as never,
+        rulesVersions: [] as never,
+      },
+    });
+    const result = prepareRustScenario(scenario);
+    const v = result.validation!;
+    expect(v.mode).toBe('selective');
+    expect('selectiveMode' in v).toBe(false);
+    expect('sampleJson' in v).toBe(false);
+    expect('excludedPaths' in v).toBe(false);
+    expect('responseVersions' in v).toBe(false);
+    expect('rulesVersions' in v).toBe(false);
+  });
+
+  it('filters out custom assertions from serialized assertions', () => {
+    const scenario = makeScenario({
+      validation: {
+        mode: 'none',
+        assertions: [
+          { type: 'status', expected: '200', negate: false },
+          { type: 'custom', expression: 'response.ok === true', negate: false },
+          { type: 'responseTime', maxMs: 500, negate: false },
+        ],
+      },
+    });
+    const result = prepareRustScenario(scenario);
+    expect(result.assertions).toHaveLength(2);
+    expect(result.assertions!.every(a => a.type !== 'custom')).toBe(true);
+  });
+
+  it('omits assertions field when no non-custom assertions exist', () => {
+    const scenario = makeScenario({
+      validation: {
+        mode: 'none',
+        assertions: [
+          { type: 'custom', expression: 'true', negate: false },
+        ],
+      },
+    });
+    const result = prepareRustScenario(scenario);
+    expect(result.assertions).toBeUndefined();
+  });
+
+  it('omits assertions field when no assertions at all', () => {
+    const scenario = makeScenario({ validation: { mode: 'none' } });
+    const result = prepareRustScenario(scenario);
+    expect(result.assertions).toBeUndefined();
+  });
 });
 
 /* ── buildExecutionPlan ──────────────────────────────────────────── */
@@ -538,9 +605,9 @@ describe('buildExpandedQueue', () => {
   });
 });
 
-/* ── mapRustResult ───────────────────────────────────────────────── */
+/* ── mapRustResult — JS fallback (passed === undefined) ───────────── */
 
-describe('mapRustResult', () => {
+describe('mapRustResult — JS fallback', () => {
   it('maps a successful result with no validation', () => {
     const scenario = makeScenario();
     const rustResult = makeRustResult();
@@ -694,3 +761,5 @@ describe('mapRustResult', () => {
     expect(result.errorMessage).toContain('Bad Gateway');
   });
 });
+
+/* ── mapRustResult — Rust passthrough (passed !== undefined) ──────── */

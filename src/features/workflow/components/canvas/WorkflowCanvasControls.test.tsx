@@ -254,19 +254,19 @@ describe('WorkflowCanvasControls', () => {
     );
     const btn = container.querySelector('.wf-pill-btn[title="Fit view"]');
     fireEvent.click(btn!);
-    expect(mockFitView).toHaveBeenCalledWith({ padding: 0.1, maxZoom: 1, duration: 300 });
+    expect(mockFitView).toHaveBeenCalledWith({ padding: 0.15, maxZoom: 1.2, duration: 300 });
   });
 
-  it('restores saved viewport when Fit view button clicked with savedViewport', () => {
+  it('always fits view even when savedViewport is provided', () => {
     mockSetViewport.mockClear();
     mockFitView.mockClear();
     const vp = { x: 100, y: 200, zoom: 1.5 };
     const { container } = renderWithProvider(
       <WorkflowCanvasControls {...baseProps} savedViewport={vp} />,
     );
-    const btn = container.querySelector('.wf-pill-btn[title="Restore saved view"]');
+    const btn = container.querySelector('.wf-pill-btn[title="Fit view"]');
     fireEvent.click(btn!);
-    expect(mockSetViewport).toHaveBeenCalledWith(vp, { duration: 300 });
-    expect(mockFitView).not.toHaveBeenCalled();
+    expect(mockFitView).toHaveBeenCalledWith({ padding: 0.15, maxZoom: 1.2, duration: 300 });
+    expect(mockSetViewport).not.toHaveBeenCalled();
   });
 });

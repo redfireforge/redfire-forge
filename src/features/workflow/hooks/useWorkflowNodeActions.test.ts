@@ -1,16 +1,16 @@
 /**
  * @vitest-environment jsdom
  */
-import type { SetStateAction } from 'react';
+import { SetStateAction } from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useWorkflowNodeActions } from './useWorkflowNodeActions';
-import type { WorkflowRFNode, WorkflowRFEdge } from '../utils/workflowNodeFactory';
-import type { Workflow, WorkflowNode, WorkflowNodeData } from '../types/workflow';
-import type { RequestCollection, Environment, Microservice } from '../../../shared/types';
-import type { CatalogEntry } from '../../catalog/types/catalog';
-import type { ToastApi } from '../components/WorkflowToastProvider';
-import type { ExtractResult } from '../utils/workflowExtractSubWorkflow';
+import { WorkflowRFNode, WorkflowRFEdge } from '../utils/workflowNodeFactory';
+import { Workflow, WorkflowNode, WorkflowNodeData } from '../types/workflow';
+import { RequestCollection, Environment, Microservice } from '../../../shared/types';
+import { CatalogEntry } from '../../catalog/types/catalog';
+import { ToastApi } from '../components/WorkflowToastProvider';
+import { ExtractResult } from '../utils/workflowExtractSubWorkflow';
 
 type NodeActionsOpts = Parameters<typeof useWorkflowNodeActions>[0];
 

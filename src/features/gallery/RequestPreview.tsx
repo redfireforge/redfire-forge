@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import type { Scenario } from '../../shared/types';
-import { prettyJson } from '../../shared/utils/helpers';
+import { prettyJson, toErrorMessage } from '../../shared/utils/helpers';
 
 type PreviewTab = 'request' | 'response';
 
@@ -40,7 +40,7 @@ export default function RequestPreview({ scenario, onExpand }: Props) {
         `// ${scenario.method} ${scenario.url}\n// Status: ${res.status}\n${body}`
       );
     } catch (err) {
-      setFetchError(err instanceof Error ? err.message : String(err));
+      setFetchError(toErrorMessage(err));
     } finally {
       setFetching(false);
     }

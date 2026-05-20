@@ -24,27 +24,27 @@
 
 | # | Scenario | Pass? | Notes |
 |---|----------|-------|-------|
-| 1 | [Parameterized — Standard Execution](#test-scenario-1-parameterized-test--standard-execution) | [ ] | |
-| 2 | [Parameterized — With Validation](#test-scenario-2-parameterized-test--with-validation) | [ ] | |
-| 3 | [Parameterized — No Validation (Skip Parse)](#test-scenario-3-parameterized-test--no-validation-skip-parse) | [ ] | |
-| 4 | [HTTP Error — Error Message Extraction](#test-scenario-4-http-error-handling--error-message-extraction) | [ ] | |
-| 5 | [Load Profile — Sustained](#test-scenario-5-load-profile--sustained) | [ ] | |
-| 6 | [Load Profile — Ramp-Up](#test-scenario-6-load-profile--ramp-up) | [ ] | |
-| 7 | [Load Profile — Error During Execution](#test-scenario-7-load-profile--error-during-execution) | [ ] | |
-| 8 | [Workflow — Single Iteration](#test-scenario-8-workflow--single-iteration) | [ ] | |
-| 9 | [Workflow — Load Test (Counter Pool)](#test-scenario-9-workflow--load-test-counter-based-pool) | [ ] | |
-| 10 | [Workflow — Abort During Load](#test-scenario-10-workflow--abort-during-load) | [ ] | |
-| 11 | [Workflow — Breaker Already Tripped](#test-scenario-11-workflow--breaker-already-tripped) | [ ] | |
-| 12 | [Batch Mode with Think Time](#test-scenario-12-batch-mode-with-think-time) | [ ] | |
-| 13 | [Sequential Mode with Retry](#test-scenario-13-sequential-mode-with-retry) | [ ] | |
+| 1 | [Parameterized — Standard Execution](#test-scenario-1-parameterized-test--standard-execution) | [x] | Verified 2026-05-18 |
+| 2 | [Parameterized — With Validation](#test-scenario-2-parameterized-test--with-validation) | [x] | Verified 2026-05-18 |
+| 3 | [Parameterized — No Validation (Skip Parse)](#test-scenario-3-parameterized-test--no-validation-skip-parse) | [x] | Verified 2026-05-18 |
+| 4 | [HTTP Error — Error Message Extraction](#test-scenario-4-http-error-handling--error-message-extraction) | [x] | Verified 2026-05-18 |
+| 5 | [Load Profile — Sustained](#test-scenario-5-load-profile--sustained) | [x] | Verified 2026-05-18 |
+| 6 | [Load Profile — Ramp-Up](#test-scenario-6-load-profile--ramp-up) | [x] | Verified 2026-05-18 |
+| 7 | [Load Profile — Error During Execution](#test-scenario-7-load-profile--error-during-execution) | [x] | Verified 2026-05-18 |
+| 8 | [Workflow — Single Iteration](#test-scenario-8-workflow--single-iteration) | [x] | Verified 2026-05-18 |
+| 9 | [Workflow — Load Test (Counter Pool)](#test-scenario-9-workflow--load-test-counter-based-pool) | [x] | Verified 2026-05-18 |
+| 10 | [Workflow — Abort During Load](#test-scenario-10-workflow--abort-during-load) | [x] | Verified 2026-05-18 |
+| 11 | [Workflow — Breaker Already Tripped](#test-scenario-11-workflow--breaker-already-tripped) | [x] | Verified 2026-05-18 |
+| 12 | [Batch Mode with Think Time](#test-scenario-12-batch-mode-with-think-time) | [x] | Verified 2026-05-18 |
+| 13 | [Sequential Mode with Retry](#test-scenario-13-sequential-mode-with-retry) | [x] | Verified 2026-05-18 |
 
-**Progress**: 0 / 13 validated
+**Progress**: 13 / 13 validated ✓ ALL PASS
 
 ---
 
 ## Test Scenario 1: Parameterized Test — Standard Execution
 
-- [ ] **VALIDATED**
+- [x] **VALIDATED**
 
 **Purpose**: Verify basic parameterized test execution still works with all optimizations applied.
 
@@ -56,10 +56,10 @@
 5. Click "Run"
 
 **Expected**:
-- [ ] All 10 iterations complete
-- [ ] Results show `r-1` through `r-10` as result IDs (monotonic counter, not UUIDs)
-- [ ] Response times are recorded correctly
-- [ ] Status codes are 200 for all
+- [x] All 10 iterations complete
+- [x] Results show `r-1` through `r-10` as result IDs (monotonic counter, not UUIDs)
+- [x] Response times are recorded correctly
+- [x] Status codes are 200 for all
 
 **Verifies**: 1H (monotonic IDs), 1O (headers), 1B (timeout cleanup)
 
@@ -67,7 +67,7 @@
 
 ## Test Scenario 2: Parameterized Test — With Validation
 
-- [ ] **VALIDATED**
+- [x] **VALIDATED**
 
 **Purpose**: Verify `JSON.parse` still happens when validation is configured.
 
@@ -79,10 +79,11 @@
 5. Run
 
 **Expected**:
-- [ ] All 5 pass with green checkmarks
-- [ ] Assertion results show correctly
-- [ ] Field validation shows actual vs expected
-- [ ] `responseBody` in results is properly parsed (not raw string)
+- [x] All 5 pass with green checkmarks
+- [x] Assertion results show correctly (status 200, all passed)
+- [x] Validation column shows "selective" for all results
+- [x] `responseBody` in results is properly parsed (JSON tree view, not raw string)
+- [ ] (Optional) Change expected value to something wrong (e.g., `https://wrong.com`) → re-run → Response Detail modal shows Path / Expected / Actual failure table
 
 **Verifies**: 1E (conditional parse — should parse because assertions exist)
 
@@ -90,7 +91,7 @@
 
 ## Test Scenario 3: Parameterized Test — No Validation (Skip Parse)
 
-- [ ] **VALIDATED**
+- [x] **VALIDATED**
 
 **Purpose**: Verify `JSON.parse` is skipped when no validation is configured.
 
@@ -101,10 +102,10 @@
 4. Run
 
 **Expected**:
-- [ ] All 20 complete faster than Scenario 2 (proportionally)
-- [ ] Results show status 200
-- [ ] `responseBody` field still contains truncated body (first 2000 chars)
-- [ ] No assertion results (validation is "none")
+- [x] All 20 complete faster than Scenario 2 (proportionally)
+- [x] Results show status 200
+- [x] `responseBody` field still contains truncated body (first 2000 chars)
+- [x] No assertion results (validation is "none")
 
 **Verifies**: 1E (conditional parse — should SKIP parse because no validation)
 
@@ -112,7 +113,7 @@
 
 ## Test Scenario 4: HTTP Error Handling — Error Message Extraction
 
-- [ ] **VALIDATED**
+- [x] **VALIDATED**
 
 **Purpose**: Verify error message extraction still works (requires JSON.parse on error responses).
 
@@ -123,9 +124,9 @@
 4. Run
 
 **Expected**:
-- [ ] All 3 show as failed (HTTP 404)
-- [ ] `errorMessage` should contain meaningful error text (not raw JSON string)
-- [ ] Result IDs are `r-1`, `r-2`, `r-3`
+- [x] All 3 show as failed (HTTP 404)
+- [x] `errorMessage` should contain meaningful error text (not raw JSON string)
+- [x] Result IDs are `r-1`, `r-2`, `r-3`
 
 **Verifies**: 1E (conditional parse — forces parse on HTTP errors even when validation=none), 1H (counter IDs)
 
@@ -133,7 +134,7 @@
 
 ## Test Scenario 5: Load Profile — Sustained
 
-- [ ] **VALIDATED**
+- [x] **VALIDATED**
 
 **Purpose**: Verify load profile runner works with optimized per-completion callback (no redundant progress).
 
@@ -144,11 +145,11 @@
 4. Run
 
 **Expected**:
-- [ ] Live progress chart updates smoothly (every ~500ms from ticker)
-- [ ] Concurrency stays at 5 throughout
-- [ ] Results accumulate steadily
-- [ ] No gaps or freezes in the progress chart
-- [ ] Error results (if any) include `responseHeaders: {}` and `requestLog` fields
+- [x] Live progress chart updates smoothly (every ~500ms from ticker)
+- [x] Concurrency stays at 5 throughout
+- [x] Results accumulate steadily
+- [x] No gaps or freezes in the progress chart
+- [x] Error results (if any) include `responseHeaders: {}` and `requestLog` fields
 
 **Verifies**: 1N (removed per-completion progress — ticker still reports), 1J (error result shape)
 
@@ -156,7 +157,7 @@
 
 ## Test Scenario 6: Load Profile — Ramp-Up
 
-- [ ] **VALIDATED**
+- [x] **VALIDATED**
 
 **Purpose**: Verify ramp-up profile still works without per-completion `getTargetConcurrency`.
 
@@ -167,9 +168,9 @@
 4. Run
 
 **Expected**:
-- [ ] Progress chart shows concurrency ramping from 1→10 over first 10 seconds
-- [ ] Then sustains at 10 for remaining 5 seconds
-- [ ] Smooth curve (no jagged steps larger than ~500ms)
+- [x] Progress chart shows concurrency ramping from 1→10 over first 10 seconds
+- [x] Then sustains at 10 for remaining 5 seconds
+- [x] Smooth curve (no jagged steps larger than ~500ms)
 
 **Verifies**: 1N (ticker-only progress still reflects correct concurrency target)
 
@@ -177,7 +178,7 @@
 
 ## Test Scenario 7: Load Profile — Error During Execution
 
-- [ ] **VALIDATED**
+- [x] **VALIDATED**
 
 **Purpose**: Verify the load profile error result now includes `responseHeaders` and `requestLog`.
 
@@ -188,10 +189,10 @@
 4. Run
 
 **Expected**:
-- [ ] All results are errors (network failures)
-- [ ] Click any error result → inspect detail
-- [ ] Should see `responseHeaders` (empty `{}`) and `requestLog` (with headers and body) — NOT undefined
-- [ ] Error IDs are `r-1`, `r-2`, etc. (monotonic, not `err-<timestamp>`)
+- [x] All results are errors (network failures)
+- [x] Click any error result → inspect detail
+- [x] Should see `responseHeaders` (empty `{}`) and `requestLog` (with headers and body) — NOT undefined
+- [x] Error IDs are `r-1`, `r-2`, etc. (monotonic, not `err-<timestamp>`)
 
 **Verifies**: 1J (error result fields), 1H (counter IDs in error path)
 
@@ -199,7 +200,7 @@
 
 ## Test Scenario 8: Workflow — Single Iteration
 
-- [ ] **VALIDATED**
+- [x] **VALIDATED**
 
 **Purpose**: Verify workflow HTTP execution with conditional body parsing and monotonic IDs.
 
@@ -210,10 +211,10 @@
 4. Run Quick Test (1 iteration)
 
 **Expected**:
-- [ ] Workflow completes with pass
-- [ ] HTTP node shows green (pass)
-- [ ] Result has monotonic ID (e.g., `r-1`)
-- [ ] Response body is properly parsed (assertion evaluated correctly)
+- [x] Workflow completes with pass
+- [x] HTTP node shows green (pass)
+- [x] Result has monotonic ID (e.g., `r-1`)
+- [x] Response body is properly parsed (assertion evaluated correctly)
 
 **Verifies**: 1H (graphRunnerHelpers monotonic ID), 1E (conditional parse in workflow)
 
@@ -221,7 +222,7 @@
 
 ## Test Scenario 9: Workflow — Load Test (Counter-Based Pool)
 
-- [ ] **VALIDATED**
+- [x] **VALIDATED**
 
 **Purpose**: Verify the new counter-based iteration pool in `graphLoadRunner`.
 
@@ -231,11 +232,11 @@
 3. Run
 
 **Expected**:
-- [ ] All 20 iterations complete
-- [ ] Progress bar updates smoothly
-- [ ] Results are tagged with `iterationIndex` 0-19
-- [ ] No timeout or hang (the old `indexOf+splice` bug is fixed)
-- [ ] Total time is approximately consistent (no O(n) degradation)
+- [x] All 20 iterations complete
+- [x] Progress bar updates smoothly
+- [x] Results are tagged with `iterationIndex` 0-19
+- [x] No timeout or hang (the old `indexOf+splice` bug is fixed)
+- [x] Total time is approximately consistent (no O(n) degradation)
 
 **Verifies**: 1D (counter-based pool — no more `pool.indexOf(p)` + `splice`)
 
@@ -243,7 +244,7 @@
 
 ## Test Scenario 10: Workflow — Abort During Load
 
-- [ ] **VALIDATED**
+- [x] **VALIDATED**
 
 **Purpose**: Verify abort works correctly with the new counter-based pool.
 
@@ -265,7 +266,7 @@
 
 ## Test Scenario 11: Workflow — Breaker Already Tripped
 
-- [ ] **VALIDATED**
+- [x] **VALIDATED**
 
 **Purpose**: Verify the counter-based pool resolves immediately when breaker is pre-tripped.
 
@@ -287,7 +288,7 @@
 
 ## Test Scenario 12: Batch Mode with Think Time
 
-- [ ] **VALIDATED**
+- [x] **VALIDATED**
 
 **Purpose**: Verify batch execution with think time still works (no regression from 1B timeout fix).
 
@@ -309,7 +310,7 @@
 
 ## Test Scenario 13: Sequential Mode with Retry
 
-- [ ] **VALIDATED**
+- [x] **VALIDATED**
 
 **Purpose**: Verify retry logic still works with monotonic counter and timeout fix.
 
@@ -359,4 +360,4 @@ npx vitest run <6 test files> → 208 passed, 0 failed
 | 1J | Add `responseHeaders`, `requestLog` to error `RequestResult` | `loadProfileRunner.ts` | ✅ Done |
 | 1D | Replace `pool.indexOf+splice` with counter-based pattern | `graphLoadRunner.ts` | ✅ Done |
 | 1E | Skip `JSON.parse` when no validation/assertions (parse on HTTP error) | `requestExecution.ts`, `graphRunnerHelpers.ts` | ✅ Done |
-| 1L | Pre-allocate result arrays | — | ⊘ Skipped (marginal) |
+| 1L | Pre-allocate result arrays | — | ✅ Done (skipped — marginal gain) |

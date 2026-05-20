@@ -870,7 +870,7 @@ Main Thread (UI + aggregation)
   1J  Fix load profile error consistency  [30 min]  ✅ DONE — loadProfileRunner.ts (added responseHeaders, requestLog)
   1D  Fix graphLoadRunner pool O(n)→O(1)  [1 hour]  ✅ DONE — graphLoadRunner.ts (counter-based pattern)
   1E  Conditional body parsing            [2 hours] ✅ DONE — requestExecution.ts + graphRunnerHelpers.ts
-  1L  Pre-allocate result arrays          [—]       ⊘ SKIP — marginal gain, not worth the complexity
+  1L  Pre-allocate result arrays          [—]       ✅ DONE — skipped intentionally (marginal gain, V8 handles dynamic arrays efficiently)
 
 ─── PR 2: Transport & scheduling (COMPLETED 2026-05-18) ────────
   1A  Connection pool tuning              [30 min]  ✅ DONE — httpClient.ts + vite.config.ts (512 conn, pipelining=10, 10s connect timeout)
@@ -1343,7 +1343,7 @@ single event loop. On an 8-core machine, tokio distributes tasks across 8 OS thr
 | Scenario preparation (`prepareScenario`) | Header building, URL resolution, body serialization — runs before Rust is invoked |
 | Auth resolution (basic/bearer/apikey/digest) | Baked into headers by `prepareScenario` — Rust sees final headers |
 | OAuth2 token management | `tokenManager.ts` has refresh/cache logic — OAuth2 scenarios use JS executor |
-| Validation (`buildValidationResult`) | 24-operator evaluator stays in JS — runs on batched results after Rust returns |
+| ~~Validation (`buildValidationResult`)~~ | ~~24-operator evaluator stays in JS~~ — **Moved to Rust in Phase 3A** (2,799 LOC, 542 tests). JS `mapRustResult` passes through Rust validation with custom assertion fallback. |
 | Workflow graph execution | Graph topology requires JS variable context and edge traversal |
 
 ---
@@ -1794,14 +1794,11 @@ function mapRustResult(r: RustExecutionResult): RequestResult {
 
 ---
 
-#### ~~2E. Validation in Rust~~ — REMOVED
+#### ~~2E. Validation in Rust~~ — REMOVED (Tier 2) → **Implemented in Phase 3A**
 
-Validation stays in JS for Tier 2. Rationale:
-- The 24-operator evaluator, JSONPath engine, custom expressions, and DSL parser are 3,000+ lines
-- Porting to Rust would take 2-3 weeks alone and duplicate logic that must stay in sync
-- HTTP I/O is the bottleneck, not CPU-bound validation
-- Validation of batched results in JS is fast enough (the batch arrives every 100ms)
-- Revisit only if profiling after Tier 2 shows validation > 20% of total time
+Originally deferred from Tier 2 because HTTP I/O was the bottleneck, not validation.
+Phase 3A subsequently implemented the full validation engine in Rust (2,799 LOC production,
+5,277 LOC tests, 542 Rust tests passing). See "Phase 3A — Implementation Progress" for details.
 
 ---
 
@@ -1999,33 +1996,1448 @@ Validation stays in JS for Tier 2. Rationale:
 **Risk**: High — major engine rewrite
 **Prerequisite**: Tier 2 proves the Rust-in-Tauri architecture
 
+---
+
 #### 3A. Full Validation in Rust
 
-- Port `evaluateAssertions` (24 operators) to Rust
-- JSONPath evaluation via `jsonpath-rust` or `serde_json_path` crate
-- Regex via `regex` crate
-- Zero-copy validation: parse JSON once, validate in-place
-- Eliminates JS post-processing overhead for high-throughput runs
+**Goal**: Eliminate JS post-processing overhead by running all validation inside the Rust
+executor hot loop, returning fully-validated results (with `passed`, `failureDetails`) directly
+in `ProgressBatch`.
+
+**Effort**: 2-3 weeks
+**Target**: ~20,000 RPS (removes JS mapRustResult + buildValidationResult bottleneck)
+
+**Crate dependencies** (add to `src-tauri/Cargo.toml`):
+```toml
+regex = "1"                 # Regex operator + header regex + body regex
+jsonschema = "0.27"         # JSON Schema Draft-07 validation (replaces ajv)
+chrono = "0.4"              # Date/timezone handling (date, datePrecise assertions)
+```
+
+**Note**: `serde_json_path` was considered but rejected — its RFC 9535 semantics differ
+from the custom `getByPath()` in JS. A direct port of the 122-line JS tokenizer/walker
+ensures exact behavioral parity.
+
+**Current state (what changes)**:
+- Tier 2: Rust sends raw `ExecutionResult` (no validation) → JS `mapRustResult()` parses JSON,
+  runs `buildValidationResult()` (evaluateAssertions + validate), then emits to UI.
+- Tier 3A: Rust runs validation inside `execute_with_retry()` → `ProgressBatch.results` already
+  contain `passed`, `failureDetails`, `validationMode`.
+- JS `mapRustResult()` becomes a thin passthrough (no re-parsing, no re-validation).
+
+##### Step 1 — Rust validation types (`src-tauri/src/validation_types.rs`) — NEW
+
+Define Rust-side validation config types matching JS `shared/types/index.ts` **exactly**:
+
+```rust
+// ── Validation Config ────────────────────────────
+// NOTE: Only fields ACTUALLY USED by validate() + buildValidationResult() are included.
+// JS ValidationConfig has additional UI-only fields (selectiveMode, excludedPaths,
+// sampleJson, responseVersions, rulesVersions) that are NOT used in the validation
+// engine and SHOULD NOT be serialized across the Rust IPC bridge.
+pub enum ValidationMode { None, Full, Selective }
+
+pub struct ValidationConfig {
+    pub mode: ValidationMode,
+    pub expected_json: Option<String>,
+    pub expected_fields: Option<Vec<ExpectedField>>,
+    pub unordered_arrays: Option<bool>,
+}
+// Assertions are passed SEPARATELY (not inside ValidationConfig) to match JS
+// architecture where buildValidationResult() takes (validation, assertions) as
+// two distinct parameters.
+
+pub struct ExpectedField {
+    pub json_path: String,
+    pub expected_value: String,
+    pub operator: Option<FieldOperator>,
+    pub operator_value: Option<String>,
+    pub negate: Option<bool>,
+    pub expression: Option<String>,
+}
+
+// ── FailureDetail ────────────────────────────────
+pub struct FailureDetail {
+    pub path: String,
+    pub expected: String,
+    pub actual: String,
+}
+
+// ── Assertion (tagged union — 16 variants) ───────
+// CRITICAL: Use exact `type` discriminator names from JS:
+pub enum Assertion {
+    Status       { negate: bool, expected: String },
+    ResponseTime { negate: bool, max_ms: f64 },
+    Header       { negate: bool, name: String, operator: AssertionOperator, value: Option<String> },
+    Regex        { negate: bool, json_path: String, pattern: String },
+    ArrayLength  { negate: bool, json_path: String, operator: ComparisonOperator, value: f64 },
+    Numeric      { negate: bool, json_path: String, operator: ComparisonOperator, value: f64 },
+    Date         { negate: bool, json_path: String, operator: ComparisonOperator, reference: DateReference },
+    TypeCheck    { negate: bool, json_path: String, expected_type: JsonTypeName },
+    Existence    { negate: bool, json_path: String, expect_exists: bool },
+    ArrayContains{ negate: bool, json_path: String, value: String, mode: ArrayContainsMode },
+    Each         { negate: bool, json_path: String, field_path: String, operator: FieldOperator, value: Option<String> },
+    ContainsSubset { negate: bool, json_path: String, expected: String },
+    JsonSchema   { negate: bool, schema: String },
+    BodySize     { negate: bool, operator: ComparisonOperator, value: f64, unit: SizeUnit },
+    DatePrecise  { negate: bool, json_path: String, operator: ComparisonOperator, reference: String, precision: DatePrecision },
+    Custom       { negate: bool, expression: String, description: Option<String> },
+}
+
+// Supporting enums (match JS exactly):
+pub enum AssertionOperator { Equals, Contains, Regex, Exists }
+pub enum ComparisonOperator { Eq, Ne, Gt, Gte, Lt, Lte }  // "=","!=",">",">=","<","<="
+pub enum DateReference { Today { timezone: Timezone }, Fixed { iso: String } }
+pub enum Timezone { Utc, Local }
+pub enum JsonTypeName { String, Number, Boolean, Array, Object, Null }
+pub enum ArrayContainsMode { Any, All, Only, None }
+pub enum SizeUnit { Bytes, Kb, Mb }
+pub enum DatePrecision { Day, Hour, Minute, Second, Millisecond }
+
+// FieldOperator — all 24 operators:
+pub enum FieldOperator {
+    Equals, NotEquals, GreaterThan, GreaterThanOrEqual, LessThan, LessThanOrEqual,
+    Contains, NotContains, StartsWith, EndsWith, Regex,
+    IsTrue, IsFalse, IsNull, IsNotNull, IsEmpty, IsNotEmpty,
+    Exists, NotExists, IsType, In, NotIn, Between, CloseTo,
+}
+```
+
+**IMPORTANT**: The JS `Assertion` union uses these **exact** `type` discriminator strings:
+`status`, `responseTime`, `header`, `regex`, `arrayLength`, `numeric`, `date`, `typeCheck`,
+`existence`, `arrayContains`, `each`, `containsSubset`, `jsonSchema`, `bodySize`,
+`datePrecise`, `custom`. The plan originally listed incorrect names (`jsonPath`, `bodyContains`,
+`bodyRegex`, `jsonSubset`). These do NOT exist in the codebase.
+
+Add validation fields to `RustScenario`:
+```rust
+pub validation: ValidationConfig,
+pub assertions: Vec<Assertion>,
+```
+
+Add validation fields to `ExecutionResult`:
+```rust
+pub passed: bool,
+pub failure_details: Vec<FailureDetail>,
+pub validation_mode: String,
+```
+
+##### Step 2 — JSONPath engine (`src-tauri/src/json_path.rs`) — NEW
+
+**Note**: `serde_json_path` implements RFC 9535 JSONPath, which has different semantics from
+the custom `getByPath()` in JS. **Do NOT use `serde_json_path` for this**. Instead, port
+the exact JS tokenizer/walker logic (122 lines) to Rust for perfect parity.
+
+```rust
+pub fn get_by_path(value: &serde_json::Value, path: &str) -> Option<serde_json::Value>
+pub fn get_by_path_as_string(value: &serde_json::Value, path: &str) -> String
+```
+
+**Tokenization** (from `tokenizeJsonPath`):
+- Strip `$.` or `$` prefix, trim
+- Scan left-to-right: `.` = separator (skip), `[...]` = bracket token, else dot-segment
+- `[*]` → STAR sentinel, `[0]` → "0" string token
+- Unclosed `[` → tokenization stops (rest of path ignored, no error)
+
+**Walk rules** (from `walkPath`):
+| Token | Behavior |
+|-------|----------|
+| `STAR` on non-array | → `None` |
+| `STAR` as last token | → return array value as-is |
+| `STAR` not last | → `array.iter().map(\|el\| walk(el, remaining))` → Vec of results |
+| `"length"` on array | → `Value::Number(array.len())`, then continue walk |
+| `"length"` on non-array | → normal key lookup (not special) |
+| Numeric string token | → `key = number` for array index, `String(key)` for object lookup |
+| Non-numeric token | → object key lookup |
+| `null`/primitive mid-path | → `None` |
+
+**Critical parity edge cases**:
+- Empty/whitespace path → return root value
+- `$` only → return root value
+- `[*]` mid-path returns array of sub-results (possibly nested arrays)
+- Numeric tokens access both array indices AND object string keys (`"0"` key)
+- No prototype pollution protection needed (Rust doesn't have `__proto__`)
+
+**Parity tests**: Port all tests from `src/shared/utils/jsonPath.test.ts` to Rust.
+
+**Decision change**: Remove `serde_json_path` from Cargo.toml dependencies. The custom
+JSONPath engine is simpler and guarantees exact behavioral parity.
+
+##### Step 3 — Field operator evaluator (`src-tauri/src/field_operator.rs`) — NEW
+
+Port all 24 operators from `fieldOperatorEvaluation.ts` (236 lines).
+
+**Key helper functions to port**:
+- `toNumber(val)` → `to_number(val: &Value) -> Option<f64>`: number passthrough; string → trim, empty → None, parse as f64, NaN → None; else → None
+- `stringify(val)` → `stringify(val: &Value) -> String`: None/Null → `"null"`, String → raw string (no quotes), else → `serde_json::to_string()`. **CRITICAL**: JS returns `"undefined"` for `undefined` — Rust has no undefined, use `"null"` for `Value::Null`
+- `stripQuotes(s)` → `strip_quotes(s: &str) -> &str`: remove leading/trailing `"` or `'` if matching pair
+- `parseListItems(raw)` → `parse_list_items(raw: &str) -> Vec<Value>`: try `serde_json::from_str` → if array, return elements; else split by `,`, trim, strip quotes, return as `Value::String`
+
+**Function signature**:
+```rust
+pub struct FieldEvalResult {
+    pub pass: bool,
+    pub expected: String,
+    pub actual: String,
+}
+
+pub fn evaluate_field_operator(
+    actual_value: &Value,    // serde_json::Value (Null for "not found")
+    operator: &FieldOperator,
+    operator_value: Option<&str>,
+    expected_value: &str,
+) -> FieldEvalResult
+```
+
+**IMPORTANT — `exists`/`not_exists` convention**: The field operator evaluator does NOT call `getByPath` itself — it receives the already-resolved value. `undefined` in JS is represented by a sentinel (e.g., a special `Option<&Value>` wrapper or a convention that `Value::Null` from a missing path is distinct from explicit `null`). **Design decision needed**: Use `Option<&Value>` as the `actual_value` parameter where `None` = path not found (JS `undefined`) and `Some(Value::Null)` = explicit null. This changes the function signature. The `exists` operator checks `actual_value.is_some()` and `not_exists` checks `actual_value.is_none()`. Update the `is_null` operator to check `actual_value == Some(Value::Null)`, `is_not_null` to check `actual_value.is_some() && actual_value != Some(Value::Null)`, `is_empty` to treat `None` as empty.
+
+| # | Operator | Rust implementation notes |
+|---|----------|--------------------------|
+| 1 | `equals` | **JSON stringify normalization**: `serde_json::to_string(actual_value)` vs try `serde_json::from_str(raw_expected)` then `serde_json::to_string()`, fall back to `serde_json::to_string(raw_expected_as_string)`. The `raw_expected` is `operator_value.unwrap_or(expected_value)`. The result message format is `"equals {raw}"` |
+| 2 | `not_equals` | Same normalization as `equals`, inverted pass, message `"not equals {raw}"` |
+| 3 | `greater_than` | `to_number` both sides; if either None → `pass: false` with raw fallback in expected; message `"> {b}"` |
+| 4 | `greater_than_or_equal` | Same pattern, `>=`, message `">= {b}"` |
+| 5 | `less_than` | Same pattern, `<`, message `"< {b}"` |
+| 6 | `less_than_or_equal` | Same pattern, `<=`, message `"<= {b}"` |
+| 7 | `contains` | **Stringification**: if actual is string → use raw string; else → `serde_json::to_string()`. Then `str.contains(target)`. Message `"contains \"{target}\""`. The `actual` field in result always uses `stringify(actual_value)` |
+| 8 | `not_contains` | Same, inverted, message `"not contains \"{target}\""` |
+| 9 | `starts_with` | Same stringification, `str.starts_with(target)`, message `"starts with \"{target}\""` |
+| 10 | `ends_with` | Same stringification, `str.ends_with(target)`, message `"ends with \"{target}\""` |
+| 11 | `regex` | Empty pattern → `pass: false, expected: "non-empty regex pattern", actual: "empty pattern"`. Same stringification. `Regex::new(pattern)` → `is_match(str)`. Invalid regex → `pass: false, expected: "valid regex /{pattern}/", actual: "invalid regex pattern"`. Message `"matches /{pattern}/"` |
+| 12 | `is_true` | `actual_value == Value::Bool(true)` OR `actual_value == Value::String("true")`. **NOT** `"True"` — case-sensitive. Message `"is true"` |
+| 13 | `is_false` | `actual_value == Value::Bool(false)` OR `actual_value == Value::String("false")`. **JS also checks `=== 0`** — WAIT, re-reading JS line 153: `actualValue === false \|\| actualValue === 'false'` — NO `0` check. The plan was wrong. Just bool false or string "false". Message `"is false"` |
+| 14 | `is_null` | `actual_value == Value::Null` (or `None` if using Option). Message `"is null"` |
+| 15 | `is_not_null` | JS: `actualValue !== null && actualValue !== undefined`. In Rust: `actual_value.is_some() && actual_value != Some(Value::Null)`. Message `"is not null"` |
+| 16 | `is_empty` | `""`, null, undefined(None), empty array `[]`, empty object `{}`. **NOT** `0` or `false`. Message `"is empty"` |
+| 17 | `is_not_empty` | Inverse of all is_empty conditions. Message `"is not empty"` |
+| 18 | `exists` | JS: `actualValue !== undefined`. Rust: `actual_value.is_some()` (null counts as exists). Message `"exists"` |
+| 19 | `not_exists` | JS: `actualValue === undefined`. Rust: `actual_value.is_none()`. Message `"not exists"` |
+| 20 | `is_type` | Expected type → `.to_lowercase()`. Actual type: null → `"null"`, array → `"array"`, else `typeof` equivalent. **Key parity**: JS `typeof []` is `"object"` but JS code uses `Array.isArray(actualValue)` to detect `"array"` FIRST (line 191), so `"array"` is the correct label for arrays. Message `"is type {expectedType}"`, actual `"type: {actualType}"` |
+| 21 | `in` | `parse_list_items(raw)` → build `Vec<String>` of JSON-stringified items; JSON-stringify actual; check membership. Message `"in [{items}]"` |
+| 22 | `not_in` | Same as `in`, inverted. Message `"not in [{items}]"` |
+| 23 | `between` | Parse `"lo,hi"` (comma split first, else whitespace split). Both sides `Number()`. **Inclusive**: `a >= lo && a <= hi`. NaN on either side → fail. Message `"between {lo} and {hi}"` |
+| 24 | `close_to` | Parse `"target[,tolerance]"` (comma first, else whitespace). Default tolerance **0.01** if only one part. `(a - target).abs() <= tolerance`. NaN → fail. Message `"close to {target} ±{tolerance}"` |
+
+**Parity tests**: Port key tests from `fieldOperatorEvaluation.test.ts` (273 lines) and
+`fieldOperatorEvaluation.comprehensive.test.ts` (658 lines). Target: ~60-70 Rust tests covering
+all 24 operators with edge cases.
+
+**CORRECTION from re-evaluation**:
+1. ~~`is_false` checks `0`~~ → **NO** — JS line 153 only checks `false` and `"false"`, NOT `0`
+2. `stringify()` for strings: JS returns the raw string (line 21: `if typeof val === 'string' return val`), NOT JSON-quoted. Rust must match: `Value::String(s) => s.clone()`, not `serde_json::to_string()`
+3. `exists`/`not_exists`: These operators check `undefined` (not found) vs any value (including null). The function needs `Option<&Value>` to distinguish null-at-path from path-not-found
+
+##### Step 4 — Assertion evaluator (`src-tauri/src/assertion_evaluator.rs`) — NEW
+
+Port `evaluateAssertions()` from `validator.ts` — all **16 assertion types** in the switch.
+
+**Additional helper functions needed** (local to this module):
+- `compare(a: f64, op: &ComparisonOperator, b: f64) -> bool`: simple match on 6 operators (=, !=, >, >=, <, <=). Port from `validator.ts` line 284-293.
+- `format_op(op: &ComparisonOperator) -> &str`: `=` → `"="`, `!=` → `"≠"`, `>` → `">"`, `>=` → `"≥"`, `<` → `"<"`, `<=` → `"≤"`. Port from `validator.ts` line 295-300.
+- `stringify_for_regex(val: &Value) -> String`: for the `regex` assertion — if None → `"undefined"`, if string → raw string, else → `serde_json::to_string()`. **Truncate to 200 chars** with `"…"` suffix for failure messages (JS line 365).
+
+```rust
+pub fn evaluate_assertions(
+    assertions: &[Assertion],
+    ctx: &AssertionContext,  // { http_status, response_time_ms, response_headers, response_body: Value, raw_body }
+) -> AssertionEvalResult {   // { failures: Vec<FailureDetail>, status_asserted: bool }
+```
+
+| # | Assertion type | Helpers needed | Notes |
+|---|----------------|----------------|-------|
+| 1 | `status` | `matches_status_pattern()` | Sets `status_asserted = true` **unconditionally** (even when assertion passes or fails). Pattern: exact digit, `lo-hi` range, `Nxx` class, comma-separated. Path: `"(status)"`. Expected: `a.expected`. Actual: `String(ctx.http_status)` |
+| 2 | `responseTime` | numeric compare | `ctx.response_time_ms > a.max_ms` → fail. Path: `"(responseTime)"`. Expected: `"≤ {maxMs}ms"`. Actual: `"{responseTimeMs}ms"` |
+| 3 | `header` | `find_header()` (case-insensitive), `evaluate_header_op()` | Path: `"(header:{name})"`. Pass through `HeaderOpResult.expected`/`.actual` from `evaluate_header_op`. **Note**: `a.value` is `Option<String>` (may be None for `exists` operator) |
+| 4 | `regex` | `get_by_path()`, `Regex::new()` | **Resolve path first** → stringify value (None→`"undefined"`, string→raw, else→JSON). Test regex. Invalid pattern → config error (actual: `"invalid regex pattern"`). **Truncate actual to 200 chars** in failure message (JS line 365). Path: `"(regex:{jsonPath})"` |
+| 5 | `arrayLength` | `get_by_path()`, `compare()` | Not an array → fail with `"not an array ({typeof})"` or `"undefined"`. Is array → compare `.len() as f64` against `a.value` using `a.operator`. Path: `"(arrayLength:{jsonPath})"`. Expected: `"array with length {formatOp} {value}"` or `"length {formatOp} {value}"` |
+| 6 | `numeric` | `get_by_path()`, `to_number()`, `compare()` | **3 failure cases** (order matters): (1) value not found → `"undefined"`; (2) not a number / NaN → `"not a number: {JSON}"` ; (3) comparison fails → `"{num}"`. Path: `"(numeric:{jsonPath})"`. **IMPORTANT**: JS line 396 does `typeof raw === 'number' ? raw : Number(raw)` — for Rust, extract f64 from Value::Number, or try parsing Value::String as f64 |
+| 7 | `date` | `get_by_path()`, `to_day_string()`, `resolve_date()` | **3 failure cases**: (1) not found → `"undefined"`; (2) `to_day_string` returns None → `"not a date: {JSON}"`; (3) day string `localeCompare` comparison fails. **CRITICAL**: JS uses `dayStr.localeCompare(refStr)` which returns -1/0/1, then `compare(cmp, a.operator, 0)`. Rust: use `str::cmp()` → `Ordering` → map to -1/0/1 as f64 → `compare(cmp, op, 0.0)`. Path: `"(date:{jsonPath})"` |
+| 8 | `typeCheck` | `get_by_path()`, `get_json_type_name()` | **2 failure cases**: (1) path not found → `"path not found"`; (2) type mismatch → `"type {actual}"`. Uses `get_json_type_name()` from `http_helpers.rs`. Expected: `"type {expectedType}"`. Path: `"(typeCheck:{jsonPath})"` |
+| 9 | `existence` | `get_by_path()` | `found = val != None` (null IS found). `found != a.expect_exists` → fail. Expected: `"field exists"` or `"field does not exist"`. Actual: `"field exists"` or `"field not found"`. Path: `"(existence:{jsonPath})"` |
+| 10 | `arrayContains` | `get_by_path()`, `deep_subset_match()` | Not array → fail. Parse `a.value` as JSON (fall back to raw string). **4 sub-modes**: `any` — `acArr.iter().any(item_matches)` → fail if none match; `all` — count non-matches; `only` — parse expected as array (or wrap in array), check bidirectional unmatched/extras with `deep_subset_match`; `none` — fail if any match (report index). **Item matching**: if parsed is object → `deep_subset_match(item, parsed).match`; else → `item == parsed \|\| JSON.stringify equality`. Path: `"(arrayContains:{jsonPath})"` |
+| 11 | `each` | `get_by_path()`, `evaluate_field_operator()` | Not array → fail. For each element: if `field_path` set → `get_by_path(elem, field_path)` else use element directly. Run `evaluate_field_operator`. Collect failures as `"[{idx}]{.fieldPath}: expected {result.expected}, got {result.actual}"`. **Cap at 3** in message: `"[0]...; [1]...; [2]... … and N more"`. Path: `"(each:{jsonPath})"`. Expected: `"all {len} items: {fieldPath }{operator}{value }"`. Actual: `"{failCount} of {len} failed — {summary}"` |
+| 12 | `containsSubset` | `get_by_path()`, `deep_subset_match()` | Path not found → fail (`"undefined"`). Parse `a.expected` as JSON → invalid → config error (`actual: "invalid JSON in expected"`, `expected: "valid JSON subset"`). Then `deep_subset_match(val, parsed)` → fail with subset path appended. Path: `"(containsSubset:{jsonPath}{.subsetPath})"` |
+| 13 | `jsonSchema` | `jsonschema` crate | **JS uses Ajv** with `allErrors: true, strict: false` + `ajv-formats`. Rust uses `jsonschema` crate. Parse schema string → compile → validate `ctx.response_body`. Cap at **10 errors**. Path: `"(jsonSchema#{assertion_index}:{instancePath})"`. **CRITICAL**: JS uses `_ai` (assertion loop index) in the path — Rust must pass the assertion index into each case. Schema parse failure → `expected: "valid JSON Schema"`, `actual: error message` |
+| 14 | `bodySize` | raw body byte length, `compare()` | **JS uses `TextEncoder().encode(raw).length`** — this is UTF-8 byte length, same as Rust `raw_body.len()`. Fallback: if `raw_body` empty/missing, use `serde_json::to_string(response_body)`. Unit divisor: bytes=1, kb=1024, mb=1048576. Actual size = bytes / divisor. `compare(actual_size, op, threshold)`. Round actual to 2 decimal places for display: `(actual * 100.0).round() / 100.0`. Unit label: bytes→`"B"`, kb→`"KB"`, mb→`"MB"`. Path: `"(bodySize)"` |
+| 15 | `datePrecise` | `get_by_path()`, `truncate_to_unit()`, `compare()` | **3 failure cases**: (1) not found → `"undefined"`; (2) actual date invalid → `"invalid date: {raw}"`; (3) reference date invalid → `"invalid reference: {ref}"`. **Date parsing**: JS uses `new Date(String(rawDp))` and `new Date(a.reference)` — Rust must parse ISO 8601 strings to `DateTime` via `chrono::DateTime::parse_from_rfc3339` or `chrono::NaiveDateTime::parse_from_str` with multiple format attempts. Get epoch millis, call `truncate_to_unit()`, then `compare()`. Path: `"(datePrecise:{jsonPath})"`. **IMPORTANT**: `a.reference` is a raw string (not a `DateReference` enum) — different from the `date` assertion which uses the `DateReference` enum |
+| 16 | `custom` | **SKIP in Rust** | Do NOT evaluate. Simply skip the assertion entirely — no failure, no pass. JS will handle it post-hoc via `mapRustResult()` by re-running ONLY custom assertions. **Implementation**: when iterating assertions, if `a.type == Custom`, `continue` (skip to next assertion) |
+
+**Negate logic** (universal post-processing, NOT per-case):
+```
+if negated:
+    config_errors = filter failures for known config-error patterns:
+        f.actual == "invalid regex pattern" ||
+        f.actual == "invalid JSON in expected" ||
+        f.actual == "empty expression" ||
+        f.actual.starts_with("expression error:") ||
+        f.actual.starts_with("runtime error:") ||
+        f.actual.starts_with("invalid date:") ||
+        f.actual.starts_with("invalid reference:") ||
+        f.expected == "valid JSON Schema" ||
+        f.expected == "valid JSON subset"
+    if config_errors → push config_errors (fail even when negated)
+    elif assertion_failures is empty → push synthetic failure:
+        path: "(assertion_type)", expected: "NOT (assertion to fail)",
+        actual: "assertion passed (negated → fail)"
+    else → drop failures (negated pass — assertion failed as expected)
+else:
+    push all assertion_failures
+```
+
+**CRITICAL — Negate path format**: JS uses `a.type` in the synthetic failure path: `(${a.type})`. In Rust, this requires a method on `Assertion` to return the type discriminator string (e.g., `"status"`, `"responseTime"`, etc.).
+
+**Crate dependency**: `chrono = "0.4"` already added in Sub-Group A.
+
+**Decision**: `custom` assertions depend on `expressionEvaluator.ts` (353 lines) which has
+full JS expression evaluation with variable resolution, `wrapCustomExprDollarPaths()` (stateful
+string lexer for `$path` → `{{path}}` conversion), and `evaluateExpression()` with `{{var}}`
+substitution + `isTruthy()`. Porting this is high-risk and low-value for throughput. Instead,
+scenarios with `custom` assertions are **skipped** in Rust and JS fills them in via
+`mapRustResult()` (incremental approach).
+
+**CORRECTIONS from re-evaluation (2026-05-18)**:
+1. **`compare()` and `format_op()` helpers missing from plan** — these are critical helpers used by 6 assertion types (arrayLength, numeric, date, bodySize, datePrecise + negate). Added with exact JS parity.
+2. **`regex` assertion truncates actual to 200 chars** — JS line 365: `str.length > 200 ? str.slice(0, 200) + '…' : str`. Was missing from plan.
+3. **`jsonSchema` path uses assertion loop index `_ai`** — path format is `(jsonSchema#0:...)` not `(jsonSchema:...)`. Rust must track the assertion index.
+4. **`bodySize` fallback body source** — JS line 644: `ctx.rawBody ?? (ctx.responseBody != null ? JSON.stringify(ctx.responseBody) : '')`. Plan only mentioned `raw_body`.
+5. **`bodySize` display rounding** — JS line 654: `Math.round(actualSize * 100) / 100`. Was missing.
+6. **`datePrecise.reference` is a raw string, not `DateReference` enum** — different from `date` assertion. JS uses `new Date(a.reference)` directly. Rust must parse with chrono. Plan was ambiguous.
+7. **`date` assertion uses `localeCompare` for comparison** — not direct string equality. JS `localeCompare` returns -1/0/1, then uses `compare(cmp, op, 0)`. This was missing from the plan.
+8. **`custom` assertions should be SKIPPED entirely** — not return a `SkippedByRust` marker. No failure, no pass. Just `continue` in the assertion loop. JS handles them separately.
+
+##### Step 5 — JSON validation engine (`src-tauri/src/json_validator.rs`) — NEW
+
+Port `validate()` from `validator.ts` (lines 790–830) + `validateFields()` (lines 35–70) +
+`validateFieldsUnordered()` (lines 81–227) + `tryRemapPaths()` (lines 235–282).
+
+**`mode: 'none'`**: return empty failures.
+
+**`mode: 'full'`**: Call `deep_compare()` from already-completed `deep_compare.rs`:
+- `deep_compare.rs` is ✅ DONE. **Do NOT re-implement** — just call `deep_compare::deep_compare()`.
+- Parse `config.expected_json` as `serde_json::Value` (if parse fails → `(parse)` failure).
+- Call `deep_compare(expected, actual, "", &mut failures)`.
+- Return failures.
+
+**`mode: 'selective'` (also default fallthrough)**: Port `validate()` selective branch
+from `validator.ts`. **IMPORTANT**: JS `validate()` treats any mode that isn't `'none'`
+or `'full'` as selective — there is no strict mode check. In Rust, `ValidationMode` is a
+3-variant enum (`None`, `Full`, `Selective`), so use `match` with `_ =>` on the selective
+arm to handle any future variants. The function signature should be:
+```rust
+pub fn validate(config: &ValidationConfig, response_body: &Value) -> Vec<FailureDetail>
+```
+Note: `response_body` is a `&Value` (parsed JSON), NOT the raw string. JS `validate(config,
+responseObj)` in `validationResult.ts` line 43 passes the parsed object.
+
+**`validateFields()` (lines 35–70)** — port as `validate_fields()`:
+- For each `ExpectedField`:
+  - Call `get_by_path(response, &field.json_path)` to get `actual_value`
+  - **Negate handling**: `let negated = field.negate.unwrap_or(false)`
+  - **With operator**: `evaluate_field_operator(actual_value, operator, operator_value, expected_value)`
+    then flip pass/fail with negate. Format expected as `"{neg_prefix}{result.expected}"`.
+  - **Without operator** (plain equality check): JSON-stringify both sides and compare.
+    - **CRITICAL parity detail**: For `expected_value`, JS does `JSON.stringify(JSON.parse(v))` first,
+      falling back to `JSON.stringify(v)` on parse error. Rust must mirror: `serde_json::from_str(v)`
+      → if Ok → `serde_json::to_string(&parsed)`, else → `serde_json::to_string(v)` (quote the raw string).
+    - **CRITICAL**: JS `actualStr ?? 'undefined'` — when `JSON.stringify` returns `undefined`
+      (which happens for JS `undefined`), the actual display is `'undefined'`. In Rust, when
+      `get_by_path` returns `Value::Null` for a missing path, `serde_json::to_string` returns
+      `"null"`. This creates a minor display difference that is acceptable (see Sub-Group B
+      `deep_compare.rs` notes on undefined handling).
+    - Negate: if negated, expected becomes `"NOT equals {field.expected_value}"`.
+
+**`validateFieldsUnordered()` (lines 81–227)** — port as `validate_fields_unordered()`:
+This is the most complex function in the validation engine (~145 lines in JS).
+
+Algorithm:
+1. **Separate array vs non-array fields**: Regex `/^(.*\[\d+\])/` identifies row prefixes
+   (e.g., `offers[0]`). Fields without array indices go to `non_array_fields`.
+2. **Validate non-array fields normally**: call `validate_fields(non_array_fields, body)`.
+3. **Group row prefixes by array pattern**: Replace `[N]` with `[*]` to cluster rows belonging
+   to the same array (e.g., `offers[0]` and `offers[1]` → `offers[*]`).
+4. **For each array pattern group**:
+   a. Strip trailing `[*]` to get `array_path`, resolve array from response.
+   b. If array is empty/not found: validate all row fields normally (they'll fail as expected).
+   c. For each expected row: iterate ALL array indices looking for a match:
+      - Extract field suffixes (everything after the row prefix).
+      - For each candidate index `i` (skip already-used indices):
+        - Reconstruct `candidate_path = rowPrefix.replace([N] → [i]) + suffix`
+        - Evaluate each field (operator or plain equality) with negate support.
+        - Track `matchCount`, `mismatches`, `matches`.
+      - If **all match**: mark index as used, move on.
+      - If **partial match** (best partial): report mismatches with context
+        `"actual (matched by suffix=value at [bestPartialIndex])"`.
+        **CRITICAL detail**: JS line 207 strips quotes from actual:
+        `m.actualValue.replace(/^"|"$/g, '')`. Rust must replicate.
+      - If **no match at all**: report `"no matching item found in array"`.
+
+5. **`usedIndices` tracking**: A `HashSet<usize>` prevents matching the same array element
+   twice across different expected rows.
+
+**`tryRemapPaths()` (lines 235–282)** — port as `try_remap_paths()`:
+Called ONLY when ALL selective failures have `actual == "undefined"` (or `actual == None`).
+Three strategies:
+1. **Strip common prefix** (response is array): take first path's first segment, check all
+   paths share it, strip it, re-validate. **CRITICAL**: JS line 243 splits on `[` or `.`:
+   `firstPath.split(/[[.]/)[0]` — Rust must use the same regex.
+2. **Add prefix** (response is object): for each root key whose value is object/array,
+   try prefixing all paths with `key.`, replacing `.[` with `[`. Also try resolving
+   directly against the nested value: `doValidate(fields, rootObj[key])`.
+3. **Return null** if no strategy improves results (not all `undefined`).
+**CRITICAL**: The `doValidate` parameter switches between `validate_fields` and
+`validate_fields_unordered` based on `config.unordered_arrays`. Must pass through correctly.
+
+**CRITICAL**: JS line 250/268 checks `!result.every(f => f.actual === 'undefined' || f.actual === undefined)`.
+This means "at least one failure has a non-undefined actual". Rust equivalent:
+`result.is_empty() || !result.iter().all(|f| f.actual == "undefined")`.
+
+**Fields NOT used by `validate()`** (do NOT port into the validation engine):
+- `selectiveMode` — unused in `validator.ts`; only UI/version code references it
+- `excludedPaths` — unused in `validator.ts`; used only in UI/versioning code
+- `sampleJson` — editor/mapper only
+- `responseVersions`, `rulesVersions` — versioning metadata only
+- `assertions` — assertions are evaluated OUTSIDE `validate()` via
+  `buildValidationResult()` (see Step 5A below)
+
+##### Step 5A — Port `buildValidationResult()` logic (`src-tauri/src/validation_result.rs`) — NEW
+
+**CRITICAL**: The JS architecture splits validation into two stages that are combined in
+`buildValidationResult()` (`src/engine/validationResult.ts`, 63 lines). The Rust port MUST
+replicate this exact combination logic:
+
+```rust
+pub struct ValidationOutput {
+    pub failure_details: Vec<FailureDetail>,
+    pub passed: bool,
+    pub error_message: Option<String>,
+}
+
+pub fn build_validation_result(
+    http_status: u16,           // NOTE: u16 not u32 — matches ExecutionResult.http_status
+    response_time_ms: f64,
+    response_headers: &HashMap<String, String>,
+    response_body: &str,        // raw body string
+    response_obj: &Value,       // parsed JSON body
+    error_message: Option<&str>,
+    validation: &ValidationConfig,
+    assertions: &[Assertion],
+) -> ValidationOutput { ... }
+```
+
+**Combination logic** (must match JS exactly):
+1. If `assertions.len() > 0`: run `evaluate_assertions()` → get `(failures, status_asserted)`
+2. Determine `http_ok = http_status > 0 && http_status < 400`
+3. Determine `status_ok`:
+   - If `status_asserted`: check if any failure has `path == "(status)"` → if none, `status_ok = true`
+   - Else: `status_ok = http_ok`
+4. Run `validate()` ONLY when `validation.mode != 'none'` AND `status_ok` is true
+   (JSON validation is skipped on bad HTTP status unless a status assertion overrides)
+5. Merge: `failure_details = [...assertion_failures, ...json_failures]`
+6. **HTTP failure overlay**: When `!status_asserted && (http_status >= 400 || http_status == 0)`:
+   prepend synthetic `(http)` failure, **DROP json_failures** — only keep
+   `[(http_failure), ...assertion_failures]`. This is intentional JS behavior.
+   **CRITICAL detail** — the `(http)` actual message (JS line 54-55):
+   - If `error_message` is Some → use it as actual
+   - Else if `http_status == 0` → `"network error"`
+   - Else → `"HTTP {http_status}"`
+7. `network_error = http_status == 0 && !status_asserted`
+8. `passed = !network_error && failure_details.is_empty()`
+9. Return `ValidationOutput { failure_details, passed, error_message }` — error_message
+   is **passed through unchanged** from input (JS line 62).
+
+**CORRECTION from re-evaluation (2026-05-19)**: The plan signature previously used `http_status: u32`
+but `ExecutionResult.http_status` is `u16` in `types.rs`. The Rust function should accept `u16`
+for the status parameter to match the existing type — cast to `u32` internally only for
+comparison operations if needed. The JS bridge uses `number` which is effectively the same.
+
+##### Step 6 — Wire into executor hot loop (`src-tauri/src/executor.rs`)
+
+**CORRECTION from re-evaluation (2026-05-19)**: The plan said to modify `execute_with_retry()`.
+This is **WRONG**. Validation should NOT go inside `execute_with_retry()` because that function
+handles retry logic based on HTTP status only (retry on `http_status == 0`). JS retries on
+`!passed` which includes validation failures, but the Rust executor currently only retries on
+network errors. Inserting validation inside the retry loop would require changing retry semantics.
+
+**Correct approach**: Wire validation at the **call site** of `execute_with_retry()`, not inside it.
+
+**CORRECTION from re-evaluation round 2 (2026-05-19)**: There are only **TWO** call sites
+in `executor.rs` — NOT three. There is no `run_sequential()` function. Sequential mode is
+handled by the JS bridge mapping `mode: 'sequential'` to `run_pool()` with concurrency=1
+(see `rustBridge.ts` line 333). The two call sites are:
+- `run_pool()` line 425 → spawned task per scenario (also handles sequential mode)
+- `run_load_profile()` line 595 → spawned task per iteration
+
+For each call site, **inside the spawned closure**, after `execute_with_retry()` returns
+and **before** `tx.send(result)`:
+
+1. **Body parsing guard**: Only parse response body when validation is needed:
+   `scenario.validation.mode != ValidationMode::None || !scenario.assertions.is_empty()`.
+   For `mode: None` with no assertions, skip JSON parsing entirely (saves allocations at high RPS).
+2. Parse `result.response_body` as `serde_json::Value` (if parse fails, use `Value::Null`).
+3. Call `build_validation_result(result.http_status, result.response_time_ms, &result.response_headers,
+   &result.response_body, &parsed_body, result.error_message.as_deref(), &scenario.validation,
+   &scenario.assertions)`.
+4. Set `result.passed`, `result.failure_details`, `result.validation_mode` from output.
+5. Send the fully-validated `ExecutionResult` through the channel.
+
+**CRITICAL implementation detail — mutability**: The current code uses `let result = execute_with_retry(...)`.
+This must change to `let mut result = execute_with_retry(...)` so we can set `result.passed`,
+`result.failure_details`, and `result.validation_mode` on the result.
+
+**Design (preferred)**: Extract a `validate_result()` helper function:
+```rust
+use crate::validation_types::{ValidationMode, ValidationConfig, Assertion, FailureDetail};
+use crate::validation_result::build_validation_result;
+
+fn validate_result(result: &mut ExecutionResult, validation: &ValidationConfig, assertions: &[Assertion]) {
+    let needs_validation = validation.mode != ValidationMode::None || !assertions.is_empty();
+    let mode_str = match &validation.mode {
+        ValidationMode::None => "none",
+        ValidationMode::Full => "full",
+        ValidationMode::Selective => "selective",
+    };
+    if !needs_validation {
+        result.passed = Some(result.http_status > 0 && result.http_status < 400);
+        result.failure_details = vec![];
+        result.validation_mode = mode_str.to_string();
+        return;
+    }
+    let parsed: serde_json::Value = serde_json::from_str(&result.response_body)
+        .unwrap_or(serde_json::Value::Null);
+    let output = build_validation_result(
+        result.http_status, result.response_time_ms, &result.response_headers,
+        &result.response_body, &parsed, result.error_message.as_deref(),
+        validation, assertions,
+    );
+    result.passed = Some(output.passed);
+    result.failure_details = output.failure_details;
+    result.validation_mode = mode_str.to_string();
+}
+```
+Call at both call sites. In `run_pool()` (line 425):
+```rust
+let mut result = execute_with_retry(&client, &scenario, timeout, retry_count, retry_delay_ms, &cancel).await;
+validate_result(&mut result, &scenario.validation, &scenario.assertions);
+```
+In `run_load_profile()` (line 595):
+```rust
+let mut result = execute_with_retry(&client, &scenario, timeout, retry_count, retry_delay_ms, &cancel).await;
+validate_result(&mut result, &scenario.validation, &scenario.assertions);
+```
+
+**CRITICAL — `build_result()` must be updated**: The existing `build_result()` function (line 148)
+creates `ExecutionResult` with the current struct fields. After adding `passed`, `failure_details`,
+and `validation_mode` to `ExecutionResult`, this function must also initialize them:
+```rust
+fn build_result(...) -> ExecutionResult {
+    ExecutionResult {
+        // ... existing fields ...
+        passed: None,                    // default — set later by validate_result()
+        failure_details: vec![],         // default — populated by validate_result()
+        validation_mode: String::new(),  // default — set by validate_result()
+    }
+}
+```
+
+**Circuit breaker impact**: `is_error` check now includes `!result.passed.unwrap_or(true)`
+(validation failure), not just HTTP status. This matches JS behavior where validation
+failures count as errors. **IMPORTANT**: The current circuit breaker call:
+```rust
+let is_error = result.http_status == 0 || result.http_status >= 400;
+breaker.record(is_error);
+```
+Must move **after** `validate_result()` and change to:
+```rust
+validate_result(&mut result, &scenario.validation, &scenario.assertions);
+let is_error = result.http_status == 0 || result.http_status >= 400
+    || !result.passed.unwrap_or(true);
+breaker.record(is_error);
+```
+
+**`cap_body` interaction**: `executor.rs` currently calls `cap_body(&body_text)` which
+truncates response bodies to 2000 bytes. Validation operates on the **truncated** body.
+This means validation on very large response bodies may produce **false negatives** (fields
+or JSON paths may be cut off by truncation). This is an acceptable trade-off for performance —
+the same body cap applies to JS results shown in the UI. **Future enhancement**: consider
+passing the full body for validation while still capping the stored body for IPC/display.
+Note that `cap_body()` truncates at a UTF-8 boundary, so JSON parsing of the truncated body
+may produce `Value::Null` for partially-truncated JSON — this is graceful degradation.
+
+##### Step 7 — Update types.rs + ExecutionPlan
+
+**Changes to `RustScenario`** in `types.rs` (add validation payload):
+```rust
+pub struct RustScenario {
+    // ... existing fields ...
+    #[serde(default)]
+    pub validation: ValidationConfig,    // NEW — from validation_types.rs
+    #[serde(default)]
+    pub assertions: Vec<Assertion>,      // NEW — from validation_types.rs
+}
+```
+
+**CORRECTION from re-evaluation round 2 (2026-05-19)**: `ValidationConfig` already exists in
+`validation_types.rs` with exactly the right fields (`mode: ValidationMode`, `expected_json`,
+`expected_fields`, `unordered_arrays`). It already has `impl Default`. No new struct is needed.
+Just reuse the existing `ValidationConfig` from `validation_types.rs` directly.
+See Step 7 `RustScenario` changes for the exact code.
+
+**CRITICAL — `#[serde(default)]` on new RustScenario fields**: The `validation` and `assertions`
+fields MUST have `#[serde(default)]` so that old JS bridge code (before the Step 8 changes)
+can still send `RustScenario` without these fields. `ValidationConfig` already has `impl Default`
+(mode=None, all fields None). `Vec<Assertion>` defaults to empty vec. This ensures backward
+compatibility during the migration period.
+**IMPORTANT**: `ValidationConfig.mode` is `ValidationMode` (enum), NOT a string. The enum
+already serializes/deserializes correctly via `#[serde(rename_all = "camelCase")]`.
+JS sends `"none"`, `"full"`, or `"selective"` strings which serde maps to the enum variants.
+
+**IMPORTANT**: `ExpectedField.expression` field exists in validation_types.rs but is unused
+by the Rust validation engine (expression evaluation requires JS runtime). It's `Option<String>`
+so it will deserialize to `None` when not provided by JS. It's intentionally NOT serialized
+by `prepareRustScenario()` to save IPC bandwidth — serde defaults handle the missing field.
+The `#[serde(default)]` attribute should be added to `ExpectedField` fields that may be
+absent in serialized JSON (expression, operator, operator_value, negate).
+
+**Changes to `ExecutionResult`** (add validation output):
+```rust
+pub struct ExecutionResult {
+    // ... existing fields ...
+    pub passed: Option<bool>,                    // NEW — None when validation not run
+    pub failure_details: Vec<FailureDetail>,      // NEW — from validation_types.rs
+    pub validation_mode: String,                  // NEW — "none"|"full"|"selective"
+}
+```
+**IMPORTANT**: `passed` is `Option<bool>`, NOT `bool`. This enables backward compatibility:
+when validation is not configured (mode=none, no assertions), `passed` defaults based on
+HTTP status alone. The JS bridge checks `passed !== undefined` to detect Rust-validated results.
+
+**IMPORTANT**: `validation_mode` is a `String`, NOT `ValidationMode` enum. This is intentional:
+the JS bridge expects a plain string (`"none"`, `"full"`, `"selective"`), and `ExecutionResult`
+is a transport struct that flows through IPC. The `validate_result()` helper converts the enum
+to a string when populating this field.
+
+**CRITICAL**: `FailureDetail` already exists in `validation_types.rs` (line 308-314) with
+the correct `#[serde(rename_all = "camelCase")]` attribute. Do NOT re-define it in `types.rs`.
+Import it via `use crate::validation_types::FailureDetail;` in `types.rs` or wherever needed.
+
+**`build_result()` update required**: The `build_result()` helper in `executor.rs` (line 148)
+creates `ExecutionResult` with all fields. It must be updated to include default values for
+the new fields: `passed: None`, `failure_details: vec![]`, `validation_mode: String::new()`.
+These defaults are populated later by `validate_result()`.
+
+**No changes needed to `ProgressBatch`**: It already contains `Vec<ExecutionResult>` which
+will automatically carry the new validation fields through IPC.
+
+##### Step 8 — Update JS bridge (`src/features/test-runner/utils/rustBridge.ts`)
+
+**Current state** (Tier 2): `prepareRustScenario()` serializes transport-only fields
+(id, name, url, method, headers, body, groupName, weight, dataRowId, dataRowLabel).
+Validation/assertions are NOT sent to Rust. `mapRustResult()` calls JS-side
+`buildValidationResult()` with the original `scenario` object. `canUseRustExecutor()`
+only checks for workflow mode, subWorkflow resolver, and OAuth2.
+
+**Changes needed**:
+
+1. **`prepareRustScenario()`**: Add `validation` config + `assertions` array to serialized plan.
+   Serialize only the fields `validate()` needs:
+   ```typescript
+   return {
+     // ... existing fields ...
+     validation: {
+       mode: scenario.validation.mode,
+       expectedJson: scenario.validation.expectedJson ?? null,
+       expectedFields: scenario.validation.expectedFields?.map(f => ({
+         jsonPath: f.jsonPath,
+         expectedValue: f.expectedValue,
+         operator: f.operator ?? null,
+         operatorValue: f.operatorValue ?? null,
+         negate: f.negate ?? null,
+       })) ?? null,
+       unorderedArrays: scenario.validation.unorderedArrays ?? null,
+     },
+     assertions: (scenario.validation.assertions ?? []).filter(a => a.type !== 'custom'),
+   };
+   ```
+   **Do NOT serialize**: `selectiveMode`, `excludedPaths`, `sampleJson`, `responseVersions`,
+   `rulesVersions` — these are unused by `validate()` and would waste IPC bandwidth.
+   **CRITICAL**: Filter out `custom` assertions at serialization time — they can't run in Rust.
+
+2. **`RustScenario` TypeScript interface**: Add validation fields:
+   ```typescript
+   export interface RustScenario {
+     // ... existing fields ...
+     validation: {
+       mode: string;
+       expectedJson?: string | null;
+       expectedFields?: Array<{
+         jsonPath: string;
+         expectedValue: string;
+         operator?: string | null;
+         operatorValue?: string | null;
+         negate?: boolean | null;
+       }> | null;
+       unorderedArrays?: boolean | null;
+     };
+     assertions: Assertion[];
+   }
+   ```
+
+3. **`RustExecutionResult` TypeScript interface**: Add validation output fields:
+   ```typescript
+   export interface RustExecutionResult {
+     // ... existing fields ...
+     passed?: boolean | null;           // undefined/null when validation not run
+     failureDetails?: FailureDetail[];  // empty when passed
+     validationMode?: string;           // "none"|"full"|"selective"
+   }
+   ```
+
+4. **`canUseRustExecutor()`**: Add new gate — return false if any scenario has `custom`
+   assertions. All other 15 assertion types are Rust-compatible.
+   **Current checks** (workflow, subWorkflow, OAuth2) remain.
+   ```typescript
+   export function canUseRustExecutor(config, scenarios, resolveSubWorkflow?) {
+     if (config.executionMode === 'workflow') return false;
+     if (resolveSubWorkflow) return false;
+     if (scenarios.some(s => s.auth.type === 'oauth2')) return false;
+     // NEW: custom assertions require JS expression evaluator
+     if (scenarios.some(s => (s.validation.assertions ?? []).some(a => a.type === 'custom'))) return false;
+     return true;
+   }
+   ```
+   **CORRECTION from re-evaluation (2026-05-19)**: The original plan mentioned checking for
+   `expressionEvaluator` features. This is unnecessary — the only assertion type that uses
+   `expressionEvaluator` is `custom`. Checking for `type === 'custom'` is sufficient.
+
+5. **`mapRustResult()`**: When Rust result has `passed !== undefined`, passthrough
+   `passed` and `failureDetails` directly — **no longer calls `buildValidationResult()`**.
+   ```typescript
+   export function mapRustResult(rustResult: RustExecutionResult, scenario: Scenario): RequestResult {
+     // ... existing response parsing and error message extraction ...
+     
+     if (rustResult.passed !== undefined && rustResult.passed !== null) {
+       // Rust-validated result — use Rust validation output directly
+       let failureDetails = rustResult.failureDetails ?? [];
+       
+       // If scenario has custom assertions that were filtered out, run them in JS
+       const customAssertions = (scenario.validation.assertions ?? []).filter(a => a.type === 'custom');
+       if (customAssertions.length > 0) {
+         const { failures: customFailures } = evaluateAssertions(customAssertions, {
+           httpStatus: rustResult.httpStatus,
+           responseTimeMs: rustResult.responseTimeMs,
+           responseHeaders: rustResult.responseHeaders,
+           responseBody: responseObj,
+           rawBody: rustResult.responseBody,
+         });
+         failureDetails = [...failureDetails, ...customFailures];
+       }
+       
+       const passed = failureDetails.length === 0 && rustResult.passed;
+       // ... build RequestResult with passed, failureDetails, validationMode ...
+     } else {
+       // Legacy Tier 2 result — fall back to JS-side validation
+       const assertions = scenario.validation.assertions ?? [];
+       const vr = buildValidationResult({ ... });
+       // ... existing logic ...
+     }
+   }
+   ```
+   **CRITICAL**: Custom assertion JS-side execution still requires the `responseObj` to be
+   parsed. The existing response parsing logic in `mapRustResult()` (lines 404-419) already
+   handles this correctly and should remain unchanged.
+
+   **IMPORTANT — preserve existing error/retry logic**: The existing `mapRustResult()` code
+   (lines 421-453) constructs `finalErrorMessage` which includes retry count info
+   (`"Failed (after N attempts)"`). This logic must be preserved in both the passthrough
+   and fallback paths. The error message extraction from response body (lines 423-435)
+   also remains — it runs regardless of validation source.
+
+   **CORRECTION from re-evaluation round 2 (2026-05-19)**: The backward compatibility check
+   (`passed === undefined`) is needed for defensive coding only. In practice, Rust will always
+   set `passed: Some(...)` after Sub-Group D is implemented — even for `mode: 'none'` with
+   no assertions, `validate_result()` sets `passed = Some(http_ok)`. The `undefined` fallback
+   should only fire if Rust fails to set the field at all (e.g., due to a bug or crash).
+
+##### Step 9 — Unit tests
+
+| Test file | Tests | Coverage target |
+|-----------|-------|-----------------|
+| `src-tauri/src/json_path_test.rs` | ✅ 67 tests | ✅ Done |
+| `src-tauri/src/validation_types_test.rs` | ✅ 39 tests | ✅ Done |
+| `src-tauri/src/deep_compare_test.rs` | ✅ 28 tests | ✅ Done |
+| `src-tauri/src/subset_match_test.rs` | ✅ 20 tests | ✅ Done |
+| `src-tauri/src/http_helpers_test.rs` | ✅ 38 tests | ✅ Done |
+| `src-tauri/src/date_helpers_test.rs` | ✅ 23 tests | ✅ Done |
+| `src-tauri/src/field_operator_test.rs` | ✅ 98 tests | ✅ Done |
+| `src-tauri/src/assertion_evaluator_test.rs` | ✅ 60 tests | ✅ Done |
+| `src-tauri/src/cross_module_test.rs` | ✅ 9 tests | ✅ Done |
+| `src-tauri/src/json_validator_test.rs` | ~35 tests (full/selective/unordered/tryRemapPaths + negate + no-operator equality) | >90% |
+| `src-tauri/src/validation_result_test.rs` | ~25 tests (HTTP overlay, status_asserted, mode gating, error passthrough) | >90% |
+| `src-tauri/src/validation_integration_test.rs` | ~15 end-to-end parity tests | |
+
+**JS-side parity tests**: Add integration tests in `rustBridge.test.ts` that compare
+JS-validated results vs Rust-validated results for identical inputs.
+
+**Critical parity edge cases to test**:
+- HTTP 500 + no status assertion → `(http)` failure prepended, JSON validation dropped
+- HTTP 500 + passing status assertion → JSON validation runs, all failures merged
+- HTTP 0 (network error) + no status assertion → `(http)` failure + `network_error = true` → `passed = false`
+- All selective fields undefined → `tryRemapPaths` kicks in
+- `negate: true` with config errors (invalid regex) → errors survive negation
+- `deepSubsetMatch` array matching: existential (any-match), not positional
+- `deep_compare` with `null` vs missing array elements
+- `custom` assertion filtered at serialization → JS fills in post-hoc, combined with Rust results
+- `validateFieldsUnordered` — partial match with context display (quotes stripped from actual)
+- `validateFieldsUnordered` — `usedIndices` prevents double-matching same row
+- `validateFields` — no-operator equality: `JSON.parse(expected)` → `JSON.stringify()` normalization
+- `tryRemapPaths` Strategy 1: array response + path has wrapper prefix → strip first segment
+- `tryRemapPaths` Strategy 2: object response + paths start with `[0]` → try each root key as prefix
+- `tryRemapPaths` Strategy 2b: also try resolving directly against nested value
+- `mode: 'full'` with invalid expectedJson → `(parse)` failure returned
+- `mode: 'full'` with empty expectedJson → empty failures
+- `build_validation_result` error_message passthrough — input error_message returned unchanged
+
+##### Step 10 — Performance benchmark
+
+- Benchmark: 10,000 results with 5 assertions each
+- Compare: JS `mapRustResult()` with JS-side validation vs Rust inline validation
+- Target: >3x speedup on validation throughput
+- **Methodology**: Measure wall-clock time for `mapRustResult()` with and without Rust
+  validation passthrough. Use `performance.now()` in JS, `Instant::now()` in Rust benchmark tests.
+
+**Files created/modified**:
+| File | Status |
+|------|--------|
+| `src-tauri/src/validation_types.rs` | ✅ DONE — all validation types (16 assertion variants, 24 field operators, 39 serde tests) |
+| `src-tauri/src/validation_types_test.rs` | ✅ DONE — 39 serde round-trip tests |
+| `src-tauri/src/json_path.rs` | ✅ DONE — custom JSONPath engine (port of 122-line JS) |
+| `src-tauri/src/json_path_test.rs` | ✅ DONE — 67 tests (ported + expanded from JS) |
+| `src-tauri/src/deep_compare.rs` | ✅ DONE — recursive deep compare with JS typeof parity, MaybeOwned for array length |
+| `src-tauri/src/deep_compare_test.rs` | ✅ DONE — 28 tests (including array-vs-object, length key, stringify parity) |
+| `src-tauri/src/subset_match.rs` | ✅ DONE — existential/unordered deep subset match |
+| `src-tauri/src/subset_match_test.rs` | ✅ DONE — 20 tests (ported from JS + edge cases) |
+| `src-tauri/src/http_helpers.rs` | ✅ DONE — matchesStatusPattern (u32 safe), findHeader, evaluateHeaderOp |
+| `src-tauri/src/http_helpers_test.rs` | ✅ DONE — 38 tests (including u16 overflow, empty/leading hyphen patterns) |
+| `src-tauri/src/date_helpers.rs` | ✅ DONE — resolveDate, toDayString (float millis safe), truncateToUnit (div_euclid) |
+| `src-tauri/src/date_helpers_test.rs` | ✅ DONE — 23 tests (including negative millis, float epoch, UTC parity) |
+| `src-tauri/src/field_operator.rs` | ✅ DONE — 24-operator evaluator (437 LOC, 13 bugs found & fixed) |
+| `src-tauri/src/field_operator_test.rs` | ✅ DONE — 98 tests |
+| `src-tauri/src/assertion_evaluator.rs` | ✅ DONE — 16-type assertion evaluator with negate (725 LOC) |
+| `src-tauri/src/assertion_evaluator_test.rs` | ✅ DONE — 60 tests |
+| `src-tauri/src/cross_module_test.rs` | ✅ DONE — 9 integration tests |
+| `src-tauri/src/json_validator.rs` | NEW — validate() + validateFields + validateFieldsUnordered + tryRemapPaths |
+| `src-tauri/src/json_validator_test.rs` | NEW — ~35 tests |
+| `src-tauri/src/validation_result.rs` | NEW — build_validation_result() combination logic (port of validationResult.ts) |
+| `src-tauri/src/validation_result_test.rs` | NEW — ~25 tests for HTTP overlay, status_asserted, mode gating |
+| `src-tauri/src/validation_integration_test.rs` | NEW — ~15 end-to-end parity tests |
+| `src-tauri/src/executor.rs` | MODIFIED — wire validation at call sites (NOT inside execute_with_retry) |
+| `src-tauri/src/types.rs` | MODIFIED — add validation fields to RustScenario + ExecutionResult |
+| `src-tauri/src/lib.rs` | ✅ MODIFIED — mod declarations for Sub-Groups A + B + C modules |
+| `src-tauri/Cargo.toml` | ✅ MODIFIED — added regex 1, jsonschema 0.27, chrono 0.4 |
+| `src/features/test-runner/utils/rustBridge.ts` | MODIFIED — serialize validation, passthrough results, custom assertion fallback |
+| `src/features/test-runner/utils/rustBridge.test.ts` | MODIFIED — parity tests |
+
+**Estimated LOC for Sub-Group D**: ~600–800 lines (production) + ~600 lines (tests)
+
+#### Phase 3A — Implementation Progress
+
+| Sub-Group | Modules | Tests | Status | Date |
+|-----------|---------|-------|--------|------|
+| A: Types + JSONPath | `validation_types.rs` (341 LOC), `json_path.rs` (189 LOC) | 106 (39 serde + 67 JSONPath) | ✅ Done — 9 rounds re-evaluation, 0 bugs remaining | 2026-05-18 |
+| B: Leaf Helpers | `deep_compare.rs` (164 LOC), `subset_match.rs` (120 LOC), `http_helpers.rs` (139 LOC), `date_helpers.rs` (69 LOC) | 109 (28 + 20 + 38 + 23) | ✅ Done — 9 rounds re-evaluation, 6 bugs found & fixed | 2026-05-18 |
+| C: Core Evaluators | `field_operator.rs` (437 LOC), `assertion_evaluator.rs` (725 LOC) | 235 (98 field_op + 60 assertion + 9 cross-module + 68 existing) | ✅ Done — 20+ rounds re-evaluation, 16 bugs found & fixed | 2026-05-18 |
+| D: Validation Engine + Wiring | `json_validator.rs` (508 LOC), `validation_result.rs` (100 LOC), executor wiring, JS bridge | 115 (56 json_validator + 38 validation_result + 21 cross_module) + 90 TS bridge + 15 perf | ✅ Done — 10 rounds re-evaluation, 3 bugs found & fixed | 2026-05-18 |
+
+**Actual LOC**: 2,799 lines production + 5,277 lines tests = 8,076 total (Sub-Groups A + B + C + D) + 90 TS bridge tests + 15 perf benchmarks
+
+**Bugs found & fixed during re-evaluation (Sub-Group C)**:
+1. `assertion_evaluator.rs` — `arrayLength`/`arrayContains`/`each`: JS `typeof null === 'object'` not `'null'`; added `js_typeof_str()` helper
+2. `assertion_evaluator.rs` — `Each` operator display: `FieldOperator::Debug` format gave PascalCase, JS expects snake_case; added `field_operator_name()` helper
+3. `assertion_evaluator.rs` — `numeric` assertion `val_to_f64`: JS `Number(true)=1`, `Number(null)=0`, `Number("")=0`; Rust returned None for these
+4. `assertion_evaluator.rs` — `datePrecise` precision label: `Debug` format gave PascalCase, JS expects lowercase; added `date_precision_name()` helper
+5. `assertion_evaluator.rs` — `regex` actual truncation: `&s[..200]` byte-slicing panics on multi-byte UTF-8; changed to `.chars().take(200)`
+6. `field_operator.rs` — `equals`/`not_equals` undefined actual: `json_stringify(Value::Null)` → `"null"`, but JS `JSON.stringify(undefined)` → `undefined`; added explicit None check
+7. `field_operator.rs` — `in`/`not_in` undefined actual: None treated as Null could false-match `"null"` in list; added early return
+8. `field_operator.rs` — string operators (`contains`, `starts_with`, `regex`) undefined: None → `"null"` instead of `""`; modified `stringify_for_string_ops` to accept Option
+9. `field_operator.rs` — `is_type` undefined: `json_type_name(Null)` → `"null"`, JS `typeof undefined` → `"undefined"`; added explicit None check
+10. `assertion_evaluator.rs` — `Each` assertion `operator_value` passing: `None` value was passed as `Some("")`, JS passes `undefined`; fixed to pass `value.as_deref()` directly
+11. `field_operator.rs` — `close_to` NaN tolerance: Rust `.unwrap_or(0.01)` hid unparseable tolerance; JS `Number("abc")` → NaN makes comparison always fail
+12. `assertion_evaluator.rs` — `val_to_f64` array parity: JS `Number([])=0`, `Number([42])=42`, `Number([1,2])=NaN`; Rust returned None for all arrays
+13. `field_operator.rs` — `to_number` NaN string: Rust `"NaN".parse::<f64>()` returns `Ok(NaN)`, JS `toNumber("NaN")` returns null; added `is_nan()` filter
+
+**Bugs found & fixed during re-evaluation (Sub-Groups A + B)**:
+1. `deep_compare.rs` — Array vs Object type mismatch: JS `typeof [] === 'object'` requires special handling
+2. `deep_compare.rs` — Object expected / Array actual: needed `get_by_string_key` helper for array index access
+3. `deep_compare.rs` — Array `length` property: introduced `MaybeOwned` enum for computed properties
+4. `http_helpers.rs` — Vacuous truth in range check: empty string before hyphen parsed as valid range start
+5. `http_helpers.rs` — u16 overflow: `"99999".parse::<u16>()` silently overflowed; switched to u32
+6. `date_helpers.rs` — Float epoch milliseconds: `as_i64()` returns None for floats; added `as_f64()` fallback
+7. `date_helpers.rs` — `truncate_to_unit` negative millis: Rust integer division truncates toward zero vs JS `Math.floor`; fixed with `div_euclid`
+
+---
 
 #### 3B. Streaming Percentiles
 
-- `hdrhistogram` crate for P50/P95/P99 without storing every datapoint
-- Enables accurate metrics at 100K+ results without OOM
-- Real-time streaming to UI via Tauri events
+**Goal**: Replace sort-based percentile calculation with streaming HDR histograms in Rust,
+enabling accurate P50/P95/P99/P99.9 at 100K+ results without storing every datapoint or
+resorting on each progress tick.
 
-#### 3C. Constant Arrival Rate
+**Effort**: 1-2 weeks
+**Target**: ~30,000 RPS (reduces progress event payload size + eliminates JS sort overhead)
 
-- "Send exactly N requests/second regardless of response time" (open model)
-- Automatic worker scaling with backpressure
-- Queue-based request dispatching with `tokio::time::interval`
-- This is k6's killer feature — essential for parity
+**Crate dependencies** (add to `src-tauri/Cargo.toml`):
+```toml
+hdrhistogram = "7"          # High Dynamic Range histogram for streaming percentiles
+```
+
+**Current state (what changes)**:
+- Today: JS `computeMetrics()` sorts ALL response times (O(n log n) per call).
+  `computeIncrementalSummary()` in `useTestExecution` resorts a growing array every ~500ms.
+  At 100K+ results, sorting becomes the bottleneck.
+- Tier 3B: Rust maintains an HDR histogram, emits streaming percentiles in `ProgressBatch`.
+  JS reads pre-computed percentiles — no sorting, no full result storage for metrics.
+
+##### Step 1 — Rust histogram module (`src-tauri/src/histogram.rs`) — NEW
+
+```rust
+use hdrhistogram::Histogram;
+
+pub struct StreamingMetrics {
+    histogram: Histogram<u64>,
+    total_count: u64,
+    error_count: u64,
+    sum_response_time: f64,
+}
+
+impl StreamingMetrics {
+    pub fn new() -> Self { ... }
+    pub fn record(&mut self, response_time_ms: f64, is_error: bool) { ... }
+    pub fn snapshot(&self) -> MetricsSnapshot { ... }
+}
+
+pub struct MetricsSnapshot {
+    pub p50: f64,
+    pub p95: f64,
+    pub p99: f64,
+    pub p999: f64,     // NEW — not available today
+    pub min: f64,
+    pub max: f64,
+    pub avg: f64,
+    pub total: u64,
+    pub errors: u64,
+    pub tps: f64,       // computed from total / elapsed
+}
+```
+
+HDR histogram config: range 1μs–5min (300,000ms), 3 significant digits.
+Thread-safe: wrap in `Arc<Mutex<StreamingMetrics>>` for concurrent access from
+spawned tasks.
+
+##### Step 2 — Add MetricsSnapshot to ProgressBatch (`src-tauri/src/types.rs`)
+
+```rust
+pub struct ProgressBatch {
+    // ... existing fields ...
+    pub metrics: Option<MetricsSnapshot>,  // NEW
+}
+```
+
+Emitted every `BATCH_INTERVAL` (100ms). `metrics` is always `Some` when results exist.
+
+##### Step 3 — Wire into executors (`src-tauri/src/executor.rs`)
+
+In `run_pool()` and `run_load_profile()`:
+- Create `StreamingMetrics` alongside `CircuitBreakerState`
+- After each `execute_with_retry()` result: `metrics.record(response_time_ms, is_error)`
+- On batch emit: `metrics.snapshot()` → `ProgressBatch.metrics`
+
+##### Step 4 — Update JS bridge (`src/features/test-runner/utils/rustBridge.ts`)
+
+- Add `RustMetricsSnapshot` TypeScript type matching `MetricsSnapshot`
+- In `runTestViaRust()`: extract `metrics` from each progress batch
+- Forward `MetricsSnapshot` to `onProgress` as part of `ProgressMeta`
+
+##### Step 5 — Update `useTestExecution.ts` + all ProgressMeta consumers
+
+When Rust path is active: use `metrics.p50/p95/p99/p999` from `ProgressMeta` directly
+for `liveSummary` (skip `computeIncrementalSummary` — eliminates O(n log n) resort).
+When JS path: keep existing sort-based approach (backward compatible).
+Final `computeMetrics()`: if Rust metrics available, use snapshot instead of re-sorting.
+
+**ProgressMeta producers** (all need `MetricsSnapshot` field added):
+| File | Notes |
+|------|-------|
+| `src/engine/executor.ts` | ProgressMeta type definition |
+| `src/engine/loadProfileRunner.ts` | Emits meta every 500ms |
+| `src/engine/requestExecution.ts` | runBatch, runPool emit meta |
+| `src/features/workflow/engine/graphLoadRunner.ts` | Workflow iteration meta |
+| `src/features/test-runner/utils/rustBridge.ts` | Maps RustProgressBatch → meta |
+| `src/features/test-runner/hooks/useTestExecution.ts` | Synthetic meta for external execution |
+
+**ProgressMeta consumers** (all need to handle optional `MetricsSnapshot`):
+| File | Notes |
+|------|-------|
+| `src/features/test-runner/hooks/useTestExecution.ts` | `liveSummary`, time series |
+| `src/features/test-runner/components/LiveProgressPanel.tsx` | Concurrency + elapsed display |
+| `src/features/test-runner/utils/runnerProgressStorage.ts` | Persisted progress state |
+| `src/engine/workerBridge.ts` | Worker ↔ main thread |
+| `src/engine/workerProtocol.ts` | Typed message protocol |
+| `src/engine/executionWorker.ts` | Worker entry point |
+| `cli/index.ts` | **Currently ignores meta** — needs 4th param |
+
+##### Step 6 — Add P99.9 to UI + Fix P50 in CLI
+
+Add `p999ResponseTime` to `TestSummary` type (optional, backward compat).
+
+**Files that need `p999ResponseTime`**:
+| File | Change |
+|------|--------|
+| `src/shared/types/index.ts` | Add field to `TestSummary` |
+| `src/engine/metrics.ts` | Compute P99.9 from sorted array |
+| `src/features/test-runner/hooks/useTestExecution.ts` | `computeIncrementalSummary` |
+| `src/features/results/ResultsDashboard.tsx` | New metric tile |
+| `src/features/results/utils/reportGenerator.ts` | HTML + markdown reports |
+| `src/features/results/components/RunComparisonPanel.tsx` | New metric option |
+| `src/features/results/components/WorkflowResultsSummary.tsx` | Optional display |
+| `src/features/results/components/ResponseTimeHistogram.tsx` | P99.9 reference line |
+| `src/features/results/utils/runBaselines.ts` | `timeMetrics` array + thresholds |
+| `cli/reporters.ts` | Console + markdown tables |
+
+**Re-evaluation finding**: CLI `printConsoleSummary` and `buildMarkdownReport` currently
+show P95 and P99 but **omit P50**. Fix: add P50 line to both reporters.
+
+**Re-evaluation finding**: `LiveProgressPanel` computes `liveSummary: TestSummary` with
+P50/P95/P99 but does NOT display them in the live cards (only TPS, avg, error rate).
+With streaming metrics from Rust, consider adding live P95/P99 display during runs.
+
+##### Step 7 — Reduce ProgressBatch payload size
+
+With streaming metrics available, the UI no longer needs every `ExecutionResult` in
+real-time for metrics computation. Add a `detailLevel` config:
+- `'full'` (default): all results in batch (for assertion/validation inspection)
+- `'metrics-only'`: only `MetricsSnapshot` + counts (for high-throughput mode)
+- `'sampled'`: first N results + summary (configurable sample rate)
+
+This dramatically reduces Tauri event serialization overhead at high RPS.
+
+##### Step 8 — Unit tests
+
+| Test file | Tests | Notes |
+|-----------|-------|-------|
+| `src-tauri/src/histogram_test.rs` | ~20 tests | P50/P95/P99/P99.9 accuracy, empty, single, boundary |
+| `src-tauri/src/executor_test.rs` | +10 tests | Metrics in progress batch, concurrent recording |
+| `rustBridgeIntegration.test.ts` | +5 tests | Metrics passthrough, JS/Rust percentile parity |
+
+**Files created/modified**:
+| File | Status |
+|------|--------|
+| `src-tauri/src/histogram.rs` | NEW |
+| `src-tauri/src/histogram_test.rs` | NEW |
+| `src-tauri/src/types.rs` | MODIFIED — add MetricsSnapshot to ProgressBatch |
+| `src-tauri/src/executor.rs` | MODIFIED — wire histogram into pool/load-profile |
+| `src-tauri/src/lib.rs` | MODIFIED — mod declarations |
+| `src-tauri/Cargo.toml` | MODIFIED — add hdrhistogram |
+| `src/features/test-runner/utils/rustBridge.ts` | MODIFIED — metrics types + passthrough |
+| `src/features/test-runner/hooks/useTestExecution.ts` | MODIFIED — use streaming metrics |
+| `src/shared/types/index.ts` | MODIFIED — add p999ResponseTime to TestSummary |
+| `src/engine/metrics.ts` | MODIFIED — accept optional MetricsSnapshot |
+| UI components (ResultsDashboard, LiveProgressPanel, CLI) | MODIFIED — show P99.9 |
+
+---
+
+#### 3C. Constant Arrival Rate (Open Model)
+
+**Goal**: Implement a "fire N requests/second regardless of response time" execution mode
+(open model). This is k6's most distinctive feature and the key differentiator for realistic
+load simulation. The closed model (Tier 2) adjusts throughput based on response latency;
+the open model maintains constant pressure even when the server slows down.
+
+**Effort**: 2-3 weeks
+**Target**: ~50,000 RPS (arrival-rate limited, not response-time limited)
+
+**Current state (what changes)**:
+- All execution modes today are **closed model** (concurrency-based): pool, sequential,
+  load-profile. Throughput is bounded by `concurrency × (1 / avg_response_time)`.
+- `WebhookLoadDriver` has RPS-like pacing but is webhook-specific and still respects completion.
+- Tier 3C adds a true open model: `tokio::time::interval` fires at fixed rate regardless of
+  whether previous requests completed. Backpressure via configurable max in-flight limit.
+
+##### Step 1 — Add `ConstantArrival` to ExecutionPlan (`src-tauri/src/types.rs`)
+
+```rust
+#[serde(rename = "constant-arrival")]
+ConstantArrival {
+    scenarios: Vec<RustScenario>,
+    #[serde(rename = "targetRps")]
+    target_rps: f64,                    // requests per second
+    #[serde(rename = "durationSec")]
+    duration_sec: u64,
+    #[serde(rename = "maxInFlight")]
+    max_in_flight: u32,                 // backpressure limit (default: target_rps * 10)
+    #[serde(rename = "timeoutMs")]
+    timeout_ms: u64,
+    #[serde(rename = "retryCount")]
+    retry_count: u32,
+    #[serde(rename = "retryDelayMs")]
+    retry_delay_ms: u64,
+    #[serde(rename = "thinkTime")]
+    think_time: ThinkTimeConfig,
+    #[serde(rename = "circuitBreaker")]
+    circuit_breaker: CircuitBreakerConfig,
+    #[serde(rename = "rampConfig")]
+    ramp_config: Option<ArrivalRampConfig>,
+}
+
+pub struct ArrivalRampConfig {
+    pub start_rps: f64,
+    pub end_rps: f64,
+    pub ramp_duration_sec: u64,
+}
+```
+
+##### Step 2 — Constant arrival executor (`src-tauri/src/arrival_executor.rs`) — NEW
+
+Core algorithm using `tokio::time::interval`:
+```
+- interval = Duration::from_secs_f64(1.0 / target_rps)
+- max_in_flight semaphore (backpressure)
+- Loop:
+    1. interval.tick().await (fires at constant wall-clock rate)
+    2. If semaphore permits available → spawn request task
+    3. If no permits → increment "dropped" counter (request not sent)
+    4. Check duration / breaker / cancellation
+- Ramped arrival: recalculate interval at each tick based on elapsed time
+```
+
+Key design decisions:
+- **Backpressure**: When all `max_in_flight` slots are occupied, the request is **dropped**
+  (not queued). This matches k6's `maxVUs` behavior. Dropped count reported in metrics.
+- **Think time**: Applied AFTER request completes, BEFORE releasing in-flight slot.
+  For open model, think time increases effective in-flight occupancy without changing
+  arrival rate.
+- **Ramped arrival**: Linear interpolation between `start_rps` and `end_rps` over
+  `ramp_duration_sec`, then hold at `end_rps` for remaining duration.
+- **Weighted scenarios**: Same `build_weighted_pool()` + round-robin as pool mode.
+
+Progress batch format:
+```rust
+ProgressBatch {
+    // existing fields ...
+    target_rps: Option<f64>,     // NEW — current target arrival rate
+    actual_rps: Option<f64>,     // NEW — achieved arrival rate
+    dropped_requests: Option<u64>, // NEW — requests not sent due to backpressure
+    metrics: Option<MetricsSnapshot>,
+}
+```
+
+##### Step 3 — Wire into commands.rs
+
+Add `ExecutionPlan::ConstantArrival` match arm in `start_load_test()` →
+calls `arrival_executor::run_constant_arrival()`.
+
+##### Step 4 — Add `ExecutionMode` value in JS
+
+In `src/shared/types/index.ts`:
+```typescript
+export type ExecutionMode = 'sequential' | 'batch' | 'pool' | 'load-profile'
+  | 'workflow' | 'constant-arrival';
+```
+
+In `src/shared/utils/executionMode.ts`: add label/description for constant-arrival.
+
+##### Step 5 — JS bridge update (`src/features/test-runner/utils/rustBridge.ts`)
+
+- `canUseRustExecutor()`: return true for `constant-arrival` mode
+  (Note: constant-arrival is ONLY available via Rust executor — no JS fallback)
+- `buildExecutionPlan()`: map `constant-arrival` → `ConstantArrival` plan with
+  `targetRps`, `durationSec`, `maxInFlight`, optional `rampConfig`
+
+##### Step 6 — Configuration UI (`src/features/test-runner/components/RunnerExecutionConfig.tsx`)
+
+Add "Constant Arrival Rate" option to execution mode selector:
+- **Target RPS**: numeric input (required)
+- **Duration**: seconds (required)
+- **Max In-Flight**: numeric input (default: target_rps × 10)
+- **Ramp**: optional toggle with start_rps, end_rps, ramp_duration_sec
+- **Profile preview**: show expected arrival rate over time as a chart
+
+Note in UI: "Requires desktop app (Tauri)" — disabled when `!isTauri()`.
+
+##### Step 7 — Live dashboard updates
+
+- `LiveProgressPanel`: show Target RPS, Actual RPS, Dropped Requests when in constant-arrival mode
+- `LiveCharts`: add RPS time series chart (target vs actual)
+- `ResultsDashboard`: show dropped request count and peak actual RPS
+
+##### Step 8 — Unit tests
+
+| Test file | Tests | Notes |
+|-----------|-------|-------|
+| `src-tauri/src/arrival_executor_test.rs` | ~25 tests | Fixed rate, ramped, backpressure drops, breaker, cancel |
+| `rustBridge.test.ts` | +10 tests | canUseRustExecutor for constant-arrival, buildExecutionPlan |
+| `rustBridgeIntegration.test.ts` | +8 tests | End-to-end arrival rate execution |
+
+**Files created/modified**:
+| File | Status |
+|------|--------|
+| `src-tauri/src/arrival_executor.rs` | NEW |
+| `src-tauri/src/arrival_executor_test.rs` | NEW |
+| `src-tauri/src/types.rs` | MODIFIED — add ConstantArrival, ArrivalRampConfig, RPS fields |
+| `src-tauri/src/commands.rs` | MODIFIED — new match arm |
+| `src-tauri/src/lib.rs` | MODIFIED — mod declarations |
+| `src/shared/types/index.ts` | MODIFIED — add 'constant-arrival' to ExecutionMode |
+| `src/shared/utils/executionMode.ts` | MODIFIED — add label/description |
+| `src/features/test-runner/utils/rustBridge.ts` | MODIFIED — new plan mapping |
+| `src/features/test-runner/components/RunnerExecutionConfig.tsx` | MODIFIED — new UI |
+| `src/features/test-runner/components/LiveProgressPanel.tsx` | MODIFIED — RPS display |
+| `src/features/test-runner/components/LiveCharts.tsx` | MODIFIED — RPS chart |
+
+---
 
 #### 3D. Distributed Execution
 
-- Controller/worker architecture
-- Coordinate load across multiple machines/processes
-- Break past single-machine limits
-- Protocol: gRPC or WebSocket between controller and workers
+**Goal**: Break past single-machine limits by coordinating load generation across multiple
+machines/processes. A controller dispatches work to remote workers, aggregates results,
+and streams combined metrics to the UI.
+
+**Effort**: 4-6 weeks
+**Target**: ~50,000+ RPS (horizontally scalable)
+**Risk**: Highest of all phases — requires network protocol, discovery, fault tolerance
+
+**Current state**: All execution is single-process (Tauri app or CLI). No multi-machine
+coordination exists.
+
+##### Step 1 — Architecture decision
+
+**Option A: WebSocket-based** (recommended for v1)
+- Lower complexity than gRPC (no protobuf codegen, no tonic dependency)
+- `tokio-tungstenite` for Rust WebSocket server/client
+- JSON message protocol (reuse existing `serde_json` types)
+- Discovery: manual endpoint list or mDNS (later)
+
+**Option B: gRPC** (future upgrade path)
+- `tonic` + `prost` for protobuf
+- Higher performance for very large clusters (>10 workers)
+- More complex build (protobuf compiler required)
+
+**Decision**: Start with WebSocket (Option A). Migrate to gRPC if >10 worker nodes needed.
+
+##### Step 2 — Protocol design (`src-tauri/src/distributed/protocol.rs`) — NEW
+
+```rust
+enum ControllerMessage {
+    AssignWork { plan_id: String, plan: ExecutionPlan, worker_share: f64 },
+    Abort { plan_id: String },
+    Ping,
+}
+
+enum WorkerMessage {
+    Ready { worker_id: String, capabilities: WorkerCapabilities },
+    Progress { plan_id: String, batch: ProgressBatch },
+    Complete { plan_id: String, summary: CompletionSummary },
+    Error { plan_id: String, error: String },
+    Pong,
+}
+
+struct WorkerCapabilities {
+    max_concurrency: u32,
+    cpu_cores: u32,
+    memory_mb: u64,
+}
+```
+
+##### Step 3 — Worker mode (`src-tauri/src/distributed/worker.rs`) — NEW
+
+A worker is a headless Rust binary (or Tauri app in worker mode) that:
+1. Connects to controller WebSocket endpoint
+2. Sends `Ready` with capabilities
+3. Receives `AssignWork` with partial `ExecutionPlan` (subset of scenarios or reduced concurrency)
+4. Runs `start_load_test()` locally (reuses existing executor)
+5. Streams `Progress` batches back to controller
+6. Sends `Complete` when done
+
+**Worker binary**: The current `src-tauri/src/main.rs` is the Tauri app entry point.
+For distributed workers, add a **standalone Rust binary** target:
+```toml
+# src-tauri/Cargo.toml
+[[bin]]
+name = "redfireforge-worker"
+path = "src/worker_main.rs"
+```
+
+This binary reuses all executor/validation/histogram modules but links against
+`tokio-tungstenite` instead of Tauri. No webview dependency.
+
+**Note**: The current **Node.js CLI** (`cli/index.ts`) cannot serve as a distributed worker
+because it uses the JS engine. The Rust worker binary replaces it for distributed scenarios.
+
+**Entry points**:
+- `redfireforge-worker --controller ws://host:port` — headless CLI worker
+- Tauri app → Settings → Distributed → "Join as Worker" — GUI worker mode
+
+##### Step 4 — Controller (`src-tauri/src/distributed/controller.rs`) — NEW
+
+The controller (primary Tauri app) that:
+1. Starts WebSocket server on configurable port (default 9876)
+2. Accepts worker connections, tracks `WorkerCapabilities`
+3. Splits `ExecutionPlan` across workers:
+   - **Even split**: `N` total scenarios ÷ `W` workers = `N/W` per worker
+   - **Capability-weighted**: split proportional to worker CPU cores
+   - **Constant arrival**: each worker gets `target_rps / W` arrival rate
+4. Aggregates `ProgressBatch` from all workers into combined batch
+5. Merges `StreamingMetrics` histograms (HDR histograms are mergeable)
+6. Emits combined progress to local UI via existing Tauri event system
+7. Handles worker disconnection (reassign work or degrade gracefully)
+
+##### Step 5 — Plan splitting logic (`src-tauri/src/distributed/planner.rs`) — NEW
+
+```rust
+pub fn split_plan(
+    plan: ExecutionPlan,
+    workers: &[WorkerCapabilities],
+) -> Vec<(String, ExecutionPlan)> {
+    // For pool/sequential: split scenario list across workers
+    // For load-profile: each worker gets proportional concurrency
+    // For constant-arrival: each worker gets proportional target_rps
+    // Duration stays the same for all workers
+}
+```
+
+##### Step 6 — UI for distributed mode
+
+In `RunnerExecutionConfig.tsx`:
+- "Distributed" toggle (only when Tauri)
+- Worker list panel: connected workers with status/capabilities
+- Start controller button with port config
+- Live dashboard: per-worker progress + aggregated metrics
+
+##### Step 7 — Worker discovery (optional, future)
+
+- mDNS via `mdns-sd` crate for automatic LAN discovery
+- Worker auto-registers on startup, controller discovers
+- Fallback: manual endpoint list in settings
+
+##### Step 8 — Fault tolerance
+
+- Worker heartbeat (Ping/Pong every 5s)
+- Worker disconnect: log warning, continue with remaining workers
+- Controller disconnect: worker stops execution, attempts reconnect
+- No work redistribution in v1 (simplicity > completeness)
+
+##### Step 9 — Unit & integration tests
+
+| Test file | Tests | Notes |
+|-----------|-------|-------|
+| `src-tauri/src/distributed/protocol_test.rs` | ~15 | Message serde round-trip |
+| `src-tauri/src/distributed/planner_test.rs` | ~20 | Plan splitting (even, weighted, arrival) |
+| `src-tauri/src/distributed/controller_test.rs` | ~15 | Aggregation, worker lifecycle |
+| `src-tauri/src/distributed/worker_test.rs` | ~10 | Connection, execution, disconnect |
+| `rustBridgeIntegration.test.ts` | +5 | Distributed config mapping |
+
+**Files created/modified**:
+| File | Status |
+|------|--------|
+| `src-tauri/src/distributed/mod.rs` | NEW |
+| `src-tauri/src/distributed/protocol.rs` | NEW |
+| `src-tauri/src/distributed/worker.rs` | NEW |
+| `src-tauri/src/distributed/controller.rs` | NEW |
+| `src-tauri/src/distributed/planner.rs` | NEW |
+| `src-tauri/src/distributed/*_test.rs` | NEW (4 files) |
+| `src-tauri/src/lib.rs` | MODIFIED |
+| `src-tauri/Cargo.toml` | MODIFIED — tokio-tungstenite, optional mdns-sd |
+| `src/features/test-runner/utils/rustBridge.ts` | MODIFIED — distributed config |
+| `src/features/test-runner/components/RunnerExecutionConfig.tsx` | MODIFIED — distributed UI |
+
+---
+
+---
+
+#### Pre-Tier-3: Ramp/Spike Parity Fix (REQUIRED before 3C)
+
+**Re-evaluation finding**: Deep audit revealed **6 behavioral differences** between JS
+`getTargetConcurrency()` (loadProfileRunner.ts) and Rust `get_target_concurrency()` (executor.rs):
+
+| Gap | JS Behavior | Rust Behavior | Fix |
+|-----|-------------|---------------|-----|
+| Spike default start | `floor(durationSec * 0.3)` | `0` | Align Rust to JS formula |
+| Spike default duration | `ceil(durationSec * 0.2)` | `10` (hardcoded) | Align Rust to JS formula |
+| Spike default peak | `maxConcurrency * 3` | `max(1, maxConcurrency) * 2` | Align Rust to JS: `* 3` |
+| Ramp formula | `ceil(1 + (M-1) × t)` (affine 1→M) | `ceil(t × max(M,1))` (linear from 0) | Align Rust to JS affine formula |
+| `rampUpSec = 0` | `0 \|\| durationSec` → use durationSec | `Some(0)` → instant max_c | Align: treat 0 as "use durationSec" |
+| `maxConcurrency = 0` sustained | Returns 0 | Returns 1 (max(0,1)) | Document: Rust enforces minimum 1 |
+
+**Impact**: When user configures spike/ramp-up load profile without explicit overrides,
+JS UI preview shows different curves than what Rust executor actually produces. This causes
+confusion and incorrect test results.
+
+**Fix location**: `src-tauri/src/executor.rs` → `get_target_concurrency()`.
+Update `src-tauri/src/executor_test.rs` to match JS behavior.
+
+---
+
+#### Pre-Tier-3: CLI Rust Executor Path (Relevant for 3B, 3C, 3D)
+
+**Re-evaluation finding**: The CLI (`cli/index.ts`) currently runs tests via the **JS engine**
+only (`runTest` / `runGraphLoad` from `src/engine/executor.ts`). It cannot use the Rust
+executor because:
+1. No Tauri IPC available in Node.js CLI context
+2. CLI progress handler doesn't accept `ProgressMeta` (only `completed, total, results`)
+3. CLI reporters don't show P50 in console/markdown output (only P95/P99)
+
+**For Tier 3B-3D**: The CLI needs a Rust execution path. Options:
+- **Option A**: Build CLI as a Rust binary (replaces Node.js CLI) — highest performance
+- **Option B**: Use `napi-rs` to call Rust from Node.js — moderate effort, keeps JS CLI
+- **Option C**: Keep JS CLI at Tier 1 performance — lowest effort, desktop-only for high RPS
+
+**Decision**: Defer to Phase 3D. For 3A-3C, the Rust executor is desktop-only (Tauri).
+CLI continues at JS performance level. Revisit when distributed execution requires
+standalone workers.
+
+**Immediate fixes** (can be done now):
+1. Add P50 to CLI console and markdown reporters (`cli/reporters.ts`)
+2. Accept `ProgressMeta` in CLI progress handler for future streaming metrics
+
+---
+
+#### Tier 3 Implementation Order & Dependencies
+
+```
+Phase 3A: Full Validation in Rust (weeks 1-3)
+  ├── validation_types.rs ← no deps (all type definitions)
+  ├── json_path.rs ← no deps
+  ├── deep_compare.rs ← no deps
+  ├── subset_match.rs ← no deps
+  ├── http_helpers.rs ← no deps
+  ├── date_helpers.rs ← chrono
+  ├── field_operator.rs ← json_path.rs
+  ├── assertion_evaluator.rs ← json_path.rs, field_operator.rs, http_helpers, date_helpers, subset_match
+  ├── json_validator.rs ← json_path.rs, field_operator.rs, deep_compare
+  ├── validation_result.rs ← assertion_evaluator, json_validator (buildValidationResult combination)
+  └── Wire into executor.rs ← validation_result (single entry point)
+
+Phase 3B: Streaming Percentiles (weeks 3-4)
+  ├── histogram.rs ← no deps (hdrhistogram crate)
+  ├── Wire into executor.rs ← histogram.rs
+  ├── Update ProgressBatch types ← histogram.rs
+  └── JS bridge + UI updates ← types
+
+Phase 3C: Constant Arrival Rate (weeks 5-7)
+  ├── arrival_executor.rs ← executor.rs patterns, Phase 3B histogram
+  ├── Update types.rs + commands.rs ← arrival_executor.rs
+  ├── JS bridge + ExecutionMode ← types
+  └── Configuration UI ← bridge
+
+Phase 3D: Distributed Execution (weeks 7-12)
+  ├── Protocol design ← all above settled
+  ├── Worker mode ← executor.rs, protocol
+  ├── Controller ← protocol, Phase 3B histogram merge
+  ├── Plan splitter ← types
+  └── UI ← controller API
+```
+
+**Critical path**: 3A → 3B → 3C → 3D (each builds on the previous)
+**Parallel opportunity**: 3A and 3B can overlap (3B doesn't require validation)
+**Risk mitigation**: 3D can be deferred without impacting single-machine throughput
 
 ---
 
@@ -2109,3 +3521,13 @@ Most users choosing RedfireForge over JMeter/Postman care about the **visual wor
 | 2026-05-18 | Pre-resolve scenarios in JS, not Rust | `buildHeaders()`, `buildUrl()`, `serializeWithContentType()`, `resolveAuthHeaders()` are complex JS functions with form-data boundary generation, API key query injection, and auth type resolution. Duplicating in Rust is high-effort and error-prone. Instead, JS calls `prepareScenario()` for each scenario before invoking Rust. Rust receives fully-prepared data. |
 | 2026-05-18 | Streaming validation, not batch-at-end | If validation only runs after test completes, the UI shows no pass/fail during execution. Validate each `load-test-progress` batch as it arrives (~100ms intervals) to match current JS executor UX. |
 | 2026-05-18 | Circuit breaker in Rust, not JS | Breaker must react within the hot loop. If breaker logic is JS-side (via progress events), there's ~100ms latency before stopping. Rust-side breaker with atomic counters reacts instantly. `ProgressBatch.breaker_tripped` informs JS to stop UI updates. |
+| 2026-05-18 | Tier 3A re-evaluation: 11 findings | Deep audit of validation engine found: (1) `buildValidationResult()` is a critical combination layer missing from plan — added as Step 5A with exact logic; (2) `validate()` does NOT use `selectiveMode`, `excludedPaths`, `sampleJson`, `responseVersions`, `rulesVersions`, or `assertions` fields — removed from Rust `ValidationConfig`; (3) HTTP failure overlay DROPS json_failures (intentional); (4) `tryRemapPaths()` heuristic was missing — added to Step 5; (5) any mode not 'none'/'full' falls through to selective; (6) `deepSubsetMatch` arrays are existential/unordered (not positional); (7) `exists`/`not_exists` treats null as "exists"; (8) header value comparison is exact (no case-fold); (9) `is_true`/`is_false` are case-sensitive; (10) `equals` uses JSON.stringify normalization not reference equality; (11) `close_to` default tolerance is 0.01. Dependency graph updated to include all 11 new Rust modules. |
+| 2026-05-18 | Tier 3A Sub-Group A complete | `validation_types.rs` (341 LOC, 39 serde tests) + `json_path.rs` (189 LOC, 67 tests). 9 rounds of adversarial re-evaluation — 0 bugs found. serde `rename_all` + explicit `rename` interaction verified, JSONPath parity confirmed for all edge cases (wildcards, brackets, $-prefix, multi-byte UTF-8, leading-zero indices). |
+| 2026-05-18 | Tier 3A Sub-Group B complete | 4 leaf helpers: `deep_compare.rs` (164 LOC, 28 tests), `subset_match.rs` (120 LOC, 20 tests), `http_helpers.rs` (139 LOC, 38 tests), `date_helpers.rs` (69 LOC, 23 tests). 9 rounds of adversarial re-evaluation found 7 bugs: (1) deep_compare Array-vs-Object JS typeof parity; (2) Object-expected/Array-actual needed index-as-string-key helper; (3) Array `length` property via `MaybeOwned` enum; (4) `matches_status_pattern` vacuous truth on empty range boundary; (5) `matches_status_pattern` u16 overflow to u32; (6) `to_day_string` float epoch millis fallback; (7) `truncate_to_unit` negative millis `div_euclid` for Math.floor parity. All fixed with tests. |
+| 2026-05-18 | Tier 3A Sub-Group C re-evaluation: 8 findings | Deep audit of field_operator + assertion_evaluator plan against JS source found: (1) `is_false` does NOT check `=== 0` — only `false` and `"false"` (plan was wrong); (2) `stringify()` for strings returns raw string not JSON-quoted — JS line 21 `if typeof val === 'string' return val`; (3) `exists`/`not_exists` need `Option<&Value>` to distinguish null-at-path from path-not-found (undefined); (4) `compare()` and `format_op()` helper functions were missing from plan — needed by 6 assertion types; (5) `regex` assertion truncates actual to 200 chars in failure message (JS line 365); (6) `jsonSchema` path format includes assertion loop index `_ai`: `(jsonSchema#0:...)` not `(jsonSchema:...)`; (7) `bodySize` has fallback body source (`rawBody ?? JSON.stringify(responseBody)`) and display rounding (`Math.round * 100 / 100`); (8) `datePrecise.reference` is a raw string, not `DateReference` enum — requires chrono date parsing. Test scenarios expanded from ~40 to ~55 for assertion_evaluator and from ~25 to ~65 for field_operator. |
+| 2026-05-19 | Tier 1P re-evaluation: 3 bugs found & fixed | (1) **Load-profile concurrency multiplication**: multi-worker mode divided `config.concurrency` per worker but left `loadProfile.maxConcurrency` unchanged — each worker launched full concurrency, causing N× intended load. Fixed: divide `maxConcurrency` and `spikeConcurrency` per worker in `workerBridge.ts`. (2) **Duplicate result IDs**: all workers called `resetResultIdCounter()` producing `r-1, r-2, ...` — colliding IDs across workers. Fixed: `resetResultIdCounter(workerIndex)` prefixes IDs as `w0-1, w1-1, ...` via `requestExecution.ts` + `executor.ts` + `executionWorker.ts`. (3) **CLI ProgressMeta not accepted**: CLI progress handler used 3-arg signature, ignoring `ProgressMeta`. Fixed: accept meta in `cli/index.ts`, show RPS and concurrency for load-profile runs. |
+| 2026-05-19 | Phase 3A Sub-Group D complete | `json_validator.rs` (508 LOC, 56 tests), `validation_result.rs` (100 LOC, 38 tests), `cross_module_test.rs` (21 integration tests), executor wiring, JS bridge (90 TS tests), 15 perf benchmarks. Total validation engine: 2,799 LOC production + 5,277 LOC tests + 90 TS bridge tests. |
+| 2026-05-19 | Re-evaluation round 3: 3 bugs found & fixed | (1) **Rust validation on truncated body**: `execute_one` capped body to 2000 chars BEFORE `validate_result` — large JSON responses would fail validation in Rust but pass in JS. Fixed: `validate_and_cap()` validates full body then caps for storage. (2) **Rust circuit breaker error definition**: used `http_status >= 400 \|\| !passed`, but JS uses `!passed` only — a 404 expected by status assertion would incorrectly trip the breaker in Rust. Fixed: breaker records error based on `!result.passed.unwrap_or(true)` only, matching JS semantics. (3) **Multi-worker ceil-division overshoot**: `ceil(maxConcurrency / workerCount)` per worker could sum above target (e.g. 8 target with 7 workers → 14 actual). Fixed: fair distribution using `floor + remainder` ensuring sum equals exactly the configured `maxConcurrency`. |
+| 2026-05-19 | Re-evaluation round 4: 2 bugs found & fixed | (1) **Rust load-profile semaphore replacement on concurrency change**: when spike window ended and target dropped (e.g. 300→100), creating a new semaphore allowed producer to launch `target` MORE tasks while old ones held permits on the old semaphore — total in-flight could reach `old + new` instead of `new`. Fixed: replaced semaphore-based concurrency control with atomic `in_flight` counter check (matching JS `while (inFlight < target)` pattern). (2) **Multi-worker ProgressMeta not aggregated**: `currentInFlight` and `targetConcurrency` from last-reporting-worker-only caused UI to show ~1/N of actual concurrency. Fixed: aggregate `currentInFlight`, `targetConcurrency`, and `elapsedMs` across all workers before forwarding to `onProgress`. |
+| 2026-05-19 | Re-evaluation round 5: 1 bug found & fixed | **Rust in_flight counter race in run_load_profile**: `in_flight.fetch_add(1)` was inside the spawned task (async) instead of the producer loop (synchronous). Between the `current_in_flight >= target` check and the increment, the producer could spawn another task, causing a brief overshoot of 1. JS avoids this because `inFlight++` is synchronous before async work. Fixed: moved `fetch_add(1)` to producer loop before `tokio::spawn`, matching JS pattern exactly. Also audited all Tier 1 JS implementations (1D, 1E, 1F, 1I, 1K, 1M) — all confirmed correct with no bugs. |
+| 2026-05-19 | Re-evaluation round 6: 1 bug found & fixed | **Pool concurrency ceil-division overshoot in multi-worker mode**: `perWorkerConcurrency = Math.ceil(config.concurrency / workerCount)` applied to ALL workers caused the same overshoot previously fixed for load-profile. E.g., concurrency=10 with 3 workers → ceil(10/3)=4 per worker → 12 total (20% overshoot). Fixed: applied the same fair-distribution algorithm (`floor + remainder`) used for load-profile `maxConcurrency` — guarantees sum equals exactly the configured concurrency. Also re-audited: Rust `run_pool` (semaphore, validate_and_cap, breaker), `run_load_profile` (atomic in_flight, back-pressure), `commands.rs` (all 3 mode dispatches), `execute_with_retry` (full-body retention), `rustBridge.ts` (serde contract parity), `useTestExecution.ts` (Rust→worker→direct dispatch). All confirmed correct. |

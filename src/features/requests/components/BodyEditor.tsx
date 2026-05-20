@@ -58,18 +58,44 @@ export function BodyEditor({ draft, onDraftChange }: BodyEditorProps) {
   const isTextType = bodyType === 'json' || bodyType === 'xml' || bodyType === 'text' || bodyType === 'file';
   const [showDesc, setShowDesc] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+
+  const recomputeDropdownPosition = useCallback(() => {
+    const trigger = triggerRef.current;
+    if (!trigger) return;
+    const rect = trigger.getBoundingClientRect();
+    const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+    const spaceBelow = viewportHeight - rect.bottom;
+    const ESTIMATED_DROPDOWN_HEIGHT = 280;
+    if (spaceBelow < ESTIMATED_DROPDOWN_HEIGHT && rect.top > spaceBelow) {
+      setDropdownStyle({ bottom: '100%' });
+    } else {
+      setDropdownStyle({});
+    }
+  }, []);
 
   useEffect(() => {
     if (!dropdownOpen) return;
+    recomputeDropdownPosition();
     const onClickOutside = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(e.target as Node)
+      ) {
         setDropdownOpen(false);
       }
     };
     document.addEventListener('mousedown', onClickOutside);
-    return () => document.removeEventListener('mousedown', onClickOutside);
-  }, [dropdownOpen]);
+    window.addEventListener('resize', recomputeDropdownPosition);
+    window.addEventListener('scroll', recomputeDropdownPosition, true);
+    return () => {
+      document.removeEventListener('mousedown', onClickOutside);
+      window.removeEventListener('resize', recomputeDropdownPosition);
+      window.removeEventListener('scroll', recomputeDropdownPosition, true);
+    };
+  }, [dropdownOpen, recomputeDropdownPosition]);
 
   const handleTypeChange = useCallback((newType: BodyType) => {
     const update: Partial<Scenario> = { bodyType: newType };
@@ -108,6 +134,7 @@ export function BodyEditor({ draft, onDraftChange }: BodyEditorProps) {
       {/* Dropdown trigger + body content header */}
       <div className="body-type-dropdown-wrapper" ref={dropdownRef}>
         <button
+          ref={triggerRef}
           type="button"
           className="body-type-trigger"
           onClick={() => setDropdownOpen(o => !o)}
@@ -118,7 +145,7 @@ export function BodyEditor({ draft, onDraftChange }: BodyEditorProps) {
         </button>
 
         {dropdownOpen && (
-          <div className="body-type-dropdown">
+          <div className="body-type-dropdown" style={dropdownStyle}>
             {BODY_TYPE_GROUPS.map((group) => (
               <div key={group.label} className="body-type-dropdown-group">
                 <span className="body-type-dropdown-label">

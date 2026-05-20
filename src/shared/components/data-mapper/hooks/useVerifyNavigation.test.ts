@@ -4,6 +4,7 @@ import { renderHook, act } from '@testing-library/react';
 import { useVerifyNavigation } from './useVerifyNavigation';
 import type { VerifyResult } from './useValidationVerify';
 import type { Assertion } from '../../../types';
+import { stubScrollIntoView } from '../../../../test-utils/domMocks';
 
 function createVerifyResult(overrides: Partial<VerifyResult> = {}): VerifyResult {
   return {
@@ -22,8 +23,7 @@ function createVerifyResult(overrides: Partial<VerifyResult> = {}): VerifyResult
 describe('useVerifyNavigation', () => {
   beforeEach(() => {
     vi.useFakeTimers();
-    // jsdom does not implement scrollIntoView
-    Element.prototype.scrollIntoView = vi.fn();
+    stubScrollIntoView();
   });
 
   afterEach(() => {

@@ -73,30 +73,76 @@ async function openMapperWithRulesTab(page: Page): Promise<Locator> {
   await mapper.locator('.dm-validation-editor .monaco-editor').waitFor({ state: 'visible', timeout: MONACO_READY_MS });
   // Wait until Monaco has a real textarea (signals full initialization)
   await mapper.locator('.dm-validation-editor .monaco-editor textarea').waitFor({ state: 'attached', timeout: MONACO_READY_MS });
-  // Wait for Monaco to fully initialize its internal model and listeners;
-  // under heavy parallel load (40 workers), initialization can take longer
+  // Wait for Monaco to fully initialize its internal model AND verify it
+  // can accept input by checking the editor instance is fully wired.
+  // Under heavy parallel load (40 workers), Monaco init can race with the
+  // first keyboard input — we explicitly poll for hasTextFocus capability.
   await page.waitForFunction(() => {
     const holder = document.querySelector('.dm-validation-editor .monaco-editor');
-    const w = (window as unknown as { monaco?: { editor?: { getEditors?: () => Array<{ getDomNode: () => HTMLElement | null; getModel: () => unknown }> } } }).monaco?.editor?.getEditors?.();
+    type Ed = {
+      getDomNode: () => HTMLElement | null;
+      getModel: () => unknown;
+      onDidChangeModelContent?: unknown;
+      hasTextFocus?: () => boolean;
+    };
+    const w = (window as unknown as { monaco?: { editor?: { getEditors?: () => Ed[] } } })
+      .monaco?.editor?.getEditors?.();
     if (!holder || !w?.length) return false;
     const ed = w.find((e) => {
       const dn = e.getDomNode();
       return !!dn && (dn === holder || dn.contains(holder));
     });
-    return ed?.getModel() != null;
+    // Editor is fully wired when it has a model AND exposes the input API
+    return !!ed?.getModel() && typeof ed.hasTextFocus === 'function';
   }, { timeout: MONACO_READY_MS });
-  await page.waitForTimeout(500);
+  // Give Monaco a moment to fully attach its key handlers; under heavy
+  // parallel load, the first keystroke can race with the keydown listener
+  // attachment that happens in a queued microtask.
+  await page.waitForTimeout(1000);
 
   return mapper;
 }
 
+/**
+ * Focus the Monaco editor and ensure it actually received focus before
+ * returning. Under heavy parallel load, click() can land before Monaco's
+ * focus listeners are wired, swallowing the first keystroke.
+ */
 async function focusAndClear(page: Page, mapper: Locator) {
   const editorArea = mapper.locator('.dm-validation-editor .monaco-editor .overflow-guard');
   await editorArea.click({ position: { x: 50, y: 30 } });
-  await page.waitForTimeout(200);
+  // Wait until the editor reports it has focus (poll Monaco's API directly)
+  await page.waitForFunction(() => {
+    const holder = document.querySelector('.dm-validation-editor .monaco-editor');
+    type Ed = { getDomNode: () => HTMLElement | null; hasTextFocus?: () => boolean };
+    const w = (window as unknown as { monaco?: { editor?: { getEditors?: () => Ed[] } } })
+      .monaco?.editor?.getEditors?.();
+    const ed = w?.find((e) => {
+      const dn = e.getDomNode();
+      return !!dn && (dn === holder || dn.contains(holder));
+    });
+    return !!ed?.hasTextFocus?.();
+  }, { timeout: 5000 }).catch(() => {
+    // hasTextFocus might not return true in headless mode; fall through to
+    // keyboard select-all which works regardless.
+  });
   await page.keyboard.press(selectAllShortcut());
   await page.keyboard.press('Backspace');
-  await page.waitForTimeout(200);
+  // Wait until model is empty before returning
+  await page.waitForFunction(() => {
+    const holder = document.querySelector('.dm-validation-editor .monaco-editor');
+    type Ed = {
+      getDomNode: () => HTMLElement | null;
+      getModel: () => { getValue: () => string } | null;
+    };
+    const w = (window as unknown as { monaco?: { editor?: { getEditors?: () => Ed[] } } })
+      .monaco?.editor?.getEditors?.();
+    const ed = w?.find((e) => {
+      const dn = e.getDomNode();
+      return !!dn && (dn === holder || dn.contains(holder));
+    });
+    return ed?.getModel()?.getValue() === '';
+  }, { timeout: 3000 }).catch(() => { /* tolerate; downstream poll will catch */ });
 }
 
 test.describe('Validation Rules Editor — typing & autocomplete', () => {
@@ -221,11 +267,10 @@ test.describe('Validation Rules Editor — typing & autocomplete', () => {
     }
 
     await page.keyboard.type('length', { delay: 80 });
-    await page.waitForTimeout(500);
 
-    const modelValue = await getValidationEditorModelValue(mapper);
-
-    expect(modelValue.trim()).toBe('offers length');
+    await expect
+      .poll(async () => (await getValidationEditorModelValue(mapper)).trim(), { timeout: 5000 })
+      .toBe('offers length');
   });
 
   test('exact path "offers" surfaces path suggestions (incl. parents) and Space still separates operator', async ({ page }) => {
@@ -254,10 +299,10 @@ test.describe('Validation Rules Editor — typing & autocomplete', () => {
 
     await page.keyboard.press('Space');
     await page.keyboard.type('length', { delay: 80 });
-    await page.waitForTimeout(500);
 
-    const modelValue = await getValidationEditorModelValue(mapper);
-    expect(modelValue.trim()).toBe('offers length');
+    await expect
+      .poll(async () => (await getValidationEditorModelValue(mapper)).trim(), { timeout: 5000 })
+      .toBe('offers length');
   });
 
   test('typing offers then space then length WITHOUT Escape — no suggest interference', async ({ page }) => {
@@ -274,13 +319,12 @@ test.describe('Validation Rules Editor — typing & autocomplete', () => {
 
     // Type "length" immediately
     await page.keyboard.type('length', { delay: 80 });
-    await page.waitForTimeout(500);
-
-    const modelValue = await getValidationEditorModelValue(mapper);
 
     // The key assertion: model should contain "offers length", NOT
     // "offers[0].associatedOfferingCode" or "offers." or anything else
-    expect(modelValue.trim()).toBe('offers length');
+    await expect
+      .poll(async () => (await getValidationEditorModelValue(mapper)).trim(), { timeout: 5000 })
+      .toBe('offers length');
   });
 
   test('no `beforeinput` listener is installed on the Monaco textarea', async ({ page }) => {
@@ -454,17 +498,21 @@ test.describe('Validation Rules Editor — typing & autocomplete', () => {
     await page.waitForTimeout(200);
     // Type one char of operator so quickSuggestions definitely kicks in
     await page.keyboard.type('l', { delay: 60 });
-    await page.waitForTimeout(600);
 
-    const operatorLabels = await page.evaluate(() => {
-      const widget = document.querySelector(
-        '.dm-validation-editor .editor-widget.suggest-widget',
-      ) as HTMLElement | null;
-      if (!widget) return [];
-      return Array.from(widget.querySelectorAll('.monaco-list-row .label-name'))
-        .map((el) => (el.textContent ?? '').trim());
-    });
-    expect(operatorLabels).toContain('length');
+    await expect
+      .poll(
+        async () =>
+          await page.evaluate(() => {
+            const widget = document.querySelector(
+              '.dm-validation-editor .editor-widget.suggest-widget',
+            ) as HTMLElement | null;
+            if (!widget) return [];
+            return Array.from(widget.querySelectorAll('.monaco-list-row .label-name'))
+              .map((el) => (el.textContent ?? '').trim());
+          }),
+        { timeout: 5000 },
+      )
+      .toContain('length');
   });
 
   test('typing one Space inserts exactly one space (no eaten keystrokes)', async ({ page }) => {
@@ -475,10 +523,10 @@ test.describe('Validation Rules Editor — typing & autocomplete', () => {
     await page.keyboard.type('offers', { delay: 60 });
     await page.waitForTimeout(150);
     await page.keyboard.press('Space');
-    await page.waitForTimeout(150);
 
-    const modelValue = await getValidationEditorModelValue(mapper);
-    expect(modelValue).toBe('offers ');
+    await expect
+      .poll(async () => await getValidationEditorModelValue(mapper), { timeout: 5000 })
+      .toBe('offers ');
   });
 
   test('macOS autocorrect "commit word + Space" event is NOT eaten', async ({ page }) => {
@@ -534,9 +582,9 @@ test.describe('Validation Rules Editor — typing & autocomplete', () => {
       await page.keyboard.press('Escape');
       await page.waitForTimeout(200);
     }
-    await page.waitForTimeout(500);
 
     await expect(mapper).toBeVisible();
-    await expect(mapper.locator('.vr-modal-stat').first()).toContainText('2 rules');
+    // toContainText already polls with assertion timeout; no manual waitForTimeout needed
+    await expect(mapper.locator('.vr-modal-stat').first()).toContainText('2 rules', { timeout: 5000 });
   });
 });

@@ -4,7 +4,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render } from '@testing-library/react';
 import ScriptNode from './ScriptNode';
-import type { ScriptNodeData } from '../../types/workflow';
+import { ScriptNodeData } from '../../types/workflow';
 
 // Mock ReactFlow handles
 vi.mock('@xyflow/react', () => ({

@@ -58,12 +58,14 @@ export async function httpFetchViaViteProxy(
   method: string,
   headers: Record<string, string>,
   body?: string,
+  signal?: AbortSignal,
 ): Promise<HttpResponse> {
   try {
     const resp = await fetch('/__proxy', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ url, method, headers, body }),
+      signal,
     });
     const rawText = await resp.text();
     if (!resp.ok) {
@@ -132,23 +134,41 @@ export async function httpFetch(
   url: string,
   method: string,
   headers: Record<string, string>,
-  body?: string
+  body?: string,
+  signal?: AbortSignal,
 ): Promise<HttpResponse> {
-  if (_transportOverride) return _transportOverride(url, method, headers, body);
+  if (signal?.aborted) {
+    return { status: 0, statusText: '', headers: {}, body: '', error: 'Aborted' };
+  }
+  if (_transportOverride) {
+    if (!signal) return _transportOverride(url, method, headers, body);
+    return Promise.race([
+      _transportOverride(url, method, headers, body),
+      new Promise<HttpResponse>((_, reject) => {
+        signal.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), { once: true });
+      }),
+    ]).catch((err) => {
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        return { status: 0, statusText: '', headers: {}, body: '', error: 'Aborted' } as HttpResponse;
+      }
+      throw err;
+    });
+  }
   if (isNode()) {
-    return nodeFetch(url, method, headers, body);
+    return nodeFetch(url, method, headers, body, signal);
   }
   if (isTauri()) {
-    return tauriFetch(url, method, headers, body);
+    return tauriFetch(url, method, headers, body, signal);
   }
-  return proxyFetch(url, method, headers, body);
+  return proxyFetch(url, method, headers, body, signal);
 }
 
 async function tauriFetch(
   url: string,
   method: string,
   headers: Record<string, string>,
-  body?: string
+  body?: string,
+  signal?: AbortSignal,
 ): Promise<HttpResponse> {
   try {
     const { fetch: tFetch } = await import('@tauri-apps/plugin-http');
@@ -158,6 +178,9 @@ async function tauriFetch(
     };
     if (body && method !== 'GET') {
       opts.body = body;
+    }
+    if (signal) {
+      opts.signal = signal;
     }
 
     const t0 = performance.now();
@@ -196,9 +219,10 @@ async function proxyFetch(
   url: string,
   method: string,
   headers: Record<string, string>,
-  body?: string
+  body?: string,
+  signal?: AbortSignal,
 ): Promise<HttpResponse> {
-  return httpFetchViaViteProxy(url, method, headers, body);
+  return httpFetchViaViteProxy(url, method, headers, body, signal);
 }
 
 let _nodeDispatcher: unknown = undefined;
@@ -265,7 +289,8 @@ async function nodeFetch(
   url: string,
   method: string,
   headers: Record<string, string>,
-  body?: string
+  body?: string,
+  signal?: AbortSignal,
 ): Promise<HttpResponse> {
   try {
     const { dispatcher, isProxy } = await getNodeDispatcher();
@@ -273,6 +298,7 @@ async function nodeFetch(
     const opts: Record<string, unknown> = { method, headers: pooledHeaders };
     if (body && method !== 'GET') opts.body = body;
     if (dispatcher) opts.dispatcher = dispatcher;
+    if (signal) opts.signal = signal;
 
     const doFetch = async (fetchOpts: Record<string, unknown>) => {
       const t0 = performance.now();

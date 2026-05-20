@@ -3,26 +3,18 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { generateReport, downloadReport, type ReportOptions } from './reportGenerator';
-import type { TestRun, RequestResult } from '../../../shared/types';
+import { TestRun, RequestResult } from '../../../shared/types';
+import { makeResult as _makeResult } from '../../../test-utils/factories';
 
 function makeResult(overrides: Partial<RequestResult> = {}): RequestResult {
-  return {
+  return _makeResult({
     id: '1',
-    scenarioId: 's1',
     scenarioName: 'test-scenario',
     featureGroupName: 'Feature A',
     groupName: 'Group 1',
     url: 'http://example.com',
-    method: 'GET',
-    httpStatus: 200,
-    responseTimeMs: 100,
-    responseBody: '{}',
-    timestamp: Date.now(),
-    passed: true,
-    validationMode: 'none',
-    failureDetails: [],
     ...overrides,
-  };
+  });
 }
 
 function makeRun(overrides: Partial<TestRun> = {}): TestRun {

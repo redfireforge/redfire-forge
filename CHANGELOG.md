@@ -9,7 +9,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
 ## [Unreleased]
 
 ### Changed
+- **WorkflowExecutionCanvas Refactored** — Extracted `ReplayCanvasControls` (zoom/fit/save/minimap toolbar), `ReplayCanvasOverlays` (`EdgePercentageOverlay` + `SwimLaneOverlay`), `heatmapColor` utility, and `replayLayoutStorage` (per-workflow node-position persistence) into focused modules. Reduced `WorkflowExecutionCanvas.tsx` from 891 → 634 lines.
 - **App.tsx Refactored** — Extracted `AppHeader`, `AppActivityBar`, `AppSubNav` into `src/app/components/`, reducing `App.tsx` from 910 → 779 lines (below 900-line monolithic threshold).
+- **Shared Test Mocks Consolidated** — Replaced ~450 lines of duplicated `MockResizeObserver` class + inline `vi.mock('@xyflow/react', …)` boilerplate across 15 `WorkflowResultsExplorerModal.*.test.tsx` files with two reusable test utilities: `src/test-utils/domMocks.ts → stubResizeObserver()` and `src/test-utils/reactFlowMock.tsx → buildReactFlowMock()`. Centralized `installClipboardMock()` / `installEmptyClipboard()` and `stubScrollIntoView()` consumed by 8+ additional test files. Extracted Monaco/snippet harness for ExpressionEditorModal tests (`__test-utils__/expressionEditorHarness.tsx`) and Validation Code Editor helpers (`__test-utils__/validationCodeEditorHelpers.ts`).
+- **Storage Migrations Extracted** — Moved `migrateToFlat` and `migratePerFgSharedDataSourcesToTopLevel` from `src/shared/utils/storage.ts` into `src/shared/utils/storageMigration.ts`, keeping the public API stable via re-exports and bringing `storage.ts` back under the 900-line monolithic threshold.
 
 ### Fixed
 - **useTestExecution tests** — Fixed 41 test failures caused by missing `vi.mock` for `rustBridge` module and incorrect `TestConfig` field names (`concurrentUsers` → `concurrency`, missing `scenarioWeights`).

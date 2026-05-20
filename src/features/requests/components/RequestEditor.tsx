@@ -12,7 +12,7 @@ import { pickJsonFile, unwrapImport } from '../../scenarios/utils/testEditorUtil
 import { useResponseCache } from '../hooks/useResponseCache';
 import type { ConsoleLine } from '../hooks/useResponseCache';
 import { buildDisplayUrl, resolveFullSendUrl } from '../utils/requestUrlResolver';
-import { formatBytes } from '../../../shared/utils/helpers';
+import { formatBytes, toErrorMessage } from '../../../shared/utils/helpers';
 import { saveFile } from '../../../shared/utils/fileSaver';
 import type { UrlResolverContext } from '../utils/requestUrlResolver';
 import { BodyEditor } from './BodyEditor';
@@ -347,7 +347,7 @@ export default function RequestEditor({
       const effectiveEnvId = subColEnvId || selectedEnvId;
       const cmd = await buildCurlCommand(asDraftScenario(), resolveEffectiveAuth(effectiveEnvId));
       setGeneratedCurl(cmd);
-    } catch (err) { setGeneratedCurl(`# Error: ${err instanceof Error ? err.message : String(err)}`); }
+    } catch (err) { setGeneratedCurl(`# Error: ${toErrorMessage(err)}`); }
     finally { setCurlGenerating(false); }
   }, [asDraftScenario, resolveEffectiveAuth, request.url, subColEnvId, selectedEnvId]);
 
@@ -470,7 +470,7 @@ export default function RequestEditor({
       const hid = pushHistory({ timestamp: Date.now(), method: sendMethod, url: sendUrl, response: resp, responseTime: elapsed, consoleLines: log });
       setActiveHistoryId(hid);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
+      const msg = toErrorMessage(err);
       log.push({ prefix: '', text: '' });
       info(`ERROR: ${msg}`);
       const errResp = { status: 0, statusText: 'Error', headers: {} as Record<string, string>, body: msg, error: msg };

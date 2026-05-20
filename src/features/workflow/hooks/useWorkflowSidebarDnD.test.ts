@@ -5,9 +5,9 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import '@testing-library/jest-dom/vitest';
 import { renderHook, act } from '@testing-library/react';
 import React from 'react';
-import type { Workflow, WorkflowFolder } from '../types/workflow';
+import { Workflow, WorkflowFolder } from '../types/workflow';
 import { computeDropZone, useWorkflowSidebarDnD } from './useWorkflowSidebarDnD';
-import type { DropZone } from './useWorkflowSidebarDnD';
+import { DropZone } from './useWorkflowSidebarDnD';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

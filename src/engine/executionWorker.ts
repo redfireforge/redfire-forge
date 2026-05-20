@@ -2,6 +2,7 @@ import type { MainToWorkerMessage, WorkerToMainMessage } from './workerProtocol'
 import type { HttpResponse } from '../shared/utils/httpClient';
 import { httpFetchViaViteProxy, setHttpTransport } from '../shared/utils/httpClient';
 import { runTest } from './executor';
+import { toErrorMessage } from '../shared/utils/helpers';
 
 interface WorkerContext {
   postMessage: (msg: WorkerToMainMessage) => void;
@@ -81,6 +82,8 @@ ctx.addEventListener('message', async (e: MessageEvent<MainToWorkerMessage>) => 
           },
           abortController.signal,
           msg.workflow,
+          undefined,
+          msg.workerIndex,
         );
         if (hasPending) {
           postMsg({ type: 'progress', completed: pendingCompleted, total: pendingTotal, newResults: pendingNewResults, meta: pendingMeta });
@@ -89,7 +92,7 @@ ctx.addEventListener('message', async (e: MessageEvent<MainToWorkerMessage>) => 
         lastSentCount = testResult.results.length;
         postMsg({ type: 'done', newResults: finalNew, trace: testResult.trace });
       } catch (err) {
-        postMsg({ type: 'error', message: err instanceof Error ? err.message : String(err) });
+        postMsg({ type: 'error', message: toErrorMessage(err) });
       }
       break;
     }

@@ -96,6 +96,8 @@ export interface HttpNodeData {
   sourceSpecVersionLabel?: string;
   /** 'latest' (default) tracks the request's active version; 'pinned' freezes to sourceSpecVersionId */
   specVersionMode?: 'pinned' | 'latest';
+  /** Per-node HTTP request timeout in seconds; overrides the workflow-level default when set. */
+  timeoutSec?: number;
 }
 
 export interface ConditionNodeData {

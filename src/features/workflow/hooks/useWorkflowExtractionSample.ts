@@ -11,7 +11,7 @@ import type {
 } from '../types/workflow';
 import type { Microservice } from '../../../shared/types';
 import type { WorkflowRFNode } from '../utils/workflowNodeFactory';
-import { prettyJson } from '../../../shared/utils/helpers';
+import { prettyJson, isValidJson } from '../../../shared/utils/helpers';
 
 interface UseWorkflowExtractionSampleOpts {
   selectedNode: WorkflowRFNode | null | undefined;
@@ -96,11 +96,8 @@ export function useWorkflowExtractionSample(opts: UseWorkflowExtractionSampleOpt
           body: result.body,
         });
         // Still surface the error body if it parses as JSON.
-        if (result.body) {
-          try {
-            JSON.parse(result.body);
-            setExtractionSampleJson(prettyJson(result.body));
-          } catch { /* non-JSON body — skip */ }
+        if (result.body && isValidJson(result.body)) {
+          setExtractionSampleJson(prettyJson(result.body));
         }
       }
     } finally {
