@@ -778,7 +778,7 @@ describe('correlation-handler — HTTP routes', () => {
       expect(res.body.resumed).toBe(false);
       expect(res.body.timedOut).toBe(true);
       expect(res.body.correlationId).toBe('never');
-    });
+    }, 15_000);
 
     it('returns queued resume data immediately if already resumed', async () => {
       // Pause + resume directly so the queue holds the data

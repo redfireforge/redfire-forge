@@ -4,9 +4,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useVerifyEngine, executeRowFetch } from './useVerifyEngine';
-import type { UseVerifyEngineOptions } from './useVerifyEngine';
-import type { Scenario, DataSource, DataSourceColumn, DataSourceRow } from '../../../shared/types';
-import type { HttpResponse } from '../../../shared/utils/httpClient';
+import { UseVerifyEngineOptions } from './useVerifyEngine';
+import { Scenario, DataSource, DataSourceColumn, DataSourceRow } from '../../../shared/types';
+import { HttpResponse } from '../../../shared/utils/httpClient';
 import { validate } from '../../../engine/validator';
 import { expandPatternFromResponse, extractJsonPath } from '../utils/dataSourceImport';
 

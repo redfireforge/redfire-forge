@@ -4,8 +4,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook } from '@testing-library/react';
 import { useWorkflowCanvasSync, useWorkflowVariableHints } from './useWorkflowCanvasSync';
-import type { Workflow, WorkflowNode, WorkflowEdge, HttpNodeData } from '../types/workflow';
-import type { WorkflowRFNode, WorkflowRFEdge } from '../utils/workflowNodeFactory';
+import { Workflow, WorkflowNode, WorkflowEdge, HttpNodeData } from '../types/workflow';
+import { WorkflowRFNode, WorkflowRFEdge } from '../utils/workflowNodeFactory';
 
 function createMockWorkflow(id = 'wf-1', nodes: WorkflowNode[] = [], edges: WorkflowEdge[] = []): Workflow {
   return {

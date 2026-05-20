@@ -2,7 +2,7 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import ConsoleLogLine from './ConsoleLogLine';
-import { formatTimestamp, highlightMatches, type LogLine } from '../utils/consoleLogUtils';
+import { formatTimestamp, highlightMatches, highlightSearchMatch, type LogLine } from '../utils/consoleLogUtils';
 
 describe('formatTimestamp', () => {
   it('returns empty string for falsy value', () => {
@@ -108,5 +108,43 @@ describe('ConsoleLogLine', () => {
     const { container } = render(<ConsoleLogLine line={{ prefix: '---', text: '', ts: 0 }} />);
     const el = container.firstChild as HTMLElement;
     expect(el.className).toContain('wf-cl-separator');
+  });
+});
+
+describe('highlightSearchMatch', () => {
+  it('returns plain text when query is empty', () => {
+    expect(highlightSearchMatch('hello', '')).toBe('hello');
+  });
+
+  it('returns plain text when no match', () => {
+    expect(highlightSearchMatch('hello', 'xyz')).toBe('hello');
+  });
+
+  it('wraps first match in mark tag with custom class', () => {
+    const result = highlightSearchMatch('Hello World', 'world', 'my-highlight');
+    const { container } = render(<>{result}</>);
+    const mark = container.querySelector('mark');
+    expect(mark).not.toBeNull();
+    expect(mark!.className).toBe('my-highlight');
+    expect(mark!.textContent).toBe('World');
+  });
+
+  it('is case-insensitive', () => {
+    const result = highlightSearchMatch('FooBar', 'foo', 'hl');
+    const { container } = render(<>{result}</>);
+    expect(container.querySelector('mark')!.textContent).toBe('Foo');
+  });
+
+  it('uses default class name when not specified', () => {
+    const result = highlightSearchMatch('test text', 'text', undefined);
+    const { container } = render(<>{result}</>);
+    expect(container.querySelector('mark')!.className).toBe('search-highlight');
+  });
+
+  it('only highlights first occurrence', () => {
+    const result = highlightSearchMatch('abc abc abc', 'abc', 'hl');
+    const { container } = render(<>{result}</>);
+    const marks = container.querySelectorAll('mark');
+    expect(marks).toHaveLength(1);
   });
 });

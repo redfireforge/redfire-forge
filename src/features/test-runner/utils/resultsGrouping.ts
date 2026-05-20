@@ -22,11 +22,13 @@ export interface GroupNode {
 export function computeStats(results: RequestResult[]): Omit<GroupNode, 'key' | 'results' | 'children'> {
   const times = results.map((r) => r.responseTimeMs).sort((a, b) => a - b);
   const n = times.length;
+  const passedCount = results.filter((r) => r.passed).length;
+  const valFailed = results.filter((r) => !r.passed && r.failureDetails.length > 0).length;
   return {
     total: results.length,
-    passed: results.filter((r) => r.passed).length,
-    failed: results.filter((r) => !r.passed && r.errorMessage).length,
-    validationFailed: results.filter((r) => !r.passed && !r.errorMessage && r.failureDetails.length > 0).length,
+    passed: passedCount,
+    failed: results.length - passedCount - valFailed,
+    validationFailed: valFailed,
     avgTime: n ? Math.round(times.reduce((a, b) => a + b, 0) / n) : 0,
     minTime: n ? times[0] : 0,
     maxTime: n ? times[n - 1] : 0,

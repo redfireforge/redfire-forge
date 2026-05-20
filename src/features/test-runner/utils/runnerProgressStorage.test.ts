@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, beforeEach } from 'vitest';
 import { thinkTimeLabel, saveProgress, loadProgress, clearProgress, type PersistedProgress } from './runnerProgressStorage';
-import type { ThinkTimeConfig } from '../../../shared/types';
+import { ThinkTimeConfig } from '../../../shared/types';
 
 describe('thinkTimeLabel', () => {
   it('returns null for undefined config', () => {

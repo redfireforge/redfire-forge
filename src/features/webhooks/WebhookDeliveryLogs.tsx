@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import type { WebhookDelivery } from '../../shared/types/server-api';
-import { formatTimestamp, getErrorMessage, formatPayload } from '../test-runner/utils/serverFormatters';
+import { formatTimestamp, formatPayload } from '../test-runner/utils/serverFormatters';
+import { toErrorMessage } from '../../shared/utils/helpers';
 import '../../styles/webhook-logs.css';
 
 export default function WebhookDeliveryLogs() {
@@ -30,7 +31,7 @@ export default function WebhookDeliveryLogs() {
       setError(null);
     } catch (err) {
       console.error('Failed to load webhook deliveries:', err);
-      setError(getErrorMessage(err));
+      setError(toErrorMessage(err));
     } finally {
       setLoading(false);
     }

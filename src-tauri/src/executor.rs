@@ -1,4 +1,6 @@
 use crate::types::*;
+use crate::validation_result::build_validation_result;
+use crate::validation_types::{Assertion, ValidationConfig, ValidationMode};
 use rand::Rng;
 use reqwest::Client;
 use std::collections::HashMap;
@@ -175,6 +177,9 @@ fn build_result(
         request_log,
         timing,
         retry_count,
+        passed: None,
+        failure_details: vec![],
+        validation_mode: String::new(),
     }
 }
 
@@ -242,7 +247,7 @@ pub async fn execute_one(
                         request_log,
                         status,
                         total_ms,
-                        cap_body(&body_text),
+                        body_text,
                         resp_headers,
                         None,
                         TimingBreakdown { dns_lookup: 0.0, tcp_connect: 0.0, tls_handshake: 0.0, ttfb, download, total: total_ms },
@@ -336,17 +341,25 @@ pub fn get_target_concurrency(
     let max_c = max_concurrency.max(1);
     match profile_type {
         "ramp-up" => {
-            let ramp = ramp_up_sec.unwrap_or(duration_sec) as f64;
-            if ramp <= 0.0 {
+            // Match JS: rampUpSec of 0 or None → use durationSec (JS `|| durationSec`)
+            let ramp = match ramp_up_sec {
+                Some(r) if r > 0 => r as f64,
+                _ => duration_sec as f64,
+            };
+            if ramp <= 0.0 || elapsed_sec >= ramp {
                 return max_c;
             }
-            let ratio = (elapsed_sec / ramp).min(1.0);
-            (ratio * max_c as f64).ceil().max(1.0) as u32
+            // Match JS: affine interpolation 1 → max_c (not linear from 0)
+            let t = elapsed_sec / ramp;
+            let m = max_c as f64;
+            (1.0 + (m - 1.0) * t).ceil().max(1.0) as u32
         }
         "spike" => {
-            let start = spike_start_sec.unwrap_or(0) as f64;
-            let dur = spike_duration_sec.unwrap_or(10) as f64;
-            let spike_c = spike_concurrency.unwrap_or(max_c * 2);
+            // Match JS: defaults derived from duration/concurrency, not hardcoded
+            let dur_f = duration_sec as f64;
+            let start = spike_start_sec.unwrap_or((dur_f * 0.3).floor() as u64) as f64;
+            let dur = spike_duration_sec.unwrap_or((dur_f * 0.2).ceil() as u64) as f64;
+            let spike_c = spike_concurrency.unwrap_or(max_concurrency * 3);
             if elapsed_sec >= start && elapsed_sec < start + dur {
                 spike_c.max(1)
             } else {
@@ -354,6 +367,49 @@ pub fn get_target_concurrency(
             }
         }
         _ => max_c, // "sustained"
+    }
+}
+
+// ── Validation Wiring ────────────────────────────────────
+
+fn validate_and_cap(
+    result: &mut ExecutionResult,
+    validation: &ValidationConfig,
+    assertions: &[Assertion],
+) {
+    let mode_str = match &validation.mode {
+        ValidationMode::None => "none",
+        ValidationMode::Full => "full",
+        ValidationMode::Selective => "selective",
+    };
+
+    let needs_body_parse =
+        validation.mode != ValidationMode::None || !assertions.is_empty();
+
+    let parsed: serde_json::Value = if needs_body_parse {
+        serde_json::from_str(&result.response_body).unwrap_or(serde_json::Value::Null)
+    } else {
+        serde_json::Value::Null
+    };
+
+    let output = build_validation_result(
+        result.http_status,
+        result.response_time_ms,
+        &result.response_headers,
+        &result.response_body,
+        &parsed,
+        result.error_message.as_deref(),
+        validation,
+        assertions,
+    );
+
+    result.passed = Some(output.passed);
+    result.failure_details = output.failure_details;
+    result.validation_mode = mode_str.to_string();
+
+    // Cap body AFTER validation so validation sees the full response
+    if result.response_body.len() > MAX_BODY_LEN {
+        result.response_body = cap_body(&result.response_body);
     }
 }
 
@@ -414,15 +470,17 @@ pub async fn run_pool(
         tokio::spawn(async move {
             in_flight.fetch_add(1, Ordering::Relaxed);
 
-            let result = execute_with_retry(
+            let mut result = execute_with_retry(
                 &client, &scenario, timeout, retry_count, retry_delay_ms, &cancel,
             )
             .await;
 
+            validate_and_cap(&mut result, &scenario.validation, &scenario.assertions);
+
             in_flight.fetch_sub(1, Ordering::Relaxed);
             completed.fetch_add(1, Ordering::Relaxed);
 
-            let is_error = result.http_status == 0 || result.http_status >= 400;
+            let is_error = !result.passed.unwrap_or(true);
             breaker.record(is_error);
 
             let _ = tx.send(result);
@@ -523,9 +581,6 @@ pub async fn run_load_profile(
 
     let producer = tokio::spawn(async move {
         let mut idx = 0usize;
-        let mut current_target: u32 = 0;
-        let effective_max = max_concurrency.max(1);
-        let mut active_semaphore = Arc::new(Semaphore::new(effective_max as usize));
 
         loop {
             if producer_cancel.is_cancelled() || producer_breaker.should_stop() {
@@ -547,31 +602,29 @@ pub async fn run_load_profile(
                 spike_duration_sec,
             );
 
-            // Rebuild semaphore only when target actually changes
-            if target != current_target && target > 0 {
-                active_semaphore = Arc::new(Semaphore::new(target as usize));
-                current_target = target;
+            // Wait until in-flight drops below target (matches JS `while (inFlight < target)`)
+            if target == 0 {
+                tokio::time::sleep(Duration::from_millis(10)).await;
+                continue;
+            }
+            let current_in_flight = producer_in_flight.load(Ordering::Relaxed);
+            if current_in_flight >= target {
+                // Back-pressure: wait briefly then re-check target (concurrency may change)
+                tokio::select! {
+                    _ = tokio::time::sleep(Duration::from_millis(10)) => { continue; }
+                    _ = producer_cancel.cancelled() => { break; }
+                }
             }
 
             let scenario_idx = weighted_pool[idx % weighted_pool.len()];
             idx += 1;
             let scenario = scenarios[scenario_idx].clone();
 
-            // select! on permit acquire + cancellation to avoid blocking
-            let permit = tokio::select! {
-                p = active_semaphore.clone().acquire_owned() => {
-                    match p {
-                        Ok(p) => p,
-                        Err(_) => break,
-                    }
-                }
-                _ = producer_cancel.cancelled() => { break; }
-            };
-
             if producer_breaker.should_stop() || start.elapsed() >= duration {
-                drop(permit);
                 break;
             }
+
+            producer_in_flight.fetch_add(1, Ordering::Relaxed);
 
             let client = producer_client.clone();
             let tx = producer_tx.clone();
@@ -582,24 +635,22 @@ pub async fn run_load_profile(
             let think_time = think_time.clone();
 
             tokio::spawn(async move {
-                in_flight_c.fetch_add(1, Ordering::Relaxed);
-
-                let result = execute_with_retry(
+                let mut result = execute_with_retry(
                     &client, &scenario, timeout, retry_count, retry_delay_ms, &cancel,
                 )
                 .await;
 
+                validate_and_cap(&mut result, &scenario.validation, &scenario.assertions);
+
                 in_flight_c.fetch_sub(1, Ordering::Relaxed);
                 completed.fetch_add(1, Ordering::Relaxed);
 
-                let is_error = result.http_status == 0 || result.http_status >= 400;
+                let is_error = !result.passed.unwrap_or(true);
                 breaker.record(is_error);
 
                 let _ = tx.send(result);
 
-                // Think time AFTER request, before releasing permit (paces next launch)
                 apply_think_time(&think_time, &cancel).await;
-                drop(permit);
             });
         }
     });

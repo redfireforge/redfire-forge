@@ -3,6 +3,7 @@ import { Differ, Viewer } from 'json-diff-kit';
 import 'json-diff-kit/dist/viewer.css';
 import 'json-diff-kit/dist/viewer-monokai.css';
 import type { TestDefinitionVersion, TestDefinitionSnapshot } from '../../../shared/types';
+import { parseJsonOrRaw } from '../../../shared/utils/helpers';
 import { computeSnapshotDiff } from '../utils/testDefinitionVersioning';
 
 type DiffTab = 'overview' | 'headers' | 'body' | 'auth' | 'extractions';
@@ -221,8 +222,6 @@ function InlineDiff({ oldObj, newObj }: { oldObj: unknown; newObj: unknown }) {
   );
 }
 
-function tryParse(s: string): unknown {
-  try { return JSON.parse(s); } catch { return s; }
-}
+const tryParse = parseJsonOrRaw;
 
 import { formatTimestamp } from '../../../shared/utils/formatRelativeTime';

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import type { TestConfig, LoadProfileConfig } from '../shared/types';
-import type { MainToWorkerMessage, WorkerToMainMessage } from './workerProtocol';
+import { TestConfig, LoadProfileConfig } from '../shared/types';
+import { MainToWorkerMessage, WorkerToMainMessage } from './workerProtocol';
 import { makeScenario as _makeScenario, makeResult as _makeResult, makeConfig as _makeConfig } from '../test-utils/factories';
 
 vi.mock('../shared/utils/platform', () => ({
@@ -532,12 +532,16 @@ describe('workerBridge — runTestMultiWorker', () => {
 
       expect(onProgress).toHaveBeenCalled();
       const firstCall = onProgress.mock.calls[0];
-      expect(firstCall[1]).toBe(scenarios.length);
+      // After first worker reports total=5, aggregated total = 5 (other workers haven't reported yet)
+      expect(firstCall[1]).toBe(5);
 
       if (workerCount > 1) {
         allMockWorkers[1].simulateMessage({
           type: 'progress', completed: 3, total: 5, newResults: [makeResult('w1-r1')],
         });
+        // After both workers report total=5, aggregated total = 10
+        const secondWorkerCall = onProgress.mock.calls[onProgress.mock.calls.length - 1];
+        expect(secondWorkerCall[1]).toBe(10);
       }
 
       for (const w of allMockWorkers) {
@@ -723,6 +727,103 @@ describe('workerBridge — runTestMultiWorker', () => {
       const promise = runTestMultiWorker(config, scenarios, vi.fn());
 
       expect(allMockWorkers.length).toBeLessThanOrEqual(2);
+
+      for (const w of allMockWorkers) {
+        w.simulateMessage({ type: 'done', newResults: [] });
+      }
+      await promise;
+    });
+
+    it('divides maxConcurrency and spikeConcurrency across workers without overshoot', async () => {
+      const scenarios = makeScenarios(5);
+      const spikeProfile: LoadProfileConfig = {
+        type: 'spike',
+        durationSec: 60,
+        maxConcurrency: 20,
+        spikeConcurrency: 60,
+      };
+      const config = makeConfig({
+        executionMode: 'load-profile' as TestConfig['executionMode'],
+        loadProfile: spikeProfile,
+        concurrency: 8,
+      });
+      const promise = runTestMultiWorker(config, scenarios, vi.fn());
+
+      const wCount = allMockWorkers.length;
+      expect(wCount).toBeGreaterThan(1);
+
+      let totalMax = 0;
+      let totalSpike = 0;
+      for (const w of allMockWorkers) {
+        const startMsg = w.getStartMessage() as Extract<MainToWorkerMessage, { type: 'start' }>;
+        const lp = startMsg.config.loadProfile!;
+        expect(lp.maxConcurrency).toBeGreaterThanOrEqual(1);
+        totalMax += lp.maxConcurrency;
+        totalSpike += lp.spikeConcurrency!;
+      }
+      expect(totalMax).toBe(20);
+      expect(totalSpike).toBe(60);
+
+      for (const w of allMockWorkers) {
+        w.simulateMessage({ type: 'done', newResults: [] });
+      }
+      await promise;
+    });
+
+    it('divides pool concurrency across workers without overshoot', async () => {
+      const scenarios = makeScenarios(20);
+      const config = makeConfig({ concurrency: 10 });
+      const promise = runTestMultiWorker(config, scenarios, vi.fn());
+
+      const wCount = allMockWorkers.length;
+      expect(wCount).toBeGreaterThan(1);
+
+      let totalConcurrency = 0;
+      for (const w of allMockWorkers) {
+        const startMsg = w.getStartMessage() as Extract<MainToWorkerMessage, { type: 'start' }>;
+        expect(startMsg.config.concurrency).toBeGreaterThanOrEqual(1);
+        totalConcurrency += startMsg.config.concurrency ?? 0;
+      }
+      expect(totalConcurrency).toBe(10);
+
+      for (const w of allMockWorkers) {
+        w.simulateMessage({ type: 'done', newResults: [] });
+      }
+      await promise;
+    });
+  });
+
+  describe('load-profile meta aggregation', () => {
+    it('aggregates currentInFlight and targetConcurrency across workers', async () => {
+      const scenarios = makeScenarios(5);
+      const config = makeConfig({
+        executionMode: 'load-profile' as TestConfig['executionMode'],
+        loadProfile: { type: 'sustained', durationSec: 30, maxConcurrency: 10 },
+        concurrency: 4,
+      });
+      const onProgress = vi.fn();
+      const promise = runTestMultiWorker(config, scenarios, onProgress);
+
+      const wCount = allMockWorkers.length;
+      expect(wCount).toBeGreaterThan(1);
+
+      const meta0 = { elapsedMs: 1000, targetConcurrency: 5, currentInFlight: 3, durationMs: 30000 };
+      const meta1 = { elapsedMs: 1200, targetConcurrency: 5, currentInFlight: 4, durationMs: 30000 };
+      allMockWorkers[0].simulateMessage({
+        type: 'progress', completed: 10, total: -1, newResults: [makeResult('lp-0')], meta: meta0,
+      });
+      allMockWorkers[1].simulateMessage({
+        type: 'progress', completed: 8, total: -1, newResults: [makeResult('lp-1')], meta: meta1,
+      });
+
+      const lastCall = onProgress.mock.calls[onProgress.mock.calls.length - 1];
+      expect(lastCall[0]).toBe(18);
+      expect(lastCall[1]).toBe(-1);
+      const aggregatedMeta = lastCall[3];
+      expect(aggregatedMeta.currentInFlight).toBe(7);
+      expect(aggregatedMeta.targetConcurrency).toBe(10);
+      expect(aggregatedMeta.elapsedMs).toBe(1200);
+      expect(aggregatedMeta.durationMs).toBe(30000);
 
       for (const w of allMockWorkers) {
         w.simulateMessage({ type: 'done', newResults: [] });

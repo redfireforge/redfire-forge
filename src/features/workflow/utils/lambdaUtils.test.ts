@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { isLambda, applyLambda, registerEvalNode, type LambdaValue, type EvalContext } from './lambdaUtils';
-import type { ASTNode } from './expressionEvaluator';
+import { ASTNode } from './expressionEvaluator';
 
 function mockEvalNode(node: ASTNode, ctx: EvalContext): unknown {
   if (node.kind === 'literal') return node.value;

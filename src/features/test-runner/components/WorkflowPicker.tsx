@@ -11,6 +11,7 @@ import {
   type WorkflowRunConfig,
 } from '../utils/workflowRunConfigStorage';
 import { sampleWorkflowCatalog } from '../../../data/galleries/workflows';
+import { highlightSearchMatch } from '../../../shared/utils/consoleLogUtils';
 
 interface Props {
   workflows: Workflow[];
@@ -149,16 +150,7 @@ export default function WorkflowPicker({
   };
 
   const highlightMatch = (text: string, query: string) => {
-    if (!query) return text;
-    const idx = text.toLowerCase().indexOf(query.toLowerCase());
-    if (idx === -1) return text;
-    return (
-      <>
-        {text.slice(0, idx)}
-        <mark className="wfp-search-highlight">{text.slice(idx, idx + query.length)}</mark>
-        {text.slice(idx + query.length)}
-      </>
-    );
+    return highlightSearchMatch(text, query, 'wfp-search-highlight');
   };
 
   const handleRestoreConfig = (config: WorkflowRunConfig) => {
@@ -232,7 +224,7 @@ export default function WorkflowPicker({
     return (
       <div className="workflow-picker">
         <div className="workflow-picker-empty">
-          <span className="empty-icon">⚡</span>
+          <svg className="empty-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" width="32" height="32"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
           <p>No workflows available</p>
           <p className="empty-hint">Create a workflow in the Workflow Designer, or try a sample below.</p>
         </div>
@@ -263,14 +255,18 @@ export default function WorkflowPicker({
   return (
     <div className="workflow-picker">
       <div className="workflow-picker-header">
-        <label className="workflow-picker-label">Workflow</label>
+        <div className="workflow-picker-label-group">
+          <svg className="wfp-label-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+          <label className="workflow-picker-label">Workflow</label>
+        </div>
         {selectedWorkflow && (
           <button
             type="button"
-            className="btn btn-sm btn-link"
+            className="wfp-clear-btn"
             onClick={handleClearSelection}
             disabled={disabled}
           >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             Clear
           </button>
         )}
@@ -287,11 +283,14 @@ export default function WorkflowPicker({
           <span className="wfp-dropdown-text">
             {selectedWorkflow ? selectedWorkflow.name : 'Select a workflow…'}
           </span>
-          <span className="wfp-dropdown-arrow">{dropdownOpen ? '▲' : '▼'}</span>
+          <svg className="wfp-dropdown-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" width="14" height="14" style={{ transform: dropdownOpen ? 'rotate(180deg)' : undefined }}>
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
         </button>
         {dropdownOpen && (
           <div className="wfp-dropdown-panel">
             <div className="wfp-dropdown-search">
+              <svg className="wfp-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="13" height="13"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
               <input
                 ref={searchInputRef}
                 type="text"
@@ -306,7 +305,9 @@ export default function WorkflowPicker({
                   className="wfp-dropdown-search-clear"
                   onClick={() => setSearchQuery('')}
                   title="Clear search"
-                >×</button>
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" width="10" height="10"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
               )}
             </div>
 
@@ -319,11 +320,14 @@ export default function WorkflowPicker({
                     const parentFolder = folders.find((f) => f.id === navFolderId);
                     setNavFolderId(parentFolder?.parentId ?? null);
                   }}
-                >←</button>
+                  aria-label="Go back"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" width="12" height="12"><polyline points="15 18 9 12 15 6"/></svg>
+                </button>
                 <span className="wft-breadcrumb-root" onClick={() => setNavFolderId(null)}>All</span>
                 {navBreadcrumb.map((seg, i) => (
                   <span key={i}>
-                    <span className="wft-breadcrumb-sep">/</span>
+                    <svg className="wft-breadcrumb-sep-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="10" height="10"><polyline points="9 18 15 12 9 6"/></svg>
                     {i === navBreadcrumb.length - 1
                       ? <span className="wft-breadcrumb-current">{seg}</span>
                       : <span className="wft-breadcrumb-seg">{seg}</span>}
@@ -358,10 +362,10 @@ export default function WorkflowPicker({
                       className="wft-dropdown-folder"
                       onClick={() => setNavFolderId(child.folder.id)}
                     >
-                      <span className="wft-folder-icon">📁</span>
+                      <svg className="wft-folder-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" width="14" height="14"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
                       <span className="wft-folder-name">{child.folder.name}</span>
-                      <span className="wft-folder-count">({countNodeWorkflows(child)})</span>
-                      <span className="wft-folder-arrow">›</span>
+                      <span className="wft-folder-count">{countNodeWorkflows(child)}</span>
+                      <svg className="wft-folder-arrow-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12"><polyline points="9 18 15 12 9 6"/></svg>
                     </button>
                   ))}
                   {currentNavNode.workflows.map((wf) => (
@@ -387,10 +391,10 @@ export default function WorkflowPicker({
                       className="wft-dropdown-folder"
                       onClick={() => setNavFolderId(node.folder.id)}
                     >
-                      <span className="wft-folder-icon">📁</span>
+                      <svg className="wft-folder-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" width="14" height="14"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
                       <span className="wft-folder-name">{node.folder.name}</span>
-                      <span className="wft-folder-count">({countNodeWorkflows(node)})</span>
-                      <span className="wft-folder-arrow">›</span>
+                      <span className="wft-folder-count">{countNodeWorkflows(node)}</span>
+                      <svg className="wft-folder-arrow-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12"><polyline points="9 18 15 12 9 6"/></svg>
                     </button>
                   ))}
                   {unfiledWfs.map((wf) => (
@@ -424,36 +428,42 @@ export default function WorkflowPicker({
 
           <div className="workflow-vars-section">
             <div className="workflow-vars-header">
-              <span className="var-panel-title">Initial Variables</span>
+              <span className="var-panel-title">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="13" height="13"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+                Initial Variables
+              </span>
               <div className="workflow-vars-actions">
                 {hasChanges && (
                   <button
                     type="button"
-                    className="btn btn-sm btn-link"
+                    className="wfp-action-btn"
                     onClick={handleResetToDefaults}
                     disabled={disabled}
                     title="Reset to workflow defaults"
                   >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg>
                     Reset
                   </button>
                 )}
                 <button
                   type="button"
-                  className="btn btn-sm"
+                  className="wfp-action-btn"
                   onClick={() => { setSavingPreset(true); setHistoryOpen(true); }}
                   disabled={disabled}
                   title="Save the current variable values as a named preset"
                 >
-                  💾 Save preset
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                  Save
                 </button>
                 <button
                   type="button"
-                  className={`btn btn-sm ${historyOpen ? 'btn-primary' : ''}`}
+                  className={`wfp-action-btn ${historyOpen ? 'active' : ''}`}
                   onClick={() => { setHistoryOpen(!historyOpen); setSavingPreset(false); }}
                   disabled={disabled}
                   title="View and restore saved variable presets"
                 >
-                  📋 Presets {history.length > 0 && `(${history.length})`}
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="8" y1="9" x2="16" y2="9"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="12" y2="17"/></svg>
+                  Presets{history.length > 0 ? ` (${history.length})` : ''}
                 </button>
               </div>
             </div>
@@ -534,23 +544,25 @@ export default function WorkflowPicker({
                                 onClick={() => handleRestoreConfig(config)}
                                 title="Restore these variable values"
                               >
-                                ↩ Restore
+                                Restore
                               </button>
                               <button
                                 type="button"
                                 className="btn btn-sm btn-link"
                                 onClick={() => handleStartEditLabel(config)}
                                 title="Rename this entry"
+                                aria-label="Rename"
                               >
-                                ✏️
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                               </button>
                               <button
                                 type="button"
                                 className="btn btn-sm btn-link btn-danger"
                                 onClick={() => handleDeleteConfig(config.id)}
                                 title="Delete"
+                                aria-label="Delete"
                               >
-                                🗑️
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
                               </button>
                             </div>
                           </>
@@ -562,24 +574,24 @@ export default function WorkflowPicker({
               </div>
             )}
 
-            <p className="extraction-hint" style={{ marginBottom: 6 }}>
+            <p className="wfp-vars-hint">
               Variables available to all steps via <code>{'{{name}}'}</code>.
-              {hasChanges && <span className="vars-modified-badge"> (modified)</span>}
+              {hasChanges && <span className="vars-modified-badge">Modified</span>}
             </p>
 
             {variableEntries.length > 0 ? (
-              <div className="wf-vars-list">
+              <div className="wfp-vars-grid">
                 {variableEntries.map(([key, value]) => (
-                  <div key={key} className="wf-var-row">
-                    <span className="extraction-brace">{'{{'}</span>
-                    <span className="wf-var-key">{key}</span>
-                    <span className="extraction-brace">{'}}'}</span>
-                    <span className="var-chip-eq">=</span>
+                  <div key={key} className="wfp-var-row">
+                    <label className="wfp-var-label">
+                      <code>{key}</code>
+                    </label>
                     <input
-                      className="wf-var-value-input"
+                      className="wfp-var-input"
                       value={value}
                       onChange={(e) => onVariablesChange({ ...variables, [key]: e.target.value })}
                       disabled={disabled}
+                      placeholder="Enter value…"
                     />
                   </div>
                 ))}
@@ -594,11 +606,11 @@ export default function WorkflowPicker({
       {!selectedWorkflow && (
         <>
           <p className="workflow-picker-hint">
-            Select a workflow above to run it as a performance test with full graph topology (conditions, forks, joins, loops).
+            Select a workflow to run it as a load test with full graph topology — conditions, forks, joins, and loops.
           </p>
           {perfSamples.length > 0 && (
             <div className="workflow-picker-samples compact">
-              <span className="samples-label">Quick Start — Performance Samples</span>
+              <span className="samples-label">Quick Start Samples</span>
               <div className="samples-inline">
                 {perfSamples.map(sample => {
                   const imported = alreadyImportedIds.has(sample.id);
@@ -610,7 +622,7 @@ export default function WorkflowPicker({
                       disabled={disabled}
                       title={imported ? `Update & select "${sample.name}"` : sample.description}
                     >
-                      {sample.icon} {sample.name}
+                      {sample.name}
                     </button>
                   );
                 })}

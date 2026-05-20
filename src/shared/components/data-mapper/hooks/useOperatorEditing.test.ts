@@ -2,7 +2,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useOperatorEditing } from './useOperatorEditing';
-import type { Mapping, FieldOperator } from '../types';
+import { Mapping, FieldOperator } from '../types';
 
 function makeMapping(overrides: Partial<Mapping> = {}): Mapping {
   return {

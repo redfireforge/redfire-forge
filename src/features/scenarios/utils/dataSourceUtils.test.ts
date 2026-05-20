@@ -1,26 +1,13 @@
 import { describe, it, expect, vi } from 'vitest';
 import { autoDetectColumns, createEmptyDataSource, createDataSourceWithTemplatizedUrl, createEmptyRow, createEmptyColumn, buildUrlTemplate, syncUrlFromTemplate } from './dataSourceUtils';
 import type { Scenario } from '../../../shared/types';
+import { makeScenario } from '../../../test-utils/factories';
 import * as dataSourceContract from './dataSourceContract';
 
 vi.mock('uuid', () => {
   let counter = 0;
   return { v4: () => `test-uuid-${counter++}` };
 });
-
-function makeScenario(overrides: Partial<Scenario> = {}): Scenario {
-  return {
-    id: 's1',
-    name: 'Test',
-    url: 'https://api.example.com/vehicles',
-    method: 'GET',
-    headers: [],
-    body: '',
-    auth: { type: 'none' },
-    validation: { mode: 'none' },
-    ...overrides,
-  };
-}
 
 describe('autoDetectColumns', () => {
   it('returns empty array for simple URL without params or variables', () => {

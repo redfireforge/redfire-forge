@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { Scenario } from '../../../shared/types';
+import { Scenario } from '../../../shared/types';
 
 vi.mock('../../../shared/utils/httpClient', () => ({
   httpFetch: vi.fn(),
@@ -45,6 +45,7 @@ describe('fetchScenarioSample', () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.body).toContain('"key": "value"');
+      expect(result.rawBody).toBe('{"key":"value"}');
       expect(result.httpStatus).toBe(200);
     }
   });
@@ -106,6 +107,8 @@ describe('fetchScenarioSample', () => {
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.error).toContain('HTTP 404');
+      expect(result.body).toBe('Not found');
+      expect(result.rawBody).toBe('Not found');
     }
   });
 

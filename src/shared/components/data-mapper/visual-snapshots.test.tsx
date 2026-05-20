@@ -8,11 +8,11 @@ import DriftBanner from './DriftBanner';
 import MapperToolbar from './MapperToolbar';
 import MappingCompare from './MappingCompare';
 import DataMapper from './DataMapper';
-import type { JsonTreeNode } from '../../utils/jsonTreeModel';
-import type { Mapping } from './types';
-import type { MapperAdapter } from './types';
-import type { ClassifiedDrift } from './utils/schemaDrift';
-import type { MappingTrace } from './utils/mappingTrace';
+import { JsonTreeNode } from '../../utils/jsonTreeModel';
+import { Mapping } from './types';
+import { MapperAdapter } from './types';
+import { ClassifiedDrift } from './utils/schemaDrift';
+import { MappingTrace } from './utils/mappingTrace';
 import LocationGroupPanel from './LocationGroupPanel';
 
 const strLeaf: JsonTreeNode = { key: 'name', path: 'name', type: 'string', value: 'Alice', children: [] };

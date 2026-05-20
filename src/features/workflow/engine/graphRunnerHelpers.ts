@@ -166,6 +166,7 @@ export async function executeHttpNode(
   resolveHttpBaseUrl?: (data: HttpNodeData) => string | undefined,
   resolveHttpAuth?: (data: HttpNodeData) => Scenario['auth'] | undefined,
   timeoutMs?: number,
+  abortSignal?: AbortSignal,
 ): Promise<{ requestResult: RequestResult; extracted: Record<string, string>; fullResponseBody: string; requestHeaders: Record<string, string>; requestBody: string; responseHeaders: Record<string, string> }> {
   const wfVars = coerceStringMap(workflowDefaults);
   const perStepVars = coerceStringMap(data.initialVariables);
@@ -212,7 +213,7 @@ export async function executeHttpNode(
   let errorMessage: string | undefined;
 
   try {
-    const result = await withTimeout(httpFetch(url, resolvedAbs.method, headers, reqBody), timeoutMs ?? 0);
+    const result = await withTimeout(httpFetch(url, resolvedAbs.method, headers, reqBody, abortSignal), timeoutMs ?? 0);
     if (result.error) {
       errorMessage = result.error;
     } else {

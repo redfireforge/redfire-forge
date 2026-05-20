@@ -11,6 +11,7 @@ import {
   waitWithAbort,
   getMockPayload,
 } from './correlationWaitHelpers';
+import { toErrorMessage } from '../../../shared/utils/helpers';
 
 export async function handleCorrelationWaitNode(
   nodeId: string,
@@ -105,7 +106,7 @@ export async function handleCorrelationWaitNode(
         hCtx.callbacks.onNodeStateChange(nodeId, { state: 'fail', error: 'Aborted' });
       } else {
         passed.value = false;
-        const msg = err instanceof Error ? err.message : String(err);
+        const msg = toErrorMessage(err);
         hCtx.log({ prefix: '!', text: `[${label}] Synthetic inject failed: ${msg}` });
         hCtx.callbacks.onNodeStateChange(nodeId, { state: 'fail', error: msg });
       }
@@ -152,7 +153,7 @@ export async function handleCorrelationWaitNode(
       return;
     }
     passed.value = false;
-    const msg = err instanceof Error ? err.message : String(err);
+    const msg = toErrorMessage(err);
     hCtx.log({ prefix: '!', text: `[${label}] ${msg}` });
     hCtx.callbacks.onNodeStateChange(nodeId, { state: 'fail', error: msg });
   }

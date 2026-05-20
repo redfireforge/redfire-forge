@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { COLUMN_TYPES, mergeRowDetailSave, formatErrorBody } from './dataSourceEditorUtils';
-import type { DataSource } from '../../../shared/types';
+import { DataSource } from '../../../shared/types';
 
 describe('COLUMN_TYPES', () => {
   it('has 5 column types', () => {
