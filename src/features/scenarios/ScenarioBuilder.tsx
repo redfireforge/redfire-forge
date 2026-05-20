@@ -1,25 +1,20 @@
 import { useState, useCallback, useRef, useMemo, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import type { Scenario, TestScenario, FeatureGroup, Microservice, AuthType, GlobalAuthProfile, SharedDataSource, DataSource, KeyValue, AuthConfig } from '../../shared/types';
-import MoveModal, { type MoveType, type MoveTarget } from './components/MoveModal';
-import CsvImportModal from './components/CsvImportModal';
+import type { MoveType, MoveTarget } from './components/MoveModal';
 import { useAuthVerify } from '../requests/hooks/useAuthVerify';
 import { useScenarioBuilderSearch } from './hooks/useScenarioBuilderSearch';
-import TestEditorModal from './components/TestEditorModal';
 import AuthConfigPanel from '../requests/components/AuthConfigPanel';
-import CopyTestModal from './components/CopyTestModal';
 import { useScenarioExportImport } from './hooks/useScenarioExportImport';
 import { useScenarioDragDrop } from './hooks/useScenarioDragDrop';
 import { useScenarioMutations } from './hooks/useScenarioMutations';
-import ConfirmModal from '../../shared/components/ConfirmModal';
+import { useTrash } from './hooks/useTrash';
+import ScenarioBuilderModals from './components/ScenarioBuilderModals';
 import { buildScenarioInheritHint, resolveScenarioInheritedAuth } from './utils/scenarioAuth';
 import ExportOptionsPopover from './components/ExportOptionsPopover';
-import ImportVersionModal from './components/ImportVersionModal';
 import type { VersionExportOptions } from './utils/scenarioImportExport';
 import { deleteLogEntry, clearLog } from './utils/structureChangeLog';
 import StructureChangeLogPanel from './components/StructureChangeLogPanel';
-import SharedDataSourceModal from './components/SharedDataSourceModal';
-import FromSharedDsPickerModal from './components/FromSharedDsPickerModal';
 import { SCENARIO_AUTH_TYPE_OPTIONS, buildFeatureAuthTypeOptions, resolveEffectiveAuth } from './utils/scenarioBuilderUtils';
 
 interface Props {
@@ -60,9 +55,18 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, share
   const { authVerifying, authVerifyResult, setAuthVerifyResult, verifyAuth } = useAuthVerify();
   const [showSecret, setShowSecret] = useState(false);
 
+  const trash = useTrash({
+    featureGroups, setFeatureGroups,
+    sharedDataSources: sharedDataSources ?? [],
+    setSharedDataSources: setSharedDataSources ?? (() => {}),
+    environments: environments ?? [],
+    microservices: microservices ?? [],
+  });
+
   const mutations = useScenarioMutations({
     featureGroups, setFeatureGroups, unassociatedFeatureGroups, selectedSvcId, selectedEnvId,
     clearAuthVerifyResult: () => setAuthVerifyResult(null),
+    moveToTrash: trash.moveToTrash,
   });
   const {
     expandedFeatures, expandedScenarios,
@@ -103,6 +107,7 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, share
   }, [pendingEditTest]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [showStructureLog, setShowStructureLog] = useState<string | null>(null);
+  const [showTrashPanel, setShowTrashPanel] = useState(false);
   const [showSharedDsModal, setShowSharedDsModal] = useState(false);
   const [sharedDsModalSelectedId, setSharedDsModalSelectedId] = useState<string | undefined>(undefined);
   const [showFromSharedDsPicker, setShowFromSharedDsPicker] = useState<{ fgId: string; scId: string } | null>(null);
@@ -297,6 +302,10 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, share
             {exportPopover?.id === '__all__' && <ExportOptionsPopover data={exportPopover.data} onExport={exportPopover.exportFn} onClose={() => setExportPopover(null)} />}
           </span>
           <button className="btn" onClick={() => setCsvImportOpen(true)} disabled={!selectedSvcId || !selectedEnvId || featureGroups.length === 0}>Import Template</button>
+          <button className="btn" onClick={() => setShowTrashPanel(true)} style={{ borderColor: 'var(--text-muted)', color: 'var(--text-muted)' }}>
+            Trash
+            {trash.trashCount > 0 && <span className="count-badge">{trash.trashCount}</span>}
+          </button>
           <button className="btn" onClick={() => setShowSharedDsModal(true)} disabled={!selectedSvcId || !selectedEnvId} style={{ borderColor: 'var(--accent)', color: 'var(--accent)' }}>
             📦 Shared Data Sources
             {sharedDataSources && sharedDataSources.length > 0 && <span className="count-badge" style={{ background: 'var(--accent)' }}>{sharedDataSources.length}</span>}
@@ -753,123 +762,59 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, share
         </div>
       )}
 
-      {copyingTest && (
-        <CopyTestModal
-          test={copyingTest.test}
-          sourceFeatureId={copyingTest.sourceFeatureId}
-          sourceScenarioId={copyingTest.sourceScenarioId}
-          featureGroups={featureGroups}
-          sourceScenarioKind={
-            featureGroups.find(fg => fg.id === copyingTest.sourceFeatureId)
-              ?.scenarios.find(sc => sc.id === copyingTest.sourceScenarioId)?.kind
-          }
-          onConfirm={confirmCopyTest}
-          onClose={() => setCopyingTest(null)}
-        />
-      )}
-
-      {editingTest && (
-        <TestEditorModal
-          key={`${editingTest.featureId}-${editingTest.scenarioId}-${editingTest.testId}-${draft.id}`}
-          draft={draft}
-          onDraftChange={(d) => setDraft(d)}
-          onSave={saveTest}
-          onCancel={() => setEditingTest(null)}
-          isNew={editingTest.testId === 'new'}
-          isParameterized={editingTest.parameterized ?? false}
-          scenarioKind={featureGroups.find(f => f.id === editingTest.featureId)?.scenarios.find(s => s.id === editingTest.scenarioId)?.kind}
-          inputMode={inputMode}
-          onInputModeChange={setInputMode}
-          activeTab={activeTab}
-          onActiveTabChange={setActiveTab}
-          resolvedBaseUrl={resolvedBaseUrl ?? ''}
-          allAuthProfiles={allAuthProfiles}
-          featureGroups={featureGroups}
-          editingTest={{ fgId: editingTest.featureId, scenarioId: editingTest.scenarioId, testId: editingTest.testId }}
-          onExportTest={(t, opts) => exportTest(t, opts)}
-          onVersionRestore={handleVersionRestore}
-          onVersionDelete={handleVersionDelete}
-          onVersionRename={handleVersionRename}
-          onCreateParameterizedCopy={handleCreateParameterizedCopy}
-          sharedDataSources={sharedDataSources}
-          onPromoteToShared={handlePromoteToShared}
-          onOpenSharedDsModal={() => { 
-            const linkedId = draft.sharedDataSourceId;
-            setEditingTest(null); 
-            setSharedDsModalSelectedId(linkedId ?? undefined);
-            setShowSharedDsModal(true); 
-          }}
-        />
-      )}
-
-      {moveDialog && (
-        <MoveModal
-          type={moveDialog.type}
-          itemName={moveDialog.itemName}
-          featureGroups={featureGroups}
-          currentFgId={moveDialog.fgId}
-          currentScenarioId={moveDialog.scenarioId}
-          sourceScenarioKind={
-            moveDialog.type === 'test' && moveDialog.scenarioId
-              ? featureGroups.find(fg => fg.id === moveDialog.fgId)?.scenarios.find(sc => sc.id === moveDialog.scenarioId)?.kind
-              : undefined
-          }
-          onMove={handleMoveConfirm}
-          onClose={() => setMoveDialog(null)}
-        />
-      )}
-
-      {csvImportOpen && (
-        <CsvImportModal
-          featureGroups={featureGroups}
-          onImport={handleCsvImport}
-          onClose={() => setCsvImportOpen(false)}
-        />
-      )}
-      {confirmDialog && (
-        <ConfirmModal
-          title={confirmDialog.title}
-          message={confirmDialog.message}
-          variant="danger"
-          confirmLabel="Delete"
-          onConfirm={confirmDialog.onConfirm}
-          onCancel={() => setConfirmDialog(null)}
-        />
-      )}
-      {pendingImport && (
-        <ImportVersionModal
-          data={pendingImport.data}
-          onConfirm={pendingImport.finalize}
-          onCancel={cancelPendingImport}
-        />
-      )}
-      {showSharedDsModal && sharedDataSources && setSharedDataSources && (
-        <SharedDataSourceModal
-          sharedDataSources={sharedDataSources}
-          onUpdate={setSharedDataSources}
-          featureGroups={featureGroups}
-          globalAuthProfiles={globalAuthProfiles}
-          initialSelectedId={sharedDsModalSelectedId}
-          currentEditingDraft={currentEditingDraft}
-          onCreateTestFromSharedDs={handleCreateTestFromSharedDs}
-          onClose={() => { setShowSharedDsModal(false); setSharedDsModalSelectedId(undefined); }}
-        />
-      )}
-
-      {showFromSharedDsPicker && sharedDataSources && sharedDataSources.length > 0 && (
-        <FromSharedDsPickerModal
-          sharedDataSources={sharedDataSources}
-          onConfirm={(sharedDs, testName) => {
-            handleCreateTestFromSharedDs(
-              sharedDs,
-              showFromSharedDsPicker.fgId,
-              showFromSharedDsPicker.scId,
-              testName
-            );
-          }}
-          onClose={() => setShowFromSharedDsPicker(null)}
-        />
-      )}
+      <ScenarioBuilderModals
+        featureGroups={featureGroups}
+        globalAuthProfiles={globalAuthProfiles}
+        sharedDataSources={sharedDataSources}
+        setSharedDataSources={setSharedDataSources}
+        copyingTest={copyingTest}
+        setCopyingTest={setCopyingTest}
+        confirmCopyTest={confirmCopyTest}
+        editingTest={editingTest}
+        setEditingTest={setEditingTest}
+        draft={draft}
+        setDraft={setDraft}
+        saveTest={saveTest}
+        inputMode={inputMode}
+        setInputMode={setInputMode}
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        resolvedBaseUrl={resolvedBaseUrl ?? ''}
+        allAuthProfiles={allAuthProfiles}
+        exportTest={exportTest}
+        handleVersionRestore={handleVersionRestore}
+        handleVersionDelete={handleVersionDelete}
+        handleVersionRename={handleVersionRename}
+        handleCreateParameterizedCopy={handleCreateParameterizedCopy}
+        handlePromoteToShared={handlePromoteToShared}
+        onOpenSharedDsModal={() => {
+          const linkedId = draft.sharedDataSourceId;
+          setEditingTest(null);
+          setSharedDsModalSelectedId(linkedId ?? undefined);
+          setShowSharedDsModal(true);
+        }}
+        moveDialog={moveDialog}
+        setMoveDialog={setMoveDialog}
+        handleMoveConfirm={handleMoveConfirm}
+        csvImportOpen={csvImportOpen}
+        setCsvImportOpen={setCsvImportOpen}
+        handleCsvImport={handleCsvImport}
+        confirmDialog={confirmDialog}
+        setConfirmDialog={setConfirmDialog}
+        pendingImport={pendingImport}
+        cancelPendingImport={cancelPendingImport}
+        showSharedDsModal={showSharedDsModal}
+        setShowSharedDsModal={setShowSharedDsModal}
+        sharedDsModalSelectedId={sharedDsModalSelectedId}
+        setSharedDsModalSelectedId={setSharedDsModalSelectedId}
+        currentEditingDraft={currentEditingDraft}
+        handleCreateTestFromSharedDs={handleCreateTestFromSharedDs}
+        showFromSharedDsPicker={showFromSharedDsPicker}
+        setShowFromSharedDsPicker={setShowFromSharedDsPicker}
+        showTrashPanel={showTrashPanel}
+        setShowTrashPanel={setShowTrashPanel}
+        trash={trash}
+      />
     </div>
   );
 }
