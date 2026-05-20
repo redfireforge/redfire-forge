@@ -4,8 +4,8 @@
 import { describe, it, expect, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useDataMapperValidation } from './useDataMapperValidation';
-import type { DataMapperValidationDeps } from './useDataMapperValidation';
-import type { Mapping } from '../types';
+import { DataMapperValidationDeps } from './useDataMapperValidation';
+import { Mapping } from '../types';
 
 function makeDeps(overrides: Partial<DataMapperValidationDeps> = {}): DataMapperValidationDeps {
   return {

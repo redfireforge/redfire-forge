@@ -1,21 +1,17 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import type { Scenario, ScenarioWeight, LoadProfileConfig } from '../shared/types';
+import { ScenarioWeight, LoadProfileConfig } from '../shared/types';
 import { runLoadProfile } from './loadProfileRunner';
 import { TokenManager } from './tokenManager';
 import { CircuitBreaker } from './circuitBreaker';
-import type { RunOpts } from './requestExecution';
+import { clearPrepCache, type RunOpts } from './requestExecution';
+import { makeScenario as _makeScenario } from '../test-utils/factories';
 
 vi.mock('../shared/utils/httpClient', () => ({
   httpFetch: vi.fn().mockResolvedValue({ status: 200, statusText: 'OK', headers: {}, body: '{"ok":true}' }),
 }));
 
-function makeScenario(id: string): Scenario {
-  return {
-    id, name: `Scenario_${id}`, url: 'https://api.example.com',
-    method: 'GET', headers: [], body: '', auth: { type: 'none' },
-    validation: { mode: 'none' },
-  };
-}
+const makeScenario = (id: string) =>
+  _makeScenario({ id, name: `Scenario_${id}` });
 
 function makeOpts(overrides: Partial<RunOpts> = {}): RunOpts {
   return {
@@ -34,6 +30,7 @@ describe('runLoadProfile', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.useRealTimers();
+    clearPrepCache();
   });
 
   afterEach(() => {
@@ -104,27 +101,24 @@ describe('runLoadProfile', () => {
   });
 
   it('records breaker and failure when token acquisition rejects', async () => {
-    const breaker = new CircuitBreaker('continue');
-    const controller = new AbortController();
+    const breaker = new CircuitBreaker('stop-first');
     const tokenManager = {
       getToken: vi.fn().mockRejectedValue(new Error('token unavailable')),
     } as unknown as TokenManager;
-    const onProgress = vi.fn(() => {
-      controller.abort();
-    });
+    const onProgress = vi.fn();
     const profile: LoadProfileConfig = { type: 'sustained', durationSec: 60, maxConcurrency: 1 };
-    const scenarios = [makeScenario('s1')];
+    const scenarios = [{ ...makeScenario('s1'), auth: { type: 'oauth2' as const } }];
     const weights: ScenarioWeight[] = [{ scenarioId: 's1', weight: 1 }];
     const results = await runLoadProfile(profile, scenarios, weights, makeOpts({
       tokenManager,
       breaker,
-      abortSignal: controller.signal,
       onProgress,
     }));
-    expect(results).toHaveLength(1);
+    expect(results.length).toBeGreaterThanOrEqual(1);
     expect(results[0].passed).toBe(false);
     expect(results[0].errorMessage).toBe('token unavailable');
     expect(results[0].failureDetails[0].path).toBe('(error)');
+    expect(breaker.shouldStop).toBe(true);
   });
 
   it('finishes in-flight work after duration elapses on ticker while requests are pending', async () => {

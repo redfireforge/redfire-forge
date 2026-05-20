@@ -8,7 +8,23 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
 
 ## [Unreleased]
 
+## [0.5.9] — 2026-05-20
+
+### Changed
+- **WorkflowExecutionCanvas Refactored** — Extracted `ReplayCanvasControls` (zoom/fit/save/minimap toolbar), `ReplayCanvasOverlays` (`EdgePercentageOverlay` + `SwimLaneOverlay`), `heatmapColor` utility, and `replayLayoutStorage` (per-workflow node-position persistence) into focused modules. Reduced `WorkflowExecutionCanvas.tsx` from 891 → 634 lines.
+- **App.tsx Refactored** — Extracted `AppHeader`, `AppActivityBar`, `AppSubNav` into `src/app/components/`, reducing `App.tsx` from 910 → 779 lines (below 900-line monolithic threshold).
+- **Shared Test Mocks Consolidated** — Replaced ~450 lines of duplicated `MockResizeObserver` class + inline `vi.mock('@xyflow/react', …)` boilerplate across 15 `WorkflowResultsExplorerModal.*.test.tsx` files with two reusable test utilities: `src/test-utils/domMocks.ts → stubResizeObserver()` and `src/test-utils/reactFlowMock.tsx → buildReactFlowMock()`. Centralized `installClipboardMock()` / `installEmptyClipboard()` and `stubScrollIntoView()` consumed by 8+ additional test files. Extracted Monaco/snippet harness for ExpressionEditorModal tests (`__test-utils__/expressionEditorHarness.tsx`) and Validation Code Editor helpers (`__test-utils__/validationCodeEditorHelpers.ts`).
+- **Storage Migrations Extracted** — Moved `migrateToFlat` and `migratePerFgSharedDataSourcesToTopLevel` from `src/shared/utils/storage.ts` into `src/shared/utils/storageMigration.ts`, keeping the public API stable via re-exports and bringing `storage.ts` back under the 900-line monolithic threshold.
+
+### Fixed
+- **useTestExecution tests** — Fixed 41 test failures caused by missing `vi.mock` for `rustBridge` module and incorrect `TestConfig` field names (`concurrentUsers` → `concurrency`, missing `scenarioWeights`).
+- **webhook-server tests** — Fixed 2 timeout failures by adding `{ timeout: 30_000 }` to the describe block.
+- **ESLint errors** — Fixed 5 unused-import lint errors across `rustBridge.test.ts`, `rustBridgeIntegration.test.ts`, `useTestExecution.test.ts`, `loadProfileRunnerInteg.test.ts`, `workerBridge.test.ts`.
+
 ### Added
+- **Shared Test Factories** — Created `src/test-utils/factories.ts` with `makeScenario()`, `makeResult()`, `makeConfig()` to eliminate duplicated factory functions across 30+ test files. Updated 6 test files to use shared module.
+- **rustBridge.ts Coverage Improvements** — Added 10 new integration tests covering `startRustLoadTest` fallback paths, `runTestViaRust` error handlers, and `mapRustResultWithoutValidation` edge cases (coverage improved: functions 85% → 92%, branches 87% → 91%).
+
 - **Additional Environment Visual Indicator**
   - Amber/orange color scheme (dashed border, `+` badge) across all pages when an additional (microservice-specific) environment is selected.
   - Sidebar: "Additional Environments" section divider, tag labels, and selected-item outline use consistent amber theme.

@@ -52,6 +52,8 @@ import NodeConfigOutputTab from '../configs/NodeConfigOutputTab';
 import NodeConfigLogsTab from '../configs/NodeConfigLogsTab';
 import WorkflowEditorModalFrame from './WorkflowEditorModalFrame';
 import type { ExtractionFetchSampleProps } from '../../../requests/components/ExtractionEditor';
+import { useWorkflowValidationFetch } from '../../hooks/useWorkflowValidationFetch';
+import type { Scenario } from '../../../../shared/types';
 
 type ConfigPanelTab = 'config' | 'input' | 'output' | 'logs';
 
@@ -171,6 +173,23 @@ export default function WorkflowNodeConfigModal({
     });
   }, [variableInsertHints]);
 
+  // ── Validation fetch hook for HTTP nodes ──
+  const httpDraftScenario = isHttpWorkflowNode(draftNode) ? (draftNode.data as HttpNodeData).scenario : null;
+  const placeholderScenario = useRef<Scenario>({ id: '', name: '', url: '', method: 'GET', headers: [], body: '', auth: { type: 'none' }, validation: { mode: 'none' } });
+  const validationDraftRef = useRef<Scenario>(httpDraftScenario ?? placeholderScenario.current);
+  validationDraftRef.current = httpDraftScenario ?? placeholderScenario.current;
+  const handleValidationDraftChange = useCallback((scenarioDraft: Scenario) => {
+    updateDraft({ scenario: scenarioDraft } as Partial<WorkflowNodeData>);
+  }, [updateDraft]);
+
+  const validationFetch = useWorkflowValidationFetch({
+    draftRef: validationDraftRef,
+    onDraftChange: handleValidationDraftChange,
+    liveVariables: workflowVariables,
+    resolvedBaseUrl: draftEffectiveBaseUrl,
+    resetKey: node.id,
+  });
+
   const title = `${node.type.toUpperCase()} — ${(draft as HttpNodeData).label || 'Step Config'}`;
 
   return (
@@ -224,6 +243,25 @@ export default function WorkflowNodeConfigModal({
                 variableHints={draftVariableHints}
                 onRequestVariableInsert={requestVariableInsert}
                 workflowServices={workflowServices}
+                validationProps={{
+                  resolvedBaseUrl: draftEffectiveBaseUrl,
+                  fetchingResponse: validationFetch.fetchingResponse,
+                  fetchError: validationFetch.fetchError,
+                  fetchHostOverride: validationFetch.fetchHostOverride,
+                  setFetchHostOverride: validationFetch.setFetchHostOverride,
+                  fetchHostEnabled: validationFetch.fetchHostEnabled,
+                  setFetchHostEnabled: validationFetch.setFetchHostEnabled,
+                  onFetchSampleResponse: validationFetch.handleFetchSampleResponse,
+                  fetchSampleDataForMapper: validationFetch.fetchSampleDataForMapper,
+                  validating: validationFetch.validating,
+                  validationResult: validationFetch.validationResult,
+                  setValidationResult: validationFetch.setValidationResult,
+                  onValidateResponse: validationFetch.handleValidateResponse,
+                  pendingFetchResponse: validationFetch.pendingFetchResponse,
+                  onFetchKeepRules: validationFetch.handleFetchKeepRules,
+                  onFetchReplaceAll: validationFetch.handleFetchReplaceAll,
+                  onFetchCancel: validationFetch.handleFetchCancel,
+                }}
               />
             )}
 

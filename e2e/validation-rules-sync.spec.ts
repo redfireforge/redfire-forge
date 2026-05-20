@@ -152,17 +152,16 @@ test.describe('Validation Rules ↔ Data Mapper bidirectional sync', () => {
       state: 'attached',
       timeout: 30000,
     });
-    await page.waitForTimeout(1000);
-
-    // Read the Monaco editor value
-    const dslText = await getMonacoEditorValue(page);
-    console.log(`DSL text after opening Rules: "${dslText}"`);
 
     await page.screenshot({ path: 'test-results/sync-04-rules-content.png', fullPage: true });
 
-    // The DSL should contain the array length assertion
-    expect(dslText).toContain('offers');
-    expect(dslText).toContain('length');
+    // Poll the Monaco editor value — sync from visual editor to DSL is async
+    await expect
+      .poll(async () => await getMonacoEditorValue(page), { timeout: 5000 })
+      .toContain('offers');
+    await expect
+      .poll(async () => await getMonacoEditorValue(page), { timeout: 5000 })
+      .toContain('length');
   });
 
   test('array assertions added while Rules panel is ALREADY open appear in editor', async ({ page }) => {
@@ -185,15 +184,16 @@ test.describe('Validation Rules ↔ Data Mapper bidirectional sync', () => {
 
     // Now add array assertion via context menu while Rules panel is open
     await addArrayAssertionViaContextMenu(mapper, page, 'offers', 'Check array size');
-    await page.waitForTimeout(1000);
 
     await page.screenshot({ path: 'test-results/sync-06-after-add-while-rules-open.png', fullPage: true });
 
-    const dslAfter = await getMonacoEditorValue(page);
-    console.log(`DSL after adding length assertion: "${dslAfter}"`);
-
-    expect(dslAfter).toContain('offers');
-    expect(dslAfter).toContain('length');
+    // Poll the DSL — sync is async after the context-menu add
+    await expect
+      .poll(async () => await getMonacoEditorValue(page), { timeout: 5000 })
+      .toContain('offers');
+    await expect
+      .poll(async () => await getMonacoEditorValue(page), { timeout: 5000 })
+      .toContain('length');
   });
 
   test('multiple array assertions (length + contains) sync to Rules panel', async ({ page }) => {
@@ -222,16 +222,19 @@ test.describe('Validation Rules ↔ Data Mapper bidirectional sync', () => {
       state: 'attached',
       timeout: 30000,
     });
-    await page.waitForTimeout(1000);
-
-    const dslText = await getMonacoEditorValue(page);
-    console.log(`DSL text with multiple assertions: "${dslText}"`);
 
     await page.screenshot({ path: 'test-results/sync-08-rules-with-multiple.png', fullPage: true });
 
-    expect(dslText).toContain('offers');
-    expect(dslText).toContain('length');
-    expect(dslText).toContain('contains');
+    // Poll the DSL until both assertion tokens appear
+    await expect
+      .poll(async () => await getMonacoEditorValue(page), { timeout: 5000 })
+      .toContain('offers');
+    await expect
+      .poll(async () => await getMonacoEditorValue(page), { timeout: 5000 })
+      .toContain('length');
+    await expect
+      .poll(async () => await getMonacoEditorValue(page), { timeout: 5000 })
+      .toContain('contains');
   });
 
   test('closing Rules panel with Save preserves assertions, Cancel reverts edits', async ({ page }) => {
@@ -248,11 +251,11 @@ test.describe('Validation Rules ↔ Data Mapper bidirectional sync', () => {
       state: 'attached',
       timeout: 30000,
     });
-    await page.waitForTimeout(1000);
 
-    const dslBefore = await getMonacoEditorValue(page);
-    console.log(`DSL before Save: "${dslBefore}"`);
-    expect(dslBefore).toContain('offers');
+    // Poll the DSL until it picks up the assertion (sync from visual is async)
+    await expect
+      .poll(async () => await getMonacoEditorValue(page), { timeout: 5000 })
+      .toContain('offers');
 
     // Click Save
     await page.locator('.vr-modal-panel .vr-modal-btn--primary', { hasText: 'Save' }).click();
@@ -285,12 +288,14 @@ test.describe('Validation Rules ↔ Data Mapper bidirectional sync', () => {
       state: 'attached',
       timeout: 30000,
     });
-    await page.waitForTimeout(1000);
 
-    const dsl1 = await getMonacoEditorValue(page);
-    console.log(`DSL on first open: "${dsl1}"`);
-    expect(dsl1).toContain('offers');
-    expect(dsl1).toContain('length');
+    // Poll the DSL — visual→DSL sync is async
+    await expect
+      .poll(async () => await getMonacoEditorValue(page), { timeout: 5000 })
+      .toContain('offers');
+    await expect
+      .poll(async () => await getMonacoEditorValue(page), { timeout: 5000 })
+      .toContain('length');
 
     // Save and close
     await page.locator('.vr-modal-panel .vr-modal-btn--primary', { hasText: 'Save' }).click();
@@ -307,14 +312,15 @@ test.describe('Validation Rules ↔ Data Mapper bidirectional sync', () => {
       state: 'attached',
       timeout: 30000,
     });
-    await page.waitForTimeout(1000);
-
-    const dsl2 = await getMonacoEditorValue(page);
-    console.log(`DSL on second open: "${dsl2}"`);
 
     await page.screenshot({ path: 'test-results/sync-10-reopen-rules.png', fullPage: true });
 
-    expect(dsl2).toContain('offers');
-    expect(dsl2).toContain('length');
+    // Poll the DSL on second open — should still contain the persisted assertion
+    await expect
+      .poll(async () => await getMonacoEditorValue(page), { timeout: 5000 })
+      .toContain('offers');
+    await expect
+      .poll(async () => await getMonacoEditorValue(page), { timeout: 5000 })
+      .toContain('length');
   });
 });

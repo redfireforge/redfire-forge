@@ -10,8 +10,8 @@ import { stripTrailingSlash } from '../utils/workflowHostResolve';
 import { prettyJson } from '../../../shared/utils/helpers';
 
 export type FetchScenarioSampleResult =
-  | { ok: true; body: string; httpStatus: number; finalUrl: string }
-  | { ok: false; error: string; body?: string; httpStatus?: number; finalUrl?: string };
+  | { ok: true; body: string; rawBody: string; httpStatus: number; finalUrl: string; responseHeaders: Record<string, string>; responseTimeMs: number }
+  | { ok: false; error: string; body?: string; rawBody?: string; httpStatus?: number; finalUrl?: string; responseHeaders?: Record<string, string>; responseTimeMs?: number };
 
 function applyHostOverride(url: string, enabled: boolean, override: string): string {
   if (!enabled || !override.trim()) return url;
@@ -94,7 +94,9 @@ export async function fetchScenarioSample(
   url = applyHostOverride(url, options.fetchHostEnabled, options.fetchHostOverride);
 
   try {
+    const t0 = performance.now();
     const result = await httpFetch(url, resolvedAbs.method, headers, reqBody);
+    const elapsed = Math.round((performance.now() - t0) * 100) / 100;
     if (result.error) {
       return { ok: false, error: result.error };
     }
@@ -103,12 +105,15 @@ export async function fetchScenarioSample(
         ok: false,
         error: `HTTP ${result.status}: ${result.statusText}`,
         body: result.body || undefined,
+        rawBody: result.body || undefined,
         httpStatus: result.status,
         finalUrl: url,
+        responseHeaders: result.headers,
+        responseTimeMs: elapsed,
       };
     }
     const pretty = prettyJson(result.body);
-    return { ok: true, body: pretty, httpStatus: result.status, finalUrl: url };
+    return { ok: true, body: pretty, rawBody: result.body, httpStatus: result.status, finalUrl: url, responseHeaders: result.headers, responseTimeMs: elapsed };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }

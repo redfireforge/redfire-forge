@@ -6,7 +6,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { act } from 'react';
 import ResponseDetailModal from './ResponseDetailModal';
-import type { RequestResult } from '../../../shared/types';
+import { RequestResult } from '../../../shared/types';
 
 let capturedOnMatchCountChange: ((count: number) => void) | undefined;
 let capturedOnToggle: ((path: string) => void) | undefined;

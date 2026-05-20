@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import type { MutableRefObject } from 'react';
 import type { Scenario } from '../../../shared/types';
 import { createResponseVersion, createRulesVersion } from '../utils/versionFactory';
+import { hasValidationConfig } from '../utils/validationHelpers';
 
 interface UseValidationVersionHandlersDeps {
   draftRef: MutableRefObject<Scenario>;
@@ -47,7 +48,7 @@ export function useValidationVersionHandlers({ draftRef, onDraftChange }: UseVal
   const handleSaveRulesVersion = useCallback(() => {
     const prev = draftRef.current;
     const v = prev.validation;
-    if (!(v.expectedFields || []).length && !(v.assertions || []).length) return;
+    if (!hasValidationConfig(v)) return;
     const prevVersions = v.rulesVersions || [];
     onDraftChange({ ...prev, validation: { ...v, rulesVersions: [...prevVersions, createRulesVersion(v)] } });
   }, [draftRef, onDraftChange]);

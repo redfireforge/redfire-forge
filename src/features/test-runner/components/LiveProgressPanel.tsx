@@ -47,9 +47,13 @@ export default function LiveProgressPanel({
   onClear,
 }: Props) {
   const isTimeBased = executionMode === 'load-profile' || (isRunning && total === -1);
-  
+
+  const displayElapsedMs = profileMeta
+    ? (!isRunning ? profileMeta.durationMs : Math.min(profileMeta.elapsedMs, profileMeta.durationMs))
+    : 0;
+
   const progressPct = isTimeBased
-    ? (profileMeta ? Math.min(100, Math.round((profileMeta.elapsedMs / profileMeta.durationMs) * 100)) : 0)
+    ? (profileMeta ? Math.min(100, Math.round((displayElapsedMs / profileMeta.durationMs) * 100)) : 0)
     : (total > 0 ? Math.round((completed / total) * 100) : 0);
 
   const thinkLabel = thinkTimeLabel(thinkTime);
@@ -92,7 +96,7 @@ export default function LiveProgressPanel({
         <span className="progress-text">
           {isTimeBased ? (
             <>
-              {profileMeta ? `${(profileMeta.elapsedMs / 1000).toFixed(1)}s` : '0s'} / {profileMeta ? (profileMeta.durationMs / 1000).toFixed(0) : loadProfile.durationSec}s
+              {profileMeta ? `${(displayElapsedMs / 1000).toFixed(1)}s` : '0s'} / {profileMeta ? (profileMeta.durationMs / 1000).toFixed(0) : loadProfile.durationSec}s
               {' '}({completed} requests)
             </>
           ) : executionMode === 'workflow' ? (

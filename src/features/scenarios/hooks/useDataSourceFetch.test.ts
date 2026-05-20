@@ -4,8 +4,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useDataSourceFetch } from './useDataSourceFetch';
-import type { Scenario, DataSource, DataSourceColumn, DataSourceRow } from '../../../shared/types';
-import type { HttpResponse } from '../../../shared/utils/httpClient';
+import { Scenario, DataSource, DataSourceColumn, DataSourceRow } from '../../../shared/types';
+import { HttpResponse } from '../../../shared/utils/httpClient';
+import { makeScenario as _makeScenario } from '../../../test-utils/factories';
 
 // Mock dependencies
 vi.mock('../../../engine/dataSourceExpander', () => ({
@@ -34,18 +35,12 @@ vi.mock('../utils/dataSourceImport', () => ({
 vi.mock('uuid', () => ({ v4: () => 'test-uuid' }));
 
 function makeScenario(overrides?: Partial<Scenario>): Scenario {
-  return {
+  return _makeScenario({
     id: 's1',
-    name: 'Test',
     url: 'https://api.example.com/items/{{id}}',
-    method: 'GET',
-    headers: [],
-    body: '',
     bodyType: 'none',
-    auth: { type: 'none' },
-    validation: { mode: 'none' },
     ...overrides,
-  };
+  });
 }
 
 function makeDataSource(overrides?: Partial<DataSource>): DataSource {

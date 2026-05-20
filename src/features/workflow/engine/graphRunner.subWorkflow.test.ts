@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { runGraph, type GraphRunCallbacks, type SubWorkflowRunSummary } from './graphRunner';
-import type { WorkflowNode, WorkflowEdge, SubWorkflowNodeData, Workflow } from '../types/workflow';
+import { WorkflowNode, WorkflowEdge, SubWorkflowNodeData, Workflow } from '../types/workflow';
 
 vi.mock('../../../shared/utils/httpClient', () => ({
   httpFetch: vi.fn(),

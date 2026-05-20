@@ -3,12 +3,12 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import type { SetStateAction } from 'react';
+import { SetStateAction } from 'react';
 import { useWorkflowDesignerControllerPartB } from './useWorkflowDesignerControllerPartB';
-import type { WorkflowDesignerProps } from '../utils/workflowDesignerShellTypes';
-import type { Workflow } from '../types/workflow';
+import { WorkflowDesignerProps } from '../utils/workflowDesignerShellTypes';
+import { Workflow } from '../types/workflow';
 import { enrichNodeData, type WorkflowRFNode } from '../utils/workflowNodeFactory';
-import type { WorkflowDesignerControllerPartA } from './useWorkflowDesignerControllerPartA';
+import { WorkflowDesignerControllerPartA } from './useWorkflowDesignerControllerPartA';
 
 type ServiceRegistryMode = 'closed' | 'panel' | 'fullscreen';
 

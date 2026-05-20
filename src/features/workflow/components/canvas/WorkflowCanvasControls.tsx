@@ -17,23 +17,19 @@ export default function WorkflowCanvasControls({
   showMinimap,
   onToggleMinimap,
   onSaveLayout,
-  savedViewport,
+  savedViewport: _savedViewport,
   disableLayout,
   canUndo,
   canRedo,
   onUndo,
   onRedo,
 }: Props) {
-  const { zoomIn, zoomOut, fitView, setViewport } = useReactFlow();
+  const { zoomIn, zoomOut, fitView } = useReactFlow();
   const [saveFlash, setSaveFlash] = useState(false);
 
   const handleFitView = useCallback(() => {
-    if (savedViewport) {
-      setViewport(savedViewport, { duration: 300 });
-    } else {
-      fitView({ padding: 0.1, maxZoom: 1, duration: 300 });
-    }
-  }, [savedViewport, setViewport, fitView]);
+    fitView({ padding: 0.15, maxZoom: 1.2, duration: 300 });
+  }, [fitView]);
 
   const handleSave = useCallback(() => {
     onSaveLayout();
@@ -74,7 +70,7 @@ export default function WorkflowCanvasControls({
 
       <div className="wf-pill-sep" />
 
-      <button type="button" className="wf-pill-btn" title={savedViewport ? 'Restore saved view' : 'Fit view'} onClick={handleFitView}>
+      <button type="button" className="wf-pill-btn" title="Fit view" onClick={handleFitView}>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>
         </svg>
