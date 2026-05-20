@@ -6,8 +6,8 @@ import { useState } from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { GalleryFilters } from './GalleryFilters';
 import { defaultFilterState, apiHostname, type GalleryFilterState } from './galleryFiltersUtils';
-import type { GalleryDomainConfig } from '../../../data/galleries/registry';
-import type { TrainingPath } from '../../../data/galleries/trainingPaths';
+import { GalleryDomainConfig } from '../../../data/galleries/registry';
+import { TrainingPath } from '../../../data/galleries/trainingPaths';
 
 const domains: GalleryDomainConfig[] = [
   { key: 'requests', label: 'Requests', icon: '⚡', description: 'R' },

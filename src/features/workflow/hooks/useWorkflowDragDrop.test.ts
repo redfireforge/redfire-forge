@@ -1,12 +1,12 @@
 /**
  * @vitest-environment jsdom
  */
-import type { RefObject, SetStateAction } from 'react';
+import { RefObject, SetStateAction } from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useWorkflowDragDrop } from './useWorkflowDragDrop';
-import type { WorkflowRFNode, WorkflowRFEdge } from '../utils/workflowNodeFactory';
-import type { Workflow, WorkflowNode } from '../types/workflow';
+import { WorkflowRFNode, WorkflowRFEdge } from '../utils/workflowNodeFactory';
+import { Workflow, WorkflowNode } from '../types/workflow';
 import { findClosestEdge } from '../utils/workflowEdgeGeometry';
 
 let uuidSeq = 0;

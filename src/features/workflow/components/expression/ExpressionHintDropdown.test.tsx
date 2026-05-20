@@ -3,7 +3,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render } from '@testing-library/react';
 import { createRef, type ComponentProps, type RefObject } from 'react';
 import ExpressionHintDropdown from './ExpressionHintDropdown';
-import type { HintItem } from '../../hooks/useExpressionHints';
+import { HintItem } from '../../hooks/useExpressionHints';
 
 const varItems: HintItem[] = [
   { kind: 'variable', label: 'myVar', detail: 'A test variable', insertText: 'myVar}}' },

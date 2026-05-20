@@ -5,7 +5,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import WaitForConditionNode from './WaitForConditionNode';
-import type { WaitForConditionNodeData } from '../../types/workflow';
+import { WaitForConditionNodeData } from '../../types/workflow';
 
 vi.mock('@xyflow/react', () => ({
   Handle: ({ id, type, position, className, style }: { id?: string; type: string; position: string; className?: string; style?: object }) => (

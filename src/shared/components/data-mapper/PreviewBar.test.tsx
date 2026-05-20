@@ -8,7 +8,7 @@ vi.mock('./utils/previewCompute', () => ({
 
 import { computePreview } from './utils/previewCompute';
 import PreviewBar from './PreviewBar';
-import type { Mapping, MapperSource } from './types';
+import { Mapping, MapperSource } from './types';
 
 beforeEach(async () => {
   const actual = await vi.importActual<typeof import('./utils/previewCompute')>('./utils/previewCompute');

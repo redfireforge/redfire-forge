@@ -5,7 +5,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { ManualRow } from './ManualRow';
-import type { TrainingManual, ManualProgress } from '../../../data/galleries/trainingPaths/types';
+import { TrainingManual, ManualProgress } from '../../../data/galleries/trainingPaths/types';
 
 describe('ManualRow', () => {
   const defaultManual: TrainingManual = {

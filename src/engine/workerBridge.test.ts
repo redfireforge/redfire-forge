@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import type { TestConfig, LoadProfileConfig } from '../shared/types';
-import type { MainToWorkerMessage, WorkerToMainMessage } from './workerProtocol';
+import { TestConfig, LoadProfileConfig } from '../shared/types';
+import { MainToWorkerMessage, WorkerToMainMessage } from './workerProtocol';
 import { makeScenario as _makeScenario, makeResult as _makeResult, makeConfig as _makeConfig } from '../test-utils/factories';
 
 vi.mock('../shared/utils/platform', () => ({

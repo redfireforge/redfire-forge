@@ -98,34 +98,9 @@ vi.mock('./idbSharedDataSources', () => ({
   idbMigrateSharedDataSources: (key: string) => sharedIdb.idbMigrateSharedDataSources(key),
 }));
 
-import {
-  saveTestRun,
-  forceSaveTestRun,
-  loadTestRuns,
-  updateTestRun,
-  deleteTestRun,
-  deleteRunsOlderThan,
-  clearAllTestRuns,
-  setMaxRuns,
-  getStorageUsage,
-  saveFeatureGroups,
-  loadFeatureGroups,
-  saveSharedDataSources,
-  loadSharedDataSources,
-  loadPreviewSampleId,
-  savePreviewSampleId,
-  loadTestRunsLite,
-  loadTraceForRun,
-  loadRunnerConfig,
-  loadWorkflowFolders,
-  saveWorkflowFolders,
-} from './storage';
-import type { SharedDataSource, TestRun } from '../types';
-import {
-  idbSaveTestRun,
-  idbLoadTestRuns,
-  idbGetRunsInfo,
-} from './idbTestRuns';
+import { saveTestRun, forceSaveTestRun, loadTestRuns, updateTestRun, deleteTestRun, deleteRunsOlderThan, clearAllTestRuns, setMaxRuns, getStorageUsage, saveFeatureGroups, loadFeatureGroups, saveSharedDataSources, loadSharedDataSources, loadPreviewSampleId, savePreviewSampleId, loadTestRunsLite, loadTraceForRun, loadRunnerConfig, loadWorkflowFolders, saveWorkflowFolders, } from './storage';
+import { SharedDataSource, TestRun } from '../types';
+import { idbSaveTestRun, idbLoadTestRuns, idbGetRunsInfo, } from './idbTestRuns';
 
 function makeRun(id: string, overrides: Partial<TestRun> = {}): TestRun {
   return {
