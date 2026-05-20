@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { Scenario, TestConfig, ScenarioWeight, LoadProfileConfig } from '../shared/types';
+import { Scenario, TestConfig, ScenarioWeight, LoadProfileConfig } from '../shared/types';
 import { runSequential, runBatch, runPool, type RunOpts } from './requestExecution';
 import { runLoadProfile } from './loadProfileRunner';
 import { TokenManager } from './tokenManager';

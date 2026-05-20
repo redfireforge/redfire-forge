@@ -1,6 +1,7 @@
 import type { ExpressionFunction } from '../../../../features/workflow/utils/expressionFunctions/types';
 import type { MapperSource } from '../types';
 import { buildJsonTree, getAllLeafPaths, getAllPaths } from '../../../utils/jsonTreeModel';
+import { isValidJson } from '../../../utils/helpers';
 import { coerceSampleData } from './mapperParsing';
 
 export function getSourceLeafPaths(sources: MapperSource[], activeSourceId: string): string[] {
@@ -75,12 +76,7 @@ export function fixedValueToExpression(value: string): string | null {
     (trimmed.startsWith('{') && trimmed.endsWith('}')) ||
     (trimmed.startsWith('[') && trimmed.endsWith(']'))
   ) {
-    try {
-      JSON.parse(trimmed);
-      return trimmed;
-    } catch {
-      // fall through and store as string literal
-    }
+    if (isValidJson(trimmed)) return trimmed;
   }
   if (
     (trimmed.startsWith('"') && trimmed.endsWith('"')) ||

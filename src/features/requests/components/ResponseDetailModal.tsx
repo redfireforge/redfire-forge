@@ -62,6 +62,7 @@ export default function ResponseDetailModal({ result, onClose }: ResponseDetailM
     >
           <div className="response-detail-meta">
             <div className="response-meta-row">
+              <span className="tag tag-dim">#{result.id.replace(/^\D+/, '')}</span>
               <span className={`method-badge method-${result.method.toLowerCase()}`}>{result.method}</span>
               <span className="response-meta-name">{result.scenarioName}</span>
               <span className={`tag ${result.httpStatus >= 400 ? 'tag-danger' : result.httpStatus === 0 ? 'tag-danger' : 'tag-info'}`}>

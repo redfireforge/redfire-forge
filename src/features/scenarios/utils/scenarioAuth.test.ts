@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { buildScenarioInheritHint, resolveScenarioInheritedAuth } from './scenarioAuth';
-import type { AuthConfig, FeatureGroup, GlobalAuthProfile } from '../../../shared/types';
+import { AuthConfig, FeatureGroup, GlobalAuthProfile } from '../../../shared/types';
 
 function makeFg(overrides: Partial<FeatureGroup> = {}): FeatureGroup {
   return {

@@ -5,7 +5,8 @@ import {
 } from './file-storage.js';
 import type { ScheduleTrigger } from '../src/shared/types/server-api';
 import { executeWorkflow, saveErrorResult } from './executeWorkflow.js';
-import { generateExecutionId, getErrorMessage } from '../src/features/test-runner/utils/serverFormatters';
+import { generateExecutionId } from '../src/features/test-runner/utils/serverFormatters';
+import { toErrorMessage } from '../src/shared/utils/helpers';
 
 // Map to keep track of active cron jobs
 const activeJobs = new Map<string, cron.ScheduledTask>();
@@ -113,7 +114,7 @@ async function executeTrigger(trigger: ScheduleTrigger): Promise<void> {
       `[Scheduler] Execution ${result.status}: ${executionId} (${result.duration}ms, ${result.results.length} steps)`
     );
   } catch (error) {
-    const errorMessage = getErrorMessage(error);
+    const errorMessage = toErrorMessage(error);
     console.error(`[Scheduler] Execution error for ${trigger.id}:`, error);
 
     await saveErrorResult({

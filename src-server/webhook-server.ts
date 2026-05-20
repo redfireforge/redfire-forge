@@ -11,7 +11,8 @@ import { executeWorkflow, saveErrorResult } from './executeWorkflow.js';
 import { createCorrelationRouter } from './correlation-handler.js';
 import type { WebhookTriggerNodeData } from '../src/features/workflow/types/workflow';
 import type { LogLine } from '../src/shared/types/server-api';
-import { generateExecutionId, getErrorMessage } from '../src/features/test-runner/utils/serverFormatters';
+import { generateExecutionId } from '../src/features/test-runner/utils/serverFormatters';
+import { toErrorMessage } from '../src/shared/utils/helpers';
 
 const app = express();
 
@@ -227,7 +228,7 @@ app.all('/webhooks/:workflowId/:triggerId', async (req: Request, res: Response) 
     res.status(200).json(response);
   } catch (error) {
     const totalDuration = Date.now() - startTime;
-    const errorMessage = getErrorMessage(error);
+    const errorMessage = toErrorMessage(error);
 
     console.error(`[Webhook] Execution error:`, error);
 

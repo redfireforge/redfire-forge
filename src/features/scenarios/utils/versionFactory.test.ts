@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { createResponseVersion, createRulesVersion } from './versionFactory';
-import type { Scenario } from '../../../shared/types';
+import { Scenario } from '../../../shared/types';
 
 // Mock uuid to produce deterministic IDs
 vi.mock('uuid', () => ({ v4: () => 'test-uuid-1234' }));

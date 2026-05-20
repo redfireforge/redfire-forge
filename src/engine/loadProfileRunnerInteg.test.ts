@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import type { ScenarioWeight, LoadProfileConfig } from '../shared/types';
+import { ScenarioWeight, LoadProfileConfig } from '../shared/types';
 import { runLoadProfile } from './loadProfileRunner';
 import { TokenManager } from './tokenManager';
 import { CircuitBreaker } from './circuitBreaker';

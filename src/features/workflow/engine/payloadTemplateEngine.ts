@@ -18,6 +18,8 @@
  * - {{$requestIndex}} — 0-based request index
  */
 
+import { toErrorMessage } from '../../../shared/utils/helpers';
+
 export interface PayloadGeneratorContext {
   /** Current request index (0-based). */
   requestIndex: number;
@@ -263,7 +265,7 @@ export function validatePayloadTemplate(template: string): string[] {
   try {
     JSON.parse(expanded);
   } catch (err) {
-    errors.push(`Invalid JSON: ${err instanceof Error ? err.message : String(err)}`);
+    errors.push(`Invalid JSON: ${toErrorMessage(err)}`);
   }
   
   // Check for unknown generators (those that weren't expanded)

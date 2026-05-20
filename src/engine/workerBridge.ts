@@ -4,6 +4,7 @@ import type { ProgressMeta, TestResult } from './executor';
 import type { MainToWorkerMessage, WorkerToMainMessage } from './workerProtocol';
 import { httpFetch } from '../shared/utils/httpClient';
 import { isTauri } from '../shared/utils/platform';
+import { toErrorMessage } from '../shared/utils/helpers';
 
 type ProgressCallback = (
   completed: number,
@@ -92,7 +93,7 @@ export function runTestInWorker(
                   statusText: '',
                   headers: {},
                   body: '',
-                  error: err instanceof Error ? err.message : String(err),
+                  error: toErrorMessage(err),
                 },
               } satisfies MainToWorkerMessage);
             });
@@ -165,12 +166,16 @@ export function runTestMultiWorker(
   if (workerCount <= 1) {
     return runTestInWorker(config, scenarios, onProgress, abortSignal, workflow);
   }
-  const perWorkerConcurrency = Math.max(1, Math.ceil((config.concurrency ?? 1) / workerCount));
+  const totalConcurrency = config.concurrency ?? 1;
+  const baseConcurrency = Math.floor(totalConcurrency / workerCount);
+  const extraConcurrency = totalConcurrency - baseConcurrency * workerCount;
 
   return new Promise<TestResult>((resolve, reject) => {
     const allResults: RequestResult[] = [];
     const workers: Worker[] = [];
     const completedPerWorker: number[] = new Array(workerCount).fill(0);
+    const totalPerWorker: number[] = new Array(workerCount).fill(0);
+    const metaPerWorker: (ProgressMeta | undefined)[] = new Array(workerCount).fill(undefined);
     let doneCount = 0;
     let settled = false;
     const useTauriProxy = isTauri();
@@ -196,12 +201,35 @@ export function runTestMultiWorker(
           case 'progress':
             for (const r of msg.newResults) allResults.push(r);
             completedPerWorker[workerIdx] = msg.completed;
-            onProgress(
-              completedPerWorker.reduce((a, b) => a + b, 0),
-              isLoadProfile ? -1 : scenarios.length,
-              allResults,
-              msg.meta,
-            );
+            totalPerWorker[workerIdx] = msg.total;
+            metaPerWorker[workerIdx] = msg.meta;
+            {
+              let aggregatedMeta = msg.meta;
+              if (isLoadProfile && msg.meta) {
+                let totalInFlight = 0;
+                let totalTarget = 0;
+                let maxElapsed = 0;
+                for (const m of metaPerWorker) {
+                  if (m) {
+                    totalInFlight += m.currentInFlight;
+                    totalTarget += m.targetConcurrency;
+                    if (m.elapsedMs > maxElapsed) maxElapsed = m.elapsedMs;
+                  }
+                }
+                aggregatedMeta = {
+                  elapsedMs: maxElapsed,
+                  targetConcurrency: totalTarget,
+                  currentInFlight: totalInFlight,
+                  durationMs: msg.meta.durationMs,
+                };
+              }
+              onProgress(
+                completedPerWorker.reduce((a, b) => a + b, 0),
+                isLoadProfile ? -1 : totalPerWorker.reduce((a, b) => a + b, 0),
+                allResults,
+                aggregatedMeta,
+              );
+            }
             break;
 
           case 'done':
@@ -231,7 +259,7 @@ export function runTestMultiWorker(
               .catch((err) => {
                 w.postMessage({
                   type: 'http-response', id: msg.id,
-                  response: { status: 0, statusText: '', headers: {}, body: '', error: err instanceof Error ? err.message : String(err) },
+                  response: { status: 0, statusText: '', headers: {}, body: '', error: toErrorMessage(err) },
                 } satisfies MainToWorkerMessage);
               });
             break;
@@ -263,9 +291,23 @@ export function runTestMultiWorker(
         cleanupAll();
         reject(new Error(e.message || 'Worker error'));
       });
+      const perWorkerConcurrency = Math.max(1, baseConcurrency + (i < extraConcurrency ? 1 : 0));
+      const workerConfig = { ...config, concurrency: perWorkerConcurrency };
+      if (isLoadProfile && workerConfig.loadProfile) {
+        const lp = workerConfig.loadProfile;
+        const baseMax = Math.floor(lp.maxConcurrency / workerCount);
+        const extraMax = lp.maxConcurrency - baseMax * workerCount;
+        const perWorkerMax = Math.max(1, baseMax + (i < extraMax ? 1 : 0));
+        workerConfig.loadProfile = { ...lp, maxConcurrency: perWorkerMax };
+        if (lp.spikeConcurrency) {
+          const baseSpike = Math.floor(lp.spikeConcurrency / workerCount);
+          const extraSpike = lp.spikeConcurrency - baseSpike * workerCount;
+          workerConfig.loadProfile.spikeConcurrency = Math.max(1, baseSpike + (i < extraSpike ? 1 : 0));
+        }
+      }
       w.postMessage({
         type: 'start',
-        config: { ...config, concurrency: perWorkerConcurrency },
+        config: workerConfig,
         scenarios: chunks[i],
         useTauriProxy,
         workerIndex: i,

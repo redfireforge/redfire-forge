@@ -72,7 +72,8 @@ describe('workflowAutoLayout - Additional Coverage', () => {
       const result = getAutoLayoutNodes(nodes, edges, 'TB');
 
       expect(result).toHaveLength(5);
-      const _yes1 = result.find(n => n.id === 'yes1')!;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const yes1 = result.find(n => n.id === 'yes1')!;
       const yes2 = result.find(n => n.id === 'yes2')!;
       const no2 = result.find(n => n.id === 'no2')!;
 

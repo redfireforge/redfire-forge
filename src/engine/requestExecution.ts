@@ -6,13 +6,18 @@ import type { TokenManager } from './tokenManager';
 import { CircuitBreaker } from './circuitBreaker';
 import { applyThinkTime } from './thinkTime';
 import { buildValidationResult } from './validationResult';
+import { toErrorMessage } from '../shared/utils/helpers';
 
 let _resultIdCounter = 0;
-export function resetResultIdCounter(): void { _resultIdCounter = 0; }
-export function nextResultId(): string { return `r-${++_resultIdCounter}`; }
+let _resultIdPrefix = 'r';
+export function resetResultIdCounter(workerIndex?: number): void {
+  _resultIdCounter = 0;
+  _resultIdPrefix = workerIndex != null ? `w${workerIndex}` : 'r';
+}
+export function nextResultId(): string { return `${_resultIdPrefix}-${++_resultIdCounter}`; }
 
 export function buildErrorResult(scenario: Scenario, err: unknown, reqBody?: string): RequestResult {
-  const msg = err instanceof Error ? err.message : String(err);
+  const msg = toErrorMessage(err);
   return {
     id: nextResultId(),
     scenarioId: scenario.id,
@@ -110,7 +115,7 @@ async function executeRequest(
     }
   } catch (err) {
     httpStatus = 0;
-    errorMessage = err instanceof Error ? err.message : String(err);
+    errorMessage = toErrorMessage(err);
   }
 
   const responseTimeMs = Math.round((performance.now() - start) * 100) / 100;

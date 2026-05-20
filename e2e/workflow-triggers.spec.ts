@@ -225,8 +225,8 @@ test.describe('Workflow Webhook Trigger', () => {
     const modal = page.locator('[aria-labelledby="wf-config-modal-title"]');
     await expect(modal).toBeVisible({ timeout: 5_000 });
 
-    // Method dropdown should show POST selected (scoped to modal)
-    const methodSelect = modal.locator('select').first();
+    // Method dropdown should show POST selected (scoped to label)
+    const methodSelect = modal.locator('label', { hasText: 'HTTP Method' }).locator('select');
     await expect(methodSelect).toHaveValue('POST');
   });
 
@@ -372,7 +372,7 @@ test.describe('Workflow Schedule Trigger', () => {
     await expect(modal).toBeVisible({ timeout: 5_000 });
 
     // Should show initial variables section title (scoped to modal)
-    await expect(modal.locator('.wf-config-vars-title').filter({ hasText: 'Initial variables' })).toBeVisible();
+    await expect(modal.getByText('Initial variables', { exact: true })).toBeVisible();
 
     // Should show the variables section with key-value rows
     const varRows = modal.locator('.wf-config-kv-row');

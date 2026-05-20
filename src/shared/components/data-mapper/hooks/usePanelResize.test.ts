@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import type { MouseEvent as ReactMouseEvent } from 'react';
+import { MouseEvent as ReactMouseEvent } from 'react';
 import { usePanelResize } from './usePanelResize';
 
 function stubRect(el: HTMLElement, width: number) {

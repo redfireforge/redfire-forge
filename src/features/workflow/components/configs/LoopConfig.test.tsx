@@ -4,7 +4,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, fireEvent, screen } from '@testing-library/react';
 import LoopConfig from './LoopConfig';
-import type { LoopNodeData } from '../../types/workflow';
+import { LoopNodeData } from '../../types/workflow';
 
 vi.mock('../../../scenarios/components/DataSourceEditor', () => ({
   __esModule: true,

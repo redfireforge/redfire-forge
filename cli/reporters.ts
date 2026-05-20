@@ -138,6 +138,7 @@ export function buildMarkdownReport(
   lines.push(`| **TPS** | ${summary.tps} |`);
   lines.push(`| **Avg Response** | ${summary.avgResponseTime} ms |`);
   lines.push(`| **Min / Max** | ${summary.minResponseTime} ms / ${summary.maxResponseTime} ms |`);
+  lines.push(`| **P50** | ${summary.p50ResponseTime} ms |`);
   lines.push(`| **P95** | ${summary.p95ResponseTime} ms |`);
   lines.push(`| **P99** | ${summary.p99ResponseTime} ms |`);
   lines.push(`| **Error Rate** | ${summary.errorRate}% |`);
@@ -225,6 +226,7 @@ export function printConsoleSummary(summary: TestSummary, config: TestConfig, re
   console.log(`  Duration:     ${(summary.totalDurationMs / 1000).toFixed(2)}s`);
   console.log(`  TPS:          ${summary.tps}`);
   console.log(`  Avg Response: ${summary.avgResponseTime} ms`);
+  console.log(`  P50:          ${summary.p50ResponseTime} ms`);
   console.log(`  P95:          ${summary.p95ResponseTime} ms`);
   console.log(`  P99:          ${summary.p99ResponseTime} ms`);
   console.log(`  Min / Max:    ${summary.minResponseTime} ms / ${summary.maxResponseTime} ms`);
@@ -371,6 +373,7 @@ export function printWorkflowConsoleSummary(
   console.log(`  Duration:     ${(summary.totalDurationMs / 1000).toFixed(2)}s`);
   console.log(`  Iterations/s: ${(iterations / (summary.totalDurationMs / 1000)).toFixed(2)}`);
   console.log(`  Avg Response: ${summary.avgResponseTime} ms`);
+  console.log(`  P50:          ${summary.p50ResponseTime} ms`);
   console.log(`  P95:          ${summary.p95ResponseTime} ms`);
   console.log(`  P99:          ${summary.p99ResponseTime} ms`);
 
@@ -473,6 +476,7 @@ export function buildWorkflowMarkdownReport(
   lines.push('|---|---|');
   lines.push(`| **Iterations/s** | ${(iterations / (summary.totalDurationMs / 1000)).toFixed(2)} |`);
   lines.push(`| **Avg Response** | ${summary.avgResponseTime} ms |`);
+  lines.push(`| **P50** | ${summary.p50ResponseTime} ms |`);
   lines.push(`| **P95** | ${summary.p95ResponseTime} ms |`);
   lines.push(`| **P99** | ${summary.p99ResponseTime} ms |`);
   lines.push(`| **Error Rate** | ${summary.errorRate}% |`);
