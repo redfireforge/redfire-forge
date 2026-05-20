@@ -5,7 +5,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import SharedDsSaveConfirmModal from './SharedDsSaveConfirmModal';
-import type { SharedDataSource, DataSource, DataSourceColumn, DataSourceRow, FeatureGroup, Scenario as ScenarioGroup, Scenario as TestScenario } from '../../../shared/types';
+import { SharedDataSource, DataSource, DataSourceColumn, DataSourceRow, FeatureGroup, Scenario as ScenarioGroup, Scenario as TestScenario } from '../../../shared/types';
 import * as sharedDsChangeDetection from '../utils/sharedDsChangeDetection';
 
 function makeCol(id: string, name: string): DataSourceColumn {

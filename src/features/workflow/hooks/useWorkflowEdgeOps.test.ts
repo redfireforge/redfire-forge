@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, vi } from 'vitest';
-import type { Connection, Edge } from '@xyflow/react';
+import { Connection, Edge } from '@xyflow/react';
 
 vi.mock('@xyflow/react', async (importOriginal) => {
   const mod = await importOriginal<typeof import('@xyflow/react')>();
@@ -26,9 +26,9 @@ vi.mock('@xyflow/react', async (importOriginal) => {
 
 import { renderHook, act } from '@testing-library/react';
 import { useWorkflowEdgeOps } from './useWorkflowEdgeOps';
-import type { WorkflowRFEdge, WorkflowRFNode } from '../utils/workflowNodeFactory';
-import type { Workflow } from '../types/workflow';
-import type { NodeRunStatus } from './useWorkflowRunCache';
+import { WorkflowRFEdge, WorkflowRFNode } from '../utils/workflowNodeFactory';
+import { Workflow } from '../types/workflow';
+import { NodeRunStatus } from './useWorkflowRunCache';
 
 const wf: Workflow = { id: 'w1' } as unknown as Workflow;
 

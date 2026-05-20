@@ -3,10 +3,10 @@
  * runs `runTest`, and relays progress/done/error/http-proxy messages.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { MainToWorkerMessage } from './workerProtocol';
-import type { TestConfig, Scenario, RequestResult } from '../shared/types';
-import type { ProgressMeta } from './executor';
-import type { HttpResponse } from '../shared/utils/httpClient';
+import { MainToWorkerMessage } from './workerProtocol';
+import { TestConfig, Scenario, RequestResult } from '../shared/types';
+import { ProgressMeta } from './executor';
+import { HttpResponse } from '../shared/utils/httpClient';
 
 const httpMocks = vi.hoisted(() => {
   const httpFetchViaViteProxy = vi.fn(async (): Promise<HttpResponse> => ({

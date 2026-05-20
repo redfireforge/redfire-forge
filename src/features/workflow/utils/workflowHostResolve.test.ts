@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { resolveHttpNodeBaseUrl, resolveServiceBaseUrl, resolveServiceAuth } from './workflowHostResolve';
-import type { HttpNodeData, WorkflowService } from '../types/workflow';
-import type { Microservice, GlobalAuthProfile } from '../../../shared/types';
+import { HttpNodeData, WorkflowService } from '../types/workflow';
+import { Microservice, GlobalAuthProfile } from '../../../shared/types';
 
 const minimalScenario = (): HttpNodeData['scenario'] => ({
   id: 's', name: 's', url: '/', method: 'GET',

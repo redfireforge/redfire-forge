@@ -2,22 +2,7 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import {
-  EDITABLE_VARS,
-  readComputedVar,
-  loadCustomTheme,
-  saveCustomTheme,
-  deleteCustomTheme,
-  isCustomThemeId,
-  extractCustomId,
-  loadSavedThemes,
-  persistSavedThemes,
-  findSavedTheme,
-  applyCustomTheme,
-  clearCustomOverrides,
-  type CustomThemeData,
-  type SavedCustomTheme,
-} from './themeCustomizerUtils';
+import { EDITABLE_VARS, readComputedVar, loadCustomTheme, saveCustomTheme, deleteCustomTheme, isCustomThemeId, extractCustomId, loadSavedThemes, persistSavedThemes, findSavedTheme, applyCustomTheme, clearCustomOverrides, type CustomThemeData, type SavedCustomTheme, } from './themeCustomizerUtils';
 
 const CUSTOM_THEME_KEY = 'perf-test-custom-theme';
 const CUSTOM_THEMES_KEY = 'perf-test-custom-themes';

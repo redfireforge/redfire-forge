@@ -262,9 +262,21 @@ export default function HttpConfig({ data, onChange, activeTab, onTabChange, las
           </p>
         )}
       </div>
-      <div className="wf-config-field">
+      <div className="wf-config-inline-field">
         <label>Label</label>
         <input value={data.label} onChange={(e) => onChange({ label: e.target.value })} />
+      </div>
+      <div className="wf-config-inline-field">
+        <label>Timeout</label>
+        <input
+          type="number"
+          min={0}
+          max={300}
+          value={data.timeoutSec ?? 0}
+          onChange={(e) => onChange({ timeoutSec: Math.max(0, Math.min(300, parseInt(e.target.value, 10) || 0)) })}
+          className="wf-config-timeout-input"
+        />
+        <span className="unit">sec</span>
       </div>
 
       {data.sourceSpecVersionId && (

@@ -5,7 +5,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import ColumnOrderPopover from './ColumnOrderPopover';
-import type { OrderableItem } from './ColumnOrderPopover';
+import { OrderableItem } from './ColumnOrderPopover';
 
 describe('ColumnOrderPopover', () => {
   const createItems = (): OrderableItem[] => [

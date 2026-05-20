@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import type { Scenario } from '../shared/types';
+import { Scenario } from '../shared/types';
 import { executeWithRetry, runSequential, runBatch, runPool, clearPrepCache, buildErrorResult, withTimeout, resetResultIdCounter, nextResultId, type RunOpts } from './requestExecution';
 import { TokenManager } from './tokenManager';
 import { CircuitBreaker } from './circuitBreaker';

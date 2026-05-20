@@ -4,14 +4,7 @@
 import React from 'react';
 import { describe, it, expect } from 'vitest';
 import { render } from '@testing-library/react';
-import {
-  typeColor,
-  TYPE_COLORS,
-  getValuePreview,
-  bestEffortFormat,
-  countTextMatches,
-  ChevronIcon,
-} from './jsonTreeShared';
+import { typeColor, TYPE_COLORS, getValuePreview, bestEffortFormat, countTextMatches, ChevronIcon, } from './jsonTreeShared';
 
 describe('TYPE_COLORS', () => {
   it('has correct colors for all four types', () => {

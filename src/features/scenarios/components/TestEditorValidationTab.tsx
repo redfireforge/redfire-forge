@@ -21,15 +21,7 @@ import type { ValidationAdapterOutput } from '../../../shared/components/data-ma
 import { buildPivotedRulesFromExpectedFields } from './testEditorValidationPivot';
 import { ADD_ASSERTION_MENU_ROWS, ASSERTION_CATEGORIES } from './testEditorValidationAddMenu';
 import { prettyJson, isValidJson } from '../../../shared/utils/helpers';
-import {
-  ARRAY_CONTAINS_MODE_OPTIONS,
-  CalendarIcon,
-  ComparisonSelect,
-  DATE_OP_OPTIONS,
-  FIELD_OP_OPTIONS,
-  getAssertionTypeBadgeLabel,
-  NUMERIC_OP_OPTIONS,
-} from './testEditorValidationConstants';
+import { ARRAY_CONTAINS_MODE_OPTIONS, CalendarIcon, ComparisonSelect, DATE_OP_OPTIONS, FIELD_OP_OPTIONS, getAssertionTypeBadgeLabel, NUMERIC_OP_OPTIONS, } from './testEditorValidationConstants';
 
 export interface TestEditorValidationTabProps {
   draft: Scenario;

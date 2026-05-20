@@ -1,17 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import {
-  parseCsvLine,
-  parseColumnHeader,
-  parseClipboardText,
-  parseJsonImport,
-  buildColumnsAndRowsFromParseResult,
-  extractJsonPath,
-  expandPatternFromResponse,
-  inferPatternsFromColumns,
-  normalizeForCompare,
-  parseExcelSimple,
-} from './dataSourceImport';
-import type { DataSourceColumn } from '../../../shared/types';
+import { parseCsvLine, parseColumnHeader, parseClipboardText, parseJsonImport, buildColumnsAndRowsFromParseResult, extractJsonPath, expandPatternFromResponse, inferPatternsFromColumns, normalizeForCompare, parseExcelSimple, } from './dataSourceImport';
+import { DataSourceColumn } from '../../../shared/types';
 
 // ─── parseCsvLine ────────────────────────────────────────────
 

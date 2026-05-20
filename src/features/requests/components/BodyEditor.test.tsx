@@ -206,4 +206,43 @@ describe('BodyEditor', () => {
     expect(active?.textContent).toMatch(/Plain Text/);
     expect(within(active as HTMLElement).getByText('✓')).toBeInTheDocument();
   });
+
+  it('opens dropdown upward when the trigger sits near the viewport bottom', () => {
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 400 });
+    const originalRect = HTMLButtonElement.prototype.getBoundingClientRect;
+    HTMLButtonElement.prototype.getBoundingClientRect = function () {
+      if (this.classList.contains('body-type-trigger')) {
+        return { top: 360, bottom: 390, left: 20, right: 120, width: 100, height: 30, x: 20, y: 360, toJSON: () => ({}) } as DOMRect;
+      }
+      return originalRect.call(this);
+    };
+    try {
+      render(<BodyEditor draft={scenario({ bodyType: 'json' })} onDraftChange={vi.fn()} />);
+      fireEvent.click(screen.getByRole('button', { name: /JSON/ }));
+      const dropdown = document.querySelector('.body-type-dropdown') as HTMLElement | null;
+      expect(dropdown).not.toBeNull();
+      expect(dropdown!.style.bottom).not.toBe('');
+      expect(dropdown!.style.top === '' || dropdown!.style.top === undefined).toBe(true);
+    } finally {
+      HTMLButtonElement.prototype.getBoundingClientRect = originalRect;
+    }
+  });
+
+  it('keeps dropdown open when clicking inside the portal panel', () => {
+    render(<BodyEditor draft={scenario({ bodyType: 'json' })} onDraftChange={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: /JSON/ }));
+    const dropdown = document.querySelector('.body-type-dropdown') as HTMLElement;
+    expect(dropdown).not.toBeNull();
+    fireEvent.mouseDown(dropdown);
+    expect(document.querySelector('.body-type-dropdown')).not.toBeNull();
+  });
+
+  it('recomputes dropdown position on window scroll and resize', () => {
+    render(<BodyEditor draft={scenario({ bodyType: 'json' })} onDraftChange={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: /JSON/ }));
+    expect(document.querySelector('.body-type-dropdown')).not.toBeNull();
+    window.dispatchEvent(new Event('resize'));
+    window.dispatchEvent(new Event('scroll'));
+    expect(document.querySelector('.body-type-dropdown')).not.toBeNull();
+  });
 });

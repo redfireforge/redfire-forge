@@ -1,12 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import {
-  computeAutoMapCandidates,
-  candidatesToMappings,
-  normalizeFieldName,
-  MATCH_SCORES,
-} from './autoMapAlgorithm';
+import { computeAutoMapCandidates, candidatesToMappings, normalizeFieldName, MATCH_SCORES, } from './autoMapAlgorithm';
 import { buildJsonTree } from '../../../utils/jsonTreeModel';
-import type { Mapping } from '../types';
+import { Mapping } from '../types';
 
 describe('normalizeFieldName', () => {
   it('normalizes camelCase', () => {
