@@ -343,7 +343,7 @@ If `demo.duendesoftware.com` is unreachable or returns an error from **Verify Au
 
 **Part B — Add an initial workflow variable**
 
-7. Open the workflow's **Variables** panel (toolbar or side panel) → add an initial variable:
+7. In the Workflow Designer toolbar (the row with `+ New`, workflow name, `Services`, etc.), click the **"Variables"** button (between Services and Versions) to open the Workflow Variables modal → add an initial variable:
    - **Name**: `baseHost`, **Value**: `httpbin.org`
    - (This isn't used by the URLs in this scenario but ensures `buildCombinedResolver` has multiple variables to fold into the combined regex — exercising the single-pass code path)
 

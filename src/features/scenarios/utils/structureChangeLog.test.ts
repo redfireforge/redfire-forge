@@ -15,6 +15,7 @@ import {
   logTestMovedOut,
   logTestCopied,
   logFgRenamed,
+  logItemRestored,
   deleteLogEntry,
   clearLog,
   countLogEntries,
@@ -226,6 +227,7 @@ describe('structureChangeLog', () => {
         ['test-moved-out', 'Test moved out'],
         ['test-copied', 'Test copied'],
         ['fg-renamed', 'Group renamed'],
+        ['restored', 'Restored from trash'],
       ];
       for (const [code, label] of cases) {
         expect(actionLabel(code)).toBe(label);
@@ -260,6 +262,36 @@ describe('structureChangeLog', () => {
       expect(actionClass('scenario-removed')).toBe('removed');
       expect(actionClass('test-moved-out')).toBe('removed');
       expect(actionClass('test-renamed')).toBe('modified');
+    });
+  });
+
+  describe('logItemRestored', () => {
+    it('adds a restored entry to the feature group log', () => {
+      const fg = makeFg();
+      const result = logItemRestored(fg, 'Login Flow');
+      expect(result.structureLog).toHaveLength(1);
+      expect(result.structureLog![0].action).toBe('restored');
+      expect(result.structureLog![0].entityName).toBe('Login Flow');
+      expect(result.structureLog![0].detail).toBe('restored from trash');
+    });
+
+    it('uses custom detail when provided', () => {
+      const fg = makeFg();
+      const result = logItemRestored(fg, 'Login Flow', 'Auth Scenarios', 'restored with new ID');
+      expect(result.structureLog![0].scenarioName).toBe('Auth Scenarios');
+      expect(result.structureLog![0].detail).toBe('restored with new ID');
+    });
+
+    it('actionLabel returns correct label for restored', () => {
+      expect(actionLabel('restored')).toBe('Restored from trash');
+    });
+
+    it('actionIcon returns restore arrow for restored', () => {
+      expect(actionIcon('restored')).toBe('\u21A9');
+    });
+
+    it('actionClass returns added for restored', () => {
+      expect(actionClass('restored')).toBe('added');
     });
   });
 });
