@@ -12,8 +12,8 @@ import { createDemoAdapter } from './demoAdapter';
 import { createWebhookExtractionAdapter } from './webhookExtractionAdapter';
 import { createVariableBindingAdapter } from './variableBindingAdapter';
 import { createRequestBodyAdapter } from './requestBodyAdapter';
-import type { Mapping } from '../types';
-import type { Extraction, DataSource, DataSourceColumn, Scenario } from '../../../types';
+import { Mapping } from '../types';
+import { Extraction, DataSource, DataSourceColumn, Scenario } from '../../../types';
 
 // ── Fixtures ──────────────────────────────────────────────
 

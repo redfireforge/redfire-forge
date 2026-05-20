@@ -4,8 +4,8 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import TargetNodeOperatorPicker from './TargetNodeOperatorPicker';
 import { OPERATOR_REGISTRY } from './utils/operatorRegistry';
-import type { FieldOperator } from './types';
-import type { OperatorMeta } from './utils/operatorRegistry';
+import { FieldOperator } from './types';
+import { OperatorMeta } from './utils/operatorRegistry';
 
 const allOps = Object.entries(OPERATOR_REGISTRY) as [FieldOperator, OperatorMeta][];
 

@@ -201,9 +201,10 @@ export default function ResultsDashboard({ envName, svcName, onRerunFailed, isRe
     if (!selectedRun) return [];
     const q = searchTerm.toLowerCase().trim();
     return selectedRun.results.filter((r) => {
-      if (filterPassed === 'passed' && !r.passed) return false;
-      if (filterPassed === 'failed' && r.passed) return false;
-      if (filterPassed === 'failed-data-rows' && (r.passed || !r.dataRowId)) return false;
+      const passed = !!r.passed;
+      if (filterPassed === 'passed' && !passed) return false;
+      if (filterPassed === 'failed' && passed) return false;
+      if (filterPassed === 'failed-data-rows' && (passed || !r.dataRowId)) return false;
       if (q && !(
         r.scenarioName.toLowerCase().includes(q) ||
         r.url.toLowerCase().includes(q) ||
@@ -242,8 +243,8 @@ export default function ResultsDashboard({ envName, svcName, onRerunFailed, isRe
   }, [groupTree, isFlat]);
 
   useEffect(() => {
+    const allKeys: string[] = [];
     if (groupTree.length > 0) {
-      const allKeys: string[] = [];
       const collect = (nodes: GroupNode[], parentKey: string) => {
         for (const g of nodes) {
           const nodeKey = parentKey ? `${parentKey}/${g.key}` : g.key;
@@ -252,8 +253,8 @@ export default function ResultsDashboard({ envName, svcName, onRerunFailed, isRe
         }
       };
       collect(groupTree, '');
-      setExpanded(new Set(allKeys));
     }
+    setExpanded(new Set(allKeys));
   }, [groupTree]);
 
   const toggle = (key: string) => {
@@ -320,7 +321,7 @@ export default function ResultsDashboard({ envName, svcName, onRerunFailed, isRe
 
   const renderDetailRow = (r: RequestResult) => (
     <tr key={r.id} className={`group-detail-row ${r.passed ? '' : 'row-failed'} clickable-row`} onClick={() => setResponseModal(r)}>
-      <td></td>
+      <td className="result-id-cell">{r.id.replace(/^\D+/, '')}</td>
       <td className="group-detail-name">
         <span className={`method-badge method-${r.method.toLowerCase()}`}>{r.method}</span>
         {' '}{r.scenarioName}
@@ -342,12 +343,24 @@ export default function ResultsDashboard({ envName, svcName, onRerunFailed, isRe
     </tr>
   );
 
+  const applyDetailFilter = useCallback((results: RequestResult[]): RequestResult[] => {
+    if (filterPassed === 'all') return results;
+    return results.filter((r) => {
+      const passed = !!r.passed;
+      if (filterPassed === 'passed' && !passed) return false;
+      if (filterPassed === 'failed' && passed) return false;
+      if (filterPassed === 'failed-data-rows' && (passed || !r.dataRowId)) return false;
+      return true;
+    });
+  }, [filterPassed]);
+
   const renderGroupRow = (g: GroupNode, depth: number, parentKey: string) => {
     const nodeKey = parentKey ? `${parentKey}/${g.key}` : g.key;
     const isOpen = expanded.has(nodeKey);
     const allPassed = g.failed === 0 && g.validationFailed === 0;
     const hasChildren = g.children.length > 0;
     const indent = depth * 20;
+    const visibleResults = applyDetailFilter(g.results);
 
     return (
       <Fragment key={nodeKey}>
@@ -366,17 +379,17 @@ export default function ResultsDashboard({ envName, svcName, onRerunFailed, isRe
           <td>{g.maxTime}</td>
         </tr>
         {isOpen && hasChildren && g.children.map((child) => renderGroupRow(child, depth + 1, nodeKey))}
-        {isOpen && !hasChildren && (
+        {isOpen && !hasChildren && visibleResults.length > 0 && (
           <>
-            {g.results.some(r => r.dataRowId) && (
+            {visibleResults.some(r => r.dataRowId) && (
               <tr><td colSpan={9} className="data-row-summary-cell">
-                <DataRowSummaryTable results={g.results} scenarioName={g.key} onResultClick={setResponseModal} />
+                <DataRowSummaryTable results={visibleResults} scenarioName={g.key} onResultClick={setResponseModal} />
               </td></tr>
             )}
-            {!g.results.some(r => r.dataRowId) && (
+            {!visibleResults.some(r => r.dataRowId) && (
               <>
                 <tr className="detail-header-row">
-                  <th></th>
+                  <th>ID</th>
                   <th>Test Name</th>
                   <th colSpan={2}>URL</th>
                   <th>Status</th>
@@ -385,7 +398,7 @@ export default function ResultsDashboard({ envName, svcName, onRerunFailed, isRe
                   <th>Passed</th>
                   <th>Error / Details</th>
                 </tr>
-                {g.results.map(renderDetailRow)}
+                {visibleResults.map(renderDetailRow)}
               </>
             )}
           </>
@@ -785,6 +798,7 @@ export default function ResultsDashboard({ envName, svcName, onRerunFailed, isRe
             <table>
               <thead>
                 <tr>
+                  <th>ID</th>
                   <th>Scenario</th>
                   <th>Method</th>
                   <th>URL</th>
@@ -798,6 +812,7 @@ export default function ResultsDashboard({ envName, svcName, onRerunFailed, isRe
               <tbody>
                 {filteredResults.slice(page * pageSize, (page + 1) * pageSize).map((r) => (
                   <tr key={r.id} className={`${r.passed ? '' : 'row-failed'} clickable-row`} onClick={() => setResponseModal(r)}>
+                    <td className="result-id-cell">{r.id.replace(/^\D+/, '')}</td>
                     <td>{r.scenarioName}{r.dataRowLabel && <span className="data-row-label">{r.dataRowLabel}</span>}</td>
                     <td><span className={`method-badge method-${r.method.toLowerCase()}`}>{r.method}</span></td>
                     <td className="url-cell">{r.url}</td>

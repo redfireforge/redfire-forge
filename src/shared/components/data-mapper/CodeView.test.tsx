@@ -2,9 +2,9 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import CodeView from './CodeView';
-import type { Assertion } from '../../types';
-import type { MapperSource, Mapping } from './types';
-import type { MappingTrace } from './utils/mappingTrace';
+import { Assertion } from '../../types';
+import { MapperSource, Mapping } from './types';
+import { MappingTrace } from './utils/mappingTrace';
 import * as mapperExpr from './utils/mapperExpressionEvaluator';
 
 describe('CodeView', () => {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import type { HttpNodeData } from '../types/workflow';
+import { HttpNodeData } from '../types/workflow';
 import { mergeWorkflowNodeData, stripEphemeralNodeDataFields, cloneWorkflowNodeDataForStorage } from './workflowNodeMerge';
 
 describe('mergeWorkflowNodeData', () => {

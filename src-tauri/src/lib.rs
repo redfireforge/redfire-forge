@@ -1,3 +1,52 @@
+pub mod assertion_evaluator;
+mod commands;
+pub mod date_helpers;
+pub mod deep_compare;
+mod executor;
+pub mod field_operator;
+pub mod http_helpers;
+pub mod json_path;
+pub mod json_validator;
+pub mod subset_match;
+mod types;
+pub mod validation_result;
+pub mod validation_types;
+
+#[cfg(test)]
+mod assertion_evaluator_basic_test;
+#[cfg(test)]
+mod assertion_evaluator_collection_test;
+#[cfg(test)]
+mod assertion_evaluator_test;
+#[cfg(test)]
+mod assertion_evaluator_test_helpers;
+#[cfg(test)]
+mod assertion_evaluator_value_test;
+#[cfg(test)]
+mod cross_module_test;
+#[cfg(test)]
+mod date_helpers_test;
+#[cfg(test)]
+mod deep_compare_test;
+#[cfg(test)]
+mod executor_test;
+#[cfg(test)]
+mod field_operator_test;
+#[cfg(test)]
+mod http_helpers_test;
+#[cfg(test)]
+mod json_path_test;
+#[cfg(test)]
+mod json_validator_test;
+#[cfg(test)]
+mod subset_match_test;
+#[cfg(test)]
+mod validation_result_test;
+#[cfg(test)]
+mod validation_types_test;
+
+use commands::ExecutorState;
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
   tauri::Builder::default()
@@ -5,6 +54,12 @@ pub fn run() {
     .plugin(tauri_plugin_http::init())
     .plugin(tauri_plugin_dialog::init())
     .plugin(tauri_plugin_shell::init())
+    .manage(ExecutorState::new())
+    .invoke_handler(tauri::generate_handler![
+      commands::start_load_test,
+      commands::abort_load_test,
+      commands::is_rust_executor_available,
+    ])
     .setup(|app| {
       if cfg!(debug_assertions) {
         app.handle().plugin(

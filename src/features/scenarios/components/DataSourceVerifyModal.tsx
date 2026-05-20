@@ -7,6 +7,7 @@ import { extractJsonPath, expandPatternFromResponse } from '../utils/dataSourceI
 import { useVerifyEngine, executeRowFetch } from '../hooks/useVerifyEngine';
 import type { VerifyResult } from '../hooks/useVerifyEngine';
 import VerifyRowCard from './VerifyRowCard';
+import { toErrorMessage } from '../../../shared/utils/helpers';
 
 export type { VerifyResult };
 
@@ -139,7 +140,7 @@ export default function DataSourceVerifyModal({ draft, dataTable, onDraftChange,
       } catch (err) {
         accumulated.set(row.id, {
           rowId: row.id, status: 'error',
-          error: err instanceof Error ? err.message : String(err),
+          error: toErrorMessage(err),
           failedCells: {}, actualCells: {},
         });
       }

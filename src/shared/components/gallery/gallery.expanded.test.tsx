@@ -10,7 +10,7 @@ import { defaultFilterState } from './galleryFiltersUtils';
 import { GalleryGrid } from './GalleryGrid';
 import { TrainingPathsView } from './TrainingPathsView';
 import { trainingPaths } from '../../../data/galleries/trainingPaths';
-import type { GalleryEntry } from '../../../data/galleries/types';
+import { GalleryEntry } from '../../../data/galleries/types';
 
 /* ── Helpers ── */
 

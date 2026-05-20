@@ -5,8 +5,6 @@ import {
   Background,
   MiniMap,
   MarkerType,
-  useReactFlow,
-  useViewport,
   type Node,
   type Edge,
   type ReactFlowInstance,
@@ -23,37 +21,24 @@ import { captureCanvasScreenshot, captureCanvasSvg } from '../utils/canvasScreen
 import {
   detectForkJoinTopology,
   computeBranchBounds,
-  BRANCH_COLORS,
-  BRANCH_BORDER_COLORS,
   buildBranchLabel,
   type ForkJoinTopology,
 } from '../utils/forkJoinDetection';
+import { heatmapColor } from '../utils/heatmapColor';
+import { saveLayoutToStorage, loadLayoutFromStorage } from '../utils/replayLayoutStorage';
+import { ReplayCanvasControls } from './ReplayCanvasControls';
+import {
+  EdgePercentageOverlay,
+  SwimLaneOverlay,
+  type EdgePercentageBadge,
+  type SwimLaneBound,
+} from './ReplayCanvasOverlays';
 
 type ReplaySnapshotEdge = {
   id: string;
   source: string;
   target: string;
 };
-
-/** Maps 0–1 intensity to a green→yellow→orange→red color string */
-function heatmapColor(t: number): string {
-  const clamped = Math.max(0, Math.min(1, t));
-  let r: number, g: number, b: number;
-  if (clamped < 0.5) {
-    // green → yellow
-    const s = clamped * 2;
-    r = Math.round(34 + s * (234 - 34));
-    g = Math.round(197 + s * (179 - 197));
-    b = Math.round(94 + s * (8 - 94));
-  } else {
-    // yellow → red
-    const s = (clamped - 0.5) * 2;
-    r = Math.round(234 + s * (239 - 234));
-    g = Math.round(179 - s * 179);
-    b = Math.round(8 + s * (68 - 8));
-  }
-  return `rgb(${r}, ${g}, ${b})`;
-}
 
 export type NodeStateFilter = 'all' | 'pass' | 'fail' | 'skipped';
 
@@ -80,248 +65,6 @@ interface Props {
   onSvgReady?: (fn: CanvasSvgFn) => void;
   /** Called when fork/join topology is detected, so parent can show branch comparison */
   onForkJoinDetected?: (topology: ForkJoinTopology) => void;
-}
-
-const LAYOUT_STORAGE_PREFIX = 'replayLayout:';
-
-function saveLayoutToStorage(workflowId: string, positions: Record<string, { x: number; y: number }>) {
-  try {
-    localStorage.setItem(LAYOUT_STORAGE_PREFIX + workflowId, JSON.stringify(positions));
-  } catch { /* storage full or unavailable */ }
-}
-
-function loadLayoutFromStorage(workflowId: string): Record<string, { x: number; y: number }> | null {
-  try {
-    const raw = localStorage.getItem(LAYOUT_STORAGE_PREFIX + workflowId);
-    if (!raw) return null;
-    return JSON.parse(raw);
-  } catch { return null; }
-}
-
-
-interface ReplayControlsProps {
-  showMinimap?: boolean;
-  onToggleMinimap?: () => void;
-  onSaveLayout?: () => void;
-}
-
-function ReplayControls({ showMinimap, onToggleMinimap, onSaveLayout }: ReplayControlsProps) {
-  const { zoomIn, zoomOut, fitView } = useReactFlow();
-  const [saveFlash, setSaveFlash] = useState(false);
-
-  const handleFitView = useCallback(() => {
-    fitView({ padding: 0.05, duration: 200 });
-  }, [fitView]);
-
-  const handleSave = useCallback(() => {
-    onSaveLayout?.();
-    setSaveFlash(true);
-    setTimeout(() => setSaveFlash(false), 1200);
-  }, [onSaveLayout]);
-
-  return (
-    <div className="wf-pill-controls">
-      <button type="button" className="wf-pill-btn" title="Zoom in" onClick={() => zoomIn({ duration: 200 })}>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-          <line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/>
-        </svg>
-      </button>
-      <button type="button" className="wf-pill-btn" title="Zoom out" onClick={() => zoomOut({ duration: 200 })}>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-          <line x1="8" y1="11" x2="14" y2="11"/>
-        </svg>
-      </button>
-      <div className="wf-pill-sep" />
-      <button type="button" className="wf-pill-btn" title="Fit view" onClick={handleFitView}>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>
-        </svg>
-      </button>
-      <div className="wf-pill-sep" />
-      <button
-        type="button"
-        className={`wf-pill-btn ${saveFlash ? 'save-flash' : ''}`}
-        title="Save current node layout"
-        onClick={handleSave}
-        data-testid="save-layout-btn"
-      >
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
-          <polyline points="17 21 17 13 7 13 7 21"/>
-          <polyline points="7 3 7 8 15 8"/>
-        </svg>
-      </button>
-      {onToggleMinimap && (
-        <>
-          <div className="wf-pill-sep" />
-          <button
-            type="button"
-            className={`wf-pill-btn ${showMinimap ? 'active' : ''}`}
-            title="Toggle minimap"
-            onClick={onToggleMinimap}
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
-              <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
-              <line x1="12" y1="22.08" x2="12" y2="12"/>
-            </svg>
-          </button>
-        </>
-      )}
-    </div>
-  );
-}
-
-interface EdgePercentageBadge {
-  edgeId: string;
-  pct: number;
-  /** Midpoint in flow coordinates */
-  x: number;
-  y: number;
-}
-
-function EdgePercentageOverlay({ badges }: { badges: EdgePercentageBadge[] }) {
-  const { x, y, zoom } = useViewport();
-  if (badges.length === 0) return null;
-  return (
-    <div
-      style={{
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        width: '100%',
-        height: '100%',
-        pointerEvents: 'none',
-        overflow: 'hidden',
-      }}
-    >
-      {badges.map((b) => {
-        const screenX = b.x * zoom + x;
-        const screenY = b.y * zoom + y;
-        const badgeScale = Math.max(0.6, Math.min(1.2, zoom));
-        return (
-          <div
-            key={b.edgeId}
-            className={`edge-pct-badge ${b.pct === 0 ? 'edge-pct-zero' : ''}`}
-            style={{
-              position: 'absolute',
-              left: screenX,
-              top: screenY,
-              transform: `translate(-50%, -50%) scale(${badgeScale})`,
-            }}
-          >
-            {b.pct}%
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-interface SwimLaneBound {
-  branchIndex: number;
-  label: string;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  isCriticalPath: boolean;
-}
-
-function SwimLaneOverlay({ lanes }: { lanes: SwimLaneBound[] }) {
-  const { x, y, zoom } = useViewport();
-  if (lanes.length === 0) return null;
-  return (
-    <div
-      style={{
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        width: '100%',
-        height: '100%',
-        pointerEvents: 'none',
-        overflow: 'hidden',
-      }}
-      data-testid="swim-lane-overlay"
-    >
-      {lanes.map((lane) => {
-        const colorIdx = lane.branchIndex % BRANCH_COLORS.length;
-        const labelScale = Math.max(0.6, Math.min(1, zoom));
-        const tabH = 20 * zoom;
-        const screenX = lane.x * zoom + x;
-        const screenY = lane.y * zoom + y - tabH;
-        const screenW = lane.width * zoom;
-        const screenH = lane.height * zoom + tabH;
-        const borderColor = BRANCH_BORDER_COLORS[colorIdx];
-        const tabBg = borderColor.replace('0.4)', '0.85)');
-
-        return (
-          <div
-            key={`lane-${lane.branchIndex}`}
-            className={`swim-lane${lane.isCriticalPath ? ' swim-lane-critical' : ''}`}
-            style={{
-              position: 'absolute',
-              left: screenX,
-              top: screenY,
-              width: screenW,
-              height: screenH,
-            }}
-            data-testid={`swim-lane-${lane.branchIndex}`}
-          >
-            {/* Tab label sitting on top edge */}
-            <div
-              className="swim-lane-label"
-              style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                height: tabH,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6 * labelScale,
-                padding: `0 ${8 * zoom}px`,
-                fontSize: `${10 * labelScale}px`,
-                fontWeight: 600,
-                color: '#fff',
-                background: tabBg,
-                borderRadius: `${6 * zoom}px ${6 * zoom}px 0 0`,
-                letterSpacing: '0.04em',
-                textTransform: 'uppercase',
-                userSelect: 'none',
-                whiteSpace: 'nowrap',
-                maxWidth: screenW,
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-              }}
-            >
-              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{lane.label}</span>
-              {lane.isCriticalPath && (
-                <span className="swim-lane-critical-badge" style={{ fontSize: `${9 * labelScale}px`, flexShrink: 0 }}>
-                  ⏱ Critical Path
-                </span>
-              )}
-            </div>
-            {/* Body area */}
-            <div
-              style={{
-                position: 'absolute',
-                top: tabH,
-                left: 0,
-                width: '100%',
-                height: screenH - tabH,
-                background: BRANCH_COLORS[colorIdx],
-                border: `2px ${lane.isCriticalPath ? 'solid' : 'dashed'} ${borderColor}`,
-                borderTop: 'none',
-                borderRadius: `0 ${6 * zoom}px ${6 * zoom}px ${6 * zoom}px`,
-              }}
-            />
-          </div>
-        );
-      })}
-    </div>
-  );
 }
 
 interface NodeExecutionState {
@@ -831,7 +574,7 @@ export default function WorkflowExecutionCanvas({
           />
         )}
       </ReactFlow>
-      <ReplayControls 
+      <ReplayCanvasControls 
         showMinimap={showMinimap} 
         onToggleMinimap={onToggleMinimap}
         onSaveLayout={handleSaveLayout}

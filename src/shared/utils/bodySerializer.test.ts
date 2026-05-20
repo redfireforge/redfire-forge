@@ -1,20 +1,15 @@
-import { describe, it, expect } from 'vitest';
-import type { Scenario, KeyValue } from '../types';
-import {
-  getEffectiveBodyType,
-  serializeWithContentType,
-  serializeBody,
-  getContentType,
-  bodyFormToString,
-  stringToBodyForm,
-} from './bodySerializer';
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import { Scenario, KeyValue } from '../types';
+import { getEffectiveBodyType, serializeWithContentType, serializeBody, getContentType, bodyFormToString, stringToBodyForm, } from './bodySerializer';
+import { makeScenario as _makeScenario } from '../../test-utils/factories';
 
 function makeScenario(overrides: Partial<Scenario> = {}): Scenario {
-  return {
-    id: 's1', name: 'Test', url: 'https://example.com', method: 'POST',
-    headers: [], body: '', auth: { type: 'none' }, validation: { mode: 'none' },
+  return _makeScenario({
+    id: 's1',
+    url: 'https://example.com',
+    method: 'POST',
     ...overrides,
-  };
+  });
 }
 
 describe('getEffectiveBodyType', () => {
@@ -32,6 +27,14 @@ describe('getEffectiveBodyType', () => {
 
   it('defaults to none when no body and no bodyType', () => {
     expect(getEffectiveBodyType(makeScenario())).toBe('none');
+  });
+
+  it('treats explicit bodyType none even when body is present', () => {
+    expect(getEffectiveBodyType(makeScenario({ body: '{}', bodyType: 'none' }))).toBe('none');
+  });
+
+  it('defaults to none when body is empty string and bodyType unset', () => {
+    expect(getEffectiveBodyType(makeScenario({ body: '', method: 'POST' }))).toBe('none');
   });
 });
 
@@ -73,6 +76,12 @@ describe('serializeWithContentType', () => {
     expect(result.body).toBe('name=ok');
   });
 
+  it('trims keys for form-urlencoded', () => {
+    const form: KeyValue[] = [{ key: '  name  ', value: 'ok' }];
+    const result = serializeWithContentType(makeScenario({ bodyType: 'form-urlencoded', bodyForm: form }));
+    expect(result.body).toBe('name=ok');
+  });
+
   it('serializes form-data with boundary', () => {
     const form: KeyValue[] = [{ key: 'field1', value: 'val1' }];
     const result = serializeWithContentType(makeScenario({ bodyType: 'form-data', bodyForm: form }));
@@ -86,6 +95,12 @@ describe('serializeWithContentType', () => {
     const result = serializeWithContentType(makeScenario({ bodyType: 'form-data', bodyForm: form }));
     expect(result.body).not.toContain('skip');
     expect(result.body).toContain('ok');
+  });
+
+  it('trims keys for form-data', () => {
+    const form: KeyValue[] = [{ key: '  field  ', value: 'v' }];
+    const result = serializeWithContentType(makeScenario({ bodyType: 'form-data', bodyForm: form }));
+    expect(result.body).toContain('name="field"');
   });
 
   it('handles empty body returning undefined', () => {
@@ -132,6 +147,10 @@ describe('bodyFormToString', () => {
 });
 
 describe('stringToBodyForm', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it('parses query string into form fields', () => {
     const result = stringToBodyForm('name=test&age=30');
     expect(result).toEqual([{ key: 'name', value: 'test' }, { key: 'age', value: '30' }]);
@@ -150,6 +169,18 @@ describe('stringToBodyForm', () => {
   it('handles URL-encoded values', () => {
     const result = stringToBodyForm('q=hello%20world');
     expect(result[0].value).toBe('hello world');
+  });
+
+  it('returns empty entry when parse yields no key-value pairs', () => {
+    expect(stringToBodyForm('&&')).toEqual([{ key: '', value: '' }]);
+    expect(stringToBodyForm('?')).toEqual([{ key: '', value: '' }]);
+  });
+
+  it('returns empty entry when URLSearchParams throws', () => {
+    vi.spyOn(globalThis, 'URLSearchParams').mockImplementation(() => {
+      throw new Error('parse failure');
+    });
+    expect(stringToBodyForm('a=b')).toEqual([{ key: '', value: '' }]);
   });
 });
 

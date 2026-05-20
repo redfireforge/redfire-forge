@@ -1,8 +1,10 @@
 import type { RequestResult, TestSummary } from '../shared/types';
 
 export function computeMetrics(results: RequestResult[], totalDurationMs: number): TestSummary {
-  const times = results.map((r) => r.responseTimeMs).sort((a, b) => a - b);
-  const total = results.length;
+  // Exclude cancelled (aborted) requests from all metric calculations
+  const activeResults = results.filter(r => !r.cancelled);
+  const times = activeResults.map((r) => r.responseTimeMs).sort((a, b) => a - b);
+  const total = activeResults.length;
 
   if (total === 0) {
     return {
@@ -15,11 +17,12 @@ export function computeMetrics(results: RequestResult[], totalDurationMs: number
       p99ResponseTime: 0,
       errorRate: 0,
       errorsByStatus: {},
-      totalRequests: 0,
+      totalRequests: results.length,
       successfulRequests: 0,
       failedRequests: 0,
       failedValidations: 0,
       totalDurationMs,
+      cancelledRequests: results.length - total,
     };
   }
 
@@ -37,7 +40,7 @@ export function computeMetrics(results: RequestResult[], totalDurationMs: number
   let failedRequests = 0;
   let failedValidations = 0;
 
-  for (const r of results) {
+  for (const r of activeResults) {
     if (r.httpStatus >= 400 || r.httpStatus === 0) {
       failedRequests++;
       errorsByStatus[r.httpStatus] = (errorsByStatus[r.httpStatus] || 0) + 1;
@@ -59,10 +62,11 @@ export function computeMetrics(results: RequestResult[], totalDurationMs: number
     p99ResponseTime: Math.round(p99 * 100) / 100,
     errorRate: Math.round(errorRate * 100) / 100,
     errorsByStatus,
-    totalRequests: total,
+    totalRequests: results.length,
     successfulRequests: total - failedRequests,
     failedRequests,
     failedValidations,
     totalDurationMs: Math.round(totalDurationMs),
+    cancelledRequests: results.length - total,
   };
 }

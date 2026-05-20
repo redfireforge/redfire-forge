@@ -1,4 +1,5 @@
 import { useCallback, useState, useEffect } from 'react';
+import { prettyJson, isValidJson } from '../../../../shared/utils/helpers';
 import WorkflowResponseBody from '../panels/WorkflowResponseBody';
 import WorkflowEditorModalFrame from './WorkflowEditorModalFrame';
 
@@ -45,18 +46,13 @@ export default function WorkflowDetailModal({
     if (!pretty || !variableMode) return null;
     const raw = (variableValue ?? '').trim();
     if (!raw) return null;
-    try {
-      return JSON.stringify(JSON.parse(raw), null, 2);
-    } catch {
-      return null;
-    }
+    return isValidJson(raw) ? prettyJson(raw) : null;
   })();
 
   /** Can the value be parsed as JSON? */
   const isJson = (() => {
     const raw = (variableValue ?? '').trim();
-    if (!raw) return false;
-    try { JSON.parse(raw); return true; } catch { return false; }
+    return raw.length > 0 && isValidJson(raw);
   })();
 
   return (

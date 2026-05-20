@@ -6,23 +6,13 @@ import ScriptCodeEditor from './ScriptCodeEditor';
 import ScriptTestResult from './ScriptTestResult';
 import { SCRIPT_MODE_OPTIONS, useScriptTest } from './useScriptTest';
 import WorkflowEditorModalFrame from '../modals/WorkflowEditorModalFrame';
-import JsonPreview, { buildJTree } from '../../../requests/components/JsonTreePreview';
+import JsonPreview, { buildJTree, collectJTreePaths } from '../../../requests/components/JsonTreePreview';
 import type { JNode } from '../../../requests/components/JsonTreePreview';
 import { useDebounce } from '../../../../shared/hooks/useDebounce';
 import { useSplitterDrag } from '../../../../shared/hooks/useSplitterDrag';
-import { prettyJson } from '../../../../shared/utils/helpers';
+import { prettyJson, isValidJson } from '../../../../shared/utils/helpers';
 
-function collectAllPaths(node: { key: string; children?: { key: string; children?: unknown[] }[] }, prefix: string): string[] {
-  const paths: string[] = [];
-  if (node.children) {
-    for (const child of node.children) {
-      const p = `${prefix}/${child.key}`;
-      paths.push(p);
-      paths.push(...collectAllPaths(child as Parameters<typeof collectAllPaths>[0], p));
-    }
-  }
-  return paths;
-}
+const collectAllPaths = collectJTreePaths;
 
 /* ── Test Value Panel — right-side inline panel ── */
 function TestValuePanel({ varName, initialValue, onApply, onClose, style }: {
@@ -37,9 +27,7 @@ function TestValuePanel({ varName, initialValue, onApply, onClose, style }: {
     setDraft(val);
     onApply(val);
   }, [onApply]);
-  const [viewMode, setViewMode] = useState<'text' | 'tree'>(() => {
-    try { JSON.parse(initialValue); return 'tree'; } catch { return 'text'; }
-  });
+  const [viewMode, setViewMode] = useState<'text' | 'tree'>(() => (isValidJson(initialValue) ? 'tree' : 'text'));
   const [searchTerm, setSearchTerm] = useState('');
   const [searchMatchIdx, setSearchMatchIdx] = useState(0);
   const [searchMatchCount, setSearchMatchCount] = useState(0);
@@ -53,9 +41,7 @@ function TestValuePanel({ varName, initialValue, onApply, onClose, style }: {
     try { return JSON.stringify(JSON.parse(text)); } catch { return text; }
   };
 
-  const isValidJson = useMemo(() => {
-    try { JSON.parse(draft); return true; } catch { return false; }
-  }, [draft]);
+  const draftIsValidJson = useMemo(() => isValidJson(draft), [draft]);
 
   const jTree = useMemo((): JNode | null => {
     if (viewMode !== 'tree') return null;
@@ -131,7 +117,7 @@ function TestValuePanel({ varName, initialValue, onApply, onClose, style }: {
         )}
 
         <div className="wf-script-value-popup-actions">
-          {isValidJson && (
+          {draftIsValidJson && (
             <button
               className="wf-config-add-btn"
               title={viewMode === 'tree' ? 'Switch to text editor' : 'Switch to tree view'}

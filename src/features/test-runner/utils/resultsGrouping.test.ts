@@ -1,33 +1,17 @@
 import { describe, it, expect } from 'vitest';
-import {
-  computeStats,
-  buildGroups,
-  hasWorkflowData,
-  getWorkflowSteps,
-  getIterationCount,
-  computeWorkflowStepSummaries,
-  computeWorkflowIterationSummaries,
-} from './resultsGrouping';
-import type { RequestResult } from '../../../shared/types';
+import { computeStats, buildGroups, hasWorkflowData, getWorkflowSteps, getIterationCount, computeWorkflowStepSummaries, computeWorkflowIterationSummaries, } from './resultsGrouping';
+import { RequestResult } from '../../../shared/types';
+import { makeResult as _makeResult } from '../../../test-utils/factories';
 
 function makeResult(overrides: Partial<RequestResult> = {}): RequestResult {
-  return {
+  return _makeResult({
     id: '1',
-    scenarioId: 's1',
     scenarioName: 'test-scenario',
     featureGroupName: 'Feature A',
     groupName: 'Group 1',
     url: 'http://example.com',
-    method: 'GET',
-    httpStatus: 200,
-    responseTimeMs: 100,
-    responseBody: '{}',
-    timestamp: Date.now(),
-    passed: true,
-    validationMode: 'none',
-    failureDetails: [],
     ...overrides,
-  };
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -71,6 +55,18 @@ describe('computeStats', () => {
     const stats = computeStats(results);
     expect(stats.validationFailed).toBe(1);
     expect(stats.failed).toBe(0);
+  });
+
+  it('counts failed results without errorMessage or failureDetails', () => {
+    const results = [
+      makeResult({ passed: false }),
+      makeResult({ passed: true }),
+    ];
+    const stats = computeStats(results);
+    expect(stats.total).toBe(2);
+    expect(stats.passed).toBe(1);
+    expect(stats.failed).toBe(1);
+    expect(stats.validationFailed).toBe(0);
   });
 
   it('handles empty results', () => {
@@ -223,6 +219,18 @@ describe('buildGroups', () => {
     expect(groups[0].key).toBe('HTTP Step');
   });
 
+  it('falls back to (unknown step) when both workflowNodeId and scenarioName are empty', () => {
+    const results = [makeResult({ workflowNodeId: undefined, scenarioName: '' })];
+    const groups = buildGroups(results, ['workflowStep']);
+    expect(groups[0].key).toBe('(unknown step)');
+  });
+
+  it('falls back to (unknown iteration) when iterationIndex is undefined', () => {
+    const results = [makeResult({ iterationIndex: undefined })];
+    const groups = buildGroups(results, ['iteration']);
+    expect(groups[0].key).toBe('(unknown iteration)');
+  });
+
   it('groups by iteration using iterationIndex', () => {
     const results = [
       makeResult({ iterationIndex: 0 }),
@@ -299,6 +307,11 @@ describe('getWorkflowSteps', () => {
     const results = [makeResult({ scenarioName: 'HTTP Request' })];
     expect(getWorkflowSteps(results)).toEqual(['HTTP Request']);
   });
+
+  it('skips results where both workflowNodeId and scenarioName are empty', () => {
+    const results = [makeResult({ workflowNodeId: '', scenarioName: '' })];
+    expect(getWorkflowSteps(results)).toEqual([]);
+  });
 });
 
 describe('getIterationCount', () => {
@@ -342,6 +355,20 @@ describe('computeWorkflowStepSummaries', () => {
     expect(step2.total).toBe(1);
     expect(step2.passed).toBe(0);
     expect(step2.passRate).toBe(0);
+  });
+
+  it('returns empty array for no results', () => {
+    expect(computeWorkflowStepSummaries([])).toEqual([]);
+  });
+
+  it('includes percentile fields with fallback to 0', () => {
+    const results = [
+      makeResult({ workflowNodeId: 'step1', responseTimeMs: 50, passed: true }),
+    ];
+    const summaries = computeWorkflowStepSummaries(results);
+    expect(summaries[0].p50Time).toBeGreaterThanOrEqual(0);
+    expect(summaries[0].p95Time).toBeGreaterThanOrEqual(0);
+    expect(summaries[0].p99Time).toBeGreaterThanOrEqual(0);
   });
 });
 

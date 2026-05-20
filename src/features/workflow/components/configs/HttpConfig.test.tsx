@@ -6,8 +6,8 @@ import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import HttpConfig from './HttpConfig';
-import type { HttpNodeData, WorkflowService } from '../../types/workflow';
-import type { Scenario, KeyValue } from '../../../../shared/types';
+import { HttpNodeData, WorkflowService } from '../../types/workflow';
+import { Scenario, KeyValue } from '../../../../shared/types';
 
 // Mock ExpressionInput with ref forwarding for cursor-based insertion tests
 vi.mock('../expression/ExpressionInput', () => ({
@@ -367,6 +367,17 @@ describe('HttpConfig', () => {
       { ref: 'node:step1.token', label: 'Token', type: 'string', description: '' },
     ]} />);
     expect(screen.getByText(/Variables you can paste/)).toBeTruthy();
+  });
+
+  it('sorts hints with same prefix alphabetically by ref', () => {
+    const { container } = render(<HttpConfig {...defaultProps} activeTab="url" variableHints={[
+      { ref: 'node:step2.b', label: 'B', type: 'string', description: '' },
+      { ref: 'node:step1.a', label: 'A', type: 'string', description: '' },
+      { ref: 'globalZ', label: 'Z', type: 'string', description: '' },
+      { ref: 'globalA', label: 'GA', type: 'string', description: '' },
+    ]} />);
+    const items = container.querySelectorAll('.wf-http-var-hints-item');
+    expect(items.length).toBe(4);
   });
 
   it('does not render hints section with empty hints', () => {

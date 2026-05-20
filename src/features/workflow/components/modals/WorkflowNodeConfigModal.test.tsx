@@ -5,9 +5,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import '@testing-library/jest-dom';
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import WorkflowNodeConfigModal from './WorkflowNodeConfigModal';
-import type { WorkflowNode, HttpNodeData } from '../../types/workflow';
-import type { Scenario } from '../../../../shared/types';
-import type { WorkflowVariableHint } from '../../utils/workflowVariableHints';
+import { WorkflowNode, HttpNodeData } from '../../types/workflow';
+import { Scenario } from '../../../../shared/types';
+import { WorkflowVariableHint } from '../../utils/workflowVariableHints';
 
 // Mock heavy child components to keep tests focused
 vi.mock('../configs/HttpConfig', () => ({

@@ -1,6 +1,5 @@
 import { useState, useCallback, useEffect, type MutableRefObject } from 'react';
-import { v4 as uuidv4 } from 'uuid';
-import type { Scenario, AuthConfig, FailureDetail, ResponseVersion, RulesVersion, FeatureGroup, GlobalAuthProfile } from '../../../shared/types';
+import type { Scenario, AuthConfig, FailureDetail, FeatureGroup, GlobalAuthProfile } from '../../../shared/types';
 import { serializeWithContentType, getEffectiveBodyType } from '../../../shared/utils/bodySerializer';
 import { toErrorMessage, prettyJson } from '../../../shared/utils/helpers';
 import { proxyFetch } from '../../../engine/executor';
@@ -10,6 +9,7 @@ import { MapperFetchError, type FetchErrorDetail } from '../../../shared/compone
 import { validate, evaluateAssertions, type AssertionContext } from '../../../engine/validator';
 import { jsonEqual } from '../utils/testEditorUtils';
 import { getByPath } from '../../../shared/utils/jsonPath';
+import { hasExpectedFields, hasActiveRules, hasAssertions, hasSampleJson, getExpectedFields } from '../utils/validationHelpers';
 
 // ─── Shared helpers ──────────────────────────────────────────
 
@@ -97,36 +97,12 @@ export async function buildAuthedRequest(
   return { headers: reqHeaders, body: reqBody };
 }
 
-/**
- * Build a snapshot of the current validation state as a ResponseVersion.
- */
-export function buildResponseVersion(v: Scenario['validation'], json: string): ResponseVersion {
-  return {
-    id: uuidv4(),
-    timestamp: Date.now(),
-    json,
-    validationMode: v.mode,
-    selectiveMode: v.selectiveMode,
-    expectedFields: v.expectedFields ? [...v.expectedFields] : [],
-    excludedPaths: v.excludedPaths ? [...v.excludedPaths] : [],
-    unorderedArrays: v.unorderedArrays,
-  };
-}
+import { createResponseVersion, createRulesVersion } from '../utils/versionFactory';
 
-/**
- * Build a snapshot of the current rules as a RulesVersion.
- */
-export function buildRulesVersion(v: Scenario['validation']): RulesVersion {
-  return {
-    id: uuidv4(),
-    timestamp: Date.now(),
-    validationMode: v.mode,
-    selectiveMode: v.selectiveMode,
-    expectedFields: v.expectedFields ? [...v.expectedFields] : [],
-    excludedPaths: v.excludedPaths ? [...v.excludedPaths] : [],
-    unorderedArrays: v.unorderedArrays,
-  };
-}
+/** @deprecated Use `createResponseVersion` from `versionFactory.ts` directly. */
+export const buildResponseVersion = createResponseVersion;
+/** @deprecated Use `createRulesVersion` from `versionFactory.ts` directly. */
+export const buildRulesVersion = createRulesVersion;
 
 // ─── Hook ────────────────────────────────────────────────────
 
@@ -292,12 +268,7 @@ export function useTestFetch({
       } else {
         const pretty = prettyJson(result.body);
         const v = latest.validation;
-        const hasExistingRules = (v.expectedFields || []).length > 0;
-        const hasExistingSampleResponse = (v.sampleJson || '').trim().length > 0;
-
-        // Keep fetch behavior consistent with real tests: when a response already exists
-        // (or rules exist), require explicit confirmation before replacing it.
-        if (hasExistingRules || hasExistingSampleResponse) {
+        if (hasExpectedFields(v) || hasSampleJson(v)) {
           setPendingFetchResponse(pretty);
         } else {
           const prevVersions = v.responseVersions || [];
@@ -332,25 +303,19 @@ export function useTestFetch({
     const latest = draftRef.current;
     const v = latest.validation;
     const prevVersions = v.responseVersions || [];
-    const shouldAutoSave = (v.sampleJson || '').trim().length > 0;
-    const updatedVersions = shouldAutoSave
+    const updatedVersions = hasSampleJson(v)
       ? [...prevVersions, buildResponseVersion(v, v.sampleJson || '')]
       : prevVersions;
-    const currentExpectedFields = v.expectedFields || [];
+    const currentExpectedFields = getExpectedFields(v);
     let updatedExpectedFields = currentExpectedFields;
     try {
       const parsed = JSON.parse(pendingFetchResponse);
       updatedExpectedFields = currentExpectedFields.map((field) => {
         const nextValue = getByPath(parsed, field.jsonPath);
         if (nextValue === undefined) return field;
-        return {
-          ...field,
-          expectedValue: JSON.stringify(nextValue),
-        };
+        return { ...field, expectedValue: JSON.stringify(nextValue) };
       });
-    } catch {
-      // Keep existing expected values when fetched response is not JSON.
-    }
+    } catch { /* keep existing values when response is not JSON */ }
     onDraftChange({
       ...latest,
       validation: {
@@ -368,13 +333,11 @@ export function useTestFetch({
     const latest = draftRef.current;
     const v = latest.validation;
     const prevVersions = v.responseVersions || [];
-    const shouldAutoSave = (v.sampleJson || '').trim().length > 0;
-    const updatedVersions = shouldAutoSave
+    const updatedVersions = hasSampleJson(v)
       ? [...prevVersions, buildResponseVersion(v, v.sampleJson || '')]
       : prevVersions;
     const prevRulesVersions = v.rulesVersions || [];
-    const hasRules = (v.expectedFields || []).length > 0;
-    const updatedRulesVersions = hasRules
+    const updatedRulesVersions = hasExpectedFields(v)
       ? [...prevRulesVersions, buildRulesVersion(v)]
       : prevRulesVersions;
     onDraftChange({
@@ -432,18 +395,18 @@ export function useTestFetch({
       return;
     }
     const v = cur.validation;
-    const hasRules = v.mode !== 'none' && (v.expectedFields || []).length > 0;
-    const hasAssertions = (v.assertions || []).length > 0;
+    const rulesConfigured = hasActiveRules(v);
+    const assertionsConfigured = hasAssertions(v);
 
-    if (scope === 'rules' && !hasRules) {
+    if (scope === 'rules' && !rulesConfigured) {
       setValidationResult({ passed: false, failures: [{ path: '(config)', expected: 'validation rules', actual: 'no rules configured' }] });
       return;
     }
-    if (scope === 'assertions' && !hasAssertions) {
+    if (scope === 'assertions' && !assertionsConfigured) {
       setValidationResult({ passed: false, failures: [{ path: '(config)', expected: 'assertions', actual: 'no assertions configured' }] });
       return;
     }
-    if (scope === 'all' && !hasRules && !hasAssertions) {
+    if (scope === 'all' && !rulesConfigured && !assertionsConfigured) {
       setValidationResult({ passed: false, failures: [{ path: '(config)', expected: 'validation rules or assertions', actual: 'none configured' }] });
       return;
     }
@@ -485,13 +448,13 @@ export function useTestFetch({
       const allFailures: FailureDetail[] = [];
 
       if (scope === 'rules' || scope === 'all') {
-        if (hasRules) {
+        if (rulesConfigured) {
           allFailures.push(...validate(v, responseObj));
         }
       }
 
       if (scope === 'assertions' || scope === 'all') {
-        if (hasAssertions) {
+        if (assertionsConfigured) {
           const responseHeaders: Record<string, string> = {};
           if (result.headers) {
             for (const [k, val] of Object.entries(result.headers)) {

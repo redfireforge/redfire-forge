@@ -1,9 +1,6 @@
 /** @vitest-environment jsdom */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import {
-  rgbToHex, getCssVar, isLightTheme, LANGUAGE_ID, OPERATOR_KEYWORDS,
-  registerLanguage, ensureCompletionProvider, applyDynamicTheme,
-} from './monacoValidationLanguage';
+import { rgbToHex, getCssVar, isLightTheme, LANGUAGE_ID, OPERATOR_KEYWORDS, registerLanguage, ensureCompletionProvider, applyDynamicTheme, } from './monacoValidationLanguage';
 
 describe('monacoValidationLanguage', () => {
   describe('LANGUAGE_ID', () => {

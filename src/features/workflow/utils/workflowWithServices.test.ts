@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { syncHttpNodeLabelsWithServices } from './workflowWithServices';
 import { defaultNodeData, type WorkflowRFNode } from './workflowNodeFactory';
-import type { WorkflowService } from '../types/workflow';
+import { WorkflowService } from '../types/workflow';
 
 function makeHttpNode(
   id: string,

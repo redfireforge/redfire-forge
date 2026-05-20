@@ -4,7 +4,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useWorkflowRunCache, type WorkflowRunHistoryEntry } from './useWorkflowRunCache';
-import type { NodeRunStatus } from '../types/workflow';
+import { NodeRunStatus } from '../types/workflow';
 
 const STORAGE_KEY = 'rfg-workflow-run-cache';
 

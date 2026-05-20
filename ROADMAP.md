@@ -8,7 +8,7 @@
 ## Positioning & Strategy
 
 > Competitive analysis against k6, Gatling, Locust, Artillery, JMeter, Bruno, Hoppscotch, Postman.
-> Last re-evaluated: 2026-05-16 (after completing workflow designer, results explorer with debug console, trace levels, 3-runner architecture, data-driven testing, API catalog, validation engine (16 assertion types, 24 operators, 125 functions, array assertions, DSL editor, ASSERT predicates, universal negation), and Data Mapper (10 adapters, 8 gallery samples, 12 training manuals)).
+> Last re-evaluated: 2026-05-18 (v0.5.8 stable on `master`; after completing workflow designer, results explorer with debug console, trace levels, 3-runner architecture, data-driven testing, API catalog with Catalog→Harness integration, validation engine (16 assertion types, 24 operators, 125 functions, array assertions, DSL editor, ASSERT predicates, universal negation), Data Mapper (10 adapters, 8 gallery samples, 12 training manuals), webhook load driver with multi-webhook testing panel, and comprehensive code quality audit (18,323 unit tests, 652 E2E tests, >90% coverage all files)).
 
 ### Identity
 
@@ -32,7 +32,7 @@ RedfireForge is a **visual API testing and workflow automation workbench** — n
 1. **Visual workflow designer with full graph execution** — Fork/Join parallel paths, conditions, loops, switches, sub-workflows, correlation waits, script transforms — executed as load tests with iteration-level trace capture. No competitor offers a visual DAG workflow editor that doubles as a performance test runner.
 2. **Results Explorer with debug console** — Interactive execution replay: click nodes to see request/response, drill into sub-workflows, filter by iteration/state, search logs. Tiered trace levels (Minimal → Debug) with per-node log buffering and aggregate summary. The depth of JMeter's View Results Tree with the UX of a modern IDE debugger.
 3. **Sophisticated validation engine** — JSONPath builder, regex assertions, structured assertions (array length, numeric compare, date compare), response time SLA, header validation, unordered array matching — all composable with visual builder UI and assertion presets.
-4. **API Catalog with OpenAPI import** — Browse endpoints with Swagger-style documentation, test interactively, generate cURL, version-track specs, and bulk-export to load tests with environment-aware base URLs. No other load testing tool integrates catalog → test workflow.
+4. **API Catalog with OpenAPI import** — Browse endpoints with Swagger-style documentation, test interactively, generate cURL, version-track specs, and bulk-export to load tests with environment-aware base URLs. Batch promotion to Harness with coverage tracking. No other load testing tool integrates catalog → test workflow → load test pipeline.
 5. **Three-runner architecture with data-driven testing** — Standard Runner, Parameterized Runner (CSV/Excel/JSON/API row expansion), and Workflow Runner — each purpose-built. Shared data sources, row-level validation columns, populate from API, re-run failed rows.
 6. **Enterprise-friendly data workflow** — Excel template import/export (3-step wizard, styled sheets), CSV data files, parameterized copy conversion. QA teams work in spreadsheets — we meet them there.
 7. **Dual deployment** — Tauri desktop app (lighter than Electron) + web mode with zero install. Same codebase, same features, different runtimes.
@@ -51,7 +51,7 @@ RedfireForge is a **visual API testing and workflow automation workbench** — n
 | Visual workflow load testing | Full DAG with 15+ node types | JMeter (XML tree) | Modern React Flow canvas vs 2000s Java Swing |
 | Execution debugging | Results Explorer + Debug Console | JMeter (View Results Tree) | Tiered trace levels, aggregate summary, sub-workflow drill-down |
 | Assertion builder | Visual Data Mapper + 24 operators + DSL + ASSERT + array assertions | Postman (scripted) | No-code assertion composition with live verification, color-coded operator pills, and DSL code editor |
-| API Catalog integration | OpenAPI import → load test pipeline | None | Unique: catalog → test in one tool |
+| API Catalog integration | OpenAPI import → Harness load test pipeline with batch promotion, coverage tracking | None | Unique: catalog → test → load test in one tool |
 | Data-driven testing | CSV/Excel/JSON/API with row validation | JMeter (CSV DataSet) | Visual editor, populate-from-API, re-run failed rows |
 | Desktop app size | ~15 MB (Tauri) | ~250 MB (Postman/Electron) | 15x smaller, native performance |
 
@@ -59,7 +59,7 @@ RedfireForge is a **visual API testing and workflow automation workbench** — n
 
 | Risk | Status | Mitigation |
 |---|---|---|
-| ~~No tests~~ | **RESOLVED** | 16,000+ unit tests (>90% coverage), 613 E2E tests (Playwright), pre-commit hooks, CI pipeline |
+| ~~No tests~~ | **RESOLVED** | 18,323 unit tests (>90% coverage all files), 652 E2E tests (Playwright), pre-commit hooks, CI pipeline |
 | ~~No CLI / CI~~ | **RESOLVED** | CLI runner with JUnit/JSON/Markdown reports; GitHub Actions CI; `--trace-level` flag |
 | ~~No request chaining~~ | **RESOLVED** | 15+ node types: HTTP, Condition, Loop, Switch, Fork/Join, Sub-Workflow, Script, Correlation Wait, etc. |
 | ~~Monolithic codebase~~ | **RESOLVED** | Feature-based `src/features/` structure; all files under 900 lines; shared hooks/utils |
@@ -189,7 +189,7 @@ Structured multi-sheet Excel templates for bulk test management and better error
 - [x] **Unit Tests — Utils** — `testEditorUtils.ts` (28), `resultsGrouping.ts` (14), `jsonPathTreeUtils.ts` (24), `helpers.ts` (2), `fileSaver.ts` (5), `export.ts` (2)
 - [x] **Integration Tests** — Storage layer (31), auth inheritance resolution (15), JSON import/export roundtrips (15), CSV template roundtrips (12), Excel template roundtrips (15)
 - [x] **E2E Tests** — Playwright: create feature group/scenario/test (4), run test (4), view results (4), navigation/settings (5)
-- [x] **`npm test` Script** — Vitest (16,356 tests) + Playwright E2E (613 tests)
+- [x] **`npm test` Script** — Vitest (18,323 tests) + Playwright E2E (652 tests)
 - [x] **Refactor Large Components** — 8 monoliths broken into 27+ focused modules + 2 shared utilities + shared useAuthVerify hook + AuthConfigPanel
 
 ### Phase 6 — Requests (Ad-Hoc API Testing) ✅
@@ -341,7 +341,7 @@ Structured multi-sheet Excel templates for bulk test management and better error
 - [x] **Inline Expression Autocomplete** — `ExpressionInput` and `ExpressionTextarea` components provide inline `{{variable}}` and `$function` hints across all expression-capable workflow fields (URL, headers, body, conditions, extractions)
 - [x] **Searchable Variable Select** — Custom combobox replacing native `<select>` in Condition node's "Choose variable" mode; type-to-filter, grouped by source node, keyboard navigable, type badges
 - [x] **E2E Test Selectors Updated** — All 372 E2E tests updated for new nav structure
-- [x] **5,717 Unit Tests, 372 E2E Tests** — comprehensive coverage across all features
+- [x] **18,323 Unit Tests, 652 E2E Tests** — comprehensive coverage across all features
 
 ### Phase 14 — Gallery Redesign & Training Manuals ✅
 
@@ -353,7 +353,7 @@ Structured multi-sheet Excel templates for bulk test management and better error
 - [x] **Workflow Gallery Migration** — 30 workflow samples across 5 categories (api-patterns, flow-control, event-driven, orchestration); includes script nodes, async correlation, and diverse API patterns
 - [x] **Shared Gallery UI** — `GalleryPage` with domain tabs, `GalleryDetailPanel` with import/action buttons, `FullPanelModal` for gallery display
 - [x] **Diverse API Workflow Samples** — 5 new workflow samples using real public APIs: PokéAPI Evolution Chain, Country Currency Lookup, Product Search & Cart, Book Search & Enrichment, Multi-API Dashboard
-- [x] **Training Manuals (123 files)** — Complete training manual coverage across all gallery domains and training paths: requests, tests, catalog, assertions, workflows, workflow patterns; each manual has cover page, structured sections, exercises, and RedfireForge branding CSS
+- [x] **Training Manuals (182 files)** — Complete training manual coverage across all gallery domains and training paths: requests, tests, catalog, assertions, workflows, workflow patterns; each manual has cover page, structured sections, exercises, and RedfireForge branding CSS
 
 ### Phase 15 — Version History, Training Paths & Code Quality ✅
 
@@ -374,7 +374,7 @@ Structured multi-sheet Excel templates for bulk test management and better error
 - [x] **Histogram Distribution** — Response time histogram tab in Run Comparison Panel
 - [x] **p50 Metric** — p50 response time added to `computeMetrics()`
 - [x] **Code Consolidation (Round 5)** — Extracted `toggleSetItem()` shared utility (9 inline patterns → 1 function), `createResponseVersion()` / `createRulesVersion()` factory functions (8 inline constructions → 2 factories); `resolveAuthHeaders()` deduplication (6 files); import unification for `acquireOAuth2Token`
-- [x] **5,717 Unit Tests, 372 E2E Tests** — 12 new utility tests (setToggle, versionFactory), all passing
+- [x] **18,323 Unit Tests, 652 E2E Tests** — 12 new utility tests (setToggle, versionFactory), all passing
 
 ### Phase 16 — Parameterized Testing & Shared Data Sources ✅
 
@@ -465,7 +465,7 @@ Structured multi-sheet Excel templates for bulk test management and better error
 - [x] **Tab Rename** — "Scenarios" tab renamed to "Feature Groups"
 - [x] **3 New Training Manuals** — Test Runner Guide, Parameterized Runner Guide, Scenario Types Guide
 - [x] **14+ Existing Manuals Updated** — Runner references, TPS terminology, navigation paths
-- [x] **16,356 Unit Tests, 613 E2E Tests** — All passing, >90% code coverage across all files
+- [x] **18,323 Unit Tests, 652 E2E Tests** — All passing, >90% code coverage across all files
 
 ### Phase 22 — Results Explorer Debug Console & Trace Levels ✅
 
@@ -485,17 +485,33 @@ Structured multi-sheet Excel templates for bulk test management and better error
 
 ---
 
-## In Progress
-
-### Phase 23 — Correlation Wait Runner Config & Webhook Load Driver 🚧
+### Phase 23 — Correlation Wait Runner Config & Webhook Load Driver ✅
 
 > Advanced webhook testing capabilities in the Workflow Runner.
 
 - [x] **Correlation Wait Config Panel** — UI for configuring correlation wait parameters in the runner; poll throttle controls
 - [x] **Payload Template Engine** — Template-based payload generation for webhook simulation
 - [x] **Webhook Load Driver** — `webhookLoadDriver.ts` for driving webhook callbacks during workflow load tests
-- [ ] **Multi-Webhook Testing Panel** — UI for configuring and triggering multiple webhook callbacks
-- [ ] **WebhookLoadDriverPanel** — Runner UI for webhook load testing configuration
+- [x] **Multi-Webhook Testing Panel** — `MultiWebhookTestingPanel.tsx` (737 lines): UI for configuring and triggering multiple webhook callbacks with payload templates, timing controls, and execution status
+- [x] **WebhookLoadDriverPanel** — `WebhookLoadDriverPanel.tsx` (332 lines): Runner UI for webhook load testing configuration with `runWebhookLoadTest` and `calculateTotalRequests` integration
+
+### Phase 23.5 — Catalog ↔ Harness Integration ✅
+
+> Bridge API Catalog and Requests with the Harness test runner. Promote catalog endpoints to load tests with environment-aware URL resolution and batch operations.
+
+- [x] **Send to Harness (Single Request)** — Promote individual requests to Harness feature groups via `SendToHarnessModal` with environment/microservice selection, two-step wizard with `CascadeSelect` dropdowns
+- [x] **Batch Send to Harness** — Promote entire collections or sub-collections via `BatchSendToHarnessModal` with professional two-step wizard, custom checkboxes, option cards, endpoint selection, and environment-aware URL resolution
+- [x] **Send to Harness Context Menu** — "Send to Harness" option in right-click menus for collections, sub-collections, and folders via `SidebarContextMenu`
+- [x] **Live "IN HARNESS" Badge** — Dynamic badge on requests that have been promoted, computed from live feature group data (replaced stale `promotedToHarness` flag with `harnessRequestIds` set)
+- [x] **Absolute URL Resolution** — Multi-fallback URL resolution in `requestToScenario.ts` for batch promotion: collection base URL → sub-collection base URL → microservice base URL → environment base URL
+- [x] **Spec Version Switching** — `SpecVersionSwitcher.tsx` for browsing and switching between imported OpenAPI spec versions per request
+- [x] **Spec Version Compare** — `SpecVersionCompareModal.tsx` for side-by-side diff between spec versions
+- [x] **Path Parameter Editor** — `PathParamsEditor.tsx` with `pathParamResolver.ts` for editing and resolving path parameters from catalog endpoint specs
+- [x] **Coverage Checker** — `coverageChecker.ts` utility for analyzing API endpoint test coverage across feature groups
+- [x] **Version Diff/Merge/Status** — `versionDiff.ts`, `versionMerge.ts`, `versionStatus.ts` utilities for OpenAPI spec version management
+- [x] **Extracted Hooks** — `useCatalogState`, `useCatalogExport`, `useHarnessPromotion`, `useRequestsSidebarDnD`, `usePreferencesImport`, `useGalleryWorkflowPreviewState`, `useScenarioBuilderSearch` hooks
+- [x] **Shared Components** — `CascadeSelect` (reusable cascade dropdown), `useEscapeKey` (shared hook), `SWAGGER_METHOD_COLORS` (shared constant)
+- [x] **Code Quality Audit** — All files under 900 lines; >90% coverage across all 4 metrics; 0 ESLint errors; 0 TypeScript errors; 18,323 unit tests, 652 E2E tests passing
 
 ---
 
@@ -574,7 +590,7 @@ Post-launch features driven by community feedback. Completing the engine items b
 
 #### Extensibility & Organization
 - [ ] **Test Tagging** — Label tests with `smoke`, `regression`, `critical` and run by tag
-- [x] **Data Mapper** — ✅ Visual field mapping component with 10 adapters + body builder; drag-and-drop, expression editor (Monaco + 125 functions + lambda), auto-map with accept/reject, type mismatch detection & auto-fix, floating pop-out DSL editor, bi-directional visual ↔ code sync, schema drift/repair, mapping profiles, keyboard navigation, hover-to-highlight, failure navigation; 16,356 unit tests, 613 E2E tests, >90% coverage across all files — see `docs/plan/validation-operator-gap-analysis.md`
+- [x] **Data Mapper** — ✅ Visual field mapping component with 10 adapters + body builder; drag-and-drop, expression editor (Monaco + 125 functions + lambda), auto-map with accept/reject, type mismatch detection & auto-fix, floating pop-out DSL editor, bi-directional visual ↔ code sync, schema drift/repair, mapping profiles, keyboard navigation, hover-to-highlight, failure navigation; 18,323 unit tests, 652 E2E tests, >90% coverage across all files — see `docs/plan/validation-operator-gap-analysis.md`
 - [ ] **Plugin API** — Extension point for custom auth providers, assertion functions, reporters
 
 ---
@@ -589,28 +605,29 @@ Post-launch features driven by community feedback. Completing the engine items b
 | 4 | CLI Runner | 6 | 5 |
 | 5 | Test Suite & Code Quality | 10 | 10 |
 | 6 | Requests (Ad-Hoc API Testing) | 13 | 13 |
-| 7 | API Catalog (OpenAPI/Swagger) | 18 | 18 |
-| 8 | Unified Environments & Catalog Export | 12 | 12 |
+| 7 | API Catalog (OpenAPI/Swagger) | 24 | 24 |
+| 8 | Unified Environments & Catalog Export | 11 | 11 |
 | 9 | Group Collections & Catalog Metadata | 9 | 9 |
-| 10 | Variables & Chaining (Workflow Designer) | 16 | 15 |
+| 10 | Variables & Chaining (Workflow Designer) | 20 | 20 |
 | 11 | Engine Performance (Moderate → Good) | 3 | 3 |
 | 12 | Assertions & Observability | 9 | 9 |
 | 13 | UI/UX Visual Foundation | 9 | 9 |
 | 14 | Gallery Redesign & Training Manuals | 7 | 7 |
-| 15 | Version History, Training Paths & Code Quality | 10 | 10 |
+| 15 | Version History, Training Paths & Code Quality | 9 | 9 |
 | 16 | Parameterized Testing & Shared Data Sources | 13 | 13 |
-| 17 | Training Manual Tracks | 8 | 8 |
+| 17 | Training Manual Tracks | 9 | 9 |
 | 18 | Codebase Restructuring | 4 | 4 |
 | 19 | Workflow ↔ Harness Integration | 9 | 9 |
 | 20 | Visual Execution Replay & Results Explorer | 9 | 9 |
-| 21 | Runner Redesign (Three-Runner Architecture) | 16 | 16 |
+| 21 | Runner Redesign (Three-Runner Architecture) | 17 | 17 |
 | 22 | Results Explorer Debug Console & Trace Levels | 11 | 11 |
-| **23** | **Correlation Wait Runner & Webhook Load** 🚧 | **5** | **3** |
+| 23 | Correlation Wait Runner & Webhook Load | 5 | 5 |
+| 23.5 | Catalog ↔ Harness Integration | 13 | 13 |
 | 24 | CI/CD Pipeline | 8 | 2 |
 | 25 | Run Comparison & Trends | 5 | 0 |
 | 26 | Open-Source Launch | 14 | 0 |
 | 27 | Future (Engine → Excellent + Server) | 17 | 2 |
-| **Total** | | **252** | **206** |
+| **Total** | | **288** | **247** |
 
 ### Feature Maturity Assessment
 
@@ -619,16 +636,17 @@ PRODUCTION-READY (fully implemented, tested, documented):
   ✅ Workflow Designer          — 15+ node types, visual DAG, auto-layout (Phase 10)
   ✅ Results Explorer           — execution replay, debug console, trace levels (Phases 20, 22)
   ✅ API Catalog                — OpenAPI import, versioning, interactive testing (Phases 7–9)
+  ✅ Catalog ↔ Harness          — batch promotion, URL resolution, coverage checker, spec versioning (Phase 23.5)
   ✅ Requests                   — collections, auth inheritance, cURL, console (Phase 6)
   ✅ Test Runners (x3)          — Standard, Parameterized, Workflow (Phases 19, 21)
+  ✅ Webhook Load Testing       — multi-webhook testing panel, webhook load driver, correlation wait (Phase 23)
   ✅ Data-Driven Testing        — CSV/Excel/JSON/API, shared data sources (Phases 2, 3, 16)
   ✅ Assertions Engine          — 16 assertion types, 24 field operators, 125 expression functions (Phases 12, P0–P9.3)
   ✅ Data Mapper                — 10 adapters, visual + DSL authoring, floating editor, schema drift (Phase 7F+)
   ✅ CLI Runner                 — YAML/JSON, JUnit XML, CI exit codes (Phase 4)
-  ✅ Training System            — 123+ manuals, 9 training paths, progress tracking (Phases 14, 15, 17)
+  ✅ Training System            — 182 manuals, 9 training paths, progress tracking (Phases 14, 15, 17)
 
 PARTIALLY COMPLETE (functional, needs polish):
-  🟡 Webhook/Correlation Wait  — Runner config done, multi-webhook UI pending (Phase 23)
   🟡 CI/CD Pipeline            — Pre-commit hooks + Actions CI exist, full pipeline pending (Phase 24)
 
 NOT STARTED (post-launch):
@@ -642,16 +660,18 @@ NOT STARTED (post-launch):
 
 ```
 CURRENT: Good (~500-2,000 RPS)
-  ├── Phase 1  ✅  Duration profiles, ramp-up, spike
-  ├── Phase 2  ✅  CSV data, retry, circuit breaker, timeout
-  ├── Phase 3  ✅  Excel templates, live charts
-  ├── Phase 10 ✅  Variables, chaining, workflow mode
-  ├── Phase 11 ✅  Worker threads, connection pooling, think time
-  ├── Phase 12 ✅  Rich assertions, presets, timing breakdown
-  ├── Phase 16 ✅  Parameterized data-driven testing, shared data sources
-  ├── Phase 19 ✅  Workflow ↔ Harness integration
-  ├── Phase 20 ✅  Visual execution replay & results explorer
-  └── Phase 22 ✅  Debug console, trace levels, Designer consistency
+  ├── Phase 1    ✅  Duration profiles, ramp-up, spike
+  ├── Phase 2    ✅  CSV data, retry, circuit breaker, timeout
+  ├── Phase 3    ✅  Excel templates, live charts
+  ├── Phase 10   ✅  Variables, chaining, workflow mode
+  ├── Phase 11   ✅  Worker threads, connection pooling, think time
+  ├── Phase 12   ✅  Rich assertions, presets, timing breakdown
+  ├── Phase 16   ✅  Parameterized data-driven testing, shared data sources
+  ├── Phase 19   ✅  Workflow ↔ Harness integration
+  ├── Phase 20   ✅  Visual execution replay & results explorer
+  ├── Phase 22   ✅  Debug console, trace levels, Designer consistency
+  ├── Phase 23   ✅  Webhook load driver, multi-webhook testing panel
+  └── Phase 23.5 ✅  Catalog ↔ Harness integration, batch promotion
 
 FUTURE: Excellent (5,000-50,000+ RPS)
   └── Phase 27     Native Rust executor, streaming percentiles, distributed
@@ -661,10 +681,10 @@ FUTURE: Excellent (5,000-50,000+ RPS)
 
 | Scenario | Predicted Stars (Year 1) | Requirements |
 |---|---|---|
-| Launch now (CI partially done, no demo) | 300–800 | CLI done, tests done, Actions CI exists, debug console done |
-| Launch with full CI pipeline + live demo | 1,000–3,000 | Phase 24 complete |
-| Launch with "Good" load testing + demo | 3,000–7,000 | Phases 10–12 ✅ + Phase 26 |
-| Viral launch (HN front page, YouTube) | 7,000–15,000+ | All of above + great branding + community momentum |
+| Launch now (CI partially done, no demo) | 500–1,500 | CLI done, 18K+ tests, Actions CI exists, all features complete through Phase 23.5 |
+| Launch with full CI pipeline + live demo | 1,500–4,000 | Phase 24 complete |
+| Launch with "Good" load testing + demo | 4,000–8,000 | Phases 10–23.5 ✅ + Phase 26 |
+| Viral launch (HN front page, YouTube) | 8,000–20,000+ | All of above + great branding + community momentum |
 
 ### Critical Path to Open-Source
 
@@ -677,15 +697,17 @@ REMAINING BLOCKERS:
        ↓
   Launch on Hacker News / Reddit / Dev.to
 
-ALREADY COMPLETE (Phases 1–22):
-  ✅ Phase 4  (CLI)             — `redfireforge run` + `run-workflow`, JUnit/JSON/Markdown reports
-  ✅ Phase 5  (Tests)           — 11,000+ unit tests, 463+ E2E tests, >94% code coverage
-  ✅ Phase 6  (Requests)        — Full ad-hoc API testing with collections/auth/cURL
-  ✅ Phase 7  (API Catalog)     — OpenAPI/Swagger browser with versioning
-  ✅ Phase 10 (Workflow)        — Visual workflow designer + graph execution engine
-  ✅ Phase 20 (Replay)          — Results Explorer with interactive execution replay
-  ✅ Phase 22 (Console)         — Debug console with tiered trace levels
-  ✅ Phase 11 (Engine)          — Full "Good" load testing capabilities
+ALREADY COMPLETE (Phases 1–23.5):
+  ✅ Phase 4    (CLI)           — `redfireforge run` + `run-workflow`, JUnit/JSON/Markdown reports
+  ✅ Phase 5    (Tests)         — 18,323 unit tests, 652 E2E tests, >90% code coverage all files
+  ✅ Phase 6    (Requests)      — Full ad-hoc API testing with collections/auth/cURL
+  ✅ Phase 7    (API Catalog)   — OpenAPI/Swagger browser with versioning
+  ✅ Phase 10   (Workflow)      — Visual workflow designer + graph execution engine
+  ✅ Phase 20   (Replay)        — Results Explorer with interactive execution replay
+  ✅ Phase 22   (Console)       — Debug console with tiered trace levels
+  ✅ Phase 11   (Engine)        — Full "Good" load testing capabilities
+  ✅ Phase 23   (Webhook)       — Multi-webhook testing panel + webhook load driver
+  ✅ Phase 23.5 (Catalog→Test)  — Catalog ↔ Harness batch promotion, spec versioning, coverage checker
   ✅ CI Foundation               — GitHub Actions (tsc + ESLint + unit tests), pre-commit hooks
 ```
 
@@ -698,4 +720,4 @@ Phase 25 (Run Comparison)  →  Phase 27 (Rust Executor + Distributed)
 
 ---
 
-_Last updated: 2026-05-14 (v0.5.7-beta.2 — on `develop` branch; 206/252 items done; load testing at Good; >90% code coverage all files; 16,356 unit tests, 613 E2E tests)_
+_Last updated: 2026-05-18 (v0.5.8 stable — on `master` branch; 247/288 items done (85.8%); load testing at Good; >90% code coverage all files; 18,323 unit tests, 652 E2E tests; 636 test files; 182 training manuals)_
