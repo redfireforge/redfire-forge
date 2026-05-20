@@ -1,14 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import {
-  sanitizeVariableName,
-  toVariableName,
-  getTemplateSegments,
-  parseTemplateParamVariables,
-  shortNameForValidate,
-  buildConfiguredColumnDefs,
-  formatAuthLabel,
-} from './dataSourceSetupUtils';
-import type { Scenario } from '../../../shared/types';
+import { sanitizeVariableName, toVariableName, getTemplateSegments, parseTemplateParamVariables, shortNameForValidate, buildConfiguredColumnDefs, formatAuthLabel, } from './dataSourceSetupUtils';
+import { Scenario } from '../../../shared/types';
 
 afterEach(() => {
   vi.unstubAllGlobals();

@@ -1,14 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import {
-  computeStats,
-  buildGroups,
-  hasWorkflowData,
-  getWorkflowSteps,
-  getIterationCount,
-  computeWorkflowStepSummaries,
-  computeWorkflowIterationSummaries,
-} from './resultsGrouping';
-import type { RequestResult } from '../../../shared/types';
+import { computeStats, buildGroups, hasWorkflowData, getWorkflowSteps, getIterationCount, computeWorkflowStepSummaries, computeWorkflowIterationSummaries, } from './resultsGrouping';
+import { RequestResult } from '../../../shared/types';
 import { makeResult as _makeResult } from '../../../test-utils/factories';
 
 function makeResult(overrides: Partial<RequestResult> = {}): RequestResult {

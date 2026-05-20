@@ -2,7 +2,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useExpressionHints } from './useExpressionHints';
-import type { WorkflowVariableHint } from '../utils/workflowVariableHints';
+import { WorkflowVariableHint } from '../utils/workflowVariableHints';
 
 const sampleHints: WorkflowVariableHint[] = [
   { ref: 'myVar', description: 'A test var', source: { nodeId: 'n1', nodeLabel: 'Node1' } },

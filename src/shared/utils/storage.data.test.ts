@@ -70,51 +70,10 @@ vi.mock('./idbTestRuns', () => {
   };
 });
 
-import {
-  saveEnvironments,
-  loadEnvironments,
-  saveMicroservices,
-  loadMicroservices,
-  saveFeatureGroups,
-  loadFeatureGroups,
-  saveGlobalAuthProfiles,
-  loadGlobalAuthProfiles,
-  saveSelectedEnvId,
-  loadSelectedEnvId,
-  saveSelectedSvcId,
-  loadSelectedSvcId,
-  getMaxRuns,
-  setMaxRuns,
-  saveRunnerConfig,
-  loadRunnerConfig,
-  saveTheme,
-  loadTheme,
-  getStorageUsage,
-  loadRequests,
-  saveRequests,
-  loadCatalogEntries,
-  saveCatalogEntries,
-  loadCatalogRawSpec,
-  saveCatalogRawSpec,
-  removeCatalogRawSpec,
-  removeAllCatalogRawSpecs,
-  loadCatalogEndpointValues,
-  saveCatalogEndpointValues,
-  removeCatalogEndpointValues,
-  loadTestRuns,
-  saveTestRunsBulk,
-  loadSelectedWorkflowId,
-  saveSelectedWorkflowId,
-  loadWorkflows,
-  saveWorkflows,
-  loadWorkflowSampleDismissed,
-  saveWorkflowSampleDismissed,
-  loadPreviewSampleId,
-  savePreviewSampleId,
-} from './storage';
-import type { TestRun, GlobalAuthProfile, RequestsData } from '../types';
-import type { CatalogEntry, SavedEndpointValues } from '../../features/catalog/types/catalog';
-import type { Workflow } from '../../features/workflow/types/workflow';
+import { saveEnvironments, loadEnvironments, saveMicroservices, loadMicroservices, saveFeatureGroups, loadFeatureGroups, saveGlobalAuthProfiles, loadGlobalAuthProfiles, saveSelectedEnvId, loadSelectedEnvId, saveSelectedSvcId, loadSelectedSvcId, getMaxRuns, setMaxRuns, saveRunnerConfig, loadRunnerConfig, saveTheme, loadTheme, getStorageUsage, loadRequests, saveRequests, loadCatalogEntries, saveCatalogEntries, loadCatalogRawSpec, saveCatalogRawSpec, removeCatalogRawSpec, removeAllCatalogRawSpecs, loadCatalogEndpointValues, saveCatalogEndpointValues, removeCatalogEndpointValues, loadTestRuns, saveTestRunsBulk, loadSelectedWorkflowId, saveSelectedWorkflowId, loadWorkflows, saveWorkflows, loadWorkflowSampleDismissed, saveWorkflowSampleDismissed, loadPreviewSampleId, savePreviewSampleId, } from './storage';
+import { TestRun, GlobalAuthProfile, RequestsData } from '../types';
+import { CatalogEntry, SavedEndpointValues } from '../../features/catalog/types/catalog';
+import { Workflow } from '../../features/workflow/types/workflow';
 
 function makeRun(id: string, results: number = 1): TestRun {
   return {

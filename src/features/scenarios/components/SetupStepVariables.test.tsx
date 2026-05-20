@@ -5,7 +5,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import '@testing-library/jest-dom';
 import { render, screen, fireEvent } from '@testing-library/react';
 import SetupStepVariables from './SetupStepVariables';
-import type { SetupStepVariablesProps } from './SetupStepVariables';
+import { SetupStepVariablesProps } from './SetupStepVariables';
 
 function makeProps(overrides: Partial<SetupStepVariablesProps> = {}): SetupStepVariablesProps {
   return {

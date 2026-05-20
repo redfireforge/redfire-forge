@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { Scenario } from '../../../shared/types';
+import { Scenario } from '../../../shared/types';
 
 vi.mock('../../../shared/utils/httpClient', () => ({
   httpFetch: vi.fn(),

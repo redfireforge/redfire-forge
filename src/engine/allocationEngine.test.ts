@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { computeAllocation } from './allocationEngine';
-import type { Scenario, DataSource } from '../shared/types';
+import { Scenario, DataSource } from '../shared/types';
 
 function makeTest(id: string, name: string, overrides: Partial<Scenario> = {}): Scenario {
   return {

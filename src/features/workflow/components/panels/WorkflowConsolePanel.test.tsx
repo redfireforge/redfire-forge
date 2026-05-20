@@ -4,7 +4,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, fireEvent, screen } from '@testing-library/react';
 import WorkflowConsolePanel from './WorkflowConsolePanel';
-import type { ConsoleLine } from '../../../requests/hooks/useResponseCache';
+import { ConsoleLine } from '../../../requests/hooks/useResponseCache';
+import { stubScrollIntoView } from '../../../../test-utils/domMocks';
 
 const makeLine = (text: string, prefix = '*', ts?: number): ConsoleLine => ({ text, prefix, ts });
 
@@ -27,8 +28,7 @@ describe('WorkflowConsolePanel', () => {
 
   beforeEach(() => {
     vi.restoreAllMocks();
-    // Mock scrollIntoView (not available in jsdom)
-    Element.prototype.scrollIntoView = vi.fn();
+    stubScrollIntoView();
     // Mock localStorage for mode persistence
     const store: Record<string, string> = {};
     vi.spyOn(Storage.prototype, 'getItem').mockImplementation((key) => store[key] ?? null);

@@ -70,16 +70,8 @@ vi.mock('./idbTestRuns', () => {
   };
 });
 
-import {
-  migrateToFlat,
-  loadEnvironments,
-  migratePerFgSharedDataSourcesToTopLevel,
-  saveFeatureGroups,
-  loadFeatureGroups,
-  saveSharedDataSources,
-  loadSharedDataSources,
-} from './storage';
-import type { FeatureGroup, SharedDataSource, DataSource } from '../types';
+import { migrateToFlat, loadEnvironments, migratePerFgSharedDataSourcesToTopLevel, saveFeatureGroups, loadFeatureGroups, saveSharedDataSources, loadSharedDataSources, } from './storage';
+import { FeatureGroup, SharedDataSource, DataSource } from '../types';
 
 beforeEach(() => {
   localStorage.clear();

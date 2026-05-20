@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { computePreview } from './previewCompute';
-import type { Mapping, MapperSource } from '../types';
+import { Mapping, MapperSource } from '../types';
 import * as mapperExpr from './mapperExpressionEvaluator';
 import * as jsonPath from '../../../utils/jsonPath';
 

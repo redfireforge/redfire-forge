@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { generateJsonTemplate, parseJsonToScenarios } from './csvTemplateJson';
-import type { Scenario } from '../../../shared/types';
-import type { ExportOptions } from './csvTemplateTypes';
+import { Scenario } from '../../../shared/types';
+import { ExportOptions } from './csvTemplateTypes';
 
 function makeTest(overrides: Partial<Scenario> = {}): Scenario {
   return {

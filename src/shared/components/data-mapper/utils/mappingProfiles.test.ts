@@ -2,15 +2,8 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, beforeEach, vi, type MockInstance } from 'vitest';
-import {
-  loadProfiles,
-  saveProfile,
-  deleteProfile,
-  renameProfile,
-  getProfileById,
-  applyProfileDelta,
-} from './mappingProfiles';
-import type { Mapping } from '../types';
+import { loadProfiles, saveProfile, deleteProfile, renameProfile, getProfileById, applyProfileDelta, } from './mappingProfiles';
+import { Mapping } from '../types';
 
 vi.mock('../../../utils/storage', () => ({
   readKey: vi.fn((key: string) => Promise.resolve(localStorage.getItem(key))),

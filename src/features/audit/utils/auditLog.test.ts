@@ -2,26 +2,7 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import {
-  loadAuditLog,
-  addAuditEntry,
-  clearAuditLog,
-  deleteAuditEntry,
-  computeChanges,
-  logEnvironmentCreated,
-  logEnvironmentDeleted,
-  logEnvironmentRenamed,
-  logMicroserviceCreated,
-  logMicroserviceDeleted,
-  logMicroserviceUpdated,
-  logAuthProfileCreated,
-  logAuthProfileDeleted,
-  logAuthProfileUpdated,
-  logAuthProfileRenamed,
-  auditLogToCsv,
-  formatAction,
-  formatEntityType,
-} from './auditLog';
+import { loadAuditLog, addAuditEntry, clearAuditLog, deleteAuditEntry, computeChanges, logEnvironmentCreated, logEnvironmentDeleted, logEnvironmentRenamed, logMicroserviceCreated, logMicroserviceDeleted, logMicroserviceUpdated, logAuthProfileCreated, logAuthProfileDeleted, logAuthProfileUpdated, logAuthProfileRenamed, auditLogToCsv, formatAction, formatEntityType, } from './auditLog';
 
 // Mock platform to always use localStorage (non-Tauri)
 vi.mock('../../../shared/utils/platform', () => ({ isTauri: () => false }));

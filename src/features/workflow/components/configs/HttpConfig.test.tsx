@@ -6,8 +6,8 @@ import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import HttpConfig from './HttpConfig';
-import type { HttpNodeData, WorkflowService } from '../../types/workflow';
-import type { Scenario, KeyValue } from '../../../../shared/types';
+import { HttpNodeData, WorkflowService } from '../../types/workflow';
+import { Scenario, KeyValue } from '../../../../shared/types';
 
 // Mock ExpressionInput with ref forwarding for cursor-based insertion tests
 vi.mock('../expression/ExpressionInput', () => ({

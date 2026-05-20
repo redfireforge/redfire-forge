@@ -1,11 +1,11 @@
 /**
  * @vitest-environment jsdom
  */
-import type { SetStateAction } from 'react';
+import { SetStateAction } from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useScenarioExportImport, type VersionImportOptions } from './useScenarioExportImport';
-import type { FeatureGroup, Scenario, SharedDataSource, TestScenario } from '../../../shared/types';
+import { FeatureGroup, Scenario, SharedDataSource, TestScenario } from '../../../shared/types';
 import { makeScenario as _makeScenario } from '../../../test-utils/factories';
 
 // Mock external dependencies
