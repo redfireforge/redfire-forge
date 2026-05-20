@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import JsonPreview, { buildJTree, type JNode } from '../requests/components/JsonTreePreview';
 import type { ExecutionResult } from '../../shared/types/server-api';
-import { formatTimestamp, getErrorMessage } from '../test-runner/utils/serverFormatters';
+import { formatTimestamp } from '../test-runner/utils/serverFormatters';
+import { toErrorMessage } from '../../shared/utils/helpers';
 import '../../styles/execution-history.css';
 
 // ── Paused correlation type (from /api/correlations) ──
@@ -153,7 +154,7 @@ export default function WorkflowExecutionHistory() {
         setResumeResult({ id: correlationId, ok: false, message: 'No matching paused workflow found' });
       }
     } catch (err) {
-      setResumeResult({ id: correlationId, ok: false, message: getErrorMessage(err) });
+      setResumeResult({ id: correlationId, ok: false, message: toErrorMessage(err) });
     } finally {
       setResumingId(null);
     }
@@ -171,7 +172,7 @@ export default function WorkflowExecutionHistory() {
       setError(null);
     } catch (err) {
       console.error('Failed to load executions:', err);
-      setError(getErrorMessage(err));
+      setError(toErrorMessage(err));
     } finally {
       setLoading(false);
     }

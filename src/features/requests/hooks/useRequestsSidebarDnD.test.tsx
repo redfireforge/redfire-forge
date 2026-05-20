@@ -5,7 +5,7 @@ import '@testing-library/jest-dom';
 import { act, cleanup, renderHook } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import type { RequestCollection } from '../../../shared/types';
+import { RequestCollection } from '../../../shared/types';
 import { useRequestsSidebarDnD } from './useRequestsSidebarDnD';
 
 afterEach(() => {
@@ -252,7 +252,8 @@ describe('useRequestsSidebarDnD', () => {
       requests: [],
       folders: [{ id: 'leaf', name: 'L', folders: [], requests: [] }],
     };
-    const _col: RequestCollection = {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const col: RequestCollection = {
       id: 'c-shared',
       name: 'Shared',
       mode: 'direct',

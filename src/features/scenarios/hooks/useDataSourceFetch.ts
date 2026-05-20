@@ -10,6 +10,7 @@ import { resolveScenarioFromDataRow } from '../../../engine/dataSourceExpander';
 import { proxyFetch, buildHeaders } from '../../../engine/executor';
 import { extractJsonPath, expandPatternFromResponse, inferPatternsFromColumns } from '../utils/dataSourceImport';
 import { v4 as uuidv4 } from 'uuid';
+import { toErrorMessage } from '../../../shared/utils/helpers';
 
 /** Populate validate columns from a parsed response, expanding dynamic patterns as needed. */
 function populateValidateColumns(
@@ -162,7 +163,7 @@ export function useDataSourceFetch({ scenario, dataSource: dt, onChange, onFetch
           onChange({ ...currentDt, columns, rows });
         }
       } catch (err) {
-        setFetchRowError(err instanceof Error ? err.message : String(err));
+        setFetchRowError(toErrorMessage(err));
       } finally {
         setFetchingRowId(null);
       }
@@ -208,7 +209,7 @@ export function useDataSourceFetch({ scenario, dataSource: dt, onChange, onFetch
           rows = rows.map(r => r.id === row.id ? { ...r, values: result2.updatedValues } : r);
           rows = backfillNewColumns(rows, row.id, result2.newColumns);
         } catch (err) {
-          errors.push(`Row ${rowIdx + 1}: ${err instanceof Error ? err.message : String(err)}`);
+          errors.push(`Row ${rowIdx + 1}: ${toErrorMessage(err)}`);
         }
       }
 

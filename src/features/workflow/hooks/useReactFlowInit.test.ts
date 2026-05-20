@@ -4,8 +4,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useWorkflowPreviewReactFlowInit } from './useWorkflowPreviewReactFlowInit';
-import type { Workflow } from '../types/workflow';
-import type { WorkflowRFNode, WorkflowRFEdge } from '../utils/workflowNodeFactory';
+import { Workflow } from '../types/workflow';
+import { WorkflowRFNode, WorkflowRFEdge } from '../utils/workflowNodeFactory';
 import { getAutoLayoutNodes } from '../utils/workflowAutoLayout';
 
 vi.mock('../utils/workflowAutoLayout', () => ({

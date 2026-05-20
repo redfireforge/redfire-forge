@@ -1,5 +1,18 @@
-import { describe, it, expect } from 'vitest';
-import { formatBytes, toErrorMessage, humanizeError, snapshot, prettyJson, mergeById, deepClone, formatJson, truncate } from './helpers';
+import { describe, it, expect, vi } from 'vitest';
+import {
+  formatBytes,
+  toErrorMessage,
+  humanizeError,
+  snapshot,
+  prettyJson,
+  mergeById,
+  deepClone,
+  formatJson,
+  truncate,
+  escapeRegExp,
+  parseJsonOrRaw,
+  isValidJson,
+} from './helpers';
 
 describe('formatBytes', () => {
   it('formats small values as bytes', () => {
@@ -60,6 +73,14 @@ describe('toErrorMessage', () => {
     const err = new Error('connect ECONNREFUSED 127.0.0.1:443');
     (err as NodeJS.ErrnoException).code = 'ECONNREFUSED';
     expect(toErrorMessage(err)).toBe('connect ECONNREFUSED 127.0.0.1:443 [ECONNREFUSED]');
+  });
+
+  it('omits bracketed code when Error has no errno code', () => {
+    expect(toErrorMessage(new Error('plain'))).toBe('plain');
+  });
+
+  it('formats bigint as string for non-Error values', () => {
+    expect(toErrorMessage(1n)).toBe('1');
   });
 
   it('handles circular cause gracefully', () => {
@@ -154,6 +175,13 @@ describe('humanizeError', () => {
     expect(result).toContain('dropped');
   });
 
+  it('humanizes ECONNRESET with extracted host', () => {
+    const msg = 'read ECONNRESET gateway.example.net extra context';
+    const result = humanizeError(msg);
+    expect(result).toContain('Connection was reset');
+    expect(result).toContain('gateway.example.net');
+  });
+
   it('humanizes SSL certificate expired', () => {
     const result = humanizeError('CERT_HAS_EXPIRED');
     expect(result).toContain('SSL certificate has expired');
@@ -178,6 +206,27 @@ describe('humanizeError', () => {
     expect(result).toContain('connection or VPN');
   });
 
+  it('does not use generic fetch-failed mapping when ENOTFOUND is present', () => {
+    const msg = 'fetch failed — getaddrinfo ENOTFOUND x [ENOTFOUND]';
+    const result = humanizeError(msg);
+    expect(result).toContain('Server not found');
+    expect(result).not.toMatch(/Network request failed/);
+  });
+
+  it('extracts host from connect <code> <host> when errno token is only in brackets (fallback regex)', () => {
+    const msg = 'connect EPIPE srv.example.test [ECONNREFUSED]';
+    const result = humanizeError(msg);
+    expect(result).toContain('Connection refused');
+    expect(result).toContain('srv.example.test');
+  });
+
+  it('extracts host from getaddrinfo form when first errno regex does not match host', () => {
+    const msg = 'getaddrinfo EBADF api.fallback.com [ENOTFOUND]';
+    const result = humanizeError(msg);
+    expect(result).toContain('Server not found');
+    expect(result).toContain('api.fallback.com');
+  });
+
   it('humanizes ECONNABORTED', () => {
     const result = humanizeError('ECONNABORTED: request timeout');
     expect(result).toContain('Connection was aborted');
@@ -198,9 +247,18 @@ describe('humanizeError', () => {
     expect(result).toContain('SSL/TLS protocol error');
   });
 
+  it('humanizes EPROTO without ssl routines token', () => {
+    const result = humanizeError('EPROTO: invalid protocol');
+    expect(result).toContain('SSL/TLS protocol error');
+  });
+
   it('humanizes HTTP status codes like 404, 500', () => {
     const result = humanizeError('404 Not Found');
     expect(result).toBe('404 Not Found');
+  });
+
+  it('humanizes HTTP status when leading whitespace is trimmed for matching', () => {
+    expect(humanizeError('  418 I\'m a teapot')).toBe('  418 I\'m a teapot');
   });
 
   it('humanizes 500 status code', () => {
@@ -255,6 +313,37 @@ describe('humanizeError', () => {
   it('humanizes HTTP 0 with CORS', () => {
     const result = humanizeError('CORS error: Access-Control-Allow-Origin missing');
     expect(result).toContain('Cross-origin');
+  });
+
+  it('humanizes CORS via access-control-allow-origin substring', () => {
+    const result = humanizeError('blocked by CORS policy (no access-control-allow-origin header)');
+    expect(result).toContain('Cross-origin');
+  });
+
+  it('appends technical line when friendly message does not embed the full technical string', () => {
+    const technical = 'ENOTFOUND dns.missing.example.org';
+    const result = humanizeError(technical);
+    expect(result).toContain('Server not found');
+    expect(result).toContain('↳');
+    expect(result).toContain(technical);
+  });
+
+  it('OAuth2 wraps inner humanized message when inner matches another branch', () => {
+    const inner = 'econnrefused 127.0.0.1:9000';
+    const msg = `OAuth2 token request failed: ${inner}`;
+    const result = humanizeError(msg);
+    expect(result).toContain('Authentication failed');
+    expect(result).toContain('Connection refused');
+  });
+
+  it('returns OAuth2 fallback and appends technical when inner cannot be humanized', () => {
+    const msg = 'OAuth2 token request failed: unknown failure code XYZ';
+    const result = humanizeError(msg);
+    expect(result).toContain(
+      'Authentication failed — could not obtain an access token. unknown failure code XYZ',
+    );
+    expect(result).toContain('↳');
+    expect(result).toContain(msg);
   });
 });
 
@@ -336,6 +425,14 @@ describe('truncate', () => {
     expect(truncate(label, 15, '…')).toBe(label);
     expect(truncate('a'.repeat(16), 15, '…')).toBe('a'.repeat(14) + '…');
   });
+
+  it('when suffix is longer than maxLen (suffixInsideBudget), returns only a prefix of the suffix', () => {
+    expect(truncate('hello', 2, '...', true)).toBe('..');
+  });
+
+  it('appends suffix after maxLen chars when suffixInsideBudget is false (total may exceed maxLen)', () => {
+    expect(truncate('abcd', 2, '___', false)).toBe('ab___');
+  });
 });
 
 describe('mergeById', () => {
@@ -406,5 +503,79 @@ describe('deepClone', () => {
     const result = snapshot(obj);
     expect(result).toEqual(obj);
     expect(result).not.toBe(obj);
+  });
+
+  it('falls back to JSON serialization when structuredClone throws', () => {
+    const spy = vi.spyOn(globalThis, 'structuredClone').mockImplementation(() => {
+      throw new Error('clone failed');
+    });
+    const original = { a: 1, nested: { b: 2 } };
+    try {
+      const cloned = deepClone(original);
+      expect(cloned).toEqual(original);
+      expect(cloned.nested).not.toBe(original.nested);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+});
+
+describe('escapeRegExp', () => {
+  it('escapes regex metacharacters', () => {
+    const pattern = '.*+?^${}()|[]\\';
+    const escaped = escapeRegExp(pattern);
+    expect(new RegExp(`^${escaped}$`).test(pattern)).toBe(true);
+    expect(escaped).not.toBe(pattern);
+  });
+
+  it('leaves alphanumeric text unchanged', () => {
+    expect(escapeRegExp('hello_9')).toBe('hello_9');
+  });
+});
+
+describe('parseJsonOrRaw', () => {
+  it('parses valid JSON', () => {
+    expect(parseJsonOrRaw('{"a":1}')).toEqual({ a: 1 });
+  });
+
+  it('parses JSON arrays', () => {
+    expect(parseJsonOrRaw('[1,2,3]')).toEqual([1, 2, 3]);
+  });
+
+  it('returns raw string for invalid JSON', () => {
+    expect(parseJsonOrRaw('not json')).toBe('not json');
+  });
+
+  it('returns raw string for empty string', () => {
+    expect(parseJsonOrRaw('')).toBe('');
+  });
+
+  it('parses primitives', () => {
+    expect(parseJsonOrRaw('null')).toBe(null);
+    expect(parseJsonOrRaw('42')).toBe(42);
+    expect(parseJsonOrRaw('"text"')).toBe('text');
+  });
+});
+
+describe('isValidJson', () => {
+  it('returns true for valid JSON objects', () => {
+    expect(isValidJson('{"a":1}')).toBe(true);
+  });
+
+  it('returns true for valid JSON arrays', () => {
+    expect(isValidJson('[1,2]')).toBe(true);
+  });
+
+  it('returns false for invalid JSON', () => {
+    expect(isValidJson('not json')).toBe(false);
+  });
+
+  it('returns false for empty string', () => {
+    expect(isValidJson('')).toBe(false);
+  });
+
+  it('returns true for primitives', () => {
+    expect(isValidJson('null')).toBe(true);
+    expect(isValidJson('42')).toBe(true);
   });
 });

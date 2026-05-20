@@ -9,6 +9,8 @@ import {
 import type { Scenario, KeyValue } from '../../../../shared/types';
 import ExtractionEditor from '../../../requests/components/ExtractionEditor';
 import type { ExtractionFetchSampleProps } from '../../../requests/components/ExtractionEditor';
+import TestEditorValidationTab from '../../../scenarios/components/TestEditorValidationTab';
+import type { TestEditorValidationTabProps } from '../../../scenarios/components/TestEditorValidationTab';
 import { ParamsEditor } from '../../../requests/components/ParamsEditor';
 import type { ParamEntry } from '../../../requests/components/ParamsEditor';
 import ExpressionInput from '../expression/ExpressionInput';
@@ -20,7 +22,7 @@ import { useBodyBuilderSync } from '../../../../shared/components/data-mapper/ho
 import { createRequestBodyAdapter } from '../../../../shared/components/data-mapper/adapters/requestBodyAdapter';
 import type { VariableHintForBody } from '../../../../shared/components/data-mapper/adapters/requestBodyAdapter';
 
-export type HttpTab = 'url' | 'headers' | 'body' | 'extract' | 'data';
+export type HttpTab = 'url' | 'headers' | 'body' | 'validation' | 'extract' | 'data';
 
 // ── Query-param utilities ─────────────────────────────
 
@@ -92,7 +94,7 @@ function HttpVariableRefHints({ hints }: { hints: WorkflowVariableHint[] }) {
 
 // ── Main component ────────────────────────────────────
 
-export default function HttpConfig({ data, onChange, activeTab, onTabChange, lastRunError, lastQuickTestRequestUrl, effectiveQuickTestBaseUrl, extractionSampleResponseBody, extractionFetchSample, variableHints = [], onRequestVariableInsert, workflowServices = [] }: {
+export default function HttpConfig({ data, onChange, activeTab, onTabChange, lastRunError, lastQuickTestRequestUrl, effectiveQuickTestBaseUrl, extractionSampleResponseBody, extractionFetchSample, variableHints = [], onRequestVariableInsert, workflowServices = [], validationProps }: {
   data: HttpNodeData;
   /** Partial patch merged in the parent — never pass full `data` here. */
   onChange: (patch: Partial<HttpNodeData>) => void;
@@ -109,9 +111,14 @@ export default function HttpConfig({ data, onChange, activeTab, onTabChange, las
   onRequestVariableInsert: (apply: (snippet: string) => void, shortRef?: boolean, initialSearch?: string) => void;
   /** Workflow-level services from the Service Registry. */
   workflowServices?: WorkflowService[];
+  /** Props for the Validation tab — omit draft/onDraftChange/draftRef which are derived here. */
+  validationProps?: Omit<TestEditorValidationTabProps, 'draft' | 'onDraftChange' | 'draftRef'>;
 }) {
   const s = data.scenario;
   const update = useCallback((patch: Partial<Scenario>) => onChange({ scenario: { ...s, ...patch } }), [onChange, s]);
+  const scenarioDraftRef = useRef<Scenario>(s);
+  scenarioDraftRef.current = s;
+  const handleScenarioDraftChange = useCallback((draft: Scenario) => onChange({ scenario: draft }), [onChange]);
   const urlInputRef = useRef<HTMLInputElement>(null);
   const [showVarMapper, setShowVarMapper] = useState(false);
   const [bodyViewMode, setBodyViewMode] = useState<'raw' | 'visual'>('raw');
@@ -183,6 +190,9 @@ export default function HttpConfig({ data, onChange, activeTab, onTabChange, las
 
   const paramCount = useMemo(() => queryParams.filter(p => p.key.trim() && p.enabled).length, [queryParams]);
   const dataSourceRowCount = useMemo(() => s.dataSource?.rows?.filter(r => r.enabled).length ?? 0, [s.dataSource]);
+  const hasValidationConfig = (s.validation.assertions ?? []).length > 0
+    || (s.validation.mode === 'selective' || (s.validation.mode === 'full' && !!s.validation.expectedJson?.trim()))
+    || (s.validation.expectedFields?.length ?? 0) > 0;
 
   const handleParamsChange = useCallback((entries: ParamEntry[]) => {
     // Count trailing empty rows to preserve them as local state
@@ -252,9 +262,21 @@ export default function HttpConfig({ data, onChange, activeTab, onTabChange, las
           </p>
         )}
       </div>
-      <div className="wf-config-field">
+      <div className="wf-config-inline-field">
         <label>Label</label>
         <input value={data.label} onChange={(e) => onChange({ label: e.target.value })} />
+      </div>
+      <div className="wf-config-inline-field">
+        <label>Timeout</label>
+        <input
+          type="number"
+          min={0}
+          max={300}
+          value={data.timeoutSec ?? 0}
+          onChange={(e) => onChange({ timeoutSec: Math.max(0, Math.min(300, parseInt(e.target.value, 10) || 0)) })}
+          className="wf-config-timeout-input"
+        />
+        <span className="unit">sec</span>
       </div>
 
       {data.sourceSpecVersionId && (
@@ -334,15 +356,19 @@ export default function HttpConfig({ data, onChange, activeTab, onTabChange, las
       )}
 
       <div className="wf-config-tabs">
-        {(['url', 'headers', 'body', 'extract', 'data'] as HttpTab[]).map(tab => (
-          <button key={tab} className={`wf-config-tab ${activeTab === tab ? 'active' : ''}`} onClick={() => onTabChange(tab)}>
-            {tab === 'url' ? 'Params' : tab === 'extract' ? 'Extract' : tab === 'data' ? 'Data Source' : tab.charAt(0).toUpperCase() + tab.slice(1)}
-            {tab === 'url' && paramCount > 0 && <span className="tab-badge">{paramCount}</span>}
-            {tab === 'extract' && (s.extractions?.length ?? 0) > 0 && <span className="tab-badge">{s.extractions!.length}</span>}
-            {tab === 'headers' && s.headers.filter(h => h.key.trim()).length > 0 && <span className="tab-badge">{s.headers.filter(h => h.key.trim()).length}</span>}
-            {tab === 'data' && dataSourceRowCount > 0 && <span className="tab-badge">{dataSourceRowCount}</span>}
-          </button>
-        ))}
+        {(['url', 'headers', 'body', 'validation', 'extract', 'data'] as HttpTab[]).map(tab => {
+          const tabLabel = tab === 'url' ? 'Params' : tab === 'extract' ? 'Extract' : tab === 'data' ? 'Data Source' : tab.charAt(0).toUpperCase() + tab.slice(1);
+          return (
+            <button key={tab} className={`wf-config-tab ${activeTab === tab ? 'active' : ''}`} onClick={() => onTabChange(tab)}>
+              {tabLabel}
+              {tab === 'url' && paramCount > 0 && <span className="tab-badge">{paramCount}</span>}
+              {tab === 'extract' && (s.extractions?.length ?? 0) > 0 && <span className="tab-badge">{s.extractions!.length}</span>}
+              {tab === 'headers' && s.headers.filter(h => h.key.trim()).length > 0 && <span className="tab-badge">{s.headers.filter(h => h.key.trim()).length}</span>}
+              {tab === 'data' && dataSourceRowCount > 0 && <span className="tab-badge">{dataSourceRowCount}</span>}
+              {tab === 'validation' && hasValidationConfig && <span className="tab-badge-dot" />}
+            </button>
+          );
+        })}
       </div>
 
       <div className="wf-config-tab-content">
@@ -461,6 +487,20 @@ export default function HttpConfig({ data, onChange, activeTab, onTabChange, las
                 onBodyFormChange={(bf) => update({ bodyForm: bf })}
               />
             )}
+          </div>
+        )}
+
+        {activeTab === 'validation' && validationProps && (
+          <TestEditorValidationTab
+            draft={s}
+            onDraftChange={handleScenarioDraftChange}
+            draftRef={scenarioDraftRef}
+            {...validationProps}
+          />
+        )}
+        {activeTab === 'validation' && !validationProps && (
+          <div className="wf-config-empty-state">
+            <p>Validation is not available in this context.</p>
           </div>
         )}
 

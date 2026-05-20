@@ -9,7 +9,7 @@ import {
   DataMapperModal,
   createValidationAdapter,
 } from '../../../shared/components/data-mapper';
-import { prettyJson } from '../../../shared/utils/helpers';
+import { prettyJson, toErrorMessage } from '../../../shared/utils/helpers';
 import type { ValidationAdapterOutput } from '../../../shared/components/data-mapper';
 
 interface DataSourceRowDetailModalProps {
@@ -159,7 +159,7 @@ export default function DataSourceRowDetailModal({
         }
       }
     } catch (err) {
-      setFetchError(err instanceof Error ? err.message : String(err));
+      setFetchError(toErrorMessage(err));
     } finally {
       setFetching(false);
     }

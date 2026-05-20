@@ -22,6 +22,8 @@ import DelayConfig from '../configs/DelayConfig';
 import VariablesSection from './VariablesSection';
 import WorkflowModalScrollBody from '../modals/WorkflowModalScrollBody';
 import type { ExtractionFetchSampleProps } from '../../../requests/components/ExtractionEditor';
+import { useWorkflowValidationFetch } from '../../hooks/useWorkflowValidationFetch';
+import type { Scenario } from '../../../../shared/types';
 
 interface Props {
   node: WorkflowNode | null;
@@ -101,6 +103,23 @@ export default function WorkflowConfigPanel({ node, workflowVariables, onUpdateW
     setVariableInsertOpen(false);
   }, []);
 
+  // ── Validation fetch hook for HTTP nodes ──
+  const httpScenario = node && isHttpWorkflowNode(node) ? (node.data as HttpNodeData).scenario : null;
+  const placeholderScenario = useRef<Scenario>({ id: '', name: '', url: '', method: 'GET', headers: [], body: '', auth: { type: 'none' }, validation: { mode: 'none' } });
+  const validationDraftRef = useRef<Scenario>(httpScenario ?? placeholderScenario.current);
+  validationDraftRef.current = httpScenario ?? placeholderScenario.current;
+  const handleValidationDraftChange = useCallback((draft: Scenario) => {
+    if (node) onUpdateNode(node.id, { scenario: draft });
+  }, [node, onUpdateNode]);
+
+  const validationFetch = useWorkflowValidationFetch({
+    draftRef: validationDraftRef,
+    onDraftChange: handleValidationDraftChange,
+    liveVariables: workflowVariables,
+    resolvedBaseUrl: effectiveQuickTestBaseUrl,
+    resetKey: node?.id,
+  });
+
   /** Shared config body rendered in both inline and expanded modal views. */
   const configContent = node ? (
     <>
@@ -118,6 +137,25 @@ export default function WorkflowConfigPanel({ node, workflowVariables, onUpdateW
           variableHints={httpVariableHints}
           onRequestVariableInsert={requestVariableInsert}
           workflowServices={workflowServices}
+          validationProps={{
+            resolvedBaseUrl: effectiveQuickTestBaseUrl,
+            fetchingResponse: validationFetch.fetchingResponse,
+            fetchError: validationFetch.fetchError,
+            fetchHostOverride: validationFetch.fetchHostOverride,
+            setFetchHostOverride: validationFetch.setFetchHostOverride,
+            fetchHostEnabled: validationFetch.fetchHostEnabled,
+            setFetchHostEnabled: validationFetch.setFetchHostEnabled,
+            onFetchSampleResponse: validationFetch.handleFetchSampleResponse,
+            fetchSampleDataForMapper: validationFetch.fetchSampleDataForMapper,
+            validating: validationFetch.validating,
+            validationResult: validationFetch.validationResult,
+            setValidationResult: validationFetch.setValidationResult,
+            onValidateResponse: validationFetch.handleValidateResponse,
+            pendingFetchResponse: validationFetch.pendingFetchResponse,
+            onFetchKeepRules: validationFetch.handleFetchKeepRules,
+            onFetchReplaceAll: validationFetch.handleFetchReplaceAll,
+            onFetchCancel: validationFetch.handleFetchCancel,
+          }}
         />
       )}
 

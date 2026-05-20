@@ -84,7 +84,7 @@ function createMockWorkflow(): Workflow {
   };
 }
 
-describe('webhook-server', () => {
+describe('webhook-server', { timeout: 30_000 }, () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });

@@ -1,5 +1,24 @@
 import { describe, it, expect } from 'vitest';
-import { getByPath, getByPathAsString, setByPath } from './jsonPath';
+import {
+  getByPath,
+  getByPathAsString,
+  setByPath,
+  stripJsonPathPrefix,
+} from './jsonPath';
+
+describe('stripJsonPathPrefix', () => {
+  it('returns dotted path unchanged when there is no $ prefix', () => {
+    expect(stripJsonPathPrefix('a.b.c')).toBe('a.b.c');
+  });
+
+  it('strips $. prefix', () => {
+    expect(stripJsonPathPrefix('$.x.y')).toBe('x.y');
+  });
+
+  it('strips bare $ prefix', () => {
+    expect(stripJsonPathPrefix('$foo')).toBe('foo');
+  });
+});
 
 describe('getByPath', () => {
   const obj = {
@@ -69,6 +88,11 @@ describe('getByPath – edge cases', () => {
   it('handles unclosed bracket in path (breaks tokenization)', () => {
     const obj = { a: [1, 2] };
     expect(getByPath(obj, '$.a[0')).toEqual([1, 2]);
+  });
+
+  it('stops tokenization at unclosed bracket and returns partial path value', () => {
+    const obj = { items: { count: 3 } };
+    expect(getByPath(obj, 'items[')).toEqual({ count: 3 });
   });
 
   it('handles [*] on non-array returns undefined', () => {
@@ -169,6 +193,14 @@ describe('getByPathAsString', () => {
     expect(getByPathAsString({ active: true }, 'active')).toBe('true');
   });
 
+  it('returns empty string when resolved value is null', () => {
+    expect(getByPathAsString({ x: null }, 'x')).toBe('');
+  });
+
+  it('returns empty string when resolved value is undefined', () => {
+    expect(getByPathAsString({ x: undefined }, 'x')).toBe('');
+  });
+
   it('returns JSON string for object values', () => {
     const obj = { data: { x: 1 } };
     expect(getByPathAsString(obj, 'data')).toBe('{"x":1}');
@@ -185,6 +217,10 @@ describe('getByPathAsString', () => {
 
   it('returns empty string for null input', () => {
     expect(getByPathAsString(null, 'a')).toBe('');
+  });
+
+  it('returns empty string for undefined root', () => {
+    expect(getByPathAsString(undefined as unknown as Record<string, unknown>, 'a')).toBe('');
   });
 
   it('returns empty when intermediate value is null', () => {
@@ -255,6 +291,44 @@ describe('setByPath', () => {
     const obj: Record<string, unknown> = { a: 1 };
     setByPath(obj, '$.', 'value');
     expect(obj).toEqual({ a: 1 });
+  });
+
+  it('does nothing for whitespace-only path', () => {
+    const obj: Record<string, unknown> = { a: 1 };
+    setByPath(obj, '   ', 'value');
+    expect(obj).toEqual({ a: 1 });
+  });
+
+  it('does nothing when normalized path yields no keys (only dots)', () => {
+    const obj: Record<string, unknown> = { a: 1 };
+    setByPath(obj, '...', 'value');
+    expect(obj).toEqual({ a: 1 });
+  });
+
+  it('creates missing intermediate objects for deep nested path', () => {
+    const obj: Record<string, unknown> = {};
+    setByPath(obj, 'level1.level2.level3', 'deep');
+    expect(obj).toEqual({
+      level1: { level2: { level3: 'deep' } },
+    });
+  });
+
+  it('replaces null intermediate with object before descending', () => {
+    const obj: Record<string, unknown> = { a: { b: null } };
+    setByPath(obj, 'a.b.c', 99);
+    expect(obj).toEqual({ a: { b: { c: 99 } } });
+  });
+
+  it('replaces non-object intermediate with object for deeper segment (a.b.c where a.b is string)', () => {
+    const obj: Record<string, unknown> = { a: { b: 'not-an-object' } };
+    setByPath(obj, 'a.b.c', 'leaf');
+    expect(obj).toEqual({ a: { b: { c: 'leaf' } } });
+  });
+
+  it('uses $. prefix and still creates intermediates', () => {
+    const obj: Record<string, unknown> = {};
+    setByPath(obj, '$.region.zone.id', 7);
+    expect(obj).toEqual({ region: { zone: { id: 7 } } });
   });
 
   it('treats bracket paths as literal keys (dot-only semantics)', () => {

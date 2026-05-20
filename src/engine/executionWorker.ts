@@ -2,6 +2,7 @@ import type { MainToWorkerMessage, WorkerToMainMessage } from './workerProtocol'
 import type { HttpResponse } from '../shared/utils/httpClient';
 import { httpFetchViaViteProxy, setHttpTransport } from '../shared/utils/httpClient';
 import { runTest } from './executor';
+import { toErrorMessage } from '../shared/utils/helpers';
 
 interface WorkerContext {
   postMessage: (msg: WorkerToMainMessage) => void;
@@ -50,22 +51,48 @@ ctx.addEventListener('message', async (e: MessageEvent<MainToWorkerMessage>) => 
       }
 
       try {
+        let lastProgressPost = -Infinity;
+        let pendingNewResults: import('../shared/types').RequestResult[] = [];
+        let hasPending = false;
+        let pendingCompleted = 0;
+        let pendingTotal = 0;
+        let pendingMeta: import('./executor').ProgressMeta | undefined;
+        const PROGRESS_THROTTLE_MS = 250;
+
         const testResult = await runTest(
           msg.config,
           msg.scenarios,
           (completed, total, allResults, meta) => {
             const newResults = allResults.slice(lastSentCount);
             lastSentCount = allResults.length;
-            postMsg({ type: 'progress', completed, total, newResults, meta });
+            const now = performance.now();
+            if (now - lastProgressPost >= PROGRESS_THROTTLE_MS) {
+              lastProgressPost = now;
+              const batch = hasPending ? [...pendingNewResults, ...newResults] : newResults;
+              hasPending = false;
+              pendingNewResults = [];
+              postMsg({ type: 'progress', completed, total, newResults: batch, meta });
+            } else {
+              pendingNewResults.push(...newResults);
+              hasPending = true;
+              pendingCompleted = completed;
+              pendingTotal = total;
+              pendingMeta = meta;
+            }
           },
           abortController.signal,
           msg.workflow,
+          undefined,
+          msg.workerIndex,
         );
+        if (hasPending) {
+          postMsg({ type: 'progress', completed: pendingCompleted, total: pendingTotal, newResults: pendingNewResults, meta: pendingMeta });
+        }
         const finalNew = testResult.results.slice(lastSentCount);
         lastSentCount = testResult.results.length;
         postMsg({ type: 'done', newResults: finalNew, trace: testResult.trace });
       } catch (err) {
-        postMsg({ type: 'error', message: err instanceof Error ? err.message : String(err) });
+        postMsg({ type: 'error', message: toErrorMessage(err) });
       }
       break;
     }

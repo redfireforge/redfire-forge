@@ -8,11 +8,40 @@ import type { Workflow } from '../types/workflow';
 import type { RequestResult, WorkflowIterationTrace, WorkflowExecutionTrace, ExecutionTraceOptions } from '../../../shared/types';
 import { runGraph, resolveTraceLevel, type GraphRunCallbacks, type CorrelationWaitRunnerConfig } from './graphRunner';
 import { CircuitBreaker } from '../../../engine/circuitBreaker';
+import { toErrorMessage } from '../../../shared/utils/helpers';
+
+function buildWorkflowMarkerResult(
+  workflowName: string,
+  iterationIndex: number,
+  opts: { cancelled?: boolean; errorMessage: string; scenarioId: string; groupName: string; workflowNodeId: string },
+): RequestResult {
+  return {
+    id: nextResultId(),
+    scenarioId: opts.scenarioId,
+    scenarioName: workflowName,
+    featureGroupName: `Workflow: ${workflowName}`,
+    groupName: opts.groupName,
+    url: '',
+    method: 'GET',
+    httpStatus: 0,
+    responseTimeMs: 0,
+    responseBody: '',
+    timestamp: Date.now(),
+    passed: false,
+    validationMode: 'none',
+    failureDetails: [],
+    errorMessage: opts.errorMessage,
+    iterationIndex,
+    workflowNodeId: opts.workflowNodeId,
+    cancelled: opts.cancelled,
+  };
+}
 import type { ProgressMeta } from '../../../engine/executor';
 import { RemoteCorrelationStore } from './remoteCorrelationStore';
 import { InMemoryCorrelationStore } from './correlationStore';
 import { SyntheticEventInjector } from './syntheticEventInjector';
 import { Semaphore } from '../../../shared/utils/semaphore';
+import { nextResultId } from '../../../engine/requestExecution';
 
 // Re-export the type for consumers
 export type { CorrelationWaitRunnerConfig } from './graphRunner';
@@ -40,6 +69,8 @@ export interface GraphLoadRunOpts {
   environmentLayer?: Record<string, string>;
   /** Resolver for sub-workflow nodes — returns the child workflow by ID. */
   resolveSubWorkflow?: (workflowId: string) => Workflow | undefined;
+  /** Per-request HTTP timeout in milliseconds for HTTP nodes. Defaults to 30 000 ms. */
+  httpTimeoutMs?: number;
 }
 
 /**
@@ -52,7 +83,7 @@ export async function runGraphLoad(
   workflow: Workflow,
   opts: GraphLoadRunOpts,
 ): Promise<{ results: RequestResult[]; trace: WorkflowExecutionTrace }> {
-  const { iterations, concurrency, initialVariables = {}, breaker, abortSignal, onProgress, correlationWaitConfig, maxConcurrentPolls, traceOptions, environmentLayer, resolveSubWorkflow } = opts;
+  const { iterations, concurrency, initialVariables = {}, breaker, abortSignal, onProgress, correlationWaitConfig, maxConcurrentPolls, traceOptions, environmentLayer, resolveSubWorkflow, httpTimeoutMs } = opts;
   
   const allResults: RequestResult[] = [];
   const allTraces: WorkflowIterationTrace[] = [];
@@ -149,6 +180,7 @@ export async function runGraphLoad(
         correlationWaitConfig, // runner-level config for CorrelationWait behavior
         pollSemaphore, // Throttle concurrent polls across iterations
         traceOptions, // Trace capture options for Results Explorer
+        httpTimeoutMs, // Per-request HTTP timeout (defaults to 30s inside runGraph)
       );
 
       for (const r of results) {
@@ -167,63 +199,35 @@ export async function runGraphLoad(
 
       // Check if iteration was aborted - mark all its results as cancelled
       if (abortSignal?.aborted) {
-        // Mark any successful results from this iteration as cancelled
-        for (const r of iterationResults) {
-          if (r.passed) {
-            (r as RequestResult).passed = false;
+        const targetResults = iterationResults.length > 0 ? iterationResults : results;
+        for (const r of targetResults) {
+          (r as RequestResult).cancelled = true;
+          if (!r.errorMessage) {
             (r as RequestResult).errorMessage = 'Cancelled by user';
-            (r as RequestResult).cancelled = true;
           }
         }
-        // Add a cancelled marker result if no results yet
-        if (iterationResults.length === 0) {
-          const cancelledResult: RequestResult = {
-            id: crypto.randomUUID(),
-            scenarioId: 'workflow-cancelled',
-            scenarioName: workflow.name,
-            featureGroupName: `Workflow: ${workflow.name}`,
-            groupName: 'Cancelled',
-            url: '',
-            method: 'GET',
-            httpStatus: 0,
-            responseTimeMs: 0,
-            responseBody: '',
-            timestamp: Date.now(),
-            passed: false,
-            validationMode: 'none',
-            failureDetails: [],
-            errorMessage: 'Cancelled by user',
-            iterationIndex: myIterationIndex,
-            workflowNodeId: 'cancelled',
-            cancelled: true,
-          };
-          iterationResults.push(cancelledResult);
+        if (targetResults.length === 0) {
+          iterationResults.push(buildWorkflowMarkerResult(workflow.name, myIterationIndex, {
+            cancelled: true, errorMessage: 'Cancelled by user',
+            scenarioId: 'workflow-cancelled', groupName: 'Cancelled', workflowNodeId: 'cancelled',
+          }));
         }
       }
       
-      allResults.push(...(iterationResults.length > 0 ? iterationResults : results));
+      const finalResults = iterationResults.length > 0 ? iterationResults : results;
+      for (const r of finalResults) {
+        if (!r.cancelled) breaker?.record(r);
+      }
+      allResults.push(...finalResults);
     } catch (err) {
       const isCancelled = abortSignal?.aborted;
-      const errorResult: RequestResult = {
-        id: crypto.randomUUID(),
-        scenarioId: isCancelled ? 'workflow-cancelled' : 'workflow-error',
-        scenarioName: workflow.name,
-        featureGroupName: `Workflow: ${workflow.name}`,
-        groupName: isCancelled ? 'Cancelled' : 'Error',
-        url: '',
-        method: 'GET',
-        httpStatus: 0,
-        responseTimeMs: 0,
-        responseBody: '',
-        timestamp: Date.now(),
-        passed: false,
-        validationMode: 'none',
-        failureDetails: [],
-        errorMessage: isCancelled ? 'Cancelled by user' : (err instanceof Error ? err.message : String(err)),
-        iterationIndex: myIterationIndex,
-        workflowNodeId: isCancelled ? 'cancelled' : 'error',
+      const errorResult = buildWorkflowMarkerResult(workflow.name, myIterationIndex, {
         cancelled: isCancelled,
-      };
+        errorMessage: isCancelled ? 'Cancelled by user' : toErrorMessage(err),
+        scenarioId: isCancelled ? 'workflow-cancelled' : 'workflow-error',
+        groupName: isCancelled ? 'Cancelled' : 'Error',
+        workflowNodeId: isCancelled ? 'cancelled' : 'error',
+      });
       allResults.push(errorResult);
       breaker?.record(errorResult);
     }
@@ -252,25 +256,33 @@ export async function runGraphLoad(
       }
     } else {
       let launched = 0;
-      const pool: Promise<void>[] = [];
-      
-      while (launched < iterations) {
-        if (abortSignal?.aborted || breaker?.shouldStop) break;
-        
-        while (pool.length < concurrency && launched < iterations) {
-          launched++;
-          const p = runOneIteration().then(() => {
-            pool.splice(pool.indexOf(p), 1);
-          });
-          pool.push(p);
+      let inFlightCount = 0;
+
+      await new Promise<void>((resolveAll) => {
+        let resolved = false;
+        function finish() {
+          if (resolved) return;
+          resolved = true;
+          resolveAll();
         }
-        
-        if (pool.length > 0) {
-          await Promise.race(pool);
+        function launchNext() {
+          while (launched < iterations && inFlightCount < concurrency) {
+            if (abortSignal?.aborted || breaker?.shouldStop) break;
+            launched++;
+            inFlightCount++;
+            runOneIteration().finally(() => {
+              inFlightCount--;
+              if (inFlightCount === 0 && (launched >= iterations || abortSignal?.aborted || breaker?.shouldStop)) {
+                finish();
+              } else if (!abortSignal?.aborted && !breaker?.shouldStop) {
+                launchNext();
+              }
+            });
+          }
+          if (inFlightCount === 0) finish();
         }
-      }
-      
-      await Promise.all(pool);
+        launchNext();
+      });
     }
   } finally {
     // Clean up the synthetic injector if it was started

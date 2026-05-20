@@ -32,8 +32,12 @@ export async function handleHttpNode(
 
     let anyFailed = false;
     for (const expanded of expandedScenarios) {
+      if (hCtx.abortSignal?.aborted) break;
       hCtx.log({ prefix: '>', text: `[${hCtx.nodeLabel(nodeId)}] ${expanded.dataRowLabel ?? 'row'}: ${expanded.method} request...` });
       const expandedData: HttpNodeData = { ...httpData, scenario: expanded };
+      const dsPerNodeTimeoutMs = typeof httpData.timeoutSec === 'number' && httpData.timeoutSec > 0
+        ? httpData.timeoutSec * 1000
+        : hCtx.httpTimeoutMs;
       const result = await executeHttpNode(
         expandedData,
         hCtx.ctx,
@@ -42,6 +46,8 @@ export async function handleHttpNode(
         hCtx.initialVariables,
         hCtx.resolveHttpBaseUrl,
         hCtx.resolveHttpAuth,
+        dsPerNodeTimeoutMs,
+        hCtx.abortSignal,
       );
       hCtx.results.push(result.requestResult);
       if (!result.requestResult.passed) {
@@ -64,6 +70,9 @@ export async function handleHttpNode(
 
   // ── Single request (no data source) ──
   hCtx.log({ prefix: '>', text: `[${hCtx.nodeLabel(nodeId)}] ${httpData.scenario?.method ?? 'GET'} request...` });
+  const perNodeTimeoutMs = typeof httpData.timeoutSec === 'number' && httpData.timeoutSec > 0
+    ? httpData.timeoutSec * 1000
+    : hCtx.httpTimeoutMs;
   const result = await executeHttpNode(
     httpData,
     hCtx.ctx,
@@ -72,6 +81,8 @@ export async function handleHttpNode(
     hCtx.initialVariables,
     hCtx.resolveHttpBaseUrl,
     hCtx.resolveHttpAuth,
+    perNodeTimeoutMs,
+    hCtx.abortSignal,
   );
   hCtx.results.push(result.requestResult);
 

@@ -10,6 +10,18 @@ export function prettyJson(text: string): string {
   catch { return text; }
 }
 
+/** Parse JSON, returning the raw string if parsing fails. */
+export function parseJsonOrRaw(text: string): unknown {
+  try { return JSON.parse(text); }
+  catch { return text; }
+}
+
+/** Check if a string is valid JSON. */
+export function isValidJson(text: string): boolean {
+  try { JSON.parse(text); return true; }
+  catch { return false; }
+}
+
 export function truncate(str: string, maxLen: number, suffix = '...', suffixInsideBudget = true): string {
   if (suffixInsideBudget) {
     if (str.length <= maxLen) return str;

@@ -332,6 +332,7 @@ tr:hover td { background: var(--surface-hover); }
 .row-failed td { background: #ef444410; }
 .clickable-row { cursor: pointer; }
 .clickable-row:active td { background: var(--surface-hover) !important; }
+.result-id-cell { font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; font-size: 0.75rem; color: var(--text-muted); white-space: nowrap; }
 .url-cell { max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .failure-cell { font-size: 0.8rem; max-width: 350px; }
 .failure-detail { color: var(--warning); margin: 2px 0; }

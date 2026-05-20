@@ -98,29 +98,9 @@ vi.mock('./idbSharedDataSources', () => ({
   idbMigrateSharedDataSources: (key: string) => sharedIdb.idbMigrateSharedDataSources(key),
 }));
 
-import {
-  saveTestRun,
-  forceSaveTestRun,
-  loadTestRuns,
-  updateTestRun,
-  deleteTestRun,
-  deleteRunsOlderThan,
-  clearAllTestRuns,
-  setMaxRuns,
-  getStorageUsage,
-  saveFeatureGroups,
-  loadFeatureGroups,
-  saveSharedDataSources,
-  loadSharedDataSources,
-  loadPreviewSampleId,
-  savePreviewSampleId,
-} from './storage';
-import type { SharedDataSource, TestRun } from '../types';
-import {
-  idbSaveTestRun,
-  idbLoadTestRuns,
-  idbGetRunsInfo,
-} from './idbTestRuns';
+import { saveTestRun, forceSaveTestRun, loadTestRuns, updateTestRun, deleteTestRun, deleteRunsOlderThan, clearAllTestRuns, setMaxRuns, getStorageUsage, saveFeatureGroups, loadFeatureGroups, saveSharedDataSources, loadSharedDataSources, loadPreviewSampleId, savePreviewSampleId, loadTestRunsLite, loadTraceForRun, loadRunnerConfig, loadWorkflowFolders, saveWorkflowFolders, } from './storage';
+import { SharedDataSource, TestRun } from '../types';
+import { idbSaveTestRun, idbLoadTestRuns, idbGetRunsInfo, } from './idbTestRuns';
 
 function makeRun(id: string, overrides: Partial<TestRun> = {}): TestRun {
   return {
@@ -590,5 +570,104 @@ describe('storage — preview sample sessionStorage errors', () => {
     });
     expect(() => savePreviewSampleId('x')).not.toThrow();
     vi.restoreAllMocks();
+  });
+});
+
+describe('storage — Tauri branches for loadTestRunsLite', () => {
+  it('returns runs without compressedTrace in Tauri mode', async () => {
+    isTauriMock.mockReturnValue(true);
+    const runs = [
+      { id: 'r1', compressedTrace: 'large-data', hasTrace: false, timestamp: 1 },
+      { id: 'r2', timestamp: 2 },
+    ];
+    tauriGetItem.mockResolvedValue(JSON.stringify(runs));
+    const result = await loadTestRunsLite();
+    expect(result).toHaveLength(2);
+    expect(result[0].hasTrace).toBe(true);
+    expect((result[0] as Record<string, unknown>).compressedTrace).toBeUndefined();
+    expect(result[1].id).toBe('r2');
+  });
+
+  it('returns empty array when Tauri storage is empty', async () => {
+    isTauriMock.mockReturnValue(true);
+    tauriGetItem.mockResolvedValue(null);
+    const result = await loadTestRunsLite();
+    expect(result).toEqual([]);
+  });
+
+  it('returns empty array when Tauri storage throws', async () => {
+    isTauriMock.mockReturnValue(true);
+    tauriGetItem.mockRejectedValue(new Error('disk error'));
+    const result = await loadTestRunsLite();
+    expect(result).toEqual([]);
+  });
+});
+
+describe('storage — Tauri branches for loadTraceForRun', () => {
+  it('returns compressedTrace for matching run in Tauri mode', async () => {
+    isTauriMock.mockReturnValue(true);
+    const runs = [
+      { id: 'r1', compressedTrace: 'trace-data-1', timestamp: 1 },
+      { id: 'r2', compressedTrace: 'trace-data-2', timestamp: 2 },
+    ];
+    tauriGetItem.mockResolvedValue(JSON.stringify(runs));
+    const result = await loadTraceForRun('r2');
+    expect(result).toBe('trace-data-2');
+  });
+
+  it('returns undefined for non-matching run in Tauri mode', async () => {
+    isTauriMock.mockReturnValue(true);
+    tauriGetItem.mockResolvedValue(JSON.stringify([{ id: 'r1', compressedTrace: 'x' }]));
+    const result = await loadTraceForRun('no-match');
+    expect(result).toBeUndefined();
+  });
+
+  it('returns undefined when Tauri storage is empty', async () => {
+    isTauriMock.mockReturnValue(true);
+    tauriGetItem.mockResolvedValue(null);
+    const result = await loadTraceForRun('r1');
+    expect(result).toBeUndefined();
+  });
+
+  it('returns undefined when Tauri storage throws', async () => {
+    isTauriMock.mockReturnValue(true);
+    tauriGetItem.mockRejectedValue(new Error('disk error'));
+    const result = await loadTraceForRun('r1');
+    expect(result).toBeUndefined();
+  });
+});
+
+describe('storage — loadRunnerConfig legacy migration', () => {
+  it('migrates totalTransactions to iterations', async () => {
+    isTauriMock.mockReturnValue(false);
+    const legacy = { totalTransactions: 100, concurrency: 5 };
+    localStorage.setItem('perf-test-runner-config', JSON.stringify(legacy));
+    const result = await loadRunnerConfig();
+    expect(result).toEqual(expect.objectContaining({ iterations: 100, concurrency: 5 }));
+    expect((result as Record<string, unknown>).totalTransactions).toBeUndefined();
+  });
+});
+
+describe('storage — workflowFolders', () => {
+  it('loadWorkflowFolders returns empty array when no data', async () => {
+    isTauriMock.mockReturnValue(false);
+    localStorage.removeItem('workflow_folders');
+    const result = await loadWorkflowFolders();
+    expect(result).toEqual([]);
+  });
+
+  it('saveWorkflowFolders and loadWorkflowFolders round-trip', async () => {
+    isTauriMock.mockReturnValue(false);
+    const folders = [{ id: 'f1', name: 'Folder 1', children: [] }];
+    await saveWorkflowFolders(folders as never[]);
+    const loaded = await loadWorkflowFolders();
+    expect(loaded).toEqual(folders);
+  });
+
+  it('loadWorkflowFolders returns empty on parse error', async () => {
+    isTauriMock.mockReturnValue(false);
+    localStorage.setItem('workflow_folders', 'not-json');
+    const result = await loadWorkflowFolders();
+    expect(result).toEqual([]);
   });
 });

@@ -7,6 +7,17 @@ describe('urlUtils', () => {
       expect(replaceHost('https://api.example.com/users', '')).toBe('https://api.example.com/users');
     });
 
+    it('returns testUrl when baseUrl is nullish', () => {
+      const url = 'https://api.example.com/users';
+      expect(replaceHost(url, undefined as unknown as string)).toBe(url);
+      expect(replaceHost(url, null as unknown as string)).toBe(url);
+    });
+
+    it('returns testUrl when base URL cannot be parsed', () => {
+      const testUrl = 'https://api.example.com/users';
+      expect(replaceHost(testUrl, 'not a valid base url')).toBe(testUrl);
+    });
+
     it('replaces host with new base URL', () => {
       const result = replaceHost('https://api.example.com/users', 'https://new-api.example.com');
       expect(result).toBe('https://new-api.example.com/users');
@@ -15,6 +26,16 @@ describe('urlUtils', () => {
     it('handles base URL with trailing slash', () => {
       const result = replaceHost('https://api.example.com/users', 'https://new-api.example.com/');
       expect(result).toBe('https://new-api.example.com/users');
+    });
+
+    it('normalizes base URL without trailing slash before parsing', () => {
+      const baseNoSlash = 'https://new-api.example.com';
+      const baseWithSlash = `${baseNoSlash}/`;
+      const path = '/v1/items';
+      const a = replaceHost(`https://old.example.com${path}`, baseNoSlash);
+      const b = replaceHost(`https://old.example.com${path}`, baseWithSlash);
+      expect(a).toBe(b);
+      expect(a).toBe(`https://new-api.example.com${path}`);
     });
 
     it('preserves protocol from base URL', () => {
@@ -45,6 +66,17 @@ describe('urlUtils', () => {
       expect(result).toContain('{{action}}');
     });
 
+    it('restores each placeholder index after URL parsing', () => {
+      const testUrl =
+        'https://api.example.com/{{a}}/{{b}}?q={{c}}#{{d}}';
+      const out = replaceHost(testUrl, 'https://new.example.com');
+      expect(out).toContain('{{a}}');
+      expect(out).toContain('{{b}}');
+      expect(out).toContain('{{c}}');
+      expect(out).toContain('{{d}}');
+      expect(out).not.toContain('__TPL_');
+    });
+
     it('preserves {{template}} variables in query params', () => {
       const result = replaceHost('https://api.example.com/users?token={{apiToken}}', 'https://new-api.example.com');
       expect(result).toContain('{{apiToken}}');
@@ -58,6 +90,11 @@ describe('urlUtils', () => {
     it('avoids duplicating base path if already present', () => {
       const result = replaceHost('https://api.example.com/v2/users', 'https://new-api.example.com/v2');
       expect(result).toBe('https://new-api.example.com/v2/users');
+    });
+
+    it('merges base path when original pathname does not start with it', () => {
+      const result = replaceHost('https://api.example.com/users', 'https://new-api.example.com/api/v99');
+      expect(result).toBe('https://new-api.example.com/api/v99/users');
     });
 
     it('handles base URL with multiple path segments', () => {

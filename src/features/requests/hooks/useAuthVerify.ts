@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import type { AuthConfig } from '../../../shared/types';
 import { acquireOAuth2Token } from '../../../engine/tokenManager';
+import { toErrorMessage } from '../../../shared/utils/helpers';
 
 export interface AuthVerifyResult {
   ok: boolean;
@@ -53,7 +54,7 @@ export function useAuthVerify() {
         setAuthVerifyResult({ ok: false, message: 'No auth type selected' });
       }
     } catch (err) {
-      setAuthVerifyResult({ ok: false, message: err instanceof Error ? err.message : String(err) });
+      setAuthVerifyResult({ ok: false, message: toErrorMessage(err) });
     } finally {
       setAuthVerifying(false);
     }

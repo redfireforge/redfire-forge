@@ -7,7 +7,7 @@ import { fileURLToPath } from 'url';
 import { loadTestFile, buildScenarios, buildTestConfig } from './loader';
 import { loadDataFile } from './dataLoader';
 import { loadWorkflowFile } from './workflowLoader';
-import { runTest } from '../src/engine/executor';
+import { runTest, type ProgressMeta } from '../src/engine/executor';
 import { runGraphLoad } from '../src/features/workflow/engine/graphLoadRunner';
 import { CircuitBreaker } from '../src/engine/circuitBreaker';
 import { computeMetrics } from '../src/engine/metrics';
@@ -22,6 +22,7 @@ import {
   printWorkflowConsoleSummary,
 } from './reporters';
 import type { RequestResult, ErrorPolicy } from '../src/types';
+import { toErrorMessage } from '../src/shared/utils/helpers';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(readFileSync(resolve(__dirname, '..', 'package.json'), 'utf-8'));
@@ -142,13 +143,19 @@ program
       });
 
       let lastPrinted = 0;
-      const onProgress = (completed: number, total: number, _results: RequestResult[]) => {
+      const onProgress = (completed: number, total: number, _results: RequestResult[], meta?: ProgressMeta) => {
         if (opts.quiet) return;
         const now = Date.now();
         if (now - lastPrinted < 500 && completed < total) return;
         lastPrinted = now;
-        const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
-        process.stdout.write(`\r  Progress: ${completed}/${total} (${pct}%)`);
+        if (meta) {
+          const elSec = (meta.elapsedMs / 1000).toFixed(1);
+          const rps = meta.elapsedMs > 0 ? Math.round(completed / (meta.elapsedMs / 1000)) : 0;
+          process.stdout.write(`\r  Progress: ${completed} reqs | ${elSec}s | ${rps} RPS | concurrency: ${meta.currentInFlight}/${meta.targetConcurrency}`);
+        } else {
+          const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
+          process.stdout.write(`\r  Progress: ${completed}/${total} (${pct}%)`);
+        }
       };
 
       const t0 = performance.now();
@@ -203,7 +210,7 @@ program
 
       process.exit(0);
     } catch (err) {
-      console.error(`\n  Error: ${err instanceof Error ? err.message : String(err)}`);
+      console.error(`\n  Error: ${toErrorMessage(err)}`);
       process.exit(2);
     }
   });
@@ -287,7 +294,7 @@ program
       });
 
       let lastPrinted = 0;
-      const onProgress = (completed: number, total: number, _results: RequestResult[]) => {
+      const onProgress = (completed: number, total: number, _results: RequestResult[], _meta?: ProgressMeta) => {
         if (opts.quiet) return;
         const now = Date.now();
         if (now - lastPrinted < 500 && completed < total) return;
@@ -379,7 +386,7 @@ program
 
       process.exit(0);
     } catch (err) {
-      console.error(`\n  Error: ${err instanceof Error ? err.message : String(err)}`);
+      console.error(`\n  Error: ${toErrorMessage(err)}`);
       process.exit(2);
     }
   });
@@ -404,7 +411,7 @@ program
       console.log('');
       process.exit(0);
     } catch (err) {
-      console.error(`\n  ❌ Invalid: ${err instanceof Error ? err.message : String(err)}`);
+      console.error(`\n  ❌ Invalid: ${toErrorMessage(err)}`);
       process.exit(2);
     }
   });
@@ -429,7 +436,7 @@ program
       console.log('');
       process.exit(0);
     } catch (err) {
-      console.error(`\n  ❌ Invalid: ${err instanceof Error ? err.message : String(err)}`);
+      console.error(`\n  ❌ Invalid: ${toErrorMessage(err)}`);
       process.exit(2);
     }
   });

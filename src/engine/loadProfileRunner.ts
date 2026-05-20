@@ -1,7 +1,5 @@
 import type { LoadProfileConfig, RequestResult, Scenario, ScenarioWeight } from '../shared/types';
-import { buildHeaders } from './executor';
-import { serializeWithContentType } from '../shared/utils/bodySerializer';
-import { executeWithRetry, type RunOpts } from './requestExecution';
+import { executeWithRetry, prepareScenario, buildErrorResult, type RunOpts } from './requestExecution';
 import { applyThinkTime } from './thinkTime';
 
 export function getTargetConcurrency(profile: LoadProfileConfig, elapsedMs: number): number {
@@ -85,50 +83,33 @@ export async function runLoadProfile(
       resolved = true;
       timerStopped = true;
       clearInterval(ticker);
+      onProgress(allResults.length, -1, allResults, {
+        elapsedMs: durationMs,
+        targetConcurrency: getTargetConcurrency(profile, durationMs),
+        currentInFlight: 0,
+        durationMs,
+      });
       resolve(allResults);
     }
 
     function launchOne() {
       const scenario = nextScenario();
       inFlight++;
-      const { body: reqBody, contentType } = serializeWithContentType(scenario);
-      tokenManager.getToken(scenario).then((token) => {
-        const headers = buildHeaders(scenario, token, contentType);
-        return executeWithRetry(scenario, headers, reqBody, timeoutMs, retryCount, retryDelayMs);
+      const prep = prepareScenario(scenario);
+      const tokenPromise = prep.needsOAuth ? tokenManager.getToken(scenario) : Promise.resolve(undefined);
+      tokenPromise.then((token) => {
+        const headers = token ? { ...prep.baseHeaders, Authorization: `Bearer ${token}` } : prep.baseHeaders;
+        return executeWithRetry(scenario, headers, prep.body, timeoutMs, retryCount, retryDelayMs, prep.resolvedUrl);
       }).then((result) => {
         allResults.push(result);
         breaker.record(result);
       }).catch((err) => {
-        const errorResult: RequestResult = {
-          id: `err-${Date.now()}`,
-          scenarioId: scenario.id,
-          scenarioName: scenario.name,
-          featureGroupName: scenario.featureGroupName,
-          groupName: scenario.groupName,
-          url: scenario.url,
-          method: scenario.method,
-          httpStatus: 0,
-          responseTimeMs: 0,
-          responseBody: '',
-          timestamp: Date.now(),
-          passed: false,
-          validationMode: scenario.validation.mode,
-          failureDetails: [{ path: '(error)', expected: 'success', actual: err instanceof Error ? err.message : String(err) }],
-          errorMessage: err instanceof Error ? err.message : String(err),
-        };
+        const errorResult = buildErrorResult(scenario, err, prep.body);
         allResults.push(errorResult);
         breaker.record(errorResult);
       }).finally(() => {
         inFlight--;
-        const elapsed = performance.now() - startTime;
-        const target = getTargetConcurrency(profile, elapsed);
-        onProgress(allResults.length, -1, allResults, {
-          elapsedMs: elapsed,
-          targetConcurrency: target,
-          currentInFlight: inFlight,
-          durationMs,
-        });
-        if (breaker.shouldStop) {
+        if (abortSignal?.aborted || breaker.shouldStop) {
           timerStopped = true;
           if (inFlight === 0) finish();
           return;
@@ -136,7 +117,12 @@ export async function runLoadProfile(
         if (timerStopped && inFlight === 0) {
           finish();
         } else if (!timerStopped) {
-          applyThinkTime(getThinkTimeMs, abortSignal).then(fillPool);
+          const thinkMs = getThinkTimeMs();
+          if (thinkMs > 0) {
+            applyThinkTime(getThinkTimeMs, abortSignal).then(fillPool);
+          } else {
+            setTimeout(fillPool, 0);
+          }
         }
       });
     }
@@ -159,6 +145,7 @@ export async function runLoadProfile(
       }
     }
 
+    let lastProgressTime = startTime;
     const ticker = setInterval(() => {
       if (abortSignal?.aborted || breaker.shouldStop || performance.now() - startTime >= durationMs) {
         timerStopped = true;
@@ -167,15 +154,19 @@ export async function runLoadProfile(
         return;
       }
       fillPool();
-      const elapsed = performance.now() - startTime;
-      const target = getTargetConcurrency(profile, elapsed);
-      onProgress(allResults.length, -1, allResults, {
-        elapsedMs: elapsed,
-        targetConcurrency: target,
-        currentInFlight: inFlight,
-        durationMs,
-      });
-    }, 500);
+      const now = performance.now();
+      if (now - lastProgressTime >= 500) {
+        lastProgressTime = now;
+        const elapsed = now - startTime;
+        const target = getTargetConcurrency(profile, elapsed);
+        onProgress(allResults.length, -1, allResults, {
+          elapsedMs: elapsed,
+          targetConcurrency: target,
+          currentInFlight: inFlight,
+          durationMs,
+        });
+      }
+    }, 100);
 
     fillPool();
   });

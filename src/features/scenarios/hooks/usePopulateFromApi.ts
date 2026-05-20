@@ -12,6 +12,7 @@ import type { Scenario, DataSource, DataSourceColumn, DataSourceRow } from '../.
 import type { HttpResponse } from '../../../shared/utils/httpClient';
 import { proxyFetch, buildHeaders } from '../../../engine/executor';
 import { resolveScenarioFromDataRow } from '../../../engine/dataSourceExpander';
+import { toErrorMessage } from '../../../shared/utils/helpers';
 import {
   detectArrays,
   resolvePath,
@@ -204,11 +205,11 @@ export function usePopulateFromApi({ draft, dataTable, onFetchRow }: UsePopulate
 
       setStep('map');
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(toErrorMessage(err));
       setLastResponse({
         status: 0,
         statusText: 'Unhandled Error',
-        error: err instanceof Error ? err.message : String(err),
+        error: toErrorMessage(err),
       });
     } finally {
       setLoading(false);

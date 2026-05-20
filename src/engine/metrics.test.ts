@@ -1,24 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { computeMetrics } from './metrics';
-import type { RequestResult } from '../shared/types';
-
-function makeResult(overrides: Partial<RequestResult> = {}): RequestResult {
-  return {
-    id: '1',
-    scenarioId: 's1',
-    scenarioName: 'test',
-    url: 'http://example.com',
-    method: 'GET',
-    httpStatus: 200,
-    responseTimeMs: 100,
-    responseBody: '{}',
-    timestamp: Date.now(),
-    passed: true,
-    validationMode: 'none',
-    failureDetails: [],
-    ...overrides,
-  };
-}
+import { makeResult } from '../test-utils/factories';
 
 describe('computeMetrics', () => {
   it('returns all zeros for empty results', () => {
@@ -38,6 +20,7 @@ describe('computeMetrics', () => {
       failedRequests: 0,
       failedValidations: 0,
       totalDurationMs: 5000,
+      cancelledRequests: 0,
     });
   });
 
