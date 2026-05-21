@@ -116,7 +116,7 @@ test.describe('Defaults Modal', () => {
   });
 
   test('Defaults button is visible in toolbar with badge', async ({ page }) => {
-    const defaultsBtn = page.locator('.wf-toolbar-variables-btn', { hasText: /Workflow Variables/i });
+    const defaultsBtn = page.locator('.wf-toolbar-variables-btn', { hasText: /Variables/i });
     await expect(defaultsBtn).toBeVisible();
 
     // Badge should show count (2 variables seeded)
@@ -127,7 +127,7 @@ test.describe('Defaults Modal', () => {
   });
 
   test('opens and closes defaults modal', async ({ page }) => {
-    const defaultsBtn = page.locator('.wf-toolbar-variables-btn', { hasText: /Workflow Variables/i });
+    const defaultsBtn = page.locator('.wf-toolbar-variables-btn', { hasText: /Variables/i });
     await defaultsBtn.click();
 
     // Modal should be visible
@@ -135,14 +135,14 @@ test.describe('Defaults Modal', () => {
     await expect(modal).toBeVisible({ timeout: 3000 });
     await expect(page.locator('#wf-defaults-modal-title')).toHaveText('Workflow Variables');
 
-    // Close via the × button (use dispatchEvent because workflow-designer-mount intercepts pointer events)
-    const closeBtn = modal.locator('.ram-modal-close');
-    await closeBtn.dispatchEvent('click');
+    // Close via the Cancel button (the modal hides its default × control)
+    const cancelBtn = modal.locator('button', { hasText: 'Cancel' });
+    await cancelBtn.dispatchEvent('click');
     await expect(modal).not.toBeVisible();
   });
 
   test('displays seeded workflow variables', async ({ page }) => {
-    const defaultsBtn = page.locator('.wf-toolbar-variables-btn', { hasText: /Workflow Variables/i });
+    const defaultsBtn = page.locator('.wf-toolbar-variables-btn', { hasText: /Variables/i });
     await defaultsBtn.click();
 
     const modal = page.locator('[aria-labelledby="wf-defaults-modal-title"]');
@@ -161,20 +161,8 @@ test.describe('Defaults Modal', () => {
     expect(keys).toContain('apiKey');
   });
 
-  test('can expand defaults modal to full screen', async ({ page }) => {
-    const defaultsBtn = page.locator('.wf-toolbar-variables-btn', { hasText: /Workflow Variables/i });
-    await defaultsBtn.click();
-
-    const modal = page.locator('[aria-labelledby="wf-defaults-modal-title"]');
-    await expect(modal).toBeVisible({ timeout: 3000 });
-
-    // Click the shared expand control in the modal header.
-    const expandBtn = modal.getByRole('button', { name: 'Expand modal' }).first();
-    await expandBtn.dispatchEvent('click');
-
-    // Shared fullscreen expand mode adds the modal-fullscreen class.
-    await expect(page.locator('.modal-fullscreen').first()).toBeVisible();
-  });
+  // NOTE: The "expand modal to full screen" feature was removed (modal now uses
+  // `hideExpandButton` with a fixed layout). Test removed accordingly.
 });
 
 test.describe('Node Config Modal', () => {

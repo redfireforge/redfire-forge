@@ -1,5 +1,6 @@
 import { useMemo, useState, useEffect, useCallback } from 'react';
 import type { Mapping } from '../types';
+import { normalizeMapperPath } from '../utils/pathNormalization';
 
 export type ArrayLineKind = 'loop' | 'aggregate' | 'spread' | 'direct' | null;
 
@@ -23,6 +24,15 @@ export interface ConnectionLine {
   confidenceScore?: number;
   /** Whether this mapping was restored from pattern history. */
   isFromPattern?: boolean;
+}
+
+/**
+ * Lookup an element from the path map, falling back to the normalized path
+ * (strips leading `$` / `$.`) so JSONPath-style mapping source paths match
+ * tree nodes that use plain dot-notation paths.
+ */
+function resolvePathEl(pathMap: Map<string, HTMLElement>, rawPath: string): HTMLElement | undefined {
+  return pathMap.get(rawPath) ?? pathMap.get(normalizeMapperPath(rawPath));
 }
 
 /**
@@ -68,8 +78,8 @@ export function useConnectionLines(
     const targetPathMap = buildPathMap('.dm-panel--target');
 
     for (const mapping of mappings) {
-      const sourceEl = sourcePathMap.get(mapping.sourcePath);
-      const targetEl = targetPathMap.get(mapping.targetPath);
+      const sourceEl = resolvePathEl(sourcePathMap, mapping.sourcePath);
+      const targetEl = resolvePathEl(targetPathMap, mapping.targetPath);
 
       if (!sourceEl || !targetEl) continue;
 

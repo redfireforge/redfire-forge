@@ -963,9 +963,9 @@
   display: flex; justify-content: space-between; align-items: center;
   padding: 6px 12px; border-bottom: 1px solid var(--border);
   background: var(--surface); flex-shrink: 0; gap: 8px;
-  min-height: 40px; flex-wrap: nowrap;
+  min-height: 40px; flex-wrap: wrap;
 }
-.wf-toolbar-left { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; flex-wrap: nowrap; }
+.wf-toolbar-left { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; flex-wrap: wrap; }
 .wf-toolbar-left .btn-sm { height: 28px; display: inline-flex; align-items: center; white-space: nowrap; }
 .wf-toolbar-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 .wf-toolbar-divider {
@@ -1068,6 +1068,73 @@
 }
 
 /* ── Toolbar Workflow Dropdown ────────────────────────── */
+/* ── New-Workflow modal ── */
+.wft-newmodal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 18vh;
+  background: transparent;
+}
+
+.wft-newmodal {
+  width: min(420px, 90vw);
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45), 0 2px 8px rgba(0, 0, 0, 0.25);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.wft-newmodal-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: -0.01em;
+}
+
+.wft-newmodal-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.wft-newmodal-input {
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--input-bg, var(--surface-2));
+  color: var(--text);
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.wft-newmodal-input:focus {
+  border-color: var(--accent);
+}
+
+.wft-newmodal-input::placeholder {
+  color: var(--text-muted);
+  opacity: 0.6;
+}
+
+.wft-newmodal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+
 .wft-dropdown-wrap {
   position: relative;
   flex-shrink: 1;
@@ -1558,7 +1625,19 @@
   display: flex; flex-direction: column; gap: 6px;
 }
 .wf-config-body-insert-row {
-  display: flex; justify-content: flex-end;
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.wf-config-pretty-btn {
+  font-size: 12px;
+  letter-spacing: 0.02em;
+}
+
+.wf-config-mapper-btn {
+  font-size: 12px;
+  letter-spacing: 0.02em;
 }
 
 .wf-var-mapper-bar {
@@ -4675,6 +4754,120 @@
   gap: 8px;
   justify-content: flex-end;
   width: 100%;
+}
+
+/* ── Workflow Defaults Modal ── */
+.wf-defaults-modal.wf-config-modal.modal.ram-modal {
+  width: min(780px, 92vw);
+  max-width: 780px;
+  height: auto;
+  max-height: min(78vh, 720px);
+  border-radius: 10px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45), 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+.wf-config-modal-overlay:has(.wf-defaults-modal) {
+  align-items: flex-start;
+  padding-top: 80px;
+}
+.wf-defaults-modal .ram-header {
+  padding: 16px 24px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.wf-defaults-modal .ram-header h3 {
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.wf-defaults-vars-section {
+  padding-bottom: 4px;
+}
+.wf-defaults-section-header {
+  padding: 0 0 8px;
+}
+.wf-defaults-section-title {
+  margin: 0 0 4px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--text-muted);
+}
+.wf-defaults-section-hint {
+  margin: 0;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+.wf-defaults-section-hint code {
+  color: var(--accent, #818cf8);
+  background: rgba(99, 102, 241, 0.1);
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 0.68rem;
+  font-weight: 500;
+}
+.wf-defaults-vars-section .wf-config-vars {
+  border-top: none;
+  padding: 0;
+  margin-top: 0;
+}
+.wf-defaults-vars-section .wf-config-vars-title { display: none; }
+.wf-defaults-vars-section .wf-config-hint-text { display: none; }
+.wf-defaults-vars-section .wf-config-kv-header {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 6px;
+  margin-bottom: 2px;
+}
+.wf-defaults-vars-section .wf-var-col-label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+}
+.wf-defaults-error-section {
+  border-top: 1px solid var(--border);
+  padding-top: 16px;
+}
+.wf-defaults-error-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.wf-defaults-field-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text);
+}
+.wf-defaults-select {
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.82rem;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.wf-defaults-select:focus {
+  border-color: var(--accent, #818cf8);
+}
+.wf-defaults-field-hint {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+.wf-defaults-field-hint code {
+  color: var(--accent, #818cf8);
+  background: rgba(99, 102, 241, 0.1);
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 0.68rem;
+}
+.wf-defaults-modal .wf-config-modal-footer {
+  padding: 14px 24px;
 }
 
 /* ── Configure badge on nodes ──────────────────────── */

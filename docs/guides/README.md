@@ -40,6 +40,7 @@ Welcome to the RedfireForge documentation. These guides cover all features of th
 | [Validation Modes Guide](./validation-modes-guide.md) | None, selective, full validation modes |
 | [Data Mapper Validation Guide](./data-mapper-validation-guide.md) | Visual validation with 24 operators, array assertions, DSL rules, live verification, ASSERT expressions |
 | [Shared Data Sources Guide](./shared-data-sources-guide.md) | Creating and using shared data sources |
+| [Trash Box Guide](./trash-box-guide.md) | Recovering deleted items: undo toast, trash panel, retention settings |
 
 ### Workflow Designer
 
