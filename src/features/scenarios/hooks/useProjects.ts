@@ -14,6 +14,7 @@ import {
   loadTestRunsLite,
   loadTheme,
 } from '../../../shared/utils/storage';
+import { purgeExpired } from '../../../shared/utils/trashStorage';
 import { isCustomThemeId, findSavedTheme, applyCustomTheme } from '../../../app/themeCustomizerUtils';
 
 export interface UseProjectsReturn {
@@ -71,7 +72,7 @@ export function useProjects(): UseProjectsReturn {
       // Migrate any per-FG sharedDataSources to top-level (one-time, idempotent)
       await migratePerFgSharedDataSourcesToTopLevel();
 
-      const [envs, svcs, fgs, auth, sharedDs, selEnv, selSvc, maxR, usage, savedTheme, runs] = await Promise.all([
+      const [envs, svcs, fgs, auth, sharedDs, selEnv, selSvc, maxR, usage, savedTheme, runs, purgedCount] = await Promise.all([
         loadEnvironments(),
         loadMicroservices(),
         loadFeatureGroups(),
@@ -83,7 +84,9 @@ export function useProjects(): UseProjectsReturn {
         getStorageUsage(),
         loadTheme(),
         loadTestRunsLite(),
+        purgeExpired(),
       ]);
+      if (purgedCount > 0) console.log(`[Trash] Purged ${purgedCount} expired item(s)`);
 
       setEnvironments(envs);
       setMicroservices(svcs);

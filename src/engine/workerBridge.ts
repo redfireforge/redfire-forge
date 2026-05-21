@@ -205,7 +205,7 @@ export function runTestMultiWorker(
             metaPerWorker[workerIdx] = msg.meta;
             {
               let aggregatedMeta = msg.meta;
-              if (isLoadProfile && msg.meta) {
+              if (msg.meta && workerCount > 1) {
                 let totalInFlight = 0;
                 let totalTarget = 0;
                 let maxElapsed = 0;
@@ -218,8 +218,8 @@ export function runTestMultiWorker(
                 }
                 aggregatedMeta = {
                   elapsedMs: maxElapsed,
-                  targetConcurrency: totalTarget,
-                  currentInFlight: totalInFlight,
+                  targetConcurrency: isLoadProfile ? totalTarget : totalConcurrency,
+                  currentInFlight: isLoadProfile ? totalInFlight : totalConcurrency,
                   durationMs: msg.meta.durationMs,
                 };
               }

@@ -34,6 +34,7 @@ function makeOpts(overrides: Partial<Parameters<typeof useWorkflowExtractionSamp
     setters: { setExtractionSampleJson, setExtractionFetching, setExtractionFetchError },
     opts: {
       selectedNode: makeHttpNode(),
+      configModalNode: undefined,
       selectedId: 'wf1',
       selectedNodeId: 'h1',
       nodes: [makeHttpNode()],
@@ -246,6 +247,37 @@ describe('useWorkflowExtractionSample', () => {
       fetchHostEnabled: true,
       fetchHostOverride: 'https://override.example',
     });
+  });
+
+  it('falls back to configModalNode when selectedNode is null', async () => {
+    mockedFetch.mockResolvedValue({ ok: true, body: '{"ok":true}', status: 200 } as never);
+    const httpNode = makeHttpNode({ id: 'cfg1' });
+    const configNode = { id: 'cfg1', type: 'http' as const, position: { x: 0, y: 0 }, data: httpNode.data };
+    const { opts, setters } = makeOpts({
+      selectedNode: null as never,
+      configModalNode: configNode as never,
+      nodes: [httpNode],
+    });
+    const { result } = renderExtraction(opts);
+    await act(async () => { await result.current.handleExtractionFetchSample(); });
+    expect(mockedFetch).toHaveBeenCalledTimes(1);
+    expect(setters.setExtractionSampleJson).toHaveBeenCalledWith('{"ok":true}');
+  });
+
+  it('prefers configModalNode over selectedNode when both are HTTP nodes', async () => {
+    mockedFetch.mockResolvedValue({ ok: true, body: '{"src":"config"}', status: 200 } as never);
+    const selectedHttp = makeHttpNode({ id: 'sel1', scenario: { method: 'GET', url: '/selected', headers: [], queryParams: [] } });
+    const configHttp = makeHttpNode({ id: 'cfg2', scenario: { method: 'POST', url: '/config', headers: [], queryParams: [] } });
+    const configNode = { id: 'cfg2', type: 'http' as const, position: { x: 0, y: 0 }, data: configHttp.data };
+    const { opts } = makeOpts({
+      selectedNode: selectedHttp as never,
+      configModalNode: configNode as never,
+      nodes: [selectedHttp, configHttp],
+    });
+    const { result } = renderExtraction(opts);
+    await act(async () => { await result.current.handleExtractionFetchSample(); });
+    const scenario = mockedFetch.mock.calls[0][0] as Record<string, unknown>;
+    expect(scenario.url).toBe('/config');
   });
 
   it('treats failed fetch without body like non-JSON (no extra sample set)', async () => {

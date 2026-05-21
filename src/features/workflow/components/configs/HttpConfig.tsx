@@ -17,7 +17,6 @@ import ExpressionInput from '../expression/ExpressionInput';
 import ExpressionTextarea from '../expression/ExpressionTextarea';
 import DataSourceEditor from '../../../scenarios/components/DataSourceEditor';
 import { DataMapperModal, createVariableBindingAdapter, collectTemplateSlots } from '../../../../shared/components/data-mapper';
-import BodyBuilderPanel from '../../../../shared/components/data-mapper/BodyBuilderPanel';
 import { useBodyBuilderSync } from '../../../../shared/components/data-mapper/hooks/useBodyBuilderSync';
 import { createRequestBodyAdapter } from '../../../../shared/components/data-mapper/adapters/requestBodyAdapter';
 import type { VariableHintForBody } from '../../../../shared/components/data-mapper/adapters/requestBodyAdapter';
@@ -121,7 +120,7 @@ export default function HttpConfig({ data, onChange, activeTab, onTabChange, las
   const handleScenarioDraftChange = useCallback((draft: Scenario) => onChange({ scenario: draft }), [onChange]);
   const urlInputRef = useRef<HTMLInputElement>(null);
   const [showVarMapper, setShowVarMapper] = useState(false);
-  const [bodyViewMode, setBodyViewMode] = useState<'raw' | 'visual'>('raw');
+  const [bodyMapperOpen, setBodyMapperOpen] = useState(false);
 
   const bodyHints: VariableHintForBody[] = useMemo(
     () => variableHints.map((h) => ({
@@ -437,54 +436,58 @@ export default function HttpConfig({ data, onChange, activeTab, onTabChange, las
           <div className="wf-config-field wf-config-body-field-wrap">
             <div className="wf-config-body-header">
               <label>Body (supports {'{{var}}'})</label>
-              <div className="wf-config-body-view-toggle">
-                <button
-                  type="button"
-                  className={`btn btn-sm ${bodyViewMode === 'raw' ? 'btn-primary' : ''}`}
-                  onClick={() => setBodyViewMode('raw')}
-                >
-                  Raw
-                </button>
-                <button
-                  type="button"
-                  className={`btn btn-sm ${bodyViewMode === 'visual' ? 'btn-primary' : ''}`}
-                  onClick={() => setBodyViewMode('visual')}
-                >
-                  Visual Builder
-                </button>
-              </div>
             </div>
-            {bodyViewMode === 'raw' ? (
-              <>
-                <div className="wf-config-body-insert-row">
-                  <button
-                    type="button"
-                    className="btn btn-sm"
-                    title="Insert variable from workflow or upstream step"
-                    onClick={() => onRequestVariableInsert((snippet) => update({ body: s.body + snippet }), true)}
-                  >
-                    Insert variable…
-                  </button>
-                </div>
-                <ExpressionTextarea
-                  value={s.body}
-                  onChange={(val) => bodySync.onBodyChange(val)}
-                  placeholder='{"key": "{{value}}"}'
-                  rows={6}
-                  className="wf-config-textarea"
-                  variableHints={variableHints}
-                />
-              </>
-            ) : (
-              <BodyBuilderPanel
-                body={s.body}
-                bodyType={s.bodyType ?? 'json'}
-                bodyForm={s.bodyForm}
-                variableHints={bodyHints}
-                onBodyChange={(val) => bodySync.onBodyChange(val)}
-                onMappingsChange={bodySync.onMappingsChange}
-                onBodyTypeChange={(bt) => update({ bodyType: bt })}
-                onBodyFormChange={(bf) => update({ bodyForm: bf })}
+            <div className="wf-config-body-insert-row">
+              <button
+                type="button"
+                className="btn btn-sm"
+                title="Insert variable from workflow or upstream step"
+                onClick={() => onRequestVariableInsert((snippet) => update({ body: s.body + snippet }), true)}
+              >
+                Insert variable…
+              </button>
+              <button
+                type="button"
+                className="btn btn-sm wf-config-pretty-btn"
+                title="Format JSON body"
+                onClick={() => {
+                  try {
+                    const formatted = JSON.stringify(JSON.parse(s.body), null, 2);
+                    bodySync.onBodyChange(formatted);
+                  } catch { /* not valid JSON — ignore */ }
+                }}
+              >
+                Pretty
+              </button>
+              <button
+                type="button"
+                className="btn btn-sm wf-config-mapper-btn"
+                title="Open Data Mapper to visually build the body"
+                onClick={() => setBodyMapperOpen(true)}
+              >
+                ⚡ Data Mapper
+              </button>
+            </div>
+            <ExpressionTextarea
+              value={s.body}
+              onChange={(val) => bodySync.onBodyChange(val)}
+              placeholder='{"key": "{{value}}"}'
+              rows={6}
+              className="wf-config-textarea"
+              variableHints={variableHints}
+            />
+            {bodyMapperOpen && (
+              <DataMapperModal<string>
+                adapter={createRequestBodyAdapter({
+                  existingBody: s.body,
+                  variableHints: bodyHints,
+                })}
+                initialData={s.body}
+                onSave={(newBody) => {
+                  bodySync.onBodyChange(newBody);
+                  setBodyMapperOpen(false);
+                }}
+                onCancel={() => setBodyMapperOpen(false)}
               />
             )}
           </div>
