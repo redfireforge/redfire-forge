@@ -2,8 +2,26 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, vi } from 'vitest';
+import type { ComponentProps } from 'react';
 import { render, fireEvent, screen } from '@testing-library/react';
 import ConditionConfig from './ConditionConfig';
+
+vi.mock('../expression/SearchableVariableSelect', async (importOriginal) => {
+  const mod = await importOriginal<typeof import('../expression/SearchableVariableSelect')>();
+  const Actual = mod.default;
+  return {
+    default: (props: ComponentProps<typeof Actual>) => (
+      <>
+        <Actual {...props} />
+        {props.value ? (
+          <button type="button" aria-label="Clear variable pick" onClick={() => props.onChange('')}>
+            Clear pick
+          </button>
+        ) : null}
+      </>
+    ),
+  };
+});
 import type { ConditionNodeData } from '../../types/workflow';
 import type { WorkflowVariableHint } from '../../utils/workflowVariableHints';
 
@@ -147,6 +165,13 @@ describe('ConditionConfig', () => {
     fireEvent.focus(combobox);
     fireEvent.mouseDown(screen.getByText('userId'));
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ left: '{{userId}}' }));
+  });
+
+  it('clears left operand when variable picker selection is cleared', () => {
+    const onChange = vi.fn();
+    render(<ConditionConfig data={makeData()} onChange={onChange} variableHints={defaultHints} />);
+    fireEvent.click(screen.getByLabelText('Clear variable pick'));
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ left: '' }));
   });
 
   it('selects a variable via keyboard in pick mode', () => {

@@ -249,3 +249,42 @@ describe('logAuthProfileUpdated edge cases', () => {
     expect(log).toHaveLength(0);
   });
 });
+
+describe('Tauri storage path', () => {
+  const getItem = vi.fn();
+  const setItem = vi.fn();
+
+  beforeEach(async () => {
+    vi.resetModules();
+    localStorage.clear();
+    getItem.mockReset();
+    setItem.mockReset();
+    getItem.mockResolvedValue(null);
+    setItem.mockResolvedValue(undefined);
+    vi.doMock('../../../shared/utils/platform', () => ({ isTauri: () => true }));
+    vi.doMock('../../../shared/utils/tauriStore', () => ({ getItem, setItem }));
+  });
+
+  it('loadAuditLog reads via tauriStore getItem', async () => {
+    const entries = [{ id: 't1', timestamp: 1, entityType: 'environment', entityId: 'e1', entityName: 'prod', action: 'created' }];
+    getItem.mockResolvedValue(JSON.stringify(entries));
+    const mod = await import('./auditLog');
+    const result = await mod.loadAuditLog();
+    expect(getItem).toHaveBeenCalledWith(AUDIT_LOG_KEY);
+    expect(result).toEqual(entries);
+    expect(localStorage.getItem(AUDIT_LOG_KEY)).toBeNull();
+  });
+
+  it('addAuditEntry writes via tauriStore setItem', async () => {
+    getItem.mockResolvedValue('[]');
+    const mod = await import('./auditLog');
+    await mod.addAuditEntry({
+      entityType: 'microservice',
+      entityId: 's1',
+      entityName: 'api',
+      action: 'created',
+    });
+    expect(setItem).toHaveBeenCalledWith(AUDIT_LOG_KEY, expect.stringContaining('"api"'));
+    expect(localStorage.getItem(AUDIT_LOG_KEY)).toBeNull();
+  });
+});

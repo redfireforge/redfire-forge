@@ -142,6 +142,21 @@ describe('SetVariableConfig', () => {
     expect(onRequest).toHaveBeenCalled();
   });
 
+  it('appends inserted snippet to assignment expression via onInsert callback', () => {
+    const onRequest = vi.fn();
+    const onChange = vi.fn();
+    const data = makeData({ assignments: [{ id: 'a1', name: 'token', expression: 'base' }] });
+    render(<SetVariableConfig data={data} onChange={onChange} onRequestVariableInsert={onRequest} />);
+    fireEvent.click(screen.getByText('Insert…'));
+    const applyFn = onRequest.mock.calls[0][0];
+    applyFn('{{userId}}');
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        assignments: [expect.objectContaining({ expression: 'base{{userId}}' })],
+      }),
+    );
+  });
+
   it('renders Available Variables section when variableHints are provided', () => {
     const hints = [{ ref: 'status', label: 'status (latest)' }];
     render(<SetVariableConfig data={makeData()} onChange={vi.fn()} variableHints={hints} />);

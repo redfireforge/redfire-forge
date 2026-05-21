@@ -150,6 +150,22 @@ export function actionIcon(action: StructureChangeAction): string {
   return '\u2022';
 }
 
+export type StructureLogFilter = 'all' | 'scenario' | 'test' | 'fg';
+
+/** Filter structure log entries by category tab. */
+export function filterStructureChangeEntries(
+  entries: StructureChangeEntry[],
+  filter: StructureLogFilter | string,
+): StructureChangeEntry[] {
+  return entries.filter(e => {
+    if (filter === 'all') return true;
+    if (filter === 'scenario') return e.action.startsWith('scenario-');
+    if (filter === 'test') return e.action.startsWith('test-');
+    if (filter === 'fg') return e.action.startsWith('fg-');
+    return true;
+  });
+}
+
 /** Get CSS modifier class for an action. */
 export function actionClass(action: StructureChangeAction): string {
   if (action === 'restored') return 'added';

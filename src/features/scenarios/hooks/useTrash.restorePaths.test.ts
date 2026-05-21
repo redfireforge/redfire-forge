@@ -19,6 +19,10 @@ import {
   makeFg,
   defaultParams,
 } from './__test-utils__/useTrashTestFixtures';
+const uuidMock = vi.hoisted(() =>
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  require('../../../test-utils/uuidMock.ts').hoistedUuidFixed('mock-uuid'),
+);
 
 const mockLoadTrash = vi.fn<() => Promise<TrashItem[]>>().mockResolvedValue([]);
 const mockAddToTrash = vi.fn<(item: TrashItem) => Promise<void>>().mockResolvedValue(undefined);
@@ -40,7 +44,7 @@ vi.mock('../utils/structureChangeLog', () => ({
   logItemRestored: (fg: unknown) => fg,
 }));
 
-vi.mock('uuid', () => ({ v4: () => 'mock-uuid' }));
+vi.mock('uuid', () => uuidMock);
 
 import { useTrash } from './useTrash';
 

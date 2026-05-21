@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { StructureChangeEntry } from '../../../shared/types';
-import { actionLabel, actionIcon, actionClass } from '../utils/structureChangeLog';
+import { actionLabel, actionIcon, actionClass, filterStructureChangeEntries } from '../utils/structureChangeLog';
 
 interface Props {
   entries: StructureChangeEntry[];
@@ -12,13 +12,7 @@ export default function StructureChangeLogPanel({ entries, onDelete, onClear }: 
   const [filter, setFilter] = useState<'all' | 'scenario' | 'test' | 'fg'>('all');
   const [confirmClear, setConfirmClear] = useState(false);
 
-  const filtered = entries.filter(e => {
-    if (filter === 'all') return true;
-    if (filter === 'scenario') return e.action.startsWith('scenario-');
-    if (filter === 'test') return e.action.startsWith('test-');
-    if (filter === 'fg') return e.action.startsWith('fg-');
-    return true;
-  });
+  const filtered = filterStructureChangeEntries(entries, filter);
 
   return (
     <div className="structure-log-panel">

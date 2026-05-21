@@ -1,4 +1,43 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
+
+const TRAINING_PROGRESS_KEY = 'perf-test-training-progress';
+
+/** Poll until training progress for a manual is written to storage (async writeKey). */
+async function expectTrainingManualStatusInStorage(
+  page: Page,
+  manualPath: string,
+  status: string,
+) {
+  await expect
+    .poll(
+      async () =>
+        page.evaluate(
+          ({ key, path }) => {
+            const raw = localStorage.getItem(key);
+            if (!raw) return null;
+            try {
+              const parsed = JSON.parse(raw) as {
+                manuals?: Record<string, { status?: string }>;
+              };
+              return parsed.manuals?.[path]?.status ?? null;
+            } catch {
+              return null;
+            }
+          },
+          { key: TRAINING_PROGRESS_KEY, path: manualPath },
+        ),
+      { message: `training progress for ${manualPath} should be ${status} in localStorage` },
+    )
+    .toBe(status);
+}
+
+/** Wait for training tracks to finish loading progress from storage after navigation/reload. */
+async function waitForTrainingTracksReady(page: Page) {
+  await expect(page.getByRole('heading', { name: /Training Manual Tracks/ })).toBeVisible({
+    timeout: 10_000,
+  });
+  await expect(page.getByText('Loading training progress...')).not.toBeVisible({ timeout: 10_000 });
+}
 
 test.describe('Training Tracks', () => {
   test.beforeEach(async ({ page }) => {
@@ -208,23 +247,38 @@ test.describe('Training Tracks', () => {
   });
 
   test('progress persists after refresh', async ({ page }) => {
+    test.slow();
+
     // Expand first path
-    await page.locator('.training-path-header').first().click();
+    const pathHeader = page.locator('.training-path-header').first();
+    await pathHeader.click();
+    const phases = page.locator('.training-path-phases').first();
+    await expect(phases).toBeVisible();
 
     // Mark first manual as in_progress
-    const statusBtn = page.locator('.training-manual-status').first();
+    const firstManualRow = page.locator('.training-manual-row').first();
+    const manualPath = (
+      await firstManualRow.locator('.training-manual-title a').getAttribute('href')
+    )?.replace(/^\/docs\/training-manuals\//, '');
+    expect(manualPath).toBeTruthy();
+
+    const statusBtn = firstManualRow.locator('.training-manual-status');
     await statusBtn.click();
     await expect(statusBtn).toHaveClass(/training-manual-status-in_progress/);
+    await expectTrainingManualStatusInStorage(page, manualPath!, 'in_progress');
 
-    // Refresh page
-    await page.reload();
-    await expect(page.getByRole('heading', { name: /Training Manual Tracks/ })).toBeVisible();
+    // Refresh only after storage reflects the UI change
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.waitForLoadState('networkidle');
+    await waitForTrainingTracksReady(page);
 
-    // Expand first path again
-    await page.locator('.training-path-header').first().click();
+    // Expand first path again and verify persisted status
+    await pathHeader.click();
+    await expect(phases).toBeVisible();
 
-    // Status should be preserved
-    const statusBtnAfter = page.locator('.training-manual-status').first();
-    await expect(statusBtnAfter).toHaveClass(/training-manual-status-in_progress/);
+    const statusBtnAfter = firstManualRow.locator('.training-manual-status');
+    await expect(statusBtnAfter).toHaveClass(/training-manual-status-in_progress/, {
+      timeout: 10_000,
+    });
   });
 });

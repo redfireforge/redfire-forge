@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import type { ExecutionMode, ErrorPolicy, LoadProfileConfig, LoadProfileType, ThinkTimeConfig, ThinkTimeMode } from '../../../shared/types';
+import type { ExecutionMode, ErrorPolicy, LoadProfileConfig, LoadProfileType, ThinkTimeConfig, ThinkTimeMode, ArrivalRateConfig } from '../../../shared/types';
 import { ProfilePreview } from '../../requests/components/ProfilePreview';
 import { profileDescriptions } from '../utils/runnerProgressStorage';
 import { getExecutionModeMeta } from '../../../shared/utils/executionMode';
+import { isTauri } from '../../../shared/utils/platform';
 
 function NumericInput({ value, onChange, min = 0, max = Infinity, step, disabled, className }: {
   value: number; onChange: (n: number) => void;
@@ -10,6 +11,8 @@ function NumericInput({ value, onChange, min = 0, max = Infinity, step, disabled
 }) {
   const [text, setText] = useState(String(value));
   useEffect(() => { setText(String(value)); }, [value]);
+  const usesFloat = step !== undefined && step < 1;
+  const parse = usesFloat ? parseFloat : parseInt;
   return (
     <input
       type="number" min={min} max={max} step={step}
@@ -17,11 +20,11 @@ function NumericInput({ value, onChange, min = 0, max = Infinity, step, disabled
       value={text}
       onChange={(e) => {
         setText(e.target.value);
-        const v = parseInt(e.target.value);
+        const v = parse(e.target.value);
         if (!isNaN(v)) onChange(Math.min(max, Math.max(min, v)));
       }}
       onBlur={() => {
-        const v = parseInt(text);
+        const v = parse(text);
         if (isNaN(v) || v < min) { onChange(min); setText(String(min)); }
         else if (v > max) { onChange(max); setText(String(max)); }
       }}
@@ -30,7 +33,7 @@ function NumericInput({ value, onChange, min = 0, max = Infinity, step, disabled
 }
 
 // Test Runner only shows these modes - 'workflow' mode is for the dedicated Workflow Runner
-const testRunnerModes: ExecutionMode[] = ['sequential', 'batch', 'pool', 'load-profile'];
+const testRunnerModes: ExecutionMode[] = ['sequential', 'batch', 'pool', 'load-profile', 'constant-arrival'];
 
 interface Props {
   executionMode: ExecutionMode;
@@ -53,6 +56,8 @@ interface Props {
   onMaxErrorRateChange: (n: number) => void;
   loadProfile: LoadProfileConfig;
   onLoadProfileChange: (patch: Partial<LoadProfileConfig>) => void;
+  arrivalRate?: ArrivalRateConfig;
+  onArrivalRateChange?: (patch: Partial<ArrivalRateConfig>) => void;
   thinkTime: ThinkTimeConfig;
   onThinkTimeChange: (patch: Partial<ThinkTimeConfig>) => void;
   activeTestCount: number;
@@ -89,6 +94,7 @@ export default function RunnerExecutionConfig({
   maxErrors, onMaxErrorsChange,
   maxErrorRate, onMaxErrorRateChange,
   loadProfile, onLoadProfileChange,
+  arrivalRate, onArrivalRateChange,
   thinkTime, onThinkTimeChange,
   activeTestCount, isRunning,
   forceSingleIteration = false,
@@ -96,7 +102,14 @@ export default function RunnerExecutionConfig({
 }: Props) {
   const n = (base: string) => `${namePrefix}-${base}`;
   const isLoadProfile = executionMode === 'load-profile';
+  const isConstantArrival = executionMode === 'constant-arrival';
+  const isTimeBased = isLoadProfile || isConstantArrival;
   const modeMeta = getExecutionModeMeta(executionMode);
+  const defaultArrivalRate: ArrivalRateConfig = { targetRps: 10, durationSec: 30 };
+  const effectiveArrivalRate = arrivalRate ?? defaultArrivalRate;
+  const [rampEnabled, setRampEnabled] = useState(!!effectiveArrivalRate.ramp);
+
+  useEffect(() => { setRampEnabled(!!effectiveArrivalRate.ramp); }, [effectiveArrivalRate.ramp]);
   
   // When forceSingleIteration is true, override concurrency and iterations
   const effectiveConcurrency = forceSingleIteration ? 1 : concurrency;
@@ -109,11 +122,15 @@ export default function RunnerExecutionConfig({
           <span className="runner-exec-label">Execution Mode:</span>
           {testRunnerModes.map((mode) => {
             const meta = getExecutionModeMeta(mode);
-            // When forceSingleIteration, only Sequential is available
             const isForceDisabled = forceSingleIteration && mode !== 'sequential';
+            const isDesktopOnly = mode === 'constant-arrival' && !isTauri();
+            const disabled = isRunning || isForceDisabled || isDesktopOnly;
+            const title = isDesktopOnly ? 'Requires desktop app (Tauri)'
+              : isForceDisabled ? 'Only Sequential allowed for Wait for Real Webhook mode'
+              : meta.title;
             return (
-              <label key={mode} className="radio-label" title={isForceDisabled ? 'Only Sequential allowed for Wait for Real Webhook mode' : meta.title}>
-                <input type="radio" name={n('execMode')} checked={forceSingleIteration ? mode === 'sequential' : executionMode === mode} onChange={() => onExecutionModeChange(mode)} disabled={isRunning || isForceDisabled} />
+              <label key={mode} className="radio-label" title={title} style={isDesktopOnly ? { opacity: 0.5 } : undefined}>
+                <input type="radio" name={n('execMode')} checked={forceSingleIteration ? mode === 'sequential' : executionMode === mode} onChange={() => onExecutionModeChange(mode)} disabled={disabled} />
                 {meta.label}
               </label>
             );
@@ -126,17 +143,18 @@ export default function RunnerExecutionConfig({
         <div className="resilience-row">
           <div className="resilience-field resilience-field-sm">
             <label>Concurrency</label>
-            <NumericInput min={1} max={100} value={forceSingleIteration ? 1 : (executionMode === 'sequential' ? 1 : effectiveConcurrency)} onChange={onConcurrencyChange} disabled={isRunning || executionMode === 'sequential' || isLoadProfile || forceSingleIteration} />
+            <NumericInput min={1} max={100} value={forceSingleIteration ? 1 : (executionMode === 'sequential' ? 1 : effectiveConcurrency)} onChange={onConcurrencyChange} disabled={isRunning || executionMode === 'sequential' || isTimeBased || forceSingleIteration} />
             {forceSingleIteration && <span className="field-hint">Fixed to 1</span>}
             {!forceSingleIteration && executionMode === 'sequential' && <span className="field-hint">Fixed to 1</span>}
             {!forceSingleIteration && isLoadProfile && <span className="field-hint">Set in profile</span>}
+            {!forceSingleIteration && isConstantArrival && <span className="field-hint">Max in-flight</span>}
           </div>
           <div className="resilience-field resilience-field-sm">
             <label>Iterations</label>
-            <NumericInput min={1} max={100000} value={forceSingleIteration ? 1 : effectiveIterations} onChange={onIterationsChange} disabled={isRunning || isLoadProfile || forceSingleIteration} />
+            <NumericInput min={1} max={100000} value={forceSingleIteration ? 1 : effectiveIterations} onChange={onIterationsChange} disabled={isRunning || isTimeBased || forceSingleIteration} />
             {forceSingleIteration && <span className="field-hint">Fixed to 1</span>}
-            {!forceSingleIteration && !isLoadProfile && iterations < activeTestCount && <span className="field-hint">{activeTestCount} active</span>}
-            {!forceSingleIteration && isLoadProfile && <span className="field-hint">Time-based</span>}
+            {!forceSingleIteration && !isTimeBased && iterations < activeTestCount && <span className="field-hint">{activeTestCount} active</span>}
+            {!forceSingleIteration && isTimeBased && <span className="field-hint">Time-based</span>}
           </div>
           <div className="resilience-divider" />
           <div className="resilience-field resilience-field-sm">
@@ -332,6 +350,97 @@ export default function RunnerExecutionConfig({
 
             <div className="profile-preview-container">
               <ProfilePreview profile={loadProfile} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isConstantArrival && onArrivalRateChange && (
+        <div className="load-profile-section">
+          <div className="load-profile-body">
+            <div className="load-profile-controls">
+              <div className="profile-type-desc">
+                Fire requests at a fixed rate regardless of response time (open model, like k6 constant-arrival-rate).
+              </div>
+              <div className="profile-fields">
+                <div className="profile-field-row">
+                  <div className="profile-field">
+                    <label>Target RPS</label>
+                    <NumericInput min={0.1} max={100000} step={0.1} value={effectiveArrivalRate.targetRps} onChange={(v) => onArrivalRateChange({ targetRps: v })} disabled={isRunning} />
+                  </div>
+                  <div className="profile-field">
+                    <label>Duration (sec)</label>
+                    <NumericInput min={5} max={3600} value={effectiveArrivalRate.durationSec} onChange={(v) => onArrivalRateChange({ durationSec: v })} disabled={isRunning} />
+                  </div>
+                  <div className="profile-field">
+                    <label>Max In-Flight</label>
+                    <NumericInput
+                      min={1} max={100000}
+                      value={effectiveArrivalRate.maxInFlight ?? Math.ceil(effectiveArrivalRate.targetRps * 10)}
+                      onChange={(v) => onArrivalRateChange({ maxInFlight: v })}
+                      disabled={isRunning}
+                    />
+                    {!effectiveArrivalRate.maxInFlight && <span className="field-hint">Default: RPS × 10</span>}
+                  </div>
+                </div>
+                <div className="profile-field-row">
+                  <div className="profile-field" style={{ flex: '0 0 auto' }}>
+                    <label className="radio-label" style={{ cursor: 'pointer', userSelect: 'none' }}>
+                      <input
+                        type="checkbox"
+                        checked={rampEnabled}
+                        onChange={(e) => {
+                          setRampEnabled(e.target.checked);
+                          if (e.target.checked) {
+                            onArrivalRateChange({
+                              ramp: {
+                                startRps: Math.max(0.1, Math.round(effectiveArrivalRate.targetRps / 10 * 10) / 10),
+                                endRps: effectiveArrivalRate.targetRps,
+                                rampDurationSec: Math.min(10, effectiveArrivalRate.durationSec),
+                              },
+                            });
+                          } else {
+                            onArrivalRateChange({ ramp: undefined });
+                          }
+                        }}
+                        disabled={isRunning}
+                      />
+                      Enable Ramp
+                    </label>
+                  </div>
+                  {rampEnabled && effectiveArrivalRate.ramp && (
+                    <>
+                      <div className="profile-field">
+                        <label>Start RPS</label>
+                        <NumericInput
+                          min={0.1} max={effectiveArrivalRate.targetRps} step={0.1}
+                          value={effectiveArrivalRate.ramp.startRps}
+                          onChange={(v) => onArrivalRateChange({ ramp: { ...effectiveArrivalRate.ramp!, startRps: v } })}
+                          disabled={isRunning}
+                        />
+                      </div>
+                      <div className="profile-field">
+                        <label>End RPS</label>
+                        <NumericInput
+                          min={0.1} max={100000} step={0.1}
+                          value={effectiveArrivalRate.ramp.endRps}
+                          onChange={(v) => onArrivalRateChange({ ramp: { ...effectiveArrivalRate.ramp!, endRps: v } })}
+                          disabled={isRunning}
+                        />
+                      </div>
+                      <div className="profile-field">
+                        <label>Ramp Duration (sec)</label>
+                        <NumericInput
+                          min={1} max={effectiveArrivalRate.durationSec}
+                          value={effectiveArrivalRate.ramp.rampDurationSec}
+                          onChange={(v) => onArrivalRateChange({ ramp: { ...effectiveArrivalRate.ramp!, rampDurationSec: v } })}
+                          disabled={isRunning}
+                        />
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         </div>

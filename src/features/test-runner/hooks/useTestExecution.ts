@@ -3,7 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import type { Scenario, TestConfig, RequestResult, TestSummary, TestRun } from '../../../shared/types';
 import type { Workflow } from '../../workflow/types/workflow';
 import { runTest } from '../../../engine/executor';
-import type { ProgressMeta } from '../../../engine/executor';
+import type { ProgressMeta, StreamingMetrics } from '../../../engine/executor';
 import { runTestMultiWorker } from '../../../engine/workerBridge';
 import { computeMetrics } from '../../../engine/metrics';
 import { saveTestRun, forceSaveTestRun } from '../../../shared/utils/storage';
@@ -17,6 +17,8 @@ export interface TimeSeriesPoint {
   tps: number;
   errorRate: number;
   concurrency: number;
+  targetRps?: number;
+  actualRps?: number;
 }
 
 interface TestExecutionState {
@@ -69,6 +71,7 @@ export function useTestExecution() {
   const prevSnapshotTimeRef = useRef<number>(0);
 
   const lastFlushRef = useRef<number>(0);
+  const latestStreamingMetricsRef = useRef<StreamingMetrics | undefined>(undefined);
   const pendingUpdateRef = useRef<{
     completed: number;
     total: number;
@@ -94,17 +97,41 @@ export function useTestExecution() {
       failedRequests: 0, failedValidations: 0,
       errorsByStatus: {}, count: 0, times: [],
     };
+    latestStreamingMetricsRef.current = undefined;
     timeSeriesRef.current = [];
   };
 
-  const computeIncrementalSummary = (elapsedMs: number): TestSummary => {
+  const computeIncrementalSummary = (elapsedMs: number, streaming?: StreamingMetrics): TestSummary => {
     const inc = incrementalRef.current;
     const n = inc.count;
     if (n === 0) {
       return {
         tps: 0, avgResponseTime: 0, minResponseTime: 0, maxResponseTime: 0,
-        p50ResponseTime: 0, p95ResponseTime: 0, p99ResponseTime: 0, errorRate: 0, errorsByStatus: {},
+        p50ResponseTime: 0, p95ResponseTime: 0, p99ResponseTime: 0, p999ResponseTime: 0,
+        errorRate: 0, errorsByStatus: {},
         totalRequests: 0, successfulRequests: 0, failedRequests: 0, failedValidations: 0,
+        totalDurationMs: Math.round(elapsedMs),
+      };
+    }
+
+    const errorRate = n > 0 ? (inc.failedRequests / n) * 100 : 0;
+
+    if (streaming) {
+      return {
+        tps: streaming.tps,
+        avgResponseTime: streaming.avg,
+        minResponseTime: streaming.min,
+        maxResponseTime: streaming.max,
+        p50ResponseTime: streaming.p50,
+        p95ResponseTime: streaming.p95,
+        p99ResponseTime: streaming.p99,
+        p999ResponseTime: streaming.p999,
+        errorRate: Math.round(errorRate * 100) / 100,
+        errorsByStatus: { ...inc.errorsByStatus },
+        totalRequests: n,
+        successfulRequests: n - inc.failedRequests,
+        failedRequests: inc.failedRequests,
+        failedValidations: inc.failedValidations,
         totalDurationMs: Math.round(elapsedMs),
       };
     }
@@ -112,17 +139,18 @@ export function useTestExecution() {
     const sorted = [...inc.times].sort((a, b) => a - b);
     const p95 = sorted[Math.floor(n * 0.95)] ?? inc.max;
     const p99 = sorted[Math.floor(n * 0.99)] ?? inc.max;
+    const p999 = sorted[Math.ceil(n * 0.999) - 1] ?? inc.max;
     const tps = elapsedMs > 0 ? (n / elapsedMs) * 1000 : 0;
-    const errorRate = n > 0 ? (inc.failedRequests / n) * 100 : 0;
 
     return {
       tps: Math.round(tps * 100) / 100,
       avgResponseTime: Math.round((inc.sum / n) * 100) / 100,
       minResponseTime: Math.round(inc.min * 100) / 100,
       maxResponseTime: Math.round(inc.max * 100) / 100,
-      p95ResponseTime: Math.round(p95 * 100) / 100,
       p50ResponseTime: Math.round(sorted[Math.floor(n * 0.5)] * 100) / 100,
+      p95ResponseTime: Math.round(p95 * 100) / 100,
       p99ResponseTime: Math.round(p99 * 100) / 100,
+      p999ResponseTime: Math.round(p999 * 100) / 100,
       errorRate: Math.round(errorRate * 100) / 100,
       errorsByStatus: { ...inc.errorsByStatus },
       totalRequests: n,
@@ -133,14 +161,14 @@ export function useTestExecution() {
     };
   };
 
-  const trackResult = (r: RequestResult) => {
+  const trackResult = (r: RequestResult, hasStreamingMetrics?: boolean) => {
     if (r.cancelled) return;
     const inc = incrementalRef.current;
     inc.count++;
     inc.sum += r.responseTimeMs;
     if (r.responseTimeMs < inc.min) inc.min = r.responseTimeMs;
     if (r.responseTimeMs > inc.max) inc.max = r.responseTimeMs;
-    inc.times.push(r.responseTimeMs);
+    if (!hasStreamingMetrics) inc.times.push(r.responseTimeMs);
     if (r.httpStatus >= 400 || r.httpStatus === 0) {
       inc.failedRequests++;
       inc.errorsByStatus[r.httpStatus] = (inc.errorsByStatus[r.httpStatus] || 0) + 1;
@@ -157,7 +185,9 @@ export function useTestExecution() {
 
     const now = performance.now();
     const elapsed = now - startTimeRef.current;
-    const summary = computeIncrementalSummary(elapsed);
+    const streaming = pending.profileMeta?.metrics;
+    if (streaming) latestStreamingMetricsRef.current = streaming;
+    const summary = computeIncrementalSummary(elapsed, streaming);
 
     const elapsedSec = Math.round(elapsed / 1000);
 
@@ -182,6 +212,8 @@ export function useTestExecution() {
               ? pending.profileMeta.currentInFlight
               : pending.profileMeta.targetConcurrency)
           : 0,
+        ...(pending.profileMeta?.targetRps !== undefined ? { targetRps: Math.round(pending.profileMeta.targetRps * 10) / 10 } : {}),
+        ...(pending.profileMeta?.actualRps !== undefined ? { actualRps: Math.round(pending.profileMeta.actualRps * 10) / 10 } : {}),
       };
 
       lastSnapshotRef.current = elapsedSec;
@@ -224,7 +256,7 @@ export function useTestExecution() {
     setState({
       isRunning: true,
       completed: 0,
-      total: config.executionMode === 'load-profile' ? -1 : config.iterations,
+      total: (config.executionMode === 'load-profile' || config.executionMode === 'constant-arrival') ? -1 : config.iterations,
       liveResults: [],
       liveSummary: null,
       finalRun: null,
@@ -238,8 +270,9 @@ export function useTestExecution() {
     const useWorker = supportsWorkers() && !resolveSubWorkflow;
 
     const onProgress = (completed: number, total: number, allResults: RequestResult[], profileMeta?: ProgressMeta) => {
+      const hasStreaming = !!profileMeta?.metrics;
       for (let i = lastTrackedCount; i < allResults.length; i++) {
-        trackResult(allResults[i]);
+        trackResult(allResults[i], hasStreaming);
       }
       lastTrackedCount = allResults.length;
 
@@ -262,16 +295,36 @@ export function useTestExecution() {
       }
     };
 
+    let peakRps = 0;
+    let lastDroppedRequests = 0;
+    const isConstantArrival = config.executionMode === 'constant-arrival';
+
     try {
       const useRust = !workflow && !resolveSubWorkflow
         && canUseRustExecutor(config, scenarios)
         && await isRustExecutorAvailable();
 
+      if (isConstantArrival && !useRust) {
+        throw new Error('Constant Arrival Rate requires the desktop app (Tauri)');
+      }
+
+      const wrappedOnProgress = isConstantArrival
+        ? (completed: number, total: number, allResults: RequestResult[], profileMeta?: ProgressMeta) => {
+            if (profileMeta?.actualRps != null) {
+              peakRps = Math.max(peakRps, profileMeta.actualRps);
+            }
+            if (profileMeta?.droppedRequests != null) {
+              lastDroppedRequests = profileMeta.droppedRequests;
+            }
+            onProgress(completed, total, allResults, profileMeta);
+          }
+        : onProgress;
+
       const testResult = useRust
-        ? await runTestViaRust(config, scenarios, onProgress, abortRef.current.signal)
+        ? await runTestViaRust(config, scenarios, wrappedOnProgress, abortRef.current.signal)
         : useWorker
-          ? await runTestMultiWorker(config, scenarios, onProgress, abortRef.current.signal, workflow)
-          : await runTest(config, scenarios, onProgress, abortRef.current.signal, workflow, resolveSubWorkflow);
+          ? await runTestMultiWorker(config, scenarios, wrappedOnProgress, abortRef.current.signal, workflow)
+          : await runTest(config, scenarios, wrappedOnProgress, abortRef.current.signal, workflow, resolveSubWorkflow);
 
       if (flushTimerRef.current) {
         clearTimeout(flushTimerRef.current);
@@ -282,7 +335,24 @@ export function useTestExecution() {
       const totalDuration = performance.now() - startTimeRef.current;
       const summary = computeMetrics(testResult.results, totalDuration);
 
-      // Calculate avgIterationTime from trace for workflow runs
+      const finalStreaming = latestStreamingMetricsRef.current;
+      if (finalStreaming) {
+        summary.p50ResponseTime = finalStreaming.p50;
+        summary.p95ResponseTime = finalStreaming.p95;
+        summary.p99ResponseTime = finalStreaming.p99;
+        summary.p999ResponseTime = finalStreaming.p999;
+        summary.minResponseTime = finalStreaming.min;
+        summary.maxResponseTime = finalStreaming.max;
+        summary.avgResponseTime = finalStreaming.avg;
+        summary.tps = finalStreaming.tps;
+      }
+
+      if (isConstantArrival) {
+        summary.droppedRequests = lastDroppedRequests;
+        summary.peakRps = Math.round(peakRps * 100) / 100;
+        summary.targetRps = config.arrivalRate?.targetRps;
+      }
+
       if (testResult.trace && testResult.trace.iterations.length > 0) {
         const iterationDurations = testResult.trace.iterations.map(iter => iter.durationMs);
         summary.avgIterationTime = Math.round(

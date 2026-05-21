@@ -10,29 +10,37 @@ import type { TestRun, RequestResult, TestSummary } from '../shared/types';
 
 function makeResult(overrides: Partial<RequestResult> = {}): RequestResult {
   return {
+    id: `r-${Date.now()}`,
     scenarioId: 'sc-1',
     scenarioName: 'Test',
     url: 'http://example.com',
     method: 'GET',
-    statusCode: 200,
+    httpStatus: 200,
     responseTimeMs: 100,
+    responseBody: '',
     passed: true,
+    validationMode: 'none',
+    failureDetails: [],
     timestamp: Date.now(),
     ...overrides,
-  };
+  } as RequestResult;
 }
 
 function makeSummary(): TestSummary {
   return {
+    tps: 10,
+    avgResponseTime: 100,
+    minResponseTime: 80,
+    maxResponseTime: 120,
+    p50ResponseTime: 100,
+    p95ResponseTime: 120,
+    p99ResponseTime: 120,
+    errorRate: 0,
+    errorsByStatus: {},
     totalRequests: 2,
-    passedRequests: 2,
+    successfulRequests: 2,
     failedRequests: 0,
-    avgResponseTimeMs: 100,
-    minResponseTimeMs: 80,
-    maxResponseTimeMs: 120,
-    p95ResponseTimeMs: 120,
-    p99ResponseTimeMs: 120,
-    requestsPerSecond: 10,
+    failedValidations: 0,
     totalDurationMs: 200,
   };
 }
@@ -60,18 +68,18 @@ describe('mergeRerunResults', () => {
 
   it('replaces results matching scenarioId + dataRowId', () => {
     const original = makeTestRun([
-      makeResult({ scenarioId: 'sc-1', dataRowId: 'row-0', passed: false, statusCode: 500 }),
+      makeResult({ scenarioId: 'sc-1', dataRowId: 'row-0', passed: false, httpStatus: 500 }),
       makeResult({ scenarioId: 'sc-1', dataRowId: 'row-1', passed: true }),
     ]);
     const reruns = [
-      makeResult({ scenarioId: 'sc-1', dataRowId: 'row-0', passed: true, statusCode: 200 }),
+      makeResult({ scenarioId: 'sc-1', dataRowId: 'row-0', passed: true, httpStatus: 200 }),
     ];
 
     const merged = mergeRerunResults(original, reruns);
     expect(merged.results).toHaveLength(2);
     const replacedResult = merged.results.find(r => r.dataRowId === 'row-0');
     expect(replacedResult?.passed).toBe(true);
-    expect(replacedResult?.statusCode).toBe(200);
+    expect(replacedResult?.httpStatus).toBe(200);
   });
 
   it('keeps original results not in the re-run set', () => {
@@ -80,7 +88,7 @@ describe('mergeRerunResults', () => {
       makeResult({ scenarioId: 'sc-2', dataRowId: 'row-1' }),
     ]);
     const reruns = [
-      makeResult({ scenarioId: 'sc-1', dataRowId: 'row-0', statusCode: 201 }),
+      makeResult({ scenarioId: 'sc-1', dataRowId: 'row-0', httpStatus: 201 }),
     ];
 
     const merged = mergeRerunResults(original, reruns);
@@ -94,17 +102,17 @@ describe('mergeRerunResults', () => {
       makeResult({ scenarioId: 'sc-1', dataRowId: undefined }),
     ]);
     const reruns = [
-      makeResult({ scenarioId: 'sc-1', dataRowId: undefined, statusCode: 204 }),
+      makeResult({ scenarioId: 'sc-1', dataRowId: undefined, httpStatus: 204 }),
     ];
 
     const merged = mergeRerunResults(original, reruns);
     expect(merged.results).toHaveLength(1);
-    expect(merged.results[0].statusCode).toBe(204);
+    expect(merged.results[0].httpStatus).toBe(204);
   });
 
   it('recalculates summary using computeMetrics', () => {
     const original = makeTestRun([makeResult()]);
-    const reruns = [makeResult({ statusCode: 201 })];
+    const reruns = [makeResult({ httpStatus: 201 })];
 
     mergeRerunResults(original, reruns);
     expect(mockComputeMetrics).toHaveBeenCalledTimes(1);
@@ -116,7 +124,7 @@ describe('mergeRerunResults', () => {
 
   it('preserves original TestRun metadata', () => {
     const original = makeTestRun([makeResult()]);
-    const reruns = [makeResult({ statusCode: 201 })];
+    const reruns = [makeResult({ httpStatus: 201 })];
 
     const merged = mergeRerunResults(original, reruns);
     expect(merged.id).toBe(original.id);

@@ -1,6 +1,8 @@
 pub mod assertion_evaluator;
+mod arrival_executor;
 mod commands;
 pub mod date_helpers;
+pub mod histogram;
 pub mod deep_compare;
 mod executor;
 pub mod field_operator;
@@ -15,6 +17,8 @@ pub mod validation_types;
 #[cfg(test)]
 mod assertion_evaluator_basic_test;
 #[cfg(test)]
+mod histogram_test;
+#[cfg(test)]
 mod assertion_evaluator_collection_test;
 #[cfg(test)]
 mod assertion_evaluator_test;
@@ -28,6 +32,8 @@ mod cross_module_test;
 mod date_helpers_test;
 #[cfg(test)]
 mod deep_compare_test;
+#[cfg(test)]
+mod arrival_executor_test;
 #[cfg(test)]
 mod executor_test;
 #[cfg(test)]
