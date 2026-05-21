@@ -8,6 +8,28 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
 
 ## [Unreleased]
 
+### Changed
+- **Test Suite Deduplication & Coverage Sweep** — Extracted shared mocks, fixtures, and JSX render helpers into four new `__test-utils__/` modules:
+  - `src/features/test-runner/__test-utils__/workflowRunnerTestHelpers.tsx` — workflow fixtures, `selectWorkflowById`, `makeSummary`, `MultiWebhookStub` (saved ~815 lines across 4 `WorkflowRunner*.test.tsx` files).
+  - `src/features/results/components/__test-utils__/workflowExecutionCanvasTestHelpers.tsx` — mocked ReactFlow render builder, `MiniMap`/`Background`/`Controls` stubs, trace fixture factories, `getLastReactFlowProps` helper (saved ~580 lines across 5 `WorkflowExecutionCanvas*.test.tsx` files).
+  - `src/features/scenarios/components/__test-utils__/dataSourceSetupModalTestHelpers.tsx` — 12 mock-module factories plus scenario factories (saved ~1000 lines across 3 `DataSourceSetupModal*.test.tsx` files).
+  - `src/features/scenarios/components/__test-utils__/dataSourceEditorTestHelpers.tsx` — fixtures + reusable wrappers around `DataSourceGridTable`, `DataSourceToolbar`, `DataSourceRowDetailModal` (saved ~400 lines across 4 `DataSourceEditor*.test.tsx` files).
+  - Net duplication reduction: 22,585 → 18,719 lines (4.48% → 3.73%).
+- **Targeted Coverage Gap Fixes** — Added focused unit tests for `expressionBuilderState.ts` (argValues fallback branch), `curlGenerator.ts` (undefined `bodyForm`), `expressionSnippets.ts` (sort comparator), and `targetTreeBuilder.ts` (bracket-array path parsing). All production files now ≥ 90% on every coverage metric.
+
+### Added
+- **Trash Box — Soft Delete & Recovery**
+  - Deleted Feature Groups, Scenarios, Tests, and Shared Data Sources are moved to a Trash Box instead of permanent deletion.
+  - **Undo toast** — 5-second notification with Undo button for instant recovery after any delete.
+  - **Trash Panel** — modal UI to browse, search, restore, and permanently delete trashed items. Accessible from the Harness toolbar with a badge showing item count.
+  - **Automatic purge** — expired items are cleaned up on app startup based on configurable retention period.
+  - **Configurable settings** — retention period (7–90 days, default 30) and max items (50–200, default 100) in Trash Panel footer.
+  - **Smart restoration** — restores to original parent when available; creates "Restored Items" groups for orphans; handles ID collisions with new UUIDs; clears stale env/svc references.
+  - **Structure change logging** — restored items recorded in Feature Group change history with `restored` action.
+  - **Dual-mode persistence** — IndexedDB (web), localStorage fallback, Tauri FS (desktop).
+  - **Gallery sample** — "Trash Recovery Demo" in the Tests gallery with linked training manual.
+  - **Documentation** — User guide (`docs/guides/trash-box-guide.md`), HTML training manual, training path entry.
+
 ## [0.5.9] — 2026-05-20
 
 ### Changed

@@ -8,7 +8,7 @@
  */
 
 const DB_NAME = 'redfireforge';
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 const OPEN_TIMEOUT_MS = 3000;
 
 let dbPromise: Promise<IDBDatabase> | null = null;
@@ -42,6 +42,9 @@ export function openDB(): Promise<IDBDatabase> {
       }
       if (!db.objectStoreNames.contains('sharedDataSources')) {
         db.createObjectStore('sharedDataSources');
+      }
+      if (!db.objectStoreNames.contains('trash')) {
+        db.createObjectStore('trash');
       }
     };
     req.onblocked = () => {

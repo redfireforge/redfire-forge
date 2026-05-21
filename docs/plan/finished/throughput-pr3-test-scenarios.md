@@ -28,12 +28,12 @@
 | 2 | [Cache Isolation — Multiple Scenarios](#test-scenario-2-cache-isolation--multiple-scenarios) | [x] | Done |
 | 3 | [OAuth2 Token — Dynamic Authorization](#test-scenario-3-oauth2-token--dynamic-authorization) | [x] | Done |
 | 4 | [No-Auth Bypass — Token Skip](#test-scenario-4-no-auth-bypass--token-skip) | [x] | |
-| 5 | [Cache Clear — Between Test Runs](#test-scenario-5-cache-clear--between-test-runs) | [ ] | |
-| 6 | [Load Profile — Cached Prep Under Sustained Load](#test-scenario-6-load-profile--cached-prep-under-sustained-load) | [ ] | |
-| 7 | [Template Resolver — Single-Pass Variable Substitution](#test-scenario-7-template-resolver--single-pass-variable-substitution) | [ ] | |
-| 8 | [Template Resolver — Large Variable Set](#test-scenario-8-template-resolver--large-variable-set) | [ ] | |
-| 9 | [Template Resolver — No Variables (Passthrough)](#test-scenario-9-template-resolver--no-variables-passthrough) | [ ] | |
-| 10 | [Combined — Cached Prep + Combined Resolver Under Workflow Load](#test-scenario-10-combined--cached-prep--combined-resolver-under-workflow-load) | [ ] | |
+| 5 | [Cache Clear — Between Test Runs](#test-scenario-5-cache-clear--between-test-runs) | [x] | Done |
+| 6 | [Load Profile — Cached Prep Under Sustained Load](#test-scenario-6-load-profile--cached-prep-under-sustained-load) | [x] | Done |
+| 7 | [Template Resolver — Single-Pass Variable Substitution](#test-scenario-7-template-resolver--single-pass-variable-substitution) | [x] | Done |
+| 8 | [Template Resolver — Large Variable Set](#test-scenario-8-template-resolver--large-variable-set) | [x] | Done |
+| 9 | [Template Resolver — No Variables (Passthrough)](#test-scenario-9-template-resolver--no-variables-passthrough) | [x] | Done |
+| 10 | [Combined — Cached Prep + Combined Resolver Under Workflow Load](#test-scenario-10-combined--cached-prep--combined-resolver-under-workflow-load) | [x] | Done |
 
 ---
 
@@ -261,10 +261,10 @@ If `demo.duendesoftware.com` is unreachable or returns an error from **Verify Au
 
 ### Expected Outcomes
 
-- [ ] First run results echo `{"version": "1"}` in the response `data`/`json` field
-- [ ] After editing and re-running, the second run echoes `{"version": "2"}` (NOT `"1"`)
-- [ ] No stale cached data leaks across runs — every run reflects the latest saved test definition
-- [ ] Works for both body edits AND header edits without needing to refresh the page
+- [x] First run results echo `{"version": "1"}` in the response `data`/`json` field
+- [x] After editing and re-running, the second run echoes `{"version": "2"}` (NOT `"1"`)
+- [x] No stale cached data leaks across runs — every run reflects the latest saved test definition
+- [x] Works for both body edits AND header edits without needing to refresh the page
 
 ---
 
@@ -307,11 +307,11 @@ If `demo.duendesoftware.com` is unreachable or returns an error from **Verify Au
 
 ### Expected Outcomes
 
-- [ ] Total requests >> 100 (depends on network — typically 500–3000 over 30s with httpbin)
-- [ ] Every spot-checked result has `X-Load-Test: pr3` and `Content-Type: application/json` (no header drift over time)
-- [ ] Every spot-checked result has the correct body in `data`/`json`
-- [ ] No errors or NaN/undefined values in the headers across any sampled row
-- [ ] RPS is **≥** PR2 baseline (ideally a slight improvement from one fewer `serializeWithContentType` + `buildHeaders` call per invocation)
+- [x] Total requests >> 100 (depends on network — typically 500–3000 over 30s with httpbin)
+- [x] Every spot-checked result has `X-Load-Test: pr3` and `Content-Type: application/json` (no header drift over time)
+- [x] Every spot-checked result has the correct body in `data`/`json`
+- [x] No errors or NaN/undefined values in the headers across any sampled row
+- [x] RPS is **≥** PR2 baseline (ideally a slight improvement from one fewer `serializeWithContentType` + `buildHeaders` call per invocation)
 
 ---
 
@@ -343,7 +343,7 @@ If `demo.duendesoftware.com` is unreachable or returns an error from **Verify Au
 
 **Part B — Add an initial workflow variable**
 
-7. Open the workflow's **Variables** panel (toolbar or side panel) → add an initial variable:
+7. In the Workflow Designer toolbar (the row with `+ New`, workflow name, `Services`, etc.), click the **"Variables"** button (between Services and Versions) to open the Workflow Variables modal → add an initial variable:
    - **Name**: `baseHost`, **Value**: `httpbin.org`
    - (This isn't used by the URLs in this scenario but ensures `buildCombinedResolver` has multiple variables to fold into the combined regex — exercising the single-pass code path)
 
@@ -360,10 +360,10 @@ If `demo.duendesoftware.com` is unreachable or returns an error from **Verify Au
 
 ### Expected Outcomes
 
-- [ ] Node A returns 200, and `capturedUrl` is captured as `https://httpbin.org/get` (or whatever URL httpbin echoes in `$.url`)
-- [ ] Node B's resolved URL shows `https://httpbin.org/get` — the `{{capturedUrl}}` placeholder is fully substituted
-- [ ] Node B returns 200 (it wouldn't if the URL still contained literal `{{...}}` text)
-- [ ] No `{{...}}` placeholders remain anywhere in Node B's resolved request
+- [x] Node A returns 200, and `capturedUrl` is captured as `https://httpbin.org/get` (or whatever URL httpbin echoes in `$.url`)
+- [x] Node B's resolved URL shows `https://httpbin.org/get` — the `{{capturedUrl}}` placeholder is fully substituted
+- [x] Node B returns 200 (it wouldn't if the URL still contained literal `{{...}}` text)
+- [x] No `{{...}}` placeholders remain anywhere in Node B's resolved request
 
 ---
 
@@ -417,11 +417,11 @@ If `demo.duendesoftware.com` is unreachable or returns an error from **Verify Au
 
 ### Expected Outcomes
 
-- [ ] URL query params resolve to `first=alpha&last=juliet`
-- [ ] Headers `X-Mid` and `X-All` resolve correctly (`echo` and `alpha-echo-juliet`)
-- [ ] Body resolves to `{"a":"alpha","e":"echo","j":"juliet"}`
-- [ ] **No unresolved `{{varN}}` text** anywhere in the echoed request (would indicate a missed substitution)
-- [ ] Node completes quickly (sub-second resolution; no measurable slowdown vs single-variable case)
+- [x] URL query params resolve to `first=alpha&last=juliet`
+- [x] Headers `X-Mid` and `X-All` resolve correctly (`echo` and `alpha-echo-juliet`)
+- [x] Body resolves to `{"a":"alpha","e":"echo","j":"juliet"}`
+- [x] **No unresolved `{{varN}}` text** anywhere in the echoed request (would indicate a missed substitution)
+- [x] Node completes quickly (sub-second resolution; no measurable slowdown vs single-variable case)
 
 ---
 
@@ -455,10 +455,10 @@ If `demo.duendesoftware.com` is unreachable or returns an error from **Verify Au
 
 ### Expected Outcomes
 
-- [ ] Request returns status 200
-- [ ] URL in the response is exactly `https://httpbin.org/get?source=passthrough` — no characters added or removed
-- [ ] No errors in the workflow execution console related to regex, resolver, or empty variable map
-- [ ] Quick Test completes as fast as it would with a non-workflow single-request runner (no resolver overhead when no variables are defined)
+- [x] Request returns status 200
+- [x] URL in the response is exactly `https://httpbin.org/get?source=passthrough` — no characters added or removed
+- [x] No errors in the workflow execution console related to regex, resolver, or empty variable map
+- [x] Quick Test completes as fast as it would with a non-workflow single-request runner (no resolver overhead when no variables are defined)
 
 ---
 
@@ -512,12 +512,12 @@ If `demo.duendesoftware.com` is unreachable or returns an error from **Verify Au
 
 ### Expected Outcomes
 
-- [ ] All 30 workflow iterations complete with 60 successful (status 200) requests
-- [ ] Every Node A response shows `data` = `{"key": "test-123"}` — `runId` substituted correctly via the combined resolver
-- [ ] Every Node B response shows `args.run` = `test-123` and `args.source` = the URL captured from Node A's `$.url`
-- [ ] **No** unresolved `{{...}}` text in any echoed URL, header, or body across all 60 requests
-- [ ] No errors related to cache staleness, regex compilation, or extraction across iterations
-- [ ] Throughput (RPS) is **≥** the PR2 baseline for template-heavy workflows (no regression from combining both optimizations)
+- [x] All 30 workflow iterations complete with 60 successful (status 200) requests
+- [x] Every Node A response shows `data` = `{"key": "test-123"}` — `runId` substituted correctly via the combined resolver
+- [x] Every Node B response shows `args.run` = `test-123` and `args.source` = the URL captured from Node A's `$.url`
+- [x] **No** unresolved `{{...}}` text in any echoed URL, header, or body across all 60 requests
+- [x] No errors related to cache staleness, regex compilation, or extraction across iterations
+- [x] Throughput (RPS) is **≥** the PR2 baseline for template-heavy workflows (no regression from combining both optimizations)
 
 ---
 
@@ -527,11 +527,11 @@ After completing all scenarios:
 
 | Area | Status | Evidence |
 |------|--------|----------|
-| Prep cache works for repeated scenarios | [ ] | Scenarios 1, 6 |
+| Prep cache works for repeated scenarios | [x] | Scenarios 1, 6 |
 | Per-scenario cache isolation | [x] | Scenario 2 |
 | OAuth2 dynamic token merge | [x] | Scenario 3 |
 | No-auth token skip | [x] | Scenario 4 |
-| Cache cleared between runs | [ ] | Scenario 5 |
-| Combined regex resolves all vars | [ ] | Scenarios 7, 8 |
-| Empty variable passthrough | [ ] | Scenario 9 |
-| Both optimizations under load | [ ] | Scenario 10 |
+| Cache cleared between runs | [x] | Scenario 5 |
+| Combined regex resolves all vars | [x] | Scenarios 7, 8 |
+| Empty variable passthrough | [x] | Scenario 9 |
+| Both optimizations under load | [x] | Scenario 10 |

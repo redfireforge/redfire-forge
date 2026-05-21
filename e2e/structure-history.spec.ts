@@ -91,7 +91,7 @@ async function getStructureLog(page: import('@playwright/test').Page, fgId: stri
     return new Promise((resolve) => {
       // Try IndexedDB first (app stores feature groups there)
       try {
-        const req = indexedDB.open('redfireforge', 3);
+        const req = indexedDB.open('redfireforge');
         req.onsuccess = () => {
           try {
             const db = req.result;

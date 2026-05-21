@@ -90,6 +90,11 @@ export function logFgRenamed(fg: FeatureGroup, oldName: string, newName: string)
   return appendToLog(fg, createEntry('fg-renamed', newName, undefined, `${oldName} → ${newName}`));
 }
 
+/** Log an item restored from trash into this feature group. */
+export function logItemRestored(fg: FeatureGroup, entityName: string, scenarioName?: string, detail?: string): FeatureGroup {
+  return appendToLog(fg, createEntry('restored', entityName, scenarioName, detail ?? 'restored from trash'));
+}
+
 /** Delete a single log entry. */
 export function deleteLogEntry(fg: FeatureGroup, entryId: string): FeatureGroup {
   return { ...fg, structureLog: (fg.structureLog ?? []).filter(e => e.id !== entryId) };
@@ -131,20 +136,23 @@ export function actionLabel(action: StructureChangeAction): string {
     case 'test-moved-out': return 'Test moved out';
     case 'test-copied': return 'Test copied';
     case 'fg-renamed': return 'Group renamed';
+    case 'restored': return 'Restored from trash';
     default: return action;
   }
 }
 
 /** Get an icon/badge character for an action. */
 export function actionIcon(action: StructureChangeAction): string {
+  if (action === 'restored') return '\u21A9';
   if (action.includes('added') || action.includes('moved-in') || action.includes('copied')) return '+';
-  if (action.includes('removed') || action.includes('moved-out')) return '−';
+  if (action.includes('removed') || action.includes('moved-out')) return '\u2212';
   if (action.includes('renamed')) return '~';
-  return '•';
+  return '\u2022';
 }
 
 /** Get CSS modifier class for an action. */
 export function actionClass(action: StructureChangeAction): string {
+  if (action === 'restored') return 'added';
   if (action.includes('added') || action.includes('moved-in') || action.includes('copied')) return 'added';
   if (action.includes('removed') || action.includes('moved-out')) return 'removed';
   if (action.includes('renamed')) return 'modified';

@@ -170,7 +170,7 @@ export default function VariablesSection({ title, hint, variables, onUpdateVaria
       })}
       <div className="wf-config-kv-row wf-config-kv-row-vars" style={{ marginTop: 4 }}>
         <div className="wf-var-name-cell" style={{ width: nameColWidth }}>
-          <input value={newVarKey} onChange={(e) => setNewVarKey(e.target.value)} placeholder="name" onKeyDown={(e) => e.key === 'Enter' && addVar()} onBlur={() => { if (newVarKey.trim() && newVarValue) addVar(); }} className="wf-var-key-input" />
+          <input value={newVarKey} onChange={(e) => setNewVarKey(e.target.value)} placeholder="name" onKeyDown={(e) => e.key === 'Enter' && addVar()} className="wf-var-key-input" />
         </div>
         <div className="wf-var-col-resize wf-var-col-resize-inert" aria-hidden />
         <div className="wf-var-source-cell">
@@ -183,7 +183,6 @@ export default function VariablesSection({ title, hint, variables, onUpdateVaria
             onChange={(e) => setNewVarValue(e.target.value)}
             placeholder="value"
             onKeyDown={(e) => e.key === 'Enter' && addVar()}
-            onBlur={() => { if (newVarKey.trim()) addVar(); }}
           />
           {onRequestVariableInsert && (
             <button

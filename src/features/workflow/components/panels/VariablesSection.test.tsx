@@ -176,7 +176,7 @@ describe('VariablesSection', () => {
     expect(onUpdateVariables).not.toHaveBeenCalled();
   });
 
-  it('adds variable on value blur when key is set even if value empty', () => {
+  it('does not auto-add variable on value blur (requires explicit + click)', () => {
     const onUpdateVariables = vi.fn();
     renderVars({
       variables: {},
@@ -187,7 +187,7 @@ describe('VariablesSection', () => {
       setNewVarValue: vi.fn(),
     });
     fireEvent.blur(screen.getByPlaceholderText('value'));
-    expect(onUpdateVariables).toHaveBeenCalledWith({ k: '' });
+    expect(onUpdateVariables).not.toHaveBeenCalled();
   });
 
   it('does not add on value blur when key is blank', () => {
@@ -282,7 +282,7 @@ describe('VariablesSection', () => {
     expect(onRequestVariableInsert).toHaveBeenCalled();
   });
 
-  it('adds variable on value input blur when key is set', () => {
+  it('does not auto-add variable on value input blur when key is set', () => {
     const onUpdateVariables = vi.fn();
     renderVars({
       variables: {},
@@ -294,10 +294,10 @@ describe('VariablesSection', () => {
     });
     const valueInput = screen.getByPlaceholderText('value');
     fireEvent.blur(valueInput);
-    expect(onUpdateVariables).toHaveBeenCalledWith({ blurKey: 'v' });
+    expect(onUpdateVariables).not.toHaveBeenCalled();
   });
 
-  it('adds variable on key input blur when key and value are set', () => {
+  it('does not auto-add variable on key input blur when key and value are set', () => {
     const onUpdateVariables = vi.fn();
     renderVars({
       variables: {},
@@ -309,7 +309,7 @@ describe('VariablesSection', () => {
     });
     const keyInput = screen.getByPlaceholderText('name');
     fireEvent.blur(keyInput);
-    expect(onUpdateVariables).toHaveBeenCalledWith({ blurKey: 'val' });
+    expect(onUpdateVariables).not.toHaveBeenCalled();
   });
 
   it('adds new variable on Enter keydown in value input', () => {

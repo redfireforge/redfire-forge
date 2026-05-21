@@ -145,6 +145,12 @@ alwaysApply: true
 | `src/shared/components/data-mapper/utils/validationDsl.ts` | DSL parser/serializer: serializeToDsl, parseDsl, parseDslLine, importAutoDetect |
 | `src/shared/components/data-mapper/utils/monacoValidationLanguage.ts` | Monaco DSL language registration, theming, autocomplete provider (extracted from ValidationCodeEditor) |
 | `src/shared/components/data-mapper/utils/expressionDebugHelpers.ts` | Debug formatting helpers: prettyDebugValue, truncateDebugValue |
+| `src/shared/utils/trashStorage.ts` | Trash Box: dual-mode CRUD (IDB/localStorage/Tauri FS), purgeExpired, enforceMaxItems |
+| `src/shared/utils/idbTrash.ts` | Trash Box: IndexedDB backend for trash items |
+| `src/features/scenarios/hooks/useTrash.ts` | Trash Box: React hook — moveToTrash, restore (FG/scenario/test/DS), undo, settings |
+| `src/features/scenarios/components/TrashPanel.tsx` | Trash Box: modal UI — browse, search, restore, permanent delete, empty trash |
+| `src/features/scenarios/components/TrashUndoToast.tsx` | Trash Box: 5-second undo toast after deletion with countdown bar |
+| `src/styles/trash.css` | Trash Box: panel modal + undo toast + animations CSS |
 | `src/features/scenarios/components/testEditorValidationAddMenu.ts` | Data-driven assertion factory menu (ADD_ASSERTION_MENU_ROWS) |
 | `src/features/scenarios/components/testEditorValidationPivot.ts` | Pivoted rules table model: buildPivotedRulesFromExpectedFields |
 | `src/data/galleries/data-mapper/presets.ts` | Data Mapper gallery presets: 8 sample factories with embedded API responses |
