@@ -453,7 +453,14 @@ export default function ResultsDashboard({ envName, svcName, onRerunFailed, isRe
                 <span className="context-tag base-url-tag hardcoded">Host: hardcoded</span>
               )}
               <span className="context-tag exec-mode-tag">
-                {selectedRun.config.executionMode === 'load-profile' && selectedRun.config.loadProfile ? (
+                {selectedRun.config.executionMode === 'constant-arrival' && selectedRun.config.arrivalRate ? (
+                  <>
+                    Arrival Rate
+                    {' · '}{selectedRun.config.arrivalRate.targetRps} RPS
+                    {' · '}{selectedRun.config.arrivalRate.durationSec}s
+                    {selectedRun.config.arrivalRate.ramp && ` · ramp ${selectedRun.config.arrivalRate.ramp.startRps}→${selectedRun.config.arrivalRate.ramp.endRps}`}
+                  </>
+                ) : selectedRun.config.executionMode === 'load-profile' && selectedRun.config.loadProfile ? (
                   <>
                     {selectedRun.config.loadProfile.type === 'ramp-up' ? 'Ramp-Up' : selectedRun.config.loadProfile.type === 'spike' ? 'Spike' : 'Sustained'}
                     {' · '}Peak:{selectedRun.config.loadProfile.maxConcurrency}
@@ -657,6 +664,10 @@ export default function ResultsDashboard({ envName, svcName, onRerunFailed, isRe
               <div className="metric-value">{summary.p99ResponseTime} ms</div>
               <div className="metric-label">P99</div>
             </div>
+            <div className="metric-card">
+              <div className="metric-value">{summary.p999ResponseTime ?? '—'} ms</div>
+              <div className="metric-label">P99.9</div>
+            </div>
             <div className={`metric-card ${summary.errorRate > 0 ? 'error' : 'success'}`}>
               <div className="metric-value">{summary.errorRate}%</div>
               <div className="metric-label">Error Rate <span className="metric-info" data-tooltip="Percentage of requests that received a non-2xx HTTP status (e.g. 400, 404, 500). Includes intentional negative tests that expect error responses.">ⓘ</span></div>
@@ -674,6 +685,22 @@ export default function ResultsDashboard({ envName, svcName, onRerunFailed, isRe
               <div className="metric-label">Validation Failures <span className="metric-info" data-tooltip="Requests whose actual response did not match expected assertions. 0 means every test got the response it expected — even negative tests that assert error codes.">ⓘ</span></div>
             </div>
           </div>
+          {selectedRun?.config.executionMode === 'constant-arrival' && (
+            <div className="metrics-row">
+              <div className="metric-card">
+                <div className="metric-value">{summary.targetRps ?? '—'}</div>
+                <div className="metric-label">Target RPS</div>
+              </div>
+              <div className="metric-card">
+                <div className="metric-value">{summary.peakRps ?? '—'}</div>
+                <div className="metric-label">Peak RPS</div>
+              </div>
+              <div className={`metric-card ${(summary.droppedRequests ?? 0) > 0 ? 'error' : 'success'}`}>
+                <div className="metric-value">{summary.droppedRequests ?? 0}</div>
+                <div className="metric-label">Dropped Requests <span className="metric-info" data-tooltip="Requests dropped because all in-flight slots were occupied (backpressure)">ⓘ</span></div>
+              </div>
+            </div>
+          )}
         </>
       )}
 

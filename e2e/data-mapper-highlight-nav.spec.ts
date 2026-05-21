@@ -78,10 +78,9 @@ test.describe('Data Mapper highlight & keyboard navigation', () => {
     await expect(tgt).toBeVisible();
 
     await src.hover();
-    await page.waitForTimeout(150);
 
-    await expect(src).toHaveClass(/dm-tree-node--hover-highlight/);
-    await expect(tgt).toHaveClass(/dm-tree-node--hover-highlight/);
+    await expect(src).toHaveClass(/dm-tree-node--hover-highlight/, { timeout: 3000 });
+    await expect(tgt).toHaveClass(/dm-tree-node--hover-highlight/, { timeout: 3000 });
   });
 
   test('hover on target leaf highlights both source and target nodes', async ({ page }) => {
@@ -92,10 +91,9 @@ test.describe('Data Mapper highlight & keyboard navigation', () => {
     const tgt = targetNode(mapper, 'email');
 
     await tgt.hover();
-    await page.waitForTimeout(150);
 
-    await expect(src).toHaveClass(/dm-tree-node--hover-highlight/);
-    await expect(tgt).toHaveClass(/dm-tree-node--hover-highlight/);
+    await expect(src).toHaveClass(/dm-tree-node--hover-highlight/, { timeout: 3000 });
+    await expect(tgt).toHaveClass(/dm-tree-node--hover-highlight/, { timeout: 3000 });
   });
 
   test('hover highlights only one pair at a time — moving to another clears previous', async ({ page }) => {
@@ -108,14 +106,12 @@ test.describe('Data Mapper highlight & keyboard navigation', () => {
     const tgtEmail = targetNode(mapper, 'email');
 
     await srcName.hover();
-    await page.waitForTimeout(150);
-    await expect(srcName).toHaveClass(/dm-tree-node--hover-highlight/);
-    await expect(tgtName).toHaveClass(/dm-tree-node--hover-highlight/);
+    await expect(srcName).toHaveClass(/dm-tree-node--hover-highlight/, { timeout: 3000 });
+    await expect(tgtName).toHaveClass(/dm-tree-node--hover-highlight/, { timeout: 3000 });
 
     await srcEmail.hover();
-    await page.waitForTimeout(150);
-    await expect(srcEmail).toHaveClass(/dm-tree-node--hover-highlight/);
-    await expect(tgtEmail).toHaveClass(/dm-tree-node--hover-highlight/);
+    await expect(srcEmail).toHaveClass(/dm-tree-node--hover-highlight/, { timeout: 3000 });
+    await expect(tgtEmail).toHaveClass(/dm-tree-node--hover-highlight/, { timeout: 3000 });
 
     await expect(srcName).not.toHaveClass(/dm-tree-node--hover-highlight/);
     await expect(tgtName).not.toHaveClass(/dm-tree-node--hover-highlight/);
@@ -127,12 +123,11 @@ test.describe('Data Mapper highlight & keyboard navigation', () => {
 
     const src = sourceNode(mapper, 'username');
     await src.click();
-    await page.waitForTimeout(100);
 
-    await expect(src).toHaveClass(/dm-tree-node--focused/);
+    await expect(src).toHaveClass(/dm-tree-node--focused/, { timeout: 3000 });
 
     const tgt = targetNode(mapper, 'username');
-    await expect(tgt).toHaveClass(/dm-tree-node--hover-highlight/);
+    await expect(tgt).toHaveClass(/dm-tree-node--hover-highlight/, { timeout: 3000 });
   });
 
   test('click on target leaf sets keyboard focus and highlights both sides', async ({ page }) => {
@@ -145,9 +140,8 @@ test.describe('Data Mapper highlight & keyboard navigation', () => {
     // (.dm-node-key) opens the rename input. Both stop propagation, so neither
     // triggers the keyboard-focus click handler delegated on .dm-body.
     await tgt.locator('.dm-type-pill').first().click();
-    await page.waitForTimeout(100);
 
-    await expect(tgt).toHaveClass(/dm-tree-node--focused/);
+    await expect(tgt).toHaveClass(/dm-tree-node--focused/, { timeout: 3000 });
 
     const src = sourceNode(mapper, 'phone');
     await expect(src).toHaveClass(/dm-tree-node--hover-highlight/);
@@ -159,15 +153,11 @@ test.describe('Data Mapper highlight & keyboard navigation', () => {
 
     const firstSrc = sourceNode(mapper, 'id');
     await firstSrc.click();
-    await page.waitForTimeout(150);
-    await expect(firstSrc).toHaveClass(/dm-tree-node--focused/);
+    await expect(firstSrc).toHaveClass(/dm-tree-node--focused/, { timeout: 3000 });
 
-    // Move mouse away from the tree area to avoid hover interference
     await page.mouse.move(0, 0);
-    await page.waitForTimeout(100);
 
     await page.keyboard.press('ArrowDown');
-    await page.waitForTimeout(200);
 
     const secondSrc = sourceNode(mapper, 'name');
     await expect(secondSrc).toHaveClass(/dm-tree-node--focused/);
@@ -183,14 +173,11 @@ test.describe('Data Mapper highlight & keyboard navigation', () => {
 
     const src = sourceNode(mapper, 'username');
     await src.click();
-    await page.waitForTimeout(150);
+    await expect(src).toHaveClass(/dm-tree-node--focused/, { timeout: 3000 });
 
-    // Move mouse away to avoid hover interference
     await page.mouse.move(0, 0);
-    await page.waitForTimeout(100);
 
     await page.keyboard.press('ArrowUp');
-    await page.waitForTimeout(200);
 
     const prevSrc = sourceNode(mapper, 'name');
     await expect(prevSrc).toHaveClass(/dm-tree-node--focused/);
@@ -209,22 +196,21 @@ test.describe('Data Mapper highlight & keyboard navigation', () => {
 
     const firstSrc = allSrcNodes.first();
     await firstSrc.click();
-    await page.waitForTimeout(100);
+    await expect(firstSrc).toHaveClass(/dm-tree-node--focused/, { timeout: 3000 });
 
     await page.keyboard.press('ArrowUp');
-    await page.waitForTimeout(100);
     const firstPath = await firstSrc.getAttribute('data-path');
     const focusedAfterUp = mapper.locator('.dm-panel--source .dm-tree-node--focused');
+    await expect(focusedAfterUp).toBeVisible({ timeout: 3000 });
     const focusedPath = await focusedAfterUp.getAttribute('data-path');
     expect(focusedPath).toBe(firstPath);
 
     const lastSrc = allSrcNodes.last();
     await lastSrc.click();
-    await page.waitForTimeout(100);
+    await expect(lastSrc).toHaveClass(/dm-tree-node--focused/, { timeout: 3000 });
 
     for (let i = 0; i < 3; i++) {
       await page.keyboard.press('ArrowDown');
-      await page.waitForTimeout(50);
     }
     const lastPath = await lastSrc.getAttribute('data-path');
     const focusedAfterDown = mapper.locator('.dm-panel--source .dm-tree-node--focused');
@@ -244,13 +230,10 @@ test.describe('Data Mapper highlight & keyboard navigation', () => {
 
     const linesBtn = mapper.locator('.dm-toolbar-cluster--view button', { hasText: 'Lines' });
     await linesBtn.click();
-    await page.waitForTimeout(200);
 
-    const linesAfterCount = await canvas.locator('.dm-connection-line').count();
-    expect(linesAfterCount).toBe(0);
+    await expect(canvas.locator('.dm-connection-line')).toHaveCount(0, { timeout: 3000 });
 
     await linesBtn.click();
-    await page.waitForTimeout(200);
 
     const linesRestoredCount = await canvas.locator('.dm-connection-line').count();
     expect(linesRestoredCount).toBeGreaterThan(0);
@@ -262,10 +245,9 @@ test.describe('Data Mapper highlight & keyboard navigation', () => {
 
     const verifyBtn = mapper.locator('button', { hasText: 'Verify All' });
     await verifyBtn.click();
-    await page.waitForTimeout(500);
 
     const summary = mapper.locator('.dm-toolbar-verify-summary');
-    await expect(summary).toBeVisible();
+    await expect(summary).toBeVisible({ timeout: 5000 });
 
     const summaryText = await summary.textContent();
     const mappedCount = await mapper.locator('.dm-panel--source .dm-tree-node--leaf.dm-tree-node--mapped').count();
@@ -278,12 +260,11 @@ test.describe('Data Mapper highlight & keyboard navigation', () => {
 
     const src = sourceNode(mapper, 'name');
     await src.click();
-    await page.waitForTimeout(200);
+    await expect(src).toHaveClass(/dm-tree-node--focused/, { timeout: 3000 });
 
     const canvas = mapper.locator('.dm-canvas');
     const highlightedLines = canvas.locator('.dm-connection-line--selected');
-    const count = await highlightedLines.count();
-    expect(count).toBeGreaterThanOrEqual(1);
+    await expect(highlightedLines).not.toHaveCount(0, { timeout: 3000 });
   });
 
   test('no phantom passed count with zero mapper-created rules', async ({ page }) => {
@@ -298,7 +279,7 @@ test.describe('Data Mapper highlight & keyboard navigation', () => {
 
     const verifyBtn = mapper.locator('button', { hasText: 'Verify All' });
     await verifyBtn.click();
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(300);
 
     const summary = mapper.locator('.dm-toolbar-verify-summary');
     const summaryCount = await summary.count();
@@ -314,16 +295,14 @@ test.describe('Data Mapper highlight & keyboard navigation', () => {
 
     const src = sourceNode(mapper, 'name');
     await src.click();
-    await page.waitForTimeout(100);
 
     const sourcePanel = mapper.locator('.dm-panel--source');
-    await expect(sourcePanel).toHaveClass(/dm-panel--focused/);
+    await expect(sourcePanel).toHaveClass(/dm-panel--focused/, { timeout: 3000 });
 
     await page.keyboard.press('Tab');
-    await page.waitForTimeout(100);
 
     const targetPanel = mapper.locator('.dm-panel--target');
-    await expect(targetPanel).toHaveClass(/dm-panel--focused/);
+    await expect(targetPanel).toHaveClass(/dm-panel--focused/, { timeout: 3000 });
   });
 
   test('Home and End keys jump to first and last visible nodes', async ({ page }) => {
@@ -332,22 +311,22 @@ test.describe('Data Mapper highlight & keyboard navigation', () => {
 
     const middleSrc = sourceNode(mapper, 'username');
     await middleSrc.click();
-    await page.waitForTimeout(100);
+    await expect(middleSrc).toHaveClass(/dm-tree-node--focused/, { timeout: 3000 });
 
     await page.keyboard.press('Home');
-    await page.waitForTimeout(100);
 
     const allSrcNodes = mapper.locator('.dm-panel--source .dm-tree-node[data-path]');
     const firstPath = await allSrcNodes.first().getAttribute('data-path');
     const focusedNode = mapper.locator('.dm-panel--source .dm-tree-node--focused');
+    await expect(focusedNode).toBeVisible({ timeout: 3000 });
     const focusedPath = await focusedNode.getAttribute('data-path');
     expect(focusedPath).toBe(firstPath);
 
     await page.keyboard.press('End');
-    await page.waitForTimeout(100);
 
     const lastPath = await allSrcNodes.last().getAttribute('data-path');
     const focusedAfterEnd = mapper.locator('.dm-panel--source .dm-tree-node--focused');
+    await expect(focusedAfterEnd).toBeVisible({ timeout: 3000 });
     const focusedPathEnd = await focusedAfterEnd.getAttribute('data-path');
     expect(focusedPathEnd).toBe(lastPath);
   });

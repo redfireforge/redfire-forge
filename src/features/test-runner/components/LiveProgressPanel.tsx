@@ -1,4 +1,4 @@
-import type { TestSummary, Scenario, RequestResult } from '../../../shared/types';
+import type { TestSummary, Scenario, RequestResult, ArrivalRateConfig } from '../../../shared/types';
 import type { LoadProfileConfig, ThinkTimeConfig } from '../../../shared/types';
 import type { TimeSeriesPoint } from '../hooks/useTestExecution';
 import type { ProgressMeta } from '../../../engine/executor';
@@ -18,6 +18,7 @@ interface Props {
   executionMode: ExecutionMode;
   concurrency: number;
   loadProfile: LoadProfileConfig;
+  arrivalRate?: ArrivalRateConfig;
   thinkTime?: ThinkTimeConfig;
   hostLabel?: string;
   /** Live results for per-test progress breakdown */
@@ -39,6 +40,7 @@ export default function LiveProgressPanel({
   executionMode,
   concurrency,
   loadProfile,
+  arrivalRate,
   thinkTime,
   hostLabel,
   liveResults,
@@ -46,7 +48,8 @@ export default function LiveProgressPanel({
   weights,
   onClear,
 }: Props) {
-  const isTimeBased = executionMode === 'load-profile' || (isRunning && total === -1);
+  const isTimeBased = executionMode === 'load-profile' || executionMode === 'constant-arrival' || (isRunning && total === -1);
+  const isArrivalRate = executionMode === 'constant-arrival';
 
   const displayElapsedMs = profileMeta
     ? (!isRunning ? profileMeta.durationMs : Math.min(profileMeta.elapsedMs, profileMeta.durationMs))
@@ -63,7 +66,14 @@ export default function LiveProgressPanel({
     <div className="progress-section">
       <div className="progress-header-row">
         <h3>Progress <span className="progress-mode-tag">
-          {isTimeBased ? (
+          {isArrivalRate && arrivalRate ? (
+            <>
+              Arrival Rate
+              {' · '}Target:{arrivalRate.targetRps} RPS
+              {' · '}{arrivalRate.durationSec}s
+              {arrivalRate.ramp && ` · ramp ${arrivalRate.ramp.startRps}→${arrivalRate.ramp.endRps} RPS`}
+            </>
+          ) : isTimeBased ? (
             <>
               {profileLabel(loadProfile.type)}
               {' · '}Peak:{loadProfile.maxConcurrency}
@@ -96,7 +106,7 @@ export default function LiveProgressPanel({
         <span className="progress-text">
           {isTimeBased ? (
             <>
-              {profileMeta ? `${(displayElapsedMs / 1000).toFixed(1)}s` : '0s'} / {profileMeta ? (profileMeta.durationMs / 1000).toFixed(0) : loadProfile.durationSec}s
+              {profileMeta ? `${(displayElapsedMs / 1000).toFixed(1)}s` : '0s'} / {profileMeta ? (profileMeta.durationMs / 1000).toFixed(0) : (isArrivalRate && arrivalRate ? arrivalRate.durationSec : loadProfile.durationSec)}s
               {' '}({completed} requests)
             </>
           ) : executionMode === 'workflow' ? (
@@ -166,7 +176,27 @@ export default function LiveProgressPanel({
             <div className="metric-value">{summary.failedValidations}</div>
             <div className="metric-label">Validation Failures <span className="metric-info" data-tooltip="Requests whose actual response did not match expected assertions. 0 means every test got the response it expected — even negative tests that assert error codes.">ⓘ</span></div>
           </div>
-          {isTimeBased && profileMeta && (
+          {isArrivalRate && profileMeta && (
+            <>
+              <div className="metric-card">
+                <div className="metric-value">{profileMeta.targetRps ?? '—'}</div>
+                <div className="metric-label">Target RPS</div>
+              </div>
+              <div className="metric-card">
+                <div className="metric-value">{profileMeta.actualRps ?? '—'}</div>
+                <div className="metric-label">Actual RPS</div>
+              </div>
+              <div className={`metric-card ${(profileMeta.droppedRequests ?? 0) > 0 ? 'error' : ''}`}>
+                <div className="metric-value">{profileMeta.droppedRequests ?? 0}</div>
+                <div className="metric-label">Dropped <span className="metric-info" data-tooltip="Requests dropped due to max in-flight backpressure">ⓘ</span></div>
+              </div>
+              <div className="metric-card">
+                <div className="metric-value">{profileMeta.currentInFlight}</div>
+                <div className="metric-label">In-Flight</div>
+              </div>
+            </>
+          )}
+          {isTimeBased && !isArrivalRate && profileMeta && (
             <div className="metric-card">
               <div className="metric-value">{profileMeta.currentInFlight} / {profileMeta.targetConcurrency}</div>
               <div className="metric-label">Concurrency</div>
@@ -177,7 +207,7 @@ export default function LiveProgressPanel({
 
       {/* Charts */}
       {timeSeries.length >= 2 && (
-        <LiveCharts data={timeSeries} isTimeBased={isTimeBased} />
+        <LiveCharts data={timeSeries} isTimeBased={isTimeBased} isArrivalRate={isArrivalRate} />
       )}
     </div>
   );

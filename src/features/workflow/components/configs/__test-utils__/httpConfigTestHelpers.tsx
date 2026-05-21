@@ -1,9 +1,9 @@
 /**
  * Shared test factories for HttpConfig.test.tsx splits.
  *
- * The `vi.mock(...)` declarations and the mock spy vars (e.g.
- * `lastExtractionEditorProps`) remain in each test file because vi.mock must be
- * hoisted to the top of the importing file.
+ * The `vi.mock(...)` declarations remain in each test file because vi.mock must
+ * be hoisted to the top of the importing file. Mock implementations live in
+ * `httpConfigTestMocks.ts`.
  */
 import { vi } from 'vitest';
 import type { HttpNodeData } from '../../../types/workflow';

@@ -173,7 +173,7 @@ interface TrendProps {
 }
 
 export function TrendChart({ runs, baselines }: TrendProps) {
-  const [metric, setMetric] = useState<'p95ResponseTime' | 'p50ResponseTime' | 'p99ResponseTime' | 'avgResponseTime' | 'tps' | 'errorRate'>('p95ResponseTime');
+  const [metric, setMetric] = useState<'p95ResponseTime' | 'p50ResponseTime' | 'p99ResponseTime' | 'p999ResponseTime' | 'avgResponseTime' | 'tps' | 'errorRate'>('p95ResponseTime');
   const data = useMemo(() => computeTrend(runs, baselines), [runs, baselines]);
 
   if (data.length < 2) return <div className="empty-hint">Need at least 2 runs for trend analysis.</div>;
@@ -182,6 +182,7 @@ export function TrendChart({ runs, baselines }: TrendProps) {
     p95ResponseTime: 'P95 (ms)',
     p50ResponseTime: 'P50 (ms)',
     p99ResponseTime: 'P99 (ms)',
+    p999ResponseTime: 'P99.9 (ms)',
     avgResponseTime: 'Avg (ms)',
     tps: 'TPS',
     errorRate: 'Error Rate (%)',
@@ -197,6 +198,7 @@ export function TrendChart({ runs, baselines }: TrendProps) {
           <option value="p95ResponseTime">P95 Response Time</option>
           <option value="p50ResponseTime">P50 Response Time</option>
           <option value="p99ResponseTime">P99 Response Time</option>
+          <option value="p999ResponseTime">P99.9 Response Time</option>
           <option value="avgResponseTime">Avg Response Time</option>
           <option value="tps">TPS</option>
           <option value="errorRate">Error Rate</option>

@@ -1,4 +1,6 @@
+use crate::arrival_executor;
 use crate::executor;
+use crate::histogram::MetricsSnapshot;
 use crate::types::*;
 use reqwest::Client;
 use std::sync::Arc;
@@ -45,7 +47,7 @@ pub async fn start_load_test(
     let start = std::time::Instant::now();
     executor::reset_result_counter();
 
-    let (results, breaker_tripped) = match plan {
+    let (results, breaker_tripped, final_metrics): (Vec<ExecutionResult>, bool, Option<MetricsSnapshot>) = match plan {
         ExecutionPlan::Pool {
             scenarios,
             concurrency,
@@ -54,6 +56,7 @@ pub async fn start_load_test(
             retry_delay_ms,
             think_time,
             circuit_breaker,
+            detail_level,
         } => {
             executor::run_pool(
                 app.clone(),
@@ -66,6 +69,7 @@ pub async fn start_load_test(
                 think_time,
                 circuit_breaker,
                 cancel.clone(),
+                detail_level,
             )
             .await
         }
@@ -76,6 +80,7 @@ pub async fn start_load_test(
             retry_delay_ms,
             think_time,
             circuit_breaker,
+            detail_level,
         } => {
             executor::run_pool(
                 app.clone(),
@@ -88,6 +93,38 @@ pub async fn start_load_test(
                 think_time,
                 circuit_breaker,
                 cancel.clone(),
+                detail_level,
+            )
+            .await
+        }
+        ExecutionPlan::ConstantArrival {
+            scenarios,
+            target_rps,
+            duration_sec,
+            max_in_flight,
+            timeout_ms,
+            retry_count,
+            retry_delay_ms,
+            think_time,
+            circuit_breaker,
+            ramp_config,
+            detail_level,
+        } => {
+            arrival_executor::run_constant_arrival(
+                app.clone(),
+                client,
+                scenarios,
+                target_rps,
+                duration_sec,
+                max_in_flight,
+                Duration::from_millis(timeout_ms),
+                retry_count,
+                retry_delay_ms,
+                think_time,
+                circuit_breaker,
+                ramp_config,
+                cancel.clone(),
+                detail_level,
             )
             .await
         }
@@ -105,6 +142,7 @@ pub async fn start_load_test(
             spike_concurrency,
             spike_start_sec,
             spike_duration_sec,
+            detail_level,
         } => {
             executor::run_load_profile(
                 app.clone(),
@@ -123,6 +161,7 @@ pub async fn start_load_test(
                 spike_start_sec,
                 spike_duration_sec,
                 cancel.clone(),
+                detail_level,
             )
             .await
         }
@@ -134,6 +173,7 @@ pub async fn start_load_test(
         total_results: results.len() as u64,
         duration_ms,
         breaker_tripped,
+        final_metrics,
     };
     let _ = app.emit("load-test-complete", &summary);
 

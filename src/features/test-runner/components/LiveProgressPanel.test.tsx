@@ -498,4 +498,116 @@ describe('LiveProgressPanel', () => {
     render(<LiveProgressPanel {...baseProps} isRunning={false} />);
     expect(screen.queryByText('✕ Clear')).not.toBeInTheDocument();
   });
+
+  // --- Constant Arrival Rate ---
+  it('shows arrival rate header tag for constant-arrival mode', () => {
+    render(
+      <LiveProgressPanel
+        {...baseProps}
+        executionMode="constant-arrival"
+        total={-1}
+        arrivalRate={{ targetRps: 50, durationSec: 120 }}
+      />
+    );
+    expect(screen.getByText(/Arrival Rate/)).toBeInTheDocument();
+    expect(screen.getByText(/Target:50 RPS/)).toBeInTheDocument();
+    expect(screen.getByText(/· 120s/)).toBeInTheDocument();
+  });
+
+  it('shows ramp info in arrival rate header tag', () => {
+    render(
+      <LiveProgressPanel
+        {...baseProps}
+        executionMode="constant-arrival"
+        total={-1}
+        arrivalRate={{ targetRps: 100, durationSec: 60, ramp: { startRps: 10, endRps: 100, rampDurationSec: 15 } }}
+      />
+    );
+    expect(screen.getByText(/ramp 10→100 RPS/)).toBeInTheDocument();
+  });
+
+  it('shows Target RPS, Actual RPS, and Dropped metric cards for arrival mode', () => {
+    render(
+      <LiveProgressPanel
+        {...baseProps}
+        executionMode="constant-arrival"
+        total={-1}
+        arrivalRate={{ targetRps: 50, durationSec: 60 }}
+        summary={{
+          tps: 45, avgResponseTime: 100, minResponseTime: 10, maxResponseTime: 500,
+          p95ResponseTime: 300, p99ResponseTime: 450, p50ResponseTime: 80, p999ResponseTime: 499,
+          errorRate: 2, totalRequests: 1000, totalDurationMs: 60000, successfulRequests: 980,
+          failedRequests: 20, failedValidations: 5, errorsByStatus: {},
+        }}
+        profileMeta={{
+          elapsedMs: 30000, durationMs: 60000, currentInFlight: 12,
+          targetConcurrency: 0,
+          targetRps: 50, actualRps: 48.5, droppedRequests: 3,
+        }}
+      />
+    );
+    expect(screen.getByText('Target RPS')).toBeInTheDocument();
+    expect(screen.getByText('Actual RPS')).toBeInTheDocument();
+    expect(screen.getByText('Dropped')).toBeInTheDocument();
+    expect(screen.getByText('In-Flight')).toBeInTheDocument();
+    expect(screen.getByText('50')).toBeInTheDocument();
+    expect(screen.getByText('48.5')).toBeInTheDocument();
+    expect(screen.getByText('3')).toBeInTheDocument();
+  });
+
+  it('does not show Concurrency label for arrival mode (shows In-Flight instead)', () => {
+    render(
+      <LiveProgressPanel
+        {...baseProps}
+        executionMode="constant-arrival"
+        total={-1}
+        arrivalRate={{ targetRps: 10, durationSec: 30 }}
+        summary={{
+          tps: 10, avgResponseTime: 50, minResponseTime: 5, maxResponseTime: 200,
+          p95ResponseTime: 150, p99ResponseTime: 180, p50ResponseTime: 40, p999ResponseTime: 199,
+          errorRate: 0, totalRequests: 300, totalDurationMs: 30000, successfulRequests: 300,
+          failedRequests: 0, failedValidations: 0, errorsByStatus: {},
+        }}
+        profileMeta={{
+          elapsedMs: 15000, durationMs: 30000, currentInFlight: 5,
+          targetConcurrency: 0,
+          targetRps: 10, actualRps: 10, droppedRequests: 0,
+        }}
+      />
+    );
+    expect(screen.queryByText('Concurrency')).not.toBeInTheDocument();
+    expect(screen.getByText('In-Flight')).toBeInTheDocument();
+  });
+
+  it('uses time-based progress bar for constant-arrival mode', () => {
+    const { container } = render(
+      <LiveProgressPanel
+        {...baseProps}
+        executionMode="constant-arrival"
+        total={-1}
+        arrivalRate={{ targetRps: 10, durationSec: 30 }}
+        profileMeta={{
+          elapsedMs: 15000, durationMs: 30000, currentInFlight: 5,
+          targetConcurrency: 0,
+          targetRps: 10, actualRps: 10, droppedRequests: 0,
+        }}
+      />
+    );
+    const progressText = container.querySelector('.progress-text');
+    expect(progressText!.textContent).toMatch(/15\.0s.*30s/);
+  });
+
+  it('uses arrivalRate.durationSec as fallback when profileMeta is null in arrival mode', () => {
+    const { container } = render(
+      <LiveProgressPanel
+        {...baseProps}
+        executionMode="constant-arrival"
+        total={-1}
+        arrivalRate={{ targetRps: 10, durationSec: 45 }}
+        profileMeta={null}
+      />
+    );
+    const progressText = container.querySelector('.progress-text');
+    expect(progressText!.textContent).toMatch(/0s.*\/.*45s/);
+  });
 });
