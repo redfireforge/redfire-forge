@@ -124,4 +124,25 @@ describe('expressionSnippets', () => {
     expect(saved).toHaveLength(1);
     expect(saved[0].name).toBe('n');
   });
+
+  it('sorts loaded snippets by updatedAt descending', async () => {
+    snippetStore[STORAGE_KEY] = JSON.stringify([
+      { id: 'old', name: 'Old', expression: '$a', updatedAt: 100 },
+      { id: 'new', name: 'New', expression: '$b', updatedAt: 500 },
+      { id: 'mid', name: 'Mid', expression: '$c', updatedAt: 300 },
+    ]);
+    const loaded = await loadExpressionSnippets();
+    expect(loaded.map((s) => s.id)).toEqual(['new', 'mid', 'old']);
+  });
+
+  it('sorts snippets after a save updates an existing entry', async () => {
+    const baseTime = Date.now();
+    vi.spyOn(Date, 'now').mockReturnValueOnce(baseTime).mockReturnValueOnce(baseTime + 1000).mockReturnValueOnce(baseTime + 2000);
+    await saveExpressionSnippet('First', '$one');
+    await saveExpressionSnippet('Second', '$two');
+    const reloaded = await loadExpressionSnippets();
+    expect(reloaded).toHaveLength(2);
+    expect(reloaded[0].name).toBe('Second');
+    expect(reloaded[1].name).toBe('First');
+  });
 });

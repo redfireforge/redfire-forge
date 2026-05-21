@@ -140,7 +140,11 @@ test.describe('Data Mapper highlight & keyboard navigation', () => {
     const mapper = await openMapperWithAutoMap(page);
 
     const tgt = targetNode(mapper, 'phone');
-    await tgt.click();
+    // Click on the type pill rather than the row centre — mapped target rows put
+    // an operator pill / NOT button at the centre, and clicking the field name
+    // (.dm-node-key) opens the rename input. Both stop propagation, so neither
+    // triggers the keyboard-focus click handler delegated on .dm-body.
+    await tgt.locator('.dm-type-pill').first().click();
     await page.waitForTimeout(100);
 
     await expect(tgt).toHaveClass(/dm-tree-node--focused/);

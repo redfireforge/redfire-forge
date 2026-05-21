@@ -276,3 +276,41 @@ describe('collectAllPaths', () => {
     expect(paths.size).toBe(1);
   });
 });
+
+describe('buildTreeFromFields — array index paths', () => {
+  it('parses bracket-array segments like [0] in nested paths', () => {
+    const fields: TargetField[] = [
+      { path: 'items[0].name', label: 'first', type: 'string' },
+      { path: 'items[0].id', label: 'id', type: 'string' },
+    ];
+    const tree = buildTreeFromFields(fields);
+    expect(tree.children?.length).toBe(1);
+    expect(tree.children![0].key).toBe('items');
+  });
+
+  it('preserves explicit bracket prefix when joining segments', () => {
+    const fields: TargetField[] = [
+      { path: '[0].id', label: 'id', type: 'string' },
+    ];
+    const tree = buildTreeFromFields(fields);
+    expect(tree.children?.length).toBe(1);
+  });
+
+  it('handles an unterminated bracket gracefully by treating chars as token', () => {
+    const fields: TargetField[] = [
+      { path: 'broken[0', label: 'broken', type: 'string' },
+    ];
+    const tree = buildTreeFromFields(fields);
+    expect(tree.children?.length).toBe(1);
+  });
+
+  it('deduplicates duplicate leaf paths', () => {
+    const fields: TargetField[] = [
+      { path: 'user.name', label: 'first', type: 'string' },
+      { path: 'user.name', label: 'second', type: 'string' },
+    ];
+    const tree = buildTreeFromFields(fields);
+    const user = tree.children![0];
+    expect(user.children?.length).toBe(1);
+  });
+});

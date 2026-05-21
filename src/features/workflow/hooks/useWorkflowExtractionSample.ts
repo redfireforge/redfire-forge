@@ -8,6 +8,7 @@ import type {
   ScheduleTriggerNodeData,
   WorkflowHostProfile,
   WorkflowService,
+  WorkflowNode,
 } from '../types/workflow';
 import type { Microservice } from '../../../shared/types';
 import type { WorkflowRFNode } from '../utils/workflowNodeFactory';
@@ -15,6 +16,8 @@ import { prettyJson, isValidJson } from '../../../shared/utils/helpers';
 
 interface UseWorkflowExtractionSampleOpts {
   selectedNode: WorkflowRFNode | null | undefined;
+  /** The node displayed in the open config modal — preferred over selectedNode when available. */
+  configModalNode: WorkflowNode | null | undefined;
   selectedId: string | null | undefined;
   selectedNodeId: string | null;
   nodes: WorkflowRFNode[];
@@ -39,7 +42,7 @@ interface UseWorkflowExtractionSampleOpts {
  */
 export function useWorkflowExtractionSample(opts: UseWorkflowExtractionSampleOpts) {
   const {
-    selectedNode, selectedId, selectedNodeId, nodes,
+    selectedNode, configModalNode, selectedId, selectedNodeId, nodes,
     workflowVariables, runVariableSnapshot, nodeInitialVarsRef,
     microservices, workflowHostProfiles, workflowServices, selectedEnvId, resolvedBaseUrl,
     setExtractionSampleJson, setExtractionFetching, setExtractionFetchError,
@@ -52,15 +55,22 @@ export function useWorkflowExtractionSample(opts: UseWorkflowExtractionSampleOpt
   }, [selectedId, selectedNodeId, setExtractionSampleJson, setExtractionFetchError]);
 
   const handleExtractionFetchSample = useCallback(async () => {
-    if (!selectedNode || !isHttpWorkflowNode(selectedNode)) {
+    // Prefer configModalNode (the node currently open in the config modal) over
+    // selectedNode — they can diverge if the user clicks the canvas while the
+    // modal is still open.
+    const effectiveNode = (configModalNode && isHttpWorkflowNode(configModalNode))
+      ? configModalNode
+      : selectedNode;
+
+    if (!effectiveNode || !isHttpWorkflowNode(effectiveNode)) {
       setExtractionFetchError({ message: 'Select an HTTP step and open Pick path from the Extract tab.' });
       return;
     }
-    const scenario = selectedNode.data.scenario;
+    const scenario = effectiveNode.data.scenario;
     setExtractionFetching(true);
     setExtractionFetchError(null);
     try {
-      const httpData = selectedNode.data;
+      const httpData = effectiveNode.data;
       const fetchBase =
         resolveHttpNodeBaseUrl(httpData, microservices, workflowHostProfiles, workflowServices, selectedEnvId)
         ?? resolvedBaseUrl;
@@ -81,7 +91,7 @@ export function useWorkflowExtractionSample(opts: UseWorkflowExtractionSampleOpt
         ...entryVars,
         ...workflowVariables,
         ...(runVariableSnapshot ?? {}),
-        ...(nodeInitialVarsRef.current[selectedNode.id] ?? httpData.initialVariables ?? {}),
+        ...(nodeInitialVarsRef.current[effectiveNode.id] ?? httpData.initialVariables ?? {}),
       };
       const result = await fetchScenarioSample(scenario, mergedVars, fetchBase, {
         fetchHostEnabled: !!scenario.fetchHostEnabled,
@@ -104,7 +114,7 @@ export function useWorkflowExtractionSample(opts: UseWorkflowExtractionSampleOpt
       setExtractionFetching(false);
     }
   }, [
-    selectedNode, workflowVariables, runVariableSnapshot, nodes,
+    selectedNode, configModalNode, workflowVariables, runVariableSnapshot, nodes,
     microservices, resolvedBaseUrl, selectedEnvId, workflowHostProfiles, workflowServices,
     nodeInitialVarsRef, setExtractionSampleJson, setExtractionFetching, setExtractionFetchError,
   ]);

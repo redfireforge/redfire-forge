@@ -289,9 +289,12 @@
   border-left: 1px solid var(--border);
 }
 
-.dm-panel--source .dm-tree-container,
 .dm-panel--target .dm-tree-container {
   overflow-x: auto;
+}
+
+.dm-panel--source .dm-tree-container {
+  overflow-x: hidden;
 }
 
 .dm-panel-header {
@@ -775,7 +778,7 @@
   cursor: default;
   transition: background 0.08s;
   outline: none;
-  overflow: visible;
+  overflow: hidden;
 }
 
 .dm-tree-node:hover {
@@ -909,7 +912,7 @@
 .dm-tree-node--source .dm-node-key {
   max-width: none;
   flex: 1 1 0;
-  min-width: 60px;
+  min-width: 0;
 }
 
 .dm-tree-node--source .dm-node-sample-value {
@@ -999,17 +1002,21 @@
 /* 11A.5a — source multi-select checkbox (left of type pill) */
 .dm-source-checkbox {
   appearance: none;
+  -webkit-appearance: none;
   width: 13px;
+  min-width: 13px;
+  max-width: 13px;
   height: 13px;
   border: 1.5px solid var(--border, #3b4a60);
   border-radius: 3px;
   background: transparent;
   margin: 0 4px 0 0;
-  flex-shrink: 0;
+  flex: 0 0 13px;
   cursor: pointer;
   transition: border-color 0.12s, background 0.12s;
   position: relative;
   outline: none;
+  box-sizing: border-box;
 }
 .dm-source-checkbox:checked {
   background: var(--success, #22c55e);

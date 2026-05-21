@@ -1,15 +1,22 @@
 /**
  * @vitest-environment jsdom
+ *
+ * HttpConfig — basic rendering, headers, URL preview, services, variable hints.
+ *
+ * Interactive / callback paths (variable insertion, ParamsEditor callbacks,
+ * body builder, validation, data source, spec version, mapper, URL hydration)
+ * live in `HttpConfig.interactions.test.tsx`. Shared factories live in
+ * `__test-utils__/httpConfigTestHelpers.tsx`.
  */
 import '@testing-library/jest-dom';
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import HttpConfig from './HttpConfig';
-import { HttpNodeData, WorkflowService } from '../../types/workflow';
+import { WorkflowService } from '../../types/workflow';
 import { Scenario, KeyValue } from '../../../../shared/types';
+import { makeHttpData, makeScenario, makeDefaultProps } from './__test-utils__/httpConfigTestHelpers';
 
-// Mock ExpressionInput with ref forwarding for cursor-based insertion tests
 vi.mock('../expression/ExpressionInput', () => ({
   __esModule: true,
   default: React.forwardRef(({ value, onChange, placeholder, className }: { value: string; onChange: (v: string) => void; placeholder?: string; className?: string }, ref: React.Ref<HTMLInputElement>) => (
@@ -26,25 +33,8 @@ vi.mock('../expression/ExpressionTextarea', () => ({
 
 vi.mock('../../../../shared/components/data-mapper/BodyBuilderPanel', () => ({
   __esModule: true,
-  default: function MockBodyBuilder({
-    onBodyChange,
-    onMappingsChange,
-    onBodyTypeChange,
-    onBodyFormChange,
-  }: {
-    onBodyChange: (v: string) => void;
-    onMappingsChange: (m: unknown[]) => void;
-    onBodyTypeChange: (t: 'json' | 'form-urlencoded' | 'form-data' | 'text' | 'xml' | 'none' | 'file') => void;
-    onBodyFormChange: (f: { key: string; value: string }[]) => void;
-  }) {
-    return (
-      <div data-testid="mock-body-builder">
-        <button type="button" onClick={() => onBodyChange('{"mb":1}')}>bb-body</button>
-        <button type="button" onClick={() => onMappingsChange([])}>bb-mappings</button>
-        <button type="button" onClick={() => onBodyTypeChange('form-urlencoded')}>bb-type</button>
-        <button type="button" onClick={() => onBodyFormChange([])}>bb-form</button>
-      </div>
-    );
+  default: function MockBodyBuilder() {
+    return <div data-testid="mock-body-builder" />;
   },
 }));
 
@@ -52,13 +42,7 @@ vi.mock('../../../../shared/components/data-mapper', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../../../shared/components/data-mapper')>();
   return {
     ...actual,
-    DataMapperModal: function MockVarMapperModal({
-      onSave,
-      onCancel,
-    }: {
-      onSave: () => void;
-      onCancel: () => void;
-    }) {
+    DataMapperModal: function MockVarMapperModal({ onSave, onCancel }: { onSave: () => void; onCancel: () => void }) {
       return (
         <div data-testid="mock-var-mapper-modal">
           <button type="button" onClick={() => onSave()}>var-mapper-save</button>
@@ -69,72 +53,24 @@ vi.mock('../../../../shared/components/data-mapper', async (importOriginal) => {
   };
 });
 
-// Mock ExtractionEditor to expose props for testing
-let lastExtractionEditorProps: Record<string, unknown> = {};
 vi.mock('../../../requests/components/ExtractionEditor', () => ({
   __esModule: true,
-  default: vi.fn().mockImplementation((props: Record<string, unknown>) => {
-    lastExtractionEditorProps = props;
-    return <div data-testid="extraction-editor">ExtractionEditor</div>;
-  }),
+  default: vi.fn().mockImplementation(() => <div data-testid="extraction-editor">ExtractionEditor</div>),
 }));
 
-// Mock ParamsEditor to expose props
-let lastParamsEditorProps: Record<string, unknown> = {};
 vi.mock('../../../requests/components/ParamsEditor', () => ({
   __esModule: true,
-  ParamsEditor: vi.fn().mockImplementation((props: Record<string, unknown>) => {
-    lastParamsEditorProps = props;
-    return <div data-testid="params-editor">QUERY PARAMETERS</div>;
-  }),
+  ParamsEditor: vi.fn().mockImplementation(() => <div data-testid="params-editor">QUERY PARAMETERS</div>),
 }));
 
 vi.mock('../../../scenarios/components/DataSourceEditor', () => ({
   __esModule: true,
-  default: vi.fn().mockImplementation((props: Record<string, unknown>) => (
-    <div data-testid="data-source-editor">
-      <button
-        type="button"
-        onClick={() => (props.onDraftChange as (p: Partial<Scenario>) => void)({ url: '/from-ds' })}
-      >
-        ds-patch-draft
-      </button>
-    </div>
-  )),
+  default: vi.fn().mockImplementation(() => <div data-testid="data-source-editor" />),
 }));
 
-function makeScenario(overrides: Partial<Scenario> = {}): Scenario {
-  return {
-    id: 's1',
-    name: 'Test Scenario',
-    url: '/api/users',
-    method: 'GET',
-    headers: [{ key: '', value: '' }],
-    body: '',
-    auth: { type: 'none' },
-    validation: {},
-    ...overrides,
-  } as Scenario;
-}
+const defaultProps = makeDefaultProps();
 
-function makeHttpData(overrides: Partial<HttpNodeData> = {}): HttpNodeData {
-  return {
-    label: 'Get Users',
-    scenario: makeScenario(),
-    ...overrides,
-  } as HttpNodeData;
-}
-
-const defaultProps = {
-  data: makeHttpData(),
-  onChange: vi.fn() as ReturnType<typeof vi.fn>,
-  activeTab: 'url' as const,
-  onTabChange: vi.fn(),
-  effectiveQuickTestBaseUrl: 'http://localhost:3000',
-  onRequestVariableInsert: vi.fn(),
-};
-
-describe('HttpConfig', () => {
+describe('HttpConfig — basic rendering', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -273,7 +209,6 @@ describe('HttpConfig', () => {
     expect(insertBtns.length).toBeGreaterThanOrEqual(1);
   });
 
-  // --- Header interactions ---
   it('removes a header when × is clicked', () => {
     const onChange = vi.fn();
     const headers: KeyValue[] = [{ key: 'X-Custom', value: 'val' }];
@@ -308,7 +243,6 @@ describe('HttpConfig', () => {
     expect(onRequestVariableInsert).toHaveBeenCalled();
   });
 
-  // --- Body tab ---
   it('updates body on textarea change', () => {
     const onChange = vi.fn();
     render(<HttpConfig {...defaultProps} activeTab="body" onChange={onChange} />);
@@ -324,7 +258,6 @@ describe('HttpConfig', () => {
     expect(onRequestVariableInsert).toHaveBeenCalled();
   });
 
-  // --- URL Insert variable ---
   it('calls onRequestVariableInsert for URL Insert button', () => {
     const onRequestVariableInsert = vi.fn();
     render(<HttpConfig {...defaultProps} onRequestVariableInsert={onRequestVariableInsert} />);
@@ -333,7 +266,6 @@ describe('HttpConfig', () => {
     expect(onRequestVariableInsert).toHaveBeenCalled();
   });
 
-  // --- Service select ---
   it('clears serviceId when None is selected', () => {
     const onChange = vi.fn();
     const services: WorkflowService[] = [
@@ -345,7 +277,6 @@ describe('HttpConfig', () => {
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ serviceId: undefined }));
   });
 
-  // --- Tab badges ---
   it('shows extraction badge when extractions exist', () => {
     const data = makeHttpData({ scenario: makeScenario({ extractions: [{ variable: 'x', source: 'body', expression: '$.id' }] }) });
     render(<HttpConfig {...defaultProps} data={data} />);
@@ -360,7 +291,6 @@ describe('HttpConfig', () => {
     expect(badges.length).toBeGreaterThanOrEqual(1);
   });
 
-  // --- Variable hints ---
   it('renders variable hints when provided', () => {
     render(<HttpConfig {...defaultProps} activeTab="url" variableHints={[
       { ref: 'userId', label: 'User ID', type: 'string', description: 'The user ID' },
@@ -385,15 +315,12 @@ describe('HttpConfig', () => {
     expect(screen.queryByText(/Variables you can paste/)).toBeNull();
   });
 
-  // --- URL with query params ---
   it('parses query params from URL', () => {
     const data = makeHttpData({ scenario: makeScenario({ url: '/api/users?page=1&limit=10' }) });
     render(<HttpConfig {...defaultProps} activeTab="url" data={data} />);
-    // ParamsEditor renders the parsed params
     expect(screen.getByText('QUERY PARAMETERS')).toBeTruthy();
   });
 
-  // --- URL preview for absolute URLs ---
   it('shows absolute URL as-is in preview', () => {
     const data = makeHttpData({ scenario: makeScenario({ url: 'https://api.example.com/users' }) });
     render(<HttpConfig {...defaultProps} data={data} />);
@@ -401,15 +328,12 @@ describe('HttpConfig', () => {
     expect(urlPreview?.textContent).toBe('https://api.example.com/users');
   });
 
-  // --- Template variable decoding ---
   it('decodes percent-encoded template vars in URL display', () => {
     const data = makeHttpData({ scenario: makeScenario({ url: '/api/users?id=%7B%7BuserId%7D%7D' }) });
     render(<HttpConfig {...defaultProps} data={data} />);
-    // The component should decode the encoded template vars
     expect(document.querySelector('.wf-config-last-req-url-value')?.textContent).toContain('userId');
   });
 
-  // --- URL preview edge cases ---
   it('shows base URL as preview when URL is empty', () => {
     const data = makeHttpData({ scenario: makeScenario({ url: '' }) });
     render(<HttpConfig {...defaultProps} data={data} effectiveQuickTestBaseUrl="http://localhost:3000" />);
@@ -460,7 +384,6 @@ describe('HttpConfig', () => {
     const onChange = vi.fn();
     const data = makeHttpData({ scenario: makeScenario({ url: '/api?key=val' }) });
     render(<HttpConfig {...defaultProps} activeTab="url" data={data} onChange={onChange} />);
-    // The ParamsEditor should be rendered
     expect(screen.getByText('QUERY PARAMETERS')).toBeTruthy();
   });
 
@@ -478,165 +401,18 @@ describe('HttpConfig', () => {
     expect(onRequest).toHaveBeenCalledWith(expect.any(Function), true);
   });
 
-  // --- URL Insert callback with cursor position ---
-  it('inserts variable at cursor position in URL', () => {
-    const onChange = vi.fn();
-    const onRequest = vi.fn();
-    const data = makeHttpData({ scenario: makeScenario({ url: '/api/users' }) });
-    render(<HttpConfig {...defaultProps} data={data} onChange={onChange} onRequestVariableInsert={onRequest} />);
-
-    const insertBtns = screen.getAllByText('Insert…');
-    fireEvent.click(insertBtns[0]);
-
-    // Get the apply callback from onRequestVariableInsert
-    const applyFn = onRequest.mock.calls[0][0] as (snippet: string) => void;
-
-    // Simulate cursor at position 4 in the URL input
-    const urlInput = document.querySelector('.wf-config-url-input') as HTMLInputElement;
-    if (urlInput) {
-      Object.defineProperty(urlInput, 'selectionStart', { value: 4, writable: true });
-      Object.defineProperty(urlInput, 'selectionEnd', { value: 4, writable: true });
-    }
-
-    applyFn('{{userId}}');
-    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({
-      scenario: expect.objectContaining({
-        url: '/api{{userId}}/users',
-      }),
-    }));
+  it('handles malformed URL gracefully in query params', () => {
+    const data = makeHttpData({ scenario: makeScenario({ url: '/api?' }) });
+    render(<HttpConfig {...defaultProps} activeTab="url" data={data} />);
+    expect(screen.getByTestId('params-editor')).toBeTruthy();
   });
 
-  it('appends variable to URL when no cursor position', () => {
-    const onChange = vi.fn();
-    const onRequest = vi.fn();
-    const data = makeHttpData({ scenario: makeScenario({ url: '/api/path' }) });
-    render(<HttpConfig {...defaultProps} data={data} onChange={onChange} onRequestVariableInsert={onRequest} />);
-
-    const insertBtns = screen.getAllByText('Insert…');
-    fireEvent.click(insertBtns[0]);
-
-    const applyFn = onRequest.mock.calls[0][0] as (snippet: string) => void;
-
-    // Make selectionStart unavailable
-    const urlInput = document.querySelector('.wf-config-url-input') as HTMLInputElement;
-    if (urlInput) {
-      Object.defineProperty(urlInput, 'selectionStart', { value: null, writable: true });
-    }
-
-    applyFn('{{token}}');
-    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({
-      scenario: expect.objectContaining({
-        url: '/api/path{{token}}',
-      }),
-    }));
+  it('shows raw editor and Data Mapper button on body tab', () => {
+    render(<HttpConfig {...defaultProps} activeTab="body" />);
+    expect(screen.getByTestId('expression-textarea')).toBeTruthy();
+    expect(screen.getByText('⚡ Data Mapper')).toBeTruthy();
   });
 
-  // --- ParamsEditor onChange callback ---
-  it('handles param changes via ParamsEditor onChange', () => {
-    const onChange = vi.fn();
-    const data = makeHttpData({ scenario: makeScenario({ url: '/api?key=val' }) });
-    render(<HttpConfig {...defaultProps} activeTab="url" data={data} onChange={onChange} />);
-
-    const paramsOnChange = lastParamsEditorProps.onChange as (entries: { key: string; value: string; enabled: boolean; description: string }[]) => void;
-    paramsOnChange([
-      { key: 'page', value: '1', enabled: true, description: '' },
-      { key: '', value: '', enabled: true, description: '' },
-    ]);
-
-    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({
-      scenario: expect.objectContaining({
-        url: expect.stringContaining('page=1'),
-      }),
-    }));
-  });
-
-  it('handles param changes that rebuild URL with template vars', () => {
-    const onChange = vi.fn();
-    const data = makeHttpData({ scenario: makeScenario({ url: '/api?id=123' }) });
-    render(<HttpConfig {...defaultProps} activeTab="url" data={data} onChange={onChange} />);
-
-    const paramsOnChange = lastParamsEditorProps.onChange as (entries: { key: string; value: string; enabled: boolean; description: string }[]) => void;
-    paramsOnChange([
-      { key: 'id', value: '{{userId}}', enabled: true, description: '' },
-    ]);
-
-    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({
-      scenario: expect.objectContaining({
-        url: '/api?id={{userId}}',
-      }),
-    }));
-  });
-
-  it('handles params with all empty trailing rows', () => {
-    const onChange = vi.fn();
-    const data = makeHttpData({ scenario: makeScenario({ url: '/api?a=1' }) });
-    render(<HttpConfig {...defaultProps} activeTab="url" data={data} onChange={onChange} />);
-
-    const paramsOnChange = lastParamsEditorProps.onChange as (entries: { key: string; value: string; enabled: boolean; description: string }[]) => void;
-    paramsOnChange([
-      { key: 'a', value: '1', enabled: true, description: '' },
-      { key: '', value: '', enabled: true, description: '' },
-      { key: '', value: '', enabled: true, description: '' },
-    ]);
-
-    expect(onChange).toHaveBeenCalled();
-  });
-
-  // --- ParamsEditor onInsertVariable callback ---
-  it('calls onInsertVariable via ParamsEditor', () => {
-    const onRequest = vi.fn();
-    const data = makeHttpData({ scenario: makeScenario({ url: '/api?key=val' }) });
-    render(<HttpConfig {...defaultProps} activeTab="url" data={data} onRequestVariableInsert={onRequest} />);
-
-    const onInsertVariable = lastParamsEditorProps.onInsertVariable as (rowIndex: number, paramKey: string) => void;
-    onInsertVariable(0, 'key');
-
-    expect(onRequest).toHaveBeenCalledWith(expect.any(Function), false, 'key');
-
-    // Invoke the apply function to ensure the param is updated
-    const applyFn = onRequest.mock.calls[0][0] as (snippet: string) => void;
-    applyFn('{{token}}');
-  });
-
-  // --- Header Insert button invokes apply callback ---
-  it('header Insert button apply callback updates header value', () => {
-    const onChange = vi.fn();
-    const onRequest = vi.fn();
-    const headers: KeyValue[] = [{ key: 'Auth', value: 'Bearer old' }];
-    render(<HttpConfig {...defaultProps} activeTab="headers" onChange={onChange} onRequestVariableInsert={onRequest} data={makeHttpData({ scenario: makeScenario({ headers }) })} />);
-
-    const insertBtns = screen.getAllByText('Insert…');
-    fireEvent.click(insertBtns[insertBtns.length - 1]);
-
-    const applyFn = onRequest.mock.calls[0][0] as (snippet: string) => void;
-    applyFn('{{authToken}}');
-
-    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({
-      scenario: expect.objectContaining({
-        headers: [{ key: 'Auth', value: '{{authToken}}' }],
-      }),
-    }));
-  });
-
-  // --- Body insert variable apply callback ---
-  it('body Insert variable button apply callback appends to body', () => {
-    const onChange = vi.fn();
-    const onRequest = vi.fn();
-    const data = makeHttpData({ scenario: makeScenario({ body: '{"key": "' }) });
-    render(<HttpConfig {...defaultProps} activeTab="body" onChange={onChange} onRequestVariableInsert={onRequest} data={data} />);
-
-    fireEvent.click(screen.getByText('Insert variable…'));
-    const applyFn = onRequest.mock.calls[0][0] as (snippet: string) => void;
-    applyFn('{{value}}');
-
-    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({
-      scenario: expect.objectContaining({
-        body: '{"key": "{{value}}',
-      }),
-    }));
-  });
-
-  // --- Data tab ---
   it('renders DataSourceEditor when activeTab=data', () => {
     render(<HttpConfig {...defaultProps} activeTab="data" />);
     expect(screen.getByTestId('data-source-editor')).toBeTruthy();
@@ -652,170 +428,12 @@ describe('HttpConfig', () => {
             { id: 'r2', enabled: false, values: { c1: 'v2' } },
           ],
         },
-      }),
+      } as Partial<Scenario>),
     });
     render(<HttpConfig {...defaultProps} data={data} />);
     const badges = document.querySelectorAll('.tab-badge');
     const badgeTexts = Array.from(badges).map(b => b.textContent);
     expect(badgeTexts).toContain('1');
-  });
-
-  // --- Extract tab with full fetchSample host config ---
-  it('passes fetchSample host config to ExtractionEditor', () => {
-    const onChange = vi.fn();
-    const data = makeHttpData({ scenario: makeScenario({ fetchHostEnabled: true, fetchHostOverride: 'http://custom' }) });
-    render(<HttpConfig {...defaultProps} activeTab="extract" data={data} onChange={onChange}
-      extractionFetchSample={{ onFetch: vi.fn(), fetching: false, error: null }}
-      effectiveQuickTestBaseUrl="http://base.url"
-    />);
-
-    // The ExtractionEditor should receive fetchSample with host
-    const fetchSample = lastExtractionEditorProps.fetchSample as Record<string, unknown>;
-    expect(fetchSample).toBeTruthy();
-    const host = fetchSample.host as Record<string, unknown>;
-    expect(host.enabled).toBe(true);
-    expect(host.override).toBe('http://custom');
-    expect(host.resolvedBaseUrl).toBe('http://base.url');
-
-    // Test setEnabled
-    (host.setEnabled as (v: boolean) => void)(false);
-    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({
-      scenario: expect.objectContaining({ fetchHostEnabled: false }),
-    }));
-
-    // Test setOverride
-    onChange.mockClear();
-    (host.setOverride as (v: string) => void)('http://new-host');
-    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({
-      scenario: expect.objectContaining({ fetchHostOverride: 'http://new-host' }),
-    }));
-  });
-
-  // --- parseQueryParams edge cases ---
-  it('handles malformed URL gracefully in query params', () => {
-    // decodeURIComponent would throw on %E0%A4%A (invalid) but URLSearchParams handles it
-    const data = makeHttpData({ scenario: makeScenario({ url: '/api?' }) });
-    render(<HttpConfig {...defaultProps} activeTab="url" data={data} />);
-    expect(screen.getByTestId('params-editor')).toBeTruthy();
-  });
-
-  // --- encodeQueryPart with template vars ---
-  it('does not encode query key/value containing template vars', () => {
-    const onChange = vi.fn();
-    const data = makeHttpData({ scenario: makeScenario({ url: '/api' }) });
-    render(<HttpConfig {...defaultProps} activeTab="url" data={data} onChange={onChange} />);
-
-    const paramsOnChange = lastParamsEditorProps.onChange as (entries: { key: string; value: string; enabled: boolean; description: string }[]) => void;
-    paramsOnChange([
-      { key: '{{paramName}}', value: '{{paramValue}}', enabled: true, description: '' },
-    ]);
-
-    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({
-      scenario: expect.objectContaining({
-        url: '/api?{{paramName}}={{paramValue}}',
-      }),
-    }));
-  });
-
-  // --- disabled params excluded from rebuild ---
-  it('excludes disabled params from rebuilt URL', () => {
-    const onChange = vi.fn();
-    const data = makeHttpData({ scenario: makeScenario({ url: '/api?a=1' }) });
-    render(<HttpConfig {...defaultProps} activeTab="url" data={data} onChange={onChange} />);
-
-    const paramsOnChange = lastParamsEditorProps.onChange as (entries: { key: string; value: string; enabled: boolean; description: string }[]) => void;
-    paramsOnChange([
-      { key: 'a', value: '1', enabled: false, description: '' },
-      { key: 'b', value: '2', enabled: true, description: '' },
-    ]);
-
-    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({
-      scenario: expect.objectContaining({
-        url: '/api?b=2',
-      }),
-    }));
-  });
-
-  it('encodes query key and value without template vars', () => {
-    const onChange = vi.fn();
-    const data = makeHttpData({ scenario: makeScenario({ url: '/api' }) });
-    render(<HttpConfig {...defaultProps} activeTab="url" data={data} onChange={onChange} />);
-
-    const paramsOnChange = lastParamsEditorProps.onChange as (entries: { key: string; value: string; enabled: boolean; description: string }[]) => void;
-    paramsOnChange([
-      { key: 'q', value: 'hello world', enabled: true, description: '' },
-    ]);
-
-    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({
-      scenario: expect.objectContaining({
-        url: '/api?q=hello%20world',
-      }),
-    }));
-  });
-
-  it('shows raw editor and Data Mapper button on body tab', () => {
-    render(<HttpConfig {...defaultProps} activeTab="body" />);
-    expect(screen.getByTestId('expression-textarea')).toBeTruthy();
-    expect(screen.getByText('⚡ Data Mapper')).toBeTruthy();
-  });
-
-  it('updates extractions via ExtractionEditor onChange', () => {
-    const onChange = vi.fn();
-    render(<HttpConfig {...defaultProps} activeTab="extract" onChange={onChange} />);
-    const patch = [{ name: 'v1', source: 'body' as const, expression: '$.id' }];
-    (lastExtractionEditorProps.onChange as (e: typeof patch) => void)(patch);
-    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({
-      scenario: expect.objectContaining({ extractions: patch }),
-    }));
-  });
-
-  it('forwards DataSourceEditor draft updates through update()', () => {
-    const onChange = vi.fn();
-    render(<HttpConfig {...defaultProps} activeTab="data" onChange={onChange} />);
-    fireEvent.click(screen.getByText('ds-patch-draft'));
-    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({
-      scenario: expect.objectContaining({ url: '/from-ds' }),
-    }));
-  });
-
-  it('opens and closes variable binding mapper when template slots exist', () => {
-    const onChange = vi.fn();
-    const data = makeHttpData({ scenario: makeScenario({ url: 'https://api/x/{{orderId}}/y' }) });
-    render(<HttpConfig {...defaultProps} data={data} onChange={onChange} />);
-    fireEvent.click(screen.getByRole('button', { name: /Visual Variables/ }));
-    expect(screen.getByTestId('mock-var-mapper-modal')).toBeTruthy();
-    fireEvent.click(screen.getByText('var-mapper-save'));
-    expect(screen.queryByTestId('mock-var-mapper-modal')).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: /Visual Variables/ }));
-    fireEvent.click(screen.getByText('var-mapper-cancel'));
-    expect(screen.queryByTestId('mock-var-mapper-modal')).toBeNull();
-  });
-
-  it('shows catalog pinning controls whenever a spec linkage exists', () => {
-    const onChange = vi.fn();
-    const data = makeHttpData({
-      sourceSpecVersionId: 'spec-1',
-      specVersionMode: 'latest',
-      sourceSpecVersionLabel: '3.4.5',
-    });
-    render(<HttpConfig {...defaultProps} data={data} onChange={onChange} />);
-    const modeSelect = document.querySelector('.wf-config-version-select') as HTMLSelectElement;
-    expect(modeSelect).toBeTruthy();
-    expect(modeSelect.value).toBe('latest');
-    fireEvent.change(modeSelect, { target: { value: 'pinned' } });
-    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ specVersionMode: 'pinned' }));
-    expect(document.querySelector('.wf-config-version-label')?.textContent).toContain('3.4.5');
-  });
-
-  it('renders pinned copy without supplementary label badges when unspecified', () => {
-    const data = makeHttpData({
-      sourceSpecVersionId: 'spec-2',
-      specVersionMode: 'pinned',
-    });
-    render(<HttpConfig {...defaultProps} data={data} />);
-    const pinned = Array.from(document.querySelectorAll('.wf-config-version-select option')).find(o => o.value === 'pinned');
-    expect(pinned?.textContent).toBe('Pinned');
-    expect(document.querySelector('.wf-config-version-label')).toBeNull();
   });
 
   it('omits datatype chips for minimalist variable hints', () => {
@@ -825,22 +443,5 @@ describe('HttpConfig', () => {
     const row = container.querySelector('.wf-http-var-hints-item');
     expect(row).toBeTruthy();
     expect(row?.querySelector('.wf-http-var-hints-type')).toBeNull();
-  });
-
-  it('uses plural copy when multiple upstream template slots are detected', () => {
-    const data = makeHttpData({ scenario: makeScenario({ url: 'https://svc/{{slotA}}/x/{{slotB}}/y' }) });
-    render(<HttpConfig {...defaultProps} data={data} />);
-    expect(screen.getByRole('button', { name: /Visual Variables \(2 slots\)/ })).toBeInTheDocument();
-  });
-
-  it('normalizes percent-encoded braces via onChange hydration', async () => {
-    const onChange = vi.fn();
-    const encoded = '/api/route?marker=%7B%7Bx%7D%7D';
-    render(<HttpConfig {...defaultProps} data={makeHttpData({ scenario: makeScenario({ url: encoded }) })} onChange={onChange} />);
-    await waitFor(() =>
-      expect(onChange).toHaveBeenCalledWith(
-        expect.objectContaining({ scenario: expect.objectContaining({ url: '/api/route?marker={{x}}' }) }),
-      ),
-    );
   });
 });
