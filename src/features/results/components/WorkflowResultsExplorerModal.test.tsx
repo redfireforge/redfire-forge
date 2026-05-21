@@ -5,202 +5,59 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, cleanup, fireEvent, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
-import { WorkflowExecutionTrace } from '../../../shared/types';
-import { BottleneckInsight } from '../utils/bottleneckAnalysis';
+import type { WorkflowExecutionTrace } from '../../../shared/types';
+import type { BottleneckInsight } from '../utils/bottleneckAnalysis';
 
 import { stubResizeObserver } from '../../../test-utils/domMocks';
+import {
+  mockTrace,
+  makeMockConsolePanel,
+  makeMockCanvas,
+  makeMockDetailPanel,
+  makeMockIterationMatrix,
+  openExportMenu,
+} from './__test-utils__/workflowResultsExplorerTestHelpers';
 
 stubResizeObserver();
-
-vi.mock('@xyflow/react', async () => {
-  const h = await import('../../../test-utils/reactFlowMock');
-  return h.buildReactFlowMock();
-});
 
 const lastCanvasTraceRef = vi.hoisted<{ current: WorkflowExecutionTrace | null }>(() => ({ current: null }));
 const lastBottleneckCallbackRef = vi.hoisted<{
   current: ((insights: BottleneckInsight[]) => void) | null;
 }>(() => ({ current: null }));
 
-const mockCaptureScreenshot = vi.fn(() => Promise.resolve('data:image/png;base64,mockdata'));
-const mockCaptureSvg = vi.fn(() => Promise.resolve('data:image/svg+xml;charset=utf-8,%3Csvg%3E%3C/svg%3E'));
-
-vi.mock('./ResultsExplorerConsolePanel', () => ({
-  default: ({
-    captureLevel,
-    iteration,
-    onNodeSelect,
-    onClose,
-  }: {
-    captureLevel?: string;
-    iteration?: unknown;
-    onNodeSelect?: (id: string) => void;
-    onClose?: () => void;
-  }) => (
-    <div
-      data-testid="mock-console-panel"
-      data-capture-level={captureLevel ?? ''}
-      data-has-iteration={iteration != null ? '1' : '0'}
-    >
-      <button type="button" data-testid="mock-console-select-node" onClick={() => onNodeSelect?.('n2')}>
-        Console pick n2
-      </button>
-      <button type="button" data-testid="mock-console-close" onClick={() => onClose?.()}>
-        Close console
-      </button>
-    </div>
+const {
+  mockCaptureScreenshot,
+  mockCaptureSvg,
+  mockSaveJsonFile,
+  mockSaveCsvFile,
+  mockSavePngFile,
+  mockSaveSvgFile,
+  mockBuildExportFilename,
+} = vi.hoisted(() => ({
+  mockCaptureScreenshot: vi.fn(() => Promise.resolve('data:image/png;base64,mockdata')),
+  mockCaptureSvg: vi.fn(() => Promise.resolve('data:image/svg+xml;charset=utf-8,%3Csvg%3E%3C/svg%3E')),
+  mockSaveJsonFile: vi.fn(),
+  mockSaveCsvFile: vi.fn(),
+  mockSavePngFile: vi.fn(),
+  mockSaveSvgFile: vi.fn(),
+  mockBuildExportFilename: vi.fn(({ level, name, ext }: { level: string; name?: string; ext?: string }) =>
+    `${level}-${name || 'unknown'}.${ext || 'json'}`,
   ),
 }));
 
-vi.mock('./WorkflowExecutionCanvas', async () => {
-  const React = await import('react');
-  function MockCanvas(props: {
-      trace: import('../../../shared/types').WorkflowExecutionTrace;
-      fitViewTrigger?: number;
-      onNodeClick?: (nodeId: string) => void;
-      onNodeDoubleClick?: (nodeId: string) => void;
-      onToggleMinimap?: () => void;
-      onBottlenecksComputed?: (insights: import('../utils/bottleneckAnalysis').BottleneckInsight[]) => void;
-      onScreenshotReady?: (fn: () => Promise<string>) => void;
-      onSvgReady?: (fn: () => Promise<string>) => void;
-      onForkJoinDetected?: (topology: import('../utils/forkJoinDetection').ForkJoinTopology) => void;
-    }) {
-      const { trace, onBottlenecksComputed, onForkJoinDetected } = props;
-      React.useEffect(() => {
-        lastCanvasTraceRef.current = trace;
-        lastBottleneckCallbackRef.current = onBottlenecksComputed || null;
-      }, [trace, onBottlenecksComputed]);
-
-      React.useEffect(() => {
-        onForkJoinDetected?.({
-          pairs: [],
-          assignments: new Map([['sub1', { forkId: 'f1', joinId: 'j1', branchIndex: 0 }]]),
-        });
-      }, [onForkJoinDetected]);
-
-      if (props.onScreenshotReady) {
-        props.onScreenshotReady(mockCaptureScreenshot);
-      }
-      if (props.onSvgReady) {
-        props.onSvgReady(mockCaptureSvg);
-      }
-      return (
-        <div data-testid="mock-wf-canvas">
-        <span data-testid="canvas-fit-trigger">{props.fitViewTrigger}</span>
-        <button type="button" data-testid="canvas-pick-sub1" onClick={() => props.onNodeClick?.('sub1')}>
-          Pick sub workflow
-        </button>
-        <button type="button" data-testid="canvas-pick-n-name" onClick={() => props.onNodeClick?.('n-name')}>
-          Pick named node
-        </button>
-        <button type="button" data-testid="canvas-pick-bare" onClick={() => props.onNodeClick?.('bare')}>
-          Pick bare node
-        </button>
-        <button type="button" data-testid="canvas-pick-n2" onClick={() => props.onNodeClick?.('n2')}>
-          Pick n2
-        </button>
-        <button type="button" data-testid="canvas-pick-missing" onClick={() => props.onNodeClick?.('ghost-node')}>
-          Pick missing node
-        </button>
-        <button type="button" data-testid="canvas-pick-empty" onClick={() => props.onNodeClick?.('')}>
-          Pick empty id
-        </button>
-        <button type="button" data-testid="canvas-toggle-minimap" onClick={() => props.onToggleMinimap?.()}>
-          Toggle minimap
-        </button>
-        <button type="button" data-testid="canvas-dbl-sub1" onClick={() => props.onNodeDoubleClick?.('sub1')}>
-          Dbl-click sub workflow
-        </button>
-        <button type="button" data-testid="canvas-dbl-n2" onClick={() => props.onNodeDoubleClick?.('n2')}>
-          Dbl-click http node
-        </button>
-        <button type="button" data-testid="canvas-dbl-empty" onClick={() => props.onNodeDoubleClick?.('')}>
-          Dbl-click empty id
-        </button>
-      </div>
-    );
-    }
-  return { default: MockCanvas };
+vi.mock('@xyflow/react', async () => {
+  const h = await import('../../../test-utils/reactFlowMock');
+  return h.buildReactFlowMock();
 });
-
-vi.mock('./ResultsExplorerDetailPanel', () => ({
-  default: ({
-    onClose,
-    onIterationChange,
-    nodeLabel,
-    events,
-    onDrillDown,
-    nodeId,
-    onOpenMapper,
-  }: {
-    onClose?: () => void;
-    onIterationChange?: (i: number) => void;
-    nodeLabel?: string;
-    events?: Array<{ details?: { subWorkflowTrace?: import('../../../shared/types').WorkflowExecutionTrace } }>;
-    onDrillDown?: (childTrace: import('../../../shared/types').WorkflowExecutionTrace, parentNodeId: string) => void;
-    nodeId?: string;
-    onOpenMapper?: (traces: import('../../../shared/components/data-mapper/utils/mappingTrace').MappingTrace[], nodeLabel: string) => void;
-  }) => (
-    <div data-testid="mock-detail-panel">
-      <span data-testid="detail-node-label">{nodeLabel}</span>
-      <span data-testid="detail-events-count" data-count={events?.length ?? 0} />
-      <button type="button" data-testid="detail-close" onClick={() => onClose?.()}>
-        Close detail
-      </button>
-      <button type="button" data-testid="detail-iter-one" onClick={() => onIterationChange?.(1)}>
-        Detail iter 1
-      </button>
-      {onDrillDown && events?.[0]?.details?.subWorkflowTrace && (
-        <button
-          type="button"
-          data-testid="mock-drilldown-btn"
-          onClick={() => onDrillDown(events[0].details!.subWorkflowTrace!, nodeId || '')}
-        >
-          Drill Down
-        </button>
-      )}
-      {onOpenMapper && (
-        <button
-          type="button"
-          data-testid="mock-open-mapper-btn"
-          onClick={() => onOpenMapper(
-            [{ mappingId: 'm1', sourcePath: 'a.b', sourceId: 's1', targetPath: 'x.y', targetValue: 'val', durationMs: 1.5 }],
-            nodeLabel || 'Test Node',
-          )}
-        >
-          Open in Mapper
-        </button>
-      )}
-    </div>
-  ),
+vi.mock('./ResultsExplorerConsolePanel', () => ({ default: makeMockConsolePanel() }));
+vi.mock('./WorkflowExecutionCanvas', () => ({
+  default: makeMockCanvas(lastCanvasTraceRef, lastBottleneckCallbackRef, {
+    mockCaptureScreenshot,
+    mockCaptureSvg,
+  }),
 }));
-
-vi.mock('./IterationMatrixTable', () => ({
-  default: ({
-    onIterationSelect,
-    onCellSelect,
-  }: {
-    onIterationSelect?: (index: number) => void;
-    onCellSelect?: (iterationIndex: number, nodeId: string) => void;
-  }) => (
-    <div data-testid="mock-iteration-matrix">
-      <button type="button" data-testid="matrix-select-iter-0" onClick={() => onIterationSelect?.(0)}>
-        Matrix iter 0
-      </button>
-      <button type="button" data-testid="matrix-cell-select" onClick={() => onCellSelect?.(1, 'n3')}>
-        Matrix cell
-      </button>
-    </div>
-  ),
-}));
-
-const mockSaveJsonFile = vi.fn();
-const mockSaveCsvFile = vi.fn();
-const mockSavePngFile = vi.fn();
-const mockSaveSvgFile = vi.fn();
-const mockBuildExportFilename = vi.fn(({ level, name, ext }: { level: string; name?: string; ext?: string }) =>
-  `${level}-${name || 'unknown'}.${ext || 'json'}`,
-);
+vi.mock('./ResultsExplorerDetailPanel', () => ({ default: makeMockDetailPanel() }));
+vi.mock('./IterationMatrixTable', () => ({ default: makeMockIterationMatrix() }));
 
 vi.mock('../../../shared/utils/fileSaver', () => ({
   saveJsonFile: (...args: unknown[]) => mockSaveJsonFile(...args),
@@ -212,62 +69,8 @@ vi.mock('../../../shared/utils/fileSaver', () => ({
 
 import WorkflowResultsExplorerModal from './WorkflowResultsExplorerModal';
 
-const mockTrace: WorkflowExecutionTrace = {
-  workflowId: 'wf-1',
-  workflowName: 'Test Workflow',
-  workflowSnapshot: {
-    nodes: [
-      { id: 'n-name', type: 'http', position: { x: 40, y: 0 }, data: { name: 'NameOnly' } },
-      { id: 'bare', type: 'http', position: { x: 35, y: 0 }, data: {} },
-      { id: 'n1', type: 'start', position: { x: 0, y: 0 }, data: { label: 'Start' } },
-      { id: 'n2', type: 'http', position: { x: 100, y: 0 }, data: { label: 'Get Users' } },
-      { id: 'n3', type: 'http', position: { x: 200, y: 0 }, data: { label: 'Create Order' } },
-      { id: 'n4', type: 'end', position: { x: 300, y: 0 }, data: { label: 'End' } },
-    ],
-    edges: [
-      { id: 'e1', source: 'n1', target: 'n2' },
-      { id: 'e2', source: 'n2', target: 'n3' },
-      { id: 'e3', source: 'n3', target: 'n4' },
-    ],
-  },
-  iterations: [
-    {
-      index: 0,
-      passed: true,
-      durationMs: 250,
-      traversedEdges: ['e1', 'e2', 'e3'],
-      events: [
-        { nodeId: 'n1', nodeType: 'start', nodeLabel: 'Start', timestamp: 1000, state: 'pass' },
-        { nodeId: 'n2', nodeType: 'http', nodeLabel: 'Get Users', timestamp: 1100, state: 'pass', durationMs: 120, details: { statusCode: 200, method: 'GET', url: '/api/users' } },
-        { nodeId: 'n3', nodeType: 'http', nodeLabel: 'Create Order', timestamp: 1220, state: 'pass', durationMs: 80, details: { statusCode: 201, method: 'POST', url: '/api/orders' } },
-        { nodeId: 'n4', nodeType: 'end', nodeLabel: 'End', timestamp: 1300, state: 'pass' },
-      ],
-    },
-    {
-      index: 1,
-      passed: false,
-      durationMs: 300,
-      traversedEdges: ['e1', 'e2'],
-      events: [
-        { nodeId: 'n1', nodeType: 'start', nodeLabel: 'Start', timestamp: 2000, state: 'pass' },
-        { nodeId: 'n2', nodeType: 'http', nodeLabel: 'Get Users', timestamp: 2100, state: 'pass', durationMs: 150, details: { statusCode: 200, method: 'GET', url: '/api/users' } },
-        { nodeId: 'n3', nodeType: 'http', nodeLabel: 'Create Order', timestamp: 2250, state: 'fail', durationMs: 50, details: { statusCode: 500, method: 'POST', url: '/api/orders', error: 'Server Error' } },
-      ],
-    },
-  ],
-  traversedEdges: ['e1', 'e2', 'e3'],
-  totalIterations: 2,
-  totalDurationMs: 550,
-  fullTraceCaptured: false,
-};
-
 describe('WorkflowResultsExplorerModal', () => {
   const mockOnClose = vi.fn();
-
-  /** Open the export dropdown so menu items become visible */
-  function openExportMenu() {
-    fireEvent.click(screen.getByTestId('export-dropdown-trigger'));
-  }
 
   beforeEach(() => {
     vi.clearAllMocks();

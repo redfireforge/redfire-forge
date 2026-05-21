@@ -8,6 +8,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
 
 ## [Unreleased]
 
+### Changed
+- **Test Suite Deduplication & Coverage Sweep** — Extracted shared mocks, fixtures, and JSX render helpers into four new `__test-utils__/` modules:
+  - `src/features/test-runner/__test-utils__/workflowRunnerTestHelpers.tsx` — workflow fixtures, `selectWorkflowById`, `makeSummary`, `MultiWebhookStub` (saved ~815 lines across 4 `WorkflowRunner*.test.tsx` files).
+  - `src/features/results/components/__test-utils__/workflowExecutionCanvasTestHelpers.tsx` — mocked ReactFlow render builder, `MiniMap`/`Background`/`Controls` stubs, trace fixture factories, `getLastReactFlowProps` helper (saved ~580 lines across 5 `WorkflowExecutionCanvas*.test.tsx` files).
+  - `src/features/scenarios/components/__test-utils__/dataSourceSetupModalTestHelpers.tsx` — 12 mock-module factories plus scenario factories (saved ~1000 lines across 3 `DataSourceSetupModal*.test.tsx` files).
+  - `src/features/scenarios/components/__test-utils__/dataSourceEditorTestHelpers.tsx` — fixtures + reusable wrappers around `DataSourceGridTable`, `DataSourceToolbar`, `DataSourceRowDetailModal` (saved ~400 lines across 4 `DataSourceEditor*.test.tsx` files).
+  - Net duplication reduction: 22,585 → 18,719 lines (4.48% → 3.73%).
+- **Targeted Coverage Gap Fixes** — Added focused unit tests for `expressionBuilderState.ts` (argValues fallback branch), `curlGenerator.ts` (undefined `bodyForm`), `expressionSnippets.ts` (sort comparator), and `targetTreeBuilder.ts` (bracket-array path parsing). All production files now ≥ 90% on every coverage metric.
+
 ### Added
 - **Trash Box — Soft Delete & Recovery**
   - Deleted Feature Groups, Scenarios, Tests, and Shared Data Sources are moved to a Trash Box instead of permanent deletion.

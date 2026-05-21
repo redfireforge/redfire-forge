@@ -97,14 +97,14 @@ test.describe('Workflow Trigger Nodes', () => {
   });
 
   test('toolbar shows Workflow Variables button instead of Defaults', async ({ page }) => {
-    const varBtn = page.locator('.wf-toolbar-variables-btn', { hasText: 'Workflow Variables' });
+    const varBtn = page.locator('.wf-toolbar-variables-btn', { hasText: 'Variables' });
     await expect(varBtn).toBeVisible();
     // Should NOT show "Defaults"
     await expect(page.locator('.wf-toolbar-services-btn', { hasText: 'Defaults' })).not.toBeVisible();
   });
 
   test('clicking Workflow Variables opens the modal with correct title', async ({ page }) => {
-    const varBtn = page.locator('.wf-toolbar-variables-btn', { hasText: 'Workflow Variables' });
+    const varBtn = page.locator('.wf-toolbar-variables-btn', { hasText: 'Variables' });
     await varBtn.click();
 
     // Modal should show "Workflow Variables" as title

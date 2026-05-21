@@ -5,6 +5,11 @@ import { type ComponentProps } from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import DataSourceEditor from './DataSourceEditor';
+import {
+  makeScenario,
+  makeDataSource,
+  makeDataTransferWithId as _makeDataTransferWithId,
+} from './__test-utils__/dataSourceEditorTestHelpers';
 import { Scenario, DataSource, SharedDataSource, DataSourceColumn, DataSourceRow } from '../../../shared/types';
 vi.mock('uuid', () => ({ v4: () => `uuid-${Math.random().toString(36).slice(2, 8)}` }));
 
@@ -122,88 +127,21 @@ vi.mock('../../../shared/components/data-mapper', async (importOriginal) => {
 
 /** @deprecated Old PopulateFromApiModal mock removed — now using DataMapperModal mock above. */
 
-vi.mock('./DataSourceRowDetailModal', () => ({
-  default: function MockDataSourceRowDetailModal({
-    onSave,
-    onClose,
-    row,
-  }: {
-    onSave: (updatedRow: DataSourceRow, newColumns?: DataSourceColumn[]) => void;
-    onClose: () => void;
-    row: DataSourceRow;
-    draft: Scenario;
-    dataTable: DataSource;
-    rowIndex: number;
-    onFetchRow?: unknown;
-  }) {
-    return (
-      <div className="data-source-row-detail-modal">
-        <button type="button" onClick={() => onSave({ ...row, label: 'from-modal' })}>Save</button>
-        <button
-          type="button"
-          onClick={() =>
-            onSave(
-              { ...row, values: { ...row.values, 'new-val-col': '' } },
-              [{ id: 'new-val-col', name: 'n1', type: 'validate', mapping: '$.x' }],
-            )}
-        >
-          Save With New Columns
-        </button>
-        <button type="button" onClick={onClose}>Close Row Detail</button>
-      </div>
-    );
-  },
-}));
+vi.mock('./DataSourceRowDetailModal', async () => {
+  const h = await import('./__test-utils__/dataSourceEditorTestHelpers');
+  return { default: h.MockDataSourceRowDetailModal };
+});
 
 vi.mock('./DataSourceGridTable', async (importOriginal) => {
   const actual = await importOriginal<typeof import('./DataSourceGridTable')>();
-  const Grid = actual.default;
-  return {
-    default: function DataSourceGridTableWithGhostRowProbe(props: ComponentProps<typeof Grid>) {
-      return (
-        <>
-          <button
-            type="button"
-            data-testid="probe-open-row-detail-ghost"
-            style={{ position: 'absolute', left: -3200, width: 1, height: 1, overflow: 'hidden' }}
-            onClick={() => props.setEditingRowId('no-such-row-id')}
-          >
-            probe ghost row detail
-          </button>
-          <Grid {...props} />
-        </>
-      );
-    },
-  };
+  const h = await import('./__test-utils__/dataSourceEditorTestHelpers');
+  return { default: h.buildDataSourceGridTableWrapper(actual.default) };
 });
 
 vi.mock('./DataSourceToolbar', async (importOriginal) => {
-  const { default: DataSourceToolbar } = await importOriginal<typeof import('./DataSourceToolbar')>();
-  return {
-    default: function DataSourceToolbarWithDetachProbe(props: ComponentProps<typeof DataSourceToolbar>) {
-      return (
-        <>
-          <button
-            type="button"
-            data-testid="probe-detach-with-copy"
-            style={{ position: 'absolute', left: -3000, width: 1, height: 1, overflow: 'hidden' }}
-            onClick={() => props.onDetachWithCopy()}
-          >
-            probe detach copy
-          </button>
-          <button
-            type="button"
-            data-testid="probe-show-promote-modal"
-            style={{ position: 'absolute', left: -3100, width: 1, height: 1, overflow: 'hidden' }}
-            onClick={() => props.onShowPromoteModal()}
-          >
-            probe promote modal
-          </button>
-          <DataSourceToolbar {...props} />
-        </>
-      );
-    },
-  };
+  const actual = await importOriginal<typeof import('./DataSourceToolbar')>();
+  const h = await import('./__test-utils__/dataSourceEditorTestHelpers');
+  return { default: h.buildDataSourceToolbarWrapper(actual.default) };
 });
 
 vi.mock('./DataSourceSetupModal', async (importOriginal) => {
@@ -249,46 +187,6 @@ vi.mock('./DataSourceSetupModal', async (importOriginal) => {
   };
 });
 
-function makeScenario(overrides: Partial<Scenario> = {}): Scenario {
-  return {
-    id: 's1',
-    name: 'Test',
-    url: 'https://api.example.com/api?channel=WEBRNW',
-    method: 'GET',
-    headers: [],
-    body: '',
-    auth: { type: 'none' },
-    validation: { mode: 'none' },
-    ...overrides,
-  };
-}
-
-function makeDataSource(): DataSource {
-  return {
-    id: 'dt1',
-    columns: [
-      { id: 'c1', name: 'vin', type: 'body', mapping: 'vin' },
-      { id: 'c2', name: 'channel', type: 'param', mapping: 'channel' },
-    ],
-    rows: [
-      { id: 'r1', values: { c1: '1GYVUZ', c2: 'WEBRNW' }, enabled: true },
-      { id: 'r2', values: { c1: '2GYVUZ', c2: 'DEALER' }, enabled: true },
-    ],
-    source: { type: 'inline' },
-  };
-}
-
-function _makeDataTransferWithId(id: string): DataTransfer {
-  const store: Record<string, string> = { 'text/plain': id };
-  return {
-    effectAllowed: 'all',
-    dropEffect: 'move',
-    setData: (k: string, v: string) => {
-      store[k] = v;
-    },
-    getData: (k: string) => store[k] ?? '',
-  } as unknown as DataTransfer;
-}
 
 describe('DataSourceEditor', () => {
   beforeEach(() => {
