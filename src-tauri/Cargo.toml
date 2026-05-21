@@ -1,6 +1,6 @@
 [package]
 name = "redfireforge"
-version = "0.5.10-alpha.1"
+version = "0.5.9-beta.2"
 description = "RedfireForge - API Performance Testing Tool"
 authors = ["you"]
 license = "MIT"
