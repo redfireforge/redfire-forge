@@ -155,7 +155,7 @@ export function useWorkflowDesignerControllerPartB(
   }, [selectedNode, microservices, resolvedBaseUrl, workflowHostProfiles, workflowServices, selectedEnvId]);
 
   const { handleExtractionFetchSample } = useWorkflowExtractionSample({
-    selectedNode, selectedId: selected?.id, selectedNodeId,
+    selectedNode, configModalNode, selectedId: selected?.id, selectedNodeId,
     nodes, workflowVariables, runVariableSnapshot, nodeInitialVarsRef,
     microservices, workflowHostProfiles, workflowServices, selectedEnvId, resolvedBaseUrl,
     setExtractionSampleJson, setExtractionFetching, setExtractionFetchError,

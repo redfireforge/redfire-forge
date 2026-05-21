@@ -8,11 +8,11 @@
 ## Positioning & Strategy
 
 > Competitive analysis against k6, Gatling, Locust, Artillery, JMeter, Bruno, Hoppscotch, Postman.
-> Last re-evaluated: 2026-05-18 (v0.5.8 stable on `master`; after completing workflow designer, results explorer with debug console, trace levels, 3-runner architecture, data-driven testing, API catalog with Catalog→Harness integration, validation engine (16 assertion types, 24 operators, 125 functions, array assertions, DSL editor, ASSERT predicates, universal negation), Data Mapper (10 adapters, 8 gallery samples, 12 training manuals), webhook load driver with multi-webhook testing panel, and comprehensive code quality audit (18,323 unit tests, 652 E2E tests, >90% coverage all files)).
+> Last re-evaluated: 2026-05-20 (v0.5.9 stable on `master`; after completing workflow designer, results explorer with debug console, trace levels, 3-runner architecture, data-driven testing, API catalog with Catalog→Harness integration, validation engine (16 assertion types, 24 operators, 125 functions, array assertions, DSL editor, ASSERT predicates, universal negation), Data Mapper (10 adapters, 8 gallery samples, 12 training manuals), webhook load driver with multi-webhook testing panel, **Rust HTTP executor** (reqwest + tokio with full validation engine, 542 Rust tests), **Tier 1 JS throughput optimizations** (connection pool tuning, tick reduction, conditional body parsing), **multi-worker load distribution**, Trash Box soft-delete (on develop), and comprehensive code quality audit (19,633 unit tests, 662 E2E tests, 542 Rust tests, >90% coverage all files)).
 
 ### Identity
 
-RedfireForge is a **visual API testing and workflow automation workbench** — not a raw load generator. Its strength is the intersection of **visual workflow design**, **deep execution observability**, **response validation**, and **moderate load testing** in one integrated tool. No competitor covers this full stack:
+RedfireForge is a **visual API testing and workflow automation workbench** — not a raw load generator. Its strength is the intersection of **visual workflow design**, **deep execution observability**, **response validation**, and **performant load testing** in one integrated tool. No competitor covers this full stack:
 
 | Tool | Visual Workflow | Load Testing | Response Validation | Debug Console | API Catalog | Data-Driven | Desktop Native |
 |---|---|---|---|---|---|---|---|
@@ -25,17 +25,17 @@ RedfireForge is a **visual API testing and workflow automation workbench** — n
 | **Bruno** | No | No | Manual | Console | No | Environments | Yes (Electron) |
 | **Hoppscotch** | No | No | Manual | Console | No | Environments | No |
 | **Postman** | Flows (basic) | Limited (paid) | Good | Console | Partial (paid) | Data files | Yes (Electron) |
-| **RedfireForge** | **Yes (full DAG)** | Good | **Excellent (100%)** | **Full debug console** | **Yes (OpenAPI)** | **CSV/Excel/API** | Yes (Tauri) |
+| **RedfireForge** | **Yes (full DAG)** | **Good (web) / Excellent (Tauri)** | **Excellent (100%)** | **Full debug console** | **Yes (OpenAPI)** | **CSV/Excel/API** | Yes (Tauri) |
 
 ### Key Differentiators
 
-1. **Visual workflow designer with full graph execution** — Fork/Join parallel paths, conditions, loops, switches, sub-workflows, correlation waits, script transforms — executed as load tests with iteration-level trace capture. No competitor offers a visual DAG workflow editor that doubles as a performance test runner.
+1. **Visual workflow designer with full graph execution** — Fork/Join parallel paths, conditions, loops, switches, sub-workflows, correlation waits, script transforms — executed as load tests with iteration-level trace capture. 19 node types in a React Flow DAG editor. No competitor offers a visual workflow editor that doubles as a performance test runner.
 2. **Results Explorer with debug console** — Interactive execution replay: click nodes to see request/response, drill into sub-workflows, filter by iteration/state, search logs. Tiered trace levels (Minimal → Debug) with per-node log buffering and aggregate summary. The depth of JMeter's View Results Tree with the UX of a modern IDE debugger.
 3. **Sophisticated validation engine** — JSONPath builder, regex assertions, structured assertions (array length, numeric compare, date compare), response time SLA, header validation, unordered array matching — all composable with visual builder UI and assertion presets.
 4. **API Catalog with OpenAPI import** — Browse endpoints with Swagger-style documentation, test interactively, generate cURL, version-track specs, and bulk-export to load tests with environment-aware base URLs. Batch promotion to Harness with coverage tracking. No other load testing tool integrates catalog → test workflow → load test pipeline.
 5. **Three-runner architecture with data-driven testing** — Standard Runner, Parameterized Runner (CSV/Excel/JSON/API row expansion), and Workflow Runner — each purpose-built. Shared data sources, row-level validation columns, populate from API, re-run failed rows.
 6. **Enterprise-friendly data workflow** — Excel template import/export (3-step wizard, styled sheets), CSV data files, parameterized copy conversion. QA teams work in spreadsheets — we meet them there.
-7. **Dual deployment** — Tauri desktop app (lighter than Electron) + web mode with zero install. Same codebase, same features, different runtimes.
+7. **Dual deployment with Rust executor** — Tauri desktop app (lighter than Electron) + web mode with zero install. Same codebase, same features, different runtimes. Desktop mode includes a native Rust HTTP executor (`reqwest` + `tokio`) for 5,000-10,000+ RPS — a significant throughput leap over browser-only execution.
 8. **CLI + CI/CD ready** — `redfireforge run` and `redfireforge run-workflow` with JUnit XML, JSON, Markdown reports, `--trace-level`, CI exit codes. Pre-commit hooks (tsc + ESLint) and GitHub Actions CI already configured.
 
 ### Positioning
@@ -48,37 +48,39 @@ RedfireForge is a **visual API testing and workflow automation workbench** — n
 
 | Capability | RedfireForge | Closest Competitor | Our Edge |
 |---|---|---|---|
-| Visual workflow load testing | Full DAG with 15+ node types | JMeter (XML tree) | Modern React Flow canvas vs 2000s Java Swing |
+| Visual workflow load testing | Full DAG with 19 node types | JMeter (XML tree) | Modern React Flow canvas vs 2000s Java Swing |
 | Execution debugging | Results Explorer + Debug Console | JMeter (View Results Tree) | Tiered trace levels, aggregate summary, sub-workflow drill-down |
 | Assertion builder | Visual Data Mapper + 24 operators + DSL + ASSERT + array assertions | Postman (scripted) | No-code assertion composition with live verification, color-coded operator pills, and DSL code editor |
 | API Catalog integration | OpenAPI import → Harness load test pipeline with batch promotion, coverage tracking | None | Unique: catalog → test → load test in one tool |
 | Data-driven testing | CSV/Excel/JSON/API with row validation | JMeter (CSV DataSet) | Visual editor, populate-from-API, re-run failed rows |
 | Desktop app size | ~15 MB (Tauri) | ~250 MB (Postman/Electron) | 15x smaller, native performance |
+| Throughput (desktop) | 5,000-10,000+ RPS (Rust executor) | k6 (10K+), JMeter (~5K) | Native Rust executor closes the gap with dedicated load tools |
 
 ### Risks & Mitigations
 
 | Risk | Status | Mitigation |
 |---|---|---|
-| ~~No tests~~ | **RESOLVED** | 18,323 unit tests (>90% coverage all files), 652 E2E tests (Playwright), pre-commit hooks, CI pipeline |
+| ~~No tests~~ | **RESOLVED** | 19,633 unit tests + 542 Rust tests (>90% coverage all files), 662 E2E tests (Playwright), pre-commit hooks, CI pipeline |
 | ~~No CLI / CI~~ | **RESOLVED** | CLI runner with JUnit/JSON/Markdown reports; GitHub Actions CI; `--trace-level` flag |
-| ~~No request chaining~~ | **RESOLVED** | 15+ node types: HTTP, Condition, Loop, Switch, Fork/Join, Sub-Workflow, Script, Correlation Wait, etc. |
+| ~~No request chaining~~ | **RESOLVED** | 19 node types: HTTP, Condition, Loop, Switch, Fork/Join, Sub-Workflow, Script, Correlation Wait, etc. |
 | ~~Monolithic codebase~~ | **RESOLVED** | Feature-based `src/features/` structure; all files under 900 lines; shared hooks/utils |
-| Browser-based executor | **Known limit** | Honest about ~500-2,000 RPS ceiling; Tauri sidecar (Rust) planned for 1.x to reach 10K+ RPS |
-| Solo developer vs funded teams | **Active risk** | Open-source community + clean architecture lowers contribution barrier; comprehensive training manuals (180+ files) |
+| ~~Browser-based executor~~ | **MITIGATED** | Rust executor (`reqwest` + `tokio`) in Tauri desktop mode reaches 5,000-10,000+ RPS; web mode remains at ~500-2,000 RPS; distributed execution planned for Phase 27 |
+| Solo developer vs funded teams | **Active risk** | Open-source community + clean architecture lowers contribution barrier; comprehensive training manuals (192 files) |
 | No server-side deployment | **Future** | Client-side architecture works for dev/QA use cases now; server deployment plan documented for production scenarios |
 
 ### Load Testing Maturity Levels
 
-RedfireForge's load testing is currently rated **Good**. The path to **Excellent** is mapped below.
+RedfireForge's load testing is currently rated **Good** in web mode and **Good → Excellent** in Tauri desktop mode (with the Rust executor). The remaining gaps to fully "Excellent" are constant arrival rate, streaming percentiles, and distributed execution.
 
 #### Level definitions
 
 | Level | Description | Throughput | Examples |
 |---|---|---|---|
-| **Good** (current ✅) | Variables, chaining, rich assertions, worker threads, connection pooling, think time, timing breakdown, trace levels, debug console | ~500-2,000 RPS | RedfireForge, Artillery, JMeter |
-| **Excellent** | + Native Rust executor, distributed multi-machine, constant arrival rate, streaming percentiles | 5,000-50,000+ RPS | k6, Gatling |
+| **Good** (web mode ✅) | Variables, chaining, rich assertions, multi-worker threads, connection pooling, think time, timing breakdown, trace levels, debug console | ~500-2,000 RPS | RedfireForge (web), Artillery, JMeter |
+| **Good → Excellent** (Tauri ✅) | + Native Rust executor (`reqwest` + `tokio`), full validation in Rust, pool/sequential/load-profile modes, circuit breaker, retry, cancellation, JS-side validation bridge | 5,000-10,000+ RPS | RedfireForge (desktop) |
+| **Excellent** | + Constant arrival rate, streaming percentiles, distributed multi-machine | 10,000-50,000+ RPS | k6, Gatling |
 
-#### Current capabilities (Good: all 6/6 gaps closed ✅)
+#### Current capabilities (Good: all 6/6 JS gaps closed ✅ + Rust executor ✅)
 
 - Duration-based profiles: sustained, ramp-up, spike
 - Fixed iteration count: sequential, batch, pool concurrency
@@ -87,20 +89,22 @@ RedfireForge's load testing is currently rated **Good**. The path to **Excellent
 - Live streaming charts (TPS, response time, error rate, active connections)
 - OAuth2 token manager with JWT expiry detection
 - Weighted scenario distribution in load profiles
-- **Visual workflow engine**: React Flow DAG editor with 15+ node types (HTTP, Condition, Switch, Loop, Fork/Join, Sub-Workflow, Script, Delay, Correlation Wait, SetVariable, Aggregate, Log/Debug, Error Handler, Webhook Trigger, Schedule Trigger); `VariableContext` layered store; template resolution everywhere; built-in generators (`{{$uuid}}`, `{{$timestamp}}`, `{{$randomInt}}`, etc.); Service Registry with multi-environment endpoints
+- **Visual workflow engine**: React Flow DAG editor with 19 node types (HTTP, Condition, Switch, Loop, Fork/Join, Sub-Workflow, Script, Delay, Correlation Wait, SetVariable, Aggregate, Log/Debug, Error Handler, Webhook Trigger, Schedule Trigger, Start, End, WaitForCondition); `VariableContext` layered store; template resolution everywhere; built-in generators (`{{$uuid}}`, `{{$timestamp}}`, `{{$randomInt}}`, etc.); Service Registry with multi-environment endpoints
 - **Think time & pacing**: constant, uniform random, gaussian delays for realistic virtual user simulation
-- **Worker thread execution**: Full engine in Web Worker — UI stays responsive at 60fps; Tauri HTTP proxied; automatic fallback; incremental result transfer
-- **Connection pooling**: `undici.Agent` with keep-alive (30s timeout, 128 connections); 2-3x latency reduction for HTTPS; Tauri pooled via `reqwest`
+- **Multi-worker execution**: Full engine in Web Workers — UI stays responsive at 60fps; automatic chunking based on `navigator.hardwareConcurrency`; per-worker concurrency distribution; Tauri HTTP proxied through main thread; automatic single-worker fallback; incremental result transfer with worker-namespaced IDs (`w{n}-` prefixes)
+- **Connection pooling**: `undici.Agent` with keep-alive (10s timeout, 512 connections, pipelining 10); 2-3x latency reduction for HTTPS; Tauri pooled via `reqwest` (200 max idle per host, 90s timeout)
 - **Rich assertions**: Status code, response time SLA, response header, regex on JSONPath, structured assertions (array length, numeric compare, date compare); Regex Builder modal with pattern library; assertion presets
 - **Request timing breakdown**: Per-request TTFB/download waterfall; aggregated timing table; CLI console/Markdown reports
 - **Trace capture levels**: Minimal (pass/fail only), Standard (structured data), Full (+ HTTP bodies), Debug (+ raw logs + script output); tiered storage and console rendering
 - **Debug console**: Full execution console in Results Explorer with node filter, search, aggregate summary, sub-workflow expansion, docked/floating/maximized modes
+- **Rust HTTP executor** (Tauri desktop only): `reqwest` + `tokio` async runtime with pool/sequential/load-profile modes; full Rust-side validation engine (assertion evaluator, field operators, JSON path, deep compare, subset match, date helpers, HTTP helpers); JS-side validation bridge for complex assertions; `canUseRustExecutor` auto-detection with graceful fallback for OAuth2/workflow mode; 542 Rust tests
+- **Tier 1 JS optimizations**: Connection pool tuning (512 connections, pipelining 10), `Promise.race` timeout leak fix, load profile tick 500ms→100ms, O(1) counter-based concurrency in `graphLoadRunner`, conditional body parsing, multi-worker load distribution with load-profile meta aggregation
 
-#### Gap analysis: Good → Excellent (FUTURE)
+#### Gap analysis: Good → Excellent (remaining)
 
 | # | Gap | Why it matters | Phase |
 |---|---|---|---|
-| 7 | **Native Rust executor** | Move HTTP engine to Rust backend (`hyper`/`reqwest` + `tokio`) → 10-50x throughput | 27 |
+| ~~7~~ | ~~**Native Rust executor**~~ | ✅ **DONE** — `reqwest` + `tokio` in Tauri with full validation engine (542 Rust tests) | ✅ 11.5 |
 | 8 | **Constant arrival rate** | "Send 100 RPS regardless of response time" (open model) — k6's killer feature | 27 |
 | 9 | **Streaming percentiles** | T-Digest/HDR Histogram for P50/P95/P99 without storing every datapoint → scales past 100K results | 27 |
 | 10 | **Distributed execution** | Coordinate load across multiple machines/processes → break single-machine limits | 27 |
@@ -111,16 +115,20 @@ RedfireForge's load testing is currently rated **Good**. The path to **Excellent
 Priority 1 — Reach "Good" ✅ COMPLETE
   ① Variables & Chaining      → ✅ done
   ② Think time & pacing       → ✅ done
-  ③ Worker thread execution    → ✅ done
-  ④ Connection pooling         → ✅ done
+  ③ Worker thread execution    → ✅ done (+ multi-worker in Phase 11.5)
+  ④ Connection pooling         → ✅ done (+ tuned 512/10 in Phase 11.5)
   ⑤ Rich assertions            → ✅ done
   ⑥ Request timing breakdown   → ✅ done
 
+Priority 1.5 — Rust Executor (Phase 11.5) ✅ COMPLETE
+  ⑦ Tier 1: JS optimizations   → ✅ done (pool tuning, tick, conditional parse)
+  ⑧ Tier 2: Rust executor      → ✅ done (reqwest + tokio, pool/seq/load modes)
+  ⑨ Tier 3: Rust validation    → ✅ done (full assertion engine in Rust, 542 tests)
+
 Priority 2 — Reach "Excellent" (Phase 27)
-  ⑦ Native Rust executor       → the architectural leap to 10K+ RPS
-  ⑧ Constant arrival rate      → open-model load generation
-  ⑨ Streaming percentiles      → memory-efficient metrics at scale
-  ⑩ Distributed execution      → enterprise-scale multi-machine coordination
+  ⑩ Constant arrival rate      → open-model load generation
+  ⑪ Streaming percentiles      → memory-efficient metrics at scale
+  ⑫ Distributed execution      → enterprise-scale multi-machine coordination
 ```
 
 ---
@@ -189,7 +197,7 @@ Structured multi-sheet Excel templates for bulk test management and better error
 - [x] **Unit Tests — Utils** — `testEditorUtils.ts` (28), `resultsGrouping.ts` (14), `jsonPathTreeUtils.ts` (24), `helpers.ts` (2), `fileSaver.ts` (5), `export.ts` (2)
 - [x] **Integration Tests** — Storage layer (31), auth inheritance resolution (15), JSON import/export roundtrips (15), CSV template roundtrips (12), Excel template roundtrips (15)
 - [x] **E2E Tests** — Playwright: create feature group/scenario/test (4), run test (4), view results (4), navigation/settings (5)
-- [x] **`npm test` Script** — Vitest (18,323 tests) + Playwright E2E (652 tests)
+- [x] **`npm test` Script** — Vitest (19,633 tests) + Playwright E2E (662 tests) + Rust (542 tests)
 - [x] **Refactor Large Components** — 8 monoliths broken into 27+ focused modules + 2 shared utilities + shared useAuthVerify hook + AuthConfigPanel
 
 ### Phase 6 — Requests (Ad-Hoc API Testing) ✅
@@ -290,7 +298,7 @@ Structured multi-sheet Excel templates for bulk test management and better error
 - [x] **Built-in Generators** — `{{$randomEmail}}`, `{{$uuid}}`, `{{$timestamp}}`, `{{$randomInt}}`, `{{$isoDate}}`, `{{$randomString(N)}}`
 - [x] **Variable Extraction** — Extract values from responses using JSONPath (e.g., `$.data.id` → `{{orderId}}`), headers, or status code
 - [x] **Variable Injection** — Use extracted variables in downstream test URLs, headers, and body
-- [x] **Scenario Chaining / Workflow Mode** — Visual workflow designer with React Flow graph editor, drag-and-drop palette, Service Registry with multi-environment endpoints
+- [x] **Scenario Chaining / Workflow Mode** — Visual workflow designer with React Flow graph editor, drag-and-drop palette, Service Registry with multi-environment endpoints, 19 node types
 - [x] **Workflow Control Nodes** — Start (entry point), End (terminal state), Fork (parallel split), Join (parallel merge), Condition (If/Else branching), Delay (think time between steps)
 - [x] **Parallel Execution** — Fork/Join nodes enable true parallel execution paths; Join nodes wait for all incoming branches to complete before proceeding; tested with concurrent HTTP requests
 - [x] **Auto-Layout** — Dagre-based hierarchical graph layout with smart post-processing: centers condition branches, aligns fork/join paths, resolves overlaps, maintains left-to-right flow
@@ -307,13 +315,38 @@ Structured multi-sheet Excel templates for bulk test management and better error
 - [x] **JSON Data Files** — Parameterize tests from JSON arrays (complement to CSV)
 - [x] **CSV/JSON Import Modal Redesign** — Scrollable modal body via `bodyClassName` prop chain (PopupModal → AppModalFrame); stepped UI with uppercase labels and section dividers; single-row destination layout (label + dropdown + checkbox inline); gallery import sync with name-based fallback for older imports; loaded badge count in Gallery grid
 
-### Phase 11 — Engine Performance (Moderate → Good) ✅ (3 items deferred to Phase 27)
+### Phase 11 — Engine Performance (Moderate → Good) ✅
 
 > Upgrade the execution engine from browser-limited single-thread to a performant multi-threaded architecture.
 
 - [x] **Think Time & Pacing** — Configurable delay between requests per virtual user (constant, random uniform, random gaussian); prevents unrealistic request flooding and enables realistic user simulation
-- [x] **Connection Pooling** — Reuse HTTP connections via `keep-alive` with shared `undici.Agent` (30s timeout, 128 connections, pipelining); Vite proxy creates pool at startup with cleanup on shutdown; Node CLI creates pool on first request with `closeNodePool()` for explicit cleanup; `Connection: keep-alive` header injected on all outbound requests; Tauri already pooled via `reqwest`; 2–3x latency improvement for HTTPS APIs
+- [x] **Connection Pooling** — Reuse HTTP connections via `keep-alive` with shared `undici.Agent`; Vite proxy creates pool at startup with cleanup on shutdown; Node CLI creates pool on first request with `closeNodePool()` for explicit cleanup; `Connection: keep-alive` header injected on all outbound requests; Tauri pooled via `reqwest`; 2–3x latency improvement for HTTPS APIs (tuned to 512 connections, pipelining 10 in Phase 11.5)
 - [x] **Worker Thread Execution (Web)** — Full engine (HTTP, validation, metrics, think time, circuit breaker) runs in a Web Worker thread, freeing the main thread for 60fps UI rendering; incremental result transfer via `postMessage`; Tauri HTTP proxied through main thread; automatic fallback when Workers unavailable; 10–30% throughput improvement on CPU-bound tests
+
+### Phase 11.5 — Throughput Optimizations & Rust Executor ✅
+
+> Three-tier throughput improvement: JS-side quick wins, native Rust HTTP executor for Tauri desktop, and full Rust-side validation engine. Elevates desktop throughput from ~2,000 RPS to 5,000-10,000+ RPS.
+
+**Tier 1 — JS Quick Wins (15 optimizations)**
+- [x] **Connection pool tuning** — `undici.Agent` upgraded to 512 connections, pipelining 10, 10s timeout; 30-40% latency improvement
+- [x] **Promise.race timeout leak fix** — Shared `withTimeout()` helper eliminates timer leaks during high-concurrency runs
+- [x] **Load profile tick reduction** — 500ms→100ms with decoupled progress reporting; smoother throughput curves
+- [x] **O(1) concurrency control** — `graphLoadRunner` fixed from O(N) pool to counter-based concurrency tracking
+- [x] **Conditional body parsing** — Skip `JSON.parse` for pass-through responses; reduces CPU overhead on high-volume runs
+- [x] **Multi-worker load distribution** — Automatic scenario chunking across `navigator.hardwareConcurrency` workers with per-worker concurrency split and load-profile meta aggregation
+
+**Tier 2 — Rust HTTP Executor (Tauri only)**
+- [x] **Rust executor** — `reqwest` + `tokio` async runtime with pool, sequential, and load-profile execution modes; think time, circuit breaker, retry, cancellation support via `CancellationToken`
+- [x] **Tauri commands** — `start_load_test` and `abort_load_test` IPC commands with event streaming for incremental result delivery
+- [x] **JS bridge** — `rustBridge.ts` with `buildExecutionPlan`, `mapRustResult`, `canUseRustExecutor` (auto-fallback for OAuth2/workflow mode)
+- [x] **Spike & ramp-up parity** — Rust executor matches JS behavior for all load profile shapes (sustained, ramp, spike)
+
+**Tier 3 — Rust Validation Engine**
+- [x] **Full assertion evaluator in Rust** — Status code, response time SLA, response header, regex, structured assertions (array length, numeric compare, date compare), field operators, deep compare, subset match, date helpers, HTTP helpers
+- [x] **Validation types** — Rust-side `ValidationMode`, `ExpectedField`, `Assertion`, `FieldOperator` types matching the TypeScript definitions
+- [x] **JS-side validation bridge** — Complex assertions (JSONPath expressions, custom predicates) evaluated in JS; simple assertions offloaded to Rust for maximum throughput
+- [x] **Code quality sweep** — 12 test files consolidated to shared `src/test-utils/factories.ts`; 10 inline `JSON.parse` patterns replaced with shared helpers; 47 `err instanceof Error` ternaries replaced with `toErrorMessage()` across 29 files
+- [x] **542 Rust tests** — Comprehensive test coverage across all Rust modules (assertion evaluator, field operators, JSON path, deep compare, subset match, date helpers, HTTP helpers, validation types, executor, cross-module integration)
 
 ### Phase 12 — Assertions & Observability ✅
 
@@ -341,19 +374,19 @@ Structured multi-sheet Excel templates for bulk test management and better error
 - [x] **Inline Expression Autocomplete** — `ExpressionInput` and `ExpressionTextarea` components provide inline `{{variable}}` and `$function` hints across all expression-capable workflow fields (URL, headers, body, conditions, extractions)
 - [x] **Searchable Variable Select** — Custom combobox replacing native `<select>` in Condition node's "Choose variable" mode; type-to-filter, grouped by source node, keyboard navigable, type badges
 - [x] **E2E Test Selectors Updated** — All 372 E2E tests updated for new nav structure
-- [x] **18,323 Unit Tests, 652 E2E Tests** — comprehensive coverage across all features
+- [x] **19,633 Unit Tests, 662 E2E Tests, 542 Rust Tests** — comprehensive coverage across all features
 
 ### Phase 14 — Gallery Redesign & Training Manuals ✅
 
 > Unified gallery system across all 5 domains with type-safe data layer, shared UI components, and comprehensive training manuals.
 
-- [x] **Gallery Type Unification** — `GalleryEntry<T>` base type with domain-specific extensions; 5 domains: requests (12), tests (8), catalog (8), workflows (30), assertions (5); total 63 gallery entries
+- [x] **Gallery Type Unification** — `GalleryEntry<T>` base type with domain-specific extensions; 6 domains: requests (13), tests (21), catalog (8), workflows (36), assertions (7), data-mapper (8); total 93 gallery entries
 - [x] **Request & Test Gallery Data** — 12 request samples + 8 test scenario samples with factory functions, live API endpoints, difficulty levels, and category tags
 - [x] **Catalog Spec Gallery** — 8 OpenAPI specs for public APIs (JSONPlaceholder, FakeStore, PokéAPI, DummyJSON, REST Countries, HTTPBin, PetStore, CorrelationWait)
-- [x] **Workflow Gallery Migration** — 30 workflow samples across 5 categories (api-patterns, flow-control, event-driven, orchestration); includes script nodes, async correlation, and diverse API patterns
+- [x] **Workflow Gallery Migration** — 36 workflow samples across 6 categories (api-patterns, flow-control, event-driven, orchestration, diverse-apis, performance); includes script nodes, async correlation, and diverse API patterns
 - [x] **Shared Gallery UI** — `GalleryPage` with domain tabs, `GalleryDetailPanel` with import/action buttons, `FullPanelModal` for gallery display
 - [x] **Diverse API Workflow Samples** — 5 new workflow samples using real public APIs: PokéAPI Evolution Chain, Country Currency Lookup, Product Search & Cart, Book Search & Enrichment, Multi-API Dashboard
-- [x] **Training Manuals (182 files)** — Complete training manual coverage across all gallery domains and training paths: requests, tests, catalog, assertions, workflows, workflow patterns; each manual has cover page, structured sections, exercises, and RedfireForge branding CSS
+- [x] **Training Manuals (192 files)** — Complete training manual coverage across all gallery domains and training paths: requests, tests, catalog, assertions, workflows, workflow patterns, data mapper; each manual has cover page, structured sections, exercises, and RedfireForge branding CSS
 
 ### Phase 15 — Version History, Training Paths & Code Quality ✅
 
@@ -374,7 +407,7 @@ Structured multi-sheet Excel templates for bulk test management and better error
 - [x] **Histogram Distribution** — Response time histogram tab in Run Comparison Panel
 - [x] **p50 Metric** — p50 response time added to `computeMetrics()`
 - [x] **Code Consolidation (Round 5)** — Extracted `toggleSetItem()` shared utility (9 inline patterns → 1 function), `createResponseVersion()` / `createRulesVersion()` factory functions (8 inline constructions → 2 factories); `resolveAuthHeaders()` deduplication (6 files); import unification for `acquireOAuth2Token`
-- [x] **18,323 Unit Tests, 652 E2E Tests** — 12 new utility tests (setToggle, versionFactory), all passing
+- [x] **19,633 Unit Tests, 662 E2E Tests** — 12 new utility tests (setToggle, versionFactory), all passing
 
 ### Phase 16 — Parameterized Testing & Shared Data Sources ✅
 
@@ -465,7 +498,7 @@ Structured multi-sheet Excel templates for bulk test management and better error
 - [x] **Tab Rename** — "Scenarios" tab renamed to "Feature Groups"
 - [x] **3 New Training Manuals** — Test Runner Guide, Parameterized Runner Guide, Scenario Types Guide
 - [x] **14+ Existing Manuals Updated** — Runner references, TPS terminology, navigation paths
-- [x] **18,323 Unit Tests, 652 E2E Tests** — All passing, >90% code coverage across all files
+- [x] **19,633 Unit Tests, 662 E2E Tests** — All passing, >90% code coverage across all files
 
 ### Phase 22 — Results Explorer Debug Console & Trace Levels ✅
 
@@ -511,7 +544,25 @@ Structured multi-sheet Excel templates for bulk test management and better error
 - [x] **Version Diff/Merge/Status** — `versionDiff.ts`, `versionMerge.ts`, `versionStatus.ts` utilities for OpenAPI spec version management
 - [x] **Extracted Hooks** — `useCatalogState`, `useCatalogExport`, `useHarnessPromotion`, `useRequestsSidebarDnD`, `usePreferencesImport`, `useGalleryWorkflowPreviewState`, `useScenarioBuilderSearch` hooks
 - [x] **Shared Components** — `CascadeSelect` (reusable cascade dropdown), `useEscapeKey` (shared hook), `SWAGGER_METHOD_COLORS` (shared constant)
-- [x] **Code Quality Audit** — All files under 900 lines; >90% coverage across all 4 metrics; 0 ESLint errors; 0 TypeScript errors; 18,323 unit tests, 652 E2E tests passing
+- [x] **Code Quality Audit** — All files under 900 lines; >90% coverage across all 4 metrics; 0 ESLint errors; 0 TypeScript errors; 19,633 unit tests, 662 E2E tests, 542 Rust tests passing
+
+### Phase 23.7 — Trash Box (Soft Delete & Recovery) ✅ (on `develop`)
+
+> Safe deletion with undo and recovery for all Harness entities. Items are moved to a Trash Box instead of being permanently deleted, with configurable retention and automatic purge.
+
+- [x] **Soft Delete** — Feature Groups, Scenarios, Tests, and Shared Data Sources are moved to Trash Box instead of permanent deletion
+- [x] **Undo Toast** — 5-second notification with Undo button for instant recovery after any delete
+- [x] **Trash Panel** — Modal UI to browse, search, restore, and permanently delete trashed items; accessible from the Harness toolbar with a badge showing item count
+- [x] **Automatic Purge** — Expired items are cleaned up on app startup based on configurable retention period
+- [x] **Configurable Settings** — Retention period (7–90 days, default 30) and max items (50–200, default 100) in Trash Panel footer
+- [x] **Smart Restoration** — Restores to original parent when available; creates "Restored Items" groups for orphans; handles ID collisions with new UUIDs; clears stale env/svc references
+- [x] **Structure Change Logging** — Restored items recorded in Feature Group change history with `restored` action
+- [x] **Dual-Mode Persistence** — IndexedDB primary storage with localStorage fallback and Tauri FS support
+- [x] **useTrash Hook** — `moveToTrash`, `restore`, `undoLastDelete`, `purge`, `purgeAll`, and settings management
+- [x] **Gallery Sample** — "Trash Recovery Demo" in the Tests gallery with linked training manual
+- [x] **Documentation** — User guide (`docs/guides/trash-box-guide.md`), HTML training manual, training path entry
+- [x] **E2E Tests** — `trash-box.spec.ts` covering delete, undo, restore flows (6 tests)
+- [x] **ScenarioBuilderModals extraction** — Reduced `ScenarioBuilder.tsx` below 900 lines by extracting modal components
 
 ---
 
@@ -560,21 +611,19 @@ The public release — polished, documented, community-ready.
 
 #### Launch Checklist
 - [ ] **README rewrite** — Concise, visual, GIF-heavy; "try in 10 seconds" link to live demo
-- [ ] **Hacker News post** — "Show HN: RedfireForge — a visual API testing workbench (open-source JMeter alternative)"
+- [ ] **Hacker News post** — "Show HN: RedfireForge — a visual API testing workbench with Rust executor (open-source JMeter alternative)"
 - [ ] **Reddit posts** — r/webdev, r/node, r/programming, r/QualityAssurance
 - [ ] **Dev.to / Hashnode article** — "Why I built a visual load testing tool"
 
 ### Phase 27 — Future (Good → Excellent)
 
-Post-launch features driven by community feedback. Completing the engine items below moves load testing from **Good** to **Excellent**.
+Post-launch features driven by community feedback. The Rust executor is done (Phase 11.5); the remaining engine items below close the gap to fully **Excellent**.
 
-#### Engine — Excellent Tier
-- [ ] **Native Rust Executor** — Full HTTP engine in Rust (`hyper`/`reqwest` + `tokio` async runtime) invoked via Tauri commands; eliminates JS overhead entirely for 10-50x throughput (5,000-50,000+ RPS)
+#### Engine — Excellent Tier (remaining)
+- [x] **Native Rust Executor** — ✅ Completed in Phase 11.5: `reqwest` + `tokio` with pool/sequential/load-profile modes, full validation engine, 542 Rust tests
 - [ ] **Streaming Percentiles** — T-Digest or HDR Histogram for P50/P95/P99 calculation without storing every datapoint in memory; enables accurate metrics at 100K+ results without OOM
 - [ ] **Distributed Execution** — Coordinate load generation across multiple machines/processes via a controller/worker architecture; break past single-machine limits for enterprise-scale testing
-- [ ] **Constant Arrival Rate (Advanced)** — Automatic worker scaling to maintain target RPS even when responses are slow; queue-based request dispatching with backpressure
-- [ ] **Tauri Sidecar Executor** — In desktop mode, offload HTTP execution to a Rust sidecar process using `reqwest` + `tokio` async runtime; 5-10x throughput improvement
-- [ ] **Constant Request Rate Mode** — "Send exactly N requests/second regardless of response time" (open model)
+- [ ] **Constant Arrival Rate** — "Send exactly N requests/second regardless of response time" (open model); automatic worker scaling with queue-based request dispatching and backpressure
 - [ ] **Graceful Drain** — Wait for in-flight requests to complete on abort (with configurable timeout)
 
 #### Server Deployment & Production
@@ -590,7 +639,7 @@ Post-launch features driven by community feedback. Completing the engine items b
 
 #### Extensibility & Organization
 - [ ] **Test Tagging** — Label tests with `smoke`, `regression`, `critical` and run by tag
-- [x] **Data Mapper** — ✅ Visual field mapping component with 10 adapters + body builder; drag-and-drop, expression editor (Monaco + 125 functions + lambda), auto-map with accept/reject, type mismatch detection & auto-fix, floating pop-out DSL editor, bi-directional visual ↔ code sync, schema drift/repair, mapping profiles, keyboard navigation, hover-to-highlight, failure navigation; 18,323 unit tests, 652 E2E tests, >90% coverage across all files — see `docs/plan/validation-operator-gap-analysis.md`
+- [x] **Data Mapper** — ✅ Visual field mapping component with 10 adapters + body builder; drag-and-drop, expression editor (Monaco + 125 functions + lambda), auto-map with accept/reject, type mismatch detection & auto-fix, floating pop-out DSL editor, bi-directional visual ↔ code sync, schema drift/repair, mapping profiles, keyboard navigation, hover-to-highlight, failure navigation; 19,633 unit tests, 662 E2E tests, >90% coverage across all files — see `docs/plan/validation-operator-gap-analysis.md`
 - [ ] **Plugin API** — Extension point for custom auth providers, assertion functions, reporters
 
 ---
@@ -610,6 +659,7 @@ Post-launch features driven by community feedback. Completing the engine items b
 | 9 | Group Collections & Catalog Metadata | 9 | 9 |
 | 10 | Variables & Chaining (Workflow Designer) | 20 | 20 |
 | 11 | Engine Performance (Moderate → Good) | 3 | 3 |
+| 11.5 | Throughput Optimizations & Rust Executor | 15 | 15 |
 | 12 | Assertions & Observability | 9 | 9 |
 | 13 | UI/UX Visual Foundation | 9 | 9 |
 | 14 | Gallery Redesign & Training Manuals | 7 | 7 |
@@ -623,17 +673,18 @@ Post-launch features driven by community feedback. Completing the engine items b
 | 22 | Results Explorer Debug Console & Trace Levels | 11 | 11 |
 | 23 | Correlation Wait Runner & Webhook Load | 5 | 5 |
 | 23.5 | Catalog ↔ Harness Integration | 13 | 13 |
+| 23.7 | Trash Box (Soft Delete & Recovery) | 13 | 13 |
 | 24 | CI/CD Pipeline | 8 | 2 |
 | 25 | Run Comparison & Trends | 5 | 0 |
 | 26 | Open-Source Launch | 14 | 0 |
-| 27 | Future (Engine → Excellent + Server) | 17 | 2 |
-| **Total** | | **288** | **247** |
+| 27 | Future (Engine → Excellent + Server) | 15 | 3 |
+| **Total** | | **314** | **276** |
 
 ### Feature Maturity Assessment
 
 ```
 PRODUCTION-READY (fully implemented, tested, documented):
-  ✅ Workflow Designer          — 15+ node types, visual DAG, auto-layout (Phase 10)
+  ✅ Workflow Designer          — 19 node types, visual DAG, auto-layout (Phase 10)
   ✅ Results Explorer           — execution replay, debug console, trace levels (Phases 20, 22)
   ✅ API Catalog                — OpenAPI import, versioning, interactive testing (Phases 7–9)
   ✅ Catalog ↔ Harness          — batch promotion, URL resolution, coverage checker, spec versioning (Phase 23.5)
@@ -644,7 +695,10 @@ PRODUCTION-READY (fully implemented, tested, documented):
   ✅ Assertions Engine          — 16 assertion types, 24 field operators, 125 expression functions (Phases 12, P0–P9.3)
   ✅ Data Mapper                — 10 adapters, visual + DSL authoring, floating editor, schema drift (Phase 7F+)
   ✅ CLI Runner                 — YAML/JSON, JUnit XML, CI exit codes (Phase 4)
-  ✅ Training System            — 182 manuals, 9 training paths, progress tracking (Phases 14, 15, 17)
+  ✅ Training System            — 192 manuals, 9 training paths, progress tracking (Phases 14, 15, 17)
+  ✅ Rust HTTP Executor         — reqwest + tokio, full validation engine, 542 Rust tests (Phase 11.5)
+  ✅ Multi-Worker Execution     — automatic chunking, per-worker concurrency, load-profile aggregation (Phase 11.5)
+  ✅ Trash Box                  — soft delete, undo toast, smart restoration, configurable purge (Phase 23.7, on develop)
 
 PARTIALLY COMPLETE (functional, needs polish):
   🟡 CI/CD Pipeline            — Pre-commit hooks + Actions CI exist, full pipeline pending (Phase 24)
@@ -652,19 +706,21 @@ PARTIALLY COMPLETE (functional, needs polish):
 NOT STARTED (post-launch):
   ⬜ Run Comparison & Trends    (Phase 25)
   ⬜ Open-Source Launch          (Phase 26)
-  ⬜ Native Rust executor        (Phase 27)
+  ⬜ Constant arrival rate       (Phase 27)
+  ⬜ Streaming percentiles       (Phase 27)
   ⬜ Distributed execution       (Phase 27)
 ```
 
 ### Load Testing Level Milestones
 
 ```
-CURRENT: Good (~500-2,000 RPS)
+CURRENT: Good (web ~500-2,000 RPS) / Good→Excellent (Tauri 5,000-10,000+ RPS)
   ├── Phase 1    ✅  Duration profiles, ramp-up, spike
   ├── Phase 2    ✅  CSV data, retry, circuit breaker, timeout
   ├── Phase 3    ✅  Excel templates, live charts
   ├── Phase 10   ✅  Variables, chaining, workflow mode
   ├── Phase 11   ✅  Worker threads, connection pooling, think time
+  ├── Phase 11.5 ✅  Tier 1 JS optimizations + Tier 2/3 Rust executor (542 Rust tests)
   ├── Phase 12   ✅  Rich assertions, presets, timing breakdown
   ├── Phase 16   ✅  Parameterized data-driven testing, shared data sources
   ├── Phase 19   ✅  Workflow ↔ Harness integration
@@ -673,18 +729,18 @@ CURRENT: Good (~500-2,000 RPS)
   ├── Phase 23   ✅  Webhook load driver, multi-webhook testing panel
   └── Phase 23.5 ✅  Catalog ↔ Harness integration, batch promotion
 
-FUTURE: Excellent (5,000-50,000+ RPS)
-  └── Phase 27     Native Rust executor, streaming percentiles, distributed
+FUTURE: Fully Excellent (10,000-50,000+ RPS)
+  └── Phase 27     Constant arrival rate, streaming percentiles, distributed
 ```
 
 ### Adoption Forecast
 
 | Scenario | Predicted Stars (Year 1) | Requirements |
 |---|---|---|
-| Launch now (CI partially done, no demo) | 500–1,500 | CLI done, 18K+ tests, Actions CI exists, all features complete through Phase 23.5 |
-| Launch with full CI pipeline + live demo | 1,500–4,000 | Phase 24 complete |
-| Launch with "Good" load testing + demo | 4,000–8,000 | Phases 10–23.5 ✅ + Phase 26 |
-| Viral launch (HN front page, YouTube) | 8,000–20,000+ | All of above + great branding + community momentum |
+| Launch now (CI partially done, no demo) | 1,000–2,500 | CLI done, 19.6K+ unit tests + 542 Rust tests, Actions CI exists, Rust executor, all features complete through Phase 23.7 |
+| Launch with full CI pipeline + live demo | 2,500–5,000 | Phase 24 complete |
+| Launch with Rust executor + demo + branding | 5,000–10,000 | Phases 10–23.7 ✅ + Phase 26 (Rust executor is a strong differentiator) |
+| Viral launch (HN front page, YouTube) | 10,000–25,000+ | All of above + great branding + community momentum + "visual JMeter killer" narrative |
 
 ### Critical Path to Open-Source
 
@@ -697,27 +753,31 @@ REMAINING BLOCKERS:
        ↓
   Launch on Hacker News / Reddit / Dev.to
 
-ALREADY COMPLETE (Phases 1–23.5):
+ALREADY COMPLETE (Phases 1–23.7):
   ✅ Phase 4    (CLI)           — `redfireforge run` + `run-workflow`, JUnit/JSON/Markdown reports
-  ✅ Phase 5    (Tests)         — 18,323 unit tests, 652 E2E tests, >90% code coverage all files
+  ✅ Phase 5    (Tests)         — 19,633 unit tests, 662 E2E tests, 542 Rust tests, >90% code coverage
   ✅ Phase 6    (Requests)      — Full ad-hoc API testing with collections/auth/cURL
   ✅ Phase 7    (API Catalog)   — OpenAPI/Swagger browser with versioning
-  ✅ Phase 10   (Workflow)      — Visual workflow designer + graph execution engine
+  ✅ Phase 10   (Workflow)      — Visual workflow designer (19 node types) + graph execution engine
+  ✅ Phase 11   (Engine)        — Full "Good" load testing capabilities (JS)
+  ✅ Phase 11.5 (Throughput)    — Tier 1 JS optimizations + Rust executor (5,000-10,000+ RPS in Tauri)
   ✅ Phase 20   (Replay)        — Results Explorer with interactive execution replay
   ✅ Phase 22   (Console)       — Debug console with tiered trace levels
-  ✅ Phase 11   (Engine)        — Full "Good" load testing capabilities
   ✅ Phase 23   (Webhook)       — Multi-webhook testing panel + webhook load driver
   ✅ Phase 23.5 (Catalog→Test)  — Catalog ↔ Harness batch promotion, spec versioning, coverage checker
+  ✅ Phase 23.7 (Trash Box)     — Soft delete & recovery with undo toast, smart restoration (on develop)
   ✅ CI Foundation               — GitHub Actions (tsc + ESLint + unit tests), pre-commit hooks
 ```
 
 ### Critical Path to "Excellent" Load Testing (Post-Launch)
 
 ```
-Phase 25 (Run Comparison)  →  Phase 27 (Rust Executor + Distributed)
-  ↑ regression detection           ↑ 10-50x throughput leap
+                              Phase 11.5 ✅ Rust Executor DONE (5,000-10,000+ RPS)
+                                    ↓
+Phase 25 (Run Comparison)  →  Phase 27 (Constant Arrival Rate + Distributed)
+  ↑ regression detection           ↑ remaining gaps to fully Excellent (10K-50K+ RPS)
 ```
 
 ---
 
-_Last updated: 2026-05-18 (v0.5.8 stable — on `master` branch; 247/288 items done (85.8%); load testing at Good; >90% code coverage all files; 18,323 unit tests, 652 E2E tests; 636 test files; 182 training manuals)_
+_Last updated: 2026-05-20 (v0.5.9 stable — on `master` branch; 276/314 items done (87.8%); load testing at Good (web) / Good→Excellent (Tauri with Rust executor); >90% code coverage all files; 19,633 unit tests, 662 E2E tests, 542 Rust tests; 747 JS test files + 15 Rust test files; 192 training manuals; 93 gallery entries)_

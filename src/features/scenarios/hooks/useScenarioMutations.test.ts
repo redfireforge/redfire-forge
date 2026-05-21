@@ -1,10 +1,22 @@
 /**
  * @vitest-environment jsdom
+ *
+ * Core useScenarioMutations tests: feature group / scenario / test CRUD, auth,
+ * toggle helpers, version handling, copy, and (hard-delete) confirm-dialog
+ * execution.
+ *
+ * Soft-delete (moveToTrash) coverage lives in
+ * `useScenarioMutations.softDelete.test.ts`. Shared factories live in
+ * `__test-utils__/useScenarioMutationsTestFixtures.ts`.
  */
 import { describe, it, expect, vi } from 'vitest';
-import type { SetStateAction } from 'react';
-import { renderHook, act } from '@testing-library/react';
-import type { FeatureGroup, Scenario, TestDefinitionVersion, TestDefinitionSnapshot, ExpectedField } from '../../../shared/types';
+import { act } from '@testing-library/react';
+import type {
+  FeatureGroup,
+  Scenario,
+  TestDefinitionVersion,
+  ExpectedField,
+} from '../../../shared/types';
 
 vi.mock('../utils/structureChangeLog', () => ({
   logScenarioAdded: vi.fn((fg: FeatureGroup, _scenarioName: string) => fg),
@@ -21,116 +33,21 @@ vi.mock('../utils/testDefinitionVersioning', () => ({
   autoSaveVersion: vi.fn((t: Scenario) => t as unknown as TestDefinitionVersion[] | null),
 }));
 
-import { useScenarioMutations } from './useScenarioMutations';
 import { autoSaveVersion } from '../utils/testDefinitionVersioning';
 import { logTestRenamed } from '../utils/structureChangeLog';
-
-function emptySnapshot(): TestDefinitionSnapshot {
-  return {
-    name: '',
-    url: '',
-    method: 'GET',
-    headers: [],
-    body: '',
-    auth: { type: 'none' },
-  };
-}
-
-function scenarioFixture(overrides: Partial<Scenario> = {}): Scenario {
-  return {
-    id: 't-1',
-    name: 'Test',
-    url: '/api',
-    method: 'GET',
-    headers: [],
-    body: '',
-    bodyType: 'none',
-    bodyForm: [],
-    auth: { type: 'none' },
-    validation: { mode: 'none', expectedFields: [] },
-    extractions: [],
-    ...overrides,
-  };
-}
-
-function makeFg(overrides: Partial<FeatureGroup> = {}): FeatureGroup {
-  return {
-    id: 'fg-1',
-    name: 'Feature 1',
-    microserviceId: 'svc-1',
-    environmentId: 'env-1',
-    scenarios: [],
-    ...overrides,
-  };
-}
-
-function setupWithoutEnv(initialFgs: FeatureGroup[] = []) {
-  const clearAuthVerifyResult = vi.fn();
-  let fgs = initialFgs;
-  const setFeatureGroups = vi.fn((updater: SetStateAction<FeatureGroup[]>) => {
-    fgs = typeof updater === 'function' ? updater(fgs) : updater;
-  });
-  const hookResult = renderHook(() =>
-    useScenarioMutations({
-      featureGroups: fgs,
-      setFeatureGroups,
-      unassociatedFeatureGroups: [],
-      selectedSvcId: undefined,
-      selectedEnvId: undefined,
-      clearAuthVerifyResult,
-    }),
-  );
-  return { ...hookResult, getFeatureGroups: () => fgs, setFeatureGroups, clearAuthVerifyResult };
-}
-
-function setup(initialFgs: FeatureGroup[] = [], unassociated: FeatureGroup[] = []) {
-  const clearAuthVerifyResult = vi.fn();
-  let fgs = initialFgs;
-  const setFeatureGroups = vi.fn((updater: SetStateAction<FeatureGroup[]>) => {
-    fgs = typeof updater === 'function' ? updater(fgs) : updater;
-  });
-  const hookResult = renderHook(() =>
-    useScenarioMutations({
-      featureGroups: fgs,
-      setFeatureGroups,
-      unassociatedFeatureGroups: unassociated,
-      selectedSvcId: 'svc-1',
-      selectedEnvId: 'env-1',
-      clearAuthVerifyResult,
-    }),
-  );
-  return { ...hookResult, getFeatureGroups: () => fgs, setFeatureGroups, clearAuthVerifyResult };
-}
-
-function _setupSelectable(
-  initialFgs: FeatureGroup[],
-  opts: { selectedSvcId?: string; selectedEnvId?: string; omitClearAuth?: boolean; unassociated?: FeatureGroup[] },
-) {
-  const clearAuthVerifyResult = opts.omitClearAuth ? undefined : vi.fn();
-  let fgs = initialFgs;
-  const setFeatureGroups = vi.fn((updater: SetStateAction<FeatureGroup[]>) => {
-    fgs = typeof updater === 'function' ? updater(fgs) : updater;
-  });
-  const hookResult = renderHook(() =>
-    useScenarioMutations({
-      featureGroups: fgs,
-      setFeatureGroups,
-      unassociatedFeatureGroups: opts.unassociated ?? [],
-      selectedSvcId: opts.selectedSvcId,
-      selectedEnvId: opts.selectedEnvId,
-      clearAuthVerifyResult,
-    }),
-  );
-  return { ...hookResult, getFeatureGroups: () => fgs, setFeatureGroups, clearAuthVerifyResult };
-}
+import {
+  emptySnapshot,
+  scenarioFixture,
+  makeFg,
+  setup,
+  setupWithoutEnv,
+} from './__test-utils__/useScenarioMutationsTestFixtures';
 
 describe('useScenarioMutations', () => {
-
   describe('feature group CRUD', () => {
     it('addFeatureGroup creates a new feature group', () => {
       const { result, getFeatureGroups } = setup();
       act(() => { result.current.setNewName('My Feature'); });
-      // Re-render to pick up newName
       act(() => { result.current.setNamingFeature(true); });
       act(() => { result.current.addFeatureGroup(); });
       const fgs = getFeatureGroups();
@@ -583,14 +500,14 @@ describe('useScenarioMutations', () => {
     });
   });
 
-    it('handleVersionRename with undefined definitionVersions', () => {
-      const test = scenarioFixture({ id: 't-1', name: 'T', url: '/api' });
-      const fg = makeFg({ scenarios: [{ id: 'sc-1', name: 'Sc', tests: [test] }] });
-      const { result } = setup([fg]);
-      act(() => { result.current.startEditTest('fg-1', 'sc-1', test); });
-      act(() => { result.current.handleVersionRename('v1', 'renamed'); });
-      expect(result.current.draft.definitionVersions).toEqual([]);
-    });
+  it('handleVersionRename with undefined definitionVersions', () => {
+    const test = scenarioFixture({ id: 't-1', name: 'T', url: '/api' });
+    const fg = makeFg({ scenarios: [{ id: 'sc-1', name: 'Sc', tests: [test] }] });
+    const { result } = setup([fg]);
+    act(() => { result.current.startEditTest('fg-1', 'sc-1', test); });
+    act(() => { result.current.handleVersionRename('v1', 'renamed'); });
+    expect(result.current.draft.definitionVersions).toEqual([]);
+  });
 
   describe('removeTest', () => {
     it('removeTest sets confirm dialog and onConfirm deletes test', () => {
@@ -947,168 +864,4 @@ describe('useScenarioMutations', () => {
       expect(result.current.confirmDialog!.message).not.toContain('It contains');
     });
   });
-
-  describe('soft-delete (moveToTrash)', () => {
-    function setupWithTrash(initialFgs: FeatureGroup[] = []) {
-      const moveToTrash = vi.fn();
-      const clearAuthVerifyResult = vi.fn();
-      let fgs = initialFgs;
-      const setFeatureGroups = vi.fn((updater: SetStateAction<FeatureGroup[]>) => {
-        fgs = typeof updater === 'function' ? updater(fgs) : updater;
-      });
-      const hookResult = renderHook(() =>
-        useScenarioMutations({
-          featureGroups: fgs,
-          setFeatureGroups,
-          unassociatedFeatureGroups: [],
-          selectedSvcId: 'svc-1',
-          selectedEnvId: 'env-1',
-          clearAuthVerifyResult,
-          moveToTrash,
-        }),
-      );
-      return { ...hookResult, getFeatureGroups: () => fgs, setFeatureGroups, moveToTrash };
-    }
-
-    it('removeFeatureGroup shows Move to Trash dialog', () => {
-      const fg = makeFg({ scenarios: [{ id: 'sc-1', name: 'Sc', tests: [scenarioFixture()] }] });
-      const { result } = setupWithTrash([fg]);
-      act(() => { result.current.removeFeatureGroup('fg-1'); });
-      expect(result.current.confirmDialog!.title).toBe('Move to Trash');
-      expect(result.current.confirmDialog!.confirmLabel).toBe('Move to Trash');
-      expect(result.current.confirmDialog!.message).toContain('restore it within 30 days');
-    });
-
-    it('removeFeatureGroup confirm calls moveToTrash with correct args', () => {
-      const fg = makeFg({ scenarios: [{ id: 'sc-1', name: 'Sc', tests: [scenarioFixture()] }] });
-      const { result, moveToTrash, getFeatureGroups } = setupWithTrash([fg]);
-      act(() => { result.current.removeFeatureGroup('fg-1'); });
-      act(() => { result.current.confirmDialog!.onConfirm(); });
-      expect(moveToTrash).toHaveBeenCalledWith(
-        'featureGroup', fg, 'Feature 1', '',
-        { environmentId: 'env-1', microserviceId: 'svc-1' },
-      );
-      expect(getFeatureGroups()).toHaveLength(0);
-    });
-
-    it('removeFeatureGroup dialog message includes child counts', () => {
-      const fg = makeFg({
-        scenarios: [
-          { id: 'sc-1', name: 'Sc', tests: [scenarioFixture(), scenarioFixture({ id: 't-2' })] },
-        ],
-      });
-      const { result } = setupWithTrash([fg]);
-      act(() => { result.current.removeFeatureGroup('fg-1'); });
-      expect(result.current.confirmDialog!.message).toContain('1 scenario(s) and 2 test(s)');
-    });
-
-    it('removeScenario shows Move to Trash dialog', () => {
-      const fg = makeFg({ scenarios: [{ id: 'sc-1', name: 'Login Tests', tests: [scenarioFixture()] }] });
-      const { result } = setupWithTrash([fg]);
-      act(() => { result.current.removeScenario('fg-1', 'sc-1'); });
-      expect(result.current.confirmDialog!.title).toBe('Move to Trash');
-      expect(result.current.confirmDialog!.confirmLabel).toBe('Move to Trash');
-      expect(result.current.confirmDialog!.message).toContain('restore it within 30 days');
-    });
-
-    it('removeScenario confirm calls moveToTrash with correct args', () => {
-      const fg = makeFg({ scenarios: [{ id: 'sc-1', name: 'Login Tests', tests: [scenarioFixture()] }] });
-      const { result, moveToTrash, getFeatureGroups } = setupWithTrash([fg]);
-      act(() => { result.current.removeScenario('fg-1', 'sc-1'); });
-      act(() => { result.current.confirmDialog!.onConfirm(); });
-      expect(moveToTrash).toHaveBeenCalledWith(
-        'scenario',
-        expect.objectContaining({ id: 'sc-1', name: 'Login Tests' }),
-        'Login Tests',
-        'Feature 1',
-        { parentFeatureGroupId: 'fg-1', environmentId: 'env-1', microserviceId: 'svc-1' },
-      );
-      expect(getFeatureGroups()[0].scenarios).toHaveLength(0);
-    });
-
-    it('removeTest shows Move to Trash dialog', () => {
-      const fg = makeFg({ scenarios: [{ id: 'sc-1', name: 'SC', tests: [scenarioFixture({ id: 't-1', name: 'GET /users' })] }] });
-      const { result } = setupWithTrash([fg]);
-      act(() => { result.current.removeTest('fg-1', 'sc-1', 't-1'); });
-      expect(result.current.confirmDialog!.title).toBe('Move to Trash');
-      expect(result.current.confirmDialog!.confirmLabel).toBe('Move to Trash');
-      expect(result.current.confirmDialog!.message).toContain('GET /users');
-    });
-
-    it('removeTest confirm calls moveToTrash with correct args', () => {
-      const fg = makeFg({ scenarios: [{ id: 'sc-1', name: 'SC', tests: [scenarioFixture({ id: 't-1', name: 'GET /users' })] }] });
-      const { result, moveToTrash, getFeatureGroups } = setupWithTrash([fg]);
-      act(() => { result.current.removeTest('fg-1', 'sc-1', 't-1'); });
-      act(() => { result.current.confirmDialog!.onConfirm(); });
-      expect(moveToTrash).toHaveBeenCalledWith(
-        'test',
-        expect.objectContaining({ id: 't-1', name: 'GET /users' }),
-        'GET /users',
-        'Feature 1 > SC',
-        { parentFeatureGroupId: 'fg-1', parentScenarioId: 'sc-1', environmentId: 'env-1', microserviceId: 'svc-1' },
-      );
-      expect(getFeatureGroups()[0].scenarios[0].tests).toHaveLength(0);
-    });
-
-    it('removeTest clears confirmDialog after confirm', () => {
-      const fg = makeFg({ scenarios: [{ id: 'sc-1', name: 'SC', tests: [scenarioFixture()] }] });
-      const { result } = setupWithTrash([fg]);
-      act(() => { result.current.removeTest('fg-1', 'sc-1', 't-1'); });
-      act(() => { result.current.confirmDialog!.onConfirm(); });
-      expect(result.current.confirmDialog).toBeNull();
-    });
-
-    it('removeTest with trash: multi-FG keeps non-target FG untouched', () => {
-      const fg1 = makeFg({
-        id: 'fg-1', name: 'F1',
-        scenarios: [{ id: 'sc-1', name: 'SC1', tests: [scenarioFixture({ id: 't-1', name: 'T1' })] }],
-      });
-      const fg2 = makeFg({
-        id: 'fg-2', name: 'F2',
-        scenarios: [{ id: 'sc-2', name: 'SC2', tests: [scenarioFixture({ id: 't-2', name: 'T2' })] }],
-      });
-      const { result, getFeatureGroups } = setupWithTrash([fg1, fg2]);
-      act(() => { result.current.removeTest('fg-1', 'sc-1', 't-1'); });
-      act(() => { result.current.confirmDialog!.onConfirm(); });
-      expect(getFeatureGroups()).toHaveLength(2);
-      expect(getFeatureGroups()[0].scenarios[0].tests).toHaveLength(0);
-      expect(getFeatureGroups()[1].scenarios[0].tests).toHaveLength(1);
-    });
-
-    it('removeTest with trash: multi-SC keeps non-target SC untouched', () => {
-      const fg = makeFg({
-        scenarios: [
-          { id: 'sc-1', name: 'SC1', tests: [scenarioFixture({ id: 't-1', name: 'T1' })] },
-          { id: 'sc-2', name: 'SC2', tests: [scenarioFixture({ id: 't-2', name: 'T2' })] },
-        ],
-      });
-      const { result, getFeatureGroups } = setupWithTrash([fg]);
-      act(() => { result.current.removeTest('fg-1', 'sc-1', 't-1'); });
-      act(() => { result.current.confirmDialog!.onConfirm(); });
-      expect(getFeatureGroups()[0].scenarios[0].tests).toHaveLength(0);
-      expect(getFeatureGroups()[0].scenarios[1].tests).toHaveLength(1);
-    });
-
-    it('removeTest without trash: multi-FG/SC keeps others untouched', () => {
-      const fg1 = makeFg({
-        id: 'fg-1', name: 'F1',
-        scenarios: [
-          { id: 'sc-1', name: 'SC1', tests: [scenarioFixture({ id: 't-1', name: 'T1' })] },
-          { id: 'sc-x', name: 'SCx', tests: [scenarioFixture({ id: 't-x', name: 'Tx' })] },
-        ],
-      });
-      const fg2 = makeFg({
-        id: 'fg-2', name: 'F2',
-        scenarios: [{ id: 'sc-2', name: 'SC2', tests: [scenarioFixture({ id: 't-2', name: 'T2' })] }],
-      });
-      const { result, getFeatureGroups } = setup([fg1, fg2]);
-      act(() => { result.current.removeTest('fg-1', 'sc-1', 't-1'); });
-      act(() => { result.current.confirmDialog!.onConfirm(); });
-      expect(getFeatureGroups()).toHaveLength(2);
-      expect(getFeatureGroups()[0].scenarios[0].tests).toHaveLength(0);
-      expect(getFeatureGroups()[0].scenarios[1].tests).toHaveLength(1);
-      expect(getFeatureGroups()[1].scenarios[0].tests).toHaveLength(1);
-    });
-  });
-
 });

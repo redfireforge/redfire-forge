@@ -5,6 +5,7 @@ import { useState, useCallback, useMemo } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import type { SharedDataSource, DataSource, FeatureGroup, Scenario } from '../../../shared/types';
 import { createEmptyRow, createEmptyColumn } from '../utils/dataSourceUtils';
+import type { MoveToTrashFn } from './useTrash';
 
 export interface UseSharedDsCrudOptions {
   sharedDataSources: SharedDataSource[];
@@ -15,6 +16,7 @@ export interface UseSharedDsCrudOptions {
   setPendingNameFocusId: (id: string | null) => void;
   featureGroups: FeatureGroup[];
   currentEditingDraft?: { fgName: string; scenarioName: string; test: Scenario };
+  moveToTrash?: MoveToTrashFn;
 }
 
 export interface UseSharedDsCrudReturn {
@@ -46,6 +48,7 @@ export function useSharedDsCrud({
   setPendingNameFocusId,
   featureGroups,
   currentEditingDraft,
+  moveToTrash,
 }: UseSharedDsCrudOptions): UseSharedDsCrudReturn {
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
@@ -114,30 +117,33 @@ export function useSharedDsCrud({
     setContextMenuId(null);
   }, [sharedDataSources, onUpdate, setSelectedId, setContextMenuId]);
 
+  const performDelete = useCallback((id: string) => {
+    const ds = sharedDataSources.find(d => d.id === id);
+    if (moveToTrash && ds) {
+      moveToTrash('sharedDataSource', ds, ds.name, '', {});
+    }
+    const updated = sharedDataSources.filter(d => d.id !== id);
+    onUpdate(updated);
+    if (selectedId === id) {
+      setSelectedId(updated.length > 0 ? updated[0].id : null);
+    }
+    setContextMenuId(null);
+  }, [sharedDataSources, onUpdate, selectedId, moveToTrash, setSelectedId, setContextMenuId]);
+
   const handleDelete = useCallback((id: string) => {
     const usedBy = usedByMap.get(id) ?? [];
     if (usedBy.length > 0) {
       setPendingDeleteId(id);
       return;
     }
-    const updated = sharedDataSources.filter(ds => ds.id !== id);
-    onUpdate(updated);
-    if (selectedId === id) {
-      setSelectedId(updated.length > 0 ? updated[0].id : null);
-    }
-    setContextMenuId(null);
-  }, [sharedDataSources, onUpdate, selectedId, usedByMap, setSelectedId, setContextMenuId]);
+    performDelete(id);
+  }, [usedByMap, performDelete]);
 
   const confirmDelete = useCallback(() => {
     if (!pendingDeleteId) return;
-    const updated = sharedDataSources.filter(ds => ds.id !== pendingDeleteId);
-    onUpdate(updated);
-    if (selectedId === pendingDeleteId) {
-      setSelectedId(updated.length > 0 ? updated[0].id : null);
-    }
-    setContextMenuId(null);
+    performDelete(pendingDeleteId);
     setPendingDeleteId(null);
-  }, [pendingDeleteId, sharedDataSources, onUpdate, selectedId, setSelectedId, setContextMenuId]);
+  }, [pendingDeleteId, performDelete]);
 
   const handleNameChange = useCallback((name: string) => {
     if (!selected) return;

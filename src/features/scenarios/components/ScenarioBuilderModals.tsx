@@ -216,6 +216,7 @@ export default function ScenarioBuilderModals(props: ScenarioBuilderModalsProps)
           initialSelectedId={sharedDsModalSelectedId}
           currentEditingDraft={currentEditingDraft}
           onCreateTestFromSharedDs={handleCreateTestFromSharedDs}
+          moveToTrash={trash.moveToTrash}
           onClose={() => { setShowSharedDsModal(false); setSharedDsModalSelectedId(undefined); }}
         />
       )}

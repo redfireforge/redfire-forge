@@ -178,7 +178,9 @@ export function useTestExecution() {
         tps: Math.round(intervalTps * 10) / 10,
         errorRate: Math.round(errorPct * 10) / 10,
         concurrency: pending.profileMeta
-          ? (pending.total === -1 ? pending.profileMeta.currentInFlight : pending.profileMeta.targetConcurrency)
+          ? (pending.total === -1
+              ? pending.profileMeta.currentInFlight
+              : pending.profileMeta.targetConcurrency)
           : 0,
       };
 
