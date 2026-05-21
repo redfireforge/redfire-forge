@@ -2,7 +2,7 @@ import { useState, useCallback, useMemo, useEffect } from 'react';
 import type { Extraction, ExtractionSource } from '../../../shared/types';
 import type { WorkflowVariableHint } from '../../workflow/utils/workflowVariableHints';
 import type { FetchErrorDetail } from '../../../shared/components/data-mapper/types';
-import { suggestedVariableNameFromJsonPath } from '../../../shared/utils/jsonTreeModel';
+import { suggestedVariableNameFromJsonPath, buildJsonTree, type JsonTreeNode } from '../../../shared/utils/jsonTreeModel';
 import ExpressionInput from '../../workflow/components/expression/ExpressionInput';
 import FetchErrorBanner from '../../../shared/components/data-mapper/FetchErrorBanner';
 
@@ -64,6 +64,23 @@ export default function ExtractionEditor({ extractions, onChange, sampleResponse
     () => JSON.stringify(nonBodyExtractions),
     [nonBodyExtractions],
   );
+
+  const jsonPathHints = useMemo((): string[] => {
+    if (!sampleResponseBody?.trim()) return [];
+    try {
+      const parsed = JSON.parse(sampleResponseBody);
+      const tree = buildJsonTree(parsed, '$', '', { maxDepth: 5, maxArrayItems: 3 });
+      const paths: string[] = [];
+      const collect = (node: JsonTreeNode) => {
+        if (node.path) paths.push(node.path);
+        if (node.children) node.children.forEach(collect);
+      };
+      collect(tree);
+      return paths;
+    } catch {
+      return [];
+    }
+  }, [sampleResponseBody]);
 
   const fetchSampleData = useMemo(() => {
     if (!fetchSample?.onFetch) return undefined;
@@ -128,9 +145,19 @@ export default function ExtractionEditor({ extractions, onChange, sampleResponse
         Extract response values into <code>{'{{variables}}'}</code> for workflow/chained steps. In a single standalone request, extractions are optional unless you reference them later.
       </p>
 
-      {/* ── Open Data Mapper for body extractions ── */}
+      {/* ── Fetch Response + Data Mapper bar ── */}
       <div className="ext-fetch-section">
         <div className="ext-fetch-bar">
+          {fetchSample && (
+            <button
+              type="button"
+              className="btn btn-sm btn-accent ext-fetch-btn"
+              onClick={() => void fetchSample.onFetch()}
+              disabled={fetchSample.fetching}
+            >
+              {fetchSample.fetching ? 'Fetching...' : 'Fetch Response'}
+            </button>
+          )}
           <button
             type="button"
             className="btn btn-sm btn-accent ext-fetch-btn"
@@ -138,6 +165,25 @@ export default function ExtractionEditor({ extractions, onChange, sampleResponse
           >
             ⚡ Data Mapper
           </button>
+          {fetchSample?.host && (
+            <label className="checkbox-label ext-host-toggle">
+              <input
+                type="checkbox"
+                checked={fetchSample.host.enabled}
+                onChange={(e) => fetchSample.host!.setEnabled(e.target.checked)}
+              />
+              Override host
+            </label>
+          )}
+          {fetchSample?.host && fetchSample.host.enabled && (
+            <input
+              type="text"
+              className="ext-host-input"
+              value={fetchSample.host.override}
+              onChange={(e) => fetchSample.host!.setOverride(e.target.value)}
+              placeholder={fetchSample.host.resolvedBaseUrl || 'https://...'}
+            />
+          )}
           {fetchSample?.host && !fetchSample.host.enabled && fetchSample.host.resolvedBaseUrl && (
             <span className="ext-resolved-url">
               Target: <code>{fetchSample.host.resolvedBaseUrl}</code>
@@ -146,6 +192,11 @@ export default function ExtractionEditor({ extractions, onChange, sampleResponse
         </div>
         {fetchSample?.error && (
           <FetchErrorBanner error={fetchSample.error} />
+        )}
+        {sampleResponseBody && (
+          <span className="ext-sample-status">
+            ✓ Sample response loaded ({Math.round(sampleResponseBody.length / 1024)}KB)
+          </span>
         )}
       </div>
 
@@ -211,6 +262,7 @@ export default function ExtractionEditor({ extractions, onChange, sampleResponse
                     className="ext-input"
                     aria-label="Expression"
                     variableHints={variableHints}
+                    jsonPathHints={ext.source === 'body' ? jsonPathHints : undefined}
                   />
                   {ext.source === 'body' && (
                     <button

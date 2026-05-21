@@ -133,7 +133,7 @@ function makeSeedTestRun() {
 async function seedTestRunsViaIDB(page: Page, runs: unknown[]): Promise<string> {
   return await page.evaluate((testRuns) => {
     return new Promise<string>((resolve) => {
-      const req = indexedDB.open('redfireforge', 3);
+      const req = indexedDB.open('redfireforge', 4);
       req.onupgradeneeded = () => {
         const db = req.result;
         if (!db.objectStoreNames.contains('testRuns')) {
@@ -142,6 +142,7 @@ async function seedTestRunsViaIDB(page: Page, runs: unknown[]): Promise<string> 
         }
         if (!db.objectStoreNames.contains('featureGroups')) db.createObjectStore('featureGroups');
         if (!db.objectStoreNames.contains('sharedDataSources')) db.createObjectStore('sharedDataSources');
+        if (!db.objectStoreNames.contains('trash')) db.createObjectStore('trash');
       };
       req.onsuccess = () => {
         const db = req.result;

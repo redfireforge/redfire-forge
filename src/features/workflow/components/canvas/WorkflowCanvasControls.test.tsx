@@ -254,7 +254,7 @@ describe('WorkflowCanvasControls', () => {
     );
     const btn = container.querySelector('.wf-pill-btn[title="Fit view"]');
     fireEvent.click(btn!);
-    expect(mockFitView).toHaveBeenCalledWith({ padding: 0.15, maxZoom: 1.2, duration: 300 });
+    expect(mockFitView).toHaveBeenCalledWith({ padding: 0.2, maxZoom: 1.5, duration: 300, includeHiddenNodes: true });
   });
 
   it('always fits view even when savedViewport is provided', () => {
@@ -266,7 +266,45 @@ describe('WorkflowCanvasControls', () => {
     );
     const btn = container.querySelector('.wf-pill-btn[title="Fit view"]');
     fireEvent.click(btn!);
-    expect(mockFitView).toHaveBeenCalledWith({ padding: 0.15, maxZoom: 1.2, duration: 300 });
+    expect(mockFitView).toHaveBeenCalledWith({ padding: 0.2, maxZoom: 1.5, duration: 300, includeHiddenNodes: true });
     expect(mockSetViewport).not.toHaveBeenCalled();
+  });
+
+  it('calls onAutoLayout before fitView when provided', () => {
+    mockFitView.mockClear();
+    const onAutoLayout = vi.fn();
+    const { container } = renderWithProvider(
+      <WorkflowCanvasControls {...baseProps} onAutoLayout={onAutoLayout} />,
+    );
+    const btn = container.querySelector('.wf-pill-btn[title="Fit view"]');
+    fireEvent.click(btn!);
+    expect(onAutoLayout).toHaveBeenCalledTimes(1);
+  });
+
+  it('runs the requestAnimationFrame fitView callback after onAutoLayout', () => {
+    mockFitView.mockClear();
+    const onAutoLayout = vi.fn();
+    const rafSpy = vi
+      .spyOn(globalThis, 'requestAnimationFrame')
+      .mockImplementation((cb: FrameRequestCallback) => {
+        cb(0);
+        return 0;
+      });
+    try {
+      const { container } = renderWithProvider(
+        <WorkflowCanvasControls {...baseProps} onAutoLayout={onAutoLayout} />,
+      );
+      const btn = container.querySelector('.wf-pill-btn[title="Fit view"]');
+      fireEvent.click(btn!);
+      expect(onAutoLayout).toHaveBeenCalledTimes(1);
+      expect(mockFitView).toHaveBeenCalledWith({
+        padding: 0.2,
+        maxZoom: 1.5,
+        duration: 300,
+        includeHiddenNodes: true,
+      });
+    } finally {
+      rafSpy.mockRestore();
+    }
   });
 });
