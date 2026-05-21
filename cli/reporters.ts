@@ -1,5 +1,6 @@
 import type { RequestResult, TestSummary, TestConfig, TestRun, TimingBreakdown } from '../src/types';
 import type { Workflow } from '../src/features/workflow/types/workflow';
+import { formatFailureDetails } from '../src/shared/utils/helpers';
 
 // ── JSON report ─────────────────────────────────────────────
 
@@ -37,7 +38,7 @@ export function buildDataRowSummary(results: RequestResult[]): DataRowSummaryRep
         status: r.httpStatus,
         error: r.errorMessage
           || (r.failureDetails.length > 0
-            ? r.failureDetails.map(f => `${f.path}: expected ${f.expected}, got ${f.actual}`).join('; ')
+            ? formatFailureDetails(r.failureDetails)
             : `HTTP ${r.httpStatus}`),
       })),
     });
@@ -85,7 +86,7 @@ export function buildJunitXml(
     const rowSuffix = r.dataRowLabel ? ` [${escapeXml(r.dataRowLabel)}]` : '';
     lines.push(`    <testcase classname="${escapeXml(className)}" name="${escapeXml(r.scenarioName)} [${r.method} ${escapeXml(r.url)}]${rowSuffix}" time="${time}">`);
     if (!r.passed) {
-      const msg = r.errorMessage ?? r.failureDetails.map(f => `${f.path}: expected ${f.expected}, got ${f.actual}`).join('; ');
+      const msg = r.errorMessage ?? formatFailureDetails(r.failureDetails);
       lines.push(`      <failure message="${escapeXml(msg)}" type="${r.httpStatus >= 400 || r.httpStatus === 0 ? 'HttpError' : 'ValidationFailure'}">`);
       lines.push(`HTTP ${r.httpStatus} ${r.method} ${escapeXml(r.url)}`);
       for (const f of r.failureDetails) {
@@ -141,6 +142,7 @@ export function buildMarkdownReport(
   lines.push(`| **P50** | ${summary.p50ResponseTime} ms |`);
   lines.push(`| **P95** | ${summary.p95ResponseTime} ms |`);
   lines.push(`| **P99** | ${summary.p99ResponseTime} ms |`);
+  lines.push(`| **P99.9** | ${summary.p999ResponseTime ?? '—'} ms |`);
   lines.push(`| **Error Rate** | ${summary.errorRate}% |`);
   lines.push(`| **Total Requests** | ${summary.totalRequests} |`);
   lines.push(`| **Successful** | ${summary.successfulRequests} |`);
@@ -229,6 +231,7 @@ export function printConsoleSummary(summary: TestSummary, config: TestConfig, re
   console.log(`  P50:          ${summary.p50ResponseTime} ms`);
   console.log(`  P95:          ${summary.p95ResponseTime} ms`);
   console.log(`  P99:          ${summary.p99ResponseTime} ms`);
+  console.log(`  P99.9:        ${summary.p999ResponseTime ?? '—'} ms`);
   console.log(`  Min / Max:    ${summary.minResponseTime} ms / ${summary.maxResponseTime} ms`);
 
   if (results) {
@@ -376,6 +379,7 @@ export function printWorkflowConsoleSummary(
   console.log(`  P50:          ${summary.p50ResponseTime} ms`);
   console.log(`  P95:          ${summary.p95ResponseTime} ms`);
   console.log(`  P99:          ${summary.p99ResponseTime} ms`);
+  console.log(`  P99.9:        ${summary.p999ResponseTime ?? '—'} ms`);
 
   console.log(bar);
   console.log(`  Total Steps:  ${summary.totalRequests}`);
@@ -479,6 +483,7 @@ export function buildWorkflowMarkdownReport(
   lines.push(`| **P50** | ${summary.p50ResponseTime} ms |`);
   lines.push(`| **P95** | ${summary.p95ResponseTime} ms |`);
   lines.push(`| **P99** | ${summary.p99ResponseTime} ms |`);
+  lines.push(`| **P99.9** | ${summary.p999ResponseTime ?? '—'} ms |`);
   lines.push(`| **Error Rate** | ${summary.errorRate}% |`);
   lines.push(`| **Total Steps** | ${summary.totalRequests} |`);
   lines.push(`| **Duration** | ${(summary.totalDurationMs / 1000).toFixed(2)}s |`);

@@ -1,4 +1,4 @@
-import type { ExecutionMode, ErrorPolicy, LoadProfileConfig, ThinkTimeConfig } from '../../../shared/types';
+import type { ExecutionMode, ErrorPolicy, LoadProfileConfig, ThinkTimeConfig, ArrivalRateConfig } from '../../../shared/types';
 import type { ReportOptions } from '../../results/utils/reportGenerator';
 
 export type HostMode = 'hardcoded' | 'settings' | 'custom';
@@ -15,6 +15,7 @@ export interface RunnerConfig {
   customBaseUrl: string;
   executionMode: ExecutionMode;
   loadProfile?: LoadProfileConfig;
+  arrivalRate?: ArrivalRateConfig;
   thinkTime?: ThinkTimeConfig;
   timeoutSec?: number;
   retryCount?: number;
@@ -56,6 +57,7 @@ export interface ResolvedConfig {
   customBaseUrl: string;
   executionMode: ExecutionMode;
   loadProfile: LoadProfileConfig;
+  arrivalRate?: ArrivalRateConfig;
   thinkTime: ThinkTimeConfig;
   timeoutSec: number;
   retryCount: number;
@@ -86,6 +88,7 @@ export function resolveLoadedConfig(raw: unknown): ResolvedConfig | null {
     customBaseUrl: saved.customBaseUrl ?? '',
     executionMode: saved.executionMode ?? 'batch',
     loadProfile: saved.loadProfile ?? { ...defaultLoadProfile },
+    arrivalRate: saved.arrivalRate,
     thinkTime: saved.thinkTime ?? { ...defaultThinkTime },
     timeoutSec: saved.timeoutSec ?? 10,
     retryCount: saved.retryCount ?? 0,

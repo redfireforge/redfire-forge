@@ -13,6 +13,7 @@ describe('computeMetrics', () => {
       p50ResponseTime: 0,
       p95ResponseTime: 0,
       p99ResponseTime: 0,
+      p999ResponseTime: 0,
       errorRate: 0,
       errorsByStatus: {},
       totalRequests: 0,
@@ -172,6 +173,7 @@ describe('computeMetrics', () => {
     const summary = computeMetrics(results, 60000);
     expect(summary.p95ResponseTime).toBe(951);
     expect(summary.p99ResponseTime).toBe(991);
+    expect(summary.p999ResponseTime).toBe(999);
     expect(summary.totalRequests).toBe(1000);
   });
 

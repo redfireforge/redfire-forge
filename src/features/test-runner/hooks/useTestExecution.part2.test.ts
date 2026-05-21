@@ -1,100 +1,57 @@
 /**
  * @vitest-environment jsdom
  */
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import {
+  createMockScenario,
+  createMockConfig,
+  createMockResult,
+  registerUseTestExecutionTestLifecycle,
+  mockRunTest,
+  mockSaveTestRun,
+} from './__test-utils__/useTestExecutionTestSetup';
+import { describe, it, expect, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useTestExecution } from './useTestExecution';
-import { TestConfig, RequestResult } from '../../../shared/types';
-import { makeScenario, makeResult, makeConfig } from '../../../test-utils/factories';
+import type { RequestResult } from '../../../shared/types';
 
-// Mock dependencies
-vi.mock('../../../engine/executor', () => ({
-  runTest: vi.fn(),
-}));
-
-vi.mock('../../../engine/workerBridge', () => ({
-  runTestMultiWorker: vi.fn(),
-}));
-
-vi.mock('../../../engine/metrics', () => ({
-  computeMetrics: vi.fn(),
-}));
-
-vi.mock('../../../shared/utils/storage', () => ({
-  saveTestRun: vi.fn(),
-  forceSaveTestRun: vi.fn(),
-}));
-
-vi.mock('../../../shared/utils/platform', () => ({
-  supportsWorkers: vi.fn(),
-  isTauri: vi.fn(() => false),
-}));
-
-vi.mock('../utils/rustBridge', () => ({
-  isRustExecutorAvailable: vi.fn(async () => false),
-  canUseRustExecutor: vi.fn(() => false),
-  runTestViaRust: vi.fn(),
-}));
-
+vi.mock('../../../engine/executor', async () => {
+  const { mockRunTest } = await import('./__test-utils__/useTestExecutionTestSetup');
+  return { runTest: mockRunTest };
+});
+vi.mock('../../../engine/workerBridge', async () => {
+  const { mockRunTestInWorker } = await import('./__test-utils__/useTestExecutionTestSetup');
+  return { runTestMultiWorker: mockRunTestInWorker };
+});
+vi.mock('../../../engine/metrics', async () => {
+  const { mockComputeMetrics } = await import('./__test-utils__/useTestExecutionTestSetup');
+  return { computeMetrics: mockComputeMetrics };
+});
+vi.mock('../../../shared/utils/storage', async () => {
+  const { mockSaveTestRun, mockForceSaveTestRun } = await import(
+    './__test-utils__/useTestExecutionTestSetup'
+  );
+  return { saveTestRun: mockSaveTestRun, forceSaveTestRun: mockForceSaveTestRun };
+});
+vi.mock('../../../shared/utils/platform', async () => {
+  const { mockSupportsWorkers } = await import('./__test-utils__/useTestExecutionTestSetup');
+  return { supportsWorkers: mockSupportsWorkers, isTauri: vi.fn(() => false) };
+});
+vi.mock('../utils/rustBridge', async () => {
+  const { mockIsRustAvailable, mockCanUseRust, mockRunTestViaRust } = await import(
+    './__test-utils__/useTestExecutionTestSetup'
+  );
+  return {
+    isRustExecutorAvailable: mockIsRustAvailable,
+    canUseRustExecutor: mockCanUseRust,
+    runTestViaRust: mockRunTestViaRust,
+  };
+});
 vi.mock('uuid', () => ({
   v4: vi.fn(() => 'test-uuid'),
 }));
 
-import { runTest } from '../../../engine/executor';
-import { runTestMultiWorker } from '../../../engine/workerBridge';
-import { computeMetrics } from '../../../engine/metrics';
-import { saveTestRun, forceSaveTestRun } from '../../../shared/utils/storage';
-import { supportsWorkers } from '../../../shared/utils/platform';
-
-import { isRustExecutorAvailable, canUseRustExecutor, runTestViaRust } from '../utils/rustBridge';
-
-const mockRunTest = vi.mocked(runTest);
-const _mockRunTestInWorker = vi.mocked(runTestMultiWorker);
-const mockComputeMetrics = vi.mocked(computeMetrics);
-const mockSaveTestRun = vi.mocked(saveTestRun);
-const mockIsRustAvailable = vi.mocked(isRustExecutorAvailable);
-const mockCanUseRust = vi.mocked(canUseRustExecutor);
-const _mockRunTestViaRust = vi.mocked(runTestViaRust);
-const _mockForceSaveTestRun = vi.mocked(forceSaveTestRun);
-const mockSupportsWorkers = vi.mocked(supportsWorkers);
-
-const createMockScenario = (id = 'sc-1') => makeScenario({ id });
-const createMockConfig = (overrides: Partial<TestConfig> = {}) => makeConfig(overrides);
-const createMockResult = (overrides: Partial<RequestResult> = {}) => makeResult(overrides);
-
-function createMockSummary() {
-  return {
-    tps: 10,
-    avgResponseTime: 100,
-    minResponseTime: 50,
-    maxResponseTime: 200,
-    p50ResponseTime: 100,
-    p95ResponseTime: 180,
-    p99ResponseTime: 195,
-    errorRate: 0,
-    errorsByStatus: {},
-    totalRequests: 10,
-    successfulRequests: 10,
-    failedRequests: 0,
-    failedValidations: 0,
-    totalDurationMs: 1000,
-  };
-}
-
 describe('useTestExecution', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    mockSupportsWorkers.mockReturnValue(false);
-    mockCanUseRust.mockReturnValue(false);
-    mockIsRustAvailable.mockResolvedValue(false);
-    mockComputeMetrics.mockReturnValue(createMockSummary());
-    mockSaveTestRun.mockResolvedValue({ ok: true, quotaError: false });
-  });
-
-  afterEach(() => {
-    vi.useRealTimers();
-  });
+  registerUseTestExecutionTestLifecycle();
 
   describe('incremental summary computation', () => {
     it('flush shows zeroed summary when no results tracked yet', async () => {
@@ -667,6 +624,45 @@ describe('useTestExecution', () => {
 
       expect(result.current.timeSeries.length).toBeGreaterThan(0);
       expect(result.current.timeSeries[0].concurrency).toBe(8);
+    });
+
+    it('includes targetRps and actualRps in time series when profileMeta provides them', async () => {
+      let progressCallback: ((
+        c: number,
+        t: number,
+        r: RequestResult[],
+        meta?: import('../../../engine/executor').ProgressMeta,
+      ) => void) | undefined;
+      mockRunTest.mockImplementation(async (_config, _scenarios, onProgress) => {
+        progressCallback = onProgress;
+        await new Promise((r) => setTimeout(r, 5000));
+        return { results: [] };
+      });
+
+      const { result } = renderHook(() => useTestExecution());
+
+      act(() => {
+        result.current.execute(createMockConfig(), [createMockScenario()]);
+      });
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(100);
+      });
+
+      await act(async () => {
+        progressCallback?.(1, 10, [createMockResult()], {
+          elapsedMs: 1000,
+          targetConcurrency: 5,
+          currentInFlight: 3,
+          durationMs: 0,
+          targetRps: 42.37,
+          actualRps: 38.92,
+        });
+        await vi.advanceTimersByTimeAsync(1100);
+      });
+
+      expect(result.current.timeSeries[0].targetRps).toBe(42.4);
+      expect(result.current.timeSeries[0].actualRps).toBe(38.9);
     });
   });
 

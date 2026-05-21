@@ -12,6 +12,7 @@ export const executionModes: ExecutionMode[] = [
   'batch',
   'pool',
   'load-profile',
+  'constant-arrival',
   'workflow',
 ];
 
@@ -39,6 +40,12 @@ const executionModeMeta: Record<ExecutionMode, ExecutionModeMeta> = {
     title: 'Time-based load profiles: ramp-up, sustained, spike, soak',
     hint: 'Time-based execution with dynamic concurrency shaping',
     progressLabel: 'Load Profile',
+  },
+  'constant-arrival': {
+    label: 'Constant Arrival',
+    title: 'Constant Arrival Rate (Open Model)',
+    hint: 'Fire N requests/second regardless of response time. Desktop only.',
+    progressLabel: 'Arrival Rate',
   },
   workflow: {
     label: 'Workflow',

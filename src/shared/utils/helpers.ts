@@ -174,3 +174,17 @@ export function mergeById<T extends { id: string }>(existing: T[], incoming: T[]
   const ids = new Set(existing.map(x => x.id));
   return [...existing, ...incoming.filter(x => !ids.has(x.id))];
 }
+
+/** Format failure details from a RequestResult into a human-readable string. */
+export function formatFailureDetails(
+  details: ReadonlyArray<{ path?: string; expected?: string; actual?: string }>,
+): string {
+  return details
+    .map(f => `${f.path}: expected ${f.expected}, got ${f.actual}`)
+    .join('; ');
+}
+
+/** Get the error message for a failed result, falling back to formatted failure details. */
+export function getResultErrorMessage(result: { errorMessage?: string; failureDetails: ReadonlyArray<{ path?: string; expected?: string; actual?: string }> }): string {
+  return result.errorMessage || formatFailureDetails(result.failureDetails);
+}

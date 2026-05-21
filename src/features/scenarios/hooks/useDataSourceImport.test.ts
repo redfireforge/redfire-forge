@@ -7,6 +7,10 @@ import { useDataSourceImport } from './useDataSourceImport';
 import { Scenario, DataSource, DataSourceColumn, DataSourceRow } from '../../../shared/types';
 import { CsvParseResult } from '../utils/csvTemplateTypes';
 import { makeScenario as _makeScenario } from '../../../test-utils/factories';
+const uuidMock = vi.hoisted(() =>
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  require('../../../test-utils/uuidMock.ts').hoistedUuidFixed('mock-uuid'),
+);
 import { parseJsonImport, parseExcelSimple } from '../utils/dataSourceImport';
 import { parseExcelToScenarios } from '../utils/csvTemplateExcel';
 
@@ -50,7 +54,7 @@ vi.mock('../utils/dataSourceUtils', () => ({
   })),
 }));
 
-vi.mock('uuid', () => ({ v4: () => 'mock-uuid' }));
+vi.mock('uuid', () => uuidMock);
 
 function makeScenario(overrides?: Partial<Scenario>): Scenario {
   return _makeScenario({

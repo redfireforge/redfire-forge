@@ -65,6 +65,8 @@ export type RustCircuitBreakerConfig =
   | { policy: 'stop-first' }
   | { policy: 'stop-threshold'; maxErrors: number; maxErrorRate: number; minSampleSize: number };
 
+export type DetailLevel = 'full' | 'metrics-only' | 'sampled';
+
 export type RustExecutionPlan =
   | {
       mode: 'pool';
@@ -75,6 +77,7 @@ export type RustExecutionPlan =
       retryDelayMs: number;
       thinkTime: RustThinkTimeConfig;
       circuitBreaker: RustCircuitBreakerConfig;
+      detailLevel?: DetailLevel;
     }
   | {
       mode: 'sequential';
@@ -84,6 +87,7 @@ export type RustExecutionPlan =
       retryDelayMs: number;
       thinkTime: RustThinkTimeConfig;
       circuitBreaker: RustCircuitBreakerConfig;
+      detailLevel?: DetailLevel;
     }
   | {
       mode: 'load-profile';
@@ -100,6 +104,21 @@ export type RustExecutionPlan =
       spikeConcurrency?: number | null;
       spikeStartSec?: number | null;
       spikeDurationSec?: number | null;
+      detailLevel?: DetailLevel;
+    }
+  | {
+      mode: 'constant-arrival';
+      scenarios: RustScenario[];
+      targetRps: number;
+      durationSec: number;
+      maxInFlight: number;
+      timeoutMs: number;
+      retryCount: number;
+      retryDelayMs: number;
+      thinkTime: RustThinkTimeConfig;
+      circuitBreaker: RustCircuitBreakerConfig;
+      rampConfig?: { startRps: number; endRps: number; rampDurationSec: number };
+      detailLevel?: DetailLevel;
     };
 
 export interface RustTimingBreakdown {
@@ -140,6 +159,19 @@ export interface RustExecutionResult {
   validationMode?: string;
 }
 
+export interface RustMetricsSnapshot {
+  p50: number;
+  p95: number;
+  p99: number;
+  p999: number;
+  min: number;
+  max: number;
+  avg: number;
+  total: number;
+  errors: number;
+  tps: number;
+}
+
 export interface RustProgressBatch {
   completed: number;
   total: number;
@@ -148,12 +180,21 @@ export interface RustProgressBatch {
   currentInFlight: number;
   targetConcurrency: number;
   breakerTripped: boolean;
+  metrics?: RustMetricsSnapshot;
+  targetRps?: number;
+  actualRps?: number;
+  droppedRequests?: number;
 }
 
 export interface RustCompletionSummary {
   totalResults: number;
   durationMs: number;
   breakerTripped: boolean;
+  finalMetrics?: RustMetricsSnapshot;
+}
+
+export interface RustFinalResults {
+  results: RustExecutionResult[];
 }
 
 /* ── Availability check ──────────────────────────────────────────── */
@@ -187,6 +228,7 @@ export async function startRustLoadTest(
   onProgress: (batch: RustProgressBatch) => void,
   onComplete: (summary: RustCompletionSummary) => void,
   onError?: (err: unknown) => void,
+  onFinalResults?: (payload: RustFinalResults) => void,
 ): Promise<{ unlisten: () => void }> {
   if (!isTauri()) {
     const err = new Error('startRustLoadTest called outside Tauri');
@@ -203,11 +245,18 @@ export async function startRustLoadTest(
     cleaned = true;
     unlistenProgress();
     unlistenComplete();
+    unlistenFinalResults();
   };
 
   const unlistenProgress = await listen<RustProgressBatch>('load-test-progress', (event) => {
     onProgress(event.payload);
   });
+
+  const unlistenFinalResults = onFinalResults
+    ? await listen<RustFinalResults>('load-test-final-results', (event) => {
+        onFinalResults(event.payload);
+      })
+    : () => {};
 
   const unlistenComplete = await listen<RustCompletionSummary>('load-test-complete', (event) => {
     cleanup();
@@ -340,6 +389,34 @@ export function buildExecutionPlan(
   const thinkTime = mapThinkTime(config);
   const circuitBreaker = mapCircuitBreaker(config);
 
+  if (mode === 'constant-arrival' && config.arrivalRate) {
+    const ar = config.arrivalRate;
+    const weightMap = new Map(config.scenarioWeights.map((w) => [w.scenarioId, w.weight]));
+    const rustScenarios = scenarios.map((s) => {
+      const rs = prepareRustScenario(s);
+      rs.weight = weightMap.get(s.id) ?? null;
+      return rs;
+    });
+    return {
+      mode: 'constant-arrival',
+      scenarios: rustScenarios,
+      targetRps: ar.targetRps,
+      durationSec: ar.durationSec,
+      maxInFlight: ar.maxInFlight ?? Math.ceil(ar.targetRps * 10),
+      timeoutMs,
+      retryCount,
+      retryDelayMs,
+      thinkTime,
+      circuitBreaker,
+      rampConfig: ar.ramp ? {
+        startRps: ar.ramp.startRps,
+        endRps: ar.ramp.endRps,
+        rampDurationSec: ar.ramp.rampDurationSec,
+      } : undefined,
+      detailLevel: 'sampled',
+    };
+  }
+
   if (mode === 'load-profile' && config.loadProfile) {
     const weightMap = new Map(config.scenarioWeights.map((w) => [w.scenarioId, w.weight]));
     const rustScenarios = scenarios.map((s) => {
@@ -362,6 +439,7 @@ export function buildExecutionPlan(
       spikeConcurrency: config.loadProfile.spikeConcurrency ?? null,
       spikeStartSec: config.loadProfile.spikeStartSec ?? null,
       spikeDurationSec: config.loadProfile.spikeDurationSec ?? null,
+      detailLevel: 'sampled',
     };
   }
 
@@ -644,8 +722,8 @@ export function runTestViaRust(
     return Promise.reject(new Error('Cannot build Rust execution plan for this configuration'));
   }
 
-  const isLoadProfile = config.executionMode === 'load-profile';
-  const expandedQueue = isLoadProfile ? scenarios : buildExpandedQueue(config, scenarios);
+  const isTimeBased = config.executionMode === 'load-profile' || config.executionMode === 'constant-arrival';
+  const expandedQueue = isTimeBased ? scenarios : buildExpandedQueue(config, scenarios);
   const scenarioLookup = buildScenarioLookup(scenarios, expandedQueue);
   const allResults: RequestResult[] = [];
 
@@ -682,32 +760,50 @@ export function runTestViaRust(
       fn();
     };
 
+    const mapAndAppendRustResults = (rustResults: RustExecutionResult[]) => {
+      for (const rustResult of rustResults) {
+        const scenario = findScenario(scenarioLookup, rustResult);
+        if (scenario) {
+          allResults.push(mapRustResult(rustResult, scenario));
+        } else {
+          allResults.push(mapRustResultWithoutValidation(rustResult));
+        }
+      }
+    };
+
     startRustLoadTest(
       plan,
       (batch: RustProgressBatch) => {
-        for (const rustResult of batch.results) {
-          const scenario = findScenario(scenarioLookup, rustResult);
-          if (scenario) {
-            allResults.push(mapRustResult(rustResult, scenario));
-          } else {
-            allResults.push(mapRustResultWithoutValidation(rustResult));
-          }
-        }
+        mapAndAppendRustResults(batch.results);
 
-        const total = isLoadProfile ? -1 : plan.scenarios.length;
+        const total = isTimeBased ? -1 : plan.scenarios.length;
+        const durationMs = config.executionMode === 'constant-arrival' && config.arrivalRate
+          ? config.arrivalRate.durationSec * 1000
+          : config.executionMode === 'load-profile' && config.loadProfile
+            ? config.loadProfile.durationSec * 1000
+            : 0;
         const meta: ProgressMeta = {
           elapsedMs: batch.elapsedMs,
           targetConcurrency: batch.targetConcurrency,
           currentInFlight: batch.currentInFlight,
-          durationMs: isLoadProfile && config.loadProfile ? config.loadProfile.durationSec * 1000 : 0,
+          durationMs,
+          metrics: batch.metrics,
+          targetRps: batch.targetRps,
+          actualRps: batch.actualRps,
+          droppedRequests: batch.droppedRequests,
         };
-        onProgress(allResults.length, total, allResults, meta);
+        const completed = Math.max(allResults.length, Number(batch.completed));
+        onProgress(completed, total, allResults, meta);
       },
       (_summary: RustCompletionSummary) => {
         settle(() => resolve({ results: allResults }));
       },
       (err: unknown) => {
         settle(() => reject(err instanceof Error ? err : new Error(String(err))));
+      },
+      (payload: RustFinalResults) => {
+        allResults.length = 0;
+        mapAndAppendRustResults(payload.results);
       },
     ).then((handle) => {
       unlistenFn = handle.unlisten;

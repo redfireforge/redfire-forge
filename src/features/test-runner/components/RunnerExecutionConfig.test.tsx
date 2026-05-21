@@ -77,8 +77,7 @@ describe('RunnerExecutionConfig', () => {
     expect(screen.getByLabelText('Batch')).toBeTruthy();
     expect(screen.getByLabelText('Continuous Pool')).toBeTruthy();
     expect(screen.getByLabelText('Load Profile')).toBeTruthy();
-    // 'Workflow' mode is excluded from the generic runner's default mode list
-    // (it is only shown in the Workflow Runner via a dedicated namePrefix + mode list)
+    expect(screen.getByLabelText('Constant Arrival')).toBeTruthy();
     expect(screen.queryByLabelText('Workflow')).toBeNull();
   });
 
@@ -713,6 +712,196 @@ describe('RunnerExecutionConfig', () => {
     const input = screen.getByText('Ramp (sec)').closest('.profile-field')?.querySelector('input') as HTMLInputElement;
     fireEvent.blur(input);
     expect(onLoadProfileChange).toHaveBeenCalledWith({ rampUpSec: 20 });
+  });
+
+  // --- Constant Arrival Rate ---
+  it('disables Constant Arrival radio on web (non-Tauri)', () => {
+    renderConfig();
+    const radio = screen.getByLabelText('Constant Arrival') as HTMLInputElement;
+    expect(radio.disabled).toBe(true);
+  });
+
+  it('shows arrival rate config section when constant-arrival mode is active', () => {
+    const onArrivalRateChange = vi.fn();
+    renderConfig({
+      executionMode: 'constant-arrival',
+      arrivalRate: { targetRps: 50, durationSec: 60 },
+      onArrivalRateChange,
+    } as unknown as OverrideProps);
+    expect(screen.getByText('Target RPS')).toBeTruthy();
+    expect(screen.getByText('Duration (sec)')).toBeTruthy();
+    expect(screen.getByText('Max In-Flight')).toBeTruthy();
+    expect(screen.getByText('Enable Ramp')).toBeTruthy();
+  });
+
+  it('shows "Max in-flight" hint for concurrency in constant-arrival mode', () => {
+    renderConfig({
+      executionMode: 'constant-arrival',
+      arrivalRate: { targetRps: 10, durationSec: 30 },
+      onArrivalRateChange: vi.fn(),
+    } as unknown as OverrideProps);
+    expect(screen.getByText('Max in-flight')).toBeTruthy();
+  });
+
+  it('shows "Time-based" hint for iterations in constant-arrival mode', () => {
+    renderConfig({
+      executionMode: 'constant-arrival',
+      arrivalRate: { targetRps: 10, durationSec: 30 },
+      onArrivalRateChange: vi.fn(),
+    } as unknown as OverrideProps);
+    expect(screen.getByText('Time-based')).toBeTruthy();
+  });
+
+  it('disables concurrency and iterations inputs in constant-arrival mode', () => {
+    renderConfig({
+      executionMode: 'constant-arrival',
+      arrivalRate: { targetRps: 10, durationSec: 30 },
+      onArrivalRateChange: vi.fn(),
+    } as unknown as OverrideProps);
+    const concInput = screen.getByText('Concurrency').closest('.resilience-field')?.querySelector('input') as HTMLInputElement;
+    const iterInput = screen.getByText('Iterations').closest('.resilience-field')?.querySelector('input') as HTMLInputElement;
+    expect(concInput.disabled).toBe(true);
+    expect(iterInput.disabled).toBe(true);
+  });
+
+  it('fires onArrivalRateChange for target RPS', () => {
+    const onArrivalRateChange = vi.fn();
+    renderConfig({
+      executionMode: 'constant-arrival',
+      arrivalRate: { targetRps: 10, durationSec: 30 },
+      onArrivalRateChange,
+    } as unknown as OverrideProps);
+    const input = screen.getByText('Target RPS').closest('.profile-field')?.querySelector('input') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '100' } });
+    expect(onArrivalRateChange).toHaveBeenCalledWith({ targetRps: 100 });
+  });
+
+  it('fires onArrivalRateChange for duration', () => {
+    const onArrivalRateChange = vi.fn();
+    renderConfig({
+      executionMode: 'constant-arrival',
+      arrivalRate: { targetRps: 10, durationSec: 30 },
+      onArrivalRateChange,
+    } as unknown as OverrideProps);
+    const input = screen.getByText('Duration (sec)').closest('.profile-field')?.querySelector('input') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '120' } });
+    expect(onArrivalRateChange).toHaveBeenCalledWith({ durationSec: 120 });
+  });
+
+  it('shows default maxInFlight hint when not explicitly set', () => {
+    renderConfig({
+      executionMode: 'constant-arrival',
+      arrivalRate: { targetRps: 10, durationSec: 30 },
+      onArrivalRateChange: vi.fn(),
+    } as unknown as OverrideProps);
+    expect(screen.getByText('Default: RPS × 10')).toBeTruthy();
+  });
+
+  it('toggles ramp sub-section', () => {
+    const onArrivalRateChange = vi.fn();
+    renderConfig({
+      executionMode: 'constant-arrival',
+      arrivalRate: { targetRps: 10, durationSec: 30 },
+      onArrivalRateChange,
+    } as unknown as OverrideProps);
+    expect(screen.queryByText('Start RPS')).toBeNull();
+    fireEvent.click(screen.getByLabelText('Enable Ramp'));
+    expect(onArrivalRateChange).toHaveBeenCalledWith(expect.objectContaining({
+      ramp: expect.objectContaining({ startRps: expect.any(Number), endRps: 10, rampDurationSec: 10 }),
+    }));
+  });
+
+  it('shows ramp fields when ramp is enabled', () => {
+    renderConfig({
+      executionMode: 'constant-arrival',
+      arrivalRate: { targetRps: 100, durationSec: 60, ramp: { startRps: 10, endRps: 100, rampDurationSec: 15 } },
+      onArrivalRateChange: vi.fn(),
+    } as unknown as OverrideProps);
+    expect(screen.getByText('Start RPS')).toBeTruthy();
+    expect(screen.getByText('End RPS')).toBeTruthy();
+    expect(screen.getByText('Ramp Duration (sec)')).toBeTruthy();
+  });
+
+  it('does not show arrival config when arrivalRate prop is missing', () => {
+    renderConfig({ executionMode: 'constant-arrival' } as unknown as OverrideProps);
+    expect(screen.queryByText('Target RPS')).toBeNull();
+  });
+
+  it('fires onArrivalRateChange with float RPS value', () => {
+    const onArrivalRateChange = vi.fn();
+    renderConfig({
+      executionMode: 'constant-arrival',
+      arrivalRate: { targetRps: 10, durationSec: 30 },
+      onArrivalRateChange,
+    } as unknown as OverrideProps);
+    const input = screen.getByText('Target RPS').closest('.profile-field')?.querySelector('input') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '0.5' } });
+    expect(onArrivalRateChange).toHaveBeenCalledWith({ targetRps: 0.5 });
+  });
+
+  it('fires onArrivalRateChange for maxInFlight', () => {
+    const onArrivalRateChange = vi.fn();
+    renderConfig({
+      executionMode: 'constant-arrival',
+      arrivalRate: { targetRps: 10, durationSec: 30, maxInFlight: 100 },
+      onArrivalRateChange,
+    } as unknown as OverrideProps);
+    const input = screen.getByText('Max In-Flight').closest('.profile-field')?.querySelector('input') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '25' } });
+    expect(onArrivalRateChange).toHaveBeenCalledWith({ maxInFlight: 25 });
+  });
+
+  it('fires onArrivalRateChange with ramp undefined when disabling ramp', () => {
+    const onArrivalRateChange = vi.fn();
+    renderConfig({
+      executionMode: 'constant-arrival',
+      arrivalRate: { targetRps: 10, durationSec: 30, ramp: { startRps: 1, endRps: 10, rampDurationSec: 10 } },
+      onArrivalRateChange,
+    } as unknown as OverrideProps);
+    fireEvent.click(screen.getByLabelText('Enable Ramp'));
+    expect(onArrivalRateChange).toHaveBeenCalledWith({ ramp: undefined });
+  });
+
+  it('fires onArrivalRateChange for ramp start RPS', () => {
+    const onArrivalRateChange = vi.fn();
+    renderConfig({
+      executionMode: 'constant-arrival',
+      arrivalRate: { targetRps: 100, durationSec: 60, ramp: { startRps: 10, endRps: 100, rampDurationSec: 15 } },
+      onArrivalRateChange,
+    } as unknown as OverrideProps);
+    const input = screen.getByText('Start RPS').closest('.profile-field')?.querySelector('input') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '20' } });
+    expect(onArrivalRateChange).toHaveBeenCalledWith({
+      ramp: { startRps: 20, endRps: 100, rampDurationSec: 15 },
+    });
+  });
+
+  it('fires onArrivalRateChange for ramp end RPS', () => {
+    const onArrivalRateChange = vi.fn();
+    renderConfig({
+      executionMode: 'constant-arrival',
+      arrivalRate: { targetRps: 100, durationSec: 60, ramp: { startRps: 10, endRps: 100, rampDurationSec: 15 } },
+      onArrivalRateChange,
+    } as unknown as OverrideProps);
+    const input = screen.getByText('End RPS').closest('.profile-field')?.querySelector('input') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '80' } });
+    expect(onArrivalRateChange).toHaveBeenCalledWith({
+      ramp: { startRps: 10, endRps: 80, rampDurationSec: 15 },
+    });
+  });
+
+  it('fires onArrivalRateChange for ramp duration', () => {
+    const onArrivalRateChange = vi.fn();
+    renderConfig({
+      executionMode: 'constant-arrival',
+      arrivalRate: { targetRps: 100, durationSec: 60, ramp: { startRps: 10, endRps: 100, rampDurationSec: 15 } },
+      onArrivalRateChange,
+    } as unknown as OverrideProps);
+    const input = screen.getByText('Ramp Duration (sec)').closest('.profile-field')?.querySelector('input') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '20' } });
+    expect(onArrivalRateChange).toHaveBeenCalledWith({
+      ramp: { startRps: 10, endRps: 100, rampDurationSec: 20 },
+    });
   });
 
 });

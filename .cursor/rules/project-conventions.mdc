@@ -90,6 +90,13 @@ alwaysApply: true
 | `src/features/results/utils/bottleneckAnalysis.ts` | Bottleneck identification engine for Results Explorer |
 | `src/shared/utils/jsonPath.ts` | Canonical JSONPath engine (getByPath, getByPathAsString, setByPath) |
 | `src/shared/utils/jsonTreeModel.ts` | Unified JSON tree model (buildJsonTree, JsonTreeNode) |
+| `src/shared/utils/definitionVersioning.ts` | Shared versioning logic (computeSnapshotFingerprint, generateHttpChangeSummary, computeHttpSnapshotDiff, createVersionEntry, addVersionToList, deleteVersionById, renameVersionById) |
+| `src/shared/utils/percentiles.ts` | Shared percentile math (percentile, computePercentiles, round2) |
+| `src/shared/utils/helpers.ts` | Shared helpers (formatFailureDetails, getResultErrorMessage) |
+| `src/shared/utils/keyValueDiff.ts` | Key-value array diffing (diffKeyValueHeaders) |
+| `src/shared/utils/queryParams.ts` | URL query parameter utilities |
+| `src/features/test-runner/components/RunnerPage.tsx` | Shared runner page: consolidated TestRunner + ParameterizedRunner UI |
+| `src/features/test-runner/components/runnerVariants.ts` | Runner variant configs (STANDARD_VARIANT, PARAMETERIZED_VARIANT) |
 | `src/shared/components/data-mapper/DataMapper.tsx` | Data Mapper: main container component |
 | `src/shared/components/data-mapper/DataMapperModal.tsx` | Data Mapper: modal shell with validation + Done/Cancel |
 | `src/shared/components/data-mapper/SourcePanel.tsx` | Data Mapper: source tree panel with paste/fetch |

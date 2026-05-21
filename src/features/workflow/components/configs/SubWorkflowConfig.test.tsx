@@ -122,6 +122,36 @@ describe('SubWorkflowConfig', () => {
     );
   });
 
+  it('updates an input mapping target variable', () => {
+    const onChange = vi.fn();
+    const data = makeData({
+      inputMappings: [{ sourceExpression: '{{x}}', targetVariable: 'old_target' }],
+    });
+    render(<SubWorkflowConfig data={data} onChange={onChange} workflows={sampleWorkflows} />);
+    fireEvent.change(screen.getByDisplayValue('old_target'), { target: { value: 'new_target' } });
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        inputMappings: [{ sourceExpression: '{{x}}', targetVariable: 'new_target' }],
+      }),
+    );
+  });
+
+  it('updates dynamic workflow id expression', () => {
+    const onChange = vi.fn();
+    render(
+      <SubWorkflowConfig
+        data={makeData({ workflowId: '{{wf}}' })}
+        onChange={onChange}
+        workflows={sampleWorkflows}
+      />,
+    );
+    const input = document.querySelector('.wf-subworkflow-expression-input') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '{{dynamicWf}}' } });
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({ workflowId: '{{dynamicWf}}', workflowName: '' }),
+    );
+  });
+
   it('adds a new output mapping row', () => {
     const onChange = vi.fn();
     render(<SubWorkflowConfig data={makeData()} onChange={onChange} workflows={sampleWorkflows} />);
@@ -363,6 +393,20 @@ describe('SubWorkflowConfig', () => {
     expect(onChange).toHaveBeenCalledWith(
       expect.objectContaining({
         multiInstance: expect.objectContaining({ collection: '{{b}}' }),
+      }),
+    );
+  });
+
+  it('updates multiInstance element variable name', () => {
+    const onChange = vi.fn();
+    const data = makeData({
+      multiInstance: { collection: '{{users}}', elementVariable: 'item', mode: 'sequential' },
+    });
+    render(<SubWorkflowConfig data={data} onChange={onChange} workflows={sampleWorkflows} />);
+    fireEvent.change(screen.getByDisplayValue('item'), { target: { value: 'user' } });
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        multiInstance: expect.objectContaining({ elementVariable: 'user' }),
       }),
     );
   });
