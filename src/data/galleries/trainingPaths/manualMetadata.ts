@@ -69,6 +69,9 @@ export const manualMetadata: ManualMetadata[] = [
   { manualPath: 'tests/parameterized-advanced-features-medium.html', addedAt: date('2026-04-25') },
   { manualPath: 'tests/parameterized-verify-contract-advanced.html', addedAt: date('2026-04-25') },
 
+  // Trash Box Recovery
+  { manualPath: 'tests/trash-recovery-easy.html', addedAt: date('2026-05-20') },
+
   // Shared Data Sources (Phase 5)
   { manualPath: 'tests/shared-data-sources-easy.html', addedAt: date('2024-04-01') },
   { manualPath: 'tests/shared-data-sources-fetch-medium.html', addedAt: date('2024-04-05') },

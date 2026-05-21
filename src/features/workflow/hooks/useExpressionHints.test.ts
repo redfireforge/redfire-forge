@@ -316,4 +316,90 @@ describe('useExpressionHints', () => {
     expect(result.current.hintState.open).toBe(true);
     expect(result.current.hintState.triggerKind).toBe('bare');
   });
+
+  // ── JSONPath hints ──
+
+  const jpPaths = ['$.data.id', '$.data.name', '$.items[0].value'];
+
+  it('shows jsonpath hints when $. is typed', () => {
+    const { result } = renderHook(() => useExpressionHints(sampleHints, jpPaths));
+    act(() => { result.current.onInputChange('$.', 2); });
+    expect(result.current.hintState.open).toBe(true);
+    expect(result.current.hintState.triggerKind).toBe('jsonpath');
+    expect(result.current.hintState.items.length).toBe(3);
+    expect(result.current.hintState.items[0].kind).toBe('jsonpath');
+  });
+
+  it('filters jsonpath hints as user types', () => {
+    const { result } = renderHook(() => useExpressionHints(sampleHints, jpPaths));
+    act(() => { result.current.onInputChange('$.data', 6); });
+    expect(result.current.hintState.open).toBe(true);
+    expect(result.current.hintState.items.length).toBe(2);
+    expect(result.current.hintState.items.every(i => i.label.startsWith('$.data'))).toBe(true);
+  });
+
+  it('closes hints when no jsonpath matches', () => {
+    const { result } = renderHook(() => useExpressionHints(sampleHints, jpPaths));
+    act(() => { result.current.onInputChange('$.zzz', 5); });
+    expect(result.current.hintState.open).toBe(false);
+  });
+
+  it('shows jsonpath hints after space separator', () => {
+    const { result } = renderHook(() => useExpressionHints(sampleHints, jpPaths));
+    act(() => { result.current.onInputChange('abc $.d', 7); });
+    expect(result.current.hintState.open).toBe(true);
+    expect(result.current.hintState.triggerKind).toBe('jsonpath');
+  });
+
+  it('shows jsonpath hints after comma separator', () => {
+    const { result } = renderHook(() => useExpressionHints(sampleHints, jpPaths));
+    act(() => { result.current.onInputChange('x,$.', 4); });
+    expect(result.current.hintState.open).toBe(true);
+    expect(result.current.hintState.triggerKind).toBe('jsonpath');
+  });
+
+  it('shows jsonpath hints after paren separator', () => {
+    const { result } = renderHook(() => useExpressionHints(sampleHints, jpPaths));
+    act(() => { result.current.onInputChange('fn($.', 5); });
+    expect(result.current.hintState.open).toBe(true);
+    expect(result.current.hintState.triggerKind).toBe('jsonpath');
+  });
+
+  it('does not show jsonpath hints when jpHints is empty', () => {
+    const { result } = renderHook(() => useExpressionHints(sampleHints, []));
+    act(() => { result.current.onInputChange('$.data', 6); });
+    expect(result.current.hintState.triggerKind).not.toBe('jsonpath');
+  });
+
+  it('does not show jsonpath hints when jpHints is undefined', () => {
+    const { result } = renderHook(() => useExpressionHints(sampleHints));
+    act(() => { result.current.onInputChange('$.data', 6); });
+    expect(result.current.hintState.triggerKind).not.toBe('jsonpath');
+  });
+
+  it('accept inserts jsonpath text correctly', () => {
+    const { result } = renderHook(() => useExpressionHints(sampleHints, jpPaths));
+    const input = document.createElement('input');
+    input.value = '$.';
+    input.selectionStart = 2;
+    input.selectionEnd = 2;
+    act(() => { result.current.inputRef.current = input; });
+    act(() => { result.current.onInputChange('$.', 2); });
+    expect(result.current.hintState.open).toBe(true);
+
+    let accepted = '';
+    act(() => {
+      result.current.accept(result.current.hintState.items[0], '$.', (v: string) => { accepted = v; });
+    });
+    expect(result.current.hintState.open).toBe(false);
+    expect(accepted).toBe('$.data.id');
+  });
+
+  it('jsonpath hints auto-prefix $.', () => {
+    const paths = ['data.id', 'data.name'];
+    const { result } = renderHook(() => useExpressionHints(sampleHints, paths));
+    act(() => { result.current.onInputChange('$.', 2); });
+    expect(result.current.hintState.open).toBe(true);
+    expect(result.current.hintState.items.every(i => i.label.startsWith('$.'))).toBe(true);
+  });
 });

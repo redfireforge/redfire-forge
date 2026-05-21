@@ -979,6 +979,7 @@ After running a workflow, click **📊 Results Explorer** to open a full-screen 
 | Connection pooling | HTTP connections reused via `keep-alive` with shared `undici.Agent` pool (30s timeout, 128 connections); eliminates TCP/TLS handshake overhead; 2–3x latency improvement for HTTPS APIs; Tauri natively pooled via `reqwest` |
 | Weighted test distribution | Control relative frequency of each test |
 | Live progress monitoring | Real-time TPS, response times, and error rates during runs (throttled updates, incremental metrics) |
+| **Trash Box** | Soft-delete with configurable retention (7–90 days) for Feature Groups, Scenarios, Tests, and Shared Data Sources; 5-second undo toast, Trash Panel for browse/search/restore, automatic purge on startup |
 | Persistent configuration | All settings saved across sessions (file system in desktop, localStorage in browser) |
 | Results filtering | Filter runs by environment and microservice |
 | Multi-level grouped results | Group by Feature → Scenario → Test with cascading sub-groups and per-group summary stats |
@@ -1224,8 +1225,9 @@ Data is stored using a tiered storage strategy:
 | `featureGroups` | Feature Groups, Scenarios, Tests, and inline Data Sources |
 | `testRuns` | Historical test run results |
 | `sharedDataSources` | Top-level shared data sources (harness-wide) |
+| `trash` | Soft-deleted items with metadata (retention, expiry, parent path) |
 
-IndexedDB is used for large data that would exceed localStorage's ~5 MB limit. The database (`redfireforge`, version 3) uses a blob-per-store pattern with automatic migration from localStorage on first load.
+IndexedDB is used for large data that would exceed localStorage's ~5 MB limit. The database (`redfireforge`, version 4) uses a blob-per-store pattern with automatic migration from localStorage on first load.
 
 **localStorage (Secondary — for small data)**
 

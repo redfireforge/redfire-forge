@@ -208,6 +208,18 @@ describe('buildCurlCommand', () => {
     expect(cmd).toContain('Bearer <TOKEN_ERROR: check OAuth2 config>');
   });
 
+  it('form-data: defaults bodyForm to empty array when undefined', async () => {
+    const scenario = minimalScenario({
+      method: 'POST',
+      bodyType: 'form-data',
+      headers: [{ key: 'X-Only', value: '1' }],
+      bodyForm: undefined,
+    });
+    const cmd = await buildCurlCommand(scenario, { type: 'none' });
+    expect(cmd).toContain("X-Only: 1");
+    expect(cmd).not.toContain('--form');
+  });
+
   it('form-data: leaves headers unchanged when no Content-Type to strip', async () => {
     const scenario = minimalScenario({
       method: 'POST',

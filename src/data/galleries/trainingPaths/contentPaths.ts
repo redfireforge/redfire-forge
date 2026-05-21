@@ -168,6 +168,13 @@ export const contentPaths: TrainingPath[] = [
             difficulty: 'easy',
             manualPath: 'tests/export-options-easy.html',
           },
+          {
+            title: 'Recovering Deleted Scenarios',
+            description: 'Learn how to use the Trash Box to recover accidentally deleted Feature Groups, Scenarios, and Tests.',
+            difficulty: 'easy',
+            sampleId: 'test-trash-recovery-demo',
+            manualPath: 'tests/trash-recovery-easy.html',
+          },
         ],
       },
       {
