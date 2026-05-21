@@ -2,6 +2,7 @@
  * Response time histogram bin computation utilities.
  * Used for distribution visualization and baseline overlay comparison.
  */
+import { computePercentiles, round2 } from '../../../shared/utils/percentiles';
 
 export interface HistogramBin {
   /** Lower bound of the bin (inclusive) */
@@ -170,24 +171,25 @@ export function computeDistributionStats(times: number[]): {
   p90: number;
   p95: number;
   p99: number;
+  p999: number;
 } | null {
   if (times.length === 0) return null;
   const sorted = [...times].sort((a, b) => a - b);
   const n = sorted.length;
-  const sum = sorted.reduce((a, b) => a + b, 0);
-  const mean = sum / n;
+  const { min, max, mean, p50: median, p90, p95, p99, p999 } = computePercentiles(sorted);
   const variance = sorted.reduce((acc, t) => acc + (t - mean) ** 2, 0) / n;
   const stdDev = Math.sqrt(variance);
 
   return {
     count: n,
-    min: sorted[0],
-    max: sorted[n - 1],
-    mean: Math.round(mean * 100) / 100,
-    median: sorted[Math.floor(n * 0.5)],
-    stdDev: Math.round(stdDev * 100) / 100,
-    p90: sorted[Math.min(n - 1, Math.floor(n * 0.9))],
-    p95: sorted[Math.min(n - 1, Math.floor(n * 0.95))],
-    p99: sorted[Math.min(n - 1, Math.floor(n * 0.99))],
+    min,
+    max,
+    mean: round2(mean),
+    median,
+    stdDev: round2(stdDev),
+    p90,
+    p95,
+    p99,
+    p999,
   };
 }

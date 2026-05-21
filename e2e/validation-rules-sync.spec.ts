@@ -9,6 +9,12 @@ const sampleResponse = {
   ],
 };
 
+/** Monaco can exceed 10s to render under heavy parallel E2E load (40 workers). */
+const MONACO_READY_MS = 30_000;
+
+/** Visual → DSL sync and model hydration can lag behind DOM paint. */
+const DSL_SYNC_POLL_MS = 20_000;
+
 async function openValidationTab(page: Page): Promise<void> {
   await seedAppData(page);
   await page.goto('/?tab=scenarios');
@@ -40,16 +46,93 @@ async function openMapper(page: Page): Promise<Locator> {
   return mapper;
 }
 
-async function expandTargetTree(mapper: Locator, page: Page): Promise<void> {
+async function expandTargetTree(mapper: Locator): Promise<void> {
   const targetPanel = mapper.locator('.dm-panel--target');
   const rootToggle = targetPanel.locator(
     '.dm-tree-node[data-path=""] button[aria-label="Collapse"], .dm-tree-node[data-path=""] button[aria-label="Expand"]',
   ).first();
   if (await rootToggle.isVisible().catch(() => false)) {
     const label = await rootToggle.getAttribute('aria-label');
-    if (label === 'Expand') await rootToggle.click();
+    if (label === 'Expand') {
+      await rootToggle.click();
+      await expect(targetPanel.locator('.dm-tree-node[data-path="offers"]')).toBeVisible({
+        timeout: 10_000,
+      });
+    }
   }
-  await page.waitForTimeout(300);
+}
+
+/**
+ * Wait until the Rules panel Monaco editor is visible, has a textarea, and exposes
+ * a wired model (not merely painted DOM).
+ */
+async function waitForRulesMonacoReady(page: Page): Promise<Locator> {
+  const rulesPanel = page.locator('.vr-modal-panel');
+  await expect(rulesPanel).toBeVisible({ timeout: MONACO_READY_MS });
+
+  const editor = rulesPanel.locator('.dm-validation-editor .monaco-editor').first();
+  await editor.waitFor({ state: 'visible', timeout: MONACO_READY_MS });
+  await rulesPanel.locator('.dm-validation-editor .monaco-editor textarea').waitFor({
+    state: 'attached',
+    timeout: MONACO_READY_MS,
+  });
+
+  await page.waitForFunction(
+    () => {
+      const holder = document.querySelector('.vr-modal-panel .dm-validation-editor .monaco-editor');
+      type Ed = {
+        getDomNode: () => HTMLElement | null;
+        getModel: () => { getValue: () => string } | null;
+        hasTextFocus?: () => boolean;
+      };
+      const editors = (
+        window as unknown as { monaco?: { editor?: { getEditors?: () => Ed[] } } }
+      ).monaco?.editor?.getEditors?.();
+      if (!holder || !editors?.length) return false;
+      const ed = editors.find((e) => {
+        const dn = e.getDomNode();
+        return !!dn && (dn === holder || dn.contains(holder) || holder.contains(dn));
+      });
+      return !!ed?.getModel() && typeof ed.hasTextFocus === 'function';
+    },
+    { timeout: MONACO_READY_MS },
+  );
+
+  return editor;
+}
+
+/**
+ * Read the Rules panel Monaco model by resolving the editor that owns
+ * `.vr-modal-panel .dm-validation-editor` — avoids fragile getEditors().at(-1).
+ */
+async function getRulesMonacoValue(page: Page): Promise<string> {
+  const editor = page.locator('.vr-modal-panel .dm-validation-editor .monaco-editor').first();
+  await editor.waitFor({ state: 'visible', timeout: MONACO_READY_MS });
+  return editor.evaluate((el) => {
+    type Ed = {
+      getDomNode: () => HTMLElement | null;
+      getModel: () => { getValue: () => string } | null;
+    };
+    const editors = (
+      window as unknown as { monaco?: { editor: { getEditors: () => Ed[] } } }
+    ).monaco?.editor?.getEditors?.() ?? [];
+    const ed = editors.find((e) => {
+      const dn = e.getDomNode();
+      return !!dn && (dn === el || dn.contains(el) || el.contains(dn));
+    });
+    return ed?.getModel()?.getValue() ?? 'NO_MODEL';
+  });
+}
+
+async function expectRulesDslContains(page: Page, ...tokens: string[]): Promise<void> {
+  for (const token of tokens) {
+    await expect
+      .poll(async () => await getRulesMonacoValue(page), {
+        timeout: DSL_SYNC_POLL_MS,
+        intervals: [100, 200, 300, 500, 1000],
+      })
+      .toContain(token);
+  }
 }
 
 async function addArrayAssertionViaContextMenu(
@@ -59,55 +142,45 @@ async function addArrayAssertionViaContextMenu(
   menuItemText: string,
 ): Promise<void> {
   const targetPanel = mapper.locator('.dm-panel--target');
+  const rowsBefore = await targetPanel.locator('.dm-array-assertion-row').count();
+
   const node = targetPanel.locator(`.dm-tree-node[data-path="${nodeDataPath}"]`).first();
   await expect(node).toBeVisible({ timeout: 5000 });
 
-  // Expand if collapsed
   const expandBtn = node.locator('button[aria-label="Expand"]');
   if (await expandBtn.isVisible().catch(() => false)) {
     await expandBtn.click();
-    await page.waitForTimeout(300);
+    await expect(node.locator('button[aria-label="Collapse"]')).toBeVisible({ timeout: 5000 });
   }
 
   await node.click({ button: 'right' });
-  await page.waitForTimeout(500);
 
   const contextMenu = page.locator('.dm-context-menu');
-  await expect(contextMenu).toBeVisible({ timeout: 3000 });
-
+  await expect(contextMenu).toBeVisible({ timeout: 5000 });
   await contextMenu.locator('.dm-context-menu-item', { hasText: menuItemText }).click();
-  await page.waitForTimeout(500);
+  await expect(contextMenu).toBeHidden({ timeout: 5000 });
+
+  await expect
+    .poll(async () => targetPanel.locator('.dm-array-assertion-row').count(), {
+      timeout: 10_000,
+      intervals: [100, 200, 300, 500],
+    })
+    .toBeGreaterThan(rowsBefore);
 }
 
 async function openRulesPanel(mapper: Locator, page: Page): Promise<void> {
   await mapper.locator('button:has-text("Rules")').click();
-  const rulesPanel = page.locator('.vr-modal-panel');
-  await expect(rulesPanel).toBeVisible({ timeout: 10000 });
-  await page.waitForTimeout(500);
+  await waitForRulesMonacoReady(page);
 }
 
-async function getMonacoEditorValue(page: Page): Promise<string> {
-  return page.evaluate(() => {
-    const panel = document.querySelector('.vr-modal-panel');
-    if (!panel) return 'NO_PANEL';
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const editors = (window as any).monaco?.editor?.getEditors?.() as Array<{
-      getDomNode: () => HTMLElement | null;
-      getModel: () => { getValue: () => string } | null;
-    }> | undefined;
-    if (!editors?.length) return 'NO_EDITORS';
-    for (const ed of editors) {
-      const node = ed.getDomNode?.();
-      if (node && panel.contains(node)) {
-        const model = ed.getModel();
-        if (model) return model.getValue();
-      }
-    }
-    return 'NO_MODEL_IN_PANEL';
-  });
+async function saveAndCloseRulesPanel(page: Page): Promise<void> {
+  await page.locator('.vr-modal-panel .vr-modal-btn--primary', { hasText: 'Save' }).click();
+  await expect(page.locator('.vr-modal-panel')).not.toBeVisible({ timeout: 10_000 });
 }
 
 test.describe('Validation Rules ↔ Data Mapper bidirectional sync', () => {
+  test.setTimeout(90_000);
+
   test.beforeEach(async ({ page }) => {
     await page.route('**/__proxy', async (route) => {
       await route.fulfill({
@@ -126,150 +199,79 @@ test.describe('Validation Rules ↔ Data Mapper bidirectional sync', () => {
   test('array assertions added via context menu appear in Rules panel', async ({ page }) => {
     await openValidationTab(page);
     const mapper = await openMapper(page);
-    await expandTargetTree(mapper, page);
+    await expandTargetTree(mapper);
 
     await page.screenshot({ path: 'test-results/sync-01-mapper-open.png', fullPage: true });
 
-    // Add "Check array size" assertion on offers
     await addArrayAssertionViaContextMenu(mapper, page, 'offers', 'Check array size');
 
     await page.screenshot({ path: 'test-results/sync-02-after-length-assertion.png', fullPage: true });
 
-    // Verify the assertion row appeared in the Data Mapper
     const targetPanel = mapper.locator('.dm-panel--target');
-    const assertionRows = targetPanel.locator('.dm-array-assertion-row');
-    const rowCount = await assertionRows.count();
-    console.log(`Visual assertion rows after adding length: ${rowCount}`);
-    expect(rowCount).toBeGreaterThanOrEqual(1);
+    await expect(targetPanel.locator('.dm-array-assertion-row')).toHaveCount(1, { timeout: 5000 });
 
-    // Now open the Rules panel
     await openRulesPanel(mapper, page);
 
     await page.screenshot({ path: 'test-results/sync-03-rules-open.png', fullPage: true });
-
-    // Wait for Monaco to initialize
-    await page.locator('.vr-modal-panel .dm-validation-editor .monaco-editor textarea').waitFor({
-      state: 'attached',
-      timeout: 30000,
-    });
-
     await page.screenshot({ path: 'test-results/sync-04-rules-content.png', fullPage: true });
 
-    // Poll the Monaco editor value — sync from visual editor to DSL is async
-    await expect
-      .poll(async () => await getMonacoEditorValue(page), { timeout: 5000 })
-      .toContain('offers');
-    await expect
-      .poll(async () => await getMonacoEditorValue(page), { timeout: 5000 })
-      .toContain('length');
+    await expectRulesDslContains(page, 'offers', 'length');
   });
 
   test('array assertions added while Rules panel is ALREADY open appear in editor', async ({ page }) => {
     await openValidationTab(page);
     const mapper = await openMapper(page);
-    await expandTargetTree(mapper, page);
+    await expandTargetTree(mapper);
 
-    // Open Rules panel FIRST (empty)
     await openRulesPanel(mapper, page);
-    await page.locator('.vr-modal-panel .dm-validation-editor .monaco-editor textarea').waitFor({
-      state: 'attached',
-      timeout: 30000,
-    });
-    await page.waitForTimeout(1000);
 
-    const dslBefore = await getMonacoEditorValue(page);
+    const dslBefore = await getRulesMonacoValue(page);
     console.log(`DSL before adding assertions: "${dslBefore}"`);
+    expect(dslBefore).not.toContain('length');
 
     await page.screenshot({ path: 'test-results/sync-05-rules-empty.png', fullPage: true });
 
-    // Now add array assertion via context menu while Rules panel is open
     await addArrayAssertionViaContextMenu(mapper, page, 'offers', 'Check array size');
 
     await page.screenshot({ path: 'test-results/sync-06-after-add-while-rules-open.png', fullPage: true });
 
-    // Poll the DSL — sync is async after the context-menu add
-    await expect
-      .poll(async () => await getMonacoEditorValue(page), { timeout: 5000 })
-      .toContain('offers');
-    await expect
-      .poll(async () => await getMonacoEditorValue(page), { timeout: 5000 })
-      .toContain('length');
+    await expectRulesDslContains(page, 'offers', 'length');
   });
 
   test('multiple array assertions (length + contains) sync to Rules panel', async ({ page }) => {
     await openValidationTab(page);
     const mapper = await openMapper(page);
-    await expandTargetTree(mapper, page);
+    await expandTargetTree(mapper);
 
-    // Add length assertion
     await addArrayAssertionViaContextMenu(mapper, page, 'offers', 'Check array size');
-
-    // Add contains assertion
     await addArrayAssertionViaContextMenu(mapper, page, 'offers', 'Contains value (exact match)');
 
     await page.screenshot({ path: 'test-results/sync-07-two-assertions.png', fullPage: true });
 
-    // Verify both rows exist in the Data Mapper
     const targetPanel = mapper.locator('.dm-panel--target');
-    const assertionRows = targetPanel.locator('.dm-array-assertion-row');
-    const rowCount = await assertionRows.count();
-    console.log(`Visual assertion rows: ${rowCount}`);
-    expect(rowCount).toBeGreaterThanOrEqual(2);
+    await expect(targetPanel.locator('.dm-array-assertion-row')).toHaveCount(2, { timeout: 5000 });
 
-    // Open Rules panel
     await openRulesPanel(mapper, page);
-    await page.locator('.vr-modal-panel .dm-validation-editor .monaco-editor textarea').waitFor({
-      state: 'attached',
-      timeout: 30000,
-    });
 
     await page.screenshot({ path: 'test-results/sync-08-rules-with-multiple.png', fullPage: true });
 
-    // Poll the DSL until both assertion tokens appear
-    await expect
-      .poll(async () => await getMonacoEditorValue(page), { timeout: 5000 })
-      .toContain('offers');
-    await expect
-      .poll(async () => await getMonacoEditorValue(page), { timeout: 5000 })
-      .toContain('length');
-    await expect
-      .poll(async () => await getMonacoEditorValue(page), { timeout: 5000 })
-      .toContain('contains');
+    await expectRulesDslContains(page, 'offers', 'length', 'contains');
   });
 
   test('closing Rules panel with Save preserves assertions, Cancel reverts edits', async ({ page }) => {
     await openValidationTab(page);
     const mapper = await openMapper(page);
-    await expandTargetTree(mapper, page);
+    await expandTargetTree(mapper);
 
-    // Add assertion first
     await addArrayAssertionViaContextMenu(mapper, page, 'offers', 'Check array size');
 
-    // Open Rules panel
     await openRulesPanel(mapper, page);
-    await page.locator('.vr-modal-panel .dm-validation-editor .monaco-editor textarea').waitFor({
-      state: 'attached',
-      timeout: 30000,
-    });
+    await expectRulesDslContains(page, 'offers');
 
-    // Poll the DSL until it picks up the assertion (sync from visual is async)
-    await expect
-      .poll(async () => await getMonacoEditorValue(page), { timeout: 5000 })
-      .toContain('offers');
+    await saveAndCloseRulesPanel(page);
 
-    // Click Save
-    await page.locator('.vr-modal-panel .vr-modal-btn--primary', { hasText: 'Save' }).click();
-    await page.waitForTimeout(500);
-
-    // Rules panel should be closed
-    await expect(page.locator('.vr-modal-panel')).not.toBeVisible();
-
-    // The assertion rows should still be visible in the Data Mapper
     const targetPanel = mapper.locator('.dm-panel--target');
-    const assertionRows = targetPanel.locator('.dm-array-assertion-row');
-    const rowCountAfterSave = await assertionRows.count();
-    console.log(`Assertion rows after Save: ${rowCountAfterSave}`);
-    expect(rowCountAfterSave).toBeGreaterThanOrEqual(1);
+    await expect(targetPanel.locator('.dm-array-assertion-row')).toHaveCount(1, { timeout: 5000 });
 
     await page.screenshot({ path: 'test-results/sync-09-after-save.png', fullPage: true });
   });
@@ -277,50 +279,22 @@ test.describe('Validation Rules ↔ Data Mapper bidirectional sync', () => {
   test('assertions survive Rules panel open → close → reopen cycle', async ({ page }) => {
     await openValidationTab(page);
     const mapper = await openMapper(page);
-    await expandTargetTree(mapper, page);
+    await expandTargetTree(mapper);
 
-    // Add assertion
     await addArrayAssertionViaContextMenu(mapper, page, 'offers', 'Check array size');
 
-    // Open Rules, read DSL, Save
     await openRulesPanel(mapper, page);
-    await page.locator('.vr-modal-panel .dm-validation-editor .monaco-editor textarea').waitFor({
-      state: 'attached',
-      timeout: 30000,
-    });
+    await expectRulesDslContains(page, 'offers', 'length');
 
-    // Poll the DSL — visual→DSL sync is async
-    await expect
-      .poll(async () => await getMonacoEditorValue(page), { timeout: 5000 })
-      .toContain('offers');
-    await expect
-      .poll(async () => await getMonacoEditorValue(page), { timeout: 5000 })
-      .toContain('length');
+    await saveAndCloseRulesPanel(page);
 
-    // Save and close
-    await page.locator('.vr-modal-panel .vr-modal-btn--primary', { hasText: 'Save' }).click();
-    await page.waitForTimeout(500);
-    await expect(page.locator('.vr-modal-panel')).not.toBeVisible();
-
-    // Visual assertion rows should still exist
     const targetPanel = mapper.locator('.dm-panel--target');
-    expect(await targetPanel.locator('.dm-array-assertion-row').count()).toBeGreaterThanOrEqual(1);
+    await expect(targetPanel.locator('.dm-array-assertion-row')).toHaveCount(1, { timeout: 5000 });
 
-    // Reopen Rules
     await openRulesPanel(mapper, page);
-    await page.locator('.vr-modal-panel .dm-validation-editor .monaco-editor textarea').waitFor({
-      state: 'attached',
-      timeout: 30000,
-    });
 
     await page.screenshot({ path: 'test-results/sync-10-reopen-rules.png', fullPage: true });
 
-    // Poll the DSL on second open — should still contain the persisted assertion
-    await expect
-      .poll(async () => await getMonacoEditorValue(page), { timeout: 5000 })
-      .toContain('offers');
-    await expect
-      .poll(async () => await getMonacoEditorValue(page), { timeout: 5000 })
-      .toContain('length');
+    await expectRulesDslContains(page, 'offers', 'length');
   });
 });

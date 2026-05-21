@@ -1,7 +1,7 @@
 import type { RequestResult, TestSummary } from '../shared/types';
+import { percentile, round2 } from '../shared/utils/percentiles';
 
 export function computeMetrics(results: RequestResult[], totalDurationMs: number): TestSummary {
-  // Exclude cancelled (aborted) requests from all metric calculations
   const activeResults = results.filter(r => !r.cancelled);
   const times = activeResults.map((r) => r.responseTimeMs).sort((a, b) => a - b);
   const total = activeResults.length;
@@ -15,6 +15,7 @@ export function computeMetrics(results: RequestResult[], totalDurationMs: number
       p50ResponseTime: 0,
       p95ResponseTime: 0,
       p99ResponseTime: 0,
+      p999ResponseTime: 0,
       errorRate: 0,
       errorsByStatus: {},
       totalRequests: results.length,
@@ -28,12 +29,6 @@ export function computeMetrics(results: RequestResult[], totalDurationMs: number
 
   const sum = times.reduce((a, b) => a + b, 0);
   const avg = sum / total;
-  const min = times[0];
-  const max = times[total - 1];
-  const p50 = times[Math.floor(total * 0.50)] ?? max;
-  const p95 = times[Math.floor(total * 0.95)] ?? max;
-  const p99 = times[Math.floor(total * 0.99)] ?? max;
-
   const tps = totalDurationMs > 0 ? (total / totalDurationMs) * 1000 : 0;
 
   const errorsByStatus: Record<number, number> = {};
@@ -53,14 +48,15 @@ export function computeMetrics(results: RequestResult[], totalDurationMs: number
   const errorRate = (failedRequests / total) * 100;
 
   return {
-    tps: Math.round(tps * 100) / 100,
-    avgResponseTime: Math.round(avg * 100) / 100,
-    minResponseTime: Math.round(min * 100) / 100,
-    maxResponseTime: Math.round(max * 100) / 100,
-    p50ResponseTime: Math.round(p50 * 100) / 100,
-    p95ResponseTime: Math.round(p95 * 100) / 100,
-    p99ResponseTime: Math.round(p99 * 100) / 100,
-    errorRate: Math.round(errorRate * 100) / 100,
+    tps: round2(tps),
+    avgResponseTime: round2(avg),
+    minResponseTime: round2(times[0]),
+    maxResponseTime: round2(times[total - 1]),
+    p50ResponseTime: round2(percentile(times, 0.50)),
+    p95ResponseTime: round2(percentile(times, 0.95)),
+    p99ResponseTime: round2(percentile(times, 0.99)),
+    p999ResponseTime: round2(percentile(times, 0.999)),
+    errorRate: round2(errorRate),
     errorsByStatus,
     totalRequests: results.length,
     successfulRequests: total - failedRequests,

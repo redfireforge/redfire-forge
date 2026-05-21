@@ -8,6 +8,7 @@ export default defineConfig({
     include: ['src/**/*.test.{ts,tsx}', 'src-server/**/*.test.{ts,tsx}', 'cli/**/*.test.ts'],
     exclude: ['node_modules', 'dist', 'src-tauri', 'e2e'],
     coverage: {
+      reporter: ['text', 'json-summary'],
       exclude: [
         '**/__test-utils__/**',
         '**/__mocks__/**',
