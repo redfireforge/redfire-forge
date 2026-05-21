@@ -12,9 +12,11 @@ import {
   buildLibraryPreamble,
 } from './scriptLibraries';
 import type { ScriptLibrary } from './scriptLibraries';
-
-// Mock uuid
-vi.mock('uuid', () => ({ v4: () => 'test-uuid-123' }));
+const uuidMock = vi.hoisted(() =>
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  require('../../../test-utils/uuidMock.ts').hoistedUuidFixed('test-uuid-123'),
+);
+vi.mock('uuid', () => uuidMock);
 
 describe('scriptLibraries', () => {
   beforeEach(() => {

@@ -1,4 +1,5 @@
 import type { TestRun, RequestResult } from '../../../shared/types';
+import { getResultErrorMessage } from '../../../shared/utils/helpers';
 // import { escapeCsv } from '../../../shared/utils/export';
 
 export interface ReportOptions {
@@ -58,7 +59,7 @@ function generateHtmlReport(run: TestRun, opts: ReportOptions): string {
       <td>${esc(r.dataRowLabel || r.scenarioName)}</td>
       <td>${r.httpStatus || 'ERR'}</td>
       <td>${r.responseTimeMs}ms</td>
-      <td>${esc(r.errorMessage || r.failureDetails.map(f => `${f.path}: expected ${f.expected}, got ${f.actual}`).join('; ') || '')}</td>
+      <td>${esc(getResultErrorMessage(r))}</td>
     </tr>`).join('');
 
   const passedRowsHtml = opts.includePassedRows ? passed.map(r => `
@@ -121,6 +122,7 @@ function generateHtmlReport(run: TestRun, opts: ReportOptions): string {
     <div class="stat-card"><div class="stat-value">${s.p50ResponseTime ?? '—'}ms</div><div class="stat-label">P50</div></div>
     <div class="stat-card"><div class="stat-value">${s.p95ResponseTime}ms</div><div class="stat-label">P95</div></div>
     <div class="stat-card"><div class="stat-value">${s.p99ResponseTime}ms</div><div class="stat-label">P99</div></div>
+    <div class="stat-card"><div class="stat-value">${s.p999ResponseTime ?? '—'}ms</div><div class="stat-label">P99.9</div></div>
   </div>
 
   ${failed.length > 0 ? `
@@ -182,7 +184,7 @@ function generateJsonReport(run: TestRun, opts: ReportOptions): string {
           rowId: r.dataRowId,
           label: r.dataRowLabel,
           httpStatus: r.httpStatus,
-          error: r.errorMessage || r.failureDetails.map(f => `${f.path}: expected ${f.expected}, got ${f.actual}`).join('; '),
+          error: getResultErrorMessage(r),
         })),
       },
     } : {}),
@@ -219,6 +221,7 @@ function generateMarkdownReport(run: TestRun, opts: ReportOptions): string {
   md += `| P50 | ${s.p50ResponseTime ?? '—'}ms |\n`;
   md += `| P95 | ${s.p95ResponseTime}ms |\n`;
   md += `| P99 | ${s.p99ResponseTime}ms |\n`;
+  md += `| P99.9 | ${s.p999ResponseTime ?? '—'}ms |\n`;
   md += `| Error Rate | ${s.errorRate}% |\n\n`;
 
   if (failed.length > 0) {
@@ -226,7 +229,7 @@ function generateMarkdownReport(run: TestRun, opts: ReportOptions): string {
     md += `| Row / Test | Status | Time | Error |\n|---|---|---|---|\n`;
     for (const r of failed) {
       const label = r.dataRowLabel || r.scenarioName;
-      const err = r.errorMessage || r.failureDetails.map(f => `${f.path}: expected ${f.expected}, got ${f.actual}`).join('; ');
+      const err = getResultErrorMessage(r);
       md += `| ${label} | ${r.httpStatus || 'ERR'} | ${r.responseTimeMs}ms | ${err} |\n`;
     }
     md += '\n';

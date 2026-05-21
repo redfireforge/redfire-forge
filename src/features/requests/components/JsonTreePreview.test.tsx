@@ -4,7 +4,7 @@
 import { describe, it, expect, vi, beforeAll, afterEach } from 'vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import JsonPreview, { buildJTree, nodeMatches, collectMatchNodes, type JNode } from './JsonTreePreview';
+import JsonPreview, { buildJTree, collectJTreePaths, nodeMatches, collectMatchNodes, type JNode } from './JsonTreePreview';
 import { stubScrollIntoView } from '../../../test-utils/domMocks';
 
 // Mock scrollIntoView
@@ -75,6 +75,29 @@ describe('JsonTreePreview', () => {
       expect(tree.type).toBe('object');
       expect(tree.children?.[0].type).toBe('array');
       expect(tree.children?.[0].children?.[0].type).toBe('object');
+    });
+  });
+
+  describe('collectJTreePaths', () => {
+    it('returns empty array for leaf node', () => {
+      const node = buildJTree('value', 'key');
+      expect(collectJTreePaths(node, '')).toEqual([]);
+    });
+
+    it('collects paths for object children', () => {
+      const node = buildJTree({ a: 1, b: { c: 2 } }, 'root');
+      const paths = collectJTreePaths(node, '');
+      expect(paths).toContain('/a');
+      expect(paths).toContain('/b');
+      expect(paths).toContain('/b/c');
+    });
+
+    it('collects paths for nested arrays', () => {
+      const node = buildJTree({ items: [10, 20] }, 'root');
+      const paths = collectJTreePaths(node, '');
+      expect(paths).toContain('/items');
+      expect(paths).toContain('/items/0');
+      expect(paths).toContain('/items/1');
     });
   });
 

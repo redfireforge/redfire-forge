@@ -194,6 +194,14 @@ describe('canUseRustExecutor', () => {
     const scenarios = [makeScenario({ auth: { type: 'apikey', apiKeyName: 'key', apiKeyValue: 'val', apiKeyIn: 'header' } })];
     expect(canUseRustExecutor(makeConfig(), scenarios)).toBe(true);
   });
+
+  it('returns true for constant-arrival mode', () => {
+    const config = makeConfig({
+      executionMode: 'constant-arrival',
+      arrivalRate: { targetRps: 50, durationSec: 30 },
+    });
+    expect(canUseRustExecutor(config, [makeScenario()])).toBe(true);
+  });
 });
 
 /* ── prepareRustScenario ─────────────────────────────────────────── */
@@ -567,6 +575,87 @@ describe('buildExecutionPlan', () => {
     const plan = buildExecutionPlan(config, [makeScenario()])!;
     expect(plan.circuitBreaker).toEqual({ policy: 'continue' });
   });
+
+  it('builds constant-arrival plan with basic config', () => {
+    const config = makeConfig({
+      executionMode: 'constant-arrival',
+      arrivalRate: { targetRps: 50, durationSec: 60 },
+    });
+    const plan = buildExecutionPlan(config, [makeScenario()]);
+    expect(plan).not.toBeNull();
+    expect(plan!.mode).toBe('constant-arrival');
+    if (plan!.mode === 'constant-arrival') {
+      expect(plan!.targetRps).toBe(50);
+      expect(plan!.durationSec).toBe(60);
+      expect(plan!.maxInFlight).toBe(500);
+      expect(plan!.rampConfig).toBeUndefined();
+      expect(plan!.detailLevel).toBe('sampled');
+    }
+  });
+
+  it('builds constant-arrival plan with ramp config', () => {
+    const config = makeConfig({
+      executionMode: 'constant-arrival',
+      arrivalRate: {
+        targetRps: 100,
+        durationSec: 120,
+        maxInFlight: 200,
+        ramp: { startRps: 10, endRps: 100, rampDurationSec: 30 },
+      },
+    });
+    const plan = buildExecutionPlan(config, [makeScenario()]);
+    expect(plan).not.toBeNull();
+    expect(plan!.mode).toBe('constant-arrival');
+    if (plan!.mode === 'constant-arrival') {
+      expect(plan!.maxInFlight).toBe(200);
+      expect(plan!.rampConfig).toEqual({
+        startRps: 10,
+        endRps: 100,
+        rampDurationSec: 30,
+      });
+    }
+  });
+
+  it('defaults maxInFlight to ceil(targetRps * 10) when not specified', () => {
+    const config = makeConfig({
+      executionMode: 'constant-arrival',
+      arrivalRate: { targetRps: 7.5, durationSec: 30 },
+    });
+    const plan = buildExecutionPlan(config, [makeScenario()]);
+    expect(plan).not.toBeNull();
+    expect(plan!.mode).toBe('constant-arrival');
+    if (plan!.mode === 'constant-arrival') {
+      expect(plan!.maxInFlight).toBe(75);
+    }
+  });
+
+  it('returns null for constant-arrival with missing arrivalRate', () => {
+    const config = makeConfig({ executionMode: 'constant-arrival' });
+    delete config.arrivalRate;
+    const plan = buildExecutionPlan(config, [makeScenario()]);
+    expect(plan).not.toBeNull();
+    expect(plan!.mode).toBe('pool');
+  });
+
+  it('assigns scenario weights for constant-arrival', () => {
+    const s1 = makeScenario({ id: 'sc-1' });
+    const s2 = makeScenario({ id: 'sc-2' });
+    const config = makeConfig({
+      executionMode: 'constant-arrival',
+      arrivalRate: { targetRps: 20, durationSec: 10 },
+      scenarioWeights: [
+        { scenarioId: 'sc-1', weight: 70 },
+        { scenarioId: 'sc-2', weight: 30 },
+      ],
+    });
+    const plan = buildExecutionPlan(config, [s1, s2]);
+    expect(plan).not.toBeNull();
+    expect(plan!.mode).toBe('constant-arrival');
+    if (plan!.mode === 'constant-arrival') {
+      expect(plan!.scenarios[0].weight).toBe(70);
+      expect(plan!.scenarios[1].weight).toBe(30);
+    }
+  });
 });
 
 /* ── buildExpandedQueue ──────────────────────────────────────────── */
@@ -759,6 +848,49 @@ describe('mapRustResult — JS fallback', () => {
     });
     const result = mapRustResult(rustResult, makeScenario());
     expect(result.errorMessage).toContain('Bad Gateway');
+  });
+});
+
+/* ── detailLevel in buildExecutionPlan ────────────────────────────── */
+
+describe('buildExecutionPlan detailLevel', () => {
+  it('sets detailLevel to sampled for load-profile mode', () => {
+    const config = makeConfig({
+      executionMode: 'load-profile',
+      loadProfile: { type: 'sustained', durationSec: 60, maxConcurrency: 10 },
+    });
+    const plan = buildExecutionPlan(config, [makeScenario()])!;
+    expect(plan.mode).toBe('load-profile');
+    if (plan.mode === 'load-profile') {
+      expect(plan.detailLevel).toBe('sampled');
+    }
+  });
+
+  it('does not set detailLevel for pool mode (defaults to full on Rust side)', () => {
+    const config = makeConfig({ executionMode: 'pool' });
+    const plan = buildExecutionPlan(config, [makeScenario()])!;
+    expect(plan.mode).toBe('pool');
+    if (plan.mode === 'pool') {
+      expect(plan.detailLevel).toBeUndefined();
+    }
+  });
+
+  it('does not set detailLevel for sequential mode', () => {
+    const config = makeConfig({ executionMode: 'sequential' });
+    const plan = buildExecutionPlan(config, [makeScenario()])!;
+    expect(plan.mode).toBe('sequential');
+    if (plan.mode === 'sequential') {
+      expect(plan.detailLevel).toBeUndefined();
+    }
+  });
+
+  it('does not set detailLevel for batch mode (maps to pool)', () => {
+    const config = makeConfig({ executionMode: 'batch' });
+    const plan = buildExecutionPlan(config, [makeScenario()])!;
+    expect(plan.mode).toBe('pool');
+    if (plan.mode === 'pool') {
+      expect(plan.detailLevel).toBeUndefined();
+    }
   });
 });
 

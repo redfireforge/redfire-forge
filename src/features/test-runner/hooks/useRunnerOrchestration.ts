@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
-import type { FeatureGroup, GlobalAuthProfile, Scenario, TestConfig, ScenarioWeight, SharedDataSource, ScenarioKind, ExecutionMode } from '../../../shared/types';
+import type { FeatureGroup, GlobalAuthProfile, Scenario, TestConfig, ScenarioWeight, SharedDataSource, ScenarioKind, ExecutionMode, ArrivalRateConfig } from '../../../shared/types';
 import type { LoadProfileConfig } from '../../../shared/types';
 import type { AllocationSummary } from '../../../engine/allocationEngine';
 import { useTestExecution } from './useTestExecution';
@@ -31,6 +31,7 @@ export interface RunnerOrchestrationResult {
   activeTestCount: number;
   allocation: AllocationSummary;
   isLoadProfile: boolean;
+  isConstantArrival: boolean;
   isGalleryEnv: boolean;
   weightsExpanded: boolean;
   setWeightsExpanded: React.Dispatch<React.SetStateAction<boolean>>;
@@ -40,6 +41,7 @@ export interface RunnerOrchestrationResult {
   handleClearProgress: () => void;
   handleRun: () => void;
   updateProfile: (patch: Partial<LoadProfileConfig>) => void;
+  updateArrivalRate: (patch: Partial<ArrivalRateConfig>) => void;
   showProgress: boolean;
   displaySummary: PersistedProgress['summary'] | null;
   displayTimeSeries: PersistedProgress['timeSeries'];
@@ -49,6 +51,7 @@ export interface RunnerOrchestrationResult {
   displayExecMode: ExecutionMode;
   displayConc: number;
   displayLoadProfile: LoadProfileConfig;
+  displayArrivalRate: ArrivalRateConfig;
   displayThinkTime: import('../../../shared/types').ThinkTimeConfig;
   hostLabel: string;
 }
@@ -71,9 +74,13 @@ export function useRunnerOrchestration(opts: RunnerOrchestrationOptions): Runner
     concurrency, iterations, selectedScenarios, weights, setWeights,
     skipValidation, validationOverride, forceUnordered,
     hostMode, customBaseUrl, executionMode, loadProfile, setLoadProfile,
+    arrivalRate, setArrivalRate,
     thinkTime, timeoutSec, retryCount, retryDelayMs, errorPolicy,
     maxErrors, maxErrorRate, autoReport, autoReportFormat,
   } = config;
+
+  const isLoadProfile = executionMode === 'load-profile';
+  const isConstantArrival = executionMode === 'constant-arrival';
 
   const [weightsExpanded, setWeightsExpanded] = useState(true);
   const [savedProgress, setSavedProgress] = useState<PersistedProgress | null>(null);
@@ -114,10 +121,11 @@ export function useRunnerOrchestration(opts: RunnerOrchestrationOptions): Runner
         completed,
         total,
         profileMeta,
-        isTimeBased: executionMode === 'load-profile',
+        isTimeBased: executionMode === 'load-profile' || executionMode === 'constant-arrival',
         executionMode,
         concurrency,
         loadProfile,
+        ...(isConstantArrival ? { arrivalRate } : {}),
         thinkTime: thinkTime.mode !== 'none' ? thinkTime : undefined,
         resultCount: finalRun.results.length,
         durationMs: finalRun.summary.totalDurationMs,
@@ -147,7 +155,6 @@ export function useRunnerOrchestration(opts: RunnerOrchestrationOptions): Runner
 
   const activeTests = useMemo(() => selectedTests.filter((t) => (weights[t.id] ?? 1) > 0), [selectedTests, weights]);
   const activeTestCount = activeTests.length;
-  const isLoadProfile = executionMode === 'load-profile';
 
   const allocation = useMemo(
     () => computeAllocation(activeTests as Scenario[], iterations, kind),
@@ -177,11 +184,12 @@ export function useRunnerOrchestration(opts: RunnerOrchestrationOptions): Runner
     }));
 
     const cfg: TestConfig = {
-      concurrency: isLoadProfile ? loadProfile.maxConcurrency : concurrency,
-      iterations: isLoadProfile ? 0 : iterations,
+      concurrency: isLoadProfile ? loadProfile.maxConcurrency : (isConstantArrival ? 1 : concurrency),
+      iterations: (isLoadProfile || isConstantArrival) ? 0 : iterations,
       scenarioWeights,
       executionMode,
       ...(isLoadProfile ? { loadProfile } : {}),
+      ...(isConstantArrival ? { arrivalRate } : {}),
       thinkTime: thinkTime.mode !== 'none' ? thinkTime : undefined,
       timeoutSec: timeoutSec > 0 ? timeoutSec : undefined,
       retryCount: retryCount > 0 ? retryCount : 0,
@@ -200,6 +208,10 @@ export function useRunnerOrchestration(opts: RunnerOrchestrationOptions): Runner
     setLoadProfile((prev) => ({ ...prev, ...patch }));
   };
 
+  const updateArrivalRate = (patch: Partial<ArrivalRateConfig>) => {
+    setArrivalRate((prev) => ({ ...prev, ...patch }));
+  };
+
   const hasLiveProgress = isRunning || liveSummary;
   const showProgress = !!(hasLiveProgress || (!isRunning && savedProgress));
 
@@ -211,16 +223,17 @@ export function useRunnerOrchestration(opts: RunnerOrchestrationOptions): Runner
   const displayExecMode = hasLiveProgress ? executionMode : savedProgress?.executionMode ?? executionMode;
   const displayConc = hasLiveProgress ? concurrency : savedProgress?.concurrency ?? concurrency;
   const displayLoadProfile = hasLiveProgress ? loadProfile : savedProgress?.loadProfile ?? loadProfile;
+  const displayArrivalRate = hasLiveProgress ? arrivalRate : savedProgress?.arrivalRate ?? arrivalRate;
   const displayThinkTime = hasLiveProgress ? thinkTime : savedProgress?.thinkTime ?? thinkTime;
   const hostLabel = hostMode === 'settings' && resolvedBaseUrl ? resolvedBaseUrl : hostMode === 'custom' && customBaseUrl.trim() ? customBaseUrl.trim() : 'Original';
 
   return {
     config, execution, selectedTests, activeTests: activeTests as Scenario[],
-    activeTestCount, allocation, isLoadProfile, isGalleryEnv,
+    activeTestCount, allocation, isLoadProfile, isConstantArrival, isGalleryEnv,
     weightsExpanded, setWeightsExpanded, runnerTagFilter, setRunnerTagFilter,
-    savedProgress, handleClearProgress, handleRun, updateProfile,
+    savedProgress, handleClearProgress, handleRun, updateProfile, updateArrivalRate,
     showProgress, displaySummary, displayTimeSeries, displayCompleted,
     displayTotal, displayProfileMeta, displayExecMode, displayConc,
-    displayLoadProfile, displayThinkTime, hostLabel,
+    displayLoadProfile, displayArrivalRate, displayThinkTime, hostLabel,
   };
 }

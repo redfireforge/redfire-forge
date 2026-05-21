@@ -6,7 +6,7 @@ import type {
 import {
   type WorkflowVariableHint,
 } from '../../utils/workflowVariableHints';
-import type { Scenario, KeyValue } from '../../../../shared/types';
+import type { Scenario } from '../../../../shared/types';
 import ExtractionEditor from '../../../requests/components/ExtractionEditor';
 import type { ExtractionFetchSampleProps } from '../../../requests/components/ExtractionEditor';
 import TestEditorValidationTab from '../../../scenarios/components/TestEditorValidationTab';
@@ -20,41 +20,17 @@ import { DataMapperModal, createVariableBindingAdapter, collectTemplateSlots } f
 import { useBodyBuilderSync } from '../../../../shared/components/data-mapper/hooks/useBodyBuilderSync';
 import { createRequestBodyAdapter } from '../../../../shared/components/data-mapper/adapters/requestBodyAdapter';
 import type { VariableHintForBody } from '../../../../shared/components/data-mapper/adapters/requestBodyAdapter';
+import {
+  decodeTemplateVars,
+  parseQueryParams,
+  rebuildUrl as rebuildUrlShared,
+} from '../../../../shared/utils/queryParams';
 
 export type HttpTab = 'url' | 'headers' | 'body' | 'validation' | 'extract' | 'data';
 
-// ── Query-param utilities ─────────────────────────────
-
-function parseQueryParams(url: string): KeyValue[] {
-  try {
-    const qIdx = url.indexOf('?');
-    if (qIdx === -1) return [];
-    const params = new URLSearchParams(url.slice(qIdx + 1));
-    const result: KeyValue[] = [];
-    params.forEach((v, k) => result.push({ key: k, value: v }));
-    return result;
-  } catch { return []; }
-}
-
-/** Encode query parts unless they contain `{{var}}` templates (encoding breaks substitution). */
-function encodeQueryPart(raw: string, kind: 'key' | 'value'): string {
-  const t = kind === 'key' ? raw.trim() : raw;
-  if (/\{\{[\s\S]*?\}\}/.test(t)) return t;
-  return encodeURIComponent(t);
-}
-
-/** Decode percent-encoded `{{var}}` templates so the URL stays human-readable. */
-function decodeTemplateVars(url: string): string {
-  return url.replace(/%7B%7B([\s\S]*?)%7D%7D/gi, '{{$1}}');
-}
-
 function rebuildUrl(baseUrl: string, entries: ParamEntry[]): string {
-  const qIdx = baseUrl.indexOf('?');
-  const path = qIdx === -1 ? baseUrl : baseUrl.slice(0, qIdx);
-  const active = entries.filter(e => e.enabled && e.key.trim());
-  if (active.length === 0) return path;
-  const qs = active.map(e => `${encodeQueryPart(e.key, 'key')}=${encodeQueryPart(e.value, 'value')}`).join('&');
-  return decodeTemplateVars(`${path}?${qs}`);
+  const active = entries.filter((e) => e.enabled && e.key.trim());
+  return rebuildUrlShared(baseUrl, active, { encode: true, preserveTemplates: true });
 }
 
 // ── Variable-ref hints ────────────────────────────────

@@ -1,10 +1,8 @@
 import { useState, useMemo } from 'react';
-import { Differ, Viewer } from 'json-diff-kit';
-import 'json-diff-kit/dist/viewer.css';
-import 'json-diff-kit/dist/viewer-monokai.css';
-import type { RequestDefinitionVersion, RequestDefinitionSnapshot } from '../../../shared/types';
-import { parseJsonOrRaw } from '../../../shared/utils/helpers';
+import type { RequestDefinitionVersion } from '../../../shared/types';
+import { formatTimestamp } from '../../../shared/utils/formatRelativeTime';
 import { computeSnapshotDiff } from '../utils/requestDefinitionVersioning';
+import { HeadersDiffView, BodyDiffView, AuthDiffView, OverviewDiffView } from '../../../shared/components/version-diff';
 
 type DiffTab = 'overview' | 'headers' | 'body' | 'auth';
 
@@ -14,8 +12,6 @@ interface Props {
   newer: RequestDefinitionVersion;
   onClose: () => void;
 }
-
-const differ = new Differ({ detectCircular: false, arrayDiffMethod: 'lcs' });
 
 export default function RequestDefinitionVersionDiff({ open, older, newer, onClose }: Props) {
   const [activeTab, setActiveTab] = useState<DiffTab>('overview');
@@ -74,139 +70,3 @@ export default function RequestDefinitionVersionDiff({ open, older, newer, onClo
     </div>
   );
 }
-
-function OverviewDiffView({ older, newer, diff }: { older: RequestDefinitionSnapshot; newer: RequestDefinitionSnapshot; diff: ReturnType<typeof computeSnapshotDiff> }) {
-  const hasChanges = diff.nameChanged || diff.urlChanged || diff.methodChanged || diff.bodyChanged || diff.bodyTypeChanged || diff.formDataChanged;
-  if (!hasChanges) return <div className="test-def-diff-empty">No overview changes</div>;
-
-  return (
-    <div className="test-def-diff-section">
-      {diff.nameChanged && (
-        <div className="test-def-diff-row modified">
-          <span className="test-def-diff-badge modified">~</span>
-          <span className="test-def-diff-field">Name</span>
-          <span className="test-def-diff-val">
-            <span className="test-def-diff-old">{older.name}</span>
-            <span className="test-def-diff-arrow">→</span>
-            <span className="test-def-diff-new">{newer.name}</span>
-          </span>
-        </div>
-      )}
-      {diff.urlChanged && (
-        <div className="test-def-diff-row modified">
-          <span className="test-def-diff-badge modified">~</span>
-          <span className="test-def-diff-field">URL</span>
-          <span className="test-def-diff-val test-def-diff-val-block">
-            <span className="test-def-diff-old">{older.url}</span>
-            <span className="test-def-diff-arrow">→</span>
-            <span className="test-def-diff-new">{newer.url}</span>
-          </span>
-        </div>
-      )}
-      {diff.methodChanged && (
-        <div className="test-def-diff-row modified">
-          <span className="test-def-diff-badge modified">~</span>
-          <span className="test-def-diff-field">Method</span>
-          <span className="test-def-diff-val">
-            <span className="test-def-diff-old">{older.method}</span>
-            <span className="test-def-diff-arrow">→</span>
-            <span className="test-def-diff-new">{newer.method}</span>
-          </span>
-        </div>
-      )}
-      {diff.bodyTypeChanged && (
-        <div className="test-def-diff-row modified">
-          <span className="test-def-diff-badge modified">~</span>
-          <span className="test-def-diff-field">Body Type</span>
-          <span className="test-def-diff-val">
-            <span className="test-def-diff-old">{older.bodyType ?? 'none'}</span>
-            <span className="test-def-diff-arrow">→</span>
-            <span className="test-def-diff-new">{newer.bodyType ?? 'none'}</span>
-          </span>
-        </div>
-      )}
-      {diff.bodyChanged && (
-        <div className="test-def-diff-row modified">
-          <span className="test-def-diff-badge modified">~</span>
-          <span className="test-def-diff-field">Body</span>
-          <span className="test-def-diff-val">content modified</span>
-        </div>
-      )}
-      {diff.formDataChanged && (
-        <div className="test-def-diff-row modified">
-          <span className="test-def-diff-badge modified">~</span>
-          <span className="test-def-diff-field">Form Data</span>
-          <span className="test-def-diff-val">form fields modified</span>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function HeadersDiffView({ diff }: { diff: ReturnType<typeof computeSnapshotDiff> }) {
-  const hasChanges = diff.headersAdded.length > 0 || diff.headersRemoved.length > 0 || diff.headersModified.length > 0;
-  if (!hasChanges) return <div className="test-def-diff-empty">No header changes</div>;
-
-  return (
-    <div className="test-def-diff-section">
-      {diff.headersAdded.map((h) => (
-        <div key={`add-${h.key}`} className="test-def-diff-row added">
-          <span className="test-def-diff-badge added">+</span>
-          <span className="test-def-diff-field">{h.key}</span>
-          <span className="test-def-diff-val">{h.value}</span>
-        </div>
-      ))}
-      {diff.headersRemoved.map((h) => (
-        <div key={`rem-${h.key}`} className="test-def-diff-row removed">
-          <span className="test-def-diff-badge removed">−</span>
-          <span className="test-def-diff-field">{h.key}</span>
-          <span className="test-def-diff-val">{h.value}</span>
-        </div>
-      ))}
-      {diff.headersModified.map((h) => (
-        <div key={`mod-${h.key}`} className="test-def-diff-row modified">
-          <span className="test-def-diff-badge modified">~</span>
-          <span className="test-def-diff-field">{h.key}</span>
-          <span className="test-def-diff-val">
-            <span className="test-def-diff-old">{h.oldValue}</span>
-            <span className="test-def-diff-arrow">→</span>
-            <span className="test-def-diff-new">{h.newValue}</span>
-          </span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function BodyDiffView({ older, newer, diff }: { older: RequestDefinitionSnapshot; newer: RequestDefinitionSnapshot; diff: ReturnType<typeof computeSnapshotDiff> }) {
-  if (!diff.bodyChanged) return <div className="test-def-diff-empty">No body changes</div>;
-
-  return (
-    <div className="test-def-diff-section">
-      <InlineDiff oldObj={tryParse(older.body)} newObj={tryParse(newer.body)} />
-    </div>
-  );
-}
-
-function AuthDiffView({ older, newer, diff }: { older: RequestDefinitionSnapshot; newer: RequestDefinitionSnapshot; diff: ReturnType<typeof computeSnapshotDiff> }) {
-  if (!diff.authChanged) return <div className="test-def-diff-empty">No auth changes</div>;
-
-  return (
-    <div className="test-def-diff-section">
-      <InlineDiff oldObj={older.auth} newObj={newer.auth} />
-    </div>
-  );
-}
-
-function InlineDiff({ oldObj, newObj }: { oldObj: unknown; newObj: unknown }) {
-  const result = useMemo(() => differ.diff(oldObj, newObj), [oldObj, newObj]);
-  return (
-    <div className="test-def-diff-json-viewer" data-theme="monokai">
-      <Viewer diff={result} indent={2} lineNumbers highlightInlineDiff />
-    </div>
-  );
-}
-
-const tryParse = parseJsonOrRaw;
-
-import { formatTimestamp } from '../../../shared/utils/formatRelativeTime';

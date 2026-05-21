@@ -6,9 +6,11 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import ScriptLibraryManager from './ScriptLibraryManager';
 import type { ScriptLibrary } from '../../engine/scriptLibraries';
 import * as scriptLibraryVersioning from '../../engine/scriptLibraryVersioning';
-
-// Mock uuid for deterministic IDs
-vi.mock('uuid', () => ({ v4: () => 'new-lib-id' }));
+const uuidMock = vi.hoisted(() =>
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  require('../../../../test-utils/uuidMock.ts').hoistedUuidFixed('new-lib-id'),
+);
+vi.mock('uuid', () => uuidMock);
 
 vi.mock('./ScriptLibraryVersionPanel', () => ({
   default: ({ onLibraryChange, onClose }: { onLibraryChange: (lib: ScriptLibrary) => void; onClose: () => void }) => (

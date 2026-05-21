@@ -262,7 +262,7 @@ describe('TrendChart', () => {
     const { container } = render(<TrendChart runs={runs} baselines={[]} />);
     const select = container.querySelector('.trend-metric-select');
     expect(select).toBeTruthy();
-    expect(select?.querySelectorAll('option').length).toBe(6);
+    expect(select?.querySelectorAll('option').length).toBe(7);
   });
 
   it('changes displayed metric when select changes', () => {

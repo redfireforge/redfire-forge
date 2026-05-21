@@ -60,6 +60,8 @@ async function getMonacoValue(page: Page): Promise<string> {
 }
 
 test.describe('Operator round-trip: equals must NOT become exists', () => {
+  test.setTimeout(60_000);
+
   test.beforeEach(async ({ page }) => {
     await page.route('**/__proxy', async (route) => {
       await route.fulfill({

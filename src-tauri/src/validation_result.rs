@@ -12,6 +12,7 @@ use crate::validation_types::{
 ///
 /// Evaluates assertions + JSON validation and determines pass/fail.
 /// Replicates the exact combination logic from the JS implementation.
+#[allow(clippy::too_many_arguments)]
 pub fn build_validation_result(
     http_status: u16,
     response_time_ms: f64,

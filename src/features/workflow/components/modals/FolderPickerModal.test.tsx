@@ -41,6 +41,15 @@ describe('FolderPickerModal', () => {
     expect(onPick).toHaveBeenCalledWith(null);
   });
 
+  it('re-selects Unfiled root after choosing a folder', () => {
+    const onPick = vi.fn();
+    render(<FolderPickerModal open={true} folders={folders} onPick={onPick} onCancel={vi.fn()} />);
+    fireEvent.click(screen.getByText('API Tests'));
+    fireEvent.click(screen.getByText('Unfiled (root)'));
+    fireEvent.click(screen.getByText('Move Here'));
+    expect(onPick).toHaveBeenCalledWith(null);
+  });
+
   it('selects a folder and confirms with its id', () => {
     const onPick = vi.fn();
     render(<FolderPickerModal open={true} folders={folders} onPick={onPick} onCancel={vi.fn()} />);
