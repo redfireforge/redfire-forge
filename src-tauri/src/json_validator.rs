@@ -7,6 +7,8 @@ use crate::field_operator::evaluate_field_operator;
 use crate::json_path::get_by_path;
 use crate::validation_types::{ExpectedField, FailureDetail, ValidationConfig, ValidationMode};
 
+type ArrayGroup<'a> = Vec<(String, Vec<(String, Vec<&'a ExpectedField>)>)>;
+
 /// Port of `validate()` from `validator.ts` (lines 790–830).
 /// Routes to none/full/selective based on config.mode.
 pub fn validate(config: &ValidationConfig, response_body: &Value) -> Vec<FailureDetail> {
@@ -175,7 +177,7 @@ pub fn validate_fields_unordered(
     failures.extend(validate_fields(&non_array_fields, response_body));
 
     // Group row prefixes by their array pattern (replace [N] with [*])
-    let mut array_groups: Vec<(String, Vec<(String, Vec<&ExpectedField>)>)> = Vec::new();
+    let mut array_groups: ArrayGroup = Vec::new();
 
     for (row_prefix, row_fields) in &row_groups {
         let pattern = index_pattern.replace_all(row_prefix, "[*]").to_string();
@@ -406,13 +408,8 @@ fn try_remap_paths(
             let stripped: Vec<ExpectedField> = fields
                 .iter()
                 .map(|f| {
-                    let new_path = f.json_path[first_segment.len()..].to_string();
-                    // Strip leading '.' if present
-                    let new_path = if new_path.starts_with('.') {
-                        new_path[1..].to_string()
-                    } else {
-                        new_path
-                    };
+                    let remainder = &f.json_path[first_segment.len()..];
+                    let new_path = remainder.strip_prefix('.').unwrap_or(remainder).to_string();
                     ExpectedField {
                         json_path: new_path,
                         ..f.clone()
@@ -471,8 +468,7 @@ fn has_improvement(result: &[FailureDetail]) -> bool {
 /// Split path on '[' or '.' to get first segment.
 /// JS: `firstPath.split(/[[.]/)[0]`
 fn split_first_segment(path: &str) -> &str {
-    let idx = path.find(|c: char| c == '[' || c == '.');
-    match idx {
+    match path.find(['.', '[']) {
         Some(i) => &path[..i],
         None => path,
     }

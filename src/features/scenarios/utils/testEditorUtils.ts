@@ -1,5 +1,10 @@
 import { v4 as uuidv4 } from 'uuid';
 import type { KeyValue, Scenario } from '../../../shared/types';
+import {
+  getBaseUrl as getBaseUrlShared,
+  parseQueryParamsPreserveTemplates,
+  rebuildUrl as rebuildUrlShared,
+} from '../../../shared/utils/queryParams';
 
 export const emptyTest = (): Scenario => ({
   id: uuidv4(),
@@ -62,32 +67,15 @@ export function jsonEqual(a: string, b: string, excludedPaths?: string[]): boole
 }
 
 export function parseQueryParams(url: string): KeyValue[] {
-  const qIdx = url.indexOf('?');
-  if (qIdx === -1) return [{ key: '', value: '' }];
-  const qs = url.slice(qIdx + 1);
-  if (!qs) return [{ key: '', value: '' }];
-  const params: KeyValue[] = qs.split('&').map((pair) => {
-    const eqIdx = pair.indexOf('=');
-    if (eqIdx === -1) return { key: pair, value: '' };
-    return { key: pair.slice(0, eqIdx), value: pair.slice(eqIdx + 1) };
-  });
+  const params = parseQueryParamsPreserveTemplates(url);
   return params.length > 0 ? params : [{ key: '', value: '' }];
 }
 
 export function rebuildUrl(url: string, params: KeyValue[]): string {
-  const base = getBaseUrl(url);
-  const nonEmpty = params.filter((p) => p.key.trim());
-  if (nonEmpty.length === 0) return base;
-  const qs = nonEmpty
-    .map((p) => `${p.key.trim()}=${p.value}`)
-    .join('&');
-  return `${base}?${qs}`;
+  return rebuildUrlShared(url, params);
 }
 
-export function getBaseUrl(url: string): string {
-  const qIdx = url.indexOf('?');
-  return qIdx === -1 ? url : url.slice(0, qIdx);
-}
+export const getBaseUrl = getBaseUrlShared;
 
 // unwrapImport and pickJsonFile moved to scenarioImportExport.ts — import from there
 export { unwrapImport, pickJsonFile } from './scenarioImportExport';
