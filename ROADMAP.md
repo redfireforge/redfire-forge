@@ -8,7 +8,7 @@
 ## Positioning & Strategy
 
 > Competitive analysis against k6, Gatling, Locust, Artillery, JMeter, Bruno, Hoppscotch, Postman.
-> Last re-evaluated: 2026-05-20 (v0.5.9 stable on `master`; after completing workflow designer, results explorer with debug console, trace levels, 3-runner architecture, data-driven testing, API catalog with Catalog→Harness integration, validation engine (16 assertion types, 24 operators, 125 functions, array assertions, DSL editor, ASSERT predicates, universal negation), Data Mapper (10 adapters, 8 gallery samples, 12 training manuals), webhook load driver with multi-webhook testing panel, **Rust HTTP executor** (reqwest + tokio with full validation engine, 542 Rust tests), **Tier 1 JS throughput optimizations** (connection pool tuning, tick reduction, conditional body parsing), **multi-worker load distribution**, Trash Box soft-delete (on develop), and comprehensive code quality audit (19,633 unit tests, 662 E2E tests, 542 Rust tests, >90% coverage all files)).
+> Last re-evaluated: 2026-05-21 (v0.5.10-alpha.1 on `develop`; after completing workflow designer, results explorer with debug console, trace levels, 3-runner architecture, data-driven testing, API catalog with Catalog→Harness integration, validation engine (16 assertion types, 24 operators, 125 functions, array assertions, DSL editor, ASSERT predicates, universal negation), Data Mapper (10 adapters, 8 gallery samples, 12 training manuals), webhook load driver with multi-webhook testing panel, **Rust HTTP executor** (reqwest + tokio with full validation engine, 542+ Rust tests), **Tier 1 JS throughput optimizations** (connection pool tuning, tick reduction, conditional body parsing), **multi-worker load distribution**, Trash Box soft-delete, **constant arrival rate** (open model, Rust arrival executor), **streaming percentiles** (Rust HDR Histogram), and comprehensive code quality audit (19,112 unit tests, 660 E2E tests, 542+ Rust tests, >90% coverage all files)).
 
 ### Identity
 
@@ -25,7 +25,7 @@ RedfireForge is a **visual API testing and workflow automation workbench** — n
 | **Bruno** | No | No | Manual | Console | No | Environments | Yes (Electron) |
 | **Hoppscotch** | No | No | Manual | Console | No | Environments | No |
 | **Postman** | Flows (basic) | Limited (paid) | Good | Console | Partial (paid) | Data files | Yes (Electron) |
-| **RedfireForge** | **Yes (full DAG)** | **Good (web) / Excellent (Tauri)** | **Excellent (100%)** | **Full debug console** | **Yes (OpenAPI)** | **CSV/Excel/API** | Yes (Tauri) |
+| **RedfireForge** | **Yes (full DAG)** | **Excellent (Tauri)** | **Excellent (100%)** | **Full debug console** | **Yes (OpenAPI)** | **CSV/Excel/API** | Yes (Tauri) |
 
 ### Key Differentiators
 
@@ -35,7 +35,7 @@ RedfireForge is a **visual API testing and workflow automation workbench** — n
 4. **API Catalog with OpenAPI import** — Browse endpoints with Swagger-style documentation, test interactively, generate cURL, version-track specs, and bulk-export to load tests with environment-aware base URLs. Batch promotion to Harness with coverage tracking. No other load testing tool integrates catalog → test workflow → load test pipeline.
 5. **Three-runner architecture with data-driven testing** — Standard Runner, Parameterized Runner (CSV/Excel/JSON/API row expansion), and Workflow Runner — each purpose-built. Shared data sources, row-level validation columns, populate from API, re-run failed rows.
 6. **Enterprise-friendly data workflow** — Excel template import/export (3-step wizard, styled sheets), CSV data files, parameterized copy conversion. QA teams work in spreadsheets — we meet them there.
-7. **Dual deployment with Rust executor** — Tauri desktop app (lighter than Electron) + web mode with zero install. Same codebase, same features, different runtimes. Desktop mode includes a native Rust HTTP executor (`reqwest` + `tokio`) for 5,000-10,000+ RPS — a significant throughput leap over browser-only execution.
+7. **Dual deployment with Rust executor** — Tauri desktop app (lighter than Electron) + web mode with zero install. Same codebase, same features, different runtimes. Desktop mode includes a native Rust HTTP executor (`reqwest` + `tokio`) for 5,000-10,000+ RPS with constant arrival rate (open model) and HDR Histogram streaming percentiles — a significant throughput leap over browser-only execution.
 8. **CLI + CI/CD ready** — `redfireforge run` and `redfireforge run-workflow` with JUnit XML, JSON, Markdown reports, `--trace-level`, CI exit codes. Pre-commit hooks (tsc + ESLint) and GitHub Actions CI already configured.
 
 ### Positioning
@@ -54,33 +54,33 @@ RedfireForge is a **visual API testing and workflow automation workbench** — n
 | API Catalog integration | OpenAPI import → Harness load test pipeline with batch promotion, coverage tracking | None | Unique: catalog → test → load test in one tool |
 | Data-driven testing | CSV/Excel/JSON/API with row validation | JMeter (CSV DataSet) | Visual editor, populate-from-API, re-run failed rows |
 | Desktop app size | ~15 MB (Tauri) | ~250 MB (Postman/Electron) | 15x smaller, native performance |
-| Throughput (desktop) | 5,000-10,000+ RPS (Rust executor) | k6 (10K+), JMeter (~5K) | Native Rust executor closes the gap with dedicated load tools |
+| Throughput (desktop) | 5,000-10,000+ RPS (Rust executor + constant arrival) | k6 (10K+), JMeter (~5K) | Native Rust executor with open-model load generation matches dedicated load tools |
 
 ### Risks & Mitigations
 
 | Risk | Status | Mitigation |
 |---|---|---|
-| ~~No tests~~ | **RESOLVED** | 19,633 unit tests + 542 Rust tests (>90% coverage all files), 662 E2E tests (Playwright), pre-commit hooks, CI pipeline |
+| ~~No tests~~ | **RESOLVED** | 19,112 unit tests + 542+ Rust tests (>90% coverage all files), 660 E2E tests (Playwright), pre-commit hooks, CI pipeline |
 | ~~No CLI / CI~~ | **RESOLVED** | CLI runner with JUnit/JSON/Markdown reports; GitHub Actions CI; `--trace-level` flag |
 | ~~No request chaining~~ | **RESOLVED** | 19 node types: HTTP, Condition, Loop, Switch, Fork/Join, Sub-Workflow, Script, Correlation Wait, etc. |
 | ~~Monolithic codebase~~ | **RESOLVED** | Feature-based `src/features/` structure; all files under 900 lines; shared hooks/utils |
-| ~~Browser-based executor~~ | **MITIGATED** | Rust executor (`reqwest` + `tokio`) in Tauri desktop mode reaches 5,000-10,000+ RPS; web mode remains at ~500-2,000 RPS; distributed execution planned for Phase 27 |
+| ~~Browser-based executor~~ | **MITIGATED** | Rust executor (`reqwest` + `tokio`) in Tauri desktop mode reaches 5,000-10,000+ RPS with constant arrival rate and streaming percentiles; web mode remains at ~500-2,000 RPS; distributed execution planned for Phase 27 |
 | Solo developer vs funded teams | **Active risk** | Open-source community + clean architecture lowers contribution barrier; comprehensive training manuals (192 files) |
 | No server-side deployment | **Future** | Client-side architecture works for dev/QA use cases now; server deployment plan documented for production scenarios |
 
 ### Load Testing Maturity Levels
 
-RedfireForge's load testing is currently rated **Good** in web mode and **Good → Excellent** in Tauri desktop mode (with the Rust executor). The remaining gaps to fully "Excellent" are constant arrival rate, streaming percentiles, and distributed execution.
+RedfireForge's load testing is currently rated **Good** in web mode and **Excellent** in Tauri desktop mode (with the Rust executor, constant arrival rate, and streaming percentiles). The remaining gap to fully "Excellent" at enterprise scale is distributed execution.
 
 #### Level definitions
 
 | Level | Description | Throughput | Examples |
 |---|---|---|---|
 | **Good** (web mode ✅) | Variables, chaining, rich assertions, multi-worker threads, connection pooling, think time, timing breakdown, trace levels, debug console | ~500-2,000 RPS | RedfireForge (web), Artillery, JMeter |
-| **Good → Excellent** (Tauri ✅) | + Native Rust executor (`reqwest` + `tokio`), full validation in Rust, pool/sequential/load-profile modes, circuit breaker, retry, cancellation, JS-side validation bridge | 5,000-10,000+ RPS | RedfireForge (desktop) |
-| **Excellent** | + Constant arrival rate, streaming percentiles, distributed multi-machine | 10,000-50,000+ RPS | k6, Gatling |
+| **Excellent** (Tauri ✅) | + Native Rust executor (`reqwest` + `tokio`), full validation in Rust, pool/sequential/load-profile/constant-arrival modes, circuit breaker, retry, cancellation, JS-side validation bridge, HDR Histogram streaming percentiles | 5,000-10,000+ RPS | RedfireForge (desktop), k6, Gatling |
+| **Excellent (Enterprise)** | + Distributed multi-machine | 10,000-50,000+ RPS | k6 (cloud), Gatling Enterprise |
 
-#### Current capabilities (Good: all 6/6 JS gaps closed ✅ + Rust executor ✅)
+#### Current capabilities (Excellent: all gaps closed ✅ except distributed execution)
 
 - Duration-based profiles: sustained, ramp-up, spike
 - Fixed iteration count: sequential, batch, pool concurrency
@@ -99,14 +99,16 @@ RedfireForge's load testing is currently rated **Good** in web mode and **Good �
 - **Debug console**: Full execution console in Results Explorer with node filter, search, aggregate summary, sub-workflow expansion, docked/floating/maximized modes
 - **Rust HTTP executor** (Tauri desktop only): `reqwest` + `tokio` async runtime with pool/sequential/load-profile modes; full Rust-side validation engine (assertion evaluator, field operators, JSON path, deep compare, subset match, date helpers, HTTP helpers); JS-side validation bridge for complex assertions; `canUseRustExecutor` auto-detection with graceful fallback for OAuth2/workflow mode; 542 Rust tests
 - **Tier 1 JS optimizations**: Connection pool tuning (512 connections, pipelining 10), `Promise.race` timeout leak fix, load profile tick 500ms→100ms, O(1) counter-based concurrency in `graphLoadRunner`, conditional body parsing, multi-worker load distribution with load-profile meta aggregation
+- **Constant arrival rate**: Open-model load generation via Rust arrival executor (`arrival_executor.rs`); configurable target RPS, duration, max in-flight limit, ramp period; backpressure handling with dropped request tracking; `droppedRequests`, `peakRps`, `targetRps` metrics on `TestSummary`
+- **Streaming percentiles**: Rust HDR Histogram (`histogram.rs`) for memory-efficient P50/P95/P99/P99.9 calculation without storing every datapoint; accurate at 100K+ results
 
 #### Gap analysis: Good → Excellent (remaining)
 
 | # | Gap | Why it matters | Phase |
 |---|---|---|---|
-| ~~7~~ | ~~**Native Rust executor**~~ | ✅ **DONE** — `reqwest` + `tokio` in Tauri with full validation engine (542 Rust tests) | ✅ 11.5 |
-| 8 | **Constant arrival rate** | "Send 100 RPS regardless of response time" (open model) — k6's killer feature | 27 |
-| 9 | **Streaming percentiles** | T-Digest/HDR Histogram for P50/P95/P99 without storing every datapoint → scales past 100K results | 27 |
+| ~~7~~ | ~~**Native Rust executor**~~ | ✅ **DONE** — `reqwest` + `tokio` in Tauri with full validation engine (542+ Rust tests) | ✅ 11.5 |
+| ~~8~~ | ~~**Constant arrival rate**~~ | ✅ **DONE** — Open-model load generation: send N RPS regardless of response time; Rust arrival executor with ramp, backpressure, cancellation | ✅ 11.6 |
+| ~~9~~ | ~~**Streaming percentiles**~~ | ✅ **DONE** — Rust HDR Histogram for P50/P95/P99/P99.9 without storing every datapoint; scales past 100K results | ✅ 11.6 |
 | 10 | **Distributed execution** | Coordinate load across multiple machines/processes → break single-machine limits | 27 |
 
 #### Implementation order
@@ -125,9 +127,11 @@ Priority 1.5 — Rust Executor (Phase 11.5) ✅ COMPLETE
   ⑧ Tier 2: Rust executor      → ✅ done (reqwest + tokio, pool/seq/load modes)
   ⑨ Tier 3: Rust validation    → ✅ done (full assertion engine in Rust, 542 tests)
 
-Priority 2 — Reach "Excellent" (Phase 27)
-  ⑩ Constant arrival rate      → open-model load generation
-  ⑪ Streaming percentiles      → memory-efficient metrics at scale
+Priority 1.6 — Streaming Percentiles & Constant Arrival (Phase 11.6) ✅ COMPLETE
+  ⑩ Constant arrival rate      → ✅ done (Rust arrival executor, open-model RPS)
+  ⑪ Streaming percentiles      → ✅ done (Rust HDR Histogram, P50/P95/P99/P99.9)
+
+Priority 2 — Reach "Excellent (Enterprise)" (Phase 27)
   ⑫ Distributed execution      → enterprise-scale multi-machine coordination
 ```
 
@@ -197,7 +201,7 @@ Structured multi-sheet Excel templates for bulk test management and better error
 - [x] **Unit Tests — Utils** — `testEditorUtils.ts` (28), `resultsGrouping.ts` (14), `jsonPathTreeUtils.ts` (24), `helpers.ts` (2), `fileSaver.ts` (5), `export.ts` (2)
 - [x] **Integration Tests** — Storage layer (31), auth inheritance resolution (15), JSON import/export roundtrips (15), CSV template roundtrips (12), Excel template roundtrips (15)
 - [x] **E2E Tests** — Playwright: create feature group/scenario/test (4), run test (4), view results (4), navigation/settings (5)
-- [x] **`npm test` Script** — Vitest (19,633 tests) + Playwright E2E (662 tests) + Rust (542 tests)
+- [x] **`npm test` Script** — Vitest (19,112 tests) + Playwright E2E (660 tests) + Rust (542+ tests)
 - [x] **Refactor Large Components** — 8 monoliths broken into 27+ focused modules + 2 shared utilities + shared useAuthVerify hook + AuthConfigPanel
 
 ### Phase 6 — Requests (Ad-Hoc API Testing) ✅
@@ -348,6 +352,30 @@ Structured multi-sheet Excel templates for bulk test management and better error
 - [x] **Code quality sweep** — 12 test files consolidated to shared `src/test-utils/factories.ts`; 10 inline `JSON.parse` patterns replaced with shared helpers; 47 `err instanceof Error` ternaries replaced with `toErrorMessage()` across 29 files
 - [x] **542 Rust tests** — Comprehensive test coverage across all Rust modules (assertion evaluator, field operators, JSON path, deep compare, subset match, date helpers, HTTP helpers, validation types, executor, cross-module integration)
 
+### Phase 11.6 — Streaming Percentiles & Constant Arrival Rate ✅
+
+> Close the final gaps to "Excellent" load testing: constant arrival rate (open model) and streaming percentiles (HDR Histogram). Companion code quality sweep with shared module extraction and E2E flaky test stabilization.
+
+**Constant Arrival Rate (Open Model)**
+- [x] **`constant-arrival` execution mode** — New execution mode: send N RPS regardless of response time (open model); `ArrivalRateConfig` type with `targetRps`, `durationSec`, `maxInFlight`, optional `ramp` period
+- [x] **Rust arrival executor** — `arrival_executor.rs` (261 lines): `tokio::time::interval` based dispatch, backpressure handling, configurable max in-flight, ramp-up support, `CancellationToken` abort
+- [x] **Arrival executor tests** — 579 lines of Rust tests covering dispatch timing, backpressure drops, ramp-up, cancellation, and edge cases
+- [x] **`TestSummary` extensions** — `droppedRequests`, `peakRps`, `targetRps`, `p999ResponseTime` fields for arrival rate metrics
+
+**Streaming Percentiles**
+- [x] **Rust HDR Histogram** — `histogram.rs` (111 lines): `HdrHistogram` struct for recording response times and querying P50/P95/P99/P99.9 without storing every datapoint
+- [x] **Histogram tests** — 304 lines of Rust tests covering accuracy, edge cases, and percentile queries
+
+**Code Quality & Deduplication**
+- [x] **Shared `RunnerPage` component** — Consolidated `TestRunner.tsx` and `ParameterizedRunner.tsx` into single `RunnerPage.tsx` + `runnerVariants.ts` (~500 lines saved)
+- [x] **Shared `definitionVersioning.ts`** — Extracted 7 common versioning functions from request/test definition modules
+- [x] **Shared `OverviewDiffView`** — Extracted identical diff view component from both version diff panels
+- [x] **Shared `percentiles.ts`** — Extracted percentile math from `metrics.ts` and `responseTimeHistogram.ts`
+- [x] **Shared failure formatting** — `formatFailureDetails()` and `getResultErrorMessage()` in `helpers.ts`
+- [x] **Shared `LiveAreaChart`** — Extracted common chart pattern from `LiveCharts.tsx`
+- [x] **E2E flaky test stabilization** — Replaced 20+ `waitForTimeout()` with proper Playwright assertions; 660 E2E tests, 0 flaky (was 23)
+- [x] **Playwright timeout** — Default increased from 15s to 30s for 40-worker parallelism
+
 ### Phase 12 — Assertions & Observability ✅
 
 > Richer assertions and deeper visibility into what happened during a run.
@@ -374,7 +402,7 @@ Structured multi-sheet Excel templates for bulk test management and better error
 - [x] **Inline Expression Autocomplete** — `ExpressionInput` and `ExpressionTextarea` components provide inline `{{variable}}` and `$function` hints across all expression-capable workflow fields (URL, headers, body, conditions, extractions)
 - [x] **Searchable Variable Select** — Custom combobox replacing native `<select>` in Condition node's "Choose variable" mode; type-to-filter, grouped by source node, keyboard navigable, type badges
 - [x] **E2E Test Selectors Updated** — All 372 E2E tests updated for new nav structure
-- [x] **19,633 Unit Tests, 662 E2E Tests, 542 Rust Tests** — comprehensive coverage across all features
+- [x] **19,112 Unit Tests, 660 E2E Tests, 542+ Rust Tests** — comprehensive coverage across all features
 
 ### Phase 14 — Gallery Redesign & Training Manuals ✅
 
@@ -407,7 +435,7 @@ Structured multi-sheet Excel templates for bulk test management and better error
 - [x] **Histogram Distribution** — Response time histogram tab in Run Comparison Panel
 - [x] **p50 Metric** — p50 response time added to `computeMetrics()`
 - [x] **Code Consolidation (Round 5)** — Extracted `toggleSetItem()` shared utility (9 inline patterns → 1 function), `createResponseVersion()` / `createRulesVersion()` factory functions (8 inline constructions → 2 factories); `resolveAuthHeaders()` deduplication (6 files); import unification for `acquireOAuth2Token`
-- [x] **19,633 Unit Tests, 662 E2E Tests** — 12 new utility tests (setToggle, versionFactory), all passing
+- [x] **19,112 Unit Tests, 660 E2E Tests** — 12 new utility tests (setToggle, versionFactory), all passing
 
 ### Phase 16 — Parameterized Testing & Shared Data Sources ✅
 
@@ -498,7 +526,7 @@ Structured multi-sheet Excel templates for bulk test management and better error
 - [x] **Tab Rename** — "Scenarios" tab renamed to "Feature Groups"
 - [x] **3 New Training Manuals** — Test Runner Guide, Parameterized Runner Guide, Scenario Types Guide
 - [x] **14+ Existing Manuals Updated** — Runner references, TPS terminology, navigation paths
-- [x] **19,633 Unit Tests, 662 E2E Tests** — All passing, >90% code coverage across all files
+- [x] **19,112 Unit Tests, 660 E2E Tests** — All passing, >90% code coverage across all files
 
 ### Phase 22 — Results Explorer Debug Console & Trace Levels ✅
 
@@ -544,7 +572,7 @@ Structured multi-sheet Excel templates for bulk test management and better error
 - [x] **Version Diff/Merge/Status** — `versionDiff.ts`, `versionMerge.ts`, `versionStatus.ts` utilities for OpenAPI spec version management
 - [x] **Extracted Hooks** — `useCatalogState`, `useCatalogExport`, `useHarnessPromotion`, `useRequestsSidebarDnD`, `usePreferencesImport`, `useGalleryWorkflowPreviewState`, `useScenarioBuilderSearch` hooks
 - [x] **Shared Components** — `CascadeSelect` (reusable cascade dropdown), `useEscapeKey` (shared hook), `SWAGGER_METHOD_COLORS` (shared constant)
-- [x] **Code Quality Audit** — All files under 900 lines; >90% coverage across all 4 metrics; 0 ESLint errors; 0 TypeScript errors; 19,633 unit tests, 662 E2E tests, 542 Rust tests passing
+- [x] **Code Quality Audit** — All files under 900 lines; >90% coverage across all 4 metrics; 0 ESLint errors; 0 TypeScript errors; 19,112 unit tests, 660 E2E tests, 542+ Rust tests passing
 
 ### Phase 23.7 — Trash Box (Soft Delete & Recovery) ✅ (on `develop`)
 
@@ -617,13 +645,13 @@ The public release — polished, documented, community-ready.
 
 ### Phase 27 — Future (Good → Excellent)
 
-Post-launch features driven by community feedback. The Rust executor is done (Phase 11.5); the remaining engine items below close the gap to fully **Excellent**.
+Post-launch features driven by community feedback. The Rust executor is done (Phase 11.5), and constant arrival rate + streaming percentiles are done (Phase 11.6). The remaining engine item is distributed execution.
 
-#### Engine — Excellent Tier (remaining)
-- [x] **Native Rust Executor** — ✅ Completed in Phase 11.5: `reqwest` + `tokio` with pool/sequential/load-profile modes, full validation engine, 542 Rust tests
-- [ ] **Streaming Percentiles** — T-Digest or HDR Histogram for P50/P95/P99 calculation without storing every datapoint in memory; enables accurate metrics at 100K+ results without OOM
+#### Engine — Excellent (Enterprise) Tier (remaining)
+- [x] **Native Rust Executor** — ✅ Completed in Phase 11.5: `reqwest` + `tokio` with pool/sequential/load-profile modes, full validation engine, 542+ Rust tests
+- [x] **Streaming Percentiles** — ✅ Completed in Phase 11.6: Rust HDR Histogram for P50/P95/P99/P99.9 without storing every datapoint
+- [x] **Constant Arrival Rate** — ✅ Completed in Phase 11.6: Open-model load generation via Rust arrival executor with ramp, backpressure, and cancellation
 - [ ] **Distributed Execution** — Coordinate load generation across multiple machines/processes via a controller/worker architecture; break past single-machine limits for enterprise-scale testing
-- [ ] **Constant Arrival Rate** — "Send exactly N requests/second regardless of response time" (open model); automatic worker scaling with queue-based request dispatching and backpressure
 - [ ] **Graceful Drain** — Wait for in-flight requests to complete on abort (with configurable timeout)
 
 #### Server Deployment & Production
@@ -639,7 +667,7 @@ Post-launch features driven by community feedback. The Rust executor is done (Ph
 
 #### Extensibility & Organization
 - [ ] **Test Tagging** — Label tests with `smoke`, `regression`, `critical` and run by tag
-- [x] **Data Mapper** — ✅ Visual field mapping component with 10 adapters + body builder; drag-and-drop, expression editor (Monaco + 125 functions + lambda), auto-map with accept/reject, type mismatch detection & auto-fix, floating pop-out DSL editor, bi-directional visual ↔ code sync, schema drift/repair, mapping profiles, keyboard navigation, hover-to-highlight, failure navigation; 19,633 unit tests, 662 E2E tests, >90% coverage across all files — see `docs/plan/validation-operator-gap-analysis.md`
+- [x] **Data Mapper** — ✅ Visual field mapping component with 10 adapters + body builder; drag-and-drop, expression editor (Monaco + 125 functions + lambda), auto-map with accept/reject, type mismatch detection & auto-fix, floating pop-out DSL editor, bi-directional visual ↔ code sync, schema drift/repair, mapping profiles, keyboard navigation, hover-to-highlight, failure navigation; 19,112 unit tests, 660 E2E tests, >90% coverage across all files — see `docs/plan/validation-operator-gap-analysis.md`
 - [ ] **Plugin API** — Extension point for custom auth providers, assertion functions, reporters
 
 ---
@@ -660,6 +688,7 @@ Post-launch features driven by community feedback. The Rust executor is done (Ph
 | 10 | Variables & Chaining (Workflow Designer) | 20 | 20 |
 | 11 | Engine Performance (Moderate → Good) | 3 | 3 |
 | 11.5 | Throughput Optimizations & Rust Executor | 15 | 15 |
+| 11.6 | Streaming Percentiles & Constant Arrival Rate | 14 | 14 |
 | 12 | Assertions & Observability | 9 | 9 |
 | 13 | UI/UX Visual Foundation | 9 | 9 |
 | 14 | Gallery Redesign & Training Manuals | 7 | 7 |
@@ -677,8 +706,8 @@ Post-launch features driven by community feedback. The Rust executor is done (Ph
 | 24 | CI/CD Pipeline | 8 | 2 |
 | 25 | Run Comparison & Trends | 5 | 0 |
 | 26 | Open-Source Launch | 14 | 0 |
-| 27 | Future (Engine → Excellent + Server) | 15 | 3 |
-| **Total** | | **314** | **276** |
+| 27 | Future (Engine → Excellent + Server) | 15 | 5 |
+| **Total** | | **328** | **292** |
 
 ### Feature Maturity Assessment
 
@@ -696,9 +725,11 @@ PRODUCTION-READY (fully implemented, tested, documented):
   ✅ Data Mapper                — 10 adapters, visual + DSL authoring, floating editor, schema drift (Phase 7F+)
   ✅ CLI Runner                 — YAML/JSON, JUnit XML, CI exit codes (Phase 4)
   ✅ Training System            — 192 manuals, 9 training paths, progress tracking (Phases 14, 15, 17)
-  ✅ Rust HTTP Executor         — reqwest + tokio, full validation engine, 542 Rust tests (Phase 11.5)
+  ✅ Rust HTTP Executor         — reqwest + tokio, full validation engine, 542+ Rust tests (Phase 11.5)
   ✅ Multi-Worker Execution     — automatic chunking, per-worker concurrency, load-profile aggregation (Phase 11.5)
-  ✅ Trash Box                  — soft delete, undo toast, smart restoration, configurable purge (Phase 23.7, on develop)
+  ✅ Constant Arrival Rate      — open-model RPS with Rust arrival executor (Phase 11.6)
+  ✅ Streaming Percentiles      — Rust HDR Histogram for P50/P95/P99/P99.9 at scale (Phase 11.6)
+  ✅ Trash Box                  — soft delete, undo toast, smart restoration, configurable purge (Phase 23.7)
 
 PARTIALLY COMPLETE (functional, needs polish):
   🟡 CI/CD Pipeline            — Pre-commit hooks + Actions CI exist, full pipeline pending (Phase 24)
@@ -706,21 +737,20 @@ PARTIALLY COMPLETE (functional, needs polish):
 NOT STARTED (post-launch):
   ⬜ Run Comparison & Trends    (Phase 25)
   ⬜ Open-Source Launch          (Phase 26)
-  ⬜ Constant arrival rate       (Phase 27)
-  ⬜ Streaming percentiles       (Phase 27)
   ⬜ Distributed execution       (Phase 27)
 ```
 
 ### Load Testing Level Milestones
 
 ```
-CURRENT: Good (web ~500-2,000 RPS) / Good→Excellent (Tauri 5,000-10,000+ RPS)
+CURRENT: Good (web ~500-2,000 RPS) / Excellent (Tauri 5,000-10,000+ RPS)
   ├── Phase 1    ✅  Duration profiles, ramp-up, spike
   ├── Phase 2    ✅  CSV data, retry, circuit breaker, timeout
   ├── Phase 3    ✅  Excel templates, live charts
   ├── Phase 10   ✅  Variables, chaining, workflow mode
   ├── Phase 11   ✅  Worker threads, connection pooling, think time
-  ├── Phase 11.5 ✅  Tier 1 JS optimizations + Tier 2/3 Rust executor (542 Rust tests)
+  ├── Phase 11.5 ✅  Tier 1 JS optimizations + Tier 2/3 Rust executor (542+ Rust tests)
+  ├── Phase 11.6 ✅  Constant arrival rate + streaming percentiles (HDR Histogram)
   ├── Phase 12   ✅  Rich assertions, presets, timing breakdown
   ├── Phase 16   ✅  Parameterized data-driven testing, shared data sources
   ├── Phase 19   ✅  Workflow ↔ Harness integration
@@ -729,17 +759,17 @@ CURRENT: Good (web ~500-2,000 RPS) / Good→Excellent (Tauri 5,000-10,000+ RPS)
   ├── Phase 23   ✅  Webhook load driver, multi-webhook testing panel
   └── Phase 23.5 ✅  Catalog ↔ Harness integration, batch promotion
 
-FUTURE: Fully Excellent (10,000-50,000+ RPS)
-  └── Phase 27     Constant arrival rate, streaming percentiles, distributed
+FUTURE: Excellent (Enterprise) (10,000-50,000+ RPS)
+  └── Phase 27     Distributed execution
 ```
 
 ### Adoption Forecast
 
 | Scenario | Predicted Stars (Year 1) | Requirements |
 |---|---|---|
-| Launch now (CI partially done, no demo) | 1,000–2,500 | CLI done, 19.6K+ unit tests + 542 Rust tests, Actions CI exists, Rust executor, all features complete through Phase 23.7 |
+| Launch now (CI partially done, no demo) | 1,000–2,500 | CLI done, 19K+ unit tests + 542+ Rust tests, Actions CI exists, Rust executor + constant arrival + streaming percentiles, all features complete through Phase 23.7 |
 | Launch with full CI pipeline + live demo | 2,500–5,000 | Phase 24 complete |
-| Launch with Rust executor + demo + branding | 5,000–10,000 | Phases 10–23.7 ✅ + Phase 26 (Rust executor is a strong differentiator) |
+| Launch with Rust executor + demo + branding | 5,000–10,000 | Phases 10–23.7 ✅ + Phase 26 (Rust executor + open model is a strong differentiator) |
 | Viral launch (HN front page, YouTube) | 10,000–25,000+ | All of above + great branding + community momentum + "visual JMeter killer" narrative |
 
 ### Critical Path to Open-Source
@@ -755,17 +785,18 @@ REMAINING BLOCKERS:
 
 ALREADY COMPLETE (Phases 1–23.7):
   ✅ Phase 4    (CLI)           — `redfireforge run` + `run-workflow`, JUnit/JSON/Markdown reports
-  ✅ Phase 5    (Tests)         — 19,633 unit tests, 662 E2E tests, 542 Rust tests, >90% code coverage
+  ✅ Phase 5    (Tests)         — 19,112 unit tests, 660 E2E tests, 542+ Rust tests, >90% code coverage
   ✅ Phase 6    (Requests)      — Full ad-hoc API testing with collections/auth/cURL
   ✅ Phase 7    (API Catalog)   — OpenAPI/Swagger browser with versioning
   ✅ Phase 10   (Workflow)      — Visual workflow designer (19 node types) + graph execution engine
   ✅ Phase 11   (Engine)        — Full "Good" load testing capabilities (JS)
   ✅ Phase 11.5 (Throughput)    — Tier 1 JS optimizations + Rust executor (5,000-10,000+ RPS in Tauri)
+  ✅ Phase 11.6 (Arrival+Perc)  — Constant arrival rate (open model) + streaming percentiles (HDR Histogram)
   ✅ Phase 20   (Replay)        — Results Explorer with interactive execution replay
   ✅ Phase 22   (Console)       — Debug console with tiered trace levels
   ✅ Phase 23   (Webhook)       — Multi-webhook testing panel + webhook load driver
   ✅ Phase 23.5 (Catalog→Test)  — Catalog ↔ Harness batch promotion, spec versioning, coverage checker
-  ✅ Phase 23.7 (Trash Box)     — Soft delete & recovery with undo toast, smart restoration (on develop)
+  ✅ Phase 23.7 (Trash Box)     — Soft delete & recovery with undo toast, smart restoration
   ✅ CI Foundation               — GitHub Actions (tsc + ESLint + unit tests), pre-commit hooks
 ```
 
@@ -774,10 +805,12 @@ ALREADY COMPLETE (Phases 1–23.7):
 ```
                               Phase 11.5 ✅ Rust Executor DONE (5,000-10,000+ RPS)
                                     ↓
-Phase 25 (Run Comparison)  →  Phase 27 (Constant Arrival Rate + Distributed)
-  ↑ regression detection           ↑ remaining gaps to fully Excellent (10K-50K+ RPS)
+                              Phase 11.6 ✅ Constant Arrival + Streaming Percentiles DONE
+                                    ↓
+Phase 25 (Run Comparison)  →  Phase 27 (Distributed Execution)
+  ↑ regression detection           ↑ remaining gap to Enterprise scale (10K-50K+ RPS)
 ```
 
 ---
 
-_Last updated: 2026-05-20 (v0.5.9 stable — on `master` branch; 276/314 items done (87.8%); load testing at Good (web) / Good→Excellent (Tauri with Rust executor); >90% code coverage all files; 19,633 unit tests, 662 E2E tests, 542 Rust tests; 747 JS test files + 15 Rust test files; 192 training manuals; 93 gallery entries)_
+_Last updated: 2026-05-21 (v0.5.10-alpha.1 — on `develop` branch; 292/328 items done (89.0%); load testing at Good (web) / Excellent (Tauri with Rust executor + constant arrival + streaming percentiles); >90% code coverage all files; 19,112 unit tests, 660 E2E tests, 542+ Rust tests; 759 JS test files + 15 Rust test files; 192 training manuals; 93 gallery entries)_

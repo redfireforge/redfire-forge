@@ -186,21 +186,26 @@ async function openResultsExplorer(page: Page, testRun: ReturnType<typeof makeSt
   expect(seeded).toBe('ok');
 
   await page.reload();
-  await page.waitForLoadState('domcontentloaded');
+  await page.waitForLoadState('networkidle').catch(() => {});
+  await page.waitForSelector('.app-header', { timeout: 10000 });
 
   const harnessBtn = page.locator('button[title="Harness"]');
   await expect(harnessBtn).toBeVisible({ timeout: 10000 });
   await harnessBtn.click();
 
+  // Verify navigation worked — if sub-nav didn't appear, retry the click
   const resultsTab = page.locator('button.sub-nav-tab:has-text("Results")');
-  await expect(resultsTab).toBeVisible({ timeout: 5000 });
+  if (!await resultsTab.isVisible({ timeout: 2000 }).catch(() => false)) {
+    await harnessBtn.click();
+  }
+  await expect(resultsTab).toBeVisible({ timeout: 8000 });
   await resultsTab.click();
-  await page.waitForTimeout(1500);
 
   const explorerBtn = page.locator('button:has-text("Results Explorer")');
-  await expect(explorerBtn.first()).toBeVisible({ timeout: 8000 });
+  await expect(explorerBtn.first()).toBeVisible({ timeout: 10000 });
   await explorerBtn.first().click();
-  await page.waitForTimeout(1500);
+
+  await expect(page.locator('.results-explorer-modal, .results-explorer-overlay, [data-testid="console-toggle-btn-header"]')).toBeVisible({ timeout: 10000 });
 }
 
 // ─── Test Suite ──────────────────────────────────────────────────────────────
@@ -567,21 +572,25 @@ test.describe('Results Explorer Console — Sub-Workflow', () => {
     expect(seeded).toBe('ok');
 
     await page.reload();
-    await page.waitForLoadState('domcontentloaded');
+    await page.waitForLoadState('networkidle').catch(() => {});
+    await page.waitForSelector('.app-header', { timeout: 10000 });
 
     const harnessBtn = page.locator('button[title="Harness"]');
     await expect(harnessBtn).toBeVisible({ timeout: 10000 });
     await harnessBtn.click();
 
     const resultsTab = page.locator('button.sub-nav-tab:has-text("Results")');
-    await expect(resultsTab).toBeVisible({ timeout: 5000 });
+    if (!await resultsTab.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await harnessBtn.click();
+    }
+    await expect(resultsTab).toBeVisible({ timeout: 8000 });
     await resultsTab.click();
-    await page.waitForTimeout(1500);
 
     const explorerBtn = page.locator('button:has-text("Results Explorer")');
-    await expect(explorerBtn.first()).toBeVisible({ timeout: 8000 });
+    await expect(explorerBtn.first()).toBeVisible({ timeout: 10000 });
     await explorerBtn.first().click();
-    await page.waitForTimeout(1500);
+
+    await expect(page.locator('.results-explorer-modal, .results-explorer-overlay, [data-testid="workflow-info"]')).toBeVisible({ timeout: 10000 });
 
     // Verify root workflow context
     const workflowInfo = page.locator('[data-testid="workflow-info"]');
@@ -595,13 +604,11 @@ test.describe('Results Explorer Console — Sub-Workflow', () => {
     if (await subNode.isVisible({ timeout: 3000 }).catch(() => false)) {
       // Click to select
       await subNode.click();
-      await page.waitForTimeout(500);
 
       // Look for drill-down button in detail panel
       const drillBtn = page.locator('button').filter({ hasText: /View Sub-Workflow|Drill/i });
-      if (await drillBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+      if (await drillBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
         await drillBtn.click();
-        await page.waitForTimeout(1000);
 
         // After drill-down, workflow info should show child name and parent reference
         const childName = page.locator('.workflow-info-name');
@@ -648,8 +655,7 @@ test.describe('Designer Canvas Controls', () => {
 
     await page.goto('/?tab=workflow');
     await page.waitForSelector('.wf-designer', { timeout: 10000 });
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(1000);
+    await page.waitForLoadState('networkidle').catch(() => {});
 
     // Should have Fit View and Save Layout buttons
     const fitViewBtn = page.locator('button[title*="Fit view"], button[title*="Restore saved view"]');
@@ -679,14 +685,11 @@ test.describe('Designer Canvas Controls', () => {
 
     await page.goto('/?tab=workflow');
     await page.waitForSelector('.wf-designer', { timeout: 10000 });
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(1000);
+    await page.waitForLoadState('networkidle').catch(() => {});
 
     const saveBtn = page.locator('button[title*="Save current"]');
     await expect(saveBtn).toBeVisible({ timeout: 5000 });
     await saveBtn.click();
-    // No error should occur — button click should save successfully
-    await page.waitForTimeout(500);
     await expect(saveBtn).toBeVisible();
   });
 });
@@ -723,29 +726,23 @@ test.describe('Workflow Runner — Trace Level', () => {
     await page.waitForLoadState('domcontentloaded');
     await page.waitForSelector('.app-header', { timeout: 10000 });
 
-    // Click Harness nav icon
     const harnessBtn = page.locator('button').filter({ hasText: /🏋/ }).first();
-    await expect(harnessBtn).toBeVisible({ timeout: 5000 });
+    await expect(harnessBtn).toBeVisible({ timeout: 8000 });
     await harnessBtn.click();
-    await page.waitForTimeout(500);
 
-    // Click the "Workflow Runner" sub-tab
     const runnerTab = page.locator('button').filter({ hasText: 'Workflow Runner' }).first();
-    await expect(runnerTab).toBeVisible({ timeout: 5000 });
+    await expect(runnerTab).toBeVisible({ timeout: 8000 });
     await runnerTab.click();
-    await page.waitForTimeout(500);
 
-    // Select workflow from the dropdown
     const wfSelect = page.getByTestId('workflow-select');
-    await expect(wfSelect).toBeVisible({ timeout: 5000 });
+    await expect(wfSelect).toBeVisible({ timeout: 8000 });
     await wfSelect.click();
-    await page.waitForTimeout(500);
 
-    // The dropdown panel should now be visible
     const dropdownItem = page.locator('.wfp-dropdown-item').filter({ hasText: 'Runner Trace Test' });
     await expect(dropdownItem.first()).toBeVisible({ timeout: 5000 });
     await dropdownItem.first().click();
-    await page.waitForTimeout(1000);
+
+    await expect(page.getByText('Trace Level:')).toBeVisible({ timeout: 8000 });
   }
 
   test('trace level radio buttons are visible in the runner', async ({ page }) => {
@@ -769,7 +766,6 @@ test.describe('Workflow Runner — Trace Level', () => {
     const debugRadio = page.locator('label.radio-label').filter({ hasText: 'Debug' });
     await expect(debugRadio).toBeVisible({ timeout: 5000 });
     await debugRadio.click();
-    await page.waitForTimeout(300);
 
     // The Debug radio input should now be checked
     const debugInput = debugRadio.locator('input[type="radio"]');

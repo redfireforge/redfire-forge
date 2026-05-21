@@ -63,6 +63,7 @@ export function ResponseTimeHistogram({ run }: SingleHistogramProps) {
           <Bar dataKey="count" fill="var(--primary)" opacity={0.8} radius={[2, 2, 0, 0]} />
           {stats && <ReferenceLine x={`${bins.find(b => b.min <= stats.p95 && b.max >= stats.p95)?.min.toFixed(0)}`} stroke="var(--warning, #f59e0b)" strokeDasharray="3 3" label={{ value: 'P95', fill: 'var(--warning, #f59e0b)', fontSize: 10 }} />}
           {stats && <ReferenceLine x={`${bins.find(b => b.min <= stats.p99 && b.max >= stats.p99)?.min.toFixed(0)}`} stroke="var(--error, #ef4444)" strokeDasharray="3 3" label={{ value: 'P99', fill: 'var(--error, #ef4444)', fontSize: 10 }} />}
+          {stats?.p999 != null && <ReferenceLine x={`${bins.find(b => b.min <= stats.p999! && b.max >= stats.p999!)?.min.toFixed(0)}`} stroke="var(--text-muted, #9ca3af)" strokeDasharray="5 2" label={{ value: 'P99.9', fill: 'var(--text-muted, #9ca3af)', fontSize: 10 }} />}
         </BarChart>
       </ResponsiveContainer>
     </div>

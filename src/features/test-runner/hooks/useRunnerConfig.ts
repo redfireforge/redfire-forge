@@ -3,7 +3,7 @@
  * Extracted from TestRunner.tsx to reduce component size and isolate config concerns.
  */
 import { useState, useEffect } from 'react';
-import type { ExecutionMode, ErrorPolicy, LoadProfileConfig, ThinkTimeConfig } from '../../../shared/types';
+import type { ExecutionMode, ErrorPolicy, LoadProfileConfig, ThinkTimeConfig, ArrivalRateConfig } from '../../../shared/types';
 import { saveRunnerConfig, loadRunnerConfig as loadRunnerConfigAsync } from '../../../shared/utils/storage';
 import type { ReportOptions } from '../../results/utils/reportGenerator';
 import { defaultLoadProfile, defaultThinkTime, defaultConfig, resolveLoadedConfig } from './runnerConfigDefaults';
@@ -35,6 +35,8 @@ export interface UseRunnerConfigResult {
   setExecutionMode: React.Dispatch<React.SetStateAction<ExecutionMode>>;
   loadProfile: LoadProfileConfig;
   setLoadProfile: React.Dispatch<React.SetStateAction<LoadProfileConfig>>;
+  arrivalRate: ArrivalRateConfig;
+  setArrivalRate: React.Dispatch<React.SetStateAction<ArrivalRateConfig>>;
   thinkTime: ThinkTimeConfig;
   setThinkTime: React.Dispatch<React.SetStateAction<ThinkTimeConfig>>;
   timeoutSec: number;
@@ -72,6 +74,7 @@ export function useRunnerConfig(configContextKey: string | undefined): UseRunner
   const [customBaseUrl, setCustomBaseUrl] = useState('');
   const [executionMode, setExecutionMode] = useState<ExecutionMode>('batch');
   const [loadProfile, setLoadProfile] = useState<LoadProfileConfig>({ ...defaultLoadProfile });
+  const [arrivalRate, setArrivalRate] = useState<ArrivalRateConfig>({ targetRps: 10, durationSec: 30 });
   const [thinkTime, setThinkTime] = useState<ThinkTimeConfig>({ ...defaultThinkTime });
   const [timeoutSec, setTimeoutSec] = useState(10);
   const [retryCount, setRetryCount] = useState(0);
@@ -109,6 +112,7 @@ export function useRunnerConfig(configContextKey: string | undefined): UseRunner
       setCustomBaseUrl(cfg.customBaseUrl);
       setExecutionMode(cfg.executionMode);
       setLoadProfile(cfg.loadProfile);
+      if (cfg.arrivalRate) setArrivalRate(cfg.arrivalRate);
       setThinkTime(cfg.thinkTime);
       setTimeoutSec(cfg.timeoutSec);
       setRetryCount(cfg.retryCount);
@@ -137,6 +141,7 @@ export function useRunnerConfig(configContextKey: string | undefined): UseRunner
       customBaseUrl,
       executionMode,
       loadProfile,
+      arrivalRate,
       thinkTime,
       timeoutSec,
       retryCount,
@@ -149,7 +154,7 @@ export function useRunnerConfig(configContextKey: string | undefined): UseRunner
     }, configContextKey);
   }, [configLoaded, configContextKey, concurrency, iterations, selectedScenarios, weights,
     skipValidation, validationOverride, forceUnordered, hostMode, customBaseUrl, executionMode,
-    loadProfile, thinkTime, timeoutSec, retryCount, retryDelayMs, errorPolicy, maxErrors,
+    loadProfile, arrivalRate, thinkTime, timeoutSec, retryCount, retryDelayMs, errorPolicy, maxErrors,
     maxErrorRate, autoReport, autoReportFormat]);
 
   return {
@@ -164,6 +169,7 @@ export function useRunnerConfig(configContextKey: string | undefined): UseRunner
     customBaseUrl, setCustomBaseUrl,
     executionMode, setExecutionMode,
     loadProfile, setLoadProfile,
+    arrivalRate, setArrivalRate,
     thinkTime, setThinkTime,
     timeoutSec, setTimeoutSec,
     retryCount, setRetryCount,

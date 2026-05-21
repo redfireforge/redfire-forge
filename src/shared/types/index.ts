@@ -420,9 +420,20 @@ export interface ScenarioWeight {
   weight: number;
 }
 
-export type ExecutionMode = 'sequential' | 'batch' | 'pool' | 'load-profile' | 'workflow';
+export type ExecutionMode = 'sequential' | 'batch' | 'pool' | 'load-profile' | 'workflow' | 'constant-arrival';
 
 export type LoadProfileType = 'ramp-up' | 'sustained' | 'spike';
+
+export interface ArrivalRateConfig {
+  targetRps: number;
+  durationSec: number;
+  maxInFlight?: number;
+  ramp?: {
+    startRps: number;
+    endRps: number;
+    rampDurationSec: number;
+  };
+}
 
 export interface LoadProfileConfig {
   type: LoadProfileType;
@@ -465,6 +476,7 @@ export interface TestConfig {
   scenarioWeights: ScenarioWeight[];
   executionMode: ExecutionMode;
   loadProfile?: LoadProfileConfig;
+  arrivalRate?: ArrivalRateConfig;
   thinkTime?: ThinkTimeConfig;
   timeoutSec?: number;
   retryCount?: number;
@@ -543,6 +555,7 @@ export interface TestSummary {
   p50ResponseTime: number;
   p95ResponseTime: number;
   p99ResponseTime: number;
+  p999ResponseTime?: number;
   errorRate: number;
   errorsByStatus: Record<number, number>;
   totalRequests: number;
@@ -554,6 +567,12 @@ export interface TestSummary {
   avgIterationTime?: number;
   /** Number of requests cancelled by user abort (excluded from error metrics) */
   cancelledRequests?: number;
+  /** Requests not sent due to backpressure (constant-arrival mode only) */
+  droppedRequests?: number;
+  /** Highest achieved RPS (constant-arrival mode only) */
+  peakRps?: number;
+  /** Configured target RPS (constant-arrival mode only) */
+  targetRps?: number;
 }
 
 

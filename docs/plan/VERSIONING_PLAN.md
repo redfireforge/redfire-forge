@@ -1,8 +1,9 @@
 # RedfireForge — Versioning Plan
 
 > Master plan for version control, history tracking, and audit capabilities across the entire platform.
-> Updated: 2026-04-30
+> Updated: 2026-05-21
 > Status: **ALL PHASES COMPLETE** (V-Phase 1–7)
+> Current version: v0.5.9 stable / 0.5.9-beta.2 release branch
 
 ---
 
@@ -25,6 +26,7 @@
 | **Audit Log** | Change tracking | localStorage (`perf-test-audit-log`) | Inline field-level old→new | N/A | ✅ (JSON/CSV) |
 | **Structure Change Log** | Per-FG changelog | In `featureGroup.structureLog[]` (localStorage) | N/A (event log) | N/A | ✅ (selective) |
 | **Script Library Versions** | Snapshot per edit | In `ScriptLibrary.versions[]` (localStorage) | 2-tab diff (overview + code) | ✅ | ✅ (strip/count) |
+| **Trash Box** | Soft-deleted items | IndexedDB / localStorage / Tauri FS | N/A | ✅ (restore + undo) | ❌ |
 
 ### What Does NOT Have Versioning
 
@@ -402,6 +404,7 @@ interface RequestDefinitionVersion {
 | Request Definition | localStorage (in RequestItem) | 15 | Request/collection switch (fingerprint dedup) |
 | Feature Group Structure | localStorage (in FeatureGroup) | 50 | Any scenario/test/FG mutation |
 | Script Library | localStorage | 15 | Edit save |
+| Trash Box | IndexedDB / localStorage / Tauri FS | 100 (configurable 50–200) | Any delete operation (FG, scenario, test, shared DS) |
 
 ### Storage Size Management
 
@@ -476,6 +479,8 @@ All version panels should follow the established patterns from `ResponseVersionP
 - [x] Version metadata in `_exportMeta` envelope
 - [x] Duplicate version detection (fingerprint-based)
 - [x] IntelliJ-style diff viewer (monokai, transparent rows, wider gutter)
+- [x] **Trash Box** — Soft-delete & recovery for FGs, scenarios, tests, shared data sources (42 tests, undo toast, configurable retention/capacity, IDB + localStorage + Tauri FS)
+- [x] Structure change log `restored` action type — tracks restored items from Trash Box (V-Phase 6 extension)
 
 ---
 
@@ -497,14 +502,48 @@ Non-versioning improvements shipped alongside V-Phase 7:
 ## Plan Status: COMPLETE
 
 All 7 versioning phases have been implemented and tested:
-- **375+ unit tests** across all versioning features
+- **375+ unit tests** across all versioning features (+ 42 Trash Box tests = **417+ total**)
 - All phases use consistent patterns: fingerprint-based dedup, FIFO eviction, json-diff-kit diff viewers
 - Export/import integration with selective version inclusion/exclusion
 - Audit log provides cross-cutting change tracking
+- Trash Box provides soft-delete safety net complementing version history
 
 **Remaining unversioned entities** (low priority, no current user demand):
 - `RequestCollection` — collection-level structure changes
 - `TestConfig` — load profile parameter tuning history
+
+---
+
+## Post-Completion Enhancements (v0.5.9+)
+
+Features shipped after all V-Phases completed that extend or interact with the versioning infrastructure:
+
+### Trash Box — Soft Delete & Recovery (v0.5.9-beta.2)
+
+**Relationship to versioning**: The Trash Box is complementary to version history — versions track *what changed*, Trash Box prevents *accidental permanent loss*.
+
+| Aspect | Detail |
+|---|---|
+| **Feature** | Deleted Feature Groups, Scenarios, Tests, and Shared Data Sources are moved to a Trash Box instead of permanent deletion |
+| **Undo toast** | 5-second notification with Undo button for instant recovery |
+| **Trash Panel** | Modal UI to browse, search, restore, permanently delete trashed items |
+| **Automatic purge** | Expired items cleaned up on startup (configurable 7–90 day retention, max 50–200 items) |
+| **Smart restoration** | Restores to original parent when available; creates "Restored Items" groups for orphans; handles ID collisions |
+| **Structure change logging** | Restored items recorded in Feature Group change history (V-Phase 6) with `restored` action |
+| **Persistence** | IndexedDB (web), localStorage fallback, Tauri FS (desktop) |
+| **Tests** | 42 unit tests (`TrashPanel.test.tsx`, `TrashUndoToast.test.tsx`, `useTrash.test.ts`, `useTrash.restorePaths.test.ts`, `trashStorage.test.ts`, `idbTrash.test.ts`, `trashConstants.test.ts`) |
+
+**Key files**:
+- `src/shared/utils/trashStorage.ts` — dual-mode CRUD (IDB/localStorage/Tauri FS), purgeExpired, enforceMaxItems
+- `src/shared/utils/idbTrash.ts` — IndexedDB backend
+- `src/features/scenarios/hooks/useTrash.ts` — React hook (moveToTrash, restore, undo, settings)
+- `src/features/scenarios/components/TrashPanel.tsx` — modal UI
+- `src/features/scenarios/components/TrashUndoToast.tsx` — 5-second undo toast
+- `src/styles/trash.css` — panel + toast CSS
+
+### Test Suite Deduplication & Coverage Sweep (v0.5.9-beta.2)
+
+Extracted shared test mocks, fixtures, and JSX render helpers into `__test-utils__/` modules across 4 feature areas. Net duplication reduction: 22,585 → 18,719 lines (4.48% → 3.73%). All production files ≥ 90% coverage on every metric.
 
 ---
 
@@ -517,3 +556,6 @@ Items intentionally deferred from the versioning plan — tracked here for futur
 | CLI `--baseline <run-id>` flag for CI comparison output | V-Phase 4 | Belongs to a separate CLI enhancement phase |
 | ~~Response time distribution overlay histogram~~ | ~~V-Phase 4~~ | ~~Implemented — see Companion Improvements~~ |
 | Persist response history to localStorage | V-Phase 5 | Separate concern from definition versioning — it's HTTP response caching, not version control |
+| Kafka message versioning / schema evolution tracking | Future | Depends on Kafka integration (see `docs/plan/future/kafka-integration-plan.md`) |
+| Data Source version history | Future | Track changes to CSV/JSON data source content over time |
+| Workflow execution trace archival | Future | Long-term storage of execution traces beyond in-memory/IndexedDB |

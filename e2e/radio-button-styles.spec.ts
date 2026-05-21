@@ -258,27 +258,28 @@ test.describe('Radio button CSS styling', () => {
     const execModeBox = configSection.locator('.runner-option-box:has-text("Execution Mode:")');
     await execModeBox.waitFor({ timeout: 5000 });
 
-    // Verify all 4 execution mode radio buttons are present (name is prefixed to avoid cross-instance collisions)
+    // Verify all 5 execution mode radio buttons are present (name is prefixed to avoid cross-instance collisions)
     const allExecRadios = execModeBox.locator('input[type="radio"][name="workflow-runner-execMode"]');
-    await expect(allExecRadios).toHaveCount(4);
+    await expect(allExecRadios).toHaveCount(5);
 
     // Verify exactly one is checked initially
     let checkedCount = 0;
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < 5; i++) {
       if (await allExecRadios.nth(i).isChecked()) checkedCount++;
     }
     expect(checkedCount, 'Exactly one execution mode should be selected by default').toBe(1);
 
     // Verify the mode labels are correct
     const labels = execModeBox.locator('.radio-label');
-    await expect(labels).toHaveCount(4);
+    await expect(labels).toHaveCount(5);
     await expect(labels.nth(0)).toContainText('Sequential');
     await expect(labels.nth(1)).toContainText('Batch');
     await expect(labels.nth(2)).toContainText('Continuous Pool');
     await expect(labels.nth(3)).toContainText('Load Profile');
+    await expect(labels.nth(4)).toContainText('Constant Arrival');
 
     // Verify all radio inputs have blue accent-color
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < 5; i++) {
       const accentColor = await allExecRadios.nth(i).evaluate(
         (el) => window.getComputedStyle(el).accentColor
       );
