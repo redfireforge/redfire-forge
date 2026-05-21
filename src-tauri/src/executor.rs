@@ -1,3 +1,4 @@
+use crate::histogram::{MetricsSnapshot, StreamingMetrics};
 use crate::types::*;
 use crate::validation_result::build_validation_result;
 use crate::validation_types::{Assertion, ValidationConfig, ValidationMode};
@@ -5,7 +6,7 @@ use rand::Rng;
 use reqwest::Client;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use tauri::Emitter;
 use tokio::sync::{mpsc, Semaphore};
@@ -13,6 +14,7 @@ use tokio_util::sync::CancellationToken;
 
 const MAX_BODY_LEN: usize = 2000;
 const BATCH_INTERVAL: Duration = Duration::from_millis(100);
+const SAMPLED_BATCH_CAP: usize = 10;
 
 static RESULT_COUNTER: AtomicU64 = AtomicU64::new(0);
 
@@ -372,7 +374,7 @@ pub fn get_target_concurrency(
 
 // ── Validation Wiring ────────────────────────────────────
 
-fn validate_and_cap(
+pub(crate) fn validate_and_cap(
     result: &mut ExecutionResult,
     validation: &ValidationConfig,
     assertions: &[Assertion],
@@ -427,7 +429,8 @@ pub async fn run_pool(
     think_time: ThinkTimeConfig,
     breaker_config: CircuitBreakerConfig,
     cancel: CancellationToken,
-) -> (Vec<ExecutionResult>, bool) {
+    detail_level: DetailLevel,
+) -> (Vec<ExecutionResult>, bool, Option<MetricsSnapshot>) {
     let total = scenarios.len() as i64;
     let breaker = Arc::new(CircuitBreakerState::new(breaker_config));
     let completed = Arc::new(AtomicU64::new(0));
@@ -435,6 +438,7 @@ pub async fn run_pool(
     let effective_concurrency = concurrency.max(1);
     let semaphore = Arc::new(Semaphore::new(effective_concurrency as usize));
     let start = Instant::now();
+    let metrics = Mutex::new(StreamingMetrics::new());
 
     let (tx, mut rx) = mpsc::unbounded_channel::<ExecutionResult>();
 
@@ -496,45 +500,93 @@ pub async fn run_pool(
     let mut batch = Vec::new();
     let mut last_emit = Instant::now();
 
+    let is_metrics_only = matches!(detail_level, DetailLevel::MetricsOnly);
+
     while let Some(result) = rx.recv().await {
-        batch.push(result.clone());
+        {
+            let is_error = !result.passed.unwrap_or(true);
+            metrics.lock().unwrap().record(result.response_time_ms, is_error);
+        }
+        if !is_metrics_only {
+            batch.push(result.clone());
+        }
         all_results.push(result);
 
         let should_emit = last_emit.elapsed() >= BATCH_INTERVAL
             || cancel.is_cancelled()
             || breaker.should_stop();
 
-        if should_emit && !batch.is_empty() {
+        if should_emit {
+            let elapsed_ms = round_ms(start.elapsed().as_secs_f64() * 1000.0);
+            let batch_results = filter_batch(&detail_level, &mut batch);
             let progress = ProgressBatch {
                 completed: completed.load(Ordering::Relaxed),
                 total,
-                results: std::mem::take(&mut batch),
-                elapsed_ms: round_ms(start.elapsed().as_secs_f64() * 1000.0),
+                results: batch_results,
+                elapsed_ms,
                 current_in_flight: in_flight.load(Ordering::Relaxed),
                 target_concurrency: effective_concurrency,
                 breaker_tripped: breaker.should_stop(),
+                metrics: Some(metrics.lock().unwrap().snapshot(elapsed_ms)),
+                target_rps: None,
+                actual_rps: None,
+                dropped_requests: None,
             };
             let _ = app.emit("load-test-progress", &progress);
             last_emit = Instant::now();
         }
     }
 
-    // Final drain
+    // Final drain — always sends full results for any stragglers
     if !batch.is_empty() {
+        let elapsed_ms = round_ms(start.elapsed().as_secs_f64() * 1000.0);
         let progress = ProgressBatch {
             completed: completed.load(Ordering::Relaxed),
             total,
             results: std::mem::take(&mut batch),
-            elapsed_ms: round_ms(start.elapsed().as_secs_f64() * 1000.0),
+            elapsed_ms,
             current_in_flight: 0,
             target_concurrency: effective_concurrency,
             breaker_tripped: breaker.should_stop(),
+            metrics: Some(metrics.lock().unwrap().snapshot(elapsed_ms)),
+            target_rps: None,
+            actual_rps: None,
+            dropped_requests: None,
         };
         let _ = app.emit("load-test-progress", &progress);
     }
 
+    // For non-Full modes, emit full results so JS has the complete set
+    if !matches!(detail_level, DetailLevel::Full) && !all_results.is_empty() {
+        let _ = app.emit("load-test-final-results", &FinalResults {
+            results: all_results.clone(),
+        });
+    }
+
     let tripped = breaker.should_stop();
-    (all_results, tripped)
+    let final_elapsed = round_ms(start.elapsed().as_secs_f64() * 1000.0);
+    let final_metrics = if all_results.is_empty() {
+        None
+    } else {
+        Some(metrics.lock().unwrap().snapshot(final_elapsed))
+    };
+    (all_results, tripped, final_metrics)
+}
+
+pub(crate) fn filter_batch(detail_level: &DetailLevel, batch: &mut Vec<ExecutionResult>) -> Vec<ExecutionResult> {
+    match detail_level {
+        DetailLevel::Full => std::mem::take(batch),
+        DetailLevel::MetricsOnly => {
+            batch.clear();
+            vec![]
+        }
+        DetailLevel::Sampled => {
+            let cap = batch.len().min(SAMPLED_BATCH_CAP);
+            let sampled: Vec<ExecutionResult> = batch.drain(..cap).collect();
+            batch.clear();
+            sampled
+        }
+    }
 }
 
 // ── Load Profile Executor ────────────────────────────────
@@ -557,9 +609,10 @@ pub async fn run_load_profile(
     spike_start_sec: Option<u64>,
     spike_duration_sec: Option<u64>,
     cancel: CancellationToken,
-) -> (Vec<ExecutionResult>, bool) {
+    detail_level: DetailLevel,
+) -> (Vec<ExecutionResult>, bool, Option<MetricsSnapshot>) {
     if scenarios.is_empty() {
-        return (Vec::new(), false);
+        return (Vec::new(), false, None);
     }
 
     let weighted_pool = build_weighted_pool(&scenarios);
@@ -568,6 +621,7 @@ pub async fn run_load_profile(
     let in_flight = Arc::new(AtomicU32::new(0));
     let start = Instant::now();
     let duration = Duration::from_secs(duration_sec);
+    let metrics = Mutex::new(StreamingMetrics::new());
 
     let (tx, mut rx) = mpsc::unbounded_channel::<ExecutionResult>();
 
@@ -660,17 +714,25 @@ pub async fn run_load_profile(
     let mut all_results = Vec::new();
     let mut batch = Vec::new();
     let mut last_emit = Instant::now();
+    let is_metrics_only = matches!(detail_level, DetailLevel::MetricsOnly);
 
     while let Some(result) = rx.recv().await {
-        batch.push(result.clone());
+        {
+            let is_error = !result.passed.unwrap_or(true);
+            metrics.lock().unwrap().record(result.response_time_ms, is_error);
+        }
+        if !is_metrics_only {
+            batch.push(result.clone());
+        }
         all_results.push(result);
 
         let should_emit = last_emit.elapsed() >= BATCH_INTERVAL
             || cancel.is_cancelled()
             || breaker.should_stop();
 
-        if should_emit && !batch.is_empty() {
+        if should_emit {
             let elapsed_sec = start.elapsed().as_secs_f64();
+            let elapsed_ms = round_ms(elapsed_sec * 1000.0);
             let target = get_target_concurrency(
                 &profile_type_for_progress,
                 max_concurrency,
@@ -681,14 +743,19 @@ pub async fn run_load_profile(
                 spike_start_sec,
                 spike_duration_sec,
             );
+            let batch_results = filter_batch(&detail_level, &mut batch);
             let progress = ProgressBatch {
                 completed: completed.load(Ordering::Relaxed),
                 total: -1,
-                results: std::mem::take(&mut batch),
-                elapsed_ms: round_ms(elapsed_sec * 1000.0),
+                results: batch_results,
+                elapsed_ms,
                 current_in_flight: in_flight.load(Ordering::Relaxed),
                 target_concurrency: target,
                 breaker_tripped: breaker.should_stop(),
+                metrics: Some(metrics.lock().unwrap().snapshot(elapsed_ms)),
+                target_rps: None,
+                actual_rps: None,
+                dropped_requests: None,
             };
             let _ = app.emit("load-test-progress", &progress);
             last_emit = Instant::now();
@@ -698,20 +765,38 @@ pub async fn run_load_profile(
     // Wait for producer to finish
     let _ = producer.await;
 
-    // Final drain
+    // Final drain — always sends full results for any stragglers
     if !batch.is_empty() {
+        let elapsed_ms = round_ms(start.elapsed().as_secs_f64() * 1000.0);
         let progress = ProgressBatch {
             completed: completed.load(Ordering::Relaxed),
             total: -1,
             results: std::mem::take(&mut batch),
-            elapsed_ms: round_ms(start.elapsed().as_secs_f64() * 1000.0),
+            elapsed_ms,
             current_in_flight: 0,
             target_concurrency: max_concurrency.max(1),
             breaker_tripped: breaker.should_stop(),
+            metrics: Some(metrics.lock().unwrap().snapshot(elapsed_ms)),
+            target_rps: None,
+            actual_rps: None,
+            dropped_requests: None,
         };
         let _ = app.emit("load-test-progress", &progress);
     }
 
+    // For non-Full modes, emit full results so JS has the complete set
+    if !matches!(detail_level, DetailLevel::Full) && !all_results.is_empty() {
+        let _ = app.emit("load-test-final-results", &FinalResults {
+            results: all_results.clone(),
+        });
+    }
+
     let tripped = breaker.should_stop();
-    (all_results, tripped)
+    let final_elapsed = round_ms(start.elapsed().as_secs_f64() * 1000.0);
+    let final_metrics = if all_results.is_empty() {
+        None
+    } else {
+        Some(metrics.lock().unwrap().snapshot(final_elapsed))
+    };
+    (all_results, tripped, final_metrics)
 }

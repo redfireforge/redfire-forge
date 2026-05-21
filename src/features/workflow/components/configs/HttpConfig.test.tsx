@@ -9,64 +9,40 @@
  * `__test-utils__/httpConfigTestHelpers.tsx`.
  */
 import '@testing-library/jest-dom';
-import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import HttpConfig from './HttpConfig';
 import { WorkflowService } from '../../types/workflow';
 import { Scenario, KeyValue } from '../../../../shared/types';
 import { makeHttpData, makeScenario, makeDefaultProps } from './__test-utils__/httpConfigTestHelpers';
-
-vi.mock('../expression/ExpressionInput', () => ({
-  __esModule: true,
-  default: React.forwardRef(({ value, onChange, placeholder, className }: { value: string; onChange: (v: string) => void; placeholder?: string; className?: string }, ref: React.Ref<HTMLInputElement>) => (
-    <input ref={ref} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} className={className} data-testid="expression-input" />
-  )),
-}));
-
-vi.mock('../expression/ExpressionTextarea', () => ({
-  __esModule: true,
-  default: vi.fn().mockImplementation(({ value, onChange, placeholder, rows, className }: { value: string; onChange: (v: string) => void; placeholder?: string; rows?: number; className?: string }) => (
-    <textarea value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} rows={rows} className={className} data-testid="expression-textarea" />
-  )),
-}));
-
-vi.mock('../../../../shared/components/data-mapper/BodyBuilderPanel', () => ({
-  __esModule: true,
-  default: function MockBodyBuilder() {
-    return <div data-testid="mock-body-builder" />;
-  },
-}));
-
-vi.mock('../../../../shared/components/data-mapper', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../../../../shared/components/data-mapper')>();
-  return {
-    ...actual,
-    DataMapperModal: function MockVarMapperModal({ onSave, onCancel }: { onSave: () => void; onCancel: () => void }) {
-      return (
-        <div data-testid="mock-var-mapper-modal">
-          <button type="button" onClick={() => onSave()}>var-mapper-save</button>
-          <button type="button" onClick={() => onCancel()}>var-mapper-cancel</button>
-        </div>
-      );
-    },
-  };
+vi.mock('../expression/ExpressionInput', async () => {
+  const { createExpressionInputModuleMock } = await import('./__test-utils__/httpConfigTestMocks');
+  return createExpressionInputModuleMock();
 });
-
-vi.mock('../../../requests/components/ExtractionEditor', () => ({
-  __esModule: true,
-  default: vi.fn().mockImplementation(() => <div data-testid="extraction-editor">ExtractionEditor</div>),
-}));
-
-vi.mock('../../../requests/components/ParamsEditor', () => ({
-  __esModule: true,
-  ParamsEditor: vi.fn().mockImplementation(() => <div data-testid="params-editor">QUERY PARAMETERS</div>),
-}));
-
-vi.mock('../../../scenarios/components/DataSourceEditor', () => ({
-  __esModule: true,
-  default: vi.fn().mockImplementation(() => <div data-testid="data-source-editor" />),
-}));
+vi.mock('../expression/ExpressionTextarea', async () => {
+  const { createExpressionTextareaModuleMock } = await import('./__test-utils__/httpConfigTestMocks');
+  return createExpressionTextareaModuleMock();
+});
+vi.mock('../../../../shared/components/data-mapper/BodyBuilderPanel', async () => {
+  const { createBodyBuilderSimpleModuleMock } = await import('./__test-utils__/httpConfigTestMocks');
+  return createBodyBuilderSimpleModuleMock();
+});
+vi.mock('../../../../shared/components/data-mapper', async () => {
+  const { createDataMapperModuleMock } = await import('./__test-utils__/httpConfigTestMocks');
+  return createDataMapperModuleMock();
+});
+vi.mock('../../../requests/components/ExtractionEditor', async () => {
+  const { createExtractionEditorModuleMock } = await import('./__test-utils__/httpConfigTestMocks');
+  return createExtractionEditorModuleMock();
+});
+vi.mock('../../../requests/components/ParamsEditor', async () => {
+  const { createParamsEditorModuleMock } = await import('./__test-utils__/httpConfigTestMocks');
+  return createParamsEditorModuleMock();
+});
+vi.mock('../../../scenarios/components/DataSourceEditor', async () => {
+  const { createDataSourceEditorModuleMock } = await import('./__test-utils__/httpConfigTestMocks');
+  return createDataSourceEditorModuleMock();
+});
 
 const defaultProps = makeDefaultProps();
 
