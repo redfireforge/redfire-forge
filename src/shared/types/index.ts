@@ -356,7 +356,8 @@ export interface GlobalAuthProfile {
 export type StructureChangeAction =
   | 'scenario-added' | 'scenario-removed' | 'scenario-renamed' | 'scenario-moved-in' | 'scenario-moved-out'
   | 'test-added' | 'test-removed' | 'test-renamed' | 'test-moved-in' | 'test-moved-out' | 'test-copied'
-  | 'fg-renamed';
+  | 'fg-renamed'
+  | 'restored';
 
 export interface StructureChangeEntry {
   id: string;
@@ -387,6 +388,32 @@ export interface FeatureGroup {
   /** Hash of the gallery sample content at time of import — used to detect if the sample has been updated. */
   gallerySampleHash?: string;
 }
+
+// ─── Trash Box (soft-delete & recovery) ─────────────────────
+
+export type TrashEntityType = 'featureGroup' | 'scenario' | 'test' | 'sharedDataSource';
+
+export interface TrashItem {
+  id: string;
+  deletedAt: number;
+  expiresAt: number;
+  entityType: TrashEntityType;
+  entityName: string;
+  parentPath: string;
+  parentFeatureGroupId?: string;
+  parentScenarioId?: string;
+  environmentId?: string;
+  microserviceId?: string;
+  childCounts?: { scenarios?: number; tests?: number };
+  data: FeatureGroup | TestScenario | Scenario | SharedDataSource;
+}
+
+export interface TrashSettings {
+  retentionDays: number;
+  maxItems: number;
+}
+
+// ─────────────────────────────────────────────────────────────
 
 export interface ScenarioWeight {
   scenarioId: string;

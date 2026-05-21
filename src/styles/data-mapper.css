@@ -293,6 +293,10 @@
   overflow-x: auto;
 }
 
+.dm-panel--source .dm-tree-container {
+  overflow-x: hidden;
+}
+
 .dm-panel-header {
   display: flex;
   align-items: center;
@@ -757,22 +761,24 @@
 /* ─── Tree Nodes ───────────────────────────────────────────── */
 
 .dm-tree-node-group {
-  display: contents;
+  display: block;
 }
 
 .dm-tree-children {
-  display: contents;
+  display: block;
 }
 
 .dm-tree-node {
   display: flex;
   align-items: center;
   gap: 4px;
+  min-height: 26px;
   height: 26px;
   padding-right: 8px;
   cursor: default;
   transition: background 0.08s;
   outline: none;
+  overflow: hidden;
 }
 
 .dm-tree-node:hover {
@@ -895,13 +901,26 @@
   color: var(--text, #cdd6f4);
   font-family: 'JetBrains Mono', 'Fira Code', monospace;
   font-size: 0.8rem;
-  min-width: 0;
-  max-width: 220px;
-  flex-shrink: 1;
+  min-width: 40px;
+  flex: 1 1 auto;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   margin-left: 3px;
+}
+
+.dm-tree-node--source .dm-node-key {
+  max-width: none;
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.dm-tree-node--source .dm-node-sample-value {
+  display: none;
+}
+
+.dm-tree-node--source .dm-drag-handle {
+  flex-shrink: 0;
 }
 
 /* 11A.2 — inline sample values on source leaf nodes */
@@ -911,11 +930,12 @@
   margin-left: auto;
   padding-left: 10px;
   max-width: 140px;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   opacity: 0.7;
-  flex-shrink: 0;
+  flex: 0 1 auto;
 }
 
 .dm-node-sample-value--copyable {
@@ -982,17 +1002,21 @@
 /* 11A.5a — source multi-select checkbox (left of type pill) */
 .dm-source-checkbox {
   appearance: none;
+  -webkit-appearance: none;
   width: 13px;
+  min-width: 13px;
+  max-width: 13px;
   height: 13px;
   border: 1.5px solid var(--border, #3b4a60);
   border-radius: 3px;
   background: transparent;
   margin: 0 4px 0 0;
-  flex-shrink: 0;
+  flex: 0 0 13px;
   cursor: pointer;
   transition: border-color 0.12s, background 0.12s;
   position: relative;
   outline: none;
+  box-sizing: border-box;
 }
 .dm-source-checkbox:checked {
   background: var(--success, #22c55e);

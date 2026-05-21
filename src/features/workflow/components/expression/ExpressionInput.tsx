@@ -11,6 +11,8 @@ interface Props {
   disabled?: boolean;
   'aria-label'?: string;
   variableHints: WorkflowVariableHint[];
+  /** Optional JSON path suggestions (e.g. $.data.id) for body expression autocomplete. */
+  jsonPathHints?: string[];
 }
 
 /**
@@ -27,6 +29,7 @@ const ExpressionInput = forwardRef<HTMLInputElement, Props>(function ExpressionI
   className,
   disabled,
   variableHints,
+  jsonPathHints,
   ...rest
 }, ref) {
   const {
@@ -37,7 +40,7 @@ const ExpressionInput = forwardRef<HTMLInputElement, Props>(function ExpressionI
     handleSelect,
     handleBlur,
     onKeyDown,
-  } = useExpressionAutocompleteField({ value, onChange, variableHints });
+  } = useExpressionAutocompleteField({ value, onChange, variableHints, jsonPathHints });
 
   useImperativeHandle(ref, () => inputRef.current as HTMLInputElement, [inputRef]);
 

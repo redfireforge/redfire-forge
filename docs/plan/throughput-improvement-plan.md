@@ -3045,6 +3045,311 @@ This dramatically reduces Tauri event serialization overhead at high RPS.
 
 ---
 
+##### Phase 3B — Detailed Implementation Sub-Phases
+
+> Added 2026-05-20. Granular breakdown for implementation reference.
+
+**Total effort**: ~5 days (1 week with buffer for re-evaluation rounds)
+**Branch**: `feature/streaming-percentiles` from `develop`
+
+---
+
+###### Sub-Phase 3B.1: Rust Histogram Module (Days 1–2)
+
+**New file**: `src-tauri/src/histogram.rs`
+
+| Item | Detail |
+|------|--------|
+| Crate dependency | `hdrhistogram = "7"` in `src-tauri/Cargo.toml` |
+| `StreamingMetrics` struct | Wraps `Histogram<u64>`, tracks `total_count: u64`, `error_count: u64`, `sum_response_time: f64` |
+| Histogram config | Range: 1μs–300,000ms (5 min max), 3 significant digits |
+| `new() → Self` | Creates histogram with above config |
+| `record(response_time_ms: f64, is_error: bool)` | Converts to μs (×1000), records to histogram, increments counters |
+| `snapshot(elapsed_ms: f64) → MetricsSnapshot` | Returns all percentiles + derived metrics |
+| Thread safety | `Arc<Mutex<StreamingMetrics>>` — locked briefly per record/snapshot |
+| `lib.rs` update | Add `pub mod histogram;` |
+
+**Key design decisions**:
+- Store response times as **microseconds (u64)** in the histogram for integer precision.
+  Convert back to milliseconds (f64) on snapshot output.
+- `min`/`max`: use histogram's `min()`/`max()` (automatically tracked).
+- `avg`: `sum_response_time / total_count` (not from histogram — histogram loses precision).
+- `tps`: `total_count as f64 / (elapsed_ms / 1000.0)`.
+- Empty histogram: all fields return 0.0 (no panics).
+
+**Tests** (~20 tests in `src-tauri/src/histogram_test.rs`):
+
+| # | Test | Validates |
+|---|------|-----------|
+| 1 | `empty_snapshot_returns_zeros` | All fields are 0.0 when no records |
+| 2 | `single_record_all_percentiles_equal` | P50=P95=P99=P999=min=max=avg for 1 sample |
+| 3 | `two_records_min_max` | min/max correct with 2 distinct values |
+| 4 | `known_uniform_distribution_p50` | 100 values [1..100] → P50 ≈ 50ms (±1) |
+| 5 | `known_uniform_distribution_p95` | P95 ≈ 95ms (±1) |
+| 6 | `known_uniform_distribution_p99` | P99 ≈ 99ms (±1) |
+| 7 | `large_sample_p999` | 10,000 samples → P99.9 accuracy within 0.1% |
+| 8 | `error_counting` | 3/10 errors → errors=3, total=10 |
+| 9 | `tps_calculation` | 100 records over 2000ms elapsed → tps=50.0 |
+| 10 | `avg_calculation` | Known sum/count → exact avg |
+| 11 | `zero_response_time` | 0ms doesn't panic, records correctly |
+| 12 | `max_range_boundary` | 300,000ms (5 min) records without error |
+| 13 | `above_max_range_saturates` | >300,000ms saturates at max (doesn't panic) |
+| 14 | `fractional_ms_precision` | 1.5ms → rounds to nearest μs (1500μs), output ≈ 1.5 |
+| 15 | `snapshot_is_idempotent` | Two consecutive snapshots return same values |
+| 16 | `incremental_recording` | Record 50, snapshot, record 50 more, snapshot shows all 100 |
+| 17 | `all_errors_tps_still_correct` | 100% error rate doesn't affect TPS calculation |
+| 18 | `elapsed_zero_tps_infinity_guard` | elapsed_ms=0 → tps=0.0 (not Inf/NaN) |
+| 19 | `high_volume_10k_records` | Performance: 10K records < 5ms wall time |
+| 20 | `histogram_reset` | If we add reset(), verify it clears all state |
+
+---
+
+###### Sub-Phase 3B.2: Types Update (Day 2)
+
+**Modified file**: `src-tauri/src/types.rs`
+
+Add `MetricsSnapshot` struct:
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MetricsSnapshot {
+    pub p50: f64,
+    pub p95: f64,
+    pub p99: f64,
+    pub p999: f64,
+    pub min: f64,
+    pub max: f64,
+    pub avg: f64,
+    pub total: u64,
+    pub errors: u64,
+    pub tps: f64,
+}
+```
+
+Add to `ProgressBatch`:
+```rust
+pub struct ProgressBatch {
+    // ...existing fields...
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub metrics: Option<MetricsSnapshot>,  // NEW
+}
+```
+
+**Backward compatibility**: `metrics` is `Option` with `skip_serializing_if` — existing
+JS consumers that don't know about this field will simply not see it (no breaking change).
+
+---
+
+###### Sub-Phase 3B.3: Executor Wiring (Days 2–3)
+
+**Modified file**: `src-tauri/src/executor.rs`
+
+Changes to `run_pool()`:
+1. Create `let metrics = Arc::new(Mutex::new(StreamingMetrics::new()));` at function start
+2. In the channel consumer loop, after `all_results.push(result)`:
+   ```rust
+   let is_error = !result.passed.unwrap_or(true);
+   metrics.lock().unwrap().record(result.response_time_ms, is_error);
+   ```
+3. In each batch emit, add `metrics` field:
+   ```rust
+   metrics: Some(metrics.lock().unwrap().snapshot(start.elapsed().as_secs_f64() * 1000.0)),
+   ```
+4. Final drain batch also includes snapshot.
+
+Changes to `run_load_profile()`:
+- Same pattern — single `StreamingMetrics` instance shared via `Arc<Mutex<>>`.
+- Record in the receiver loop (not in spawned tasks — avoids lock contention in hot path).
+
+**Why record in receiver, not spawned tasks**: The receiver loop processes results
+sequentially from the channel. Recording here means a single lock acquisition per result
+(no contention). Recording in spawned tasks would require the lock under concurrent
+access from N tasks simultaneously.
+
+**Additional executor tests** (+10 in `src-tauri/src/executor_test.rs`):
+
+| # | Test | Validates |
+|---|------|-----------|
+| 1 | `progress_batch_includes_metrics` | MetricsSnapshot present in emitted batch |
+| 2 | `metrics_total_matches_completed_count` | metrics.total == completed after test |
+| 3 | `metrics_errors_match_breaker_count` | metrics.errors aligns with breaker records |
+| 4 | `metrics_tps_reasonable_range` | tps > 0 and < theoretical max |
+| 5 | `metrics_percentiles_ordered` | p50 <= p95 <= p99 <= p999 |
+| 6 | `load_profile_metrics_grow_over_time` | total increases across batches |
+| 7 | `final_drain_includes_metrics` | Last batch has metrics even if < BATCH_INTERVAL |
+| 8 | `pool_mode_metrics_accuracy` | Known response times → verify percentiles |
+| 9 | `empty_scenarios_no_metrics` | 0 scenarios → metrics is None |
+| 10 | `breaker_tripped_metrics_frozen` | After breaker trips, no new records added |
+
+---
+
+###### Sub-Phase 3B.4: TypeScript Bridge Update (Day 3)
+
+**Modified file**: `src/features/test-runner/utils/rustBridge.ts`
+
+Add interface:
+```typescript
+export interface RustMetricsSnapshot {
+  p50: number;
+  p95: number;
+  p99: number;
+  p999: number;
+  min: number;
+  max: number;
+  avg: number;
+  total: number;
+  errors: number;
+  tps: number;
+}
+```
+
+Update `RustProgressBatch` interface:
+```typescript
+export interface RustProgressBatch {
+  // ...existing...
+  metrics?: RustMetricsSnapshot;  // NEW
+}
+```
+
+In `runTestViaRust()` progress handler: extract `batch.metrics` and forward to
+`onProgress` callback as part of `ProgressMeta`.
+
+**Unit tests** (+5 in `rustBridge.test.ts`):
+1. `metrics_passthrough_to_onProgress` — verify metrics forwarded
+2. `metrics_undefined_when_absent` — no crash on missing metrics
+3. `metrics_snapshot_type_shape` — all fields present and numeric
+4. `metrics_forwarded_for_load_profile` — load-profile mode includes metrics
+5. `metrics_not_duplicated_across_batches` — each batch has independent snapshot
+
+---
+
+###### Sub-Phase 3B.5: ProgressMeta + useTestExecution (Days 3–4)
+
+**Modified files**:
+
+1. `src/engine/executor.ts` — extend `ProgressMeta`:
+   ```typescript
+   export interface ProgressMeta {
+     // ...existing...
+     metrics?: {
+       p50: number; p95: number; p99: number; p999: number;
+       min: number; max: number; avg: number;
+       total: number; errors: number; tps: number;
+     };
+   }
+   ```
+
+2. `src/features/test-runner/hooks/useTestExecution.ts`:
+   - When `meta.metrics` is present (Rust path): use streaming values directly for
+     `liveSummary` — skip `computeIncrementalSummary()` sort entirely.
+   - When `meta.metrics` is absent (JS path): keep existing sort-based approach.
+   - On test completion: if final batch has `metrics`, use those for the final summary
+     instead of re-sorting all results.
+
+3. `src/engine/workerBridge.ts` + `src/engine/workerProtocol.ts`:
+   - Add `metrics` field to `WorkerProgressMessage` (future-ready for JS-side streaming).
+   - Multi-worker aggregation: when multiple workers report metrics, average percentiles
+     weighted by `total` count (approximation — true merge requires histogram merge).
+
+**Key behavioral change**: In Rust execution mode, `liveSummary` updates will be
+**O(1)** per progress tick instead of **O(n log n)**. This is the primary performance
+win of Phase 3B for the UI thread.
+
+---
+
+###### Sub-Phase 3B.6: P99.9 in UI + CLI (Day 4)
+
+**Modified files**:
+
+| File | Change |
+|------|--------|
+| `src/shared/types/index.ts` | Add `p999ResponseTime?: number` to `TestSummary` |
+| `src/engine/metrics.ts` | Add P99.9 computation: `sorted[Math.ceil(0.999 * n) - 1]` |
+| `src/features/results/ResultsDashboard.tsx` | New metric tile "P99.9" |
+| `src/features/results/components/ResponseTimeHistogram.tsx` | P99.9 vertical reference line (dashed, distinct color) |
+| `src/features/results/utils/reportGenerator.ts` | Add P99.9 row to HTML + markdown reports |
+| `src/features/results/components/RunComparisonPanel.tsx` | New "P99.9" metric option in comparisons |
+| `src/features/results/utils/runBaselines.ts` | Add P99.9 to `timeMetrics` threshold array |
+| `cli/reporters.ts` | Add P99.9 row to console summary + markdown report |
+
+**Backward compatibility**: `p999ResponseTime` is optional — old saved results
+without it simply show "—" in the UI.
+
+---
+
+###### Sub-Phase 3B.7: Payload Reduction — `detailLevel` (Day 5)
+
+**Concept**: At high RPS (>10K), serializing every `ExecutionResult` across Tauri IPC
+becomes the bottleneck. With streaming metrics, the UI doesn't need every result for
+live display — only for post-hoc assertion inspection.
+
+**New config field** in `ExecutionPlan` (all variants):
+```rust
+#[serde(rename = "detailLevel", default = "default_detail_level")]
+pub detail_level: DetailLevel,
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename = "camelCase")]
+pub enum DetailLevel {
+    #[serde(rename = "full")]
+    Full,           // Default — all results in every batch
+    #[serde(rename = "metrics-only")]
+    MetricsOnly,    // Only MetricsSnapshot + counts, results vec is empty
+    #[serde(rename = "sampled")]
+    Sampled,        // First N results per batch (configurable, default 10)
+}
+```
+
+**Executor behavior**:
+- `Full`: current behavior (unchanged)
+- `MetricsOnly`: `ProgressBatch.results = vec![]` — only metrics/counts emitted.
+  All results still stored in `all_results` for final `CompletionSummary`.
+- `Sampled`: `ProgressBatch.results = batch[..min(N, batch.len())]`
+
+**JS bridge**: Map from UI config option to `detailLevel` field.
+- Default: `full` for pool/sequential (<1000 scenarios), `sampled` for load-profile
+- User override available in runner config UI
+
+**Expected impact**: At 10K RPS with `MetricsOnly`, Tauri event payload drops from
+~2MB/batch (200 results × ~10KB each) to ~200 bytes (just metrics). This eliminates
+the IPC serialization bottleneck.
+
+---
+
+###### Sub-Phase 3B.8: Verification & Cleanup (Day 5)
+
+| Check | Command | Expected |
+|-------|---------|----------|
+| Rust unit tests | `cargo test` | All pass (62 existing + ~30 new) |
+| Rust lint | `cargo clippy` | 0 warnings |
+| TypeScript types | `npx tsc -b --noEmit` | 0 errors |
+| JS unit tests (touched) | `npx vitest run src/features/test-runner/...` | All pass |
+| JS unit tests (touched) | `npx vitest run src/engine/...` | All pass |
+| Rust bridge tests | `npx vitest run src/features/test-runner/utils/rustBridge*.test.ts` | All pass |
+
+**Re-evaluation checklist** (run after each sub-phase):
+- [ ] Rust↔JS serde field names match (camelCase)
+- [ ] `MetricsSnapshot` optional everywhere — no crash on `None`/`undefined`
+- [ ] Existing tests unaffected (no regression)
+- [ ] Worker bridge protocol stays backward compatible
+- [ ] CLI reporters compile and format correctly
+- [ ] No floating-point NaN/Infinity in edge cases (0 results, 0 elapsed)
+
+---
+
+###### Dependencies & Risk Assessment
+
+| Risk | Mitigation |
+|------|------------|
+| `hdrhistogram` crate compatibility | Crate is mature (v7), widely used, no unsafe |
+| Binary size increase | ~50KB — negligible vs existing 15MB+ app |
+| Mutex contention in receiver | Single-threaded receiver — no contention |
+| P99.9 accuracy at low sample count | HDR histogram is accurate to 3 significant digits even at <100 samples |
+| Breaking JS consumers | All new fields are `Option`/optional — zero breaking changes |
+| Multi-worker histogram merging | Deferred to Sub-Phase 3B.5 — approximate weighted average for now |
+
+---
+
 #### 3C. Constant Arrival Rate (Open Model)
 
 **Goal**: Implement a "fire N requests/second regardless of response time" execution mode

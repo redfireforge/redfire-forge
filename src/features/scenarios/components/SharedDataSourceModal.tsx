@@ -36,6 +36,7 @@ interface SharedDataSourceModalProps {
   initialSelectedId?: string;
   currentEditingDraft?: { fgName: string; scenarioName: string; test: Scenario };
   onCreateTestFromSharedDs?: (sharedDs: SharedDataSource, targetFgId: string, targetScenarioId: string, testName: string) => void;
+  moveToTrash?: import('../hooks/useTrash').MoveToTrashFn;
 }
 
 export default function SharedDataSourceModal({
@@ -47,6 +48,7 @@ export default function SharedDataSourceModal({
   initialSelectedId,
   currentEditingDraft,
   onCreateTestFromSharedDs,
+  moveToTrash,
 }: SharedDataSourceModalProps) {
   // ─── List panel hook ───────────────────────────────────────
   const listPanel = useSharedDsListPanel({
@@ -65,6 +67,7 @@ export default function SharedDataSourceModal({
     setPendingNameFocusId: listPanel.setPendingNameFocusId,
     featureGroups,
     currentEditingDraft,
+    moveToTrash,
   });
 
   // ─── Editor panel hook ─────────────────────────────────────

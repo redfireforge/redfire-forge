@@ -11,6 +11,7 @@ interface Props {
   canRedo?: boolean;
   onUndo?: () => void;
   onRedo?: () => void;
+  onAutoLayout?: () => void;
 }
 
 export default function WorkflowCanvasControls({
@@ -23,13 +24,21 @@ export default function WorkflowCanvasControls({
   canRedo,
   onUndo,
   onRedo,
+  onAutoLayout,
 }: Props) {
   const { zoomIn, zoomOut, fitView } = useReactFlow();
   const [saveFlash, setSaveFlash] = useState(false);
 
   const handleFitView = useCallback(() => {
-    fitView({ padding: 0.15, maxZoom: 1.2, duration: 300 });
-  }, [fitView]);
+    if (onAutoLayout) {
+      onAutoLayout();
+      requestAnimationFrame(() => {
+        fitView({ padding: 0.2, maxZoom: 1.5, duration: 300, includeHiddenNodes: true });
+      });
+    } else {
+      fitView({ padding: 0.2, maxZoom: 1.5, duration: 300, includeHiddenNodes: true });
+    }
+  }, [fitView, onAutoLayout]);
 
   const handleSave = useCallback(() => {
     onSaveLayout();

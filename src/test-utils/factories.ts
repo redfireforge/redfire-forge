@@ -4,7 +4,7 @@
  * Import from this module instead of re-defining `makeScenario`, `makeResult`,
  * `makeConfig`, etc. in every test file.
  */
-import type { RequestResult, Scenario, TestConfig } from '../shared/types';
+import type { RequestResult, Scenario, TestConfig, TrashItem } from '../shared/types';
 
 export function makeScenario(overrides: Partial<Scenario> = {}): Scenario {
   return {
@@ -45,6 +45,20 @@ export function makeConfig(overrides: Partial<TestConfig> = {}): TestConfig {
     scenarioWeights: [{ scenarioId: 'sc-1', weight: 1 }],
     executionMode: 'sequential',
     errorPolicy: 'continue',
+    ...overrides,
+  };
+}
+
+let trashCounter = 0;
+export function makeTrashItem(overrides: Partial<TrashItem> = {}): TrashItem {
+  return {
+    id: `trash-${++trashCounter}`,
+    deletedAt: Date.now(),
+    expiresAt: Date.now() + 30 * 86_400_000,
+    entityType: 'featureGroup',
+    entityName: 'Test FG',
+    parentPath: '',
+    data: { id: 'fg-1', name: 'Test FG', scenarios: [] },
     ...overrides,
   };
 }
