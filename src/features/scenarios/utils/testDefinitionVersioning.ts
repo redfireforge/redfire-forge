@@ -1,12 +1,17 @@
-import { v4 as uuidv4 } from 'uuid';
-import type { Scenario, TestDefinitionVersion, TestDefinitionSnapshot, KeyValue } from '../../../shared/types';
+import type { Scenario, TestDefinitionVersion, TestDefinitionSnapshot } from '../../../shared/types';
 import { canonicalize } from '../../../shared/utils/canonicalize';
+import {
+  computeSnapshotFingerprint,
+  generateHttpChangeSummary,
+  computeHttpSnapshotDiff,
+  createVersionEntry,
+  addVersionToList as addVersionToListGeneric,
+  type HttpSnapshotDiffBase,
+} from '../../../shared/utils/definitionVersioning';
 
 const MAX_VERSIONS = 20;
 
-/** Extract a snapshot from a Scenario (excludes id, validation, runtime fields). */
 export function createSnapshot(scenario: Scenario): TestDefinitionSnapshot {
-  // Prefer the data source's urlTemplate (which has {{vin}} etc.) over draft.url
   const url = scenario.dataSource?.urlTemplate || scenario.url;
   return {
     name: scenario.name,
@@ -21,51 +26,19 @@ export function createSnapshot(scenario: Scenario): TestDefinitionSnapshot {
   };
 }
 
-/** Compute a fingerprint string from a snapshot. */
-export function computeSnapshotFingerprint(snapshot: TestDefinitionSnapshot): string {
-  return JSON.stringify(canonicalize(snapshot));
-}
+export { computeSnapshotFingerprint };
 
-/** Check if a snapshot has meaningful changes compared to the latest version. */
 export function hasChanged(scenario: Scenario, versions: TestDefinitionVersion[]): boolean {
   if (versions.length === 0) return true;
-  const latest = versions[0];
   const current = createSnapshot(scenario);
-  return computeSnapshotFingerprint(current) !== computeSnapshotFingerprint(latest.snapshot);
+  return computeSnapshotFingerprint(current) !== computeSnapshotFingerprint(versions[0].snapshot);
 }
 
-/** Generate a change summary by comparing two snapshots. */
 export function generateChangeSummary(
   oldSnap: TestDefinitionSnapshot,
   newSnap: TestDefinitionSnapshot,
 ): string {
-  const changes: string[] = [];
-
-  if (oldSnap.name !== newSnap.name) changes.push('name changed');
-  if (oldSnap.url !== newSnap.url) changes.push('URL changed');
-  if (oldSnap.method !== newSnap.method) changes.push(`method → ${newSnap.method}`);
-
-  const oldHeaders = oldSnap.headers.filter(h => h.key.trim());
-  const newHeaders = newSnap.headers.filter(h => h.key.trim());
-  const headerDiff = newHeaders.length - oldHeaders.length;
-  if (headerDiff > 0) changes.push(`${headerDiff} header${headerDiff > 1 ? 's' : ''} added`);
-  else if (headerDiff < 0) changes.push(`${-headerDiff} header${-headerDiff > 1 ? 's' : ''} removed`);
-  else if (oldHeaders.length > 0 && JSON.stringify(canonicalize(oldHeaders)) !== JSON.stringify(canonicalize(newHeaders))) {
-    changes.push('headers modified');
-  }
-
-  if (oldSnap.body !== newSnap.body) changes.push('body modified');
-  if (oldSnap.bodyType !== newSnap.bodyType) changes.push(`body type → ${newSnap.bodyType ?? 'none'}`);
-
-  const oldForm = (oldSnap.bodyForm ?? []).filter(kv => kv.key.trim());
-  const newForm = (newSnap.bodyForm ?? []).filter(kv => kv.key.trim());
-  if (JSON.stringify(canonicalize(oldForm)) !== JSON.stringify(canonicalize(newForm))) {
-    changes.push('form data modified');
-  }
-
-  if (JSON.stringify(canonicalize(oldSnap.auth)) !== JSON.stringify(canonicalize(newSnap.auth))) {
-    changes.push(`auth ${oldSnap.auth.type} → ${newSnap.auth.type}`);
-  }
+  const changes = generateHttpChangeSummary(oldSnap, newSnap);
 
   const oldExtractions = oldSnap.extractions ?? [];
   const newExtractions = newSnap.extractions ?? [];
@@ -79,7 +52,6 @@ export function generateChangeSummary(
   return changes.length > 0 ? changes.join(', ') : 'no changes detected';
 }
 
-/** Create a new version from a scenario. */
 export function createTestDefinitionVersion(
   scenario: Scenario,
   existingVersions: TestDefinitionVersion[],
@@ -90,24 +62,17 @@ export function createTestDefinitionVersion(
     ? generateChangeSummary(latestSnap, snapshot)
     : 'initial version';
 
-  return {
-    id: uuidv4(),
-    timestamp: Date.now(),
-    changeSummary,
-    snapshot,
-  };
+  return createVersionEntry(snapshot, changeSummary) as TestDefinitionVersion;
 }
 
-/** Add a version to the list, capping at MAX_VERSIONS. Returns the new list (newest first). */
 export function addVersionToList(
   versions: TestDefinitionVersion[],
   version: TestDefinitionVersion,
   maxVersions: number = MAX_VERSIONS,
 ): TestDefinitionVersion[] {
-  return [version, ...versions].slice(0, maxVersions);
+  return addVersionToListGeneric(versions, version, maxVersions);
 }
 
-/** Auto-save a version for a scenario if it has changed. Returns the updated versions array, or null if no change. */
 export function autoSaveVersion(
   scenario: Scenario,
   maxVersions: number = MAX_VERSIONS,
@@ -118,75 +83,39 @@ export function autoSaveVersion(
   return addVersionToList(versions, version, maxVersions);
 }
 
-/** Compute the diff between two snapshots. */
-export interface SnapshotDiffResult {
-  nameChanged: boolean;
-  urlChanged: boolean;
-  methodChanged: boolean;
-  headersAdded: KeyValue[];
-  headersRemoved: KeyValue[];
-  headersModified: Array<{ key: string; oldValue: string; newValue: string }>;
-  bodyChanged: boolean;
-  bodyTypeChanged: boolean;
-  authChanged: boolean;
+export interface SnapshotDiffResult extends HttpSnapshotDiffBase {
   extractionsAdded: number;
   extractionsRemoved: number;
   extractionsModified: boolean;
-  formDataChanged: boolean;
 }
 
 export function computeSnapshotDiff(
   older: TestDefinitionSnapshot,
   newer: TestDefinitionSnapshot,
 ): SnapshotDiffResult {
-  const oldHeaders = new Map(older.headers.filter(h => h.key.trim()).map(h => [h.key, h.value]));
-  const newHeaders = new Map(newer.headers.filter(h => h.key.trim()).map(h => [h.key, h.value]));
-
-  const headersAdded: KeyValue[] = [];
-  const headersRemoved: KeyValue[] = [];
-  const headersModified: Array<{ key: string; oldValue: string; newValue: string }> = [];
-
-  for (const [key, value] of newHeaders) {
-    if (!oldHeaders.has(key)) headersAdded.push({ key, value });
-    else if (oldHeaders.get(key) !== value) headersModified.push({ key, oldValue: oldHeaders.get(key)!, newValue: value });
-  }
-  for (const [key, value] of oldHeaders) {
-    if (!newHeaders.has(key)) headersRemoved.push({ key, value });
-  }
+  const baseDiff = computeHttpSnapshotDiff(older, newer);
 
   const oldExtractions = older.extractions ?? [];
   const newExtractions = newer.extractions ?? [];
 
   return {
-    nameChanged: older.name !== newer.name,
-    urlChanged: older.url !== newer.url,
-    methodChanged: older.method !== newer.method,
-    headersAdded,
-    headersRemoved,
-    headersModified,
-    bodyChanged: older.body !== newer.body,
-    bodyTypeChanged: older.bodyType !== newer.bodyType,
-    authChanged: JSON.stringify(canonicalize(older.auth)) !== JSON.stringify(canonicalize(newer.auth)),
+    ...baseDiff,
     extractionsAdded: Math.max(0, newExtractions.length - oldExtractions.length),
     extractionsRemoved: Math.max(0, oldExtractions.length - newExtractions.length),
     extractionsModified: JSON.stringify(canonicalize(oldExtractions)) !== JSON.stringify(canonicalize(newExtractions)),
-    formDataChanged: JSON.stringify(canonicalize(older.bodyForm ?? [])) !== JSON.stringify(canonicalize(newer.bodyForm ?? [])),
   };
 }
 
-/** Count the number of definition versions in a scenario. */
 export function countDefinitionVersions(scenario: Scenario): number {
   return scenario.definitionVersions?.length ?? 0;
 }
 
-/** Strip definition versions from a scenario (for export without versions). */
 export function stripDefinitionVersions(scenario: Scenario): Scenario {
   if (!scenario.definitionVersions?.length) return scenario;
   const { definitionVersions: _, ...rest } = scenario;
   return rest as Scenario;
 }
 
-/** Check if a scenario has any definition version data. */
 export function hasDefinitionVersions(scenario: Scenario): boolean {
   return (scenario.definitionVersions?.length ?? 0) > 0;
 }

@@ -9,102 +9,54 @@
  * `__test-utils__/httpConfigTestHelpers.tsx`.
  */
 import '@testing-library/jest-dom';
-import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import HttpConfig from './HttpConfig';
 import { KeyValue, Scenario } from '../../../../shared/types';
 import { makeHttpData, makeScenario, makeDefaultProps } from './__test-utils__/httpConfigTestHelpers';
+import {
+  httpConfigMockState,
+  resetHttpConfigMockState,
+} from './__test-utils__/httpConfigTestMocks';
 
-vi.mock('../expression/ExpressionInput', () => ({
-  __esModule: true,
-  default: React.forwardRef(({ value, onChange, placeholder, className }: { value: string; onChange: (v: string) => void; placeholder?: string; className?: string }, ref: React.Ref<HTMLInputElement>) => (
-    <input ref={ref} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} className={className} data-testid="expression-input" />
-  )),
-}));
-
-vi.mock('../expression/ExpressionTextarea', () => ({
-  __esModule: true,
-  default: vi.fn().mockImplementation(({ value, onChange, placeholder, rows, className }: { value: string; onChange: (v: string) => void; placeholder?: string; rows?: number; className?: string }) => (
-    <textarea value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} rows={rows} className={className} data-testid="expression-textarea" />
-  )),
-}));
-
-vi.mock('../../../../shared/components/data-mapper/BodyBuilderPanel', () => ({
-  __esModule: true,
-  default: function MockBodyBuilder({
-    onBodyChange, onMappingsChange, onBodyTypeChange, onBodyFormChange,
-  }: {
-    onBodyChange: (v: string) => void;
-    onMappingsChange: (m: unknown[]) => void;
-    onBodyTypeChange: (t: 'json' | 'form-urlencoded' | 'form-data' | 'text' | 'xml' | 'none' | 'file') => void;
-    onBodyFormChange: (f: { key: string; value: string }[]) => void;
-  }) {
-    return (
-      <div data-testid="mock-body-builder">
-        <button type="button" onClick={() => onBodyChange('{"mb":1}')}>bb-body</button>
-        <button type="button" onClick={() => onMappingsChange([])}>bb-mappings</button>
-        <button type="button" onClick={() => onBodyTypeChange('form-urlencoded')}>bb-type</button>
-        <button type="button" onClick={() => onBodyFormChange([])}>bb-form</button>
-      </div>
-    );
-  },
-}));
-
-vi.mock('../../../../shared/components/data-mapper', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../../../../shared/components/data-mapper')>();
-  return {
-    ...actual,
-    DataMapperModal: function MockVarMapperModal({ onSave, onCancel }: { onSave: () => void; onCancel: () => void }) {
-      return (
-        <div data-testid="mock-var-mapper-modal">
-          <button type="button" onClick={() => onSave()}>var-mapper-save</button>
-          <button type="button" onClick={() => onCancel()}>var-mapper-cancel</button>
-        </div>
-      );
-    },
-  };
+vi.mock('../expression/ExpressionInput', async () => {
+  const { createExpressionInputModuleMock } = await import('./__test-utils__/httpConfigTestMocks');
+  return createExpressionInputModuleMock();
+});
+vi.mock('../expression/ExpressionTextarea', async () => {
+  const { createExpressionTextareaModuleMock } = await import('./__test-utils__/httpConfigTestMocks');
+  return createExpressionTextareaModuleMock();
+});
+vi.mock('../../../../shared/components/data-mapper/BodyBuilderPanel', async () => {
+  const { createBodyBuilderInteractiveModuleMock } = await import('./__test-utils__/httpConfigTestMocks');
+  return createBodyBuilderInteractiveModuleMock();
+});
+vi.mock('../../../../shared/components/data-mapper', async () => {
+  const { createDataMapperModuleMock } = await import('./__test-utils__/httpConfigTestMocks');
+  return createDataMapperModuleMock();
+});
+vi.mock('../../../requests/components/ExtractionEditor', async () => {
+  const { createExtractionEditorModuleMock } = await import('./__test-utils__/httpConfigTestMocks');
+  return createExtractionEditorModuleMock({ captureProps: true });
+});
+vi.mock('../../../requests/components/ParamsEditor', async () => {
+  const { createParamsEditorModuleMock } = await import('./__test-utils__/httpConfigTestMocks');
+  return createParamsEditorModuleMock({ captureProps: true });
+});
+vi.mock('../../../scenarios/components/DataSourceEditor', async () => {
+  const { createDataSourceEditorModuleMock } = await import('./__test-utils__/httpConfigTestMocks');
+  return createDataSourceEditorModuleMock({ interactive: true });
 });
 
-let lastExtractionEditorProps: Record<string, unknown> = {};
-vi.mock('../../../requests/components/ExtractionEditor', () => ({
-  __esModule: true,
-  default: vi.fn().mockImplementation((props: Record<string, unknown>) => {
-    lastExtractionEditorProps = props;
-    return <div data-testid="extraction-editor">ExtractionEditor</div>;
-  }),
-}));
-
-let lastParamsEditorProps: Record<string, unknown> = {};
-vi.mock('../../../requests/components/ParamsEditor', () => ({
-  __esModule: true,
-  ParamsEditor: vi.fn().mockImplementation((props: Record<string, unknown>) => {
-    lastParamsEditorProps = props;
-    return <div data-testid="params-editor">QUERY PARAMETERS</div>;
-  }),
-}));
-
-vi.mock('../../../scenarios/components/DataSourceEditor', () => ({
-  __esModule: true,
-  default: vi.fn().mockImplementation((props: Record<string, unknown>) => (
-    <div data-testid="data-source-editor">
-      <button
-        type="button"
-        onClick={() => (props.onDraftChange as (p: Partial<Scenario>) => void)({ url: '/from-ds' })}
-      >
-        ds-patch-draft
-      </button>
-    </div>
-  )),
-}));
+const lastExtractionEditorProps = httpConfigMockState.lastExtractionEditorProps;
+const lastParamsEditorProps = httpConfigMockState.lastParamsEditorProps;
 
 const defaultProps = makeDefaultProps();
 
 describe('HttpConfig — interactions', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    lastExtractionEditorProps = {};
-    lastParamsEditorProps = {};
+    resetHttpConfigMockState();
   });
 
   it('inserts variable at cursor position in URL', () => {

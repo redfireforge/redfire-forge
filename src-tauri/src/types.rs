@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+use crate::histogram::MetricsSnapshot;
 use crate::validation_types::{Assertion, FailureDetail, ValidationConfig};
 
 /// A fully-prepared scenario ready for HTTP execution.
@@ -26,6 +27,23 @@ pub struct RustScenario {
     pub assertions: Vec<Assertion>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
+pub enum DetailLevel {
+    #[default]
+    #[serde(rename = "full")]
+    Full,
+    #[serde(rename = "metrics-only")]
+    MetricsOnly,
+    #[serde(rename = "sampled")]
+    Sampled,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FinalResults {
+    pub results: Vec<ExecutionResult>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "mode")]
 pub enum ExecutionPlan {
@@ -43,6 +61,8 @@ pub enum ExecutionPlan {
         think_time: ThinkTimeConfig,
         #[serde(rename = "circuitBreaker")]
         circuit_breaker: CircuitBreakerConfig,
+        #[serde(rename = "detailLevel", default)]
+        detail_level: DetailLevel,
     },
     #[serde(rename = "sequential")]
     Sequential {
@@ -57,6 +77,32 @@ pub enum ExecutionPlan {
         think_time: ThinkTimeConfig,
         #[serde(rename = "circuitBreaker")]
         circuit_breaker: CircuitBreakerConfig,
+        #[serde(rename = "detailLevel", default)]
+        detail_level: DetailLevel,
+    },
+    #[serde(rename = "constant-arrival")]
+    ConstantArrival {
+        scenarios: Vec<RustScenario>,
+        #[serde(rename = "targetRps")]
+        target_rps: f64,
+        #[serde(rename = "durationSec")]
+        duration_sec: u64,
+        #[serde(rename = "maxInFlight")]
+        max_in_flight: u32,
+        #[serde(rename = "timeoutMs")]
+        timeout_ms: u64,
+        #[serde(rename = "retryCount")]
+        retry_count: u32,
+        #[serde(rename = "retryDelayMs")]
+        retry_delay_ms: u64,
+        #[serde(rename = "thinkTime")]
+        think_time: ThinkTimeConfig,
+        #[serde(rename = "circuitBreaker")]
+        circuit_breaker: CircuitBreakerConfig,
+        #[serde(rename = "rampConfig")]
+        ramp_config: Option<ArrivalRampConfig>,
+        #[serde(rename = "detailLevel", default)]
+        detail_level: DetailLevel,
     },
     #[serde(rename = "load-profile")]
     LoadProfile {
@@ -84,7 +130,17 @@ pub enum ExecutionPlan {
         spike_start_sec: Option<u64>,
         #[serde(rename = "spikeDurationSec")]
         spike_duration_sec: Option<u64>,
+        #[serde(rename = "detailLevel", default)]
+        detail_level: DetailLevel,
     },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ArrivalRampConfig {
+    pub start_rps: f64,
+    pub end_rps: f64,
+    pub ramp_duration_sec: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -188,6 +244,14 @@ pub struct ProgressBatch {
     pub current_in_flight: u32,
     pub target_concurrency: u32,
     pub breaker_tripped: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub metrics: Option<MetricsSnapshot>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub target_rps: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub actual_rps: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub dropped_requests: Option<u64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -196,4 +260,6 @@ pub struct CompletionSummary {
     pub total_results: u64,
     pub duration_ms: f64,
     pub breaker_tripped: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub final_metrics: Option<MetricsSnapshot>,
 }

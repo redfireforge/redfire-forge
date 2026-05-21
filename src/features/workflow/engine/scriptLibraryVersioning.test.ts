@@ -1,4 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
+const uuidMock = vi.hoisted(() =>
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  require('../../../test-utils/uuidMock.ts').hoistedUuidFixed('test-uuid'),
+);
 import {
   createSnapshot,
   computeSnapshotFingerprint,
@@ -17,7 +21,7 @@ import {
 } from './scriptLibraryVersioning';
 import type { ScriptLibrary, ScriptLibraryVersion, ScriptLibrarySnapshot } from './scriptLibraries';
 
-vi.mock('uuid', () => ({ v4: () => 'test-uuid' }));
+vi.mock('uuid', () => uuidMock);
 
 function makeLib(overrides?: Partial<ScriptLibrary>): ScriptLibrary {
   return {

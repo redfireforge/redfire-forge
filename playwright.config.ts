@@ -5,8 +5,8 @@ export default defineConfig({
   fullyParallel: true,
   retries: 1,
   workers: 40,
-  // Default timeout - 15s handles page reloads and complex operations
-  timeout: 15_000,
+  // 30s default handles page reloads with 40-worker parallelism
+  timeout: 30_000,
   reporter: [
     ['html', { open: 'never' }],
     ['list'],

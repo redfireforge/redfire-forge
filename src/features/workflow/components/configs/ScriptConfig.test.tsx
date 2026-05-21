@@ -43,9 +43,25 @@ vi.mock('./ScriptLibraryManager', () => ({
 
 vi.mock('./ScriptCodeModal', () => ({
   __esModule: true,
-  default: ({ onClose }: { onClose: () => void }) => (
+  default: ({ onClose, onSave }: { onClose: () => void; onSave: (d: unknown) => void }) => (
     <div data-testid="mock-script-code-modal">
       <button type="button" onClick={onClose}>Close Code Modal</button>
+      <button
+        type="button"
+        onClick={() =>
+          onSave({
+            label: 'From Modal',
+            code: 'output.x = 1;',
+            mode: 'transform',
+            inputVariables: [],
+            outputVariables: ['x'],
+            timeoutMs: 5000,
+            captureConsole: true,
+          })
+        }
+      >
+        Save Code Modal
+      </button>
     </div>
   ),
 }));
@@ -56,6 +72,8 @@ vi.mock('../../engine/scriptLibraries', () => ({
   saveScriptLibraries: vi.fn(),
   buildLibraryPreamble: () => '',
 }));
+
+import { saveScriptLibraries } from '../../engine/scriptLibraries';
 
 function makeData(overrides: Partial<ScriptNodeData> = {}): ScriptNodeData {
   return {
@@ -464,5 +482,25 @@ describe('ScriptConfig', () => {
     fireEvent.click(screen.getByText(/Open Editor/));
     fireEvent.click(screen.getByText('Close Code Modal'));
     expect(screen.queryByTestId('mock-script-code-modal')).toBeNull();
+  });
+
+  it('applies script data from code modal onSave', () => {
+    const onChange = vi.fn();
+    render(<ScriptConfig data={makeData()} onChange={onChange} />);
+    fireEvent.click(screen.getByText(/Open Editor/));
+    fireEvent.click(screen.getByText('Save Code Modal'));
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({
+      label: 'From Modal',
+      code: 'output.x = 1;',
+      outputVariables: ['x'],
+    }));
+    expect(screen.getByTestId('mock-script-code-modal')).toBeTruthy();
+  });
+
+  it('persists libraries when library manager updates the catalog', () => {
+    render(<ScriptConfig data={makeData()} onChange={vi.fn()} />);
+    fireEvent.click(screen.getByText('Libraries'));
+    fireEvent.click(screen.getByText('Update Libs'));
+    expect(saveScriptLibraries).toHaveBeenCalledWith([]);
   });
 });

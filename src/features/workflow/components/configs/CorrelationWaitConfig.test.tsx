@@ -611,6 +611,48 @@ describe('CorrelationWaitConfig', () => {
     expect(onChange.mock.calls[3][0].extractVariables).toEqual([]);
   });
 
+  it('opens Data Mapper modal and saves extract variables', () => {
+    const onChange = vi.fn();
+    render(<CorrelationWaitConfig
+      data={makeData({ extractVariables: [{ name: 'a', jsonPath: '$.a' }] })}
+      onChange={onChange}
+    />);
+    fireEvent.click(screen.getByText('Data Mapper'));
+    expect(document.querySelector('.dm-modal-overlay')).toBeTruthy();
+    fireEvent.click(screen.getByText('Save'));
+    expect(document.querySelector('.dm-modal-overlay')).toBeNull();
+    expect(onChange).toHaveBeenCalled();
+  });
+
+  it('closes Data Mapper modal on cancel without saving', () => {
+    const onChange = vi.fn();
+    render(<CorrelationWaitConfig data={makeData()} onChange={onChange} />);
+    fireEvent.click(screen.getByText('Data Mapper'));
+    expect(document.querySelector('.dm-modal-overlay')).toBeTruthy();
+    fireEvent.click(screen.getByText('Cancel'));
+    expect(document.querySelector('.dm-modal-overlay')).toBeNull();
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('shows error when applying paused correlation with invalid test payload JSON', async () => {
+    const paused = { correlationId: 'cid-bad', webhookPath: '/w', pausedAt: 1 };
+    vi.stubGlobal('fetch', vi.fn((url: string | Request) => {
+      const u = typeof url === 'string' ? url : url.url;
+      if (String(u).includes('3001/api/correlations') && !String(u).includes('resume')) {
+        return Promise.resolve({ ok: true, json: async () => ({ correlations: [paused] }) });
+      }
+      return Promise.resolve({ json: async () => ({}) });
+    }));
+    render(<CorrelationWaitConfig data={makeData()} onChange={vi.fn()} />);
+    await waitFor(() => {
+      expect(screen.getByText('cid-bad')).toBeTruthy();
+    });
+    const ta = screen.getByTestId('test-webhook-payload');
+    fireEvent.change(ta, { target: { value: 'not-json' } });
+    fireEvent.click(screen.getByText('cid-bad'));
+    expect(screen.getByTestId('test-webhook-result').textContent).toContain('Invalid JSON in test payload');
+  });
+
   it('fills nested path in sparse manual payload when applying a paused correlation id', async () => {
     const paused = { correlationId: 'deep', webhookPath: '/w', pausedAt: 1 };
     vi.stubGlobal('fetch', vi.fn((url: string | Request) => {

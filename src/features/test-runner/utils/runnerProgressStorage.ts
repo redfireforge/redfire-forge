@@ -1,4 +1,4 @@
-import type { ExecutionMode, LoadProfileConfig, LoadProfileType, TestSummary, ThinkTimeConfig } from '../../../shared/types';
+import type { ExecutionMode, LoadProfileConfig, LoadProfileType, TestSummary, ThinkTimeConfig, ArrivalRateConfig } from '../../../shared/types';
 import type { TimeSeriesPoint } from '../hooks/useTestExecution';
 import type { ProgressMeta } from '../../../engine/executor';
 
@@ -12,6 +12,7 @@ export interface PersistedProgress {
   executionMode: ExecutionMode;
   concurrency: number;
   loadProfile: LoadProfileConfig;
+  arrivalRate?: ArrivalRateConfig;
   thinkTime?: ThinkTimeConfig;
   resultCount: number;
   durationMs: number;

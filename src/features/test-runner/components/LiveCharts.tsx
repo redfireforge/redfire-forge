@@ -1,97 +1,102 @@
 import type { TimeSeriesPoint } from '../hooks/useTestExecution';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart } from 'recharts';
 
-const chartTooltipStyle = {
+const TOOLTIP_STYLE = {
   backgroundColor: 'var(--surface)',
   border: '1px solid var(--border)',
   borderRadius: 6,
   fontSize: '0.78rem',
 };
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const fmtMs = (v: any) => [`${v} ms`, 'Avg'];
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const fmtTps = (v: any) => [`${v}`, 'TPS'];
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const fmtErr = (v: any) => [`${v}%`, 'Errors'];
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const fmtConc = (v: any) => [`${v}`, 'In-Flight'];
+const TICK_STYLE = { fontSize: 10, fill: 'var(--text-muted)' };
+const CHART_MARGIN = { top: 4, right: 8, bottom: 0, left: 0 };
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const fmtLabel = (l: any) => `${l}s`;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const fmtRps = (v: any, name: any) => [`${v}`, name === 'targetRps' ? 'Target RPS' : 'Actual RPS'];
 
-export function LiveCharts({ data, isTimeBased: _isTimeBased }: { data: TimeSeriesPoint[]; isTimeBased: boolean }) {
+function LiveAreaChart({ title, data, dataKey, color, gradientId, formatter, chartType = 'area' }: {
+  title: string;
+  data: TimeSeriesPoint[];
+  dataKey: string;
+  color: string;
+  gradientId: string;
+  formatter: (v: unknown) => [string, string];
+  chartType?: 'area' | 'stepArea' | 'line';
+}) {
+  return (
+    <div className="live-chart-card">
+      <div className="live-chart-title">{title}</div>
+      <ResponsiveContainer width="100%" height={140}>
+        {chartType === 'line' ? (
+          <LineChart data={data} margin={CHART_MARGIN}>
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+            <XAxis dataKey="elapsedSec" tick={TICK_STYLE} tickFormatter={(v: number) => `${v}s`} />
+            <YAxis tick={TICK_STYLE} width={45} domain={[0, 'auto']} />
+            <Tooltip contentStyle={TOOLTIP_STYLE} formatter={formatter} labelFormatter={fmtLabel} />
+            <Line type="monotone" dataKey={dataKey} stroke={color} strokeWidth={2} dot={false} isAnimationActive={false} />
+          </LineChart>
+        ) : (
+          <AreaChart data={data} margin={CHART_MARGIN}>
+            <defs>
+              <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={color} stopOpacity={0.3} />
+                <stop offset="100%" stopColor={color} stopOpacity={0.02} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+            <XAxis dataKey="elapsedSec" tick={TICK_STYLE} tickFormatter={(v: number) => `${v}s`} />
+            <YAxis tick={TICK_STYLE} width={45} />
+            <Tooltip contentStyle={TOOLTIP_STYLE} formatter={formatter} labelFormatter={fmtLabel} />
+            <Area type={chartType === 'stepArea' ? 'stepAfter' : 'monotone'} dataKey={dataKey} stroke={color} fill={`url(#${gradientId})`} strokeWidth={2} dot={false} isAnimationActive={false} />
+          </AreaChart>
+        )}
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const fmtMs = (v: any) => [`${v} ms`, 'Avg'] as [string, string];
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const fmtTps = (v: any) => [`${v}`, 'TPS'] as [string, string];
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const fmtErr = (v: any) => [`${v}%`, 'Errors'] as [string, string];
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const fmtConc = (v: any) => [`${v}`, 'In-Flight'] as [string, string];
+
+export function LiveCharts({ data, isTimeBased: _isTimeBased, isArrivalRate = false }: { data: TimeSeriesPoint[]; isTimeBased: boolean; isArrivalRate?: boolean }) {
   return (
     <div className="live-charts">
-      <div className="live-chart-card">
-        <div className="live-chart-title">Response Time (ms)</div>
-        <ResponsiveContainer width="100%" height={140}>
-          <AreaChart data={data} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
-            <defs>
-              <linearGradient id="gradResp" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#3498db" stopOpacity={0.3} />
-                <stop offset="100%" stopColor="#3498db" stopOpacity={0.02} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-            <XAxis dataKey="elapsedSec" tick={{ fontSize: 10, fill: 'var(--text-muted)' }} tickFormatter={(v: number) => `${v}s`} />
-            <YAxis tick={{ fontSize: 10, fill: 'var(--text-muted)' }} width={45} />
-            <Tooltip contentStyle={chartTooltipStyle} formatter={fmtMs} labelFormatter={fmtLabel} />
-            <Area type="monotone" dataKey="avgResponseTime" stroke="#3498db" fill="url(#gradResp)" strokeWidth={2} dot={false} isAnimationActive={false} />
-          </AreaChart>
-        </ResponsiveContainer>
-      </div>
+      <LiveAreaChart title="Response Time (ms)" data={data} dataKey="avgResponseTime" color="#3498db" gradientId="gradResp" formatter={fmtMs} />
+      <LiveAreaChart title="Throughput (TPS)" data={data} dataKey="tps" color="#27ae60" gradientId="gradTps" formatter={fmtTps} />
+      <LiveAreaChart title="Error Rate (%)" data={data} dataKey="errorRate" color="#e74c3c" gradientId="gradErr" formatter={fmtErr} chartType="line" />
 
-      <div className="live-chart-card">
-        <div className="live-chart-title">Throughput (TPS)</div>
-        <ResponsiveContainer width="100%" height={140}>
-          <AreaChart data={data} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
-            <defs>
-              <linearGradient id="gradTps" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#27ae60" stopOpacity={0.3} />
-                <stop offset="100%" stopColor="#27ae60" stopOpacity={0.02} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-            <XAxis dataKey="elapsedSec" tick={{ fontSize: 10, fill: 'var(--text-muted)' }} tickFormatter={(v: number) => `${v}s`} />
-            <YAxis tick={{ fontSize: 10, fill: 'var(--text-muted)' }} width={45} />
-            <Tooltip contentStyle={chartTooltipStyle} formatter={fmtTps} labelFormatter={fmtLabel} />
-            <Area type="monotone" dataKey="tps" stroke="#27ae60" fill="url(#gradTps)" strokeWidth={2} dot={false} isAnimationActive={false} />
-          </AreaChart>
-        </ResponsiveContainer>
-      </div>
-
-      <div className="live-chart-card">
-        <div className="live-chart-title">Error Rate (%)</div>
-        <ResponsiveContainer width="100%" height={140}>
-          <LineChart data={data} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-            <XAxis dataKey="elapsedSec" tick={{ fontSize: 10, fill: 'var(--text-muted)' }} tickFormatter={(v: number) => `${v}s`} />
-            <YAxis tick={{ fontSize: 10, fill: 'var(--text-muted)' }} width={45} domain={[0, 'auto']} />
-            <Tooltip contentStyle={chartTooltipStyle} formatter={fmtErr} labelFormatter={fmtLabel} />
-            <Line type="monotone" dataKey="errorRate" stroke="#e74c3c" strokeWidth={2} dot={false} isAnimationActive={false} />
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
-
-      {data.some((d) => d.concurrency > 0) && (
+      {isArrivalRate && data.some((d) => d.targetRps !== undefined || d.actualRps !== undefined) && (
         <div className="live-chart-card">
-          <div className="live-chart-title">Concurrency</div>
+          <div className="live-chart-title">Target vs Actual RPS</div>
           <ResponsiveContainer width="100%" height={140}>
-            <AreaChart data={data} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
+            <AreaChart data={data} margin={CHART_MARGIN}>
               <defs>
-                <linearGradient id="gradConc" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#9b59b6" stopOpacity={0.3} />
-                  <stop offset="100%" stopColor="#9b59b6" stopOpacity={0.02} />
+                <linearGradient id="gradActualRps" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#e67e22" stopOpacity={0.3} />
+                  <stop offset="100%" stopColor="#e67e22" stopOpacity={0.02} />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-              <XAxis dataKey="elapsedSec" tick={{ fontSize: 10, fill: 'var(--text-muted)' }} tickFormatter={(v: number) => `${v}s`} />
-              <YAxis tick={{ fontSize: 10, fill: 'var(--text-muted)' }} width={45} />
-              <Tooltip contentStyle={chartTooltipStyle} formatter={fmtConc} labelFormatter={fmtLabel} />
-              <Area type="stepAfter" dataKey="concurrency" stroke="#9b59b6" fill="url(#gradConc)" strokeWidth={2} dot={false} isAnimationActive={false} />
+              <XAxis dataKey="elapsedSec" tick={TICK_STYLE} tickFormatter={(v: number) => `${v}s`} />
+              <YAxis tick={TICK_STYLE} width={45} />
+              <Tooltip contentStyle={TOOLTIP_STYLE} formatter={fmtRps} labelFormatter={fmtLabel} />
+              <Line type="monotone" dataKey="targetRps" stroke="#e74c3c" strokeWidth={2} strokeDasharray="5 5" dot={false} isAnimationActive={false} />
+              <Area type="monotone" dataKey="actualRps" stroke="#e67e22" fill="url(#gradActualRps)" strokeWidth={2} dot={false} isAnimationActive={false} />
             </AreaChart>
           </ResponsiveContainer>
         </div>
+      )}
+
+      {data.some((d) => d.concurrency > 0) && (
+        <LiveAreaChart title="Concurrency" data={data} dataKey="concurrency" color="#9b59b6" gradientId="gradConc" formatter={fmtConc} chartType="stepArea" />
       )}
     </div>
   );
