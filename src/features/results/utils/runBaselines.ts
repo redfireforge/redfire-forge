@@ -354,7 +354,7 @@ export function computeTrend(runs: TestRun[], baselines: BaselineMark[]): TrendP
       p50ResponseTime: r.summary.p50ResponseTime ?? 0,
       p95ResponseTime: r.summary.p95ResponseTime,
       p99ResponseTime: r.summary.p99ResponseTime,
-      p999ResponseTime: r.summary.p999ResponseTime ?? 0,
+      p999ResponseTime: r.summary.p999ResponseTime ?? r.summary.p99ResponseTime ?? 0,
       errorRate: r.summary.errorRate,
       totalRequests: r.summary.totalRequests,
     };

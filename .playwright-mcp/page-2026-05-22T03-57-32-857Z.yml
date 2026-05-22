@@ -1,0 +1,870 @@
+- generic [ref=e1]:
+  - generic [ref=e3]:
+    - banner [ref=e7]:
+      - heading "🔥 RedfireForgev0.5.9-alpha.1" [level=1] [ref=e8]:
+        - text: 🔥 RedfireForge
+        - generic [ref=e9]: v0.5.9-alpha.1
+      - generic [ref=e10]:
+        - combobox [ref=e12] [cursor=pointer]:
+          - option "Environment…"
+          - option "Test-3A" [selected]
+        - combobox [ref=e14] [cursor=pointer]:
+          - option "Service…"
+          - option "jsonplaceholder" [selected]
+        - button "🌙" [ref=e16] [cursor=pointer]
+    - generic [ref=e17]:
+      - navigation [ref=e18]:
+        - button "🔌" [ref=e19] [cursor=pointer]:
+          - generic [ref=e20]: 🔌
+        - button "🔧" [ref=e21] [cursor=pointer]:
+          - generic [ref=e22]: 🔧
+        - button "🏋" [ref=e23] [cursor=pointer]:
+          - generic [ref=e24]: 🏋
+        - button "🏪" [ref=e25] [cursor=pointer]:
+          - generic [ref=e26]: 🏪
+        - button "⚙️" [ref=e27] [cursor=pointer]:
+          - generic [ref=e28]: ⚙️
+      - complementary [ref=e29]:
+        - generic [ref=e31]:
+          - generic [ref=e32]:
+            - button "Environments" [ref=e33] [cursor=pointer]
+            - button "Microservices" [ref=e34] [cursor=pointer]
+          - button "Collapse All" [ref=e36] [cursor=pointer]
+          - generic [ref=e38]:
+            - generic [ref=e39]:
+              - generic [ref=e40] [cursor=pointer]: ▸
+              - generic [ref=e41] [cursor=pointer]: Test-3A
+              - generic [ref=e42]: "1"
+            - generic [ref=e44] [cursor=pointer]: ●jsonplaceholder
+        - button "⚙ Settings" [ref=e45] [cursor=pointer]
+      - button "◀" [ref=e47] [cursor=pointer]
+      - main [ref=e48]:
+        - generic [ref=e50]:
+          - button "Feature Groups" [ref=e51] [cursor=pointer]
+          - button "Test Runner" [ref=e52] [cursor=pointer]
+          - button "Parameterized Runner" [ref=e53] [cursor=pointer]
+          - button "Workflow Runner" [ref=e54] [cursor=pointer]
+          - button "Results" [ref=e55] [cursor=pointer]
+        - generic [ref=e56]:
+          - generic [ref=e57]:
+            - generic [ref=e58]:
+              - heading "Results" [level=2] [ref=e59]
+              - generic [ref=e60]:
+                - generic [ref=e61]: jsonplaceholder
+                - generic [ref=e62]: Test-3A
+                - generic "https://jsonplaceholder.typicode.com" [ref=e63]: "Host: https://jsonplaceholder.typicode.com"
+                - generic [ref=e64]: Batch · C:1 · I:1
+              - generic [ref=e65]:
+                - button "Refresh" [ref=e66] [cursor=pointer]
+                - button "📂 Import Trace" [ref=e67] [cursor=pointer]
+                - button "Export JSON" [ref=e68] [cursor=pointer]
+                - button "Export CSV" [active] [ref=e69] [cursor=pointer]
+                - button "Generate Report ▾" [ref=e71] [cursor=pointer]
+                - button "Delete" [ref=e72] [cursor=pointer]
+            - generic [ref=e73]:
+              - button "All Runs (4)" [ref=e74] [cursor=pointer]
+              - button "🧪 Test Runs (4)" [ref=e75] [cursor=pointer]
+              - button "⚡ Workflow Runs (0)" [ref=e76] [cursor=pointer]
+            - combobox [ref=e77] [cursor=pointer]:
+              - option "🧪 — 5/21/2026, 11:49:10 PM — jsonplaceholder — Test-3A — 52 req — 4.86 TPS" [selected]
+              - option "🧪 — 5/21/2026, 11:41:56 PM — jsonplaceholder — Test-3A — 52 req — 4.81 TPS"
+              - option "🧪 — 5/21/2026, 11:36:09 PM — jsonplaceholder — Test-3A — 52 req — 4.88 TPS"
+              - option "🧪 — 5/21/2026, 11:34:50 PM — jsonplaceholder — Test-3A — 11 req — 22.4 TPS"
+            - generic [ref=e78]:
+              - button "☆ Set Baseline" [ref=e79] [cursor=pointer]
+              - combobox [ref=e80] [cursor=pointer]:
+                - option "Compare against baseline..." [selected]
+              - button "Show Trend" [ref=e81] [cursor=pointer]
+          - generic [ref=e82]:
+            - generic [ref=e84]:
+              - generic [ref=e85]:
+                - generic [ref=e86]: "4.86"
+                - generic [ref=e87]: TPS
+              - generic [ref=e88]:
+                - generic [ref=e89]: "291.6"
+                - generic [ref=e90]: TPM
+              - generic [ref=e91]:
+                - generic [ref=e92]: "17496"
+                - generic [ref=e93]: TPH
+              - generic [ref=e94]:
+                - generic [ref=e95]: "419904"
+                - generic [ref=e96]: TPD
+            - generic [ref=e97]:
+              - generic [ref=e98]: 325.26 ms
+              - generic [ref=e99]: Avg Response
+            - generic [ref=e100]:
+              - generic [ref=e101]: 53.4 ms
+              - generic [ref=e102]: Min
+            - generic [ref=e103]:
+              - generic [ref=e104]: 10003.9 ms
+              - generic [ref=e105]: Max
+          - generic [ref=e106]:
+            - generic [ref=e107]:
+              - generic [ref=e108]: 90.8 ms
+              - generic [ref=e109]: P50
+            - generic [ref=e110]:
+              - generic [ref=e111]: 363.9 ms
+              - generic [ref=e112]: P95
+            - generic [ref=e113]:
+              - generic [ref=e114]: 10003.9 ms
+              - generic [ref=e115]: P99
+            - generic [ref=e116]:
+              - generic [ref=e117]: 10003.9 ms
+              - generic [ref=e118]: P99.9
+            - generic [ref=e119]:
+              - generic [ref=e120]: 11.54%
+              - generic [ref=e121]:
+                - text: Error Rate
+                - generic [ref=e122]: ⓘ
+            - generic [ref=e123]:
+              - generic [ref=e124]: 10.70s
+              - generic [ref=e125]: Total Duration
+            - generic [ref=e126]:
+              - generic [ref=e127]: "52"
+              - generic [ref=e128]: Total Requests
+            - generic [ref=e129]:
+              - generic [ref=e130]: "20"
+              - generic [ref=e131]:
+                - text: Validation Failures
+                - generic [ref=e132]: ⓘ
+          - generic [ref=e133]:
+            - heading "Errors by Status" [level=3] [ref=e134]
+            - generic [ref=e135]:
+              - generic [ref=e136]: "Network Error: 1"
+              - generic [ref=e137]: "HTTP 404: 4"
+              - generic [ref=e138]: "HTTP 500: 1"
+          - generic [ref=e139]:
+            - generic [ref=e140]:
+              - heading "Response Time Distribution" [level=4] [ref=e141]
+              - generic [ref=e142]:
+                - generic [ref=e143]: μ=325.26ms
+                - generic [ref=e144]: σ=1367.26ms
+                - generic [ref=e145]: med=90.8ms
+            - application [ref=e148]:
+              - generic [ref=e174]:
+                - generic [ref=e175]:
+                  - generic [ref=e177]: "53"
+                  - generic [ref=e179]: "385"
+                  - generic [ref=e181]: "1048"
+                  - generic [ref=e183]: "1712"
+                  - generic [ref=e185]: "2375"
+                  - generic [ref=e187]: "3039"
+                  - generic [ref=e189]: "3702"
+                  - generic [ref=e191]: "4365"
+                  - generic [ref=e193]: "5029"
+                  - generic [ref=e195]: "5692"
+                  - generic [ref=e197]: "6355"
+                  - generic [ref=e199]: "7019"
+                  - generic [ref=e201]: "7682"
+                  - generic [ref=e203]: "8345"
+                  - generic [ref=e205]: "9009"
+                  - generic [ref=e207]: "9672"
+                - generic [ref=e208]: Response Time (ms)
+                - generic [ref=e209]:
+                  - generic [ref=e211]: "0"
+                  - generic [ref=e213]: "15"
+                  - generic [ref=e215]: "30"
+                  - generic [ref=e217]: "45"
+                  - generic [ref=e219]: "60"
+                - generic [ref=e220]: Requests
+                - generic [ref=e221]: P95
+                - generic [ref=e222]: P99
+                - generic [ref=e223]: P99.9
+          - generic [ref=e224]:
+            - heading "Avg Timing Breakdown (51 requests)" [level=4] [ref=e225]
+            - generic [ref=e226]:
+              - generic [ref=e227]:
+                - generic [ref=e229]: DNS
+                - strong [ref=e230]: 0.0 ms
+              - generic [ref=e231]:
+                - generic [ref=e233]: TCP
+                - strong [ref=e234]: 0.0 ms
+              - generic [ref=e235]:
+                - generic [ref=e237]: TLS
+                - strong [ref=e238]: 0.0 ms
+              - generic [ref=e239]:
+                - generic [ref=e241]: TTFB
+                - strong [ref=e242]: 105.6 ms
+              - generic [ref=e243]:
+                - generic [ref=e245]: Download
+                - strong [ref=e246]: 2.1 ms
+          - generic [ref=e247]:
+            - heading "Request Details" [level=3] [ref=e248]
+            - generic [ref=e249]:
+              - combobox [ref=e250] [cursor=pointer]:
+                - option "All Results" [selected]
+                - option "Passed Only"
+                - option "Failed Only"
+              - generic [ref=e251]:
+                - generic [ref=e252]: Group by
+                - combobox [ref=e253] [cursor=pointer]:
+                  - option "Feature" [selected]
+                  - option "Scenario"
+                  - option "Test Name (flat)"
+                - combobox [ref=e254] [cursor=pointer]:
+                  - option "Then by Scenario" [selected]
+                  - option "Then by Test Name"
+              - generic [ref=e255]: 8 groups · 52 results
+              - textbox "Search..." [ref=e256]
+            - table [ref=e258]:
+              - rowgroup [ref=e259]:
+                - row "Feature Total Passed Failed Val. Failed Avg (ms) Min (ms) Max (ms)" [ref=e260]:
+                  - columnheader [ref=e261]
+                  - columnheader "Feature" [ref=e262]
+                  - columnheader "Total" [ref=e263]
+                  - columnheader "Passed" [ref=e264]
+                  - columnheader "Failed" [ref=e265]
+                  - columnheader "Val. Failed" [ref=e266]
+                  - columnheader "Avg (ms)" [ref=e267]
+                  - columnheader "Min (ms)" [ref=e268]
+                  - columnheader "Max (ms)" [ref=e269]
+              - rowgroup [ref=e270]:
+                - row "▼ Phase 3 — Visual Test Scenarios 52 32 0 20 325 53.4 10003.9" [ref=e271] [cursor=pointer]:
+                  - cell "▼" [ref=e272]
+                  - cell "Phase 3 — Visual Test Scenarios" [ref=e273]
+                  - cell "52" [ref=e274]
+                  - cell "32" [ref=e275]
+                  - cell "0" [ref=e276]
+                  - cell "20" [ref=e277]
+                  - cell "325" [ref=e278]
+                  - cell "53.4" [ref=e279]
+                  - cell "10003.9" [ref=e280]
+                - 'row "▼ 3A: Validation Engine Tests 11 5 0 6 124 59.5 358.6" [ref=e281] [cursor=pointer]':
+                  - cell "▼" [ref=e282]
+                  - 'cell "3A: Validation Engine Tests" [ref=e283]'
+                  - cell "11" [ref=e284]
+                  - cell "5" [ref=e285]
+                  - cell "0" [ref=e286]
+                  - cell "6" [ref=e287]
+                  - cell "124" [ref=e288]
+                  - cell "59.5" [ref=e289]
+                  - cell "358.6" [ref=e290]
+                - row "ID Test Name URL Status Validation Time (ms) Passed Error / Details" [ref=e291]:
+                  - columnheader "ID" [ref=e292]
+                  - columnheader "Test Name" [ref=e293]
+                  - columnheader "URL" [ref=e294]
+                  - columnheader "Status" [ref=e295]
+                  - columnheader "Validation" [ref=e296]
+                  - columnheader "Time (ms)" [ref=e297]
+                  - columnheader "Passed" [ref=e298]
+                  - columnheader "Error / Details" [ref=e299]
+                - row "0-1 GET 2.1 Full JSON Match — Exact Body https://jsonplaceholder.typicode.com/posts/1 200 full 358.6 ✓" [ref=e300] [cursor=pointer]:
+                  - cell "0-1" [ref=e301]
+                  - cell "GET 2.1 Full JSON Match — Exact Body" [ref=e302]
+                  - cell "https://jsonplaceholder.typicode.com/posts/1" [ref=e303]
+                  - cell "200" [ref=e304]
+                  - cell "full" [ref=e305]
+                  - cell "358.6" [ref=e306]
+                  - cell "✓" [ref=e307]
+                  - cell [ref=e308]
+                - 'row "1-1 GET 3.2 Selective Fields — Field Mismatch (Fail) https://jsonplaceholder.typicode.com/posts/1 200 selective 218.1 ✗ { \"userId\": 1, \"id\": 1, \"title\": \"sunt aut facere repellat provident occaecati excepturi optio… 2 validation failures" [ref=e309] [cursor=pointer]':
+                  - cell "1-1" [ref=e310]
+                  - cell "GET 3.2 Selective Fields — Field Mismatch (Fail)" [ref=e311]
+                  - cell "https://jsonplaceholder.typicode.com/posts/1" [ref=e312]
+                  - cell "200" [ref=e313]
+                  - cell "selective" [ref=e314]
+                  - cell "218.1" [ref=e315]
+                  - cell "✗" [ref=e316]
+                  - 'cell "{ \"userId\": 1, \"id\": 1, \"title\": \"sunt aut facere repellat provident occaecati excepturi optio… 2 validation failures" [ref=e317]':
+                    - generic "Click to view full response" [ref=e318]: "{ \"userId\": 1, \"id\": 1, \"title\": \"sunt aut facere repellat provident occaecati excepturi optio…"
+                    - generic "Click to view details" [ref=e319]: 2 validation failures
+                - 'row "0-2 GET 2.3 Full Match — Invalid Expected JSON https://jsonplaceholder.typicode.com/posts/1 200 full 67.9 ✗ { \"userId\": 1, \"id\": 1, \"title\": \"sunt aut facere repellat provident occaecati excepturi optio… 1 validation failure" [ref=e320] [cursor=pointer]':
+                  - cell "0-2" [ref=e321]
+                  - cell "GET 2.3 Full Match — Invalid Expected JSON" [ref=e322]
+                  - cell "https://jsonplaceholder.typicode.com/posts/1" [ref=e323]
+                  - cell "200" [ref=e324]
+                  - cell "full" [ref=e325]
+                  - cell "67.9" [ref=e326]
+                  - cell "✗" [ref=e327]
+                  - 'cell "{ \"userId\": 1, \"id\": 1, \"title\": \"sunt aut facere repellat provident occaecati excepturi optio… 1 validation failure" [ref=e328]':
+                    - generic "Click to view full response" [ref=e329]: "{ \"userId\": 1, \"id\": 1, \"title\": \"sunt aut facere repellat provident occaecati excepturi optio…"
+                    - generic "Click to view details" [ref=e330]: 1 validation failure
+                - row "0-3 GET 3.1 Selective Fields — Simple Match (Pass) https://jsonplaceholder.typicode.com/posts/1 200 selective 59.5 ✓" [ref=e331] [cursor=pointer]:
+                  - cell "0-3" [ref=e332]
+                  - cell "GET 3.1 Selective Fields — Simple Match (Pass)" [ref=e333]
+                  - cell "https://jsonplaceholder.typicode.com/posts/1" [ref=e334]
+                  - cell "200" [ref=e335]
+                  - cell "selective" [ref=e336]
+                  - cell "59.5" [ref=e337]
+                  - cell "✓" [ref=e338]
+                  - cell [ref=e339]
+                - 'row "0-4 GET 2.2 Full Match — Mismatch Produces Failures https://jsonplaceholder.typicode.com/posts/1 200 full 105.4 ✗ { \"userId\": 1, \"id\": 1, \"title\": \"sunt aut facere repellat provident occaecati excepturi optio… 4 validation failures" [ref=e340] [cursor=pointer]':
+                  - cell "0-4" [ref=e341]
+                  - cell "GET 2.2 Full Match — Mismatch Produces Failures" [ref=e342]
+                  - cell "https://jsonplaceholder.typicode.com/posts/1" [ref=e343]
+                  - cell "200" [ref=e344]
+                  - cell "full" [ref=e345]
+                  - cell "105.4" [ref=e346]
+                  - cell "✗" [ref=e347]
+                  - 'cell "{ \"userId\": 1, \"id\": 1, \"title\": \"sunt aut facere repellat provident occaecati excepturi optio… 4 validation failures" [ref=e348]':
+                    - generic "Click to view full response" [ref=e349]: "{ \"userId\": 1, \"id\": 1, \"title\": \"sunt aut facere repellat provident occaecati excepturi optio…"
+                    - generic "Click to view details" [ref=e350]: 4 validation failures
+                - row "0-5 GET 1.3 No Body Validation — Pass 404 WITH Status Assert https://jsonplaceholder.typicode.com/posts/99999 404 none 64.2 ✓" [ref=e351] [cursor=pointer]:
+                  - cell "0-5" [ref=e352]
+                  - cell "GET 1.3 No Body Validation — Pass 404 WITH Status Assert" [ref=e353]
+                  - cell "https://jsonplaceholder.typicode.com/posts/99999" [ref=e354]
+                  - cell "404" [ref=e355]
+                  - cell "none" [ref=e356]
+                  - cell "64.2" [ref=e357]
+                  - cell "✓" [ref=e358]
+                  - cell [ref=e359]
+                - 'row "1-3 GET 3.4 Selective — Wrong Path Prefix (Fail) https://jsonplaceholder.typicode.com/posts/1 200 selective 89.7 ✗ { \"userId\": 1, \"id\": 1, \"title\": \"sunt aut facere repellat provident occaecati excepturi optio… 2 validation failures" [ref=e360] [cursor=pointer]':
+                  - cell "1-3" [ref=e361]
+                  - cell "GET 3.4 Selective — Wrong Path Prefix (Fail)" [ref=e362]
+                  - cell "https://jsonplaceholder.typicode.com/posts/1" [ref=e363]
+                  - cell "200" [ref=e364]
+                  - cell "selective" [ref=e365]
+                  - cell "89.7" [ref=e366]
+                  - cell "✗" [ref=e367]
+                  - 'cell "{ \"userId\": 1, \"id\": 1, \"title\": \"sunt aut facere repellat provident occaecati excepturi optio… 2 validation failures" [ref=e368]':
+                    - generic "Click to view full response" [ref=e369]: "{ \"userId\": 1, \"id\": 1, \"title\": \"sunt aut facere repellat provident occaecati excepturi optio…"
+                    - generic "Click to view details" [ref=e370]: 2 validation failures
+                - row "1-5 GET 3.3a Unordered Array — Pass (finds at different index) https://jsonplaceholder.typicode.com/posts 200 selective 94.8 ✓" [ref=e371] [cursor=pointer]:
+                  - cell "1-5" [ref=e372]
+                  - cell "GET 3.3a Unordered Array — Pass (finds at different index)" [ref=e373]
+                  - cell "https://jsonplaceholder.typicode.com/posts" [ref=e374]
+                  - cell "200" [ref=e375]
+                  - cell "selective" [ref=e376]
+                  - cell "94.8" [ref=e377]
+                  - cell "✓" [ref=e378]
+                  - cell [ref=e379]
+                - 'row "0-6 GET 1.2 No Body Validation — Fail on 404 https://jsonplaceholder.typicode.com/posts/99999 404 none 117.1 ✗ {}" [ref=e380] [cursor=pointer]':
+                  - cell "0-6" [ref=e381]
+                  - cell "GET 1.2 No Body Validation — Fail on 404" [ref=e382]
+                  - cell "https://jsonplaceholder.typicode.com/posts/99999" [ref=e383]
+                  - cell "404" [ref=e384]
+                  - cell "none" [ref=e385]
+                  - cell "117.1" [ref=e386]
+                  - cell "✗" [ref=e387]
+                  - 'cell "{}" [ref=e388]':
+                    - generic "Click to view full response" [ref=e389]: "{}"
+                - row "0-7 GET 1.1 No Body Validation — Pass on 200 https://jsonplaceholder.typicode.com/posts/1 200 none 69.3 ✓" [ref=e390] [cursor=pointer]:
+                  - cell "0-7" [ref=e391]
+                  - cell "GET 1.1 No Body Validation — Pass on 200" [ref=e392]
+                  - cell "https://jsonplaceholder.typicode.com/posts/1" [ref=e393]
+                  - cell "200" [ref=e394]
+                  - cell "none" [ref=e395]
+                  - cell "69.3" [ref=e396]
+                  - cell "✓" [ref=e397]
+                  - cell [ref=e398]
+                - 'row "1-7 GET 3.3b Ordered Array — Fail (wrong index) https://jsonplaceholder.typicode.com/posts 200 selective 123.1 ✗ [ { \"userId\": 1, \"id\": 1, \"title\": \"sunt aut facere repellat provident occaecati excep… 2 validation failures" [ref=e399] [cursor=pointer]':
+                  - cell "1-7" [ref=e400]
+                  - cell "GET 3.3b Ordered Array — Fail (wrong index)" [ref=e401]
+                  - cell "https://jsonplaceholder.typicode.com/posts" [ref=e402]
+                  - cell "200" [ref=e403]
+                  - cell "selective" [ref=e404]
+                  - cell "123.1" [ref=e405]
+                  - cell "✗" [ref=e406]
+                  - 'cell "[ { \"userId\": 1, \"id\": 1, \"title\": \"sunt aut facere repellat provident occaecati excep… 2 validation failures" [ref=e407]':
+                    - generic "Click to view full response" [ref=e408]: "[ { \"userId\": 1, \"id\": 1, \"title\": \"sunt aut facere repellat provident occaecati excep…"
+                    - generic "Click to view details" [ref=e409]: 2 validation failures
+                - 'row "▼ 3A: Batch/Pool Execution (6.1) 3 1 0 2 131 86.1 198.4" [ref=e410] [cursor=pointer]':
+                  - cell "▼" [ref=e411]
+                  - 'cell "3A: Batch/Pool Execution (6.1)" [ref=e412]'
+                  - cell "3" [ref=e413]
+                  - cell "1" [ref=e414]
+                  - cell "0" [ref=e415]
+                  - cell "2" [ref=e416]
+                  - cell "131" [ref=e417]
+                  - cell "86.1" [ref=e418]
+                  - cell "198.4" [ref=e419]
+                - row "ID Test Name URL Status Validation Time (ms) Passed Error / Details" [ref=e420]:
+                  - columnheader "ID" [ref=e421]
+                  - columnheader "Test Name" [ref=e422]
+                  - columnheader "URL" [ref=e423]
+                  - columnheader "Status" [ref=e424]
+                  - columnheader "Validation" [ref=e425]
+                  - columnheader "Time (ms)" [ref=e426]
+                  - columnheader "Passed" [ref=e427]
+                  - columnheader "Error / Details" [ref=e428]
+                - 'row "5-1 GET 6.1b Pool — Numeric Assert Fail https://jsonplaceholder.typicode.com/posts/1 200 none 198.4 ✗ { \"userId\": 1, \"id\": 1, \"title\": \"sunt aut facere repellat provident occaecati excepturi optio… 1 validation failure" [ref=e429] [cursor=pointer]':
+                  - cell "5-1" [ref=e430]
+                  - cell "GET 6.1b Pool — Numeric Assert Fail" [ref=e431]
+                  - cell "https://jsonplaceholder.typicode.com/posts/1" [ref=e432]
+                  - cell "200" [ref=e433]
+                  - cell "none" [ref=e434]
+                  - cell "198.4" [ref=e435]
+                  - cell "✗" [ref=e436]
+                  - 'cell "{ \"userId\": 1, \"id\": 1, \"title\": \"sunt aut facere repellat provident occaecati excepturi optio… 1 validation failure" [ref=e437]':
+                    - generic "Click to view full response" [ref=e438]: "{ \"userId\": 1, \"id\": 1, \"title\": \"sunt aut facere repellat provident occaecati excepturi optio…"
+                    - generic "Click to view details" [ref=e439]: 1 validation failure
+                - 'row "5-5 GET 6.1c Pool — 404 HTTP Fail https://jsonplaceholder.typicode.com/posts/99999 404 none 109.7 ✗ {}" [ref=e440] [cursor=pointer]':
+                  - cell "5-5" [ref=e441]
+                  - cell "GET 6.1c Pool — 404 HTTP Fail" [ref=e442]
+                  - cell "https://jsonplaceholder.typicode.com/posts/99999" [ref=e443]
+                  - cell "404" [ref=e444]
+                  - cell "none" [ref=e445]
+                  - cell "109.7" [ref=e446]
+                  - cell "✗" [ref=e447]
+                  - 'cell "{}" [ref=e448]':
+                    - generic "Click to view full response" [ref=e449]: "{}"
+                - row "5-6 GET 6.1a Pool — Status 200 Pass https://jsonplaceholder.typicode.com/posts/1 200 none 86.1 ✓" [ref=e450] [cursor=pointer]:
+                  - cell "5-6" [ref=e451]
+                  - cell "GET 6.1a Pool — Status 200 Pass" [ref=e452]
+                  - cell "https://jsonplaceholder.typicode.com/posts/1" [ref=e453]
+                  - cell "200" [ref=e454]
+                  - cell "none" [ref=e455]
+                  - cell "86.1" [ref=e456]
+                  - cell "✓" [ref=e457]
+                  - cell [ref=e458]
+                - 'row "▼ 3A: Assertion + Validation Combos 4 3 0 1 174 53.4 363.9" [ref=e459] [cursor=pointer]':
+                  - cell "▼" [ref=e460]
+                  - 'cell "3A: Assertion + Validation Combos" [ref=e461]'
+                  - cell "4" [ref=e462]
+                  - cell "3" [ref=e463]
+                  - cell "0" [ref=e464]
+                  - cell "1" [ref=e465]
+                  - cell "174" [ref=e466]
+                  - cell "53.4" [ref=e467]
+                  - cell "363.9" [ref=e468]
+                - row "ID Test Name URL Status Validation Time (ms) Passed Error / Details" [ref=e469]:
+                  - columnheader "ID" [ref=e470]
+                  - columnheader "Test Name" [ref=e471]
+                  - columnheader "URL" [ref=e472]
+                  - columnheader "Status" [ref=e473]
+                  - columnheader "Validation" [ref=e474]
+                  - columnheader "Time (ms)" [ref=e475]
+                  - columnheader "Passed" [ref=e476]
+                  - columnheader "Error / Details" [ref=e477]
+                - row "4-1 GET 5.1 Selective + Status + Time Assertions https://jsonplaceholder.typicode.com/posts/1 200 selective 203.2 ✓" [ref=e478] [cursor=pointer]:
+                  - cell "4-1" [ref=e479]
+                  - cell "GET 5.1 Selective + Status + Time Assertions" [ref=e480]
+                  - cell "https://jsonplaceholder.typicode.com/posts/1" [ref=e481]
+                  - cell "200" [ref=e482]
+                  - cell "selective" [ref=e483]
+                  - cell "203.2" [ref=e484]
+                  - cell "✓" [ref=e485]
+                  - cell [ref=e486]
+                - row "4-4 GET 5.3 HTTP 500 No Status Assert — Body Skipped https://httpbin.org/status/500 500 selective 363.9 ✗ 1 validation failure" [ref=e487] [cursor=pointer]:
+                  - cell "4-4" [ref=e488]
+                  - cell "GET 5.3 HTTP 500 No Status Assert — Body Skipped" [ref=e489]
+                  - cell "https://httpbin.org/status/500" [ref=e490]
+                  - cell "500" [ref=e491]
+                  - cell "selective" [ref=e492]
+                  - cell "363.9" [ref=e493]
+                  - cell "✗" [ref=e494]
+                  - cell "1 validation failure" [ref=e495]:
+                    - generic "Click to view details" [ref=e496]: 1 validation failure
+                - row "4-6 POST Scenario D — POST with Body https://jsonplaceholder.typicode.com/posts 201 selective 77.4 ✓" [ref=e497] [cursor=pointer]:
+                  - cell "4-6" [ref=e498]
+                  - cell "POST Scenario D — POST with Body" [ref=e499]
+                  - cell "https://jsonplaceholder.typicode.com/posts" [ref=e500]
+                  - cell "201" [ref=e501]
+                  - cell "selective" [ref=e502]
+                  - cell "77.4" [ref=e503]
+                  - cell "✓" [ref=e504]
+                  - cell [ref=e505]
+                - row "4-7 GET 5.2 Status Assert 404 Enables Body Validation https://jsonplaceholder.typicode.com/posts/99999 404 none 53.4 ✓" [ref=e506] [cursor=pointer]:
+                  - cell "4-7" [ref=e507]
+                  - cell "GET 5.2 Status Assert 404 Enables Body Validation" [ref=e508]
+                  - cell "https://jsonplaceholder.typicode.com/posts/99999" [ref=e509]
+                  - cell "404" [ref=e510]
+                  - cell "none" [ref=e511]
+                  - cell "53.4" [ref=e512]
+                  - cell "✓" [ref=e513]
+                  - cell [ref=e514]
+                - 'row "▼ 3A: Assertion Tests 20 10 0 10 96 53.9 219.6" [ref=e515] [cursor=pointer]':
+                  - cell "▼" [ref=e516]
+                  - 'cell "3A: Assertion Tests" [ref=e517]'
+                  - cell "20" [ref=e518]
+                  - cell "10" [ref=e519]
+                  - cell "0" [ref=e520]
+                  - cell "10" [ref=e521]
+                  - cell "96" [ref=e522]
+                  - cell "53.9" [ref=e523]
+                  - cell "219.6" [ref=e524]
+                - row "ID Test Name URL Status Validation Time (ms) Passed Error / Details" [ref=e525]:
+                  - columnheader "ID" [ref=e526]
+                  - columnheader "Test Name" [ref=e527]
+                  - columnheader "URL" [ref=e528]
+                  - columnheader "Status" [ref=e529]
+                  - columnheader "Validation" [ref=e530]
+                  - columnheader "Time (ms)" [ref=e531]
+                  - columnheader "Passed" [ref=e532]
+                  - columnheader "Error / Details" [ref=e533]
+                - row "2-1 GET 4.6 Numeric Compare — userId > 0 https://jsonplaceholder.typicode.com/posts/1 200 none 211.7 ✓" [ref=e534] [cursor=pointer]:
+                  - cell "2-1" [ref=e535]
+                  - cell "GET 4.6 Numeric Compare — userId > 0" [ref=e536]
+                  - cell "https://jsonplaceholder.typicode.com/posts/1" [ref=e537]
+                  - cell "200" [ref=e538]
+                  - cell "none" [ref=e539]
+                  - cell "211.7" [ref=e540]
+                  - cell "✓" [ref=e541]
+                  - cell [ref=e542]
+                - 'row "3-1 GET 4.6b Numeric Compare — userId > 999999 (Fail) https://jsonplaceholder.typicode.com/posts/1 200 none 219.6 ✗ { \"userId\": 1, \"id\": 1, \"title\": \"sunt aut facere repellat provident occaecati excepturi optio… 1 validation failure" [ref=e543] [cursor=pointer]':
+                  - cell "3-1" [ref=e544]
+                  - cell "GET 4.6b Numeric Compare — userId > 999999 (Fail)" [ref=e545]
+                  - cell "https://jsonplaceholder.typicode.com/posts/1" [ref=e546]
+                  - cell "200" [ref=e547]
+                  - cell "none" [ref=e548]
+                  - cell "219.6" [ref=e549]
+                  - cell "✗" [ref=e550]
+                  - 'cell "{ \"userId\": 1, \"id\": 1, \"title\": \"sunt aut facere repellat provident occaecati excepturi optio… 1 validation failure" [ref=e551]':
+                    - generic "Click to view full response" [ref=e552]: "{ \"userId\": 1, \"id\": 1, \"title\": \"sunt aut facere repellat provident occaecati excepturi optio…"
+                    - generic "Click to view details" [ref=e553]: 1 validation failure
+                - 'row "2-2 GET 4.4b Header Assert — contains xml (Fail) https://jsonplaceholder.typicode.com/posts/1 200 none 98.9 ✗ { \"userId\": 1, \"id\": 1, \"title\": \"sunt aut facere repellat provident occaecati excepturi optio… 1 validation failure" [ref=e554] [cursor=pointer]':
+                  - cell "2-2" [ref=e555]
+                  - cell "GET 4.4b Header Assert — contains xml (Fail)" [ref=e556]
+                  - cell "https://jsonplaceholder.typicode.com/posts/1" [ref=e557]
+                  - cell "200" [ref=e558]
+                  - cell "none" [ref=e559]
+                  - cell "98.9" [ref=e560]
+                  - cell "✗" [ref=e561]
+                  - 'cell "{ \"userId\": 1, \"id\": 1, \"title\": \"sunt aut facere repellat provident occaecati excepturi optio… 1 validation failure" [ref=e562]':
+                    - generic "Click to view full response" [ref=e563]: "{ \"userId\": 1, \"id\": 1, \"title\": \"sunt aut facere repellat provident occaecati excepturi optio…"
+                    - generic "Click to view details" [ref=e564]: 1 validation failure
+                - row "2-3 GET 4.3 Response Time SLA — Pass (10s) https://jsonplaceholder.typicode.com/posts/1 200 none 69.6 ✓" [ref=e565] [cursor=pointer]:
+                  - cell "2-3" [ref=e566]
+                  - cell "GET 4.3 Response Time SLA — Pass (10s)" [ref=e567]
+                  - cell "https://jsonplaceholder.typicode.com/posts/1" [ref=e568]
+                  - cell "200" [ref=e569]
+                  - cell "none" [ref=e570]
+                  - cell "69.6" [ref=e571]
+                  - cell "✓" [ref=e572]
+                  - cell [ref=e573]
+                - 'row "2-4 GET 4.5b Regex Match — Fail (digits only) https://jsonplaceholder.typicode.com/posts/1 200 none 102.1 ✗ { \"userId\": 1, \"id\": 1, \"title\": \"sunt aut facere repellat provident occaecati excepturi optio… 1 validation failure" [ref=e574] [cursor=pointer]':
+                  - cell "2-4" [ref=e575]
+                  - cell "GET 4.5b Regex Match — Fail (digits only)" [ref=e576]
+                  - cell "https://jsonplaceholder.typicode.com/posts/1" [ref=e577]
+                  - cell "200" [ref=e578]
+                  - cell "none" [ref=e579]
+                  - cell "102.1" [ref=e580]
+                  - cell "✗" [ref=e581]
+                  - 'cell "{ \"userId\": 1, \"id\": 1, \"title\": \"sunt aut facere repellat provident occaecati excepturi optio… 1 validation failure" [ref=e582]':
+                    - generic "Click to view full response" [ref=e583]: "{ \"userId\": 1, \"id\": 1, \"title\": \"sunt aut facere repellat provident occaecati excepturi optio…"
+                    - generic "Click to view details" [ref=e584]: 1 validation failure
+                - 'row "3-2 GET 4.7b Field Exists — $.nonexistent (Fail) https://jsonplaceholder.typicode.com/posts/1 200 none 110.2 ✗ { \"userId\": 1, \"id\": 1, \"title\": \"sunt aut facere repellat provident occaecati excepturi optio… 1 validation failure" [ref=e585] [cursor=pointer]':
+                  - cell "3-2" [ref=e586]
+                  - cell "GET 4.7b Field Exists — $.nonexistent (Fail)" [ref=e587]
+                  - cell "https://jsonplaceholder.typicode.com/posts/1" [ref=e588]
+                  - cell "200" [ref=e589]
+                  - cell "none" [ref=e590]
+                  - cell "110.2" [ref=e591]
+                  - cell "✗" [ref=e592]
+                  - 'cell "{ \"userId\": 1, \"id\": 1, \"title\": \"sunt aut facere repellat provident occaecati excepturi optio… 1 validation failure" [ref=e593]':
+                    - generic "Click to view full response" [ref=e594]: "{ \"userId\": 1, \"id\": 1, \"title\": \"sunt aut facere repellat provident occaecati excepturi optio…"
+                    - generic "Click to view details" [ref=e595]: 1 validation failure
+                - 'row "3-3 GET 4.9b Custom Predicate — Fail https://jsonplaceholder.typicode.com/posts/1 200 none 62.4 ✗ { \"userId\": 1, \"id\": 1, \"title\": \"sunt aut facere repellat provident occaecati excepturi optio… 1 validation failure" [ref=e596] [cursor=pointer]':
+                  - cell "3-3" [ref=e597]
+                  - cell "GET 4.9b Custom Predicate — Fail" [ref=e598]
+                  - cell "https://jsonplaceholder.typicode.com/posts/1" [ref=e599]
+                  - cell "200" [ref=e600]
+                  - cell "none" [ref=e601]
+                  - cell "62.4" [ref=e602]
+                  - cell "✗" [ref=e603]
+                  - 'cell "{ \"userId\": 1, \"id\": 1, \"title\": \"sunt aut facere repellat provident occaecati excepturi optio… 1 validation failure" [ref=e604]':
+                    - generic "Click to view full response" [ref=e605]: "{ \"userId\": 1, \"id\": 1, \"title\": \"sunt aut facere repellat provident occaecati excepturi optio…"
+                    - generic "Click to view details" [ref=e606]: 1 validation failure
+                - row "3-4 GET 4.8 Type Check — userId is number https://jsonplaceholder.typicode.com/posts/1 200 none 113.9 ✓" [ref=e607] [cursor=pointer]:
+                  - cell "3-4" [ref=e608]
+                  - cell "GET 4.8 Type Check — userId is number" [ref=e609]
+                  - cell "https://jsonplaceholder.typicode.com/posts/1" [ref=e610]
+                  - cell "200" [ref=e611]
+                  - cell "none" [ref=e612]
+                  - cell "113.9" [ref=e613]
+                  - cell "✓" [ref=e614]
+                  - cell [ref=e615]
+                - row "1-2 GET 4.1 Status Code — Exact 200 https://jsonplaceholder.typicode.com/posts/1 200 none 67.9 ✓" [ref=e616] [cursor=pointer]:
+                  - cell "1-2" [ref=e617]
+                  - cell "GET 4.1 Status Code — Exact 200" [ref=e618]
+                  - cell "https://jsonplaceholder.typicode.com/posts/1" [ref=e619]
+                  - cell "200" [ref=e620]
+                  - cell "none" [ref=e621]
+                  - cell "67.9" [ref=e622]
+                  - cell "✓" [ref=e623]
+                  - cell [ref=e624]
+                - row "1-4 GET 4.2 Status Code — Range 2xx https://jsonplaceholder.typicode.com/posts/1 200 none 77.5 ✓" [ref=e625] [cursor=pointer]:
+                  - cell "1-4" [ref=e626]
+                  - cell "GET 4.2 Status Code — Range 2xx" [ref=e627]
+                  - cell "https://jsonplaceholder.typicode.com/posts/1" [ref=e628]
+                  - cell "200" [ref=e629]
+                  - cell "none" [ref=e630]
+                  - cell "77.5" [ref=e631]
+                  - cell "✓" [ref=e632]
+                  - cell [ref=e633]
+                - row "4-2 GET 4.11b Negated Status — NOT 404 (Pass) https://jsonplaceholder.typicode.com/posts/1 200 none 58.2 ✓" [ref=e634] [cursor=pointer]:
+                  - cell "4-2" [ref=e635]
+                  - cell "GET 4.11b Negated Status — NOT 404 (Pass)" [ref=e636]
+                  - cell "https://jsonplaceholder.typicode.com/posts/1" [ref=e637]
+                  - cell "200" [ref=e638]
+                  - cell "none" [ref=e639]
+                  - cell "58.2" [ref=e640]
+                  - cell "✓" [ref=e641]
+                  - cell [ref=e642]
+                - 'row "4-3 GET 4.10 Multiple Assertions — Mixed Pass/Fail https://jsonplaceholder.typicode.com/posts/1 200 none 53.9 ✗ { \"userId\": 1, \"id\": 1, \"title\": \"sunt aut facere repellat provident occaecati excepturi optio… 3 validation failures" [ref=e643] [cursor=pointer]':
+                  - cell "4-3" [ref=e644]
+                  - cell "GET 4.10 Multiple Assertions — Mixed Pass/Fail" [ref=e645]
+                  - cell "https://jsonplaceholder.typicode.com/posts/1" [ref=e646]
+                  - cell "200" [ref=e647]
+                  - cell "none" [ref=e648]
+                  - cell "53.9" [ref=e649]
+                  - cell "✗" [ref=e650]
+                  - 'cell "{ \"userId\": 1, \"id\": 1, \"title\": \"sunt aut facere repellat provident occaecati excepturi optio… 3 validation failures" [ref=e651]':
+                    - generic "Click to view full response" [ref=e652]: "{ \"userId\": 1, \"id\": 1, \"title\": \"sunt aut facere repellat provident occaecati excepturi optio…"
+                    - generic "Click to view details" [ref=e653]: 3 validation failures
+                - row "2-5 GET 4.5 Regex Match — title matches text https://jsonplaceholder.typicode.com/posts/1 200 none 75.3 ✓" [ref=e654] [cursor=pointer]:
+                  - cell "2-5" [ref=e655]
+                  - cell "GET 4.5 Regex Match — title matches text" [ref=e656]
+                  - cell "https://jsonplaceholder.typicode.com/posts/1" [ref=e657]
+                  - cell "200" [ref=e658]
+                  - cell "none" [ref=e659]
+                  - cell "75.3" [ref=e660]
+                  - cell "✓" [ref=e661]
+                  - cell [ref=e662]
+                - 'row "2-6 GET 4.3b Response Time SLA — Fail (1ms) https://jsonplaceholder.typicode.com/posts/1 200 none 119.6 ✗ { \"userId\": 1, \"id\": 1, \"title\": \"sunt aut facere repellat provident occaecati excepturi optio… 1 validation failure" [ref=e663] [cursor=pointer]':
+                  - cell "2-6" [ref=e664]
+                  - cell "GET 4.3b Response Time SLA — Fail (1ms)" [ref=e665]
+                  - cell "https://jsonplaceholder.typicode.com/posts/1" [ref=e666]
+                  - cell "200" [ref=e667]
+                  - cell "none" [ref=e668]
+                  - cell "119.6" [ref=e669]
+                  - cell "✗" [ref=e670]
+                  - 'cell "{ \"userId\": 1, \"id\": 1, \"title\": \"sunt aut facere repellat provident occaecati excepturi optio… 1 validation failure" [ref=e671]':
+                    - generic "Click to view full response" [ref=e672]: "{ \"userId\": 1, \"id\": 1, \"title\": \"sunt aut facere repellat provident occaecati excepturi optio…"
+                    - generic "Click to view details" [ref=e673]: 1 validation failure
+                - row "2-7 GET 4.4 Header Assert — contains json https://jsonplaceholder.typicode.com/posts/1 200 none 62.8 ✓" [ref=e674] [cursor=pointer]:
+                  - cell "2-7" [ref=e675]
+                  - cell "GET 4.4 Header Assert — contains json" [ref=e676]
+                  - cell "https://jsonplaceholder.typicode.com/posts/1" [ref=e677]
+                  - cell "200" [ref=e678]
+                  - cell "none" [ref=e679]
+                  - cell "62.8" [ref=e680]
+                  - cell "✓" [ref=e681]
+                  - cell [ref=e682]
+                - 'row "1-6 GET 4.2b Status Code — 4xx Fails on 200 https://jsonplaceholder.typicode.com/posts/1 200 none 85.1 ✗ { \"userId\": 1, \"id\": 1, \"title\": \"sunt aut facere repellat provident occaecati excepturi optio… 1 validation failure" [ref=e683] [cursor=pointer]':
+                  - cell "1-6" [ref=e684]
+                  - cell "GET 4.2b Status Code — 4xx Fails on 200" [ref=e685]
+                  - cell "https://jsonplaceholder.typicode.com/posts/1" [ref=e686]
+                  - cell "200" [ref=e687]
+                  - cell "none" [ref=e688]
+                  - cell "85.1" [ref=e689]
+                  - cell "✗" [ref=e690]
+                  - 'cell "{ \"userId\": 1, \"id\": 1, \"title\": \"sunt aut facere repellat provident occaecati excepturi optio… 1 validation failure" [ref=e691]':
+                    - generic "Click to view full response" [ref=e692]: "{ \"userId\": 1, \"id\": 1, \"title\": \"sunt aut facere repellat provident occaecati excepturi optio…"
+                    - generic "Click to view details" [ref=e693]: 1 validation failure
+                - row "3-5 GET 4.7 Field Exists — $.title exists https://jsonplaceholder.typicode.com/posts/1 200 none 87.4 ✓" [ref=e694] [cursor=pointer]:
+                  - cell "3-5" [ref=e695]
+                  - cell "GET 4.7 Field Exists — $.title exists" [ref=e696]
+                  - cell "https://jsonplaceholder.typicode.com/posts/1" [ref=e697]
+                  - cell "200" [ref=e698]
+                  - cell "none" [ref=e699]
+                  - cell "87.4" [ref=e700]
+                  - cell "✓" [ref=e701]
+                  - cell [ref=e702]
+                - row "3-6 GET 4.9 Custom Predicate — Pass https://jsonplaceholder.typicode.com/posts/1 200 none 90.8 ✓" [ref=e703] [cursor=pointer]:
+                  - cell "3-6" [ref=e704]
+                  - cell "GET 4.9 Custom Predicate — Pass" [ref=e705]
+                  - cell "https://jsonplaceholder.typicode.com/posts/1" [ref=e706]
+                  - cell "200" [ref=e707]
+                  - cell "none" [ref=e708]
+                  - cell "90.8" [ref=e709]
+                  - cell "✓" [ref=e710]
+                  - cell [ref=e711]
+                - 'row "3-7 GET 4.8b Type Check — userId is string (Fail) https://jsonplaceholder.typicode.com/posts/1 200 none 63.8 ✗ { \"userId\": 1, \"id\": 1, \"title\": \"sunt aut facere repellat provident occaecati excepturi optio… 1 validation failure" [ref=e712] [cursor=pointer]':
+                  - cell "3-7" [ref=e713]
+                  - cell "GET 4.8b Type Check — userId is string (Fail)" [ref=e714]
+                  - cell "https://jsonplaceholder.typicode.com/posts/1" [ref=e715]
+                  - cell "200" [ref=e716]
+                  - cell "none" [ref=e717]
+                  - cell "63.8" [ref=e718]
+                  - cell "✗" [ref=e719]
+                  - 'cell "{ \"userId\": 1, \"id\": 1, \"title\": \"sunt aut facere repellat provident occaecati excepturi optio… 1 validation failure" [ref=e720]':
+                    - generic "Click to view full response" [ref=e721]: "{ \"userId\": 1, \"id\": 1, \"title\": \"sunt aut facere repellat provident occaecati excepturi optio…"
+                    - generic "Click to view details" [ref=e722]: 1 validation failure
+                - 'row "4-5 GET 4.11 Negated Status — NOT 200 (Fail) https://jsonplaceholder.typicode.com/posts/1 200 none 99.1 ✗ { \"userId\": 1, \"id\": 1, \"title\": \"sunt aut facere repellat provident occaecati excepturi optio… 1 validation failure" [ref=e723] [cursor=pointer]':
+                  - cell "4-5" [ref=e724]
+                  - cell "GET 4.11 Negated Status — NOT 200 (Fail)" [ref=e725]
+                  - cell "https://jsonplaceholder.typicode.com/posts/1" [ref=e726]
+                  - cell "200" [ref=e727]
+                  - cell "none" [ref=e728]
+                  - cell "99.1" [ref=e729]
+                  - cell "✗" [ref=e730]
+                  - 'cell "{ \"userId\": 1, \"id\": 1, \"title\": \"sunt aut facere repellat provident occaecati excepturi optio… 1 validation failure" [ref=e731]':
+                    - generic "Click to view full response" [ref=e732]: "{ \"userId\": 1, \"id\": 1, \"title\": \"sunt aut facere repellat provident occaecati excepturi optio…"
+                    - generic "Click to view details" [ref=e733]: 1 validation failure
+                - 'row "▼ 3B: Streaming Percentiles Tests 7 7 0 0 97 54.1 240.1" [ref=e734] [cursor=pointer]':
+                  - cell "▼" [ref=e735]
+                  - 'cell "3B: Streaming Percentiles Tests" [ref=e736]'
+                  - cell "7" [ref=e737]
+                  - cell "7" [ref=e738]
+                  - cell "0" [ref=e739]
+                  - cell "0" [ref=e740]
+                  - cell "97" [ref=e741]
+                  - cell "54.1" [ref=e742]
+                  - cell "240.1" [ref=e743]
+                - row "ID Test Name URL Status Validation Time (ms) Passed Error / Details" [ref=e744]:
+                  - columnheader "ID" [ref=e745]
+                  - columnheader "Test Name" [ref=e746]
+                  - columnheader "URL" [ref=e747]
+                  - columnheader "Status" [ref=e748]
+                  - columnheader "Validation" [ref=e749]
+                  - columnheader "Time (ms)" [ref=e750]
+                  - columnheader "Passed" [ref=e751]
+                  - columnheader "Error / Details" [ref=e752]
+                - 'row "6-1 GET S13: Web Browser Fallback P99.9 https://jsonplaceholder.typicode.com/posts/1 200 none 240.1 ✓" [ref=e753] [cursor=pointer]':
+                  - cell "6-1" [ref=e754]
+                  - 'cell "GET S13: Web Browser Fallback P99.9" [ref=e755]'
+                  - cell "https://jsonplaceholder.typicode.com/posts/1" [ref=e756]
+                  - cell "200" [ref=e757]
+                  - cell "none" [ref=e758]
+                  - cell "240.1" [ref=e759]
+                  - cell "✓" [ref=e760]
+                  - cell [ref=e761]
+                - 'row "5-2 GET S3: Response Time Histogram Check https://jsonplaceholder.typicode.com/posts 200 none 60.4 ✓" [ref=e762] [cursor=pointer]':
+                  - cell "5-2" [ref=e763]
+                  - 'cell "GET S3: Response Time Histogram Check" [ref=e764]'
+                  - cell "https://jsonplaceholder.typicode.com/posts" [ref=e765]
+                  - cell "200" [ref=e766]
+                  - cell "none" [ref=e767]
+                  - cell "60.4" [ref=e768]
+                  - cell "✓" [ref=e769]
+                  - cell [ref=e770]
+                - 'row "5-3 GET S7: Accuracy Compare (Rust vs JS) https://jsonplaceholder.typicode.com/posts/1 200 none 108.2 ✓" [ref=e771] [cursor=pointer]':
+                  - cell "5-3" [ref=e772]
+                  - 'cell "GET S7: Accuracy Compare (Rust vs JS)" [ref=e773]'
+                  - cell "https://jsonplaceholder.typicode.com/posts/1" [ref=e774]
+                  - cell "200" [ref=e775]
+                  - cell "none" [ref=e776]
+                  - cell "108.2" [ref=e777]
+                  - cell "✓" [ref=e778]
+                  - cell [ref=e779]
+                - 'row "5-4 GET S1: P99.9 Pool Check https://jsonplaceholder.typicode.com/posts/1 200 none 58.6 ✓" [ref=e780] [cursor=pointer]':
+                  - cell "5-4" [ref=e781]
+                  - 'cell "GET S1: P99.9 Pool Check" [ref=e782]'
+                  - cell "https://jsonplaceholder.typicode.com/posts/1" [ref=e783]
+                  - cell "200" [ref=e784]
+                  - cell "none" [ref=e785]
+                  - cell "58.6" [ref=e786]
+                  - cell "✓" [ref=e787]
+                  - cell [ref=e788]
+                - 'row "5-7 GET S2: P99.9 Load Profile HDR https://jsonplaceholder.typicode.com/posts/1 200 none 100.5 ✓" [ref=e789] [cursor=pointer]':
+                  - cell "5-7" [ref=e790]
+                  - 'cell "GET S2: P99.9 Load Profile HDR" [ref=e791]'
+                  - cell "https://jsonplaceholder.typicode.com/posts/1" [ref=e792]
+                  - cell "200" [ref=e793]
+                  - cell "none" [ref=e794]
+                  - cell "100.5" [ref=e795]
+                  - cell "✓" [ref=e796]
+                  - cell [ref=e797]
+                - 'row "6-4 GET S10: Final Results Integrity https://jsonplaceholder.typicode.com/posts/1 200 selective 59.4 ✓" [ref=e798] [cursor=pointer]':
+                  - cell "6-4" [ref=e799]
+                  - 'cell "GET S10: Final Results Integrity" [ref=e800]'
+                  - cell "https://jsonplaceholder.typicode.com/posts/1" [ref=e801]
+                  - cell "200" [ref=e802]
+                  - cell "selective" [ref=e803]
+                  - cell "59.4" [ref=e804]
+                  - cell "✓" [ref=e805]
+                  - cell [ref=e806]
+                - 'row "6-5 GET S8: High Volume TPS https://jsonplaceholder.typicode.com/posts/1 200 none 54.1 ✓" [ref=e807] [cursor=pointer]':
+                  - cell "6-5" [ref=e808]
+                  - 'cell "GET S8: High Volume TPS" [ref=e809]'
+                  - cell "https://jsonplaceholder.typicode.com/posts/1" [ref=e810]
+                  - cell "200" [ref=e811]
+                  - cell "none" [ref=e812]
+                  - cell "54.1" [ref=e813]
+                  - cell "✓" [ref=e814]
+                  - cell [ref=e815]
+                - 'row "▼ 3C: Constant Arrival Rate Tests 3 3 0 0 479 56.3 1323.2" [ref=e816] [cursor=pointer]':
+                  - cell "▼" [ref=e817]
+                  - 'cell "3C: Constant Arrival Rate Tests" [ref=e818]'
+                  - cell "3" [ref=e819]
+                  - cell "3" [ref=e820]
+                  - cell "0" [ref=e821]
+                  - cell "0" [ref=e822]
+                  - cell "479" [ref=e823]
+                  - cell "56.3" [ref=e824]
+                  - cell "1323.2" [ref=e825]
+                - row "ID Test Name URL Status Validation Time (ms) Passed Error / Details" [ref=e826]:
+                  - columnheader "ID" [ref=e827]
+                  - columnheader "Test Name" [ref=e828]
+                  - columnheader "URL" [ref=e829]
+                  - columnheader "Status" [ref=e830]
+                  - columnheader "Validation" [ref=e831]
+                  - columnheader "Time (ms)" [ref=e832]
+                  - columnheader "Passed" [ref=e833]
+                  - columnheader "Error / Details" [ref=e834]
+                - 'row "6-2 GET S18: Backpressure Test (1s delay) https://httpbin.org/delay/1 200 none 1323.2 ✓" [ref=e835] [cursor=pointer]':
+                  - cell "6-2" [ref=e836]
+                  - 'cell "GET S18: Backpressure Test (1s delay)" [ref=e837]'
+                  - cell "https://httpbin.org/delay/1" [ref=e838]
+                  - cell "200" [ref=e839]
+                  - cell "none" [ref=e840]
+                  - cell "1323.2" [ref=e841]
+                  - cell "✓" [ref=e842]
+                  - cell [ref=e843]
+                - 'row "6-3 GET S17: Ramp Execution Test https://jsonplaceholder.typicode.com/posts/1 200 none 56.3 ✓" [ref=e844] [cursor=pointer]':
+                  - cell "6-3" [ref=e845]
+                  - 'cell "GET S17: Ramp Execution Test" [ref=e846]'
+                  - cell "https://jsonplaceholder.typicode.com/posts/1" [ref=e847]
+                  - cell "200" [ref=e848]
+                  - cell "none" [ref=e849]
+                  - cell "56.3" [ref=e850]
+                  - cell "✓" [ref=e851]
+                  - cell [ref=e852]
+                - 'row "6-6 GET S1-9: Basic Arrival Rate Test https://jsonplaceholder.typicode.com/posts/1 200 none 56.4 ✓" [ref=e853] [cursor=pointer]':
+                  - cell "6-6" [ref=e854]
+                  - 'cell "GET S1-9: Basic Arrival Rate Test" [ref=e855]'
+                  - cell "https://jsonplaceholder.typicode.com/posts/1" [ref=e856]
+                  - cell "200" [ref=e857]
+                  - cell "none" [ref=e858]
+                  - cell "56.4" [ref=e859]
+                  - cell "✓" [ref=e860]
+                  - cell [ref=e861]
+                - row "▼ Edge Cases & Error Handling 4 3 0 1 2602 62.9 10003.9" [ref=e862] [cursor=pointer]:
+                  - cell "▼" [ref=e863]
+                  - cell "Edge Cases & Error Handling" [ref=e864]
+                  - cell "4" [ref=e865]
+                  - cell "3" [ref=e866]
+                  - cell "0" [ref=e867]
+                  - cell "1" [ref=e868]
+                  - cell "2602" [ref=e869]
+                  - cell "62.9" [ref=e870]
+                  - cell "10003.9" [ref=e871]
+                - row "ID Test Name URL Status Validation Time (ms) Passed Error / Details" [ref=e872]:
+                  - columnheader "ID" [ref=e873]
+                  - columnheader "Test Name" [ref=e874]
+                  - columnheader "URL" [ref=e875]
+                  - columnheader "Status" [ref=e876]
+                  - columnheader "Validation" [ref=e877]
+                  - columnheader "Time (ms)" [ref=e878]
+                  - columnheader "Passed" [ref=e879]
+                  - columnheader "Error / Details" [ref=e880]
+                - row "6-7 GET 7.1 Empty Response Body (204) https://httpbin.org/status/204 204 none 62.9 ✓" [ref=e881] [cursor=pointer]:
+                  - cell "6-7" [ref=e882]
+                  - cell "GET 7.1 Empty Response Body (204)" [ref=e883]
+                  - cell "https://httpbin.org/status/204" [ref=e884]
+                  - cell "204" [ref=e885]
+                  - cell "none" [ref=e886]
+                  - cell "62.9" [ref=e887]
+                  - cell "✓" [ref=e888]
+                  - cell [ref=e889]
+                - row "7-1 GET 7.3 Network Error (Unreachable Host) http://192.0.2.1:9999/test ERR none 10003.9 ✗ Request timeout (10s)" [ref=e890] [cursor=pointer]:
+                  - cell "7-1" [ref=e891]
+                  - cell "GET 7.3 Network Error (Unreachable Host)" [ref=e892]
+                  - cell "http://192.0.2.1:9999/test" [ref=e893]
+                  - cell "ERR" [ref=e894]
+                  - cell "none" [ref=e895]
+                  - cell "10003.9" [ref=e896]
+                  - cell "✗" [ref=e897]
+                  - cell "Request timeout (10s)" [ref=e898]:
+                    - generic "Click to view full response" [ref=e899]: Request timeout (10s)
+                - row "7-2 POST 7.4 Special Characters POST https://jsonplaceholder.typicode.com/posts 201 selective 209.3 ✓" [ref=e900] [cursor=pointer]:
+                  - cell "7-2" [ref=e901]
+                  - cell "POST 7.4 Special Characters POST" [ref=e902]
+                  - cell "https://jsonplaceholder.typicode.com/posts" [ref=e903]
+                  - cell "201" [ref=e904]
+                  - cell "selective" [ref=e905]
+                  - cell "209.3" [ref=e906]
+                  - cell "✓" [ref=e907]
+                  - cell [ref=e908]
+                - row "7-3 GET 7.2 Large Response Body (500 items) https://jsonplaceholder.typicode.com/comments 200 selective 130.4 ✓" [ref=e909] [cursor=pointer]:
+                  - cell "7-3" [ref=e910]
+                  - cell "GET 7.2 Large Response Body (500 items)" [ref=e911]
+                  - cell "https://jsonplaceholder.typicode.com/comments" [ref=e912]
+                  - cell "200" [ref=e913]
+                  - cell "selective" [ref=e914]
+                  - cell "130.4" [ref=e915]
+                  - cell "✓" [ref=e916]
+                  - cell [ref=e917]
+  - status
+  - generic [ref=e918]: "0"

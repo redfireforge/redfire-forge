@@ -711,6 +711,9 @@
 
 /* ── Split pane ─────────────────────────────────── */
 .req-split-pane { display: flex; flex: 1; overflow: hidden; }
+.req-split-pane:has(.body-type-dropdown) { overflow: visible; }
+.req-main:has(.body-type-dropdown) { overflow: visible; }
+.req-editor:has(.body-type-dropdown) { overflow: visible; }
 
 /* Left pane: request editor */
 .req-pane-left {
@@ -752,6 +755,8 @@
 
 /* Tab content */
 .req-tab-content { flex: 1; overflow-y: auto; padding: 10px 12px; }
+.req-pane-left:has(.body-type-dropdown) { overflow: visible; }
+.req-tab-content:has(.body-type-dropdown) { overflow: visible; }
 
 /* cURL panels */
 .req-curl-panel { padding: 12px; flex: 1; overflow-y: auto; }

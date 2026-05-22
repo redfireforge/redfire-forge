@@ -32,7 +32,7 @@ export default function RunnerPage({
   });
 
   const {
-    config, execution, selectedTests, activeTestCount, allocation, isLoadProfile, isGalleryEnv,
+    config, execution, selectedTests, activeTestCount, allocation, isLoadProfile, isConstantArrival, isGalleryEnv,
     weightsExpanded, setWeightsExpanded, runnerTagFilter, setRunnerTagFilter,
     savedProgress, handleClearProgress, handleRun, updateProfile, updateArrivalRate,
     showProgress, displaySummary, displayTimeSeries, displayCompleted, displayTotal,
@@ -42,7 +42,8 @@ export default function RunnerPage({
   const {
     concurrency, setConcurrency, iterations, setIterations,
     selectedScenarios, setSelectedScenarios, weights, setWeights,
-    skipValidation, setSkipValidation, validationOverride, setValidationOverride,
+    skipValidation, setSkipValidation, skipAssertions, setSkipAssertions,
+    validationOverride, setValidationOverride,
     forceUnordered, setForceUnordered, hostMode, setHostMode,
     customBaseUrl, setCustomBaseUrl, executionMode, setExecutionMode,
     loadProfile, arrivalRate, thinkTime, setThinkTime,
@@ -119,6 +120,8 @@ export default function RunnerPage({
             onWeightsChange={setWeights}
             skipValidation={skipValidation}
             onSkipValidationChange={setSkipValidation}
+            skipAssertions={skipAssertions}
+            onSkipAssertionsChange={setSkipAssertions}
             validationOverride={validationOverride}
             onValidationOverrideChange={setValidationOverride}
             forceUnordered={forceUnordered}
@@ -174,7 +177,7 @@ export default function RunnerPage({
                 )}
               </fieldset>
 
-              {!isLoadProfile && (
+              {!isLoadProfile && !isConstantArrival && (
                 <ExecutionPlanPreview allocation={allocation} concurrency={concurrency} />
               )}
 

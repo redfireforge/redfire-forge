@@ -343,6 +343,28 @@ export default function DataMapper<TOutput = unknown>({
     sourceSampleOverrides: state.sourceSampleOverrides,
   });
 
+  // For validation adapter: auto-fetch source data on open when source is empty
+  // but mappings already exist. This handles the case where expectedFields were
+  // saved without persisting sampleJson — source panel would show "No sample data"
+  // and target values would show "= undefined".
+  const sourceAutoFetchRef = useRef(false);
+  useEffect(() => {
+    if (sourceAutoFetchRef.current) return;
+    if (adapter.contextId !== 'validation') return;
+    if (!adapter.fetchSampleData) return;
+    const srcData = state.sourceSampleOverrides[state.activeSourceId] ?? adapter.sources[0]?.sampleData;
+    if (srcData != null) return;
+    if (state.mappings.length === 0) return;
+    sourceAutoFetchRef.current = true;
+    void (async () => {
+      try {
+        const data = await adapter.fetchSampleData!();
+        if (data != null) setSourceSample(state.activeSourceId, data);
+      } catch { /* best-effort */ }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const currentMappingIds = useMemo(
     () => new Set(state.mappings.map((m) => m.id)),
     [state.mappings],
@@ -495,6 +517,7 @@ export default function DataMapper<TOutput = unknown>({
     flushRef,
     showRulesView: rulesModalOpen,
     handleFetchTargetSchema,
+    setSourceSample,
     setToast,
     unorderedArrays: unorderedDefault,
   });
