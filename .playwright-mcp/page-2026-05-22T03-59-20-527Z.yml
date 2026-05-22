@@ -1,0 +1,64 @@
+- generic [ref=e1]:
+  - generic [ref=e3]:
+    - banner [ref=e7]:
+      - heading "🔥 RedfireForgev0.5.9-alpha.1" [level=1] [ref=e8]:
+        - text: 🔥 RedfireForge
+        - generic [ref=e9]: v0.5.9-alpha.1
+      - generic [ref=e10]:
+        - combobox [ref=e12] [cursor=pointer]:
+          - option "Environment…"
+          - option "Test-3A" [selected]
+        - combobox [ref=e14] [cursor=pointer]:
+          - option "Service…"
+          - option "jsonplaceholder" [selected]
+        - button "🌙" [ref=e16] [cursor=pointer]
+    - generic [ref=e17]:
+      - navigation [ref=e18]:
+        - button "🔌" [ref=e731] [cursor=pointer]:
+          - generic [ref=e20]: 🔌
+        - button "🔧" [ref=e21] [cursor=pointer]:
+          - generic [ref=e22]: 🔧
+        - button "🏋" [ref=e23] [cursor=pointer]:
+          - generic [ref=e24]: 🏋
+        - button "🏪" [ref=e25] [cursor=pointer]:
+          - generic [ref=e26]: 🏪
+        - button "⚙️" [ref=e27] [cursor=pointer]:
+          - generic [ref=e28]: ⚙️
+      - complementary [ref=e29]:
+        - generic [ref=e30]:
+          - generic [ref=e704]:
+            - button "Requests" [ref=e705] [cursor=pointer]
+            - button "Catalog" [ref=e706] [cursor=pointer]
+          - generic [ref=e708]:
+            - generic [ref=e709]:
+              - generic [ref=e710]: COLLECTIONS
+              - generic [ref=e711]:
+                - button "↥" [ref=e712] [cursor=pointer]
+                - button "↧" [ref=e713] [cursor=pointer]
+                - generic [ref=e714]:
+                  - button "+" [active] [ref=e715] [cursor=pointer]
+                  - generic [ref=e768]:
+                    - button "🗂️ Group" [ref=e769] [cursor=pointer]
+                    - button "📡 URL Collection" [ref=e770] [cursor=pointer]
+                    - button "🌐 ENV Collection" [ref=e771] [cursor=pointer]
+            - textbox "Search collections and requests" [ref=e717]:
+              - /placeholder: Search collections...
+            - generic [ref=e759] [cursor=pointer]:
+              - generic [ref=e760]: ▾
+              - generic [ref=e761]: 📡
+              - generic "Test Collection" [ref=e762]
+              - generic [ref=e763]: URL
+              - generic [ref=e764]: "0"
+              - button "✎" [ref=e765]
+        - button "⚙ Settings" [ref=e45] [cursor=pointer]
+      - button "◀" [ref=e47] [cursor=pointer]
+      - main [ref=e48]:
+        - generic [ref=e721]:
+          - button "Requests" [ref=e722] [cursor=pointer]
+          - button "Catalog" [ref=e723] [cursor=pointer]
+        - generic [ref=e727]:
+          - generic [ref=e728]: 🔍
+          - heading "No Request Selected" [level=3] [ref=e729]
+          - paragraph [ref=e730]: Select a request from the sidebar, or right-click to create one.
+  - status
+  - generic [ref=e682]: "0.75"

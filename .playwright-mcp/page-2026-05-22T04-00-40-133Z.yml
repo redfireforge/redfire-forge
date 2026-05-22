@@ -1,0 +1,54 @@
+- generic [ref=e1]:
+  - generic [ref=e3]:
+    - banner [ref=e7]:
+      - heading "🔥 RedfireForgev0.5.9-alpha.1" [level=1] [ref=e8]:
+        - text: 🔥 RedfireForge
+        - generic [ref=e9]: v0.5.9-alpha.1
+      - generic [ref=e10]:
+        - combobox [ref=e12] [cursor=pointer]:
+          - option "Environment…"
+          - option "Test-3A" [selected]
+        - combobox [ref=e14] [cursor=pointer]:
+          - option "Service…"
+          - option "jsonplaceholder" [selected]
+        - button "🌙" [ref=e16] [cursor=pointer]
+    - generic [ref=e17]:
+      - navigation [ref=e18]:
+        - button "🔌" [ref=e731] [cursor=pointer]:
+          - generic [ref=e20]: 🔌
+        - button "🔧 Workflow" [active] [ref=e872] [cursor=pointer]:
+          - generic [ref=e22]: 🔧
+          - generic: Workflow
+        - button "🏋" [ref=e23] [cursor=pointer]:
+          - generic [ref=e24]: 🏋
+        - button "🏪" [ref=e25] [cursor=pointer]:
+          - generic [ref=e26]: 🏪
+        - button "⚙️" [ref=e27] [cursor=pointer]:
+          - generic [ref=e28]: ⚙️
+      - complementary [ref=e29]:
+        - generic [ref=e873]:
+          - generic [ref=e874]:
+            - generic [ref=e875]: Workflows
+            - button "+ New" [ref=e877] [cursor=pointer]
+          - generic [ref=e879]:
+            - paragraph [ref=e880]: No workflows yet.
+            - paragraph [ref=e881]:
+              - text: Click
+              - strong [ref=e882]: + New
+              - text: to create one or browse templates.
+        - button "⚙ Settings" [ref=e45] [cursor=pointer]
+      - button "◀" [ref=e47] [cursor=pointer]
+      - main [ref=e48]:
+        - generic [ref=e883]:
+          - button "Designer" [ref=e884] [cursor=pointer]
+          - button "Executions" [ref=e885] [cursor=pointer]
+          - button "Webhooks" [ref=e886] [cursor=pointer]
+          - generic "Server not responding Click to retry" [ref=e887] [cursor=pointer]:
+            - generic [ref=e889]: ✗ Server Offline
+        - generic [ref=e892]:
+          - generic [ref=e893]: ⚡
+          - heading "Workflow Designer" [level=2] [ref=e894]
+          - paragraph [ref=e895]: Design multi-step API workflows with variable chaining, conditions, and delays.
+          - paragraph [ref=e896]: Select a workflow from the sidebar, or create a new one.
+  - status
+  - generic [ref=e682]: "0.75"

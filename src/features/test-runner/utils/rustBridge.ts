@@ -328,6 +328,33 @@ function mapCircuitBreaker(config: TestConfig): RustCircuitBreakerConfig {
 }
 
 /**
+ * Normalize assertion objects to match the Rust Assertion enum field names.
+ * Handles legacy imports that may use UI form field names instead of type field names.
+ */
+function normalizeAssertionForRust(a: Record<string, unknown>): Record<string, unknown> {
+  const raw = a as Record<string, unknown>;
+  if (raw.type === 'header') {
+    return {
+      ...raw,
+      name: raw.name || raw.headerName || '',
+      operator: raw.operator || raw.headerOp || 'equals',
+      value: raw.value ?? raw.headerValue ?? undefined,
+    };
+  }
+  if (raw.type === 'numeric' || raw.type === 'arrayLength') {
+    return {
+      ...raw,
+      operator: raw.operator || raw.comparison || '>',
+    };
+  }
+  if (raw.type === 'existence') {
+    const expectExists = raw.expectExists ?? (raw.existsMode === 'exists' ? true : raw.existsMode === 'does_not_exist' ? false : true);
+    return { ...raw, expectExists };
+  }
+  return raw;
+}
+
+/**
  * Prepare a single Scenario into a RustScenario with fully resolved headers, URL, and body.
  * Reuses the same logic as the JS executor (prepareScenario) but outputs a flat struct.
  */
@@ -337,7 +364,9 @@ export function prepareRustScenario(scenario: Scenario): RustScenario {
   const url = buildUrl(scenario);
 
   const allAssertions = scenario.validation.assertions ?? [];
-  const rustAssertions = allAssertions.filter(a => a.type !== 'custom');
+  const rustAssertions = allAssertions
+    .filter(a => a.type !== 'custom')
+    .map(a => normalizeAssertionForRust(a as unknown as Record<string, unknown>));
 
   return {
     id: scenario.id,
@@ -355,8 +384,8 @@ export function prepareRustScenario(scenario: Scenario): RustScenario {
       mode: scenario.validation.mode,
       expectedJson: scenario.validation.expectedJson,
       expectedFields: scenario.validation.expectedFields?.map(f => ({
-        jsonPath: f.jsonPath,
-        expectedValue: f.expectedValue,
+        jsonPath: f.jsonPath || (f as unknown as Record<string, string>).path || '',
+        expectedValue: f.expectedValue || (f as unknown as Record<string, string>).value || '',
         operator: f.operator,
         operatorValue: f.operatorValue,
         negate: f.negate,
@@ -364,7 +393,7 @@ export function prepareRustScenario(scenario: Scenario): RustScenario {
       unorderedArrays: scenario.validation.unorderedArrays,
     },
     assertions: rustAssertions.length > 0
-      ? rustAssertions as unknown as Record<string, unknown>[]
+      ? rustAssertions
       : undefined,
   };
 }

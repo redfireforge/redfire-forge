@@ -197,12 +197,15 @@ describe('correlation-handler — HTTP routes', () => {
   });
 
   it('POST /webhooks/callback/* — unmatched records correlation_id and id hints', async () => {
-    await request.post('/webhooks/callback/unmatched-corr-id').send({ correlation_id: 'hint-corr-id' });
-    await request.post('/webhooks/callback/unmatched-plain-id').send({ id: 'hint-plain-id' });
+    // Use sequential requests to avoid connection issues
+    const res1 = await request.post('/webhooks/callback/unmatched-corr-id').send({ correlation_id: 'hint-corr-id' });
+    expect(res1.status).toBe(404);
+    const res2 = await request.post('/webhooks/callback/unmatched-plain-id').send({ id: 'hint-plain-id' });
+    expect(res2.status).toBe(404);
     const unmatched = getUnmatchedWebhooks();
     expect(unmatched.some(e => e.correlationId === 'hint-corr-id')).toBe(true);
     expect(unmatched.some(e => e.correlationId === 'hint-plain-id')).toBe(true);
-  });
+  }, 10000);
 
   it('GET /api/correlations/unmatched — returns unmatched log', async () => {
     await request.post('/webhooks/callback/nowhere').send({ correlationId: 'orphan' });

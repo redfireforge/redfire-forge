@@ -38,7 +38,7 @@ describe('useRunnerConfig', () => {
     expect(result.current.weights).toEqual({});
     expect(result.current.skipValidation).toBe(false);
     expect(result.current.validationOverride).toBe('default');
-    expect(result.current.forceUnordered).toBe(false);
+    expect(result.current.forceUnordered).toBe('default');
     expect(result.current.hostMode).toBe('settings');
     expect(result.current.customBaseUrl).toBe('');
     expect(result.current.executionMode).toBe('batch');
@@ -289,7 +289,7 @@ describe('useRunnerConfig', () => {
     expect(result.current.weights).toEqual({});
     expect(result.current.skipValidation).toBe(false);
     expect(result.current.validationOverride).toBe('default');
-    expect(result.current.forceUnordered).toBe(false);
+    expect(result.current.forceUnordered).toBe('default');
     expect(result.current.hostMode).toBe('settings');
     expect(result.current.customBaseUrl).toBe('');
     expect(result.current.executionMode).toBe('batch');

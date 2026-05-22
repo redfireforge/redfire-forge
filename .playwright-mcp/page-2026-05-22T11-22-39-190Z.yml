@@ -1,0 +1,129 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - banner [ref=e7]:
+      - heading "🔥 RedfireForgev0.5.9-alpha.1" [level=1] [ref=e8]:
+        - text: 🔥 RedfireForge
+        - generic [ref=e9]: v0.5.9-alpha.1
+      - generic [ref=e10]:
+        - combobox [ref=e12] [cursor=pointer]:
+          - option "Environment…"
+          - option "Test-3A" [selected]
+        - combobox [ref=e14] [cursor=pointer]:
+          - option "Service…"
+          - option "jsonplaceholder" [selected]
+        - button "🌙" [ref=e16] [cursor=pointer]
+    - generic [ref=e17]:
+      - navigation [ref=e18]:
+        - button "🔌" [ref=e19] [cursor=pointer]:
+          - generic [ref=e20]: 🔌
+        - button "🔧" [ref=e21] [cursor=pointer]:
+          - generic [ref=e22]: 🔧
+        - button "🏋" [ref=e184] [cursor=pointer]:
+          - generic [ref=e24]: 🏋
+        - button "🏪" [ref=e25] [cursor=pointer]:
+          - generic [ref=e26]: 🏪
+        - button "⚙️" [ref=e27] [cursor=pointer]:
+          - generic [ref=e28]: ⚙️
+      - complementary [ref=e29]:
+        - generic [ref=e128]:
+          - generic [ref=e129]:
+            - button "Environments" [ref=e130] [cursor=pointer]
+            - button "Microservices" [ref=e131] [cursor=pointer]
+          - button "Collapse All" [ref=e133] [cursor=pointer]
+          - generic [ref=e135]:
+            - generic [ref=e136]:
+              - generic [ref=e137] [cursor=pointer]: ▸
+              - generic [ref=e138] [cursor=pointer]: Test-3A
+              - generic [ref=e139]: "1"
+            - generic [ref=e141] [cursor=pointer]: ●jsonplaceholder
+        - button "⚙ Settings" [ref=e60] [cursor=pointer]
+      - button "◀" [ref=e62] [cursor=pointer]
+      - main [ref=e63]:
+        - generic [ref=e142]:
+          - button "Feature Groups" [ref=e143] [cursor=pointer]
+          - button "Test Runner" [ref=e144] [cursor=pointer]
+          - button "Parameterized Runner" [ref=e145] [cursor=pointer]
+          - button "Workflow Runner" [ref=e146] [cursor=pointer]
+          - button "Results" [ref=e147] [cursor=pointer]
+        - generic [ref=e148]:
+          - generic [ref=e149]:
+            - generic [ref=e150]:
+              - heading "Feature Groups" [level=2] [ref=e151]
+              - generic [ref=e152]:
+                - generic [ref=e153]: jsonplaceholder
+                - generic [ref=e154]: Test-3A
+            - generic [ref=e155]:
+              - button "Import" [ref=e156] [cursor=pointer]
+              - button "Export" [ref=e158] [cursor=pointer]
+              - button "Import Template" [ref=e159] [cursor=pointer]
+              - button "Trash2" [ref=e662] [cursor=pointer]
+              - button "📦 Shared Data Sources" [ref=e161] [cursor=pointer]
+              - button "+ Add Feature Group" [ref=e162] [cursor=pointer]
+          - generic [ref=e164]:
+            - 'textbox "Search: terms, \"exact phrase\", AND, OR, NOT, -exclude, (group)..." [ref=e165]'
+            - button "?" [ref=e166] [cursor=pointer]
+          - generic [ref=e167]:
+            - generic [ref=e169] [cursor=pointer]:
+              - generic [ref=e170]: ▶
+              - strong [ref=e171]: Phase 3 — Visual Test Scenarios
+              - generic "7 standard, 0 parameterized" [ref=e172]: 7 scenarios (7S · 0P)
+              - generic [ref=e173]: 52 tests
+              - generic [ref=e174]:
+                - button "Rename" [ref=e175]
+                - button "Auth" [ref=e176]
+                - button "+ Scenario" [ref=e177]
+                - button "Import" [ref=e178]
+                - button "Export" [ref=e180]
+                - button "History" [ref=e181]
+                - button "Delete" [ref=e182]
+            - generic [ref=e535]:
+              - generic [ref=e536] [cursor=pointer]:
+                - generic [ref=e537]: ▶
+                - strong [ref=e538]: Payment Flow
+                - generic "1 standard, 0 parameterized" [ref=e663]: 1 scenario (1S · 0P)
+                - generic [ref=e540]: 1 test
+                - generic [ref=e541]:
+                  - button "Rename" [ref=e542]
+                  - button "Auth" [ref=e543]
+                  - button "+ Scenario" [ref=e544]
+                  - button "Import" [ref=e545]
+                  - button "Export" [ref=e547]
+                  - button "History 7" [ref=e664]
+                  - button "Delete" [ref=e549]
+              - generic [ref=e599]:
+                - generic [ref=e600] [cursor=pointer]:
+                  - generic "Drag to reorder or move" [ref=e601]: ⠿
+                  - generic [ref=e602]: ▶
+                  - generic [ref=e603]: Error Cases
+                  - generic [ref=e604]: 1 test
+                  - generic [ref=e605]:
+                    - button "Rename" [ref=e606]
+                    - button "Auth" [ref=e607]
+                    - button "+ Test" [ref=e608]
+                    - button "Move" [ref=e609]
+                    - button "Import" [ref=e610]
+                    - button "Export" [ref=e612]
+                    - button "Delete" [ref=e613]
+                - generic [ref=e615]:
+                  - generic [ref=e616]:
+                    - generic "Drag to reorder or move" [ref=e617]: ⠿
+                    - generic [ref=e618]: "1"
+                    - generic [ref=e619]: GET
+                    - strong [ref=e620]: Invalid Payment Error
+                  - generic [ref=e621]:
+                    - generic [ref=e622]: "Auth: none"
+                    - generic [ref=e623]: "Validation: none"
+                  - generic [ref=e624]:
+                    - button "Edit" [ref=e625] [cursor=pointer]
+                    - button "Copy" [ref=e626] [cursor=pointer]
+                    - button "Move" [ref=e627] [cursor=pointer]
+                    - button "Export" [ref=e629] [cursor=pointer]
+                    - button "Delete" [ref=e630] [cursor=pointer]
+          - generic [ref=e183]: 2 feature groups · 8 scenarios · 53 tests
+  - status
+  - alert:
+    - generic [ref=e665]:
+      - generic [ref=e666]: −
+      - generic [ref=e668]: Happy Path moved to Trash
+      - button "Undo delete" [ref=e669] [cursor=pointer]: Undo
+      - button "Dismiss" [ref=e670] [cursor=pointer]: ✕

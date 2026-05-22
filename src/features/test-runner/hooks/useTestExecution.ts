@@ -305,7 +305,11 @@ export function useTestExecution() {
         && await isRustExecutorAvailable();
 
       if (isConstantArrival && !useRust) {
-        throw new Error('Constant Arrival Rate requires the desktop app (Tauri)');
+        const isTauriEnv = typeof window !== 'undefined' && '__TAURI__' in window;
+        const reason = !isTauriEnv
+          ? 'Constant Arrival Rate requires the desktop app (Tauri)'
+          : 'Constant Arrival Rate requires the Rust executor (not available with OAuth2 auth)';
+        throw new Error(reason);
       }
 
       const wrappedOnProgress = isConstantArrival
@@ -320,11 +324,20 @@ export function useTestExecution() {
           }
         : onProgress;
 
-      const testResult = useRust
-        ? await runTestViaRust(config, scenarios, wrappedOnProgress, abortRef.current.signal)
-        : useWorker
-          ? await runTestMultiWorker(config, scenarios, wrappedOnProgress, abortRef.current.signal, workflow)
-          : await runTest(config, scenarios, wrappedOnProgress, abortRef.current.signal, workflow, resolveSubWorkflow);
+      let testResult;
+      if (useRust) {
+        testResult = await runTestViaRust(config, scenarios, wrappedOnProgress, abortRef.current.signal);
+      } else if (useWorker) {
+        try {
+          testResult = await runTestMultiWorker(config, scenarios, wrappedOnProgress, abortRef.current.signal, workflow);
+        } catch (workerErr) {
+          // Worker failed (common in Tauri WebView) — fall back to direct execution
+          console.warn('Worker execution failed, falling back to direct execution:', workerErr);
+          testResult = await runTest(config, scenarios, wrappedOnProgress, abortRef.current.signal, workflow, resolveSubWorkflow);
+        }
+      } else {
+        testResult = await runTest(config, scenarios, wrappedOnProgress, abortRef.current.signal, workflow, resolveSubWorkflow);
+      }
 
       if (flushTimerRef.current) {
         clearTimeout(flushTimerRef.current);

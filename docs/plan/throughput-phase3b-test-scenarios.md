@@ -815,6 +815,84 @@ The Results Dashboard has these separate export controls (NOT a single dropdown)
 
 ---
 
+## Part 16–18: Bug Fix Verification (Phase 3B)
+
+> **Context:** These scenarios verify specific bugs found during code review of the Phase 3B implementation.
+
+### Test Scenario 16: BUG FIX — P99.9 Baseline Comparison Uses Fallback Instead of Zero
+
+**Bug:** When comparing a current run against an old baseline run that lacks `p999ResponseTime`,
+the comparison used `0` as the baseline P99.9 value. This caused:
+- Current P99.9 of e.g. `150ms` vs baseline `0ms` = huge delta but `regressed: false` (because
+  delta % from zero is clamped to 0 in the calculation)
+- Misleading "Improved" status when current is missing but baseline exists
+
+**Fix:** Changed fallback from `?? 0` to `?? p99ResponseTime ?? 0`, so old runs without P99.9
+use their P99 value as a reasonable approximation for comparison purposes.
+
+#### Steps to Verify
+
+1. Run a test with **Continuous Pool** (C:10, I:100) → wait for completion → set as **☆ Baseline**
+2. Run the same test again → go to **Results** → select the new run
+3. Click **Compare against baseline...** → select the baseline
+4. Look at the **P99.9 Response Time** row in the comparison table
+
+#### Expected Results
+
+- [ ] P99.9 values shown for both runs are **non-zero** numbers
+- [ ] Delta percentage is reasonable (not `0%` or infinite)
+- [ ] If P99.9 truly regressed > 20%, Status shows **Regressed**
+- [ ] If within threshold, Status shows **No change** or **Improved**
+
+---
+
+### Test Scenario 17: BUG FIX — Execution Plan Preview Hidden for Constant Arrival
+
+**Bug:** When selecting "Constant Arrival" mode in the Test Runner, the Execution Plan Preview
+(iteration-based allocation table) was still visible. It showed misleading iteration counts that
+don't apply to open-model time-based execution.
+
+**Fix:** Added `isConstantArrival` check alongside `isLoadProfile` to hide the preview.
+
+#### Steps to Verify
+
+1. In **Test Runner**, select **Continuous Pool** or **Batch** mode
+2. Observe the **Execution Plan** section below the config — it should be **visible**
+3. Switch to **Load Profile** mode → Execution Plan should **disappear**
+4. Switch to **Constant Arrival** mode → Execution Plan should **also disappear**
+
+#### Expected Results
+
+- [ ] Execution Plan visible for Sequential, Batch, Continuous Pool
+- [ ] Execution Plan hidden for Load Profile
+- [ ] Execution Plan hidden for Constant Arrival
+
+---
+
+### Test Scenario 18: BUG FIX — CAR Error Message Distinguishes Tauri vs OAuth2
+
+**Bug:** When Constant Arrival Rate failed because the Rust executor was unavailable (e.g., due to
+OAuth2 auth on scenarios), the error message always said "requires the desktop app (Tauri)" even
+when running inside Tauri. The real reason was OAuth2 incompatibility with Rust.
+
+**Fix:** Error now checks `__TAURI__` in window and gives specific messages:
+- Not on Tauri → "requires the desktop app (Tauri)"
+- On Tauri but Rust unavailable → "requires the Rust executor (not available with OAuth2 auth)"
+
+#### Steps to Verify
+
+1. **On web browser** (`http://localhost:5173`): Try to run a test in Constant Arrival mode
+   (shouldn't be possible since the radio is disabled, but if forced via config)
+2. **On desktop (Tauri)**: Create a test with **OAuth2 Client Credentials** auth and try to
+   run it in **Constant Arrival** mode
+
+#### Expected Results
+
+- [ ] Web: Error says "requires the desktop app (Tauri)"
+- [ ] Desktop with OAuth2: Error says "requires the Rust executor (not available with OAuth2 auth)"
+
+---
+
 ## Overall Verification Summary
 
 After completing all scenarios:
@@ -835,3 +913,6 @@ After completing all scenarios:
 | Web browser fallback | [ ] | Scenario 13 |
 | Workflow P99.9 | [ ] | Scenario 14 |
 | Abort preserves metrics | [ ] | Scenario 15 |
+| P99.9 baseline fallback fix | [ ] | Scenario 16 |
+| Exec Plan hidden for CAR | [ ] | Scenario 17 |
+| CAR error message fix | [ ] | Scenario 18 |

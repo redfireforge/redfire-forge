@@ -1,0 +1,70 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - banner [ref=e7]:
+      - heading "🔥 RedfireForgev0.5.9-alpha.1" [level=1] [ref=e8]:
+        - text: 🔥 RedfireForge
+        - generic [ref=e9]: v0.5.9-alpha.1
+      - generic [ref=e10]:
+        - combobox [ref=e12] [cursor=pointer]:
+          - option "Environment…"
+          - option "Test-3A" [selected]
+        - combobox [ref=e14] [cursor=pointer]:
+          - option "Service…"
+          - option "jsonplaceholder" [selected]
+        - button "🌙" [ref=e16] [cursor=pointer]
+    - generic [ref=e17]:
+      - navigation [ref=e18]:
+        - button "🔌" [ref=e19] [cursor=pointer]:
+          - generic [ref=e20]: 🔌
+        - button "🔧" [ref=e21] [cursor=pointer]:
+          - generic [ref=e22]: 🔧
+        - button "🏋" [ref=e206] [cursor=pointer]:
+          - generic [ref=e24]: 🏋
+        - button "🏪" [ref=e25] [cursor=pointer]:
+          - generic [ref=e26]: 🏪
+        - button "⚙️" [ref=e112] [cursor=pointer]:
+          - generic [ref=e28]: ⚙️
+      - complementary [ref=e166]:
+        - generic [ref=e168]:
+          - generic [ref=e169]:
+            - button "Environments" [ref=e170] [cursor=pointer]
+            - button "Microservices" [ref=e171] [cursor=pointer]
+          - button "Collapse All" [ref=e173] [cursor=pointer]
+          - generic [ref=e175]:
+            - generic [ref=e176]:
+              - generic [ref=e177] [cursor=pointer]: ▸
+              - generic [ref=e178] [cursor=pointer]: Test-3A
+              - generic [ref=e179]: "1"
+            - generic [ref=e181] [cursor=pointer]: ○jsonplaceholder
+        - button "⚙ Settings" [ref=e182] [cursor=pointer]
+      - button "◀" [ref=e50] [cursor=pointer]
+      - main [ref=e51]:
+        - generic [ref=e184]:
+          - button "Feature Groups" [ref=e185] [cursor=pointer]
+          - button "Test Runner" [ref=e186] [cursor=pointer]
+          - button "Parameterized Runner" [ref=e187] [cursor=pointer]
+          - button "Workflow Runner" [ref=e188] [cursor=pointer]
+          - button "Results" [ref=e189] [cursor=pointer]
+        - generic [ref=e1307]:
+          - generic [ref=e1308]:
+            - generic [ref=e1309]:
+              - heading "Feature Groups" [level=2] [ref=e1310]
+              - generic [ref=e1311]:
+                - generic [ref=e1312]: jsonplaceholder
+                - generic [ref=e1313]: Test-3A
+            - generic [ref=e1314]:
+              - button "Import" [ref=e1315] [cursor=pointer]
+              - button "Export" [disabled] [ref=e1317]
+              - button "Import Template" [disabled] [ref=e1318]
+              - button "Trash1" [ref=e1352] [cursor=pointer]
+              - button "📦 Shared Data Sources" [ref=e1320] [cursor=pointer]
+              - button "+ Add Feature Group" [ref=e1321] [cursor=pointer]
+          - generic [ref=e1353]: No feature groups for this microservice + environment. Click "+ Add Feature Group" to get started.
+  - status
+  - generic [ref=e942]: "0.25"
+  - alert:
+    - generic [ref=e1354]:
+      - generic [ref=e1355]: −
+      - generic [ref=e1357]: Phase 3 — Visual Test Scenarios moved to Trash
+      - button "Undo delete" [ref=e1358] [cursor=pointer]: Undo
+      - button "Dismiss" [ref=e1359] [cursor=pointer]: ✕

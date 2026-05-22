@@ -1,5 +1,5 @@
 import type { FeatureGroup, Scenario, GlobalAuthProfile, AuthConfig } from '../../../shared/types';
-import type { RunnerConfig } from '../hooks/runnerConfigDefaults';
+import type { RunnerConfig, UnorderedOverride } from '../hooks/runnerConfigDefaults';
 import { resolveAuth } from '../../requests/utils/authResolver';
 import { replaceHost } from '../../../shared/utils/urlUtils';
 
@@ -18,15 +18,16 @@ export function buildSelectedTests(
   customBaseUrl: string,
   resolvedBaseUrl: string | undefined,
   skipValidation: boolean,
+  skipAssertions: boolean,
   validationOverride: RunnerConfig['validationOverride'],
-  forceUnordered: boolean,
+  forceUnordered: UnorderedOverride,
   globalAuthProfiles: GlobalAuthProfile[],
   envFallbackAuth?: AuthConfig,
 ): SelectedTest[] {
   const tests: SelectedTest[] = [];
-  const runtimeMode = validationOverride !== 'default'
-    ? validationOverride
-    : (skipValidation ? 'none' as const : null);
+  const runtimeMode = skipValidation
+    ? 'none' as const
+    : (validationOverride !== 'default' ? validationOverride : null);
 
   for (const fg of featureGroups) {
     for (const sc of fg.scenarios) {
@@ -45,11 +46,15 @@ export function buildSelectedTests(
 
           let validation = test.validation;
           if (!dataSource && runtimeMode === 'none') {
-            validation = { mode: 'none' as const };
+            validation = { ...validation, mode: 'none' as const };
           }
 
-          if (forceUnordered && validation.mode === 'selective') {
-            validation = { ...validation, unorderedArrays: true };
+          if (skipAssertions && validation.assertions?.length) {
+            validation = { ...validation, assertions: [] };
+          }
+
+          if (forceUnordered !== 'default' && validation.mode === 'selective') {
+            validation = { ...validation, unorderedArrays: forceUnordered === 'force-on' };
           }
 
           const auth = resolveAuth(test, sc, fg, globalAuthProfiles, envFallbackAuth);

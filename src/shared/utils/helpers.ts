@@ -22,6 +22,12 @@ export function isValidJson(text: string): boolean {
   catch { return false; }
 }
 
+/** Minify a JSON string. Returns null if the input is not valid JSON. */
+export function minifyJson(text: string): string | null {
+  try { return JSON.stringify(JSON.parse(text)); }
+  catch { return null; }
+}
+
 export function truncate(str: string, maxLen: number, suffix = '...', suffixInsideBudget = true): string {
   if (suffixInsideBudget) {
     if (str.length <= maxLen) return str;
