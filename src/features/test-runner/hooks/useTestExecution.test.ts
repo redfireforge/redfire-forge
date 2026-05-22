@@ -460,11 +460,12 @@ describe('useTestExecution', () => {
       expect(result.current.isRunning).toBe(false);
     });
 
-    it('clears pending throttle timer on worker path when execute throws after deferred flush was scheduled', async () => {
+    it('falls back to direct execution when worker path throws after deferred flush was scheduled', async () => {
       mockSupportsWorkers.mockReturnValue(true);
-      mockRunTestInWorker.mockImplementation(async (_config, _scenarios, onProgress) => {
-        onProgress(1, 10, [createMockResult({ id: 'w1' })]);
-        throw new Error('worker failed after schedule');
+      mockRunTestInWorker.mockRejectedValue(new Error('worker failed after schedule'));
+      mockRunTest.mockImplementation(async (_config, _scenarios, onProgress) => {
+        onProgress(1, 1, [createMockResult({ id: 'fallback-1' })]);
+        return { results: [createMockResult({ id: 'fallback-1' })] };
       });
 
       const { result } = renderHook(() => useTestExecution());
@@ -473,7 +474,8 @@ describe('useTestExecution', () => {
         await result.current.execute(createMockConfig(), [createMockScenario()]);
       });
 
-      expect(result.current.error).toBe('worker failed after schedule');
+      expect(result.current.error).toBeNull();
+      expect(result.current.finalRun).not.toBeNull();
     });
 
     it('clears pending throttle timer when runTest resolves before deferred flush fires', async () => {

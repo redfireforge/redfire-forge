@@ -50,7 +50,7 @@ vi.mock('./useRunnerConfig', () => ({
     setSkipValidation: vi.fn(),
     validationOverride: 'default' as const,
     setValidationOverride: vi.fn(),
-    forceUnordered: false,
+    forceUnordered: 'default' as const,
     setForceUnordered: vi.fn(),
     hostMode: 'hardcoded' as const,
     setHostMode: vi.fn(),

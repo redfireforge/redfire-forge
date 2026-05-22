@@ -214,6 +214,27 @@ describe('workerBridge — runTestMultiWorker', () => {
       allMockWorkers[workerCount - 1].simulateMessage({ type: 'done', newResults: [] });
       await promise;
     });
+
+    it('uses totalConcurrency for meta in non-load-profile mode', async () => {
+      const scenarios = makeScenarios(10);
+      const onProgress = vi.fn();
+      const promise = runTestMultiWorker(makeConfig({ concurrency: 4 }), scenarios, onProgress);
+
+      const meta = { elapsedMs: 500, targetConcurrency: 2, currentInFlight: 2, durationMs: 0 };
+      allMockWorkers[0].simulateMessage({
+        type: 'progress', completed: 2, total: 5, newResults: [makeResult('r1')], meta,
+      });
+
+      const call = onProgress.mock.calls[0];
+      const aggregatedMeta = call[3];
+      expect(aggregatedMeta.targetConcurrency).toBe(4);
+      expect(aggregatedMeta.currentInFlight).toBe(4);
+
+      for (const w of allMockWorkers) {
+        w.simulateMessage({ type: 'done', newResults: [] });
+      }
+      await promise;
+    });
   });
 
   describe('error handling', () => {
@@ -264,7 +285,15 @@ describe('workerBridge — runTestMultiWorker', () => {
       const promise = runTestMultiWorker(makeConfig({ concurrency: 4 }), scenarios, vi.fn());
 
       allMockWorkers[0].simulateError('');
-      await expect(promise).rejects.toThrow('Worker error');
+      await expect(promise).rejects.toThrow('Worker failed to initialize');
+    });
+
+    it('uses filename in error message when message is empty but filename exists', async () => {
+      const scenarios = makeScenarios(10);
+      const promise = runTestMultiWorker(makeConfig({ concurrency: 4 }), scenarios, vi.fn());
+
+      allMockWorkers[0].simulateError('', '/path/to/worker.ts');
+      await expect(promise).rejects.toThrow('Failed to load worker module: /path/to/worker.ts');
     });
 
     it('ignores global error after settlement', async () => {
@@ -309,6 +338,32 @@ describe('workerBridge — runTestMultiWorker', () => {
       const scenarios = makeScenarios(10);
       const promise = runTestMultiWorker(makeConfig({ concurrency: 4 }), scenarios, vi.fn(), controller.signal);
       await expect(promise).rejects.toThrow('Aborted');
+    });
+
+    it('aborts all workers when signal fires during progress (not settled)', async () => {
+      const controller = new AbortController();
+      const scenarios = makeScenarios(10);
+      const onProgress = vi.fn();
+      const promise = runTestMultiWorker(makeConfig({ concurrency: 4 }), scenarios, onProgress, controller.signal);
+
+      allMockWorkers[0].simulateMessage({
+        type: 'progress', completed: 2, total: 5, newResults: [makeResult('r1')],
+      });
+      expect(onProgress).toHaveBeenCalled();
+
+      controller.abort();
+
+      for (const w of allMockWorkers) {
+        const abortCall = w.postMessage.mock.calls.find(
+          (c: unknown[]) => (c[0] as Record<string, unknown>)?.type === 'abort',
+        );
+        expect(abortCall).toBeDefined();
+      }
+
+      for (const w of allMockWorkers) {
+        w.simulateMessage({ type: 'done', newResults: [] });
+      }
+      await promise;
     });
   });
 

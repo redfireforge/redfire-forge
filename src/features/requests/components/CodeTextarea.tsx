@@ -1,5 +1,6 @@
 import { useRef } from 'react';
 import type { BodyType } from '../../../shared/types';
+import { isValidJson as checkValidJson, minifyJson, prettyJson } from '../../../shared/utils/helpers';
 
 const BODY_CODE_TYPE_LABELS: Record<BodyType, string> = {
   'form-data': 'Multipart',
@@ -10,14 +11,6 @@ const BODY_CODE_TYPE_LABELS: Record<BodyType, string> = {
   file: 'File',
   none: 'No Body',
 };
-
-function formatJson(raw: string): string | null {
-  try {
-    return JSON.stringify(JSON.parse(raw), null, 2);
-  } catch {
-    return null;
-  }
-}
 
 export interface CodeTextareaProps {
   value: string;
@@ -39,8 +32,8 @@ export function CodeTextarea({ value, onChange, placeholder, bodyType }: CodeTex
   };
 
   const handleFormat = () => {
-    const formatted = formatJson(value);
-    if (formatted) onChange(formatted);
+    const formatted = prettyJson(value);
+    if (formatted !== value) onChange(formatted);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -58,7 +51,7 @@ export function CodeTextarea({ value, onChange, placeholder, bodyType }: CodeTex
   };
 
   const isJson = bodyType === 'json';
-  const isValidJson = isJson && value.trim() ? formatJson(value) !== null : true;
+  const isValid = isJson && value.trim() ? checkValidJson(value) : true;
 
   return (
     <div className="body-code-container">
@@ -68,15 +61,24 @@ export function CodeTextarea({ value, onChange, placeholder, bodyType }: CodeTex
         <div className="body-code-toolbar-actions">
           {isJson && (
             <>
-              {!isValidJson && <span className="body-code-error">Invalid JSON</span>}
+              {!isValid && <span className="body-code-error">Invalid JSON</span>}
               <button
                 type="button"
                 className="body-code-btn"
                 onClick={handleFormat}
-                disabled={!value.trim() || !isValidJson}
-                title="Format JSON (prettify)"
+                disabled={!value.trim() || !isValid}
+                title="Format JSON with indentation"
               >
-                Format
+                Pretty Format
+              </button>
+              <button
+                type="button"
+                className="body-code-btn"
+                onClick={() => { const m = minifyJson(value); if (m) onChange(m); }}
+                disabled={!value.trim() || !isValid}
+                title="Minify JSON (remove whitespace)"
+              >
+                Minify
               </button>
             </>
           )}

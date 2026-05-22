@@ -407,7 +407,7 @@ describe('ScriptCodeModal', () => {
       fireEvent.click(valueBtn.closest('button')!);
       // Switch to text first
       fireEvent.click(screen.getByTitle('Switch to text editor'));
-      const prettyBtn = screen.getByTitle('Pretty-print JSON');
+      const prettyBtn = screen.getByTitle('Pretty Format JSON');
       fireEvent.click(prettyBtn);
       expect(mockSetMockInputs).toHaveBeenCalled();
     });
@@ -518,7 +518,7 @@ describe('ScriptCodeModal', () => {
       fireEvent.click(screen.getByTitle('Switch to text editor'));
       const textarea = document.querySelector('.wf-script-value-panel-editor') as HTMLTextAreaElement;
       fireEvent.change(textarea, { target: { value: '{\nnot-json' } });
-      fireEvent.click(screen.getByTitle('Minify JSON'));
+      fireEvent.click(screen.getByTitle('Minify JSON (remove whitespace)'));
       expect(mockSetMockInputs).toHaveBeenCalled();
     });
 
