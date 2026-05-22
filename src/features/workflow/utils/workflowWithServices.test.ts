@@ -92,7 +92,7 @@ describe('syncHttpNodeLabelsWithServices', () => {
   it('supports legacy HTTP-shape nodes where type omits http but data has scenario', () => {
     const legacy: WorkflowRFNode = {
       id: 'legacy',
-      type: 'delay',
+      type: 'custom-legacy',
       position: { x: 0, y: 0 },
       data: {
         ...defaultNodeData('http'),

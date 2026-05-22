@@ -132,7 +132,7 @@ export function useWorkflowRunnerConfig(): UseWorkflowRunnerConfigResult {
       weights: {},
       skipValidation: false,
       validationOverride: 'default',
-      forceUnordered: false,
+      forceUnordered: 'default',
       hostMode: 'hardcoded',
       customBaseUrl: '',
       executionMode,

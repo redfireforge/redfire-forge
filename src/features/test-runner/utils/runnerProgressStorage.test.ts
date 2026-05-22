@@ -98,6 +98,11 @@ describe('saveProgress / loadProgress / clearProgress', () => {
     expect(loadProgress('nonexistent')).toBeNull();
   });
 
+  it('returns null when stored JSON is invalid', () => {
+    localStorage.setItem('perf-test-last-progress:bad-key', '{not valid json');
+    expect(loadProgress('bad-key')).toBeNull();
+  });
+
   it('clears progress', () => {
     saveProgress('test-key', makeProgress());
     expect(loadProgress('test-key')).not.toBeNull();

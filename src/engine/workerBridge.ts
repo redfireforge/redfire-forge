@@ -107,7 +107,8 @@ export function runTestInWorker(
       if (settled) return;
       settled = true;
       cleanup();
-      reject(new Error(e.message || 'Worker error'));
+      const detail = e.message || (e.filename ? `Failed to load worker module: ${e.filename}` : 'Worker failed to initialize — try restarting the dev server');
+      reject(new Error(detail));
     });
 
     if (abortSignal) {
@@ -205,7 +206,7 @@ export function runTestMultiWorker(
             metaPerWorker[workerIdx] = msg.meta;
             {
               let aggregatedMeta = msg.meta;
-              if (isLoadProfile && msg.meta) {
+              if (msg.meta && workerCount > 1) {
                 let totalInFlight = 0;
                 let totalTarget = 0;
                 let maxElapsed = 0;
@@ -218,8 +219,8 @@ export function runTestMultiWorker(
                 }
                 aggregatedMeta = {
                   elapsedMs: maxElapsed,
-                  targetConcurrency: totalTarget,
-                  currentInFlight: totalInFlight,
+                  targetConcurrency: isLoadProfile ? totalTarget : totalConcurrency,
+                  currentInFlight: isLoadProfile ? totalInFlight : totalConcurrency,
                   durationMs: msg.meta.durationMs,
                 };
               }
@@ -289,7 +290,8 @@ export function runTestMultiWorker(
         settled = true;
         abortAll();
         cleanupAll();
-        reject(new Error(e.message || 'Worker error'));
+        const detail = e.message || (e.filename ? `Failed to load worker module: ${e.filename}` : 'Worker failed to initialize — try restarting the dev server');
+        reject(new Error(detail));
       });
       const perWorkerConcurrency = Math.max(1, baseConcurrency + (i < extraConcurrency ? 1 : 0));
       const workerConfig = { ...config, concurrency: perWorkerConcurrency };

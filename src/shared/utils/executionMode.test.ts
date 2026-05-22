@@ -8,12 +8,13 @@ describe('executionModes', () => {
       'batch',
       'pool',
       'load-profile',
+      'constant-arrival',
       'workflow',
     ]);
   });
 
-  it('contains exactly 5 modes', () => {
-    expect(executionModes).toHaveLength(5);
+  it('contains exactly 6 modes', () => {
+    expect(executionModes).toHaveLength(6);
   });
 
   it('contains only unique values', () => {
@@ -60,6 +61,16 @@ describe('getExecutionModeMeta', () => {
       title: 'Time-based load profiles: ramp-up, sustained, spike, soak',
       hint: 'Time-based execution with dynamic concurrency shaping',
       progressLabel: 'Load Profile',
+    });
+  });
+
+  it('returns metadata for constant-arrival mode', () => {
+    const meta = getExecutionModeMeta('constant-arrival');
+    expect(meta).toEqual({
+      label: 'Constant Arrival',
+      title: 'Constant Arrival Rate (Open Model)',
+      hint: 'Fire N requests/second regardless of response time. Desktop only.',
+      progressLabel: 'Arrival Rate',
     });
   });
 

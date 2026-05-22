@@ -155,7 +155,7 @@ export function useWorkflowDesignerControllerPartB(
   }, [selectedNode, microservices, resolvedBaseUrl, workflowHostProfiles, workflowServices, selectedEnvId]);
 
   const { handleExtractionFetchSample } = useWorkflowExtractionSample({
-    selectedNode, selectedId: selected?.id, selectedNodeId,
+    selectedNode, configModalNode, selectedId: selected?.id, selectedNodeId,
     nodes, workflowVariables, runVariableSnapshot, nodeInitialVarsRef,
     microservices, workflowHostProfiles, workflowServices, selectedEnvId, resolvedBaseUrl,
     setExtractionSampleJson, setExtractionFetching, setExtractionFetchError,
@@ -165,9 +165,8 @@ export function useWorkflowDesignerControllerPartB(
     selected, workflows, select, persistWorkflow,
   });
 
-  const handleNew = useCallback(() => {
-    const name = prompt('Workflow name:');
-    if (!name?.trim()) return;
+  const handleNew = useCallback((name: string) => {
+    if (!name.trim()) return;
     onClearPreview();
     create(name.trim());
   }, [create, onClearPreview]);

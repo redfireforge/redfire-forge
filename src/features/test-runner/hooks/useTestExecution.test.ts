@@ -1,100 +1,65 @@
 /**
  * @vitest-environment jsdom
  */
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import {
+  createMockScenario,
+  createMockConfig,
+  createMockResult,
+  createMockSummary,
+  registerUseTestExecutionTestLifecycle,
+  mockRunTest,
+  mockRunTestInWorker,
+  mockRunTestViaRust,
+  mockForceSaveTestRun,
+  mockSupportsWorkers,
+  mockCanUseRust,
+  mockIsRustAvailable,
+  mockComputeMetrics,
+  mockSaveTestRun,
+} from './__test-utils__/useTestExecutionTestSetup';
+import { describe, it, expect, vi } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { useTestExecution } from './useTestExecution';
 import { TestConfig, RequestResult } from '../../../shared/types';
-import { makeScenario, makeResult, makeConfig } from '../../../test-utils/factories';
 
-// Mock dependencies
-vi.mock('../../../engine/executor', () => ({
-  runTest: vi.fn(),
-}));
-
-vi.mock('../../../engine/workerBridge', () => ({
-  runTestMultiWorker: vi.fn(),
-}));
-
-vi.mock('../../../engine/metrics', () => ({
-  computeMetrics: vi.fn(),
-}));
-
-vi.mock('../../../shared/utils/storage', () => ({
-  saveTestRun: vi.fn(),
-  forceSaveTestRun: vi.fn(),
-}));
-
-vi.mock('../../../shared/utils/platform', () => ({
-  supportsWorkers: vi.fn(),
-  isTauri: vi.fn(() => false),
-}));
-
-vi.mock('../utils/rustBridge', () => ({
-  isRustExecutorAvailable: vi.fn(async () => false),
-  canUseRustExecutor: vi.fn(() => false),
-  runTestViaRust: vi.fn(),
-}));
-
+vi.mock('../../../engine/executor', async () => {
+  const { mockRunTest } = await import('./__test-utils__/useTestExecutionTestSetup');
+  return { runTest: mockRunTest };
+});
+vi.mock('../../../engine/workerBridge', async () => {
+  const { mockRunTestInWorker } = await import('./__test-utils__/useTestExecutionTestSetup');
+  return { runTestMultiWorker: mockRunTestInWorker };
+});
+vi.mock('../../../engine/metrics', async () => {
+  const { mockComputeMetrics } = await import('./__test-utils__/useTestExecutionTestSetup');
+  return { computeMetrics: mockComputeMetrics };
+});
+vi.mock('../../../shared/utils/storage', async () => {
+  const { mockSaveTestRun, mockForceSaveTestRun } = await import(
+    './__test-utils__/useTestExecutionTestSetup'
+  );
+  return { saveTestRun: mockSaveTestRun, forceSaveTestRun: mockForceSaveTestRun };
+});
+vi.mock('../../../shared/utils/platform', async () => {
+  const { mockSupportsWorkers } = await import('./__test-utils__/useTestExecutionTestSetup');
+  return { supportsWorkers: mockSupportsWorkers, isTauri: vi.fn(() => false) };
+});
+vi.mock('../utils/rustBridge', async () => {
+  const { mockIsRustAvailable, mockCanUseRust, mockRunTestViaRust } = await import(
+    './__test-utils__/useTestExecutionTestSetup'
+  );
+  return {
+    isRustExecutorAvailable: mockIsRustAvailable,
+    canUseRustExecutor: mockCanUseRust,
+    runTestViaRust: mockRunTestViaRust,
+  };
+});
 vi.mock('uuid', () => ({
   v4: vi.fn(() => 'test-uuid'),
 }));
 
-import { runTest } from '../../../engine/executor';
-import { runTestMultiWorker } from '../../../engine/workerBridge';
-import { computeMetrics } from '../../../engine/metrics';
-import { saveTestRun, forceSaveTestRun } from '../../../shared/utils/storage';
-import { supportsWorkers } from '../../../shared/utils/platform';
-
-import { isRustExecutorAvailable, canUseRustExecutor, runTestViaRust } from '../utils/rustBridge';
-
-const mockRunTest = vi.mocked(runTest);
-const mockRunTestInWorker = vi.mocked(runTestMultiWorker);
-const mockComputeMetrics = vi.mocked(computeMetrics);
-const mockSaveTestRun = vi.mocked(saveTestRun);
-const mockIsRustAvailable = vi.mocked(isRustExecutorAvailable);
-const mockCanUseRust = vi.mocked(canUseRustExecutor);
-const mockRunTestViaRust = vi.mocked(runTestViaRust);
-const mockForceSaveTestRun = vi.mocked(forceSaveTestRun);
-const mockSupportsWorkers = vi.mocked(supportsWorkers);
-
-const createMockScenario = (id = 'sc-1') => makeScenario({ id });
-const createMockConfig = (overrides: Partial<TestConfig> = {}) => makeConfig(overrides);
-const createMockResult = (overrides: Partial<RequestResult> = {}) => makeResult(overrides);
-
-function createMockSummary() {
-  return {
-    tps: 10,
-    avgResponseTime: 100,
-    minResponseTime: 50,
-    maxResponseTime: 200,
-    p50ResponseTime: 100,
-    p95ResponseTime: 180,
-    p99ResponseTime: 195,
-    errorRate: 0,
-    errorsByStatus: {},
-    totalRequests: 10,
-    successfulRequests: 10,
-    failedRequests: 0,
-    failedValidations: 0,
-    totalDurationMs: 1000,
-  };
-}
-
 describe('useTestExecution', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    mockSupportsWorkers.mockReturnValue(false);
-    mockCanUseRust.mockReturnValue(false);
-    mockIsRustAvailable.mockResolvedValue(false);
-    mockComputeMetrics.mockReturnValue(createMockSummary());
-    mockSaveTestRun.mockResolvedValue({ ok: true, quotaError: false });
-  });
-
-  afterEach(() => {
-    vi.useRealTimers();
-  });
+  registerUseTestExecutionTestLifecycle();
 
   describe('initial state', () => {
     it('returns correct initial state', () => {
@@ -213,6 +178,43 @@ describe('useTestExecution', () => {
       expect(mockRunTestViaRust).toHaveBeenCalled();
       expect(mockRunTest).not.toHaveBeenCalled();
       expect(mockRunTestInWorker).not.toHaveBeenCalled();
+    });
+
+    it('uses streaming metrics from Rust for live summary (O(1) bypass)', async () => {
+      mockCanUseRust.mockReturnValue(true);
+      mockIsRustAvailable.mockResolvedValue(true);
+      const mockResult = createMockResult({ responseTimeMs: 150 });
+      mockRunTestViaRust.mockImplementation((_config, _scenarios, onProgress) => {
+        onProgress(1, 1, [mockResult], {
+          elapsedMs: 500,
+          targetConcurrency: 1,
+          currentInFlight: 0,
+          durationMs: 0,
+          metrics: {
+            p50: 120, p95: 180, p99: 195, p999: 199,
+            min: 50, max: 200, avg: 130, total: 1, errors: 0, tps: 2.0,
+          },
+        });
+        return Promise.resolve({ results: [mockResult] });
+      });
+      mockComputeMetrics.mockReturnValue(createMockSummary());
+
+      const { result } = renderHook(() => useTestExecution());
+
+      await act(async () => {
+        await result.current.execute(createMockConfig(), [createMockScenario()]);
+      });
+
+      const final_ = result.current.finalRun;
+      expect(final_).toBeTruthy();
+      expect(final_!.summary.p50ResponseTime).toBe(120);
+      expect(final_!.summary.p95ResponseTime).toBe(180);
+      expect(final_!.summary.p99ResponseTime).toBe(195);
+      expect(final_!.summary.p999ResponseTime).toBe(199);
+      expect(final_!.summary.minResponseTime).toBe(50);
+      expect(final_!.summary.maxResponseTime).toBe(200);
+      expect(final_!.summary.avgResponseTime).toBe(130);
+      expect(final_!.summary.tps).toBe(2.0);
     });
 
     it('uses runTest when workers are not supported', async () => {
@@ -458,11 +460,12 @@ describe('useTestExecution', () => {
       expect(result.current.isRunning).toBe(false);
     });
 
-    it('clears pending throttle timer on worker path when execute throws after deferred flush was scheduled', async () => {
+    it('falls back to direct execution when worker path throws after deferred flush was scheduled', async () => {
       mockSupportsWorkers.mockReturnValue(true);
-      mockRunTestInWorker.mockImplementation(async (_config, _scenarios, onProgress) => {
-        onProgress(1, 10, [createMockResult({ id: 'w1' })]);
-        throw new Error('worker failed after schedule');
+      mockRunTestInWorker.mockRejectedValue(new Error('worker failed after schedule'));
+      mockRunTest.mockImplementation(async (_config, _scenarios, onProgress) => {
+        onProgress(1, 1, [createMockResult({ id: 'fallback-1' })]);
+        return { results: [createMockResult({ id: 'fallback-1' })] };
       });
 
       const { result } = renderHook(() => useTestExecution());
@@ -471,7 +474,8 @@ describe('useTestExecution', () => {
         await result.current.execute(createMockConfig(), [createMockScenario()]);
       });
 
-      expect(result.current.error).toBe('worker failed after schedule');
+      expect(result.current.error).toBeNull();
+      expect(result.current.finalRun).not.toBeNull();
     });
 
     it('clears pending throttle timer when runTest resolves before deferred flush fires', async () => {
@@ -554,6 +558,104 @@ describe('useTestExecution', () => {
       expect(result.current.total).toBe(1);
       expect(result.current.pendingRun).not.toBeNull();
     });
+
+    it('sets total to -1 for constant-arrival mode', async () => {
+      const config = {
+        ...createMockConfig(),
+        executionMode: 'constant-arrival' as const,
+        arrivalRate: { targetRps: 50, durationSec: 30 },
+      };
+      mockCanUseRust.mockReturnValue(true);
+      mockIsRustAvailable.mockResolvedValue(true);
+      mockRunTestViaRust.mockImplementation(async () => {
+        await new Promise((r) => setTimeout(r, 10));
+        return { results: [] };
+      });
+
+      const { result } = renderHook(() => useTestExecution());
+
+      act(() => {
+        result.current.execute(config, [createMockScenario()]);
+      });
+
+      expect(result.current.total).toBe(-1);
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(50);
+      });
+    });
+
+    it('errors when constant-arrival mode without Rust executor', async () => {
+      const config = {
+        ...createMockConfig(),
+        executionMode: 'constant-arrival' as const,
+        arrivalRate: { targetRps: 50, durationSec: 30 },
+      };
+      mockCanUseRust.mockReturnValue(true);
+      mockIsRustAvailable.mockResolvedValue(false);
+
+      const { result } = renderHook(() => useTestExecution());
+
+      await act(async () => {
+        await result.current.execute(config, [createMockScenario()]);
+      });
+
+      expect(result.current.isRunning).toBe(false);
+      expect(result.current.error).toBe('Constant Arrival Rate requires the desktop app (Tauri)');
+    });
+
+    it('tracks peak RPS and dropped requests for constant-arrival via Rust progress', async () => {
+      const config = {
+        ...createMockConfig(),
+        executionMode: 'constant-arrival' as const,
+        arrivalRate: { targetRps: 50, durationSec: 30 },
+      };
+      mockCanUseRust.mockReturnValue(true);
+      mockIsRustAvailable.mockResolvedValue(true);
+      const mockResult = createMockResult();
+      mockRunTestViaRust.mockImplementation((_config, _scenarios, onProgress) => {
+        onProgress(0, -1, [], {
+          elapsedMs: 100,
+          targetConcurrency: 1,
+          currentInFlight: 0,
+          durationMs: 0,
+        });
+        onProgress(0, -1, [], {
+          elapsedMs: 150,
+          targetConcurrency: 1,
+          currentInFlight: 0,
+          durationMs: 0,
+          actualRps: 40,
+        });
+        onProgress(0, -1, [], {
+          elapsedMs: 175,
+          targetConcurrency: 1,
+          currentInFlight: 0,
+          durationMs: 0,
+          droppedRequests: 2,
+        });
+        onProgress(1, -1, [mockResult], {
+          elapsedMs: 200,
+          targetConcurrency: 1,
+          currentInFlight: 0,
+          durationMs: 0,
+          actualRps: 55,
+          droppedRequests: 7,
+        });
+        return Promise.resolve({ results: [mockResult] });
+      });
+      mockComputeMetrics.mockReturnValue(createMockSummary());
+
+      const { result } = renderHook(() => useTestExecution());
+
+      await act(async () => {
+        await result.current.execute(config, [createMockScenario()]);
+      });
+
+      expect(result.current.finalRun?.summary.peakRps).toBe(55);
+      expect(result.current.finalRun?.summary.droppedRequests).toBe(7);
+      expect(result.current.finalRun?.summary.targetRps).toBe(50);
+    });
   });
 
   describe('abort', () => {
@@ -613,6 +715,39 @@ describe('useTestExecution', () => {
 
       expect(resolveRun).toBeDefined();
       expect(result.current.completed).toBe(1);
+    });
+
+    it('uses workflow iterations for total when aborted during workflow execution', async () => {
+      const activeResult = createMockResult({ id: 'wf-active-1' });
+      let resolveRun: ((v: { results: RequestResult[] }) => void) | undefined;
+
+      mockRunTest.mockImplementation(async (_config, _scenarios, _onProgress, signal) => {
+        return new Promise<{ results: RequestResult[] }>((resolve) => {
+          resolveRun = resolve;
+          signal.addEventListener('abort', () => {
+            resolve({ results: [activeResult] });
+          });
+        });
+      });
+
+      const workflowConfig = {
+        ...createMockConfig(),
+        iterations: 5,
+        executionMode: 'workflow' as const,
+      };
+
+      const { result } = renderHook(() => useTestExecution());
+
+      await act(async () => {
+        void result.current.execute(workflowConfig, [createMockScenario()]);
+        await vi.advanceTimersByTimeAsync(10);
+        result.current.abort();
+        await vi.advanceTimersByTimeAsync(10);
+      });
+
+      expect(resolveRun).toBeDefined();
+      expect(result.current.completed).toBe(1);
+      expect(result.current.total).toBe(5);
     });
   });
 

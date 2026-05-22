@@ -4,7 +4,7 @@ vi.mock('../../../shared/utils/platform', () => ({
   isTauri: vi.fn(() => false),
 }));
 
-import { isRustExecutorAvailable, resetAvailabilityCache, abortRustLoadTest, startRustLoadTest, canUseRustExecutor, buildExecutionPlan, prepareRustScenario, mapRustResult, buildExpandedQueue, } from './rustBridge';
+import { isRustExecutorAvailable, resetAvailabilityCache, abortRustLoadTest, startRustLoadTest, canUseRustExecutor, buildExecutionPlan, prepareRustScenario, mapRustResult, buildExpandedQueue, runTestViaRust, RustProgressBatch, RustCompletionSummary, RustFinalResults, } from './rustBridge';
 import { RustExecutionResult } from './rustBridge';
 import { isTauri } from '../../../shared/utils/platform';
 import { Scenario, TestConfig } from '../../../shared/types';
@@ -194,6 +194,14 @@ describe('canUseRustExecutor', () => {
     const scenarios = [makeScenario({ auth: { type: 'apikey', apiKeyName: 'key', apiKeyValue: 'val', apiKeyIn: 'header' } })];
     expect(canUseRustExecutor(makeConfig(), scenarios)).toBe(true);
   });
+
+  it('returns true for constant-arrival mode', () => {
+    const config = makeConfig({
+      executionMode: 'constant-arrival',
+      arrivalRate: { targetRps: 50, durationSec: 30 },
+    });
+    expect(canUseRustExecutor(config, [makeScenario()])).toBe(true);
+  });
 });
 
 /* ── prepareRustScenario ─────────────────────────────────────────── */
@@ -362,6 +370,106 @@ describe('prepareRustScenario', () => {
     const scenario = makeScenario({ validation: { mode: 'none' } });
     const result = prepareRustScenario(scenario);
     expect(result.assertions).toBeUndefined();
+  });
+
+  it('normalizes existence assertion with existsMode=exists', () => {
+    const scenario = makeScenario({
+      validation: {
+        mode: 'none',
+        assertions: [
+          { type: 'existence', path: '$.field', existsMode: 'exists' },
+        ],
+      },
+    });
+    const result = prepareRustScenario(scenario);
+    expect(result.assertions).toHaveLength(1);
+    expect(result.assertions![0].expectExists).toBe(true);
+  });
+
+  it('normalizes existence assertion with existsMode=does_not_exist', () => {
+    const scenario = makeScenario({
+      validation: {
+        mode: 'none',
+        assertions: [
+          { type: 'existence', path: '$.field', existsMode: 'does_not_exist' },
+        ],
+      },
+    });
+    const result = prepareRustScenario(scenario);
+    expect(result.assertions).toHaveLength(1);
+    expect(result.assertions![0].expectExists).toBe(false);
+  });
+
+  it('normalizes existence assertion with explicit expectExists', () => {
+    const scenario = makeScenario({
+      validation: {
+        mode: 'none',
+        assertions: [
+          { type: 'existence', path: '$.field', expectExists: false },
+        ],
+      },
+    });
+    const result = prepareRustScenario(scenario);
+    expect(result.assertions).toHaveLength(1);
+    expect(result.assertions![0].expectExists).toBe(false);
+  });
+
+  it('defaults existence assertion expectExists to true when no mode specified', () => {
+    const scenario = makeScenario({
+      validation: {
+        mode: 'none',
+        assertions: [
+          { type: 'existence', path: '$.field' },
+        ],
+      },
+    });
+    const result = prepareRustScenario(scenario);
+    expect(result.assertions).toHaveLength(1);
+    expect(result.assertions![0].expectExists).toBe(true);
+  });
+
+  it('normalizes header assertion with legacy field names', () => {
+    const scenario = makeScenario({
+      validation: {
+        mode: 'none',
+        assertions: [
+          { type: 'header', headerName: 'Content-Type', headerOp: 'contains', headerValue: 'json' },
+        ],
+      },
+    });
+    const result = prepareRustScenario(scenario);
+    expect(result.assertions).toHaveLength(1);
+    expect(result.assertions![0].name).toBe('Content-Type');
+    expect(result.assertions![0].operator).toBe('contains');
+    expect(result.assertions![0].value).toBe('json');
+  });
+
+  it('normalizes numeric assertion with legacy comparison field', () => {
+    const scenario = makeScenario({
+      validation: {
+        mode: 'none',
+        assertions: [
+          { type: 'numeric', path: '$.count', comparison: '>=', value: 10 },
+        ],
+      },
+    });
+    const result = prepareRustScenario(scenario);
+    expect(result.assertions).toHaveLength(1);
+    expect(result.assertions![0].operator).toBe('>=');
+  });
+
+  it('normalizes arrayLength assertion with legacy comparison field', () => {
+    const scenario = makeScenario({
+      validation: {
+        mode: 'none',
+        assertions: [
+          { type: 'arrayLength', path: '$.items', comparison: '==', value: 5 },
+        ],
+      },
+    });
+    const result = prepareRustScenario(scenario);
+    expect(result.assertions).toHaveLength(1);
+    expect(result.assertions![0].operator).toBe('==');
   });
 });
 
@@ -567,6 +675,87 @@ describe('buildExecutionPlan', () => {
     const plan = buildExecutionPlan(config, [makeScenario()])!;
     expect(plan.circuitBreaker).toEqual({ policy: 'continue' });
   });
+
+  it('builds constant-arrival plan with basic config', () => {
+    const config = makeConfig({
+      executionMode: 'constant-arrival',
+      arrivalRate: { targetRps: 50, durationSec: 60 },
+    });
+    const plan = buildExecutionPlan(config, [makeScenario()]);
+    expect(plan).not.toBeNull();
+    expect(plan!.mode).toBe('constant-arrival');
+    if (plan!.mode === 'constant-arrival') {
+      expect(plan!.targetRps).toBe(50);
+      expect(plan!.durationSec).toBe(60);
+      expect(plan!.maxInFlight).toBe(500);
+      expect(plan!.rampConfig).toBeUndefined();
+      expect(plan!.detailLevel).toBe('sampled');
+    }
+  });
+
+  it('builds constant-arrival plan with ramp config', () => {
+    const config = makeConfig({
+      executionMode: 'constant-arrival',
+      arrivalRate: {
+        targetRps: 100,
+        durationSec: 120,
+        maxInFlight: 200,
+        ramp: { startRps: 10, endRps: 100, rampDurationSec: 30 },
+      },
+    });
+    const plan = buildExecutionPlan(config, [makeScenario()]);
+    expect(plan).not.toBeNull();
+    expect(plan!.mode).toBe('constant-arrival');
+    if (plan!.mode === 'constant-arrival') {
+      expect(plan!.maxInFlight).toBe(200);
+      expect(plan!.rampConfig).toEqual({
+        startRps: 10,
+        endRps: 100,
+        rampDurationSec: 30,
+      });
+    }
+  });
+
+  it('defaults maxInFlight to ceil(targetRps * 10) when not specified', () => {
+    const config = makeConfig({
+      executionMode: 'constant-arrival',
+      arrivalRate: { targetRps: 7.5, durationSec: 30 },
+    });
+    const plan = buildExecutionPlan(config, [makeScenario()]);
+    expect(plan).not.toBeNull();
+    expect(plan!.mode).toBe('constant-arrival');
+    if (plan!.mode === 'constant-arrival') {
+      expect(plan!.maxInFlight).toBe(75);
+    }
+  });
+
+  it('returns null for constant-arrival with missing arrivalRate', () => {
+    const config = makeConfig({ executionMode: 'constant-arrival' });
+    delete config.arrivalRate;
+    const plan = buildExecutionPlan(config, [makeScenario()]);
+    expect(plan).not.toBeNull();
+    expect(plan!.mode).toBe('pool');
+  });
+
+  it('assigns scenario weights for constant-arrival', () => {
+    const s1 = makeScenario({ id: 'sc-1' });
+    const s2 = makeScenario({ id: 'sc-2' });
+    const config = makeConfig({
+      executionMode: 'constant-arrival',
+      arrivalRate: { targetRps: 20, durationSec: 10 },
+      scenarioWeights: [
+        { scenarioId: 'sc-1', weight: 70 },
+        { scenarioId: 'sc-2', weight: 30 },
+      ],
+    });
+    const plan = buildExecutionPlan(config, [s1, s2]);
+    expect(plan).not.toBeNull();
+    expect(plan!.mode).toBe('constant-arrival');
+    if (plan!.mode === 'constant-arrival') {
+      expect(plan!.scenarios[0].weight).toBe(70);
+      expect(plan!.scenarios[1].weight).toBe(30);
+    }
+  });
 });
 
 /* ── buildExpandedQueue ──────────────────────────────────────────── */
@@ -602,6 +791,27 @@ describe('buildExpandedQueue', () => {
     const config = makeConfig({ iterations: 0 });
     const queue = buildExpandedQueue(config, [makeScenario()]);
     expect(queue.length).toBe(0);
+  });
+
+  it('expands scenarios with data source rows', () => {
+    const config = makeConfig({ iterations: 1 });
+    const scenarios = [
+      makeScenario({
+        dataSource: {
+          id: 'ds-1',
+          columns: [{ id: 'vin', name: 'VIN', type: 'path', mapping: 'vin' }],
+          rows: [
+            { id: 'row-1', label: 'Row 1', values: { vin: 'ABC123' }, enabled: true },
+            { id: 'row-2', label: 'Row 2', values: { vin: 'DEF456' }, enabled: true },
+          ],
+          source: { type: 'inline' },
+        },
+      }),
+    ];
+    const queue = buildExpandedQueue(config, scenarios);
+    expect(queue.length).toBe(2);
+    expect(queue[0].dataRowId).toBeDefined();
+    expect(queue[1].dataRowId).toBeDefined();
   });
 });
 
@@ -741,6 +951,57 @@ describe('mapRustResult — JS fallback', () => {
     expect(result.errorMessage).toContain('Validation failed');
   });
 
+  it('extracts error from JSON "error" field', () => {
+    const rustResult = makeRustResult({
+      httpStatus: 400,
+      responseBody: '{"error":"Bad request"}',
+      errorMessage: null,
+    });
+    const result = mapRustResult(rustResult, makeScenario());
+    expect(result.errorMessage).toContain('Bad request');
+  });
+
+  it('extracts error from JSON "detail" field', () => {
+    const rustResult = makeRustResult({
+      httpStatus: 404,
+      responseBody: '{"detail":"Not found"}',
+      errorMessage: null,
+    });
+    const result = mapRustResult(rustResult, makeScenario());
+    expect(result.errorMessage).toContain('Not found');
+  });
+
+  it('extracts error from JSON "errorMessage" field', () => {
+    const rustResult = makeRustResult({
+      httpStatus: 500,
+      responseBody: '{"errorMessage":"Internal error"}',
+      errorMessage: null,
+    });
+    const result = mapRustResult(rustResult, makeScenario());
+    expect(result.errorMessage).toContain('Internal error');
+  });
+
+  it('stringifies non-string error field in JSON', () => {
+    const rustResult = makeRustResult({
+      httpStatus: 422,
+      responseBody: '{"message":{"code":"INVALID","details":["field1"]}}',
+      errorMessage: null,
+    });
+    const result = mapRustResult(rustResult, makeScenario());
+    expect(result.errorMessage).toContain('code');
+    expect(result.errorMessage).toContain('INVALID');
+  });
+
+  it('uses truncated body when JSON has no recognized error field', () => {
+    const rustResult = makeRustResult({
+      httpStatus: 500,
+      responseBody: '{"status":"error","data":null}',
+      errorMessage: null,
+    });
+    const result = mapRustResult(rustResult, makeScenario());
+    expect(result.errorMessage).toContain('status');
+  });
+
   it('falls back to truncated body when no standard error field', () => {
     const rustResult = makeRustResult({
       httpStatus: 503,
@@ -759,6 +1020,226 @@ describe('mapRustResult — JS fallback', () => {
     });
     const result = mapRustResult(rustResult, makeScenario());
     expect(result.errorMessage).toContain('Bad Gateway');
+  });
+});
+
+/* ── detailLevel in buildExecutionPlan ────────────────────────────── */
+
+describe('buildExecutionPlan detailLevel', () => {
+  it('sets detailLevel to sampled for load-profile mode', () => {
+    const config = makeConfig({
+      executionMode: 'load-profile',
+      loadProfile: { type: 'sustained', durationSec: 60, maxConcurrency: 10 },
+    });
+    const plan = buildExecutionPlan(config, [makeScenario()])!;
+    expect(plan.mode).toBe('load-profile');
+    if (plan.mode === 'load-profile') {
+      expect(plan.detailLevel).toBe('sampled');
+    }
+  });
+
+  it('does not set detailLevel for pool mode (defaults to full on Rust side)', () => {
+    const config = makeConfig({ executionMode: 'pool' });
+    const plan = buildExecutionPlan(config, [makeScenario()])!;
+    expect(plan.mode).toBe('pool');
+    if (plan.mode === 'pool') {
+      expect(plan.detailLevel).toBeUndefined();
+    }
+  });
+
+  it('does not set detailLevel for sequential mode', () => {
+    const config = makeConfig({ executionMode: 'sequential' });
+    const plan = buildExecutionPlan(config, [makeScenario()])!;
+    expect(plan.mode).toBe('sequential');
+    if (plan.mode === 'sequential') {
+      expect(plan.detailLevel).toBeUndefined();
+    }
+  });
+
+  it('does not set detailLevel for batch mode (maps to pool)', () => {
+    const config = makeConfig({ executionMode: 'batch' });
+    const plan = buildExecutionPlan(config, [makeScenario()])!;
+    expect(plan.mode).toBe('pool');
+    if (plan.mode === 'pool') {
+      expect(plan.detailLevel).toBeUndefined();
+    }
+  });
+});
+
+/* ── runTestViaRust ─────────────────────────────────────────────────── */
+
+describe('runTestViaRust', () => {
+  type ListenerCallback<T> = (event: { payload: T }) => void;
+  let progressCallback: ListenerCallback<RustProgressBatch> | null = null;
+  let completeCallback: ListenerCallback<RustCompletionSummary> | null = null;
+  let finalResultsCallback: ListenerCallback<RustFinalResults> | null = null;
+  let _invokePromiseResolve: ((v: unknown) => void) | null = null;
+  let _invokePromiseReject: ((e: Error) => void) | null = null;
+
+  const mockListen = vi.fn(async <T>(event: string, callback: ListenerCallback<T>) => {
+    if (event === 'load-test-progress') {
+      progressCallback = callback as ListenerCallback<RustProgressBatch>;
+    } else if (event === 'load-test-complete') {
+      completeCallback = callback as ListenerCallback<RustCompletionSummary>;
+    } else if (event === 'load-test-final-results') {
+      finalResultsCallback = callback as ListenerCallback<RustFinalResults>;
+    }
+    return () => {};
+  });
+
+  const mockInvoke = vi.fn(() => new Promise((resolve, reject) => {
+    _invokePromiseResolve = resolve;
+    _invokePromiseReject = reject;
+  }));
+
+  beforeEach(() => {
+    progressCallback = null;
+    completeCallback = null;
+    finalResultsCallback = null;
+    _invokePromiseResolve = null;
+    _invokePromiseReject = null;
+    mockListen.mockClear();
+    mockInvoke.mockClear();
+
+    vi.doMock('@tauri-apps/api/core', () => ({
+      invoke: mockInvoke,
+    }));
+    vi.doMock('@tauri-apps/api/event', () => ({
+      listen: mockListen,
+    }));
+  });
+
+  it('returns early with empty results when abortSignal is already aborted', async () => {
+    const controller = new AbortController();
+    controller.abort();
+
+    const config = makeConfig();
+    const scenarios = [makeScenario()];
+    const onProgress = vi.fn();
+
+    mockIsTauri.mockReturnValue(true);
+    const result = await runTestViaRust(config, scenarios, onProgress, controller.signal);
+
+    expect(result.results).toEqual([]);
+    expect(onProgress).not.toHaveBeenCalled();
+  });
+
+  it('rejects when buildExecutionPlan returns null (workflow mode)', async () => {
+    const config = makeConfig({ executionMode: 'workflow' });
+    const scenarios = [makeScenario()];
+    const onProgress = vi.fn();
+
+    mockIsTauri.mockReturnValue(true);
+    await expect(runTestViaRust(config, scenarios, onProgress)).rejects.toThrow('Cannot build Rust execution plan');
+  });
+
+  it('handles progress batch with droppedRequests field', async () => {
+    mockIsTauri.mockReturnValue(true);
+
+    const config = makeConfig({
+      executionMode: 'constant-arrival',
+      arrivalRate: { targetRps: 100, durationSec: 10 },
+    });
+    const scenarios = [makeScenario()];
+    const onProgress = vi.fn();
+
+    const promise = runTestViaRust(config, scenarios, onProgress);
+
+    await vi.waitFor(() => expect(progressCallback).not.toBeNull());
+
+    const rustResult = makeRustResult({ scenarioId: scenarios[0].id });
+    progressCallback!({
+      payload: {
+        completed: 5,
+        total: -1,
+        results: [rustResult],
+        elapsedMs: 1000,
+        currentInFlight: 10,
+        targetConcurrency: 50,
+        breakerTripped: false,
+        targetRps: 100,
+        actualRps: 95,
+        droppedRequests: 3,
+      },
+    });
+
+    expect(onProgress).toHaveBeenCalled();
+    const call = onProgress.mock.calls[0];
+    const meta = call[3];
+    expect(meta.droppedRequests).toBe(3);
+    expect(meta.targetRps).toBe(100);
+    expect(meta.actualRps).toBe(95);
+
+    completeCallback!({ payload: { totalResults: 5, durationMs: 1000, breakerTripped: false } });
+    const result = await promise;
+    expect(result.results.length).toBe(1);
+  });
+
+  it('handles final-results event that replaces all results', async () => {
+    mockIsTauri.mockReturnValue(true);
+
+    const config = makeConfig({ executionMode: 'pool' });
+    const scenarios = [makeScenario()];
+    const onProgress = vi.fn();
+
+    const promise = runTestViaRust(config, scenarios, onProgress);
+
+    await vi.waitFor(() => expect(finalResultsCallback).not.toBeNull());
+
+    const rustResult1 = makeRustResult({ id: 'r-1', scenarioId: scenarios[0].id });
+    progressCallback!({
+      payload: {
+        completed: 1,
+        total: 2,
+        results: [rustResult1],
+        elapsedMs: 500,
+        currentInFlight: 1,
+        targetConcurrency: 4,
+        breakerTripped: false,
+      },
+    });
+
+    const finalResult = makeRustResult({ id: 'r-final', scenarioId: scenarios[0].id });
+    finalResultsCallback!({
+      payload: { results: [finalResult] },
+    });
+
+    completeCallback!({ payload: { totalResults: 1, durationMs: 1000, breakerTripped: false } });
+    const result = await promise;
+
+    expect(result.results.length).toBe(1);
+    expect(result.results[0].id).toBe('r-final');
+  });
+
+  it('uses mapRustResultWithoutValidation when scenario not found in lookup', async () => {
+    mockIsTauri.mockReturnValue(true);
+
+    const config = makeConfig({ executionMode: 'pool' });
+    const scenarios = [makeScenario({ id: 'sc-known' })];
+    const onProgress = vi.fn();
+
+    const promise = runTestViaRust(config, scenarios, onProgress);
+
+    await vi.waitFor(() => expect(progressCallback).not.toBeNull());
+
+    const unknownResult = makeRustResult({ id: 'r-unknown', scenarioId: 'sc-unknown' });
+    progressCallback!({
+      payload: {
+        completed: 1,
+        total: 1,
+        results: [unknownResult],
+        elapsedMs: 100,
+        currentInFlight: 0,
+        targetConcurrency: 1,
+        breakerTripped: false,
+      },
+    });
+
+    completeCallback!({ payload: { totalResults: 1, durationMs: 100, breakerTripped: false } });
+    const result = await promise;
+
+    expect(result.results.length).toBe(1);
+    expect(result.results[0].scenarioId).toBe('sc-unknown');
   });
 });
 

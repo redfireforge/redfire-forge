@@ -21,9 +21,10 @@ vi.mock('recharts', () => ({
   },
   YAxis: () => <div data-testid="y-axis" />,
   CartesianGrid: () => <div data-testid="grid" />,
-  Tooltip: (props: { formatter?: (v: unknown) => unknown; labelFormatter?: (v: unknown) => unknown }) => {
+  Tooltip: (props: { formatter?: (v: unknown, name: unknown) => unknown; labelFormatter?: (v: unknown) => unknown }) => {
     if (typeof props.formatter === 'function') {
-      props.formatter(42, '', {}, {});
+      props.formatter(42, 'targetRps');
+      props.formatter(42, 'actualRps');
     }
     if (typeof props.labelFormatter === 'function') {
       props.labelFormatter(5);
@@ -122,5 +123,31 @@ describe('LiveCharts', () => {
     
     rerender(<LiveCharts data={data} isTimeBased={false} />);
     expect(screen.getByText('Response Time (ms)')).toBeInTheDocument();
+  });
+
+  it('renders arrival rate RPS chart when isArrivalRate is true and data has RPS fields', () => {
+    const data: TimeSeriesPoint[] = [
+      { elapsedSec: 1, avgResponseTime: 100, tps: 10, errorRate: 0, concurrency: 0, targetRps: 20, actualRps: 18 },
+      { elapsedSec: 2, avgResponseTime: 110, tps: 11, errorRate: 0, concurrency: 0, targetRps: 20, actualRps: 19 },
+    ];
+    render(<LiveCharts data={data} isTimeBased={true} isArrivalRate={true} />);
+
+    expect(screen.getByText('Target vs Actual RPS')).toBeInTheDocument();
+  });
+
+  it('does not render arrival rate RPS chart when isArrivalRate is false', () => {
+    const data: TimeSeriesPoint[] = [
+      { elapsedSec: 1, avgResponseTime: 100, tps: 10, errorRate: 0, concurrency: 0, targetRps: 20, actualRps: 18 },
+    ];
+    render(<LiveCharts data={data} isTimeBased={true} isArrivalRate={false} />);
+
+    expect(screen.queryByText('Target vs Actual RPS')).not.toBeInTheDocument();
+  });
+
+  it('does not render arrival rate RPS chart when data lacks RPS fields', () => {
+    const data = createTimeSeriesData(5);
+    render(<LiveCharts data={data} isTimeBased={true} isArrivalRate={true} />);
+
+    expect(screen.queryByText('Target vs Actual RPS')).not.toBeInTheDocument();
   });
 });

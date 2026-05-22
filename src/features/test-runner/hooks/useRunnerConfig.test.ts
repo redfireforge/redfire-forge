@@ -38,7 +38,7 @@ describe('useRunnerConfig', () => {
     expect(result.current.weights).toEqual({});
     expect(result.current.skipValidation).toBe(false);
     expect(result.current.validationOverride).toBe('default');
-    expect(result.current.forceUnordered).toBe(false);
+    expect(result.current.forceUnordered).toBe('default');
     expect(result.current.hostMode).toBe('settings');
     expect(result.current.customBaseUrl).toBe('');
     expect(result.current.executionMode).toBe('batch');
@@ -289,7 +289,7 @@ describe('useRunnerConfig', () => {
     expect(result.current.weights).toEqual({});
     expect(result.current.skipValidation).toBe(false);
     expect(result.current.validationOverride).toBe('default');
-    expect(result.current.forceUnordered).toBe(false);
+    expect(result.current.forceUnordered).toBe('default');
     expect(result.current.hostMode).toBe('settings');
     expect(result.current.customBaseUrl).toBe('');
     expect(result.current.executionMode).toBe('batch');
@@ -323,6 +323,24 @@ describe('useRunnerConfig', () => {
 
     expect(result.current.autoReport).toBe(false);
     expect(result.current.autoReportFormat).toBe('html');
+  });
+
+  it('restores arrivalRate from saved config when present', async () => {
+    mockLoadRunnerConfig.mockResolvedValueOnce({
+      concurrency: 1,
+      iterations: 1,
+      selectedScenarios: [],
+      weights: {},
+      arrivalRate: { targetRps: 75, durationSec: 120 },
+    });
+
+    const { result } = renderHook(() => useRunnerConfig('arrival-key'));
+
+    await vi.waitFor(() => {
+      expect(result.current.configLoaded).toBe(true);
+    });
+
+    expect(result.current.arrivalRate).toEqual({ targetRps: 75, durationSec: 120 });
   });
 
   it('restores loadProfile and thinkTime when present on saved blob', async () => {

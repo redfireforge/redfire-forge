@@ -12,6 +12,19 @@ import { runWorkflow, runWorkflowLoad, runGraphLoad, VariableContext } from '../
 import { expandQueue } from './dataSourceExpander';
 import { computeAllocation } from './allocationEngine';
 
+export interface StreamingMetrics {
+  p50: number;
+  p95: number;
+  p99: number;
+  p999: number;
+  min: number;
+  max: number;
+  avg: number;
+  total: number;
+  errors: number;
+  tps: number;
+}
+
 export interface ProgressMeta {
   elapsedMs: number;
   targetConcurrency: number;
@@ -19,6 +32,14 @@ export interface ProgressMeta {
   durationMs: number;
   /** Running average of iteration durations (ms) — workflow mode only. */
   avgIterationTimeMs?: number;
+  /** Streaming percentile metrics from Rust HDR histogram (Rust executor only). */
+  metrics?: StreamingMetrics;
+  /** Current target RPS (constant-arrival mode only). */
+  targetRps?: number;
+  /** Current actual achieved RPS (constant-arrival mode only). */
+  actualRps?: number;
+  /** Total dropped requests due to backpressure (constant-arrival mode only). */
+  droppedRequests?: number;
 }
 
 type ProgressCallback = (completed: number, total: number, results: RequestResult[], meta?: ProgressMeta) => void;

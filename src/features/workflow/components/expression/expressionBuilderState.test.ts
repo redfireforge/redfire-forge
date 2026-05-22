@@ -41,4 +41,9 @@ describe('expressionBuilderState', () => {
       '$concat("hello", {{userId}})',
     );
   });
+
+  it('falls back to arg names when argValues[index] is undefined', () => {
+    expect(buildExpressionFromArgValues(sampleFunction, ['hello'])).toBe('$concat("hello", b)');
+    expect(buildExpressionFromArgValues(sampleFunction, [])).toBe('$concat(a, b)');
+  });
 });

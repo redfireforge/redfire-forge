@@ -77,7 +77,7 @@ export default function OperatorValueEditor({
         title="Click to edit value"
         onClick={(e) => { e.stopPropagation(); startEditOperatorValue(); }}
       >
-        {mapping.operatorValue || mapping.sourcePath}
+        {mapping.operatorValue || mapping.sourcePath || '—'}
       </span>
     );
   }

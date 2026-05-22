@@ -7,6 +7,10 @@ import { useDataSourceFetch } from './useDataSourceFetch';
 import { Scenario, DataSource, DataSourceColumn, DataSourceRow } from '../../../shared/types';
 import { HttpResponse } from '../../../shared/utils/httpClient';
 import { makeScenario as _makeScenario } from '../../../test-utils/factories';
+const uuidMock = vi.hoisted(() =>
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  require('../../../test-utils/uuidMock.ts').hoistedUuidFixed('test-uuid'),
+);
 
 // Mock dependencies
 vi.mock('../../../engine/dataSourceExpander', () => ({
@@ -32,7 +36,7 @@ vi.mock('../utils/dataSourceImport', () => ({
   inferPatternsFromColumns: vi.fn(() => []),
 }));
 
-vi.mock('uuid', () => ({ v4: () => 'test-uuid' }));
+vi.mock('uuid', () => uuidMock);
 
 function makeScenario(overrides?: Partial<Scenario>): Scenario {
   return _makeScenario({

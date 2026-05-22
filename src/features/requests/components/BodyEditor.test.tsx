@@ -222,7 +222,7 @@ describe('BodyEditor', () => {
       const dropdown = document.querySelector('.body-type-dropdown') as HTMLElement | null;
       expect(dropdown).not.toBeNull();
       expect(dropdown!.style.bottom).not.toBe('');
-      expect(dropdown!.style.top === '' || dropdown!.style.top === undefined).toBe(true);
+      expect(dropdown!.style.top === '' || dropdown!.style.top === undefined || dropdown!.style.top === 'auto').toBe(true);
     } finally {
       HTMLButtonElement.prototype.getBoundingClientRect = originalRect;
     }

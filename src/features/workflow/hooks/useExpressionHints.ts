@@ -3,7 +3,7 @@ import type { WorkflowVariableHint } from '../utils/workflowVariableHints';
 import { EXPRESSION_FUNCTIONS, type ExpressionFunction } from '../utils/expressionFunctions';
 
 export interface HintItem {
-  kind: 'variable' | 'function';
+  kind: 'variable' | 'function' | 'jsonpath';
   label: string;
   detail: string;
   insertText: string;
@@ -17,8 +17,8 @@ interface HintState {
   selectedIndex: number;
   /** Cursor position where the trigger token started (index of first `{` or `$`). */
   triggerStart: number;
-  /** Whether triggered by `{{` (braces) or bare `$` (bare). */
-  triggerKind: 'braces' | 'bare';
+  /** Whether triggered by `{{` (braces), bare `$` (bare), or `$.` (jsonpath). */
+  triggerKind: 'braces' | 'bare' | 'jsonpath';
   /** The partial text after `{{` or `$` that the user has typed so far. */
   filter: string;
 }
@@ -31,10 +31,11 @@ const CLOSED: HintState = { open: false, items: [], selectedIndex: 0, triggerSta
  * Triggers:
  *  - `{{`  → variable name hints from `variableHints`
  *  - `{{$` → expression function hints from the global registry
+ *  - `$.`  → JSONPath hints from `jsonPathHints` (extraction fields)
  *
  * Returns state + handlers to wire up to an `<input>` element.
  */
-export function useExpressionHints(variableHints: WorkflowVariableHint[]) {
+export function useExpressionHints(variableHints: WorkflowVariableHint[], jsonPathHints?: string[]) {
   const [state, setState] = useState<HintState>(CLOSED);
   const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
 
@@ -75,9 +76,41 @@ export function useExpressionHints(variableHints: WorkflowVariableHint[]) {
     }));
   }, []);
 
+  /** JSONPath hints derived from sample response. */
+  const jpHints = useMemo((): HintItem[] => {
+    if (!jsonPathHints || jsonPathHints.length === 0) return [];
+    return jsonPathHints.map((p) => ({
+      kind: 'jsonpath' as const,
+      label: p.startsWith('$.') ? p : `$.${p}`,
+      detail: 'JSONPath',
+      insertText: p.startsWith('$.') ? p : `$.${p}`,
+    }));
+  }, [jsonPathHints]);
+
   /** Analyse current input value + cursor position and decide whether to show hints. */
   const analyse = useCallback((value: string, cursorPos: number) => {
     const before = value.slice(0, cursorPos);
+
+    // ── Try `$.` trigger for JSONPath hints ──
+    if (jpHints.length > 0) {
+      const jpMatch = /(?:^|[\s,(])(\$\.[.\w[\]*]*)$/.exec(before);
+      if (jpMatch) {
+        const fragment = jpMatch[1];
+        const q = fragment.toLowerCase();
+        const filtered = jpHints.filter((h) => h.label.toLowerCase().startsWith(q));
+        if (filtered.length > 0) {
+          setState({
+            open: true,
+            items: filtered.slice(0, 15),
+            selectedIndex: 0,
+            triggerStart: cursorPos - fragment.length,
+            triggerKind: 'jsonpath',
+            filter: fragment,
+          });
+          return;
+        }
+      }
+    }
 
     // ── Try `{{` trigger first (variable or function inside template braces) ──
     const lastOpen = before.lastIndexOf('{{');
@@ -133,7 +166,7 @@ export function useExpressionHints(variableHints: WorkflowVariableHint[]) {
     }
 
     setState(CLOSED);
-  }, [fnHints, uniqueVarHints]);
+  }, [fnHints, uniqueVarHints, jpHints]);
 
   /** Call on every `onChange` event from the input. */
   const onInputChange = useCallback((value: string, cursorPos: number) => {
@@ -152,7 +185,10 @@ export function useExpressionHints(variableHints: WorkflowVariableHint[]) {
     let replacement: string;
     let cursorOffset: number;
 
-    if (triggerKind === 'bare') {
+    if (triggerKind === 'jsonpath') {
+      replacement = item.insertText;
+      cursorOffset = replacement.length;
+    } else if (triggerKind === 'bare') {
       // Bare `$` trigger — insert function name with parens, no `{{` wrapping
       const fn = item.meta as ExpressionFunction;
       if (fn.args.length > 0) {

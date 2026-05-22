@@ -54,9 +54,9 @@ export function exportCsv(results: RequestResult[], envName?: string, svcName?: 
       String(r.responseTimeMs),
       r.validationMode ?? 'none',
       String(r.passed),
-      f.path,
-      f.expected,
-      f.actual,
+      f.path ?? '',
+      f.expected ?? '',
+      f.actual ?? '',
       r.errorMessage ?? '',
       new Date(r.timestamp).toISOString(),
     ]);
@@ -70,9 +70,10 @@ export function exportCsv(results: RequestResult[], envName?: string, svcName?: 
   saveCsvFile(csvContent, filename);
 }
 
-export function escapeCsv(value: string): string {
-  if (value.includes(',') || value.includes('"') || value.includes('\n')) {
-    return `"${value.replace(/"/g, '""')}"`;
+export function escapeCsv(value: string | null | undefined): string {
+  const str = value ?? '';
+  if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+    return `"${str.replace(/"/g, '""')}"`;
   }
-  return value;
+  return str;
 }

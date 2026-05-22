@@ -3,14 +3,14 @@
  * Extracted from TestRunner.tsx to reduce component size and isolate config concerns.
  */
 import { useState, useEffect } from 'react';
-import type { ExecutionMode, ErrorPolicy, LoadProfileConfig, ThinkTimeConfig } from '../../../shared/types';
+import type { ExecutionMode, ErrorPolicy, LoadProfileConfig, ThinkTimeConfig, ArrivalRateConfig } from '../../../shared/types';
 import { saveRunnerConfig, loadRunnerConfig as loadRunnerConfigAsync } from '../../../shared/utils/storage';
 import type { ReportOptions } from '../../results/utils/reportGenerator';
 import { defaultLoadProfile, defaultThinkTime, defaultConfig, resolveLoadedConfig } from './runnerConfigDefaults';
-import type { HostMode } from './runnerConfigDefaults';
+import type { HostMode, UnorderedOverride } from './runnerConfigDefaults';
 
 export { defaultLoadProfile, defaultThinkTime, defaultConfig, resolveLoadedConfig } from './runnerConfigDefaults';
-export type { RunnerConfig, HostMode } from './runnerConfigDefaults';
+export type { RunnerConfig, HostMode, UnorderedOverride } from './runnerConfigDefaults';
 
 export interface UseRunnerConfigResult {
   concurrency: number;
@@ -23,10 +23,12 @@ export interface UseRunnerConfigResult {
   setWeights: React.Dispatch<React.SetStateAction<Record<string, number>>>;
   skipValidation: boolean;
   setSkipValidation: React.Dispatch<React.SetStateAction<boolean>>;
+  skipAssertions: boolean;
+  setSkipAssertions: React.Dispatch<React.SetStateAction<boolean>>;
   validationOverride: 'default' | 'none' | 'selective' | 'full';
   setValidationOverride: React.Dispatch<React.SetStateAction<'default' | 'none' | 'selective' | 'full'>>;
-  forceUnordered: boolean;
-  setForceUnordered: React.Dispatch<React.SetStateAction<boolean>>;
+  forceUnordered: UnorderedOverride;
+  setForceUnordered: React.Dispatch<React.SetStateAction<UnorderedOverride>>;
   hostMode: HostMode;
   setHostMode: React.Dispatch<React.SetStateAction<HostMode>>;
   customBaseUrl: string;
@@ -35,6 +37,8 @@ export interface UseRunnerConfigResult {
   setExecutionMode: React.Dispatch<React.SetStateAction<ExecutionMode>>;
   loadProfile: LoadProfileConfig;
   setLoadProfile: React.Dispatch<React.SetStateAction<LoadProfileConfig>>;
+  arrivalRate: ArrivalRateConfig;
+  setArrivalRate: React.Dispatch<React.SetStateAction<ArrivalRateConfig>>;
   thinkTime: ThinkTimeConfig;
   setThinkTime: React.Dispatch<React.SetStateAction<ThinkTimeConfig>>;
   timeoutSec: number;
@@ -66,12 +70,14 @@ export function useRunnerConfig(configContextKey: string | undefined): UseRunner
   const [selectedScenarios, setSelectedScenarios] = useState<Set<string>>(new Set());
   const [weights, setWeights] = useState<Record<string, number>>({});
   const [skipValidation, setSkipValidation] = useState(false);
+  const [skipAssertions, setSkipAssertions] = useState(false);
   const [validationOverride, setValidationOverride] = useState<'default' | 'none' | 'selective' | 'full'>('default');
-  const [forceUnordered, setForceUnordered] = useState(false);
+  const [forceUnordered, setForceUnordered] = useState<UnorderedOverride>('default');
   const [hostMode, setHostMode] = useState<HostMode>('settings');
   const [customBaseUrl, setCustomBaseUrl] = useState('');
   const [executionMode, setExecutionMode] = useState<ExecutionMode>('batch');
   const [loadProfile, setLoadProfile] = useState<LoadProfileConfig>({ ...defaultLoadProfile });
+  const [arrivalRate, setArrivalRate] = useState<ArrivalRateConfig>({ targetRps: 10, durationSec: 30 });
   const [thinkTime, setThinkTime] = useState<ThinkTimeConfig>({ ...defaultThinkTime });
   const [timeoutSec, setTimeoutSec] = useState(10);
   const [retryCount, setRetryCount] = useState(0);
@@ -103,12 +109,14 @@ export function useRunnerConfig(configContextKey: string | undefined): UseRunner
       setSelectedScenarios(new Set(cfg.selectedScenarios));
       setWeights(cfg.weights);
       setSkipValidation(cfg.skipValidation);
+      setSkipAssertions(cfg.skipAssertions);
       setValidationOverride(cfg.validationOverride);
       setForceUnordered(cfg.forceUnordered);
       setHostMode(cfg.hostMode);
       setCustomBaseUrl(cfg.customBaseUrl);
       setExecutionMode(cfg.executionMode);
       setLoadProfile(cfg.loadProfile);
+      setArrivalRate(cfg.arrivalRate ?? { targetRps: 10, durationSec: 30 });
       setThinkTime(cfg.thinkTime);
       setTimeoutSec(cfg.timeoutSec);
       setRetryCount(cfg.retryCount);
@@ -131,12 +139,14 @@ export function useRunnerConfig(configContextKey: string | undefined): UseRunner
       selectedScenarios: Array.from(selectedScenarios),
       weights,
       skipValidation,
+      skipAssertions,
       validationOverride,
       forceUnordered,
       hostMode,
       customBaseUrl,
       executionMode,
       loadProfile,
+      arrivalRate,
       thinkTime,
       timeoutSec,
       retryCount,
@@ -148,8 +158,8 @@ export function useRunnerConfig(configContextKey: string | undefined): UseRunner
       autoReportFormat,
     }, configContextKey);
   }, [configLoaded, configContextKey, concurrency, iterations, selectedScenarios, weights,
-    skipValidation, validationOverride, forceUnordered, hostMode, customBaseUrl, executionMode,
-    loadProfile, thinkTime, timeoutSec, retryCount, retryDelayMs, errorPolicy, maxErrors,
+    skipValidation, skipAssertions, validationOverride, forceUnordered, hostMode, customBaseUrl, executionMode,
+    loadProfile, arrivalRate, thinkTime, timeoutSec, retryCount, retryDelayMs, errorPolicy, maxErrors,
     maxErrorRate, autoReport, autoReportFormat]);
 
   return {
@@ -158,12 +168,14 @@ export function useRunnerConfig(configContextKey: string | undefined): UseRunner
     selectedScenarios, setSelectedScenarios,
     weights, setWeights,
     skipValidation, setSkipValidation,
+    skipAssertions, setSkipAssertions,
     validationOverride, setValidationOverride,
     forceUnordered, setForceUnordered,
     hostMode, setHostMode,
     customBaseUrl, setCustomBaseUrl,
     executionMode, setExecutionMode,
     loadProfile, setLoadProfile,
+    arrivalRate, setArrivalRate,
     thinkTime, setThinkTime,
     timeoutSec, setTimeoutSec,
     retryCount, setRetryCount,

@@ -93,9 +93,9 @@ export default function WorkflowDetailModal({
                 type="button"
                 className={`btn btn-sm${pretty ? ' btn-accent' : ''}`}
                 onClick={() => setPretty(p => !p)}
-                title={pretty ? 'Show raw value' : 'Pretty-print JSON (read-only)'}
+                title={pretty ? 'Show raw value' : 'Format JSON with indentation'}
               >
-                {pretty ? '{ } Raw' : '{ } Pretty'}
+                {pretty ? '{ } Raw' : '{ } Pretty Format'}
               </button>
             </div>
           )}

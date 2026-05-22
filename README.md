@@ -316,7 +316,13 @@ src-tauri/
 │   └── default.json         # Plugin permissions (fs, http, dialog, shell)
 └── src/
     ├── main.rs              # Tauri entry point
-    └── lib.rs               # Plugin registration (fs, http, dialog, shell)
+    ├── lib.rs               # Plugin registration (fs, http, dialog, shell)
+    ├── executor.rs           # Rust HTTP executor (reqwest + tokio, pool/seq/load modes)
+    ├── arrival_executor.rs   # Constant arrival rate executor (open-model load generation)
+    ├── histogram.rs          # HDR Histogram for streaming percentile calculation
+    ├── json_validator.rs     # Rust-side JSON validation engine
+    ├── commands.rs           # Tauri IPC command handlers
+    └── types.rs              # Shared Rust types (validation, execution config)
 ```
 
 ### Desktop vs Web Mode
@@ -730,6 +736,7 @@ Choose which hostname is used at runtime:
 | **Sequential** | Fixed to 1 | Executes one request at a time, in order. No parallelism — useful for testing exact request sequences or when the target service cannot handle concurrent load. |
 | **Batch** | N | Fires N requests simultaneously, waits for **all N** to complete, then fires the next N. Simple and predictable, but idle slots wait for the slowest request. |
 | **Continuous Pool** | N | Maintains exactly N requests in-flight at all times. When **any single** request completes, a new one starts immediately. Maximizes throughput with zero idle time. |
+| **Constant Arrival** | Open model | Fires exactly N requests/second regardless of response time (open-model load generation). Configurable target RPS, duration, max in-flight limit, and optional ramp period. Desktop only (uses Rust arrival executor). |
 
 **Configuration:**
 
@@ -960,7 +967,7 @@ After running a workflow, click **📊 Results Explorer** to open a full-screen 
 | Response Detail modal | Click error snippets on failed results to view full error message, validation failures table, and response body |
 | Verify validation rules | Invoke API and compare response against expected validation rules with host override |
 | Auto-refreshing OAuth2 tokens | Shared token cache with JWT expiry detection; auto-refresh with 30s buffer, no duplicate requests |
-| Sequential, batch & pool execution | Three execution modes: one-at-a-time, parallel batches, or continuous pool |
+| Sequential, batch, pool & constant arrival execution | Four execution modes: one-at-a-time, parallel batches, continuous pool, or constant arrival rate (open model, desktop only) |
 | Dynamic host replacement | Swap hostnames at runtime via Settings or custom URL |
 | Fetch host override | Override hostname when fetching sample responses in the Validation tab, with enable/disable toggle; persisted across editor sessions |
 | Response version history | Save, restore, rename, and delete response + validation rule snapshots per test |
@@ -971,6 +978,8 @@ After running a workflow, click **📊 Results Explorer** to open a full-screen 
 | Retry on failure | Retry failed requests up to N times with configurable delay between attempts |
 | Error policy (circuit breaker) | Continue, stop on first error, or stop at error count/rate threshold |
 | Unified execution config | Execution Mode, Concurrency, Iterations, Timeout, Retry, Error Policy in one card |
+| Constant arrival rate | Open-model load generation: send N RPS regardless of response time; configurable target RPS, duration, max in-flight, ramp period; Rust executor (desktop only) |
+| Streaming percentiles | Memory-efficient P50/P95/P99/P99.9 via HDR Histogram in Rust; accurate at 100K+ results without storing every datapoint |
 | Skip validation toggle | Disable response checks for raw throughput testing |
 | Unordered arrays toggle | Force unordered array matching globally — handles APIs returning arrays in non-deterministic order |
 | Rich assertions | Status code (`200`, `2xx`, `200-299`), response time SLA (`≤ 500ms`), header validation (`equals`/`contains`/`regex`/`exists`), regex on JSONPath values — run on every request alongside JSON validation; **Regex Builder modal** with JSON tree picker, pattern library (17 presets), and live match preview; assertion type badges on test cards |
@@ -979,6 +988,7 @@ After running a workflow, click **📊 Results Explorer** to open a full-screen 
 | Connection pooling | HTTP connections reused via `keep-alive` with shared `undici.Agent` pool (30s timeout, 128 connections); eliminates TCP/TLS handshake overhead; 2–3x latency improvement for HTTPS APIs; Tauri natively pooled via `reqwest` |
 | Weighted test distribution | Control relative frequency of each test |
 | Live progress monitoring | Real-time TPS, response times, and error rates during runs (throttled updates, incremental metrics) |
+| **Trash Box** | Soft-delete with configurable retention (7–90 days) for Feature Groups, Scenarios, Tests, and Shared Data Sources; 5-second undo toast, Trash Panel for browse/search/restore, automatic purge on startup |
 | Persistent configuration | All settings saved across sessions (file system in desktop, localStorage in browser) |
 | Results filtering | Filter runs by environment and microservice |
 | Multi-level grouped results | Group by Feature → Scenario → Test with cascading sub-groups and per-group summary stats |
@@ -1143,10 +1153,10 @@ This launches the native desktop window with **hot-reload** — any changes to R
 | `npm run preview` | Serve the production web build locally |
 | `npm run tauri:dev` | Launch desktop app with hot-reload |
 | `npm run tauri:build` | Build desktop app for current OS |
-| `npm test` | Run unit + integration test suite (Vitest, 16,356 tests) |
+| `npm test` | Run unit + integration test suite (Vitest, 19,112 tests) |
 | `npm run test:watch` | Run tests in watch mode |
 | `npm run test:coverage` | Run tests with coverage report (>90% all files) |
-| `npm run test:e2e` | Run Playwright E2E tests (613 tests, Chromium) |
+| `npm run test:e2e` | Run Playwright E2E tests (660 tests, Chromium) |
 | `npm run test:e2e:headed` | Run E2E tests with visible browser |
 | `npm run lint` | Run ESLint |
 | `./scripts/version.sh` | Bump version across all config files |
@@ -1224,8 +1234,9 @@ Data is stored using a tiered storage strategy:
 | `featureGroups` | Feature Groups, Scenarios, Tests, and inline Data Sources |
 | `testRuns` | Historical test run results |
 | `sharedDataSources` | Top-level shared data sources (harness-wide) |
+| `trash` | Soft-deleted items with metadata (retention, expiry, parent path) |
 
-IndexedDB is used for large data that would exceed localStorage's ~5 MB limit. The database (`redfireforge`, version 3) uses a blob-per-store pattern with automatic migration from localStorage on first load.
+IndexedDB is used for large data that would exceed localStorage's ~5 MB limit. The database (`redfireforge`, version 4) uses a blob-per-store pattern with automatic migration from localStorage on first load.
 
 **localStorage (Secondary — for small data)**
 

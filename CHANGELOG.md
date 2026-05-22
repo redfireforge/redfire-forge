@@ -8,6 +8,42 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
 
 ## [Unreleased]
 
+### Added
+- **Constant Arrival Rate (Open Model)** — New `constant-arrival` execution mode sends a fixed number of requests/second regardless of response time. Configurable target RPS, duration, max in-flight limit, and optional ramp period. `ArrivalRateConfig` type, `droppedRequests`/`peakRps`/`targetRps` on `TestSummary`. Rust arrival executor (`arrival_executor.rs`) for Tauri desktop mode.
+- **Streaming Percentiles** — Rust HDR Histogram module (`histogram.rs`) for memory-efficient P50/P95/P99/P99.9 calculation without storing every datapoint. Enables accurate metrics at 100K+ results. `p999ResponseTime` added to `TestSummary`.
+- **Rust Arrival Executor** — `arrival_executor.rs` (261 lines) with `tokio` interval-based request dispatch, backpressure handling (configurable `maxInFlight`), ramp-up support, and cancellation. 579 lines of Rust tests (`arrival_executor_test.rs`).
+- **Rust Histogram Module** — `histogram.rs` (111 lines) with `HdrHistogram` struct for recording response times and querying percentiles. 304 lines of Rust tests (`histogram_test.rs`).
+- **Shared `RunnerPage` Component** — Consolidated `TestRunner.tsx` (273→5 lines) and `ParameterizedRunner.tsx` (277→5 lines) into a single `RunnerPage.tsx` with `RunnerVariant` config (`runnerVariants.ts`). Eliminates ~500 lines of duplicated runner UI code.
+- **Shared `definitionVersioning.ts`** — Extracted `computeSnapshotFingerprint`, `generateHttpChangeSummary`, `computeHttpSnapshotDiff`, `createVersionEntry`, `addVersionToList`, `deleteVersionById`, `renameVersionById` into `src/shared/utils/definitionVersioning.ts`. Both `requestDefinitionVersioning.ts` and `testDefinitionVersioning.ts` now delegate to the shared module.
+- **Shared `OverviewDiffView` Component** — Extracted the identical overview diff view from `RequestDefinitionVersionDiff.tsx` and `TestDefinitionVersionDiff.tsx` into `src/shared/components/version-diff/VersionDiffViews.tsx`.
+- **Shared `percentiles.ts`** — Extracted `percentile()`, `computePercentiles()`, and `round2()` into `src/shared/utils/percentiles.ts`, replacing duplicated implementations in `metrics.ts` and `responseTimeHistogram.ts`.
+- **Shared Failure Formatting** — Added `formatFailureDetails()` and `getResultErrorMessage()` to `src/shared/utils/helpers.ts`, replacing 5 duplicated patterns across `reportGenerator.ts` and `cli/reporters.ts`.
+- **Shared `LiveAreaChart` Component** — Extracted common chart rendering pattern from `LiveCharts.tsx` into a reusable `LiveAreaChart` component, reducing duplication across 4 chart panels.
+
+### Changed
+- **Test Suite Deduplication & Coverage Sweep** — Extracted shared mocks, fixtures, and JSX render helpers into four new `__test-utils__/` modules:
+  - `src/features/test-runner/__test-utils__/workflowRunnerTestHelpers.tsx` — workflow fixtures, `selectWorkflowById`, `makeSummary`, `MultiWebhookStub` (saved ~815 lines across 4 `WorkflowRunner*.test.tsx` files).
+  - `src/features/results/components/__test-utils__/workflowExecutionCanvasTestHelpers.tsx` — mocked ReactFlow render builder, `MiniMap`/`Background`/`Controls` stubs, trace fixture factories, `getLastReactFlowProps` helper (saved ~580 lines across 5 `WorkflowExecutionCanvas*.test.tsx` files).
+  - `src/features/scenarios/components/__test-utils__/dataSourceSetupModalTestHelpers.tsx` — 12 mock-module factories plus scenario factories (saved ~1000 lines across 3 `DataSourceSetupModal*.test.tsx` files).
+  - `src/features/scenarios/components/__test-utils__/dataSourceEditorTestHelpers.tsx` — fixtures + reusable wrappers around `DataSourceGridTable`, `DataSourceToolbar`, `DataSourceRowDetailModal` (saved ~400 lines across 4 `DataSourceEditor*.test.tsx` files).
+  - Net duplication reduction: 22,585 → 18,719 lines (4.48% → 3.73%).
+- **Targeted Coverage Gap Fixes** — Added focused unit tests for `expressionBuilderState.ts` (argValues fallback branch), `curlGenerator.ts` (undefined `bodyForm`), `expressionSnippets.ts` (sort comparator), and `targetTreeBuilder.ts` (bracket-array path parsing). All production files now ≥ 90% on every coverage metric.
+- **E2E Flaky Test Stabilization** — Replaced 20+ fragile `waitForTimeout()` calls with proper Playwright auto-retrying assertions (`toHaveClass`, `toBeVisible`, `toHaveCount`) across `data-mapper-highlight-nav.spec.ts` and `results-console.spec.ts`. Added `networkidle` waits and retry logic for `harnessBtn.click()` under high parallelism. Increased default Playwright timeout from 15s to 30s for 40-worker runs. Result: 660 E2E tests, 0 flaky (previously 23 flaky).
+- **Playwright Config** — Default timeout increased from 15,000ms to 30,000ms to handle 40-worker parallelism without flakiness.
+
+### Added
+- **Trash Box — Soft Delete & Recovery**
+  - Deleted Feature Groups, Scenarios, Tests, and Shared Data Sources are moved to a Trash Box instead of permanent deletion.
+  - **Undo toast** — 5-second notification with Undo button for instant recovery after any delete.
+  - **Trash Panel** — modal UI to browse, search, restore, and permanently delete trashed items. Accessible from the Harness toolbar with a badge showing item count.
+  - **Automatic purge** — expired items are cleaned up on app startup based on configurable retention period.
+  - **Configurable settings** — retention period (7–90 days, default 30) and max items (50–200, default 100) in Trash Panel footer.
+  - **Smart restoration** — restores to original parent when available; creates "Restored Items" groups for orphans; handles ID collisions with new UUIDs; clears stale env/svc references.
+  - **Structure change logging** — restored items recorded in Feature Group change history with `restored` action.
+  - **Dual-mode persistence** — IndexedDB (web), localStorage fallback, Tauri FS (desktop).
+  - **Gallery sample** — "Trash Recovery Demo" in the Tests gallery with linked training manual.
+  - **Documentation** — User guide (`docs/guides/trash-box-guide.md`), HTML training manual, training path entry.
+
 ## [0.5.9] — 2026-05-20
 
 ### Changed
