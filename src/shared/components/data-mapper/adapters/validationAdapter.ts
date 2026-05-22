@@ -204,7 +204,7 @@ export function createValidationAdapter(
         };
         if (f.operatorValue !== undefined) {
           m.operatorValue = f.operatorValue;
-        } else if (f.expectedValue && getByPath(parsed, stripDollarPrefix(f.jsonPath)) === undefined) {
+        } else if (f.expectedValue != null && f.expectedValue !== '' && getByPath(parsed, stripDollarPrefix(f.jsonPath)) === undefined) {
           m.operatorValue = f.expectedValue;
         }
         if (f.negate) m.negate = true;

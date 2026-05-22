@@ -1,0 +1,808 @@
+{
+  "_exportMeta": {
+    "exportedAt": "2026-05-21T22:50:00.000Z",
+    "level": "feature-group",
+    "description": "Pre-built test scenarios for Phase 3A/3B/3C visual verification. Import into any environment. Adjust base URL in environment settings."
+  },
+  "data": {
+    "id": "fg-phase3-visual-tests",
+    "name": "Phase 3 — Visual Test Scenarios",
+    "scenarios": [
+      {
+        "id": "sc-3a-validation",
+        "name": "3A: Validation Engine Tests",
+        "kind": "standard",
+        "tests": [
+          {
+            "id": "test-3a-01-none-pass",
+            "name": "1.1 No Body Validation — Pass on 200",
+            "url": "https://jsonplaceholder.typicode.com/posts/1",
+            "method": "GET",
+            "headers": [],
+            "body": "",
+            "auth": { "type": "none" },
+            "validation": { "mode": "none" }
+          },
+          {
+            "id": "test-3a-02-none-fail",
+            "name": "1.2 No Body Validation — Fail on 404",
+            "url": "https://jsonplaceholder.typicode.com/posts/99999",
+            "method": "GET",
+            "headers": [],
+            "body": "",
+            "auth": { "type": "none" },
+            "validation": { "mode": "none" }
+          },
+          {
+            "id": "test-3a-03-none-status-assert",
+            "name": "1.3 No Body Validation — Pass 404 WITH Status Assert",
+            "url": "https://jsonplaceholder.typicode.com/posts/99999",
+            "method": "GET",
+            "headers": [],
+            "body": "",
+            "auth": { "type": "none" },
+            "validation": {
+              "mode": "none",
+              "assertions": [
+                { "type": "status", "expected": "404" }
+              ]
+            }
+          },
+          {
+            "id": "test-3a-04-full-match",
+            "name": "2.1 Full JSON Match — Exact Body",
+            "url": "https://jsonplaceholder.typicode.com/posts/1",
+            "method": "GET",
+            "headers": [],
+            "body": "",
+            "auth": { "type": "none" },
+            "validation": {
+              "mode": "full",
+              "expectedJson": "{\"userId\":1,\"id\":1,\"title\":\"sunt aut facere repellat provident occaecati excepturi optio reprehenderit\",\"body\":\"quia et suscipit\\nsuscipit recusandae consequuntur expedita et cum\\nreprehenderit molestiae ut ut quas totam\\nnostrum rerum est autem sunt rem eveniet architecto\"}"
+            }
+          },
+          {
+            "id": "test-3a-05-full-mismatch",
+            "name": "2.2 Full Match — Mismatch Produces Failures",
+            "url": "https://jsonplaceholder.typicode.com/posts/1",
+            "method": "GET",
+            "headers": [],
+            "body": "",
+            "auth": { "type": "none" },
+            "validation": {
+              "mode": "full",
+              "expectedJson": "{\"userId\":999,\"id\":1,\"title\":\"WRONG TITLE\",\"body\":\"wrong body\",\"extraField\":true}"
+            }
+          },
+          {
+            "id": "test-3a-06-full-invalid-json",
+            "name": "2.3 Full Match — Invalid Expected JSON",
+            "url": "https://jsonplaceholder.typicode.com/posts/1",
+            "method": "GET",
+            "headers": [],
+            "body": "",
+            "auth": { "type": "none" },
+            "validation": {
+              "mode": "full",
+              "expectedJson": "{ broken json here"
+            }
+          },
+          {
+            "id": "test-3a-07-selective-pass",
+            "name": "3.1 Selective Fields — Simple Match (Pass)",
+            "url": "https://jsonplaceholder.typicode.com/posts/1",
+            "method": "GET",
+            "headers": [],
+            "body": "",
+            "auth": { "type": "none" },
+            "validation": {
+              "mode": "selective",
+              "expectedFields": [
+                { "jsonPath": "$.userId", "expectedValue": "1", "operator": "equals" },
+                { "jsonPath": "$.id", "expectedValue": "0", "operator": "greater_than" },
+                { "jsonPath": "$.title", "expectedValue": "sunt", "operator": "contains" }
+              ]
+            }
+          },
+          {
+            "id": "test-3a-08-selective-fail",
+            "name": "3.2 Selective Fields — Field Mismatch (Fail)",
+            "url": "https://jsonplaceholder.typicode.com/posts/1",
+            "method": "GET",
+            "headers": [],
+            "body": "",
+            "auth": { "type": "none" },
+            "validation": {
+              "mode": "selective",
+              "expectedFields": [
+                { "jsonPath": "$.title", "expectedValue": "nonexistent", "operator": "equals" },
+                { "jsonPath": "$.userId", "expectedValue": "0", "operator": "less_than" }
+              ]
+            }
+          },
+          {
+            "id": "test-3a-08b-unordered-pass",
+            "name": "3.3a Unordered Array — Pass (finds at different index)",
+            "url": "https://jsonplaceholder.typicode.com/posts",
+            "method": "GET",
+            "headers": [],
+            "body": "",
+            "auth": { "type": "none" },
+            "validation": {
+              "mode": "selective",
+              "unorderedArrays": true,
+              "expectedFields": [
+                { "jsonPath": "$[1].id", "expectedValue": "1", "operator": "equals" },
+                { "jsonPath": "$[1].title", "expectedValue": "sunt", "operator": "contains" }
+              ],
+              "assertions": [
+                { "type": "status", "expected": "200" }
+              ]
+            }
+          },
+          {
+            "id": "test-3a-08b2-ordered-fail",
+            "name": "3.3b Ordered Array — Fail (wrong index)",
+            "url": "https://jsonplaceholder.typicode.com/posts",
+            "method": "GET",
+            "headers": [],
+            "body": "",
+            "auth": { "type": "none" },
+            "validation": {
+              "mode": "selective",
+              "unorderedArrays": false,
+              "expectedFields": [
+                { "jsonPath": "$[1].id", "expectedValue": "1", "operator": "equals" },
+                { "jsonPath": "$[1].title", "expectedValue": "sunt", "operator": "contains" }
+              ],
+              "assertions": [
+                { "type": "status", "expected": "200" }
+              ]
+            }
+          },
+          {
+            "id": "test-3a-08c-path-remap",
+            "name": "3.4 Selective — Wrong Path Prefix (Fail)",
+            "url": "https://jsonplaceholder.typicode.com/posts/1",
+            "method": "GET",
+            "headers": [],
+            "body": "",
+            "auth": { "type": "none" },
+            "validation": {
+              "mode": "selective",
+              "expectedFields": [
+                { "jsonPath": "$.post.id", "expectedValue": "1", "operator": "equals" },
+                { "jsonPath": "$.post.title", "expectedValue": "sunt", "operator": "contains" }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": "sc-3a-assertions",
+        "name": "3A: Assertion Tests",
+        "kind": "standard",
+        "tests": [
+          {
+            "id": "test-3a-09-status-exact",
+            "name": "4.1 Status Code — Exact 200",
+            "url": "https://jsonplaceholder.typicode.com/posts/1",
+            "method": "GET",
+            "headers": [],
+            "body": "",
+            "auth": { "type": "none" },
+            "validation": {
+              "mode": "none",
+              "assertions": [
+                { "type": "status", "expected": "200" }
+              ]
+            }
+          },
+          {
+            "id": "test-3a-10-status-range",
+            "name": "4.2 Status Code — Range 2xx",
+            "url": "https://jsonplaceholder.typicode.com/posts/1",
+            "method": "GET",
+            "headers": [],
+            "body": "",
+            "auth": { "type": "none" },
+            "validation": {
+              "mode": "none",
+              "assertions": [
+                { "type": "status", "expected": "2xx" }
+              ]
+            }
+          },
+          {
+            "id": "test-3a-11-status-fail",
+            "name": "4.2b Status Code — 4xx Fails on 200",
+            "url": "https://jsonplaceholder.typicode.com/posts/1",
+            "method": "GET",
+            "headers": [],
+            "body": "",
+            "auth": { "type": "none" },
+            "validation": {
+              "mode": "none",
+              "assertions": [
+                { "type": "status", "expected": "4xx" }
+              ]
+            }
+          },
+          {
+            "id": "test-3a-12-time-pass",
+            "name": "4.3 Response Time SLA — Pass (10s)",
+            "url": "https://jsonplaceholder.typicode.com/posts/1",
+            "method": "GET",
+            "headers": [],
+            "body": "",
+            "auth": { "type": "none" },
+            "validation": {
+              "mode": "none",
+              "assertions": [
+                { "type": "responseTime", "maxMs": 10000 }
+              ]
+            }
+          },
+          {
+            "id": "test-3a-13-time-fail",
+            "name": "4.3b Response Time SLA — Fail (1ms)",
+            "url": "https://jsonplaceholder.typicode.com/posts/1",
+            "method": "GET",
+            "headers": [],
+            "body": "",
+            "auth": { "type": "none" },
+            "validation": {
+              "mode": "none",
+              "assertions": [
+                { "type": "responseTime", "maxMs": 1 }
+              ]
+            }
+          },
+          {
+            "id": "test-3a-14-header-pass",
+            "name": "4.4 Header Assert — contains json",
+            "url": "https://jsonplaceholder.typicode.com/posts/1",
+            "method": "GET",
+            "headers": [],
+            "body": "",
+            "auth": { "type": "none" },
+            "validation": {
+              "mode": "none",
+              "assertions": [
+                { "type": "header", "name": "content-type", "operator": "contains", "value": "json" }
+              ]
+            }
+          },
+          {
+            "id": "test-3a-15-header-fail",
+            "name": "4.4b Header Assert — contains xml (Fail)",
+            "url": "https://jsonplaceholder.typicode.com/posts/1",
+            "method": "GET",
+            "headers": [],
+            "body": "",
+            "auth": { "type": "none" },
+            "validation": {
+              "mode": "none",
+              "assertions": [
+                { "type": "header", "name": "content-type", "operator": "contains", "value": "xml" }
+              ]
+            }
+          },
+          {
+            "id": "test-3a-16-regex-pass",
+            "name": "4.5 Regex Match — title matches text",
+            "url": "https://jsonplaceholder.typicode.com/posts/1",
+            "method": "GET",
+            "headers": [],
+            "body": "",
+            "auth": { "type": "none" },
+            "validation": {
+              "mode": "none",
+              "assertions": [
+                { "type": "regex", "jsonPath": "$.title", "pattern": "^[a-zA-Z\\s]+$" }
+              ]
+            }
+          },
+          {
+            "id": "test-3a-17-regex-fail",
+            "name": "4.5b Regex Match — Fail (digits only)",
+            "url": "https://jsonplaceholder.typicode.com/posts/1",
+            "method": "GET",
+            "headers": [],
+            "body": "",
+            "auth": { "type": "none" },
+            "validation": {
+              "mode": "none",
+              "assertions": [
+                { "type": "regex", "jsonPath": "$.title", "pattern": "^[0-9]+$" }
+              ]
+            }
+          },
+          {
+            "id": "test-3a-18-numeric-pass",
+            "name": "4.6 Numeric Compare — userId > 0",
+            "url": "https://jsonplaceholder.typicode.com/posts/1",
+            "method": "GET",
+            "headers": [],
+            "body": "",
+            "auth": { "type": "none" },
+            "validation": {
+              "mode": "none",
+              "assertions": [
+                { "type": "numeric", "jsonPath": "$.userId", "operator": ">", "value": 0 }
+              ]
+            }
+          },
+          {
+            "id": "test-3a-19-numeric-fail",
+            "name": "4.6b Numeric Compare — userId > 999999 (Fail)",
+            "url": "https://jsonplaceholder.typicode.com/posts/1",
+            "method": "GET",
+            "headers": [],
+            "body": "",
+            "auth": { "type": "none" },
+            "validation": {
+              "mode": "none",
+              "assertions": [
+                { "type": "numeric", "jsonPath": "$.userId", "operator": ">", "value": 999999 }
+              ]
+            }
+          },
+          {
+            "id": "test-3a-20-exists-pass",
+            "name": "4.7 Field Exists — $.title exists",
+            "url": "https://jsonplaceholder.typicode.com/posts/1",
+            "method": "GET",
+            "headers": [],
+            "body": "",
+            "auth": { "type": "none" },
+            "validation": {
+              "mode": "none",
+              "assertions": [
+                { "type": "existence", "jsonPath": "$.title", "expectExists": true }
+              ]
+            }
+          },
+          {
+            "id": "test-3a-21-exists-fail",
+            "name": "4.7b Field Exists — $.nonexistent (Fail)",
+            "url": "https://jsonplaceholder.typicode.com/posts/1",
+            "method": "GET",
+            "headers": [],
+            "body": "",
+            "auth": { "type": "none" },
+            "validation": {
+              "mode": "none",
+              "assertions": [
+                { "type": "existence", "jsonPath": "$.nonexistent_field_xyz", "expectExists": true }
+              ]
+            }
+          },
+          {
+            "id": "test-3a-22-type-pass",
+            "name": "4.8 Type Check — userId is number",
+            "url": "https://jsonplaceholder.typicode.com/posts/1",
+            "method": "GET",
+            "headers": [],
+            "body": "",
+            "auth": { "type": "none" },
+            "validation": {
+              "mode": "none",
+              "assertions": [
+                { "type": "typeCheck", "jsonPath": "$.userId", "expectedType": "number" }
+              ]
+            }
+          },
+          {
+            "id": "test-3a-23-type-fail",
+            "name": "4.8b Type Check — userId is string (Fail)",
+            "url": "https://jsonplaceholder.typicode.com/posts/1",
+            "method": "GET",
+            "headers": [],
+            "body": "",
+            "auth": { "type": "none" },
+            "validation": {
+              "mode": "none",
+              "assertions": [
+                { "type": "typeCheck", "jsonPath": "$.userId", "expectedType": "string" }
+              ]
+            }
+          },
+          {
+            "id": "test-3a-23b-custom-pass",
+            "name": "4.9 Custom Predicate — Pass",
+            "url": "https://jsonplaceholder.typicode.com/posts/1",
+            "method": "GET",
+            "headers": [],
+            "body": "",
+            "auth": { "type": "none" },
+            "validation": {
+              "mode": "none",
+              "assertions": [
+                { "type": "status", "expected": "200" },
+                { "type": "custom", "expression": "$eq($.body.userId, 1)", "description": "Check userId is 1" }
+              ]
+            }
+          },
+          {
+            "id": "test-3a-23c-custom-fail",
+            "name": "4.9b Custom Predicate — Fail",
+            "url": "https://jsonplaceholder.typicode.com/posts/1",
+            "method": "GET",
+            "headers": [],
+            "body": "",
+            "auth": { "type": "none" },
+            "validation": {
+              "mode": "none",
+              "assertions": [
+                { "type": "status", "expected": "200" },
+                { "type": "custom", "expression": "$eq($.body.userId, 99999)", "description": "Check userId is 99999 (will fail)" }
+              ]
+            }
+          },
+          {
+            "id": "test-3a-24-multi-mixed",
+            "name": "4.10 Multiple Assertions — Mixed Pass/Fail",
+            "url": "https://jsonplaceholder.typicode.com/posts/1",
+            "method": "GET",
+            "headers": [],
+            "body": "",
+            "auth": { "type": "none" },
+            "validation": {
+              "mode": "none",
+              "assertions": [
+                { "type": "status", "expected": "200" },
+                { "type": "responseTime", "maxMs": 10000 },
+                { "type": "numeric", "jsonPath": "$.userId", "operator": ">", "value": 999999 },
+                { "type": "regex", "jsonPath": "$.title", "pattern": "^[0-9]+$" },
+                { "type": "existence", "jsonPath": "$.nonexistent", "expectExists": true }
+              ]
+            }
+          },
+          {
+            "id": "test-3a-25-negated-fail",
+            "name": "4.11 Negated Status — NOT 200 (Fail)",
+            "url": "https://jsonplaceholder.typicode.com/posts/1",
+            "method": "GET",
+            "headers": [],
+            "body": "",
+            "auth": { "type": "none" },
+            "validation": {
+              "mode": "none",
+              "assertions": [
+                { "type": "status", "expected": "200", "negate": true }
+              ]
+            }
+          },
+          {
+            "id": "test-3a-26-negated-pass",
+            "name": "4.11b Negated Status — NOT 404 (Pass)",
+            "url": "https://jsonplaceholder.typicode.com/posts/1",
+            "method": "GET",
+            "headers": [],
+            "body": "",
+            "auth": { "type": "none" },
+            "validation": {
+              "mode": "none",
+              "assertions": [
+                { "type": "status", "expected": "404", "negate": true }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": "sc-3a-combined",
+        "name": "3A: Assertion + Validation Combos",
+        "kind": "standard",
+        "tests": [
+          {
+            "id": "test-3a-27-selective-plus-asserts",
+            "name": "5.1 Selective + Status + Time Assertions",
+            "url": "https://jsonplaceholder.typicode.com/posts/1",
+            "method": "GET",
+            "headers": [],
+            "body": "",
+            "auth": { "type": "none" },
+            "validation": {
+              "mode": "selective",
+              "expectedFields": [
+                { "jsonPath": "$.userId", "expectedValue": "1", "operator": "equals" }
+              ],
+              "assertions": [
+                { "type": "status", "expected": "200" },
+                { "type": "responseTime", "maxMs": 10000 }
+              ]
+            }
+          },
+          {
+            "id": "test-3a-28-404-with-status-assert",
+            "name": "5.2 Status Assert 404 Enables Body Validation",
+            "url": "https://jsonplaceholder.typicode.com/posts/99999",
+            "method": "GET",
+            "headers": [],
+            "body": "",
+            "auth": { "type": "none" },
+            "validation": {
+              "mode": "none",
+              "assertions": [
+                { "type": "status", "expected": "404" }
+              ]
+            }
+          },
+          {
+            "id": "test-3a-28b-500-no-status-assert",
+            "name": "5.3 HTTP 500 No Status Assert — Body Skipped",
+            "url": "https://httpbin.org/status/500",
+            "method": "GET",
+            "headers": [],
+            "body": "",
+            "auth": { "type": "none" },
+            "validation": {
+              "mode": "selective",
+              "expectedFields": [
+                { "jsonPath": "$.anything", "expectedValue": "ignored", "operator": "equals" }
+              ]
+            }
+          },
+          {
+            "id": "test-3a-29-post-test",
+            "name": "Scenario D — POST with Body",
+            "url": "https://jsonplaceholder.typicode.com/posts",
+            "method": "POST",
+            "headers": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": "{\"title\": \"test\", \"body\": \"hello\", \"userId\": 1}",
+            "auth": { "type": "none" },
+            "validation": {
+              "mode": "selective",
+              "expectedFields": [
+                { "jsonPath": "$.title", "expectedValue": "test", "operator": "equals" },
+                { "jsonPath": "$.userId", "expectedValue": "0", "operator": "greater_than" }
+              ],
+              "assertions": [
+                { "type": "status", "expected": "201" }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": "sc-3a-batch",
+        "name": "3A: Batch/Pool Execution (6.1)",
+        "kind": "standard",
+        "tests": [
+          {
+            "id": "test-3a-30-batch-pass",
+            "name": "6.1a Pool — Status 200 Pass",
+            "url": "https://jsonplaceholder.typicode.com/posts/1",
+            "method": "GET",
+            "headers": [],
+            "body": "",
+            "auth": { "type": "none" },
+            "validation": {
+              "mode": "none",
+              "assertions": [
+                { "type": "status", "expected": "200" }
+              ]
+            }
+          },
+          {
+            "id": "test-3a-31-batch-numeric-fail",
+            "name": "6.1b Pool — Numeric Assert Fail",
+            "url": "https://jsonplaceholder.typicode.com/posts/1",
+            "method": "GET",
+            "headers": [],
+            "body": "",
+            "auth": { "type": "none" },
+            "validation": {
+              "mode": "none",
+              "assertions": [
+                { "type": "numeric", "jsonPath": "$.userId", "operator": ">", "value": 999999 }
+              ]
+            }
+          },
+          {
+            "id": "test-3a-32-batch-404-fail",
+            "name": "6.1c Pool — 404 HTTP Fail",
+            "url": "https://jsonplaceholder.typicode.com/posts/99999",
+            "method": "GET",
+            "headers": [],
+            "body": "",
+            "auth": { "type": "none" },
+            "validation": { "mode": "none" }
+          }
+        ]
+      },
+      {
+        "id": "sc-3b-percentiles",
+        "name": "3B: Streaming Percentiles Tests",
+        "kind": "standard",
+        "tests": [
+          {
+            "id": "test-3b-01-pool-p999",
+            "name": "S1: P99.9 Pool Check",
+            "url": "https://jsonplaceholder.typicode.com/posts/1",
+            "method": "GET",
+            "headers": [],
+            "body": "",
+            "auth": { "type": "none" },
+            "validation": { "mode": "none" }
+          },
+          {
+            "id": "test-3b-02-load-profile-hdr",
+            "name": "S2: P99.9 Load Profile HDR",
+            "url": "https://jsonplaceholder.typicode.com/posts/1",
+            "method": "GET",
+            "headers": [],
+            "body": "",
+            "auth": { "type": "none" },
+            "validation": { "mode": "none" }
+          },
+          {
+            "id": "test-3b-03-histogram",
+            "name": "S3: Response Time Histogram Check",
+            "url": "https://jsonplaceholder.typicode.com/posts",
+            "method": "GET",
+            "headers": [],
+            "body": "",
+            "auth": { "type": "none" },
+            "validation": { "mode": "none" }
+          },
+          {
+            "id": "test-3b-04-accuracy",
+            "name": "S7: Accuracy Compare (Rust vs JS)",
+            "url": "https://jsonplaceholder.typicode.com/posts/1",
+            "method": "GET",
+            "headers": [],
+            "body": "",
+            "auth": { "type": "none" },
+            "validation": { "mode": "none" }
+          },
+          {
+            "id": "test-3b-05-high-volume",
+            "name": "S8: High Volume TPS",
+            "url": "https://jsonplaceholder.typicode.com/posts/1",
+            "method": "GET",
+            "headers": [],
+            "body": "",
+            "auth": { "type": "none" },
+            "validation": { "mode": "none" }
+          },
+          {
+            "id": "test-3b-06-final-results",
+            "name": "S10: Final Results Integrity",
+            "url": "https://jsonplaceholder.typicode.com/posts/1",
+            "method": "GET",
+            "headers": [],
+            "body": "",
+            "auth": { "type": "none" },
+            "validation": {
+              "mode": "selective",
+              "expectedFields": [
+                { "jsonPath": "$.userId", "expectedValue": "0", "operator": "greater_than" }
+              ],
+              "assertions": [
+                { "type": "status", "expected": "200" }
+              ]
+            }
+          },
+          {
+            "id": "test-3b-07-web-fallback",
+            "name": "S13: Web Browser Fallback P99.9",
+            "url": "https://jsonplaceholder.typicode.com/posts/1",
+            "method": "GET",
+            "headers": [],
+            "body": "",
+            "auth": { "type": "none" },
+            "validation": { "mode": "none" }
+          }
+        ]
+      },
+      {
+        "id": "sc-3c-arrival",
+        "name": "3C: Constant Arrival Rate Tests",
+        "kind": "standard",
+        "tests": [
+          {
+            "id": "test-3c-01-basic-arrival",
+            "name": "S1-9: Basic Arrival Rate Test",
+            "url": "https://jsonplaceholder.typicode.com/posts/1",
+            "method": "GET",
+            "headers": [],
+            "body": "",
+            "auth": { "type": "none" },
+            "validation": { "mode": "none" }
+          },
+          {
+            "id": "test-3c-02-ramp-test",
+            "name": "S17: Ramp Execution Test",
+            "url": "https://jsonplaceholder.typicode.com/posts/1",
+            "method": "GET",
+            "headers": [],
+            "body": "",
+            "auth": { "type": "none" },
+            "validation": { "mode": "none" }
+          },
+          {
+            "id": "test-3c-03-backpressure",
+            "name": "S18: Backpressure Test (1s delay)",
+            "url": "https://httpbin.org/delay/1",
+            "method": "GET",
+            "headers": [],
+            "body": "",
+            "auth": { "type": "none" },
+            "validation": { "mode": "none" }
+          }
+        ]
+      },
+      {
+        "id": "sc-edge-cases",
+        "name": "Edge Cases & Error Handling",
+        "kind": "standard",
+        "tests": [
+          {
+            "id": "test-edge-01-empty-body",
+            "name": "7.1 Empty Response Body (204)",
+            "url": "https://httpbin.org/status/204",
+            "method": "GET",
+            "headers": [],
+            "body": "",
+            "auth": { "type": "none" },
+            "validation": {
+              "mode": "none",
+              "assertions": [
+                { "type": "status", "expected": "204" }
+              ]
+            }
+          },
+          {
+            "id": "test-edge-02-large-response",
+            "name": "7.2 Large Response Body (500 items)",
+            "url": "https://jsonplaceholder.typicode.com/comments",
+            "method": "GET",
+            "headers": [],
+            "body": "",
+            "auth": { "type": "none" },
+            "validation": {
+              "mode": "selective",
+              "expectedFields": [
+                { "jsonPath": "$[0].name", "expectedValue": "", "operator": "is_not_empty" }
+              ],
+              "assertions": [
+                { "type": "status", "expected": "200" }
+              ]
+            }
+          },
+          {
+            "id": "test-edge-03-network-error",
+            "name": "7.3 Network Error (Unreachable Host)",
+            "url": "http://192.0.2.1:9999/test",
+            "method": "GET",
+            "headers": [],
+            "body": "",
+            "auth": { "type": "none" },
+            "validation": { "mode": "none" }
+          },
+          {
+            "id": "test-edge-04-special-chars",
+            "name": "7.4 Special Characters POST",
+            "url": "https://jsonplaceholder.typicode.com/posts",
+            "method": "POST",
+            "headers": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": "{\"name\": \"日本語テスト\", \"html\": \"<script>alert('xss')</script>\"}",
+            "auth": { "type": "none" },
+            "validation": {
+              "mode": "selective",
+              "expectedFields": [
+                { "jsonPath": "$.name", "expectedValue": "日本語テスト", "operator": "equals" }
+              ],
+              "assertions": [
+                { "type": "status", "expected": "201" }
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -58,6 +58,11 @@ describe('coerceSampleData', () => {
   it('returns boolean as-is', () => {
     expect(coerceSampleData(true)).toBe(true);
   });
+
+  it('returns undefined for unsupported types', () => {
+    expect(coerceSampleData(() => {})).toBeUndefined();
+    expect(coerceSampleData(Symbol('x'))).toBeUndefined();
+  });
 });
 
 describe('toJsonPathRef', () => {

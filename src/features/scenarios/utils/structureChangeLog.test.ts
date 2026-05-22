@@ -1,4 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
+const uuidMock = vi.hoisted(() =>
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  require('../../../test-utils/uuidMock.ts').hoistedUuidFixed('test-uuid'),
+);
 import type { FeatureGroup } from '../../../shared/types';
 import {
   createEntry,
@@ -15,6 +19,7 @@ import {
   logTestMovedOut,
   logTestCopied,
   logFgRenamed,
+  logItemRestored,
   deleteLogEntry,
   clearLog,
   countLogEntries,
@@ -23,9 +28,10 @@ import {
   actionLabel,
   actionIcon,
   actionClass,
+  filterStructureChangeEntries,
 } from './structureChangeLog';
 
-vi.mock('uuid', () => ({ v4: () => 'test-uuid' }));
+vi.mock('uuid', () => uuidMock);
 
 function makeFg(overrides?: Partial<FeatureGroup>): FeatureGroup {
   return { id: 'fg1', name: 'FG1', scenarios: [], ...overrides };
@@ -226,6 +232,7 @@ describe('structureChangeLog', () => {
         ['test-moved-out', 'Test moved out'],
         ['test-copied', 'Test copied'],
         ['fg-renamed', 'Group renamed'],
+        ['restored', 'Restored from trash'],
       ];
       for (const [code, label] of cases) {
         expect(actionLabel(code)).toBe(label);
@@ -261,5 +268,64 @@ describe('structureChangeLog', () => {
       expect(actionClass('test-moved-out')).toBe('removed');
       expect(actionClass('test-renamed')).toBe('modified');
     });
+  });
+
+  describe('logItemRestored', () => {
+    it('adds a restored entry to the feature group log', () => {
+      const fg = makeFg();
+      const result = logItemRestored(fg, 'Login Flow');
+      expect(result.structureLog).toHaveLength(1);
+      expect(result.structureLog![0].action).toBe('restored');
+      expect(result.structureLog![0].entityName).toBe('Login Flow');
+      expect(result.structureLog![0].detail).toBe('restored from trash');
+    });
+
+    it('uses custom detail when provided', () => {
+      const fg = makeFg();
+      const result = logItemRestored(fg, 'Login Flow', 'Auth Scenarios', 'restored with new ID');
+      expect(result.structureLog![0].scenarioName).toBe('Auth Scenarios');
+      expect(result.structureLog![0].detail).toBe('restored with new ID');
+    });
+
+    it('actionLabel returns correct label for restored', () => {
+      expect(actionLabel('restored')).toBe('Restored from trash');
+    });
+
+    it('actionIcon returns restore arrow for restored', () => {
+      expect(actionIcon('restored')).toBe('\u21A9');
+    });
+
+    it('actionClass returns added for restored', () => {
+      expect(actionClass('restored')).toBe('added');
+    });
+  });
+});
+
+describe('filterStructureChangeEntries', () => {
+  const entries = [
+    createEntry('scenario-added', 'Sc1'),
+    createEntry('test-added', 'T1'),
+    createEntry('fg-renamed', 'FG1'),
+  ];
+
+  it('returns all entries for filter "all"', () => {
+    expect(filterStructureChangeEntries(entries, 'all')).toHaveLength(3);
+  });
+
+  it('filters scenario actions', () => {
+    expect(filterStructureChangeEntries(entries, 'scenario')).toHaveLength(1);
+    expect(filterStructureChangeEntries(entries, 'scenario')[0].entityName).toBe('Sc1');
+  });
+
+  it('filters test actions', () => {
+    expect(filterStructureChangeEntries(entries, 'test')).toHaveLength(1);
+  });
+
+  it('filters feature group actions', () => {
+    expect(filterStructureChangeEntries(entries, 'fg')).toHaveLength(1);
+  });
+
+  it('returns all entries for unrecognized filter (fallback)', () => {
+    expect(filterStructureChangeEntries(entries, 'unknown')).toHaveLength(3);
   });
 });

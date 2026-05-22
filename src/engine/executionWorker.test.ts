@@ -115,8 +115,10 @@ describe('executionWorker', () => {
     await loadExecutionWorker();
   });
 
-  it('registers a single message listener on the worker global', () => {
-    expect(workerHarness.addEventListener).toHaveBeenCalledTimes(1);
+  it('registers message and unhandledrejection listeners on the worker global', () => {
+    // Worker registers both 'unhandledrejection' (for error reporting) and 'message' (for commands)
+    expect(workerHarness.addEventListener).toHaveBeenCalledTimes(2);
+    expect(workerHarness.addEventListener).toHaveBeenCalledWith('unhandledrejection', expect.any(Function));
     expect(workerHarness.addEventListener).toHaveBeenCalledWith('message', expect.any(Function));
   });
 

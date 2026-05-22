@@ -108,6 +108,7 @@ export interface RegressionThresholds {
   p50Percent: number;
   p95Percent: number;
   p99Percent: number;
+  p999Percent: number;
   avgPercent: number;
   errorRateAbsolute: number; // absolute percentage points
   tpsPercent: number;
@@ -117,6 +118,7 @@ export const DEFAULT_THRESHOLDS: RegressionThresholds = {
   p50Percent: 15,
   p95Percent: 10,
   p99Percent: 15,
+  p999Percent: 20,
   avgPercent: 10,
   errorRateAbsolute: 1,
   tpsPercent: 10,
@@ -156,6 +158,7 @@ function computeMetricDeltas(
     { metric: 'P50 Response Time', bKey: 'p50ResponseTime', threshold: thresholds.p50Percent },
     { metric: 'P95 Response Time', bKey: 'p95ResponseTime', threshold: thresholds.p95Percent },
     { metric: 'P99 Response Time', bKey: 'p99ResponseTime', threshold: thresholds.p99Percent },
+    { metric: 'P99.9 Response Time', bKey: 'p999ResponseTime', threshold: thresholds.p999Percent },
     { metric: 'Min Response Time', bKey: 'minResponseTime', threshold: 999 },
     { metric: 'Max Response Time', bKey: 'maxResponseTime', threshold: 999 },
   ];
@@ -294,7 +297,8 @@ function detectRegressions(
     let severity: 'warning' | 'critical' = 'warning';
     // Critical if regression is 2x the threshold
     if (d.metric.includes('Response Time') && d.deltaPercent > 0) {
-      const thresholdVal = d.metric.includes('P95') ? thresholds.p95Percent
+      const thresholdVal = d.metric.includes('P99.9') ? thresholds.p999Percent
+        : d.metric.includes('P95') ? thresholds.p95Percent
         : d.metric.includes('P99') ? thresholds.p99Percent
         : d.metric.includes('P50') ? thresholds.p50Percent
         : thresholds.avgPercent;
@@ -330,6 +334,7 @@ export interface TrendPoint {
   p50ResponseTime: number;
   p95ResponseTime: number;
   p99ResponseTime: number;
+  p999ResponseTime: number;
   errorRate: number;
   totalRequests: number;
 }
@@ -349,6 +354,7 @@ export function computeTrend(runs: TestRun[], baselines: BaselineMark[]): TrendP
       p50ResponseTime: r.summary.p50ResponseTime ?? 0,
       p95ResponseTime: r.summary.p95ResponseTime,
       p99ResponseTime: r.summary.p99ResponseTime,
+      p999ResponseTime: r.summary.p999ResponseTime ?? r.summary.p99ResponseTime ?? 0,
       errorRate: r.summary.errorRate,
       totalRequests: r.summary.totalRequests,
     };

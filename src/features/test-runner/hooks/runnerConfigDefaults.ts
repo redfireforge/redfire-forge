@@ -1,7 +1,8 @@
-import type { ExecutionMode, ErrorPolicy, LoadProfileConfig, ThinkTimeConfig } from '../../../shared/types';
+import type { ExecutionMode, ErrorPolicy, LoadProfileConfig, ThinkTimeConfig, ArrivalRateConfig } from '../../../shared/types';
 import type { ReportOptions } from '../../results/utils/reportGenerator';
 
 export type HostMode = 'hardcoded' | 'settings' | 'custom';
+export type UnorderedOverride = 'default' | 'force-on' | 'force-off';
 
 export interface RunnerConfig {
   concurrency: number;
@@ -9,12 +10,14 @@ export interface RunnerConfig {
   selectedScenarios: string[];
   weights: Record<string, number>;
   skipValidation: boolean;
+  skipAssertions: boolean;
   validationOverride: 'default' | 'none' | 'selective' | 'full';
-  forceUnordered: boolean;
+  forceUnordered: UnorderedOverride;
   hostMode: HostMode;
   customBaseUrl: string;
   executionMode: ExecutionMode;
   loadProfile?: LoadProfileConfig;
+  arrivalRate?: ArrivalRateConfig;
   thinkTime?: ThinkTimeConfig;
   timeoutSec?: number;
   retryCount?: number;
@@ -40,7 +43,7 @@ export const defaultThinkTime: ThinkTimeConfig = { mode: 'none' };
 
 export const defaultConfig: RunnerConfig = {
   concurrency: 1, iterations: 1, selectedScenarios: [], weights: {},
-  skipValidation: false, validationOverride: 'default', forceUnordered: false,
+  skipValidation: false, skipAssertions: false, validationOverride: 'default', forceUnordered: 'default' as UnorderedOverride,
   hostMode: 'settings', customBaseUrl: '', executionMode: 'batch',
 };
 
@@ -50,12 +53,14 @@ export interface ResolvedConfig {
   selectedScenarios: string[];
   weights: Record<string, number>;
   skipValidation: boolean;
+  skipAssertions: boolean;
   validationOverride: 'default' | 'none' | 'selective' | 'full';
-  forceUnordered: boolean;
+  forceUnordered: UnorderedOverride;
   hostMode: HostMode;
   customBaseUrl: string;
   executionMode: ExecutionMode;
   loadProfile: LoadProfileConfig;
+  arrivalRate?: ArrivalRateConfig;
   thinkTime: ThinkTimeConfig;
   timeoutSec: number;
   retryCount: number;
@@ -80,12 +85,16 @@ export function resolveLoadedConfig(raw: unknown): ResolvedConfig | null {
     selectedScenarios: saved.selectedScenarios ?? [],
     weights: saved.weights ?? {},
     skipValidation: saved.skipValidation ?? false,
+    skipAssertions: saved.skipAssertions ?? false,
     validationOverride: saved.validationOverride ?? 'default',
-    forceUnordered: saved.forceUnordered ?? false,
+    forceUnordered: typeof saved.forceUnordered === 'boolean'
+      ? (saved.forceUnordered ? 'force-on' : 'default')
+      : (saved.forceUnordered ?? 'default'),
     hostMode: saved.hostMode ?? 'settings',
     customBaseUrl: saved.customBaseUrl ?? '',
     executionMode: saved.executionMode ?? 'batch',
     loadProfile: saved.loadProfile ?? { ...defaultLoadProfile },
+    arrivalRate: saved.arrivalRate,
     thinkTime: saved.thinkTime ?? { ...defaultThinkTime },
     timeoutSec: saved.timeoutSec ?? 10,
     retryCount: saved.retryCount ?? 0,

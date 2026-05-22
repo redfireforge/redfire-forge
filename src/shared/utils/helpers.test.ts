@@ -12,6 +12,7 @@ import {
   escapeRegExp,
   parseJsonOrRaw,
   isValidJson,
+  minifyJson,
 } from './helpers';
 
 describe('formatBytes', () => {
@@ -577,5 +578,35 @@ describe('isValidJson', () => {
   it('returns true for primitives', () => {
     expect(isValidJson('null')).toBe(true);
     expect(isValidJson('42')).toBe(true);
+  });
+});
+
+describe('minifyJson', () => {
+  it('minifies valid JSON with whitespace', () => {
+    const input = '{\n  "name": "test",\n  "age": 30\n}';
+    expect(minifyJson(input)).toBe('{"name":"test","age":30}');
+  });
+
+  it('returns compact form for already minified JSON', () => {
+    const input = '{"a":1}';
+    expect(minifyJson(input)).toBe('{"a":1}');
+  });
+
+  it('returns null for invalid JSON', () => {
+    expect(minifyJson('not json')).toBeNull();
+  });
+
+  it('returns null for empty string', () => {
+    expect(minifyJson('')).toBeNull();
+  });
+
+  it('handles JSON arrays', () => {
+    const input = '[\n  1,\n  2,\n  3\n]';
+    expect(minifyJson(input)).toBe('[1,2,3]');
+  });
+
+  it('handles nested objects', () => {
+    const input = '{\n  "user": {\n    "name": "test"\n  }\n}';
+    expect(minifyJson(input)).toBe('{"user":{"name":"test"}}');
   });
 });

@@ -576,4 +576,66 @@ describe('useValidationCodeSync', () => {
     expect(mockOnUpdateFields).not.toHaveBeenCalled();
   });
 
+  it('syncVisualToCode refreshes parse errors without overwriting DSL when last code edit had errors', () => {
+    const fields: ExpectedField[] = [
+      { jsonPath: '$.name', expectedValue: '', operator: 'exists' },
+    ];
+    const { result } = renderHook(() => useValidationCodeSync({ ...defaultOptions, fields }));
+
+    act(() => {
+      result.current.handleCodeChange('bad_syntax_line');
+      vi.advanceTimersByTime(350);
+    });
+    const dslAfterError = result.current.dslText;
+    expect(result.current.parseErrors.length).toBeGreaterThan(0);
+
+    act(() => {
+      result.current.syncVisualToCode();
+    });
+
+    expect(result.current.dslText).toBe(dslAfterError);
+    expect(result.current.parseErrors.length).toBeGreaterThan(0);
+  });
+
+  it('syncVisualToCode preserves invalid DSL on second call after code sync completes', () => {
+    const { result } = renderHook(() => useValidationCodeSync(defaultOptions));
+
+    act(() => {
+      result.current.handleCodeChange('not_valid_dsl');
+      vi.advanceTimersByTime(350);
+    });
+    const invalidDsl = result.current.dslText;
+
+    act(() => {
+      result.current.syncVisualToCode();
+    });
+
+    act(() => {
+      result.current.syncVisualToCode();
+    });
+
+    expect(result.current.dslText).toBe(invalidDsl);
+    expect(result.current.parseErrors.length).toBeGreaterThan(0);
+  });
+
+  it('syncVisualToCode returns early while pending code syncs remain', () => {
+    const fields: ExpectedField[] = [
+      { jsonPath: '$.a', expectedValue: '1', operator: 'equals' },
+    ];
+    const { result } = renderHook(() => useValidationCodeSync({ ...defaultOptions, fields }));
+
+    act(() => {
+      result.current.handleCodeChange('a equals "1"');
+      result.current.handleCodeChange('b equals "2"');
+    });
+
+    const dslMidEdit = result.current.dslText;
+    act(() => {
+      result.current.syncVisualToCode();
+    });
+
+    expect(result.current.dslText).toBe(dslMidEdit);
+    expect(mockOnUpdateFields).not.toHaveBeenCalled();
+  });
+
 });

@@ -6,15 +6,17 @@ interface UseExpressionAutocompleteFieldOptions {
   value: string;
   onChange: (value: string) => void;
   variableHints: WorkflowVariableHint[];
+  jsonPathHints?: string[];
 }
 
 export function useExpressionAutocompleteField({
   value,
   onChange,
   variableHints,
+  jsonPathHints,
 }: UseExpressionAutocompleteFieldOptions) {
   const wrapperRef = useRef<HTMLDivElement>(null);
-  const { hintState, inputRef, onInputChange, onKeyDown, accept, close } = useExpressionHints(variableHints);
+  const { hintState, inputRef, onInputChange, onKeyDown, accept, close } = useExpressionHints(variableHints, jsonPathHints);
 
   const handleTextChange = useCallback((nextValue: string, selectionStart: number | null) => {
     const cursor = selectionStart ?? nextValue.length;

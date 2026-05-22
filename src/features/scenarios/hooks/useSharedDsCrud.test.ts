@@ -418,4 +418,70 @@ describe('useSharedDsCrud', () => {
       expect(result.current.totalRows).toBe(0);
     });
   });
+
+  describe('moveToTrash integration', () => {
+    it('calls moveToTrash on delete when provided', () => {
+      const mockMoveToTrash = vi.fn();
+      const { result } = renderHook(() =>
+        useSharedDsCrud({
+          sharedDataSources: mockSources,
+          onUpdate: mockOnUpdate,
+          selectedId: 'ds-1',
+          setSelectedId: mockSetSelectedId,
+          setContextMenuId: mockSetContextMenuId,
+          setPendingNameFocusId: mockSetPendingNameFocusId,
+          featureGroups: mockFeatureGroups,
+          moveToTrash: mockMoveToTrash,
+        }),
+      );
+      act(() => {
+        result.current.handleDelete('ds-2');
+      });
+      expect(mockMoveToTrash).toHaveBeenCalledWith(
+        'sharedDataSource',
+        mockSources[1],
+        'Products',
+        '',
+        {},
+      );
+      expect(mockOnUpdate).toHaveBeenCalled();
+    });
+
+    it('calls moveToTrash via confirmDelete for in-use sources', () => {
+      const mockMoveToTrash = vi.fn();
+      const fgWithSharedDs = createMockFeatureGroup('fg-linked', 'ds-1');
+      const { result } = renderHook(() =>
+        useSharedDsCrud({
+          sharedDataSources: mockSources,
+          onUpdate: mockOnUpdate,
+          selectedId: 'ds-1',
+          setSelectedId: mockSetSelectedId,
+          setContextMenuId: mockSetContextMenuId,
+          setPendingNameFocusId: mockSetPendingNameFocusId,
+          featureGroups: [fgWithSharedDs],
+          moveToTrash: mockMoveToTrash,
+        }),
+      );
+      act(() => { result.current.handleDelete('ds-1'); });
+      expect(result.current.pendingDeleteId).toBe('ds-1');
+      expect(mockMoveToTrash).not.toHaveBeenCalled();
+
+      act(() => { result.current.confirmDelete(); });
+      expect(mockMoveToTrash).toHaveBeenCalledWith(
+        'sharedDataSource',
+        mockSources[0],
+        'Users',
+        '',
+        {},
+      );
+    });
+
+    it('does not call moveToTrash when not provided (hard delete)', () => {
+      const { result } = renderCrudHook();
+      act(() => {
+        result.current.handleDelete('ds-2');
+      });
+      expect(mockOnUpdate).toHaveBeenCalled();
+    });
+  });
 });

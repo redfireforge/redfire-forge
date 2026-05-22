@@ -90,6 +90,13 @@ alwaysApply: true
 | `src/features/results/utils/bottleneckAnalysis.ts` | Bottleneck identification engine for Results Explorer |
 | `src/shared/utils/jsonPath.ts` | Canonical JSONPath engine (getByPath, getByPathAsString, setByPath) |
 | `src/shared/utils/jsonTreeModel.ts` | Unified JSON tree model (buildJsonTree, JsonTreeNode) |
+| `src/shared/utils/definitionVersioning.ts` | Shared versioning logic (computeSnapshotFingerprint, generateHttpChangeSummary, computeHttpSnapshotDiff, createVersionEntry, addVersionToList, deleteVersionById, renameVersionById) |
+| `src/shared/utils/percentiles.ts` | Shared percentile math (percentile, computePercentiles, round2) |
+| `src/shared/utils/helpers.ts` | Shared helpers (formatFailureDetails, getResultErrorMessage) |
+| `src/shared/utils/keyValueDiff.ts` | Key-value array diffing (diffKeyValueHeaders) |
+| `src/shared/utils/queryParams.ts` | URL query parameter utilities |
+| `src/features/test-runner/components/RunnerPage.tsx` | Shared runner page: consolidated TestRunner + ParameterizedRunner UI |
+| `src/features/test-runner/components/runnerVariants.ts` | Runner variant configs (STANDARD_VARIANT, PARAMETERIZED_VARIANT) |
 | `src/shared/components/data-mapper/DataMapper.tsx` | Data Mapper: main container component |
 | `src/shared/components/data-mapper/DataMapperModal.tsx` | Data Mapper: modal shell with validation + Done/Cancel |
 | `src/shared/components/data-mapper/SourcePanel.tsx` | Data Mapper: source tree panel with paste/fetch |
@@ -145,6 +152,12 @@ alwaysApply: true
 | `src/shared/components/data-mapper/utils/validationDsl.ts` | DSL parser/serializer: serializeToDsl, parseDsl, parseDslLine, importAutoDetect |
 | `src/shared/components/data-mapper/utils/monacoValidationLanguage.ts` | Monaco DSL language registration, theming, autocomplete provider (extracted from ValidationCodeEditor) |
 | `src/shared/components/data-mapper/utils/expressionDebugHelpers.ts` | Debug formatting helpers: prettyDebugValue, truncateDebugValue |
+| `src/shared/utils/trashStorage.ts` | Trash Box: dual-mode CRUD (IDB/localStorage/Tauri FS), purgeExpired, enforceMaxItems |
+| `src/shared/utils/idbTrash.ts` | Trash Box: IndexedDB backend for trash items |
+| `src/features/scenarios/hooks/useTrash.ts` | Trash Box: React hook — moveToTrash, restore (FG/scenario/test/DS), undo, settings |
+| `src/features/scenarios/components/TrashPanel.tsx` | Trash Box: modal UI — browse, search, restore, permanent delete, empty trash |
+| `src/features/scenarios/components/TrashUndoToast.tsx` | Trash Box: 5-second undo toast after deletion with countdown bar |
+| `src/styles/trash.css` | Trash Box: panel modal + undo toast + animations CSS |
 | `src/features/scenarios/components/testEditorValidationAddMenu.ts` | Data-driven assertion factory menu (ADD_ASSERTION_MENU_ROWS) |
 | `src/features/scenarios/components/testEditorValidationPivot.ts` | Pivoted rules table model: buildPivotedRulesFromExpectedFields |
 | `src/data/galleries/data-mapper/presets.ts` | Data Mapper gallery presets: 8 sample factories with embedded API responses |
@@ -213,6 +226,20 @@ The UI must be **professional, clean, and user-friendly** — matching the dark 
 - **Search bar**: If the modal displays content (code, JSON, logs, etc.), always include a search bar in the header with match counter (`N/M`) and up/down arrow navigation (▲/▼). Reuse the existing console search pattern (`WorkflowConsolePanel` / `ResultsExplorerConsolePanel`). Cmd+F should focus search. Enter/Shift+Enter for next/prev. Do not reinvent the wheel.
 - **Pretty-print JSON**: Always pretty-print JSON content (`JSON.stringify(parsed, null, 2)`). Never show minified JSON in modals.
 - **Undo/Redo**: Modals with editors (expression editor, code editor) must provide undo/redo buttons in the header.
+
+## Test Scenario Validation — Mandatory End-to-End Flow
+
+When a test-scenarios document (e.g. `docs/plan/throughput-phase3a-test-scenarios.md`) defines visual test scenarios, you MUST follow this exact process for **every** scenario:
+
+1. **Write the test data** — Create/update the export JSON with correct field values, operator names, and expression syntax. Use the actual engine types (e.g. `is_not_empty` not `not_empty`, `$eq(...)` not `===`).
+2. **Validate through the engine** — Write unit tests that exercise `buildValidationResult` / `validate` / `evaluateAssertions` with mock data matching the real API response. Run them. Fix any failures — these are real bugs in the test data.
+3. **Validate through the full pipeline** — Write unit tests that exercise `buildSelectedTests` with the toolbar override parameters (skipValidation, validationOverride, forceUnordered, skipAssertions). Verify that runtime overrides correctly modify the scenario's validation config. This catches integration bugs between the toolbar UI and the validation engine.
+4. **Import and visually test in the app** — Import the export JSON into the running app, then manually run each scenario through the Test Runner UI following the test plan's exact steps. Verify pass/fail results, failure details, and UI state match the expected results in the document.
+5. **Test both positive AND negative cases** — If a scenario says "uncheck X and re-run, test should fail", you MUST actually do that. Never assume the inverse case works just because the positive case passed.
+
+**Do NOT skip steps.** Unit tests alone miss integration bugs (e.g. toolbar overrides not reaching the validator). Visual testing alone misses data bugs (e.g. wrong operator names). Both layers are required.
+
+**Do NOT create test data without running it.** Every entry in the export JSON must be validated by at least steps 1-3 before delivery. Step 4 requires the user when browser MCP is unavailable — flag it explicitly.
 
 ## Code Quality — Fix All Errors
 

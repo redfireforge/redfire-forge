@@ -6,7 +6,7 @@ import type {
 import {
   type WorkflowVariableHint,
 } from '../../utils/workflowVariableHints';
-import type { Scenario, KeyValue } from '../../../../shared/types';
+import type { Scenario, AuthType } from '../../../../shared/types';
 import ExtractionEditor from '../../../requests/components/ExtractionEditor';
 import type { ExtractionFetchSampleProps } from '../../../requests/components/ExtractionEditor';
 import TestEditorValidationTab from '../../../scenarios/components/TestEditorValidationTab';
@@ -17,45 +17,20 @@ import ExpressionInput from '../expression/ExpressionInput';
 import ExpressionTextarea from '../expression/ExpressionTextarea';
 import DataSourceEditor from '../../../scenarios/components/DataSourceEditor';
 import { DataMapperModal, createVariableBindingAdapter, collectTemplateSlots } from '../../../../shared/components/data-mapper';
-import BodyBuilderPanel from '../../../../shared/components/data-mapper/BodyBuilderPanel';
 import { useBodyBuilderSync } from '../../../../shared/components/data-mapper/hooks/useBodyBuilderSync';
 import { createRequestBodyAdapter } from '../../../../shared/components/data-mapper/adapters/requestBodyAdapter';
 import type { VariableHintForBody } from '../../../../shared/components/data-mapper/adapters/requestBodyAdapter';
+import {
+  decodeTemplateVars,
+  parseQueryParams,
+  rebuildUrl as rebuildUrlShared,
+} from '../../../../shared/utils/queryParams';
 
-export type HttpTab = 'url' | 'headers' | 'body' | 'validation' | 'extract' | 'data';
-
-// ── Query-param utilities ─────────────────────────────
-
-function parseQueryParams(url: string): KeyValue[] {
-  try {
-    const qIdx = url.indexOf('?');
-    if (qIdx === -1) return [];
-    const params = new URLSearchParams(url.slice(qIdx + 1));
-    const result: KeyValue[] = [];
-    params.forEach((v, k) => result.push({ key: k, value: v }));
-    return result;
-  } catch { return []; }
-}
-
-/** Encode query parts unless they contain `{{var}}` templates (encoding breaks substitution). */
-function encodeQueryPart(raw: string, kind: 'key' | 'value'): string {
-  const t = kind === 'key' ? raw.trim() : raw;
-  if (/\{\{[\s\S]*?\}\}/.test(t)) return t;
-  return encodeURIComponent(t);
-}
-
-/** Decode percent-encoded `{{var}}` templates so the URL stays human-readable. */
-function decodeTemplateVars(url: string): string {
-  return url.replace(/%7B%7B([\s\S]*?)%7D%7D/gi, '{{$1}}');
-}
+export type HttpTab = 'url' | 'body' | 'auth' | 'headers' | 'validation' | 'extract' | 'data';
 
 function rebuildUrl(baseUrl: string, entries: ParamEntry[]): string {
-  const qIdx = baseUrl.indexOf('?');
-  const path = qIdx === -1 ? baseUrl : baseUrl.slice(0, qIdx);
-  const active = entries.filter(e => e.enabled && e.key.trim());
-  if (active.length === 0) return path;
-  const qs = active.map(e => `${encodeQueryPart(e.key, 'key')}=${encodeQueryPart(e.value, 'value')}`).join('&');
-  return decodeTemplateVars(`${path}?${qs}`);
+  const active = entries.filter((e) => e.enabled && e.key.trim());
+  return rebuildUrlShared(baseUrl, active, { encode: true, preserveTemplates: true });
 }
 
 // ── Variable-ref hints ────────────────────────────────
@@ -121,7 +96,7 @@ export default function HttpConfig({ data, onChange, activeTab, onTabChange, las
   const handleScenarioDraftChange = useCallback((draft: Scenario) => onChange({ scenario: draft }), [onChange]);
   const urlInputRef = useRef<HTMLInputElement>(null);
   const [showVarMapper, setShowVarMapper] = useState(false);
-  const [bodyViewMode, setBodyViewMode] = useState<'raw' | 'visual'>('raw');
+  const [bodyMapperOpen, setBodyMapperOpen] = useState(false);
 
   const bodyHints: VariableHintForBody[] = useMemo(
     () => variableHints.map((h) => ({
@@ -356,7 +331,7 @@ export default function HttpConfig({ data, onChange, activeTab, onTabChange, las
       )}
 
       <div className="wf-config-tabs">
-        {(['url', 'headers', 'body', 'validation', 'extract', 'data'] as HttpTab[]).map(tab => {
+        {(['url', 'body', 'auth', 'headers', 'validation', 'extract', 'data'] as HttpTab[]).map(tab => {
           const tabLabel = tab === 'url' ? 'Params' : tab === 'extract' ? 'Extract' : tab === 'data' ? 'Data Source' : tab.charAt(0).toUpperCase() + tab.slice(1);
           return (
             <button key={tab} className={`wf-config-tab ${activeTab === tab ? 'active' : ''}`} onClick={() => onTabChange(tab)}>
@@ -364,6 +339,7 @@ export default function HttpConfig({ data, onChange, activeTab, onTabChange, las
               {tab === 'url' && paramCount > 0 && <span className="tab-badge">{paramCount}</span>}
               {tab === 'extract' && (s.extractions?.length ?? 0) > 0 && <span className="tab-badge">{s.extractions!.length}</span>}
               {tab === 'headers' && s.headers.filter(h => h.key.trim()).length > 0 && <span className="tab-badge">{s.headers.filter(h => h.key.trim()).length}</span>}
+              {tab === 'auth' && s.auth.type !== 'none' && s.auth.type !== 'inherit' && <span className="tab-badge-dot" />}
               {tab === 'data' && dataSourceRowCount > 0 && <span className="tab-badge">{dataSourceRowCount}</span>}
               {tab === 'validation' && hasValidationConfig && <span className="tab-badge-dot" />}
             </button>
@@ -437,55 +413,180 @@ export default function HttpConfig({ data, onChange, activeTab, onTabChange, las
           <div className="wf-config-field wf-config-body-field-wrap">
             <div className="wf-config-body-header">
               <label>Body (supports {'{{var}}'})</label>
-              <div className="wf-config-body-view-toggle">
-                <button
-                  type="button"
-                  className={`btn btn-sm ${bodyViewMode === 'raw' ? 'btn-primary' : ''}`}
-                  onClick={() => setBodyViewMode('raw')}
-                >
-                  Raw
-                </button>
-                <button
-                  type="button"
-                  className={`btn btn-sm ${bodyViewMode === 'visual' ? 'btn-primary' : ''}`}
-                  onClick={() => setBodyViewMode('visual')}
-                >
-                  Visual Builder
-                </button>
-              </div>
             </div>
-            {bodyViewMode === 'raw' ? (
-              <>
-                <div className="wf-config-body-insert-row">
-                  <button
-                    type="button"
-                    className="btn btn-sm"
-                    title="Insert variable from workflow or upstream step"
-                    onClick={() => onRequestVariableInsert((snippet) => update({ body: s.body + snippet }), true)}
-                  >
-                    Insert variable…
-                  </button>
-                </div>
-                <ExpressionTextarea
-                  value={s.body}
-                  onChange={(val) => bodySync.onBodyChange(val)}
-                  placeholder='{"key": "{{value}}"}'
-                  rows={6}
-                  className="wf-config-textarea"
-                  variableHints={variableHints}
-                />
-              </>
-            ) : (
-              <BodyBuilderPanel
-                body={s.body}
-                bodyType={s.bodyType ?? 'json'}
-                bodyForm={s.bodyForm}
-                variableHints={bodyHints}
-                onBodyChange={(val) => bodySync.onBodyChange(val)}
-                onMappingsChange={bodySync.onMappingsChange}
-                onBodyTypeChange={(bt) => update({ bodyType: bt })}
-                onBodyFormChange={(bf) => update({ bodyForm: bf })}
+            <div className="wf-config-body-insert-row">
+              <button
+                type="button"
+                className="btn btn-sm"
+                title="Insert variable from workflow or upstream step"
+                onClick={() => onRequestVariableInsert((snippet) => update({ body: s.body + snippet }), true)}
+              >
+                Insert variable…
+              </button>
+              <button
+                type="button"
+                className="btn btn-sm wf-config-pretty-btn"
+                title="Format JSON with indentation"
+                onClick={() => {
+                  try {
+                    const formatted = JSON.stringify(JSON.parse(s.body), null, 2);
+                    bodySync.onBodyChange(formatted);
+                  } catch { /* not valid JSON — ignore */ }
+                }}
+              >
+                Pretty Format
+              </button>
+              <button
+                type="button"
+                className="btn btn-sm wf-config-pretty-btn"
+                title="Minify JSON (remove whitespace)"
+                onClick={() => {
+                  try {
+                    const minified = JSON.stringify(JSON.parse(s.body));
+                    bodySync.onBodyChange(minified);
+                  } catch { /* not valid JSON — ignore */ }
+                }}
+              >
+                Minify
+              </button>
+              <button
+                type="button"
+                className="btn btn-sm wf-config-mapper-btn"
+                title="Open Data Mapper to visually build the body"
+                onClick={() => setBodyMapperOpen(true)}
+              >
+                ⚡ Data Mapper
+              </button>
+            </div>
+            <ExpressionTextarea
+              value={s.body}
+              onChange={(val) => bodySync.onBodyChange(val)}
+              placeholder='{"key": "{{value}}"}'
+              rows={6}
+              className="wf-config-textarea"
+              variableHints={variableHints}
+            />
+            {bodyMapperOpen && (
+              <DataMapperModal<string>
+                adapter={createRequestBodyAdapter({
+                  existingBody: s.body,
+                  variableHints: bodyHints,
+                })}
+                initialData={s.body}
+                onSave={(newBody) => {
+                  bodySync.onBodyChange(newBody);
+                  setBodyMapperOpen(false);
+                }}
+                onCancel={() => setBodyMapperOpen(false)}
               />
+            )}
+          </div>
+        )}
+
+        {activeTab === 'auth' && (
+          <div className="wf-config-auth-section">
+            <div className="auth-type-select">
+              <label>Type</label>
+              <select
+                value={s.auth.type}
+                onChange={(e) => update({ auth: { ...s.auth, type: e.target.value as AuthType } })}
+              >
+                <option value="inherit">Inherit from Service</option>
+                <option value="none">No Auth</option>
+                <option value="basic">Basic Auth</option>
+                <option value="bearer">Bearer Token</option>
+                <option value="apikey">API Key</option>
+                <option value="digest">Digest Auth</option>
+                <option value="oauth2">OAuth2 Client Credentials</option>
+              </select>
+            </div>
+            {s.auth.type === 'inherit' && (
+              <div className="auth-inherit-hint">
+                {data.serviceId
+                  ? `Auth will be inherited from the selected service (${workflowServices.find(ws => ws.id === data.serviceId)?.name || data.serviceId}).`
+                  : 'No service selected — auth will use the environment fallback or remain unauthenticated.'}
+              </div>
+            )}
+            {s.auth.type === 'basic' && (
+              <div className="form-row two-col">
+                <div>
+                  <label>Username</label>
+                  <input value={s.auth.username || ''} onChange={(e) => update({ auth: { ...s.auth, username: e.target.value } })} />
+                </div>
+                <div>
+                  <label>Password</label>
+                  <input type="password" value={s.auth.password || ''} onChange={(e) => update({ auth: { ...s.auth, password: e.target.value } })} />
+                </div>
+              </div>
+            )}
+            {s.auth.type === 'bearer' && (
+              <div className="form-row two-col">
+                <div>
+                  <label>Token</label>
+                  <input value={s.auth.token || ''} onChange={(e) => update({ auth: { ...s.auth, token: e.target.value } })} placeholder="eyJhbGciOi..." />
+                </div>
+                <div>
+                  <label>Prefix</label>
+                  <input value={s.auth.prefix ?? 'Bearer'} onChange={(e) => update({ auth: { ...s.auth, prefix: e.target.value } })} placeholder="Bearer" />
+                </div>
+              </div>
+            )}
+            {s.auth.type === 'apikey' && (
+              <>
+                <div className="form-row two-col">
+                  <div>
+                    <label>Key Name</label>
+                    <input value={s.auth.apiKeyName || ''} onChange={(e) => update({ auth: { ...s.auth, apiKeyName: e.target.value } })} placeholder="X-API-Key" />
+                  </div>
+                  <div>
+                    <label>Key Value</label>
+                    <input value={s.auth.apiKeyValue || ''} onChange={(e) => update({ auth: { ...s.auth, apiKeyValue: e.target.value } })} placeholder="your-api-key" />
+                  </div>
+                </div>
+                <div className="form-row">
+                  <label>Add to</label>
+                  <div className="radio-group">
+                    <label className="radio-label">
+                      <input type="radio" checked={s.auth.apiKeyIn !== 'query'} onChange={() => update({ auth: { ...s.auth, apiKeyIn: 'header' } })} />
+                      Header
+                    </label>
+                    <label className="radio-label">
+                      <input type="radio" checked={s.auth.apiKeyIn === 'query'} onChange={() => update({ auth: { ...s.auth, apiKeyIn: 'query' } })} />
+                      Query Parameter
+                    </label>
+                  </div>
+                </div>
+              </>
+            )}
+            {s.auth.type === 'digest' && (
+              <div className="form-row two-col">
+                <div>
+                  <label>Username</label>
+                  <input value={s.auth.username || ''} onChange={(e) => update({ auth: { ...s.auth, username: e.target.value } })} />
+                </div>
+                <div>
+                  <label>Password</label>
+                  <input type="password" value={s.auth.password || ''} onChange={(e) => update({ auth: { ...s.auth, password: e.target.value } })} />
+                </div>
+              </div>
+            )}
+            {s.auth.type === 'oauth2' && (
+              <>
+                <div className="form-row">
+                  <label>Token URL</label>
+                  <input value={s.auth.tokenUrl || ''} onChange={(e) => update({ auth: { ...s.auth, tokenUrl: e.target.value } })} placeholder="https://auth.example.com/oauth/token" />
+                </div>
+                <div className="form-row two-col">
+                  <div>
+                    <label>Client ID</label>
+                    <input value={s.auth.clientId || ''} onChange={(e) => update({ auth: { ...s.auth, clientId: e.target.value } })} />
+                  </div>
+                  <div>
+                    <label>Client Secret</label>
+                    <input type="password" value={s.auth.clientSecret || ''} onChange={(e) => update({ auth: { ...s.auth, clientSecret: e.target.value } })} />
+                  </div>
+                </div>
+              </>
             )}
           </div>
         )}

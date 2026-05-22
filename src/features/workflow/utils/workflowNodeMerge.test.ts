@@ -151,4 +151,33 @@ describe('mergeWorkflowNodeData', () => {
     const roundTrip = JSON.parse(JSON.stringify(cloned)) as HttpNodeData;
     expect(roundTrip.initialVariables).toEqual({ vin: '1GN1RK114R1079748' });
   });
+
+  it('cloneWorkflowNodeDataForStorage returns cleaned data when JSON round-trip throws', () => {
+    const data: HttpNodeData = {
+      label: 'H',
+      scenario: {
+        id: '1',
+        name: 'n',
+        url: '/',
+        method: 'GET',
+        headers: [],
+        body: '',
+        auth: { type: 'none' },
+        validation: { mode: 'none' },
+      },
+      initialVariables: { vin: 'X' },
+      runStatus: { state: 'pass' as const },
+    } as HttpNodeData & { runStatus: { state: 'pass' } };
+    const stringify = JSON.stringify;
+    JSON.stringify = () => {
+      throw new Error('circular');
+    };
+    try {
+      const cloned = cloneWorkflowNodeDataForStorage(data) as HttpNodeData;
+      expect('runStatus' in cloned).toBe(false);
+      expect(cloned.initialVariables).toEqual({ vin: 'X' });
+    } finally {
+      JSON.stringify = stringify;
+    }
+  });
 });

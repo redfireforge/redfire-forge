@@ -119,8 +119,14 @@ function JsonTreeNode({ node, depth, search, activeMatchNode, activeMatchRef, co
   const isActiveMatch = activeMatchNode === node;
 
   const renderValue = () => {
-    if (node.type === 'object') return <span className="jt-bracket">{expanded ? '{' : `{ ${node.children?.length ?? 0} }`}</span>;
-    if (node.type === 'array') return <span className="jt-bracket">{expanded ? '[' : `[ ${node.children?.length ?? 0} ]`}</span>;
+    if (node.type === 'object') {
+      if (!hasChildren) return <span className="jt-bracket">{'{}'}</span>;
+      return <span className="jt-bracket">{expanded ? '{' : `{ ${node.children!.length} }`}</span>;
+    }
+    if (node.type === 'array') {
+      if (!hasChildren) return <span className="jt-bracket">{'[]'}</span>;
+      return <span className="jt-bracket">{expanded ? '[' : `[ ${node.children!.length} ]`}</span>;
+    }
     if (node.type === 'string') {
       const txt = `"${node.value}"`;
       return <span className="jt-str">{search ? highlightSearch(txt, search) : txt}</span>;
@@ -153,7 +159,7 @@ function JsonTreeNode({ node, depth, search, activeMatchNode, activeMatchRef, co
         )}
         {depth > 0 && <span className="jt-colon">: </span>}
         {renderValue()}
-        {!hasChildren && <span className="jt-comma">,</span>}
+        {!hasChildren && depth > 0 && <span className="jt-comma">,</span>}
       </div>
       {hasChildren && expanded && (
         <div className="jt-children">
