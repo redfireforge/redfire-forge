@@ -103,6 +103,7 @@ export function buildSearchText(t: Scenario): string {
     t.validation.mode,
     ...(t.validation.expectedFields ?? []).flatMap((f) => [f.jsonPath ?? '', f.expectedValue ?? '']),
     t.validation.expectedJson ?? '',
+    ...(t.scenarioTags ?? []),
   ];
   return parts.join(' ');
 }

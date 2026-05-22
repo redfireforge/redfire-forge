@@ -1,23 +1,14 @@
 import { describe, it, expect } from 'vitest';
 import { CircuitBreaker } from './circuitBreaker';
 import type { RequestResult } from '../shared/types';
+import { makeResult as _makeResult } from '../test-utils/factories';
 
 function makeResult(passed: boolean, errorMessage?: string): RequestResult {
-  return {
-    id: '1',
-    scenarioId: 's1',
-    scenarioName: 'test',
-    url: 'http://example.com',
-    method: 'GET',
+  return _makeResult({
     httpStatus: passed ? 200 : 500,
-    responseTimeMs: 100,
-    responseBody: '',
-    timestamp: Date.now(),
     passed,
-    validationMode: 'none',
-    failureDetails: [],
     errorMessage,
-  };
+  });
 }
 
 describe('CircuitBreaker', () => {

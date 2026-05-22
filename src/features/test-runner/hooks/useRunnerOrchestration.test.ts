@@ -95,6 +95,8 @@ vi.mock('../../results/utils/reportGenerator', () => ({
 
 vi.mock('../../../engine/dataSourceExpander', () => ({
   resolveSharedDataSources: (tests: unknown[]) => tests,
+  collectAllScenarioTags: () => [],
+  countScenariosByTag: () => ({}),
 }));
 
 const makeFeatureGroups = (): FeatureGroup[] => [
@@ -797,6 +799,28 @@ describe('useRunnerOrchestration', () => {
         useRunnerOrchestration({ ...defaultOpts, kind: 'parameterized', envId: 'e1', svcId: 's1' }),
       );
       expect(result.current.allocation.kind).toBe('parameterized');
+    });
+  });
+
+  describe('scenario tag filter state', () => {
+    it('initializes scenarioTagFilter to empty array', () => {
+      const { result } = renderHook(() => useRunnerOrchestration(defaultOpts));
+      expect(result.current.scenarioTagFilter).toEqual([]);
+    });
+
+    it('provides setScenarioTagFilter function', () => {
+      const { result } = renderHook(() => useRunnerOrchestration(defaultOpts));
+      expect(typeof result.current.setScenarioTagFilter).toBe('function');
+    });
+
+    it('exposes allScenarioTags (mocked)', () => {
+      const { result } = renderHook(() => useRunnerOrchestration(defaultOpts));
+      expect(result.current.allScenarioTags).toEqual([]);
+    });
+
+    it('exposes scenarioTagCounts (mocked)', () => {
+      const { result } = renderHook(() => useRunnerOrchestration(defaultOpts));
+      expect(result.current.scenarioTagCounts).toEqual({});
     });
   });
 });

@@ -84,7 +84,10 @@ export function buildJunitXml(
     const className = r.featureGroupName || r.groupName || 'RedfireForge';
     const time = (r.responseTimeMs / 1000).toFixed(3);
     const rowSuffix = r.dataRowLabel ? ` [${escapeXml(r.dataRowLabel)}]` : '';
-    lines.push(`    <testcase classname="${escapeXml(className)}" name="${escapeXml(r.scenarioName)} [${r.method} ${escapeXml(r.url)}]${rowSuffix}" time="${time}">`);
+    const tagAttr = r.scenarioTags?.length
+      ? ` tags="${escapeXml(r.scenarioTags.join(','))}"`
+      : '';
+    lines.push(`    <testcase classname="${escapeXml(className)}" name="${escapeXml(r.scenarioName)} [${r.method} ${escapeXml(r.url)}]${rowSuffix}" time="${time}"${tagAttr}>`);
     if (!r.passed) {
       const msg = r.errorMessage ?? formatFailureDetails(r.failureDetails);
       lines.push(`      <failure message="${escapeXml(msg)}" type="${r.httpStatus >= 400 || r.httpStatus === 0 ? 'HttpError' : 'ValidationFailure'}">`);
@@ -149,6 +152,10 @@ export function buildMarkdownReport(
   lines.push(`| **Failed (HTTP)** | ${summary.failedRequests} |`);
   lines.push(`| **Failed (Validation)** | ${summary.failedValidations} |`);
   lines.push(`| **Duration** | ${(summary.totalDurationMs / 1000).toFixed(2)}s |`);
+  if (results?.some(r => r.scenarioTags?.length)) {
+    const allTags = [...new Set(results.flatMap(r => r.scenarioTags ?? []))].sort();
+    lines.push(`| **Tags** | ${allTags.join(', ')} |`);
+  }
   lines.push('');
 
   if (results) {
@@ -253,6 +260,12 @@ export function printConsoleSummary(summary: TestSummary, config: TestConfig, re
   console.log(`  Failed HTTP:  ${summary.failedRequests}`);
   console.log(`  Failed Valid: ${summary.failedValidations}`);
   console.log(`  Error Rate:   ${summary.errorRate}%`);
+  // Tags summary (if any results have scenario tags)
+  if (results?.some(r => r.scenarioTags?.length)) {
+    const allTags = [...new Set(results.flatMap(r => r.scenarioTags ?? []))].sort();
+    console.log(`  Tags:         ${allTags.join(', ')}`);
+  }
+
   console.log(bar);
   console.log(`  Result:       ${passed ? 'PASSED ✅' : 'FAILED ❌'}`);
   console.log(bar);

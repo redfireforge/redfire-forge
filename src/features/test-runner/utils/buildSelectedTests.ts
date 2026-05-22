@@ -6,6 +6,7 @@ import { replaceHost } from '../../../shared/utils/urlUtils';
 export interface SelectedTest extends Scenario {
   featureGroupName: string;
   groupName: string;
+  scenarioTags?: string[];
 }
 
 /**
@@ -66,6 +67,7 @@ export function buildSelectedTests(
             dataSource,
             featureGroupName: fg.name,
             groupName: sc.name,
+            scenarioTags: sc.tags,
           });
         }
       }

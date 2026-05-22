@@ -19,7 +19,8 @@ export function useScenarioBuilderSearch(featureGroups: FeatureGroup[]) {
   const scenarioMatches = useCallback(
     (sc: TestScenario): boolean => {
       if (!parsedQuery) return true;
-      if (evaluateQuery(parsedQuery, sc.name)) return true;
+      const scText = [sc.name, ...(sc.tags ?? [])].join(' ');
+      if (evaluateQuery(parsedQuery, scText)) return true;
       return sc.tests.some((t) => testMatches(t));
     },
     [parsedQuery, testMatches]

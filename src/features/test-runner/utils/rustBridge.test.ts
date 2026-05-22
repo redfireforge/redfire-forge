@@ -922,6 +922,20 @@ describe('mapRustResult — JS fallback', () => {
     expect(result.dataRowLabel).toBe('Row 3: VIN=123');
   });
 
+  it('copies scenarioTags from scenario to result', () => {
+    const scenario = makeScenario({ scenarioTags: ['smoke', 'critical'] });
+    const rustResult = makeRustResult();
+    const result = mapRustResult(rustResult, scenario);
+    expect(result.scenarioTags).toEqual(['smoke', 'critical']);
+  });
+
+  it('handles scenario without scenarioTags (undefined)', () => {
+    const scenario = makeScenario();
+    const rustResult = makeRustResult();
+    const result = mapRustResult(rustResult, scenario);
+    expect(result.scenarioTags).toBeUndefined();
+  });
+
   it('appends retry count info to error message when retries > 0 and failed', () => {
     const scenario = makeScenario();
     const rustResult = makeRustResult({

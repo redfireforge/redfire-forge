@@ -6,6 +6,12 @@
 #
 # With options:
 #   npx tsx cli/index.ts run examples/cli-basic-test.yaml -c 5 -i 50
+#
+# Run only smoke tests:
+#   npx tsx cli/index.ts run examples/cli-basic-test.yaml --scenario-tags smoke
+#
+# Run only critical AND regression tests:
+#   npx tsx cli/index.ts run examples/cli-basic-test.yaml --scenario-tags critical,regression --scenario-tag-mode all
 
 name: CLI Basic Test
 env: demo
@@ -15,6 +21,7 @@ tests:
   - name: List Users
     method: GET
     url: /users
+    tags: [smoke, regression]
     headers:
       Accept: application/json
     assertions:
@@ -28,6 +35,7 @@ tests:
   - name: Get Single User
     method: GET
     url: /users/1
+    tags: [smoke, critical]
     headers:
       Accept: application/json
     assertions:
@@ -40,6 +48,7 @@ tests:
   - name: List Posts
     method: GET
     url: /posts
+    tags: [regression]
     headers:
       Accept: application/json
     assertions:

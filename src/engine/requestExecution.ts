@@ -36,6 +36,7 @@ export function buildErrorResult(scenario: Scenario, err: unknown, reqBody?: str
     errorMessage: msg,
     responseHeaders: {},
     requestLog: { headers: {}, body: reqBody },
+    scenarioTags: scenario.scenarioTags,
   };
 }
 
@@ -161,6 +162,7 @@ async function executeRequest(
     requestLog: { headers, body: reqBody },
     dataRowId: scenario.dataRowId,
     dataRowLabel: scenario.dataRowLabel,
+    scenarioTags: scenario.scenarioTags,
   };
 }
 

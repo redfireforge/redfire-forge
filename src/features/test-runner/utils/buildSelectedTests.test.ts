@@ -203,4 +203,43 @@ describe('buildSelectedTests', () => {
       expect(result[0].url).toBe('https://gallery.com/api');
     });
   });
+
+  describe('scenarioTags', () => {
+    it('copies tags from TestScenario to each test', () => {
+      const fg = makeFg({
+        scenarios: [{
+          id: 'sc-1', name: 'Smoke Tests', kind: 'standard',
+          tags: ['smoke', 'critical'],
+          tests: [makeScenario({ id: 't1' }), makeScenario({ id: 't2' })],
+        }],
+      });
+      const result = buildSelectedTests([fg], selectAll(fg), 'hardcoded', '', undefined, false, false, 'default', 'default', []);
+      expect(result).toHaveLength(2);
+      expect(result[0].scenarioTags).toEqual(['smoke', 'critical']);
+      expect(result[1].scenarioTags).toEqual(['smoke', 'critical']);
+    });
+
+    it('handles scenarios without tags (undefined)', () => {
+      const fg = makeFg({
+        scenarios: [{
+          id: 'sc-1', name: 'No Tags', kind: 'standard',
+          tests: [makeScenario()],
+        }],
+      });
+      const result = buildSelectedTests([fg], selectAll(fg), 'hardcoded', '', undefined, false, false, 'default', 'default', []);
+      expect(result[0].scenarioTags).toBeUndefined();
+    });
+
+    it('handles scenarios with empty tags array', () => {
+      const fg = makeFg({
+        scenarios: [{
+          id: 'sc-1', name: 'Empty Tags', kind: 'standard',
+          tags: [],
+          tests: [makeScenario()],
+        }],
+      });
+      const result = buildSelectedTests([fg], selectAll(fg), 'hardcoded', '', undefined, false, false, 'default', 'default', []);
+      expect(result[0].scenarioTags).toEqual([]);
+    });
+  });
 });
