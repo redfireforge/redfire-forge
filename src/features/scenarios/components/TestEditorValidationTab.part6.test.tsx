@@ -409,7 +409,7 @@ describe('TestEditorValidationTab', () => {
       });
       const draftRef = { current: draft };
       render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
-      fireEvent.click(screen.getByTitle('Pretty-print JSON with indentation'));
+      fireEvent.click(screen.getByTitle('Format JSON with indentation'));
       expect(onDraftChange).toHaveBeenCalled();
       const updated = onDraftChange.mock.calls[0][0] as Scenario;
       expect(updated.validation.assertions?.[0]).toMatchObject({ type: 'jsonSchema' });
@@ -426,7 +426,7 @@ describe('TestEditorValidationTab', () => {
       });
       const draftRef = { current: draft };
       render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
-      fireEvent.click(screen.getByTitle('Minify JSON to single line'));
+      fireEvent.click(screen.getByTitle('Minify JSON (remove whitespace)'));
       expect(onDraftChange).toHaveBeenCalled();
       const updated = onDraftChange.mock.calls[0][0] as Scenario;
       const schema = (updated.validation.assertions?.[0] as { schema: string }).schema;

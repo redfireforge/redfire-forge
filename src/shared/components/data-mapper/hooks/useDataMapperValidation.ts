@@ -21,6 +21,7 @@ export interface DataMapperValidationDeps {
   flushRef?: React.RefObject<(() => void) | null>;
   showRulesView: boolean;
   handleFetchTargetSchema: () => Promise<void>;
+  setSourceSample: (sourceId: string, data: unknown) => void;
   setToast: (msg: string) => void;
   unorderedArrays?: boolean;
 }
@@ -40,6 +41,7 @@ export function useDataMapperValidation(deps: DataMapperValidationDeps) {
     flushRef,
     showRulesView,
     handleFetchTargetSchema,
+    setSourceSample,
     setToast,
     unorderedArrays,
   } = deps;
@@ -187,21 +189,33 @@ export function useDataMapperValidation(deps: DataMapperValidationDeps) {
   });
 
   const handleVerifyAll = useCallback(() => {
+    // Mirror target sample into source so the overlay resolves values (not "undefined")
+    if (effectiveTarget.sampleData != null) {
+      setSourceSample(activeSourceId, effectiveTarget.sampleData);
+    }
     setVerifyEnabled(true);
     verifyHook.verifyAll();
-  }, [verifyHook]);
+  }, [verifyHook, effectiveTarget.sampleData, setSourceSample, activeSourceId]);
 
   const handleFetchAndVerify = useCallback(async () => {
     if (!adapter.fetchTargetSchema) return;
     try {
       setToast('Fetching live response…');
       await handleFetchTargetSchema();
+      // For validation adapter, the fetched response is the same data used for source panel.
+      // Mirror it into the source so the tree and value overlay populate correctly.
+      if (adapter.fetchSampleData) {
+        try {
+          const srcData = await adapter.fetchSampleData();
+          if (srcData != null) setSourceSample(activeSourceId, srcData);
+        } catch { /* source fetch is best-effort */ }
+      }
       setVerifyEnabled(true);
       setAutoVerifyEnabled(true);
     } catch (e) {
       setToast(`Fetch failed: ${e instanceof Error ? e.message : 'unknown error'}`);
     }
-  }, [handleFetchTargetSchema, adapter.fetchTargetSchema, setToast]);
+  }, [handleFetchTargetSchema, adapter, setToast, setSourceSample, activeSourceId]);
 
   const handleToggleAutoVerify = useCallback(() => {
     setAutoVerifyEnabled(prev => {

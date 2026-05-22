@@ -62,19 +62,22 @@ export function BodyEditor({ draft, onDraftChange }: BodyEditorProps) {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
 
-  const recomputeDropdownPosition = useCallback(() => {
+  const computePosition = useCallback((): React.CSSProperties => {
     const trigger = triggerRef.current;
-    if (!trigger) return;
+    if (!trigger) return {};
     const rect = trigger.getBoundingClientRect();
     const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
     const spaceBelow = viewportHeight - rect.bottom;
     const ESTIMATED_DROPDOWN_HEIGHT = 280;
     if (spaceBelow < ESTIMATED_DROPDOWN_HEIGHT && rect.top > spaceBelow) {
-      setDropdownStyle({ bottom: '100%' });
-    } else {
-      setDropdownStyle({});
+      return { top: 'auto', bottom: '100%', marginBottom: 4 };
     }
+    return { top: 'calc(100% + 4px)' };
   }, []);
+
+  const recomputeDropdownPosition = useCallback(() => {
+    setDropdownStyle(computePosition());
+  }, [computePosition]);
 
   useEffect(() => {
     if (!dropdownOpen) return;
@@ -137,7 +140,12 @@ export function BodyEditor({ draft, onDraftChange }: BodyEditorProps) {
           ref={triggerRef}
           type="button"
           className="body-type-trigger"
-          onClick={() => setDropdownOpen(o => !o)}
+          onClick={() => {
+            setDropdownOpen(o => {
+              if (!o) setDropdownStyle(computePosition());
+              return !o;
+            });
+          }}
         >
           {TYPE_LABELS[bodyType]}
           {isFormType && formCount > 0 && <span className="tab-badge">{formCount}</span>}
