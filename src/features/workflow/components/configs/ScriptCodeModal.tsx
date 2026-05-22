@@ -128,7 +128,7 @@ function TestValuePanel({ varName, initialValue, onApply, onClose, style }: {
           )}
           <button
             className="wf-config-add-btn"
-            title={isPretty ? 'Minify JSON' : 'Pretty-print JSON'}
+            title={isPretty ? 'Minify JSON (remove whitespace)' : 'Pretty Format JSON'}
             onClick={() => handleChange(isPretty ? tryMinify(draft) : tryPretty(draft))}
           >
             {isPretty ? '{ }' : '{ … }'}

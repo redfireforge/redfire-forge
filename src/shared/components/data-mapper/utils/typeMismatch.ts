@@ -254,6 +254,11 @@ export function detectTypeMismatches(
     if (!sourceType || !targetType) continue;
     if (typesCompatible(sourceType, targetType)) continue;
 
+    // When an operator is set, the target "type" is often just the serialized
+    // operatorValue (always a string). The operator itself handles coercion,
+    // so number→string mismatches are false positives in validation contexts.
+    if (effectiveOp && targetType === 'string' && (sourceType === 'number' || sourceType === 'boolean')) continue;
+
     const suggestedFix = suggestTypeFixExpression(sourceType, targetType, mapping.sourcePath);
 
     mismatches.push({

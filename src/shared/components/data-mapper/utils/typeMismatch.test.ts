@@ -4,6 +4,7 @@ import {
   getMismatchForMapping,
   getOperatorExpectedType,
   inferType,
+  suggestOperatorForType,
   suggestTypeFixExpression,
   typesCompatible,
   looksLikeDate,
@@ -582,5 +583,32 @@ describe('suggestedFix functions evaluate successfully', () => {
     );
     expect(result.error).toBeUndefined();
     expect(result.value).toEqual({ city: 'NYC' });
+  });
+});
+
+describe('suggestOperatorForType', () => {
+  it('suggests equals for string', () => {
+    expect(suggestOperatorForType('string')).toBe('equals');
+  });
+
+  it('suggests greater_than_or_equal for number', () => {
+    expect(suggestOperatorForType('number')).toBe('greater_than_or_equal');
+  });
+
+  it('suggests is_true for boolean', () => {
+    expect(suggestOperatorForType('boolean')).toBe('is_true');
+  });
+
+  it('suggests length for array', () => {
+    expect(suggestOperatorForType('array')).toBe('length');
+  });
+
+  it('suggests exists for object', () => {
+    expect(suggestOperatorForType('object')).toBe('exists');
+  });
+
+  it('suggests equals for unknown types', () => {
+    expect(suggestOperatorForType('null')).toBe('equals');
+    expect(suggestOperatorForType('unknown')).toBe('equals');
   });
 });

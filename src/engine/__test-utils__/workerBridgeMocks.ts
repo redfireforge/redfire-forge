@@ -36,9 +36,9 @@ export class MockWorker {
     }
   }
 
-  simulateError(message: string) {
+  simulateError(message: string, filename?: string) {
     for (const fn of this.listeners.get('error') ?? []) {
-      fn({ message });
+      fn({ message, filename });
     }
   }
 

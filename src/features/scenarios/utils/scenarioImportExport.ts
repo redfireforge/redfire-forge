@@ -108,7 +108,24 @@ export function hasVersionData(data: unknown): boolean {
 }
 
 export function reIdScenarios(scenarios: TestScenario[]): TestScenario[] {
-  return scenarios.map((sc) => ({ ...sc, id: uuidv4(), tests: sc.tests.map((t) => ({ ...t, id: uuidv4() })) }));
+  return scenarios.map((sc) => ({ ...sc, id: uuidv4(), tests: sc.tests.map((t) => normalizeTestFields({ ...t, id: uuidv4() })) }));
+}
+
+/**
+ * Normalize legacy field names in imported test data.
+ * Handles: expectedFields using "path"/"value" instead of "jsonPath"/"expectedValue".
+ */
+export function normalizeTestFields(test: Scenario): Scenario {
+  if (!test.validation?.expectedFields?.length) return test;
+  const fields = test.validation.expectedFields.map(f => {
+    const raw = f as unknown as Record<string, unknown>;
+    return {
+      ...f,
+      jsonPath: f.jsonPath || (raw.path as string) || '',
+      expectedValue: f.expectedValue || (raw.value as string) || '',
+    };
+  });
+  return { ...test, validation: { ...test.validation, expectedFields: fields } };
 }
 
 export interface ScenarioExportWrap {

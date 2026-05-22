@@ -107,7 +107,8 @@ export function runTestInWorker(
       if (settled) return;
       settled = true;
       cleanup();
-      reject(new Error(e.message || 'Worker error'));
+      const detail = e.message || (e.filename ? `Failed to load worker module: ${e.filename}` : 'Worker failed to initialize — try restarting the dev server');
+      reject(new Error(detail));
     });
 
     if (abortSignal) {
@@ -289,7 +290,8 @@ export function runTestMultiWorker(
         settled = true;
         abortAll();
         cleanupAll();
-        reject(new Error(e.message || 'Worker error'));
+        const detail = e.message || (e.filename ? `Failed to load worker module: ${e.filename}` : 'Worker failed to initialize — try restarting the dev server');
+        reject(new Error(detail));
       });
       const perWorkerConcurrency = Math.max(1, baseConcurrency + (i < extraConcurrency ? 1 : 0));
       const workerConfig = { ...config, concurrency: perWorkerConcurrency };

@@ -72,7 +72,7 @@ export function useRunnerOrchestration(opts: RunnerOrchestrationOptions): Runner
   const config = useRunnerConfig(configContextKey);
   const {
     concurrency, iterations, selectedScenarios, weights, setWeights,
-    skipValidation, validationOverride, forceUnordered,
+    skipValidation, skipAssertions, validationOverride, forceUnordered,
     hostMode, customBaseUrl, executionMode, loadProfile, setLoadProfile,
     arrivalRate, setArrivalRate,
     thinkTime, timeoutSec, retryCount, retryDelayMs, errorPolicy,
@@ -93,11 +93,11 @@ export function useRunnerOrchestration(opts: RunnerOrchestrationOptions): Runner
   const selectedTests = useMemo(
     () => buildSelectedTests(
       featureGroups, selectedScenarios, hostMode, customBaseUrl,
-      resolvedBaseUrl, skipValidation, validationOverride, forceUnordered,
+      resolvedBaseUrl, skipValidation, skipAssertions, validationOverride, forceUnordered,
       globalAuthProfiles, envFallbackAuth,
     ),
     [featureGroups, selectedScenarios, hostMode, customBaseUrl, resolvedBaseUrl,
-     skipValidation, validationOverride, forceUnordered, globalAuthProfiles, envFallbackAuth]
+     skipValidation, skipAssertions, validationOverride, forceUnordered, globalAuthProfiles, envFallbackAuth]
   );
 
   useEffect(() => {

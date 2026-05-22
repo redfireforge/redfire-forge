@@ -36,6 +36,14 @@ describe('escapeCsv', () => {
   it('returns empty string as-is', () => {
     expect(escapeCsv('')).toBe('');
   });
+
+  it('handles null value', () => {
+    expect(escapeCsv(null)).toBe('');
+  });
+
+  it('handles undefined value', () => {
+    expect(escapeCsv(undefined)).toBe('');
+  });
 });
 
 describe('exportJson', () => {
