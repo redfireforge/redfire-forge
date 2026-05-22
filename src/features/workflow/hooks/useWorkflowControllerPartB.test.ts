@@ -329,40 +329,24 @@ describe('useWorkflowDesignerControllerPartB', () => {
   });
 
   it('creates a new workflow when handleNew receives a name', () => {
-    vi.stubGlobal('prompt', vi.fn(() => '  My Flow  '));
     const props = makeDesignerProps();
     const a = makePartA();
     const { result } = renderHook(() => useWorkflowDesignerControllerPartB(props, a));
 
-    act(() => result.current.handleNew());
+    act(() => result.current.handleNew('  My Flow  '));
 
     expect(a.create).toHaveBeenCalledWith('My Flow');
     expect(props.onClearPreview).toHaveBeenCalled();
-    vi.unstubAllGlobals();
   });
 
   it('handleNew skips create when trimmed name empty', () => {
-    vi.stubGlobal('prompt', vi.fn(() => '   '));
     const props = makeDesignerProps();
     const a = makePartA();
     const { result } = renderHook(() => useWorkflowDesignerControllerPartB(props, a));
 
-    act(() => result.current.handleNew());
+    act(() => result.current.handleNew('   '));
 
     expect(a.create).not.toHaveBeenCalled();
-    vi.unstubAllGlobals();
-  });
-
-  it('handleNew skips create when prompt is dismissed', () => {
-    vi.stubGlobal('prompt', vi.fn(() => null));
-    const props = makeDesignerProps();
-    const a = makePartA();
-    const { result } = renderHook(() => useWorkflowDesignerControllerPartB(props, a));
-
-    act(() => result.current.handleNew());
-
-    expect(a.create).not.toHaveBeenCalled();
-    vi.unstubAllGlobals();
   });
 
   it('handleSelect clears preview and navigates', () => {

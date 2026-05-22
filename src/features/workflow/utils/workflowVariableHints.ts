@@ -79,9 +79,16 @@ function stepLabel(data: HttpNodeData): string {
   return httpStepDisplayLabel(data);
 }
 
+const NON_HTTP_TYPES = new Set([
+  'start', 'webhook', 'schedule', 'condition', 'delay', 'fork', 'join',
+  'switch', 'loop', 'set-variable', 'script', 'aggregate', 'log-debug',
+  'wait-for-condition', 'correlation-wait', 'error-handler', 'sub-workflow', 'end',
+]);
+
 /** True if this canvas node is an HTTP step (React Flow may omit `type` in edge cases). */
 export function isHttpWorkflowNode(n: { type?: string; data?: unknown }): n is { type: string; data: HttpNodeData } {
   if (n.type === 'http') return true;
+  if (n.type && NON_HTTP_TYPES.has(n.type)) return false;
   return n.data != null && typeof n.data === 'object' && 'scenario' in (n.data as object);
 }
 

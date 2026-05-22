@@ -68,9 +68,11 @@ const defaultProps = {
   onWeightsChange: vi.fn(),
   skipValidation: false,
   onSkipValidationChange: vi.fn(),
+  skipAssertions: false,
+  onSkipAssertionsChange: vi.fn(),
   validationOverride: 'default' as const,
   onValidationOverrideChange: vi.fn(),
-  forceUnordered: false,
+  forceUnordered: 'default' as const,
   onForceUnorderedChange: vi.fn(),
   autoReport: false,
   onAutoReportChange: vi.fn(),
@@ -163,19 +165,21 @@ describe('ScenarioSelector', () => {
     expect(screen.getByText('Deselect All')).toBeDisabled();
   });
 
-  it('shows skip validation checkbox', () => {
+  it('sets skipValidation when Body: Skip is selected', () => {
     const onSkipValidationChange = vi.fn();
+    const onValidationOverrideChange = vi.fn();
     render(
       <ScenarioSelector
         {...defaultProps}
         onSkipValidationChange={onSkipValidationChange}
+        onValidationOverrideChange={onValidationOverrideChange}
       />
     );
-    
-    const skipCheckbox = screen.getByRole('checkbox', { name: /Skip validation/i });
-    expect(skipCheckbox).toBeInTheDocument();
-    
-    fireEvent.click(skipCheckbox);
+
+    const selects = screen.getAllByDisplayValue('Default');
+    const bodySelect = selects[0];
+    fireEvent.change(bodySelect, { target: { value: 'none' } });
+    expect(onValidationOverrideChange).toHaveBeenCalledWith('none');
     expect(onSkipValidationChange).toHaveBeenCalledWith(true);
   });
 
@@ -261,12 +265,13 @@ describe('ScenarioSelector', () => {
       />
     );
 
-    const select = screen.getByDisplayValue('Validation: Default');
-    fireEvent.change(select, { target: { value: 'full' } });
+    const selects = screen.getAllByDisplayValue('Default');
+    const bodySelect = selects[0];
+    fireEvent.change(bodySelect, { target: { value: 'full' } });
     expect(onValidationOverrideChange).toHaveBeenCalledWith('full');
   });
 
-  it('shows force unordered checkbox and calls handler', () => {
+  it('shows unordered arrays dropdown and calls handler', () => {
     const onForceUnorderedChange = vi.fn();
     render(
       <ScenarioSelector
@@ -275,27 +280,30 @@ describe('ScenarioSelector', () => {
       />
     );
 
-    const checkbox = screen.getByRole('checkbox', { name: /Unordered arrays/i });
-    fireEvent.click(checkbox);
-    expect(onForceUnorderedChange).toHaveBeenCalledWith(true);
+    const selects = screen.getAllByDisplayValue('Default');
+    const unorderedSelect = selects[1];
+    fireEvent.change(unorderedSelect, { target: { value: 'force-on' } });
+    expect(onForceUnorderedChange).toHaveBeenCalledWith('force-on');
   });
 
-  it('disables unordered arrays when skipValidation is true', () => {
+  it('disables unordered arrays dropdown when skipValidation is true', () => {
     render(
       <ScenarioSelector {...defaultProps} skipValidation={true} />
     );
 
-    const checkbox = screen.getByRole('checkbox', { name: /Unordered arrays/i });
-    expect(checkbox).toBeDisabled();
+    // Body Validation shows "None" when skipValidation=true, so only one "Default" select remains
+    const unorderedSelect = screen.getByDisplayValue('Default');
+    expect(unorderedSelect).toBeDisabled();
   });
 
-  it('disables unordered arrays when validationOverride is none', () => {
+  it('disables unordered arrays dropdown when validationOverride is none', () => {
     render(
       <ScenarioSelector {...defaultProps} validationOverride="none" />
     );
 
-    const checkbox = screen.getByRole('checkbox', { name: /Unordered arrays/i });
-    expect(checkbox).toBeDisabled();
+    // Body Validation shows "None", so only one "Default" select remains
+    const unorderedSelect = screen.getByDisplayValue('Default');
+    expect(unorderedSelect).toBeDisabled();
   });
 
   it('shows auto-report checkbox and calls handler', () => {
@@ -531,6 +539,7 @@ describe('buildSelectedTests', () => {
       '',
       undefined,
       false,
+      false,
       'default',
       false,
       [],
@@ -546,6 +555,7 @@ describe('buildSelectedTests', () => {
       '',
       undefined,
       false,
+      false,
       'default',
       false,
       [],
@@ -556,13 +566,26 @@ describe('buildSelectedTests', () => {
     expect(result[1].name).toBe('Get User');
   });
 
-  it('replaces host when settings mode is used', () => {
+  it('replaces host when settings mode is used with relative URLs', () => {
+    const relativeUrlGroups: FeatureGroup[] = [{
+      id: 'fg1',
+      name: 'User API',
+      scenarios: [{
+        id: 'sc1',
+        name: 'User CRUD',
+        tests: [
+          { id: 't1', name: 'Create User', method: 'POST', url: '/users', headers: [], validation: { mode: 'none' }, auth: { type: 'none' } },
+          { id: 't2', name: 'Get User', method: 'GET', url: '/users/1', headers: [], validation: { mode: 'none' }, auth: { type: 'none' } },
+        ],
+      }],
+    }];
     const result = buildSelectedTests(
-      mockFeatureGroups,
+      relativeUrlGroups,
       new Set(['sc1']),
       'settings',
       '',
       'https://staging.example.com',
+      false,
       false,
       'default',
       false,
@@ -573,13 +596,45 @@ describe('buildSelectedTests', () => {
     expect(result[1].url).toBe('https://staging.example.com/users/1');
   });
 
-  it('replaces host when custom mode is used', () => {
+  it('preserves absolute URLs when settings mode is used', () => {
     const result = buildSelectedTests(
       mockFeatureGroups,
+      new Set(['sc1']),
+      'settings',
+      '',
+      'https://staging.example.com',
+      false,
+      false,
+      'default',
+      false,
+      [],
+    );
+    
+    // Absolute URLs are preserved, not replaced
+    expect(result[0].url).toBe('https://api.example.com/users');
+    expect(result[1].url).toBe('https://api.example.com/users/1');
+  });
+
+  it('replaces host when custom mode is used with relative URLs', () => {
+    const relativeUrlGroups: FeatureGroup[] = [{
+      id: 'fg1',
+      name: 'User API',
+      scenarios: [{
+        id: 'sc1',
+        name: 'User CRUD',
+        tests: [
+          { id: 't1', name: 'Create User', method: 'POST', url: '/users', headers: [], validation: { mode: 'none' }, auth: { type: 'none' } },
+          { id: 't2', name: 'Get User', method: 'GET', url: '/users/1', headers: [], validation: { mode: 'none' }, auth: { type: 'none' } },
+        ],
+      }],
+    }];
+    const result = buildSelectedTests(
+      relativeUrlGroups,
       new Set(['sc1']),
       'custom',
       'https://custom.example.com',
       undefined,
+      false,
       false,
       'default',
       false,
@@ -596,6 +651,7 @@ describe('buildSelectedTests', () => {
       'hardcoded',
       '',
       undefined,
+      false,
       false,
       'default',
       false,
@@ -626,7 +682,7 @@ describe('buildSelectedTests', () => {
       }],
     }];
 
-    const result = buildSelectedTests(fgs, new Set(['sc1']), 'hardcoded', '', undefined, false, 'full', false, []);
+    const result = buildSelectedTests(fgs, new Set(['sc1']), 'hardcoded', '', undefined, false, false, 'full', 'default', []);
     expect(result[0].dataSource?.validationMode).toBe('full');
   });
 
@@ -638,6 +694,7 @@ describe('buildSelectedTests', () => {
       '',
       undefined,
       true,
+      false,
       'default',
       false,
       [],
@@ -664,7 +721,7 @@ describe('buildSelectedTests', () => {
       }],
     }];
 
-    const result = buildSelectedTests(fgs, new Set(['sc1']), 'hardcoded', '', undefined, false, 'default', true, []);
+    const result = buildSelectedTests(fgs, new Set(['sc1']), 'hardcoded', '', undefined, false, false, 'default', 'force-on', []);
     expect((result[0].validation as { unorderedArrays?: boolean }).unorderedArrays).toBe(true);
   });
 
@@ -676,8 +733,9 @@ describe('buildSelectedTests', () => {
       '',
       undefined,
       false,
+      false,
       'default',
-      true,
+      'force-on',
       [],
     );
     expect((result[0].validation as { unorderedArrays?: boolean }).unorderedArrays).toBeUndefined();
@@ -695,7 +753,7 @@ describe('buildSelectedTests', () => {
       }],
     }];
 
-    const result = buildSelectedTests(fgs, new Set(['sc-g']), 'settings', '', 'https://staging.com', false, 'default', false, []);
+    const result = buildSelectedTests(fgs, new Set(['sc-g']), 'settings', '', 'https://staging.com', false, false, 'default', 'default', []);
     expect(result[0].url).toBe('https://gallery.api/items');
   });
 });

@@ -6,55 +6,7 @@ import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import ResultsExplorerDetailPanel from './ResultsExplorerDetailPanel';
 import type { ExecutionEvent, WorkflowIterationTrace } from '../../../shared/types';
-
-const mockEvents: ExecutionEvent[] = [
-  {
-    nodeId: 'http-1',
-    nodeType: 'http',
-    nodeLabel: 'Get Users',
-    timestamp: 1000,
-    state: 'pass',
-    durationMs: 120,
-    details: {
-      statusCode: 200,
-      method: 'GET',
-      url: '/api/users',
-      responseTimeMs: 120,
-    },
-  },
-  {
-    nodeId: 'http-1',
-    nodeType: 'http',
-    nodeLabel: 'Get Users',
-    timestamp: 2000,
-    state: 'fail',
-    durationMs: 80,
-    details: {
-      statusCode: 500,
-      method: 'GET',
-      url: '/api/users',
-      error: 'Internal Server Error',
-      responseTimeMs: 80,
-    },
-  },
-];
-
-const mockIterations: WorkflowIterationTrace[] = [
-  {
-    index: 0,
-    passed: true,
-    durationMs: 250,
-    traversedEdges: [],
-    events: [mockEvents[0]],
-  },
-  {
-    index: 1,
-    passed: false,
-    durationMs: 300,
-    traversedEdges: [],
-    events: [mockEvents[1]],
-  },
-];
+import { mockEvents, mockIterations } from './__test-utils__/resultsExplorerDetailPanelTestHelpers';
 
 describe('ResultsExplorerDetailPanel', () => {
   const mockOnIterationChange = vi.fn();

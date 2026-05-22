@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import type { Scenario, TestScenario, FeatureGroup, AuthConfig, ScenarioKind } from '../../../shared/types';
+import type { Scenario, TestScenario, FeatureGroup, SharedDataSource, AuthConfig, ScenarioKind } from '../../../shared/types';
 import type { TestDefinitionVersion } from '../../../shared/types';
 import { emptyTest } from '../utils/testEditorUtils';
 import { autoSaveVersion } from '../utils/testDefinitionVersioning';
@@ -15,6 +15,7 @@ import type { TestEditorInputMode, TestEditorTab } from '../components/TestEdito
 export interface ConfirmDialog {
   title: string;
   message: string;
+  confirmLabel?: string;
   onConfirm: () => void;
 }
 
@@ -25,6 +26,18 @@ interface UseScenarioMutationsOpts {
   selectedSvcId?: string;
   selectedEnvId?: string;
   clearAuthVerifyResult?: () => void;
+  moveToTrash?: (
+    entityType: 'featureGroup' | 'scenario' | 'test' | 'sharedDataSource',
+    data: FeatureGroup | TestScenario | Scenario | SharedDataSource,
+    entityName: string,
+    parentPath: string,
+    parentIds: {
+      parentFeatureGroupId?: string;
+      parentScenarioId?: string;
+      environmentId?: string;
+      microserviceId?: string;
+    },
+  ) => void;
 }
 
 export function useScenarioMutations({
@@ -34,6 +47,7 @@ export function useScenarioMutations({
   selectedSvcId,
   selectedEnvId,
   clearAuthVerifyResult,
+  moveToTrash,
 }: UseScenarioMutationsOpts) {
   const [expandedFeatures, setExpandedFeatures] = useState<Set<string>>(new Set());
   const [expandedScenarios, setExpandedScenarios] = useState<Set<string>>(new Set());
@@ -81,14 +95,30 @@ export function useScenarioMutations({
     const fg = allFgs.find((f) => f.id === id);
     const testCount = fg ? fg.scenarios.reduce((s, sc) => s + sc.tests.length, 0) : 0;
     const detail = testCount > 0 ? ` It contains ${fg!.scenarios.length} scenario(s) and ${testCount} test(s).` : '';
-    setConfirmDialog({
-      title: 'Delete Feature Group',
-      message: `Delete feature group "${fg?.name}"?${detail} This cannot be undone.`,
-      onConfirm: () => {
-        setFeatureGroups((prev) => prev.filter((f) => f.id !== id));
-        setConfirmDialog(null);
-      },
-    });
+    if (moveToTrash && fg) {
+      setConfirmDialog({
+        title: 'Move to Trash',
+        message: `Move feature group "${fg.name}" to Trash?${detail} You can restore it within 30 days.`,
+        confirmLabel: 'Move to Trash',
+        onConfirm: () => {
+          moveToTrash('featureGroup', fg, fg.name, '', {
+            environmentId: fg.environmentId,
+            microserviceId: fg.microserviceId,
+          });
+          setFeatureGroups((prev) => prev.filter((f) => f.id !== id));
+          setConfirmDialog(null);
+        },
+      });
+    } else {
+      setConfirmDialog({
+        title: 'Delete Feature Group',
+        message: `Delete feature group "${fg?.name}"?${detail} This cannot be undone.`,
+        onConfirm: () => {
+          setFeatureGroups((prev) => prev.filter((f) => f.id !== id));
+          setConfirmDialog(null);
+        },
+      });
+    }
   };
 
   const renameFeatureGroup = (id: string) => {
@@ -121,16 +151,35 @@ export function useScenarioMutations({
     const sc = fg?.scenarios.find((s) => s.id === scenarioId);
     const testCount = sc ? sc.tests.length : 0;
     const detail = testCount > 0 ? ` It contains ${testCount} test(s).` : '';
-    setConfirmDialog({
-      title: 'Delete Scenario',
-      message: `Delete scenario "${sc?.name}"?${detail} This cannot be undone.`,
-      onConfirm: () => {
-        setFeatureGroups((prev) => prev.map((f) =>
-          f.id === featureId ? logScenarioRemoved({ ...f, scenarios: f.scenarios.filter((s) => s.id !== scenarioId) }, sc?.name ?? '') : f
-        ));
-        setConfirmDialog(null);
-      },
-    });
+    if (moveToTrash && fg && sc) {
+      setConfirmDialog({
+        title: 'Move to Trash',
+        message: `Move scenario "${sc.name}" to Trash?${detail} You can restore it within 30 days.`,
+        confirmLabel: 'Move to Trash',
+        onConfirm: () => {
+          moveToTrash('scenario', sc, sc.name, fg.name, {
+            parentFeatureGroupId: featureId,
+            environmentId: fg.environmentId,
+            microserviceId: fg.microserviceId,
+          });
+          setFeatureGroups((prev) => prev.map((f) =>
+            f.id === featureId ? logScenarioRemoved({ ...f, scenarios: f.scenarios.filter((s) => s.id !== scenarioId) }, sc.name) : f
+          ));
+          setConfirmDialog(null);
+        },
+      });
+    } else {
+      setConfirmDialog({
+        title: 'Delete Scenario',
+        message: `Delete scenario "${sc?.name}"?${detail} This cannot be undone.`,
+        onConfirm: () => {
+          setFeatureGroups((prev) => prev.map((f) =>
+            f.id === featureId ? logScenarioRemoved({ ...f, scenarios: f.scenarios.filter((s) => s.id !== scenarioId) }, sc?.name ?? '') : f
+          ));
+          setConfirmDialog(null);
+        },
+      });
+    }
   };
 
   const renameScenario = (featureId: string, scenarioId: string) => {
@@ -310,24 +359,52 @@ export function useScenarioMutations({
     const fg = allFgs.find((f) => f.id === featureId);
     const sc = fg?.scenarios.find((s) => s.id === scenarioId);
     const t = sc?.tests.find((test) => test.id === testId);
-    setConfirmDialog({
-      title: 'Delete Test',
-      message: `Delete test "${t?.name}"? This cannot be undone.`,
-      onConfirm: () => {
-        setFeatureGroups((prev) => prev.map((f) => {
-          if (f.id !== featureId) return f;
-          const updated = {
-            ...f,
-            scenarios: f.scenarios.map((s) => {
-              if (s.id !== scenarioId) return s;
-              return { ...s, tests: s.tests.filter((test) => test.id !== testId) };
-            }),
-          };
-          return logTestRemoved(updated, t?.name ?? '', sc?.name ?? '');
-        }));
-        setConfirmDialog(null);
-      },
-    });
+    if (moveToTrash && fg && sc && t) {
+      setConfirmDialog({
+        title: 'Move to Trash',
+        message: `Move test "${t.name}" to Trash? You can restore it within 30 days.`,
+        confirmLabel: 'Move to Trash',
+        onConfirm: () => {
+          moveToTrash('test', t, t.name, `${fg.name} > ${sc.name}`, {
+            parentFeatureGroupId: featureId,
+            parentScenarioId: scenarioId,
+            environmentId: fg.environmentId,
+            microserviceId: fg.microserviceId,
+          });
+          setFeatureGroups((prev) => prev.map((f) => {
+            if (f.id !== featureId) return f;
+            const updated = {
+              ...f,
+              scenarios: f.scenarios.map((s) => {
+                if (s.id !== scenarioId) return s;
+                return { ...s, tests: s.tests.filter((test) => test.id !== testId) };
+              }),
+            };
+            return logTestRemoved(updated, t.name, sc.name);
+          }));
+          setConfirmDialog(null);
+        },
+      });
+    } else {
+      setConfirmDialog({
+        title: 'Delete Test',
+        message: `Delete test "${t?.name}"? This cannot be undone.`,
+        onConfirm: () => {
+          setFeatureGroups((prev) => prev.map((f) => {
+            if (f.id !== featureId) return f;
+            const updated = {
+              ...f,
+              scenarios: f.scenarios.map((s) => {
+                if (s.id !== scenarioId) return s;
+                return { ...s, tests: s.tests.filter((test) => test.id !== testId) };
+              }),
+            };
+            return logTestRemoved(updated, t?.name ?? '', sc?.name ?? '');
+          }));
+          setConfirmDialog(null);
+        },
+      });
+    }
   };
 
   const startCopyTest = (featureId: string, scenarioId: string, test: Scenario) => {

@@ -33,7 +33,11 @@ coverage/
 cov-*/
 coverage-*/
 
+# jscpd duplication reports
+jscpd-report/
+
 # Playwright test results & reports
 test-results/
 playwright-report/
 test-script-paste.cjs
+.playwright-mcp/

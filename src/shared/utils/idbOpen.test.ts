@@ -158,7 +158,7 @@ describe('idbOpen.openDB', () => {
     // Simulate a db that already has all object stores
     const mockDb = {
       objectStoreNames: {
-        contains: vi.fn((name: string) => ['testRuns', 'featureGroups', 'sharedDataSources'].includes(name)),
+        contains: vi.fn((name: string) => ['testRuns', 'featureGroups', 'sharedDataSources', 'trash'].includes(name)),
       },
       createObjectStore: vi.fn(),
       close: vi.fn(),
@@ -239,8 +239,7 @@ describe('idbOpen.openDB', () => {
     });
     
     await p;
-    // Only featureGroups and sharedDataSources should be created
-    expect(storesCreated).toEqual(['featureGroups', 'sharedDataSources']);
-    expect(mockDb.createObjectStore).toHaveBeenCalledTimes(2);
+    expect(storesCreated).toEqual(['featureGroups', 'sharedDataSources', 'trash']);
+    expect(mockDb.createObjectStore).toHaveBeenCalledTimes(3);
   });
 });

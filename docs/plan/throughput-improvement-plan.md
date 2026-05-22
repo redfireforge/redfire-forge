@@ -3045,15 +3045,500 @@ This dramatically reduces Tauri event serialization overhead at high RPS.
 
 ---
 
+##### Phase 3B — Detailed Implementation Sub-Phases
+
+> Added 2026-05-20. Granular breakdown for implementation reference.
+
+**Total effort**: ~5 days (1 week with buffer for re-evaluation rounds)
+**Branch**: `feature/streaming-percentiles` from `develop`
+
+---
+
+###### Sub-Phase 3B.1: Rust Histogram Module (Days 1–2)
+
+**New file**: `src-tauri/src/histogram.rs`
+
+| Item | Detail |
+|------|--------|
+| Crate dependency | `hdrhistogram = "7"` in `src-tauri/Cargo.toml` |
+| `StreamingMetrics` struct | Wraps `Histogram<u64>`, tracks `total_count: u64`, `error_count: u64`, `sum_response_time: f64` |
+| Histogram config | Range: 1μs–300,000ms (5 min max), 3 significant digits |
+| `new() → Self` | Creates histogram with above config |
+| `record(response_time_ms: f64, is_error: bool)` | Converts to μs (×1000), records to histogram, increments counters |
+| `snapshot(elapsed_ms: f64) → MetricsSnapshot` | Returns all percentiles + derived metrics |
+| Thread safety | `Arc<Mutex<StreamingMetrics>>` — locked briefly per record/snapshot |
+| `lib.rs` update | Add `pub mod histogram;` |
+
+**Key design decisions**:
+- Store response times as **microseconds (u64)** in the histogram for integer precision.
+  Convert back to milliseconds (f64) on snapshot output.
+- `min`/`max`: use histogram's `min()`/`max()` (automatically tracked).
+- `avg`: `sum_response_time / total_count` (not from histogram — histogram loses precision).
+- `tps`: `total_count as f64 / (elapsed_ms / 1000.0)`.
+- Empty histogram: all fields return 0.0 (no panics).
+
+**Tests** (~20 tests in `src-tauri/src/histogram_test.rs`):
+
+| # | Test | Validates |
+|---|------|-----------|
+| 1 | `empty_snapshot_returns_zeros` | All fields are 0.0 when no records |
+| 2 | `single_record_all_percentiles_equal` | P50=P95=P99=P999=min=max=avg for 1 sample |
+| 3 | `two_records_min_max` | min/max correct with 2 distinct values |
+| 4 | `known_uniform_distribution_p50` | 100 values [1..100] → P50 ≈ 50ms (±1) |
+| 5 | `known_uniform_distribution_p95` | P95 ≈ 95ms (±1) |
+| 6 | `known_uniform_distribution_p99` | P99 ≈ 99ms (±1) |
+| 7 | `large_sample_p999` | 10,000 samples → P99.9 accuracy within 0.1% |
+| 8 | `error_counting` | 3/10 errors → errors=3, total=10 |
+| 9 | `tps_calculation` | 100 records over 2000ms elapsed → tps=50.0 |
+| 10 | `avg_calculation` | Known sum/count → exact avg |
+| 11 | `zero_response_time` | 0ms doesn't panic, records correctly |
+| 12 | `max_range_boundary` | 300,000ms (5 min) records without error |
+| 13 | `above_max_range_saturates` | >300,000ms saturates at max (doesn't panic) |
+| 14 | `fractional_ms_precision` | 1.5ms → rounds to nearest μs (1500μs), output ≈ 1.5 |
+| 15 | `snapshot_is_idempotent` | Two consecutive snapshots return same values |
+| 16 | `incremental_recording` | Record 50, snapshot, record 50 more, snapshot shows all 100 |
+| 17 | `all_errors_tps_still_correct` | 100% error rate doesn't affect TPS calculation |
+| 18 | `elapsed_zero_tps_infinity_guard` | elapsed_ms=0 → tps=0.0 (not Inf/NaN) |
+| 19 | `high_volume_10k_records` | Performance: 10K records < 5ms wall time |
+| 20 | `histogram_reset` | If we add reset(), verify it clears all state |
+
+---
+
+###### Sub-Phase 3B.2: Types Update (Day 2)
+
+**Modified file**: `src-tauri/src/types.rs`
+
+Add `MetricsSnapshot` struct:
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MetricsSnapshot {
+    pub p50: f64,
+    pub p95: f64,
+    pub p99: f64,
+    pub p999: f64,
+    pub min: f64,
+    pub max: f64,
+    pub avg: f64,
+    pub total: u64,
+    pub errors: u64,
+    pub tps: f64,
+}
+```
+
+Add to `ProgressBatch`:
+```rust
+pub struct ProgressBatch {
+    // ...existing fields...
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub metrics: Option<MetricsSnapshot>,  // NEW
+}
+```
+
+**Backward compatibility**: `metrics` is `Option` with `skip_serializing_if` — existing
+JS consumers that don't know about this field will simply not see it (no breaking change).
+
+---
+
+###### Sub-Phase 3B.3: Executor Wiring (Days 2–3)
+
+**Modified file**: `src-tauri/src/executor.rs`
+
+Changes to `run_pool()`:
+1. Create `let metrics = Arc::new(Mutex::new(StreamingMetrics::new()));` at function start
+2. In the channel consumer loop, after `all_results.push(result)`:
+   ```rust
+   let is_error = !result.passed.unwrap_or(true);
+   metrics.lock().unwrap().record(result.response_time_ms, is_error);
+   ```
+3. In each batch emit, add `metrics` field:
+   ```rust
+   metrics: Some(metrics.lock().unwrap().snapshot(start.elapsed().as_secs_f64() * 1000.0)),
+   ```
+4. Final drain batch also includes snapshot.
+
+Changes to `run_load_profile()`:
+- Same pattern — single `StreamingMetrics` instance shared via `Arc<Mutex<>>`.
+- Record in the receiver loop (not in spawned tasks — avoids lock contention in hot path).
+
+**Why record in receiver, not spawned tasks**: The receiver loop processes results
+sequentially from the channel. Recording here means a single lock acquisition per result
+(no contention). Recording in spawned tasks would require the lock under concurrent
+access from N tasks simultaneously.
+
+**Additional executor tests** (+10 in `src-tauri/src/executor_test.rs`):
+
+| # | Test | Validates |
+|---|------|-----------|
+| 1 | `progress_batch_includes_metrics` | MetricsSnapshot present in emitted batch |
+| 2 | `metrics_total_matches_completed_count` | metrics.total == completed after test |
+| 3 | `metrics_errors_match_breaker_count` | metrics.errors aligns with breaker records |
+| 4 | `metrics_tps_reasonable_range` | tps > 0 and < theoretical max |
+| 5 | `metrics_percentiles_ordered` | p50 <= p95 <= p99 <= p999 |
+| 6 | `load_profile_metrics_grow_over_time` | total increases across batches |
+| 7 | `final_drain_includes_metrics` | Last batch has metrics even if < BATCH_INTERVAL |
+| 8 | `pool_mode_metrics_accuracy` | Known response times → verify percentiles |
+| 9 | `empty_scenarios_no_metrics` | 0 scenarios → metrics is None |
+| 10 | `breaker_tripped_metrics_frozen` | After breaker trips, no new records added |
+
+---
+
+###### Sub-Phase 3B.4: TypeScript Bridge Update (Day 3)
+
+**Modified file**: `src/features/test-runner/utils/rustBridge.ts`
+
+Add interface:
+```typescript
+export interface RustMetricsSnapshot {
+  p50: number;
+  p95: number;
+  p99: number;
+  p999: number;
+  min: number;
+  max: number;
+  avg: number;
+  total: number;
+  errors: number;
+  tps: number;
+}
+```
+
+Update `RustProgressBatch` interface:
+```typescript
+export interface RustProgressBatch {
+  // ...existing...
+  metrics?: RustMetricsSnapshot;  // NEW
+}
+```
+
+In `runTestViaRust()` progress handler: extract `batch.metrics` and forward to
+`onProgress` callback as part of `ProgressMeta`.
+
+**Unit tests** (+5 in `rustBridge.test.ts`):
+1. `metrics_passthrough_to_onProgress` — verify metrics forwarded
+2. `metrics_undefined_when_absent` — no crash on missing metrics
+3. `metrics_snapshot_type_shape` — all fields present and numeric
+4. `metrics_forwarded_for_load_profile` — load-profile mode includes metrics
+5. `metrics_not_duplicated_across_batches` — each batch has independent snapshot
+
+---
+
+###### Sub-Phase 3B.5: ProgressMeta + useTestExecution (Days 3–4)
+
+> Re-evaluated 2026-05-21. Updated with exact implementation steps after codebase audit.
+> Key corrections: (1) Worker protocol type is `WorkerToMainMessage` not `WorkerProgressMessage`,
+> (2) multi-worker metrics aggregation deferred (workers use JS executor, not Rust — Rust path
+> is single-process via Tauri invoke), (3) `computeIncrementalSummary` bypass logic detailed,
+> (4) `rustBridge.ts` batch handler wiring specified.
+
+**Modified files (6 files)**:
+
+1. `src/engine/executor.ts` — extend `ProgressMeta` with optional `metrics`:
+   ```typescript
+   export interface StreamingMetrics {
+     p50: number; p95: number; p99: number; p999: number;
+     min: number; max: number; avg: number;
+     total: number; errors: number; tps: number;
+   }
+   export interface ProgressMeta {
+     // ...existing 4 fields...
+     metrics?: StreamingMetrics;
+   }
+   ```
+
+2. `src/features/test-runner/utils/rustBridge.ts` — forward `batch.metrics` into `ProgressMeta`:
+   ```typescript
+   // In runTestViaRust() batch handler, add metrics to meta:
+   const meta: ProgressMeta = {
+     elapsedMs: batch.elapsedMs,
+     targetConcurrency: batch.targetConcurrency,
+     currentInFlight: batch.currentInFlight,
+     durationMs: ...,
+     metrics: batch.metrics,  // NEW — forwarded from Rust StreamingMetrics
+   };
+   ```
+
+3. `src/features/test-runner/hooks/useTestExecution.ts` — O(1) bypass:
+   - In `computeIncrementalSummary()`: accept optional `StreamingMetrics` parameter.
+     When present, map directly to `TestSummary` fields (p50/p95/p99/p999/min/max/avg/tps)
+     without sorting `inc.times`. Error/validation counts still come from JS-side tracking.
+   - In `flushToState()`: pass `pending.profileMeta?.metrics` to `computeIncrementalSummary()`.
+   - The `trackResult()` function still runs (for error/validation counting) but
+     `inc.times.push()` is skipped when streaming metrics are present (memory savings).
+   - Store `latestStreamingMetrics` ref for the final summary path.
+   - After `runTestViaRust` completes: if `latestStreamingMetrics` is available, use it
+     for percentile fields in the final summary instead of `computeMetrics()` re-sort.
+
+4. `src/engine/workerProtocol.ts` — add `metrics` field to `WorkerToMainMessage` progress variant:
+   ```typescript
+   | { type: 'progress'; completed: number; total: number; newResults: RequestResult[];
+       meta?: ProgressMeta }  // ProgressMeta already has metrics? — no protocol change needed
+   ```
+   **NOTE**: `WorkerToMainMessage.progress.meta` is already typed as `ProgressMeta`.
+   Since we added `metrics?` to `ProgressMeta`, workers automatically get the field.
+   JS-side workers will send `metrics: undefined` (no Rust histogram in JS workers).
+   No change needed in `workerProtocol.ts`.
+
+5. `src/engine/workerBridge.ts` — multi-worker aggregation:
+   **Deferred**. Workers use the JS executor path (not Rust). The Rust executor runs
+   in-process via `#[tauri::command]` — it's never multi-worker. When `metaPerWorker[i].metrics`
+   is undefined for all workers, the aggregated meta simply has no `metrics` field, and
+   `useTestExecution` falls back to the sort-based `computeIncrementalSummary()`. No code
+   change needed.
+
+6. `src/engine/metrics.ts` — add P99.9 to `computeMetrics()`:
+   ```typescript
+   const p999 = times[Math.ceil(total * 0.999) - 1] ?? max;
+   // return { ...existing, p999ResponseTime: Math.round(p999 * 100) / 100 }
+   ```
+
+**Key behavioral change**: In Rust execution mode, `liveSummary` updates will be
+**O(1)** per progress tick instead of **O(n log n)**. This is the primary performance
+win of Phase 3B for the UI thread. The `inc.times[]` array is not populated when streaming
+metrics are available, saving O(n) memory.
+
+---
+
+###### Sub-Phase 3B.6: P99.9 in UI + CLI (Day 4)
+
+**Modified files**:
+
+| File | Change |
+|------|--------|
+| `src/shared/types/index.ts` | Add `p999ResponseTime?: number` to `TestSummary` |
+| `src/engine/metrics.ts` | Add P99.9 computation: `sorted[Math.ceil(0.999 * n) - 1]` |
+| `src/features/results/ResultsDashboard.tsx` | New metric tile "P99.9" |
+| `src/features/results/components/ResponseTimeHistogram.tsx` | P99.9 vertical reference line (dashed, distinct color) |
+| `src/features/results/utils/reportGenerator.ts` | Add P99.9 row to HTML + markdown reports |
+| `src/features/results/components/RunComparisonPanel.tsx` | New "P99.9" metric option in comparisons |
+| `src/features/results/utils/runBaselines.ts` | Add P99.9 to `timeMetrics` threshold array |
+| `cli/reporters.ts` | Add P99.9 row to console summary + markdown report |
+
+**Backward compatibility**: `p999ResponseTime` is optional — old saved results
+without it simply show "—" in the UI.
+
+---
+
+###### Sub-Phase 3B.7: Payload Reduction — `detailLevel` (Day 5)
+
+> Re-evaluated 2026-05-21. Major design gap found and corrected:
+> Original plan didn't address how final results reach JS when progress batches are
+> empty/sampled. `runTestViaRust` accumulates results exclusively from `batch.results`
+> — if those are empty, `testResult.results` is empty and `computeMetrics` + `TestRun`
+> saving produces garbage. Fixed by: (1) sending all results via a final
+> `load-test-final-results` Tauri event, (2) JS bridge replaces accumulated results
+> with the final payload. Also clarified: `detail_level` is added as a shared field
+> on each `ExecutionPlan` variant (no Rust trait/flatten, just duplicate field).
+
+**Concept**: At high RPS (>10K), serializing every `ExecutionResult` across Tauri IPC
+becomes the bottleneck. With streaming metrics, the UI doesn't need every result for
+live display — only for post-hoc assertion inspection.
+
+**Modified files (7 files)**:
+
+**A. Rust side (3 files)**
+
+1. `src-tauri/src/types.rs`:
+   - Add `DetailLevel` enum:
+     ```rust
+     #[derive(Debug, Clone, Serialize, Deserialize, Default)]
+     pub enum DetailLevel {
+         #[default]
+         #[serde(rename = "full")]
+         Full,
+         #[serde(rename = "metrics-only")]
+         MetricsOnly,
+         #[serde(rename = "sampled")]
+         Sampled,
+     }
+     ```
+   - Add `detail_level: DetailLevel` field to all three `ExecutionPlan` variants
+     (Pool, Sequential, LoadProfile) with `#[serde(default)]` for backward compat.
+   - Add `FinalResults` struct for the final results event:
+     ```rust
+     #[derive(Debug, Clone, Serialize, Deserialize)]
+     #[serde(rename_all = "camelCase")]
+     pub struct FinalResults {
+         pub results: Vec<ExecutionResult>,
+     }
+     ```
+
+2. `src-tauri/src/executor.rs`:
+   - Add `detail_level: DetailLevel` parameter to `run_pool` and `run_load_profile`.
+   - At batch emission time, filter `results` based on `detail_level`:
+     - `Full`: `results: std::mem::take(&mut batch)` (unchanged)
+     - `MetricsOnly`: `results: vec![]` (batch is cleared but not sent)
+     - `Sampled`: `results: batch.drain(..batch.len().min(10)).collect()`
+       then clear remaining: `batch.clear()`
+   - **Critical**: `all_results.push(result)` is UNCHANGED — Rust always keeps
+     all results regardless of `detail_level`.
+   - **Critical**: After the final drain, when `detail_level != Full`, emit a
+     `load-test-final-results` event with the full `all_results`:
+     ```rust
+     if !matches!(detail_level, DetailLevel::Full) {
+         let _ = app.emit("load-test-final-results", &FinalResults {
+             results: all_results.clone(),
+         });
+     }
+     ```
+   - The final drain batch itself always sends `Full` results (for any stragglers).
+
+3. `src-tauri/src/commands.rs`:
+   - Destructure `detail_level` from each `ExecutionPlan` variant.
+   - Pass `detail_level` to `run_pool` / `run_load_profile`.
+
+**B. JS side (4 files)**
+
+4. `src/features/test-runner/utils/rustBridge.ts`:
+   - Add `detailLevel?: 'full' | 'metrics-only' | 'sampled'` to `RustExecutionPlan`
+     type (all three variants).
+   - In `buildExecutionPlan()`: set `detailLevel` based on config:
+     - Default: `'full'` for pool/sequential, `'sampled'` for load-profile
+     - (Future: user override via `config.detailLevel`)
+   - In `startRustLoadTest()`: register listener for `load-test-final-results` event.
+     When received, call a new `onFinalResults` callback.
+   - In `runTestViaRust()`:
+     - Add `onFinalResults` handler: replaces `allResults` with the full set from Rust.
+     - Progress batch handler: still accumulates from `batch.results` (may be
+       empty/sampled during progress — that's fine, metrics come from `batch.metrics`).
+     - On completion: if final results event was received, use those; otherwise use
+       accumulated `allResults` (the `Full` mode path, unchanged).
+
+5. `src/features/test-runner/hooks/useTestExecution.ts`:
+   - `onProgress` handler already handles empty `allResults` correctly:
+     when `allResults.length === lastTrackedCount`, the `trackResult` loop is a no-op.
+     Error/validation counts come from results, but with streaming metrics from Rust
+     the percentiles are correct even without individual results.
+   - **Key insight**: `trackResult` is still needed for `failedRequests`,
+     `failedValidations`, and `errorsByStatus` — these are NOT in `StreamingMetrics`.
+     When `MetricsOnly` is used, these JS-side counts will be zero during live progress
+     (acceptable — Rust `StreamingMetrics.errors` provides error count).
+     The final results event at completion fills in the full `allResults`, and the
+     final `computeMetrics()` call produces correct counts.
+
+6. `src/features/test-runner/utils/rustBridge.test.ts`:
+   - Add test for `buildExecutionPlan` with `detailLevel` field.
+
+7. `src-tauri/src/executor_test.rs`:
+   - Add serde tests for `DetailLevel` enum.
+   - Add serde tests for `FinalResults` struct.
+
+**Default behavior by execution mode**:
+
+| Mode | Default `detailLevel` | Rationale |
+|------|----------------------|-----------|
+| `pool` | `full` | Bounded total (iterations × scenarios), IPC manageable |
+| `sequential` | `full` | Same as pool |
+| `load-profile` | `sampled` | Unbounded duration, potentially millions of results |
+
+**Expected impact**: At 10K RPS with `sampled`, Tauri event payload drops from
+~2MB/batch (200 results × ~10KB each) to ~100KB (10 sampled results). With
+`MetricsOnly`, payload drops to ~200 bytes (just metrics snapshot). The final
+`load-test-final-results` event is a one-time cost at completion.
+
+---
+
+###### Sub-Phase 3B.8: Verification & Cleanup (Day 5)
+
+> Re-evaluated 2026-05-21. Thorough codebase audit performed across 5 dimensions.
+> Results: all automated checks pass, 5 clippy warnings fixed, NaN guard added to
+> Rust histogram, `Default` impl added for `StreamingMetrics`.
+
+**A. Automated checks**
+
+| Check | Command | Result |
+|-------|---------|--------|
+| Rust unit tests | `cargo test` | **580 pass, 0 fail** |
+| Rust lint | `cargo clippy` | **0 warnings** (5 fixed — see below) |
+| TypeScript types | `npx tsc -b --noEmit` | **0 errors** |
+| Full JS unit tests | `npx vitest run` | **18,974 pass, 0 fail** |
+| Rust bridge tests | `npx vitest run src/features/test-runner/utils/rustBridge*.test.ts` | **All pass** |
+
+**B. Re-evaluation checklist**
+
+- [x] Rust↔JS serde field names match (camelCase) — All 40+ fields verified across
+  `MetricsSnapshot`, `ProgressBatch`, `CompletionSummary`, `FinalResults`, `DetailLevel`,
+  `ExecutionPlan` variants. Zero mismatches.
+- [x] `MetricsSnapshot` optional everywhere — no crash on `None`/`undefined`. Rust uses
+  `Option<MetricsSnapshot>` with `#[serde(default)]`. JS uses `?.` and `if (streaming)` guards.
+  12 Rust sites, 6 JS sites, 0 UI direct reads — all safe.
+- [x] Existing tests unaffected (no regression) — 18,974 JS + 580 Rust tests all pass.
+- [x] Worker bridge protocol stays backward compatible — Phase 3B did not modify
+  `workerProtocol.ts`. `ProgressMeta.metrics` is optional. Worker path and Rust path are
+  mutually exclusive in `useTestExecution`. No breaking changes.
+- [x] CLI reporters compile and format correctly — CLI uses `computeMetrics()` (sort-based),
+  not streaming metrics. P99.9 has `?? '—'` fallback. P50/P95/P99 are always numbers from
+  `computeMetrics()`. Note: CLI not in tsconfig (built via esbuild) — pre-existing, not 3B.
+- [x] No floating-point NaN/Infinity in edge cases — Fixed: NaN guard added to
+  `histogram.rs::record()`. TPS at elapsed=0 already guarded. `computeMetrics` empty-array
+  early return already in place.
+
+**C. Clippy warnings fixed (5)**
+
+| Warning | File | Fix |
+|---------|------|-----|
+| Missing `Default` impl for `StreamingMetrics` | `histogram.rs` | Added `impl Default` delegating to `new()` |
+| Complex type | `json_validator.rs:178` | Extracted `type ArrayGroup` |
+| Manual prefix strip | `json_validator.rs:411` | Used `strip_prefix('.')` |
+| Manual char comparison | `json_validator.rs:474` | Used `matches!` / `['.', '[']` |
+| Too many arguments (8/7) | `validation_result.rs:15` | Suppressed with `#[allow(clippy::too_many_arguments)]` — matches JS API surface |
+
+**D. NaN guard added**
+
+In `histogram.rs::record()`, reject `NaN` and `Infinity` response times to prevent
+poisoning `sum_response_time` → `avg`:
+```rust
+pub fn record(&mut self, response_time_ms: f64, is_error: bool) {
+    if !response_time_ms.is_finite() { return; }
+    // ... rest unchanged
+}
+```
+
+**E. Noted but not fixed (pre-existing, out of 3B scope)**
+
+| Item | Severity | Why deferred |
+|------|----------|-------------|
+| CLI `../src/types` import path stale | Low | Pre-existing; esbuild resolves it; CLI tsconfig is separate project |
+| `LiveProgressPanel` `durationMs=0` edge | Low | UI enforces min 5s; external paths are edge-case |
+| `finalMetrics` not consumed in JS | Low | Streaming metrics from progress events are sufficient |
+| Multi-worker aggregation drops `metrics` | Low | Workers don't populate metrics; Rust path is separate |
+
+**F. Visual Test Scenarios**
+
+See [throughput-phase3b-test-scenarios.md](throughput-phase3b-test-scenarios.md) — 15 manual
+test scenarios covering: P99.9 in dashboard/histogram/comparison/exports/CLI, streaming metrics
+accuracy, live TPS stability, sampled detailLevel, full results delivery, backward compat,
+regression alerts, web fallback, workflow, and abort handling.
+
+---
+
+###### Dependencies & Risk Assessment
+
+| Risk | Mitigation |
+|------|------------|
+| `hdrhistogram` crate compatibility | Crate is mature (v7), widely used, no unsafe |
+| Binary size increase | ~50KB — negligible vs existing 15MB+ app |
+| Mutex contention in receiver | Single-threaded receiver — no contention |
+| P99.9 accuracy at low sample count | HDR histogram is accurate to 3 significant digits even at <100 samples |
+| Breaking JS consumers | All new fields are `Option`/optional — zero breaking changes |
+| Multi-worker histogram merging | Deferred to Sub-Phase 3B.5 — approximate weighted average for now |
+
+---
+
 #### 3C. Constant Arrival Rate (Open Model)
+
+> Re-evaluated 2026-05-21. Thorough codebase audit performed. 7 gaps identified and
+> corrected. Think time decision resolved: blocks in-flight slot (k6 parity). PR breakdown
+> defined: PR1 (Rust core), PR2 (JS bridge + types), PR3 (UI + live dashboard).
 
 **Goal**: Implement a "fire N requests/second regardless of response time" execution mode
 (open model). This is k6's most distinctive feature and the key differentiator for realistic
 load simulation. The closed model (Tier 2) adjusts throughput based on response latency;
 the open model maintains constant pressure even when the server slows down.
 
-**Effort**: 2-3 weeks
+**Effort**: 2-3 weeks (3 PRs)
 **Target**: ~50,000 RPS (arrival-rate limited, not response-time limited)
+**Platform**: Tauri desktop only — no JS fallback (Rust executor required)
 
 **Current state (what changes)**:
 - All execution modes today are **closed model** (concurrency-based): pool, sequential,
@@ -3062,18 +3547,49 @@ the open model maintains constant pressure even when the server slows down.
 - Tier 3C adds a true open model: `tokio::time::interval` fires at fixed rate regardless of
   whether previous requests completed. Backpressure via configurable max in-flight limit.
 
-##### Step 1 — Add `ConstantArrival` to ExecutionPlan (`src-tauri/src/types.rs`)
+**Reusable components from existing codebase**:
+
+| Component | Source | Visibility | Notes |
+|-----------|--------|------------|-------|
+| `build_weighted_pool` | `executor.rs` | `pub` | Scenario round-robin selection |
+| `apply_think_time` / `compute_think_time` | `executor.rs` | `pub` | Cancellation-aware delay |
+| `execute_with_retry` | `executor.rs` | `pub` | HTTP execution + retry logic |
+| `CircuitBreakerState` | `executor.rs` | `pub` | Error rate tracking |
+| `filter_batch` | `executor.rs` | `pub(crate)` | Detail-level batching |
+| `round_ms` | `executor.rs` | `pub` | Elapsed time rounding |
+| `StreamingMetrics` / `MetricsSnapshot` | `histogram.rs` | `pub` | HDR histogram |
+| `validate_and_cap` | `executor.rs` | ~~private~~ → `pub(crate)` ✅ | Result processing |
+| `cap_body` | `executor.rs` | `pub(crate)` (already) ✅ | Body truncation |
+| `next_result_id` | `executor.rs` | `pub(crate)` | Monotonic ID counter |
+
+---
+
+##### PR1: Rust Core (Steps 1–3) — "The Engine" ✅ IMPLEMENTED
+
+> Implemented 2026-05-21. All 3 steps completed. Re-evaluation findings:
+> - `cap_body` was already `pub(crate)` — only `validate_and_cap` needed promotion.
+> - `ramp_config` required explicit `.clone()` before moving into producer async block.
+> - All 3 new `ProgressBatch` fields (`target_rps`, `actual_rps`, `dropped_requests`)
+>   added with backward-compatible `#[serde(default, skip_serializing_if)]`.
+> - All existing `ProgressBatch` construction sites updated with `None` defaults.
+> - 25 tests written in `arrival_executor_test.rs`: serde roundtrip, ramp interpolation,
+>   backward compat, JS payload deserialization, existing mode regression.
+> - Verification: 605 cargo tests pass, 0 clippy warnings, 0 tsc errors.
+
+**Scope**: Rust-only, no JS/UI changes. Testable with `cargo test`.
+
+###### Step 1 — Add `ConstantArrival` to ExecutionPlan (`src-tauri/src/types.rs`)
 
 ```rust
 #[serde(rename = "constant-arrival")]
 ConstantArrival {
     scenarios: Vec<RustScenario>,
     #[serde(rename = "targetRps")]
-    target_rps: f64,                    // requests per second
+    target_rps: f64,
     #[serde(rename = "durationSec")]
     duration_sec: u64,
     #[serde(rename = "maxInFlight")]
-    max_in_flight: u32,                 // backpressure limit (default: target_rps * 10)
+    max_in_flight: u32,                 // default on JS side: targetRps * 10
     #[serde(rename = "timeoutMs")]
     timeout_ms: u64,
     #[serde(rename = "retryCount")]
@@ -3086,8 +3602,15 @@ ConstantArrival {
     circuit_breaker: CircuitBreakerConfig,
     #[serde(rename = "rampConfig")]
     ramp_config: Option<ArrivalRampConfig>,
+    #[serde(rename = "detailLevel", default)]
+    detail_level: DetailLevel,          // GAP FIX: was missing; default sampled for arrival
 }
+```
 
+New struct:
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ArrivalRampConfig {
     pub start_rps: f64,
     pub end_rps: f64,
@@ -3095,102 +3618,397 @@ pub struct ArrivalRampConfig {
 }
 ```
 
-##### Step 2 — Constant arrival executor (`src-tauri/src/arrival_executor.rs`) — NEW
+New optional fields on `ProgressBatch` (all with `#[serde(default, skip_serializing_if)]`):
+```rust
+pub struct ProgressBatch {
+    // ... existing fields ...
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub target_rps: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub actual_rps: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub dropped_requests: Option<u64>,
+}
+```
+
+###### Step 2 — Constant arrival executor (`src-tauri/src/arrival_executor.rs`) — NEW
+
+**Prerequisites**: Promote `validate_and_cap` and `cap_body` from private to `pub(crate)`
+in `executor.rs`.
 
 Core algorithm using `tokio::time::interval`:
 ```
 - interval = Duration::from_secs_f64(1.0 / target_rps)
-- max_in_flight semaphore (backpressure)
-- Loop:
+- max_in_flight semaphore = Semaphore::new(max_in_flight)
+- dropped_count = AtomicU64::new(0)
+- Duration timer: Instant::now() + duration_sec
+
+Producer loop (main task):
     1. interval.tick().await (fires at constant wall-clock rate)
-    2. If semaphore permits available → spawn request task
-    3. If no permits → increment "dropped" counter (request not sent)
-    4. Check duration / breaker / cancellation
-- Ramped arrival: recalculate interval at each tick based on elapsed time
+    2. If elapsed >= duration → break
+    3. If cancel.is_cancelled() || breaker.should_stop() → break
+    4. If semaphore.try_acquire() succeeds → spawn request task:
+        a. execute_with_retry(scenario, ...)
+        b. tx.send(result)
+        c. apply_think_time(think_time, cancel)  // BLOCKS in-flight slot
+        d. drop(permit)  // release AFTER think time
+    5. If semaphore.try_acquire() fails → dropped_count.fetch_add(1)
+
+Ramped arrival:
+    - If ramp_config.is_some():
+        current_rps = lerp(start_rps, end_rps, elapsed / ramp_duration)
+        clamped to [start_rps, end_rps] after ramp_duration
+    - Recalculate interval = 1.0 / current_rps at each tick
+
+Receiver loop (same pattern as run_pool/run_load_profile):
+    - while let Some(result) = rx.recv().await
+    - Record StreamingMetrics, accumulate all_results, batch
+    - Emit ProgressBatch with target_rps, actual_rps, dropped_requests
+    - actual_rps = completed / elapsed_sec
 ```
 
-Key design decisions:
-- **Backpressure**: When all `max_in_flight` slots are occupied, the request is **dropped**
-  (not queued). This matches k6's `maxVUs` behavior. Dropped count reported in metrics.
-- **Think time**: Applied AFTER request completes, BEFORE releasing in-flight slot.
-  For open model, think time increases effective in-flight occupancy without changing
-  arrival rate.
-- **Ramped arrival**: Linear interpolation between `start_rps` and `end_rps` over
-  `ramp_duration_sec`, then hold at `end_rps` for remaining duration.
-- **Weighted scenarios**: Same `build_weighted_pool()` + round-robin as pool mode.
+**Think time decision (resolved)**: Think time **blocks the in-flight slot** — the semaphore
+permit is held during think time and only released after. Rationale:
+1. Matches k6's VU model — a "thinking" user still occupies a virtual user slot
+2. Consistent with `run_load_profile` behavior (think time runs before worker completes)
+3. Predictable backpressure — `max_in_flight` controls total system load including think time
+4. At high RPS with think time, users will see more drops — this is correct and expected
 
-Progress batch format:
+**Return signature** (same as `run_pool`/`run_load_profile`):
 ```rust
-ProgressBatch {
-    // existing fields ...
-    target_rps: Option<f64>,     // NEW — current target arrival rate
-    actual_rps: Option<f64>,     // NEW — achieved arrival rate
-    dropped_requests: Option<u64>, // NEW — requests not sent due to backpressure
-    metrics: Option<MetricsSnapshot>,
+pub async fn run_constant_arrival(
+    app: AppHandle, client: Arc<Client>,
+    scenarios: Vec<RustScenario>, target_rps: f64, duration_sec: u64,
+    max_in_flight: u32, timeout: Duration, retry_count: u32, retry_delay_ms: u64,
+    think_time: ThinkTimeConfig, breaker_config: CircuitBreakerConfig,
+    ramp_config: Option<ArrivalRampConfig>, cancel: CancellationToken,
+    detail_level: DetailLevel,
+) -> (Vec<ExecutionResult>, bool, Option<MetricsSnapshot>)
+```
+
+###### Step 3 — Wire into commands.rs
+
+Add `ExecutionPlan::ConstantArrival` match arm in `start_load_test()`:
+```rust
+ExecutionPlan::ConstantArrival {
+    scenarios, target_rps, duration_sec, max_in_flight,
+    timeout_ms, retry_count, retry_delay_ms, think_time,
+    circuit_breaker, ramp_config, detail_level,
+} => {
+    arrival_executor::run_constant_arrival(
+        app.clone(), client, scenarios, target_rps, duration_sec,
+        max_in_flight, Duration::from_millis(timeout_ms),
+        retry_count, retry_delay_ms, think_time, circuit_breaker,
+        ramp_config, cancel.clone(), detail_level,
+    ).await
 }
 ```
 
-##### Step 3 — Wire into commands.rs
+Add `mod arrival_executor;` to `lib.rs`.
 
-Add `ExecutionPlan::ConstantArrival` match arm in `start_load_test()` →
-calls `arrival_executor::run_constant_arrival()`.
+###### PR1 tests (`arrival_executor_test.rs`) — ~25 tests
 
-##### Step 4 — Add `ExecutionMode` value in JS
+| Category | Tests |
+|----------|-------|
+| Serde | `ConstantArrival` roundtrip, `ArrivalRampConfig` roundtrip, backward compat (missing ramp → None) |
+| `ProgressBatch` | New fields serialize/skip correctly, backward compat (old batch without RPS fields) |
+| Timer | Fixed-rate interval at 10 RPS for 1s → ~10 requests, at 100 RPS for 0.5s → ~50 |
+| Backpressure | `max_in_flight: 1` with slow server → drops occur, drop count tracked |
+| Ramped | `start_rps: 10, end_rps: 100, ramp_duration: 5s` → verify linear increase |
+| Breaker | Circuit breaker trips → producer stops, remaining results drain |
+| Cancel | CancellationToken → clean shutdown, partial results returned |
+| Think time | With constant 500ms think time → fewer concurrent slots, more drops |
+| Weighted | 3 scenarios with weights [1, 2, 1] → verify distribution |
+| Edge cases | `target_rps: 0.1` (1 req per 10s), `duration_sec: 0`, empty scenarios |
+
+---
+
+##### PR2: JS Bridge + Types (Steps 4–5) — "The Wiring" — **IMPLEMENTED**
+
+> Re-evaluated 2026-05-21. Thorough codebase audit performed.
+>
+> **Implementation summary** (2026-05-21):
+> 1. **`src/shared/types/index.ts`** — Added `'constant-arrival'` to `ExecutionMode` union,
+>    added `ArrivalRateConfig` interface, added `arrivalRate?` to `TestConfig`,
+>    added `droppedRequests?`, `peakRps?`, `targetRps?` to `TestSummary`.
+> 2. **`src/shared/utils/executionMode.ts`** — Added `'constant-arrival'` mode metadata entry.
+> 3. **`src/engine/executor.ts`** — Extended `ProgressMeta` with `targetRps?`, `actualRps?`,
+>    `droppedRequests?` fields for constant-arrival metrics forwarding.
+> 4. **`src/features/test-runner/utils/rustBridge.ts`** — Added `constant-arrival` variant to
+>    `RustExecutionPlan` type, added 3 optional fields to `RustProgressBatch`, added
+>    `constant-arrival` mapping block to `buildExecutionPlan()` (weighted scenarios, rampConfig,
+>    default maxInFlight = ceil(targetRps×10)), updated `runTestViaRust()` with `isTimeBased`
+>    flag covering both load-profile and constant-arrival (total=-1, direct scenario lookup,
+>    correct durationMs, meta forwarding with targetRps/actualRps/droppedRequests).
+> 5. **`src/features/test-runner/hooks/useTestExecution.ts`** — Added `total=-1` for CAR,
+>    Rust-only gate error ("Constant Arrival Rate requires the desktop app (Tauri)"),
+>    peakRps/droppedRequests/targetRps tracking injected into final summary.
+> 6. **Tests** — Added 6 new tests to `rustBridge.test.ts` (canUseRustExecutor CAR,
+>    buildExecutionPlan: basic/ramp/defaultMaxInFlight/missingArrivalRate/scenarioWeights),
+>    added 2 new tests to `useTestExecution.test.ts` (total=-1 for CAR, Rust-only error).
+>
+> **Verification**: 0 tsc errors, 84 rustBridge tests pass, 38 useTestExecution tests pass,
+> 612 Rust tests pass. rustBridge.ts remains under 900-line threshold (~840 lines).
+
+**Scope**: TypeScript types, bridge mapping, hook update. No UI components.
+
+###### Step 4 — Add `ExecutionMode` + config types in JS
 
 In `src/shared/types/index.ts`:
 ```typescript
 export type ExecutionMode = 'sequential' | 'batch' | 'pool' | 'load-profile'
   | 'workflow' | 'constant-arrival';
+
+export interface ArrivalRateConfig {
+  targetRps: number;
+  durationSec: number;
+  maxInFlight?: number;       // default: Math.ceil(targetRps * 10)
+  ramp?: {
+    startRps: number;
+    endRps: number;
+    rampDurationSec: number;
+  };
+}
+
+// Add to TestConfig:
+export interface TestConfig {
+  // ... existing fields ...
+  arrivalRate?: ArrivalRateConfig;  // NEW: only when executionMode === 'constant-arrival'
+}
+
+// Add to TestSummary:
+export interface TestSummary {
+  // ... existing fields ...
+  droppedRequests?: number;     // NEW: requests not sent due to backpressure
+  peakRps?: number;             // NEW: highest achieved RPS
+  targetRps?: number;           // NEW: configured target RPS
+}
 ```
 
-In `src/shared/utils/executionMode.ts`: add label/description for constant-arrival.
+In `src/shared/utils/executionMode.ts`:
+```typescript
+{
+  label: 'Constant Arrival',
+  title: 'Constant Arrival Rate (Open Model)',
+  hint: 'Fire N requests/second regardless of response time. Desktop only.',
+  progressLabel: 'Arrival Rate',
+}
+```
 
-##### Step 5 — JS bridge update (`src/features/test-runner/utils/rustBridge.ts`)
+###### Step 5 — JS bridge update (`src/features/test-runner/utils/rustBridge.ts`)
 
-- `canUseRustExecutor()`: return true for `constant-arrival` mode
-  (Note: constant-arrival is ONLY available via Rust executor — no JS fallback)
-- `buildExecutionPlan()`: map `constant-arrival` → `ConstantArrival` plan with
-  `targetRps`, `durationSec`, `maxInFlight`, optional `rampConfig`
+**`canUseRustExecutor()`**: Return `true` for `constant-arrival` (no change needed —
+it's not `workflow`, doesn't have `resolveSubWorkflow`, and OAuth2 gate is per-scenario).
 
-##### Step 6 — Configuration UI (`src/features/test-runner/components/RunnerExecutionConfig.tsx`)
+**`buildExecutionPlan()`**: New mapping block:
+```typescript
+if (mode === 'constant-arrival' && config.arrivalRate) {
+  const ar = config.arrivalRate;
+  return {
+    mode: 'constant-arrival',
+    scenarios: scenarios.map(prepareRustScenario),
+    targetRps: ar.targetRps,
+    durationSec: ar.durationSec,
+    maxInFlight: ar.maxInFlight ?? Math.ceil(ar.targetRps * 10),
+    timeoutMs, retryCount, retryDelayMs, thinkTime, circuitBreaker,
+    rampConfig: ar.ramp ? {
+      startRps: ar.ramp.startRps,
+      endRps: ar.ramp.endRps,
+      rampDurationSec: ar.ramp.rampDurationSec,
+    } : undefined,
+    detailLevel: 'sampled',
+  };
+}
+```
 
-Add "Constant Arrival Rate" option to execution mode selector:
-- **Target RPS**: numeric input (required)
-- **Duration**: seconds (required)
-- **Max In-Flight**: numeric input (default: target_rps × 10)
-- **Ramp**: optional toggle with start_rps, end_rps, ramp_duration_sec
-- **Profile preview**: show expected arrival rate over time as a chart
+**`RustExecutionPlan` type**: Add `constant-arrival` variant.
 
-Note in UI: "Requires desktop app (Tauri)" — disabled when `!isTauri()`.
+**`RustProgressBatch`**: Add optional `targetRps?`, `actualRps?`, `droppedRequests?`.
 
-##### Step 7 — Live dashboard updates
+**`ProgressMeta`** (in `executor.ts`): Add `targetRps?`, `actualRps?`, `droppedRequests?`.
 
-- `LiveProgressPanel`: show Target RPS, Actual RPS, Dropped Requests when in constant-arrival mode
-- `LiveCharts`: add RPS time series chart (target vs actual)
-- `ResultsDashboard`: show dropped request count and peak actual RPS
+**`runTestViaRust`**: Forward new fields to `onProgress` via `ProgressMeta`.
 
-##### Step 8 — Unit tests
+**`useTestExecution.ts`**:
+- `total = -1` for constant-arrival (time-based, like load-profile)
+- Error if Rust unavailable: `if (mode === 'constant-arrival' && !useRust)` →
+  reject with "Constant Arrival Rate requires the desktop app (Tauri)"
+- Track `droppedRequests` from progress meta for final summary
+- Track `peakRps` = `Math.max(peakRps, meta.actualRps)` across all progress ticks
 
-| Test file | Tests | Notes |
-|-----------|-------|-------|
-| `src-tauri/src/arrival_executor_test.rs` | ~25 tests | Fixed rate, ramped, backpressure drops, breaker, cancel |
-| `rustBridge.test.ts` | +10 tests | canUseRustExecutor for constant-arrival, buildExecutionPlan |
-| `rustBridgeIntegration.test.ts` | +8 tests | End-to-end arrival rate execution |
+**Note on `rustBridge.ts` size** (currently 797 lines): Adding the constant-arrival mapping
+will approach the 900-line monolithic threshold. If it exceeds 900, extract plan-building
+helpers (e.g., `prepareRustScenario`, `buildExpandedQueue`) into a separate
+`rustBridgeHelpers.ts` module.
 
-**Files created/modified**:
-| File | Status |
-|------|--------|
-| `src-tauri/src/arrival_executor.rs` | NEW |
-| `src-tauri/src/arrival_executor_test.rs` | NEW |
-| `src-tauri/src/types.rs` | MODIFIED — add ConstantArrival, ArrivalRampConfig, RPS fields |
-| `src-tauri/src/commands.rs` | MODIFIED — new match arm |
-| `src-tauri/src/lib.rs` | MODIFIED — mod declarations |
-| `src/shared/types/index.ts` | MODIFIED — add 'constant-arrival' to ExecutionMode |
-| `src/shared/utils/executionMode.ts` | MODIFIED — add label/description |
-| `src/features/test-runner/utils/rustBridge.ts` | MODIFIED — new plan mapping |
-| `src/features/test-runner/components/RunnerExecutionConfig.tsx` | MODIFIED — new UI |
-| `src/features/test-runner/components/LiveProgressPanel.tsx` | MODIFIED — RPS display |
-| `src/features/test-runner/components/LiveCharts.tsx` | MODIFIED — RPS chart |
+###### PR2 tests
+
+| Test file | Tests |
+|-----------|-------|
+| `rustBridge.test.ts` | `buildExecutionPlan` for constant-arrival: basic, with ramp, default maxInFlight, missing arrivalRate → null |
+| `rustBridge.test.ts` | `canUseRustExecutor` returns true for constant-arrival |
+| `useTestExecution.test.ts` | Constant-arrival sets total=-1, error when Rust unavailable |
+
+---
+
+##### PR3: UI + Live Dashboard (Steps 6–7) — "The Experience"
+
+> **IMPLEMENTED** (2026-05-21). Re-evaluated and implemented in full.
+>
+> **Findings & fixes during implementation:**
+> - `useRunnerConfig.ts`: Added `arrivalRate` state (useState + save/load/return), default `{ targetRps: 10, durationSec: 30 }`.
+> - `runnerConfigDefaults.ts`: Added `arrivalRate?: ArrivalRateConfig` to `RunnerConfig`, `ResolvedConfig`, and `resolveLoadedConfig`.
+> - `useRunnerOrchestration.ts`: Added `isConstantArrival` flag, wired `arrivalRate` into `TestConfig` for CAR mode,
+>   added `updateArrivalRate` callback, `displayArrivalRate` for persisted progress display, and saved `arrivalRate` to `PersistedProgress`.
+> - `RunnerExecutionConfig.tsx`: Added 5th radio button (`constant-arrival`), disabled on web via `isTauri()`,
+>   arrival rate config section (Target RPS, Duration, Max In-Flight, Enable Ramp with sub-fields),
+>   props made optional so WorkflowRunner doesn't break.
+> - `LiveProgressPanel.tsx`: Added `isArrivalRate` flag, conditional header tag (Arrival Rate · Target:X RPS · Ys),
+>   4 new metric cards (Target RPS, Actual RPS, Dropped with warning color, In-Flight), passed `isArrivalRate` to `LiveCharts`.
+> - `useTestExecution.ts`: Extended `TimeSeriesPoint` with `targetRps?` and `actualRps?`, populated in snapshot builder from `profileMeta`.
+> - `LiveCharts.tsx`: Added Target vs Actual RPS chart (dashed target line + solid actual area) when `isArrivalRate`.
+> - `ResultsDashboard.tsx`: Added CAR context tag (Arrival Rate · X RPS · Ys · ramp info), and arrival-rate-specific
+>   metric row (Target RPS, Peak RPS, Dropped Requests with tooltip).
+> - `runnerProgressStorage.ts`: Added `arrivalRate?: ArrivalRateConfig` to `PersistedProgress`.
+> - Updated `TestRunner.tsx` and `ParameterizedRunner.tsx` to pass new props through.
+>
+> **Tests added:** 12 new tests in `RunnerExecutionConfig.test.tsx` (arrival radio disabled on web, config section renders,
+> concurrency/iterations disabled, onArrivalRateChange callbacks, ramp toggle, ramp fields), 5 new tests in `LiveProgressPanel.test.tsx`
+> (arrival header tag, ramp info, Target/Actual/Dropped metric cards, In-Flight instead of Concurrency, time-based progress bar).
+>
+> **Verification:** `npx tsc -b --noEmit` → 0 errors. 0 linter errors.
+>
+> **Audit Round 1 (2026-05-21):** 3 bugs found and fixed:
+> - BUG 1 (Medium): `NumericInput` used `parseInt` which truncated fractional RPS values (0.5 → 0).
+>   Fix: Auto-detect float inputs via `step < 1` and use `parseFloat` for those fields.
+> - BUG 2 (Low): `rampEnabled` checkbox state didn't sync when `arrivalRate` prop changed externally
+>   (e.g., restoring from saved config). Fix: Added `useEffect` to sync `rampEnabled` from `effectiveArrivalRate.ramp`.
+> - BUG 3 (Low): `LiveProgressPanel` progress bar fallback used `loadProfile.durationSec` for arrival mode
+>   when `profileMeta` was null. Fix: Conditional fallback to `arrivalRate.durationSec` when `isArrivalRate`.
+> - Added 2 new tests: float RPS change callback, arrival fallback duration.
+>
+> **Audit Round 2 (2026-05-21):** Deep adversarial pass. 1 code organization fix:
+> - Moved `isLoadProfile`/`isConstantArrival` flags above `useEffect` calls in `useRunnerOrchestration.ts`
+>   (was used in effect closure before definition — works at runtime but misleading for maintainers).
+> - Verified: NumericInput float parse doesn't regress existing integer fields, `Duration (sec)` label
+>   doesn't collide between load-profile and arrival-rate sections, WorkflowRunner correctly omits
+>   arrival props, all type contracts consistent across TS types ↔ UI ↔ bridge ↔ Rust.
+>
+> **Audit Round 3 (2026-05-21):** Line-by-line source + edge case audit. 1 test data fix:
+> - `LiveProgressPanel.test.tsx`: Two test summary objects had spurious `costMs: 0` field (not in
+>   `TestSummary` interface) and were missing required `failedRequests` and `errorsByStatus` fields.
+>   Fixed both to use correct `TestSummary` properties.
+> - All runtime edge cases verified clean: NaN guards in `NumericInput`, null guards on `profileMeta`,
+>   `useEffect` dependency stability, ramp startRps calculation for all targetRps values.
+>
+> **Audit Round 4 (2026-05-21):** Quick sweep re-confirming all 10 audit points from Round 3.
+> No new issues found.
+>
+> **Audit Round 5 (2026-05-21):** Cross-file contract audit + test data cleanliness sweep. 1 fix:
+> - `LiveProgressPanel.test.tsx`: Removed phantom `completedRequests` field from 3 `profileMeta` test
+>   objects (field does not exist in `ProgressMeta` interface).
+> - Full contract trace: `ArrivalRateConfig` ↔ `ProgressMeta` ↔ `TestSummary` ↔ `PersistedProgress` ↔
+>   `TimeSeriesPoint` — all align correctly across types → engine → hooks → components.
+>
+> **Audit Round 6 (2026-05-21):** Infrastructure audit (new angles). Zero issues found:
+> - Rust bridge: `buildExecutionPlan` correctly maps `ArrivalRateConfig` → `RustExecutionPlan`
+>   (`constant-arrival` variant with `targetRps`, `durationSec`, `maxInFlight` fallback, `rampConfig`).
+> - `RustProgressBatch` fields (`targetRps`, `actualRps`, `droppedRequests`) mapped correctly to `ProgressMeta`.
+> - CAR guard in `useTestExecution.ts`: throws clear error if CAR used without Rust executor (web).
+> - WorkflowRunner: zero CAR references in `src/features/workflow/` — optional props default safely.
+> - CSS: CAR config section reuses `load-profile-section` + `profile-field` classes (15 existing rules).
+> - Storage round-trip: `arrivalRate` with `ramp: undefined` correctly round-trips via JSON serialize.
+> - Config auto-save: `arrivalRate` in `useEffect` dependency array, changes auto-persisted.
+>
+> **Final verification (Round 6):** 995 tests pass (36 files), 0 type errors, 0 linter errors.
+
+**Scope**: Configuration form, live dashboard, results display.
+
+###### Step 6 — Configuration UI (`RunnerExecutionConfig.tsx`)
+
+Add "Constant Arrival Rate" as 5th radio button in `testRunnerModes`:
+- **Disabled** when `!isTauri()` — show tooltip "Requires desktop app"
+- When selected, show arrival-rate config section:
+
+| Field | Type | Required | Default | Notes |
+|-------|------|----------|---------|-------|
+| Target RPS | number input | Yes | — | Min 0.1, max 100,000 |
+| Duration | seconds input | Yes | 30 | Min 5 |
+| Max In-Flight | number input | No | targetRps × 10 | Min 1 |
+| Enable Ramp | toggle | No | off | Expands ramp sub-section |
+| ↳ Start RPS | number | If ramp | targetRps / 10 | |
+| ↳ End RPS | number | If ramp | targetRps | |
+| ↳ Ramp Duration | seconds | If ramp | 10 | Must be ≤ duration |
+
+- Hide **Concurrency** and **Iterations** inputs (not applicable for arrival mode)
+- Show **ProfilePreview** chart with expected RPS curve over time
+- Keep think time, timeout, retry, error policy sections visible (they still apply)
+
+###### Step 7 — Live dashboard updates
+
+**`LiveProgressPanel.tsx`**:
+- Detect arrival mode: `const isArrivalRate = executionMode === 'constant-arrival';`
+- Time-based progress bar (like load-profile: elapsed / duration)
+- Header tag: `Arrival Rate | Target: {targetRps} RPS | Duration: {durationSec}s`
+- **New metric cards** (only when `isArrivalRate`):
+  - **Target RPS**: `profileMeta.targetRps`
+  - **Actual RPS**: `profileMeta.actualRps`
+  - **Dropped**: `profileMeta.droppedRequests` (with warning color if > 0)
+- Keep existing TPS, Avg Response, Error Rate tiles
+
+**`LiveCharts.tsx`**:
+- Add **Target vs Actual RPS** chart when `isArrivalRate`:
+  - Two area series: target (dashed) vs actual (solid)
+  - Needs new fields on `TimeSeriesPoint`: `targetRps?`, `actualRps?`
+- Existing Response Time, TPS, Error Rate, Concurrency charts still shown
+
+**`ResultsDashboard.tsx`**:
+- When `executionMode === 'constant-arrival'`:
+  - Context tag: `Arrival Rate | {targetRps} RPS | {durationSec}s`
+  - Show **Dropped Requests** metric card (with `summary.droppedRequests ?? 0`)
+  - Show **Peak RPS** metric card (with `summary.peakRps`)
+  - Show **Target RPS** in summary row
+
+###### Step 8 — Unit tests for UI
+
+| Test file | Tests |
+|-----------|-------|
+| `RunnerExecutionConfig.test.tsx` | Arrival radio exists, disabled on web, config section toggles |
+| `LiveProgressPanel.test.tsx` | Arrival mode shows Target/Actual RPS, Dropped cards |
+| `ResultsDashboard.test.tsx` | Arrival run shows dropped count, peak RPS |
+
+---
+
+##### Risks & Mitigations
+
+| Risk | Severity | Mitigation |
+|------|----------|------------|
+| Timer precision at 50K RPS (20μs interval) | Medium | `tokio::time::interval` compensates for drift; benchmark on macOS to verify actual vs target at high RPS |
+| Semaphore `try_acquire` contention at high RPS | Medium | `try_acquire` is lock-free in tokio; benchmark at 50K+ |
+| Think time blocks in-flight slot → more drops | Low (by design) | Document in UI tooltip: "Think time occupies in-flight slot, increasing drops at high load" |
+| `rustBridge.ts` approaching 900 lines | Low | Extract helpers if needed during PR2 |
+| No JS fallback for web users | Low (by design) | UI disabled on web; clear error message if somehow triggered |
+| Ramped interval recalculation at each tick | Low | `Duration::from_secs_f64(1.0 / rps)` is negligible (<1ns) |
+
+##### Files created/modified (all PRs)
+
+| File | PR | Status |
+|------|-----|--------|
+| `src-tauri/src/arrival_executor.rs` | PR1 | NEW |
+| `src-tauri/src/arrival_executor_test.rs` | PR1 | NEW |
+| `src-tauri/src/types.rs` | PR1 | MODIFIED — add ConstantArrival, ArrivalRampConfig, ProgressBatch RPS fields |
+| `src-tauri/src/executor.rs` | PR1 | MODIFIED — promote `validate_and_cap`, `cap_body` to `pub(crate)` |
+| `src-tauri/src/commands.rs` | PR1 | MODIFIED — new match arm |
+| `src-tauri/src/lib.rs` | PR1 | MODIFIED — `mod arrival_executor` |
+| `src/shared/types/index.ts` | PR2 | MODIFIED — ExecutionMode, ArrivalRateConfig, TestConfig, TestSummary |
+| `src/shared/utils/executionMode.ts` | PR2 | MODIFIED — label/description |
+| `src/engine/executor.ts` | PR2 | MODIFIED — ProgressMeta new fields |
+| `src/features/test-runner/utils/rustBridge.ts` | PR2 | MODIFIED — plan mapping, RustExecutionPlan, RustProgressBatch |
+| `src/features/test-runner/hooks/useTestExecution.ts` | PR2 | MODIFIED — arrival mode handling, error gate, peak/dropped tracking |
+| `src/features/test-runner/components/RunnerExecutionConfig.tsx` | PR3 | MODIFIED — arrival radio + config section |
+| `src/features/test-runner/components/LiveProgressPanel.tsx` | PR3 | MODIFIED — RPS cards, arrival header |
+| `src/features/test-runner/components/LiveCharts.tsx` | PR3 | MODIFIED — Target vs Actual RPS chart |
+| `src/features/results/ResultsDashboard.tsx` | PR3 | MODIFIED — dropped count, peak RPS, context tag |
 
 ---
 

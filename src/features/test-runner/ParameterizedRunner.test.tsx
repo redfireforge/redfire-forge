@@ -27,7 +27,7 @@ function baseOrchestration() {
       weights: { t2: 1 }, setWeights: orch.mockSetWeights,
       skipValidation: false, setSkipValidation: vi.fn(),
       validationOverride: 'default', setValidationOverride: vi.fn(),
-      forceUnordered: false, setForceUnordered: vi.fn(),
+      forceUnordered: 'default' as const, setForceUnordered: vi.fn(),
       hostMode: 'hardcoded', setHostMode: vi.fn(),
       customBaseUrl: '', setCustomBaseUrl: vi.fn(),
       executionMode: 'sequential', setExecutionMode: vi.fn(),

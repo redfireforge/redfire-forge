@@ -1,7 +1,7 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import type {
   RequestCollection, RequestItem, RequestEnv,
-  GlobalAuthProfile, KeyValue, HttpMethod, Scenario, AuthConfig,
+  GlobalAuthProfile, HttpMethod, Scenario, AuthConfig,
 } from '../../../shared/types';
 import { httpFetch } from '../../../shared/utils/httpClient';
 import { serializeWithContentType } from '../../../shared/utils/bodySerializer';
@@ -36,6 +36,7 @@ import type { RequestDefinitionVersion } from '../../../shared/types';
 import { SpecVersionSwitcher } from './SpecVersionSwitcher';
 import { SpecVersionCompareModal } from './SpecVersionCompareModal';
 import RequestCatalogApiInfoDrawer from './RequestCatalogApiInfoDrawer';
+import { parseQueryParams, rebuildUrlEncoded } from '../../../shared/utils/queryParams';
 
 type EditorTab = 'params' | 'headers' | 'body' | 'auth' | 'history';
 type InputMode = 'builder' | 'curlImport' | 'curlExport';
@@ -60,24 +61,8 @@ interface Props {
   isInHarness?: boolean;
 }
 
-function parseQueryParams(url: string): KeyValue[] {
-  try {
-    const qIdx = url.indexOf('?');
-    if (qIdx === -1) return [];
-    const params = new URLSearchParams(url.slice(qIdx + 1));
-    const result: KeyValue[] = [];
-    params.forEach((v, k) => result.push({ key: k, value: v }));
-    return result;
-  } catch { return []; }
-}
-
 function buildUrl(base: string, params: ParamEntry[]): string {
-  const qIdx = base.indexOf('?');
-  const basePart = qIdx >= 0 ? base.slice(0, qIdx) : base;
-  const active = fromParamEntries(params);
-  if (active.length === 0) return basePart;
-  const qs = active.map((p) => `${encodeURIComponent(p.key)}=${encodeURIComponent(p.value)}`).join('&');
-  return `${basePart}?${qs}`;
+  return rebuildUrlEncoded(base, fromParamEntries(params));
 }
 
 export default function RequestEditor({

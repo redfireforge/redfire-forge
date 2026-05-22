@@ -47,6 +47,8 @@ async function openValidationRules(page: Page): Promise<{ mapper: Locator; rules
 }
 
 test.describe('Validation Rules — edge toggle & line decorations', () => {
+  test.setTimeout(60_000);
+
   test.beforeEach(async ({ page }) => {
     await page.route('**/__proxy', async (route) => {
       await route.fulfill({
@@ -100,11 +102,21 @@ test.describe('Validation Rules — edge toggle & line decorations', () => {
     const verifyBtn = mapper.locator('button:has-text("Verify All")');
     if (await verifyBtn.isVisible()) {
       await verifyBtn.click();
-      await page.waitForTimeout(2000);
+
+      // Wait for verification to complete — badge or status text appears
+      await expect.poll(async () => {
+        const badges = await mapper.locator('.dm-verify-badge, .dm-verify-status, [class*="verify"]').count();
+        return badges;
+      }, { timeout: 10000, intervals: [300, 500, 1000] }).toBeGreaterThan(0);
 
       await mapper.locator('button:has-text("Rules")').click();
       const reopenedPanel = page.locator('.vr-modal-panel');
-      await expect(reopenedPanel).toBeVisible({ timeout: 5000 });
+      await expect(reopenedPanel).toBeVisible({ timeout: 10000 });
+
+      // Wait for Monaco to fully initialize before checking decorations
+      const monacoEditor = reopenedPanel.locator('.monaco-editor').first();
+      await monacoEditor.waitFor({ state: 'visible', timeout: 30000 });
+      await page.waitForTimeout(500);
 
       await expect.poll(async () => {
         const decorations = await page.evaluate(() => {
@@ -114,7 +126,7 @@ test.describe('Validation Rules — edge toggle & line decorations', () => {
         });
         console.log('Decorations after verify:', JSON.stringify(decorations));
         return decorations.glyphCount > 0 && decorations.lineCount > 0;
-      }, { timeout: 15000, intervals: [200, 400, 800] }).toBe(true);
+      }, { timeout: 20000, intervals: [300, 500, 1000, 2000] }).toBe(true);
 
       await page.screenshot({ path: 'test-results/line-decorations-after-verify.png' });
     }

@@ -1,6 +1,8 @@
 pub mod assertion_evaluator;
+mod arrival_executor;
 mod commands;
 pub mod date_helpers;
+pub mod histogram;
 pub mod deep_compare;
 mod executor;
 pub mod field_operator;
@@ -15,6 +17,8 @@ pub mod validation_types;
 #[cfg(test)]
 mod assertion_evaluator_basic_test;
 #[cfg(test)]
+mod histogram_test;
+#[cfg(test)]
 mod assertion_evaluator_collection_test;
 #[cfg(test)]
 mod assertion_evaluator_test;
@@ -28,6 +32,8 @@ mod cross_module_test;
 mod date_helpers_test;
 #[cfg(test)]
 mod deep_compare_test;
+#[cfg(test)]
+mod arrival_executor_test;
 #[cfg(test)]
 mod executor_test;
 #[cfg(test)]
@@ -49,7 +55,7 @@ use commands::ExecutorState;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-  tauri::Builder::default()
+  let mut builder = tauri::Builder::default()
     .plugin(tauri_plugin_fs::init())
     .plugin(tauri_plugin_http::init())
     .plugin(tauri_plugin_dialog::init())
@@ -59,7 +65,14 @@ pub fn run() {
       commands::start_load_test,
       commands::abort_load_test,
       commands::is_rust_executor_available,
-    ])
+    ]);
+
+  #[cfg(feature = "mcp-bridge")]
+  {
+    builder = builder.plugin(tauri_plugin_connector::init());
+  }
+
+  builder
     .setup(|app| {
       if cfg!(debug_assertions) {
         app.handle().plugin(

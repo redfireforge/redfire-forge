@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Recovering Deleted Scenarios — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warn { background: #fff8e1; border-left-color: #f9a825; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">&#x1F5D1;</div>
+    <h1>Recovering Deleted Scenarios</h1>
+    <div class="subtitle">Trash Box — Training Manual</div>
+    <p><span class="badge badge-easy">Easy &#x2605;&#x2606;&#x2606;</span> &middot; Safety &amp; Recovery &middot; Trash Box &middot; jsonplaceholder.typicode.com</p>
+    <div class="meta">RedfireForge v0.6.0</div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 1 -->
+  <h2>1. Purpose &amp; Use Case</h2>
+  <p>The <strong>Trash Box</strong> is RedfireForge's safety net for accidental deletions. Every time you delete a Feature Group, Scenario, Test, or Shared Data Source, it is moved to the Trash Box instead of being permanently removed.</p>
+  <p>This manual walks you through:</p>
+  <ul>
+    <li>Deleting a scenario and using <strong>instant undo</strong> to recover it immediately.</li>
+    <li>Opening the <strong>Trash Panel</strong> to browse and search deleted items.</li>
+    <li>Restoring items from the Trash Panel back to their original location.</li>
+    <li>Permanently deleting items and emptying the trash.</li>
+    <li>Configuring the <strong>retention period</strong> and <strong>max items</strong> settings.</li>
+  </ul>
+
+  <!-- Section 2 -->
+  <h2>2. Concepts You'll Learn</h2>
+  <ul>
+    <li><strong>Soft delete</strong> &mdash; items are preserved in storage for a configurable retention period instead of immediate permanent removal.</li>
+    <li><strong>Undo toast</strong> &mdash; a 5-second notification with an Undo button for instant recovery after any delete.</li>
+    <li><strong>Trash Panel</strong> &mdash; a modal for browsing, searching, restoring, and permanently deleting trashed items.</li>
+    <li><strong>Automatic purge</strong> &mdash; expired items are cleaned up on app startup.</li>
+    <li><strong>ID collision handling</strong> &mdash; restored items get new IDs when a conflict exists.</li>
+    <li><strong>Orphan recovery</strong> &mdash; items whose parent was deleted are restored into a "Restored Items" group.</li>
+  </ul>
+
+  <div class="page-break"></div>
+
+  <!-- Section 3 -->
+  <h2>3. What's in the Sample</h2>
+  <p>This training uses the <strong>Trash Recovery Demo</strong> gallery sample, which contains two scenarios designed to be safely deleted and recovered:</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Scenario</th>
+        <th>Test</th>
+        <th>Method</th>
+        <th>URL</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>1</td>
+        <td>Sample Scenario</td>
+        <td>GET /posts/1</td>
+        <td>GET</td>
+        <td><code>https://jsonplaceholder.typicode.com/posts/1</code></td>
+      </tr>
+      <tr>
+        <td>2</td>
+        <td>Another Scenario</td>
+        <td>GET /users</td>
+        <td>GET</td>
+        <td><code>https://jsonplaceholder.typicode.com/users</code></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="callout">
+    <strong>&#x1F4CB; Note</strong>
+    Both scenarios hit JSONPlaceholder, a free public API. No authentication or configuration is needed.
+  </div>
+
+  <!-- Section 4 -->
+  <h2>4. Trash Box Overview</h2>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Feature</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Undo Toast</strong></td>
+        <td>Appears for 5 seconds after any delete. Click Undo to instantly restore.</td>
+      </tr>
+      <tr>
+        <td><strong>Trash Panel</strong></td>
+        <td>Modal opened via the Trash button in the toolbar. Browse, search, restore, or permanently delete items.</td>
+      </tr>
+      <tr>
+        <td><strong>Retention Period</strong></td>
+        <td>Configurable: 7, 14, 30, 60, or 90 days. Default is 30 days.</td>
+      </tr>
+      <tr>
+        <td><strong>Max Items</strong></td>
+        <td>Configurable: 50, 100, or 200. When exceeded, oldest expired items are removed first.</td>
+      </tr>
+      <tr>
+        <td><strong>Supported Types</strong></td>
+        <td>Feature Groups, Scenarios, Tests, and Shared Data Sources.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- Section 5 -->
+  <h2>5. Step-by-Step Guide</h2>
+
+  <h3>Step 1 &mdash; Import the Sample</h3>
+  <ol>
+    <li>Go to <strong>Gallery &rarr; Tests</strong>.</li>
+    <li>Find <strong>Trash Recovery Demo</strong> in the list.</li>
+    <li>Click <strong>Import</strong> to add it to your harness.</li>
+    <li>You should see a Feature Group named <strong>Trash Box &mdash; Recovery Demo</strong> with two scenarios.</li>
+  </ol>
+
+  <h3>Step 2 &mdash; Delete a Scenario</h3>
+  <ol>
+    <li>In the Harness sidebar, expand <strong>Trash Box &mdash; Recovery Demo</strong>.</li>
+    <li>Right-click on <strong>Sample Scenario</strong> and select <strong>Delete</strong>.</li>
+    <li>A confirmation dialog appears: <em>"Move scenario &lsquo;Sample Scenario&rsquo; to Trash?"</em></li>
+    <li>Click <strong>Move to Trash</strong> to confirm.</li>
+    <li>The scenario disappears from the sidebar.</li>
+  </ol>
+
+  <div class="callout callout-tip">
+    <strong>&#x1F4A1; Tip</strong>
+    Notice the undo toast that appears at the bottom of the screen. You have 5 seconds to click <strong>Undo</strong> and instantly restore the scenario.
+  </div>
+
+  <h3>Step 3 &mdash; Use Instant Undo</h3>
+  <ol>
+    <li>Observe the undo toast: <em>"Sample Scenario moved to Trash"</em></li>
+    <li>Click the <strong>Undo</strong> button before the progress bar expires.</li>
+    <li>The scenario reappears in the sidebar exactly where it was.</li>
+  </ol>
+
+  <h3>Step 4 &mdash; Delete Again (Let It Go This Time)</h3>
+  <ol>
+    <li>Delete <strong>Sample Scenario</strong> again.</li>
+    <li>This time, <strong>wait 5 seconds</strong> or click the <strong>&#x2715;</strong> dismiss button on the toast.</li>
+    <li>The item is now in the Trash Box.</li>
+  </ol>
+
+  <h3>Step 5 &mdash; Open the Trash Panel</h3>
+  <ol>
+    <li>Click the <strong>Trash</strong> button in the toolbar (top-right). A badge shows the item count.</li>
+    <li>The Trash Panel opens showing your deleted scenario.</li>
+    <li>You can see: entity name, parent path, deletion time, expiry countdown, and entity type.</li>
+  </ol>
+
+  <h3>Step 6 &mdash; Restore from Trash</h3>
+  <ol>
+    <li>Find <strong>Sample Scenario</strong> in the Trash Panel.</li>
+    <li>Click the <strong>Restore</strong> button.</li>
+    <li>The scenario reappears in the <strong>Trash Box &mdash; Recovery Demo</strong> Feature Group.</li>
+    <li>The item disappears from the Trash Panel.</li>
+  </ol>
+
+  <h3>Step 7 &mdash; Permanently Delete an Item</h3>
+  <ol>
+    <li>Delete <strong>Another Scenario</strong> and wait for the undo toast to expire.</li>
+    <li>Open the Trash Panel.</li>
+    <li>Click the <strong>Delete</strong> button next to the item.</li>
+    <li>A confirmation dialog appears: <em>"Permanently delete &lsquo;Another Scenario&rsquo;? This cannot be undone."</em></li>
+    <li>Click <strong>Delete</strong> to confirm. The item is gone forever.</li>
+  </ol>
+
+  <div class="callout callout-warn">
+    <strong>&#x26A0; Warning</strong>
+    Permanent deletion cannot be undone. The item's data is removed from storage entirely.
+  </div>
+
+  <h3>Step 8 &mdash; Configure Retention Settings</h3>
+  <ol>
+    <li>Open the Trash Panel.</li>
+    <li>In the footer, find the <strong>Retention</strong> dropdown and change it to <strong>7 days</strong>.</li>
+    <li>Find the <strong>Max items</strong> dropdown and change it to <strong>50</strong>.</li>
+    <li>Settings are saved automatically and apply to all future deletions.</li>
+  </ol>
+
+  <div class="page-break"></div>
+
+  <!-- Section 6 -->
+  <h2>6. Try It Yourself</h2>
+  <p>Now that you've learned the Trash Box workflow, try these exercises:</p>
+
+  <h4>Exercise 1 &mdash; Delete and Restore a Feature Group</h4>
+  <p>Delete the entire <strong>Trash Box &mdash; Recovery Demo</strong> Feature Group. Open the Trash Panel and restore it. Notice that both scenarios and their tests are preserved.</p>
+
+  <h4>Exercise 2 &mdash; Delete a Test</h4>
+  <p>Expand a scenario, delete a single test, and restore it from the Trash Panel. Notice the parent path shows the Feature Group and Scenario it came from.</p>
+
+  <h4>Exercise 3 &mdash; Search in Trash</h4>
+  <p>Delete multiple items, then use the Trash Panel search bar to find a specific one by name.</p>
+
+  <h4>Exercise 4 &mdash; Empty Trash</h4>
+  <p>Delete a few items, open the Trash Panel, and click <strong>Empty Trash</strong>. Confirm the action and verify the trash is now empty.</p>
+
+  <div class="callout">
+    <strong>&#x1F4CB; Note</strong>
+    All exercises modify your local data. You can always re-import the gallery sample to start fresh.
+  </div>
+
+  <footer>
+    RedfireForge Training Manual &mdash; Recovering Deleted Scenarios &middot; May 2026
+  </footer>
+
+</body>
+</html>

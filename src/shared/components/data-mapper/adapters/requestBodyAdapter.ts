@@ -180,6 +180,15 @@ export function buildBodyFromMappings(
 }
 
 /**
+ * Extract the leaf variable name from a scoped ref like `node:"Step".varName` → `varName`.
+ */
+function extractLeafName(ref: string): string {
+  const dotIdx = ref.lastIndexOf('.');
+  if (dotIdx >= 0) return ref.slice(dotIdx + 1);
+  return ref;
+}
+
+/**
  * Group variable hints by their source node.
  */
 function groupHintsBySource(hints: VariableHintForBody[]): Map<string, VariableHintForBody[]> {
@@ -283,8 +292,9 @@ export function createRequestBodyAdapter(
     const sampleData: Record<string, string> = {};
     const descriptions: Record<string, string> = {};
     for (const h of hints) {
-      sampleData[h.ref] = h.type ?? 'string';
-      if (h.description) descriptions[h.ref] = h.description;
+      const displayRef = extractLeafName(h.ref);
+      sampleData[displayRef] = h.type ?? 'string';
+      if (h.description) descriptions[displayRef] = h.description;
     }
     const firstHint = hints[0];
     sources.push({

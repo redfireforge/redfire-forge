@@ -1,7 +1,7 @@
 {
   "name": "redfire-forge",
   "private": true,
-  "version": "0.5.9",
+  "version": "0.5.9-beta.4",
   "type": "module",
   "bin": {
     "redfireforge": "dist-cli/redfireforge.mjs"
@@ -19,6 +19,7 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
+    "tauri:dev:mcp": "tauri dev -- --features mcp-bridge",
     "tauri:build": "tauri build",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -81,6 +82,7 @@
     "@types/uuid": "^10.0.0",
     "@vitejs/plugin-react": "^6.0.1",
     "@vitest/coverage-v8": "^4.1.4",
+    "@zumer/snapdom": "^2.12.0",
     "esbuild": "^0.28.0",
     "eslint": "^9.39.4",
     "eslint-plugin-react-hooks": "^7.0.1",

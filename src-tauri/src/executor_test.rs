@@ -510,6 +510,7 @@ mod tests {
             retry_delay_ms: 100,
             think_time: ThinkTimeConfig::None,
             circuit_breaker: CircuitBreakerConfig::Continue,
+            detail_level: DetailLevel::Full,
         };
         let json = serde_json::to_string(&plan).unwrap();
         assert!(json.contains("timeoutMs"), "Expected camelCase: {json}");
@@ -580,6 +581,7 @@ mod tests {
             retry_delay_ms: 100,
             think_time: ThinkTimeConfig::Constant { delay_ms: 50 },
             circuit_breaker: CircuitBreakerConfig::StopFirst,
+            detail_level: DetailLevel::Full,
         };
         let json = serde_json::to_string(&plan).unwrap();
         assert!(json.contains(r#""mode":"pool""#));
@@ -599,6 +601,7 @@ mod tests {
             retry_delay_ms: 0,
             think_time: ThinkTimeConfig::None,
             circuit_breaker: CircuitBreakerConfig::Continue,
+            detail_level: DetailLevel::Full,
         };
         let json = serde_json::to_string(&plan).unwrap();
         assert!(json.contains(r#""mode":"sequential""#));
@@ -629,6 +632,7 @@ mod tests {
             spike_concurrency: None,
             spike_start_sec: None,
             spike_duration_sec: None,
+            detail_level: DetailLevel::MetricsOnly,
         };
         let json = serde_json::to_string(&plan).unwrap();
         assert!(json.contains(r#""mode":"load-profile""#));
@@ -844,6 +848,10 @@ mod tests {
             current_in_flight: 3,
             target_concurrency: 10,
             breaker_tripped: false,
+            metrics: None,
+            target_rps: None,
+            actual_rps: None,
+            dropped_requests: None,
         };
         let json = serde_json::to_string(&batch).unwrap();
         let parsed: ProgressBatch = serde_json::from_str(&json).unwrap();
@@ -857,10 +865,277 @@ mod tests {
             total_results: 42,
             duration_ms: 5000.0,
             breaker_tripped: true,
+            final_metrics: None,
         };
         let json = serde_json::to_string(&summary).unwrap();
         let parsed: CompletionSummary = serde_json::from_str(&json).unwrap();
         assert_eq!(parsed.total_results, 42);
         assert!(parsed.breaker_tripped);
+    }
+
+    #[test]
+    fn progress_batch_deserializes_without_metrics_field() {
+        let json = r#"{
+            "completed": 10,
+            "total": 50,
+            "results": [],
+            "elapsedMs": 500.0,
+            "currentInFlight": 2,
+            "targetConcurrency": 8,
+            "breakerTripped": false
+        }"#;
+        let parsed: ProgressBatch = serde_json::from_str(json).unwrap();
+        assert_eq!(parsed.completed, 10);
+        assert!(parsed.metrics.is_none());
+    }
+
+    #[test]
+    fn completion_summary_deserializes_without_final_metrics() {
+        let json = r#"{
+            "totalResults": 100,
+            "durationMs": 3000.0,
+            "breakerTripped": false
+        }"#;
+        let parsed: CompletionSummary = serde_json::from_str(json).unwrap();
+        assert_eq!(parsed.total_results, 100);
+        assert!(parsed.final_metrics.is_none());
+    }
+
+    #[test]
+    fn progress_batch_metrics_none_omitted_from_json() {
+        let batch = ProgressBatch {
+            completed: 1,
+            total: 1,
+            results: vec![],
+            elapsed_ms: 100.0,
+            current_in_flight: 0,
+            target_concurrency: 1,
+            breaker_tripped: false,
+            metrics: None,
+            target_rps: None,
+            actual_rps: None,
+            dropped_requests: None,
+        };
+        let json = serde_json::to_string(&batch).unwrap();
+        assert!(!json.contains("metrics"), "None metrics should be omitted: {json}");
+    }
+
+    #[test]
+    fn completion_summary_final_metrics_none_omitted_from_json() {
+        let summary = CompletionSummary {
+            total_results: 0,
+            duration_ms: 0.0,
+            breaker_tripped: false,
+            final_metrics: None,
+        };
+        let json = serde_json::to_string(&summary).unwrap();
+        assert!(!json.contains("finalMetrics"), "None finalMetrics should be omitted: {json}");
+    }
+
+    // ── DetailLevel ─────────────────────────────────────────
+
+    #[test]
+    fn detail_level_default_is_full() {
+        assert_eq!(DetailLevel::default(), DetailLevel::Full);
+    }
+
+    #[test]
+    fn detail_level_serde_roundtrip() {
+        for (level, expected_str) in [
+            (DetailLevel::Full, "\"full\""),
+            (DetailLevel::MetricsOnly, "\"metrics-only\""),
+            (DetailLevel::Sampled, "\"sampled\""),
+        ] {
+            let json = serde_json::to_string(&level).unwrap();
+            assert_eq!(json, expected_str);
+            let parsed: DetailLevel = serde_json::from_str(&json).unwrap();
+            assert_eq!(parsed, level);
+        }
+    }
+
+    #[test]
+    fn execution_plan_pool_without_detail_level_defaults_to_full() {
+        let json = r#"{
+            "mode": "pool",
+            "scenarios": [],
+            "concurrency": 5,
+            "timeoutMs": 3000,
+            "retryCount": 0,
+            "retryDelayMs": 0,
+            "thinkTime": { "type": "none" },
+            "circuitBreaker": { "policy": "continue" }
+        }"#;
+        let plan: ExecutionPlan = serde_json::from_str(json).unwrap();
+        match plan {
+            ExecutionPlan::Pool { detail_level, .. } => assert_eq!(detail_level, DetailLevel::Full),
+            _ => panic!("wrong variant"),
+        }
+    }
+
+    #[test]
+    fn execution_plan_pool_with_detail_level_sampled() {
+        let json = r#"{
+            "mode": "pool",
+            "scenarios": [],
+            "concurrency": 5,
+            "timeoutMs": 3000,
+            "retryCount": 0,
+            "retryDelayMs": 0,
+            "thinkTime": { "type": "none" },
+            "circuitBreaker": { "policy": "continue" },
+            "detailLevel": "sampled"
+        }"#;
+        let plan: ExecutionPlan = serde_json::from_str(json).unwrap();
+        match plan {
+            ExecutionPlan::Pool { detail_level, .. } => assert_eq!(detail_level, DetailLevel::Sampled),
+            _ => panic!("wrong variant"),
+        }
+    }
+
+    #[test]
+    fn execution_plan_load_profile_with_metrics_only() {
+        let json = r#"{
+            "mode": "load-profile",
+            "scenarios": [],
+            "concurrency": 50,
+            "durationSec": 60,
+            "timeoutMs": 5000,
+            "retryCount": 0,
+            "retryDelayMs": 0,
+            "thinkTime": { "type": "none" },
+            "circuitBreaker": { "policy": "continue" },
+            "profileType": "sustained",
+            "detailLevel": "metrics-only"
+        }"#;
+        let plan: ExecutionPlan = serde_json::from_str(json).unwrap();
+        match plan {
+            ExecutionPlan::LoadProfile { detail_level, .. } => assert_eq!(detail_level, DetailLevel::MetricsOnly),
+            _ => panic!("wrong variant"),
+        }
+    }
+
+    #[test]
+    fn execution_plan_detail_level_serialized_as_camel_case() {
+        let plan = ExecutionPlan::Pool {
+            scenarios: vec![],
+            concurrency: 1,
+            timeout_ms: 0,
+            retry_count: 0,
+            retry_delay_ms: 0,
+            think_time: ThinkTimeConfig::None,
+            circuit_breaker: CircuitBreakerConfig::Continue,
+            detail_level: DetailLevel::Sampled,
+        };
+        let json = serde_json::to_string(&plan).unwrap();
+        assert!(json.contains("\"detailLevel\":\"sampled\""), "Expected detailLevel in JSON: {json}");
+        assert!(!json.contains("detail_level"), "No snake_case: {json}");
+    }
+
+    // ── FinalResults ──────────────────────────────────────
+
+    #[test]
+    fn final_results_serde_roundtrip() {
+        let fr = FinalResults { results: vec![] };
+        let json = serde_json::to_string(&fr).unwrap();
+        assert!(json.contains("\"results\":[]"));
+        let parsed: FinalResults = serde_json::from_str(&json).unwrap();
+        assert!(parsed.results.is_empty());
+    }
+
+    // ── filter_batch ──────────────────────────────────────
+
+    #[test]
+    fn filter_batch_full_takes_all() {
+        use crate::executor::filter_batch;
+        let result = make_execution_result("rr-1");
+        let mut batch = vec![result.clone(), result.clone(), result.clone()];
+        let out = filter_batch(&DetailLevel::Full, &mut batch);
+        assert_eq!(out.len(), 3);
+        assert!(batch.is_empty());
+    }
+
+    #[test]
+    fn filter_batch_metrics_only_returns_empty() {
+        use crate::executor::filter_batch;
+        let result = make_execution_result("rr-1");
+        let mut batch = vec![result.clone(), result.clone()];
+        let out = filter_batch(&DetailLevel::MetricsOnly, &mut batch);
+        assert!(out.is_empty());
+        assert!(batch.is_empty());
+    }
+
+    #[test]
+    fn filter_batch_sampled_caps_at_10() {
+        use crate::executor::filter_batch;
+        let result = make_execution_result("rr-1");
+        let mut batch: Vec<ExecutionResult> = (0..25).map(|_| result.clone()).collect();
+        let out = filter_batch(&DetailLevel::Sampled, &mut batch);
+        assert_eq!(out.len(), 10);
+        assert!(batch.is_empty());
+    }
+
+    #[test]
+    fn filter_batch_sampled_less_than_cap() {
+        use crate::executor::filter_batch;
+        let result = make_execution_result("rr-1");
+        let mut batch = vec![result.clone(), result.clone(), result.clone()];
+        let out = filter_batch(&DetailLevel::Sampled, &mut batch);
+        assert_eq!(out.len(), 3);
+        assert!(batch.is_empty());
+    }
+
+    fn make_execution_result(id: &str) -> ExecutionResult {
+        ExecutionResult {
+            id: id.into(),
+            scenario_id: "s1".into(),
+            scenario_name: "test".into(),
+            feature_group_name: None,
+            group_name: None,
+            url: "http://example.com".into(),
+            method: "GET".into(),
+            http_status: 200,
+            response_time_ms: 10.0,
+            response_body: "".into(),
+            response_headers: Default::default(),
+            timestamp: 0,
+            error_message: None,
+            data_row_id: None,
+            data_row_label: None,
+            request_log: RequestLog { headers: Default::default(), body: None },
+            timing: TimingBreakdown { dns_lookup: 0.0, tcp_connect: 0.0, tls_handshake: 0.0, ttfb: 0.0, download: 0.0, total: 0.0 },
+            retry_count: 0,
+            passed: None,
+            failure_details: vec![],
+            validation_mode: String::new(),
+        }
+    }
+
+    #[test]
+    fn progress_batch_with_metrics_roundtrip() {
+        use crate::histogram::MetricsSnapshot;
+        let batch = ProgressBatch {
+            completed: 100,
+            total: 100,
+            results: vec![],
+            elapsed_ms: 5000.0,
+            current_in_flight: 0,
+            target_concurrency: 10,
+            breaker_tripped: false,
+            metrics: Some(MetricsSnapshot {
+                p50: 12.5, p95: 45.0, p99: 98.0, p999: 120.0,
+                min: 1.0, max: 150.0, avg: 20.0,
+                total: 100, errors: 5, tps: 20.0,
+            }),
+            target_rps: None,
+            actual_rps: None,
+            dropped_requests: None,
+        };
+        let json = serde_json::to_string(&batch).unwrap();
+        assert!(json.contains("\"metrics\""));
+        let parsed: ProgressBatch = serde_json::from_str(&json).unwrap();
+        let m = parsed.metrics.unwrap();
+        assert_eq!(m.total, 100);
+        assert_eq!(m.errors, 5);
+        assert!((m.p50 - 12.5).abs() < 0.01);
     }
 }

@@ -1,5 +1,5 @@
 /**
- * Tests Gallery — 20 pre-built test scenario samples.
+ * Tests Gallery — 21 pre-built test scenario samples.
  */
 
 import type { TestSampleEntry } from './types';
@@ -13,6 +13,7 @@ import {
   createEcommerceFullSuiteTest,
   createMultiApiLoadTest,
   createCatalogExportDemoTest,
+  createTrashRecoveryDemo,
 } from './presets';
 import {
   createUserLookupSweepTest,
@@ -169,6 +170,20 @@ export const testSampleCatalog: TestSampleEntry[] = [
     scenarioCount: 3,
     assertionTypes: ['status', 'numeric', 'arrayLength', 'regex'],
     factory: createCatalogExportDemoTest,
+  },
+  {
+    id: 'test-trash-recovery-demo',
+    domain: 'tests',
+    name: 'Trash Recovery Demo',
+    description: 'Two simple scenarios to practice deleting, undoing, and restoring from the Trash Box',
+    icon: '🗑️',
+    category: 'smoke',
+    difficulty: 'easy',
+    tags: ['trash', 'recovery', 'undo', 'restore', 'jsonplaceholder'],
+    liveApis: ['jsonplaceholder.typicode.com'],
+    scenarioCount: 2,
+    assertionTypes: ['status', 'arrayLength', 'regex'],
+    factory: createTrashRecoveryDemo,
   },
 
   // ── Parameterized (Data-Driven) ───────────────────────

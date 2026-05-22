@@ -116,7 +116,7 @@ function makeTimelineTestRun() {
 async function seedTestRunsViaIDB(page: Page, runs: unknown[]): Promise<string> {
   return await page.evaluate((testRuns) => {
     return new Promise<string>((resolve) => {
-      const req = indexedDB.open('redfireforge', 3);
+      const req = indexedDB.open('redfireforge', 4);
       req.onupgradeneeded = () => {
         const db = req.result;
         if (!db.objectStoreNames.contains('testRuns')) {
@@ -125,6 +125,7 @@ async function seedTestRunsViaIDB(page: Page, runs: unknown[]): Promise<string> 
         }
         if (!db.objectStoreNames.contains('featureGroups')) db.createObjectStore('featureGroups');
         if (!db.objectStoreNames.contains('sharedDataSources')) db.createObjectStore('sharedDataSources');
+        if (!db.objectStoreNames.contains('trash')) db.createObjectStore('trash');
       };
       req.onsuccess = () => {
         const db = req.result;
@@ -164,18 +165,32 @@ async function openTimelineView(page: Page): Promise<void> {
   const resultsTab = page.locator('button.sub-nav-tab:has-text("Results")');
   await expect(resultsTab).toBeVisible({ timeout: 5000 });
   await resultsTab.click();
-  await page.waitForTimeout(1500);
 
-  // The run auto-selects (only one). Click Results Explorer directly.
+  // The run auto-selects (only one). Click Results Explorer once it is ready.
   const explorerBtn = page.locator('button:has-text("Results Explorer")');
-  await expect(explorerBtn.first()).toBeVisible({ timeout: 8000 });
+  await expect(explorerBtn.first()).toBeVisible({ timeout: 10000 });
   await explorerBtn.first().click();
-  await page.waitForTimeout(1500);
+  await expect(page.locator('[data-testid="view-mode-toggle"]')).toBeVisible({ timeout: 10000 });
 
-  const timelineBtn = page.locator('.view-toggle-btn:has-text("Timeline")');
+  const timelineBtn = page.locator('[data-testid="view-toggle-timeline"]');
   await expect(timelineBtn).toBeVisible({ timeout: 5000 });
   await timelineBtn.click();
-  await page.waitForTimeout(500);
+
+  const timeline = page.locator('[data-testid="execution-timeline"]');
+  await expect(timeline).toBeVisible({ timeout: 10000 });
+  await expect(page.locator('[data-testid^="timeline-label-"]')).toHaveCount(6, { timeout: 10000 });
+}
+
+/** Wait until aggregate-mode avg/P95 markers are mounted in the timeline SVG. */
+async function waitForAggregateMarkers(page: Page): Promise<void> {
+  const avgMarker = page.locator('[data-testid="timeline-avg-marker"]');
+  const p95Marker = page.locator('[data-testid="timeline-p95-marker"]');
+
+  await expect.poll(async () => {
+    const avgStroke = await avgMarker.getAttribute('stroke');
+    const p95Stroke = await p95Marker.getAttribute('stroke');
+    return avgStroke === '#60a5fa' && p95Stroke === '#f59e0b';
+  }, { timeout: 10000, intervals: [100, 200, 500] }).toBe(true);
 }
 
 /*
@@ -417,24 +432,26 @@ test.describe('Timeline View — Universal Visual Rule (executed=green+bold, ski
   test('aggregate mode shows avg and P95 markers', async ({ page }) => {
     await openTimelineView(page);
 
-    // SVG <line> elements aren't "visible" to Playwright's visibility check.
-    // Verify they exist in the DOM and have the correct stroke colors.
-    const avgMarker = page.locator('[data-testid="timeline-avg-marker"]');
-    const p95Marker = page.locator('[data-testid="timeline-p95-marker"]');
+    // Aggregate is default for multi-iteration runs; markers render after SVG layout.
+    const iterToggle = page.locator('[data-testid="iter-picker-toggle"]');
+    await expect(iterToggle).toHaveClass(/aggregate/, { timeout: 5000 });
 
-    await expect(avgMarker).toHaveCount(1);
-    await expect(avgMarker).toHaveAttribute('stroke', '#60a5fa');
-    await expect(p95Marker).toHaveCount(1);
-    await expect(p95Marker).toHaveAttribute('stroke', '#f59e0b');
+    // SVG <line> elements aren't "visible" to Playwright's visibility check.
+    // Poll until markers exist with the expected stroke colors.
+    await waitForAggregateMarkers(page);
+
+    await expect(page.locator('[data-testid="timeline-avg-marker"]')).toHaveCount(1);
+    await expect(page.locator('[data-testid="timeline-p95-marker"]')).toHaveCount(1);
   });
 
   test('clicking a node label selects it', async ({ page }) => {
     await openTimelineView(page);
 
     const fetchLabel = page.locator('[data-testid="timeline-label-fetch"]');
+    await expect(fetchLabel).toBeVisible({ timeout: 5000 });
+    await fetchLabel.scrollIntoViewIfNeeded();
     await fetchLabel.click();
-    await page.waitForTimeout(300);
 
-    await expect(fetchLabel).toHaveClass(/timeline-label-selected/);
+    await expect(fetchLabel).toHaveClass(/timeline-label-selected/, { timeout: 5000 });
   });
 });
