@@ -60,6 +60,8 @@ program
   .option('--data-rows-summary <path>', 'Write data row summary JSON (CI/CD format)')
   .option('--tags <tags>', 'Run only data rows with these tags (comma-separated)')
   .option('--tag-mode <mode>', 'Tag matching mode: any (default) or all', 'any')
+  .option('--scenario-tags <tags>', 'Run only scenarios with these tags (comma-separated)')
+  .option('--scenario-tag-mode <mode>', 'Scenario tag matching mode: any (default) or all', 'any')
   .option('-q, --quiet', 'Suppress progress output')
   .action(async (filePath: string, opts) => {
     try {
@@ -90,9 +92,33 @@ program
         if (file.name) console.log(`  Suite:   ${file.name}`);
       }
 
-      const scenarios = buildScenarios(file, opts.baseUrl, externalDataSource);
+      let scenarios = buildScenarios(file, opts.baseUrl, externalDataSource);
 
-      // ─── Phase 12: Tag filtering ──────────────────────
+      // ─── Scenario-level tag filtering ──────────────────
+      if (opts.scenarioTags) {
+        const filterTags = (opts.scenarioTags as string)
+          .split(',')
+          .map((t: string) => t.trim().toLowerCase())
+          .filter(Boolean);
+        const tagMode = (opts.scenarioTagMode === 'all' ? 'all' : 'any') as 'any' | 'all';
+        const before = scenarios.length;
+        scenarios = scenarios.filter(sc => {
+          const scTags = sc.scenarioTags ?? [];
+          if (scTags.length === 0) return false;
+          return tagMode === 'any'
+            ? filterTags.some(t => scTags.includes(t))
+            : filterTags.every(t => scTags.includes(t));
+        });
+        if (!opts.quiet) {
+          console.log(`  Scenario tags: ${filterTags.join(', ')} (mode: ${tagMode}, ${scenarios.length}/${before} scenarios matched)`);
+        }
+        if (scenarios.length === 0) {
+          console.error('\n  ❌ No scenarios match the specified tags.\n');
+          process.exit(1);
+        }
+      }
+
+      // ─── Data row tag filtering ──────────────────────
       if (opts.tags) {
         const filterTags = (opts.tags as string).split(',').map((t: string) => t.trim().toLowerCase()).filter(Boolean);
         const tagMode = (opts.tagMode === 'all' ? 'all' : 'any') as 'any' | 'all';
@@ -406,7 +432,10 @@ program
         const dataSuffix = s.dataSource
           ? ` [${s.dataSource.rows.length} data rows]`
           : '';
-        console.log(`    - ${s.method} ${s.url}  (${s.name})${dataSuffix}`);
+        const tagSuffix = s.scenarioTags?.length
+          ? `  [tags: ${s.scenarioTags.join(', ')}]`
+          : '';
+        console.log(`    - ${s.method} ${s.url}  (${s.name})${dataSuffix}${tagSuffix}`);
       }
       console.log('');
       process.exit(0);

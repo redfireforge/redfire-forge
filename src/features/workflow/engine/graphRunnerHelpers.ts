@@ -280,6 +280,7 @@ export async function executeHttpNode(
     dataRowId: data.scenario.dataRowId,
     dataRowLabel: data.scenario.dataRowLabel,
     workflowNodeId: httpNodeId,
+    scenarioTags: data.scenario.scenarioTags,
   };
 
   return { requestResult, extracted, fullResponseBody: responseBody, requestHeaders: headers, requestBody: reqBody ?? '', responseHeaders };

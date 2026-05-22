@@ -1,0 +1,175 @@
+{
+  "_exportMeta": {
+    "exportDate": "2026-05-22T14:00:00.000Z",
+    "microservice": "jsonplaceholder",
+    "environment": "Test-3A",
+    "appVersion": "0.5.9"
+  },
+  "data": [
+    {
+      "id": "fg-tagged-test-suite-demo",
+      "name": "Tagged Test Suite Demo",
+      "source": "user",
+      "scenarios": [
+        {
+          "id": "sc-smoke-tests",
+          "name": "Smoke Tests",
+          "kind": "standard",
+          "tags": ["smoke", "critical"],
+          "tests": [
+            {
+              "id": "test-smoke-user-1",
+              "name": "Get User 1",
+              "url": "https://jsonplaceholder.typicode.com/users/1",
+              "method": "GET",
+              "headers": [],
+              "body": "",
+              "auth": { "type": "none" },
+              "validation": {
+                "mode": "selective",
+                "expectedFields": [
+                  { "jsonPath": "$.id", "operator": "equals", "expectedValue": "1" },
+                  { "jsonPath": "$.name", "operator": "exists" }
+                ]
+              }
+            },
+            {
+              "id": "test-smoke-user-2",
+              "name": "Get User 2",
+              "url": "https://jsonplaceholder.typicode.com/users/2",
+              "method": "GET",
+              "headers": [],
+              "body": "",
+              "auth": { "type": "none" },
+              "validation": {
+                "mode": "selective",
+                "expectedFields": [
+                  { "jsonPath": "$.id", "operator": "equals", "expectedValue": "2" }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "sc-regression-tests",
+          "name": "Regression Tests",
+          "kind": "standard",
+          "tags": ["regression"],
+          "tests": [
+            {
+              "id": "test-regression-post-1",
+              "name": "Get Post 1",
+              "url": "https://jsonplaceholder.typicode.com/posts/1",
+              "method": "GET",
+              "headers": [],
+              "body": "",
+              "auth": { "type": "none" },
+              "validation": {
+                "mode": "selective",
+                "expectedFields": [
+                  { "jsonPath": "$.userId", "operator": "equals", "expectedValue": "1" },
+                  { "jsonPath": "$.title", "operator": "exists" },
+                  { "jsonPath": "$.body", "operator": "exists" }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "sc-performance-tests",
+          "name": "Performance Tests",
+          "kind": "standard",
+          "tags": ["performance", "slow"],
+          "tests": [
+            {
+              "id": "test-perf-comments",
+              "name": "Get All Comments (Large)",
+              "url": "https://jsonplaceholder.typicode.com/comments",
+              "method": "GET",
+              "headers": [],
+              "body": "",
+              "auth": { "type": "none" },
+              "validation": {
+                "mode": "selective",
+                "expectedFields": [
+                  { "jsonPath": "$", "operator": "is_array" },
+                  { "jsonPath": "$.length", "operator": "greater_than", "expectedValue": "100" }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "sc-integration-tests",
+          "name": "Integration Tests",
+          "kind": "standard",
+          "tags": ["integration", "smoke"],
+          "tests": [
+            {
+              "id": "test-integration-album-1",
+              "name": "Get Album 1",
+              "url": "https://jsonplaceholder.typicode.com/albums/1",
+              "method": "GET",
+              "headers": [],
+              "body": "",
+              "auth": { "type": "none" },
+              "validation": {
+                "mode": "selective",
+                "expectedFields": [
+                  { "jsonPath": "$.userId", "operator": "equals", "expectedValue": "1" },
+                  { "jsonPath": "$.id", "operator": "equals", "expectedValue": "1" }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "sc-untagged-tests",
+          "name": "Untagged Tests",
+          "kind": "standard",
+          "tests": [
+            {
+              "id": "test-untagged-todo-1",
+              "name": "Get Todo 1",
+              "url": "https://jsonplaceholder.typicode.com/todos/1",
+              "method": "GET",
+              "headers": [],
+              "body": "",
+              "auth": { "type": "none" },
+              "validation": {
+                "mode": "selective",
+                "expectedFields": [
+                  { "jsonPath": "$.completed", "operator": "is_boolean" }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "sc-critical-only",
+          "name": "Critical Only Tests",
+          "kind": "standard",
+          "tags": ["critical"],
+          "tests": [
+            {
+              "id": "test-critical-photo-1",
+              "name": "Get Photo 1",
+              "url": "https://jsonplaceholder.typicode.com/photos/1",
+              "method": "GET",
+              "headers": [],
+              "body": "",
+              "auth": { "type": "none" },
+              "validation": {
+                "mode": "selective",
+                "expectedFields": [
+                  { "jsonPath": "$.albumId", "operator": "equals", "expectedValue": "1" },
+                  { "jsonPath": "$.url", "operator": "exists" }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

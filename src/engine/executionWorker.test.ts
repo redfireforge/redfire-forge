@@ -50,45 +50,18 @@ const workerHarness = vi.hoisted(() => {
 });
 
 function makeConfig(overrides: Partial<TestConfig> = {}): TestConfig {
-  return {
-    concurrency: 1,
-    iterations: 1,
-    scenarioWeights: [],
-    executionMode: 'sequential',
-    ...overrides,
-  };
+  return _makeConfig(overrides);
 }
 
 function makeScenario(overrides: Partial<Scenario> = {}): Scenario {
-  return {
-    id: 's1',
-    name: 'Scenario 1',
-    url: 'http://localhost/a',
-    method: 'GET',
-    headers: [],
-    body: '',
-    validationMode: 'none',
-    assertions: [],
-    auth: { type: 'none' },
-    ...overrides,
-  } as Scenario;
+  return _makeScenario(overrides) as Scenario;
 }
 
+import { makeResult as _makeResult, makeScenario as _makeScenario, makeConfig as _makeConfig } from '../test-utils/factories';
+
+const fixedTimestamp = 1700000000000;
 function makeResult(id: string): RequestResult {
-  return {
-    id,
-    scenarioId: 's1',
-    scenarioName: 'S',
-    url: 'http://localhost/a',
-    method: 'GET',
-    httpStatus: 200,
-    responseTimeMs: 1,
-    responseBody: '',
-    timestamp: 0,
-    passed: true,
-    validationMode: 'none',
-    failureDetails: [],
-  };
+  return _makeResult({ id, timestamp: fixedTimestamp });
 }
 
 const meta: ProgressMeta = {

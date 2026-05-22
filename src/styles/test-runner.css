@@ -323,6 +323,39 @@
 }
 .results-search::placeholder { color: var(--text-muted); opacity: 0.6; }
 
+/* Results Tag Filter */
+.results-tag-filter {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.results-tag-label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+.results-tag-chip {
+  padding: 3px 8px;
+  font-size: 0.72rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.results-tag-chip:hover {
+  background: var(--surface-hover);
+  border-color: var(--primary);
+  color: var(--text);
+}
+.results-tag-chip.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+
 /* Table */
 .table-container { overflow-x: auto; }
 table {
@@ -3358,5 +3391,71 @@ tr:hover td { background: var(--surface-hover); }
   gap: 8px;
   padding: 16px 20px;
   border-top: 1px solid var(--border);
+}
+
+/* ─── Scenario Tag Filter Bar ─── */
+.scenario-tag-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin: 8px 0;
+  padding: 6px 8px;
+  background: var(--panel-bg-alt, rgba(0, 0, 0, 0.1));
+  border-radius: 4px;
+}
+
+.scenario-tag-filter-label {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  margin-right: 4px;
+}
+
+.scenario-tag-filter-btn {
+  padding: 2px 8px;
+  font-size: 0.65rem;
+  border-radius: 10px;
+  border: 1px solid var(--border, #3b4a60);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.scenario-tag-filter-btn:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.scenario-tag-filter-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.scenario-tag-filter-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+/* ─── Scenario Selector Tag Pills ─── */
+.scenario-selector-tags {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin-left: 6px;
+}
+
+.scenario-selector-tag {
+  display: inline-block;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 0.6rem;
+  background: rgba(66, 153, 225, 0.15);
+  color: #63b3ed;
+  white-space: nowrap;
+  max-width: 60px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 

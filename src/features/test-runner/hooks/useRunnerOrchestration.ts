@@ -4,7 +4,7 @@ import type { LoadProfileConfig } from '../../../shared/types';
 import type { AllocationSummary } from '../../../engine/allocationEngine';
 import { useTestExecution } from './useTestExecution';
 import { useRunnerConfig } from './useRunnerConfig';
-import { resolveSharedDataSources } from '../../../engine/dataSourceExpander';
+import { resolveSharedDataSources, collectAllScenarioTags, countScenariosByTag } from '../../../engine/dataSourceExpander';
 import { computeAllocation } from '../../../engine/allocationEngine';
 import { buildSelectedTests } from '../utils/buildSelectedTests';
 import { type PersistedProgress, saveProgress, loadProgress, clearProgress } from '../utils/runnerProgressStorage';
@@ -37,6 +37,13 @@ export interface RunnerOrchestrationResult {
   setWeightsExpanded: React.Dispatch<React.SetStateAction<boolean>>;
   runnerTagFilter: string;
   setRunnerTagFilter: React.Dispatch<React.SetStateAction<string>>;
+  /** Scenario-level tag filter */
+  scenarioTagFilter: string[];
+  setScenarioTagFilter: React.Dispatch<React.SetStateAction<string[]>>;
+  /** All unique scenario tags */
+  allScenarioTags: string[];
+  /** Tag → scenario count */
+  scenarioTagCounts: Record<string, number>;
   savedProgress: PersistedProgress | null;
   handleClearProgress: () => void;
   handleRun: () => void;
@@ -85,7 +92,12 @@ export function useRunnerOrchestration(opts: RunnerOrchestrationOptions): Runner
   const [weightsExpanded, setWeightsExpanded] = useState(true);
   const [savedProgress, setSavedProgress] = useState<PersistedProgress | null>(null);
   const [runnerTagFilter, setRunnerTagFilter] = useState('');
+  const [scenarioTagFilter, setScenarioTagFilter] = useState<string[]>([]);
   const autoReportFiredRef = useRef<string | null>(null);
+
+  // Compute all scenario tags and counts from original (unfiltered) feature groups
+  const allScenarioTags = useMemo(() => collectAllScenarioTags(featureGroups), [featureGroups]);
+  const scenarioTagCounts = useMemo(() => countScenariosByTag(featureGroups), [featureGroups]);
 
   const execution = useTestExecution();
   const { isRunning, completed, total, liveSummary, profileMeta, timeSeries, finalRun } = execution;
@@ -231,6 +243,7 @@ export function useRunnerOrchestration(opts: RunnerOrchestrationOptions): Runner
     config, execution, selectedTests, activeTests: activeTests as Scenario[],
     activeTestCount, allocation, isLoadProfile, isConstantArrival, isGalleryEnv,
     weightsExpanded, setWeightsExpanded, runnerTagFilter, setRunnerTagFilter,
+    scenarioTagFilter, setScenarioTagFilter, allScenarioTags, scenarioTagCounts,
     savedProgress, handleClearProgress, handleRun, updateProfile, updateArrivalRate,
     showProgress, displaySummary, displayTimeSeries, displayCompleted,
     displayTotal, displayProfileMeta, displayExecMode, displayConc,

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { expandDataSource, expandQueue, resolveScenarioFromDataRow, buildRowLabel, filterRowsByTags, collectAllTags, countRowsByTag, filterRowsBySubset, expandDataSourceWithTags, BUILT_IN_TAGS } from './dataSourceExpander';
-import { Scenario, DataSource, DataSourceColumn, DataSourceRow } from '../shared/types';
+import { expandDataSource, expandQueue, resolveScenarioFromDataRow, buildRowLabel, filterRowsByTags, collectAllTags, countRowsByTag, filterRowsBySubset, expandDataSourceWithTags, BUILT_IN_TAGS, BUILT_IN_SCENARIO_TAGS, normalizeTag, filterScenariosByTags, collectAllScenarioTags, countScenariosByTag } from './dataSourceExpander';
+import { Scenario, DataSource, DataSourceColumn, DataSourceRow, TestScenario, FeatureGroup } from '../shared/types';
 import { makeScenario as _makeScenario } from '../test-utils/factories';
 
 // ─── Test Helpers ─────────────────────────────────────────────
@@ -746,3 +746,216 @@ describe('expandDataSourceWithTags', () => {
 });
 
 // ─── expandDataSourceWithSubset ──────────────────────────────
+
+// ─── Scenario-Level Tag Functions ─────────────────────────────
+
+function makeTestScenario(overrides: Partial<TestScenario> = {}): TestScenario {
+  return {
+    id: 'ts-1',
+    name: 'Test Scenario',
+    kind: 'standard',
+    tests: [],
+    ...overrides,
+  };
+}
+
+function makeFeatureGroup(scenarios: TestScenario[], overrides: Partial<FeatureGroup> = {}): FeatureGroup {
+  return {
+    id: 'fg-1',
+    name: 'Feature Group',
+    scenarios,
+    ...overrides,
+  };
+}
+
+describe('BUILT_IN_SCENARIO_TAGS', () => {
+  it('contains expected tags', () => {
+    expect(BUILT_IN_SCENARIO_TAGS).toContain('smoke');
+    expect(BUILT_IN_SCENARIO_TAGS).toContain('regression');
+    expect(BUILT_IN_SCENARIO_TAGS).toContain('critical');
+    expect(BUILT_IN_SCENARIO_TAGS).toContain('e2e');
+  });
+
+  it('is readonly array', () => {
+    expect(Array.isArray(BUILT_IN_SCENARIO_TAGS)).toBe(true);
+  });
+});
+
+describe('normalizeTag', () => {
+  it('lowercases tag', () => {
+    expect(normalizeTag('SMOKE')).toBe('smoke');
+    expect(normalizeTag('Regression')).toBe('regression');
+  });
+
+  it('trims whitespace', () => {
+    expect(normalizeTag('  smoke  ')).toBe('smoke');
+    expect(normalizeTag('\tregression\n')).toBe('regression');
+  });
+
+  it('removes special characters except hyphen and underscore', () => {
+    expect(normalizeTag('happy-path')).toBe('happy-path');
+    expect(normalizeTag('edge_case')).toBe('edge_case');
+    expect(normalizeTag('smoke@test!')).toBe('smoketest');
+    expect(normalizeTag('test#123')).toBe('test123');
+  });
+
+  it('returns empty string for invalid input', () => {
+    expect(normalizeTag('   ')).toBe('');
+    expect(normalizeTag('###')).toBe('');
+  });
+
+  it('handles mixed case with special chars', () => {
+    expect(normalizeTag('  HAPPY-Path!  ')).toBe('happy-path');
+  });
+});
+
+describe('filterScenariosByTags', () => {
+  const scenarios: TestScenario[] = [
+    makeTestScenario({ id: 's1', name: 'Smoke Test', tags: ['smoke', 'critical'] }),
+    makeTestScenario({ id: 's2', name: 'Regression Test', tags: ['regression'] }),
+    makeTestScenario({ id: 's3', name: 'Edge Case', tags: ['regression', 'edge-case'] }),
+    makeTestScenario({ id: 's4', name: 'No Tags' }),
+  ];
+
+  it('returns all scenarios when filter tags is empty', () => {
+    const result = filterScenariosByTags(scenarios, []);
+    expect(result).toHaveLength(4);
+  });
+
+  it('filters by any mode (default) - matches if scenario has ANY of the tags', () => {
+    const result = filterScenariosByTags(scenarios, ['smoke', 'regression']);
+    expect(result).toHaveLength(3);
+    expect(result.map(s => s.id)).toEqual(['s1', 's2', 's3']);
+  });
+
+  it('filters by all mode - requires ALL tags to be present', () => {
+    const result = filterScenariosByTags(scenarios, ['regression', 'edge-case'], 'all');
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe('s3');
+  });
+
+  it('excludes scenarios without tags', () => {
+    const result = filterScenariosByTags(scenarios, ['smoke']);
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe('s1');
+    expect(result.find(s => s.id === 's4')).toBeUndefined();
+  });
+
+  it('handles case-insensitive matching', () => {
+    const result = filterScenariosByTags(scenarios, ['SMOKE', 'Regression']);
+    expect(result).toHaveLength(3);
+  });
+
+  it('returns empty array when no scenarios match', () => {
+    const result = filterScenariosByTags(scenarios, ['nonexistent']);
+    expect(result).toHaveLength(0);
+  });
+
+  it('handles empty scenarios array', () => {
+    const result = filterScenariosByTags([], ['smoke']);
+    expect(result).toHaveLength(0);
+  });
+
+  it('handles scenarios with empty tags array', () => {
+    const scenariosWithEmpty = [
+      makeTestScenario({ id: 's1', tags: [] }),
+      makeTestScenario({ id: 's2', tags: ['smoke'] }),
+    ];
+    const result = filterScenariosByTags(scenariosWithEmpty, ['smoke']);
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe('s2');
+  });
+
+  it('handles whitespace in filter tags', () => {
+    const result = filterScenariosByTags(scenarios, ['  smoke  ', '\tregression\n']);
+    expect(result).toHaveLength(3);
+    expect(result.map(s => s.id)).toEqual(['s1', 's2', 's3']);
+  });
+});
+
+describe('collectAllScenarioTags', () => {
+  it('returns empty array for no feature groups', () => {
+    const result = collectAllScenarioTags([]);
+    expect(result).toEqual([]);
+  });
+
+  it('returns empty array when no scenarios have tags', () => {
+    const groups = [
+      makeFeatureGroup([makeTestScenario(), makeTestScenario({ id: 's2' })]),
+    ];
+    const result = collectAllScenarioTags(groups);
+    expect(result).toEqual([]);
+  });
+
+  it('collects tags from single feature group', () => {
+    const groups = [
+      makeFeatureGroup([
+        makeTestScenario({ tags: ['smoke', 'critical'] }),
+        makeTestScenario({ id: 's2', tags: ['regression'] }),
+      ]),
+    ];
+    const result = collectAllScenarioTags(groups);
+    expect(result).toEqual(['critical', 'regression', 'smoke']);
+  });
+
+  it('deduplicates tags across multiple groups', () => {
+    const groups = [
+      makeFeatureGroup([makeTestScenario({ tags: ['smoke', 'critical'] })]),
+      makeFeatureGroup([makeTestScenario({ tags: ['smoke', 'regression'] })], { id: 'fg-2' }),
+    ];
+    const result = collectAllScenarioTags(groups);
+    expect(result).toEqual(['critical', 'regression', 'smoke']);
+  });
+
+  it('returns sorted tags', () => {
+    const groups = [
+      makeFeatureGroup([makeTestScenario({ tags: ['z-test', 'a-test', 'm-test'] })]),
+    ];
+    const result = collectAllScenarioTags(groups);
+    expect(result).toEqual(['a-test', 'm-test', 'z-test']);
+  });
+});
+
+describe('countScenariosByTag', () => {
+  it('returns empty object for no feature groups', () => {
+    const result = countScenariosByTag([]);
+    expect(result).toEqual({});
+  });
+
+  it('returns empty object when no scenarios have tags', () => {
+    const groups = [
+      makeFeatureGroup([makeTestScenario(), makeTestScenario({ id: 's2' })]),
+    ];
+    const result = countScenariosByTag(groups);
+    expect(result).toEqual({});
+  });
+
+  it('counts scenarios per tag', () => {
+    const groups = [
+      makeFeatureGroup([
+        makeTestScenario({ tags: ['smoke', 'critical'] }),
+        makeTestScenario({ id: 's2', tags: ['smoke', 'regression'] }),
+        makeTestScenario({ id: 's3', tags: ['regression'] }),
+      ]),
+    ];
+    const result = countScenariosByTag(groups);
+    expect(result).toEqual({
+      smoke: 2,
+      critical: 1,
+      regression: 2,
+    });
+  });
+
+  it('counts correctly across multiple feature groups', () => {
+    const groups = [
+      makeFeatureGroup([makeTestScenario({ tags: ['smoke'] })]),
+      makeFeatureGroup([makeTestScenario({ tags: ['smoke', 'e2e'] })], { id: 'fg-2' }),
+      makeFeatureGroup([makeTestScenario({ tags: ['e2e'] })], { id: 'fg-3' }),
+    ];
+    const result = countScenariosByTag(groups);
+    expect(result).toEqual({
+      smoke: 2,
+      e2e: 2,
+    });
+  });
+});

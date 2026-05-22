@@ -6,28 +6,14 @@ vi.mock('./metrics', () => ({
 }));
 
 import { mergeRerunResults } from './rerunMerge';
-import type { TestRun, RequestResult, TestSummary } from '../shared/types';
+import type { TestRun, TestSummary, RequestResult } from '../shared/types';
+import { makeResult as _makeResult, makeSummary as _makeSummary } from '../test-utils/factories';
 
-function makeResult(overrides: Partial<RequestResult> = {}): RequestResult {
-  return {
-    id: `r-${Date.now()}`,
-    scenarioId: 'sc-1',
-    scenarioName: 'Test',
-    url: 'http://example.com',
-    method: 'GET',
-    httpStatus: 200,
-    responseTimeMs: 100,
-    responseBody: '',
-    passed: true,
-    validationMode: 'none',
-    failureDetails: [],
-    timestamp: Date.now(),
-    ...overrides,
-  } as RequestResult;
-}
+const makeResult = (overrides: Parameters<typeof _makeResult>[0] = {}) =>
+  _makeResult(overrides);
 
 function makeSummary(): TestSummary {
-  return {
+  return _makeSummary({
     tps: 10,
     avgResponseTime: 100,
     minResponseTime: 80,
@@ -42,7 +28,7 @@ function makeSummary(): TestSummary {
     failedRequests: 0,
     failedValidations: 0,
     totalDurationMs: 200,
-  };
+  });
 }
 
 function makeTestRun(results: RequestResult[]): TestRun {

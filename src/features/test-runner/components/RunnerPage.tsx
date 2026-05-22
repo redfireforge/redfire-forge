@@ -34,6 +34,7 @@ export default function RunnerPage({
   const {
     config, execution, selectedTests, activeTestCount, allocation, isLoadProfile, isConstantArrival, isGalleryEnv,
     weightsExpanded, setWeightsExpanded, runnerTagFilter, setRunnerTagFilter,
+    scenarioTagFilter, setScenarioTagFilter, allScenarioTags, scenarioTagCounts,
     savedProgress, handleClearProgress, handleRun, updateProfile, updateArrivalRate,
     showProgress, displaySummary, displayTimeSeries, displayCompleted, displayTotal,
     displayProfileMeta, displayExecMode, displayConc, displayLoadProfile, displayArrivalRate, displayThinkTime, hostLabel,
@@ -136,6 +137,10 @@ export default function RunnerPage({
             globalAuthProfiles={globalAuthProfiles}
             envFallbackAuth={envFallbackAuth}
             disabled={isRunning}
+            scenarioTagFilter={scenarioTagFilter}
+            onScenarioTagFilterChange={setScenarioTagFilter}
+            allScenarioTags={allScenarioTags}
+            scenarioTagCounts={scenarioTagCounts}
           />
 
           {selectedTests.length > 0 && (
