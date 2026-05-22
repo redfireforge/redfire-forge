@@ -70,6 +70,7 @@ export default function ValidationVerifyPanel({
           className="assertion-select verify-scope-select"
           value={verifyScope}
           onChange={(e) => onVerifyScopeChange(e.target.value as 'assertions' | 'rules' | 'all')}
+          style={expectedFieldCount === 0 ? { display: 'none' } : undefined}
         >
           <option value="all">All</option>
           <option value="assertions">Assertions Only</option>
