@@ -630,6 +630,7 @@ function mapRustResultPassthrough(
     },
     dataRowId: rustResult.dataRowId ?? undefined,
     dataRowLabel: rustResult.dataRowLabel ?? undefined,
+    scenarioTags: scenario.scenarioTags,
   };
 }
 
@@ -700,6 +701,7 @@ function mapRustResultJsFallback(
     },
     dataRowId: rustResult.dataRowId ?? undefined,
     dataRowLabel: rustResult.dataRowLabel ?? undefined,
+    scenarioTags: scenario.scenarioTags,
   };
 }
 
@@ -845,6 +847,7 @@ export function runTestViaRust(
 /**
  * Fallback for when a scenario can't be found in the lookup (shouldn't happen normally).
  * Creates a minimal RequestResult without validation.
+ * Note: scenarioTags are unavailable here since we don't have the scenario object.
  */
 function mapRustResultWithoutValidation(rustResult: RustExecutionResult): RequestResult {
   const httpFailed = rustResult.httpStatus >= 400 || rustResult.httpStatus === 0;

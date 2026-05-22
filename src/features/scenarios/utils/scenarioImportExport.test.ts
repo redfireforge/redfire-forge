@@ -419,3 +419,79 @@ describe('hasVersionData', () => {
     })).toBe(true);
   });
 });
+
+// ─── Scenario Tags Round-Trip ─────────────────────────────────
+
+describe('tags round-trip', () => {
+  it('preserves TestScenario.tags through export/import cycle', () => {
+    const fg: FeatureGroup = {
+      id: 'fg-1',
+      name: 'Tagged Feature Group',
+      scenarios: [
+        {
+          id: 'sc-1',
+          name: 'Smoke Tests',
+          kind: 'standard',
+          tags: ['smoke', 'critical'],
+          tests: [
+            {
+              id: 't-1',
+              name: 'Health Check',
+              url: '/health',
+              method: 'GET',
+              headers: [],
+              body: '',
+              auth: { type: 'none' },
+              validation: { mode: 'none' },
+            },
+          ],
+        },
+        {
+          id: 'sc-2',
+          name: 'Regression Tests',
+          kind: 'standard',
+          tags: ['regression'],
+          tests: [],
+        },
+        {
+          id: 'sc-3',
+          name: 'No Tags',
+          kind: 'standard',
+          tests: [],
+        },
+      ],
+    };
+
+    const exported = wrapExport(fg, 'featureGroup', { microservice: 'svc', environment: 'dev' });
+    const jsonStr = JSON.stringify(exported);
+    const parsed = JSON.parse(jsonStr);
+    const imported = unwrapImport(parsed) as FeatureGroup;
+
+    expect(imported.scenarios[0].tags).toEqual(['smoke', 'critical']);
+    expect(imported.scenarios[1].tags).toEqual(['regression']);
+    expect(imported.scenarios[2].tags).toBeUndefined();
+  });
+
+  it('handles empty tags array through export/import cycle', () => {
+    const fg: FeatureGroup = {
+      id: 'fg-1',
+      name: 'Feature Group',
+      scenarios: [
+        {
+          id: 'sc-1',
+          name: 'Test',
+          kind: 'standard',
+          tags: [],
+          tests: [],
+        },
+      ],
+    };
+
+    const exported = wrapExport(fg, 'featureGroup', {});
+    const jsonStr = JSON.stringify(exported);
+    const parsed = JSON.parse(jsonStr);
+    const imported = unwrapImport(parsed) as FeatureGroup;
+
+    expect(imported.scenarios[0].tags).toEqual([]);
+  });
+});

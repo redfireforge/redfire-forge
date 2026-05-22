@@ -330,6 +330,8 @@ export interface Scenario {
   sourceSpecVersionId?: string;
   /** Human label for the pinned spec version (e.g. "1.0.7") */
   sourceSpecVersionLabel?: string;
+  /** Transient: inherited from parent TestScenario for result tagging */
+  scenarioTags?: string[];
 }
 
 export type ScenarioKind = 'standard' | 'parameterized';
@@ -338,6 +340,8 @@ export interface TestScenario {
   id: string;
   name: string;
   kind: ScenarioKind;
+  /** Tags for filtering/categorization (e.g., 'smoke', 'regression', 'critical') */
+  tags?: string[];
   auth?: AuthConfig;
   tests: Scenario[];
 }
@@ -539,6 +543,8 @@ export interface RequestResult {
   dataRowId?: string;
   /** Human-readable row label (e.g., "Row 3: VIN=1GY...") for display */
   dataRowLabel?: string;
+  /** Tags from the parent TestScenario (for result filtering/reporting) */
+  scenarioTags?: string[];
   /** Which iteration (0-based) produced this result (for workflow load tests) */
   iterationIndex?: number;
   /** Which workflow node produced this result (for per-step metrics) */

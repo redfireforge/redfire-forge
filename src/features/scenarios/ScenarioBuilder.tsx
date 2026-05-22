@@ -16,6 +16,8 @@ import type { VersionExportOptions } from './utils/scenarioImportExport';
 import { deleteLogEntry, clearLog } from './utils/structureChangeLog';
 import StructureChangeLogPanel from './components/StructureChangeLogPanel';
 import { SCENARIO_AUTH_TYPE_OPTIONS, buildFeatureAuthTypeOptions, resolveEffectiveAuth } from './utils/scenarioBuilderUtils';
+import { useScenarioTags } from './hooks/useScenarioTags';
+import ScenarioContextMenu from './components/ScenarioContextMenu';
 
 interface Props {
   featureGroups: FeatureGroup[];
@@ -111,6 +113,11 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, share
   const [showSharedDsModal, setShowSharedDsModal] = useState(false);
   const [sharedDsModalSelectedId, setSharedDsModalSelectedId] = useState<string | undefined>(undefined);
   const [showFromSharedDsPicker, setShowFromSharedDsPicker] = useState<{ fgId: string; scId: string } | null>(null);
+
+  // Tag management
+  const { addTag, removeTag, clearTags, tagSuggestions } = useScenarioTags(featureGroups, setFeatureGroups);
+  const [editingTagScenario, setEditingTagScenario] = useState<{ fgId: string; scId: string } | null>(null);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; fgId: string; scId: string } | null>(null);
 
   // Current editing draft context for SharedDataSourceModal "Used by" lookup
   const currentEditingDraft = useMemo(() => {
@@ -338,7 +345,7 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, share
             <input
               className="builder-search-input"
               type="text"
-              placeholder='Search: terms, "exact phrase", AND, OR, NOT, -exclude, (group)...'
+              placeholder='Search tests, URLs, methods, tags...'
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -387,6 +394,7 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, share
                 const param = fg.scenarios.filter(sc => sc.kind === 'parameterized').length;
                 const total = fg.scenarios.length;
                 const tests = fg.scenarios.reduce((s, sc) => s + sc.tests.length, 0);
+                const fgTags = [...new Set(fg.scenarios.flatMap(sc => sc.tags ?? []))];
                 return (
                   <>
                     <span className="count-badge" title={`${std} standard, ${param} parameterized`}>
@@ -394,6 +402,11 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, share
                       {total > 0 && <> ({std}S · {param}P)</>}
                     </span>
                     <span className="count-badge">{tests} test{tests !== 1 ? 's' : ''}</span>
+                    {fgTags.length > 0 && (
+                      <span className="fg-tag-summary" title={`Tags in this group: ${fgTags.join(', ')}`}>
+                        {fgTags.length} tag{fgTags.length !== 1 ? 's' : ''}
+                      </span>
+                    )}
                   </>
                 );
               })()}
@@ -517,7 +530,14 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, share
                       setDropTarget({ type: 'scenario', featureId: fg.id, targetId: sc.id });
                     }}
                   >
-                    <div className="scenario-group-header" onClick={() => toggleScenario(sc.id)}>
+                    <div
+                      className="scenario-group-header"
+                      onClick={() => toggleScenario(sc.id)}
+                      onContextMenu={(e) => {
+                        e.preventDefault();
+                        setContextMenu({ x: e.clientX, y: e.clientY, fgId: fg.id, scId: sc.id });
+                      }}
+                    >
                       <span className="drag-handle" title="Drag to reorder or move" onMouseDown={() => { dragHandleActive.current = true; }} onMouseUp={() => { dragHandleActive.current = false; }}>⠿</span>
                       <span className={`expand-icon small ${(expandedScenarios.has(sc.id) || isSearching) ? 'expanded' : ''}`}>&#9654;</span>
                       {editingScenarioName === sc.id ? (
@@ -532,6 +552,57 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, share
                       <span className="count-badge">{sc.tests.length} test{sc.tests.length !== 1 ? 's' : ''}</span>
                       {scAuth.type !== 'none' && scAuth.type !== 'inherit' && <span className="count-badge auth-badge auth-badge-scenario">Auth: {scAuth.type}</span>}
                       {scAuth.type === 'inherit' && <span className="count-badge auth-badge auth-badge-scenario-inherit">Auth: inherit</span>}
+                      {/* Tag pills */}
+                      {sc.tags && sc.tags.length > 0 && (
+                        <span className="scenario-tag-pills">
+                          {sc.tags.map(tag => (
+                            <span key={tag} className="scenario-tag-pill" title={`Tag: ${tag}`}>
+                              <span className="scenario-tag-pill-text">{tag}</span>
+                              <button
+                                className="scenario-tag-pill-remove"
+                                onClick={(e) => { e.stopPropagation(); removeTag(fg.id, sc.id, tag); }}
+                                title={`Remove tag "${tag}"`}
+                                aria-label={`Remove tag ${tag}`}
+                              >×</button>
+                            </span>
+                          ))}
+                        </span>
+                      )}
+                      {/* Add tag button/input */}
+                      {editingTagScenario?.fgId === fg.id && editingTagScenario?.scId === sc.id ? (
+                        <input
+                          className="scenario-tag-input"
+                          autoFocus
+                          list="scenario-tag-suggestions"
+                          placeholder="tag name"
+                          onClick={(e) => e.stopPropagation()}
+                          onChange={(e) => {
+                            // Auto-submit on datalist selection (value fully matches a suggestion)
+                            const val = e.currentTarget.value.trim();
+                            if (val && tagSuggestions.includes(val)) {
+                              addTag(fg.id, sc.id, val);
+                              e.currentTarget.value = '';
+                              setEditingTagScenario(null);
+                            }
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && e.currentTarget.value.trim()) {
+                              addTag(fg.id, sc.id, e.currentTarget.value.trim());
+                              e.currentTarget.value = '';
+                              setEditingTagScenario(null);
+                            }
+                            if (e.key === 'Escape') setEditingTagScenario(null);
+                          }}
+                          onBlur={() => setEditingTagScenario(null)}
+                        />
+                      ) : (
+                        <button
+                          className="scenario-tag-add-btn"
+                          onClick={(e) => { e.stopPropagation(); setEditingTagScenario({ fgId: fg.id, scId: sc.id }); }}
+                          title="Add tag"
+                          aria-label="Add tag"
+                        >+</button>
+                      )}
                       <div className="scenario-group-actions" onClick={(e) => e.stopPropagation()}>
                         <button className="btn btn-sm" onClick={() => { setEditingScenarioName(sc.id); setEditName(sc.name); }}>Rename</button>
                         <button
@@ -761,6 +832,30 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, share
           ))}
         </div>
       )}
+
+      {/* Tag suggestions datalist */}
+      <datalist id="scenario-tag-suggestions">
+        {tagSuggestions.map(t => <option key={t} value={t} />)}
+      </datalist>
+
+      {/* Tag context menu */}
+      {contextMenu && (() => {
+        const fg = featureGroups.find(f => f.id === contextMenu.fgId);
+        const sc = fg?.scenarios.find(s => s.id === contextMenu.scId);
+        if (!sc) return null;
+        return (
+          <ScenarioContextMenu
+            x={contextMenu.x}
+            y={contextMenu.y}
+            scenario={sc}
+            tagSuggestions={tagSuggestions}
+            onAddTag={(tag) => addTag(contextMenu.fgId, contextMenu.scId, tag)}
+            onRemoveTag={(tag) => removeTag(contextMenu.fgId, contextMenu.scId, tag)}
+            onClearTags={() => clearTags(contextMenu.fgId, contextMenu.scId)}
+            onClose={() => setContextMenu(null)}
+          />
+        );
+      })()}
 
       <ScenarioBuilderModals
         featureGroups={featureGroups}

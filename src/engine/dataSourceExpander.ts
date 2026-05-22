@@ -3,7 +3,7 @@
  * into N concrete Scenarios, one per enabled data row, with variables substituted
  * into URL path, query params, headers, body, and validation fields.
  */
-import type { Scenario, DataSourceColumn, DataSourceRow, DataSubset, KeyValue, ExpectedField, ValidationConfig, SharedDataSource } from '../shared/types';
+import type { Scenario, DataSourceColumn, DataSourceRow, DataSubset, KeyValue, ExpectedField, ValidationConfig, SharedDataSource, TestScenario, FeatureGroup } from '../shared/types';
 
 // ─── Shared Data Source Resolution ────────────────────────────
 
@@ -437,4 +437,79 @@ export function expandDataSourceWithSubset(
   return orderedRows.map((row, idx) =>
     resolveScenarioFromDataRow(scenario, dt.columns, row, idx, dt.arrayValidationMode, dt.validationMode),
   );
+}
+
+// ─── Scenario-Level Tag Functions ─────────────────────────────
+
+/** Built-in scenario-level tag suggestions (different purpose than data row tags). */
+export const BUILT_IN_SCENARIO_TAGS = [
+  'smoke',        // Fast sanity checks
+  'regression',   // Full test suite
+  'critical',     // Business-critical paths
+  'integration',  // Cross-service tests
+  'e2e',          // End-to-end flows
+  'performance',  // Load/stress tests
+  'slow',         // Long-running tests (>30s)
+  'flaky',        // Known unstable tests
+  'wip',          // Work in progress
+  'skip',         // Temporarily disabled
+] as const;
+
+/**
+ * Normalize a tag: lowercase, trim, remove special characters except hyphen and underscore.
+ */
+export function normalizeTag(tag: string): string {
+  return tag.toLowerCase().trim().replace(/[^a-z0-9-_]/g, '');
+}
+
+/**
+ * Filter TestScenarios by tags.
+ * @param scenarios  The scenarios to filter
+ * @param tags       Tags to match against (will be normalized to lowercase)
+ * @param mode       'any' = scenario matches if it has ANY of the tags, 'all' = must have ALL tags
+ */
+export function filterScenariosByTags(
+  scenarios: TestScenario[],
+  tags: string[],
+  mode: 'any' | 'all' = 'any',
+): TestScenario[] {
+  if (tags.length === 0) return scenarios;
+  const normalizedTags = tags.map(t => t.toLowerCase().trim());
+  return scenarios.filter(sc => {
+    const scTags = sc.tags ?? [];
+    if (scTags.length === 0) return false;
+    return mode === 'any'
+      ? normalizedTags.some(t => scTags.includes(t))
+      : normalizedTags.every(t => scTags.includes(t));
+  });
+}
+
+/**
+ * Collect all unique tags across all scenarios in all feature groups.
+ */
+export function collectAllScenarioTags(featureGroups: FeatureGroup[]): string[] {
+  const tagSet = new Set<string>();
+  for (const fg of featureGroups) {
+    for (const sc of fg.scenarios) {
+      for (const tag of sc.tags ?? []) {
+        tagSet.add(tag);
+      }
+    }
+  }
+  return [...tagSet].sort();
+}
+
+/**
+ * Count how many scenarios have each tag.
+ */
+export function countScenariosByTag(featureGroups: FeatureGroup[]): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const fg of featureGroups) {
+    for (const sc of fg.scenarios) {
+      for (const tag of sc.tags ?? []) {
+        counts[tag] = (counts[tag] ?? 0) + 1;
+      }
+    }
+  }
+  return counts;
 }

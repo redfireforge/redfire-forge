@@ -8,6 +8,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
 
 ## [Unreleased]
 
+### Changed
+- **ResultsDashboard Refactored** — Extracted `ResultsMetricsCards` (throughput/timing/error metrics) and `ResultsDashboardHeader` (context tags, actions, run type filter tabs) into focused components. Reduced `ResultsDashboard.tsx` from 925 → 827 lines (below 900-line monolithic threshold).
+- **Shared Test Factories Expanded** — Added `makeSummary`, `makeTestRun`, `makeTestScenario`, `makeFeatureGroup`, `makeWorkflow`, `makeWorkflowNode`, `makeWorkflowEdge` to `src/test-utils/factories.ts`. Updated test files (`cli/reporters.test.ts`, `src/engine/rerunMerge.test.ts`, `src/engine/circuitBreaker.test.ts`, `src/engine/executionWorker.test.ts`) to use shared factories instead of local duplicates.
+
 ### Added
 - **Constant Arrival Rate (Open Model)** — New `constant-arrival` execution mode sends a fixed number of requests/second regardless of response time. Configurable target RPS, duration, max in-flight limit, and optional ramp period. `ArrivalRateConfig` type, `droppedRequests`/`peakRps`/`targetRps` on `TestSummary`. Rust arrival executor (`arrival_executor.rs`) for Tauri desktop mode.
 - **Streaming Percentiles** — Rust HDR Histogram module (`histogram.rs`) for memory-efficient P50/P95/P99/P99.9 calculation without storing every datapoint. Enables accurate metrics at 100K+ results. `p999ResponseTime` added to `TestSummary`.

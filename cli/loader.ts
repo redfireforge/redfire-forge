@@ -31,6 +31,8 @@ interface TestFileScenario {
   scenario?: string;
   /** Inline data source for parameterized testing */
   data?: { columns?: string[]; rows: (string[] | Record<string, unknown>)[] };
+  /** Scenario-level tags for CLI filtering (e.g., ['smoke', 'regression']) */
+  tags?: string[];
 }
 
 interface TestFileAuth {
@@ -181,6 +183,9 @@ export function buildScenarios(file: TestFile, cliBaseUrl?: string, externalData
       dataSource = buildDataSourceFromInline(t.data);
     }
 
+    // Normalize tags: lowercase, trim
+    const scenarioTags = t.tags?.map(tag => tag.toLowerCase().trim()).filter(Boolean);
+
     return {
       id: uuidv4(),
       name: t.name,
@@ -195,6 +200,7 @@ export function buildScenarios(file: TestFile, cliBaseUrl?: string, externalData
       featureGroupName: t.featureGroup,
       groupName: t.scenario,
       dataSource,
+      scenarioTags: scenarioTags?.length ? scenarioTags : undefined,
     };
   });
 }

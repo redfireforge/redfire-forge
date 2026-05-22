@@ -231,3 +231,38 @@ describe('parseSearchQuery — additional branches', () => {
     expect(node).toEqual({ type: 'not', child: { type: 'term', value: 'error', exact: false } });
   });
 });
+
+describe('buildSearchText — scenario tags', () => {
+  it('includes scenarioTags in search text', () => {
+    const t = scenarioBase({ scenarioTags: ['smoke', 'regression'] });
+    const s = buildSearchText(t);
+    expect(s).toContain('smoke');
+    expect(s).toContain('regression');
+  });
+
+  it('handles undefined scenarioTags', () => {
+    const t = scenarioBase({ scenarioTags: undefined });
+    const s = buildSearchText(t);
+    expect(s).toContain('My Test');
+  });
+
+  it('handles empty scenarioTags array', () => {
+    const t = scenarioBase({ scenarioTags: [] });
+    const s = buildSearchText(t);
+    expect(s).toContain('My Test');
+  });
+
+  it('search matches by tag name', () => {
+    const t = scenarioBase({ scenarioTags: ['smoke', 'critical'] });
+    const text = buildSearchText(t);
+    const node = parseSearchQuery('smoke')!;
+    expect(evaluateQuery(node, text)).toBe(true);
+  });
+
+  it('search does not match non-existent tag', () => {
+    const t = scenarioBase({ scenarioTags: ['smoke', 'critical'] });
+    const text = buildSearchText(t);
+    const node = parseSearchQuery('regression')!;
+    expect(evaluateQuery(node, text)).toBe(false);
+  });
+});

@@ -29,6 +29,13 @@ interface Props {
   globalAuthProfiles?: GlobalAuthProfile[];
   envFallbackAuth?: AuthConfig;
   disabled?: boolean;
+  /** Scenario-level tag filter (show only scenarios with these tags) */
+  scenarioTagFilter?: string[];
+  onScenarioTagFilterChange?: (tags: string[]) => void;
+  /** All unique scenario tags across all feature groups */
+  allScenarioTags?: string[];
+  /** Tag → scenario count for badge display */
+  scenarioTagCounts?: Record<string, number>;
 }
 
 export default function ScenarioSelector({
@@ -56,13 +63,32 @@ export default function ScenarioSelector({
   globalAuthProfiles = [],
   envFallbackAuth,
   disabled = false,
+  scenarioTagFilter,
+  onScenarioTagFilterChange,
+  allScenarioTags = [],
+  scenarioTagCounts = {},
 }: Props) {
-  const featureGroups = useMemo(() => {
+  // First filter by kind
+  const kindFilteredGroups = useMemo(() => {
     if (!kind) return rawFeatureGroups;
     return rawFeatureGroups
       .map(fg => ({ ...fg, scenarios: fg.scenarios.filter(sc => sc.kind === kind) }))
       .filter(fg => fg.scenarios.length > 0);
   }, [rawFeatureGroups, kind]);
+
+  // Then filter by scenario tags
+  const featureGroups = useMemo(() => {
+    if (!scenarioTagFilter || scenarioTagFilter.length === 0) return kindFilteredGroups;
+    return kindFilteredGroups
+      .map(fg => ({
+        ...fg,
+        scenarios: fg.scenarios.filter(sc => {
+          const scTags = sc.tags ?? [];
+          return scTags.length > 0 && scenarioTagFilter.some(t => scTags.includes(t));
+        }),
+      }))
+      .filter(fg => fg.scenarios.length > 0);
+  }, [kindFilteredGroups, scenarioTagFilter]);
 
   const [expandedFeatures, setExpandedFeatures] = useState<Set<string>>(
     () => new Set(featureGroups.map(fg => fg.id))
@@ -193,6 +219,13 @@ export default function ScenarioSelector({
                       const totalRows = sc.tests.reduce((sum, t) => sum + (t.dataSource?.rows.filter(r => r.enabled).length ?? 0), 0);
                       return totalRows > 0 ? <span className="count-badge count-badge-data">📊 {totalRows} rows</span> : null;
                     })()}
+                    {sc.tags && sc.tags.length > 0 && (
+                      <span className="scenario-selector-tags">
+                        {sc.tags.map(tag => (
+                          <span key={tag} className="scenario-selector-tag" title={`Tag: ${tag}`}>{tag}</span>
+                        ))}
+                      </span>
+                    )}
                   </label>
                 </div>
               );
@@ -277,6 +310,35 @@ export default function ScenarioSelector({
           </span>
         </div>
       </div>
+
+      {allScenarioTags.length > 0 && (
+        <div className="scenario-tag-filter-bar">
+          <span className="scenario-tag-filter-label">Tags:</span>
+          <button
+            className={`scenario-tag-filter-btn ${!scenarioTagFilter || scenarioTagFilter.length === 0 ? 'active' : ''}`}
+            onClick={() => onScenarioTagFilterChange?.([])}
+            disabled={disabled}
+          >
+            All
+          </button>
+          {allScenarioTags.map(tag => (
+            <button
+              key={tag}
+              className={`scenario-tag-filter-btn ${scenarioTagFilter?.includes(tag) ? 'active' : ''}`}
+              onClick={() => {
+                const current = scenarioTagFilter ?? [];
+                const next = current.includes(tag)
+                  ? current.filter(t => t !== tag)
+                  : [...current, tag];
+                onScenarioTagFilterChange?.(next);
+              }}
+              disabled={disabled}
+            >
+              {tag} ({scenarioTagCounts[tag] ?? 0})
+            </button>
+          ))}
+        </div>
+      )}
 
       {userGroups.length > 0 && (
         <>
