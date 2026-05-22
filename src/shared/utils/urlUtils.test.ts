@@ -3,6 +3,7 @@ import { replaceHost } from './urlUtils';
 
 describe('urlUtils', () => {
   describe('replaceHost', () => {
+    // --- Passthrough cases (no base URL or absolute URL) ---
     it('returns original URL when baseUrl is empty', () => {
       expect(replaceHost('https://api.example.com/users', '')).toBe('https://api.example.com/users');
     });
@@ -13,63 +14,66 @@ describe('urlUtils', () => {
       expect(replaceHost(url, null as unknown as string)).toBe(url);
     });
 
-    it('returns testUrl when base URL cannot be parsed', () => {
-      const testUrl = 'https://api.example.com/users';
-      expect(replaceHost(testUrl, 'not a valid base url')).toBe(testUrl);
+    it('preserves absolute https URLs unchanged (does NOT replace host)', () => {
+      const absoluteUrl = 'https://httpbin.org/status/204';
+      const result = replaceHost(absoluteUrl, 'https://jsonplaceholder.typicode.com');
+      expect(result).toBe(absoluteUrl);
     });
 
-    it('replaces host with new base URL', () => {
-      const result = replaceHost('https://api.example.com/users', 'https://new-api.example.com');
-      expect(result).toBe('https://new-api.example.com/users');
+    it('preserves absolute http URLs unchanged', () => {
+      const absoluteUrl = 'http://httpbin.org/delay/1';
+      const result = replaceHost(absoluteUrl, 'https://api.example.com');
+      expect(result).toBe(absoluteUrl);
+    });
+
+    // --- Relative path cases ---
+    it('prepends base URL to relative path starting with /', () => {
+      const result = replaceHost('/users', 'https://api.example.com');
+      expect(result).toBe('https://api.example.com/users');
+    });
+
+    it('prepends base URL to relative path without leading /', () => {
+      const result = replaceHost('users/123', 'https://api.example.com');
+      expect(result).toBe('https://api.example.com/users/123');
     });
 
     it('handles base URL with trailing slash', () => {
-      const result = replaceHost('https://api.example.com/users', 'https://new-api.example.com/');
-      expect(result).toBe('https://new-api.example.com/users');
+      const result = replaceHost('/users', 'https://api.example.com/');
+      expect(result).toBe('https://api.example.com/users');
     });
 
-    it('normalizes base URL without trailing slash before parsing', () => {
-      const baseNoSlash = 'https://new-api.example.com';
+    it('normalizes base URL without trailing slash', () => {
+      const baseNoSlash = 'https://api.example.com';
       const baseWithSlash = `${baseNoSlash}/`;
-      const path = '/v1/items';
-      const a = replaceHost(`https://old.example.com${path}`, baseNoSlash);
-      const b = replaceHost(`https://old.example.com${path}`, baseWithSlash);
+      const a = replaceHost('/v1/items', baseNoSlash);
+      const b = replaceHost('/v1/items', baseWithSlash);
       expect(a).toBe(b);
-      expect(a).toBe(`https://new-api.example.com${path}`);
+      expect(a).toBe('https://api.example.com/v1/items');
     });
 
-    it('preserves protocol from base URL', () => {
-      const result = replaceHost('http://api.example.com/users', 'https://secure-api.example.com');
-      expect(result).toBe('https://secure-api.example.com/users');
+    it('preserves query parameters on relative URLs', () => {
+      const result = replaceHost('/users?limit=10&offset=0', 'https://api.example.com');
+      expect(result).toBe('https://api.example.com/users?limit=10&offset=0');
     });
 
-    it('preserves query parameters', () => {
-      const result = replaceHost('https://api.example.com/users?limit=10&offset=0', 'https://new-api.example.com');
-      expect(result).toContain('limit=10');
-      expect(result).toContain('offset=0');
+    it('preserves hash fragments on relative URLs', () => {
+      const result = replaceHost('/page#section', 'https://api.example.com');
+      expect(result).toBe('https://api.example.com/page#section');
     });
 
-    it('preserves hash fragments', () => {
-      const result = replaceHost('https://api.example.com/page#section', 'https://new-api.example.com');
-      expect(result).toContain('#section');
+    it('preserves {{template}} variables in relative path', () => {
+      const result = replaceHost('/users/{{userId}}', 'https://api.example.com');
+      expect(result).toBe('https://api.example.com/users/{{userId}}');
     });
 
-    it('preserves {{template}} variables in path', () => {
-      const result = replaceHost('https://api.example.com/users/{{userId}}', 'https://new-api.example.com');
-      expect(result).toBe('https://new-api.example.com/users/{{userId}}');
-    });
-
-    it('preserves multiple {{template}} variables', () => {
-      const result = replaceHost('https://api.example.com/{{resource}}/{{id}}/{{action}}', 'https://new-api.example.com');
-      expect(result).toContain('{{resource}}');
-      expect(result).toContain('{{id}}');
-      expect(result).toContain('{{action}}');
+    it('preserves multiple {{template}} variables in relative path', () => {
+      const result = replaceHost('/{{resource}}/{{id}}/{{action}}', 'https://api.example.com');
+      expect(result).toBe('https://api.example.com/{{resource}}/{{id}}/{{action}}');
     });
 
     it('restores each placeholder index after URL parsing', () => {
-      const testUrl =
-        'https://api.example.com/{{a}}/{{b}}?q={{c}}#{{d}}';
-      const out = replaceHost(testUrl, 'https://new.example.com');
+      const relUrl = '/{{a}}/{{b}}?q={{c}}#{{d}}';
+      const out = replaceHost(relUrl, 'https://api.example.com');
       expect(out).toContain('{{a}}');
       expect(out).toContain('{{b}}');
       expect(out).toContain('{{c}}');
@@ -78,43 +82,41 @@ describe('urlUtils', () => {
     });
 
     it('preserves {{template}} variables in query params', () => {
-      const result = replaceHost('https://api.example.com/users?token={{apiToken}}', 'https://new-api.example.com');
+      const result = replaceHost('/users?token={{apiToken}}', 'https://api.example.com');
       expect(result).toContain('{{apiToken}}');
     });
 
     it('handles base path in base URL', () => {
-      const result = replaceHost('https://api.example.com/users', 'https://new-api.example.com/v2');
-      expect(result).toBe('https://new-api.example.com/v2/users');
-    });
-
-    it('avoids duplicating base path if already present', () => {
-      const result = replaceHost('https://api.example.com/v2/users', 'https://new-api.example.com/v2');
-      expect(result).toBe('https://new-api.example.com/v2/users');
-    });
-
-    it('merges base path when original pathname does not start with it', () => {
-      const result = replaceHost('https://api.example.com/users', 'https://new-api.example.com/api/v99');
-      expect(result).toBe('https://new-api.example.com/api/v99/users');
+      const result = replaceHost('/users', 'https://api.example.com/v2');
+      expect(result).toBe('https://api.example.com/v2/users');
     });
 
     it('handles base URL with multiple path segments', () => {
-      const result = replaceHost('https://api.example.com/users', 'https://new-api.example.com/api/v3');
-      expect(result).toBe('https://new-api.example.com/api/v3/users');
+      const result = replaceHost('/users', 'https://api.example.com/api/v3');
+      expect(result).toBe('https://api.example.com/api/v3/users');
     });
 
-    it('returns original URL for invalid URL', () => {
-      const invalidUrl = 'not-a-valid-url';
-      expect(replaceHost(invalidUrl, 'https://api.example.com')).toBe(invalidUrl);
+    it('treats invalid-looking paths as relative (no fallback needed)', () => {
+      // Even strange-looking paths get treated as relative paths and prepended
+      const strangePath = '://invalid';
+      const result = replaceHost(strangePath, 'https://api.example.com');
+      expect(result).toBe('https://api.example.com/://invalid');
     });
 
     it('handles port numbers in base URL', () => {
-      const result = replaceHost('https://api.example.com/users', 'http://localhost:3000');
-      expect(result).toContain('localhost:3000');
+      const result = replaceHost('/users', 'http://localhost:3000');
+      expect(result).toBe('http://localhost:3000/users');
     });
 
-    it('handles different protocols', () => {
-      const result = replaceHost('https://api.example.com/data', 'http://dev.example.com');
+    it('uses protocol from base URL', () => {
+      const result = replaceHost('/data', 'http://dev.example.com');
       expect(result).toBe('http://dev.example.com/data');
+    });
+
+    // --- Edge case: empty path ---
+    it('handles empty relative path', () => {
+      const result = replaceHost('', 'https://api.example.com');
+      expect(result).toBe('https://api.example.com/');
     });
   });
 });

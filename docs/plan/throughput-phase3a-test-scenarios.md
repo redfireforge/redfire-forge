@@ -121,12 +121,12 @@ This is the standard flow for adding any assertion — all Part 4 scenarios refe
 
 #### Expected Results
 
-- [ ] Test shows **Passed** (green ✓)
-- [ ] `validationMode` tag shows **none** (or no validation tag)
-- [ ] No failure details — the result row has no validation error messages
-- [ ] Click on the result row → **Response Detail Modal** opens
-- [ ] The modal shows the response body but NO failure table (no validations ran)
-- [ ] HTTP status shows `200` in the detail
+- [x] Test shows **Passed** (green ✓)
+- [x] `validationMode` tag shows **none** (or no validation tag)
+- [x] No failure details — the result row has no validation error messages
+- [x] Click on the result row → **Response Detail Modal** opens
+- [x] The modal shows the response body but NO failure table (no validations ran)
+- [x] HTTP status shows `200` in the detail
 
 ---
 
@@ -143,10 +143,10 @@ This is the standard flow for adding any assertion — all Part 4 scenarios refe
 
 #### Expected Results
 
-- [ ] Test shows **Failed** (red ✗)
-- [ ] Failure detail shows path `(http)` with expected `"2xx"` and actual `"HTTP 404"` (or the API's error message text)
-- [ ] Click row → Response Detail Modal shows the HTTP failure
-- [ ] No body validation failures (mode is none)
+- [x] Test shows **Failed** (red ✗)
+- [x] Failure detail shows path `(http)` with expected `"2xx"` and actual `"HTTP 404"` (or the API's error message text)
+- [x] Click row → Response Detail Modal shows the HTTP failure
+- [x] No body validation failures (mode is none)
 
 ---
 
@@ -164,10 +164,10 @@ This is the standard flow for adding any assertion — all Part 4 scenarios refe
 
 #### Expected Results
 
-- [ ] Test shows **Passed** (green ✓)
-- [ ] The status assertion passed (expected 404, got 404)
-- [ ] No `(http)` overlay failure (status assertion suppresses the HTTP overlay)
-- [ ] No body validation failures
+- [x] Test shows **Passed** (green ✓)
+- [x] The status assertion passed (expected 404, got 404)
+- [x] No `(http)` overlay failure (status assertion suppresses the HTTP overlay)
+- [x] No body validation failures
 
 ---
 
@@ -192,10 +192,10 @@ This is the standard flow for adding any assertion — all Part 4 scenarios refe
 
 #### Expected Results
 
-- [ ] Test shows **Passed** (green ✓)
-- [ ] `validationMode` shows **full**
-- [ ] No failure details
-- [ ] Click row → Response Detail Modal → no failures table
+- [x] Test shows **Passed** (green ✓)
+- [x] `validationMode` shows **full**
+- [x] No failure details
+- [x] Click row → Response Detail Modal → no failures table
 
 ---
 
@@ -215,13 +215,13 @@ This is the standard flow for adding any assertion — all Part 4 scenarios refe
 
 #### Expected Results
 
-- [ ] Test shows **Failed** (red ✗)
-- [ ] Failure details show multiple entries with:
+- [x] Test shows **Failed** (red ✗)
+- [x] Failure details show multiple entries with:
   - Each failure has a `path` (e.g., `title`, `userId`)
   - Each failure shows `expected` vs `actual` values
   - Missing/extra keys reported correctly
-- [ ] Click row → Response Detail Modal → failure table shows all mismatches
-- [ ] Paths are dot-notation (e.g., `data.name`, `items[0].price`)
+- [x] Click row → Response Detail Modal → failure table shows all mismatches
+- [x] Paths are dot-notation (e.g., `data.name`, `items[0].price`)
 
 ---
 
@@ -238,10 +238,10 @@ This is the standard flow for adding any assertion — all Part 4 scenarios refe
 
 #### Expected Results
 
-- [ ] Test shows **Failed** (red ✗)
-- [ ] Failure detail shows path `(parse)` with expected `"valid JSON"` and actual containing `"parse error"`
-- [ ] No crash or unhandled error in the console
-- [ ] Only one failure entry (the parse error)
+- [x] Test shows **Failed** (red ✗)
+- [x] Failure detail shows path `(parse)` with expected `"valid JSON"` and actual containing `"parse error"`
+- [x] No crash or unhandled error in the console
+- [x] Only one failure entry (the parse error)
 
 ---
 
@@ -272,10 +272,10 @@ This is the standard flow for adding any assertion — all Part 4 scenarios refe
 
 #### Expected Results
 
-- [ ] Test shows **Passed** (green ✓)
-- [ ] `validationMode` shows **selective**
-- [ ] No failure details
-- [ ] All three field validations passed silently
+- [x] Test shows **Passed** (green ✓)
+- [x] `validationMode` shows **selective**
+- [x] No failure details
+- [x] All three field validations passed silently
 
 ---
 
@@ -294,11 +294,11 @@ This is the standard flow for adding any assertion — all Part 4 scenarios refe
 
 #### Expected Results
 
-- [ ] Test shows **Failed** (red ✗)
-- [ ] Failure details show 2 entries:
+- [x] Test shows **Failed** (red ✗)
+- [x] Failure details show 2 entries:
   - First: path = the string field path, expected = `"equals nonexistent"`, actual = the real value
   - Second: path = the number field path, expected = `"less_than 0"`, actual = the real number
-- [ ] Click row → Response Detail Modal → both failures visible in the table
+- [x] Click row → Response Detail Modal → both failures visible in the table
 
 ---
 
@@ -1002,6 +1002,425 @@ This is the standard flow for adding any assertion — all Part 4 scenarios refe
 
 ---
 
+## Part 11: Test Runner Toolbar Controls
+
+> **Context:** The Test Runner toolbar has three validation controls in the "Select Scenarios to Test" section:
+> 1. **Body Validation** dropdown — controls validation mode override (Default/None/Selective/Full)
+> 2. **Assertions** checkbox — enables or disables assertion execution
+> 3. **Unordered arrays** dropdown — controls array matching (Default/On/Off)
+>
+> These scenarios verify the UI behavior and the runtime effect on test execution.
+
+### Scenario 11.1: Body Validation Dropdown — Labels & Options
+
+**Goal:** Confirm the dropdown shows correct, clear labels.
+
+#### Steps
+
+1. Go to **Harness** (activity bar) → **Test Runner** (sub-nav)
+2. In the **Select Scenarios to Test** section, find the **Body Validation** dropdown
+3. Click the dropdown to see all options
+
+#### Expected Results
+
+- [ ] Dropdown has exactly 4 options:
+  - `Default`
+  - `None`
+  - `Selective`
+  - `Full`
+- [ ] Default selection is `Default` (or may be `Selective` if previously saved)
+- [ ] Dropdown is always enabled (not dependent on other checkboxes)
+- [ ] Tooltip reads: *"Controls JSON response body matching (expected fields, schema). Use Default to respect each test's own setting."*
+
+---
+
+### Scenario 11.2: Body Validation "None" — Disables Unordered Arrays
+
+**Goal:** Confirm that selecting "None" in the Body Validation dropdown disables the Unordered arrays dropdown.
+
+#### Steps
+
+1. In the Test Runner, set **Body Validation** to **"Selective"** or **"Full"**
+2. Observe the **Unordered arrays** dropdown — it should be enabled
+3. Now set **Body Validation** to **"None"**
+4. Observe the **Unordered arrays** dropdown state
+
+#### Expected Results
+
+- [ ] When Body Validation is **Selective** or **Full**: Unordered arrays dropdown is **enabled**
+- [ ] When Body Validation is **None**: Unordered arrays dropdown is **disabled** (grayed out)
+- [ ] This makes sense because array ordering doesn't matter when body validation is skipped entirely
+
+---
+
+### Scenario 11.3: Body Validation "None" — Assertions Still Execute
+
+**Goal:** Confirm that setting Body Validation to "None" skips body validation but still runs configured assertions
+(status code, response time, etc.).
+
+#### Steps
+
+1. Open a test scenario → Edit → **Validation** tab
+2. Select **Selective Fields** radio → set up at least 1 field mapping via **⚡ Data Mapper**
+3. Add assertions via **+ Add**:
+   - **Status Code**: `200`
+   - **Response Time SLA**: max `10000`
+4. Click **Save**
+5. In the Test Runner, set **Body Validation** to **"None"**
+6. Ensure **Assertions** checkbox is **checked**
+7. Run the test
+
+#### Expected Results
+
+- [ ] Test shows **Passed** (green ✓)
+- [ ] Status code assertion evaluated and passed
+- [ ] Response time assertion evaluated and passed
+- [ ] Body validation was **skipped** (no selective field failures, even if fields were configured)
+- [ ] `validationMode` shows **none** in the result
+
+---
+
+### Scenario 11.4: Body Validation "None" — Failing Assertion Still Fails Test
+
+**Goal:** Confirm that assertions can still fail even when Body Validation is set to "None".
+
+#### Steps
+
+1. Open a test scenario → Edit → **Validation** tab
+2. Add **Status Code** assertion: expected `404` (will fail on a 200 endpoint)
+3. Click **Save**
+4. In the Test Runner, set **Body Validation** to **"None"**
+5. Ensure **Assertions** checkbox is **checked**
+6. Run the test (hitting a 200 endpoint)
+
+#### Expected Results
+
+- [ ] Test shows **Failed** (red ✗)
+- [ ] Failure details show `(status)` assertion failure: expected `404`, actual `200`
+- [ ] Body validation was NOT run (mode forced to none)
+- [ ] This confirms "Body Validation: None" only skips body checks — assertions are preserved and evaluated
+
+---
+
+### Scenario 11.5: Assertions Checkbox — Unchecking Skips Assertions
+
+**Goal:** Confirm that unchecking the Assertions checkbox skips all configured assertions.
+
+#### Steps
+
+1. Open a test scenario with a **Status Code** assertion: `200`
+2. In the Test Runner, ensure **Body Validation** is set to **"Default"** or **"Selective"**
+3. **Uncheck** the **Assertions** checkbox
+4. Run the test
+
+#### Expected Results
+
+- [ ] Test passes or fails based on body validation and HTTP status only
+- [ ] Configured assertions are **NOT** executed (not shown in failure details if they would have failed)
+- [ ] This allows testing body validation without assertion interference
+
+---
+
+## Part 12: Body Editor Dropdown
+
+> **Context:** The Body Editor has a dropdown for selecting the body type (JSON, XML, Form Data, etc.).
+> This dropdown must render correctly without clipping in both the **Request Editor** and the **Edit Test Modal**.
+
+### Scenario 12.1: Request Editor — Body Type Dropdown Opens Correctly
+
+**Goal:** Confirm the dropdown renders fully without clipping in the Request Editor.
+
+#### Steps
+
+1. Go to **Requests** (activity bar)
+2. Open or create a request
+3. Click the **Body** tab in the request editor (left pane)
+4. Click the body type selector button (e.g., shows "JSON" with ▼ arrow)
+5. Observe the dropdown menu that opens
+
+#### Expected Results
+
+- [ ] Dropdown opens below the trigger button
+- [ ] All 7 body types are visible in 3 groups:
+  - **Structured**: Form Data, Form URL Encoded
+  - **Text**: JSON, XML, Plain Text
+  - **Other**: File, No Body
+- [ ] Dropdown is NOT clipped by any parent container
+- [ ] Active type has a ✓ checkmark
+- [ ] Clicking a type changes the selection and closes the dropdown
+- [ ] Clicking outside the dropdown closes it
+
+---
+
+### Scenario 12.2: Edit Test Modal — Body Type Dropdown Opens Correctly
+
+**Goal:** Confirm the dropdown works identically inside the Edit Test modal.
+
+#### Steps
+
+1. Go to **Harness** → **Feature Groups**
+2. Open a test scenario → click **Edit** to open the Edit Test modal
+3. Click the **Body** tab in the modal tab bar
+4. Click the body type selector button
+5. Observe the dropdown
+
+#### Expected Results
+
+- [ ] Same behavior as Scenario 12.1
+- [ ] Dropdown is NOT clipped by the modal boundary
+- [ ] All 7 types visible, grouped correctly
+
+---
+
+### Scenario 12.3: Body Type Dropdown — Upward Positioning
+
+**Goal:** Confirm the dropdown opens upward when the trigger is near the bottom of the viewport.
+
+#### Steps
+
+1. Open a request or test in the Edit Test modal
+2. Resize the window so the Body tab trigger is near the **bottom** of the viewport
+3. Click the body type selector button
+
+#### Expected Results
+
+- [ ] Dropdown opens **upward** (above the trigger)
+- [ ] All types are still visible and selectable
+- [ ] No overlap with the trigger button (4px gap)
+
+---
+
+## Part 13: Workflow HTTP Config
+
+> **Context:** The Workflow HTTP Config panel is used to configure HTTP request nodes in the Workflow Designer.
+> It must be consistent with the Test Editor in tab order and available features.
+
+### Scenario 13.1: Tab Order — Consistent with Test Editor
+
+**Goal:** Confirm the Workflow HTTP Config has the same tab order as the Edit Test modal.
+
+#### Steps
+
+1. Go to **Workflows** (activity bar)
+2. Open or create a workflow
+3. Add an **HTTP Request** node (or click an existing one)
+4. Observe the configuration panel tabs
+
+#### Expected Results
+
+- [ ] Tabs appear in this order: **Params | Body | Auth | Headers | Validation | Extract | Data Source**
+- [ ] All 7 tabs are present
+- [ ] Each tab is clickable and shows its content
+
+---
+
+### Scenario 13.2: Auth Tab — Type Selection
+
+**Goal:** Confirm the Auth tab has all auth types and renders correct fields.
+
+#### Steps
+
+1. In the Workflow HTTP Config, click the **Auth** tab
+2. Observe the "Type" dropdown
+
+#### Expected Results
+
+- [ ] Dropdown has 7 options:
+  - Inherit from Service
+  - No Auth
+  - Basic Auth
+  - Bearer Token
+  - API Key
+  - Digest Auth
+  - OAuth2 Client Credentials
+- [ ] Default is **"Inherit from Service"**
+
+---
+
+### Scenario 13.3: Auth Tab — Basic Auth Fields
+
+**Goal:** Confirm Basic Auth shows username and password fields.
+
+#### Steps
+
+1. In the Auth tab, select **"Basic Auth"** from the dropdown
+2. Observe the fields
+
+#### Expected Results
+
+- [ ] Two fields appear: **Username** and **Password**
+- [ ] Password field is masked (type="password")
+- [ ] Auth tab shows a **dot badge** indicator (since auth type is not "none" or "inherit")
+- [ ] Entering values and saving preserves them
+
+---
+
+### Scenario 13.4: Auth Tab — Bearer Token Fields
+
+**Goal:** Confirm Bearer Token shows token and optional prefix fields.
+
+#### Steps
+
+1. Select **"Bearer Token"** from the Auth type dropdown
+
+#### Expected Results
+
+- [ ] **Token** input field appears
+- [ ] **Prefix** field appears with default text "Bearer"
+- [ ] Auth tab dot badge is visible
+
+---
+
+### Scenario 13.5: Auth Tab — API Key Fields
+
+**Goal:** Confirm API Key shows key name, value, and send-in location.
+
+#### Steps
+
+1. Select **"API Key"** from the Auth type dropdown
+
+#### Expected Results
+
+- [ ] **Key** input field (API key name)
+- [ ] **Value** input field
+- [ ] **Send in** radio buttons: `Header` (default) and `Query`
+- [ ] Auth tab dot badge is visible
+
+---
+
+### Scenario 13.6: Auth Tab — Inherit from Service (Hint Message)
+
+**Goal:** Confirm the inherit hint shows the correct service name.
+
+#### Steps
+
+1. Select **"Inherit from Service"** from the Auth type dropdown
+2. In the URL tab, select a service from the "Service" dropdown (must have registered a service first)
+3. Go back to the Auth tab
+
+#### Expected Results
+
+- [ ] Hint message reads: *"Auth will be inherited from the selected service (**{service name}**)."*
+  - Shows the **service name**, not the node label
+- [ ] When no service is selected, hint reads: *"No service selected — auth will use the environment fallback or remain unauthenticated."*
+- [ ] Auth tab does **NOT** show a dot badge (inherit is not a custom auth config)
+
+---
+
+### Scenario 13.7: Auth Tab — OAuth2 Client Credentials
+
+**Goal:** Confirm OAuth2 shows all required fields.
+
+#### Steps
+
+1. Select **"OAuth2 Client Credentials"** from the Auth type dropdown
+
+#### Expected Results
+
+- [ ] **Token URL** input field
+- [ ] **Client ID** input field
+- [ ] **Client Secret** password field
+- [ ] Auth tab dot badge is visible
+
+---
+
+## Part 14: Bug Fix Verification
+
+> **Context:** These scenarios verify specific bugs that were found and fixed during code review.
+> Each one documents the original bug and how to confirm it's resolved.
+
+### Scenario 14.1: BUG FIX — Body Validation "None" No Longer Strips Assertions
+
+**Bug:** When Body Validation was set to "None" on a test without a data source, `buildSelectedTests`
+replaced the entire validation config with `{ mode: 'none' }`, silently dropping all configured assertions.
+This meant status code, response time, and other assertions would not execute.
+
+**Fix:** Changed to `{ ...validation, mode: 'none' }` (spread preserves assertions/fields while overriding mode).
+
+#### Steps to Verify
+
+1. Create a test with:
+   - **Selective Fields** mode with field mappings
+   - **Status Code** assertion: `200`
+   - **Response Time SLA**: max `10000`
+2. In the Test Runner, set **Body Validation** to **"None"**
+3. Ensure **Assertions** checkbox is **checked**
+4. Run the test
+
+#### Expected Results
+
+- [ ] Assertions are executed (status code and response time both evaluated)
+- [ ] Body validation is skipped (mode is none)
+- [ ] Test passes (assertions pass)
+- [ ] If you change the Status Code assertion to `404`, the test **fails** on the assertion
+- [ ] This confirms assertions are NOT stripped when forcing mode to none
+
+---
+
+### Scenario 14.2: BUG FIX — Body Type Dropdown Upward Position CSS
+
+**Bug:** When the body type dropdown opened upward (near viewport bottom), both CSS `top: calc(100% + 4px)`
+and inline `bottom: '100%'` were applied simultaneously, causing incorrect positioning.
+
+**Fix:** The inline style now sets `top: 'auto'` when opening upward to override the CSS `top` property.
+
+#### Steps to Verify
+
+1. Resize the browser window to be short (e.g., 400px tall)
+2. Open a request or Edit Test modal → Body tab
+3. The body type trigger should be near the bottom of the viewport
+4. Click the body type selector
+
+#### Expected Results
+
+- [ ] Dropdown opens **upward** cleanly
+- [ ] No double positioning (dropdown appears in only one location)
+- [ ] All items are visible and selectable
+- [ ] 4px gap between dropdown and trigger
+
+---
+
+### Scenario 14.3: BUG FIX — Request Editor Dropdown Clipping
+
+**Bug:** The body type dropdown in the Request Editor was clipped by `.req-editor` and `.req-main`
+containers that had `overflow: hidden` without a corresponding `:has(.body-type-dropdown)` override.
+
+**Fix:** Added `:has(.body-type-dropdown)` overrides for `.req-main` and `.req-editor`.
+
+#### Steps to Verify
+
+1. Go to **Requests** → open a request → **Body** tab
+2. Click the body type dropdown
+3. Observe if it renders fully or is clipped
+
+#### Expected Results
+
+- [ ] Dropdown is NOT clipped by any parent container
+- [ ] All 7 body types visible
+- [ ] Compare with the Edit Test modal — both should look identical
+
+---
+
+### Scenario 14.4: BUG FIX — Workflow Auth Inherit Hint Shows Service Name
+
+**Bug:** The inherit auth hint in Workflow HTTP Config showed `data.label` (the node label, e.g., "Get Users")
+instead of the actual service name (e.g., "User Service").
+
+**Fix:** Changed to resolve the service name from `workflowServices` array using `data.serviceId`.
+
+#### Steps to Verify
+
+1. In a Workflow, register a service named **"User Service"** (via the Services toolbar button)
+2. Add an HTTP node → in the URL tab, select **"User Service"** from the Service dropdown
+3. Go to the **Auth** tab → select **"Inherit from Service"**
+
+#### Expected Results
+
+- [ ] Hint reads: *"Auth will be inherited from the selected service (**User Service**)."*
+- [ ] NOT the node label (which might be something like "Get Users" or "HTTP Request")
+
+---
+
 ## Checklist Summary
 
 | Part | Scenarios | Focus |
@@ -1016,4 +1435,8 @@ This is the standard flow for adding any assertion — all Part 4 scenarios refe
 | 8 | 8.1 – 8.2 | Persistence & export |
 | 9 | 9.1 – 9.2 | Rust vs JS parity |
 | 10 | 10.1 | Performance |
-| **Total** | **30 scenarios** | |
+| 11 | 11.1 – 11.5 | Test Runner toolbar controls |
+| 12 | 12.1 – 12.3 | Body Editor dropdown |
+| 13 | 13.1 – 13.7 | Workflow HTTP Config |
+| 14 | 14.1 – 14.4 | Bug fix verification |
+| **Total** | **49 scenarios** | |

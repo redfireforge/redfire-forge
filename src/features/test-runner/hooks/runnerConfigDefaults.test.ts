@@ -24,7 +24,7 @@ describe('runnerConfigDefaults', () => {
       expect(resolved!.weights).toEqual({});
       expect(resolved!.skipValidation).toBe(false);
       expect(resolved!.validationOverride).toBe('default');
-      expect(resolved!.forceUnordered).toBe(false);
+      expect(resolved!.forceUnordered).toBe('default');
       expect(resolved!.hostMode).toBe('settings');
       expect(resolved!.customBaseUrl).toBe('');
       expect(resolved!.executionMode).toBe('batch');
@@ -80,7 +80,7 @@ describe('runnerConfigDefaults', () => {
         weights: { a: 2, b: 3 },
         skipValidation: true,
         validationOverride: 'full',
-        forceUnordered: true,
+        forceUnordered: 'force-on',
         hostMode: 'custom',
         customBaseUrl: 'https://example.com',
         executionMode: 'load-profile',
@@ -102,7 +102,7 @@ describe('runnerConfigDefaults', () => {
       expect(resolved!.weights).toEqual({ a: 2, b: 3 });
       expect(resolved!.skipValidation).toBe(true);
       expect(resolved!.validationOverride).toBe('full');
-      expect(resolved!.forceUnordered).toBe(true);
+      expect(resolved!.forceUnordered).toBe('force-on');
       expect(resolved!.hostMode).toBe('custom');
       expect(resolved!.customBaseUrl).toBe('https://example.com');
       expect(resolved!.executionMode).toBe('load-profile');

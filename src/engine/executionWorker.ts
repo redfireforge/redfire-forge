@@ -14,6 +14,15 @@ interface WorkerContext {
 
 const ctx = self as unknown as WorkerContext;
 
+self.addEventListener('unhandledrejection', (e: PromiseRejectionEvent) => {
+  try {
+    ctx.postMessage({
+      type: 'error',
+      message: `Unhandled rejection in worker: ${e.reason?.message ?? String(e.reason)}`,
+    });
+  } catch { /* cannot communicate back */ }
+});
+
 const pendingHttp = new Map<string, (response: HttpResponse) => void>();
 let abortController: AbortController | null = null;
 let lastSentCount = 0;

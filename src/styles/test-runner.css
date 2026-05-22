@@ -163,8 +163,17 @@
   box-shadow: var(--card-shadow);
 }
 .weight-row { display: flex; align-items: center; gap: 12px; padding: 6px 0; }
-.weight-label { display: flex; align-items: center; gap: 8px; font-size: 0.9rem; flex: 1; min-width: 0; }
+.weight-label { display: flex; align-items: center; gap: 8px; font-size: 0.9rem; flex: 1; min-width: 0; color: var(--text); overflow: hidden; text-overflow: ellipsis; }
 .weight-input { width: 70px; flex-shrink: 0; text-align: center; }
+.weight-input::-webkit-inner-spin-button,
+.weight-input::-webkit-outer-spin-button,
+.config-form input[type="number"]::-webkit-inner-spin-button,
+.config-form input[type="number"]::-webkit-outer-spin-button {
+  opacity: 1;
+  height: auto;
+  cursor: pointer;
+  filter: invert(1) brightness(2);
+}
 
 /* Phase 12: Tag filter */
 .runner-tag-filter-input {
@@ -749,7 +758,7 @@ tr:hover td { background: var(--surface-hover); }
   min-height: 32px;
 }
 .selection-header h3 { font-size: 1rem; margin: 0; padding: 0; line-height: 32px; }
-.selection-actions { display: flex; align-items: center; gap: 8px; line-height: 32px; }
+.selection-actions { display: flex; align-items: center; gap: 8px; line-height: 32px; flex-wrap: nowrap; }
 
 .selection-tree { display: flex; flex-direction: column; gap: 8px; }
 
