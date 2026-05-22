@@ -7,10 +7,10 @@ import type { ExecutionMode, ErrorPolicy, LoadProfileConfig, ThinkTimeConfig, Ar
 import { saveRunnerConfig, loadRunnerConfig as loadRunnerConfigAsync } from '../../../shared/utils/storage';
 import type { ReportOptions } from '../../results/utils/reportGenerator';
 import { defaultLoadProfile, defaultThinkTime, defaultConfig, resolveLoadedConfig } from './runnerConfigDefaults';
-import type { HostMode } from './runnerConfigDefaults';
+import type { HostMode, UnorderedOverride } from './runnerConfigDefaults';
 
 export { defaultLoadProfile, defaultThinkTime, defaultConfig, resolveLoadedConfig } from './runnerConfigDefaults';
-export type { RunnerConfig, HostMode } from './runnerConfigDefaults';
+export type { RunnerConfig, HostMode, UnorderedOverride } from './runnerConfigDefaults';
 
 export interface UseRunnerConfigResult {
   concurrency: number;
@@ -23,10 +23,12 @@ export interface UseRunnerConfigResult {
   setWeights: React.Dispatch<React.SetStateAction<Record<string, number>>>;
   skipValidation: boolean;
   setSkipValidation: React.Dispatch<React.SetStateAction<boolean>>;
+  skipAssertions: boolean;
+  setSkipAssertions: React.Dispatch<React.SetStateAction<boolean>>;
   validationOverride: 'default' | 'none' | 'selective' | 'full';
   setValidationOverride: React.Dispatch<React.SetStateAction<'default' | 'none' | 'selective' | 'full'>>;
-  forceUnordered: boolean;
-  setForceUnordered: React.Dispatch<React.SetStateAction<boolean>>;
+  forceUnordered: UnorderedOverride;
+  setForceUnordered: React.Dispatch<React.SetStateAction<UnorderedOverride>>;
   hostMode: HostMode;
   setHostMode: React.Dispatch<React.SetStateAction<HostMode>>;
   customBaseUrl: string;
@@ -68,8 +70,9 @@ export function useRunnerConfig(configContextKey: string | undefined): UseRunner
   const [selectedScenarios, setSelectedScenarios] = useState<Set<string>>(new Set());
   const [weights, setWeights] = useState<Record<string, number>>({});
   const [skipValidation, setSkipValidation] = useState(false);
+  const [skipAssertions, setSkipAssertions] = useState(false);
   const [validationOverride, setValidationOverride] = useState<'default' | 'none' | 'selective' | 'full'>('default');
-  const [forceUnordered, setForceUnordered] = useState(false);
+  const [forceUnordered, setForceUnordered] = useState<UnorderedOverride>('default');
   const [hostMode, setHostMode] = useState<HostMode>('settings');
   const [customBaseUrl, setCustomBaseUrl] = useState('');
   const [executionMode, setExecutionMode] = useState<ExecutionMode>('batch');
@@ -106,13 +109,14 @@ export function useRunnerConfig(configContextKey: string | undefined): UseRunner
       setSelectedScenarios(new Set(cfg.selectedScenarios));
       setWeights(cfg.weights);
       setSkipValidation(cfg.skipValidation);
+      setSkipAssertions(cfg.skipAssertions);
       setValidationOverride(cfg.validationOverride);
       setForceUnordered(cfg.forceUnordered);
       setHostMode(cfg.hostMode);
       setCustomBaseUrl(cfg.customBaseUrl);
       setExecutionMode(cfg.executionMode);
       setLoadProfile(cfg.loadProfile);
-      if (cfg.arrivalRate) setArrivalRate(cfg.arrivalRate);
+      setArrivalRate(cfg.arrivalRate ?? { targetRps: 10, durationSec: 30 });
       setThinkTime(cfg.thinkTime);
       setTimeoutSec(cfg.timeoutSec);
       setRetryCount(cfg.retryCount);
@@ -135,6 +139,7 @@ export function useRunnerConfig(configContextKey: string | undefined): UseRunner
       selectedScenarios: Array.from(selectedScenarios),
       weights,
       skipValidation,
+      skipAssertions,
       validationOverride,
       forceUnordered,
       hostMode,
@@ -153,7 +158,7 @@ export function useRunnerConfig(configContextKey: string | undefined): UseRunner
       autoReportFormat,
     }, configContextKey);
   }, [configLoaded, configContextKey, concurrency, iterations, selectedScenarios, weights,
-    skipValidation, validationOverride, forceUnordered, hostMode, customBaseUrl, executionMode,
+    skipValidation, skipAssertions, validationOverride, forceUnordered, hostMode, customBaseUrl, executionMode,
     loadProfile, arrivalRate, thinkTime, timeoutSec, retryCount, retryDelayMs, errorPolicy, maxErrors,
     maxErrorRate, autoReport, autoReportFormat]);
 
@@ -163,6 +168,7 @@ export function useRunnerConfig(configContextKey: string | undefined): UseRunner
     selectedScenarios, setSelectedScenarios,
     weights, setWeights,
     skipValidation, setSkipValidation,
+    skipAssertions, setSkipAssertions,
     validationOverride, setValidationOverride,
     forceUnordered, setForceUnordered,
     hostMode, setHostMode,

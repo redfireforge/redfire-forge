@@ -260,7 +260,7 @@ describe('workerBridge — runTestInWorker', () => {
   it('uses fallback message for empty Worker error event', async () => {
     const promise = runTestInWorker(makeConfig(), [makeScenario()], vi.fn());
     mockWorker().simulateError('');
-    await expect(promise).rejects.toThrow('Worker error');
+    await expect(promise).rejects.toThrow('Worker failed to initialize');
   });
 
   describe('HTTP proxy non-Error rejection', () => {

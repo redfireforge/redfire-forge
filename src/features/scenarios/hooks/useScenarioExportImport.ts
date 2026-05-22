@@ -2,7 +2,7 @@ import { useCallback, useState, useMemo } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import type { FeatureGroup, TestScenario, Scenario, SharedDataSource } from '../../../shared/types';
 import { saveJsonFile, buildExportFilename } from '../../../shared/utils/fileSaver';
-import { pickJsonFile, reIdScenarios, unwrapImport, wrapExport, stripVersions, hasVersionData } from '../utils/scenarioImportExport';
+import { pickJsonFile, reIdScenarios, unwrapImport, wrapExport, stripVersions, hasVersionData, normalizeTestFields } from '../utils/scenarioImportExport';
 import type { VersionExportOptions } from '../utils/scenarioImportExport';
 
 interface UseScenarioExportImportParams {
@@ -248,7 +248,7 @@ export function useScenarioExportImport({
           if (dupes.length > 0) {
             const names = dupes.map((t) => `  • "${t.name}"`).join('\n');
             confirm('Import Conflicts', `These tests already exist in "${sc.name}":\n${names}\n\nImport as new copies?`, () => {
-              const imported = finalItems.map((t) => ({ ...t, id: uuidv4() }));
+              const imported = finalItems.map((t) => normalizeTestFields({ ...t, id: uuidv4() }));
               setFeatureGroups((prev) => prev.map((f) => {
                 if (f.id !== featureId) return f;
                 return { ...f, scenarios: f.scenarios.map((s) =>
@@ -259,7 +259,7 @@ export function useScenarioExportImport({
             return;
           }
         }
-        const imported = finalItems.map((t) => ({ ...t, id: uuidv4() }));
+        const imported = finalItems.map((t) => normalizeTestFields({ ...t, id: uuidv4() }));
         setFeatureGroups((prev) => prev.map((f) => {
           if (f.id !== featureId) return f;
           return { ...f, scenarios: f.scenarios.map((s) =>

@@ -8,7 +8,7 @@ import * as _autoMapAlgorithm from './utils/autoMapAlgorithm';
 import * as _mappingProfiles from './utils/mappingProfiles';
 import * as _dropMappingNs from './utils/dropMapping';
 import * as _subtreeMappingNs from './utils/subtreeMapping';
-import { sampleSource, createTestAdapter } from './DataMapper.test-utils';
+import { sampleSource, sampleTarget, createTestAdapter } from './DataMapper.test-utils';
 
 describe('DataMapper', () => {
   it('renders without crashing', () => {
@@ -724,6 +724,84 @@ describe('DataMapper – string sampleData', () => {
     ];
     const { container } = render(<DataMapper adapter={adapter} initialData={mappings} />);
     expect(container.querySelector('.dm-mismatch-badge')).toBeNull();
+  });
+
+  it('auto-fetches sample data in validation context when no source data and has mappings', async () => {
+    const fetchSampleData = vi.fn().mockResolvedValue({ autoFetched: true });
+    const adapter: MapperAdapter<Mapping[]> = {
+      contextId: 'validation',
+      sources: [{ id: 's1', label: 'Response', sampleData: undefined }],
+      target: { label: 'Target', sampleData: sampleTarget, allowCustomFields: false },
+      serialize: (m) => m,
+      deserialize: (d) => d ?? [],
+      fetchSampleData,
+    };
+    const mappings: Mapping[] = [
+      { id: 'm1', sourcePath: 'field', sourceId: 's1', targetPath: 'userName' },
+    ];
+    render(<DataMapper adapter={adapter} initialData={mappings} />);
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 10));
+    });
+    expect(fetchSampleData).toHaveBeenCalled();
+  });
+
+  it('does not auto-fetch in validation context when source data already exists', async () => {
+    const fetchSampleData = vi.fn().mockResolvedValue({ autoFetched: true });
+    const adapter: MapperAdapter<Mapping[]> = {
+      contextId: 'validation',
+      sources: [{ id: 's1', label: 'Response', sampleData: { existing: 'data' } }],
+      target: { label: 'Target', sampleData: sampleTarget, allowCustomFields: false },
+      serialize: (m) => m,
+      deserialize: (d) => d ?? [],
+      fetchSampleData,
+    };
+    const mappings: Mapping[] = [
+      { id: 'm1', sourcePath: 'field', sourceId: 's1', targetPath: 'userName' },
+    ];
+    render(<DataMapper adapter={adapter} initialData={mappings} />);
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 10));
+    });
+    expect(fetchSampleData).not.toHaveBeenCalled();
+  });
+
+  it('does not auto-fetch in validation context when no mappings', async () => {
+    const fetchSampleData = vi.fn().mockResolvedValue({ autoFetched: true });
+    const adapter: MapperAdapter<Mapping[]> = {
+      contextId: 'validation',
+      sources: [{ id: 's1', label: 'Response', sampleData: undefined }],
+      target: { label: 'Target', sampleData: sampleTarget, allowCustomFields: false },
+      serialize: (m) => m,
+      deserialize: (d) => d ?? [],
+      fetchSampleData,
+    };
+    render(<DataMapper adapter={adapter} initialData={[]} />);
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 10));
+    });
+    expect(fetchSampleData).not.toHaveBeenCalled();
+  });
+
+  it('handles auto-fetch error gracefully in validation context', async () => {
+    const fetchSampleData = vi.fn().mockRejectedValue(new Error('Fetch failed'));
+    const adapter: MapperAdapter<Mapping[]> = {
+      contextId: 'validation',
+      sources: [{ id: 's1', label: 'Response', sampleData: undefined }],
+      target: { label: 'Target', sampleData: sampleTarget, allowCustomFields: false },
+      serialize: (m) => m,
+      deserialize: (d) => d ?? [],
+      fetchSampleData,
+    };
+    const mappings: Mapping[] = [
+      { id: 'm1', sourcePath: 'field', sourceId: 's1', targetPath: 'userName' },
+    ];
+    const { container } = render(<DataMapper adapter={adapter} initialData={mappings} />);
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 10));
+    });
+    expect(fetchSampleData).toHaveBeenCalled();
+    expect(container.querySelector('.dm-container')).toBeTruthy();
   });
 });
 

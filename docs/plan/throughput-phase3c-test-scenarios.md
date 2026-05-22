@@ -669,6 +669,83 @@ All metric card labels in LiveProgressPanel and ResultsDashboard use CSS `text-t
 
 ---
 
+## Part 21–23: Bug Fix Verification (Phase 3C)
+
+> **Context:** These scenarios verify specific bugs found during code review of the Phase 3C implementation.
+
+### Test Scenario 21: BUG FIX — CAR Config Resets When Switching Environments
+
+**Bug:** When loading a saved runner config that did NOT have `arrivalRate` (e.g., from an
+env/microservice context that never used CAR), the previous context's `arrivalRate` state was
+carried over. This meant switching from a context where Target RPS = 50 to a fresh context
+would still show 50 instead of the default 10.
+
+**Fix:** Changed `useRunnerConfig` to always reset `arrivalRate` to `{ targetRps: 10, durationSec: 30 }`
+when loading config without it (instead of only setting when present).
+
+#### Steps to Verify
+
+1. In **Test Runner**, select **Constant Arrival** mode
+2. Set **Target RPS** to `99` and **Duration** to `120`
+3. Switch to a **different environment/microservice** that has never used CAR before
+4. Select **Constant Arrival** mode again
+5. Observe the Target RPS and Duration fields
+
+#### Expected Results
+
+- [ ] **Target RPS** shows `10` (default), NOT `99` (carried over from previous context)
+- [ ] **Duration** shows `30` (default), NOT `120`
+- [ ] Switching back to the original context restores `99` and `120` (those were saved)
+
+---
+
+### Test Scenario 22: BUG FIX — Execution Plan Preview Not Shown for CAR
+
+**Bug:** The iteration-based Execution Plan Preview was visible in Constant Arrival mode,
+showing misleading iteration allocation that doesn't apply to time-based execution.
+
+**Fix:** Added `!isConstantArrival` guard alongside the existing `!isLoadProfile` check.
+
+#### Steps to Verify
+
+1. In **Test Runner**, select any test
+2. Switch through execution modes and check Execution Plan visibility:
+   - **Sequential** → Execution Plan **visible**
+   - **Batch** → Execution Plan **visible**
+   - **Continuous Pool** → Execution Plan **visible**
+   - **Load Profile** → Execution Plan **hidden**
+   - **Constant Arrival** → Execution Plan **hidden**
+
+#### Expected Results
+
+- [ ] Execution Plan is hidden for time-based modes (Load Profile, Constant Arrival)
+- [ ] Execution Plan is visible for iteration-based modes (Sequential, Batch, Pool)
+
+---
+
+### Test Scenario 23: BUG FIX — Better CAR Error on Desktop with OAuth2
+
+**Bug:** On the Tauri desktop app, if a test used OAuth2 auth and the user selected Constant
+Arrival mode, the error message said "requires the desktop app" even though they WERE on
+desktop. The real issue was OAuth2 not being supported by the Rust executor.
+
+**Fix:** Error message now distinguishes between "not on Tauri" and "on Tauri but Rust unavailable"
+with specific guidance about OAuth2.
+
+#### Steps to Verify
+
+1. On the **desktop app (Tauri)**: Create a test with **OAuth2 Client Credentials** auth
+2. In the **Auth** tab, configure OAuth2 with any token URL
+3. Select **Constant Arrival** mode and click **▶ Run Test**
+
+#### Expected Results
+
+- [ ] Error message says: **"Constant Arrival Rate requires the Rust executor (not available with OAuth2 auth)"**
+- [ ] Does NOT say "requires the desktop app (Tauri)" — because you ARE on desktop
+- [ ] On web (`http://localhost:5173`), if CAR mode is somehow triggered, it correctly says "requires the desktop app (Tauri)"
+
+---
+
 ## Overall Verification Summary
 
 After completing all scenarios:
@@ -695,3 +772,6 @@ After completing all scenarios:
 | Dropped requests styling differences (live vs results) | [ ] | Scenario 18 |
 | Clean mode switching (no residual state) | [ ] | Scenario 19 |
 | Parameterized Runner parity | [ ] | Scenario 20 |
+| CAR config resets on env switch | [ ] | Scenario 21 |
+| Exec Plan hidden for CAR | [ ] | Scenario 22 |
+| CAR error message for OAuth2 | [ ] | Scenario 23 |

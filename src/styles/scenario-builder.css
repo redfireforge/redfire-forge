@@ -100,6 +100,7 @@
   overflow: hidden;
   padding: 20px 24px 0;
 }
+.builder-panel:has(.body-type-dropdown) { overflow: visible; }
 
 /* URL bar */
 .url-bar {
@@ -214,6 +215,9 @@
   flex: 1;
   overflow-y: auto;
   padding: 16px 0 24px;
+}
+.insomnia-modal:has(.body-type-dropdown) { overflow: visible; }
+.builder-tab-content:has(.body-type-dropdown) { overflow: visible;
 }
 
 /* Key-Value sections (params, headers, expected fields) */
@@ -1924,7 +1928,7 @@
   position: absolute;
   top: calc(100% + 4px);
   left: 0;
-  z-index: 120;
+  z-index: 9999;
   min-width: 180px;
   background: var(--surface);
   border: 1px solid var(--border);

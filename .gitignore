@@ -40,3 +40,4 @@ jscpd-report/
 test-results/
 playwright-report/
 test-script-paste.cjs
+.playwright-mcp/

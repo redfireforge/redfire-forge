@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import type { FeatureGroup, GlobalAuthProfile, AuthConfig, ScenarioKind } from '../../../shared/types';
-import type { RunnerConfig } from '../hooks/runnerConfigDefaults';
+import type { RunnerConfig, UnorderedOverride } from '../hooks/runnerConfigDefaults';
 import { buildSelectedTests } from '../utils/buildSelectedTests';
 
 interface Props {
@@ -13,10 +13,12 @@ interface Props {
   onWeightsChange: (weights: Record<string, number>) => void;
   skipValidation: boolean;
   onSkipValidationChange: (skip: boolean) => void;
+  skipAssertions: boolean;
+  onSkipAssertionsChange: (skip: boolean) => void;
   validationOverride: RunnerConfig['validationOverride'];
   onValidationOverrideChange: (override: RunnerConfig['validationOverride']) => void;
-  forceUnordered: boolean;
-  onForceUnorderedChange: (force: boolean) => void;
+  forceUnordered: UnorderedOverride;
+  onForceUnorderedChange: (force: UnorderedOverride) => void;
   autoReport: boolean;
   onAutoReportChange: (auto: boolean) => void;
   autoReportFormat: 'html' | 'json' | 'markdown';
@@ -38,6 +40,8 @@ export default function ScenarioSelector({
   onWeightsChange: _onWeightsChange,
   skipValidation,
   onSkipValidationChange,
+  skipAssertions,
+  onSkipAssertionsChange,
   validationOverride,
   onValidationOverrideChange,
   forceUnordered,
@@ -132,11 +136,12 @@ export default function ScenarioSelector({
     customBaseUrl,
     resolvedBaseUrl,
     skipValidation,
+    skipAssertions,
     validationOverride,
     forceUnordered,
     globalAuthProfiles,
     envFallbackAuth,
-  ), [featureGroups, selectedScenarios, hostMode, customBaseUrl, resolvedBaseUrl, skipValidation, validationOverride, forceUnordered, globalAuthProfiles, envFallbackAuth]);
+  ), [featureGroups, selectedScenarios, hostMode, customBaseUrl, resolvedBaseUrl, skipValidation, skipAssertions, validationOverride, forceUnordered, globalAuthProfiles, envFallbackAuth]);
 
   const renderFeatureGroup = (fg: FeatureGroup) => {
     if (fg.scenarios.length === 0) return null;
@@ -205,36 +210,45 @@ export default function ScenarioSelector({
         <div className="selection-actions">
           <button className="btn btn-sm" onClick={selectAll} disabled={disabled}>Select All</button>
           <button className="btn btn-sm" onClick={deselectAll} disabled={disabled}>Deselect All</button>
-          <label className="checkbox-label" style={{ marginLeft: 8, fontSize: '0.82rem' }}>
-            <input
-              type="checkbox"
-              checked={skipValidation}
-              onChange={(e) => onSkipValidationChange(e.target.checked)}
-              disabled={disabled}
-            />
-            Skip validation
-          </label>
-          <label className="checkbox-label" style={{ marginLeft: 8, fontSize: '0.82rem' }} title="Runtime validation override — Default uses each test's configured mode">
+          <label className="checkbox-label" style={{ marginLeft: 8, fontSize: '0.82rem', whiteSpace: 'nowrap' }} title="Controls JSON response body matching (expected fields, schema). Use Default to respect each test's own setting.">
+            Body Validation
             <select
-              value={validationOverride}
-              onChange={(e) => onValidationOverrideChange(e.target.value as RunnerConfig['validationOverride'])}
+              value={skipValidation ? 'none' : validationOverride}
+              onChange={(e) => {
+                const val = e.target.value as RunnerConfig['validationOverride'];
+                onValidationOverrideChange(val);
+                onSkipValidationChange(val === 'none');
+              }}
               disabled={disabled}
               style={{ fontSize: '0.78rem', marginLeft: 4 }}
             >
-              <option value="default">Validation: Default</option>
-              <option value="none">Validate: No Rows</option>
-              <option value="selective">Validate: Sample Rows Only</option>
-              <option value="full">Validate: All Rows</option>
+              <option value="default">Default</option>
+              <option value="none">None</option>
+              <option value="selective">Selective</option>
+              <option value="full">Full</option>
             </select>
           </label>
-          <label className="checkbox-label" style={{ marginLeft: 8, fontSize: '0.82rem' }} title="Match array items by content regardless of order — useful when APIs return arrays in non-deterministic order">
+          <label className="checkbox-label" style={{ marginLeft: 8, fontSize: '0.82rem' }} title="Run status, header, and custom assertions. Uncheck to skip all assertions.">
             <input
               type="checkbox"
-              checked={forceUnordered}
-              onChange={(e) => onForceUnorderedChange(e.target.checked)}
-              disabled={disabled || validationOverride === 'none' || skipValidation}
+              checked={!skipAssertions}
+              onChange={(e) => onSkipAssertionsChange(!e.target.checked)}
+              disabled={disabled}
             />
+            Assertions
+          </label>
+          <label className="checkbox-label" style={{ marginLeft: 8, fontSize: '0.82rem', whiteSpace: 'nowrap' }} title="Array matching: Default respects each test's setting, On forces unordered, Off forces ordered">
             Unordered arrays
+            <select
+              value={forceUnordered}
+              onChange={(e) => onForceUnorderedChange(e.target.value as UnorderedOverride)}
+              disabled={disabled || validationOverride === 'none' || skipValidation}
+              style={{ fontSize: '0.78rem', marginLeft: 4 }}
+            >
+              <option value="default">Default</option>
+              <option value="force-on">On</option>
+              <option value="force-off">Off</option>
+            </select>
           </label>
           <label className="checkbox-label" style={{ marginLeft: 8, fontSize: '0.82rem', whiteSpace: 'nowrap' }} title="Automatically download a report when the test finishes">
             <input

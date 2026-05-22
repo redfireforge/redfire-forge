@@ -1,0 +1,164 @@
+{
+  "id": "340b4149-5d79-44f8-95f7-5f317d74d7d6",
+  "name": "Payment Flow",
+  "microserviceId": "269db646-711d-4ac9-bd5a-26d2123e46d9",
+  "environmentId": "713f493a-f2eb-4e62-b701-db6c6095260f",
+  "scenarios": [
+    {
+      "id": "a900d3ef-2ed6-4c1d-a4f0-8bc67a7e9a9a",
+      "name": "Error Cases",
+      "kind": "standard",
+      "tests": [
+        {
+          "id": "6801cd9e-b037-4551-b572-86400f231729",
+          "name": "Invalid Payment Error",
+          "url": "https://jsonplaceholder.typicode.com/posts/999",
+          "method": "GET",
+          "headers": [
+            {
+              "key": "",
+              "value": ""
+            }
+          ],
+          "body": "",
+          "bodyType": "none",
+          "bodyForm": [
+            {
+              "key": "",
+              "value": ""
+            }
+          ],
+          "auth": {
+            "type": "inherit"
+          },
+          "validation": {
+            "mode": "none",
+            "expectedFields": []
+          },
+          "fetchHostOverride": "",
+          "fetchHostEnabled": false
+        }
+      ]
+    },
+    {
+      "id": "8ad52b1c-f4cc-4660-8da7-bfff7a543352",
+      "name": "Happy Path",
+      "kind": "standard",
+      "tests": [
+        {
+          "id": "78dc34ec-51f1-49e9-94f5-bf508c8b17d1",
+          "name": "GET Payment Status",
+          "url": "https://jsonplaceholder.typicode.com/posts/1",
+          "method": "GET",
+          "headers": [
+            {
+              "key": "",
+              "value": ""
+            }
+          ],
+          "body": "",
+          "bodyType": "none",
+          "bodyForm": [
+            {
+              "key": "",
+              "value": ""
+            }
+          ],
+          "auth": {
+            "type": "inherit"
+          },
+          "validation": {
+            "mode": "none",
+            "expectedFields": []
+          },
+          "fetchHostOverride": "",
+          "fetchHostEnabled": false
+        },
+        {
+          "id": "02a887cf-33f5-4255-ba5f-0ff227a1580b",
+          "name": "POST Payment Submit",
+          "url": "https://jsonplaceholder.typicode.com/posts",
+          "method": "GET",
+          "headers": [
+            {
+              "key": "",
+              "value": ""
+            }
+          ],
+          "body": "",
+          "bodyType": "none",
+          "bodyForm": [
+            {
+              "key": "",
+              "value": ""
+            }
+          ],
+          "auth": {
+            "type": "inherit"
+          },
+          "validation": {
+            "mode": "none",
+            "expectedFields": []
+          },
+          "fetchHostOverride": "",
+          "fetchHostEnabled": false
+        }
+      ]
+    }
+  ],
+  "structureLog": [
+    {
+      "id": "28a8b5b0-5cb9-425e-9cb2-62ca8994fa0c",
+      "timestamp": 1779449000552,
+      "action": "restored",
+      "entityName": "Happy Path",
+      "detail": "restored from trash"
+    },
+    {
+      "id": "b4ba8fdb-8fda-4738-b2ec-fb800cae3baa",
+      "timestamp": 1779448958134,
+      "action": "scenario-removed",
+      "entityName": "Happy Path"
+    },
+    {
+      "id": "2681c47d-fac4-428d-a596-222af3384032",
+      "timestamp": 1779448883183,
+      "action": "restored",
+      "entityName": "Payment Flow",
+      "detail": "restored from trash"
+    },
+    {
+      "id": "b248fb50-78f1-4742-8ace-81a68dc0fbba",
+      "timestamp": 1779448829178,
+      "action": "test-added",
+      "entityName": "Invalid Payment Error",
+      "scenarioName": "Error Cases"
+    },
+    {
+      "id": "4772cc90-fb90-4bda-bf55-692a6959cba0",
+      "timestamp": 1779448804044,
+      "action": "scenario-added",
+      "entityName": "Error Cases"
+    },
+    {
+      "id": "19cbcba3-5fcb-45dc-9254-aa71d4fa1d8a",
+      "timestamp": 1779448778945,
+      "action": "test-added",
+      "entityName": "POST Payment Submit",
+      "scenarioName": "Happy Path"
+    },
+    {
+      "id": "a33a2815-d48a-4f30-a02f-c3e05a0a64af",
+      "timestamp": 1779448749361,
+      "action": "test-added",
+      "entityName": "GET Payment Status",
+      "scenarioName": "Happy Path"
+    },
+    {
+      "id": "a072bfc4-6787-49b5-8e02-01a74c812a5f",
+      "timestamp": 1779448719255,
+      "action": "scenario-added",
+      "entityName": "Happy Path"
+    }
+  ]
+}
