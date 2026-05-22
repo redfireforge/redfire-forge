@@ -1,5 +1,0 @@
-- generic [active] [ref=e1]:
-  - generic [ref=e4]:
-    - heading "RedfireForge" [level=2] [ref=e5]
-    - paragraph [ref=e6]: Loading...
-  - status
