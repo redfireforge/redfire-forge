@@ -28,6 +28,7 @@ vi.mock('../utils/scenarioImportExport', () => ({
   wrapExport: vi.fn((data: unknown, level: string) => ({ _exportMeta: { level, exportedAt: 'now' }, data })),
   hasVersionData: vi.fn(() => false),
   stripVersions: vi.fn((data: unknown) => data),
+  normalizeTestFields: vi.fn((test: unknown) => test),
 }));
 
 import { saveJsonFile } from '../../../shared/utils/fileSaver';

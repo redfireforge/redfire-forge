@@ -463,7 +463,7 @@ export function useTestFetch({
           }
           const ctx: AssertionContext = {
             httpStatus: result.status ?? 200,
-            responseTimeMs: 0,
+            responseTimeMs: result.timing?.total ?? 0,
             responseHeaders,
             responseBody: responseObj,
           };

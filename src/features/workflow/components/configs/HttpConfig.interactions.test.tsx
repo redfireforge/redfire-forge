@@ -375,7 +375,7 @@ describe('HttpConfig — interactions', () => {
     const onChange = vi.fn();
     const data = makeHttpData({ scenario: makeScenario({ body: 'not-json' }) });
     render(<HttpConfig {...defaultProps} activeTab="body" data={data} onChange={onChange} />);
-    fireEvent.click(screen.getByText('Pretty'));
+    fireEvent.click(screen.getByText('Pretty Format'));
     expect(onChange).not.toHaveBeenCalledWith(
       expect.objectContaining({ scenario: expect.objectContaining({ body: expect.any(String) }) }),
     );
@@ -385,7 +385,7 @@ describe('HttpConfig — interactions', () => {
     const onChange = vi.fn();
     const data = makeHttpData({ scenario: makeScenario({ body: '{"a":1}' }) });
     render(<HttpConfig {...defaultProps} activeTab="body" data={data} onChange={onChange} />);
-    fireEvent.click(screen.getByText('Pretty'));
+    fireEvent.click(screen.getByText('Pretty Format'));
     expect(onChange).toHaveBeenCalledWith(
       expect.objectContaining({
         scenario: expect.objectContaining({ body: '{\n  "a": 1\n}' }),

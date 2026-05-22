@@ -24,7 +24,7 @@ describe('CodeTextarea', () => {
     );
 
     expect(screen.getByText(/Invalid JSON/)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Format' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Pretty Format' })).toBeDisabled();
   });
 
   it('pipes textarea edits upward', () => {
@@ -69,7 +69,7 @@ describe('CodeTextarea', () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Format' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Pretty Format' }));
     const pretty = '{\n  "ok": true\n}';
     expect(onChange).toHaveBeenCalledWith(pretty);
     rerender(<CodeTextarea value={pretty} bodyType="json" placeholder="p" onChange={onChange} />);
@@ -145,5 +145,123 @@ describe('CodeTextarea', () => {
     expect(taSynced.selectionStart).toBe(4);
 
     rafSpy.mockRestore();
+  });
+
+  it('minifies JSON when clicking Minify button', () => {
+    const onChange = vi.fn();
+    render(
+      <CodeTextarea
+        value={'{\n  "ok": true\n}'}
+        bodyType="json"
+        placeholder="p"
+        onChange={onChange}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Minify' }));
+    expect(onChange).toHaveBeenCalledWith('{"ok":true}');
+  });
+
+  it('disables Minify button when JSON is invalid', () => {
+    render(
+      <CodeTextarea
+        value='{"invalid'
+        bodyType="json"
+        placeholder="p"
+        onChange={() => {}}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: 'Minify' })).toBeDisabled();
+  });
+
+  it('does not show JSON controls for non-JSON body types', () => {
+    render(
+      <CodeTextarea
+        value="some text"
+        bodyType="text"
+        placeholder="p"
+        onChange={() => {}}
+      />,
+    );
+
+    expect(screen.queryByRole('button', { name: 'Pretty Format' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Minify' })).not.toBeInTheDocument();
+  });
+
+  it('handles empty value gracefully', () => {
+    render(
+      <CodeTextarea
+        value=""
+        bodyType="json"
+        placeholder="p"
+        onChange={() => {}}
+      />,
+    );
+
+    expect(screen.getByText('1 line')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Pretty Format' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Minify' })).toBeDisabled();
+  });
+
+  it('handles scroll sync with null refs', () => {
+    const { container } = render(
+      <CodeTextarea
+        value="a\nb"
+        bodyType="text"
+        placeholder="p"
+        onChange={() => {}}
+      />,
+    );
+
+    const ta = screen.getByPlaceholderText('p') as HTMLTextAreaElement;
+    fireEvent.scroll(ta);
+    expect(container.querySelector('.body-code-editor')).toBeInTheDocument();
+  });
+
+  it('does not call onChange when minify fails', () => {
+    const onChange = vi.fn();
+    render(
+      <CodeTextarea
+        value='{"invalid'
+        bodyType="json"
+        placeholder="p"
+        onChange={onChange}
+      />,
+    );
+
+    const minifyBtn = screen.getByRole('button', { name: 'Minify' });
+    expect(minifyBtn).toBeDisabled();
+  });
+
+  it('does not call onChange when format fails', () => {
+    const onChange = vi.fn();
+    render(
+      <CodeTextarea
+        value='{"invalid'
+        bodyType="json"
+        placeholder="p"
+        onChange={onChange}
+      />,
+    );
+
+    const formatBtn = screen.getByRole('button', { name: 'Pretty Format' });
+    expect(formatBtn).toBeDisabled();
+  });
+
+  it('does not call onChange when format result equals current value', () => {
+    const onChange = vi.fn();
+    const alreadyFormatted = '{\n  "ok": true\n}';
+    render(
+      <CodeTextarea
+        value={alreadyFormatted}
+        bodyType="json"
+        placeholder="p"
+        onChange={onChange}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Pretty Format' }));
+    expect(onChange).not.toHaveBeenCalled();
   });
 });

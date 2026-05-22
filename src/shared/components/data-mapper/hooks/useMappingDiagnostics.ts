@@ -67,7 +67,8 @@ export function useMappingDiagnostics(
       const sourcePath = normalizeMapperPath(mapping.sourcePath);
       const targetPath = normalizeMapperPath(mapping.targetPath);
       const sourceSet = sourcePathsById.get(sourceId);
-      const sourceMissing = !sourceSet || sourceSet.size === 0 || !sourceSet.has(sourcePath);
+      const sourceHasData = sourceSet != null && sourceSet.size > 0;
+      const sourceMissing = sourceHasData && !sourceSet.has(sourcePath);
       const targetMissing = targetPaths.size === 0 || !targetPaths.has(targetPath);
       if (sourceMissing || targetMissing) unresolved += 1;
 
