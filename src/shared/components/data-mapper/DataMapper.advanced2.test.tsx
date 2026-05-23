@@ -26,7 +26,7 @@ describe('DataMapper – fetch sample', () => {
 });
 
 describe('DataMapper – array suggestion bar', () => {
-  it('shows array suggestion bar when array mapping is selected', () => {
+  it('shows array suggestion bar when array mapping is selected', async () => {
     const adapter: MapperAdapter<Mapping[]> = {
       ...createTestAdapter(),
       sources: [{ id: 's1', label: 'S', sampleData: { items: [{ name: 'A' }] } }],
@@ -36,17 +36,18 @@ describe('DataMapper – array suggestion bar', () => {
     };
     const initial: Mapping[] = [{ id: 'm1', sourcePath: 'items', sourceId: 's1', targetPath: 'items' }];
     const { container } = render(<DataMapper adapter={adapter} initialData={initial} />);
+    await act(async () => {});
     // Click on a mapping line to select it
     const line = container.querySelector('.dm-line');
     if (line) {
-      fireEvent.click(line);
+      await act(async () => { fireEvent.click(line); });
     }
     // Array suggestion bar should be visible if an array mapping is selected
   });
 });
 
 describe('DataMapper – trace overlays', () => {
-  it('renders source trace overlay in debug mode', () => {
+  it('renders source trace overlay in debug mode', async () => {
     const adapter = createTestAdapter();
     const initial: Mapping[] = [{ id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'userName' }];
     const traces = [
@@ -59,14 +60,15 @@ describe('DataMapper – trace overlays', () => {
     const { container } = render(
       <DataMapper adapter={adapter} initialData={initial} traceData={traces} />,
     );
+    await act(async () => {});
     const debugBtn = container.querySelector('.dm-toolbar-btn--debug');
-    fireEvent.click(debugBtn!);
+    await act(async () => { fireEvent.click(debugBtn!); });
     const debugBar = container.querySelector('.dm-debug-bar');
     expect(debugBar).not.toBeNull();
     expect(debugBar?.textContent).toContain('trace');
   });
 
-  it('shows error count in debug bar', () => {
+  it('shows error count in debug bar', async () => {
     const adapter = createTestAdapter();
     const initial: Mapping[] = [{ id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'userName' }];
     const errorTraces = [
@@ -79,15 +81,16 @@ describe('DataMapper – trace overlays', () => {
     const { container } = render(
       <DataMapper adapter={adapter} initialData={initial} traceData={errorTraces} />,
     );
+    await act(async () => {});
     const debugBtn = container.querySelector('.dm-toolbar-btn--debug');
-    fireEvent.click(debugBtn!);
+    await act(async () => { fireEvent.click(debugBtn!); });
     const debugBar = container.querySelector('.dm-debug-bar');
     expect(debugBar?.textContent).toContain('error');
   });
 });
 
 describe('DataMapper – error popover', () => {
-  it('closes error popover on close button click', () => {
+  it('closes error popover on close button click', async () => {
     const adapter = createTestAdapter();
     const initial: Mapping[] = [{ id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'userName' }];
     const errorTraces = [
@@ -100,26 +103,27 @@ describe('DataMapper – error popover', () => {
     const { container } = render(
       <DataMapper adapter={adapter} initialData={initial} traceData={errorTraces} />,
     );
+    await act(async () => {});
     // Enable debug mode
     const debugBtn = container.querySelector('.dm-toolbar-btn--debug');
-    fireEvent.click(debugBtn!);
+    await act(async () => { fireEvent.click(debugBtn!); });
 
     // Click the error inline text to open popover
     const errorInline = container.querySelector('.dm-error-inline');
     if (errorInline) {
-      fireEvent.click(errorInline);
+      await act(async () => { fireEvent.click(errorInline); });
       const popover = container.querySelector('.dm-error-popover');
       if (popover) {
         expect(popover.textContent).toContain('Mapping Error');
         // Close the popover
         const closeBtn = container.querySelector('.dm-error-popover-close');
-        fireEvent.click(closeBtn!);
+        await act(async () => { fireEvent.click(closeBtn!); });
         expect(container.querySelector('.dm-error-popover')).toBeNull();
       }
     }
   });
 
-  it('closes error popover on Escape keydown', () => {
+  it('closes error popover on Escape keydown', async () => {
     const adapter = createTestAdapter();
     const initial: Mapping[] = [{ id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'userName' }];
     const errorTraces = [
@@ -132,19 +136,20 @@ describe('DataMapper – error popover', () => {
     const { container } = render(
       <DataMapper adapter={adapter} initialData={initial} traceData={errorTraces} />,
     );
+    await act(async () => {});
     const debugBtn = container.querySelector('.dm-toolbar-btn--debug');
-    fireEvent.click(debugBtn!);
+    await act(async () => { fireEvent.click(debugBtn!); });
     const errorInline = container.querySelector('.dm-error-inline');
     if (errorInline) {
-      fireEvent.click(errorInline);
+      await act(async () => { fireEvent.click(errorInline); });
       if (container.querySelector('.dm-error-popover')) {
-        fireEvent.keyDown(document, { key: 'Escape' });
+        await act(async () => { fireEvent.keyDown(document, { key: 'Escape' }); });
         expect(container.querySelector('.dm-error-popover')).toBeNull();
       }
     }
   });
 
-  it('closes error popover on outside mousedown', () => {
+  it('closes error popover on outside mousedown', async () => {
     const adapter = createTestAdapter();
     const initial: Mapping[] = [{ id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'userName' }];
     const errorTraces = [
@@ -157,13 +162,14 @@ describe('DataMapper – error popover', () => {
     const { container } = render(
       <DataMapper adapter={adapter} initialData={initial} traceData={errorTraces} />,
     );
+    await act(async () => {});
     const debugBtn = container.querySelector('.dm-toolbar-btn--debug');
-    fireEvent.click(debugBtn!);
+    await act(async () => { fireEvent.click(debugBtn!); });
     const errorInline = container.querySelector('.dm-error-inline');
     if (errorInline) {
-      fireEvent.click(errorInline);
+      await act(async () => { fireEvent.click(errorInline); });
       if (container.querySelector('.dm-error-popover')) {
-        fireEvent.mouseDown(document.body);
+        await act(async () => { fireEvent.mouseDown(document.body); });
         expect(container.querySelector('.dm-error-popover')).toBeNull();
       }
     }
@@ -180,20 +186,22 @@ describe('DataMapper – resize handles', () => {
     expect(handles[1].getAttribute('aria-label')).toBe('Resize target panel');
   });
 
-  it('initiates resize on mousedown and cleans up on mouseup', () => {
+  it('initiates resize on mousedown and cleans up on mouseup', async () => {
     const adapter = createTestAdapter();
     const { container } = render(<DataMapper adapter={adapter} />);
     const sourceHandle = container.querySelector('[aria-label="Resize source panel"]')!;
-    fireEvent.mouseDown(sourceHandle, { clientX: 100 });
-    fireEvent.mouseMove(document, { clientX: 150 });
-    fireEvent.mouseUp(document);
+    await act(async () => {
+      fireEvent.mouseDown(sourceHandle, { clientX: 100 });
+      fireEvent.mouseMove(document, { clientX: 150 });
+      fireEvent.mouseUp(document);
+    });
     // No crash — resize cleanup ran successfully
     expect(container.querySelector('.dm-container')).toBeTruthy();
   });
 });
 
 describe('DataMapper – array suggestion bar', () => {
-  it('shows aggregate suggestion when array-to-scalar mapping selected', () => {
+  it('shows aggregate suggestion when array-to-scalar mapping selected', async () => {
     const adapter: MapperAdapter<Mapping[]> = {
       ...createTestAdapter(),
       sources: [{
@@ -213,10 +221,11 @@ describe('DataMapper – array suggestion bar', () => {
     const { container } = render(
       <DataMapper adapter={adapter} initialData={initial} />,
     );
+    await act(async () => {});
     // Select the mapping to show array suggestion bar
     const mapped = container.querySelector('.dm-tree-node--target.dm-tree-node--mapped');
     if (mapped) {
-      fireEvent.click(mapped);
+      await act(async () => { fireEvent.click(mapped); });
       const suggestionBar = container.querySelector('.dm-array-suggestion-bar');
       if (suggestionBar) {
         expect(suggestionBar.textContent).toContain('Array');
@@ -241,7 +250,7 @@ describe('DataMapper – deserialize error handling', () => {
 });
 
 describe('DataMapper – repairTick', () => {
-  it('applies repaired mappings when repairTick changes', () => {
+  it('applies repaired mappings when repairTick changes', async () => {
     const adapter = createTestAdapter();
     const onChange = vi.fn();
     const repairedRef = { current: [
@@ -253,6 +262,7 @@ describe('DataMapper – repairTick', () => {
     rerender(
       <DataMapper adapter={adapter} onChange={onChange} repairTick={1} repairedMappingsRef={repairedRef} />,
     );
+    await act(async () => {});
     expect(onChange).toHaveBeenCalledWith(repairedRef.current);
   });
 
@@ -428,41 +438,43 @@ describe('DataMapper – validation and repair panel', () => {
     );
   });
 
-  it('applies type mismatch fix from the validation panel', () => {
+  it('applies type mismatch fix from the validation panel', async () => {
     const onChange = vi.fn();
     const initial: Mapping[] = [
       { id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'userAge' },
     ];
     const { container } = render(<DataMapper adapter={createTestAdapter()} initialData={initial} onChange={onChange} />);
+    await act(async () => {});
     const row = container.querySelector('.dm-validation-repair-row[data-issue-kind="type-mismatch"]');
     expect(row).toBeTruthy();
     if (!row) return;
     const fixBtn = Array.from(row.querySelectorAll('button')).find((b) => b.textContent === 'Fix');
     expect(fixBtn).toBeTruthy();
-    fireEvent.click(fixBtn!);
+    await act(async () => { fireEvent.click(fixBtn!); });
     const latest = onChange.mock.calls[onChange.mock.calls.length - 1]?.[0] as Mapping[] | undefined;
     expect(latest?.find((m) => m.id === 'm1')?.expression).toContain('$parseFloat');
   });
 
-  it('replaces duplicate targets from the validation panel', () => {
+  it('replaces duplicate targets from the validation panel', async () => {
     const onChange = vi.fn();
     const initial: Mapping[] = [
       { id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'userName' },
       { id: 'm2', sourcePath: 'email', sourceId: 's1', targetPath: 'userName' },
     ];
     const { container } = render(<DataMapper adapter={createTestAdapter()} initialData={initial} onChange={onChange} />);
+    await act(async () => {});
     const row = container.querySelector('.dm-validation-repair-row[data-issue-kind="duplicate-target"]');
     expect(row).toBeTruthy();
     if (!row) return;
     const replaceBtn = Array.from(row.querySelectorAll('button')).find((b) => b.textContent === 'Replace');
     expect(replaceBtn).toBeTruthy();
-    fireEvent.click(replaceBtn!);
+    await act(async () => { fireEvent.click(replaceBtn!); });
     const latest = onChange.mock.calls[onChange.mock.calls.length - 1]?.[0] as Mapping[] | undefined;
     expect(latest).toHaveLength(1);
     expect(latest?.[0]?.id).toBe('m2');
   });
 
-  it('ignores one issue row and opens node focus from the panel', () => {
+  it('ignores one issue row and opens node focus from the panel', async () => {
     const adapter: MapperAdapter<Mapping[]> = {
       ...createTestAdapter(),
       sources: [{ id: 's1', label: 'Source', sampleData: { name: 'Alice' } }],
@@ -472,19 +484,20 @@ describe('DataMapper – validation and repair panel', () => {
       { id: 'i1', sourcePath: 'missingSource', sourceId: 's1', targetPath: 'missingTarget' },
     ];
     const { container } = render(<DataMapper adapter={adapter} initialData={initial} />);
+    await act(async () => {});
     const missingTargetRow = container.querySelector('.dm-validation-repair-row[data-issue-kind="missing-target"]');
     expect(missingTargetRow).toBeTruthy();
     if (!missingTargetRow) return;
 
     const openNodeBtn = Array.from(missingTargetRow.querySelectorAll('button')).find((b) => b.textContent === 'Open node');
     expect(openNodeBtn).toBeTruthy();
-    fireEvent.click(openNodeBtn!);
+    await act(async () => { fireEvent.click(openNodeBtn!); });
     const targetSelection = container.querySelectorAll('.dm-bulk-selection strong')[1];
     expect(targetSelection?.textContent).toBe('missingTarget');
 
     const ignoreBtn = Array.from(missingTargetRow.querySelectorAll('button')).find((b) => b.textContent === 'Ignore once');
     expect(ignoreBtn).toBeTruthy();
-    fireEvent.click(ignoreBtn!);
+    await act(async () => { fireEvent.click(ignoreBtn!); });
     expect(container.querySelector('.dm-validation-repair-row[data-issue-kind="missing-target"]')).toBeNull();
   });
 });

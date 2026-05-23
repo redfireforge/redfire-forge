@@ -105,11 +105,13 @@ describe('useWorkflows', () => {
     expect(result.current.selectedId).toBe('wf-1');
   });
 
-  it('starts with empty state before loading', () => {
+  it('starts with empty state before loading', async () => {
     const { result } = renderHook(() => useWorkflows());
     expect(result.current.workflows).toEqual([]);
     expect(result.current.selected).toBeNull();
     expect(result.current.loaded).toBe(false);
+    // Flush pending async state updates to avoid act() warnings
+    await waitFor(() => expect(result.current.loaded).toBe(true));
   });
 
   it('loads and migrates workflows on mount', async () => {

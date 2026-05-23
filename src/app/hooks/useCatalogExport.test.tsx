@@ -521,6 +521,124 @@ describe('useCatalogExport', () => {
     expect(buildSpy.mock.calls[0]?.[1]).toMatchObject({ groupId: undefined });
   });
 
+  it('adds requests to existing folders instead of creating duplicates when exporting to existing collection', async () => {
+    // Setup: existing collection with folders from a previous export
+    const existingCollection = {
+      id: 'existing-col',
+      name: 'Petstore (1.0.7)',
+      mode: 'multi-env' as const,
+      requests: [],
+      folders: [
+        {
+          id: 'existing-https-folder',
+          name: 'https server',
+          requests: [{
+            id: 'existing-req-1',
+            url: 'https://api.com/pet/uploadImage',
+            method: 'POST',
+            headers: [],
+            body: '',
+            name: 'uploads an image',
+            auth: { type: 'none' as const },
+            catalogMeta: {
+              catalogEntryId: 'petstore-entry',
+              catalogEndpointId: 'ep-upload',
+              originalPath: '/pet/uploadImage',
+              tags: [],
+            },
+          }],
+          folders: [],
+          isSubCollection: true,
+        },
+        {
+          id: 'existing-http-folder',
+          name: 'http server',
+          requests: [{
+            id: 'existing-req-2',
+            url: 'http://api.com/pet/uploadImage',
+            method: 'POST',
+            headers: [],
+            body: '',
+            name: 'uploads an image',
+            auth: { type: 'none' as const },
+            catalogMeta: {
+              catalogEntryId: 'petstore-entry',
+              catalogEndpointId: 'ep-upload',
+              originalPath: '/pet/uploadImage',
+              tags: [],
+            },
+          }],
+          folders: [],
+          isSubCollection: true,
+        },
+      ],
+    };
+
+    const wb = makeWb({ collections: [existingCollection] });
+    const entry = {
+      ...baseEntry(),
+      id: 'petstore-entry',
+      name: 'Petstore',
+      versions: [{ id: 'v1', version: '1.0.7', importedAt: 0, specHash: 'h', specSize: 1 }],
+      currentVersionId: 'v1',
+    };
+    const catalog = makeCatalog(entry);
+
+    const { result } = renderHook(() => useCatalogExport({ wb, catalog, setActiveTab: vi.fn() }));
+
+    // Simulate exporting a DIFFERENT endpoint (Add a new pet) to the same catalog entry
+    const payload = {
+      collectionName: 'Petstore',
+      envs: [
+        { envId: 'env-https', envName: 'https server', baseUrl: 'https://api.com' },
+        { envId: 'env-http', envName: 'http server', baseUrl: 'http://api.com' },
+      ],
+      endpoints: [{
+        id: 'ep-add-pet',
+        summary: 'Add a new pet to the store',
+        method: 'POST' as const,
+        path: '/pet',
+        parameters: [],
+        responses: [],
+        tags: [],
+      }],
+      customNames: {},
+      sampleEpIds: new Set<string>(),
+      savedEpValues: {},
+    };
+
+    await act(async () => {
+      result.current.handleSendToRequests(entry);
+    });
+
+    await act(async () => {
+      result.current.handleSendToReqConfirm(payload);
+    });
+
+    // Should NOT import a new collection (would create duplicates)
+    expect(wb.importCollection).not.toHaveBeenCalled();
+    
+    // Should call importRequests for each matching folder
+    expect(wb.importRequests).toHaveBeenCalledTimes(2);
+    
+    // First call should add to existing https folder
+    expect(wb.importRequests).toHaveBeenCalledWith(
+      'existing-col',
+      'existing-https-folder',
+      expect.arrayContaining([expect.objectContaining({ name: 'Add a new pet to the store' })])
+    );
+    
+    // Second call should add to existing http folder
+    expect(wb.importRequests).toHaveBeenCalledWith(
+      'existing-col',
+      'existing-http-folder',
+      expect.arrayContaining([expect.objectContaining({ name: 'Add a new pet to the store' })])
+    );
+    
+    // Should NOT import any new folders
+    expect(wb.importFolder).not.toHaveBeenCalled();
+  });
+
   it('handleInlineExportConfirm does nothing without selectedEntry', async () => {
     const catalog = makeCatalog(undefined);
     Object.assign(catalog, { entries: [], selectedEntry: undefined });
@@ -542,6 +660,140 @@ describe('useCatalogExport', () => {
 
     expect(wb.importCollection).not.toHaveBeenCalled();
   });
+
+  it('handleSendToReqConfirm calls importFolder for trulyNewFolders when merging to existing collection', async () => {
+    vi.spyOn(catalogExportModule, 'buildCatalogExport').mockReturnValue({
+      collection: { id: 'nc', name: 'Test', requests: [], mode: 'direct' },
+      newEnvironments: [],
+    });
+    vi.spyOn(versionMergeModule, 'mergeExportIntoCollections').mockReturnValue({
+      updates: [],
+      newCollection: { 
+        id: 'merge-col', 
+        name: 'Merge', 
+        requests: [], 
+        mode: 'direct',
+        folders: [
+          { id: 'f1', name: 'Folder1', requests: [] }
+        ]
+      },
+      existingCollectionId: 'c1',
+    });
+    vi.spyOn(versionMergeModule, 'isCollectionEmpty').mockReturnValue(false);
+    vi.spyOn(versionMergeModule, 'separateFoldersForMerge').mockReturnValue({
+      requestsToAddToExisting: [],
+      trulyNewFolders: [{ id: 'f1', name: 'Folder1', requests: [] }],
+    });
+
+    const importFolder = vi.fn();
+    const wb = makeWb({ 
+      importFolder,
+      collections: [{ 
+        id: 'c1', 
+        name: 'Existing', 
+        mode: 'direct' as const, 
+        requests: [],
+        folders: []
+      }]
+    });
+    const catalog = makeCatalog(baseEntry());
+    const { result } = renderHook(() =>
+      useCatalogExport({ wb, catalog, setActiveTab: vi.fn() }));
+
+    await act(async () => {
+      result.current.handleSendToRequests(baseEntry());
+    });
+
+    await act(async () => {
+      result.current.handleSendToReqConfirm({
+        collectionName: 'Test',
+        envs: [],
+        endpoints: [],
+        customNames: {},
+        sampleEpIds: new Set(),
+        savedEpValues: {},
+      });
+    });
+
+    expect(importFolder).toHaveBeenCalledWith('c1', { id: 'f1', name: 'Folder1', requests: [] });
+  });
+
+  it('handleInlineExportConfirm calls importRequests and importFolder when merging folders', async () => {
+    vi.spyOn(catalogExportModule, 'buildCatalogExport').mockReturnValue({
+      collection: { id: 'nc', name: 'Inline', requests: [], mode: 'direct' },
+      newEnvironments: [],
+    });
+    vi.spyOn(versionMergeModule, 'mergeExportIntoCollections').mockReturnValue({
+      updates: [],
+      newCollection: {
+        id: 'col-merge',
+        name: 'Merged',
+        requests: [],
+        mode: 'direct',
+        folders: [
+          { id: 'f1', name: 'ExistingFolder', requests: [{ id: 'r1', url: '/test', method: 'GET', headers: [], body: '', name: 'Test', auth: { type: 'none' }, validation: { rules: [], expectedStatus: '^200$', expectedBody: '' }, parameters: {}, bodyType: 'none' }] },
+          { id: 'f2', name: 'NewFolder', requests: [] }
+        ]
+      },
+      existingCollectionId: 'c1',
+    });
+    vi.spyOn(versionMergeModule, 'isCollectionEmpty').mockReturnValue(false);
+    vi.spyOn(versionMergeModule, 'separateFoldersForMerge').mockReturnValue({
+      requestsToAddToExisting: [{ 
+        folderId: 'f1', 
+        requests: [{ id: 'r1', url: '/test', method: 'GET', headers: [], body: '', name: 'Test', auth: { type: 'none' }, validation: { rules: [], expectedStatus: '^200$', expectedBody: '' }, parameters: {}, bodyType: 'none' }] 
+      }],
+      trulyNewFolders: [{ id: 'f2', name: 'NewFolder', requests: [] }],
+    });
+
+    const entry = baseEntry();
+    const importRequests = vi.fn();
+    const importFolder = vi.fn();
+    const catalog = makeCatalog(entry, {
+      selectedEntry: entry,
+      entries: [entry],
+    }) as unknown as UseCatalogReturn;
+    catalog.selectedEntry = entry;
+
+    const wb = makeWb({ 
+      importRequests,
+      importFolder,
+      collections: [{ 
+        id: 'c1', 
+        name: 'Existing', 
+        mode: 'direct' as const, 
+        requests: [],
+        folders: [{ id: 'f1', name: 'ExistingFolder', requests: [] }]
+      }]
+    });
+    const { result } = renderHook(() =>
+      useCatalogExport({ wb, catalog, setActiveTab: vi.fn() }));
+
+    await act(async () => {
+      result.current.handleInlineExportConfirm({
+        collectionName: 'inline',
+        envs: [],
+        endpoints: [minEndpoint()],
+        customNames: {},
+        sampleEpIds: new Set(),
+        savedEpValues: {},
+      });
+    });
+
+    expect(importRequests).toHaveBeenCalledWith('c1', 'f1', [{ 
+      id: 'r1', 
+      url: '/test', 
+      method: 'GET', 
+      headers: [], 
+      body: '', 
+      name: 'Test', 
+      auth: { type: 'none' }, 
+      validation: { rules: [], expectedStatus: '^200$', expectedBody: '' }, 
+      parameters: {}, 
+      bodyType: 'none' 
+    }]);
+    expect(importFolder).toHaveBeenCalledWith('c1', { id: 'f2', name: 'NewFolder', requests: [] });
+  });
 });
 
 function makeWb(extra?: Partial<ReturnType<typeof makeWb>>): UseRequestsReturn {
@@ -551,6 +803,8 @@ function makeWb(extra?: Partial<ReturnType<typeof makeWb>>): UseRequestsReturn {
     addGroup: vi.fn().mockReturnValue('gid'),
     updateRequest: vi.fn(),
     importCollection: vi.fn(),
+    importFolder: vi.fn(),
+    importRequests: vi.fn(),
     addEnvironments: vi.fn(),
   };
   return { ...base, ...extra } as unknown as UseRequestsReturn;
