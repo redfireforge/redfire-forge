@@ -199,4 +199,35 @@ describe('useWorkflowResolvers', () => {
     expect(opts.onEnvSelect).toHaveBeenCalledWith('env-x');
     expect(opts.update).not.toHaveBeenCalled();
   });
+
+  it('resolveHttpAuthForGraph returns undefined for explicit non-inherit auth', () => {
+    mockResolveServiceAuth.mockClear();
+    const opts = baseOpts();
+    const { result } = renderHook(() => useWorkflowResolvers(opts));
+    const auth = result.current.resolveHttpAuthForGraph({
+      scenario: { auth: { type: 'basic' } },
+    } as HttpNodeData);
+    expect(auth).toBeUndefined();
+    expect(mockResolveServiceAuth).not.toHaveBeenCalled();
+  });
+
+  it('resolveHttpAuthForGraph resolves inherit auth via service profile', () => {
+    mockResolveServiceAuth.mockReturnValue({ type: 'bearer', token: 'inherit-token' });
+    const opts = baseOpts();
+    const { result } = renderHook(() => useWorkflowResolvers(opts));
+    const auth = result.current.resolveHttpAuthForGraph({
+      scenario: { auth: { type: 'inherit' } },
+    } as HttpNodeData);
+    expect(auth).toEqual({ type: 'bearer', token: 'inherit-token' });
+    expect(mockResolveServiceAuth).toHaveBeenCalled();
+    mockResolveServiceAuth.mockReturnValue(undefined);
+  });
+
+  it('does not restore env on initial workflow load', () => {
+    const opts = baseOpts();
+    opts.selected = makeWorkflow('wf-first', 'env-saved');
+    opts.environments = [{ id: 'env-saved', name: 'Saved', variables: {} }];
+    renderHook(() => useWorkflowResolvers(opts));
+    expect(opts.onEnvSelect).not.toHaveBeenCalledWith('env-saved');
+  });
 });

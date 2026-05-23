@@ -5,39 +5,7 @@
  * sub-workflow context, and designer canvas controls.
  */
 import { test, expect, type Page } from '@playwright/test';
-
-// ─── IDB Seeding ─────────────────────────────────────────────────────────────
-
-async function seedTestRunsViaIDB(page: Page, runs: unknown[]): Promise<string> {
-  return await page.evaluate((testRuns) => {
-    return new Promise<string>((resolve) => {
-      const req = indexedDB.open('redfireforge', 4);
-      req.onupgradeneeded = () => {
-        const db = req.result;
-        if (!db.objectStoreNames.contains('testRuns')) {
-          const store = db.createObjectStore('testRuns', { keyPath: 'id' });
-          store.createIndex('timestamp', 'timestamp', { unique: false });
-        }
-        if (!db.objectStoreNames.contains('featureGroups')) db.createObjectStore('featureGroups');
-        if (!db.objectStoreNames.contains('sharedDataSources')) db.createObjectStore('sharedDataSources');
-        if (!db.objectStoreNames.contains('trash')) db.createObjectStore('trash');
-      };
-      req.onsuccess = () => {
-        const db = req.result;
-        try {
-          const tx = db.transaction('testRuns', 'readwrite');
-          const store = tx.objectStore('testRuns');
-          store.clear();
-          for (const run of testRuns) store.put(run);
-          tx.oncomplete = () => { db.close(); resolve('ok'); };
-          tx.onerror = () => { db.close(); resolve('tx-error'); };
-        } catch (e) { db.close(); resolve('catch: ' + String(e)); }
-      };
-      req.onerror = () => resolve('open-error');
-      req.onblocked = () => resolve('blocked');
-    });
-  }, runs);
-}
+import { openResultsExplorer, seedTestRunsViaIDB } from './helpers';
 
 // ─── Test Data ───────────────────────────────────────────────────────────────
 
@@ -173,7 +141,7 @@ function makeMinimalTestRun() {
 
 // ─── Helper: Open Results Explorer with seeded data ──────────────────────────
 
-async function openResultsExplorer(page: Page, testRun: ReturnType<typeof makeStandardTestRun>): Promise<void> {
+async function seedAndOpenResultsExplorer(page: Page, testRun: ReturnType<typeof makeStandardTestRun>): Promise<void> {
   await page.addInitScript((wfs) => {
     localStorage.setItem('workflows', JSON.stringify(wfs));
     localStorage.setItem('perf-test-theme', 'dark');
@@ -189,21 +157,7 @@ async function openResultsExplorer(page: Page, testRun: ReturnType<typeof makeSt
   await page.waitForLoadState('networkidle').catch(() => {});
   await page.waitForSelector('.app-header', { timeout: 10000 });
 
-  const harnessBtn = page.locator('button[title="Harness"]');
-  await expect(harnessBtn).toBeVisible({ timeout: 10000 });
-  await harnessBtn.click();
-
-  // Verify navigation worked — if sub-nav didn't appear, retry the click
-  const resultsTab = page.locator('button.sub-nav-tab:has-text("Results")');
-  if (!await resultsTab.isVisible({ timeout: 2000 }).catch(() => false)) {
-    await harnessBtn.click();
-  }
-  await expect(resultsTab).toBeVisible({ timeout: 8000 });
-  await resultsTab.click();
-
-  const explorerBtn = page.locator('button:has-text("Results Explorer")');
-  await expect(explorerBtn.first()).toBeVisible({ timeout: 10000 });
-  await explorerBtn.first().click();
+  await openResultsExplorer(page, { retryHarness: true });
 
   await expect(page.locator('.results-explorer-modal, .results-explorer-overlay, [data-testid="console-toggle-btn-header"]')).toBeVisible({ timeout: 10000 });
 }
@@ -212,7 +166,7 @@ async function openResultsExplorer(page: Page, testRun: ReturnType<typeof makeSt
 
 test.describe('Results Explorer Console Panel', () => {
   test('console toggle button visible in header and toggles panel', async ({ page }) => {
-    await openResultsExplorer(page, makeStandardTestRun());
+    await seedAndOpenResultsExplorer(page, makeStandardTestRun());
 
     const toggleBtn = page.locator('[data-testid="console-toggle-btn-header"]');
     await expect(toggleBtn).toBeVisible({ timeout: 5000 });
@@ -231,7 +185,7 @@ test.describe('Results Explorer Console Panel', () => {
   });
 
   test('Cmd+J keyboard shortcut toggles console', async ({ page }) => {
-    await openResultsExplorer(page, makeStandardTestRun());
+    await seedAndOpenResultsExplorer(page, makeStandardTestRun());
 
     // Open with Cmd+J
     await page.keyboard.press('Meta+j');
@@ -243,7 +197,7 @@ test.describe('Results Explorer Console Panel', () => {
   });
 
   test('console shows trace level badge', async ({ page }) => {
-    await openResultsExplorer(page, makeStandardTestRun());
+    await seedAndOpenResultsExplorer(page, makeStandardTestRun());
 
     await page.keyboard.press('Meta+j');
     await expect(page.locator('[data-testid="results-console-panel"]')).toBeVisible({ timeout: 3000 });
@@ -257,7 +211,7 @@ test.describe('Results Explorer Console Panel', () => {
   });
 
   test('console shows aggregate summary when no iteration selected (multi-iteration)', async ({ page }) => {
-    await openResultsExplorer(page, makeStandardTestRun(3));
+    await seedAndOpenResultsExplorer(page, makeStandardTestRun(3));
 
     await page.keyboard.press('Meta+j');
     await expect(page.locator('[data-testid="results-console-panel"]')).toBeVisible({ timeout: 3000 });
@@ -273,7 +227,7 @@ test.describe('Results Explorer Console Panel', () => {
   });
 
   test('console updates content when selecting a specific iteration', async ({ page }) => {
-    await openResultsExplorer(page, makeStandardTestRun(3));
+    await seedAndOpenResultsExplorer(page, makeStandardTestRun(3));
 
     await page.keyboard.press('Meta+j');
     await expect(page.locator('[data-testid="results-console-panel"]')).toBeVisible({ timeout: 3000 });
@@ -290,7 +244,7 @@ test.describe('Results Explorer Console Panel', () => {
   });
 
   test('console disabled state at minimal trace level', async ({ page }) => {
-    await openResultsExplorer(page, makeMinimalTestRun());
+    await seedAndOpenResultsExplorer(page, makeMinimalTestRun());
 
     await page.keyboard.press('Meta+j');
     await expect(page.locator('[data-testid="results-console-panel"]')).toBeVisible({ timeout: 3000 });
@@ -307,7 +261,7 @@ test.describe('Results Explorer Console Panel', () => {
   });
 
   test('node filter dropdown filters console lines', async ({ page }) => {
-    await openResultsExplorer(page, makeStandardTestRun(3));
+    await seedAndOpenResultsExplorer(page, makeStandardTestRun(3));
 
     // Select iteration #1
     await page.keyboard.press('1');
@@ -344,7 +298,7 @@ test.describe('Results Explorer Console Panel', () => {
   });
 
   test('search highlights matches and shows count', async ({ page }) => {
-    await openResultsExplorer(page, makeStandardTestRun(3));
+    await seedAndOpenResultsExplorer(page, makeStandardTestRun(3));
 
     // Select iteration #1
     await page.keyboard.press('1');
@@ -376,7 +330,7 @@ test.describe('Results Explorer Console Panel', () => {
   });
 
   test('console close button works', async ({ page }) => {
-    await openResultsExplorer(page, makeStandardTestRun());
+    await seedAndOpenResultsExplorer(page, makeStandardTestRun());
 
     await page.keyboard.press('Meta+j');
     await expect(page.locator('[data-testid="results-console-panel"]')).toBeVisible({ timeout: 3000 });
@@ -390,7 +344,7 @@ test.describe('Results Explorer Console Panel', () => {
   });
 
   test('Escape closes console', async ({ page }) => {
-    await openResultsExplorer(page, makeStandardTestRun());
+    await seedAndOpenResultsExplorer(page, makeStandardTestRun());
 
     await page.keyboard.press('Meta+j');
     await expect(page.locator('[data-testid="results-console-panel"]')).toBeVisible({ timeout: 3000 });
@@ -400,7 +354,7 @@ test.describe('Results Explorer Console Panel', () => {
   });
 
   test('console mode selector changes display mode', async ({ page }) => {
-    await openResultsExplorer(page, makeStandardTestRun());
+    await seedAndOpenResultsExplorer(page, makeStandardTestRun());
 
     await page.keyboard.press('Meta+j');
     const panel = page.locator('[data-testid="results-console-panel"]');
@@ -426,7 +380,7 @@ test.describe('Results Explorer Console Panel', () => {
 
 test.describe('Results Explorer — Workflow Context', () => {
   test('shows workflow name in empty detail panel', async ({ page }) => {
-    await openResultsExplorer(page, makeStandardTestRun());
+    await seedAndOpenResultsExplorer(page, makeStandardTestRun());
 
     const workflowInfo = page.locator('[data-testid="workflow-info"]');
     await expect(workflowInfo).toBeVisible({ timeout: 5000 });
@@ -442,7 +396,7 @@ test.describe('Results Explorer — Workflow Context', () => {
 
 test.describe('Results Explorer — Iteration Picker', () => {
   test('iteration picker dropdown closes on outside click', async ({ page }) => {
-    await openResultsExplorer(page, makeStandardTestRun(3));
+    await seedAndOpenResultsExplorer(page, makeStandardTestRun(3));
 
     const pickerBtn = page.locator('.iter-picker-toggle').first();
     if (await pickerBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
@@ -575,20 +529,7 @@ test.describe('Results Explorer Console — Sub-Workflow', () => {
     await page.waitForLoadState('networkidle').catch(() => {});
     await page.waitForSelector('.app-header', { timeout: 10000 });
 
-    const harnessBtn = page.locator('button[title="Harness"]');
-    await expect(harnessBtn).toBeVisible({ timeout: 10000 });
-    await harnessBtn.click();
-
-    const resultsTab = page.locator('button.sub-nav-tab:has-text("Results")');
-    if (!await resultsTab.isVisible({ timeout: 2000 }).catch(() => false)) {
-      await harnessBtn.click();
-    }
-    await expect(resultsTab).toBeVisible({ timeout: 8000 });
-    await resultsTab.click();
-
-    const explorerBtn = page.locator('button:has-text("Results Explorer")');
-    await expect(explorerBtn.first()).toBeVisible({ timeout: 10000 });
-    await explorerBtn.first().click();
+    await openResultsExplorer(page, { retryHarness: true });
 
     await expect(page.locator('.results-explorer-modal, .results-explorer-overlay, [data-testid="workflow-info"]')).toBeVisible({ timeout: 10000 });
 
@@ -726,7 +667,7 @@ test.describe('Workflow Runner — Trace Level', () => {
     await page.waitForLoadState('domcontentloaded');
     await page.waitForSelector('.app-header', { timeout: 10000 });
 
-    const harnessBtn = page.locator('button').filter({ hasText: /🏋/ }).first();
+    const harnessBtn = page.locator('button[title="Harness"]').first();
     await expect(harnessBtn).toBeVisible({ timeout: 8000 });
     await harnessBtn.click();
 

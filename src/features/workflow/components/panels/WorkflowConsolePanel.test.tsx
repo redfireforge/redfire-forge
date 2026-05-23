@@ -66,7 +66,7 @@ describe('WorkflowConsolePanel', () => {
 
   it('shows empty message when no lines', () => {
     render(<WorkflowConsolePanel {...defaultProps} lines={[]} />);
-    expect(screen.getByText(/Run a Quick Test to see activity logs/)).toBeTruthy();
+    expect(screen.getByText('No activity logs')).toBeTruthy();
   });
 
   it('shows line count in header', () => {
@@ -120,13 +120,13 @@ describe('WorkflowConsolePanel', () => {
   it('opens search bar when Search button clicked', () => {
     const { container } = render(<WorkflowConsolePanel {...defaultProps} />);
     expect(container.querySelector('.wf-console-search-bar')).toBeNull();
-    fireEvent.click(screen.getByTitle('Search console'));
+    fireEvent.click(screen.getByTitle('Search console (Cmd+F)'));
     expect(container.querySelector('.wf-console-search-bar')).toBeTruthy();
   });
 
   it('filters and highlights matching lines in search', () => {
     const { container } = render(<WorkflowConsolePanel {...defaultProps} />);
-    fireEvent.click(screen.getByTitle('Search console'));
+    fireEvent.click(screen.getByTitle('Search console (Cmd+F)'));
     const searchInput = screen.getByPlaceholderText('Search console…');
     fireEvent.change(searchInput, { target: { value: 'token' } });
     const matchLines = container.querySelectorAll('.wf-cl-line-match, .wf-cl-line-current-match');
@@ -135,23 +135,23 @@ describe('WorkflowConsolePanel', () => {
 
   it('shows match count in search bar', () => {
     render(<WorkflowConsolePanel {...defaultProps} />);
-    fireEvent.click(screen.getByTitle('Search console'));
+    fireEvent.click(screen.getByTitle('Search console (Cmd+F)'));
     fireEvent.change(screen.getByPlaceholderText('Search console…'), { target: { value: 'token' } });
     expect(screen.getByText('1/1')).toBeTruthy();
   });
 
   it('shows "No matches" when search yields nothing', () => {
     render(<WorkflowConsolePanel {...defaultProps} />);
-    fireEvent.click(screen.getByTitle('Search console'));
+    fireEvent.click(screen.getByTitle('Search console (Cmd+F)'));
     fireEvent.change(screen.getByPlaceholderText('Search console…'), { target: { value: 'zzzzz' } });
     expect(screen.getByText('No matches')).toBeTruthy();
   });
 
   it('closes search bar on second click and clears query', () => {
     const { container } = render(<WorkflowConsolePanel {...defaultProps} />);
-    fireEvent.click(screen.getByTitle('Search console'));
+    fireEvent.click(screen.getByTitle('Search console (Cmd+F)'));
     fireEvent.change(screen.getByPlaceholderText('Search console…'), { target: { value: 'test' } });
-    fireEvent.click(screen.getByTitle('Search console'));
+    fireEvent.click(screen.getByTitle('Search console (Cmd+F)'));
     expect(container.querySelector('.wf-console-search-bar')).toBeNull();
   });
 
@@ -205,7 +205,7 @@ describe('WorkflowConsolePanel', () => {
       makeLine('foo baz', '*'),
     ];
     render(<WorkflowConsolePanel {...defaultProps} lines={lines} />);
-    fireEvent.click(screen.getByTitle('Search console'));
+    fireEvent.click(screen.getByTitle('Search console (Cmd+F)'));
     const input = screen.getByPlaceholderText('Search console…');
     fireEvent.change(input, { target: { value: 'foo' } });
     expect(screen.getByText('1/2')).toBeTruthy();
@@ -221,7 +221,7 @@ describe('WorkflowConsolePanel', () => {
       makeLine('foo baz', '*'),
     ];
     render(<WorkflowConsolePanel {...defaultProps} lines={lines} />);
-    fireEvent.click(screen.getByTitle('Search console'));
+    fireEvent.click(screen.getByTitle('Search console (Cmd+F)'));
     const input = screen.getByPlaceholderText('Search console…');
     fireEvent.change(input, { target: { value: 'foo' } });
     // Go to next first
@@ -234,7 +234,7 @@ describe('WorkflowConsolePanel', () => {
 
   it('closes search with Escape key', () => {
     const { container } = render(<WorkflowConsolePanel {...defaultProps} />);
-    fireEvent.click(screen.getByTitle('Search console'));
+    fireEvent.click(screen.getByTitle('Search console (Cmd+F)'));
     expect(container.querySelector('.wf-console-search-bar')).toBeTruthy();
     const input = screen.getByPlaceholderText('Search console…');
     fireEvent.keyDown(input, { key: 'Escape' });
@@ -248,7 +248,7 @@ describe('WorkflowConsolePanel', () => {
       makeLine('foo three', '*'),
     ];
     render(<WorkflowConsolePanel {...defaultProps} lines={lines} />);
-    fireEvent.click(screen.getByTitle('Search console'));
+    fireEvent.click(screen.getByTitle('Search console (Cmd+F)'));
     const input = screen.getByPlaceholderText('Search console…');
     fireEvent.change(input, { target: { value: 'foo' } });
     expect(screen.getByText('1/3')).toBeTruthy();
@@ -261,7 +261,7 @@ describe('WorkflowConsolePanel', () => {
   it('wraps around when navigating matches forward', () => {
     const lines: ConsoleLine[] = [makeLine('foo one', '*'), makeLine('foo two', '*')];
     render(<WorkflowConsolePanel {...defaultProps} lines={lines} />);
-    fireEvent.click(screen.getByTitle('Search console'));
+    fireEvent.click(screen.getByTitle('Search console (Cmd+F)'));
     fireEvent.change(screen.getByPlaceholderText('Search console…'), { target: { value: 'foo' } });
     fireEvent.click(screen.getByTitle('Next match (Enter)'));
     expect(screen.getByText('2/2')).toBeTruthy();
@@ -272,7 +272,7 @@ describe('WorkflowConsolePanel', () => {
   it('wraps around when navigating matches backward', () => {
     const lines: ConsoleLine[] = [makeLine('foo one', '*'), makeLine('foo two', '*')];
     render(<WorkflowConsolePanel {...defaultProps} lines={lines} />);
-    fireEvent.click(screen.getByTitle('Search console'));
+    fireEvent.click(screen.getByTitle('Search console (Cmd+F)'));
     fireEvent.change(screen.getByPlaceholderText('Search console…'), { target: { value: 'foo' } });
     fireEvent.click(screen.getByTitle('Previous match (Shift+Enter)'));
     expect(screen.getByText('2/2')).toBeTruthy();
@@ -360,7 +360,7 @@ describe('WorkflowConsolePanel', () => {
   it('handles highlightMatches with regex special characters', () => {
     const lines: ConsoleLine[] = [makeLine('test (foo) bar', '*')];
     render(<WorkflowConsolePanel {...defaultProps} lines={lines} />);
-    fireEvent.click(screen.getByTitle('Search console'));
+    fireEvent.click(screen.getByTitle('Search console (Cmd+F)'));
     fireEvent.change(screen.getByPlaceholderText('Search console…'), { target: { value: '(foo)' } });
     expect(screen.getByText('1/1')).toBeTruthy();
   });
@@ -377,7 +377,7 @@ describe('WorkflowConsolePanel', () => {
 
   it('search next/prev do nothing when no matches', () => {
     render(<WorkflowConsolePanel {...defaultProps} />);
-    fireEvent.click(screen.getByTitle('Search console'));
+    fireEvent.click(screen.getByTitle('Search console (Cmd+F)'));
     fireEvent.change(screen.getByPlaceholderText('Search console…'), { target: { value: 'zzzzz' } });
     // Should not throw when clicking disabled buttons
     fireEvent.click(screen.getByTitle('Next match (Enter)'));
@@ -567,6 +567,114 @@ describe('WorkflowConsolePanel', () => {
       const timelineBtn = screen.getByText('Timeline');
       fireEvent.click(timelineBtn);
       expect(timelineBtn.classList.contains('wf-console-view-btn-active')).toBe(true);
+    });
+  });
+
+  describe('log level filters', () => {
+    it('filters to errors only when Errors button clicked', () => {
+      const lines: ConsoleLine[] = [
+        makeLine('Normal info', '*'),
+        makeLine('Error message', '!'),
+        makeLine('GET request', '>'),
+      ];
+      const { container } = render(<WorkflowConsolePanel {...defaultProps} lines={lines} />);
+      fireEvent.click(screen.getByTitle('Show errors only'));
+      const visibleLines = container.querySelectorAll('.wf-cl-line');
+      expect(visibleLines.length).toBe(1);
+      expect(screen.getByText('Error message')).toBeTruthy();
+    });
+
+    it('filters to info only when Info button clicked', () => {
+      const lines: ConsoleLine[] = [
+        makeLine('Normal info', '*'),
+        makeLine('Error message', '!'),
+        makeLine('GET request', '>'),
+      ];
+      const { container } = render(<WorkflowConsolePanel {...defaultProps} lines={lines} />);
+      fireEvent.click(screen.getByTitle('Show info only'));
+      const visibleLines = container.querySelectorAll('.wf-cl-line');
+      expect(visibleLines.length).toBe(1);
+      expect(screen.getByText('Normal info')).toBeTruthy();
+    });
+
+    it('filters to requests only when Requests button clicked', () => {
+      const lines: ConsoleLine[] = [
+        makeLine('Normal info', '*'),
+        makeLine('Error message', '!'),
+        makeLine('GET request', '>'),
+        makeLine('200 OK response', '<'),
+      ];
+      const { container } = render(<WorkflowConsolePanel {...defaultProps} lines={lines} />);
+      fireEvent.click(screen.getByTitle('Show requests only'));
+      const visibleLines = container.querySelectorAll('.wf-cl-line');
+      expect(visibleLines.length).toBe(2);
+    });
+
+    it('shows "Show all levels" link when filter yields no results', () => {
+      const lines: ConsoleLine[] = [makeLine('Normal info', '*')];
+      render(<WorkflowConsolePanel {...defaultProps} lines={lines} />);
+      fireEvent.click(screen.getByTitle('Show errors only'));
+      expect(screen.getByText('No error logs')).toBeTruthy();
+      expect(screen.getByText('Show all levels')).toBeTruthy();
+    });
+
+    it('clicking "Show all levels" resets filter to all', () => {
+      const lines: ConsoleLine[] = [makeLine('Normal info', '*')];
+      const { container } = render(<WorkflowConsolePanel {...defaultProps} lines={lines} />);
+      fireEvent.click(screen.getByTitle('Show errors only'));
+      fireEvent.click(screen.getByText('Show all levels'));
+      const visibleLines = container.querySelectorAll('.wf-cl-line');
+      expect(visibleLines.length).toBe(1);
+    });
+
+    it('returns to all logs when All button clicked', () => {
+      const lines: ConsoleLine[] = [
+        makeLine('Normal info', '*'),
+        makeLine('Error message', '!'),
+      ];
+      const { container } = render(<WorkflowConsolePanel {...defaultProps} lines={lines} />);
+      fireEvent.click(screen.getByTitle('Show errors only'));
+      expect(container.querySelectorAll('.wf-cl-line').length).toBe(1);
+      fireEvent.click(screen.getByTitle('Show all log lines'));
+      expect(container.querySelectorAll('.wf-cl-line').length).toBe(2);
+    });
+
+    it('shows error count badge when errors exist', () => {
+      const lines: ConsoleLine[] = [
+        makeLine('Error 1', '!'),
+        makeLine('Error 2', '!'),
+        makeLine('Normal info', '*'),
+      ];
+      const { container } = render(<WorkflowConsolePanel {...defaultProps} lines={lines} />);
+      const countBadge = container.querySelector('.wf-console-level-count');
+      expect(countBadge).toBeTruthy();
+      expect(countBadge?.textContent).toBe('2');
+    });
+  });
+
+  describe('timestamp toggle', () => {
+    it('toggles timestamps visibility', () => {
+      const lines: ConsoleLine[] = [makeLine('With time', '*', 1700000000000)];
+      const { container } = render(<WorkflowConsolePanel {...defaultProps} lines={lines} />);
+      // Initially timestamps are visible
+      expect(container.querySelector('.wf-cl-ts')).toBeTruthy();
+      // Click to hide
+      fireEvent.click(screen.getByTitle('Hide timestamps'));
+      expect(container.querySelector('.wf-console-hide-ts')).toBeTruthy();
+      // Click to show again
+      fireEvent.click(screen.getByTitle('Show timestamps'));
+      expect(container.querySelector('.wf-console-hide-ts')).toBeNull();
+    });
+  });
+
+  describe('copy logs', () => {
+    it('copies logs to clipboard when copy button clicked', async () => {
+      const mockClipboard = { writeText: vi.fn().mockResolvedValue(undefined) };
+      Object.assign(navigator, { clipboard: mockClipboard });
+      const lines: ConsoleLine[] = [makeLine('Test log', '*')];
+      render(<WorkflowConsolePanel {...defaultProps} lines={lines} />);
+      fireEvent.click(screen.getByTitle('Copy all logs to clipboard'));
+      expect(mockClipboard.writeText).toHaveBeenCalled();
     });
   });
 });

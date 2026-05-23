@@ -24,6 +24,7 @@ export function WorkflowDesignerInspectModals({ vm }: { vm: WorkflowDesignerView
     nodeStatuses,
     effectiveQuickTestBaseUrl,
     resolveHttpBaseUrlForGraph,
+    resolveHttpAuthForGraph,
     resolvedBaseUrl,
     extractionSampleJson,
     handleExtractionFetchSample,
@@ -32,6 +33,8 @@ export function WorkflowDesignerInspectModals({ vm }: { vm: WorkflowDesignerView
     conditionVariableHints,
     httpVariableHints,
     workflowServices,
+    environments,
+    selectedEnvId,
     configModalWorkflows,
     showDefaultsModal,
     setShowDefaultsModal,
@@ -70,6 +73,7 @@ export function WorkflowDesignerInspectModals({ vm }: { vm: WorkflowDesignerView
           lastRunStepError={configModalNodeId ? nodeStatuses[configModalNodeId]?.error : undefined}
           effectiveQuickTestBaseUrl={effectiveQuickTestBaseUrl}
           resolveBaseUrl={resolveHttpBaseUrlForGraph}
+          resolveAuth={resolveHttpAuthForGraph}
           fallbackBaseUrl={resolvedBaseUrl}
           extractionSampleResponseBody={extractionSampleJson}
           extractionFetchSample={{
@@ -80,6 +84,8 @@ export function WorkflowDesignerInspectModals({ vm }: { vm: WorkflowDesignerView
           conditionVariableHints={conditionVariableHints}
           httpVariableHints={httpVariableHints}
           workflowServices={workflowServices}
+          environments={environments}
+          selectedEnvId={selectedEnvId}
           nodeRunStatus={configModalNodeId ? nodeStatuses[configModalNodeId] : undefined}
           workflows={configModalWorkflows}
         />

@@ -160,6 +160,8 @@ describe('useTestExecution', () => {
         expect.anything(),
         workflow,
         resolveSubWorkflow,
+        undefined,
+        undefined,
       );
       expect(mockRunTestInWorker).not.toHaveBeenCalled();
     });
@@ -248,7 +250,9 @@ describe('useTestExecution', () => {
         expect.any(Function),
         expect.anything(),
         undefined,
-        undefined
+        undefined,
+        undefined,
+        undefined,
       );
     });
 
@@ -278,7 +282,9 @@ describe('useTestExecution', () => {
         expect.any(Function),
         expect.anything(),
         workflow,
-        undefined
+        undefined,
+        undefined,
+        undefined,
       );
     });
 

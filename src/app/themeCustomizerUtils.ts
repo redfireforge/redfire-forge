@@ -23,6 +23,7 @@ export const EDITABLE_VARS = [
   { key: '--danger',       label: 'Danger' },
   { key: '--success',      label: 'Success' },
   { key: '--warning',      label: 'Warning' },
+  { key: '--info',         label: 'Info' },
 ] as const;
 
 function hexToRgb(hex: string): [number, number, number] | null {

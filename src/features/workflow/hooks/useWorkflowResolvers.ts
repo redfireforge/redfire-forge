@@ -75,6 +75,8 @@ export function useWorkflowResolvers({
 
   const resolveHttpAuthForGraph = useCallback(
     (data: HttpNodeData) => {
+      const authType = data.scenario?.auth?.type;
+      if (authType && authType !== 'inherit') return undefined;
       const svcAuth = resolveServiceAuth(data, workflowServices, selectedEnvId, microservices, globalAuthProfiles);
       if (svcAuth) return svcAuth;
       if (!data.authProfileId) return undefined;

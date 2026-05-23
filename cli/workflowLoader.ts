@@ -3,9 +3,8 @@
  * Loads workflow definitions from YAML or JSON files for load testing.
  */
 
-import { readFileSync } from 'fs';
-import { parse as parseYaml } from 'yaml';
 import type { Workflow, WorkflowNode, WorkflowEdge, HttpNodeData } from '../src/features/workflow/types/workflow';
+import { readStructuredFile } from './fileParsing';
 import type { Scenario } from '../src/shared/types';
 
 /**
@@ -71,17 +70,7 @@ function normalizeHttpNode(node: WorkflowNode): WorkflowNode {
  * - Simplified format: data.method, data.url, data.headers, data.body
  */
 export function loadWorkflowFile(filePath: string): Workflow {
-  const content = readFileSync(filePath, 'utf-8');
-  const ext = filePath.toLowerCase();
-
-  let parsed: unknown;
-  if (ext.endsWith('.yaml') || ext.endsWith('.yml')) {
-    parsed = parseYaml(content);
-  } else {
-    parsed = JSON.parse(content);
-  }
-
-  const workflow = parsed as Partial<Workflow>;
+  const workflow = readStructuredFile(filePath) as Partial<Workflow>;
 
   // Validate required fields
   if (!workflow.name || typeof workflow.name !== 'string') {

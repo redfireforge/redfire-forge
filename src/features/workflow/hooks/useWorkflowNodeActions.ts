@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import type { Scenario, RequestCollection, Environment, Microservice } from '../../../shared/types';
+import type { Scenario, RequestCollection, Environment, Microservice, GlobalAuthProfile, AuthConfig, KeyValue } from '../../../shared/types';
 import type { CatalogEntry } from '../../catalog/types/catalog';
 import type {
   WorkflowNode,
@@ -9,14 +9,71 @@ import type {
   HttpNodeData,
   SubWorkflowNodeData,
   WorkflowService,
+  ServiceEndpoint,
 } from '../types/workflow';
 import type { WorkflowRFNode, WorkflowRFEdge } from '../utils/workflowNodeFactory';
 import { defaultNodeData } from '../utils/workflowNodeFactory';
 import { mergeWorkflowNodeData } from '../utils/workflowNodeMerge';
 import { resolveQuickTestHostForRequest } from '../utils/workflowRequestHost';
 import { extractToSubWorkflow } from '../utils/workflowExtractSubWorkflow';
+import { resolveServiceBaseUrl, stripTrailingSlash } from '../utils/workflowHostResolve';
 import type { Workflow } from '../types/workflow';
 import type { ToastApi } from '../components/WorkflowToastProvider';
+import { findEndpointInEntry } from '../../catalog/utils/catalogTree';
+import { findRequestInCollection } from '../../requests/utils/requestTree';
+import { markNodeAsNew } from '../components/panels/WorkflowNewNodeContext';
+
+/**
+ * Build a WorkflowService from a collection's microservice configuration.
+ * Returns `undefined` when the collection has no linked microservice.
+ */
+export function buildServiceFromCollection(
+  col: RequestCollection,
+  microservices: Microservice[],
+  environments: Environment[],
+  globalAuthProfiles: GlobalAuthProfile[],
+  existingServices: WorkflowService[],
+): WorkflowService | undefined {
+  if (!col.microserviceId) return undefined;
+  const ms = microservices.find(m => m.id === col.microserviceId);
+  if (!ms) return undefined;
+
+  const existing = existingServices.find(s => s.microserviceId === ms.id);
+  if (existing) return existing;
+
+  const endpoints: ServiceEndpoint[] = [];
+
+  const allEnvs = [...environments, ...(ms.customEnvs ?? [])];
+  for (const env of allEnvs) {
+    const url = ms.baseUrls[env.id] ?? '';
+    const authProfileId = ms.authProfileIds?.[env.id];
+    const authProfile = authProfileId
+      ? globalAuthProfiles.find(p => p.id === authProfileId)
+      : undefined;
+
+    endpoints.push({
+      envId: env.id,
+      url,
+      enabled: !!url,
+      authMode: authProfile ? 'custom' : 'inherit',
+      auth: authProfile?.auth,
+      source: 'microservice',
+    });
+  }
+
+  let defaultAuth: AuthConfig | undefined;
+  if (col.auth && col.auth.type !== 'none') {
+    defaultAuth = col.auth;
+  }
+
+  return {
+    id: uuidv4(),
+    name: ms.name,
+    endpoints,
+    defaultAuth,
+    microserviceId: ms.id,
+  };
+}
 
 interface UseWorkflowNodeActionsOpts {
   selected: Workflow | null;
@@ -44,6 +101,12 @@ interface UseWorkflowNodeActionsOpts {
   toast: ToastApi;
   /** Shared Y-cursor ref for placing newly-added nodes; provided by parent so other hooks can read/advance it. */
   nextNodeYRef: React.MutableRefObject<number>;
+  /** Current workflow services for auto-service creation. */
+  workflowServices?: WorkflowService[];
+  setWorkflowServices?: React.Dispatch<React.SetStateAction<WorkflowService[]>>;
+  globalAuthProfiles?: GlobalAuthProfile[];
+  /** Mutable ref to update services immediately so persistWorkflow sees latest value before React re-renders. */
+  workflowServicesRef?: React.MutableRefObject<WorkflowService[]>;
 }
 
 export function useWorkflowNodeActions({
@@ -71,28 +134,37 @@ export function useWorkflowNodeActions({
   create,
   toast,
   nextNodeYRef,
+  workflowServices = [],
+  setWorkflowServices,
+  globalAuthProfiles = [],
+  workflowServicesRef,
 }: UseWorkflowNodeActionsOpts) {
 
-  const addNodeToCanvas = useCallback((type: WorkflowNodeType, data?: WorkflowNodeData) => {
+  const addNodeToCanvas = useCallback((type: WorkflowNodeType, data?: WorkflowNodeData, serviceOverride?: WorkflowService[]) => {
     if (!selected) return;
     undoRedo.takeSnapshot('Add node');
     const y = nextNodeYRef.current;
     nextNodeYRef.current += 120;
+    const nodeId = uuidv4();
     const newNode: WorkflowRFNode = {
-      id: uuidv4(),
+      id: nodeId,
       type,
       position: { x: 300, y },
       data: data ?? defaultNodeData(type),
     };
     setNodes((nds) => {
       const updated = [...nds, newNode];
+      nodesRef.current = updated;
       const wfNodes = serializeNodes(updated);
       const wfEdges = serializeEdges(edgesRef.current);
-      queueMicrotask(() => update(selected.id, { nodes: wfNodes as WorkflowNode[], edges: wfEdges }));
+      const patch: Partial<Workflow> = { nodes: wfNodes as WorkflowNode[], edges: wfEdges };
+      if (serviceOverride) patch.services = serviceOverride;
+      queueMicrotask(() => update(selected.id, patch));
       return updated;
     });
+    markNodeAsNew(nodeId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selected, update, serializeNodes, serializeEdges, edgesRef, undoRedo, setNodes]);
+  }, [selected, update, serializeNodes, serializeEdges, edgesRef, nodesRef, undoRedo, setNodes]);
 
   const handleAddNode = useCallback((type: WorkflowNodeType) => {
     addNodeToCanvas(type);
@@ -102,20 +174,7 @@ export function useWorkflowNodeActions({
     const col = collections.find(c => c.id === collectionId);
     if (!col) return;
 
-    let req = col.requests.find(r => r.id === requestId);
-    if (!req) {
-      const searchFolders = (folders?: import('../../../shared/types').RequestFolder[]): import('../../../shared/types').RequestItem | undefined => {
-        if (!folders) return undefined;
-        for (const f of folders) {
-          const found = f.requests.find(r => r.id === requestId);
-          if (found) return found;
-          const deeper = searchFolders(f.folders);
-          if (deeper) return deeper;
-        }
-        return undefined;
-      };
-      req = searchFolders(col.folders);
-    }
+    const req = findRequestInCollection(col, requestId);
     if (!req) return;
 
     const scenario: Scenario = {
@@ -134,6 +193,21 @@ export function useWorkflowNodeActions({
       microservices,
       environments,
     );
+
+    const autoService = setWorkflowServices
+      ? buildServiceFromCollection(col, microservices, environments, globalAuthProfiles, workflowServices)
+      : undefined;
+    if (autoService) {
+      scenario.auth = { type: 'inherit' } as Scenario['auth'];
+      const svcBase = resolveServiceBaseUrl(autoService, microservices, selectedEnvId);
+      if (svcBase) {
+        const base = stripTrailingSlash(svcBase);
+        if (scenario.url.startsWith(base)) {
+          scenario.url = scenario.url.slice(base.length) || '/';
+        }
+      }
+    }
+
     const data: HttpNodeData = {
       label: req.name,
       scenario,
@@ -142,21 +216,65 @@ export function useWorkflowNodeActions({
       sourceSpecVersionId: req.activeSpecVersionId,
       sourceSpecVersionLabel: req.specVersions?.find(v => v.id === req.activeSpecVersionId)?.catalogVersion,
       specVersionMode: 'latest',
-      ...hostPatch,
+      ...(autoService ? { serviceId: autoService.id } : hostPatch),
     };
-    addNodeToCanvas('http', data);
-  }, [collections, addNodeToCanvas, selectedEnvId, resolvedBaseUrl, microservices, environments]);
+
+    if (autoService && setWorkflowServices) {
+      const isNew = !workflowServices.some(s => s.id === autoService.id);
+      if (isNew) {
+        const updated = [...workflowServices, autoService];
+        setWorkflowServices(updated);
+        // Update the ref immediately so persistWorkflow (called by wrappedOnNodesChange
+        // in response to the new node) sees the new service before React re-renders.
+        if (workflowServicesRef) workflowServicesRef.current = updated;
+      }
+    }
+
+    const serviceOverride = (autoService && !workflowServices.some(s => s.id === autoService.id))
+      ? [...workflowServices, autoService]
+      : undefined;
+    addNodeToCanvas('http', data, serviceOverride);
+  }, [collections, addNodeToCanvas, selectedEnvId, resolvedBaseUrl, microservices, environments, workflowServices, setWorkflowServices, globalAuthProfiles, workflowServicesRef]);
 
   const handleAddFromCatalog = useCallback((entryId: string, endpointId: string) => {
     const entry = catalogEntries.find(e => e.id === entryId);
-    const ep = entry?.endpoints.find(e => e.id === endpointId);
-    if (!ep || !entry) return;
+    if (!entry) return;
+
+    const ep = findEndpointInEntry(entry, endpointId);
+    if (!ep) return;
 
     const baseUrl = entry.servers[0]?.url ?? '';
+    const wv = ep.workflowValues;
+    const paramValues = wv?.paramValues ?? {};
+
+    const params = ep.parameters ?? [];
+    let resolvedPath = ep.path;
+    for (const p of params.filter(p => p.in === 'path')) {
+      const val = paramValues[p.name];
+      if (val) resolvedPath = resolvedPath.replaceAll(`{${p.name}}`, encodeURIComponent(val));
+    }
+
+    const queryParts: string[] = [];
+    for (const p of params.filter(p => p.in === 'query')) {
+      const val = paramValues[p.name];
+      if (val) queryParts.push(`${encodeURIComponent(p.name)}=${encodeURIComponent(val)}`);
+    }
+
+    const fullPath = queryParts.length > 0 ? `${resolvedPath}?${queryParts.join('&')}` : resolvedPath;
+    const url = baseUrl ? `${baseUrl.replace(/\/+$/, '')}${fullPath}` : fullPath;
+
+    const headerValues = wv?.headerValues ?? {};
+    const headers: KeyValue[] = params
+      .filter(p => p.in === 'header')
+      .map(p => ({ key: p.name, value: headerValues[p.name] ?? '' }));
+    for (const [k, v] of Object.entries(headerValues)) {
+      if (v && !headers.some(h => h.key === k)) headers.push({ key: k, value: v });
+    }
+
     const scenario: Scenario = {
-      id: uuidv4(), name: ep.summary || ep.path, url: `${baseUrl}${ep.path}`,
+      id: uuidv4(), name: ep.summary || ep.path, url,
       method: ep.method.toUpperCase() as Scenario['method'],
-      headers: [], body: '', auth: { type: 'none' }, validation: { mode: 'none' },
+      headers, body: wv?.body ?? '', auth: { type: 'none' }, validation: { mode: 'none' },
     };
     const data: HttpNodeData = { label: ep.summary || ep.path, scenario, sourceType: 'catalog', sourceId: ep.id };
     addNodeToCanvas('http', data);
@@ -187,12 +305,38 @@ export function useWorkflowNodeActions({
 
   const handleDeleteNode = useCallback((id: string) => {
     undoRedo.takeSnapshot('Delete node');
-    setNodes((nds) => nds.filter(n => n.id !== id));
-    setEdges((eds) => eds.filter(e => e.source !== id && e.target !== id));
+    const deletedNode = nodesRef.current.find(n => n.id === id);
+    const deletedServiceId = (deletedNode?.data as HttpNodeData | undefined)?.serviceId;
+
+    setNodes((nds) => {
+      const remaining = nds.filter(n => n.id !== id);
+
+      if (deletedServiceId && setWorkflowServices) {
+        const stillUsed = remaining.some(n =>
+          (n.data as HttpNodeData | undefined)?.serviceId === deletedServiceId,
+        );
+        if (!stillUsed) {
+          setWorkflowServices(prev => {
+            const next = prev.filter(s => s.id !== deletedServiceId);
+            queueMicrotask(() => persistWorkflow({ services: next, rfNodes: remaining }));
+            return next;
+          });
+          return remaining;
+        }
+      }
+      nodesRef.current = remaining;
+      queueMicrotask(() => persistWorkflow({ rfNodes: remaining }));
+      return remaining;
+    });
+    setEdges((eds) => {
+      const next = eds.filter(e => e.source !== id && e.target !== id);
+      edgesRef.current = next;
+      return next;
+    });
     setNodeInitialVars((prev) => { const next = { ...prev }; delete next[id]; return next; });
     if (selectedNodeId === id) setSelectedNodeId(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- undoRedo object identity changes every render
-  }, [setNodes, setEdges, selectedNodeId, setSelectedNodeId, setNodeInitialVars]);
+  }, [setNodes, setEdges, selectedNodeId, setSelectedNodeId, setNodeInitialVars, nodesRef, edgesRef, setWorkflowServices, persistWorkflow]);
 
   const handleExtractToSubWorkflow = useCallback((nodeId: string) => {
     if (!selected) return;

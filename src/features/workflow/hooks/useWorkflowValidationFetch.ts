@@ -17,6 +17,8 @@ export interface UseWorkflowValidationFetchOptions {
   liveVariables: Record<string, string>;
   /** Resolved base URL from service registry / environment. */
   resolvedBaseUrl: string;
+  /** Resolved auth from service registry — used when scenario auth is 'inherit'. */
+  resolvedAuth?: Scenario['auth'];
   /** Reset trigger — changes when node/workflow selection changes. */
   resetKey?: string;
 }
@@ -26,6 +28,7 @@ export function useWorkflowValidationFetch({
   onDraftChange,
   liveVariables,
   resolvedBaseUrl,
+  resolvedAuth,
   resetKey,
 }: UseWorkflowValidationFetchOptions) {
   const [fetchingResponse, setFetchingResponse] = useState(false);
@@ -93,6 +96,7 @@ export function useWorkflowValidationFetch({
       const result = await fetchScenarioSample(cur, liveVariables, resolvedBaseUrl, {
         fetchHostEnabled,
         fetchHostOverride,
+        resolvedAuth,
       });
 
       const latest = draftRef.current;
@@ -132,7 +136,7 @@ export function useWorkflowValidationFetch({
     } finally {
       setFetchingResponse(false);
     }
-  }, [draftRef, liveVariables, resolvedBaseUrl, fetchHostEnabled, fetchHostOverride, onDraftChange]);
+  }, [draftRef, liveVariables, resolvedBaseUrl, resolvedAuth, fetchHostEnabled, fetchHostOverride, onDraftChange]);
 
   const handleFetchKeepRules = useCallback(() => {
     if (!pendingFetchResponse) return;
@@ -199,6 +203,7 @@ export function useWorkflowValidationFetch({
     const result = await fetchScenarioSample(cur, liveVariables, resolvedBaseUrl, {
       fetchHostEnabled,
       fetchHostOverride,
+      resolvedAuth,
     });
     if (!result.ok) {
       throw new MapperFetchError({
@@ -208,7 +213,7 @@ export function useWorkflowValidationFetch({
       });
     }
     return parseJsonOrRaw(result.body);
-  }, [draftRef, liveVariables, resolvedBaseUrl, fetchHostEnabled, fetchHostOverride]);
+  }, [draftRef, liveVariables, resolvedBaseUrl, resolvedAuth, fetchHostEnabled, fetchHostOverride]);
 
   const handleValidateResponse = useCallback(async (scope: 'assertions' | 'rules' | 'all' = 'all') => {
     const cur = draftRef.current;
@@ -239,6 +244,7 @@ export function useWorkflowValidationFetch({
       const result = await fetchScenarioSample(cur, liveVariables, resolvedBaseUrl, {
         fetchHostEnabled,
         fetchHostOverride,
+        resolvedAuth,
       });
 
       if (!result.ok) {
@@ -287,7 +293,7 @@ export function useWorkflowValidationFetch({
     } finally {
       setValidating(false);
     }
-  }, [draftRef, liveVariables, resolvedBaseUrl, fetchHostEnabled, fetchHostOverride]);
+  }, [draftRef, liveVariables, resolvedBaseUrl, resolvedAuth, fetchHostEnabled, fetchHostOverride]);
 
   return {
     fetchingResponse,

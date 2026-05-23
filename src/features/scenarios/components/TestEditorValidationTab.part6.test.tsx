@@ -590,4 +590,185 @@ describe('TestEditorValidationTab', () => {
     });
   });
 
+  describe('full mode Pretty Format and Minify', () => {
+    it('pretty formats expected JSON', () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({
+        validation: {
+          mode: 'full',
+          expectedJson: '{"a":1,"b":2}',
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      fireEvent.click(screen.getByTitle('Format JSON with indentation'));
+      expect(onDraftChange).toHaveBeenCalled();
+      const updated = onDraftChange.mock.calls[0][0] as Scenario;
+      expect(updated.validation.expectedJson).toContain('\n');
+      expect(JSON.parse(updated.validation.expectedJson!)).toEqual({ a: 1, b: 2 });
+    });
+
+    it('minifies expected JSON', () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({
+        validation: {
+          mode: 'full',
+          expectedJson: '{\n  "a": 1,\n  "b": 2\n}',
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      fireEvent.click(screen.getByTitle('Minify JSON (remove whitespace)'));
+      expect(onDraftChange).toHaveBeenCalled();
+      const updated = onDraftChange.mock.calls[0][0] as Scenario;
+      expect(updated.validation.expectedJson).not.toContain('\n');
+      expect(JSON.parse(updated.validation.expectedJson!)).toEqual({ a: 1, b: 2 });
+    });
+
+    it('pretty format is no-op for empty expected JSON', () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({
+        validation: {
+          mode: 'full',
+          expectedJson: '',
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      const btn = screen.getByTitle('Format JSON with indentation');
+      expect(btn).toBeDisabled();
+    });
+
+    it('minify is no-op for empty expected JSON', () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({
+        validation: {
+          mode: 'full',
+          expectedJson: '',
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      const btn = screen.getByTitle('Minify JSON (remove whitespace)');
+      expect(btn).toBeDisabled();
+    });
+
+    it('pretty format handles invalid JSON gracefully', () => {
+      const onDraftChange = vi.fn();
+      const draft = makeDraft({
+        validation: {
+          mode: 'full',
+          expectedJson: '{invalid json}',
+        },
+      });
+      const draftRef = { current: draft };
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
+      fireEvent.click(screen.getByTitle('Format JSON with indentation'));
+      expect(onDraftChange).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('non-selective mode verify panel', () => {
+    it('shows verify panel for full mode with assertions and calls onValidateResponse', () => {
+      const onValidateResponse = vi.fn();
+      const draft = makeDraft({
+        validation: {
+          mode: 'full',
+          expectedJson: '{"a":1}',
+          assertions: [{ type: 'status', expected: '200' }],
+        },
+      });
+      render(<TestEditorValidationTab {...makeProps({
+        draft,
+        draftRef: { current: draft },
+        onValidateResponse,
+      })} />);
+      fireEvent.click(screen.getByText('Verify'));
+      expect(onValidateResponse).toHaveBeenCalledWith('assertions');
+    });
+
+    it('wires fetch host controls in full mode verify panel', () => {
+      const setFetchHostEnabled = vi.fn();
+      const setFetchHostOverride = vi.fn();
+      const setValidationResult = vi.fn();
+      const draft = makeDraft({
+        validation: {
+          mode: 'none',
+          assertions: [{ type: 'status', expected: '200' }],
+        },
+      });
+      render(<TestEditorValidationTab {...makeProps({
+        draft,
+        draftRef: { current: draft },
+        fetchHostEnabled: true,
+        fetchHostOverride: '',
+        setFetchHostEnabled,
+        setFetchHostOverride,
+        resolvedBaseUrl: 'https://settings.example',
+        validationResult: { passed: true, failures: [] },
+        setValidationResult,
+      })} />);
+      fireEvent.click(screen.getByLabelText('Host Override'));
+      expect(setFetchHostEnabled).toHaveBeenCalled();
+      const hostInput = document.querySelector('.validate-host-input') as HTMLInputElement;
+      fireEvent.change(hostInput, { target: { value: 'https://override.test' } });
+      expect(setFetchHostOverride).toHaveBeenCalledWith('https://override.test');
+      fireEvent.click(screen.getByTitle('Use Settings base URL'));
+      expect(setFetchHostOverride).toHaveBeenCalledWith('https://settings.example');
+      const dismissBtn = document.querySelector('.validate-result .btn.btn-xs') as HTMLButtonElement;
+      fireEvent.click(dismissBtn);
+      expect(setValidationResult).toHaveBeenCalledWith(null);
+    });
+  });
+
+  describe('add menu positioning', () => {
+    it('positions add menu below button when there is room', async () => {
+      const draft = makeDraft({ validation: { mode: 'none', assertions: [] } });
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef: { current: draft } })} />);
+      const addBtn = screen.getByText('+ Add');
+      vi.spyOn(addBtn, 'getBoundingClientRect').mockReturnValue({
+        top: 100,
+        bottom: 130,
+        left: 200,
+        right: 260,
+        width: 60,
+        height: 30,
+        x: 200,
+        y: 100,
+        toJSON: () => ({}),
+      });
+      Object.defineProperty(window, 'innerHeight', { value: 900, configurable: true });
+      Object.defineProperty(window, 'innerWidth', { value: 1200, configurable: true });
+      fireEvent.click(addBtn);
+      await waitFor(() => {
+        expect(document.querySelector('.assertions-add-menu')).toBeTruthy();
+      });
+    });
+
+    it('positions add menu above button when near bottom of viewport', async () => {
+      const draft = makeDraft({ validation: { mode: 'none', assertions: [] } });
+      render(<TestEditorValidationTab {...makeProps({ draft, draftRef: { current: draft } })} />);
+      const addBtn = screen.getByText('+ Add');
+      vi.spyOn(addBtn, 'getBoundingClientRect').mockReturnValue({
+        top: 700,
+        bottom: 730,
+        left: 200,
+        right: 260,
+        width: 60,
+        height: 30,
+        x: 200,
+        y: 700,
+        toJSON: () => ({}),
+      });
+      Object.defineProperty(window, 'innerHeight', { value: 800, configurable: true });
+      Object.defineProperty(window, 'innerWidth', { value: 1200, configurable: true });
+      fireEvent.click(addBtn);
+      await waitFor(() => {
+        const menu = document.querySelector('.assertions-add-menu') as HTMLElement | null;
+        expect(menu).toBeTruthy();
+        expect(menu?.style.bottom).not.toBe('');
+      });
+    });
+  });
+
 });
