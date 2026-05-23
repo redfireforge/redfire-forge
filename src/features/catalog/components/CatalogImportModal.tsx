@@ -35,10 +35,10 @@ export default function CatalogImportModal({ existingEntries, onImport, onReimpo
   const fileRef = useRef<HTMLInputElement>(null);
   const handleFileRef = useRef<(text: string, name: string) => void>(undefined);
 
-  const handleFile = useCallback(async (text: string, name: string) => {
+  const handleFile = useCallback(async (text: string, name: string, importSourceUrl?: string) => {
     setFileName(name);
     try {
-      const result = await parseOpenApiSpec(text);
+      const result = await parseOpenApiSpec(text, importSourceUrl);
       setParsed(result);
       setStep('preview');
     } catch (err) {
@@ -115,7 +115,7 @@ export default function CatalogImportModal({ existingEntries, onImport, onReimpo
       }
 
       const urlFileName = trimmedUrl.split('/').pop()?.split('?')[0] || 'spec-from-url.yaml';
-      handleFile(response.body, urlFileName);
+      handleFile(response.body, urlFileName, trimmedUrl);
     } catch (err) {
       setError(toErrorMessage(err));
       setStep('error');

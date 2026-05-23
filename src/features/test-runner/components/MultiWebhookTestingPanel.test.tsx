@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom/vitest';
 import MultiWebhookTestingPanel, { type WebhookScenario } from './MultiWebhookTestingPanel';
@@ -174,7 +174,7 @@ describe('MultiWebhookTestingPanel', () => {
     expect(screen.getByText('Third Wait')).toBeInTheDocument();
   });
 
-  it('shows waiting message when running but no paused nodes', () => {
+  it('shows waiting message when running but no paused nodes', async () => {
     const workflow = createTestWorkflow([{ label: 'Wait' }]);
 
     render(
@@ -184,6 +184,7 @@ describe('MultiWebhookTestingPanel', () => {
         onFireWebhook={mockOnFireWebhook}
       />
     );
+    await act(async () => {});
 
     expect(screen.getByText(/Waiting for workflow to pause/)).toBeInTheDocument();
   });
@@ -385,7 +386,7 @@ describe('MultiWebhookTestingPanel', () => {
     expect(screen.queryByText('Save Webhook Scenario')).not.toBeInTheDocument();
   });
 
-  it('does not show batch fire button when only one node is paused', () => {
+  it('does not show batch fire button when only one node is paused', async () => {
     const workflow = createTestWorkflow([{ label: 'Wait' }]);
 
     render(
@@ -395,6 +396,7 @@ describe('MultiWebhookTestingPanel', () => {
         onFireWebhook={mockOnFireWebhook}
       />
     );
+    await act(async () => {});
 
     expect(screen.queryByText(/Fire All Paused/)).not.toBeInTheDocument();
   });

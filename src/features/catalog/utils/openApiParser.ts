@@ -61,7 +61,28 @@ function followRef(ref: string, root: unknown): unknown {
   return current;
 }
 
-export async function parseOpenApiSpec(rawText: string): Promise<ParsedSpec> {
+/**
+ * Resolve a potentially relative server URL against an import source URL.
+ * If the server URL is already absolute (starts with http:// or https://), returns it as-is.
+ * If relative (starts with /), combines with the origin of the import source.
+ */
+function resolveServerUrl(serverUrl: string, importSourceUrl?: string): string | undefined {
+  // Already absolute
+  if (serverUrl.startsWith('http://') || serverUrl.startsWith('https://')) {
+    return serverUrl;
+  }
+  // Relative URL — need import source to resolve
+  if (!importSourceUrl) return undefined;
+  try {
+    const sourceUrl = new URL(importSourceUrl);
+    // Combine origin with relative path
+    return `${sourceUrl.origin}${serverUrl.startsWith('/') ? serverUrl : '/' + serverUrl}`;
+  } catch {
+    return undefined;
+  }
+}
+
+export async function parseOpenApiSpec(rawText: string, importSourceUrl?: string): Promise<ParsedSpec> {
   const warnings: string[] = [];
   let rawParsed: unknown;
 
@@ -100,7 +121,12 @@ export async function parseOpenApiSpec(rawText: string): Promise<ParsedSpec> {
 
   if (!spec.info?.title) warnings.push('Missing info.title — using "Untitled API"');
 
-  const servers = extractServers(spec, isSwagger2);
+  const rawServers = extractServers(spec, isSwagger2);
+  // Resolve relative server URLs if import source is known
+  const servers = rawServers.map(s => ({
+    ...s,
+    resolvedUrl: resolveServerUrl(s.url, importSourceUrl),
+  }));
   const securitySchemes = extractSecuritySchemes(spec, isSwagger2);
   const tagDescriptions = new Map<string, string>();
   if (spec.tags) {

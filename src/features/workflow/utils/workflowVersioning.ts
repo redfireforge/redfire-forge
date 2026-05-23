@@ -2,7 +2,7 @@ import { v4 as uuidv4 } from 'uuid';
 import type { WorkflowNode, WorkflowEdge, WorkflowService, WorkflowVersion } from '../types/workflow';
 
 /** Default max versions kept per workflow (FIFO eviction). */
-export const MAX_WORKFLOW_VERSIONS = 30;
+export const MAX_WORKFLOW_VERSIONS = 10;
 
 /**
  * Compute a fingerprint of workflow content so duplicate saves don't create new versions.

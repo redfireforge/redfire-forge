@@ -3,7 +3,8 @@ import type { RulesVersion, ValidationConfig, ExpectedField, Assertion } from '.
 import { buildRulesSnapshot } from '../utils/versionUtils';
 import { serializeToDsl } from '../../../shared/components/data-mapper/utils/validationDsl';
 import VersionPreviewModal from './VersionPreviewModal';
-import { Differ, Viewer } from 'json-diff-kit';
+import { Viewer } from 'json-diff-kit';
+import { sharedDiffer } from '../../../shared/utils/jsonDiffKit';
 import 'json-diff-kit/dist/viewer.css';
 import 'json-diff-kit/dist/viewer-monokai.css';
 
@@ -29,13 +30,6 @@ function rulesFingerprint(
   const sortedAssertions = [...assertions].sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
   return JSON.stringify({ mode, selectiveMode, fields: sortedFields, excluded: sortedPaths, unordered, assertions: sortedAssertions });
 }
-
-const differ = new Differ({
-  detectCircular: false,
-  maxDepth: Infinity,
-  showModifications: true,
-  arrayDiffMethod: 'lcs',
-});
 
 export default function RulesVersionPanel({
   versions,
@@ -97,7 +91,7 @@ export default function RulesVersionPanel({
     const rv = versions.find((v) => v.id === compareRight);
     if (!lv || !rv) return null;
     try {
-      return differ.diff(buildRulesSnapshot(lv), buildRulesSnapshot(rv));
+      return sharedDiffer.diff(buildRulesSnapshot(lv), buildRulesSnapshot(rv));
     } catch {
       return null;
     }

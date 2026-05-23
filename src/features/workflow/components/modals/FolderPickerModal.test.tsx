@@ -23,7 +23,7 @@ describe('FolderPickerModal', () => {
 
   it('renders folder tree when open', () => {
     render(<FolderPickerModal open={true} folders={folders} onPick={vi.fn()} onCancel={vi.fn()} />);
-    expect(screen.getByText('Unfiled (root)')).toBeInTheDocument();
+    expect(screen.getByText('Workflows (root)')).toBeInTheDocument();
     expect(screen.getByText('API Tests')).toBeInTheDocument();
     expect(screen.getByText('Load Tests')).toBeInTheDocument();
     expect(screen.getByText('Stress')).toBeInTheDocument();
@@ -34,18 +34,18 @@ describe('FolderPickerModal', () => {
     expect(screen.getByText('Save To...')).toBeInTheDocument();
   });
 
-  it('selects Unfiled by default and confirms with null', () => {
+  it('selects Workflows (root) by default and confirms with null', () => {
     const onPick = vi.fn();
     render(<FolderPickerModal open={true} folders={folders} onPick={onPick} onCancel={vi.fn()} />);
     fireEvent.click(screen.getByText('Move Here'));
     expect(onPick).toHaveBeenCalledWith(null);
   });
 
-  it('re-selects Unfiled root after choosing a folder', () => {
+  it('re-selects Workflows root after choosing a folder', () => {
     const onPick = vi.fn();
     render(<FolderPickerModal open={true} folders={folders} onPick={onPick} onCancel={vi.fn()} />);
     fireEvent.click(screen.getByText('API Tests'));
-    fireEvent.click(screen.getByText('Unfiled (root)'));
+    fireEvent.click(screen.getByText('Workflows (root)'));
     fireEvent.click(screen.getByText('Move Here'));
     expect(onPick).toHaveBeenCalledWith(null);
   });
@@ -89,7 +89,7 @@ describe('FolderPickerModal', () => {
 
   it('highlights selected row', () => {
     const { container } = render(<FolderPickerModal open={true} folders={folders} onPick={vi.fn()} onCancel={vi.fn()} />);
-    expect(container.querySelector('.fp-row-selected')?.textContent).toContain('Unfiled');
+    expect(container.querySelector('.fp-row-selected')?.textContent).toContain('Workflows');
     fireEvent.click(screen.getByText('Load Tests'));
     const selectedRows = container.querySelectorAll('.fp-row-selected');
     expect(selectedRows.length).toBe(1);
@@ -109,6 +109,6 @@ describe('FolderPickerModal', () => {
 
   it('renders with empty folders', () => {
     render(<FolderPickerModal open={true} folders={[]} onPick={vi.fn()} onCancel={vi.fn()} />);
-    expect(screen.getByText('Unfiled (root)')).toBeInTheDocument();
+    expect(screen.getByText('Workflows (root)')).toBeInTheDocument();
   });
 });

@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { clickFitViewIfVisible, openResultsExplorer, seedWorkflowAndTestRun } from './helpers';
 
 /**
  * E2E tests for Phase 8c: Parallel Execution Visualization.
@@ -75,73 +76,18 @@ function makeTestRunWithForkJoin() {
   };
 }
 
-async function seedTestRunsViaIDB(page: Page, runs: unknown[]): Promise<string> {
-  return await page.evaluate((testRuns) => {
-    return new Promise<string>((resolve) => {
-      const req = indexedDB.open('redfireforge', 4);
-      req.onupgradeneeded = () => {
-        const db = req.result;
-        if (!db.objectStoreNames.contains('testRuns')) {
-          const store = db.createObjectStore('testRuns', { keyPath: 'id' });
-          store.createIndex('timestamp', 'timestamp', { unique: false });
-        }
-        if (!db.objectStoreNames.contains('featureGroups')) db.createObjectStore('featureGroups');
-        if (!db.objectStoreNames.contains('sharedDataSources')) db.createObjectStore('sharedDataSources');
-        if (!db.objectStoreNames.contains('trash')) db.createObjectStore('trash');
-      };
-      req.onsuccess = () => {
-        const db = req.result;
-        const tx = db.transaction('testRuns', 'readwrite');
-        const store = tx.objectStore('testRuns');
-        for (const run of testRuns) store.put(run);
-        tx.oncomplete = () => resolve('ok');
-      };
-      req.onerror = () => resolve('idb-error');
-    });
-  }, runs);
-}
-
-async function openResultsExplorer(page: Page) {
-  const harnessBtn = page.locator('button[title="Harness"]');
-  await expect(harnessBtn).toBeVisible({ timeout: 10000 });
-  await harnessBtn.click();
-
-  const resultsTab = page.locator('button.sub-nav-tab:has-text("Results")');
-  await expect(resultsTab).toBeVisible({ timeout: 5000 });
-  await resultsTab.click();
-  await page.waitForTimeout(1500);
-
-  const explorerBtn = page.locator('button:has-text("Results Explorer")');
-  await expect(explorerBtn.first()).toBeVisible({ timeout: 8000 });
-  await explorerBtn.first().click();
-  await page.waitForTimeout(1500);
-
-  // Fit view to ensure nodes are visible
-  const fitViewBtn = page.locator('button[title="Fit view"]').first();
-  if (await fitViewBtn.isVisible()) {
-    await fitViewBtn.click();
-    await page.waitForTimeout(300);
-  }
+async function setupAndOpenResultsExplorer(page: Page) {
+  await openResultsExplorer(page, { waitAfterNavMs: 1500 });
+  await clickFitViewIfVisible(page);
 }
 
 test.describe('Parallel Execution Visualization (Phase 8c)', () => {
   test.beforeEach(async ({ page }) => {
-    page.addInitScript((workflow) => {
-      localStorage.setItem('workflows', JSON.stringify([workflow]));
-    }, FORK_JOIN_WORKFLOW);
-
-    await page.goto('http://localhost:5173');
-    await page.waitForLoadState('domcontentloaded');
-
-    const seeded = await seedTestRunsViaIDB(page, [makeTestRunWithForkJoin()]);
-    expect(seeded).toBe('ok');
-
-    await page.reload();
-    await page.waitForLoadState('domcontentloaded');
+    await seedWorkflowAndTestRun(page, FORK_JOIN_WORKFLOW, makeTestRunWithForkJoin());
   });
 
   test('swim lanes are rendered with node names as labels', async ({ page }) => {
-    await openResultsExplorer(page);
+    await setupAndOpenResultsExplorer(page);
 
     // Swim lane labels should show actual node names, not generic "Branch A/B"
     const laneA = page.locator('.swim-lane-label').filter({ hasText: 'Branch A: Users' });
@@ -158,7 +104,7 @@ test.describe('Parallel Execution Visualization (Phase 8c)', () => {
   });
 
   test('critical path is highlighted in swim lanes', async ({ page }) => {
-    await openResultsExplorer(page);
+    await setupAndOpenResultsExplorer(page);
 
     // One of the swim lanes should have the critical class
     const criticalLane = page.locator('.swim-lane-critical');
@@ -170,7 +116,7 @@ test.describe('Parallel Execution Visualization (Phase 8c)', () => {
   });
 
   test('branch comparison table appears when clicking fork node', async ({ page }) => {
-    await openResultsExplorer(page);
+    await setupAndOpenResultsExplorer(page);
 
     // Click fork node within the results explorer flow canvas
     const forkNode = page.locator('.results-explorer-flow .react-flow__node').filter({ hasText: 'Parallel Fork' }).first();
@@ -193,7 +139,7 @@ test.describe('Parallel Execution Visualization (Phase 8c)', () => {
   });
 
   test('branch comparison table appears when clicking join node', async ({ page }) => {
-    await openResultsExplorer(page);
+    await setupAndOpenResultsExplorer(page);
 
     const joinNode = page.locator('.results-explorer-flow .react-flow__node').filter({ hasText: 'Join' }).first();
     await joinNode.click({ timeout: 10000 });
@@ -204,7 +150,7 @@ test.describe('Parallel Execution Visualization (Phase 8c)', () => {
   });
 
   test('no branch comparison for non-fork/join nodes', async ({ page }) => {
-    await openResultsExplorer(page);
+    await setupAndOpenResultsExplorer(page);
 
     // Click the "Branch A: Users" HTTP node — should NOT show branch comparison
     const httpNode = page.locator('.results-explorer-flow .react-flow__node').filter({ hasText: 'Branch A: Users' }).first();

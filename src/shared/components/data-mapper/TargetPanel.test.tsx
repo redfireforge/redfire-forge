@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import TargetPanel from './TargetPanel';
 import { MapperTarget, Mapping } from './types';
 const target: MapperTarget = {
@@ -495,7 +495,7 @@ describe('TargetPanel', () => {
       renderPanel({ canFetchTarget: true, onFetchTargetSchema: fetchFn });
       fireEvent.click(screen.getByLabelText('Fetch target schema'));
       expect(screen.getByText('…')).toBeTruthy();
-      resolveFetch();
+      await act(async () => { resolveFetch(); });
     });
 
     it('clears fetching state when onFetchTargetSchema rejects', async () => {

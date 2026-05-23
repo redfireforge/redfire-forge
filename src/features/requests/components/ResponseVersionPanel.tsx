@@ -3,7 +3,8 @@ import type { ResponseVersion, ValidationConfig } from '../../../shared/types';
 import { buildRulesSnapshot } from '../utils/versionUtils';
 import VersionPreviewModal from './VersionPreviewModal';
 import { prettyJson } from '../../../shared/utils/helpers';
-import { Differ, Viewer } from 'json-diff-kit';
+import { Viewer } from 'json-diff-kit';
+import { sharedDiffer } from '../../../shared/utils/jsonDiffKit';
 import 'json-diff-kit/dist/viewer.css';
 import 'json-diff-kit/dist/viewer-monokai.css';
 
@@ -17,13 +18,6 @@ interface Props {
   onDeleteVersion: (id: string) => void;
   onRenameVersion: (id: string, label: string) => void;
 }
-
-const differ = new Differ({
-  detectCircular: false,
-  maxDepth: Infinity,
-  showModifications: true,
-  arrayDiffMethod: 'lcs',
-});
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function sortArraysDeep(val: any): any {
@@ -95,7 +89,7 @@ export default function ResponseVersionPanel({ versions, currentJson, currentVal
         leftObj = sortArraysDeep(leftObj);
         rightObj = sortArraysDeep(rightObj);
       }
-      return differ.diff(leftObj, rightObj);
+      return sharedDiffer.diff(leftObj, rightObj);
     } catch {
       return null;
     }
@@ -112,7 +106,7 @@ export default function ResponseVersionPanel({ versions, currentJson, currentVal
     const rv = versions.find((v) => v.id === compareRight);
     if (!lv || !rv) return null;
     try {
-      return differ.diff(buildRulesSnapshot(lv), buildRulesSnapshot(rv));
+      return sharedDiffer.diff(buildRulesSnapshot(lv), buildRulesSnapshot(rv));
     } catch {
       return null;
     }

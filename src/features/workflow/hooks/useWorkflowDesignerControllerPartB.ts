@@ -60,6 +60,7 @@ export function useWorkflowDesignerControllerPartB(
     setWorkflowServices,
     setWorkflowErrorConfig,
     setLaidOutId,
+    workflowServicesRef,
   } = a;
 
   const {
@@ -75,6 +76,7 @@ export function useWorkflowDesignerControllerPartB(
     serializeNodes, serializeEdges, update, persistWorkflow,
     undoRedo, workflows, create, toast,
     nextNodeYRef,
+    workflowServices, setWorkflowServices, globalAuthProfiles, workflowServicesRef,
   });
 
   const { handleEnvSelect, resolveHttpBaseUrlForGraph, resolveHttpAuthForGraph } = useWorkflowResolvers({
@@ -267,6 +269,7 @@ export function useWorkflowDesignerControllerPartB(
     handleExtractToSubWorkflow,
     handleEnvSelect,
     resolveHttpBaseUrlForGraph,
+    resolveHttpAuthForGraph,
     isRunning,
     isDebugMode,
     debugControllerRef,

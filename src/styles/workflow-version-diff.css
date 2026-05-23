@@ -1,0 +1,621 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   Workflow Version Diff Modal — Professional UI
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Overlay ────────────────────────────────────────────────────────────────── */
+
+.wf-version-diff-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  z-index: 1100;
+}
+
+/* ── Modal Container ────────────────────────────────────────────────────────── */
+
+.wf-version-diff-modal {
+  display: flex;
+  flex-direction: column;
+  width: 90%;
+  max-width: 720px;
+  max-height: 85vh;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  overflow: hidden;
+}
+
+/* ── Header ─────────────────────────────────────────────────────────────────── */
+
+.wf-version-diff-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  background: linear-gradient(180deg, var(--surface) 0%, rgba(0, 0, 0, 0.15) 100%);
+  border-bottom: 1px solid var(--border);
+}
+
+.wf-version-diff-header-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.wf-version-diff-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  background: rgba(99, 102, 241, 0.15);
+  border-radius: 10px;
+}
+
+.wf-version-diff-icon svg {
+  width: 22px;
+  height: 22px;
+  stroke: var(--primary);
+}
+
+.wf-version-diff-title-block {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.wf-version-diff-title-block h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.wf-version-diff-range {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.wf-version-diff-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wf-version-diff-label-old {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+}
+
+.wf-version-diff-label-new {
+  background: rgba(34, 197, 94, 0.15);
+  color: #4ade80;
+}
+
+.wf-version-diff-arrow {
+  width: 16px;
+  height: 16px;
+  stroke: var(--text-muted);
+}
+
+.wf-version-diff-header-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.wf-version-diff-summary {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.wf-version-diff-summary-count {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.wf-version-diff-summary-text {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.wf-version-diff-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.wf-version-diff-close svg {
+  width: 18px;
+  height: 18px;
+}
+
+.wf-version-diff-close:hover {
+  background: var(--surface-hover);
+  border-color: var(--border);
+  color: var(--text);
+}
+
+/* ── Tabs ───────────────────────────────────────────────────────────────────── */
+
+.wf-version-diff-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 0 16px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+}
+
+.wf-version-diff-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 16px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.wf-version-diff-tab:hover {
+  color: var(--text);
+  background: var(--surface-hover);
+}
+
+.wf-version-diff-tab.active {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+}
+
+.wf-version-diff-tab-icon {
+  display: flex;
+  align-items: center;
+}
+
+.wf-version-diff-tab-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.wf-version-diff-tab-label {
+  display: none;
+}
+
+@media (min-width: 500px) {
+  .wf-version-diff-tab-label {
+    display: inline;
+  }
+}
+
+.wf-version-diff-tab-count {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #fff;
+  background: var(--primary);
+  border-radius: 10px;
+}
+
+.wf-version-diff-tab:not(.active) .wf-version-diff-tab-count {
+  background: var(--text-muted);
+  opacity: 0.6;
+}
+
+/* ── Body ───────────────────────────────────────────────────────────────────── */
+
+.wf-version-diff-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+.wf-version-diff-body::-webkit-scrollbar {
+  width: 6px;
+}
+
+.wf-version-diff-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.wf-version-diff-body::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+
+/* ── Section ────────────────────────────────────────────────────────────────── */
+
+.wf-version-diff-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* ── Group ──────────────────────────────────────────────────────────────────── */
+
+.wf-version-diff-group {
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: var(--bg);
+}
+
+.wf-version-diff-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.wf-version-diff-group-title {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+}
+
+.wf-version-diff-group-count {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  border-radius: 6px;
+}
+
+.wf-version-diff-group-count-added {
+  background: rgba(34, 197, 94, 0.15);
+  color: #4ade80;
+}
+
+.wf-version-diff-group-count-removed {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+}
+
+.wf-version-diff-group-count-modified {
+  background: rgba(251, 191, 36, 0.15);
+  color: #fbbf24;
+}
+
+.wf-version-diff-group-items {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Row ────────────────────────────────────────────────────────────────────── */
+
+.wf-version-diff-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  transition: background 0.15s ease;
+}
+
+.wf-version-diff-row:last-child {
+  border-bottom: none;
+}
+
+.wf-version-diff-row:hover {
+  background: var(--surface-hover);
+}
+
+.wf-version-diff-row-added {
+  background: rgba(34, 197, 94, 0.04);
+}
+
+.wf-version-diff-row-added:hover {
+  background: rgba(34, 197, 94, 0.08);
+}
+
+.wf-version-diff-row-removed {
+  background: rgba(239, 68, 68, 0.04);
+}
+
+.wf-version-diff-row-removed:hover {
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.wf-version-diff-row-modified {
+  background: rgba(251, 191, 36, 0.04);
+}
+
+.wf-version-diff-row-modified:hover {
+  background: rgba(251, 191, 36, 0.08);
+}
+
+/* ── Badge ──────────────────────────────────────────────────────────────────── */
+
+.wf-version-diff-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+.wf-version-diff-badge-added {
+  background: rgba(34, 197, 94, 0.2);
+  color: #4ade80;
+}
+
+.wf-version-diff-badge-removed {
+  background: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+}
+
+.wf-version-diff-badge-modified {
+  background: rgba(251, 191, 36, 0.2);
+  color: #fbbf24;
+}
+
+/* ── Node Type ──────────────────────────────────────────────────────────────── */
+
+.wf-version-diff-node-type {
+  padding: 2px 8px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: var(--primary);
+  background: rgba(99, 102, 241, 0.12);
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.wf-version-diff-node-name {
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Edge ───────────────────────────────────────────────────────────────────── */
+
+.wf-version-diff-edge-path {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.wf-version-diff-edge-node {
+  padding: 2px 8px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+.wf-version-diff-edge-arrow {
+  width: 16px;
+  height: 16px;
+  stroke: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.wf-version-diff-edge-label {
+  margin-left: auto;
+  padding: 2px 8px;
+  font-size: 0.7rem;
+  font-style: italic;
+  color: var(--text-muted);
+  background: var(--bg);
+  border-radius: 4px;
+}
+
+/* ── Variable ───────────────────────────────────────────────────────────────── */
+
+.wf-version-diff-var-key {
+  font-size: 0.78rem;
+  font-weight: 600;
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  color: #c084fc;
+}
+
+.wf-version-diff-var-eq {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.wf-version-diff-var-val {
+  font-size: 0.78rem;
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wf-version-diff-var-change {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+
+.wf-version-diff-var-old {
+  padding: 2px 8px;
+  font-size: 0.75rem;
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  color: #f87171;
+  background: rgba(239, 68, 68, 0.1);
+  border-radius: 4px;
+  text-decoration: line-through;
+  text-decoration-color: rgba(248, 113, 113, 0.5);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wf-version-diff-var-arrow {
+  width: 14px;
+  height: 14px;
+  stroke: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.wf-version-diff-var-new {
+  padding: 2px 8px;
+  font-size: 0.75rem;
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  color: #4ade80;
+  background: rgba(34, 197, 94, 0.1);
+  border-radius: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Service ────────────────────────────────────────────────────────────────── */
+
+.wf-version-diff-service-name {
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--text);
+}
+
+/* ── Expandable ─────────────────────────────────────────────────────────────── */
+
+.wf-version-diff-expandable {
+  border-bottom: 1px solid var(--border);
+}
+
+.wf-version-diff-expandable:last-child {
+  border-bottom: none;
+}
+
+.wf-version-diff-expandable-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 14px;
+  font: inherit;
+  text-align: left;
+  background: rgba(251, 191, 36, 0.04);
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.wf-version-diff-expandable-header:hover {
+  background: rgba(251, 191, 36, 0.08);
+}
+
+.wf-version-diff-expandable-header.expanded {
+  border-bottom: 1px solid var(--border);
+}
+
+.wf-version-diff-expand-icon {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  color: var(--text-muted);
+  transition: transform 0.2s ease;
+}
+
+.wf-version-diff-expand-icon svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* ── Inline Diff (JSON viewer) ──────────────────────────────────────────────── */
+
+.wf-version-diff-inline {
+  padding: 12px;
+  background: #1e1e1e;
+  border-radius: 0 0 6px 6px;
+  overflow-x: auto;
+}
+
+.wf-version-diff-json-viewer {
+  font-size: 0.72rem;
+  line-height: 1.5;
+}
+
+.wf-version-diff-json-viewer .json-diff-viewer {
+  background: transparent !important;
+}
+
+/* ── Empty State ────────────────────────────────────────────────────────────── */
+
+.wf-version-diff-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  text-align: center;
+}
+
+.wf-version-diff-empty-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  margin-bottom: 12px;
+  color: var(--text-muted);
+  opacity: 0.4;
+}
+
+.wf-version-diff-empty-icon svg {
+  width: 32px;
+  height: 32px;
+}
+
+.wf-version-diff-empty-text {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}

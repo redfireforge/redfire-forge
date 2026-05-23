@@ -8,7 +8,21 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
 
 ## [Unreleased]
 
+### Added
+- **Catalog → Workflow ("Expose to Workflow")** — New "Expose to Workflow" checkbox on Catalog endpoints saves parameter values, headers, and body for reuse. Exposed endpoints appear in the Workflow Designer's CATALOG palette tab; clicking adds an HTTP Request node with a fully pre-populated scenario. Non-exposed endpoints are hidden from the palette. New type: `CatalogEndpointWorkflowValues`.
+- **Requests → Workflow Integration** — REQUESTS tab in the Workflow palette lets users browse Request collections with folder tree navigation. Adding a request creates an HTTP node with full scenario, preserving microservice/environment/auth bindings via `buildServiceFromCollection`.
+- **Import Workflow from `+ New`** — "Import Workflow" option added to the `+ New` dropdown in the Workflow sidebar, allowing JSON import at root level without needing to right-click a folder.
+- **Empty Canvas Template Suggestions** — When a workflow has no nodes, the empty canvas now shows 4 curated template suggestions (Create → Extract → Verify, Parallel API Calls, Conditional Branching, Perf: Simple POST → GET) with a "Browse All Templates →" link to the Gallery. Clicking a template loads it as a preview for quick adoption. New files: `emptyCanvasTemplates.ts`, `EmptyCanvasTemplates.tsx`.
+- **Contextual Onboarding Hints** — First-time users see helpful tooltips for key actions: drag nodes from palette, use command palette (⌘K), configure nodes (double-click), connect nodes, and run workflows. Hints appear at appropriate times (empty canvas, first node added) and can be dismissed individually or all at once. State persists in localStorage. New files: `onboardingHints.ts`, `useOnboardingHints.ts`, `OnboardingTooltip.tsx`.
+
 ### Changed
+- **IndexedDB Migration for Large Data** — Workflows, requests, catalog entries/specs/endpoint values, and projects migrated from `localStorage` to IndexedDB to eliminate `QuotaExceededError`. Automatic one-time migration with fallback. New files: `idbWorkflows.ts`, `idbRequests.ts`, `idbCatalog.ts`, `idbProjects.ts`. Settings storage tab updated with combined usage display.
+- **Workflow Sidebar UX Overhaul** — Removed confusing "UNFILED" section header; renamed "Move to Unfiled" → "Move out of Folder"; "Move out of Folder" hidden when workflow is already at root level; "Move to Folder" submenu widened (160px → 220px); "Workflows (root)" in folder picker.
+- **Gallery Navigation from Workflows** — "From Template" and "Browse All Templates →" now open Gallery pre-filtered to the Workflows domain instead of showing "All".
+
+### Fixed
+- **Workflow Service Persistence** — Fixed `fixupOverGroupedServices` migration incorrectly splitting microservice-bound services on every load, causing loss of environment/microservice/auth bindings after hard refresh. Added guard to skip services with `microserviceId`.
+- **Broken `--bg-hover` CSS Variable** — `var(--bg-hover)` was used across 7 CSS files but never defined in any theme, causing invisible hover/active states on sidebar items. Replaced with `var(--surface-hover)` (26 occurrences). Active/selected items now use accent-tinted background for clear visibility.
 - **ResultsDashboard Refactored** — Extracted `ResultsMetricsCards` (throughput/timing/error metrics) and `ResultsDashboardHeader` (context tags, actions, run type filter tabs) into focused components. Reduced `ResultsDashboard.tsx` from 925 → 827 lines (below 900-line monolithic threshold).
 - **Shared Test Factories Expanded** — Added `makeSummary`, `makeTestRun`, `makeTestScenario`, `makeFeatureGroup`, `makeWorkflow`, `makeWorkflowNode`, `makeWorkflowEdge` to `src/test-utils/factories.ts`. Updated test files (`cli/reporters.test.ts`, `src/engine/rerunMerge.test.ts`, `src/engine/circuitBreaker.test.ts`, `src/engine/executionWorker.test.ts`) to use shared factories instead of local duplicates.
 

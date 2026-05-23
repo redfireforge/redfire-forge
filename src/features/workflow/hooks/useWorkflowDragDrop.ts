@@ -5,6 +5,7 @@ import type { WorkflowRFNode, WorkflowRFEdge } from '../utils/workflowNodeFactor
 import { defaultNodeData } from '../utils/workflowNodeFactory';
 import type { WorkflowNodeType, WorkflowNode } from '../types/workflow';
 import { findClosestEdge } from '../utils/workflowEdgeGeometry';
+import { markNodeAsNew } from '../components/panels/WorkflowNewNodeContext';
 
 interface UseWorkflowDragDropOptions {
   nodesRef: React.RefObject<WorkflowRFNode[]>;
@@ -115,10 +116,12 @@ export function useWorkflowDragDrop({
         queueMicrotask(() => update(selected.id, { nodes: wfNodes as WorkflowNode[], edges: wfEdges }));
         return updated;
       });
+      markNodeAsNew(newNode.id);
       return;
     }
 
     insertNodeAndPersist(newNode, 'Add node');
+    markNodeAsNew(newNode.id);
   }, [selected, addNodeToCanvas, insertNodeAndPersist, rfInstance, findClosest, setNodes, setEdges, serializeNodes, serializeEdges, update, undoRedo]);
 
   return {

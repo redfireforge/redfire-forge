@@ -2474,7 +2474,7 @@ tr:hover td { background: var(--surface-hover); }
 }
 
 .rate-mode-btn:hover:not(:disabled) {
-  background: var(--bg-hover);
+  background: var(--surface-hover);
   color: var(--text);
 }
 

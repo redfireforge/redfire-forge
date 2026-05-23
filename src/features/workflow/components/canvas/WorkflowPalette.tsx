@@ -93,13 +93,24 @@ export default function WorkflowPalette({ collections, catalogEntries, onAddNode
   }, [q, collections]);
 
   const filteredCatalog = useMemo(() => {
-    if (!q) return catalogEntries;
-    return catalogEntries.map(entry => ({
+    const filterExposed = (ep: CatalogEntry['endpoints'][number]) => !!ep.exposedToWorkflow;
+    const filterFolder = (folder: CatalogFolder): CatalogFolder => ({
+      ...folder,
+      endpoints: folder.endpoints.filter(filterExposed),
+      folders: folder.folders.map(filterFolder).filter(f => f.endpoints.length > 0 || f.folders.length > 0),
+    });
+    const exposed = catalogEntries.map(entry => ({
       ...entry,
-      endpoints: entry.endpoints.filter(ep =>
-        (ep.summary || '').toLowerCase().includes(q) || ep.path.toLowerCase().includes(q) || ep.method.toLowerCase().includes(q)
-      ),
-    })).filter(entry => entry.endpoints.length > 0);
+      endpoints: entry.endpoints.filter(filterExposed),
+      folders: entry.folders.map(filterFolder).filter(f => f.endpoints.length > 0 || f.folders.length > 0),
+    })).filter(entry => entry.endpoints.length > 0 || entry.folders.length > 0);
+
+    if (!q) return exposed;
+    const folderHasMatch = (folder: CatalogFolder): boolean =>
+      folder.endpoints.some(ep => matchesSearch(ep, q)) || folder.folders.some(folderHasMatch);
+    return exposed.filter(entry =>
+      entry.endpoints.some(ep => matchesSearch(ep, q)) || entry.folders.some(folderHasMatch),
+    );
   }, [q, catalogEntries]);
 
   const handleBlockDragStart = useCallback((e: React.DragEvent, block: BlockDef) => {
@@ -209,28 +220,32 @@ export default function WorkflowPalette({ collections, catalogEntries, onAddNode
 
         {section === 'catalog' && (
           <div className="wf-palette-tree">
-            {filteredCatalog.length === 0 && <p className="wf-palette-empty">{q ? `No catalog entries matching "${searchQuery.trim()}"` : 'No catalog entries'}</p>}
-            {filteredCatalog.map(entry => (
-              <div key={entry.id} className="wf-palette-group">
-                <button className="wf-palette-group-header" onClick={() => toggle(entry.id)}>
-                  <span className="wf-palette-caret">{expanded.has(entry.id) ? '▾' : '▸'}</span>
-                  {entry.name}
-                  <span className="wf-palette-count">{entry.endpoints.length}</span>
-                </button>
-                {expanded.has(entry.id) && (
-                  <div className="wf-palette-children">
-                    <CatalogFolderTree
-                      folders={entry.folders}
-                      endpoints={entry.endpoints}
-                      entryId={entry.id}
-                      expanded={expanded}
-                      onToggle={toggle}
-                      onAdd={onAddFromCatalog}
-                    />
-                  </div>
-                )}
-              </div>
-            ))}
+            {filteredCatalog.length === 0 && <p className="wf-palette-empty">{q ? `No exposed endpoints matching "${searchQuery.trim()}"` : 'No endpoints exposed to Workflow. Use the "Expose to Workflow" checkbox on the Catalog page.'}</p>}
+            {filteredCatalog.map(entry => {
+              const totalEpCount = countCatalogEndpoints(entry);
+              return (
+                <div key={entry.id} className="wf-palette-group">
+                  <button className="wf-palette-group-header" onClick={() => toggle(entry.id)}>
+                    <span className="wf-palette-caret">{expanded.has(entry.id) ? '▾' : '▸'}</span>
+                    {entry.name}
+                    <span className="wf-palette-count">{totalEpCount}</span>
+                  </button>
+                  {expanded.has(entry.id) && (
+                    <div className="wf-palette-children">
+                      <CatalogFolderTree
+                        folders={entry.folders}
+                        rootEndpoints={entry.endpoints}
+                        entryId={entry.id}
+                        expanded={expanded}
+                        onToggle={toggle}
+                        onAdd={onAddFromCatalog}
+                        searchQuery={searchQuery.trim()}
+                      />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
 
@@ -316,69 +331,92 @@ function RequestItemList({ requests, collectionId, onAdd, depth = 1 }: {
   );
 }
 
+// ── Catalog helpers ────────────────────────────────────
+
+function countCatalogEndpoints(entry: CatalogEntry): number {
+  let n = entry.endpoints.length;
+  const walk = (folders: CatalogFolder[]) => {
+    for (const f of folders) { n += f.endpoints.length; walk(f.folders); }
+  };
+  walk(entry.folders);
+  return n;
+}
+
+function countFolderEndpoints(folder: CatalogFolder): number {
+  let n = folder.endpoints.length;
+  const walk = (folders: CatalogFolder[]) => {
+    for (const f of folders) { n += f.endpoints.length; walk(f.folders); }
+  };
+  walk(folder.folders);
+  return n;
+}
+
+function matchesSearch(ep: CatalogEntry['endpoints'][number], q: string): boolean {
+  if (!q) return true;
+  return (ep.summary || '').toLowerCase().includes(q) || ep.path.toLowerCase().includes(q) || ep.method.toLowerCase().includes(q);
+}
+
 // ── Catalog folder tree ────────────────────────────────
 
-function CatalogFolderTree({ folders, endpoints, entryId, expanded, onToggle, onAdd }: {
+function CatalogFolderTree({ folders, rootEndpoints, entryId, expanded, onToggle, onAdd, depth = 1, searchQuery = '' }: {
   folders: CatalogFolder[];
-  endpoints: CatalogEntry['endpoints'];
+  rootEndpoints: CatalogEntry['endpoints'];
   entryId: string;
   expanded: Set<string>;
   onToggle: (id: string) => void;
   onAdd: (entryId: string, endpointId: string) => void;
+  depth?: number;
+  searchQuery?: string;
 }) {
-  if (folders.length === 0) {
-    return (
-      <>
-        {endpoints.map(ep => (
-          <button key={ep.id} className="wf-palette-item" onClick={() => onAdd(entryId, ep.id)} title={`${ep.method.toUpperCase()} ${ep.path}`}>
+  const q = searchQuery.toLowerCase();
+  return (
+    <>
+      {folders.map(folder => {
+        const epCount = countFolderEndpoints(folder);
+        if (epCount === 0 && q) return null;
+        const isOpen = !!q || expanded.has(folder.id);
+        const filteredEps = q ? folder.endpoints.filter(ep => matchesSearch(ep, q)) : folder.endpoints;
+        return (
+          <div key={folder.id} className="wf-palette-folder">
+            <button className="wf-palette-folder-header" style={{ paddingLeft: depth * 12 + 8 }} onClick={() => onToggle(folder.id)}>
+              <span className="wf-palette-caret">{isOpen ? '▾' : '▸'}</span>
+              <span className="wf-palette-folder-icon">▤</span>
+              <span className="wf-palette-folder-name">{folder.name}</span>
+              {epCount > 0 && <span className="wf-palette-count">{epCount}</span>}
+            </button>
+            {isOpen && (
+              <>
+                {filteredEps.map(ep => (
+                  <button key={ep.id} className="wf-palette-item" style={{ paddingLeft: depth * 12 + 24 }} onClick={() => onAdd(entryId, ep.id)} title={`${ep.method.toUpperCase()} ${ep.path}`}>
+                    <span className="wf-method-mini" style={{ color: METHOD_COLORS[ep.method.toUpperCase()] ?? '#6b7280' }}>{ep.method.toUpperCase()}</span>
+                    <span className="wf-palette-item-name">{ep.summary || ep.path}</span>
+                  </button>
+                ))}
+                {folder.folders.length > 0 && (
+                  <CatalogFolderTree
+                    folders={folder.folders}
+                    rootEndpoints={[]}
+                    entryId={entryId}
+                    expanded={expanded}
+                    onToggle={onToggle}
+                    onAdd={onAdd}
+                    depth={depth + 1}
+                    searchQuery={searchQuery}
+                  />
+                )}
+              </>
+            )}
+          </div>
+        );
+      })}
+      {rootEndpoints
+        .filter(ep => matchesSearch(ep, q))
+        .map(ep => (
+          <button key={ep.id} className="wf-palette-item" style={{ paddingLeft: depth * 12 + 16 }} onClick={() => onAdd(entryId, ep.id)} title={`${ep.method.toUpperCase()} ${ep.path}`}>
             <span className="wf-method-mini" style={{ color: METHOD_COLORS[ep.method.toUpperCase()] ?? '#6b7280' }}>{ep.method.toUpperCase()}</span>
             <span className="wf-palette-item-name">{ep.summary || ep.path}</span>
           </button>
         ))}
-      </>
-    );
-  }
-
-  const folderEndpoints = new Map<string, typeof endpoints>();
-  const rootEndpoints: typeof endpoints = [];
-  for (const ep of endpoints) {
-    const folderId = (ep as unknown as Record<string, string>).folderId;
-    if (folderId) {
-      const list = folderEndpoints.get(folderId) ?? [];
-      list.push(ep);
-      folderEndpoints.set(folderId, list);
-    } else {
-      rootEndpoints.push(ep);
-    }
-  }
-
-  return (
-    <>
-      {folders.map(folder => {
-        const folderEps = folderEndpoints.get(folder.id) ?? [];
-        return (
-          <div key={folder.id} className="wf-palette-folder">
-            <button className="wf-palette-folder-header" style={{ paddingLeft: 20 }} onClick={() => onToggle(folder.id)}>
-              <span className="wf-palette-caret">{expanded.has(folder.id) ? '▾' : '▸'}</span>
-              <span className="wf-palette-folder-icon">▤</span>
-              <span className="wf-palette-folder-name">{folder.name}</span>
-              {folderEps.length > 0 && <span className="wf-palette-count">{folderEps.length}</span>}
-            </button>
-            {expanded.has(folder.id) && folderEps.map(ep => (
-              <button key={ep.id} className="wf-palette-item" style={{ paddingLeft: 32 }} onClick={() => onAdd(entryId, ep.id)} title={`${ep.method.toUpperCase()} ${ep.path}`}>
-                <span className="wf-method-mini" style={{ color: METHOD_COLORS[ep.method.toUpperCase()] ?? '#6b7280' }}>{ep.method.toUpperCase()}</span>
-                <span className="wf-palette-item-name">{ep.summary || ep.path}</span>
-              </button>
-            ))}
-          </div>
-        );
-      })}
-      {rootEndpoints.map(ep => (
-        <button key={ep.id} className="wf-palette-item" onClick={() => onAdd(entryId, ep.id)} title={`${ep.method.toUpperCase()} ${ep.path}`}>
-          <span className="wf-method-mini" style={{ color: METHOD_COLORS[ep.method.toUpperCase()] ?? '#6b7280' }}>{ep.method.toUpperCase()}</span>
-          <span className="wf-palette-item-name">{ep.summary || ep.path}</span>
-        </button>
-      ))}
     </>
   );
 }

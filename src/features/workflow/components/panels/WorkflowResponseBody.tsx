@@ -2,6 +2,8 @@ import { useMemo, useState, useEffect, useCallback, useRef } from 'react';
 import JsonPreview, { buildJTree, collectMatchNodes, collectJTreePaths } from '../../../requests/components/JsonTreePreview';
 import { useDebounce } from '../../../../shared/hooks/useDebounce';
 import { escapeRegExp } from '../../../../shared/utils/helpers';
+import { SearchMatchBar } from '../../../../shared/components/SearchMatchBar';
+import { useSearchMatchNavigation } from '../../../../shared/hooks/useSearchMatchNavigation';
 
 /** Best-effort pretty-format for JSON-like text that may be truncated / invalid. */
 function prettyFormatRawJson(raw: string): string {
@@ -108,8 +110,7 @@ interface Props {
 }
 
 export default function WorkflowResponseBody({ body, subtitle }: Props) {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [searchMatchIdx, setSearchMatchIdx] = useState(0);
+  const [searchTerm, setSearchTermState] = useState('');
   const [searchMatchCount, setSearchMatchCount] = useState(0);
   const [collapsedSet, setCollapsedSet] = useState<Set<string>>(() => new Set());
   const rawFallbackRef = useRef<HTMLPreElement>(null);
@@ -159,6 +160,25 @@ export default function WorkflowResponseBody({ body, subtitle }: Props) {
   }, [debouncedSearch, jTree, jsonText]);
 
   const totalMatchCount = metaMatchCount + jsonMatchCount;
+  const effectiveCount = jTree ? searchMatchCount : totalMatchCount;
+
+  const {
+    currentMatchIndex: searchMatchIdx,
+    setCurrentMatchIndex: setSearchMatchIdx,
+    goNext,
+    goPrev,
+    clear: clearSearchNav,
+  } = useSearchMatchNavigation(effectiveCount);
+
+  const setSearchTerm = useCallback((value: string) => {
+    setSearchTermState(value);
+    setSearchMatchIdx(0);
+  }, [setSearchMatchIdx]);
+
+  const clearSearch = useCallback(() => {
+    setSearchTermState('');
+    clearSearchNav();
+  }, [clearSearchNav]);
 
   // Sync searchMatchIdx to the JsonTreePreview's currentMatchIdx (tree-only portion)
   // Meta matches come first (0..metaMatchCount-1), then tree matches (metaMatchCount..)
@@ -231,57 +251,36 @@ export default function WorkflowResponseBody({ body, subtitle }: Props) {
     return { __html: highlightPlainText(formattedRawJson, debouncedSearch, rawActiveIdx) };
   }, [formattedRawJson, debouncedSearch, rawActiveIdx]);
 
-  const effectiveCount = jTree ? searchMatchCount : totalMatchCount;
-
   const searchToolbarContent = (
     <>
-      <input
-        type="search"
-        className="results-search wf-resp-search-input"
-        placeholder="Search response, keys, paths, values…"
+      <SearchMatchBar
         value={searchTerm}
-        onChange={(e) => { setSearchTerm(e.target.value); setSearchMatchIdx(0); }}
+        onChange={setSearchTerm}
+        currentMatch={searchMatchIdx + 1}
+        totalMatches={effectiveCount}
+        onPrev={goPrev}
+        onNext={goNext}
+        onClear={clearSearch}
+        inputType="search"
+        placeholder="Search response, keys, paths, values…"
+        inputClassName="results-search wf-resp-search-input"
+        countClassName="wf-resp-search-count"
+        navClassName="wf-resp-search-nav"
+        clearClassName="wf-resp-search-clear"
+        controlsVisible={!!debouncedSearch.trim()}
+        prevTitle="Previous (Shift+Enter)"
+        nextTitle="Next (Enter)"
+        ariaLabel="Search response"
         onKeyDown={(e) => {
-          if (e.key === 'Escape') { setSearchTerm(''); setSearchMatchIdx(0); }
+          if (e.key === 'Escape') clearSearch();
           if (e.key === 'Enter' && effectiveCount > 0) {
             e.preventDefault();
-            if (e.shiftKey) {
-              setSearchMatchIdx(prev => prev > 0 ? prev - 1 : effectiveCount - 1);
-            } else {
-              setSearchMatchIdx(prev => prev < effectiveCount - 1 ? prev + 1 : 0);
-            }
+            if (e.shiftKey) goPrev();
+            else goNext();
           }
         }}
-        aria-label="Search response"
       />
-      {debouncedSearch.trim() ? (
-        <>
-          <span className="wf-resp-search-count" aria-live="polite">
-            {effectiveCount > 0
-              ? `${searchMatchIdx + 1}/${effectiveCount}`
-              : 'No match'}
-          </span>
-          <button
-            type="button"
-            className="wf-resp-search-nav"
-            title="Previous (Shift+Enter)"
-            disabled={effectiveCount === 0}
-            onClick={() => setSearchMatchIdx(prev => prev > 0 ? prev - 1 : effectiveCount - 1)}
-          ><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" width="10" height="10"><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" /></svg></button>
-          <button
-            type="button"
-            className="wf-resp-search-nav"
-            title="Next (Enter)"
-            disabled={effectiveCount === 0}
-            onClick={() => setSearchMatchIdx(prev => prev < effectiveCount - 1 ? prev + 1 : 0)}
-          ><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" width="10" height="10"><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg></button>
-          <button
-            type="button"
-            className="wf-resp-search-clear"
-            onClick={() => { setSearchTerm(''); setSearchMatchIdx(0); }}
-          >&times;</button>
-        </>
-      ) : (
+      {!debouncedSearch.trim() && (
         <span className="wf-resp-search-hint">Search keys, paths, values. Enter / Shift+Enter to navigate.</span>
       )}
       {jTree && (

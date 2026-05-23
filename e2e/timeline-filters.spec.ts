@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { openResultsExplorer, seedWorkflowAndTestRun } from './helpers';
 
 /**
  * Timeline Filter Visual Rules (enforced by these tests):
@@ -113,63 +114,10 @@ function makeTimelineTestRun() {
   };
 }
 
-async function seedTestRunsViaIDB(page: Page, runs: unknown[]): Promise<string> {
-  return await page.evaluate((testRuns) => {
-    return new Promise<string>((resolve) => {
-      const req = indexedDB.open('redfireforge', 4);
-      req.onupgradeneeded = () => {
-        const db = req.result;
-        if (!db.objectStoreNames.contains('testRuns')) {
-          const store = db.createObjectStore('testRuns', { keyPath: 'id' });
-          store.createIndex('timestamp', 'timestamp', { unique: false });
-        }
-        if (!db.objectStoreNames.contains('featureGroups')) db.createObjectStore('featureGroups');
-        if (!db.objectStoreNames.contains('sharedDataSources')) db.createObjectStore('sharedDataSources');
-        if (!db.objectStoreNames.contains('trash')) db.createObjectStore('trash');
-      };
-      req.onsuccess = () => {
-        const db = req.result;
-        try {
-          const tx = db.transaction('testRuns', 'readwrite');
-          const store = tx.objectStore('testRuns');
-          store.clear();
-          for (const run of testRuns) store.put(run);
-          tx.oncomplete = () => { db.close(); resolve('ok'); };
-          tx.onerror = () => { db.close(); resolve('tx-error'); };
-        } catch (e) { db.close(); resolve('catch: ' + String(e)); }
-      };
-      req.onerror = () => resolve('open-error');
-      req.onblocked = () => resolve('blocked');
-    });
-  }, runs);
-}
-
 async function openTimelineView(page: Page): Promise<void> {
-  await page.addInitScript((wfs) => {
-    localStorage.setItem('workflows', JSON.stringify(wfs));
-  }, [TIMELINE_WORKFLOW]);
+  await seedWorkflowAndTestRun(page, TIMELINE_WORKFLOW, makeTimelineTestRun());
+  await openResultsExplorer(page);
 
-  await page.goto('http://localhost:5173');
-  await page.waitForLoadState('domcontentloaded');
-
-  const seeded = await seedTestRunsViaIDB(page, [makeTimelineTestRun()]);
-  expect(seeded).toBe('ok');
-
-  await page.reload();
-  await page.waitForLoadState('domcontentloaded');
-
-  const harnessBtn = page.locator('button[title="Harness"]');
-  await expect(harnessBtn).toBeVisible({ timeout: 10000 });
-  await harnessBtn.click();
-
-  const resultsTab = page.locator('button.sub-nav-tab:has-text("Results")');
-  await expect(resultsTab).toBeVisible({ timeout: 5000 });
-  await resultsTab.click();
-
-  // The run auto-selects (only one). Click Results Explorer once it is ready.
-  const explorerBtn = page.locator('button:has-text("Results Explorer")');
-  await expect(explorerBtn.first()).toBeVisible({ timeout: 10000 });
-  await explorerBtn.first().click();
   await expect(page.locator('[data-testid="view-mode-toggle"]')).toBeVisible({ timeout: 10000 });
 
   const timelineBtn = page.locator('[data-testid="view-toggle-timeline"]');

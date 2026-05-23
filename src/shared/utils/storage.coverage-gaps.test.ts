@@ -71,6 +71,11 @@ vi.mock('./idbTestRuns', () => {
     idbClearAllRuns: vi.fn(async () => {
       for (const k of Object.keys(idbStore)) delete idbStore[k];
     }),
+    idbLoadTestRunsLite: vi.fn(async () => getRuns()),
+    idbLoadTrace: vi.fn(async (runId: string) => {
+      const run = idbStore[runId] as TR | undefined;
+      return run?.compressedTrace as string | undefined;
+    }),
   };
 });
 
@@ -98,9 +103,9 @@ vi.mock('./idbSharedDataSources', () => ({
   idbMigrateSharedDataSources: (key: string) => sharedIdb.idbMigrateSharedDataSources(key),
 }));
 
-import { saveTestRun, forceSaveTestRun, loadTestRuns, updateTestRun, deleteTestRun, deleteRunsOlderThan, clearAllTestRuns, setMaxRuns, getStorageUsage, saveFeatureGroups, loadFeatureGroups, saveSharedDataSources, loadSharedDataSources, loadPreviewSampleId, savePreviewSampleId, loadTestRunsLite, loadTraceForRun, loadRunnerConfig, loadWorkflowFolders, saveWorkflowFolders, } from './storage';
+import { saveTestRun, forceSaveTestRun, loadTestRuns, updateTestRun, deleteTestRun, deleteRunsOlderThan, clearAllTestRuns, setMaxRuns, getStorageUsage, getStorageDiagnostics, saveFeatureGroups, loadFeatureGroups, saveSharedDataSources, loadSharedDataSources, loadPreviewSampleId, savePreviewSampleId, loadTestRunsLite, loadTraceForRun, loadRunnerConfig, loadWorkflowFolders, saveWorkflowFolders, } from './storage';
 import { SharedDataSource, TestRun } from '../types';
-import { idbSaveTestRun, idbLoadTestRuns, idbGetRunsInfo, } from './idbTestRuns';
+import { idbSaveTestRun, idbLoadTestRuns, idbGetRunsInfo, idbLoadTestRunsLite, idbLoadTrace, } from './idbTestRuns';
 
 function makeRun(id: string, overrides: Partial<TestRun> = {}): TestRun {
   return {
@@ -634,6 +639,108 @@ describe('storage — Tauri branches for loadTraceForRun', () => {
     tauriGetItem.mockRejectedValue(new Error('disk error'));
     const result = await loadTraceForRun('r1');
     expect(result).toBeUndefined();
+  });
+});
+
+describe('storage — browser branches for loadTestRunsLite', () => {
+  it('returns lite runs from IndexedDB in browser mode', async () => {
+    await saveTestRun(makeRun('lite-1', { compressedTrace: 'big-trace' }));
+    const result = await loadTestRunsLite();
+    expect(result.some(r => r.id === 'lite-1')).toBe(true);
+    expect(vi.mocked(idbLoadTestRunsLite)).toHaveBeenCalled();
+  });
+
+  it('returns empty array when idbLoadTestRunsLite throws', async () => {
+    vi.mocked(idbLoadTestRunsLite).mockRejectedValueOnce(new Error('idb lite fail'));
+    expect(await loadTestRunsLite()).toEqual([]);
+  });
+
+  it('returns run unchanged when Tauri run has no compressedTrace', async () => {
+    isTauriMock.mockReturnValue(true);
+    tauriGetItem.mockResolvedValue(JSON.stringify([{ id: 'plain', timestamp: 1 }]));
+    const result = await loadTestRunsLite();
+    expect(result).toEqual([{ id: 'plain', timestamp: 1 }]);
+  });
+});
+
+describe('storage — browser branches for loadTraceForRun', () => {
+  it('returns trace from IndexedDB in browser mode', async () => {
+    await saveTestRun(makeRun('trace-run', { compressedTrace: 'trace-payload' } as Partial<TestRun>));
+    const result = await loadTraceForRun('trace-run');
+    expect(result).toBe('trace-payload');
+    expect(vi.mocked(idbLoadTrace)).toHaveBeenCalledWith('trace-run');
+  });
+
+  it('returns undefined when idbLoadTrace throws', async () => {
+    vi.mocked(idbLoadTrace).mockRejectedValueOnce(new Error('idb trace fail'));
+    expect(await loadTraceForRun('any')).toBeUndefined();
+  });
+});
+
+describe('storage — getStorageDiagnostics sorting', () => {
+  it('lists keys sorted by size descending', async () => {
+    localStorage.setItem('small-key', 'x');
+    localStorage.setItem('large-key', 'x'.repeat(500));
+    localStorage.setItem('medium-key', 'x'.repeat(100));
+    const diag = await getStorageDiagnostics();
+    const largeIdx = diag.indexOf('large-key');
+    const mediumIdx = diag.indexOf('medium-key');
+    const smallIdx = diag.indexOf('small-key');
+    expect(largeIdx).toBeGreaterThan(-1);
+    expect(mediumIdx).toBeGreaterThan(largeIdx);
+    expect(smallIdx).toBeGreaterThan(mediumIdx);
+  });
+});
+
+describe('storage — scenario kind split migration metadata', () => {
+  it('writes migration-v4-split-count when mixed tests are split on load', async () => {
+    localStorage.setItem(
+      'perf-test-v3-feature-groups',
+      JSON.stringify([
+        {
+          id: 'fg-split',
+          name: 'Mixed',
+          scenarios: [
+            {
+              id: 'sc-mixed',
+              name: 'Mixed Scenario',
+              tests: [
+                {
+                  id: 't-std',
+                  name: 'Standard',
+                  url: 'http://x',
+                  method: 'GET',
+                  headers: [],
+                  body: '',
+                  auth: { type: 'none' },
+                  validation: { mode: 'none' },
+                },
+                {
+                  id: 't-param',
+                  name: 'Parameterized',
+                  url: 'http://x',
+                  method: 'GET',
+                  headers: [],
+                  body: '',
+                  auth: { type: 'none' },
+                  validation: { mode: 'none' },
+                  dataSource: {
+                    id: 'ds1',
+                    columns: [],
+                    rows: [],
+                    source: { type: 'inline' },
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ]),
+    );
+
+    const fgs = await loadFeatureGroups();
+    expect(fgs.length).toBeGreaterThan(0);
+    expect(localStorage.getItem('migration-v4-split-count')).toBe('1');
   });
 });
 

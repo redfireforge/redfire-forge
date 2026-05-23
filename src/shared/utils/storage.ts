@@ -1,6 +1,5 @@
 import type { TestRun, RequestResult, FeatureGroup, Environment, Microservice, GlobalAuthProfile, RequestsData, SharedDataSource, DataSource } from '../types';
 import { migrateScenarioKinds } from './scenarioMigration';
-import type { CatalogEntry, SavedEndpointValues } from '../../features/catalog/types/catalog';
 import { isTauri } from './platform';
 import * as tauriStore from './tauriStore';
 import {
@@ -12,9 +11,18 @@ import {
 import {
   idbLoadFeatureGroups, idbSaveFeatureGroups, idbMigrateFeatureGroups,
 } from './idbFeatureGroups';
+import { createDualModeArrayStorage } from './storageDualMode';
 import {
   idbLoadSharedDataSources, idbSaveSharedDataSources, idbMigrateSharedDataSources,
 } from './idbSharedDataSources';
+import { idbLoadWorkflows } from './idbWorkflows';
+import {
+  idbLoadRequests, idbSaveRequests, idbMigrateRequests,
+} from './idbRequests';
+import { idbLoadCatalogEntries } from './idbCatalog';
+import {
+  idbLoadProjects, idbMigrateProjects,
+} from './idbProjects';
 import { compressTrace, sampleIterations } from './traceCompression';
 
 const STORAGE_KEY = 'perf-test-runs';
@@ -24,10 +32,6 @@ const RUNNER_CONFIG_KEY = 'perf-test-runner-config';
 const THEME_KEY = 'perf-test-theme';
 const REQUESTS_KEY = 'perf-test-requests';
 const LEGACY_WORKBENCH_KEY = 'perf-test-workbench';
-const CATALOG_KEY = 'perf-test-catalog';
-const CATALOG_SPEC_PREFIX = 'perf-test-catalog-spec-';
-const CATALOG_EP_VALUES_PREFIX = 'perf-test-catalog-ep-';
-
 // Flat app-level data keys (v3)
 const FLAT_ENVS_KEY = 'perf-test-v3-environments';
 const FLAT_SVCS_KEY = 'perf-test-v3-microservices';
@@ -63,7 +67,29 @@ export async function writeKey(key: string, value: string): Promise<void> {
     await tauriStore.setItem(key, value);
     return;
   }
-  localStorage.setItem(key, value);
+  try {
+    localStorage.setItem(key, value);
+  } catch (e) {
+    if (e instanceof DOMException && e.name === 'QuotaExceededError') {
+      console.error(`[Storage] QuotaExceededError writing "${key}" (${(value.length / 1024).toFixed(0)} KB). localStorage is full.`);
+      notifyStorageFull(key);
+    }
+    throw e;
+  }
+}
+
+let _storageFullListeners: Array<(key: string) => void> = [];
+
+/** Register a callback invoked when a localStorage write fails due to quota. */
+export function onStorageFull(cb: (key: string) => void): () => void {
+  _storageFullListeners.push(cb);
+  return () => { _storageFullListeners = _storageFullListeners.filter(l => l !== cb); };
+}
+
+function notifyStorageFull(key: string) {
+  for (const cb of _storageFullListeners) {
+    try { cb(key); } catch { /* ignore listener errors */ }
+  }
 }
 
 export async function removeKey(key: string): Promise<void> {
@@ -171,13 +197,13 @@ export async function getStorageUsage(): Promise<{ usedBytes: number; entries: R
   let total = 0;
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i);
-    if (key?.startsWith('perf-test')) {
+    if (key) {
       const size = (localStorage.getItem(key) ?? '').length * 2;
       entries[key] = size;
       total += size;
     }
   }
-  // Add IDB test runs info
+  // Add IDB data info
   try {
     const idbInfo = await idbGetRunsInfo();
     if (idbInfo.count > 0) {
@@ -185,6 +211,23 @@ export async function getStorageUsage(): Promise<{ usedBytes: number; entries: R
       total += idbInfo.approxBytes;
     }
   } catch { /* IDB unavailable */ }
+  // Estimate sizes of other IDB stores
+  const idbChecks: Array<{ label: string; fn: () => Promise<unknown> }> = [
+    { label: 'workflows (IndexedDB)', fn: idbLoadWorkflows },
+    { label: 'requests (IndexedDB)', fn: idbLoadRequests },
+    { label: 'catalog (IndexedDB)', fn: () => idbLoadCatalogEntries() },
+    { label: 'projects (IndexedDB)', fn: idbLoadProjects },
+  ];
+  for (const { label, fn } of idbChecks) {
+    try {
+      const data = await fn();
+      if (data) {
+        const size = JSON.stringify(data).length * 2;
+        entries[label] = size;
+        total += size;
+      }
+    } catch { /* ignore */ }
+  }
   return { usedBytes: total, entries };
 }
 
@@ -409,37 +452,19 @@ export async function loadEnvironments(): Promise<Environment[]> { return loadJs
 export async function saveMicroservices(svcs: Microservice[]): Promise<void> { await saveJsonKey(FLAT_SVCS_KEY, svcs); }
 export async function loadMicroservices(): Promise<Microservice[]> { return loadJsonKey<Microservice>(FLAT_SVCS_KEY); }
 
+const featureGroupsStorage = createDualModeArrayStorage<FeatureGroup>({
+  key: FLAT_FGS_KEY,
+  idbLoad: idbLoadFeatureGroups,
+  idbSave: idbSaveFeatureGroups,
+  idbMigrate: idbMigrateFeatureGroups,
+});
+
 export async function saveFeatureGroups(fgs: FeatureGroup[]): Promise<void> {
-  if (isTauri()) {
-    await saveJsonKey(FLAT_FGS_KEY, fgs);
-    return;
-  }
-  // Use IndexedDB (much higher quota than localStorage's ~5MB)
-  try {
-    await idbSaveFeatureGroups(fgs);
-    // Clear localStorage copy if migration hasn't happened yet
-    if (localStorage.getItem(FLAT_FGS_KEY)) localStorage.removeItem(FLAT_FGS_KEY);
-    return;
-  } catch { /* IDB unavailable or failed — fall back to localStorage */ }
-  await saveJsonKey(FLAT_FGS_KEY, fgs);
+  await featureGroupsStorage.save(fgs);
 }
+
 export async function loadFeatureGroups(): Promise<FeatureGroup[]> {
-  let fgs: FeatureGroup[];
-  if (isTauri()) {
-    fgs = await loadJsonKey<FeatureGroup>(FLAT_FGS_KEY);
-  } else {
-    // Try IDB first; fall back to localStorage for pre-migration or test environments
-    const fromIdb = await idbLoadFeatureGroups();
-    if (fromIdb) {
-      fgs = fromIdb;
-    } else {
-      fgs = await loadJsonKey<FeatureGroup>(FLAT_FGS_KEY);
-      // Migrate to IDB if data exists in localStorage
-      if (fgs.length > 0) {
-        await idbMigrateFeatureGroups(FLAT_FGS_KEY);
-      }
-    }
-  }
+  let fgs = await featureGroupsStorage.load();
   // Migrate: rename legacy "dataTable" property to "dataSource" on Scenario objects
   let migrated = false;
   for (const fg of fgs) {
@@ -564,14 +589,34 @@ const EMPTY_REQUESTS: RequestsData = {
 };
 
 export async function loadRequests(): Promise<RequestsData> {
+  if (isTauri()) {
+    try {
+      const raw = await readKey(REQUESTS_KEY);
+      if (raw) return JSON.parse(raw) as RequestsData;
+      const legacy = await readKey(LEGACY_WORKBENCH_KEY);
+      if (legacy) {
+        const data = JSON.parse(legacy) as RequestsData;
+        await writeKey(REQUESTS_KEY, legacy);
+        await removeKey(LEGACY_WORKBENCH_KEY);
+        return data;
+      }
+    } catch { /* ignore */ }
+    return { ...EMPTY_REQUESTS, environments: [], collections: [] };
+  }
+  // Browser: IDB first, then localStorage fallback + migration
   try {
+    const fromIdb = await idbLoadRequests();
+    if (fromIdb) return fromIdb;
     const raw = await readKey(REQUESTS_KEY);
-    if (raw) return JSON.parse(raw) as RequestsData;
-
+    if (raw) {
+      const data = JSON.parse(raw) as RequestsData;
+      await idbMigrateRequests(REQUESTS_KEY);
+      return data;
+    }
     const legacy = await readKey(LEGACY_WORKBENCH_KEY);
     if (legacy) {
       const data = JSON.parse(legacy) as RequestsData;
-      await writeKey(REQUESTS_KEY, legacy);
+      await idbSaveRequests(data);
       await removeKey(LEGACY_WORKBENCH_KEY);
       return data;
     }
@@ -580,63 +625,20 @@ export async function loadRequests(): Promise<RequestsData> {
 }
 
 export async function saveRequests(data: RequestsData): Promise<void> {
-  await writeKey(REQUESTS_KEY, JSON.stringify(data));
-}
-
-// ---------- Catalog ----------
-
-export async function loadCatalogEntries(): Promise<CatalogEntry[]> {
+  if (isTauri()) {
+    await writeKey(REQUESTS_KEY, JSON.stringify(data));
+    return;
+  }
   try {
-    const raw = await readKey(CATALOG_KEY);
-    if (raw) return JSON.parse(raw) as CatalogEntry[];
-  } catch { /* ignore */ }
-  return [];
+    await idbSaveRequests(data);
+    if (localStorage.getItem(REQUESTS_KEY)) localStorage.removeItem(REQUESTS_KEY);
+  } catch {
+    await writeKey(REQUESTS_KEY, JSON.stringify(data));
+  }
 }
 
-export async function saveCatalogEntries(entries: CatalogEntry[]): Promise<void> {
-  await writeKey(CATALOG_KEY, JSON.stringify(entries));
-}
+// ── Workflows (selection / UI prefs — core CRUD in storageWorkflows.ts) ──
 
-export async function loadCatalogRawSpec(entryId: string, versionId: string): Promise<string | null> {
-  try {
-    const raw = await readKey(`${CATALOG_SPEC_PREFIX}${entryId}-${versionId}`);
-    return raw || null;
-  } catch { return null; }
-}
-
-export async function saveCatalogRawSpec(entryId: string, versionId: string, rawSpec: string): Promise<void> {
-  await writeKey(`${CATALOG_SPEC_PREFIX}${entryId}-${versionId}`, rawSpec);
-}
-
-export async function removeCatalogRawSpec(entryId: string, versionId: string): Promise<void> {
-  await removeKey(`${CATALOG_SPEC_PREFIX}${entryId}-${versionId}`);
-}
-
-export async function removeAllCatalogRawSpecs(entryId: string, versionIds: string[]): Promise<void> {
-  await Promise.all(versionIds.map(vid => removeKey(`${CATALOG_SPEC_PREFIX}${entryId}-${vid}`)));
-}
-
-// ---------- Catalog Endpoint Values ----------
-
-export async function loadCatalogEndpointValues(entryId: string): Promise<Record<string, SavedEndpointValues>> {
-  try {
-    const raw = await readKey(`${CATALOG_EP_VALUES_PREFIX}${entryId}`);
-    if (raw) return JSON.parse(raw);
-  } catch { /* ignore */ }
-  return {};
-}
-
-export async function saveCatalogEndpointValues(entryId: string, values: Record<string, SavedEndpointValues>): Promise<void> {
-  await writeKey(`${CATALOG_EP_VALUES_PREFIX}${entryId}`, JSON.stringify(values));
-}
-
-export async function removeCatalogEndpointValues(entryId: string): Promise<void> {
-  await removeKey(`${CATALOG_EP_VALUES_PREFIX}${entryId}`);
-}
-
-// ── Workflows ──────────────────────────────────────────────
-
-const WORKFLOWS_KEY = 'workflows';
 /** Last selected workflow id in the designer (survives refresh). */
 const WORKFLOWS_SELECTED_ID_KEY = 'workflows_selected_id';
 /** When true, do not auto-inject the built-in sample workflow on load (user removed it). */
@@ -659,14 +661,6 @@ export async function saveSelectedWorkflowId(id: string | null): Promise<void> {
   }
 }
 
-export async function loadWorkflows(): Promise<import('../../features/workflow/types/workflow').Workflow[]> {
-  try { const r = await readKey(WORKFLOWS_KEY); return r ? JSON.parse(r) : []; } catch { return []; }
-}
-
-export async function saveWorkflows(workflows: import('../../features/workflow/types/workflow').Workflow[]): Promise<void> {
-  await writeKey(WORKFLOWS_KEY, JSON.stringify(workflows));
-}
-
 export async function loadWorkflowSampleDismissed(): Promise<boolean> {
   try {
     const r = await readKey(WORKFLOWS_SAMPLE_DISMISSED_KEY);
@@ -678,16 +672,6 @@ export async function loadWorkflowSampleDismissed(): Promise<boolean> {
 
 export async function saveWorkflowSampleDismissed(dismissed: boolean): Promise<void> {
   await writeKey(WORKFLOWS_SAMPLE_DISMISSED_KEY, dismissed ? 'true' : 'false');
-}
-
-const WORKFLOW_FOLDERS_KEY = 'workflow_folders';
-
-export async function loadWorkflowFolders(): Promise<import('../../features/workflow/types/workflow').WorkflowFolder[]> {
-  try { const r = await readKey(WORKFLOW_FOLDERS_KEY); return r ? JSON.parse(r) : []; } catch { return []; }
-}
-
-export async function saveWorkflowFolders(folders: import('../../features/workflow/types/workflow').WorkflowFolder[]): Promise<void> {
-  await writeKey(WORKFLOW_FOLDERS_KEY, JSON.stringify(folders));
 }
 
 /** Preview sample workflow entry ID — survives refresh via sessionStorage. */
@@ -712,3 +696,131 @@ export function savePreviewSampleId(id: string | null): void {
     /* sessionStorage may be unavailable */
   }
 }
+
+/**
+ * Get a human-readable summary of localStorage usage.
+ * Designed for console debugging: `await getStorageDiagnostics()`.
+ */
+export async function getStorageDiagnostics(): Promise<string> {
+  const usage = await getStorageUsage();
+  const sorted = Object.entries(usage.entries)
+    .sort(([, a], [, b]) => b - a);
+  const lines = ['=== Storage Diagnostics ===',
+    `Total: ${(usage.usedBytes / 1024).toFixed(0)} KB (~5 MB limit)`,
+    '', '--- Top Keys ---'];
+  for (const [key, size] of sorted.slice(0, 20)) {
+    lines.push(`  ${(size / 1024).toFixed(1)} KB — ${key}`);
+  }
+  return lines.join('\n');
+}
+
+/**
+ * Remove stale per-scenario runner config, progress, undo, replay, and dm- keys
+ * that accumulate over time and bloat localStorage. Keeps only keys that reference
+ * IDs still present in the active data.
+ * Returns the number of keys removed and bytes freed.
+ */
+export function cleanupStaleStorageKeys(): { removed: number; freedKB: number } {
+  if (isTauri()) return { removed: 0, freedKB: 0 };
+
+  const EPHEMERAL_PREFIXES = [
+    'perf-test-last-progress:',
+    'perf-test-wf-undo-',
+    'replayLayout:',
+    'dm-schema-snapshot-',
+    'dm-patterns:',
+  ];
+
+  let removed = 0;
+  let freedBytes = 0;
+  const toRemove: string[] = [];
+
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (!key) continue;
+    if (EPHEMERAL_PREFIXES.some(p => key.startsWith(p))) {
+      toRemove.push(key);
+    }
+  }
+
+  for (const key of toRemove) {
+    const size = (localStorage.getItem(key) ?? '').length * 2;
+    localStorage.removeItem(key);
+    removed++;
+    freedBytes += size;
+  }
+
+  // Also trim runner-config keys with deep composite IDs (4+ segments = stale per-run configs)
+  const configsToRemove: string[] = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (!key) continue;
+    if (key.startsWith('perf-test-runner-config:')) {
+      const segments = key.split(':');
+      if (segments.length >= 4) {
+        configsToRemove.push(key);
+      }
+    }
+  }
+
+  for (const key of configsToRemove) {
+    const size = (localStorage.getItem(key) ?? '').length * 2;
+    localStorage.removeItem(key);
+    removed++;
+    freedBytes += size;
+  }
+
+  // Migrate remaining large localStorage keys to IDB (fire-and-forget)
+  migrateRemainingLargeKeysToIdb().catch(() => { /* best effort */ });
+
+  const freedKB = Math.round(freedBytes / 1024);
+  if (removed > 0) {
+    console.info(`[Storage] Cleanup: removed ${removed} stale keys, freed ${freedKB} KB`);
+  }
+  return { removed, freedKB };
+}
+
+/**
+ * Migrate any large localStorage keys that haven't been moved to IDB yet.
+ * Called on startup by cleanupStaleStorageKeys — each key is moved once then
+ * deleted from localStorage, freeing up the ~5 MB quota.
+ */
+async function migrateRemainingLargeKeysToIdb(): Promise<void> {
+  const [{ migrateWorkflowKeysToIdb }, { migrateCatalogKeysToIdb }] = await Promise.all([
+    import('./storageWorkflows'),
+    import('./storageCatalog'),
+  ]);
+  await migrateWorkflowKeysToIdb();
+  const migrations: Array<{ check: string; fn: () => Promise<boolean | number> }> = [
+    { check: REQUESTS_KEY, fn: () => idbMigrateRequests(REQUESTS_KEY) },
+    { check: PROJECTS_KEY, fn: () => idbMigrateProjects(PROJECTS_KEY) },
+  ];
+  for (const { check, fn } of migrations) {
+    if (localStorage.getItem(check)) {
+      try { await fn(); } catch { /* ignore */ }
+    }
+  }
+  await migrateCatalogKeysToIdb();
+}
+
+// ---------- Re-exports (catalog & workflow CRUD live in dedicated modules) ----------
+
+export {
+  loadCatalogEntries,
+  saveCatalogEntries,
+  loadCatalogRawSpec,
+  saveCatalogRawSpec,
+  removeCatalogRawSpec,
+  removeAllCatalogRawSpecs,
+  loadCatalogEndpointValues,
+  saveCatalogEndpointValues,
+  removeCatalogEndpointValues,
+} from './storageCatalog';
+
+export {
+  loadWorkflows,
+  saveWorkflows,
+  loadWorkflowFolders,
+  saveWorkflowFolders,
+  compactWorkflowStorage,
+} from './storageWorkflows';

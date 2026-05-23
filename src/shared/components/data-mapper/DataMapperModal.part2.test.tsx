@@ -224,15 +224,16 @@ describe('DataMapperModal', () => {
     expect(onCancel).toHaveBeenCalled();
   });
 
-  it('does not close on Escape when focus is in an INPUT', () => {
+  it('does not close on Escape when focus is in an INPUT', async () => {
     const onCancel = vi.fn();
     const adapter = createAdapter();
     const { container } = render(<DataMapperModal adapter={adapter} onSave={vi.fn()} onCancel={onCancel} />);
+    await act(async () => {});
     const input = container.querySelector('input');
     if (input) {
-      input.focus();
+      await act(async () => { input.focus(); });
       const event = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true });
-      input.dispatchEvent(event);
+      await act(async () => { input.dispatchEvent(event); });
       expect(onCancel).not.toHaveBeenCalled();
     }
   });

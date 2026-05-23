@@ -34,7 +34,7 @@ export default function FolderPickerModal({ open, folders, title = 'Choose Desti
             type="button"
           >
             <span className="fp-row-icon">📂</span>
-            <span className="fp-row-label">Unfiled (root)</span>
+            <span className="fp-row-label">Workflows (root)</span>
           </button>
           {tree.map(node => (
             <FolderNode key={node.folder.id} node={node} depth={1} selected={selected} onSelect={setSelected} />

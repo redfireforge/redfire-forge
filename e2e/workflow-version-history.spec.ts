@@ -104,13 +104,37 @@ async function seedNoVersionWorkflow(page: import('@playwright/test').Page) {
 /** Click the "Versions" toolbar button. */
 async function openVersionPanel(page: import('@playwright/test').Page) {
   await page.locator('.wf-toolbar-versions-btn').click();
-  await expect(page.locator('.wf-version-panel')).toBeVisible();
+  await expect(page.locator('.wfv-panel')).toBeVisible();
 }
 
-/** Read the persisted workflow from localStorage and return parsed. */
+/** Read the persisted workflow from IndexedDB (migrated from localStorage on first load). */
 async function getPersistedWorkflows(page: import('@playwright/test').Page) {
-  const raw = await page.evaluate(() => localStorage.getItem('workflows'));
-  return raw ? JSON.parse(raw) : [];
+  return page.evaluate(async () => {
+    // App migrates localStorage to IndexedDB on first load, so read from IDB
+    return new Promise((resolve) => {
+      const req = indexedDB.open('redfireforge', 5);
+      req.onsuccess = () => {
+        const db = req.result;
+        try {
+          const tx = db.transaction('workflows', 'readonly');
+          const store = tx.objectStore('workflows');
+          const getReq = store.get('all');
+          getReq.onsuccess = () => {
+            db.close();
+            resolve(getReq.result || []);
+          };
+          getReq.onerror = () => {
+            db.close();
+            resolve([]);
+          };
+        } catch {
+          db.close();
+          resolve([]);
+        }
+      };
+      req.onerror = () => resolve([]);
+    });
+  });
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -142,13 +166,13 @@ test.describe('Workflow Version History — Toolbar Button', () => {
   test('clicking Versions toggles the version panel open/closed', async ({ page }) => {
     const btn = page.locator('.wf-toolbar-versions-btn');
     // Initially panel is not visible
-    await expect(page.locator('.wf-version-panel')).not.toBeVisible();
+    await expect(page.locator('.wfv-panel')).not.toBeVisible();
     // First click opens
     await btn.click();
-    await expect(page.locator('.wf-version-panel')).toBeVisible();
+    await expect(page.locator('.wfv-panel')).toBeVisible();
     // Second click closes (toggle)
     await btn.click();
-    await expect(page.locator('.wf-version-panel')).not.toBeVisible();
+    await expect(page.locator('.wfv-panel')).not.toBeVisible();
   });
 });
 
@@ -162,25 +186,25 @@ test.describe('Workflow Version Panel — Empty State', () => {
 
   test('shows "No versions yet" message when no versions exist', async ({ page }) => {
     await openVersionPanel(page);
-    await expect(page.locator('.wf-version-empty')).toBeVisible();
-    await expect(page.locator('.wf-version-empty p').first()).toHaveText('No versions yet');
+    await expect(page.locator('.wfv-empty')).toBeVisible();
+    await expect(page.locator('.wfv-empty-title')).toHaveText('No versions yet');
   });
 
   test('shows hint about saving to create a version', async ({ page }) => {
     await openVersionPanel(page);
-    await expect(page.locator('.wf-version-empty-hint')).toHaveText(
-      'Save the workflow to create a version snapshot.',
+    await expect(page.locator('.wfv-empty-hint')).toHaveText(
+      'Save the workflow to create your first version snapshot',
     );
   });
 
   test('footer shows "0 versions"', async ({ page }) => {
     await openVersionPanel(page);
-    await expect(page.locator('.wf-version-footer-count')).toHaveText('0 versions');
+    await expect(page.locator('.wfv-footer-count')).toHaveText('0 versions');
   });
 
   test('Compare button is disabled', async ({ page }) => {
     await openVersionPanel(page);
-    const compare = page.locator('.wf-version-panel .btn-primary', { hasText: 'Compare' });
+    const compare = page.locator('.wfv-compare-btn');
     await expect(compare).toBeDisabled();
   });
 
@@ -198,41 +222,43 @@ test.describe('Workflow Version Panel — With Versions', () => {
     await page.waitForLoadState('networkidle');
   });
 
-  test('panel header shows clock emoji and "Version History" title', async ({ page }) => {
+  test('panel header shows "Version History" title', async ({ page }) => {
     await openVersionPanel(page);
-    await expect(page.locator('.wf-config-type')).toContainText('Version History');
+    await expect(page.locator('.wfv-header-title')).toContainText('Version History');
   });
 
   test('lists all versions in newest-first order', async ({ page }) => {
     await openVersionPanel(page);
-    const items = page.locator('.wf-version-item');
+    const items = page.locator('.wfv-item');
     await expect(items).toHaveCount(2);
     // First item should be newer (ver-1 = "Added Request", 1h ago)
-    const firstLabel = items.nth(0).locator('.wf-version-item-label');
+    const firstLabel = items.nth(0).locator('.wfv-item-label');
     await expect(firstLabel).toHaveText('Added Request');
     // Second item should be older (ver-2 = "Empty Start", 2h ago)
-    const secondLabel = items.nth(1).locator('.wf-version-item-label');
+    const secondLabel = items.nth(1).locator('.wfv-item-label');
     await expect(secondLabel).toHaveText('Empty Start');
   });
 
   test('each version item shows node and edge counts', async ({ page }) => {
     await openVersionPanel(page);
-    const firstMeta = page.locator('.wf-version-item').nth(0).locator('.wf-version-item-meta span').first();
-    await expect(firstMeta).toHaveText('2 nodes · 1 edges');
-    const secondMeta = page.locator('.wf-version-item').nth(1).locator('.wf-version-item-meta span').first();
-    await expect(secondMeta).toHaveText('1 nodes · 0 edges');
+    const firstItem = page.locator('.wfv-item').nth(0);
+    await expect(firstItem).toContainText('2 nodes');
+    await expect(firstItem).toContainText('1 edges');
+    const secondItem = page.locator('.wfv-item').nth(1);
+    await expect(secondItem).toContainText('1 nodes');
+    await expect(secondItem).toContainText('0 edges');
   });
 
   test('last version shows "Initial version" as change summary', async ({ page }) => {
     await openVersionPanel(page);
-    const lastSummary = page.locator('.wf-version-item').last().locator('.wf-version-item-summary');
+    const lastSummary = page.locator('.wfv-item').last().locator('.wfv-item-summary');
     await expect(lastSummary).toHaveText('Initial version');
   });
 
   test('non-last version shows a generated change summary', async ({ page }) => {
     await openVersionPanel(page);
     // ver-1 (newer) compared to ver-2 (older): added 1 node, added 1 edge, added 1 var
-    const firstSummary = page.locator('.wf-version-item').first().locator('.wf-version-item-summary');
+    const firstSummary = page.locator('.wfv-item').first().locator('.wfv-item-summary');
     const text = await firstSummary.textContent();
     expect(text).toContain('1 node added');
     expect(text).toContain('1 edge added');
@@ -241,15 +267,17 @@ test.describe('Workflow Version Panel — With Versions', () => {
 
   test('each version item shows relative time (e.g. "1h ago")', async ({ page }) => {
     await openVersionPanel(page);
-    const firstTime = page.locator('.wf-version-item').first().locator('.wf-version-item-time');
+    const firstTime = page.locator('.wfv-item').first().locator('.wfv-item-time');
     await expect(firstTime).toHaveText('1h ago');
-    const secondTime = page.locator('.wf-version-item').nth(1).locator('.wf-version-item-time');
+    const secondTime = page.locator('.wfv-item').nth(1).locator('.wfv-item-time');
     await expect(secondTime).toHaveText('2h ago');
   });
 
   test('each version item has Restore, Rename, Delete action buttons', async ({ page }) => {
     await openVersionPanel(page);
-    const firstItem = page.locator('.wf-version-item').first();
+    const firstItem = page.locator('.wfv-item').first();
+    // Hover to reveal action buttons
+    await firstItem.hover();
     await expect(firstItem.locator('[title="Restore this version"]')).toBeVisible();
     await expect(firstItem.locator('[title="Rename this version"]')).toBeVisible();
     await expect(firstItem.locator('[title="Delete this version"]')).toBeVisible();
@@ -257,13 +285,13 @@ test.describe('Workflow Version Panel — With Versions', () => {
 
   test('footer shows correct version count text', async ({ page }) => {
     await openVersionPanel(page);
-    await expect(page.locator('.wf-version-footer-count')).toHaveText('2 versions');
+    await expect(page.locator('.wfv-footer-count')).toHaveText('2 versions');
   });
 
   test('close button (×) dismisses the panel', async ({ page }) => {
     await openVersionPanel(page);
-    await page.locator('.wf-version-panel button[title="Close"]').click();
-    await expect(page.locator('.wf-version-panel')).not.toBeVisible();
+    await page.locator('.wfv-close-btn').click();
+    await expect(page.locator('.wfv-panel')).not.toBeVisible();
   });
 });
 
@@ -277,49 +305,49 @@ test.describe('Workflow Version Panel — Selection & Compare', () => {
   });
 
   test('Compare button is disabled until exactly 2 versions are selected', async ({ page }) => {
-    const compare = page.locator('.wf-version-panel .btn-primary', { hasText: 'Compare' });
+    const compare = page.locator('.wfv-compare-btn');
     await expect(compare).toBeDisabled();
-    // Select first
-    await page.locator('.wf-version-item input[type="checkbox"]').nth(0).click();
+    // Select first by clicking the checkbox
+    await page.locator('.wfv-checkbox').nth(0).click();
     await expect(compare).toBeDisabled(); // only 1 selected
     // Select second
-    await page.locator('.wf-version-item input[type="checkbox"]').nth(1).click();
+    await page.locator('.wfv-checkbox').nth(1).click();
     await expect(compare).toBeEnabled();
   });
 
-  test('selecting a checkbox adds "selected" class to the version item', async ({ page }) => {
-    const firstItem = page.locator('.wf-version-item').first();
+  test('selecting a checkbox adds "wfv-item-selected" class to the version item', async ({ page }) => {
+    const firstItem = page.locator('.wfv-item').first();
     // Not selected initially
-    await expect(firstItem).not.toHaveClass(/selected/);
-    await firstItem.locator('input[type="checkbox"]').click();
-    await expect(firstItem).toHaveClass(/selected/);
+    await expect(firstItem).not.toHaveClass(/wfv-item-selected/);
+    await firstItem.locator('.wfv-checkbox').click();
+    await expect(firstItem).toHaveClass(/wfv-item-selected/);
   });
 
-  test('"Clear selection" button appears when versions are selected', async ({ page }) => {
-    await expect(page.locator('.wf-version-footer-clear')).not.toBeVisible();
-    await page.locator('.wf-version-item input[type="checkbox"]').nth(0).click();
-    await expect(page.locator('.wf-version-footer-clear')).toBeVisible();
-    await expect(page.locator('.wf-version-footer-clear')).toHaveText('Clear selection');
+  test('"Clear" button appears when versions are selected', async ({ page }) => {
+    await expect(page.locator('.wfv-selection-bar')).not.toBeVisible();
+    await page.locator('.wfv-checkbox').nth(0).click();
+    await expect(page.locator('.wfv-selection-bar')).toBeVisible();
+    await expect(page.locator('.wfv-selection-bar button')).toHaveText('Clear');
   });
 
-  test('"Clear selection" deselects all versions', async ({ page }) => {
-    const checkboxes = page.locator('.wf-version-item input[type="checkbox"]');
+  test('"Clear" deselects all versions', async ({ page }) => {
+    const checkboxes = page.locator('.wfv-checkbox');
     await checkboxes.nth(0).click();
     await checkboxes.nth(1).click();
-    await page.locator('.wf-version-footer-clear').click();
-    // Both should be unchecked
-    await expect(checkboxes.nth(0)).not.toBeChecked();
-    await expect(checkboxes.nth(1)).not.toBeChecked();
-    // "Clear selection" should be hidden again
-    await expect(page.locator('.wf-version-footer-clear')).not.toBeVisible();
+    await page.locator('.wfv-selection-bar button').click();
+    // Both should be unchecked (no checked class)
+    await expect(checkboxes.nth(0)).not.toHaveClass(/wfv-checkbox-checked/);
+    await expect(checkboxes.nth(1)).not.toHaveClass(/wfv-checkbox-checked/);
+    // Selection bar should be hidden
+    await expect(page.locator('.wfv-selection-bar')).not.toBeVisible();
   });
 
   test('deselecting a checked checkbox untoggles it', async ({ page }) => {
-    const cb = page.locator('.wf-version-item input[type="checkbox"]').nth(0);
+    const cb = page.locator('.wfv-checkbox').nth(0);
     await cb.click();
-    await expect(cb).toBeChecked();
+    await expect(cb).toHaveClass(/wfv-checkbox-checked/);
     await cb.click();
-    await expect(cb).not.toBeChecked();
+    await expect(cb).not.toHaveClass(/wfv-checkbox-checked/);
   });
 });
 
@@ -331,9 +359,9 @@ test.describe('Workflow Version Diff Modal', () => {
     await page.waitForLoadState('networkidle');
     // Open panel and select both versions, then compare
     await openVersionPanel(page);
-    await page.locator('.wf-version-item input[type="checkbox"]').nth(0).click();
-    await page.locator('.wf-version-item input[type="checkbox"]').nth(1).click();
-    await page.locator('.wf-version-panel .btn-primary', { hasText: 'Compare' }).click();
+    await page.locator('.wfv-checkbox').nth(0).click();
+    await page.locator('.wfv-checkbox').nth(1).click();
+    await page.locator('.wfv-compare-btn').click();
     await expect(page.locator('.wf-version-diff-modal')).toBeVisible();
   });
 
@@ -343,11 +371,8 @@ test.describe('Workflow Version Diff Modal', () => {
 
   test('diff modal header shows the version range (older → newer labels)', async ({ page }) => {
     const range = page.locator('.wf-version-diff-range');
-    await expect(range).toContainText('Empty Start');
-    await expect(range).toContainText('Added Request');
-    // Arrow direction: older → newer
-    const text = await range.textContent();
-    expect(text).toMatch(/Empty Start.*→.*Added Request/);
+    await expect(range.locator('.wf-version-diff-label-old')).toContainText('Empty Start');
+    await expect(range.locator('.wf-version-diff-label-new')).toContainText('Added Request');
   });
 
   test('diff modal has 4 tabs: Nodes, Edges, Variables, Services', async ({ page }) => {
@@ -370,9 +395,9 @@ test.describe('Workflow Version Diff Modal', () => {
     // Nodes tab should be active
     await expect(page.locator('.wf-version-diff-tab').nth(0)).toHaveClass(/active/);
     // Should show the added request node with + badge
-    const addedRow = page.locator('.wf-version-diff-row.added');
+    const addedRow = page.locator('.wf-version-diff-row-added');
     await expect(addedRow).toBeVisible();
-    await expect(addedRow.locator('.wf-version-diff-badge.added')).toHaveText('+');
+    await expect(addedRow.locator('.wf-version-diff-badge-added')).toHaveText('+');
     await expect(addedRow).toContainText('request');
   });
 
@@ -380,7 +405,7 @@ test.describe('Workflow Version Diff Modal', () => {
     await page.locator('.wf-version-diff-tab', { hasText: 'Edges' }).click();
     const badge = page.locator('.wf-version-diff-tab').nth(1).locator('.wf-version-diff-tab-count');
     await expect(badge).toHaveText('1');
-    const addedEdge = page.locator('.wf-version-diff-row.added');
+    const addedEdge = page.locator('.wf-version-diff-row-added');
     await expect(addedEdge).toBeVisible();
     await expect(addedEdge).toContainText('n1');
     await expect(addedEdge).toContainText('n2');
@@ -388,7 +413,7 @@ test.describe('Workflow Version Diff Modal', () => {
 
   test('Variables tab shows added variable', async ({ page }) => {
     await page.locator('.wf-version-diff-tab', { hasText: 'Variables' }).click();
-    const addedVar = page.locator('.wf-version-diff-row.added');
+    const addedVar = page.locator('.wf-version-diff-row-added');
     await expect(addedVar).toBeVisible();
     await expect(addedVar.locator('.wf-version-diff-var-key')).toContainText('baseUrl');
   });
@@ -426,7 +451,9 @@ test.describe('Workflow Version Panel — Restore', () => {
   });
 
   test('clicking Restore shows success toast with version label', async ({ page }) => {
-    await page.locator('.wf-version-item').first().locator('[title="Restore this version"]').click();
+    const firstItem = page.locator('.wfv-item').first();
+    await firstItem.hover();
+    await firstItem.locator('[title="Restore this version"]').click();
     const toast = page.locator('.wf-toast-success');
     await expect(toast).toBeVisible({ timeout: 5000 });
     await expect(toast.locator('.wf-toast-title')).toHaveText('Version restored');
@@ -435,7 +462,9 @@ test.describe('Workflow Version Panel — Restore', () => {
 
   test('restoring a version persists the restored node/edge/variable data to localStorage', async ({ page }) => {
     // Restore ver-2 ("Empty Start") which has 1 node, 0 edges, no variables
-    await page.locator('.wf-version-item').nth(1).locator('[title="Restore this version"]').click();
+    const secondItem = page.locator('.wfv-item').nth(1);
+    await secondItem.hover();
+    await secondItem.locator('[title="Restore this version"]').click();
     await expect(page.locator('.wf-toast-success')).toBeVisible({ timeout: 5000 });
     // Check localStorage was updated with the restored data
     const workflows = await getPersistedWorkflows(page);
@@ -457,21 +486,27 @@ test.describe('Workflow Version Panel — Delete', () => {
   });
 
   test('deleting a version removes it from the list', async ({ page }) => {
-    await expect(page.locator('.wf-version-item')).toHaveCount(2);
-    await page.locator('.wf-version-item').first().locator('[title="Delete this version"]').click();
-    await expect(page.locator('.wf-version-item')).toHaveCount(1);
+    await expect(page.locator('.wfv-item')).toHaveCount(2);
+    const firstItem = page.locator('.wfv-item').first();
+    await firstItem.hover();
+    await firstItem.locator('[title="Delete this version"]').click();
+    await expect(page.locator('.wfv-item')).toHaveCount(1);
     // The remaining version should be "Empty Start"
-    await expect(page.locator('.wf-version-item-label')).toHaveText('Empty Start');
+    await expect(page.locator('.wfv-item-label')).toHaveText('Empty Start');
   });
 
   test('deleting a version updates the footer count', async ({ page }) => {
-    await expect(page.locator('.wf-version-footer-count')).toHaveText('2 versions');
-    await page.locator('.wf-version-item').first().locator('[title="Delete this version"]').click();
-    await expect(page.locator('.wf-version-footer-count')).toHaveText('1 version');
+    await expect(page.locator('.wfv-footer-count')).toHaveText('2 versions');
+    const firstItem = page.locator('.wfv-item').first();
+    await firstItem.hover();
+    await firstItem.locator('[title="Delete this version"]').click();
+    await expect(page.locator('.wfv-footer-count')).toHaveText('1 version');
   });
 
   test('deleting a version persists the change to localStorage', async ({ page }) => {
-    await page.locator('.wf-version-item').first().locator('[title="Delete this version"]').click();
+    const firstItem = page.locator('.wfv-item').first();
+    await firstItem.hover();
+    await firstItem.locator('[title="Delete this version"]').click();
     const workflows = await getPersistedWorkflows(page);
     const wf = workflows.find((w: { id: string }) => w.id === 'wf-ver-1');
     expect(wf.versions).toHaveLength(1);
@@ -479,16 +514,24 @@ test.describe('Workflow Version Panel — Delete', () => {
   });
 
   test('deleting all versions shows empty state', async ({ page }) => {
-    await page.locator('.wf-version-item').first().locator('[title="Delete this version"]').click();
-    await page.locator('.wf-version-item').first().locator('[title="Delete this version"]').click();
-    await expect(page.locator('.wf-version-empty')).toBeVisible();
-    await expect(page.locator('.wf-version-footer-count')).toHaveText('0 versions');
+    let firstItem = page.locator('.wfv-item').first();
+    await firstItem.hover();
+    await firstItem.locator('[title="Delete this version"]').click();
+    // Wait for first delete to complete before clicking next
+    await expect(page.locator('.wfv-footer-count')).toHaveText('1 version');
+    firstItem = page.locator('.wfv-item').first();
+    await firstItem.hover();
+    await firstItem.locator('[title="Delete this version"]').click();
+    await expect(page.locator('.wfv-empty')).toBeVisible();
+    await expect(page.locator('.wfv-footer-count')).toHaveText('0 versions');
   });
 
   test('deleting a version also updates the toolbar badge', async ({ page }) => {
     const badge = page.locator('.wf-toolbar-versions-btn .wf-toolbar-services-badge');
     await expect(badge).toHaveText('2');
-    await page.locator('.wf-version-item').first().locator('[title="Delete this version"]').click();
+    const firstItem = page.locator('.wfv-item').first();
+    await firstItem.hover();
+    await firstItem.locator('[title="Delete this version"]').click();
     await expect(badge).toHaveText('1');
   });
 });
@@ -503,34 +546,42 @@ test.describe('Workflow Version Panel — Rename', () => {
   });
 
   test('clicking Rename shows an inline input pre-filled with the current label', async ({ page }) => {
-    await page.locator('.wf-version-item').first().locator('[title="Rename this version"]').click();
-    const input = page.locator('.wf-version-label-input');
+    const firstItem = page.locator('.wfv-item').first();
+    await firstItem.hover();
+    await firstItem.locator('[title="Rename this version"]').click();
+    const input = page.locator('.wfv-label-input');
     await expect(input).toBeVisible();
     await expect(input).toHaveValue('Added Request');
   });
 
   test('pressing Enter commits the renamed label', async ({ page }) => {
-    await page.locator('.wf-version-item').first().locator('[title="Rename this version"]').click();
-    const input = page.locator('.wf-version-label-input');
+    const firstItem = page.locator('.wfv-item').first();
+    await firstItem.hover();
+    await firstItem.locator('[title="Rename this version"]').click();
+    const input = page.locator('.wfv-label-input');
     await input.fill('After Refactor');
     await input.press('Enter');
     // Input should disappear and label should update
     await expect(input).not.toBeVisible();
-    await expect(page.locator('.wf-version-item').first().locator('.wf-version-item-label')).toHaveText('After Refactor');
+    await expect(page.locator('.wfv-item').first().locator('.wfv-item-label')).toHaveText('After Refactor');
   });
 
   test('pressing Escape cancels the rename without saving', async ({ page }) => {
-    await page.locator('.wf-version-item').first().locator('[title="Rename this version"]').click();
-    const input = page.locator('.wf-version-label-input');
+    const firstItem = page.locator('.wfv-item').first();
+    await firstItem.hover();
+    await firstItem.locator('[title="Rename this version"]').click();
+    const input = page.locator('.wfv-label-input');
     await input.fill('Discarded Name');
     await input.press('Escape');
     // Label should remain the original
-    await expect(page.locator('.wf-version-item').first().locator('.wf-version-item-label')).toHaveText('Added Request');
+    await expect(page.locator('.wfv-item').first().locator('.wfv-item-label')).toHaveText('Added Request');
   });
 
   test('renaming persists the new label to localStorage', async ({ page }) => {
-    await page.locator('.wf-version-item').first().locator('[title="Rename this version"]').click();
-    const input = page.locator('.wf-version-label-input');
+    const firstItem = page.locator('.wfv-item').first();
+    await firstItem.hover();
+    await firstItem.locator('[title="Rename this version"]').click();
+    const input = page.locator('.wfv-label-input');
     await input.fill('Persisted Label');
     await input.press('Enter');
     const workflows = await getPersistedWorkflows(page);
@@ -569,8 +620,8 @@ test.describe('Workflow Version — Auto-Save on Save', () => {
 
     // Open panel and verify
     await openVersionPanel(page);
-    await expect(page.locator('.wf-version-item')).toHaveCount(1);
-    await expect(page.locator('.wf-version-footer-count')).toHaveText('1 version');
+    await expect(page.locator('.wfv-item')).toHaveCount(1);
+    await expect(page.locator('.wfv-footer-count')).toHaveText('1 version');
   });
 
   test('saving again with no changes does NOT create a duplicate version', async ({ page }) => {
@@ -620,7 +671,7 @@ test.describe('Workflow Version — Panel Interaction with Other Panels', () => 
     // Service panel should be open (it uses wf-service-panel class or similar)
     // Now open version panel
     await page.locator('.wf-toolbar-versions-btn').click();
-    await expect(page.locator('.wf-version-panel')).toBeVisible();
+    await expect(page.locator('.wfv-panel')).toBeVisible();
     // Service registry should close — the service panel uses className that contains "wf-service-registry"
     // We verify by checking version panel is the only right panel
   });
@@ -629,7 +680,7 @@ test.describe('Workflow Version — Panel Interaction with Other Panels', () => 
     await openVersionPanel(page);
     // Now open services
     await page.locator('.wf-toolbar button', { hasText: 'Services' }).click();
-    await expect(page.locator('.wf-version-panel')).not.toBeVisible();
+    await expect(page.locator('.wfv-panel')).not.toBeVisible();
   });
 });
 
@@ -641,21 +692,21 @@ test.describe('Workflow Sidebar — Export/Import Context Menu', () => {
     await page.waitForLoadState('networkidle');
   });
 
-  test('context menu shows Export Workflow and Import Workflow items', async ({ page }) => {
+  test('workflow context menu shows Export Workflow item', async ({ page }) => {
     const sidebarItem = page.locator('.wf-sidebar-item', { hasText: 'Version Test WF' });
     await sidebarItem.click({ button: 'right' });
     const menu = page.locator('.wf-sidebar-ctx-menu');
     await expect(menu).toBeVisible();
     await expect(menu.locator('[role="menuitem"]', { hasText: 'Export Workflow' })).toBeVisible();
-    await expect(menu.locator('[role="menuitem"]', { hasText: 'Import Workflow' })).toBeVisible();
+    // Import Workflow is only available in folder context menu, not workflow item context menu
   });
 
-  test('context menu shows a divider between Import and Delete', async ({ page }) => {
+  test('workflow context menu shows dividers for Move and Delete sections', async ({ page }) => {
     const sidebarItem = page.locator('.wf-sidebar-item', { hasText: 'Version Test WF' });
     await sidebarItem.click({ button: 'right' });
     const menu = page.locator('.wf-sidebar-ctx-menu');
     await expect(menu).toBeVisible();
-    // Multiple dividers render when folders are loaded (before Move / before Delete); assert within menu scope.
+    // Dividers are used: one before "Move to Folder", one before "Delete Workflow"
     await expect(menu.locator('.wf-sidebar-ctx-divider').first()).toBeVisible();
   });
 
