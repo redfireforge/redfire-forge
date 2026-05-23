@@ -144,6 +144,8 @@ export interface CatalogResponse {
 export interface CatalogServer {
   url: string;
   description?: string;
+  /** Resolved absolute URL (computed when server URL is relative and import source is known). */
+  resolvedUrl?: string;
 }
 
 export interface CatalogSecurityScheme {

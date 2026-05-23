@@ -88,6 +88,22 @@ describe('resolveBaseUrl', () => {
     const hc: HostConfig = { strategy: 'inherited' };
     expect(resolveBaseUrl(hc, servers)).toBe('https://api.example.com/v1');
   });
+
+  it('uses resolvedUrl over url when available (relative server URL)', () => {
+    const hc: HostConfig = { strategy: 'inherited', selectedServerIndex: 0 };
+    const relativeServers: CatalogServer[] = [
+      { url: '/api/v3', description: 'Relative', resolvedUrl: 'https://petstore.example.com/api/v3' },
+    ];
+    expect(resolveBaseUrl(hc, relativeServers)).toBe('https://petstore.example.com/api/v3');
+  });
+
+  it('falls back to url when resolvedUrl is undefined', () => {
+    const hc: HostConfig = { strategy: 'inherited', selectedServerIndex: 0 };
+    const absoluteServers: CatalogServer[] = [
+      { url: 'https://api.example.com/v1', description: 'Absolute' },
+    ];
+    expect(resolveBaseUrl(hc, absoluteServers)).toBe('https://api.example.com/v1');
+  });
 });
 
 describe('extractServerPathPrefix', () => {

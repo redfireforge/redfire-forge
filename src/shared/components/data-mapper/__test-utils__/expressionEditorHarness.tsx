@@ -191,7 +191,18 @@ export function makeSnippetMockImplementations(mocks: {
     mocks.loadExpressionSnippets.mockReset();
     mocks.saveExpressionSnippet.mockReset();
     mocks.deleteExpressionSnippet.mockReset();
-    mocks.loadExpressionSnippets.mockImplementation(async () => [...snippetStore]);
+    // Use a synchronous thenable so the component's `.then(setSnippets)` fires
+    // inside useEffect (still within React's act() wrapper), preventing
+    // "not wrapped in act()" warnings in every test that renders the modal.
+    mocks.loadExpressionSnippets.mockImplementation(() => {
+      const result = [...snippetStore];
+      const thenable = {
+        then(fn: (v: typeof result) => unknown) { fn(result); return thenable; },
+        catch() { return thenable; },
+        finally() { return thenable; },
+      };
+      return thenable as unknown as Promise<typeof result>;
+    });
     mocks.saveExpressionSnippet.mockImplementation(async (name: string, expression: string) => {
       const now = Date.now();
       const idx = snippetStore.findIndex((snippet) => snippet.name.toLowerCase() === name.toLowerCase());
