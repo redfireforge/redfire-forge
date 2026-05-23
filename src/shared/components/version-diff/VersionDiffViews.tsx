@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
-import { Differ, Viewer } from 'json-diff-kit';
+import { Viewer } from 'json-diff-kit';
+import { sharedDiffer } from '../../utils/jsonDiffKit';
 import 'json-diff-kit/dist/viewer.css';
 import 'json-diff-kit/dist/viewer-monokai.css';
 import type { AuthConfig } from '../../types';
@@ -11,7 +12,6 @@ export interface HeadersDiffData {
   headersModified: Array<{ key: string; oldValue: string; newValue: string }>;
 }
 
-const differ = new Differ({ detectCircular: false, arrayDiffMethod: 'lcs' });
 const tryParse = parseJsonOrRaw;
 
 export function HeadersDiffView({ diff }: { diff: HeadersDiffData }) {
@@ -86,7 +86,7 @@ export function AuthDiffView<S extends { auth: AuthConfig }>({
 }
 
 export function InlineDiff({ oldObj, newObj }: { oldObj: unknown; newObj: unknown }) {
-  const result = useMemo(() => differ.diff(oldObj, newObj), [oldObj, newObj]);
+  const result = useMemo(() => sharedDiffer.diff(oldObj, newObj), [oldObj, newObj]);
   return (
     <div className="test-def-diff-json-viewer" data-theme="monokai">
       <Viewer diff={result} indent={2} lineNumbers highlightInlineDiff />

@@ -44,7 +44,15 @@ vi.mock('../../shared/utils/platform', () => ({
   isTauri: () => mockIsTauri(),
 }));
 
+vi.mock('../../features/workflow/utils/workflowFolderTree', () => ({
+  getWorkflowsInFolderRecursive: vi.fn(
+    (folderId: string, _folders: unknown[], workflows: { folderId?: string }[]) =>
+      workflows.filter((wf) => wf.folderId === folderId),
+  ),
+}));
+
 import type { WorkflowHook } from '../../features/workflow/hooks/useWorkflows';
+import type { WorkflowFolder } from '../../features/workflow/types/workflow';
 import { useWorkflowImportExport } from './useWorkflowImportExport';
 
 describe('useWorkflowImportExport', () => {
@@ -57,7 +65,7 @@ describe('useWorkflowImportExport', () => {
     const wf = { id: 'wf-1', name: 'Test WF', nodes: [], edges: [], variables: {} };
     const wfHook = { workflows: [wf], insert: vi.fn() } as WorkflowHook;
     const { result } = renderHook(() =>
-      useWorkflowImportExport({ wfHook, setActiveTab: vi.fn(), showToast: vi.fn() }),
+      useWorkflowImportExport({ wfHook, folders: [], setActiveTab: vi.fn(), showToast: vi.fn() }),
     );
     act(() => { result.current.handleWorkflowExport('wf-1'); });
     expect(mockSaveJsonFile).toHaveBeenCalledWith(wf, 'workflow-export.json');
@@ -67,7 +75,7 @@ describe('useWorkflowImportExport', () => {
     const wf = { id: 'wf-1', name: 'Test WF', nodes: [], edges: [], variables: {}, versions: ['v1'] };
     const wfHook = { workflows: [wf], insert: vi.fn() } as WorkflowHook;
     const { result } = renderHook(() =>
-      useWorkflowImportExport({ wfHook, setActiveTab: vi.fn(), showToast: vi.fn() }),
+      useWorkflowImportExport({ wfHook, folders: [], setActiveTab: vi.fn(), showToast: vi.fn() }),
     );
     act(() => { result.current.handleWorkflowExport('wf-1'); });
     expect(mockSaveJsonFile).toHaveBeenCalledWith(
@@ -79,7 +87,7 @@ describe('useWorkflowImportExport', () => {
   it('handleWorkflowExport does nothing for missing workflow', () => {
     const wfHook = { workflows: [], insert: vi.fn() } as WorkflowHook;
     const { result } = renderHook(() =>
-      useWorkflowImportExport({ wfHook, setActiveTab: vi.fn(), showToast: vi.fn() }),
+      useWorkflowImportExport({ wfHook, folders: [], setActiveTab: vi.fn(), showToast: vi.fn() }),
     );
     act(() => { result.current.handleWorkflowExport('nonexistent'); });
     expect(mockSaveJsonFile).not.toHaveBeenCalled();
@@ -91,7 +99,7 @@ describe('useWorkflowImportExport', () => {
     const showToast = vi.fn();
     const setActiveTab = vi.fn();
     const { result } = renderHook(() =>
-      useWorkflowImportExport({ wfHook, setActiveTab, showToast }),
+      useWorkflowImportExport({ wfHook, folders: [], setActiveTab, showToast }),
     );
     act(() => { result.current.handleWorkflowImport(); });
     expect(mockPickJsonFile).toHaveBeenCalled();
@@ -107,7 +115,7 @@ describe('useWorkflowImportExport', () => {
     const wfHook = { workflows: [], insert: vi.fn() } as WorkflowHook;
     const showToast = vi.fn();
     const { result } = renderHook(() =>
-      useWorkflowImportExport({ wfHook, setActiveTab: vi.fn(), showToast }),
+      useWorkflowImportExport({ wfHook, folders: [], setActiveTab: vi.fn(), showToast }),
     );
     act(() => { result.current.handleWorkflowImport(); });
     const doImport = mockPickJsonFile.mock.calls[0][0];
@@ -122,7 +130,7 @@ describe('useWorkflowImportExport', () => {
     const wfHook = { workflows: [], insert: vi.fn() } as WorkflowHook;
     const setActiveTab = vi.fn();
     const { result } = renderHook(() =>
-      useWorkflowImportExport({ wfHook, setActiveTab, showToast: vi.fn() }),
+      useWorkflowImportExport({ wfHook, folders: [], setActiveTab, showToast: vi.fn() }),
     );
     await act(async () => { result.current.handleWorkflowImport(); });
     expect(mockOpenJsonFile).toHaveBeenCalled();
@@ -135,7 +143,7 @@ describe('useWorkflowImportExport', () => {
     mockOpenJsonFile.mockResolvedValue(null);
     const wfHook = { workflows: [], insert: vi.fn() } as WorkflowHook;
     const { result } = renderHook(() =>
-      useWorkflowImportExport({ wfHook, setActiveTab: vi.fn(), showToast: vi.fn() }),
+      useWorkflowImportExport({ wfHook, folders: [], setActiveTab: vi.fn(), showToast: vi.fn() }),
     );
     await act(async () => { result.current.handleWorkflowImport(); });
     expect(wfHook.insert).not.toHaveBeenCalled();
@@ -147,7 +155,7 @@ describe('useWorkflowImportExport', () => {
     const wfHook = { workflows: [], insert: vi.fn() } as WorkflowHook;
     const showToast = vi.fn();
     const { result } = renderHook(() =>
-      useWorkflowImportExport({ wfHook, setActiveTab: vi.fn(), showToast }),
+      useWorkflowImportExport({ wfHook, folders: [], setActiveTab: vi.fn(), showToast }),
     );
     await act(async () => { result.current.handleWorkflowImport(); });
     expect(showToast).toHaveBeenCalledWith('error', 'Invalid JSON file');
@@ -158,7 +166,7 @@ describe('useWorkflowImportExport', () => {
     const wfHook = { workflows: [], insert: vi.fn() } as WorkflowHook;
     const showToast = vi.fn();
     const { result } = renderHook(() =>
-      useWorkflowImportExport({ wfHook, setActiveTab: vi.fn(), showToast }),
+      useWorkflowImportExport({ wfHook, folders: [], setActiveTab: vi.fn(), showToast }),
     );
     act(() => { result.current.handleWorkflowImport(); });
     const doImport = mockPickJsonFile.mock.calls[0][0];
@@ -171,7 +179,7 @@ describe('useWorkflowImportExport', () => {
     const wfHook = { workflows: [], insert: vi.fn() } as WorkflowHook;
     const showToast = vi.fn();
     const { result } = renderHook(() =>
-      useWorkflowImportExport({ wfHook, setActiveTab: vi.fn(), showToast }),
+      useWorkflowImportExport({ wfHook, folders: [], setActiveTab: vi.fn(), showToast }),
     );
     act(() => { result.current.handleWorkflowImport(); });
     mockPickJsonFile.mock.calls[0][0]({ name: '', nodes: [], edges: [] });
@@ -184,7 +192,7 @@ describe('useWorkflowImportExport', () => {
     const showToast = vi.fn();
     const wfHook = { workflows: [], insert: vi.fn() } as WorkflowHook;
     const { result } = renderHook(() =>
-      useWorkflowImportExport({ wfHook, setActiveTab: vi.fn(), showToast }),
+      useWorkflowImportExport({ wfHook, folders: [], setActiveTab: vi.fn(), showToast }),
     );
     await act(async () => { result.current.handleWorkflowImport(); });
     expect(showToast).toHaveBeenCalledWith('error', 'Invalid workflow file');
@@ -198,9 +206,60 @@ describe('useWorkflowImportExport', () => {
     });
     const showToast = vi.fn();
     const { result } = renderHook(() =>
-      useWorkflowImportExport({ wfHook: { workflows: [], insert: vi.fn() } as WorkflowHook, setActiveTab: vi.fn(), showToast }),
+      useWorkflowImportExport({ wfHook: { workflows: [], insert: vi.fn() } as WorkflowHook, folders: [], setActiveTab: vi.fn(), showToast }),
     );
     act(() => { result.current.handleWorkflowImport(); });
     expect(showToast).toHaveBeenCalledWith('error', 'Import failed', 'picker failed');
+  });
+
+  // ─── handleExportFolder Tests ────────────────────────────────────────────────
+
+  it('handleExportFolder exports workflows in the folder', () => {
+    const wf1 = { id: 'wf-1', name: 'WF1', nodes: [], edges: [], variables: {}, folderId: 'folder-1' };
+    const wf2 = { id: 'wf-2', name: 'WF2', nodes: [], edges: [], variables: {}, folderId: 'folder-1' };
+    const folders: WorkflowFolder[] = [{ id: 'folder-1', name: 'My Folder' }];
+    const wfHook = { workflows: [wf1, wf2], insert: vi.fn() } as unknown as WorkflowHook;
+    const { result } = renderHook(() =>
+      useWorkflowImportExport({ wfHook, folders, setActiveTab: vi.fn(), showToast: vi.fn() }),
+    );
+    act(() => { result.current.handleExportFolder('folder-1'); });
+    expect(mockSaveJsonFile).toHaveBeenCalledWith([wf1, wf2], 'workflow-export.json');
+    expect(mockBuildExportFilename).toHaveBeenCalledWith(
+      expect.objectContaining({ level: 'workflow', name: 'My Folder-folder' }),
+    );
+  });
+
+  it('handleExportFolder strips versions when present', () => {
+    const wf = { id: 'wf-1', name: 'WF1', nodes: [], edges: [], variables: {}, folderId: 'folder-1', versions: ['v1'] };
+    const folders: WorkflowFolder[] = [{ id: 'folder-1', name: 'Test Folder' }];
+    const wfHook = { workflows: [wf], insert: vi.fn() } as unknown as WorkflowHook;
+    const { result } = renderHook(() =>
+      useWorkflowImportExport({ wfHook, folders, setActiveTab: vi.fn(), showToast: vi.fn() }),
+    );
+    act(() => { result.current.handleExportFolder('folder-1'); });
+    expect(mockSaveJsonFile).toHaveBeenCalledWith(
+      [expect.objectContaining({ versions: undefined })],
+      'workflow-export.json',
+    );
+  });
+
+  it('handleExportFolder does nothing for missing folder', () => {
+    const folders: WorkflowFolder[] = [{ id: 'folder-1', name: 'My Folder' }];
+    const wfHook = { workflows: [], insert: vi.fn() } as unknown as WorkflowHook;
+    const { result } = renderHook(() =>
+      useWorkflowImportExport({ wfHook, folders, setActiveTab: vi.fn(), showToast: vi.fn() }),
+    );
+    act(() => { result.current.handleExportFolder('nonexistent'); });
+    expect(mockSaveJsonFile).not.toHaveBeenCalled();
+  });
+
+  it('handleExportFolder does nothing when folder has no workflows', () => {
+    const folders: WorkflowFolder[] = [{ id: 'folder-1', name: 'Empty Folder' }];
+    const wfHook = { workflows: [], insert: vi.fn() } as unknown as WorkflowHook;
+    const { result } = renderHook(() =>
+      useWorkflowImportExport({ wfHook, folders, setActiveTab: vi.fn(), showToast: vi.fn() }),
+    );
+    act(() => { result.current.handleExportFolder('folder-1'); });
+    expect(mockSaveJsonFile).not.toHaveBeenCalled();
   });
 });

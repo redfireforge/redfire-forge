@@ -1,41 +1,18 @@
 import { test, expect, type Page } from '@playwright/test';
-import { seedAppData } from './helpers';
+import { makeFolderForE2E, makeWorkflowForE2E, seedAppData } from './helpers';
 import type { Workflow, WorkflowFolder } from '../src/features/workflow/types/workflow';
 
-const ts = Date.now();
-
-function makeWorkflow(id: string, name: string, folderId?: string, folderOrder?: number): Workflow {
-  return {
-    id,
-    name,
-    schemaVersion: 5,
-    createdAt: ts,
-    updatedAt: ts,
-    variables: {},
-    nodes: [
-      { id: 'n1', type: 'http', position: { x: 100, y: 100 }, data: { label: 'Step' } },
-    ],
-    edges: [],
-    folderId,
-    folderOrder,
-  } as Workflow;
-}
-
-function makeFolder(id: string, name: string, order: number): WorkflowFolder {
-  return { id, name, order, collapsed: false };
-}
-
 const folders: WorkflowFolder[] = [
-  makeFolder('f-perf', 'Performance', 0),
-  makeFolder('f-int', 'Integration', 1),
+  makeFolderForE2E('f-perf', 'Performance'),
+  makeFolderForE2E('f-int', 'Integration'),
 ];
 
 const workflows: Workflow[] = [
-  makeWorkflow('w1', 'Peak Load', 'f-perf', 0),
-  makeWorkflow('w2', 'Sustained Load', 'f-perf', 1),
-  makeWorkflow('w3', 'Checkout Flow', 'f-int', 0),
-  makeWorkflow('w4', 'Health Check'),
-  makeWorkflow('w5', 'Smoke Test'),
+  makeWorkflowForE2E('w1', 'Peak Load', 'f-perf', 0),
+  makeWorkflowForE2E('w2', 'Sustained Load', 'f-perf', 1),
+  makeWorkflowForE2E('w3', 'Checkout Flow', 'f-int', 0),
+  makeWorkflowForE2E('w4', 'Health Check'),
+  makeWorkflowForE2E('w5', 'Smoke Test'),
 ];
 
 async function seedData(page: Page) {

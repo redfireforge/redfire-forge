@@ -31,6 +31,8 @@ const defaultProps = () => ({
   onClose: vi.fn(),
 });
 
+const getCheckboxes = () => document.querySelectorAll('.wfv-checkbox') as NodeListOf<HTMLElement>;
+
 describe('WorkflowVersionPanel', () => {
   it('renders version list', () => {
     render(<WorkflowVersionPanel {...defaultProps()} />);
@@ -47,7 +49,7 @@ describe('WorkflowVersionPanel', () => {
   it('calls onClose when close button clicked', () => {
     const props = defaultProps();
     render(<WorkflowVersionPanel {...props} />);
-    fireEvent.click(screen.getByTitle('Close'));
+    fireEvent.click(screen.getByTitle('Close panel'));
     expect(props.onClose).toHaveBeenCalled();
   });
 
@@ -70,23 +72,23 @@ describe('WorkflowVersionPanel', () => {
   it('enables Compare button when 2 versions selected', () => {
     const props = defaultProps();
     render(<WorkflowVersionPanel {...props} />);
-    const checkboxes = screen.getAllByRole('checkbox');
+    const checkboxes = getCheckboxes();
     fireEvent.click(checkboxes[0]);
     fireEvent.click(checkboxes[1]);
-    const compareBtn = screen.getByText('Compare');
-    expect((compareBtn as HTMLButtonElement).disabled).toBe(false);
+    const compareBtn = screen.getByText('Compare').closest('button')!;
+    expect(compareBtn.disabled).toBe(false);
   });
 
   it('Compare button disabled by default', () => {
     render(<WorkflowVersionPanel {...defaultProps()} />);
-    const compareBtn = screen.getByText('Compare');
-    expect((compareBtn as HTMLButtonElement).disabled).toBe(true);
+    const compareBtn = screen.getByText('Compare').closest('button')!;
+    expect(compareBtn.disabled).toBe(true);
   });
 
   it('calls onCompare with older/newer order', () => {
     const props = defaultProps();
     render(<WorkflowVersionPanel {...props} />);
-    const checkboxes = screen.getAllByRole('checkbox');
+    const checkboxes = getCheckboxes();
     fireEvent.click(checkboxes[0]);
     fireEvent.click(checkboxes[1]);
     fireEvent.click(screen.getByText('Compare'));
@@ -102,7 +104,7 @@ describe('WorkflowVersionPanel', () => {
     const newer = makeVersion({ id: 'new', timestamp: tNew, label: 'New' });
     const props = { ...defaultProps(), versions: [newer, older] };
     render(<WorkflowVersionPanel {...props} />);
-    const checkboxes = screen.getAllByRole('checkbox');
+    const checkboxes = getCheckboxes();
     fireEvent.click(checkboxes[0]);
     fireEvent.click(checkboxes[1]);
     fireEvent.click(screen.getByText('Compare'));
@@ -114,8 +116,8 @@ describe('WorkflowVersionPanel', () => {
 
   it('shows node/edge counts in version items', () => {
     render(<WorkflowVersionPanel {...defaultProps()} />);
-    const metas = screen.getAllByText('3 nodes · 2 edges');
-    expect(metas.length).toBeGreaterThan(0);
+    expect(screen.getAllByText('3 nodes').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('2 edges').length).toBeGreaterThan(0);
   });
 
   it('starts rename on Rename button click', () => {
@@ -149,18 +151,19 @@ describe('WorkflowVersionPanel', () => {
 
   it('shows clear selection button when versions selected', () => {
     render(<WorkflowVersionPanel {...defaultProps()} />);
-    expect(screen.queryByText('Clear selection')).toBeNull();
-    const checkboxes = screen.getAllByRole('checkbox');
+    expect(screen.queryByText('Clear')).toBeNull();
+    const checkboxes = getCheckboxes();
     fireEvent.click(checkboxes[0]);
-    expect(screen.getByText('Clear selection')).toBeTruthy();
+    expect(screen.getByText('Clear')).toBeTruthy();
   });
 
   it('clears selection on clear button click', () => {
     render(<WorkflowVersionPanel {...defaultProps()} />);
-    const checkboxes = screen.getAllByRole('checkbox');
+    const checkboxes = getCheckboxes();
     fireEvent.click(checkboxes[0]);
-    fireEvent.click(screen.getByText('Clear selection'));
-    expect((checkboxes[0] as HTMLInputElement).checked).toBe(false);
+    expect(checkboxes[0].classList.contains('wfv-checkbox-checked')).toBe(true);
+    fireEvent.click(screen.getByText('Clear'));
+    expect(checkboxes[0].classList.contains('wfv-checkbox-checked')).toBe(false);
   });
 
   it('singular version text for 1 version', () => {
@@ -176,22 +179,21 @@ describe('WorkflowVersionPanel', () => {
     expect(input.value).toBe('');
   });
 
-  it('renders empty summary when change summary is null', () => {
+  it('renders no summary element when change summary is null', () => {
     const spy = vi.spyOn(workflowVersioning, 'generateChangeSummary').mockReturnValue(null as unknown as string);
     render(<WorkflowVersionPanel {...defaultProps()} />);
-    const summaries = document.querySelectorAll('.wf-version-item-summary');
-    expect(summaries.length).toBeGreaterThan(1);
-    expect(summaries[0].textContent).toBe('');
+    const summaries = document.querySelectorAll('.wfv-item-summary');
+    expect(summaries.length).toBe(1);
     spy.mockRestore();
   });
 
   it('toggles selection via row click', () => {
     render(<WorkflowVersionPanel {...defaultProps()} />);
-    const items = document.querySelectorAll('.wf-version-item');
+    const items = document.querySelectorAll('.wfv-item');
     fireEvent.click(items[0]);
-    expect(items[0].classList.contains('selected')).toBe(true);
+    expect(items[0].classList.contains('wfv-item-selected')).toBe(true);
     fireEvent.click(items[0]);
-    expect(items[0].classList.contains('selected')).toBe(false);
+    expect(items[0].classList.contains('wfv-item-selected')).toBe(false);
   });
 
   it('starts rename on double-click of label', () => {
@@ -215,8 +217,7 @@ describe('WorkflowVersionPanel', () => {
     const ts = new Date(2026, 3, 15, 14, 30).getTime();
     const v = makeVersion({ id: 'nolabel', label: undefined, timestamp: ts });
     render(<WorkflowVersionPanel {...defaultProps()} versions={[v]} />);
-    // Should show a date string, not "undefined"
-    const label = document.querySelector('.wf-version-item-label')!;
+    const label = document.querySelector('.wfv-item-label')!;
     expect(label.textContent).not.toContain('undefined');
     expect(label.textContent!.length).toBeGreaterThan(0);
   });
@@ -248,15 +249,14 @@ describe('WorkflowVersionPanel', () => {
   it('shows formatted date for versions older than a week', () => {
     const v = makeVersion({ id: 'old', timestamp: Date.now() - 10 * 86400_000, label: 'Old' });
     render(<WorkflowVersionPanel {...defaultProps()} versions={[v]} />);
-    // Should fall back to formatted timestamp, not "Xd ago"
-    const timeEl = document.querySelector('.wf-version-item-time')!;
+    const timeEl = document.querySelector('.wfv-item-time')!;
     expect(timeEl.textContent).not.toContain('d ago');
   });
 
   it('compare does nothing when Compare clicked while disabled', () => {
     const props = defaultProps();
     render(<WorkflowVersionPanel {...props} />);
-    const btn = screen.getByText('Compare') as HTMLButtonElement;
+    const btn = screen.getByText('Compare').closest('button')!;
     btn.disabled = false;
     fireEvent.click(btn);
     expect(props.onCompare).not.toHaveBeenCalled();
@@ -265,8 +265,9 @@ describe('WorkflowVersionPanel', () => {
   it('compare does nothing when a selected version id is stale', () => {
     const props = defaultProps();
     const { rerender } = render(<WorkflowVersionPanel {...props} />);
-    fireEvent.click(screen.getAllByRole('checkbox')[0]);
-    fireEvent.click(screen.getAllByRole('checkbox')[1]);
+    const checkboxes = getCheckboxes();
+    fireEvent.click(checkboxes[0]);
+    fireEvent.click(checkboxes[1]);
     rerender(<WorkflowVersionPanel {...props} versions={[props.versions[0]]} />);
     fireEvent.click(screen.getByText('Compare'));
     expect(props.onCompare).not.toHaveBeenCalled();
@@ -274,7 +275,7 @@ describe('WorkflowVersionPanel', () => {
 
   it('compare button shows enabled title when two versions selected', () => {
     render(<WorkflowVersionPanel {...defaultProps()} />);
-    const checkboxes = screen.getAllByRole('checkbox');
+    const checkboxes = getCheckboxes();
     fireEvent.click(checkboxes[0]);
     fireEvent.click(checkboxes[1]);
     expect(screen.getByTitle('Compare selected versions')).toBeTruthy();
@@ -288,8 +289,8 @@ describe('WorkflowVersionPanel', () => {
   it('renders empty change summary when generator returns blank', () => {
     const spy = vi.spyOn(workflowVersioning, 'generateChangeSummary').mockReturnValue('');
     render(<WorkflowVersionPanel {...defaultProps()} />);
-    const s = document.querySelector('.wf-version-item-summary');
-    expect(s?.textContent).toBe('');
+    const summaries = document.querySelectorAll('.wfv-item-summary');
+    expect(summaries.length).toBe(1);
     spy.mockRestore();
   });
 
@@ -297,12 +298,11 @@ describe('WorkflowVersionPanel', () => {
     const props = defaultProps();
     props.versions.push(makeVersion({ id: 'v3', timestamp: Date.now() - 180_000, label: 'Third' }));
     render(<WorkflowVersionPanel {...props} />);
-    const checkboxes = screen.getAllByRole('checkbox');
+    const checkboxes = getCheckboxes();
     fireEvent.click(checkboxes[0]);
     fireEvent.click(checkboxes[1]);
-    // Third click should deselect one (max 2 selected)
     fireEvent.click(checkboxes[2]);
-    const checked = (screen.getAllByRole('checkbox') as HTMLInputElement[]).filter(c => c.checked);
+    const checked = Array.from(getCheckboxes()).filter(c => c.classList.contains('wfv-checkbox-checked'));
     expect(checked.length).toBeLessThanOrEqual(2);
   });
 
@@ -322,7 +322,7 @@ describe('WorkflowVersionPanel', () => {
       makeVersion({ id: 'vc', timestamp: t - 100_000 }),
     ];
     render(<WorkflowVersionPanel {...defaultProps()} versions={versions} />);
-    expect(document.querySelectorAll('.wf-version-item-summary').length).toBe(3);
+    expect(document.querySelectorAll('.wfv-item-summary').length).toBe(3);
   });
 
   it('rename commits trimmed label', () => {
@@ -337,10 +337,41 @@ describe('WorkflowVersionPanel', () => {
 
   it('checkbox toggles selection off on second click', () => {
     render(<WorkflowVersionPanel {...defaultProps()} />);
-    const cb = screen.getAllByRole('checkbox')[0] as HTMLInputElement;
+    const cb = getCheckboxes()[0];
     fireEvent.click(cb);
-    expect(cb.checked).toBe(true);
+    expect(cb.classList.contains('wfv-checkbox-checked')).toBe(true);
     fireEvent.click(cb);
-    expect(cb.checked).toBe(false);
+    expect(cb.classList.contains('wfv-checkbox-checked')).toBe(false);
+  });
+
+  it('shows Latest badge for first version', () => {
+    render(<WorkflowVersionPanel {...defaultProps()} />);
+    expect(screen.getByText('Latest')).toBeTruthy();
+  });
+
+  it('shows selection bar when versions selected', () => {
+    render(<WorkflowVersionPanel {...defaultProps()} />);
+    expect(screen.queryByText('1 selected')).toBeNull();
+    fireEvent.click(getCheckboxes()[0]);
+    expect(screen.getByText('1 selected')).toBeTruthy();
+    fireEvent.click(getCheckboxes()[1]);
+    expect(screen.getByText('2 selected')).toBeTruthy();
+  });
+
+  it('shows hint in footer when can compare', () => {
+    render(<WorkflowVersionPanel {...defaultProps()} />);
+    expect(screen.queryByText('Click Compare to view differences')).toBeNull();
+    fireEvent.click(getCheckboxes()[0]);
+    fireEvent.click(getCheckboxes()[1]);
+    expect(screen.getByText('Click Compare to view differences')).toBeTruthy();
+  });
+
+  it('highlights item on hover', () => {
+    render(<WorkflowVersionPanel {...defaultProps()} />);
+    const items = document.querySelectorAll('.wfv-item');
+    fireEvent.mouseEnter(items[0]);
+    expect(items[0].classList.contains('wfv-item-hovered')).toBe(true);
+    fireEvent.mouseLeave(items[0]);
+    expect(items[0].classList.contains('wfv-item-hovered')).toBe(false);
   });
 });

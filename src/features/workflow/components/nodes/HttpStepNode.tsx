@@ -27,6 +27,14 @@ export default function HttpStepNode({ id, data, selected }: Props) {
       <div className="wf-node-header">
         <NodeIcon type="http" />
         {data.sourceType && <span className="wf-source-badge">{data.sourceType === 'catalog' ? 'CAT' : 'REQ'}</span>}
+        {data.serviceId && (
+          <span className="wf-source-badge wf-svc-badge" title="Bound to Service Registry — multi-env URLs and auth managed">
+            <svg className="wf-inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+            </svg>
+            SVC
+          </span>
+        )}
         <span className="wf-method-badge" style={{ background: METHOD_COLORS[method] ?? '#6b7280' }}>
           {method}
         </span>

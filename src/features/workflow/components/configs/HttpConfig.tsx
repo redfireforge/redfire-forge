@@ -2,7 +2,9 @@ import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import type {
   HttpNodeData,
   WorkflowService,
+  ServiceEndpoint,
 } from '../../types/workflow';
+import type { Environment } from '../../../../shared/types';
 import {
   type WorkflowVariableHint,
 } from '../../utils/workflowVariableHints';
@@ -25,6 +27,7 @@ import {
   parseQueryParams,
   rebuildUrl as rebuildUrlShared,
 } from '../../../../shared/utils/queryParams';
+import { stripTrailingSlash } from '../../utils/workflowHostResolve';
 
 export type HttpTab = 'url' | 'body' | 'auth' | 'headers' | 'validation' | 'extract' | 'data';
 
@@ -69,7 +72,7 @@ function HttpVariableRefHints({ hints }: { hints: WorkflowVariableHint[] }) {
 
 // ── Main component ────────────────────────────────────
 
-export default function HttpConfig({ data, onChange, activeTab, onTabChange, lastRunError, lastQuickTestRequestUrl, effectiveQuickTestBaseUrl, extractionSampleResponseBody, extractionFetchSample, variableHints = [], onRequestVariableInsert, workflowServices = [], validationProps }: {
+export default function HttpConfig({ data, onChange, activeTab, onTabChange, lastRunError, lastQuickTestRequestUrl, effectiveQuickTestBaseUrl, extractionSampleResponseBody, extractionFetchSample, variableHints = [], onRequestVariableInsert, workflowServices = [], environments = [], selectedEnvId, validationProps }: {
   data: HttpNodeData;
   /** Partial patch merged in the parent — never pass full `data` here. */
   onChange: (patch: Partial<HttpNodeData>) => void;
@@ -86,6 +89,10 @@ export default function HttpConfig({ data, onChange, activeTab, onTabChange, las
   onRequestVariableInsert: (apply: (snippet: string) => void, shortRef?: boolean, initialSearch?: string) => void;
   /** Workflow-level services from the Service Registry. */
   workflowServices?: WorkflowService[];
+  /** Available environments for environment override dropdown. */
+  environments?: Environment[];
+  /** Currently selected global environment. */
+  selectedEnvId?: string;
   /** Props for the Validation tab — omit draft/onDraftChange/draftRef which are derived here. */
   validationProps?: Omit<TestEditorValidationTabProps, 'draft' | 'onDraftChange' | 'draftRef'>;
 }) {
@@ -222,11 +229,35 @@ export default function HttpConfig({ data, onChange, activeTab, onTabChange, las
           onChange={(e) => {
             const svcId = e.target.value || undefined;
             const svc = workflowServices.find((s) => s.id === svcId);
-            onChange({ serviceId: svcId, label: svc ? svc.name : data.label });
+            const patch: Partial<HttpNodeData> = {
+              serviceId: svcId,
+              envOverride: undefined,
+            };
+
+            const currentUrl = data.scenario?.url ?? '';
+            if (svcId && svc) {
+              // Binding to a service: strip the base URL from the scenario URL to leave just the path
+              const ep = svc.endpoints?.find(ep2 => ep2.enabled && ep2.url.trim());
+              const svcBase = ep ? stripTrailingSlash(ep.url) : undefined;
+              if (svcBase && currentUrl.startsWith(svcBase)) {
+                const pathOnly = currentUrl.slice(svcBase.length) || '/';
+                patch.scenario = { ...data.scenario, url: pathOnly };
+              }
+            } else if (!svcId && data.serviceId) {
+              // Unbinding: prepend the current service base URL to reconstruct a full URL
+              const prevSvc = workflowServices.find(s => s.id === data.serviceId);
+              const prevEp = prevSvc?.endpoints?.find(ep2 => ep2.enabled && ep2.url.trim());
+              const prevBase = prevEp ? stripTrailingSlash(prevEp.url) : undefined;
+              if (prevBase && !currentUrl.startsWith('http')) {
+                patch.scenario = { ...data.scenario, url: `${prevBase}${currentUrl.startsWith('/') ? '' : '/'}${currentUrl}` };
+              }
+            }
+
+            onChange(patch);
           }}
           className="wf-config-service-select"
         >
-          <option value="">None (use harness bar)</option>
+          <option value="">None (raw URL)</option>
           {workflowServices.map((svc) => (
             <option key={svc.id} value={svc.id}>{svc.name}</option>
           ))}
@@ -237,6 +268,35 @@ export default function HttpConfig({ data, onChange, activeTab, onTabChange, las
           </p>
         )}
       </div>
+      {data.serviceId && (() => {
+        const svc = workflowServices.find((s) => s.id === data.serviceId);
+        const enabledEps = (svc?.endpoints ?? []).filter((ep: ServiceEndpoint) => ep.enabled && ep.url.trim());
+        if (enabledEps.length <= 1) return null;
+        const envLabel = (envId: string) => {
+          if (envId === '__adhoc__') return 'adhoc';
+          return environments.find((e) => e.id === envId)?.name ?? envId;
+        };
+        const globalLabel = selectedEnvId ? envLabel(selectedEnvId) : 'global';
+        return (
+          <div className="wf-config-env-override">
+            <label>Environment</label>
+            <select
+              value={data.envOverride ?? ''}
+              onChange={(e) => onChange({ envOverride: e.target.value || undefined })}
+            >
+              <option value="">Use global ({globalLabel})</option>
+              {enabledEps.map((ep: ServiceEndpoint) => (
+                <option key={ep.envId} value={ep.envId}>{envLabel(ep.envId)}</option>
+              ))}
+            </select>
+            {data.envOverride && (
+              <span className="wf-config-env-override-badge" title="This step uses a different environment than the global selection">
+                {envLabel(data.envOverride)}
+              </span>
+            )}
+          </div>
+        );
+      })()}
       <div className="wf-config-inline-field">
         <label>Label</label>
         <input value={data.label} onChange={(e) => onChange({ label: e.target.value })} />
