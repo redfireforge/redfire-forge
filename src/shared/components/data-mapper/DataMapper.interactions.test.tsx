@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
-import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 import DataMapper from './DataMapper';
 import { MapperAdapter, Mapping } from './types';
 import * as _mappingPatternsNs from './utils/mappingPatterns';
@@ -9,8 +9,15 @@ import * as _mappingProfiles from './utils/mappingProfiles';
 import * as _dropMappingNs from './utils/dropMapping';
 import * as _subtreeMappingNs from './utils/subtreeMapping';
 import { createTestAdapter } from './DataMapper.test-utils';
+
+// Use fake timers to prevent toast auto-clear setTimeout from firing outside act()
+beforeEach(() => vi.useFakeTimers());
+afterEach(() => {
+  vi.clearAllTimers();
+  vi.useRealTimers();
+});
 describe('auto-map toast notification', () => {
-  it('shows toast after auto-map with field count', () => {
+  it('shows toast after auto-map with field count', async () => {
     const adapter: MapperAdapter<Mapping[]> = {
       contextId: 'test',
       title: 'Toast Test',
@@ -21,7 +28,7 @@ describe('auto-map toast notification', () => {
     };
     const { container } = render(<DataMapper adapter={adapter} />);
     const autoMapBtn = screen.getByTitle('Auto-map matching fields');
-    fireEvent.click(autoMapBtn);
+    await act(async () => { fireEvent.click(autoMapBtn); });
     const toast = container.querySelector('.dm-toast');
     expect(toast).toBeTruthy();
     expect(toast?.textContent).toContain('auto-mapped');
@@ -61,7 +68,7 @@ describe('keyboard shortcut /', () => {
 });
 
 describe('DataMapper – Delete key removes selected mapping', () => {
-  it('Delete key removes the selected mapping', () => {
+  it('Delete key removes the selected mapping', async () => {
     const adapter: MapperAdapter<Mapping[]> = {
       ...createTestAdapter(),
       sources: [{ id: 's1', label: 'Source', sampleData: { name: 'A' } }],
@@ -69,16 +76,16 @@ describe('DataMapper – Delete key removes selected mapping', () => {
     };
     const onChange = vi.fn();
     const { container } = render(<DataMapper adapter={adapter} onChange={onChange} />);
-    fireEvent.click(screen.getByText(/Auto-map/));
+    await act(async () => { fireEvent.click(screen.getByText(/Auto-map/)); });
     expect(screen.getByText(/1 mapping/)).toBeTruthy();
     const mapped = container.querySelector('.dm-tree-node--target.dm-tree-node--mapped');
-    if (mapped) fireEvent.click(mapped);
-    fireEvent.keyDown(window, { key: 'Delete' });
+    if (mapped) await act(async () => { fireEvent.click(mapped); });
+    await act(async () => { fireEvent.keyDown(window, { key: 'Delete' }); });
     const last = onChange.mock.calls[onChange.mock.calls.length - 1][0];
     expect(last).toHaveLength(0);
   });
 
-  it('Backspace key removes the selected mapping', () => {
+  it('Backspace key removes the selected mapping', async () => {
     const adapter: MapperAdapter<Mapping[]> = {
       ...createTestAdapter(),
       sources: [{ id: 's1', label: 'Source', sampleData: { name: 'A' } }],
@@ -86,10 +93,10 @@ describe('DataMapper – Delete key removes selected mapping', () => {
     };
     const onChange = vi.fn();
     const { container } = render(<DataMapper adapter={adapter} onChange={onChange} />);
-    fireEvent.click(screen.getByText(/Auto-map/));
+    await act(async () => { fireEvent.click(screen.getByText(/Auto-map/)); });
     const mapped = container.querySelector('.dm-tree-node--target.dm-tree-node--mapped');
-    if (mapped) fireEvent.click(mapped);
-    fireEvent.keyDown(window, { key: 'Backspace' });
+    if (mapped) await act(async () => { fireEvent.click(mapped); });
+    await act(async () => { fireEvent.keyDown(window, { key: 'Backspace' }); });
     const last = onChange.mock.calls[onChange.mock.calls.length - 1][0];
     expect(last).toHaveLength(0);
   });
@@ -117,7 +124,7 @@ describe('DataMapper – drag start clears selection', () => {
 });
 
 describe('DataMapper – drop creates mapping', () => {
-  it('auto-applies number→string conversion expression on drop', () => {
+  it('auto-applies number→string conversion expression on drop', async () => {
     const adapter: MapperAdapter<Mapping[]> = {
       ...createTestAdapter(),
       sources: [{ id: 's1', label: 'Source', sampleData: { rank: 13 } }],
@@ -133,14 +140,16 @@ describe('DataMapper – drop creates mapping', () => {
     const dragData = JSON.stringify({ path: 'rank', sourceId: 's1' });
     const dt = { getData: () => dragData, dropEffect: 'none', setData: vi.fn() };
     if (targetNode) {
-      fireEvent.dragOver(targetNode, { dataTransfer: dt });
-      fireEvent.drop(targetNode, { dataTransfer: dt });
+      await act(async () => {
+        fireEvent.dragOver(targetNode, { dataTransfer: dt });
+        fireEvent.drop(targetNode, { dataTransfer: dt });
+      });
       const last = onChange.mock.calls[onChange.mock.calls.length - 1]?.[0] as Mapping[] | undefined;
       expect(last?.[0]?.expression).toBe('$toString($.rank)');
     }
   });
 
-  it('auto-applies object→string conversion expression on drop', () => {
+  it('auto-applies object→string conversion expression on drop', async () => {
     const adapter: MapperAdapter<Mapping[]> = {
       ...createTestAdapter(),
       sources: [{ id: 's1', label: 'Source', sampleData: { payload: { x: 1 } } }],
@@ -156,14 +165,16 @@ describe('DataMapper – drop creates mapping', () => {
     const dragData = JSON.stringify({ path: 'payload', sourceId: 's1' });
     const dt = { getData: () => dragData, dropEffect: 'none', setData: vi.fn() };
     if (targetNode) {
-      fireEvent.dragOver(targetNode, { dataTransfer: dt });
-      fireEvent.drop(targetNode, { dataTransfer: dt });
+      await act(async () => {
+        fireEvent.dragOver(targetNode, { dataTransfer: dt });
+        fireEvent.drop(targetNode, { dataTransfer: dt });
+      });
       const last = onChange.mock.calls[onChange.mock.calls.length - 1]?.[0] as Mapping[] | undefined;
       expect(last?.[0]?.expression).toBe('$toString($.payload)');
     }
   });
 
-  it('drop uses drag-start fallback when dataTransfer payload is unavailable', () => {
+  it('drop uses drag-start fallback when dataTransfer payload is unavailable', async () => {
     const adapter = createTestAdapter();
     const onChange = vi.fn();
     render(<DataMapper adapter={adapter} onChange={onChange} />);
@@ -184,16 +195,18 @@ describe('DataMapper – drop creates mapping', () => {
       dropEffect: 'none',
     };
 
-    fireEvent.dragStart(sourceNode, { dataTransfer: dragDt });
-    fireEvent.dragOver(targetNode, { dataTransfer: dropDt });
-    fireEvent.drop(targetNode, { dataTransfer: dropDt });
+    await act(async () => {
+      fireEvent.dragStart(sourceNode, { dataTransfer: dragDt });
+      fireEvent.dragOver(targetNode, { dataTransfer: dropDt });
+      fireEvent.drop(targetNode, { dataTransfer: dropDt });
+    });
 
     const last = onChange.mock.calls[onChange.mock.calls.length - 1]?.[0] as Mapping[] | undefined;
     const found = last?.find((m) => m.targetPath === 'userName');
     expect(found?.sourcePath).toBe('name');
   });
 
-  it('drop fallback supports non-leaf source nodes as insert-or-update mappings', () => {
+  it('drop fallback supports non-leaf source nodes as insert-or-update mappings', async () => {
     const adapter: MapperAdapter<Mapping[]> = {
       ...createTestAdapter(),
       sources: [{ id: 's1', label: 'Source', sampleData: { payload: { nested: true } } }],
@@ -222,9 +235,11 @@ describe('DataMapper – drop creates mapping', () => {
       dropEffect: 'none',
     };
 
-    fireEvent.dragStart(sourceNode, { dataTransfer: dragDt });
-    fireEvent.dragOver(targetNode, { dataTransfer: dropDt });
-    fireEvent.drop(targetNode, { dataTransfer: dropDt });
+    await act(async () => {
+      fireEvent.dragStart(sourceNode, { dataTransfer: dragDt });
+      fireEvent.dragOver(targetNode, { dataTransfer: dropDt });
+      fireEvent.drop(targetNode, { dataTransfer: dropDt });
+    });
 
     const last = onChange.mock.calls[onChange.mock.calls.length - 1]?.[0] as Mapping[] | undefined;
     const found = last?.find((m) => m.targetPath === 'payloadText');
@@ -232,7 +247,7 @@ describe('DataMapper – drop creates mapping', () => {
     expect(found?.expression).toBe('$toString($.payload)');
   });
 
-  it('object-to-object drop maps child fields in one shot', () => {
+  it('object-to-object drop maps child fields in one shot', async () => {
     const adapter: MapperAdapter<Mapping[]> = {
       ...createTestAdapter(),
       sources: [{
@@ -278,9 +293,11 @@ describe('DataMapper – drop creates mapping', () => {
       dropEffect: 'none',
     };
 
-    fireEvent.dragStart(sourceNode, { dataTransfer: dragDt });
-    fireEvent.dragOver(targetNode, { dataTransfer: dropDt });
-    fireEvent.drop(targetNode, { dataTransfer: dropDt });
+    await act(async () => {
+      fireEvent.dragStart(sourceNode, { dataTransfer: dragDt });
+      fireEvent.dragOver(targetNode, { dataTransfer: dropDt });
+      fireEvent.drop(targetNode, { dataTransfer: dropDt });
+    });
 
     const last = onChange.mock.calls[onChange.mock.calls.length - 1]?.[0] as Mapping[] | undefined;
     expect(last).toBeTruthy();
@@ -293,7 +310,7 @@ describe('DataMapper – drop creates mapping', () => {
     expect(planMap?.sourcePath).toBe('offers[0].planType');
   });
 
-  it('array-index object drop maps only the dropped node children, not sibling indices', () => {
+  it('array-index object drop maps only the dropped node children, not sibling indices', async () => {
     const adapter: MapperAdapter<Mapping[]> = {
       ...createTestAdapter(),
       sources: [{
@@ -343,9 +360,11 @@ describe('DataMapper – drop creates mapping', () => {
       dropEffect: 'none',
     };
 
-    fireEvent.dragStart(sourceNode, { dataTransfer: dragDt });
-    fireEvent.dragOver(targetNode, { dataTransfer: dropDt });
-    fireEvent.drop(targetNode, { dataTransfer: dropDt });
+    await act(async () => {
+      fireEvent.dragStart(sourceNode, { dataTransfer: dragDt });
+      fireEvent.dragOver(targetNode, { dataTransfer: dropDt });
+      fireEvent.drop(targetNode, { dataTransfer: dropDt });
+    });
 
     const last = onChange.mock.calls[onChange.mock.calls.length - 1]?.[0] as Mapping[] | undefined;
     expect(last).toBeTruthy();
@@ -360,7 +379,7 @@ describe('DataMapper – drop creates mapping', () => {
     expect(toastText).not.toContain('across array siblings');
   });
 
-  it('drop on target creates a new mapping', () => {
+  it('drop on target creates a new mapping', async () => {
     const adapter = createTestAdapter();
     const onChange = vi.fn();
     render(<DataMapper adapter={adapter} onChange={onChange} />);
@@ -368,14 +387,16 @@ describe('DataMapper – drop creates mapping', () => {
     if (targetNodes.length > 0) {
       const dragData = JSON.stringify({ path: 'name', sourceId: 's1' });
       const dt = { getData: () => dragData, dropEffect: 'none', setData: vi.fn() };
-      fireEvent.dragOver(targetNodes[0], { dataTransfer: dt });
-      fireEvent.drop(targetNodes[0], { dataTransfer: dt });
+      await act(async () => {
+        fireEvent.dragOver(targetNodes[0], { dataTransfer: dt });
+        fireEvent.drop(targetNodes[0], { dataTransfer: dt });
+      });
       const last = onChange.mock.calls[onChange.mock.calls.length - 1]?.[0];
       expect(last?.length).toBeGreaterThan(0);
     }
   });
 
-  it('drop on already-mapped target replaces the existing mapping', () => {
+  it('drop on already-mapped target replaces the existing mapping', async () => {
     const adapter = createTestAdapter();
     const initial: Mapping[] = [
       { id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'userName' },
@@ -389,8 +410,10 @@ describe('DataMapper – drop creates mapping', () => {
     if (targetNode) {
       const dragData = JSON.stringify({ path: 'email', sourceId: 's1' });
       const dt = { getData: () => dragData, dropEffect: 'none' };
-      fireEvent.dragOver(targetNode, { dataTransfer: dt });
-      fireEvent.drop(targetNode, { dataTransfer: dt });
+      await act(async () => {
+        fireEvent.dragOver(targetNode, { dataTransfer: dt });
+        fireEvent.drop(targetNode, { dataTransfer: dt });
+      });
       const last = onChange.mock.calls[onChange.mock.calls.length - 1]?.[0];
       const found = last?.find((m: Mapping) => m.targetPath === 'userName');
       expect(found?.sourcePath).toBe('email');

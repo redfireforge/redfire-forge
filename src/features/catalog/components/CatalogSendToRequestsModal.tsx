@@ -63,7 +63,7 @@ export default function CatalogSendToRequestsModal({ entry, appEnvironments, app
     return entry.servers.map((s, i) => ({
       envId: `server-${i}`,
       envName: s.description || `Server ${i + 1}`,
-      baseUrl: s.url,
+      baseUrl: s.resolvedUrl || s.url,
     }));
   }, [linkedSvc, appEnvironments, entry]);
 

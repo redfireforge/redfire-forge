@@ -499,8 +499,9 @@ describe('useVerifyEngine', () => {
       const { result } = renderEngine();
 
       let verifyDone: Promise<void>;
-      await act(() => {
+      await act(async () => {
         verifyDone = result.current.runVerification();
+        await new Promise<void>(r => setTimeout(r, 0));
       });
 
       await vi.waitFor(() => {

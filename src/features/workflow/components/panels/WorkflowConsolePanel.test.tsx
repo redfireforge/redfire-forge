@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, fireEvent, screen } from '@testing-library/react';
+import { render, fireEvent, screen, act } from '@testing-library/react';
 import WorkflowConsolePanel from './WorkflowConsolePanel';
 import { ConsoleLine } from '../../../requests/hooks/useResponseCache';
 import { stubScrollIntoView } from '../../../../test-utils/domMocks';
@@ -673,7 +673,7 @@ describe('WorkflowConsolePanel', () => {
       Object.assign(navigator, { clipboard: mockClipboard });
       const lines: ConsoleLine[] = [makeLine('Test log', '*')];
       render(<WorkflowConsolePanel {...defaultProps} lines={lines} />);
-      fireEvent.click(screen.getByTitle('Copy all logs to clipboard'));
+      await act(async () => { fireEvent.click(screen.getByTitle('Copy all logs to clipboard')); await Promise.resolve(); });
       expect(mockClipboard.writeText).toHaveBeenCalled();
     });
   });

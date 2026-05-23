@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent, within } from '@testing-library/react';
+import { render, screen, fireEvent, within, act } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { BodyEditor } from './BodyEditor';
 import type { Scenario } from '../../../shared/types';
@@ -241,8 +241,10 @@ describe('BodyEditor', () => {
     render(<BodyEditor draft={scenario({ bodyType: 'json' })} onDraftChange={vi.fn()} />);
     fireEvent.click(screen.getByRole('button', { name: /JSON/ }));
     expect(document.querySelector('.body-type-dropdown')).not.toBeNull();
-    window.dispatchEvent(new Event('resize'));
-    window.dispatchEvent(new Event('scroll'));
+    act(() => {
+      window.dispatchEvent(new Event('resize'));
+      window.dispatchEvent(new Event('scroll'));
+    });
     expect(document.querySelector('.body-type-dropdown')).not.toBeNull();
   });
 });
