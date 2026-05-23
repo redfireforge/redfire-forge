@@ -1,0 +1,288 @@
+{
+  "_exportMeta": {
+    "exportDate": "2026-05-22T20:30:00.000Z",
+    "microservice": "jsonplaceholder",
+    "environment": "Test-3A",
+    "appVersion": "0.5.9",
+    "exportType": "featureGroups"
+  },
+  "data": [
+    {
+      "id": "fg-ui-ux-visual-tests",
+      "name": "UI/UX Visual Tests",
+      "source": "user",
+      "scenarios": [
+        {
+          "id": "sc-phase1-visual-foundation",
+          "name": "Phase 1: Visual Foundation",
+          "kind": "standard",
+          "tags": ["ui-ux", "phase1", "visual"],
+          "tests": [
+            {
+              "id": "test-svg-icons-verify",
+              "name": "Verify SVG Icons Rendering",
+              "url": "https://jsonplaceholder.typicode.com/posts/1",
+              "method": "GET",
+              "headers": [],
+              "body": "",
+              "auth": { "type": "none" },
+              "validation": {
+                "mode": "selective",
+                "expectedFields": [
+                  { "jsonPath": "$.id", "operator": "equals", "expectedValue": "1" }
+                ],
+                "assertions": [
+                  { "type": "status", "expected": "200" }
+                ]
+              }
+            },
+            {
+              "id": "test-node-styling",
+              "name": "Node Styling Test",
+              "url": "https://jsonplaceholder.typicode.com/users/1",
+              "method": "GET",
+              "headers": [],
+              "body": "",
+              "auth": { "type": "none" },
+              "validation": {
+                "mode": "selective",
+                "expectedFields": [
+                  { "jsonPath": "$.name", "operator": "exists" },
+                  { "jsonPath": "$.email", "operator": "exists" }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "sc-phase2-execution-feedback",
+          "name": "Phase 2: Execution Feedback",
+          "kind": "standard",
+          "tags": ["ui-ux", "phase2", "execution"],
+          "tests": [
+            {
+              "id": "test-status-indicator-success",
+              "name": "Success Status Indicator",
+              "url": "https://jsonplaceholder.typicode.com/posts/1",
+              "method": "GET",
+              "headers": [],
+              "body": "",
+              "auth": { "type": "none" },
+              "validation": {
+                "mode": "selective",
+                "expectedFields": [
+                  { "jsonPath": "$.id", "operator": "equals", "expectedValue": "1" }
+                ],
+                "assertions": [
+                  { "type": "status", "expected": "200" },
+                  { "type": "time", "maxMs": 10000 }
+                ]
+              }
+            },
+            {
+              "id": "test-status-indicator-failure",
+              "name": "Failure Status Indicator",
+              "url": "https://jsonplaceholder.typicode.com/posts/99999",
+              "method": "GET",
+              "headers": [],
+              "body": "",
+              "auth": { "type": "none" },
+              "validation": {
+                "mode": "selective",
+                "expectedFields": [],
+                "assertions": [
+                  { "type": "status", "expected": "404" }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "sc-phase3-canvas-controls",
+          "name": "Phase 3: Canvas & Controls",
+          "kind": "standard",
+          "tags": ["ui-ux", "phase3", "canvas"],
+          "tests": [
+            {
+              "id": "test-canvas-zoom",
+              "name": "Canvas Zoom Test",
+              "url": "https://jsonplaceholder.typicode.com/albums/1",
+              "method": "GET",
+              "headers": [],
+              "body": "",
+              "auth": { "type": "none" },
+              "validation": {
+                "mode": "selective",
+                "expectedFields": [
+                  { "jsonPath": "$.userId", "operator": "equals", "expectedValue": "1" }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "sc-phase4-panel-improvements",
+          "name": "Phase 4: Panel Improvements",
+          "kind": "standard",
+          "tags": ["ui-ux", "phase4", "panels"],
+          "tests": [
+            {
+              "id": "test-panel-tabs",
+              "name": "Config Panel Tabs Test",
+              "url": "https://jsonplaceholder.typicode.com/comments/1",
+              "method": "GET",
+              "headers": [
+                { "key": "X-Test-Header", "value": "ui-ux-test" }
+              ],
+              "body": "",
+              "auth": { "type": "none" },
+              "validation": {
+                "mode": "selective",
+                "expectedFields": [
+                  { "jsonPath": "$.postId", "operator": "equals", "expectedValue": "1" }
+                ]
+              }
+            },
+            {
+              "id": "test-palette-search",
+              "name": "Palette Search Test",
+              "url": "https://jsonplaceholder.typicode.com/todos/1",
+              "method": "GET",
+              "headers": [],
+              "body": "",
+              "auth": { "type": "none" },
+              "validation": {
+                "mode": "selective",
+                "expectedFields": [
+                  { "jsonPath": "$.completed", "operator": "is_boolean" }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "sc-phase5-empty-states",
+          "name": "Phase 5: Empty States & Onboarding",
+          "kind": "standard",
+          "tags": ["ui-ux", "phase5", "onboarding"],
+          "tests": [
+            {
+              "id": "test-empty-canvas-templates",
+              "name": "Empty Canvas Templates Test",
+              "url": "https://jsonplaceholder.typicode.com/photos/1",
+              "method": "GET",
+              "headers": [],
+              "body": "",
+              "auth": { "type": "none" },
+              "validation": {
+                "mode": "selective",
+                "expectedFields": [
+                  { "jsonPath": "$.albumId", "operator": "equals", "expectedValue": "1" },
+                  { "jsonPath": "$.url", "operator": "exists" }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "sc-phase6-micro-interactions",
+          "name": "Phase 6: Micro-interactions & Accessibility",
+          "kind": "standard",
+          "tags": ["ui-ux", "phase6", "animations", "accessibility"],
+          "tests": [
+            {
+              "id": "test-hover-lift",
+              "name": "Hover Lift Effect Test",
+              "url": "https://jsonplaceholder.typicode.com/posts",
+              "method": "POST",
+              "headers": [
+                { "key": "Content-Type", "value": "application/json" }
+              ],
+              "body": "{\"title\": \"Hover Test\", \"body\": \"Testing hover lift animation\", \"userId\": 1}",
+              "auth": { "type": "none" },
+              "validation": {
+                "mode": "selective",
+                "expectedFields": [
+                  { "jsonPath": "$.id", "operator": "exists" },
+                  { "jsonPath": "$.title", "operator": "equals", "expectedValue": "Hover Test" }
+                ],
+                "assertions": [
+                  { "type": "status", "expected": "201" }
+                ]
+              }
+            },
+            {
+              "id": "test-skeleton-loading",
+              "name": "Skeleton Loading State Test",
+              "url": "https://jsonplaceholder.typicode.com/comments",
+              "method": "GET",
+              "headers": [],
+              "body": "",
+              "auth": { "type": "none" },
+              "validation": {
+                "mode": "selective",
+                "expectedFields": [
+                  { "jsonPath": "$", "operator": "is_array" }
+                ]
+              }
+            },
+            {
+              "id": "test-focus-rings",
+              "name": "Focus Rings Accessibility Test",
+              "url": "https://jsonplaceholder.typicode.com/users",
+              "method": "GET",
+              "headers": [],
+              "body": "",
+              "auth": { "type": "none" },
+              "validation": {
+                "mode": "selective",
+                "expectedFields": [
+                  { "jsonPath": "$", "operator": "is_array" },
+                  { "jsonPath": "$.length", "operator": "greater_than", "expectedValue": "5" }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "sc-multi-theme-tests",
+          "name": "Multi-Theme Consistency Tests",
+          "kind": "standard",
+          "tags": ["ui-ux", "themes", "cross-platform"],
+          "tests": [
+            {
+              "id": "test-dark-theme",
+              "name": "Dark Theme Test",
+              "url": "https://jsonplaceholder.typicode.com/posts/2",
+              "method": "GET",
+              "headers": [],
+              "body": "",
+              "auth": { "type": "none" },
+              "validation": {
+                "mode": "selective",
+                "expectedFields": [
+                  { "jsonPath": "$.id", "operator": "equals", "expectedValue": "2" }
+                ]
+              }
+            },
+            {
+              "id": "test-light-theme",
+              "name": "Light Theme Test",
+              "url": "https://jsonplaceholder.typicode.com/posts/3",
+              "method": "GET",
+              "headers": [],
+              "body": "",
+              "auth": { "type": "none" },
+              "validation": {
+                "mode": "selective",
+                "expectedFields": [
+                  { "jsonPath": "$.id", "operator": "equals", "expectedValue": "3" }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

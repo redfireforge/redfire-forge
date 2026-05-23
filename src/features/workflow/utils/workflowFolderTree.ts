@@ -164,7 +164,7 @@ export function flattenFoldersForRunner(
 
   if (unfiled.length > 0) {
     groups.push({
-      path: 'Unfiled',
+      path: 'Workflows',
       folderId: null,
       workflows: unfiled.sort(
         (a, b) => (a.folderOrder ?? 0) - (b.folderOrder ?? 0),

@@ -4,45 +4,21 @@ import { act, render, screen, fireEvent, within} from '@testing-library/react';
 import '@testing-library/jest-dom';
 import WorkflowSidebar from './WorkflowSidebar';
 import type { Workflow, WorkflowFolder } from '../../types/workflow';
+import { mockDataTransfer } from '../../../../test-utils/domMocks';
+import { makeWorkflow as _makeWorkflow, makeWorkflowFolder } from '../../../../test-utils/factories';
 
 const ts = Date.now();
 
-/** jsdom lacks DataTransfer — minimal stub for drag events */
-function mockDataTransfer(): DataTransfer {
-  const data = new Map<string, string>();
-  let dropEffect = 'none';
-  return {
-    effectAllowed: 'all',
-    get dropEffect() {
-      return dropEffect;
-    },
-    set dropEffect(v: string) {
-      dropEffect = v;
-    },
-    setData: (k: string, v: string) => {
-      data.set(k, v);
-    },
-    getData: (k: string) => data.get(k) ?? '',
-    clear: () => {
-      data.clear();
-    },
-  } as unknown as DataTransfer;
-}
-
 const makeWorkflow = (overrides: Partial<Workflow> & { id: string; name: string }): Workflow =>
-  ({
-    variables: {},
+  _makeWorkflow({
     nodes: [{ id: 'n1', type: 'http', position: { x: 0, y: 0 }, data: { label: 'Step' } }],
-    edges: [],
     createdAt: ts,
     updatedAt: ts,
     ...overrides,
-  }) as Workflow;
+  });
 
-const makeFolder = (overrides: Partial<WorkflowFolder> & { id: string; name: string }): WorkflowFolder => ({
-  order: 0,
-  ...overrides,
-});
+const makeFolder = (overrides: Partial<WorkflowFolder> & { id: string; name: string }): WorkflowFolder =>
+  makeWorkflowFolder(overrides);
 
 const defaultProps = {
   selectedId: null,
@@ -115,8 +91,10 @@ describe('WorkflowSidebar', () => {
   it('renders unfiled workflows at the bottom', () => {
     render(<WorkflowSidebar {...defaultProps} workflows={workflows} folders={folders} />);
 
-    expect(screen.getByText('Unfiled')).toBeInTheDocument();
     expect(screen.getByText('Health Check')).toBeInTheDocument();
+    const unfiledSection = document.querySelector('.wf-folder-unfiled');
+    expect(unfiledSection).toBeTruthy();
+    expect(unfiledSection!.querySelector('.wf-folder-unfiled-header')).toBeNull();
   });
 
   it('renders flat list when no folders exist', () => {
@@ -124,7 +102,7 @@ describe('WorkflowSidebar', () => {
 
     expect(screen.getByText('Order Flow')).toBeInTheDocument();
     expect(screen.getByText('Health Check')).toBeInTheDocument();
-    expect(screen.queryByText('Unfiled')).not.toBeInTheDocument();
+    expect(document.querySelector('.wf-folder-unfiled')).toBeNull();
   });
 
   it('shows unfiled workflows in flat mode when folders not loaded but folders empty', () => {
@@ -132,7 +110,7 @@ describe('WorkflowSidebar', () => {
       <WorkflowSidebar {...defaultProps} workflows={workflows} folders={[]} foldersLoaded={false} />,
     );
     expect(screen.getByText('Health Check')).toBeInTheDocument();
-    expect(screen.queryByText('Unfiled')).not.toBeInTheDocument();
+    expect(document.querySelector('.wf-folder-unfiled')).toBeNull();
   });
 
   it('renders empty state when no workflows', () => {
@@ -233,7 +211,7 @@ describe('WorkflowSidebar', () => {
     expect((searchInput as HTMLInputElement).value).toBe('');
   });
 
-  it('shows breadcrumb "Unfiled" for unfiled workflows during search', () => {
+  it('shows breadcrumb for unfiled workflows during search', () => {
     render(<WorkflowSidebar {...defaultProps} workflows={workflows} folders={folders} />);
 
     const searchInput = screen.getByTestId('wf-sidebar-search');
@@ -244,7 +222,8 @@ describe('WorkflowSidebar', () => {
         (_content, el) => el?.classList.contains('wf-sidebar-item-name') === true && el.textContent === 'Health Check',
       ),
     ).toBeInTheDocument();
-    expect(screen.getByText('Unfiled')).toBeInTheDocument();
+    const breadcrumbs = document.querySelectorAll('.wf-search-result-breadcrumb');
+    expect(Array.from(breadcrumbs).some(b => b.textContent === 'Workflows')).toBe(true);
   });
 
   // ── Folder collapse ─────────────────────────────────
@@ -298,10 +277,10 @@ describe('WorkflowSidebar', () => {
       makeWorkflow({ id: 'u1', name: 'Zebra' }),
       makeWorkflow({ id: 'u2', name: 'Alpha' }),
     ];
-    render(<WorkflowSidebar {...defaultProps} workflows={many} folders={folders} />);
+    const { container } = render(<WorkflowSidebar {...defaultProps} workflows={many} folders={folders} />);
     fireEvent.click(screen.getByTestId('wf-sidebar-sort')); // asc
-    const unfiled = screen.getByText('Unfiled').closest('.wf-folder-unfiled');
-    const names = within(unfiled!).getAllByText((_c, el) => el?.classList.contains('wf-sidebar-item-name') ?? false);
+    const unfiled = container.querySelector('.wf-folder-unfiled')!;
+    const names = within(unfiled as HTMLElement).getAllByText((_c, el) => el?.classList.contains('wf-sidebar-item-name') ?? false);
     expect(names.map((n) => n.textContent)).toEqual(['Alpha', 'Zebra']);
   });
 
@@ -310,11 +289,11 @@ describe('WorkflowSidebar', () => {
       makeWorkflow({ id: 'u1', name: 'Zebra' }),
       makeWorkflow({ id: 'u2', name: 'Alpha' }),
     ];
-    render(<WorkflowSidebar {...defaultProps} workflows={many} folders={folders} />);
+    const { container } = render(<WorkflowSidebar {...defaultProps} workflows={many} folders={folders} />);
     fireEvent.click(screen.getByTestId('wf-sidebar-sort'));
     fireEvent.click(screen.getByTestId('wf-sidebar-sort'));
-    const unfiled = screen.getByText('Unfiled').closest('.wf-folder-unfiled');
-    const names = within(unfiled!).getAllByText((_c, el) => el?.classList.contains('wf-sidebar-item-name') ?? false);
+    const unfiled = container.querySelector('.wf-folder-unfiled')!;
+    const names = within(unfiled as HTMLElement).getAllByText((_c, el) => el?.classList.contains('wf-sidebar-item-name') ?? false);
     expect(names.map((n) => n.textContent)).toEqual(['Zebra', 'Alpha']);
   });
 
@@ -490,18 +469,14 @@ describe('WorkflowSidebar', () => {
     expect(screen.queryByText('Rename Workflow')).not.toBeInTheDocument();
   });
 
-  it('shows Export and Import in workflow menu when callbacks provided', () => {
+  it('shows Export in workflow menu when callback provided', () => {
     const onExport = vi.fn();
-    const onImport = vi.fn();
     render(
-      <WorkflowSidebar {...defaultProps} workflows={workflows} folders={[]} onExport={onExport} onImport={onImport} />,
+      <WorkflowSidebar {...defaultProps} workflows={workflows} folders={[]} onExport={onExport} />,
     );
     fireEvent.contextMenu(screen.getByText('Order Flow'));
     fireEvent.click(screen.getByText('Export Workflow'));
     expect(onExport).toHaveBeenCalledWith('w1');
-    fireEvent.contextMenu(screen.getByText('Order Flow'));
-    fireEvent.click(screen.getByText('Import Workflow'));
-    expect(onImport).toHaveBeenCalled();
   });
 
   it('closes rename workflow dialog with Escape/Cancel/Cancel-overlay and submits with Enter', () => {
@@ -609,7 +584,7 @@ describe('WorkflowSidebar', () => {
     expect(onMoveWorkflowsToFolder).toHaveBeenCalledWith(expect.arrayContaining(['w1', 'w3']), 'f-perf');
   });
 
-  it('bulk moves workflows to Unfiled from submenu', () => {
+  it('bulk moves workflows out of folder from submenu', () => {
     const onMoveWorkflowsToFolder = vi.fn();
     render(
       <WorkflowSidebar
@@ -623,7 +598,7 @@ describe('WorkflowSidebar', () => {
     fireEvent.click(screen.getByText('User Registration'), { ctrlKey: true });
     fireEvent.contextMenu(screen.getByText('Order Flow'));
     fireEvent.click(screen.getByText(/Move 2 workflows/));
-    fireEvent.click(screen.getByRole('menuitem', { name: /Move to Unfiled/ }));
+    fireEvent.click(screen.getByRole('menuitem', { name: /Move out of Folder/ }));
     expect(onMoveWorkflowsToFolder).toHaveBeenCalledWith(expect.arrayContaining(['w1', 'w2']), null);
   });
 

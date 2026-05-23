@@ -43,7 +43,7 @@ describe('DataMapper hover-to-highlight', () => {
     if (svgLine) {
       const hitArea = svgLine.previousElementSibling;
       if (hitArea) {
-        fireEvent.click(hitArea);
+        await act(async () => { fireEvent.click(hitArea); });
       }
     }
 
@@ -74,7 +74,7 @@ describe('DataMapper hover-to-highlight', () => {
     const targetIdNode = container.querySelector('.dm-panel--target .dm-tree-node[data-path="id"]');
     expect(targetIdNode).toBeTruthy();
 
-    fireEvent.mouseOver(targetIdNode!);
+    await act(async () => { fireEvent.mouseOver(targetIdNode!); });
     await act(async () => {});
 
     const sourceIdNode = container.querySelector('.dm-panel--source .dm-tree-node[data-path="id"]');
@@ -98,13 +98,13 @@ describe('DataMapper hover-to-highlight', () => {
     expect(body).toBeTruthy();
     expect(targetIdNode).toBeTruthy();
 
-    fireEvent.mouseOver(targetIdNode!);
+    await act(async () => { fireEvent.mouseOver(targetIdNode!); });
     await act(async () => {});
 
     const sourceIdBefore = container.querySelector('.dm-panel--source .dm-tree-node[data-path="id"]');
     expect(sourceIdBefore!.classList.contains('dm-tree-node--hover-highlight')).toBe(true);
 
-    fireEvent.mouseLeave(body!);
+    await act(async () => { fireEvent.mouseLeave(body!); });
     await act(async () => {});
 
     const sourceIdAfter = container.querySelector('.dm-panel--source .dm-tree-node[data-path="id"]');
@@ -113,7 +113,7 @@ describe('DataMapper hover-to-highlight', () => {
 });
 
 describe('DataMapper – capability-gated branch coverage', () => {
-  it('renders with arrayAssertions + codeEditor capabilities', () => {
+  it('renders with arrayAssertions + codeEditor capabilities', async () => {
     const adapter: MapperAdapter<Mapping[]> = {
       ...createTestAdapter(),
       capabilities: { arrayAssertions: true, codeEditor: true, verification: true, operators: true },
@@ -125,7 +125,7 @@ describe('DataMapper – capability-gated branch coverage', () => {
     expect(container.querySelector('.dm-container')).toBeTruthy();
   });
 
-  it('renders with hideAdvanced capability false (advanced controls visible)', () => {
+  it('renders with hideAdvanced capability false (advanced controls visible)', async () => {
     const adapter: MapperAdapter<Mapping[]> = {
       ...createTestAdapter(),
       capabilities: { hideAdvanced: false },
@@ -136,7 +136,7 @@ describe('DataMapper – capability-gated branch coverage', () => {
     expect(profilesBtn).toBeTruthy();
   });
 
-  it('renders with allowCustomFields target for onRename path', () => {
+  it('renders with allowCustomFields target for onRename path', async () => {
     const adapter: MapperAdapter<Mapping[]> = {
       ...createTestAdapter(),
       target: { label: 'Target', sampleData: sampleTarget, allowCustomFields: true },
@@ -148,7 +148,7 @@ describe('DataMapper – capability-gated branch coverage', () => {
     expect(container.querySelector('.dm-container')).toBeTruthy();
   });
 
-  it('selectedMapping resolves from selectedMappingId', () => {
+  it('selectedMapping resolves from selectedMappingId', async () => {
     const adapter: MapperAdapter<Mapping[]> = {
       ...createTestAdapter(),
       sources: [{
@@ -169,11 +169,11 @@ describe('DataMapper – capability-gated branch coverage', () => {
     const expandBtns = screen.getAllByLabelText('Expand all');
     expandBtns.forEach((b) => fireEvent.click(b));
     const targetMapped = container.querySelector('.dm-panel--target .dm-tree-node--mapped');
-    if (targetMapped) fireEvent.click(targetMapped);
+    if (targetMapped) await act(async () => { fireEvent.click(targetMapped); });
     expect(container.querySelector('.dm-tree-node--selected')).toBeTruthy();
   });
 
-  it('adapter with sources having empty id falls back', () => {
+  it('adapter with sources having empty id falls back', async () => {
     const adapter: MapperAdapter<Mapping[]> = {
       ...createTestAdapter(),
       sources: [],
@@ -219,7 +219,7 @@ describe('DataMapper – targeted branch coverage (unmap, dock, verify nav, erro
     vi.restoreAllMocks();
   });
 
-  it('removes mappings via source multi-select Unmap for mapped leaf paths', () => {
+  it('removes mappings via source multi-select Unmap for mapped leaf paths', async () => {
     const adapter: MapperAdapter<unknown> = {
       ...createTestAdapter(),
       serialize: (m) => m,
@@ -234,15 +234,14 @@ describe('DataMapper – targeted branch coverage (unmap, dock, verify nav, erro
 
     const nameLeaf = container.querySelector('.dm-panel--source .dm-tree-node[data-path="name"]')!;
     const emailLeaf = container.querySelector('.dm-panel--source .dm-tree-node[data-path="email"]')!;
-    fireEvent.click(nameLeaf, { ctrlKey: true });
-    fireEvent.click(emailLeaf, { ctrlKey: true });
-
-    fireEvent.click(screen.getByLabelText(/Unmap 2 selected fields/));
+    await act(async () => { fireEvent.click(nameLeaf, { ctrlKey: true }); });
+    await act(async () => { fireEvent.click(emailLeaf, { ctrlKey: true }); });
+    await act(async () => { fireEvent.click(screen.getByLabelText(/Unmap 2 selected fields/)); });
 
     expect(container.querySelector('.dm-stat-value--mapped')?.textContent).toBe('0');
   });
 
-  it('renders validation assertions in bottom Code dock when bundled initial assertions exist', () => {
+  it('renders validation assertions in bottom Code dock when bundled initial assertions exist', async () => {
     const assertions: Assertion[] = [{ type: 'arrayLength', jsonPath: '$.userName', operator: '=', value: 5 }];
     const adapter: MapperAdapter<unknown> = {
       ...createTestAdapter(),
@@ -256,7 +255,7 @@ describe('DataMapper – targeted branch coverage (unmap, dock, verify nav, erro
     };
     render(<DataMapper adapter={adapter as MapperAdapter<Mapping[]>} initialData={bundle} />);
 
-    fireEvent.click(screen.getByTitle('Show code view'));
+    await act(async () => { fireEvent.click(screen.getByTitle('Show code view')); });
     expect(document.querySelector('.dm-bottom-utility-dock--code')).toBeTruthy();
     const codeRegion = screen.getByRole('region', { name: 'Mapping code view' });
     expect(codeRegion.textContent).toMatch(/1 assertion/);
@@ -276,7 +275,7 @@ describe('DataMapper – targeted branch coverage (unmap, dock, verify nav, erro
     expect(container.querySelector('.dm-fetch-error-banner')?.textContent).toContain('schema_unreachable');
   });
 
-  it('hides advanced toolbar affordances when hideAdvanced prop is set', () => {
+  it('hides advanced toolbar affordances when hideAdvanced prop is set', async () => {
     const adapter = createTestAdapter();
     render(<DataMapper adapter={adapter} hideAdvanced />);
     expect(screen.queryByTitle('Load a gallery sample')).toBeNull();
@@ -301,18 +300,17 @@ describe('DataMapper – targeted branch coverage (unmap, dock, verify nav, erro
     };
 
     render(<DataMapper adapter={adapter} initialData={initial} />);
-    fireEvent.click(screen.getByRole('button', { name: /Verify All/i }));
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /Verify All/i })); });
 
     await waitFor(() => {
       expect(screen.getByTitle('Click to see failures')).toBeTruthy();
     });
 
-    fireEvent.click(screen.getByTitle('Click to see failures'));
+    await act(async () => { fireEvent.click(screen.getByTitle('Click to see failures')); });
     expect(document.querySelector('.dm-toolbar-failure-list')).toBeTruthy();
     const row = document.querySelector('.dm-toolbar-failure-item');
     expect(row).toBeTruthy();
-    fireEvent.click(row!);
-
+    await act(async () => { fireEvent.click(row!); });
     await waitFor(() => {
       expect(document.querySelector('.dm-toolbar-failure-list')).toBeNull();
     });
@@ -347,13 +345,13 @@ describe('DataMapper – targeted branch coverage (unmap, dock, verify nav, erro
     };
     render(<DataMapper adapter={adapter as MapperAdapter<Mapping[]>} initialData={bundle} />);
 
-    fireEvent.click(screen.getByRole('button', { name: /^Rules$/ }));
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /^Rules$/ })); });
 
     await waitFor(() => {
       expect(screen.getByRole('region', { name: 'Validation Rules' })).toBeTruthy();
     });
 
-    fireEvent.click(screen.getByRole('button', { name: /Verify All/i }));
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /Verify All/i })); });
 
     await waitFor(() => {
       expect(document.querySelector('.dm-toolbar-verify-pass')).toBeTruthy();
@@ -372,22 +370,20 @@ describe('DataMapper – targeted branch coverage (unmap, dock, verify nav, erro
 
     const mapped = screen.getByText('userName').closest('.dm-tree-node');
     expect(mapped).toBeTruthy();
-    fireEvent.doubleClick(mapped!);
-
+    await act(async () => { fireEvent.doubleClick(mapped!); });
     await waitFor(() => {
       expect(screen.getByLabelText('Variable name (target path)')).toBeTruthy();
     });
 
     const nameInput = screen.getByLabelText('Variable name (target path)');
-    fireEvent.change(nameInput, { target: { value: 'exprRenamedField' } });
-    fireEvent.blur(nameInput);
-
+    await act(async () => { fireEvent.change(nameInput, { target: { value: 'exprRenamedField' } }); });
+    await act(async () => { fireEvent.blur(nameInput); });
     await waitFor(() => {
       expect(screen.getByText('exprRenamedField')).toBeTruthy();
     });
   });
 
-  it('applies array aggregate suggestion from the suggestion bar', () => {
+  it('applies array aggregate suggestion from the suggestion bar', async () => {
     const adapter: MapperAdapter<Mapping[]> = {
       ...createTestAdapter(),
       sources: [{ id: 's1', label: 'S', sampleData: { tags: [1, 2, 3] } }],
@@ -400,12 +396,10 @@ describe('DataMapper – targeted branch coverage (unmap, dock, verify nav, erro
     const { container } = render(<DataMapper adapter={adapter} initialData={initial} onChange={onChange} />);
 
     const tgtSummary = container.querySelector('.dm-panel--target .dm-tree-node[data-path="tagSummary"]')!;
-    fireEvent.click(tgtSummary);
-
+    await act(async () => { fireEvent.click(tgtSummary); });
     const applyBtn = screen.getByRole('button', { name: /^Apply: / });
     expect(applyBtn.textContent).toContain('$count');
-    fireEvent.click(applyBtn);
-
+    await act(async () => { fireEvent.click(applyBtn); });
     const last = onChange.mock.calls[onChange.mock.calls.length - 1]?.[0] as Mapping[];
     const m = last?.find((x) => x.id === 'agg1');
     expect(m?.expression).toContain('$count');

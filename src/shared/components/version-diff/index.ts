@@ -13,3 +13,8 @@ export {
   type DefinitionVersionBase,
   type VersionHistoryPanelProps,
 } from './VersionHistoryPanel';
+
+export {
+  DefinitionVersionDiffModal,
+  type DefinitionVersionDiffModalProps,
+} from './DefinitionVersionDiffModal';

@@ -27,6 +27,10 @@ export interface WorkflowDesignerProps {
   onUseAsTemplate: (wf: Workflow) => void;
   /** Navigate to Workflow Runner with current workflow pre-selected for load testing. */
   onRunInHarness?: (workflowId: string) => void;
+  /** Load a template workflow from gallery by sample ID. */
+  onLoadTemplate?: (gallerySampleId: string) => void;
+  /** Navigate to the gallery tab. */
+  onBrowseGallery?: () => void;
 }
 
 export interface WorkflowNodeContextMenuData {

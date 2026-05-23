@@ -508,7 +508,7 @@ describe('RequestEditor request/response workflows', () => {
     fireEvent.click(screen.getByTitle('Import / Export'));
     fireEvent.click(screen.getByRole('button', { name: 'cURL Export' }));
     await screen.findByDisplayValue('curl https://example.com');
-    fireEvent.click(screen.getByRole('button', { name: 'Copy' }));
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Copy' })); });
     expect(navigator.clipboard.writeText).toHaveBeenCalled();
   });
 

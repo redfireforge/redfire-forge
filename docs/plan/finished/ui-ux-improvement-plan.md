@@ -1,8 +1,8 @@
 # UI/UX Improvement Plan
 
-> **Status:** Active backlog — Phases 1–4 complete, Phase 5 partial, Phase 6 partial. Remaining items are future polish.
+> **Status:** ✅ **Phase 1–6 COMPLETE** — Phase 7 (Workflow Sidebar & Navigation) in progress.
 >
-> _Last updated: 2026-05-10_
+> _Last updated: 2026-05-22_
 
 ## Commercial Products Researched
 
@@ -200,21 +200,63 @@
 
 **Impact**: MEDIUM — Workflow efficiency
 
-### Phase 5: Empty States & Onboarding
+### Phase 5: Empty States & Onboarding — ✅ COMPLETE
 - [x] Illustrated empty state with "Drop your first node here"
-- [ ] Template workflow suggestions on empty canvas
-- [ ] Contextual hints/tooltips on first use
+- [x] Template workflow suggestions on empty canvas
+- [x] Contextual hints/tooltips on first use
 - [x] Breadcrumb showing current workflow name/path
 
 **Impact**: LOW-MEDIUM — First impression
 
-### Phase 6: Micro-interactions & Accessibility
+### Phase 6: Micro-interactions & Accessibility — ✅ COMPLETE
 - [x] Hover lift effect on nodes (`translateY(-1px)` + shadow on `.wf-node:hover`)
 - [x] Smooth panel slide-in/fade transitions (canvas fade-in, exec strip slide, detail panel `slideInRight`)
-- [ ] Skeleton loading states
-- [ ] Subtle scale animation when adding new node
-- [~] Define semantic color tokens — partial: `--success`, `--warning`, `--danger` exist; missing `--info` as first-class token and `--color-*` naming convention
-- [ ] Ensure WCAG AA contrast ratios
+- [x] Skeleton loading states
+  - [x] 6A: Create reusable `Skeleton` component with shimmer animation (`src/shared/components/Skeleton.tsx`)
+  - [x] 6B: CSS preset classes for workflow list skeleton (`skeleton-workflow-item`)
+  - [x] 6C: CSS preset classes for config panel skeleton (`skeleton-config-panel`)
+- [x] Subtle scale animation when adding new node
+  - [x] 6D: Add `@keyframes wf-node-pop` animation (scale 0.8 → 1.0 with overshoot)
+  - [x] 6E: Apply via `.wf-node-new` class, auto-removed after 300ms via `markNodeAsNew()`
+- [x] Define semantic color tokens
+  - [x] 6F: Add `--info` token to `:root` and all 12 theme variants (sky-blue shades)
+  - [~] 6G: `--color-*` aliases deferred — current `--success/--warning/--danger/--info` naming is sufficient
 - [x] Add focus rings for keyboard navigation (`focus-visible` on React Flow nodes and controls)
 
 **Impact**: LOW — Polish & accessibility
+
+### Phase 7: Workflow Sidebar & Navigation — ✅ COMPLETE
+- [x] **"From Template" navigation fix** — clicking "From Template" in the `+ New` dropdown now opens Gallery pre-filtered to the Workflows domain instead of showing "All"
+- [x] **"Browse All Templates" navigation fix** — clicking "Browse All Templates →" on the empty canvas now opens Gallery pre-filtered to Workflows domain
+- [x] **Removed "UNFILED" label** — root-level workflows no longer show a confusing "UNFILED" section header; they appear directly below folders without a label
+- [x] **Renamed folder-related labels** — "Move to Unfiled" → "Move out of Folder"; "Unfiled (root)" → "Workflows (root)" in folder picker; delete folder confirmation no longer references "Unfiled"
+- [x] **Added "Import Workflow" to `+ New` dropdown** — users can now import workflows from JSON at the root level without needing to right-click a folder
+- [x] **Fixed broken `--bg-hover` CSS variable** — `var(--bg-hover)` was used across 7 CSS files but never defined in any theme, causing invisible hover/active states; replaced with `var(--surface-hover)` (26 occurrences fixed)
+- [x] **Enhanced active/selected highlight** — workflow items and folder headers now use a visible accent-tinted background (`rgba(primary, 0.12)`) when selected, making the active item clearly distinguishable
+- [x] **Widened "Move to Folder" submenu** — increased from 160px to 220px so folder names are not truncated
+- [x] **Conditional "Move out of Folder"** — the option is hidden when the workflow is already at root level (not inside any folder)
+
+**Impact**: MEDIUM — Navigation clarity & sidebar usability
+
+### Phase 8: Workflow ↔ Requests/Catalog Integration — ✅ COMPLETE
+
+Deeply integrates the Workflow Designer with the Requests and API Catalog features, allowing users to build workflows from existing API definitions with full service/environment/auth preservation.
+
+#### Catalog → Workflow ("Expose to Workflow")
+- [x] **"Expose to Workflow" checkbox** on individual API endpoints in the Catalog — saves parameter values, headers, and request body for reuse in the Workflow Designer
+- [x] **CATALOG tab in Workflow palette** — shows only exposed endpoints; clicking adds an HTTP Request node with full pre-populated scenario (URL, method, headers, body, auth)
+- [x] **Saved endpoint values** — parameter/header/body values captured at expose-time are persisted in `CatalogEndpointWorkflowValues` and auto-applied when adding to canvas
+- [x] **Filtered visibility** — non-exposed endpoints do not appear in the Workflow's CATALOG palette
+
+#### Requests → Workflow
+- [x] **REQUESTS tab in Workflow palette** — browse Request collections with folder tree navigation
+- [x] **Add from Requests** — clicking a request item adds an HTTP node with full scenario, inheriting microservice/environment bindings via `buildServiceFromCollection`
+- [x] **Service preservation** — `WorkflowService` objects created from Request collections retain `microserviceId`, environment bindings, and auth configuration across hard refreshes
+
+#### Persistence & Storage Fixes
+- [x] **`fixupOverGroupedServices` bug fix** — migration function was incorrectly splitting microservice-bound services on every load; added guard to skip services with `microserviceId`
+- [x] **IndexedDB migration for large data** — migrated workflows, requests, catalog entries, catalog specs, endpoint values, and projects from `localStorage` to IndexedDB to eliminate `QuotaExceededError`; automatic one-time migration with `localStorage` fallback
+- [x] **New IDB utility files** — `idbWorkflows.ts`, `idbRequests.ts`, `idbCatalog.ts`, `idbProjects.ts` for dedicated IndexedDB load/save/migrate operations
+- [x] **Storage UI update** — Settings storage tab shows accurate combined usage (IndexedDB + localStorage) with "LS" badge for items still in localStorage
+
+**Impact**: HIGH — Core workflow building experience; eliminates manual re-entry of API configurations

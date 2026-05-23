@@ -52,14 +52,18 @@ export async function fetchScenarioSample(
   scenario: Scenario,
   liveVariables: Record<string, string>,
   resolvedBaseUrl: string,
-  options: { fetchHostEnabled: boolean; fetchHostOverride: string },
+  options: { fetchHostEnabled: boolean; fetchHostOverride: string; resolvedAuth?: Scenario['auth'] },
 ): Promise<FetchScenarioSampleResult> {
   const envLayer: Record<string, string> = {};
   const bu = resolvedBaseUrl.trim();
   if (bu) envLayer.baseUrl = stripTrailingSlash(bu);
 
+  const effectiveScenario = (scenario.auth?.type === 'inherit' && options.resolvedAuth)
+    ? { ...scenario, auth: options.resolvedAuth }
+    : scenario;
+
   const ctx = new VariableContext(liveVariables, envLayer);
-  const resolved = resolveScenario(scenario, ctx);
+  const resolved = resolveScenario(effectiveScenario, ctx);
   const resolvedAbs: Scenario = {
     ...resolved,
     url: ensureAbsoluteUrlWithBase(resolved.url, ctx),

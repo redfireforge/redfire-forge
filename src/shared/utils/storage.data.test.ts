@@ -20,12 +20,79 @@ vi.mock('./tauriStore', () => ({
   getUsageBytes: () => tauriGetUsage(),
 }));
 
-const { idbStore } = vi.hoisted(() => {
+const { idbStore, catalogStore, workflowsStore, requestsStore, projectsStore } = vi.hoisted(() => {
   const store: Record<string, unknown> = {};
-  return { idbStore: store };
+  return {
+    idbStore: store,
+    catalogStore: {
+      entries: null as unknown[] | null,
+      rawSpecs: {} as Record<string, string>,
+      endpointValues: {} as Record<string, unknown>,
+    },
+    workflowsStore: {
+      workflows: null as unknown[] | null,
+      folders: null as unknown[] | null,
+    },
+    requestsStore: {
+      data: null as { environments: unknown[]; collections: unknown[] } | null,
+    },
+    projectsStore: {
+      projects: null as unknown[] | null,
+    },
+  };
 });
 
 let _idbInsertOrder = 0;
+
+vi.mock('./idbCatalog', () => ({
+  idbLoadCatalogEntries: vi.fn(async () => catalogStore.entries),
+  idbSaveCatalogEntries: vi.fn(async (entries: unknown[]) => { catalogStore.entries = entries; }),
+  idbMigrateCatalogEntries: vi.fn(async () => false),
+  idbLoadCatalogRawSpec: vi.fn(async (entryId: string, versionId: string) =>
+    catalogStore.rawSpecs[`${entryId}-${versionId}`] ?? null),
+  idbSaveCatalogRawSpec: vi.fn(async (entryId: string, versionId: string, raw: string) => {
+    catalogStore.rawSpecs[`${entryId}-${versionId}`] = raw;
+  }),
+  idbRemoveCatalogRawSpec: vi.fn(async (entryId: string, versionId: string) => {
+    delete catalogStore.rawSpecs[`${entryId}-${versionId}`];
+  }),
+  idbRemoveAllCatalogRawSpecs: vi.fn(async (entryId: string, versionIds: string[]) => {
+    for (const vid of versionIds) delete catalogStore.rawSpecs[`${entryId}-${vid}`];
+  }),
+  idbMigrateCatalogRawSpecs: vi.fn(async () => 0),
+  idbLoadCatalogEndpointValues: vi.fn(async (entryId: string) =>
+    (catalogStore.endpointValues[entryId] as Record<string, unknown> | undefined) ?? null),
+  idbSaveCatalogEndpointValues: vi.fn(async (entryId: string, values: unknown) => {
+    catalogStore.endpointValues[entryId] = values;
+  }),
+  idbRemoveCatalogEndpointValues: vi.fn(async (entryId: string) => {
+    delete catalogStore.endpointValues[entryId];
+  }),
+  idbMigrateCatalogEndpointValues: vi.fn(async () => 0),
+}));
+
+vi.mock('./idbWorkflows', () => ({
+  idbLoadWorkflows: vi.fn(async () => workflowsStore.workflows),
+  idbSaveWorkflows: vi.fn(async (workflows: unknown[]) => { workflowsStore.workflows = workflows; }),
+  idbMigrateWorkflows: vi.fn(async () => false),
+  idbLoadWorkflowFolders: vi.fn(async () => workflowsStore.folders),
+  idbSaveWorkflowFolders: vi.fn(async (folders: unknown[]) => { workflowsStore.folders = folders; }),
+  idbMigrateWorkflowFolders: vi.fn(async () => false),
+}));
+
+vi.mock('./idbRequests', () => ({
+  idbLoadRequests: vi.fn(async () => requestsStore.data),
+  idbSaveRequests: vi.fn(async (data: { environments: unknown[]; collections: unknown[] }) => {
+    requestsStore.data = data;
+  }),
+  idbMigrateRequests: vi.fn(async () => false),
+}));
+
+vi.mock('./idbProjects', () => ({
+  idbLoadProjects: vi.fn(async () => projectsStore.projects),
+  idbSaveProjects: vi.fn(async (projects: unknown[]) => { projectsStore.projects = projects; }),
+  idbMigrateProjects: vi.fn(async () => false),
+}));
 
 vi.mock('./idbTestRuns', () => {
   type TR = { id: string; timestamp?: number; _insertOrder?: number; [k: string]: unknown };
@@ -70,7 +137,12 @@ vi.mock('./idbTestRuns', () => {
   };
 });
 
-import { saveEnvironments, loadEnvironments, saveMicroservices, loadMicroservices, saveFeatureGroups, loadFeatureGroups, saveGlobalAuthProfiles, loadGlobalAuthProfiles, saveSelectedEnvId, loadSelectedEnvId, saveSelectedSvcId, loadSelectedSvcId, getMaxRuns, setMaxRuns, saveRunnerConfig, loadRunnerConfig, saveTheme, loadTheme, getStorageUsage, loadRequests, saveRequests, loadCatalogEntries, saveCatalogEntries, loadCatalogRawSpec, saveCatalogRawSpec, removeCatalogRawSpec, removeAllCatalogRawSpecs, loadCatalogEndpointValues, saveCatalogEndpointValues, removeCatalogEndpointValues, loadTestRuns, saveTestRunsBulk, loadSelectedWorkflowId, saveSelectedWorkflowId, loadWorkflows, saveWorkflows, loadWorkflowSampleDismissed, saveWorkflowSampleDismissed, loadPreviewSampleId, savePreviewSampleId, } from './storage';
+import { saveEnvironments, loadEnvironments, saveMicroservices, loadMicroservices, saveFeatureGroups, loadFeatureGroups, saveGlobalAuthProfiles, loadGlobalAuthProfiles, saveSelectedEnvId, loadSelectedEnvId, saveSelectedSvcId, loadSelectedSvcId, getMaxRuns, setMaxRuns, saveRunnerConfig, loadRunnerConfig, saveTheme, loadTheme, getStorageUsage, getStorageDiagnostics, cleanupStaleStorageKeys, loadRequests, saveRequests, loadCatalogEntries, saveCatalogEntries, loadCatalogRawSpec, saveCatalogRawSpec, removeCatalogRawSpec, removeAllCatalogRawSpecs, loadCatalogEndpointValues, saveCatalogEndpointValues, removeCatalogEndpointValues, loadTestRuns, saveTestRunsBulk, loadSelectedWorkflowId, saveSelectedWorkflowId, loadWorkflows, saveWorkflows, loadWorkflowSampleDismissed, saveWorkflowSampleDismissed, loadPreviewSampleId, savePreviewSampleId, PROJECTS_KEY, } from './storage';
+import * as storageWorkflows from './storageWorkflows';
+import * as storageCatalog from './storageCatalog';
+import { idbSaveRequests, idbLoadRequests, idbMigrateRequests } from './idbRequests';
+import { idbMigrateProjects } from './idbProjects';
+import { idbLoadWorkflows } from './idbWorkflows';
 import { TestRun, GlobalAuthProfile, RequestsData } from '../types';
 import { CatalogEntry, SavedEndpointValues } from '../../features/catalog/types/catalog';
 import { Workflow } from '../../features/workflow/types/workflow';
@@ -109,6 +181,13 @@ function makeRun(id: string, results: number = 1): TestRun {
 beforeEach(() => {
   localStorage.clear();
   for (const k of Object.keys(idbStore)) delete idbStore[k];
+  catalogStore.entries = null;
+  catalogStore.rawSpecs = {};
+  catalogStore.endpointValues = {};
+  workflowsStore.workflows = null;
+  workflowsStore.folders = null;
+  requestsStore.data = null;
+  projectsStore.projects = null;
   _idbInsertOrder = 0;
   isTauriMock.mockReturnValue(false);
   tauriGetItem.mockReset();
@@ -251,6 +330,105 @@ describe('storage — usage', () => {
     expect(usedBytes).toBeGreaterThan(0);
     expect(entries['perf-test-v3-environments']).toBeGreaterThan(0);
   });
+
+  it('includes sizes for workflows, requests, catalog, and projects IDB stores', async () => {
+    workflowsStore.workflows = [{ id: 'w1', name: 'Workflow' }];
+    requestsStore.data = { environments: [{ id: 'e1', name: 'env' }], collections: [] };
+    catalogStore.entries = [{ id: 'c1', name: 'Catalog' }];
+    projectsStore.projects = [{ id: 'p1', name: 'Project' }];
+    const { entries, usedBytes } = await getStorageUsage();
+    expect(entries['workflows (IndexedDB)']).toBeGreaterThan(0);
+    expect(entries['requests (IndexedDB)']).toBeGreaterThan(0);
+    expect(entries['catalog (IndexedDB)']).toBeGreaterThan(0);
+    expect(entries['projects (IndexedDB)']).toBeGreaterThan(0);
+    expect(usedBytes).toBeGreaterThan(0);
+  });
+
+  it('ignores IDB store load failures in usage report', async () => {
+    vi.mocked(idbLoadWorkflows).mockRejectedValueOnce(new Error('idb unavailable'));
+    const { usedBytes } = await getStorageUsage();
+    expect(usedBytes).toBeGreaterThanOrEqual(0);
+  });
+});
+
+describe('storage — diagnostics and cleanup', () => {
+  it('getStorageDiagnostics returns formatted summary', async () => {
+    await saveTheme('dark');
+    const diag = await getStorageDiagnostics();
+    expect(diag).toContain('=== Storage Diagnostics ===');
+    expect(diag).toContain('Total:');
+    expect(diag).toContain('--- Top Keys ---');
+    expect(diag).toContain('perf-test-theme');
+  });
+
+  it('cleanupStaleStorageKeys removes ephemeral localStorage keys', () => {
+    localStorage.setItem('perf-test-last-progress:sc1', 'progress');
+    localStorage.setItem('perf-test-wf-undo-wf1', 'undo');
+    localStorage.setItem('replayLayout:wf1', 'layout');
+    localStorage.setItem('dm-schema-snapshot-x', 'snap');
+    localStorage.setItem('dm-patterns:ctx', 'patterns');
+    const { removed, freedKB } = cleanupStaleStorageKeys();
+    expect(removed).toBe(5);
+    expect(freedKB).toBeGreaterThanOrEqual(0);
+    expect(localStorage.getItem('perf-test-last-progress:sc1')).toBeNull();
+    expect(localStorage.getItem('perf-test-wf-undo-wf1')).toBeNull();
+  });
+
+  it('cleanupStaleStorageKeys removes deep runner-config keys', () => {
+    localStorage.setItem('perf-test-runner-config:a:b:c:d', '{"iterations":1}');
+    const { removed } = cleanupStaleStorageKeys();
+    expect(removed).toBe(1);
+    expect(localStorage.getItem('perf-test-runner-config:a:b:c:d')).toBeNull();
+  });
+
+  it('cleanupStaleStorageKeys returns zero on Tauri', () => {
+    isTauriMock.mockReturnValue(true);
+    localStorage.setItem('perf-test-wf-undo-wf1', 'data');
+    expect(cleanupStaleStorageKeys()).toEqual({ removed: 0, freedKB: 0 });
+    expect(localStorage.getItem('perf-test-wf-undo-wf1')).toBe('data');
+  });
+
+  it('cleanupStaleStorageKeys logs when keys are removed', () => {
+    const infoSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
+    localStorage.setItem('perf-test-wf-undo-wf1', 'data');
+    cleanupStaleStorageKeys();
+    expect(infoSpy).toHaveBeenCalledWith(expect.stringContaining('[Storage] Cleanup:'));
+    infoSpy.mockRestore();
+  });
+
+  it('cleanupStaleStorageKeys returns zero when nothing to clean', () => {
+    expect(cleanupStaleStorageKeys()).toEqual({ removed: 0, freedKB: 0 });
+  });
+
+  it('cleanupStaleStorageKeys triggers IDB migration for remaining large keys', async () => {
+    const wfSpy = vi.spyOn(storageWorkflows, 'migrateWorkflowKeysToIdb').mockResolvedValue(undefined);
+    const catSpy = vi.spyOn(storageCatalog, 'migrateCatalogKeysToIdb').mockResolvedValue(undefined);
+    localStorage.setItem('perf-test-requests', '[]');
+    localStorage.setItem(PROJECTS_KEY, '[]');
+
+    cleanupStaleStorageKeys();
+
+    await vi.waitFor(() => {
+      expect(wfSpy).toHaveBeenCalled();
+    });
+    await vi.waitFor(() => {
+      expect(vi.mocked(idbMigrateRequests)).toHaveBeenCalledWith('perf-test-requests');
+      expect(vi.mocked(idbMigrateProjects)).toHaveBeenCalledWith(PROJECTS_KEY);
+      expect(catSpy).toHaveBeenCalled();
+    });
+
+    wfSpy.mockRestore();
+    catSpy.mockRestore();
+  });
+
+  it('cleanupStaleStorageKeys ignores IDB migration errors', async () => {
+    vi.spyOn(storageWorkflows, 'migrateWorkflowKeysToIdb').mockResolvedValue(undefined);
+    vi.spyOn(storageCatalog, 'migrateCatalogKeysToIdb').mockResolvedValue(undefined);
+    vi.mocked(idbMigrateRequests).mockRejectedValueOnce(new Error('migrate fail'));
+    localStorage.setItem('perf-test-requests', '[]');
+    cleanupStaleStorageKeys();
+    await new Promise((r) => setTimeout(r, 50));
+  });
 });
 
 describe('storage — requests', () => {
@@ -278,7 +456,8 @@ describe('storage — requests', () => {
     expect(loaded.collections).toHaveLength(1);
 
     expect(localStorage.getItem('perf-test-workbench')).toBeNull();
-    expect(localStorage.getItem('perf-test-requests')).toBeTruthy();
+    expect(localStorage.getItem('perf-test-requests')).toBeNull();
+    expect(requestsStore.data?.environments[0].name).toBe('staging');
   });
 
   it('prefers new key over legacy key', async () => {
@@ -290,6 +469,71 @@ describe('storage — requests', () => {
     const loaded = await loadRequests();
     expect(loaded.environments[0].name).toBe('new');
     expect(localStorage.getItem('perf-test-workbench')).toBeTruthy();
+  });
+
+  it('returns empty data when IDB load throws', async () => {
+    vi.mocked(idbLoadRequests).mockRejectedValueOnce(new Error('idb fail'));
+    const loaded = await loadRequests();
+    expect(loaded).toEqual({ environments: [], collections: [] });
+  });
+
+  it('clears stale localStorage copy after successful IDB save', async () => {
+    localStorage.setItem('perf-test-requests', '[]');
+    await saveRequests({ environments: [], collections: [] } as RequestsData);
+    expect(localStorage.getItem('perf-test-requests')).toBeNull();
+  });
+
+  it('migrates localStorage requests to IDB on load', async () => {
+    const data = { environments: [{ id: 'e1', name: 'local' }], collections: [] };
+    localStorage.setItem('perf-test-requests', JSON.stringify(data));
+    const loaded = await loadRequests();
+    expect(loaded.environments[0].name).toBe('local');
+    expect(vi.mocked(idbMigrateRequests)).toHaveBeenCalledWith('perf-test-requests');
+  });
+
+  it('falls back to localStorage when IDB save fails', async () => {
+    vi.mocked(idbSaveRequests).mockRejectedValueOnce(new Error('idb down'));
+    const data = { environments: [{ id: 'e1', name: 'fallback' }], collections: [] };
+    await saveRequests(data as RequestsData);
+    expect(localStorage.getItem('perf-test-requests')).toContain('fallback');
+  });
+});
+
+describe('storage — requests (Tauri)', () => {
+  beforeEach(() => {
+    isTauriMock.mockReturnValue(true);
+    tauriGetItem.mockImplementation(async (key: string) => localStorage.getItem(key));
+    tauriSetItem.mockImplementation(async (key: string, value: string) => {
+      localStorage.setItem(key, value);
+    });
+  });
+
+  it('loads requests from tauri storage', async () => {
+    const data = { environments: [{ id: 'e1', name: 'tauri-env' }], collections: [] };
+    localStorage.setItem('perf-test-requests', JSON.stringify(data));
+    const loaded = await loadRequests();
+    expect(loaded.environments[0].name).toBe('tauri-env');
+  });
+
+  it('migrates legacy workbench key in tauri mode', async () => {
+    const legacy = { environments: [{ id: 'e1', name: 'legacy-tauri' }], collections: [] };
+    localStorage.setItem('perf-test-workbench', JSON.stringify(legacy));
+    const loaded = await loadRequests();
+    expect(loaded.environments[0].name).toBe('legacy-tauri');
+    expect(tauriSetItem).toHaveBeenCalledWith('perf-test-workbench', '');
+    expect(tauriSetItem).toHaveBeenCalledWith('perf-test-requests', JSON.stringify(legacy));
+  });
+
+  it('saveRequests writes via tauriStore', async () => {
+    const data = { environments: [{ id: 'e1', name: 'saved' }], collections: [] };
+    await saveRequests(data as RequestsData);
+    expect(tauriSetItem).toHaveBeenCalledWith('perf-test-requests', JSON.stringify(data));
+  });
+
+  it('returns empty requests when tauri read fails', async () => {
+    tauriGetItem.mockRejectedValue(new Error('disk error'));
+    const loaded = await loadRequests();
+    expect(loaded).toEqual({ environments: [], collections: [] });
   });
 });
 
@@ -354,12 +598,12 @@ describe('storage — catalog endpoint values', () => {
 });
 
 describe('storage — usage key filter', () => {
-  it('ignores localStorage keys that do not start with perf-test', async () => {
+  it('includes all localStorage keys in usage report', async () => {
     localStorage.setItem('other-app', 'yyyy');
     await saveTheme('dark');
     const { entries } = await getStorageUsage();
-    expect(Object.keys(entries).every((k) => k.startsWith('perf-test'))).toBe(true);
-    expect(entries['other-app']).toBeUndefined();
+    expect(entries['other-app']).toBeGreaterThan(0);
+    expect(entries['perf-test-theme']).toBeGreaterThan(0);
   });
 
   it('treats missing values for enumerated perf-test keys as empty string', async () => {
@@ -508,6 +752,23 @@ describe('preview sample ID (sessionStorage)', () => {
     savePreviewSampleId('sample-workflow-001');
     savePreviewSampleId(null);
     expect(loadPreviewSampleId()).toBeNull();
+  });
+
+  it('savePreviewSampleId(null) ignores removeItem errors', () => {
+    sessionStorage.setItem('workflow_preview_sample_id', 'sample-workflow-001');
+    vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => {
+      throw new Error('blocked');
+    });
+    expect(() => savePreviewSampleId(null)).not.toThrow();
+    vi.restoreAllMocks();
+  });
+
+  it('loadPreviewSampleId returns null when sessionStorage throws', () => {
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('blocked');
+    });
+    expect(loadPreviewSampleId()).toBeNull();
+    vi.restoreAllMocks();
   });
 
   it('loadPreviewSampleId returns null for empty string', () => {

@@ -10,7 +10,7 @@ import * as dropMappingNs from './utils/dropMapping';
 import * as subtreeMappingNs from './utils/subtreeMapping';
 import { sampleTarget, bumpMapperLayout, createTestAdapter } from './DataMapper.test-utils';
 describe('DataMapper – additional coverage for below-90% lines', () => {
-  it('toggles table view and selects mapping in table view', () => {
+  it('toggles table view and selects mapping in table view', async () => {
     const adapter = createTestAdapter();
     const initial: Mapping[] = [
       { id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'userName' },
@@ -18,14 +18,14 @@ describe('DataMapper – additional coverage for below-90% lines', () => {
     ];
     const { container } = render(<DataMapper adapter={adapter} initialData={initial} />);
     const tableBtn = screen.getByText('Table');
-    fireEvent.click(tableBtn);
+    await act(async () => { fireEvent.click(tableBtn); });
     const tableRows = container.querySelectorAll('.dm-table-row');
     expect(tableRows.length).toBeGreaterThan(0);
-    fireEvent.click(tableRows[0]);
-    fireEvent.click(tableBtn);
+    await act(async () => { fireEvent.click(tableRows[0]); });
+    await act(async () => { fireEvent.click(tableBtn); });
   });
 
-  it('handleMapFilteredFields maps new fields and skips already-mapped', () => {
+  it('handleMapFilteredFields maps new fields and skips already-mapped', async () => {
     const adapter = createTestAdapter();
     const onChange = vi.fn();
     const initial: Mapping[] = [
@@ -34,11 +34,11 @@ describe('DataMapper – additional coverage for below-90% lines', () => {
     render(<DataMapper adapter={adapter} initialData={initial} onChange={onChange} />);
     const mapFilteredBtn = screen.queryByText(/Map Filtered/i);
     if (mapFilteredBtn) {
-      fireEvent.click(mapFilteredBtn);
+      await act(async () => { fireEvent.click(mapFilteredBtn); });
     }
   });
 
-  it('handleToggleSelectMapping toggles mapping selection on and off', () => {
+  it('handleToggleSelectMapping toggles mapping selection on and off', async () => {
     const adapter = createTestAdapter();
     const initial: Mapping[] = [
       { id: '1', sourcePath: 'name', sourceId: 's1', targetPath: 'userName' },
@@ -46,8 +46,8 @@ describe('DataMapper – additional coverage for below-90% lines', () => {
     const { container } = render(<DataMapper adapter={adapter} initialData={initial} />);
     const node = container.querySelector('.dm-tree-node[data-path="userName"]');
     if (node) {
-      fireEvent.click(node);
-      fireEvent.click(node);
+      await act(async () => { fireEvent.click(node); });
+      await act(async () => { fireEvent.click(node); });
     }
   });
 
@@ -72,16 +72,16 @@ describe('DataMapper – additional coverage for below-90% lines', () => {
     render(<DataMapper adapter={adapSrc} initialData={initial} onChange={onChange} />);
     const autoMap = screen.queryByText(/Auto-map/);
     if (autoMap) {
-      fireEvent.click(autoMap);
+      await act(async () => { fireEvent.click(autoMap); });
     }
   });
 
-  it('handlePreviewPropagation shows toast when no mapping selected', () => {
+  it('handlePreviewPropagation shows toast when no mapping selected', async () => {
     const adapter = createTestAdapter();
     render(<DataMapper adapter={adapter} />);
     const previewPropBtn = screen.queryByText('Preview Propagate');
     if (previewPropBtn) {
-      fireEvent.click(previewPropBtn);
+      await act(async () => { fireEvent.click(previewPropBtn); });
     }
   });
 
@@ -93,7 +93,7 @@ describe('DataMapper – additional coverage for below-90% lines', () => {
     render(<DataMapper adapter={adapter} />);
     const samplesBtn = screen.queryByText('Samples');
     if (samplesBtn) {
-      fireEvent.click(samplesBtn);
+      await act(async () => { fireEvent.click(samplesBtn); });
       const sampleBtns = screen.queryAllByRole('button');
       const sample = sampleBtns.find(b => b.textContent?.includes('Direct'));
       if (sample) {
@@ -102,7 +102,7 @@ describe('DataMapper – additional coverage for below-90% lines', () => {
     }
   });
 
-  it('suggestDropExpression returns undefined when sourceData is null', () => {
+  it('suggestDropExpression returns undefined when sourceData is null', async () => {
     const adapter: MapperAdapter<Mapping[]> = {
       ...createTestAdapter(),
       sources: [{ id: 's1', label: 'Source', sampleData: null }],
@@ -120,13 +120,13 @@ describe('DataMapper – additional coverage for below-90% lines', () => {
     await bumpMapperLayout(container);
     const toggle = screen.queryByLabelText(/Toggle connection lines/);
     if (toggle) {
-      fireEvent.click(toggle);
+      await act(async () => { fireEvent.click(toggle); });
       const toggle2 = screen.queryByLabelText(/node focus/i) ?? screen.queryByLabelText(/Enable click-to-focus/);
       if (toggle2) fireEvent.click(toggle2);
     }
     const wrapper = container.querySelector('.dm-container');
     if (wrapper) {
-      fireEvent.click(wrapper);
+      await act(async () => { fireEvent.click(wrapper); });
     }
   });
 
@@ -138,15 +138,15 @@ describe('DataMapper – additional coverage for below-90% lines', () => {
     render(<DataMapper adapter={adapter} initialData={initial} />);
     const ignoreBtn = screen.queryByText(/Ignore/);
     if (ignoreBtn) {
-      fireEvent.click(ignoreBtn);
+      await act(async () => { fireEvent.click(ignoreBtn); });
     }
   });
 
-  it('cleans up stale autoMapScores when mappings change', () => {
+  it('cleans up stale autoMapScores when mappings change', async () => {
     const adapter = createTestAdapter();
     const onChange = vi.fn();
     render(<DataMapper adapter={adapter} onChange={onChange} />);
-    fireEvent.click(screen.getByText(/Auto-map/));
+    await act(async () => { fireEvent.click(screen.getByText(/Auto-map/)); });
     expect(onChange).toHaveBeenCalled();
   });
 
@@ -167,25 +167,25 @@ describe('DataMapper – additional coverage for below-90% lines', () => {
     vi.useRealTimers();
   });
 
-  it('handleMapSubtree shows toast when no source/target nodes selected', () => {
+  it('handleMapSubtree shows toast when no source/target nodes selected', async () => {
     const adapter = createTestAdapter();
     render(<DataMapper adapter={adapter} />);
     const subtreeBtn = screen.queryByText('Map subtree');
     if (subtreeBtn) {
-      fireEvent.click(subtreeBtn);
+      await act(async () => { fireEvent.click(subtreeBtn); });
     }
   });
 
-  it('handleMapSiblingSubtrees shows toast when no source/target selected', () => {
+  it('handleMapSiblingSubtrees shows toast when no source/target selected', async () => {
     const adapter = createTestAdapter();
     render(<DataMapper adapter={adapter} />);
     const siblingBtn = screen.queryByText('Map Siblings');
     if (siblingBtn) {
-      fireEvent.click(siblingBtn);
+      await act(async () => { fireEvent.click(siblingBtn); });
     }
   });
 
-  it('repair panel buttons work for missing-target issue', () => {
+  it('repair panel buttons work for missing-target issue', async () => {
     const adapter = createTestAdapter();
     const initial: Mapping[] = [
       { id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'nonExistentField' },
@@ -194,13 +194,13 @@ describe('DataMapper – additional coverage for below-90% lines', () => {
     expect(screen.getByText('Validation & Repair')).toBeTruthy();
     expect(screen.getByText('Missing target')).toBeTruthy();
 
-    fireEvent.click(screen.getByText('Fix'));
-    fireEvent.click(screen.getByText('Open node'));
-    fireEvent.click(screen.getByText('Replace'));
-    fireEvent.click(screen.getByText('Ignore once'));
+    await act(async () => { fireEvent.click(screen.getByText('Fix')); });
+    await act(async () => { fireEvent.click(screen.getByText('Open node')); });
+    await act(async () => { fireEvent.click(screen.getByText('Replace')); });
+    await act(async () => { fireEvent.click(screen.getByText('Ignore once')); });
   });
 
-  it('duplicate target mappings show repair and replace resolves them', () => {
+  it('duplicate target mappings show repair and replace resolves them', async () => {
     const adapter = createTestAdapter();
     const initial: Mapping[] = [
       { id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'userName' },
@@ -211,11 +211,11 @@ describe('DataMapper – additional coverage for below-90% lines', () => {
     expect(screen.getByText('Duplicate target')).toBeTruthy();
     const dupRow = screen.getByText('Duplicate target').closest('.dm-validation-repair-row');
     const dupReplace = dupRow?.querySelector('.dm-validation-repair-btn:nth-child(2)') as HTMLElement;
-    if (dupReplace) fireEvent.click(dupReplace);
+    if (dupReplace) await act(async () => { fireEvent.click(dupReplace); });
     expect(onChange).toHaveBeenCalled();
   });
 
-  it('toggles mapping selection via checkbox-like interaction', () => {
+  it('toggles mapping selection via checkbox-like interaction', async () => {
     const adapter = createTestAdapter();
     const initial: Mapping[] = [
       { id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'userName' },
@@ -226,23 +226,23 @@ describe('DataMapper – additional coverage for below-90% lines', () => {
     for (const node of nodes) {
       const path = node.getAttribute('data-path');
       if (path === 'userName') {
-        fireEvent.click(node);
+        await act(async () => { fireEvent.click(node); });
         break;
       }
     }
   });
 
-  it('handleMapFilteredFields creates new mappings from source tree filter', () => {
+  it('handleMapFilteredFields creates new mappings from source tree filter', async () => {
     const adapter = createTestAdapter();
     const onChange = vi.fn();
     render(<DataMapper adapter={adapter} onChange={onChange} />);
     const mapFilteredBtn = screen.queryByText(/Map all \(\d+\)/);
     expect(mapFilteredBtn).toBeTruthy();
-    fireEvent.click(mapFilteredBtn!);
+    await act(async () => { fireEvent.click(mapFilteredBtn!); });
     expect(onChange).toHaveBeenCalled();
   });
 
-  it('object-to-object drop maps children via subtree drop plan', () => {
+  it('object-to-object drop maps children via subtree drop plan', async () => {
     const adapter: MapperAdapter<Mapping[]> = {
       ...createTestAdapter(),
       sources: [{ id: 's1', label: 'Src', sampleData: { user: { first: 'A', last: 'B' } } }],
@@ -257,14 +257,14 @@ describe('DataMapper – additional coverage for below-90% lines', () => {
     expect(tgtUser).toBeTruthy();
     const dragData = JSON.stringify({ path: 'user', sourceId: 's1' });
     const dt = { getData: () => dragData, dropEffect: 'none', setData: vi.fn() };
-    fireEvent.dragOver(tgtUser!, { dataTransfer: dt });
-    fireEvent.drop(tgtUser!, { dataTransfer: dt });
+    await act(async () => { fireEvent.dragOver(tgtUser!, { dataTransfer: dt }); });
+    await act(async () => { fireEvent.drop(tgtUser!, { dataTransfer: dt }); });
     expect(onChange).toHaveBeenCalled();
     const lastCall = onChange.mock.calls[onChange.mock.calls.length - 1]?.[0] as Mapping[];
     expect(lastCall.length).toBeGreaterThanOrEqual(2);
   });
 
-  it('object drop with no matching children shows toast', () => {
+  it('object drop with no matching children shows toast', async () => {
     const adapter: MapperAdapter<Mapping[]> = {
       ...createTestAdapter(),
       sources: [{ id: 's1', label: 'Src', sampleData: { group: { alpha: 1, beta: 2 } } }],
@@ -279,8 +279,8 @@ describe('DataMapper – additional coverage for below-90% lines', () => {
     expect(tgtGroup).toBeTruthy();
     const dragData = JSON.stringify({ path: 'group', sourceId: 's1' });
     const dt = { getData: () => dragData, dropEffect: 'none', setData: vi.fn() };
-    fireEvent.dragOver(tgtGroup!, { dataTransfer: dt });
-    fireEvent.drop(tgtGroup!, { dataTransfer: dt });
+    await act(async () => { fireEvent.dragOver(tgtGroup!, { dataTransfer: dt }); });
+    await act(async () => { fireEvent.drop(tgtGroup!, { dataTransfer: dt }); });
   });
 
   it('propagation preview close button dismisses preview', async () => {
@@ -291,10 +291,10 @@ describe('DataMapper – additional coverage for below-90% lines', () => {
     render(<DataMapper adapter={adapter} initialData={initial} />);
     const previewPropBtn = screen.queryByText('Preview Propagate');
     if (previewPropBtn) {
-      fireEvent.click(previewPropBtn);
+      await act(async () => { fireEvent.click(previewPropBtn); });
       const closeBtn = screen.queryByLabelText('Close propagation preview');
       if (closeBtn) {
-        fireEvent.click(closeBtn);
+        await act(async () => { fireEvent.click(closeBtn); });
       }
     }
   });
@@ -312,7 +312,7 @@ describe('DataMapper – additional coverage for below-90% lines', () => {
       if (advancedBtn) fireEvent.click(advancedBtn);
     }
     const samplesBtn = screen.getByText('Samples');
-    fireEvent.click(samplesBtn);
+    await act(async () => { fireEvent.click(samplesBtn); });
     const sampleBtns = screen.getAllByRole('button');
     const directBtn = sampleBtns.find(b => b.textContent?.includes('Direct Field'));
     expect(directBtn).toBeTruthy();
@@ -328,16 +328,16 @@ describe('DataMapper – additional coverage for below-90% lines', () => {
     const { container } = render(<DataMapper adapter={adapter} initialData={initial} />);
     await bumpMapperLayout(container);
     const lineToggle = screen.getByText('Lines');
-    fireEvent.click(lineToggle);
+    await act(async () => { fireEvent.click(lineToggle); });
     const nodeFocusBtn = screen.getByText('Focus');
-    fireEvent.click(nodeFocusBtn);
+    await act(async () => { fireEvent.click(nodeFocusBtn); });
     const sourceNode = container.querySelector('.dm-panel--source .dm-tree-node[data-path="name"]');
     expect(sourceNode).toBeTruthy();
-    fireEvent.click(sourceNode!);
-    fireEvent.click(sourceNode!);
+    await act(async () => { fireEvent.click(sourceNode!); });
+    await act(async () => { fireEvent.click(sourceNode!); });
   });
 
-  it('handleMapFilteredFields maps only unmapped paths when some already exist', () => {
+  it('handleMapFilteredFields maps only unmapped paths when some already exist', async () => {
     const adapter = createTestAdapter();
     const initial: Mapping[] = [
       { id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'name' },
@@ -346,12 +346,12 @@ describe('DataMapper – additional coverage for below-90% lines', () => {
     render(<DataMapper adapter={adapter} initialData={initial} onChange={onChange} />);
     const btn = screen.queryByText(/Map all \(\d+\)/);
     if (btn) {
-      fireEvent.click(btn);
+      await act(async () => { fireEvent.click(btn); });
       expect(onChange).toHaveBeenCalled();
     }
   });
 
-  it('handleMapFilteredFields does nothing when all filtered fields are already mapped', () => {
+  it('handleMapFilteredFields does nothing when all filtered fields are already mapped', async () => {
     const adapter = createTestAdapter();
     const initial: Mapping[] = [
       { id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'name' },
@@ -362,7 +362,7 @@ describe('DataMapper – additional coverage for below-90% lines', () => {
     expect(screen.queryByText(/Map all \(\d+\)/)).toBeNull();
   });
 
-  it('handleToggleSelectMapping toggles mapping id in selectedIds set', () => {
+  it('handleToggleSelectMapping toggles mapping id in selectedIds set', async () => {
     const adapter: MapperAdapter<Mapping[]> = {
       ...createTestAdapter(),
       target: { ...createTestAdapter().target, sampleData: sampleTarget },
@@ -376,7 +376,7 @@ describe('DataMapper – additional coverage for below-90% lines', () => {
     if (codeBtn) fireEvent.click(codeBtn);
     const targetNode = container.querySelector('.dm-tree-node[data-path="userName"]');
     if (targetNode) {
-      fireEvent.click(targetNode);
+      await act(async () => { fireEvent.click(targetNode); });
     }
   });
 
@@ -389,15 +389,15 @@ describe('DataMapper – additional coverage for below-90% lines', () => {
     const { container } = render(<DataMapper adapter={adapter} initialData={initial} />);
     await bumpMapperLayout(container);
     const lineToggle = screen.getByText('Lines');
-    fireEvent.click(lineToggle);
+    await act(async () => { fireEvent.click(lineToggle); });
     const nodeFocusBtn = screen.getByText('Focus');
-    fireEvent.click(nodeFocusBtn);
+    await act(async () => { fireEvent.click(nodeFocusBtn); });
     const targetNode = container.querySelector('.dm-panel--target .dm-tree-node[data-path="userName"]');
     expect(targetNode).toBeTruthy();
-    fireEvent.click(targetNode!);
+    await act(async () => { fireEvent.click(targetNode!); });
   });
 
-  it('propagation preview clears when anchor mapping is deleted', () => {
+  it('propagation preview clears when anchor mapping is deleted', async () => {
     const adapter: MapperAdapter<Mapping[]> = {
       ...createTestAdapter(),
       sources: [{
@@ -429,27 +429,27 @@ describe('DataMapper – additional coverage for below-90% lines', () => {
     const { container } = render(<DataMapper adapter={adapter} initialData={initial} onChange={onChange} />);
     const anchorNode = container.querySelector('.dm-panel--target .dm-tree-node[data-path="offers[0].associatedOfferingCode"]');
     expect(anchorNode).toBeTruthy();
-    fireEvent.click(anchorNode!);
+    await act(async () => { fireEvent.click(anchorNode!); });
     fireEvent.click(screen.getByRole('button', { name: 'Preview propagate' }));
     expect(container.querySelector('.dm-propagation-preview')).toBeTruthy();
 
-    fireEvent.keyDown(window, { key: 'Delete' });
+    await act(async () => { fireEvent.keyDown(window, { key: 'Delete' }); });
     expect(container.querySelector('.dm-propagation-preview')).toBeNull();
     expect(onChange).toHaveBeenCalledWith([]);
   });
 
-  it('Preview propagate shows not eligible toast for non-indexed mapping', () => {
+  it('Preview propagate shows not eligible toast for non-indexed mapping', async () => {
     const adapter = createTestAdapter();
     const initial: Mapping[] = [{ id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'userName' }];
     const { container } = render(<DataMapper adapter={adapter} initialData={initial} />);
     const node = container.querySelector('.dm-panel--target .dm-tree-node[data-path="userName"]');
     expect(node).toBeTruthy();
-    fireEvent.click(node!);
-    fireEvent.click(screen.getByRole('button', { name: 'Preview propagate' }));
+    await act(async () => { fireEvent.click(node!); });
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Preview propagate' })); });
     expect(container.querySelector('.dm-toast')?.textContent).toContain('not eligible');
   });
 
-  it('Apply propagation repairs sibling row when target already mapped from wrong source index', () => {
+  it('Apply propagation repairs sibling row when target already mapped from wrong source index', async () => {
     const adapter: MapperAdapter<Mapping[]> = {
       ...createTestAdapter(),
       sources: [{
@@ -479,15 +479,15 @@ describe('DataMapper – additional coverage for below-90% lines', () => {
     const { container } = render(<DataMapper adapter={adapter} initialData={initial} onChange={onChange} />);
     const anchorNode = container.querySelector('.dm-panel--target .dm-tree-node[data-path="offers[0].associatedOfferingCode"]');
     expect(anchorNode).toBeTruthy();
-    fireEvent.click(anchorNode!);
-    fireEvent.click(screen.getByRole('button', { name: 'Preview propagate' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Apply propagation' }));
+    await act(async () => { fireEvent.click(anchorNode!); });
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Preview propagate' })); });
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Apply propagation' })); });
     const last = onChange.mock.calls.at(-1)?.[0] as Mapping[] | undefined;
     const sibling = last?.find((m) => m.targetPath === 'offers[1].associatedOfferingCode');
     expect(sibling?.sourcePath).toBe('offers[1].associatedOfferingCode');
   });
 
-  it('Apply propagation shows no-op toast when upsert reports no mapping changes', () => {
+  it('Apply propagation shows no-op toast when upsert reports no mapping changes', async () => {
     const spy = vi.spyOn(dropMappingNs, 'upsertTargetMapping').mockImplementation((mappings) => ({
       next: mappings,
       changed: false,
@@ -522,9 +522,9 @@ describe('DataMapper – additional coverage for below-90% lines', () => {
       }];
       const { container } = render(<DataMapper adapter={adapter} initialData={initial} />);
       const anchorNode = container.querySelector('.dm-panel--target .dm-tree-node[data-path="offers[0].associatedOfferingCode"]');
-      fireEvent.click(anchorNode!);
-      fireEvent.click(screen.getByRole('button', { name: 'Preview propagate' }));
-      fireEvent.click(screen.getByRole('button', { name: 'Apply propagation' }));
+      await act(async () => { fireEvent.click(anchorNode!); });
+      await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Preview propagate' })); });
+      await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Apply propagation' })); });
       expect(container.querySelector('.dm-toast')?.textContent).toContain(
         'No changes - propagated mappings already up to date',
       );
@@ -534,19 +534,19 @@ describe('DataMapper – additional coverage for below-90% lines', () => {
     }
   });
 
-  it('Map filtered shows toast when filtered source paths only target already-occupied fields', () => {
+  it('Map filtered shows toast when filtered source paths only target already-occupied fields', async () => {
     const adapter = createTestAdapter();
     const initial: Mapping[] = [
       { id: 'occupy', sourcePath: 'name', sourceId: 's1', targetPath: 'email' },
     ];
     const { container } = render(<DataMapper adapter={adapter} initialData={initial} />);
     const searchInputs = screen.getAllByPlaceholderText('Search fields…');
-    fireEvent.change(searchInputs[0], { target: { value: 'email' } });
-    fireEvent.click(screen.getByLabelText(/Map 1 filtered fields/));
+    await act(async () => { fireEvent.change(searchInputs[0], { target: { value: 'email' } }); });
+    await act(async () => { fireEvent.click(screen.getByLabelText(/Map 1 filtered fields/)); });
     expect(container.querySelector('.dm-toast')?.textContent).toContain('All filtered fields are already mapped');
   });
 
-  it('bulk subtree drop toast when pairing yields only unchanged mappings', () => {
+  it('bulk subtree drop toast when pairing yields only unchanged mappings', async () => {
     const applySpy = vi.spyOn(subtreeMappingNs, 'applyDropPairs').mockReturnValue({
       nextMappings: [],
       insertedCount: 0,
@@ -567,8 +567,8 @@ describe('DataMapper – additional coverage for below-90% lines', () => {
       expect(tgtUser).toBeTruthy();
       const dragData = JSON.stringify({ path: 'user', sourceId: 's1' });
       const dt = { getData: () => dragData, dropEffect: 'none', setData: vi.fn() };
-      fireEvent.dragOver(tgtUser!, { dataTransfer: dt });
-      fireEvent.drop(tgtUser!, { dataTransfer: dt });
+      await act(async () => { fireEvent.dragOver(tgtUser!, { dataTransfer: dt }); });
+      await act(async () => { fireEvent.drop(tgtUser!, { dataTransfer: dt }); });
       expect(container.querySelector('.dm-toast')?.textContent).toContain(
         'No changes - matching targets already mapped',
       );
@@ -594,7 +594,7 @@ describe('DataMapper – additional coverage for below-90% lines', () => {
       vi.restoreAllMocks();
     });
 
-    it('updates mapping operator via DataMapper target operator picker', () => {
+    it('updates mapping operator via DataMapper target operator picker', async () => {
       const adapter: MapperAdapter<Mapping[]> = {
         ...createTestAdapter(),
         capabilities: { operators: true },
@@ -603,14 +603,14 @@ describe('DataMapper – additional coverage for below-90% lines', () => {
       const onChange = vi.fn();
       render(<DataMapper adapter={adapter} initialData={initial} onChange={onChange} />);
       const pill = screen.getByLabelText('Change operator from equals');
-      fireEvent.click(pill);
-      fireEvent.click(screen.getByText('greater than'));
+      await act(async () => { fireEvent.click(pill); });
+      await act(async () => { fireEvent.click(screen.getByText('greater than')); });
       const last = onChange.mock.calls.at(-1)?.[0] as Mapping[] | undefined;
       expect(last?.find((m) => m.id === 'op1')?.operator).toBe('greater_than');
     });
   });
 
-  it('propagation preview Close button clears preview', () => {
+  it('propagation preview Close button clears preview', async () => {
     const adapter: MapperAdapter<Mapping[]> = {
       ...createTestAdapter(),
       sources: [{
@@ -641,14 +641,14 @@ describe('DataMapper – additional coverage for below-90% lines', () => {
     const { container } = render(<DataMapper adapter={adapter} initialData={initial} />);
     const anchorNode = container.querySelector('.dm-panel--target .dm-tree-node[data-path="offers[0].associatedOfferingCode"]');
     expect(anchorNode).toBeTruthy();
-    fireEvent.click(anchorNode!);
-    fireEvent.click(screen.getByRole('button', { name: 'Preview propagate' }));
+    await act(async () => { fireEvent.click(anchorNode!); });
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Preview propagate' })); });
     expect(container.querySelector('.dm-propagation-preview')).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'Close propagation preview' }));
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Close propagation preview' })); });
     expect(container.querySelector('.dm-propagation-preview')).toBeNull();
   });
 
-  it('propagation preview Cancel button clears preview', () => {
+  it('propagation preview Cancel button clears preview', async () => {
     const adapter: MapperAdapter<Mapping[]> = {
       ...createTestAdapter(),
       sources: [{
@@ -679,11 +679,11 @@ describe('DataMapper – additional coverage for below-90% lines', () => {
     const { container } = render(<DataMapper adapter={adapter} initialData={initial} />);
     const anchorNode = container.querySelector('.dm-panel--target .dm-tree-node[data-path="offers[0].associatedOfferingCode"]');
     expect(anchorNode).toBeTruthy();
-    fireEvent.click(anchorNode!);
-    fireEvent.click(screen.getByRole('button', { name: 'Preview propagate' }));
+    await act(async () => { fireEvent.click(anchorNode!); });
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Preview propagate' })); });
     const previewEl = container.querySelector('.dm-propagation-preview') as HTMLElement;
     expect(previewEl).toBeTruthy();
-    fireEvent.click(within(previewEl).getByRole('button', { name: 'Cancel' }));
+    await act(async () => { fireEvent.click(within(previewEl).getByRole('button', { name: 'Cancel' })); });
     expect(container.querySelector('.dm-propagation-preview')).toBeNull();
   });
 });

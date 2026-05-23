@@ -1,4 +1,5 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect } from '@playwright/test';
+import { navigateToHarnessResults, seedWorkflowAndTestRun } from './helpers';
 
 const SEED_WORKFLOW = {
   id: 'wf-fitview-test',
@@ -68,64 +69,11 @@ function makeFitViewTestRun() {
   };
 }
 
-async function seedTestRunsViaIDB(page: Page, runs: unknown[]): Promise<string> {
-  return await page.evaluate((testRuns) => {
-    return new Promise<string>((resolve) => {
-      const req = indexedDB.open('redfireforge', 4);
-      req.onupgradeneeded = () => {
-        const db = req.result;
-        if (!db.objectStoreNames.contains('testRuns')) {
-          const store = db.createObjectStore('testRuns', { keyPath: 'id' });
-          store.createIndex('timestamp', 'timestamp', { unique: false });
-        }
-        if (!db.objectStoreNames.contains('featureGroups')) db.createObjectStore('featureGroups');
-        if (!db.objectStoreNames.contains('sharedDataSources')) db.createObjectStore('sharedDataSources');
-        if (!db.objectStoreNames.contains('trash')) db.createObjectStore('trash');
-      };
-      req.onsuccess = () => {
-        const db = req.result;
-        try {
-          const tx = db.transaction('testRuns', 'readwrite');
-          const store = tx.objectStore('testRuns');
-          store.clear();
-          for (const run of testRuns) store.put(run);
-          tx.oncomplete = () => { db.close(); resolve('ok'); };
-          tx.onerror = () => { db.close(); resolve('tx-error'); };
-        } catch (e) { db.close(); resolve('catch: ' + String(e)); }
-      };
-      req.onerror = () => resolve('open-error');
-      req.onblocked = () => resolve('blocked');
-    });
-  }, runs);
-}
-
 test.describe('Results Explorer FitView', () => {
   test('fitView should render nodes within canvas bounds', async ({ page }) => {
-    // Seed workflows via localStorage
-    await page.addInitScript((wfs) => {
-      localStorage.setItem('workflows', JSON.stringify(wfs));
-    }, [SEED_WORKFLOW]);
+    await seedWorkflowAndTestRun(page, SEED_WORKFLOW, makeFitViewTestRun());
 
-    await page.goto('http://localhost:5173');
-    await page.waitForLoadState('domcontentloaded');
-
-    // Seed test run into IDB
-    const seeded = await seedTestRunsViaIDB(page, [makeFitViewTestRun()]);
-    expect(seeded).toBe('ok');
-
-    // Reload so the app picks up the IDB data
-    await page.reload();
-    await page.waitForLoadState('domcontentloaded');
-
-    // Navigate to Results
-    const harnessBtn = page.locator('button[title="Harness"]');
-    await expect(harnessBtn).toBeVisible({ timeout: 10000 });
-    await harnessBtn.click();
-
-    const resultsTab = page.locator('button.sub-nav-tab:has-text("Results")');
-    await expect(resultsTab).toBeVisible({ timeout: 5000 });
-    await resultsTab.click();
-    await page.waitForTimeout(1500);
+    await navigateToHarnessResults(page, 1500);
 
     // Click on the test run
     const runText = page.getByText('FitView Test Workflow');

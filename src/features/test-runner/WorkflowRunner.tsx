@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import type { TestConfig, LoadProfileConfig, CorrelationWaitRunnerConfig, RequestResult, WorkflowExecutionTrace } from '../../shared/types';
+import type { TestConfig, LoadProfileConfig, CorrelationWaitRunnerConfig, RequestResult, WorkflowExecutionTrace, Microservice, GlobalAuthProfile } from '../../shared/types';
 import type { Workflow, WorkflowFolder, WebhookTriggerNodeData } from '../workflow/types/workflow';
 import { useTestExecution } from './hooks/useTestExecution';
 import { useWorkflowRunnerConfig } from './hooks/useWorkflowRunnerConfig';
@@ -29,11 +29,17 @@ interface Props {
   onImportSample?: (workflow: Workflow) => string | void;
   /** Resolved base URL from environment config (env + microservice selection). */
   resolvedBaseUrl?: string;
+  /** App-level microservice definitions (needed for per-node service URL resolution). */
+  microservices?: Microservice[];
+  /** App-level global auth profiles (needed for per-node service auth resolution). */
+  globalAuthProfiles?: GlobalAuthProfile[];
+  /** Currently selected environment ID from the app header. */
+  selectedEnvId?: string;
 }
 
 const PROGRESS_KEY = '_workflow_runner_progress';
 
-export default function WorkflowRunner({ workflows, folders, onComplete, initialWorkflowId, onClearInitialWorkflowId, onImportSample, resolvedBaseUrl }: Props) {
+export default function WorkflowRunner({ workflows, folders, onComplete, initialWorkflowId, onClearInitialWorkflowId, onImportSample, resolvedBaseUrl, microservices, globalAuthProfiles, selectedEnvId }: Props) {
   const {
     concurrency, setConcurrency,
     iterations, setIterations,
@@ -264,7 +270,9 @@ export default function WorkflowRunner({ workflows, folders, onComplete, initial
       return undefined;
     };
 
-    execute(config, [], { projectName: selectedWorkflow.name }, selectedWorkflow, resolveSubWorkflow);
+    execute(config, [], { projectName: selectedWorkflow.name }, selectedWorkflow, resolveSubWorkflow, {
+      microservices, globalAuthProfiles, selectedEnvId,
+    });
   };
 
   // Webhook load test execution (Phase 7c)

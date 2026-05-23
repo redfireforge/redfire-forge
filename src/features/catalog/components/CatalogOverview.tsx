@@ -75,7 +75,10 @@ export default function CatalogOverview({ entry, onReimport, onVersionHistory, o
           <div className="cat-ov-server-list">
             {entry.servers.map((s, i) => (
               <div key={i} className="cat-ov-server">
-                <code>{s.url}</code>
+                <code>{s.resolvedUrl || s.url}</code>
+                {s.resolvedUrl && s.resolvedUrl !== s.url && (
+                  <span className="cat-ov-server-original" title="Original URL from spec">({s.url})</span>
+                )}
                 {s.description && <span className="cat-ov-server-desc">{s.description}</span>}
               </div>
             ))}

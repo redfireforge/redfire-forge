@@ -21,6 +21,7 @@ interface Props {
   linkedMicroservice?: Microservice;
   onExportSingle?: (endpoint: CatalogEndpoint, savedValues?: SavedEndpointValues) => void;
   onSendToHarness?: (endpoint: CatalogEndpoint, fromTryItOut?: boolean) => void;
+  onToggleWorkflowExpose?: (endpoint: CatalogEndpoint, exposed: boolean, values: SavedEndpointValues) => void;
   coverage?: EndpointCoverage;
   onNavigateToRequest?: (collectionId: string, requestId: string) => void;
 }
@@ -31,7 +32,7 @@ const MBG: Record<string, string> = {
   DELETE: 'rgba(249,62,62,0.1)',
 };
 
-export default function CatalogEndpointCard({ endpoint, servers, hostConfig, auth, savedValues, onValuesChange, environments, linkedMicroservice, onExportSingle, onSendToHarness, coverage, onNavigateToRequest }: Props) {
+export default function CatalogEndpointCard({ endpoint, servers, hostConfig, auth, savedValues, onValuesChange, environments, linkedMicroservice, onExportSingle, onSendToHarness, onToggleWorkflowExpose, coverage, onNavigateToRequest }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [tryItOpen, setTryItOpen] = useState(false);
   const [paramValues, setParamValues] = useState<Record<string, string>>(() => savedValues?.params ?? {});
@@ -302,6 +303,20 @@ export default function CatalogEndpointCard({ endpoint, servers, hostConfig, aut
                 <button className="sw-export-btn" style={{ borderColor: '#6c63ff44', color: '#6c63ff' }} onClick={() => onSendToHarness(endpoint)}>
                   Send to Harness
                 </button>
+              )}
+              {onToggleWorkflowExpose && (
+                <label className="sw-workflow-expose" title="When checked, this endpoint (with current values) is available in the Workflow Designer's Catalog tab">
+                  <input
+                    type="checkbox"
+                    checked={!!endpoint.exposedToWorkflow}
+                    onChange={(e) => onToggleWorkflowExpose(endpoint, e.target.checked, {
+                      params: paramValues,
+                      headers: headerValues,
+                      body: bodyText,
+                    })}
+                  />
+                  Expose to Workflow
+                </label>
               )}
               <span className="sw-auth-status">
                 {auth.type === 'none' ? '⚠ No auth' :

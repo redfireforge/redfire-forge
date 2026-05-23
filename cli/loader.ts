@@ -1,6 +1,5 @@
-import { readFileSync } from 'fs';
-import { parse as parseYaml } from 'yaml';
 import { v4 as uuidv4 } from 'uuid';
+import { readStructuredFile } from './fileParsing';
 import type {
   Scenario, TestConfig, AuthConfig, ValidationConfig, Assertion, Extraction,
   KeyValue, ExecutionMode, ErrorPolicy, LoadProfileConfig, DataSource,
@@ -96,15 +95,7 @@ export interface TestFile {
 // ── Loader ──────────────────────────────────────────────────
 
 export function loadTestFile(filePath: string): TestFile {
-  const content = readFileSync(filePath, 'utf-8');
-  const ext = filePath.toLowerCase();
-  let parsed: unknown;
-  if (ext.endsWith('.yaml') || ext.endsWith('.yml')) {
-    parsed = parseYaml(content);
-  } else {
-    parsed = JSON.parse(content);
-  }
-  const file = parsed as TestFile;
+  const file = readStructuredFile(filePath) as TestFile;
   if (!file.tests || !Array.isArray(file.tests) || file.tests.length === 0) {
     throw new Error(`Test file must contain a non-empty "tests" array.`);
   }
