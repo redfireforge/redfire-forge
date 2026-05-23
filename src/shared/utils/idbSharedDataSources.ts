@@ -4,30 +4,15 @@
  */
 
 import type { SharedDataSource } from '../types';
-import { openDB } from './idbOpen';
+import { idbAvailable, wrap, getObjectStore } from './idbHelpers';
 
 const STORE_NAME = 'sharedDataSources';
-
-function idbAvailable(): boolean {
-  return typeof indexedDB !== 'undefined';
-}
-
-function tx(mode: IDBTransactionMode): Promise<IDBObjectStore> {
-  return openDB().then(db => db.transaction(STORE_NAME, mode).objectStore(STORE_NAME));
-}
-
-function wrap<T>(req: IDBRequest<T>): Promise<T> {
-  return new Promise((resolve, reject) => {
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
-}
 
 /** Load all shared data sources from IndexedDB. */
 export async function idbLoadSharedDataSources(): Promise<SharedDataSource[] | null> {
   if (!idbAvailable()) return null;
   try {
-    const store = await tx('readonly');
+    const store = await getObjectStore(STORE_NAME,'readonly');
     const data = await wrap(store.get('all'));
     if (!data) return null;
     return data as SharedDataSource[];
@@ -39,7 +24,7 @@ export async function idbLoadSharedDataSources(): Promise<SharedDataSource[] | n
 /** Save all shared data sources to IndexedDB. */
 export async function idbSaveSharedDataSources(sources: SharedDataSource[]): Promise<void> {
   if (!idbAvailable()) throw new Error('IndexedDB not available');
-  const store = await tx('readwrite');
+  const store = await getObjectStore(STORE_NAME,'readwrite');
   await wrap(store.put(sources, 'all'));
 }
 

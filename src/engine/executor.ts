@@ -1,5 +1,5 @@
-import type { TestConfig, Scenario, RequestResult } from '../shared/types';
-import type { Workflow } from '../features/workflow/types/workflow';
+import type { TestConfig, Scenario, RequestResult, Microservice, GlobalAuthProfile } from '../shared/types';
+import type { Workflow, HttpNodeData } from '../features/workflow/types/workflow';
 import { httpFetch, type HttpResponse } from '../shared/utils/httpClient';
 import { getEffectiveBodyType } from '../shared/utils/bodySerializer';
 import { resolveAuthHeaders } from '../shared/utils/authHeaders';
@@ -11,6 +11,7 @@ import { createThinkTimeDelay } from './thinkTime';
 import { runWorkflow, runWorkflowLoad, runGraphLoad, VariableContext } from '../features/workflow/engine';
 import { expandQueue } from './dataSourceExpander';
 import { computeAllocation } from './allocationEngine';
+import { resolveHttpNodeBaseUrl, resolveServiceAuth } from '../features/workflow/utils/workflowHostResolve';
 
 export interface StreamingMetrics {
   p50: number;
@@ -91,6 +92,12 @@ export interface TestResult {
   trace?: import('../shared/types').WorkflowExecutionTrace;
 }
 
+export interface WorkflowResolverData {
+  microservices?: Microservice[];
+  globalAuthProfiles?: GlobalAuthProfile[];
+  selectedEnvId?: string;
+}
+
 export async function runTest(
   config: TestConfig,
   scenarios: Scenario[],
@@ -102,6 +109,8 @@ export async function runTest(
   resolveSubWorkflow?: (workflowId: string) => Workflow | undefined,
   /** Worker index for result ID prefixing in multi-worker mode. */
   workerIndex?: number,
+  /** Data needed for per-node service/auth resolution in workflow runs. */
+  workflowResolverData?: WorkflowResolverData,
 ): Promise<TestResult> {
   resetResultIdCounter(workerIndex);
   clearPrepCache();
@@ -158,7 +167,23 @@ export async function runTest(
       const envLayer = config.workflowBaseUrl
         ? { baseUrl: config.workflowBaseUrl }
         : undefined;
-      // Phase 7e: runGraphLoad now returns { results, trace }
+      const wfServices = workflow.services ?? [];
+      const wfMicroservices = workflowResolverData?.microservices ?? [];
+      const wfGlobalAuth = workflowResolverData?.globalAuthProfiles ?? [];
+      const wfEnvId = workflowResolverData?.selectedEnvId;
+
+      const resolveBaseUrl = wfServices.length > 0
+        ? (data: HttpNodeData) => resolveHttpNodeBaseUrl(data, wfMicroservices, undefined, wfServices, wfEnvId)
+        : undefined;
+
+      const resolveAuth = wfServices.length > 0
+        ? (data: HttpNodeData): Scenario['auth'] | undefined => {
+            const authType = data.scenario?.auth?.type;
+            if (authType && authType !== 'inherit') return undefined;
+            return resolveServiceAuth(data, wfServices, wfEnvId, wfMicroservices, wfGlobalAuth) ?? undefined;
+          }
+        : undefined;
+
       return runGraphLoad(workflow, {
         iterations,
         concurrency: config.concurrency,
@@ -171,6 +196,8 @@ export async function runTest(
         traceOptions: config.traceOptions,
         environmentLayer: envLayer,
         resolveSubWorkflow,
+        resolveHttpBaseUrl: resolveBaseUrl,
+        resolveHttpAuth: resolveAuth,
       });
     }
     const ctx = new VariableContext(config.workflowVariables);

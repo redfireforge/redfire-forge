@@ -463,6 +463,11 @@ describe('WorkflowRunner', () => {
       }),
       expect.any(Object),
       expect.any(Function),
+      {
+        microservices: undefined,
+        globalAuthProfiles: undefined,
+        selectedEnvId: undefined,
+      },
     );
   });
 

@@ -325,3 +325,55 @@ describe('migrateWorkflowSchema', () => {
     expect(result.nodes.find(n => n.id === 'start1')).toBeDefined();
   });
 });
+
+describe('fixupOverGroupedServices — microservice-bound services', () => {
+  it('preserves a multi-node service that has microserviceId', () => {
+    const svcId = 'svc-ms-bound';
+    const wf: Workflow = {
+      id: 'wf-1', name: 'Test',
+      createdAt: 0, updatedAt: 0, schemaVersion: 6,
+      variables: {}, hostProfiles: [], authProfiles: [],
+      services: [{
+        id: svcId, name: 'sales-sim',
+        microserviceId: 'ms-123',
+        endpoints: [{ envId: 'e1', url: 'https://api.example.com', enabled: true, authMode: 'inherit' as const, source: 'microservice' as const }],
+      }],
+      nodes: [
+        { id: 'start', type: 'start', position: { x: 0, y: 0 }, data: { label: 'Start' } },
+        { id: 'n1', type: 'http', position: { x: 0, y: 100 }, data: { label: 'RuleFact API', serviceId: svcId, scenario: { ...minimalScenario(), url: '/rulefact' } } },
+        { id: 'n2', type: 'http', position: { x: 0, y: 200 }, data: { label: 'Kafka Status', serviceId: svcId, scenario: { ...minimalScenario(), url: '/kafka/status' } } },
+        { id: 'n3', type: 'http', position: { x: 0, y: 300 }, data: { label: 'Trial Offer', serviceId: svcId, scenario: { ...minimalScenario(), url: '/trial-offer' } } },
+      ],
+      edges: [],
+    };
+    const result = migrateWorkflowSchema(wf);
+    expect(result.services).toHaveLength(1);
+    expect(result.services[0].id).toBe(svcId);
+    expect(result.services[0].name).toBe('sales-sim');
+    expect(result.services[0].microserviceId).toBe('ms-123');
+    for (const n of result.nodes.filter(n => n.type === 'http')) {
+      expect((n.data as HttpNodeData).serviceId).toBe(svcId);
+    }
+  });
+
+  it('still splits non-microservice services with different origins', () => {
+    const svcId = 'svc-no-ms';
+    const wf: Workflow = {
+      id: 'wf-1', name: 'Test',
+      createdAt: 0, updatedAt: 0, schemaVersion: 6,
+      variables: {}, hostProfiles: [], authProfiles: [],
+      services: [{
+        id: svcId, name: 'mixed',
+        endpoints: [],
+      }],
+      nodes: [
+        { id: 'start', type: 'start', position: { x: 0, y: 0 }, data: { label: 'Start' } },
+        { id: 'n1', type: 'http', position: { x: 0, y: 100 }, data: { label: 'API A', serviceId: svcId, scenario: { ...minimalScenario(), url: 'https://a.example.com/foo' } } },
+        { id: 'n2', type: 'http', position: { x: 0, y: 200 }, data: { label: 'API B', serviceId: svcId, scenario: { ...minimalScenario(), url: 'https://b.example.com/bar' } } },
+      ],
+      edges: [],
+    };
+    const result = migrateWorkflowSchema(wf);
+    expect(result.services.length).toBeGreaterThan(1);
+  });
+});

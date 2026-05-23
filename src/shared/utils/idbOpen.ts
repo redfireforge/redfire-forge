@@ -8,7 +8,7 @@
  */
 
 const DB_NAME = 'redfireforge';
-const DB_VERSION = 4;
+const DB_VERSION = 5;
 const OPEN_TIMEOUT_MS = 3000;
 
 let dbPromise: Promise<IDBDatabase> | null = null;
@@ -45,6 +45,22 @@ export function openDB(): Promise<IDBDatabase> {
       }
       if (!db.objectStoreNames.contains('trash')) {
         db.createObjectStore('trash');
+      }
+      // v5: large-data stores migrated from localStorage
+      if (!db.objectStoreNames.contains('workflows')) {
+        db.createObjectStore('workflows');
+      }
+      if (!db.objectStoreNames.contains('workflowFolders')) {
+        db.createObjectStore('workflowFolders');
+      }
+      if (!db.objectStoreNames.contains('requests')) {
+        db.createObjectStore('requests');
+      }
+      if (!db.objectStoreNames.contains('catalog')) {
+        db.createObjectStore('catalog');
+      }
+      if (!db.objectStoreNames.contains('projects')) {
+        db.createObjectStore('projects');
       }
     };
     req.onblocked = () => {

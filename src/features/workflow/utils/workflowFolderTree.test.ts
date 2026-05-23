@@ -10,26 +10,21 @@ import {
   isDescendant,
   moveFolder,
   moveWorkflow,
+  countNodeWorkflows,
 } from './workflowFolderTree';
+import { makeWorkflow as _makeWorkflow, makeWorkflowFolder } from '../../../test-utils/factories';
 
-// ── Helpers ─────────────────────────────────────────
+const makeFolder = (overrides: Partial<WorkflowFolder> & { id: string }): WorkflowFolder =>
+  makeWorkflowFolder({ name: overrides.name ?? overrides.id, ...overrides });
 
-const makeFolder = (overrides: Partial<WorkflowFolder> & { id: string }): WorkflowFolder => ({
-  name: overrides.id,
-  order: 0,
-  ...overrides,
-});
-
-const makeWorkflow = (overrides: Partial<Workflow> & { id: string }): Workflow => ({
-  name: overrides.id,
-  schemaVersion: 5,
-  variables: {},
-  nodes: [],
-  edges: [],
-  createdAt: 1000,
-  updatedAt: 2000,
-  ...overrides,
-} as Workflow);
+const makeWorkflow = (overrides: Partial<Workflow> & { id: string }): Workflow =>
+  _makeWorkflow({
+    name: overrides.name ?? overrides.id,
+    schemaVersion: 5,
+    createdAt: 1000,
+    updatedAt: 2000,
+    ...overrides,
+  });
 
 // ── buildFolderTree ─────────────────────────────────
 
@@ -198,7 +193,7 @@ describe('flattenFoldersForRunner', () => {
     expect(groups[0].workflows[0].id).toBe('w1');
     expect(groups[1].path).toBe('Performance / Load');
     expect(groups[1].workflows[0].id).toBe('w2');
-    expect(groups[2].path).toBe('Unfiled');
+    expect(groups[2].path).toBe('Workflows');
     expect(groups[2].workflows[0].id).toBe('w3');
   });
 
@@ -356,7 +351,7 @@ describe('branch coverage', () => {
     ];
     const groups = flattenFoldersForRunner(folders, workflows);
     expect(groups).toHaveLength(1);
-    expect(groups[0].path).toBe('Unfiled');
+    expect(groups[0].path).toBe('Workflows');
     expect(groups[0].workflows[0].id).toBe('w2');
     expect(groups[0].workflows[1].id).toBe('w3');
     expect(groups[0].workflows[2].id).toBe('w1');
@@ -442,6 +437,20 @@ describe('branch coverage', () => {
     const groups = flattenFoldersForRunner(folders, workflows);
     expect(groups).toHaveLength(1);
     expect(groups[0].path).toBe('Folder');
-    expect(groups.find((g) => g.path === 'Unfiled')).toBeUndefined();
+    expect(groups.find((g) => g.path === 'Workflows')).toBeUndefined();
+  });
+
+  it('countNodeWorkflows sums direct and nested workflows', () => {
+    const folders = [
+      makeFolder({ id: 'root', order: 0 }),
+      makeFolder({ id: 'child', parentId: 'root', order: 0 }),
+    ];
+    const workflows = [
+      makeWorkflow({ id: 'w1', folderId: 'root', folderOrder: 0 }),
+      makeWorkflow({ id: 'w2', folderId: 'child', folderOrder: 0 }),
+    ];
+    const tree = buildFolderTree(folders, workflows);
+    expect(countNodeWorkflows(tree[0])).toBe(2);
+    expect(countNodeWorkflows(tree[0].children[0])).toBe(1);
   });
 });

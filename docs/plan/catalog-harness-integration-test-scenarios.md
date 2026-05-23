@@ -256,8 +256,8 @@ Click the **"ⓘ API Info"** button. The panel should show:
 #### 3. Inspect the exported request's catalogMeta
 
 1. Open browser DevTools (F12)
-2. Go to **Application** → **Local Storage**
-3. Find the requests/collections storage key
+2. Go to **Application** → **IndexedDB** → **redfireforge** → **requests**
+3. Click on the `all` key to view the requests data
 4. Locate the exported request object
 5. Inspect the `catalogMeta` field
 
@@ -297,7 +297,7 @@ The `catalogMeta` object should contain:
 #### 6. Verify catalogEndpointId is unique per endpoint
 
 1. Export two different endpoints from the same spec
-2. Inspect both in localStorage
+2. Inspect both in IndexedDB (redfireforge → requests → all)
 3. Verify they have the same `catalogEntryId` but different `catalogEndpointId` values
 
 ### Test Scenarios Checklist
@@ -402,7 +402,7 @@ Look at the **Version** column in the endpoint table:
 
 1. Go to **Requests** tab, open an exported request
 2. Click **"API Info"** → verify `Spec Version` shows `1.0.7`
-3. (Advanced) In DevTools → Local Storage → `perf-test-requests`, search for `specVersions` — should be an array with 1 entry
+3. (Advanced) In DevTools → IndexedDB → **redfireforge** → **requests** → `all`, search for `specVersions` — should be an array with 1 entry
 
 ##### 3. Simulate spec update and re-export
 
@@ -571,7 +571,7 @@ Look at the **Version** column in the endpoint table:
 
 1. Start dev server: `npm run dev`
 2. Import a spec and export some endpoints to Requests
-3. Go to **Testing** → **Feature Groups** → create at least one Feature Group
+3. Go to **Harness** → **Feature Groups** → create at least one Feature Group
 
 ##### 2. Find "Send to Harness" button
 
@@ -767,7 +767,10 @@ Look at the **Version** column in the endpoint table:
 ## Notes
 
 - Run `npm run dev` before testing
-- For storage inspection: DevTools → Application → Local Storage
+- For storage inspection: DevTools → Application → IndexedDB → **redfireforge** database
+  - **requests** store: Request collections data
+  - **workflows** store: Workflow data
+  - **featureGroups** store: Harness Feature Groups
 - Mark scenarios with ✓ when passed, ✗ when failed
 
 ---
@@ -776,6 +779,7 @@ Look at the **Version** column in the endpoint table:
 
 | Date | Change |
 |------|--------|
+| 2026-05-23 | Updated storage references from localStorage to IndexedDB (redfireforge database). Updated "Testing" tab references to "Harness". |
 | 2026-05-17 | Phase 5 deferred items completed: 5E.4 (pinned/latest toggle UI), 5E.5 (resolveNodeSpecVersion utility + 8 tests), 5F.3 (version badge in Test Runner). Updated 5E/5F scenarios. |
 | 2026-05-17 | Phase 6 gap fixes: toast confirmation, openEditorAfter, clickable origin badge, auto-preset status-200. Added 4 new manual scenarios (26 total for Phase 6). |
 | 2026-05-17 | Phase 6 implemented: 7 sub-phases (6A–6G), 43 unit tests, full Requests ↔ Harness bridge with single/batch/catalog promotion paths |
@@ -790,4 +794,4 @@ Look at the **Version** column in the endpoint table:
 
 ---
 
-_Last Updated: 2026-05-17_
+_Last Updated: 2026-05-23_

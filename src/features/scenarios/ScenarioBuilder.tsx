@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useMemo, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import type { Scenario, TestScenario, FeatureGroup, Microservice, AuthType, GlobalAuthProfile, SharedDataSource, DataSource, KeyValue, AuthConfig } from '../../shared/types';
+import type { Scenario, TestScenario, FeatureGroup, AuthType, SharedDataSource, DataSource, KeyValue, AuthConfig } from '../../shared/types';
+import type { ScenarioBuilderProps } from './scenarioBuilderTypes';
 import type { MoveType, MoveTarget } from './components/MoveModal';
 import { useAuthVerify } from '../requests/hooks/useAuthVerify';
 import { useScenarioBuilderSearch } from './hooks/useScenarioBuilderSearch';
@@ -19,29 +20,7 @@ import { SCENARIO_AUTH_TYPE_OPTIONS, buildFeatureAuthTypeOptions, resolveEffecti
 import { useScenarioTags } from './hooks/useScenarioTags';
 import ScenarioContextMenu from './components/ScenarioContextMenu';
 
-interface Props {
-  featureGroups: FeatureGroup[];
-  setFeatureGroups: React.Dispatch<React.SetStateAction<FeatureGroup[]>>;
-  sharedDataSources?: SharedDataSource[];
-  setSharedDataSources?: React.Dispatch<React.SetStateAction<SharedDataSource[]>>;
-  resolvedBaseUrl?: string;
-  selectedSvcId?: string;
-  selectedSvcName?: string;
-  selectedEnvId?: string;
-  selectedEnvName?: string;
-  isAdditionalEnv?: boolean;
-  unassociatedFeatureGroups?: FeatureGroup[];
-  microservices?: Microservice[];
-  environments?: { id: string; name: string }[];
-  globalAuthProfiles?: GlobalAuthProfile[];
-  onMoveScenario?: (scenarioId: string, sourceFgId: string, targetFgId: string) => void;
-  onMoveTest?: (testId: string, sourceScenarioId: string, sourceFgId: string, targetScenarioId: string, targetFgId: string) => void;
-  pendingEditTest?: { featureId: string; scenarioId: string; testId: string };
-  onPendingEditConsumed?: () => void;
-  onLocateRequest?: (requestId: string) => void;
-}
-
-export default function ScenarioBuilder({ featureGroups, setFeatureGroups, sharedDataSources, setSharedDataSources, resolvedBaseUrl, selectedSvcId, selectedSvcName, selectedEnvId, selectedEnvName, isAdditionalEnv, unassociatedFeatureGroups = [], microservices = [], environments = [], globalAuthProfiles = [], onMoveScenario, onMoveTest, pendingEditTest, onPendingEditConsumed, onLocateRequest }: Props) {
+export default function ScenarioBuilder({ featureGroups, setFeatureGroups, sharedDataSources, setSharedDataSources, resolvedBaseUrl, selectedSvcId, selectedSvcName, selectedEnvId, selectedEnvName, isAdditionalEnv, unassociatedFeatureGroups = [], microservices = [], environments = [], globalAuthProfiles = [], onMoveScenario, onMoveTest, pendingEditTest, onPendingEditConsumed, onLocateRequest }: ScenarioBuilderProps) {
   const allAuthProfiles = globalAuthProfiles;
 
   const featureAuthTypeOptions = useMemo(

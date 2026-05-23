@@ -21,7 +21,6 @@ describe('WorkflowToolbar', () => {
     workflows: [mockWorkflow],
     selected: mockWorkflow,
     isRunning: false,
-    onNew: vi.fn(),
     onSelect: vi.fn(),
     onSave: vi.fn(),
     onQuickTest: vi.fn(),
@@ -81,9 +80,8 @@ describe('WorkflowToolbar', () => {
     expect(screen.getByRole('button', { name: /run in harness/i })).toBeDisabled();
   });
 
-  it('renders New button and workflow select when workflows exist', () => {
+  it('renders workflow select when workflows exist', () => {
     render(<WorkflowToolbar {...defaultProps} />);
-    expect(screen.getByRole('button', { name: /^New$/i })).toBeTruthy();
     expect(screen.getByTestId('wf-toolbar-select')).toBeTruthy();
   });
 
@@ -556,64 +554,4 @@ describe('WorkflowToolbar', () => {
     });
   });
 
-  describe('new workflow modal', () => {
-    it('opens new workflow modal on New button click', () => {
-      render(<WorkflowToolbar {...defaultProps} />);
-      fireEvent.click(screen.getByRole('button', { name: /New/ }));
-      expect(screen.getByText('New Workflow')).toBeInTheDocument();
-      expect(screen.getByPlaceholderText('e.g. Login Flow')).toBeInTheDocument();
-    });
-
-    it('submits new workflow name on Create click', () => {
-      const onNew = vi.fn();
-      render(<WorkflowToolbar {...defaultProps} onNew={onNew} />);
-      fireEvent.click(screen.getByRole('button', { name: /New/ }));
-      const input = screen.getByPlaceholderText('e.g. Login Flow');
-      fireEvent.change(input, { target: { value: 'My Workflow' } });
-      fireEvent.click(screen.getByRole('button', { name: 'Create' }));
-      expect(onNew).toHaveBeenCalledWith('My Workflow');
-      expect(screen.queryByText('New Workflow')).not.toBeInTheDocument();
-    });
-
-    it('submits new workflow on Enter key', () => {
-      const onNew = vi.fn();
-      render(<WorkflowToolbar {...defaultProps} onNew={onNew} />);
-      fireEvent.click(screen.getByRole('button', { name: /New/ }));
-      const input = screen.getByPlaceholderText('e.g. Login Flow');
-      fireEvent.change(input, { target: { value: 'Enter WF' } });
-      fireEvent.keyDown(input, { key: 'Enter' });
-      expect(onNew).toHaveBeenCalledWith('Enter WF');
-    });
-
-    it('does not submit empty name', () => {
-      const onNew = vi.fn();
-      render(<WorkflowToolbar {...defaultProps} onNew={onNew} />);
-      fireEvent.click(screen.getByRole('button', { name: /New/ }));
-      fireEvent.click(screen.getByRole('button', { name: 'Create' }));
-      expect(onNew).not.toHaveBeenCalled();
-    });
-
-    it('closes modal on Escape key', () => {
-      render(<WorkflowToolbar {...defaultProps} />);
-      fireEvent.click(screen.getByRole('button', { name: /New/ }));
-      expect(screen.getByText('New Workflow')).toBeInTheDocument();
-      const input = screen.getByPlaceholderText('e.g. Login Flow');
-      fireEvent.keyDown(input, { key: 'Escape' });
-      expect(screen.queryByText('New Workflow')).not.toBeInTheDocument();
-    });
-
-    it('closes modal on overlay click', () => {
-      render(<WorkflowToolbar {...defaultProps} />);
-      fireEvent.click(screen.getByRole('button', { name: /New/ }));
-      expect(screen.getByText('New Workflow')).toBeInTheDocument();
-      fireEvent.click(document.querySelector('.wft-newmodal-overlay')!);
-      expect(screen.queryByText('New Workflow')).not.toBeInTheDocument();
-    });
-
-    it('does not open when isRunning', () => {
-      render(<WorkflowToolbar {...defaultProps} isRunning={true} />);
-      const btn = screen.getByRole('button', { name: /New/ });
-      expect(btn).toBeDisabled();
-    });
-  });
 });

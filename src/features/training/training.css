@@ -199,7 +199,7 @@
 
 .training-whats-new-dismiss:hover {
   color: var(--text-primary);
-  background: var(--bg-hover);
+  background: var(--surface-hover);
 }
 
 .training-whats-new-list {
@@ -222,14 +222,14 @@
 }
 
 .training-whats-new-item:hover {
-  background: var(--bg-hover);
+  background: var(--surface-hover);
 }
 
 .training-whats-new-item-icon {
   font-size: 24px;
   width: 36px;
   height: 36px;
-  background: var(--bg-hover);
+  background: var(--surface-hover);
   border-radius: 8px;
   display: flex;
   align-items: center;
@@ -329,7 +329,7 @@
 }
 
 .training-path-header:hover {
-  background: var(--bg-hover);
+  background: var(--surface-hover);
 }
 
 .training-path-header:focus {
@@ -362,7 +362,7 @@
   font-size: 32px;
   width: 48px;
   height: 48px;
-  background: var(--bg-hover);
+  background: var(--surface-hover);
   border-radius: 12px;
   display: flex;
   align-items: center;
@@ -408,7 +408,7 @@
   flex: 1;
   max-width: 200px;
   height: 6px;
-  background: var(--bg-hover);
+  background: var(--surface-hover);
   border-radius: 3px;
   overflow: hidden;
 }
@@ -477,7 +477,7 @@
 }
 
 .training-phase-header:hover {
-  background: var(--bg-hover);
+  background: var(--surface-hover);
 }
 
 .training-phase-header:focus {
@@ -494,7 +494,7 @@
 }
 
 .training-phase-number {
-  background: var(--bg-hover);
+  background: var(--surface-hover);
   color: var(--text-secondary);
   padding: 4px 10px;
   border-radius: 6px;
@@ -532,7 +532,7 @@
 }
 
 .training-manual-row:hover {
-  background: var(--bg-hover);
+  background: var(--surface-hover);
 }
 
 .training-manual-status {
@@ -714,7 +714,7 @@
 .training-search-input {
   width: 100%;
   padding: 10px 36px;
-  background: var(--bg-hover);
+  background: var(--surface-hover);
   border: 1px solid var(--border);
   border-radius: 8px;
   color: var(--text-primary);
@@ -773,7 +773,7 @@
 }
 
 .training-filter-btn {
-  background: var(--bg-hover);
+  background: var(--surface-hover);
   border: 1px solid var(--border);
   color: var(--text-secondary);
   padding: 6px 12px;

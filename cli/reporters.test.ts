@@ -201,6 +201,57 @@ describe('reporters', () => {
       expect(md).toContain('| Row 2 | 500 |');
     });
 
+    it('shows validation failure count for failed data rows in markdown', () => {
+      const summary = makeSummary();
+      const config = makeConfig();
+      const results = [
+        makeResult({
+          dataRowId: 'r1',
+          dataRowLabel: 'Row 1',
+          passed: false,
+          httpStatus: 200,
+          errorMessage: '',
+          failureDetails: ['field mismatch', 'type error'],
+        }),
+      ];
+
+      const md = buildMarkdownReport(summary, config, {}, results);
+
+      expect(md).toContain('2 validation failure(s)');
+    });
+
+    it('omits failed rows when all data rows pass in markdown', () => {
+      const summary = makeSummary({ failedRequests: 0, failedValidations: 0 });
+      const config = makeConfig();
+      const results = [
+        makeResult({ dataRowId: 'r1', dataRowLabel: 'Row 1', passed: true }),
+        makeResult({ id: 'r2', dataRowId: 'r2', dataRowLabel: 'Row 2', passed: true }),
+      ];
+
+      const md = buildMarkdownReport(summary, config, {}, results);
+
+      expect(md).toContain('Data Row Summary');
+      expect(md).not.toContain('### Failed Rows');
+    });
+
+    it('uses dataRowId as label when dataRowLabel missing in markdown', () => {
+      const summary = makeSummary();
+      const config = makeConfig();
+      const results = [
+        makeResult({
+          dataRowId: 'row-xyz',
+          dataRowLabel: '',
+          passed: false,
+          httpStatus: 500,
+          failureDetails: [],
+        }),
+      ];
+
+      const md = buildMarkdownReport(summary, config, {}, results);
+
+      expect(md).toContain('row-xyz');
+    });
+
     // ─── Scenario Tags Tests ────────────────────────────────
 
     it('includes Tags row when results have scenarioTags', () => {
@@ -248,6 +299,7 @@ describe('reporters', () => {
 
       expect(md).toContain('| **Tags** | critical, regression, smoke |');
     });
+
   });
 
   describe('buildJsonReport', () => {
@@ -408,6 +460,108 @@ describe('reporters', () => {
       expect(output).toContain('critical, regression, smoke');
     });
 
+    it('shows dash for undefined p999 in standard console', () => {
+      const summary = makeSummary({ p999ResponseTime: undefined as unknown as number });
+      const config = makeConfig();
+
+      printConsoleSummary(summary, config);
+
+      const output = consoleSpy.mock.calls.map(c => c[0]).join('\n');
+      expect(output).toContain('P99.9:        —');
+    });
+
+    it('prints tags with mixed undefined/defined scenarioTags', () => {
+      const summary = makeSummary();
+      const config = makeConfig();
+      const results = [
+        makeResult({ scenarioTags: ['smoke'] }),
+        makeResult({ id: 'r2', scenarioTags: undefined }),
+      ];
+
+      printConsoleSummary(summary, config, results);
+
+      const output = consoleSpy.mock.calls.map(c => c[0]).join('\n');
+      expect(output).toContain('Tags:');
+      expect(output).toContain('smoke');
+    });
+
+    it('prints failed data row details with validation failures', () => {
+      const summary = makeSummary();
+      const config = makeConfig();
+      const results = [
+        makeResult({
+          dataRowId: 'row-1',
+          dataRowLabel: 'Row 1',
+          passed: false,
+          httpStatus: 200,
+          errorMessage: '',
+          failureDetails: ['field "name" expected "foo" got "bar"'],
+        }),
+      ];
+
+      printConsoleSummary(summary, config, results);
+
+      const output = consoleSpy.mock.calls.map(c => c[0]).join('\n');
+      expect(output).toContain('1 validation failure(s)');
+    });
+
+    it('prints failed data row with HTTP error when no validation failures', () => {
+      const summary = makeSummary();
+      const config = makeConfig();
+      const results = [
+        makeResult({
+          dataRowId: 'row-1',
+          passed: false,
+          httpStatus: 500,
+          errorMessage: '',
+          failureDetails: [],
+        }),
+      ];
+
+      printConsoleSummary(summary, config, results);
+
+      const output = consoleSpy.mock.calls.map(c => c[0]).join('\n');
+      expect(output).toContain('HTTP 500');
+    });
+
+    it('uses errorMessage directly when set', () => {
+      const summary = makeSummary();
+      const config = makeConfig();
+      const results = [
+        makeResult({
+          dataRowId: 'row-1',
+          passed: false,
+          httpStatus: 500,
+          errorMessage: 'Connection refused',
+          failureDetails: [],
+        }),
+      ];
+
+      printConsoleSummary(summary, config, results);
+
+      const output = consoleSpy.mock.calls.map(c => c[0]).join('\n');
+      expect(output).toContain('Connection refused');
+    });
+
+    it('uses dataRowId when dataRowLabel is empty', () => {
+      const summary = makeSummary();
+      const config = makeConfig();
+      const results = [
+        makeResult({
+          dataRowId: 'row-abc',
+          dataRowLabel: '',
+          passed: false,
+          httpStatus: 500,
+          failureDetails: [],
+        }),
+      ];
+
+      printConsoleSummary(summary, config, results);
+
+      const output = consoleSpy.mock.calls.map(c => c[0]).join('\n');
+      expect(output).toContain('row-abc');
+    });
+
     it('prints timing breakdown when results have timing', () => {
       const summary = makeSummary();
       const config = makeConfig();
@@ -537,6 +691,44 @@ describe('Workflow reporters', () => {
 
       const output = consoleSpy.mock.calls.map(c => c[0]).join('\n');
       expect(output).toContain('PASSED');
+    });
+
+    it('shows dash for undefined p999 in console', () => {
+      const summary = makeSummary({ p999ResponseTime: undefined as unknown as number });
+      const workflow = makeWorkflow();
+
+      printWorkflowConsoleSummary(summary, workflow, 10, 5);
+
+      const output = consoleSpy.mock.calls.map(c => c[0]).join('\n');
+      expect(output).toContain('P99.9:        —');
+    });
+
+    it('uses nodeId as label when scenarioName is missing', () => {
+      const summary = makeSummary();
+      const workflow = makeWorkflow();
+      const results = [
+        makeResult({ workflowNodeId: 'node-xyz', scenarioName: '', passed: true }),
+      ];
+
+      printWorkflowConsoleSummary(summary, workflow, 1, 1, results);
+
+      const output = consoleSpy.mock.calls.map(c => c[0]).join('\n');
+      expect(output).toContain('node-xyz');
+    });
+
+    it('omits failed iterations section when all pass', () => {
+      const summary = makeSummary({ failedRequests: 0, failedValidations: 0 });
+      const workflow = makeWorkflow();
+      const results = [
+        makeResult({ iterationIndex: 0, passed: true }),
+        makeResult({ id: 'r2', iterationIndex: 1, passed: true }),
+      ];
+
+      printWorkflowConsoleSummary(summary, workflow, 2, 1, results);
+
+      const output = consoleSpy.mock.calls.map(c => c[0]).join('\n');
+      expect(output).toContain('Per-Step Metrics');
+      expect(output).not.toContain('Failed Iterations');
     });
   });
 
@@ -691,6 +883,29 @@ describe('Workflow reporters', () => {
       const md = buildWorkflowMarkdownReport(summary, workflow, 10, 5);
 
       expect(md).toContain('## Result: FAILED ❌');
+    });
+
+    it('shows dash for undefined p999 in markdown', () => {
+      const summary = makeSummary({ p999ResponseTime: undefined as unknown as number });
+      const workflow = makeWorkflow();
+
+      const md = buildWorkflowMarkdownReport(summary, workflow, 10, 5);
+
+      expect(md).toContain('| **P99.9** | — ms |');
+    });
+
+    it('omits failed iterations when all pass in markdown', () => {
+      const summary = makeSummary({ failedRequests: 0, failedValidations: 0 });
+      const workflow = makeWorkflow();
+      const results = [
+        makeResult({ iterationIndex: 0, passed: true }),
+        makeResult({ id: 'r2', iterationIndex: 1, passed: true }),
+      ];
+
+      const md = buildWorkflowMarkdownReport(summary, workflow, 2, 1, results);
+
+      expect(md).toContain('Per-Step Metrics');
+      expect(md).not.toContain('Failed Iterations');
     });
   });
 });

@@ -33,7 +33,6 @@ interface Props {
   onEnvSelect?: (id: string) => void;
   workflowServices?: WorkflowService[];
   isPreview?: boolean;
-  onNew: (name: string) => void;
   onSelect: (id: string) => void;
   onSave: () => void;
   onQuickTest: () => void;
@@ -51,7 +50,7 @@ interface Props {
 export default function WorkflowToolbar({
   workflows, selected, isRunning, saveAcknowledged, serviceCount = 0, variableCount = 0, versionCount = 0,
   folders = [], environments = [], selectedEnvId = '', onEnvSelect, workflowServices = [], isPreview = false,
-  onNew, onSelect, onSave, onQuickTest, onDebugTest, isDebugMode, onOpenServices, onOpenDefaults, onOpenVersions,
+  onSelect, onSave, onQuickTest, onDebugTest, isDebugMode, onOpenServices, onOpenDefaults, onOpenVersions,
   runProgress = null, onReset, onRunInHarness,
 }: Props) {
   const [wfDropdownOpen, setWfDropdownOpen] = useState(false);
@@ -59,25 +58,10 @@ export default function WorkflowToolbar({
   const [navFolderId, setNavFolderId] = useState<string | null>(null);
   const wfDropdownRef = useRef<HTMLDivElement>(null);
   const wfSearchInputRef = useRef<HTMLInputElement>(null);
-  const [newWfOpen, setNewWfOpen] = useState(false);
-  const [newWfName, setNewWfName] = useState('');
-  const newWfInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (wfDropdownOpen && wfSearchInputRef.current) wfSearchInputRef.current.focus();
   }, [wfDropdownOpen]);
-
-  useEffect(() => {
-    if (newWfOpen && newWfInputRef.current) newWfInputRef.current.focus();
-  }, [newWfOpen]);
-
-  const submitNewWf = useCallback(() => {
-    const trimmed = newWfName.trim();
-    if (!trimmed) return;
-    onNew(trimmed);
-    setNewWfName('');
-    setNewWfOpen(false);
-  }, [newWfName, onNew]);
 
   useEffect(() => {
     if (!wfDropdownOpen) return;
@@ -155,11 +139,6 @@ export default function WorkflowToolbar({
   return (
     <div className="wf-toolbar">
       <div className="wf-toolbar-left">
-        <button className="btn btn-sm btn-primary" onClick={() => !isRunning && setNewWfOpen(true)} disabled={isRunning}>
-          <svg className="wf-toolbar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          New
-        </button>
-
         {(workflows.length > 0 || isPreview) && (
           <div className="wft-dropdown-wrap" ref={wfDropdownRef}>
             <button
@@ -405,7 +384,7 @@ export default function WorkflowToolbar({
         {selected && (
           <>
             <button
-              className={`btn btn-sm ${isRunning && !isDebugMode ? 'btn-danger' : 'btn-primary'}`}
+              className={`btn btn-sm wf-quick-test-btn ${isRunning && !isDebugMode ? 'btn-danger' : 'btn-primary'}`}
               onClick={onQuickTest}
             >
               {isRunning && !isDebugMode ? (
@@ -465,32 +444,6 @@ export default function WorkflowToolbar({
           </>
         )}
       </div>
-
-      {newWfOpen && (
-        <div className="wft-newmodal-overlay" onClick={() => { setNewWfOpen(false); setNewWfName(''); }}>
-          <div className="wft-newmodal" onClick={(e) => e.stopPropagation()}>
-            <h3 className="wft-newmodal-title">New Workflow</h3>
-            <label className="wft-newmodal-label" htmlFor="wft-new-name">Workflow name</label>
-            <input
-              id="wft-new-name"
-              ref={newWfInputRef}
-              className="wft-newmodal-input"
-              type="text"
-              placeholder="e.g. Login Flow"
-              value={newWfName}
-              onChange={(e) => setNewWfName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') submitNewWf();
-                if (e.key === 'Escape') { setNewWfOpen(false); setNewWfName(''); }
-              }}
-            />
-            <div className="wft-newmodal-footer">
-              <button className="btn btn-sm btn-ghost" onClick={() => { setNewWfOpen(false); setNewWfName(''); }}>Cancel</button>
-              <button className="btn btn-sm btn-primary" onClick={submitNewWf} disabled={!newWfName.trim()}>Create</button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

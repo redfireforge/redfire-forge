@@ -306,4 +306,130 @@ describe('executionWorker', () => {
     await workerHarness.emit({ type: 'abort' });
     expect(workerHarness.postMessage).not.toHaveBeenCalled();
   });
+
+  it('passes workerIndex to runTest when provided in start message', async () => {
+    runTestMock.mockResolvedValue({ results: [], trace: undefined });
+    await workerHarness.emit({
+      type: 'start',
+      config: makeConfig(),
+      scenarios: [makeScenario()],
+      useTauriProxy: false,
+      workerIndex: 3,
+    });
+    await vi.waitFor(() => expect(runTestMock).toHaveBeenCalled());
+    expect(runTestMock.mock.calls[0][6]).toBe(3);
+  });
+
+  it('batches progress updates within throttle window and flushes pending on completion', async () => {
+    const r1 = makeResult('a');
+    const r2 = makeResult('b');
+    const r3 = makeResult('c');
+    let now = 0;
+    vi.spyOn(performance, 'now').mockImplementation(() => now);
+
+    runTestMock.mockImplementation(
+      async (_c, _s, onProgress: (completed: number, total: number, all: RequestResult[], m?: ProgressMeta) => void) => {
+        onProgress(1, 3, [r1], meta);
+        now = 50;
+        onProgress(2, 3, [r1, r2], meta);
+        return { results: [r1, r2, r3], trace: undefined };
+      },
+    );
+
+    await workerHarness.emit({
+      type: 'start',
+      config: makeConfig(),
+      scenarios: [makeScenario()],
+      useTauriProxy: false,
+    });
+
+    await vi.waitFor(() =>
+      expect(workerHarness.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'progress', completed: 2, total: 3, newResults: [r2] }),
+      ),
+    );
+    await vi.waitFor(() =>
+      expect(workerHarness.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'done', newResults: [r3] }),
+      ),
+    );
+
+    const progressCalls = workerHarness.postMessage.mock.calls.filter(
+      (c) => c[0]?.type === 'progress',
+    );
+    expect(progressCalls).toHaveLength(2);
+    expect(progressCalls[0][0]).toMatchObject({
+      type: 'progress',
+      completed: 1,
+      total: 3,
+      newResults: [r1],
+    });
+    expect(progressCalls[1][0]).toMatchObject({
+      type: 'progress',
+      completed: 2,
+      total: 3,
+      newResults: [r2],
+    });
+  });
+
+  it('merges pending and new results when throttle window elapses with backlog', async () => {
+    const r1 = makeResult('a');
+    const r2 = makeResult('b');
+    const r3 = makeResult('c');
+    let now = 0;
+    vi.spyOn(performance, 'now').mockImplementation(() => now);
+
+    runTestMock.mockImplementation(
+      async (_c, _s, onProgress: (completed: number, total: number, all: RequestResult[], m?: ProgressMeta) => void) => {
+        onProgress(1, 3, [r1], meta);
+        now = 50;
+        onProgress(2, 3, [r1, r2], meta);
+        now = 300;
+        onProgress(3, 3, [r1, r2, r3], meta);
+        return { results: [r1, r2, r3], trace: undefined };
+      },
+    );
+
+    await workerHarness.emit({
+      type: 'start',
+      config: makeConfig(),
+      scenarios: [makeScenario()],
+      useTauriProxy: false,
+    });
+
+    await vi.waitFor(() =>
+      expect(workerHarness.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'progress',
+          completed: 3,
+          total: 3,
+          newResults: [r2, r3],
+        }),
+      ),
+    );
+  });
+
+  it('posts error on unhandledrejection with reason message', async () => {
+    const rejectionListener = workerHarness.addEventListener.mock.calls.find(
+      (c) => c[0] === 'unhandledrejection',
+    )?.[1] as (e: PromiseRejectionEvent) => void;
+    expect(rejectionListener).toBeDefined();
+    rejectionListener({ reason: new Error('worker blew up') } as PromiseRejectionEvent);
+    expect(workerHarness.postMessage).toHaveBeenCalledWith({
+      type: 'error',
+      message: 'Unhandled rejection in worker: worker blew up',
+    });
+  });
+
+  it('posts stringified reason when unhandledrejection reason has no message', async () => {
+    workerHarness.postMessage.mockClear();
+    const rejectionListener = workerHarness.addEventListener.mock.calls.find(
+      (c) => c[0] === 'unhandledrejection',
+    )?.[1] as (e: PromiseRejectionEvent) => void;
+    rejectionListener({ reason: 'plain rejection' } as PromiseRejectionEvent);
+    expect(workerHarness.postMessage).toHaveBeenCalledWith({
+      type: 'error',
+      message: 'Unhandled rejection in worker: plain rejection',
+    });
+  });
 });

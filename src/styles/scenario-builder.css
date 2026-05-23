@@ -3919,7 +3919,7 @@
 }
 
 .test-def-version-item:hover {
-  background: var(--bg-hover);
+  background: var(--surface-hover);
 }
 
 .test-def-version-item.selected {

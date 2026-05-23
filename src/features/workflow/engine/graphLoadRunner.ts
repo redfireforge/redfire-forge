@@ -4,8 +4,8 @@
  * with iterationIndex and workflowNodeId for per-iteration and per-step metrics.
  */
 
-import type { Workflow } from '../types/workflow';
-import type { RequestResult, WorkflowIterationTrace, WorkflowExecutionTrace, ExecutionTraceOptions } from '../../../shared/types';
+import type { Workflow, HttpNodeData } from '../types/workflow';
+import type { Scenario, RequestResult, WorkflowIterationTrace, WorkflowExecutionTrace, ExecutionTraceOptions } from '../../../shared/types';
 import { runGraph, resolveTraceLevel, type GraphRunCallbacks, type CorrelationWaitRunnerConfig } from './graphRunner';
 import { CircuitBreaker } from '../../../engine/circuitBreaker';
 import { toErrorMessage } from '../../../shared/utils/helpers';
@@ -71,6 +71,10 @@ export interface GraphLoadRunOpts {
   resolveSubWorkflow?: (workflowId: string) => Workflow | undefined;
   /** Per-request HTTP timeout in milliseconds for HTTP nodes. Defaults to 30 000 ms. */
   httpTimeoutMs?: number;
+  /** Per-HTTP-node base URL resolver (service registry / host profiles). */
+  resolveHttpBaseUrl?: (data: HttpNodeData) => string | undefined;
+  /** Per-HTTP-node auth resolver (service auth / workflow auth profiles). */
+  resolveHttpAuth?: (data: HttpNodeData) => Scenario['auth'] | undefined;
 }
 
 /**
@@ -83,7 +87,7 @@ export async function runGraphLoad(
   workflow: Workflow,
   opts: GraphLoadRunOpts,
 ): Promise<{ results: RequestResult[]; trace: WorkflowExecutionTrace }> {
-  const { iterations, concurrency, initialVariables = {}, breaker, abortSignal, onProgress, correlationWaitConfig, maxConcurrentPolls, traceOptions, environmentLayer, resolveSubWorkflow, httpTimeoutMs } = opts;
+  const { iterations, concurrency, initialVariables = {}, breaker, abortSignal, onProgress, correlationWaitConfig, maxConcurrentPolls, traceOptions, environmentLayer, resolveSubWorkflow, httpTimeoutMs, resolveHttpBaseUrl, resolveHttpAuth } = opts;
   
   const allResults: RequestResult[] = [];
   const allTraces: WorkflowIterationTrace[] = [];
@@ -170,8 +174,8 @@ export async function runGraphLoad(
         callbacks,
         abortSignal,
         environmentLayer, // environmentLayer — carries baseUrl from harness config
-        undefined, // resolveHttpBaseUrl
-        undefined, // resolveHttpAuth
+        resolveHttpBaseUrl,
+        resolveHttpAuth,
         undefined, // debugController
         undefined, // errorConfig
         resolveSubWorkflow,
