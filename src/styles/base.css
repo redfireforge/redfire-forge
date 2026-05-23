@@ -470,7 +470,8 @@
   color: var(--text); background: var(--surface-hover);
   border-left-color: var(--primary);
 }
-.ab-icon { font-size: 18px; line-height: 1; }
+.ab-icon { font-size: 18px; line-height: 1; display: flex; align-items: center; justify-content: center; }
+.ab-icon-svg { width: 20px; height: 20px; }
 .ab-label {
   display: none; position: absolute; left: 50px; top: 50%; transform: translateY(-50%);
   background: var(--surface); color: var(--text); font-size: 12px; font-weight: 600;
@@ -628,7 +629,7 @@
   transition: all 0.15s ease;
 }
 .run-filter-tab:hover {
-  background: var(--bg-hover);
+  background: var(--surface-hover);
   color: var(--text-primary);
 }
 .run-filter-tab.active {

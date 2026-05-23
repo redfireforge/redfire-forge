@@ -7,7 +7,7 @@
  * Shared factories live in `__test-utils__/useTrashTestFixtures.ts`.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
+import { renderHook, act, waitFor } from '@testing-library/react';
 import type {
   FeatureGroup,
   SharedDataSource,
@@ -68,7 +68,7 @@ describe('useTrash — restore paths', () => {
 
     const params = defaultParams();
     const { result } = renderHook(() => useTrash(params));
-    await vi.waitFor(() => expect(result.current.loading).toBe(false));
+    await waitFor(() => expect(result.current.loading).toBe(false));
 
     await act(async () => {
       await result.current.restoreItem('trash-fg');
@@ -90,7 +90,7 @@ describe('useTrash — restore paths', () => {
 
     const params = defaultParams();
     const { result } = renderHook(() => useTrash(params));
-    await vi.waitFor(() => expect(result.current.loading).toBe(false));
+    await waitFor(() => expect(result.current.loading).toBe(false));
 
     await act(async () => {
       await result.current.restoreItem('trash-sc');
@@ -117,7 +117,7 @@ describe('useTrash — restore paths', () => {
 
     const params = defaultParams();
     const { result } = renderHook(() => useTrash(params));
-    await vi.waitFor(() => expect(result.current.loading).toBe(false));
+    await waitFor(() => expect(result.current.loading).toBe(false));
 
     await act(async () => {
       await result.current.restoreItem('trash-orphan');
@@ -142,7 +142,7 @@ describe('useTrash — restore paths', () => {
 
     const params = defaultParams();
     const { result } = renderHook(() => useTrash(params));
-    await vi.waitFor(() => expect(result.current.loading).toBe(false));
+    await waitFor(() => expect(result.current.loading).toBe(false));
 
     await act(async () => {
       await result.current.restoreItem('trash-ds');
@@ -168,7 +168,7 @@ describe('useTrash — restore paths', () => {
 
     const params = defaultParams();
     const { result } = renderHook(() => useTrash(params));
-    await vi.waitFor(() => expect(result.current.loading).toBe(false));
+    await waitFor(() => expect(result.current.loading).toBe(false));
 
     await act(async () => { await result.current.restoreItem('trash-test'); });
 
@@ -191,7 +191,7 @@ describe('useTrash — restore paths', () => {
 
     const params = defaultParams();
     const { result } = renderHook(() => useTrash(params));
-    await vi.waitFor(() => expect(result.current.loading).toBe(false));
+    await waitFor(() => expect(result.current.loading).toBe(false));
 
     await act(async () => { await result.current.restoreItem('trash-test2'); });
 
@@ -214,7 +214,7 @@ describe('useTrash — restore paths', () => {
 
     const params = defaultParams();
     const { result } = renderHook(() => useTrash(params));
-    await vi.waitFor(() => expect(result.current.loading).toBe(false));
+    await waitFor(() => expect(result.current.loading).toBe(false));
 
     await act(async () => { await result.current.restoreItem('trash-test3'); });
 
@@ -238,7 +238,7 @@ describe('useTrash — restore paths', () => {
 
     const params = defaultParams();
     const { result } = renderHook(() => useTrash(params));
-    await vi.waitFor(() => expect(result.current.loading).toBe(false));
+    await waitFor(() => expect(result.current.loading).toBe(false));
 
     await act(async () => { await result.current.restoreItem('trash-collide'); });
 
@@ -262,7 +262,7 @@ describe('useTrash — restore paths', () => {
 
     const params = defaultParams();
     const { result } = renderHook(() => useTrash(params));
-    await vi.waitFor(() => expect(result.current.loading).toBe(false));
+    await waitFor(() => expect(result.current.loading).toBe(false));
 
     await act(async () => { await result.current.restoreItem('trash-fg-collide'); });
 
@@ -289,7 +289,7 @@ describe('useTrash — restore paths', () => {
 
     const params = defaultParams();
     const { result } = renderHook(() => useTrash(params));
-    await vi.waitFor(() => expect(result.current.loading).toBe(false));
+    await waitFor(() => expect(result.current.loading).toBe(false));
 
     await act(async () => { await result.current.restoreItem('trash-fg-partial'); });
 
@@ -313,7 +313,7 @@ describe('useTrash — restore paths', () => {
 
     const params = defaultParams();
     const { result } = renderHook(() => useTrash(params));
-    await vi.waitFor(() => expect(result.current.loading).toBe(false));
+    await waitFor(() => expect(result.current.loading).toBe(false));
 
     await act(async () => { await result.current.restoreItem('trash-sc-nocollide'); });
 
@@ -337,7 +337,7 @@ describe('useTrash — restore paths', () => {
 
     const params = defaultParams();
     const { result } = renderHook(() => useTrash(params));
-    await vi.waitFor(() => expect(result.current.loading).toBe(false));
+    await waitFor(() => expect(result.current.loading).toBe(false));
 
     await act(async () => { await result.current.restoreItem('trash-sc-collide'); });
 
@@ -363,7 +363,7 @@ describe('useTrash — restore paths', () => {
 
     const params = defaultParams();
     const { result } = renderHook(() => useTrash(params));
-    await vi.waitFor(() => expect(result.current.loading).toBe(false));
+    await waitFor(() => expect(result.current.loading).toBe(false));
 
     await act(async () => { await result.current.restoreItem('trash-test-nosc'); });
 
@@ -387,7 +387,7 @@ describe('useTrash — restore paths', () => {
 
     const params = defaultParams();
     const { result } = renderHook(() => useTrash(params));
-    await vi.waitFor(() => expect(result.current.loading).toBe(false));
+    await waitFor(() => expect(result.current.loading).toBe(false));
 
     await act(async () => { await result.current.restoreItem('trash-test-orphan-collide'); });
 
@@ -417,7 +417,7 @@ describe('useTrash — restore paths', () => {
       makeFg({ id: 'fg-2', name: 'Feature 2', scenarios: [makeTestScenario({ id: 'sc-2' })] }),
     ];
     const { result } = renderHook(() => useTrash(params));
-    await vi.waitFor(() => expect(result.current.loading).toBe(false));
+    await waitFor(() => expect(result.current.loading).toBe(false));
 
     await act(async () => { await result.current.restoreItem('trash-map-else'); });
 
@@ -445,7 +445,7 @@ describe('useTrash — restore paths', () => {
       makeFg({ id: 'fg-other', name: 'Other FG' }),
     ];
     const { result } = renderHook(() => useTrash(params));
-    await vi.waitFor(() => expect(result.current.loading).toBe(false));
+    await waitFor(() => expect(result.current.loading).toBe(false));
 
     await act(async () => { await result.current.restoreItem('trash-map-else2'); });
 
@@ -473,7 +473,7 @@ describe('useTrash — restore paths', () => {
       makeFg({ id: 'fg-another', name: 'Another FG' }),
     ];
     const { result } = renderHook(() => useTrash(params));
-    await vi.waitFor(() => expect(result.current.loading).toBe(false));
+    await waitFor(() => expect(result.current.loading).toBe(false));
 
     await act(async () => { await result.current.restoreItem('trash-sc-map'); });
 
@@ -497,7 +497,7 @@ describe('useTrash — restore paths', () => {
 
     const params = defaultParams();
     const { result } = renderHook(() => useTrash(params));
-    await vi.waitFor(() => expect(result.current.loading).toBe(false));
+    await waitFor(() => expect(result.current.loading).toBe(false));
 
     await act(async () => { await result.current.restoreItem('trash-noname'); });
 
@@ -522,7 +522,7 @@ describe('useTrash — restore paths', () => {
 
     const params = defaultParams();
     const { result } = renderHook(() => useTrash(params));
-    await vi.waitFor(() => expect(result.current.loading).toBe(false));
+    await waitFor(() => expect(result.current.loading).toBe(false));
 
     await act(async () => { await result.current.restoreItem('trash-ds-nocon'); });
 
@@ -545,7 +545,7 @@ describe('useTrash — restore paths', () => {
 
     const params = defaultParams();
     const { result } = renderHook(() => useTrash(params));
-    await vi.waitFor(() => expect(result.current.loading).toBe(false));
+    await waitFor(() => expect(result.current.loading).toBe(false));
 
     await act(async () => { await result.current.restoreItem('trash-fg-exec'); });
 
@@ -559,7 +559,7 @@ describe('useTrash — restore paths', () => {
   it('restoreItem is a no-op for unknown trashId', async () => {
     const params = defaultParams();
     const { result } = renderHook(() => useTrash(params));
-    await vi.waitFor(() => expect(result.current.loading).toBe(false));
+    await waitFor(() => expect(result.current.loading).toBe(false));
 
     await act(async () => { await result.current.restoreItem('nonexistent'); });
 
@@ -578,7 +578,7 @@ describe('useTrash — restore paths', () => {
 
     const params = defaultParams();
     const { result } = renderHook(() => useTrash(params));
-    await vi.waitFor(() => expect(result.current.loading).toBe(false));
+    await waitFor(() => expect(result.current.loading).toBe(false));
 
     await act(async () => { await result.current.restoreItem('trash-invalid'); });
 
@@ -602,7 +602,7 @@ describe('useTrash — restore paths', () => {
 
     const params = defaultParams();
     const { result } = renderHook(() => useTrash(params));
-    await vi.waitFor(() => expect(result.current.loading).toBe(false));
+    await waitFor(() => expect(result.current.loading).toBe(false));
 
     await act(async () => { await result.current.restoreItem('trash-err'); });
 

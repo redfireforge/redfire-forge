@@ -77,11 +77,12 @@ export function resolveHttpNodeBaseUrl(
   services?: WorkflowService[],
   selectedEnvId?: string,
 ): string | undefined {
+  const effectiveEnvId = data.envOverride || selectedEnvId;
   // Service Registry binding (new path)
   if (data.serviceId && services?.length) {
     const svc = services.find((s) => s.id === data.serviceId);
     if (svc) {
-      return resolveServiceBaseUrl(svc, microservices, selectedEnvId);
+      return resolveServiceBaseUrl(svc, microservices, effectiveEnvId);
     }
   }
 
@@ -149,24 +150,26 @@ export function resolveServiceAuth(
   const svc = services.find((s) => s.id === data.serviceId);
   if (!svc) return undefined;
 
+  const effectiveEnvId = data.envOverride || selectedEnvId;
+
   // New model: endpoint matrix
-  if (svc.endpoints?.length && selectedEnvId) {
-    const ep = svc.endpoints.find((e) => e.envId === selectedEnvId && e.enabled)
+  if (svc.endpoints?.length && effectiveEnvId) {
+    const ep = svc.endpoints.find((e) => e.envId === effectiveEnvId && e.enabled)
       ?? svc.endpoints.find((e) => e.envId === '__all__' && e.enabled);
     if (ep && ep.authMode === 'custom' && ep.auth) {
       return ep.auth;
     }
     // "inherit" → resolve from environment (microservice authProfileIds)
     if (microservices?.length && globalAuthProfiles?.length) {
-      const envAuth = resolveEnvAuth(svc, selectedEnvId, microservices, globalAuthProfiles);
+      const envAuth = resolveEnvAuth(svc, effectiveEnvId, microservices, globalAuthProfiles);
       if (envAuth) return envAuth;
     }
   }
   // Fallback: defaultAuth (new) or auth (legacy)
   if (svc.defaultAuth) return svc.defaultAuth;
   // Legacy per-env auth
-  if (selectedEnvId && svc.authPerEnv?.[selectedEnvId]) {
-    return svc.authPerEnv[selectedEnvId];
+  if (effectiveEnvId && svc.authPerEnv?.[effectiveEnvId]) {
+    return svc.authPerEnv[effectiveEnvId];
   }
   return svc.auth;
 }

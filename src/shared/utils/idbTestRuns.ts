@@ -8,23 +8,13 @@
 
 import type { TestRun } from '../types';
 import { openDB } from './idbOpen';
+import { wrap, getObjectStore } from './idbHelpers';
 
 const STORE_NAME = 'testRuns';
 
-function tx(mode: IDBTransactionMode): Promise<IDBObjectStore> {
-  return openDB().then(db => db.transaction(STORE_NAME, mode).objectStore(STORE_NAME));
-}
-
-function wrap<T>(req: IDBRequest<T>): Promise<T> {
-  return new Promise((resolve, reject) => {
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
-}
-
 /** Load all test runs, sorted newest-first. */
 export async function idbLoadTestRuns(): Promise<TestRun[]> {
-  const store = await tx('readonly');
+  const store = await getObjectStore(STORE_NAME,'readonly');
   const all: TestRun[] = await wrap(store.getAll());
   all.sort((a, b) => (b.timestamp ?? 0) - (a.timestamp ?? 0));
   return all;
@@ -35,7 +25,7 @@ export async function idbLoadTestRuns(): Promise<TestRun[]> {
  * Sets hasTrace=true if compressedTrace existed. Used for dashboard list loading.
  */
 export async function idbLoadTestRunsLite(): Promise<TestRun[]> {
-  const store = await tx('readonly');
+  const store = await getObjectStore(STORE_NAME,'readonly');
   const all: TestRun[] = await wrap(store.getAll());
   all.sort((a, b) => (b.timestamp ?? 0) - (a.timestamp ?? 0));
   return all.map(run => {
@@ -50,20 +40,20 @@ export async function idbLoadTestRunsLite(): Promise<TestRun[]> {
  * Returns the compressed string, or undefined if not found / no trace.
  */
 export async function idbLoadTrace(runId: string): Promise<string | undefined> {
-  const store = await tx('readonly');
+  const store = await getObjectStore(STORE_NAME,'readonly');
   const run: TestRun | undefined = await wrap(store.get(runId));
   return run?.compressedTrace;
 }
 
 /** Save (put) a single test run. */
 export async function idbSaveTestRun(run: TestRun): Promise<void> {
-  const store = await tx('readwrite');
+  const store = await getObjectStore(STORE_NAME,'readwrite');
   await wrap(store.put(run));
 }
 
 /** Delete a single test run by id. */
 export async function idbDeleteTestRun(runId: string): Promise<void> {
-  const store = await tx('readwrite');
+  const store = await getObjectStore(STORE_NAME,'readwrite');
   await wrap(store.delete(runId));
 }
 
@@ -88,14 +78,14 @@ export async function idbDeleteRunsOlderThan(cutoffMs: number): Promise<number> 
   const all = await idbLoadTestRuns();
   const toDelete = all.filter(r => (r.timestamp ?? 0) < cutoffMs);
   if (toDelete.length === 0) return 0;
-  const store = await tx('readwrite');
+  const store = await getObjectStore(STORE_NAME,'readwrite');
   for (const r of toDelete) store.delete(r.id);
   return toDelete.length;
 }
 
 /** Delete all test runs. */
 export async function idbClearAllRuns(): Promise<void> {
-  const store = await tx('readwrite');
+  const store = await getObjectStore(STORE_NAME,'readwrite');
   await wrap(store.clear());
 }
 
@@ -120,7 +110,7 @@ export async function idbPruneToMax(maxRuns: number): Promise<number> {
   const all = await idbLoadTestRuns(); // sorted newest-first
   if (all.length <= maxRuns) return 0;
   const toDelete = all.slice(maxRuns);
-  const store = await tx('readwrite');
+  const store = await getObjectStore(STORE_NAME,'readwrite');
   for (const r of toDelete) store.delete(r.id);
   return toDelete.length;
 }

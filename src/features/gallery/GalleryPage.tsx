@@ -48,6 +48,8 @@ export interface GalleryPageProps {
   onNavigateTo?: (entry: GalleryEntry<unknown>) => void;
   /** Map of gallery sample ID → hash at import time. Used to detect updates. */
   importedSamples?: Record<string, string>;
+  /** If set, pre-filter to this domain (e.g. 'workflows' from "From Template"). */
+  initialDomain?: import('../../data/galleries/types').GalleryDomain;
 }
 
 const ACTION_LABELS: Record<GalleryDomain, string> = {
@@ -75,6 +77,7 @@ export function GalleryPage({
   onImportWorkflow,
   onNavigateTo,
   importedSamples,
+  initialDomain,
 }: GalleryPageProps) {
   // Compute per-entry status by comparing imported hash with current factory hash.
   const sampleStatus = useMemo<Record<string, GallerySampleStatus>>(() => {
@@ -163,6 +166,7 @@ export function GalleryPage({
         onSecondary={handleSecondary}
         renderPreview={renderPreview}
         sampleStatus={sampleStatus}
+        initialDomain={initialDomain}
       />
       {confirmUpdate && (
         <ConfirmModal

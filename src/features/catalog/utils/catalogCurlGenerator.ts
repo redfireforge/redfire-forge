@@ -149,7 +149,8 @@ export function resolveBaseUrl(
   if (hostConfig.strategy === 'inherited' && servers.length > 0) {
     const idx = hostConfig.selectedServerIndex ?? 0;
     const server = servers[idx] ?? servers[0];
-    return server.url.replace(/\/+$/, '');
+    const url = server.resolvedUrl || server.url;
+    return url.replace(/\/+$/, '');
   }
   return '';
 }

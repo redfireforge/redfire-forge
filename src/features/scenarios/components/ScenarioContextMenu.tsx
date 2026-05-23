@@ -12,6 +12,10 @@ interface Props {
   onClose: () => void;
 }
 
+function clampToViewport(pos: number, size: number, viewport: number): number {
+  return pos + size > viewport ? Math.max(0, viewport - size - 8) : pos;
+}
+
 export default function ScenarioContextMenu({
   x, y, scenario, tagSuggestions, onAddTag, onRemoveTag, onClearTags, onClose,
 }: Props) {
@@ -19,41 +23,29 @@ export default function ScenarioContextMenu({
   const currentTags = scenario.tags ?? [];
   const [adjustedPos, setAdjustedPos] = useState({ x, y });
 
-  // Adjust position if menu would overflow viewport
   useLayoutEffect(() => {
-    if (!ref.current) {
-      setAdjustedPos({ x, y });
-      return;
-    }
-    const rect = ref.current.getBoundingClientRect();
-    const viewportW = window.innerWidth;
-    const viewportH = window.innerHeight;
-    
-    let newX = x;
-    let newY = y;
-    
-    if (x + rect.width > viewportW) {
-      newX = Math.max(0, viewportW - rect.width - 8);
-    }
-    if (y + rect.height > viewportH) {
-      newY = Math.max(0, viewportH - rect.height - 8);
-    }
-    
-    setAdjustedPos({ x: newX, y: newY });
+    const rect = ref.current!.getBoundingClientRect();
+    setAdjustedPos({
+      x: clampToViewport(x, rect.width, window.innerWidth),
+      y: clampToViewport(y, rect.height, window.innerHeight),
+    });
   }, [x, y]);
 
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+      const el = ref.current;
+      if (!el || el.contains(e.target as Node)) return;
+      onClose();
     };
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      onClose();
     };
     document.addEventListener('mousedown', handleClick);
-    document.addEventListener('keydown', handleEscape);
+    document.addEventListener('keydown', handleKey);
     return () => {
       document.removeEventListener('mousedown', handleClick);
-      document.removeEventListener('keydown', handleEscape);
+      document.removeEventListener('keydown', handleKey);
     };
   }, [onClose]);
 

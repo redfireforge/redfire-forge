@@ -178,6 +178,7 @@ export function useWorkflowExecution(opts: UseWorkflowExecutionOptions) {
     const runNodeStatuses: Record<string, NodeRunStatus> = {};
     let runVarSnap: Record<string, string> | null = null;
     const subWorkflowResults: Map<string, SubWorkflowRunSummary> = new Map();
+
     const callbacks: GraphRunCallbacks = {
       onNodeStateChange: (nodeId, status) => {
         runNodeStatuses[nodeId] = status;

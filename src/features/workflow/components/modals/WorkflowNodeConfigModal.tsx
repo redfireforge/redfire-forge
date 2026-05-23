@@ -53,7 +53,7 @@ import NodeConfigLogsTab from '../configs/NodeConfigLogsTab';
 import WorkflowEditorModalFrame from './WorkflowEditorModalFrame';
 import type { ExtractionFetchSampleProps } from '../../../requests/components/ExtractionEditor';
 import { useWorkflowValidationFetch } from '../../hooks/useWorkflowValidationFetch';
-import type { Scenario } from '../../../../shared/types';
+import type { Environment, Scenario } from '../../../../shared/types';
 
 type ConfigPanelTab = 'config' | 'input' | 'output' | 'logs';
 
@@ -69,6 +69,8 @@ interface Props {
   effectiveQuickTestBaseUrl: string;
   /** Resolve the base URL for an HTTP node — uses draft data so the preview stays in sync with the Service dropdown. */
   resolveBaseUrl?: (data: HttpNodeData) => string | undefined;
+  /** Resolve auth for an HTTP node — replaces 'inherit' with actual service credentials. */
+  resolveAuth?: (data: HttpNodeData) => Scenario['auth'] | undefined;
   /** Fallback base URL when resolveBaseUrl returns undefined. */
   fallbackBaseUrl?: string;
   extractionSampleResponseBody?: string;
@@ -76,6 +78,10 @@ interface Props {
   conditionVariableHints?: WorkflowVariableHint[];
   httpVariableHints?: WorkflowVariableHint[];
   workflowServices?: WorkflowService[];
+  /** Available environments for per-node env override. */
+  environments?: Environment[];
+  /** Currently selected global environment. */
+  selectedEnvId?: string;
   /** Last execution status for this node (for Output/Logs tabs). */
   nodeRunStatus?: import('../../types/workflow').NodeRunStatus | null;
   /** All saved workflows for sub-workflow picker. */
@@ -87,9 +93,10 @@ interface Props {
 export default function WorkflowNodeConfigModal({
   node, workflowVariables, onUpdateNode, onDeleteNode: _onDeleteNode, onClose, workflowId,
   lastQuickTestRequestUrl, lastRunStepError, effectiveQuickTestBaseUrl,
-  resolveBaseUrl, fallbackBaseUrl = '',
+  resolveBaseUrl, resolveAuth, fallbackBaseUrl = '',
   extractionSampleResponseBody, extractionFetchSample,
   conditionVariableHints = [], httpVariableHints = [], workflowServices = [],
+  environments = [], selectedEnvId,
   nodeRunStatus,
   workflows = [],
   runtimeVariables,
@@ -123,7 +130,14 @@ export default function WorkflowNodeConfigModal({
       if (resolved) return resolved;
     }
     return fallbackBaseUrl || effectiveQuickTestBaseUrl;
-  }, [resolveBaseUrl, draftNode, fallbackBaseUrl, effectiveQuickTestBaseUrl]);
+  }, [draftNode, resolveBaseUrl, fallbackBaseUrl, effectiveQuickTestBaseUrl]);
+
+  const draftResolvedAuth = useMemo(() => {
+    if (resolveAuth && isHttpWorkflowNode(draftNode)) {
+      return resolveAuth(draftNode.data as HttpNodeData);
+    }
+    return undefined;
+  }, [resolveAuth, draftNode]);
 
   const updateDraft = useCallback((patch: Partial<WorkflowNodeData>) => {
     setDraft(prev => ({ ...prev, ...patch }));
@@ -187,6 +201,7 @@ export default function WorkflowNodeConfigModal({
     onDraftChange: handleValidationDraftChange,
     liveVariables: workflowVariables,
     resolvedBaseUrl: draftEffectiveBaseUrl,
+    resolvedAuth: draftResolvedAuth,
     resetKey: node.id,
   });
 
@@ -243,6 +258,8 @@ export default function WorkflowNodeConfigModal({
                 variableHints={draftVariableHints}
                 onRequestVariableInsert={requestVariableInsert}
                 workflowServices={workflowServices}
+                environments={environments}
+                selectedEnvId={selectedEnvId}
                 validationProps={{
                   resolvedBaseUrl: draftEffectiveBaseUrl,
                   fetchingResponse: validationFetch.fetchingResponse,

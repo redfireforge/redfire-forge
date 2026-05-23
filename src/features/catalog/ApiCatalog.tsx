@@ -136,6 +136,21 @@ export default function ApiCatalog({ catalog, onImport, onReimport, onVersionHis
     }
   }, [catalog.selectedEntry, onSendEndpointToHarness]);
 
+  const handleToggleWorkflowExpose = useCallback((ep: CatalogEndpoint, exposed: boolean, values: SavedEndpointValues) => {
+    const entry = catalog.selectedEntry;
+    if (!entry) return;
+    const patchEp = (e: CatalogEndpoint): CatalogEndpoint =>
+      e.id === ep.id
+        ? { ...e, exposedToWorkflow: exposed, workflowValues: exposed ? { paramValues: values.params, headerValues: values.headers, body: values.body || undefined } : undefined }
+        : e;
+    const patchFolders = (folders: typeof entry.folders): typeof entry.folders =>
+      folders.map(f => ({ ...f, endpoints: f.endpoints.map(patchEp), folders: patchFolders(f.folders) }));
+    catalog.updateEntry(entry.id, {
+      endpoints: entry.endpoints.map(patchEp),
+      folders: patchFolders(entry.folders),
+    });
+  }, [catalog]);
+
   const coverageMap = useMemo(
     () => catalog.selectedEntry && collections
       ? buildCoverageMap(catalog.selectedEntry.id, catalog.selectedEntry.name, collections)
@@ -191,6 +206,7 @@ export default function ApiCatalog({ catalog, onImport, onReimport, onVersionHis
           onSendToHarness={onSendEndpointToHarness ? handleSendToHarness : undefined}
           coverageMap={coverageMap}
           onNavigateToRequest={onNavigateToRequest}
+          onToggleWorkflowExpose={handleToggleWorkflowExpose}
         />
       </div>
       {view === 'export' && onExportConfirm && (

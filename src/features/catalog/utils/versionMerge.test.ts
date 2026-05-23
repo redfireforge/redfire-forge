@@ -5,6 +5,8 @@ import {
   applySpecVersion,
   mergeExportIntoCollections,
   isCollectionEmpty,
+  findMatchingFoldersByName,
+  separateFoldersForMerge,
 } from './versionMerge';
 
 function makeRequest(overrides: Partial<RequestItem> = {}): RequestItem {
@@ -157,6 +159,54 @@ describe('mergeExportIntoCollections', () => {
     expect(result.newCount).toBe(1);
     expect(result.updates).toHaveLength(0);
     expect(result.newCollection.requests).toHaveLength(1);
+    expect(result.existingCollectionId).toBeUndefined();
+  });
+
+  it('returns existingCollectionId when existing collection from same catalog entry exists', () => {
+    const existingReq = makeRequest({
+      id: 'existing-req',
+      catalogMeta: {
+        catalogEndpointId: 'ep-1',
+        catalogEntryId: 'entry-1',
+        originalPath: '/users',
+        tags: [],
+      },
+    });
+    const existingCol = makeCollection({ id: 'existing-col-id', requests: [existingReq] });
+
+    const newReq = makeRequest({
+      id: 'new-req',
+      catalogMeta: { catalogEndpointId: 'ep-2', catalogEntryId: 'entry-1', originalPath: '/orders', tags: [] },
+    });
+    const exported = makeCollection({ id: 'export-col', requests: [newReq] });
+
+    const result = mergeExportIntoCollections(exported, [existingCol], '1.0.0', 'entry-1');
+    expect(result.existingCollectionId).toBe('existing-col-id');
+    expect(result.newCollection.id).toBe('existing-col-id');
+    expect(result.newCount).toBe(1);
+  });
+
+  it('does not return existingCollectionId when no collection from same catalog entry', () => {
+    const existingReq = makeRequest({
+      id: 'existing-req',
+      catalogMeta: {
+        catalogEndpointId: 'ep-1',
+        catalogEntryId: 'different-entry',
+        originalPath: '/users',
+        tags: [],
+      },
+    });
+    const existingCol = makeCollection({ id: 'existing-col-id', requests: [existingReq] });
+
+    const newReq = makeRequest({
+      id: 'new-req',
+      catalogMeta: { catalogEndpointId: 'ep-2', catalogEntryId: 'entry-1', originalPath: '/orders', tags: [] },
+    });
+    const exported = makeCollection({ id: 'export-col', requests: [newReq] });
+
+    const result = mergeExportIntoCollections(exported, [existingCol], '1.0.0', 'entry-1');
+    expect(result.existingCollectionId).toBeUndefined();
+    expect(result.newCollection.id).toBe('export-col');
   });
 
   it('merges when existing request matches by catalogEndpointId', () => {
@@ -559,5 +609,93 @@ describe('isCollectionEmpty', () => {
       folders: [{ id: 'f', name: 'f', requests: [makeRequest()] }],
     });
     expect(isCollectionEmpty(col)).toBe(false);
+  });
+});
+
+describe('findMatchingFoldersByName', () => {
+  it('returns empty map when no matching folders', () => {
+    const newFolders: RequestFolder[] = [{ id: 'new-1', name: 'Alpha', requests: [] }];
+    const existingFolders: RequestFolder[] = [{ id: 'existing-1', name: 'Beta', requests: [] }];
+    const result = findMatchingFoldersByName(newFolders, existingFolders);
+    expect(result.size).toBe(0);
+  });
+
+  it('matches folders by name (case-insensitive)', () => {
+    const newFolders: RequestFolder[] = [{ id: 'new-1', name: 'https server', requests: [] }];
+    const existingFolders: RequestFolder[] = [{ id: 'existing-1', name: 'HTTPS Server', requests: [] }];
+    const result = findMatchingFoldersByName(newFolders, existingFolders);
+    expect(result.get('new-1')).toBe('existing-1');
+  });
+
+  it('matches multiple folders', () => {
+    const newFolders: RequestFolder[] = [
+      { id: 'new-1', name: 'https server', requests: [] },
+      { id: 'new-2', name: 'http server', requests: [] },
+    ];
+    const existingFolders: RequestFolder[] = [
+      { id: 'existing-1', name: 'https server', requests: [] },
+      { id: 'existing-2', name: 'http server', requests: [] },
+    ];
+    const result = findMatchingFoldersByName(newFolders, existingFolders);
+    expect(result.get('new-1')).toBe('existing-1');
+    expect(result.get('new-2')).toBe('existing-2');
+  });
+});
+
+describe('separateFoldersForMerge', () => {
+  it('puts all folders in trulyNewFolders when no matches', () => {
+    const newFolders: RequestFolder[] = [
+      { id: 'new-1', name: 'Alpha', requests: [makeRequest({ id: 'r1' })] },
+    ];
+    const existingFolders: RequestFolder[] = [
+      { id: 'existing-1', name: 'Beta', requests: [] },
+    ];
+    const { requestsToAddToExisting, trulyNewFolders } = separateFoldersForMerge(newFolders, existingFolders);
+    expect(requestsToAddToExisting).toHaveLength(0);
+    expect(trulyNewFolders).toHaveLength(1);
+    expect(trulyNewFolders[0].id).toBe('new-1');
+  });
+
+  it('extracts requests to add to existing folders when names match', () => {
+    const req1 = makeRequest({ id: 'r1' });
+    const req2 = makeRequest({ id: 'r2' });
+    const newFolders: RequestFolder[] = [
+      { id: 'new-1', name: 'https server', requests: [req1, req2] },
+    ];
+    const existingFolders: RequestFolder[] = [
+      { id: 'existing-1', name: 'https server', requests: [] },
+    ];
+    const { requestsToAddToExisting, trulyNewFolders } = separateFoldersForMerge(newFolders, existingFolders);
+    expect(requestsToAddToExisting).toHaveLength(1);
+    expect(requestsToAddToExisting[0].folderId).toBe('existing-1');
+    expect(requestsToAddToExisting[0].requests).toHaveLength(2);
+    expect(trulyNewFolders).toHaveLength(0);
+  });
+
+  it('handles mixed matching and new folders', () => {
+    const newFolders: RequestFolder[] = [
+      { id: 'new-1', name: 'https server', requests: [makeRequest({ id: 'r1' })] },
+      { id: 'new-2', name: 'new env', requests: [makeRequest({ id: 'r2' })] },
+    ];
+    const existingFolders: RequestFolder[] = [
+      { id: 'existing-1', name: 'https server', requests: [] },
+    ];
+    const { requestsToAddToExisting, trulyNewFolders } = separateFoldersForMerge(newFolders, existingFolders);
+    expect(requestsToAddToExisting).toHaveLength(1);
+    expect(requestsToAddToExisting[0].folderId).toBe('existing-1');
+    expect(trulyNewFolders).toHaveLength(1);
+    expect(trulyNewFolders[0].name).toBe('new env');
+  });
+
+  it('skips empty folders in matching (no requests to add)', () => {
+    const newFolders: RequestFolder[] = [
+      { id: 'new-1', name: 'https server', requests: [] },
+    ];
+    const existingFolders: RequestFolder[] = [
+      { id: 'existing-1', name: 'https server', requests: [] },
+    ];
+    const { requestsToAddToExisting, trulyNewFolders } = separateFoldersForMerge(newFolders, existingFolders);
+    expect(requestsToAddToExisting).toHaveLength(0);
+    expect(trulyNewFolders).toHaveLength(0);
   });
 });

@@ -5,6 +5,15 @@ import { type ConsoleRunBehavior, saveConsoleRunBehavior } from '../../utils/wor
 import ConsoleLogLine from '../../../../shared/components/ConsoleLogLine';
 import { type PanelMode, loadPanelMode, savePanelMode } from '../../../../shared/utils/panelMode';
 
+type LogLevel = 'all' | 'error' | 'info' | 'request';
+
+const LEVEL_PREFIXES: Record<LogLevel, string[] | null> = {
+  all: null,
+  error: ['!'],
+  info: ['*'],
+  request: ['>', '<'],
+};
+
 function TimelineStep({ step, depth = 0 }: { step: WorkflowRunStepSummary; depth?: number }) {
   const [expanded, setExpanded] = useState(false);
   const hasChildren = step.childSteps && step.childSteps.length > 0;
@@ -67,6 +76,9 @@ export default function WorkflowConsolePanel({ lines, onClear, onClose, stepSumm
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [currentMatchIdx, setCurrentMatchIdx] = useState(0);
+  const [logLevel, setLogLevel] = useState<LogLevel>('all');
+  const [showTimestamps, setShowTimestamps] = useState(true);
+  const [copyFeedback, setCopyFeedback] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const lineRefsMap = useRef<Map<number, HTMLDivElement>>(new Map());
 
@@ -268,6 +280,34 @@ export default function WorkflowConsolePanel({ lines, onClear, onClose, stepSumm
     });
   };
 
+  // ── Log level filtering ──
+  const filteredLines = useMemo(() => {
+    const prefixes = LEVEL_PREFIXES[logLevel];
+    if (!prefixes) return lines;
+    return lines.filter(l => prefixes.includes(l.prefix) || l.prefix === '---');
+  }, [lines, logLevel]);
+
+  // ── Copy to clipboard ──
+  const handleCopyLogs = useCallback(() => {
+    const text = filteredLines
+      .map(l => {
+        const ts = l.ts ? new Date(l.ts).toISOString().slice(11, 23) : '';
+        return `${ts ? ts + ' ' : ''}${l.prefix ? l.prefix + ' ' : ''}${l.text}`;
+      })
+      .join('\n');
+    navigator.clipboard.writeText(text).then(() => {
+      setCopyFeedback(true);
+      setTimeout(() => setCopyFeedback(false), 1500);
+    });
+  }, [filteredLines]);
+
+  // ── Level counts ──
+  const levelCounts = useMemo(() => ({
+    error: lines.filter(l => l.prefix === '!').length,
+    info: lines.filter(l => l.prefix === '*').length,
+    request: lines.filter(l => l.prefix === '>' || l.prefix === '<').length,
+  }), [lines]);
+
   const rootClass = `wf-console-panel wf-console-${mode}`;
   const rootStyle: React.CSSProperties =
     mode === 'docked' ? { height: dockedHeight } :
@@ -280,28 +320,15 @@ export default function WorkflowConsolePanel({ lines, onClear, onClose, stepSumm
         <div className="wf-console-resize-handle" onMouseDown={onDockedResizeStart} />
       )}
 
+      {/* ── Row 1: Title + window controls ── */}
       <div
         className="wf-console-header"
         onMouseDown={mode === 'floating' ? onFloatDragStart : undefined}
         style={mode === 'floating' ? { cursor: 'grab' } : undefined}
       >
         <span className="wf-console-title">Console</span>
-        <span className="wf-console-count">{lines.length} line{lines.length !== 1 ? 's' : ''}</span>
-        <div className="wf-console-view-toggle">
-          <button type="button" className={`wf-console-view-btn ${viewMode === 'log' ? 'wf-console-view-btn-active' : ''}`} onClick={() => setViewMode('log')} title="Log view">
-            Log
-          </button>
-          <button type="button" className={`wf-console-view-btn ${viewMode === 'timeline' ? 'wf-console-view-btn-active' : ''}`} onClick={() => setViewMode('timeline')} title="Timeline view" disabled={stepSummaries.length === 0}>
-            Timeline
-          </button>
-        </div>
+        <span className="wf-console-count">{filteredLines.length}{logLevel !== 'all' ? `/${lines.length}` : ''} line{filteredLines.length !== 1 ? 's' : ''}</span>
         <div className="wf-console-actions">
-          <button type="button" className={`wf-console-action-btn${searchOpen ? ' wf-console-action-btn-active' : ''}`} onClick={toggleSearch} title="Search console">
-            Search
-          </button>
-          <button type="button" className="wf-console-action-btn" onClick={onClear} title="Clear console">
-            Clear
-          </button>
           <button
             type="button"
             className={`wf-console-run-toggle${runBehavior === 'clear' ? ' wf-console-run-toggle-on' : ''}`}
@@ -336,6 +363,42 @@ export default function WorkflowConsolePanel({ lines, onClear, onClose, stepSumm
           </button>
         </div>
       </div>
+      {/* ── Row 2: View toggle + filters + tools ── */}
+      <div className="wf-console-toolbar">
+        <div className="wf-console-view-toggle">
+          <button type="button" className={`wf-console-view-btn ${viewMode === 'log' ? 'wf-console-view-btn-active' : ''}`} onClick={() => setViewMode('log')} title="Log view">
+            Log
+          </button>
+          <button type="button" className={`wf-console-view-btn ${viewMode === 'timeline' ? 'wf-console-view-btn-active' : ''}`} onClick={() => setViewMode('timeline')} title="Timeline view" disabled={stepSummaries.length === 0}>
+            Timeline
+          </button>
+        </div>
+        <div className="wf-console-level-filter">
+          <button type="button" className={`wf-console-level-btn${logLevel === 'all' ? ' wf-console-level-active' : ''}`} onClick={() => setLogLevel('all')} title="Show all log lines">All</button>
+          <button type="button" className={`wf-console-level-btn wf-console-level-error${logLevel === 'error' ? ' wf-console-level-active' : ''}`} onClick={() => setLogLevel('error')} title="Show errors only">
+            {levelCounts.error > 0 && <span className="wf-console-level-count">{levelCounts.error}</span>}Errors
+          </button>
+          <button type="button" className={`wf-console-level-btn wf-console-level-info${logLevel === 'info' ? ' wf-console-level-active' : ''}`} onClick={() => setLogLevel('info')} title="Show info only">Info</button>
+          <button type="button" className={`wf-console-level-btn wf-console-level-req${logLevel === 'request' ? ' wf-console-level-active' : ''}`} onClick={() => setLogLevel('request')} title="Show requests only">Requests</button>
+        </div>
+        <div className="wf-console-tools">
+          <button type="button" className={`wf-console-action-btn${searchOpen ? ' wf-console-action-btn-active' : ''}`} onClick={toggleSearch} title="Search console (Cmd+F)">
+            <svg className="wf-inline-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85zm-5.242.156a5 5 0 1 1 0-10 5 5 0 0 1 0 10z"/></svg>
+          </button>
+          <button type="button" className={`wf-console-action-btn${showTimestamps ? ' wf-console-action-btn-active' : ''}`} onClick={() => setShowTimestamps(v => !v)} title={showTimestamps ? 'Hide timestamps' : 'Show timestamps'}>
+            <svg className="wf-inline-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 3.5a.5.5 0 0 0-1 0V8a.5.5 0 0 0 .252.434l3.5 2a.5.5 0 0 0 .496-.868L8 7.71V3.5z"/><path d="M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16zm7-8A7 7 0 1 1 1 8a7 7 0 0 1 14 0z"/></svg>
+          </button>
+          <button type="button" className={`wf-console-action-btn${copyFeedback ? ' wf-console-action-btn-active' : ''}`} onClick={handleCopyLogs} title={copyFeedback ? 'Copied!' : 'Copy all logs to clipboard'} disabled={lines.length === 0}>
+            {copyFeedback
+              ? <svg className="wf-inline-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M13.854 3.646a.5.5 0 0 1 0 .708l-7 7a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L6.5 10.293l6.646-6.647a.5.5 0 0 1 .708 0z"/></svg>
+              : <svg className="wf-inline-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1v-1z"/><path d="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5h3zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3z"/></svg>
+            }
+          </button>
+          <button type="button" className="wf-console-action-btn" onClick={onClear} title="Clear console" disabled={lines.length === 0}>
+            <svg className="wf-inline-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M2.5 1a1 1 0 0 0-1 1v1a1 1 0 0 0 1 1H3v9a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V4h.5a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H10a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1H2.5zm3 4a.5.5 0 0 1 1 0v7a.5.5 0 0 1-1 0V5zm3 0a.5.5 0 0 1 1 0v7a.5.5 0 0 1-1 0V5z"/></svg>
+          </button>
+        </div>
+      </div>
       {searchOpen && (
         <div className="wf-console-search-bar">
           <input
@@ -367,7 +430,7 @@ export default function WorkflowConsolePanel({ lines, onClear, onClose, stepSumm
           </button>
         </div>
       )}
-      <div className="wf-console-body" ref={containerRef} onScroll={handleScroll}>
+      <div className={`wf-console-body${showTimestamps ? '' : ' wf-console-hide-ts'}`} ref={containerRef} onScroll={handleScroll}>
         {viewMode === 'timeline' && stepSummaries.length > 0 ? (
           <div className="wf-timeline">
             {stepSummaries.map((step, i) => (
@@ -375,19 +438,35 @@ export default function WorkflowConsolePanel({ lines, onClear, onClose, stepSumm
             ))}
           </div>
         ) : lines.length === 0 ? (
-          <div className="wf-console-empty">Run a Quick Test to see activity logs</div>
+          <div className="wf-console-empty">
+            <svg className="wf-console-empty-icon" viewBox="0 0 48 48" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <rect x="6" y="8" width="36" height="32" rx="4" />
+              <path d="M14 20l4 4-4 4" strokeLinecap="round" strokeLinejoin="round" />
+              <line x1="22" y1="28" x2="34" y2="28" strokeLinecap="round" />
+            </svg>
+            <span className="wf-console-empty-title">No activity logs</span>
+            <span className="wf-console-empty-hint">Click <strong>Quick Test</strong> or <strong>Debug</strong> to run your workflow and see logs here</span>
+          </div>
+        ) : filteredLines.length === 0 && logLevel !== 'all' ? (
+          <div className="wf-console-empty">
+            <span className="wf-console-empty-title">No {logLevel} logs</span>
+            <span className="wf-console-empty-hint">
+              <button type="button" className="wf-console-empty-link" onClick={() => setLogLevel('all')}>Show all levels</button>
+            </span>
+          </div>
         ) : (
-          lines.map((line, i) => {
-            const isMatch = searchQuery && matchIndices.includes(i);
-            const isCurrent = isMatch && matchIndices[currentMatchIdx] === i;
+          filteredLines.map((line) => {
+            const origIdx = lines.indexOf(line);
+            const isMatch = searchQuery && matchIndices.includes(origIdx);
+            const isCurrent = isMatch && matchIndices[currentMatchIdx] === origIdx;
             return (
               <ConsoleLogLine
-                key={i}
-                line={{ prefix: line.prefix, text: line.text, ts: line.ts ?? 0 }}
+                key={origIdx}
+                line={{ prefix: line.prefix, text: line.text, ts: showTimestamps ? (line.ts ?? 0) : 0 }}
                 searchQuery={searchQuery || undefined}
                 isMatch={!!isMatch}
                 isCurrentMatch={!!isCurrent}
-                lineRef={(el) => { if (el) lineRefsMap.current.set(i, el); else lineRefsMap.current.delete(i); }}
+                lineRef={(el) => { if (el) lineRefsMap.current.set(origIdx, el); else lineRefsMap.current.delete(origIdx); }}
               />
             );
           })

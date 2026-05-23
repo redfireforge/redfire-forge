@@ -12,6 +12,7 @@
   --danger: #ef4444;
   --success: #22c55e;
   --warning: #f59e0b;
+  --info: #0ea5e9;
   --accent: #8b5cf6;
   --radius: 8px;
   --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -51,6 +52,9 @@
   --surface: #ffffff;
   --surface-hover: #f1f5f9;
   --border: #bcc8d8;
+  --wf-grid-dot: rgba(100, 116, 139, 0.18);
+  --wf-node-shadow: 0 2px 8px rgba(37, 99, 235, 0.08), 0 1px 3px rgba(0,0,0,0.06);
+  --wf-node-shadow-hover: 0 4px 14px rgba(37, 99, 235, 0.14), 0 2px 4px rgba(0,0,0,0.08);
   --text: #111827;
   --text-muted: #3f4f63;
   --primary: #2563eb;
@@ -58,6 +62,7 @@
   --danger: #dc2626;
   --success: #16a34a;
   --warning: #d97706;
+  --info: #0284c7;
   --accent: #7c3aed;
   --overlay-bg: rgba(0, 0, 0, 0.3);
 
@@ -103,6 +108,7 @@
   --danger: #f47067;
   --success: #3fb950;
   --warning: #d29922;
+  --info: #58a6ff;
   --accent: #8b5cf6;
   --overlay-bg: rgba(0, 0, 0, 0.5);
   --cat-trigger: #3fb950; --cat-trigger-bg: rgba(63,185,80,0.10); --cat-trigger-badge: rgba(63,185,80,0.18);
@@ -131,6 +137,7 @@
   --danger: #f14c4c;
   --success: #4ec963;
   --warning: #cca700;
+  --info: #4fc1ff;
   --accent: #8b5cf6;
   --overlay-bg: rgba(0,0,0,0.5);
   --cat-trigger: #4ec963; --cat-trigger-bg: rgba(78,201,99,0.10); --cat-trigger-badge: rgba(78,201,99,0.18);
@@ -159,6 +166,7 @@
   --danger: #ef4444;
   --success: #22c55e;
   --warning: #f59e0b;
+  --info: #38bdf8;
   --accent: #8b5cf6;
   --overlay-bg: rgba(0,0,0,0.6);
   --cat-trigger: #22c55e; --cat-trigger-bg: rgba(34,197,94,0.10); --cat-trigger-badge: rgba(34,197,94,0.18);
@@ -187,6 +195,7 @@
   --danger: #e06c75;
   --success: #98c379;
   --warning: #e5c07b;
+  --info: #56b6c2;
   --accent: #c678dd;
   --overlay-bg: rgba(0,0,0,0.5);
   --cat-trigger: #98c379; --cat-trigger-bg: rgba(152,195,121,0.10); --cat-trigger-badge: rgba(152,195,121,0.18);
@@ -215,6 +224,7 @@
   --danger: #f47067;
   --success: #3fb950;
   --warning: #d29922;
+  --info: #60a5fa;
   --accent: #8b5cf6;
   --overlay-bg: rgba(0,0,0,0.55);
   --cat-trigger: #3fb950; --cat-trigger-bg: rgba(63,185,80,0.10); --cat-trigger-badge: rgba(63,185,80,0.18);
@@ -243,6 +253,7 @@
   --danger: #e01e5a;
   --success: #2eb67d;
   --warning: #ecb22e;
+  --info: #36c5f0;
   --accent: #36c5f0;
   --overlay-bg: rgba(0,0,0,0.5);
   --cat-trigger: #2eb67d; --cat-trigger-bg: rgba(46,182,125,0.10); --cat-trigger-badge: rgba(46,182,125,0.18);
@@ -264,6 +275,9 @@
   --surface: #ffffff;
   --surface-hover: #f0f3f7;
   --border: #b8c4d4;
+  --wf-grid-dot: rgba(71, 85, 105, 0.14);
+  --wf-node-shadow: 0 2px 8px rgba(59, 130, 246, 0.10), 0 1px 3px rgba(0,0,0,0.05);
+  --wf-node-shadow-hover: 0 4px 14px rgba(59, 130, 246, 0.16), 0 2px 4px rgba(0,0,0,0.06);
   --text: #111827;
   --text-muted: #3f5068;
   --primary: #3b82f6;
@@ -271,6 +285,7 @@
   --danger: #dc2626;
   --success: #16a34a;
   --warning: #d97706;
+  --info: #0284c7;
   --accent: #7c3aed;
   --overlay-bg: rgba(0,0,0,0.3);
   --cat-trigger: #15803d; --cat-trigger-bg: rgba(34,197,94,0.08); --cat-trigger-badge: rgba(34,197,94,0.15);
@@ -292,6 +307,9 @@
   --surface: #ffffff;
   --surface-hover: #e8edf3;
   --border: #b0bfd0;
+  --wf-grid-dot: rgba(59, 130, 246, 0.12);
+  --wf-node-shadow: 0 2px 8px rgba(37, 99, 235, 0.10), 0 1px 2px rgba(0,0,0,0.04);
+  --wf-node-shadow-hover: 0 4px 14px rgba(37, 99, 235, 0.18), 0 2px 3px rgba(0,0,0,0.06);
   --text: #0f1a28;
   --text-muted: #3d5168;
   --primary: #2563eb;
@@ -299,6 +317,7 @@
   --danger: #dc2626;
   --success: #16a34a;
   --warning: #d97706;
+  --info: #0284c7;
   --accent: #7c3aed;
   --overlay-bg: rgba(0,0,0,0.25);
   --cat-trigger: #15803d; --cat-trigger-bg: rgba(34,197,94,0.08); --cat-trigger-badge: rgba(34,197,94,0.15);
@@ -320,6 +339,9 @@
   --surface: #f5f5f0;
   --surface-hover: #edeee8;
   --border: #b2b8a8;
+  --wf-grid-dot: rgba(74, 122, 78, 0.16);
+  --wf-node-shadow: 0 2px 8px rgba(74, 122, 78, 0.12), 0 1px 3px rgba(0,0,0,0.05);
+  --wf-node-shadow-hover: 0 4px 14px rgba(74, 122, 78, 0.18), 0 2px 4px rgba(0,0,0,0.06);
   --text: #1e2318;
   --text-muted: #4d5544;
   --primary: #4a7a4e;
@@ -327,6 +349,7 @@
   --danger: #b91c1c;
   --success: #15803d;
   --warning: #a16207;
+  --info: #0369a1;
   --accent: #4a7a4e;
   --overlay-bg: rgba(0,0,0,0.25);
   --cat-trigger: #15803d; --cat-trigger-bg: rgba(39,174,96,0.08); --cat-trigger-badge: rgba(39,174,96,0.15);
@@ -348,6 +371,9 @@
   --surface: #ffffff;
   --surface-hover: #f0ece4;
   --border: #c4bba8;
+  --wf-grid-dot: rgba(180, 83, 9, 0.14);
+  --wf-node-shadow: 0 2px 8px rgba(180, 83, 9, 0.10), 0 1px 3px rgba(0,0,0,0.05);
+  --wf-node-shadow-hover: 0 4px 14px rgba(180, 83, 9, 0.16), 0 2px 4px rgba(0,0,0,0.06);
   --text: #1c1b17;
   --text-muted: #5a5750;
   --primary: #b45309;
@@ -355,6 +381,7 @@
   --danger: #b91c1c;
   --success: #15803d;
   --warning: #b45309;
+  --info: #0369a1;
   --accent: #b45309;
   --overlay-bg: rgba(0,0,0,0.25);
   --cat-trigger: #15803d; --cat-trigger-bg: rgba(39,174,96,0.08); --cat-trigger-badge: rgba(39,174,96,0.15);

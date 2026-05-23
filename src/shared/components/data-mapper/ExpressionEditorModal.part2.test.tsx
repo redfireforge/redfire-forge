@@ -1,5 +1,5 @@
 /** @vitest-environment jsdom */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import '@testing-library/jest-dom';
 import { render, screen, fireEvent, act } from '@testing-library/react';
 import * as JsonTreeModel from '../../utils/jsonTreeModel';
@@ -44,6 +44,11 @@ const snippetMocks = makeSnippetMockImplementations({
 beforeEach(() => {
   resetMonacoTestState();
   snippetMocks.reset();
+});
+
+afterEach(async () => {
+  // Flush any pending async state updates (e.g. loadExpressionSnippets) to avoid act() warnings
+  await act(async () => {});
 });
 
 describe('ExpressionEditorModal – editor onMount and completion', () => {

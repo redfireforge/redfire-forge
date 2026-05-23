@@ -23,7 +23,7 @@ import VariablesSection from './VariablesSection';
 import WorkflowModalScrollBody from '../modals/WorkflowModalScrollBody';
 import type { ExtractionFetchSampleProps } from '../../../requests/components/ExtractionEditor';
 import { useWorkflowValidationFetch } from '../../hooks/useWorkflowValidationFetch';
-import type { Scenario } from '../../../../shared/types';
+import type { Environment, Scenario } from '../../../../shared/types';
 
 interface Props {
   node: WorkflowNode | null;
@@ -55,9 +55,15 @@ interface Props {
   httpVariableHints?: WorkflowVariableHint[];
   /** Workflow-level services from the Service Registry. */
   workflowServices?: WorkflowService[];
+  /** Available environments for per-node env override. */
+  environments?: Environment[];
+  /** Currently selected global environment. */
+  selectedEnvId?: string;
+  /** Resolved auth from service registry — used when scenario auth is 'inherit'. */
+  resolvedAuth?: Scenario['auth'];
 }
 
-export default function WorkflowConfigPanel({ node, workflowVariables, onUpdateWorkflowVariables, onUpdateNode, onDeleteNode, lastQuickTestRequestUrl, lastRunStepError, effectiveQuickTestBaseUrl, extractionSampleResponseBody, extractionFetchSample, conditionVariableHints = [], httpVariableHints = [], workflowServices = [] }: Props) {
+export default function WorkflowConfigPanel({ node, workflowVariables, onUpdateWorkflowVariables, onUpdateNode, onDeleteNode, lastQuickTestRequestUrl, lastRunStepError, effectiveQuickTestBaseUrl, extractionSampleResponseBody, extractionFetchSample, conditionVariableHints = [], httpVariableHints = [], workflowServices = [], environments = [], selectedEnvId, resolvedAuth }: Props) {
   const [httpTab, setHttpTab] = useState<HttpTab>('url');
   const [newVarKey, setNewVarKey] = useState('');
   const [newVarValue, setNewVarValue] = useState('');
@@ -117,6 +123,7 @@ export default function WorkflowConfigPanel({ node, workflowVariables, onUpdateW
     onDraftChange: handleValidationDraftChange,
     liveVariables: workflowVariables,
     resolvedBaseUrl: effectiveQuickTestBaseUrl,
+    resolvedAuth,
     resetKey: node?.id,
   });
 
@@ -137,6 +144,8 @@ export default function WorkflowConfigPanel({ node, workflowVariables, onUpdateW
           variableHints={httpVariableHints}
           onRequestVariableInsert={requestVariableInsert}
           workflowServices={workflowServices}
+          environments={environments}
+          selectedEnvId={selectedEnvId}
           validationProps={{
             resolvedBaseUrl: effectiveQuickTestBaseUrl,
             fetchingResponse: validationFetch.fetchingResponse,

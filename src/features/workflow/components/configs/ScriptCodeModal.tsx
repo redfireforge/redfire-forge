@@ -11,6 +11,8 @@ import type { JNode } from '../../../requests/components/JsonTreePreview';
 import { useDebounce } from '../../../../shared/hooks/useDebounce';
 import { useSplitterDrag } from '../../../../shared/hooks/useSplitterDrag';
 import { prettyJson, isValidJson } from '../../../../shared/utils/helpers';
+import { SearchMatchBar } from '../../../../shared/components/SearchMatchBar';
+import { useSearchMatchNavigation } from '../../../../shared/hooks/useSearchMatchNavigation';
 
 const collectAllPaths = collectJTreePaths;
 
@@ -28,8 +30,7 @@ function TestValuePanel({ varName, initialValue, onApply, onClose, style }: {
     onApply(val);
   }, [onApply]);
   const [viewMode, setViewMode] = useState<'text' | 'tree'>(() => (isValidJson(initialValue) ? 'tree' : 'text'));
-  const [searchTerm, setSearchTerm] = useState('');
-  const [searchMatchIdx, setSearchMatchIdx] = useState(0);
+  const [searchTerm, setSearchTermState] = useState('');
   const [searchMatchCount, setSearchMatchCount] = useState(0);
   const [collapsedSet, setCollapsedSet] = useState<Set<string>>(() => new Set());
   const debouncedSearch = useDebounce(searchTerm, 200);
@@ -73,41 +74,55 @@ function TestValuePanel({ varName, initialValue, onApply, onClose, style }: {
 
   const effectiveCount = viewMode === 'tree' ? searchMatchCount : textMatchCount;
 
+  const {
+    currentMatchIndex: searchMatchIdx,
+    setCurrentMatchIndex: setSearchMatchIdx,
+    goNext,
+    goPrev,
+    clear: clearSearchNav,
+  } = useSearchMatchNavigation(effectiveCount);
+
+  const setSearchTerm = useCallback((value: string) => {
+    setSearchTermState(value);
+    setSearchMatchIdx(0);
+  }, [setSearchMatchIdx]);
+
+  const clearSearch = useCallback(() => {
+    setSearchTermState('');
+    clearSearchNav();
+  }, [clearSearchNav]);
+
   return (
     <div className="wf-script-value-panel" style={style}>
       {/* Header */}
       <div className="wf-script-value-panel-header">
         <code className="wf-script-value-popup-name">{varName}</code>
 
-        <input
-          type="search"
-          className="results-search wf-resp-search-input wf-script-value-popup-search"
-          placeholder="Search…"
+        <SearchMatchBar
           value={searchTerm}
-          onChange={(e) => { setSearchTerm(e.target.value); setSearchMatchIdx(0); }}
+          onChange={setSearchTerm}
+          currentMatch={searchMatchIdx + 1}
+          totalMatches={effectiveCount}
+          onPrev={goPrev}
+          onNext={goNext}
+          onClear={clearSearch}
+          inputType="search"
+          placeholder="Search…"
+          inputClassName="results-search wf-resp-search-input wf-script-value-popup-search"
+          countClassName="wf-resp-search-count"
+          navClassName="wf-resp-search-nav"
+          controlsVisible={!!debouncedSearch.trim()}
+          hideClear
+          navStyle="text"
           onKeyDown={(e) => {
-            if (e.key === 'Escape') { setSearchTerm(''); setSearchMatchIdx(0); }
+            if (e.key === 'Escape') clearSearch();
             if (e.key === 'Enter' && effectiveCount > 0) {
               e.preventDefault();
-              setSearchMatchIdx(prev =>
-                e.shiftKey ? (prev > 0 ? prev - 1 : effectiveCount - 1) : (prev < effectiveCount - 1 ? prev + 1 : 0)
-              );
+              if (e.shiftKey) goPrev();
+              else goNext();
             }
           }}
         />
-        {debouncedSearch.trim() && (
-          <>
-            <span className="wf-resp-search-count">
-              {effectiveCount > 0 ? `${searchMatchIdx + 1}/${effectiveCount}` : 'No match'}
-            </span>
-            <button type="button" className="wf-resp-search-nav" title="Previous" disabled={effectiveCount === 0}
-              onClick={() => setSearchMatchIdx(prev => prev > 0 ? prev - 1 : effectiveCount - 1)}
-            >▲</button>
-            <button type="button" className="wf-resp-search-nav" title="Next" disabled={effectiveCount === 0}
-              onClick={() => setSearchMatchIdx(prev => prev < effectiveCount - 1 ? prev + 1 : 0)}
-            >▼</button>
-          </>
-        )}
 
         {viewMode === 'tree' && jTree && (
           <>

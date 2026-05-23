@@ -29,7 +29,6 @@ export default function WorkflowDesignerMainLayout(vm: WorkflowDesignerViewModel
         onEnvSelect={vm.handleEnvSelect}
         workflowServices={vm.workflowServices}
         isPreview={!!vm.previewWorkflow}
-        onNew={vm.handleNew}
         onSelect={vm.handleSelect}
         onSave={vm.handleSave}
         onQuickTest={vm.handleQuickTest}

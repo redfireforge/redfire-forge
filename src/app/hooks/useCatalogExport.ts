@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, type Dispatch, type SetStateAction } from 'react';
 import type { CatalogEntry, CatalogEndpoint, SavedEndpointValues } from '../../features/catalog/types/catalog';
 import { buildCatalogExport } from '../../features/catalog/utils/catalogExport';
-import { mergeExportIntoCollections, isCollectionEmpty } from '../../features/catalog/utils/versionMerge';
+import { mergeExportIntoCollections, isCollectionEmpty, separateFoldersForMerge } from '../../features/catalog/utils/versionMerge';
 import type { SendToRequestsPayload } from '../../features/catalog/components/CatalogSendToRequestsModal';
 import type { UseCatalogReturn } from '../../features/catalog/hooks/useCatalog';
 import type { UseRequestsReturn } from '../../features/requests/hooks/useRequests';
@@ -76,13 +76,30 @@ export function useCatalogExport({ wb, catalog, setActiveTab }: UseCatalogExport
       catalogEntryId: sendToReqEntry?.id,
     });
 
-    const { updates, newCollection } = mergeExportIntoCollections(
+    const { updates, newCollection, existingCollectionId } = mergeExportIntoCollections(
       collection, wb.collections, versionLabel, sendToReqEntry?.id ?? '',
     );
     for (const u of updates) wb.updateRequest(u.collectionId, u.requestId, u.patch);
 
     if (newEnvironments.length > 0) wb.addEnvironments(newEnvironments);
-    if (!isCollectionEmpty(newCollection)) wb.importCollection(newCollection);
+    
+    if (!isCollectionEmpty(newCollection)) {
+      if (existingCollectionId) {
+        const existingCol = wb.collections.find(c => c.id === existingCollectionId);
+        const existingFolders = existingCol?.folders ?? [];
+        const { requestsToAddToExisting, trulyNewFolders } = separateFoldersForMerge(
+          newCollection.folders ?? [], existingFolders
+        );
+        for (const { folderId, requests } of requestsToAddToExisting) {
+          wb.importRequests(existingCollectionId, folderId, requests);
+        }
+        for (const folder of trulyNewFolders) {
+          wb.importFolder(existingCollectionId, folder);
+        }
+      } else {
+        wb.importCollection(newCollection);
+      }
+    }
     setSendToReqEntry(undefined);
     setActiveTab('requests');
   }, [wb, sendToReqEntry, catalog, setActiveTab]);
@@ -114,13 +131,30 @@ export function useCatalogExport({ wb, catalog, setActiveTab }: UseCatalogExport
       catalogEntryId: entry.id,
     });
 
-    const { updates, newCollection } = mergeExportIntoCollections(
+    const { updates, newCollection, existingCollectionId } = mergeExportIntoCollections(
       collection, wb.collections, versionLabel, entry.id,
     );
     for (const u of updates) wb.updateRequest(u.collectionId, u.requestId, u.patch);
 
     if (newEnvironments.length > 0) wb.addEnvironments(newEnvironments);
-    if (!isCollectionEmpty(newCollection)) wb.importCollection(newCollection);
+    
+    if (!isCollectionEmpty(newCollection)) {
+      if (existingCollectionId) {
+        const existingCol = wb.collections.find(c => c.id === existingCollectionId);
+        const existingFolders = existingCol?.folders ?? [];
+        const { requestsToAddToExisting, trulyNewFolders } = separateFoldersForMerge(
+          newCollection.folders ?? [], existingFolders
+        );
+        for (const { folderId, requests } of requestsToAddToExisting) {
+          wb.importRequests(existingCollectionId, folderId, requests);
+        }
+        for (const folder of trulyNewFolders) {
+          wb.importFolder(existingCollectionId, folder);
+        }
+      } else {
+        wb.importCollection(newCollection);
+      }
+    }
     setActiveTab('requests');
   }, [wb, catalog, setActiveTab]);
 

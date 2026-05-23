@@ -98,6 +98,9 @@ export interface HttpNodeData {
   specVersionMode?: 'pinned' | 'latest';
   /** Per-node HTTP request timeout in seconds; overrides the workflow-level default when set. */
   timeoutSec?: number;
+  /** Per-node environment override; when set, this step resolves its service URL and auth
+   *  from this environment instead of the global toolbar selection. */
+  envOverride?: string;
 }
 
 export interface ConditionNodeData {
