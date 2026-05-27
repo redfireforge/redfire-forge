@@ -4,7 +4,7 @@ import ResponseDetailModal from '../requests/components/ResponseDetailModal';
 import { AggregatedTimingTable } from '../test-runner/components/WaterfallBar';
 import { loadTestRunsLite, loadTraceForRun, deleteTestRun } from '../../shared/utils/storage';
 import { exportJson, exportCsv } from '../../shared/utils/export';
-import { buildGroups, hasWorkflowData, type GroupByLevel, type GroupNode } from '../test-runner/utils/resultsGrouping';
+import { hasWorkflowData, type GroupNode, type GroupByLevel } from '../test-runner/utils/resultsGrouping';
 import { thinkTimeLabel } from '../test-runner/utils/runnerProgressStorage';
 import { RunComparisonPanel, TrendChart } from './components/RunComparisonPanel';
 import { ResponseTimeHistogram } from './components/ResponseTimeHistogram';
@@ -14,8 +14,12 @@ import { ResultsMetricsCards } from './components/ResultsMetricsCards';
 import { generateReport, downloadReport } from './utils/reportGenerator';
 import { loadBaselines, markAsBaseline, unmarkBaseline, isBaseline, type BaselineMark } from './utils/runBaselines';
 import WorkflowResultsExplorerModal from './components/WorkflowResultsExplorerModal';
-import { hasExecutionTrace, decompressTrace, validateTrace } from '../../shared/utils/traceCompression';
-import type { WorkflowExecutionTrace } from '../../shared/types';
+import { hasExecutionTrace, decompressTrace } from '../../shared/utils/traceCompression';
+import { SlaCompactBar } from './components/SlaCompactBar';
+import { SlaStatusAccordion } from './components/SlaStatusAccordion';
+import { useImportHandlers } from './hooks/useImportHandlers';
+import { useSlaManagement } from './hooks/useSlaManagement';
+import { useResultsGrouping } from './hooks/useResultsGrouping';
 
 interface Props {
   envName?: string;
@@ -91,15 +95,17 @@ export default function ResultsDashboard({ envName, svcName, onRerunFailed, isRe
   const [selectedRunId, setSelectedRunId] = useState<string>(runs[0]?.id ?? '');
   const [filterPassed, setFilterPassed] = useState<string>('all');
   const [resultTagFilter, setResultTagFilter] = useState<string | null>(null);
-  const [groupBy, setGroupBy] = useState<GroupByLevel>('feature');
-  const [subGroupBy, setSubGroupBy] = useState<GroupByLevel>('group');
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [searchTerm, setSearchTerm] = useState('');
   const [page, setPage] = useState(0);
   const pageSize = 50;
-  const [showReplayModal, setShowReplayModal] = useState(false);
-  const [replayTrace, setReplayTrace] = useState<WorkflowExecutionTrace | null>(null);
   const [traceLoading, setTraceLoading] = useState(false);
+
+  // Import handlers hook (import trace, import run, replay modal)
+  const {
+    importFileRef, importRunFileRef, importError, setImportError,
+    importedFileName, showReplayModal, setShowReplayModal, replayTrace, setReplayTrace,
+    handleImportTrace, handleImportRun, closeReplayModal,
+  } = useImportHandlers(setAllRuns, setSelectedRunId);
 
   useEffect(() => {
     if (runs.length > 0 && !runs.find((r) => r.id === selectedRunId)) {
@@ -147,7 +153,12 @@ export default function ResultsDashboard({ envName, svcName, onRerunFailed, isRe
         setTraceLoading(false);
       }
     }
-  }, [selectedRun]);
+  }, [selectedRun, setReplayTrace, setShowReplayModal]);
+
+  // SLA management hook
+  const {
+    slaTargets, slaScope, runSlaStatuses, handleSaveSlaTargets,
+  } = useSlaManagement(selectedRun, selectedRunId, runs);
 
   const handleDelete = async (runId: string) => {
     await deleteTestRun(runId);
@@ -170,31 +181,6 @@ export default function ResultsDashboard({ envName, svcName, onRerunFailed, isRe
     const bl = await loadBaselines();
     setBaselines(bl);
   };
-
-  const importFileRef = useRef<HTMLInputElement>(null);
-  const [importError, setImportError] = useState<string | null>(null);
-  const [importedFileName, setImportedFileName] = useState<string | null>(null);
-
-  const handleImportTrace = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setImportError(null);
-    const reader = new FileReader();
-    reader.onload = () => {
-      try {
-        const data = JSON.parse(reader.result as string);
-        const trace = validateTrace(data);
-        setReplayTrace(trace);
-        setImportedFileName(file.name);
-        setShowReplayModal(true);
-      } catch (err) {
-        setImportError(err instanceof Error ? err.message : 'Failed to parse trace file');
-      }
-    };
-    reader.onerror = () => setImportError('Failed to read file');
-    reader.readAsText(file);
-    e.target.value = '';
-  }, []);
 
   const toggleBaseline = useCallback(async (runId: string) => {
     if (isBaseline(baselines, runId)) {
@@ -233,78 +219,13 @@ export default function ResultsDashboard({ envName, svcName, onRerunFailed, isRe
     });
   }, [selectedRun, filterPassed, resultTagFilter, searchTerm]);
 
-
-  const groupLevels: GroupByLevel[] = useMemo(() => {
-    if (groupBy === 'test' && subGroupBy === 'dataRow') return ['test', 'dataRow'];
-    if (groupBy === 'test') return ['test'];
-    if (groupBy === 'group') return subGroupBy === 'test' ? ['group', 'test'] : ['group'];
-    // Workflow grouping options
-    if (groupBy === 'iteration') return subGroupBy === 'workflowStep' ? ['iteration', 'workflowStep'] : ['iteration'];
-    if (groupBy === 'workflowStep') return subGroupBy === 'iteration' ? ['workflowStep', 'iteration'] : ['workflowStep'];
-    // feature
-    if (subGroupBy === 'group') return ['feature', 'group'];
-    return ['feature', 'test'];
-  }, [groupBy, subGroupBy]);
-
-  const isFlat = groupBy === 'test' && subGroupBy !== 'dataRow';
-
-  const groupTree = useMemo(() => {
-    if (isFlat) return [];
-    return buildGroups(filteredResults, groupLevels);
-  }, [filteredResults, groupLevels, isFlat]);
-
-  const groupCount = useMemo(() => {
-    if (isFlat) return 0;
-    return groupTree.reduce((n, g) => n + 1 + g.children.length, 0);
-  }, [groupTree, isFlat]);
-
-  useEffect(() => {
-    const allKeys: string[] = [];
-    if (groupTree.length > 0) {
-      const collect = (nodes: GroupNode[], parentKey: string) => {
-        for (const g of nodes) {
-          const nodeKey = parentKey ? `${parentKey}/${g.key}` : g.key;
-          allKeys.push(nodeKey);
-          if (g.children.length > 0) collect(g.children, nodeKey);
-        }
-      };
-      collect(groupTree, '');
-    }
-    setExpanded(new Set(allKeys));
-  }, [groupTree]);
-
-  const toggle = (key: string) => {
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
-  };
-
   const isWorkflowRun = selectedRun?.config.executionMode === 'workflow' && hasWorkflowData(selectedRun.results);
 
-  const subGroupOptions = useMemo((): { value: GroupByLevel; label: string }[] => {
-    if (groupBy === 'feature') return [{ value: 'group', label: 'Then by Scenario' }, { value: 'test', label: 'Then by Test Name' }];
-    if (groupBy === 'group') return [{ value: 'test', label: 'Then by Test Name' }];
-    if (groupBy === 'test') {
-      const hasDataRows = filteredResults.some(r => r.dataRowId);
-      if (hasDataRows) return [{ value: 'dataRow', label: 'Then by Data Row' }];
-    }
-    if (groupBy === 'iteration') return [{ value: 'workflowStep', label: 'Then by Step' }];
-    if (groupBy === 'workflowStep') return [{ value: 'iteration', label: 'Then by Iteration' }];
-    return [];
-  }, [groupBy, filteredResults]);
-
-  const handleGroupByChange = (val: GroupByLevel) => {
-    setGroupBy(val);
-    setExpanded(new Set());
-    if (val === 'feature') setSubGroupBy('group');
-    else if (val === 'group') setSubGroupBy('test');
-    else if (val === 'test') setSubGroupBy('test'); // reset; user can pick dataRow from sub-group
-    else if (val === 'iteration') setSubGroupBy('workflowStep');
-    else if (val === 'workflowStep') setSubGroupBy('iteration');
-  };
+  // Grouping hook
+  const {
+    groupBy, subGroupBy, setSubGroupBy, expanded, setExpanded, toggle, handleGroupByChange,
+    groupTree, groupCount, isFlat, subGroupOptions,
+  } = useResultsGrouping(filteredResults, isWorkflowRun);
 
   const [responseModal, setResponseModal] = useState<RequestResult | null>(null);
   const [reportMenuOpen, setReportMenuOpen] = useState(false);
@@ -430,18 +351,22 @@ export default function ResultsDashboard({ envName, svcName, onRerunFailed, isRe
           <h2>Results</h2>
           <div className="results-top-actions">
             <button className="btn" onClick={refreshRuns}>Refresh</button>
-            <button className="btn" onClick={() => importFileRef.current?.click()} title="Import a previously exported trace JSON file">
-              📂 Import Trace
+            <button className="btn" onClick={() => importFileRef.current?.click()} title="Import a workflow execution replay trace (.json)">
+              📂 Import Workflow Replay
             </button>
             <input ref={importFileRef} type="file" accept=".json" onChange={handleImportTrace} style={{ display: 'none' }} data-testid="import-trace-input" />
+            <button className="btn" onClick={() => importRunFileRef.current?.click()} title="Import test results from CLI output (.json)">
+              📥 Import Test Results
+            </button>
+            <input ref={importRunFileRef} type="file" accept=".json" onChange={handleImportRun} style={{ display: 'none' }} data-testid="import-run-input" />
           </div>
         </div>
-        {importError && <div className="results-import-error">{importError}</div>}
+        {importError && <div className="results-import-error">{importError} <button className="btn-dismiss" onClick={() => setImportError(null)}>×</button></div>}
         <div className="empty-state">No test runs yet. Run a test first.</div>
         {showReplayModal && replayTrace && (
           <WorkflowResultsExplorerModal
             trace={replayTrace}
-            onClose={() => { setShowReplayModal(false); setReplayTrace(null); setImportedFileName(null); }}
+            onClose={closeReplayModal}
             importedFileName={importedFileName ?? undefined}
           />
         )}
@@ -495,13 +420,17 @@ export default function ResultsDashboard({ envName, svcName, onRerunFailed, isRe
               )}
             </div>
           )}
-          {importError && <div className="results-import-error">{importError}</div>}
+          {importError && <div className="results-import-error">{importError} <button className="btn-dismiss" onClick={() => setImportError(null)}>×</button></div>}
           <div className="results-top-actions">
             <button className="btn" onClick={refreshRuns}>Refresh</button>
-            <button className="btn" onClick={() => importFileRef.current?.click()} title="Import a previously exported trace JSON file">
-              📂 Import Trace
+            <button className="btn" onClick={() => importFileRef.current?.click()} title="Import a workflow execution replay trace (.json)">
+              📂 Import Workflow Replay
             </button>
             <input ref={importFileRef} type="file" accept=".json" onChange={handleImportTrace} style={{ display: 'none' }} data-testid="import-trace-input" />
+            <button className="btn" onClick={() => importRunFileRef.current?.click()} title="Import test results from CLI output (.json)">
+              📥 Import Test Results
+            </button>
+            <input ref={importRunFileRef} type="file" accept=".json" onChange={handleImportRun} style={{ display: 'none' }} data-testid="import-run-input" />
             {selectedRun && (
               <>
                 {/* Results Explorer button (workflow runs only) */}
@@ -558,9 +487,12 @@ export default function ResultsDashboard({ envName, svcName, onRerunFailed, isRe
           {runs.map((r) => {
             const bl = isBaseline(baselines, r.id);
             const isWf = r.config.executionMode === 'workflow';
+            const slaStatus = runSlaStatuses.has(r.id) ? runSlaStatuses.get(r.id) : undefined;
+            const slaDot = slaStatus === 'pass' ? '🟢' : slaStatus === 'fail' ? '🔴' : slaStatus === 'warn' ? '🟡' : slaStatus === 'no-data' ? '⚪' : slaStatus === null ? '⚫' : '';
             const label = [
               bl ? '★' : '',
               isWf ? '⚡' : '🧪',
+              slaDot,
               new Date(r.timestamp).toLocaleString(),
               r.projectName,
               r.svcName,
@@ -616,6 +548,18 @@ export default function ResultsDashboard({ envName, svcName, onRerunFailed, isRe
         <RunComparisonPanel baselineRun={baselineRun} currentRun={selectedRun} />
       )}
 
+      {/* SLA Compact Bar (Phase C) */}
+      {summary && selectedRun && (
+        <SlaCompactBar
+          key={selectedRunId}
+          summary={summary}
+          targets={slaTargets}
+          results={selectedRun.results}
+          scope={slaScope}
+          onSaveTargets={handleSaveSlaTargets}
+        />
+      )}
+
       {/* Summary Metrics */}
       {summary && selectedRun && (
         <ResultsMetricsCards summary={summary} selectedRun={selectedRun} />
@@ -668,6 +612,16 @@ export default function ResultsDashboard({ envName, svcName, onRerunFailed, isRe
 
       {/* Timing Breakdown */}
       {selectedRun && <AggregatedTimingTable results={selectedRun.results} />}
+
+      {/* SLA Status Accordion (Phase C — Feature → Scenario → Check tree) */}
+      {summary && selectedRun && slaTargets.length > 0 && (
+        <SlaStatusAccordion
+          key={selectedRunId}
+          targets={slaTargets}
+          results={selectedRun.results}
+          summary={summary}
+        />
+      )}
 
       {/* Request Details */}
       <div className="section">
@@ -818,7 +772,7 @@ export default function ResultsDashboard({ envName, svcName, onRerunFailed, isRe
       {showReplayModal && replayTrace && (
         <WorkflowResultsExplorerModal
           trace={replayTrace}
-          onClose={() => { setShowReplayModal(false); setReplayTrace(null); setImportedFileName(null); }}
+          onClose={closeReplayModal}
           importedFileName={importedFileName ?? undefined}
         />
       )}
