@@ -242,4 +242,36 @@ describe('buildSelectedTests', () => {
       expect(result[0].scenarioTags).toEqual([]);
     });
   });
+
+  describe('gallery source handling', () => {
+    it('uses the original test URL unchanged when feature group source is gallery', () => {
+      const galleryFg = makeFg({
+        source: 'gallery',
+        scenarios: [{
+          id: 'sc-gallery', name: 'Gallery Test', kind: 'standard',
+          tests: [makeScenario({ url: '/gallery/endpoint' })],
+        }],
+      });
+      const selected = new Set(['sc-gallery']);
+      const result = buildSelectedTests(
+        [galleryFg], selected, 'settings', '', 'https://api.example.com', false, false, 'default', 'default', [],
+      );
+      expect(result).toHaveLength(1);
+      // Gallery tests ignore effectiveBaseUrl and keep their original URL
+      expect(result[0].url).toBe('/gallery/endpoint');
+    });
+
+    it('applies baseUrl only to non-gallery feature groups', () => {
+      const normalFg = makeFg({
+        scenarios: [{
+          id: 'sc-normal', name: 'Normal Test', kind: 'standard',
+          tests: [makeScenario({ url: '/users' })],
+        }],
+      });
+      const result = buildSelectedTests(
+        [normalFg], selectAll(normalFg), 'settings', '', 'https://api.example.com', false, false, 'default', 'default', [],
+      );
+      expect(result[0].url).toBe('https://api.example.com/users');
+    });
+  });
 });
