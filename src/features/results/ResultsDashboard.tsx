@@ -551,7 +551,7 @@ export default function ResultsDashboard({ envName, svcName, onRerunFailed, isRe
       {/* SLA Compact Bar (Phase C) */}
       {summary && selectedRun && (
         <SlaCompactBar
-          key={selectedRunId}
+          key={`${selectedRunId}-sla-bar`}
           summary={summary}
           targets={slaTargets}
           results={selectedRun.results}
@@ -616,7 +616,7 @@ export default function ResultsDashboard({ envName, svcName, onRerunFailed, isRe
       {/* SLA Status Accordion (Phase C — Feature → Scenario → Check tree) */}
       {summary && selectedRun && slaTargets.length > 0 && (
         <SlaStatusAccordion
-          key={selectedRunId}
+          key={`${selectedRunId}-sla-accordion`}
           targets={slaTargets}
           results={selectedRun.results}
           summary={summary}
