@@ -61,6 +61,18 @@ describe('InMemoryServerStore', () => {
     expect(store.getUnmatched()).toHaveLength(1);
   });
 
+  it('caps unmatched webhook log at MAX_UNMATCHED_LOG (100 entries)', () => {
+    // Fill beyond the cap (101 entries) — the oldest should be evicted
+    for (let i = 0; i < 101; i++) {
+      store.logUnmatched('/test/' + i, 'id-' + i, { index: i });
+    }
+    const unmatched = store.getUnmatched();
+    // Should be capped at 100, not 101
+    expect(unmatched.length).toBe(100);
+    // The first entry (index 0) should have been shifted out
+    expect(unmatched[0].path).toBe('/test/1');
+  });
+
   it('clears all data', () => {
     store.add(makeEntry());
     store.logUnmatched('/test', undefined, {});

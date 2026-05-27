@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import type { FeatureGroup } from '../../../shared/types';
-import { reIdScenarios, wrapExport, unwrapImport, unwrapImportWithMeta, pickJsonFile, stripVersions, countVersions, hasVersionData, DEFAULT_VERSION_EXPORT } from './scenarioImportExport';
+import { reIdScenarios, wrapExport, unwrapImport, unwrapImportWithMeta, pickJsonFile, stripVersions, countVersions, hasVersionData, normalizeTestFields, DEFAULT_VERSION_EXPORT } from './scenarioImportExport';
 
 vi.mock('uuid', () => ({
   v4: (() => {
@@ -471,6 +471,53 @@ describe('tags round-trip', () => {
     expect(imported.scenarios[1].tags).toEqual(['regression']);
     expect(imported.scenarios[2].tags).toBeUndefined();
   });
+
+describe('normalizeTestFields', () => {
+  it('returns test unchanged when there are no expectedFields', () => {
+    const test = { id: 't1', validation: { mode: 'none' } } as never;
+    expect(normalizeTestFields(test)).toBe(test);
+  });
+
+  it('returns test unchanged when expectedFields is empty', () => {
+    const test = { id: 't1', validation: { mode: 'none', expectedFields: [] } } as never;
+    expect(normalizeTestFields(test)).toBe(test);
+  });
+
+  it('normalizes fields with legacy path/value keys to jsonPath/expectedValue', () => {
+    const test = {
+      id: 't1',
+      validation: {
+        mode: 'none',
+        expectedFields: [
+          { jsonPath: '', expectedValue: '', path: '$.name', value: 'Alice' } as never,
+          { jsonPath: '$.age', expectedValue: '30' },
+        ],
+      },
+    } as never;
+    const result = normalizeTestFields(test);
+    const fields = (result as { validation: { expectedFields: { jsonPath: string; expectedValue: string }[] } }).validation.expectedFields;
+    expect(fields[0].jsonPath).toBe('$.name');
+    expect(fields[0].expectedValue).toBe('Alice');
+    expect(fields[1].jsonPath).toBe('$.age');
+    expect(fields[1].expectedValue).toBe('30');
+  });
+
+  it('falls back to empty string when both path and jsonPath are missing', () => {
+    const test = {
+      id: 't1',
+      validation: {
+        mode: 'none',
+        expectedFields: [
+          { jsonPath: '', expectedValue: '' } as never,
+        ],
+      },
+    } as never;
+    const result = normalizeTestFields(test);
+    const fields = (result as { validation: { expectedFields: { jsonPath: string; expectedValue: string }[] } }).validation.expectedFields;
+    expect(fields[0].jsonPath).toBe('');
+    expect(fields[0].expectedValue).toBe('');
+  });
+});
 
   it('handles empty tags array through export/import cycle', () => {
     const fg: FeatureGroup = {
