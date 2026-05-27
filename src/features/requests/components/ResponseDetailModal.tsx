@@ -4,7 +4,7 @@ import WaterfallBar from '../../test-runner/components/WaterfallBar';
 import WorkflowEditorModalFrame from '../../workflow/components/modals/WorkflowEditorModalFrame';
 import JsonTreeViewer from '../../../shared/components/JsonTreeViewer';
 import JsonPreview, { buildJTree, type JNode } from './JsonTreePreview';
-import { SearchMatchBar } from '../../../shared/components/SearchMatchBar';
+import ResponseBodySearchBar from './ResponseBodySearchBar';
 import { useSearchMatchNavigation } from '../../../shared/hooks/useSearchMatchNavigation';
 
 type ResponseDetailModalProps = {
@@ -167,24 +167,17 @@ export default function ResponseDetailModal({ result, onClose }: ResponseDetailM
           {result.responseBody && (
             <div className="response-detail-section">
               <h4>RESPONSE BODY</h4>
-              <div className="req-resp-search">
-                <SearchMatchBar
-                  value={responseSearch}
-                  onChange={setResponseSearch}
-                  currentMatch={searchMatchIdx + 1}
-                  totalMatches={searchMatchCount}
-                  onPrev={goPrevSearchMatch}
-                  onNext={goNextSearchMatch}
-                  onClear={() => { clearResponseSearch(); setSearchMatchCount(0); }}
-                  placeholder="Search response..."
-                  inputClassName="req-resp-search-input"
-                  countClassName="req-resp-search-count"
-                  navClassName="req-resp-search-nav"
-                  clearClassName="req-resp-search-clear"
-                />
-                <button className="jt-expand-collapse-btn" onClick={handleExpandAll}>Expand All</button>
-                <button className="jt-expand-collapse-btn" onClick={handleCollapseAll}>Collapse All</button>
-              </div>
+              <ResponseBodySearchBar
+                value={responseSearch}
+                onChange={setResponseSearch}
+                currentMatch={searchMatchIdx + 1}
+                totalMatches={searchMatchCount}
+                onPrev={goPrevSearchMatch}
+                onNext={goNextSearchMatch}
+                onClear={() => { clearResponseSearch(); setSearchMatchCount(0); }}
+                onExpandAll={handleExpandAll}
+                onCollapseAll={handleCollapseAll}
+              />
               <JsonPreview
                 body={result.responseBody}
                 search={responseSearch}
