@@ -1224,3 +1224,21 @@ The `TrendChart` describe block in `RunComparisonPanel.test.tsx` had 5 tests tha
 - Full Sprint 1+2+3 suite: **1588 tests, 71 files — all passing**
 - TypeScript: 0 errors
 
+---
+
+## Sprint 2 Deep Review Pass — Round 3 (2026-05-28)
+
+### Final assessment — no further issues found
+
+All Sprint 2 source files (`runBaselines.ts`, `RunComparisonPanel.tsx` TrendChart, `ResultsDashboard.tsx` regression dot + `runRegressionStatuses` useMemo) re-reviewed. No new bugs or gaps found.
+
+Remaining minor item noted (not a bug):
+- The scope-aware empty hint reads "Only 1 run match this scope" (grammatically, "matches" would be correct for singular) — cosmetic only, does not affect functionality.
+
+**All Sprint 2 source code and tests are clean. No further issues found.**
+
+Sprint 2 review committed across 3 rounds:
+- Round 1 (7b0be48): 5 TrendChart tests + Tooltip null mock
+- Round 2 (a692cd3): isBaseline ScenarioTrendPoint + scope-aware msg + metric2 overlay line + Line mock update
+- Final: 1588 tests, 71 files, 0 TS errors
+
