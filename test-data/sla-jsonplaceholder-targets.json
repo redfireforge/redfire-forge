@@ -1,0 +1,66 @@
+[
+  {
+    "id": "sla-fg-p95",
+    "metric": "p95",
+    "operator": "lte",
+    "value": 2000,
+    "label": "Feature Group P95 SLA",
+    "featureGroupName": "SLA Test Suite"
+  },
+  {
+    "id": "create-post-p95",
+    "metric": "p95",
+    "operator": "lte",
+    "value": 1000,
+    "label": "Create Post P95",
+    "scenarioName": "Create Post"
+  },
+  {
+    "id": "create-post-tps",
+    "metric": "tps",
+    "operator": "gte",
+    "value": 10,
+    "label": "Create Post TPS",
+    "scenarioName": "Create Post"
+  },
+  {
+    "id": "create-post-error-rate",
+    "metric": "errorRate",
+    "operator": "lte",
+    "value": 2,
+    "label": "Create Post Error Rate",
+    "scenarioName": "Create Post"
+  },
+  {
+    "id": "get-posts-p95",
+    "metric": "p95",
+    "operator": "lte",
+    "value": 1500,
+    "label": "Posts P95",
+    "scenarioName": "Get Posts"
+  },
+  {
+    "id": "get-users-p95",
+    "metric": "p95",
+    "operator": "lte",
+    "value": 500,
+    "label": "Users P95",
+    "scenarioName": "Get Users"
+  },
+  {
+    "id": "get-users-error-rate",
+    "metric": "errorRate",
+    "operator": "lte",
+    "value": 1,
+    "label": "Users Error Rate",
+    "scenarioName": "Get Users"
+  },
+  {
+    "id": "update-post-avg",
+    "metric": "avg",
+    "operator": "lte",
+    "value": 600,
+    "label": "Update Post Avg Latency",
+    "scenarioName": "Update Post"
+  }
+]

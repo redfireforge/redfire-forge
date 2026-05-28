@@ -226,6 +226,14 @@ export default function App() {
     return () => window.removeEventListener('resize', syncHeaderHeight);
   }, [syncHeaderHeight]);
 
+  // ---- Sidebar width sync (CSS var for modals/overlays that respect the sidebar) ----
+  // Activity bar is 48px; when the sidebar is collapsed the unified-sidebar is unmounted.
+  useEffect(() => {
+    const activityBar = 48;
+    const total = sidebarCollapsed ? activityBar : activityBar + sidebarWidth;
+    document.documentElement.style.setProperty('--sidebar-w', `${total}px`);
+  }, [sidebarWidth, sidebarCollapsed]);
+
   // ---- Fix Gallery Samples microservice baseUrls (migration for pre-0.9.1 data) ----
   const galleryFixApplied = useRef(false);
   useEffect(() => {
@@ -534,6 +542,7 @@ export default function App() {
                   }
                   return wf.id;
                 }}
+                onUpdateWorkflow={(id, patch) => wfHook.update(id, patch)}
               />
             </div>
           )}

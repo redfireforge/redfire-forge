@@ -5,6 +5,7 @@ import HostSelector from './HostSelector';
 import LiveProgressPanel from './LiveProgressPanel';
 import ScenarioSelector from './ScenarioSelector';
 import ExecutionPlanPreview from './ExecutionPlanPreview';
+import RunnerSlaOverridePanel from './RunnerSlaOverridePanel';
 import type { RunnerVariant } from './runnerVariants';
 
 export interface RunnerPageProps {
@@ -38,6 +39,8 @@ export default function RunnerPage({
     savedProgress, handleClearProgress, handleRun, updateProfile, updateArrivalRate,
     showProgress, displaySummary, displayTimeSeries, displayCompleted, displayTotal,
     displayProfileMeta, displayExecMode, displayConc, displayLoadProfile, displayArrivalRate, displayThinkTime, hostLabel,
+    runnerSlaTargets, setRunnerSlaTargets, selectedSlaScenarioNames, selectedSlaTestNames,
+    definitionSlaTargetCount, definitionSlaTargets,
   } = runner;
 
   const {
@@ -166,6 +169,9 @@ export default function RunnerPage({
                           {t.dataSource && t.dataSource.rows.filter(r => r.enabled).length > 0 && (
                             <span className="count-badge count-badge-data">📊 {t.dataSource.rows.filter(r => r.enabled).length} rows</span>
                           )}
+                          {t.slaTargets && t.slaTargets.length > 0 && (
+                            <span className="count-badge count-badge-sla">🎯 {t.slaTargets.length} SLA</span>
+                          )}
                         </div>
                         <input
                           type="number"
@@ -204,6 +210,16 @@ export default function RunnerPage({
                   )}
                 </fieldset>
               )}
+
+              <RunnerSlaOverridePanel
+                initialTargets={runnerSlaTargets}
+                onSave={setRunnerSlaTargets}
+                definitionTargetCount={definitionSlaTargetCount}
+                definitionTargets={definitionSlaTargets}
+                scenarioNames={selectedSlaScenarioNames}
+                testNames={selectedSlaTestNames}
+                disabled={isRunning}
+              />
 
               <div className="form-actions">
                 {!isRunning ? (

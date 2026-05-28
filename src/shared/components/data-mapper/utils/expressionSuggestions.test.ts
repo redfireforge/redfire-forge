@@ -233,4 +233,24 @@ describe('suggestExpressionsForAll', () => {
     const result = suggestExpressionsForAll(mappings, sources, target);
     expect(result.size).toBe(0);
   });
+
+  // --- Fallback suggestion path (no library template, but FALLBACK_MAP has entry) ---
+  it('suggests array→boolean via FALLBACK_MAP when no library template exists', () => {
+    // array→boolean has no entry in TRANSFORMATION_LIBRARY, so falls through to FALLBACK_MAP
+    const mapping = mkMapping('m1', 'items', 'hasItems');
+    const sources = mkSources({ items: [1, 2, 3] });
+    const target = mkTarget({ hasItems: false });
+    const suggestions = suggestExpressionsForMapping(mapping, sources, target);
+    expect(suggestions.length).toBeGreaterThan(0);
+    expect(suggestions.some((s) => s.expression.includes('$toBool'))).toBe(true);
+  });
+
+  it('returns empty when type pair has no library template and no FALLBACK_MAP entry', () => {
+    // number→array is incompatible, has no library template, and is not in FALLBACK_MAP
+    const mapping = mkMapping('m1', 'count', 'items');
+    const sources = mkSources({ count: 42 });
+    const target = mkTarget({ items: [] });
+    const suggestions = suggestExpressionsForMapping(mapping, sources, target);
+    expect(suggestions).toEqual([]);
+  });
 });

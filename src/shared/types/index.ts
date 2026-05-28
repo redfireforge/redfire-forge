@@ -332,6 +332,8 @@ export interface Scenario {
   sourceSpecVersionLabel?: string;
   /** Transient: inherited from parent TestScenario for result tagging */
   scenarioTags?: string[];
+  /** SLA acceptance criteria for this individual test. Collected at run time into TestConfig.slaTargets. */
+  slaTargets?: SlaTarget[];
 }
 
 export type ScenarioKind = 'standard' | 'parameterized';
@@ -344,6 +346,8 @@ export interface TestScenario {
   tags?: string[];
   auth?: AuthConfig;
   tests: Scenario[];
+  /** SLA acceptance criteria for this scenario. Collected at run time and embedded in TestConfig.slaTargets. */
+  slaTargets?: SlaTarget[];
 }
 
 export function isParameterizedScenario(sc: TestScenario): boolean {
@@ -391,6 +395,8 @@ export interface FeatureGroup {
   gallerySampleId?: string;
   /** Hash of the gallery sample content at time of import — used to detect if the sample has been updated. */
   gallerySampleHash?: string;
+  /** SLA acceptance criteria for the whole feature group (aggregate, across all scenarios). */
+  slaTargets?: SlaTarget[];
 }
 
 // ─── Trash Box (soft-delete & recovery) ─────────────────────
@@ -474,6 +480,62 @@ export interface CorrelationWaitRunnerConfig {
   mockPayloads?: Record<string, Record<string, unknown>>;
 }
 
+// ─── SLA types (shared: embedded in TestConfig + used by results feature) ───────────
+
+/**
+ * The metrics available for SLA targeting.
+ * Field names match the computed fields in ScenarioMetrics for direct indexing.
+ */
+export type SlaMetric =
+  | 'p50'
+  | 'p95'
+  | 'p99'
+  | 'p999'
+  | 'avg'
+  | 'tps'
+  | 'errorRate';
+
+/**
+ * A single persistent SLA target.
+ *
+ * Operator semantics:
+ * - `lte` — metric must be ≤ value to pass (latency, error rate — lower is better)
+ * - `gte` — metric must be ≥ value to pass (TPS — higher is better)
+ *
+ * Warn zone (optional):
+ * - For `lte`: pass if actual ≤ warnAt, warn if warnAt < actual ≤ value, fail if actual > value
+ * - For `gte`: pass if actual ≥ warnAt, warn if value ≤ actual < warnAt, fail if actual < value
+ */
+export interface SlaTarget {
+  /** Stable identity. Use crypto.randomUUID() on creation. */
+  id: string;
+  metric: SlaMetric;
+  operator: 'lte' | 'gte';
+  /** Hard pass/fail threshold. */
+  value: number;
+  /**
+   * Optional warn zone boundary (stricter than value).
+   * lte: warnAt < value.  gte: warnAt > value.
+   */
+  warnAt?: number;
+  /** Optional user-defined label, e.g. "Cart checkout SLA". */
+  label?: string;
+  /**
+   * Optional: if set, this target applies only to the named scenario/test type.
+   * Mutually exclusive with `featureGroupName` — set at most one.
+   * If neither is set, target applies to the whole run's aggregate TestSummary.
+   */
+  scenarioName?: string;
+  /**
+   * Optional: if set, this target evaluates against the aggregate of all results
+   * belonging to the named feature group (computed by `computeFeatureGroupMetrics`).
+   * Mutually exclusive with `scenarioName` — set at most one.
+   * Feature-group targets are not evaluated by `evaluateSla`/`evaluateSlaForScenario`;
+   * use `evaluateSlaTree` (SLA-C3) instead.
+   */
+  featureGroupName?: string;
+}
+
 export interface TestConfig {
   concurrency: number;
   iterations: number;
@@ -500,6 +562,11 @@ export interface TestConfig {
   traceOptions?: ExecutionTraceOptions;
   /** Base URL for workflow HTTP nodes with relative paths (from environment config). */
   workflowBaseUrl?: string;
+  /**
+   * Embedded SLA targets (set at run configuration time). Read-only in Results view.
+   * Only present when SLA was configured per-run rather than at workflow level.
+   */
+  slaTargets?: SlaTarget[];
 }
 
 export interface FailureDetail {
