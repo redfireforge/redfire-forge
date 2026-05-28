@@ -652,7 +652,7 @@ Sprint 4 — Polish & content (Phases 25.8 + 25.9)
 ### Sprint 1 — Core UX polish (2026-05-28)
 
 **Branch:** `feature/phase25-sprint1-comparison-ux`  
-**Commits:** `80175f7` (implementation), `1cc62bd` (review pass 1 — 5 bugs), `cdc1a6b` (review pass 2 — 3 more bugs)
+**Commits:** `80175f7` (implementation), `1cc62bd` (review pass 1 — 5 bugs), `cdc1a6b` (review pass 2 — 3 more bugs), `d7e4fb7` (review pass 3 — 1 bug)
 
 #### Files created
 - `src/features/results/components/BaselineListPanel.tsx` — always-expanded list; inline rename with Escape/Enter handled via blur-only commit pattern + `escapedRef` guard to prevent double-fire
@@ -682,6 +682,9 @@ Sprint 4 — Polish & content (Phases 25.8 + 25.9)
 7. `RegressionList` and regression alert banner used `key={i}` (array index) — changed to `key={r.metric}` for stable semantic keys since each regression has a unique metric name.
 8. `loadRegressionThresholds` used shallow spread of `JSON.parse(raw)` which could inject `null`/string/`Infinity`/negative values into the typed result. Replaced with explicit per-key validation — only finite non-negative numbers are accepted; anything else falls back to the default for that key.
 
+#### Bugs found and fixed in review pass 3 (commit `d7e4fb7`)
+9. `toggleBaseline` in `ResultsDashboard` — when the ★ Baseline button unmasks a run that is currently the active comparison target (`compareBaselineId === runId`), `compareBaselineId` was NOT cleared. The `useCallback([baselines])` dependency array was missing `compareBaselineId`, creating a stale closure. The `RunComparisonPanel` would continue rendering with the now-unmarked run as "Baseline", with an inline rename button that silently no-ops. Fixed: use the `setCompareBaselineId` functional updater (`prev => prev === runId ? '' : prev`) so the latest state is read at call time — no need to add `compareBaselineId` to the dependency array. The `BaselineListPanel.onUnmark` callback already had this fix; this brings the ★ button path into parity.
+
 #### Tests added
 - `runBaselines.test.ts`: 5 new tests total for threshold persistence (36 tests, all passing)
   - load returns defaults when empty
@@ -694,7 +697,7 @@ Sprint 4 — Polish & content (Phases 25.8 + 25.9)
 - [x] User can compare any two runs without either being a baseline
 - [x] Regression thresholds are user-configurable and persisted
 - [x] `npx tsc --noEmit` — 0 errors after all fixes
-- [x] All existing tests still pass (35/35 unit tests)
+- [x] All existing tests still pass (36/36 unit tests)
 
 ---
 
