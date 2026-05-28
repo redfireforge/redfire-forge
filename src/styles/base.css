@@ -3013,6 +3013,14 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
 .current-label { background: rgba(59, 130, 246, 0.15); color: var(--primary); }
 .run-comparison-vs { color: var(--text-muted); font-weight: 600; }
 
+/* Export dropdown */
+.run-comparison-export { position: relative; }
+.run-comparison-export-btn { padding: 4px 10px; background: var(--surface-secondary); border: 1px solid var(--border); border-radius: 4px; color: var(--text); font-size: 0.78rem; cursor: pointer; white-space: nowrap; }
+.run-comparison-export-btn:hover { background: var(--surface-hover); }
+.run-comparison-export-menu { position: absolute; right: 0; top: calc(100% + 4px); z-index: 200; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.25); min-width: 160px; }
+.run-comparison-export-menu button { display: block; width: 100%; padding: 8px 12px; background: none; border: none; text-align: left; font-size: 0.82rem; color: var(--text); cursor: pointer; }
+.run-comparison-export-menu button:hover { background: var(--surface-secondary); }
+
 /* Regression Alerts */
 .regression-alerts { padding: 8px 16px; display: flex; flex-direction: column; gap: 4px; }
 .regression-alert { display: flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 4px; font-size: 0.82rem; font-weight: 500; }

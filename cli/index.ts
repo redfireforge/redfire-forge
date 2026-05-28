@@ -20,6 +20,8 @@ import {
   buildWorkflowJunitXml,
   buildWorkflowMarkdownReport,
   printWorkflowConsoleSummary,
+  printComparisonSummary,
+  buildComparisonMarkdown,
 } from './reporters';
 import type { RequestResult, ErrorPolicy } from '../src/types';
 import { toErrorMessage } from '../src/shared/utils/helpers';
@@ -29,6 +31,19 @@ import {
   printSlaReport,
   overallSlaStatus as slaOverallStatus,
 } from './slaEval';
+import {
+  addCliBaseline,
+  findLatestBaseline,
+  findBaselineById,
+  LATEST_BASELINE_SENTINEL,
+  DEFAULT_BASELINES_DIR,
+  type CliBaseline,
+} from './baselineStorage';
+import {
+  compareRuns,
+  DEFAULT_THRESHOLDS,
+} from '../src/features/results/utils/runBaselines';
+import type { TestRun } from '../src/types';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(readFileSync(resolve(__dirname, '..', 'package.json'), 'utf-8'));
@@ -69,7 +84,13 @@ program
   .option('--scenario-tags <tags>', 'Run only scenarios with these tags (comma-separated)')
   .option('--scenario-tag-mode <mode>', 'Scenario tag matching mode: any (default) or all', 'any')
   .option('--sla-config <path>', 'JSON file of SLA targets to evaluate after the run (SlaTarget[])')
-  .option('--fail-on-sla', 'Exit code 3 if any SLA violations are detected (requires --sla-config)')
+  .option('--fail-on-sla', 'Exit code 4 if any SLA violations are detected (requires --sla-config)')
+  .option('--compare-baseline <path>', `Compare run against a saved baseline. Use "latest-baseline" to pick the most recent one automatically, or pass a runId / direct path to a store.json.`)
+  .option('--fail-on-regression', 'Exit code 2 (regression only) or 3 (also test failures) when regressions are detected')
+  .option('--save-baseline', 'Save this run as a new baseline after completion (only when no failures or regressions)')
+  .option('--baseline-label <label>', 'Human-readable label for the saved baseline')
+  .option('--baselines-dir <dir>', `Directory for the baseline store (default: ${DEFAULT_BASELINES_DIR})`)
+  .option('--comparison-report <path>', 'Write the Markdown comparison report to a file')
   .option('-q, --quiet', 'Suppress progress output')
   .action(async (filePath: string, opts) => {
     try {
@@ -240,21 +261,108 @@ program
       }
 
       // SLA evaluation (SLA-E3)
+      let hasSlaFail = false;
       if (slaTargets) {
         const checks = evaluateCliSla(summary, results, slaTargets);
         printSlaReport(checks, opts.quiet as boolean);
         if (opts.failOnSla && slaOverallStatus(checks) === 'fail') {
-          process.exit(3);
+          hasSlaFail = true;
         }
       }
 
-      // Exit code logic
-      const passed = summary.failedRequests === 0 && summary.failedValidations === 0;
-      if (opts.failOnError && !passed) {
-        process.exit(1);
+      // ── Baseline comparison ────────────────────────────────────────────────
+      let hasRegression = false;
+
+      if (opts.compareBaseline) {
+        const baselinesDir: string = opts.baselinesDir ?? DEFAULT_BASELINES_DIR;
+        const sentinel: string = opts.compareBaseline;
+
+        // Resolve the baseline entry
+        let baselineEntry: CliBaseline | null = null;
+        if (sentinel === LATEST_BASELINE_SENTINEL) {
+          baselineEntry = findLatestBaseline(absPath, baselinesDir);
+          if (!baselineEntry && !opts.quiet) {
+            console.warn(`  ⚠  No baselines found for ${basename(absPath)} — skipping regression check`);
+          }
+        } else {
+          // Try by runId first, then treat as a direct store path
+          baselineEntry = findBaselineById(sentinel, baselinesDir);
+          if (!baselineEntry && !opts.quiet) {
+            console.warn(`  ⚠  Baseline not found: "${sentinel}" — skipping regression check`);
+          }
+        }
+
+        if (baselineEntry) {
+          // Reconstruct a minimal TestRun from stored summary for metric comparison
+          const baselineRun: TestRun = {
+            id: baselineEntry.runId,
+            timestamp: baselineEntry.savedAt,
+            config: {
+              scenarios: [],
+              concurrency: 1,
+              iterations: 1,
+              executionMode: 'pool' as const,
+            } as TestRun['config'],
+            summary: baselineEntry.summary,
+            results: [],
+          };
+
+          const currentRun: TestRun = {
+            id: crypto.randomUUID(),
+            timestamp: Date.now(),
+            config: config as TestRun['config'],
+            summary,
+            results,
+          };
+
+          const comparison = compareRuns(baselineRun, currentRun, DEFAULT_THRESHOLDS);
+
+          printComparisonSummary(comparison, {
+            quiet: opts.quiet as boolean,
+            baselineLabel: baselineEntry.label,
+          });
+
+          if (opts.comparisonReport) {
+            const md = buildComparisonMarkdown(comparison, baselineEntry.label);
+            writeFileSync(resolve(opts.comparisonReport as string), md);
+            if (!opts.quiet) {
+              console.log(`  Comparison:  ${opts.comparisonReport}`);
+            }
+          }
+
+          hasRegression = comparison.regressions.length > 0;
+        }
       }
-      if (opts.failThreshold != null && summary.errorRate > opts.failThreshold) {
+
+      // ── Save baseline ──────────────────────────────────────────────────────
+      const failedRequests = summary.failedRequests > 0 || summary.failedValidations > 0;
+      const overThreshold = opts.failThreshold != null && summary.errorRate > opts.failThreshold;
+      const testFail = (opts.failOnError && failedRequests) || overThreshold;
+
+      if (opts.saveBaseline && !testFail && !hasRegression) {
+        const baselinesDir: string = opts.baselinesDir ?? DEFAULT_BASELINES_DIR;
+        const entry: CliBaseline = {
+          runId: crypto.randomUUID(),
+          label: opts.baselineLabel as string | undefined,
+          savedAt: Date.now(),
+          projectPath: absPath,
+          summary,
+        };
+        addCliBaseline(entry, baselinesDir);
         if (!opts.quiet) {
+          console.log(`  Baseline saved${entry.label ? ` (${entry.label})` : ''}: ${entry.runId}`);
+        }
+      }
+
+      // ── Exit code (priority: SLA=4 > both=3 > regression=2 > failure=1) ───
+      if (hasSlaFail) {
+        process.exit(4);
+      }
+      if (opts.failOnRegression && hasRegression) {
+        process.exit(testFail ? 3 : 2);
+      }
+      if (testFail) {
+        if (!opts.quiet && overThreshold) {
           console.log(`  Error rate ${summary.errorRate}% exceeds threshold ${opts.failThreshold}%`);
         }
         process.exit(1);
@@ -263,7 +371,7 @@ program
       process.exit(0);
     } catch (err) {
       console.error(`\n  Error: ${toErrorMessage(err)}`);
-      process.exit(2);
+      process.exit(1);
     }
   });
 
