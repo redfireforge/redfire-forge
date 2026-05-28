@@ -14,6 +14,7 @@ import {
   createMultiApiLoadTest,
   createCatalogExportDemoTest,
   createTrashRecoveryDemo,
+  createApiHealthSlaTest,
 } from './presets';
 import {
   createUserLookupSweepTest,
@@ -358,5 +359,19 @@ export const testSampleCatalog: TestSampleEntry[] = [
     assertionTypes: ['status', 'regex'],
     factory: createSharedAuthUsersFeatureGroup,
     sharedDataSourceFactory: () => [createSharedAuthUsersDataSource()],
+  },
+  {
+    id: 'test-api-health-sla',
+    domain: 'tests',
+    name: 'API Health Check with SLA',
+    description: 'Three-scenario health check with SLA targets — demonstrates the SLA badge, Configure panel, and pass/fail results in Test Runner',
+    icon: '🎯',
+    category: 'smoke',
+    difficulty: 'easy',
+    tags: ['sla', 'health-check', 'smoke', 'jsonplaceholder', 'runner', 'training'],
+    liveApis: ['jsonplaceholder.typicode.com'],
+    scenarioCount: 3,
+    assertionTypes: ['status', 'arrayLength', 'regex'],
+    factory: createApiHealthSlaTest,
   },
 ];

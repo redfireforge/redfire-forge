@@ -16,6 +16,7 @@ import { loadWebhookScenarios, saveWebhookScenario, deleteWebhookScenario, fireW
 import { sampleWorkflowCatalog } from '../../data/galleries/workflows';
 import { toErrorMessage } from '../../shared/utils/helpers';
 import RunnerSlaOverridePanel from './components/RunnerSlaOverridePanel';
+import { buildSlaTargetScopeLabel } from '../results/components/slaEditorUtils';
 
 interface Props {
   workflows: Workflow[];
@@ -70,6 +71,15 @@ export default function WorkflowRunner({ workflows, folders, onComplete, initial
   const { isRunning, completed, total, liveSummary, profileMeta, timeSeries, error, execute, abort, finalRun, pendingRun, confirmSavePendingRun, dismissPendingRun, startExternalExecution } = useTestExecution();
 
   const selectedWorkflow = workflows.find(w => w.id === selectedWorkflowId) ?? null;
+
+  /** Maps workflow definition SLA targets to the shape RunnerSlaOverridePanel expects (with scopeLabel). */
+  const workflowDefinitionTargets = useMemo(
+    () => (selectedWorkflow?.slaTargets ?? []).map((t) => ({
+      ...t,
+      scopeLabel: buildSlaTargetScopeLabel(t),
+    })),
+    [selectedWorkflow?.slaTargets],
+  );
 
   // Reset session-scoped SLA overrides whenever the user switches to a different workflow
   // so stale overrides from the previous workflow are never merged into the new one.
@@ -498,6 +508,7 @@ export default function WorkflowRunner({ workflows, folders, onComplete, initial
             initialTargets={workflowSlaOverrides}
             onSave={setWorkflowSlaOverrides}
             definitionTargetCount={selectedWorkflow.slaTargets?.length ?? 0}
+            definitionTargets={workflowDefinitionTargets}
             scenarioNames={[]}
             disabled={isRunning}
           />

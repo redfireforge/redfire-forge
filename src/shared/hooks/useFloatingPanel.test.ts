@@ -104,7 +104,8 @@ describe('useFloatingPanel', () => {
     act(() => {
       window.dispatchEvent(new MouseEvent('mousemove', { clientX: -1000, clientY: -1000, bubbles: true }));
     });
-    expect(result.current.floatPos).toEqual({ x: 0, y: 0 });
+    // x clamps to sidebar minLeft (68 = 48px activity bar + 20px gutter), y clamps to 0
+    expect(result.current.floatPos).toEqual({ x: 68, y: 0 });
 
     act(() => {
       window.dispatchEvent(new MouseEvent('mousemove', { clientX: 2000, clientY: 2000, bubbles: true }));

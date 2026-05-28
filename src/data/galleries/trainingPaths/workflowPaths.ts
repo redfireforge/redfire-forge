@@ -503,6 +503,13 @@ export const workflowPaths: TrainingPath[] = [
             difficulty: 'easy',
             manualPath: 'tests/runner-comparison-easy.html',
           },
+          {
+            title: 'SLA Targets in Workflow Runner',
+            description: 'Load the SLA-Monitored Pipeline from the Gallery, configure SLA Override thresholds, run as a load test, inspect pass/fail results, export, run via CLI, and re-import results — end to end.',
+            difficulty: 'easy',
+            sampleId: 'sample-workflow-sla-monitor',
+            manualPath: 'workflow/runner/workflow-sla-end-to-end-easy.html',
+          },
         ],
       },
       {

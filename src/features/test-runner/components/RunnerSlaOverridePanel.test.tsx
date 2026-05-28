@@ -260,11 +260,11 @@ describe('RunnerSlaOverridePanel', () => {
       expect(container.querySelector('.sla-override-modal')).toBeTruthy();
     });
 
-    it('closes modal when close (×) button is clicked', () => {
+    it('closes modal when Cancel button is clicked', () => {
       render(<RunnerSlaOverridePanel {...defaultProps} />);
       fireEvent.click(screen.getByRole('button', { name: /Configure/ }));
       expect(screen.getByText(/Configure SLA thresholds/)).toBeTruthy();
-      fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+      fireEvent.click(screen.getByRole('button', { name: /Cancel/ }));
       expect(screen.queryByText(/Configure SLA thresholds/)).toBeNull();
     });
 
@@ -278,22 +278,16 @@ describe('RunnerSlaOverridePanel', () => {
       expect(screen.getByText(/Configure SLA thresholds/)).toBeTruthy();
     });
 
-    it('shows expand button in modal header', () => {
+    it('does not show expand button in modal header', () => {
       render(<RunnerSlaOverridePanel {...defaultProps} />);
       fireEvent.click(screen.getByRole('button', { name: /Configure/ }));
-      const expandBtn = screen.getByRole('button', { name: /Expand modal|Shrink modal/ });
-      expect(expandBtn).toBeTruthy();
+      expect(screen.queryByRole('button', { name: /Expand modal|Shrink modal/ })).toBeNull();
     });
 
-    it('toggles modal expand state when expand button is clicked', () => {
-      const { container } = render(<RunnerSlaOverridePanel {...defaultProps} />);
+    it('does not show close (×) button in modal header', () => {
+      render(<RunnerSlaOverridePanel {...defaultProps} />);
       fireEvent.click(screen.getByRole('button', { name: /Configure/ }));
-      const dialog = container.querySelector('.sla-override-modal') as HTMLElement;
-      expect(dialog.classList.contains('modal-expanded')).toBe(false);
-      fireEvent.click(screen.getByRole('button', { name: /Expand modal/ }));
-      expect(dialog.classList.contains('modal-expanded')).toBe(true);
-      fireEvent.click(screen.getByRole('button', { name: /Shrink modal/ }));
-      expect(dialog.classList.contains('modal-expanded')).toBe(false);
+      expect(screen.queryByRole('button', { name: 'Close' })).toBeNull();
     });
 
     it('does not render modal when closed', () => {
@@ -374,6 +368,65 @@ describe('RunnerSlaOverridePanel', () => {
       fireEvent.click(screen.getByRole('button', { name: /Override/ }));
       expect(screen.getByText('was 800')).toBeTruthy();
       expect(screen.getByText('was 600')).toBeTruthy();
+    });
+
+    it('cloned row from definition without warnAt shows no was-hint for warnAt', () => {
+      const defTargets = [
+        { ...makeTarget({ id: 'd1', value: 800 }), scopeLabel: 'Aggregate' },
+      ];
+      render(
+        <RunnerSlaOverridePanel {...defaultProps} definitionTargetCount={1} definitionTargets={defTargets} />
+      );
+      fireEvent.click(screen.getByRole('button', { name: /Configure/ }));
+      fireEvent.click(screen.getByRole('button', { name: /Override/ }));
+      expect(screen.getByText('was 800')).toBeTruthy();
+      // No warnAt in definition → only one "was X" hint
+      expect(screen.getAllByText(/^was \d+$/).length).toBe(1);
+    });
+
+    it('shows FG scope badge for featureGroupName target on cloned override row', () => {
+      const defTargets = [
+        { ...makeTarget({ id: 'd1' }), featureGroupName: 'Auth', scopeLabel: 'FG: Auth' },
+      ];
+      render(
+        <RunnerSlaOverridePanel {...defaultProps} definitionTargetCount={1} definitionTargets={defTargets} />
+      );
+      fireEvent.click(screen.getByRole('button', { name: /Configure/ }));
+      fireEvent.click(screen.getByRole('button', { name: /Override/ }));
+      // Cloned row shows scope badge with sla-scope-fg class
+      const { container } = render(
+        <RunnerSlaOverridePanel {...defaultProps} definitionTargetCount={1} definitionTargets={defTargets}
+          initialTargets={[{ ...makeTarget({ id: 'd1' }), featureGroupName: 'Auth' }]} />
+      );
+      fireEvent.click(container.querySelector('.sla-trigger-btn')!);
+      const fgBadge = container.querySelector('.sla-scope-fg');
+      expect(fgBadge).toBeTruthy();
+      expect(fgBadge!.textContent).toBe('FG: Auth');
+    });
+
+    it('uses featureGroupName in scope dropdown value for non-cloned override row', () => {
+      // 'Payments' must be in scenarioNames so it appears as an option in the dropdown
+      const targets = [{ ...makeTarget({ id: 'x', value: 100 }), featureGroupName: 'Payments' }];
+      render(
+        <RunnerSlaOverridePanel
+          {...defaultProps}
+          scenarioNames={['Login', 'Search', 'Payments']}
+          initialTargets={targets}
+        />
+      );
+      fireEvent.click(screen.getByRole('button', { name: /Configure/ }));
+      const scopeSelect = screen.getAllByRole('combobox')[0] as HTMLSelectElement;
+      expect(scopeSelect.value).toBe('Payments');
+    });
+
+    it('includes testNames in scope dropdown options', () => {
+      render(<RunnerSlaOverridePanel {...defaultProps} testNames={['GetUsers', 'CreatePost']} />);
+      fireEvent.click(screen.getByRole('button', { name: /Configure/ }));
+      fireEvent.click(screen.getByText('+ Add Target'));
+      const scopeSelect = screen.getAllByRole('combobox')[0] as HTMLSelectElement;
+      const optionValues = Array.from(scopeSelect.options).map(o => o.value);
+      expect(optionValues).toContain('GetUsers');
+      expect(optionValues).toContain('CreatePost');
     });
 
     it('disables Save when validation errors exist', () => {

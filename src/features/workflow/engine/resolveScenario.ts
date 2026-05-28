@@ -25,12 +25,12 @@ export function resolveScenario(scenario: Scenario, ctx: VariableContext): Scena
     bodyForm: scenario.bodyForm ? resolveKVs(scenario.bodyForm, r) : scenario.bodyForm,
     auth: {
       ...scenario.auth,
-      token: scenario.auth.token ? r(scenario.auth.token) : scenario.auth.token,
-      apiKeyValue: scenario.auth.apiKeyValue ? r(scenario.auth.apiKeyValue) : scenario.auth.apiKeyValue,
-      username: scenario.auth.username ? r(scenario.auth.username) : scenario.auth.username,
-      password: scenario.auth.password ? r(scenario.auth.password) : scenario.auth.password,
-      clientId: scenario.auth.clientId ? r(scenario.auth.clientId) : scenario.auth.clientId,
-      clientSecret: scenario.auth.clientSecret ? r(scenario.auth.clientSecret) : scenario.auth.clientSecret,
+      token: scenario.auth?.token ? r(scenario.auth.token) : scenario.auth?.token,
+      apiKeyValue: scenario.auth?.apiKeyValue ? r(scenario.auth.apiKeyValue) : scenario.auth?.apiKeyValue,
+      username: scenario.auth?.username ? r(scenario.auth.username) : scenario.auth?.username,
+      password: scenario.auth?.password ? r(scenario.auth.password) : scenario.auth?.password,
+      clientId: scenario.auth?.clientId ? r(scenario.auth.clientId) : scenario.auth?.clientId,
+      clientSecret: scenario.auth?.clientSecret ? r(scenario.auth.clientSecret) : scenario.auth?.clientSecret,
     },
   };
 }
