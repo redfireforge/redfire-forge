@@ -92,7 +92,15 @@ export async function loadRegressionThresholds(): Promise<RegressionThresholds> 
   try {
     const raw = await readKey(THRESHOLDS_KEY);
     if (!raw) return { ...DEFAULT_THRESHOLDS };
-    return { ...DEFAULT_THRESHOLDS, ...JSON.parse(raw) };
+    const parsed: Record<string, unknown> = JSON.parse(raw);
+    // Only accept finite non-negative numbers; fall back to default for anything else
+    const result = { ...DEFAULT_THRESHOLDS };
+    for (const [k, v] of Object.entries(parsed)) {
+      if (Object.prototype.hasOwnProperty.call(DEFAULT_THRESHOLDS, k) && typeof v === 'number' && isFinite(v) && v >= 0) {
+        (result as Record<string, number>)[k] = v;
+      }
+    }
+    return result;
   } catch {
     return { ...DEFAULT_THRESHOLDS };
   }
