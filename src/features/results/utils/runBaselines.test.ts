@@ -473,6 +473,20 @@ describe('computeScopedTrend', () => {
     expect(scoped.map((p) => p.runId)).toEqual(['r1', 'r3']);
   });
 
+  it('scope=env with runs whose envName is undefined does not cross-match different services', () => {
+    // Reference has svcName='svc-a' and envName=undefined (no env tagged).
+    // Should only match other runs with svcName='svc-a' AND envName=undefined.
+    // Should NOT match svc-b runs that also have no envName.
+    const runs = [
+      makeRunWithMeta('r3', 'svc-a', undefined, undefined, 3000), // ref (no env)
+      makeRunWithMeta('r2', 'svc-b', undefined, undefined, 2000), // different svc, no env — must NOT match
+      makeRunWithMeta('r1', 'svc-a', undefined, undefined, 1000), // same svc, no env — matches
+    ];
+    const ref = runs[0]; // svc-a, no envName
+    const scoped = computeScopedTrend(runs, ref, 'env', []);
+    expect(scoped.map((p) => p.runId)).toEqual(['r1', 'r3']); // r2 (svc-b) excluded
+  });
+
   it('scope=workflow filters to same workflowName', () => {
     const runs = [
       makeRunWithMeta('r3', undefined, undefined, 'checkout', 3000),

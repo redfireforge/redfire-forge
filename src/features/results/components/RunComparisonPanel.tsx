@@ -277,7 +277,8 @@ export function TrendChart({ runs, baselines, selectedRun }: TrendProps) {
   // supports the active scope (e.g., switching from a workflow run to a test run).
   useEffect(() => {
     if (!selectedRun) return;
-    if ((scope === 'service' || scope === 'env') && !selectedRun.svcName) setScope('all');
+    if (scope === 'service' && !selectedRun.svcName) setScope('all');
+    if (scope === 'env' && (!selectedRun.svcName || !selectedRun.envName)) setScope('all');
     if (scope === 'workflow' && !selectedRun.workflowName) setScope('all');
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedRun?.id]);
@@ -367,7 +368,7 @@ export function TrendChart({ runs, baselines, selectedRun }: TrendProps) {
           >
             <option value="all">All runs</option>
             <option value="service" disabled={!selectedRun?.svcName}>By service</option>
-            <option value="env" disabled={!selectedRun?.svcName}>By service + env</option>
+            <option value="env" disabled={!selectedRun?.svcName || !selectedRun?.envName}>By service + env</option>
             <option value="workflow" disabled={!selectedRun?.workflowName}>By workflow</option>
           </select>
 

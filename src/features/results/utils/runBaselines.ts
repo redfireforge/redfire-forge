@@ -431,9 +431,22 @@ export interface ScenarioTrendPoint {
 }
 
 /**
+ * Filter runs to those sharing the same suite context as the reference run.
+ * scope='all' returns the original array unchanged (no allocation).
+ */
+function filterByScope(runs: TestRun[], reference: TestRun, scope: TrendScope): TestRun[] {
+  if (scope === 'all') return runs;
+  return runs.filter((r) => {
+    if (scope === 'service') return r.svcName === reference.svcName;
+    if (scope === 'env') return r.envName === reference.envName && r.svcName === reference.svcName;
+    if (scope === 'workflow') return r.workflowName === reference.workflowName;
+    return true;
+  });
+}
+
+/**
  * Like computeTrend but limits runs to those that share the same suite context
  * as the reference run (determined by `scope`).
- * Gracefully includes all runs when the relevant field is absent on the reference.
  */
 export function computeScopedTrend(
   runs: TestRun[],
@@ -441,14 +454,7 @@ export function computeScopedTrend(
   scope: TrendScope,
   baselines: BaselineMark[],
 ): TrendPoint[] {
-  if (scope === 'all') return computeTrend(runs, baselines);
-  const filtered = runs.filter((r) => {
-    if (scope === 'service') return r.svcName === reference.svcName;
-    if (scope === 'env') return r.envName === reference.envName && r.svcName === reference.svcName;
-    if (scope === 'workflow') return r.workflowName === reference.workflowName;
-    return true;
-  });
-  return computeTrend(filtered, baselines);
+  return computeTrend(filterByScope(runs, reference, scope), baselines);
 }
 
 /**
@@ -465,12 +471,7 @@ export function computePerScenarioTrend(
   topN = 8,
 ): { seriesKeys: string[]; scenarioNames: string[]; data: Record<string, ScenarioTrendPoint[]> } {
   const baselineIds = new Set(baselines.map((b) => b.runId));
-  const filtered = scope === 'all' ? runs : runs.filter((r) => {
-    if (scope === 'service') return r.svcName === reference.svcName;
-    if (scope === 'env') return r.envName === reference.envName && r.svcName === reference.svcName;
-    if (scope === 'workflow') return r.workflowName === reference.workflowName;
-    return true;
-  });
+  const filtered = filterByScope(runs, reference, scope);
 
   // Count total requests per scenario name across all filtered runs
   const scenarioCounts = new Map<string, number>();
