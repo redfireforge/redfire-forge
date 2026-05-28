@@ -1,0 +1,601 @@
+{
+  "id": "3d4470a0-85fc-4884-abe3-38926fdc2e0b",
+  "timestamp": 1779919721609,
+  "config": {
+    "concurrency": 3,
+    "iterations": 1,
+    "scenarioWeights": [
+      {
+        "scenarioId": "e150b45c-acdc-4c40-9e7b-edf7efc290cf",
+        "weight": 1
+      },
+      {
+        "scenarioId": "a6af22fe-e9ae-488b-bab1-29594d404a50",
+        "weight": 1
+      },
+      {
+        "scenarioId": "ba9738b0-184f-4d12-9aaa-40da70e2d6c8",
+        "weight": 1
+      },
+      {
+        "scenarioId": "5568cee5-056e-457a-9c56-cac624d52673",
+        "weight": 1
+      },
+      {
+        "scenarioId": "59bd83ba-4d02-45b9-a17b-c06a43411182",
+        "weight": 1
+      },
+      {
+        "scenarioId": "208c10cf-68e9-44fe-b031-f536b6a91183",
+        "weight": 1
+      },
+      {
+        "scenarioId": "155c9049-5eb4-4ed0-85e8-46e16497b483",
+        "weight": 1
+      },
+      {
+        "scenarioId": "f515ae23-f918-487b-a210-4b7b591a8cb7",
+        "weight": 1
+      }
+    ],
+    "executionMode": "sequential",
+    "timeoutSec": 30,
+    "retryCount": 0,
+    "retryDelayMs": 1000,
+    "errorPolicy": "continue",
+    "maxErrors": 10,
+    "maxErrorRate": 50,
+    "slaTargets": [
+      {
+        "id": "sla-fg-p95",
+        "metric": "p95",
+        "operator": "lte",
+        "value": 2000,
+        "label": "Feature Group P95 SLA",
+        "featureGroupName": "SLA Test Suite"
+      },
+      {
+        "id": "create-post-p95",
+        "metric": "p95",
+        "operator": "lte",
+        "value": 1000,
+        "label": "Create Post P95",
+        "scenarioName": "Create Post"
+      },
+      {
+        "id": "create-post-tps",
+        "metric": "tps",
+        "operator": "gte",
+        "value": 10,
+        "label": "Create Post TPS",
+        "scenarioName": "Create Post"
+      },
+      {
+        "id": "create-post-error-rate",
+        "metric": "errorRate",
+        "operator": "lte",
+        "value": 2,
+        "label": "Create Post Error Rate",
+        "scenarioName": "Create Post"
+      },
+      {
+        "id": "get-posts-p95",
+        "metric": "p95",
+        "operator": "lte",
+        "value": 1500,
+        "label": "Posts P95",
+        "scenarioName": "Get Posts"
+      },
+      {
+        "id": "get-users-p95",
+        "metric": "p95",
+        "operator": "lte",
+        "value": 500,
+        "label": "Users P95",
+        "scenarioName": "Get Users"
+      },
+      {
+        "id": "get-users-error-rate",
+        "metric": "errorRate",
+        "operator": "lte",
+        "value": 1,
+        "label": "Users Error Rate",
+        "scenarioName": "Get Users"
+      },
+      {
+        "id": "update-post-avg",
+        "metric": "avg",
+        "operator": "lte",
+        "value": 600,
+        "label": "Update Post Avg Latency",
+        "scenarioName": "Update Post"
+      }
+    ]
+  },
+  "summary": {
+    "tps": 1.04,
+    "avgResponseTime": 959.32,
+    "minResponseTime": 290.94,
+    "maxResponseTime": 3523.46,
+    "p50ResponseTime": 352.53,
+    "p95ResponseTime": 3523.46,
+    "p99ResponseTime": 3523.46,
+    "p999ResponseTime": 3523.46,
+    "errorRate": 0,
+    "errorsByStatus": {},
+    "totalRequests": 8,
+    "successfulRequests": 8,
+    "failedRequests": 0,
+    "failedValidations": 0,
+    "totalDurationMs": 7676,
+    "cancelledRequests": 0
+  },
+  "results": [
+    {
+      "id": "r-1",
+      "scenarioId": "155c9049-5eb4-4ed0-85e8-46e16497b483",
+      "scenarioName": "Get Todos",
+      "featureGroupName": "SLA Test Suite",
+      "groupName": "No SLA Baseline",
+      "url": "https://jsonplaceholder.typicode.com/todos",
+      "method": "GET",
+      "httpStatus": 200,
+      "responseTimeMs": 2179.39,
+      "responseBody": "[\n  {\n    \"userId\": 1,\n    \"id\": 1,\n    \"title\": \"delectus aut autem\",\n    \"completed\": false\n  },\n  {\n    \"userId\": 1,\n    \"id\": 2,\n    \"title\": \"quis ut nam facilis et officia qui\",\n    \"completed\": false\n  },\n  {\n    \"userId\": 1,\n    \"id\": 3,\n    \"title\": \"fugiat veniam minus\",\n    \"completed\": false\n  },\n  {\n    \"userId\": 1,\n    \"id\": 4,\n    \"title\": \"et porro tempora\",\n    \"completed\": true\n  },\n  {\n    \"userId\": 1,\n    \"id\": 5,\n    \"title\": \"laboriosam mollitia et enim quasi adipisci quia provident illum\",\n    \"completed\": false\n  },\n  {\n    \"userId\": 1,\n    \"id\": 6,\n    \"title\": \"qui ullam ratione quibusdam voluptatem quia omnis\",\n    \"completed\": false\n  },\n  {\n    \"userId\": 1,\n    \"id\": 7,\n    \"title\": \"illo expedita consequatur quia in\",\n    \"completed\": false\n  },\n  {\n    \"userId\": 1,\n    \"id\": 8,\n    \"title\": \"quo adipisci enim quam ut ab\",\n    \"completed\": true\n  },\n  {\n    \"userId\": 1,\n    \"id\": 9,\n    \"title\": \"molestiae perspiciatis ipsa\",\n    \"completed\": false\n  },\n  {\n    \"userId\": 1,\n    \"id\": 10,\n    \"title\": \"illo est ratione doloremque quia maiores aut\",\n    \"completed\": true\n  },\n  {\n    \"userId\": 1,\n    \"id\": 11,\n    \"title\": \"vero rerum temporibus dolor\",\n    \"completed\": true\n  },\n  {\n    \"userId\": 1,\n    \"id\": 12,\n    \"title\": \"ipsa repellendus fugit nisi\",\n    \"completed\": true\n  },\n  {\n    \"userId\": 1,\n    \"id\": 13,\n    \"title\": \"et doloremque nulla\",\n    \"completed\": false\n  },\n  {\n    \"userId\": 1,\n    \"id\": 14,\n    \"title\": \"repellendus sunt dolores architecto voluptatum\",\n    \"completed\": true\n  },\n  {\n    \"userId\": 1,\n    \"id\": 15,\n    \"title\": \"ab voluptatum amet voluptas\",\n    \"completed\": true\n  },\n  {\n    \"userId\": 1,\n    \"id\": 16,\n    \"title\": \"accusamus eos facilis sint et aut voluptatem\",\n    \"completed\": true\n  },\n  {\n    \"userId\": 1,\n    \"id\": 17,\n    \"title\": \"quo laboriosam deleniti aut qui\",\n    \"completed\": true\n  },\n  {\n    \"userId\": 1,\n    \"id\": 18,\n    \"title\": \"dolorum est consequatur ea mollitia in culpa\",\n    \"com",
+      "responseHeaders": {
+        "accept-ranges": "bytes",
+        "access-control-allow-credentials": "true",
+        "age": "21693",
+        "alt-svc": "h3=\":443\"; ma=86400",
+        "cache-control": "max-age=43200",
+        "cf-cache-status": "HIT",
+        "cf-ray": "a02856dce9b20008-ORD",
+        "connection": "keep-alive",
+        "content-encoding": "gzip",
+        "content-length": "4005",
+        "content-type": "application/json; charset=utf-8",
+        "date": "Wed, 27 May 2026 22:08:37 GMT",
+        "etag": "W/\"5ef7-4Ad6/n39KWY9q6Ykm/ULNQ2F5IM\"",
+        "expires": "-1",
+        "nel": "{\"report_to\":\"heroku-nel\",\"response_headers\":[\"Via\"],\"max_age\":3600,\"success_fraction\":0.01,\"failure_fraction\":0.1}",
+        "pragma": "no-cache",
+        "report-to": "{\"group\":\"heroku-nel\",\"endpoints\":[{\"url\":\"https://nel.heroku.com/reports?s=joPIUwVqXW5P%2Fv53oslX%2FI0pUaJ1qJE1Ak%2Bsq7YhpwA%3D\\u0026sid=e11707d5-02a7-43ef-b45e-2cf4d2036f7d\\u0026ts=1778086718\"}],\"max_age\":3600}",
+        "reporting-endpoints": "heroku-nel=\"https://nel.heroku.com/reports?s=joPIUwVqXW5P%2Fv53oslX%2FI0pUaJ1qJE1Ak%2Bsq7YhpwA%3D&sid=e11707d5-02a7-43ef-b45e-2cf4d2036f7d&ts=1778086718\"",
+        "server": "cloudflare",
+        "vary": "Origin, Accept-Encoding",
+        "via": "2.0 heroku-router",
+        "x-content-type-options": "nosniff",
+        "x-powered-by": "Express",
+        "x-ratelimit-limit": "1000",
+        "x-ratelimit-remaining": "999",
+        "x-ratelimit-reset": "1778086736"
+      },
+      "timestamp": 1779919716110,
+      "passed": true,
+      "validationMode": "none",
+      "failureDetails": [],
+      "timing": {
+        "dnsLookup": 0,
+        "tcpConnect": 0,
+        "tlsHandshake": 0,
+        "ttfb": 1986.81,
+        "download": 145.93,
+        "total": 2132.74
+      },
+      "requestLog": {
+        "headers": {}
+      },
+      "scenarioTags": [
+        "smoke"
+      ]
+    },
+    {
+      "id": "r-2",
+      "scenarioId": "5568cee5-056e-457a-9c56-cac624d52673",
+      "scenarioName": "Create Post",
+      "featureGroupName": "SLA Test Suite",
+      "groupName": "CRUD Operations",
+      "url": "https://jsonplaceholder.typicode.com/posts",
+      "method": "POST",
+      "httpStatus": 201,
+      "responseTimeMs": 314.16,
+      "responseBody": "{\n  \"title\": \"perf test\",\n  \"body\": \"testing\",\n  \"userId\": 1,\n  \"id\": 101\n}",
+      "responseHeaders": {
+        "access-control-allow-credentials": "true",
+        "access-control-expose-headers": "Location",
+        "alt-svc": "h3=\":443\"; ma=86400",
+        "cache-control": "no-cache",
+        "cf-cache-status": "DYNAMIC",
+        "cf-ray": "a02856e00b800008-ORD",
+        "connection": "keep-alive",
+        "content-length": "75",
+        "content-type": "application/json; charset=utf-8",
+        "date": "Wed, 27 May 2026 22:08:38 GMT",
+        "etag": "W/\"4b-XlzNHg+cbae1GU7TgTF2/0aF8v8\"",
+        "expires": "-1",
+        "location": "https://jsonplaceholder.typicode.com/posts/101",
+        "nel": "{\"report_to\":\"heroku-nel\",\"response_headers\":[\"Via\"],\"max_age\":3600,\"success_fraction\":0.01,\"failure_fraction\":0.1}",
+        "pragma": "no-cache",
+        "report-to": "{\"group\":\"heroku-nel\",\"endpoints\":[{\"url\":\"https://nel.heroku.com/reports?s=rL7x4u8DXHCV8T6pmJWwrIIp%2B6rX2Ha7t862PXwIQg0%3D\\u0026sid=e11707d5-02a7-43ef-b45e-2cf4d2036f7d\\u0026ts=1779919718\"}],\"max_age\":3600}",
+        "reporting-endpoints": "heroku-nel=\"https://nel.heroku.com/reports?s=rL7x4u8DXHCV8T6pmJWwrIIp%2B6rX2Ha7t862PXwIQg0%3D&sid=e11707d5-02a7-43ef-b45e-2cf4d2036f7d&ts=1779919718\"",
+        "server": "cloudflare",
+        "vary": "Origin, X-HTTP-Method-Override, Accept-Encoding",
+        "via": "2.0 heroku-router",
+        "x-content-type-options": "nosniff",
+        "x-powered-by": "Express",
+        "x-ratelimit-limit": "1000",
+        "x-ratelimit-remaining": "999",
+        "x-ratelimit-reset": "1779919771"
+      },
+      "timestamp": 1779919716424,
+      "passed": true,
+      "validationMode": "none",
+      "failureDetails": [],
+      "timing": {
+        "dnsLookup": 0,
+        "tcpConnect": 0,
+        "tlsHandshake": 0,
+        "ttfb": 313.36,
+        "download": 0.34,
+        "total": 313.7
+      },
+      "requestLog": {
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": "{\"title\":\"perf test\",\"body\":\"testing\",\"userId\":1}"
+      },
+      "scenarioTags": [
+        "sla"
+      ]
+    },
+    {
+      "id": "r-3",
+      "scenarioId": "ba9738b0-184f-4d12-9aaa-40da70e2d6c8",
+      "scenarioName": "Get Comments",
+      "featureGroupName": "SLA Test Suite",
+      "groupName": "API Health Checks",
+      "url": "https://jsonplaceholder.typicode.com/comments",
+      "method": "GET",
+      "httpStatus": 200,
+      "responseTimeMs": 3523.46,
+      "responseBody": "[\n  {\n    \"postId\": 1,\n    \"id\": 1,\n    \"name\": \"id labore ex et quam laborum\",\n    \"email\": \"Eliseo@gardner.biz\",\n    \"body\": \"laudantium enim quasi est quidem magnam voluptate ipsam eos\\ntempora quo necessitatibus\\ndolor quam autem quasi\\nreiciendis et nam sapiente accusantium\"\n  },\n  {\n    \"postId\": 1,\n    \"id\": 2,\n    \"name\": \"quo vero reiciendis velit similique earum\",\n    \"email\": \"Jayne_Kuhic@sydney.com\",\n    \"body\": \"est natus enim nihil est dolore omnis voluptatem numquam\\net omnis occaecati quod ullam at\\nvoluptatem error expedita pariatur\\nnihil sint nostrum voluptatem reiciendis et\"\n  },\n  {\n    \"postId\": 1,\n    \"id\": 3,\n    \"name\": \"odio adipisci rerum aut animi\",\n    \"email\": \"Nikita@garfield.biz\",\n    \"body\": \"quia molestiae reprehenderit quasi aspernatur\\naut expedita occaecati aliquam eveniet laudantium\\nomnis quibusdam delectus saepe quia accusamus maiores nam est\\ncum et ducimus et vero voluptates excepturi deleniti ratione\"\n  },\n  {\n    \"postId\": 1,\n    \"id\": 4,\n    \"name\": \"alias odio sit\",\n    \"email\": \"Lew@alysha.tv\",\n    \"body\": \"non et atque\\noccaecati deserunt quas accusantium unde odit nobis qui voluptatem\\nquia voluptas consequuntur itaque dolor\\net qui rerum deleniti ut occaecati\"\n  },\n  {\n    \"postId\": 1,\n    \"id\": 5,\n    \"name\": \"vero eaque aliquid doloribus et culpa\",\n    \"email\": \"Hayden@althea.biz\",\n    \"body\": \"harum non quasi et ratione\\ntempore iure ex voluptates in ratione\\nharum architecto fugit inventore cupiditate\\nvoluptates magni quo et\"\n  },\n  {\n    \"postId\": 2,\n    \"id\": 6,\n    \"name\": \"et fugit eligendi deleniti quidem qui sint nihil autem\",\n    \"email\": \"Presley.Mueller@myrl.com\",\n    \"body\": \"doloribus at sed quis culpa deserunt consectetur qui praesentium\\naccusamus fugiat dicta\\nvoluptatem rerum ut voluptate autem\\nvoluptatem repellendus aspernatur dolorem in\"\n  },\n  {\n    \"postId\": 2,\n    \"id\": 7,\n    \"name\": \"repellat consequatur praesentium vel minus molestias voluptatum\",\n    \"email\": \"Dallas@ole.me\",\n    \"body\":",
+      "responseHeaders": {
+        "access-control-allow-credentials": "true",
+        "age": "26896",
+        "alt-svc": "h3=\":443\"; ma=86400",
+        "cache-control": "max-age=43200",
+        "cf-cache-status": "HIT",
+        "cf-ray": "a02856ed59b16b84-ORD",
+        "connection": "keep-alive",
+        "content-encoding": "gzip",
+        "content-type": "application/json; charset=utf-8",
+        "date": "Wed, 27 May 2026 22:08:40 GMT",
+        "etag": "W/\"26831-8L/dCHuriTuxj+1OR5biYTSa5Yo\"",
+        "expires": "-1",
+        "nel": "{\"report_to\":\"heroku-nel\",\"response_headers\":[\"Via\"],\"max_age\":3600,\"success_fraction\":0.01,\"failure_fraction\":0.1}",
+        "pragma": "no-cache",
+        "report-to": "{\"group\":\"heroku-nel\",\"endpoints\":[{\"url\":\"https://nel.heroku.com/reports?s=oHqSlcyyUkX%2F0xQhd0YCpv9u9mFWTGl%2BJXxQ7KTEigo%3D\\u0026sid=e11707d5-02a7-43ef-b45e-2cf4d2036f7d\\u0026ts=1774032939\"}],\"max_age\":3600}",
+        "reporting-endpoints": "heroku-nel=\"https://nel.heroku.com/reports?s=oHqSlcyyUkX%2F0xQhd0YCpv9u9mFWTGl%2BJXxQ7KTEigo%3D&sid=e11707d5-02a7-43ef-b45e-2cf4d2036f7d&ts=1774032939\"",
+        "server": "cloudflare",
+        "transfer-encoding": "chunked",
+        "vary": "Origin, Accept-Encoding",
+        "via": "2.0 heroku-router",
+        "x-content-type-options": "nosniff",
+        "x-powered-by": "Express",
+        "x-ratelimit-limit": "1000",
+        "x-ratelimit-remaining": "999",
+        "x-ratelimit-reset": "1774032975"
+      },
+      "timestamp": 1779919719948,
+      "passed": true,
+      "validationMode": "none",
+      "failureDetails": [],
+      "timing": {
+        "dnsLookup": 0,
+        "tcpConnect": 0,
+        "tlsHandshake": 0,
+        "ttfb": 2015.36,
+        "download": 1507.85,
+        "total": 3523.21
+      },
+      "requestLog": {
+        "headers": {}
+      },
+      "scenarioTags": [
+        "sla"
+      ]
+    },
+    {
+      "id": "r-4",
+      "scenarioId": "208c10cf-68e9-44fe-b031-f536b6a91183",
+      "scenarioName": "Get Albums",
+      "featureGroupName": "SLA Test Suite",
+      "groupName": "No SLA Baseline",
+      "url": "https://jsonplaceholder.typicode.com/albums",
+      "method": "GET",
+      "httpStatus": 200,
+      "responseTimeMs": 302.92,
+      "responseBody": "[\n  {\n    \"userId\": 1,\n    \"id\": 1,\n    \"title\": \"quidem molestiae enim\"\n  },\n  {\n    \"userId\": 1,\n    \"id\": 2,\n    \"title\": \"sunt qui excepturi placeat culpa\"\n  },\n  {\n    \"userId\": 1,\n    \"id\": 3,\n    \"title\": \"omnis laborum odio\"\n  },\n  {\n    \"userId\": 1,\n    \"id\": 4,\n    \"title\": \"non esse culpa molestiae omnis sed optio\"\n  },\n  {\n    \"userId\": 1,\n    \"id\": 5,\n    \"title\": \"eaque aut omnis a\"\n  },\n  {\n    \"userId\": 1,\n    \"id\": 6,\n    \"title\": \"natus impedit quibusdam illo est\"\n  },\n  {\n    \"userId\": 1,\n    \"id\": 7,\n    \"title\": \"quibusdam autem aliquid et et quia\"\n  },\n  {\n    \"userId\": 1,\n    \"id\": 8,\n    \"title\": \"qui fuga est a eum\"\n  },\n  {\n    \"userId\": 1,\n    \"id\": 9,\n    \"title\": \"saepe unde necessitatibus rem\"\n  },\n  {\n    \"userId\": 1,\n    \"id\": 10,\n    \"title\": \"distinctio laborum qui\"\n  },\n  {\n    \"userId\": 2,\n    \"id\": 11,\n    \"title\": \"quam nostrum impedit mollitia quod et dolor\"\n  },\n  {\n    \"userId\": 2,\n    \"id\": 12,\n    \"title\": \"consequatur autem doloribus natus consectetur\"\n  },\n  {\n    \"userId\": 2,\n    \"id\": 13,\n    \"title\": \"ab rerum non rerum consequatur ut ea unde\"\n  },\n  {\n    \"userId\": 2,\n    \"id\": 14,\n    \"title\": \"ducimus molestias eos animi atque nihil\"\n  },\n  {\n    \"userId\": 2,\n    \"id\": 15,\n    \"title\": \"ut pariatur rerum ipsum natus repellendus praesentium\"\n  },\n  {\n    \"userId\": 2,\n    \"id\": 16,\n    \"title\": \"voluptatem aut maxime inventore autem magnam atque repellat\"\n  },\n  {\n    \"userId\": 2,\n    \"id\": 17,\n    \"title\": \"aut minima voluptatem ut velit\"\n  },\n  {\n    \"userId\": 2,\n    \"id\": 18,\n    \"title\": \"nesciunt quia et doloremque\"\n  },\n  {\n    \"userId\": 2,\n    \"id\": 19,\n    \"title\": \"velit pariatur quaerat similique libero omnis quia\"\n  },\n  {\n    \"userId\": 2,\n    \"id\": 20,\n    \"title\": \"voluptas rerum iure ut enim\"\n  },\n  {\n    \"userId\": 3,\n    \"id\": 21,\n    \"title\": \"repudiandae voluptatem optio est consequatur rem in temporibus et\"\n  },\n  {\n    \"userId\": 3,\n    \"id\": 22,\n    \"title\": \"et rem non provident vel ut\"\n  },\n  {\n  ",
+      "responseHeaders": {
+        "accept-ranges": "bytes",
+        "access-control-allow-credentials": "true",
+        "age": "11618",
+        "alt-svc": "h3=\":443\"; ma=86400",
+        "cache-control": "max-age=43200",
+        "cf-cache-status": "HIT",
+        "cf-ray": "a02856f80bb40008-ORD",
+        "connection": "keep-alive",
+        "content-encoding": "gzip",
+        "content-length": "2051",
+        "content-type": "application/json; charset=utf-8",
+        "date": "Wed, 27 May 2026 22:08:42 GMT",
+        "etag": "W/\"2475-YUx9CiwTgoHXeL4210gtmqFIZNA\"",
+        "expires": "-1",
+        "nel": "{\"report_to\":\"heroku-nel\",\"response_headers\":[\"Via\"],\"max_age\":3600,\"success_fraction\":0.01,\"failure_fraction\":0.1}",
+        "pragma": "no-cache",
+        "report-to": "{\"group\":\"heroku-nel\",\"endpoints\":[{\"url\":\"https://nel.heroku.com/reports?s=uW7aPYDUI1LzUbOmsHxnixPPknsprvmDvO%2F7Fl%2BaNMU%3D\\u0026sid=e11707d5-02a7-43ef-b45e-2cf4d2036f7d\\u0026ts=1774032439\"}],\"max_age\":3600}",
+        "reporting-endpoints": "heroku-nel=\"https://nel.heroku.com/reports?s=uW7aPYDUI1LzUbOmsHxnixPPknsprvmDvO%2F7Fl%2BaNMU%3D&sid=e11707d5-02a7-43ef-b45e-2cf4d2036f7d&ts=1774032439\"",
+        "server": "cloudflare",
+        "vary": "Origin, Accept-Encoding",
+        "via": "2.0 heroku-router",
+        "x-content-type-options": "nosniff",
+        "x-powered-by": "Express",
+        "x-ratelimit-limit": "1000",
+        "x-ratelimit-remaining": "999",
+        "x-ratelimit-reset": "1774032495"
+      },
+      "timestamp": 1779919720251,
+      "passed": true,
+      "validationMode": "none",
+      "failureDetails": [],
+      "timing": {
+        "dnsLookup": 0,
+        "tcpConnect": 0,
+        "tlsHandshake": 0,
+        "ttfb": 301.82,
+        "download": 0.97,
+        "total": 302.79
+      },
+      "requestLog": {
+        "headers": {}
+      },
+      "scenarioTags": [
+        "smoke"
+      ]
+    },
+    {
+      "id": "r-5",
+      "scenarioId": "59bd83ba-4d02-45b9-a17b-c06a43411182",
+      "scenarioName": "Update Post",
+      "featureGroupName": "SLA Test Suite",
+      "groupName": "CRUD Operations",
+      "url": "https://jsonplaceholder.typicode.com/posts/1",
+      "method": "PUT",
+      "httpStatus": 200,
+      "responseTimeMs": 338.73,
+      "responseBody": "{\n  \"id\": 1,\n  \"title\": \"updated\",\n  \"body\": \"updated body\",\n  \"userId\": 1\n}",
+      "responseHeaders": {
+        "access-control-allow-credentials": "true",
+        "alt-svc": "h3=\":443\"; ma=86400",
+        "cache-control": "no-cache",
+        "cf-cache-status": "DYNAMIC",
+        "cf-ray": "a02856fa2a110008-ORD",
+        "connection": "keep-alive",
+        "content-encoding": "br",
+        "content-type": "application/json; charset=utf-8",
+        "date": "Wed, 27 May 2026 22:08:42 GMT",
+        "etag": "W/\"4c-zG2Tl4P6vCeF6jn/0pH2EV0ZGRk\"",
+        "expires": "-1",
+        "nel": "{\"report_to\":\"heroku-nel\",\"response_headers\":[\"Via\"],\"max_age\":3600,\"success_fraction\":0.01,\"failure_fraction\":0.1}",
+        "pragma": "no-cache",
+        "report-to": "{\"group\":\"heroku-nel\",\"endpoints\":[{\"url\":\"https://nel.heroku.com/reports?s=0cxUA110RkF%2FjvsA1QXlR%2FHehp63tNgsBFWwN8dVrdc%3D\\u0026sid=e11707d5-02a7-43ef-b45e-2cf4d2036f7d\\u0026ts=1779919722\"}],\"max_age\":3600}",
+        "reporting-endpoints": "heroku-nel=\"https://nel.heroku.com/reports?s=0cxUA110RkF%2FjvsA1QXlR%2FHehp63tNgsBFWwN8dVrdc%3D&sid=e11707d5-02a7-43ef-b45e-2cf4d2036f7d&ts=1779919722\"",
+        "server": "cloudflare",
+        "transfer-encoding": "chunked",
+        "vary": "Origin, Accept-Encoding",
+        "via": "2.0 heroku-router",
+        "x-content-type-options": "nosniff",
+        "x-powered-by": "Express",
+        "x-ratelimit-limit": "1000",
+        "x-ratelimit-remaining": "998",
+        "x-ratelimit-reset": "1779919771"
+      },
+      "timestamp": 1779919720590,
+      "passed": true,
+      "validationMode": "none",
+      "failureDetails": [],
+      "timing": {
+        "dnsLookup": 0,
+        "tcpConnect": 0,
+        "tlsHandshake": 0,
+        "ttfb": 337.07,
+        "download": 1.52,
+        "total": 338.59
+      },
+      "requestLog": {
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": "{\"id\":1,\"title\":\"updated\",\"body\":\"updated body\",\"userId\":1}"
+      },
+      "scenarioTags": [
+        "sla"
+      ]
+    },
+    {
+      "id": "r-6",
+      "scenarioId": "a6af22fe-e9ae-488b-bab1-29594d404a50",
+      "scenarioName": "Get Posts",
+      "featureGroupName": "SLA Test Suite",
+      "groupName": "API Health Checks",
+      "url": "https://jsonplaceholder.typicode.com/posts",
+      "method": "GET",
+      "httpStatus": 200,
+      "responseTimeMs": 290.94,
+      "responseBody": "[\n  {\n    \"userId\": 1,\n    \"id\": 1,\n    \"title\": \"sunt aut facere repellat provident occaecati excepturi optio reprehenderit\",\n    \"body\": \"quia et suscipit\\nsuscipit recusandae consequuntur expedita et cum\\nreprehenderit molestiae ut ut quas totam\\nnostrum rerum est autem sunt rem eveniet architecto\"\n  },\n  {\n    \"userId\": 1,\n    \"id\": 2,\n    \"title\": \"qui est esse\",\n    \"body\": \"est rerum tempore vitae\\nsequi sint nihil reprehenderit dolor beatae ea dolores neque\\nfugiat blanditiis voluptate porro vel nihil molestiae ut reiciendis\\nqui aperiam non debitis possimus qui neque nisi nulla\"\n  },\n  {\n    \"userId\": 1,\n    \"id\": 3,\n    \"title\": \"ea molestias quasi exercitationem repellat qui ipsa sit aut\",\n    \"body\": \"et iusto sed quo iure\\nvoluptatem occaecati omnis eligendi aut ad\\nvoluptatem doloribus vel accusantium quis pariatur\\nmolestiae porro eius odio et labore et velit aut\"\n  },\n  {\n    \"userId\": 1,\n    \"id\": 4,\n    \"title\": \"eum et est occaecati\",\n    \"body\": \"ullam et saepe reiciendis voluptatem adipisci\\nsit amet autem assumenda provident rerum culpa\\nquis hic commodi nesciunt rem tenetur doloremque ipsam iure\\nquis sunt voluptatem rerum illo velit\"\n  },\n  {\n    \"userId\": 1,\n    \"id\": 5,\n    \"title\": \"nesciunt quas odio\",\n    \"body\": \"repudiandae veniam quaerat sunt sed\\nalias aut fugiat sit autem sed est\\nvoluptatem omnis possimus esse voluptatibus quis\\nest aut tenetur dolor neque\"\n  },\n  {\n    \"userId\": 1,\n    \"id\": 6,\n    \"title\": \"dolorem eum magni eos aperiam quia\",\n    \"body\": \"ut aspernatur corporis harum nihil quis provident sequi\\nmollitia nobis aliquid molestiae\\nperspiciatis et ea nemo ab reprehenderit accusantium quas\\nvoluptate dolores velit et doloremque molestiae\"\n  },\n  {\n    \"userId\": 1,\n    \"id\": 7,\n    \"title\": \"magnam facilis autem\",\n    \"body\": \"dolore placeat quibusdam ea quo vitae\\nmagni quis enim qui quis quo nemo aut saepe\\nquidem repellat excepturi ut quia\\nsunt ut sequi eos ea sed quas\"\n  },\n  {\n    \"userId\": 1,\n    \"id\": 8,\n    \"",
+      "responseHeaders": {
+        "access-control-allow-credentials": "true",
+        "age": "13818",
+        "alt-svc": "h3=\":443\"; ma=86400",
+        "cache-control": "max-age=43200",
+        "cf-cache-status": "HIT",
+        "cf-ray": "a02856fc2fe80008-ORD",
+        "connection": "keep-alive",
+        "content-encoding": "gzip",
+        "content-type": "application/json; charset=utf-8",
+        "date": "Wed, 27 May 2026 22:08:42 GMT",
+        "etag": "W/\"6b80-Ybsq/K6GwwqrYkAsFxqDXGC7DoM\"",
+        "expires": "-1",
+        "nel": "{\"report_to\":\"heroku-nel\",\"response_headers\":[\"Via\"],\"max_age\":3600,\"success_fraction\":0.01,\"failure_fraction\":0.1}",
+        "pragma": "no-cache",
+        "report-to": "{\"group\":\"heroku-nel\",\"endpoints\":[{\"url\":\"https://nel.heroku.com/reports?s=G6xcUQj595rbUgqxM1NAeSk%2Fnkvgt48Dbgz5XCn4b7Q%3D\\u0026sid=e11707d5-02a7-43ef-b45e-2cf4d2036f7d\\u0026ts=1772188049\"}],\"max_age\":3600}",
+        "reporting-endpoints": "heroku-nel=\"https://nel.heroku.com/reports?s=G6xcUQj595rbUgqxM1NAeSk%2Fnkvgt48Dbgz5XCn4b7Q%3D&sid=e11707d5-02a7-43ef-b45e-2cf4d2036f7d&ts=1772188049\"",
+        "server": "cloudflare",
+        "transfer-encoding": "chunked",
+        "vary": "Origin, Accept-Encoding",
+        "via": "2.0 heroku-router",
+        "x-content-type-options": "nosniff",
+        "x-powered-by": "Express",
+        "x-ratelimit-limit": "1000",
+        "x-ratelimit-remaining": "998",
+        "x-ratelimit-reset": "1772188101"
+      },
+      "timestamp": 1779919720881,
+      "passed": true,
+      "validationMode": "none",
+      "failureDetails": [],
+      "timing": {
+        "dnsLookup": 0,
+        "tcpConnect": 0,
+        "tlsHandshake": 0,
+        "ttfb": 287.99,
+        "download": 2.82,
+        "total": 290.81
+      },
+      "requestLog": {
+        "headers": {}
+      },
+      "scenarioTags": [
+        "smoke",
+        "sla"
+      ]
+    },
+    {
+      "id": "r-7",
+      "scenarioId": "e150b45c-acdc-4c40-9e7b-edf7efc290cf",
+      "scenarioName": "Get Users",
+      "featureGroupName": "SLA Test Suite",
+      "groupName": "API Health Checks",
+      "url": "https://jsonplaceholder.typicode.com/users",
+      "method": "GET",
+      "httpStatus": 200,
+      "responseTimeMs": 372.45,
+      "responseBody": "[\n  {\n    \"id\": 1,\n    \"name\": \"Leanne Graham\",\n    \"username\": \"Bret\",\n    \"email\": \"Sincere@april.biz\",\n    \"address\": {\n      \"street\": \"Kulas Light\",\n      \"suite\": \"Apt. 556\",\n      \"city\": \"Gwenborough\",\n      \"zipcode\": \"92998-3874\",\n      \"geo\": {\n        \"lat\": \"-37.3159\",\n        \"lng\": \"81.1496\"\n      }\n    },\n    \"phone\": \"1-770-736-8031 x56442\",\n    \"website\": \"hildegard.org\",\n    \"company\": {\n      \"name\": \"Romaguera-Crona\",\n      \"catchPhrase\": \"Multi-layered client-server neural-net\",\n      \"bs\": \"harness real-time e-markets\"\n    }\n  },\n  {\n    \"id\": 2,\n    \"name\": \"Ervin Howell\",\n    \"username\": \"Antonette\",\n    \"email\": \"Shanna@melissa.tv\",\n    \"address\": {\n      \"street\": \"Victor Plains\",\n      \"suite\": \"Suite 879\",\n      \"city\": \"Wisokyburgh\",\n      \"zipcode\": \"90566-7771\",\n      \"geo\": {\n        \"lat\": \"-43.9509\",\n        \"lng\": \"-34.4618\"\n      }\n    },\n    \"phone\": \"010-692-6593 x09125\",\n    \"website\": \"anastasia.net\",\n    \"company\": {\n      \"name\": \"Deckow-Crist\",\n      \"catchPhrase\": \"Proactive didactic contingency\",\n      \"bs\": \"synergize scalable supply-chains\"\n    }\n  },\n  {\n    \"id\": 3,\n    \"name\": \"Clementine Bauch\",\n    \"username\": \"Samantha\",\n    \"email\": \"Nathan@yesenia.net\",\n    \"address\": {\n      \"street\": \"Douglas Extension\",\n      \"suite\": \"Suite 847\",\n      \"city\": \"McKenziehaven\",\n      \"zipcode\": \"59590-4157\",\n      \"geo\": {\n        \"lat\": \"-68.6102\",\n        \"lng\": \"-47.0653\"\n      }\n    },\n    \"phone\": \"1-463-123-4447\",\n    \"website\": \"ramiro.info\",\n    \"company\": {\n      \"name\": \"Romaguera-Jacobson\",\n      \"catchPhrase\": \"Face to face bifurcated interface\",\n      \"bs\": \"e-enable strategic applications\"\n    }\n  },\n  {\n    \"id\": 4,\n    \"name\": \"Patricia Lebsack\",\n    \"username\": \"Karianne\",\n    \"email\": \"Julianne.OConner@kory.org\",\n    \"address\": {\n      \"street\": \"Hoeger Mall\",\n      \"suite\": \"Apt. 692\",\n      \"city\": \"South Elvis\",\n      \"zipcode\": \"53919-4257\",\n      \"geo\": {\n        \"lat\": \"29.4572\",\n        \"lng\": \"-164.",
+      "responseHeaders": {
+        "accept-ranges": "bytes",
+        "access-control-allow-credentials": "true",
+        "age": "6032",
+        "alt-svc": "h3=\":443\"; ma=86400",
+        "cache-control": "max-age=43200",
+        "cf-cache-status": "HIT",
+        "cf-ray": "a02856ff29550008-ORD",
+        "connection": "keep-alive",
+        "content-encoding": "gzip",
+        "content-length": "1847",
+        "content-type": "application/json; charset=utf-8",
+        "date": "Wed, 27 May 2026 22:08:43 GMT",
+        "etag": "W/\"160d-1eMSsxeJRfnVLRBmYJSbCiJZ1qQ\"",
+        "expires": "-1",
+        "nel": "{\"report_to\":\"heroku-nel\",\"response_headers\":[\"Via\"],\"max_age\":3600,\"success_fraction\":0.01,\"failure_fraction\":0.1}",
+        "pragma": "no-cache",
+        "report-to": "{\"group\":\"heroku-nel\",\"endpoints\":[{\"url\":\"https://nel.heroku.com/reports?s=G6xcUQj595rbUgqxM1NAeSk%2Fnkvgt48Dbgz5XCn4b7Q%3D\\u0026sid=e11707d5-02a7-43ef-b45e-2cf4d2036f7d\\u0026ts=1772188049\"}],\"max_age\":3600}",
+        "reporting-endpoints": "heroku-nel=\"https://nel.heroku.com/reports?s=G6xcUQj595rbUgqxM1NAeSk%2Fnkvgt48Dbgz5XCn4b7Q%3D&sid=e11707d5-02a7-43ef-b45e-2cf4d2036f7d&ts=1772188049\"",
+        "server": "cloudflare",
+        "vary": "Origin, Accept-Encoding",
+        "via": "2.0 heroku-router",
+        "x-content-type-options": "nosniff",
+        "x-powered-by": "Express",
+        "x-ratelimit-limit": "1000",
+        "x-ratelimit-remaining": "999",
+        "x-ratelimit-reset": "1772188101"
+      },
+      "timestamp": 1779919721253,
+      "passed": true,
+      "validationMode": "none",
+      "failureDetails": [],
+      "timing": {
+        "dnsLookup": 0,
+        "tcpConnect": 0,
+        "tlsHandshake": 0,
+        "ttfb": 371.83,
+        "download": 0.52,
+        "total": 372.36
+      },
+      "requestLog": {
+        "headers": {}
+      },
+      "scenarioTags": [
+        "smoke",
+        "sla"
+      ]
+    },
+    {
+      "id": "r-8",
+      "scenarioId": "f515ae23-f918-487b-a210-4b7b591a8cb7",
+      "scenarioName": "Delete Post",
+      "featureGroupName": "SLA Test Suite",
+      "groupName": "CRUD Operations",
+      "url": "https://jsonplaceholder.typicode.com/posts/1",
+      "method": "DELETE",
+      "httpStatus": 200,
+      "responseTimeMs": 352.53,
+      "responseBody": "{}",
+      "responseHeaders": {
+        "access-control-allow-credentials": "true",
+        "alt-svc": "h3=\":443\"; ma=86400",
+        "cache-control": "no-cache",
+        "cf-cache-status": "DYNAMIC",
+        "cf-ray": "a0285700ae8d0008-ORD",
+        "connection": "keep-alive",
+        "content-length": "2",
+        "content-type": "application/json; charset=utf-8",
+        "date": "Wed, 27 May 2026 22:08:43 GMT",
+        "etag": "W/\"2-vyGp6PvFo4RvsFtPoIWeCReyIC8\"",
+        "expires": "-1",
+        "nel": "{\"report_to\":\"heroku-nel\",\"response_headers\":[\"Via\"],\"max_age\":3600,\"success_fraction\":0.01,\"failure_fraction\":0.1}",
+        "pragma": "no-cache",
+        "report-to": "{\"group\":\"heroku-nel\",\"endpoints\":[{\"url\":\"https://nel.heroku.com/reports?s=GE6aSv9JJUkIzuMj%2B1hqX%2BUrp9%2BWB878Fgw6CgQaqbc%3D\\u0026sid=e11707d5-02a7-43ef-b45e-2cf4d2036f7d\\u0026ts=1779919723\"}],\"max_age\":3600}",
+        "reporting-endpoints": "heroku-nel=\"https://nel.heroku.com/reports?s=GE6aSv9JJUkIzuMj%2B1hqX%2BUrp9%2BWB878Fgw6CgQaqbc%3D&sid=e11707d5-02a7-43ef-b45e-2cf4d2036f7d&ts=1779919723\"",
+        "server": "cloudflare",
+        "vary": "Origin, Accept-Encoding",
+        "via": "2.0 heroku-router",
+        "x-content-type-options": "nosniff",
+        "x-powered-by": "Express",
+        "x-ratelimit-limit": "1000",
+        "x-ratelimit-remaining": "997",
+        "x-ratelimit-reset": "1779919771"
+      },
+      "timestamp": 1779919721606,
+      "passed": true,
+      "validationMode": "none",
+      "failureDetails": [],
+      "timing": {
+        "dnsLookup": 0,
+        "tcpConnect": 0,
+        "tlsHandshake": 0,
+        "ttfb": 351.95,
+        "download": 0.38,
+        "total": 352.32
+      },
+      "requestLog": {
+        "headers": {}
+      },
+      "scenarioTags": [
+        "sla"
+      ]
+    }
+  ],
+  "envName": "demo",
+  "projectName": "SLA Test Suite"
+}

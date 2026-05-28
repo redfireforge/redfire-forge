@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Phase C — SlaCompactBar + SlaStatusAccordion in Results</title>
+<style>
+/* Design tokens — exact from index.css */
+:root {
+  --bg: #0f172a; --surface: #1e293b; --surface-hover: #2d3a4d;
+  --border: #3b4a60; --text: #f1f5f9; --text-muted: #a8b8cc;
+  --primary: #3b82f6; --primary-hover: #2563eb;
+  --danger: #ef4444; --success: #22c55e; --warning: #f59e0b;
+  --accent: #8b5cf6; --radius: 8px;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; background: var(--bg); color: var(--text);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 13px; }
+
+/* App chrome */
+.app { display: flex; flex-direction: column; height: 100vh; }
+.app-header { background: var(--surface); border-bottom: 1px solid var(--border);
+  padding: 0 24px; display: flex; align-items: center; gap: 16px; flex-shrink: 0; height: 44px; }
+.app-header h1 { font-size: 1.05rem; font-weight: 700; white-space: nowrap; }
+.hdr-logo { font-size: 1.1rem; }
+.hdr-version { font-size: 0.7rem; color: var(--text-muted); padding: 2px 7px;
+  background: var(--surface-hover); border-radius: 4px; border: 1px solid var(--border); }
+.hdr-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.hdr-right select { background: var(--surface-hover); color: var(--text);
+  border: 1px solid var(--border); padding: 4px 10px; border-radius: var(--radius); font-size: 0.78rem; }
+.hdr-btn { background: transparent; border: 1px solid var(--border); color: var(--text-muted);
+  padding: 3px 8px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; }
+
+.app-body { display: flex; flex: 1; overflow: hidden; }
+
+/* Activity bar */
+.activity-bar { width: 48px; flex-shrink: 0; display: flex; flex-direction: column;
+  align-items: center; padding-top: 8px; gap: 4px;
+  background: var(--bg); border-right: 1px solid var(--border); }
+.ab-btn { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;
+  border: none; background: transparent; color: var(--text-muted); font-size: 18px;
+  cursor: pointer; border-radius: 8px; border-left: 2px solid transparent; }
+.ab-btn.active { color: var(--text); background: var(--surface-hover); border-left-color: var(--primary); }
+.ab-spacer { flex: 1; }
+
+/* Unified sidebar */
+.unified-sidebar { width: 260px; flex-shrink: 0; display: flex; flex-direction: column;
+  background: var(--bg); border-right: 1px solid var(--border); overflow: hidden; }
+.usb-toggle-row { display: flex; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+.usb-toggle { flex: 1; padding: 8px 0; font-size: 0.72rem; font-weight: 600;
+  text-align: center; background: none; border: none; border-bottom: 2px solid transparent;
+  color: var(--text-muted); cursor: pointer; }
+.usb-toggle.active { color: var(--text); border-bottom-color: var(--primary); }
+.usb-body { flex: 1; overflow-y: auto; padding: 8px 0; }
+.usb-env-row { display: flex; align-items: center; gap: 8px; padding: 6px 14px;
+  cursor: pointer; font-size: 0.8rem; color: var(--text-muted); border-left: 2px solid transparent; }
+.usb-env-row.active { background: rgba(59,130,246,0.1); color: var(--text); border-left-color: var(--primary); }
+.usb-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.dot-g { background: var(--success); }
+.dot-m { background: var(--border); }
+.usb-env-name { flex: 1; }
+.usb-env-ct { font-size: 0.7rem; background: var(--surface-hover); padding: 1px 6px; border-radius: 8px; }
+.usb-svc-row { display: flex; align-items: center; gap: 8px; padding: 5px 14px 5px 28px;
+  cursor: pointer; font-size: 0.78rem; color: var(--text-muted); }
+.usb-svc-row.active { color: var(--text); background: rgba(59,130,246,0.08); }
+.usb-svc-name { flex: 1; }
+
+/* Main */
+.app-main { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+
+/* Sub-nav */
+.sub-nav { display: flex; flex-shrink: 0; background: var(--surface);
+  border-bottom: 1px solid var(--border); min-height: 38px; }
+.sub-nav-tabs { display: flex; align-items: center; gap: 2px; padding: 0 16px; flex: 1; }
+.sub-nav-tab { padding: 8px 14px; font-size: 0.8rem; font-weight: 600;
+  background: none; border: none; border-bottom: 2px solid transparent;
+  color: var(--text-muted); cursor: pointer; }
+.sub-nav-tab:hover { color: var(--text); }
+.sub-nav-tab.active { color: var(--text); border-bottom-color: var(--primary); }
+
+/* Page */
+.page { flex: 1; overflow-y: auto; padding: 24px 32px; }
+
+/* Results top */
+.results-top { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
+.results-top-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.results-top-row h2 { font-size: 1.5rem; margin: 0; white-space: nowrap; }
+.results-top-actions { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+.context-tags { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.context-tag { display: inline-flex; align-items: center; font-size: 0.75rem; font-weight: 600;
+  padding: 2px 10px; border-radius: 12px; letter-spacing: 0.3px; }
+.svc-tag { background: rgba(99,179,237,0.15); color: #63b3ed; border: 1px solid rgba(99,179,237,0.3); }
+.env-tag { background: rgba(104,211,145,0.15); color: #68d391; border: 1px solid rgba(104,211,145,0.3); }
+.exec-mode-tag { background: var(--surface-hover); color: var(--text-muted); border: 1px solid var(--border); }
+
+/* Buttons */
+.btn { padding: 7px 14px; border-radius: var(--radius); border: 1px solid var(--border);
+  background: var(--surface); color: var(--text); cursor: pointer; font-size: 0.8rem; font-family: inherit; }
+.btn:hover { background: var(--surface-hover); }
+.btn-sm { padding: 4px 10px; font-size: 0.78rem; }
+
+/* Metric cards */
+.metrics-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
+.metric-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 10px 14px; min-width: 110px; flex: 1; }
+.metric-card.c-ok   { border-color: rgba(34,197,94,0.4);  background: rgba(34,197,94,0.06); }
+.metric-card.c-err  { border-color: rgba(239,68,68,0.4);  background: rgba(239,68,68,0.06); }
+.metric-card.c-warn { border-color: rgba(245,158,11,0.4); background: rgba(245,158,11,0.06); }
+.metric-label { font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.4px; font-weight: 600; }
+.metric-value { font-size: 1.5rem; font-weight: 700; line-height: 1.2; margin: 3px 0; }
+.metric-value.ok   { color: var(--success); }
+.metric-value.err  { color: var(--danger); }
+.metric-value.warn { color: var(--warning); }
+.metric-sub { font-size: 0.72rem; color: var(--text-muted); }
+
+/* Section heading */
+.section-heading { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.6px;
+  color: var(--text-muted); font-weight: 700; margin-bottom: 8px; margin-top: 16px; }
+
+/* New badge */
+.new-badge { font-size: 0.6rem; padding: 1px 5px; border-radius: 3px;
+  background: rgba(245,158,11,0.2); color: #fbbf24; border: 1px solid rgba(245,158,11,0.35);
+  text-transform: uppercase; letter-spacing: 0.4px; vertical-align: middle;
+  margin-left: 5px; font-weight: 700; }
+.del-badge { font-size: 0.6rem; padding: 1px 5px; border-radius: 3px;
+  background: rgba(239,68,68,0.15); color: #f87171; border: 1px solid rgba(239,68,68,0.3);
+  text-transform: uppercase; letter-spacing: 0.4px; vertical-align: middle;
+  margin-left: 5px; font-weight: 700; }
+
+/* ★ NEW: SlaCompactBar */
+.sla-compact-bar {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 16px; border-radius: var(--radius);
+  border: 1px solid var(--border); background: var(--surface);
+  margin-bottom: 14px; flex-wrap: wrap;
+}
+.sla-compact-bar.all-ok   { border-color: rgba(34,197,94,0.4);  background: rgba(34,197,94,0.06); }
+.sla-compact-bar.some-warn{ border-color: rgba(245,158,11,0.4); background: rgba(245,158,11,0.06); }
+.sla-compact-bar.has-fail { border-color: rgba(239,68,68,0.45); background: rgba(239,68,68,0.07); }
+.sla-compact-icon { font-size: 1rem; flex-shrink: 0; }
+.sla-compact-label { font-size: 0.82rem; font-weight: 600; flex: 1; }
+.sla-compact-label.ok   { color: #86efac; }
+.sla-compact-label.warn { color: #fcd34d; }
+.sla-compact-label.fail { color: #fca5a5; }
+.sla-compact-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.sla-chip { display: flex; align-items: center; gap: 5px; font-size: 0.75rem;
+  padding: 3px 9px; border-radius: 20px; white-space: nowrap; cursor: default; }
+.sla-chip.ok   { background: rgba(34,197,94,0.12);  color: #86efac; border: 1px solid rgba(34,197,94,0.3); }
+.sla-chip.warn { background: rgba(245,158,11,0.12); color: #fcd34d; border: 1px solid rgba(245,158,11,0.3); }
+.sla-chip.fail { background: rgba(239,68,68,0.12);  color: #fca5a5; border: 1px solid rgba(239,68,68,0.35); }
+.sla-chip-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.sla-chip-dot.ok   { background: var(--success); }
+.sla-chip-dot.warn { background: var(--warning); }
+.sla-chip-dot.fail { background: var(--danger); }
+.sla-chip-name { font-weight: 600; }
+.sla-chip-val  { opacity: 0.85; }
+.sla-compact-detail-link { font-size: 0.75rem; color: var(--primary); cursor: pointer; white-space: nowrap; }
+
+/* ★ NEW: SlaStatusAccordion */
+.sla-accordion { border: 1px solid rgba(239,68,68,0.35); border-radius: var(--radius);
+  overflow: hidden; margin-bottom: 16px; }
+.sla-accordion.warn-state { border-color: rgba(245,158,11,0.35); }
+.sla-accordion.ok-state   { border-color: var(--border); }
+.sla-acc-hdr { display: flex; align-items: center; gap: 10px; padding: 11px 16px;
+  cursor: pointer; user-select: none; }
+.sla-acc-hdr.fail-bg { background: rgba(239,68,68,0.08); }
+.sla-acc-hdr.warn-bg { background: rgba(245,158,11,0.07); }
+.sla-acc-hdr.ok-bg   { background: rgba(34,197,94,0.05); }
+.sla-acc-hdr:hover { filter: brightness(1.08); }
+.sla-acc-icon { font-size: 0.9rem; }
+.sla-acc-title { font-size: 0.85rem; font-weight: 600; flex: 1; }
+.sla-acc-subtitle { font-size: 0.73rem; color: var(--text-muted); }
+.expand-icon { font-size: 0.65rem; color: var(--text-muted); display: inline-block; flex-shrink: 0; }
+.expand-icon.open { transform: rotate(90deg); }
+.expand-icon.sm { font-size: 0.55rem; }
+
+/* Accordion body — Feature > Scenario > Test tree */
+.sla-acc-body { border-top: 1px solid var(--border); }
+.sla-tree { padding: 0; }
+.sla-feat-row { display: flex; align-items: center; gap: 8px; padding: 9px 16px;
+  background: rgba(255,255,255,0.02); cursor: pointer; border-bottom: 1px solid rgba(255,255,255,0.04); }
+.sla-feat-row:hover { background: var(--surface-hover); }
+.sla-feat-name { font-size: 0.83rem; font-weight: 600; flex: 1; }
+.sla-scen-row { display: flex; align-items: center; gap: 8px; padding: 7px 16px 7px 28px;
+  cursor: pointer; border-bottom: 1px solid rgba(255,255,255,0.03); }
+.sla-scen-row:hover { background: var(--surface-hover); }
+.sla-scen-name { font-size: 0.8rem; flex: 1; }
+.sla-target-row { display: flex; align-items: center; gap: 10px; padding: 6px 16px 6px 44px;
+  border-bottom: 1px solid rgba(255,255,255,0.025); font-size: 0.78rem; }
+.sla-target-row.last { border-bottom: none; }
+.sla-metric-name { color: var(--text-muted); min-width: 150px; }
+.sla-actual { font-weight: 600; }
+.sla-actual.ok   { color: var(--success); }
+.sla-actual.warn { color: var(--warning); }
+.sla-actual.fail { color: var(--danger); }
+.sla-threshold { font-size: 0.72rem; color: var(--text-muted); }
+.sla-row-status { font-size: 0.68rem; padding: 1px 7px; border-radius: 10px; white-space: nowrap; font-weight: 600; }
+.sla-row-status.ok   { background: rgba(34,197,94,0.12); color: #86efac; }
+.sla-row-status.warn { background: rgba(245,158,11,0.12); color: #fcd34d; }
+.sla-row-status.fail { background: rgba(239,68,68,0.12); color: #fca5a5; }
+
+/* Existing: timing card */
+.timing-section { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 18px; margin-bottom: 16px; }
+.timing-row { display: flex; gap: 20px; flex-wrap: wrap; margin-top: 8px; }
+.timing-item { display: flex; flex-direction: column; gap: 2px; }
+.timing-label { font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.4px; font-weight: 600; }
+.timing-value { font-size: 1.1rem; font-weight: 700; }
+
+/* States reference panel */
+.states-panel { border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 20px; margin-top: 20px; padding-top: 14px; }
+.states-grid { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+.state-card { flex: 1; min-width: 200px; border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; background: var(--bg); }
+
+/* Annotation bar */
+.ann-bar { background: var(--surface); border-top: 1px solid var(--border); padding: 10px 24px;
+  display: flex; gap: 16px; flex-wrap: wrap; align-items: center; font-size: 0.75rem;
+  color: var(--text-muted); flex-shrink: 0; }
+.ann-new { color: #fbbf24; font-weight: 600; }
+.ann-rm  { color: #f87171; font-weight: 600; }
+.ann-link { color: var(--primary); }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Header -->
+  <header class="app-header">
+    <span class="hdr-logo">🔥</span>
+    <h1>RedfireForge</h1>
+    <span class="hdr-version">v0.5.9</span>
+    <div class="hdr-right">
+      <select><option>t01</option><option>d01</option><option>p01</option></select>
+      <select><option>sales-product-autoassign</option><option>auth-service</option></select>
+      <button class="hdr-btn">🌙</button>
+    </div>
+  </header>
+
+  <div class="app-body">
+
+    <!-- Activity bar -->
+    <nav class="activity-bar">
+      <button class="ab-btn" title="API">🌐</button>
+      <button class="ab-btn" title="Workflow">⚡</button>
+      <button class="ab-btn active" title="Harness">⚗️</button>
+      <button class="ab-btn" title="Gallery">🖼</button>
+      <div class="ab-spacer"></div>
+      <button class="ab-btn" title="Settings">⚙️</button>
+    </nav>
+
+    <!-- Sidebar -->
+    <aside class="unified-sidebar">
+      <div class="usb-toggle-row">
+        <button class="usb-toggle active">Environments</button>
+        <button class="usb-toggle">Microservices</button>
+      </div>
+      <div class="usb-body">
+        <div class="usb-env-row"><span class="usb-dot dot-m"></span><span class="usb-env-name">d01</span><span class="usb-env-ct">3</span></div>
+        <div class="usb-env-row active"><span class="usb-dot dot-g"></span><span class="usb-env-name">t01</span><span class="usb-env-ct">3</span></div>
+        <div class="usb-svc-row active"><span class="usb-dot dot-g"></span><span class="usb-svc-name">sales-product-autoassign</span></div>
+        <div class="usb-svc-row"><span class="usb-dot dot-m"></span><span class="usb-svc-name">sales-order-retail</span></div>
+        <div class="usb-svc-row"><span class="usb-dot dot-g"></span><span class="usb-svc-name">veh-metadata</span></div>
+        <div class="usb-env-row"><span class="usb-dot dot-m"></span><span class="usb-env-name">p01</span><span class="usb-env-ct">3</span></div>
+        <div class="usb-env-row"><span class="usb-dot dot-m"></span><span class="usb-env-name">Gallery Samples</span><span class="usb-env-ct">1</span></div>
+      </div>
+    </aside>
+
+    <!-- Main -->
+    <main class="app-main">
+      <nav class="sub-nav">
+        <div class="sub-nav-tabs">
+          <button class="sub-nav-tab">Feature Groups</button>
+          <button class="sub-nav-tab">Test Runner</button>
+          <button class="sub-nav-tab">Parameterized Runner</button>
+          <button class="sub-nav-tab">Workflow Runner</button>
+          <button class="sub-nav-tab active">Results</button>
+        </div>
+      </nav>
+
+      <div class="page">
+
+        <!-- Results top -->
+        <div class="results-top">
+          <div class="results-top-row">
+            <h2>Results</h2>
+            <div class="context-tags">
+              <span class="context-tag svc-tag">sales-product-autoassign</span>
+              <span class="context-tag env-tag">t01</span>
+              <span class="context-tag exec-mode-tag">Batch · C:5 · I:20</span>
+            </div>
+            <div class="results-top-actions">
+              <button class="btn btn-sm">Refresh</button>
+              <button class="btn btn-sm">Import</button>
+              <button class="btn btn-sm">Export</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ★ NEW: SlaCompactBar  (replaces the bulky SlaDashboard component) -->
+        <div style="font-size:0.72rem; text-transform:uppercase; letter-spacing:0.6px; color:var(--text-muted); font-weight:700; margin-bottom:6px;">
+          SLA Status<span class="new-badge">NEW</span>
+          <span style="font-size:0.65rem; font-weight:400; text-transform:none; letter-spacing:0; margin-left:6px; color:var(--text-muted);">was: bulky SlaDashboard panel<span class="del-badge">REMOVED</span></span>
+        </div>
+        <div class="sla-compact-bar has-fail">
+          <span class="sla-compact-icon">🚨</span>
+          <span class="sla-compact-label fail">SLA: 1 failing · 1 warning</span>
+          <div class="sla-compact-chips">
+            <div class="sla-chip fail">
+              <span class="sla-chip-dot fail"></span>
+              <span class="sla-chip-name">P95</span>
+              <span class="sla-chip-val">1,241ms &gt; 800ms</span>
+            </div>
+            <div class="sla-chip warn">
+              <span class="sla-chip-dot warn"></span>
+              <span class="sla-chip-name">Error Rate</span>
+              <span class="sla-chip-val">0.31% &gt; 0.25%</span>
+            </div>
+            <div class="sla-chip ok">
+              <span class="sla-chip-dot ok"></span>
+              <span class="sla-chip-name">TPS</span>
+              <span class="sla-chip-val">63 ≥ 50</span>
+            </div>
+          </div>
+          <span class="sla-compact-detail-link">▼ see details</span>
+        </div>
+
+        <!-- Summary Metric Cards  (existing ResultsMetricsCards) -->
+        <div class="section-heading">Summary</div>
+        <div class="metrics-row">
+          <div class="metric-card c-ok">
+            <div class="metric-label">Total</div>
+            <div class="metric-value">2,000</div>
+            <div class="metric-sub">requests</div>
+          </div>
+          <div class="metric-card c-ok">
+            <div class="metric-label">Passed</div>
+            <div class="metric-value ok">1,994</div>
+            <div class="metric-sub">99.7%</div>
+          </div>
+          <div class="metric-card c-err">
+            <div class="metric-label">Failed</div>
+            <div class="metric-value err">6</div>
+            <div class="metric-sub">0.3%</div>
+          </div>
+          <div class="metric-card c-warn">
+            <div class="metric-label">P95 Latency</div>
+            <div class="metric-value warn">1,241ms</div>
+            <div class="metric-sub">p50: 312ms · p99: 2,104ms</div>
+          </div>
+          <div class="metric-card c-ok">
+            <div class="metric-label">TPS</div>
+            <div class="metric-value">63</div>
+            <div class="metric-sub">throughput/s</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Duration</div>
+            <div class="metric-value">31.7s</div>
+            <div class="metric-sub">wall clock</div>
+          </div>
+        </div>
+
+        <!-- Timing  (existing section, unchanged) -->
+        <div class="section-heading">Timing</div>
+        <div class="timing-section">
+          <div class="timing-row">
+            <div class="timing-item"><span class="timing-label">P50</span><span class="timing-value">312ms</span></div>
+            <div class="timing-item"><span class="timing-label">P90</span><span class="timing-value">891ms</span></div>
+            <div class="timing-item"><span class="timing-label">P95</span><span class="timing-value" style="color:var(--danger)">1,241ms</span></div>
+            <div class="timing-item"><span class="timing-label">P99</span><span class="timing-value">2,104ms</span></div>
+            <div class="timing-item"><span class="timing-label">Min</span><span class="timing-value">28ms</span></div>
+            <div class="timing-item"><span class="timing-label">Max</span><span class="timing-value">4,391ms</span></div>
+            <div class="timing-item"><span class="timing-label">Mean</span><span class="timing-value">378ms</span></div>
+          </div>
+        </div>
+
+        <!-- ★ NEW: SlaStatusAccordion  (auto-opened because there are failures) -->
+        <div style="font-size:0.72rem; text-transform:uppercase; letter-spacing:0.6px; color:var(--text-muted); font-weight:700; margin-bottom:6px;">
+          SLA Detail<span class="new-badge">NEW</span>
+          <span style="font-size:0.65rem; font-weight:400; text-transform:none; letter-spacing:0; margin-left:6px; color:var(--text-muted);">(auto-opens on any SLA failure)</span>
+        </div>
+        <div class="sla-accordion">
+          <div class="sla-acc-hdr fail-bg">
+            <span class="expand-icon sm open">&#9654;</span>
+            <span class="sla-acc-icon">🚨</span>
+            <span class="sla-acc-title">SLA Breakdown — Feature · Scenario · Target</span>
+            <span class="sla-acc-subtitle">1 fail · 1 warn · 1 pass &nbsp; across 2 scenarios</span>
+          </div>
+          <div class="sla-acc-body">
+            <div class="sla-tree">
+
+              <!-- Feature Group: API E2E Tests -->
+              <div class="sla-feat-row">
+                <span class="expand-icon sm open">&#9654;</span>
+                <span class="sla-feat-name">API E2E Tests</span>
+                <span style="font-size:0.7rem; color:#fca5a5;">1 fail</span>
+                &nbsp;
+                <span style="font-size:0.7rem; color:#fcd34d;">1 warn</span>
+              </div>
+
+              <!-- Scenario: Login Flow -->
+              <div class="sla-scen-row">
+                <span class="expand-icon sm open" style="color:var(--success)">&#9654;</span>
+                <span class="sla-scen-name">Login Flow</span>
+                <span style="font-size:0.7rem; color:#86efac;">all pass</span>
+              </div>
+              <div class="sla-target-row">
+                <span class="sla-metric-name">P95 Response Time</span>
+                <span class="sla-actual ok">432ms</span>
+                <span class="sla-threshold">≤ 800ms (warn 600ms)</span>
+                <span class="sla-row-status ok">PASS</span>
+              </div>
+              <div class="sla-target-row last">
+                <span class="sla-metric-name">Error Rate</span>
+                <span class="sla-actual ok">0%</span>
+                <span class="sla-threshold">≤ 0.5% (warn 0.25%)</span>
+                <span class="sla-row-status ok">PASS</span>
+              </div>
+
+              <!-- Scenario: Cart & Checkout — has fail -->
+              <div class="sla-scen-row">
+                <span class="expand-icon sm open" style="color:var(--danger)">&#9654;</span>
+                <span class="sla-scen-name">Cart &amp; Checkout</span>
+                <span style="font-size:0.7rem; color:#fca5a5;">1 fail</span>
+                &nbsp;
+                <span style="font-size:0.7rem; color:#fcd34d;">1 warn</span>
+              </div>
+              <div class="sla-target-row">
+                <span class="sla-metric-name">P95 Response Time</span>
+                <span class="sla-actual fail">1,241ms</span>
+                <span class="sla-threshold">≤ 800ms (warn 600ms) — Checkout SLA</span>
+                <span class="sla-row-status fail">FAIL</span>
+              </div>
+              <div class="sla-target-row">
+                <span class="sla-metric-name">TPS</span>
+                <span class="sla-actual ok">63</span>
+                <span class="sla-threshold">≥ 50</span>
+                <span class="sla-row-status ok">PASS</span>
+              </div>
+              <div class="sla-target-row last">
+                <span class="sla-metric-name">Error Rate</span>
+                <span class="sla-actual warn">0.31%</span>
+                <span class="sla-threshold">≤ 0.5% (warn 0.25%) — Error budget</span>
+                <span class="sla-row-status warn">WARN</span>
+              </div>
+
+            </div>
+          </div>
+        </div>
+
+        <!-- States reference: all 3 SlaCompactBar states -->
+        <div class="states-panel">
+          <div style="font-size:0.72rem; text-transform:uppercase; letter-spacing:0.6px; color:var(--text-muted); font-weight:700; margin-bottom:4px;">
+            SlaCompactBar — all 3 states reference
+          </div>
+          <div class="states-grid">
+            <!-- All pass -->
+            <div class="state-card">
+              <div style="font-size:0.68rem; color:var(--text-muted); margin-bottom:7px;">All pass</div>
+              <div class="sla-compact-bar all-ok" style="margin:0;">
+                <span class="sla-compact-icon">✅</span>
+                <span class="sla-compact-label ok">SLA: all targets met</span>
+                <div class="sla-compact-chips">
+                  <div class="sla-chip ok"><span class="sla-chip-dot ok"></span><span class="sla-chip-name">P95</span><span class="sla-chip-val">432ms ≤ 800ms</span></div>
+                  <div class="sla-chip ok"><span class="sla-chip-dot ok"></span><span class="sla-chip-name">TPS</span><span class="sla-chip-val">63 ≥ 50</span></div>
+                </div>
+              </div>
+            </div>
+            <!-- Warning -->
+            <div class="state-card">
+              <div style="font-size:0.68rem; color:var(--text-muted); margin-bottom:7px;">Warning (no fail)</div>
+              <div class="sla-compact-bar some-warn" style="margin:0;">
+                <span class="sla-compact-icon">⚠️</span>
+                <span class="sla-compact-label warn">SLA: 1 warning</span>
+                <div class="sla-compact-chips">
+                  <div class="sla-chip warn"><span class="sla-chip-dot warn"></span><span class="sla-chip-name">Error Rate</span><span class="sla-chip-val">0.31%</span></div>
+                  <div class="sla-chip ok"><span class="sla-chip-dot ok"></span><span class="sla-chip-name">TPS</span><span class="sla-chip-val">63 ≥ 50</span></div>
+                </div>
+              </div>
+            </div>
+            <!-- Fail -->
+            <div class="state-card">
+              <div style="font-size:0.68rem; color:var(--text-muted); margin-bottom:7px;">Failure (shown above)</div>
+              <div class="sla-compact-bar has-fail" style="margin:0;">
+                <span class="sla-compact-icon">🚨</span>
+                <span class="sla-compact-label fail">SLA: 1 failing · 1 warning</span>
+                <div class="sla-compact-chips">
+                  <div class="sla-chip fail"><span class="sla-chip-dot fail"></span><span class="sla-chip-name">P95</span><span class="sla-chip-val">1,241ms</span></div>
+                  <div class="sla-chip warn"><span class="sla-chip-dot warn"></span><span class="sla-chip-name">Error Rate</span><span class="sla-chip-val">0.31%</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </main>
+  </div>
+
+  <div class="ann-bar">
+    <strong style="color:var(--text);">Phase C changes:</strong>
+    <span><span class="ann-new">★ NEW</span> <code>SlaCompactBar</code> — compact inline summary (3 states: pass/warn/fail)</span>
+    <span><span class="ann-new">★ NEW</span> <code>SlaStatusAccordion</code> — Feature → Scenario → Target tree, auto-opens on failure</span>
+    <span><span class="ann-rm">✕ REMOVED</span> <code>SlaDashboard</code> component + all <code>slaTargets/slaScope</code> state in ResultsDashboard</span>
+    <span style="margin-left:auto;"><a class="ann-link" href="phase-b-scenario-sla.html">← Phase B mockup</a></span>
+  </div>
+
+</div>
+</body>
+</html>

@@ -676,5 +676,33 @@ describe('WorkflowConsolePanel', () => {
       await act(async () => { fireEvent.click(screen.getByTitle('Copy all logs to clipboard')); await Promise.resolve(); });
       expect(mockClipboard.writeText).toHaveBeenCalled();
     });
+
+    it('shows copy feedback (button title changes to Copied!) after clipboard write', async () => {
+      const resolveRef: { fn?: () => void } = {};
+      const mockClipboard = {
+        writeText: vi.fn().mockImplementation(() => new Promise<void>(resolve => { resolveRef.fn = resolve; })),
+      };
+      Object.assign(navigator, { clipboard: mockClipboard });
+      const lines: ConsoleLine[] = [makeLine('Hello', '*')];
+      render(<WorkflowConsolePanel {...defaultProps} lines={lines} />);
+      fireEvent.click(screen.getByTitle('Copy all logs to clipboard'));
+      // Resolve clipboard promise inside act so state update is flushed
+      await act(async () => {
+        resolveRef.fn?.();
+        await Promise.resolve();
+      });
+      expect(screen.getByTitle('Copied!')).toBeTruthy();
+    });
+  });
+
+  describe('handleScroll — scroll event on console body', () => {
+    it('fires onScroll without crashing when the console body is scrolled', () => {
+      const lines = Array.from({ length: 20 }, (_, i) => makeLine('Line ' + i));
+      const { container } = render(<WorkflowConsolePanel {...defaultProps} lines={lines} />);
+      const body = container.querySelector('.wf-console-body')!;
+      expect(body).not.toBeNull();
+      // Fire a scroll event — should run handleScroll with el present
+      expect(() => fireEvent.scroll(body)).not.toThrow();
+    });
   });
 });

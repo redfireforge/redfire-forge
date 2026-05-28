@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import type { TestConfig, LoadProfileConfig, CorrelationWaitRunnerConfig, RequestResult, WorkflowExecutionTrace, Microservice, GlobalAuthProfile } from '../../shared/types';
+import type { TestConfig, LoadProfileConfig, CorrelationWaitRunnerConfig, RequestResult, WorkflowExecutionTrace, Microservice, GlobalAuthProfile, SlaTarget } from '../../shared/types';
 import type { Workflow, WorkflowFolder, WebhookTriggerNodeData } from '../workflow/types/workflow';
 import { useTestExecution } from './hooks/useTestExecution';
 import { useWorkflowRunnerConfig } from './hooks/useWorkflowRunnerConfig';
@@ -15,6 +15,7 @@ import { runWebhookLoadTest, calculateTotalRequests } from '../workflow/engine/w
 import { loadWebhookScenarios, saveWebhookScenario, deleteWebhookScenario, fireWebhook, buildPayloadWithCorrelationId } from './utils/webhookScenarioStorage';
 import { sampleWorkflowCatalog } from '../../data/galleries/workflows';
 import { toErrorMessage } from '../../shared/utils/helpers';
+import RunnerSlaOverridePanel from './components/RunnerSlaOverridePanel';
 
 interface Props {
   workflows: Workflow[];
@@ -35,11 +36,13 @@ interface Props {
   globalAuthProfiles?: GlobalAuthProfile[];
   /** Currently selected environment ID from the app header. */
   selectedEnvId?: string;
+  /** Persist SLA target changes back to the workflow definition. */
+  onUpdateWorkflow?: (id: string, patch: Partial<Omit<Workflow, 'id' | 'createdAt'>>) => void;
 }
 
 const PROGRESS_KEY = '_workflow_runner_progress';
 
-export default function WorkflowRunner({ workflows, folders, onComplete, initialWorkflowId, onClearInitialWorkflowId, onImportSample, resolvedBaseUrl, microservices, globalAuthProfiles, selectedEnvId }: Props) {
+export default function WorkflowRunner({ workflows, folders, onComplete, initialWorkflowId, onClearInitialWorkflowId, onImportSample, resolvedBaseUrl, microservices, globalAuthProfiles, selectedEnvId, onUpdateWorkflow: _onUpdateWorkflow }: Props) {
   const {
     concurrency, setConcurrency,
     iterations, setIterations,
@@ -61,10 +64,18 @@ export default function WorkflowRunner({ workflows, folders, onComplete, initial
   const [savedProgress, setSavedProgress] = useState<PersistedProgress | null>(null);
   const [variablesInitialized, setVariablesInitialized] = useState(false);
   const [correlationWaitConfig, setCorrelationWaitConfig] = useState<CorrelationWaitRunnerConfig | undefined>(undefined);
+  /** Session-scoped SLA override targets — merged with workflow.slaTargets at run time (SLA-B9). */
+  const [workflowSlaOverrides, setWorkflowSlaOverrides] = useState<SlaTarget[]>([]);
 
   const { isRunning, completed, total, liveSummary, profileMeta, timeSeries, error, execute, abort, finalRun, pendingRun, confirmSavePendingRun, dismissPendingRun, startExternalExecution } = useTestExecution();
 
   const selectedWorkflow = workflows.find(w => w.id === selectedWorkflowId) ?? null;
+
+  // Reset session-scoped SLA overrides whenever the user switches to a different workflow
+  // so stale overrides from the previous workflow are never merged into the new one.
+  useEffect(() => {
+    setWorkflowSlaOverrides([]);
+  }, [selectedWorkflowId]);
 
   // Handle "Run in Harness" navigation from Workflow Designer - pre-select the workflow
   // Wait for config to be loaded before applying initialWorkflowId to avoid timing issues
@@ -249,6 +260,17 @@ export default function WorkflowRunner({ workflows, folders, onComplete, initial
       maxErrorRate,
       workflowVariables: Object.keys(workflowVariables).length > 0 ? workflowVariables : undefined,
       workflowId: selectedWorkflowId!,
+      slaTargets: (() => {
+        // SLA-B9: merge definition targets (workflow.slaTargets) with session override targets (runner wins on conflict)
+        const baseSla = selectedWorkflow.slaTargets ?? [];
+        const conflictKey = (t: SlaTarget) => `${t.metric}:${t.scenarioName ?? ''}`;
+        const overrideKeys = new Set(workflowSlaOverrides.map(conflictKey));
+        const merged = [
+          ...baseSla.filter((t) => !overrideKeys.has(conflictKey(t))),
+          ...workflowSlaOverrides,
+        ];
+        return merged.length ? merged : undefined;
+      })(),
       correlationWaitConfig: hasCorrelationWait ? correlationWaitConfig : undefined,
       maxConcurrentPolls: hasWaitForCondition ? maxConcurrentPolls : undefined,
       traceOptions,
@@ -469,6 +491,17 @@ export default function WorkflowRunner({ workflows, folders, onComplete, initial
           }
         } : undefined}
       />
+
+        {selectedWorkflow && (
+          <RunnerSlaOverridePanel
+            key={selectedWorkflow.id}
+            initialTargets={workflowSlaOverrides}
+            onSave={setWorkflowSlaOverrides}
+            definitionTargetCount={selectedWorkflow.slaTargets?.length ?? 0}
+            scenarioNames={[]}
+            disabled={isRunning}
+          />
+        )}
 
         {selectedWorkflow && (
           <>

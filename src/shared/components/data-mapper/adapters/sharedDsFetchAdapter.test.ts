@@ -783,6 +783,14 @@ describe('edge cases', () => {
     expect(adapter.title).toBe('GET /api/v1/items → Data Source');
   });
 
+  it('title defaults to GET in catch path when URL is invalid and method is undefined', () => {
+    const adapter = createSharedDsFetchAdapter({
+      dataSource: makeDataSource(),
+      fetchConfig: { url: 'http://[invalid', headers: {}, body: '' },
+    });
+    expect(adapter.title).toBe('GET API → Data Source');
+  });
+
   it('fetchSampleData handles null response from callback', async () => {
     const adapter = createSharedDsFetchAdapter({
       dataSource: makeDataSource(),
