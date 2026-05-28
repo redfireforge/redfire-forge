@@ -274,9 +274,10 @@ export function TrendChart({ runs, baselines, selectedRun }: TrendProps) {
   const [chartTab, setChartTab] = useState<'overall' | 'per-scenario'>('overall');
 
   // Reset to 'all' scope when the selected run changes to one that no longer
-  // supports the active scope (e.g., switching from a workflow run to a test run).
+  // supports the active scope (e.g., switching from a workflow run to a test run,
+  // or when the run becomes undefined and all non-'all' options are disabled).
   useEffect(() => {
-    if (!selectedRun) return;
+    if (!selectedRun) { setScope('all'); return; }
     if (scope === 'service' && !selectedRun.svcName) setScope('all');
     if (scope === 'env' && (!selectedRun.svcName || !selectedRun.envName)) setScope('all');
     if (scope === 'workflow' && !selectedRun.workflowName) setScope('all');
