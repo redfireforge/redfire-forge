@@ -652,7 +652,7 @@ Sprint 4 — Polish & content (Phases 25.8 + 25.9)
 ### Sprint 1 — Core UX polish (2026-05-28)
 
 **Branch:** `feature/phase25-sprint1-comparison-ux`  
-**Commits:** `80175f7` (implementation), `1cc62bd` (review pass 1 — 5 bugs), `cdc1a6b` (review pass 2 — 3 more bugs), `d7e4fb7` (review pass 3 — 1 bug)
+**Commits:** `80175f7` (implementation), `1cc62bd` (review pass 1 — 5 bugs), `cdc1a6b` (review pass 2 — 3 more bugs), `d7e4fb7` (review pass 3 — 1 bug), `b3b9d86` (review pass 3 — 1 more bug)
 
 #### Files created
 - `src/features/results/components/BaselineListPanel.tsx` — always-expanded list; inline rename with Escape/Enter handled via blur-only commit pattern + `escapedRef` guard to prevent double-fire
@@ -684,6 +684,8 @@ Sprint 4 — Polish & content (Phases 25.8 + 25.9)
 
 #### Bugs found and fixed in review pass 3 (commit `d7e4fb7`)
 9. `toggleBaseline` in `ResultsDashboard` — when the ★ Baseline button unmasks a run that is currently the active comparison target (`compareBaselineId === runId`), `compareBaselineId` was NOT cleared. The `useCallback([baselines])` dependency array was missing `compareBaselineId`, creating a stale closure. The `RunComparisonPanel` would continue rendering with the now-unmarked run as "Baseline", with an inline rename button that silently no-ops. Fixed: use the `setCompareBaselineId` functional updater (`prev => prev === runId ? '' : prev`) so the latest state is read at call time — no need to add `compareBaselineId` to the dependency array. The `BaselineListPanel.onUnmark` callback already had this fix; this brings the ★ button path into parity.
+
+10. `handleDelete` in `ResultsDashboard` — when a run with a baseline mark was deleted, neither the `BaselineMark` entry (state + storage) nor `compareBaselineId` were cleaned up. `BaselineListPanel` would show a ghost entry for the deleted run with a truncated ID as label, no stats, and a Compare button that silently set `compareBaselineId` to a non-existent ID. Fixed: after `deleteTestRun`, check `isBaseline(baselines, runId)` and if true call `unmarkBaseline`; always apply `setCompareBaselineId` functional updater to clear if equal.
 
 #### Tests added
 - `runBaselines.test.ts`: 5 new tests total for threshold persistence (36 tests, all passing)
