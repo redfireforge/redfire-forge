@@ -16,6 +16,7 @@ export function WorkflowDesignerBody({
 }) {
   const {
     paletteWidth,
+    configWidth,
     startDrag,
     collections,
     catalogEntries,
@@ -53,7 +54,7 @@ export function WorkflowDesignerBody({
 
       {serviceRegistryMode === 'panel' && (<>
         <div className="wf-resize-handle" onMouseDown={(e) => startDrag('right', e)} />
-        <div style={{ width: 320, flexShrink: 0 }}>
+        <div style={{ width: configWidth, flexShrink: 0 }}>
           <WorkflowServicesPanelInline
             services={workflowServices}
             environments={environments}
@@ -68,7 +69,7 @@ export function WorkflowDesignerBody({
 
       {versioning.versionPanelOpen && (<>
         <div className="wf-resize-handle" onMouseDown={(e) => startDrag('right', e)} />
-        <div style={{ width: 320, flexShrink: 0 }}>
+        <div style={{ width: configWidth, flexShrink: 0 }}>
           <WorkflowVersionPanel
             versions={selected?.versions ?? []}
             onRestore={versioning.handleVersionRestore}

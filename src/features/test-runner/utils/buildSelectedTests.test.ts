@@ -242,4 +242,83 @@ describe('buildSelectedTests', () => {
       expect(result[0].scenarioTags).toEqual([]);
     });
   });
+
+  describe('gallery source handling', () => {
+    it('uses the original test URL unchanged when feature group source is gallery', () => {
+      const galleryFg = makeFg({
+        source: 'gallery',
+        scenarios: [{
+          id: 'sc-gallery', name: 'Gallery Test', kind: 'standard',
+          tests: [makeScenario({ url: '/gallery/endpoint' })],
+        }],
+      });
+      const selected = new Set(['sc-gallery']);
+      const result = buildSelectedTests(
+        [galleryFg], selected, 'settings', '', 'https://api.example.com', false, false, 'default', 'default', [],
+      );
+      expect(result).toHaveLength(1);
+      // Gallery tests ignore effectiveBaseUrl and keep their original URL
+      expect(result[0].url).toBe('/gallery/endpoint');
+    });
+
+    it('applies baseUrl only to non-gallery feature groups', () => {
+      const normalFg = makeFg({
+        scenarios: [{
+          id: 'sc-normal', name: 'Normal Test', kind: 'standard',
+          tests: [makeScenario({ url: '/users' })],
+        }],
+      });
+      const result = buildSelectedTests(
+        [normalFg], selectAll(normalFg), 'settings', '', 'https://api.example.com', false, false, 'default', 'default', [],
+      );
+      expect(result[0].url).toBe('https://api.example.com/users');
+    });
+  });
+
+  describe('host resolution — settings with undefined resolvedBaseUrl', () => {
+    it('uses original URL when hostMode is settings but resolvedBaseUrl is undefined', () => {
+      const fg = makeFg({
+        scenarios: [{
+          id: 'sc-1', name: 'S', kind: 'standard',
+          tests: [makeScenario({ url: '/api/test' })],
+        }],
+      });
+      // resolvedBaseUrl is undefined → effectiveBaseUrl = '' → URL unchanged
+      const result = buildSelectedTests([fg], selectAll(fg), 'settings', '', undefined, false, false, 'default', 'default', []);
+      expect(result[0].url).toBe('/api/test');
+    });
+  });
+
+  describe('validationOverride — dataSource + runtimeMode edge cases', () => {
+    it('does NOT override validation mode when runtimeMode is full and no dataSource', () => {
+      // !dataSource=true but runtimeMode='full' (not 'none') → if-body skipped
+      const fg = makeFg({
+        scenarios: [{
+          id: 'sc-1', name: 'S', kind: 'standard',
+          tests: [makeScenario({ validation: { mode: 'selective' } })],
+        }],
+      });
+      const result = buildSelectedTests([fg], selectAll(fg), 'hardcoded', '', undefined, false, false, 'full', 'default', []);
+      // runtimeMode='full' but condition is runtimeMode==='none', so mode stays 'selective'
+      // But wait: 'full' override applies to non-data-source via runtimeMode, not via the none-branch
+      // The validationOverride='full' path doesn't touch validation.mode via the none-check
+      expect(result[0].validation.mode).toBe('selective');
+    });
+
+    it('does NOT override validation when dataSource exists and runtimeMode is none', () => {
+      // dataSource exists → !dataSource=false → if-body skipped (short-circuit)
+      const ds: DataSource = { type: 'csv', rows: [], columns: [], validationMode: 'full' };
+      const fg = makeFg({
+        scenarios: [{
+          id: 'sc-1', name: 'S', kind: 'standard',
+          tests: [makeScenario({ dataSource: ds, validation: { mode: 'selective' } })],
+        }],
+      });
+      const result = buildSelectedTests([fg], selectAll(fg), 'hardcoded', '', undefined, false, false, 'none', 'default', []);
+      // dataSource present → none-mode-override branch is skipped
+      expect(result[0].validation.mode).toBe('selective');
+      // but dataSource.validationMode IS overridden to 'none' via the first if-block
+      expect(result[0].dataSource?.validationMode).toBe('none');
+    });
+  });
 });

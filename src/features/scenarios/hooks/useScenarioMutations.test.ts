@@ -864,4 +864,118 @@ describe('useScenarioMutations', () => {
       expect(result.current.confirmDialog!.message).not.toContain('It contains');
     });
   });
+
+  describe('SLA targets', () => {
+    const makeTarget = (overrides: Partial<import('../../../shared/types').SlaTarget> = {}): import('../../../shared/types').SlaTarget => ({
+      id: 'sla-1',
+      metric: 'p95',
+      operator: 'lte',
+      value: 800,
+      ...overrides,
+    });
+
+    describe('updateScenarioSlaTargets', () => {
+      it('sets slaTargets on the matching scenario', () => {
+        const fg = makeFg({ scenarios: [{ id: 'sc-1', name: 'Cart', kind: 'standard', tests: [] }] });
+        const { result, getFeatureGroups } = setup([fg]);
+        const targets = [makeTarget()];
+        act(() => { result.current.updateScenarioSlaTargets('fg-1', 'sc-1', targets); });
+        expect(getFeatureGroups()[0].scenarios[0].slaTargets).toEqual(targets);
+      });
+
+      it('does not affect other scenarios in the same feature group', () => {
+        const fg = makeFg({
+          scenarios: [
+            { id: 'sc-1', name: 'Cart', kind: 'standard' as const, tests: [] },
+            { id: 'sc-2', name: 'Login', kind: 'standard' as const, tests: [] },
+          ],
+        });
+        const { result, getFeatureGroups } = setup([fg]);
+        act(() => { result.current.updateScenarioSlaTargets('fg-1', 'sc-1', [makeTarget()]); });
+        expect(getFeatureGroups()[0].scenarios[1].slaTargets).toBeUndefined();
+      });
+
+      it('does not affect other feature groups', () => {
+        const fg1 = makeFg({ id: 'fg-1', scenarios: [{ id: 'sc-1', name: 'Cart', kind: 'standard' as const, tests: [] }] });
+        const fg2 = makeFg({ id: 'fg-2', scenarios: [{ id: 'sc-2', name: 'Login', kind: 'standard' as const, tests: [] }] });
+        const { result, getFeatureGroups } = setup([fg1, fg2]);
+        act(() => { result.current.updateScenarioSlaTargets('fg-1', 'sc-1', [makeTarget()]); });
+        expect(getFeatureGroups()[1].scenarios[0].slaTargets).toBeUndefined();
+      });
+
+      it('can clear targets by passing an empty array', () => {
+        const fg = makeFg({ scenarios: [{ id: 'sc-1', name: 'Cart', kind: 'standard' as const, tests: [], slaTargets: [makeTarget()] }] });
+        const { result, getFeatureGroups } = setup([fg]);
+        act(() => { result.current.updateScenarioSlaTargets('fg-1', 'sc-1', []); });
+        expect(getFeatureGroups()[0].scenarios[0].slaTargets).toEqual([]);
+      });
+
+      it('is a no-op when feature group id is unknown', () => {
+        const fg = makeFg({ scenarios: [{ id: 'sc-1', name: 'Cart', kind: 'standard' as const, tests: [] }] });
+        const { result, getFeatureGroups } = setup([fg]);
+        act(() => { result.current.updateScenarioSlaTargets('fg-NOPE', 'sc-1', [makeTarget()]); });
+        expect(getFeatureGroups()[0].scenarios[0].slaTargets).toBeUndefined();
+      });
+
+      it('is a no-op when scenario id is unknown', () => {
+        const fg = makeFg({ scenarios: [{ id: 'sc-1', name: 'Cart', kind: 'standard' as const, tests: [] }] });
+        const { result, getFeatureGroups } = setup([fg]);
+        act(() => { result.current.updateScenarioSlaTargets('fg-1', 'sc-NOPE', [makeTarget()]); });
+        expect(getFeatureGroups()[0].scenarios[0].slaTargets).toBeUndefined();
+      });
+
+      it('replaces the full targets array (not appends)', () => {
+        const initial = [makeTarget({ id: 'sla-1', value: 800 })];
+        const fg = makeFg({ scenarios: [{ id: 'sc-1', name: 'Cart', kind: 'standard' as const, tests: [], slaTargets: initial }] });
+        const { result, getFeatureGroups } = setup([fg]);
+        const updated = [makeTarget({ id: 'sla-2', value: 500 })];
+        act(() => { result.current.updateScenarioSlaTargets('fg-1', 'sc-1', updated); });
+        const saved = getFeatureGroups()[0].scenarios[0].slaTargets!;
+        expect(saved).toHaveLength(1);
+        expect(saved[0].id).toBe('sla-2');
+      });
+    });
+
+    describe('updateFeatureGroupSlaTargets', () => {
+      it('sets slaTargets on the matching feature group', () => {
+        const fg = makeFg();
+        const { result, getFeatureGroups } = setup([fg]);
+        const targets = [makeTarget()];
+        act(() => { result.current.updateFeatureGroupSlaTargets('fg-1', targets); });
+        expect(getFeatureGroups()[0].slaTargets).toEqual(targets);
+      });
+
+      it('does not affect other feature groups', () => {
+        const fg1 = makeFg({ id: 'fg-1' });
+        const fg2 = makeFg({ id: 'fg-2' });
+        const { result, getFeatureGroups } = setup([fg1, fg2]);
+        act(() => { result.current.updateFeatureGroupSlaTargets('fg-1', [makeTarget()]); });
+        expect(getFeatureGroups()[1].slaTargets).toBeUndefined();
+      });
+
+      it('can clear targets by passing an empty array', () => {
+        const fg = makeFg({ slaTargets: [makeTarget()] });
+        const { result, getFeatureGroups } = setup([fg]);
+        act(() => { result.current.updateFeatureGroupSlaTargets('fg-1', []); });
+        expect(getFeatureGroups()[0].slaTargets).toEqual([]);
+      });
+
+      it('is a no-op when feature group id is unknown', () => {
+        const fg = makeFg();
+        const { result, getFeatureGroups } = setup([fg]);
+        act(() => { result.current.updateFeatureGroupSlaTargets('fg-NOPE', [makeTarget()]); });
+        expect(getFeatureGroups()[0].slaTargets).toBeUndefined();
+      });
+
+      it('replaces the full targets array (not appends)', () => {
+        const fg = makeFg({ slaTargets: [makeTarget({ id: 'sla-old', value: 1000 })] });
+        const { result, getFeatureGroups } = setup([fg]);
+        const fresh = [makeTarget({ id: 'sla-new', value: 400 })];
+        act(() => { result.current.updateFeatureGroupSlaTargets('fg-1', fresh); });
+        const saved = getFeatureGroups()[0].slaTargets!;
+        expect(saved).toHaveLength(1);
+        expect(saved[0].id).toBe('sla-new');
+      });
+    });
+  });
 });

@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
+import { renderHook, act, waitFor } from '@testing-library/react';
 import { useRunnerConfig, defaultLoadProfile, defaultThinkTime, type RunnerConfig } from './useRunnerConfig';
 
 // ── Mocks ──
@@ -28,7 +28,7 @@ describe('useRunnerConfig', () => {
     const { result } = renderHook(() => useRunnerConfig('test-key'));
 
     // Wait for async load
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(result.current.configLoaded).toBe(true);
     });
 
@@ -76,7 +76,7 @@ describe('useRunnerConfig', () => {
 
     const { result } = renderHook(() => useRunnerConfig('saved-key'));
 
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(result.current.configLoaded).toBe(true);
     });
 
@@ -105,7 +105,7 @@ describe('useRunnerConfig', () => {
 
     const { result } = renderHook(() => useRunnerConfig('fmt-md'));
 
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(result.current.configLoaded).toBe(true);
     });
 
@@ -117,7 +117,7 @@ describe('useRunnerConfig', () => {
 
     const { result } = renderHook(() => useRunnerConfig('auto-save-key'));
 
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(result.current.configLoaded).toBe(true);
     });
 
@@ -129,7 +129,7 @@ describe('useRunnerConfig', () => {
     });
 
     // Wait for the save effect to fire
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(mockSaveRunnerConfig).toHaveBeenCalled();
     });
 
@@ -142,7 +142,7 @@ describe('useRunnerConfig', () => {
 
     const { result } = renderHook(() => useRunnerConfig(undefined));
 
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(result.current.configLoaded).toBe(true);
     });
 
@@ -154,7 +154,7 @@ describe('useRunnerConfig', () => {
       result.current.setConcurrency(9);
     });
 
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(mockSaveRunnerConfig).toHaveBeenCalledWith(
         expect.objectContaining({ concurrency: 9 }),
         undefined,
@@ -170,7 +170,7 @@ describe('useRunnerConfig', () => {
       { initialProps: { key: 'key-1' } },
     );
 
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(result.current.configLoaded).toBe(true);
     });
 
@@ -185,7 +185,7 @@ describe('useRunnerConfig', () => {
 
     rerender({ key: 'key-2' });
 
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(result.current.concurrency).toBe(20);
     });
 
@@ -205,7 +205,7 @@ describe('useRunnerConfig', () => {
 
     const { result } = renderHook(() => useRunnerConfig('no-profile-key'));
 
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(result.current.configLoaded).toBe(true);
     });
 
@@ -225,7 +225,7 @@ describe('useRunnerConfig', () => {
 
     const { result } = renderHook(() => useRunnerConfig('sparse-key'));
 
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(result.current.configLoaded).toBe(true);
     });
 
@@ -243,7 +243,7 @@ describe('useRunnerConfig', () => {
 
     const { result } = renderHook(() => useRunnerConfig('missing-counts'));
 
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(result.current.configLoaded).toBe(true);
     });
 
@@ -279,7 +279,7 @@ describe('useRunnerConfig', () => {
 
     const { result } = renderHook(() => useRunnerConfig('all-nullish'));
 
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(result.current.configLoaded).toBe(true);
     });
 
@@ -317,7 +317,7 @@ describe('useRunnerConfig', () => {
 
     const { result } = renderHook(() => useRunnerConfig('null-auto'));
 
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(result.current.configLoaded).toBe(true);
     });
 
@@ -336,7 +336,7 @@ describe('useRunnerConfig', () => {
 
     const { result } = renderHook(() => useRunnerConfig('arrival-key'));
 
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(result.current.configLoaded).toBe(true);
     });
 
@@ -358,7 +358,7 @@ describe('useRunnerConfig', () => {
 
     const { result } = renderHook(() => useRunnerConfig('profile-think'));
 
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(result.current.configLoaded).toBe(true);
     });
 
@@ -379,7 +379,7 @@ describe('useRunnerConfig', () => {
 
     const { result } = renderHook(() => useRunnerConfig('nullish-collections'));
 
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(result.current.configLoaded).toBe(true);
     });
 
@@ -398,7 +398,7 @@ describe('useRunnerConfig', () => {
 
     const { result } = renderHook(() => useRunnerConfig('setter-test'));
 
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(result.current.configLoaded).toBe(true);
     });
 

@@ -354,6 +354,9 @@ function fixupOverGroupedServices(migrated: Workflow): Workflow {
 
   for (const [svcId, nodes] of serviceNodeMap) {
     if (nodes.length <= 1) continue;
+    // Services bound to a microservice are grouped intentionally — never split them.
+    const svc = services.find(s => s.id === svcId);
+    if (svc?.microserviceId) continue;
     const originMap = new Map<string, string[]>();
     for (const node of nodes) {
       const data = node.data as HttpNodeData;

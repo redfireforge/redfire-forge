@@ -1,0 +1,607 @@
+{
+  "_meta": {
+    "feature": "SLA Dashboard (T-5)",
+    "description": "Test data for docs/plan/sla-dashboard-test-scenarios.md. Contains SLA target configurations, mock test runs for all visual test scenarios (Phases A-E, per-scenario SLA, workflow-scoped, embedded run-level), and CLI import test data (§5).",
+    "appVersion": "0.5.9",
+    "createdAt": "2026-05-24T00:00:00.000Z",
+    "storageKeys": {
+      "slaTargetsRun": "sla-targets-run-{runId}",
+      "testRuns": "perf-test-runs",
+      "_note": "sla-targets-wf-* workflow localStorage keys were removed in CC-1/2/3 cleanup (2026-05-25). Workflow SLA is now embedded in each run's config.slaTargets."
+    },
+    "usage": "Paste the appropriate scenario block into the browser console, then refresh and navigate to Harness → Results."
+  },
+
+  "scenarios": {
+    "empty": {
+      "_description": "Scenario 1 — No SLA targets defined. Empty-state placeholder.",
+      "targets": [],
+      "testRun": {
+        "id": "sla-test-run-empty",
+        "timestamp": 1748044800000,
+        "envName": "staging",
+        "svcName": "api",
+        "baseUrl": "https://api.example.com",
+        "projectName": "SLA Empty State Test",
+        "config": { "concurrency": 10, "iterations": 100, "executionMode": "batch" },
+        "summary": {
+          "tps": 80,
+          "avgResponseTime": 45,
+          "minResponseTime": 10,
+          "maxResponseTime": 300,
+          "p50ResponseTime": 40,
+          "p95ResponseTime": 120,
+          "p99ResponseTime": 200,
+          "errorRate": 0.1,
+          "errorsByStatus": {},
+          "totalRequests": 1000,
+          "successfulRequests": 999,
+          "failedRequests": 1,
+          "failedValidations": 0,
+          "totalDurationMs": 12500
+        },
+        "results": []
+      },
+      "expectedBehavior": {
+        "bannerVisible": false,
+        "cardCount": 0,
+        "shows": "empty-state — 'No SLA targets defined.' + '+ Add First Target' button"
+      }
+    },
+
+    "allPass": {
+      "_description": "Scenario 2 — All 3 targets pass. Green banner.",
+      "targets": [
+        { "id": "sla-p2-p95", "metric": "p95", "operator": "lte", "value": 500, "label": "P95 latency SLA" },
+        { "id": "sla-p2-tps", "metric": "tps", "operator": "gte", "value": 50 },
+        { "id": "sla-p2-err", "metric": "errorRate", "operator": "lte", "value": 1.0 }
+      ],
+      "testRun": {
+        "id": "sla-test-pass",
+        "timestamp": 1748044800000,
+        "envName": "staging",
+        "svcName": "api",
+        "baseUrl": "https://api.example.com",
+        "projectName": "SLA All Pass Test",
+        "config": { "concurrency": 20, "iterations": 500, "executionMode": "batch" },
+        "summary": {
+          "tps": 95,
+          "avgResponseTime": 45,
+          "minResponseTime": 8,
+          "maxResponseTime": 410,
+          "p50ResponseTime": 40,
+          "p95ResponseTime": 380,
+          "p99ResponseTime": 410,
+          "errorRate": 0.2,
+          "errorsByStatus": {},
+          "totalRequests": 5000,
+          "successfulRequests": 4990,
+          "failedRequests": 10,
+          "failedValidations": 0,
+          "totalDurationMs": 52500
+        },
+        "results": []
+      },
+      "expectedBehavior": {
+        "overallStatus": "pass",
+        "bannerMessage": "All 3 SLA targets passing",
+        "cardCount": 3,
+        "cards": [
+          { "metric": "p95", "label": "P95 latency SLA", "actual": "380ms", "target": "≤ 500ms", "status": "pass" },
+          { "metric": "tps", "label": "TPS",             "actual": "95",    "target": "≥ 50",    "status": "pass" },
+          { "metric": "errorRate", "label": "Error Rate", "actual": "0.2%", "target": "≤ 1%",    "status": "pass" }
+        ]
+      }
+    },
+
+    "allFail": {
+      "_description": "Scenario 3 — All 3 targets fail. Red banner.",
+      "targets": [
+        { "id": "sla-p3-p95", "metric": "p95", "operator": "lte", "value": 200, "label": "P95 SLA" },
+        { "id": "sla-p3-p99", "metric": "p99", "operator": "lte", "value": 300 },
+        { "id": "sla-p3-tps", "metric": "tps", "operator": "gte", "value": 100 }
+      ],
+      "testRun": {
+        "id": "sla-test-fail",
+        "timestamp": 1748044800000,
+        "envName": "prod",
+        "svcName": "checkout",
+        "baseUrl": "https://checkout.example.com",
+        "projectName": "SLA All Fail Test",
+        "config": { "concurrency": 5, "iterations": 50, "executionMode": "batch" },
+        "summary": {
+          "tps": 12,
+          "avgResponseTime": 890,
+          "minResponseTime": 500,
+          "maxResponseTime": 4200,
+          "p50ResponseTime": 800,
+          "p95ResponseTime": 3100,
+          "p99ResponseTime": 4100,
+          "errorRate": 5.0,
+          "errorsByStatus": { "503": 5 },
+          "totalRequests": 100,
+          "successfulRequests": 95,
+          "failedRequests": 5,
+          "failedValidations": 0,
+          "totalDurationMs": 8300
+        },
+        "results": []
+      },
+      "expectedBehavior": {
+        "overallStatus": "fail",
+        "bannerMessage": "3 violations",
+        "cardCount": 3,
+        "cards": [
+          { "metric": "p95", "label": "P95 SLA",           "actual": "3100ms", "target": "≤ 200ms",  "status": "fail" },
+          { "metric": "p99", "label": "P99 Response Time", "actual": "4100ms", "target": "≤ 300ms",  "status": "fail" },
+          { "metric": "tps", "label": "TPS",               "actual": "12",     "target": "≥ 100",    "status": "fail" }
+        ]
+      }
+    },
+
+    "allWarn": {
+      "_description": "Scenario 4 — All 3 targets in warn zone. Amber banner.",
+      "targets": [
+        { "id": "sla-p4-p95", "metric": "p95", "operator": "lte", "value": 800, "warnAt": 500, "label": "P95 SLA" },
+        { "id": "sla-p4-p99", "metric": "p99", "operator": "lte", "value": 1200, "warnAt": 800 },
+        { "id": "sla-p4-tps", "metric": "tps", "operator": "gte", "value": 50, "warnAt": 80 }
+      ],
+      "testRun": {
+        "id": "sla-test-warn",
+        "timestamp": 1748044800000,
+        "envName": "staging",
+        "svcName": "api",
+        "baseUrl": "https://api.example.com",
+        "projectName": "SLA All Warn Test",
+        "config": { "concurrency": 15, "iterations": 200, "executionMode": "batch" },
+        "summary": {
+          "tps": 62,
+          "avgResponseTime": 180,
+          "minResponseTime": 30,
+          "maxResponseTime": 1100,
+          "p50ResponseTime": 140,
+          "p95ResponseTime": 650,
+          "p99ResponseTime": 950,
+          "errorRate": 0.5,
+          "errorsByStatus": {},
+          "totalRequests": 2000,
+          "successfulRequests": 1990,
+          "failedRequests": 10,
+          "failedValidations": 0,
+          "totalDurationMs": 32500
+        },
+        "results": []
+      },
+      "expectedBehavior": {
+        "overallStatus": "warn",
+        "bannerMessage": "3 warnings",
+        "cardCount": 3,
+        "cards": [
+          { "metric": "p95", "label": "P95 SLA",           "actual": "650ms",  "target": "≤ 800ms (warn at 500ms)",  "status": "warn" },
+          { "metric": "p99", "label": "P99 Response Time", "actual": "950ms",  "target": "≤ 1200ms (warn at 800ms)", "status": "warn" },
+          { "metric": "tps", "label": "TPS",               "actual": "62",     "target": "≥ 50 (warn at 80)",        "status": "warn" }
+        ]
+      }
+    },
+
+    "noData": {
+      "_description": "Scenario 5 — P99.9 target has no data (absent from summary). Gray banner.",
+      "targets": [
+        { "id": "sla-p5-p999", "metric": "p999", "operator": "lte", "value": 2000, "label": "P99.9 SLA" },
+        { "id": "sla-p5-p95",  "metric": "p95",  "operator": "lte", "value": 500,  "label": "P95 SLA"   }
+      ],
+      "testRun": {
+        "id": "sla-test-nodata",
+        "timestamp": 1748044800000,
+        "envName": "staging",
+        "svcName": "api",
+        "baseUrl": "https://api.example.com",
+        "projectName": "SLA No-Data Test",
+        "config": { "concurrency": 10, "iterations": 100, "executionMode": "batch" },
+        "summary": {
+          "tps": 80,
+          "avgResponseTime": 45,
+          "minResponseTime": 10,
+          "maxResponseTime": 300,
+          "p50ResponseTime": 40,
+          "p95ResponseTime": 120,
+          "p99ResponseTime": 200,
+          "_note": "p999ResponseTime intentionally absent to trigger no-data status",
+          "errorRate": 0.1,
+          "errorsByStatus": {},
+          "totalRequests": 1000,
+          "successfulRequests": 999,
+          "failedRequests": 1,
+          "failedValidations": 0,
+          "totalDurationMs": 12500
+        },
+        "results": []
+      },
+      "expectedBehavior": {
+        "overallStatus": "no-data",
+        "bannerMessage": "1 target — no data, 1 passing",
+        "cardCount": 2,
+        "cards": [
+          { "metric": "p999", "label": "P99.9 SLA", "actual": "—",     "target": "≤ 2000ms", "status": "no-data" },
+          { "metric": "p95",  "label": "P95 SLA",   "actual": "120ms", "target": "≤ 500ms",  "status": "pass"    }
+        ]
+      }
+    },
+
+    "mixed": {
+      "_description": "Scenario 6 — All 4 statuses present simultaneously. Red banner (fail wins).",
+      "targets": [
+        { "id": "sla-m1", "metric": "p95",       "operator": "lte", "value": 800,  "warnAt": 600, "label": "P95 SLA" },
+        { "id": "sla-m2", "metric": "p99",       "operator": "lte", "value": 800                                     },
+        { "id": "sla-m3", "metric": "tps",       "operator": "gte", "value": 50,   "warnAt": 70                      },
+        { "id": "sla-m4", "metric": "errorRate", "operator": "lte", "value": 0.5                                     },
+        { "id": "sla-m5", "metric": "avg",       "operator": "lte", "value": 100                                     },
+        { "id": "sla-m6", "metric": "p999",      "operator": "lte", "value": 1000                                    }
+      ],
+      "testRun": {
+        "id": "sla-test-mixed",
+        "timestamp": 1748044800000,
+        "envName": "staging",
+        "svcName": "checkout",
+        "baseUrl": "https://checkout.example.com",
+        "projectName": "SLA Mixed Status Test",
+        "config": { "concurrency": 10, "iterations": 100, "executionMode": "batch" },
+        "summary": {
+          "tps": 45,
+          "avgResponseTime": 55,
+          "minResponseTime": 10,
+          "maxResponseTime": 900,
+          "p50ResponseTime": 45,
+          "p95ResponseTime": 720,
+          "p99ResponseTime": 850,
+          "_note": "p999ResponseTime absent → no-data",
+          "errorRate": 0.3,
+          "errorsByStatus": {},
+          "totalRequests": 1000,
+          "successfulRequests": 997,
+          "failedRequests": 3,
+          "failedValidations": 0,
+          "totalDurationMs": 22000
+        },
+        "results": []
+      },
+      "expectedBehavior": {
+        "overallStatus": "fail",
+        "bannerMessage": "2 violations — 1 warning — 2 passing — 1 no data",
+        "cardCount": 6,
+        "cards": [
+          { "metric": "p95",       "label": "P95 SLA",           "actual": "720ms", "target": "≤ 800ms (warn at 600ms)", "status": "warn"    },
+          { "metric": "p99",       "label": "P99 Response Time", "actual": "850ms", "target": "≤ 800ms",                 "status": "fail"    },
+          { "metric": "tps",       "label": "TPS",               "actual": "45",    "target": "≥ 50 (warn at 70)",       "status": "fail"    },
+          { "metric": "errorRate", "label": "Error Rate",        "actual": "0.3%",  "target": "≤ 0.5%",                  "status": "pass"    },
+          { "metric": "avg",       "label": "Avg Response Time", "actual": "55ms",  "target": "≤ 100ms",                 "status": "pass"    },
+          { "metric": "p999",      "label": "P99.9 Response Time","actual": "—",    "target": "≤ 1000ms",                "status": "no-data" }
+        ]
+      }
+    },
+
+    "perScenario": {
+      "_description": "Scenario 13 — Per-scenario SLA targets. SlaStatusAccordion shows per-scenario nodes: 'checkout' has 2 passing SLA checks; 'search' has no SLA and does NOT appear in the accordion.",
+      "_storageKeys": {
+        "slaTargetsRun": "sla-targets-run-sla-test-scenario",
+        "testRuns": "perf-test-runs (run id: sla-test-scenario)"
+      },
+      "targets": [
+        { "id": "sla-sc-p95", "metric": "p95", "operator": "lte", "value": 500, "scenarioName": "checkout", "label": "Checkout P95" },
+        { "id": "sla-sc-err", "metric": "errorRate", "operator": "lte", "value": 1.0, "scenarioName": "checkout", "label": "Checkout Error Rate" }
+      ],
+      "testRun": {
+        "id": "sla-test-scenario",
+        "timestamp": 1748044800000,
+        "envName": "staging",
+        "svcName": "api",
+        "projectName": "Per-Scenario SLA Test",
+        "baseUrl": "https://api.example.com",
+        "config": { "concurrency": 5, "iterations": 10, "executionMode": "batch" },
+        "summary": {
+          "tps": 10,
+          "avgResponseTime": 260,
+          "minResponseTime": 45,
+          "maxResponseTime": 490,
+          "p50ResponseTime": 240,
+          "p95ResponseTime": 480,
+          "p99ResponseTime": 490,
+          "errorRate": 0.0,
+          "errorsByStatus": {},
+          "totalRequests": 18,
+          "successfulRequests": 18,
+          "failedRequests": 0,
+          "failedValidations": 0,
+          "totalDurationMs": 3000
+        },
+        "results": [
+          { "id": "r-co-0", "scenarioId": "co", "scenarioName": "checkout", "url": "https://api.example.com/checkout", "method": "POST", "httpStatus": 200, "responseTimeMs": 380, "responseBody": "{}", "timestamp": 1748044800000, "passed": true, "validationMode": "status", "failureDetails": [] },
+          { "id": "r-co-1", "scenarioId": "co", "scenarioName": "checkout", "url": "https://api.example.com/checkout", "method": "POST", "httpStatus": 200, "responseTimeMs": 400, "responseBody": "{}", "timestamp": 1748044800120, "passed": true, "validationMode": "status", "failureDetails": [] },
+          { "id": "r-co-2", "scenarioId": "co", "scenarioName": "checkout", "url": "https://api.example.com/checkout", "method": "POST", "httpStatus": 200, "responseTimeMs": 410, "responseBody": "{}", "timestamp": 1748044800240, "passed": true, "validationMode": "status", "failureDetails": [] },
+          { "id": "r-co-3", "scenarioId": "co", "scenarioName": "checkout", "url": "https://api.example.com/checkout", "method": "POST", "httpStatus": 200, "responseTimeMs": 420, "responseBody": "{}", "timestamp": 1748044800360, "passed": true, "validationMode": "status", "failureDetails": [] },
+          { "id": "r-co-4", "scenarioId": "co", "scenarioName": "checkout", "url": "https://api.example.com/checkout", "method": "POST", "httpStatus": 200, "responseTimeMs": 430, "responseBody": "{}", "timestamp": 1748044800480, "passed": true, "validationMode": "status", "failureDetails": [] },
+          { "id": "r-co-5", "scenarioId": "co", "scenarioName": "checkout", "url": "https://api.example.com/checkout", "method": "POST", "httpStatus": 200, "responseTimeMs": 440, "responseBody": "{}", "timestamp": 1748044800600, "passed": true, "validationMode": "status", "failureDetails": [] },
+          { "id": "r-co-6", "scenarioId": "co", "scenarioName": "checkout", "url": "https://api.example.com/checkout", "method": "POST", "httpStatus": 200, "responseTimeMs": 450, "responseBody": "{}", "timestamp": 1748044800720, "passed": true, "validationMode": "status", "failureDetails": [] },
+          { "id": "r-co-7", "scenarioId": "co", "scenarioName": "checkout", "url": "https://api.example.com/checkout", "method": "POST", "httpStatus": 200, "responseTimeMs": 460, "responseBody": "{}", "timestamp": 1748044800840, "passed": true, "validationMode": "status", "failureDetails": [] },
+          { "id": "r-co-8", "scenarioId": "co", "scenarioName": "checkout", "url": "https://api.example.com/checkout", "method": "POST", "httpStatus": 200, "responseTimeMs": 470, "responseBody": "{}", "timestamp": 1748044800960, "passed": true, "validationMode": "status", "failureDetails": [] },
+          { "id": "r-co-9", "scenarioId": "co", "scenarioName": "checkout", "url": "https://api.example.com/checkout", "method": "POST", "httpStatus": 200, "responseTimeMs": 490, "responseBody": "{}", "timestamp": 1748044801080, "passed": true, "validationMode": "status", "failureDetails": [] },
+          { "id": "r-sr-0", "scenarioId": "sr", "scenarioName": "search", "url": "https://api.example.com/search", "method": "GET", "httpStatus": 200, "responseTimeMs": 45, "responseBody": "[]", "timestamp": 1748044800000, "passed": true, "validationMode": "status", "failureDetails": [] },
+          { "id": "r-sr-1", "scenarioId": "sr", "scenarioName": "search", "url": "https://api.example.com/search", "method": "GET", "httpStatus": 200, "responseTimeMs": 48, "responseBody": "[]", "timestamp": 1748044800150, "passed": true, "validationMode": "status", "failureDetails": [] },
+          { "id": "r-sr-2", "scenarioId": "sr", "scenarioName": "search", "url": "https://api.example.com/search", "method": "GET", "httpStatus": 200, "responseTimeMs": 50, "responseBody": "[]", "timestamp": 1748044800300, "passed": true, "validationMode": "status", "failureDetails": [] },
+          { "id": "r-sr-3", "scenarioId": "sr", "scenarioName": "search", "url": "https://api.example.com/search", "method": "GET", "httpStatus": 200, "responseTimeMs": 52, "responseBody": "[]", "timestamp": 1748044800450, "passed": true, "validationMode": "status", "failureDetails": [] },
+          { "id": "r-sr-4", "scenarioId": "sr", "scenarioName": "search", "url": "https://api.example.com/search", "method": "GET", "httpStatus": 200, "responseTimeMs": 55, "responseBody": "[]", "timestamp": 1748044800600, "passed": true, "validationMode": "status", "failureDetails": [] },
+          { "id": "r-sr-5", "scenarioId": "sr", "scenarioName": "search", "url": "https://api.example.com/search", "method": "GET", "httpStatus": 200, "responseTimeMs": 58, "responseBody": "[]", "timestamp": 1748044800750, "passed": true, "validationMode": "status", "failureDetails": [] },
+          { "id": "r-sr-6", "scenarioId": "sr", "scenarioName": "search", "url": "https://api.example.com/search", "method": "GET", "httpStatus": 200, "responseTimeMs": 60, "responseBody": "[]", "timestamp": 1748044800900, "passed": true, "validationMode": "status", "failureDetails": [] },
+          { "id": "r-sr-7", "scenarioId": "sr", "scenarioName": "search", "url": "https://api.example.com/search", "method": "GET", "httpStatus": 200, "responseTimeMs": 62, "responseBody": "[]", "timestamp": 1748044801050, "passed": true, "validationMode": "status", "failureDetails": [] }
+        ]
+      },
+      "expectedBehavior": {
+        "view": "SlaStatusAccordion (per-scenario nodes in tree)",
+        "scenarioRows": 1,
+        "overallStatus": "pass",
+        "bannerMessage": "All 2 SLA targets passing",
+        "checkoutRow": {
+          "cards": [
+            { "metric": "p95", "label": "Checkout P95", "actual": "490ms", "target": "≤ 500ms", "status": "pass",
+              "_note": "p95 = durations[ceil(0.95*10)-1] = durations[9] = 490ms" },
+            { "metric": "errorRate", "label": "Checkout Error Rate", "actual": "0%", "target": "≤ 1%", "status": "pass" }
+          ]
+        },
+        "searchRow": {
+          "neutral": true,
+          "shows": "⚫ search — No SLA configured"
+        }
+      }
+    },
+
+    "workflowScoped": {
+      "_description": "Scenario 14 — Workflow-def scoped SLA. 📋 Workflow badge. Targets are embedded in config.slaTargets + workflowId set. Always read-only (scope='workflow-def'). Edit Targets button hidden.",
+      "_storageKeys": {
+        "_note": "No separate workflow SLA localStorage key. Targets are embedded in config.slaTargets. sla-targets-wf-* was removed in CC-1/2/3.",
+        "testRuns": "perf-test-runs (run id: sla-wf-run-a)"
+      },
+      "testRun": {
+        "id": "sla-wf-run-a",
+        "timestamp": 1748044800000,
+        "envName": "staging",
+        "svcName": "checkout",
+        "projectName": "Workflow Run A",
+        "baseUrl": "https://api.example.com",
+        "config": {
+          "concurrency": 10,
+          "iterations": 100,
+          "executionMode": "workflow",
+          "workflowId": "wf-sla-test",
+          "slaTargets": [
+            { "id": "sla-wf-p95", "metric": "p95", "operator": "lte", "value": 600, "label": "Workflow P95 SLA" },
+            { "id": "sla-wf-tps", "metric": "tps", "operator": "gte", "value": 30 }
+          ]
+        },
+        "summary": {
+          "tps": 50,
+          "avgResponseTime": 180,
+          "minResponseTime": 40,
+          "maxResponseTime": 580,
+          "p50ResponseTime": 160,
+          "p95ResponseTime": 540,
+          "p99ResponseTime": 575,
+          "errorRate": 0.2,
+          "errorsByStatus": {},
+          "totalRequests": 1000,
+          "successfulRequests": 998,
+          "failedRequests": 2,
+          "failedValidations": 0,
+          "totalDurationMs": 20000
+        },
+        "results": []
+      },
+      "expectedBehavior": {
+        "scopeBadge": "📋 Workflow",
+        "editButtonVisible": false,
+        "readonly": true,
+        "overallStatus": "pass",
+        "compactBarPill": "✓ All Passing",
+        "compactBarDetail": "2 targets evaluated",
+        "accordionChecks": [
+          { "metric": "p95", "label": "Workflow P95 SLA", "actual": "540ms", "target": "≤ 600ms", "status": "pass" },
+          { "metric": "tps", "label": "TPS",              "actual": "50",    "target": "≥ 30",    "status": "pass" }
+        ]
+      }
+    },
+
+    "embeddedRunLevel": {
+      "_description": "Scenario 15 — Embedded SLA in config.slaTargets. 🔒 This Run badge. Edit Targets button hidden. Targets are read-only.",
+      "_storageKeys": {
+        "_note": "No separate SLA key needed — targets are embedded in the run config itself.",
+        "testRuns": "perf-test-runs (run id: sla-test-embedded)"
+      },
+      "testRun": {
+        "id": "sla-test-embedded",
+        "timestamp": 1748044800000,
+        "envName": "prod",
+        "svcName": "payments",
+        "projectName": "Embedded SLA Run",
+        "baseUrl": "https://payments.example.com",
+        "config": {
+          "concurrency": 20,
+          "iterations": 500,
+          "executionMode": "batch",
+          "slaTargets": [
+            { "id": "sla-e1", "metric": "p95",       "operator": "lte", "value": 400, "label": "Payment P95"   },
+            { "id": "sla-e2", "metric": "errorRate",  "operator": "lte", "value": 0.5, "label": "Error Rate SLA"},
+            { "id": "sla-e3", "metric": "tps",        "operator": "gte", "value": 80  }
+          ]
+        },
+        "summary": {
+          "tps": 95,
+          "avgResponseTime": 120,
+          "minResponseTime": 30,
+          "maxResponseTime": 390,
+          "p50ResponseTime": 110,
+          "p95ResponseTime": 370,
+          "p99ResponseTime": 385,
+          "errorRate": 0.1,
+          "errorsByStatus": {},
+          "totalRequests": 5000,
+          "successfulRequests": 4995,
+          "failedRequests": 5,
+          "failedValidations": 0,
+          "totalDurationMs": 52500
+        },
+        "results": []
+      },
+      "expectedBehavior": {
+        "scopeBadge": "🔒 This Run",
+        "editButtonVisible": false,
+        "overallStatus": "pass",
+        "bannerMessage": "All 3 SLA targets passing",
+        "cards": [
+          { "metric": "p95",       "label": "Payment P95",   "actual": "370ms", "target": "≤ 400ms", "status": "pass" },
+          { "metric": "errorRate", "label": "Error Rate SLA","actual": "0.1%",  "target": "≤ 0.5%", "status": "pass" },
+          { "metric": "tps",       "label": "TPS",           "actual": "95",    "target": "≥ 80",   "status": "pass" }
+        ]
+      }
+    },
+
+    "runListDots": {
+      "_description": "Scenario 16 — 4 runs with different SLA states to test run-selector status dots.",
+      "_storageKeys": {
+        "slaTargetsRun-pass": "sla-targets-run-sla-dot-pass",
+        "slaTargetsRun-warn": "sla-targets-run-sla-dot-warn",
+        "slaTargetsRun-fail": "sla-targets-run-sla-dot-fail",
+        "_note": "sla-dot-none has no SLA targets key → ⚫"
+      },
+      "runs": [
+        {
+          "id": "sla-dot-pass",
+          "projectName": "All Pass Run",
+          "p95ResponseTime": 380, "tps": 60,
+          "slaTargets": [
+            { "id": "sla-dp1", "metric": "p95", "operator": "lte", "value": 500 },
+            { "id": "sla-dp2", "metric": "tps", "operator": "gte", "value": 30  }
+          ],
+          "expectedDot": "🟢"
+        },
+        {
+          "id": "sla-dot-warn",
+          "projectName": "Warn Run",
+          "p95ResponseTime": 350, "tps": 50,
+          "slaTargets": [
+            { "id": "sla-dw1", "metric": "p95", "operator": "lte", "value": 500, "warnAt": 200 }
+          ],
+          "_note": "350ms is between warnAt=200 and value=500 → warn zone",
+          "expectedDot": "🟡"
+        },
+        {
+          "id": "sla-dot-fail",
+          "projectName": "All Fail Run",
+          "p95ResponseTime": 850, "tps": 20,
+          "slaTargets": [
+            { "id": "sla-df1", "metric": "p95", "operator": "lte", "value": 200 }
+          ],
+          "_note": "850ms > 200ms fail threshold",
+          "expectedDot": "🔴"
+        },
+        {
+          "id": "sla-dot-none",
+          "projectName": "No SLA Run",
+          "p95ResponseTime": 200, "tps": 90,
+          "slaTargets": [],
+          "_note": "No SLA key set → null from resolveTargetsForRun → ⚫",
+          "expectedDot": "⚫"
+        }
+      ]
+    },
+
+    "multiRunWorkflow": {
+      "_description": "Scenario 18 — Two runs sharing workflowId='wf-shared-sla'. Both have SLA targets embedded in config.slaTargets at launch time. Each run evaluates SLA independently against its own results. badge='\ud83d\udccb Workflow', read-only.",
+      "_storageKeys": {
+        "_note": "No shared workflow SLA localStorage. Each run has slaTargets embedded in config. sla-targets-wf-* was removed in CC-1/2/3."
+      },
+      "testRuns": [
+        {
+          "id": "sla-wf-shared-a",
+          "projectName": "Workflow Run A (Earlier)",
+          "config": {
+            "concurrency": 10, "iterations": 100, "executionMode": "workflow", "workflowId": "wf-shared-sla",
+            "slaTargets": [
+              { "id": "sla-ws-p95", "metric": "p95", "operator": "lte", "value": 600, "label": "Workflow P95" },
+              { "id": "sla-ws-tps", "metric": "tps", "operator": "gte", "value": 40 }
+            ]
+          },
+          "p95ResponseTime": 450, "tps": 55
+        },
+        {
+          "id": "sla-wf-shared-b",
+          "projectName": "Workflow Run B (Latest)",
+          "config": {
+            "concurrency": 10, "iterations": 100, "executionMode": "workflow", "workflowId": "wf-shared-sla",
+            "slaTargets": [
+              { "id": "sla-ws-p95", "metric": "p95", "operator": "lte", "value": 600, "label": "Workflow P95" },
+              { "id": "sla-ws-tps", "metric": "tps", "operator": "gte", "value": 40 }
+            ]
+          },
+          "p95ResponseTime": 480, "tps": 52
+        }
+      ],
+      "expectedBehavior": {
+        "scopeBadge": "📋 Workflow",
+        "editButtonVisible": false,
+        "readonly": true,
+        "bothRunsShowSameBadge": true,
+        "_note": "Each run evaluates SLA independently. Targets are identical (embedded at workflow launch time) but results differ per run."
+      }
+    }
+  },
+
+  "consoleSnippets": {
+    "_description": "Ready-to-paste browser console snippets for each scenario. Includes both targets and testRun in one paste.",
+
+    "seedEmpty": "localStorage.setItem('perf-test-runs', JSON.stringify([{id:'sla-test-run-empty',timestamp:Date.now(),envName:'staging',svcName:'api',baseUrl:'https://api.example.com',projectName:'Empty State Test',config:{concurrency:10,iterations:100,executionMode:'batch'},summary:{tps:80,avgResponseTime:45,minResponseTime:10,maxResponseTime:300,p50ResponseTime:40,p95ResponseTime:120,p99ResponseTime:200,errorRate:0.1,errorsByStatus:{},totalRequests:1000,successfulRequests:999,failedRequests:1,failedValidations:0,totalDurationMs:12500},results:[]}]));",
+
+    "seedAllPass": "localStorage.setItem('sla-targets-run-sla-test-pass',JSON.stringify([{id:'sla-p2-p95',metric:'p95',operator:'lte',value:500,label:'P95 latency SLA'},{id:'sla-p2-tps',metric:'tps',operator:'gte',value:50},{id:'sla-p2-err',metric:'errorRate',operator:'lte',value:1.0}])); localStorage.setItem('perf-test-runs',JSON.stringify([{id:'sla-test-pass',timestamp:Date.now(),envName:'staging',svcName:'api',baseUrl:'https://api.example.com',projectName:'All Pass Test',config:{concurrency:20,iterations:500,executionMode:'batch'},summary:{tps:95,avgResponseTime:45,minResponseTime:8,maxResponseTime:410,p50ResponseTime:40,p95ResponseTime:380,p99ResponseTime:410,errorRate:0.2,errorsByStatus:{},totalRequests:5000,successfulRequests:4990,failedRequests:10,failedValidations:0,totalDurationMs:52500},results:[]}]));",
+
+    "seedAllFail": "localStorage.setItem('sla-targets-run-sla-test-fail',JSON.stringify([{id:'sla-p3-p95',metric:'p95',operator:'lte',value:200,label:'P95 SLA'},{id:'sla-p3-p99',metric:'p99',operator:'lte',value:300},{id:'sla-p3-tps',metric:'tps',operator:'gte',value:100}])); localStorage.setItem('perf-test-runs',JSON.stringify([{id:'sla-test-fail',timestamp:Date.now(),envName:'prod',svcName:'checkout',baseUrl:'https://checkout.example.com',projectName:'All Fail Test',config:{concurrency:5,iterations:50,executionMode:'batch'},summary:{tps:12,avgResponseTime:890,minResponseTime:500,maxResponseTime:4200,p50ResponseTime:800,p95ResponseTime:3100,p99ResponseTime:4100,errorRate:5.0,errorsByStatus:{'503':5},totalRequests:100,successfulRequests:95,failedRequests:5,failedValidations:0,totalDurationMs:8300},results:[]}]));",
+
+    "seedAllWarn": "localStorage.setItem('sla-targets-run-sla-test-warn',JSON.stringify([{id:'sla-p4-p95',metric:'p95',operator:'lte',value:800,warnAt:500,label:'P95 SLA'},{id:'sla-p4-p99',metric:'p99',operator:'lte',value:1200,warnAt:800},{id:'sla-p4-tps',metric:'tps',operator:'gte',value:50,warnAt:80}])); localStorage.setItem('perf-test-runs',JSON.stringify([{id:'sla-test-warn',timestamp:Date.now(),envName:'staging',svcName:'api',baseUrl:'https://api.example.com',projectName:'All Warn Test',config:{concurrency:15,iterations:200,executionMode:'batch'},summary:{tps:62,avgResponseTime:180,minResponseTime:30,maxResponseTime:1100,p50ResponseTime:140,p95ResponseTime:650,p99ResponseTime:950,errorRate:0.5,errorsByStatus:{},totalRequests:2000,successfulRequests:1990,failedRequests:10,failedValidations:0,totalDurationMs:32500},results:[]}]));",
+
+    "seedNoData": "localStorage.setItem('sla-targets-run-sla-test-nodata',JSON.stringify([{id:'sla-p5-p999',metric:'p999',operator:'lte',value:2000,label:'P99.9 SLA'},{id:'sla-p5-p95',metric:'p95',operator:'lte',value:500,label:'P95 SLA'}])); localStorage.setItem('perf-test-runs',JSON.stringify([{id:'sla-test-nodata',timestamp:Date.now(),envName:'staging',svcName:'api',baseUrl:'https://api.example.com',projectName:'No Data Test',config:{concurrency:10,iterations:100,executionMode:'batch'},summary:{tps:80,avgResponseTime:45,minResponseTime:10,maxResponseTime:300,p50ResponseTime:40,p95ResponseTime:120,p99ResponseTime:200,errorRate:0.1,errorsByStatus:{},totalRequests:1000,successfulRequests:999,failedRequests:1,failedValidations:0,totalDurationMs:12500},results:[]}]));",
+
+    "seedMixed": "localStorage.setItem('sla-targets-run-sla-test-mixed',JSON.stringify([{id:'sla-m1',metric:'p95',operator:'lte',value:800,warnAt:600,label:'P95 SLA'},{id:'sla-m2',metric:'p99',operator:'lte',value:800},{id:'sla-m3',metric:'tps',operator:'gte',value:50,warnAt:70},{id:'sla-m4',metric:'errorRate',operator:'lte',value:0.5},{id:'sla-m5',metric:'avg',operator:'lte',value:100},{id:'sla-m6',metric:'p999',operator:'lte',value:1000}])); localStorage.setItem('perf-test-runs',JSON.stringify([{id:'sla-test-mixed',timestamp:Date.now(),envName:'staging',svcName:'checkout',baseUrl:'https://checkout.example.com',projectName:'Mixed Status Test',config:{concurrency:10,iterations:100,executionMode:'batch'},summary:{tps:45,avgResponseTime:55,minResponseTime:10,maxResponseTime:900,p50ResponseTime:45,p95ResponseTime:720,p99ResponseTime:850,errorRate:0.3,errorsByStatus:{},totalRequests:1000,successfulRequests:997,failedRequests:3,failedValidations:0,totalDurationMs:22000},results:[]}]));",
+
+    "clearAll": "localStorage.removeItem('perf-test-runs'); console.log('Cleared');",
+
+    "seedPerScenario": "(function(){const BASE=1748044800000;const co=[380,400,410,420,430,440,450,460,470,490].map((rt,i)=>({id:'r-co-'+i,scenarioId:'co',scenarioName:'checkout',url:'https://api.example.com/checkout',method:'POST',httpStatus:200,responseTimeMs:rt,responseBody:'{}',timestamp:BASE+i*120,passed:true,validationMode:'status',failureDetails:[]}));const sr=[45,48,50,52,55,58,60,62].map((rt,i)=>({id:'r-sr-'+i,scenarioId:'sr',scenarioName:'search',url:'https://api.example.com/search',method:'GET',httpStatus:200,responseTimeMs:rt,responseBody:'[]',timestamp:BASE+i*150,passed:true,validationMode:'status',failureDetails:[]}));localStorage.setItem('sla-targets-run-sla-test-scenario',JSON.stringify([{id:'sla-sc-p95',metric:'p95',operator:'lte',value:500,scenarioName:'checkout',label:'Checkout P95'},{id:'sla-sc-err',metric:'errorRate',operator:'lte',value:1.0,scenarioName:'checkout',label:'Checkout Error Rate'}]));localStorage.setItem('perf-test-runs',JSON.stringify([{id:'sla-test-scenario',timestamp:BASE,envName:'staging',svcName:'api',projectName:'Per-Scenario SLA Test',baseUrl:'https://api.example.com',config:{concurrency:5,iterations:10,executionMode:'batch'},summary:{tps:10,avgResponseTime:260,minResponseTime:45,maxResponseTime:490,p50ResponseTime:240,p95ResponseTime:480,p99ResponseTime:490,errorRate:0.0,errorsByStatus:{},totalRequests:18,successfulRequests:18,failedRequests:0,failedValidations:0,totalDurationMs:3000},results:[...co,...sr]}]));console.log('Seeded per-scenario run. Refresh.');})();",
+
+    "seedWorkflowScoped": "localStorage.setItem('perf-test-runs',JSON.stringify([{id:'sla-wf-run-a',timestamp:Date.now()-60000,envName:'staging',svcName:'checkout',projectName:'Workflow Run A',baseUrl:'https://api.example.com',config:{concurrency:10,iterations:100,executionMode:'workflow',workflowId:'wf-sla-test',slaTargets:[{id:'sla-wf-p95',metric:'p95',operator:'lte',value:600,label:'Workflow P95 SLA'},{id:'sla-wf-tps',metric:'tps',operator:'gte',value:30}]},summary:{tps:50,avgResponseTime:180,minResponseTime:40,maxResponseTime:580,p50ResponseTime:160,p95ResponseTime:540,p99ResponseTime:575,errorRate:0.2,errorsByStatus:{},totalRequests:1000,successfulRequests:998,failedRequests:2,failedValidations:0,totalDurationMs:20000},results:[]}])); console.log('Seeded workflow-def scope run. Refresh.');",
+
+    "seedEmbedded": "localStorage.setItem('perf-test-runs',JSON.stringify([{id:'sla-test-embedded',timestamp:Date.now(),envName:'prod',svcName:'payments',projectName:'Embedded SLA Run',baseUrl:'https://payments.example.com',config:{concurrency:20,iterations:500,executionMode:'batch',slaTargets:[{id:'sla-e1',metric:'p95',operator:'lte',value:400,label:'Payment P95'},{id:'sla-e2',metric:'errorRate',operator:'lte',value:0.5,label:'Error Rate SLA'},{id:'sla-e3',metric:'tps',operator:'gte',value:80}]},summary:{tps:95,avgResponseTime:120,minResponseTime:30,maxResponseTime:390,p50ResponseTime:110,p95ResponseTime:370,p99ResponseTime:385,errorRate:0.1,errorsByStatus:{},totalRequests:5000,successfulRequests:4995,failedRequests:5,failedValidations:0,totalDurationMs:52500},results:[]}]));",
+
+    "seedRunListDots": "(function(){localStorage.setItem('sla-targets-run-sla-dot-pass',JSON.stringify([{id:'sla-dp1',metric:'p95',operator:'lte',value:500},{id:'sla-dp2',metric:'tps',operator:'gte',value:30}]));localStorage.setItem('sla-targets-run-sla-dot-warn',JSON.stringify([{id:'sla-dw1',metric:'p95',operator:'lte',value:500,warnAt:200}]));localStorage.setItem('sla-targets-run-sla-dot-fail',JSON.stringify([{id:'sla-df1',metric:'p95',operator:'lte',value:200}]));const now=Date.now();const mk=(id,name,p95,tps)=>({id,timestamp:now-Math.floor(Math.random()*100000),envName:'staging',svcName:'api',projectName:name,baseUrl:'https://api.example.com',config:{concurrency:10,iterations:100,executionMode:'batch'},summary:{tps,avgResponseTime:100,minResponseTime:20,maxResponseTime:p95+50,p50ResponseTime:Math.floor(p95*0.7),p95ResponseTime:p95,p99ResponseTime:p95+30,errorRate:0.1,errorsByStatus:{},totalRequests:1000,successfulRequests:999,failedRequests:1,failedValidations:0,totalDurationMs:10000},results:[]});localStorage.setItem('perf-test-runs',JSON.stringify([mk('sla-dot-pass','All Pass Run',380,60),mk('sla-dot-warn','Warn Run',350,50),mk('sla-dot-fail','All Fail Run',850,20),mk('sla-dot-none','No SLA Run',200,90)]));console.log('Seeded 4 runs for run list dots test. Refresh.');})();",
+
+    "seedMultiRunWorkflow": "(function(){const BASE=1748044800000;const slaTargets=[{id:'sla-ws-p95',metric:'p95',operator:'lte',value:600,label:'Workflow P95'},{id:'sla-ws-tps',metric:'tps',operator:'gte',value:40}];const mk=(id,name,ts,p95,tps)=>({id,timestamp:ts,envName:'staging',svcName:'checkout',projectName:name,baseUrl:'https://api.example.com',config:{concurrency:10,iterations:100,executionMode:'workflow',workflowId:'wf-shared-sla',slaTargets},summary:{tps,avgResponseTime:Math.floor(p95*0.65),minResponseTime:30,maxResponseTime:p95+50,p50ResponseTime:Math.floor(p95*0.6),p95ResponseTime:p95,p99ResponseTime:p95+25,errorRate:0.2,errorsByStatus:{},totalRequests:1000,successfulRequests:998,failedRequests:2,failedValidations:0,totalDurationMs:20000},results:[]});localStorage.setItem('perf-test-runs',JSON.stringify([mk('sla-wf-shared-a','Workflow Run A (Earlier)',BASE-3600000,450,55),mk('sla-wf-shared-b','Workflow Run B (Latest)',BASE,480,52)]));console.log('Seeded 2 shared-workflow runs (each with embedded SLA). Refresh.');})();"
+  },
+
+  "cliImport": {
+    "_description": "§5 — Import CLI JSON result files. The sample file is at test-data/cli-sample-run.json. Use the 📥 Import Run button in the Results dashboard to import it.",
+    "_sampleFile": "test-data/cli-sample-run.json",
+    "minimalValidRun": {
+      "_description": "Minimal valid JSON that passes validateImportedRun(). Use this to test missing-field normalization.",
+      "config": { "concurrency": 1, "iterations": 1, "scenarioWeights": [], "executionMode": "sequential" },
+      "summary": { "totalRequests": 1, "totalDurationMs": 100 },
+      "results": [
+        {
+          "scenarioName": "Test", "url": "http://localhost/", "method": "GET",
+          "responseTimeMs": 50, "timestamp": 1716700001000, "passed": true,
+          "httpStatus": 200, "responseBody": "{}", "validationMode": "none", "failureDetails": []
+        }
+      ]
+    },
+    "invalidSamples": {
+      "missingConfig": { "summary": { "totalRequests": 1, "totalDurationMs": 100 }, "results": [] },
+      "missingSummary": { "config": { "concurrency": 1, "iterations": 1, "scenarioWeights": [], "executionMode": "sequential" }, "results": [] },
+      "plainObject": { "not": "a valid run" },
+      "emptyString": ""
+    }
+  }
+}

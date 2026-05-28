@@ -94,7 +94,7 @@ export default function WorkflowStatusBar({
       <span className="wf-status-sep">·</span>
       <span>Steps: <strong>{nodeCount}</strong></span>
       <span className="wf-status-sep">·</span>
-      <span>Connections: <strong>{edgeCount}</strong></span>
+      <span>Edges: <strong>{edgeCount}</strong></span>
       <span className="wf-status-sep">·</span>
       <span>Variables: <strong>{variableCount}</strong></span>
       {lastRunError && lastRunStatus === 'fail' && (

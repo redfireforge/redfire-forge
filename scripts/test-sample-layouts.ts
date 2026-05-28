@@ -4,6 +4,7 @@
  */
 import { sampleWorkflowCatalog } from '../src/data/sampleWorkflows';
 import { getAutoLayoutNodes } from '../src/utils/workflowAutoLayout';
+import type { Edge, Node } from '@xyflow/react';
 
 const NODE_WIDTH = 220;
 const COMPACT_WIDTH = 160;
@@ -73,7 +74,7 @@ console.log(`\n=== Auto-Layout Test for ${sampleWorkflowCatalog.length} Sample W
 let totalIssues = 0;
 for (const entry of sampleWorkflowCatalog) {
   const wf = entry.factory();
-  const laid = getAutoLayoutNodes(wf.nodes as any, wf.edges as any, 'TB');
+  const laid = getAutoLayoutNodes(wf.nodes as Node[], wf.edges as Edge[], 'TB');
   const issues = checkOverlaps(entry.name, laid);
   
   if (issues.length > 0) {
