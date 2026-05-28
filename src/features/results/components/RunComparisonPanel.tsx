@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import type { TestRun } from '../../../shared/types';
 import type { MetricDelta, ScenarioDelta, RegressionAlert, TrendPoint, BaselineMark, RegressionThresholds } from '../utils/runBaselines';
@@ -24,13 +24,23 @@ export function RunComparisonPanel({ baselineRun, currentRun, thresholds, baseli
   const [tab, setTab] = useState<'overview' | 'scenarios' | 'regressions' | 'distribution'>('overview');
   const [renamingBaseline, setRenamingBaseline] = useState(false);
   const [renameValue, setRenameValue] = useState('');
+  // Prevents onBlur from committing when Escape was pressed
+  const renameEscapedRef = useRef(false);
+
+  // Reset rename UI whenever the baseline being compared changes
+  useEffect(() => {
+    setRenamingBaseline(false);
+  }, [baselineRun.id]);
 
   const startRename = () => {
+    renameEscapedRef.current = false;
     setRenameValue(baselineLabel ?? new Date(baselineRun.timestamp).toLocaleString());
     setRenamingBaseline(true);
   };
 
+  // Sole commit path — called only via onBlur
   const commitRename = () => {
+    if (renameEscapedRef.current) return;
     const trimmed = renameValue.trim();
     if (trimmed && onRenameBaseline) onRenameBaseline(baselineRun.id, trimmed);
     setRenamingBaseline(false);
@@ -52,8 +62,8 @@ export function RunComparisonPanel({ baselineRun, currentRun, thresholds, baseli
                 autoFocus
                 onChange={(e) => setRenameValue(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') commitRename();
-                  if (e.key === 'Escape') setRenamingBaseline(false);
+                  if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur(); }
+                  if (e.key === 'Escape') { e.preventDefault(); renameEscapedRef.current = true; setRenamingBaseline(false); }
                 }}
                 onBlur={commitRename}
               />
