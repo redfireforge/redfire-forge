@@ -176,14 +176,18 @@ function MetricDeltaTable({ deltas }: { deltas: MetricDelta[] }) {
       </thead>
       <tbody>
         {deltas.map((d) => {
-          const unit = d.metric === 'TPS' ? '' : d.metric === 'Error Rate' ? '%' : ' ms';
+          // valueUnit applies to baseline/current value columns
+          const valueUnit = d.metric === 'TPS' ? '' : d.metric === 'Error Rate' ? '%' : ' ms';
+          // deltaUnit for Error Rate uses 'pp' (percentage points) — the delta is an absolute
+          // change (e.g. +3 pp), not a relative percentage, so '%' would be misleading.
+          const deltaUnit = d.metric === 'TPS' ? '' : d.metric === 'Error Rate' ? ' pp' : ' ms';
           return (
             <tr key={d.metric} className={d.regressed ? 'row-regressed' : d.improved ? 'row-improved' : ''}>
               <td className="metric-name">{d.metric}</td>
-              <td>{d.baselineValue}{unit}</td>
-              <td>{d.currentValue}{unit}</td>
+              <td>{d.baselineValue}{valueUnit}</td>
+              <td>{d.currentValue}{valueUnit}</td>
               <td className={d.delta > 0 && d.metric !== 'TPS' ? 'delta-worse' : d.delta < 0 && d.metric !== 'TPS' ? 'delta-better' : d.delta > 0 && d.metric === 'TPS' ? 'delta-better' : d.delta < 0 && d.metric === 'TPS' ? 'delta-worse' : ''}>
-                {d.delta > 0 ? '+' : ''}{d.delta}{unit}
+                {d.delta > 0 ? '+' : ''}{d.delta}{deltaUnit}
               </td>
               <td className={d.deltaPercent > 0 && d.metric !== 'TPS' ? 'delta-worse' : d.deltaPercent < 0 && d.metric !== 'TPS' ? 'delta-better' : d.deltaPercent > 0 && d.metric === 'TPS' ? 'delta-better' : d.deltaPercent < 0 && d.metric === 'TPS' ? 'delta-worse' : ''}>
                 {d.deltaPercent > 0 ? '+' : ''}{d.deltaPercent}%
@@ -256,14 +260,17 @@ function RegressionList({ regressions, deltas }: { regressions: RegressionAlert[
               <span className="regression-severity">{r.severity === 'critical' ? '🔴 Critical' : '🟡 Warning'}</span>
               <span className="regression-metric">{r.metric}</span>
             </div>
-            {delta && (
-              <div className="regression-detail-body">
-                <span>Baseline: <strong>{delta.baselineValue}</strong></span>
-                <span>→</span>
-                <span>Current: <strong>{delta.currentValue}</strong></span>
-                <span className="regression-delta">({delta.deltaPercent > 0 ? '+' : ''}{delta.deltaPercent}%)</span>
-              </div>
-            )}
+            {delta && (() => {
+              const detailUnit = delta.metric === 'TPS' ? '' : delta.metric === 'Error Rate' ? '%' : ' ms';
+              return (
+                <div className="regression-detail-body">
+                  <span>Baseline: <strong>{delta.baselineValue}{detailUnit}</strong></span>
+                  <span>→</span>
+                  <span>Current: <strong>{delta.currentValue}{detailUnit}</strong></span>
+                  <span className="regression-delta">({delta.deltaPercent > 0 ? '+' : ''}{delta.deltaPercent}%)</span>
+                </div>
+              );
+            })()}
           </div>
         );
       })}
