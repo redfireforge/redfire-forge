@@ -380,6 +380,19 @@ describe('compareRuns edge cases', () => {
     expect(loginDelta?.regressed).toBe(true);
   });
 
+  it('per-scenario regression uses avgPercent threshold, not p95Percent (Bug P)', () => {
+    // Custom thresholds: avgPercent=25% (permissive), p95Percent=5% (strict).
+    // A +20% avg-time increase must NOT regress under avgPercent=25, but WOULD
+    // regress if p95Percent=5 were used instead — confirming the right threshold.
+    const baseline = makeRun('b', {}, [makeResult('Login', 100)]);
+    const current = makeRun('c', {}, [makeResult('Login', 120)]); // +20% increase
+    const customThresholds = { ...DEFAULT_THRESHOLDS, avgPercent: 25, p95Percent: 5 };
+    const result = compareRuns(baseline, current, customThresholds);
+
+    const loginDelta = result.scenarioDeltas.find((d) => d.scenarioName === 'Login');
+    expect(loginDelta?.regressed).toBe(false); // 20% < avgPercent threshold of 25%
+  });
+
   it('handles status 0 as error', () => {
     const run = makeRun('r', {}, [
       makeResult('API', 100, 0), // status 0 = error (e.g., network failure)
@@ -635,6 +648,20 @@ describe('computeRunRegressionStatus', () => {
     const baselines: BaselineMark[] = [{ runId: 'bl-wf', markedAt: 1 }];
     // Only baseline is workflow type; run is non-workflow → no valid baseline
     expect(computeRunRegressionStatus(run, [wfBaseline, run], baselines)).toBe('no-baseline');
+  });
+
+  it('workflow run ignores non-workflow baselines', () => {
+    // Non-workflow (pool) baseline — should NOT be used for a workflow run
+    const nonWfBaseline = { ...makeRun('bl', { p95ResponseTime: 100 }), timestamp: 1000 };
+    // Workflow run — p95 doubled, would be 'critical' if compared against nonWfBaseline
+    const wfRun = {
+      ...makeRun('r1', { p95ResponseTime: 200 }),
+      timestamp: 2000,
+      config: { ...makeRun('r1').config, executionMode: 'workflow' as const },
+    };
+    const baselines: BaselineMark[] = [{ runId: 'bl', markedAt: 1 }];
+    // Only baseline is non-workflow; run is workflow → no valid baseline
+    expect(computeRunRegressionStatus(wfRun, [nonWfBaseline, wfRun], baselines)).toBe('no-baseline');
   });
 });
 
