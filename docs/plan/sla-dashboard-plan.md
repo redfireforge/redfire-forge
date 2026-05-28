@@ -847,3 +847,99 @@ Both `SlaDashboard.tsx` and `SlaDashboard.test.tsx` were deleted (2026-05-24). T
 - 235 SLA-specific tests (4 files): all passing
 - 123 orchestration/runner tests (2 files): all passing
 - 0 TypeScript errors codebase-wide
+
+---
+
+## 7. Phase G — Bug Fixes + Visual Validation (2026-05-28, `feature/trouble-shoot-sla`) 🔨 In Progress
+
+### 7.1 Bug Fixes
+
+#### SLA-G1 — `definitionTargets` prop missing from `WorkflowRunner.tsx`
+
+**Symptom**: The "Configured Targets" section inside the SLA Override modal in Workflow Runner was always empty, even when the selected workflow had `slaTargets` defined.
+
+**Root cause**: `WorkflowRunner.tsx` passed `definitionTargetCount` (a count integer from `selectedWorkflow.slaTargets?.length`) to `RunnerSlaOverridePanel`, but did NOT pass `definitionTargets` (the actual array). The modal's table had no rows to render.
+
+**Compare**: `RunnerPage.tsx` (the standalone Test Runner) was already correct — it built `definitionSlaTargets` via `useRunnerOrchestration` and passed it through the prop chain.
+
+**Fix**: Added `workflowDefinitionTargets` useMemo in `WorkflowRunner.tsx` that maps `selectedWorkflow.slaTargets` with a `scopeLabel` field, then passes it as `definitionTargets={workflowDefinitionTargets}` to `RunnerSlaOverridePanel`.
+
+```tsx
+const workflowDefinitionTargets = useMemo(
+  () => (selectedWorkflow?.slaTargets ?? []).map((t) => ({
+    ...t,
+    scopeLabel: t.scenarioName ? `Test: ${t.scenarioName}` : 'Aggregate',
+  })),
+  [selectedWorkflow?.slaTargets],
+);
+// ...
+<RunnerSlaOverridePanel
+  definitionTargets={workflowDefinitionTargets}  // ← was missing
+  definitionTargetCount={selectedWorkflow.slaTargets?.length ?? 0}
+  // ...
+/>
+```
+
+**File**: `src/features/test-runner/WorkflowRunner.tsx`
+
+---
+
+#### SLA-G2 — `workflowDefinitionTargets` useMemo placed before `selectedWorkflow` declaration
+
+**Symptom**: Immediately after the SLA-G1 fix was applied, the Workflow Runner crashed on load with:
+```
+ReferenceError: Cannot access 'selectedWorkflow' before initialization
+  at WorkflowRunner (WorkflowRunner.tsx:34)
+```
+
+**Root cause**: The new `workflowDefinitionTargets` useMemo (which references `selectedWorkflow`) was placed *before* the `const selectedWorkflow = ...` declaration in the component body. JavaScript `const` declarations are not hoisted, so the temporal dead zone caused the crash.
+
+**Fix**: Reordered the declarations so `selectedWorkflow` is declared first, then `workflowDefinitionTargets` useMemo follows it.
+
+```tsx
+// BEFORE (crash):
+const workflowDefinitionTargets = useMemo(
+  () => (selectedWorkflow?.slaTargets ?? []).map(...),  // ← selectedWorkflow not yet declared
+  [selectedWorkflow?.slaTargets],
+);
+const selectedWorkflow = workflows.find(...);  // declared here
+
+// AFTER (fixed):
+const selectedWorkflow = workflows.find(...);  // declared first
+const workflowDefinitionTargets = useMemo(    // references selectedWorkflow safely
+  () => (selectedWorkflow?.slaTargets ?? []).map(...),
+  [selectedWorkflow?.slaTargets],
+);
+```
+
+**File**: `src/features/test-runner/WorkflowRunner.tsx`
+
+---
+
+### 7.2 Test Data Files Created
+
+Two synthetic test data files were created for visual validation without requiring a live run:
+
+| File | Purpose |
+|------|---------|
+| `test-data/workflow-sla-run-result.json` | Synthetic `TestRun` with `config.workflowId = "wf-sla-sample-001"` and 4 `config.slaTargets`. Imports into Results and shows the **"📋 Workflow"** badge. Has 1 failing target (GET /users P95 350ms > 200ms threshold), 1 warning, 2 passing for meaningful visual state. |
+| `test-data/workflow-sla-export.json` | Workflow export JSON with 2-node canvas (GET /users → POST /posts) and 4 `slaTargets` at root. Import via Workflow Designer → **+ New → Import Workflow** for Scenario 38 parts 2, 5. |
+
+**Workflow SLA targets in both files** (4 targets):
+
+| # | Metric | Op | Fail | Warn | Scope | Label |
+|---|--------|-----|------|------|-------|-------|
+| 1 | P95 | ≤ | 2000ms | — | Aggregate | Overall P95 |
+| 2 | P95 | ≤ | 200ms | 300ms | GET /users | Get Users P95 |
+| 3 | Error Rate | ≤ | 1% | — | GET /users | Get Users Error Rate |
+| 4 | P95 | ≤ | 1500ms | 1000ms | POST /posts | Create Post P95 |
+
+### 7.3 Visual Validation Results (2026-05-28)
+
+All three Workflow SLA entry points visually confirmed working on `feature/trouble-shoot-sla`:
+
+| View | What was checked | Status |
+|------|-----------------|--------|
+| **Workflow Designer — SLA Targets panel** | Imported `workflow-sla-export.json` → expanded SLA Targets panel → showed count badge **4** and all 4 target rows with correct metric/threshold/warn/scope | ✅ Confirmed |
+| **Workflow Runner — SLA Override modal** | "Run in Harness" from Designer pre-selected workflow → trigger bar showed **"● 4 configured"** → opened Configure modal → "Configured Targets (4)" table showed all 4 definition rows with correct scope labels (`Aggregate`, `Test: GET /users`, `Test: POST /posts`) | ✅ Confirmed (SLA-G1 fix validated) |
+| **Results — Workflow run import** | Imported `workflow-sla-run-result.json` → compact bar showed **"📋 Workflow"** badge + **"⚠ 1 Failing"** pill + **"Read-only"** → SLA Status tab showed full check tree: 1 failing (Get Users P95 350ms > 200ms), 1 warning, 2 passing | ✅ Confirmed |

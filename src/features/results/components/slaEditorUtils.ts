@@ -4,6 +4,16 @@
  */
 import type { SlaTarget, SlaMetric } from '../utils/slaTargets';
 
+/**
+ * Returns a human-readable scope label for a flat SlaTarget.
+ * Priority: featureGroupName → scenarioName → 'Aggregate'.
+ */
+export function buildSlaTargetScopeLabel(t: SlaTarget): string {
+  if (t.featureGroupName) return `FG: ${t.featureGroupName}`;
+  if (t.scenarioName) return `Test: ${t.scenarioName}`;
+  return 'Aggregate';
+}
+
 export interface RowError {
   value?: string;
   warnAt?: string;

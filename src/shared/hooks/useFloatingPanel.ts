@@ -19,6 +19,18 @@ function getViewportBounds() {
   return { w, h };
 }
 
+/**
+ * Returns the minimum left offset for fixed panels so they don't spawn behind
+ * the activity bar + sidebar. Reads the --sidebar-w CSS variable (set by App.tsx)
+ * and adds the toggle-button + resize-handle gutter (≈20 px).
+ */
+function getSidebarMinLeft(): number {
+  if (typeof document === 'undefined') return 68; // 48px activity bar + 20px gutter
+  const raw = document.documentElement.style.getPropertyValue('--sidebar-w');
+  const sidebarW = raw ? parseInt(raw, 10) : 48;
+  return sidebarW + 20; // +16px toggle button +4px resize handle
+}
+
 export function useFloatingPanel(opts: UseFloatingPanelOptions = {}) {
   const {
     defaultDockedHeight = 200,
@@ -30,8 +42,9 @@ export function useFloatingPanel(opts: UseFloatingPanelOptions = {}) {
 
   const [floatPos, setFloatPos] = useState(() => {
     const { w, h } = getViewportBounds();
+    const minLeft = getSidebarMinLeft();
     return {
-      x: Math.round(w * 0.15),
+      x: Math.max(minLeft, Math.round(w * 0.15)),
       y: Math.round(h * 0.1),
     };
   });
@@ -95,10 +108,11 @@ export function useFloatingPanel(opts: UseFloatingPanelOptions = {}) {
       const dx = e.clientX - floatDragRef.current.startX;
       const dy = e.clientY - floatDragRef.current.startY;
       const { w, h } = getViewportBounds();
-      const maxX = Math.max(0, w - floatSize.w);
+      const minLeft = getSidebarMinLeft();
+      const maxX = Math.max(minLeft, w - floatSize.w);
       const maxY = Math.max(0, h - floatSize.h);
       setFloatPos({
-        x: Math.min(maxX, Math.max(0, floatDragRef.current.origX + dx)),
+        x: Math.min(maxX, Math.max(minLeft, floatDragRef.current.origX + dx)),
         y: Math.min(maxY, Math.max(0, floatDragRef.current.origY + dy)),
       });
     };
