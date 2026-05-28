@@ -862,3 +862,121 @@ export function createTrashRecoveryDemo(): FeatureGroup {
     ],
   };
 }
+
+// ─── 11. API Health Check with SLA (Easy) ────────────────────────────────────
+
+/**
+ * Demonstrates SLA targets on Test Runner scenarios.
+ * Three scenarios hitting JSONPlaceholder — each has response-time SLA targets
+ * so users can see the SLA badge, Configure panel, and pass/fail results.
+ */
+export function createApiHealthSlaTest(): FeatureGroup {
+  return {
+    id: 'test-api-health-sla',
+    name: 'API Health Check with SLA',
+    scenarios: [
+      ts({
+        id: 'ts-health-users',
+        name: 'Users Endpoint Health',
+        slaTargets: [
+          { id: 'sla-users-p95', metric: 'p95', operator: 'lte', value: 800 },
+          { id: 'sla-users-err', metric: 'errorRate', operator: 'lte', value: 1 },
+        ],
+        tests: [
+          s({
+            id: 'ts-health-list-users',
+            name: 'List Users',
+            url: 'https://jsonplaceholder.typicode.com/users',
+            method: 'GET',
+            assertions: [
+              { type: 'status', expected: '200' },
+              { type: 'arrayLength', jsonPath: '$', operator: '=', value: 10 },
+              { type: 'regex', jsonPath: '$[0].email', pattern: '.+@.+' },
+            ],
+            sampleJson: JSON.stringify([
+              { id: 1, name: 'Leanne Graham', email: 'Sincere@april.biz', username: 'Bret' },
+              { id: 2, name: 'Ervin Howell', email: 'Shanna@melissa.tv', username: 'Antonette' },
+            ]),
+          }),
+          s({
+            id: 'ts-health-get-user',
+            name: 'Get User by ID',
+            url: 'https://jsonplaceholder.typicode.com/users/1',
+            method: 'GET',
+            assertions: [
+              { type: 'status', expected: '200' },
+              { type: 'regex', jsonPath: '$.name', pattern: '.+' },
+              { type: 'regex', jsonPath: '$.email', pattern: '.+@.+' },
+            ],
+            sampleJson: JSON.stringify({
+              id: 1, name: 'Leanne Graham', email: 'Sincere@april.biz',
+              phone: '1-770-736-8031', website: 'hildegard.org',
+            }),
+          }),
+        ],
+      }),
+      ts({
+        id: 'ts-health-posts',
+        name: 'Posts Endpoint Health',
+        slaTargets: [
+          { id: 'sla-posts-p95', metric: 'p95', operator: 'lte', value: 600 },
+          { id: 'sla-posts-p99', metric: 'p99', operator: 'lte', value: 1000 },
+        ],
+        tests: [
+          s({
+            id: 'ts-health-list-posts',
+            name: 'List Posts',
+            url: 'https://jsonplaceholder.typicode.com/posts',
+            method: 'GET',
+            assertions: [
+              { type: 'status', expected: '200' },
+              { type: 'arrayLength', jsonPath: '$', operator: '=', value: 100 },
+            ],
+            sampleJson: JSON.stringify([
+              { userId: 1, id: 1, title: 'sunt aut facere', body: 'quia et suscipit' },
+              { userId: 1, id: 2, title: 'qui est esse', body: 'est rerum tempore vitae' },
+            ]),
+          }),
+          s({
+            id: 'ts-health-create-post',
+            name: 'Create Post',
+            url: 'https://jsonplaceholder.typicode.com/posts',
+            method: 'POST',
+            headers: [{ key: 'Content-Type', value: 'application/json' }],
+            body: JSON.stringify({ title: 'Health Check Post', body: 'Automated test', userId: 1 }),
+            bodyType: 'json',
+            assertions: [
+              { type: 'status', expected: '201' },
+              { type: 'regex', jsonPath: '$.id', pattern: '\\d+' },
+            ],
+            sampleJson: JSON.stringify({ id: 101, title: 'Health Check Post', body: 'Automated test', userId: 1 }),
+          }),
+        ],
+      }),
+      ts({
+        id: 'ts-health-todos',
+        name: 'Todos Endpoint Health',
+        slaTargets: [
+          { id: 'sla-todos-p50', metric: 'p50', operator: 'lte', value: 400 },
+          { id: 'sla-todos-p95', metric: 'p95', operator: 'lte', value: 700, warnAt: 500 },
+        ],
+        tests: [
+          s({
+            id: 'ts-health-list-todos',
+            name: 'List Todos',
+            url: 'https://jsonplaceholder.typicode.com/todos',
+            method: 'GET',
+            assertions: [
+              { type: 'status', expected: '200' },
+              { type: 'arrayLength', jsonPath: '$', operator: '=', value: 200 },
+            ],
+            sampleJson: JSON.stringify([
+              { userId: 1, id: 1, title: 'delectus aut autem', completed: false },
+              { userId: 1, id: 2, title: 'quis ut nam facilis', completed: false },
+            ]),
+          }),
+        ],
+      }),
+    ],
+  };
+}

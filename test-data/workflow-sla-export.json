@@ -1,0 +1,81 @@
+{
+  "id": "wf-sla-sample-001",
+  "name": "SLA Sample Workflow",
+  "description": "Sample workflow for testing Workflow SLA — Scenario 38. Has 4 SLA targets defined at workflow level.",
+  "variables": {},
+  "nodes": [
+    {
+      "id": "node-get-users",
+      "type": "httpRequest",
+      "position": { "x": 100, "y": 200 },
+      "data": {
+        "label": "GET /users",
+        "method": "GET",
+        "url": "https://jsonplaceholder.typicode.com/users",
+        "headers": [],
+        "body": "",
+        "bodyType": "none",
+        "assertions": [],
+        "scenarioName": "GET /users"
+      }
+    },
+    {
+      "id": "node-create-post",
+      "type": "httpRequest",
+      "position": { "x": 400, "y": 200 },
+      "data": {
+        "label": "POST /posts",
+        "method": "POST",
+        "url": "https://jsonplaceholder.typicode.com/posts",
+        "headers": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": "{\"title\": \"test\", \"body\": \"body text\", \"userId\": 1}",
+        "bodyType": "json",
+        "assertions": [],
+        "scenarioName": "POST /posts"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge-1",
+      "source": "node-get-users",
+      "target": "node-create-post"
+    }
+  ],
+  "services": [],
+  "variables": {},
+  "schemaVersion": 2,
+  "slaTargets": [
+    {
+      "metric": "p95",
+      "operator": "lte",
+      "value": 2000,
+      "label": "Overall P95"
+    },
+    {
+      "metric": "p95",
+      "operator": "lte",
+      "value": 200,
+      "warnAt": 300,
+      "label": "Get Users P95",
+      "scenarioName": "GET /users"
+    },
+    {
+      "metric": "errorRate",
+      "operator": "lte",
+      "value": 1,
+      "label": "Get Users Error Rate",
+      "scenarioName": "GET /users"
+    },
+    {
+      "metric": "p95",
+      "operator": "lte",
+      "value": 1500,
+      "warnAt": 1000,
+      "label": "Create Post P95",
+      "scenarioName": "POST /posts"
+    }
+  ],
+  "createdAt": 1748476700000,
+  "updatedAt": 1748476800000
+}

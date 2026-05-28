@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SLA Targets in Test Runner — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warn { background: #fff8e1; border-left-color: #f9a825; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">🎯</div>
+    <h1>SLA Targets in Test Runner</h1>
+    <div class="subtitle">API Health Check with SLA — Training Manual</div>
+    <p><span class="badge badge-easy">Easy ★☆☆</span> · Smoke · 3 Scenarios · jsonplaceholder.typicode.com</p>
+    <p style="margin-top: 16px; color: #457b9d; font-size: 14px;">
+      From Gallery import → Configure SLA thresholds → Run load test → Inspect results → Export &amp; CLI → Re-import
+    </p>
+    <div class="meta">RedfireForge v0.5.10-beta</div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 1 -->
+  <h2>1. Purpose &amp; Use Case</h2>
+  <p>
+    <strong>SLA (Service Level Agreement) targets</strong> let you define performance thresholds — such as "95th-percentile response time must be under 800 ms" or "error rate must not exceed 1%". RedfireForge evaluates every target after a run and marks each one as <strong>Pass</strong> or <strong>Fail</strong>.
+  </p>
+  <p>The <strong>API Health Check with SLA</strong> gallery sample gives you a ready-made test with SLA targets already configured so you can see the full SLA workflow without building from scratch.</p>
+  <p>This manual covers the complete end-to-end journey:</p>
+  <ul>
+    <li>Importing the sample from the Gallery.</li>
+    <li>Reviewing scenario structure and SLA targets.</li>
+    <li>Launching a load run from the Test Runner.</li>
+    <li>Reading SLA pass/fail results in the Results Dashboard.</li>
+    <li>Exporting results to JSON.</li>
+    <li>Running the same test from the CLI and saving output.</li>
+    <li>Re-importing CLI results back into the UI.</li>
+  </ul>
+
+  <!-- Section 2 -->
+  <h2>2. Concepts You'll Learn</h2>
+  <ul>
+    <li><strong>SLA targets</strong> — response-time or error-rate thresholds applied to a scenario or individual test.</li>
+    <li><strong>Percentile metrics (p50, p95, p99)</strong> — the response time below which N% of requests fall; p95 ≤ 800 ms means "95% of requests completed within 800 ms".</li>
+    <li><strong>Error rate</strong> — percentage of requests that failed (non-2xx or network error).</li>
+    <li><strong>Warn threshold (<code>warnAt</code>)</strong> — an optional early-warning level below the hard limit. Results show amber/yellow when the warn is exceeded but the hard limit is not.</li>
+    <li><strong>SLA Override panel</strong> — the <em>🎯 SLA Override (optional)</em> bar in the Test Runner that lets you swap in different thresholds for a single run without modifying the saved test.</li>
+    <li><strong>CLI export &amp; re-import</strong> — how to hand off a test to CI/CD via <code>redfireforge run</code> and bring results back into the UI for analysis.</li>
+  </ul>
+
+  <div class="page-break"></div>
+
+  <!-- Section 3 -->
+  <h2>3. Scenario Structure</h2>
+  <p>The sample contains <strong>3 scenarios</strong>, each targeting a different JSONPlaceholder endpoint:</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Scenario Name</th>
+        <th>Tests</th>
+        <th>SLA Targets</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>1</td>
+        <td>Users Endpoint Health</td>
+        <td>List Users (GET /users), Get User by ID (GET /users/1)</td>
+        <td>p95 ≤ 800 ms · error rate ≤ 1%</td>
+      </tr>
+      <tr>
+        <td>2</td>
+        <td>Posts Endpoint Health</td>
+        <td>List Posts (GET /posts), Create Post (POST /posts)</td>
+        <td>p95 ≤ 600 ms · p99 ≤ 1000 ms</td>
+      </tr>
+      <tr>
+        <td>3</td>
+        <td>Todos Endpoint Health</td>
+        <td>List Todos (GET /todos)</td>
+        <td>p50 ≤ 400 ms · p95 ≤ 700 ms (warn at 500 ms)</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>SLA Targets Reference</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>Scenario</th>
+        <th>Metric</th>
+        <th>Condition</th>
+        <th>Hard Limit</th>
+        <th>Warn At</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>Users Endpoint Health</td><td>p95</td><td>≤</td><td>800 ms</td><td>—</td></tr>
+      <tr><td>Users Endpoint Health</td><td>Error Rate</td><td>≤</td><td>1%</td><td>—</td></tr>
+      <tr><td>Posts Endpoint Health</td><td>p95</td><td>≤</td><td>600 ms</td><td>—</td></tr>
+      <tr><td>Posts Endpoint Health</td><td>p99</td><td>≤</td><td>1000 ms</td><td>—</td></tr>
+      <tr><td>Todos Endpoint Health</td><td>p50</td><td>≤</td><td>400 ms</td><td>—</td></tr>
+      <tr><td>Todos Endpoint Health</td><td>p95</td><td>≤</td><td>700 ms</td><td>500 ms</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout">
+    <strong>ℹ️ Note on JSONPlaceholder latency</strong>
+    JSONPlaceholder is a free public API. Response times depend on your network. If you're on a slow connection, consider raising the thresholds slightly using the SLA Override panel (covered in Step 4).
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 4 -->
+  <h2>4. Prerequisites</h2>
+  <ul>
+    <li>RedfireForge is open in your browser.</li>
+    <li>You have internet access (the test uses <code>jsonplaceholder.typicode.com</code>).</li>
+    <li>For the CLI steps: <code>redfireforge</code> CLI is installed (<code>npm i -g @redfire/redfireforge</code> or via the dist bundle).</li>
+  </ul>
+
+  <!-- Section 5 -->
+  <h2>5. Step-by-Step Walkthrough</h2>
+
+  <h3>Step 1 — Import from the Gallery</h3>
+  <ol>
+    <li>Click the <strong>Gallery</strong> icon in the left sidebar (or open the Gallery panel).</li>
+    <li>Select the <strong>Tests</strong> tab.</li>
+    <li>Locate <strong>🎯 API Health Check with SLA</strong>. It is tagged <em>smoke</em>, <em>sla</em>, and <em>health-check</em>.</li>
+    <li>Click <strong>Import Test</strong>. The test appears in your workspace with all 3 scenarios and their SLA targets intact.</li>
+  </ol>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    You can filter the Gallery by the tag <code>sla</code> to find all SLA-related samples quickly.
+  </div>
+
+  <h3>Step 2 — Review the Scenarios &amp; SLA Targets</h3>
+  <ol>
+    <li>Open the imported test in the <strong>Test Editor</strong>.</li>
+    <li>Click each scenario name to expand it. Notice the <strong>SLA targets list</strong> shown below the scenario header — these are the thresholds that will be evaluated after the run.</li>
+    <li>Hover over a target row to see the metric label and units (e.g., "p95 — 95th percentile response time, ms").</li>
+    <li>Observe that the third scenario (<em>Todos Endpoint Health</em>) has a <strong>warnAt</strong> value of 500 ms for its p95 target — results will show a warning colour if the p95 lands between 500 ms and 700 ms.</li>
+  </ol>
+
+  <h3>Step 3 — Open the Test Runner</h3>
+  <ol>
+    <li>Click <strong>Test Runner</strong> in the top navigation or sidebar.</li>
+    <li>In the <strong>Test</strong> selector, choose <em>API Health Check with SLA</em>.</li>
+    <li>Set <strong>Iterations</strong> to <code>20</code> and <strong>Concurrency</strong> to <code>2</code>. This gives 20 complete passes with 2 virtual users at a time — enough data for meaningful percentile calculations.</li>
+  </ol>
+
+  <h3>Step 4 — Configure the SLA Override Panel (optional)</h3>
+  <ol>
+    <li>Locate the <strong>🎯 SLA Override (optional)</strong> bar below the run settings. It shows a summary of how many SLA targets are configured.</li>
+    <li>Click <strong>Configure</strong> to open the SLA modal.</li>
+    <li>The <strong>Configured Targets</strong> section lists all targets from the saved test (read-only). Each row shows the scope (scenario name), metric, operator, and limit.</li>
+    <li>To test the warn threshold on the Todos p95 target, click <strong>Override</strong> on the <em>Todos Endpoint Health — p95 ≤ 700 ms</em> row and change the hard limit to <code>500</code>. This will likely trigger the warning colour after the run.</li>
+    <li>Click <strong>Save</strong> to apply the override. The trigger bar stats update to show "1 override".</li>
+  </ol>
+
+  <div class="callout callout-warn">
+    <strong>⚠️ Override scope</strong>
+    Overrides apply only to this run session. The saved test is not modified. To reset, re-open the panel and delete the override rows.
+  </div>
+
+  <h3>Step 5 — Run the Test</h3>
+  <ol>
+    <li>Click <strong>Run</strong>. The runner executes 20 iterations (2 concurrent) across all 3 scenarios.</li>
+    <li>Watch the progress bar and live stats panel. You can see requests/sec, current pass rate, and elapsed time.</li>
+    <li>When complete, the run summary appears with a <strong>SLA Results</strong> section.</li>
+  </ol>
+
+  <h3>Step 6 — Inspect SLA Results</h3>
+  <ol>
+    <li>In the run summary, expand the <strong>SLA Results</strong> section. Each target is shown with its measured value and a Pass (✅) or Fail (❌) badge.</li>
+    <li>Switch to the <strong>Results Dashboard</strong> tab for a more detailed breakdown:
+      <ul>
+        <li>The <strong>SLA Summary</strong> card shows overall pass/fail counts.</li>
+        <li>The <strong>Scenario table</strong> shows per-scenario p50/p95/p99/errorRate columns alongside their limits.</li>
+      </ul>
+    </li>
+    <li>If you set the override to 500 ms in Step 4, the Todos p95 row will show a ⚠️ warning badge if the measured value is between 500 ms and 700 ms.</li>
+  </ol>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    Click any scenario row in the Results Dashboard to drill into per-test breakdown charts showing response time distribution.
+  </div>
+
+  <div class="page-break"></div>
+
+  <h3>Step 7 — Export Test Results to JSON</h3>
+  <ol>
+    <li>In the Results Dashboard, click <strong>Export</strong> (or the export icon) and choose <strong>Export as JSON</strong>.</li>
+    <li>Save the file as <code>health-sla-results.json</code> in a convenient location.</li>
+    <li>This JSON file is the canonical test result format — it can be shared, archived, or re-imported.</li>
+  </ol>
+
+  <h3>Step 8 — Export the Test Definition for CLI</h3>
+  <ol>
+    <li>Open the <strong>Test Editor</strong> for the <em>API Health Check with SLA</em> test.</li>
+    <li>Click <strong>Export</strong> and choose <strong>Export as JSON</strong> (this exports the test <em>definition</em>, not results).</li>
+    <li>Save as <code>api-health-sla.json</code>.</li>
+  </ol>
+
+  <h3>Step 9 — Run via CLI</h3>
+  <p>Open a terminal and run:</p>
+  <pre>redfireforge run api-health-sla.json -c 2 -i 20 -o health-sla-cli-results.json</pre>
+  <p>Flags:</p>
+  <table>
+    <thead>
+      <tr><th>Flag</th><th>Value</th><th>Meaning</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>-c 2</code></td><td>2</td><td>Concurrency — 2 virtual users run in parallel.</td></tr>
+      <tr><td><code>-i 20</code></td><td>20</td><td>Iterations — 20 complete passes of all scenarios.</td></tr>
+      <tr><td><code>-o health-sla-cli-results.json</code></td><td>path</td><td>Output — save results to this file.</td></tr>
+    </tbody>
+  </table>
+  <p>You will see scenario-level SLA pass/fail printed in the terminal. The full result JSON is written to <code>health-sla-cli-results.json</code>.</p>
+
+  <div class="callout">
+    <strong>ℹ️ CLI requires the CLI binary</strong>
+    If <code>redfireforge</code> is not found, check your PATH or use the full path to the binary (e.g., <code>node dist-cli/redfireforge.mjs run ...</code>).
+  </div>
+
+  <h3>Step 10 — Re-import CLI Results into the UI</h3>
+  <ol>
+    <li>Switch to the <strong>Results</strong> tab in RedfireForge.</li>
+    <li>Click <strong>📥 Import Test Results</strong>.</li>
+    <li>Browse to <code>health-sla-cli-results.json</code> and confirm.</li>
+    <li>The results appear in the Results Dashboard exactly as if you had run from the UI. All SLA target evaluations are preserved.</li>
+    <li>Compare the CLI results with the UI run from Step 5. You should see similar percentile values for the same test under the same network conditions.</li>
+  </ol>
+
+  <div class="callout callout-tip">
+    <strong>💡 CI/CD tip</strong>
+    In CI pipelines you can run <code>redfireforge run ... -o results.json</code>, then upload <code>results.json</code> as a build artifact. Developers can import it locally for investigation without re-running the test.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 6 -->
+  <h2>6. Try It Yourself</h2>
+
+  <h4>Exercise 1 — Tighten a Threshold Until It Fails</h4>
+  <p>Open the SLA Override panel before a run and set the <em>Users Endpoint Health — p95</em> limit to <code>50</code> ms. Run the test. Observe the Fail badge. Then reset and re-run — the badge should turn green again.</p>
+
+  <h4>Exercise 2 — Add a New SLA Target in the Editor</h4>
+  <p>Open the Test Editor and add a new SLA target to the <em>Posts Endpoint Health</em> scenario: <strong>p50 ≤ 350 ms</strong>. Re-run and check whether the new target passes.</p>
+
+  <h4>Exercise 3 — CLI with Different Concurrency</h4>
+  <p>Run the CLI command with <code>-c 5 -i 50</code>. Compare the p95 values against the run you did with <code>-c 2 -i 20</code>. Do higher concurrency runs produce different percentiles for this API?</p>
+
+  <h4>Exercise 4 — Import &amp; Overlay Two Result Sets</h4>
+  <p>Import both <code>health-sla-results.json</code> (from Step 7) and <code>health-sla-cli-results.json</code> (from Step 10) into the Results Dashboard. Compare the two runs side by side.</p>
+
+  <div class="callout">
+    <strong>📋 Note</strong>
+    These exercises build on the imported gallery sample. You can modify it freely — the Gallery always has the original version if you need to start over.
+  </div>
+
+  <footer>
+    RedfireForge Training Manual — SLA Targets in Test Runner · May 2025
+  </footer>
+
+</body>
+</html>

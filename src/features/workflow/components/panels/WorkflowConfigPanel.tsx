@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import WorkflowVariableInsertModal from '../modals/WorkflowVariableInsertModal';
 import { useModalDrag } from '../../../../shared/hooks/useModalDrag';
+import { useVariableInsertModal } from '../../hooks/useVariableInsertModal';
 import type {
   WorkflowNode,
   HttpNodeData,
@@ -67,13 +68,17 @@ export default function WorkflowConfigPanel({ node, workflowVariables, onUpdateW
   const [httpTab, setHttpTab] = useState<HttpTab>('url');
   const [newVarKey, setNewVarKey] = useState('');
   const [newVarValue, setNewVarValue] = useState('');
-  const [variableInsertOpen, setVariableInsertOpen] = useState(false);
-  const [variableInsertShortRef, setVariableInsertShortRef] = useState(false);
-  const [variableInsertInitialSearch, setVariableInsertInitialSearch] = useState('');
+  const {
+    variableInsertOpen,
+    variableInsertShortRef,
+    variableInsertInitialSearch,
+    requestVariableInsert,
+    handleVariableInsertPicked,
+    closeVariableInsert,
+  } = useVariableInsertModal();
   const [expanded, setExpanded] = useState(false);
   const { onDragStart: onExpandDragStart, overlayStyle: expandOverlayStyle, modalStyle: expandModalStyle } = useModalDrag(expanded);
   const collapsingRef = useRef(false);
-  const insertApplyRef = useRef<(snippet: string) => void>(() => {});
 
   const collapse = useCallback(() => {
     collapsingRef.current = true;
@@ -96,18 +101,6 @@ export default function WorkflowConfigPanel({ node, workflowVariables, onUpdateW
     () => buildConfigVariableInsertHints({ node, workflowVariables, httpVariableHints, conditionVariableHints }),
     [node, workflowVariables, httpVariableHints, conditionVariableHints],
   );
-
-  const requestVariableInsert = useCallback((apply: (snippet: string) => void, shortRef = false, initialSearch = '') => {
-    insertApplyRef.current = apply;
-    setVariableInsertShortRef(shortRef);
-    setVariableInsertInitialSearch(initialSearch);
-    setVariableInsertOpen(true);
-  }, []);
-
-  const handleVariableInsertPicked = useCallback((template: string) => {
-    insertApplyRef.current(template);
-    setVariableInsertOpen(false);
-  }, []);
 
   // ── Validation fetch hook for HTTP nodes ──
   const httpScenario = node && isHttpWorkflowNode(node) ? (node.data as HttpNodeData).scenario : null;
@@ -306,7 +299,7 @@ export default function WorkflowConfigPanel({ node, workflowVariables, onUpdateW
         hints={variableInsertHints}
         shortRef={variableInsertShortRef}
         initialSearch={variableInsertInitialSearch}
-        onClose={() => setVariableInsertOpen(false)}
+        onClose={closeVariableInsert}
         onPick={handleVariableInsertPicked}
       />
     </div>
