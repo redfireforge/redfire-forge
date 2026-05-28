@@ -281,7 +281,9 @@ function computeScenarioDeltas(
       currentErrorRate: round2(cGroup?.errorRate ?? 0),
       timeDelta: round2(timeDelta),
       timeDeltaPercent: round2(timeDeltaPct),
-      regressed: timeDeltaPct > thresholds.p95Percent,
+      // Per-scenario comparison is on average response times, so use avgPercent threshold
+      // (not p95Percent, which is for the P95 percentile summary metric).
+      regressed: timeDeltaPct > thresholds.avgPercent,
     });
   }
 
