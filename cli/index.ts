@@ -23,6 +23,12 @@ import {
 } from './reporters';
 import type { RequestResult, ErrorPolicy } from '../src/types';
 import { toErrorMessage } from '../src/shared/utils/helpers';
+import {
+  loadSlaTargetFile,
+  evaluateCliSla,
+  printSlaReport,
+  overallSlaStatus as slaOverallStatus,
+} from './slaEval';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(readFileSync(resolve(__dirname, '..', 'package.json'), 'utf-8'));
@@ -62,6 +68,8 @@ program
   .option('--tag-mode <mode>', 'Tag matching mode: any (default) or all', 'any')
   .option('--scenario-tags <tags>', 'Run only scenarios with these tags (comma-separated)')
   .option('--scenario-tag-mode <mode>', 'Scenario tag matching mode: any (default) or all', 'any')
+  .option('--sla-config <path>', 'JSON file of SLA targets to evaluate after the run (SlaTarget[])')
+  .option('--fail-on-sla', 'Exit code 3 if any SLA violations are detected (requires --sla-config)')
   .option('-q, --quiet', 'Suppress progress output')
   .action(async (filePath: string, opts) => {
     try {
@@ -198,6 +206,15 @@ program
       const suiteName = file.name || basename(absPath, '.yaml').replace(/\.yml$|\.json$/, '');
       const meta = { name: file.name, env: opts.env || file.env, file: basename(absPath) };
 
+      // Load SLA targets early so they can be embedded in the JSON report
+      const slaTargets = opts.slaConfig
+        ? loadSlaTargetFile(resolve(opts.slaConfig as string))
+        : undefined;
+
+      if (slaTargets) {
+        config.slaTargets = slaTargets;
+      }
+
       if (opts.output) {
         const report = buildJsonReport(results, summary, config, meta);
         writeFileSync(resolve(opts.output), JSON.stringify(report, null, 2));
@@ -220,6 +237,15 @@ program
         const rowSummary = buildDataRowSummary(results);
         writeFileSync(resolve(opts.dataRowsSummary), JSON.stringify(rowSummary, null, 2));
         console.log(`  Data Rows:   ${opts.dataRowsSummary}`);
+      }
+
+      // SLA evaluation (SLA-E3)
+      if (slaTargets) {
+        const checks = evaluateCliSla(summary, results, slaTargets);
+        printSlaReport(checks, opts.quiet as boolean);
+        if (opts.failOnSla && slaOverallStatus(checks) === 'fail') {
+          process.exit(3);
+        }
       }
 
       // Exit code logic

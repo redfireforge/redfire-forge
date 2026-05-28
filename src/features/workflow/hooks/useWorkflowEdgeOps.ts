@@ -52,17 +52,28 @@ export function useWorkflowEdgeOps({
 
   const onReconnect = useCallback(
     (oldEdge: Edge, newConnection: Connection) => {
+      undoRedo.takeSnapshot('Reconnect edge');
       setEdges((eds) => {
         const next = reconnectEdge(oldEdge, newConnection, eds);
-        return next.map((e) => {
+        const updated = next.map((e) => {
           if (e.id !== oldEdge.id) return e;
           const sh = e.sourceHandle ?? newConnection.sourceHandle;
           const label = sh === 'true' ? 'Yes' : sh === 'false' ? 'No' : undefined;
           return { ...e, label };
         });
+        if (selected) {
+          const wfNodes = serializeNodes(nodes);
+          const wfEdges = updated.map(e => ({
+            id: e.id, source: e.source, target: e.target,
+            sourceHandle: e.sourceHandle ?? undefined,
+            label: typeof e.label === 'string' ? e.label : undefined,
+          }));
+          queueMicrotask(() => update(selected.id, { nodes: wfNodes, edges: wfEdges }));
+        }
+        return updated;
       });
     },
-    [setEdges],
+    [setEdges, selected, nodes, serializeNodes, update, undoRedo],
   );
 
   // Derive edge execution states from nodeStatuses

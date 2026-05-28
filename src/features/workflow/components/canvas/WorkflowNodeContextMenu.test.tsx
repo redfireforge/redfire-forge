@@ -199,4 +199,73 @@ describe('WorkflowNodeContextMenu', () => {
     expect(onOpenChild).toHaveBeenCalledTimes(1);
     expect(onClose).toHaveBeenCalledTimes(1);
   });
+
+  it('menu click stopPropagation prevents close', () => {
+    const onClose = vi.fn();
+    const { container } = render(
+      <WorkflowNodeContextMenu open={true} x={0} y={0} onDelete={vi.fn()} onClose={onClose} />,
+    );
+    const menu = container.querySelector('.wf-node-ctx-menu')!;
+    fireEvent.click(menu);
+    // onClose should NOT be called when clicking on the menu itself (only backdrop)
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('renders separator between extract/openChild and delete', () => {
+    const { container } = render(
+      <WorkflowNodeContextMenu
+        open={true} x={0} y={0}
+        onExtract={vi.fn()} onOpenChild={vi.fn()} onDelete={vi.fn()} onClose={vi.fn()}
+      />,
+    );
+    const seps = container.querySelectorAll('.wf-node-ctx-sep');
+    expect(seps.length).toBe(1); // Only one separator before Delete
+  });
+
+  it('renders two separators when both copy/duplicate and extract/openChild provided', () => {
+    const { container } = render(
+      <WorkflowNodeContextMenu
+        open={true} x={0} y={0}
+        onCopy={vi.fn()} onDuplicate={vi.fn()}
+        onExtract={vi.fn()} onOpenChild={vi.fn()}
+        onDelete={vi.fn()} onClose={vi.fn()}
+      />,
+    );
+    const seps = container.querySelectorAll('.wf-node-ctx-sep');
+    expect(seps.length).toBe(2);
+  });
+
+  it('renders separator when only Duplicate is provided (not Copy)', () => {
+    const { container } = render(
+      <WorkflowNodeContextMenu
+        open={true} x={0} y={0}
+        onDuplicate={vi.fn()} onDelete={vi.fn()} onClose={vi.fn()}
+      />,
+    );
+    expect(screen.queryByText('Copy')).toBeNull();
+    expect(screen.getByText('Duplicate')).toBeTruthy();
+    expect(container.querySelector('.wf-node-ctx-sep')).toBeTruthy();
+  });
+
+  it('renders separator when only onOpenChild is provided (not onExtract)', () => {
+    const { container } = render(
+      <WorkflowNodeContextMenu
+        open={true} x={0} y={0}
+        onOpenChild={vi.fn()} onDelete={vi.fn()} onClose={vi.fn()}
+      />,
+    );
+    expect(screen.queryByText('Extract to Sub-Workflow')).toBeNull();
+    expect(screen.getByText('Open Child Workflow')).toBeTruthy();
+    expect(container.querySelector('.wf-node-ctx-sep')).toBeTruthy();
+  });
+
+  it('does not render extract/openChild separator when neither is provided', () => {
+    const { container } = render(
+      <WorkflowNodeContextMenu
+        open={true} x={0} y={0}
+        onCopy={vi.fn()} onDelete={vi.fn()} onClose={vi.fn()}
+      />,
+    );
+    expect(container.querySelectorAll('.wf-node-ctx-sep')).toHaveLength(1);
+  });
 });

@@ -5,7 +5,7 @@
  * `makeConfig`, etc. in every test file.
  */
 import type { RequestResult, Scenario, TestConfig, TestSummary, TestRun, TestScenario, FeatureGroup, TrashItem } from '../shared/types';
-import type { Workflow, WorkflowNode, WorkflowEdge } from '../features/workflow/types/workflow';
+import type { Workflow, WorkflowNode, WorkflowEdge, WorkflowFolder } from '../features/workflow/types/workflow';
 
 export function makeScenario(overrides: Partial<Scenario> = {}): Scenario {
   return {
@@ -153,6 +153,15 @@ export function makeWorkflowEdge(overrides: Partial<WorkflowEdge> = {}): Workflo
     id: `edge-${++edgeCounter}`,
     source: overrides.source ?? 'node-1',
     target: overrides.target ?? 'node-2',
+    ...overrides,
+  };
+}
+
+export function makeWorkflowFolder(overrides: Partial<WorkflowFolder> = {}): WorkflowFolder {
+  return {
+    id: overrides.id ?? 'folder-1',
+    name: overrides.name ?? 'Test Folder',
+    order: overrides.order ?? 0,
     ...overrides,
   };
 }

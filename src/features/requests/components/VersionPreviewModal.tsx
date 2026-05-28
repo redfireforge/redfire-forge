@@ -1,5 +1,8 @@
 import { useEffect, useCallback, useRef, useState, useMemo } from 'react';
 import { prettyJson } from '../../../shared/utils/helpers';
+import { SearchMatchBar } from '../../../shared/components/SearchMatchBar';
+import { useSearchMatchNavigation } from '../../../shared/hooks/useSearchMatchNavigation';
+import { useCopyToClipboard } from '../../../shared/hooks/useCopyToClipboard';
 
 interface Props {
   title: string;
@@ -60,26 +63,10 @@ export default function VersionPreviewModal({ title, subtitle, tags, content: ra
   const overlayRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const [copied, setCopied] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [currentMatchIdx, setCurrentMatchIdx] = useState(0);
+  const [copied, copyToClipboard] = useCopyToClipboard(2000);
+  const [searchQuery, setSearchQueryRaw] = useState('');
 
   const content = language === 'json' ? prettyJson(rawContent) : rawContent;
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        if (searchQuery) { setSearchQuery(''); setCurrentMatchIdx(0); }
-        else onClose();
-      }
-      if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
-        e.preventDefault();
-        searchInputRef.current?.focus();
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose, searchQuery]);
 
   const lines = useMemo(() => content.split('\n'), [content]);
 
@@ -93,7 +80,36 @@ export default function VersionPreviewModal({ title, subtitle, tags, content: ra
 
   const matchCount = matchLineIndices.length;
 
-  useEffect(() => { setCurrentMatchIdx(0); }, [searchQuery]);
+  const {
+    currentMatchIndex,
+    setCurrentMatchIndex,
+    clear: clearSearchNav,
+  } = useSearchMatchNavigation(matchCount);
+
+  const setSearchQuery = useCallback((value: string) => {
+    setSearchQueryRaw(value);
+    setCurrentMatchIndex(0);
+  }, [setCurrentMatchIndex]);
+
+  const clearSearch = useCallback(() => {
+    setSearchQueryRaw('');
+    clearSearchNav();
+  }, [clearSearchNav]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (searchQuery) clearSearch();
+        else onClose();
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose, searchQuery, clearSearch]);
 
   const scrollToMatch = useCallback((idx: number) => {
     if (!bodyRef.current || matchLineIndices.length === 0) return;
@@ -106,17 +122,17 @@ export default function VersionPreviewModal({ title, subtitle, tags, content: ra
 
   const goNextMatch = useCallback(() => {
     if (matchCount === 0) return;
-    const next = currentMatchIdx < matchCount - 1 ? currentMatchIdx + 1 : 0;
-    setCurrentMatchIdx(next);
+    const next = (currentMatchIndex + 1) % matchCount;
+    setCurrentMatchIndex(next);
     scrollToMatch(next);
-  }, [currentMatchIdx, matchCount, scrollToMatch]);
+  }, [currentMatchIndex, matchCount, scrollToMatch, setCurrentMatchIndex]);
 
   const goPrevMatch = useCallback(() => {
     if (matchCount === 0) return;
-    const prev = currentMatchIdx > 0 ? currentMatchIdx - 1 : matchCount - 1;
-    setCurrentMatchIdx(prev);
+    const prev = (currentMatchIndex - 1 + matchCount) % matchCount;
+    setCurrentMatchIndex(prev);
     scrollToMatch(prev);
-  }, [currentMatchIdx, matchCount, scrollToMatch]);
+  }, [currentMatchIndex, matchCount, scrollToMatch, setCurrentMatchIndex]);
 
   const highlighted = useMemo(() => {
     const base = language === 'json' ? highlightJson(content) : highlightDsl(content);
@@ -125,19 +141,16 @@ export default function VersionPreviewModal({ title, subtitle, tags, content: ra
     const re = new RegExp(`(${q})`, 'gi');
     return base.split('\n').map((line, i) => {
       if (!matchLineIndices.includes(i)) return line;
-      const isActive = matchLineIndices[currentMatchIdx] === i;
+      const isActive = matchLineIndices[currentMatchIndex] === i;
       return line.replace(re, isActive
         ? '<mark class="vp-search-hit vp-search-hit--active">$1</mark>'
         : '<mark class="vp-search-hit">$1</mark>');
     }).join('\n');
-  }, [content, language, searchQuery, matchLineIndices, currentMatchIdx]);
+  }, [content, language, searchQuery, matchLineIndices, currentMatchIndex]);
 
   const handleCopy = useCallback(() => {
-    navigator.clipboard.writeText(content).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
-  }, [content]);
+    void copyToClipboard(content);
+  }, [content, copyToClipboard]);
 
   return (
     <div
@@ -161,32 +174,32 @@ export default function VersionPreviewModal({ title, subtitle, tags, content: ra
               </div>
             )}
           </div>
-          <div className="vp-search-bar">
-            <input
-              ref={searchInputRef}
-              className="vp-search-input"
-              type="text"
-              placeholder="Search… (Cmd+F)"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Escape') { setSearchQuery(''); setCurrentMatchIdx(0); }
-                if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); goNextMatch(); }
-                if (e.key === 'Enter' && e.shiftKey) { e.preventDefault(); goPrevMatch(); }
-              }}
-            />
-            {searchQuery && (
-              <span className="vp-search-count">
-                {matchCount > 0 ? `${currentMatchIdx + 1}/${matchCount}` : 'No match'}
-              </span>
-            )}
-            <button type="button" className="vp-search-nav" onClick={goPrevMatch} title="Previous match (Shift+Enter)" disabled={matchCount === 0}>
-              ▲
-            </button>
-            <button type="button" className="vp-search-nav" onClick={goNextMatch} title="Next match (Enter)" disabled={matchCount === 0}>
-              ▼
-            </button>
-          </div>
+          <SearchMatchBar
+            className="vp-search-bar"
+            value={searchQuery}
+            onChange={setSearchQuery}
+            currentMatch={currentMatchIndex + 1}
+            totalMatches={matchCount}
+            onPrev={goPrevMatch}
+            onNext={goNextMatch}
+            onClear={clearSearch}
+            placeholder="Search… (Cmd+F)"
+            inputClassName="vp-search-input"
+            countClassName="vp-search-count"
+            navClassName="vp-search-nav"
+            controlsVisible={!!searchQuery}
+            showNavWhenEmpty
+            hideClear
+            navStyle="text"
+            inputRef={searchInputRef}
+            prevTitle="Previous match (Shift+Enter)"
+            nextTitle="Next match (Enter)"
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') clearSearch();
+              if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); goNextMatch(); }
+              if (e.key === 'Enter' && e.shiftKey) { e.preventDefault(); goPrevMatch(); }
+            }}
+          />
         </div>
 
         {/* Body: gutter + code */}

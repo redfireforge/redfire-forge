@@ -555,6 +555,20 @@ export function useRequests() {
     }));
   }, []);
 
+  const importRequests = useCallback((colId: string, folderId: string, requests: RequestItem[]) => {
+    setData((prev) => ({
+      ...prev,
+      collections: prev.collections.map((c) => {
+        if (c.id !== colId) return c;
+        let updated = c;
+        for (const req of requests) {
+          updated = addReqToFolderSafe(updated, folderId, req);
+        }
+        return updated;
+      }),
+    }));
+  }, []);
+
   return {
     data, loaded, selectedCollection, selectedRequest,
     environments: data.environments, collections: data.collections, selectedEnvId: data.selectedEnvId,
@@ -564,6 +578,6 @@ export function useRequests() {
     addRequest, updateRequest, removeRequest, duplicateRequest, moveRequest, selectRequest,
     moveRequestToCollection, moveFolderToCollection, moveCollectionAsSubCollection,
     addGroup, renameGroup, deleteGroup, moveToGroup, duplicateGroup,
-    addEnvironments, countAllRequests, importCollection, importFolder,
+    addEnvironments, countAllRequests, importCollection, importFolder, importRequests,
   };
 }

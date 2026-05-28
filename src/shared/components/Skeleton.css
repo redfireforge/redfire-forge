@@ -1,0 +1,97 @@
+/* Skeleton loading placeholder with shimmer animation */
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--surface-hover, #2d3a4d) 0%,
+    var(--border, #3b4a60) 50%,
+    var(--surface-hover, #2d3a4d) 100%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s ease-in-out infinite;
+}
+
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.skeleton-group {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Light theme adjustments */
+[data-theme="light"] .skeleton,
+[data-theme="mist"] .skeleton,
+[data-theme="frost"] .skeleton,
+[data-theme="sage"] .skeleton,
+[data-theme="sand"] .skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--surface-hover, #f1f5f9) 0%,
+    var(--border, #bcc8d8) 50%,
+    var(--surface-hover, #f1f5f9) 100%
+  );
+  background-size: 200% 100%;
+}
+
+/* Preset compositions for common loading states */
+
+.skeleton-workflow-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+}
+
+.skeleton-workflow-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: var(--surface);
+  border-radius: 6px;
+}
+
+.skeleton-workflow-item .skeleton-icon {
+  flex-shrink: 0;
+}
+
+.skeleton-workflow-item .skeleton-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.skeleton-config-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+}
+
+.skeleton-config-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.skeleton-config-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.skeleton-config-row .skeleton-label {
+  flex: 0 0 100px;
+}
+
+.skeleton-config-row .skeleton-input {
+  flex: 1;
+}

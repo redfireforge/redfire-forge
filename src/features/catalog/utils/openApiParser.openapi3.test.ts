@@ -114,6 +114,45 @@ describe('parseOpenApiSpec', () => {
       expect(result.entry.servers[0].description).toBe('Production');
     });
 
+    it('resolves relative server URLs when import source URL is provided', async () => {
+      const specWithRelativeServer = `
+openapi: "3.0.0"
+info:
+  title: Test API
+  version: "1.0"
+servers:
+  - url: /api/v3
+    description: Relative server
+paths: {}
+`;
+      const result = await parseOpenApiSpec(specWithRelativeServer, 'https://petstore3.swagger.io/openapi.yaml');
+      expect(result.entry.servers).toHaveLength(1);
+      expect(result.entry.servers[0].url).toBe('/api/v3');
+      expect(result.entry.servers[0].resolvedUrl).toBe('https://petstore3.swagger.io/api/v3');
+    });
+
+    it('does not set resolvedUrl for absolute server URLs', async () => {
+      const result = await parseOpenApiSpec(OPENAPI_3_MINIMAL, 'https://other-source.com/spec.yaml');
+      expect(result.entry.servers[0].url).toBe('https://api.example.com/v1');
+      expect(result.entry.servers[0].resolvedUrl).toBe('https://api.example.com/v1');
+    });
+
+    it('does not set resolvedUrl for relative URLs without import source', async () => {
+      const specWithRelativeServer = `
+openapi: "3.0.0"
+info:
+  title: Test API
+  version: "1.0"
+servers:
+  - url: /api/v3
+    description: Relative server
+paths: {}
+`;
+      const result = await parseOpenApiSpec(specWithRelativeServer);
+      expect(result.entry.servers[0].url).toBe('/api/v3');
+      expect(result.entry.servers[0].resolvedUrl).toBeUndefined();
+    });
+
     it('extracts security schemes', async () => {
       const result = await parseOpenApiSpec(OPENAPI_3_MINIMAL);
       expect(result.entry.securitySchemes.bearerAuth).toBeDefined();

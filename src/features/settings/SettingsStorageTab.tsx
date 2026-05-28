@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { setMaxRuns, getStorageUsage, deleteRunsOlderThan, clearAllTestRuns, loadTestRunsLite } from '../../shared/utils/storage';
+import { setMaxRuns, getStorageUsage, deleteRunsOlderThan, clearAllTestRuns, loadTestRunsLite, cleanupStaleStorageKeys, compactWorkflowStorage } from '../../shared/utils/storage';
 import { isTauri } from '../../shared/utils/platform';
 import { formatBytes } from '../../shared/utils/helpers';
 
@@ -61,8 +61,8 @@ export default function SettingsStorageTab({
   };
 
   const limitHint = isWeb
-    ? 'Test runs stored in IndexedDB (no 5 MB limit). Other data uses localStorage.'
-    : 'Test runs stored on disk (no size limit).';
+    ? 'All data stored in IndexedDB (no size limit). Only small settings remain in localStorage.'
+    : 'All data stored on disk (no size limit).';
 
   return (
     <div className="settings-section">
@@ -81,13 +81,20 @@ export default function SettingsStorageTab({
             <span className="storage-stat-hint">/ disk</span>
           )}
         </div>
-        {storageExpanded && Object.entries(storageUsage.entries).sort(([, a], [, b]) => b - a).map(([key, bytes]) => (
-          <div key={key} className="storage-stat storage-stat-detail">
-            <span className="storage-stat-label">{key.replace('perf-test-', '')}</span>
-            <span className="storage-stat-value">{formatBytes(bytes)}</span>
-            <div className="storage-bar storage-bar-sm"><div className="storage-bar-fill" style={{ width: `${Math.min(100, (bytes / storageUsage.usedBytes) * 100)}%` }} /></div>
-          </div>
-        ))}
+        {storageExpanded && Object.entries(storageUsage.entries).sort(([, a], [, b]) => b - a).map(([key, bytes]) => {
+          const isIdb = key.includes('(IndexedDB)');
+          const displayKey = key.replace('perf-test-', '');
+          return (
+            <div key={key} className="storage-stat storage-stat-detail">
+              <span className="storage-stat-label">
+                {displayKey}
+                {!isIdb && isWeb && <span className="storage-badge-ls" title="localStorage">LS</span>}
+              </span>
+              <span className="storage-stat-value">{formatBytes(bytes)}</span>
+              <div className="storage-bar storage-bar-sm"><div className="storage-bar-fill" style={{ width: `${Math.min(100, (bytes / storageUsage.usedBytes) * 100)}%` }} /></div>
+            </div>
+          );
+        })}
       </div>
 
       {/* Max runs */}
@@ -137,6 +144,36 @@ export default function SettingsStorageTab({
             <button type="button" className="btn btn-secondary btn-sm" onClick={() => setConfirmClear(false)}>Cancel</button>
           </div>
         )}
+      </div>
+
+      {/* Quick cleanup */}
+      <div className="storage-cleanup-section">
+        <label className="storage-cleanup-label">Free up space</label>
+        <div className="storage-cleanup-buttons">
+          <button type="button" className="btn btn-secondary btn-sm" onClick={async () => {
+            const stale = cleanupStaleStorageKeys();
+            const compact = await compactWorkflowStorage(5);
+            const totalFreed = stale.freedKB + (compact.beforeKB - compact.afterKB);
+            setActionMsg(totalFreed > 0
+              ? `Freed ${totalFreed} KB (${stale.removed} stale keys, versions trimmed ${compact.beforeKB}→${compact.afterKB} KB)`
+              : 'Storage is already optimized.');
+            await refreshUsage();
+            setTimeout(() => setActionMsg(null), 5000);
+          }}>
+            Clean Up Stale Data
+          </button>
+          <button type="button" className="btn btn-secondary btn-sm" onClick={async () => {
+            const compact = await compactWorkflowStorage(3);
+            const freed = compact.beforeKB - compact.afterKB;
+            setActionMsg(freed > 0
+              ? `Compacted workflow versions: ${compact.beforeKB} KB → ${compact.afterKB} KB (freed ${freed} KB)`
+              : 'Workflow versions already compact.');
+            await refreshUsage();
+            setTimeout(() => setActionMsg(null), 5000);
+          }}>
+            Compact Workflow Versions
+          </button>
+        </div>
       </div>
 
       {/* Action feedback */}

@@ -119,6 +119,22 @@ describe('ScenarioContextMenu', () => {
     expect(onClose).toHaveBeenCalled();
   });
 
+  it('non-Escape keys do not close menu', () => {
+    render(<ScenarioContextMenu {...getDefaultProps()} />);
+    
+    fireEvent.keyDown(document, { key: 'Enter' });
+    
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('clicking inside menu does not close it', () => {
+    render(<ScenarioContextMenu {...getDefaultProps()} />);
+    
+    fireEvent.mouseDown(screen.getByText('Tags'));
+    
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
   it('renders at the specified position when within viewport', () => {
     // Mock window dimensions
     Object.defineProperty(window, 'innerWidth', { value: 1920, writable: true });
@@ -152,5 +168,47 @@ describe('ScenarioContextMenu', () => {
     );
     
     expect(screen.queryByText('Remove All Tags')).not.toBeInTheDocument();
+  });
+
+  it('adjusts position when menu would overflow right edge', () => {
+    Object.defineProperty(window, 'innerWidth', { value: 200, writable: true });
+    Object.defineProperty(window, 'innerHeight', { value: 1080, writable: true });
+
+    const origGetBCR = HTMLElement.prototype.getBoundingClientRect;
+    HTMLElement.prototype.getBoundingClientRect = function () {
+      if (this.classList.contains('scenario-context-menu')) {
+        return { width: 160, height: 120, x: 0, y: 0, top: 0, left: 0, bottom: 120, right: 160, toJSON: () => ({}) } as DOMRect;
+      }
+      return origGetBCR.call(this);
+    };
+    try {
+      const { container } = render(<ScenarioContextMenu {...getDefaultProps()} x={180} y={100} />);
+      const menu = container.querySelector('.scenario-context-menu') as HTMLElement;
+      const left = parseInt(menu.style.left, 10);
+      expect(left).toBeLessThan(180);
+    } finally {
+      HTMLElement.prototype.getBoundingClientRect = origGetBCR;
+    }
+  });
+
+  it('adjusts position when menu would overflow bottom edge', () => {
+    Object.defineProperty(window, 'innerWidth', { value: 1920, writable: true });
+    Object.defineProperty(window, 'innerHeight', { value: 200, writable: true });
+
+    const origGetBCR = HTMLElement.prototype.getBoundingClientRect;
+    HTMLElement.prototype.getBoundingClientRect = function () {
+      if (this.classList.contains('scenario-context-menu')) {
+        return { width: 160, height: 120, x: 0, y: 0, top: 0, left: 0, bottom: 120, right: 160, toJSON: () => ({}) } as DOMRect;
+      }
+      return origGetBCR.call(this);
+    };
+    try {
+      const { container } = render(<ScenarioContextMenu {...getDefaultProps()} x={100} y={180} />);
+      const menu = container.querySelector('.scenario-context-menu') as HTMLElement;
+      const top = parseInt(menu.style.top, 10);
+      expect(top).toBeLessThan(180);
+    } finally {
+      HTMLElement.prototype.getBoundingClientRect = origGetBCR;
+    }
   });
 });

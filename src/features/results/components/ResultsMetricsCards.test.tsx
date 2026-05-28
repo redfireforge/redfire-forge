@@ -161,4 +161,52 @@ describe('ResultsMetricsCards', () => {
     
     expect(screen.getByText('— ms')).toBeInTheDocument();
   });
+
+  it('shows dash for undefined p999', () => {
+    const summary: TestSummary = {
+      ...makeSummary(),
+      p999ResponseTime: undefined as unknown as number,
+    };
+    render(<ResultsMetricsCards summary={summary} selectedRun={makeTestRun()} />);
+    expect(screen.getAllByText('— ms').length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('does not render avg iteration card when avgIterationTime is undefined', () => {
+    const summary = makeSummary();
+    render(<ResultsMetricsCards summary={summary} selectedRun={makeTestRun()} />);
+    expect(screen.queryByText('Avg Iteration')).not.toBeInTheDocument();
+    expect(screen.getByText('Avg Response')).toBeInTheDocument();
+  });
+
+  it('does not render constant-arrival row when selectedRun is null', () => {
+    const summary = makeSummary({ targetRps: 50, peakRps: 48, droppedRequests: 3 });
+    render(<ResultsMetricsCards summary={summary} selectedRun={null} />);
+    expect(screen.queryByText('Target RPS')).not.toBeInTheDocument();
+    expect(screen.queryByText('Peak RPS')).not.toBeInTheDocument();
+  });
+
+  it('renders constant-arrival dropped requests with success class when zero', () => {
+    const summary = makeSummary({
+      targetRps: undefined,
+      peakRps: undefined,
+      droppedRequests: undefined,
+    });
+    const run = makeTestRun({
+      config: {
+        concurrency: 10,
+        iterations: 100,
+        executionMode: 'constant-arrival',
+        scenarioWeights: [],
+        arrivalRate: { targetRps: 50, durationSec: 60 },
+      },
+    });
+    const { container } = render(<ResultsMetricsCards summary={summary} selectedRun={run} />);
+    expect(screen.getByText('Target RPS')).toBeInTheDocument();
+    expect(screen.getAllByText('—').length).toBeGreaterThanOrEqual(2);
+    expect(screen.getByText(/Dropped Requests/)).toBeInTheDocument();
+    const droppedCards = container.querySelectorAll('.metric-card.success');
+    expect(droppedCards.length).toBeGreaterThanOrEqual(1);
+    const droppedValue = screen.getByText(/Dropped Requests/).closest('.metric-card')?.querySelector('.metric-value');
+    expect(droppedValue?.textContent).toBe('0');
+  });
 });

@@ -37,6 +37,8 @@ import { SpecVersionSwitcher } from './SpecVersionSwitcher';
 import { SpecVersionCompareModal } from './SpecVersionCompareModal';
 import RequestCatalogApiInfoDrawer from './RequestCatalogApiInfoDrawer';
 import { parseQueryParams, rebuildUrlEncoded } from '../../../shared/utils/queryParams';
+import ResponseBodySearchBar from './ResponseBodySearchBar';
+import { useSearchMatchNavigation } from '../../../shared/hooks/useSearchMatchNavigation';
 
 type EditorTab = 'params' | 'headers' | 'body' | 'auth' | 'history';
 type InputMode = 'builder' | 'curlImport' | 'curlExport';
@@ -85,9 +87,16 @@ export default function RequestEditor({
   const [curlGenerating, setCurlGenerating] = useState(false);
   const [curlCopied, setCurlCopied] = useState(false);
   const [showActionMenu, setShowActionMenu] = useState(false);
-  const [responseSearch, setResponseSearch] = useState('');
-  const [searchMatchIdx, setSearchMatchIdx] = useState(0);
   const [searchMatchCount, setSearchMatchCount] = useState(0);
+  const {
+    searchQuery: responseSearch,
+    setSearchQuery: setResponseSearch,
+    currentMatchIndex: searchMatchIdx,
+    setCurrentMatchIndex: setSearchMatchIdx,
+    goNext: goNextSearchMatch,
+    goPrev: goPrevSearchMatch,
+    clear: clearResponseSearch,
+  } = useSearchMatchNavigation(searchMatchCount);
   const [collapsedSet, setCollapsedSet] = useState<Set<string>>(new Set());
   const handleTreeToggle = useCallback((path: string) => {
     setCollapsedSet(prev => {
@@ -111,12 +120,11 @@ export default function RequestEditor({
     if (prevReqIdForUI.current !== request.id) {
       prevReqIdForUI.current = request.id;
       setResponseSearch('');
-      setSearchMatchIdx(0);
       setInputMode('builder');
       setCurlText('');
       setGeneratedCurl('');
     }
-  }, [request.id]);
+  }, [request.id, setResponseSearch]);
 
   const responseTree = useMemo(() => {
     if (!response?.body) return null;
@@ -137,7 +145,7 @@ export default function RequestEditor({
   const handleMatchCountChange = useCallback((count: number) => {
     setSearchMatchCount(count);
     if (searchMatchIdxRef.current >= count) setSearchMatchIdx(Math.max(0, count - 1));
-  }, []);
+  }, [setSearchMatchIdx]);
 
   const queryParams = useMemo(() => {
     if (request.savedQueryParams && request.savedQueryParams.length > 0) {
@@ -727,35 +735,17 @@ export default function RequestEditor({
           </div>
 
           {responseTab === 'preview' && (
-            <div className="req-resp-search">
-              <input
-                className="req-resp-search-input"
-                type="text"
-                placeholder="Search response..."
-                value={responseSearch}
-                onChange={(e) => { setResponseSearch(e.target.value); setSearchMatchIdx(0); }}
-              />
-              {responseSearch && (
-                <>
-                  <span className="req-resp-search-count">
-                    {searchMatchCount > 0 ? `${searchMatchIdx + 1}/${searchMatchCount}` : 'No match'}
-                  </span>
-                  <button className="req-resp-search-nav" title="Previous" disabled={searchMatchCount === 0}
-                    onClick={() => setSearchMatchIdx(prev => prev > 0 ? prev - 1 : searchMatchCount - 1)}><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" width="10" height="10"><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" /></svg></button>
-                  <button className="req-resp-search-nav" title="Next" disabled={searchMatchCount === 0}
-                    onClick={() => setSearchMatchIdx(prev => prev < searchMatchCount - 1 ? prev + 1 : 0)}><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" width="10" height="10"><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg></button>
-                  <button className="req-resp-search-clear" onClick={() => { setResponseSearch(''); setSearchMatchIdx(0); setSearchMatchCount(0); }}>×</button>
-                </>
-              )}
-              <button
-                className="jt-expand-collapse-btn"
-                onClick={handleExpandAll}
-              >Expand All</button>
-              <button
-                className="jt-expand-collapse-btn"
-                onClick={handleCollapseAll}
-              >Collapse All</button>
-            </div>
+            <ResponseBodySearchBar
+              value={responseSearch}
+              onChange={setResponseSearch}
+              currentMatch={searchMatchIdx + 1}
+              totalMatches={searchMatchCount}
+              onPrev={goPrevSearchMatch}
+              onNext={goNextSearchMatch}
+              onClear={() => { clearResponseSearch(); setSearchMatchCount(0); }}
+              onExpandAll={handleExpandAll}
+              onCollapseAll={handleCollapseAll}
+            />
           )}
 
           <div className="req-resp-content">

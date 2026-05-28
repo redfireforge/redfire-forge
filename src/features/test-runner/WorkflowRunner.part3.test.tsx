@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import type { JSX } from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within, act } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import WorkflowRunner from './WorkflowRunner';
 import {
@@ -342,7 +342,7 @@ describe('WorkflowRunner', () => {
     });
 
     fireEvent.click(screen.getByRole('radio', { name: 'Load Profile' }));
-    fireEvent.click(screen.getByRole('radio', { name: /Wait for Real Webhook/ }));
+    await act(async () => { fireEvent.click(screen.getByRole('radio', { name: /Wait for Real Webhook/ })); });
 
     testExec.execute.mockClear();
     fireEvent.click(screen.getByText('▶ Run Workflow'));
@@ -463,6 +463,11 @@ describe('WorkflowRunner', () => {
       }),
       expect.any(Object),
       expect.any(Function),
+      {
+        microservices: undefined,
+        globalAuthProfiles: undefined,
+        selectedEnvId: undefined,
+      },
     );
   });
 

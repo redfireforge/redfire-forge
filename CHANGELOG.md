@@ -8,7 +8,48 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
 
 ## [Unreleased]
 
+### Added
+- **Test Scenario Tagging** — Tag `TestScenario` objects for filtering, reporting, and targeted test runs.
+  - **`TestScenario.tags?: string[]`** — New optional field on `TestScenario`. Tags are normalised on save: lowercase, trimmed, non-`[a-z0-9-_]` characters stripped.
+  - **Tag pills UI** — Inline tag pills on scenario cards in the Scenario Builder sidebar; click `+` to add a tag, `×` to remove one. Autocomplete list drawn from built-in tags (`smoke`, `regression`, `critical`, etc.) plus all existing tags in the workspace.
+  - **Right-click context menu** — `ScenarioContextMenu` component appears on right-click for quick checkbox-based tag add/remove and "Remove All Tags" action.
+  - **Feature Group tag badge** — FG header shows the count of unique tags in that group (with tooltip listing all tags).
+  - **Tag propagation** — Tags are copied to `Scenario.scenarioTags` at test-build time (`buildSelectedTests`) and to `RequestResult.scenarioTags` via all execution paths (`executeRequest`, `buildErrorResult`, Rust passthrough/fallback mappers).
+  - **Results Dashboard filtering** — Tag chips above the results list let users filter results by tag. "All" chip clears the filter. Filter resets when changing run selection or deleting a run.
+  - **Results Dashboard search** — Scenario tags are included in the full-text search (visible as `scenarioTags` on `RequestResult`).
+  - **CLI `--scenario-tags`** — `redfireforge run --scenario-tags smoke,regression` (comma-separated) with `--scenario-tag-mode any|all` (default `any`).
+  - **CLI reporters** — JUnit reporter adds `tags` attribute to `<testcase>`; Markdown reporter adds a Tags row; console reporter prints tag summary.
+  - **CLI loader** — `tags` field in YAML/JSON test files is loaded as `scenarioTags` (normalised to lowercase).
+  - **`useScenarioTags` hook** — `addTag`, `removeTag`, `bulkAddTag`, `bulkRemoveTag`, `clearTags`, `allTags`, `tagCounts`, `tagSuggestions`.
+  - **Engine helpers** — `normalizeTag`, `filterScenariosByTags`, `collectAllScenarioTags`, `countScenariosByTag`, `BUILT_IN_SCENARIO_TAGS` in `src/engine/dataSourceExpander.ts`.
+  - 9 new type round-trip tests (`src/shared/types/index.test.ts`); 44 tag-engine tests; 31 hook tests; 19 `buildSelectedTests` tests; 9 JUnit + 12 Markdown + 13 console reporter tests.
+- **SLA Dashboard** — Absolute performance contract monitoring integrated into the Results view.
+  - **Scoped targets** — SLA targets are stored per-workflow (`sla-targets-wf-{workflowId}`) or per-run (`sla-targets-run-{runId}`). Targets embedded in `TestConfig.slaTargets` at run time are read-only in the Results view; workflow-level and per-run targets are fully editable.
+  - **Per-scenario metrics** — Targets can be scoped to individual scenario names (e.g. `checkout`, `search`). Metrics are computed from `RequestResult[]` using nearest-rank percentiles, timestamp-span TPS, and `passed`-flag error rate.
+  - **Scope priority** — `config.slaTargets` (run-level, read-only) → `sla-targets-wf-{workflowId}` (workflow-level, editable) → `sla-targets-run-{runId}` (per-run, editable). `resolveTargetsForRun` handles all three levels.
+  - **Status banner** — Colour-coded 🟢 pass / 🟡 warn / 🔴 fail / ⚪ no-data banner with violation count, scope badge (🔒 This Run / 🔗 Workflow SLA), and collapsible panel. Editor locked when scope is `run`.
+  - **Target editor** — Inline table with Metric, Op, Fail threshold, optional Warn zone, Label, and Scenario columns. Real-time validation prevents inverted warn/fail ordering.
+  - **Per-scenario display** — `SlaTestTable` groups check cards by scenario; scenarios without a matching target show a neutral "No SLA configured" row.
+  - **Run list dots** — Lazy-computed SLA status dot (🟢🟡🔴⚪⚫) appended to each run option in the selector. Dots recompute after every target save via a `slaStatusVersion` counter.
+  - **New types**: `SlaMetric`, `SlaTarget`, `SlaCheck`, `SlaStatus`, `ScenarioMetrics` (in `src/shared/types` and `slaTargets.ts`). `TestConfig` gains optional `slaTargets` and `workflowId` fields.
+  - **New functions**: `computeScenarioMetrics`, `extractScenarioNames`, `evaluateSlaForScenario`, `evaluateSla`, `overallSlaStatus`, `loadWorkflowSlaTargets`, `saveWorkflowSlaTargets`, `loadRunSlaTargets`, `saveRunSlaTargets`, `resolveTargetsForRun`, `computeRunSlaStatus`.
+  - 1186 unit tests (53 test files); `SlaDashboard.test.tsx`: 70 tests; `slaTargets.test.ts`: 89 tests.
+- **Catalog → Workflow ("Expose to Workflow")** — New "Expose to Workflow" checkbox on Catalog endpoints saves parameter values, headers, and body for reuse. Exposed endpoints appear in the Workflow Designer's CATALOG palette tab; clicking adds an HTTP Request node with a fully pre-populated scenario. Non-exposed endpoints are hidden from the palette. New type: `CatalogEndpointWorkflowValues`.
+- **Requests → Workflow Integration** — REQUESTS tab in the Workflow palette lets users browse Request collections with folder tree navigation. Adding a request creates an HTTP node with full scenario, preserving microservice/environment/auth bindings via `buildServiceFromCollection`.
+- **Import Workflow from `+ New`** — "Import Workflow" option added to the `+ New` dropdown in the Workflow sidebar, allowing JSON import at root level without needing to right-click a folder.
+- **Empty Canvas Template Suggestions** — When a workflow has no nodes, the empty canvas now shows 4 curated template suggestions (Create → Extract → Verify, Parallel API Calls, Conditional Branching, Perf: Simple POST → GET) with a "Browse All Templates →" link to the Gallery. Clicking a template loads it as a preview for quick adoption. New files: `emptyCanvasTemplates.ts`, `EmptyCanvasTemplates.tsx`.
+- **Contextual Onboarding Hints** — First-time users see helpful tooltips for key actions: drag nodes from palette, use command palette (⌘K), configure nodes (double-click), connect nodes, and run workflows. Hints appear at appropriate times (empty canvas, first node added) and can be dismissed individually or all at once. State persists in localStorage. New files: `onboardingHints.ts`, `useOnboardingHints.ts`, `OnboardingTooltip.tsx`.
+
 ### Changed
+- **IndexedDB Migration for Large Data** — Workflows, requests, catalog entries/specs/endpoint values, and projects migrated from `localStorage` to IndexedDB to eliminate `QuotaExceededError`. Automatic one-time migration with fallback. New files: `idbWorkflows.ts`, `idbRequests.ts`, `idbCatalog.ts`, `idbProjects.ts`. Settings storage tab updated with combined usage display.
+- **Workflow Sidebar UX Overhaul** — Removed confusing "UNFILED" section header; renamed "Move to Unfiled" → "Move out of Folder"; "Move out of Folder" hidden when workflow is already at root level; "Move to Folder" submenu widened (160px → 220px); "Workflows (root)" in folder picker.
+- **Gallery Navigation from Workflows** — "From Template" and "Browse All Templates →" now open Gallery pre-filtered to the Workflows domain instead of showing "All".
+- **`useCopyToClipboard` Shared Hook** — Extracted the "copy text with reset-after-delay feedback" pattern (7 duplicate implementations across `CatalogEndpointCard`, `VersionPreviewModal`, `WorkflowConsolePanel`, `WebhookConfig` ×2, `JsonTreeViewer`, `SourceTreeNode`) into a single reusable `src/shared/hooks/useCopyToClipboard.ts` hook. Hook handles concurrent-copy debouncing via `useRef` timeout and clears the timer on unmount to prevent stale state updates. 10 new unit tests.
+- **Monaco CDN E2E Fix** — Created `e2e/monacoCdnFixture.ts` that intercepts CDN requests for `@monaco-editor/react` and serves from local `node_modules` during Playwright runs, eliminating 30-second timeout failures under 40-worker parallelism.
+
+### Fixed
+- **Workflow Service Persistence** — Fixed `fixupOverGroupedServices` migration incorrectly splitting microservice-bound services on every load, causing loss of environment/microservice/auth bindings after hard refresh. Added guard to skip services with `microserviceId`.
+- **Broken `--bg-hover` CSS Variable** — `var(--bg-hover)` was used across 7 CSS files but never defined in any theme, causing invisible hover/active states on sidebar items. Replaced with `var(--surface-hover)` (26 occurrences). Active/selected items now use accent-tinted background for clear visibility.
 - **ResultsDashboard Refactored** — Extracted `ResultsMetricsCards` (throughput/timing/error metrics) and `ResultsDashboardHeader` (context tags, actions, run type filter tabs) into focused components. Reduced `ResultsDashboard.tsx` from 925 → 827 lines (below 900-line monolithic threshold).
 - **Shared Test Factories Expanded** — Added `makeSummary`, `makeTestRun`, `makeTestScenario`, `makeFeatureGroup`, `makeWorkflow`, `makeWorkflowNode`, `makeWorkflowEdge` to `src/test-utils/factories.ts`. Updated test files (`cli/reporters.test.ts`, `src/engine/rerunMerge.test.ts`, `src/engine/circuitBreaker.test.ts`, `src/engine/executionWorker.test.ts`) to use shared factories instead of local duplicates.
 

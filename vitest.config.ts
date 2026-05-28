@@ -7,6 +7,10 @@ export default defineConfig({
     environment: 'node',
     include: ['src/**/*.test.{ts,tsx}', 'src-server/**/*.test.{ts,tsx}', 'cli/**/*.test.ts'],
     exclude: ['node_modules', 'dist', 'src-tauri', 'e2e'],
+    poolMatchGlobs: [
+      // Server tests share module-level state — run each file in its own fork
+      ['src-server/**', 'forks'],
+    ],
     coverage: {
       reporter: ['text', 'json-summary'],
       exclude: [

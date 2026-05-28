@@ -8,7 +8,7 @@
  * factories live in `__test-utils__/useTrashTestFixtures.ts`.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
+import { renderHook, act, waitFor } from '@testing-library/react';
 import type { TrashItem } from '../../../shared/types';
 import {
   makeScenario,
@@ -63,7 +63,7 @@ describe('useTrash — core', () => {
     mockLoadTrash.mockResolvedValue(existing);
 
     const { result } = renderHook(() => useTrash(defaultParams()));
-    await vi.waitFor(() => expect(result.current.loading).toBe(false));
+    await waitFor(() => expect(result.current.loading).toBe(false));
 
     expect(result.current.trashItems).toHaveLength(1);
     expect(result.current.trashCount).toBe(1);
@@ -72,14 +72,14 @@ describe('useTrash — core', () => {
   it('moveToTrash adds item and sets lastDeleted', async () => {
     const params = defaultParams();
     const { result } = renderHook(() => useTrash(params));
-    await vi.waitFor(() => expect(result.current.loading).toBe(false));
+    await waitFor(() => expect(result.current.loading).toBe(false));
 
     await act(async () => {
       result.current.moveToTrash(
         'featureGroup', makeFg(), 'Feature 1', '',
         { environmentId: 'env-1', microserviceId: 'svc-1' },
       );
-      await vi.waitFor(() => expect(mockAddToTrash).toHaveBeenCalled());
+      await waitFor(() => expect(mockAddToTrash).toHaveBeenCalled());
     });
 
     expect(result.current.trashItems).toHaveLength(1);
@@ -96,11 +96,11 @@ describe('useTrash — core', () => {
     });
     const params = defaultParams();
     const { result } = renderHook(() => useTrash(params));
-    await vi.waitFor(() => expect(result.current.loading).toBe(false));
+    await waitFor(() => expect(result.current.loading).toBe(false));
 
     await act(async () => {
       result.current.moveToTrash('featureGroup', fg, 'FG', '', {});
-      await vi.waitFor(() => expect(mockAddToTrash).toHaveBeenCalled());
+      await waitFor(() => expect(mockAddToTrash).toHaveBeenCalled());
     });
 
     const item = result.current.trashItems[0];
@@ -111,11 +111,11 @@ describe('useTrash — core', () => {
     const sc = makeTestScenario({ tests: [makeScenario(), makeScenario({ id: 't-2' })] });
     const params = defaultParams();
     const { result } = renderHook(() => useTrash(params));
-    await vi.waitFor(() => expect(result.current.loading).toBe(false));
+    await waitFor(() => expect(result.current.loading).toBe(false));
 
     await act(async () => {
       result.current.moveToTrash('scenario', sc, 'Sc', 'FG', { parentFeatureGroupId: 'fg-1' });
-      await vi.waitFor(() => expect(mockAddToTrash).toHaveBeenCalled());
+      await waitFor(() => expect(mockAddToTrash).toHaveBeenCalled());
     });
 
     expect(result.current.trashItems[0].childCounts).toEqual({ tests: 2 });
@@ -125,12 +125,12 @@ describe('useTrash — core', () => {
     mockAddToTrash.mockRejectedValueOnce(new Error('persist fail'));
     const params = defaultParams();
     const { result } = renderHook(() => useTrash(params));
-    await vi.waitFor(() => expect(result.current.loading).toBe(false));
+    await waitFor(() => expect(result.current.loading).toBe(false));
 
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
     await act(async () => {
       result.current.moveToTrash('test', makeScenario(), 'Fail Test', '', {});
-      await vi.waitFor(() => expect(spy).toHaveBeenCalled());
+      await waitFor(() => expect(spy).toHaveBeenCalled());
     });
     spy.mockRestore();
     expect(result.current.trashItems).toHaveLength(1);
@@ -146,7 +146,7 @@ describe('useTrash — core', () => {
 
     const params = defaultParams();
     const { result } = renderHook(() => useTrash(params));
-    await vi.waitFor(() => expect(result.current.loading).toBe(false));
+    await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.trashItems).toHaveLength(1);
 
     await act(async () => {
@@ -168,7 +168,7 @@ describe('useTrash — core', () => {
 
     const params = defaultParams();
     const { result } = renderHook(() => useTrash(params));
-    await vi.waitFor(() => expect(result.current.loading).toBe(false));
+    await waitFor(() => expect(result.current.loading).toBe(false));
 
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
     await act(async () => {
@@ -187,7 +187,7 @@ describe('useTrash — core', () => {
 
     const params = defaultParams();
     const { result } = renderHook(() => useTrash(params));
-    await vi.waitFor(() => expect(result.current.loading).toBe(false));
+    await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.trashItems).toHaveLength(2);
 
     await act(async () => {
@@ -206,7 +206,7 @@ describe('useTrash — core', () => {
 
     const params = defaultParams();
     const { result } = renderHook(() => useTrash(params));
-    await vi.waitFor(() => expect(result.current.loading).toBe(false));
+    await waitFor(() => expect(result.current.loading).toBe(false));
 
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
     await act(async () => {
@@ -220,13 +220,13 @@ describe('useTrash — core', () => {
   it('undoLastDelete restores and clears lastDeleted', async () => {
     const params = defaultParams();
     const { result } = renderHook(() => useTrash(params));
-    await vi.waitFor(() => expect(result.current.loading).toBe(false));
+    await waitFor(() => expect(result.current.loading).toBe(false));
 
     await act(async () => {
       result.current.moveToTrash(
         'sharedDataSource', makeDs({ id: 'ds-99', name: 'My DS' }), 'My DS', '', {},
       );
-      await vi.waitFor(() => expect(mockAddToTrash).toHaveBeenCalled());
+      await waitFor(() => expect(mockAddToTrash).toHaveBeenCalled());
     });
 
     expect(result.current.lastDeleted).not.toBeNull();
@@ -244,16 +244,16 @@ describe('useTrash — core', () => {
   it('clearLastDeleted clears without restoring', async () => {
     const params = defaultParams();
     const { result } = renderHook(() => useTrash(params));
-    await vi.waitFor(() => expect(result.current.loading).toBe(false));
+    await waitFor(() => expect(result.current.loading).toBe(false));
 
     await act(async () => {
       result.current.moveToTrash('featureGroup', makeFg(), 'FG', '', {});
-      await vi.waitFor(() => expect(mockAddToTrash).toHaveBeenCalled());
+      await waitFor(() => expect(mockAddToTrash).toHaveBeenCalled());
     });
 
     expect(result.current.lastDeleted).not.toBeNull();
 
-    act(() => {
+    await act(async () => {
       result.current.clearLastDeleted();
     });
 
@@ -264,7 +264,7 @@ describe('useTrash — core', () => {
   it('undoLastDelete is a no-op when lastDeleted is null', async () => {
     const params = defaultParams();
     const { result } = renderHook(() => useTrash(params));
-    await vi.waitFor(() => expect(result.current.loading).toBe(false));
+    await waitFor(() => expect(result.current.loading).toBe(false));
 
     await act(async () => { await result.current.undoLastDelete(); });
 
@@ -282,7 +282,7 @@ describe('useTrash — core', () => {
 
     const params = defaultParams();
     const { result } = renderHook(() => useTrash(params));
-    await vi.waitFor(() => expect(result.current.loading).toBe(false));
+    await waitFor(() => expect(result.current.loading).toBe(false));
 
     expect(result.current.trashItems).toHaveLength(1);
     expect(result.current.trashSettings.retentionDays).toBe(30);
@@ -301,7 +301,7 @@ describe('useTrash — trashSettings', () => {
     mockLoadSettings.mockResolvedValue({ retentionDays: 14, maxItems: 200 });
     const params = defaultParams();
     const { result } = renderHook(() => useTrash(params));
-    await vi.waitFor(() => expect(result.current.loading).toBe(false));
+    await waitFor(() => expect(result.current.loading).toBe(false));
 
     expect(result.current.trashSettings.retentionDays).toBe(14);
     expect(result.current.trashSettings.maxItems).toBe(200);
@@ -320,7 +320,7 @@ describe('useTrash — trashSettings', () => {
   it('updateTrashSettings persists and updates state', async () => {
     const params = defaultParams();
     const { result } = renderHook(() => useTrash(params));
-    await vi.waitFor(() => expect(result.current.loading).toBe(false));
+    await waitFor(() => expect(result.current.loading).toBe(false));
 
     await act(async () => {
       await result.current.updateTrashSettings({ retentionDays: 7 });
@@ -335,7 +335,7 @@ describe('useTrash — trashSettings', () => {
     mockSaveSettings.mockRejectedValueOnce(new Error('write fail'));
     const params = defaultParams();
     const { result } = renderHook(() => useTrash(params));
-    await vi.waitFor(() => expect(result.current.loading).toBe(false));
+    await waitFor(() => expect(result.current.loading).toBe(false));
 
     await act(async () => {
       await result.current.updateTrashSettings({ maxItems: 50 });
@@ -348,12 +348,12 @@ describe('useTrash — trashSettings', () => {
     mockLoadSettings.mockResolvedValue({ retentionDays: 7, maxItems: 100 });
     const params = defaultParams();
     const { result } = renderHook(() => useTrash(params));
-    await vi.waitFor(() => expect(result.current.loading).toBe(false));
+    await waitFor(() => expect(result.current.loading).toBe(false));
 
-    act(() => {
+    await act(async () => {
       result.current.moveToTrash('scenario', makeTestScenario(), 'SC', 'path', {});
     });
-    await vi.waitFor(() => expect(result.current.trashItems.length).toBe(1));
+    await waitFor(() => expect(result.current.trashItems.length).toBe(1));
 
     const item = result.current.trashItems[0];
     const expectedMs = 7 * 86_400_000;
@@ -371,13 +371,13 @@ describe('useTrash — trashSettings', () => {
 
     const params = defaultParams();
     const { result } = renderHook(() => useTrash(params));
-    await vi.waitFor(() => expect(result.current.loading).toBe(false));
+    await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.trashItems).toHaveLength(3);
 
-    act(() => {
+    await act(async () => {
       result.current.moveToTrash('test', makeScenario({ id: 'new' }), 'New', '', {});
     });
-    await vi.waitFor(() => expect(result.current.trashItems[0].entityName).toBe('New'));
+    await waitFor(() => expect(result.current.trashItems[0].entityName).toBe('New'));
 
     expect(result.current.trashItems).toHaveLength(3);
     expect(result.current.trashItems.map(i => i.entityName)).toEqual(['New', 'T0', 'T1']);

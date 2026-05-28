@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import ExecutionTimeline from './ExecutionTimeline';
 import { WorkflowExecutionTrace, ExecutionEvent } from '../../../shared/types';
@@ -571,7 +571,9 @@ describe('ExecutionTimeline', () => {
       );
       expect(lastResizeObservers.length).toBeGreaterThan(0);
       const cb = lastResizeObservers[lastResizeObservers.length - 1];
-      cb([{ contentRect: { width: 840 } }] as ResizeObserverEntry[], {} as ResizeObserver);
+      act(() => {
+        cb([{ contentRect: { width: 840 } }] as ResizeObserverEntry[], {} as ResizeObserver);
+      });
       fireEvent.mouseEnter(screen.getByTestId('timeline-bar-n1'));
       expect(screen.getByTestId('timeline-tooltip')).toBeInTheDocument();
     });

@@ -13,6 +13,7 @@
  * beforeAll(() => stubScrollIntoView());
  * ```
  */
+/* v8 ignore start -- test infrastructure, not production code */
 import { vi } from 'vitest';
 
 /**
@@ -39,5 +40,28 @@ export function stubResizeObserver(): void {
   }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (globalThis as any).ResizeObserver = MockResizeObserver as unknown as typeof ResizeObserver;
+}
+/* v8 ignore stop */
+
+/** jsdom lacks DataTransfer — minimal stub for drag events */
+export function mockDataTransfer(): DataTransfer {
+  const data = new Map<string, string>();
+  let dropEffect = 'none';
+  return {
+    effectAllowed: 'all',
+    get dropEffect() {
+      return dropEffect;
+    },
+    set dropEffect(v: string) {
+      dropEffect = v;
+    },
+    setData: (k: string, v: string) => {
+      data.set(k, v);
+    },
+    getData: (k: string) => data.get(k) ?? '',
+    clear: () => {
+      data.clear();
+    },
+  } as unknown as DataTransfer;
 }
 /* v8 ignore stop */

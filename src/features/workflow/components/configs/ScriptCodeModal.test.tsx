@@ -2,6 +2,7 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { useEffect } from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import ScriptCodeModal from './ScriptCodeModal';
@@ -44,27 +45,32 @@ vi.mock('../expression/InsertVarField', () => ({
   ),
 }));
 
-vi.mock('../../../requests/components/JsonTreePreview', () => ({
-  default: ({ body, onMatchCountChange, onToggle }: {
+vi.mock('../../../requests/components/JsonTreePreview', () => {
+  function JsonTreePreviewMock({ body, onMatchCountChange, onToggle }: {
     body: string;
     onMatchCountChange?: (count: number) => void;
     onToggle?: (path: string) => void;
-  }) => {
-    if (onMatchCountChange) onMatchCountChange(0);
+  }) {
+    useEffect(() => {
+      if (onMatchCountChange) onMatchCountChange(0);
+    }, [onMatchCountChange]);
     return (
       <div data-testid="json-preview">
         {body.slice(0, 50)}
         {onToggle && <button data-testid="toggle-node" onClick={() => onToggle('/a')}>Toggle</button>}
       </div>
     );
-  },
-  buildJTree: (obj: unknown) => ({ key: 'root', value: obj, type: 'object', children: [{ key: 'a', value: 1, children: [] }] }),
-  collectJTreePaths: (node: { children?: { key: string }[] }, prefix: string) => {
-    const paths: string[] = [];
-    if (node.children) node.children.forEach(c => paths.push(`${prefix}/${c.key}`));
-    return paths;
-  },
-}));
+  }
+  return {
+    default: JsonTreePreviewMock,
+    buildJTree: (obj: unknown) => ({ key: 'root', value: obj, type: 'object', children: [{ key: 'a', value: 1, children: [] }] }),
+    collectJTreePaths: (node: { children?: { key: string }[] }, prefix: string) => {
+      const paths: string[] = [];
+      if (node.children) node.children.forEach(c => paths.push(`${prefix}/${c.key}`));
+      return paths;
+    },
+  };
+});
 
 vi.mock('../../../../shared/hooks/useDebounce', () => ({
   useDebounce: (value: string) => value,
