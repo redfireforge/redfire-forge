@@ -13,6 +13,17 @@ describe('RegressionThresholdsPanel', () => {
     expect(container.querySelectorAll('.thresholds-row')).toHaveLength(7);
   });
 
+  it('shows pp unit for Error Rate row and % unit for all other rows', () => {
+    const { container } = render(
+      <RegressionThresholdsPanel thresholds={DEFAULT_THRESHOLDS} onSave={vi.fn()} onCancel={vi.fn()} />,
+    );
+    const unitLabels = [...container.querySelectorAll('.thresholds-unit')].map((el) => el.textContent);
+    // 7 rows total; Error Rate is last (index 6) and uses 'pp'
+    expect(unitLabels).toHaveLength(7);
+    expect(unitLabels[6]).toBe('pp');
+    expect(unitLabels.slice(0, 6).every((u) => u === '%')).toBe(true);
+  });
+
   it('calls onSave with updated thresholds when Save is clicked', () => {
     const onSave = vi.fn();
     const { container } = render(
