@@ -3033,6 +3033,7 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
 .comparison-table th { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--border); color: var(--text-muted); font-weight: 600; font-size: 0.78rem; text-transform: uppercase; }
 .comparison-table td { padding: 8px 12px; border-bottom: 1px solid var(--border); }
 .comparison-table .metric-name { font-weight: 600; }
+.comparison-table .scenario-name { font-weight: 600; }
 .delta-better { color: #68d391; }
 .delta-worse { color: #f87171; }
 .row-regressed { background: rgba(239, 68, 68, 0.06); }
