@@ -340,9 +340,9 @@ program
       const testFail = (opts.failOnError && failedRequests) || overThreshold;
 
       // Save baseline only when the run is clean (no failures, no regressions).
-      // Check actual failures unconditionally — not gated on --fail-on-error,
-      // because we never want a dirty run stored as a performance baseline.
-      if (opts.saveBaseline && !failedRequests && !hasRegression) {
+      // Check actual failures and error-rate threshold unconditionally — not gated
+      // on --fail-on-error — because we never want a dirty run stored as a baseline.
+      if (opts.saveBaseline && !failedRequests && !overThreshold && !hasRegression) {
         const baselinesDir: string = opts.baselinesDir ?? DEFAULT_BASELINES_DIR;
         const entry: CliBaseline = {
           runId: crypto.randomUUID(),

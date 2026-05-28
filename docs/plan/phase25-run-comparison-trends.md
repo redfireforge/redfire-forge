@@ -975,3 +975,38 @@ Second pass after Round 1 fixes uncovered two more issues.
 - `cli/baselineStorage.test.ts` — 17 tests (unchanged)
 - TypeScript: 0 errors
 
+---
+
+## Sprint 1+2+3 Combined Review Pass (2026-05-29)
+
+Full systematic re-evaluation of all Sprint 1, 2, and 3 source files and tests after the two Sprint 3 review passes. Sprint 1+2 source was read exhaustively; all test files verified.
+
+### Sprint 1+2 Findings — No New Bugs
+
+All Sprint 1+2 components (`runBaselines.ts`, `RunComparisonPanel.tsx`, `BaselineListPanel.tsx`, `RegressionThresholdsPanel.tsx`, `ResultsDashboard.tsx`) reviewed with no new bugs found:
+
+- `p999ResponseTime` confirmed optional in `TestSummary` — `makeSummary` test helper omitting it is correct
+- Threshold resolution order in `detectRegressions` (P99.9 checked before P99): correct
+- `handleDelete` filter inconsistency in `ResultsDashboard.tsx` self-corrects via `useEffect` — accepted design
+- All Sprint 1+2 CSS rules present in `src/styles/base.css`
+- `TrendChart` scope reset `useEffect` dependency on `[selectedRun?.id]` is correct (intentionally omits `scope` to avoid infinite loop)
+
+### Bug H — `--save-baseline` guard missing `!overThreshold`
+
+**Problem**: After the Bug B fix in Round 1, the guard became:
+```typescript
+if (opts.saveBaseline && !failedRequests && !hasRegression) {
+```
+The original planned fix required `!overThreshold` as well. When `--fail-threshold` is configured and the error rate exceeds it, the run should be treated as dirty and not saved as a baseline — even if `failedRequests` is 0 (e.g., when validation failures vs. HTTP errors differ in their effect on `errorRate`).
+
+**Fix**: Added `!overThreshold` to the guard:
+```typescript
+if (opts.saveBaseline && !failedRequests && !overThreshold && !hasRegression) {
+```
+Updated the comment to reflect both conditions.
+
+### Post-fix test counts (Combined Review Pass)
+
+- Full Sprint 1+2+3 suite: **1568 tests, 71 files — all passing**
+- TypeScript: 0 errors
+
