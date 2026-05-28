@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 import { describe, it, expect } from 'vitest';
-import { renderHook } from '@testing-library/react';
+import { renderHook, act } from '@testing-library/react';
 import { useConnectionLines, useLayoutTick } from './useConnectionLines';
 import type { Mapping } from '../types';
 
@@ -248,6 +248,49 @@ describe('useLayoutTick', () => {
     const ref = { current: div };
     const { result } = renderHook(() => useLayoutTick(ref));
     expect(result.current).toBe(0);
+    document.body.removeChild(div);
+  });
+
+  it('bumps tick when a scroll event fires on .dm-tree-container', async () => {
+    const div = document.createElement('div');
+    const scrollable = document.createElement('div');
+    scrollable.className = 'dm-tree-container';
+    div.appendChild(scrollable);
+    document.body.appendChild(div);
+    const ref = { current: div };
+    const { result } = renderHook(() => useLayoutTick(ref));
+    expect(result.current).toBe(0);
+    await act(async () => {
+      scrollable.dispatchEvent(new Event('scroll', { bubbles: false }));
+    });
+    expect(result.current).toBe(1);
+    document.body.removeChild(div);
+  });
+
+  it('bumps tick when a DOM mutation occurs inside the container', async () => {
+    const div = document.createElement('div');
+    document.body.appendChild(div);
+    const ref = { current: div };
+    const { result } = renderHook(() => useLayoutTick(ref));
+    expect(result.current).toBe(0);
+    await act(async () => {
+      div.appendChild(document.createElement('span'));
+      // Give MutationObserver microtask a chance to fire
+      await Promise.resolve();
+    });
+    expect(result.current).toBeGreaterThanOrEqual(1);
+    document.body.removeChild(div);
+  });
+
+  it('removes scroll listener on unmount (cleanup runs without error)', () => {
+    const div = document.createElement('div');
+    const scrollable = document.createElement('div');
+    scrollable.className = 'dm-tree-container';
+    div.appendChild(scrollable);
+    document.body.appendChild(div);
+    const ref = { current: div };
+    const { unmount } = renderHook(() => useLayoutTick(ref));
+    expect(() => unmount()).not.toThrow();
     document.body.removeChild(div);
   });
 });

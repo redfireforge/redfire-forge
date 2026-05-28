@@ -6,6 +6,10 @@ import { test, expect } from '@playwright/test';
 import { seedAppData } from './helpers';
 import type { Workflow } from '../src/features/workflow/types/workflow';
 
+// This suite mutates shared workflow/localStorage state across many steps.
+// Running tests serially avoids cross-test interference under fullyParallel mode.
+test.describe.configure({ mode: 'serial' });
+
 /** Workflow with all 4 new node types wired together. */
 function makeNewNodesWorkflow(): Workflow {
   return {
@@ -184,7 +188,7 @@ test.describe('New Node Types — Config Modals', () => {
   test('opens Aggregate config modal', async ({ page }) => {
     const aggNode = page.locator('.wf-node-aggregate');
     await aggNode.waitFor({ state: 'visible', timeout: 10_000 });
-    await aggNode.dblclick({ force: true });
+    await aggNode.locator('.wf-node-configure-badge').click();
     const modal = page.locator('.wf-config-modal');
     await expect(modal).toBeVisible({ timeout: 10_000 });
     await expect(page.locator('#wf-config-modal-title')).toContainText('AGGREGATE');

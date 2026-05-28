@@ -1,0 +1,227 @@
+{
+  "_exportMeta": {
+    "exportDate": "2026-05-25T00:00:00.000Z",
+    "microservice": "jsonplaceholder",
+    "environment": "Test-SLA",
+    "appVersion": "0.5.9",
+    "description": "SLA per-test visual test data. Contains 3 scenarios with various SLA target configurations for testing Phase B per-test SLA (SLA-B10–B16)."
+  },
+  "data": [
+    {
+      "id": "fg-sla-test-suite",
+      "name": "SLA Test Suite",
+      "source": "user",
+      "slaTargets": [
+        {
+          "id": "fg-sla-p95",
+          "metric": "p95",
+          "operator": "lte",
+          "value": 2000,
+          "label": "Feature Group P95 SLA"
+        }
+      ],
+      "scenarios": [
+        {
+          "id": "sc-sla-api-health",
+          "name": "API Health Checks",
+          "kind": "standard",
+          "tags": ["smoke", "sla"],
+          "tests": [
+            {
+              "id": "test-sla-get-users",
+              "name": "Get Users",
+              "url": "https://jsonplaceholder.typicode.com/users",
+              "method": "GET",
+              "headers": [],
+              "body": "",
+              "auth": { "type": "none" },
+              "validation": {
+                "mode": "selective",
+                "expectedFields": [
+                  { "jsonPath": "$[0].id", "operator": "equals", "expectedValue": "1" }
+                ]
+              },
+              "slaTargets": [
+                {
+                  "id": "sla-get-users-p95",
+                  "metric": "p95",
+                  "operator": "lte",
+                  "value": 500,
+                  "warnAt": 400,
+                  "label": "Users P95"
+                },
+                {
+                  "id": "sla-get-users-err",
+                  "metric": "errorRate",
+                  "operator": "lte",
+                  "value": 1.0,
+                  "label": "Users Error Rate"
+                }
+              ]
+            },
+            {
+              "id": "test-sla-get-posts",
+              "name": "Get Posts",
+              "url": "https://jsonplaceholder.typicode.com/posts",
+              "method": "GET",
+              "headers": [],
+              "body": "",
+              "auth": { "type": "none" },
+              "validation": {
+                "mode": "selective",
+                "expectedFields": [
+                  { "jsonPath": "$[0].userId", "operator": "equals", "expectedValue": "1" }
+                ]
+              },
+              "slaTargets": [
+                {
+                  "id": "sla-get-posts-p95",
+                  "metric": "p95",
+                  "operator": "lte",
+                  "value": 800,
+                  "label": "Posts P95"
+                }
+              ]
+            },
+            {
+              "id": "test-sla-get-comments",
+              "name": "Get Comments",
+              "url": "https://jsonplaceholder.typicode.com/comments",
+              "method": "GET",
+              "headers": [],
+              "body": "",
+              "auth": { "type": "none" },
+              "validation": {
+                "mode": "none",
+                "expectedFields": []
+              }
+            }
+          ]
+        },
+        {
+          "id": "sc-sla-crud-ops",
+          "name": "CRUD Operations",
+          "kind": "standard",
+          "tags": ["regression", "sla"],
+          "tests": [
+            {
+              "id": "test-sla-create-post",
+              "name": "Create Post",
+              "url": "https://jsonplaceholder.typicode.com/posts",
+              "method": "POST",
+              "headers": [
+                { "key": "Content-Type", "value": "application/json" }
+              ],
+              "body": "{\"title\":\"SLA Test\",\"body\":\"Testing SLA targets\",\"userId\":1}",
+              "auth": { "type": "none" },
+              "validation": {
+                "mode": "selective",
+                "expectedFields": [
+                  { "jsonPath": "$.id", "operator": "exists" }
+                ]
+              },
+              "slaTargets": [
+                {
+                  "id": "sla-create-post-p95",
+                  "metric": "p95",
+                  "operator": "lte",
+                  "value": 1000,
+                  "warnAt": 800,
+                  "label": "Create Post P95"
+                },
+                {
+                  "id": "sla-create-post-tps",
+                  "metric": "tps",
+                  "operator": "gte",
+                  "value": 10,
+                  "warnAt": 15,
+                  "label": "Create Post TPS"
+                },
+                {
+                  "id": "sla-create-post-err",
+                  "metric": "errorRate",
+                  "operator": "lte",
+                  "value": 2.0,
+                  "label": "Create Post Error Rate"
+                }
+              ]
+            },
+            {
+              "id": "test-sla-update-post",
+              "name": "Update Post",
+              "url": "https://jsonplaceholder.typicode.com/posts/1",
+              "method": "PUT",
+              "headers": [
+                { "key": "Content-Type", "value": "application/json" }
+              ],
+              "body": "{\"id\":1,\"title\":\"Updated SLA\",\"body\":\"Updated body\",\"userId\":1}",
+              "auth": { "type": "none" },
+              "validation": {
+                "mode": "selective",
+                "expectedFields": [
+                  { "jsonPath": "$.id", "operator": "equals", "expectedValue": "1" }
+                ]
+              },
+              "slaTargets": [
+                {
+                  "id": "sla-update-post-avg",
+                  "metric": "avg",
+                  "operator": "lte",
+                  "value": 600,
+                  "label": "Update Post Avg Latency"
+                }
+              ]
+            },
+            {
+              "id": "test-sla-delete-post",
+              "name": "Delete Post",
+              "url": "https://jsonplaceholder.typicode.com/posts/1",
+              "method": "DELETE",
+              "headers": [],
+              "body": "",
+              "auth": { "type": "none" },
+              "validation": {
+                "mode": "none",
+                "expectedFields": []
+              }
+            }
+          ]
+        },
+        {
+          "id": "sc-sla-no-targets",
+          "name": "No SLA Baseline",
+          "kind": "standard",
+          "tags": ["baseline"],
+          "tests": [
+            {
+              "id": "test-sla-baseline-albums",
+              "name": "Get Albums",
+              "url": "https://jsonplaceholder.typicode.com/albums",
+              "method": "GET",
+              "headers": [],
+              "body": "",
+              "auth": { "type": "none" },
+              "validation": {
+                "mode": "none",
+                "expectedFields": []
+              }
+            },
+            {
+              "id": "test-sla-baseline-todos",
+              "name": "Get Todos",
+              "url": "https://jsonplaceholder.typicode.com/todos",
+              "method": "GET",
+              "headers": [],
+              "body": "",
+              "auth": { "type": "none" },
+              "validation": {
+                "mode": "none",
+                "expectedFields": []
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

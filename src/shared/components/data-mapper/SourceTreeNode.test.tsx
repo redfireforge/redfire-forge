@@ -384,18 +384,22 @@ describe('SourceTreeNode', () => {
       expect(writeText).toHaveBeenCalledWith(longVal);
     });
 
-    it('shows Copied! feedback then restores sample text after timeout', () => {
+    it('shows Copied! feedback then restores sample text after timeout', async () => {
       vi.useFakeTimers();
       const writeText = vi.fn().mockResolvedValue(undefined);
       Object.assign(navigator, { clipboard: { writeText } });
       render(<SourceTreeNode node={leaf} {...defaults} />);
-      fireEvent.click(document.querySelector('.dm-node-sample-value--copyable')!);
+      await act(async () => {
+        fireEvent.click(document.querySelector('.dm-node-sample-value--copyable')!);
+        await Promise.resolve();
+      });
       expect(screen.getByText('Copied!')).toBeTruthy();
       act(() => {
         vi.advanceTimersByTime(1200);
       });
       expect(screen.queryByText('Copied!')).toBeNull();
       expect(screen.getByText('Alice')).toBeTruthy();
+      vi.useRealTimers();
     });
 
     it('does not invoke onNodeSelect when sample value is clicked (stopPropagation)', () => {

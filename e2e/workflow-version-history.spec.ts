@@ -435,8 +435,10 @@ test.describe('Workflow Version Diff Modal', () => {
   });
 
   test('clicking the overlay backdrop closes the diff modal', async ({ page }) => {
-    // Click the overlay outside the modal
-    await page.locator('.wf-version-diff-overlay').click({ position: { x: 5, y: 5 } });
+    // Click the overlay outside the modal — avoid sidebar toggle button at top-left
+    const overlay = page.locator('.wf-version-diff-overlay');
+    const box = await overlay.boundingBox();
+    await overlay.click({ position: { x: box!.width - 5, y: 5 } });
     await expect(page.locator('.wf-version-diff-modal')).not.toBeVisible();
   });
 });

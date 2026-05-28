@@ -86,6 +86,12 @@ function baseOrchestration() {
     displayLoadProfile: { phases: [], maxConcurrency: 10, durationSec: 60, type: 'constant' },
     displayThinkTime: { mode: 'none' },
     hostLabel: 'Original',
+    runnerSlaTargets: [],
+    setRunnerSlaTargets: vi.fn(),
+    selectedSlaScenarioNames: [],
+    selectedSlaTestNames: [],
+    definitionSlaTargetCount: 0,
+    definitionSlaTargets: [],
   };
 }
 

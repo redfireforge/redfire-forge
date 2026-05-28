@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef, useMemo, type MouseEvent, type ReactNode } from 'react';
 import { SWAGGER_METHOD_COLORS } from '../../../shared/constants/httpMethodColors';
+import { useCopyToClipboard } from '../../../shared/hooks/useCopyToClipboard';
 import type { CatalogEndpoint, CatalogServer, HostConfig, CatalogResponse, CatalogParameter, SavedEndpointValues, CatalogEnvironment } from '../types/catalog';
 import type { AuthConfig, Microservice } from '../../../shared/types';
 import type { EndpointCoverage } from '../utils/coverageChecker';
@@ -47,7 +48,7 @@ export default function CatalogEndpointCard({ endpoint, servers, hostConfig, aut
   const [loading, setLoading] = useState(false);
   const [showCurl, setShowCurl] = useState(false);
   const [curlMultiline, setCurlMultiline] = useState(true);
-  const [copied, setCopied] = useState(false);
+  const [copied, copyToClipboard] = useCopyToClipboard(1500);
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number } | null>(null);
   const [showCoveragePopover, setShowCoveragePopover] = useState(false);
 
@@ -142,9 +143,7 @@ export default function CatalogEndpointCard({ endpoint, servers, hostConfig, aut
     return () => { cancelled = true; };
   }, [showCurl, curlMultiline, endpoint, hostConfig, servers, paramValues, headerValues, bodyText, auth, environments, linkedMicroservice]);
 
-  const copy = useCallback(async (t: string) => {
-    try { await navigator.clipboard.writeText(t); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch {/* */}
-  }, []);
+  const copy = copyToClipboard;
 
   const handleContextMenu = useCallback((e: MouseEvent) => {
     e.preventDefault();

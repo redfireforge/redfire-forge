@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Phase B — SLA Targets in Feature Groups</title>
+<style>
+/* Design tokens — exact from index.css */
+:root {
+  --bg: #0f172a; --surface: #1e293b; --surface-hover: #2d3a4d;
+  --border: #3b4a60; --text: #f1f5f9; --text-muted: #a8b8cc;
+  --primary: #3b82f6; --primary-hover: #2563eb;
+  --danger: #ef4444; --success: #22c55e; --warning: #f59e0b;
+  --accent: #8b5cf6; --radius: 8px; --card-shadow: none;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; background: var(--bg); color: var(--text);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 13px; }
+
+/* App chrome */
+.app { display: flex; flex-direction: column; height: 100vh; }
+.app-header { background: var(--surface); border-bottom: 1px solid var(--border);
+  padding: 0 24px; display: flex; align-items: center; gap: 16px; flex-shrink: 0; height: 44px; }
+.app-header h1 { font-size: 1.05rem; font-weight: 700; white-space: nowrap; }
+.hdr-logo { font-size: 1.1rem; }
+.hdr-version { font-size: 0.7rem; color: var(--text-muted); padding: 2px 7px;
+  background: var(--surface-hover); border-radius: 4px; border: 1px solid var(--border); }
+.hdr-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.hdr-right select { background: var(--surface-hover); color: var(--text);
+  border: 1px solid var(--border); padding: 4px 10px; border-radius: var(--radius);
+  font-size: 0.78rem; }
+.hdr-btn { background: transparent; border: 1px solid var(--border); color: var(--text-muted);
+  padding: 3px 8px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; }
+
+.app-body { display: flex; flex: 1; overflow: hidden; }
+
+/* Activity bar */
+.activity-bar { width: 48px; flex-shrink: 0; display: flex; flex-direction: column;
+  align-items: center; padding-top: 8px; gap: 4px;
+  background: var(--bg); border-right: 1px solid var(--border); }
+.ab-btn { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;
+  border: none; background: transparent; color: var(--text-muted); font-size: 18px;
+  cursor: pointer; border-radius: 8px; border-left: 2px solid transparent; }
+.ab-btn.active { color: var(--text); background: var(--surface-hover); border-left-color: var(--primary); }
+.ab-spacer { flex: 1; }
+
+/* Unified sidebar */
+.unified-sidebar { width: 260px; flex-shrink: 0; display: flex; flex-direction: column;
+  background: var(--bg); border-right: 1px solid var(--border); overflow: hidden; }
+.usb-toggle-row { display: flex; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+.usb-toggle { flex: 1; padding: 8px 0; font-size: 0.72rem; font-weight: 600;
+  text-align: center; background: none; border: none; border-bottom: 2px solid transparent;
+  color: var(--text-muted); cursor: pointer; }
+.usb-toggle.active { color: var(--text); border-bottom-color: var(--primary); }
+.usb-body { flex: 1; overflow-y: auto; padding: 8px 0; }
+.usb-env-row { display: flex; align-items: center; gap: 8px; padding: 6px 14px;
+  cursor: pointer; font-size: 0.8rem; color: var(--text-muted); border-left: 2px solid transparent; }
+.usb-env-row:hover { background: var(--surface-hover); color: var(--text); }
+.usb-env-row.active { background: rgba(59,130,246,0.1); color: var(--text); border-left-color: var(--primary); }
+.usb-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.dot-g { background: var(--success); }
+.dot-m { background: var(--border); }
+.usb-env-name { flex: 1; }
+.usb-env-ct { font-size: 0.7rem; background: var(--surface-hover); padding: 1px 6px; border-radius: 8px; }
+.usb-svc-row { display: flex; align-items: center; gap: 8px; padding: 5px 14px 5px 28px;
+  cursor: pointer; font-size: 0.78rem; color: var(--text-muted); }
+.usb-svc-row:hover { color: var(--text); background: var(--surface-hover); }
+.usb-svc-row.active { color: var(--text); background: rgba(59,130,246,0.08); }
+.usb-svc-name { flex: 1; }
+
+/* Main */
+.app-main { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+
+/* Sub-nav */
+.sub-nav { display: flex; flex-shrink: 0; background: var(--surface);
+  border-bottom: 1px solid var(--border); min-height: 38px; }
+.sub-nav-tabs { display: flex; align-items: center; gap: 2px; padding: 0 16px; flex: 1; }
+.sub-nav-tab { padding: 8px 14px; font-size: 0.8rem; font-weight: 600;
+  background: none; border: none; border-bottom: 2px solid transparent;
+  color: var(--text-muted); cursor: pointer; }
+.sub-nav-tab:hover { color: var(--text); }
+.sub-nav-tab.active { color: var(--text); border-bottom-color: var(--primary); }
+
+/* Page */
+.page { flex: 1; overflow-y: auto; padding: 24px 32px; }
+.page-header { display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 20px; flex-wrap: wrap; gap: 12px; }
+.page-title h2 { font-size: 1.5rem; }
+.context-chips { display: flex; gap: 6px; margin-top: 6px; }
+.chip { font-size: 0.72rem; padding: 2px 8px; border-radius: 4px; }
+.chip-svc { background: rgba(139,92,246,0.15); color: #c4b5fd; border: 1px solid rgba(139,92,246,0.3); }
+.chip-env { background: rgba(34,197,94,0.12); color: #86efac; border: 1px solid rgba(34,197,94,0.3); }
+.ph-actions { display: flex; gap: 8px; align-items: center; }
+
+/* Buttons */
+.btn { padding: 7px 14px; border-radius: var(--radius); border: 1px solid var(--border);
+  background: var(--surface); color: var(--text); cursor: pointer; font-size: 0.8rem; font-family: inherit; }
+.btn:hover { background: var(--surface-hover); }
+.btn-sm { padding: 4px 10px; font-size: 0.78rem; }
+.btn-primary { background: var(--primary); border-color: var(--primary); color: #fff; font-weight: 600; }
+.btn-primary:hover { background: var(--primary-hover); }
+.btn-danger { background: transparent; border-color: rgba(239,68,68,0.4); color: var(--danger); }
+
+/* Feature tree */
+.feature-tree { display: flex; flex-direction: column; gap: 12px; }
+.fg-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
+.fg-header { display: flex; align-items: center; gap: 10px; padding: 14px 18px; cursor: pointer; }
+.fg-header:hover { background: var(--surface-hover); }
+.fg-name { font-size: 1rem; }
+.fg-actions { margin-left: auto; display: flex; gap: 6px; }
+.fg-body { padding: 0 18px 14px; }
+.expand-icon { font-size: 0.65rem; color: var(--text-muted); display: inline-block; flex-shrink: 0; }
+.expand-icon.sm { font-size: 0.55rem; }
+.expand-icon.open { transform: rotate(90deg); }
+.count-badge { font-size: 0.7rem; background: var(--surface-hover); color: var(--text-muted);
+  padding: 2px 8px; border-radius: 10px; white-space: nowrap; }
+.badge-sla-ok { background: rgba(34,197,94,0.1); color: #86efac; border: 1px solid rgba(34,197,94,0.25); }
+.badge-sla-none { opacity: 0.5; }
+.badge-auth { background: rgba(245,158,11,0.15); color: #fbbf24; }
+.new-badge { font-size: 0.6rem; padding: 1px 5px; border-radius: 3px;
+  background: rgba(245,158,11,0.2); color: #fbbf24; border: 1px solid rgba(245,158,11,0.35);
+  text-transform: uppercase; letter-spacing: 0.4px; vertical-align: middle;
+  margin-left: 5px; font-weight: 700; }
+
+/* Scenario group */
+.sg-card { border: 1px solid var(--border); border-radius: var(--radius); margin-top: 8px; }
+.sg-header { display: flex; align-items: center; gap: 8px; padding: 10px 14px; cursor: pointer; }
+.sg-header:hover { background: var(--surface-hover); }
+.sg-name { font-size: 0.9rem; font-weight: 500; }
+.sg-actions { margin-left: auto; display: flex; gap: 6px; }
+.sg-body { padding: 4px 14px 10px; }
+
+/* Test card */
+.test-card { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 10px 14px; margin-top: 6px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.tc-info { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 200px; }
+.tc-meta { display: flex; gap: 8px; }
+.tc-actions { display: flex; gap: 6px; }
+.drag-handle { cursor: grab; opacity: 0.35; font-size: 1rem; user-select: none; padding: 2px 4px; flex-shrink: 0; }
+.method-badge { font-size: 0.7rem; font-weight: 700; padding: 2px 6px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+.m-get  { background: #22c55e33; color: #22c55e; }
+.m-post { background: #3b82f633; color: #3b82f6; }
+.m-put  { background: #f59e0b33; color: #f59e0b; }
+.m-del  { background: #ef444433; color: #ef4444; }
+.test-url { font-size: 0.8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  max-width: 380px; font-family: 'JetBrains Mono', monospace; }
+.tag { font-size: 0.75rem; background: var(--surface-hover); padding: 2px 8px; border-radius: 4px; color: var(--text-muted); }
+
+/* ★ NEW: SLA section inside scenario-group-body */
+.sla-section { margin-top: 10px; border: 1px solid rgba(59,130,246,0.22);
+  border-radius: var(--radius); overflow: hidden; }
+.sla-hdr { display: flex; align-items: center; gap: 8px; padding: 9px 14px;
+  background: rgba(59,130,246,0.07); cursor: pointer; user-select: none; }
+.sla-hdr:hover { background: rgba(59,130,246,0.12); }
+.sla-hdr-title { font-size: 0.82rem; font-weight: 600; color: var(--primary); flex: 1; }
+.sla-ct-badge { font-size: 0.7rem; padding: 1px 8px; border-radius: 10px;
+  background: rgba(34,197,94,0.12); color: #86efac; border: 1px solid rgba(34,197,94,0.3); }
+.sla-body { padding: 12px 14px 14px; background: rgba(0,0,0,0.18);
+  border-top: 1px solid rgba(59,130,246,0.15); }
+.sla-scope-note { font-size: 0.75rem; color: var(--text-muted); padding: 6px 10px;
+  background: var(--surface); border-radius: 6px; border-left: 2px solid rgba(59,130,246,0.5);
+  margin-bottom: 12px; }
+.sla-scope-note code { color: var(--primary); font-family: monospace; }
+.sla-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+.sla-table th { font-size: 0.68rem; color: var(--text-muted); text-align: left;
+  padding: 4px 8px; border-bottom: 1px solid var(--border);
+  text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
+.sla-table td { padding: 5px 8px; vertical-align: middle; }
+.sla-table tr:hover td { background: rgba(255,255,255,0.03); }
+.sla-sel, .sla-inp { background: var(--surface-hover); color: var(--text); border: 1px solid var(--border);
+  border-radius: 6px; padding: 4px 8px; font-size: 0.8rem; font-family: inherit; }
+.sla-sel { max-width: 155px; }
+.sla-inp { width: 68px; }
+.sla-inp.warn { border-color: rgba(245,158,11,0.45); }
+.sla-inp.lbl { width: 120px; }
+.sla-op { font-size: 0.95rem; font-weight: 700; color: var(--text-muted); padding: 0 4px; }
+.sla-unit { font-size: 0.7rem; color: var(--text-muted); margin-left: 3px; }
+.sla-arrow { font-size: 0.72rem; color: var(--text-muted); white-space: nowrap; }
+.sla-del { background: transparent; border: 1px solid transparent; color: var(--text-muted);
+  padding: 3px 7px; border-radius: 5px; cursor: pointer; font-size: 0.73rem; }
+.sla-del:hover { color: var(--danger); border-color: rgba(239,68,68,0.5); }
+.sla-footer { display: flex; align-items: center; justify-content: space-between;
+  margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); }
+.sla-add { background: transparent; border: 1px dashed rgba(59,130,246,0.4); color: var(--primary);
+  padding: 4px 12px; border-radius: 6px; cursor: pointer; font-size: 0.78rem; }
+.sla-add:hover { background: rgba(59,130,246,0.08); }
+.sla-save { background: var(--primary); color: #fff; border: none;
+  padding: 5px 16px; border-radius: 6px; cursor: pointer; font-size: 0.8rem; font-weight: 600; }
+.sla-cancel { background: transparent; border: 1px solid var(--border); color: var(--text-muted);
+  padding: 5px 12px; border-radius: 6px; cursor: pointer; font-size: 0.78rem; margin-right: 6px; }
+
+/* Runner override panel */
+.runner-sla { border: 1px solid rgba(59,130,246,0.25); border-radius: var(--radius); overflow: hidden; margin-top: 10px; }
+.runner-sla-hdr { display: flex; align-items: center; gap: 8px; padding: 9px 14px; background: rgba(59,130,246,0.06); cursor: pointer; }
+.runner-sla-hdr-title { font-size: 0.82rem; font-weight: 600; flex: 1; }
+.runner-sla-sub { font-size: 0.73rem; color: var(--text-muted); padding: 6px 14px 8px;
+  border-top: 1px solid rgba(59,130,246,0.12); background: rgba(0,0,0,0.15); }
+.runner-sla-bd { padding: 10px 14px; }
+.runner-sla-empty { font-size: 0.78rem; color: var(--text-muted); font-style: italic; text-align: center; padding: 6px 0; }
+.runner-sla-add { width: 100%; background: transparent; border: 1px dashed rgba(59,130,246,0.3);
+  color: var(--primary); padding: 5px; border-radius: 6px; cursor: pointer; font-size: 0.78rem; margin-top: 8px; }
+
+/* Annotation bar */
+.ann-bar { background: var(--surface); border-top: 1px solid var(--border); padding: 10px 24px;
+  display: flex; gap: 16px; flex-wrap: wrap; align-items: center; font-size: 0.75rem;
+  color: var(--text-muted); flex-shrink: 0; }
+.ann-new { color: #fbbf24; font-weight: 600; }
+.ann-link { color: var(--primary); }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Header -->
+  <header class="app-header">
+    <span class="hdr-logo">🔥</span>
+    <h1>RedfireForge</h1>
+    <span class="hdr-version">v0.5.9</span>
+    <div class="hdr-right">
+      <select><option>t01</option><option>d01</option><option>p01</option></select>
+      <select><option>sales-product-autoassign</option><option>auth-service</option></select>
+      <button class="hdr-btn">🌙</button>
+    </div>
+  </header>
+
+  <div class="app-body">
+
+    <!-- Activity bar -->
+    <nav class="activity-bar">
+      <button class="ab-btn" title="API">🌐</button>
+      <button class="ab-btn" title="Workflow">⚡</button>
+      <button class="ab-btn active" title="Harness">⚗️</button>
+      <button class="ab-btn" title="Gallery">🖼</button>
+      <div class="ab-spacer"></div>
+      <button class="ab-btn" title="Settings">⚙️</button>
+    </nav>
+
+    <!-- Sidebar -->
+    <aside class="unified-sidebar">
+      <div class="usb-toggle-row">
+        <button class="usb-toggle active">Environments</button>
+        <button class="usb-toggle">Microservices</button>
+      </div>
+      <div class="usb-body">
+        <div class="usb-env-row"><span class="usb-dot dot-m"></span><span class="usb-env-name">d01</span><span class="usb-env-ct">3</span></div>
+        <div class="usb-env-row active"><span class="usb-dot dot-g"></span><span class="usb-env-name">t01</span><span class="usb-env-ct">3</span></div>
+        <div class="usb-svc-row active"><span class="usb-dot dot-g"></span><span class="usb-svc-name">sales-product-autoassign</span></div>
+        <div class="usb-svc-row"><span class="usb-dot dot-m"></span><span class="usb-svc-name">sales-order-retail</span></div>
+        <div class="usb-svc-row"><span class="usb-dot dot-g"></span><span class="usb-svc-name">veh-metadata</span></div>
+        <div class="usb-env-row"><span class="usb-dot dot-m"></span><span class="usb-env-name">p01</span><span class="usb-env-ct">3</span></div>
+        <div class="usb-env-row"><span class="usb-dot dot-m"></span><span class="usb-env-name">Gallery Samples</span><span class="usb-env-ct">1</span></div>
+      </div>
+    </aside>
+
+    <!-- Main -->
+    <main class="app-main">
+      <nav class="sub-nav">
+        <div class="sub-nav-tabs">
+          <button class="sub-nav-tab active">Feature Groups</button>
+          <button class="sub-nav-tab">Test Runner</button>
+          <button class="sub-nav-tab">Parameterized Runner</button>
+          <button class="sub-nav-tab">Workflow Runner</button>
+          <button class="sub-nav-tab">Results</button>
+        </div>
+      </nav>
+
+      <div class="page">
+        <div class="page-header">
+          <div class="page-title">
+            <h2>Feature Groups</h2>
+            <div class="context-chips">
+              <span class="chip chip-svc">sales-product-autoassign</span>
+              <span class="chip chip-env">t01</span>
+            </div>
+          </div>
+          <div class="ph-actions">
+            <button class="btn">Import</button>
+            <button class="btn">Export</button>
+            <button class="btn">Import Template</button>
+            <button class="btn btn-primary">+ Add Feature Group</button>
+          </div>
+        </div>
+
+        <div class="feature-tree">
+
+          <!-- Feature Group: API E2E — expanded -->
+          <div class="fg-card">
+            <div class="fg-header">
+              <span class="expand-icon open">&#9654;</span>
+              <strong class="fg-name">API E2E Tests</strong>
+              <span class="count-badge">3 scenarios</span>
+              <span class="count-badge badge-sla-ok">🎯 5 SLA targets<span class="new-badge">NEW</span></span>
+              <span class="count-badge badge-auth">Auth: oauth2</span>
+              <div class="fg-actions">
+                <button class="btn btn-sm">Rename</button>
+                <button class="btn btn-sm">Auth</button>
+                <button class="btn btn-sm">+ Scenario</button>
+                <button class="btn btn-sm">Import</button>
+                <button class="btn btn-sm">Export</button>
+                <button class="btn btn-sm btn-danger">Delete</button>
+              </div>
+            </div>
+
+            <div class="fg-body">
+              <!-- Scenario: Login Flow — collapsed -->
+              <div class="sg-card">
+                <div class="sg-header">
+                  <span class="drag-handle">⠿</span>
+                  <span class="expand-icon sm">&#9654;</span>
+                  <span class="sg-name">Login Flow</span>
+                  <span class="count-badge">15 tests</span>
+                  <span class="count-badge badge-sla-ok">🎯 2 targets<span class="new-badge">NEW</span></span>
+                  <span class="tag">smoke</span>
+                  <div class="sg-actions">
+                    <button class="btn btn-sm">Rename</button>
+                    <button class="btn btn-sm">+ Test</button>
+                    <button class="btn btn-sm">Move</button>
+                    <button class="btn btn-sm">Export</button>
+                    <button class="btn btn-sm btn-danger">Delete</button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Scenario: Cart & Checkout — EXPANDED with SLA open -->
+              <div class="sg-card">
+                <div class="sg-header">
+                  <span class="drag-handle">⠿</span>
+                  <span class="expand-icon sm open">&#9654;</span>
+                  <span class="sg-name">Cart &amp; Checkout</span>
+                  <span class="count-badge">101 tests</span>
+                  <span class="count-badge badge-sla-ok">🎯 3 targets<span class="new-badge">NEW</span></span>
+                  <span class="tag">load</span>
+                  <div class="sg-actions">
+                    <button class="btn btn-sm">Rename</button>
+                    <button class="btn btn-sm">+ Test</button>
+                    <button class="btn btn-sm">Move</button>
+                    <button class="btn btn-sm">Export</button>
+                    <button class="btn btn-sm btn-danger">Delete</button>
+                  </div>
+                </div>
+                <div class="sg-body">
+                  <div class="test-card">
+                    <span class="drag-handle">⠿</span>
+                    <div class="tc-info">
+                      <span class="method-badge m-post">POST</span>
+                      <span class="test-url">/api/cart/items</span>
+                    </div>
+                    <div class="tc-meta"><span class="tag">Validation: strict</span><span class="tag">Status</span></div>
+                    <div class="tc-actions"><button class="btn btn-sm">Edit</button><button class="btn btn-sm btn-danger">Delete</button></div>
+                  </div>
+                  <div class="test-card">
+                    <span class="drag-handle">⠿</span>
+                    <div class="tc-info">
+                      <span class="method-badge m-get">GET</span>
+                      <span class="test-url">/api/cart</span>
+                    </div>
+                    <div class="tc-meta"><span class="tag">Validation: strict</span></div>
+                    <div class="tc-actions"><button class="btn btn-sm">Edit</button><button class="btn btn-sm btn-danger">Delete</button></div>
+                  </div>
+                  <div style="color: var(--text-muted); font-size: 0.78rem; padding: 5px 14px; font-style: italic;">… 99 more tests</div>
+
+                  <!-- ★ NEW: SLA Targets section -->
+                  <div class="sla-section">
+                    <div class="sla-hdr">
+                      <span class="expand-icon sm open" style="color:var(--primary);">&#9654;</span>
+                      <span class="sla-hdr-title">SLA Targets<span class="new-badge">NEW</span></span>
+                      <span class="sla-ct-badge">3 targets</span>
+                    </div>
+                    <div class="sla-body">
+                      <div class="sla-scope-note">
+                        Targets are scoped to scenario <code>"Cart &amp; Checkout"</code>.
+                        Collected at run time → embedded in <code>config.slaTargets</code>.
+                      </div>
+                      <table class="sla-table">
+                        <thead>
+                          <tr>
+                            <th>Metric</th><th>Op</th><th>Fail at</th><th></th>
+                            <th>Warn at <span style="text-transform:none;font-weight:400">(opt)</span></th>
+                            <th>Label <span style="text-transform:none;font-weight:400">(opt)</span></th>
+                            <th></th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr>
+                            <td><select class="sla-sel"><option selected>P95 Response Time</option><option>P50</option><option>P99</option><option>TPS</option><option>Error Rate</option></select></td>
+                            <td><span class="sla-op">≤</span></td>
+                            <td><input class="sla-inp" type="number" value="800"><span class="sla-unit">ms</span></td>
+                            <td><span class="sla-arrow">warn →</span></td>
+                            <td><input class="sla-inp warn" type="number" value="600"><span class="sla-unit">ms</span></td>
+                            <td><input class="sla-inp lbl" type="text" value="Checkout SLA"></td>
+                            <td><button class="sla-del">✕</button></td>
+                          </tr>
+                          <tr>
+                            <td><select class="sla-sel"><option selected>TPS</option></select></td>
+                            <td><span class="sla-op">≥</span></td>
+                            <td><input class="sla-inp" type="number" value="50"><span class="sla-unit"></span></td>
+                            <td><span class="sla-arrow">warn →</span></td>
+                            <td><input class="sla-inp" type="number" placeholder="—"></td>
+                            <td><input class="sla-inp lbl" type="text" placeholder="Label (opt)"></td>
+                            <td><button class="sla-del">✕</button></td>
+                          </tr>
+                          <tr>
+                            <td><select class="sla-sel"><option selected>Error Rate</option></select></td>
+                            <td><span class="sla-op">≤</span></td>
+                            <td><input class="sla-inp" type="number" value="0.5"><span class="sla-unit">%</span></td>
+                            <td><span class="sla-arrow">warn →</span></td>
+                            <td><input class="sla-inp warn" type="number" value="0.25"><span class="sla-unit">%</span></td>
+                            <td><input class="sla-inp lbl" type="text" value="Error budget"></td>
+                            <td><button class="sla-del">✕</button></td>
+                          </tr>
+                        </tbody>
+                      </table>
+                      <div class="sla-footer">
+                        <button class="sla-add">＋ Add Target</button>
+                        <div><button class="sla-cancel">Cancel</button><button class="sla-save">Save Targets</button></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Scenario: Product Search — no SLA -->
+              <div class="sg-card">
+                <div class="sg-header">
+                  <span class="drag-handle">⠿</span>
+                  <span class="expand-icon sm">&#9654;</span>
+                  <span class="sg-name">Product Search</span>
+                  <span class="count-badge">42 tests</span>
+                  <span class="count-badge badge-sla-none">⚫ no SLA</span>
+                  <span class="tag">smoke</span>
+                  <div class="sg-actions">
+                    <button class="btn btn-sm">Rename</button>
+                    <button class="btn btn-sm">+ Test</button>
+                    <button class="btn btn-sm btn-danger">Delete</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Feature Group: Auth Service — collapsed -->
+          <div class="fg-card">
+            <div class="fg-header">
+              <span class="expand-icon">&#9654;</span>
+              <strong class="fg-name">Auth Service</strong>
+              <span class="count-badge">1 scenario</span>
+              <span class="count-badge badge-sla-none">⚫ no SLA</span>
+              <div class="fg-actions">
+                <button class="btn btn-sm">Rename</button>
+                <button class="btn btn-sm">+ Scenario</button>
+                <button class="btn btn-sm btn-danger">Delete</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Runner SLA override reference -->
+        <div style="margin-top:28px; padding-top:20px; border-top:1px solid var(--border);">
+          <div style="font-size:0.72rem; text-transform:uppercase; letter-spacing:0.6px; color:var(--text-muted); font-weight:700; margin-bottom:10px;">
+            Also added: Workflow Runner tab → SLA Override panel<span class="new-badge">NEW</span>
+          </div>
+          <div style="max-width:520px;">
+            <div class="runner-sla">
+              <div class="runner-sla-hdr">
+                <span style="font-size:0.9rem;">🎯</span>
+                <span class="runner-sla-hdr-title">SLA Override <span style="font-size:0.7rem; color:var(--text-muted); font-weight:400;">(optional)</span></span>
+                <span class="expand-icon">&#9654;</span>
+              </div>
+              <div class="runner-sla-sub">
+                Auto-collected from selected scenarios: <strong>5 targets</strong> (Login Flow + Cart &amp; Checkout).
+                Add targets here to override scenario-defined values for this environment run.
+              </div>
+              <div class="runner-sla-bd">
+                <div class="runner-sla-empty">No overrides — using scenario-defined targets.</div>
+                <button class="runner-sla-add">＋ Add Override Target</button>
+              </div>
+            </div>
+            <div style="margin-top:8px; font-size:0.72rem; color:var(--text-muted);">
+              5 SLA targets embedded in <code>config.slaTargets</code> on Run.
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </main>
+  </div>
+
+  <div class="ann-bar">
+    <strong style="color:var(--text);">Phase B changes:</strong>
+    <span><span class="ann-new">★ NEW</span> Collapsible "SLA Targets" section inside each <code>scenario-group-body</code></span>
+    <span><span class="ann-new">★ NEW</span> SLA count badge on scenario + feature group headers</span>
+    <span><span class="ann-new">★ NEW</span> "SLA Override" panel in Workflow Runner</span>
+    <span style="margin-left:auto;"><a class="ann-link" href="phase-c-results-sla.html">Phase C mockup →</a></span>
+  </div>
+
+</div>
+</body>
+</html>

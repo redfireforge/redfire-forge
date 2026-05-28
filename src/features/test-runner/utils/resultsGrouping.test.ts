@@ -136,10 +136,10 @@ describe('buildGroups', () => {
     expect(loginSuite.children.length).toBe(2);
   });
 
-  it('uses (unknown feature) for missing feature names', () => {
+  it('uses empty string for missing feature names (no synthetic label)', () => {
     const results = [makeResult({ featureGroupName: undefined })];
     const groups = buildGroups(results, ['feature']);
-    expect(groups[0].key).toBe('(unknown feature)');
+    expect(groups[0].key).toBe('');
   });
 
   it('includes correct stats at each level', () => {
@@ -154,10 +154,14 @@ describe('buildGroups', () => {
     expect(groups[0].avgTime).toBe(150);
   });
 
-  it('uses "(unknown group)" when groupName is empty', () => {
-    const results = [
-      makeResult({ groupName: '' }),
-    ];
+  it('falls back to scenarioName when groupName is empty', () => {
+    const results = [makeResult({ groupName: '' })];
+    const groups = buildGroups(results, ['group']);
+    expect(groups[0].key).toBe('test-scenario');
+  });
+
+  it('uses "(unknown group)" when both groupName and scenarioName are empty', () => {
+    const results = [makeResult({ groupName: '', scenarioName: '' })];
     const groups = buildGroups(results, ['group']);
     expect(groups[0].key).toBe('(unknown group)');
   });

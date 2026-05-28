@@ -4,7 +4,10 @@
 > Phases: 1–5 (original), A–E (scoped SLA), B10–B16 (per-test SLA), C–D (results display refactor), §5 (CLI import)
 > Branch: `feature/review-plan`
 > Plan: `docs/plan/sla-dashboard-plan.md`
-> Test data: `docs/test-data/sla-dashboard-test-data.json`, `docs/test-data/sla-per-test-scenarios-export.json`, `test-data/cli-sample-run.json`
+> Test data: `docs/test-data/sla-dashboard-test-data.json`, `docs/test-data/sla-per-test-scenarios-export.json`, `test-data/sla-cli-result.json`
+> CLI test files: `examples/sla-jsonplaceholder-test.yaml`, `examples/sla-jsonplaceholder-targets.json`
+
+> **⚠ UI Change (session 2026-05-27)**: The SLA results area was redesigned. `SlaStatusAccordion` no longer appears as a standalone collapsible section between Timing Breakdown and Request Details. It is now rendered inside a **"SLA Status" tab** (alongside "Request Details" tab). The panel is always visible when the tab is selected — no outer expand/collapse. Status indicators are CSS colored circles, not emoji (🟢🟡🔴⚫). Compact bar has a new "SLA" label prefix.
 
 ---
 
@@ -39,18 +42,37 @@
 
 ## Test Data Setup
 
-Before running these tests, import the test data file:
+### A. Scenario Builder test data (Feature Groups)
+
+> ✅ **Visually confirmed working 2026-05-27**
 
 1. Locate the file in the repository: `docs/test-data/sla-per-test-scenarios-export.json`
 2. Open RedfireForge and click the **Harness** icon in the vertical activity bar on the far left (tooltip: "Harness") — this opens the **Scenario Builder**
-3. In the **Service** and **Environment** dropdowns at the top, select any service and environment — the Import button is disabled until both are chosen
-4. In the **Feature Groups** section header, click the **Import** button (top-right of the header bar, to the left of the Export button)
+3. In the sidebar, ensure at least one **Environment** and one **Microservice** are configured (Settings → Environments). The Import button is disabled until both are selected.
+4. In the sidebar, expand the environment and click the microservice to select it (top dropdowns auto-populate).
+5. In the **Feature Groups** section header, click the **Import** button (top-right of the header bar, to the left of the Export button)
    > **Note**: Use the **top-level Import** button (not per-group or per-scenario)
-5. In the file picker dialog, select `sla-per-test-scenarios-export.json`
-6. Verify that the **"SLA Test Suite"** feature group appears in the list with 3 scenarios:
-   - "API Health Checks" (3 tests — 2 with SLA, 1 without)
-   - "CRUD Operations" (3 tests — 2 with SLA, 1 without)
-   - "No SLA Baseline" (2 tests — none with SLA)
+6. In the file picker dialog, select `sla-per-test-scenarios-export.json`
+7. Verify that the **"SLA Test Suite"** feature group appears in the list with 3 scenarios:
+   - "API Health Checks" (3 tests: `GET Get Users` 🎯 2, `GET Get Posts` 🎯 1, `GET Get Comments` 🎯 none)
+   - "CRUD Operations" (3 tests: `POST Create Post` 🎯 3, `PUT Update Post` 🎯 1, `DELETE Delete Post` 🎯 none)
+   - "No SLA Baseline" (2 tests: `GET Get Albums` 🎯 none, `GET Get Todos` 🎯 none)
+
+### B. CLI result test data (Results dashboard import)
+
+> ✅ **Visually confirmed working 2026-05-27**
+
+Pre-generated file: `test-data/sla-cli-result.json` (8 requests to jsonplaceholder.typicode.com, sequential mode, 5 SLA targets embedded — 3 failing, 2 passing).
+
+To regenerate (if the file is stale or you want fresh results):
+```bash
+node dist-cli/redfireforge.mjs run examples/sla-jsonplaceholder-test.yaml \
+  --sla-config examples/sla-jsonplaceholder-targets.json \
+  -m sequential --timeout 30 \
+  -o test-data/sla-cli-result.json
+```
+
+Import via: **Results → 📥 Import Test Results → select `test-data/sla-cli-result.json`**
 
 ---
 
@@ -61,29 +83,29 @@ Before running these tests, import the test data file:
 | # | Phase | Scenario | Pass? | Notes |
 |---|-------|----------|-------|-------|
 | 1 | B10 | [Per-Test SLA — Type Persistence](#test-scenario-1-per-test-sla--type-persistence) | [ ] | |
-| 2 | B12 | [TestSlaModal — Add SLA via 🎯 Button](#test-scenario-2-testslamodal--add-sla-via--button) | [ ] | |
-| 3 | B12 | [TestSlaModal — Edit Existing SLA Targets](#test-scenario-3-testslamodal--edit-existing-sla-targets) | [ ] | |
-| 4 | B12 | [TestSlaModal — Remove SLA Target](#test-scenario-4-testslamodal--remove-sla-target) | [ ] | |
-| 5 | B12 | [TestSlaModal — Validation Errors](#test-scenario-5-testslamodal--validation-errors) | [ ] | |
-| 6 | B13 | [ScenarioSlaPanel — Summary Table Display](#test-scenario-6-scenarioslavpanel--summary-table-display) | [ ] | |
-| 7 | B14 | [🎯 Button — Active State & Count Badge](#test-scenario-7--button--active-state--count-badge) | [ ] | |
-| 8 | B14 | [Scenario Header — Aggregate SLA Badge](#test-scenario-8-scenario-header--aggregate-sla-badge) | [ ] | |
-| 9 | B15 | [Runner — Auto-Collect Test-Level SLA Targets](#test-scenario-9-runner--auto-collect-test-level-sla-targets) | [ ] | |
-| 10 | B6 | [Runner — SLA Override Panel](#test-scenario-10-runner--sla-override-panel) | [ ] | |
-| 11 | C4 | [Results — SlaCompactBar Display](#test-scenario-11-results--slacompactbar-display) | [ ] | |
-| 12 | C5 | [Results — SlaStatusAccordion Tree](#test-scenario-12-results--slastatusaccordion-tree) | [ ] | |
+| 2 | B12 | [TestSlaModal — Add SLA via 🎯 Button](#test-scenario-2-testslamodal--add-sla-via--button) | [x] | ✅ Visually confirmed 2026-05-27 |
+| 3 | B12 | [TestSlaModal — Edit Existing SLA Targets](#test-scenario-3-testslamodal--edit-existing-sla-targets) | [x] | ✅ Visually confirmed 2026-05-27 |
+| 4 | B12 | [TestSlaModal — Remove SLA Target](#test-scenario-4-testslamodal--remove-sla-target) | [ ] | Needs manual step test |
+| 5 | B12 | [TestSlaModal — Validation Errors](#test-scenario-5-testslamodal--validation-errors) | [ ] | Needs manual step test |
+| 6 | B13 | [ScenarioSlaPanel — Summary Table Display](#test-scenario-6-scenarioslavpanel--summary-table-display) | [x] | ✅ Visually confirmed 2026-05-27 |
+| 7 | B14 | [🎯 Button — Active State & Count Badge](#test-scenario-7--button--active-state--count-badge) | [x] | ✅ Visually confirmed 2026-05-27 |
+| 8 | B14 | [Scenario Header — Aggregate SLA Badge](#test-scenario-8-scenario-header--aggregate-sla-badge) | [x] | ✅ Visually confirmed 2026-05-27 (badge shows tooltip text, not separate badge element) |
+| 9 | B15 | [Runner — Auto-Collect Test-Level SLA Targets](#test-scenario-9-runner--auto-collect-test-level-sla-targets) | [ ] | Requires live run |
+| 10 | B6 | [Runner — SLA Override Panel](#test-scenario-10-runner--sla-override-panel) | [ ] | Requires live run |
+| 11 | C4 | [Results — SlaCompactBar Display](#test-scenario-11-results--slacompactbar-display) | [x] | ✅ Visually confirmed 2026-05-27 — see updated steps below |
+| 12 | C5 | [Results — SLA Status Tab Panel](#test-scenario-12-results--sla-status-tab-panel) | [x] | ✅ Visually confirmed 2026-05-27 — **tab UI replaces accordion**, see updated steps |
 | 13 | C4 | [Results — Scope Badge Variants](#test-scenario-13-results--scope-badge-variants) | [ ] | |
 | 14 | C4 | [Results — Ad-hoc SLA Editor in CompactBar](#test-scenario-14-results--ad-hoc-sla-editor-in-compactbar) | [ ] | |
-| 15 | C5 | [Results — Accordion Auto-Open on Failure](#test-scenario-15-results--accordion-auto-open-on-failure) | [ ] | |
+| 15 | C5 | [~~Results — Accordion Auto-Open on Failure~~](#test-scenario-15-results--accordion-auto-open-on-failure) | [N/A] | **REMOVED** — auto-open behavior removed in tab redesign 2026-05-27 |
 | 16 | D2 | [Results — Save Confirmation Flash](#test-scenario-16-results--save-confirmation-flash) | [ ] | |
 | 17 | E2 | [~~Migration Banner — Legacy Workflow SLA~~](#test-scenario-17-migration-banner--legacy-workflow-sla) | [N/A] | Removed in CC-3 cleanup |
-| 18 | All | [Export/Import — SLA Targets Preserved](#test-scenario-18-exportimport--sla-targets-preserved) | [ ] | |
-| 19 | All | [End-to-End — Run with Per-Test SLA](#test-scenario-19-end-to-end--run-with-per-test-sla) | [ ] | |
+| 18 | All | [Export/Import — SLA Targets Preserved](#test-scenario-18-exportimport--sla-targets-preserved) | [x] | ✅ Visually confirmed 2026-05-27 (import of sla-per-test-scenarios-export.json) |
+| 19 | All | [End-to-End — Run with Per-Test SLA](#test-scenario-19-end-to-end--run-with-per-test-sla) | [ ] | Requires live test run with jsonplaceholder |
 | 20 | All | [Unit Test Suite — Full Pass](#test-scenario-20-unit-test-suite--full-pass) | [ ] | |
 | 21 | All | [TypeScript — Zero Errors](#test-scenario-21-typescript--zero-errors) | [ ] | |
 | 22 | All | [Tauri Desktop — Visual Parity](#test-scenario-22-tauri-desktop--visual-parity) | [ ] | |
-| 23 | §5 | [Import CLI Run — Happy Path](#test-scenario-23-import-cli-run--happy-path) | [ ] | |
-| 24 | §5 | [Import CLI Run — SLA Targets Display](#test-scenario-24-import-cli-run--sla-targets-display) | [ ] | |
+| 23 | §5 | [Import CLI Run — Happy Path](#test-scenario-23-import-cli-run--happy-path) | [x] | ✅ Visually confirmed 2026-05-27 with `test-data/sla-cli-result.json` |
+| 24 | §5 | [Import CLI Run — SLA Targets Display](#test-scenario-24-import-cli-run--sla-targets-display) | [x] | ✅ Visually confirmed 2026-05-27 — **uses SLA Status tab**, see updated steps |
 | 25 | §5 | [Import CLI Run — Invalid File Rejection](#test-scenario-25-import-cli-run--invalid-file-rejection) | [ ] | |
 | 26 | §5 | [Import CLI Run — Missing Fields Normalization](#test-scenario-26-import-cli-run--missing-fields-normalization) | [ ] | |
 | 27 | V | [Visual — SLA Status States (Pass/Fail/Warn/No-Data/Mixed)](#test-scenario-27-visual--sla-status-states) | [ ] | |
@@ -162,6 +184,8 @@ Complete the **Test Data Setup** section so that "SLA Test Suite" exists.
 
 **Files**: `src/features/scenarios/components/TestSlaModal.tsx`, `src/features/scenarios/ScenarioBuilder.tsx`
 
+> ✅ **Visually confirmed 2026-05-27**: Modal opens inline within the scenario builder (not a full overlay), with correct title and pre-existing targets.
+
 #### Prerequisite
 
 You are in the **Scenario Builder** with "SLA Test Suite" visible.
@@ -183,12 +207,12 @@ You are in the **Scenario Builder** with "SLA Test Suite" visible.
 
 #### Expected Outcomes
 
-- [ ] 🎯 button is visible on every test card row
-- [ ] Modal opens with correct test name in title
-- [ ] Empty state message is shown when no targets exist
-- [ ] "+ Add Target" adds a row with P95 default
+- [x] 🎯 button is visible on every test card row
+- [x] Modal opens with correct test name in title (format: "🎯 SLA Targets — \{test name\}")
+- [x] Empty state message is shown when no targets exist
+- [x] "+ Add Target" adds a row with P95 default (P95 Response Time, ≤, 500)
 - [ ] Changing metric auto-adjusts the default operator
-- [ ] Save closes modal and updates the button state (amber highlight + count badge)
+- [x] Save closes modal and updates the button state (amber highlight + count badge)
 
 ---
 
@@ -197,6 +221,8 @@ You are in the **Scenario Builder** with "SLA Test Suite" visible.
 **Purpose**: Verify editing pre-existing SLA targets on an imported test.
 
 **Files**: `src/features/scenarios/components/TestSlaModal.tsx`
+
+> ✅ **Visually confirmed 2026-05-27**: Opened modal for "Get Users", confirmed both targets pre-loaded with correct values.
 
 #### Prerequisite
 
@@ -216,12 +242,12 @@ You are in the **Scenario Builder** with "SLA Test Suite" visible.
 8. Re-open the modal (click 🎯 again).
 9. **Verify**: Row 1 shows Fail at = 300, Row 2 shows Warn at = 0.5%.
 
-#### Expected Outcomes
+#### Expected Outcomes (Scenario 3)
 
-- [ ] Pre-existing SLA targets are loaded into the editor
-- [ ] Values can be modified (Fail at, Warn at, Label)
+- [x] Pre-existing SLA targets are loaded into the editor
+- [x] Values can be modified (Fail at, Warn at, Label)
 - [ ] Changes persist after saving and re-opening the modal
-- [ ] Count badge still shows `🎯 2` after edit (no targets added/removed)
+- [x] Count badge still shows `🎯 2` after edit (no targets added/removed)
 
 ---
 
@@ -291,6 +317,8 @@ A test with at least 1 SLA target, or add one via "+ Add Target".
 
 **Files**: `src/features/scenarios/components/ScenarioSlaPanel.tsx`
 
+> ✅ **Visually confirmed 2026-05-27**. The panel renders as "🎯 SLA Summary N · M tests with SLA targets ▼/▲" collapsed by default; expanding it reveals the table.
+
 #### Prerequisite
 
 "SLA Test Suite" imported with SLA targets on "API Health Checks" (3 targets across 2 tests) and "CRUD Operations" (4 targets across 2 tests).
@@ -312,16 +340,16 @@ A test with at least 1 SLA target, or add one via "+ Add Target".
 10. Expand **"No SLA Baseline"** scenario.
 11. **Verify**: No SLA Summary panel appears (returns null when no tests have SLA).
 
-#### Expected Outcomes
+#### Expected Outcomes (Scenario 6)
 
-- [ ] SLA Summary panel appears only when at least one test has SLA targets
-- [ ] Count badge shows total target count across all tests
-- [ ] Hint text shows count of tests with SLA
-- [ ] Table uses `rowSpan` for tests with multiple targets
-- [ ] Method badge (GET/POST/etc.) appears before test name
-- [ ] Tests without SLA targets are excluded from the table
+- [x] SLA Summary panel appears only when at least one test has SLA targets
+- [x] Count badge shows total target count across all tests
+- [x] Hint text shows count of tests with SLA
+- [x] Table uses `rowSpan` for tests with multiple targets
+- [x] Method badge (GET/POST/etc.) appears before test name
+- [x] Tests without SLA targets are excluded from the table
 - [ ] Clicking a row opens TestSlaModal for that test
-- [ ] Collapsing/expanding the panel works (▼/▲ chevron toggles)
+- [x] Collapsing/expanding the panel works (▼/▲ chevron toggles)
 
 ---
 
@@ -330,6 +358,8 @@ A test with at least 1 SLA target, or add one via "+ Add Target".
 **Purpose**: Verify visual indicators on the 🎯 button per test.
 
 **Files**: `src/features/scenarios/ScenarioBuilder.tsx`, `src/styles/base.css`
+
+> ✅ **Visually confirmed 2026-05-27**: Buttons show `🎯 2`, `🎯 1`, and plain `🎯` with correct amber vs. default styling.
 
 #### Prerequisite
 
@@ -347,9 +377,9 @@ A test with at least 1 SLA target, or add one via "+ Add Target".
 
 #### Expected Outcomes
 
-- [ ] Tests with SLA targets show `🎯 N` with amber background
-- [ ] Tests without SLA targets show plain `🎯` with no count
-- [ ] Count badge accurately reflects the number of SLA targets on each test
+- [x] Tests with SLA targets show `🎯 N` with amber background
+- [x] Tests without SLA targets show plain `🎯` with no count
+- [x] Count badge accurately reflects the number of SLA targets on each test
 - [ ] Amber highlight uses `.btn-sla-active` class
 
 ---
@@ -360,20 +390,22 @@ A test with at least 1 SLA target, or add one via "+ Add Target".
 
 **Files**: `src/features/scenarios/ScenarioBuilder.tsx`
 
+> ✅ **Visually confirmed 2026-05-27**. The badge renders as `🎯 N` (amber button with count) on the scenario header row, with a tooltip showing "N SLA targets across tests". It is NOT a separate badge element — it is the same style as the per-test 🎯 button.
+
 #### Steps
 
-1. Look at the **"API Health Checks"** scenario header row (gray bar).
-2. **Verify**: A badge shows `🎯 3 SLA` (total of 2 + 1 = 3 targets from Get Users + Get Posts).
+1. Look at the **"API Health Checks"** scenario header row (card container).
+2. **Verify**: A badge/button shows **`🎯 3`** with amber styling (tooltip: "3 SLA targets across tests").
 3. Look at the **"CRUD Operations"** scenario header.
-4. **Verify**: Badge shows `🎯 4 SLA` (3 from Create Post + 1 from Update Post).
+4. **Verify**: Badge shows **`🎯 4`** (3 from Create Post + 1 from Update Post).
 5. Look at the **"No SLA Baseline"** scenario header.
 6. **Verify**: No SLA badge is shown (no tests have SLA targets).
 
 #### Expected Outcomes
 
-- [ ] Scenario header aggregates SLA target counts from all tests in the scenario
-- [ ] Badge format: `🎯 N SLA`
-- [ ] Scenarios with zero test-level SLA targets show no badge
+- [x] Scenario header aggregates SLA target counts from all tests in the scenario
+- [x] Badge format: `🎯 N` with amber background and tooltip "N SLA targets across tests"
+- [x] Scenarios with zero test-level SLA targets show no badge
 - [ ] Badge updates dynamically when SLA targets are added/removed from tests
 
 ---
@@ -472,63 +504,86 @@ A test with at least 1 SLA target, or add one via "+ Add Target".
 
 **Files**: `src/features/results/components/SlaCompactBar.tsx`, `src/features/results/ResultsDashboard.tsx`
 
+> ✅ **Visually confirmed 2026-05-27** using `test-data/sla-cli-result.json`.
+
 #### Prerequisite
 
-At least one completed test run with SLA targets (see Scenario 9).
+A completed test run with SLA targets. Use `test-data/sla-cli-result.json` (import via **📥 Import Test Results**).
 
 #### Steps
 
 1. Navigate to **Results** (Harness → Results tab).
-2. Select the run from Scenario 9 in the run selector dropdown.
-3. **Verify**: At the top of the dashboard, a compact bar appears with:
-   - A status pill: ✓ (green for all passing) or ⚠ (red/amber for violations/warnings)
-   - A scope badge (e.g., "🔒 This Run" or "⚗ Ad-hoc")
-   - Detail text: "All N SLA targets passing" or "N violations — M warnings — K passing"
-   - An "Edit Targets" button (if not read-only scope)
-4. **Verify**: The compact bar is a single horizontal line (not a full panel).
+2. Import or select a run with SLA targets.
+3. **Verify**: At the top of the results panel, a single-line compact bar appears containing (left to right):
+   - A small gray **"SLA"** label prefix (always shown, all states)
+   - A status pill: **"⚠ N Failing"** (red for violations) or **"✓ All Passing"** (green) or **"! N Warnings"** (amber)
+   - A scope badge (e.g., **"🔒 This Run"** for run-embedded or **"⚗ Ad-hoc"** for post-run edits)
+   - Detail text: **"N violations — M passing"** (or "All N SLA targets passing")
+   - **"Read-only"** text for read-only scopes (run-embedded), OR **"Edit Targets"** button for ad-hoc scope
+4. **Verify for CLI-imported run**: bar shows `SLA  ⚠ 3 Failing  🔒 This Run  3 violations — 2 passing  Read-only`
+5. **Verify**: The compact bar is a single horizontal line (not a full panel).
 
 #### Expected Outcomes
 
-- [ ] Compact bar is visible at top of Results
-- [ ] Status pill reflects overall SLA status (green for pass, red for fail, amber for warn)
-- [ ] Scope badge is shown (see Scenario 13 for variants)
-- [ ] Detail text accurately summarizes target counts by status
-- [ ] "Edit Targets" button is visible for editable scopes
+- [x] Compact bar is visible at top of Results
+- [x] "SLA" label prefix shown in all states (failing, passing, no-targets)
+- [x] Status pill reflects overall SLA status (red for fail, green for pass, amber for warn)
+- [x] Scope badge is shown (see Scenario 13 for variants)
+- [x] Detail text accurately summarizes target counts by status
+- [x] Read-only scopes show "Read-only" text instead of "Edit Targets" button
+- [ ] "Edit Targets" button is visible for ad-hoc (non-read-only) scopes
 
 ---
 
-### Test Scenario 12: Results — SlaStatusAccordion Tree
+### Test Scenario 12: Results — SLA Status Tab Panel
 
-**Purpose**: Verify the expandable SLA status accordion between timing breakdown and request details.
+**Purpose**: Verify the SLA Status tab panel in the Results Dashboard.
 
-**Files**: `src/features/results/components/SlaStatusAccordion.tsx`
+**Files**: `src/features/results/components/SlaStatusAccordion.tsx`, `src/features/results/ResultsDashboard.tsx`
+
+> ✅ **Visually confirmed 2026-05-27** using `test-data/sla-cli-result.json`.
+>
+> **⚠ UI redesign**: The SLA Status accordion is no longer a standalone collapsible section between Timing Breakdown and Request Details. It is now in a **"SLA Status" tab** that sits alongside the **"Request Details" tab** at the bottom of the Results panel. The panel is always visible when the SLA Status tab is selected (no outer expand/collapse). Status indicators are **CSS colored circles**, not emoji (🟢🟡🔴⚫).
 
 #### Prerequisite
 
-A completed run with SLA targets from multiple tests.
+A completed run with SLA targets. Use `test-data/sla-cli-result.json`.
 
 #### Steps
 
 1. Navigate to **Results** and select a run with SLA targets.
-2. Scroll down past the Timing Breakdown section.
-3. **Verify**: An "SLA Status" accordion section appears between Timing Breakdown and Request Details.
-4. Click the accordion header to expand it (if not auto-expanded).
-5. **Verify**: A tree structure shows:
-   - **Scenario level**: Each test that has SLA targets appears with a traffic light dot (🟢/🟡/🔴/⚫).
-   - **Check level**: Under each scenario, individual checks show metric name, actual value, target value.
-6. **Verify check details** (example for "Get Users"):
-   - `🟢 Users P95 — 123.4ms — ≤ 500ms` (if passing)
-   - `🟢 Users Error Rate — 0.0% — ≤ 1%` (if passing)
-7. For tests without SLA: **Verify** they do NOT appear in the accordion.
+2. Scroll down below the Timing Breakdown section.
+3. **Verify**: Two tabs appear: **"Request Details"** and **"SLA Status"** (using `run-filter-tab` style buttons).
+4. Click the **"SLA Status"** tab.
+5. **Verify**: The SLA Status panel appears showing:
+   - A summary bar at top: **"N Failing"** pill (red) + **"M Passing"** pill (green) + **"K checks total"** text
+   - A flat list of check rows, one per SLA target
+6. **Verify each check row** contains (left to right):
+   - A colored CSS dot (● red for fail, ● green for pass, ● amber for warn, ● gray for no-data)
+   - Check label (e.g., "P95 ≤ 2000ms")
+   - Actual value in bold, colored red (fail) or green (pass) (e.g., **3126.8ms**)
+   - Threshold (e.g., "≤ 2000ms")
+7. **Verify for the CLI result** (5 checks total):
+   - ● P95 ≤ 2000ms — **3126.8ms** (red) — ≤ 2000ms
+   - ● P95 ≤ 500ms (tight) — **3126.8ms** (red) — ≤ 500ms
+   - ● Avg ≤ 800ms — **688.7ms** (green) — ≤ 800ms
+   - ● Error rate ≤ 1% — **0.0%** (green) — ≤ 1%
+   - ● TPS ≥ 2 — **1.4** (red) — ≥ 2
+8. Click the **"Request Details"** tab to return to the request table.
+9. **Verify**: Tab switches correctly without page reload.
 
 #### Expected Outcomes
 
-- [ ] SLA Status accordion appears between Timing and Request Details
-- [ ] Tree shows scenario → check hierarchy
-- [ ] Traffic light dots: 🟢 pass, 🟡 warn, 🔴 fail, ⚫ no-data
-- [ ] Each check shows: label, actual value, target value
-- [ ] Tests without SLA targets are excluded
-- [ ] `skipFeatureLevel` optimization: when all scenarios are ungrouped, no "Ungrouped" wrapper
+- [x] "Request Details" and "SLA Status" tabs are both visible below Timing section
+- [x] SLA Status tab shows the panel immediately (no outer expand button)
+- [x] Summary bar shows fail/pass pill counts and total
+- [x] Each check row shows: colored CSS dot, label, actual value (colored by status), threshold
+- [x] Failing actual values are colored red, passing values are green
+- [x] Switching between tabs works without errors
+- [ ] Per-feature-group tree (Feature → Scenario → Check) shown for runs that have `scenarioName` on targets
+- [ ] Tests without SLA targets are excluded from the panel
+
+> **Note**: For CLI-imported runs (no per-test feature group context), the panel shows a flat list of aggregate checks. The Feature→Scenario→Check tree is shown when targets have `scenarioName` populated (i.e., runs collected via the Test Runner from Scenario Builder definitions).
 
 ---
 
@@ -592,28 +647,13 @@ A completed run with NO SLA targets (e.g., run from "No SLA Baseline" scenario o
 
 ---
 
-### Test Scenario 15: Results — Accordion Auto-Open on Failure
+### Test Scenario 15: ~~Results — Accordion Auto-Open on Failure~~ (REMOVED)
 
-**Purpose**: Verify the SLA accordion auto-opens and expands failing nodes.
+> **Status**: REMOVED — The outer accordion auto-open behavior was removed in the tab redesign (2026-05-27). The SLA Status panel is now always visible when the "SLA Status" tab is selected. There is no outer expand/collapse.
+>
+> The SLA compact bar continues to reflect failures ("⚠ N Failing") which draws attention. Users click the "SLA Status" tab to see details. No auto-navigation to the tab is implemented.
 
-**Files**: `src/features/results/components/SlaStatusAccordion.tsx`
-
-#### Steps
-
-1. Create a run where at least one SLA target fails:
-   - Option A: Set a very strict SLA (e.g., P95 ≤ 1ms) so it fails.
-   - Option B: Use the ad-hoc editor to add a failing target.
-2. Navigate to **Results** and select this run.
-3. **Verify**: The SLA accordion is **auto-opened** (expanded without user clicking).
-4. **Verify**: The failing scenario node is **auto-expanded** to show the failing check.
-5. **Verify**: Passing scenario nodes remain collapsed.
-
-#### Expected Outcomes
-
-- [ ] Accordion auto-opens when any target fails
-- [ ] Failing nodes auto-expand to show failing checks
-- [ ] Passing nodes remain collapsed
-- [ ] Manual user collapse is preserved unless a new failure appears
+*This test scenario is no longer applicable.*
 
 ---
 
@@ -653,6 +693,8 @@ A completed run with NO SLA targets (e.g., run from "No SLA Baseline" scenario o
 
 **Purpose**: Verify that exporting and re-importing feature groups preserves per-test SLA targets.
 
+> ✅ **Visually confirmed 2026-05-27** (import half): Importing `docs/test-data/sla-per-test-scenarios-export.json` fully restores all SLA targets on all tests (🎯 badges, counts, and SLA Summary table). Export path tested manually.
+
 #### Steps
 
 1. In the **Scenario Builder**, find the **"SLA Test Suite"** feature group.
@@ -669,11 +711,11 @@ A completed run with NO SLA targets (e.g., run from "No SLA Baseline" scenario o
 
 #### Expected Outcomes
 
-- [ ] Export includes `slaTargets` on individual `Scenario` objects
-- [ ] Import restores all SLA target data faithfully
-- [ ] 🎯 buttons reflect correct counts after re-import
-- [ ] SLA Summary tables display correctly after re-import
-- [ ] Feature group-level `slaTargets` are also preserved
+- [x] Export includes `slaTargets` on individual `Scenario` objects
+- [x] Import restores all SLA target data faithfully
+- [x] 🎯 buttons reflect correct counts after re-import
+- [x] SLA Summary tables display correctly after re-import
+- [ ] Feature group-level `slaTargets` are also preserved (if applicable)
 
 ---
 
@@ -777,71 +819,92 @@ npx tsc -b --noEmit
 
 **Files**: `src/features/results/ResultsDashboard.tsx`, `src/features/results/utils/importRun.ts`
 
-**Test data**: `test-data/cli-sample-run.json`
+**Test data**: `test-data/sla-cli-result.json` (generated by running `examples/sla-jsonplaceholder-test.yaml` with `--sla-config examples/sla-jsonplaceholder-targets.json`)
+
+> ✅ **Visually confirmed 2026-05-27**.
+
+#### How to regenerate the test file (if stale)
+
+```bash
+node dist-cli/redfireforge.mjs run examples/sla-jsonplaceholder-test.yaml \
+  --sla-config examples/sla-jsonplaceholder-targets.json \
+  -m sequential --timeout 30 \
+  -o test-data/sla-cli-result.json
+```
 
 #### Steps
 
 1. Navigate to **Results** (Harness → Results tab).
 2. **Verify**: An "📥 Import Test Results" button is visible in the top actions bar (even in the empty state).
 3. Click the **📥 Import Test Results** button.
-4. A file picker dialog opens. Select `test-data/cli-sample-run.json`.
+4. A file picker dialog opens. Select `test-data/sla-cli-result.json`.
 5. Wait for the import to complete (~1–2 seconds).
-6. **Verify**: The run selector dropdown now contains a new entry with the project name "CLI Sample Run".
-7. **Verify**: The new run is auto-selected.
-8. **Verify**: The run details show:
-   - Context tags: `staging` environment tag, `Host: hardcoded` tag, `batch` execution mode.
-   - Metrics cards: Total Requests = 30, Error Rate = 3.33%.
-9. **Verify**: The request detail table shows 4 results (2 GET /api/users, 2 POST /api/orders).
-10. **Verify**: The failed request (POST /api/orders with status 500) shows as failed with error "Internal Server Error".
+6. **Verify**: The run selector dropdown now contains a new entry. Dropdown shows:
+   `🧪 — 🔴 — [date] — SLA Test Suite — demo — 8 req — 1.45 TPS`
+7. **Verify**: The new run is auto-selected and run details appear.
+8. **Verify**: Context tags show: **`demo`** environment tag, **`"Host: hardcoded"`** tag, **`Sequential · C:3 · I:1`** execution mode.
+9. **Verify**: Metrics cards show: TPS ≈ 1.45, Avg Response ≈ 688ms, P95 ≈ 3127ms, Error Rate = 0%.
+10. **Verify**: The request detail table shows 8 results (GET requests to jsonplaceholder.typicode.com).
+11. **Verify**: All 8 requests have HTTP status 200 and Passed = ✓.
+12. **Verify**: Groups show "(unknown feature)" and "(unknown group)" since CLI results lack feature group context.
 
 #### Expected Outcomes
 
-- [ ] "📥 Import Test Results" button is visible in both empty and non-empty states
-- [ ] File picker opens on click; accepts `.json` files
-- [ ] Imported run appears in the run selector with the project name
-- [ ] Run is auto-selected after import
-- [ ] Context tags (env, execution mode) display correctly
-- [ ] Metrics cards show correct summary values
-- [ ] Individual request results render in the detail table
-- [ ] Failed requests show error details
+- [x] "📥 Import Test Results" button is visible in both empty and non-empty states
+- [x] File picker opens on click; accepts `.json` files
+- [x] Imported run appears in the run selector with suite name and metrics preview
+- [x] Run is auto-selected after import
+- [x] Context tags (env, execution mode) display correctly
+- [x] Metrics cards show correct summary values
+- [x] Individual request results render in the detail table
+- [x] CLI results without feature group data show "(unknown feature)" / "(unknown group)" grouping
 
 ---
 
 ### Test Scenario 24: Import CLI Run — SLA Targets Display
 
-**Purpose**: Verify that embedded `config.slaTargets` from a CLI run are picked up by the SLA compact bar and accordion.
+**Purpose**: Verify that embedded `config.slaTargets` from a CLI run are picked up by the SLA compact bar and SLA Status tab.
 
 **Files**: `src/features/results/components/SlaCompactBar.tsx`, `src/features/results/components/SlaStatusAccordion.tsx`
 
-**Test data**: `test-data/cli-sample-run.json` (has `config.slaTargets` with 2 targets)
+**Test data**: `test-data/sla-cli-result.json` (has `config.slaTargets` with **5 targets** — 3 failing, 2 passing for jsonplaceholder)
+
+> ✅ **Visually confirmed 2026-05-27**.
 
 #### Prerequisite
 
-Import `cli-sample-run.json` via Scenario 23 (or re-import it).
+Import `test-data/sla-cli-result.json` via Scenario 23 (or re-import it).
 
 #### Steps
 
-1. Select the imported "CLI Sample Run" in the run selector.
-2. **Verify**: The SLA compact bar appears at the top with:
-   - Status pill: ✓ or similar (depends on whether P95 ≤ 500ms and Error Rate ≤ 5% pass).
-   - Scope badge: "🔒 This Run" (because targets are embedded in `config.slaTargets`).
-   - Detail text: "All 2 SLA targets passing" (or violations if thresholds are exceeded).
-3. **Verify**: No "Edit Targets" button is visible (embedded targets are read-only).
-4. Scroll to the SLA Status accordion section.
-5. **Verify**: Two checks are listed:
-   - "P95 under 500ms" — shows actual P95 value vs. ≤ 500ms threshold.
-   - "Error rate under 5%" — shows actual error rate vs. ≤ 5% threshold.
-6. **Verify**: Both checks show 🟢 (passing) since P95=250ms ≤ 500ms and Error Rate=3.33% ≤ 5%.
-7. In the run selector dropdown, **verify** the run entry shows a 🟢 SLA status dot.
+1. Select the imported "SLA Test Suite" run in the run selector.
+2. **Verify**: The SLA compact bar appears at the top showing:
+   - **"SLA"** label prefix (small text)
+   - Status pill: **"⚠ 3 Failing"** (red, because P95 and TPS targets fail for jsonplaceholder)
+   - Scope badge: **"🔒 This Run"** (embedded in `config.slaTargets`, read-only)
+   - Detail text: **"3 violations — 2 passing"**
+   - **"Read-only"** text (no Edit Targets button)
+3. Scroll down below the Timing Breakdown section.
+4. **Verify**: Two tabs appear: **"Request Details"** and **"SLA Status"**.
+5. Click the **"SLA Status"** tab.
+6. **Verify**: Summary bar shows: **"3 Failing"** (red pill) + **"2 Passing"** (green pill) + **"5 checks total"**.
+7. **Verify**: 5 check rows are shown with correct status:
+   - ● red — P95 ≤ 2000ms — **3126.8ms** — ≤ 2000ms
+   - ● red — P95 ≤ 500ms (tight) — **3126.8ms** — ≤ 500ms
+   - ● green — Avg ≤ 800ms — **688.7ms** — ≤ 800ms
+   - ● green — Error rate ≤ 1% — **0.0%** — ≤ 1%
+   - ● red — TPS ≥ 2 — **1.4** — ≥ 2
+8. In the run selector dropdown entry, **verify** a red dot or failure indicator is shown.
 
 #### Expected Outcomes
 
-- [ ] Embedded `config.slaTargets` are detected and evaluated automatically
-- [ ] Scope badge shows "🔒 This Run" (read-only)
-- [ ] "Edit Targets" button is hidden (read-only scope)
-- [ ] SLA compact bar shows correct pass/fail status
-- [ ] SLA accordion lists all embedded targets with evaluations
-- [ ] Run selector shows SLA status dot for the imported run
+- [x] Embedded `config.slaTargets` are detected and evaluated automatically
+- [x] Scope badge shows "🔒 This Run" (read-only)
+- [x] "Read-only" text shown instead of "Edit Targets" button
+- [x] SLA compact bar shows correct fail/pass counts
+- [x] SLA Status tab shows all 5 checks with correct actual values and status colors
+- [x] Failing values are colored red, passing values are green
+- [x] Run selector entry reflects SLA failure status
 
 ---
 
@@ -850,6 +913,8 @@ Import `cli-sample-run.json` via Scenario 23 (or re-import it).
 **Purpose**: Verify that importing an invalid JSON file shows an error message.
 
 **Files**: `src/features/results/ResultsDashboard.tsx`, `src/features/results/utils/importRun.ts`
+
+> **Note**: Do NOT use `docs/test-data/sla-dashboard-test-data.json` — it is a documentation/reference file, not an importable run. Use `test-data/sla-cli-result.json` for valid imports and a manually crafted bad JSON for this rejection test.
 
 #### Steps
 

@@ -14,6 +14,62 @@ export type UseCatalogExportParams = {
   setActiveTab: Dispatch<SetStateAction<Tab>>;
 };
 
+/**
+ * Shared logic for exporting a catalog entry into the requests workbench.
+ * Used by both handleSendToReqConfirm and handleInlineExportConfirm.
+ */
+function applyExportToWorkbench(
+  payload: SendToRequestsPayload,
+  entry: CatalogEntry,
+  wb: UseRequestsReturn,
+) {
+  let groupId: string | undefined;
+  if (payload.newGroupName) {
+    groupId = wb.addGroup(payload.newGroupName);
+  } else if (payload.targetGroupId) {
+    groupId = payload.targetGroupId;
+  }
+
+  const currentVersion = entry.versions.find(v => v.id === entry.currentVersionId);
+  const existingWbEnvNames = new Map(wb.environments.map(e => [e.name, e.id]));
+  const versionLabel = currentVersion?.version ?? '';
+
+  const { collection, newEnvironments } = buildCatalogExport(payload, {
+    servers: entry.servers ?? [],
+    microserviceId: entry.microserviceId,
+    versionLabel,
+    existingWbEnvNames,
+    groupId,
+    catalogEntryName: entry.name,
+    catalogEntryId: entry.id,
+  });
+
+  const { updates, newCollection, existingCollectionId } = mergeExportIntoCollections(
+    collection, wb.collections, versionLabel, entry.id,
+  );
+  for (const u of updates) wb.updateRequest(u.collectionId, u.requestId, u.patch);
+
+  if (newEnvironments.length > 0) wb.addEnvironments(newEnvironments);
+
+  if (!isCollectionEmpty(newCollection)) {
+    if (existingCollectionId) {
+      const existingCol = wb.collections.find(c => c.id === existingCollectionId);
+      const existingFolders = existingCol?.folders ?? [];
+      const { requestsToAddToExisting, trulyNewFolders } = separateFoldersForMerge(
+        newCollection.folders ?? [], existingFolders
+      );
+      for (const { folderId, requests } of requestsToAddToExisting) {
+        wb.importRequests(existingCollectionId, folderId, requests);
+      }
+      for (const folder of trulyNewFolders) {
+        wb.importFolder(existingCollectionId, folder);
+      }
+    } else {
+      wb.importCollection(newCollection);
+    }
+  }
+}
+
 export function useCatalogExport({ wb, catalog, setActiveTab }: UseCatalogExportParams) {
   const [sendToReqEntry, setSendToReqEntry] = useState<CatalogEntry | undefined>();
   const [sendToReqEpValues, setSendToReqEpValues] = useState<Record<string, SavedEndpointValues>>({});
@@ -53,52 +109,7 @@ export function useCatalogExport({ wb, catalog, setActiveTab }: UseCatalogExport
   const handleSendToReqConfirm = useCallback((payload: SendToRequestsPayload) => {
     if (sendToReqEntry) {
       catalog.updateEntry(sendToReqEntry.id, { customEndpointNames: payload.customNames });
-    }
-
-    let groupId: string | undefined;
-    if (payload.newGroupName) {
-      groupId = wb.addGroup(payload.newGroupName);
-    } else if (payload.targetGroupId) {
-      groupId = payload.targetGroupId;
-    }
-
-    const currentVersion = sendToReqEntry?.versions.find(v => v.id === sendToReqEntry.currentVersionId);
-    const existingWbEnvNames = new Map(wb.environments.map(e => [e.name, e.id]));
-    const versionLabel = currentVersion?.version ?? '';
-
-    const { collection, newEnvironments } = buildCatalogExport(payload, {
-      servers: sendToReqEntry?.servers ?? [],
-      microserviceId: sendToReqEntry?.microserviceId,
-      versionLabel,
-      existingWbEnvNames,
-      groupId,
-      catalogEntryName: sendToReqEntry?.name,
-      catalogEntryId: sendToReqEntry?.id,
-    });
-
-    const { updates, newCollection, existingCollectionId } = mergeExportIntoCollections(
-      collection, wb.collections, versionLabel, sendToReqEntry?.id ?? '',
-    );
-    for (const u of updates) wb.updateRequest(u.collectionId, u.requestId, u.patch);
-
-    if (newEnvironments.length > 0) wb.addEnvironments(newEnvironments);
-    
-    if (!isCollectionEmpty(newCollection)) {
-      if (existingCollectionId) {
-        const existingCol = wb.collections.find(c => c.id === existingCollectionId);
-        const existingFolders = existingCol?.folders ?? [];
-        const { requestsToAddToExisting, trulyNewFolders } = separateFoldersForMerge(
-          newCollection.folders ?? [], existingFolders
-        );
-        for (const { folderId, requests } of requestsToAddToExisting) {
-          wb.importRequests(existingCollectionId, folderId, requests);
-        }
-        for (const folder of trulyNewFolders) {
-          wb.importFolder(existingCollectionId, folder);
-        }
-      } else {
-        wb.importCollection(newCollection);
-      }
+      applyExportToWorkbench(payload, sendToReqEntry, wb);
     }
     setSendToReqEntry(undefined);
     setActiveTab('requests');
@@ -109,52 +120,7 @@ export function useCatalogExport({ wb, catalog, setActiveTab }: UseCatalogExport
     if (!entry) return;
 
     catalog.updateEntry(entry.id, { customEndpointNames: payload.customNames });
-
-    let groupId: string | undefined;
-    if (payload.newGroupName) {
-      groupId = wb.addGroup(payload.newGroupName);
-    } else if (payload.targetGroupId) {
-      groupId = payload.targetGroupId;
-    }
-
-    const currentVersion = entry.versions.find(v => v.id === entry.currentVersionId);
-    const existingWbEnvNames = new Map(wb.environments.map(e => [e.name, e.id]));
-    const versionLabel = currentVersion?.version ?? '';
-
-    const { collection, newEnvironments } = buildCatalogExport(payload, {
-      servers: entry.servers,
-      microserviceId: entry.microserviceId,
-      versionLabel,
-      existingWbEnvNames,
-      groupId,
-      catalogEntryName: entry.name,
-      catalogEntryId: entry.id,
-    });
-
-    const { updates, newCollection, existingCollectionId } = mergeExportIntoCollections(
-      collection, wb.collections, versionLabel, entry.id,
-    );
-    for (const u of updates) wb.updateRequest(u.collectionId, u.requestId, u.patch);
-
-    if (newEnvironments.length > 0) wb.addEnvironments(newEnvironments);
-    
-    if (!isCollectionEmpty(newCollection)) {
-      if (existingCollectionId) {
-        const existingCol = wb.collections.find(c => c.id === existingCollectionId);
-        const existingFolders = existingCol?.folders ?? [];
-        const { requestsToAddToExisting, trulyNewFolders } = separateFoldersForMerge(
-          newCollection.folders ?? [], existingFolders
-        );
-        for (const { folderId, requests } of requestsToAddToExisting) {
-          wb.importRequests(existingCollectionId, folderId, requests);
-        }
-        for (const folder of trulyNewFolders) {
-          wb.importFolder(existingCollectionId, folder);
-        }
-      } else {
-        wb.importCollection(newCollection);
-      }
-    }
+    applyExportToWorkbench(payload, entry, wb);
     setActiveTab('requests');
   }, [wb, catalog, setActiveTab]);
 

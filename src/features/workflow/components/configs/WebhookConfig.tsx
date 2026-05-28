@@ -3,6 +3,7 @@ import type { WebhookTriggerNodeData } from '../../types/workflow';
 import ConfigSectionGroup from './ConfigSectionGroup';
 import { DataMapperModal, createWebhookExtractionAdapter } from '../../../../shared/components/data-mapper';
 import type { WebhookExtractionOutput } from '../../../../shared/components/data-mapper';
+import { useCopyToClipboard } from '../../../../shared/hooks/useCopyToClipboard';
 
 interface Props {
   data: WebhookTriggerNodeData;
@@ -14,8 +15,8 @@ interface Props {
 const EMPTY_EXTRACT_VARS: WebhookExtractionOutput = [];
 
 export default function WebhookConfig({ data, onChange, workflowId, nodeId }: Props) {
-  const [copied, setCopied] = useState(false);
-  const [curlCopied, setCurlCopied] = useState(false);
+  const [copied, copyUrl] = useCopyToClipboard(2000);
+  const [curlCopied, copyCurl] = useCopyToClipboard(2000);
   const [showMapper, setShowMapper] = useState(false);
 
   const mapperAdapter = useMemo(
@@ -28,13 +29,7 @@ export default function WebhookConfig({ data, onChange, workflowId, nodeId }: Pr
     : null;
 
   const handleCopyUrl = async () => {
-    try {
-      await navigator.clipboard.writeText(webhookUrl as string);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
-      console.error('Failed to copy:', err);
-    }
+    await copyUrl(webhookUrl as string);
   };
 
   const handleCopyCurl = async () => {
@@ -42,13 +37,7 @@ export default function WebhookConfig({ data, onChange, workflowId, nodeId }: Pr
     const payload = data.samplePayload?.trim() || '{}';
     const escaped = payload.replace(/'/g, "'\\''");
     const curl = `curl --noproxy '*' -X ${data.method} '${url}' \\\n  -H 'Content-Type: application/json' \\\n  -d '${escaped}'`;
-    try {
-      await navigator.clipboard.writeText(curl);
-      setCurlCopied(true);
-      setTimeout(() => setCurlCopied(false), 2000);
-    } catch (err) {
-      console.error('Failed to copy cURL:', err);
-    }
+    await copyCurl(curl);
   };
   return (
     <>

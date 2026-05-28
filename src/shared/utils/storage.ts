@@ -140,9 +140,9 @@ function capAndTruncateResults(run: TestRun): TestRun {
     results: results.map((r) => ({
       ...r,
       responseBody:
-        r.responseBody.length > RESPONSE_BODY_MAX_CHARS
-          ? r.responseBody.slice(0, RESPONSE_BODY_MAX_CHARS) + `\n...[truncated, ${r.responseBody.length} chars total]`
-          : r.responseBody,
+        (r.responseBody ?? '').length > RESPONSE_BODY_MAX_CHARS
+          ? (r.responseBody ?? '').slice(0, RESPONSE_BODY_MAX_CHARS) + `\n...[truncated, ${(r.responseBody ?? '').length} chars total]`
+          : (r.responseBody ?? ''),
     })),
   };
 
