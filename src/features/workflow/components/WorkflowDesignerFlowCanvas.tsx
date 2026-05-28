@@ -77,8 +77,6 @@ export function WorkflowDesignerFlowCanvas({
     handleDeleteNode,
     navigateToWorkflow,
     setNodeCtxMenu,
-    isRunning,
-    handleQuickTest,
     persistWorkflow,
     update,
     onLoadTemplate,
@@ -200,12 +198,6 @@ export function WorkflowDesignerFlowCanvas({
           <span>📚 Sample Preview: <strong>{previewWorkflow.name}</strong></span>
           <span className="wf-preview-desc">{previewWorkflow.description}</span>
           <div className="wf-preview-actions">
-            {isRunning && (
-              <button className="btn btn-sm btn-danger" onClick={handleQuickTest} title="Stop running workflow">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="1"/></svg>
-                {' '}Stop
-              </button>
-            )}
             <button className="btn btn-sm btn-primary" onClick={() => {
               const currentNodes = serializeNodes(nodes);
               onUseAsTemplate({ ...previewWorkflow, nodes: currentNodes });

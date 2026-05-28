@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SLA Targets in Workflow Runner — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warn { background: #fff8e1; border-left-color: #f9a825; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">🎯</div>
+    <h1>SLA Targets in Workflow Runner</h1>
+    <div class="subtitle">SLA-Monitored API Pipeline — Training Manual</div>
+    <p><span class="badge badge-easy">Easy ★☆☆</span> · api-patterns · 5 Nodes · jsonplaceholder.typicode.com</p>
+    <p style="margin-top: 16px; color: #457b9d; font-size: 14px;">
+      Gallery import → Designer review → SLA Override → Run → Results → Export → CLI → Re-import
+    </p>
+    <div class="meta">RedfireForge v0.5.10-beta</div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 1 -->
+  <h2>1. Purpose &amp; Use Case</h2>
+  <p>
+    Workflows orchestrate multiple HTTP calls in sequence or in parallel. Adding <strong>SLA targets</strong> to a workflow lets you assert aggregate performance expectations across the entire pipeline — for example, "the overall p95 latency must stay under 900 ms" or "the pipeline error rate must not exceed 1%".
+  </p>
+  <p>The <strong>SLA-Monitored API Pipeline</strong> gallery sample provides a three-node HTTP workflow pre-configured with workflow-level SLA targets. It is the fastest way to see all SLA features in context without building a workflow from scratch.</p>
+  <p>This manual walks you through the complete end-to-end journey:</p>
+  <ul>
+    <li>Importing the sample workflow from the Gallery.</li>
+    <li>Reviewing the workflow structure in the Designer.</li>
+    <li>Running the workflow in the Workflow Runner with SLA Override.</li>
+    <li>Interpreting SLA pass/fail results in the Results Explorer.</li>
+    <li>Exporting the workflow definition for CLI use.</li>
+    <li>Running the workflow from the CLI and saving results.</li>
+    <li>Re-importing CLI results into the UI for analysis.</li>
+  </ul>
+
+  <!-- Section 2 -->
+  <h2>2. Concepts You'll Learn</h2>
+  <ul>
+    <li><strong>Workflow SLA targets</strong> — thresholds defined at the workflow level, evaluated across all iterations of a workflow run.</li>
+    <li><strong>SLA Override panel</strong> — the <em>🎯 SLA Override (optional)</em> bar in the Workflow Runner that lets you replace thresholds for a single run without modifying the saved workflow.</li>
+    <li><strong>Aggregate scope</strong> — a target with no scenario filter applies to all requests across all nodes in the workflow.</li>
+    <li><strong>p95 / p99</strong> — the 95th/99th percentile response time: N% of requests completed faster than this value.</li>
+    <li><strong>Error rate</strong> — the percentage of workflow iterations that encountered a failed HTTP call (non-2xx or network error).</li>
+    <li><strong>Workflow Replay import</strong> — loading a CLI-produced result file into the Workflow Results Explorer for visual analysis.</li>
+  </ul>
+
+  <div class="page-break"></div>
+
+  <!-- Section 3 -->
+  <h2>3. Workflow Structure</h2>
+  <p>The <strong>SLA-Monitored API Pipeline</strong> contains <strong>5 nodes</strong> connected in sequence:</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Node Type</th>
+        <th>Label</th>
+        <th>Purpose</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>1</td><td>Start</td><td>Start</td><td>Entry point of the workflow</td></tr>
+      <tr><td>2</td><td>HTTP</td><td>1. List Users</td><td>GET /users — fetches all 10 users into <code>users</code> variable</td></tr>
+      <tr><td>3</td><td>HTTP</td><td>2. List Posts</td><td>GET /posts — fetches 100 posts into <code>posts</code> variable</td></tr>
+      <tr><td>4</td><td>HTTP</td><td>3. Create Post</td><td>POST /posts — creates a new post, result in <code>newPost</code></td></tr>
+      <tr><td>5</td><td>End</td><td>Done</td><td>Exit point of the workflow</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Built-in SLA Targets</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>Scope</th>
+        <th>Metric</th>
+        <th>Condition</th>
+        <th>Limit</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>Aggregate (all nodes)</td><td>p95</td><td>≤</td><td>900 ms</td></tr>
+      <tr><td>Aggregate (all nodes)</td><td>Error Rate</td><td>≤</td><td>1%</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout">
+    <strong>ℹ️ Aggregate targets</strong>
+    These targets cover the combined response times of all HTTP nodes across all iterations. A single slow node or failed request can pull the aggregate above the limit.
+  </div>
+
+  <!-- Section 4 -->
+  <h2>4. Prerequisites</h2>
+  <ul>
+    <li>RedfireForge is open in your browser.</li>
+    <li>Internet access is available (the workflow uses <code>jsonplaceholder.typicode.com</code>).</li>
+    <li>For CLI steps: the <code>redfireforge</code> CLI is installed on your machine.</li>
+  </ul>
+
+  <div class="page-break"></div>
+
+  <!-- Section 5 -->
+  <h2>5. Step-by-Step Walkthrough</h2>
+
+  <h3>Step 1 — Import from the Gallery</h3>
+  <ol>
+    <li>Click the <strong>Gallery</strong> icon in the sidebar.</li>
+    <li>Switch to the <strong>Workflows</strong> tab.</li>
+    <li>Find <strong>🎯 SLA-Monitored API Pipeline</strong>. It is tagged <em>sla</em>, <em>runner</em>, and <em>health-check</em>.</li>
+    <li>Click <strong>Import Workflow</strong>. The workflow appears in your workspace.</li>
+  </ol>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    Filter the Gallery by tag <code>sla</code> to surface all SLA-related samples in both the Tests and Workflows tabs.
+  </div>
+
+  <h3>Step 2 — Review the Workflow in the Designer</h3>
+  <ol>
+    <li>Open the <strong>Workflow Designer</strong> for <em>SLA-Monitored API Pipeline</em>.</li>
+    <li>Observe the five-node linear flow: Start → List Users → List Posts → Create Post → End.</li>
+    <li>Click the <em>List Users</em> node to inspect its HTTP configuration. Note the <strong>Output Variable</strong> field set to <code>users</code>.</li>
+    <li>Click the <em>Create Post</em> node. Observe the POST body and the <code>Content-Type: application/json</code> header.</li>
+    <li>Open the <strong>SLA Targets</strong> panel within the Designer (or the workflow properties sidebar) to see the two workflow-level targets.</li>
+  </ol>
+
+  <h3>Step 3 — Navigate to the Workflow Runner</h3>
+  <ol>
+    <li>Click <strong>Workflow Runner</strong> in the navigation bar.</li>
+    <li>In the <strong>Workflow</strong> selector, choose <em>SLA-Monitored API Pipeline</em>.</li>
+    <li>Set <strong>Iterations</strong> to <code>20</code> and <strong>Concurrency</strong> to <code>3</code>.</li>
+  </ol>
+
+  <h3>Step 4 — Configure the SLA Override Panel</h3>
+  <ol>
+    <li>Find the <strong>🎯 SLA Override (optional)</strong> bar in the runner settings. It shows "2 configured" (the two built-in targets).</li>
+    <li>Click <strong>Configure</strong> to open the SLA modal.</li>
+    <li>The <strong>Configured Targets</strong> section shows the two aggregate targets (read-only).</li>
+    <li>To simulate a stricter threshold: click <strong>Override</strong> next to the <em>Aggregate — p95 ≤ 900 ms</em> row and change it to <code>500</code> ms. This is tighter than the JSONPlaceholder API typically delivers, so you will likely see a Fail result — good for learning what a failure looks like.</li>
+    <li>Click <strong>Save</strong>. The trigger bar now reads "1 override".</li>
+  </ol>
+
+  <div class="callout callout-warn">
+    <strong>⚠️ Override scope</strong>
+    Overrides apply to this run session only. The saved workflow is not modified. Remove the override row and save again to restore original thresholds.
+  </div>
+
+  <h3>Step 5 — Run the Workflow</h3>
+  <ol>
+    <li>Click <strong>Run</strong>. The runner executes 20 workflow iterations with concurrency 3.</li>
+    <li>Watch the live stats panel. The three HTTP nodes execute for each iteration.</li>
+    <li>When complete, a summary with <strong>SLA Results</strong> appears.</li>
+  </ol>
+
+  <div class="page-break"></div>
+
+  <h3>Step 6 — Inspect Results in the Results Explorer</h3>
+  <ol>
+    <li>In the run summary panel, view the <strong>SLA Results</strong> block. Each target shows its measured value and a Pass (✅) or Fail (❌) badge.</li>
+    <li>Click <strong>Open in Results Explorer</strong> (or navigate to the <strong>Results</strong> tab and select the run).</li>
+    <li>In the Results Explorer:
+      <ul>
+        <li>The <strong>Diagram view</strong> shows each node coloured by its pass/fail status and response time heat.</li>
+        <li>The <strong>Metrics table</strong> shows per-node p50/p95/p99 and total requests.</li>
+        <li>The <strong>SLA Summary card</strong> shows pass/fail counts and the measured values vs. limits.</li>
+      </ul>
+    </li>
+    <li>If you set the override to 500 ms in Step 4, the p95 row will show ❌ Fail. Remove the override, re-run, and confirm it becomes ✅ Pass.</li>
+  </ol>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tip</strong>
+    Use the <strong>Timeline View</strong> (Gantt Chart) to see how individual node durations stack across iterations. This is useful for finding which node is the bottleneck.
+  </div>
+
+  <h3>Step 7 — Export the Workflow Definition</h3>
+  <ol>
+    <li>In the Workflow Designer, click <strong>Export</strong> → <strong>Export as JSON</strong>.</li>
+    <li>Save the file as <code>workflow-sla-monitor.json</code>.</li>
+    <li>Open the file in a text editor and confirm it contains a top-level <code>"slaTargets"</code> array with two entries.</li>
+  </ol>
+
+  <h3>Step 8 — Run via CLI</h3>
+  <p>Open a terminal and run:</p>
+  <pre>redfireforge workflow workflow-sla-monitor.json -c 3 -i 20 -o workflow-sla-results.json</pre>
+  <p>Flags:</p>
+  <table>
+    <thead>
+      <tr><th>Flag</th><th>Value</th><th>Meaning</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>-c 3</code></td><td>3</td><td>Concurrency — 3 parallel workflow instances.</td></tr>
+      <tr><td><code>-i 20</code></td><td>20</td><td>Iterations — 20 complete workflow runs.</td></tr>
+      <tr><td><code>-o workflow-sla-results.json</code></td><td>path</td><td>Output — save the replay result to this file.</td></tr>
+    </tbody>
+  </table>
+  <p>The CLI prints a per-node summary and SLA pass/fail for each target. The full replay JSON is written to <code>workflow-sla-results.json</code>.</p>
+
+  <div class="callout">
+    <strong>ℹ️ CLI command for workflows</strong>
+    Use <code>redfireforge workflow</code> (not <code>redfireforge run</code>) to execute a workflow definition file.
+  </div>
+
+  <h3>Step 9 — Re-import CLI Results into the UI</h3>
+  <ol>
+    <li>Switch to the <strong>Results</strong> tab in RedfireForge.</li>
+    <li>Click <strong>📂 Import Workflow Replay</strong>.</li>
+    <li>Browse to <code>workflow-sla-results.json</code> and confirm.</li>
+    <li>The Results Explorer opens with the imported replay. All SLA evaluations are shown exactly as produced by the CLI.</li>
+    <li>Compare the CLI run with your earlier UI run (Step 5). Under the same network conditions, percentile values should be similar.</li>
+  </ol>
+
+  <div class="callout callout-tip">
+    <strong>💡 CI/CD tip</strong>
+    Run <code>redfireforge workflow ... -o results.json</code> in a CI pipeline, upload <code>results.json</code> as a build artifact, and import it locally after a deployment to visually audit performance without re-running the workflow.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- Section 6 -->
+  <h2>6. Try It Yourself</h2>
+
+  <h4>Exercise 1 — Force a Failure</h4>
+  <p>Open the SLA Override panel and set the aggregate p95 limit to <code>10</code> ms. Run the workflow. Confirm the ❌ Fail badge appears. Then remove the override and re-run to restore the ✅ Pass state.</p>
+
+  <h4>Exercise 2 — Add a New SLA Target in the Designer</h4>
+  <p>Open the workflow in the Designer and add a new workflow-level SLA target: <strong>p99 ≤ 1200 ms</strong>. Re-run and check whether the new target passes alongside the existing two.</p>
+
+  <h4>Exercise 3 — CLI with Higher Load</h4>
+  <p>Run from the CLI with <code>-c 10 -i 100</code>. How does higher concurrency affect the p95? Import the results and compare with the <code>-c 3 -i 20</code> run using the side-by-side comparison feature.</p>
+
+  <h4>Exercise 4 — Extend the Workflow</h4>
+  <p>In the Workflow Designer, add a fourth HTTP node after "Create Post": <code>GET /posts/{{newPost.id}}</code> to verify the newly created post is readable. Does the new node increase the aggregate p95?</p>
+
+  <h4>Exercise 5 — Combine with Test Runner</h4>
+  <p>Complete the <em>SLA Targets in Test Runner</em> manual and run both the test sample and the workflow sample. Compare the SLA pass/fail patterns. Both use the same JSONPlaceholder API — do they report similar latencies?</p>
+
+  <div class="callout">
+    <strong>📋 Note</strong>
+    The gallery sample is always the original version. Modify freely in your workspace — return to the Gallery to re-import a clean copy if needed.
+  </div>
+
+  <footer>
+    RedfireForge Training Manual — SLA Targets in Workflow Runner · May 2025
+  </footer>
+
+</body>
+</html>
