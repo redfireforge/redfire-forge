@@ -47,14 +47,14 @@ export function RunComparisonPanel({ baselineRun, currentRun, thresholds, baseli
     setShowExportMenu(false);
     const md = generateComparisonMarkdown(comparison, baselineLabel);
     const blob = new Blob([md], { type: 'text/markdown' });
-    saveFile(blob, { filename: 'comparison-report.md', mimeType: 'text/markdown' });
+    void saveFile(blob, { filename: 'comparison-report.md', mimeType: 'text/markdown' });
   };
 
   const handleExportJson = () => {
     setShowExportMenu(false);
     const json = generateComparisonJson(comparison, baselineLabel);
     const blob = new Blob([json], { type: 'application/json' });
-    saveFile(blob, { filename: 'comparison-report.json', mimeType: 'application/json' });
+    void saveFile(blob, { filename: 'comparison-report.json', mimeType: 'application/json' });
   };
 
   // Reset rename UI whenever the baseline being compared changes.
