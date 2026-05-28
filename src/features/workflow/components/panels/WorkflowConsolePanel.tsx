@@ -4,6 +4,8 @@ import type { WorkflowRunStepSummary } from '../../hooks/useWorkflowRunCache';
 import { type ConsoleRunBehavior, saveConsoleRunBehavior } from '../../utils/workflowSessionStorage';
 import ConsoleLogLine from '../../../../shared/components/ConsoleLogLine';
 import { type PanelMode, loadPanelMode, savePanelMode } from '../../../../shared/utils/panelMode';
+import { useFloatingPanel } from '../../../../shared/hooks/useFloatingPanel';
+import { useCopyToClipboard } from '../../../../shared/hooks/useCopyToClipboard';
 
 type LogLevel = 'all' | 'error' | 'info' | 'request';
 
@@ -53,12 +55,6 @@ function TimelineStep({ step, depth = 0 }: { step: WorkflowRunStepSummary; depth
 
 const CONSOLE_MODE_KEY = 'wf-console-default-mode';
 
-const MIN_DOCKED_H = 80;
-const MAX_DOCKED_H = 600;
-const DEFAULT_DOCKED_H = 200;
-const MIN_FLOAT_W = 320;
-const MIN_FLOAT_H = 180;
-
 interface Props {
   lines: ConsoleLine[];
   onClear: () => void;
@@ -71,26 +67,19 @@ interface Props {
 
 export default function WorkflowConsolePanel({ lines, onClear, onClose, stepSummaries = [], runBehavior, onRunBehaviorChange }: Props) {
   const [mode, setMode] = useState<PanelMode>(() => loadPanelMode(CONSOLE_MODE_KEY));
-  const [dockedHeight, setDockedHeight] = useState(DEFAULT_DOCKED_H);
+  const {
+    dockedHeight, floatPos, floatSize,
+    onDockedResizeStart, onFloatDragStart, onFloatResizeStart, onRightEdgeResizeStart,
+  } = useFloatingPanel({ defaultDockedHeight: 200, floatHeightRatio: 0.8 });
   const [viewMode, setViewMode] = useState<'log' | 'timeline'>('log');
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [currentMatchIdx, setCurrentMatchIdx] = useState(0);
   const [logLevel, setLogLevel] = useState<LogLevel>('all');
   const [showTimestamps, setShowTimestamps] = useState(true);
-  const [copyFeedback, setCopyFeedback] = useState(false);
+  const [copyFeedback, copyLogsToClipboard] = useCopyToClipboard(1500);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const lineRefsMap = useRef<Map<number, HTMLDivElement>>(new Map());
-
-  // ── Floating state ──
-  const [floatPos, setFloatPos] = useState(() => ({
-    x: Math.round(window.innerWidth * 0.15),
-    y: Math.round(window.innerHeight * 0.1),
-  }));
-  const [floatSize, setFloatSize] = useState(() => ({
-    w: Math.max(MIN_FLOAT_W, Math.round(window.innerWidth * 0.45)),
-    h: Math.max(MIN_FLOAT_H, Math.round(window.innerHeight * 0.8)),
-  }));
 
   // ── Auto-scroll ──
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -124,116 +113,6 @@ export default function WorkflowConsolePanel({ lines, onClear, onClose, stepSumm
     const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 30;
     autoScrollRef.current = atBottom;
   };
-
-  // ── Docked resize (drag top edge) ──
-  const dockedDragRef = useRef<{ startY: number; startH: number } | null>(null);
-
-  const onDockedResizeStart = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    dockedDragRef.current = { startY: e.clientY, startH: dockedHeight };
-    document.body.style.cursor = 'row-resize';
-    document.body.style.userSelect = 'none';
-  }, [dockedHeight]);
-
-  useEffect(() => {
-    const onMove = (e: MouseEvent) => {
-      if (!dockedDragRef.current) return;
-      const delta = dockedDragRef.current.startY - e.clientY;
-      setDockedHeight(Math.max(MIN_DOCKED_H, Math.min(MAX_DOCKED_H, dockedDragRef.current.startH + delta)));
-    };
-    const onUp = () => {
-      if (dockedDragRef.current) {
-        dockedDragRef.current = null;
-        document.body.style.cursor = '';
-        document.body.style.userSelect = '';
-      }
-    };
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
-    return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
-  }, []);
-
-  // ── Floating drag (title bar) ──
-  const floatDragRef = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
-
-  const onFloatDragStart = useCallback((e: React.MouseEvent) => {
-    if ((e.target as HTMLElement).closest('button, select, input')) return;
-    e.preventDefault();
-    floatDragRef.current = { startX: e.clientX, startY: e.clientY, origX: floatPos.x, origY: floatPos.y };
-    document.body.style.cursor = 'grabbing';
-    document.body.style.userSelect = 'none';
-  }, [floatPos]);
-
-  useEffect(() => {
-    const onMove = (e: MouseEvent) => {
-      if (!floatDragRef.current) return;
-      const dx = e.clientX - floatDragRef.current.startX;
-      const dy = e.clientY - floatDragRef.current.startY;
-      setFloatPos({ x: Math.max(0, floatDragRef.current.origX + dx), y: Math.max(0, floatDragRef.current.origY + dy) });
-    };
-    const onUp = () => {
-      if (floatDragRef.current) {
-        floatDragRef.current = null;
-        document.body.style.cursor = '';
-        document.body.style.userSelect = '';
-      }
-    };
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
-    return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
-  }, []);
-
-  // ── Floating resize (bottom-right corner) ──
-  const floatResizeRef = useRef<{ startX: number; startY: number; origW: number; origH: number } | null>(null);
-
-  const onFloatResizeStart = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    floatResizeRef.current = { startX: e.clientX, startY: e.clientY, origW: floatSize.w, origH: floatSize.h };
-    document.body.style.cursor = 'nwse-resize';
-    document.body.style.userSelect = 'none';
-  }, [floatSize]);
-
-  // ── Floating resize (right edge — horizontal only) ──
-  const floatEdgeResizeRef = useRef<{ startX: number; origW: number } | null>(null);
-
-  const onRightEdgeResizeStart = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    floatEdgeResizeRef.current = { startX: e.clientX, origW: floatSize.w };
-    document.body.style.cursor = 'ew-resize';
-    document.body.style.userSelect = 'none';
-  }, [floatSize]);
-
-  useEffect(() => {
-    const onMove = (e: MouseEvent) => {
-      if (floatResizeRef.current) {
-        const dx = e.clientX - floatResizeRef.current.startX;
-        const dy = e.clientY - floatResizeRef.current.startY;
-        setFloatSize({
-          w: Math.max(MIN_FLOAT_W, floatResizeRef.current.origW + dx),
-          h: Math.max(MIN_FLOAT_H, floatResizeRef.current.origH + dy),
-        });
-      } else if (floatEdgeResizeRef.current) {
-        const dx = e.clientX - floatEdgeResizeRef.current.startX;
-        setFloatSize(prev => ({
-          ...prev,
-          w: Math.max(MIN_FLOAT_W, floatEdgeResizeRef.current!.origW + dx),
-        }));
-      }
-    };
-    const onUp = () => {
-      if (floatResizeRef.current || floatEdgeResizeRef.current) {
-        floatResizeRef.current = null;
-        floatEdgeResizeRef.current = null;
-        document.body.style.cursor = '';
-        document.body.style.userSelect = '';
-      }
-    };
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
-    return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
-  }, []);
 
   // ── Mode actions ──
   const setAsDefault = (m: PanelMode) => savePanelMode(CONSOLE_MODE_KEY, m);
@@ -295,11 +174,8 @@ export default function WorkflowConsolePanel({ lines, onClear, onClose, stepSumm
         return `${ts ? ts + ' ' : ''}${l.prefix ? l.prefix + ' ' : ''}${l.text}`;
       })
       .join('\n');
-    navigator.clipboard.writeText(text).then(() => {
-      setCopyFeedback(true);
-      setTimeout(() => setCopyFeedback(false), 1500);
-    });
-  }, [filteredLines]);
+    void copyLogsToClipboard(text);
+  }, [filteredLines, copyLogsToClipboard]);
 
   // ── Level counts ──
   const levelCounts = useMemo(() => ({

@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import type { Scenario, TestScenario, FeatureGroup, SharedDataSource, AuthConfig, ScenarioKind } from '../../../shared/types';
+import type { Scenario, TestScenario, FeatureGroup, SharedDataSource, AuthConfig, ScenarioKind, SlaTarget } from '../../../shared/types';
 import type { TestDefinitionVersion } from '../../../shared/types';
 import { emptyTest } from '../utils/testEditorUtils';
 import { autoSaveVersion } from '../utils/testDefinitionVersioning';
@@ -195,6 +195,41 @@ export function useScenarioMutations({
     ));
     setEditingScenarioName(null);
     setEditName('');
+  };
+
+  // ── SLA Targets ──
+
+  const updateScenarioSlaTargets = (fgId: string, scId: string, targets: SlaTarget[]) => {
+    setFeatureGroups((prev) => prev.map((fg) =>
+      fg.id !== fgId ? fg : {
+        ...fg,
+        scenarios: fg.scenarios.map((sc) =>
+          sc.id !== scId ? sc : { ...sc, slaTargets: targets }
+        ),
+      }
+    ));
+  };
+
+  const updateFeatureGroupSlaTargets = (fgId: string, targets: SlaTarget[]) => {
+    setFeatureGroups((prev) => prev.map((fg) =>
+      fg.id !== fgId ? fg : { ...fg, slaTargets: targets }
+    ));
+  };
+
+  const updateTestSlaTargets = (fgId: string, scId: string, testId: string, targets: SlaTarget[]) => {
+    setFeatureGroups((prev) => prev.map((fg) =>
+      fg.id !== fgId ? fg : {
+        ...fg,
+        scenarios: fg.scenarios.map((sc) =>
+          sc.id !== scId ? sc : {
+            ...sc,
+            tests: sc.tests.map((t) =>
+              t.id !== testId ? t : { ...t, slaTargets: targets }
+            ),
+          }
+        ),
+      }
+    ));
   };
 
   // ── Auth ──
@@ -483,6 +518,8 @@ export function useScenarioMutations({
     addFeatureGroup, assignFeatureGroup, removeFeatureGroup, renameFeatureGroup,
     // Scenario
     addScenario, removeScenario, renameScenario,
+    // SLA Targets
+    updateScenarioSlaTargets, updateFeatureGroupSlaTargets, updateTestSlaTargets,
     // Auth
     updateFeatureAuth, toggleFeatureAuth,
     updateScenarioAuth, toggleScenarioAuth,

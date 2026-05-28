@@ -298,7 +298,9 @@ describe('notifyResume', () => {
       .get('/api/correlations/notify-test/wait')
       .query({ timeoutMs: 5000 });
 
-    await new Promise(resolve => setTimeout(resolve, 100));
+    // Wait long enough for the HTTP request to be fully received and the
+    // resolver to be parked in resumeWaiters (even under coverage overhead).
+    await new Promise(resolve => setTimeout(resolve, 500));
 
     notifyResume('notify-test', {
       executionId: 'exec-notify',

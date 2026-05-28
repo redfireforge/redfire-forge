@@ -37,9 +37,9 @@
 
 | ID | Feature | Status | Notes |
 |----|---------|--------|-------|
-| R-0.7.5-1 | **CI Test Pipeline** — GitHub Actions: `npm test` on every push/PR | `BACKLOG` | Critical for open-source launch |
+| R-0.7.5-1 | **CI Test Pipeline** — GitHub Actions: `npm test` on every push/PR | `IN PROGRESS` | `ci.yml` exists: runs `tsc`, ESLint, and unit tests on push/PR. Remaining: E2E in CI, PR status checks configured as required. |
 | R-0.7.5-2 | **CI E2E Pipeline** — GitHub Actions: Playwright E2E on every PR | `BACKLOG` | Needs headless browser in CI |
-| R-0.7.5-3 | **Lint & Type-Check Gate** — `eslint` + `tsc --noEmit` as required PR checks | `BACKLOG` | |
+| R-0.7.5-3 | **Lint & Type-Check Gate** — `eslint` + `tsc --noEmit` as required PR checks | `IN PROGRESS` | Pre-commit hook (husky: `tsc -b --noEmit` + `lint-staged`) + CI parallel jobs exist. Remaining: configure as required GitHub branch-protection PR checks. |
 | R-0.7.5-4 | **PR Status Checks** — Require all CI jobs to pass before merge | `BACKLOG` | GitHub branch protection rules |
 | R-0.7.5-5 | **GitHub Actions Example for Users** — Ready-to-use CI YAML for RedfireForge CLI | `BACKLOG` | |
 | R-0.7.5-6 | **Harness.io Pipeline Example** — Sample Harness pipeline with JUnit + Test Intelligence | `BACKLOG` | |
@@ -50,19 +50,19 @@
 
 | ID | Feature | Status | Notes |
 |----|---------|--------|-------|
-| R-0.9.1-1 | **Tauri Sidecar Executor** — Rust sidecar (`reqwest` + `tokio`) for 5–10x throughput | `BACKLOG` | Depends on Tauri v2 sidecar API |
-| R-0.9.1-2 | **Constant Request Rate Mode** — Open model: N RPS regardless of response time | `BACKLOG` | k6's killer feature |
+| R-0.9.1-1 | **Tauri Sidecar Executor** — Rust sidecar (`reqwest` + `tokio`) for 5–10x throughput | `DONE` | Completed Phase 11.5 — full Rust HTTP executor (`reqwest` + `tokio`) with pool/sequential/load-profile modes, validation engine in Rust, 542+ Rust tests; `canUseRustExecutor` auto-detection with JS fallback. |
+| R-0.9.1-2 | **Constant Request Rate Mode** — Open model: N RPS regardless of response time | `DONE` | Completed Phase 11.6 — `arrival_executor.rs` with interval-based dispatch, configurable `maxInFlight`, ramp-up, backpressure, cancellation; `droppedRequests`/`peakRps`/`targetRps` on `TestSummary`. |
 | R-0.9.1-3 | **Graceful Drain** — Wait for in-flight requests on abort/profile end | `BACKLOG` | Low effort, medium value |
 
 ### 1.4 Phase 0.11.0 — Run Comparison & Trends (5 items, 0 done)
 
 | ID | Feature | Status | Notes |
 |----|---------|--------|-------|
-| R-0.11.0-1 | **Run Comparison** — Side-by-side TPS/P95/P99 delta with indicators | `BACKLOG` | Most-requested analytics feature |
-| R-0.11.0-2 | **Overlaid Histograms** — Response time distribution overlay | `BACKLOG` | |
-| R-0.11.0-3 | **Baseline Runs** — Mark run as baseline, auto-compare future runs | `BACKLOG` | |
-| R-0.11.0-4 | **Regression Detection** — Alert when P95 increases by X% vs baseline | `BACKLOG` | Integrates with CI exit codes |
-| R-0.11.0-5 | **Trend Analysis** — P95 trend across last N runs | `BACKLOG` | |
+| R-0.11.0-1 | **Run Comparison** — Side-by-side TPS/P95/P99 delta with indicators | `DONE` | `RunComparisonPanel.tsx` with delta badges, colour-coded indicators, `results-comparison-guide.md`. |
+| R-0.11.0-2 | **Overlaid Histograms** — Response time distribution overlay | `DONE` | `ResponseTimeOverlayHistogram` imported into `RunComparisonPanel`. |
+| R-0.11.0-3 | **Baseline Runs** — Mark run as baseline, auto-compare future runs | `DONE` | `runBaselines.ts` — `BaselineMark`, `markAsBaseline()`, `isBaseline()`, label persistence. |
+| R-0.11.0-4 | **Regression Detection** — Alert when P95 increases by X% vs baseline | `DONE` | `RegressionAlert` type; regression banner in `RunComparisonPanel`; configurable threshold. |
+| R-0.11.0-5 | **Trend Analysis** — P95 trend across last N runs | `DONE` | `TrendChart` component in `RunComparisonPanel`; `TrendPoint` type in `runBaselines.ts`. |
 
 ### 1.5 Phase 1.0.0 — Open-Source Launch (14 items, 0 done)
 
@@ -91,9 +91,9 @@
 
 | ID | Feature | Description | Complexity | Priority | Status |
 |----|---------|-------------|------------|----------|--------|
-| E-1 | **Native Rust Executor** | Full HTTP engine in Rust (`hyper`/`reqwest` + `tokio`). Tauri sidecar with IPC event bridge. 10–50x throughput. | Very High | High | `BACKLOG` |
-| E-2 | **Constant Arrival Rate (Advanced)** | Automatic worker scaling to maintain target RPS. Queue-based dispatching with backpressure. | High | High | `BACKLOG` |
-| E-3 | **Streaming Percentiles** | T-Digest or HDR Histogram for P50/P95/P99 without storing every datapoint. Handles 100K+ results. | Medium | Medium | `BACKLOG` |
+| E-1 | **Native Rust Executor** | Full HTTP engine in Rust (`hyper`/`reqwest` + `tokio`). Tauri sidecar with IPC event bridge. 10–50x throughput. | Very High | High | `DONE` — Phase 11.5. `reqwest` + `tokio` async runtime; full Rust validation engine; 542+ Rust tests; JS-side bridge; `canUseRustExecutor` auto-detection. |
+| E-2 | **Constant Arrival Rate (Advanced)** | Automatic worker scaling to maintain target RPS. Queue-based dispatching with backpressure. | High | High | `DONE` — Phase 11.6. `arrival_executor.rs`; configurable target RPS, duration, max-in-flight, ramp period; backpressure with dropped-request tracking. |
+| E-3 | **Streaming Percentiles** | T-Digest or HDR Histogram for P50/P95/P99 without storing every datapoint. Handles 100K+ results. | Medium | Medium | `DONE` — Phase 11.6. `histogram.rs` using HDR Histogram; P50/P95/P99/P99.9; `p999ResponseTime` on `TestSummary`; 304 Rust tests. |
 | E-4 | **Distributed Execution** | Multi-machine load generation via controller/worker architecture. | Very High | Medium | `BACKLOG` |
 | E-5 | **Response Streaming** | Stream large response bodies to disk instead of buffering in memory. | Medium | Low | `BACKLOG` |
 
@@ -103,11 +103,11 @@
 
 | ID | Feature | Description | Complexity | Priority | Status |
 |----|---------|-------------|------------|----------|--------|
-| T-1 | **Run Comparison** | Side-by-side comparison of two runs (TPS, P95, P99 deltas, overlaid histograms). | Medium | High | `BACKLOG` |
-| T-2 | **Baseline Runs** | Mark a run as "baseline" and auto-compare future runs with delta badges. | Medium | High | `BACKLOG` |
-| T-3 | **Regression Detection** | Alert when P95 increases by configurable % vs baseline. CI exit code integration. | Medium | High | `BACKLOG` |
-| T-4 | **Trend Analysis** | P95/P99/TPS trend chart across last N runs for same test/workflow. | Medium | Medium | `BACKLOG` |
-| T-5 | **SLA Dashboard** | Persistent SLA targets; traffic light dashboard (pass/warn/fail). | Medium | Medium | `BACKLOG` |
+| T-1 | **Run Comparison** | Side-by-side comparison of two runs (TPS, P95, P99 deltas, overlaid histograms). | Medium | High | `DONE` — `RunComparisonPanel.tsx`; delta badges with colour indicators; `ResponseTimeOverlayHistogram`; `results-comparison-guide.md`. |
+| T-2 | **Baseline Runs** | Mark a run as "baseline" and auto-compare future runs with delta badges. | Medium | High | `DONE` — `runBaselines.ts` with `BaselineMark`, `markAsBaseline()`, `isBaseline()`, label editing; integrated into `RunComparisonPanel`. |
+| T-3 | **Regression Detection** | Alert when P95 increases by configurable % vs baseline. CI exit code integration. | Medium | High | `DONE` — `RegressionAlert` type; regression severity banner (warning / critical) in `RunComparisonPanel`; configurable threshold. |
+| T-4 | **Trend Analysis** | P95/P99/TPS trend chart across last N runs for same test/workflow. | Medium | Medium | `DONE` — `TrendChart` component; `TrendPoint` type in `runBaselines.ts`. |
+| T-5 | **SLA Dashboard** | Definition-first SLA targets; compact bar + tree accordion (pass/warn/fail); per-test/scenario/FG targets; CLI `--fail-on-sla`. | Medium | Medium | `DONE` — All phases complete (original 1–5, Scoped A–E, Per-Test B10–B16, Results Refactor C–D, Code Cleanup CC-1/2/3/5). 109 `slaTargets` tests, 20,221 total tests passing. See [sla-dashboard-plan.md](./sla-dashboard-plan.md). |
 
 ---
 
@@ -145,7 +145,7 @@
 | X-3 | **Slack/Teams Notifications** | Post results summary to Slack or Teams via webhook. | Low | Medium | `BACKLOG` |
 | X-4 | **Datadog/Grafana Export** | Push TPS/P95/error-rate to observability platforms. | Medium | Medium | `BACKLOG` |
 | X-5 | **Harness.io Integration** | Pipeline template: run tests → JUnit XML → Test Intelligence → deployment gate. | Medium | Medium | `BACKLOG` |
-| X-6 | **Test Tagging & Filtering** | Custom tags (`smoke`, `regression`, `critical`); filter in UI and CLI. | Low | High | `BACKLOG` |
+| X-6 | **Test Tagging & Filtering** | Custom tags (`smoke`, `regression`, `critical`); filter in UI and CLI. | Low | High | `DONE` — `useScenarioTags.ts` (add/remove/bulk/clear, `tagSuggestions`, `tagCounts`); tag pills in Scenario Builder with custom dark dropdown; tag filter in Test Runner and Parameterized Runner; `test-tagging-plan.md` moved to `finished/`. |
 
 ---
 
@@ -154,7 +154,7 @@
 | ID | Feature | Description | Complexity | Priority | Status |
 |----|---------|-------------|------------|----------|--------|
 | U-1 | **Real Screenshot Guides** | Replace ASCII diagrams with actual UI screenshots. Auto-capture via Playwright. | Medium | Low | `BACKLOG` |
-| U-2 | **Dark Mode** | Full dark theme with toggle and system preference detection. | Medium | Medium | `BACKLOG` |
+| U-2 | **Dark Mode** | Full dark theme with toggle and system preference detection. | Medium | Medium | `IN PROGRESS` — 12-theme picker (dark + light variants, accent colours) with toggle in `AppHeader`; `useTheme` hook with localStorage persistence. Remaining: `prefers-color-scheme` system preference auto-detection. |
 | U-3 | **Keyboard Shortcuts (Extended)** | Comprehensive shortcuts for common actions (run, save, navigate, search). | Low | Medium | `BACKLOG` |
 | U-4 | **Undo/Redo** | Global undo/redo for workflow editor (node add/remove/move, edge changes, properties). | High | Medium | `BACKLOG` |
 | U-5 | **Collaborative Editing** | Multi-user real-time editing via CRDT (Yjs) for workflows and test definitions. | Very High | Low | `BACKLOG` |
@@ -226,7 +226,7 @@
 | 2026-05-07 | Plan review | Tauri desktop CLI `--cli` should support all Node CLI options | **DONE** (fixed 2026-05-07) |
 | 2026-05-07 | Plan review | `workflow-cli-conditional.yaml` missing edges | **DONE** (fixed 2026-05-07) |
 | 2026-05-07 | Plan review | `run-basic-test.sh` missing `mkdir -p results` | **DONE** (fixed 2026-05-07) |
-| | | | |
+| 2026-05-20 | Feature branch | Trash Box — soft-delete & recovery (FG/Scenario/Test/SDS → trash, 5s undo toast, Trash Panel with restore/permanent-delete/empty, configurable retention 7–90 days, max items 50–200, auto-purge on startup, IDB + localStorage + Tauri FS dual-mode storage, gallery sample + training manual + user guide) | **DONE** (2026-05-20) |
 
 ---
 
@@ -234,32 +234,61 @@
 
 ```
 ━━━ Critical Path to Launch ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  ① O-1   CI Test Pipeline              — gate for open-source
+  ① O-1   CI Test Pipeline (complete CI + E2E + PR gates) — gate for open-source
   ② O-2   Live Demo                     — gate for adoption
   ③ O-8   npm Package Publish           — unblocks CLI distribution
   ④ O-5   README Rewrite                — first impression
   ⑤ O-6   CONTRIBUTING.md               — contributor onboarding
 
 ━━━ High Value, Moderate Effort ━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  ⑥ T-1   Run Comparison                — most-requested feature
-  ⑦ X-6   Test Tagging & Filtering      — low effort, high value
-  ⑧ W-6   Data-Driven Workflows         — unlock parameterized workflows
-  ⑨ T-2   Baseline Runs                 — regression workflow
-  ⑩ T-3   Regression Detection          — CI/CD quality gate
+  ⑥ T-5   SLA Dashboard                 — persistent targets, traffic-light view
+  ⑦ W-6   Data-Driven Workflows         — unlock parameterized workflows
+  ⑧ U-2   System Preference Detection   — complete dark mode (auto-theme)
+  ⑨ P-1   GraphQL Support               — expand protocol coverage
+  ⑩ O-3   Documentation Site            — community growth
+
+━━━ Already DONE (remove on next cleanup) ━━━━━━━━━━━━━━━━━
+  ✅ X-6   Test Tagging & Filtering
+  ✅ T-1   Run Comparison
+  ✅ T-2   Baseline Runs
+  ✅ T-3   Regression Detection
+  ✅ T-4   Trend Analysis
+  ✅ E-1   Native Rust Executor
+  ✅ E-2   Constant Arrival Rate
+  ✅ E-3   Streaming Percentiles
+  ✅ R-0.9.1-1  Tauri Sidecar Executor
+  ✅ R-0.9.1-2  Constant Request Rate Mode
+  ✅ R-0.11.0-1–5  All Run Comparison & Trend items
 
 ━━━ Architecture Leaps ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  ⑪ E-1   Native Rust Executor          — Good → Excellent
-  ⑫ E-2   Constant Arrival Rate         — k6 parity
-  ⑬ P-1   GraphQL Support               — expand protocol coverage
-  ⑭ O-3   Documentation Site            — community growth
+  ⑪ E-4   Distributed Execution         — enterprise scale
+  ⑫ X-1   Plugin API                    — ecosystem growth
+  ⑬ P-2   gRPC Support                  — microservice testing
 
 ━━━ Long Term ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  ⑮ E-4   Distributed Execution         — enterprise scale
-  ⑯ X-1   Plugin API                    — ecosystem growth
-  ⑰ P-2   gRPC Support                  — microservice testing
-  ⑱ U-4   Undo/Redo                     — workflow UX
-  ⑲ U-5   Collaborative Editing         — team features
+  ⑭ U-4   Undo/Redo                     — workflow UX
+  ⑮ U-5   Collaborative Editing         — team features
+  ⑯ E-5   Response Streaming            — large body handling
 ```
+
+---
+
+## 11. SLA Configuration Architecture Refactor
+
+> **Added: 2026-05-24** | **Details:** [sla-dashboard-plan.md § 12](./sla-dashboard-plan.md#3-active-plan--definition-first-architecture-refactor)
+
+**Problem**: SLA targets are configured post-run in Results — architecturally inverted. SLA is a pre-run acceptance criterion, not a post-hoc observation. Industry tools (k6, Gatling, Artillery) all co-locate thresholds with the test definition.
+
+**Decision (2026-05-24)**: Option 1 — definition-first. `TestScenario.slaTargets[]` is the primary home. Runner provides environment-specific override only. See [sla-dashboard-plan.md § 12](./sla-dashboard-plan.md#3-active-plan--definition-first-architecture-refactor) for full detail.
+
+| Phase | Status | Summary |
+|-------|--------|---------|
+| Phase A — Workflow Definition SLA | `DONE` | `WorkflowSlaPanel`, `SlaTargetEditor` extracted, scope badges |
+| Phase B — TestScenario/FeatureGroup SLA | `DONE` | Per-test 🎯 button + `TestSlaModal`, `ScenarioSlaPanel` summary table, runner auto-collect + override panel |
+| Phase C — Results SLA Display Refactor | `DONE` | `SlaCompactBar` replaces `SlaDashboard`; `SlaStatusAccordion` Feature→Scenario→Test tree |
+| Phase D — Results UI Polish | `DONE` | Read-only label, inline save confirmation, ⚗ Ad-hoc indicator |
+| Phase E — Migration & CLI | `DONE` | `--sla-config` / `--fail-on-sla` CLI flags (exit code 3); legacy migration code removed |
+| Code Cleanup (CC-1/2/3/5) | `DONE` | Removed `scope='workflow'`, workflow localStorage, migration banner, `SlaDashboard.tsx` |
 
 ---
 
@@ -272,5 +301,5 @@
 
 ---
 
-_Created: 2026-05-07 | Last updated: 2026-05-14_
+_Created: 2026-05-07 | Last updated: 2026-05-24 (Phase B rewrite: definition-first architecture)_
 _Related: [ROADMAP.md](../../ROADMAP.md) · [workflow-harness-integration-plan.md](./workflow-harness-integration-plan.md) · [validation-operator-gap-analysis.md](./validation-operator-gap-analysis.md)_

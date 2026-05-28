@@ -1,5 +1,8 @@
 import { test, expect, type Page } from '@playwright/test';
 
+// Persistence assertions depend on ordered localStorage/IndexedDB transitions.
+test.describe.configure({ mode: 'serial' });
+
 /**
  * Seed initial data: environments, microservices, a request collection with
  * microservice binding, and one empty workflow.

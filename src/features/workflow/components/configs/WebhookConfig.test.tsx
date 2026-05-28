@@ -101,26 +101,24 @@ describe('WebhookConfig', () => {
   });
 
   it('handles clipboard failure when copying URL', async () => {
-    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     mockClipboardWriteText.mockRejectedValueOnce(new Error('denied'));
     render(<WebhookConfig data={makeData()} onChange={vi.fn()} workflowId="wf1" nodeId="n1" />);
     await act(async () => {
       fireEvent.click(screen.getByText('Copy'));
     });
-    expect(errSpy).toHaveBeenCalled();
-    errSpy.mockRestore();
+    // Hook silently swallows clipboard errors — button should still show 'Copy'
+    expect(screen.getByText('Copy')).toBeTruthy();
     mockClipboardWriteText.mockResolvedValue(undefined);
   });
 
   it('handles clipboard failure when copying cURL', async () => {
-    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     mockClipboardWriteText.mockRejectedValueOnce(new Error('denied'));
     render(<WebhookConfig data={makeData()} onChange={vi.fn()} workflowId="wf1" nodeId="n1" />);
     await act(async () => {
       fireEvent.click(screen.getByText('Copy cURL'));
     });
-    expect(errSpy).toHaveBeenCalled();
-    errSpy.mockRestore();
+    // Hook silently swallows clipboard errors — button should still show 'Copy cURL'
+    expect(screen.getByText('Copy cURL')).toBeTruthy();
     mockClipboardWriteText.mockResolvedValue(undefined);
   });
 
@@ -179,20 +177,18 @@ describe('WebhookConfig', () => {
 
   it('handles clipboard writeText failure gracefully for URL copy', async () => {
     mockClipboardWriteText.mockRejectedValueOnce(new Error('Clipboard denied'));
-    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
     render(<WebhookConfig data={makeData()} onChange={vi.fn()} workflowId="wf1" nodeId="n1" />);
-    fireEvent.click(screen.getByText('Copy'));
-    await vi.waitFor(() => expect(spy).toHaveBeenCalled());
-    spy.mockRestore();
+    // Should not throw — hook silently swallows clipboard errors
+    await act(async () => { fireEvent.click(screen.getByText('Copy')); await Promise.resolve(); });
+    expect(screen.getByText('Copy')).toBeTruthy();
   });
 
   it('handles clipboard writeText failure gracefully for cURL copy', async () => {
     mockClipboardWriteText.mockRejectedValueOnce(new Error('Clipboard denied'));
-    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
     render(<WebhookConfig data={makeData()} onChange={vi.fn()} workflowId="wf1" nodeId="n1" />);
-    fireEvent.click(screen.getByText('Copy cURL'));
-    await vi.waitFor(() => expect(spy).toHaveBeenCalled());
-    spy.mockRestore();
+    // Should not throw — hook silently swallows clipboard errors
+    await act(async () => { fireEvent.click(screen.getByText('Copy cURL')); await Promise.resolve(); });
+    expect(screen.getByText('Copy cURL')).toBeTruthy();
   });
 
   it('does not copy URL when webhookUrl is null', async () => {

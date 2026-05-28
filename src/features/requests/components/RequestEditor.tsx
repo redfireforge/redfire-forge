@@ -37,7 +37,7 @@ import { SpecVersionSwitcher } from './SpecVersionSwitcher';
 import { SpecVersionCompareModal } from './SpecVersionCompareModal';
 import RequestCatalogApiInfoDrawer from './RequestCatalogApiInfoDrawer';
 import { parseQueryParams, rebuildUrlEncoded } from '../../../shared/utils/queryParams';
-import { SearchMatchBar } from '../../../shared/components/SearchMatchBar';
+import ResponseBodySearchBar from './ResponseBodySearchBar';
 import { useSearchMatchNavigation } from '../../../shared/hooks/useSearchMatchNavigation';
 
 type EditorTab = 'params' | 'headers' | 'body' | 'auth' | 'history';
@@ -735,30 +735,17 @@ export default function RequestEditor({
           </div>
 
           {responseTab === 'preview' && (
-            <div className="req-resp-search">
-              <SearchMatchBar
-                value={responseSearch}
-                onChange={setResponseSearch}
-                currentMatch={searchMatchIdx + 1}
-                totalMatches={searchMatchCount}
-                onPrev={goPrevSearchMatch}
-                onNext={goNextSearchMatch}
-                onClear={() => { clearResponseSearch(); setSearchMatchCount(0); }}
-                placeholder="Search response..."
-                inputClassName="req-resp-search-input"
-                countClassName="req-resp-search-count"
-                navClassName="req-resp-search-nav"
-                clearClassName="req-resp-search-clear"
-              />
-              <button
-                className="jt-expand-collapse-btn"
-                onClick={handleExpandAll}
-              >Expand All</button>
-              <button
-                className="jt-expand-collapse-btn"
-                onClick={handleCollapseAll}
-              >Collapse All</button>
-            </div>
+            <ResponseBodySearchBar
+              value={responseSearch}
+              onChange={setResponseSearch}
+              currentMatch={searchMatchIdx + 1}
+              totalMatches={searchMatchCount}
+              onPrev={goPrevSearchMatch}
+              onNext={goNextSearchMatch}
+              onClear={() => { clearResponseSearch(); setSearchMatchCount(0); }}
+              onExpandAll={handleExpandAll}
+              onCollapseAll={handleCollapseAll}
+            />
           )}
 
           <div className="req-resp-content">

@@ -1,0 +1,107 @@
+# SLA Performance Test — jsonplaceholder.typicode.com
+# Demonstrates SLA evaluation with mix of passing and failing targets.
+#
+# Each test uses `featureGroup` and `scenario` so that imported results show
+# the same hierarchical structure as a Scenario Builder run.
+#
+# Run with SLA targets (recommended):
+#   node dist-cli/redfireforge.mjs run examples/sla-jsonplaceholder-test.yaml \
+#     --sla-config examples/sla-jsonplaceholder-targets.json \
+#     -m sequential --timeout 30 -o test-data/sla-cli-result.json
+#
+# Then import test-data/sla-cli-result.json via Results → "📥 Import Test Results"
+
+name: SLA Test Suite
+env: demo
+baseUrl: https://jsonplaceholder.typicode.com
+
+config:
+  concurrency: 3
+  iterations: 1
+
+tests:
+  - name: Get Users
+    method: GET
+    url: /users
+    featureGroup: SLA Test Suite
+    scenario: API Health Checks
+    tags: [smoke, sla]
+    assertions:
+      - type: status
+        expected: "200"
+
+  - name: Get Posts
+    method: GET
+    url: /posts
+    featureGroup: SLA Test Suite
+    scenario: API Health Checks
+    tags: [smoke, sla]
+    assertions:
+      - type: status
+        expected: "200"
+
+  - name: Get Comments
+    method: GET
+    url: /comments
+    featureGroup: SLA Test Suite
+    scenario: API Health Checks
+    tags: [sla]
+    assertions:
+      - type: status
+        expected: "200"
+
+  - name: Create Post
+    method: POST
+    url: /posts
+    featureGroup: SLA Test Suite
+    scenario: CRUD Operations
+    tags: [sla]
+    headers:
+      Content-Type: application/json
+    body: '{"title":"perf test","body":"testing","userId":1}'
+    assertions:
+      - type: status
+        expected: "201"
+
+  - name: Update Post
+    method: PUT
+    url: /posts/1
+    featureGroup: SLA Test Suite
+    scenario: CRUD Operations
+    tags: [sla]
+    headers:
+      Content-Type: application/json
+    body: '{"id":1,"title":"updated","body":"updated body","userId":1}'
+    assertions:
+      - type: status
+        expected: "200"
+
+  - name: Get Albums
+    method: GET
+    url: /albums
+    featureGroup: SLA Test Suite
+    scenario: No SLA Baseline
+    tags: [smoke]
+    assertions:
+      - type: status
+        expected: "200"
+
+  - name: Get Todos
+    method: GET
+    url: /todos
+    featureGroup: SLA Test Suite
+    scenario: No SLA Baseline
+    tags: [smoke]
+    assertions:
+      - type: status
+        expected: "200"
+
+  - name: Delete Post
+    method: DELETE
+    url: /posts/1
+    featureGroup: SLA Test Suite
+    scenario: CRUD Operations
+    tags: [sla]
+    assertions:
+      - type: status
+        expected: "200"

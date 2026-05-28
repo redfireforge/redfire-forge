@@ -1,4 +1,5 @@
-import { test, expect, type Page, type Locator } from '@playwright/test';
+import { test, expect } from './monacoCdnFixture';
+import type { Page, Locator } from '@playwright/test';
 import { seedAppData } from './helpers';
 
 const sampleResponse = {

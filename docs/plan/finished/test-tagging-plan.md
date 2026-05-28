@@ -1823,7 +1823,7 @@ After running tests, the Results Dashboard shows a tag filter bar. Click any tag
 - [x] **1A.1** Add `tags?: string[]` to `TestScenario` interface ✅ (2026-05-22)
 - [x] **1A.2** Add `scenarioTags?: string[]` to `Scenario` interface ✅ (2026-05-22)
 - [x] **1A.3** Add `scenarioTags?: string[]` to `RequestResult` interface ✅ (2026-05-22)
-- [ ] **1A.4** Write unit tests for type round-trip
+- [x] **1A.4** Write unit tests for type round-trip ✅ (2026-05-23)
 - [x] **1B.1** Add `BUILT_IN_SCENARIO_TAGS` constant ✅ (2026-05-22)
 - [x] **1B.2** Implement `filterScenariosByTags()` function ✅ (2026-05-22)
 - [x] **1B.3** Implement `collectAllScenarioTags()` function ✅ (2026-05-22)
@@ -1904,7 +1904,7 @@ After running tests, the Results Dashboard shows a tag filter bar. Click any tag
 - [ ] **5C.2** Register in gallery index
 - [ ] **5D.1** Write user guide
 - [ ] **5D.2** Update ROADMAP.md
-- [ ] **5D.3** Update CHANGELOG.md
+- [x] **5D.3** Update CHANGELOG.md ✅ (2026-05-23)
 - [x] Run `npx tsc -b --noEmit` — 0 errors ✅ (2026-05-22)
 - [ ] Run `npx vitest run` — 0 failures, >90% coverage
 
