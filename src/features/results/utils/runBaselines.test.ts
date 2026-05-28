@@ -557,6 +557,18 @@ describe('computePerScenarioTrend', () => {
     expect(points[0].timestamp).toBe(500);
     expect(points[1].timestamp).toBe(1000);
   });
+
+  it('isBaseline is true for baseline run, false for non-baseline', () => {
+    const r1 = { ...makeRun('r1', {}, [makeResult('Login', 100)]), timestamp: 1000 };
+    const r2 = { ...makeRun('r2', {}, [makeResult('Login', 110)]), timestamp: 2000 };
+    const baselines: BaselineMark[] = [{ runId: 'r1', markedAt: 1 }];
+    const result = computePerScenarioTrend([r1, r2], r1, 'all', baselines);
+    const points = result.data['s0'];
+    const pt1 = points.find((p) => p.runId === 'r1');
+    const pt2 = points.find((p) => p.runId === 'r2');
+    expect(pt1?.isBaseline).toBe(true);
+    expect(pt2?.isBaseline).toBe(false);
+  });
 });
 
 // ── Sprint 2: computeRunRegressionStatus ──────────────────────────────────

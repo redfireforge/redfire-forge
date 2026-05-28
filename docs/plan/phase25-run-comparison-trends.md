@@ -1203,3 +1203,24 @@ The `TrendChart` describe block in `RunComparisonPanel.test.tsx` had 5 tests tha
 - Full Sprint 1+2+3 suite: **1585 tests, 71 files — all passing**
 - TypeScript: 0 errors
 
+---
+
+## Sprint 2 Deep Review Pass — Round 2 (2026-05-28)
+
+### Source code — no new bugs found
+
+### Test gaps found and filled (+3 tests across 2 files)
+
+**1. `computePerScenarioTrend` — `isBaseline` flag not tested** (in `runBaselines.test.ts`): The function returns `ScenarioTrendPoint[]` with an `isBaseline: boolean` field. All existing tests passed empty `[]` baselines, so `isBaseline` was always `false`. Added test: two runs, one marked as baseline, verify `pt1.isBaseline === true`, `pt2.isBaseline === false`.
+
+**2. Scope-aware empty message** (in `RunComparisonPanel.test.tsx`): When scope filter reduces data below 2 runs, the component shows "Only X runs match this scope — try 'All runs' for a broader view." rather than the generic 2-run hint. Not previously tested. Added test: 2 runs with different `svcName`, `selectedRun=r1`, change scope to 'service' → only 1 run matches → scope message shown.
+
+**3. Metric2 overlay line renders** (in `RunComparisonPanel.test.tsx`): When metric2 is selected, a second `Line` (with `dot={false}`) is added to the overall chart. Previously no test verified it rendered. Also updated the `Line` mock so non-dot lines render `<div data-testid="chart-line" data-key={dataKey} />` (dot-function lines still render `line-with-dot`). Added test: initially no `chart-line`, after selecting metric2='tps', a `[data-testid="chart-line"][data-key="tps"]` element appears.
+
+### Post-fix test counts (Sprint 2 Round 2)
+
+- `src/features/results/utils/runBaselines.test.ts` — 57 tests (+1: isBaseline flag in ScenarioTrendPoint)
+- `src/features/results/components/RunComparisonPanel.test.tsx` — 45 tests (+2: scope-aware message, metric2 overlay line)
+- Full Sprint 1+2+3 suite: **1588 tests, 71 files — all passing**
+- TypeScript: 0 errors
+
