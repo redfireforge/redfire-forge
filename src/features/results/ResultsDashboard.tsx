@@ -205,6 +205,9 @@ export default function ResultsDashboard({ envName, svcName, onRerunFailed, isRe
     if (isBaseline(baselines, runId)) {
       const next = await unmarkBaseline(runId);
       setBaselines(next);
+      // Clear comparison if the run being unmarked is the current compare target.
+      // Use functional updater to avoid stale closure — no need to add compareBaselineId to deps.
+      setCompareBaselineId((prev) => (prev === runId ? '' : prev));
     } else {
       const next = await markAsBaseline(runId);
       setBaselines(next);
