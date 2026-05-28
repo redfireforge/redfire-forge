@@ -1089,3 +1089,23 @@ Second pass after Round 1 fixes. One logic bug and one code quality issue found.
 - Full Sprint 1+2+3 suite: **1576 tests, 71 files — all passing**
 - TypeScript: 0 errors
 
+---
+
+## Sprint 1 Deep Review Pass — Round 3 (2026-05-28)
+
+Third pass. One unit inconsistency found in the markdown export path.
+
+### Bug L — `comparisonReport.ts` Metric Deltas table uses `%` for Error Rate delta column
+
+**Problem**: `generateComparisonMarkdown` used a single `unit` variable for all three value columns (Baseline, Current, Delta). For Error Rate, `unit = '%'`, so the Delta column showed `+0.5%` instead of `+0.5 pp`. The UI (`MetricDeltaTable`) and CLI (`reporters.ts`) already used `pp` for the delta column (fixed in Bug I / prior pass), but the markdown export lagged behind.
+
+**Fix**: Split into `valueUnit` (for Baseline/Current columns, `'%'` for Error Rate) and `deltaUnit` (for Delta column, `' pp'` for Error Rate), mirroring the pattern already used in `MetricDeltaTable`.
+
+**Test added**: `'uses pp unit for Error Rate delta column in Metric Deltas table (Bug L)'` — verifies `+0.5 pp` appears in the markdown output and `+0.5%` does not.
+
+### Post-fix test counts (Round 3)
+
+- `src/features/results/utils/comparisonReport.test.ts` — 21 tests (+1: Error Rate delta column pp unit)
+- Full Sprint 1+2+3 suite: **1577 tests, 71 files — all passing**
+- TypeScript: 0 errors
+
