@@ -482,4 +482,131 @@ describe('RunComparisonPanel - edge cases', () => {
     fireEvent.click(container.querySelectorAll('.run-comparison-export-menu button')[0]);
     expect(container.querySelector('.run-comparison-export-menu')).toBeFalsy();
   });
+
+  // ── Rename interaction ────────────────────────────────────────────────────
+
+  it('clicking rename button shows rename input pre-filled with baselineLabel', () => {
+    const baseline = makeRun('b');
+    const current = makeRun('c');
+    const { container } = render(
+      <RunComparisonPanel
+        baselineRun={baseline}
+        currentRun={current}
+        baselineLabel="My Baseline"
+        onRenameBaseline={vi.fn()}
+      />,
+    );
+    const renameBtn = container.querySelector('.baseline-rename-btn') as HTMLElement;
+    fireEvent.click(renameBtn);
+    const input = container.querySelector('.baseline-rename-input') as HTMLInputElement;
+    expect(input).toBeTruthy();
+    expect(input.value).toBe('My Baseline');
+  });
+
+  it('rename blur commits and calls onRenameBaseline with trimmed value', () => {
+    const onRename = vi.fn();
+    const baseline = makeRun('b');
+    const current = makeRun('c');
+    const { container } = render(
+      <RunComparisonPanel
+        baselineRun={baseline}
+        currentRun={current}
+        baselineLabel="Old Label"
+        onRenameBaseline={onRename}
+      />,
+    );
+    fireEvent.click(container.querySelector('.baseline-rename-btn')!);
+    const input = container.querySelector('.baseline-rename-input')!;
+    fireEvent.change(input, { target: { value: '  New Label  ' } });
+    fireEvent.blur(input);
+    expect(onRename).toHaveBeenCalledWith('b', 'New Label');
+  });
+
+  it('rename Escape cancels without calling onRenameBaseline', () => {
+    const onRename = vi.fn();
+    const baseline = makeRun('b');
+    const current = makeRun('c');
+    const { container } = render(
+      <RunComparisonPanel
+        baselineRun={baseline}
+        currentRun={current}
+        baselineLabel="Old Label"
+        onRenameBaseline={onRename}
+      />,
+    );
+    fireEvent.click(container.querySelector('.baseline-rename-btn')!);
+    const input = container.querySelector('.baseline-rename-input')!;
+    fireEvent.keyDown(input, { key: 'Escape' });
+    expect(onRename).not.toHaveBeenCalled();
+    expect(container.querySelector('.baseline-rename-input')).toBeNull();
+  });
+
+  it('rename blur with empty string does not call onRenameBaseline', () => {
+    const onRename = vi.fn();
+    const baseline = makeRun('b');
+    const current = makeRun('c');
+    const { container } = render(
+      <RunComparisonPanel
+        baselineRun={baseline}
+        currentRun={current}
+        baselineLabel="Label"
+        onRenameBaseline={onRename}
+      />,
+    );
+    fireEvent.click(container.querySelector('.baseline-rename-btn')!);
+    const input = container.querySelector('.baseline-rename-input')!;
+    fireEvent.change(input, { target: { value: '   ' } }); // only whitespace
+    fireEvent.blur(input);
+    expect(onRename).not.toHaveBeenCalled();
+  });
+
+  // ── Unit display ──────────────────────────────────────────────────────────
+
+  it('shows pp unit for Error Rate delta in overview table', () => {
+    const spy = vi.spyOn(runBaselines, 'compareRuns').mockReturnValue({
+      metricDeltas: [{
+        metric: 'Error Rate',
+        baselineValue: 1,
+        currentValue: 4,
+        delta: 3,
+        deltaPercent: 300,
+        regressed: true,
+        improved: false,
+      }],
+      scenarioDeltas: [],
+      regressions: [],
+    } as RunComparison);
+    const baseline = makeRun('b');
+    const current = makeRun('c');
+    const { container } = render(<RunComparisonPanel baselineRun={baseline} currentRun={current} />);
+    // Delta should show "pp", not bare "%" — "3 pp" not "3%"
+    expect(container.textContent).toContain('pp');
+    // Baseline and current should still show '%'
+    expect(container.textContent).toContain('1%');
+    expect(container.textContent).toContain('4%');
+    spy.mockRestore();
+  });
+
+  it('shows ms unit on baseline/current in regression detail body', () => {
+    const spy = vi.spyOn(runBaselines, 'compareRuns').mockReturnValue({
+      metricDeltas: [{
+        metric: 'P95 Response Time',
+        baselineValue: 100,
+        currentValue: 150,
+        delta: 50,
+        deltaPercent: 50,
+        regressed: true,
+        improved: false,
+      }],
+      scenarioDeltas: [],
+      regressions: [{ metric: 'P95 Response Time', severity: 'warning' as const, threshold: 10, actual: 50 }],
+    } as RunComparison);
+    const baseline = makeRun('b');
+    const current = makeRun('c');
+    const { container } = render(<RunComparisonPanel baselineRun={baseline} currentRun={current} />);
+    fireEvent.click(container.querySelectorAll('.run-comparison-tab')[2]); // Regressions tab
+    expect(container.textContent).toContain('100 ms');
+    expect(container.textContent).toContain('150 ms');
+    spy.mockRestore();
+  });
 });

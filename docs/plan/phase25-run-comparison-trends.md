@@ -1010,3 +1010,50 @@ Updated the comment to reflect both conditions.
 - Full Sprint 1+2+3 suite: **1568 tests, 71 files — all passing**
 - TypeScript: 0 errors
 
+---
+
+## Sprint 1 Deep Review Pass (2026-05-28)
+
+Full systematic re-read of all Sprint 1 source files (`runBaselines.ts`, `RunComparisonPanel.tsx`, `BaselineListPanel.tsx`, `RegressionThresholdsPanel.tsx`, `ResultsDashboard.tsx`) and their test files. Two display bugs and two test quality issues were found.
+
+### Bug I — Error Rate delta shows "%" instead of "pp" in MetricDeltaTable
+
+**Problem**: `MetricDeltaTable` in `RunComparisonPanel.tsx` used a single `unit` variable for all three columns (Baseline, Current, Delta). For Error Rate, this showed `%` in the Delta column (e.g. "+3%") — but the delta is an absolute change in percentage points, not a relative percentage. The correct unit is "pp".
+
+The markdown/CLI reports already correctly used "pp" for Error Rate delta — so the UI was inconsistent with its own exports.
+
+**Fix**: Split `unit` into `valueUnit` (for Baseline/Current columns, still `%` for Error Rate) and `deltaUnit` (for the Delta column, now `' pp'` for Error Rate, `''` for TPS, `' ms'` otherwise). Baseline/Current columns are unaffected.
+
+### Bug J — RegressionList detail body shows bare numbers without units
+
+**Problem**: The Regressions tab detail body showed `Baseline: **100**` and `Current: **150**` for response time regressions — without the `ms` unit. For Error Rate regressions it showed `Baseline: **1**` without the `%` unit. Users had to infer units from the metric name alone.
+
+**Fix**: Added `detailUnit` (same logic as `valueUnit`: `' ms'` for time metrics, `'%'` for Error Rate, `''` for TPS) and applied it to the baseline/current `<strong>` elements in `regression-detail-body`.
+
+### Test improvement — MAX_BASELINES assertion strengthened
+
+**Problem**: The test `'caps at MAX_BASELINES (10)'` used `toBeLessThanOrEqual(10)` — a weak assertion that would pass even if the cap was 5. It also didn't verify which entries were retained (newest 10) vs dropped (oldest).
+
+**Fix**: Changed to `toBe(10)` and added assertions that the most-recent entry (`run-11`) is present and the two oldest (`run-0`, `run-1`) were dropped.
+
+### Test improvement — Rename interaction in RunComparisonPanel now tested
+
+**Problem**: `RunComparisonPanel` has its own inline rename flow (click ✏ → input → blur/Escape) with the same `renameEscapedRef` logic as `BaselineListPanel`. Only the rename button _visibility_ was tested; the actual interaction (open, commit, cancel, empty-trim guard) had no tests.
+
+**Fix**: Added 4 rename interaction tests to `RunComparisonPanel.test.tsx`:
+1. _Clicking rename button shows input pre-filled with `baselineLabel`_
+2. _Blur with trimmed value calls `onRenameBaseline`_
+3. _Escape cancels without calling `onRenameBaseline`_
+4. _Blur with whitespace-only string does not call `onRenameBaseline`_
+
+Also added 2 unit display tests verifying Bug I and Bug J fixes:
+5. _Overview table shows "pp" for Error Rate delta (not "%")_
+6. _Regression detail body shows "ms" units on baseline/current values_
+
+### Post-fix test counts
+
+- `src/features/results/components/RunComparisonPanel.test.tsx` — 36 tests (6 new: 4 rename + 2 unit display)
+- `src/features/results/utils/runBaselines.test.ts` — 56 tests (1 assertion strengthened, no new tests)
+- Full Sprint 1+2+3 suite: **1574 tests, 71 files — all passing**
+- TypeScript: 0 errors
+
