@@ -246,6 +246,7 @@ describe('generateComparisonMarkdown', () => {
     expect(md).toContain('## Per-Scenario Deltas');
     expect(md).toContain('Auth / Login');
     expect(md).toContain('+30 ms');
+    expect(md).toContain('⚠ Regressed');
   });
 
   it('includes baselineLabel in report when provided', () => {

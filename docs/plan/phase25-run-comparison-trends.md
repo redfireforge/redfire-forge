@@ -1282,3 +1282,20 @@ This was inconsistent with the UI (RunComparisonPanel.tsx Regressions tab), whic
 - Full Sprint 1+2+3 suite: **1592 tests, 71 files — all passing**
 - TypeScript: 0 errors
 
+---
+
+## Sprint 3 Deep Review Pass — Round 2 (2026-05-28)
+
+### No new source bugs found
+
+Second pass reviewed `printComparisonSummary` console output, `cli/index.ts` exit code interactions, `cli/baselineStorage.ts` edge cases, and all test files.
+
+### Test quality improvement — Per-Scenario `⚠ Regressed` status assertion
+
+The existing test `'includes Per-Scenario section when scenarioDeltas present'` checked for the table header, scenario name, and delta value but never asserted that the status column shows `'⚠ Regressed'` for a regressed scenario. Added assertion: `expect(md).toContain('⚠ Regressed')`.
+
+**All Sprint 3 source code and tests are clean. No further issues found.**
+
+- Full Sprint 1+2+3 suite: **1592 tests, 71 files — all passing**
+- TypeScript: 0 errors
+
