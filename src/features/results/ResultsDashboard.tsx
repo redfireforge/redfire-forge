@@ -192,6 +192,12 @@ export default function ResultsDashboard({ envName, svcName, onRerunFailed, isRe
       setSelectedRunId(filteredUpdated[0]?.id ?? '');
       setResultTagFilter(null);
     }
+    // Clean up baseline mark and comparison state for the deleted run.
+    if (isBaseline(baselines, runId)) {
+      const nextBaselines = await unmarkBaseline(runId);
+      setBaselines(nextBaselines);
+    }
+    setCompareBaselineId((prev) => (prev === runId ? '' : prev));
   };
 
   const refreshRuns = async () => {
