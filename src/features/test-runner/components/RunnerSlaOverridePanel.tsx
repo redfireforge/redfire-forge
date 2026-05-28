@@ -16,7 +16,7 @@ import {
   SLA_METRIC_UNITS,
   SLA_METRIC_DEFAULT_OPERATOR,
 } from '../../results/utils/slaTargets';
-import { METRIC_OPTIONS, validateRow } from '../../results/components/slaEditorUtils';
+import { METRIC_OPTIONS, validateRow, buildSlaTargetScopeLabel } from '../../results/components/slaEditorUtils';
 
 // ── Types ──
 
@@ -36,13 +36,6 @@ const EMPTY_TARGETS: SlaTarget[] = [];
 /** Conflict key — metric + scope identity. */
 function conflictKey(t: SlaTarget): string {
   return `${t.metric}:${t.scenarioName ?? ''}:${t.featureGroupName ?? ''}`;
-}
-
-/** Build scope label from target fields. */
-function scopeLabel(t: SlaTarget): string {
-  if (t.featureGroupName) return `FG: ${t.featureGroupName}`;
-  if (t.scenarioName) return `Test: ${t.scenarioName}`;
-  return 'Aggregate';
 }
 
 /** Group definitions by scope for visual grouping. */
@@ -216,6 +209,8 @@ export default function RunnerSlaOverridePanel({
           bodyClassName="sla-modal-body"
           footerClassName="sla-modal-footer"
           closeOnOverlayClick={false}
+          closeButtonKind="none"
+          showExpandButton={false}
           showResizeHandles={false}
           disableDrag
           footer={
@@ -368,7 +363,7 @@ export default function RunnerSlaOverridePanel({
                               {isCloned ? (
                                 <>
                                   <span className={`sla-scope-badge ${getScopeBadgeClass(t)}`}>
-                                    {scopeLabel(t)}
+                                    {buildSlaTargetScopeLabel(t)}
                                   </span>
                                   <span className="sla-ovr-badge sla-ovr-badge-override">override</span>
                                 </>
