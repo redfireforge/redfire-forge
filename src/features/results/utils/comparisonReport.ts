@@ -118,7 +118,10 @@ export function generateComparisonMarkdown(comparison: RunComparison, baselineLa
   for (const d of metricDeltas) {
     const isTime =
       d.metric !== 'TPS' && d.metric !== 'Error Rate';
-    const unit = isTime ? ' ms' : d.metric === 'Error Rate' ? '%' : '';
+    // valueUnit: unit shown next to baseline/current values
+    const valueUnit = isTime ? ' ms' : d.metric === 'Error Rate' ? '%' : '';
+    // deltaUnit: Error Rate delta is an absolute pp change — using '%' would be misleading
+    const deltaUnit = isTime ? ' ms' : d.metric === 'Error Rate' ? ' pp' : '';
     const sign = d.delta > 0 ? '+' : '';
     const signPct = d.deltaPercent > 0 ? '+' : '';
     const alert = regressions.find((r) => r.metric === d.metric);
@@ -128,7 +131,7 @@ export function generateComparisonMarkdown(comparison: RunComparison, baselineLa
         ? '✓ Improved'
         : '— No change';
     lines.push(
-      `| ${d.metric} | ${d.baselineValue}${unit} | ${d.currentValue}${unit} | ${sign}${d.delta}${unit} | ${signPct}${d.deltaPercent}% | ${statusLabel} |`,
+      `| ${d.metric} | ${d.baselineValue}${valueUnit} | ${d.currentValue}${valueUnit} | ${sign}${d.delta}${deltaUnit} | ${signPct}${d.deltaPercent}% | ${statusLabel} |`,
     );
   }
 
