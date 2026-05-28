@@ -470,7 +470,8 @@
   color: var(--text); background: var(--surface-hover);
   border-left-color: var(--primary);
 }
-.ab-icon { font-size: 18px; line-height: 1; }
+.ab-icon { font-size: 18px; line-height: 1; display: flex; align-items: center; justify-content: center; }
+.ab-icon-svg { width: 20px; height: 20px; }
 .ab-label {
   display: none; position: absolute; left: 50px; top: 50%; transform: translateY(-50%);
   background: var(--surface); color: var(--text); font-size: 12px; font-weight: 600;
@@ -533,16 +534,18 @@
   background: var(--primary);
 }
 
-/* Toggle button */
+/* Toggle button — stays clickable above modal overlays so the sidebar can be
+   hidden/shown even when an overlay (e.g. SLA Override modal) is open. */
 .usb-toggle-btn {
   flex-shrink: 0; width: 16px; align-self: stretch;
   background: var(--surface); border: none;
   border-right: 1px solid var(--border);
   color: var(--text-muted); font-size: 0.55rem;
   cursor: pointer; display: flex; align-items: center; justify-content: center;
-  transition: all 0.15s; opacity: 0;
+  transition: all 0.15s; opacity: 0.45;
+  position: relative; z-index: 101;
 }
-.app-body:hover .usb-toggle-btn { opacity: 0.6; }
+.app-body:hover .usb-toggle-btn { opacity: 0.85; }
 .usb-toggle-btn:hover { opacity: 1; color: var(--primary); background: var(--surface-hover); }
 .usb-toggle-btn.collapsed { opacity: 1; width: 24px; }
 
@@ -609,7 +612,22 @@
   padding: 6px 14px;
   font-size: 0.85em;
   margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
 }
+.results-import-error .btn-dismiss {
+  background: none;
+  border: none;
+  color: #f87171;
+  font-size: 1.1em;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+  opacity: 0.7;
+}
+.results-import-error .btn-dismiss:hover { opacity: 1; }
 
 /* Run Type Filter Tabs */
 .results-run-filter-tabs {
@@ -628,7 +646,7 @@
   transition: all 0.15s ease;
 }
 .run-filter-tab:hover {
-  background: var(--bg-hover);
+  background: var(--surface-hover);
   color: var(--text-primary);
 }
 .run-filter-tab.active {
@@ -827,14 +845,16 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
   top: var(--header-h, 56px);
   right: 0;
   bottom: 0;
-  left: 0;
+  /* Never cover the activity bar (48px). Falls back to var(--sidebar-w) which
+     itself is at least the activity-bar width even when the sidebar is hidden. */
+  left: var(--sidebar-w, 48px);
   background: transparent;
   display: flex;
   align-items: stretch;
   transition: left 0.25s ease;
 }
 .sidebar-visible .modal-overlay {
-  left: 300px;
+  left: var(--sidebar-w, 328px);
   justify-content: center;
   z-index: 100;
   overflow-y: auto;
@@ -1475,11 +1495,12 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
 .modal-no-chrome .ram-header,
 .modal-no-chrome .modal-header { cursor: default; }
 /* Expanded modal — fills most of the viewport */
-.modal-expanded {
-  max-width: 95vw;
-  max-height: 95vh;
-  width: 95vw;
-  height: 95vh;
+/* Only apply sizing to the .modal dialog, not the .modal-overlay */
+.modal.modal-expanded {
+  max-width: 100%;
+  max-height: 100%;
+  width: 100%;
+  height: 100%;
 }
 /* Fullscreen modal — fills entire viewport, no border-radius */
 .modal-fullscreen {
@@ -3317,3 +3338,747 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
 .result-time { color: var(--text-muted); }
 .result-passed { font-weight: 500; }
 .iteration-result.result-failed .result-passed { color: #ef4444; }
+
+/* ── SLA — shared editor & button styles ── */
+.sla-edit-btn { font-size: 0.75rem; }
+
+/* Empty hint inside editor */
+.sla-empty-hint  { padding: 12px; color: var(--text-muted); font-size: 0.82rem; text-align: center; }
+
+/* Target Editor */
+.sla-editor { margin-top: 8px; padding: 10px 12px; background: var(--surface); border-radius: var(--radius); border: 1px solid var(--border); }
+.sla-editor-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; table-layout: fixed; }
+.sla-editor-table th { font-size: 0.7rem; color: var(--text-muted); text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); text-transform: uppercase; letter-spacing: 0.4px; white-space: nowrap; }
+.sla-editor-table td { padding: 6px 8px; vertical-align: middle; }
+.sla-editor-table td:last-child { text-align: center; }
+.sla-editor-select { font-size: 0.82rem; width: 100%; }
+.sla-operator-display { font-size: 0.9rem; font-weight: 600; color: var(--text-muted); padding: 0 4px; }
+.sla-editor-input { width: 80px; font-size: 0.85rem; }
+.sla-editor-input.sla-input-error { border-color: var(--danger, #ef4444); }
+.sla-editor-input-label { width: 100%; min-width: 0; }
+.sla-editor-unit { font-size: 0.72rem; color: var(--text-muted); margin-left: 4px; }
+.sla-editor-error { color: #f87171; font-size: 0.72rem; margin-top: 2px; }
+.sla-delete-btn { color: var(--text-muted); border-color: transparent; background: transparent; padding: 2px 6px; font-size: 0.8rem; cursor: pointer; transition: all 0.12s; border-radius: 4px; }
+.sla-delete-btn:hover { color: #f87171; background: rgba(248,113,113,0.08); }
+.sla-editor-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border, rgba(255,255,255,0.08)); }
+.sla-add-btn { font-size: 0.78rem; margin-top: 12px; transition: all 0.12s; border: 1px dashed rgba(255,255,255,0.15); }
+.sla-add-btn:hover { border-style: solid; border-color: rgba(96,165,250,0.3); color: #60a5fa; }
+.sla-editor-actions { display: flex; gap: 8px; }
+
+/* ── SlaTargetEditor column widths (7 cols: Metric, Op, Fail, Warn, Label, Scope, ✕) ── */
+.sla-editor-table colgroup .col-metric { width: 170px; }
+.sla-editor-table colgroup .col-op     { width: 36px; }
+.sla-editor-table colgroup .col-fail   { width: 110px; }
+.sla-editor-table colgroup .col-warn   { width: 110px; }
+/* .col-label has no width — fills remaining space */
+.sla-editor-table colgroup .col-scope  { width: 160px; }
+.sla-editor-table colgroup .col-del    { width: 36px; }
+
+/* ── Scope cell — stacked dropdowns ── */
+.sla-scope-cell { display: flex; flex-direction: column; gap: 4px; }
+.sla-level-select { font-size: 0.8rem; width: 100%; }
+.sla-name-select  { font-size: 0.8rem; width: 100%; }
+/* Scope badge (🔒 This Run / 🔗 Workflow SLA) */
+.sla-scope-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+  white-space: nowrap;
+  letter-spacing: 0.2px;
+}
+.sla-scope-run {
+  background: rgba(239, 68, 68, 0.12);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.25);
+}
+.sla-scope-workflow-def {
+  background: rgba(34, 197, 94, 0.12);
+  color: #4ade80;
+  border: 1px solid rgba(34, 197, 94, 0.25);
+}
+/* D3 — ad-hoc targets set post-run, not tied to a workflow/scenario definition */
+.sla-scope-adhoc {
+  background: rgba(245, 158, 11, 0.12);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.25);
+}
+
+/* ── WorkflowSlaPanel (pre-run SLA definition) ── */
+.workflow-sla-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.workflow-sla-panel--disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+.workflow-sla-panel-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 14px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  color: var(--text);
+}
+.workflow-sla-panel-header:hover {
+  background: var(--surface-hover, rgba(255,255,255,0.04));
+}
+.workflow-sla-panel-title {
+  font-size: 0.8rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.workflow-sla-count-badge {
+  background: rgba(34, 197, 94, 0.2);
+  color: #4ade80;
+  border-radius: 10px;
+  padding: 1px 7px;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+.workflow-sla-panel-hint {
+  flex: 1;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+.workflow-sla-panel-chevron {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+}
+.workflow-sla-panel-body {
+  border-top: 1px solid var(--border);
+  padding: 12px 14px;
+}
+
+/* ── ScenarioSlaPanel (SLA-B4) ── */
+.scenario-sla-panel {
+  background: rgba(59, 130, 246, 0.04);
+  border: 1px solid rgba(59, 130, 246, 0.18);
+  border-radius: var(--radius);
+  overflow: hidden;
+  margin-top: 8px;
+}
+.scenario-sla-panel-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 12px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  color: var(--text);
+}
+.scenario-sla-panel-header:hover {
+  background: rgba(59, 130, 246, 0.07);
+}
+.scenario-sla-panel-title {
+  font-size: 0.76rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #93c5fd;
+}
+.scenario-sla-count-badge {
+  background: rgba(59, 130, 246, 0.25);
+  color: #93c5fd;
+  border-radius: 10px;
+  padding: 1px 7px;
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+.scenario-sla-panel-hint {
+  flex: 1;
+  font-size: 0.71rem;
+  color: var(--text-muted);
+}
+.scenario-sla-panel-chevron {
+  font-size: 0.62rem;
+  color: var(--text-muted);
+}
+.scenario-sla-panel-body {
+  border-top: 1px solid rgba(59, 130, 246, 0.18);
+  padding: 10px 12px;
+}
+
+/* SLA summary table (read-only, per-test overview) */
+.sla-summary-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+}
+.sla-summary-table th {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  text-align: left;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--border);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 600;
+}
+.sla-summary-table td {
+  padding: 5px 8px;
+  vertical-align: middle;
+}
+.sla-summary-row {
+  cursor: pointer;
+}
+.sla-summary-row:hover td {
+  background: rgba(59, 130, 246, 0.08);
+}
+.sla-summary-test-name {
+  font-weight: 600;
+  white-space: nowrap;
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sla-summary-test-name .method-badge {
+  margin-right: 6px;
+}
+.sla-summary-op {
+  font-weight: 700;
+  color: var(--text-muted);
+}
+.sla-summary-label {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* SLA arrow between fail/warn columns */
+.sla-arrow {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* SLA button on test card */
+.btn-sla-active {
+  background: rgba(34, 197, 94, 0.12) !important;
+  border-color: rgba(34, 197, 94, 0.3) !important;
+  color: #86efac !important;
+}
+
+/* TestSlaModal — resizable dialog */
+.test-sla-modal {
+  min-width: 780px;
+  max-width: 960px;
+  background: var(--surface-hover, #2d3a4d);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  align-self: flex-start;
+  margin-top: 40px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.test-sla-modal .modal-header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.test-sla-modal > .test-sla-modal-body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  min-height: 0;
+  padding-bottom: 0;
+}
+.test-sla-modal > .test-sla-modal-footer {
+  flex-shrink: 0;
+  padding: 0 48px 20px;
+}
+/* TestSlaModal column widths (7 cols: Metric, Op, Fail, Arrow, Warn, Label, ✕) */
+.sla-editor-table--test colgroup .col-metric { width: 180px; }
+.sla-editor-table--test colgroup .col-op     { width: 36px; }
+.sla-editor-table--test colgroup .col-fail   { width: 120px; }
+.sla-editor-table--test colgroup .col-arrow  { width: 56px; }
+.sla-editor-table--test colgroup .col-warn   { width: 120px; }
+/* .col-label fills remaining space */
+.sla-editor-table--test colgroup .col-del    { width: 36px; }
+
+/* ── SLA Override Panel (RunnerPage) ── */
+/* ── SLA Override — Compact Trigger Bar ── */
+.sla-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-top: 12px;
+}
+.sla-trigger--disabled { opacity: 0.5; pointer-events: none; }
+.sla-trigger-left {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 0.85rem; font-weight: 600;
+}
+.sla-trigger-badge-opt {
+  background: rgba(255,255,255,0.08); color: var(--text-muted);
+  border-radius: 10px; padding: 1px 8px; font-size: 0.68rem; font-weight: 500;
+}
+.sla-trigger-right { display: flex; align-items: center; gap: 12px; }
+.sla-trigger-stats { display: flex; gap: 12px; font-size: 0.78rem; color: var(--text-muted); }
+.sla-trigger-stat { display: flex; align-items: center; gap: 4px; }
+.sla-stat-dot { width: 6px; height: 6px; border-radius: 50%; }
+.sla-stat-dot-def { background: #3b82f6; }
+.sla-stat-dot-ovr { background: #f59e0b; }
+.sla-stat-dot-new { background: #22c55e; }
+.sla-trigger-btn {
+  background: rgba(59,130,246,0.12); border: 1px solid rgba(59,130,246,0.3);
+  color: #60a5fa; padding: 5px 14px; border-radius: 4px;
+  font-size: 0.78rem; font-weight: 600; cursor: pointer;
+}
+.sla-trigger-btn:hover:not(:disabled) { background: rgba(59,130,246,0.2); }
+.sla-trigger-btn:disabled { opacity: 0.5; cursor: default; }
+
+/* ── SLA Override Modal ── */
+/* Solid backdrop covers everything below the header. Respects sidebar via .sidebar-visible
+   (the global `.sidebar-visible .modal-overlay { left: 300px }` rule kicks in). */
+.sla-modal-overlay {
+  background: rgba(0, 0, 0, 0.55) !important;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 40px 24px;
+  overflow-y: auto;
+  z-index: 100;
+}
+
+.sla-override-modal {
+  width: clamp(720px, 80vw, 1100px);
+  max-width: 100%;
+  max-height: calc(100vh - var(--header-h, 56px) - 80px);
+  background: var(--surface, #1e293b);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 10px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255,255,255,0.04);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0;
+}
+
+/* Header layout (AppModalFrame uses `.modal-header` for title + controls row) */
+.sla-override-modal .modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0,0,0,0.08);
+  flex-shrink: 0;
+  cursor: default;
+}
+.sla-override-modal .modal-header h3 {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: 0.01em;
+}
+
+/* When expanded, fill the available area (right of sidebar, below header) */
+.sla-override-modal.modal-expanded {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  max-height: none;
+  border-radius: 0;
+  border: none;
+}
+/* Drop the overlay padding when content is expanded so the modal fills the space */
+.sla-modal-overlay:has(.modal-expanded) {
+  padding: 0;
+}
+
+/* Narrow screens: drop side padding and let it fill */
+@media (max-width: 820px) {
+  .sla-modal-overlay { padding: 0; }
+  .sla-override-modal { width: 100%; height: 100%; max-height: 100%; border-radius: 0; border: none; }
+}
+
+/* Modal body — scrolls when content overflows */
+.sla-modal-body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 20px 24px;
+  min-height: 0;
+}
+.sla-modal-subtitle {
+  font-size: 0.78rem; color: var(--text-muted);
+  margin-bottom: 18px; line-height: 1.5;
+}
+
+/* Modal footer */
+.sla-modal-footer {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 24px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.12);
+  flex-shrink: 0;
+}
+.sla-modal-footer-summary {
+  display: flex; gap: 16px; font-size: 0.76rem; color: var(--text-muted); align-items: center;
+}
+.sla-modal-footer-summary > span { display: inline-flex; align-items: center; gap: 5px; }
+.sla-modal-footer-actions { display: flex; gap: 10px; }
+.sla-footer-ovr { color: #f59e0b; }
+.sla-footer-ovr::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: #f59e0b; }
+.sla-footer-new { color: #22c55e; }
+.sla-footer-new::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: #22c55e; }
+
+/* ── Definitions table ── */
+.sla-defs-section { margin-bottom: 18px; }
+.sla-defs-toggle {
+  display: flex; align-items: center; justify-content: space-between;
+  width: 100%; padding: 8px 10px;
+  background: rgba(255,255,255,0.03); border: 1px solid var(--border);
+  border-radius: var(--radius); cursor: pointer; color: var(--text);
+  font-size: 0.82rem; font-weight: 500;
+}
+.sla-defs-toggle:hover { background: rgba(255,255,255,0.06); }
+.sla-chevron { font-size: 0.62rem; color: var(--text-muted); }
+
+.sla-defs-table {
+  width: 100%; border-collapse: collapse; font-size: 0.82rem; margin-top: 8px; table-layout: fixed;
+}
+.sla-defs-table colgroup .col-scope     { width: 200px; }
+.sla-defs-table colgroup .col-metric    { width: 170px; }
+.sla-defs-table colgroup .col-threshold { width: 130px; }
+.sla-defs-table colgroup .col-warn      { width: 100px; }
+.sla-defs-table colgroup .col-label     { width: auto; }
+.sla-defs-table colgroup .col-action    { width: 100px; }
+.sla-defs-table th {
+  font-size: 0.7rem; color: var(--text-muted); text-align: left;
+  padding: 6px 8px; border-bottom: 1px solid var(--border);
+  text-transform: uppercase; letter-spacing: 0.4px; white-space: nowrap;
+}
+.sla-defs-table td { padding: 8px 8px; color: var(--text); border-bottom: 1px solid rgba(255,255,255,0.04); }
+.sla-defs-table tbody tr:hover { background: rgba(255,255,255,0.025); }
+.sla-defs-table tbody tr:nth-child(even) { background: rgba(255,255,255,0.015); }
+.sla-defs-table tbody tr:nth-child(even):hover { background: rgba(255,255,255,0.035); }
+.sla-defs-table tr.sla-group-first td { padding-top: 12px; }
+
+/* Scope badges */
+.sla-scope-badge {
+  display: inline-block; border-radius: 4px; padding: 2px 8px;
+  font-size: 0.72rem; white-space: nowrap;
+}
+.sla-scope-test { background: rgba(96,165,250,0.12); color: #93c5fd; }
+.sla-scope-agg  { background: rgba(168,85,247,0.12); color: #c4b5fd; }
+.sla-scope-fg   { background: rgba(34,197,94,0.12); color: #86efac; }
+
+/* Override / Overridden buttons */
+.sla-btn-override {
+  background: transparent; border: 1px solid rgba(255,255,255,0.12); color: var(--text-muted);
+  padding: 4px 12px; border-radius: 4px; font-size: 0.72rem; cursor: pointer; white-space: nowrap;
+  transition: all 0.12s;
+}
+.sla-btn-override:hover { color: #60a5fa; border-color: rgba(96,165,250,0.4); background: rgba(96,165,250,0.08); }
+.sla-btn-overridden {
+  color: #fbbf24; font-size: 0.68rem; font-weight: 600; white-space: nowrap;
+  background: rgba(245,158,11,0.10); padding: 2px 8px; border-radius: 4px;
+  letter-spacing: 0.02em;
+}
+.sla-btn-overridden::before { content: '✓ '; }
+
+.sla-unit { font-size: 0.72rem; color: var(--text-muted); margin-left: 4px; }
+.sla-label-muted { color: var(--text-muted); font-size: 0.76rem; }
+
+/* ── Overrides section ── */
+.sla-overrides-section {
+  margin-top: 20px; padding: 16px;
+  background: rgba(255,255,255,0.015); border: 1px solid rgba(255,255,255,0.05);
+  border-radius: 6px;
+}
+.sla-overrides-header { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.sla-overrides-title { font-size: 0.85rem; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+.sla-ovr-count {
+  background: rgba(96,165,250,0.15); color: #60a5fa;
+  padding: 1px 7px; border-radius: 10px; font-size: 0.72rem; font-weight: 600;
+}
+.sla-overrides-hint { font-size: 0.76rem; color: var(--text-muted); margin-bottom: 12px; line-height: 1.4; }
+.sla-overrides-empty {
+  text-align: center; padding: 24px 16px; color: var(--text-muted);
+  font-size: 0.8rem; opacity: 0.7;
+}
+
+/* Overrides table */
+.sla-ovr-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; table-layout: fixed; }
+.sla-ovr-table colgroup .col-bar   { width: 6px; }
+.sla-ovr-table colgroup .col-scope { width: 194px; }  /* 200 − 6px bar = aligns with defs scope */
+.sla-ovr-table colgroup .col-metric { width: 170px; }
+.sla-ovr-table colgroup .col-fail  { width: 130px; }
+.sla-ovr-table colgroup .col-warn  { width: 100px; }
+.sla-ovr-table colgroup .col-del   { width: 36px; }
+.sla-ovr-table th {
+  font-size: 0.7rem; color: var(--text-muted); text-align: left;
+  padding: 6px 8px; border-bottom: 1px solid var(--border);
+  text-transform: uppercase; letter-spacing: 0.4px; white-space: nowrap;
+}
+.sla-ovr-table td { padding: 8px 8px; vertical-align: middle; border-bottom: 1px solid rgba(255,255,255,0.04); }
+.sla-ovr-table tbody tr:hover { background: rgba(255,255,255,0.025); }
+
+/* Color bars */
+.sla-bar-cell { padding: 0 !important; width: 6px !important; }
+.sla-bar { width: 4px; height: 100%; min-height: 32px; border-radius: 2px; }
+.sla-bar-override { background: #f59e0b; }
+.sla-bar-new { background: #22c55e; }
+
+/* Override badges */
+.sla-ovr-badge {
+  display: inline-block; padding: 1px 6px; border-radius: 3px;
+  font-size: 0.6rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.3px; margin-left: 6px; vertical-align: middle;
+}
+.sla-ovr-badge-override { background: rgba(245,158,11,0.15); color: #fbbf24; }
+.sla-ovr-badge-new { background: rgba(34,197,94,0.15); color: #4ade80; }
+
+/* Keep scope cell (select + NEW/OVERRIDE badge) on a single row so rows align. */
+.sla-ovr-table td:has(> .sla-ovr-badge) {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+}
+.sla-ovr-table td:has(> .sla-ovr-badge) > .sla-ovr-select {
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
+}
+.sla-ovr-table td:has(> .sla-ovr-badge) > .sla-ovr-badge,
+.sla-ovr-table td:has(> .sla-ovr-badge) > .sla-scope-badge {
+  margin-left: 0;
+  flex-shrink: 0;
+}
+
+/* Override inputs & selects */
+.sla-ovr-input {
+  width: 70px; font-size: 0.82rem; padding: 5px 8px;
+  background: var(--input-bg, #263549); border: 1px solid var(--border);
+  border-radius: 4px; color: var(--text); transition: border-color 0.12s;
+}
+.sla-ovr-input:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,0.15); }
+.sla-ovr-input.sla-input-error { border-color: var(--danger, #ef4444); }
+.sla-ovr-select {
+  font-size: 0.78rem; width: 100%; padding: 5px 8px;
+  background: var(--input-bg, #263549); border: 1px solid var(--border);
+  border-radius: 4px; color: var(--text); transition: border-color 0.12s;
+}
+.sla-ovr-select:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,0.15); }
+.sla-ovr-error { color: #f87171; font-size: 0.68rem; margin-top: 2px; }
+.sla-was-hint { font-size: 0.66rem; color: var(--text-muted); margin-left: 6px; white-space: nowrap; font-style: italic; opacity: 0.7; }
+.sla-readonly { color: var(--text-muted); }
+
+/* ── SlaCompactBar (SLA-C4) ── */
+.sla-compact-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  font-size: 0.84rem;
+  margin: 0 0 12px;
+}
+.sla-compact-bar-fail   { background: rgba(239, 68, 68, 0.08);   border-color: rgba(239, 68, 68, 0.35); }
+.sla-compact-bar-warn   { background: rgba(245, 158, 11, 0.08);  border-color: rgba(245, 158, 11, 0.35); }
+.sla-compact-bar-pass   { background: rgba(104, 211, 145, 0.08); border-color: rgba(104, 211, 145, 0.30); }
+.sla-compact-bar-nodata { /* default surface */ }
+
+.sla-compact-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  padding: 2px 10px;
+  border-radius: 10px;
+  white-space: nowrap;
+}
+.sla-compact-pill-fail   { background: rgba(239, 68, 68, 0.22);   color: #f87171; }
+.sla-compact-pill-warn   { background: rgba(245, 158, 11, 0.22);  color: #fbbf24; }
+.sla-compact-pill-pass   { background: rgba(104, 211, 145, 0.22); color: #4ade80; }
+.sla-compact-pill-nodata { background: var(--surface-hover, rgba(255,255,255,0.06)); color: var(--text-muted); }
+
+.sla-compact-label   { font-size: 0.68rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); opacity: 0.6; white-space: nowrap; }
+.sla-compact-detail  { flex: 1; font-size: 0.81rem; color: var(--text-muted); }
+
+.results-details-tabs-header { margin: 4px 0 8px; }
+.sla-compact-actions { display: flex; align-items: center; gap: 6px; margin-left: auto; }
+.sla-compact-readonly { font-size: 0.73rem; color: var(--text-muted); font-style: italic; }
+/* D2 — brief '✓ Saved' confirmation flash after a successful save */
+.sla-compact-saved    { font-size: 0.73rem; color: #4ade80; font-weight: 600; }
+.sla-compact-editor  { margin-bottom: 12px; }
+
+/* ── SLA Status Panel (tab view) ── */
+.sla-status-panel {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  margin: 0 0 12px;
+}
+
+/* Summary stats bar */
+.sla-summary-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: var(--surface-alt, rgba(255,255,255,0.02));
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+.sla-sum-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 12px;
+  letter-spacing: 0.02em;
+}
+.sla-sum-fail  { background: rgba(239, 68, 68, 0.15);  color: #f87171; }
+.sla-sum-warn  { background: rgba(245, 158, 11, 0.15); color: #fbbf24; }
+.sla-sum-pass  { background: rgba(74, 222, 128, 0.15); color: #4ade80; }
+.sla-sum-total { font-size: 0.74rem; color: var(--text-muted); margin-left: auto; }
+
+/* Tree body */
+.sla-tree-body { background: var(--surface); }
+
+/* ── Status dot (CSS circle, not emoji) ── */
+.sla-status-dot {
+  display: inline-block;
+  width: 8px;
+  min-width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.sla-dot-pass   { background: #4ade80; box-shadow: 0 0 0 2px rgba(74, 222, 128, 0.22); }
+.sla-dot-fail   { background: #f87171; box-shadow: 0 0 0 2px rgba(248, 113, 113, 0.22); }
+.sla-dot-warn   { background: #fbbf24; box-shadow: 0 0 0 2px rgba(251, 191, 36, 0.22); }
+.sla-dot-nodata { background: #6b7280; }
+
+/* ── Feature group row ── */
+.sla-feature-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 14px;
+  font-size: 0.83rem;
+  font-weight: 600;
+  background: var(--surface-alt, rgba(255,255,255,0.02));
+  border-bottom: 1px solid var(--border);
+  border-left: 3px solid transparent;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.1s;
+}
+.sla-feature-row:hover           { background: var(--surface-hover, rgba(255,255,255,0.05)); }
+.sla-feature-pass { border-left-color: rgba(74, 222, 128, 0.5); }
+.sla-feature-fail { border-left-color: rgba(248, 113, 113, 0.7); }
+.sla-feature-warn { border-left-color: rgba(251, 191, 36, 0.6); }
+.sla-feature-name { flex: 1; }
+.sla-feature-meta { display: flex; align-items: center; gap: 6px; }
+.sla-feature-badge {
+  font-size: 0.69rem;
+  color: var(--text-muted);
+  font-weight: 400;
+  background: rgba(255,255,255,0.06);
+  padding: 1px 7px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+.sla-feature-count { font-size: 0.7rem; font-weight: 600; padding: 1px 6px; border-radius: 8px; }
+.sla-count-fail { color: #f87171; background: rgba(248,113,113,0.1); }
+.sla-count-pass { color: #4ade80; background: rgba(74,222,128,0.08); }
+
+/* ── Scenario row ── */
+.sla-scenario-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 14px 7px 32px;
+  font-size: 0.81rem;
+  border-bottom: 1px solid var(--border);
+  border-left: 3px solid transparent;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.1s;
+}
+.sla-scenario-row:hover        { background: var(--surface-hover, rgba(255,255,255,0.04)); }
+.sla-scenario--nested          { padding-left: 48px; }
+.sla-scenario-pass { border-left-color: rgba(74, 222, 128, 0.25); }
+.sla-scenario-fail { border-left-color: rgba(248, 113, 113, 0.45); }
+.sla-scenario-warn { border-left-color: rgba(251, 191, 36, 0.35); }
+.sla-scenario-name  { flex: 1; }
+.sla-scenario-badge { font-size: 0.69rem; color: var(--text-muted); }
+
+/* ── Check row (leaf) ── */
+.sla-check-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 14px;
+  font-size: 0.79rem;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+.sla-check-row:last-child { border-bottom: none; }
+.sla-check-l1 { padding-left: 48px; }
+.sla-check-l2 { padding-left: 64px; }
+.sla-check-fail { background: rgba(239, 68, 68, 0.06); }
+.sla-check-warn { background: rgba(245, 158, 11, 0.05); }
+.sla-check-label     { flex: 1; color: var(--text-secondary, var(--text-muted)); font-size: 0.78rem; }
+.sla-check-actual    { font-weight: 700; min-width: 80px; text-align: right; font-variant-numeric: tabular-nums; }
+.sla-actual-pass     { color: #4ade80; }
+.sla-actual-fail     { color: #f87171; }
+.sla-actual-warn     { color: #fbbf24; }
+.sla-actual-nodata   { color: var(--text-muted); }
+.sla-check-threshold { color: var(--text-muted); font-size: 0.73rem; min-width: 84px; text-align: right; font-variant-numeric: tabular-nums; }
+
+/* Per-test breakdown section header (aggregate-only runs) */
+.sla-per-test-section { border-top: 1px solid rgba(255,255,255,0.07); margin-top: 2px; }
+.sla-per-test-header {
+  padding: 6px 14px 4px;
+  font-size: 0.70rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  border-top: 1px solid rgba(255,255,255,0.07);
+  margin-top: 2px;
+}
+
+/* ── Chevron ── */
+.sla-chevron {
+  font-size: 1rem;
+  color: var(--text-muted);
+  line-height: 1;
+  transition: transform 0.18s ease;
+  margin-left: 4px;
+  display: inline-block;
+}
+.sla-chevron-open { transform: rotate(90deg); }

@@ -2,6 +2,9 @@ import { test, expect } from '@playwright/test';
 import { seedAppData } from './helpers';
 import type { Workflow } from '../src/features/workflow/types/workflow';
 
+// These interactions share seeded workflow/app state and are flaky in parallel.
+test.describe.configure({ mode: 'serial' });
+
 function makeSampleWorkflow(): Workflow {
   return {
     id: 'wf-e2e-p6',

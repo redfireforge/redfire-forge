@@ -3,7 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import type { Scenario, TestConfig, RequestResult, TestSummary, TestRun } from '../../../shared/types';
 import type { Workflow } from '../../workflow/types/workflow';
 import { runTest } from '../../../engine/executor';
-import type { ProgressMeta, StreamingMetrics } from '../../../engine/executor';
+import type { ProgressMeta, StreamingMetrics, WorkflowResolverData } from '../../../engine/executor';
 import { runTestMultiWorker } from '../../../engine/workerBridge';
 import { computeMetrics } from '../../../engine/metrics';
 import { saveTestRun, forceSaveTestRun } from '../../../shared/utils/storage';
@@ -238,7 +238,7 @@ export function useTestExecution() {
     lastFlushRef.current = now;
   }, []);
 
-  const execute = useCallback(async (config: TestConfig, scenarios: Scenario[], meta?: { projectName?: string; envName?: string; svcName?: string; baseUrl?: string }, workflow?: Workflow, resolveSubWorkflow?: (id: string) => Workflow | undefined) => {
+  const execute = useCallback(async (config: TestConfig, scenarios: Scenario[], meta?: { projectName?: string; envName?: string; svcName?: string; baseUrl?: string }, workflow?: Workflow, resolveSubWorkflow?: (id: string) => Workflow | undefined, workflowResolverData?: WorkflowResolverData) => {
     abortRef.current = new AbortController();
     startTimeRef.current = performance.now();
     lastSnapshotRef.current = 0;
@@ -333,10 +333,10 @@ export function useTestExecution() {
         } catch (workerErr) {
           // Worker failed (common in Tauri WebView) — fall back to direct execution
           console.warn('Worker execution failed, falling back to direct execution:', workerErr);
-          testResult = await runTest(config, scenarios, wrappedOnProgress, abortRef.current.signal, workflow, resolveSubWorkflow);
+          testResult = await runTest(config, scenarios, wrappedOnProgress, abortRef.current.signal, workflow, resolveSubWorkflow, undefined, workflowResolverData);
         }
       } else {
-        testResult = await runTest(config, scenarios, wrappedOnProgress, abortRef.current.signal, workflow, resolveSubWorkflow);
+        testResult = await runTest(config, scenarios, wrappedOnProgress, abortRef.current.signal, workflow, resolveSubWorkflow, undefined, workflowResolverData);
       }
 
       if (flushTimerRef.current) {

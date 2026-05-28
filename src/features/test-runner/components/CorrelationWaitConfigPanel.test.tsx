@@ -364,15 +364,17 @@ describe('CorrelationWaitConfigPanel', () => {
       expect(onChange).toHaveBeenCalledWith({ mode: 'wait-for-real' });
     });
 
-    it('switching back from wait-for-real to synthetic-inject builds mock payloads and timing defaults', () => {
+    it('switching back from wait-for-real to synthetic-inject builds mock payloads and timing defaults', async () => {
       const onChange = vi.fn();
-      render(
-        <CorrelationWaitConfigPanel
-          workflow={makeWorkflow()}
-          config={{ mode: 'wait-for-real' }}
-          onChange={onChange}
-        />
-      );
+      await act(async () => {
+        render(
+          <CorrelationWaitConfigPanel
+            workflow={makeWorkflow()}
+            config={{ mode: 'wait-for-real' }}
+            onChange={onChange}
+          />
+        );
+      });
       fireEvent.click(screen.getByLabelText(/Synthetic Inject/));
       expect(onChange).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -384,20 +386,22 @@ describe('CorrelationWaitConfigPanel', () => {
       );
     });
 
-    it('preserves explicit synthetic delay values when leaving wait-for-real mode', () => {
+    it('preserves explicit synthetic delay values when leaving wait-for-real mode', async () => {
       const onChange = vi.fn();
-      render(
-        <CorrelationWaitConfigPanel
-          workflow={makeWorkflow()}
-          config={{
-            mode: 'wait-for-real',
-            mockPayloads: { 'cw-0': { k: 1 } },
-            syntheticDelayMs: 909,
-            syntheticJitterMs: 111,
-          }}
-          onChange={onChange}
-        />
-      );
+      await act(async () => {
+        render(
+          <CorrelationWaitConfigPanel
+            workflow={makeWorkflow()}
+            config={{
+              mode: 'wait-for-real',
+              mockPayloads: { 'cw-0': { k: 1 } },
+              syntheticDelayMs: 909,
+              syntheticJitterMs: 111,
+            }}
+            onChange={onChange}
+          />
+        );
+      });
       fireEvent.click(screen.getByLabelText(/Synthetic Inject/));
       expect(onChange).toHaveBeenCalledWith(
         expect.objectContaining({

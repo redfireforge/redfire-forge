@@ -1,5 +1,5 @@
 /** @vitest-environment jsdom */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import '@testing-library/jest-dom';
 import { render, screen, fireEvent, act } from '@testing-library/react';
 import ExpressionEditorModal from './ExpressionEditorModal';
@@ -41,6 +41,11 @@ const snippetMocks = makeSnippetMockImplementations({
 beforeEach(() => {
   resetMonacoTestState();
   snippetMocks.reset();
+});
+
+afterEach(async () => {
+  // Flush any pending async state updates (e.g. loadExpressionSnippets) to avoid act() warnings
+  await act(async () => {});
 });
 
 describe('ExpressionEditorModal', () => {
@@ -185,7 +190,7 @@ describe('ExpressionEditorModal', () => {
     renderModal({ mapping: { ...baseMapping, expression: '$upper($.name)' } });
     await flushMonacoMount();
     fireEvent.change(screen.getByLabelText('Snippet name'), { target: { value: 'Upper Name' } });
-    fireEvent.click(screen.getByText('Save'));
+    await act(async () => { fireEvent.click(screen.getByText('Save')); });
     expect(saveExpressionSnippetMock).toHaveBeenCalledWith('Upper Name', '$upper($.name)');
     expect(await screen.findByText('Upper Name')).toBeTruthy();
 
@@ -194,7 +199,7 @@ describe('ExpressionEditorModal', () => {
     const textarea = screen.getByPlaceholderText(/\$upper/) as HTMLTextAreaElement;
     expect(textarea.value).toBe('$upper($.name)');
 
-    fireEvent.click(screen.getByText('Delete'));
+    await act(async () => { fireEvent.click(screen.getByText('Delete')); });
     expect(deleteExpressionSnippetMock).toHaveBeenCalled();
   });
 });

@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>SLA Override — Redesign Mockup</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #1a2332; color: #c9d1d9; padding: 40px; }
+  h2 { font-size: 14px; color: #8b949e; margin-bottom: 16px; text-transform: uppercase; letter-spacing: 1px; }
+  h3 { font-size: 12px; color: #6b7280; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.8px; }
+
+  /* ════════════════════════════════════════════════════════ */
+  /*  PART 1: Compact trigger on Runner page                */
+  /* ════════════════════════════════════════════════════════ */
+  .runner-sla-trigger {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 14px;
+    background: var(--surface, #1e2d3d);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 8px;
+    max-width: 700px;
+    margin-bottom: 40px;
+  }
+  .trigger-left { display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 500; }
+  .trigger-right { display: flex; align-items: center; gap: 12px; }
+  .trigger-stats { font-size: 12px; color: #8b949e; display: flex; gap: 12px; }
+  .trigger-stat { display: flex; align-items: center; gap: 4px; }
+  .stat-dot { width: 6px; height: 6px; border-radius: 50%; }
+  .stat-dot-def { background: #3b82f6; }
+  .stat-dot-ovr { background: #f59e0b; }
+  .stat-dot-new { background: #22c55e; }
+  .btn-configure {
+    background: rgba(59,130,246,0.12); border: 1px solid rgba(59,130,246,0.3);
+    color: #60a5fa; padding: 5px 14px; border-radius: 4px; font-size: 12px;
+    font-weight: 600; cursor: pointer;
+  }
+  .btn-configure:hover { background: rgba(59,130,246,0.2); }
+  .badge-opt { background: rgba(255,255,255,0.08); color: #8b949e; padding: 2px 8px; border-radius: 10px; font-size: 10px; }
+
+  /* ════════════════════════════════════════════════════════ */
+  /*  PART 2: Modal                                          */
+  /* ════════════════════════════════════════════════════════ */
+  .modal-overlay {
+    background: rgba(0,0,0,0.5); border-radius: 12px;
+    padding: 32px; max-width: 1100px;
+    border: 1px solid rgba(255,255,255,0.1);
+    position: relative;
+  }
+  .modal-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 20px; padding-bottom: 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+  }
+  .modal-title { font-size: 16px; font-weight: 600; display: flex; align-items: center; gap: 10px; }
+  .modal-subtitle { font-size: 12px; color: #8b949e; margin-top: 4px; }
+  .modal-close { background: transparent; border: 1px solid rgba(255,255,255,0.1); color: #8b949e; width: 28px; height: 28px; border-radius: 4px; cursor: pointer; font-size: 14px; }
+  .modal-close:hover { color: #c9d1d9; border-color: rgba(255,255,255,0.2); }
+
+  /* ── Definitions section ── */
+  .section-toggle {
+    display: flex; align-items: center; justify-content: space-between;
+    width: 100%; padding: 8px 10px;
+    background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 6px; cursor: pointer; color: #c9d1d9; font-size: 13px; font-weight: 500;
+  }
+  .section-toggle:hover { background: rgba(255,255,255,0.06); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 10px; table-layout: fixed; }
+  th { font-size: 10px; color: #8b949e; text-align: left; padding: 6px 10px; border-bottom: 1px solid rgba(255,255,255,0.08); text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; }
+  td { padding: 7px 10px; border-bottom: 1px solid rgba(255,255,255,0.03); vertical-align: middle; }
+
+  .def-table col:nth-child(1) { width: 160px; }
+  .def-table col:nth-child(2) { width: 150px; }
+  .def-table col:nth-child(3) { width: 110px; }
+  .def-table col:nth-child(4) { width: 80px; }
+  .def-table col:nth-child(6) { width: 80px; }
+
+  .ovr-table col:nth-child(1) { width: 6px; }
+  .ovr-table col:nth-child(2) { width: 160px; }
+  .ovr-table col:nth-child(3) { width: 150px; }
+  .ovr-table col:nth-child(4) { width: 130px; }
+  .ovr-table col:nth-child(5) { width: 110px; }
+  .ovr-table col:nth-child(6) { width: 36px; }
+
+  .scope-badge { display: inline-block; background: rgba(96,165,250,0.12); color: #93c5fd; border-radius: 4px; padding: 2px 8px; font-size: 11px; white-space: nowrap; }
+  .scope-badge.scope-agg { background: rgba(168,85,247,0.12); color: #c4b5fd; }
+  .scope-badge.scope-fg { background: rgba(34,197,94,0.12); color: #86efac; }
+
+  .btn-override { background: transparent; border: 1px solid rgba(255,255,255,0.12); color: #8b949e; padding: 3px 8px; border-radius: 4px; font-size: 11px; cursor: pointer; white-space: nowrap; }
+  .btn-override:hover { color: #60a5fa; border-color: rgba(96,165,250,0.4); background: rgba(96,165,250,0.08); }
+  .btn-override.overridden { color: #f59e0b; border-color: rgba(245,158,11,0.3); background: rgba(245,158,11,0.06); cursor: default; }
+
+  .bar-cell { padding: 0 !important; width: 6px !important; }
+  .bar-updated { background: #f59e0b; }
+  .bar-new { background: #22c55e; }
+
+  .ovr-badge { display: inline-block; padding: 1px 6px; border-radius: 3px; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; margin-left: 6px; vertical-align: middle; }
+  .ovr-badge-updated { background: rgba(245,158,11,0.15); color: #fbbf24; }
+  .ovr-badge-new { background: rgba(34,197,94,0.15); color: #4ade80; }
+
+  input[type="number"], select { background: #263549; border: 1px solid rgba(255,255,255,0.1); color: #c9d1d9; padding: 5px 8px; border-radius: 4px; font-size: 13px; width: 100%; }
+  input[type="number"]:focus, select:focus { outline: none; border-color: #3b82f6; }
+  .unit { font-size: 11px; color: #6b7280; margin-left: 4px; }
+  .was-hint { font-size: 10px; color: #6b7280; margin-top: 2px; }
+
+  .btn-del { background: transparent; border: none; color: #6b7280; font-size: 14px; cursor: pointer; padding: 4px 8px; border-radius: 4px; }
+  .btn-del:hover { color: #f87171; background: rgba(248,113,113,0.1); }
+
+  .btn-add { background: transparent; border: 1px solid rgba(255,255,255,0.1); color: #c9d1d9; padding: 6px 14px; border-radius: 4px; font-size: 13px; cursor: pointer; margin-top: 12px; }
+  .btn-add:hover { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.2); }
+
+  .readonly { color: #8b949e; }
+
+  .section-divider { margin-top: 24px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.06); }
+  .section-title { font-size: 13px; font-weight: 600; color: #c9d1d9; display: flex; align-items: center; gap: 8px; }
+  .ovr-count { background: rgba(96,165,250,0.15); color: #60a5fa; padding: 1px 7px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+  .hint { font-size: 12px; color: #6b7280; margin: 6px 0 4px; line-height: 1.5; }
+
+  .scope-group-spacer td { padding-top: 10px !important; border-bottom: none !important; }
+
+  /* Footer */
+  .modal-footer {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-top: 24px; padding-top: 16px;
+    border-top: 1px solid rgba(255,255,255,0.08);
+  }
+  .btn-cancel { background: transparent; border: 1px solid rgba(255,255,255,0.1); color: #c9d1d9; padding: 7px 18px; border-radius: 4px; font-size: 13px; cursor: pointer; }
+  .btn-save { background: #3b82f6; border: none; color: white; padding: 7px 22px; border-radius: 4px; font-size: 13px; font-weight: 600; cursor: pointer; }
+  .btn-save:hover { background: #2563eb; }
+  .btn-group { display: flex; gap: 8px; }
+
+  .separator { height: 1px; background: rgba(255,255,255,0.06); margin: 48px 0; max-width: 1100px; }
+  .label-section { font-size: 11px; color: #f59e0b; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; font-weight: 600; }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!--  PART 1: What the Runner page shows (compact trigger)             -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<div class="label-section">Part 1 — Runner Page (compact trigger)</div>
+
+<div class="runner-sla-trigger">
+  <div class="trigger-left">
+    🎯 SLA Override <span class="badge-opt">optional</span>
+  </div>
+  <div class="trigger-right">
+    <div class="trigger-stats">
+      <span class="trigger-stat"><span class="stat-dot stat-dot-def"></span> 8 configured</span>
+      <span class="trigger-stat"><span class="stat-dot stat-dot-ovr"></span> 1 override</span>
+      <span class="trigger-stat"><span class="stat-dot stat-dot-new"></span> 1 new</span>
+    </div>
+    <button class="btn-configure">Configure</button>
+  </div>
+</div>
+
+<!-- No overrides version -->
+<div class="runner-sla-trigger" style="opacity:0.7; margin-bottom: 48px;">
+  <div class="trigger-left">
+    🎯 SLA Override <span class="badge-opt">optional</span>
+  </div>
+  <div class="trigger-right">
+    <div class="trigger-stats">
+      <span class="trigger-stat"><span class="stat-dot stat-dot-def"></span> 8 configured</span>
+    </div>
+    <button class="btn-configure">Configure</button>
+  </div>
+</div>
+
+<div class="separator"></div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!--  PART 2: The Modal (opens when "Configure" is clicked)            -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<div class="label-section">Part 2 — SLA Override Modal</div>
+
+<div class="modal-overlay">
+  <!-- Modal header -->
+  <div class="modal-header">
+    <div>
+      <div class="modal-title">🎯 SLA Override</div>
+      <div class="modal-subtitle">Configure SLA thresholds for this run. Overrides replace matching configured targets.</div>
+    </div>
+    <button class="modal-close">✕</button>
+  </div>
+
+    <!-- ═══ SECTION 1: Configured Targets ═══ -->
+    <div class="section-toggle">
+      📋 Configured Targets (8)
+      <span>▴</span>
+    </div>
+
+    <table class="def-table">
+      <colgroup><col/><col/><col/><col/><col/><col/></colgroup>
+      <thead>
+        <tr>
+          <th>Scope</th>
+          <th>Metric</th>
+          <th>Threshold</th>
+          <th>Warn</th>
+          <th>Label</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- Aggregate group -->
+        <tr>
+          <td><span class="scope-badge scope-agg">Aggregate</span></td>
+          <td>P95 Response Time</td>
+          <td>≤ 2000 ms</td>
+          <td>—</td>
+          <td>Feature Group P95 SLA</td>
+          <td><button class="btn-override">Override</button></td>
+        </tr>
+        <!-- Test: Get Users group -->
+        <tr class="scope-group-spacer"><td colspan="6"></td></tr>
+        <tr>
+          <td><span class="scope-badge">Test: Get Users</span></td>
+          <td>P95 Response Time</td>
+          <td>≤ 500 ms</td>
+          <td>400 ms</td>
+          <td>Users P95</td>
+          <td><button class="btn-override" style="color:#f59e0b; border-color:rgba(245,158,11,0.3);" title="Already overridden">Overridden ✓</button></td>
+        </tr>
+        <tr>
+          <td><span class="scope-badge">Test: Get Users</span></td>
+          <td>Error Rate</td>
+          <td>≤ 1 %</td>
+          <td>—</td>
+          <td>Users Error Rate</td>
+          <td><button class="btn-override">Override</button></td>
+        </tr>
+        <!-- Test: Get Posts -->
+        <tr class="scope-group-spacer"><td colspan="6"></td></tr>
+        <tr>
+          <td><span class="scope-badge">Test: Get Posts</span></td>
+          <td>P95 Response Time</td>
+          <td>≤ 800 ms</td>
+          <td>—</td>
+          <td>Posts P95</td>
+          <td><button class="btn-override">Override</button></td>
+        </tr>
+        <!-- Test: Create Post group -->
+        <tr class="scope-group-spacer"><td colspan="6"></td></tr>
+        <tr>
+          <td><span class="scope-badge">Test: Create Post</span></td>
+          <td>P95 Response Time</td>
+          <td>≤ 1000 ms</td>
+          <td>800 ms</td>
+          <td>Create Post P95</td>
+          <td><button class="btn-override">Override</button></td>
+        </tr>
+        <tr>
+          <td><span class="scope-badge">Test: Create Post</span></td>
+          <td>TPS</td>
+          <td>≥ 10</td>
+          <td>15</td>
+          <td>Create Post TPS</td>
+          <td><button class="btn-override">Override</button></td>
+        </tr>
+        <tr>
+          <td><span class="scope-badge">Test: Create Post</span></td>
+          <td>Error Rate</td>
+          <td>≤ 2 %</td>
+          <td>—</td>
+          <td>Create Post Error Rate</td>
+          <td><button class="btn-override">Override</button></td>
+        </tr>
+        <!-- Test: Update Post -->
+        <tr class="scope-group-spacer"><td colspan="6"></td></tr>
+        <tr>
+          <td><span class="scope-badge">Test: Update Post</span></td>
+          <td>Avg Response Time</td>
+          <td>≤ 600 ms</td>
+          <td>—</td>
+          <td>Update Post Avg Latency</td>
+          <td><button class="btn-override">Override</button></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- ═══ SECTION 2: Overrides ═══ -->
+    <div class="section-divider">
+      <div class="section-title">
+        Overrides for this run <span class="ovr-count">4</span>
+      </div>
+      <div class="hint">
+        Click "Override" above to change a threshold. Use "+ Add Target" for new SLAs.<br/>
+        Overrides with the same metric + scope replace the original. Others are added.
+      </div>
+    </div>
+
+    <table class="ovr-table">
+      <colgroup><col/><col/><col/><col/><col/><col/><col/></colgroup>
+      <thead>
+        <tr>
+          <th></th>
+          <th>Scope</th>
+          <th>Metric</th>
+          <th>Fail if</th>
+          <th>Warn at</th>
+          <th></th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- ── CASE 1: Override existing — cloned from "Override" button ── -->
+        <!-- Scope & Metric are LOCKED (read-only text). Only thresholds editable. -->
+        <tr>
+          <td class="bar-cell"><div class="bar-updated" style="width:4px;height:100%;min-height:32px;border-radius:2px;"></div></td>
+          <td>
+            <span class="scope-badge readonly">Test: Get Users</span>
+            <span class="ovr-badge ovr-badge-updated">override</span>
+          </td>
+          <td class="readonly">P95 Response Time</td>
+          <td>
+            <input type="number" value="300" style="width:70px; display:inline-block;" />
+            <span class="unit">ms</span>
+            <div style="font-size:10px; color:#6b7280; margin-top:2px;">was 500</div>
+          </td>
+          <td>
+            <input type="number" value="200" style="width:70px; display:inline-block;" />
+            <span class="unit">ms</span>
+            <div style="font-size:10px; color:#6b7280; margin-top:2px;">was 400</div>
+          </td>
+          <td></td>
+          <td style="text-align:center;"><button class="btn-del">✕</button></td>
+        </tr>
+
+        <!-- ── CASE 3: New metric for existing scope — via "+ Add Target" ── -->
+        <!-- User picked scope "Test: Get Users" + metric "Avg Response Time" (which doesn't exist in definitions) -->
+        <tr>
+          <td class="bar-cell"><div class="bar-new" style="width:4px;height:100%;min-height:32px;border-radius:2px;"></div></td>
+          <td>
+            <select style="width:140px;">
+              <option>Aggregate</option>
+              <option selected>Test: Get Users</option>
+              <option>Test: Get Posts</option>
+              <option>Test: Create Post</option>
+              <option>Test: Update Post</option>
+            </select>
+            <span class="ovr-badge ovr-badge-new">new</span>
+          </td>
+          <td>
+            <select style="width:140px;">
+              <option>P50 Response Time</option>
+              <option selected>Avg Response Time</option>
+              <option>P99 Response Time</option>
+              <option>TPS</option>
+              <option>Error Rate</option>
+            </select>
+          </td>
+          <td>
+            <input type="number" value="400" style="width:70px; display:inline-block;" />
+            <span class="unit">ms</span>
+          </td>
+          <td>
+            <input type="number" placeholder="—" style="width:70px; display:inline-block;" />
+          </td>
+          <td></td>
+          <td style="text-align:center;"><button class="btn-del">✕</button></td>
+        </tr>
+
+        <!-- ── CASE 4: New SLA for a test that has NONE defined — via "+ Add Target" ── -->
+        <!-- User picked scope "Test: Update Post" which has only 1 SLA, adding TPS -->
+        <tr>
+          <td class="bar-cell"><div class="bar-new" style="width:4px;height:100%;min-height:32px;border-radius:2px;"></div></td>
+          <td>
+            <select style="width:140px;">
+              <option>Aggregate</option>
+              <option>Test: Get Users</option>
+              <option>Test: Get Posts</option>
+              <option>Test: Create Post</option>
+              <option selected>Test: Update Post</option>
+            </select>
+            <span class="ovr-badge ovr-badge-new">new</span>
+          </td>
+          <td>
+            <select style="width:140px;">
+              <option>P95 Response Time</option>
+              <option selected>TPS</option>
+              <option>Error Rate</option>
+            </select>
+          </td>
+          <td>
+            <input type="number" value="20" style="width:70px; display:inline-block;" />
+            <span class="unit"></span>
+          </td>
+          <td>
+            <input type="number" value="15" style="width:70px; display:inline-block;" />
+          </td>
+          <td></td>
+          <td style="text-align:center;"><button class="btn-del">✕</button></td>
+        </tr>
+
+        <!-- ── CASE 5: New aggregate SLA — via "+ Add Target" ── -->
+        <tr>
+          <td class="bar-cell"><div class="bar-new" style="width:4px;height:100%;min-height:32px;border-radius:2px;"></div></td>
+          <td>
+            <select style="width:140px;">
+              <option selected>Aggregate</option>
+              <option>Test: Get Users</option>
+              <option>Test: Get Posts</option>
+              <option>Test: Create Post</option>
+              <option>Test: Update Post</option>
+            </select>
+            <span class="ovr-badge ovr-badge-new">new</span>
+          </td>
+          <td>
+            <select style="width:140px;">
+              <option selected>TPS</option>
+              <option>P95 Response Time</option>
+              <option>Error Rate</option>
+            </select>
+          </td>
+          <td>
+            <input type="number" value="50" style="width:70px; display:inline-block;" />
+            <span class="unit"></span>
+          </td>
+          <td>
+            <input type="number" placeholder="—" style="width:70px; display:inline-block;" />
+          </td>
+          <td></td>
+          <td style="text-align:center;"><button class="btn-del">✕</button></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <button class="btn-add">+ Add Target</button>
+
+    <!-- Modal footer -->
+    <div class="modal-footer">
+      <div style="font-size:12px; color:#6b7280;">
+        Summary: 8 configured · <span style="color:#f59e0b;">1 override</span> · <span style="color:#22c55e;">3 new</span>
+      </div>
+      <div class="btn-group">
+        <button class="btn-cancel">Cancel</button>
+        <button class="btn-save">Save</button>
+      </div>
+    </div>
+
+</div> <!-- end modal-overlay -->
+
+<!-- ═══ Legend ═══ -->
+<div style="margin-top: 32px; padding: 16px; background: rgba(255,255,255,0.03); border-radius: 8px; max-width: 1100px;">
+  <div style="font-size: 12px; font-weight: 600; margin-bottom: 10px; color: #8b949e;">DESIGN NOTES — USE CASES</div>
+  <ul style="font-size: 12px; color: #8b949e; line-height: 2.0; padding-left: 20px;">
+    <li><strong style="color:#f59e0b;">Case 1 — Override existing threshold:</strong> Click "Override" on a definition row → clones it below with <strong>locked</strong> Scope + Metric (plain text, not dropdowns). User only edits Fail/Warn values. Shows "was X" hint below input. Orange bar + <code>OVERRIDE</code> badge.</li>
+    <li><strong style="color:#22c55e;">Case 2 — New metric for existing scope:</strong> Click "+ Add Target" → Scope dropdown (pre-populated with all test names) + Metric dropdown. Pick an existing test but a metric it doesn't have yet. Green bar + <code>NEW</code> badge.</li>
+    <li><strong style="color:#22c55e;">Case 3 — New SLA for a test with no SLAs:</strong> Same as Case 2 — the Scope dropdown includes ALL selected tests, not just ones with existing SLAs.</li>
+    <li><strong style="color:#22c55e;">Case 4 — New aggregate SLA:</strong> Same as Case 2 — pick "Aggregate" from the Scope dropdown.</li>
+    <li><strong>Override button state:</strong> Shows "Override" normally. Changes to <span style="color:#f59e0b;">"Overridden ✓"</span> (disabled) when that target already has an override below.</li>
+    <li><strong>Removing an override:</strong> Click ✕ → row removed, definition restored, "Override" button re-enabled.</li>
+    <li><strong>No Label column in overrides</strong> — label is auto-inherited from definition (for overrides) or auto-generated (for new targets). Less clutter.</li>
+    <li><strong>Two row types:</strong> Cloned rows have read-only Scope+Metric (text). New rows have editable Scope+Metric (dropdowns).</li>
+  </ul>
+</div>
+
+</body>
+</html>

@@ -6,10 +6,10 @@ import {
   saveWorkflows,
   loadSelectedWorkflowId,
   saveSelectedWorkflowId,
+  compactWorkflowStorage,
 } from '../../../shared/utils/storage';
 import { migrateWorkflowSchema } from '../utils/workflowMigrations';
-
-const WORKFLOW_SCHEMA_VERSION = 6;
+import { WORKFLOW_SCHEMA_VERSION } from './useWorkflowPersistence';
 
 export function useWorkflows() {
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
@@ -28,6 +28,16 @@ export function useWorkflows() {
       const migrated = JSON.stringify(next) !== JSON.stringify(wfs);
       if (migrated) {
         await saveWorkflows(next);
+      }
+      if (cancelled) return;
+
+      // Auto-compact when workflows exceed 2 MB to prevent QuotaExceededError
+      const approxSizeKB = JSON.stringify(next).length * 2 / 1024;
+      if (approxSizeKB > 2048) {
+        const result = await compactWorkflowStorage(5);
+        if (result.beforeKB !== result.afterKB) {
+          console.info(`[Workflows] Auto-compacted versions: ${result.beforeKB} KB → ${result.afterKB} KB`);
+        }
       }
       if (cancelled) return;
 

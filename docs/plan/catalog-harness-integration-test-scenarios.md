@@ -7,26 +7,52 @@
 
 ## Test API: Swagger Petstore
 
-**Spec URL:** `https://petstore3.swagger.io/api/v3/openapi.json`
-**Live API Base:** `https://petstore3.swagger.io/api/v3`
+> **⚠️ Important:** The Petstore v3 server (`petstore3.swagger.io`) is currently experiencing issues and returns 500 errors on most endpoints. **Use Petstore v2 for testing.**
 
-### Key Endpoints for Testing
+### Recommended: Petstore v2 (Working)
+
+**Spec URL:** `https://petstore.swagger.io/v2/swagger.json`
+**Live API Base:** `https://petstore.swagger.io/v2`
 
 | Method | Path | Description | Auth Required |
 |--------|------|-------------|---------------|
 | GET | `/pet/findByStatus?status=available` | List pets by status | No |
 | GET | `/pet/{petId}` | Get pet by ID | No |
-| POST | `/pet` | Add a new pet | OAuth2 (optional) |
+| POST | `/pet` | Add a new pet | Optional (API Key: `special-key`) |
 | GET | `/store/inventory` | Get store inventory | API Key |
 | GET | `/user/{username}` | Get user by username | No |
 
+#### Working POST /pet Request Body
+
+```json
+{
+  "id": 12345,
+  "name": "doggie",
+  "category": {"id": 1, "name": "Dogs"},
+  "photoUrls": ["https://example.com/photo.jpg"],
+  "tags": [{"id": 1, "name": "friendly"}],
+  "status": "available"
+}
+```
+
+**Note:** Use integer values for `id` fields (not empty strings). Status must be one of: `available`, `pending`, `sold`.
+
+### Petstore v3 (Currently Broken)
+
+**Spec URL:** `https://petstore3.swagger.io/api/v3/openapi.json`
+**Live API Base:** `https://petstore3.swagger.io/api/v3`
+**Status:** ❌ Returns 500 errors on all endpoints (as of 2026-05-23)
+
+> **Note on Relative Server URLs:** The v3 spec defines a relative server URL (`/api/v3`). When importing from URL, RedfireForge automatically resolves this to the full absolute URL (`https://petstore3.swagger.io/api/v3`). If you import from a file or paste, the relative URL cannot be resolved and will cause "Invalid URL" errors when executing requests.
+
 ### Additional Test Specs
 
-| API | Import URL | Endpoints | Auth |
-|-----|------------|-----------|------|
-| XKCD | `https://raw.githubusercontent.com/APIs-guru/openapi-directory/main/APIs/xkcd.com/1.0.0/openapi.yaml` | 2 | None |
-| Petstore v2 | `https://petstore.swagger.io/v2/swagger.json` | 19 | Optional |
-| TVmaze | `https://raw.githubusercontent.com/APIs-guru/openapi-directory/main/APIs/tvmaze.com/1.0/openapi.yaml` | ~30 | None |
+| API | Import URL | Endpoints | Auth | Status |
+|-----|------------|-----------|------|--------|
+| **Petstore v2** | `https://petstore.swagger.io/v2/swagger.json` | 19 | Optional | ✅ Working |
+| XKCD | `https://raw.githubusercontent.com/APIs-guru/openapi-directory/main/APIs/xkcd.com/1.0.0/openapi.yaml` | 2 | None | ✅ Working |
+| TVmaze | `https://raw.githubusercontent.com/APIs-guru/openapi-directory/main/APIs/tvmaze.com/1.0/openapi.yaml` | ~30 | None | ✅ Working |
+| Petstore v3 | `https://petstore3.swagger.io/api/v3/openapi.json` | 19 | Optional | ❌ Server errors |
 
 ---
 
@@ -61,7 +87,7 @@ npm run dev
 1. Go to **Catalog** tab
 2. Click **Import** button
 3. Select **"From URL"** tab
-4. Paste: `https://petstore3.swagger.io/api/v3/openapi.json`
+4. Paste: `https://petstore.swagger.io/v2/swagger.json` (use v2, v3 is currently broken)
 5. Click **Fetch** → **Import**
 6. Click **"Export to Requests"**
 7. Select a target collection and some endpoints
@@ -81,7 +107,7 @@ Click the **"ⓘ API Info"** button. The panel should show:
 | Section | Expected Content |
 |---------|------------------|
 | **Endpoint** | Operation ID (e.g., `getPetById`), Path (e.g., `GET /pet/{petId}`) |
-| **Source** | Spec name (e.g., `Swagger Petstore - OpenAPI 3.0`) |
+| **Source** | Spec name (e.g., `Swagger Petstore`) |
 | **Description** | Endpoint description from spec |
 | **Tags** | Tag badges (e.g., `pet`) |
 | **Parameters** | Table with Name, In, Type, Required, Description |
@@ -244,8 +270,8 @@ Click the **"ⓘ API Info"** button. The panel should show:
 #### 1. Import a spec with a known version
 
 1. Go to **Catalog** tab
-2. Import Petstore v3: `https://petstore3.swagger.io/api/v3/openapi.json`
-3. Note the spec version (e.g., `1.0.27`)
+2. Import Petstore v2: `https://petstore.swagger.io/v2/swagger.json` (v3 is currently broken)
+3. Note the spec version (e.g., `1.0.7`)
 
 #### 2. Export an endpoint to Requests
 
@@ -256,8 +282,8 @@ Click the **"ⓘ API Info"** button. The panel should show:
 #### 3. Inspect the exported request's catalogMeta
 
 1. Open browser DevTools (F12)
-2. Go to **Application** → **Local Storage**
-3. Find the requests/collections storage key
+2. Go to **Application** → **IndexedDB** → **redfireforge** → **requests**
+3. Click on the `all` key to view the requests data
 4. Locate the exported request object
 5. Inspect the `catalogMeta` field
 
@@ -269,7 +295,7 @@ The `catalogMeta` object should contain:
 {
   "catalogEntryId": "<uuid of the catalog entry>",
   "catalogEndpointId": "<uuid of the endpoint within the spec>",
-  "catalogVersion": "1.0.27",
+  "catalogVersion": "1.0.7",
   "operationId": "getPetById",
   "description": "Returns a single pet",
   "originalPath": "/pet/{petId}",
@@ -283,7 +309,7 @@ The `catalogMeta` object should contain:
     { "statusCode": "404", "description": "Pet not found" }
   ],
   "security": ["api_key", "petstore_auth"],
-  "sourceSpec": "Swagger Petstore - OpenAPI 3.0 1.0.27"
+  "sourceSpec": "Swagger Petstore 1.0.7"
 }
 ```
 
@@ -292,12 +318,12 @@ The `catalogMeta` object should contain:
 1. Import XKCD spec: `https://raw.githubusercontent.com/APIs-guru/openapi-directory/main/APIs/xkcd.com/1.0.0/openapi.yaml`
 2. Export an endpoint
 3. Verify `catalogEntryId` is different from Petstore's
-4. Verify `catalogVersion` is `"1.0.0"`
+4. Verify `catalogVersion` matches the spec version (e.g., `"1.0.0"`)
 
 #### 6. Verify catalogEndpointId is unique per endpoint
 
 1. Export two different endpoints from the same spec
-2. Inspect both in localStorage
+2. Inspect both in IndexedDB (redfireforge → requests → all)
 3. Verify they have the same `catalogEntryId` but different `catalogEndpointId` values
 
 ### Test Scenarios Checklist
@@ -402,12 +428,14 @@ Look at the **Version** column in the endpoint table:
 
 1. Go to **Requests** tab, open an exported request
 2. Click **"API Info"** → verify `Spec Version` shows `1.0.7`
-3. (Advanced) In DevTools → Local Storage → `perf-test-requests`, search for `specVersions` — should be an array with 1 entry
+3. (Advanced) In DevTools → IndexedDB → **redfireforge** → **requests** → `all`, search for `specVersions` — should be an array with 1 entry
 
 ##### 3. Simulate spec update and re-export
 
-1. Import a different version of the spec (e.g., Petstore v3: `https://petstore3.swagger.io/api/v3/openapi.json`)
-   - Or: download Petstore, change version field, re-import as file
+1. Import a different version of the spec:
+   - Option A: Download the Petstore spec, modify the `info.version` field, re-import as file
+   - Option B: Import a different spec entirely (e.g., XKCD)
+   - Note: Petstore v3 (`petstore3.swagger.io`) is currently broken — do not use
 2. Go to **"Export to Requests"** tab
 3. Export the same endpoints again
 
@@ -571,7 +599,7 @@ Look at the **Version** column in the endpoint table:
 
 1. Start dev server: `npm run dev`
 2. Import a spec and export some endpoints to Requests
-3. Go to **Testing** → **Feature Groups** → create at least one Feature Group
+3. Go to **Harness** → **Feature Groups** → create at least one Feature Group
 
 ##### 2. Find "Send to Harness" button
 
@@ -767,7 +795,10 @@ Look at the **Version** column in the endpoint table:
 ## Notes
 
 - Run `npm run dev` before testing
-- For storage inspection: DevTools → Application → Local Storage
+- For storage inspection: DevTools → Application → IndexedDB → **redfireforge** database
+  - **requests** store: Request collections data
+  - **workflows** store: Workflow data
+  - **featureGroups** store: Harness Feature Groups
 - Mark scenarios with ✓ when passed, ✗ when failed
 
 ---
@@ -776,6 +807,8 @@ Look at the **Version** column in the endpoint table:
 
 | Date | Change |
 |------|--------|
+| 2026-05-23 | Updated Test API section: Petstore v3 is broken (500 errors), recommend Petstore v2 instead. Added working POST /pet request body example. Added note about relative server URL resolution. Updated all verification steps to use v2 spec URL. |
+| 2026-05-23 | Updated storage references from localStorage to IndexedDB (redfireforge database). Updated "Testing" tab references to "Harness". |
 | 2026-05-17 | Phase 5 deferred items completed: 5E.4 (pinned/latest toggle UI), 5E.5 (resolveNodeSpecVersion utility + 8 tests), 5F.3 (version badge in Test Runner). Updated 5E/5F scenarios. |
 | 2026-05-17 | Phase 6 gap fixes: toast confirmation, openEditorAfter, clickable origin badge, auto-preset status-200. Added 4 new manual scenarios (26 total for Phase 6). |
 | 2026-05-17 | Phase 6 implemented: 7 sub-phases (6A–6G), 43 unit tests, full Requests ↔ Harness bridge with single/batch/catalog promotion paths |
@@ -790,4 +823,4 @@ Look at the **Version** column in the endpoint table:
 
 ---
 
-_Last Updated: 2026-05-17_
+_Last Updated: 2026-05-23_

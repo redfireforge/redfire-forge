@@ -129,8 +129,29 @@ test.describe('Workflow Designer', () => {
     const saveBtn = page.locator('.wf-toolbar-save-wrap button').first();
     await saveBtn.click({ force: true });
 
-    // Verify workflow was persisted
-    const stored = await page.evaluate(() => localStorage.getItem('workflows'));
+    // Verify workflow was persisted (may be in IndexedDB or localStorage)
+    const stored = await page.evaluate(async () => {
+      // Try IndexedDB first (v5+), fall back to localStorage
+      try {
+        const db = await new Promise<IDBDatabase>((resolve, reject) => {
+          const req = indexedDB.open('redfireforge');
+          req.onsuccess = () => resolve(req.result);
+          req.onerror = () => reject(req.error);
+        });
+        if (db.objectStoreNames.contains('workflows')) {
+          const idbVal = await new Promise<unknown>((resolve) => {
+            const t = db.transaction('workflows', 'readonly');
+            const r = t.objectStore('workflows').get('all');
+            r.onsuccess = () => resolve(r.result ?? null);
+            r.onerror = () => resolve(null);
+          });
+          db.close();
+          if (idbVal) return JSON.stringify(idbVal);
+        }
+        db.close();
+      } catch { /* fallback */ }
+      return localStorage.getItem('workflows');
+    });
     expect(stored).toBeTruthy();
     const parsed = JSON.parse(stored!);
     expect(parsed.length).toBeGreaterThan(0);

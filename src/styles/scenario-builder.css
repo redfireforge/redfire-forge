@@ -2407,6 +2407,14 @@
   background: #818cf8;
   color: #fff;
 }
+/* SLA count badge in scenario header — overrides .count-badge base styles */
+.sla-count-badge {
+  background: rgba(59, 130, 246, 0.2);
+  color: #93c5fd;
+  padding: 1px 7px;
+  font-size: 0.68rem;
+  font-weight: 600;
+}
 
 .inline-edit-input {
   background: var(--bg);
@@ -3919,7 +3927,7 @@
 }
 
 .test-def-version-item:hover {
-  background: var(--bg-hover);
+  background: var(--surface-hover);
 }
 
 .test-def-version-item.selected {
@@ -6079,11 +6087,13 @@
   display: inline-flex;
   align-items: center;
   gap: 2px;
-  padding: 1px 6px;
-  border-radius: 3px;
-  font-size: 0.65rem;
-  background: rgba(66, 153, 225, 0.15);
-  color: #63b3ed;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  background: rgba(66, 153, 225, 0.28);
+  color: #90cdf4;
+  border: 1px solid rgba(66, 153, 225, 0.5);
   max-width: 100px;
 }
 
@@ -6101,7 +6111,7 @@
   cursor: pointer;
   font-size: 0.6rem;
   padding: 0 2px;
-  opacity: 0.6;
+  opacity: 0.8;
   flex-shrink: 0;
   line-height: 1;
 }
@@ -6113,14 +6123,14 @@
 
 .scenario-tag-add-btn {
   background: none;
-  border: 1px dashed var(--border, #3b4a60);
+  border: 1px dashed rgba(66, 153, 225, 0.5);
   border-radius: 3px;
-  color: var(--text-muted);
+  color: #90cdf4;
   cursor: pointer;
-  font-size: 0.6rem;
-  padding: 1px 5px;
+  font-size: 0.65rem;
+  padding: 1px 6px;
   margin-left: 4px;
-  opacity: 0.5;
+  opacity: 0.8;
   vertical-align: middle;
 }
 
@@ -6139,6 +6149,42 @@
   border-radius: 3px;
   color: var(--text);
   margin-left: 4px;
+}
+
+.scenario-tag-input-wrap {
+  position: relative;
+  display: inline-flex;
+  vertical-align: middle;
+}
+
+.scenario-tag-suggestions {
+  position: absolute;
+  top: calc(100% + 3px);
+  left: 4px;
+  z-index: 200;
+  background: var(--panel-bg, #1e2530);
+  border: 1px solid var(--border, #3b4a60);
+  border-radius: 5px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  list-style: none;
+  margin: 0;
+  padding: 3px 0;
+  min-width: 120px;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.scenario-tag-suggestion-item {
+  padding: 5px 12px;
+  font-size: 0.7rem;
+  color: #90cdf4;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.scenario-tag-suggestion-item:hover {
+  background: rgba(66, 153, 225, 0.18);
+  color: #fff;
 }
 
 .fg-tag-summary {

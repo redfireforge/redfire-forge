@@ -1,0 +1,90 @@
+{
+  "id": "cli-sample-run-001",
+  "timestamp": 1716700000000,
+  "config": {
+    "concurrency": 3,
+    "iterations": 5,
+    "scenarioWeights": [
+      { "scenarioName": "GET /api/users", "weight": 1 },
+      { "scenarioName": "POST /api/orders", "weight": 1 }
+    ],
+    "executionMode": "batch",
+    "slaTargets": [
+      { "id": "sla-cli-0", "metric": "p95", "operator": "lte", "value": 500, "label": "P95 under 500ms" },
+      { "id": "sla-cli-1", "metric": "errorRate", "operator": "lte", "value": 5, "label": "Error rate under 5%" }
+    ]
+  },
+  "summary": {
+    "totalRequests": 30,
+    "successfulRequests": 29,
+    "failedRequests": 1,
+    "failedValidations": 0,
+    "totalDurationMs": 2456.78,
+    "avgResponseTime": 82.5,
+    "minResponseTime": 12,
+    "maxResponseTime": 340,
+    "p50ResponseTime": 65,
+    "p95ResponseTime": 250,
+    "p99ResponseTime": 320,
+    "tps": 12.21,
+    "errorRate": 3.33,
+    "errorsByStatus": { "500": 1 }
+  },
+  "results": [
+    {
+      "scenarioName": "GET /api/users",
+      "url": "http://localhost:3000/api/users",
+      "method": "GET",
+      "status": 200,
+      "responseTimeMs": 45,
+      "timestamp": 1716700001000,
+      "passed": true,
+      "responseBody": "{\"users\":[]}",
+      "httpStatus": 200,
+      "validationMode": "none",
+      "failureDetails": []
+    },
+    {
+      "scenarioName": "GET /api/users",
+      "url": "http://localhost:3000/api/users",
+      "method": "GET",
+      "status": 200,
+      "responseTimeMs": 78,
+      "timestamp": 1716700002000,
+      "passed": true,
+      "responseBody": "{\"users\":[{\"id\":1}]}",
+      "httpStatus": 200,
+      "validationMode": "none",
+      "failureDetails": []
+    },
+    {
+      "scenarioName": "POST /api/orders",
+      "url": "http://localhost:3000/api/orders",
+      "method": "POST",
+      "status": 201,
+      "responseTimeMs": 120,
+      "timestamp": 1716700003000,
+      "passed": true,
+      "responseBody": "{\"orderId\":\"abc-123\"}",
+      "httpStatus": 201,
+      "validationMode": "none",
+      "failureDetails": []
+    },
+    {
+      "scenarioName": "POST /api/orders",
+      "url": "http://localhost:3000/api/orders",
+      "method": "POST",
+      "status": 500,
+      "responseTimeMs": 340,
+      "timestamp": 1716700004000,
+      "passed": false,
+      "errorMessage": "Internal Server Error",
+      "responseBody": "{\"error\":\"Internal Server Error\"}",
+      "httpStatus": 500,
+      "validationMode": "none",
+      "failureDetails": []
+    }
+  ],
+  "projectName": "CLI Sample Run",
+  "envName": "staging"
+}

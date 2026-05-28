@@ -39,6 +39,7 @@ import WebhookDeliveryLogs from '../features/webhooks/WebhookDeliveryLogs';
 import WorkflowSidebar from '../features/workflow/components/panels/WorkflowSidebar';
 import FolderPickerModal from '../features/workflow/components/modals/FolderPickerModal';
 import { GalleryPage } from '../features/gallery/GalleryPage';
+import { sampleWorkflowCatalog } from '../data/galleries/workflows';
 import TrainingTracksView from '../features/training/TrainingTracksView';
 import { useWorkflows } from '../features/workflow/hooks/useWorkflows';
 import { useWorkflowFolders } from '../features/workflow/hooks/useWorkflowFolders';
@@ -54,6 +55,7 @@ import {
   readTabFromUrl,
   writeTabToUrl,
 } from './utils/appTabUtils';
+import { onStorageFull, cleanupStaleStorageKeys } from '../shared/utils/storage';
 import '../styles/index.css';
 import { lazy, Suspense } from 'react';
 import type { ComponentType } from 'react';
@@ -93,8 +95,8 @@ export default function App() {
   const wfFolders = useWorkflowFolders();
   const { theme, setTheme, showCustomizer, setShowCustomizer, themePickerOpen, setThemePickerOpen, themePickerRef, reapplyTheme, THEMES, THEME_ICONS } = useTheme();
   const toast = useToast();
-  const { handleWorkflowExport, handleWorkflowImport } = useWorkflowImportExport({
-    wfHook, setActiveTab: (t) => setActiveTab(t as Tab), showToast: toast.show,
+  const { handleWorkflowExport, handleWorkflowImport, handleExportFolder } = useWorkflowImportExport({
+    wfHook, folders: wfFolders.folders, setActiveTab: (t) => setActiveTab(t as Tab), showToast: toast.show,
   });
   // ---- App shell state ----
   const [activeTab, setActiveTab] = useState<Tab>(() => readTabFromUrl());
@@ -190,10 +192,26 @@ export default function App() {
     }
   }, [loading, initialTheme, initialTestRuns, setTheme]);
 
+  // ---- Warn when localStorage is full ----
+  useEffect(() => {
+    return onStorageFull((key) => {
+      toast.show('error', 'Storage Full',
+        `Cannot save ${key}. Browser storage is full. Go to Settings → Storage to free up space.`);
+    });
+  }, [toast]);
+
+  // ---- Auto-cleanup stale keys on first load ----
+  useEffect(() => {
+    cleanupStaleStorageKeys();
+  }, []);
+
+  const [galleryInitialDomain, setGalleryInitialDomain] = useState<import('../data/galleries/types').GalleryDomain | undefined>(undefined);
+
   // Keep ?tab= in sync so refresh restores Workflow / Catalog / Harness / etc.
   useEffect(() => {
     writeTabToUrl(activeTab);
-  }, [activeTab]);
+    if (activeTab !== 'gallery') setGalleryInitialDomain(undefined);
+  }, [activeTab, setGalleryInitialDomain]);
 
   // ---- Header height sync ----
   const headerRef = useRef<HTMLElement>(null);
@@ -207,6 +225,14 @@ export default function App() {
     window.addEventListener('resize', syncHeaderHeight);
     return () => window.removeEventListener('resize', syncHeaderHeight);
   }, [syncHeaderHeight]);
+
+  // ---- Sidebar width sync (CSS var for modals/overlays that respect the sidebar) ----
+  // Activity bar is 48px; when the sidebar is collapsed the unified-sidebar is unmounted.
+  useEffect(() => {
+    const activityBar = 48;
+    const total = sidebarCollapsed ? activityBar : activityBar + sidebarWidth;
+    document.documentElement.style.setProperty('--sidebar-w', `${total}px`);
+  }, [sidebarWidth, sidebarCollapsed]);
 
   // ---- Fix Gallery Samples microservice baseUrls (migration for pre-0.9.1 data) ----
   const galleryFixApplied = useRef(false);
@@ -256,6 +282,18 @@ export default function App() {
     setFeatureGroups, setEnvironments, setMicroservices,
     setSelectedEnvId, setSelectedSvcId,
   });
+
+  const handleLoadWorkflowTemplate = useCallback((gallerySampleId: string) => {
+    const entry = sampleWorkflowCatalog.find(e => e.id === gallerySampleId);
+    if (entry) {
+      gallery.onImportWorkflow(entry);
+    }
+  }, [gallery]);
+
+  const handleBrowseGallery = useCallback(() => {
+    setGalleryInitialDomain('workflows');
+    setActiveTab('gallery');
+  }, [setActiveTab]);
 
   // ---- Loading screen ----
   if (loading) {
@@ -383,13 +421,14 @@ export default function App() {
               onNew={(name: string) => {
                 wfHook.create(name); setActiveTab('workflow');
               }}
-              onBrowseTemplates={() => setActiveTab('gallery')}
+              onBrowseTemplates={() => { setGalleryInitialDomain('workflows'); setActiveTab('gallery'); }}
               onRename={(id, name) => {
                 wfHook.update(id, { name });
               }}
               onDelete={(id) => { wfHook.remove(id); }}
               onDuplicate={(id) => { wfHook.duplicate(id); }}
               onExport={handleWorkflowExport}
+              onExportFolder={handleExportFolder}
               onImport={handleWorkflowImport}
               onToggleFolderCollapse={wfFolders.toggleCollapse}
               onSetFolderCollapsed={wfFolders.setCollapsed}
@@ -459,6 +498,8 @@ export default function App() {
               onClearPreview={clearPreviewWorkflow}
               onUseAsTemplate={handleUseWorkflowAsTemplate}
               onRunInHarness={handleRunInHarness}
+              onLoadTemplate={handleLoadWorkflowTemplate}
+              onBrowseGallery={handleBrowseGallery}
             />
           </div>
           {activeTab === 'gallery' && (
@@ -471,12 +512,13 @@ export default function App() {
                 onImportTest={gallery.onImportTest}
                 onImportWorkflow={gallery.onImportWorkflow}
                 onNavigateTo={gallery.onNavigateTo}
+                initialDomain={galleryInitialDomain}
               />
             </div>
           )}
           {activeTab === 'training' && (
             <div className="app-tab-pane training-pane">
-              <TrainingTracksView onNavigateToSample={(_sampleId) => setActiveTab('gallery')} />
+              <TrainingTracksView onNavigateToSample={(_sampleId) => { setGalleryInitialDomain(undefined); setActiveTab('gallery'); }} />
             </div>
           )}
           {activeTab === 'workflow-runner' && (
@@ -488,6 +530,9 @@ export default function App() {
                 initialWorkflowId={workflowRunnerInitialId}
                 onClearInitialWorkflowId={() => setWorkflowRunnerInitialId(null)}
                 resolvedBaseUrl={resolvedBaseUrl}
+                microservices={microservices}
+                globalAuthProfiles={appGlobalAuthProfiles}
+                selectedEnvId={selectedEnvId}
                 onImportSample={(wf) => {
                   const existing = wfHook.workflows.find(w => w.id === wf.id);
                   if (existing) {
@@ -497,6 +542,7 @@ export default function App() {
                   }
                   return wf.id;
                 }}
+                onUpdateWorkflow={(id, patch) => wfHook.update(id, patch)}
               />
             </div>
           )}
@@ -643,7 +689,7 @@ export default function App() {
               appMicroservices={microservices}
               appEnvironments={environments}
               previewRequest={previewRequest}
-              onClearPreview={() => { setPreviewRequest(null); setActiveTab('gallery'); }}
+              onClearPreview={() => { setPreviewRequest(null); setGalleryInitialDomain(undefined); setActiveTab('gallery'); }}
               onSendToHarness={() => setShowSendToHarness(true)}
               harnessRequestIds={harnessRequestIds}
               onImportPreview={() => {

@@ -57,6 +57,16 @@ export interface CatalogFolder {
   folders: CatalogFolder[];
 }
 
+/** Saved parameter values for an endpoint exposed to the Workflow Designer. */
+export interface CatalogEndpointWorkflowValues {
+  /** Parameter values keyed by parameter name. */
+  paramValues: Record<string, string>;
+  /** Header values keyed by header name. */
+  headerValues: Record<string, string>;
+  /** Request body (JSON string). */
+  body?: string;
+}
+
 export interface CatalogEndpoint {
   id: string;
   operationId?: string;
@@ -70,6 +80,10 @@ export interface CatalogEndpoint {
   security?: string[];
   deprecated?: boolean;
   tags: string[];
+  /** When true, this endpoint is visible in the Workflow Designer's CATALOG palette. */
+  exposedToWorkflow?: boolean;
+  /** Saved parameter/header/body values captured when exposing to workflow. */
+  workflowValues?: CatalogEndpointWorkflowValues;
 }
 
 // ─── Parameters ──────────────────────────────────────────
@@ -130,6 +144,8 @@ export interface CatalogResponse {
 export interface CatalogServer {
   url: string;
   description?: string;
+  /** Resolved absolute URL (computed when server URL is relative and import source is known). */
+  resolvedUrl?: string;
 }
 
 export interface CatalogSecurityScheme {

@@ -4,10 +4,10 @@
 import { SetStateAction } from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import { useWorkflowNodeActions } from './useWorkflowNodeActions';
+import { useWorkflowNodeActions, buildServiceFromCollection } from './useWorkflowNodeActions';
 import { WorkflowRFNode, WorkflowRFEdge } from '../utils/workflowNodeFactory';
-import { Workflow, WorkflowNode, WorkflowNodeData } from '../types/workflow';
-import { RequestCollection, Environment, Microservice } from '../../../shared/types';
+import { Workflow, WorkflowNode, WorkflowNodeData, HttpNodeData, WorkflowService } from '../types/workflow';
+import { RequestCollection, Environment, Microservice, GlobalAuthProfile } from '../../../shared/types';
 import { CatalogEntry } from '../../catalog/types/catalog';
 import { ToastApi } from '../components/WorkflowToastProvider';
 import { ExtractResult } from '../utils/workflowExtractSubWorkflow';
@@ -46,6 +46,9 @@ vi.mock('../utils/workflowRequestHost', () => ({
 }));
 vi.mock('../utils/workflowExtractSubWorkflow', () => ({
   extractToSubWorkflow: vi.fn(() => null),
+}));
+vi.mock('../components/panels/WorkflowNewNodeContext', () => ({
+  markNodeAsNew: vi.fn(),
 }));
 
 import { extractToSubWorkflow } from '../utils/workflowExtractSubWorkflow';
@@ -126,6 +129,42 @@ describe('useWorkflowNodeActions', () => {
     const { result } = renderHook(() => useWorkflowNodeActions(opts));
     act(() => result.current.handleDeleteNode('n1'));
     expect(opts.setSelectedNodeId).toHaveBeenCalledWith(null);
+  });
+
+  it('handleDeleteNode removes orphaned service when last referencing node is deleted', () => {
+    const opts = defaultOpts();
+    const httpNode: WorkflowRFNode = {
+      id: 'n1', type: 'http', position: { x: 0, y: 0 },
+      data: { label: 'Test', serviceId: 'svc-1' } as WorkflowNodeData,
+    };
+    opts.nodesRef = makeRef([httpNode]);
+    opts.setNodes = vi.fn((fn: SetStateAction<WorkflowRFNode[]>) => (typeof fn === 'function' ? fn([httpNode]) : fn));
+    const setWorkflowServices = vi.fn((fn: SetStateAction<WorkflowService[]>) => {
+      if (typeof fn === 'function') fn([{ id: 'svc-1', name: 'Test Service', endpoints: [] }]);
+    });
+    opts.setWorkflowServices = setWorkflowServices;
+    const { result } = renderHook(() => useWorkflowNodeActions(opts));
+    act(() => result.current.handleDeleteNode('n1'));
+    expect(setWorkflowServices).toHaveBeenCalled();
+  });
+
+  it('handleDeleteNode keeps service when other nodes still reference it', () => {
+    const opts = defaultOpts();
+    const httpNode1: WorkflowRFNode = {
+      id: 'n1', type: 'http', position: { x: 0, y: 0 },
+      data: { label: 'Node 1', serviceId: 'svc-1' } as WorkflowNodeData,
+    };
+    const httpNode2: WorkflowRFNode = {
+      id: 'n2', type: 'http', position: { x: 0, y: 100 },
+      data: { label: 'Node 2', serviceId: 'svc-1' } as WorkflowNodeData,
+    };
+    opts.nodesRef = makeRef([httpNode1, httpNode2]);
+    opts.setNodes = vi.fn((fn: SetStateAction<WorkflowRFNode[]>) => (typeof fn === 'function' ? fn([httpNode1, httpNode2]) : fn));
+    const setWorkflowServices = vi.fn();
+    opts.setWorkflowServices = setWorkflowServices;
+    const { result } = renderHook(() => useWorkflowNodeActions(opts));
+    act(() => result.current.handleDeleteNode('n1'));
+    expect(setWorkflowServices).not.toHaveBeenCalled();
   });
 
   it('handleDeleteNode does not clear selectedNodeId for other nodes', () => {
@@ -223,6 +262,53 @@ describe('useWorkflowNodeActions', () => {
     expect(opts.setNodes).not.toHaveBeenCalled();
   });
 
+  it('handleAddFromCatalog searches nested folders for endpoint', () => {
+    const opts = defaultOpts();
+    opts.catalogEntries = [{
+      id: 'cat-1',
+      servers: [{ url: 'https://api.example.com' }],
+      endpoints: [],
+      folders: [{
+        id: 'f1',
+        name: 'Pets',
+        endpoints: [{ id: 'ep-nested', path: '/nested', method: 'get', summary: 'Nested Pet' }],
+        folders: [],
+      }],
+    }];
+    const { result } = renderHook(() => useWorkflowNodeActions(opts));
+    act(() => result.current.handleAddFromCatalog('cat-1', 'ep-nested'));
+    expect(opts.setNodes).toHaveBeenCalled();
+  });
+
+  it('handleAddFromCatalog searches deeply nested folders', () => {
+    const opts = defaultOpts();
+    opts.catalogEntries = [{
+      id: 'cat-1',
+      servers: [{ url: 'https://api.example.com' }],
+      endpoints: [],
+      folders: [{
+        id: 'f1',
+        name: 'Top',
+        endpoints: [],
+        folders: [{
+          id: 'f2',
+          name: 'Sub',
+          endpoints: [{ id: 'ep-deep', path: '/deep', method: 'post', summary: 'Deep' }],
+          folders: [],
+        }],
+      }],
+    }];
+    let capturedNodes: WorkflowRFNode[] = [];
+    opts.setNodes = vi.fn((fn: SetStateAction<WorkflowRFNode[]>) => {
+      capturedNodes = typeof fn === 'function' ? fn([]) : fn;
+      return capturedNodes;
+    });
+    const { result } = renderHook(() => useWorkflowNodeActions(opts));
+    act(() => result.current.handleAddFromCatalog('cat-1', 'ep-deep'));
+    expect(capturedNodes).toHaveLength(1);
+    expect((capturedNodes[0].data as HttpNodeData).scenario.method).toBe('POST');
+  });
+
   it('handleAddFromCatalog uses relative URL when server list is empty', () => {
     const opts = defaultOpts();
     opts.catalogEntries = [{
@@ -233,6 +319,39 @@ describe('useWorkflowNodeActions', () => {
     const { result } = renderHook(() => useWorkflowNodeActions(opts));
     act(() => result.current.handleAddFromCatalog('cat-1', 'ep-1'));
     expect(opts.setNodes).toHaveBeenCalled();
+  });
+
+  it('handleAddFromCatalog populates scenario from workflowValues', () => {
+    const opts = defaultOpts();
+    opts.catalogEntries = [{
+      id: 'cat-1',
+      servers: [{ url: 'https://api.example.com' }],
+      endpoints: [{
+        id: 'ep-1', path: '/users/{userId}/orders', method: 'get', summary: 'User Orders',
+        exposedToWorkflow: true,
+        parameters: [
+          { name: 'userId', in: 'path', required: true, schema: { type: 'string' } },
+          { name: 'status', in: 'query', required: false, schema: { type: 'string' } },
+          { name: 'X-Correlation-Id', in: 'header', required: false, schema: { type: 'string' } },
+        ],
+        workflowValues: {
+          paramValues: { userId: '42', status: 'active' },
+          headerValues: { 'X-Correlation-Id': 'abc-123' },
+          body: '{"filter":"recent"}',
+        },
+      }],
+    }];
+    const { result } = renderHook(() => useWorkflowNodeActions(opts));
+    act(() => result.current.handleAddFromCatalog('cat-1', 'ep-1'));
+    expect(opts.setNodes).toHaveBeenCalled();
+    const updater = (opts.setNodes as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    const nodes = typeof updater === 'function' ? updater([]) : updater;
+    const data = nodes[0].data as HttpNodeData;
+    expect(data.scenario.url).toBe('https://api.example.com/users/42/orders?status=active');
+    expect(data.scenario.headers).toEqual(expect.arrayContaining([
+      { key: 'X-Correlation-Id', value: 'abc-123' },
+    ]));
+    expect(data.scenario.body).toBe('{"filter":"recent"}');
   });
 
   it('handleAddFromRequest does nothing when request not found anywhere', () => {
@@ -455,5 +574,213 @@ describe('useWorkflowNodeActions', () => {
 
       vi.unstubAllGlobals();
     });
+  });
+
+  describe('auto-service from request', () => {
+    const msEnvs: Environment[] = [
+      { id: 'env-t01', name: 't01' },
+      { id: 'env-p01', name: 'p01' },
+    ];
+    const ms: Microservice = {
+      id: 'ms-1', name: 'Trial Offer',
+      baseUrls: { 'env-t01': 'https://t01.api.example.com', 'env-p01': 'https://p01.api.example.com' },
+      authProfileIds: { 'env-t01': 'auth-1' },
+    };
+    const authProfiles: GlobalAuthProfile[] = [
+      { id: 'auth-1', name: 'OAuth T01', auth: { type: 'oauth2', clientId: 'x', clientSecret: 's', tokenUrl: 'u' } },
+    ];
+    const colWithMs: RequestCollection = {
+      id: 'col-1', name: 'Trial Offer', mode: 'multi-env', microserviceId: 'ms-1',
+      auth: { type: 'bearer', token: 'fallback' },
+      requests: [{ id: 'req-1', name: 'Get Offers', url: '/offers', method: 'GET' }],
+      folders: [],
+    };
+
+    it('auto-creates service and sets serviceId on node', () => {
+      const opts = defaultOpts();
+      opts.collections = [colWithMs];
+      opts.environments = msEnvs;
+      opts.microservices = [ms];
+      opts.globalAuthProfiles = authProfiles;
+      opts.workflowServices = [];
+      const setWfSvc = vi.fn((fn: SetStateAction<WorkflowService[]>) => {
+        if (typeof fn === 'function') fn([]);
+      });
+      opts.setWorkflowServices = setWfSvc;
+      opts.workflowServicesRef = makeRef([] as WorkflowService[]);
+      let capturedNodes: WorkflowRFNode[] = [];
+      opts.setNodes = vi.fn((fn: SetStateAction<WorkflowRFNode[]>) => {
+        capturedNodes = typeof fn === 'function' ? fn([]) : fn;
+        return capturedNodes;
+      });
+      const { result } = renderHook(() => useWorkflowNodeActions(opts));
+      act(() => result.current.handleAddFromRequest('col-1', 'req-1'));
+
+      expect(setWfSvc).toHaveBeenCalled();
+      expect(opts.workflowServicesRef!.current).toHaveLength(1);
+      expect(capturedNodes).toHaveLength(1);
+      const nodeData = capturedNodes[0].data as HttpNodeData;
+      expect(nodeData.serviceId).toBe('mock-uuid');
+      expect(nodeData.scenario.auth.type).toBe('inherit');
+    });
+
+    it('strips base URL from absolute request URL when auto-binding service', () => {
+      const opts = defaultOpts();
+      const colAbsUrl: RequestCollection = {
+        ...colWithMs,
+        requests: [{ id: 'req-abs', name: 'Absolute', url: 'https://t01.api.example.com/sales/offers', method: 'GET' }],
+      };
+      opts.collections = [colAbsUrl];
+      opts.environments = msEnvs;
+      opts.microservices = [ms];
+      opts.globalAuthProfiles = authProfiles;
+      opts.workflowServices = [];
+      opts.selectedEnvId = 'env-t01';
+      const setWfSvc = vi.fn((fn: SetStateAction<WorkflowService[]>) => {
+        if (typeof fn === 'function') fn([]);
+      });
+      opts.setWorkflowServices = setWfSvc;
+      let capturedNodes: WorkflowRFNode[] = [];
+      opts.setNodes = vi.fn((fn: SetStateAction<WorkflowRFNode[]>) => {
+        capturedNodes = typeof fn === 'function' ? fn([]) : fn;
+        return capturedNodes;
+      });
+      const { result } = renderHook(() => useWorkflowNodeActions(opts));
+      act(() => result.current.handleAddFromRequest('col-1', 'req-abs'));
+
+      expect(capturedNodes).toHaveLength(1);
+      const nodeData = capturedNodes[0].data as HttpNodeData;
+      expect(nodeData.serviceId).toBe('mock-uuid');
+      expect(nodeData.scenario.url).toBe('/sales/offers');
+    });
+
+    it('reuses existing service when microserviceId matches', () => {
+      const opts = defaultOpts();
+      opts.collections = [colWithMs];
+      opts.environments = msEnvs;
+      opts.microservices = [ms];
+      opts.globalAuthProfiles = authProfiles;
+      opts.workflowServices = [{ id: 'existing-svc', name: 'Trial Offer', endpoints: [], microserviceId: 'ms-1' }];
+      const setWfSvc = vi.fn();
+      opts.setWorkflowServices = setWfSvc;
+      let capturedNodes: WorkflowRFNode[] = [];
+      opts.setNodes = vi.fn((fn: SetStateAction<WorkflowRFNode[]>) => {
+        capturedNodes = typeof fn === 'function' ? fn([]) : fn;
+        return capturedNodes;
+      });
+      const { result } = renderHook(() => useWorkflowNodeActions(opts));
+      act(() => result.current.handleAddFromRequest('col-1', 'req-1'));
+
+      expect(setWfSvc).not.toHaveBeenCalled();
+      const nodeData = capturedNodes[0].data as HttpNodeData;
+      expect(nodeData.serviceId).toBe('existing-svc');
+    });
+
+    it('falls back to hostPatch when collection has no microservice', () => {
+      const opts = defaultOpts();
+      const colNoMs: RequestCollection = {
+        id: 'col-2', name: 'Ad Hoc', mode: 'direct',
+        requests: [{ id: 'req-2', name: 'Ping', url: 'http://localhost/ping', method: 'GET' }],
+        folders: [],
+      };
+      opts.collections = [colNoMs];
+      opts.setWorkflowServices = vi.fn();
+      let capturedNodes: WorkflowRFNode[] = [];
+      opts.setNodes = vi.fn((fn: SetStateAction<WorkflowRFNode[]>) => {
+        capturedNodes = typeof fn === 'function' ? fn([]) : fn;
+        return capturedNodes;
+      });
+      const { result } = renderHook(() => useWorkflowNodeActions(opts));
+      act(() => result.current.handleAddFromRequest('col-2', 'req-2'));
+
+      expect(opts.setWorkflowServices).not.toHaveBeenCalled();
+      const nodeData = capturedNodes[0].data as HttpNodeData;
+      expect(nodeData.serviceId).toBeUndefined();
+    });
+  });
+});
+
+describe('buildServiceFromCollection', () => {
+  const envs: Environment[] = [
+    { id: 'env-t01', name: 't01' },
+    { id: 'env-p01', name: 'p01' },
+  ];
+  const ms: Microservice = {
+    id: 'ms-1', name: 'Trial Offer',
+    baseUrls: { 'env-t01': 'https://t01.example.com', 'env-p01': '' },
+    authProfileIds: { 'env-t01': 'auth-1' },
+  };
+  const authProfiles: GlobalAuthProfile[] = [
+    { id: 'auth-1', name: 'OAuth T01', auth: { type: 'oauth2', clientId: 'c', clientSecret: 's', tokenUrl: 'u' } },
+  ];
+
+  it('returns undefined when collection has no microserviceId', () => {
+    const col: RequestCollection = { id: 'c1', name: 'X', mode: 'direct', requests: [], folders: [] };
+    expect(buildServiceFromCollection(col, [ms], envs, authProfiles, [])).toBeUndefined();
+  });
+
+  it('returns undefined when microservice not found', () => {
+    const col: RequestCollection = { id: 'c1', name: 'X', mode: 'multi-env', microserviceId: 'missing', requests: [], folders: [] };
+    expect(buildServiceFromCollection(col, [ms], envs, authProfiles, [])).toBeUndefined();
+  });
+
+  it('returns existing service when microserviceId already bound', () => {
+    const col: RequestCollection = { id: 'c1', name: 'X', mode: 'multi-env', microserviceId: 'ms-1', requests: [], folders: [] };
+    const existing = { id: 'svc-existing', name: 'Trial Offer', endpoints: [], microserviceId: 'ms-1' };
+    const result = buildServiceFromCollection(col, [ms], envs, authProfiles, [existing]);
+    expect(result).toBe(existing);
+  });
+
+  it('creates a new service with endpoints from microservice', () => {
+    const col: RequestCollection = {
+      id: 'c1', name: 'X', mode: 'multi-env', microserviceId: 'ms-1',
+      auth: { type: 'bearer', token: 'default' },
+      requests: [], folders: [],
+    };
+    const result = buildServiceFromCollection(col, [ms], envs, authProfiles, []);
+    expect(result).toBeDefined();
+    expect(result!.name).toBe('Trial Offer');
+    expect(result!.microserviceId).toBe('ms-1');
+    expect(result!.endpoints).toHaveLength(2);
+
+    const t01Ep = result!.endpoints.find(ep => ep.envId === 'env-t01')!;
+    expect(t01Ep.url).toBe('https://t01.example.com');
+    expect(t01Ep.enabled).toBe(true);
+    expect(t01Ep.authMode).toBe('custom');
+    expect(t01Ep.source).toBe('microservice');
+
+    const p01Ep = result!.endpoints.find(ep => ep.envId === 'env-p01')!;
+    expect(p01Ep.url).toBe('');
+    expect(p01Ep.enabled).toBe(false);
+    expect(p01Ep.authMode).toBe('inherit');
+
+    expect(result!.defaultAuth).toEqual({ type: 'bearer', token: 'default' });
+  });
+
+  it('omits defaultAuth when collection auth is none', () => {
+    const col: RequestCollection = {
+      id: 'c1', name: 'X', mode: 'multi-env', microserviceId: 'ms-1',
+      auth: { type: 'none' },
+      requests: [], folders: [],
+    };
+    const result = buildServiceFromCollection(col, [ms], envs, authProfiles, []);
+    expect(result!.defaultAuth).toBeUndefined();
+  });
+
+  it('includes customEnvs from microservice when building endpoints', () => {
+    const msWithCustom: Microservice = {
+      ...ms,
+      customEnvs: [{ id: 'env-custom', name: 'Custom Env' }],
+      baseUrls: { ...ms.baseUrls, 'env-custom': 'https://custom.example.com' },
+    };
+    const col: RequestCollection = {
+      id: 'c1', name: 'X', mode: 'multi-env', microserviceId: 'ms-1',
+      requests: [], folders: [],
+    };
+    const result = buildServiceFromCollection(col, [msWithCustom], envs, authProfiles, []);
+    expect(result!.endpoints).toHaveLength(3);
+    const customEp = result!.endpoints.find(ep => ep.envId === 'env-custom');
+    expect(customEp?.url).toBe('https://custom.example.com');
+    expect(customEp?.enabled).toBe(true);
   });
 });

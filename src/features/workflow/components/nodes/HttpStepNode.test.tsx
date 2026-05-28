@@ -205,6 +205,18 @@ describe('HttpStepNode', () => {
     expect(urlEl?.textContent?.startsWith('...')).toBe(false);
   });
 
+  it('shows SVC badge when serviceId is set', () => {
+    const data: HttpNodeData = { label: 'S', scenario: makeScenario(), serviceId: 'svc-1' };
+    render(<HttpStepNode {...makeProps(data)} />);
+    expect(screen.getByText('SVC')).toBeTruthy();
+  });
+
+  it('does not show SVC badge when serviceId is absent', () => {
+    const data: HttpNodeData = { label: 'S', scenario: makeScenario() };
+    render(<HttpStepNode {...makeProps(data)} />);
+    expect(screen.queryByText('SVC')).toBeNull();
+  });
+
   it('uses METHOD_COLORS fallback for unknown HTTP verbs', () => {
     const data: HttpNodeData = {
       label: 'S',

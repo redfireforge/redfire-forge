@@ -58,7 +58,7 @@ function makeOpts(overrides: Partial<Parameters<typeof useWorkflowPersistence>[0
       undoRedo,
       toast,
       ...overrides,
-    } as Omit<Parameters<typeof useWorkflowPersistence>[0], 'nodeInitialVarsRef' | 'nodesRef' | 'nextNodeYRef' | 'workflowVariablesRef'>,
+    } as Omit<Parameters<typeof useWorkflowPersistence>[0], 'nodeInitialVarsRef' | 'nodesRef' | 'edgesRef' | 'nextNodeYRef' | 'workflowVariablesRef'>,
   };
 }
 
@@ -66,12 +66,14 @@ function renderPersistence(opts: ReturnType<typeof makeOpts>['opts'], initialVar
   return renderHook(() => {
     const nodeInitialVarsRef = useRef(initialVars);
     const nodesRef = useRef(opts.nodes);
+    const edgesRef = useRef(opts.edges);
     const nextNodeYRef = useRef(100);
     const workflowVariablesRef = useRef(opts.workflowVariables);
     return useWorkflowPersistence({
       ...opts,
       nodeInitialVarsRef,
       nodesRef,
+      edgesRef,
       nextNodeYRef,
       workflowVariablesRef,
     });
@@ -116,7 +118,7 @@ describe('useWorkflowPersistence hook', () => {
     const { handles, opts } = makeOpts({ nodes: [webhookNode as never, makeHttpRFNode('h1')] });
     const { result } = renderPersistence(opts);
     act(() => { result.current.persistWorkflow(); });
-    expect(handles.update).toHaveBeenCalledWith('wf1', expect.objectContaining({ schemaVersion: 3 }));
+    expect(handles.update).toHaveBeenCalledWith('wf1', expect.objectContaining({ schemaVersion: 6 }));
     expect(fetchMock).toHaveBeenCalledWith('/api/workflows/wf1', expect.objectContaining({ method: 'PUT' }));
   });
 

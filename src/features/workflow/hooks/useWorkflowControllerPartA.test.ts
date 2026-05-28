@@ -11,7 +11,7 @@ import type { WorkflowRFNode } from '../utils/workflowNodeFactory';
 
 const {
   mockRf, persistFn, undoRedoApi, undoRedoCaptured, clipboardCaptured,
-  mockLayout, nodesSeed, versioningCb, consoleOpts,
+  mockLayout, nodesSeed, versioningCb, consoleOpts, onboardingMock,
 } = vi.hoisted(() => {
   const persistFn = vi.fn();
   const undoRedoApi = { takeSnapshot: vi.fn(), clear: vi.fn() };
@@ -39,9 +39,20 @@ const {
     versionUpdate: undefined as ((id: string, patch: Record<string, unknown>) => void) | undefined,
   };
   const consoleOpts = { lastHasWebhook: undefined as boolean | undefined };
+  const onboardingMock = {
+    showNextHint: vi.fn(() => false),
+    isComplete: false,
+    dismiss: vi.fn(),
+    dismissAll: vi.fn(),
+    resetHints: vi.fn(),
+    showHint: vi.fn(),
+    hideHint: vi.fn(),
+    getNextHint: vi.fn(),
+    activeHint: null,
+  };
   return {
     mockRf, persistFn, undoRedoApi, undoRedoCaptured, clipboardCaptured,
-    mockLayout, nodesSeed, versioningCb, consoleOpts,
+    mockLayout, nodesSeed, versioningCb, consoleOpts, onboardingMock,
   };
 });
 
@@ -185,6 +196,10 @@ vi.mock('./useNodeClipboard', () => ({
   },
 }));
 
+vi.mock('./useOnboardingHints', () => ({
+  useOnboardingHints: () => onboardingMock,
+}));
+
 const wf = (): Workflow => ({
   id: 'wf-main',
   name: 'Main',
@@ -239,6 +254,9 @@ describe('useWorkflowDesignerControllerPartA', () => {
     undoRedoCaptured.setNodes = undefined;
     undoRedoCaptured.setEdges = undefined;
     clipboardCaptured.getNodes = undefined;
+    onboardingMock.showNextHint.mockReset();
+    onboardingMock.showNextHint.mockReturnValue(false);
+    onboardingMock.isComplete = false;
   });
 
   afterEach(() => {
@@ -575,5 +593,156 @@ describe('useWorkflowDesignerControllerPartA', () => {
 
     expect(result.current.serviceRegistryMode).toBe('closed');
     expect(result.current.selectedNodeId).toBe(null);
+  });
+
+  it('persists workflow when node drag stops', async () => {
+    const { result } = renderHook(() => useWorkflowDesignerControllerPartA(makeProps()));
+    persistFn.mockClear();
+
+    act(() => {
+      result.current.onNodesChange([
+        { type: 'position', id: 'n1', dragging: false, position: { x: 10, y: 20 } },
+      ]);
+    });
+
+    await vi.waitFor(() => {
+      expect(persistFn).toHaveBeenCalledWith({ rfNodes: expect.any(Array) });
+    });
+  });
+
+  it('does not persist while node is still dragging', async () => {
+    const { result } = renderHook(() => useWorkflowDesignerControllerPartA(makeProps()));
+    persistFn.mockClear();
+
+    act(() => {
+      result.current.onNodesChange([
+        { type: 'position', id: 'n1', dragging: true, position: { x: 5, y: 5 } },
+      ]);
+    });
+
+    await new Promise((r) => setTimeout(r, 10));
+    expect(persistFn).not.toHaveBeenCalled();
+  });
+
+  it('persists workflow when a node is removed', async () => {
+    const { result } = renderHook(() => useWorkflowDesignerControllerPartA(makeProps()));
+    persistFn.mockClear();
+
+    act(() => {
+      result.current.onNodesChange([{ type: 'remove', id: 'n1' }]);
+    });
+
+    await vi.waitFor(() => expect(persistFn).toHaveBeenCalled());
+  });
+
+  it('skips node-change persist in preview mode', async () => {
+    const pv = { ...wf(), id: 'pv', name: 'Preview' };
+    const { result } = renderHook(() => useWorkflowDesignerControllerPartA(makeProps({ previewWorkflow: pv })));
+    persistFn.mockClear();
+
+    act(() => {
+      result.current.onNodesChange([
+        { type: 'position', id: 'n1', dragging: false, position: { x: 0, y: 0 } },
+        { type: 'remove', id: 'n2' },
+      ]);
+    });
+
+    await new Promise((r) => setTimeout(r, 10));
+    expect(persistFn).not.toHaveBeenCalled();
+  });
+
+  it('persists workflow when an edge is removed', async () => {
+    const { result } = renderHook(() => useWorkflowDesignerControllerPartA(makeProps()));
+    persistFn.mockClear();
+
+    act(() => {
+      result.current.onEdgesChange([{ type: 'remove', id: 'e1' }]);
+    });
+
+    await vi.waitFor(() => expect(persistFn).toHaveBeenCalled());
+  });
+
+  it('skips edge-change persist in preview mode', async () => {
+    const pv = { ...wf(), id: 'pv', name: 'Preview' };
+    const { result } = renderHook(() => useWorkflowDesignerControllerPartA(makeProps({ previewWorkflow: pv })));
+    persistFn.mockClear();
+
+    act(() => {
+      result.current.onEdgesChange([{ type: 'remove', id: 'e1' }]);
+    });
+
+    await new Promise((r) => setTimeout(r, 10));
+    expect(persistFn).not.toHaveBeenCalled();
+  });
+
+  it('shows first-node onboarding hint when nodes are added', () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const { result } = renderHook(() => useWorkflowDesignerControllerPartA(makeProps()));
+
+    act(() => {
+      result.current.setNodes([{
+        id: 'n1',
+        type: 'start',
+        position: { x: 0, y: 0 },
+        data: { label: 'Start' } as WorkflowRFNode['data'],
+      }]);
+    });
+
+    act(() => {
+      vi.advanceTimersByTime(500);
+    });
+
+    expect(onboardingMock.showNextHint).toHaveBeenCalledWith('first-node');
+  });
+
+  it('shows mount onboarding hint on empty canvas after delay', () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    onboardingMock.showNextHint.mockReturnValueOnce(true);
+    renderHook(() => useWorkflowDesignerControllerPartA(makeProps()));
+
+    act(() => {
+      vi.advanceTimersByTime(800);
+    });
+
+    expect(onboardingMock.showNextHint).toHaveBeenCalledWith('mount');
+  });
+
+  it('falls back to empty-canvas hint when mount hint is unavailable', () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    onboardingMock.showNextHint
+      .mockReturnValueOnce(false)
+      .mockReturnValueOnce(true);
+    renderHook(() => useWorkflowDesignerControllerPartA(makeProps()));
+
+    act(() => {
+      vi.advanceTimersByTime(800);
+    });
+
+    expect(onboardingMock.showNextHint).toHaveBeenCalledWith('mount');
+    expect(onboardingMock.showNextHint).toHaveBeenCalledWith('empty-canvas');
+  });
+
+  it('skips onboarding hints in preview mode', () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const pv = { ...wf(), id: 'pv', name: 'Preview' };
+    renderHook(() => useWorkflowDesignerControllerPartA(makeProps({ previewWorkflow: pv })));
+
+    act(() => {
+      vi.advanceTimersByTime(800);
+    });
+
+    expect(onboardingMock.showNextHint).not.toHaveBeenCalled();
+  });
+
+  it('skips empty-canvas onboarding when hints are complete', () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    onboardingMock.isComplete = true;
+    renderHook(() => useWorkflowDesignerControllerPartA(makeProps()));
+
+    act(() => {
+      vi.advanceTimersByTime(800);
+    });
+
+    expect(onboardingMock.showNextHint).not.toHaveBeenCalled();
   });
 });
