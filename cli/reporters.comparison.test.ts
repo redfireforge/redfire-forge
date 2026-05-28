@@ -153,6 +153,26 @@ describe('printComparisonSummary', () => {
     const output = consoleSpy.mock.calls.flat().join('\n');
     expect(output).toContain('%');
   });
+
+  it('uses pp unit for Error Rate delta in console output (Bug M)', () => {
+    const comparison = makeComparison();
+    // Override with a non-zero Error Rate delta to test the unit
+    comparison.metricDeltas = [{
+      metric: 'Error Rate',
+      baselineValue: 1,
+      currentValue: 4,
+      delta: 3,
+      deltaPercent: 300,
+      regressed: true,
+      improved: false,
+    }];
+    comparison.regressions = [{ metric: 'Error Rate', threshold: 1, actual: 3, severity: 'critical' }];
+    printComparisonSummary(comparison);
+    const output = consoleSpy.mock.calls.flat().join('\n');
+    // Delta column shows "+3 pp", not "+3%"
+    expect(output).toContain('+3 pp');
+    expect(output).not.toMatch(/\+3%/);
+  });
 });
 
 // ── buildComparisonMarkdown ──────────────────────────────────────────────────
@@ -224,6 +244,28 @@ describe('buildComparisonMarkdown', () => {
     comparison.regressions = [{ metric: 'Error Rate', threshold: 2, actual: 4, severity: 'warning' }];
     const md = buildComparisonMarkdown(comparison);
     expect(md).toContain(' pp');
+  });
+
+  it('uses pp unit for Error Rate delta column in Metric Deltas table (Bug M)', () => {
+    const comparison = makeComparison();
+    // Override with a non-zero Error Rate delta to test the Metric Deltas table unit
+    comparison.metricDeltas = [{
+      metric: 'Error Rate',
+      baselineValue: 1,
+      currentValue: 4,
+      delta: 3,
+      deltaPercent: 300,
+      regressed: true,
+      improved: false,
+    }];
+    comparison.regressions = [{ metric: 'Error Rate', threshold: 1, actual: 3, severity: 'critical' }];
+    const md = buildComparisonMarkdown(comparison);
+    // Delta column in Metric Deltas table must show "+3 pp" NOT "+3%"
+    expect(md).toContain('+3 pp');
+    expect(md).not.toMatch(/\+3%/);
+    // Baseline/current value columns still use %
+    expect(md).toContain('| 1%');
+    expect(md).toContain('4%');
   });
 
   it('uses % unit for response-time metrics in Regressions section', () => {

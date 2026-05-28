@@ -603,8 +603,11 @@ export function printComparisonSummary(
 
   for (const d of metricDeltas) {
     const isTime = d.metric !== 'TPS' && d.metric !== 'Error Rate';
-    const unit = isTime ? ' ms' : d.metric === 'Error Rate' ? '%' : '';
-    const deltaStr = `${sign(d.delta)}${d.delta}${unit} (${sign(d.deltaPercent)}${d.deltaPercent}%)`;
+    // valueUnit: unit for baseline/current display ('%' for Error Rate)
+    const valueUnit = isTime ? ' ms' : d.metric === 'Error Rate' ? '%' : '';
+    // deltaUnit: Error Rate delta is absolute pp, not relative '%'
+    const deltaUnit = isTime ? ' ms' : d.metric === 'Error Rate' ? ' pp' : '';
+    const deltaStr = `${sign(d.delta)}${d.delta}${deltaUnit} (${sign(d.deltaPercent)}${d.deltaPercent}%)`;
 
     // Attach severity from regressions list if available
     const alert = regressions.find((r) => r.metric === d.metric);
@@ -615,7 +618,7 @@ export function printComparisonSummary(
         : '— ok';
 
     console.log(
-      `  ${pad(d.metric, COL)}  ${pad(`${d.baselineValue}${unit}`, 12)}  ${pad(`${d.currentValue}${unit}`, 12)}  ${pad(deltaStr, 20)}  ${statusLabel}`,
+      `  ${pad(d.metric, COL)}  ${pad(`${d.baselineValue}${valueUnit}`, 12)}  ${pad(`${d.currentValue}${valueUnit}`, 12)}  ${pad(deltaStr, 20)}  ${statusLabel}`,
     );
   }
 
@@ -670,7 +673,10 @@ export function buildComparisonMarkdown(
 
   for (const d of metricDeltas) {
     const isTime = d.metric !== 'TPS' && d.metric !== 'Error Rate';
-    const unit = isTime ? ' ms' : d.metric === 'Error Rate' ? '%' : '';
+    // valueUnit: unit for baseline/current columns ('%' for Error Rate)
+    const valueUnit = isTime ? ' ms' : d.metric === 'Error Rate' ? '%' : '';
+    // deltaUnit: Error Rate delta is absolute pp — '%' would be misleading
+    const deltaUnit = isTime ? ' ms' : d.metric === 'Error Rate' ? ' pp' : '';
     const deltaSign = sign(d.delta);
     const pctSign = sign(d.deltaPercent);
     const alert = regressions.find((r) => r.metric === d.metric);
@@ -680,7 +686,7 @@ export function buildComparisonMarkdown(
         ? '✓ Improved'
         : '— No change';
     lines.push(
-      `| ${d.metric} | ${d.baselineValue}${unit} | ${d.currentValue}${unit} | ${deltaSign}${d.delta}${unit} | ${pctSign}${d.deltaPercent}% | ${statusLabel} |`,
+      `| ${d.metric} | ${d.baselineValue}${valueUnit} | ${d.currentValue}${valueUnit} | ${deltaSign}${d.delta}${deltaUnit} | ${pctSign}${d.deltaPercent}% | ${statusLabel} |`,
     );
   }
 
