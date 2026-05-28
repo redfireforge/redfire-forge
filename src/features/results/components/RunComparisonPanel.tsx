@@ -371,7 +371,13 @@ export function TrendChart({ runs, baselines, selectedRun }: TrendProps) {
               {/* Primary metric */}
               <select
                 value={metric}
-                onChange={(e) => setMetric(e.target.value as TrendMetric)}
+                onChange={(e) => {
+                  const m = e.target.value as TrendMetric;
+                  setMetric(m);
+                  // If the new primary equals the current secondary, clear the secondary
+                  // to avoid a controlled <select> with a value not present in its options.
+                  if (m === metric2) setMetric2('none');
+                }}
                 className="trend-metric-select"
               >
                 {METRIC_OPTIONS.map((o) => (
