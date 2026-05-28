@@ -325,28 +325,32 @@ function detectRegressions(
   for (const d of deltas) {
     if (!d.regressed) continue;
 
+    // Resolve the configured threshold for this specific metric.
+    // Used for both severity determination (2x = critical) and the alert display.
+    const configuredThreshold = d.metric === 'Error Rate' ? thresholds.errorRateAbsolute
+      : d.metric === 'TPS' ? thresholds.tpsPercent
+      : d.metric.includes('P99.9') ? thresholds.p999Percent
+      : d.metric.includes('P95') ? thresholds.p95Percent
+      : d.metric.includes('P99') ? thresholds.p99Percent
+      : d.metric.includes('P50') ? thresholds.p50Percent
+      : thresholds.avgPercent;
+
     let severity: 'warning' | 'critical' = 'warning';
-    // Critical if regression is 2x the threshold
-    if (d.metric.includes('Response Time') && d.deltaPercent > 0) {
-      const thresholdVal = d.metric.includes('P99.9') ? thresholds.p999Percent
-        : d.metric.includes('P95') ? thresholds.p95Percent
-        : d.metric.includes('P99') ? thresholds.p99Percent
-        : d.metric.includes('P50') ? thresholds.p50Percent
-        : thresholds.avgPercent;
-      if (d.deltaPercent > thresholdVal * 2) severity = 'critical';
+    if (d.metric.includes('Response Time') && d.deltaPercent > configuredThreshold * 2) {
+      severity = 'critical';
     }
     if (d.metric === 'Error Rate') {
       const errorDelta = current.errorRate - baseline.errorRate;
-      if (errorDelta > thresholds.errorRateAbsolute * 2) severity = 'critical';
+      if (errorDelta > configuredThreshold * 2) severity = 'critical';
     }
-    if (d.metric === 'TPS' && d.deltaPercent < -thresholds.tpsPercent * 2) {
+    if (d.metric === 'TPS' && d.deltaPercent < -configuredThreshold * 2) {
       severity = 'critical';
     }
 
     alerts.push({
       metric: d.metric,
-      threshold: d.metric === 'Error Rate' ? thresholds.errorRateAbsolute : Math.abs(d.deltaPercent),
-      actual: d.metric === 'Error Rate' ? d.delta : d.deltaPercent,
+      threshold: configuredThreshold,
+      actual: d.metric === 'Error Rate' ? d.delta : Math.abs(d.deltaPercent),
       severity,
     });
   }
