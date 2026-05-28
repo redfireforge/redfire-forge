@@ -4105,6 +4105,16 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
 .baseline-list-meta { color: var(--text-muted); font-size: 0.76rem; white-space: nowrap; }
 .baseline-list-actions { display: flex; gap: 4px; margin-left: auto; flex-shrink: 0; }
 
+/* Baselines tab */
+.run-filter-tab.baselines-tab.active { color: #f59e0b; border-color: #f59e0b; }
+.baselines-tab-content { padding: 8px 0; }
+.baselines-empty { color: var(--text-muted); font-size: 0.85rem; font-style: italic; padding: 10px 4px 6px; }
+
+/* Comparison active chip in toolbar */
+.baseline-compare-chip { display: inline-flex; align-items: center; gap: 5px; background: rgba(59,130,246,0.12); border: 1px solid rgba(59,130,246,0.35); border-radius: 4px; padding: 3px 8px; font-size: 0.78rem; color: var(--text-muted); white-space: nowrap; max-width: 260px; overflow: hidden; text-overflow: ellipsis; }
+.baseline-compare-chip-clear { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 0.8rem; padding: 0 1px; line-height: 1; flex-shrink: 0; }
+.baseline-compare-chip-clear:hover { color: var(--error); }
+
 /* ── Regression Thresholds Panel ── */
 .thresholds-panel { border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 12px; padding: 12px 14px; background: var(--surface); }
 .thresholds-header { display: flex; align-items: baseline; gap: 12px; margin-bottom: 10px; }

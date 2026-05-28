@@ -51,6 +51,27 @@ describe('RegressionThresholdsPanel', () => {
     expect(onCancel).toHaveBeenCalledOnce();
   });
 
+  it('Cancel resets edited draft to saved thresholds (stays-mounted tab context)', () => {
+    // When the panel stays mounted inside the Baselines tab, clicking Cancel
+    // must revert any unsaved edits — it cannot rely on unmount to discard state.
+    const onSave = vi.fn();
+    const { container } = render(
+      <RegressionThresholdsPanel thresholds={DEFAULT_THRESHOLDS} onSave={onSave} onCancel={vi.fn()} />,
+    );
+    const inputs = container.querySelectorAll('.thresholds-input') as NodeListOf<HTMLInputElement>;
+    // Edit P95 to 99
+    fireEvent.change(inputs[2], { target: { value: '99' } });
+    expect((inputs[2] as HTMLInputElement).value).toBe('99');
+    // Cancel — must revert
+    const cancelBtn = [...container.querySelectorAll('button')].find((b) => b.textContent === 'Cancel')!;
+    fireEvent.click(cancelBtn);
+    // Draft should now show the original saved value, not the edited 99
+    const inputsAfter = container.querySelectorAll('.thresholds-input') as NodeListOf<HTMLInputElement>;
+    expect((inputsAfter[2] as HTMLInputElement).value).toBe(String(DEFAULT_THRESHOLDS.p95Percent));
+    // onSave should NOT have been called
+    expect(onSave).not.toHaveBeenCalled();
+  });
+
   it('Reset Defaults restores all values to DEFAULT_THRESHOLDS', () => {
     const onSave = vi.fn();
     const { container } = render(
