@@ -42,11 +42,14 @@ vi.mock('recharts', () => {
       formatter,
     }: {
       labelFormatter?: (t: unknown) => string;
-      formatter?: (v: unknown) => unknown;
+      formatter?: (v: unknown, name: unknown) => unknown;
     }) => {
       labelFormatter?.(1_700_000_000_000);
-      formatter?.(42);
-      return null;
+      formatter?.(42, 'metric');
+      // Also call with null to exercise the Bug D guard (value != null ? ... : '—')
+      const nullResult = formatter?.(null, 'metric');
+      const nullDisplay = Array.isArray(nullResult) ? String(nullResult[0]) : '';
+      return <span data-testid="tooltip-null-display">{nullDisplay}</span>;
     },
     ResponsiveContainer: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
     Legend: () => null,
@@ -300,6 +303,76 @@ describe('TrendChart', () => {
     const { container } = render(<TrendChart runs={runs} baselines={baselines} />);
     expect(container.querySelector('[data-testid="line-with-dot"]')).toBeTruthy();
     expect(container.querySelector('circle[r="6"]')).toBeTruthy();
+  });
+
+  it('scope select renders with 4 options', () => {
+    const runs = [
+      { ...makeRun('r1'), timestamp: 1000 },
+      { ...makeRun('r2'), timestamp: 2000 },
+    ];
+    const { container } = render(<TrendChart runs={runs} baselines={[]} />);
+    const select = container.querySelector('.trend-scope-select');
+    expect(select).toBeTruthy();
+    expect(select?.querySelectorAll('option').length).toBe(4);
+  });
+
+  it('metric2 select renders and excludes the currently selected primary metric', () => {
+    const runs = [
+      { ...makeRun('r1'), timestamp: 1000 },
+      { ...makeRun('r2'), timestamp: 2000 },
+    ];
+    const { container } = render(<TrendChart runs={runs} baselines={[]} />);
+    const metric2Select = container.querySelector('.trend-metric-select2') as HTMLSelectElement;
+    expect(metric2Select).toBeTruthy();
+    // Default primary is p95ResponseTime — it should NOT appear in secondary options
+    const options = [...metric2Select.querySelectorAll('option')].map((o) => o.getAttribute('value'));
+    expect(options).not.toContain('p95ResponseTime');
+    // All other 6 metrics + 'none' placeholder = 7 options
+    expect(options.length).toBe(7);
+  });
+
+  it('metric2 resets to none when primary changes to same value (Bug A regression)', () => {
+    const runs = [
+      { ...makeRun('r1'), timestamp: 1000 },
+      { ...makeRun('r2'), timestamp: 2000 },
+    ];
+    const { container } = render(<TrendChart runs={runs} baselines={[]} />);
+    const metric1Select = container.querySelector('.trend-metric-select') as HTMLSelectElement;
+    const metric2Select = container.querySelector('.trend-metric-select2') as HTMLSelectElement;
+
+    // Set metric2 to 'tps'
+    fireEvent.change(metric2Select, { target: { value: 'tps' } });
+    expect(metric2Select.value).toBe('tps');
+
+    // Now change metric1 to 'tps' — metric2 must clear to 'none'
+    fireEvent.change(metric1Select, { target: { value: 'tps' } });
+    expect(metric2Select.value).toBe('none');
+  });
+
+  it('per-scenario tab shows empty hint when no scenario data', () => {
+    // Runs with no results — per-scenario data is empty
+    const runs = [
+      { ...makeRun('r1'), timestamp: 1000 },
+      { ...makeRun('r2'), timestamp: 2000 },
+    ];
+    const { container } = render(<TrendChart runs={runs} baselines={[]} />);
+    // Switch to Per-Scenario tab
+    const tabs = container.querySelectorAll('.trend-chart-tab');
+    fireEvent.click(tabs[1]); // Per-Scenario
+    expect(container.textContent).toContain('No scenario data available');
+  });
+
+  it('per-scenario tooltip formatter shows "—" for null value, not "null ms" (Bug D regression)', () => {
+    // Runs with scenario data so the per-scenario chart renders
+    const r1 = { ...makeRun('r1', {}, [makeReq({ scenarioName: 'Login', responseTimeMs: 100 })]), timestamp: 1000 };
+    const r2 = { ...makeRun('r2', {}, [makeReq({ scenarioName: 'Login', responseTimeMs: 110 })]), timestamp: 2000 };
+    const { container } = render(<TrendChart runs={[r1, r2]} baselines={[]} />);
+    // Switch to Per-Scenario tab so the per-scenario Tooltip formatter is active
+    fireEvent.click(container.querySelectorAll('.trend-chart-tab')[1]);
+    // The Tooltip mock calls formatter(null) — should return '—', not 'null ms'
+    const nullDisplay = container.querySelector('[data-testid="tooltip-null-display"]');
+    expect(nullDisplay?.textContent).toBe('—');
+    expect(nullDisplay?.textContent).not.toContain('null');
   });
 });
 
