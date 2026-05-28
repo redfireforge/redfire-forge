@@ -755,3 +755,15 @@ _To be filled in after Sprint 3+._
 - `computeScopedTrend`: 4 tests (scope=all, service, env, workflow)
 - `computePerScenarioTrend`: 5 tests (empty result, multiple scenarios, safe keys, topN, chronological order)
 - `computeRunRegressionStatus`: 6 tests (no-baseline cases, pass, warn, critical, nearest-baseline selection)
+
+---
+
+## Sprint 1+2 Combined Review Pass (commit `15f7e09`)
+
+### Bugs found and fixed
+
+- **Bug E — Rename button shown for non-baseline comparison runs**: `ResultsDashboard` always provided `onRenameBaseline` to `RunComparisonPanel`, even when the comparison run wasn't a baseline. `renameBaseline()` silently no-ops for non-baseline IDs, so the user could type a new label, confirm, and see it silently revert to the timestamp. Fix: only pass `onRenameBaseline` when `baselines.some(b => b.runId === baselineRun.id)`. New test: "shows rename button only when onRenameBaseline is provided".
+
+### CSS alignment fixes
+
+- **`.trend-chart-tabs { margin-bottom: 4px }` and `.trend-controls { margin-top: 4px }` caused off-center vertical alignment** in the `.trend-chart-header` flex row. In a `display: flex; align-items: center` row, per-item margins shift each child's alignment box away from center — tabs appeared 2 px high, controls appeared 2 px low. Fix: removed both margins (spacing is handled by the container's `justify-content: space-between`).
