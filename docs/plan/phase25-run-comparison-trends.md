@@ -1,7 +1,7 @@
 # Phase 25 — Run Comparison & Trends: Detailed Plan
 
 > **Goal:** Detect performance regressions, compare runs analytically, and track trends across the run history.
-> **Status:** � Sprint 1 complete — feature branch `feature/phase25-sprint1-comparison-ux` (commits `80175f7`, `1cc62bd`)
+> **Status:** Sprint 1 complete, Sprint 2 complete — feature branches `feature/phase25-sprint1-comparison-ux`, `feature/phase25-sprint2-analytics`
 > **Target version:** 0.6.0
 
 ---
@@ -13,8 +13,8 @@
 | 25.1 | Audit & complete core comparison UX | ✅ | S | Polish existing scaffold |
 | 25.2 | Any-Two-Run comparison picker | ✅ | S | Remove baseline-only constraint |
 | 25.3 | Configurable regression thresholds | ✅ | S | Expose DEFAULT_THRESHOLDS in UI |
-| 25.4 | Trend scoping & multi-metric view | 🔲 | M | Filter by svc/env/scenario, side-by-side lines |
-| 25.5 | Regression badge in run history list | 🔲 | S | Visual status per run in sidebar |
+| 25.4 | Trend scoping & multi-metric view | ✅ | M | Filter by svc/env/scenario, side-by-side lines |
+| 25.5 | Regression badge in run history list | ✅ | S | Visual status per run in sidebar |
 | 25.6 | CLI regression gate | 🔲 | M | `--fail-on-regression` for CI pipelines |
 | 25.7 | Export comparison report | 🔲 | S | Markdown/JSON download of RunComparison |
 | 25.8 | Gallery sample + training manual | 🔲 | S | Gallery entry + 1 HTML training manual |
@@ -698,6 +698,8 @@ Sprint 4 — Polish & content (Phases 25.8 + 25.9)
 #### Success Criteria completed
 - [x] User can compare any two runs without either being a baseline
 - [x] Regression thresholds are user-configurable and persisted
+- [x] TrendChart can be scoped to same service/env/workflow for meaningful trends
+- [x] Regression status (pass/warn/critical) is visible in the run list before opening a run
 - [x] `npx tsc --noEmit` — 0 errors after all fixes
 - [x] All existing tests still pass (36/36 unit tests)
 
@@ -705,4 +707,33 @@ Sprint 4 — Polish & content (Phases 25.8 + 25.9)
 
 ## Retrospective
 
-_To be filled in after Sprint 2+._
+_To be filled in after Sprint 3+._
+
+---
+
+## Implementation Notes — Sprint 2 (2026-05-28)
+
+**Branch:** `feature/phase25-sprint2-analytics`  
+**Commit:** `5326b4c` (initial implementation)
+
+### Files modified
+
+- `src/features/results/utils/runBaselines.ts` — added `TrendMetric`, `TrendScope`, `ScenarioTrendPoint`, `RunRegressionStatus` types; `computeScopedTrend`, `computePerScenarioTrend`, `findNearestBaseline` (private), `computeRunRegressionStatus`
+- `src/features/results/components/RunComparisonPanel.tsx` — rewrote `TrendChart`: scope dropdown, second metric overlay with dual Y-axis, Overall/Per-Scenario tab, `selectedRun` prop; extracted `METRIC_LABELS` / `METRIC_OPTIONS` / `SCENARIO_COLORS` constants
+- `src/features/results/ResultsDashboard.tsx` — `runRegressionStatuses` useMemo, regression dot (`R:🟢/🟡/🔴`) in run `<option>` labels, `selectedRun` passed to `TrendChart`
+- `src/styles/base.css` — `.trend-chart-tabs`, `.trend-chart-tab`, `.trend-controls`, `.trend-scope-select`, `.trend-metric-select2`
+- `src/features/results/utils/runBaselines.test.ts` — 15 new tests (51 total)
+
+### Design decisions that differed from plan
+
+- **`computePerScenarioTrend` return shape**: Plan sketched `Record<string, TrendPoint[]>`. Implemented as `{ seriesKeys, scenarioNames, data }` object instead. Recharts `dataKey` uses `_.get` for object path traversal — scenario names with `.` or `/` would be misinterpreted as nested paths. Safe index-based keys (`s0`, `s1`, …) avoid this entirely. `scenarioNames[i]` gives the display name for `seriesKeys[i]`.
+- **`computeScopedTrend` vs `scopeFilter` prop**: Plan sketched a `scopeFilter?: (run, reference) => boolean` prop on `TrendChart`. Implemented as a `scope: TrendScope` string value instead — cleaner UI (dropdown maps directly to the type) and the filtering logic lives in `runBaselines.ts` (testable) not in the component.
+- **Always use `yAxisId="left"` for primary Line**: Plan said conditionally add yAxisId when metric2 is active. Always using `yAxisId="left"` avoids a React key/prop reconciliation edge case when switching metric2 between 'none' and a real metric.
+- **`runRegressionStatuses` as `useMemo` (not `useEffect`)**: SLA statuses use `useEffect` because they require async storage I/O. Regression status is pure and synchronous — `useMemo` is simpler and avoids stale-state timing windows.
+- **Regression dot format `R:🟡`**: The `<option>` element can't contain HTML/CSS. Using `R:🟡` prefix makes the regression dot visually distinct from the SLA dot (🟡 alone).
+
+### Tests added (Sprint 2)
+
+- `computeScopedTrend`: 4 tests (scope=all, service, env, workflow)
+- `computePerScenarioTrend`: 5 tests (empty result, multiple scenarios, safe keys, topN, chronological order)
+- `computeRunRegressionStatus`: 6 tests (no-baseline cases, pass, warn, critical, nearest-baseline selection)
