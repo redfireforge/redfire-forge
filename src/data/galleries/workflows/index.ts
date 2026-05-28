@@ -1,6 +1,6 @@
 export type { SampleCategory, SampleDifficulty, SampleWorkflowEntry } from './types';
 
-import { createOrderWorkflow, createParallelForkWorkflow, createLogDebugWorkflow, createExpressionFunctionsWorkflow, createScriptEasyWorkflow } from './apiPatterns';
+import { createOrderWorkflow, createParallelForkWorkflow, createLogDebugWorkflow, createExpressionFunctionsWorkflow, createScriptEasyWorkflow, createSlaMonitorWorkflow } from './apiPatterns';
 import { createConditionalBranchWorkflow, createSwitchRoutingWorkflow, createLoopAggregateWorkflow, createBatchProvisioningWorkflow, createErrorHandlerWorkflow, createWorkflowErrorHandlerSample, createScriptMediumWorkflow } from './flowControl';
 import { createWebhookTriggerWorkflow, createScheduleTriggerWorkflow, createWaitConditionWorkflow } from './eventDriven';
 import { createSubWorkflowOrchestrator, createSubWorkflowChild, createOrderPipelineWorkflow, createShippingChildWorkflow, createDeployOrchestratorWorkflow, createRegionDeployChildWorkflow, createRollbackChildWorkflow, createScriptAdvancedWorkflow } from './orchestration';
@@ -576,5 +576,20 @@ export const sampleWorkflowCatalog: SampleWorkflowEntry[] = [
     primaryNodes: ['Fork', 'Join'],
     secondaryNodes: ['HTTP'],
     factory: createParallelShowcaseWorkflow,
+  },
+  {
+    id: 'sample-workflow-sla-monitor',
+    name: 'SLA-Monitored API Pipeline',
+    description: 'Three sequential HTTP calls with workflow-level SLA targets — demonstrates the SLA Override panel, threshold configuration, and pass/fail analysis in Workflow Runner results.',
+    domain: 'workflows',
+    tags: ['sla', 'health-check', 'runner', 'training', 'api-patterns', 'jsonplaceholder'],
+    liveApis: ['jsonplaceholder.typicode.com'],
+    category: 'api-patterns',
+    difficulty: 'easy',
+    icon: '🎯',
+    nodeCount: 5,
+    primaryNodes: ['HTTP'],
+    secondaryNodes: ['Start', 'End'],
+    factory: createSlaMonitorWorkflow,
   },
 ];
