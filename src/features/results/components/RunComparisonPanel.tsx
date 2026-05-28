@@ -254,23 +254,31 @@ function RegressionList({ regressions, deltas }: { regressions: RegressionAlert[
     <div className="regression-details">
       {regressions.map((r) => {
         const delta = deltas.find((d) => d.metric === r.metric);
+        // Unit for baseline/current value display (same logic as MetricDeltaTable valueUnit)
+        const detailUnit = !delta ? '' : delta.metric === 'TPS' ? '' : delta.metric === 'Error Rate' ? '%' : ' ms';
+        // Show the actual change using the same units as the configured threshold:
+        //   Error Rate → absolute pp change (r.actual stores d.delta for Error Rate)
+        //   TPS        → magnitude of % drop (prepend '-' since TPS regression is a drop)
+        //   others     → % increase (r.actual stores Math.abs(deltaPercent))
+        const deltaDisplay = !delta ? '' : r.metric === 'Error Rate'
+          ? `+${r.actual} pp`
+          : r.metric === 'TPS'
+          ? `-${r.actual}%`
+          : `+${r.actual}%`;
         return (
           <div key={r.metric} className={`regression-detail regression-${r.severity}`}>
             <div className="regression-detail-header">
               <span className="regression-severity">{r.severity === 'critical' ? '🔴 Critical' : '🟡 Warning'}</span>
               <span className="regression-metric">{r.metric}</span>
             </div>
-            {delta && (() => {
-              const detailUnit = delta.metric === 'TPS' ? '' : delta.metric === 'Error Rate' ? '%' : ' ms';
-              return (
-                <div className="regression-detail-body">
-                  <span>Baseline: <strong>{delta.baselineValue}{detailUnit}</strong></span>
-                  <span>→</span>
-                  <span>Current: <strong>{delta.currentValue}{detailUnit}</strong></span>
-                  <span className="regression-delta">({delta.deltaPercent > 0 ? '+' : ''}{delta.deltaPercent}%)</span>
-                </div>
-              );
-            })()}
+            {delta && (
+              <div className="regression-detail-body">
+                <span>Baseline: <strong>{delta.baselineValue}{detailUnit}</strong></span>
+                <span>→</span>
+                <span>Current: <strong>{delta.currentValue}{detailUnit}</strong></span>
+                <span className="regression-delta">({deltaDisplay})</span>
+              </div>
+            )}
           </div>
         );
       })}

@@ -607,6 +607,60 @@ describe('RunComparisonPanel - edge cases', () => {
     fireEvent.click(container.querySelectorAll('.run-comparison-tab')[2]); // Regressions tab
     expect(container.textContent).toContain('100 ms');
     expect(container.textContent).toContain('150 ms');
+    // Delta display uses r.actual (+50%)
+    expect(container.textContent).toContain('+50%');
+    spy.mockRestore();
+  });
+
+  it('shows pp unit in regression detail delta for Error Rate (Bug K)', () => {
+    const spy = vi.spyOn(runBaselines, 'compareRuns').mockReturnValue({
+      metricDeltas: [{
+        metric: 'Error Rate',
+        baselineValue: 1,
+        currentValue: 4,
+        delta: 3,
+        deltaPercent: 300,  // +300% relative — must NOT be shown
+        regressed: true,
+        improved: false,
+      }],
+      scenarioDeltas: [],
+      // actual = d.delta = 3 (absolute pp change)
+      regressions: [{ metric: 'Error Rate', severity: 'critical' as const, threshold: 1, actual: 3 }],
+    } as RunComparison);
+    const baseline = makeRun('b');
+    const current = makeRun('c');
+    const { container } = render(<RunComparisonPanel baselineRun={baseline} currentRun={current} />);
+    fireEvent.click(container.querySelectorAll('.run-comparison-tab')[2]); // Regressions tab
+    // Should show absolute pp change, not the misleading relative %
+    expect(container.textContent).toContain('+3 pp');
+    expect(container.textContent).not.toContain('+300%');
+    // Baseline/current still show % unit
+    expect(container.textContent).toContain('1%');
+    expect(container.textContent).toContain('4%');
+    spy.mockRestore();
+  });
+
+  it('shows negative % in regression detail delta for TPS drop (Bug K)', () => {
+    const spy = vi.spyOn(runBaselines, 'compareRuns').mockReturnValue({
+      metricDeltas: [{
+        metric: 'TPS',
+        baselineValue: 100,
+        currentValue: 80,
+        delta: -20,
+        deltaPercent: -20,
+        regressed: true,
+        improved: false,
+      }],
+      scenarioDeltas: [],
+      // actual = Math.abs(deltaPercent) = 20
+      regressions: [{ metric: 'TPS', severity: 'critical' as const, threshold: 10, actual: 20 }],
+    } as RunComparison);
+    const baseline = makeRun('b');
+    const current = makeRun('c');
+    const { container } = render(<RunComparisonPanel baselineRun={baseline} currentRun={current} />);
+    fireEvent.click(container.querySelectorAll('.run-comparison-tab')[2]); // Regressions tab
+    // TPS: shows "-20%" (magnitude of drop, prepended with minus)
+    expect(container.textContent).toContain('-20%');
     spy.mockRestore();
   });
 });
