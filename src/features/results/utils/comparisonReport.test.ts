@@ -268,4 +268,57 @@ describe('generateComparisonMarkdown', () => {
     const md = generateComparisonMarkdown(comparison);
     expect(md).toContain('🟡 Warning');
   });
+
+  it('shows -actual% for TPS regression in Regressions section (TPS drops, not rises)', () => {
+    const comparison = makeComparison();
+    comparison.regressions = [{ metric: 'TPS', threshold: 10, actual: 20, severity: 'warning' }];
+    const md = generateComparisonMarkdown(comparison);
+    // TPS regression = drop — must show '-20%', not '+20%'
+    expect(md).toContain('-20%');
+    expect(md).not.toMatch(/\|\s*TPS\s*\|[^|]*\|[^|]*\|\s*\+20%/);
+  });
+
+  it('shows per-scenario ✓ Faster status when timeDelta is negative', () => {
+    const comparison = makeComparison();
+    comparison.scenarioDeltas = [
+      {
+        scenarioName: 'Search',
+        featureGroupName: undefined,
+        baselineAvgTime: 100,
+        currentAvgTime: 80,
+        baselineCount: 50,
+        currentCount: 50,
+        baselineErrorRate: 0,
+        currentErrorRate: 0,
+        timeDelta: -20,
+        timeDeltaPercent: -20,
+        regressed: false,
+      },
+    ];
+    const md = generateComparisonMarkdown(comparison);
+    expect(md).toContain('✓ Faster');
+    expect(md).toContain('Search'); // no featureGroupName prefix
+    expect(md).toContain('-20 ms');
+  });
+
+  it('shows per-scenario — OK status when within threshold', () => {
+    const comparison = makeComparison();
+    comparison.scenarioDeltas = [
+      {
+        scenarioName: 'Checkout',
+        featureGroupName: undefined,
+        baselineAvgTime: 100,
+        currentAvgTime: 103,
+        baselineCount: 30,
+        currentCount: 30,
+        baselineErrorRate: 0,
+        currentErrorRate: 0,
+        timeDelta: 3,
+        timeDeltaPercent: 3,
+        regressed: false, // 3% < p95 threshold of 10%
+      },
+    ];
+    const md = generateComparisonMarkdown(comparison);
+    expect(md).toContain('— OK');
+  });
 });

@@ -1242,3 +1242,43 @@ Sprint 2 review committed across 3 rounds:
 - Round 2 (a692cd3): isBaseline ScenarioTrendPoint + scope-aware msg + metric2 overlay line + Line mock update
 - Final: 1588 tests, 71 files, 0 TS errors
 
+---
+
+## Sprint 3 Deep Review Pass — Round 1 (2026-05-28)
+
+Full re-evaluation of all Sprint 3 source files and tests. Reviewed:
+- `cli/baselineStorage.ts` + `cli/baselineStorage.test.ts`
+- `cli/reporters.ts` (printComparisonSummary + buildComparisonMarkdown) + `cli/reporters.comparison.test.ts`
+- `src/features/results/utils/comparisonReport.ts` + `comparisonReport.test.ts`
+- `src/features/results/components/RunComparisonPanel.tsx` (export button) + `RunComparisonPanel.test.tsx`
+- `cli/index.ts` (exit codes, save-baseline guard, comparison logic)
+
+### Bug N — TPS regression shows `+actual%` in both markdown Regressions sections
+
+**Problem**: Both `generateComparisonMarkdown` (comparisonReport.ts) and `buildComparisonMarkdown` (cli/reporters.ts) use `r.actual > 0 ? '+' : ''` as the sign for the Actual column in the Regressions table. For TPS regressions, `r.actual = Math.abs(d.deltaPercent)` — always positive — so the sign is always `'+'`. This produces `+20%` for a TPS drop, which implies TPS INCREASED. The correct sign for TPS is `'-'` (TPS drops in a regression).
+
+This was inconsistent with the UI (RunComparisonPanel.tsx Regressions tab), which already correctly uses `-${r.actual}%` for TPS after the Bug K fix.
+
+**Fix**: Changed the sign computation to `r.metric === 'TPS' ? '-' : '+'` in both functions, matching the UI's directional sign convention.
+
+**Tests added (+4)**:
+- `comparisonReport.test.ts`: `'shows -actual% for TPS regression in Regressions section'`
+- `comparisonReport.test.ts`: `'shows per-scenario ✓ Faster status when timeDelta is negative'`
+- `comparisonReport.test.ts`: `'shows per-scenario — OK status when within threshold'`
+- `reporters.comparison.test.ts`: `'shows -actual% for TPS regression in Regressions section'`
+
+### Other items reviewed (no bugs)
+
+- `cli/index.ts` exit code logic: SLA(4) > both(3) > regression(2) > fail(1) > pass(0) — correct
+- `cli/index.ts` save-baseline guard `!failedRequests && !overThreshold && !hasRegression` — correct
+- `cli/baselineStorage.ts` — all edge cases (missing file, corrupt JSON, upsert) correct
+- `printComparisonSummary` console output — signs are correct (uses `d.delta` directly, which is negative for TPS drop, not `r.actual`)
+- `comparisonReport.ts` scenario status logic (⚠ Regressed / ✓ Faster / — OK) — correct
+
+### Post-fix test counts (Sprint 3 Round 1)
+
+- `src/features/results/utils/comparisonReport.test.ts` — 24 tests (+3: TPS sign, ✓ Faster, — OK)
+- `cli/reporters.comparison.test.ts` — 30 tests (+1: TPS sign)
+- Full Sprint 1+2+3 suite: **1592 tests, 71 files — all passing**
+- TypeScript: 0 errors
+
