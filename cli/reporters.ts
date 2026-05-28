@@ -700,7 +700,9 @@ export function buildComparisonMarkdown(
     );
     for (const r of regressions) {
       const unit = regressionUnit(r.metric);
-      const actualSign = sign(r.actual);
+      // TPS regression = a drop — show '-actual%' so the sign matches the direction of change.
+      // All other metrics regress upward, so '+actual' is correct.
+      const actualSign = r.metric === 'TPS' ? '-' : '+';
       lines.push(
         `| ${r.metric} | ${r.severity === 'critical' ? '🔴 Critical' : '🟡 Warning'} | ${r.threshold}${unit} | ${actualSign}${r.actual}${unit} |`,
       );
