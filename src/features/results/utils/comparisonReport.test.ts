@@ -168,10 +168,13 @@ describe('generateComparisonMarkdown', () => {
     expect(md).toContain('Error Rate');
   });
 
-  it('shows ⚠ Regressed for regressed metrics', () => {
+  it('shows severity badge for regressed metrics in status column', () => {
     const comparison = makeComparison({ avgResponseTime: 50 }, { avgResponseTime: 60 });
     const md = generateComparisonMarkdown(comparison);
-    expect(md).toContain('⚠ Regressed');
+    // Regressions section summary
+    expect(md).toContain('regression');
+    // Status column in Metric Deltas table shows severity badge, not a generic "⚠ Regressed"
+    expect(md).toContain('🟡 Warning');
   });
 
   it('shows no-regressions banner when regressions list is empty', () => {

@@ -896,3 +896,55 @@ Priority: SLA(4) > both(3) > regression-only(2) > test-fail(1) > pass(0). `--fai
 - `src/features/results/` — 1318 tests (59 files) — all passing
 - `cli/` — 217 tests (11 files) — all passing
 - Total new tests added: 37 (20 comparisonReport + 17 baselineStorage)
+
+---
+
+## Sprint 3 Review Pass (2026-05-29)
+
+Post-implementation re-evaluation found and fixed 5 bugs. All fixes committed on `feature/phase25-sprint3-export-cli`.
+
+### Bug A — Severity display in `generateComparisonMarkdown` (comparisonReport.ts)
+
+**Problem**: The status column in the Metric Deltas table used a dead `deltaStatusSymbol(regressed, improved)` helper that emitted a generic "⚠ Regressed" for all regressions regardless of severity. This diverged from `reporters.ts`'s `buildComparisonMarkdown`, which uses a `regressions.find()` lookup to show "🔴 Critical" or "🟡 Warning".
+
+**Fix**: Removed `deltaStatusSymbol`; the loop now calls `regressions.find(r => r.metric === d.metric)` and maps `severity: 'critical'` → "🔴 Critical", `severity: 'warning'` → "🟡 Warning", improved → "✓ Improved", no change → "— No change". Both export paths now agree.
+
+### Bug B — `--save-baseline` accepted dirty runs when `--fail-on-error` not set
+
+**Problem**: The save-baseline guard was `!testFail && !hasRegression` where `testFail = (opts.failOnError && failedRequests) || overThreshold`. When `--fail-on-error` was not passed and the run had actual request failures, `testFail` was `false` so the dirty run was silently stored as a baseline.
+
+**Fix**: Changed the guard to `!failedRequests && !hasRegression`, using `failedRequests` (actual failures) unconditionally — independent of `--fail-on-error`. The `testFail` variable is unchanged because it is still needed for the exit code logic below.
+
+### Bug C — Misleading `--compare-baseline` option description and code comment
+
+**Problem**: The Commander option description said _"pass a runId / direct path to a store.json"_. The code only implements runId lookup; no file-path fallback exists. A comment nearby also said _"Try by runId first, then treat as a direct store path"_.
+
+**Fix**: Updated the option description to _"pass the runId of a specific saved baseline"_ and the comment to _"Look up by runId in the baseline store"_.
+
+### Bug D — Test for `generateComparisonMarkdown` checked for removed "⚠ Regressed" string
+
+**Problem**: After Bug A, the status column no longer emits "⚠ Regressed". The test `'shows ⚠ Regressed for regressed metrics'` used `expect(md).toContain('⚠ Regressed')` and would fail.
+
+**Fix**: Renamed test to `'shows severity badge for regressed metrics in status column'` and updated assertion to `expect(md).toContain('🟡 Warning')`.
+
+### Bug E — No tests for the Export button in `RunComparisonPanel.test.tsx`
+
+**Problem**: Sprint 3 added the "Export ▾" dropdown to `RunComparisonPanel` but no unit tests covered it.
+
+**Fix**: Added 6 new tests in `RunComparisonPanel.test.tsx`:
+1. _Renders Export button_ — checks `.run-comparison-export-btn` exists
+2. _Shows export menu on click_ — verifies `.run-comparison-export-menu` appears
+3. _Hides menu on second click_ — toggle-off works
+4. _"Export as Markdown" calls `generateComparisonMarkdown` and `saveFile` with correct args_
+5. _"Export as JSON" calls `generateComparisonJson` and `saveFile` with correct args_
+6. _Menu closes after choosing an export option_
+
+Also added `vi.mock` for `fileSaver` and `comparisonReport` at the top of the test file, and a `beforeEach(vi.clearAllMocks)` to isolate export tests.
+
+### Post-fix test counts
+
+- `src/features/results/utils/comparisonReport.test.ts` — 20 tests (all passing, Bug D updated)
+- `src/features/results/components/RunComparisonPanel.test.tsx` — 30 tests (6 new export tests added)
+- `cli/baselineStorage.test.ts` — 17 tests (all passing)
+- TypeScript: 0 errors
+

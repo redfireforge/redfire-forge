@@ -41,12 +41,6 @@ function stripRun(run: TestRun, label?: string): ComparisonExportRun {
   };
 }
 
-function deltaStatusSymbol(regressed: boolean, improved: boolean): string {
-  if (regressed) return '⚠ Regressed';
-  if (improved) return '✓ Improved';
-  return '— No change';
-}
-
 /** Format a regression threshold + actual for the Regressions section.
  *  Error Rate uses absolute percentage-point units; all other metrics use %. */
 function regressionUnit(metric: string): string {
@@ -127,8 +121,14 @@ export function generateComparisonMarkdown(comparison: RunComparison, baselineLa
     const unit = isTime ? ' ms' : d.metric === 'Error Rate' ? '%' : '';
     const sign = d.delta > 0 ? '+' : '';
     const signPct = d.deltaPercent > 0 ? '+' : '';
+    const alert = regressions.find((r) => r.metric === d.metric);
+    const statusLabel = alert
+      ? (alert.severity === 'critical' ? '🔴 Critical' : '🟡 Warning')
+      : d.improved
+        ? '✓ Improved'
+        : '— No change';
     lines.push(
-      `| ${d.metric} | ${d.baselineValue}${unit} | ${d.currentValue}${unit} | ${sign}${d.delta}${unit} | ${signPct}${d.deltaPercent}% | ${deltaStatusSymbol(d.regressed, d.improved)} |`,
+      `| ${d.metric} | ${d.baselineValue}${unit} | ${d.currentValue}${unit} | ${sign}${d.delta}${unit} | ${signPct}${d.deltaPercent}% | ${statusLabel} |`,
     );
   }
 
