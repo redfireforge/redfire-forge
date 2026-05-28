@@ -168,6 +168,18 @@ describe('generateComparisonMarkdown', () => {
     expect(md).toContain('Error Rate');
   });
 
+  it('uses pp unit for Error Rate delta column in Metric Deltas table (Bug L)', () => {
+    // makeComparison Error Rate: delta=0.5, baseline=1%, current=1.5%
+    const comparison = makeComparison();
+    const md = generateComparisonMarkdown(comparison);
+    // Delta column must show "+0.5 pp", NOT "+0.5%"
+    expect(md).toContain('+0.5 pp');
+    expect(md).not.toMatch(/\+0\.5%/);
+    // Baseline/current value columns still use %
+    expect(md).toContain('| 1%');
+    expect(md).toContain('1.5%');
+  });
+
   it('shows severity badge for regressed metrics in status column', () => {
     const comparison = makeComparison({ avgResponseTime: 50 }, { avgResponseTime: 60 });
     const md = generateComparisonMarkdown(comparison);
