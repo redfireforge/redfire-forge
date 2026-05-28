@@ -528,8 +528,14 @@ function findNearestBaseline(
   baselines: BaselineMark[],
 ): TestRun | null {
   const baselineIds = new Set(baselines.map((b) => b.runId));
-  // Candidates: baseline runs strictly older than this run
-  const candidates = allRuns.filter((r) => baselineIds.has(r.id) && r.timestamp < run.timestamp);
+  const isWorkflow = run.config.executionMode === 'workflow';
+  // Candidates: baseline runs strictly older than this run AND of the same run-type class
+  // (workflow vs non-workflow). Comparing across types produces meaningless regression status.
+  const candidates = allRuns.filter(
+    (r) => baselineIds.has(r.id) &&
+      r.timestamp < run.timestamp &&
+      (r.config.executionMode === 'workflow') === isWorkflow,
+  );
   if (candidates.length === 0) return null;
   // Most recent candidate
   return candidates.reduce((best, r) => (r.timestamp > best.timestamp ? r : best));
