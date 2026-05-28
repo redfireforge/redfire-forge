@@ -794,6 +794,95 @@ describe('useCatalogExport', () => {
     }]);
     expect(importFolder).toHaveBeenCalledWith('c1', { id: 'f2', name: 'NewFolder', requests: [] });
   });
+
+  it('handles entry with undefined servers', async () => {
+    const entry = baseEntry();
+    (entry as { servers?: unknown[] }).servers = undefined;
+
+    const buildSpy = vi.spyOn(catalogExportModule, 'buildCatalogExport').mockReturnValue({
+      collection: { id: 'col1', name: 'Col', mode: 'direct', requests: [] },
+      newEnvironments: [],
+    });
+    vi.spyOn(versionMergeModule, 'mergeExportIntoCollections').mockReturnValue({
+      updates: [],
+      newCollection: { id: 'nc', name: 'NC', mode: 'direct', requests: [] },
+      existingCollectionId: undefined,
+    });
+    vi.spyOn(versionMergeModule, 'isCollectionEmpty').mockReturnValue(true);
+
+    const wb = makeWb();
+    const catalog = makeCatalog(entry);
+    const setActiveTab = vi.fn();
+
+    const { result } = renderHook(() =>
+      useCatalogExport({ wb, catalog, setActiveTab }));
+
+    await act(async () => {
+      result.current.handleSendToRequests(entry);
+    });
+    await act(async () => { await Promise.resolve(); });
+
+    await act(async () => {
+      result.current.handleSendToReqConfirm({
+        collectionName: 'Test',
+        envs: [],
+        endpoints: [],
+        customNames: {},
+        sampleEpIds: new Set(),
+        savedEpValues: {},
+      });
+    });
+
+    expect(buildSpy).toHaveBeenCalled();
+    const opts = buildSpy.mock.calls[0][1];
+    expect(opts.servers).toEqual([]);
+  });
+
+  it('falls back to empty folders when existingCollectionId points to unknown collection', async () => {
+    const sepSpy = vi.spyOn(versionMergeModule, 'separateFoldersForMerge').mockReturnValue({
+      requestsToAddToExisting: [],
+      trulyNewFolders: [],
+    });
+    vi.spyOn(catalogExportModule, 'buildCatalogExport').mockReturnValue({
+      collection: { id: 'col1', name: 'Col', mode: 'direct', requests: [] },
+      newEnvironments: [],
+    });
+    vi.spyOn(versionMergeModule, 'mergeExportIntoCollections').mockReturnValue({
+      updates: [],
+      newCollection: { id: 'nc', name: 'NC', mode: 'direct', requests: [], folders: [{ id: 'f1', name: 'F', requests: [] }] },
+      existingCollectionId: 'unknown-col-id',
+    });
+    vi.spyOn(versionMergeModule, 'isCollectionEmpty').mockReturnValue(false);
+
+    const wb = makeWb();
+    const catalog = makeCatalog(baseEntry());
+    const setActiveTab = vi.fn();
+
+    const { result } = renderHook(() =>
+      useCatalogExport({ wb, catalog, setActiveTab }));
+
+    await act(async () => {
+      result.current.handleSendToRequests(baseEntry());
+    });
+    await act(async () => { await Promise.resolve(); });
+
+    await act(async () => {
+      result.current.handleSendToReqConfirm({
+        collectionName: 'Test',
+        envs: [],
+        endpoints: [],
+        customNames: {},
+        sampleEpIds: new Set(),
+        savedEpValues: {},
+      });
+    });
+
+    // existingCol is undefined → existingFolders = [] → separateFoldersForMerge called with []
+    expect(sepSpy).toHaveBeenCalledWith(
+      [{ id: 'f1', name: 'F', requests: [] }],
+      [],
+    );
+  });
 });
 
 function makeWb(extra?: Partial<ReturnType<typeof makeWb>>): UseRequestsReturn {

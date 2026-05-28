@@ -10,6 +10,7 @@ import type {
   WorkflowAuthProfile,
   Workflow,
 } from '../types/workflow';
+import type { SlaTarget } from '../../../shared/types';
 import type { WorkflowRFNode, WorkflowRFEdge } from '../utils/workflowNodeFactory';
 import type { useNodeClipboard } from './useNodeClipboard';
 import type { useUndoRedo } from './useUndoRedo';
@@ -225,6 +226,12 @@ export function useWorkflowPersistence(opts: UseWorkflowPersistenceOpts) {
     persistWorkflow({ variables: vars });
   }, [persistWorkflow, setWorkflowVariables, workflowVariablesRef]);
 
+  /** Persist SLA targets for the selected workflow (design-time primary edit — SLA-B8). */
+  const handleUpdateWorkflowSlaTargets = useCallback((targets: SlaTarget[]) => {
+    if (!selected) return;
+    update(selected.id, { slaTargets: targets });
+  }, [selected, update]);
+
   return {
     serializeNodes,
     serializeEdges,
@@ -239,6 +246,7 @@ export function useWorkflowPersistence(opts: UseWorkflowPersistenceOpts) {
     handleRedoAction,
     handleSave,
     handleUpdateWorkflowVariables,
+    handleUpdateWorkflowSlaTargets,
     /** Update the services ref immediately (before React re-render) so persistWorkflow sees the latest value. */
     workflowServicesRef,
   };

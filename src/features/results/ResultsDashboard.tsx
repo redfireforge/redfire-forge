@@ -66,8 +66,12 @@ export default function ResultsDashboard({ envName, svcName, onRerunFailed, isRe
       // For workflow runs, don't filter by env/svc since workflows aren't microservice-specific
       const isWorkflowRun = r.config.executionMode === 'workflow';
       if (!isWorkflowRun) {
-        if (envName && r.envName !== envName) return false;
-        if (svcName && r.svcName !== svcName) return false;
+        // Runs with no svcName are unscoped (e.g. CLI imports) — show in all env/svc contexts
+        const isUnscoped = !r.svcName;
+        if (!isUnscoped) {
+          if (envName && r.envName && r.envName !== envName) return false;
+          if (svcName && r.svcName && r.svcName !== svcName) return false;
+        }
       }
       // Filter by run type
       if (runTypeFilter === 'workflow' && !isWorkflowRun) return false;
@@ -80,8 +84,11 @@ export default function ResultsDashboard({ envName, svcName, onRerunFailed, isRe
     // Test runs are filtered by env/svc, workflow runs are not
     const testRuns = allRuns.filter((r) => {
       if (r.config.executionMode === 'workflow') return false;
-      if (envName && r.envName !== envName) return false;
-      if (svcName && r.svcName !== svcName) return false;
+      const isUnscoped = !r.svcName;
+      if (!isUnscoped) {
+        if (envName && r.envName && r.envName !== envName) return false;
+        if (svcName && r.svcName && r.svcName !== svcName) return false;
+      }
       return true;
     });
     const workflowRuns = allRuns.filter(r => r.config.executionMode === 'workflow');
@@ -93,6 +100,7 @@ export default function ResultsDashboard({ envName, svcName, onRerunFailed, isRe
   }, [allRuns, envName, svcName]);
 
   const [selectedRunId, setSelectedRunId] = useState<string>(runs[0]?.id ?? '');
+  const [detailsTab, setDetailsTab] = useState<'requests' | 'sla'>('requests');
   const [filterPassed, setFilterPassed] = useState<string>('all');
   const [resultTagFilter, setResultTagFilter] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -299,6 +307,35 @@ export default function ResultsDashboard({ envName, svcName, onRerunFailed, isRe
     const indent = depth * 20;
     const visibleResults = applyDetailFilter(g.results);
 
+    // When featureGroupName is absent the key is '' — skip the group header and
+    // render children/results directly so no synthetic label appears in the UI.
+    if (g.key === '' && depth === 0) {
+      return (
+        <Fragment key="__ungrouped__">
+          {hasChildren && g.children.map((child) => renderGroupRow(child, depth, '__ungrouped__'))}
+          {!hasChildren && visibleResults.length > 0 && (
+            <>
+              {visibleResults.some(r => r.dataRowId) && (
+                <tr><td colSpan={9} className="data-row-summary-cell">
+                  <DataRowSummaryTable results={visibleResults} scenarioName={g.key} onResultClick={setResponseModal} />
+                </td></tr>
+              )}
+              {!visibleResults.some(r => r.dataRowId) && (
+                <>
+                  <tr className="detail-header-row">
+                    <th>ID</th><th>Test Name</th><th colSpan={2}>URL</th>
+                    <th>Status</th><th>Validation</th><th>Time (ms)</th>
+                    <th>Passed</th><th>Error / Details</th>
+                  </tr>
+                  {visibleResults.map(renderDetailRow)}
+                </>
+              )}
+            </>
+          )}
+        </Fragment>
+      );
+    }
+
     return (
       <Fragment key={nodeKey}>
         <tr
@@ -362,7 +399,34 @@ export default function ResultsDashboard({ envName, svcName, onRerunFailed, isRe
           </div>
         </div>
         {importError && <div className="results-import-error">{importError} <button className="btn-dismiss" onClick={() => setImportError(null)}>×</button></div>}
-        <div className="empty-state">No test runs yet. Run a test first.</div>
+        {/* Show filter tabs even in empty state so user can switch back */}
+        <div className="results-run-filter-tabs">
+          <button
+            className={`run-filter-tab ${runTypeFilter === 'all' ? 'active' : ''}`}
+            onClick={() => setRunTypeFilter('all')}
+          >
+            All Runs ({runCounts.all})
+          </button>
+          <button
+            className={`run-filter-tab ${runTypeFilter === 'test' ? 'active' : ''}`}
+            onClick={() => setRunTypeFilter('test')}
+          >
+            🧪 Test Runs ({runCounts.test})
+          </button>
+          <button
+            className={`run-filter-tab ${runTypeFilter === 'workflow' ? 'active' : ''}`}
+            onClick={() => setRunTypeFilter('workflow')}
+          >
+            ⚡ Workflow Runs ({runCounts.workflow})
+          </button>
+        </div>
+        <div className="empty-state">
+          {runTypeFilter === 'workflow'
+            ? 'No workflow runs yet. Run a workflow from the Workflow Runner tab.'
+            : runTypeFilter === 'test'
+            ? 'No test runs yet. Run a test first.'
+            : 'No test runs yet. Run a test first.'}
+        </div>
         {showReplayModal && replayTrace && (
           <WorkflowResultsExplorerModal
             trace={replayTrace}
@@ -613,8 +677,26 @@ export default function ResultsDashboard({ envName, svcName, onRerunFailed, isRe
       {/* Timing Breakdown */}
       {selectedRun && <AggregatedTimingTable results={selectedRun.results} />}
 
-      {/* SLA Status Accordion (Phase C — Feature → Scenario → Check tree) */}
-      {summary && selectedRun && slaTargets.length > 0 && (
+      {/* Details Tabs: Request Details / SLA Status */}
+      <div className="results-details-tabs-header">
+        <div className="results-run-filter-tabs">
+          <button
+            className={`run-filter-tab ${detailsTab === 'requests' ? 'active' : ''}`}
+            onClick={() => setDetailsTab('requests')}
+          >
+            Request Details
+          </button>
+          <button
+            className={`run-filter-tab ${detailsTab === 'sla' ? 'active' : ''}`}
+            onClick={() => setDetailsTab('sla')}
+          >
+            SLA Status
+          </button>
+        </div>
+      </div>
+
+      {/* Tab: SLA Status */}
+      {detailsTab === 'sla' && summary && selectedRun && slaTargets.length > 0 && (
         <SlaStatusAccordion
           key={`${selectedRunId}-sla-accordion`}
           targets={slaTargets}
@@ -622,10 +704,13 @@ export default function ResultsDashboard({ envName, svcName, onRerunFailed, isRe
           summary={summary}
         />
       )}
+      {detailsTab === 'sla' && slaTargets.length === 0 && (
+        <div className="empty-state" style={{ marginTop: 12 }}>No SLA targets defined for this run.</div>
+      )}
 
-      {/* Request Details */}
+      {/* Tab: Request Details */}
+      {detailsTab === 'requests' && (
       <div className="section">
-        <h3>Request Details</h3>
         <div className="filter-row">
           <select value={filterPassed} onChange={(e) => { setFilterPassed(e.target.value); setPage(0); }}>
             <option value="all">All Results</option>
@@ -765,6 +850,7 @@ export default function ResultsDashboard({ envName, svcName, onRerunFailed, isRe
           </div>
         )}
       </div>
+      )} {/* end detailsTab === 'requests' */}
 
       <ResponseDetailModal result={responseModal} onClose={() => setResponseModal(null)} />
 

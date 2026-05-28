@@ -1,0 +1,887 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SLA Pre-Run Config — Test Runner Mockup</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  background: #0f1117;
+  color: #e2e8f0;
+  min-height: 100vh;
+  font-size: 13px;
+}
+
+/* ── Page header ── */
+.doc-header {
+  text-align: center;
+  padding: 24px 24px 14px;
+  border-bottom: 1px solid #222;
+}
+.doc-header h1 { font-size: 1.2rem; font-weight: 700; color: #f1f5f9; margin-bottom: 4px; }
+.doc-header p  { color: #64748b; font-size: 0.8rem; }
+
+/* ── Tab strip ── */
+.tab-strip {
+  display: flex;
+  padding: 16px 32px 0;
+  border-bottom: 2px solid #222;
+  gap: 0;
+}
+.tab-btn {
+  padding: 8px 18px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  background: none;
+  color: #64748b;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+.tab-btn:hover { color: #94a3b8; }
+.tab-btn.active { color: #818cf8; border-bottom-color: #818cf8; }
+
+/* ── Panes ── */
+.pane { display: none; padding: 24px 32px 60px; max-width: 1060px; margin: 0 auto; }
+.pane.active { display: block; }
+
+/* ────────────────────────────────────────────────
+   App chrome simulation
+──────────────────────────────────────────────── */
+.app-shell {
+  background: #111827;
+  border: 1px solid #1e293b;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+/* Nav tabs (Feature Groups / Test Runner / etc.) */
+.app-nav {
+  display: flex;
+  background: #0d1117;
+  border-bottom: 1px solid #1e293b;
+  padding: 0 20px;
+  gap: 0;
+}
+.app-nav-tab {
+  padding: 10px 18px;
+  font-size: 0.8rem;
+  color: #64748b;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  cursor: default;
+  font-weight: 500;
+}
+.app-nav-tab.active { color: #818cf8; border-bottom-color: #818cf8; }
+
+/* Page body */
+.app-body { padding: 20px 24px; }
+
+.page-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+.page-title { font-size: 1.3rem; font-weight: 700; color: #f1f5f9; }
+.context-tags { display: flex; gap: 6px; }
+.ctx-tag {
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: .03em;
+}
+.ctx-tag-svc { background: #312e81; color: #a5b4fc; }
+.ctx-tag-env { background: #164e63; color: #67e8f9; }
+
+/* Config card */
+.config-card {
+  background: #1a1f2e;
+  border: 1px solid #1e293b;
+  border-radius: 8px;
+  padding: 14px 18px;
+  margin-bottom: 12px;
+}
+
+/* Host selector row */
+.host-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 0.8rem;
+}
+.host-label { color: #94a3b8; font-weight: 600; }
+.radio-group { display: flex; gap: 14px; align-items: center; }
+.radio-opt { display: flex; align-items: center; gap: 5px; color: #94a3b8; cursor: default; }
+.radio-opt.selected { color: #e2e8f0; }
+.radio-dot { width: 13px; height: 13px; border-radius: 50%; border: 2px solid #475569; background: #0f1117; }
+.radio-dot.checked { border-color: #818cf8; background: #818cf8; }
+.host-url { color: #38bdf8; font-size: 0.75rem; margin-left: 4px; }
+.url-input {
+  flex: 1; max-width: 280px;
+  background: #0f1117; border: 1px solid #334155; border-radius: 5px;
+  color: #e2e8f0; padding: 4px 8px; font-size: 0.78rem;
+}
+
+/* Exec mode row */
+.exec-mode-row { display: flex; gap: 20px; align-items: center; margin-bottom: 10px; font-size: 0.8rem; }
+.exec-label { color: #94a3b8; font-weight: 600; white-space: nowrap; }
+.mode-btn {
+  padding: 3px 10px; border-radius: 4px; font-size: 0.75rem;
+  border: 1px solid #334155; background: #0f1117; color: #64748b; cursor: default;
+}
+.mode-btn.active { border-color: #818cf8; background: #1e1b4b; color: #818cf8; }
+
+.grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.field-block { display: flex; flex-direction: column; gap: 4px; }
+.field-label { font-size: 0.7rem; color: #64748b; text-transform: uppercase; letter-spacing: .05em; }
+.field-input {
+  background: #0f1117; border: 1px solid #334155; border-radius: 5px;
+  color: #e2e8f0; padding: 5px 8px; font-size: 0.8rem; width: 100%;
+}
+
+/* Scenario selector */
+.scenario-selector-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 10px;
+}
+.ss-title { font-size: 0.85rem; font-weight: 600; color: #f1f5f9; }
+.ss-actions { display: flex; gap: 8px; align-items: center; }
+.btn-xs {
+  padding: 3px 10px; border-radius: 4px; font-size: 0.72rem;
+  border: 1px solid #334155; background: #1a1f2e; color: #94a3b8; cursor: default;
+}
+.ss-meta { font-size: 0.75rem; color: #64748b; }
+
+.feature-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 9px 12px;
+  background: #0d1117; border: 1px solid #1e293b; border-radius: 6px;
+  margin-bottom: 6px; font-size: 0.82rem;
+}
+.feature-row.selected { border-color: #334155; }
+.cb { width: 14px; height: 14px; border: 1.5px solid #475569; border-radius: 3px; background: #0f1117; }
+.cb.checked { background: #818cf8; border-color: #818cf8; }
+
+/* Config form below scenario selector */
+.config-form { margin-top: 14px; }
+
+fieldset {
+  border: 1px solid #1e293b;
+  border-radius: 7px;
+  padding: 0;
+  margin-bottom: 10px;
+  overflow: hidden;
+}
+
+legend.collapsible-legend {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 14px;
+  width: 100%;
+  font-size: 0.82rem; font-weight: 600; color: #94a3b8;
+  cursor: pointer;
+  background: #151b27;
+  border-bottom: 1px solid transparent;
+  user-select: none;
+}
+legend.collapsible-legend.open { border-bottom-color: #1e293b; }
+.collapse-arrow { font-size: 0.65rem; color: #475569; transition: transform .15s; }
+.collapse-arrow.open { transform: rotate(90deg); }
+.collapse-count { margin-left: auto; font-size: 0.72rem; font-weight: 400; color: #64748b; }
+
+.fieldset-body { padding: 14px; }
+
+/* Weight rows */
+.weight-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 6px 0; border-bottom: 1px solid #1e293b; gap: 8px;
+}
+.weight-row:last-child { border-bottom: none; }
+.weight-label { display: flex; align-items: center; gap: 7px; flex: 1; font-size: 0.78rem; color: #cbd5e1; overflow: hidden; }
+.test-num { font-size: 0.7rem; color: #475569; width: 18px; text-align: right; }
+.method-badge {
+  padding: 1px 6px; border-radius: 3px; font-size: 0.68rem; font-weight: 700;
+  background: #14532d; color: #4ade80; flex-shrink: 0;
+}
+.weight-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 480px; }
+.weight-input {
+  width: 56px; text-align: center;
+  background: #0f1117; border: 1px solid #334155; border-radius: 4px;
+  color: #e2e8f0; padding: 3px 6px; font-size: 0.8rem; flex-shrink: 0;
+}
+
+/* ── SLA fieldset specifics ── */
+.sla-hint {
+  font-size: 0.74rem; color: #475569; margin-bottom: 12px; font-style: italic;
+}
+
+.sla-target-row {
+  display: grid;
+  grid-template-columns: 130px 70px 100px 1fr 24px;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.sla-select, .sla-input {
+  background: #0f1117; border: 1px solid #334155; border-radius: 4px;
+  color: #e2e8f0; padding: 5px 8px; font-size: 0.78rem; width: 100%;
+}
+.sla-select { cursor: pointer; }
+.sla-select.scenario-select { grid-column: 4; }
+
+.sla-del-btn {
+  width: 24px; height: 24px; border-radius: 4px;
+  border: 1px solid #374151; background: #1a1f2e;
+  color: #64748b; font-size: 0.85rem; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.sla-del-btn:hover { color: #f87171; border-color: #7f1d1d; }
+
+.add-sla-btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 5px 12px; border-radius: 5px; font-size: 0.75rem;
+  border: 1px dashed #334155; background: transparent; color: #64748b;
+  cursor: pointer; margin-top: 4px;
+}
+.add-sla-btn:hover { border-color: #818cf8; color: #818cf8; }
+
+/* NEW badge on the fieldset legend */
+.new-badge {
+  padding: 1px 7px; border-radius: 10px; font-size: 0.65rem; font-weight: 700;
+  background: #312e81; color: #a5b4fc; letter-spacing: .04em;
+}
+
+/* Callout annotation */
+.callout {
+  background: #1e1b4b; border: 1px solid #3730a3; border-radius: 7px;
+  padding: 10px 14px; margin-bottom: 14px; font-size: 0.78rem; color: #a5b4fc; line-height: 1.6;
+}
+.callout strong { color: #c7d2fe; }
+
+/* Run button */
+.form-actions { padding: 12px 0 4px; }
+.btn-primary {
+  padding: 9px 28px; border-radius: 6px; font-size: 0.85rem; font-weight: 600;
+  background: #4f46e5; border: none; color: #fff; cursor: pointer;
+}
+.btn-primary:hover { background: #4338ca; }
+
+/* ── Annotation arrows ── */
+.annotation {
+  display: flex; align-items: flex-start; gap: 12px;
+  background: #0d2136; border: 1px solid #0e4f7a; border-radius: 8px;
+  padding: 12px 16px; margin-top: 16px; font-size: 0.8rem; color: #7dd3fc; line-height: 1.6;
+}
+.annotation-icon { font-size: 1.3rem; flex-shrink: 0; margin-top: 1px; }
+.annotation strong { color: #38bdf8; }
+.annotation code {
+  background: #082f49; border-radius: 3px; padding: 1px 5px;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 0.75rem; color: #93c5fd;
+}
+
+/* Divider annotation */
+.step-divider {
+  display: flex; align-items: center; gap: 10px;
+  margin: 18px 0 10px; font-size: 0.7rem; color: #334155; text-transform: uppercase; letter-spacing: .06em;
+}
+.step-divider::before, .step-divider::after {
+  content: ''; flex: 1; height: 1px; background: #1e293b;
+}
+
+/* ── Scope badge ── */
+.scope-badge {
+  padding: 2px 8px; border-radius: 10px; font-size: 0.68rem; font-weight: 600;
+}
+.scope-run { background: #1e293b; color: #94a3b8; }
+.scope-workflow-def { background: #14532d; color: #4ade80; }
+
+/* Comparison layout */
+.compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 16px; }
+.compare-card {
+  background: #111827; border: 1px solid #1e293b; border-radius: 8px; overflow: hidden;
+}
+.compare-card-header {
+  padding: 10px 14px; background: #0d1117;
+  border-bottom: 1px solid #1e293b;
+  font-size: 0.78rem; font-weight: 600;
+}
+.compare-card-header.before { color: #f87171; }
+.compare-card-header.after  { color: #4ade80; }
+.compare-card-body { padding: 14px; }
+
+.before-panel {
+  background: #1a1f2e; border: 1px solid #374151; border-radius: 6px;
+  padding: 14px; display: flex; align-items: center; justify-content: center;
+  min-height: 90px; color: #475569; font-size: 0.82rem; font-style: italic;
+}
+
+/* Results view SLA dashboard stub */
+.sla-dashboard-stub {
+  background: #1a1f2e; border: 1px solid #1e293b; border-radius: 8px;
+  padding: 14px; margin-bottom: 14px;
+}
+.sla-db-header {
+  display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;
+}
+.sla-db-title { font-size: 0.82rem; font-weight: 600; color: #94a3b8; }
+.sla-cards { display: flex; gap: 8px; flex-wrap: wrap; }
+.sla-card {
+  background: #0d1117; border-radius: 6px; padding: 8px 12px;
+  border-left: 3px solid #22c55e; min-width: 120px;
+}
+.sla-card.fail { border-left-color: #ef4444; }
+.sla-card-metric { font-size: 0.68rem; color: #64748b; text-transform: uppercase; }
+.sla-card-value { font-size: 1rem; font-weight: 700; color: #22c55e; }
+.sla-card.fail .sla-card-value { color: #ef4444; }
+.sla-card-limit { font-size: 0.7rem; color: #475569; }
+
+/* scope badge in results */
+.results-scope-badge { margin-left: 8px; }
+</style>
+</head>
+<body>
+
+<div class="doc-header">
+  <h1>SLA Pre-Run Configuration — Test Runner Mockup</h1>
+  <p>Shows where the SLA Targets panel appears in TestRunner, how it works, and how results flow through.</p>
+</div>
+
+<div class="tab-strip">
+  <button class="tab-btn active" onclick="showTab('before-after')">Before vs After</button>
+  <button class="tab-btn" onclick="showTab('full-runner')">Full Runner View</button>
+  <button class="tab-btn" onclick="showTab('workflow-compare')">Workflow vs Test Runner</button>
+  <button class="tab-btn" onclick="showTab('results-flow')">Results View</button>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     TAB 1 — Before vs After
+══════════════════════════════════════════════════════ -->
+<div id="tab-before-after" class="pane active">
+
+  <div class="callout">
+    <strong>What changes:</strong> A collapsible "SLA Targets" fieldset is inserted between the Test Distribution
+    weights section and the Run button. It reuses <code>SlaTargetEditor</code> (already extracted in Phase A) and
+    the scenario dropdown is populated from the currently selected tests.
+  </div>
+
+  <div class="compare-grid">
+
+    <!-- BEFORE -->
+    <div class="compare-card">
+      <div class="compare-card-header before">✗ Before — no pre-run SLA config</div>
+      <div class="compare-card-body">
+
+        <fieldset>
+          <legend class="collapsible-legend open">
+            <span class="collapse-arrow open">▶</span>
+            Test Distribution (weights)
+            <span class="collapse-count">3 tests</span>
+          </legend>
+          <div class="fieldset-body">
+            <div class="weight-row">
+              <div class="weight-label"><span class="test-num">1</span><span class="method-badge">GET</span><span class="weight-name">MX - PN - 1GYFZE123S107D40E - ONBOARD_AS_USED</span></div>
+              <input class="weight-input" type="number" value="1" />
+            </div>
+            <div class="weight-row">
+              <div class="weight-label"><span class="test-num">2</span><span class="method-badge">GET</span><span class="weight-name">CA - PN - 1GYXPY1KXT1079338 - OnStar One Trial</span></div>
+              <input class="weight-input" type="number" value="1" />
+            </div>
+            <div class="weight-row">
+              <div class="weight-label"><span class="test-num">3</span><span class="method-badge">GET</span><span class="weight-name">US - PN - 1GNXDD1J4R1079348 - Premium 36 Month</span></div>
+              <input class="weight-input" type="number" value="1" />
+            </div>
+          </div>
+        </fieldset>
+
+        <!-- No SLA section — gap visible -->
+        <div class="before-panel">No SLA configuration here.<br>Must go to Results view after the run.</div>
+
+        <div class="form-actions">
+          <button class="btn-primary">▶ Run Tests</button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- AFTER -->
+    <div class="compare-card">
+      <div class="compare-card-header after">✓ After — SLA Targets fieldset added</div>
+      <div class="compare-card-body">
+
+        <fieldset>
+          <legend class="collapsible-legend open">
+            <span class="collapse-arrow open">▶</span>
+            Test Distribution (weights)
+            <span class="collapse-count">3 tests</span>
+          </legend>
+          <div class="fieldset-body">
+            <div class="weight-row">
+              <div class="weight-label"><span class="test-num">1</span><span class="method-badge">GET</span><span class="weight-name">MX - PN - 1GYFZE123S107D40E - ONBOARD_AS_USED</span></div>
+              <input class="weight-input" type="number" value="1" />
+            </div>
+            <div class="weight-row">
+              <div class="weight-label"><span class="test-num">2</span><span class="method-badge">GET</span><span class="weight-name">CA - PN - 1GYXPY1KXT1079338 - OnStar One Trial</span></div>
+              <input class="weight-input" type="number" value="1" />
+            </div>
+            <div class="weight-row">
+              <div class="weight-label"><span class="test-num">3</span><span class="method-badge">GET</span><span class="weight-name">US - PN - 1GNXDD1J4R1079348 - Premium 36 Month</span></div>
+              <input class="weight-input" type="number" value="1" />
+            </div>
+          </div>
+        </fieldset>
+
+        <!-- NEW SLA fieldset -->
+        <fieldset id="sla-fs-after">
+          <legend class="collapsible-legend open" onclick="toggleSlaAfter()">
+            <span class="collapse-arrow open" id="sla-arrow-after">▶</span>
+            SLA Targets
+            <span class="new-badge">NEW</span>
+            <span class="collapse-count" id="sla-count-after">2 targets</span>
+          </legend>
+          <div class="fieldset-body" id="sla-body-after">
+            <p class="sla-hint">Optional. Targets are embedded into the run and evaluated in Results.</p>
+
+            <!-- Row 1 -->
+            <div class="sla-target-row">
+              <select class="sla-select"><option>P95 Latency</option><option>P99 Latency</option><option>Error Rate</option><option>Mean Latency</option></select>
+              <select class="sla-select"><option>&lt;</option><option>&le;</option><option>&gt;</option></select>
+              <input class="sla-input" type="number" value="500" placeholder="value" />
+              <select class="sla-select scenario-select">
+                <option>MX - PN - 1GYFZE123S107D40E - ONBOARD_AS_USED</option>
+                <option>CA - PN - 1GYXPY1KXT1079338 - OnStar One Trial</option>
+                <option>US - PN - 1GNXDD1J4R1079348 - Premium 36 Month</option>
+                <option disabled>── All Tests ──</option>
+              </select>
+              <button class="sla-del-btn">✕</button>
+            </div>
+
+            <!-- Row 2 -->
+            <div class="sla-target-row">
+              <select class="sla-select"><option>Error Rate</option><option>P95 Latency</option><option>P99 Latency</option><option>Mean Latency</option></select>
+              <select class="sla-select"><option>&lt;</option></select>
+              <input class="sla-input" type="number" value="1" placeholder="value" />
+              <select class="sla-select scenario-select">
+                <option>CA - PN - 1GYXPY1KXT1079338 - OnStar One Trial</option>
+                <option>MX - PN - 1GYFZE123S107D40E - ONBOARD_AS_USED</option>
+                <option>US - PN - 1GNXDD1J4R1079348 - Premium 36 Month</option>
+              </select>
+              <button class="sla-del-btn">✕</button>
+            </div>
+
+            <button class="add-sla-btn">＋ Add Target</button>
+          </div>
+        </fieldset>
+
+        <div class="form-actions">
+          <button class="btn-primary">▶ Run Tests</button>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <div class="annotation">
+    <div class="annotation-icon">ℹ️</div>
+    <div>
+      <strong>Implementation notes:</strong><br>
+      • The fieldset reuses <code>SlaTargetEditor</code> from Phase A — no new UI component needed.<br>
+      • The scenario dropdown is populated from <code>selectedTests</code> already available in <code>RunnerPage</code>.<br>
+      • Targets are stored in <code>useRunnerOrchestration</code> config state and persisted to localStorage keyed by <code>svcId</code>.<br>
+      • At run time they are embedded into <code>TestConfig.slaTargets</code> — same path as the Workflow runner.<br>
+      • Results view sees them as <code>scope='run'</code> (editable, not locked).
+    </div>
+  </div>
+
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     TAB 2 — Full Runner View
+══════════════════════════════════════════════════════ -->
+<div id="tab-full-runner" class="pane">
+
+  <div class="app-shell">
+    <div class="app-nav">
+      <div class="app-nav-tab">Feature Groups</div>
+      <div class="app-nav-tab active">Test Runner</div>
+      <div class="app-nav-tab">Parameterized Runner</div>
+      <div class="app-nav-tab">Workflow Runner</div>
+      <div class="app-nav-tab">Results</div>
+    </div>
+
+    <div class="app-body">
+      <div class="page-title-row">
+        <div class="page-title">Test Runner</div>
+        <div class="context-tags">
+          <span class="ctx-tag ctx-tag-svc">sales-product-autoassign</span>
+          <span class="ctx-tag ctx-tag-env">t01</span>
+        </div>
+      </div>
+
+      <!-- Host selector -->
+      <div class="config-card">
+        <div class="host-row">
+          <span class="host-label">Host:</span>
+          <div class="radio-group">
+            <div class="radio-opt"><div class="radio-dot"></div>Original</div>
+            <div class="radio-opt"><div class="radio-dot"></div>Settings <span class="host-url">https://sales-product-autoassign.apps...</span></div>
+            <div class="radio-opt selected"><div class="radio-dot checked"></div>Custom</div>
+          </div>
+          <input class="url-input" value="http://localhost:8080" />
+        </div>
+      </div>
+
+      <!-- Execution config -->
+      <div class="config-card">
+        <div class="exec-mode-row">
+          <span class="exec-label">Execution Mode:</span>
+          <div class="mode-btn">Sequential</div>
+          <div class="mode-btn">Batch</div>
+          <div class="mode-btn active">Continuous Pool</div>
+          <div class="mode-btn">Load Profile</div>
+          <div class="mode-btn">Constant Arrival</div>
+        </div>
+        <div class="grid-4">
+          <div class="field-block"><div class="field-label">Concurrency</div><input class="field-input" value="5" /></div>
+          <div class="field-block"><div class="field-label">Iterations</div><input class="field-input" value="20" /></div>
+          <div class="field-block"><div class="field-label">Timeout</div><input class="field-input" value="10" /></div>
+          <div class="field-block"><div class="field-label">Retry</div><input class="field-input" value="0" /></div>
+        </div>
+      </div>
+
+      <!-- Scenario selector -->
+      <div class="config-card">
+        <div class="scenario-selector-header">
+          <span class="ss-title">Select Scenarios to Test</span>
+          <div class="ss-actions">
+            <button class="btn-xs">Select All</button>
+            <button class="btn-xs">Deselect All</button>
+            <span class="ss-meta">2 scenarios selected (3 tests)</span>
+          </div>
+        </div>
+        <div class="feature-row selected">
+          <div class="cb checked"></div> Kafka Simulation Feature
+        </div>
+        <div class="feature-row">
+          <div class="cb checked"></div> Test From Template
+        </div>
+        <div class="feature-row" style="opacity:.45">
+          <div class="cb"></div> Template version 2 Feature
+        </div>
+        <div class="feature-row" style="opacity:.45">
+          <div class="cb"></div> MX - PN - Memory Leak Feature - Develop
+        </div>
+      </div>
+
+      <!-- Config form -->
+      <div class="config-form">
+
+        <!-- Weights fieldset -->
+        <fieldset>
+          <legend class="collapsible-legend open">
+            <span class="collapse-arrow open">▶</span>
+            Test Distribution (weights)
+            <span class="collapse-count">3 tests</span>
+          </legend>
+          <div class="fieldset-body">
+            <div class="weight-row">
+              <div class="weight-label"><span class="test-num">1</span><span class="method-badge">GET</span><span class="weight-name">MX - PN - 1GYFZE123S107D40E - ONBOARD_AS_USED</span></div>
+              <input class="weight-input" type="number" value="1" />
+            </div>
+            <div class="weight-row">
+              <div class="weight-label"><span class="test-num">2</span><span class="method-badge">GET</span><span class="weight-name">CA - PN - 1GYXPY1KXT1079338 - OnStar One - Trial</span></div>
+              <input class="weight-input" type="number" value="1" />
+            </div>
+            <div class="weight-row">
+              <div class="weight-label"><span class="test-num">3</span><span class="method-badge">GET</span><span class="weight-name">US - PN - 1GNXDD1J4R1079348 - Premium - 36 Month</span></div>
+              <input class="weight-input" type="number" value="1" />
+            </div>
+          </div>
+        </fieldset>
+
+        <!-- ★ NEW SLA Targets fieldset ★ -->
+        <fieldset style="border-color: #2d2069;">
+          <legend class="collapsible-legend open" style="background: #1a1640;">
+            <span class="collapse-arrow open">▶</span>
+            SLA Targets
+            <span class="new-badge">NEW</span>
+            <span class="collapse-count">2 targets</span>
+          </legend>
+          <div class="fieldset-body">
+            <p class="sla-hint">Optional — define pass/fail thresholds per test. Embedded into the run; editable in Results afterwards.</p>
+
+            <div class="sla-target-row">
+              <select class="sla-select"><option>P95 Latency (ms)</option></select>
+              <select class="sla-select"><option>&lt;</option></select>
+              <input class="sla-input" type="number" value="500" />
+              <select class="sla-select scenario-select">
+                <option>MX - PN - 1GYFZE123S107D40E - ONBOARD_AS_USED</option>
+              </select>
+              <button class="sla-del-btn">✕</button>
+            </div>
+
+            <div class="sla-target-row">
+              <select class="sla-select"><option>Error Rate (%)</option></select>
+              <select class="sla-select"><option>&lt;</option></select>
+              <input class="sla-input" type="number" value="1" />
+              <select class="sla-select scenario-select">
+                <option>CA - PN - 1GYXPY1KXT1079338 - OnStar One - Trial</option>
+              </select>
+              <button class="sla-del-btn">✕</button>
+            </div>
+
+            <button class="add-sla-btn">＋ Add Target</button>
+          </div>
+        </fieldset>
+
+        <!-- Run button -->
+        <div class="form-actions">
+          <button class="btn-primary">▶ Run Tests</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="annotation">
+    <div class="annotation-icon">📍</div>
+    <div>
+      <strong>Placement:</strong> SLA Targets fieldset sits after Weights, before the Run button — same collapsible pattern as Weights.<br>
+      The subtle purple border distinguishes it from the grey Weights fieldset without being intrusive.
+    </div>
+  </div>
+
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     TAB 3 — Workflow vs Test Runner comparison
+══════════════════════════════════════════════════════ -->
+<div id="tab-workflow-compare" class="pane">
+
+  <div class="callout">
+    <strong>Both runners get the same SLA editor.</strong> The difference is where targets are persisted: Workflow Runner saves into the workflow definition (survives across runs); Test Runner saves to localStorage keyed by service (reset any time).
+  </div>
+
+  <div class="compare-grid">
+
+    <!-- Test Runner -->
+    <div class="compare-card">
+      <div class="compare-card-header after">Test Runner &amp; Parameterized Runner</div>
+      <div class="compare-card-body">
+
+        <div class="step-divider">above the run button</div>
+
+        <fieldset style="border-color: #2d2069;">
+          <legend class="collapsible-legend open" style="background: #1a1640;">
+            <span class="collapse-arrow open">▶</span>
+            SLA Targets
+            <span class="new-badge">NEW</span>
+            <span class="collapse-count">1 target</span>
+          </legend>
+          <div class="fieldset-body">
+            <p class="sla-hint">Saved per service to localStorage.</p>
+            <div class="sla-target-row">
+              <select class="sla-select"><option>P95 Latency (ms)</option></select>
+              <select class="sla-select"><option>&lt;</option></select>
+              <input class="sla-input" value="500" />
+              <select class="sla-select scenario-select"><option>MX - PN - 1GYFZE… - ONBOARD_AS_USED</option></select>
+              <button class="sla-del-btn">✕</button>
+            </div>
+            <button class="add-sla-btn">＋ Add Target</button>
+          </div>
+        </fieldset>
+
+        <div class="form-actions"><button class="btn-primary">▶ Run Tests</button></div>
+
+        <div style="margin-top:12px; font-size:0.75rem; color:#64748b;">
+          Results show <span class="scope-badge scope-run">🔒 This Run</span> — editable after run
+        </div>
+      </div>
+    </div>
+
+    <!-- Workflow Runner -->
+    <div class="compare-card">
+      <div class="compare-card-header after">Workflow Runner (Phase A — already done)</div>
+      <div class="compare-card-body">
+
+        <div class="step-divider">after workflow picker</div>
+
+        <fieldset style="border-color: #14532d;">
+          <legend class="collapsible-legend open" style="background: #052e16;">
+            <span class="collapse-arrow open">▶</span>
+            SLA Targets
+            <span class="collapse-count">1 target</span>
+          </legend>
+          <div class="fieldset-body">
+            <p class="sla-hint">Saved into the workflow definition (persists).</p>
+            <div class="sla-target-row">
+              <select class="sla-select"><option>P95 Latency (ms)</option></select>
+              <select class="sla-select"><option>&lt;</option></select>
+              <input class="sla-input" value="300" />
+              <select class="sla-select scenario-select"><option>Step 1: POST /api/subscribe</option></select>
+              <button class="sla-del-btn">✕</button>
+            </div>
+            <button class="add-sla-btn">＋ Add Target</button>
+          </div>
+        </fieldset>
+
+        <div class="form-actions"><button class="btn-primary">▶ Run Workflow</button></div>
+
+        <div style="margin-top:12px; font-size:0.75rem; color:#64748b;">
+          Results show <span class="scope-badge scope-workflow-def">📋 Workflow</span> — read-only in Results
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Key difference table -->
+  <div style="margin-top:24px;">
+    <table style="width:100%; border-collapse:collapse; font-size:0.78rem;">
+      <thead>
+        <tr style="border-bottom:1px solid #1e293b; color:#64748b; text-align:left;">
+          <th style="padding:8px 12px;">Aspect</th>
+          <th style="padding:8px 12px;">Test Runner</th>
+          <th style="padding:8px 12px;">Workflow Runner</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr style="border-bottom:1px solid #1e293b;">
+          <td style="padding:8px 12px; color:#94a3b8;">Scenario dropdown source</td>
+          <td style="padding:8px 12px; color:#e2e8f0;"><code style="background:#1e293b; padding:1px 5px; border-radius:3px;">selectedTests</code> (checked scenarios)</td>
+          <td style="padding:8px 12px; color:#e2e8f0;"><code style="background:#1e293b; padding:1px 5px; border-radius:3px;">workflow.steps</code> display names</td>
+        </tr>
+        <tr style="border-bottom:1px solid #1e293b;">
+          <td style="padding:8px 12px; color:#94a3b8;">Persistence</td>
+          <td style="padding:8px 12px; color:#e2e8f0;">localStorage key <code style="background:#1e293b; padding:1px 5px; border-radius:3px;">sla_run_{svcId}</code></td>
+          <td style="padding:8px 12px; color:#e2e8f0;"><code style="background:#1e293b; padding:1px 5px; border-radius:3px;">workflow.slaTargets</code> (DB/storage)</td>
+        </tr>
+        <tr style="border-bottom:1px solid #1e293b;">
+          <td style="padding:8px 12px; color:#94a3b8;">Results scope badge</td>
+          <td style="padding:8px 12px;"><span class="scope-badge scope-run">🔒 This Run</span></td>
+          <td style="padding:8px 12px;"><span class="scope-badge scope-workflow-def">📋 Workflow</span></td>
+        </tr>
+        <tr style="border-bottom:1px solid #1e293b;">
+          <td style="padding:8px 12px; color:#94a3b8;">Editable in Results?</td>
+          <td style="padding:8px 12px; color:#4ade80;">Yes — can override after run</td>
+          <td style="padding:8px 12px; color:#f87171;">No — read-only (set in runner)</td>
+        </tr>
+        <tr>
+          <td style="padding:8px 12px; color:#94a3b8;">Status</td>
+          <td style="padding:8px 12px; color:#fbbf24;">Phase B — to implement</td>
+          <td style="padding:8px 12px; color:#4ade80;">Phase A — done ✓</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     TAB 4 — Results View flow
+══════════════════════════════════════════════════════ -->
+<div id="tab-results-flow" class="pane">
+
+  <div class="callout">
+    <strong>What the Results view sees</strong> after a Test Runner run that had SLA targets pre-configured.
+    The <code>scope='run'</code> badge is shown and targets are still editable (unlike the Workflow <code>📋 Workflow</code> locked badge).
+  </div>
+
+  <div class="app-shell">
+    <div class="app-nav">
+      <div class="app-nav-tab">Feature Groups</div>
+      <div class="app-nav-tab">Test Runner</div>
+      <div class="app-nav-tab">Parameterized Runner</div>
+      <div class="app-nav-tab">Workflow Runner</div>
+      <div class="app-nav-tab active">Results</div>
+    </div>
+    <div class="app-body">
+      <div class="page-title-row">
+        <div class="page-title">Results</div>
+        <div class="context-tags">
+          <span class="ctx-tag ctx-tag-svc">sales-product-autoassign</span>
+          <span class="ctx-tag ctx-tag-env">t01</span>
+        </div>
+      </div>
+
+      <!-- SLA Dashboard stub — scope=run -->
+      <div class="sla-dashboard-stub">
+        <div class="sla-db-header">
+          <span class="sla-db-title">
+            SLA Status
+            <span class="scope-badge scope-run results-scope-badge">🔒 This Run</span>
+          </span>
+          <button class="btn-xs">✏ Edit Targets</button>
+        </div>
+        <div class="sla-cards">
+          <div class="sla-card">
+            <div class="sla-card-metric">P95 Latency</div>
+            <div class="sla-card-value">312ms</div>
+            <div class="sla-card-limit">target &lt; 500ms ✓</div>
+          </div>
+          <div class="sla-card fail">
+            <div class="sla-card-metric">Error Rate</div>
+            <div class="sla-card-value">2.3%</div>
+            <div class="sla-card-limit">target &lt; 1% ✗</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Results table stub -->
+      <div style="background:#1a1f2e; border:1px solid #1e293b; border-radius:8px; padding:14px; font-size:0.78rem;">
+        <div style="color:#64748b; margin-bottom:8px; text-transform:uppercase; letter-spacing:.05em; font-size:0.7rem;">Test Results</div>
+        <div style="display:grid; grid-template-columns: 1fr 80px 70px 70px; gap:0; border-bottom:1px solid #1e293b; padding-bottom:6px; margin-bottom:6px; color:#64748b; font-size:0.7rem; text-transform:uppercase;">
+          <div>Test</div><div>P95</div><div>Errors</div><div>Reqs</div>
+        </div>
+        <div style="display:grid; grid-template-columns: 1fr 80px 70px 70px; gap:0; padding:5px 0; border-bottom:1px solid #1e293b; color:#e2e8f0;">
+          <div style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">MX - PN - 1GYFZE… ONBOARD_AS_USED</div>
+          <div style="color:#22c55e;">312ms</div>
+          <div style="color:#22c55e;">0%</div>
+          <div>20</div>
+        </div>
+        <div style="display:grid; grid-template-columns: 1fr 80px 70px 70px; gap:0; padding:5px 0; border-bottom:1px solid #1e293b; color:#e2e8f0;">
+          <div style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">CA - PN - 1GYXPY… OnStar One - Trial</div>
+          <div style="color:#22c55e;">289ms</div>
+          <div style="color:#ef4444;">2.3%</div>
+          <div>20</div>
+        </div>
+        <div style="display:grid; grid-template-columns: 1fr 80px 70px 70px; gap:0; padding:5px 0; color:#e2e8f0;">
+          <div style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">US - PN - 1GNXDD… Premium 36 Month</div>
+          <div style="color:#22c55e;">201ms</div>
+          <div style="color:#22c55e;">0%</div>
+          <div>20</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="annotation">
+    <div class="annotation-icon">🔁</div>
+    <div>
+      <strong>Flow:</strong> SLA targets set pre-run → embedded in <code>TestConfig.slaTargets</code> → stored with the run record → Results view reads them as <code>scope='run'</code> → <code>SlaDashboard</code> shows <span class="scope-badge scope-run">🔒 This Run</span> badge and allows editing post-run.<br><br>
+      <strong>No new Results code needed</strong> — the existing <code>resolveTargetsForRun</code> and <code>SlaDashboard</code> already handle <code>scope='run'</code> correctly.
+    </div>
+  </div>
+</div>
+
+<script>
+function showTab(id) {
+  document.querySelectorAll('.pane').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + id).classList.add('active');
+  event.target.classList.add('active');
+}
+
+function toggleSlaAfter() {
+  const body = document.getElementById('sla-body-after');
+  const arrow = document.getElementById('sla-arrow-after');
+  const legend = arrow.parentElement;
+  const visible = body.style.display !== 'none';
+  body.style.display = visible ? 'none' : '';
+  arrow.classList.toggle('open', !visible);
+  legend.classList.toggle('open', !visible);
+}
+</script>
+</body>
+</html>

@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback, useRef, createContext, useContext } from 'react';
 import { bestEffortFormat } from './jsonTreeShared';
 import { prettyJson } from '../utils/helpers';
+import { useCopyToClipboard } from '../hooks/useCopyToClipboard';
 
 interface Props {
   data: string | Record<string, unknown> | unknown[] | unknown;
@@ -53,17 +54,14 @@ export default function JsonTreeViewer({
     return JSON.stringify(data, null, 2);
   }, [data]);
 
-  const [copied, setCopied] = useState(false);
+  const [copied, copyToClipboard] = useCopyToClipboard(1500);
   const [searchTerm, setSearchTerm] = useState('');
   const [expandOverride, setExpandOverride] = useState<boolean | null>(null);
   const expandKey = useRef(0);
 
   const handleCopy = useCallback(() => {
-    navigator.clipboard.writeText(rawString).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    });
-  }, [rawString]);
+    void copyToClipboard(rawString);
+  }, [rawString, copyToClipboard]);
 
   const handleExpandAll = useCallback(() => {
     expandKey.current++;

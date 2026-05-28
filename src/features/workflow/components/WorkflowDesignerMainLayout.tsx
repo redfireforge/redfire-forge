@@ -6,6 +6,7 @@ import WorkflowStatusBar from './canvas/WorkflowStatusBar';
 import { WorkflowDesignerBody } from './WorkflowDesignerBody';
 import { WorkflowDesignerInspectModals } from './WorkflowDesignerInspectModals';
 import { WorkflowDesignerGlobalOverlays } from './WorkflowDesignerGlobalOverlays';
+import WorkflowSlaPanel from '../../test-runner/components/WorkflowSlaPanel';
 
 /** Main workflow designer shell when a workflow is selected (canvas, modals, status). */
 export default function WorkflowDesignerMainLayout(vm: WorkflowDesignerViewModel) {
@@ -44,6 +45,14 @@ export default function WorkflowDesignerMainLayout(vm: WorkflowDesignerViewModel
         runProgress={vm.runProgress}
         onReset={vm.handleResetRunStatus}
         onRunInHarness={onRunInHarness ? () => onRunInHarness(selected.id) : undefined}
+      />
+
+      {/* SLA-B8: design-time SLA target editor — primary edit point for workflow-level SLA */}
+      <WorkflowSlaPanel
+        key={selected.id}
+        initialTargets={selected.slaTargets ?? []}
+        onSave={async (targets) => { vm.handleUpdateWorkflowSlaTargets(targets); }}
+        disabled={vm.isRunning}
       />
 
       <WorkflowInspectProvider value={vm.inspectActions}>
