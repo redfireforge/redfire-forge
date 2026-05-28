@@ -1149,3 +1149,29 @@ Fifth pass. Source logic clean. Added missing unit assertion test.
 - Full Sprint 1+2+3 suite: **1580 tests, 71 files — all passing**
 - TypeScript: 0 errors
 
+---
+
+## Sprint 1 Deep Review Pass — Round 6 (2026-05-28)
+
+Sixth pass. All source logic correct. One test quality gap found.
+
+### Test gap — `runBaselines.test.ts` Error Rate regression test too weak
+
+**Problem**: The `'detects error rate regression'` test only asserted `er?.regressed === true`. It did not verify:
+- `er.delta === 4` (absolute pp change, NOT the relative deltaPercent)
+- `alert.actual === 4` (the value that gets displayed in the UI/CLI/markdown)
+- `alert.threshold === 1` (the configured threshold used for comparison)
+- `alert.severity === 'critical'` (4pp > 2× 1pp threshold)
+
+If `actual` had been accidentally set to `deltaPercent` (400) instead of `delta` (4), the old test would still pass.
+
+**Fix**: Strengthened the test to assert all four additional properties.
+
+### Post-fix test counts (Round 6)
+
+- `src/features/results/utils/runBaselines.test.ts` — 56 tests (1 test strengthened, no new tests)
+- Full Sprint 1+2+3 suite: **1580 tests, 71 files — all passing**
+- TypeScript: 0 errors
+
+**All Sprint 1 source code and tests are clean. No further issues found.**
+
