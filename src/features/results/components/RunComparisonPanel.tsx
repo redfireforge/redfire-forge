@@ -310,7 +310,12 @@ export function TrendChart({ runs, baselines, selectedRun }: TrendProps) {
     });
   }, [perScenario]);
 
-  if (data.length < 2) return <div className="empty-hint">Need at least 2 runs for trend analysis.</div>;
+  if (data.length < 2) {
+    const msg = scope !== 'all'
+      ? `Only ${data.length} run${data.length === 1 ? '' : 's'} match this scope — try "All runs" for a broader view.`
+      : 'Need at least 2 runs for trend analysis.';
+    return <div className="empty-hint">{msg}</div>;
+  }
 
   const baselineRunIds = new Set(baselines.map((b) => b.runId));
 
