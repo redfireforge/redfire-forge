@@ -1057,3 +1057,35 @@ Also added 2 unit display tests verifying Bug I and Bug J fixes:
 - Full Sprint 1+2+3 suite: **1574 tests, 71 files — all passing**
 - TypeScript: 0 errors
 
+---
+
+## Sprint 1 Deep Review Pass — Round 2 (2026-05-28)
+
+Second pass after Round 1 fixes. One logic bug and one code quality issue found.
+
+### Bug K — RegressionList shows relative `+300%` for Error Rate instead of absolute `+3 pp`
+
+**Problem**: The regression detail body (Regressions tab) used `delta.deltaPercent%` to show the actual change. For Error Rate regression (baseline=1%, current=4%), this displayed `(+300%)` — a relative percentage. But the configured threshold is expressed in percentage points (pp), making the comparison confusing ("threshold 1 pp, actual +300%?").
+
+`RegressionAlert.actual` already stores the correct value for display:
+- Error Rate: `actual = d.delta` (absolute pp change, e.g. 3)
+- TPS: `actual = Math.abs(d.deltaPercent)` (magnitude of % drop, e.g. 20)
+- Response time: `actual = Math.abs(d.deltaPercent)` (% increase, e.g. 50)
+
+**Fix**: Replaced `delta.deltaPercent%` with `r.actual` with context-aware sign and unit:
+- Error Rate: `+{r.actual} pp` (e.g. `+3 pp`)
+- TPS: `-{r.actual}%` (e.g. `-20%` — magnitude of drop)
+- Response time: `+{r.actual}%` (e.g. `+50%` — same result as before)
+
+### Code quality — IIFE pattern in RegressionList
+
+**Problem**: The `detailUnit` variable was computed inside a JSX IIFE (`{delta && (() => { ... })()`), which is non-idiomatic React and harder to read.
+
+**Fix**: Moved `detailUnit` and `deltaDisplay` to the top of the `map` callback before the `return`, using the standard React pattern for computed JSX variables.
+
+### Post-fix test counts (Round 2)
+
+- `src/features/results/components/RunComparisonPanel.test.tsx` — 38 tests (+2: Error Rate "+pp" display test, TPS "-%" display test)
+- Full Sprint 1+2+3 suite: **1576 tests, 71 files — all passing**
+- TypeScript: 0 errors
+
