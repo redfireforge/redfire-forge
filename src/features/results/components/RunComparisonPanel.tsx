@@ -1,8 +1,8 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import type { TestRun } from '../../../shared/types';
-import type { MetricDelta, ScenarioDelta, RegressionAlert, TrendPoint, BaselineMark, RegressionThresholds } from '../utils/runBaselines';
-import { compareRuns, computeTrend } from '../utils/runBaselines';
+import type { MetricDelta, ScenarioDelta, RegressionAlert, TrendPoint, BaselineMark, RegressionThresholds, TrendMetric, TrendScope } from '../utils/runBaselines';
+import { compareRuns, computeTrend, computeScopedTrend, computePerScenarioTrend } from '../utils/runBaselines';
 import { ResponseTimeOverlayHistogram } from './ResponseTimeHistogram';
 
 interface ComparisonProps {
@@ -231,80 +231,253 @@ function RegressionList({ regressions, deltas }: { regressions: RegressionAlert[
 interface TrendProps {
   runs: TestRun[];
   baselines: BaselineMark[];
+  /** The currently-viewed run — used as the reference for scope filtering. */
+  selectedRun?: TestRun;
 }
 
-export function TrendChart({ runs, baselines }: TrendProps) {
-  const [metric, setMetric] = useState<'p95ResponseTime' | 'p50ResponseTime' | 'p99ResponseTime' | 'p999ResponseTime' | 'avgResponseTime' | 'tps' | 'errorRate'>('p95ResponseTime');
-  const data = useMemo(() => computeTrend(runs, baselines), [runs, baselines]);
+const METRIC_LABELS: Record<TrendMetric, string> = {
+  p95ResponseTime: 'P95 (ms)',
+  p50ResponseTime: 'P50 (ms)',
+  p99ResponseTime: 'P99 (ms)',
+  p999ResponseTime: 'P99.9 (ms)',
+  avgResponseTime: 'Avg (ms)',
+  tps: 'TPS',
+  errorRate: 'Error Rate (%)',
+};
+
+const METRIC_OPTIONS: Array<{ value: TrendMetric; label: string }> = [
+  { value: 'p95ResponseTime', label: 'P95 Response Time' },
+  { value: 'p50ResponseTime', label: 'P50 Response Time' },
+  { value: 'p99ResponseTime', label: 'P99 Response Time' },
+  { value: 'p999ResponseTime', label: 'P99.9 Response Time' },
+  { value: 'avgResponseTime', label: 'Avg Response Time' },
+  { value: 'tps', label: 'TPS' },
+  { value: 'errorRate', label: 'Error Rate' },
+];
+
+/** Colors for per-scenario trend lines — up to 8. */
+const SCENARIO_COLORS = [
+  'var(--primary, #6366f1)',
+  'var(--warning, #f59e0b)',
+  '#10b981',
+  '#ef4444',
+  '#3b82f6',
+  '#8b5cf6',
+  '#ec4899',
+  '#14b8a6',
+];
+
+export function TrendChart({ runs, baselines, selectedRun }: TrendProps) {
+  const [metric, setMetric] = useState<TrendMetric>('p95ResponseTime');
+  const [metric2, setMetric2] = useState<TrendMetric | 'none'>('none');
+  const [scope, setScope] = useState<TrendScope>('all');
+  const [chartTab, setChartTab] = useState<'overall' | 'per-scenario'>('overall');
+
+  // Reset to 'all' scope when the selected run changes to one that no longer
+  // supports the active scope (e.g., switching from a workflow run to a test run).
+  useEffect(() => {
+    if (!selectedRun) return;
+    if ((scope === 'service' || scope === 'env') && !selectedRun.svcName) setScope('all');
+    if (scope === 'workflow' && !selectedRun.workflowName) setScope('all');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedRun?.id]);
+
+  const data = useMemo(() => {
+    if (selectedRun && scope !== 'all') return computeScopedTrend(runs, selectedRun, scope, baselines);
+    return computeTrend(runs, baselines);
+  }, [runs, baselines, selectedRun, scope]);
+
+  const perScenario = useMemo(() => {
+    if (chartTab !== 'per-scenario') return null;
+    const ref = selectedRun ?? runs[0];
+    if (!ref) return null;
+    return computePerScenarioTrend(runs, ref, scope, baselines);
+  }, [runs, baselines, selectedRun, scope, chartTab]);
+
+  // Flatten per-scenario data into a Recharts-compatible array joined by timestamp
+  const scenarioChartData = useMemo(() => {
+    if (!perScenario || perScenario.seriesKeys.length === 0) return [];
+    const allTimestamps = [...new Set(
+      Object.values(perScenario.data).flat().map((p) => p.timestamp),
+    )].sort((a, b) => a - b);
+    return allTimestamps.map((ts) => {
+      const row: Record<string, number | null> = { timestamp: ts };
+      for (const key of perScenario.seriesKeys) {
+        const pt = perScenario.data[key]?.find((p) => p.timestamp === ts);
+        row[key] = pt?.avgTime ?? null;
+      }
+      return row;
+    });
+  }, [perScenario]);
 
   if (data.length < 2) return <div className="empty-hint">Need at least 2 runs for trend analysis.</div>;
 
-  const metricLabel: Record<string, string> = {
-    p95ResponseTime: 'P95 (ms)',
-    p50ResponseTime: 'P50 (ms)',
-    p99ResponseTime: 'P99 (ms)',
-    p999ResponseTime: 'P99.9 (ms)',
-    avgResponseTime: 'Avg (ms)',
-    tps: 'TPS',
-    errorRate: 'Error Rate (%)',
-  };
-
   const baselineRunIds = new Set(baselines.map((b) => b.runId));
+
+  const baselineDot = (props: Record<string, unknown>) => {
+    const { cx, cy, payload } = props as { cx: number; cy: number; payload: TrendPoint };
+    const isBaselinePoint = baselineRunIds.has(payload?.runId);
+    return (
+      <circle
+        key={payload?.runId}
+        cx={cx}
+        cy={cy}
+        r={isBaselinePoint ? 6 : 3}
+        fill={isBaselinePoint ? 'var(--warning, #f59e0b)' : 'var(--primary)'}
+        stroke={isBaselinePoint ? 'var(--warning, #f59e0b)' : 'var(--primary)'}
+        strokeWidth={isBaselinePoint ? 2 : 1}
+      />
+    );
+  };
 
   return (
     <div className="trend-chart-container">
       <div className="trend-chart-header">
         <h4>Performance Trend</h4>
-        <select value={metric} onChange={(e) => setMetric(e.target.value as typeof metric)} className="trend-metric-select">
-          <option value="p95ResponseTime">P95 Response Time</option>
-          <option value="p50ResponseTime">P50 Response Time</option>
-          <option value="p99ResponseTime">P99 Response Time</option>
-          <option value="p999ResponseTime">P99.9 Response Time</option>
-          <option value="avgResponseTime">Avg Response Time</option>
-          <option value="tps">TPS</option>
-          <option value="errorRate">Error Rate</option>
-        </select>
+
+        {/* Chart tabs: Overall vs Per-Scenario */}
+        <div className="trend-chart-tabs">
+          <button
+            className={`trend-chart-tab${chartTab === 'overall' ? ' active' : ''}`}
+            onClick={() => setChartTab('overall')}
+          >
+            Overall
+          </button>
+          <button
+            className={`trend-chart-tab${chartTab === 'per-scenario' ? ' active' : ''}`}
+            onClick={() => setChartTab('per-scenario')}
+          >
+            Per-Scenario
+          </button>
+        </div>
+
+        {/* Controls row: scope + metric selectors */}
+        <div className="trend-controls">
+          {/* Scope filter */}
+          <select
+            value={scope}
+            onChange={(e) => setScope(e.target.value as TrendScope)}
+            className="trend-scope-select"
+            title="Limit trend to runs from the same suite"
+          >
+            <option value="all">All runs</option>
+            <option value="service" disabled={!selectedRun?.svcName}>By service</option>
+            <option value="env" disabled={!selectedRun?.svcName}>By service + env</option>
+            <option value="workflow" disabled={!selectedRun?.workflowName}>By workflow</option>
+          </select>
+
+          {chartTab === 'overall' && (
+            <>
+              {/* Primary metric */}
+              <select
+                value={metric}
+                onChange={(e) => setMetric(e.target.value as TrendMetric)}
+                className="trend-metric-select"
+              >
+                {METRIC_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+
+              {/* Secondary metric overlay */}
+              <select
+                value={metric2}
+                onChange={(e) => setMetric2(e.target.value as TrendMetric | 'none')}
+                className="trend-metric-select2"
+                title="Add a second metric line (right axis)"
+              >
+                <option value="none">+ overlay metric</option>
+                {METRIC_OPTIONS.filter((o) => o.value !== metric).map((o) => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+            </>
+          )}
+        </div>
       </div>
-      <ResponsiveContainer width="100%" height={250}>
-        <LineChart data={data} margin={{ top: 10, right: 30, left: 10, bottom: 10 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-          <XAxis
-            dataKey="timestamp"
-            tickFormatter={(t: number) => new Date(t).toLocaleDateString()}
-            stroke="var(--text-muted)"
-            fontSize={11}
-          />
-          <YAxis stroke="var(--text-muted)" fontSize={11} />
-          <Tooltip
-            labelFormatter={(t) => new Date(t as number).toLocaleString()}
-            formatter={(value) => [value, metricLabel[metric]]}
-            contentStyle={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 4, fontSize: 12 }}
-          />
-          <Legend />
-          <Line
-            type="monotone"
-            dataKey={metric}
-            name={metricLabel[metric]}
-            stroke="var(--primary)"
-            strokeWidth={2}
-            dot={(props: Record<string, unknown>) => {
-              const { cx, cy, payload } = props as { cx: number; cy: number; payload: TrendPoint };
-              const isBaselinePoint = baselineRunIds.has(payload?.runId);
-              return (
-                <circle
-                  key={payload?.runId}
-                  cx={cx}
-                  cy={cy}
-                  r={isBaselinePoint ? 6 : 3}
-                  fill={isBaselinePoint ? 'var(--warning, #f59e0b)' : 'var(--primary)'}
-                  stroke={isBaselinePoint ? 'var(--warning, #f59e0b)' : 'var(--primary)'}
-                  strokeWidth={isBaselinePoint ? 2 : 1}
+
+      {chartTab === 'overall' && (
+        <ResponsiveContainer width="100%" height={250}>
+          <LineChart data={data} margin={{ top: 10, right: metric2 !== 'none' ? 50 : 30, left: 10, bottom: 10 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+            <XAxis
+              dataKey="timestamp"
+              tickFormatter={(t: number) => new Date(t).toLocaleDateString()}
+              stroke="var(--text-muted)"
+              fontSize={11}
+            />
+            {/* Always use yAxisId so dual-axis switching is seamless */}
+            <YAxis yAxisId="left" stroke="var(--text-muted)" fontSize={11} />
+            {metric2 !== 'none' && (
+              <YAxis yAxisId="right" orientation="right" stroke="var(--accent, #10b981)" fontSize={11} />
+            )}
+            <Tooltip
+              labelFormatter={(t) => new Date(t as number).toLocaleString()}
+              formatter={(value, name) => [value, name as string]}
+              contentStyle={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 4, fontSize: 12 }}
+            />
+            <Legend />
+            <Line
+              yAxisId="left"
+              type="monotone"
+              dataKey={metric}
+              name={METRIC_LABELS[metric]}
+              stroke="var(--primary)"
+              strokeWidth={2}
+              dot={baselineDot}
+            />
+            {metric2 !== 'none' && (
+              <Line
+                yAxisId="right"
+                type="monotone"
+                dataKey={metric2}
+                name={METRIC_LABELS[metric2]}
+                stroke="var(--accent, #10b981)"
+                strokeWidth={2}
+                strokeDasharray="4 4"
+                dot={false}
+              />
+            )}
+          </LineChart>
+        </ResponsiveContainer>
+      )}
+
+      {chartTab === 'per-scenario' && (
+        perScenario && perScenario.seriesKeys.length > 0 ? (
+          <ResponsiveContainer width="100%" height={250}>
+            <LineChart data={scenarioChartData} margin={{ top: 10, right: 30, left: 10, bottom: 10 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+              <XAxis
+                dataKey="timestamp"
+                tickFormatter={(t: number) => new Date(t).toLocaleDateString()}
+                stroke="var(--text-muted)"
+                fontSize={11}
+              />
+              <YAxis stroke="var(--text-muted)" fontSize={11} label={{ value: 'Avg (ms)', angle: -90, position: 'insideLeft', fontSize: 10 }} />
+              <Tooltip
+                labelFormatter={(t) => new Date(t as number).toLocaleString()}
+                formatter={(value, name) => [`${value} ms`, name as string]}
+                contentStyle={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 4, fontSize: 11 }}
+              />
+              <Legend />
+              {perScenario.seriesKeys.map((key, i) => (
+                <Line
+                  key={key}
+                  type="monotone"
+                  dataKey={key}
+                  name={perScenario.scenarioNames[i]}
+                  stroke={SCENARIO_COLORS[i % SCENARIO_COLORS.length]}
+                  strokeWidth={2}
+                  dot={false}
+                  connectNulls={false}
                 />
-              );
-            }}
-          />
-        </LineChart>
-      </ResponsiveContainer>
+              ))}
+            </LineChart>
+          </ResponsiveContainer>
+        ) : (
+          <div className="empty-hint">No scenario data available for the selected scope.</div>
+        )
+      )}
     </div>
   );
 }

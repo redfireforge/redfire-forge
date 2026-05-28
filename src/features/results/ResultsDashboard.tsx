@@ -16,7 +16,8 @@ import {
   loadBaselines, markAsBaseline, unmarkBaseline, isBaseline, renameBaseline,
   loadRegressionThresholds, saveRegressionThresholds,
   DEFAULT_THRESHOLDS,
-  type BaselineMark, type RegressionThresholds,
+  computeRunRegressionStatus,
+  type BaselineMark, type RegressionThresholds, type RunRegressionStatus,
 } from './utils/runBaselines';
 import { BaselineListPanel } from './components/BaselineListPanel';
 import { RegressionThresholdsPanel } from './components/RegressionThresholdsPanel';
@@ -224,6 +225,14 @@ export default function ResultsDashboard({ envName, svcName, onRerunFailed, isRe
     if (!compareBaselineId) return null;
     return runs.find((r) => r.id === compareBaselineId) ?? null;
   }, [runs, compareBaselineId]);
+
+  // Regression status for every visible run (against its nearest prior baseline).
+  // Uses allRuns (not filtered `runs`) for baseline lookup so the baseline is found
+  // even when the run-type filter is active. Keyed by run id.
+  const runRegressionStatuses = useMemo<Map<string, RunRegressionStatus>>(() => {
+    if (baselines.length === 0) return new Map();
+    return new Map(runs.map((r) => [r.id, computeRunRegressionStatus(r, allRuns, baselines, thresholds)]));
+  }, [runs, allRuns, baselines, thresholds]);
 
   const filteredResults: RequestResult[] = useMemo(() => {
     if (!selectedRun) return [];
@@ -573,10 +582,13 @@ export default function ResultsDashboard({ envName, svcName, onRerunFailed, isRe
             const isWf = r.config.executionMode === 'workflow';
             const slaStatus = runSlaStatuses.has(r.id) ? runSlaStatuses.get(r.id) : undefined;
             const slaDot = slaStatus === 'pass' ? '🟢' : slaStatus === 'fail' ? '🔴' : slaStatus === 'warn' ? '🟡' : slaStatus === 'no-data' ? '⚪' : slaStatus === null ? '⚫' : '';
+            const regStatus = runRegressionStatuses.get(r.id);
+            const regDot = regStatus === 'critical' ? '🔴' : regStatus === 'warn' ? '🟡' : regStatus === 'pass' ? '🟢' : '';
             const label = [
               bl ? '★' : '',
               isWf ? '⚡' : '🧪',
               slaDot,
+              regDot ? `R:${regDot}` : '',
               new Date(r.timestamp).toLocaleString(),
               r.projectName,
               r.svcName,
@@ -687,7 +699,7 @@ export default function ResultsDashboard({ envName, svcName, onRerunFailed, isRe
 
       {/* Trend Chart */}
       {showTrend && runs.length >= 2 && (
-        <TrendChart runs={runs} baselines={baselines} />
+        <TrendChart runs={runs} baselines={baselines} selectedRun={selectedRun ?? undefined} />
       )}
 
       {/* Run Comparison */}

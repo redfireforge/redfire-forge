@@ -4115,3 +4115,13 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
 .baseline-rename-btn { background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: 0.85rem; padding: 0 2px; margin-left: 4px; vertical-align: middle; }
 .baseline-rename-btn:hover { color: var(--text); }
 .baseline-rename-input { padding: 1px 5px; font-size: 0.8rem; border: 1px solid var(--border-focus); border-radius: 3px; background: var(--input-bg); color: var(--text); min-width: 160px; margin-left: 4px; }
+
+/* ── Trend Chart — Sprint 2 controls ── */
+.trend-chart-tabs { display: flex; gap: 4px; margin-bottom: 4px; }
+.trend-chart-tab { background: none; border: 1px solid var(--border); border-radius: var(--radius); padding: 3px 10px; font-size: 0.78rem; color: var(--text-muted); cursor: pointer; transition: background 0.15s, color 0.15s; }
+.trend-chart-tab:hover { background: var(--surface-hover); color: var(--text); }
+.trend-chart-tab.active { background: var(--primary, #6366f1); color: #fff; border-color: var(--primary, #6366f1); }
+
+.trend-controls { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+.trend-scope-select { padding: 3px 6px; font-size: 0.78rem; border: 1px solid var(--border); border-radius: 3px; background: var(--input-bg); color: var(--text); cursor: pointer; }
+.trend-metric-select2 { padding: 3px 6px; font-size: 0.78rem; border: 1px solid var(--border); border-radius: 3px; background: var(--input-bg); color: var(--text); cursor: pointer; }
