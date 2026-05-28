@@ -714,7 +714,7 @@ _To be filled in after Sprint 3+._
 ## Implementation Notes — Sprint 2 (2026-05-28)
 
 **Branch:** `feature/phase25-sprint2-analytics`  
-**Commits:** `5326b4c` (initial implementation), `54902bc` (review pass 1 — 1 bug), `8749a48` (UX: scope-aware empty hint), `3245ae7` (review pass 2 — 2 issues)
+**Commits:** `5326b4c` (initial implementation), `54902bc` (review pass 1 — 1 bug), `8749a48` (UX: scope-aware empty hint), `3245ae7` (review pass 2 — 2 issues), `c9e5a58` (review pass 3 — 2 bugs)
 
 ### Bugs found and fixed in review pass 1 (commit `54902bc`)
 
@@ -728,6 +728,11 @@ _To be filled in after Sprint 3+._
 
 - **Bug B — `env` scope option enabled when `envName` is undefined**: "By service + env" was disabled only on `!svcName`. If a run had a `svcName` but no `envName`, the option was enabled; selecting it matched ALL runs with `envName === undefined` regardless of service. Fix: disabled condition is now `!svcName || !envName`. Scope reset `useEffect` updated to match. New test: "env scope with runs whose envName is undefined does not cross-match different services" (52 tests).
 - **Refactor — duplicated scope filter extracted**: Both `computeScopedTrend` and `computePerScenarioTrend` had identical `runs.filter(...)` switch blocks. Extracted private `filterByScope(runs, reference, scope)` helper — single source of truth for scope filtering logic.
+
+### Bugs found and fixed in review pass 3 (commit `c9e5a58`)
+
+- **Bug C — `findNearestBaseline` ignores run type**: The function compared any run against the nearest prior baseline regardless of type. A workflow run could be matched to a test run baseline (or vice versa), producing a meaningless regression status. Fix: candidates are now filtered to the same run-type class: `(r.config.executionMode === 'workflow') === isWorkflow`. New test: "ignores baselines of a different run type" (53 runBaselines tests, 76 total).
+- **Bug D — per-scenario tooltip shows "null ms" for absent scenarios**: The Recharts Tooltip `formatter` was called for null payload entries (scenarios not present in a given run). `\`${value} ms\`` with `value=null` rendered "null ms". Fix: guard with `value != null` — shows '—' instead.
 
 ### Files modified
 
