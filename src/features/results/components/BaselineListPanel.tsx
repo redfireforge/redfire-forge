@@ -80,7 +80,9 @@ export function BaselineListPanel({ baselines, runs, selectedRunId, onCompare, o
               )}
 
               <div className="baseline-list-actions">
-                {!isSelected && (
+                {/* Hide Compare when the baseline's run is filtered out (e.g. workflow
+                    baseline while "Test Runs" filter is active) — would silently no-op. */}
+                {!isSelected && run && (
                   <button
                     className="btn btn-sm"
                     onClick={() => onCompare(mark.runId)}
