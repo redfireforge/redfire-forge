@@ -767,3 +767,42 @@ _To be filled in after Sprint 3+._
 ### CSS alignment fixes
 
 - **`.trend-chart-tabs { margin-bottom: 4px }` and `.trend-controls { margin-top: 4px }` caused off-center vertical alignment** in the `.trend-chart-header` flex row. In a `display: flex; align-items: center` row, per-item margins shift each child's alignment box away from center — tabs appeared 2 px high, controls appeared 2 px low. Fix: removed both margins (spacing is handled by the container's `justify-content: space-between`).
+
+---
+
+## Sprint 1+2 Review Pass 2 (commit `69d9d0e`)
+
+### Bugs found and fixed
+
+- **Bug G — TrendChart scope not reset when `selectedRun` becomes `undefined`**: The scope-reset `useEffect` had `if (!selectedRun) return` — when the run went undefined (e.g. delete races), scope stayed stale and the dropdown showed 'By service' while the chart rendered all-run data. Fix: `if (!selectedRun) { setScope('all'); return; }`. Test added: "shows rename button only when onRenameBaseline is provided" already covers the related reset path; visual inconsistency prevented.
+
+### Code quality fix
+
+- **`RegressionAlert.threshold` stored the actual delta (not the configured threshold)**: For response-time and TPS metrics, `threshold: Math.abs(d.deltaPercent)` stored the observed change, making `threshold` and `actual` identical. `threshold` is documented as "the configured threshold that was exceeded." Fix: hoisted `configuredThreshold` lookup (reuses the same ternary chain used for severity) and stored it in `threshold`. `actual` corrected to `Math.abs(d.deltaPercent)` for TPS (was `d.deltaPercent`, which was negative). Neither field was rendered in the UI, so no visible change — but the API data is now semantically correct.  
+  Three new tests added: "threshold field stores the configured threshold (not the actual delta) for P95", "threshold field stores the configured threshold for TPS drop", "threshold and actual fields are correct for error rate regression" → 80 tests total.
+
+---
+
+## Sprint 1+2 Review Pass 3 (commit `c920191`)
+
+### Bug H — `BaselineListPanel` Compare button shown for cross-type filtered-out baselines
+
+When the run-type filter is active (e.g., "Test Runs"), `BaselineListPanel.runs` only contains test runs. If a workflow baseline exists, `run = runs.find(r => r.id === mark.runId)` returns `undefined`. The Compare button was still rendered (`!isSelected` with no `run` guard), but clicking it set `compareBaselineId` to a run ID not in the filtered view → `baselineRun` in `ResultsDashboard` resolved to `null` → no comparison panel appeared, silently confusing the user. Fix: guard the Compare button with `!isSelected && run &&`. The Unmark button is still rendered unconditionally (users can always remove cross-type baselines). New test file `BaselineListPanel.test.tsx` added — 11 tests covering: renders/empty, Compare guard (including Bug H case), Unmark, inline rename (commit+cancel), current-item styling, ID fallback label.
+
+---
+
+## Sprint 1+2 Review Pass 4 (commits `c51954f`, `a1ae668`)
+
+### Defensive fix — `parseDraft` missing `!isFinite` guard
+
+`RegressionThresholdsPanel.parseDraft` guarded `isNaN || n < 0` but not `!isFinite(n)`. A programmatically injected `Infinity` value (via paste or test) would pass through as-is. Inconsistent with how `loadRegressionThresholds` validates stored data (which has a `!isFinite` check). Fix: `isNaN(n) || !isFinite(n) || n < 0`. New test file `RegressionThresholdsPanel.test.tsx` added — 7 tests covering: row count, save with edited value, cancel, reset defaults, NaN/negative/Infinity fallback to default.
+
+### CSS bug — missing `.scenario-name` rule
+
+`ScenarioDeltaTable` uses `className="scenario-name"` on the first `<td>` of each scenario row, but no CSS rule was defined for it. Without the rule, scenario names had no `font-weight: 600` (unlike `.metric-name` in `MetricDeltaTable`). Fix: added `.comparison-table .scenario-name { font-weight: 600; }`.
+
+---
+
+## Final status
+
+All 4 test files (98 tests directly covering Sprint 1+2 code) + 1298 total tests in the results feature — all passing. TypeScript: 0 errors. No further issues found.
