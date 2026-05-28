@@ -4,6 +4,8 @@ import type { TestRun } from '../../../shared/types';
 import type { MetricDelta, ScenarioDelta, RegressionAlert, TrendPoint, BaselineMark, RegressionThresholds, TrendMetric, TrendScope } from '../utils/runBaselines';
 import { compareRuns, computeTrend, computeScopedTrend, computePerScenarioTrend } from '../utils/runBaselines';
 import { ResponseTimeOverlayHistogram } from './ResponseTimeHistogram';
+import { generateComparisonMarkdown, generateComparisonJson } from '../utils/comparisonReport';
+import { saveFile } from '../../../shared/utils/fileSaver';
 
 interface ComparisonProps {
   baselineRun: TestRun;
@@ -26,6 +28,34 @@ export function RunComparisonPanel({ baselineRun, currentRun, thresholds, baseli
   const [renameValue, setRenameValue] = useState('');
   // Prevents onBlur from committing when Escape was pressed
   const renameEscapedRef = useRef(false);
+  const [showExportMenu, setShowExportMenu] = useState(false);
+  const exportMenuRef = useRef<HTMLDivElement>(null);
+
+  // Close export menu on outside click
+  useEffect(() => {
+    if (!showExportMenu) return;
+    const handler = (e: MouseEvent) => {
+      if (exportMenuRef.current && !exportMenuRef.current.contains(e.target as Node)) {
+        setShowExportMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showExportMenu]);
+
+  const handleExportMarkdown = () => {
+    setShowExportMenu(false);
+    const md = generateComparisonMarkdown(comparison, baselineLabel);
+    const blob = new Blob([md], { type: 'text/markdown' });
+    saveFile(blob, { filename: 'comparison-report.md', mimeType: 'text/markdown' });
+  };
+
+  const handleExportJson = () => {
+    setShowExportMenu(false);
+    const json = generateComparisonJson(comparison, baselineLabel);
+    const blob = new Blob([json], { type: 'application/json' });
+    saveFile(blob, { filename: 'comparison-report.json', mimeType: 'application/json' });
+  };
 
   // Reset rename UI whenever the baseline being compared changes.
   // Must set the escape guard FIRST so that the input's onBlur (fired when the
@@ -83,6 +113,21 @@ export function RunComparisonPanel({ baselineRun, currentRun, thresholds, baseli
           </span>
           <span className="run-comparison-vs">vs</span>
           <span className="run-comparison-label current-label">Current: {new Date(currentRun.timestamp).toLocaleString()}</span>
+        </div>
+        <div className="run-comparison-export" ref={exportMenuRef}>
+          <button
+            className="run-comparison-export-btn"
+            onClick={() => setShowExportMenu((v) => !v)}
+            title="Export comparison report"
+          >
+            Export ▾
+          </button>
+          {showExportMenu && (
+            <div className="run-comparison-export-menu">
+              <button onClick={handleExportMarkdown}>Export as Markdown</button>
+              <button onClick={handleExportJson}>Export as JSON</button>
+            </div>
+          )}
         </div>
       </div>
 

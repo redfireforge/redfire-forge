@@ -15,8 +15,8 @@
 | 25.3 | Configurable regression thresholds | ✅ | S | Expose DEFAULT_THRESHOLDS in UI |
 | 25.4 | Trend scoping & multi-metric view | ✅ | M | Filter by svc/env/scenario, side-by-side lines |
 | 25.5 | Regression badge in run history list | ✅ | S | Visual status per run in sidebar |
-| 25.6 | CLI regression gate | 🔲 | M | `--fail-on-regression` for CI pipelines |
-| 25.7 | Export comparison report | 🔲 | S | Markdown/JSON download of RunComparison |
+| 25.6 | CLI regression gate | ✅ | M | `--fail-on-regression` for CI pipelines |
+| 25.7 | Export comparison report | ✅ | S | Markdown/JSON download of RunComparison |
 | 25.8 | Gallery sample + training manual | 🔲 | S | Gallery entry + 1 HTML training manual |
 | 25.9 | Tests & E2E coverage | 🔲 | M | Unit tests for new logic, E2E for new flows |
 
@@ -636,8 +636,8 @@ Sprint 4 — Polish & content (Phases 25.8 + 25.9)
 - [ ] Regression thresholds are user-configurable and persisted
 - [ ] TrendChart can be scoped to same service/env/workflow for meaningful trends
 - [ ] Regression status (pass/warn/critical) is visible in the run list before opening a run
-- [ ] `redfireforge run ... --compare-baseline latest-baseline --fail-on-regression` exits code 2 on regression
-- [ ] Comparison can be exported as Markdown and JSON from the UI
+- [x] `redfireforge run ... --compare-baseline latest-baseline --fail-on-regression` exits code 2 on regression
+- [x] Comparison can be exported as Markdown and JSON from the UI
 - [ ] Gallery sample "Performance Baseline Demo" loads and works end-to-end
 - [ ] Training manual covers the full workflow with step-by-step walkthrough
 - [ ] All new unit tests pass (≥ 29 new tests)
@@ -806,3 +806,93 @@ When the run-type filter is active (e.g., "Test Runs"), `BaselineListPanel.runs`
 ## Final status
 
 All 4 test files (98 tests directly covering Sprint 1+2 code) + 1298 total tests in the results feature — all passing. TypeScript: 0 errors. No further issues found.
+
+---
+
+## Implementation Notes — Sprint 3 (2026-05-28)
+
+**Branch:** `feature/phase25-sprint3-export-cli`
+
+### Phase 25.7 — Export Comparison Report
+
+**New file: `src/features/results/utils/comparisonReport.ts`**
+
+```typescript
+// Lean export types (no results/trace arrays)
+export interface ComparisonExportRun { id, timestamp, label?, svcName?, envName?, projectName?, summary }
+export interface ComparisonExport { exportedAt, baseline, current, metricDeltas, scenarioDeltas, regressions }
+
+export function generateComparisonJson(comparison: RunComparison, baselineLabel?: string): string
+export function generateComparisonMarkdown(comparison: RunComparison, baselineLabel?: string): string
+```
+
+`generateComparisonJson` strips `results[]` and trace arrays from both run objects before serialisation — the JSON is small enough for VCS artefacts or PR comments. `generateComparisonMarkdown` produces a full Markdown document: header metadata table, metric deltas table, per-scenario deltas table (omitted when empty), regressions table (omitted when none). Error Rate regression uses `pp` (percentage-point) units; all other regressions use `%`.
+
+**UI change: `src/features/results/components/RunComparisonPanel.tsx`**
+
+Added "Export ▾" dropdown button to the right side of the `run-comparison-header` flex row. State: `showExportMenu` (boolean) + `exportMenuRef` for outside-click close. Two options: _Export as Markdown_ → calls `saveFile(blob, {filename, mimeType})` from `fileSaver.ts` (Tauri-aware save); _Export as JSON_ → same pattern. No new props required.
+
+**CSS: `src/styles/base.css`**
+
+Added `.run-comparison-export`, `.run-comparison-export-btn`, `.run-comparison-export-menu`, `.run-comparison-export-menu button` rules. Menu is `position: absolute; right: 0; z-index: 200` to overlay tabs below.
+
+**Tests: `src/features/results/utils/comparisonReport.test.ts`** — 20 tests; `generateComparisonJson` (8) + `generateComparisonMarkdown` (12).
+
+### Phase 25.6 — CLI Regression Gate
+
+**New file: `cli/baselineStorage.ts`**
+
+```typescript
+export interface CliBaseline { runId, label?, savedAt, projectPath, summary: TestSummary }
+export const DEFAULT_BASELINES_DIR = '.redfireforge/baselines';
+export const LATEST_BASELINE_SENTINEL = 'latest-baseline';
+
+export function loadCliBaselines(basePath?): CliBaseline[]
+export function saveCliBaselines(baselines, basePath?): void
+export function addCliBaseline(baseline, basePath?): void        // upsert by projectPath+runId
+export function findLatestBaseline(projectPath, basePath?): CliBaseline | null
+export function findBaselineById(runId, basePath?): CliBaseline | null
+```
+
+Baselines stored as a flat JSON array at `<basePath>/store.json`. Only `TestSummary` is stored — no `results[]` — so metric-level comparison is supported in CLI without large file storage.
+
+**`cli/reporters.ts`** — added two new exports:
+- `printComparisonSummary(comparison, opts)` — console table with padding, severity markers (🔴 CRITICAL / 🟡 WARN / ✓ better / — ok), regression count summary
+- `buildComparisonMarkdown(comparison, baselineLabel?)` — Markdown report for `--comparison-report` file output
+
+**`cli/index.ts`** — new options on the `run` command:
+
+| Flag | Description |
+|:---|:---|
+| `--compare-baseline <path>` | Compare against saved baseline; use `"latest-baseline"` for auto-select |
+| `--fail-on-regression` | Exit code 2 (regression only) or 3 (also test failures) |
+| `--save-baseline` | Save run as new baseline (only when no failures and no regressions) |
+| `--baseline-label <label>` | Label for the saved baseline |
+| `--baselines-dir <dir>` | Override baseline store directory |
+| `--comparison-report <path>` | Write Markdown comparison report to file |
+
+**Exit code changes (breaking — documented in CHANGELOG):**
+
+| Code | Before | After |
+|:---:|:---|:---|
+| 0 | pass | pass (no change) |
+| 1 | test failure | test failure OR unexpected error (catch block) |
+| 2 | unexpected error (catch block) | regression detected, no test failures |
+| 3 | SLA violation | test failures + regression |
+| 4 | _(unused)_ | SLA violation (moved from 3) |
+
+Priority: SLA(4) > both(3) > regression-only(2) > test-fail(1) > pass(0). `--fail-on-regression` must be set for codes 2/3 to trigger. `--fail-on-sla` must be set for code 4 to trigger.
+
+**Tests: `cli/baselineStorage.test.ts`** — 17 tests covering `loadCliBaselines`, `saveCliBaselines`, `addCliBaseline`, `findLatestBaseline`, `findBaselineById`, `LATEST_BASELINE_SENTINEL`.
+
+### Design decisions that differed from plan
+
+- **Exit code scheme revised**: Plan proposed codes 2=regression, 3=both, but CLI already used 2=catch-block error and 3=SLA. Resolution: change catch block from exit(2) → exit(1) (unexpected errors = general failure), move SLA from exit(3) → exit(4). This follows the plan's codes for regressions exactly while being a clean intentional breaking change on a beta version.
+- **CLI comparison is metric-level only**: Plan mentioned scenario-level CLI regression. Since `CliBaseline` stores only `TestSummary` (no `results[]`), `compareRuns()` produces empty `scenarioDeltas` for CLI comparisons. This is correct for CI gates — metric-level pass/fail is what matters. The `printComparisonSummary` function only shows metric deltas (not scenario table) to match.
+- **No `--regression-thresholds-file` in this sprint**: Plan sketched a `--regression-thresholds <path>` flag to load custom thresholds per project. Deferred to Sprint 4 — `DEFAULT_THRESHOLDS` is used for all CLI comparisons in this sprint.
+
+### Test counts after Sprint 3
+
+- `src/features/results/` — 1318 tests (59 files) — all passing
+- `cli/` — 217 tests (11 files) — all passing
+- Total new tests added: 37 (20 comparisonReport + 17 baselineStorage)
