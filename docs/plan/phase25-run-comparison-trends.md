@@ -1329,3 +1329,38 @@ Added `'per-scenario regression uses avgPercent threshold, not p95Percent (Bug P
 - Full suite: **1594 tests, 71 files — all passing**
 - TypeScript: 0 errors
 
+---
+
+## Sprint 1/2/3 Full Re-evaluation — Round 4 (2026-05-29)
+
+### Feature: Baselines tab (UX declutter)
+
+**Files changed:**
+- `src/features/results/ResultsDashboard.tsx`
+- `src/styles/base.css`
+
+Moved `BaselineListPanel` and `RegressionThresholdsPanel` from inline toggle panels in the toolbar into a new **★ Baselines** third tab in the bottom detail tab bar (alongside "Request Details" and "SLA Status").
+
+**Toolbar simplified:** removed "Hide Baselines" / `Baselines (N)` button and "⚙ Thresholds" button. The toolbar now contains only: ★ Set Baseline toggle, Compare dropdown, comparison-active chip (shows which baseline is being compared, with ✕ to clear), and Show/Hide Trend toggle.
+
+**When Compare is clicked** from the Baselines tab, the tab switches to "Request Details" so the user immediately sees the `RunComparisonPanel`.
+
+**New CSS:** `.baseline-compare-chip`, `.baseline-compare-chip-clear`, `.baselines-tab-content`, `.baselines-empty`, `.run-filter-tab.baselines-tab.active` (gold color for star tab).
+
+### Bug Q — `RegressionThresholdsPanel` Cancel did not reset draft when panel stays mounted
+
+**File:** `src/features/results/components/RegressionThresholdsPanel.tsx`
+
+Previously, the Cancel button called `onCancel()` directly without resetting the internal `draft` state. When the panel was a toggle (unmounted on close), this worked because state reset on the next mount. With the panel now permanently mounted inside the Baselines tab, clicking Cancel left unsaved edits in place.
+
+**Fix:** Added `handleCancel` function that calls `setDraft(toDraft(thresholds))` before `onCancel()`. Also added `useEffect(() => { setDraft(toDraft(thresholds)); }, [thresholds])` so the draft automatically reflects the latest saved value after a Save.
+
+**New test:** `'Cancel resets edited draft to saved thresholds (stays-mounted tab context)'` — edits P95 to 99, clicks Cancel, verifies input reverts to saved default.
+
+### Post-fix counts (Round 4)
+
+- `src/features/results/components/RegressionThresholdsPanel.test.tsx` — 9 tests (+1)
+- Full suite: **1595 tests, 71 files — all passing**
+- TypeScript: 0 errors
+
+

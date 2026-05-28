@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { RegressionThresholds } from '../utils/runBaselines';
 import { DEFAULT_THRESHOLDS } from '../utils/runBaselines';
 
@@ -39,11 +39,19 @@ export function RegressionThresholdsPanel({ thresholds, onSave, onCancel }: Prop
   // Store as strings so users can freely type (e.g. delete digits mid-edit)
   const [draft, setDraft] = useState<DraftState>(() => toDraft(thresholds));
 
+  // Keep draft in sync with persisted thresholds (e.g. after Save updates the prop)
+  useEffect(() => { setDraft(toDraft(thresholds)); }, [thresholds]);
+
   const set = (key: ThresholdKey, raw: string) => {
     setDraft((prev) => ({ ...prev, [key]: raw }));
   };
 
   const handleReset = () => setDraft(toDraft(DEFAULT_THRESHOLDS));
+
+  const handleCancel = () => {
+    setDraft(toDraft(thresholds)); // reset unsaved edits
+    onCancel();
+  };
 
   return (
     <div className="thresholds-panel">
@@ -82,7 +90,7 @@ export function RegressionThresholdsPanel({ thresholds, onSave, onCancel }: Prop
           Reset Defaults
         </button>
         <div style={{ flex: 1 }} />
-        <button className="btn btn-sm" onClick={onCancel}>Cancel</button>
+        <button className="btn btn-sm" onClick={handleCancel}>Cancel</button>
         <button className="btn btn-sm btn-primary" onClick={() => onSave(parseDraft(draft))}>Save</button>
       </div>
     </div>
