@@ -192,6 +192,15 @@ describe('compareRuns', () => {
 
     const er = result.metricDeltas.find((d) => d.metric === 'Error Rate');
     expect(er?.regressed).toBe(true);
+    // delta is absolute pp change (4pp), NOT relative % (400%)
+    expect(er?.delta).toBe(4);
+
+    // RegressionAlert.actual must be the absolute pp change (not relative %)
+    const alert = result.regressions.find((r) => r.metric === 'Error Rate');
+    expect(alert).toBeTruthy();
+    expect(alert!.actual).toBe(4);          // 4 pp absolute change
+    expect(alert!.threshold).toBe(1);       // default errorRateAbsolute = 1 pp
+    expect(alert!.severity).toBe('critical'); // 4pp > 2 * 1pp threshold
   });
 
   it('computes scenario deltas', () => {
