@@ -12,7 +12,14 @@ import { DataRowSummaryTable } from './components/DataRowSummaryTable';
 import { WorkflowResultsSummary } from './components/WorkflowResultsSummary';
 import { ResultsMetricsCards } from './components/ResultsMetricsCards';
 import { generateReport, downloadReport } from './utils/reportGenerator';
-import { loadBaselines, markAsBaseline, unmarkBaseline, isBaseline, type BaselineMark } from './utils/runBaselines';
+import {
+  loadBaselines, markAsBaseline, unmarkBaseline, isBaseline, renameBaseline,
+  loadRegressionThresholds, saveRegressionThresholds,
+  DEFAULT_THRESHOLDS,
+  type BaselineMark, type RegressionThresholds,
+} from './utils/runBaselines';
+import { BaselineListPanel } from './components/BaselineListPanel';
+import { RegressionThresholdsPanel } from './components/RegressionThresholdsPanel';
 import WorkflowResultsExplorerModal from './components/WorkflowResultsExplorerModal';
 import { hasExecutionTrace, decompressTrace } from '../../shared/utils/traceCompression';
 import { SlaCompactBar } from './components/SlaCompactBar';
@@ -37,6 +44,9 @@ export default function ResultsDashboard({ envName, svcName, onRerunFailed, isRe
   const [baselines, setBaselines] = useState<BaselineMark[]>([]);
   const [compareBaselineId, setCompareBaselineId] = useState<string>('');
   const [showTrend, setShowTrend] = useState(false);
+  const [thresholds, setThresholds] = useState<RegressionThresholds>(DEFAULT_THRESHOLDS);
+  const [showThresholds, setShowThresholds] = useState(false);
+  const [showBaselines, setShowBaselines] = useState(false);
   const [runTypeFilter, setRunTypeFilter] = useState<RunTypeFilter>(initialRunTypeFilter ?? 'all');
 
   // Update filter when initialRunTypeFilter changes (e.g., from post-run navigation)
@@ -51,6 +61,7 @@ export default function ResultsDashboard({ envName, svcName, onRerunFailed, isRe
   useEffect(() => {
     loadTestRunsLite().then(setAllRuns);
     loadBaselines().then(setBaselines);
+    loadRegressionThresholds().then(setThresholds);
   }, []);
 
   // Auto-refresh when a re-run completes
@@ -584,12 +595,22 @@ export default function ResultsDashboard({ envName, svcName, onRerunFailed, isRe
               value={compareBaselineId}
               onChange={(e) => setCompareBaselineId(e.target.value)}
             >
-              <option value="">Compare against baseline...</option>
+              <option value="">Compare against run...</option>
+              {/* Baseline runs first, starred */}
               {runs.filter((r) => isBaseline(baselines, r.id) && r.id !== selectedRunId).map((r) => {
                 const bl = baselines.find((b) => b.runId === r.id);
                 const label = bl?.label ?? new Date(r.timestamp).toLocaleString();
                 return <option key={r.id} value={r.id}>★ {label} — {r.summary.tps} TPS</option>;
               })}
+              {/* Separator only if there are both baseline and non-baseline runs */}
+              {runs.some((r) => isBaseline(baselines, r.id) && r.id !== selectedRunId) &&
+               runs.some((r) => !isBaseline(baselines, r.id) && r.id !== selectedRunId) && (
+                <option disabled>──────────────</option>
+              )}
+              {/* Non-baseline runs */}
+              {runs.filter((r) => !isBaseline(baselines, r.id) && r.id !== selectedRunId).map((r) => (
+                <option key={r.id} value={r.id}>{new Date(r.timestamp).toLocaleString()} — {r.summary.tps} TPS</option>
+              ))}
             </select>
 
             <button
@@ -598,7 +619,60 @@ export default function ResultsDashboard({ envName, svcName, onRerunFailed, isRe
             >
               {showTrend ? 'Hide Trend' : 'Show Trend'}
             </button>
+
+            {baselines.length > 0 && (
+              <button
+                className={`btn btn-sm ${showBaselines ? 'btn-primary' : ''}`}
+                onClick={() => setShowBaselines((v) => !v)}
+                title="Manage saved baselines"
+              >
+                {showBaselines ? 'Hide Baselines' : `Baselines (${baselines.length})`}
+              </button>
+            )}
+
+            <button
+              className={`btn btn-sm ${showThresholds ? 'btn-primary' : ''}`}
+              onClick={() => setShowThresholds((v) => !v)}
+              title="Configure regression thresholds"
+            >
+              {showThresholds ? 'Hide Thresholds' : '⚙ Thresholds'}
+            </button>
           </div>
+        )}
+
+        {/* Baseline List Panel */}
+        {showBaselines && (
+          <BaselineListPanel
+            baselines={baselines}
+            runs={runs}
+            selectedRunId={selectedRunId}
+            onCompare={(runId) => {
+              setCompareBaselineId(runId);
+              setShowBaselines(false);
+            }}
+            onUnmark={async (runId) => {
+              const next = await unmarkBaseline(runId);
+              setBaselines(next);
+              if (compareBaselineId === runId) setCompareBaselineId('');
+            }}
+            onRename={async (runId, label) => {
+              const next = await renameBaseline(runId, label);
+              setBaselines(next);
+            }}
+          />
+        )}
+
+        {/* Regression Thresholds Panel */}
+        {showThresholds && (
+          <RegressionThresholdsPanel
+            thresholds={thresholds}
+            onSave={async (t) => {
+              await saveRegressionThresholds(t);
+              setThresholds(t);
+              setShowThresholds(false);
+            }}
+            onCancel={() => setShowThresholds(false)}
+          />
         )}
       </div>
 
@@ -609,7 +683,16 @@ export default function ResultsDashboard({ envName, svcName, onRerunFailed, isRe
 
       {/* Run Comparison */}
       {baselineRun && selectedRun && baselineRun.id !== selectedRun.id && (
-        <RunComparisonPanel baselineRun={baselineRun} currentRun={selectedRun} />
+        <RunComparisonPanel
+          baselineRun={baselineRun}
+          currentRun={selectedRun}
+          thresholds={thresholds}
+          baselineLabel={baselines.find((b) => b.runId === baselineRun.id)?.label}
+          onRenameBaseline={async (runId, label) => {
+            const next = await renameBaseline(runId, label);
+            setBaselines(next);
+          }}
+        />
       )}
 
       {/* SLA Compact Bar (Phase C) */}
