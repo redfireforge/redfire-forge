@@ -611,3 +611,38 @@ describe('computeRunRegressionStatus', () => {
     expect(computeRunRegressionStatus(run, [wfBaseline, run], baselines)).toBe('no-baseline');
   });
 });
+
+describe('RegressionAlert fields', () => {
+  it('threshold field stores the configured threshold (not the actual delta) for P95', () => {
+    // P95 default threshold is 10%. +15% regression — threshold should be 10, not 15.
+    const baseline = makeRun('b', { p95ResponseTime: 100 });
+    const current = makeRun('c', { p95ResponseTime: 115 });
+    const result = compareRuns(baseline, current);
+    const alert = result.regressions.find((r) => r.metric === 'P95 Response Time');
+    expect(alert).toBeTruthy();
+    expect(alert!.threshold).toBe(DEFAULT_THRESHOLDS.p95Percent); // 10, not 15
+    expect(alert!.actual).toBeCloseTo(15, 0); // ~15% actual change
+  });
+
+  it('threshold field stores the configured threshold for TPS drop', () => {
+    // TPS default threshold is 10%. -20% drop — threshold should be 10, not 20.
+    const baseline = makeRun('b', { tps: 100 });
+    const current = makeRun('c', { tps: 80 }); // -20%
+    const result = compareRuns(baseline, current);
+    const alert = result.regressions.find((r) => r.metric === 'TPS');
+    expect(alert).toBeTruthy();
+    expect(alert!.threshold).toBe(DEFAULT_THRESHOLDS.tpsPercent); // 10, not 20
+    expect(alert!.actual).toBeCloseTo(20, 0); // 20% magnitude
+  });
+
+  it('threshold and actual fields are correct for error rate regression', () => {
+    // Error rate threshold is 1pp absolute. +3pp regression.
+    const baseline = makeRun('b', { errorRate: 1 });
+    const current = makeRun('c', { errorRate: 4 }); // +3pp
+    const result = compareRuns(baseline, current);
+    const alert = result.regressions.find((r) => r.metric === 'Error Rate');
+    expect(alert).toBeTruthy();
+    expect(alert!.threshold).toBe(DEFAULT_THRESHOLDS.errorRateAbsolute); // 1
+    expect(alert!.actual).toBeCloseTo(3, 1); // 3pp actual delta
+  });
+});
