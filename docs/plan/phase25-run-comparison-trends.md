@@ -652,7 +652,7 @@ Sprint 4 — Polish & content (Phases 25.8 + 25.9)
 ### Sprint 1 — Core UX polish (2026-05-28)
 
 **Branch:** `feature/phase25-sprint1-comparison-ux`  
-**Commits:** `80175f7` (implementation), `1cc62bd` (bug-fix review pass)
+**Commits:** `80175f7` (implementation), `1cc62bd` (review pass 1 — 5 bugs), `cdc1a6b` (review pass 2 — 3 more bugs)
 
 #### Files created
 - `src/features/results/components/BaselineListPanel.tsx` — always-expanded list; inline rename with Escape/Enter handled via blur-only commit pattern + `escapedRef` guard to prevent double-fire
@@ -670,15 +670,25 @@ Sprint 4 — Polish & content (Phases 25.8 + 25.9)
 - **`BaselineListPanel` always expanded**: The plan implied a collapsible panel. Removed internal toggle because the parent controls visibility via the "Baselines (N)" button — double-toggle would require two clicks to see the list.
 - **String-based draft in `RegressionThresholdsPanel`**: Used `Record<key, string>` draft instead of `Record<key, number>` to allow natural number-input editing (type/delete digits freely without React snapping back to last valid value).
 
-#### Bugs found and fixed in review pass (commit `1cc62bd`)
+#### Bugs found and fixed in review pass 1 (commit `1cc62bd`)
 1. `BaselineListPanel` internal `open` toggle caused double-click-to-expand UX — removed internal state
 2. `RegressionThresholdsPanel` number inputs blocked mid-edit (deleting all digits then retyping) — fixed with string-based draft
-3. `RunComparisonPanel` rename input persisted when comparison baseline changed — fixed with `useEffect(() => setRenamingBaseline(false), [baselineRun.id])`
+3. `RunComparisonPanel` rename input persisted when comparison baseline changed — fixed with `useEffect` reset on `baselineRun.id`
 4. Enter+blur double-fire called `onRename` twice — fixed: Enter now calls `e.currentTarget.blur()` only; `onBlur` is the sole commit path; Escape uses ref guard to block `onBlur` commit
 5. `display:contents` on `.thresholds-row` hides `title` attribute — moved tooltip to `<label>` element
 
+#### Bugs found and fixed in review pass 2 (commit `cdc1a6b`)
+6. `RunComparisonPanel` useEffect reset (`setRenamingBaseline(false)`) unmounted the input, which fired `onBlur` → `commitRename()` with the newly-arrived baseline's id — silently renaming the wrong baseline. Fixed: set `renameEscapedRef.current = true` **before** `setRenamingBaseline(false)` in the effect so the blur handler bails out.
+7. `RegressionList` and regression alert banner used `key={i}` (array index) — changed to `key={r.metric}` for stable semantic keys since each regression has a unique metric name.
+8. `loadRegressionThresholds` used shallow spread of `JSON.parse(raw)` which could inject `null`/string/`Infinity`/negative values into the typed result. Replaced with explicit per-key validation — only finite non-negative numbers are accepted; anything else falls back to the default for that key.
+
 #### Tests added
-- `runBaselines.test.ts`: 4 new tests for `loadRegressionThresholds` / `saveRegressionThresholds` / `resetRegressionThresholds` (35 total, all passing)
+- `runBaselines.test.ts`: 5 new tests total for threshold persistence (36 tests, all passing)
+  - load returns defaults when empty
+  - partial merge preserves non-stored defaults
+  - full round-trip persists all values
+  - reset to defaults
+  - corrupted storage values (null/string/negative/Infinity) fall back to defaults
 
 #### Success Criteria completed
 - [x] User can compare any two runs without either being a baseline
