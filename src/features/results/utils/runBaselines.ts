@@ -11,6 +11,7 @@ import type { TestRun, TestSummary } from '../../../shared/types';
 // ── Storage ──
 
 const BASELINES_KEY = 'perf-test-baselines';
+const THRESHOLDS_KEY = 'perf-test-regression-thresholds';
 const MAX_BASELINES = 10;
 
 export interface BaselineMark {
@@ -63,6 +64,48 @@ export function isBaseline(baselines: BaselineMark[], runId: string): boolean {
   return baselines.some((b) => b.runId === runId);
 }
 
+// ── Regression thresholds ──
+
+export interface RegressionThresholds {
+  p50Percent: number;
+  p95Percent: number;
+  p99Percent: number;
+  p999Percent: number;
+  avgPercent: number;
+  errorRateAbsolute: number; // absolute percentage points
+  tpsPercent: number;
+}
+
+export const DEFAULT_THRESHOLDS: RegressionThresholds = {
+  p50Percent: 15,
+  p95Percent: 10,
+  p99Percent: 15,
+  p999Percent: 20,
+  avgPercent: 10,
+  errorRateAbsolute: 1,
+  tpsPercent: 10,
+};
+
+// ── Threshold persistence ──
+
+export async function loadRegressionThresholds(): Promise<RegressionThresholds> {
+  try {
+    const raw = await readKey(THRESHOLDS_KEY);
+    if (!raw) return { ...DEFAULT_THRESHOLDS };
+    return { ...DEFAULT_THRESHOLDS, ...JSON.parse(raw) };
+  } catch {
+    return { ...DEFAULT_THRESHOLDS };
+  }
+}
+
+export async function saveRegressionThresholds(t: RegressionThresholds): Promise<void> {
+  await writeKey(THRESHOLDS_KEY, JSON.stringify(t));
+}
+
+export async function resetRegressionThresholds(): Promise<void> {
+  await writeKey(THRESHOLDS_KEY, JSON.stringify(DEFAULT_THRESHOLDS));
+}
+
 // ── Comparison ──
 
 export interface MetricDelta {
@@ -103,26 +146,6 @@ export interface RunComparison {
   scenarioDeltas: ScenarioDelta[];
   regressions: RegressionAlert[];
 }
-
-export interface RegressionThresholds {
-  p50Percent: number;
-  p95Percent: number;
-  p99Percent: number;
-  p999Percent: number;
-  avgPercent: number;
-  errorRateAbsolute: number; // absolute percentage points
-  tpsPercent: number;
-}
-
-export const DEFAULT_THRESHOLDS: RegressionThresholds = {
-  p50Percent: 15,
-  p95Percent: 10,
-  p99Percent: 15,
-  p999Percent: 20,
-  avgPercent: 10,
-  errorRateAbsolute: 1,
-  tpsPercent: 10,
-};
 
 /**
  * Compare two runs and produce deltas, per-scenario breakdown, and regression alerts.

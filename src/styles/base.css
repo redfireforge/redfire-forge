@@ -4082,3 +4082,36 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
   display: inline-block;
 }
 .sla-chevron-open { transform: rotate(90deg); }
+
+/* ── Baseline List Panel ── */
+.baseline-list-panel { margin: 6px 0 10px; }
+.baseline-list-toggle { font-size: 0.8rem; }
+.baseline-list-items { margin-top: 6px; display: flex; flex-direction: column; gap: 4px; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.baseline-list-item { display: flex; align-items: center; gap: 8px; padding: 6px 10px; background: var(--surface); font-size: 0.82rem; flex-wrap: wrap; }
+.baseline-list-item-current { background: rgba(245, 158, 11, 0.08); border-left: 3px solid #f59e0b; }
+.baseline-list-star { color: #f59e0b; font-size: 0.9rem; flex-shrink: 0; }
+.baseline-list-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; padding: 1px 4px; border-radius: 3px; }
+.baseline-list-label:hover { background: var(--surface-hover); text-decoration: underline; }
+.baseline-list-edit-input { flex: 1; min-width: 120px; padding: 2px 6px; font-size: 0.82rem; border: 1px solid var(--border-focus); border-radius: 3px; background: var(--input-bg); color: var(--text); }
+.baseline-list-meta { color: var(--text-muted); font-size: 0.76rem; white-space: nowrap; }
+.baseline-list-actions { display: flex; gap: 4px; margin-left: auto; flex-shrink: 0; }
+
+/* ── Regression Thresholds Panel ── */
+.thresholds-panel { border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 12px; padding: 12px 14px; background: var(--surface); }
+.thresholds-header { display: flex; align-items: baseline; gap: 12px; margin-bottom: 10px; }
+.thresholds-title { font-size: 0.88rem; font-weight: 600; }
+.thresholds-hint { font-size: 0.75rem; color: var(--text-muted); }
+.thresholds-grid { display: grid; grid-template-columns: 1fr 140px 80px; gap: 2px 8px; align-items: center; }
+.thresholds-col-header { font-size: 0.72rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; padding: 0 0 4px; }
+.thresholds-row { display: contents; }
+.thresholds-label { font-size: 0.8rem; padding: 3px 0; }
+.thresholds-input-wrap { display: flex; align-items: center; gap: 4px; }
+.thresholds-input { width: 72px; padding: 3px 6px; font-size: 0.82rem; border: 1px solid var(--border); border-radius: 3px; background: var(--input-bg); color: var(--text); }
+.thresholds-unit { font-size: 0.75rem; color: var(--text-muted); }
+.thresholds-default { font-size: 0.75rem; color: var(--text-muted); }
+.thresholds-actions { display: flex; align-items: center; gap: 6px; margin-top: 10px; }
+
+/* ── Baseline rename inline ── */
+.baseline-rename-btn { background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: 0.85rem; padding: 0 2px; margin-left: 4px; vertical-align: middle; }
+.baseline-rename-btn:hover { color: var(--text); }
+.baseline-rename-input { padding: 1px 5px; font-size: 0.8rem; border: 1px solid var(--border-focus); border-radius: 3px; background: var(--input-bg); color: var(--text); min-width: 160px; margin-left: 4px; }
