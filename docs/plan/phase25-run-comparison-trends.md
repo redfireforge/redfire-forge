@@ -1131,3 +1131,21 @@ Fourth pass. Same Error Rate delta unit bug found in both CLI reporter functions
 - Full Sprint 1+2+3 suite: **1579 tests, 71 files — all passing**
 - TypeScript: 0 errors
 
+---
+
+## Sprint 1 Deep Review Pass — Round 5 (2026-05-28)
+
+Fifth pass. Source logic clean. Added missing unit assertion test.
+
+### Coverage gap — `RegressionThresholdsPanel` pp unit not asserted
+
+**Problem**: No test verified that the `Error Rate` row displays `pp` unit and all other rows display `%`. The unit constants are hardcoded in the `ROWS` array and could silently regress.
+
+**Test added**: `'shows pp unit for Error Rate row and % unit for all other rows'` — queries all `.thresholds-unit` elements and asserts `unitLabels[6] === 'pp'` and all preceding labels are `'%'`.
+
+### Post-fix test counts (Round 5)
+
+- `src/features/results/components/RegressionThresholdsPanel.test.tsx` — 8 tests (+1: pp unit assertion)
+- Full Sprint 1+2+3 suite: **1580 tests, 71 files — all passing**
+- TypeScript: 0 errors
+
