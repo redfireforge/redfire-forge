@@ -20,17 +20,30 @@ const ROWS: Array<{ key: ThresholdKey; label: string; unit: string; hint: string
   { key: 'errorRateAbsolute', label: 'Error Rate Increase', unit: 'pp', hint: 'Warn when error rate increases by this many percentage points' },
 ];
 
+type DraftState = Record<ThresholdKey, string>;
+
+function toDraft(t: RegressionThresholds): DraftState {
+  return Object.fromEntries(Object.entries(t).map(([k, v]) => [k, String(v)])) as DraftState;
+}
+
+function parseDraft(draft: DraftState): RegressionThresholds {
+  const result = { ...DEFAULT_THRESHOLDS };
+  for (const [k, v] of Object.entries(draft)) {
+    const n = parseFloat(v);
+    (result as Record<string, number>)[k] = isNaN(n) || n < 0 ? DEFAULT_THRESHOLDS[k as ThresholdKey] : n;
+  }
+  return result;
+}
+
 export function RegressionThresholdsPanel({ thresholds, onSave, onCancel }: Props) {
-  const [draft, setDraft] = useState<RegressionThresholds>({ ...thresholds });
+  // Store as strings so users can freely type (e.g. delete digits mid-edit)
+  const [draft, setDraft] = useState<DraftState>(() => toDraft(thresholds));
 
   const set = (key: ThresholdKey, raw: string) => {
-    const n = parseFloat(raw);
-    if (!isNaN(n) && n >= 0) {
-      setDraft((prev) => ({ ...prev, [key]: n }));
-    }
+    setDraft((prev) => ({ ...prev, [key]: raw }));
   };
 
-  const handleReset = () => setDraft({ ...DEFAULT_THRESHOLDS });
+  const handleReset = () => setDraft(toDraft(DEFAULT_THRESHOLDS));
 
   return (
     <div className="thresholds-panel">
@@ -45,8 +58,9 @@ export function RegressionThresholdsPanel({ thresholds, onSave, onCancel }: Prop
         <div className="thresholds-col-header">Default</div>
 
         {ROWS.map(({ key, label, unit, hint }) => (
-          <div key={key} className="thresholds-row" title={hint}>
-            <label className="thresholds-label">{label}</label>
+          <div key={key} className="thresholds-row">
+            {/* title on label so tooltip shows (display:contents on parent hides it) */}
+            <label className="thresholds-label" title={hint}>{label}</label>
             <div className="thresholds-input-wrap">
               <input
                 type="number"
@@ -69,8 +83,9 @@ export function RegressionThresholdsPanel({ thresholds, onSave, onCancel }: Prop
         </button>
         <div style={{ flex: 1 }} />
         <button className="btn btn-sm" onClick={onCancel}>Cancel</button>
-        <button className="btn btn-sm btn-primary" onClick={() => onSave(draft)}>Save</button>
+        <button className="btn btn-sm btn-primary" onClick={() => onSave(parseDraft(draft))}>Save</button>
       </div>
     </div>
   );
 }
+
