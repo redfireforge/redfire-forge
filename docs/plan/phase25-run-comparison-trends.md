@@ -948,3 +948,30 @@ Also added `vi.mock` for `fileSaver` and `comparisonReport` at the top of the te
 - `cli/baselineStorage.test.ts` — 17 tests (all passing)
 - TypeScript: 0 errors
 
+---
+
+## Sprint 3 Review Pass — Round 2 (2026-05-29)
+
+Second pass after Round 1 fixes uncovered two more issues.
+
+### Bug F — `saveFile()` not void-ed in `RunComparisonPanel.tsx`
+
+**Problem**: `handleExportMarkdown` and `handleExportJson` called `saveFile(blob, opts)` as a bare expression — an unhandled floating promise. Every other call site in the codebase uses either `await saveFile(...)` (inside async functions) or `void saveFile(...)` (fire-and-forget in sync event handlers, matching `TestEditorModal.tsx` pattern).
+
+**Fix**: Changed both calls to `void saveFile(...)` in `RunComparisonPanel.tsx`.
+
+### Bug G — No tests for Sprint 3 additions to `cli/reporters.ts`
+
+**Problem**: `printComparisonSummary` and `buildComparisonMarkdown` were added in Sprint 3 but had zero test coverage. Every other reporter function has a dedicated test file (`reporters.console.test.ts`, `reporters.json.test.ts`, `reporters.junit.test.ts`, `reporters.markdown.test.ts`, `reporters.workflow.test.ts`).
+
+**Fix**: Created `cli/reporters.comparison.test.ts` with 27 tests covering:
+- `printComparisonSummary`: quiet mode, header output, baseline label, no-regression banner, regression count, 🔴 CRITICAL / 🟡 WARN / ✓ better / — ok status labels, ms/% units
+- `buildComparisonMarkdown`: header, Metric Deltas table, Regressions section, severity badges in both sections, ✓ Improved / — No change labels, baseline label, pp vs % units, regression count banner, sign prefix on deltas, valid pipe tables
+
+### Post-fix test counts (Round 2)
+
+- `cli/reporters.comparison.test.ts` — 27 tests (new)
+- `src/features/results/components/RunComparisonPanel.test.tsx` — 30 tests (unchanged)
+- `cli/baselineStorage.test.ts` — 17 tests (unchanged)
+- TypeScript: 0 errors
+
