@@ -714,7 +714,11 @@ _To be filled in after Sprint 3+._
 ## Implementation Notes — Sprint 2 (2026-05-28)
 
 **Branch:** `feature/phase25-sprint2-analytics`  
-**Commit:** `5326b4c` (initial implementation)
+**Commits:** `5326b4c` (initial implementation), `54902bc` (review pass 1 — 1 bug)
+
+### Bugs found and fixed in review pass 1 (commit `54902bc`)
+
+- **Bug A — metric2 not cleared on primary metric change**: When the user changed the primary metric dropdown to a value matching `metric2`, the secondary `<select>` held a stale `value` not present in its filtered option list (which excludes the primary metric). The browser rendered the select as blank. Fix: clear `metric2` to `'none'` synchronously inside the `setMetric` handler before React re-renders. TypeScript: 0 errors, 74 tests pass.
 
 ### Files modified
 
