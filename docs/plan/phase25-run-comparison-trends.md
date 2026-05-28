@@ -1296,6 +1296,36 @@ The existing test `'includes Per-Scenario section when scenarioDeltas present'` 
 
 **All Sprint 3 source code and tests are clean. No further issues found.**
 
-- Full Sprint 1+2+3 suite: **1592 tests, 71 files — all passing**
+- Full Sprint 1+2+3 suite: **1594 tests, 71 files — all passing**
+- TypeScript: 0 errors
+
+---
+
+## Sprint 1/2/3 Full Re-evaluation — Round 3 (2026-05-28)
+
+### Bug P — `computeScenarioDeltas` used wrong threshold for per-scenario regression
+
+**File:** `src/features/results/utils/runBaselines.ts`
+
+Per-scenario regression check was:
+```ts
+regressed: timeDeltaPct > thresholds.p95Percent,
+```
+This uses the P95 threshold for per-scenario *average* response time comparisons. Since the comparison is on avg times, the correct threshold is `avgPercent`. Both default to 10%, so the bug is silent at default settings but fires incorrectly for users who configure custom thresholds where `p95Percent ≠ avgPercent` (e.g. `p95Percent=5%, avgPercent=25%` → all scenarios with >5% avg delta would incorrectly regress).
+
+**Fix:** Changed to `thresholds.avgPercent`.
+
+### Test gap — missing per-scenario threshold source verification
+
+Added `'per-scenario regression uses avgPercent threshold, not p95Percent (Bug P)'` to `runBaselines.test.ts`. Uses custom thresholds (`avgPercent=25, p95Percent=5`) and verifies a +20% avg-time scenario is NOT regressed (20 < 25), confirming `avgPercent` is used not `p95Percent`.
+
+### Test gap — inverse run-type filter not covered
+
+`computeRunRegressionStatus` had a test for non-workflow run vs workflow baseline → no-baseline, but no test for the inverse (workflow run vs non-workflow baseline → no-baseline). Added `'workflow run ignores non-workflow baselines'`.
+
+### Post-fix counts
+
+- `src/features/results/utils/runBaselines.test.ts` — 59 tests (+2)
+- Full suite: **1594 tests, 71 files — all passing**
 - TypeScript: 0 errors
 
