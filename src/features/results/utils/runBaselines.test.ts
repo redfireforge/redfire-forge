@@ -124,12 +124,17 @@ describe('Baseline CRUD', () => {
     expect(isBaseline(baselines, 'run-2')).toBe(false);
   });
 
-  it('caps at MAX_BASELINES (10)', async () => {
+  it('caps at exactly MAX_BASELINES (10) when more than 10 are added', async () => {
     for (let i = 0; i < 12; i++) {
       await markAsBaseline(`run-${i}`);
     }
     const result = await loadBaselines();
-    expect(result.length).toBeLessThanOrEqual(10);
+    // Must be exactly 10 — the oldest entries are dropped
+    expect(result.length).toBe(10);
+    // The most recent 10 entries are kept (run-2 through run-11)
+    expect(result.map((b) => b.runId)).toContain('run-11');
+    expect(result.map((b) => b.runId)).not.toContain('run-0');
+    expect(result.map((b) => b.runId)).not.toContain('run-1');
   });
 });
 
