@@ -368,4 +368,21 @@ describe('RunComparisonPanel - edge cases', () => {
     expect(container.querySelector('.regression-detail-body')).toBeFalsy();
     spy.mockRestore();
   });
+
+  it('shows rename button only when onRenameBaseline is provided', () => {
+    const baseline = makeRun('b');
+    const current = makeRun('c');
+    const { container: withRename } = render(
+      <RunComparisonPanel
+        baselineRun={baseline}
+        currentRun={current}
+        onRenameBaseline={vi.fn()}
+      />,
+    );
+    const { container: withoutRename } = render(
+      <RunComparisonPanel baselineRun={baseline} currentRun={current} />,
+    );
+    expect(withRename.querySelector('.baseline-rename-btn')).toBeTruthy();
+    expect(withoutRename.querySelector('.baseline-rename-btn')).toBeFalsy();
+  });
 });

@@ -709,10 +709,17 @@ export default function ResultsDashboard({ envName, svcName, onRerunFailed, isRe
           currentRun={selectedRun}
           thresholds={thresholds}
           baselineLabel={baselines.find((b) => b.runId === baselineRun.id)?.label}
-          onRenameBaseline={async (runId, label) => {
-            const next = await renameBaseline(runId, label);
-            setBaselines(next);
-          }}
+          onRenameBaseline={
+            // Only provide rename handler when the comparison run is actually a baseline.
+            // For non-baseline comparison runs, renameBaseline() silently no-ops and the
+            // rename input would appear to accept input but never persist the new label.
+            baselines.some((b) => b.runId === baselineRun.id)
+              ? async (runId, label) => {
+                  const next = await renameBaseline(runId, label);
+                  setBaselines(next);
+                }
+              : undefined
+          }
         />
       )}
 
