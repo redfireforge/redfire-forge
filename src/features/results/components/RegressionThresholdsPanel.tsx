@@ -30,7 +30,7 @@ function parseDraft(draft: DraftState): RegressionThresholds {
   const result = { ...DEFAULT_THRESHOLDS };
   for (const [k, v] of Object.entries(draft)) {
     const n = parseFloat(v);
-    (result as Record<string, number>)[k] = isNaN(n) || n < 0 ? DEFAULT_THRESHOLDS[k as ThresholdKey] : n;
+    (result as Record<string, number>)[k] = isNaN(n) || !isFinite(n) || n < 0 ? DEFAULT_THRESHOLDS[k as ThresholdKey] : n;
   }
   return result;
 }
