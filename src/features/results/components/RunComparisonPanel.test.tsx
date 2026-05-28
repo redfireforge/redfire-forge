@@ -26,10 +26,12 @@ vi.mock('recharts', () => {
   const FakeChart = ({ children }: { children?: React.ReactNode }) => <div data-testid="chart">{children}</div>;
   return {
     LineChart: FakeChart,
-    Line: ({ dot: Dot }: { dot?: (p: Record<string, unknown>) => React.ReactNode }) => {
-      if (!Dot) return null;
-      const node = Dot({ cx: 4, cy: 5, payload: { runId: 'r-baseline' } } as Record<string, unknown>);
-      return <div data-testid="line-with-dot">{node}</div>;
+    Line: ({ dot: Dot, dataKey }: { dot?: ((p: Record<string, unknown>) => React.ReactNode) | boolean; dataKey?: string }) => {
+      if (typeof Dot === 'function') {
+        const node = Dot({ cx: 4, cy: 5, payload: { runId: 'r-baseline' } } as Record<string, unknown>);
+        return <div data-testid="line-with-dot">{node}</div>;
+      }
+      return <div data-testid="chart-line" data-key={dataKey} />;
     },
     XAxis: ({ tickFormatter }: { tickFormatter?: (t: number) => string }) => {
       tickFormatter?.(1_700_000_000_000);
@@ -373,6 +375,30 @@ describe('TrendChart', () => {
     const nullDisplay = container.querySelector('[data-testid="tooltip-null-display"]');
     expect(nullDisplay?.textContent).toBe('—');
     expect(nullDisplay?.textContent).not.toContain('null');
+  });
+
+  it('shows scope-aware empty message when scope filter leaves fewer than 2 runs', () => {
+    // r1 = svc-a, r2 = svc-b — when scope='service' and ref=r1, only r1 matches
+    const r1 = { ...makeRun('r1'), svcName: 'svc-a', timestamp: 1000 };
+    const r2 = { ...makeRun('r2'), svcName: 'svc-b', timestamp: 2000 };
+    const { container } = render(<TrendChart runs={[r1, r2]} baselines={[]} selectedRun={r1} />);
+    // Scope 'service' — only r1 (svc-a) matches → 1 data point < 2 → scope-aware message
+    const scopeSelect = container.querySelector('.trend-scope-select') as HTMLSelectElement;
+    fireEvent.change(scopeSelect, { target: { value: 'service' } });
+    expect(container.textContent).toContain('try "All runs" for a broader view');
+  });
+
+  it('metric2 overlay line renders when secondary metric is selected', () => {
+    const r1 = { ...makeRun('r1'), timestamp: 1000 };
+    const r2 = { ...makeRun('r2'), timestamp: 2000 };
+    const { container } = render(<TrendChart runs={[r1, r2]} baselines={[]} />);
+    // No metric2 line initially
+    expect(container.querySelector('[data-testid="chart-line"]')).toBeNull();
+    // Select tps as secondary metric
+    const metric2Select = container.querySelector('.trend-metric-select2') as HTMLSelectElement;
+    fireEvent.change(metric2Select, { target: { value: 'tps' } });
+    // Metric2 line (dot={false}) should now render
+    expect(container.querySelector('[data-testid="chart-line"][data-key="tps"]')).toBeTruthy();
   });
 });
 
