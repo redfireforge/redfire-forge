@@ -2,6 +2,7 @@ import { useEffect, useCallback, useRef, useState, useMemo } from 'react';
 import { prettyJson } from '../../../shared/utils/helpers';
 import { SearchMatchBar } from '../../../shared/components/SearchMatchBar';
 import { useSearchMatchNavigation } from '../../../shared/hooks/useSearchMatchNavigation';
+import { useCopyToClipboard } from '../../../shared/hooks/useCopyToClipboard';
 
 interface Props {
   title: string;
@@ -62,7 +63,7 @@ export default function VersionPreviewModal({ title, subtitle, tags, content: ra
   const overlayRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const [copied, setCopied] = useState(false);
+  const [copied, copyToClipboard] = useCopyToClipboard(2000);
   const [searchQuery, setSearchQueryRaw] = useState('');
 
   const content = language === 'json' ? prettyJson(rawContent) : rawContent;
@@ -148,11 +149,8 @@ export default function VersionPreviewModal({ title, subtitle, tags, content: ra
   }, [content, language, searchQuery, matchLineIndices, currentMatchIndex]);
 
   const handleCopy = useCallback(() => {
-    navigator.clipboard.writeText(content).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
-  }, [content]);
+    void copyToClipboard(content);
+  }, [content, copyToClipboard]);
 
   return (
     <div

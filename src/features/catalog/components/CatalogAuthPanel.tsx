@@ -39,6 +39,34 @@ export default function CatalogAuthPanel({ auth, onAuthChange, securitySchemes, 
   const hasGlobal = globalAuthProfiles.length > 0;
   const { authVerifying, authVerifyResult, setAuthVerifyResult, verifyAuth } = useAuthVerify();
 
+  const bearerFields = (
+    <>
+      <div className="cep-tryit-field">
+        <label className="cep-field-name">Token</label>
+        <input className="cep-field-input" placeholder="JWT or access token"
+          value={auth.token ?? ''} onChange={e => onAuthChange({ ...auth, token: e.target.value })} />
+      </div>
+      <div className="cep-tryit-field">
+        <label className="cep-field-name">Prefix</label>
+        <input className="cep-field-input" placeholder="Bearer"
+          value={auth.prefix ?? 'Bearer'} onChange={e => onAuthChange({ ...auth, prefix: e.target.value })} />
+      </div>
+    </>
+  );
+
+  const basicFields = (
+    <>
+      <div className="cep-tryit-field">
+        <label className="cep-field-name">Username</label>
+        <input className="cep-field-input" value={auth.username ?? ''} onChange={e => onAuthChange({ ...auth, username: e.target.value })} />
+      </div>
+      <div className="cep-tryit-field">
+        <label className="cep-field-name">Password</label>
+        <input className="cep-field-input" type="password" value={auth.password ?? ''} onChange={e => onAuthChange({ ...auth, password: e.target.value })} />
+      </div>
+    </>
+  );
+
   const mode: AuthMode = auth.__inherit ? 'inherit'
     : auth.__globalProfileId ? 'global'
     : auth.type === 'none' ? 'none'
@@ -135,32 +163,8 @@ export default function CatalogAuthPanel({ auth, onAuthChange, securitySchemes, 
               })}
             </div>
 
-            {auth.type === 'bearer' && (
-              <>
-                <div className="cep-tryit-field">
-                  <label className="cep-field-name">Token</label>
-                  <input className="cep-field-input" placeholder="JWT or access token"
-                    value={auth.token ?? ''} onChange={e => onAuthChange({ ...auth, token: e.target.value })} />
-                </div>
-                <div className="cep-tryit-field">
-                  <label className="cep-field-name">Prefix</label>
-                  <input className="cep-field-input" placeholder="Bearer"
-                    value={auth.prefix ?? 'Bearer'} onChange={e => onAuthChange({ ...auth, prefix: e.target.value })} />
-                </div>
-              </>
-            )}
-            {auth.type === 'basic' && (
-              <>
-                <div className="cep-tryit-field">
-                  <label className="cep-field-name">Username</label>
-                  <input className="cep-field-input" value={auth.username ?? ''} onChange={e => onAuthChange({ ...auth, username: e.target.value })} />
-                </div>
-                <div className="cep-tryit-field">
-                  <label className="cep-field-name">Password</label>
-                  <input className="cep-field-input" type="password" value={auth.password ?? ''} onChange={e => onAuthChange({ ...auth, password: e.target.value })} />
-                </div>
-              </>
-            )}
+            {auth.type === 'bearer' && bearerFields}
+            {auth.type === 'basic' && basicFields}
             {auth.type === 'apikey' && (
               <>
                 <div className="cep-tryit-field">
@@ -225,32 +229,8 @@ export default function CatalogAuthPanel({ auth, onAuthChange, securitySchemes, 
           </>
         )}
 
-        {mode !== 'inherit' && mode !== 'global' && auth.type === 'bearer' && (
-          <>
-            <div className="cep-tryit-field">
-              <label className="cep-field-name">Token</label>
-              <input className="cep-field-input" placeholder="JWT or access token"
-                value={auth.token ?? ''} onChange={e => onAuthChange({ ...auth, token: e.target.value })} />
-            </div>
-            <div className="cep-tryit-field">
-              <label className="cep-field-name">Prefix</label>
-              <input className="cep-field-input" placeholder="Bearer"
-                value={auth.prefix ?? 'Bearer'} onChange={e => onAuthChange({ ...auth, prefix: e.target.value })} />
-            </div>
-          </>
-        )}
-        {mode !== 'inherit' && mode !== 'global' && auth.type === 'basic' && (
-          <>
-            <div className="cep-tryit-field">
-              <label className="cep-field-name">Username</label>
-              <input className="cep-field-input" value={auth.username ?? ''} onChange={e => onAuthChange({ ...auth, username: e.target.value })} />
-            </div>
-            <div className="cep-tryit-field">
-              <label className="cep-field-name">Password</label>
-              <input className="cep-field-input" type="password" value={auth.password ?? ''} onChange={e => onAuthChange({ ...auth, password: e.target.value })} />
-            </div>
-          </>
-        )}
+        {mode !== 'inherit' && mode !== 'global' && auth.type === 'bearer' && bearerFields}
+        {mode !== 'inherit' && mode !== 'global' && auth.type === 'basic' && basicFields}
         {mode !== 'inherit' && mode !== 'global' && auth.type === 'apikey' && (
           <>
             <div className="cep-tryit-field">

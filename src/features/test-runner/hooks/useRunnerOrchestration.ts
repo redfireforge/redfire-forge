@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
-import type { FeatureGroup, GlobalAuthProfile, Scenario, TestConfig, ScenarioWeight, SharedDataSource, ScenarioKind, ExecutionMode, ArrivalRateConfig } from '../../../shared/types';
+import type { FeatureGroup, GlobalAuthProfile, Scenario, SlaTarget, TestConfig, ScenarioWeight, SharedDataSource, ScenarioKind, ExecutionMode, ArrivalRateConfig } from '../../../shared/types';
 import type { LoadProfileConfig } from '../../../shared/types';
 import type { AllocationSummary } from '../../../engine/allocationEngine';
 import { useTestExecution } from './useTestExecution';
@@ -47,6 +47,17 @@ export interface RunnerOrchestrationResult {
   savedProgress: PersistedProgress | null;
   handleClearProgress: () => void;
   handleRun: () => void;
+  /** Session-scoped SLA override targets (not persisted). Runner wins on metric+scenarioName conflict. */
+  runnerSlaTargets: SlaTarget[];
+  setRunnerSlaTargets: React.Dispatch<React.SetStateAction<SlaTarget[]>>;
+  /** Scenario names for all currently selected scenarios — used to populate SlaTargetEditor dropdown. */
+  selectedSlaScenarioNames: string[];
+  /** Test names for all currently selected scenarios — used for test-level scope in SLA override. */
+  selectedSlaTestNames: string[];
+  /** Total auto-collected definition targets (FG + scenario + test level) for selected scenarios. */
+  definitionSlaTargetCount: number;
+  /** Full list of auto-collected definition SLA targets with scope info — for display in override panel. */
+  definitionSlaTargets: Array<SlaTarget & { scopeLabel: string }>;
   updateProfile: (patch: Partial<LoadProfileConfig>) => void;
   updateArrivalRate: (patch: Partial<ArrivalRateConfig>) => void;
   showProgress: boolean;
@@ -93,11 +104,41 @@ export function useRunnerOrchestration(opts: RunnerOrchestrationOptions): Runner
   const [savedProgress, setSavedProgress] = useState<PersistedProgress | null>(null);
   const [runnerTagFilter, setRunnerTagFilter] = useState('');
   const [scenarioTagFilter, setScenarioTagFilter] = useState<string[]>([]);
+  const [runnerSlaTargets, setRunnerSlaTargets] = useState<SlaTarget[]>([]);
   const autoReportFiredRef = useRef<string | null>(null);
 
   // Compute all scenario tags and counts from original (unfiltered) feature groups
   const allScenarioTags = useMemo(() => collectAllScenarioTags(featureGroups), [featureGroups]);
   const scenarioTagCounts = useMemo(() => countScenariosByTag(featureGroups), [featureGroups]);
+
+  // ── SLA-B5: scenario names + definition target count for selected scenarios ──
+  const selectedSlaScenarioNames = useMemo(
+    () => featureGroups.flatMap((fg) =>
+      fg.scenarios.filter((sc) => selectedScenarios.has(sc.id)).map((sc) => sc.name)
+    ),
+    [featureGroups, selectedScenarios],
+  );
+  const selectedSlaTestNames = useMemo(
+    () => featureGroups.flatMap((fg) =>
+      fg.scenarios.filter((sc) => selectedScenarios.has(sc.id))
+        .flatMap((sc) => sc.tests.map((t) => t.name))
+    ),
+    [featureGroups, selectedScenarios],
+  );
+  const definitionSlaTargets = useMemo(() => {
+    const result: Array<SlaTarget & { scopeLabel: string }> = [];
+    for (const fg of featureGroups) {
+      for (const t of fg.slaTargets ?? []) result.push({ ...t, scopeLabel: `FG: ${fg.name}` });
+      for (const sc of fg.scenarios.filter((sc) => selectedScenarios.has(sc.id))) {
+        for (const t of sc.slaTargets ?? []) result.push({ ...t, scenarioName: sc.name, scopeLabel: `Scenario: ${sc.name}` });
+        for (const test of sc.tests) {
+          for (const t of test.slaTargets ?? []) result.push({ ...t, scenarioName: test.name, scopeLabel: `Test: ${test.name}` });
+        }
+      }
+    }
+    return result;
+  }, [featureGroups, selectedScenarios]);
+  const definitionSlaTargetCount = definitionSlaTargets.length;
 
   const execution = useTestExecution();
   const { isRunning, completed, total, liveSummary, profileMeta, timeSeries, finalRun } = execution;
@@ -195,6 +236,29 @@ export function useRunnerOrchestration(opts: RunnerOrchestrationOptions): Runner
       weight: weights[t.id] ?? 1,
     }));
 
+    // ── SLA-B5: collect definition targets + merge with runner overrides ──
+    const baseFgTargets = featureGroups.flatMap((fg) => fg.slaTargets ?? []);
+    const baseScTargets = featureGroups.flatMap((fg) =>
+      fg.scenarios
+        .filter((sc) => selectedScenarios.has(sc.id))
+        .flatMap((sc) => (sc.slaTargets ?? []).map((t) => ({ ...t, scenarioName: sc.name })))
+    );
+    // Collect SLA targets from individual tests (stamped with scenarioName = test.name)
+    const baseTestTargets = featureGroups.flatMap((fg) =>
+      fg.scenarios
+        .filter((sc) => selectedScenarios.has(sc.id))
+        .flatMap((sc) => sc.tests.flatMap((test) =>
+          (test.slaTargets ?? []).map((t) => ({ ...t, scenarioName: test.name }))
+        ))
+    );
+    const baseTargets = [...baseFgTargets, ...baseScTargets, ...baseTestTargets];
+    const conflictKey = (t: SlaTarget) => `${t.metric}:${t.scenarioName ?? ''}`;
+    const overrideKeys = new Set(runnerSlaTargets.map(conflictKey));
+    const mergedSlaTargets = [
+      ...baseTargets.filter((t) => !overrideKeys.has(conflictKey(t))),
+      ...runnerSlaTargets,
+    ];
+
     const cfg: TestConfig = {
       concurrency: isLoadProfile ? loadProfile.maxConcurrency : (isConstantArrival ? 1 : concurrency),
       iterations: (isLoadProfile || isConstantArrival) ? 0 : iterations,
@@ -209,6 +273,7 @@ export function useRunnerOrchestration(opts: RunnerOrchestrationOptions): Runner
       errorPolicy,
       maxErrors,
       maxErrorRate,
+      ...(mergedSlaTargets.length > 0 ? { slaTargets: mergedSlaTargets } : {}),
     };
 
     const usedBaseUrl = hostMode === 'settings' ? (resolvedBaseUrl || undefined) : hostMode === 'custom' ? (customBaseUrl.trim() || undefined) : undefined;
@@ -248,5 +313,8 @@ export function useRunnerOrchestration(opts: RunnerOrchestrationOptions): Runner
     showProgress, displaySummary, displayTimeSeries, displayCompleted,
     displayTotal, displayProfileMeta, displayExecMode, displayConc,
     displayLoadProfile, displayArrivalRate, displayThinkTime, hostLabel,
+    runnerSlaTargets, setRunnerSlaTargets,
+    selectedSlaScenarioNames, selectedSlaTestNames,
+    definitionSlaTargetCount, definitionSlaTargets,
   };
 }

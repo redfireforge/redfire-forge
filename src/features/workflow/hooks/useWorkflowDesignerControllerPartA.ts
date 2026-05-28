@@ -135,7 +135,7 @@ export function useWorkflowDesignerControllerPartA({
     saveAcknowledged, workflowServicesRef,
     handleCopyNode, handlePasteNode, handleDuplicateNode,
     handleUndoAction, handleRedoAction,
-    handleSave, handleUpdateWorkflowVariables,
+    handleSave, handleUpdateWorkflowVariables, handleUpdateWorkflowSlaTargets,
   } = useWorkflowPersistence({
     selected, previewWorkflow,
     workflowVariables, workflowHostProfiles, workflowAuthProfiles,
@@ -315,6 +315,7 @@ export function useWorkflowDesignerControllerPartA({
     handleRedoAction,
     handleSave,
     handleUpdateWorkflowVariables,
+    handleUpdateWorkflowSlaTargets,
     versioning,
     handleAutoLayout,
     clipboard,
