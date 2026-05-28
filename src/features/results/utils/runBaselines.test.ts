@@ -22,6 +22,9 @@ import {
   saveRegressionThresholds,
   resetRegressionThresholds,
   DEFAULT_THRESHOLDS,
+  computeScopedTrend,
+  computePerScenarioTrend,
+  computeRunRegressionStatus,
   type BaselineMark,
 } from './runBaselines';
 import type { TestRun } from '../../../shared/types';
@@ -426,5 +429,160 @@ describe('loadRegressionThresholds', () => {
     expect(t.tpsPercent).toBe(DEFAULT_THRESHOLDS.tpsPercent);
     // Properties not in DEFAULT_THRESHOLDS are not injected
     expect(Object.keys(t)).toEqual(Object.keys(DEFAULT_THRESHOLDS));
+  });
+});
+
+// ── Sprint 2: computeScopedTrend ──────────────────────────────────────────
+
+describe('computeScopedTrend', () => {
+  function makeRunWithMeta(id: string, svcName?: string, envName?: string, workflowName?: string, ts = Date.now()): TestRun {
+    return { ...makeRun(id), timestamp: ts, svcName, envName, workflowName };
+  }
+
+  it('scope=all returns all runs (same as computeTrend)', () => {
+    const runs = [
+      makeRunWithMeta('r1', 'svc-a', 'prod'),
+      makeRunWithMeta('r2', 'svc-b', 'staging'),
+    ];
+    const ref = runs[0];
+    const scoped = computeScopedTrend(runs, ref, 'all', []);
+    const all = computeTrend(runs, []);
+    expect(scoped).toEqual(all);
+  });
+
+  it('scope=service filters to same svcName', () => {
+    // Newest-first order (matches real ResultsDashboard runs array)
+    const runs = [
+      makeRunWithMeta('r3', 'svc-a', 'staging', undefined, 3000), // newest
+      makeRunWithMeta('r2', 'svc-b', 'staging', undefined, 2000),
+      makeRunWithMeta('r1', 'svc-a', 'prod', undefined, 1000),    // oldest
+    ];
+    const ref = runs[0]; // svc-a (r3)
+    const scoped = computeScopedTrend(runs, ref, 'service', []);
+    expect(scoped.map((p) => p.runId)).toEqual(['r1', 'r3']); // chronological (oldest first)
+  });
+
+  it('scope=env filters to same svcName + envName', () => {
+    const runs = [
+      makeRunWithMeta('r3', 'svc-a', 'prod', undefined, 3000),
+      makeRunWithMeta('r2', 'svc-a', 'staging', undefined, 2000),
+      makeRunWithMeta('r1', 'svc-a', 'prod', undefined, 1000),
+    ];
+    const ref = runs[0]; // svc-a prod (r3)
+    const scoped = computeScopedTrend(runs, ref, 'env', []);
+    expect(scoped.map((p) => p.runId)).toEqual(['r1', 'r3']);
+  });
+
+  it('scope=workflow filters to same workflowName', () => {
+    const runs = [
+      makeRunWithMeta('r3', undefined, undefined, 'checkout', 3000),
+      makeRunWithMeta('r2', undefined, undefined, 'catalog', 2000),
+      makeRunWithMeta('r1', undefined, undefined, 'checkout', 1000),
+    ];
+    const ref = runs[0]; // checkout (r3)
+    const scoped = computeScopedTrend(runs, ref, 'workflow', []);
+    expect(scoped.map((p) => p.runId)).toEqual(['r1', 'r3']);
+  });
+});
+
+// ── Sprint 2: computePerScenarioTrend ─────────────────────────────────────
+
+describe('computePerScenarioTrend', () => {
+  it('returns empty result when no runs have results', () => {
+    const runs = [makeRun('r1'), makeRun('r2')];
+    const result = computePerScenarioTrend(runs, runs[0], 'all', []);
+    expect(result.seriesKeys).toHaveLength(0);
+    expect(result.scenarioNames).toHaveLength(0);
+  });
+
+  it('returns one series per unique scenario', () => {
+    const r1 = { ...makeRun('r1', {}, [makeResult('Login', 100), makeResult('Search', 200)]), timestamp: 1000 };
+    const r2 = { ...makeRun('r2', {}, [makeResult('Login', 110), makeResult('Search', 210)]), timestamp: 2000 };
+    const result = computePerScenarioTrend([r1, r2], r1, 'all', []);
+    expect(result.scenarioNames).toHaveLength(2);
+    expect(result.scenarioNames).toContain('Login');
+    expect(result.scenarioNames).toContain('Search');
+    expect(result.seriesKeys).toHaveLength(2);
+  });
+
+  it('series keys are safe index-based strings (s0, s1, ...)', () => {
+    const r1 = { ...makeRun('r1', {}, [makeResult('My/Scenario.Name', 100)]), timestamp: 1000 };
+    const r2 = { ...makeRun('r2', {}, [makeResult('My/Scenario.Name', 110)]), timestamp: 2000 };
+    const result = computePerScenarioTrend([r1, r2], r1, 'all', []);
+    expect(result.seriesKeys).toEqual(['s0']);
+    expect(result.scenarioNames).toEqual(['My/Scenario.Name']); // display name preserved
+  });
+
+  it('respects topN limit', () => {
+    const scenarios = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'];
+    const r1 = { ...makeRun('r1', {}, scenarios.map((s) => makeResult(s, 100))), timestamp: 1000 };
+    const r2 = { ...makeRun('r2', {}, scenarios.map((s) => makeResult(s, 110))), timestamp: 2000 };
+    const result = computePerScenarioTrend([r1, r2], r1, 'all', [], 3);
+    expect(result.seriesKeys).toHaveLength(3);
+  });
+
+  it('data points are in chronological order', () => {
+    const r1 = { ...makeRun('r1', {}, [makeResult('Login', 100)]), timestamp: 1000 };
+    const r2 = { ...makeRun('r2', {}, [makeResult('Login', 200)]), timestamp: 500 }; // older
+    const result = computePerScenarioTrend([r1, r2], r1, 'all', []);
+    const points = result.data['s0'];
+    expect(points[0].timestamp).toBe(500);
+    expect(points[1].timestamp).toBe(1000);
+  });
+});
+
+// ── Sprint 2: computeRunRegressionStatus ──────────────────────────────────
+
+describe('computeRunRegressionStatus', () => {
+  it('returns no-baseline when there are no baselines', () => {
+    const run = { ...makeRun('r1'), timestamp: 2000 };
+    const allRuns = [makeRun('r0'), run];
+    expect(computeRunRegressionStatus(run, allRuns, [])).toBe('no-baseline');
+  });
+
+  it('returns no-baseline when all baselines are newer than the run', () => {
+    const run = { ...makeRun('r1'), timestamp: 1000 };
+    const newerBaseline = { ...makeRun('bl'), timestamp: 2000 };
+    const baselines: BaselineMark[] = [{ runId: 'bl', markedAt: 1 }];
+    expect(computeRunRegressionStatus(run, [run, newerBaseline], baselines)).toBe('no-baseline');
+  });
+
+  it('returns pass when run is within thresholds vs nearest baseline', () => {
+    const baseline = { ...makeRun('bl', { p95ResponseTime: 100, tps: 50, errorRate: 1, avgResponseTime: 50 }), timestamp: 1000 };
+    // Minimal delta — well within defaults
+    const run = { ...makeRun('r1', { p95ResponseTime: 105, tps: 49, errorRate: 1.1, avgResponseTime: 51 }), timestamp: 2000 };
+    const baselines: BaselineMark[] = [{ runId: 'bl', markedAt: 1 }];
+    expect(computeRunRegressionStatus(run, [baseline, run], baselines)).toBe('pass');
+  });
+
+  it('returns warn when run has a warning-level regression', () => {
+    const baseline = { ...makeRun('bl', { p95ResponseTime: 100, tps: 50, errorRate: 1, avgResponseTime: 50 }), timestamp: 1000 };
+    // p95 increased by 12% — above default threshold of 10%, below 2× (20%), so 'warning'
+    const run = { ...makeRun('r1', { p95ResponseTime: 112, tps: 50, errorRate: 1, avgResponseTime: 50 }), timestamp: 2000 };
+    const baselines: BaselineMark[] = [{ runId: 'bl', markedAt: 1 }];
+    const status = computeRunRegressionStatus(run, [baseline, run], baselines);
+    expect(status).toBe('warn');
+  });
+
+  it('returns critical when run has a critical regression', () => {
+    const baseline = { ...makeRun('bl', { p95ResponseTime: 100, tps: 50, errorRate: 1, avgResponseTime: 50 }), timestamp: 1000 };
+    // p95 increased by 25% — above 2× threshold (20%), so 'critical'
+    const run = { ...makeRun('r1', { p95ResponseTime: 125, tps: 50, errorRate: 1, avgResponseTime: 50 }), timestamp: 2000 };
+    const baselines: BaselineMark[] = [{ runId: 'bl', markedAt: 1 }];
+    const status = computeRunRegressionStatus(run, [baseline, run], baselines);
+    expect(status).toBe('critical');
+  });
+
+  it('uses the most recent prior baseline (not an older one)', () => {
+    // Two baselines: bl-old (far away) and bl-near (close). Run should compare against bl-near.
+    const blOld = { ...makeRun('bl-old', { p95ResponseTime: 1000 }), timestamp: 500 }; // very slow — would cause critical
+    const blNear = { ...makeRun('bl-near', { p95ResponseTime: 100 }), timestamp: 1500 }; // close to run — no regression
+    const run = { ...makeRun('r1', { p95ResponseTime: 103 }), timestamp: 2000 };
+    const baselines: BaselineMark[] = [
+      { runId: 'bl-old', markedAt: 1 },
+      { runId: 'bl-near', markedAt: 2 },
+    ];
+    const status = computeRunRegressionStatus(run, [blOld, blNear, run], baselines);
+    expect(status).toBe('pass'); // compared against bl-near, not bl-old
   });
 });
