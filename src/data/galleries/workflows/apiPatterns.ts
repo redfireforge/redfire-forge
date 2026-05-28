@@ -567,3 +567,110 @@ export function createScriptEasyWorkflow(): Workflow {
     updatedAt: Date.now(),
   };
 }
+
+// ─── SLA-Monitored API Pipeline ───────────────────────────────────────────────
+
+/**
+ * Demonstrates SLA targets in the Workflow Runner.
+ * Three HTTP calls against JSONPlaceholder with workflow-level slaTargets
+ * so users can see the SLA Override panel, configure thresholds, and review
+ * pass/fail per target in the Workflow Replay results.
+ */
+export function createSlaMonitorWorkflow(): Workflow {
+  return {
+    id: 'sample-workflow-sla-monitor',
+    name: 'SLA-Monitored API Pipeline',
+    description: 'Sequential API calls with SLA targets — demonstrates the Workflow Runner SLA Override panel and result analysis.',
+    variables: {},
+    nodes: [
+      {
+        id: 'slm-start',
+        type: 'start',
+        position: { x: 300, y: 50 },
+        data: { label: 'Start', inputVariables: {} },
+      },
+      {
+        id: 'slm-get-users',
+        type: 'http',
+        position: { x: 300, y: 180 },
+        data: {
+          label: '1. List Users',
+          scenario: {
+            id: 'slm-s-users',
+            name: 'List Users',
+            url: 'https://jsonplaceholder.typicode.com/users',
+            method: 'GET',
+            headers: [{ key: 'Accept', value: 'application/json' }],
+            body: '',
+            auth: { type: 'none' },
+            validation: { mode: 'none' },
+            extractions: [
+              { name: 'userCount', source: 'body', expression: '$.length' },
+            ],
+          },
+        },
+      },
+      {
+        id: 'slm-get-posts',
+        type: 'http',
+        position: { x: 300, y: 320 },
+        data: {
+          label: '2. List Posts',
+          scenario: {
+            id: 'slm-s-posts',
+            name: 'List Posts',
+            url: 'https://jsonplaceholder.typicode.com/posts',
+            method: 'GET',
+            headers: [{ key: 'Accept', value: 'application/json' }],
+            body: '',
+            auth: { type: 'none' },
+            validation: { mode: 'none' },
+            extractions: [
+              { name: 'postCount', source: 'body', expression: '$.length' },
+            ],
+          },
+        },
+      },
+      {
+        id: 'slm-create-post',
+        type: 'http',
+        position: { x: 300, y: 460 },
+        data: {
+          label: '3. Create Post',
+          scenario: {
+            id: 'slm-s-create',
+            name: 'Create Post',
+            url: 'https://jsonplaceholder.typicode.com/posts',
+            method: 'POST',
+            headers: [{ key: 'Content-Type', value: 'application/json' }],
+            body: JSON.stringify({ title: 'SLA Check', body: 'Automated workflow run', userId: 1 }),
+            bodyType: 'json',
+            auth: { type: 'none' },
+            validation: { mode: 'none' },
+            extractions: [
+              { name: 'newPostId', source: 'body', expression: '$.id' },
+            ],
+          },
+        },
+      },
+      {
+        id: 'slm-end',
+        type: 'end',
+        position: { x: 300, y: 600 },
+        data: { label: 'Done' },
+      },
+    ],
+    edges: [
+      { id: 'slm-e1', source: 'slm-start', target: 'slm-get-users' },
+      { id: 'slm-e2', source: 'slm-get-users', target: 'slm-get-posts' },
+      { id: 'slm-e3', source: 'slm-get-posts', target: 'slm-create-post' },
+      { id: 'slm-e4', source: 'slm-create-post', target: 'slm-end' },
+    ],
+    slaTargets: [
+      { id: 'slm-sla-agg-p95', metric: 'p95', operator: 'lte', value: 900 },
+      { id: 'slm-sla-agg-err', metric: 'errorRate', operator: 'lte', value: 1 },
+    ],
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  };
+}

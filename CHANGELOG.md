@@ -8,6 +8,19 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
 
 ## [Unreleased]
 
+### Fixed
+- **Floating console z-index** — Raised `.wf-console-floating` and `.re-console-floating` z-index from 100 to 200 so the console always appears above the sidebar toggle bar (`usb-toggle-btn` at z-index 101).
+- **Floating console spawn/drag boundary** — Console no longer spawns behind or drags into the sidebar. `useFloatingPanel` now reads `--sidebar-w` CSS variable to compute a `minLeft` boundary (sidebar width + 20 px gutter).
+- **Duplicate Stop button** — Removed redundant Stop button from the workflow sample preview banner; the main toolbar's Stop button is the single stop control.
+- **`WorkflowConfigPanel` code duplication** — Replaced inline variable-insert state/callbacks with the existing `useVariableInsertModal` hook (already used by `WorkflowNodeConfigModal` and `WorkflowDefaultsModal`).
+- **Unused destructured variables** — Removed `isRunning` and `handleQuickTest` from `WorkflowDesignerFlowCanvas` after Stop button was removed from the preview banner.
+
+### Tests
+- Fixed `useFloatingPanel` test: min-x clamp expectation updated to `68` (sidebar `minLeft`).
+- Fixed `trainingPaths` test: `tests` path manual count updated from `35` → `36`.
+- Added `useWorkflowDesignerInspectActions.test.ts` — 6 tests covering `getWorkflowPreview` (known/unknown/empty id) and memoization stability.
+- Added `useWorkflowPreviewReactFlowInit.test.ts` — 7 tests covering all 3 code paths: preview layout, saved-viewport restore, and first-load auto-layout.
+
 ### Added
 - **Test Scenario Tagging** — Tag `TestScenario` objects for filtering, reporting, and targeted test runs.
   - **`TestScenario.tags?: string[]`** — New optional field on `TestScenario`. Tags are normalised on save: lowercase, trimmed, non-`[a-z0-9-_]` characters stripped.

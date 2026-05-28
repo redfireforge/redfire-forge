@@ -4,7 +4,7 @@
 > Phases: 1–5 (original), A–E (scoped SLA), B10–B16 (per-test SLA), C–D (results display refactor), §5 (CLI import)
 > Branch: `feature/review-plan`
 > Plan: `docs/plan/sla-dashboard-plan.md`
-> Test data: `docs/test-data/sla-dashboard-test-data.json`, `docs/test-data/sla-per-test-scenarios-export.json`, `test-data/sla-cli-result.json`
+> Test data: `docs/test-data/sla-dashboard-test-data.json`, `docs/test-data/sla-per-test-scenarios-export.json`, `test-data/sla-cli-result.json`, `test-data/workflow-sla-run-result.json`, `test-data/workflow-sla-export.json`
 > CLI test files: `examples/sla-jsonplaceholder-test.yaml`, `examples/sla-jsonplaceholder-targets.json`
 
 > **⚠ UI Change (session 2026-05-27)**: The SLA results area was redesigned. `SlaStatusAccordion` no longer appears as a standalone collapsible section between Timing Breakdown and Request Details. It is now rendered inside a **"SLA Status" tab** (alongside "Request Details" tab). The panel is always visible when the tab is selected — no outer expand/collapse. Status indicators are CSS colored circles, not emoji (🟢🟡🔴⚫). Compact bar has a new "SLA" label prefix.
@@ -119,6 +119,7 @@ Import via: **Results → 📥 Import Test Results → select `test-data/sla-cli
 | 35 | F | [SLA Override Modal — Overrides Section Polish](#test-scenario-35-sla-override-modal--overrides-section-polish) | [ ] | |
 | 36 | F | [SLA Override Modal — Input & Button Polish](#test-scenario-36-sla-override-modal--input--button-polish) | [ ] | |
 | 37 | F | [Sidebar Toggle — Accessible with SLA Modal Open](#test-scenario-37-sidebar-toggle--accessible-with-sla-modal-open) | [ ] | |
+| 38 | W | [Workflow SLA — End-to-End: Designer → Runner → Results → Export → Re-import](#test-scenario-38-workflow-sla--end-to-end-designer--runner--results--export--re-import) | [x] | ✅ Parts 1–3 visually confirmed 2026-05-28; Parts 4–6 require live run |
 
 ---
 
@@ -1299,3 +1300,141 @@ At least one scenario with SLA targets selected in the Test Runner.
 
 **Total test-level SLA targets**: 7 (across 4 tests)
 **Total including FG-level**: 8
+
+---
+
+### Test Scenario 38: Workflow SLA — End-to-End: Designer → Runner → Results → Export → Re-import
+
+**Purpose**: Full create-from-scratch validation of workflow SLA. Covers: define targets in designer, verify override panel shows them, run the workflow, verify Results badge and accordion, export workflow JSON, verify SLA field in export, re-import, verify targets survived.
+
+**Phases covered**: B8, B9, SLA-A3, SLA-A4  
+**Bugs fixed**: SLA-G1 (`definitionTargets` missing from `RunnerSlaOverridePanel`), SLA-G2 (`workflowDefinitionTargets` useMemo crash — `selectedWorkflow` not yet declared) — both fixed 2026-05-28
+
+> ✅ **Parts 1–3 visually confirmed 2026-05-28** using `test-data/workflow-sla-export.json` (Designer + Runner) and `test-data/workflow-sla-run-result.json` (Results import). Parts 4–6 require a live run.
+
+---
+
+#### Prerequisites
+
+**Fast path (recommended)**: Use the pre-built test data files instead of creating targets from scratch:
+- `test-data/workflow-sla-export.json` — 4-target workflow (2-node: GET /users → POST /posts) for Parts 1–2, 4–5
+- `test-data/workflow-sla-run-result.json` — synthetic run result for Part 3 (import directly into Results)
+
+**Manual path**: Create a workflow from scratch and add targets as described in the steps below (targets listed use the actual test data values: 4 targets).
+
+- The workflow is not currently running.
+
+---
+
+#### Part 1 — Define SLA Targets in Workflow Designer
+
+| # | Action | Expected |
+|---|--------|----------|
+| 38.1 | Open Workflow Designer → click **+ New → Import Workflow** → select `test-data/workflow-sla-export.json`. | Workflow "SLA Sample Workflow" appears in sidebar. |
+| 38.2 | Select "SLA Sample Workflow" in the sidebar. | Canvas loads with 2 nodes: **GET /users** and **POST /posts**. |
+| 38.3 | Look for the **SLA Targets** collapsible panel (below the canvas toolbar / in the right-side properties area). | Panel is visible with count badge **4** and a ▼ chevron. |
+| 38.4 | Click the **SLA Targets** header to expand the panel. | Panel opens showing 4 rows: Overall P95 (≤2000ms), Get Users P95 (≤200ms, warn 300), Get Users Error Rate (≤1%), Create Post P95 (≤1500ms, warn 1000). |
+| 38.5 | *(Optional manual path)* To add targets from scratch: click **+ Add Target**, fill Metric/Op/Fail/Warn/Scope/Label for each row, then **Save**. | New rows added; count badge updates. |
+| 38.6 | Click **Save** (if any edits were made). | Panel shows count badge. Hint text: "N targets defined — embedded at run time". |
+| 38.7 | Navigate away (click another workflow or another tab) then return to the same workflow. | SLA Targets panel still shows the same count badge — targets persisted to IndexedDB. |
+
+**Expected outcomes Part 1**:
+- [ ] SLA Targets panel is present and expandable in Workflow Designer
+- [ ] Can add, fill, and save targets
+- [ ] Count badge appears after save
+- [ ] Targets persist after navigation (IndexedDB, not just component state)
+
+---
+
+#### Part 2 — WorkflowRunner Override Panel Shows Definition Targets
+
+| # | Action | Expected |
+|---|--------|----------|
+| 38.8 | Navigate to **Harness → Workflow Runner**. Select "SLA Sample Workflow". | Workflow selected. |
+| 38.9 | Find the **SLA Override (optional)** trigger bar below the workflow picker. | Bar reads: **"● 4 configured"**. |
+| 38.10 | Click **Configure** to open the SLA Override modal. | Modal opens titled "SLA Override". |
+| 38.11 | Check the **"Configured Targets (4)"** section inside the modal. | Shows 4 rows: Aggregate/P95/≤2000ms, Test: GET /users/P95/≤200ms (warn 300), Test: GET /users/Error Rate/≤1%, Test: POST /posts/P95/≤1500ms (warn 1000). Each row has an **Override** button. |
+| 38.12 | Click the **Override** button on the "Get Users P95" row (≤200ms). | A new row appears in the Overrides section, pre-filled with P95/Test:GET /users, Fail threshold editable. |
+| 38.13 | Change the override Fail value to **500**. | Fail field shows 500. |
+| 38.14 | Click **Save**. | Modal closes. Trigger bar shows **"● 1 override"** indicator. |
+| 38.15 | Close the modal and re-open it. | Override is retained (session state). |
+
+**Expected outcomes Part 2**:
+- [ ] Trigger bar shows correct definition target count
+- [ ] Modal "Configured Targets" section shows actual target rows (not empty)
+- [ ] Override button clones the row into the Overrides section
+- [ ] Override value is retained while on the same workflow selection
+
+---
+
+#### Part 3 — Run Workflow and Verify Results SLA Badge
+
+> **Note**: Requires the workflow to execute successfully. Use a simple 1-node HTTP GET (e.g. `https://jsonplaceholder.typicode.com/posts/1`).
+
+| # | Action | Expected |
+|---|--------|----------|
+| 38.17 | In WorkflowRunner, click **Run**. | Run starts. Progress panel shows live metrics. |
+| 38.18 | Wait for run to complete. | Run appears in the Results run list. |
+| 38.19 | Navigate to **Results** tab. Select the just-completed run. | Run results load with request details. |
+| 38.20 | Check the **SLA compact bar** at the top of the Results panel. | Bar shows a colored status pill and the badge **"📋 Workflow"** in blue. |
+| 38.21 | Verify no "Edit Targets" button; instead shows "Read-only". | Compact bar is read-only for workflow-def scope. |
+| 38.22 | Click the **SLA Status** tab (next to Request Details). | SLA accordion opens, showing all merged targets and their pass/fail status grouped by scenario. |
+| 38.23 | Inspect IndexedDB (`Application → IndexedDB → redfireforge → runs → [run]`). | `config.slaTargets` has merged targets. Overridden target's value should be **500** (override won, not 200). |
+
+> **Alt: Import a pre-built run** — instead of a live run, use **Results → 📥 Import Test Results → `test-data/workflow-sla-run-result.json`** to test Parts 3 assertions without running the workflow. This file has `config.workflowId` set and 4 `config.slaTargets` embedded (1 failing, 1 warning, 2 passing).
+
+**Expected outcomes Part 3**:
+- [x] "📋 Workflow" badge shown (not "🔒 This Run" or "⚗ Ad-hoc") — ✅ confirmed via import of `workflow-sla-run-result.json`
+- [x] Compact bar is read-only — ✅ confirmed
+- [x] SLA Status tab shows evaluation results grouped by scenario — ✅ confirmed
+- [ ] `config.slaTargets` in IndexedDB has the merged override value (requires live run)
+
+---
+
+#### Part 4 — Export Workflow and Verify SLA in JSON
+
+| # | Action | Expected |
+|---|--------|----------|
+| 38.24 | In Workflow Designer, right-click the workflow in the sidebar → **Export**. | File download dialog appears. |
+| 38.25 | Save the exported JSON file (e.g. `workflow-sla-export.json`). | File saved. |
+| 38.26 | Open the file in a text editor or compare to `test-data/workflow-sla-export.json`. | Valid JSON. |
+| 38.27 | Search for `"slaTargets"` in the JSON. | `slaTargets` array present at workflow root level with 4 objects (Overall P95, Get Users P95, Get Users Error Rate, Create Post P95). Values are the **definition** targets — NOT the runner override values. |
+
+**Expected outcomes Part 4**:
+- [ ] `slaTargets` field is present in exported workflow JSON
+- [ ] Contains the 2 definition targets with original values (500/1, not runner override 800)
+- [ ] JSON is otherwise a valid workflow export
+
+---
+
+#### Part 5 — Delete Original and Re-import Workflow
+
+| # | Action | Expected |
+|---|--------|----------|
+| 38.28 | In Workflow Designer sidebar, right-click the workflow → **Delete**. Confirm deletion. | Workflow removed from list. |
+| 38.29 | Click **＋ New** → **Import Workflow** (or the import button). | File picker opens. |
+| 38.30 | Select the exported workflow JSON file. | Workflow "SLA Sample Workflow" re-imported and appears in the sidebar. |
+| 38.31 | Select the re-imported workflow. | Canvas loads with 2 nodes intact (GET /users → POST /posts). |
+| 38.32 | Expand the **SLA Targets** panel in the designer. | Shows count badge **4**. Expanding reveals the same 4 targets with original values (Overall P95 ≤2000ms, Get Users P95 ≤200ms, etc.). |
+
+**Expected outcomes Part 5**:
+- [ ] `slaTargets` survives the export → delete → import cycle
+- [ ] Count badge and target values match what was originally defined
+- [ ] No data loss or corruption
+
+---
+
+#### Part 6 — Re-run After Re-import and Verify Results
+
+| # | Action | Expected |
+|---|--------|----------|
+| 38.33 | In WorkflowRunner, select the re-imported workflow. | SLA Override trigger bar shows **● 4 configured**. |
+| 38.34 | Click **Configure** → verify "Configured Targets" section. | **4 targets** visible in the modal with correct scope labels. |
+| 38.35 | Close modal, click **Run**. | Run completes. |
+| 38.36 | Go to Results → select the new run. | "📋 Workflow" badge shown; SLA status evaluated against the 4 definition targets (no override this time). |
+| 38.37 | Compare the two runs (original vs. post-reimport). | Both show "📋 Workflow" badge. First run has overridden Get Users P95 value (500); second run has definition value (200). |
+
+**Expected outcomes Part 6**:
+- [ ] Re-imported workflow runs with correct SLA targets embedded
+- [ ] Results shows "📋 Workflow" badge for the new run
+- [ ] No stale SLA data from the deleted workflow bleeds into the re-imported one
