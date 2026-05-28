@@ -1,10 +1,21 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, fireEvent } from '@testing-library/react';
 import { RunComparisonPanel, TrendChart } from './RunComparisonPanel';
 import type { TestRun, RequestResult } from '../../../shared/types';
 import type { BaselineMark, RunComparison } from '../utils/runBaselines';
+import * as saveFileMod from '../../../shared/utils/fileSaver';
+import * as comparisonReportMod from '../utils/comparisonReport';
 import * as runBaselines from '../utils/runBaselines';
+
+vi.mock('../../../shared/utils/fileSaver', () => ({
+  saveFile: vi.fn(),
+}));
+
+vi.mock('../utils/comparisonReport', () => ({
+  generateComparisonMarkdown: vi.fn(() => '# Comparison'),
+  generateComparisonJson: vi.fn(() => '{}'),
+}));
 
 vi.mock('./ResponseTimeHistogram', () => ({
   ResponseTimeOverlayHistogram: () => <div data-testid="overlay-histogram" />,
@@ -96,6 +107,10 @@ function makeReq(partial: Partial<RequestResult> & Pick<RequestResult, 'scenario
 }
 
 describe('RunComparisonPanel', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it('renders comparison header', () => {
     const baseline = makeRun('b');
     const current = makeRun('c');
@@ -384,5 +399,87 @@ describe('RunComparisonPanel - edge cases', () => {
     );
     expect(withRename.querySelector('.baseline-rename-btn')).toBeTruthy();
     expect(withoutRename.querySelector('.baseline-rename-btn')).toBeFalsy();
+  });
+
+  // ── Export button ────────────────────────────────────────────────────────
+
+  it('renders Export button', () => {
+    const baseline = makeRun('b');
+    const current = makeRun('c');
+    const { container } = render(<RunComparisonPanel baselineRun={baseline} currentRun={current} />);
+    const btn = container.querySelector('.run-comparison-export-btn');
+    expect(btn).toBeTruthy();
+    expect(btn?.textContent).toContain('Export');
+  });
+
+  it('shows export menu when Export button is clicked', () => {
+    const baseline = makeRun('b');
+    const current = makeRun('c');
+    const { container } = render(<RunComparisonPanel baselineRun={baseline} currentRun={current} />);
+    expect(container.querySelector('.run-comparison-export-menu')).toBeFalsy();
+    fireEvent.click(container.querySelector('.run-comparison-export-btn')!);
+    expect(container.querySelector('.run-comparison-export-menu')).toBeTruthy();
+  });
+
+  it('hides export menu when Export button is clicked again', () => {
+    const baseline = makeRun('b');
+    const current = makeRun('c');
+    const { container } = render(<RunComparisonPanel baselineRun={baseline} currentRun={current} />);
+    const btn = container.querySelector('.run-comparison-export-btn')!;
+    fireEvent.click(btn);
+    fireEvent.click(btn);
+    expect(container.querySelector('.run-comparison-export-menu')).toBeFalsy();
+  });
+
+  it('calls generateComparisonMarkdown and saveFile when "Export as Markdown" is clicked', () => {
+    const mockSaveFile = vi.mocked(saveFileMod.saveFile);
+    const mockGenMd = vi.mocked(comparisonReportMod.generateComparisonMarkdown);
+    mockSaveFile.mockResolvedValue(undefined);
+    mockGenMd.mockReturnValue('# report');
+
+    const baseline = makeRun('b');
+    const current = makeRun('c');
+    const { container } = render(
+      <RunComparisonPanel baselineRun={baseline} currentRun={current} baselineLabel="Sprint baseline" />,
+    );
+    fireEvent.click(container.querySelector('.run-comparison-export-btn')!);
+    const menuBtns = container.querySelectorAll('.run-comparison-export-menu button');
+    fireEvent.click(menuBtns[0]); // Export as Markdown
+
+    expect(mockGenMd).toHaveBeenCalledWith(expect.any(Object), 'Sprint baseline');
+    expect(mockSaveFile).toHaveBeenCalledWith(
+      expect.any(Blob),
+      expect.objectContaining({ filename: 'comparison-report.md', mimeType: 'text/markdown' }),
+    );
+  });
+
+  it('calls generateComparisonJson and saveFile when "Export as JSON" is clicked', () => {
+    const mockSaveFile = vi.mocked(saveFileMod.saveFile);
+    const mockGenJson = vi.mocked(comparisonReportMod.generateComparisonJson);
+    mockSaveFile.mockResolvedValue(undefined);
+    mockGenJson.mockReturnValue('{"data":1}');
+
+    const baseline = makeRun('b');
+    const current = makeRun('c');
+    const { container } = render(<RunComparisonPanel baselineRun={baseline} currentRun={current} />);
+    fireEvent.click(container.querySelector('.run-comparison-export-btn')!);
+    const menuBtns = container.querySelectorAll('.run-comparison-export-menu button');
+    fireEvent.click(menuBtns[1]); // Export as JSON
+
+    expect(mockGenJson).toHaveBeenCalled();
+    expect(mockSaveFile).toHaveBeenCalledWith(
+      expect.any(Blob),
+      expect.objectContaining({ filename: 'comparison-report.json', mimeType: 'application/json' }),
+    );
+  });
+
+  it('hides export menu after choosing an export option', () => {
+    vi.mocked(saveFileMod.saveFile).mockResolvedValue(undefined);
+    const baseline = makeRun('b');
+    const current = makeRun('c');
+    const { container } = render(<RunComparisonPanel baselineRun={baseline} currentRun={current} />);
+    fireEvent.click(container.querySelector('.run-comparison-export-btn')!);
+    fireEvent.click(container.querySelectorAll('.run-comparison-export-menu button')[0]);
+    expect(container.querySelector('.run-comparison-export-menu')).toBeFalsy();
   });
 });

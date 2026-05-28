@@ -85,7 +85,7 @@ program
   .option('--scenario-tag-mode <mode>', 'Scenario tag matching mode: any (default) or all', 'any')
   .option('--sla-config <path>', 'JSON file of SLA targets to evaluate after the run (SlaTarget[])')
   .option('--fail-on-sla', 'Exit code 4 if any SLA violations are detected (requires --sla-config)')
-  .option('--compare-baseline <path>', `Compare run against a saved baseline. Use "latest-baseline" to pick the most recent one automatically, or pass a runId / direct path to a store.json.`)
+  .option('--compare-baseline <id>', `Compare run against a saved baseline. Use "latest-baseline" to pick the most recent one automatically, or pass the runId of a specific saved baseline.`)
   .option('--fail-on-regression', 'Exit code 2 (regression only) or 3 (also test failures) when regressions are detected')
   .option('--save-baseline', 'Save this run as a new baseline after completion (only when no failures or regressions)')
   .option('--baseline-label <label>', 'Human-readable label for the saved baseline')
@@ -285,7 +285,7 @@ program
             console.warn(`  ⚠  No baselines found for ${basename(absPath)} — skipping regression check`);
           }
         } else {
-          // Try by runId first, then treat as a direct store path
+          // Look up by runId in the baseline store
           baselineEntry = findBaselineById(sentinel, baselinesDir);
           if (!baselineEntry && !opts.quiet) {
             console.warn(`  ⚠  Baseline not found: "${sentinel}" — skipping regression check`);
@@ -339,7 +339,10 @@ program
       const overThreshold = opts.failThreshold != null && summary.errorRate > opts.failThreshold;
       const testFail = (opts.failOnError && failedRequests) || overThreshold;
 
-      if (opts.saveBaseline && !testFail && !hasRegression) {
+      // Save baseline only when the run is clean (no failures, no regressions).
+      // Check actual failures unconditionally — not gated on --fail-on-error,
+      // because we never want a dirty run stored as a performance baseline.
+      if (opts.saveBaseline && !failedRequests && !hasRegression) {
         const baselinesDir: string = opts.baselinesDir ?? DEFAULT_BASELINES_DIR;
         const entry: CliBaseline = {
           runId: crypto.randomUUID(),
