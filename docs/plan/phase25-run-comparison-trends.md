@@ -1109,3 +1109,25 @@ Third pass. One unit inconsistency found in the markdown export path.
 - Full Sprint 1+2+3 suite: **1577 tests, 71 files — all passing**
 - TypeScript: 0 errors
 
+---
+
+## Sprint 1 Deep Review Pass — Round 4 (2026-05-28)
+
+Fourth pass. Same Error Rate delta unit bug found in both CLI reporter functions.
+
+### Bug M — `cli/reporters.ts` Metric Deltas section uses `%` for Error Rate delta (both `buildComparisonMarkdown` and `printComparisonSummary`)
+
+**Problem**: The same single-`unit` pattern as Bug L existed in both CLI reporter functions. For Error Rate, `unit = '%'` was used for all value columns including the delta display. `printComparisonSummary` showed `+3% (+300%)` and `buildComparisonMarkdown`'s Metric Deltas table showed `+3%` instead of `+3 pp`. The Regressions section of `buildComparisonMarkdown` was already correct (uses `regressionUnit()`), but the Metric Deltas table was not.
+
+**Fix**: Split into `valueUnit` (for baseline/current display, `'%'`) and `deltaUnit` (for delta display, `' pp'`) in both `printComparisonSummary` and `buildComparisonMarkdown`, mirroring the pattern from `MetricDeltaTable` (UI) and Bug L fix.
+
+**Tests added (+2)**:
+- `printComparisonSummary`: Error Rate delta shows `+3 pp` not `+3%`
+- `buildComparisonMarkdown`: Error Rate Metric Deltas Delta column shows `+3 pp` not `+3%`
+
+### Post-fix test counts (Round 4)
+
+- `cli/reporters.comparison.test.ts` — 29 tests (+2: Bug M delta unit tests)
+- Full Sprint 1+2+3 suite: **1579 tests, 71 files — all passing**
+- TypeScript: 0 errors
+
