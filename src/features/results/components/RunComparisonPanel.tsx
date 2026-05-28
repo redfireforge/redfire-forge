@@ -468,7 +468,7 @@ export function TrendChart({ runs, baselines, selectedRun }: TrendProps) {
               <YAxis stroke="var(--text-muted)" fontSize={11} label={{ value: 'Avg (ms)', angle: -90, position: 'insideLeft', fontSize: 10 }} />
               <Tooltip
                 labelFormatter={(t) => new Date(t as number).toLocaleString()}
-                formatter={(value, name) => [`${value} ms`, name as string]}
+                formatter={(value, name) => [value != null ? `${value} ms` : '—', name as string]}
                 contentStyle={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 4, fontSize: 11 }}
               />
               <Legend />

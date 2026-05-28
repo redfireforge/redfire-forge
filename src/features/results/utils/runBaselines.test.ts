@@ -599,4 +599,15 @@ describe('computeRunRegressionStatus', () => {
     const status = computeRunRegressionStatus(run, [blOld, blNear, run], baselines);
     expect(status).toBe('pass'); // compared against bl-near, not bl-old
   });
+
+  it('ignores baselines of a different run type (workflow vs non-workflow)', () => {
+    // Workflow baseline — should NOT be used for a non-workflow run
+    const wfBaseline = { ...makeRun('bl-wf', { p95ResponseTime: 100 }), timestamp: 1000,
+      config: { ...makeRun('bl-wf').config, executionMode: 'workflow' as const } };
+    // Non-workflow (pool) run — p95 doubled, would be 'critical' if compared against wfBaseline
+    const run = { ...makeRun('r1', { p95ResponseTime: 200 }), timestamp: 2000 };
+    const baselines: BaselineMark[] = [{ runId: 'bl-wf', markedAt: 1 }];
+    // Only baseline is workflow type; run is non-workflow → no valid baseline
+    expect(computeRunRegressionStatus(run, [wfBaseline, run], baselines)).toBe('no-baseline');
+  });
 });
