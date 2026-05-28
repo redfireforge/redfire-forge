@@ -18,6 +18,10 @@ import {
   isBaseline,
   compareRuns,
   computeTrend,
+  loadRegressionThresholds,
+  saveRegressionThresholds,
+  resetRegressionThresholds,
+  DEFAULT_THRESHOLDS,
   type BaselineMark,
 } from './runBaselines';
 import type { TestRun } from '../../../shared/types';
@@ -368,5 +372,38 @@ describe('compareRuns edge cases', () => {
 
     const apiDelta = result.scenarioDeltas.find((d) => d.scenarioName === 'API');
     expect(apiDelta?.baselineErrorRate).toBe(50); // 1 error out of 2
+  });
+});
+
+describe('loadRegressionThresholds', () => {
+  beforeEach(async () => {
+    const mod = await import('../../../shared/utils/storage');
+    (mod as Record<string, unknown>).__resetStore?.();
+  });
+
+  it('returns DEFAULT_THRESHOLDS when storage is empty', async () => {
+    const t = await loadRegressionThresholds();
+    expect(t).toEqual(DEFAULT_THRESHOLDS);
+  });
+
+  it('merges stored values with defaults (partial object)', async () => {
+    await saveRegressionThresholds({ ...DEFAULT_THRESHOLDS, p95Percent: 5 });
+    const t = await loadRegressionThresholds();
+    expect(t.p95Percent).toBe(5);
+    expect(t.p50Percent).toBe(DEFAULT_THRESHOLDS.p50Percent);
+  });
+
+  it('persists and retrieves all threshold values', async () => {
+    const custom = { ...DEFAULT_THRESHOLDS, p50Percent: 20, tpsPercent: 25, errorRateAbsolute: 3 };
+    await saveRegressionThresholds(custom);
+    const loaded = await loadRegressionThresholds();
+    expect(loaded).toEqual(custom);
+  });
+
+  it('resets to defaults after resetRegressionThresholds', async () => {
+    await saveRegressionThresholds({ ...DEFAULT_THRESHOLDS, p95Percent: 99 });
+    await resetRegressionThresholds();
+    const t = await loadRegressionThresholds();
+    expect(t).toEqual(DEFAULT_THRESHOLDS);
   });
 });

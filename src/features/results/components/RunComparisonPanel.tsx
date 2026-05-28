@@ -1,25 +1,73 @@
 import { useState, useMemo } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import type { TestRun } from '../../../shared/types';
-import type { MetricDelta, ScenarioDelta, RegressionAlert, TrendPoint, BaselineMark } from '../utils/runBaselines';
+import type { MetricDelta, ScenarioDelta, RegressionAlert, TrendPoint, BaselineMark, RegressionThresholds } from '../utils/runBaselines';
 import { compareRuns, computeTrend } from '../utils/runBaselines';
 import { ResponseTimeOverlayHistogram } from './ResponseTimeHistogram';
 
 interface ComparisonProps {
   baselineRun: TestRun;
   currentRun: TestRun;
+  /** User-configured thresholds. Defaults to DEFAULT_THRESHOLDS inside compareRuns. */
+  thresholds?: RegressionThresholds;
+  /** Label stored for the baseline run (from BaselineMark.label). */
+  baselineLabel?: string;
+  /** Called when user renames the baseline inline. */
+  onRenameBaseline?: (runId: string, label: string) => void;
 }
 
-export function RunComparisonPanel({ baselineRun, currentRun }: ComparisonProps) {
-  const comparison = useMemo(() => compareRuns(baselineRun, currentRun), [baselineRun, currentRun]);
+export function RunComparisonPanel({ baselineRun, currentRun, thresholds, baselineLabel, onRenameBaseline }: ComparisonProps) {
+  const comparison = useMemo(
+    () => compareRuns(baselineRun, currentRun, thresholds),
+    [baselineRun, currentRun, thresholds],
+  );
   const [tab, setTab] = useState<'overview' | 'scenarios' | 'regressions' | 'distribution'>('overview');
+  const [renamingBaseline, setRenamingBaseline] = useState(false);
+  const [renameValue, setRenameValue] = useState('');
+
+  const startRename = () => {
+    setRenameValue(baselineLabel ?? new Date(baselineRun.timestamp).toLocaleString());
+    setRenamingBaseline(true);
+  };
+
+  const commitRename = () => {
+    const trimmed = renameValue.trim();
+    if (trimmed && onRenameBaseline) onRenameBaseline(baselineRun.id, trimmed);
+    setRenamingBaseline(false);
+  };
+
+  const baselineDisplay = baselineLabel ?? new Date(baselineRun.timestamp).toLocaleString();
 
   return (
     <div className="run-comparison-panel">
       <div className="run-comparison-header">
         <h4>Run Comparison</h4>
         <div className="run-comparison-runs">
-          <span className="run-comparison-label baseline-label">Baseline: {new Date(baselineRun.timestamp).toLocaleString()}</span>
+          <span className="run-comparison-label baseline-label">
+            ★ Baseline:
+            {renamingBaseline ? (
+              <input
+                className="baseline-rename-input"
+                value={renameValue}
+                autoFocus
+                onChange={(e) => setRenameValue(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') commitRename();
+                  if (e.key === 'Escape') setRenamingBaseline(false);
+                }}
+                onBlur={commitRename}
+              />
+            ) : (
+              <>
+                {' '}{baselineDisplay}
+                {onRenameBaseline && (
+                  <button className="baseline-rename-btn" onClick={startRename} title="Rename this baseline">
+                    ✏
+                  </button>
+                )}
+              </>
+            )}
+          </span>
           <span className="run-comparison-vs">vs</span>
           <span className="run-comparison-label current-label">Current: {new Date(currentRun.timestamp).toLocaleString()}</span>
         </div>
