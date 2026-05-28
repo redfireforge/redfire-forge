@@ -170,9 +170,11 @@ export function generateComparisonMarkdown(comparison: RunComparison, baselineLa
     for (const r of regressions) {
       const unit = regressionUnit(r.metric);
       const severityLabel = r.severity === 'critical' ? '🔴 Critical' : '🟡 Warning';
-      const sign = r.actual > 0 ? '+' : '';
+      // TPS regression = a drop — show '-actual%' so the sign matches the direction of change.
+      // All other metrics regress upward, so '+actual' is correct.
+      const actualSign = r.metric === 'TPS' ? '-' : '+';
       lines.push(
-        `| ${r.metric} | ${severityLabel} | ${r.threshold}${unit} | ${sign}${r.actual}${unit} |`,
+        `| ${r.metric} | ${severityLabel} | ${r.threshold}${unit} | ${actualSign}${r.actual}${unit} |`,
       );
     }
   }

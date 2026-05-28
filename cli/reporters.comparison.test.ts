@@ -273,6 +273,15 @@ describe('buildComparisonMarkdown', () => {
     expect(md).toMatch(/Avg Response Time.*20%/);
   });
 
+  it('shows -actual% for TPS regression in Regressions section (TPS drops, not rises)', () => {
+    const comparison = makeComparison();
+    comparison.regressions = [{ metric: 'TPS', threshold: 10, actual: 20, severity: 'warning' }];
+    const md = buildComparisonMarkdown(comparison);
+    // TPS regression = drop — must show '-20%', not '+20%'
+    expect(md).toContain('-20%');
+    expect(md).not.toMatch(/\|\s*TPS\s*\|[^|]*\|\s*10%\s*\|\s*\+20%/);
+  });
+
   it('regression count badge in header when regressions exist', () => {
     const md = buildComparisonMarkdown(makeComparison({ hasCritical: true }));
     expect(md).toContain('1 regression');
