@@ -27,8 +27,11 @@ export function RunComparisonPanel({ baselineRun, currentRun, thresholds, baseli
   // Prevents onBlur from committing when Escape was pressed
   const renameEscapedRef = useRef(false);
 
-  // Reset rename UI whenever the baseline being compared changes
+  // Reset rename UI whenever the baseline being compared changes.
+  // Must set the escape guard FIRST so that the input's onBlur (fired when the
+  // input unmounts) cannot accidentally rename the newly-arrived baseline.
   useEffect(() => {
+    renameEscapedRef.current = true;
     setRenamingBaseline(false);
   }, [baselineRun.id]);
 
@@ -85,8 +88,8 @@ export function RunComparisonPanel({ baselineRun, currentRun, thresholds, baseli
 
       {comparison.regressions.length > 0 && (
         <div className="regression-alerts">
-          {comparison.regressions.map((r, i) => (
-            <div key={i} className={`regression-alert regression-${r.severity}`}>
+          {comparison.regressions.map((r) => (
+            <div key={r.metric} className={`regression-alert regression-${r.severity}`}>
               <span className="regression-icon">{r.severity === 'critical' ? '🔴' : '🟡'}</span>
               <span>{r.metric}: {r.severity === 'critical' ? 'Critical' : 'Warning'} regression detected</span>
             </div>
@@ -200,10 +203,10 @@ function RegressionList({ regressions, deltas }: { regressions: RegressionAlert[
   }
   return (
     <div className="regression-details">
-      {regressions.map((r, i) => {
+      {regressions.map((r) => {
         const delta = deltas.find((d) => d.metric === r.metric);
         return (
-          <div key={i} className={`regression-detail regression-${r.severity}`}>
+          <div key={r.metric} className={`regression-detail regression-${r.severity}`}>
             <div className="regression-detail-header">
               <span className="regression-severity">{r.severity === 'critical' ? '🔴 Critical' : '🟡 Warning'}</span>
               <span className="regression-metric">{r.metric}</span>

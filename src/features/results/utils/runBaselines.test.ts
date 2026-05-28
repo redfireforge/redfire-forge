@@ -406,4 +406,25 @@ describe('loadRegressionThresholds', () => {
     const t = await loadRegressionThresholds();
     expect(t).toEqual(DEFAULT_THRESHOLDS);
   });
+
+  it('ignores null/string/negative values in stored JSON (falls back to defaults)', async () => {
+    const mod = await import('../../../shared/utils/storage');
+    // Manually write corrupt JSON to storage
+    await (mod as Record<string, unknown> & { writeKey: (k: string, v: string) => Promise<void> })
+      .writeKey('perf-test-regression-thresholds', JSON.stringify({
+        p95Percent: null,           // null — should use default
+        p50Percent: 'bad',          // string — should use default
+        p99Percent: -5,             // negative — should use default
+        avgPercent: 20,             // valid — should be used
+        tpsPercent: Infinity,       // non-finite — should use default
+      }));
+    const t = await loadRegressionThresholds();
+    expect(t.p95Percent).toBe(DEFAULT_THRESHOLDS.p95Percent);
+    expect(t.p50Percent).toBe(DEFAULT_THRESHOLDS.p50Percent);
+    expect(t.p99Percent).toBe(DEFAULT_THRESHOLDS.p99Percent);
+    expect(t.avgPercent).toBe(20); // valid value preserved
+    expect(t.tpsPercent).toBe(DEFAULT_THRESHOLDS.tpsPercent);
+    // Properties not in DEFAULT_THRESHOLDS are not injected
+    expect(Object.keys(t)).toEqual(Object.keys(DEFAULT_THRESHOLDS));
+  });
 });
