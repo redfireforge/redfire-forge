@@ -1175,3 +1175,31 @@ If `actual` had been accidentally set to `deltaPercent` (400) instead of `delta`
 
 **All Sprint 1 source code and tests are clean. No further issues found.**
 
+---
+
+## Sprint 2 Deep Review Pass — Round 1 (2026-05-28)
+
+### Source code — no logic bugs found
+
+All Sprint 2 source logic in `runBaselines.ts` (`computeScopedTrend`, `computePerScenarioTrend`, `findNearestBaseline`, `computeRunRegressionStatus`) and `RunComparisonPanel.tsx` (`TrendChart`) was reviewed. No logic bugs found. Previously fixed bugs (A–D, G) confirmed correct.
+
+### Test gaps found and filled (+5 TrendChart tests)
+
+The `TrendChart` describe block in `RunComparisonPanel.test.tsx` had 5 tests that covered only basic rendering. Five tests were missing:
+
+**1. Scope select renders** — no test verified `.trend-scope-select` exists with 4 options.
+
+**2. metric2 select renders and excludes primary** — no test verified `.trend-metric-select2` has 7 options (6 non-primary + 'none') and excludes the primary metric.
+
+**3. Bug A regression test** — Bug A (metric2 not cleared when primary changes to same value) was fixed but never tested. If the fix were accidentally removed, no test would catch it. New test: select metric2='tps', change primary to 'tps', verify metric2 resets to 'none'.
+
+**4. Per-scenario tab empty hint** — no test verified the "No scenario data available" message when runs have no results.
+
+**5. Bug D regression test (per-scenario tooltip null display)** — Bug D (formatter showed "null ms" instead of "—" for absent scenarios) was fixed but untested. Added test: switch to Per-Scenario tab with scenario data, Tooltip mock now calls `formatter(null)` and renders the result — verify it's '—' not 'null'. Also updated the Tooltip mock to call `formatter(null, 'metric')` and render the result in `[data-testid="tooltip-null-display"]` for assertions.
+
+### Post-fix test counts (Sprint 2 Round 1)
+
+- `src/features/results/components/RunComparisonPanel.test.tsx` — 43 tests (+5: scope select, metric2 select, Bug A, per-scenario empty hint, Bug D tooltip null)
+- Full Sprint 1+2+3 suite: **1585 tests, 71 files — all passing**
+- TypeScript: 0 errors
+
