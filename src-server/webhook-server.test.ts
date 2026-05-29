@@ -243,9 +243,23 @@ describe('webhook-server', { timeout: 30_000 }, () => {
     it('returns 404 when workflow not found', async () => {
       mockGetWorkflow.mockResolvedValue(null);
 
-      const res = await request(app)
-        .post('/webhooks/unknown/trigger-1')
-        .send({});
+      let res: Awaited<ReturnType<typeof request>> | null = null;
+      let lastErr: unknown;
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        try {
+          res = await request(app)
+            .post('/webhooks/unknown/trigger-1')
+            .send({});
+          break;
+        } catch (err) {
+          lastErr = err;
+          const msg = err instanceof Error ? err.message : String(err);
+          const retryable = msg.includes('ECONNRESET');
+          if (!retryable || attempt === 2) throw err;
+        }
+      }
+
+      if (!res) throw lastErr ?? new Error('Request failed');
 
       expect(res.status).toBe(404);
       expect(res.body.error).toBe('Workflow not found');
