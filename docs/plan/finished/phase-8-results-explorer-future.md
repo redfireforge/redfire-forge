@@ -480,7 +480,7 @@ A documentation audit across all four completed phases identified gaps and produ
 
 | File | Change |
 |------|--------|
-| `src/data/galleries/trainingPaths/workflowPaths.ts` | Added 2 new manual entries in "Results Analysis" phase; updated Results Explorer description |
+| `src/data/galleries/trainingPaths/workflowPaths.ts` | Added 2 new manual entries in "Results Analysis" phase (now Comparison & Trends); updated Results Explorer description |
 | `src/data/galleries/trainingPaths/manualMetadata.ts` | Added 2 new entries; added `updatedAt`/`changeNote` on existing Results Explorer entry |
 
 ### Gallery Samples

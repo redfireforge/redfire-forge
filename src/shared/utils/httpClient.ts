@@ -233,7 +233,10 @@ async function getNodeDispatcher(): Promise<{ dispatcher: unknown; isProxy: bool
   if (_nodeDispatcherInited) return { dispatcher: _nodeDispatcher, isProxy: _nodeDispatcherIsProxy };
   _nodeDispatcherInited = true;
   try {
-    const undici = await import('undici');
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore — vite-ignore prevents Vite from bundling undici into the browser chunk;
+    // the try-catch handles the graceful miss in non-Node (browser/Tauri) contexts.
+    const undici = await import(/* @vite-ignore */ 'undici');
     const proxy = process.env.HTTPS_PROXY || process.env.https_proxy
       || process.env.HTTP_PROXY || process.env.http_proxy;
     if (proxy) {

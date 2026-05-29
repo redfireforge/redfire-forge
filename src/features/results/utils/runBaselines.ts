@@ -11,6 +11,7 @@ import type { TestRun, TestSummary } from '../../../shared/types';
 // ── Storage ──
 
 const BASELINES_KEY = 'perf-test-baselines';
+const THRESHOLDS_KEY = 'perf-test-regression-thresholds';
 const MAX_BASELINES = 10;
 
 export interface BaselineMark {
@@ -63,6 +64,56 @@ export function isBaseline(baselines: BaselineMark[], runId: string): boolean {
   return baselines.some((b) => b.runId === runId);
 }
 
+// ── Regression thresholds ──
+
+export interface RegressionThresholds {
+  p50Percent: number;
+  p95Percent: number;
+  p99Percent: number;
+  p999Percent: number;
+  avgPercent: number;
+  errorRateAbsolute: number; // absolute percentage points
+  tpsPercent: number;
+}
+
+export const DEFAULT_THRESHOLDS: RegressionThresholds = {
+  p50Percent: 15,
+  p95Percent: 10,
+  p99Percent: 15,
+  p999Percent: 20,
+  avgPercent: 10,
+  errorRateAbsolute: 1,
+  tpsPercent: 10,
+};
+
+// ── Threshold persistence ──
+
+export async function loadRegressionThresholds(): Promise<RegressionThresholds> {
+  try {
+    const raw = await readKey(THRESHOLDS_KEY);
+    if (!raw) return { ...DEFAULT_THRESHOLDS };
+    const parsed: Record<string, unknown> = JSON.parse(raw);
+    // Only accept finite non-negative numbers; fall back to default for anything else
+    const result = { ...DEFAULT_THRESHOLDS };
+    for (const [k, v] of Object.entries(parsed)) {
+      if (Object.prototype.hasOwnProperty.call(DEFAULT_THRESHOLDS, k) && typeof v === 'number' && isFinite(v) && v >= 0) {
+        (result as Record<string, number>)[k] = v;
+      }
+    }
+    return result;
+  } catch {
+    return { ...DEFAULT_THRESHOLDS };
+  }
+}
+
+export async function saveRegressionThresholds(t: RegressionThresholds): Promise<void> {
+  await writeKey(THRESHOLDS_KEY, JSON.stringify(t));
+}
+
+export async function resetRegressionThresholds(): Promise<void> {
+  await writeKey(THRESHOLDS_KEY, JSON.stringify(DEFAULT_THRESHOLDS));
+}
+
 // ── Comparison ──
 
 export interface MetricDelta {
@@ -104,26 +155,6 @@ export interface RunComparison {
   regressions: RegressionAlert[];
 }
 
-export interface RegressionThresholds {
-  p50Percent: number;
-  p95Percent: number;
-  p99Percent: number;
-  p999Percent: number;
-  avgPercent: number;
-  errorRateAbsolute: number; // absolute percentage points
-  tpsPercent: number;
-}
-
-export const DEFAULT_THRESHOLDS: RegressionThresholds = {
-  p50Percent: 15,
-  p95Percent: 10,
-  p99Percent: 15,
-  p999Percent: 20,
-  avgPercent: 10,
-  errorRateAbsolute: 1,
-  tpsPercent: 10,
-};
-
 /**
  * Compare two runs and produce deltas, per-scenario breakdown, and regression alerts.
  */
@@ -159,8 +190,8 @@ function computeMetricDeltas(
     { metric: 'P95 Response Time', bKey: 'p95ResponseTime', threshold: thresholds.p95Percent },
     { metric: 'P99 Response Time', bKey: 'p99ResponseTime', threshold: thresholds.p99Percent },
     { metric: 'P99.9 Response Time', bKey: 'p999ResponseTime', threshold: thresholds.p999Percent },
-    { metric: 'Min Response Time', bKey: 'minResponseTime', threshold: 999 },
-    { metric: 'Max Response Time', bKey: 'maxResponseTime', threshold: 999 },
+    { metric: 'Min Response Time', bKey: 'minResponseTime', threshold: thresholds.avgPercent },
+    { metric: 'Max Response Time', bKey: 'maxResponseTime', threshold: thresholds.avgPercent },
   ];
 
   for (const { metric, bKey, threshold } of timeMetrics) {
@@ -174,7 +205,9 @@ function computeMetricDeltas(
       currentValue: cVal,
       delta: round2(delta),
       deltaPercent: round2(pct),
-      improved: delta < 0,
+      // Keep status symmetric with regression detection:
+      // only mark "Improved" when favorable change exceeds the same threshold.
+      improved: pct < -threshold,
       regressed: pct > threshold,
     });
   }
@@ -191,7 +224,7 @@ function computeMetricDeltas(
       currentValue: cVal,
       delta: round2(delta),
       deltaPercent: round2(pct),
-      improved: delta > 0,
+      improved: pct > thresholds.tpsPercent,
       regressed: pct < -thresholds.tpsPercent,
     });
   }
@@ -208,7 +241,7 @@ function computeMetricDeltas(
       currentValue: cVal,
       delta: round2(delta),
       deltaPercent: round2(pct),
-      improved: delta < 0,
+      improved: delta < -thresholds.errorRateAbsolute,
       regressed: delta > thresholds.errorRateAbsolute,
     });
   }
@@ -250,7 +283,9 @@ function computeScenarioDeltas(
       currentErrorRate: round2(cGroup?.errorRate ?? 0),
       timeDelta: round2(timeDelta),
       timeDeltaPercent: round2(timeDeltaPct),
-      regressed: timeDeltaPct > thresholds.p95Percent,
+      // Per-scenario comparison is on average response times, so use avgPercent threshold
+      // (not p95Percent, which is for the P95 percentile summary metric).
+      regressed: timeDeltaPct > thresholds.avgPercent,
     });
   }
 
@@ -294,28 +329,32 @@ function detectRegressions(
   for (const d of deltas) {
     if (!d.regressed) continue;
 
+    // Resolve the configured threshold for this specific metric.
+    // Used for both severity determination (2x = critical) and the alert display.
+    const configuredThreshold = d.metric === 'Error Rate' ? thresholds.errorRateAbsolute
+      : d.metric === 'TPS' ? thresholds.tpsPercent
+      : d.metric.includes('P99.9') ? thresholds.p999Percent
+      : d.metric.includes('P95') ? thresholds.p95Percent
+      : d.metric.includes('P99') ? thresholds.p99Percent
+      : d.metric.includes('P50') ? thresholds.p50Percent
+      : thresholds.avgPercent;
+
     let severity: 'warning' | 'critical' = 'warning';
-    // Critical if regression is 2x the threshold
-    if (d.metric.includes('Response Time') && d.deltaPercent > 0) {
-      const thresholdVal = d.metric.includes('P99.9') ? thresholds.p999Percent
-        : d.metric.includes('P95') ? thresholds.p95Percent
-        : d.metric.includes('P99') ? thresholds.p99Percent
-        : d.metric.includes('P50') ? thresholds.p50Percent
-        : thresholds.avgPercent;
-      if (d.deltaPercent > thresholdVal * 2) severity = 'critical';
+    if (d.metric.includes('Response Time') && d.deltaPercent > configuredThreshold * 2) {
+      severity = 'critical';
     }
     if (d.metric === 'Error Rate') {
       const errorDelta = current.errorRate - baseline.errorRate;
-      if (errorDelta > thresholds.errorRateAbsolute * 2) severity = 'critical';
+      if (errorDelta > configuredThreshold * 2) severity = 'critical';
     }
-    if (d.metric === 'TPS' && d.deltaPercent < -thresholds.tpsPercent * 2) {
+    if (d.metric === 'TPS' && d.deltaPercent < -configuredThreshold * 2) {
       severity = 'critical';
     }
 
     alerts.push({
       metric: d.metric,
-      threshold: d.metric === 'Error Rate' ? thresholds.errorRateAbsolute : Math.abs(d.deltaPercent),
-      actual: d.metric === 'Error Rate' ? d.delta : d.deltaPercent,
+      threshold: configuredThreshold,
+      actual: d.metric === 'Error Rate' ? d.delta : Math.abs(d.deltaPercent),
       severity,
     });
   }
@@ -368,4 +407,162 @@ function round2(n: number): number {
 function avg(nums: number[]): number {
   if (nums.length === 0) return 0;
   return round2(nums.reduce((a, b) => a + b, 0) / nums.length);
+}
+
+// ── Sprint 2: Trend scoping + per-scenario trend ──
+
+/** Keys of TrendPoint that represent numeric metrics (usable as chart dataKey). */
+export type TrendMetric =
+  | 'tps'
+  | 'avgResponseTime'
+  | 'p50ResponseTime'
+  | 'p95ResponseTime'
+  | 'p99ResponseTime'
+  | 'p999ResponseTime'
+  | 'errorRate';
+
+/**
+ * How to scope the trend to runs comparable to the reference run.
+ * - 'all'      — all runs (no filter)
+ * - 'service'  — runs sharing the same svcName
+ * - 'env'      — runs sharing the same svcName + envName
+ * - 'workflow' — runs sharing the same workflowName
+ */
+export type TrendScope = 'all' | 'service' | 'env' | 'workflow';
+
+/** A single data point for a per-scenario trend series. */
+export interface ScenarioTrendPoint {
+  timestamp: number;
+  runId: string;
+  avgTime: number;
+  isBaseline: boolean;
+}
+
+/**
+ * Filter runs to those sharing the same suite context as the reference run.
+ * scope='all' returns the original array unchanged (no allocation).
+ */
+function filterByScope(runs: TestRun[], reference: TestRun, scope: TrendScope): TestRun[] {
+  if (scope === 'all') return runs;
+  return runs.filter((r) => {
+    if (scope === 'service') return r.svcName === reference.svcName;
+    if (scope === 'env') return r.envName === reference.envName && r.svcName === reference.svcName;
+    if (scope === 'workflow') return r.workflowName === reference.workflowName;
+    return true;
+  });
+}
+
+/**
+ * Like computeTrend but limits runs to those that share the same suite context
+ * as the reference run (determined by `scope`).
+ */
+export function computeScopedTrend(
+  runs: TestRun[],
+  reference: TestRun,
+  scope: TrendScope,
+  baselines: BaselineMark[],
+): TrendPoint[] {
+  return computeTrend(filterByScope(runs, reference, scope), baselines);
+}
+
+/**
+ * Per-scenario trend: one series per unique scenario name across the scoped runs.
+ * Returns up to `topN` scenarios ordered by total request count.
+ * Keys in the returned map are numeric indices (`s0`, `s1`, ...) — use the parallel
+ * `scenarioNames` array (same order) to look up display names.
+ */
+export function computePerScenarioTrend(
+  runs: TestRun[],
+  reference: TestRun,
+  scope: TrendScope,
+  baselines: BaselineMark[],
+  topN = 8,
+): { seriesKeys: string[]; scenarioNames: string[]; data: Record<string, ScenarioTrendPoint[]> } {
+  const baselineIds = new Set(baselines.map((b) => b.runId));
+  const filtered = filterByScope(runs, reference, scope);
+
+  // Count total requests per scenario name across all filtered runs
+  const scenarioCounts = new Map<string, number>();
+  for (const run of filtered) {
+    for (const result of run.results) {
+      scenarioCounts.set(result.scenarioName, (scenarioCounts.get(result.scenarioName) ?? 0) + 1);
+    }
+  }
+
+  const topScenarios = [...scenarioCounts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, topN)
+    .map(([name]) => name);
+
+  if (topScenarios.length === 0) return { seriesKeys: [], scenarioNames: [], data: {} };
+
+  // Use safe index-based keys (s0, s1, …) so Recharts dataKey never misparses
+  // scenario names that contain dots, slashes, or brackets.
+  const seriesKeys = topScenarios.map((_, i) => `s${i}`);
+  const data: Record<string, ScenarioTrendPoint[]> = {};
+  for (const key of seriesKeys) data[key] = [];
+
+  // Chronological order (oldest first)
+  const chronological = [...filtered].sort((a, b) => a.timestamp - b.timestamp);
+  for (const run of chronological) {
+    const groups = groupByScenario(run.results);
+    for (let i = 0; i < topScenarios.length; i++) {
+      const g = groups.get(topScenarios[i]);
+      if (g) {
+        data[seriesKeys[i]].push({
+          timestamp: run.timestamp,
+          runId: run.id,
+          avgTime: avg(g.times),
+          isBaseline: baselineIds.has(run.id),
+        });
+      }
+    }
+  }
+
+  return { seriesKeys, scenarioNames: topScenarios, data };
+}
+
+// ── Sprint 2: Per-run regression status ──
+
+/** Regression status of a run compared to its nearest prior baseline. */
+export type RunRegressionStatus = 'pass' | 'warn' | 'critical' | 'no-baseline';
+
+/**
+ * Find the most recent baseline run that is chronologically older than `run`.
+ */
+function findNearestBaseline(
+  run: TestRun,
+  allRuns: TestRun[],
+  baselines: BaselineMark[],
+): TestRun | null {
+  const baselineIds = new Set(baselines.map((b) => b.runId));
+  const isWorkflow = run.config.executionMode === 'workflow';
+  // Candidates: baseline runs strictly older than this run AND of the same run-type class
+  // (workflow vs non-workflow). Comparing across types produces meaningless regression status.
+  const candidates = allRuns.filter(
+    (r) => baselineIds.has(r.id) &&
+      r.timestamp < run.timestamp &&
+      (r.config.executionMode === 'workflow') === isWorkflow,
+  );
+  if (candidates.length === 0) return null;
+  // Most recent candidate
+  return candidates.reduce((best, r) => (r.timestamp > best.timestamp ? r : best));
+}
+
+/**
+ * Compute the regression status of `run` against its nearest prior baseline.
+ * Returns 'no-baseline' when no applicable baseline exists.
+ */
+export function computeRunRegressionStatus(
+  run: TestRun,
+  allRuns: TestRun[],
+  baselines: BaselineMark[],
+  thresholds: RegressionThresholds = DEFAULT_THRESHOLDS,
+): RunRegressionStatus {
+  const nearestBaseline = findNearestBaseline(run, allRuns, baselines);
+  if (!nearestBaseline) return 'no-baseline';
+  const comparison = compareRuns(nearestBaseline, run, thresholds);
+  if (comparison.regressions.some((r) => r.severity === 'critical')) return 'critical';
+  if (comparison.regressions.length > 0) return 'warn';
+  return 'pass';
 }

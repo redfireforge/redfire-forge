@@ -1261,6 +1261,10 @@ tr:hover td { background: var(--surface-hover); }
   background: color-mix(in srgb, #5b9cf6 15%, transparent);
   color: #5b9cf6;
 }
+.count-badge-sla {
+  background: color-mix(in srgb, #22c55e 15%, transparent);
+  color: #86efac;
+}
 .count-badge-version {
   background: #6c63ff22;
   color: #6c63ff;
@@ -2474,7 +2478,7 @@ tr:hover td { background: var(--surface-hover); }
 }
 
 .rate-mode-btn:hover:not(:disabled) {
-  background: var(--bg-hover);
+  background: var(--surface-hover);
   color: var(--text);
 }
 

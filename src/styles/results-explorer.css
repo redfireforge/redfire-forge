@@ -404,7 +404,7 @@
 }
 
 .results-explorer-matrix-header:hover {
-  background: var(--bg-hover);
+  background: var(--surface-hover);
 }
 
 .matrix-toggle-icon {
@@ -477,7 +477,7 @@
 }
 
 .explorer-detail-close:hover {
-  background: var(--bg-hover);
+  background: var(--surface-hover);
   color: var(--text);
 }
 
@@ -1019,7 +1019,7 @@
 }
 
 .iteration-row:hover {
-  background: var(--bg-hover);
+  background: var(--surface-hover);
 }
 
 .iteration-row.fail {
@@ -1157,7 +1157,7 @@
 }
 
 .toggle-btn:hover {
-  background: var(--bg-hover);
+  background: var(--surface-hover);
 }
 
 .toggle-btn.active {
@@ -1461,7 +1461,7 @@
 }
 
 .matrix-filter-btn:hover:not(:disabled) {
-  background: var(--bg-hover);
+  background: var(--surface-hover);
   color: var(--text);
 }
 
@@ -1540,7 +1540,7 @@
 }
 
 .matrix-table th.sortable:hover {
-  background: var(--bg-hover);
+  background: var(--surface-hover);
 }
 
 .matrix-table th.sorted {
@@ -1557,7 +1557,7 @@
 }
 
 .matrix-table tbody tr:hover {
-  background: var(--bg-hover);
+  background: var(--surface-hover);
 }
 
 .matrix-table tbody tr.failed-row {
@@ -3229,7 +3229,7 @@
 
 .re-console-floating {
   position: fixed;
-  z-index: 100;
+  z-index: 200;
   border: 1px solid #475569;
   border-radius: 8px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);

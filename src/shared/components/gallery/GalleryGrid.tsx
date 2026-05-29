@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
-import type { GalleryEntry } from '../../../data/galleries/types';
+import type { GalleryEntry, GalleryDomain } from '../../../data/galleries/types';
 import type { GallerySampleStatus } from '../../../features/gallery/types';
 import { galleryDomains } from '../../../data/galleries/registry';
 import { trainingPaths } from '../../../data/galleries/trainingPaths';
@@ -13,6 +13,7 @@ import {
 } from './galleryFiltersUtils';
 import { GalleryDetailPanel } from './GalleryDetailPanel';
 import { TrainingPathsView } from './TrainingPathsView';
+import { useSidebarResize } from '../../../app/hooks/useSidebarResize';
 
 type LabelProp<T> = string | ((entry: GalleryEntry<T>) => string | undefined);
 
@@ -37,6 +38,8 @@ interface GalleryGridProps<T = unknown> {
   pageSize?: number;
   /** Map of gallery sample ID → import status for showing badges on cards. */
   sampleStatus?: Record<string, GallerySampleStatus>;
+  /** If set, initialize the domain filter to this value instead of "all". */
+  initialDomain?: GalleryDomain;
 }
 
 const DEFAULT_PAGE_SIZE = 12;
@@ -59,12 +62,30 @@ export function GalleryGrid<T = unknown>({
   externalSearch,
   pageSize = DEFAULT_PAGE_SIZE,
   sampleStatus,
+  initialDomain,
 }: GalleryGridProps<T>) {
-  const [filters, setFilters] = useState<GalleryFilterState>(defaultFilterState);
+  const [filters, setFilters] = useState<GalleryFilterState>(() =>
+    initialDomain ? { ...defaultFilterState(), domain: initialDomain } : defaultFilterState(),
+  );
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [page, setPage] = useState(0);
+  const prevInitialDomain = useRef(initialDomain);
+  useEffect(() => {
+    if (initialDomain !== prevInitialDomain.current) {
+      prevInitialDomain.current = initialDomain;
+      if (initialDomain) {
+        setFilters(f => ({ ...f, domain: initialDomain }));
+        setPage(0);
+      }
+    }
+  }, [initialDomain]);
   const [mode, setMode] = useState<GalleryMode>('samples');
   const [activePathId, setActivePathId] = useState<string | undefined>();
+  const { sidebarWidth: filterWidth, handleResizeStart: handleFilterResizeStart } = useSidebarResize({
+    initialWidth: 220,
+    minWidth: 160,
+    maxWidth: 400,
+  });
 
   // Derive unique categories and live-API hostnames for filter dropdowns
   const { categories, liveApiHosts, allTags } = useMemo(() => {
@@ -190,7 +211,9 @@ export function GalleryGrid<T = unknown>({
         trainingPaths={trainingPaths}
         activePathId={activePathId}
         onSelectPath={handleSelectPath}
+        width={filterWidth}
       />
+      <div className="gallery-resize-handle" onMouseDown={handleFilterResizeStart} />
 
       <div className="gallery-main">
         <div className="gallery-search-bar">

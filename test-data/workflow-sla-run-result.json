@@ -1,0 +1,195 @@
+{
+  "id": "wf-run-sla-sample-001",
+  "timestamp": 1748476800000,
+  "envName": "Local",
+  "projectName": "SLA Sample Workflow",
+  "config": {
+    "concurrency": 1,
+    "iterations": 1,
+    "scenarioWeights": [],
+    "executionMode": "workflow",
+    "timeoutSec": 30,
+    "retryCount": 0,
+    "retryDelayMs": 0,
+    "errorPolicy": "continue",
+    "maxErrors": 0,
+    "maxErrorRate": 0,
+    "workflowId": "wf-sla-sample-001",
+    "slaTargets": [
+      {
+        "metric": "p95",
+        "operator": "lte",
+        "value": 2000,
+        "label": "Overall P95",
+        "scenarioName": null
+      },
+      {
+        "metric": "p95",
+        "operator": "lte",
+        "value": 200,
+        "warnAt": 300,
+        "label": "Get Users P95",
+        "scenarioName": "GET /users"
+      },
+      {
+        "metric": "errorRate",
+        "operator": "lte",
+        "value": 1,
+        "label": "Get Users Error Rate",
+        "scenarioName": "GET /users"
+      },
+      {
+        "metric": "p95",
+        "operator": "lte",
+        "value": 1500,
+        "warnAt": 1000,
+        "label": "Create Post P95",
+        "scenarioName": "POST /posts"
+      }
+    ]
+  },
+  "summary": {
+    "tps": 1.48,
+    "avgResponseTime": 672.5,
+    "minResponseTime": 290.0,
+    "maxResponseTime": 1200.0,
+    "p50ResponseTime": 350.0,
+    "p95ResponseTime": 1200.0,
+    "p99ResponseTime": 1200.0,
+    "p999ResponseTime": 1200.0,
+    "errorRate": 0,
+    "errorsByStatus": {},
+    "totalRequests": 4,
+    "successfulRequests": 4,
+    "failedRequests": 0,
+    "failedValidations": 0,
+    "totalDurationMs": 2700,
+    "cancelledRequests": 0
+  },
+  "results": [
+    {
+      "id": "r-wf-1",
+      "scenarioId": "node-get-users",
+      "scenarioName": "GET /users",
+      "featureGroupName": "SLA Sample Workflow",
+      "groupName": "SLA Sample Workflow",
+      "url": "https://jsonplaceholder.typicode.com/users",
+      "method": "GET",
+      "httpStatus": 200,
+      "responseTimeMs": 290.0,
+      "responseBody": "[{\"id\":1,\"name\":\"Leanne Graham\"}]",
+      "responseHeaders": {
+        "content-type": "application/json; charset=utf-8"
+      },
+      "timestamp": 1748476800100,
+      "passed": true,
+      "validationMode": "none",
+      "failureDetails": [],
+      "timing": {
+        "dnsLookup": 0,
+        "tcpConnect": 0,
+        "tlsHandshake": 0,
+        "ttfb": 260.0,
+        "download": 30.0,
+        "total": 290.0
+      },
+      "requestLog": {
+        "headers": {}
+      },
+      "scenarioTags": []
+    },
+    {
+      "id": "r-wf-2",
+      "scenarioId": "node-get-users",
+      "scenarioName": "GET /users",
+      "featureGroupName": "SLA Sample Workflow",
+      "groupName": "SLA Sample Workflow",
+      "url": "https://jsonplaceholder.typicode.com/users",
+      "method": "GET",
+      "httpStatus": 200,
+      "responseTimeMs": 350.0,
+      "responseBody": "[{\"id\":1,\"name\":\"Leanne Graham\"}]",
+      "responseHeaders": {
+        "content-type": "application/json; charset=utf-8"
+      },
+      "timestamp": 1748476800500,
+      "passed": true,
+      "validationMode": "none",
+      "failureDetails": [],
+      "timing": {
+        "dnsLookup": 0,
+        "tcpConnect": 0,
+        "tlsHandshake": 0,
+        "ttfb": 310.0,
+        "download": 40.0,
+        "total": 350.0
+      },
+      "requestLog": {
+        "headers": {}
+      },
+      "scenarioTags": []
+    },
+    {
+      "id": "r-wf-3",
+      "scenarioId": "node-create-post",
+      "scenarioName": "POST /posts",
+      "featureGroupName": "SLA Sample Workflow",
+      "groupName": "SLA Sample Workflow",
+      "url": "https://jsonplaceholder.typicode.com/posts",
+      "method": "POST",
+      "httpStatus": 201,
+      "responseBody": "{\"id\":101,\"title\":\"test\",\"body\":\"body\",\"userId\":1}",
+      "responseHeaders": {
+        "content-type": "application/json; charset=utf-8"
+      },
+      "timestamp": 1748476801000,
+      "passed": true,
+      "validationMode": "none",
+      "failureDetails": [],
+      "responseTimeMs": 850.0,
+      "timing": {
+        "dnsLookup": 0,
+        "tcpConnect": 0,
+        "tlsHandshake": 0,
+        "ttfb": 780.0,
+        "download": 70.0,
+        "total": 850.0
+      },
+      "requestLog": {
+        "headers": {}
+      },
+      "scenarioTags": []
+    },
+    {
+      "id": "r-wf-4",
+      "scenarioId": "node-create-post",
+      "scenarioName": "POST /posts",
+      "featureGroupName": "SLA Sample Workflow",
+      "groupName": "SLA Sample Workflow",
+      "url": "https://jsonplaceholder.typicode.com/posts",
+      "method": "POST",
+      "httpStatus": 201,
+      "responseBody": "{\"id\":102,\"title\":\"test2\",\"body\":\"body2\",\"userId\":1}",
+      "responseHeaders": {
+        "content-type": "application/json; charset=utf-8"
+      },
+      "timestamp": 1748476802000,
+      "passed": true,
+      "validationMode": "none",
+      "failureDetails": [],
+      "responseTimeMs": 1200.0,
+      "timing": {
+        "dnsLookup": 0,
+        "tcpConnect": 0,
+        "tlsHandshake": 0,
+        "ttfb": 1100.0,
+        "download": 100.0,
+        "total": 1200.0
+      },
+      "requestLog": {
+        "headers": {}
+      },
+      "scenarioTags": []
+    }
+  ]
+}

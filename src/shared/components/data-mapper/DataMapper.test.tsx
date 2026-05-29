@@ -69,7 +69,7 @@ describe('DataMapper', () => {
     expect(screen.getByText(/No target schema/)).toBeTruthy();
   });
 
-  it('hydrates target fields from existing mappings when schema is absent', () => {
+  it('hydrates target fields from existing mappings when schema is absent', async () => {
     const adapter: MapperAdapter<Mapping[]> = {
       ...createTestAdapter(),
       sources: [{ id: 's1', label: 'Source', sampleData: { foo: 'bar' } }],
@@ -79,11 +79,12 @@ describe('DataMapper', () => {
       { id: 'm1', sourcePath: 'foo', sourceId: 's1', targetPath: 'expectedFooValue' },
     ];
     render(<DataMapper adapter={adapter} initialData={initial} />);
+    await act(async () => {});
     expect(screen.queryByText(/No target schema/)).toBeNull();
     expect(screen.getByText('expectedFooValue')).toBeTruthy();
   });
 
-  it('reorders target fields by drag-and-drop in fields mode', () => {
+  it('reorders target fields by drag-and-drop in fields mode', async () => {
     const adapter: MapperAdapter<Mapping[]> = {
       ...createTestAdapter(),
       target: {
@@ -109,9 +110,11 @@ describe('DataMapper', () => {
       getData: () => '',
       dropEffect: 'none',
     };
-    fireEvent.dragStart(secondNode, { dataTransfer: dragDt });
-    fireEvent.dragOver(firstNode, { dataTransfer: dropDt });
-    fireEvent.drop(firstNode, { dataTransfer: dropDt });
+    await act(async () => {
+      fireEvent.dragStart(secondNode, { dataTransfer: dragDt });
+      fireEvent.dragOver(firstNode, { dataTransfer: dropDt });
+      fireEvent.drop(firstNode, { dataTransfer: dropDt });
+    });
 
     const targetNodes = Array.from(container.querySelectorAll('.dm-panel--target .dm-tree-node[data-path]'))
       .map((el) => el.getAttribute('data-path'))
@@ -144,18 +147,18 @@ describe('DataMapper', () => {
     expect(searchInputs).toHaveLength(2);
   });
 
-  it('source search filters nodes', () => {
+  it('source search filters nodes', async () => {
     const adapter = createTestAdapter();
     render(<DataMapper adapter={adapter} />);
     const searchInputs = screen.getAllByPlaceholderText('Search fields…');
-    fireEvent.change(searchInputs[0], { target: { value: 'email' } });
+    await act(async () => { fireEvent.change(searchInputs[0], { target: { value: 'email' } }); });
     expect(screen.getByText('email')).toBeTruthy();
     expect(screen.queryByText('age')).toBeNull();
   });
 });
 
 describe('DataMapper - explicit bulk actions and path parity', () => {
-  it('maps selected subtree via Map subtree action', () => {
+  it('maps selected subtree via Map subtree action', async () => {
     const adapter: MapperAdapter<Mapping[]> = {
       ...createTestAdapter(),
       sources: [{
@@ -180,9 +183,9 @@ describe('DataMapper - explicit bulk actions and path parity', () => {
     expect(sourceNode).toBeTruthy();
     expect(targetNode).toBeTruthy();
     if (!sourceNode || !targetNode) return;
-    fireEvent.click(sourceNode);
-    fireEvent.click(targetNode);
-    fireEvent.click(screen.getByRole('button', { name: 'Map subtree' }));
+    await act(async () => { fireEvent.click(sourceNode); });
+    await act(async () => { fireEvent.click(targetNode); });
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Map subtree' })); });
 
     const last = onChange.mock.calls[onChange.mock.calls.length - 1]?.[0] as Mapping[] | undefined;
     expect(last).toBeTruthy();
@@ -191,7 +194,7 @@ describe('DataMapper - explicit bulk actions and path parity', () => {
     expect(last?.some((m) => m.targetPath === 'offers[0].rank')).toBe(true);
   });
 
-  it('maps sibling indices via Map siblings action', () => {
+  it('maps sibling indices via Map siblings action', async () => {
     const adapter: MapperAdapter<Mapping[]> = {
       ...createTestAdapter(),
       sources: [{
@@ -221,9 +224,9 @@ describe('DataMapper - explicit bulk actions and path parity', () => {
     expect(sourceNode).toBeTruthy();
     expect(targetNode).toBeTruthy();
     if (!sourceNode || !targetNode) return;
-    fireEvent.click(sourceNode);
-    fireEvent.click(targetNode);
-    fireEvent.click(screen.getByRole('button', { name: 'Map siblings' }));
+    await act(async () => { fireEvent.click(sourceNode); });
+    await act(async () => { fireEvent.click(targetNode); });
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Map siblings' })); });
 
     const last = onChange.mock.calls[onChange.mock.calls.length - 1]?.[0] as Mapping[] | undefined;
     expect(last).toBeTruthy();
@@ -233,7 +236,7 @@ describe('DataMapper - explicit bulk actions and path parity', () => {
     expect(container.querySelector('.dm-toast')?.textContent).toContain('across array siblings');
   });
 
-  it('shows propagation preview from selected indexed mapping and applies it', () => {
+  it('shows propagation preview from selected indexed mapping and applies it', async () => {
     const adapter: MapperAdapter<Mapping[]> = {
       ...createTestAdapter(),
       sources: [{
@@ -267,12 +270,12 @@ describe('DataMapper - explicit bulk actions and path parity', () => {
     const anchorNode = container.querySelector('.dm-panel--target .dm-tree-node[data-path="offers[0].associatedOfferingCode"]');
     expect(anchorNode).toBeTruthy();
     if (!anchorNode) return;
-    fireEvent.click(anchorNode);
-    fireEvent.click(screen.getByRole('button', { name: 'Preview propagate' }));
+    await act(async () => { fireEvent.click(anchorNode); });
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Preview propagate' })); });
 
     expect(screen.getByText(/Propagation preview from/)).toBeTruthy();
     expect(screen.getByText(/1 new/)).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'Apply propagation' }));
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Apply propagation' })); });
 
     const last = onChange.mock.calls[onChange.mock.calls.length - 1]?.[0] as Mapping[] | undefined;
     expect(last).toBeTruthy();
@@ -281,14 +284,14 @@ describe('DataMapper - explicit bulk actions and path parity', () => {
     expect(container.querySelector('.dm-toast')?.textContent).toContain('Propagated pattern');
   });
 
-  it('shows guidance toast when propagation preview is requested without selected mapping', () => {
+  it('shows guidance toast when propagation preview is requested without selected mapping', async () => {
     const adapter = createTestAdapter();
     const { container } = render(<DataMapper adapter={adapter} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Preview propagate' }));
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Preview propagate' })); });
     expect(container.querySelector('.dm-toast')?.textContent).toContain('Select an indexed mapping first');
   });
 
-  it('clears selected target subtree via Clear subtree action', () => {
+  it('clears selected target subtree via Clear subtree action', async () => {
     const adapter: MapperAdapter<Mapping[]> = {
       ...createTestAdapter(),
       sources: [{
@@ -317,8 +320,8 @@ describe('DataMapper - explicit bulk actions and path parity', () => {
     const targetNode = container.querySelector('.dm-panel--target .dm-tree-node[data-path="offers[0]"]');
     expect(targetNode).toBeTruthy();
     if (!targetNode) return;
-    fireEvent.click(targetNode);
-    fireEvent.click(screen.getByRole('button', { name: 'Clear subtree' }));
+    await act(async () => { fireEvent.click(targetNode); });
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Clear subtree' })); });
 
     const last = onChange.mock.calls[onChange.mock.calls.length - 1]?.[0] as Mapping[] | undefined;
     expect(last).toBeTruthy();
@@ -327,7 +330,7 @@ describe('DataMapper - explicit bulk actions and path parity', () => {
     expect(container.querySelector('.dm-toast')?.textContent).toContain('Cleared 2 mappings');
   });
 
-  it('replaces selected target subtree via Replace subtree action', () => {
+  it('replaces selected target subtree via Replace subtree action', async () => {
     const adapter: MapperAdapter<Mapping[]> = {
       ...createTestAdapter(),
       sources: [{
@@ -357,9 +360,9 @@ describe('DataMapper - explicit bulk actions and path parity', () => {
     expect(sourceNode).toBeTruthy();
     expect(targetNode).toBeTruthy();
     if (!sourceNode || !targetNode) return;
-    fireEvent.click(sourceNode);
-    fireEvent.click(targetNode);
-    fireEvent.click(screen.getByRole('button', { name: 'Replace subtree' }));
+    await act(async () => { fireEvent.click(sourceNode); });
+    await act(async () => { fireEvent.click(targetNode); });
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Replace subtree' })); });
 
     const last = onChange.mock.calls[onChange.mock.calls.length - 1]?.[0] as Mapping[] | undefined;
     expect(last).toBeTruthy();
@@ -368,7 +371,7 @@ describe('DataMapper - explicit bulk actions and path parity', () => {
     expect(container.querySelector('.dm-toast')?.textContent).toContain('Replaced subtree');
   });
 
-  it('normalizes dot-before-index paths when resolving mapped source overlays', () => {
+  it('normalizes dot-before-index paths when resolving mapped source overlays', async () => {
     const adapter: MapperAdapter<Mapping[]> = {
       ...createTestAdapter(),
       sources: [{ id: 's1', label: 'S', sampleData: { offers: [{ associatedOfferingCode: 'A' }] } }],
@@ -387,6 +390,7 @@ describe('DataMapper - explicit bulk actions and path parity', () => {
       },
     ];
     const { container } = render(<DataMapper adapter={adapter} initialData={initial} />);
+    await act(async () => {});
     const sourceLeaf = container.querySelector('.dm-panel--source .dm-tree-node[data-path="offers[0].associatedOfferingCode"]');
     expect(sourceLeaf).toBeTruthy();
     expect(sourceLeaf?.classList.contains('dm-tree-node--mapped')).toBe(true);
@@ -417,7 +421,7 @@ describe('DataMapper – MapperToolbar', () => {
     expect(badge).toBeNull();
   });
 
-  it('collapses advanced controls by default in dense sessions', () => {
+  it('collapses advanced controls by default in dense sessions', async () => {
     const adapter = createTestAdapter();
     const initialData: Mapping[] = Array.from({ length: 8 }, (_, i) => ({
       id: `dense-${i}`,
@@ -426,8 +430,9 @@ describe('DataMapper – MapperToolbar', () => {
       targetPath: `denseTarget${i}`,
     }));
     const { container } = render(<DataMapper adapter={adapter} initialData={initialData} />);
+    await act(async () => {});
     expect(container.querySelector('.dm-toolbar-advanced-panel')).toBeNull();
-    fireEvent.click(screen.getByLabelText('Toggle advanced controls'));
+    await act(async () => { fireEvent.click(screen.getByLabelText('Toggle advanced controls')); });
     expect(container.querySelector('.dm-toolbar-advanced-panel')).toBeTruthy();
   });
 
@@ -458,7 +463,7 @@ describe('DataMapper – multi-source tabs', () => {
     expect(screen.getByText('Headers')).toBeTruthy();
   });
 
-  it('switches source when tab clicked', () => {
+  it('switches source when tab clicked', async () => {
     const adapter: MapperAdapter<Mapping[]> = {
       ...createTestAdapter(),
       sources: [
@@ -469,13 +474,13 @@ describe('DataMapper – multi-source tabs', () => {
     render(<DataMapper adapter={adapter} />);
     expect(screen.getByText('name')).toBeTruthy();
 
-    fireEvent.click(screen.getByText('Headers'));
+    await act(async () => { fireEvent.click(screen.getByText('Headers')); });
     expect(screen.getByText('auth')).toBeTruthy();
   });
 });
 
 describe('DataMapper – auto-map integration', () => {
-  it('clicking auto-map creates mappings', () => {
+  it('clicking auto-map creates mappings', async () => {
     const adapter: MapperAdapter<Mapping[]> = {
       ...createTestAdapter(),
       sources: [{ id: 's1', label: 'Source', sampleData: { name: 'A', email: 'B' } }],
@@ -485,14 +490,14 @@ describe('DataMapper – auto-map integration', () => {
     render(<DataMapper adapter={adapter} onChange={onChange} />);
     expect(screen.getByText(/0 mapping|Auto-map/)).toBeTruthy();
 
-    fireEvent.click(screen.getByText(/Auto-map/));
+    await act(async () => { fireEvent.click(screen.getByText(/Auto-map/)); });
     expect(screen.getByText(/2 mapping/)).toBeTruthy();
     const lastCall = onChange.mock.calls[onChange.mock.calls.length - 1][0];
     expect(lastCall).toHaveLength(2);
     expect(lastCall[0].isAutoMapped).toBe(true);
   });
 
-  it('auto-map badge disappears after mapping all fields', () => {
+  it('auto-map badge disappears after mapping all fields', async () => {
     const adapter: MapperAdapter<Mapping[]> = {
       ...createTestAdapter(),
       sources: [{ id: 's1', label: 'Source', sampleData: { name: 'A' } }],
@@ -501,11 +506,11 @@ describe('DataMapper – auto-map integration', () => {
     const { container } = render(<DataMapper adapter={adapter} />);
     expect(container.querySelector('.dm-toolbar-badge')).toBeTruthy();
 
-    fireEvent.click(screen.getByText(/Auto-map/));
+    await act(async () => { fireEvent.click(screen.getByText(/Auto-map/)); });
     expect(container.querySelector('.dm-toolbar-badge')).toBeNull();
   });
 
-  it('auto-maps in fields-only target mode (no target sampleData)', () => {
+  it('auto-maps in fields-only target mode (no target sampleData)', async () => {
     const adapter: MapperAdapter<Mapping[]> = {
       ...createTestAdapter(),
       sources: [{
@@ -532,7 +537,7 @@ describe('DataMapper – auto-map integration', () => {
     const onChange = vi.fn();
     render(<DataMapper adapter={adapter} onChange={onChange} />);
 
-    fireEvent.click(screen.getByText(/Auto-map/));
+    await act(async () => { fireEvent.click(screen.getByText(/Auto-map/)); });
     expect(screen.getByText(/3 mapping/)).toBeTruthy();
     const lastCall = onChange.mock.calls[onChange.mock.calls.length - 1][0];
     expect(lastCall).toHaveLength(3);
@@ -540,7 +545,7 @@ describe('DataMapper – auto-map integration', () => {
 });
 
 describe('DataMapper – clear all', () => {
-  it('clear all removes mappings and calls onChange', () => {
+  it('clear all removes mappings and calls onChange', async () => {
     const adapter: MapperAdapter<Mapping[]> = {
       ...createTestAdapter(),
       sources: [{ id: 's1', label: 'Source', sampleData: { name: 'A' } }],
@@ -549,30 +554,30 @@ describe('DataMapper – clear all', () => {
     const onChange = vi.fn();
     render(<DataMapper adapter={adapter} onChange={onChange} />);
 
-    fireEvent.click(screen.getByText(/Auto-map/));
+    await act(async () => { fireEvent.click(screen.getByText(/Auto-map/)); });
     expect(screen.getByText(/1 mapping/)).toBeTruthy();
 
     const clearBtn = screen.getByText(/Clear all/);
     expect(clearBtn.closest('button')?.disabled).toBe(false);
-    fireEvent.click(clearBtn);
+    await act(async () => { fireEvent.click(clearBtn); });
     const lastCall = onChange.mock.calls[onChange.mock.calls.length - 1][0];
     expect(lastCall).toHaveLength(0);
   });
 });
 
 describe('DataMapper – target search', () => {
-  it('target search filters nodes', () => {
+  it('target search filters nodes', async () => {
     const adapter = createTestAdapter();
     render(<DataMapper adapter={adapter} />);
     const searchInputs = screen.getAllByPlaceholderText('Search fields…');
-    fireEvent.change(searchInputs[1], { target: { value: 'userEmail' } });
+    await act(async () => { fireEvent.change(searchInputs[1], { target: { value: 'userEmail' } }); });
     expect(screen.getByText('userEmail')).toBeTruthy();
     expect(screen.queryByText('userAge')).toBeNull();
   });
 });
 
 describe('DataMapper – keyboard shortcuts', () => {
-  it('Cmd+Z triggers undo', () => {
+  it('Cmd+Z triggers undo', async () => {
     const adapter: MapperAdapter<Mapping[]> = {
       ...createTestAdapter(),
       sources: [{ id: 's1', label: 'Source', sampleData: { name: 'A' } }],
@@ -581,15 +586,15 @@ describe('DataMapper – keyboard shortcuts', () => {
     const onChange = vi.fn();
     render(<DataMapper adapter={adapter} onChange={onChange} />);
 
-    fireEvent.click(screen.getByText(/Auto-map/));
+    await act(async () => { fireEvent.click(screen.getByText(/Auto-map/)); });
     expect(screen.getByText(/1 mapping/)).toBeTruthy();
 
-    fireEvent.keyDown(window, { key: 'z', metaKey: true });
+    await act(async () => { fireEvent.keyDown(window, { key: 'z', metaKey: true }); });
     const lastCall = onChange.mock.calls[onChange.mock.calls.length - 1][0];
     expect(lastCall).toHaveLength(0);
   });
 
-  it('Cmd+Shift+Z triggers redo', () => {
+  it('Cmd+Shift+Z triggers redo', async () => {
     const adapter: MapperAdapter<Mapping[]> = {
       ...createTestAdapter(),
       sources: [{ id: 's1', label: 'Source', sampleData: { name: 'A' } }],
@@ -598,9 +603,9 @@ describe('DataMapper – keyboard shortcuts', () => {
     const onChange = vi.fn();
     render(<DataMapper adapter={adapter} onChange={onChange} />);
 
-    fireEvent.click(screen.getByText(/Auto-map/));
-    fireEvent.keyDown(window, { key: 'z', metaKey: true });
-    fireEvent.keyDown(window, { key: 'z', metaKey: true, shiftKey: true });
+    await act(async () => { fireEvent.click(screen.getByText(/Auto-map/)); });
+    await act(async () => { fireEvent.keyDown(window, { key: 'z', metaKey: true }); });
+    await act(async () => { fireEvent.keyDown(window, { key: 'z', metaKey: true, shiftKey: true }); });
     const lastCall = onChange.mock.calls[onChange.mock.calls.length - 1][0];
     expect(lastCall).toHaveLength(1);
   });
@@ -644,16 +649,16 @@ describe('DataMapper – string sampleData', () => {
     expect(screen.getByText(/No target schema/)).toBeTruthy();
   });
 
-  it('toggles preview bar via toolbar button', () => {
+  it('toggles preview bar via toolbar button', async () => {
     vi.useFakeTimers();
     const adapter = createTestAdapter();
     const { container } = render(<DataMapper adapter={adapter} />);
     expect(container.querySelector('.dm-preview-bar')).toBeNull();
     const previewBtn = screen.getByTitle('Show preview');
-    fireEvent.click(previewBtn);
+    await act(async () => { fireEvent.click(previewBtn); });
     act(() => { vi.advanceTimersByTime(250); });
     expect(container.querySelector('.dm-preview-bar')).toBeTruthy();
-    fireEvent.click(screen.getByTitle('Hide preview'));
+    await act(async () => { fireEvent.click(screen.getByTitle('Hide preview')); });
     expect(container.querySelector('.dm-preview-bar')).toBeNull();
     vi.useRealTimers();
   });
@@ -675,7 +680,7 @@ describe('DataMapper – string sampleData', () => {
     }
     const tabs = container.querySelectorAll('.dm-source-tab');
     if (tabs.length > 1) {
-      fireEvent.click(tabs[1]);
+      await act(async () => { fireEvent.click(tabs[1]); });
     }
     expect(container.querySelector('.dm-paste-error')).toBeNull();
   });
@@ -691,7 +696,7 @@ describe('DataMapper – string sampleData', () => {
     expect(badge?.textContent).toBe('⚠');
   });
 
-  it('applies quick-fix via mismatch badge click', () => {
+  it('applies quick-fix via mismatch badge click', async () => {
     const onChangeFn = vi.fn();
     const adapter = createTestAdapter();
     const mappings: Mapping[] = [
@@ -700,9 +705,10 @@ describe('DataMapper – string sampleData', () => {
     const { container } = render(
       <DataMapper adapter={adapter} initialData={mappings} onChange={onChangeFn} />,
     );
+    await act(async () => {});
     const badge = container.querySelector('.dm-mismatch-badge');
     expect(badge).toBeTruthy();
-    fireEvent.click(badge!);
+    await act(async () => { fireEvent.click(badge!); });
     const lastCall = onChangeFn.mock.calls[onChangeFn.mock.calls.length - 1]?.[0];
     const updatedMapping = lastCall?.find((m: Mapping) => m.id === 'm1');
     expect(updatedMapping?.expression).toContain('$parseFloat');

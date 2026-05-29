@@ -1,0 +1,125 @@
+import { useState, useEffect } from 'react';
+import type { RegressionThresholds } from '../utils/runBaselines';
+import { DEFAULT_THRESHOLDS } from '../utils/runBaselines';
+
+interface Props {
+  thresholds: RegressionThresholds;
+  onSave: (t: RegressionThresholds) => void | Promise<void>;
+  onCancel: () => void;
+}
+
+type ThresholdKey = keyof RegressionThresholds;
+
+const ROWS: Array<{ key: ThresholdKey; label: string; unit: string; hint: string }> = [
+  { key: 'avgPercent',        label: 'Avg Response Time', unit: '%',  hint: 'Warn when avg response time increases by this %' },
+  { key: 'p50Percent',        label: 'P50 Response Time', unit: '%',  hint: 'Warn when P50 increases by this %' },
+  { key: 'p95Percent',        label: 'P95 Response Time', unit: '%',  hint: 'Warn when P95 increases by this %' },
+  { key: 'p99Percent',        label: 'P99 Response Time', unit: '%',  hint: 'Warn when P99 increases by this %' },
+  { key: 'p999Percent',       label: 'P99.9 Response Time', unit: '%', hint: 'Warn when P99.9 increases by this %' },
+  { key: 'tpsPercent',        label: 'TPS Drop',          unit: '%',  hint: 'Warn when TPS drops by this %' },
+  { key: 'errorRateAbsolute', label: 'Error Rate Increase', unit: 'pp', hint: 'Warn when error rate increases by this many percentage points' },
+];
+
+type DraftState = Record<ThresholdKey, string>;
+
+function toDraft(t: RegressionThresholds): DraftState {
+  return Object.fromEntries(Object.entries(t).map(([k, v]) => [k, String(v)])) as DraftState;
+}
+
+function parseDraft(draft: DraftState): RegressionThresholds {
+  const result = { ...DEFAULT_THRESHOLDS };
+  for (const [k, v] of Object.entries(draft)) {
+    const n = parseFloat(v);
+    (result as Record<string, number>)[k] = isNaN(n) || !isFinite(n) || n < 0 ? DEFAULT_THRESHOLDS[k as ThresholdKey] : n;
+  }
+  return result;
+}
+
+export function RegressionThresholdsPanel({ thresholds, onSave, onCancel }: Props) {
+  // Store as strings so users can freely type (e.g. delete digits mid-edit)
+  const [draft, setDraft] = useState<DraftState>(() => toDraft(thresholds));
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const showStatus = (message: string) => {
+    setStatusMessage(message);
+  };
+
+  // Keep draft in sync with persisted thresholds (e.g. after Save updates the prop)
+  useEffect(() => { setDraft(toDraft(thresholds)); }, [thresholds]);
+
+  const set = (key: ThresholdKey, raw: string) => {
+    setDraft((prev) => ({ ...prev, [key]: raw }));
+  };
+
+  const handleReset = () => {
+    setDraft(toDraft(DEFAULT_THRESHOLDS));
+    showStatus('Thresholds reset to defaults.');
+  };
+
+  const handleCancel = () => {
+    setDraft(toDraft(thresholds)); // reset unsaved edits
+    onCancel();
+    showStatus('Unsaved changes discarded.');
+  };
+
+  const handleSave = async () => {
+    try {
+      setIsSaving(true);
+      showStatus('Saving thresholds...');
+      await onSave(parseDraft(draft));
+      showStatus('Thresholds saved.');
+    } catch {
+      showStatus('Failed to save thresholds.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <div className="thresholds-panel">
+      <div className="thresholds-header">
+        <span className="thresholds-title">Regression Thresholds</span>
+        <span className="thresholds-hint">Critical alert fires at 2× these values</span>
+      </div>
+
+      <div className="thresholds-grid">
+        <div className="thresholds-col-header">Metric</div>
+        <div className="thresholds-col-header">Warning threshold</div>
+        <div className="thresholds-col-header">Default</div>
+
+        {ROWS.map(({ key, label, unit, hint }) => (
+          <div key={key} className="thresholds-row">
+            {/* title on label so tooltip shows (display:contents on parent hides it) */}
+            <label className="thresholds-label" title={hint}>{label}</label>
+            <div className="thresholds-input-wrap">
+              <input
+                type="number"
+                className="thresholds-input"
+                min={0}
+                step={key === 'errorRateAbsolute' ? 0.5 : 5}
+                value={draft[key]}
+                onChange={(e) => set(key, e.target.value)}
+              />
+              <span className="thresholds-unit">{unit}</span>
+            </div>
+            <span className="thresholds-default">{DEFAULT_THRESHOLDS[key]} {unit}</span>
+          </div>
+        ))}
+      </div>
+
+      <div className="thresholds-actions">
+        <button className="btn btn-sm" onClick={handleReset} title="Reset all to defaults">
+          Reset Defaults
+        </button>
+        {statusMessage && <span className="thresholds-status-message">{statusMessage}</span>}
+        <div style={{ flex: 1 }} />
+        <button className="btn btn-sm" onClick={handleCancel}>Cancel</button>
+        <button className="btn btn-sm btn-primary" onClick={handleSave} disabled={isSaving}>
+          {isSaving ? 'Saving...' : 'Save'}
+        </button>
+      </div>
+    </div>
+  );
+}
+

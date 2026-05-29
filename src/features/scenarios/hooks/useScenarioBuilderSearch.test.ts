@@ -220,6 +220,18 @@ describe('useScenarioBuilderSearch', () => {
     });
   });
 
+  it('scenarioMatches returns true for all when no search query', () => {
+    const { result } = renderHook(() => useScenarioBuilderSearch([makeFeatureGroup()]));
+    const sc = makeTestScenario();
+    expect(result.current.scenarioMatches(sc)).toBe(true);
+  });
+
+  it('featureMatches returns true for all when no search query', () => {
+    const { result } = renderHook(() => useScenarioBuilderSearch([makeFeatureGroup()]));
+    const fg = makeFeatureGroup();
+    expect(result.current.featureMatches(fg)).toBe(true);
+  });
+
   it('featureMatches returns true when feature group name matches', () => {
     const fg = makeFeatureGroup({ name: 'User API Tests' });
     const { result } = renderHook(() => useScenarioBuilderSearch([fg]));

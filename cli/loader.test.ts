@@ -2,10 +2,10 @@
  * @vitest-environment node
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { readFileSync } from 'fs';
+import { readFileSync } from 'node:fs';
 import { loadTestFile, buildScenarios, buildTestConfig } from './loader';
 
-vi.mock('fs', () => ({
+vi.mock('node:fs', () => ({
   readFileSync: vi.fn(),
 }));
 

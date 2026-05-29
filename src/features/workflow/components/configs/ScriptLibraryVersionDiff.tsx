@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
-import { Differ, Viewer } from 'json-diff-kit';
+import { Viewer } from 'json-diff-kit';
+import { sharedDiffer } from '../../../../shared/utils/jsonDiffKit';
 import 'json-diff-kit/dist/viewer.css';
 import 'json-diff-kit/dist/viewer-monokai.css';
 import type { ScriptLibraryVersion } from '../../engine/scriptLibraries';
@@ -13,8 +14,6 @@ interface Props {
   diff: ScriptLibraryDiffResult;
   onClose: () => void;
 }
-
-const differ = new Differ({ detectCircular: false, arrayDiffMethod: 'lcs' });
 
 export default function ScriptLibraryVersionDiff({ older, newer, diff, onClose }: Props) {
   const [activeTab, setActiveTab] = useState<DiffTab>('overview');
@@ -32,7 +31,7 @@ export default function ScriptLibraryVersionDiff({ older, newer, diff, onClose }
   const codeDiffResult = useMemo(() => {
     if (!diff.codeChanged) return null;
     try {
-      return differ.diff(diff.oldCode, diff.newCode);
+      return sharedDiffer.diff(diff.oldCode, diff.newCode);
     } catch {
       return null;
     }

@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef, useMemo, type MouseEvent, type ReactNode } from 'react';
 import { SWAGGER_METHOD_COLORS } from '../../../shared/constants/httpMethodColors';
+import { useCopyToClipboard } from '../../../shared/hooks/useCopyToClipboard';
 import type { CatalogEndpoint, CatalogServer, HostConfig, CatalogResponse, CatalogParameter, SavedEndpointValues, CatalogEnvironment } from '../types/catalog';
 import type { AuthConfig, Microservice } from '../../../shared/types';
 import type { EndpointCoverage } from '../utils/coverageChecker';
@@ -21,6 +22,7 @@ interface Props {
   linkedMicroservice?: Microservice;
   onExportSingle?: (endpoint: CatalogEndpoint, savedValues?: SavedEndpointValues) => void;
   onSendToHarness?: (endpoint: CatalogEndpoint, fromTryItOut?: boolean) => void;
+  onToggleWorkflowExpose?: (endpoint: CatalogEndpoint, exposed: boolean, values: SavedEndpointValues) => void;
   coverage?: EndpointCoverage;
   onNavigateToRequest?: (collectionId: string, requestId: string) => void;
 }
@@ -31,7 +33,7 @@ const MBG: Record<string, string> = {
   DELETE: 'rgba(249,62,62,0.1)',
 };
 
-export default function CatalogEndpointCard({ endpoint, servers, hostConfig, auth, savedValues, onValuesChange, environments, linkedMicroservice, onExportSingle, onSendToHarness, coverage, onNavigateToRequest }: Props) {
+export default function CatalogEndpointCard({ endpoint, servers, hostConfig, auth, savedValues, onValuesChange, environments, linkedMicroservice, onExportSingle, onSendToHarness, onToggleWorkflowExpose, coverage, onNavigateToRequest }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [tryItOpen, setTryItOpen] = useState(false);
   const [paramValues, setParamValues] = useState<Record<string, string>>(() => savedValues?.params ?? {});
@@ -46,7 +48,7 @@ export default function CatalogEndpointCard({ endpoint, servers, hostConfig, aut
   const [loading, setLoading] = useState(false);
   const [showCurl, setShowCurl] = useState(false);
   const [curlMultiline, setCurlMultiline] = useState(true);
-  const [copied, setCopied] = useState(false);
+  const [copied, copyToClipboard] = useCopyToClipboard(1500);
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number } | null>(null);
   const [showCoveragePopover, setShowCoveragePopover] = useState(false);
 
@@ -141,9 +143,7 @@ export default function CatalogEndpointCard({ endpoint, servers, hostConfig, aut
     return () => { cancelled = true; };
   }, [showCurl, curlMultiline, endpoint, hostConfig, servers, paramValues, headerValues, bodyText, auth, environments, linkedMicroservice]);
 
-  const copy = useCallback(async (t: string) => {
-    try { await navigator.clipboard.writeText(t); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch {/* */}
-  }, []);
+  const copy = copyToClipboard;
 
   const handleContextMenu = useCallback((e: MouseEvent) => {
     e.preventDefault();
@@ -302,6 +302,20 @@ export default function CatalogEndpointCard({ endpoint, servers, hostConfig, aut
                 <button className="sw-export-btn" style={{ borderColor: '#6c63ff44', color: '#6c63ff' }} onClick={() => onSendToHarness(endpoint)}>
                   Send to Harness
                 </button>
+              )}
+              {onToggleWorkflowExpose && (
+                <label className="sw-workflow-expose" title="When checked, this endpoint (with current values) is available in the Workflow Designer's Catalog tab">
+                  <input
+                    type="checkbox"
+                    checked={!!endpoint.exposedToWorkflow}
+                    onChange={(e) => onToggleWorkflowExpose(endpoint, e.target.checked, {
+                      params: paramValues,
+                      headers: headerValues,
+                      body: bodyText,
+                    })}
+                  />
+                  Expose to Workflow
+                </label>
               )}
               <span className="sw-auth-status">
                 {auth.type === 'none' ? '⚠ No auth' :

@@ -30,7 +30,7 @@ function createTestAdapter(): MapperAdapter<Mapping[]> {
 }
 
 describe('DataMapper – expression editor modal', () => {
-  it('opens expression editor on double-click of mapped target node', () => {
+  it('opens expression editor on double-click of mapped target node', async () => {
     const adapter = createTestAdapter();
     const initial: Mapping[] = [
       { id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'userName' },
@@ -40,11 +40,11 @@ describe('DataMapper – expression editor modal', () => {
     expandBtns.forEach((b) => fireEvent.click(b));
     const targetMapped = container.querySelector('.dm-panel--target .dm-tree-node--mapped');
     expect(targetMapped).toBeTruthy();
-    fireEvent.doubleClick(targetMapped!);
+    await act(async () => { fireEvent.doubleClick(targetMapped!); });
     expect(document.querySelector('.dm-expr-overlay')).toBeTruthy();
   });
 
-  it('closes expression editor on cancel', () => {
+  it('closes expression editor on cancel', async () => {
     const adapter = createTestAdapter();
     const initial: Mapping[] = [
       { id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'userName' },
@@ -53,7 +53,7 @@ describe('DataMapper – expression editor modal', () => {
     const expandBtns = screen.getAllByLabelText('Expand all');
     expandBtns.forEach((b) => fireEvent.click(b));
     const mapped = container.querySelector('.dm-panel--target .dm-tree-node--mapped');
-    fireEvent.doubleClick(mapped!);
+    await act(async () => { fireEvent.doubleClick(mapped!); });
     expect(document.querySelector('.dm-expr-overlay')).toBeTruthy();
     fireEvent.click(screen.getByText('Cancel'));
     expect(document.querySelector('.dm-expr-overlay')).toBeNull();
@@ -72,14 +72,14 @@ describe('DataMapper – expression editor modal', () => {
     expandBtns.forEach((b) => fireEvent.click(b));
     const mapped = container.querySelector('.dm-panel--target .dm-tree-node--mapped');
     await act(async () => {
-      fireEvent.doubleClick(mapped!);
+      await act(async () => { fireEvent.doubleClick(mapped!); });
     });
     await waitFor(() => {
       expect(document.querySelector('.dm-expr-overlay')).toBeTruthy();
     });
     const textarea = document.querySelector('.dm-expr-textarea') as HTMLTextAreaElement;
     expect(textarea).toBeTruthy();
-    fireEvent.change(textarea, { target: { value: '$upper($.name)' } });
+    await act(async () => { fireEvent.change(textarea, { target: { value: '$upper($.name)' } }); });
     await act(async () => {
       fireEvent.click(screen.getByText('Save Expression'));
     });
@@ -91,27 +91,27 @@ describe('DataMapper – expression editor modal', () => {
 });
 
 describe('DataMapper – resize handles', () => {
-  it('mousedown on source resize handle initiates resize', () => {
+  it('mousedown on source resize handle initiates resize', async () => {
     const adapter = createTestAdapter();
     const { container } = render(<DataMapper adapter={adapter} />);
     const handles = container.querySelectorAll('.dm-resize-handle');
     expect(handles.length).toBe(2);
 
     const addSpy = vi.spyOn(document, 'addEventListener');
-    fireEvent.mouseDown(handles[0], { clientX: 200 });
+    await act(async () => { fireEvent.mouseDown(handles[0], { clientX: 200 }); });
     expect(addSpy).toHaveBeenCalledWith('mousemove', expect.any(Function));
     expect(addSpy).toHaveBeenCalledWith('mouseup', expect.any(Function));
     addSpy.mockRestore();
     document.dispatchEvent(new MouseEvent('mouseup'));
   });
 
-  it('mousedown on target resize handle initiates resize', () => {
+  it('mousedown on target resize handle initiates resize', async () => {
     const adapter = createTestAdapter();
     const { container } = render(<DataMapper adapter={adapter} />);
     const handles = container.querySelectorAll('.dm-resize-handle');
 
     const addSpy = vi.spyOn(document, 'addEventListener');
-    fireEvent.mouseDown(handles[1], { clientX: 400 });
+    await act(async () => { fireEvent.mouseDown(handles[1], { clientX: 400 }); });
     expect(addSpy).toHaveBeenCalledWith('mousemove', expect.any(Function));
     addSpy.mockRestore();
     document.dispatchEvent(new MouseEvent('mouseup'));
@@ -119,7 +119,7 @@ describe('DataMapper – resize handles', () => {
 });
 
 describe('DataMapper – auto-map with no candidates', () => {
-  it('auto-map does nothing when source/target have no matches', () => {
+  it('auto-map does nothing when source/target have no matches', async () => {
     const adapter: MapperAdapter<Mapping[]> = {
       ...createTestAdapter(),
       sources: [{ id: 's1', label: 'S', sampleData: { abc: 1 } }],
@@ -127,35 +127,35 @@ describe('DataMapper – auto-map with no candidates', () => {
     };
     const onChange = vi.fn();
     render(<DataMapper adapter={adapter} onChange={onChange} />);
-    fireEvent.click(screen.getByTitle('Auto-map matching fields'));
+    await act(async () => { fireEvent.click(screen.getByTitle('Auto-map matching fields')); });
     const last = onChange.mock.calls[onChange.mock.calls.length - 1]?.[0];
     expect(last).toHaveLength(0);
   });
 
-  it('auto-map handles no source data gracefully', () => {
+  it('auto-map handles no source data gracefully', async () => {
     const adapter: MapperAdapter<Mapping[]> = {
       ...createTestAdapter(),
       sources: [{ id: 's1', label: 'S', sampleData: undefined }],
       target: { label: 'T', sampleData: { x: '' }, allowCustomFields: false },
     };
     const { container } = render(<DataMapper adapter={adapter} />);
-    fireEvent.click(screen.getByTitle('Auto-map matching fields'));
+    await act(async () => { fireEvent.click(screen.getByTitle('Auto-map matching fields')); });
     expect(container.querySelector('.dm-toast')).toBeNull();
   });
 
-  it('auto-map handles no target data gracefully', () => {
+  it('auto-map handles no target data gracefully', async () => {
     const adapter: MapperAdapter<Mapping[]> = {
       ...createTestAdapter(),
       sources: [{ id: 's1', label: 'S', sampleData: { x: 1 } }],
       target: { label: 'T', sampleData: undefined, allowCustomFields: false },
     };
     render(<DataMapper adapter={adapter} />);
-    fireEvent.click(screen.getByTitle('Auto-map matching fields'));
+    await act(async () => { fireEvent.click(screen.getByTitle('Auto-map matching fields')); });
   });
 });
 
 describe('DataMapper – keyboard shortcuts suppressed when editing', () => {
-  it('does not trigger undo when expression editor is open', () => {
+  it('does not trigger undo when expression editor is open', async () => {
     const adapter = createTestAdapter();
     const initial: Mapping[] = [
       { id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'userName' },
@@ -167,14 +167,14 @@ describe('DataMapper – keyboard shortcuts suppressed when editing', () => {
     const mapped = container.querySelector('.dm-tree-node--target.dm-tree-node--mapped');
     if (mapped) fireEvent.doubleClick(mapped);
     expect(document.querySelector('.dm-expr-overlay')).toBeTruthy();
-    fireEvent.keyDown(window, { key: 'z', metaKey: true });
+    await act(async () => { fireEvent.keyDown(window, { key: 'z', metaKey: true }); });
     const last = onChange.mock.calls[onChange.mock.calls.length - 1]?.[0];
     expect(last).toHaveLength(1);
   });
 });
 
 describe('DataMapper – keyboard shortcuts skip text inputs', () => {
-  it('Backspace in search input does not remove selected mapping', () => {
+  it('Backspace in search input does not remove selected mapping', async () => {
     const adapter = createTestAdapter();
     const initial: Mapping[] = [
       { id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'userName' },
@@ -182,12 +182,12 @@ describe('DataMapper – keyboard shortcuts skip text inputs', () => {
     const onChange = vi.fn();
     render(<DataMapper adapter={adapter} initialData={initial} onChange={onChange} />);
     const searchInput = screen.getAllByPlaceholderText('Search fields…')[0];
-    fireEvent.keyDown(searchInput, { key: 'Backspace' });
+    await act(async () => { fireEvent.keyDown(searchInput, { key: 'Backspace' }); });
     const last = onChange.mock.calls[onChange.mock.calls.length - 1]?.[0];
     expect(last).toHaveLength(1);
   });
 
-  it('Ctrl+Z in search input does not trigger mapper undo', () => {
+  it('Ctrl+Z in search input does not trigger mapper undo', async () => {
     const adapter = createTestAdapter();
     const initial: Mapping[] = [
       { id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'userName' },
@@ -195,14 +195,14 @@ describe('DataMapper – keyboard shortcuts skip text inputs', () => {
     const onChange = vi.fn();
     render(<DataMapper adapter={adapter} initialData={initial} onChange={onChange} />);
     const searchInput = screen.getAllByPlaceholderText('Search fields…')[0];
-    fireEvent.keyDown(searchInput, { key: 'z', metaKey: true });
+    await act(async () => { fireEvent.keyDown(searchInput, { key: 'z', metaKey: true }); });
     const last = onChange.mock.calls[onChange.mock.calls.length - 1]?.[0];
     expect(last).toHaveLength(1);
   });
 });
 
 describe('DataMapper – accept/reject pending', () => {
-  it('accept all pending converts pending to permanent', () => {
+  it('accept all pending converts pending to permanent', async () => {
     const adapter: MapperAdapter<Mapping[]> = {
       ...createTestAdapter(),
       sources: [{ id: 's1', label: 'S', sampleData: { name: 'A' } }],
@@ -210,18 +210,18 @@ describe('DataMapper – accept/reject pending', () => {
     };
     const onChange = vi.fn();
     render(<DataMapper adapter={adapter} onChange={onChange} />);
-    fireEvent.click(screen.getByTitle('Auto-map matching fields'));
+    await act(async () => { fireEvent.click(screen.getByTitle('Auto-map matching fields')); });
     const mappingsBeforeAccept = onChange.mock.calls[onChange.mock.calls.length - 1]?.[0];
     expect(mappingsBeforeAccept[0]?.isPending).toBe(true);
     const acceptBtn = screen.queryByTitle('Accept all pending');
     if (acceptBtn) {
-      fireEvent.click(acceptBtn);
+      await act(async () => { fireEvent.click(acceptBtn); });
       const mappingsAfterAccept = onChange.mock.calls[onChange.mock.calls.length - 1]?.[0];
       expect(mappingsAfterAccept[0]?.isPending).toBeUndefined();
     }
   });
 
-  it('reject all pending removes all pending mappings', () => {
+  it('reject all pending removes all pending mappings', async () => {
     const adapter: MapperAdapter<Mapping[]> = {
       ...createTestAdapter(),
       sources: [{ id: 's1', label: 'S', sampleData: { name: 'A' } }],
@@ -229,10 +229,10 @@ describe('DataMapper – accept/reject pending', () => {
     };
     const onChange = vi.fn();
     render(<DataMapper adapter={adapter} onChange={onChange} />);
-    fireEvent.click(screen.getByTitle('Auto-map matching fields'));
+    await act(async () => { fireEvent.click(screen.getByTitle('Auto-map matching fields')); });
     const rejectBtn = screen.queryByTitle('Reject all pending');
     if (rejectBtn) {
-      fireEvent.click(rejectBtn);
+      await act(async () => { fireEvent.click(rejectBtn); });
       const last = onChange.mock.calls[onChange.mock.calls.length - 1]?.[0];
       expect(last).toHaveLength(0);
     }
@@ -240,7 +240,7 @@ describe('DataMapper – accept/reject pending', () => {
 });
 
 describe('DataMapper – deserialize error handling', () => {
-  it('falls back to empty mappings when deserialize throws', () => {
+  it('falls back to empty mappings when deserialize throws', async () => {
     const adapter: MapperAdapter<unknown> = {
       ...createTestAdapter(),
       deserialize: () => { throw new Error('bad data'); },
@@ -251,14 +251,14 @@ describe('DataMapper – deserialize error handling', () => {
 });
 
 describe('DataMapper – preview with expression editor', () => {
-  it('shows preview bar with mappings that include expressions', () => {
+  it('shows preview bar with mappings that include expressions', async () => {
     vi.useFakeTimers();
     const adapter = createTestAdapter();
     const initial: Mapping[] = [
       { id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'userName', expression: '$upper($.name)' },
     ];
     const { container } = render(<DataMapper adapter={adapter} initialData={initial} />);
-    fireEvent.click(screen.getByTitle('Show preview'));
+    await act(async () => { fireEvent.click(screen.getByTitle('Show preview')); });
     act(() => { vi.advanceTimersByTime(250); });
     expect(container.querySelector('.dm-preview-bar')).toBeTruthy();
     vi.useRealTimers();
@@ -268,7 +268,7 @@ describe('DataMapper – preview with expression editor', () => {
 describe('DataMapper – profiles integration', () => {
   beforeEach(() => localStorage.clear());
 
-  it('renders Profiles button in toolbar', () => {
+  it('renders Profiles button in toolbar', async () => {
     const adapter = createTestAdapter();
     render(<DataMapper adapter={adapter} />);
     expect(screen.getByTitle('Mapping profiles')).toBeTruthy();
@@ -282,14 +282,14 @@ describe('DataMapper – profiles integration', () => {
     render(<DataMapper adapter={adapter} initialData={initial} />);
     await act(async () => { fireEvent.click(screen.getByTitle('Mapping profiles')); });
     const nameInput = screen.getByPlaceholderText('Profile name…');
-    fireEvent.change(nameInput, { target: { value: 'Test Profile' } });
+    await act(async () => { fireEvent.change(nameInput, { target: { value: 'Test Profile' } }); });
     await act(async () => { fireEvent.click(screen.getByText('Save')); });
     await waitFor(() => expect(screen.getByText('Test Profile')).toBeTruthy());
   });
 });
 
 describe('DataMapper – multi-select delete', () => {
-  it('auto-map then undo restores mappings via removeMappings path', () => {
+  it('auto-map then undo restores mappings via removeMappings path', async () => {
     const adapter: MapperAdapter<Mapping[]> = {
       ...createTestAdapter(),
       sources: [{ id: 's1', label: 'Source', sampleData: { name: 'A', email: 'B' } }],
@@ -298,29 +298,29 @@ describe('DataMapper – multi-select delete', () => {
     const onChange = vi.fn();
     render(<DataMapper adapter={adapter} onChange={onChange} />);
 
-    fireEvent.click(screen.getByText(/Auto-map/));
+    await act(async () => { fireEvent.click(screen.getByText(/Auto-map/)); });
     const afterAutoMap = onChange.mock.calls[onChange.mock.calls.length - 1][0];
     expect(afterAutoMap.length).toBe(2);
   });
 });
 
 describe('DataMapper – bulk source select', () => {
-  it('shift+click on source leaf toggles selection class', () => {
+  it('shift+click on source leaf toggles selection class', async () => {
     const adapter = createTestAdapter();
     const { container } = render(<DataMapper adapter={adapter} />);
     const leafNodes = container.querySelectorAll('.dm-tree-node--leaf.dm-tree-node--source');
     expect(leafNodes.length).toBeGreaterThan(0);
 
-    fireEvent.click(leafNodes[0], { shiftKey: true });
+    await act(async () => { fireEvent.click(leafNodes[0], { shiftKey: true }); });
     expect(container.querySelectorAll('.dm-tree-node--selected').length).toBe(1);
 
-    fireEvent.click(leafNodes[0], { shiftKey: true });
+    await act(async () => { fireEvent.click(leafNodes[0], { shiftKey: true }); });
     expect(container.querySelectorAll('.dm-tree-node--selected').length).toBe(0);
   });
 });
 
 describe('DataMapper – array suggestion bar', () => {
-  it('renders array suggestion bar when an array mapping is selected', () => {
+  it('renders array suggestion bar when an array mapping is selected', async () => {
     const adapter: MapperAdapter<Mapping[]> = {
       ...createTestAdapter(),
       sources: [{ id: 's1', label: 'Source', sampleData: { tags: ['a', 'b', 'c'] } }],
@@ -335,11 +335,13 @@ describe('DataMapper – array suggestion bar', () => {
 
     expect(container.querySelector('.dm-array-suggestion-bar')).toBeNull();
 
-    rerender(
-      <DataMapper adapter={adapter} initialData={[
-        { id: 'm1', sourcePath: 'tags', sourceId: 's1', targetPath: 'label' },
-      ]} />,
-    );
+    await act(async () => {
+      rerender(
+        <DataMapper adapter={adapter} initialData={[
+          { id: 'm1', sourcePath: 'tags', sourceId: 's1', targetPath: 'label' },
+        ]} />,
+      );
+    });
     expect(container.querySelector('.dm-container')).toBeTruthy();
   });
 });

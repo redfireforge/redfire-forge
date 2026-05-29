@@ -537,6 +537,28 @@ describe('runTestViaRust error and exception paths', () => {
       runTestViaRust(config, scenarios, vi.fn()),
     ).rejects.toThrow('string error');
   });
+
+  it('rejects when startRustLoadTest promise rejects (listen failure)', async () => {
+    mockListen.mockRejectedValueOnce(new Error('listen failed'));
+
+    const config = makeConfig({ iterations: 1 });
+    const scenarios = [makeScenario()];
+
+    await expect(
+      runTestViaRust(config, scenarios, vi.fn()),
+    ).rejects.toThrow('listen failed');
+  });
+
+  it('rejects with Error wrapper when startRustLoadTest rejects with non-Error', async () => {
+    mockListen.mockRejectedValueOnce('listen string failure');
+
+    const config = makeConfig({ iterations: 1 });
+    const scenarios = [makeScenario()];
+
+    await expect(
+      runTestViaRust(config, scenarios, vi.fn()),
+    ).rejects.toThrow('listen string failure');
+  });
 });
 
 /* ── Coverage gap: mapRustResultWithoutValidation edge cases ── */

@@ -96,31 +96,29 @@ describe('WebhookConfig', () => {
 
   it('copies webhook URL to clipboard on Copy click', async () => {
     render(<WebhookConfig data={makeData()} onChange={vi.fn()} workflowId="wf1" nodeId="n1" />);
-    fireEvent.click(screen.getByText('Copy'));
+    await act(async () => { fireEvent.click(screen.getByText('Copy')); await Promise.resolve(); });
     expect(mockClipboardWriteText).toHaveBeenCalledWith('http://127.0.0.1:3001/webhooks/wf1/n1');
   });
 
   it('handles clipboard failure when copying URL', async () => {
-    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     mockClipboardWriteText.mockRejectedValueOnce(new Error('denied'));
     render(<WebhookConfig data={makeData()} onChange={vi.fn()} workflowId="wf1" nodeId="n1" />);
     await act(async () => {
       fireEvent.click(screen.getByText('Copy'));
     });
-    expect(errSpy).toHaveBeenCalled();
-    errSpy.mockRestore();
+    // Hook silently swallows clipboard errors — button should still show 'Copy'
+    expect(screen.getByText('Copy')).toBeTruthy();
     mockClipboardWriteText.mockResolvedValue(undefined);
   });
 
   it('handles clipboard failure when copying cURL', async () => {
-    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     mockClipboardWriteText.mockRejectedValueOnce(new Error('denied'));
     render(<WebhookConfig data={makeData()} onChange={vi.fn()} workflowId="wf1" nodeId="n1" />);
     await act(async () => {
       fireEvent.click(screen.getByText('Copy cURL'));
     });
-    expect(errSpy).toHaveBeenCalled();
-    errSpy.mockRestore();
+    // Hook silently swallows clipboard errors — button should still show 'Copy cURL'
+    expect(screen.getByText('Copy cURL')).toBeTruthy();
     mockClipboardWriteText.mockResolvedValue(undefined);
   });
 
@@ -133,14 +131,14 @@ describe('WebhookConfig', () => {
         nodeId="n1"
       />,
     );
-    fireEvent.click(screen.getByText('Copy cURL'));
+    await act(async () => { fireEvent.click(screen.getByText('Copy cURL')); await Promise.resolve(); });
     const curlArg = mockClipboardWriteText.mock.calls[0][0] as string;
     expect(curlArg).toContain("-d '{}'");
   });
 
   it('copies cURL command to clipboard on Copy cURL click', async () => {
     render(<WebhookConfig data={makeData()} onChange={vi.fn()} workflowId="wf1" nodeId="n1" />);
-    fireEvent.click(screen.getByText('Copy cURL'));
+    await act(async () => { fireEvent.click(screen.getByText('Copy cURL')); await Promise.resolve(); });
     expect(mockClipboardWriteText).toHaveBeenCalledTimes(1);
     const curlArg = mockClipboardWriteText.mock.calls[0][0] as string;
     expect(curlArg).toContain('curl');
@@ -165,34 +163,32 @@ describe('WebhookConfig', () => {
 
   it('uses {} as default payload when samplePayload is empty', async () => {
     render(<WebhookConfig data={makeData({ samplePayload: '' })} onChange={vi.fn()} workflowId="wf1" nodeId="n1" />);
-    fireEvent.click(screen.getByText('Copy cURL'));
+    await act(async () => { fireEvent.click(screen.getByText('Copy cURL')); await Promise.resolve(); });
     const curlArg = mockClipboardWriteText.mock.calls[0][0] as string;
     expect(curlArg).toContain("'{}'");
   });
 
   it('escapes single quotes in samplePayload for cURL', async () => {
     render(<WebhookConfig data={makeData({ samplePayload: "{'key':'val'}" })} onChange={vi.fn()} workflowId="wf1" nodeId="n1" />);
-    fireEvent.click(screen.getByText('Copy cURL'));
+    await act(async () => { fireEvent.click(screen.getByText('Copy cURL')); await Promise.resolve(); });
     const curlArg = mockClipboardWriteText.mock.calls[0][0] as string;
-    expect(curlArg).toContain("'\\''");
+    expect(curlArg).toContain("'\\''");;
   });
 
   it('handles clipboard writeText failure gracefully for URL copy', async () => {
     mockClipboardWriteText.mockRejectedValueOnce(new Error('Clipboard denied'));
-    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
     render(<WebhookConfig data={makeData()} onChange={vi.fn()} workflowId="wf1" nodeId="n1" />);
-    fireEvent.click(screen.getByText('Copy'));
-    await vi.waitFor(() => expect(spy).toHaveBeenCalled());
-    spy.mockRestore();
+    // Should not throw — hook silently swallows clipboard errors
+    await act(async () => { fireEvent.click(screen.getByText('Copy')); await Promise.resolve(); });
+    expect(screen.getByText('Copy')).toBeTruthy();
   });
 
   it('handles clipboard writeText failure gracefully for cURL copy', async () => {
     mockClipboardWriteText.mockRejectedValueOnce(new Error('Clipboard denied'));
-    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
     render(<WebhookConfig data={makeData()} onChange={vi.fn()} workflowId="wf1" nodeId="n1" />);
-    fireEvent.click(screen.getByText('Copy cURL'));
-    await vi.waitFor(() => expect(spy).toHaveBeenCalled());
-    spy.mockRestore();
+    // Should not throw — hook silently swallows clipboard errors
+    await act(async () => { fireEvent.click(screen.getByText('Copy cURL')); await Promise.resolve(); });
+    expect(screen.getByText('Copy cURL')).toBeTruthy();
   });
 
   it('does not copy URL when webhookUrl is null', async () => {
@@ -203,20 +199,20 @@ describe('WebhookConfig', () => {
 
   it('uses method from data in cURL command', async () => {
     render(<WebhookConfig data={makeData({ method: 'PUT' })} onChange={vi.fn()} workflowId="wf1" nodeId="n1" />);
-    fireEvent.click(screen.getByText('Copy cURL'));
+    await act(async () => { fireEvent.click(screen.getByText('Copy cURL')); await Promise.resolve(); });
     const curlArg = mockClipboardWriteText.mock.calls[0][0] as string;
     expect(curlArg).toContain('-X PUT');
   });
 
   it('shows ✓ Copied! after URL copy succeeds', async () => {
     render(<WebhookConfig data={makeData()} onChange={vi.fn()} workflowId="wf1" nodeId="n1" />);
-    fireEvent.click(screen.getByText('Copy'));
+    await act(async () => { fireEvent.click(screen.getByText('Copy')); await Promise.resolve(); });
     await vi.waitFor(() => expect(screen.getByText('✓ Copied!')).toBeTruthy());
   });
 
   it('shows ✓ Copied! after cURL copy succeeds', async () => {
     render(<WebhookConfig data={makeData()} onChange={vi.fn()} workflowId="wf1" nodeId="n1" />);
-    fireEvent.click(screen.getByText('Copy cURL'));
+    await act(async () => { fireEvent.click(screen.getByText('Copy cURL')); await Promise.resolve(); });
     await vi.waitFor(() => expect(screen.getByText('✓ Copied!')).toBeTruthy());
   });
 
@@ -278,7 +274,7 @@ describe('WebhookConfig', () => {
 
   it('uses PATCH method in cURL command', async () => {
     render(<WebhookConfig data={makeData({ method: 'PATCH' })} onChange={vi.fn()} workflowId="wf1" nodeId="n1" />);
-    fireEvent.click(screen.getByText('Copy cURL'));
+    await act(async () => { fireEvent.click(screen.getByText('Copy cURL')); await Promise.resolve(); });
     const curlArg = mockClipboardWriteText.mock.calls[0][0] as string;
     expect(curlArg).toContain('-X PATCH');
   });
@@ -292,7 +288,7 @@ describe('WebhookConfig', () => {
 
   it('uses {} when samplePayload is undefined', async () => {
     render(<WebhookConfig data={makeData({ samplePayload: undefined })} onChange={vi.fn()} workflowId="wf1" nodeId="n1" />);
-    fireEvent.click(screen.getByText('Copy cURL'));
+    await act(async () => { fireEvent.click(screen.getByText('Copy cURL')); await Promise.resolve(); });
     const curlArg = mockClipboardWriteText.mock.calls[0][0] as string;
     expect(curlArg).toContain("'{}'");
   });

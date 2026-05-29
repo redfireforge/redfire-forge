@@ -399,4 +399,49 @@ describe('ExtractionEditor', () => {
     fireEvent.click(screen.getByTitle('Browse JSON and pick a path'));
     expect(screen.getByTestId('data-mapper-modal')).toBeTruthy();
   });
+
+  it('shows Fetching... when fetchSample.fetching is true', () => {
+    const fetchSample = { onFetch: vi.fn(), fetching: true, error: null };
+    render(<ExtractionEditor extractions={[]} onChange={vi.fn()} fetchSample={fetchSample} />);
+    expect(screen.getByText('Fetching...')).toBeTruthy();
+  });
+
+  it('shows Override host checkbox and enabled input when host.enabled is true', () => {
+    const setEnabled = vi.fn();
+    const setOverride = vi.fn();
+    const fetchSample = {
+      onFetch: vi.fn(), fetching: false, error: null,
+      host: { enabled: true, override: 'http://custom.host', setEnabled, setOverride, resolvedBaseUrl: 'http://base.url' },
+    };
+    render(<ExtractionEditor extractions={[]} onChange={vi.fn()} fetchSample={fetchSample} />);
+    const hostInput = screen.getByPlaceholderText('http://base.url');
+    expect(hostInput).toBeTruthy();
+    fireEvent.change(hostInput, { target: { value: 'http://new.host' } });
+    expect(setOverride).toHaveBeenCalledWith('http://new.host');
+  });
+
+  it('fires setEnabled when Override host checkbox is toggled', () => {
+    const setEnabled = vi.fn();
+    const fetchSample = {
+      onFetch: vi.fn(), fetching: false, error: null,
+      host: { enabled: false, override: '', setEnabled, setOverride: vi.fn(), resolvedBaseUrl: 'http://api.local' },
+    };
+    render(<ExtractionEditor extractions={[]} onChange={vi.fn()} fetchSample={fetchSample} />);
+    const checkbox = screen.getByRole('checkbox');
+    fireEvent.click(checkbox);
+    expect(setEnabled).toHaveBeenCalled();
+  });
+
+  it('returns empty paths array when sampleResponseBody is invalid JSON', () => {
+    // With invalid JSON the samplePaths memo returns [] and pick button still renders
+    render(
+      <ExtractionEditor
+        extractions={[makeExtraction({ source: 'body' })]}
+        onChange={vi.fn()}
+        sampleResponseBody="not-json"
+      />,
+    );
+    // Pick button still renders with empty paths (no crash)
+    expect(screen.getByTitle('Browse JSON and pick a path')).toBeTruthy();
+  });
 });

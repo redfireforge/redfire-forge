@@ -12,9 +12,13 @@ import {
   createAuthFlowTest,
   createEcommerceFullSuiteTest,
   createMultiApiLoadTest,
+} from './presets';
+import {
   createCatalogExportDemoTest,
   createTrashRecoveryDemo,
-} from './presets';
+  createApiHealthSlaTest,
+  createPerformanceRegressionBaselineTest,
+} from './presets-advanced';
 import {
   createUserLookupSweepTest,
   createProductSearchMatrixTest,
@@ -156,6 +160,20 @@ export const testSampleCatalog: TestSampleEntry[] = [
     scenarioCount: 5,
     assertionTypes: ['status', 'responseTime'],
     factory: createMultiApiLoadTest,
+  },
+  {
+    id: 'test-performance-regression-baseline',
+    domain: 'tests',
+    name: 'Performance Regression Baseline',
+    description: 'Baseline/comparison demo: import this sample, run once at low concurrency, then rerun at higher concurrency to visualize regressions and trend shifts.',
+    icon: '📉',
+    category: 'regression',
+    difficulty: 'medium',
+    tags: ['performance', 'baseline', 'regression', 'comparison', 'trend', 'sla'],
+    liveApis: ['dummyjson.com', 'jsonplaceholder.typicode.com'],
+    scenarioCount: 2,
+    assertionTypes: ['status', 'arrayLength', 'numeric'],
+    factory: createPerformanceRegressionBaselineTest,
   },
   {
     id: 'test-catalog-export-demo',
@@ -358,5 +376,19 @@ export const testSampleCatalog: TestSampleEntry[] = [
     assertionTypes: ['status', 'regex'],
     factory: createSharedAuthUsersFeatureGroup,
     sharedDataSourceFactory: () => [createSharedAuthUsersDataSource()],
+  },
+  {
+    id: 'test-api-health-sla',
+    domain: 'tests',
+    name: 'API Health Check with SLA',
+    description: 'Three-scenario health check with SLA targets — demonstrates the SLA badge, Configure panel, and pass/fail results in Test Runner',
+    icon: '🎯',
+    category: 'smoke',
+    difficulty: 'easy',
+    tags: ['sla', 'health-check', 'smoke', 'jsonplaceholder', 'runner', 'training'],
+    liveApis: ['jsonplaceholder.typicode.com'],
+    scenarioCount: 3,
+    assertionTypes: ['status', 'arrayLength', 'regex'],
+    factory: createApiHealthSlaTest,
   },
 ];

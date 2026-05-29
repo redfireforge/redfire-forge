@@ -823,4 +823,141 @@ describe('useRunnerOrchestration', () => {
       expect(result.current.scenarioTagCounts).toEqual({});
     });
   });
+
+  // ── SLA-B5: SLA target auto-collect + merge ─────────────────────────────
+  describe('SLA targets (SLA-B5)', () => {
+    const makeSlaTarget = (metric: string, scenarioName?: string, value = 800) => ({
+      id: `sla-${metric}-${scenarioName ?? 'global'}`,
+      metric: metric as import('../../../shared/types').SlaMetric,
+      operator: 'lte' as const,
+      value,
+      ...(scenarioName !== undefined ? { scenarioName } : {}),
+    });
+
+    it('runnerSlaTargets defaults to []', () => {
+      const { result } = renderHook(() => useRunnerOrchestration(defaultOpts));
+      expect(result.current.runnerSlaTargets).toEqual([]);
+    });
+
+    it('setRunnerSlaTargets updates override targets', () => {
+      const { result } = renderHook(() => useRunnerOrchestration(defaultOpts));
+      const override = makeSlaTarget('p95', 'Standard', 500);
+      act(() => { result.current.setRunnerSlaTargets([override]); });
+      expect(result.current.runnerSlaTargets).toEqual([override]);
+    });
+
+    it('handleRun passes scenario slaTargets to execute with scenarioName stamped', () => {
+      const fgs: FeatureGroup[] = [{
+        id: 'fg1', name: 'FG',
+        scenarios: [{
+          id: 'sc1', name: 'Standard', kind: 'standard' as const,
+          slaTargets: [makeSlaTarget('p95')],
+          tests: [{ id: 't1', name: 'T', method: 'GET', url: '/api', headers: [], validation: { mode: 'none' }, auth: { type: 'none' } }],
+        }],
+      }];
+      const { result } = renderHook(() => useRunnerOrchestration({ ...defaultOpts, featureGroups: fgs }));
+      act(() => { result.current.handleRun(); });
+      const [cfg] = mockExecute.mock.calls[0];
+      expect(cfg.slaTargets).toHaveLength(1);
+      expect(cfg.slaTargets[0].scenarioName).toBe('Standard');
+      expect(cfg.slaTargets[0].metric).toBe('p95');
+    });
+
+    it('handleRun passes feature group slaTargets to execute', () => {
+      const fgs: FeatureGroup[] = [{
+        id: 'fg1', name: 'FG',
+        slaTargets: [makeSlaTarget('errorRate')],
+        scenarios: [{
+          id: 'sc1', name: 'Standard', kind: 'standard' as const,
+          tests: [{ id: 't1', name: 'T', method: 'GET', url: '/api', headers: [], validation: { mode: 'none' }, auth: { type: 'none' } }],
+        }],
+      }];
+      const { result } = renderHook(() => useRunnerOrchestration({ ...defaultOpts, featureGroups: fgs }));
+      act(() => { result.current.handleRun(); });
+      const [cfg] = mockExecute.mock.calls[0];
+      expect(cfg.slaTargets).toHaveLength(1);
+      expect(cfg.slaTargets[0].metric).toBe('errorRate');
+    });
+
+    it('handleRun runner override wins on same metric + scenarioName', () => {
+      const fgs: FeatureGroup[] = [{
+        id: 'fg1', name: 'FG',
+        scenarios: [{
+          id: 'sc1', name: 'Standard', kind: 'standard' as const,
+          slaTargets: [{ ...makeSlaTarget('p95'), scenarioName: 'Standard', value: 1000 }],
+          tests: [{ id: 't1', name: 'T', method: 'GET', url: '/api', headers: [], validation: { mode: 'none' }, auth: { type: 'none' } }],
+        }],
+      }];
+      const override = { ...makeSlaTarget('p95', 'Standard'), value: 500 };
+      const { result } = renderHook(() => useRunnerOrchestration({ ...defaultOpts, featureGroups: fgs }));
+      act(() => { result.current.setRunnerSlaTargets([override]); });
+      act(() => { result.current.handleRun(); });
+      const [cfg] = mockExecute.mock.calls[0];
+      expect(cfg.slaTargets).toHaveLength(1);
+      expect(cfg.slaTargets[0].value).toBe(500); // runner wins
+    });
+
+    it('handleRun adds runner-only override (no matching definition target)', () => {
+      const { result } = renderHook(() => useRunnerOrchestration(defaultOpts));
+      const override = makeSlaTarget('p99', 'Standard', 300);
+      act(() => { result.current.setRunnerSlaTargets([override]); });
+      act(() => { result.current.handleRun(); });
+      const [cfg] = mockExecute.mock.calls[0];
+      expect(cfg.slaTargets).toHaveLength(1);
+      expect(cfg.slaTargets[0].metric).toBe('p99');
+    });
+
+    it('handleRun omits slaTargets from config when none are defined or overridden', () => {
+      const { result } = renderHook(() => useRunnerOrchestration(defaultOpts));
+      act(() => { result.current.handleRun(); });
+      const [cfg] = mockExecute.mock.calls[0];
+      expect(cfg.slaTargets).toBeUndefined();
+    });
+
+    it('selectedSlaScenarioNames includes names of selected scenarios', () => {
+      const fgs: FeatureGroup[] = [{
+        id: 'fg1', name: 'FG',
+        scenarios: [
+          { id: 'sc1', name: 'Standard', kind: 'standard' as const, tests: [] },
+          { id: 'sc2', name: 'Param', kind: 'parameterized' as const, tests: [] },
+        ],
+      }];
+      // selectedScenarios mock returns Set(['sc1'])
+      const { result } = renderHook(() => useRunnerOrchestration({ ...defaultOpts, featureGroups: fgs }));
+      expect(result.current.selectedSlaScenarioNames).toEqual(['Standard']);
+    });
+
+    it('definitionSlaTargetCount reflects scenario + FG targets for selected scenarios', () => {
+      const fgs: FeatureGroup[] = [{
+        id: 'fg1', name: 'FG',
+        slaTargets: [makeSlaTarget('errorRate')],
+        scenarios: [
+          { id: 'sc1', name: 'S1', kind: 'standard' as const, slaTargets: [makeSlaTarget('p95')], tests: [] },
+          { id: 'sc2', name: 'S2', kind: 'standard' as const, slaTargets: [makeSlaTarget('p99')], tests: [] },
+        ],
+      }];
+      // selectedScenarios mock is Set(['sc1']) — sc2 not selected
+      const { result } = renderHook(() => useRunnerOrchestration({ ...defaultOpts, featureGroups: fgs }));
+      expect(result.current.definitionSlaTargetCount).toBe(2); // 1 FG + 1 sc1 (sc2 not selected)
+    });
+
+    it('definitionSlaTargetCount includes test-level slaTargets', () => {
+      const fgs: FeatureGroup[] = [{
+        id: 'fg1', name: 'FG',
+        slaTargets: [makeSlaTarget('errorRate')],
+        scenarios: [
+          {
+            id: 'sc1', name: 'S1', kind: 'standard' as const, slaTargets: [],
+            tests: [
+              { id: 't1', name: 'T1', method: 'GET', url: '/a', auth: { type: 'inherit' }, slaTargets: [makeSlaTarget('p95'), makeSlaTarget('errorRate')] } as unknown as (typeof fgs)[0]['scenarios'][0]['tests'][0],
+              { id: 't2', name: 'T2', method: 'GET', url: '/b', auth: { type: 'inherit' }, slaTargets: [makeSlaTarget('p99')] } as unknown as (typeof fgs)[0]['scenarios'][0]['tests'][0],
+              { id: 't3', name: 'T3', method: 'GET', url: '/c', auth: { type: 'inherit' } } as unknown as (typeof fgs)[0]['scenarios'][0]['tests'][0],
+            ],
+          },
+        ],
+      }];
+      const { result } = renderHook(() => useRunnerOrchestration({ ...defaultOpts, featureGroups: fgs }));
+      expect(result.current.definitionSlaTargetCount).toBe(4); // 1 FG + 0 sc + 2 t1 + 1 t2 + 0 t3
+    });
+  });
 });

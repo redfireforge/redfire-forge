@@ -48,6 +48,12 @@ alwaysApply: true
 | `src/features/catalog/utils/catalogEndpointToRequest.ts` | Catalog endpoint → temporary RequestItem for direct-to-Harness promotion (incl. schema-based sample body generation) |
 | `src/app/hooks/useDerivedViewState.ts` | Derived view state (selectedEnv, selectedSvc, isAdditionalEnv, resolvedBaseUrl, filteredFeatureGroups) |
 | `src/features/workflow/components/WorkflowDesignerFlowCanvas.tsx` | Workflow canvas: ReactFlow wrapper with viewport persistence (IntersectionObserver) and tab-switch restoration |
+| `src/features/workflow/data/emptyCanvasTemplates.ts` | Empty canvas template definitions: curated gallery samples for quick-start workflow suggestions |
+| `src/features/workflow/components/canvas/EmptyCanvasTemplates.tsx` | Template card grid UI for empty workflow canvas with Browse Gallery link |
+| `src/features/workflow/data/onboardingHints.ts` | Onboarding hint definitions: 5 contextual hints for first-time users |
+| `src/features/workflow/hooks/useOnboardingHints.ts` | Onboarding state management: show/dismiss/reset hints with localStorage persistence |
+| `src/features/workflow/components/canvas/OnboardingTooltip.tsx` | Positioned tooltip component for onboarding hints with arrow indicators |
+| `src/features/workflow/components/panels/WorkflowNewNodeContext.tsx` | New node tracking: markNodeAsNew(), isNodeNew() for pop-in animation |
 | `src/features/workflow/engine/resolveNodeSpecVersion.ts` | Workflow spec version resolution (pinned/latest mode) + detectNewerVersion |
 | `src/utils/workflowAutoLayout.ts` | Dagre-based hierarchical auto-layout with post-processing |
 | `src/engine/executor.ts` | HTTP test execution engine |
@@ -66,6 +72,7 @@ alwaysApply: true
 | `src/engine/workflow/graphRunner.ts` | Workflow execution engine with topological traversal, parallel fork/join |
 | `src/engine/workflow/debugController.ts` | Step-through debugging controller for Quick Test |
 | `src/engine/workflow/fetchScenarioSample.ts` | One-off HTTP fetch for Extract → Pick JSON path |
+| `src/shared/components/Skeleton.tsx` | Reusable skeleton loading placeholder with shimmer animation (variants: text, title, avatar, button, card) |
 | `src/shared/components/data-mapper/RegexAssertionBuilderModal.tsx` | Regex assertion builder modal: DM tree picker, pattern library, live preview (replaced old RegexAssertionModal) |
 | `src/shared/components/data-mapper/utils/mappingProfiles.ts` | Named mapping profile CRUD — save/load/rename/delete per adapter contextId |
 | `src/shared/components/data-mapper/utils/arrayMapping.ts` | Array mapping detection — classify loop/aggregate/spread/direct, smart aggregate suggestions |
@@ -148,6 +155,8 @@ alwaysApply: true
 | `src/shared/components/data-mapper/DslReferencePanel.tsx` | DSL Reference Panel: 10-category card-based reference (39 entries) with search, insert, copy, expand/collapse all |
 | `src/shared/components/data-mapper/hooks/useValidationRulesModal.ts` | Modal state: mode/resize/reference persistence (mirrors WorkflowConsolePanel) |
 | `src/styles/validation-rules-modal.css` | Validation Rules Modal + DSL Reference Panel CSS |
+| `src/styles/workflow-version-panel.css` | Workflow Version History panel CSS |
+| `src/styles/workflow-version-diff.css` | Workflow Version Comparison modal CSS |
 | `src/shared/components/data-mapper/ValidationCodeEditor.tsx` | Monaco-based DSL editor with syntax highlighting, autocomplete, inline error markers |
 | `src/shared/components/data-mapper/hooks/useValidationCodeSync.ts` | Bi-directional visual ↔ DSL code sync with error-aware debounce |
 | `src/shared/components/data-mapper/hooks/useValidationVerify.ts` | Verification engine: evaluates field operators + DSL assertions, passedCount/failedCount |
@@ -156,6 +165,11 @@ alwaysApply: true
 | `src/shared/components/data-mapper/utils/expressionDebugHelpers.ts` | Debug formatting helpers: prettyDebugValue, truncateDebugValue |
 | `src/shared/utils/trashStorage.ts` | Trash Box: dual-mode CRUD (IDB/localStorage/Tauri FS), purgeExpired, enforceMaxItems |
 | `src/shared/utils/idbTrash.ts` | Trash Box: IndexedDB backend for trash items |
+| `src/shared/utils/idbOpen.ts` | IndexedDB connection manager: schema versioning, object store creation (DB_VERSION=5) |
+| `src/shared/utils/idbWorkflows.ts` | IndexedDB backend for workflows and workflow folders (load/save/migrate) |
+| `src/shared/utils/idbRequests.ts` | IndexedDB backend for request collections (load/save/migrate) |
+| `src/shared/utils/idbCatalog.ts` | IndexedDB backend for catalog entries, raw specs, and endpoint values (load/save/remove/migrate) |
+| `src/shared/utils/idbProjects.ts` | IndexedDB backend for projects (load/save/migrate) |
 | `src/features/scenarios/hooks/useTrash.ts` | Trash Box: React hook — moveToTrash, restore (FG/scenario/test/DS), undo, settings |
 | `src/features/scenarios/components/TrashPanel.tsx` | Trash Box: modal UI — browse, search, restore, permanent delete, empty trash |
 | `src/features/scenarios/components/TrashUndoToast.tsx` | Trash Box: 5-second undo toast after deletion with countdown bar |
