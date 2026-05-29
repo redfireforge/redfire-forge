@@ -70,16 +70,14 @@ test.describe('Response Detail Modal', () => {
     await page.goto('/?tab=results');
     await page.waitForSelector('.app-header', { timeout: 10000 });
     await page.waitForLoadState('networkidle');
+
+    // Navigate to the Request Details tab where clickable rows live
+    await page.getByRole('tab', { name: 'Request Details' }).click();
+    await expect(page.locator('tr.clickable-row')).toBeVisible({ timeout: 5000 });
   });
 
   test('modal opens with title and footer close button', async ({ page }) => {
-    // Wait for results table to be visible
-    await expect(page.locator('.metric-label:has-text("Total Requests")')).toBeVisible({ timeout: 5000 });
-    
-    // Wait for clickable row to appear
-    await expect(page.locator('tr.clickable-row')).toBeVisible({ timeout: 5000 });
-    
-    // Click on a result row to open the modal
+    // Click on a result row to open the modal (beforeEach already navigated to Request Details tab)
     await page.locator('tr.clickable-row').first().click();
     
     // Wait for modal to appear

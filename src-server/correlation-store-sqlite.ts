@@ -12,19 +12,19 @@ import { dirname } from 'path';
 import { SCHEMA_SQLITE, type PausedWorkflowRow } from './correlation-schema.js';
 import type { ServerPausedEntry } from './correlation-handler.js';
 import type { IServerCorrelationStore } from './correlation-store-interface.js';
+import {
+  appendUnmatchedEntry,
+  cleanupExpiredEntries,
+  MAX_UNMATCHED_LOG,
+  type UnmatchedWebhookEntry,
+} from './correlation-store-shared.js';
 
-const MAX_UNMATCHED_LOG = 100;
 const DEFAULT_DB_PATH = './data/correlations.db';
 
 export class SqliteServerStore implements IServerCorrelationStore {
   private db: Database.Database;
   private entries = new Map<string, ServerPausedEntry>();
-  private unmatchedWebhooks: Array<{
-    path: string;
-    correlationId?: string;
-    payload: unknown;
-    receivedAt: number;
-  }> = [];
+  private unmatchedWebhooks: UnmatchedWebhookEntry[] = [];
 
   constructor(dbPath: string = DEFAULT_DB_PATH) {
     // Ensure directory exists
@@ -137,24 +137,19 @@ export class SqliteServerStore implements IServerCorrelationStore {
   }
 
   cleanupExpired(): number {
-    const now = Date.now();
-    let count = 0;
-    for (const [id, entry] of this.entries) {
-      if (entry.timeoutAt > 0 && entry.timeoutAt <= now) {
-        this.entries.delete(id);
-        this.db.prepare('DELETE FROM paused_workflows WHERE correlation_id = ?').run(id);
-        count++;
-      }
-    }
-    return count;
+    return cleanupExpiredEntries(this.entries, Date.now(), (id) => {
+      this.db.prepare('DELETE FROM paused_workflows WHERE correlation_id = ?').run(id);
+    });
   }
 
   logUnmatched(path: string, correlationId: string | undefined, payload: unknown): void {
     const now = Date.now();
-    this.unmatchedWebhooks.push({ path, correlationId, payload, receivedAt: now });
-    while (this.unmatchedWebhooks.length > MAX_UNMATCHED_LOG) {
-      this.unmatchedWebhooks.shift();
-    }
+    appendUnmatchedEntry(this.unmatchedWebhooks, {
+      path,
+      correlationId,
+      payload,
+      receivedAt: now,
+    });
 
     // Write to SQLite
     this.db.prepare(

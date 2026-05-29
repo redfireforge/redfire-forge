@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Performance Regression Tracking (Medium) — Training Manual</title>
+  <style>
+    @page { size: A4; margin: 20mm 18mm; }
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      color: #1f2937;
+      max-width: 920px;
+      margin: 0 auto;
+      padding: 28px 22px;
+      line-height: 1.6;
+      background: #fff;
+    }
+    h1 { font-size: 30px; color: #1d4ed8; margin: 0 0 8px; }
+    h2 { font-size: 22px; color: #1e3a8a; margin: 28px 0 10px; border-bottom: 2px solid #1d4ed8; padding-bottom: 6px; }
+    h3 { font-size: 17px; color: #2563eb; margin: 18px 0 8px; }
+    p, li { font-size: 13px; }
+    ul, ol { padding-left: 22px; }
+    code {
+      background: #f3f4f6;
+      color: #b91c1c;
+      border-radius: 4px;
+      padding: 1px 6px;
+      font-size: 12px;
+      font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    }
+    pre {
+      background: #0f172a;
+      color: #cbd5e1;
+      border-radius: 6px;
+      padding: 12px 14px;
+      font-size: 11.5px;
+      overflow-x: auto;
+      margin: 10px 0 14px;
+    }
+    .callout {
+      background: #eff6ff;
+      border-left: 4px solid #2563eb;
+      border-radius: 0 6px 6px 0;
+      padding: 10px 14px;
+      margin: 12px 0;
+      font-size: 12.5px;
+    }
+    .tip {
+      background: #ecfdf5;
+      border-left-color: #059669;
+    }
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 600;
+      background: #dbeafe;
+      color: #1e40af;
+      margin-left: 6px;
+      vertical-align: middle;
+    }
+    table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+    th { text-align: left; background: #1e3a8a; color: #fff; padding: 8px 10px; }
+    td { border-bottom: 1px solid #e5e7eb; padding: 8px 10px; vertical-align: top; }
+    tr:nth-child(even) td { background: #f8fafc; }
+    footer {
+      margin-top: 34px;
+      padding-top: 12px;
+      border-top: 1px solid #e5e7eb;
+      text-align: center;
+      font-size: 11px;
+      color: #6b7280;
+    }
+    .page-break { page-break-before: always; }
+  </style>
+</head>
+<body>
+  <h1>Performance Regression Tracking <span class="badge">Medium</span></h1>
+  <p>This manual walks through the full baseline/comparison workflow in Results: import known runs, mark a baseline, compare against another run, inspect regressions, and verify trend behavior.</p>
+
+  <div class="callout">
+    <strong>Goal</strong><br />
+    Learn how to detect regressions with baseline comparison and trend views using the built-in Phase 25 sample files.
+  </div>
+
+  <h2>1. Sample Files Used</h2>
+  <p>Use these exact files from the repository:</p>
+  <pre>docs/test-data/phase25-run-comparison/baseline-run.json
+docs/test-data/phase25-run-comparison/regression-run.json
+docs/test-data/phase25-run-comparison/improved-run.json
+docs/test-data/phase25-run-comparison/alt-scope-run.json
+docs/test-data/phase25-run-comparison/workflow-run.json</pre>
+
+  <h2>2. Before You Start</h2>
+  <ol>
+    <li>Open RedfireForge and go to <strong>Harness → Results</strong>.</li>
+    <li>Confirm you can see the <strong>Import Test Results</strong> button.</li>
+    <li>If old data is loaded, clear or isolate it so this walkthrough is easy to follow.</li>
+  </ol>
+
+  <h2>3. Step-by-Step Walkthrough</h2>
+
+  <h3>Step A — Import Baseline and Comparison Runs</h3>
+  <ol>
+    <li>Click <strong>📥 Import Test Results</strong>.</li>
+    <li>Import files in this order:
+      <ul>
+        <li><code>baseline-run.json</code></li>
+        <li><code>regression-run.json</code></li>
+        <li><code>improved-run.json</code></li>
+        <li><code>alt-scope-run.json</code></li>
+        <li><code>workflow-run.json</code></li>
+      </ul>
+    </li>
+    <li>Verify run-type counters update for <strong>All</strong>, <strong>Test</strong>, and <strong>Workflow</strong>.</li>
+  </ol>
+
+  <h3>Step B — Mark a Baseline</h3>
+  <ol>
+    <li>From the top run selector, choose the run around <code>6.94 TPS</code> (baseline-run).</li>
+    <li>Click <strong>☆ Set Baseline</strong>.</li>
+    <li>Confirm button changes to <strong>★ Baseline</strong>.</li>
+    <li>Open the <strong>Comparison &amp; Trends</strong> tab and confirm a baseline entry appears in the side panel.</li>
+  </ol>
+
+  <h3>Step C — Compare a Regressed Run</h3>
+  <ol>
+    <li>Switch selected run to the one around <code>5.1 TPS</code> (regression-run).</li>
+    <li>In Comparison &amp; Trends, use <strong>Compare against run…</strong> and choose the starred baseline entry.</li>
+    <li>Verify <strong>Run Comparison</strong> appears with tabs:
+      <ul>
+        <li>Overview</li>
+        <li>Per-Scenario</li>
+        <li>Regressions</li>
+        <li>Distribution</li>
+      </ul>
+    </li>
+    <li>In the summary strip, confirm regressions are visible (for this sample, response-time metrics regress strongly).</li>
+    <li>Open <strong>Regressions</strong> tab and inspect severity/status rows.</li>
+  </ol>
+
+  <h3>Step D — Compare an Improved Run</h3>
+  <ol>
+    <li>Switch selected run to the one around <code>8.2 TPS</code> (improved-run).</li>
+    <li>Keep the same baseline compare target.</li>
+    <li>Verify the summary strip shows improved/no-change statuses and fewer regressions than Step C.</li>
+  </ol>
+
+  <h3>Step E — Use Trend View and Scope</h3>
+  <ol>
+    <li>In Comparison &amp; Trends, click <strong>Show Trend</strong>.</li>
+    <li>Check the <strong>Overall</strong> chart appears.</li>
+    <li>Switch to <strong>Per-Scenario</strong> tab in the trend card.</li>
+    <li>Change scope from <strong>All runs</strong> to <strong>By service</strong>, then <strong>By service + env</strong>.</li>
+    <li>Verify chart points change according to scope filtering.</li>
+  </ol>
+
+  <h3>Step F — Adjust Thresholds</h3>
+  <ol>
+    <li>In Comparison &amp; Trends side panel, open the <strong>Regression Thresholds</strong> section.</li>
+    <li>Change one threshold value (for example P95).</li>
+    <li>Click <strong>Save</strong> and confirm save message appears.</li>
+    <li>Click <strong>Reset Defaults</strong>, then <strong>Save</strong> to restore defaults.</li>
+  </ol>
+
+  <h3>Step G — Export Comparison Report</h3>
+  <ol>
+    <li>With comparison visible, open <strong>Export ▾</strong> in Run Comparison.</li>
+    <li>Click <strong>Export as Markdown</strong>.</li>
+    <li>Open Export again and click <strong>Export as JSON</strong>.</li>
+    <li>Confirm both downloads are generated without UI errors.</li>
+  </ol>
+
+  <div class="callout tip">
+    <strong>Tip</strong><br />
+    Repeat the walkthrough with different selected/compared run pairs to understand directionality: comparison outcomes depend on which run is the selected side vs compared side.
+  </div>
+
+  <div class="page-break"></div>
+
+  <h2>4. Expected Validation Points</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Area</th>
+        <th>Expected Result</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Baseline toggle</td>
+        <td>Switches between ☆ Set Baseline and ★ Baseline, and updates Comparison &amp; Trends baseline count.</td>
+      </tr>
+      <tr>
+        <td>Comparison panel</td>
+        <td>Renders all 4 tabs with summary strip and metric/scenario status tables.</td>
+      </tr>
+      <tr>
+        <td>Trend + scope</td>
+        <td>Show Trend toggles chart visibility; scope filters change the plotted points.</td>
+      </tr>
+      <tr>
+        <td>Thresholds</td>
+        <td>Save/Reset flows persist and restore threshold values.</td>
+      </tr>
+      <tr>
+        <td>Export</td>
+        <td>Markdown/JSON export actions trigger downloads successfully.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>5. Self-Practice Exercises</h2>
+  <ol>
+    <li>Mark <code>workflow-run.json</code> as baseline and compare it against a non-workflow run; observe scope option behavior.</li>
+    <li>Create a second comparison by choosing a non-baseline run in ad-hoc mode and compare outputs vs baseline mode.</li>
+    <li>Change threshold values enough to alter a metric status, then restore defaults.</li>
+  </ol>
+
+  <footer>
+    RedfireForge Training Manual — Performance Regression Tracking · 2026-05-29
+  </footer>
+</body>
+</html>
