@@ -21,9 +21,10 @@ interface Props {
   onSendToHarness?: (endpoint: CatalogEndpoint, fromTryItOut?: boolean) => void;
   coverageMap?: Map<string, EndpointCoverage>;
   onNavigateToRequest?: (collectionId: string, requestId: string) => void;
+  onToggleWorkflowExpose?: (endpoint: CatalogEndpoint, exposed: boolean, values: SavedEndpointValues) => void;
 }
 
-export default function CatalogEndpointBrowser({ entry, auth, onAuthChange, onHostChange, globalAuthProfiles, appEnvironments, appMicroservices, onEditEntry, onExportSingle, onSendToHarness, coverageMap, onNavigateToRequest }: Props) {
+export default function CatalogEndpointBrowser({ entry, auth, onAuthChange, onHostChange, globalAuthProfiles, appEnvironments, appMicroservices, onEditEntry, onExportSingle, onSendToHarness, coverageMap, onNavigateToRequest, onToggleWorkflowExpose }: Props) {
   const [filter, setFilter] = useState('');
   const [collapsedTags, setCollapsedTags] = useState<Set<string>>(new Set());
   const [showAuthPanel, setShowAuthPanel] = useState(false);
@@ -278,6 +279,7 @@ export default function CatalogEndpointBrowser({ entry, auth, onAuthChange, onHo
                     linkedMicroservice={linkedSvc}
                     onExportSingle={onExportSingle}
                     onSendToHarness={onSendToHarness}
+                    onToggleWorkflowExpose={onToggleWorkflowExpose}
                     coverage={coverageMap ? getEndpointCoverage(ep.method, ep.path, coverageMap) : undefined}
                     onNavigateToRequest={onNavigateToRequest}
                   />
@@ -309,6 +311,7 @@ export default function CatalogEndpointBrowser({ entry, auth, onAuthChange, onHo
                     linkedMicroservice={linkedSvc}
                     onExportSingle={onExportSingle}
                     onSendToHarness={onSendToHarness}
+                    onToggleWorkflowExpose={onToggleWorkflowExpose}
                     coverage={coverageMap ? getEndpointCoverage(ep.method, ep.path, coverageMap) : undefined}
                     onNavigateToRequest={onNavigateToRequest}
                   />

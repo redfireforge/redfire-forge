@@ -16,6 +16,7 @@ interface GalleryFiltersProps {
   trainingPaths: TrainingPath[];
   activePathId?: string;
   onSelectPath?: (pathId: string) => void;
+  width?: number;
 }
 
 const DIFFICULTY_OPTIONS: Array<{ value: GalleryDifficulty | 'all'; label: string }> = [
@@ -37,6 +38,7 @@ export function GalleryFilters({
   trainingPaths,
   activePathId,
   onSelectPath,
+  width,
 }: GalleryFiltersProps) {
   const set = <K extends keyof GalleryFilterState>(key: K, v: GalleryFilterState[K]) =>
     onChange({ ...value, [key]: v });
@@ -54,7 +56,7 @@ export function GalleryFilters({
   const filtersDisabled = mode === 'paths';
 
   return (
-    <aside className="gallery-filters">
+    <aside className="gallery-filters" style={width ? { width } : undefined}>
       <div className="gallery-filter-section">
         <div className="gallery-filter-heading">Domains</div>
         <button

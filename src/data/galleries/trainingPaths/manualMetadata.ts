@@ -42,6 +42,7 @@ export const manualMetadata: ManualMetadata[] = [
   { manualPath: 'tests/pokemon-contract-medium.html', addedAt: date('2024-01-20') },
   { manualPath: 'tests/country-search-medium.html', addedAt: date('2024-01-20') },
   { manualPath: 'tests/auth-flow-medium.html', addedAt: date('2024-01-25') },
+  { manualPath: 'tests/performance-regression-tracking.html', addedAt: date('2026-05-29') },
   { manualPath: 'tests/ecommerce-full-advanced.html', addedAt: date('2024-02-01') },
   { manualPath: 'tests/multi-api-load-advanced.html', addedAt: date('2024-02-01') },
   { manualPath: 'tests/export-options-easy.html', addedAt: date('2026-04-20') },

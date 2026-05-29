@@ -69,7 +69,8 @@ describe('WorkflowVersionDiff', () => {
   it('renders header with version labels', () => {
     render(<WorkflowVersionDiff open older={olderVersion} newer={newerVersion} onClose={onClose} />);
     expect(screen.getByText('Version Comparison')).toBeTruthy();
-    expect(screen.getByText(/Baseline.*→.*Updated/)).toBeTruthy();
+    expect(screen.getByText('Baseline')).toBeTruthy();
+    expect(screen.getByText('Updated')).toBeTruthy();
   });
 
   it('renders 4 tabs', () => {
@@ -87,9 +88,9 @@ describe('WorkflowVersionDiff', () => {
     expect(nodesTab.querySelector('.wf-version-diff-tab-count')?.textContent).toBe('2');
   });
 
-  it('calls onClose when × clicked', () => {
+  it('calls onClose when close button clicked', () => {
     render(<WorkflowVersionDiff open older={olderVersion} newer={newerVersion} onClose={onClose} />);
-    fireEvent.click(screen.getByText('×'));
+    fireEvent.click(screen.getByTitle('Close'));
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
@@ -139,7 +140,9 @@ describe('WorkflowVersionDiff', () => {
   it('shows edge changes on Edges tab', () => {
     render(<WorkflowVersionDiff open older={olderVersion} newer={newerVersion} onClose={onClose} />);
     fireEvent.click(screen.getByText('Edges'));
-    expect(screen.getByText(/n2 → n3/)).toBeTruthy();
+    // Edge n2 → n3 is shown (source and target in separate spans now)
+    expect(screen.getByText('n2')).toBeTruthy();
+    expect(screen.getByText('n3')).toBeTruthy();
   });
 
   // ── Variables tab ──
@@ -225,9 +228,10 @@ describe('WorkflowVersionDiff', () => {
   it('uses formatted timestamp when version has no label', () => {
     const noLabel = makeVersion({ id: 'no-label', label: undefined, timestamp: new Date(2026, 3, 15, 14, 30).getTime() });
     render(<WorkflowVersionDiff open older={noLabel} newer={newerVersion} onClose={onClose} />);
-    // Should render a date string, not "undefined"
-    const range = screen.getByText(/→.*Updated/);
-    expect(range.textContent).not.toContain('undefined');
+    // Should render a date string in the old label span, not "undefined"
+    const oldLabel = document.querySelector('.wf-version-diff-label-old')!;
+    expect(oldLabel.textContent).not.toContain('undefined');
+    expect(oldLabel.textContent!.length).toBeGreaterThan(0);
   });
 
   // ── Removed services ──

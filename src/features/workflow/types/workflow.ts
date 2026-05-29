@@ -1,4 +1,4 @@
-import type { AuthConfig, Scenario, RequestResult, DataSource } from '../../../shared/types';
+import type { AuthConfig, Scenario, RequestResult, DataSource, SlaTarget } from '../../../shared/types';
 
 export interface WorkflowHostProfile {
   id: string;
@@ -98,6 +98,9 @@ export interface HttpNodeData {
   specVersionMode?: 'pinned' | 'latest';
   /** Per-node HTTP request timeout in seconds; overrides the workflow-level default when set. */
   timeoutSec?: number;
+  /** Per-node environment override; when set, this step resolves its service URL and auth
+   *  from this environment instead of the global toolbar selection. */
+  envOverride?: string;
 }
 
 export interface ConditionNodeData {
@@ -498,6 +501,12 @@ export interface Workflow {
   folderOrder?: number;
   /** Saved canvas viewport (zoom + pan) from "Save layout". */
   savedViewport?: { x: number; y: number; zoom: number };
+  /**
+   * SLA targets defined as part of this workflow's definition.
+   * Embedded into `TestConfig.slaTargets` at run time by WorkflowRunner.
+   * Results view shows them as read-only ("📋 Workflow" badge).
+   */
+  slaTargets?: SlaTarget[];
   createdAt: number;
   updatedAt: number;
 }

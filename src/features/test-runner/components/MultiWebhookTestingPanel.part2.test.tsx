@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, waitFor, act } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom/vitest';
 import MultiWebhookTestingPanel, { type WebhookScenario } from './MultiWebhookTestingPanel';
@@ -650,11 +650,8 @@ describe('MultiWebhookTestingPanel', () => {
       <MultiWebhookTestingPanel workflow={workflow} isRunning={false} onFireWebhook={mockOnFireWebhook} />
     );
 
-    await act(async () => {
-      await user.click(screen.getByTitle('Refresh paused workflows'));
-    });
-
-    expect(global.fetch).toHaveBeenCalled();
+    await user.click(screen.getByTitle('Refresh paused workflows'));
+    await waitFor(() => expect(global.fetch).toHaveBeenCalled());
   });
 
   it('handles fetch errors during refresh without throwing', async () => {
@@ -666,11 +663,8 @@ describe('MultiWebhookTestingPanel', () => {
       <MultiWebhookTestingPanel workflow={workflow} isRunning={false} onFireWebhook={mockOnFireWebhook} />
     );
 
-    await act(async () => {
-      await user.click(screen.getByTitle('Refresh paused workflows'));
-    });
-
-    expect(global.fetch).toHaveBeenCalled();
+    await user.click(screen.getByTitle('Refresh paused workflows'));
+    await waitFor(() => expect(global.fetch).toHaveBeenCalled());
   });
 
   it('calls onLoadScenario and updates payload textarea when loading a scenario', async () => {

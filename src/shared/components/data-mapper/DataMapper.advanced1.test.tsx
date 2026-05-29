@@ -10,7 +10,7 @@ import * as _dropMappingNs from './utils/dropMapping';
 import * as _subtreeMappingNs from './utils/subtreeMapping';
 import { createTestAdapter } from './DataMapper.test-utils';
 describe('DataMapper – bulk drop maps dragged source to drop target', () => {
-  it('bulk drop maps the dragged source to the actual drop target, not its own name', () => {
+  it('bulk drop maps the dragged source to the actual drop target, not its own name', async () => {
     const adapter = createTestAdapter();
     const onChange = vi.fn();
     render(<DataMapper adapter={adapter} onChange={onChange} />);
@@ -18,8 +18,8 @@ describe('DataMapper – bulk drop maps dragged source to drop target', () => {
     // Shift-click to select two source leaves
     const sourceLeaves = document.querySelectorAll('.dm-tree-node--leaf.dm-tree-node--source');
     expect(sourceLeaves.length).toBeGreaterThanOrEqual(2);
-    fireEvent.click(sourceLeaves[0], { shiftKey: true });
-    fireEvent.click(sourceLeaves[1], { shiftKey: true });
+    await act(async () => { fireEvent.click(sourceLeaves[0], { shiftKey: true }); });
+    await act(async () => { fireEvent.click(sourceLeaves[1], { shiftKey: true }); });
 
     // Drag the first selected source onto a specific target
     const targetLeaves = document.querySelectorAll('.dm-tree-node--leaf.dm-tree-node--target');
@@ -29,8 +29,10 @@ describe('DataMapper – bulk drop maps dragged source to drop target', () => {
     const dragData = JSON.stringify({ path: draggedPath, sourceId: 's1' });
     const dt = { getData: () => dragData, dropEffect: 'none', setData: vi.fn() };
 
-    fireEvent.dragOver(targetLeaves[0], { dataTransfer: dt });
-    fireEvent.drop(targetLeaves[0], { dataTransfer: dt });
+    await act(async () => {
+      fireEvent.dragOver(targetLeaves[0], { dataTransfer: dt });
+      fireEvent.drop(targetLeaves[0], { dataTransfer: dt });
+    });
 
     const targetPath = targetLeaves[0].getAttribute('data-path');
     if (onChange.mock.calls.length > 0) {
@@ -42,7 +44,7 @@ describe('DataMapper – bulk drop maps dragged source to drop target', () => {
 });
 
 describe('DataMapper – toast auto-dismiss', () => {
-  it('toast disappears after 3 seconds', () => {
+  it('toast disappears after 3 seconds', async () => {
     vi.useFakeTimers();
     const adapter: MapperAdapter<Mapping[]> = {
       contextId: 'test',
@@ -53,9 +55,9 @@ describe('DataMapper – toast auto-dismiss', () => {
       deserialize: (m) => m,
     };
     const { container } = render(<DataMapper adapter={adapter} />);
-    fireEvent.click(screen.getByTitle('Auto-map matching fields'));
+    await act(async () => { fireEvent.click(screen.getByTitle('Auto-map matching fields')); });
     expect(container.querySelector('.dm-toast')).toBeTruthy();
-    act(() => { vi.advanceTimersByTime(3000); });
+    await act(async () => { vi.advanceTimersByTime(3000); });
     expect(container.querySelector('.dm-toast')).toBeNull();
     vi.useRealTimers();
   });
@@ -117,18 +119,20 @@ describe('DataMapper – debug overlay & trace scoping', () => {
     },
   ];
 
-  it('resets debugMode when traceData becomes empty', () => {
+  it('resets debugMode when traceData becomes empty', async () => {
     const adapter = createTestAdapter();
     const initial: Mapping[] = [{ id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'userName' }];
     const { rerender, container } = render(
       <DataMapper adapter={adapter} initialData={initial} traceData={traceData} />,
     );
+    await act(async () => {});
     const debugBtn = container.querySelector('.dm-toolbar-btn--debug');
     expect(debugBtn).toBeTruthy();
-    fireEvent.click(debugBtn!);
+    await act(async () => { fireEvent.click(debugBtn!); });
     expect(container.querySelector('.dm-debug-bar')).toBeTruthy();
 
     rerender(<DataMapper adapter={adapter} initialData={initial} traceData={[]} />);
+    await act(async () => {});
     expect(container.querySelector('.dm-debug-bar')).toBeNull();
     expect(container.querySelector('.dm-toolbar-btn--debug')).toBeNull();
   });
@@ -145,7 +149,7 @@ describe('DataMapper – debug overlay & trace scoping', () => {
     expect(container.querySelector('.dm-toolbar-btn--debug')).toBeNull();
   });
 
-  it('filters source trace overlay by active source id', () => {
+  it('filters source trace overlay by active source id', async () => {
     const multiSourceAdapter: MapperAdapter<Mapping[]> = {
       ...createTestAdapter(),
       sources: [
@@ -164,14 +168,15 @@ describe('DataMapper – debug overlay & trace scoping', () => {
     const { container } = render(
       <DataMapper adapter={multiSourceAdapter} initialData={initial} traceData={traces} />,
     );
+    await act(async () => {});
     const debugBtn = container.querySelector('.dm-toolbar-btn--debug');
     expect(debugBtn).toBeTruthy();
-    fireEvent.click(debugBtn!);
+    await act(async () => { fireEvent.click(debugBtn!); });
     const traceValues = container.querySelectorAll('.dm-trace-value--ok');
     expect(traceValues.length).toBeGreaterThan(0);
   });
 
-  it('wires runtime traces into CodeView inspector when debug mode is active', () => {
+  it('wires runtime traces into CodeView inspector when debug mode is active', async () => {
     const adapter = createTestAdapter();
     const initial: Mapping[] = [{ id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'userName' }];
     const traces = [
@@ -190,20 +195,21 @@ describe('DataMapper – debug overlay & trace scoping', () => {
     const { container } = render(
       <DataMapper adapter={adapter} initialData={initial} traceData={traces} />,
     );
+    await act(async () => {});
 
     const debugBtn = container.querySelector('.dm-toolbar-btn--debug');
     expect(debugBtn).toBeTruthy();
-    fireEvent.click(debugBtn!);
+    await act(async () => { fireEvent.click(debugBtn!); });
 
-    fireEvent.click(screen.getByTitle('Show code view'));
-    fireEvent.click(screen.getByRole('tab', { name: 'Table' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Inspect trace for userName' }));
+    await act(async () => { fireEvent.click(screen.getByTitle('Show code view')); });
+    await act(async () => { fireEvent.click(screen.getByRole('tab', { name: 'Table' })); });
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Inspect trace for userName' })); });
 
     expect(screen.getByText('Runtime trace')).toBeTruthy();
     expect(screen.getAllByText('Alice Runtime').length).toBeGreaterThan(0);
   });
 
-  it('does not fire onChange twice after repair tick', () => {
+  it('does not fire onChange twice after repair tick', async () => {
     const adapter = createTestAdapter();
     const onChange = vi.fn();
     const repaired = [{ id: 'r1', sourcePath: 'name', sourceId: 's1', targetPath: 'userName' }];
@@ -217,6 +223,7 @@ describe('DataMapper – debug overlay & trace scoping', () => {
     rerender(
       <DataMapper adapter={adapter} onChange={onChange} repairTick={1} repairedMappingsRef={ref} />,
     );
+    await act(async () => {});
     const firstCallArgs = onChange.mock.calls[0]?.[0];
     expect(firstCallArgs).toEqual(repaired);
 
@@ -243,36 +250,39 @@ describe('DataMapper – error popover lifecycle', () => {
     },
   ];
 
-  it('dismisses error popover when debugMode is toggled off', () => {
+  it('dismisses error popover when debugMode is toggled off', async () => {
     const adapter = createTestAdapter();
     const initial: Mapping[] = [{ id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'userName' }];
     const { container } = render(
       <DataMapper adapter={adapter} initialData={initial} traceData={traceData} />,
     );
+    await act(async () => {});
     const debugBtn = container.querySelector('.dm-toolbar-btn--debug');
-    fireEvent.click(debugBtn!);
+    await act(async () => { fireEvent.click(debugBtn!); });
     const inlineError = container.querySelector('.dm-error-inline');
     if (inlineError) {
-      fireEvent.click(inlineError);
+      await act(async () => { fireEvent.click(inlineError); });
       expect(container.querySelector('.dm-error-popover')).not.toBeNull();
     }
-    fireEvent.click(debugBtn!);
+    await act(async () => { fireEvent.click(debugBtn!); });
     expect(container.querySelector('.dm-error-popover')).toBeNull();
   });
 
-  it('dismisses error popover when traceData becomes empty', () => {
+  it('dismisses error popover when traceData becomes empty', async () => {
     const adapter = createTestAdapter();
     const initial: Mapping[] = [{ id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'userName' }];
     const { rerender, container } = render(
       <DataMapper adapter={adapter} initialData={initial} traceData={traceData} />,
     );
+    await act(async () => {});
     const debugBtn = container.querySelector('.dm-toolbar-btn--debug');
-    fireEvent.click(debugBtn!);
+    await act(async () => { fireEvent.click(debugBtn!); });
     rerender(<DataMapper adapter={adapter} initialData={initial} traceData={[]} />);
+    await act(async () => {});
     expect(container.querySelector('.dm-error-popover')).toBeNull();
   });
 
-  it('shows filtered trace count in debug bar', () => {
+  it('shows filtered trace count in debug bar', async () => {
     const adapter = createTestAdapter();
     const initial: Mapping[] = [{ id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'userName' }];
     const mixedTraces = [
@@ -282,8 +292,9 @@ describe('DataMapper – error popover lifecycle', () => {
     const { container } = render(
       <DataMapper adapter={adapter} initialData={initial} traceData={mixedTraces} />,
     );
+    await act(async () => {});
     const debugBtn = container.querySelector('.dm-toolbar-btn--debug');
-    fireEvent.click(debugBtn!);
+    await act(async () => { fireEvent.click(debugBtn!); });
     const debugBar = container.querySelector('.dm-debug-bar');
     expect(debugBar?.textContent).toContain('1 trace');
   });
@@ -326,7 +337,7 @@ describe('DataMapper – resize handles', () => {
     expect(handles[1].getAttribute('aria-label')).toBe('Resize target panel');
   });
 
-  it('resizes target panel when dragging target handle', () => {
+  it('resizes target panel when dragging target handle', async () => {
     const adapter = createTestAdapter();
     const { container } = render(<DataMapper adapter={adapter} />);
     const handles = container.querySelectorAll('.dm-resize-handle');
@@ -335,13 +346,15 @@ describe('DataMapper – resize handles', () => {
     const targetWrapper = panelWrappers[1] as HTMLElement;
 
     expect(targetWrapper.style.width).toBe('');
-    fireEvent.mouseDown(targetHandle, { clientX: 600 });
-    fireEvent.mouseMove(document, { clientX: 520 });
-    fireEvent.mouseUp(document);
+    await act(async () => {
+      fireEvent.mouseDown(targetHandle, { clientX: 600 });
+      fireEvent.mouseMove(document, { clientX: 520 });
+      fireEvent.mouseUp(document);
+    });
     expect(targetWrapper.style.width).not.toBe('');
   });
 
-  it('keeps source divider independent when dragging target handle', () => {
+  it('keeps source divider independent when dragging target handle', async () => {
     const adapter = createTestAdapter();
     const { container } = render(<DataMapper adapter={adapter} />);
     const handles = container.querySelectorAll('.dm-resize-handle');
@@ -352,9 +365,11 @@ describe('DataMapper – resize handles', () => {
     const startCanvasWidth = parseFloat(canvasWrapper.style.width || '0');
 
     expect(sourceWrapper.style.width).toBe('');
-    fireEvent.mouseDown(targetHandle, { clientX: 600 });
-    fireEvent.mouseMove(document, { clientX: 520 });
-    fireEvent.mouseUp(document);
+    await act(async () => {
+      fireEvent.mouseDown(targetHandle, { clientX: 600 });
+      fireEvent.mouseMove(document, { clientX: 520 });
+      fireEvent.mouseUp(document);
+    });
 
     const endCanvasWidth = parseFloat(canvasWrapper.style.width || '0');
     expect(sourceWrapper.style.width).toBe('');
@@ -395,26 +410,28 @@ describe('DataMapper – keyboard shortcuts', () => {
 });
 
 describe('DataMapper – code view toggle', () => {
-  it('shows code view when toggled', () => {
+  it('shows code view when toggled', async () => {
     const adapter = createTestAdapter();
     const initial: Mapping[] = [{ id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'userName' }];
     const { container } = render(<DataMapper adapter={adapter} initialData={initial} />);
+    await act(async () => {});
     const codeViewBtn = screen.getByTitle('Show code view');
-    fireEvent.click(codeViewBtn);
+    await act(async () => { fireEvent.click(codeViewBtn); });
     expect(container.querySelector('.dm-code-view')).toBeTruthy();
   });
 
-  it('keeps bottom utility dock single-surface between code and preview', () => {
+  it('keeps bottom utility dock single-surface between code and preview', async () => {
     const adapter = createTestAdapter();
     const initial: Mapping[] = [{ id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'userName' }];
     const { container } = render(<DataMapper adapter={adapter} initialData={initial} />);
+    await act(async () => {});
 
-    fireEvent.click(screen.getByTitle('Show code view'));
+    await act(async () => { fireEvent.click(screen.getByTitle('Show code view')); });
     expect(container.querySelector('.dm-bottom-utility-dock')).toBeTruthy();
     expect(container.querySelector('.dm-code-view')).toBeTruthy();
     expect(container.querySelector('.dm-preview-bar')).toBeNull();
 
-    fireEvent.click(screen.getByTitle('Show preview'));
+    await act(async () => { fireEvent.click(screen.getByTitle('Show preview')); });
     expect(container.querySelector('.dm-bottom-utility-dock')).toBeTruthy();
     expect(container.querySelector('.dm-preview-bar')).toBeTruthy();
     expect(container.querySelector('.dm-code-view')).toBeNull();
@@ -422,7 +439,7 @@ describe('DataMapper – code view toggle', () => {
 });
 
 describe('DataMapper – error popover lifecycle', () => {
-  it('dismisses popover on outside click', () => {
+  it('dismisses popover on outside click', async () => {
     const adapter = createTestAdapter();
     const initial: Mapping[] = [{ id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'userName' }];
     const errorTraces = [
@@ -435,18 +452,19 @@ describe('DataMapper – error popover lifecycle', () => {
     const { container } = render(
       <DataMapper adapter={adapter} initialData={initial} traceData={errorTraces} />,
     );
+    await act(async () => {});
     const debugBtn = container.querySelector('.dm-toolbar-btn--debug');
-    fireEvent.click(debugBtn!);
+    await act(async () => { fireEvent.click(debugBtn!); });
     const inlineError = container.querySelector('.dm-error-inline');
     if (inlineError) {
-      fireEvent.click(inlineError);
+      await act(async () => { fireEvent.click(inlineError); });
       expect(container.querySelector('.dm-error-popover')).not.toBeNull();
-      fireEvent.mouseDown(document.body);
+      await act(async () => { fireEvent.mouseDown(document.body); });
       expect(container.querySelector('.dm-error-popover')).toBeNull();
     }
   });
 
-  it('dismisses popover on Escape key', () => {
+  it('dismisses popover on Escape key', async () => {
     const adapter = createTestAdapter();
     const initial: Mapping[] = [{ id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'userName' }];
     const errorTraces = [
@@ -459,13 +477,14 @@ describe('DataMapper – error popover lifecycle', () => {
     const { container } = render(
       <DataMapper adapter={adapter} initialData={initial} traceData={errorTraces} />,
     );
+    await act(async () => {});
     const debugBtn = container.querySelector('.dm-toolbar-btn--debug');
-    fireEvent.click(debugBtn!);
+    await act(async () => { fireEvent.click(debugBtn!); });
     const inlineError = container.querySelector('.dm-error-inline');
     if (inlineError) {
-      fireEvent.click(inlineError);
+      await act(async () => { fireEvent.click(inlineError); });
       expect(container.querySelector('.dm-error-popover')).not.toBeNull();
-      fireEvent.keyDown(document, { key: 'Escape' });
+      await act(async () => { fireEvent.keyDown(document, { key: 'Escape' }); });
       expect(container.querySelector('.dm-error-popover')).toBeNull();
     }
   });
@@ -477,7 +496,7 @@ describe('DataMapper – preview toggle', () => {
     const adapter = createTestAdapter();
     const initial: Mapping[] = [{ id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'userName' }];
     const { container } = render(<DataMapper adapter={adapter} initialData={initial} />);
-    fireEvent.click(screen.getByTitle('Show preview'));
+    await act(async () => { fireEvent.click(screen.getByTitle('Show preview')); });
     await act(async () => { vi.advanceTimersByTime(300); });
     expect(container.querySelector('.dm-preview-bar')).toBeTruthy();
     vi.useRealTimers();
@@ -485,34 +504,35 @@ describe('DataMapper – preview toggle', () => {
 });
 
 describe('DataMapper – mapping line visibility', () => {
-  it('shows node-focus option only while lines are hidden', () => {
+  it('shows node-focus option only while lines are hidden', async () => {
     const adapter = createTestAdapter();
     const initial: Mapping[] = [
       { id: 'm1', sourcePath: 'name', sourceId: 's1', targetPath: 'userName' },
     ];
     const { container } = render(<DataMapper adapter={adapter} initialData={initial} />);
+    await act(async () => {});
 
     expect(screen.queryByTitle('Enable node-focus lines')).toBeNull();
 
-    fireEvent.click(screen.getByTitle('Hide mapping lines'));
+    await act(async () => { fireEvent.click(screen.getByTitle('Hide mapping lines')); });
     expect(screen.getByTitle('Show mapping lines')).toBeTruthy();
     expect(screen.getByTitle('Enable node-focus lines')).toBeTruthy();
 
-    fireEvent.click(screen.getByTitle('Enable node-focus lines'));
+    await act(async () => { fireEvent.click(screen.getByTitle('Enable node-focus lines')); });
     expect(screen.getByTitle('Disable node-focus lines')).toBeTruthy();
 
     // Clicking tree nodes in node-focus mode should not break interaction.
     const mappedSourceNode = container.querySelector('.dm-panel--source .dm-tree-node[data-path="name"]');
     expect(mappedSourceNode).toBeTruthy();
     if (!mappedSourceNode) return;
-    fireEvent.click(mappedSourceNode);
+    await act(async () => { fireEvent.click(mappedSourceNode); });
 
     const unmappedSourceNode = container.querySelector('.dm-panel--source .dm-tree-node[data-path="email"]');
     expect(unmappedSourceNode).toBeTruthy();
     if (!unmappedSourceNode) return;
-    fireEvent.click(unmappedSourceNode);
+    await act(async () => { fireEvent.click(unmappedSourceNode); });
 
-    fireEvent.click(screen.getByTitle('Show mapping lines'));
+    await act(async () => { fireEvent.click(screen.getByTitle('Show mapping lines')); });
     expect(screen.queryByTitle('Enable node-focus lines')).toBeNull();
   });
 });
@@ -530,7 +550,7 @@ describe('DataMapper – target live value updates', () => {
 });
 
 describe('DataMapper – auto-map', () => {
-  it('auto-maps matching fields', () => {
+  it('auto-maps matching fields', async () => {
     const adapter: MapperAdapter<Mapping[]> = {
       ...createTestAdapter(),
       sources: [{ id: 's1', label: 'S', sampleData: { userName: 'A', userEmail: 'B' } }],
@@ -539,13 +559,13 @@ describe('DataMapper – auto-map', () => {
       deserialize: (m) => m,
     };
     render(<DataMapper adapter={adapter} />);
-    fireEvent.click(screen.getByText(/Auto-map/));
+    await act(async () => { fireEvent.click(screen.getByText(/Auto-map/)); });
     expect(screen.getByText(/2 mapping/)).toBeTruthy();
   });
 });
 
 describe('DataMapper – toast', () => {
-  it('shows toast after auto-map', () => {
+  it('shows toast after auto-map', async () => {
     const adapter: MapperAdapter<Mapping[]> = {
       ...createTestAdapter(),
       sources: [{ id: 's1', label: 'S', sampleData: { userName: 'A' } }],
@@ -554,7 +574,7 @@ describe('DataMapper – toast', () => {
       deserialize: (m) => m,
     };
     const { container } = render(<DataMapper adapter={adapter} />);
-    fireEvent.click(screen.getByText(/Auto-map/));
+    await act(async () => { fireEvent.click(screen.getByText(/Auto-map/)); });
     expect(container.querySelector('.dm-toast')).toBeTruthy();
   });
 
@@ -568,7 +588,7 @@ describe('DataMapper – toast', () => {
       deserialize: (m) => m,
     };
     const { container } = render(<DataMapper adapter={adapter} />);
-    fireEvent.click(screen.getByText(/Auto-map/));
+    await act(async () => { fireEvent.click(screen.getByText(/Auto-map/)); });
     expect(container.querySelector('.dm-toast')).toBeTruthy();
     await act(async () => { vi.advanceTimersByTime(3100); });
     expect(container.querySelector('.dm-toast')).toBeNull();

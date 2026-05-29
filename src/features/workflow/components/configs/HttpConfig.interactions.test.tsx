@@ -10,7 +10,7 @@
  */
 import '@testing-library/jest-dom';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import HttpConfig from './HttpConfig';
 import { KeyValue, Scenario } from '../../../../shared/types';
 import { makeHttpData, makeScenario, makeDefaultProps } from './__test-utils__/httpConfigTestHelpers';
@@ -110,10 +110,12 @@ describe('HttpConfig — interactions', () => {
     render(<HttpConfig {...defaultProps} activeTab="url" data={data} onChange={onChange} />);
 
     const paramsOnChange = lastParamsEditorProps.onChange as (entries: { key: string; value: string; enabled: boolean; description: string }[]) => void;
-    paramsOnChange([
-      { key: 'page', value: '1', enabled: true, description: '' },
-      { key: '', value: '', enabled: true, description: '' },
-    ]);
+    act(() => {
+      paramsOnChange([
+        { key: 'page', value: '1', enabled: true, description: '' },
+        { key: '', value: '', enabled: true, description: '' },
+      ]);
+    });
 
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({
       scenario: expect.objectContaining({ url: expect.stringContaining('page=1') }),
@@ -141,11 +143,13 @@ describe('HttpConfig — interactions', () => {
     render(<HttpConfig {...defaultProps} activeTab="url" data={data} onChange={onChange} />);
 
     const paramsOnChange = lastParamsEditorProps.onChange as (entries: { key: string; value: string; enabled: boolean; description: string }[]) => void;
-    paramsOnChange([
-      { key: 'a', value: '1', enabled: true, description: '' },
-      { key: '', value: '', enabled: true, description: '' },
-      { key: '', value: '', enabled: true, description: '' },
-    ]);
+    act(() => {
+      paramsOnChange([
+        { key: 'a', value: '1', enabled: true, description: '' },
+        { key: '', value: '', enabled: true, description: '' },
+        { key: '', value: '', enabled: true, description: '' },
+      ]);
+    });
 
     expect(onChange).toHaveBeenCalled();
   });

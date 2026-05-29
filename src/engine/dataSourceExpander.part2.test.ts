@@ -1,49 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import { expandDataSource, resolveScenarioFromDataRow, expandDataSourceWithSubset, expandDataSourceForRows, resolveSharedDataSource, resolveSharedDataSources } from './dataSourceExpander';
-import { Scenario, DataSource, DataSourceColumn, DataSourceRow, SharedDataSource } from '../shared/types';
-import { makeScenario as _makeScenario } from '../test-utils/factories';
+import { SharedDataSource } from '../shared/types';
+import { makeScenario, makeColumns, makeDataSource } from './__test-utils__/dataSourceExpanderHelpers';
 
-// ─── Test Helpers ─────────────────────────────────────────────
-
-function makeScenario(overrides: Partial<Scenario> = {}): Scenario {
-  return _makeScenario({
-    url: 'https://api.example.com/users/{{userId}}/posts?channel={{channel}}',
-    headers: [{ key: 'X-Custom', value: 'static' }],
-    ...overrides,
-  });
-}
-
-function makeColumns(): DataSourceColumn[] {
-  return [
-    { id: 'col-uid', name: 'userId', type: 'path', mapping: 'userId' },
-    { id: 'col-ch', name: 'channel', type: 'param', mapping: 'channel' },
-    { id: 'col-val', name: 'expectedStatus', type: 'validate', mapping: '$.status' },
-  ];
-}
-
-function makeRow(id: string, userId: string, channel: string, expected = 'active', enabled = true): DataSourceRow {
-  return {
-    id,
-    values: { 'col-uid': userId, 'col-ch': channel, 'col-val': expected },
-    enabled,
-  };
-}
-
-function makeDataSource(overrides: Partial<DataSource> = {}): DataSource {
-  return {
-    id: 'dt-1',
-    columns: makeColumns(),
-    rows: [
-      makeRow('r1', '42', 'WEBRNW'),
-      makeRow('r2', '99', 'DEALER'),
-      makeRow('r3', '7', 'MOBILE', 'pending', false), // disabled
-    ],
-    source: { type: 'inline' },
-    ...overrides,
-  };
-}
-
-// ─── buildRowLabel ────────────────────────────────────────────
+// ─── Subset Expansion Tests ───────────────────────────────────
 
 describe('expandDataSourceWithSubset', () => {
   it('expands rows matching a named tag subset', () => {

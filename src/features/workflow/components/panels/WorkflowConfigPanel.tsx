@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import WorkflowVariableInsertModal from '../modals/WorkflowVariableInsertModal';
 import { useModalDrag } from '../../../../shared/hooks/useModalDrag';
+import { useVariableInsertModal } from '../../hooks/useVariableInsertModal';
 import type {
   WorkflowNode,
   HttpNodeData,
@@ -23,7 +24,7 @@ import VariablesSection from './VariablesSection';
 import WorkflowModalScrollBody from '../modals/WorkflowModalScrollBody';
 import type { ExtractionFetchSampleProps } from '../../../requests/components/ExtractionEditor';
 import { useWorkflowValidationFetch } from '../../hooks/useWorkflowValidationFetch';
-import type { Scenario } from '../../../../shared/types';
+import type { Environment, Scenario } from '../../../../shared/types';
 
 interface Props {
   node: WorkflowNode | null;
@@ -55,19 +56,29 @@ interface Props {
   httpVariableHints?: WorkflowVariableHint[];
   /** Workflow-level services from the Service Registry. */
   workflowServices?: WorkflowService[];
+  /** Available environments for per-node env override. */
+  environments?: Environment[];
+  /** Currently selected global environment. */
+  selectedEnvId?: string;
+  /** Resolved auth from service registry — used when scenario auth is 'inherit'. */
+  resolvedAuth?: Scenario['auth'];
 }
 
-export default function WorkflowConfigPanel({ node, workflowVariables, onUpdateWorkflowVariables, onUpdateNode, onDeleteNode, lastQuickTestRequestUrl, lastRunStepError, effectiveQuickTestBaseUrl, extractionSampleResponseBody, extractionFetchSample, conditionVariableHints = [], httpVariableHints = [], workflowServices = [] }: Props) {
+export default function WorkflowConfigPanel({ node, workflowVariables, onUpdateWorkflowVariables, onUpdateNode, onDeleteNode, lastQuickTestRequestUrl, lastRunStepError, effectiveQuickTestBaseUrl, extractionSampleResponseBody, extractionFetchSample, conditionVariableHints = [], httpVariableHints = [], workflowServices = [], environments = [], selectedEnvId, resolvedAuth }: Props) {
   const [httpTab, setHttpTab] = useState<HttpTab>('url');
   const [newVarKey, setNewVarKey] = useState('');
   const [newVarValue, setNewVarValue] = useState('');
-  const [variableInsertOpen, setVariableInsertOpen] = useState(false);
-  const [variableInsertShortRef, setVariableInsertShortRef] = useState(false);
-  const [variableInsertInitialSearch, setVariableInsertInitialSearch] = useState('');
+  const {
+    variableInsertOpen,
+    variableInsertShortRef,
+    variableInsertInitialSearch,
+    requestVariableInsert,
+    handleVariableInsertPicked,
+    closeVariableInsert,
+  } = useVariableInsertModal();
   const [expanded, setExpanded] = useState(false);
   const { onDragStart: onExpandDragStart, overlayStyle: expandOverlayStyle, modalStyle: expandModalStyle } = useModalDrag(expanded);
   const collapsingRef = useRef(false);
-  const insertApplyRef = useRef<(snippet: string) => void>(() => {});
 
   const collapse = useCallback(() => {
     collapsingRef.current = true;
@@ -91,18 +102,6 @@ export default function WorkflowConfigPanel({ node, workflowVariables, onUpdateW
     [node, workflowVariables, httpVariableHints, conditionVariableHints],
   );
 
-  const requestVariableInsert = useCallback((apply: (snippet: string) => void, shortRef = false, initialSearch = '') => {
-    insertApplyRef.current = apply;
-    setVariableInsertShortRef(shortRef);
-    setVariableInsertInitialSearch(initialSearch);
-    setVariableInsertOpen(true);
-  }, []);
-
-  const handleVariableInsertPicked = useCallback((template: string) => {
-    insertApplyRef.current(template);
-    setVariableInsertOpen(false);
-  }, []);
-
   // ── Validation fetch hook for HTTP nodes ──
   const httpScenario = node && isHttpWorkflowNode(node) ? (node.data as HttpNodeData).scenario : null;
   const placeholderScenario = useRef<Scenario>({ id: '', name: '', url: '', method: 'GET', headers: [], body: '', auth: { type: 'none' }, validation: { mode: 'none' } });
@@ -117,6 +116,7 @@ export default function WorkflowConfigPanel({ node, workflowVariables, onUpdateW
     onDraftChange: handleValidationDraftChange,
     liveVariables: workflowVariables,
     resolvedBaseUrl: effectiveQuickTestBaseUrl,
+    resolvedAuth,
     resetKey: node?.id,
   });
 
@@ -137,6 +137,8 @@ export default function WorkflowConfigPanel({ node, workflowVariables, onUpdateW
           variableHints={httpVariableHints}
           onRequestVariableInsert={requestVariableInsert}
           workflowServices={workflowServices}
+          environments={environments}
+          selectedEnvId={selectedEnvId}
           validationProps={{
             resolvedBaseUrl: effectiveQuickTestBaseUrl,
             fetchingResponse: validationFetch.fetchingResponse,
@@ -297,7 +299,7 @@ export default function WorkflowConfigPanel({ node, workflowVariables, onUpdateW
         hints={variableInsertHints}
         shortRef={variableInsertShortRef}
         initialSearch={variableInsertInitialSearch}
-        onClose={() => setVariableInsertOpen(false)}
+        onClose={closeVariableInsert}
         onPick={handleVariableInsertPicked}
       />
     </div>

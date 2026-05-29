@@ -46,8 +46,8 @@ export function buildGroups(results: RequestResult[], levels: GroupByLevel[]): G
 
   for (const r of results) {
     let key: string;
-    if (level === 'feature') key = r.featureGroupName || '(unknown feature)';
-    else if (level === 'group') key = r.groupName || '(unknown group)';
+    if (level === 'feature') key = r.featureGroupName || '';
+    else if (level === 'group') key = r.groupName || r.scenarioName || '(unknown group)';
     else if (level === 'dataRow') key = r.dataRowLabel || r.dataRowId || '(no data row)';
     else if (level === 'workflowStep') key = r.workflowNodeId || r.scenarioName || '(unknown step)';
     else if (level === 'iteration') key = r.iterationIndex !== undefined ? `Iteration #${r.iterationIndex}` : '(unknown iteration)';

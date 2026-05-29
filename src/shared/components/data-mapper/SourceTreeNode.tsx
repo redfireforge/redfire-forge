@@ -1,7 +1,8 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 import type { JsonTreeNode } from '../../utils/jsonTreeModel';
 import type { DriftSeverity } from './utils/schemaDrift';
 import { normalizeMapperPath } from './utils/pathNormalization';
+import { useCopyToClipboard } from '../../hooks/useCopyToClipboard';
 import {
   TYPE_LABELS,
   matchesNodeVisibility,
@@ -56,7 +57,7 @@ export default function SourceTreeNode({
 }: SourceTreeNodeProps) {
   const hasChildren = (node.children?.length ?? 0) > 0;
   const isExpanded = expandedPaths.has(node.path || '__root__');
-  const [copied, setCopied] = useState(false);
+  const [copied, copyToClipboard] = useCopyToClipboard(1200);
 
   const isVisible = useMemo(
     () => matchesNodeVisibility(node, search, mappingFilter, mappedPaths),
@@ -161,9 +162,7 @@ export default function SourceTreeNode({
             title={valueStr}
             onClick={(e) => {
               e.stopPropagation();
-              navigator.clipboard.writeText(valueStr);
-              setCopied(true);
-              setTimeout(() => setCopied(false), 1200);
+              void copyToClipboard(valueStr);
             }}
           >
             {copied ? <span className="dm-copy-feedback">Copied!</span> : truncValue}

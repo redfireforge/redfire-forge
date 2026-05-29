@@ -457,6 +457,6 @@ describe('countWorkflowVersions', () => {
 
 describe('MAX_WORKFLOW_VERSIONS', () => {
   it('is 30', () => {
-    expect(MAX_WORKFLOW_VERSIONS).toBe(30);
+    expect(MAX_WORKFLOW_VERSIONS).toBe(10);
   });
 });

@@ -87,6 +87,8 @@ import {
   loadCatalogEntries,
   loadCatalogRawSpec,
   loadCatalogEndpointValues,
+  onStorageFull,
+  writeKey,
 } from './storage';
 import type { TestRun } from '../types';
 
@@ -422,5 +424,157 @@ describe('storage — parse / catch fallbacks', () => {
   it('loadCatalogEndpointValues returns empty object when JSON is invalid', async () => {
     localStorage.setItem('perf-test-catalog-ep-c1', '{');
     expect(await loadCatalogEndpointValues('c1')).toEqual({});
+  });
+});
+
+describe('storage — onStorageFull notification', () => {
+  it('registers a listener and calls it on quota exceeded error', async () => {
+    const listener = vi.fn();
+    const unsub = onStorageFull(listener);
+
+    // Simulate QuotaExceededError by stubbing Storage.prototype.setItem
+    const origSetItem = Storage.prototype.setItem;
+    Storage.prototype.setItem = () => {
+      throw new DOMException('quota exceeded', 'QuotaExceededError');
+    };
+
+    try {
+      await writeKey('test-key', 'value');
+    } catch {
+      // expected — writeKey re-throws
+    }
+
+    expect(listener).toHaveBeenCalledWith('test-key');
+
+    // cleanup
+    unsub();
+    Storage.prototype.setItem = origSetItem;
+  });
+
+  it('unsubscribe stops listener from being called', async () => {
+    const listener = vi.fn();
+    const unsub = onStorageFull(listener);
+    unsub();
+
+    const origSetItem = Storage.prototype.setItem;
+    Storage.prototype.setItem = () => {
+      throw new DOMException('quota exceeded', 'QuotaExceededError');
+    };
+
+    try {
+      await writeKey('test-key', 'value');
+    } catch {
+      // expected
+    }
+
+    expect(listener).not.toHaveBeenCalled();
+    Storage.prototype.setItem = origSetItem;
+  });
+
+  it('swallows errors thrown by storage-full listeners', async () => {
+    const badListener = vi.fn(() => { throw new Error('listener boom'); });
+    const goodListener = vi.fn();
+    const unsub1 = onStorageFull(badListener);
+    const unsub2 = onStorageFull(goodListener);
+
+    const origSetItem = Storage.prototype.setItem;
+    Storage.prototype.setItem = () => {
+      throw new DOMException('quota exceeded', 'QuotaExceededError');
+    };
+
+    try {
+      await writeKey('test-key', 'value');
+    } catch {
+      // expected
+    }
+
+    expect(badListener).toHaveBeenCalled();
+    expect(goodListener).toHaveBeenCalled();
+    unsub1();
+    unsub2();
+    Storage.prototype.setItem = origSetItem;
+  });
+});
+
+describe('storage — execution trace sampling in capAndTruncateResults', () => {
+  function makeRunWithTrace(id: string, samplingEnabled: boolean, samplingThreshold?: number): TestRun {
+    return {
+      id,
+      timestamp: Date.now(),
+      config: {
+        concurrency: 1, iterations: 1,
+        scenarioWeights: [], executionMode: 'sequential',
+        traceOptions: {
+          samplingEnabled,
+          ...(samplingThreshold !== undefined ? { samplingThreshold } : {}),
+        },
+      },
+      summary: {
+        tps: 1, avgResponseTime: 100, minResponseTime: 50, maxResponseTime: 150,
+        p95ResponseTime: 140, p99ResponseTime: 148, errorRate: 0,
+        errorsByStatus: {}, totalRequests: 1, successfulRequests: 1,
+        failedRequests: 0, failedValidations: 0, totalDurationMs: 1000,
+      },
+      results: [{
+        id: 'r1', scenarioId: 's1', scenarioName: 'Test',
+        url: 'http://api/test', method: 'GET', httpStatus: 200,
+        responseTimeMs: 100, responseBody: '{}', timestamp: Date.now(),
+        passed: true, validationMode: 'none' as const, failureDetails: [],
+      }],
+      executionTrace: {
+        iterations: [
+          {
+            index: 0, passed: true, durationMs: 100,
+            events: [], finalVariables: {}, traversedEdges: [],
+          },
+          {
+            index: 1, passed: true, durationMs: 200,
+            events: [], finalVariables: {}, traversedEdges: [],
+          },
+        ],
+        traversedEdges: [],
+        workflowSnapshot: { nodes: [], edges: [] },
+        workflowId: 'wf1', workflowName: 'TestWF',
+        totalIterations: 2, totalDurationMs: 300,
+      },
+    } as TestRun;
+  }
+
+  it('compresses trace with sampling enabled (default)', async () => {
+    const run = makeRunWithTrace('trace-sampling-on', true);
+    const { ok } = await saveTestRun(run);
+    expect(ok).toBe(true);
+    const loaded = await loadTestRuns();
+    expect(loaded[0].hasTrace).toBe(true);
+    expect(loaded[0].executionTrace).toBeUndefined();
+    expect(loaded[0].compressedTrace).toBeTruthy();
+  });
+
+  it('marks all iterations as sampled when sampling disabled', async () => {
+    const run = makeRunWithTrace('trace-sampling-off', false);
+    const { ok } = await saveTestRun(run);
+    expect(ok).toBe(true);
+    const loaded = await loadTestRuns();
+    expect(loaded[0].hasTrace).toBe(true);
+    expect(loaded[0].compressedTrace).toBeTruthy();
+  });
+
+  it('passes custom sampling threshold when provided', async () => {
+    const run = makeRunWithTrace('trace-threshold', true, 5);
+    const { ok } = await saveTestRun(run);
+    expect(ok).toBe(true);
+    const loaded = await loadTestRuns();
+    expect(loaded[0].hasTrace).toBe(true);
+    expect(loaded[0].compressedTrace).toBeTruthy();
+  });
+
+  it('saves run without executionTrace normally (no trace block)', async () => {
+    const run = makeRunWithTrace('no-trace', true);
+    delete run.executionTrace;
+    const { ok } = await saveTestRun(run);
+    expect(ok).toBe(true);
+    const loaded = await loadTestRuns();
+    expect(loaded[0].hasTrace).toBeFalsy();
+    expect(loaded[0].compressedTrace).toBeFalsy();
   });
 });

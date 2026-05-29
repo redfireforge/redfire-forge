@@ -2,12 +2,11 @@
  * @vitest-environment node
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { readFileSync } from 'fs';
+import { readFileSync } from 'node:fs';
 import { loadWorkflowFile } from './workflowLoader';
 import type { HttpNodeData } from '../src/features/workflow/types/workflow';
 
-// Mock fs
-vi.mock('fs', () => ({
+vi.mock('node:fs', () => ({
   readFileSync: vi.fn(),
 }));
 

@@ -1,7 +1,8 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
-import { useNodesState, useEdgesState, useReactFlow } from '@xyflow/react';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
+import { useNodesState, useEdgesState, useReactFlow, type NodeChange, type EdgeChange } from '@xyflow/react';
 
 import type { WorkflowVersion } from '../types/workflow';
+import { useOnboardingHints } from './useOnboardingHints';
 import { getAutoLayoutNodes } from '../utils/workflowAutoLayout';
 import { useResizablePanels } from '../../../shared/hooks/useResizablePanels';
 import { enrichNodeData, type WorkflowRFNode, type WorkflowRFEdge } from '../utils/workflowNodeFactory';
@@ -27,10 +28,11 @@ import type {
  */
 export function useWorkflowDesignerControllerPartA({
   wfHook, previewWorkflow, onClearPreview, onUseAsTemplate, onRunInHarness, folders: wfFolders,
+  onLoadTemplate, onBrowseGallery,
 }: WorkflowDesignerProps) {
   const { workflows, selected: selectedWorkflow, create, update, select } = wfHook;
   const selected = previewWorkflow ?? selectedWorkflow;
-  const { paletteWidth, startDrag } = useResizablePanels();
+  const { paletteWidth, configWidth, startDrag } = useResizablePanels();
 
   const [nodes, setNodes, onNodesChange] = useNodesState<WorkflowRFNode>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<WorkflowRFEdge>([]);
@@ -87,6 +89,31 @@ export function useWorkflowDesignerControllerPartA({
   const [showCommandPalette, setShowCommandPalette] = useState(false);
   const rfInstance = useReactFlow();
 
+  const onboarding = useOnboardingHints();
+
+  const hasNodes = useMemo(() => nodes.length > 0, [nodes.length]);
+  const prevHasNodesRef = useRef(hasNodes);
+
+  useEffect(() => {
+    if (!previewWorkflow && hasNodes && !prevHasNodesRef.current) {
+      setTimeout(() => onboarding.showNextHint('first-node'), 500);
+    }
+    prevHasNodesRef.current = hasNodes;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- showNextHint is stable (useCallback)
+  }, [hasNodes, previewWorkflow, onboarding.showNextHint]);
+
+  useEffect(() => {
+    if (!previewWorkflow && !hasNodes && !onboarding.isComplete) {
+      const timer = setTimeout(() => {
+        if (!onboarding.showNextHint('mount')) {
+          onboarding.showNextHint('empty-canvas');
+        }
+      }, 800);
+      return () => clearTimeout(timer);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- isComplete is stable (useMemo), showNextHint is stable (useCallback)
+  }, [previewWorkflow, hasNodes, onboarding.isComplete, onboarding.showNextHint]);
+
   const undoRedo = useUndoRedo(
     () => nodesRef.current,
     () => edgesRef.current,
@@ -105,18 +132,42 @@ export function useWorkflowDesignerControllerPartA({
 
   const {
     serializeNodes, serializeEdges, persistWorkflow, insertNodeAndPersist,
-    saveAcknowledged,
+    saveAcknowledged, workflowServicesRef,
     handleCopyNode, handlePasteNode, handleDuplicateNode,
     handleUndoAction, handleRedoAction,
-    handleSave, handleUpdateWorkflowVariables,
+    handleSave, handleUpdateWorkflowVariables, handleUpdateWorkflowSlaTargets,
   } = useWorkflowPersistence({
-    selected, previewWorkflow, nodes, edges,
+    selected, previewWorkflow,
     workflowVariables, workflowHostProfiles, workflowAuthProfiles,
     workflowServices, workflowErrorConfig,
-    nodeInitialVarsRef, nodesRef, selectedNodeId,
+    nodeInitialVarsRef, nodesRef, edgesRef, selectedNodeId,
     nextNodeYRef, setNodes, setWorkflowVariables, workflowVariablesRef,
     update, clipboard, undoRedo, toast,
   });
+
+  // Wrap onNodesChange to persist on drag-stop and node removal
+  const wrappedOnNodesChange = useCallback((changes: NodeChange<WorkflowRFNode>[]) => {
+    onNodesChange(changes);
+    if (previewWorkflow) return;
+
+    const hasDragStop = changes.some(c => c.type === 'position' && !c.dragging);
+    const hasRemove = changes.some(c => c.type === 'remove');
+
+    if (hasDragStop || hasRemove) {
+      queueMicrotask(() => persistWorkflow({ rfNodes: nodesRef.current }));
+    }
+  }, [onNodesChange, previewWorkflow, persistWorkflow, nodesRef]);
+
+  // Wrap onEdgesChange to persist on edge removal
+  const wrappedOnEdgesChange = useCallback((changes: EdgeChange<WorkflowRFEdge>[]) => {
+    onEdgesChange(changes);
+    if (previewWorkflow) return;
+
+    const hasRemove = changes.some(c => c.type === 'remove');
+    if (hasRemove) {
+      queueMicrotask(() => persistWorkflow());
+    }
+  }, [onEdgesChange, previewWorkflow, persistWorkflow]);
 
   const versioning = useWorkflowVersioning({
     selectedId: selected?.id ?? null,
@@ -175,13 +226,14 @@ export function useWorkflowDesignerControllerPartA({
     onUseAsTemplate,
     onRunInHarness,
     paletteWidth,
+    configWidth,
     startDrag,
     nodes,
     setNodes,
     edges,
     setEdges,
-    onNodesChange,
-    onEdgesChange,
+    onNodesChange: wrappedOnNodesChange,
+    onEdgesChange: wrappedOnEdgesChange,
     layoutVersion,
     setLayoutVersion,
     laidOutId,
@@ -255,6 +307,7 @@ export function useWorkflowDesignerControllerPartA({
     persistWorkflow,
     insertNodeAndPersist,
     saveAcknowledged,
+    workflowServicesRef,
     handleCopyNode,
     handlePasteNode,
     handleDuplicateNode,
@@ -262,10 +315,14 @@ export function useWorkflowDesignerControllerPartA({
     handleRedoAction,
     handleSave,
     handleUpdateWorkflowVariables,
+    handleUpdateWorkflowSlaTargets,
     versioning,
     handleAutoLayout,
     clipboard,
     wfFolders,
+    onLoadTemplate,
+    onBrowseGallery,
+    onboarding,
   };
 }
 

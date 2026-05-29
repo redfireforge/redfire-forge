@@ -209,6 +209,13 @@ export const contentPaths: TrainingPath[] = [
             sampleId: 'test-auth-flow',
             manualPath: 'tests/auth-flow-medium.html',
           },
+          {
+            title: 'Performance Regression Tracking',
+            description: 'Establish a baseline, compare runs, inspect regressions, and validate trend behavior end-to-end.',
+            difficulty: 'medium',
+            sampleId: 'test-performance-regression-baseline',
+            manualPath: 'tests/performance-regression-tracking.html',
+          },
         ],
       },
       {
@@ -398,6 +405,13 @@ export const contentPaths: TrainingPath[] = [
             description: 'Standard vs Parameterized scenarios — creation, enforcement, Feature Group summary, move/copy rules.',
             difficulty: 'easy',
             manualPath: 'tests/scenario-types-guide-easy.html',
+          },
+          {
+            title: 'SLA Targets in Test Runner',
+            description: 'Add SLA targets to scenarios, configure thresholds, run load tests, and interpret pass/fail results — end to end from Gallery to CLI to re-import.',
+            difficulty: 'easy',
+            sampleId: 'test-api-health-sla',
+            manualPath: 'tests/test-runner-sla-easy.html',
           },
         ],
       },

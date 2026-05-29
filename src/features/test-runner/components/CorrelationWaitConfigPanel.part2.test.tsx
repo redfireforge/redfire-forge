@@ -225,7 +225,7 @@ describe('CorrelationWaitConfigPanel', () => {
           onChange={vi.fn()}
         />
       );
-      fireEvent.click(screen.getByTitle('Copy URL'));
+      await act(async () => { fireEvent.click(screen.getByTitle('Copy URL')); });
       expect(mockClipboard.writeText).toHaveBeenCalledWith(
         expect.stringContaining('http://localhost:3001/webhooks/callback/webhooks/payment0'),
       );
@@ -249,11 +249,12 @@ describe('CorrelationWaitConfigPanel', () => {
           onChange={vi.fn()}
         />
       );
+      await act(async () => {});
       expect(screen.getByText(/header:.*X-Trace/i)).toBeInTheDocument();
       expect(screen.getByText(/query param:.*traceId/i)).toBeInTheDocument();
     });
 
-    it('defaults header and query payload hints when names are omitted', () => {
+    it('defaults header and query payload hints when names are omitted', async () => {
       render(
         <CorrelationWaitConfigPanel
           workflow={makeWorkflow([
@@ -272,11 +273,12 @@ describe('CorrelationWaitConfigPanel', () => {
           onChange={vi.fn()}
         />
       );
+      await act(async () => {});
       expect(screen.getByText(/header:.*X-Correlation-Id/i)).toBeInTheDocument();
       expect(screen.getByText(/query param:\s+correlationId/i)).toBeInTheDocument();
     });
 
-    it('treats undefined correlationSource as body in webhook payload hints', () => {
+    it('treats undefined correlationSource as body in webhook payload hints', async () => {
       render(
         <CorrelationWaitConfigPanel
           workflow={makeWorkflow([{
@@ -286,6 +288,7 @@ describe('CorrelationWaitConfigPanel', () => {
           onChange={vi.fn()}
         />
       );
+      await act(async () => {});
       expect(screen.getByText(/JSONPath:\s*\$\.paymentId/)).toBeInTheDocument();
     });
 
@@ -297,6 +300,7 @@ describe('CorrelationWaitConfigPanel', () => {
           onChange={vi.fn()}
         />
       );
+      await act(async () => {});
       expect(screen.getByText(/localhost:3001\/webhooks\/callback\/payments/)).toBeInTheDocument();
     });
 
@@ -308,6 +312,7 @@ describe('CorrelationWaitConfigPanel', () => {
           onChange={vi.fn()}
         />
       );
+      await act(async () => {});
       expect(screen.getByText(/\/webhooks\/callback\/custom-hook/)).toBeInTheDocument();
     });
 

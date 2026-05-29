@@ -13,6 +13,8 @@ export interface MergeResult {
     requestId: string;
     patch: Partial<RequestItem>;
   }>;
+  /** If set, an existing collection from the same catalog entry was found - merge into it. */
+  existingCollectionId?: string;
 }
 
 /** Build a SpecVersion snapshot from a RequestItem's current fields. */
@@ -121,9 +123,28 @@ function stripMergedFromFolder(folder: RequestFolder, mergedIds: Set<string>): R
 }
 
 /**
+ * Find an existing collection that was created from the same catalog entry.
+ * Looks for collections where any request has a matching catalogEntryId.
+ */
+function findCollectionByCatalogEntryId(
+  catalogEntryId: string,
+  collections: RequestCollection[],
+): RequestCollection | undefined {
+  for (const col of collections) {
+    const allRequests = collectAllRequestsFromCollection(col);
+    const match = allRequests.find(r => r.catalogMeta?.catalogEntryId === catalogEntryId);
+    if (match) return col;
+  }
+  return undefined;
+}
+
+/**
  * Merge exported requests into existing collections. Requests whose
  * catalogEndpointId already exists get a new SpecVersion appended;
  * truly new requests are kept in the returned newCollection.
+ * 
+ * If an existing collection from the same catalog entry is found,
+ * new requests are added to that collection instead of creating a duplicate.
  */
 export function mergeExportIntoCollections(
   exportedCollection: RequestCollection,
@@ -167,8 +188,13 @@ export function mergeExportIntoCollections(
     mergedEndpointIds.add(epId);
   }
 
+  // Check if there's an existing collection from the same catalog entry
+  const existingCatalogCollection = findCollectionByCatalogEntryId(catalogEntryId, existingCollections);
+
   const newCollection: RequestCollection = {
     ...exportedCollection,
+    // If we found an existing collection, reuse its ID so the caller can merge into it
+    id: existingCatalogCollection?.id ?? exportedCollection.id,
     requests: exportedCollection.requests.filter(
       r => !mergedEndpointIds.has(r.catalogMeta?.catalogEndpointId ?? ''),
     ),
@@ -182,10 +208,67 @@ export function mergeExportIntoCollections(
     newCount,
     newCollection,
     updates,
+    // Return the existing collection ID if found, so caller knows to merge instead of create
+    existingCollectionId: existingCatalogCollection?.id,
   };
 }
 
 /** Check whether the new collection is empty (no requests in any folder). */
 export function isCollectionEmpty(col: RequestCollection): boolean {
   return collectAllRequestsFromCollection(col).length === 0;
+}
+
+/**
+ * Find matching folders by name between new folders and existing collection folders.
+ * Returns a map of new folder ID -> existing folder ID for folders that should be merged.
+ */
+export function findMatchingFoldersByName(
+  newFolders: RequestFolder[],
+  existingFolders: RequestFolder[],
+): Map<string, string> {
+  const matches = new Map<string, string>();
+  for (const newFolder of newFolders) {
+    const match = existingFolders.find(
+      ef => ef.name.toLowerCase() === newFolder.name.toLowerCase()
+    );
+    if (match) {
+      matches.set(newFolder.id, match.id);
+    }
+  }
+  return matches;
+}
+
+/**
+ * Separate new folders into those that match existing folders (by name)
+ * and those that are truly new. Returns the requests that should be
+ * added to existing folders and the folders that are new.
+ */
+export function separateFoldersForMerge(
+  newFolders: RequestFolder[],
+  existingFolders: RequestFolder[],
+): {
+  requestsToAddToExisting: Array<{ folderId: string; requests: RequestItem[] }>;
+  trulyNewFolders: RequestFolder[];
+} {
+  const folderMatches = findMatchingFoldersByName(newFolders, existingFolders);
+  const requestsToAddToExisting: Array<{ folderId: string; requests: RequestItem[] }> = [];
+  const trulyNewFolders: RequestFolder[] = [];
+
+  for (const folder of newFolders) {
+    const existingFolderId = folderMatches.get(folder.id);
+    if (existingFolderId) {
+      // This folder matches an existing one - extract requests to add
+      if (folder.requests.length > 0) {
+        requestsToAddToExisting.push({
+          folderId: existingFolderId,
+          requests: folder.requests,
+        });
+      }
+    } else {
+      // Truly new folder
+      trulyNewFolders.push(folder);
+    }
+  }
+
+  return { requestsToAddToExisting, trulyNewFolders };
 }

@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, waitFor, act, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom/vitest';
 import MultiWebhookTestingPanel, { type WebhookScenario } from './MultiWebhookTestingPanel';
@@ -347,11 +347,8 @@ describe('MultiWebhookTestingPanel', () => {
 
     render(<MultiWebhookTestingPanel workflow={workflow} isRunning={false} onFireWebhook={mockOnFireWebhook} />);
 
-    await act(async () => {
-      await user.click(screen.getByTitle('Refresh paused workflows'));
-    });
-
-    expect(global.fetch).toHaveBeenCalled();
+    await user.click(screen.getByTitle('Refresh paused workflows'));
+    await waitFor(() => expect(global.fetch).toHaveBeenCalled());
   });
 
   it('load scenario ignores payloads for unknown node ids', async () => {

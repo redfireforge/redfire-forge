@@ -5,6 +5,64 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 vi.mock('../../../shared/utils/platform', () => ({ isTauri: () => false }));
 
+const { catalogStore } = vi.hoisted(() => ({
+  catalogStore: {
+    entries: null as import('../types/catalog').CatalogEntry[] | null,
+    rawSpecs: {} as Record<string, string>,
+    endpointValues: {} as Record<string, unknown>,
+  },
+}));
+
+vi.mock('../../../shared/utils/idbCatalog', () => ({
+  idbLoadCatalogEntries: vi.fn(async () => catalogStore.entries),
+  idbSaveCatalogEntries: vi.fn(async (entries: import('../types/catalog').CatalogEntry[]) => {
+    catalogStore.entries = entries;
+  }),
+  idbMigrateCatalogEntries: vi.fn(async () => false),
+  idbLoadCatalogRawSpec: vi.fn(async (entryId: string, versionId: string) =>
+    catalogStore.rawSpecs[`${entryId}-${versionId}`] ?? null),
+  idbSaveCatalogRawSpec: vi.fn(async (entryId: string, versionId: string, raw: string) => {
+    catalogStore.rawSpecs[`${entryId}-${versionId}`] = raw;
+  }),
+  idbRemoveCatalogRawSpec: vi.fn(async (entryId: string, versionId: string) => {
+    delete catalogStore.rawSpecs[`${entryId}-${versionId}`];
+  }),
+  idbRemoveAllCatalogRawSpecs: vi.fn(async (entryId: string, versionIds: string[]) => {
+    for (const vid of versionIds) delete catalogStore.rawSpecs[`${entryId}-${vid}`];
+  }),
+  idbMigrateCatalogRawSpecs: vi.fn(async () => 0),
+  idbLoadCatalogEndpointValues: vi.fn(async (entryId: string) =>
+    (catalogStore.endpointValues[entryId] as Record<string, unknown> | undefined) ?? null),
+  idbSaveCatalogEndpointValues: vi.fn(async (entryId: string, values: unknown) => {
+    catalogStore.endpointValues[entryId] = values;
+  }),
+  idbRemoveCatalogEndpointValues: vi.fn(async (entryId: string) => {
+    delete catalogStore.endpointValues[entryId];
+  }),
+  idbMigrateCatalogEndpointValues: vi.fn(async () => 0),
+}));
+
+vi.mock('../../../shared/utils/idbWorkflows', () => ({
+  idbLoadWorkflows: vi.fn(async () => null),
+  idbSaveWorkflows: vi.fn(async () => {}),
+  idbMigrateWorkflows: vi.fn(async () => false),
+  idbLoadWorkflowFolders: vi.fn(async () => null),
+  idbSaveWorkflowFolders: vi.fn(async () => {}),
+  idbMigrateWorkflowFolders: vi.fn(async () => false),
+}));
+
+vi.mock('../../../shared/utils/idbRequests', () => ({
+  idbLoadRequests: vi.fn(async () => null),
+  idbSaveRequests: vi.fn(async () => {}),
+  idbMigrateRequests: vi.fn(async () => false),
+}));
+
+vi.mock('../../../shared/utils/idbProjects', () => ({
+  idbLoadProjects: vi.fn(async () => null),
+  idbSaveProjects: vi.fn(async () => {}),
+  idbMigrateProjects: vi.fn(async () => false),
+}));
+
 import {
   loadCatalogEntries, saveCatalogEntries,
   loadCatalogRawSpec, saveCatalogRawSpec,
@@ -36,6 +94,9 @@ function makeEntry(id: string, name: string): CatalogEntry {
 describe('Catalog storage', () => {
   beforeEach(() => {
     localStorage.clear();
+    catalogStore.entries = null;
+    catalogStore.rawSpecs = {};
+    catalogStore.endpointValues = {};
   });
 
   describe('loadCatalogEntries / saveCatalogEntries', () => {
@@ -99,16 +160,15 @@ describe('Catalog storage', () => {
       expect(await loadCatalogRawSpec('e2', 'v3')).toBe('other');
     });
 
-    it('stores specs in separate keys from catalog entries', async () => {
+    it('stores specs separately from catalog entries', async () => {
       await saveCatalogEntries([makeEntry('e1', 'API')]);
       await saveCatalogRawSpec('e1', 'v-e1', 'the-spec');
 
-      const catalogRaw = localStorage.getItem('perf-test-catalog');
-      expect(catalogRaw).toBeTruthy();
-      expect(catalogRaw).not.toContain('the-spec');
+      const entriesJson = JSON.stringify(catalogStore.entries);
+      expect(entriesJson).toBeTruthy();
+      expect(entriesJson).not.toContain('the-spec');
 
-      const specRaw = localStorage.getItem('perf-test-catalog-spec-e1-v-e1');
-      expect(specRaw).toBe('the-spec');
+      expect(catalogStore.rawSpecs['e1-v-e1']).toBe('the-spec');
     });
   });
 });

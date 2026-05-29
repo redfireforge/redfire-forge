@@ -1,11 +1,11 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
+import RegexPatternLibrary from '../../../features/requests/components/RegexPatternLibrary';
 import type { JsonTreeNode } from '../../utils/jsonTreeModel';
 import type { FetchErrorDetail } from './types';
 import { buildJsonTree, getAllLeafPaths } from '../../utils/jsonTreeModel';
 import FullPanelModal from '../FullPanelModal';
 import FetchErrorBanner from './FetchErrorBanner';
 import {
-  PATTERN_LIBRARY,
   testPattern,
   resolveValue,
   type PatternEntry,
@@ -28,7 +28,7 @@ interface Props {
   onCancel: () => void;
 }
 
-const CATEGORIES = [...new Set(PATTERN_LIBRARY.map(p => p.category))];
+
 
 function matchesSearch(node: JsonTreeNode, term: string): boolean {
   if (!term) return true;
@@ -124,7 +124,6 @@ export default function RegexAssertionBuilderModal({
   const [patternName, setPatternName] = useState('');
   const [sampleJson, setSampleJson] = useState(externalJson || '');
   const [treeSearch, setTreeSearch] = useState('');
-  const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [showPatternLibrary, setShowPatternLibrary] = useState(false);
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set(['__root__']));
   const [pasteMode, setPasteMode] = useState(false);
@@ -172,10 +171,6 @@ export default function RegexAssertionBuilderModal({
   const handleApply = () => {
     onSave({ jsonPath, pattern, patternName: patternName || undefined });
   };
-
-  const filteredPatterns = activeCategory
-    ? PATTERN_LIBRARY.filter(p => p.category === activeCategory)
-    : PATTERN_LIBRARY;
 
   const handleToggle = useCallback((path: string) => {
     setExpandedPaths(prev => {
@@ -397,35 +392,7 @@ export default function RegexAssertionBuilderModal({
 
         {/* Pattern Library */}
         {showPatternLibrary && (
-          <div className="ram-library" data-testid="pattern-library">
-            <div className="ram-library-cats">
-              <button
-                className={`btn btn-xs ${!activeCategory ? 'btn-active' : ''}`}
-                onClick={() => setActiveCategory(null)}
-              >All</button>
-              {CATEGORIES.map(cat => (
-                <button
-                  key={cat}
-                  className={`btn btn-xs ${activeCategory === cat ? 'btn-active' : ''}`}
-                  onClick={() => setActiveCategory(cat)}
-                >{cat}</button>
-              ))}
-            </div>
-            <div className="ram-library-list">
-              {filteredPatterns.map((entry, i) => (
-                <div
-                  key={i}
-                  className="ram-library-item"
-                  onClick={() => handleSelectPattern(entry)}
-                  data-testid={`pattern-entry-${i}`}
-                >
-                  <div className="ram-library-item-name">{entry.name}</div>
-                  <div className="ram-library-item-desc">{entry.description}</div>
-                  {entry.pattern && <code className="ram-library-item-pattern">/{entry.pattern}/</code>}
-                </div>
-              ))}
-            </div>
-          </div>
+          <RegexPatternLibrary onSelect={handleSelectPattern} testIds />
         )}
 
         {/* Live Preview */}

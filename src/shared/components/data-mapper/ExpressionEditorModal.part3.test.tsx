@@ -1,5 +1,5 @@
 /** @vitest-environment jsdom */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import '@testing-library/jest-dom';
 import { render, screen, fireEvent, act } from '@testing-library/react';
 import ExpressionEditorModal from './ExpressionEditorModal';
@@ -45,6 +45,11 @@ beforeEach(() => {
   snippetMocks.reset();
 });
 
+afterEach(async () => {
+  // Flush any pending async state updates (e.g. loadExpressionSnippets) to avoid act() warnings
+  await act(async () => {});
+});
+
 describe('ExpressionEditorModal — search, templates, expand, snippets edge cases', () => {
   it('shows empty state when function search matches nothing', async () => {
     renderModal();
@@ -88,7 +93,7 @@ describe('ExpressionEditorModal — search, templates, expand, snippets edge cas
     renderModal({ mapping: { ...baseMapping, expression: '$upper($.name)' } });
     await act(async () => { await Promise.resolve(); });
     await flushMonacoMount();
-    fireEvent.click(screen.getAllByText('Delete')[0]);
+    await act(async () => { fireEvent.click(screen.getAllByText('Delete')[0]); });
     expect(deleteExpressionSnippetMock).toHaveBeenCalledWith('snippet-delete-me');
   });
 
@@ -191,7 +196,8 @@ describe('ExpressionEditorModal – branch coverage extras', () => {
     monacoTestState.lastMountOpts = null;
     monacoTestState.completionProvider = null;
     monacoTestState.disposeSpies = [];
-    loadExpressionSnippetsMock.mockResolvedValue([]);
+    // Note: loadExpressionSnippets uses the synchronous thenable from the global
+    // beforeEach (snippetMocks.reset()), so no need to override with mockResolvedValue here.
     saveExpressionSnippetMock.mockResolvedValue([]);
     deleteExpressionSnippetMock.mockResolvedValue([]);
     document.querySelectorAll('.dm-expr-overlay').forEach(el => el.remove());

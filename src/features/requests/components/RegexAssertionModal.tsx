@@ -1,11 +1,12 @@
 import { useState, useMemo, useCallback, useEffect, useRef, memo } from 'react';
+import RegexPatternLibrary from './RegexPatternLibrary';
 import { buildJsonTree, getAllLeafPaths, nodeMatchesSearch } from '../../../shared/utils/jsonTreeModel';
 import type { JsonTreeNode } from '../../../shared/utils/jsonTreeModel';
 import type { FetchErrorDetail } from '../../../shared/components/data-mapper/types';
 import { typeColor, getValuePreview, ChevronIcon } from '../../../shared/components/jsonTreeShared';
 import FullPanelModal from '../../../shared/components/FullPanelModal';
 import FetchErrorBanner from '../../../shared/components/data-mapper/FetchErrorBanner';
-import { PATTERN_LIBRARY, testPattern, resolveValue, type PatternEntry } from './regexAssertionUtils';
+import { testPattern, resolveValue, type PatternEntry } from './regexAssertionUtils';
 export type { MatchResult } from './regexAssertionUtils';
 
 export interface RegexAssertionResult {
@@ -24,8 +25,6 @@ interface Props {
   onApply: (result: RegexAssertionResult) => void;
   onClose: () => void;
 }
-
-const CATEGORIES = [...new Set(PATTERN_LIBRARY.map(p => p.category))];
 
 /* ── Tree Node (click-to-select, no checkboxes) ────── */
 
@@ -135,7 +134,6 @@ export default function RegexAssertionModal({
   const [patternName, setPatternName] = useState('');
   const [sampleJson, setSampleJson] = useState(externalJson || '');
   const [treeSearch, setTreeSearch] = useState('');
-  const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [showPatternLibrary, setShowPatternLibrary] = useState(false);
 
   const prevExternalRef = useRef(externalJson);
@@ -180,10 +178,6 @@ export default function RegexAssertionModal({
   const handleApply = () => {
     onApply({ jsonPath, pattern, patternName: patternName || undefined });
   };
-
-  const filteredPatterns = activeCategory
-    ? PATTERN_LIBRARY.filter(p => p.category === activeCategory)
-    : PATTERN_LIBRARY;
 
   return (
     <FullPanelModal
@@ -309,36 +303,7 @@ export default function RegexAssertionModal({
 
             {/* Pattern Library */}
             {showPatternLibrary && (
-              <div className="ram-library">
-                <div className="ram-library-cats">
-                  <button
-                    className={`btn btn-xs ${!activeCategory ? 'btn-active' : ''}`}
-                    onClick={() => setActiveCategory(null)}
-                  >All</button>
-                  {CATEGORIES.map(cat => (
-                    <button
-                      key={cat}
-                      className={`btn btn-xs ${activeCategory === cat ? 'btn-active' : ''}`}
-                      onClick={() => setActiveCategory(cat)}
-                    >{cat}</button>
-                  ))}
-                </div>
-                <div className="ram-library-list">
-                  {filteredPatterns.map((entry, i) => (
-                    <div
-                      key={i}
-                      className="ram-library-item"
-                      onClick={() => handleSelectPattern(entry)}
-                    >
-                      <div className="ram-library-item-name">{entry.name}</div>
-                      <div className="ram-library-item-desc">{entry.description}</div>
-                      {entry.pattern && (
-                        <code className="ram-library-item-pattern">/{entry.pattern}/</code>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
+              <RegexPatternLibrary onSelect={handleSelectPattern} />
             )}
 
             {/* Live Preview */}

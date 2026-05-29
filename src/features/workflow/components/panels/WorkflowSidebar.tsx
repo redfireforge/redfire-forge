@@ -23,6 +23,7 @@ interface Props {
   onDelete: (id: string) => void;
   onDuplicate: (id: string) => void;
   onExport?: (id: string) => void;
+  onExportFolder?: (folderId: string) => void;
   onImport?: () => void;
   onToggleFolderCollapse?: (folderId: string) => void;
   onSetFolderCollapsed?: (folderId: string, collapsed: boolean) => void;
@@ -52,12 +53,13 @@ interface FolderCtxMenuState {
 
 export default function WorkflowSidebar({
   workflows, selectedId, folders, foldersLoaded, onSelect, onNew, onBrowseTemplates,
-  onRename, onDelete, onDuplicate, onExport, onImport, onToggleFolderCollapse,
+  onRename, onDelete, onDuplicate, onExport, onExportFolder, onImport, onToggleFolderCollapse,
   onSetFolderCollapsed, onCreateFolder, onRenameFolder, onDeleteFolder,
   onMoveWorkflowToFolder, onMoveWorkflowsToFolder, onMoveFolder, onRunAllInFolder,
 }: Props) {
   const [wfCtxMenu, setWfCtxMenu] = useState<WorkflowCtxMenuState | null>(null);
   const [folderCtxMenu, setFolderCtxMenu] = useState<FolderCtxMenuState | null>(null);
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<{ message: string; onConfirm: () => void } | null>(null);
   const [renameState, setRenameState] = useState<{ id: string; name: string; type: 'workflow' | 'folder' } | null>(null);
   const [showNewMenu, setShowNewMenu] = useState(false);
@@ -125,7 +127,7 @@ export default function WorkflowSidebar({
       .filter((wf) => wf.name.toLowerCase().includes(q))
       .map((wf) => ({
         workflow: wf,
-        breadcrumb: wf.folderId ? getFolderPath(wf.folderId, folders) : 'Unfiled',
+        breadcrumb: wf.folderId ? getFolderPath(wf.folderId, folders) : 'Workflows',
       }));
   }, [isSearching, searchQuery, workflows, folders]);
 
@@ -180,14 +182,16 @@ export default function WorkflowSidebar({
     const isDragging = dragSource?.type === 'workflow' && (dragSource.id === wf.id || (isMultiDrag && multiSelected.has(wf.id)));
     const isSelected = effectiveSelection.has(wf.id);
     const isActive = wf.id === selectedId;
+    const isCtxActive = wfCtxMenu?.workflowId === wf.id;
     return (
       <div
         key={wf.id}
-        className={`wf-sidebar-item ${isActive ? 'active' : ''} ${isSelected && multiSelected.size > 0 ? 'wf-multi-selected' : ''} ${isDragging ? 'wf-dragging' : ''} ${getDropClass('workflow', wf.id)}`}
-        onClick={(e) => handleWorkflowClick(e, wf.id)}
+        className={`wf-sidebar-item ${isActive ? 'active' : ''} ${isCtxActive ? 'wf-ctx-active' : ''} ${isSelected && multiSelected.size > 0 ? 'wf-multi-selected' : ''} ${isDragging ? 'wf-dragging' : ''} ${getDropClass('workflow', wf.id)}`}
+        onClick={(e) => { setSelectedFolderId(null); handleWorkflowClick(e, wf.id); }}
         onContextMenu={(e) => {
           e.preventDefault();
           e.stopPropagation();
+          setSelectedFolderId(null);
           if (!multiSelected.has(wf.id)) {
             setMultiSelected(new Set());
             onSelect(wf.id);
@@ -227,11 +231,12 @@ export default function WorkflowSidebar({
     return (
       <div key={node.folder.id} className={`wf-folder-group ${isDragging ? 'wf-dragging' : ''}`} style={{ paddingLeft: depth > 0 ? 8 : 0 }}>
         <div
-          className={`wf-folder-header ${getDropClass('folder', node.folder.id)}`}
-          onClick={() => onToggleFolderCollapse?.(node.folder.id)}
+          className={`wf-folder-header ${selectedFolderId === node.folder.id ? 'active' : ''} ${folderCtxMenu?.folderId === node.folder.id ? 'wf-ctx-active' : ''} ${getDropClass('folder', node.folder.id)}`}
+          onClick={() => { setSelectedFolderId(node.folder.id); onToggleFolderCollapse?.(node.folder.id); }}
           onContextMenu={(e) => {
             e.preventDefault();
             e.stopPropagation();
+            setSelectedFolderId(node.folder.id);
             setWfCtxMenu(null);
             setShowMoveMenu(false);
             setFolderCtxMenu({ folderId: node.folder.id, folderName: node.folder.name, x: e.clientX, y: e.clientY });
@@ -338,6 +343,15 @@ export default function WorkflowSidebar({
                   <div className="wf-new-dropdown-hint">Browse pre-built workflows</div>
                 </div>
               </button>
+              {onImport && (
+                <button className="wf-new-dropdown-item" onClick={() => { onImport(); setShowNewMenu(false); }}>
+                  <span className="wf-new-dropdown-icon">📥</span>
+                  <div>
+                    <div className="wf-new-dropdown-label">Import Workflow</div>
+                    <div className="wf-new-dropdown-hint">Import from JSON file</div>
+                  </div>
+                </button>
+              )}
               {onCreateFolder && (
                 <>
                   <div className="wf-new-dropdown-divider" />
@@ -404,7 +418,6 @@ export default function WorkflowSidebar({
                   onDragLeave={handleDragLeave}
                   onDrop={handleDrop}
                 >
-                  <div className="wf-folder-unfiled-header">Unfiled</div>
                   {unfiled.map(renderWorkflowItem)}
                 </div>
               )}
@@ -420,7 +433,7 @@ export default function WorkflowSidebar({
                   onDragLeave={handleDragLeave}
                   onDrop={handleDrop}
                 >
-                  <div className="wf-folder-unfiled-header">Drop here for Unfiled</div>
+                  <div className="wf-folder-unfiled-header">Drop here</div>
                 </div>
               )}
             </>
@@ -443,6 +456,10 @@ export default function WorkflowSidebar({
           ? [...multiSelected] : [wfCtxMenu.workflowId];
         const isBulk = ctxIds.length > 1;
         const bulkLabel = `${ctxIds.length} workflows`;
+
+        const anyInFolder = isBulk
+          ? ctxIds.some(id => workflows.find(w => w.id === id)?.folderId)
+          : !!wfCtxMenu.workflowFolderId;
 
         const moveCtxWorkflows = (folderId: string | null) => {
           if (isBulk && onMoveWorkflowsToFolder) {
@@ -482,12 +499,6 @@ export default function WorkflowSidebar({
                       Export Workflow
                     </button>
                   )}
-                  {onImport && (
-                    <button type="button" className="wf-sidebar-ctx-item" role="menuitem"
-                      onClick={() => { onImport(); clearAllMenus(); }}>
-                      Import Workflow
-                    </button>
-                  )}
                 </>
               )}
               {(onMoveWorkflowToFolder || onMoveWorkflowsToFolder) && foldersLoaded && (
@@ -506,10 +517,12 @@ export default function WorkflowSidebar({
                             📁 {f.name}
                           </button>
                         ))}
-                        <button type="button" className="wf-sidebar-ctx-item wf-sidebar-ctx-item-muted" role="menuitem"
-                          onClick={() => moveCtxWorkflows(null)}>
-                          ↩ Move to Unfiled
-                        </button>
+                        {anyInFolder && (
+                          <button type="button" className="wf-sidebar-ctx-item wf-sidebar-ctx-item-muted" role="menuitem"
+                            onClick={() => moveCtxWorkflows(null)}>
+                            ↩ Move out of Folder
+                          </button>
+                        )}
                       </div>
                     )}
                   </div>
@@ -557,6 +570,21 @@ export default function WorkflowSidebar({
                 New Sub-Folder
               </button>
             )}
+            {onExportFolder && getRecursiveCount(folderCtxMenu.folderId) > 0 && (
+              <>
+                <div className="wf-sidebar-ctx-divider" />
+                <button type="button" className="wf-sidebar-ctx-item" role="menuitem"
+                  onClick={() => { onExportFolder(folderCtxMenu.folderId); clearAllMenus(); }}>
+                  Export Folder ({getRecursiveCount(folderCtxMenu.folderId)})
+                </button>
+              </>
+            )}
+            {onImport && (
+              <button type="button" className="wf-sidebar-ctx-item" role="menuitem"
+                onClick={() => { onImport(); clearAllMenus(); }}>
+                Import Workflow
+              </button>
+            )}
             {onRunAllInFolder && (
               <>
                 <div className="wf-sidebar-ctx-divider" />
@@ -577,7 +605,7 @@ export default function WorkflowSidebar({
                   onClick={() => {
                     const count = getRecursiveCount(folderCtxMenu.folderId);
                     const msg = count > 0
-                      ? `Delete folder "${folderCtxMenu.folderName}" and move its ${count} workflow(s) to Unfiled?`
+                      ? `Delete folder "${folderCtxMenu.folderName}" and move its ${count} workflow(s) out of the folder?`
                       : `Delete empty folder "${folderCtxMenu.folderName}"?`;
                     setConfirmDelete({
                       message: msg,

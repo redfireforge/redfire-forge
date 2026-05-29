@@ -84,6 +84,11 @@ test.describe('Results Dashboard — Failed Only filter', () => {
     await page.goto('/?tab=results');
     await page.waitForSelector('.app-header', { timeout: 10000 });
     await page.waitForLoadState('networkidle');
+
+    // Navigate to Request Details tab where filter-count and group-by-controls live
+    await page.getByRole('tab', { name: 'Request Details' }).click();
+    const filterCount = page.locator('.filter-count').filter({ hasText: 'results' });
+    await expect(filterCount).toBeVisible({ timeout: 5000 });
   });
 
   test('Failed Only filter hides passed results in grouped view', async ({ page }) => {
@@ -161,6 +166,8 @@ test.describe('Results Dashboard — Failed Only filter', () => {
     await page.waitForSelector('.app-header', { timeout: 10000 });
     await page.waitForLoadState('networkidle');
 
+    // Re-navigate to Request Details tab after page reload
+    await page.getByRole('tab', { name: 'Request Details' }).click();
     await expect(filterCount).toBeVisible({ timeout: 5000 });
 
     // Verify we still have 6 results (all loaded from corrupted IDB)
