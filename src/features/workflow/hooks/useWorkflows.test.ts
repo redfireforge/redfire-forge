@@ -13,12 +13,14 @@ const mockLoadWorkflows = vi.fn<() => Promise<Workflow[]>>().mockResolvedValue([
 const mockSaveWorkflows = vi.fn<(wfs: Workflow[]) => Promise<void>>().mockResolvedValue(undefined);
 const mockLoadSelectedId = vi.fn<() => Promise<string | null>>().mockResolvedValue(null);
 const mockSaveSelectedId = vi.fn<(id: string | null) => Promise<void>>().mockResolvedValue(undefined);
+const mockCompactWorkflowStorage = vi.fn().mockResolvedValue({ beforeKB: 0, afterKB: 0 });
 
 vi.mock('../../../shared/utils/storage', () => ({
   loadWorkflows: () => mockLoadWorkflows(),
   saveWorkflows: (workflows: Workflow[]) => mockSaveWorkflows(workflows),
   loadSelectedWorkflowId: () => mockLoadSelectedId(),
   saveSelectedWorkflowId: (id: string | null) => mockSaveSelectedId(id),
+  compactWorkflowStorage: (maxVersions: number) => mockCompactWorkflowStorage(maxVersions),
 }));
 
 const mockMigrateWorkflow = vi.hoisted(() =>
@@ -30,21 +32,20 @@ vi.mock('../utils/workflowMigrations', () => ({
 }));
 
 import { useWorkflows } from './useWorkflows';
+import { makeWorkflow as _makeWorkflow } from '../../../test-utils/factories';
 
-const makeWorkflow = (overrides: Partial<Workflow> = {}): Workflow => ({
-  id: 'wf-1',
-  name: 'Test Workflow',
-  schemaVersion: 5,
-  variables: {},
-  hostProfiles: [],
-  authProfiles: [],
-  services: [],
-  nodes: [],
-  edges: [],
-  createdAt: 1000,
-  updatedAt: 2000,
-  ...overrides,
-} as Workflow);
+const makeWorkflow = (overrides: Partial<Workflow> = {}): Workflow =>
+  _makeWorkflow({
+    id: 'wf-1',
+    name: 'Test Workflow',
+    schemaVersion: 5,
+    hostProfiles: [],
+    authProfiles: [],
+    services: [],
+    createdAt: 1000,
+    updatedAt: 2000,
+    ...overrides,
+  });
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
@@ -54,6 +55,7 @@ describe('useWorkflows', () => {
     mockMigrateWorkflow.mockImplementation((wf: Workflow) => ({ ...wf, schemaVersion: 5 }));
     mockLoadWorkflows.mockResolvedValue([]);
     mockLoadSelectedId.mockResolvedValue(null);
+    mockCompactWorkflowStorage.mockResolvedValue({ beforeKB: 0, afterKB: 0 });
   });
 
   it('clears stored selection when id is missing but workflows exist', async () => {
@@ -103,11 +105,13 @@ describe('useWorkflows', () => {
     expect(result.current.selectedId).toBe('wf-1');
   });
 
-  it('starts with empty state before loading', () => {
+  it('starts with empty state before loading', async () => {
     const { result } = renderHook(() => useWorkflows());
     expect(result.current.workflows).toEqual([]);
     expect(result.current.selected).toBeNull();
     expect(result.current.loaded).toBe(false);
+    // Flush pending async state updates to avoid act() warnings
+    await waitFor(() => expect(result.current.loaded).toBe(true));
   });
 
   it('loads and migrates workflows on mount', async () => {
@@ -294,5 +298,65 @@ describe('useWorkflows', () => {
 
     // migrateWorkflowSchema mock changes schemaVersion → 5, so JSON differs
     expect(mockSaveWorkflows).toHaveBeenCalled();
+  });
+
+  it('auto-compacts when loaded workflows exceed 2 MB', async () => {
+    mockCompactWorkflowStorage.mockResolvedValue({ beforeKB: 3000, afterKB: 1500 });
+    const bigPayload = 'x'.repeat(1_100_000);
+    mockLoadWorkflows.mockResolvedValue([makeWorkflow({ id: 'wf-big', name: bigPayload })]);
+    const consoleSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
+
+    renderHook(() => useWorkflows());
+    await waitFor(() => expect(mockCompactWorkflowStorage).toHaveBeenCalledWith(5));
+
+    expect(consoleSpy).toHaveBeenCalledWith(
+      expect.stringContaining('[Workflows] Auto-compacted versions:'),
+    );
+    consoleSpy.mockRestore();
+  });
+
+  it('auto-compact skips log when storage size unchanged', async () => {
+    mockCompactWorkflowStorage.mockResolvedValue({ beforeKB: 3000, afterKB: 3000 });
+    const bigPayload = 'x'.repeat(1_100_000);
+    mockLoadWorkflows.mockResolvedValue([makeWorkflow({ name: bigPayload })]);
+    const consoleSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
+
+    renderHook(() => useWorkflows());
+    await waitFor(() => expect(mockCompactWorkflowStorage).toHaveBeenCalled());
+
+    expect(consoleSpy).not.toHaveBeenCalled();
+    consoleSpy.mockRestore();
+  });
+
+  it('auto-selects when selectedId points to a missing workflow', async () => {
+    mockLoadWorkflows.mockResolvedValue([
+      makeWorkflow({ id: 'wf-1', updatedAt: 1000 }),
+      makeWorkflow({ id: 'wf-2', updatedAt: 3000 }),
+    ]);
+    mockLoadSelectedId.mockResolvedValue('wf-1');
+
+    const { result } = renderHook(() => useWorkflows());
+    await waitFor(() => expect(result.current.loaded).toBe(true));
+
+    act(() => result.current.select('ghost-id'));
+
+    await waitFor(() => expect(result.current.selectedId).toBe('wf-2'));
+    expect(mockSaveSelectedId).toHaveBeenCalledWith('wf-2');
+  });
+
+  it('skips state updates when unmounted during auto-compact', async () => {
+    let resolveCompact!: (v: { beforeKB: number; afterKB: number }) => void;
+    mockCompactWorkflowStorage.mockImplementation(
+      () => new Promise<{ beforeKB: number; afterKB: number }>((r) => { resolveCompact = r; }),
+    );
+    const bigPayload = 'x'.repeat(1_100_000);
+    mockLoadWorkflows.mockResolvedValue([makeWorkflow({ name: bigPayload })]);
+
+    const { unmount } = renderHook(() => useWorkflows());
+    await waitFor(() => expect(mockCompactWorkflowStorage).toHaveBeenCalled());
+    unmount();
+    resolveCompact({ beforeKB: 3000, afterKB: 1500 });
+    await new Promise((r) => setTimeout(r, 0));
+    expect(mockSaveSelectedId).not.toHaveBeenCalled();
   });
 });

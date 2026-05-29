@@ -82,10 +82,10 @@ export function applyTemplateLiteralsToScenario(scenario: Scenario, flat: Record
     bodyForm: scenario.bodyForm?.map((h) => ({ key: p(h.key), value: p(h.value) })),
     auth: {
       ...scenario.auth,
-      token: scenario.auth.token != null ? p(scenario.auth.token) : scenario.auth.token,
-      apiKeyValue: scenario.auth.apiKeyValue != null ? p(scenario.auth.apiKeyValue) : scenario.auth.apiKeyValue,
-      username: scenario.auth.username != null ? p(scenario.auth.username) : scenario.auth.username,
-      password: scenario.auth.password != null ? p(scenario.auth.password) : scenario.auth.password,
+      token: scenario.auth?.token != null ? p(scenario.auth.token) : scenario.auth?.token,
+      apiKeyValue: scenario.auth?.apiKeyValue != null ? p(scenario.auth.apiKeyValue) : scenario.auth?.apiKeyValue,
+      username: scenario.auth?.username != null ? p(scenario.auth.username) : scenario.auth?.username,
+      password: scenario.auth?.password != null ? p(scenario.auth.password) : scenario.auth?.password,
     },
   };
 }
@@ -183,7 +183,7 @@ export async function executeHttpNode(
   }
   const resolvedScenario: Scenario = {
     ...data.scenario,
-    auth: resolveHttpAuth?.(data) ?? data.scenario.auth,
+    auth: resolveHttpAuth?.(data) ?? data.scenario?.auth ?? { type: 'none' as const },
   };
   const resolved = resolveScenario(resolvedScenario, stepCtx);
   const flatLiterals: Record<string, string> = {
@@ -204,6 +204,7 @@ export async function executeHttpNode(
   if (url.includes('{{')) {
     url = resolve(url);
   }
+
 
   const start = performance.now();
   let httpStatus = 0;

@@ -331,6 +331,63 @@ describe('resolveServiceBaseUrl — additional branches', () => {
   });
 });
 
+// ── envOverride ─────────────────────────
+
+describe('resolveHttpNodeBaseUrl — envOverride', () => {
+  const services: WorkflowService[] = [{
+    id: 'svc-1', name: 'S',
+    endpoints: [
+      { envId: 't01', url: 'https://svc.test.com', enabled: true, authMode: 'inherit', source: 'manual' },
+      { envId: '__adhoc__', url: 'https://svc.adhoc.com', enabled: true, authMode: 'inherit', source: 'manual' },
+      { envId: 'p01', url: 'https://svc.prod.com', enabled: true, authMode: 'inherit', source: 'manual' },
+    ],
+  }];
+
+  it('uses envOverride instead of global selectedEnvId', () => {
+    const d: HttpNodeData = { label: 'x', serviceId: 'svc-1', envOverride: '__adhoc__', scenario: minimalScenario() };
+    expect(resolveHttpNodeBaseUrl(d, [], undefined, services, 't01')).toBe('https://svc.adhoc.com');
+  });
+
+  it('uses global selectedEnvId when no envOverride', () => {
+    const d: HttpNodeData = { label: 'x', serviceId: 'svc-1', scenario: minimalScenario() };
+    expect(resolveHttpNodeBaseUrl(d, [], undefined, services, 't01')).toBe('https://svc.test.com');
+  });
+
+  it('uses envOverride for prod while global is test', () => {
+    const d: HttpNodeData = { label: 'x', serviceId: 'svc-1', envOverride: 'p01', scenario: minimalScenario() };
+    expect(resolveHttpNodeBaseUrl(d, [], undefined, services, 't01')).toBe('https://svc.prod.com');
+  });
+});
+
+describe('resolveServiceAuth — envOverride', () => {
+  const testAuth = { type: 'bearer' as const, token: 'test-tok' };
+  const adhocAuth = { type: 'bearer' as const, token: 'adhoc-tok' };
+
+  it('uses envOverride instead of global selectedEnvId for auth', () => {
+    const services: WorkflowService[] = [{
+      id: 's1', name: 'S',
+      endpoints: [
+        { envId: 't01', url: 'https://t.com', enabled: true, authMode: 'custom', auth: testAuth, source: 'manual' },
+        { envId: '__adhoc__', url: 'https://a.com', enabled: true, authMode: 'custom', auth: adhocAuth, source: 'manual' },
+      ],
+    }];
+    const d: HttpNodeData = { label: 'x', serviceId: 's1', envOverride: '__adhoc__', scenario: minimalScenario() };
+    expect(resolveServiceAuth(d, services, 't01')).toEqual(adhocAuth);
+  });
+
+  it('uses global selectedEnvId when no envOverride for auth', () => {
+    const services: WorkflowService[] = [{
+      id: 's1', name: 'S',
+      endpoints: [
+        { envId: 't01', url: 'https://t.com', enabled: true, authMode: 'custom', auth: testAuth, source: 'manual' },
+        { envId: '__adhoc__', url: 'https://a.com', enabled: true, authMode: 'custom', auth: adhocAuth, source: 'manual' },
+      ],
+    }];
+    const d: HttpNodeData = { label: 'x', serviceId: 's1', scenario: minimalScenario() };
+    expect(resolveServiceAuth(d, services, 't01')).toEqual(testAuth);
+  });
+});
+
 describe('resolveHttpNodeBaseUrl — additional branches', () => {
   const microservices: Microservice[] = [
     { id: 'svc-a', name: 'A', baseUrls: { t01: 'https://a.example.com/' } },

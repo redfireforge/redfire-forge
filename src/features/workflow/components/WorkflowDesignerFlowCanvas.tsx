@@ -18,6 +18,9 @@ import WorkflowExecSummary from './panels/WorkflowExecSummary';
 import VariableContextBadge from './panels/VariableContextBar';
 import WorkflowNodeContextMenu from './canvas/WorkflowNodeContextMenu';
 import WorkflowCanvasControls from './canvas/WorkflowCanvasControls';
+import EmptyCanvasTemplates from './canvas/EmptyCanvasTemplates';
+import OnboardingTooltip from './canvas/OnboardingTooltip';
+import type { EmptyCanvasTemplate } from '../data/emptyCanvasTemplates';
 
 /** Drop overlay, preview banner, React Flow instance, variable badge, and node context menu. */
 export function WorkflowDesignerFlowCanvas({
@@ -74,10 +77,11 @@ export function WorkflowDesignerFlowCanvas({
     handleDeleteNode,
     navigateToWorkflow,
     setNodeCtxMenu,
-    isRunning,
-    handleQuickTest,
     persistWorkflow,
     update,
+    onLoadTemplate,
+    onBrowseGallery,
+    onboarding,
   } = vm;
 
   const { getViewport, setViewport, fitView } = useReactFlow();
@@ -174,6 +178,12 @@ export function WorkflowDesignerFlowCanvas({
           </svg>
           <p className="wf-empty-canvas-title">Drop your first node here</p>
           <p className="wf-empty-canvas-hint">Drag a block from the palette on the left, or press <kbd>⌘K</kbd> for commands</p>
+          {onLoadTemplate && (
+            <EmptyCanvasTemplates
+              onSelectTemplate={(t: EmptyCanvasTemplate) => onLoadTemplate(t.id)}
+              onBrowseGallery={onBrowseGallery ?? (() => {})}
+            />
+          )}
         </div>
       )}
       {!previewWorkflow && (
@@ -188,12 +198,6 @@ export function WorkflowDesignerFlowCanvas({
           <span>📚 Sample Preview: <strong>{previewWorkflow.name}</strong></span>
           <span className="wf-preview-desc">{previewWorkflow.description}</span>
           <div className="wf-preview-actions">
-            {isRunning && (
-              <button className="btn btn-sm btn-danger" onClick={handleQuickTest} title="Stop running workflow">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="1"/></svg>
-                {' '}Stop
-              </button>
-            )}
             <button className="btn btn-sm btn-primary" onClick={() => {
               const currentNodes = serializeNodes(nodes);
               onUseAsTemplate({ ...previewWorkflow, nodes: currentNodes });
@@ -304,6 +308,17 @@ export function WorkflowDesignerFlowCanvas({
         }}
         onClose={() => setNodeCtxMenu(null)}
       />
+      {onboarding.activeHint && !previewWorkflow && (
+        <OnboardingTooltip
+          hint={onboarding.activeHint}
+          onDismiss={() => {
+            const hintId = onboarding.activeHint?.id;
+            if (hintId) onboarding.dismiss(hintId);
+          }}
+          onDismissAll={onboarding.dismissAll}
+          remainingCount={onboarding.remainingCount}
+        />
+      )}
     </div>
   );
 }

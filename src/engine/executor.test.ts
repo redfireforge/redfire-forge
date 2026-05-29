@@ -16,6 +16,11 @@ vi.mock('../features/workflow/engine', () => ({
   },
 }));
 
+vi.mock('../features/workflow/utils/workflowHostResolve', () => ({
+  resolveHttpNodeBaseUrl: vi.fn(() => 'https://resolved.example'),
+  resolveServiceAuth: vi.fn(() => ({ type: 'bearer', token: 'svc-token', prefix: 'Bearer' })),
+}));
+
 function makeScenario(overrides: Partial<Scenario> = {}): Scenario {
   return {
     id: 's1', name: 'Test', url: 'https://example.com/api',
@@ -513,5 +518,137 @@ describe('runTest', () => {
     });
     const { results } = await runTest(config, [s1, s2], vi.fn());
     expect(results.length).toBe(24); // 12 per test × 2 tests
+  });
+
+  it('passes abortSignal through to execution opts', async () => {
+    const s = makeScenario();
+    const config = makeConfig();
+    const abort = new AbortController().signal;
+    await runTest(config, [s], vi.fn(), abort);
+    // sequential mode — signal is forwarded via RunOpts (no throw)
+    expect(abort.aborted).toBe(false);
+  });
+
+  it('uses all scenarios when every scenario weight is zero', async () => {
+    const s1 = makeScenario({ id: 's1', name: 'A' });
+    const s2 = makeScenario({ id: 's2', name: 'B' });
+    const config = makeConfig({
+      iterations: 1,
+      scenarioWeights: [
+        { scenarioId: 's1', weight: 0 },
+        { scenarioId: 's2', weight: 0 },
+      ],
+    });
+    const { results } = await runTest(config, [s1, s2], vi.fn());
+    expect(results).toHaveLength(2);
+  });
+
+  it('passes workerIndex to reset result id prefix', async () => {
+    const { nextResultId } = await import('./requestExecution');
+    const s = makeScenario();
+    const config = makeConfig({ iterations: 1 });
+    await runTest(config, [s], vi.fn(), undefined, undefined, undefined, 2);
+    expect(nextResultId()).toMatch(/^w2-/);
+  });
+
+  it('wires resolveHttpBaseUrl and resolveHttpAuth when workflow has services', async () => {
+    const { runGraphLoad } = await import('../features/workflow/engine');
+    const { resolveHttpNodeBaseUrl, resolveServiceAuth } = await import('../features/workflow/utils/workflowHostResolve');
+    const s = makeScenario();
+    const workflow: Workflow = {
+      ...minimalWorkflow('w1'),
+      services: [{ id: 'svc-1', name: 'API', endpoints: [] }],
+    };
+    const config = makeConfig({
+      executionMode: 'workflow',
+      workflowId: 'w1',
+      iterations: 1,
+      workflowBaseUrl: 'https://wf-base.example',
+    });
+    await runTest(
+      config,
+      [s],
+      vi.fn(),
+      undefined,
+      workflow,
+      undefined,
+      undefined,
+      {
+        microservices: [],
+        globalAuthProfiles: [],
+        selectedEnvId: 't01',
+      },
+    );
+
+    const graphOpts = vi.mocked(runGraphLoad).mock.calls.at(-1)![1];
+    expect(graphOpts.environmentLayer).toEqual({ baseUrl: 'https://wf-base.example' });
+    expect(graphOpts.resolveHttpBaseUrl).toBeTypeOf('function');
+    expect(graphOpts.resolveHttpAuth).toBeTypeOf('function');
+
+    const nodeData = {
+      label: 'HTTP',
+      scenario: makeScenario({ auth: { type: 'inherit' } }),
+      serviceId: 'svc-1',
+    };
+    expect(graphOpts.resolveHttpBaseUrl!(nodeData)).toBe('https://resolved.example');
+    expect(vi.mocked(resolveHttpNodeBaseUrl)).toHaveBeenCalledWith(
+      nodeData,
+      [],
+      undefined,
+      workflow.services,
+      't01',
+    );
+
+    expect(graphOpts.resolveHttpAuth!(nodeData)).toEqual({
+      type: 'bearer',
+      token: 'svc-token',
+      prefix: 'Bearer',
+    });
+    expect(vi.mocked(resolveServiceAuth)).toHaveBeenCalledWith(
+      nodeData,
+      workflow.services,
+      't01',
+      [],
+      [],
+    );
+  });
+
+  it('resolveHttpAuth returns undefined for explicit non-inherit auth on node', async () => {
+    const { runGraphLoad } = await import('../features/workflow/engine');
+    const { resolveServiceAuth } = await import('../features/workflow/utils/workflowHostResolve');
+    vi.mocked(resolveServiceAuth).mockClear();
+    const s = makeScenario({ auth: { type: 'bearer', token: 'explicit' } });
+    const workflow: Workflow = {
+      ...minimalWorkflow('w1'),
+      services: [{ id: 'svc-1', name: 'API', endpoints: [] }],
+    };
+    const config = makeConfig({ executionMode: 'workflow', workflowId: 'w1', iterations: 1 });
+    await runTest(config, [s], vi.fn(), undefined, workflow);
+    const graphOpts = vi.mocked(runGraphLoad).mock.calls.at(-1)![1];
+    const nodeData = { label: 'HTTP', scenario: s, serviceId: 'svc-1' };
+    expect(graphOpts.resolveHttpAuth!(nodeData)).toBeUndefined();
+    expect(vi.mocked(resolveServiceAuth)).not.toHaveBeenCalled();
+  });
+
+  it('resolveHttpAuth coalesces null service auth to undefined', async () => {
+    const { runGraphLoad } = await import('../features/workflow/engine');
+    const { resolveServiceAuth } = await import('../features/workflow/utils/workflowHostResolve');
+    vi.mocked(resolveServiceAuth).mockReturnValueOnce(undefined);
+    const s = makeScenario({ auth: { type: 'inherit' } });
+    const workflow: Workflow = {
+      ...minimalWorkflow('w1'),
+      services: [{ id: 'svc-1', name: 'API', endpoints: [] }],
+    };
+    const config = makeConfig({ executionMode: 'workflow', workflowId: 'w1', iterations: 1 });
+    await runTest(config, [s], vi.fn(), undefined, workflow);
+    const graphOpts = vi.mocked(runGraphLoad).mock.calls.at(-1)![1];
+    expect(graphOpts.resolveHttpAuth!({ label: 'HTTP', scenario: s })).toBeUndefined();
+  });
+
+  it('detects parameterized kind from sharedDataSourceId', async () => {
+    const s = makeScenario({ id: 's1', sharedDataSourceId: 'ds-shared' });
+    const config = makeConfig({ iterations: 1, scenarioWeights: [{ scenarioId: 's1', weight: 1 }] });
+    const { results } = await runTest(config, [s], vi.fn());
+    expect(results.length).toBe(1);
   });
 });

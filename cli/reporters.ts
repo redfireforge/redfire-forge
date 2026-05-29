@@ -1,6 +1,7 @@
 import type { RequestResult, TestSummary, TestConfig, TestRun, TimingBreakdown } from '../src/types';
 import type { Workflow } from '../src/features/workflow/types/workflow';
 import { formatFailureDetails } from '../src/shared/utils/helpers';
+import type { RunComparison } from '../src/features/results/utils/runBaselines';
 
 // ── JSON report ─────────────────────────────────────────────
 
@@ -189,34 +190,10 @@ export function buildMarkdownReport(
   }
 
   const passed = summary.failedRequests === 0 && summary.failedValidations === 0;
-  lines.push(`## Result: ${passed ? 'PASSED ✅' : 'FAILED ❌'}`);
+  lines.push(passed ? '## Result: PASSED ✅' : '## Result: FAILED ❌');
   lines.push('');
 
-  // Data row breakdown
-  if (results) {
-    const dataRowResults = results.filter(r => r.dataRowId);
-    if (dataRowResults.length > 0) {
-      const failedRows = dataRowResults.filter(r => !r.passed);
-      const passedCount = dataRowResults.length - failedRows.length;
-      lines.push('## Data Row Summary');
-      lines.push('');
-      lines.push(`**${dataRowResults.length}** total rows — **${passedCount}** passed, **${failedRows.length}** failed`);
-      lines.push('');
-      if (failedRows.length > 0) {
-        lines.push('### Failed Rows');
-        lines.push('');
-        lines.push('| Row | Status | Error |');
-        lines.push('|---|---|---|');
-        for (const r of failedRows) {
-          const label = r.dataRowLabel || r.dataRowId || '?';
-          const err = r.errorMessage
-            || (r.failureDetails.length > 0 ? `${r.failureDetails.length} validation failure(s)` : `HTTP ${r.httpStatus}`);
-          lines.push(`| ${label} | ${r.httpStatus} | ${err} |`);
-        }
-        lines.push('');
-      }
-    }
-  }
+  if (results) appendDataRowSummaryMd(lines, results);
 
   return lines.join('\n');
 }
@@ -270,26 +247,7 @@ export function printConsoleSummary(summary: TestSummary, config: TestConfig, re
   console.log(`  Result:       ${passed ? 'PASSED ✅' : 'FAILED ❌'}`);
   console.log(bar);
 
-  // Data row breakdown (if parameterized results exist)
-  if (results) {
-    const dataRowResults = results.filter(r => r.dataRowId);
-    if (dataRowResults.length > 0) {
-      const failedRows = dataRowResults.filter(r => !r.passed);
-      const passedRows = dataRowResults.filter(r => r.passed);
-      console.log(`  Data Rows:    ${dataRowResults.length} total, ${passedRows.length} passed, ${failedRows.length} failed`);
-      if (failedRows.length > 0) {
-        console.log('');
-        console.log('  Failed Data Rows:');
-        for (const r of failedRows) {
-          const label = r.dataRowLabel || r.dataRowId || '?';
-          const err = r.errorMessage
-            || (r.failureDetails.length > 0 ? `${r.failureDetails.length} validation failure(s)` : `HTTP ${r.httpStatus}`);
-          console.log(`    ✗ ${label} — ${err}`);
-        }
-      }
-      console.log(bar);
-    }
-  }
+  if (results) printDataRowConsole(results, bar);
 
   console.log('');
 }
@@ -320,16 +278,19 @@ function computePerStepStats(results: RequestResult[]): PerStepStats[] {
   for (const [nodeId, nodeResults] of byNode) {
     const times = nodeResults.map(r => r.responseTimeMs).sort((a, b) => a - b);
     const passed = nodeResults.filter(r => r.passed).length;
+    const first = nodeResults[0];
+    const label = (first && first.scenarioName) ? first.scenarioName : nodeId;
+    const p95Idx = Math.floor(times.length * 0.95);
     stats.push({
       nodeId,
-      label: nodeResults[0]?.scenarioName || nodeId,
+      label,
       count: nodeResults.length,
       passed,
       failed: nodeResults.length - passed,
       avgMs: Math.round(times.reduce((a, b) => a + b, 0) / times.length),
-      minMs: times[0] ?? 0,
-      maxMs: times[times.length - 1] ?? 0,
-      p95Ms: times[Math.floor(times.length * 0.95)] ?? 0,
+      minMs: times[0],
+      maxMs: times[times.length - 1],
+      p95Ms: times[p95Idx],
     });
   }
 
@@ -367,6 +328,105 @@ function computePerIterationStats(results: RequestResult[], iterations: number):
   return stats;
 }
 
+function formatRowLabel(r: RequestResult): string {
+  return r.dataRowLabel || r.dataRowId || '?';
+}
+
+function formatRowError(r: RequestResult): string {
+  if (r.errorMessage) return r.errorMessage;
+  if (r.failureDetails.length > 0) return `${r.failureDetails.length} validation failure(s)`;
+  return `HTTP ${r.httpStatus}`;
+}
+
+function printDataRowConsole(results: RequestResult[], bar: string): void {
+  const dataRowResults = results.filter(r => r.dataRowId);
+  if (dataRowResults.length === 0) return;
+  const failedRows = dataRowResults.filter(r => !r.passed);
+  const passedRows = dataRowResults.filter(r => r.passed);
+  console.log(`  Data Rows:    ${dataRowResults.length} total, ${passedRows.length} passed, ${failedRows.length} failed`);
+  if (failedRows.length > 0) {
+    console.log('');
+    console.log('  Failed Data Rows:');
+    for (const r of failedRows) {
+      console.log(`    ✗ ${formatRowLabel(r)} — ${formatRowError(r)}`);
+    }
+  }
+  console.log(bar);
+}
+
+function printStepMetricsConsole(stepStats: PerStepStats[], bar: string): void {
+  console.log(bar);
+  console.log('  Per-Step Metrics:');
+  for (const s of stepStats) {
+    const passRate = ((s.passed / s.count) * 100).toFixed(0);
+    console.log(`    ${s.label}: avg=${s.avgMs}ms p95=${s.p95Ms}ms (${passRate}% pass)`);
+  }
+}
+
+function printFailedItersConsole(failedIters: PerIterationStats[], iterations: number, bar: string): void {
+  console.log(bar);
+  console.log(`  Failed Iterations: ${failedIters.length}/${iterations}`);
+  for (const i of failedIters.slice(0, 5)) {
+    console.log(`    ✗ Iteration ${i.index + 1}: ${i.durationMs}ms, ${i.stepCount} steps`);
+  }
+  if (failedIters.length > 5) {
+    console.log(`    ... and ${failedIters.length - 5} more`);
+  }
+}
+
+function appendDataRowSummaryMd(lines: string[], results: RequestResult[]): void {
+  const dataRowResults = results.filter(r => r.dataRowId);
+  if (dataRowResults.length === 0) return;
+  const failedRows = dataRowResults.filter(r => !r.passed);
+  const passedCount = dataRowResults.length - failedRows.length;
+  lines.push('## Data Row Summary');
+  lines.push('');
+  lines.push(`**${dataRowResults.length}** total rows — **${passedCount}** passed, **${failedRows.length}** failed`);
+  lines.push('');
+  if (failedRows.length === 0) return;
+  lines.push('### Failed Rows');
+  lines.push('');
+  lines.push('| Row | Status | Error |');
+  lines.push('|---|---|---|');
+  for (const r of failedRows) {
+    lines.push(`| ${formatRowLabel(r)} | ${r.httpStatus} | ${formatRowError(r)} |`);
+  }
+  lines.push('');
+}
+
+function appendStepMetricsMd(lines: string[], stepStats: PerStepStats[]): void {
+  lines.push('## Per-Step Metrics');
+  lines.push('');
+  lines.push('| Step | Count | Avg (ms) | P95 (ms) | Pass Rate |');
+  lines.push('|---|---|---|---|---|');
+  for (const s of stepStats) {
+    const passRate = ((s.passed / s.count) * 100).toFixed(0);
+    lines.push(`| ${s.label} | ${s.count} | ${s.avgMs} | ${s.p95Ms} | ${passRate}% |`);
+  }
+  lines.push('');
+}
+
+function appendFailedItersMd(lines: string[], results: RequestResult[], iterations: number): void {
+  const iterStats = computePerIterationStats(results, iterations);
+  const failedIters = iterStats.filter(i => !i.passed);
+  if (failedIters.length === 0) return;
+  lines.push('## Failed Iterations');
+  lines.push('');
+  lines.push(`**${failedIters.length}** of **${iterations}** iterations failed.`);
+  lines.push('');
+  lines.push('| Iteration | Duration | Steps | Failed Steps |');
+  lines.push('|---|---|---|---|');
+  for (const iter of failedIters.slice(0, 20)) {
+    const iterResults = results.filter(r => r.iterationIndex === iter.index);
+    const failedSteps = iterResults.filter(r => !r.passed).map(r => r.scenarioName).join(', ');
+    lines.push(`| ${iter.index + 1} | ${iter.durationMs}ms | ${iter.stepCount} | ${failedSteps} |`);
+  }
+  if (failedIters.length > 20) {
+    lines.push(`| ... | ... | ... | ${failedIters.length - 20} more iterations |`);
+  }
+  lines.push('');
+}
+
 /**
  * Print workflow-specific console summary with per-step and per-iteration metrics.
  */
@@ -392,7 +452,8 @@ export function printWorkflowConsoleSummary(
   console.log(`  P50:          ${summary.p50ResponseTime} ms`);
   console.log(`  P95:          ${summary.p95ResponseTime} ms`);
   console.log(`  P99:          ${summary.p99ResponseTime} ms`);
-  console.log(`  P99.9:        ${summary.p999ResponseTime ?? '—'} ms`);
+  const p999 = summary.p999ResponseTime != null ? summary.p999ResponseTime : '—';
+  console.log(`  P99.9:        ${p999} ms`);
 
   console.log(bar);
   console.log(`  Total Steps:  ${summary.totalRequests}`);
@@ -401,28 +462,10 @@ export function printWorkflowConsoleSummary(
   console.log(`  Error Rate:   ${summary.errorRate}%`);
 
   if (results && results.length > 0) {
-    const stepStats = computePerStepStats(results);
-    if (stepStats.length > 0) {
-      console.log(bar);
-      console.log('  Per-Step Metrics:');
-      for (const s of stepStats) {
-        const passRate = ((s.passed / s.count) * 100).toFixed(0);
-        console.log(`    ${s.label}: avg=${s.avgMs}ms p95=${s.p95Ms}ms (${passRate}% pass)`);
-      }
-    }
+    printStepMetricsConsole(computePerStepStats(results), bar);
 
-    const iterStats = computePerIterationStats(results, iterations);
-    const failedIters = iterStats.filter(i => !i.passed);
-    if (failedIters.length > 0) {
-      console.log(bar);
-      console.log(`  Failed Iterations: ${failedIters.length}/${iterations}`);
-      for (const i of failedIters.slice(0, 5)) {
-        console.log(`    ✗ Iteration ${i.index + 1}: ${i.durationMs}ms, ${i.stepCount} steps`);
-      }
-      if (failedIters.length > 5) {
-        console.log(`    ... and ${failedIters.length - 5} more`);
-      }
-    }
+    const failedIters = computePerIterationStats(results, iterations).filter(i => !i.passed);
+    if (failedIters.length > 0) printFailedItersConsole(failedIters, iterations, bar);
   }
 
   console.log(bar);
@@ -496,50 +539,176 @@ export function buildWorkflowMarkdownReport(
   lines.push(`| **P50** | ${summary.p50ResponseTime} ms |`);
   lines.push(`| **P95** | ${summary.p95ResponseTime} ms |`);
   lines.push(`| **P99** | ${summary.p99ResponseTime} ms |`);
-  lines.push(`| **P99.9** | ${summary.p999ResponseTime ?? '—'} ms |`);
+  const mdP999 = summary.p999ResponseTime != null ? summary.p999ResponseTime : '—';
+  lines.push(`| **P99.9** | ${mdP999} ms |`);
   lines.push(`| **Error Rate** | ${summary.errorRate}% |`);
   lines.push(`| **Total Steps** | ${summary.totalRequests} |`);
   lines.push(`| **Duration** | ${(summary.totalDurationMs / 1000).toFixed(2)}s |`);
   lines.push('');
 
   if (results && results.length > 0) {
-    const stepStats = computePerStepStats(results);
-    if (stepStats.length > 0) {
-      lines.push('## Per-Step Metrics');
-      lines.push('');
-      lines.push('| Step | Count | Avg (ms) | P95 (ms) | Pass Rate |');
-      lines.push('|---|---|---|---|---|');
-      for (const s of stepStats) {
-        const passRate = ((s.passed / s.count) * 100).toFixed(0);
-        lines.push(`| ${s.label} | ${s.count} | ${s.avgMs} | ${s.p95Ms} | ${passRate}% |`);
-      }
-      lines.push('');
-    }
-
-    const iterStats = computePerIterationStats(results, iterations);
-    const failedIters = iterStats.filter(i => !i.passed);
-    if (failedIters.length > 0) {
-      lines.push('## Failed Iterations');
-      lines.push('');
-      lines.push(`**${failedIters.length}** of **${iterations}** iterations failed.`);
-      lines.push('');
-      lines.push('| Iteration | Duration | Steps | Failed Steps |');
-      lines.push('|---|---|---|---|');
-      for (const iter of failedIters.slice(0, 20)) {
-        const iterResults = results.filter(r => r.iterationIndex === iter.index);
-        const failedSteps = iterResults.filter(r => !r.passed).map(r => r.scenarioName).join(', ');
-        lines.push(`| ${iter.index + 1} | ${iter.durationMs}ms | ${iter.stepCount} | ${failedSteps} |`);
-      }
-      if (failedIters.length > 20) {
-        lines.push(`| ... | ... | ... | ${failedIters.length - 20} more iterations |`);
-      }
-      lines.push('');
-    }
+    appendStepMetricsMd(lines, computePerStepStats(results));
+    appendFailedItersMd(lines, results, iterations);
   }
 
   const passed = summary.failedRequests === 0 && summary.failedValidations === 0;
   lines.push(`## Result: ${passed ? 'PASSED ✅' : 'FAILED ❌'}`);
   lines.push('');
 
+  return lines.join('\n');
+}
+
+// ── Comparison / regression reporters ────────────────────────────────────────
+
+const COL = 24; // left column width for console table
+
+function pad(s: string, len: number): string {
+  return s.length >= len ? s.slice(0, len) : s + ' '.repeat(len - s.length);
+}
+
+function sign(n: number): string {
+  return n > 0 ? '+' : '';
+}
+
+function regressionUnit(metric: string): string {
+  return metric === 'Error Rate' ? ' pp' : '%';
+}
+
+/**
+ * Print a human-readable regression comparison summary to stdout.
+ * If `quiet` is true the function is a no-op.
+ */
+export function printComparisonSummary(
+  comparison: RunComparison,
+  opts: { quiet?: boolean; baselineLabel?: string } = {},
+): void {
+  if (opts.quiet) return;
+
+  const { metricDeltas, regressions } = comparison;
+  const blLabel = opts.baselineLabel ?? new Date(comparison.baselineRun.timestamp).toLocaleString();
+  const curLabel = new Date(comparison.currentRun.timestamp).toLocaleString();
+
+  const sep = '─'.repeat(64);
+  console.log(`\n  ${sep}`);
+  console.log('  Performance Regression Report');
+  console.log(`  Baseline : ${blLabel}`);
+  console.log(`  Current  : ${curLabel}`);
+  console.log(`  ${sep}`);
+
+  // Header row
+  console.log(
+    `  ${pad('Metric', COL)}  ${pad('Baseline', 12)}  ${pad('Current', 12)}  ${pad('Δ', 10)}  Status`,
+  );
+  console.log(`  ${sep}`);
+
+  for (const d of metricDeltas) {
+    const isTime = d.metric !== 'TPS' && d.metric !== 'Error Rate';
+    // valueUnit: unit for baseline/current display ('%' for Error Rate)
+    const valueUnit = isTime ? ' ms' : d.metric === 'Error Rate' ? '%' : '';
+    // deltaUnit: Error Rate delta is absolute pp, not relative '%'
+    const deltaUnit = isTime ? ' ms' : d.metric === 'Error Rate' ? ' pp' : '';
+    const deltaStr = `${sign(d.delta)}${d.delta}${deltaUnit} (${sign(d.deltaPercent)}${d.deltaPercent}%)`;
+
+    // Attach severity from regressions list if available
+    const alert = regressions.find((r) => r.metric === d.metric);
+    const statusLabel = alert
+      ? (alert.severity === 'critical' ? '🔴 CRITICAL' : '🟡 WARN')
+      : d.improved
+        ? '✓ better'
+        : '— ok';
+
+    console.log(
+      `  ${pad(d.metric, COL)}  ${pad(`${d.baselineValue}${valueUnit}`, 12)}  ${pad(`${d.currentValue}${valueUnit}`, 12)}  ${pad(deltaStr, 20)}  ${statusLabel}`,
+    );
+  }
+
+  console.log(`  ${sep}`);
+
+  if (regressions.length === 0) {
+    console.log('  ✅ No regressions detected\n');
+  } else {
+    const critCount = regressions.filter((r) => r.severity === 'critical').length;
+    const warnCount = regressions.length - critCount;
+    const parts: string[] = [];
+    if (critCount > 0) parts.push(`${critCount} critical`);
+    if (warnCount > 0) parts.push(`${warnCount} warning`);
+    console.log(`  ⚠  Regressions: ${parts.join(', ')}\n`);
+  }
+}
+
+/**
+ * Build a Markdown comparison report for writing to a file (--comparison-report flag).
+ * Reuses the same Markdown logic as the UI export.
+ */
+export function buildComparisonMarkdown(
+  comparison: RunComparison,
+  baselineLabel?: string,
+): string {
+  const { metricDeltas, regressions } = comparison;
+  const blLabel = baselineLabel ?? new Date(comparison.baselineRun.timestamp).toLocaleString();
+  const curLabel = new Date(comparison.currentRun.timestamp).toLocaleString();
+
+  const regressCount = regressions.length;
+  const criticalCount = regressions.filter((r) => r.severity === 'critical').length;
+
+  const lines: string[] = [
+    '# Performance Comparison Report',
+    '',
+    '| | |',
+    '|:---|:---|',
+    `| **Exported** | ${new Date().toLocaleString()} |`,
+    `| **Baseline** | ${blLabel} |`,
+    `| **Current** | ${curLabel} |`,
+    '',
+    regressCount > 0
+      ? `> ⚠ **${regressCount} regression${regressCount > 1 ? 's' : ''} detected**` +
+          (criticalCount > 0 ? ` (${criticalCount} critical)` : '')
+      : '> ✅ **No regressions detected**',
+    '',
+    '## Metric Deltas',
+    '',
+    '| Metric | Baseline | Current | Delta | Change | Status |',
+    '|:---|---:|---:|---:|---:|:---|',
+  ];
+
+  for (const d of metricDeltas) {
+    const isTime = d.metric !== 'TPS' && d.metric !== 'Error Rate';
+    // valueUnit: unit for baseline/current columns ('%' for Error Rate)
+    const valueUnit = isTime ? ' ms' : d.metric === 'Error Rate' ? '%' : '';
+    // deltaUnit: Error Rate delta is absolute pp — '%' would be misleading
+    const deltaUnit = isTime ? ' ms' : d.metric === 'Error Rate' ? ' pp' : '';
+    const deltaSign = sign(d.delta);
+    const pctSign = sign(d.deltaPercent);
+    const alert = regressions.find((r) => r.metric === d.metric);
+    const statusLabel = alert
+      ? (alert.severity === 'critical' ? '🔴 Critical' : '🟡 Warning')
+      : d.improved
+        ? '✓ Improved'
+        : '— No change';
+    lines.push(
+      `| ${d.metric} | ${d.baselineValue}${valueUnit} | ${d.currentValue}${valueUnit} | ${deltaSign}${d.delta}${deltaUnit} | ${pctSign}${d.deltaPercent}% | ${statusLabel} |`,
+    );
+  }
+
+  if (regressions.length > 0) {
+    lines.push(
+      '',
+      '## Regressions',
+      '',
+      '| Metric | Severity | Threshold | Actual |',
+      '|:---|:---|---:|---:|',
+    );
+    for (const r of regressions) {
+      const unit = regressionUnit(r.metric);
+      // TPS regression = a drop — show '-actual%' so the sign matches the direction of change.
+      // All other metrics regress upward, so '+actual' is correct.
+      const actualSign = r.metric === 'TPS' ? '-' : '+';
+      lines.push(
+        `| ${r.metric} | ${r.severity === 'critical' ? '🔴 Critical' : '🟡 Warning'} | ${r.threshold}${unit} | ${actualSign}${r.actual}${unit} |`,
+      );
+    }
+  }
+
+  lines.push('');
   return lines.join('\n');
 }

@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback } from 'react';
 import { SWAGGER_METHOD_COLORS } from '../../../shared/constants/httpMethodColors';
+import HarnessOptionsGrid from './send-harness-shared/HarnessOptionsGrid';
 import type {
   Environment,
   FeatureGroup,
@@ -286,47 +287,10 @@ export default function SendToHarnessModal({
               </div>
             </div>
 
-            <div className="send-harness-options-grid">
-              <div className="send-harness-option-group">
-                <label className="send-harness-label">Auth Mode</label>
-                <div className="send-harness-option-cards">
-                  <label className={`send-harness-option-card${authMode === 'concrete' ? ' selected' : ''}`}>
-                    <input type="radio" checked={authMode === 'concrete'} onChange={() => setAuthMode('concrete')} />
-                    <div>
-                      <span className="send-harness-option-title">Snapshot</span>
-                      <span className="send-harness-option-desc">Freeze current auth</span>
-                    </div>
-                  </label>
-                  <label className={`send-harness-option-card${authMode === 'inherit' ? ' selected' : ''}`}>
-                    <input type="radio" checked={authMode === 'inherit'} onChange={() => setAuthMode('inherit')} />
-                    <div>
-                      <span className="send-harness-option-title">Inherit</span>
-                      <span className="send-harness-option-desc">Use Harness auth</span>
-                    </div>
-                  </label>
-                </div>
-              </div>
-
-              <div className="send-harness-option-group">
-                <label className="send-harness-label">Validation</label>
-                <div className="send-harness-option-cards">
-                  <label className={`send-harness-option-card${validationPreset === 'none' ? ' selected' : ''}`}>
-                    <input type="radio" checked={validationPreset === 'none'} onChange={() => setValidationPreset('none')} />
-                    <div>
-                      <span className="send-harness-option-title">None</span>
-                      <span className="send-harness-option-desc">No validation rules</span>
-                    </div>
-                  </label>
-                  <label className={`send-harness-option-card${validationPreset === 'status-200' ? ' selected' : ''}`}>
-                    <input type="radio" checked={validationPreset === 'status-200'} onChange={() => setValidationPreset('status-200')} />
-                    <div>
-                      <span className="send-harness-option-title">Status 200</span>
-                      <span className="send-harness-option-desc">Assert HTTP 200 OK</span>
-                    </div>
-                  </label>
-                </div>
-              </div>
-            </div>
+            <HarnessOptionsGrid
+              authMode={authMode} setAuthMode={setAuthMode}
+              validationPreset={validationPreset} setValidationPreset={setValidationPreset}
+            />
 
             <label className="send-harness-editor-toggle">
               <input type="checkbox" checked={openEditorAfter} onChange={e => setOpenEditorAfter(e.target.checked)} />

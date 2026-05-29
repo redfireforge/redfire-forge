@@ -772,6 +772,59 @@ describe('scenario lookup for data-row-expanded results', () => {
     expect(result.results[0].validationMode).toBe('none');
     expect(result.results[0].passed).toBe(true);
   });
+
+  it('matches data-source expanded row via composite lookup key', async () => {
+    const parentScenario = makeScenario({
+      id: 'sc-ds',
+      validation: { mode: 'full', expectedJson: '{"vin":"ABC123"}' },
+      dataSource: {
+        id: 'ds-1',
+        columns: [{ id: 'vin', name: 'VIN', type: 'path', mapping: 'vin' }],
+        rows: [
+          { id: 'row-1', label: 'Row 1', values: { vin: 'ABC123' }, enabled: true },
+        ],
+        source: { type: 'inline' },
+      },
+    });
+
+    mockInvoke.mockImplementation(async (cmd: string) => {
+      if (cmd === 'is_rust_executor_available') return true;
+      if (cmd === 'start_load_test') {
+        setTimeout(() => {
+          emitEvent('load-test-progress', {
+            completed: 1,
+            total: 1,
+            results: [makeRustResult({
+              scenarioId: 'sc-ds',
+              dataRowId: 'row-1',
+              responseBody: '{"vin":"ABC123"}',
+            })],
+            elapsedMs: 50,
+            currentInFlight: 0,
+            targetConcurrency: 1,
+            breakerTripped: false,
+          } satisfies RustProgressBatch);
+        }, 5);
+        setTimeout(() => {
+          emitEvent('load-test-complete', {
+            totalResults: 1,
+            durationMs: 55,
+            breakerTripped: false,
+          } satisfies RustCompletionSummary);
+        }, 10);
+        return { totalResults: 1, durationMs: 55, breakerTripped: false };
+      }
+      return undefined;
+    });
+
+    const config = makeConfig({ iterations: 1 });
+    const result = await runTestViaRust(config, [parentScenario], vi.fn());
+
+    expect(result.results.length).toBe(1);
+    expect(result.results[0].dataRowId).toBe('row-1');
+    expect(result.results[0].passed).toBe(true);
+    expect(result.results[0].validationMode).toBe('full');
+  });
 });
 
 /* ── 2D-8: Load profile plan construction ─────────────────────── */

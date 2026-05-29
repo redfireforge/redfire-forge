@@ -2,10 +2,11 @@ import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
   testDir: './e2e',
-  fullyParallel: true,
+  fullyParallel: false,
   retries: 1,
-  workers: 40,
-  // 30s default handles page reloads with 40-worker parallelism
+  // Favor deterministic full-suite runs over maximal parallel throughput.
+  workers: process.env.CI ? 12 : 8,
+  // 30s default handles page reloads under high parallelism.
   timeout: 30_000,
   reporter: [
     ['html', { open: 'never' }],

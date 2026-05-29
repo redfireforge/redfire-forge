@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useMemo, useEffect } from 'react';
-import { v4 as uuidv4 } from 'uuid';
-import type { Scenario, TestScenario, FeatureGroup, Microservice, AuthType, GlobalAuthProfile, SharedDataSource, DataSource, KeyValue, AuthConfig } from '../../shared/types';
+import type { Scenario, TestScenario, FeatureGroup, AuthType } from '../../shared/types';
+import type { ScenarioBuilderProps } from './scenarioBuilderTypes';
 import type { MoveType, MoveTarget } from './components/MoveModal';
 import { useAuthVerify } from '../requests/hooks/useAuthVerify';
 import { useScenarioBuilderSearch } from './hooks/useScenarioBuilderSearch';
@@ -17,31 +17,12 @@ import { deleteLogEntry, clearLog } from './utils/structureChangeLog';
 import StructureChangeLogPanel from './components/StructureChangeLogPanel';
 import { SCENARIO_AUTH_TYPE_OPTIONS, buildFeatureAuthTypeOptions, resolveEffectiveAuth } from './utils/scenarioBuilderUtils';
 import { useScenarioTags } from './hooks/useScenarioTags';
+import { useSharedDataSourceHandlers } from './hooks/useSharedDataSourceHandlers';
 import ScenarioContextMenu from './components/ScenarioContextMenu';
+import ScenarioSlaPanel from './components/ScenarioSlaPanel';
+import TestSlaModal from './components/TestSlaModal';
 
-interface Props {
-  featureGroups: FeatureGroup[];
-  setFeatureGroups: React.Dispatch<React.SetStateAction<FeatureGroup[]>>;
-  sharedDataSources?: SharedDataSource[];
-  setSharedDataSources?: React.Dispatch<React.SetStateAction<SharedDataSource[]>>;
-  resolvedBaseUrl?: string;
-  selectedSvcId?: string;
-  selectedSvcName?: string;
-  selectedEnvId?: string;
-  selectedEnvName?: string;
-  isAdditionalEnv?: boolean;
-  unassociatedFeatureGroups?: FeatureGroup[];
-  microservices?: Microservice[];
-  environments?: { id: string; name: string }[];
-  globalAuthProfiles?: GlobalAuthProfile[];
-  onMoveScenario?: (scenarioId: string, sourceFgId: string, targetFgId: string) => void;
-  onMoveTest?: (testId: string, sourceScenarioId: string, sourceFgId: string, targetScenarioId: string, targetFgId: string) => void;
-  pendingEditTest?: { featureId: string; scenarioId: string; testId: string };
-  onPendingEditConsumed?: () => void;
-  onLocateRequest?: (requestId: string) => void;
-}
-
-export default function ScenarioBuilder({ featureGroups, setFeatureGroups, sharedDataSources, setSharedDataSources, resolvedBaseUrl, selectedSvcId, selectedSvcName, selectedEnvId, selectedEnvName, isAdditionalEnv, unassociatedFeatureGroups = [], microservices = [], environments = [], globalAuthProfiles = [], onMoveScenario, onMoveTest, pendingEditTest, onPendingEditConsumed, onLocateRequest }: Props) {
+export default function ScenarioBuilder({ featureGroups, setFeatureGroups, sharedDataSources, setSharedDataSources, resolvedBaseUrl, selectedSvcId, selectedSvcName, selectedEnvId, selectedEnvName, isAdditionalEnv, unassociatedFeatureGroups = [], microservices = [], environments = [], globalAuthProfiles = [], onMoveScenario, onMoveTest, pendingEditTest, onPendingEditConsumed, onLocateRequest }: ScenarioBuilderProps) {
   const allAuthProfiles = globalAuthProfiles;
 
   const featureAuthTypeOptions = useMemo(
@@ -91,6 +72,8 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, share
     addScenario, removeScenario, renameScenario,
     updateFeatureAuth, toggleFeatureAuth,
     updateScenarioAuth, toggleScenarioAuth,
+    updateScenarioSlaTargets: _updateScenarioSlaTargets,
+    updateTestSlaTargets,
     startNewTest, startNewParameterizedTest, startEditTest, saveTest, removeTest,
     startCopyTest, confirmCopyTest, createParameterizedCopy,
     handleVersionRestore, handleVersionDelete, handleVersionRename,
@@ -110,23 +93,21 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, share
 
   const [showStructureLog, setShowStructureLog] = useState<string | null>(null);
   const [showTrashPanel, setShowTrashPanel] = useState(false);
-  const [showSharedDsModal, setShowSharedDsModal] = useState(false);
-  const [sharedDsModalSelectedId, setSharedDsModalSelectedId] = useState<string | undefined>(undefined);
-  const [showFromSharedDsPicker, setShowFromSharedDsPicker] = useState<{ fgId: string; scId: string } | null>(null);
+  const {
+    showSharedDsModal, setShowSharedDsModal,
+    sharedDsModalSelectedId, setSharedDsModalSelectedId,
+    showFromSharedDsPicker, setShowFromSharedDsPicker,
+    currentEditingDraft, handlePromoteToShared, handleCreateTestFromSharedDs,
+  } = useSharedDataSourceHandlers({
+    featureGroups, setFeatureGroups, setSharedDataSources,
+    editingTest, draft, setDraft, setEditingTest, setInputMode, setActiveTab,
+  });
 
   // Tag management
   const { addTag, removeTag, clearTags, tagSuggestions } = useScenarioTags(featureGroups, setFeatureGroups);
   const [editingTagScenario, setEditingTagScenario] = useState<{ fgId: string; scId: string } | null>(null);
+  const [tagInputValue, setTagInputValue] = useState('');
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; fgId: string; scId: string } | null>(null);
-
-  // Current editing draft context for SharedDataSourceModal "Used by" lookup
-  const currentEditingDraft = useMemo(() => {
-    if (!editingTest || !draft) return undefined;
-    const fg = featureGroups.find(f => f.id === editingTest.featureId);
-    const sc = fg?.scenarios.find(s => s.id === editingTest.scenarioId);
-    if (!fg || !sc) return undefined;
-    return { fgName: fg.name, scenarioName: sc.name, test: draft };
-  }, [editingTest, draft, featureGroups]);
 
   // Handler for creating a parameterized copy from the wizard
   const handleCreateParameterizedCopy = useCallback((copy: Scenario, targetFgId?: string, targetScenarioId?: string) => {
@@ -155,70 +136,6 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, share
     }, 0);
   }, [editingTest, setFeatureGroups, setEditingTest, setDraft, setActiveTab]);
 
-  // Handler for promoting inline data to a shared data source
-  const handlePromoteToShared = useCallback((
-    dataSource: DataSource,
-    name: string,
-    tags?: string[],
-    fetchConfig?: { url: string; method: string; headers: KeyValue[]; auth?: AuthConfig }
-  ): string => {
-    if (!setSharedDataSources) {
-      console.warn('handlePromoteToShared: setSharedDataSources not available');
-      return '';
-    }
-    const newSharedDs: SharedDataSource = {
-      id: uuidv4(),
-      name,
-      tags,
-      dataSource,
-      updatedAt: Date.now(),
-      fetchConfig: fetchConfig ? {
-        url: fetchConfig.url,
-        method: (fetchConfig.method as 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE') || 'GET',
-        headers: fetchConfig.headers || [],
-        auth: fetchConfig.auth,
-      } : undefined,
-    };
-    setSharedDataSources(prev => [...prev, newSharedDs]);
-    return newSharedDs.id;
-  }, [setSharedDataSources]);
-
-  // Handler for creating a test from a shared data source
-  const handleCreateTestFromSharedDs = useCallback((
-    sharedDs: SharedDataSource,
-    targetFgId: string,
-    targetScenarioId: string,
-    testName: string
-  ) => {
-    const newTest: Scenario = {
-      id: uuidv4(),
-      name: testName,
-      url: sharedDs.fetchConfig?.url || '',
-      method: sharedDs.fetchConfig?.method || 'GET',
-      headers: sharedDs.fetchConfig?.headers || [],
-      body: '',
-      auth: sharedDs.fetchConfig?.auth || { type: 'none' },
-      validation: { mode: 'none' },
-      sharedDataSourceId: sharedDs.id,
-    };
-    // Add the new test to the target scenario
-    setFeatureGroups(prev => prev.map(fg => {
-      if (fg.id !== targetFgId) return fg;
-      return {
-        ...fg,
-        scenarios: fg.scenarios.map(sc => {
-          if (sc.id !== targetScenarioId) return sc;
-          return { ...sc, tests: [...sc.tests, newTest] };
-        }),
-      };
-    }));
-    // Open the test editor
-    setDraft(newTest);
-    setEditingTest({ featureId: targetFgId, scenarioId: targetScenarioId, testId: newTest.id, parameterized: true });
-    setInputMode('builder');
-    setActiveTab('data');
-  }, [setFeatureGroups, setDraft, setEditingTest, setInputMode, setActiveTab]);
-
   // Move dialog state
   const [moveDialog, setMoveDialog] = useState<{
     type: MoveType;
@@ -236,6 +153,9 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, share
 
   // Export popover state: tracks which item's export popover is open
   const [exportPopover, setExportPopover] = useState<{ id: string; data: unknown; exportFn: (opts: VersionExportOptions) => void } | null>(null);
+
+  // SLA modal state: tracks which test's SLA modal is open
+  const [slaModalTest, setSlaModalTest] = useState<{ fgId: string; scId: string; test: Scenario } | null>(null);
 
   // ── Export / Import (extracted hook) ──
   const showConfirm = useCallback((title: string, message: string, onConfirm: () => void) => {
@@ -552,6 +472,14 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, share
                       <span className="count-badge">{sc.tests.length} test{sc.tests.length !== 1 ? 's' : ''}</span>
                       {scAuth.type !== 'none' && scAuth.type !== 'inherit' && <span className="count-badge auth-badge auth-badge-scenario">Auth: {scAuth.type}</span>}
                       {scAuth.type === 'inherit' && <span className="count-badge auth-badge auth-badge-scenario-inherit">Auth: inherit</span>}
+                      {(() => {
+                        const testSlaCount = sc.tests.reduce((sum, t) => sum + (t.slaTargets?.length ?? 0), 0);
+                        return testSlaCount > 0 ? (
+                          <span className="count-badge sla-count-badge" title={`${testSlaCount} SLA target${testSlaCount !== 1 ? 's' : ''} across tests`}>
+                            🎯 {testSlaCount}
+                          </span>
+                        ) : null;
+                      })()}
                       {/* Tag pills */}
                       {sc.tags && sc.tags.length > 0 && (
                         <span className="scenario-tag-pills">
@@ -570,31 +498,40 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, share
                       )}
                       {/* Add tag button/input */}
                       {editingTagScenario?.fgId === fg.id && editingTagScenario?.scId === sc.id ? (
-                        <input
-                          className="scenario-tag-input"
-                          autoFocus
-                          list="scenario-tag-suggestions"
-                          placeholder="tag name"
-                          onClick={(e) => e.stopPropagation()}
-                          onChange={(e) => {
-                            // Auto-submit on datalist selection (value fully matches a suggestion)
-                            const val = e.currentTarget.value.trim();
-                            if (val && tagSuggestions.includes(val)) {
-                              addTag(fg.id, sc.id, val);
-                              e.currentTarget.value = '';
-                              setEditingTagScenario(null);
-                            }
-                          }}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' && e.currentTarget.value.trim()) {
-                              addTag(fg.id, sc.id, e.currentTarget.value.trim());
-                              e.currentTarget.value = '';
-                              setEditingTagScenario(null);
-                            }
-                            if (e.key === 'Escape') setEditingTagScenario(null);
-                          }}
-                          onBlur={() => setEditingTagScenario(null)}
-                        />
+                        <span className="scenario-tag-input-wrap" onClick={(e) => e.stopPropagation()}>
+                          <input
+                            className="scenario-tag-input"
+                            autoFocus
+                            placeholder="tag name"
+                            value={tagInputValue}
+                            onClick={(e) => e.stopPropagation()}
+                            onChange={(e) => setTagInputValue(e.currentTarget.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && tagInputValue.trim()) {
+                                addTag(fg.id, sc.id, tagInputValue.trim());
+                                setTagInputValue('');
+                                setEditingTagScenario(null);
+                              }
+                              if (e.key === 'Escape') { setTagInputValue(''); setEditingTagScenario(null); }
+                            }}
+                            onBlur={() => { setTagInputValue(''); setEditingTagScenario(null); }}
+                          />
+                          {tagInputValue.length > 0 && tagSuggestions.filter(t => t.includes(tagInputValue.toLowerCase()) && t !== tagInputValue).length > 0 && (
+                            <ul className="scenario-tag-suggestions">
+                              {tagSuggestions.filter(t => t.includes(tagInputValue.toLowerCase()) && t !== tagInputValue).map(t => (
+                                <li key={t}
+                                  className="scenario-tag-suggestion-item"
+                                  onMouseDown={(e) => {
+                                    e.preventDefault();
+                                    addTag(fg.id, sc.id, t);
+                                    setTagInputValue('');
+                                    setEditingTagScenario(null);
+                                  }}
+                                >{t}</li>
+                              ))}
+                            </ul>
+                          )}
+                        </span>
                       ) : (
                         <button
                           className="scenario-tag-add-btn"
@@ -734,6 +671,13 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, share
                               })()}
                             </div>
                             <div className="test-card-actions">
+                              <button
+                                className={`btn btn-sm${(t.slaTargets?.length ?? 0) > 0 ? ' btn-sla-active' : ''}`}
+                                onClick={() => setSlaModalTest({ fgId: fg.id, scId: sc.id, test: t })}
+                                title="Configure SLA targets for this test"
+                              >
+                                🎯{(t.slaTargets?.length ?? 0) > 0 ? ` ${t.slaTargets!.length}` : ''}
+                              </button>
                               <button className="btn btn-sm" onClick={() => startEditTest(fg.id, sc.id, t)}>Edit</button>
                               <button className="btn btn-sm" onClick={() => startCopyTest(fg.id, sc.id, t)} title="Copy to another scenario">Copy</button>
                               {!t.dataSource && sc.kind !== 'standard' && (
@@ -758,6 +702,10 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, share
                             Drop here
                           </div>
                         )}
+                        <ScenarioSlaPanel
+                          tests={sc.tests}
+                          onEditTest={(test) => setSlaModalTest({ fgId: fg.id, scId: sc.id, test })}
+                        />
                       </div>
                     )}
                   </div>
@@ -833,11 +781,6 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, share
         </div>
       )}
 
-      {/* Tag suggestions datalist */}
-      <datalist id="scenario-tag-suggestions">
-        {tagSuggestions.map(t => <option key={t} value={t} />)}
-      </datalist>
-
       {/* Tag context menu */}
       {contextMenu && (() => {
         const fg = featureGroups.find(f => f.id === contextMenu.fgId);
@@ -910,6 +853,14 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, share
         setShowTrashPanel={setShowTrashPanel}
         trash={trash}
       />
+
+      {slaModalTest && (
+        <TestSlaModal
+          test={slaModalTest.test}
+          onSave={(targets) => updateTestSlaTargets(slaModalTest.fgId, slaModalTest.scId, slaModalTest.test.id, targets)}
+          onClose={() => setSlaModalTest(null)}
+        />
+      )}
     </div>
   );
 }

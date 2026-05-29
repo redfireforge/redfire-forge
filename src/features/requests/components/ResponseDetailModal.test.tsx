@@ -298,7 +298,7 @@ describe('ResponseDetailModal', () => {
     });
     expect(screen.getByText('1/1')).toBeTruthy();
 
-    fireEvent.click(screen.getByRole('button', { name: '×' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Clear search' }));
     expect(screen.getByPlaceholderText('Search response...')).toHaveValue('');
     expect(screen.queryByText('1/1')).toBeNull();
     expect(screen.getByTestId('json-preview')).toHaveAttribute('data-search', '');

@@ -5,7 +5,7 @@ const VALID_CATEGORIES: SampleCategory[] = ['api-patterns', 'flow-control', 'eve
 
 describe('galleries/workflows — sampleWorkflowCatalog', () => {
   it('has 36 entries', () => {
-    expect(sampleWorkflowCatalog).toHaveLength(36);
+    expect(sampleWorkflowCatalog).toHaveLength(37);
   });
 
   it('every entry has a unique id', () => {

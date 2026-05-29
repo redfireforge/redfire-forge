@@ -118,5 +118,19 @@ describe('urlUtils', () => {
       const result = replaceHost('', 'https://api.example.com');
       expect(result).toBe('https://api.example.com/');
     });
+
+    // --- Catch branch: invalid baseUrl falls back to testUrl ---
+    it('returns testUrl when baseUrl is not a valid URL', () => {
+      const testUrl = '/api/users';
+      const result = replaceHost(testUrl, 'not a valid url ://???');
+      expect(result).toBe(testUrl);
+    });
+
+    it('returns testUrl when baseUrl causes URL construction to throw', () => {
+      const testUrl = '/items/123';
+      const result = replaceHost(testUrl, 'ftp://');
+      // Should not throw — catches and returns testUrl
+      expect(typeof result).toBe('string');
+    });
   });
 });

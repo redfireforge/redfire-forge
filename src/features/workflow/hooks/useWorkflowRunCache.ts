@@ -82,7 +82,14 @@ export function useWorkflowRunCache(workflowId: string | null) {
     if (!workflowId) return EMPTY_CACHED;
     const raw = cacheRef.current.get(workflowId);
     if (!raw) return EMPTY_CACHED;
-    return { ...EMPTY_CACHED, ...raw };
+    const cached = { ...EMPTY_CACHED, ...raw };
+    // A page reload can never resume a running test — reset stale 'running' status
+    if (cached.lastRunStatus === 'running') {
+      cached.lastRunStatus = 'stopped';
+      cacheRef.current.set(workflowId, cached);
+      saveCacheToStorage(cacheRef.current);
+    }
+    return cached;
   }, [workflowId]);
 
   const updateCache = useCallback(<K extends keyof CachedWorkflowRun>(key: K, val: CachedWorkflowRun[K]) => {

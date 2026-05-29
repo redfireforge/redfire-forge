@@ -4,45 +4,21 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import WorkflowSidebar from './WorkflowSidebar';
 import { Workflow, WorkflowFolder } from '../../types/workflow';
+import { mockDataTransfer } from '../../../../test-utils/domMocks';
+import { makeWorkflow as _makeWorkflow, makeWorkflowFolder } from '../../../../test-utils/factories';
 
 const ts = Date.now();
 
-/** jsdom lacks DataTransfer — minimal stub for drag events */
-function mockDataTransfer(): DataTransfer {
-  const data = new Map<string, string>();
-  let dropEffect = 'none';
-  return {
-    effectAllowed: 'all',
-    get dropEffect() {
-      return dropEffect;
-    },
-    set dropEffect(v: string) {
-      dropEffect = v;
-    },
-    setData: (k: string, v: string) => {
-      data.set(k, v);
-    },
-    getData: (k: string) => data.get(k) ?? '',
-    clear: () => {
-      data.clear();
-    },
-  } as unknown as DataTransfer;
-}
-
 const makeWorkflow = (overrides: Partial<Workflow> & { id: string; name: string }): Workflow =>
-  ({
-    variables: {},
+  _makeWorkflow({
     nodes: [{ id: 'n1', type: 'http', position: { x: 0, y: 0 }, data: { label: 'Step' } }],
-    edges: [],
     createdAt: ts,
     updatedAt: ts,
     ...overrides,
-  }) as Workflow;
+  });
 
-const makeFolder = (overrides: Partial<WorkflowFolder> & { id: string; name: string }): WorkflowFolder => ({
-  order: 0,
-  ...overrides,
-});
+const makeFolder = (overrides: Partial<WorkflowFolder> & { id: string; name: string }): WorkflowFolder =>
+  makeWorkflowFolder(overrides);
 
 const defaultProps = {
   selectedId: null,
@@ -204,7 +180,7 @@ describe('WorkflowSidebar', () => {
     );
     fireEvent.contextMenu(screen.getByText('Performance'));
     fireEvent.click(screen.getByText('Delete Folder'));
-    expect(screen.getByText(/Delete folder "Performance" and move its 3 workflow\(s\) to Unfiled/)).toBeInTheDocument();
+    expect(screen.getByText(/Delete folder "Performance" and move its 3 workflow\(s\) out of the folder/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
     expect(onDeleteFolder).toHaveBeenCalled();
     expect(onMoveWorkflowToFolder).toHaveBeenCalled();
@@ -280,8 +256,8 @@ describe('WorkflowSidebar', () => {
     const dt = mockDataTransfer();
     fireEvent.dragStart(wfItem, { dataTransfer: dt });
     await waitFor(() => expect(wfItem).toHaveClass('wf-dragging'));
-    expect(screen.getByText('Drop here for Unfiled')).toBeInTheDocument();
-    const zone = screen.getByText('Drop here for Unfiled').closest('.wf-folder-unfiled')!;
+    expect(screen.getByText('Drop here')).toBeInTheDocument();
+    const zone = screen.getByText('Drop here').closest('.wf-folder-unfiled')!;
     stubRect(zone, 60);
     fireEvent.dragOver(zone, {
       dataTransfer: dt,
@@ -291,7 +267,7 @@ describe('WorkflowSidebar', () => {
     expect(zone).toHaveClass('wf-drop-inside');
   });
 
-  it('highlights Unfiled drop zone when workflows exist in Unfiled and drag is active', async () => {
+  it('highlights root drop zone when workflows exist outside folders and drag is active', async () => {
     const onMoveWorkflowToFolder = vi.fn();
     render(
       <WorkflowSidebar
@@ -305,15 +281,15 @@ describe('WorkflowSidebar', () => {
     const dt = mockDataTransfer();
     fireEvent.dragStart(orderItem, { dataTransfer: dt });
     await waitFor(() => expect(orderItem).toHaveClass('wf-dragging'));
-    const unfiled = screen.getByText('Unfiled').closest('.wf-folder-unfiled')!;
-    stubRect(unfiled, 80);
-    fireEvent.dragOver(unfiled, {
+    const unfiledZone = document.querySelector('.wf-folder-unfiled')!;
+    stubRect(unfiledZone, 80);
+    fireEvent.dragOver(unfiledZone, {
       clientY: 40,
       dataTransfer: dt,
       preventDefault: vi.fn(),
       stopPropagation: vi.fn(),
     });
-    expect(unfiled).toHaveClass('wf-drop-inside');
+    expect(unfiledZone).toHaveClass('wf-drop-inside');
   });
 
   it('applies workflow drop-zone class when hovering another workflow during workflow drag', async () => {
