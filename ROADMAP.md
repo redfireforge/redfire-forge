@@ -596,6 +596,16 @@ Structured multi-sheet Excel templates for bulk test management and better error
 
 ## Upcoming Phases
 
+### Phase 25 — Run Comparison & Trends
+
+Analytics to detect regressions and compare performance over time.
+
+- [ ] **Run Comparison** — Compare two runs side-by-side (TPS, P95, P99 delta with green/red indicators)
+- [ ] **Overlaid Histograms** — Response time distribution overlay between two runs
+- [ ] **Baseline Runs** — Mark a run as "baseline" and compare future runs against it
+- [ ] **Regression Detection** — Automatic alert when P95 increases by X% vs baseline
+- [ ] **Trend Analysis** — P95 trend across last N runs for the same test suite
+
 ### Phase 24 — CI/CD Pipeline
 
 > Automate quality gates and release workflows. Foundation already in place: `.github/workflows/ci.yml` (tsc + ESLint + unit tests on push/PR), `.github/workflows/release.yml` (multi-platform desktop builds on tag push), `.husky/pre-commit` (tsc + lint-staged on every commit).
@@ -608,16 +618,6 @@ Structured multi-sheet Excel templates for bulk test management and better error
 - [ ] **Harness.io Pipeline Example** — Sample Harness pipeline YAML: run stage with `npx redfireforge run --reporter junit`, consume JUnit XML for Test Intelligence, publish JSON report as artifact, gate deployments on test pass/fail
 - [ ] **Automated Version Tagging** — GitHub Action to create version tags on `master` merge
 - [ ] **Live Demo Deployment** — Auto-deploy web build to Vercel/Netlify on `master` push
-
-### Phase 25 — Run Comparison & Trends
-
-Analytics to detect regressions and compare performance over time.
-
-- [ ] **Run Comparison** — Compare two runs side-by-side (TPS, P95, P99 delta with green/red indicators)
-- [ ] **Overlaid Histograms** — Response time distribution overlay between two runs
-- [ ] **Baseline Runs** — Mark a run as "baseline" and compare future runs against it
-- [ ] **Regression Detection** — Automatic alert when P95 increases by X% vs baseline
-- [ ] **Trend Analysis** — P95 trend across last N runs for the same test suite
 
 ### Phase 26 — Open-Source Launch
 

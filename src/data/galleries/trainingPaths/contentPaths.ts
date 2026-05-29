@@ -209,6 +209,13 @@ export const contentPaths: TrainingPath[] = [
             sampleId: 'test-auth-flow',
             manualPath: 'tests/auth-flow-medium.html',
           },
+          {
+            title: 'Performance Regression Tracking',
+            description: 'Establish a baseline, compare runs, inspect regressions, and validate trend behavior end-to-end.',
+            difficulty: 'medium',
+            sampleId: 'test-performance-regression-baseline',
+            manualPath: 'tests/performance-regression-tracking.html',
+          },
         ],
       },
       {

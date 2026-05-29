@@ -5,17 +5,15 @@
 
 import type { ServerPausedEntry } from './correlation-handler.js';
 import type { IServerCorrelationStore } from './correlation-store-interface.js';
-
-const MAX_UNMATCHED_LOG = 100;
+import {
+  appendUnmatchedEntry,
+  cleanupExpiredEntries,
+  type UnmatchedWebhookEntry,
+} from './correlation-store-shared.js';
 
 export class InMemoryServerStore implements IServerCorrelationStore {
   private entries = new Map<string, ServerPausedEntry>();
-  private unmatchedWebhooks: Array<{
-    path: string;
-    correlationId?: string;
-    payload: unknown;
-    receivedAt: number;
-  }> = [];
+  private unmatchedWebhooks: UnmatchedWebhookEntry[] = [];
 
   async init(): Promise<void> {
     // Nothing to initialize
@@ -46,22 +44,16 @@ export class InMemoryServerStore implements IServerCorrelationStore {
   }
 
   cleanupExpired(): number {
-    const now = Date.now();
-    let count = 0;
-    for (const [id, entry] of this.entries) {
-      if (entry.timeoutAt > 0 && entry.timeoutAt <= now) {
-        this.entries.delete(id);
-        count++;
-      }
-    }
-    return count;
+    return cleanupExpiredEntries(this.entries, Date.now());
   }
 
   logUnmatched(path: string, correlationId: string | undefined, payload: unknown): void {
-    this.unmatchedWebhooks.push({ path, correlationId, payload, receivedAt: Date.now() });
-    while (this.unmatchedWebhooks.length > MAX_UNMATCHED_LOG) {
-      this.unmatchedWebhooks.shift();
-    }
+    appendUnmatchedEntry(this.unmatchedWebhooks, {
+      path,
+      correlationId,
+      payload,
+      receivedAt: Date.now(),
+    });
   }
 
   getUnmatched() {

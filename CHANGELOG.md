@@ -598,7 +598,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Versions follow 
   - Uses `SetVariable` + `$randomInt(1,150)` to generate random post IDs per iteration
   - JSONPlaceholder IDs 1–100 return 200, 101–150 return 404 → natural ~67/33 branch split
   - Training manual (`edge-traversal-percentages-guide.html`) with step-by-step guide
-  - Registered in `wf-runner` training path under Results Analysis phase
+  - Registered in `wf-runner` training path under Results Analysis phase (now Comparison & Trends)
 - **Additional Keyboard Shortcuts** — Space key toggles between aggregate and iteration #1 view; keys 1–9 jump directly to that iteration number
 - **Animated Edge Flow** — Traversed edges in Results Explorer canvas now show a flowing dash animation indicating flow direction
 - **Export Aggregate Metrics as CSV** — "📊 Export CSV" button in Results Explorer exports per-HTTP-node metrics (executions, pass rate, avg, min, max, P95) as a `.csv` file
