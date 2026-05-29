@@ -27,7 +27,8 @@ function getViewportBounds() {
 function getSidebarMinLeft(): number {
   if (typeof document === 'undefined') return 68; // 48px activity bar + 20px gutter
   const raw = document.documentElement.style.getPropertyValue('--sidebar-w');
-  const sidebarW = raw ? parseInt(raw, 10) : 48;
+  const parsed = raw ? parseInt(raw, 10) : 48;
+  const sidebarW = Number.isFinite(parsed) ? parsed : 48;
   return sidebarW + 20; // +16px toggle button +4px resize handle
 }
 
