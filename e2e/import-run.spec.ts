@@ -41,9 +41,10 @@ test.describe('Import CLI Run into Results', () => {
     await page.waitForSelector('.results-run-select', { timeout: 10000 });
 
     // Verify the imported run is selected and shows the project name
+    // ResultsRunSelect is a custom listbox (not a native <select>), so read the trigger text
     const runSelect = page.locator('.results-run-select');
-    const selectedOption = runSelect.locator('option:checked');
-    const optionText = await selectedOption.textContent({ timeout: 5000 });
+    const selectedLabel = runSelect.locator('.results-run-select-text');
+    const optionText = await selectedLabel.textContent({ timeout: 5000 });
     expect(optionText).toContain('CLI Sample Run');
 
     // Verify metrics cards are visible (proves the run data loaded)

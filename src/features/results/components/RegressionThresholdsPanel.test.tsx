@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from 'vitest';
-import { render, fireEvent } from '@testing-library/react';
+import { render, fireEvent, waitFor } from '@testing-library/react';
 import { RegressionThresholdsPanel } from './RegressionThresholdsPanel';
 import { DEFAULT_THRESHOLDS } from '../utils/runBaselines';
 import type { RegressionThresholds } from '../utils/runBaselines';
@@ -24,7 +24,7 @@ describe('RegressionThresholdsPanel', () => {
     expect(unitLabels.slice(0, 6).every((u) => u === '%')).toBe(true);
   });
 
-  it('calls onSave with updated thresholds when Save is clicked', () => {
+  it('calls onSave with updated thresholds when Save is clicked', async () => {
     const onSave = vi.fn();
     const { container } = render(
       <RegressionThresholdsPanel thresholds={DEFAULT_THRESHOLDS} onSave={onSave} onCancel={vi.fn()} />,
@@ -34,7 +34,7 @@ describe('RegressionThresholdsPanel', () => {
     const p95Input = inputs[2]; // avgPercent, p50Percent, p95Percent, ...
     fireEvent.change(p95Input, { target: { value: '5' } });
     fireEvent.click(container.querySelector('.btn-primary')!);
-    expect(onSave).toHaveBeenCalledOnce();
+    await waitFor(() => expect(onSave).toHaveBeenCalledOnce());
     const saved: RegressionThresholds = onSave.mock.calls[0][0];
     expect(saved.p95Percent).toBe(5);
     // Other thresholds unchanged
@@ -72,7 +72,7 @@ describe('RegressionThresholdsPanel', () => {
     expect(onSave).not.toHaveBeenCalled();
   });
 
-  it('Reset Defaults restores all values to DEFAULT_THRESHOLDS', () => {
+  it('Reset Defaults restores all values to DEFAULT_THRESHOLDS', async () => {
     const onSave = vi.fn();
     const { container } = render(
       <RegressionThresholdsPanel
@@ -84,11 +84,11 @@ describe('RegressionThresholdsPanel', () => {
     const resetBtn = [...container.querySelectorAll('button')].find((b) => b.textContent === 'Reset Defaults')!;
     fireEvent.click(resetBtn);
     fireEvent.click(container.querySelector('.btn-primary')!);
-    expect(onSave).toHaveBeenCalledOnce();
+    await waitFor(() => expect(onSave).toHaveBeenCalledOnce());
     expect(onSave.mock.calls[0][0]).toEqual(DEFAULT_THRESHOLDS);
   });
 
-  it('falls back to default for NaN input on save', () => {
+  it('falls back to default for NaN input on save', async () => {
     const onSave = vi.fn();
     const { container } = render(
       <RegressionThresholdsPanel thresholds={DEFAULT_THRESHOLDS} onSave={onSave} onCancel={vi.fn()} />,
@@ -96,11 +96,12 @@ describe('RegressionThresholdsPanel', () => {
     const inputs = container.querySelectorAll('.thresholds-input') as NodeListOf<HTMLInputElement>;
     fireEvent.change(inputs[2], { target: { value: '' } }); // empty → NaN
     fireEvent.click(container.querySelector('.btn-primary')!);
+    await waitFor(() => expect(onSave).toHaveBeenCalledOnce());
     const saved: RegressionThresholds = onSave.mock.calls[0][0];
     expect(saved.p95Percent).toBe(DEFAULT_THRESHOLDS.p95Percent);
   });
 
-  it('falls back to default for negative input on save', () => {
+  it('falls back to default for negative input on save', async () => {
     const onSave = vi.fn();
     const { container } = render(
       <RegressionThresholdsPanel thresholds={DEFAULT_THRESHOLDS} onSave={onSave} onCancel={vi.fn()} />,
@@ -108,11 +109,12 @@ describe('RegressionThresholdsPanel', () => {
     const inputs = container.querySelectorAll('.thresholds-input') as NodeListOf<HTMLInputElement>;
     fireEvent.change(inputs[2], { target: { value: '-5' } });
     fireEvent.click(container.querySelector('.btn-primary')!);
+    await waitFor(() => expect(onSave).toHaveBeenCalledOnce());
     const saved: RegressionThresholds = onSave.mock.calls[0][0];
     expect(saved.p95Percent).toBe(DEFAULT_THRESHOLDS.p95Percent);
   });
 
-  it('falls back to default for Infinity input on save (isFinite guard)', () => {
+  it('falls back to default for Infinity input on save (isFinite guard)', async () => {
     const onSave = vi.fn();
     const { container } = render(
       <RegressionThresholdsPanel thresholds={DEFAULT_THRESHOLDS} onSave={onSave} onCancel={vi.fn()} />,
@@ -121,7 +123,54 @@ describe('RegressionThresholdsPanel', () => {
     // Simulate programmatic Infinity value (e.g., paste)
     fireEvent.change(inputs[2], { target: { value: 'Infinity' } });
     fireEvent.click(container.querySelector('.btn-primary')!);
+    await waitFor(() => expect(onSave).toHaveBeenCalledOnce());
     const saved: RegressionThresholds = onSave.mock.calls[0][0];
     expect(saved.p95Percent).toBe(DEFAULT_THRESHOLDS.p95Percent);
+  });
+
+  it('shows status message when Reset Defaults is clicked', () => {
+    const { container, getByText } = render(
+      <RegressionThresholdsPanel thresholds={DEFAULT_THRESHOLDS} onSave={vi.fn()} onCancel={vi.fn()} />,
+    );
+    const resetBtn = [...container.querySelectorAll('button')].find((b) => b.textContent === 'Reset Defaults')!;
+    fireEvent.click(resetBtn);
+    expect(getByText('Thresholds reset to defaults.')).toBeTruthy();
+  });
+
+  it('shows status message when Cancel is clicked', () => {
+    const { container, getByText } = render(
+      <RegressionThresholdsPanel thresholds={DEFAULT_THRESHOLDS} onSave={vi.fn()} onCancel={vi.fn()} />,
+    );
+    const cancelBtn = [...container.querySelectorAll('button')].find((b) => b.textContent === 'Cancel')!;
+    fireEvent.click(cancelBtn);
+    expect(getByText('Unsaved changes discarded.')).toBeTruthy();
+  });
+
+  it('shows status message when Save is clicked', async () => {
+    const { container, getByText } = render(
+      <RegressionThresholdsPanel thresholds={DEFAULT_THRESHOLDS} onSave={vi.fn()} onCancel={vi.fn()} />,
+    );
+    fireEvent.click(container.querySelector('.btn-primary')!);
+    await waitFor(() => expect(getByText('Thresholds saved.')).toBeTruthy());
+  });
+
+  it('shows saving then success for async save', async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    const { container, getByText } = render(
+      <RegressionThresholdsPanel thresholds={DEFAULT_THRESHOLDS} onSave={onSave} onCancel={vi.fn()} />,
+    );
+    fireEvent.click(container.querySelector('.btn-primary')!);
+    expect(getByText('Saving thresholds...')).toBeTruthy();
+    await waitFor(() => expect(getByText('Thresholds saved.')).toBeTruthy());
+  });
+
+  it('shows failure message when async save rejects', async () => {
+    const onSave = vi.fn().mockRejectedValue(new Error('save failed'));
+    const { container, getByText } = render(
+      <RegressionThresholdsPanel thresholds={DEFAULT_THRESHOLDS} onSave={onSave} onCancel={vi.fn()} />,
+    );
+    fireEvent.click(container.querySelector('.btn-primary')!);
+    expect(getByText('Saving thresholds...')).toBeTruthy();
+    await waitFor(() => expect(getByText('Failed to save thresholds.')).toBeTruthy());
   });
 });

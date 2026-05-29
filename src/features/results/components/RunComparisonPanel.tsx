@@ -14,11 +14,20 @@ interface ComparisonProps {
   thresholds?: RegressionThresholds;
   /** Label stored for the baseline run (from BaselineMark.label). */
   baselineLabel?: string;
+  /** True when the compared (left) run is actually baseline-marked. */
+  comparedRunIsBaseline?: boolean;
   /** Called when user renames the baseline inline. */
   onRenameBaseline?: (runId: string, label: string) => void;
 }
 
-export function RunComparisonPanel({ baselineRun, currentRun, thresholds, baselineLabel, onRenameBaseline }: ComparisonProps) {
+export function RunComparisonPanel({
+  baselineRun,
+  currentRun,
+  thresholds,
+  baselineLabel,
+  comparedRunIsBaseline,
+  onRenameBaseline,
+}: ComparisonProps) {
   const comparison = useMemo(
     () => compareRuns(baselineRun, currentRun, thresholds),
     [baselineRun, currentRun, thresholds],
@@ -80,6 +89,14 @@ export function RunComparisonPanel({ baselineRun, currentRun, thresholds, baseli
   };
 
   const baselineDisplay = baselineLabel ?? new Date(baselineRun.timestamp).toLocaleString();
+  const isComparedRunBaseline = comparedRunIsBaseline ?? !!baselineLabel;
+  const leftRunLabel = 'Compared Run';
+  const rightRunLabel = 'Baseline Run';
+  const selectedColumnLabel = 'Baseline';
+  const canRenameComparedBaseline = isComparedRunBaseline && !!onRenameBaseline;
+  const improvedCount = comparison.metricDeltas.filter((d) => d.improved && !d.regressed).length;
+  const regressedCount = comparison.metricDeltas.filter((d) => d.regressed).length;
+  const unchangedCount = comparison.metricDeltas.length - improvedCount - regressedCount;
 
   return (
     <div className="run-comparison-panel">
@@ -87,7 +104,7 @@ export function RunComparisonPanel({ baselineRun, currentRun, thresholds, baseli
         <h4>Run Comparison</h4>
         <div className="run-comparison-runs">
           <span className="run-comparison-label baseline-label">
-            ★ Baseline:
+            {leftRunLabel}:
             {renamingBaseline ? (
               <input
                 className="baseline-rename-input"
@@ -103,7 +120,7 @@ export function RunComparisonPanel({ baselineRun, currentRun, thresholds, baseli
             ) : (
               <>
                 {' '}{baselineDisplay}
-                {onRenameBaseline && (
+                {canRenameComparedBaseline && (
                   <button className="baseline-rename-btn" onClick={startRename} title="Rename this baseline">
                     ✏
                   </button>
@@ -112,7 +129,7 @@ export function RunComparisonPanel({ baselineRun, currentRun, thresholds, baseli
             )}
           </span>
           <span className="run-comparison-vs">vs</span>
-          <span className="run-comparison-label current-label">Current: {new Date(currentRun.timestamp).toLocaleString()}</span>
+          <span className="run-comparison-label current-label">{rightRunLabel}: {new Date(currentRun.timestamp).toLocaleString()}</span>
         </div>
         <div className="run-comparison-export" ref={exportMenuRef}>
           <button
@@ -131,16 +148,16 @@ export function RunComparisonPanel({ baselineRun, currentRun, thresholds, baseli
         </div>
       </div>
 
-      {comparison.regressions.length > 0 && (
-        <div className="regression-alerts">
-          {comparison.regressions.map((r) => (
-            <div key={r.metric} className={`regression-alert regression-${r.severity}`}>
-              <span className="regression-icon">{r.severity === 'critical' ? '🔴' : '🟡'}</span>
-              <span>{r.metric}: {r.severity === 'critical' ? 'Critical' : 'Warning'} regression detected</span>
-            </div>
-          ))}
-        </div>
-      )}
+      <div
+        className={`run-comparison-summary ${regressedCount > 0 ? 'has-regressions' : improvedCount > 0 ? 'has-improvements' : 'neutral'}`}
+      >
+        <span className="run-comparison-summary-counts">
+          {regressedCount} regressed · {improvedCount} improved · {unchangedCount} no change
+        </span>
+        <span className="run-comparison-summary-direction">
+          Direction: Compared -&gt; Baseline (swap runs to invert result)
+        </span>
+      </div>
 
       <div className="run-comparison-tabs">
         <button className={`run-comparison-tab ${tab === 'overview' ? 'active' : ''}`} onClick={() => setTab('overview')}>Overview</button>
@@ -153,22 +170,22 @@ export function RunComparisonPanel({ baselineRun, currentRun, thresholds, baseli
         <button className={`run-comparison-tab ${tab === 'distribution' ? 'active' : ''}`} onClick={() => setTab('distribution')}>Distribution</button>
       </div>
 
-      {tab === 'overview' && <MetricDeltaTable deltas={comparison.metricDeltas} />}
-      {tab === 'scenarios' && <ScenarioDeltaTable deltas={comparison.scenarioDeltas} />}
-      {tab === 'regressions' && <RegressionList regressions={comparison.regressions} deltas={comparison.metricDeltas} />}
+      {tab === 'overview' && <MetricDeltaTable deltas={comparison.metricDeltas} selectedColumnLabel={selectedColumnLabel} />}
+      {tab === 'scenarios' && <ScenarioDeltaTable deltas={comparison.scenarioDeltas} selectedColumnLabel={selectedColumnLabel} />}
+      {tab === 'regressions' && <RegressionList regressions={comparison.regressions} deltas={comparison.metricDeltas} selectedColumnLabel={selectedColumnLabel} />}
       {tab === 'distribution' && <ResponseTimeOverlayHistogram baselineRun={baselineRun} currentRun={currentRun} />}
     </div>
   );
 }
 
-function MetricDeltaTable({ deltas }: { deltas: MetricDelta[] }) {
+function MetricDeltaTable({ deltas, selectedColumnLabel }: { deltas: MetricDelta[]; selectedColumnLabel: string }) {
   return (
     <table className="comparison-table">
       <thead>
         <tr>
           <th>Metric</th>
-          <th>Baseline</th>
-          <th>Current</th>
+          <th>Compared</th>
+          <th>{selectedColumnLabel}</th>
           <th>Delta</th>
           <th>Change</th>
           <th>Status</th>
@@ -205,18 +222,18 @@ function MetricDeltaTable({ deltas }: { deltas: MetricDelta[] }) {
   );
 }
 
-function ScenarioDeltaTable({ deltas }: { deltas: ScenarioDelta[] }) {
+function ScenarioDeltaTable({ deltas, selectedColumnLabel }: { deltas: ScenarioDelta[]; selectedColumnLabel: string }) {
   if (deltas.length === 0) return <div className="empty-hint">No scenario data to compare.</div>;
   return (
     <table className="comparison-table scenario-table">
       <thead>
         <tr>
           <th>Scenario</th>
-          <th>Baseline Avg</th>
-          <th>Current Avg</th>
+          <th>Compared Avg</th>
+          <th>{selectedColumnLabel} Avg</th>
           <th>Delta</th>
-          <th>Baseline Errors</th>
-          <th>Current Errors</th>
+          <th>Compared Errors</th>
+          <th>{selectedColumnLabel} Errors</th>
           <th>Status</th>
         </tr>
       </thead>
@@ -246,7 +263,15 @@ function ScenarioDeltaTable({ deltas }: { deltas: ScenarioDelta[] }) {
   );
 }
 
-function RegressionList({ regressions, deltas }: { regressions: RegressionAlert[]; deltas: MetricDelta[] }) {
+function RegressionList({
+  regressions,
+  deltas,
+  selectedColumnLabel,
+}: {
+  regressions: RegressionAlert[];
+  deltas: MetricDelta[];
+  selectedColumnLabel: string;
+}) {
   if (regressions.length === 0) {
     return <div className="empty-hint regression-pass">✓ No regressions detected. All metrics within acceptable thresholds.</div>;
   }
@@ -273,9 +298,9 @@ function RegressionList({ regressions, deltas }: { regressions: RegressionAlert[
             </div>
             {delta && (
               <div className="regression-detail-body">
-                <span>Baseline: <strong>{delta.baselineValue}{detailUnit}</strong></span>
+                <span>Compared: <strong>{delta.baselineValue}{detailUnit}</strong></span>
                 <span>→</span>
-                <span>Current: <strong>{delta.currentValue}{detailUnit}</strong></span>
+                <span>{selectedColumnLabel}: <strong>{delta.currentValue}{detailUnit}</strong></span>
                 <span className="regression-delta">({deltaDisplay})</span>
               </div>
             )}

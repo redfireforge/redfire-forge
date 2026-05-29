@@ -103,7 +103,7 @@ Each lesson includes:
 1. Execution Modes (20 min)
 2. Concurrency Patterns (25 min)
 3. Load Profiles (25 min)
-4. Results Analysis (30 min)
+4. Comparison & Trends (30 min)
 5. Baselines & Trends (25 min)
 6. CI/CD Integration (25 min)
 ```

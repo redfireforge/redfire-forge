@@ -1,7 +1,7 @@
 # Phase 25 — Run Comparison & Trends: Detailed Plan
 
 > **Goal:** Detect performance regressions, compare runs analytically, and track trends across the run history.
-> **Status:** Sprint 1 complete, Sprint 2 complete — feature branches `feature/phase25-sprint1-comparison-ux`, `feature/phase25-sprint2-analytics`
+> **Status:** Sprint 1 complete, Sprint 2 complete, Sprint 4 complete — feature branches `feature/phase25-sprint1-comparison-ux`, `feature/phase25-sprint2-analytics`, `feature/phase25-sprint3-export-cli`
 > **Target version:** 0.6.0
 
 ---
@@ -17,8 +17,8 @@
 | 25.5 | Regression badge in run history list | ✅ | S | Visual status per run in sidebar |
 | 25.6 | CLI regression gate | ✅ | M | `--fail-on-regression` for CI pipelines |
 | 25.7 | Export comparison report | ✅ | S | Markdown/JSON download of RunComparison |
-| 25.8 | Gallery sample + training manual | 🔲 | S | Gallery entry + 1 HTML training manual |
-| 25.9 | Tests & E2E coverage | 🔲 | M | Unit tests for new logic, E2E for new flows |
+| 25.8 | Gallery sample + training manual | ✅ | S | Gallery entry + 1 HTML training manual |
+| 25.9 | Tests & E2E coverage | ✅ | M | Unit tests for new logic, E2E for new flows |
 
 **Est. key:** S = Small (< 1 day) · M = Medium (1–2 days)
 
@@ -37,24 +37,30 @@ Before planning new work it's critical to understand what already exists so we d
 | `src/features/results/components/ResponseTimeHistogram.tsx` | `ResponseTimeHistogram` (single run) + `ResponseTimeOverlayHistogram` (two-run overlay with bar groups) |
 | `src/features/results/utils/responseTimeHistogram.ts` | `computeHistogramBins`, `computeOverlayHistogram`, `computeDistributionStats` |
 | `src/features/results/ResultsDashboard.tsx` | "☆ Set Baseline" button; "Compare against baseline…" dropdown; "Show Trend" toggle; `TrendChart` + `RunComparisonPanel` rendered inline |
+| `src/data/galleries/tests/presets-advanced.ts` | `createPerformanceRegressionBaselineTest()` gallery factory for the new Phase 25 sample |
+| `src/data/galleries/tests/index.ts` | Registers the `Performance Regression Baseline` sample in the Tests gallery catalog |
+| `src/data/galleries/trainingPaths/contentPaths.ts` | Adds the Tests training manual entry for `performance-regression-tracking.html` |
+| `src/data/galleries/trainingPaths/manualMetadata.ts` | Declares the manual metadata so the training catalog can surface it |
+| `docs/training-manuals/tests/performance-regression-tracking.html` | Step-by-step walkthrough for the Phase 25 comparison, trend, threshold, and export workflow |
+| `e2e/run-comparison.spec.ts` | Playwright coverage for baseline marking, comparison tabs, trend scope, thresholds, and export |
 | `src/styles/base.css` (lines ~3001–3060) | All CSS: `.run-comparison-panel`, `.comparison-table`, `.baseline-toggle`, `.baseline-active`, `.trend-chart-container`, `.delta-better`, `.delta-worse`, `.regression-alert`, `.regression-pass` |
 | `runBaselines.test.ts` (372 lines) | Unit tests: baseline CRUD, compareRuns, computeTrend, edge cases |
 | `RunComparisonPanel.test.tsx` (371 lines) | Component tests: all 4 tabs, regression badge, TrendChart |
 
-### ⚠️ What's missing (phase gaps)
+### ✅ Resolved phase gaps
 
-The scaffold exists but several UX flows and CI integrations are incomplete:
+The scaffold gaps were resolved during the phase work:
 
-1. **Compare any two runs** — comparison only works if one run is marked as a baseline first. No "pick any two" UX.
-2. **Configurable thresholds** — `DEFAULT_THRESHOLDS` is hardcoded in `runBaselines.ts`; no UI to adjust per-project or globally.
-3. **Trend scoping** — `TrendChart` uses ALL runs; no filter by feature group / scenario / workflow name for meaningful same-suite trending.
-4. **Multi-metric trend** — Single line only. Side-by-side P95 vs TPS on one chart would be more useful.
-5. **Regression badge in run list** — The run `<select>` shows SLA dots but no regression-vs-baseline indicator.
-6. **CLI regression gate** — No `--fail-on-regression` flag; regression detection can't be used in CI.
-7. **Baseline label editing UI** — `renameBaseline()` exists but no UI exposes it.
-8. **Comparison export** — No way to download the comparison as Markdown or JSON.
-9. **Gallery sample + training manual** — Phase 25 has no gallery entry or training manual.
-10. **E2E tests** — No Playwright tests for the comparison/trend UI flows.
+1. **Compare any two runs** — implemented via the expanded inline compare dropdown, which shows all runs and groups baselines first.
+2. **Configurable thresholds** — implemented through the persisted thresholds panel and `loadRegressionThresholds()` / `saveRegressionThresholds()` helpers.
+3. **Trend scoping** — implemented with scope-aware trend filtering in `TrendChart` and `computeScopedTrend()`.
+4. **Multi-metric trend** — implemented in the comparison analytics UI with the trend card controls and overlay view.
+5. **Regression badge in run list** — implemented via the regression dot prefix in run labels.
+6. **CLI regression gate** — implemented as the `--compare-baseline` / `--fail-on-regression` flow.
+7. **Baseline label editing UI** — implemented through the inline rename flow in the comparison and baseline panels.
+8. **Comparison export** — implemented via the Markdown / JSON export actions in the comparison panel.
+9. **Gallery sample + training manual** — implemented as the Performance Regression Baseline sample and the matching HTML walkthrough.
+10. **E2E tests** — implemented as `e2e/run-comparison.spec.ts` and validated against the live app.
 
 ---
 
@@ -139,12 +145,8 @@ Add a "⚖ Compare Runs…" button next to the baseline controls. Opens a two-co
 ```
 
 - Each column has a searchable run list with timestamp, svc/env, TPS, total requests
-- "Compare →" opens `RunComparisonPanel` in a full-screen modal (or expands inline)
+- "Compare →" expands `RunComparisonPanel` inline
 - The existing `RunComparisonPanel` is reused unchanged
-
-**New files:**
-- `src/features/results/components/RunPickerModal.tsx` — two-column run picker
-- CSS: `.run-picker-modal`, `.run-picker-col`, `.run-picker-list`, `.run-picker-item`, `.run-picker-item.selected` in `base.css`
 
 #### 25.2.2 — Inline compare target (any run)
 
@@ -455,7 +457,7 @@ export function generateComparisonMarkdown(comparison: RunComparison): string {
   // - Header: baseline vs current run metadata
   // - Metric delta table
   // - Per-scenario delta table
-  // - Regression alert list
+  // - Regressions table (severity + metric + threshold details)
   // - Distribution stats (min, max, avg, P50, P95, P99 for both runs)
 }
 
@@ -490,13 +492,13 @@ Uses the existing `fileSaver.ts` for download.
 
 **Entry:** "Performance Regression Baseline" in the Tests gallery.
 
-A pre-built scenario set designed specifically for demonstrating comparison:
-- Feature group: "Performance Baseline Demo"
-- 2 scenarios with 3 tests each hitting public APIs (JSONPlaceholder / HTTPBin)
-- `slaTargets` pre-configured so P95 assertions are borderline (easy to intentionally fail by changing concurrency)
-- Instruction text in `description` field: "Import this twice at different concurrency settings to see regression detection in action"
+The sample is implemented in `src/data/galleries/tests/presets-advanced.ts` via `createPerformanceRegressionBaselineTest()` and registered in `src/data/galleries/tests/index.ts`.
 
-**File:** `src/data/galleries/tests/performanceBaselineDemo.ts`
+It provides a small Phase 25 demo set with the regression-oriented metadata the manual uses for walkthroughs:
+- Feature group: `Phase 25 Comparison Demo`
+- Two scenarios with repeated requests and contrasting timing/throughput profiles
+- Preconfigured baseline/comparison-friendly summary data for regression, improvement, and scope exercises
+- Description text that explains how to import and rerun the sample to see comparison and trend changes
 
 ### Training manual
 
@@ -510,8 +512,10 @@ A pre-built scenario set designed specifically for demonstrating comparison:
 5. Reading the trend chart
 6. Configuring regression thresholds
 7. CI/CD integration (CLI `--compare-baseline` flag)
-8. Step-by-step walkthrough using the "Performance Baseline Demo" gallery sample
+8. Step-by-step walkthrough using the Phase 25 sample files from `docs/test-data/phase25-run-comparison/`
 9. Self-practice exercises
+
+**Implementation note:** The manual is wired into the Tests training path so it appears alongside the existing overview content, and the plan/docs now reference the actual imported Phase 25 JSON files rather than a placeholder demo name.
 
 ---
 
@@ -526,7 +530,7 @@ A pre-built scenario set designed specifically for demonstrating comparison:
 | `runBaselines.test.ts` | `computeScopedTrend` (4 tests: all/service/env/workflow), `computeRunRegressionStatus` (5 tests), `loadRegressionThresholds` / `saveRegressionThresholds` (3 tests), `findNearestBaseline` (3 tests) |
 | `BaselineListPanel.test.tsx` | renders list, rename, unmark, compare button (4 tests) |
 | `RegressionThresholdsPanel.test.tsx` | renders defaults, edit field, save, reset (4 tests) |
-| `RunPickerModal.test.tsx` | renders two columns, selection, compare button enabled/disabled (5 tests) |
+| `ResultsDashboard.test.tsx` | baseline toggles, compare dropdown population, trend scope, thresholds, export, regression status integration |
 | `comparisonReport.test.ts` | Markdown output shape, JSON round-trip (4 tests) |
 | `cli/baselineStorage.test.ts` | save/load CLI baseline, latest resolution (4 tests) |
 
@@ -542,15 +546,17 @@ it('can set and unset a baseline run')
 it('compare dropdown shows baseline runs starred')
 it('compare dropdown shows non-baseline runs in second group')
 it('RunComparisonPanel renders all 4 tabs when comparison is active')
-it('regression alert badge appears on regressions tab')
+it('regression status is visible via summary strip + table status cells (no duplicate top banners)')
 it('TrendChart renders when Show Trend is clicked')
 it('TrendChart scope filter changes chart data')
 it('regression thresholds panel opens and saves values')
 it('export comparison as Markdown triggers download')
-it('Run picker modal opens and allows comparing two arbitrary runs')
+it('custom run picker opens and allows comparing two arbitrary runs')
 ```
 
-**Target:** ~10 new E2E tests
+**Target:** 10 new E2E tests
+
+**Validation:** `npx playwright test e2e/run-comparison.spec.ts --reporter=list --reporter=html --workers=40 --timeout=15000` passes.
 
 ---
 
@@ -586,19 +592,17 @@ export interface CliBaselineStore {
 New files:
   src/features/results/components/BaselineListPanel.tsx        (25.1.3)
   src/features/results/components/RegressionThresholdsPanel.tsx (25.3)
-  src/features/results/components/RunPickerModal.tsx            (25.2.1)
   src/features/results/utils/comparisonReport.ts                (25.7.1)
-  src/data/galleries/tests/performanceBaselineDemo.ts           (25.8)
+  src/data/galleries/tests/presets-advanced.ts                 (25.8)
   docs/training-manuals/tests/performance-regression-tracking.html (25.8)
   cli/baselineStorage.ts                                         (25.6.1)
-  e2e/run-comparison.spec.ts                                     (25.9)
   e2e/run-comparison.spec.ts                                     (25.9)
 
 Modified files:
   src/features/results/utils/runBaselines.ts          — add computeScopedTrend, computeRunRegressionStatus, findNearestBaseline, loadRegressionThresholds, saveRegressionThresholds
   src/features/results/components/RunComparisonPanel.tsx — add export button, accept thresholds prop, rename callback
-  src/features/results/ResultsDashboard.tsx           — wire BaselineListPanel, RunPickerModal, thresholds state, any-two-run compare, regression status dots
-  src/styles/base.css                                 — add .baseline-list-panel, .thresholds-panel, .run-picker-modal CSS
+  src/features/results/ResultsDashboard.tsx           — wire BaselineListPanel, thresholds state, expanded any-two-run compare dropdown, regression status dots
+  src/styles/base.css                                 — add .baseline-list-panel, .thresholds-panel CSS
   cli/index.ts                                        — add --compare-baseline, --fail-on-regression, --save-baseline flags
   cli/reporters.ts                                    — add reportComparison() function
   ROADMAP.md                                          — update Phase 25 checkboxes as items complete
@@ -611,7 +615,7 @@ Modified files:
 ```
 Sprint 1 — Core UX polish (Phases 25.1 + 25.2 + 25.3)
   ① 25.1 Audit + baseline label editing + BaselineListPanel
-  ② 25.2 Any-two-run comparison (expand dropdown + RunPickerModal)
+  ② 25.2 Any-two-run comparison (expanded dropdown)
   ③ 25.3 Configurable thresholds (RegressionThresholdsPanel)
 
 Sprint 2 — Analytics depth (Phases 25.4 + 25.5)
@@ -624,25 +628,25 @@ Sprint 3 — Export & CI (Phases 25.6 + 25.7)
   ⑧ 25.6 CLI regression gate (baselineStorage.ts + --compare-baseline flag)
 
 Sprint 4 — Polish & content (Phases 25.8 + 25.9)
-  ⑨ 25.8 Gallery sample + training manual
-  ⑩ 25.9 Unit tests + E2E tests
+   ⑨ 25.8 Gallery sample + training manual
+   ⑩ 25.9 Unit tests + E2E tests
 ```
 
 ---
 
 ## Success Criteria
 
-- [ ] User can compare any two runs without either being a baseline
-- [ ] Regression thresholds are user-configurable and persisted
-- [ ] TrendChart can be scoped to same service/env/workflow for meaningful trends
-- [ ] Regression status (pass/warn/critical) is visible in the run list before opening a run
+- [x] User can compare any two runs without either being a baseline
+- [x] Regression thresholds are user-configurable and persisted
+- [x] TrendChart can be scoped to same service/env/workflow for meaningful trends
+- [x] Regression status (pass/warn/critical) is visible in the run list before opening a run
 - [x] `redfireforge run ... --compare-baseline latest-baseline --fail-on-regression` exits code 2 on regression
 - [x] Comparison can be exported as Markdown and JSON from the UI
-- [ ] Gallery sample "Performance Baseline Demo" loads and works end-to-end
-- [ ] Training manual covers the full workflow with step-by-step walkthrough
+- [x] Gallery sample "Performance Regression Baseline" loads and works end-to-end
+- [x] Training manual covers the full workflow with step-by-step walkthrough
 - [ ] All new unit tests pass (≥ 29 new tests)
-- [ ] All new E2E tests pass (≥ 10 new tests)
-- [ ] `npx tsc --noEmit` — 0 errors
+- [x] All new E2E tests pass (10/10)
+- [x] `npx tsc --noEmit` — 0 errors
 - [ ] All existing tests still pass (no regressions from our own phase!)
 
 ---
@@ -809,6 +813,87 @@ All 4 test files (98 tests directly covering Sprint 1+2 code) + 1298 total tests
 
 ---
 
+## Implementation Notes — Post-review UI polish (2026-05-29)
+
+**Context:** A macOS-native `<select>` popup in the Results run picker continued to show an orange system-rendered highlight/background that ignored the dashboard theme, even after CSS hardening on the closed control and `<option>` elements.
+
+### Files modified
+
+- `src/features/results/ResultsDashboard.tsx` — replaced the native run `<select>` with a custom `ResultsRunSelect` button + popover listbox. The new control preserves the same run label content (baseline star, workflow/test icon, SLA dot, regression dot, timestamp, scope metadata, throughput summary) while letting the app fully control popup styling.
+- `src/styles/base.css` — added `.results-run-select-trigger`, `.results-run-select-menu`, `.results-run-select-option`, and selection/focus states for the custom picker.
+- `src/features/results/ResultsDashboard.test.tsx` — added interaction coverage for opening the custom listbox and switching the selected run from the popup.
+
+### Design decision
+
+- **Custom listbox over further native-select CSS tweaks**: The previous one-line layout work was correct, but macOS still paints parts of the open dropdown using OS chrome outside the app's CSS control. Replacing the open popup with an app-rendered listbox was the only reliable way to remove the visual artifact instead of chasing platform-specific `<option>` styling.
+
+### Validation
+
+- `npx vitest run src/features/results/ResultsDashboard.test.tsx`
+- `npx tsc -b --noEmit`
+
+### Additional visual-fix pass (2026-05-29)
+
+- **Bug I — Workflow filter showed hidden baseline artifacts from test runs**: In Workflow-only view, the Comparison & Trends tab badge could still show a baseline count from non-visible test runs, and the side panel could render confusing baseline state inherited from another filter context.
+- **Fix**: Scoped baseline-driven Comparison & Trends UI to `visibleBaselines` (baselines whose run IDs exist in the current filtered `runs` set). Updated:
+  - Comparison & Trends tab count (`Comparison & Trends (N)`)
+  - Baseline/Ad-hoc mode badge state and tooltip logic
+  - Empty-state messaging and baseline-empty helper copy
+  - `BaselineListPanel` input baselines (visible only)
+- **Regression test**: Added `does not show hidden baseline count in workflow-only filter` in `src/features/results/ResultsDashboard.test.tsx`.
+
+### Additional UX consistency pass (2026-05-29)
+
+- **Bug J — Analysis mode unexpectedly flipped back to Baseline Mode** after users explicitly cleared/changed compare target, especially after switching selected runs.
+- **Fix**: Added explicit compare selection mode tracking (`auto` vs `manual`) in `ResultsDashboard.tsx`.
+  - Manual actions (compare dropdown change, compare chip clear, side-panel compare click) now set mode to `manual`.
+  - Auto-baseline anchoring now applies only while selection mode is `auto`; it no longer overrides explicit user choices.
+- **UX copy improvement**: Baseline side-panel action text changed from `Compare` to `Compare vs Selected` for clearer intent.
+- **Terminology alignment**: Run comparison table/right-side header now use `Baseline` naming (column label `Baseline`, header label `Baseline Run`) instead of `Selected` to match the agreed wording.
+- **Mode semantics refinement**: `Ad-hoc Mode` now means manual compare targeting (including selecting a baseline manually), while `Baseline Mode` is reserved for auto-anchored baseline comparison state.
+- **Side-panel button clarity**: baseline row actions renamed to reduce ambiguity:
+  - `Current Run` (disabled)
+  - `Active Compare Target` (disabled)
+  - `Set Compare Target` (actionable)
+- **Improvement visibility refinement**: Added a green improvement alert block in `RunComparisonPanel` so improved metrics are surfaced explicitly (not only in table status cells), plus a persistent direction summary (`Compared -> Baseline`) with counts for regressed/improved/no-change metrics.
+- **Button state consistency** in baseline side panel:
+  - `Selected` (disabled) when the row run is currently selected
+  - `Comparing` (disabled) when already the active compare target
+  - `Compare vs Selected` when action is available
+- **Regression test**: Added `keeps ad-hoc mode after user clears compare and switches selected run` in `src/features/results/ResultsDashboard.test.tsx`.
+
+### Additional compare-intent confirmation pass (2026-05-29)
+
+- **Goal**: Remove ambiguity when clicking `Set Compare Target` by asking users to choose the exact comparison action.
+- **Implementation** (`src/features/results/ResultsDashboard.tsx`):
+  - Added a `PopupModal` prompt that opens from baseline side-panel compare clicks.
+  - Added explicit actions:
+    - `Use As Compared Run`: keep current baseline run and set clicked run as compared target.
+    - `Swap Direction`: make clicked run the baseline run and move previous baseline run to compared target.
+    - `Cancel`: no state change.
+  - Kept comparison mode manual for both actionable paths so auto-baseline anchoring does not override explicit intent.
+- **Reasoning**: This prevents silent direction flips and makes `Compared -> Baseline` behavior explicit at decision time.
+
+### Additional baseline-row simplification pass (2026-05-29)
+
+- **Goal**: Reduce side-panel noise by removing non-action button states that looked clickable.
+- **Implementation** (`src/features/results/components/BaselineListPanel.tsx`):
+  - Baseline row now shows `Set Compare Target` only when the action is actually available.
+  - Removed disabled state buttons (`Current Run`, `Active Compare Target`) from the row.
+  - `Unmark` remains always visible.
+- **Result**: The panel now communicates intent through actions only, while current compare state remains visible in the Comparison & Trends header/chip and comparison panel.
+
+### Additional comparison-noise simplification pass (2026-05-29)
+
+- **Goal**: Remove duplicated status information from the top of `Run Comparison`.
+- **Implementation** (`src/features/results/components/RunComparisonPanel.tsx`):
+  - Removed the top inline regression alert list (`.regression-alerts`).
+  - Removed the top inline improvement alert list (`.improvement-alerts`).
+  - Kept the compact summary strip (`N regressed · N improved · N no change`) and the status-rich tables/tabs as the single source of truth.
+- **Reasoning**: The table/status badges already encode the same signal, so removing duplicated banners reduces vertical noise and improves scanability.
+
+---
+
 ## Implementation Notes — Sprint 3 (2026-05-28)
 
 **Branch:** `feature/phase25-sprint3-export-cli`
@@ -896,6 +981,38 @@ Priority: SLA(4) > both(3) > regression-only(2) > test-fail(1) > pass(0). `--fai
 - `src/features/results/` — 1318 tests (59 files) — all passing
 - `cli/` — 217 tests (11 files) — all passing
 - Total new tests added: 37 (20 comparisonReport + 17 baselineStorage)
+
+### Additional quality-hardening pass (2026-05-29)
+
+- **Goal**: Close the remaining under-90 coverage gap on ResultsDashboard, reduce local duplication, and remove branch fragility discovered during coverage-driven testing.
+- **Refactor extraction**:
+  - Added reusable components:
+    - `src/features/results/components/ResultsRunTypeTabs.tsx`
+    - `src/features/results/components/ResultsContextTags.tsx`
+    - `src/features/results/components/ResultsComparisonTrendsToolbar.tsx`
+  - Added utility module:
+    - `src/features/results/utils/resultsFiltering.ts`
+      - `filterVisibleRuns(...)`
+      - `computeRunCounts(...)`
+      - `computeFilteredResults(...)`
+  - `src/features/results/ResultsDashboard.tsx` now delegates run filtering/counting and Comparison & Trends toolbar rendering to these extracted modules.
+- **Bug fix discovered by new branch tests**:
+  - `renderErrorSnippet(...)` in `ResultsDashboard.tsx` previously assumed `responseBody` was always a string and could throw when it was an object.
+  - Fixed by safely handling string vs object response bodies before building the snippet preview.
+- **Comparison action cleanup**:
+  - Simplified compare-action modal rendering to conditionally render only when `compareActionRun` exists.
+  - Removed unnecessary defensive null-guard branches inside modal action callbacks.
+- **Tests added/expanded**:
+  - New tests:
+    - `src/features/results/components/ResultsRunTypeTabs.test.tsx`
+    - `src/features/results/components/ResultsContextTags.test.tsx`
+    - `src/features/results/components/ResultsComparisonTrendsToolbar.test.tsx`
+    - `src/features/results/utils/resultsFiltering.test.ts`
+  - Expanded `src/features/results/ResultsDashboard.test.tsx` with additional branch-focused scenarios (rerun edge cases, replay filename behavior, request snippet modal behavior, baseline cleanup paths).
+- **Verification snapshot**:
+  - Targeted tests (touched Results files): passing.
+  - Type check: `npx tsc -b --noEmit` passing.
+  - Full coverage summary: under-90 file count reduced to **0**.
 
 ---
 
@@ -1238,9 +1355,125 @@ Remaining minor item noted (not a bug):
 **All Sprint 2 source code and tests are clean. No further issues found.**
 
 Sprint 2 review committed across 3 rounds:
+
+---
+
+## Results IA Redesign Pass (2026-05-29)
+
+### User feedback addressed
+
+- The Results page still felt cluttered after moving Baselines into a bottom tab.
+- Comparison controls and Baselines management were split across top and bottom sections.
+- Enabling comparison inserted large analysis blocks above core metrics, forcing excessive scrolling.
+
+### Implemented redesign
+
+`ResultsDashboard.tsx` was refactored to a **top-level 4-tab information architecture**:
+
+1. **Overview**
+  - SLA compact bar
+  - Metrics cards
+  - Re-run failed bar
+  - Error breakdown
+  - Workflow summary (workflow runs)
+  - Response time histogram
+  - Timing breakdown
+
+2. **Request Details**
+  - Existing grouped/flat results table, filters, search, pagination
+
+3. **SLA**
+  - Existing SLA accordion
+
+4. **Analysis**
+  - Compare run picker
+  - Comparison chip clear action
+  - Show/Hide Trend toggle + TrendChart
+  - RunComparisonPanel
+  - BaselineListPanel
+  - RegressionThresholdsPanel
+
+### Additional UX structure changes
+
+- **Sticky Results header**: run selector + run filter tabs + quick baseline toggle remain visible while scrolling.
+- **Top-level tab navigation** replaces the previous bottom detail tabs.
+- **Comparison and baseline workflows are co-located** inside Analysis to remove the split mental model.
+- **Overview stays comparison-noise free** so core run stats are immediately visible.
+
+### CSS additions
+
+Added/updated layout classes in `src/styles/base.css`:
+
+- `.results-top` (sticky header treatment)
+- `.results-view-tabs`, `.results-view-tab`, `.results-view-tab-analysis`
+- `.baseline-controls-top`
+- `.results-comparison-trends-layout`, `.results-comparison-trends-main`, `.results-comparison-trends-side`, `.results-comparison-trends-card`
+- Responsive collapse for Comparison & Trends columns at smaller widths (`@media (max-width: 1100px)`).
+
 - Round 1 (7b0be48): 5 TrendChart tests + Tooltip null mock
 - Round 2 (a692cd3): isBaseline ScenarioTrendPoint + scope-aware msg + metric2 overlay line + Line mock update
 - Final: 1588 tests, 71 files, 0 TS errors
+
+### Status semantics follow-up (2026-05-29)
+
+- Normalized `MetricDelta.improved` classification in `runBaselines.ts` so it is threshold-based, matching how `regressed` is evaluated.
+- Previous behavior marked any favorable movement as `Improved`, while unfavorable movement required crossing threshold to become `Regressed`, which could produce confusing `Improved` vs `No change` results for similarly sized deltas.
+- New behavior:
+  - Response-time metrics: `Improved` only when `% change < -threshold`
+  - TPS: `Improved` only when `% change > threshold`
+  - Error Rate: `Improved` only when absolute change is below `-errorRateAbsolute`
+- Added unit coverage in `runBaselines.test.ts` for under-threshold favorable deltas to assert `No change` behavior.
+
+### Comparison header clarity follow-up (2026-05-29)
+
+- Updated `RunComparisonPanel` header wording to role-first labels to reduce ambiguity when toggling baseline state:
+  - Left side: `Compared Run` (or `Compared Run (★ Baseline)` when that run is baseline-marked)
+  - Right side: `Selected Run` (or `Selected Run (★ Baseline)` when current run is baseline-marked)
+- This removes the prior ambiguity where users could interpret both sides as "baseline" depending on compare selection and baseline toggle state.
+
+### Comparison terminology simplification follow-up (2026-05-29)
+
+- Removed baseline-centric wording from the comparison body to match any-two-run behavior:
+  - Metric table headers: `Baseline`/`Current` → `Compared`/`Selected`
+  - Scenario table headers: `Baseline Avg/Errors` and `Current Avg/Errors` → `Compared Avg/Errors` and `Selected Avg/Errors`
+  - Regression detail labels: `Baseline`/`Current` → `Compared`/`Selected`
+- Header labels are now role-only (`Compared Run`, `Selected Run`) while baseline status remains visible in baseline controls/list and star iconography.
+
+### Baselined run wording follow-up (2026-05-29)
+
+- When the current/right-hand run is baseline-marked, the comparison UI now uses explicit baseline wording for that side:
+  - Header label: `Baselined Run`
+  - Column label: `Baselined`
+- This keeps the left side role-oriented (`Compared`) while making the right side's baseline role explicit when that state is active.
+
+### Baseline role behavior follow-up (2026-05-29)
+
+- Made baseline actionable in Results Comparison & Trends by using the most-recent visible baseline as the default comparison anchor when no explicit compare target is set.
+- Added inline helper text near the baseline toggle to explain behavior:
+  - Not baseline: `Mark as baseline to auto-compare other runs against it.`
+  - Baseline: `Used as default compare anchor when viewing other runs.`
+- Resulting behavior:
+  - If only the current run is baseline-marked, no immediate comparison appears (self-compare is intentionally avoided).
+  - When user switches to a different run, comparison auto-populates against the baseline anchor.
+
+### Baseline visibility follow-up (2026-05-29)
+
+- Added explicit Comparison & Trends toolbar mode indicator:
+  - `Baseline Mode` when compare target is baseline-marked
+  - `Ad-hoc Mode` otherwise
+- Added mode-specific empty-state copy for Comparison & Trends when no compare/trend is active.
+- When baseline list becomes empty, comparison selection is reset so the UI visibly transitions to ad-hoc mode instead of retaining stale baseline-driven compare state.
+- Removed the inline baseline helper sentence from the main header row so the baseline action stays as a compact single-line control.
+
+### Branch review follow-up (2026-05-29)
+
+- Re-reviewed all changed CLI and Results files on the feature branch and fixed additional issues found during code review:
+  - `ResultsDashboard.tsx`: default baseline compare anchor now truly picks the most recently marked visible baseline (`markedAt` descending) instead of relying on array order.
+  - `ResultsDashboard.tsx`: top-level Results tabs now expose `role="tab"`, `aria-selected`, `aria-controls`, and `tabpanel` wiring for better accessibility.
+  - `RegressionThresholdsPanel.tsx`: async save feedback is now stateful (`Saving...`, success, failure) instead of optimistically reporting success before async persistence completes.
+- Added focused regression coverage in `ResultsDashboard.test.tsx` for:
+  - tab semantics
+  - newest-baseline auto-selection behavior
 
 ---
 

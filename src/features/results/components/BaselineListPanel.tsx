@@ -6,12 +6,13 @@ interface Props {
   baselines: BaselineMark[];
   runs: TestRun[];
   selectedRunId: string;
+  compareBaselineId: string;
   onCompare: (runId: string) => void;
   onUnmark: (runId: string) => void;
   onRename: (runId: string, label: string) => void;
 }
 
-export function BaselineListPanel({ baselines, runs, selectedRunId, onCompare, onUnmark, onRename }: Props) {
+export function BaselineListPanel({ baselines, runs, selectedRunId, compareBaselineId, onCompare, onUnmark, onRename }: Props) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
   // Used to prevent onBlur from committing when Escape was pressed
@@ -46,6 +47,7 @@ export function BaselineListPanel({ baselines, runs, selectedRunId, onCompare, o
           const defaultLabel = run ? new Date(run.timestamp).toLocaleString() : mark.runId.slice(0, 12);
           const displayLabel = mark.label ?? defaultLabel;
           const isSelected = mark.runId === selectedRunId;
+          const isComparing = mark.runId === compareBaselineId;
 
           return (
             <div key={mark.runId} className={`baseline-list-item${isSelected ? ' baseline-list-item-current' : ''}`}>
@@ -80,15 +82,13 @@ export function BaselineListPanel({ baselines, runs, selectedRunId, onCompare, o
               )}
 
               <div className="baseline-list-actions">
-                {/* Hide Compare when the baseline's run is filtered out (e.g. workflow
-                    baseline while "Test Runs" filter is active) — would silently no-op. */}
-                {!isSelected && run && (
+                {run && !isSelected && !isComparing && (
                   <button
                     className="btn btn-sm"
                     onClick={() => onCompare(mark.runId)}
-                    title="Compare selected run against this baseline"
+                    title="Use this run as compare target against the current run"
                   >
-                    Compare
+                    Set Compare Target
                   </button>
                 )}
                 <button

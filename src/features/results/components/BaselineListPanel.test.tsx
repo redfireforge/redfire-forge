@@ -27,7 +27,7 @@ function makeMark(runId: string, label?: string): BaselineMark {
 describe('BaselineListPanel', () => {
   it('renders nothing when baselines is empty', () => {
     const { container } = render(
-      <BaselineListPanel baselines={[]} runs={[]} selectedRunId="" onCompare={vi.fn()} onUnmark={vi.fn()} onRename={vi.fn()} />,
+      <BaselineListPanel baselines={[]} runs={[]} selectedRunId="" compareBaselineId="" onCompare={vi.fn()} onUnmark={vi.fn()} onRename={vi.fn()} />,
     );
     expect(container.firstChild).toBeNull();
   });
@@ -36,7 +36,7 @@ describe('BaselineListPanel', () => {
     const runs = [makeRun('r1'), makeRun('r2')];
     const baselines = [makeMark('r1', 'Sprint 1'), makeMark('r2', 'Sprint 2')];
     const { container } = render(
-      <BaselineListPanel baselines={baselines} runs={runs} selectedRunId="" onCompare={vi.fn()} onUnmark={vi.fn()} onRename={vi.fn()} />,
+      <BaselineListPanel baselines={baselines} runs={runs} selectedRunId="" compareBaselineId="" onCompare={vi.fn()} onUnmark={vi.fn()} onRename={vi.fn()} />,
     );
     expect(container.querySelectorAll('.baseline-list-item')).toHaveLength(2);
     expect(container.textContent).toContain('Sprint 1');
@@ -50,6 +50,7 @@ describe('BaselineListPanel', () => {
         baselines={[makeMark('r1', 'Baseline')]}
         runs={[run]}
         selectedRunId="other"
+        compareBaselineId=""
         onCompare={vi.fn()}
         onUnmark={vi.fn()}
         onRename={vi.fn()}
@@ -67,6 +68,7 @@ describe('BaselineListPanel', () => {
         baselines={[makeMark('workflow-run-1', 'WF Baseline')]}
         runs={[]}  // filtered view excludes this run
         selectedRunId="other"
+        compareBaselineId=""
         onCompare={vi.fn()}
         onUnmark={vi.fn()}
         onRename={vi.fn()}
@@ -87,6 +89,7 @@ describe('BaselineListPanel', () => {
         baselines={[makeMark('r1', 'Baseline')]}
         runs={[run]}
         selectedRunId="r1"  // this is the selected run
+        compareBaselineId=""
         onCompare={vi.fn()}
         onUnmark={vi.fn()}
         onRename={vi.fn()}
@@ -105,6 +108,7 @@ describe('BaselineListPanel', () => {
         baselines={[makeMark('r1', 'Baseline')]}
         runs={[run]}
         selectedRunId="other"
+        compareBaselineId=""
         onCompare={onCompare}
         onUnmark={vi.fn()}
         onRename={vi.fn()}
@@ -123,6 +127,7 @@ describe('BaselineListPanel', () => {
         baselines={[makeMark('r1', 'Baseline')]}
         runs={[run]}
         selectedRunId="other"
+        compareBaselineId=""
         onCompare={vi.fn()}
         onUnmark={onUnmark}
         onRename={vi.fn()}
@@ -141,6 +146,7 @@ describe('BaselineListPanel', () => {
         baselines={[makeMark('r1', 'Old Label')]}
         runs={[run]}
         selectedRunId="other"
+        compareBaselineId=""
         onCompare={vi.fn()}
         onUnmark={vi.fn()}
         onRename={onRename}
@@ -157,6 +163,29 @@ describe('BaselineListPanel', () => {
     expect(onRename).toHaveBeenCalledWith('r1', 'New Label');
   });
 
+  it('inline rename: Enter commits via blur path', () => {
+    const onRename = vi.fn();
+    const run = makeRun('r1');
+    const { container } = render(
+      <BaselineListPanel
+        baselines={[makeMark('r1', 'Old Label')]}
+        runs={[run]}
+        selectedRunId="other"
+        compareBaselineId=""
+        onCompare={vi.fn()}
+        onUnmark={vi.fn()}
+        onRename={onRename}
+      />,
+    );
+
+    fireEvent.click(container.querySelector('.baseline-list-label')!);
+    const input = container.querySelector('.baseline-list-edit-input') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: 'Committed Label' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    expect(onRename).toHaveBeenCalledWith('r1', 'Committed Label');
+  });
+
   it('inline rename: Escape key cancels without calling onRename', () => {
     const onRename = vi.fn();
     const run = makeRun('r1');
@@ -165,6 +194,7 @@ describe('BaselineListPanel', () => {
         baselines={[makeMark('r1', 'Old Label')]}
         runs={[run]}
         selectedRunId="other"
+        compareBaselineId=""
         onCompare={vi.fn()}
         onUnmark={vi.fn()}
         onRename={onRename}
@@ -179,6 +209,29 @@ describe('BaselineListPanel', () => {
     expect(container.querySelector('.baseline-list-edit-input')).toBeNull();
   });
 
+  it('inline rename: blank value does not call onRename', () => {
+    const onRename = vi.fn();
+    const run = makeRun('r1');
+    const { container } = render(
+      <BaselineListPanel
+        baselines={[makeMark('r1', 'Old Label')]}
+        runs={[run]}
+        selectedRunId="other"
+        compareBaselineId=""
+        onCompare={vi.fn()}
+        onUnmark={vi.fn()}
+        onRename={onRename}
+      />,
+    );
+
+    fireEvent.click(container.querySelector('.baseline-list-label')!);
+    const input = container.querySelector('.baseline-list-edit-input') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '   ' } });
+    fireEvent.blur(input);
+
+    expect(onRename).not.toHaveBeenCalled();
+  });
+
   it('shows baseline-list-item-current class for selected baseline', () => {
     const run = makeRun('r1');
     const { container } = render(
@@ -186,6 +239,7 @@ describe('BaselineListPanel', () => {
         baselines={[makeMark('r1', 'Baseline')]}
         runs={[run]}
         selectedRunId="r1"
+        compareBaselineId=""
         onCompare={vi.fn()}
         onUnmark={vi.fn()}
         onRename={vi.fn()}
@@ -200,6 +254,7 @@ describe('BaselineListPanel', () => {
         baselines={[makeMark('abcdefghijklmnop')]}
         runs={[]}
         selectedRunId="other"
+        compareBaselineId=""
         onCompare={vi.fn()}
         onUnmark={vi.fn()}
         onRename={vi.fn()}
@@ -207,5 +262,22 @@ describe('BaselineListPanel', () => {
     );
     // Should show first 12 chars of runId as fallback label
     expect(container.textContent).toContain('abcdefghijkl');
+  });
+
+  it('hides compare action for active compare target', () => {
+    const run = makeRun('r1');
+    const { container } = render(
+      <BaselineListPanel
+        baselines={[makeMark('r1', 'Baseline')]}
+        runs={[run]}
+        selectedRunId="other"
+        compareBaselineId="r1"
+        onCompare={vi.fn()}
+        onUnmark={vi.fn()}
+        onRename={vi.fn()}
+      />,
+    );
+    const setCompareBtn = [...container.querySelectorAll('button')].find((b) => b.textContent?.includes('Set Compare Target'));
+    expect(setCompareBtn).toBeUndefined();
   });
 });
