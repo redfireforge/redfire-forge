@@ -50,6 +50,21 @@ describe('useFloatingPanel', () => {
     expect(result.current.floatSize).toEqual({ w: 500, h: 400 });
   });
 
+  it('respects sidebar CSS variable when initializing float position', () => {
+    setViewport(500, 800);
+    document.documentElement.style.setProperty('--sidebar-w', '220');
+    const { result } = renderHook(() => useFloatingPanel());
+    expect(result.current.floatPos.x).toBe(240);
+    document.documentElement.style.removeProperty('--sidebar-w');
+  });
+
+  it('falls back to default sidebar offset when CSS variable is invalid', () => {
+    document.documentElement.style.setProperty('--sidebar-w', 'invalid');
+    const { result } = renderHook(() => useFloatingPanel());
+    expect(result.current.floatPos.x).toBe(150);
+    document.documentElement.style.removeProperty('--sidebar-w');
+  });
+
   it('resizes docked panel and clamps within min/max limits', () => {
     const { result } = renderHook(() => useFloatingPanel({ defaultDockedHeight: 200 }));
 

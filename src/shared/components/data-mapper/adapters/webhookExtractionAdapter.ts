@@ -18,6 +18,7 @@ import type {
   ValidationIssue,
 } from '../types';
 import { coerceSampleData } from '../utils/mapperParsing';
+import { validateVariableMappings } from './utils/variableMappingValidation';
 
 // ─── Constants ────────────────────────────────────────────
 
@@ -95,47 +96,10 @@ export function createWebhookExtractionAdapter(
     },
 
     validate(mappings: Mapping[]): ValidationIssue[] {
-      const issues: ValidationIssue[] = [];
-      const names = new Set<string>();
-
-      for (const m of mappings) {
-        if (!m.targetPath.trim()) {
-          issues.push({
-            mappingId: m.id,
-            severity: 'error',
-            message: 'Variable name is required.',
-          });
-          continue;
-        }
-
-        const path = m.expression ?? m.sourcePath;
-        if (!path.trim()) {
-          issues.push({
-            mappingId: m.id,
-            severity: 'error',
-            message: `JSON path is empty for variable "${m.targetPath}".`,
-          });
-        }
-
-        if (names.has(m.targetPath)) {
-          issues.push({
-            mappingId: m.id,
-            severity: 'error',
-            message: `Duplicate variable name "${m.targetPath}".`,
-          });
-        }
-        names.add(m.targetPath);
-
-        if (/[{}]/.test(m.targetPath)) {
-          issues.push({
-            mappingId: m.id,
-            severity: 'warning',
-            message: `Variable name "${m.targetPath}" should not contain braces.`,
-          });
-        }
-      }
-
-      return issues;
+      return validateVariableMappings(mappings, {
+        emptyValueMessage: (targetPath) =>
+          `JSON path is empty for variable "${targetPath}".`,
+      });
     },
   };
 }
