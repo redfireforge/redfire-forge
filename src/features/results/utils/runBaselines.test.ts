@@ -157,6 +157,20 @@ describe('compareRuns', () => {
     expect(p95?.delta).toBe(-20);
   });
 
+  it('treats small favorable deltas under threshold as no change', () => {
+    const baseline = makeRun('b', { p95ResponseTime: 100, tps: 100, errorRate: 2 });
+    const current = makeRun('c', { p95ResponseTime: 95, tps: 105, errorRate: 1.5 });
+    const result = compareRuns(baseline, current);
+
+    const p95 = result.metricDeltas.find((d) => d.metric === 'P95 Response Time');
+    const tps = result.metricDeltas.find((d) => d.metric === 'TPS');
+    const er = result.metricDeltas.find((d) => d.metric === 'Error Rate');
+
+    expect(p95?.improved).toBe(false); // -5% vs 10% threshold
+    expect(tps?.improved).toBe(false); // +5% vs 10% threshold
+    expect(er?.improved).toBe(false); // -0.5pp vs 1pp threshold
+  });
+
   it('detects regression when P95 degrades beyond threshold', () => {
     const baseline = makeRun('b', { p95ResponseTime: 100 });
     const current = makeRun('c', { p95ResponseTime: 150 }); // +50% vs 10% threshold
@@ -165,6 +179,18 @@ describe('compareRuns', () => {
     const p95 = result.metricDeltas.find((d) => d.metric === 'P95 Response Time');
     expect(p95?.regressed).toBe(true);
     expect(result.regressions.length).toBeGreaterThan(0);
+  });
+
+  it('classifies large min/max changes using response-time thresholds', () => {
+    const baseline = makeRun('b', { minResponseTime: 100, maxResponseTime: 120 });
+    const current = makeRun('c', { minResponseTime: 140, maxResponseTime: 180 });
+    const result = compareRuns(baseline, current);
+
+    const min = result.metricDeltas.find((d) => d.metric === 'Min Response Time');
+    const max = result.metricDeltas.find((d) => d.metric === 'Max Response Time');
+
+    expect(min?.regressed).toBe(true); // +40% vs avgPercent threshold of 10%
+    expect(max?.regressed).toBe(true); // +50% vs avgPercent threshold of 10%
   });
 
   it('detects critical regression when 2x threshold', () => {

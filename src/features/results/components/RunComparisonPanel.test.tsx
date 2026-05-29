@@ -153,18 +153,50 @@ describe('RunComparisonPanel', () => {
     expect(container.textContent).toContain('P95 Response Time');
   });
 
-  it('shows regression alerts for regressed metrics', () => {
+  it('shows regression count in summary for regressed metrics', () => {
     const baseline = makeRun('b', { p95ResponseTime: 100 });
     const current = makeRun('c', { p95ResponseTime: 200 }); // +100%
     const { container } = render(<RunComparisonPanel baselineRun={baseline} currentRun={current} />);
-    expect(container.querySelector('.regression-alerts')).toBeTruthy();
-    expect(container.querySelector('.regression-alert')).toBeTruthy();
+    expect(container.querySelector('.run-comparison-summary')?.textContent).toContain('regressed');
   });
 
-  it('shows no regression alerts for identical runs', () => {
+  it('shows zero regressions in summary for identical runs', () => {
     const run = makeRun('b');
     const { container } = render(<RunComparisonPanel baselineRun={run} currentRun={run} />);
-    expect(container.querySelector('.regression-alerts')).toBeFalsy();
+    expect(container.querySelector('.run-comparison-summary')?.textContent).toContain('0 regressed');
+  });
+
+  it('shows improvement count in summary when metrics improve', () => {
+    const compared = makeRun('compared', { avgResponseTime: 200, p95ResponseTime: 300 });
+    const baseline = makeRun('baseline', { avgResponseTime: 100, p95ResponseTime: 120 });
+    const { container } = render(<RunComparisonPanel baselineRun={compared} currentRun={baseline} />);
+    expect(container.querySelector('.run-comparison-summary')?.textContent).toContain('improved');
+  });
+
+  it('shows comparison direction summary and improvement counts', () => {
+    const compared = makeRun('compared', { p95ResponseTime: 200, avgResponseTime: 150 });
+    const baseline = makeRun('baseline', { p95ResponseTime: 100, avgResponseTime: 80 });
+    const { container } = render(<RunComparisonPanel baselineRun={compared} currentRun={baseline} />);
+    const summary = container.querySelector('.run-comparison-summary');
+    expect(summary?.textContent).toContain('Direction: Compared -> Baseline');
+    expect(summary?.textContent).toContain('improved');
+  });
+
+  it('labels runs by comparison role clearly', () => {
+    const compared = makeRun('b');
+    const current = makeRun('c');
+    const { container } = render(
+      <RunComparisonPanel
+        baselineRun={compared}
+        currentRun={current}
+        comparedRunIsBaseline={false}
+        currentRunIsBaseline={true}
+      />,
+    );
+    const leftLabel = container.querySelector('.baseline-label');
+    expect(leftLabel?.textContent).toContain('Compared Run:');
+    expect(container.querySelector('.current-label')?.textContent).toContain('Baseline Run:');
+    expect(container.querySelector('.comparison-table thead')?.textContent).toContain('Baseline');
   });
 
   it('switches to regressions tab', () => {
@@ -176,13 +208,10 @@ describe('RunComparisonPanel', () => {
     expect(container.querySelector('.regression-pass')).toBeTruthy(); // no regressions
   });
 
-  it('shows critical regression alert and regression list with metric deltas', () => {
+  it('shows regression list with metric deltas', () => {
     const baseline = makeRun('b', { p95ResponseTime: 100 });
     const current = makeRun('c', { p95ResponseTime: 250 });
     const { container } = render(<RunComparisonPanel baselineRun={baseline} currentRun={current} />);
-    const crit = container.querySelector('.regression-alert.regression-critical');
-    expect(crit).toBeTruthy();
-    expect(crit?.textContent).toContain('🔴');
     fireEvent.click(container.querySelectorAll('.run-comparison-tab')[2]);
     expect(container.querySelector('.regression-detail')).toBeTruthy();
     expect(container.querySelector('.regression-detail-body')).toBeTruthy();
@@ -459,13 +488,12 @@ describe('RunComparisonPanel - edge cases', () => {
     expect(container.textContent).toContain('NoGroup');
   });
 
-  it('shows warning regression alert for moderate regression', () => {
+  it('shows warning severity text for moderate regression in regressions tab', () => {
     const baseline = makeRun('b', { p95ResponseTime: 100 });
     const current = makeRun('c', { p95ResponseTime: 115 }); // +15%
     const { container } = render(<RunComparisonPanel baselineRun={baseline} currentRun={current} />);
-    const warning = container.querySelector('.regression-alert.regression-warning');
-    expect(warning).toBeTruthy();
-    expect(warning?.textContent).toContain('🟡');
+    fireEvent.click(container.querySelectorAll('.run-comparison-tab')[2]);
+    expect(container.textContent).toContain('🟡 Warning');
   });
 
   it('shows regression detail without delta body when metric is missing from deltas', () => {
@@ -490,11 +518,12 @@ describe('RunComparisonPanel - edge cases', () => {
       <RunComparisonPanel
         baselineRun={baseline}
         currentRun={current}
+        comparedRunIsBaseline={true}
         onRenameBaseline={vi.fn()}
       />,
     );
     const { container: withoutRename } = render(
-      <RunComparisonPanel baselineRun={baseline} currentRun={current} />,
+      <RunComparisonPanel baselineRun={baseline} currentRun={current} comparedRunIsBaseline={true} />,
     );
     expect(withRename.querySelector('.baseline-rename-btn')).toBeTruthy();
     expect(withoutRename.querySelector('.baseline-rename-btn')).toBeFalsy();

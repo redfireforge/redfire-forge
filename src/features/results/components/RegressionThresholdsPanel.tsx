@@ -4,7 +4,7 @@ import { DEFAULT_THRESHOLDS } from '../utils/runBaselines';
 
 interface Props {
   thresholds: RegressionThresholds;
-  onSave: (t: RegressionThresholds) => void;
+  onSave: (t: RegressionThresholds) => void | Promise<void>;
   onCancel: () => void;
 }
 
@@ -38,6 +38,12 @@ function parseDraft(draft: DraftState): RegressionThresholds {
 export function RegressionThresholdsPanel({ thresholds, onSave, onCancel }: Props) {
   // Store as strings so users can freely type (e.g. delete digits mid-edit)
   const [draft, setDraft] = useState<DraftState>(() => toDraft(thresholds));
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const showStatus = (message: string) => {
+    setStatusMessage(message);
+  };
 
   // Keep draft in sync with persisted thresholds (e.g. after Save updates the prop)
   useEffect(() => { setDraft(toDraft(thresholds)); }, [thresholds]);
@@ -46,11 +52,28 @@ export function RegressionThresholdsPanel({ thresholds, onSave, onCancel }: Prop
     setDraft((prev) => ({ ...prev, [key]: raw }));
   };
 
-  const handleReset = () => setDraft(toDraft(DEFAULT_THRESHOLDS));
+  const handleReset = () => {
+    setDraft(toDraft(DEFAULT_THRESHOLDS));
+    showStatus('Thresholds reset to defaults.');
+  };
 
   const handleCancel = () => {
     setDraft(toDraft(thresholds)); // reset unsaved edits
     onCancel();
+    showStatus('Unsaved changes discarded.');
+  };
+
+  const handleSave = async () => {
+    try {
+      setIsSaving(true);
+      showStatus('Saving thresholds...');
+      await onSave(parseDraft(draft));
+      showStatus('Thresholds saved.');
+    } catch {
+      showStatus('Failed to save thresholds.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -89,9 +112,12 @@ export function RegressionThresholdsPanel({ thresholds, onSave, onCancel }: Prop
         <button className="btn btn-sm" onClick={handleReset} title="Reset all to defaults">
           Reset Defaults
         </button>
+        {statusMessage && <span className="thresholds-status-message">{statusMessage}</span>}
         <div style={{ flex: 1 }} />
         <button className="btn btn-sm" onClick={handleCancel}>Cancel</button>
-        <button className="btn btn-sm btn-primary" onClick={() => onSave(parseDraft(draft))}>Save</button>
+        <button className="btn btn-sm btn-primary" onClick={handleSave} disabled={isSaving}>
+          {isSaving ? 'Saving...' : 'Save'}
+        </button>
       </div>
     </div>
   );
