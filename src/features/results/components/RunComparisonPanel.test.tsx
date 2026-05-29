@@ -1,10 +1,21 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, fireEvent } from '@testing-library/react';
 import { RunComparisonPanel, TrendChart } from './RunComparisonPanel';
 import type { TestRun, RequestResult } from '../../../shared/types';
 import type { BaselineMark, RunComparison } from '../utils/runBaselines';
+import * as saveFileMod from '../../../shared/utils/fileSaver';
+import * as comparisonReportMod from '../utils/comparisonReport';
 import * as runBaselines from '../utils/runBaselines';
+
+vi.mock('../../../shared/utils/fileSaver', () => ({
+  saveFile: vi.fn(),
+}));
+
+vi.mock('../utils/comparisonReport', () => ({
+  generateComparisonMarkdown: vi.fn(() => '# Comparison'),
+  generateComparisonJson: vi.fn(() => '{}'),
+}));
 
 vi.mock('./ResponseTimeHistogram', () => ({
   ResponseTimeOverlayHistogram: () => <div data-testid="overlay-histogram" />,
@@ -15,10 +26,12 @@ vi.mock('recharts', () => {
   const FakeChart = ({ children }: { children?: React.ReactNode }) => <div data-testid="chart">{children}</div>;
   return {
     LineChart: FakeChart,
-    Line: ({ dot: Dot }: { dot?: (p: Record<string, unknown>) => React.ReactNode }) => {
-      if (!Dot) return null;
-      const node = Dot({ cx: 4, cy: 5, payload: { runId: 'r-baseline' } } as Record<string, unknown>);
-      return <div data-testid="line-with-dot">{node}</div>;
+    Line: ({ dot: Dot, dataKey }: { dot?: ((p: Record<string, unknown>) => React.ReactNode) | boolean; dataKey?: string }) => {
+      if (typeof Dot === 'function') {
+        const node = Dot({ cx: 4, cy: 5, payload: { runId: 'r-baseline' } } as Record<string, unknown>);
+        return <div data-testid="line-with-dot">{node}</div>;
+      }
+      return <div data-testid="chart-line" data-key={dataKey} />;
     },
     XAxis: ({ tickFormatter }: { tickFormatter?: (t: number) => string }) => {
       tickFormatter?.(1_700_000_000_000);
@@ -31,11 +44,14 @@ vi.mock('recharts', () => {
       formatter,
     }: {
       labelFormatter?: (t: unknown) => string;
-      formatter?: (v: unknown) => unknown;
+      formatter?: (v: unknown, name: unknown) => unknown;
     }) => {
       labelFormatter?.(1_700_000_000_000);
-      formatter?.(42);
-      return null;
+      formatter?.(42, 'metric');
+      // Also call with null to exercise the Bug D guard (value != null ? ... : '—')
+      const nullResult = formatter?.(null, 'metric');
+      const nullDisplay = Array.isArray(nullResult) ? String(nullResult[0]) : '';
+      return <span data-testid="tooltip-null-display">{nullDisplay}</span>;
     },
     ResponsiveContainer: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
     Legend: () => null,
@@ -96,6 +112,10 @@ function makeReq(partial: Partial<RequestResult> & Pick<RequestResult, 'scenario
 }
 
 describe('RunComparisonPanel', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it('renders comparison header', () => {
     const baseline = makeRun('b');
     const current = makeRun('c');
@@ -133,18 +153,50 @@ describe('RunComparisonPanel', () => {
     expect(container.textContent).toContain('P95 Response Time');
   });
 
-  it('shows regression alerts for regressed metrics', () => {
+  it('shows regression count in summary for regressed metrics', () => {
     const baseline = makeRun('b', { p95ResponseTime: 100 });
     const current = makeRun('c', { p95ResponseTime: 200 }); // +100%
     const { container } = render(<RunComparisonPanel baselineRun={baseline} currentRun={current} />);
-    expect(container.querySelector('.regression-alerts')).toBeTruthy();
-    expect(container.querySelector('.regression-alert')).toBeTruthy();
+    expect(container.querySelector('.run-comparison-summary')?.textContent).toContain('regressed');
   });
 
-  it('shows no regression alerts for identical runs', () => {
+  it('shows zero regressions in summary for identical runs', () => {
     const run = makeRun('b');
     const { container } = render(<RunComparisonPanel baselineRun={run} currentRun={run} />);
-    expect(container.querySelector('.regression-alerts')).toBeFalsy();
+    expect(container.querySelector('.run-comparison-summary')?.textContent).toContain('0 regressed');
+  });
+
+  it('shows improvement count in summary when metrics improve', () => {
+    const compared = makeRun('compared', { avgResponseTime: 200, p95ResponseTime: 300 });
+    const baseline = makeRun('baseline', { avgResponseTime: 100, p95ResponseTime: 120 });
+    const { container } = render(<RunComparisonPanel baselineRun={compared} currentRun={baseline} />);
+    expect(container.querySelector('.run-comparison-summary')?.textContent).toContain('improved');
+  });
+
+  it('shows comparison direction summary and improvement counts', () => {
+    const compared = makeRun('compared', { p95ResponseTime: 200, avgResponseTime: 150 });
+    const baseline = makeRun('baseline', { p95ResponseTime: 100, avgResponseTime: 80 });
+    const { container } = render(<RunComparisonPanel baselineRun={compared} currentRun={baseline} />);
+    const summary = container.querySelector('.run-comparison-summary');
+    expect(summary?.textContent).toContain('Direction: Compared -> Baseline');
+    expect(summary?.textContent).toContain('improved');
+  });
+
+  it('labels runs by comparison role clearly', () => {
+    const compared = makeRun('b');
+    const current = makeRun('c');
+    const { container } = render(
+      <RunComparisonPanel
+        baselineRun={compared}
+        currentRun={current}
+        comparedRunIsBaseline={false}
+        currentRunIsBaseline={true}
+      />,
+    );
+    const leftLabel = container.querySelector('.baseline-label');
+    expect(leftLabel?.textContent).toContain('Compared Run:');
+    expect(container.querySelector('.current-label')?.textContent).toContain('Baseline Run:');
+    expect(container.querySelector('.comparison-table thead')?.textContent).toContain('Baseline');
   });
 
   it('switches to regressions tab', () => {
@@ -156,13 +208,10 @@ describe('RunComparisonPanel', () => {
     expect(container.querySelector('.regression-pass')).toBeTruthy(); // no regressions
   });
 
-  it('shows critical regression alert and regression list with metric deltas', () => {
+  it('shows regression list with metric deltas', () => {
     const baseline = makeRun('b', { p95ResponseTime: 100 });
     const current = makeRun('c', { p95ResponseTime: 250 });
     const { container } = render(<RunComparisonPanel baselineRun={baseline} currentRun={current} />);
-    const crit = container.querySelector('.regression-alert.regression-critical');
-    expect(crit).toBeTruthy();
-    expect(crit?.textContent).toContain('🔴');
     fireEvent.click(container.querySelectorAll('.run-comparison-tab')[2]);
     expect(container.querySelector('.regression-detail')).toBeTruthy();
     expect(container.querySelector('.regression-detail-body')).toBeTruthy();
@@ -286,6 +335,100 @@ describe('TrendChart', () => {
     expect(container.querySelector('[data-testid="line-with-dot"]')).toBeTruthy();
     expect(container.querySelector('circle[r="6"]')).toBeTruthy();
   });
+
+  it('scope select renders with 4 options', () => {
+    const runs = [
+      { ...makeRun('r1'), timestamp: 1000 },
+      { ...makeRun('r2'), timestamp: 2000 },
+    ];
+    const { container } = render(<TrendChart runs={runs} baselines={[]} />);
+    const select = container.querySelector('.trend-scope-select');
+    expect(select).toBeTruthy();
+    expect(select?.querySelectorAll('option').length).toBe(4);
+  });
+
+  it('metric2 select renders and excludes the currently selected primary metric', () => {
+    const runs = [
+      { ...makeRun('r1'), timestamp: 1000 },
+      { ...makeRun('r2'), timestamp: 2000 },
+    ];
+    const { container } = render(<TrendChart runs={runs} baselines={[]} />);
+    const metric2Select = container.querySelector('.trend-metric-select2') as HTMLSelectElement;
+    expect(metric2Select).toBeTruthy();
+    // Default primary is p95ResponseTime — it should NOT appear in secondary options
+    const options = [...metric2Select.querySelectorAll('option')].map((o) => o.getAttribute('value'));
+    expect(options).not.toContain('p95ResponseTime');
+    // All other 6 metrics + 'none' placeholder = 7 options
+    expect(options.length).toBe(7);
+  });
+
+  it('metric2 resets to none when primary changes to same value (Bug A regression)', () => {
+    const runs = [
+      { ...makeRun('r1'), timestamp: 1000 },
+      { ...makeRun('r2'), timestamp: 2000 },
+    ];
+    const { container } = render(<TrendChart runs={runs} baselines={[]} />);
+    const metric1Select = container.querySelector('.trend-metric-select') as HTMLSelectElement;
+    const metric2Select = container.querySelector('.trend-metric-select2') as HTMLSelectElement;
+
+    // Set metric2 to 'tps'
+    fireEvent.change(metric2Select, { target: { value: 'tps' } });
+    expect(metric2Select.value).toBe('tps');
+
+    // Now change metric1 to 'tps' — metric2 must clear to 'none'
+    fireEvent.change(metric1Select, { target: { value: 'tps' } });
+    expect(metric2Select.value).toBe('none');
+  });
+
+  it('per-scenario tab shows empty hint when no scenario data', () => {
+    // Runs with no results — per-scenario data is empty
+    const runs = [
+      { ...makeRun('r1'), timestamp: 1000 },
+      { ...makeRun('r2'), timestamp: 2000 },
+    ];
+    const { container } = render(<TrendChart runs={runs} baselines={[]} />);
+    // Switch to Per-Scenario tab
+    const tabs = container.querySelectorAll('.trend-chart-tab');
+    fireEvent.click(tabs[1]); // Per-Scenario
+    expect(container.textContent).toContain('No scenario data available');
+  });
+
+  it('per-scenario tooltip formatter shows "—" for null value, not "null ms" (Bug D regression)', () => {
+    // Runs with scenario data so the per-scenario chart renders
+    const r1 = { ...makeRun('r1', {}, [makeReq({ scenarioName: 'Login', responseTimeMs: 100 })]), timestamp: 1000 };
+    const r2 = { ...makeRun('r2', {}, [makeReq({ scenarioName: 'Login', responseTimeMs: 110 })]), timestamp: 2000 };
+    const { container } = render(<TrendChart runs={[r1, r2]} baselines={[]} />);
+    // Switch to Per-Scenario tab so the per-scenario Tooltip formatter is active
+    fireEvent.click(container.querySelectorAll('.trend-chart-tab')[1]);
+    // The Tooltip mock calls formatter(null) — should return '—', not 'null ms'
+    const nullDisplay = container.querySelector('[data-testid="tooltip-null-display"]');
+    expect(nullDisplay?.textContent).toBe('—');
+    expect(nullDisplay?.textContent).not.toContain('null');
+  });
+
+  it('shows scope-aware empty message when scope filter leaves fewer than 2 runs', () => {
+    // r1 = svc-a, r2 = svc-b — when scope='service' and ref=r1, only r1 matches
+    const r1 = { ...makeRun('r1'), svcName: 'svc-a', timestamp: 1000 };
+    const r2 = { ...makeRun('r2'), svcName: 'svc-b', timestamp: 2000 };
+    const { container } = render(<TrendChart runs={[r1, r2]} baselines={[]} selectedRun={r1} />);
+    // Scope 'service' — only r1 (svc-a) matches → 1 data point < 2 → scope-aware message
+    const scopeSelect = container.querySelector('.trend-scope-select') as HTMLSelectElement;
+    fireEvent.change(scopeSelect, { target: { value: 'service' } });
+    expect(container.textContent).toContain('try "All runs" for a broader view');
+  });
+
+  it('metric2 overlay line renders when secondary metric is selected', () => {
+    const r1 = { ...makeRun('r1'), timestamp: 1000 };
+    const r2 = { ...makeRun('r2'), timestamp: 2000 };
+    const { container } = render(<TrendChart runs={[r1, r2]} baselines={[]} />);
+    // No metric2 line initially
+    expect(container.querySelector('[data-testid="chart-line"]')).toBeNull();
+    // Select tps as secondary metric
+    const metric2Select = container.querySelector('.trend-metric-select2') as HTMLSelectElement;
+    fireEvent.change(metric2Select, { target: { value: 'tps' } });
+    // Metric2 line (dot={false}) should now render
+    expect(container.querySelector('[data-testid="chart-line"][data-key="tps"]')).toBeTruthy();
+  });
 });
 
 describe('RunComparisonPanel - edge cases', () => {
@@ -345,13 +488,12 @@ describe('RunComparisonPanel - edge cases', () => {
     expect(container.textContent).toContain('NoGroup');
   });
 
-  it('shows warning regression alert for moderate regression', () => {
+  it('shows warning severity text for moderate regression in regressions tab', () => {
     const baseline = makeRun('b', { p95ResponseTime: 100 });
     const current = makeRun('c', { p95ResponseTime: 115 }); // +15%
     const { container } = render(<RunComparisonPanel baselineRun={baseline} currentRun={current} />);
-    const warning = container.querySelector('.regression-alert.regression-warning');
-    expect(warning).toBeTruthy();
-    expect(warning?.textContent).toContain('🟡');
+    fireEvent.click(container.querySelectorAll('.run-comparison-tab')[2]);
+    expect(container.textContent).toContain('🟡 Warning');
   });
 
   it('shows regression detail without delta body when metric is missing from deltas', () => {
@@ -366,6 +508,287 @@ describe('RunComparisonPanel - edge cases', () => {
     fireEvent.click(container.querySelectorAll('.run-comparison-tab')[2]);
     expect(container.querySelector('.regression-detail')).toBeTruthy();
     expect(container.querySelector('.regression-detail-body')).toBeFalsy();
+    spy.mockRestore();
+  });
+
+  it('shows rename button only when onRenameBaseline is provided', () => {
+    const baseline = makeRun('b');
+    const current = makeRun('c');
+    const { container: withRename } = render(
+      <RunComparisonPanel
+        baselineRun={baseline}
+        currentRun={current}
+        comparedRunIsBaseline={true}
+        onRenameBaseline={vi.fn()}
+      />,
+    );
+    const { container: withoutRename } = render(
+      <RunComparisonPanel baselineRun={baseline} currentRun={current} comparedRunIsBaseline={true} />,
+    );
+    expect(withRename.querySelector('.baseline-rename-btn')).toBeTruthy();
+    expect(withoutRename.querySelector('.baseline-rename-btn')).toBeFalsy();
+  });
+
+  // ── Export button ────────────────────────────────────────────────────────
+
+  it('renders Export button', () => {
+    const baseline = makeRun('b');
+    const current = makeRun('c');
+    const { container } = render(<RunComparisonPanel baselineRun={baseline} currentRun={current} />);
+    const btn = container.querySelector('.run-comparison-export-btn');
+    expect(btn).toBeTruthy();
+    expect(btn?.textContent).toContain('Export');
+  });
+
+  it('shows export menu when Export button is clicked', () => {
+    const baseline = makeRun('b');
+    const current = makeRun('c');
+    const { container } = render(<RunComparisonPanel baselineRun={baseline} currentRun={current} />);
+    expect(container.querySelector('.run-comparison-export-menu')).toBeFalsy();
+    fireEvent.click(container.querySelector('.run-comparison-export-btn')!);
+    expect(container.querySelector('.run-comparison-export-menu')).toBeTruthy();
+  });
+
+  it('hides export menu when Export button is clicked again', () => {
+    const baseline = makeRun('b');
+    const current = makeRun('c');
+    const { container } = render(<RunComparisonPanel baselineRun={baseline} currentRun={current} />);
+    const btn = container.querySelector('.run-comparison-export-btn')!;
+    fireEvent.click(btn);
+    fireEvent.click(btn);
+    expect(container.querySelector('.run-comparison-export-menu')).toBeFalsy();
+  });
+
+  it('calls generateComparisonMarkdown and saveFile when "Export as Markdown" is clicked', () => {
+    const mockSaveFile = vi.mocked(saveFileMod.saveFile);
+    const mockGenMd = vi.mocked(comparisonReportMod.generateComparisonMarkdown);
+    mockSaveFile.mockResolvedValue(undefined);
+    mockGenMd.mockReturnValue('# report');
+
+    const baseline = makeRun('b');
+    const current = makeRun('c');
+    const { container } = render(
+      <RunComparisonPanel baselineRun={baseline} currentRun={current} baselineLabel="Sprint baseline" />,
+    );
+    fireEvent.click(container.querySelector('.run-comparison-export-btn')!);
+    const menuBtns = container.querySelectorAll('.run-comparison-export-menu button');
+    fireEvent.click(menuBtns[0]); // Export as Markdown
+
+    expect(mockGenMd).toHaveBeenCalledWith(expect.any(Object), 'Sprint baseline');
+    expect(mockSaveFile).toHaveBeenCalledWith(
+      expect.any(Blob),
+      expect.objectContaining({ filename: 'comparison-report.md', mimeType: 'text/markdown' }),
+    );
+  });
+
+  it('calls generateComparisonJson and saveFile when "Export as JSON" is clicked', () => {
+    const mockSaveFile = vi.mocked(saveFileMod.saveFile);
+    const mockGenJson = vi.mocked(comparisonReportMod.generateComparisonJson);
+    mockSaveFile.mockResolvedValue(undefined);
+    mockGenJson.mockReturnValue('{"data":1}');
+
+    const baseline = makeRun('b');
+    const current = makeRun('c');
+    const { container } = render(<RunComparisonPanel baselineRun={baseline} currentRun={current} />);
+    fireEvent.click(container.querySelector('.run-comparison-export-btn')!);
+    const menuBtns = container.querySelectorAll('.run-comparison-export-menu button');
+    fireEvent.click(menuBtns[1]); // Export as JSON
+
+    expect(mockGenJson).toHaveBeenCalled();
+    expect(mockSaveFile).toHaveBeenCalledWith(
+      expect.any(Blob),
+      expect.objectContaining({ filename: 'comparison-report.json', mimeType: 'application/json' }),
+    );
+  });
+
+  it('hides export menu after choosing an export option', () => {
+    vi.mocked(saveFileMod.saveFile).mockResolvedValue(undefined);
+    const baseline = makeRun('b');
+    const current = makeRun('c');
+    const { container } = render(<RunComparisonPanel baselineRun={baseline} currentRun={current} />);
+    fireEvent.click(container.querySelector('.run-comparison-export-btn')!);
+    fireEvent.click(container.querySelectorAll('.run-comparison-export-menu button')[0]);
+    expect(container.querySelector('.run-comparison-export-menu')).toBeFalsy();
+  });
+
+  // ── Rename interaction ────────────────────────────────────────────────────
+
+  it('clicking rename button shows rename input pre-filled with baselineLabel', () => {
+    const baseline = makeRun('b');
+    const current = makeRun('c');
+    const { container } = render(
+      <RunComparisonPanel
+        baselineRun={baseline}
+        currentRun={current}
+        baselineLabel="My Baseline"
+        onRenameBaseline={vi.fn()}
+      />,
+    );
+    const renameBtn = container.querySelector('.baseline-rename-btn') as HTMLElement;
+    fireEvent.click(renameBtn);
+    const input = container.querySelector('.baseline-rename-input') as HTMLInputElement;
+    expect(input).toBeTruthy();
+    expect(input.value).toBe('My Baseline');
+  });
+
+  it('rename blur commits and calls onRenameBaseline with trimmed value', () => {
+    const onRename = vi.fn();
+    const baseline = makeRun('b');
+    const current = makeRun('c');
+    const { container } = render(
+      <RunComparisonPanel
+        baselineRun={baseline}
+        currentRun={current}
+        baselineLabel="Old Label"
+        onRenameBaseline={onRename}
+      />,
+    );
+    fireEvent.click(container.querySelector('.baseline-rename-btn')!);
+    const input = container.querySelector('.baseline-rename-input')!;
+    fireEvent.change(input, { target: { value: '  New Label  ' } });
+    fireEvent.blur(input);
+    expect(onRename).toHaveBeenCalledWith('b', 'New Label');
+  });
+
+  it('rename Escape cancels without calling onRenameBaseline', () => {
+    const onRename = vi.fn();
+    const baseline = makeRun('b');
+    const current = makeRun('c');
+    const { container } = render(
+      <RunComparisonPanel
+        baselineRun={baseline}
+        currentRun={current}
+        baselineLabel="Old Label"
+        onRenameBaseline={onRename}
+      />,
+    );
+    fireEvent.click(container.querySelector('.baseline-rename-btn')!);
+    const input = container.querySelector('.baseline-rename-input')!;
+    fireEvent.keyDown(input, { key: 'Escape' });
+    expect(onRename).not.toHaveBeenCalled();
+    expect(container.querySelector('.baseline-rename-input')).toBeNull();
+  });
+
+  it('rename blur with empty string does not call onRenameBaseline', () => {
+    const onRename = vi.fn();
+    const baseline = makeRun('b');
+    const current = makeRun('c');
+    const { container } = render(
+      <RunComparisonPanel
+        baselineRun={baseline}
+        currentRun={current}
+        baselineLabel="Label"
+        onRenameBaseline={onRename}
+      />,
+    );
+    fireEvent.click(container.querySelector('.baseline-rename-btn')!);
+    const input = container.querySelector('.baseline-rename-input')!;
+    fireEvent.change(input, { target: { value: '   ' } }); // only whitespace
+    fireEvent.blur(input);
+    expect(onRename).not.toHaveBeenCalled();
+  });
+
+  // ── Unit display ──────────────────────────────────────────────────────────
+
+  it('shows pp unit for Error Rate delta in overview table', () => {
+    const spy = vi.spyOn(runBaselines, 'compareRuns').mockReturnValue({
+      metricDeltas: [{
+        metric: 'Error Rate',
+        baselineValue: 1,
+        currentValue: 4,
+        delta: 3,
+        deltaPercent: 300,
+        regressed: true,
+        improved: false,
+      }],
+      scenarioDeltas: [],
+      regressions: [],
+    } as RunComparison);
+    const baseline = makeRun('b');
+    const current = makeRun('c');
+    const { container } = render(<RunComparisonPanel baselineRun={baseline} currentRun={current} />);
+    // Delta should show "pp", not bare "%" — "3 pp" not "3%"
+    expect(container.textContent).toContain('pp');
+    // Baseline and current should still show '%'
+    expect(container.textContent).toContain('1%');
+    expect(container.textContent).toContain('4%');
+    spy.mockRestore();
+  });
+
+  it('shows ms unit on baseline/current in regression detail body', () => {
+    const spy = vi.spyOn(runBaselines, 'compareRuns').mockReturnValue({
+      metricDeltas: [{
+        metric: 'P95 Response Time',
+        baselineValue: 100,
+        currentValue: 150,
+        delta: 50,
+        deltaPercent: 50,
+        regressed: true,
+        improved: false,
+      }],
+      scenarioDeltas: [],
+      regressions: [{ metric: 'P95 Response Time', severity: 'warning' as const, threshold: 10, actual: 50 }],
+    } as RunComparison);
+    const baseline = makeRun('b');
+    const current = makeRun('c');
+    const { container } = render(<RunComparisonPanel baselineRun={baseline} currentRun={current} />);
+    fireEvent.click(container.querySelectorAll('.run-comparison-tab')[2]); // Regressions tab
+    expect(container.textContent).toContain('100 ms');
+    expect(container.textContent).toContain('150 ms');
+    // Delta display uses r.actual (+50%)
+    expect(container.textContent).toContain('+50%');
+    spy.mockRestore();
+  });
+
+  it('shows pp unit in regression detail delta for Error Rate (Bug K)', () => {
+    const spy = vi.spyOn(runBaselines, 'compareRuns').mockReturnValue({
+      metricDeltas: [{
+        metric: 'Error Rate',
+        baselineValue: 1,
+        currentValue: 4,
+        delta: 3,
+        deltaPercent: 300,  // +300% relative — must NOT be shown
+        regressed: true,
+        improved: false,
+      }],
+      scenarioDeltas: [],
+      // actual = d.delta = 3 (absolute pp change)
+      regressions: [{ metric: 'Error Rate', severity: 'critical' as const, threshold: 1, actual: 3 }],
+    } as RunComparison);
+    const baseline = makeRun('b');
+    const current = makeRun('c');
+    const { container } = render(<RunComparisonPanel baselineRun={baseline} currentRun={current} />);
+    fireEvent.click(container.querySelectorAll('.run-comparison-tab')[2]); // Regressions tab
+    // Should show absolute pp change, not the misleading relative %
+    expect(container.textContent).toContain('+3 pp');
+    expect(container.textContent).not.toContain('+300%');
+    // Baseline/current still show % unit
+    expect(container.textContent).toContain('1%');
+    expect(container.textContent).toContain('4%');
+    spy.mockRestore();
+  });
+
+  it('shows negative % in regression detail delta for TPS drop (Bug K)', () => {
+    const spy = vi.spyOn(runBaselines, 'compareRuns').mockReturnValue({
+      metricDeltas: [{
+        metric: 'TPS',
+        baselineValue: 100,
+        currentValue: 80,
+        delta: -20,
+        deltaPercent: -20,
+        regressed: true,
+        improved: false,
+      }],
+      scenarioDeltas: [],
+      // actual = Math.abs(deltaPercent) = 20
+      regressions: [{ metric: 'TPS', severity: 'critical' as const, threshold: 10, actual: 20 }],
+    } as RunComparison);
+    const baseline = makeRun('b');
+    const current = makeRun('c');
+    const { container } = render(<RunComparisonPanel baselineRun={baseline} currentRun={current} />);
+    fireEvent.click(container.querySelectorAll('.run-comparison-tab')[2]); // Regressions tab
+    // TPS: shows "-20%" (magnitude of drop, prepended with minus)
+    expect(container.textContent).toContain('-20%');
     spy.mockRestore();
   });
 });

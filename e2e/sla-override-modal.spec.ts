@@ -23,7 +23,7 @@ async function openRunner(page: Page) {
   // Click Select All to make sure tests are selected.
   const selectAllBtn = page.getByRole('button', { name: 'Select All', exact: true }).first();
   await selectAllBtn.waitFor({ state: 'visible', timeout: 15000 });
-  await selectAllBtn.click({ timeout: 10000 });
+  await selectAllBtn.click({ timeout: 10000, noWaitAfter: true });
   const trigger = page.locator('.sla-trigger');
   await trigger.waitFor({ state: 'attached', timeout: 15000 });
   await trigger.scrollIntoViewIfNeeded({ timeout: 10000 });
@@ -86,38 +86,30 @@ test.describe('SLA Override modal', () => {
     }
   });
 
-  test('expand button toggles modal-expanded class and grows the dialog', async ({ page }) => {
+  test('modal header has no expand or close (×) buttons (intentional design)', async ({ page }) => {
     await openRunner(page);
     await openSlaModal(page);
 
     const dialog = page.locator('.sla-override-modal');
-    const beforeBox = await dialog.boundingBox();
-    expect(beforeBox).not.toBeNull();
+    await expect(dialog).toBeVisible();
 
-    // Click expand
-    const expandBtn = page.getByRole('button', { name: /Expand modal/ });
-    await expect(expandBtn).toBeVisible();
-    await expandBtn.click();
+    // SLA modal intentionally has no expand button (showExpandButton=false)
+    await expect(page.getByRole('button', { name: /Expand modal/ })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /Shrink modal/ })).toHaveCount(0);
 
-    await expect(dialog).toHaveClass(/modal-expanded/);
-    const afterBox = await dialog.boundingBox();
-    expect(afterBox!.width).toBeGreaterThanOrEqual(beforeBox!.width);
-
-    // Expanded dialog must stay within viewport
-    const viewport = page.viewportSize()!;
-    expect(afterBox!.x + afterBox!.width).toBeLessThanOrEqual(viewport.width + 2);
-    expect(afterBox!.y + afterBox!.height).toBeLessThanOrEqual(viewport.height + 2);
-
-    // Shrink back
-    await page.getByRole('button', { name: /Shrink modal/ }).click();
-    await expect(dialog).not.toHaveClass(/modal-expanded/);
+    // SLA modal intentionally has no header × close button (closeButtonKind="none")
+    // The only close mechanisms are Cancel and Save in the footer
+    await expect(page.getByRole('button', { name: 'Close' })).toHaveCount(0);
+    await expect(page.locator('.sla-modal-footer button', { hasText: 'Cancel' })).toBeVisible();
+    await expect(page.locator('.sla-modal-footer button', { hasText: 'Save' })).toBeVisible();
   });
 
-  test('close (×) button closes the modal', async ({ page }) => {
+  test('modal closes via Cancel button (no header × button)', async ({ page }) => {
     await openRunner(page);
     await openSlaModal(page);
 
-    await page.getByRole('button', { name: 'Close' }).click();
+    // Only footer Cancel closes the modal (no × in header)
+    await page.getByRole('button', { name: 'Cancel' }).click();
     await expect(page.locator('.sla-override-modal')).not.toBeVisible();
   });
 
@@ -170,16 +162,20 @@ test.describe('SLA Override modal', () => {
     await expect(footer.getByRole('button', { name: 'Save' })).toBeVisible();
   });
 
-  test('visual snapshot — normal and expanded states', async ({ page }) => {
+  test('visual snapshot — normal state', async ({ page }) => {
     await openRunner(page);
     await openSlaModal(page);
 
-    // Normal snapshot
+    // Normal snapshot (SLA modal has no expand feature by design)
     await page.screenshot({ path: 'test-results/sla-override-normal.png', fullPage: false });
 
-    // Expand
-    await page.getByRole('button', { name: /Expand modal/ }).click();
-    await page.waitForTimeout(150);
-    await page.screenshot({ path: 'test-results/sla-override-expanded.png', fullPage: false });
+    // Verify modal is properly visible and sized
+    const dialog = page.locator('.sla-override-modal');
+    const box = await dialog.boundingBox();
+    expect(box).not.toBeNull();
+    const viewport = page.viewportSize()!;
+    expect(box!.width).toBeGreaterThan(200);
+    expect(box!.x + box!.width).toBeLessThanOrEqual(viewport.width + 2);
+    expect(box!.y + box!.height).toBeLessThanOrEqual(viewport.height + 2);
   });
 });
