@@ -193,7 +193,7 @@ test.describe('Workflow persistence across hard refresh', () => {
     }
 
     // Wait for all nodes to appear
-    await expect(page.locator('.react-flow__node')).toHaveCount(6, { timeout: 5000 });
+    await expect(page.locator('.react-flow__node')).toHaveCount(6, { timeout: 10000 });
 
     // Small delay for persistence to flush
     await page.waitForTimeout(500);

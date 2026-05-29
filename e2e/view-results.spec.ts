@@ -75,8 +75,8 @@ test.describe('View Results flow', () => {
   });
 
   test('group by controls are present', async ({ page }) => {
-    // Already on Results tab from beforeEach
-
+    // Group by controls are in the Request Details tab
+    await page.getByRole('tab', { name: 'Request Details' }).click();
     await expect(page.getByText('Group by')).toBeVisible({ timeout: 5000 });
   });
 });

@@ -10,7 +10,7 @@
 |--------|-------------|
 | **Name** | RedfireForge — Redfire Performance Workbench |
 | **Primary Use Case** | Performance testing, load testing HTTP APIs |
-| **Core Value** | Execution pools, load profiles, parallel testing, results analysis |
+| **Core Value** | Execution pools, load profiles, parallel testing, results comparison/trend analysis |
 
 **The Catalog is a spec browser with version tracking, not a contract test generator.**
 

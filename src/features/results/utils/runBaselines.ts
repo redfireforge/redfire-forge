@@ -190,8 +190,8 @@ function computeMetricDeltas(
     { metric: 'P95 Response Time', bKey: 'p95ResponseTime', threshold: thresholds.p95Percent },
     { metric: 'P99 Response Time', bKey: 'p99ResponseTime', threshold: thresholds.p99Percent },
     { metric: 'P99.9 Response Time', bKey: 'p999ResponseTime', threshold: thresholds.p999Percent },
-    { metric: 'Min Response Time', bKey: 'minResponseTime', threshold: 999 },
-    { metric: 'Max Response Time', bKey: 'maxResponseTime', threshold: 999 },
+    { metric: 'Min Response Time', bKey: 'minResponseTime', threshold: thresholds.avgPercent },
+    { metric: 'Max Response Time', bKey: 'maxResponseTime', threshold: thresholds.avgPercent },
   ];
 
   for (const { metric, bKey, threshold } of timeMetrics) {
@@ -205,7 +205,9 @@ function computeMetricDeltas(
       currentValue: cVal,
       delta: round2(delta),
       deltaPercent: round2(pct),
-      improved: delta < 0,
+      // Keep status symmetric with regression detection:
+      // only mark "Improved" when favorable change exceeds the same threshold.
+      improved: pct < -threshold,
       regressed: pct > threshold,
     });
   }
@@ -222,7 +224,7 @@ function computeMetricDeltas(
       currentValue: cVal,
       delta: round2(delta),
       deltaPercent: round2(pct),
-      improved: delta > 0,
+      improved: pct > thresholds.tpsPercent,
       regressed: pct < -thresholds.tpsPercent,
     });
   }
@@ -239,7 +241,7 @@ function computeMetricDeltas(
       currentValue: cVal,
       delta: round2(delta),
       deltaPercent: round2(pct),
-      improved: delta < 0,
+      improved: delta < -thresholds.errorRateAbsolute,
       regressed: delta > thresholds.errorRateAbsolute,
     });
   }
