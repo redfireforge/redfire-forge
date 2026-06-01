@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { gotoAppTab, reloadAppTab, waitForWorkflowReady } from './helpers';
 
 // Persistence assertions depend on ordered localStorage/IndexedDB transitions.
 test.describe.configure({ mode: 'serial' });
@@ -112,7 +113,7 @@ function getWorkflowFromStorage(page: Page) {
 test.describe('Workflow persistence across hard refresh', () => {
   test('nodes added from BLOCKS palette persist after reload', async ({ page }) => {
     await seedPersistenceData(page);
-    await page.goto('http://localhost:5173/?tab=workflow');
+    await gotoAppTab(page, 'workflow');
 
     // Wait for canvas to load
     await expect(page.locator('.react-flow__node')).toHaveCount(1, { timeout: 10000 });
@@ -135,7 +136,8 @@ test.describe('Workflow persistence across hard refresh', () => {
     expect(before?.nodeCount).toBe(4);
 
     // Hard refresh
-    await page.reload();
+    await reloadAppTab(page, 'workflow');
+    await waitForWorkflowReady(page);
     await expect(page.locator('.react-flow__node')).toHaveCount(4, { timeout: 10000 });
 
     const after = await getWorkflowFromStorage(page);
@@ -144,7 +146,7 @@ test.describe('Workflow persistence across hard refresh', () => {
 
   test('nodes added from REQUESTS palette persist after reload', async ({ page }) => {
     await seedPersistenceData(page);
-    await page.goto('http://localhost:5173/?tab=workflow');
+    await gotoAppTab(page, 'workflow');
 
     await expect(page.locator('.react-flow__node')).toHaveCount(1, { timeout: 10000 });
 
@@ -173,7 +175,8 @@ test.describe('Workflow persistence across hard refresh', () => {
     expect(before?.nodeCount).toBe(4);
 
     // Hard refresh
-    await page.reload();
+    await reloadAppTab(page, 'workflow');
+    await waitForWorkflowReady(page);
     await expect(page.locator('.react-flow__node')).toHaveCount(4, { timeout: 10000 });
 
     const after = await getWorkflowFromStorage(page);

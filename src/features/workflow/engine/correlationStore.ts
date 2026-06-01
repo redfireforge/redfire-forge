@@ -30,9 +30,16 @@ export interface ResumeResult {
 
 // ── Interface ────────────────────────────────────────
 
-/** Tells the store how to extract the correlation ID from an incoming webhook. */
+/** Tells the store how to extract the correlation ID from an incoming webhook or Kafka message. */
 export interface CorrelationWaitConfig {
-  correlationSource?: 'body' | 'header' | 'query';
+  /**
+   * Where to extract the correlation ID from:
+   * - `'body'`   — HTTP webhook body (use `correlationJsonPath`) or Kafka message value (use `correlationJsonPath`)
+   * - `'header'` — HTTP request header or Kafka message header (use `correlationHeader`)
+   * - `'query'`  — HTTP query parameter (use `correlationQueryParam`)
+   * - `'key'`    — Kafka message key used directly as the correlation ID
+   */
+  correlationSource?: 'body' | 'header' | 'query' | 'key';
   correlationJsonPath?: string;
   correlationHeader?: string;
   correlationQueryParam?: string;

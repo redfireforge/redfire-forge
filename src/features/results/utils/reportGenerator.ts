@@ -57,7 +57,7 @@ function generateHtmlReport(run: TestRun, opts: ReportOptions): string {
   const failedRowsHtml = failed.map(r => `
     <tr>
       <td>${esc(r.dataRowLabel || r.scenarioName)}</td>
-      <td>${r.httpStatus || 'ERR'}</td>
+      <td>${(r.transportType ?? 'http') === 'http' ? (r.httpStatus || 'ERR') : r.transportType === 'kafkaProduce' ? 'PRODUCE' : 'CONSUME'}</td>
       <td>${r.responseTimeMs}ms</td>
       <td>${esc(getResultErrorMessage(r))}</td>
     </tr>`).join('');
@@ -65,7 +65,7 @@ function generateHtmlReport(run: TestRun, opts: ReportOptions): string {
   const passedRowsHtml = opts.includePassedRows ? passed.map(r => `
     <tr>
       <td>${esc(r.dataRowLabel || r.scenarioName)}</td>
-      <td>${r.httpStatus}</td>
+      <td>${(r.transportType ?? 'http') === 'http' ? r.httpStatus : r.transportType === 'kafkaProduce' ? 'PRODUCE' : 'CONSUME'}</td>
       <td>${r.responseTimeMs}ms</td>
       <td></td>
     </tr>`).join('') : '';
@@ -230,7 +230,7 @@ function generateMarkdownReport(run: TestRun, opts: ReportOptions): string {
     for (const r of failed) {
       const label = r.dataRowLabel || r.scenarioName;
       const err = getResultErrorMessage(r);
-      md += `| ${label} | ${r.httpStatus || 'ERR'} | ${r.responseTimeMs}ms | ${err} |\n`;
+      md += `| ${label} | ${(r.transportType ?? 'http') === 'http' ? (r.httpStatus || 'ERR') : r.transportType === 'kafkaProduce' ? 'PRODUCE' : 'CONSUME'} | ${r.responseTimeMs}ms | ${err} |\n`;
     }
     md += '\n';
   }

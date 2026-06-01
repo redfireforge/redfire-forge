@@ -4,6 +4,8 @@ import {
   makeEmptyScenario,
   enrichNodeData,
   defaultNodeData,
+  defaultKafkaTriggerNodeData,
+  defaultKafkaWaitNodeData,
   type WorkflowRFNode,
 } from './workflowNodeFactory';
 import type {
@@ -26,6 +28,12 @@ import type {
   SubWorkflowNodeData,
   ScriptNodeData,
   CorrelationWaitNodeData,
+  KafkaProduceNodeData,
+  KafkaConsumeNodeData,
+  KafkaTriggerNodeData,
+  KafkaWaitNodeData,
+  WorkflowNodeType,
+  WorkflowNodeData,
 } from '../types/workflow';
 
 vi.mock('uuid', () => ({
@@ -58,6 +66,26 @@ describe('workflowNodeFactory', () => {
       expect(nodeTypes.subWorkflow).toBeDefined();
       expect(nodeTypes.script).toBeDefined();
       expect(nodeTypes.correlationWait).toBeDefined();
+      expect(nodeTypes.kafkaTrigger).toBeDefined();
+      expect(nodeTypes.kafkaWait).toBeDefined();
+    });
+  });
+
+  describe('Kafka node contracts', () => {
+    it('includes kafkaProduce and kafkaConsume in the WorkflowNodeType union', () => {
+      const produceType: WorkflowNodeType = 'kafkaProduce';
+      const consumeType: WorkflowNodeType = 'kafkaConsume';
+
+      expect(produceType).toBe('kafkaProduce');
+      expect(consumeType).toBe('kafkaConsume');
+    });
+
+    it('includes Kafka node data variants in the WorkflowNodeData union', () => {
+      const produceData: WorkflowNodeData = defaultNodeData('kafkaProduce');
+      const consumeData: WorkflowNodeData = defaultNodeData('kafkaConsume');
+
+      expect((produceData as KafkaProduceNodeData).label).toBe('Kafka Produce');
+      expect((consumeData as KafkaConsumeNodeData).label).toBe('Kafka Consume');
     });
   });
 
@@ -320,6 +348,83 @@ describe('workflowNodeFactory', () => {
       expect(data.correlationJsonPath).toBe('$.correlationId');
       expect(data.extractVariables).toEqual([]);
       expect(data.timeoutMs).toBe(60000);
+    });
+
+    it('returns default kafkaProduce node data', () => {
+      const data = defaultNodeData('kafkaProduce') as KafkaProduceNodeData;
+
+      expect(data.label).toBe('Kafka Produce');
+      expect(data.clusterId).toBe('');
+      expect(data.topic).toBe('');
+      expect(data.keyTemplate).toBe('');
+      expect(data.headers).toEqual([]);
+      expect(data.bodyTemplate).toBe('');
+      expect(data.ackMode).toBe('all');
+      expect(data.timeoutMs).toBe(10000);
+      expect(data.outputBindings).toEqual([]);
+    });
+
+    it('returns default kafkaConsume node data', () => {
+      const data = defaultNodeData('kafkaConsume') as KafkaConsumeNodeData;
+
+      expect(data.label).toBe('Kafka Consume');
+      expect(data.clusterId).toBe('');
+      expect(data.topic).toBe('');
+      expect(data.keyRegex).toBe('');
+      expect(data.headerFilters).toEqual([]);
+      expect(data.jsonPathFilters).toEqual([]);
+      expect(data.timeoutMs).toBe(30000);
+      expect(data.maxMessages).toBe(1);
+      expect(data.startPosition).toBe('latest');
+      expect(data.loadTestBehavior).toEqual({ mode: 'wait-for-real' });
+      expect(data.outputBindings).toEqual([]);
+    });
+  });
+
+  describe('Phase 5A — Kafka Trigger and Wait contracts', () => {
+    it('includes kafkaTrigger and kafkaWait in the WorkflowNodeType union', () => {
+      const triggerType: WorkflowNodeType = 'kafkaTrigger';
+      const waitType: WorkflowNodeType = 'kafkaWait';
+      expect(triggerType).toBe('kafkaTrigger');
+      expect(waitType).toBe('kafkaWait');
+    });
+
+    it('includes KafkaTriggerNodeData and KafkaWaitNodeData in the WorkflowNodeData union', () => {
+      const triggerData: WorkflowNodeData = defaultNodeData('kafkaTrigger');
+      const waitData: WorkflowNodeData = defaultNodeData('kafkaWait');
+      expect((triggerData as KafkaTriggerNodeData).label).toBe('Kafka Trigger');
+      expect((waitData as KafkaWaitNodeData).label).toBe('Kafka Wait');
+    });
+
+    it('defaultKafkaTriggerNodeData returns correct defaults', () => {
+      const data = defaultKafkaTriggerNodeData();
+      expect(data.label).toBe('Kafka Trigger');
+      expect(data.clusterId).toBe('');
+      expect(data.topic).toBe('');
+      expect(data.startPosition).toBe('latest');
+      expect(data.maxConcurrentRuns).toBe(10);
+      expect(Array.isArray(data.headerFilters)).toBe(true);
+      expect(Array.isArray(data.jsonPathFilters)).toBe(true);
+      expect(Array.isArray(data.extractVariables)).toBe(true);
+    });
+
+    it('defaultKafkaWaitNodeData returns correct defaults', () => {
+      const data = defaultKafkaWaitNodeData();
+      expect(data.label).toBe('Kafka Wait');
+      expect(data.clusterId).toBe('');
+      expect(data.topic).toBe('');
+      expect(data.correlationSource).toBe('body');
+      expect(data.correlationJsonPath).toBe('$.correlationId');
+      expect(data.correlationIdExpression).toBe('');
+      expect(data.timeoutMs).toBe(60000);
+      expect(data.loadTestBehavior).toEqual({ mode: 'wait-for-real' });
+      expect(Array.isArray(data.headerFilters)).toBe(true);
+      expect(Array.isArray(data.extractVariables)).toBe(true);
+    });
+
+    it('kafkaTrigger and kafkaWait have registered canvas node components', () => {
+      expect(nodeTypes.kafkaTrigger).toBeDefined();
+      expect(nodeTypes.kafkaWait).toBeDefined();
     });
   });
 });

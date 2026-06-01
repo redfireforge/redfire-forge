@@ -18,6 +18,8 @@ import type {
   SubWorkflowNodeData,
   ScriptNodeData,
   CorrelationWaitNodeData,
+  KafkaProduceNodeData,
+  KafkaConsumeNodeData,
   WorkflowNodeData,
   WorkflowService,
 } from '../../types/workflow';
@@ -46,6 +48,8 @@ import ScriptConfig from '../configs/ScriptConfig';
 import CorrelationWaitConfig from '../configs/CorrelationWaitConfig';
 import WebhookConfig from '../configs/WebhookConfig';
 import ScheduleConfig from '../configs/ScheduleConfig';
+import KafkaProduceConfig from '../configs/KafkaProduceConfig';
+import KafkaConsumeConfig from '../configs/KafkaConsumeConfig';
 import VariablesSection from '../panels/VariablesSection';
 import NodeConfigInputTab from '../configs/NodeConfigInputTab';
 import NodeConfigOutputTab from '../configs/NodeConfigOutputTab';
@@ -421,6 +425,64 @@ export default function WorkflowNodeConfigModal({
                 onRequestVariableInsert={requestVariableInsert}
                 variableHints={variableInsertHints}
               />
+            )}
+
+            {draftNode.type === 'kafkaProduce' && (
+              <KafkaProduceConfig
+                data={draftNode.data as KafkaProduceNodeData}
+                onChange={(data) => updateDraft(data)}
+                onRequestVariableInsert={requestVariableInsert}
+                variableHints={variableInsertHints}
+              />
+            )}
+
+            {draftNode.type === 'kafkaConsume' && (
+              <KafkaConsumeConfig
+                data={draftNode.data as KafkaConsumeNodeData}
+                onChange={(data) => updateDraft(data)}
+                onRequestVariableInsert={requestVariableInsert}
+                variableHints={variableInsertHints}
+              />
+            )}
+
+            {/* Kafka Trigger — full config panel coming in Phase 5B */}
+            {draftNode.type === 'kafkaTrigger' && (
+              <div className="wf-config-section">
+                <p className="wf-config-hint">
+                  Kafka Trigger configuration panel is coming soon (Phase 5B).
+                  This node will start a workflow run each time a matching Kafka message is received.
+                </p>
+                <label className="wf-config-label">
+                  Label
+                  <input
+                    type="text"
+                    className="wf-config-input"
+                    value={draft.label || ''}
+                    onChange={(e) => updateDraft({ label: e.target.value })}
+                    placeholder="Kafka Trigger"
+                  />
+                </label>
+              </div>
+            )}
+
+            {/* Kafka Wait — full config panel coming in Phase 5C */}
+            {draftNode.type === 'kafkaWait' && (
+              <div className="wf-config-section">
+                <p className="wf-config-hint">
+                  Kafka Wait configuration panel is coming soon (Phase 5C).
+                  This node will pause the workflow until a correlated Kafka message is received.
+                </p>
+                <label className="wf-config-label">
+                  Label
+                  <input
+                    type="text"
+                    className="wf-config-input"
+                    value={draft.label || ''}
+                    onChange={(e) => updateDraft({ label: e.target.value })}
+                    placeholder="Kafka Wait"
+                  />
+                </label>
+              </div>
             )}
 
             {/* Generic label editor for fork, join, end nodes */}

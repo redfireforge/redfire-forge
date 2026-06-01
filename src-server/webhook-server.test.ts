@@ -84,6 +84,27 @@ function createMockWorkflow(): Workflow {
   };
 }
 
+async function putWorkflowWithRetry(body: unknown) {
+  let lastErr: unknown;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      return await request(app)
+        .put('/api/workflows/wf-1')
+        .timeout({ response: 5000, deadline: 7000 })
+        .send(body);
+    } catch (err) {
+      lastErr = err;
+      const msg = err instanceof Error ? err.message : String(err);
+      const retryable = msg.includes('ECONNRESET') || msg.includes('Timeout');
+      if (!retryable || attempt === 2) {
+        throw err;
+      }
+    }
+  }
+
+  throw lastErr ?? new Error('PUT /api/workflows/wf-1 failed');
+}
+
 describe('webhook-server', { timeout: 30_000 }, () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -155,9 +176,7 @@ describe('webhook-server', { timeout: 30_000 }, () => {
     });
 
     it('rejects invalid workflow data', async () => {
-      const res = await request(app)
-        .put('/api/workflows/wf-1')
-        .send({});
+      const res = await putWorkflowWithRetry({});
 
       expect(res.status).toBe(400);
       expect(res.body.error).toBe('Invalid workflow data');
@@ -166,9 +185,7 @@ describe('webhook-server', { timeout: 30_000 }, () => {
     it('handles save errors', async () => {
       mockSaveWorkflow.mockRejectedValue(new Error('Save failed'));
 
-      const res = await request(app)
-        .put('/api/workflows/wf-1')
-        .send(createMockWorkflow());
+      const res = await putWorkflowWithRetry(createMockWorkflow());
 
       expect(res.status).toBe(500);
       expect(res.body.error).toBe('Failed to register workflow');

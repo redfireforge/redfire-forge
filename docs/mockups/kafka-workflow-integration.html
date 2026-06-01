@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kafka Workflow Integration — RedfireForge Mockup</title>
+<style>
+  :root {
+    --bg: #09111c;
+    --panel: #10192a;
+    --panel-2: #15233a;
+    --line: #24324d;
+    --text: #eef3ff;
+    --muted: #93a5c4;
+    --orange: #ff8e4b;
+    --orange-soft: rgba(255,142,75,0.14);
+    --violet: #9b8cff;
+    --violet-soft: rgba(155,140,255,0.14);
+    --teal: #32d0a5;
+    --teal-soft: rgba(50,208,165,0.14);
+    --radius: 16px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font: 14px/1.45 "Space Grotesk", "Avenir Next", "Trebuchet MS", sans-serif;
+    color: var(--text);
+    background:
+      radial-gradient(circle at 12% 0%, rgba(255,142,75,0.12), transparent 24%),
+      radial-gradient(circle at 86% 0%, rgba(155,140,255,0.12), transparent 24%),
+      linear-gradient(180deg, #07101a, #09111c 55%, #0c1420);
+  }
+  .frame { max-width: 1580px; margin: 0 auto; min-height: 100vh; padding: 22px; }
+  .topbar {
+    display:flex; align-items:center; gap:12px; padding:16px 18px;
+    background: rgba(16,25,42,0.92);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 18px;
+    box-shadow: 0 18px 40px rgba(0,0,0,0.34);
+  }
+  .brand { color: var(--orange); font-weight: 700; font-size: 18px; }
+  .context { color: var(--muted); border:1px solid var(--line); border-radius:999px; padding:6px 10px; font-size:12px; }
+  .hero {
+    margin-top: 18px;
+    display: grid;
+    grid-template-columns: 1.15fr 0.85fr;
+    gap: 18px;
+  }
+  .card {
+    background: linear-gradient(180deg, rgba(21,35,58,0.98), rgba(11,18,32,0.98));
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: var(--radius);
+    box-shadow: 0 18px 40px rgba(0,0,0,0.34);
+    overflow: hidden;
+  }
+  .head { padding: 20px 22px 14px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+  .head h1, .head h2 { margin: 0 0 6px; }
+  .head p { margin: 0; color: var(--muted); }
+  .body { padding: 18px 22px 22px; }
+  .workflow-canvas {
+    position: relative;
+    min-height: 720px;
+    background:
+      linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px),
+      #0a1120;
+    background-size: 34px 34px;
+  }
+  .node {
+    position: absolute;
+    min-width: 180px;
+    padding: 12px 14px;
+    border-radius: 14px;
+    border: 1px solid var(--line);
+    background: rgba(255,255,255,0.03);
+    box-shadow: 0 10px 20px rgba(0,0,0,0.24);
+  }
+  .node.start { left: 48px; top: 60px; }
+  .node.kafka-trigger { left: 240px; top: 60px; border-color: rgba(255,142,75,0.3); background: rgba(255,142,75,0.08); }
+  .node.http { left: 470px; top: 60px; border-color: rgba(89,184,255,0.3); background: rgba(89,184,255,0.08); }
+  .node.kafka-wait { left: 700px; top: 60px; border-color: rgba(155,140,255,0.3); background: rgba(155,140,255,0.08); }
+  .node.kafka-produce { left: 930px; top: 60px; border-color: rgba(50,208,165,0.3); background: rgba(50,208,165,0.08); }
+  .node.end { left: 1160px; top: 60px; }
+  .node-title { font-weight: 700; margin-bottom: 4px; }
+  .node-meta { color: var(--muted); font-size: 12px; }
+  .edge {
+    position: absolute; top: 100px; height: 2px; background: linear-gradient(90deg, #465b84, #6a89c0);
+  }
+  .edge.e1 { left: 180px; width: 80px; }
+  .edge.e2 { left: 420px; width: 70px; }
+  .edge.e3 { left: 650px; width: 70px; }
+  .edge.e4 { left: 880px; width: 70px; }
+  .edge.e5 { left: 1110px; width: 70px; }
+  .panel-stack { display:grid; gap:18px; }
+  .subpanel {
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 14px;
+    background: rgba(255,255,255,0.02);
+    padding: 16px;
+  }
+  .subpanel h3 { margin: 0 0 10px; font-size: 14px; }
+  .field { display:grid; gap:6px; margin-bottom: 10px; }
+  label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; }
+  input, .select, textarea {
+    width: 100%; border-radius: 12px; border: 1px solid var(--line);
+    background: #09111d; color: var(--text); padding: 11px 13px; font: inherit;
+  }
+  textarea { min-height: 120px; resize: vertical; }
+  .btn {
+    padding: 9px 13px; border-radius: 12px; border: 1px solid var(--line);
+    background: rgba(255,255,255,0.03); color: var(--text); font: inherit;
+  }
+  .btn.primary { background: linear-gradient(180deg, #ff9d62, #ff8441); color: #2a170a; border-color: transparent; font-weight: 700; }
+  .status-box {
+    padding: 12px 14px; border-radius: 14px; background: var(--teal-soft);
+    border: 1px solid rgba(50,208,165,0.22); color: #c8f7ea;
+  }
+  .legend {
+    display:grid; grid-template-columns: repeat(2, 1fr); gap: 10px;
+  }
+  .legend-item {
+    padding: 12px; border-radius: 14px; background: rgba(255,255,255,0.03); border: 1px solid var(--line);
+  }
+  .legend-item strong { display:block; margin-bottom:4px; }
+</style>
+</head>
+<body>
+  <div class="frame">
+    <div class="topbar">
+      <div class="brand">RedfireForge</div>
+      <div class="context">Kafka / Workflow Integrations</div>
+      <div class="context">Focus: trigger, wait, publish, reuse payloads</div>
+    </div>
+
+    <div class="hero">
+      <section class="card">
+        <div class="head">
+          <h1>Workflow Designer with Kafka Nodes</h1>
+          <p>Kafka belongs in RedfireForge as an event-driven input and output surface for workflows, not as a separate enterprise admin silo.</p>
+        </div>
+        <div class="body workflow-canvas">
+          <div class="node start">
+            <div class="node-title">Start</div>
+            <div class="node-meta">Manual or scheduled</div>
+          </div>
+          <div class="edge e1"></div>
+          <div class="node kafka-trigger">
+            <div class="node-title">Kafka Trigger</div>
+            <div class="node-meta">orders.created
+seed payload -> workflow vars</div>
+          </div>
+          <div class="edge e2"></div>
+          <div class="node http">
+            <div class="node-title">HTTP Validation</div>
+            <div class="node-meta">GET /orders/{{orderId}}</div>
+          </div>
+          <div class="edge e3"></div>
+          <div class="node kafka-wait">
+            <div class="node-title">Kafka Wait</div>
+            <div class="node-meta">wait for paymentState=AUTHORIZED</div>
+          </div>
+          <div class="edge e4"></div>
+          <div class="node kafka-produce">
+            <div class="node-title">Kafka Produce</div>
+            <div class="node-meta">publish orders.validated</div>
+          </div>
+          <div class="edge e5"></div>
+          <div class="node end">
+            <div class="node-title">End</div>
+            <div class="node-meta">audit + summary</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel-stack">
+        <div class="card">
+          <div class="head">
+            <h2>Kafka Trigger Config</h2>
+            <p>Trigger should be approachable: choose cluster, topic, filter, and variable mapping. No ops-heavy clutter.</p>
+          </div>
+          <div class="body">
+            <div class="field">
+              <label>Cluster</label>
+              <div class="select">Staging MSK</div>
+            </div>
+            <div class="field">
+              <label>Topic</label>
+              <div class="select">orders.created</div>
+            </div>
+            <div class="field">
+              <label>Message Match</label>
+              <input value="$.status = CREATED">
+            </div>
+            <div class="field">
+              <label>Seed Variables</label>
+              <textarea>orderId <- $.orderId
+customerId <- $.customerId
+traceId <- $.headers.traceId</textarea>
+            </div>
+            <div style="display:flex; gap:10px; flex-wrap:wrap;">
+              <button class="btn">Test Match</button>
+              <button class="btn primary">Save Trigger</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="head">
+            <h2>Kafka Wait / Resume</h2>
+            <p>Wait is correlation UX, not raw consumer-group administration.</p>
+          </div>
+          <div class="body">
+            <div class="field">
+              <label>Wait Topic</label>
+              <div class="select">payments.authorized</div>
+            </div>
+            <div class="field">
+              <label>Resume When</label>
+              <input value="$.orderId = {{orderId}} && $.state = AUTHORIZED">
+            </div>
+            <div class="field">
+              <label>Timeout</label>
+              <input value="30000 ms">
+            </div>
+            <div class="status-box">Current design intent: visual status should show waiting, matched, timeout, or cancelled directly in workflow run history.</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="head">
+            <h2>Feature Buckets for UI</h2>
+            <p>What matters for RedfireForge’s product fit.</p>
+          </div>
+          <div class="body">
+            <div class="legend">
+              <div class="legend-item">
+                <strong>Must-have</strong>
+                cluster select, topic pick, trigger filter, variable extraction, wait timeout, produce mapping
+              </div>
+              <div class="legend-item">
+                <strong>High-value next</strong>
+                replay message to workflow, consume as input, save Kafka templates
+              </div>
+              <div class="legend-item">
+                <strong>Later</strong>
+                schema registry UX, offsets tooling, consumer lag drill-in
+              </div>
+              <div class="legend-item">
+                <strong>Not initial scope</strong>
+                ACL admin, RBAC dashboards, tenant governance, chargeback
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+</body>
+</html>

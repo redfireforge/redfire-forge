@@ -281,6 +281,17 @@ describe('runSequential', () => {
     const results = await runSequential(queue, makeRunOpts({ breaker }));
     expect(results).toHaveLength(1);
   });
+
+  it('routes non-HTTP scenario through executeNonHttp without calling httpFetch', async () => {
+    const kafkaResult = buildErrorResult(makeScenario(), 'ok');
+    kafkaResult.passed = true;
+    const executeNonHttp = vi.fn().mockResolvedValue(kafkaResult);
+    const kafkaScenario = makeScenario({ actionType: 'kafkaProduce' });
+    const results = await runSequential([kafkaScenario], makeRunOpts({ executeNonHttp }));
+    expect(results).toHaveLength(1);
+    expect(executeNonHttp).toHaveBeenCalledOnce();
+    expect(mockedFetch).not.toHaveBeenCalled();
+  });
 });
 
 describe('runBatch', () => {
@@ -309,6 +320,17 @@ describe('runBatch', () => {
     const queue = [makeScenario({ id: 'a' }), makeScenario({ id: 'b' }), makeScenario({ id: 'c' })];
     const results = await runBatch(queue, 1, makeRunOpts({ breaker }));
     expect(results.length).toBeLessThan(queue.length);
+  });
+
+  it('routes non-HTTP scenario through executeNonHttp without calling httpFetch', async () => {
+    const kafkaResult = buildErrorResult(makeScenario(), 'ok');
+    kafkaResult.passed = true;
+    const executeNonHttp = vi.fn().mockResolvedValue(kafkaResult);
+    const kafkaScenario = makeScenario({ actionType: 'kafkaProduce' });
+    const results = await runBatch([kafkaScenario], 1, makeRunOpts({ executeNonHttp }));
+    expect(results).toHaveLength(1);
+    expect(executeNonHttp).toHaveBeenCalledOnce();
+    expect(mockedFetch).not.toHaveBeenCalled();
   });
 });
 
@@ -366,6 +388,17 @@ describe('runPool', () => {
     mockedFetch.mockResolvedValue(successResponse());
     const results = await runPool([], 2, makeRunOpts());
     expect(results).toEqual([]);
+  });
+
+  it('routes non-HTTP scenario through executeNonHttp without calling httpFetch', async () => {
+    const kafkaResult = buildErrorResult(makeScenario(), 'ok');
+    kafkaResult.passed = true;
+    const executeNonHttp = vi.fn().mockResolvedValue(kafkaResult);
+    const kafkaScenario = makeScenario({ actionType: 'kafkaProduce' });
+    const results = await runPool([kafkaScenario], 1, makeRunOpts({ executeNonHttp }));
+    expect(results).toHaveLength(1);
+    expect(executeNonHttp).toHaveBeenCalledOnce();
+    expect(mockedFetch).not.toHaveBeenCalled();
   });
 });
 

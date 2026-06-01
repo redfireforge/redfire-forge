@@ -10,6 +10,7 @@ import { saveTestRun, forceSaveTestRun } from '../../../shared/utils/storage';
 import { supportsWorkers } from '../../../shared/utils/platform';
 import { isRustExecutorAvailable, canUseRustExecutor, runTestViaRust } from '../utils/rustBridge';
 import { toErrorMessage } from '../../../shared/utils/helpers';
+import { buildKafkaNodeOperations } from '../../../shared/kafka/buildKafkaNodeOperations';
 
 export interface TimeSeriesPoint {
   elapsedSec: number;
@@ -169,7 +170,7 @@ export function useTestExecution() {
     if (r.responseTimeMs < inc.min) inc.min = r.responseTimeMs;
     if (r.responseTimeMs > inc.max) inc.max = r.responseTimeMs;
     if (!hasStreamingMetrics) inc.times.push(r.responseTimeMs);
-    if (r.httpStatus >= 400 || r.httpStatus === 0) {
+    if ((r.transportType ?? 'http') === 'http' && (r.httpStatus >= 400 || r.httpStatus === 0)) {
       inc.failedRequests++;
       inc.errorsByStatus[r.httpStatus] = (inc.errorsByStatus[r.httpStatus] || 0) + 1;
     }
@@ -199,7 +200,7 @@ export function useTestExecution() {
       const recentWindow = pending.allResults.slice(-Math.max(intervalCompleted, 1));
       const avgRecent = recentWindow.reduce((s, r) => s + r.responseTimeMs, 0) / recentWindow.length;
 
-      const failedInWindow = recentWindow.filter(r => r.httpStatus >= 400 || r.httpStatus === 0).length;
+      const failedInWindow = recentWindow.filter(r => (r.transportType ?? 'http') === 'http' && (r.httpStatus >= 400 || r.httpStatus === 0)).length;
       const errorPct = (failedInWindow / recentWindow.length) * 100;
 
       const point: TimeSeriesPoint = {
@@ -325,6 +326,8 @@ export function useTestExecution() {
         : onProgress;
 
       let testResult;
+      // Build Kafka operations for workflow-mode execution (Kafka nodes need the server bridge).
+      const kafkaOps = workflow ? buildKafkaNodeOperations() : undefined;
       if (useRust) {
         testResult = await runTestViaRust(config, scenarios, wrappedOnProgress, abortRef.current.signal);
       } else if (useWorker) {
@@ -333,10 +336,10 @@ export function useTestExecution() {
         } catch (workerErr) {
           // Worker failed (common in Tauri WebView) — fall back to direct execution
           console.warn('Worker execution failed, falling back to direct execution:', workerErr);
-          testResult = await runTest(config, scenarios, wrappedOnProgress, abortRef.current.signal, workflow, resolveSubWorkflow, undefined, workflowResolverData);
+          testResult = await runTest(config, scenarios, wrappedOnProgress, abortRef.current.signal, workflow, resolveSubWorkflow, undefined, workflowResolverData, kafkaOps);
         }
       } else {
-        testResult = await runTest(config, scenarios, wrappedOnProgress, abortRef.current.signal, workflow, resolveSubWorkflow, undefined, workflowResolverData);
+        testResult = await runTest(config, scenarios, wrappedOnProgress, abortRef.current.signal, workflow, resolveSubWorkflow, undefined, workflowResolverData, kafkaOps);
       }
 
       if (flushTimerRef.current) {

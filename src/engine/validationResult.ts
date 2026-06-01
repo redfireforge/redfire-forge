@@ -14,6 +14,13 @@ export interface ValidationInput {
   errorMessage?: string;
   validation: ValidationConfig;
   assertions: Assertion[];
+  /** Populated by kafkaExecution for `kafkaField` assertion evaluation. */
+  kafkaContext?: {
+    key?: string;
+    offset?: number;
+    partition?: number;
+    topic?: string;
+  };
 }
 
 export interface ValidationOutput {
@@ -31,7 +38,7 @@ export function buildValidationResult(input: ValidationInput): ValidationOutput 
   const { errorMessage } = input;
 
   const { failures: assertionFailures, statusAsserted } = assertions.length > 0
-    ? evaluateAssertions(assertions, { httpStatus, responseTimeMs, responseHeaders, responseBody: responseObj, rawBody: input.responseBody })
+    ? evaluateAssertions(assertions, { httpStatus, responseTimeMs, responseHeaders, responseBody: responseObj, rawBody: input.responseBody, kafkaContext: input.kafkaContext })
     : { failures: [], statusAsserted: false };
 
   const httpOk = httpStatus > 0 && httpStatus < 400;

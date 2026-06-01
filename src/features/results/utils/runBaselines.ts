@@ -310,7 +310,7 @@ function groupByScenario(results: TestRun['results']): Map<string, ScenarioGroup
     }
     g.times.push(r.responseTimeMs);
     g.count++;
-    if (r.httpStatus >= 400 || r.httpStatus === 0) g.errorCount++;
+    if ((r.transportType ?? 'http') === 'http' && (r.httpStatus >= 400 || r.httpStatus === 0)) g.errorCount++;
   }
   for (const g of map.values()) {
     g.errorRate = g.count > 0 ? (g.errorCount / g.count) * 100 : 0;

@@ -15,6 +15,7 @@ import {
   loadTheme,
 } from '../../../shared/utils/storage';
 import { purgeExpired } from '../../../shared/utils/trashStorage';
+import { normalizeGroupActionTypes } from '../../../shared/utils/scenarioMigration';
 import { isCustomThemeId, findSavedTheme, applyCustomTheme } from '../../../app/themeCustomizerUtils';
 
 export interface UseProjectsReturn {
@@ -90,7 +91,7 @@ export function useProjects(): UseProjectsReturn {
 
       setEnvironments(envs);
       setMicroservices(svcs);
-      setFeatureGroups(fgs);
+      setFeatureGroups(normalizeGroupActionTypes(fgs));
       setAppGlobalAuthProfiles(auth);
       setSharedDataSources(sharedDs);
       _setSelectedEnvId(selEnv);

@@ -32,6 +32,7 @@ import CatalogSidebar from '../features/catalog/components/CatalogSidebar';
 import Sidebar from './Sidebar';
 import RequestsSidebar from '../features/requests/components/RequestsSidebar';
 import SettingsPage from '../features/settings/SettingsModal';
+import KafkaSettingsPage from '../features/kafka/KafkaSettingsPage';
 import EnvironmentManager from '../features/environments/EnvironmentManager';
 import WorkflowDesigner from '../features/workflow/WorkflowDesigner';
 import WorkflowExecutionHistory from '../features/workflow/WorkflowExecutionHistory';
@@ -582,6 +583,10 @@ export default function App() {
               onImport={handleImportData}
               confirm={confirm}
             />
+          )}
+
+          {activeTab === 'kafka-settings' && (
+            <KafkaSettingsPage />
           )}
 
           {activeTab === 'scenarios' && (

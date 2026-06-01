@@ -3,7 +3,7 @@
  * Verifies canvas rendering, palette blocks, node config modals, and palette categories.
  */
 import { test, expect } from '@playwright/test';
-import { seedAppData } from './helpers';
+import { gotoAppTab, seedAppData } from './helpers';
 import type { Workflow } from '../src/features/workflow/types/workflow';
 
 // This suite mutates shared workflow/localStorage state across many steps.
@@ -91,10 +91,7 @@ async function seedAndNavigate(page: import('@playwright/test').Page) {
     localStorage.setItem('workflows', workflowJson);
     localStorage.setItem('workflows_selected_id', 'wf-new-nodes');
   }, JSON.stringify([makeNewNodesWorkflow()]));
-  await page.goto('/?tab=workflow');
-  await page.waitForSelector('.app-header', { timeout: 10000 });
-  await page.waitForLoadState('networkidle');
-  await expect(page.locator('.wf-designer')).toBeVisible({ timeout: 5000 });
+  await gotoAppTab(page, 'workflow');
 }
 
 // ── Canvas rendering ─────────────────────────────────
