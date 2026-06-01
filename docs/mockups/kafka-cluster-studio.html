@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kafka Cluster Studio — RedfireForge Mockup</title>
+<style>
+  :root {
+    --bg: #0b1020;
+    --panel: #11182a;
+    --panel-2: #162038;
+    --panel-3: #0f1526;
+    --line: #26314d;
+    --text: #edf2ff;
+    --muted: #95a1c3;
+    --orange: #ff8a3d;
+    --orange-soft: rgba(255, 138, 61, 0.16);
+    --blue: #5fb1ff;
+    --blue-soft: rgba(95, 177, 255, 0.16);
+    --green: #31d0a1;
+    --green-soft: rgba(49, 208, 161, 0.16);
+    --red: #ff6b7a;
+    --red-soft: rgba(255, 107, 122, 0.16);
+    --yellow: #f4c95d;
+    --radius: 16px;
+    --shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background:
+      radial-gradient(circle at top left, rgba(95,177,255,0.12), transparent 28%),
+      radial-gradient(circle at top right, rgba(255,138,61,0.14), transparent 24%),
+      linear-gradient(180deg, #09101c 0%, var(--bg) 100%);
+    color: var(--text);
+    font: 14px/1.5 "Space Grotesk", "Avenir Next", "Trebuchet MS", sans-serif;
+  }
+
+  .frame {
+    max-width: 1520px;
+    margin: 0 auto;
+    min-height: 100vh;
+    padding: 22px;
+  }
+
+  .topbar {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 18px;
+    border: 1px solid rgba(255,255,255,0.06);
+    background: rgba(17, 24, 42, 0.8);
+    border-radius: 18px;
+    backdrop-filter: blur(10px);
+    box-shadow: var(--shadow);
+  }
+
+  .brand {
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: var(--orange);
+    font-size: 18px;
+  }
+
+  .product-tag {
+    color: var(--muted);
+    padding: 6px 10px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    font-size: 12px;
+  }
+
+  .topnav {
+    display: flex;
+    gap: 6px;
+    margin-left: 20px;
+  }
+
+  .pill {
+    padding: 8px 14px;
+    border-radius: 999px;
+    border: 1px solid transparent;
+    color: var(--muted);
+    background: transparent;
+  }
+
+  .pill.active {
+    background: var(--orange-soft);
+    color: #ffd7bf;
+    border-color: rgba(255, 138, 61, 0.3);
+  }
+
+  .page {
+    display: grid;
+    grid-template-columns: 330px 1fr 330px;
+    gap: 18px;
+    margin-top: 18px;
+  }
+
+  .card {
+    background: linear-gradient(180deg, rgba(22,32,56,0.98), rgba(12,18,33,0.98));
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+  }
+
+  .section-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 20px 12px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+  }
+
+  .section-title h2,
+  .section-title h3 {
+    margin: 0;
+    font-size: 16px;
+    letter-spacing: 0.01em;
+  }
+
+  .section-title small {
+    color: var(--muted);
+    font-size: 12px;
+  }
+
+  .cluster-list {
+    padding: 12px;
+    display: grid;
+    gap: 10px;
+  }
+
+  .cluster-item {
+    padding: 14px;
+    background: rgba(255,255,255,0.02);
+    border: 1px solid transparent;
+    border-radius: 14px;
+  }
+
+  .cluster-item.active {
+    border-color: rgba(95,177,255,0.35);
+    background: linear-gradient(180deg, rgba(95,177,255,0.12), rgba(95,177,255,0.04));
+  }
+
+  .cluster-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .cluster-name {
+    font-size: 15px;
+    font-weight: 700;
+  }
+
+  .cluster-meta {
+    margin-top: 6px;
+    color: var(--muted);
+    font-size: 12px;
+  }
+
+  .status {
+    padding: 4px 9px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+  }
+
+  .status.connected { background: var(--green-soft); color: #9df2d5; }
+  .status.idle { background: rgba(255,255,255,0.06); color: #c8d2ef; }
+  .status.failed { background: var(--red-soft); color: #ffb1bc; }
+
+  .cluster-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+    flex-wrap: wrap;
+  }
+
+  .btn {
+    border: 1px solid var(--line);
+    background: rgba(255,255,255,0.03);
+    color: var(--text);
+    border-radius: 12px;
+    padding: 8px 12px;
+    font: inherit;
+  }
+
+  .btn.primary {
+    background: linear-gradient(180deg, #ff9c5d, #ff7d2d);
+    color: #1e1209;
+    border-color: transparent;
+    font-weight: 700;
+  }
+
+  .btn.soft-blue {
+    background: var(--blue-soft);
+    color: #cbe5ff;
+    border-color: rgba(95,177,255,0.28);
+  }
+
+  .editor {
+    padding: 20px;
+  }
+
+  .hero {
+    display: flex;
+    justify-content: space-between;
+    gap: 18px;
+    margin-bottom: 18px;
+  }
+
+  .hero-copy h1 {
+    margin: 0 0 6px;
+    font-size: 28px;
+    line-height: 1.1;
+  }
+
+  .hero-copy p {
+    margin: 0;
+    color: var(--muted);
+    max-width: 620px;
+  }
+
+  .hero-note {
+    min-width: 250px;
+    background: rgba(255, 138, 61, 0.08);
+    border: 1px solid rgba(255, 138, 61, 0.22);
+    border-radius: 16px;
+    padding: 14px 16px;
+  }
+
+  .hero-note strong {
+    display: block;
+    margin-bottom: 6px;
+    color: #ffd4bd;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+  }
+
+  .field {
+    display: grid;
+    gap: 6px;
+  }
+
+  .field.full { grid-column: 1 / -1; }
+
+  label {
+    font-size: 12px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  input, textarea, .select, .ghost-box {
+    width: 100%;
+    border-radius: 12px;
+    border: 1px solid var(--line);
+    background: var(--panel-3);
+    color: var(--text);
+    padding: 12px 14px;
+    font: inherit;
+  }
+
+  textarea { min-height: 110px; resize: vertical; }
+
+  .broker-stack {
+    display: grid;
+    gap: 8px;
+  }
+
+  .broker-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 8px;
+  }
+
+  .subcard {
+    margin-top: 16px;
+    padding: 16px;
+    border-radius: 16px;
+    background: rgba(255,255,255,0.02);
+    border: 1px solid rgba(255,255,255,0.05);
+  }
+
+  .subcard h3 {
+    margin: 0 0 10px;
+    font-size: 14px;
+  }
+
+  .toggle-row, .mini-grid {
+    display: grid;
+    gap: 10px;
+  }
+
+  .toggle-row { grid-template-columns: repeat(2, 1fr); }
+  .mini-grid { grid-template-columns: repeat(3, 1fr); }
+
+  .toggle {
+    padding: 12px;
+    border-radius: 14px;
+    border: 1px solid var(--line);
+    background: var(--panel-3);
+  }
+
+  .toggle.active {
+    border-color: rgba(49,208,161,0.35);
+    background: rgba(49,208,161,0.08);
+  }
+
+  .topic-sidebar {
+    padding: 14px;
+  }
+
+  .search {
+    border-radius: 12px;
+    border: 1px solid var(--line);
+    background: var(--panel-3);
+    color: var(--muted);
+    padding: 10px 12px;
+    margin-bottom: 12px;
+  }
+
+  .topic-item {
+    padding: 12px 14px;
+    border-radius: 14px;
+    margin-bottom: 8px;
+    background: rgba(255,255,255,0.02);
+    border: 1px solid transparent;
+  }
+
+  .topic-item:hover, .topic-item.active {
+    border-color: rgba(95,177,255,0.28);
+    background: rgba(95,177,255,0.07);
+  }
+
+  .topic-item strong {
+    display: block;
+    margin-bottom: 4px;
+  }
+
+  .meta-line {
+    color: var(--muted);
+    font-size: 12px;
+  }
+
+  .footer-note {
+    margin-top: 14px;
+    padding: 12px 14px;
+    border-radius: 14px;
+    background: rgba(255,255,255,0.03);
+    color: var(--muted);
+    font-size: 12px;
+  }
+</style>
+</head>
+<body>
+  <div class="frame">
+    <div class="topbar">
+      <div class="brand">RedfireForge</div>
+      <div class="product-tag">Kafka UI mockup · developer workbench direction</div>
+      <div class="topnav">
+        <div class="pill active">Clusters</div>
+        <div class="pill">Topics</div>
+        <div class="pill">Publish</div>
+        <div class="pill">Consume</div>
+        <div class="pill">Workflow Integrations</div>
+      </div>
+    </div>
+
+    <div class="page">
+      <section class="card">
+        <div class="section-title">
+          <div>
+            <h2>Kafka Clusters</h2>
+            <small>Multiple saved profiles, fast switch, visible health</small>
+          </div>
+          <button class="btn primary">+ New</button>
+        </div>
+        <div class="cluster-list">
+          <div class="cluster-item active">
+            <div class="cluster-head">
+              <div>
+                <div class="cluster-name">Local Dev Kafka</div>
+                <div class="cluster-meta">localhost:9092, localhost:9093</div>
+              </div>
+              <div class="status connected">Connected</div>
+            </div>
+            <div class="cluster-meta">Security: PLAINTEXT · Topics: 42 · Last tested: just now</div>
+            <div class="cluster-actions">
+              <button class="btn soft-blue">Test Connection</button>
+              <button class="btn">Duplicate</button>
+              <button class="btn">Delete</button>
+            </div>
+          </div>
+
+          <div class="cluster-item">
+            <div class="cluster-head">
+              <div>
+                <div class="cluster-name">Staging MSK</div>
+                <div class="cluster-meta">b-1.aws:9094, b-2.aws:9094</div>
+              </div>
+              <div class="status idle">Not Tested</div>
+            </div>
+            <div class="cluster-meta">Security: SASL_SSL · Schema Registry: enabled</div>
+            <div class="cluster-actions">
+              <button class="btn soft-blue">Test Connection</button>
+              <button class="btn">Edit</button>
+            </div>
+          </div>
+
+          <div class="cluster-item">
+            <div class="cluster-head">
+              <div>
+                <div class="cluster-name">Prod Read-only</div>
+                <div class="cluster-meta">prod-broker-1:9094, prod-broker-2:9094</div>
+              </div>
+              <div class="status failed">Failed</div>
+            </div>
+            <div class="cluster-meta">Security: SCRAM-SHA-512 · Read-only mode suggested</div>
+            <div class="cluster-actions">
+              <button class="btn soft-blue">Re-test</button>
+              <button class="btn">View Error</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card editor">
+        <div class="hero">
+          <div class="hero-copy">
+            <h1>Kafka Cluster Studio</h1>
+            <p>RedfireForge should treat Kafka setup like a developer-facing connection studio, not a giant enterprise admin console. Security is structured and visible, while advanced broker properties stay tucked behind deliberate controls.</p>
+          </div>
+          <div class="hero-note">
+            <strong>Design principle</strong>
+            Keep common setup simple: name, brokers, security, connect test. Everything else is optional and collapsible.
+          </div>
+        </div>
+
+        <div class="grid">
+          <div class="field">
+            <label>Cluster Name</label>
+            <input value="Staging MSK">
+          </div>
+          <div class="field">
+            <label>Client ID</label>
+            <input value="redfireforge-staging">
+          </div>
+
+          <div class="field full">
+            <label>Bootstrap Brokers</label>
+            <div class="broker-stack">
+              <div class="broker-row">
+                <input value="b-1.staging.example.aws:9094">
+                <button class="btn">Remove</button>
+              </div>
+              <div class="broker-row">
+                <input value="b-2.staging.example.aws:9094">
+                <button class="btn">Remove</button>
+              </div>
+              <div class="broker-row">
+                <input placeholder="Add another broker host:port">
+                <button class="btn primary">Add Broker</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="field">
+            <label>Security Mode</label>
+            <div class="select">SASL_SSL</div>
+          </div>
+          <div class="field">
+            <label>Schema Registry</label>
+            <div class="select">Optional · Confluent compatible</div>
+          </div>
+        </div>
+
+        <div class="subcard">
+          <h3>Authentication</h3>
+          <div class="toggle-row">
+            <div class="toggle">No Authentication</div>
+            <div class="toggle active">SASL / SCRAM</div>
+          </div>
+          <div class="grid" style="margin-top: 12px;">
+            <div class="field">
+              <label>Mechanism</label>
+              <div class="select">SCRAM-SHA-512</div>
+            </div>
+            <div class="field">
+              <label>Username</label>
+              <input value="svc-redfire-staging">
+            </div>
+            <div class="field full">
+              <label>Password / Secret</label>
+              <input value="••••••••••••••••">
+            </div>
+          </div>
+        </div>
+
+        <div class="subcard">
+          <h3>SSL / TLS</h3>
+          <div class="toggle-row">
+            <div class="toggle active">Enable SSL</div>
+            <div class="toggle active">Verify Broker Certificate</div>
+          </div>
+          <div class="mini-grid" style="margin-top: 12px;">
+            <div class="field">
+              <label>CA Certificate</label>
+              <div class="ghost-box">Upload PEM</div>
+            </div>
+            <div class="field">
+              <label>Client Certificate</label>
+              <div class="ghost-box">Optional</div>
+            </div>
+            <div class="field">
+              <label>Client Key</label>
+              <div class="ghost-box">Optional</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="subcard">
+          <h3>Advanced Connection Properties</h3>
+          <div class="grid">
+            <div class="field">
+              <label>Connection Timeout (ms)</label>
+              <input value="10000">
+            </div>
+            <div class="field">
+              <label>Request Timeout (ms)</label>
+              <input value="30000">
+            </div>
+            <div class="field full">
+              <label>Additional Broker Properties</label>
+              <textarea>security.protocol=SASL_SSL
+sasl.mechanism=SCRAM-SHA-512
+client.dns.lookup=use_all_dns_ips</textarea>
+            </div>
+          </div>
+        </div>
+
+        <div class="subcard">
+          <h3>RedfireForge-specific Integrations</h3>
+          <div class="toggle-row">
+            <div class="toggle">Auto-connect on app start</div>
+            <div class="toggle active">Allow topic browse + publish/consume tools</div>
+          </div>
+          <div class="toggle-row" style="margin-top: 10px;">
+            <div class="toggle">Publish test/workflow results to Kafka</div>
+            <div class="toggle">Allow workflow trigger / Kafka wait</div>
+          </div>
+        </div>
+
+        <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:18px;">
+          <button class="btn">Cancel</button>
+          <button class="btn soft-blue">Test Connection</button>
+          <button class="btn primary">Save Cluster</button>
+        </div>
+      </section>
+
+      <aside class="card topic-sidebar">
+        <div class="section-title" style="padding: 4px 4px 12px; border-bottom: none;">
+          <div>
+            <h3>Connected Topics</h3>
+            <small>Preview after successful connection</small>
+          </div>
+        </div>
+        <div class="search">Search topics in this cluster</div>
+        <div class="topic-item active">
+          <strong>orders.created</strong>
+          <div class="meta-line">12 partitions · 18.4M messages</div>
+        </div>
+        <div class="topic-item">
+          <strong>orders.updated</strong>
+          <div class="meta-line">12 partitions · 8.1M messages</div>
+        </div>
+        <div class="topic-item">
+          <strong>payments.authorized</strong>
+          <div class="meta-line">8 partitions · 2.8M messages</div>
+        </div>
+        <div class="topic-item">
+          <strong>inventory.adjusted</strong>
+          <div class="meta-line">6 partitions · 540K messages</div>
+        </div>
+        <div class="footer-note">
+          This sidebar keeps Kafka setup anchored in real topics. A developer should immediately know: “Did I connect to the right cluster?”
+        </div>
+      </aside>
+    </div>
+  </div>
+</body>
+</html>

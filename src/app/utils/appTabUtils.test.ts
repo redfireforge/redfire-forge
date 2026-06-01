@@ -70,6 +70,7 @@ describe('appTabUtils', () => {
       it('returns true for settings tabs', () => {
         expect(isSettingsTab('environments')).toBe(true);
         expect(isSettingsTab('preferences')).toBe(true);
+        expect(isSettingsTab('kafka-settings')).toBe(true);
       });
 
       it('returns false for non-settings tabs', () => {
@@ -106,6 +107,7 @@ describe('appTabUtils', () => {
     it('returns "settings" for settings tabs', () => {
       expect(domainOf('environments')).toBe('settings');
       expect(domainOf('preferences')).toBe('settings');
+      expect(domainOf('kafka-settings')).toBe('settings');
     });
   });
 
@@ -133,6 +135,11 @@ describe('appTabUtils', () => {
     it('returns tab from query param when valid', () => {
       global.window.location.search = '?tab=workflow';
       expect(readTabFromUrl()).toBe('workflow');
+    });
+
+    it('returns kafka-settings when query param is kafka-settings', () => {
+      global.window.location.search = '?tab=kafka-settings';
+      expect(readTabFromUrl()).toBe('kafka-settings');
     });
 
     it('returns default tab for invalid tab value', () => {
@@ -190,6 +197,12 @@ describe('appTabUtils', () => {
       writeTabToUrl('workflow');
       
       expect(replaceStateMock).toHaveBeenCalledWith(null, '', '/?tab=workflow');
+    });
+
+    it('sets tab param for kafka settings tab', () => {
+      writeTabToUrl('kafka-settings');
+
+      expect(replaceStateMock).toHaveBeenCalledWith(null, '', '/?tab=kafka-settings');
     });
 
     it('does not call replaceState if URL is unchanged', () => {

@@ -352,7 +352,7 @@ export function WorkflowResultsSummary({ run, onResultClick }: Props) {
                       >
                         <span className={`method-badge method-${r.method.toLowerCase()}`}>{r.method}</span>
                         <span className="result-name">{r.scenarioName}</span>
-                        <span className="result-status">{r.httpStatus || 'ERR'}</span>
+                        <span className="result-status">{(r.transportType ?? 'http') === 'http' ? (r.httpStatus || 'ERR') : r.transportType === 'kafkaProduce' ? 'PRODUCE' : 'CONSUME'}</span>
                         <span className="result-time">{Math.round(r.responseTimeMs * 10) / 10}ms</span>
                         <span className="result-passed">{r.passed ? '✓' : '✗'}</span>
                       </div>

@@ -67,3 +67,43 @@ export function migrateScenarioKinds(groups: FeatureGroup[]): MigrationResult {
 
   return { groups: migrated ? migratedGroups : groups, migrated, splitCount };
 }
+
+/**
+ * Normalizes the `actionType` field on a `Scenario`.
+ *
+ * Older saved scenarios predate the `actionType` field and have it absent.
+ * All consumers must treat absent `actionType` as `'http'`; this function
+ * makes that explicit by writing the field when missing so downstream code
+ * can compare without needing the `?? 'http'` fallback everywhere.
+ *
+ * This function is non-destructive: scenarios that already have `actionType`
+ * are returned unchanged (same object reference).
+ */
+export function normalizeScenarioActionType(scenario: Scenario): Scenario {
+  if (scenario.actionType !== undefined) return scenario;
+  return { ...scenario, actionType: 'http' };
+}
+
+/**
+ * Normalizes `actionType` on every `Scenario` across all feature groups.
+ * Returns the same `groups` array reference when no changes were needed.
+ */
+export function normalizeGroupActionTypes(groups: FeatureGroup[]): FeatureGroup[] {
+  let changed = false;
+
+  const normalized = groups.map((fg) => {
+    let fgChanged = false;
+    const newScenarios = fg.scenarios?.map((sc) => {
+      let scChanged = false;
+      const newTests = sc.tests.map((t) => {
+        const nt = normalizeScenarioActionType(t);
+        if (nt !== t) { changed = true; fgChanged = true; scChanged = true; }
+        return nt;
+      });
+      return scChanged ? { ...sc, tests: newTests } : sc;
+    });
+    return fgChanged ? { ...fg, scenarios: newScenarios ?? fg.scenarios } : fg;
+  });
+
+  return changed ? normalized : groups;
+}

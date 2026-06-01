@@ -465,6 +465,30 @@ describe('useWorkflowVariableHints', () => {
       const { result } = renderHook(() => useWorkflowVariableHints(opts));
       expect(Array.isArray(result.current.conditionVariableHints)).toBe(true);
     });
+
+    it('collects hints for kafka nodes', () => {
+      const opts = createMockVariableHintsOpts();
+      opts.selectedNodeId = 'kafka-1';
+      opts.nodes = [
+        {
+          id: 'sv1',
+          type: 'setVariable',
+          position: { x: 0, y: 0 },
+          data: { label: 'Set Vars', assignments: [{ id: 'a1', name: 'token', expression: 'abc' }] },
+        } as WorkflowRFNode,
+        {
+          id: 'kafka-1',
+          type: 'kafkaProduce',
+          position: { x: 0, y: 0 },
+          data: { label: 'Kafka', clusterId: 'c1', topic: 'orders' },
+        } as WorkflowRFNode,
+      ];
+      opts.edges = [{ id: 'e1', source: 'sv1', target: 'kafka-1' }];
+
+      const { result } = renderHook(() => useWorkflowVariableHints(opts));
+
+      expect(result.current.conditionVariableHints.map((hint) => hint.ref)).toContain('token');
+    });
   });
 
   describe('httpVariableHints', () => {

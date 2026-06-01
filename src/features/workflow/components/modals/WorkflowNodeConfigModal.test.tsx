@@ -182,6 +182,34 @@ vi.mock('../configs/CorrelationWaitConfig', () => ({
   )),
 }));
 
+vi.mock('../configs/KafkaProduceConfig', () => ({
+  __esModule: true,
+  default: vi.fn().mockImplementation((props: {
+    data: { label: string };
+    onChange: (p: Record<string, unknown>) => void;
+    variableHints?: WorkflowVariableHint[];
+  }) => (
+    <div data-testid="kafka-produce-config" data-hints={String(props.variableHints?.length ?? 0)}>
+      KafkaProduceConfig: {props.data.label}
+      <button type="button" onClick={() => props.onChange({ label: 'Patched Kafka Produce' })}>patch-kafka-produce</button>
+    </div>
+  )),
+}));
+
+vi.mock('../configs/KafkaConsumeConfig', () => ({
+  __esModule: true,
+  default: vi.fn().mockImplementation((props: {
+    data: { label: string };
+    onChange: (p: Record<string, unknown>) => void;
+    variableHints?: WorkflowVariableHint[];
+  }) => (
+    <div data-testid="kafka-consume-config" data-hints={String(props.variableHints?.length ?? 0)}>
+      KafkaConsumeConfig: {props.data.label}
+      <button type="button" onClick={() => props.onChange({ label: 'Patched Kafka Consume' })}>patch-kafka-consume</button>
+    </div>
+  )),
+}));
+
 vi.mock('./WorkflowVariableInsertModal', () => ({
   __esModule: true,
   default: vi.fn().mockImplementation((props: { open: boolean; initialSearch: string }) => (
@@ -487,6 +515,53 @@ describe('WorkflowNodeConfigModal', () => {
     fireEvent.click(screen.getByText('patch-correlation'));
     fireEvent.click(screen.getByText('Save'));
     expect(defaultProps.onUpdateNode).toHaveBeenCalledWith('node-1', expect.objectContaining({ timeoutMs: 1234 }));
+  });
+
+  it('renders KafkaProduceConfig for kafkaProduce node', () => {
+    const node = makeNode('kafkaProduce', { clusterId: 'cluster-a', topic: 'orders' });
+    render(
+      <WorkflowNodeConfigModal
+        {...defaultProps}
+        node={node}
+        conditionVariableHints={[{ ref: 'token', label: 'token' }]}
+      />,
+    );
+    expect(screen.getByTestId('kafka-produce-config')).toBeTruthy();
+    fireEvent.click(screen.getByText('patch-kafka-produce'));
+    fireEvent.click(screen.getByText('Save'));
+    expect(defaultProps.onUpdateNode).toHaveBeenCalledWith('node-1', expect.objectContaining({ label: 'Patched Kafka Produce' }));
+  });
+
+  it('renders KafkaConsumeConfig for kafkaConsume node', () => {
+    const node = makeNode('kafkaConsume', { clusterId: 'cluster-a', topic: 'orders' });
+    render(
+      <WorkflowNodeConfigModal
+        {...defaultProps}
+        node={node}
+        conditionVariableHints={[{ ref: 'token', label: 'token' }]}
+      />,
+    );
+    expect(screen.getByTestId('kafka-consume-config')).toBeTruthy();
+    fireEvent.click(screen.getByText('patch-kafka-consume'));
+    fireEvent.click(screen.getByText('Save'));
+    expect(defaultProps.onUpdateNode).toHaveBeenCalledWith('node-1', expect.objectContaining({ label: 'Patched Kafka Consume' }));
+  });
+
+  it('renders placeholder panel for kafkaTrigger node (Phase 5B not yet implemented)', () => {
+    const node = makeNode('kafkaTrigger', { clusterId: '', topic: '', label: 'My Trigger' });
+    render(<WorkflowNodeConfigModal {...defaultProps} node={node} />);
+    expect(screen.getByText(/Kafka Trigger configuration panel is coming soon/)).toBeTruthy();
+    // Label field should be editable
+    const input = screen.getByPlaceholderText('Kafka Trigger') as HTMLInputElement;
+    expect(input.value).toBe('My Trigger');
+  });
+
+  it('renders placeholder panel for kafkaWait node (Phase 5C not yet implemented)', () => {
+    const node = makeNode('kafkaWait', { clusterId: '', topic: '', correlationIdExpression: '', correlationSource: 'body', timeoutMs: 60000, label: 'My Wait' });
+    render(<WorkflowNodeConfigModal {...defaultProps} node={node} />);
+    expect(screen.getByText(/Kafka Wait configuration panel is coming soon/)).toBeTruthy();
+    const input = screen.getByPlaceholderText('Kafka Wait') as HTMLInputElement;
+    expect(input.value).toBe('My Wait');
   });
 
   // ── Draft / base URL / HTTP callbacks ──

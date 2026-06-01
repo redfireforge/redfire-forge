@@ -568,6 +568,34 @@ export function mapRustResult(
   return mapRustResultJsFallback(rustResult, scenario, errorMessage);
 }
 
+function buildBaseRequestResult(
+  rustResult: RustExecutionResult,
+  scenario?: Scenario,
+): Omit<RequestResult, 'passed' | 'validationMode' | 'failureDetails' | 'errorMessage'> {
+  return {
+    id: rustResult.id,
+    scenarioId: rustResult.scenarioId,
+    scenarioName: rustResult.scenarioName,
+    featureGroupName: rustResult.featureGroupName ?? undefined,
+    groupName: rustResult.groupName ?? undefined,
+    url: rustResult.url,
+    method: rustResult.method,
+    httpStatus: rustResult.httpStatus,
+    responseTimeMs: rustResult.responseTimeMs,
+    responseBody: rustResult.responseBody,
+    responseHeaders: rustResult.responseHeaders,
+    timestamp: rustResult.timestamp,
+    timing: rustResult.timing,
+    requestLog: {
+      headers: rustResult.requestLog.headers,
+      body: rustResult.requestLog.body ?? undefined,
+    },
+    dataRowId: rustResult.dataRowId ?? undefined,
+    dataRowLabel: rustResult.dataRowLabel ?? undefined,
+    scenarioTags: scenario?.scenarioTags,
+  };
+}
+
 /**
  * Passthrough path: Rust validated — trust passed/failureDetails from Rust,
  * then evaluate any custom assertions JS-side and merge.
@@ -607,30 +635,11 @@ function mapRustResultPassthrough(
   }
 
   return {
-    id: rustResult.id,
-    scenarioId: rustResult.scenarioId,
-    scenarioName: rustResult.scenarioName,
-    featureGroupName: rustResult.featureGroupName ?? undefined,
-    groupName: rustResult.groupName ?? undefined,
-    url: rustResult.url,
-    method: rustResult.method,
-    httpStatus: rustResult.httpStatus,
-    responseTimeMs: rustResult.responseTimeMs,
-    responseBody: rustResult.responseBody,
-    responseHeaders: rustResult.responseHeaders,
-    timestamp: rustResult.timestamp,
+    ...buildBaseRequestResult(rustResult, scenario),
     passed,
     validationMode: (rustResult.validationMode ?? scenario.validation.mode) as ValidationMode,
     failureDetails,
     errorMessage: finalErrorMessage,
-    timing: rustResult.timing,
-    requestLog: {
-      headers: rustResult.requestLog.headers,
-      body: rustResult.requestLog.body ?? undefined,
-    },
-    dataRowId: rustResult.dataRowId ?? undefined,
-    dataRowLabel: rustResult.dataRowLabel ?? undefined,
-    scenarioTags: scenario.scenarioTags,
   };
 }
 
@@ -678,30 +687,11 @@ function mapRustResultJsFallback(
   }
 
   return {
-    id: rustResult.id,
-    scenarioId: rustResult.scenarioId,
-    scenarioName: rustResult.scenarioName,
-    featureGroupName: rustResult.featureGroupName ?? undefined,
-    groupName: rustResult.groupName ?? undefined,
-    url: rustResult.url,
-    method: rustResult.method,
-    httpStatus: rustResult.httpStatus,
-    responseTimeMs: rustResult.responseTimeMs,
-    responseBody: rustResult.responseBody,
-    responseHeaders: rustResult.responseHeaders,
-    timestamp: rustResult.timestamp,
+    ...buildBaseRequestResult(rustResult, scenario),
     passed: vr.passed,
     validationMode: scenario.validation.mode,
     failureDetails: vr.failureDetails,
     errorMessage: finalErrorMessage,
-    timing: rustResult.timing,
-    requestLog: {
-      headers: rustResult.requestLog.headers,
-      body: rustResult.requestLog.body ?? undefined,
-    },
-    dataRowId: rustResult.dataRowId ?? undefined,
-    dataRowLabel: rustResult.dataRowLabel ?? undefined,
-    scenarioTags: scenario.scenarioTags,
   };
 }
 
@@ -852,30 +842,12 @@ export function runTestViaRust(
 function mapRustResultWithoutValidation(rustResult: RustExecutionResult): RequestResult {
   const httpFailed = rustResult.httpStatus >= 400 || rustResult.httpStatus === 0;
   return {
-    id: rustResult.id,
-    scenarioId: rustResult.scenarioId,
-    scenarioName: rustResult.scenarioName,
-    featureGroupName: rustResult.featureGroupName ?? undefined,
-    groupName: rustResult.groupName ?? undefined,
-    url: rustResult.url,
-    method: rustResult.method,
-    httpStatus: rustResult.httpStatus,
-    responseTimeMs: rustResult.responseTimeMs,
-    responseBody: rustResult.responseBody,
-    responseHeaders: rustResult.responseHeaders,
-    timestamp: rustResult.timestamp,
+    ...buildBaseRequestResult(rustResult),
     passed: !httpFailed,
     validationMode: 'none',
     failureDetails: httpFailed
       ? [{ path: '(http)', expected: '2xx', actual: rustResult.errorMessage ?? (rustResult.httpStatus === 0 ? 'network error' : `HTTP ${rustResult.httpStatus}`) }]
       : [],
     errorMessage: rustResult.errorMessage ?? undefined,
-    timing: rustResult.timing,
-    requestLog: {
-      headers: rustResult.requestLog.headers,
-      body: rustResult.requestLog.body ?? undefined,
-    },
-    dataRowId: rustResult.dataRowId ?? undefined,
-    dataRowLabel: rustResult.dataRowLabel ?? undefined,
   };
 }

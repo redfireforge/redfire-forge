@@ -3517,6 +3517,7 @@
 .wf-node-icon-badge--data { background: var(--cat-data-badge); color: var(--cat-data); }
 .wf-node-icon-badge--flow { background: var(--cat-flow-badge); color: var(--cat-flow); }
 .wf-node-icon-badge--terminal { background: var(--cat-terminal-badge); color: var(--cat-terminal); }
+.wf-node-icon-badge--integration { background: var(--cat-integration-badge); color: var(--cat-integration); }
 
 /* Node sub-label (category) */
 .wf-node-sublabel {
@@ -3551,7 +3552,11 @@
 .wf-errorhandler-body > div:has(.wf-node-label),
 .wf-logdebug-body > div:has(.wf-node-label),
 .wf-waitcond-body > div:has(.wf-node-label),
-.wf-webhook-body > div:has(.wf-node-label) {
+.wf-webhook-body > div:has(.wf-node-label),
+.wf-kafka-body > div:has(.wf-node-label),
+.wf-correlation-body > div:has(.wf-node-label),
+.wf-subworkflow-body > div:has(.wf-node-label),
+.wf-script-body > div:has(.wf-node-label) {
   min-width: 0; overflow: hidden; flex: 1;
 }
 .wf-source-badge {
@@ -8480,6 +8485,55 @@
 @keyframes onboarding-fade-in {
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Kafka Integration Nodes ── */
+.wf-node-kafkaProduce,
+.wf-node-kafkaConsume,
+.wf-node-kafkaWait {
+  min-width: 200px; border-color: var(--cat-integration);
+  background: linear-gradient(135deg, var(--cat-integration-bg) 0%, var(--surface) 60%);
+}
+.wf-node-kafkaTrigger {
+  min-width: 200px; border-color: var(--cat-trigger);
+  background: linear-gradient(135deg, var(--cat-trigger-bg) 0%, var(--surface) 60%);
+}
+.wf-kafka-body {
+  display: flex; align-items: center; gap: 10px; padding: 12px 16px 4px;
+  min-width: 0; overflow: hidden;
+}
+.wf-kafka-details {
+  padding: 4px 16px 6px; font-size: 0.72rem; color: var(--text-muted);
+}
+.wf-kafka-topic {
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px;
+}
+.wf-kafka-topic strong,
+.wf-kafka-cluster strong {
+  color: var(--cat-integration); font-weight: 600; font-size: 0.68rem;
+  text-transform: uppercase; letter-spacing: 0.04em;
+}
+/* kafkaTrigger uses trigger color for label accents */
+.wf-node-kafkaTrigger .wf-kafka-topic strong,
+.wf-node-kafkaTrigger .wf-kafka-cluster strong {
+  color: var(--cat-trigger);
+}
+.wf-kafka-cluster {
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px;
+  margin-top: 2px;
+}
+.wf-kafka-meta {
+  margin-top: 2px; font-size: 0.68rem; color: var(--text-muted);
+}
+
+/* ── Kafka Config Sections ── */
+.wf-kafka-section {
+  margin-top: 10px; padding: 10px 12px; border-radius: 8px;
+  background: rgba(50, 208, 165, 0.04); border: 1px solid rgba(50, 208, 165, 0.12);
+}
+.wf-kafka-section-title {
+  font-size: 0.78rem; font-weight: 700; color: var(--cat-integration);
+  margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.06em;
 }
 
 

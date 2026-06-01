@@ -19,7 +19,7 @@ import {
 } from './webhook-security.js';
 import {
   extractIdempotencyKey, checkIdempotency, recordProcessed, cleanupIdempotency,
-  getIdempotencySize,
+  getIdempotencySize, extractKafkaIdempotencyKey,
 } from './webhook-idempotency.js';
 import { preValidateWebhook } from './webhook-validation.js';
 
@@ -34,7 +34,14 @@ export interface ServerPausedEntry {
   pausedAt: number;
   timeoutAt: number;
   webhookFilter?: string;
-  correlationSource: 'body' | 'header' | 'query';
+  /**
+   * Where to extract the correlation ID for matching:
+   * - `body`: extract from JSON body via `correlationJsonPath` (HTTP webhook or Kafka message value)
+   * - `header`: extract from a header value via `correlationHeader`
+   * - `query`: extract from a query parameter via `correlationQueryParam` (HTTP webhook only)
+   * - `key`: use the Kafka message key directly (Kafka only — not applicable for HTTP webhooks)
+   */
+  correlationSource: 'body' | 'header' | 'query' | 'key';
   correlationJsonPath?: string;
   correlationHeader?: string;
   correlationQueryParam?: string;
@@ -95,7 +102,7 @@ export function findByCorrelationId(correlationId: string): ServerPausedEntry | 
 // originating browser (which long-polls /api/correlations/:id/wait) can
 // retrieve it and resume in-process.
 
-interface QueuedResume {
+export interface QueuedResume {
   webhookData: Record<string, unknown>;
   executionId: string;
   workflowId: string;
@@ -114,6 +121,29 @@ export function notifyResume(correlationId: string, data: QueuedResume): void {
     return;
   }
   queuedResumes.set(correlationId, data);
+}
+
+/**
+ * Register an in-process waiter for a correlation ID.
+ * The callback is invoked by notifyResume() exactly once when the correlation is resumed,
+ * exactly like the HTTP long-poll mechanism but without an HTTP response.
+ * Used by ServerCorrelationBridge for server-side workflow execution.
+ */
+export function registerResumeWaiter(correlationId: string, waiter: (data: QueuedResume) => void): void {
+  const arr = resumeWaiters.get(correlationId) ?? [];
+  arr.push(waiter);
+  resumeWaiters.set(correlationId, arr);
+}
+
+/**
+ * Deregister an in-process waiter (e.g. on timeout before notifyResume fires).
+ */
+export function deregisterResumeWaiter(correlationId: string, waiter: (data: QueuedResume) => void): void {
+  const arr = resumeWaiters.get(correlationId);
+  if (!arr) return;
+  const idx = arr.indexOf(waiter);
+  if (idx >= 0) arr.splice(idx, 1);
+  if (arr.length === 0) resumeWaiters.delete(correlationId);
 }
 
 /** Cleanup expired queued resumes (called periodically). */
@@ -158,6 +188,9 @@ export function extractCorrelationId(
       const queryValue = query[entry.correlationQueryParam];
       return queryValue != null ? String(queryValue) : undefined;
     }
+    case 'key':
+      // 'key' source only applies to Kafka messages — not applicable for HTTP webhooks.
+      return undefined;
     default:
       return undefined;
   }
@@ -201,6 +234,190 @@ export function cleanupExpired(): number {
 
 function logUnmatchedWebhook(path: string, correlationId: string | undefined, payload: unknown): void {
   activeStore.logUnmatched(path, correlationId, payload);
+}
+
+// ── Kafka message dispatch ────────────────────────────────────────────────────
+//
+// Phase 5D: when the server's Kafka consumer receives a message on a subscribed
+// topic, it calls dispatchKafkaResumeMessage() to match against waiting
+// KafkaWait correlations and resume the paused workflow execution exactly once.
+
+/**
+ * Represents an incoming Kafka message passed to the server-side correlation
+ * dispatcher when a consumer receives a message.
+ */
+export interface KafkaResumeMessage {
+  topic: string;
+  partition: number;
+  offset: string;
+  key?: string;
+  value?: string;
+  headers?: Record<string, string>;
+}
+
+/**
+ * Result of attempting to dispatch a Kafka message to a waiting correlation.
+ * - `resumed: true`  — matched a waiting correlation and resumed it
+ * - `reason: 'no-match'`   — no paused correlation matched this message
+ * - `reason: 'duplicate'`  — this message position was already processed (idempotent replay)
+ */
+export type KafkaDispatchOutcome =
+  | { resumed: true; correlationId: string; executionId: string; workflowId: string }
+  | { resumed: false; reason: 'no-match' }
+  | { resumed: false; reason: 'duplicate'; correlationId: string };
+
+/**
+ * Extract a correlation ID from an incoming Kafka message based on a paused
+ * entry's correlation source configuration.
+ *
+ * - `key`:    use the Kafka message key directly
+ * - `body`:   parse message value as JSON and apply correlationJsonPath
+ * - `header`: look up a named message header
+ * - `query`:  not applicable for Kafka — returns undefined
+ */
+export function extractKafkaCorrelationId(
+  entry: ServerPausedEntry,
+  message: KafkaResumeMessage,
+): string | undefined {
+  switch (entry.correlationSource) {
+    case 'key':
+      return message.key !== undefined && message.key !== '' ? message.key : undefined;
+    case 'body': {
+      if (!entry.correlationJsonPath) return undefined;
+      let parsed: unknown;
+      try {
+        parsed = message.value ? JSON.parse(message.value) : {};
+      } catch {
+        return undefined;
+      }
+      const path = entry.correlationJsonPath.replace(/^\$\.?/, '');
+      const parts = path.split('.');
+      let current: unknown = parsed;
+      for (const part of parts) {
+        if (current == null || typeof current !== 'object') return undefined;
+        current = (current as Record<string, unknown>)[part];
+      }
+      return current != null ? String(current) : undefined;
+    }
+    case 'header': {
+      if (!entry.correlationHeader) return undefined;
+      const hdr = entry.correlationHeader;
+      // Try exact name then lowercase (Kafka headers are case-sensitive but we normalise)
+      const val = message.headers?.[hdr] ?? message.headers?.[hdr.toLowerCase()];
+      return val !== undefined ? String(val) : undefined;
+    }
+    default:
+      return undefined;
+  }
+}
+
+/**
+ * Find the first paused correlation whose topic matches `topic` and whose
+ * correlation ID extracted from `message` matches the stored correlationId.
+ *
+ * Expired entries encountered during the scan are removed from the store.
+ */
+export function matchKafkaCorrelation(
+  topic: string,
+  message: KafkaResumeMessage,
+): { entry: ServerPausedEntry; correlationId: string } | undefined {
+  for (const entry of activeStore.listAll()) {
+    // Kafka topic is stored as webhookPath
+    if (entry.webhookPath !== topic) continue;
+
+    // Remove timed-out entries during the scan
+    if (entry.timeoutAt > 0 && Date.now() > entry.timeoutAt) {
+      activeStore.remove(entry.correlationId);
+      continue;
+    }
+
+    const extractedId = extractKafkaCorrelationId(entry, message);
+    if (extractedId && extractedId === entry.correlationId) {
+      return { entry, correlationId: extractedId };
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Dispatch an incoming Kafka message to a waiting KafkaWait correlation.
+ *
+ * Flow:
+ * 1. Build a Kafka-specific idempotency key from topic+partition+offset.
+ * 2. Find a matching paused correlation via matchKafkaCorrelation().
+ * 3. If no match: check whether this is a duplicate of a previously processed
+ *    message (idempotency store hit) and return the appropriate outcome.
+ * 4. If match found: check the idempotency store to guard against replay
+ *    when the correlation is no longer in the active store.
+ * 5. Remove the matched entry, fire notifyResume(), record idempotency key.
+ *
+ * Called by the server-side Kafka consumer subscription callback when a
+ * message arrives on a topic that has waiting KafkaWait nodes.
+ */
+export function dispatchKafkaResumeMessage(message: KafkaResumeMessage): KafkaDispatchOutcome {
+  const idempotencyKey = extractKafkaIdempotencyKey(message.topic, message.partition, message.offset);
+
+  // Find a matching paused correlation
+  const match = matchKafkaCorrelation(message.topic, message);
+
+  if (!match) {
+    // No match — check if this offset was already processed (duplicate delivery after resume)
+    const cached = checkIdempotency(idempotencyKey);
+    if (cached) {
+      const prev = cached.responseBody as { correlationId?: string };
+      console.log(`[Kafka Dispatch] Idempotent duplicate (no active match): ${idempotencyKey}`);
+      return { resumed: false, reason: 'duplicate', correlationId: prev.correlationId ?? '' };
+    }
+    logUnmatchedWebhook(message.topic, undefined, message);
+    console.log(`[Kafka Dispatch] No match for topic="${message.topic}" key="${message.key ?? ''}"`);
+    return { resumed: false, reason: 'no-match' };
+  }
+
+  // Match found — guard against replay when correlation is no longer in the active store
+  const cached = checkIdempotency(idempotencyKey);
+  if (cached && !activeStore.find(match.correlationId)) {
+    console.log(`[Kafka Dispatch] Idempotent duplicate: ${idempotencyKey}`);
+    return { resumed: false, reason: 'duplicate', correlationId: match.correlationId };
+  }
+
+  // Remove matched entry and resume
+  activeStore.remove(match.correlationId);
+
+  const resumeData: QueuedResume = {
+    webhookData: {
+      topic: message.topic,
+      partition: message.partition,
+      offset: message.offset,
+      key: message.key ?? '',
+      value: message.value ?? '',
+      headers: message.headers ?? {},
+    },
+    executionId: match.entry.executionId,
+    workflowId: match.entry.workflowId,
+    ts: Date.now(),
+  };
+
+  notifyResume(match.correlationId, resumeData);
+
+  const resultRecord = {
+    resumed: true,
+    correlationId: match.correlationId,
+    executionId: match.entry.executionId,
+    workflowId: match.entry.workflowId,
+  };
+  recordProcessed(idempotencyKey, 200, resultRecord);
+
+  console.log(
+    `[Kafka Dispatch] Matched: ${match.correlationId} → execution=${match.entry.executionId}` +
+    ` (${message.topic}:${message.partition}:${message.offset})`,
+  );
+
+  return {
+    resumed: true,
+    correlationId: match.correlationId,
+    executionId: match.entry.executionId,
+    workflowId: match.entry.workflowId,
+  };
 }
 
 // ── Router ───────────────────────────────────────────

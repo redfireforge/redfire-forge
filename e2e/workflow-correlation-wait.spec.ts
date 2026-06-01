@@ -3,7 +3,7 @@
  * Verifies canvas rendering, palette block, node config modal, and webhook callback.
  */
 import { test, expect } from '@playwright/test';
-import { seedAppData } from './helpers';
+import { gotoAppTab, seedAppData } from './helpers';
 import type { Workflow } from '../src/features/workflow/types/workflow';
 
 /** Workflow with Start → HTTP → CorrelationWait → HTTP → End */
@@ -83,10 +83,7 @@ async function seedAndNavigate(page: import('@playwright/test').Page) {
     localStorage.setItem('workflows', workflowJson);
     localStorage.setItem('workflows_selected_id', 'wf-corr');
   }, JSON.stringify([makeCorrelationWorkflow()]));
-  await page.goto('/?tab=workflow');
-  await page.waitForSelector('.app-header', { timeout: 10000 });
-  await page.waitForLoadState('networkidle');
-  await expect(page.locator('.wf-designer')).toBeVisible({ timeout: 5000 });
+  await gotoAppTab(page, 'workflow');
 }
 
 // ── Canvas rendering ─────────────────────────────────
@@ -250,9 +247,7 @@ test.describe('Execution History — Paused Tab', () => {
       route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ correlations: [] }) })
     );
 
-    await page.goto('/?tab=workflow-executions');
-    await page.waitForSelector('.app-header', { timeout: 10000 });
-    await page.waitForLoadState('networkidle');
+    await gotoAppTab(page, 'workflow-executions');
 
     // The dropdown should have a paused option
     const select = page.locator('.exh-select').first();

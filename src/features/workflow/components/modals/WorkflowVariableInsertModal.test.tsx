@@ -280,16 +280,19 @@ describe('WorkflowVariableInsertModal', () => {
 
   it('uses correct node-type icons from NODE_TYPE_DISPLAY', () => {
     const startSource: WorkflowVariableHintSource = { nodeId: 's1', nodeLabel: 'Start', nodeType: 'start', category: 'Triggers' };
+    const kafkaSource: WorkflowVariableHintSource = { nodeId: 'k1', nodeLabel: 'Kafka', nodeType: 'kafkaProduce', category: 'Integrations' };
     const hints: WorkflowVariableHint[] = [
       { ref: 'x', label: 'x', source: startSource },
       { ref: 'y', label: 'y', source: wfSource },
+      { ref: 'z', label: 'z', source: kafkaSource },
     ];
     render(
       <WorkflowVariableInsertModal {...defaultProps} hints={hints} />,
     );
     const icons = document.body.querySelectorAll('.wf-var-insert-source-icon');
     expect(icons[0].textContent).toBe('▶'); // start
-    expect(icons[1].textContent).toBe('⚡'); // workflow
+    expect(icons[1].textContent).toBe('⇢'); // kafkaProduce
+    expect(icons[2].textContent).toBe('⚡'); // workflow
   });
 
   // ── Compose mode tests ──

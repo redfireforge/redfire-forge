@@ -1,6 +1,63 @@
 import { expect, type Page } from '@playwright/test';
 import type { Workflow, WorkflowFolder } from '../src/features/workflow/types/workflow';
 
+async function safeReload(page: Page): Promise<void> {
+  try {
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    return;
+  } catch {
+    await page.goto(page.url(), { waitUntil: 'domcontentloaded' });
+  }
+}
+
+export async function waitForAppShell(page: Page): Promise<void> {
+  await page.waitForLoadState('domcontentloaded');
+}
+
+export async function waitForWorkflowReady(page: Page): Promise<void> {
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const visible = await page.locator('.wf-designer').isVisible({ timeout: 15000 }).catch(() => false);
+    if (visible) {
+      return;
+    }
+
+    if (attempt === 0) {
+      await page.goto('/?tab=workflow', { waitUntil: 'domcontentloaded' });
+    }
+  }
+
+  await expect(page.locator('.wf-designer')).toBeVisible({ timeout: 20000 });
+}
+
+export async function openWorkflowBlocksTab(page: Page): Promise<void> {
+  await expect(page.locator('.wf-palette')).toBeVisible({ timeout: 5000 });
+  const blocksTab = page.locator('.wf-palette-tab', { hasText: 'Blocks' });
+  await blocksTab.click();
+  await expect(page.locator('.wf-palette-category-title').first()).toBeVisible({ timeout: 5000 });
+}
+
+export async function gotoAppTab(page: Page, tab: string): Promise<void> {
+  await page.goto(`/?tab=${tab}`, { waitUntil: 'domcontentloaded' });
+  if (tab === 'workflow') {
+    await waitForWorkflowReady(page);
+    return;
+  }
+  await waitForAppShell(page);
+}
+
+export async function reloadAppTab(page: Page, tab?: string): Promise<void> {
+  if (tab) {
+    await page.goto(`/?tab=${tab}`, { waitUntil: 'domcontentloaded' });
+  } else {
+    await safeReload(page);
+  }
+  if (tab === 'workflow') {
+    await waitForWorkflowReady(page);
+    return;
+  }
+  await waitForAppShell(page);
+}
+
 /**
  * Seeds localStorage with flat v3 data so the app starts with an
  * environment and microservice already selected — prerequisite for most tests.
@@ -153,8 +210,7 @@ export async function seedWorkflowAndTestRun(
   const seeded = await seedTestRunsViaIDB(page, [testRun]);
   expect(seeded).toBe('ok');
 
-  await page.reload();
-  await page.waitForLoadState('domcontentloaded');
+  await reloadAppTab(page);
 }
 
 /**

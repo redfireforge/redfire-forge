@@ -232,6 +232,7 @@ describe('graphLoadRunner', () => {
         undefined,          // pollSemaphore
         undefined,          // traceOptions
         undefined,          // httpTimeoutMs
+        undefined,          // kafkaOperations
       );
     });
 
@@ -769,6 +770,44 @@ describe('graphLoadRunner', () => {
         undefined,
         undefined,
         undefined, // httpTimeoutMs
+        undefined, // kafkaOperations
+      );
+    });
+
+    it('passes kafkaOperations from opts through to runGraph', async () => {
+      const workflow = createMockWorkflow();
+      mockRunGraph.mockResolvedValue([createMockResult()]);
+
+      const kafkaOperations = {
+        produce: vi.fn(),
+        consume: vi.fn(),
+      };
+
+      await runGraphLoad(workflow, {
+        iterations: 1,
+        concurrency: 1,
+        kafkaOperations,
+      });
+
+      expect(mockRunGraph).toHaveBeenCalledWith(
+        workflow.nodes,
+        workflow.edges,
+        expect.any(Object),
+        expect.any(Object),
+        undefined,          // abortSignal
+        undefined,          // environmentLayer
+        undefined,          // resolveHttpBaseUrl
+        undefined,          // resolveHttpAuth
+        undefined,          // debugController
+        undefined,          // errorConfig
+        undefined,          // resolveSubWorkflow
+        undefined,          // correlationStore
+        true,               // loadTestMode
+        undefined,          // correlationWaitConfig
+        undefined,          // pollSemaphore
+        undefined,          // traceOptions
+        undefined,          // httpTimeoutMs
+        kafkaOperations,    // kafkaOperations ← must be threaded through
       );
     });
   });

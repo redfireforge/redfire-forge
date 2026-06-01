@@ -14,6 +14,57 @@ import type { CorrelationWaitRunnerConfig, ExecutionTraceOptions, CapturedHttpRe
 import type { Semaphore } from '../../../shared/utils/semaphore';
 
 // ────────────────────────────────────────────────────────
+// Kafka node operations (dependency-injected for testability)
+// ────────────────────────────────────────────────────────
+
+/** Result envelope returned by a Kafka produce operation. */
+export interface KafkaProduceResult {
+  topic: string;
+  partition: number;
+  offset: string;
+  timestamp: string;
+  key?: string;
+}
+
+/** A single consumed Kafka message. */
+export interface KafkaConsumedMessage {
+  topic: string;
+  partition: number;
+  offset: string;
+  timestamp: string;
+  key?: string;
+  value: string;
+  headers?: Record<string, string>;
+}
+
+/** Dependency-injected operations for Kafka node handlers. */
+export interface KafkaNodeOperations {
+  /** Produce a message to a Kafka topic. */
+  produce(params: {
+    clusterId: string;
+    topic: string;
+    key?: string;
+    value: string;
+    partition?: number;
+    headers?: Record<string, string>;
+    ackMode?: string;
+    timeoutMs?: number;
+  }): Promise<KafkaProduceResult>;
+
+  /** Consume messages from a Kafka topic with bounded defaults. */
+  consume(params: {
+    clusterId: string;
+    topic: string;
+    maxMessages: number;
+    timeoutMs: number;
+    startPosition?: string;
+    keyRegex?: string;
+    headerFilters?: Array<{ key: string; value: string }>;
+    jsonPathFilters?: Array<{ jsonPath: string; expectedValue?: string }>;
+  }): Promise<KafkaConsumedMessage[]>;
+}
+
+// ────────────────────────────────────────────────────────
 // Shared context passed to every handler
 // ────────────────────────────────────────────────────────
 
@@ -109,6 +160,16 @@ export interface NodeHandlerContext {
   capturedScriptOutput?: Map<string, string[]>;
   /** Per-request timeout in milliseconds for HTTP nodes. */
   httpTimeoutMs?: number;
+  /**
+   * Kafka client operations for produce/consume node handlers.
+   * Injected through context for testability — handlers never access a global client.
+   */
+  kafkaOperations?: KafkaNodeOperations;
+  /**
+   * Storage for captured Kafka execution details per node (for trace capture).
+   * Populated by handleKafkaProduceNode/handleKafkaConsumeNode, consumed when building eventDetails.
+   */
+  capturedKafkaDetails?: Map<string, import('../../../shared/types').CapturedKafkaNodeDetails>;
 }
 
 /**

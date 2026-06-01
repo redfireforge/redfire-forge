@@ -11,7 +11,7 @@ await build({
   format: 'esm',
   target: 'node22',
   outfile: 'dist-server/index.mjs',
-  external: ['express', 'node-cron'],
+  external: ['express', 'node-cron', 'kafkajs'],
   minify: false,
   sourcemap: true,
   banner: {
