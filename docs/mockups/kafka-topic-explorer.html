@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kafka Topic Explorer — RedfireForge Mockup</title>
+<style>
+  :root {
+    --bg: #08111d;
+    --panel: #0f1a2c;
+    --panel-2: #13233b;
+    --line: #21344f;
+    --text: #eef4ff;
+    --muted: #93a6c6;
+    --blue: #6bb8ff;
+    --blue-soft: rgba(107,184,255,0.14);
+    --orange: #ff914d;
+    --green: #31d0a1;
+    --yellow: #f2c55d;
+    --red: #ff6b7a;
+    --radius: 16px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font: 14px/1.45 "Space Grotesk", "Avenir Next", "Trebuchet MS", sans-serif;
+    color: var(--text);
+    background:
+      radial-gradient(circle at 12% 0%, rgba(255,145,77,0.12), transparent 22%),
+      radial-gradient(circle at 88% 0%, rgba(107,184,255,0.12), transparent 24%),
+      linear-gradient(180deg, #07101c, #08111d 55%, #091320);
+  }
+  .frame { max-width: 1560px; margin: 0 auto; padding: 22px; min-height: 100vh; }
+  .toolbar, .content-card, .detail-card {
+    background: rgba(15,26,44,0.96);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: var(--radius);
+    box-shadow: 0 18px 40px rgba(0,0,0,0.34);
+  }
+  .toolbar {
+    padding: 16px 18px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .brand { font-weight: 700; color: var(--orange); font-size: 18px; }
+  .context { color: var(--muted); padding: 6px 10px; border: 1px solid var(--line); border-radius: 999px; font-size: 12px; }
+  .spacer { flex: 1; }
+  .btn {
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: rgba(255,255,255,0.03);
+    color: var(--text);
+    padding: 9px 13px;
+    font: inherit;
+  }
+  .btn.primary { background: linear-gradient(180deg, #ff9d63, #ff8440); color: #28170a; border-color: transparent; font-weight: 700; }
+  .layout { display: grid; grid-template-columns: 1.1fr 1fr; gap: 18px; margin-top: 18px; }
+  .content-card { overflow: hidden; }
+  .header { padding: 20px 22px 14px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+  .header h1 { margin: 0 0 8px; font-size: 28px; }
+  .header p { margin: 0; color: var(--muted); max-width: 780px; }
+  .filters {
+    display: grid;
+    grid-template-columns: 2fr repeat(4, 1fr) auto;
+    gap: 10px;
+    padding: 18px 22px 10px;
+  }
+  .chipbar { display: flex; gap: 8px; padding: 0 22px 18px; flex-wrap: wrap; }
+  .chip {
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--line);
+    color: var(--muted);
+    font-size: 12px;
+  }
+  .chip.active { background: var(--blue-soft); color: #d6ebff; border-color: rgba(107,184,255,0.3); }
+  .input, .select {
+    width: 100%;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: #0a1322;
+    color: var(--text);
+    padding: 11px 13px;
+    font: inherit;
+  }
+  .table-wrap { padding: 0 12px 14px; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 12px 10px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+  th { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; }
+  tr.active { background: rgba(107,184,255,0.08); }
+  .topic-name { font-weight: 700; }
+  .stat { font-size: 12px; color: var(--muted); }
+  .health { padding: 4px 9px; border-radius: 999px; font-size: 11px; font-weight: 700; }
+  .health.ok { background: rgba(49,208,161,0.15); color: #a7f3dd; }
+  .health.warn { background: rgba(242,197,93,0.14); color: #ffe6a4; }
+  .detail-card { overflow: hidden; }
+  .detail-head { padding: 18px 20px 12px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+  .detail-head h2 { margin: 0 0 4px; font-size: 21px; }
+  .detail-head p { margin: 0; color: var(--muted); }
+  .tabbar { display: flex; gap: 8px; padding: 14px 18px 0; }
+  .tab {
+    padding: 9px 12px;
+    border-radius: 12px 12px 0 0;
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid transparent;
+  }
+  .tab.active { background: rgba(107,184,255,0.12); color: var(--text); border-color: rgba(107,184,255,0.22); }
+  .detail-body { padding: 18px; display: grid; gap: 16px; }
+  .panel {
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 14px;
+    background: rgba(255,255,255,0.02);
+    padding: 16px;
+  }
+  .panel h3 { margin: 0 0 12px; font-size: 14px; }
+  .metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .metric {
+    padding: 14px;
+    border-radius: 14px;
+    background: #091321;
+    border: 1px solid var(--line);
+  }
+  .metric strong { display: block; font-size: 22px; margin-bottom: 3px; }
+  .metric span { color: var(--muted); font-size: 12px; }
+  .message-filters {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+  .message-table { font-size: 12px; }
+  .message-table td, .message-table th { padding: 10px 8px; }
+  .code {
+    background: #08111d;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 14px;
+    font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
+    font-size: 12px;
+    white-space: pre-wrap;
+    color: #dce9ff;
+  }
+  .insight {
+    padding: 12px 14px;
+    border-radius: 14px;
+    background: rgba(255,145,77,0.08);
+    border: 1px solid rgba(255,145,77,0.2);
+    color: #ffd9c3;
+    font-size: 13px;
+  }
+</style>
+</head>
+<body>
+  <div class="frame">
+    <div class="toolbar">
+      <div class="brand">RedfireForge</div>
+      <div class="context">Kafka / Topics</div>
+      <div class="context">Cluster: Staging MSK</div>
+      <div class="spacer"></div>
+      <button class="btn">Refresh</button>
+      <button class="btn primary">Create Topic</button>
+    </div>
+
+    <div class="layout">
+      <section class="content-card">
+        <div class="header">
+          <h1>Topic Explorer</h1>
+          <p>This screen is optimized for developers and testers who need to find the right topic quickly, see health at a glance, and jump straight into messages without wading through enterprise governance screens.</p>
+        </div>
+
+        <div class="filters">
+          <input class="input" value="Search topics, prefixes, domains, tags">
+          <div class="select">Health: All</div>
+          <div class="select">Partitions: Any</div>
+          <div class="select">Retention: Any</div>
+          <div class="select">Internal: Hidden</div>
+          <button class="btn primary">Apply</button>
+        </div>
+
+        <div class="chipbar">
+          <div class="chip active">Orders</div>
+          <div class="chip">Payments</div>
+          <div class="chip">Inventory</div>
+          <div class="chip">Notifications</div>
+          <div class="chip">Recently Active</div>
+          <div class="chip">Lagging Consumers</div>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Topic</th>
+                <th>Partitions</th>
+                <th>Replicas</th>
+                <th>Traffic</th>
+                <th>Consumer Groups</th>
+                <th>Health</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="active">
+                <td>
+                  <div class="topic-name">orders.created</div>
+                  <div class="stat">Core order ingress events</div>
+                </td>
+                <td>12</td>
+                <td>3</td>
+                <td>18.4M</td>
+                <td>6 active</td>
+                <td><span class="health ok">Healthy</span></td>
+              </tr>
+              <tr>
+                <td>
+                  <div class="topic-name">orders.failed</div>
+                  <div class="stat">Retry and dead-letter diagnostics</div>
+                </td>
+                <td>6</td>
+                <td>3</td>
+                <td>124K</td>
+                <td>2 active</td>
+                <td><span class="health warn">Warning</span></td>
+              </tr>
+              <tr>
+                <td>
+                  <div class="topic-name">payments.authorized</div>
+                  <div class="stat">Payment success notifications</div>
+                </td>
+                <td>8</td>
+                <td>3</td>
+                <td>2.8M</td>
+                <td>4 active</td>
+                <td><span class="health ok">Healthy</span></td>
+              </tr>
+              <tr>
+                <td>
+                  <div class="topic-name">inventory.adjusted</div>
+                  <div class="stat">Warehouse stock movement</div>
+                </td>
+                <td>6</td>
+                <td>2</td>
+                <td>540K</td>
+                <td>3 active</td>
+                <td><span class="health ok">Healthy</span></td>
+              </tr>
+              <tr>
+                <td>
+                  <div class="topic-name">notifications.email</div>
+                  <div class="stat">Outbound email pipeline</div>
+                </td>
+                <td>3</td>
+                <td>2</td>
+                <td>412K</td>
+                <td>1 active</td>
+                <td><span class="health ok">Healthy</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="detail-card">
+        <div class="detail-head">
+          <h2>orders.created</h2>
+          <p>Topic detail keeps browsing and debugging on one page: summary, bounded message fetch, and selected message inspection.</p>
+        </div>
+
+        <div class="tabbar">
+          <div class="tab active">Messages</div>
+          <div class="tab">Partitions</div>
+          <div class="tab">Consumer Groups</div>
+          <div class="tab">Config</div>
+        </div>
+
+        <div class="detail-body">
+          <div class="panel">
+            <h3>Topic Summary</h3>
+            <div class="metrics">
+              <div class="metric"><strong>12</strong><span>Partitions</span></div>
+              <div class="metric"><strong>3</strong><span>Replication Factor</span></div>
+              <div class="metric"><strong>18.4M</strong><span>Messages</span></div>
+              <div class="metric"><strong>6</strong><span>Consumer Groups</span></div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <h3>Message Browser Filters</h3>
+            <div class="message-filters">
+              <input class="input" value="Key contains customer-123">
+              <div class="select">Partition: Any</div>
+              <div class="select">Time: Last 1 hour</div>
+              <input class="input" value="Header traceId = 8f1e">
+              <input class="input" value="JSON contains status=CREATED">
+              <div class="select">Max Results: 100</div>
+            </div>
+            <div class="insight" style="margin-top:12px;">Use bounded filters first. RedfireForge should not default to massive continuous fetches; large scans should be a conscious debugging action.</div>
+          </div>
+
+          <div class="panel">
+            <h3>Message Sample</h3>
+            <table class="message-table">
+              <thead>
+                <tr>
+                  <th>Offset</th>
+                  <th>Partition</th>
+                  <th>Timestamp</th>
+                  <th>Key</th>
+                  <th>Preview</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>1829911</td>
+                  <td>2</td>
+                  <td>2026-05-29 10:21:11</td>
+                  <td>customer-123</td>
+                  <td>{"orderId":"ord_991","status":"CREATED"...}</td>
+                </tr>
+                <tr>
+                  <td>1829910</td>
+                  <td>2</td>
+                  <td>2026-05-29 10:21:10</td>
+                  <td>customer-123</td>
+                  <td>{"orderId":"ord_990","status":"CREATED"...}</td>
+                </tr>
+                <tr>
+                  <td>1829909</td>
+                  <td>2</td>
+                  <td>2026-05-29 10:21:09</td>
+                  <td>customer-456</td>
+                  <td>{"orderId":"ord_989","status":"FAILED"...}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="panel">
+            <h3>Selected Message</h3>
+            <div class="code">Metadata
+partition=2
+offset=1829911
+timestamp=2026-05-29T10:21:11Z
+headers={ traceId: "8f1e", source: "checkout" }
+
+Body
+{
+  "orderId": "ord_991",
+  "customerId": "customer-123",
+  "status": "CREATED",
+  "paymentState": "AUTHORIZED"
+}</div>
+            <div style="display:flex; gap:10px; margin-top:12px; flex-wrap:wrap;">
+              <button class="btn">Copy Key</button>
+              <button class="btn">Copy Value</button>
+              <button class="btn">Export JSON</button>
+              <button class="btn primary">Replay to Workflow</button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+</body>
+</html>

@@ -7,6 +7,8 @@ import { saveExecutionResult } from './file-storage.js';
 import type { ExecutionResult, LogLine } from '../src/shared/types/server-api';
 import type { Workflow, NodeRunStatus } from '../src/features/workflow/types/workflow';
 import type { RequestResult, WorkflowIterationTrace, ExecutionTraceOptions } from '../src/shared/types/index';
+import type { ICorrelationStore } from '../src/features/workflow/engine/correlationStore.js';
+import type { KafkaNodeOperations } from '../src/features/workflow/engine/graphRunnerNodeHandlerContext.js';
 
 export interface WorkflowExecutionInput {
   executionId: string;
@@ -18,6 +20,17 @@ export interface WorkflowExecutionInput {
   onLog?: (line: LogLine) => void;
   /** Trace capture options for Results Explorer support */
   traceOptions?: ExecutionTraceOptions;
+  /**
+   * Correlation store for CorrelationWait and KafkaWait nodes.
+   * When provided, paused nodes can be resumed by incoming webhook or Kafka callbacks.
+   * Use ServerCorrelationBridge to bridge the server-side store to this interface.
+   */
+  correlationStore?: ICorrelationStore;
+  /**
+   * Kafka client operations for KafkaProduce, KafkaConsume, and KafkaWait nodes.
+   * When omitted, Kafka nodes will fail with 'No Kafka operations configured'.
+   */
+  kafkaOperations?: KafkaNodeOperations;
 }
 
 export interface WorkflowExecutionOutput {
@@ -34,7 +47,10 @@ export interface WorkflowExecutionOutput {
  * Execute a workflow and save the result. Used by both webhook and schedule triggers.
  */
 export async function executeWorkflow(input: WorkflowExecutionInput): Promise<WorkflowExecutionOutput> {
-  const { executionId, workflow, initialVariables, triggerType, triggerId, startTime, onLog, traceOptions } = input;
+  const {
+    executionId, workflow, initialVariables, triggerType, triggerId,
+    startTime, onLog, traceOptions, correlationStore, kafkaOperations,
+  } = input;
 
   const executionResults: RequestResult[] = [];
   let executionPassed = true;
@@ -63,18 +79,20 @@ export async function executeWorkflow(input: WorkflowExecutionInput): Promise<Wo
         }
       },
     },
-    undefined, // abortSignal
-    undefined, // environmentLayer
-    undefined, // resolveHttpBaseUrl
-    undefined, // resolveHttpAuth
-    undefined, // debugController
-    undefined, // errorConfig
-    undefined, // resolveSubWorkflow
-    undefined, // correlationStore
-    false,     // loadTestMode
-    undefined, // correlationWaitConfig
-    undefined, // pollSemaphore
-    traceOptions, // traceOptions for trace capture
+    undefined,        // abortSignal
+    undefined,        // environmentLayer
+    undefined,        // resolveHttpBaseUrl
+    undefined,        // resolveHttpAuth
+    undefined,        // debugController
+    undefined,        // errorConfig
+    undefined,        // resolveSubWorkflow
+    correlationStore, // ICorrelationStore — use ServerCorrelationBridge for server-side execution
+    false,            // loadTestMode
+    undefined,        // correlationWaitConfig
+    undefined,        // pollSemaphore
+    traceOptions,     // traceOptions for trace capture
+    undefined,        // httpTimeoutMs
+    kafkaOperations,  // KafkaNodeOperations — wire from server-side KafkaService when available
   );
 
   const totalDuration = Date.now() - startTime;

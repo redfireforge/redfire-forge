@@ -10,7 +10,7 @@
  * - Schedule time variable seeding
  */
 import { test, expect } from '@playwright/test';
-import { seedAppData } from './helpers';
+import { gotoAppTab, openWorkflowBlocksTab, seedAppData } from './helpers';
 import type { Workflow } from '../src/features/workflow/types/workflow';
 
 function makeWebhookWorkflow(): Workflow {
@@ -160,10 +160,7 @@ async function seedScheduleWorkflow(page: import('@playwright/test').Page) {
 test.describe('Workflow Webhook Trigger', () => {
   test.beforeEach(async ({ page }) => {
     await seedWebhookWorkflow(page);
-    await page.goto('/?tab=workflow');
-    await page.waitForSelector('.app-header', { timeout: 10000 });
-    await page.waitForLoadState('networkidle');
-    await page.waitForSelector('.wf-designer', { timeout: 10_000 });
+    await gotoAppTab(page, 'workflow');
   });
 
   test('renders webhook trigger node with correct styling', async ({ page }) => {
@@ -258,6 +255,8 @@ test.describe('Workflow Webhook Trigger', () => {
   });
 
   test('can drag webhook node from palette', async ({ page }) => {
+    await openWorkflowBlocksTab(page);
+
     // Should see webhook trigger in palette
     const paletteBlock = page.locator('.wf-palette-block').filter({ hasText: 'Webhook Trigger' });
     await expect(paletteBlock).toBeVisible({ timeout: 5_000 });
@@ -271,10 +270,7 @@ test.describe('Workflow Webhook Trigger', () => {
 test.describe('Workflow Schedule Trigger', () => {
   test.beforeEach(async ({ page }) => {
     await seedScheduleWorkflow(page);
-    await page.goto('/?tab=workflow');
-    await page.waitForSelector('.app-header', { timeout: 10000 });
-    await page.waitForLoadState('networkidle');
-    await page.waitForSelector('.wf-designer', { timeout: 10_000 });
+    await gotoAppTab(page, 'workflow');
   });
 
   test('renders schedule trigger node with correct styling', async ({ page }) => {
@@ -397,10 +393,7 @@ test.describe('Workflow Trigger Execution', () => {
   test.beforeEach(async ({ page }) => {
     // Use webhook workflow for execution testing
     await seedWebhookWorkflow(page);
-    await page.goto('/?tab=workflow');
-    await page.waitForSelector('.app-header', { timeout: 10000 });
-    await page.waitForLoadState('networkidle');
-    await page.waitForSelector('.wf-designer', { timeout: 10_000 });
+    await gotoAppTab(page, 'workflow');
   });
 
   test('workflow with webhook trigger loads successfully', async ({ page }) => {

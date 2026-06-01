@@ -24,6 +24,10 @@ import type {
   SubWorkflowNodeData,
   ScriptNodeData,
   CorrelationWaitNodeData,
+  KafkaProduceNodeData,
+  KafkaConsumeNodeData,
+  KafkaTriggerNodeData,
+  KafkaWaitNodeData,
 } from '../types/workflow';
 import { isHttpWorkflowNode } from './workflowVariableHints';
 import HttpStepNode from '../components/nodes/HttpStepNode';
@@ -45,6 +49,10 @@ import WaitForConditionNode from '../components/nodes/WaitForConditionNode';
 import SubWorkflowNode from '../components/nodes/SubWorkflowNode';
 import ScriptNode from '../components/nodes/ScriptNode';
 import CorrelationWaitNode from '../components/nodes/CorrelationWaitNode';
+import KafkaProduceNode from '../components/nodes/KafkaProduceNode';
+import KafkaConsumeNode from '../components/nodes/KafkaConsumeNode';
+import KafkaTriggerNode from '../components/nodes/KafkaTriggerNode';
+import KafkaWaitNode from '../components/nodes/KafkaWaitNode';
 
 export type WorkflowRFNode = Node<WorkflowNodeData, WorkflowNodeType>;
 export type WorkflowRFEdge = Edge;
@@ -69,6 +77,10 @@ export const nodeTypes = {
   subWorkflow: SubWorkflowNode,
   script: ScriptNode,
   correlationWait: CorrelationWaitNode,
+  kafkaProduce: KafkaProduceNode,
+  kafkaConsume: KafkaConsumeNode,
+  kafkaTrigger: KafkaTriggerNode,
+  kafkaWait: KafkaWaitNode,
 };
 
 export function makeEmptyScenario(): Scenario {
@@ -180,5 +192,68 @@ export function defaultNodeData(type: WorkflowNodeType): WorkflowNodeData {
       extractVariables: [],
       timeoutMs: 60000,
     } as CorrelationWaitNodeData;
+    case 'kafkaProduce': return defaultKafkaProduceNodeData();
+    case 'kafkaConsume': return defaultKafkaConsumeNodeData();
+    case 'kafkaTrigger': return defaultKafkaTriggerNodeData();
+    case 'kafkaWait':    return defaultKafkaWaitNodeData();
   }
+}
+
+export function defaultKafkaProduceNodeData(): KafkaProduceNodeData {
+  return {
+    label: 'Kafka Produce',
+    clusterId: '',
+    topic: '',
+    keyTemplate: '',
+    partition: undefined,
+    headers: [],
+    bodyTemplate: '',
+    ackMode: 'all',
+    timeoutMs: 10000,
+    outputBindings: [],
+  };
+}
+
+export function defaultKafkaConsumeNodeData(): KafkaConsumeNodeData {
+  return {
+    label: 'Kafka Consume',
+    clusterId: '',
+    topic: '',
+    keyRegex: '',
+    headerFilters: [],
+    jsonPathFilters: [],
+    timeoutMs: 30000,
+    maxMessages: 1,
+    startPosition: 'latest',
+    loadTestBehavior: { mode: 'wait-for-real' },
+    outputBindings: [],
+  };
+}
+
+export function defaultKafkaTriggerNodeData(): KafkaTriggerNodeData {
+  return {
+    label: 'Kafka Trigger',
+    clusterId: '',
+    topic: '',
+    startPosition: 'latest',
+    headerFilters: [],
+    jsonPathFilters: [],
+    maxConcurrentRuns: 10,
+    extractVariables: [],
+  };
+}
+
+export function defaultKafkaWaitNodeData(): KafkaWaitNodeData {
+  return {
+    label: 'Kafka Wait',
+    clusterId: '',
+    topic: '',
+    correlationIdExpression: '',
+    correlationSource: 'body',
+    correlationJsonPath: '$.correlationId',
+    extractVariables: [],
+    timeoutMs: 60000,
+    headerFilters: [],
+    loadTestBehavior: { mode: 'wait-for-real' },
+  };
 }

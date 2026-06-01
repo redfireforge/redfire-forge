@@ -14,7 +14,7 @@ vi.mock('./scriptLibraries', () => ({
 }));
 
 import { handleDelayNode } from './graphRunnerNodeHandlers';
-import { handleStartNode, handleWebhookNode, handleScheduleNode } from './graphRunnerTriggerHandlers';
+import { handleStartNode, handleWebhookNode, handleScheduleNode, handleKafkaTriggerNode, matchesKafkaMessageFilters } from './graphRunnerTriggerHandlers';
 import {
   getMockFetch,
   makeCtx,
@@ -301,5 +301,273 @@ describe('handleScheduleNode', () => {
     await handleScheduleNode('sc1', node, hCtx);
     expect(states['sc1']?.state).toBe('pass');
     expect(ctx.resolve('{{triggerDate}}')).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+});
+
+// ── handleKafkaTriggerNode ──
+describe('handleKafkaTriggerNode', () => {
+  it('seeds kafka.trigger.* variables from a runtime message', async () => {
+    const ctx = makeCtx();
+    const { callbacks, states } = makeCallbacks();
+    const hCtx = makeHandlerContext({ ctx, callbacks });
+    const msg = {
+      topic: 'orders',
+      partition: 2,
+      offset: '42',
+      key: 'order-123',
+      value: '{"orderId":"123","amount":99}',
+      timestamp: '1700000000000',
+    };
+    ctx.set('__kafkaTriggerMessage', JSON.stringify(msg));
+    const node = makeNode('kt1', 'kafkaTrigger', { clusterId: 'my-cluster', topic: 'orders' });
+
+    await handleKafkaTriggerNode('kt1', node, hCtx);
+
+    expect(states['kt1']?.state).toBe('pass');
+    expect(ctx.get('kafka.trigger.topic')).toBe('orders');
+    expect(ctx.get('kafka.trigger.partition')).toBe('2');
+    expect(ctx.get('kafka.trigger.offset')).toBe('42');
+    expect(ctx.get('kafka.trigger.key')).toBe('order-123');
+    expect(ctx.get('kafka.trigger.value')).toBe('{"orderId":"123","amount":99}');
+    expect(callbacks.onVariablesChange).toHaveBeenCalled();
+    expect(hCtx.visitOutgoing).toHaveBeenCalled();
+  });
+
+  it('seeds message headers as kafka.trigger.header.<name>', async () => {
+    const ctx = makeCtx();
+    const { callbacks } = makeCallbacks();
+    const hCtx = makeHandlerContext({ ctx, callbacks });
+    const msg = {
+      topic: 't1',
+      partition: 0,
+      offset: '1',
+      value: '{}',
+      timestamp: '0',
+      headers: { 'X-Correlation-Id': 'abc-123', 'Content-Type': 'application/json' },
+    };
+    ctx.set('__kafkaTriggerMessage', JSON.stringify(msg));
+    const node = makeNode('kt1', 'kafkaTrigger', { clusterId: 'c', topic: 't1' });
+
+    await handleKafkaTriggerNode('kt1', node, hCtx);
+
+    expect(ctx.get('kafka.trigger.header.X-Correlation-Id')).toBe('abc-123');
+    expect(ctx.get('kafka.trigger.header.Content-Type')).toBe('application/json');
+  });
+
+  it('runs user extractVariables from the message body', async () => {
+    const ctx = makeCtx();
+    const { callbacks } = makeCallbacks();
+    const hCtx = makeHandlerContext({ ctx, callbacks });
+    const msg = {
+      topic: 't1',
+      partition: 0,
+      offset: '5',
+      value: '{"order":{"id":"ABC","amount":50}}',
+      timestamp: '0',
+    };
+    ctx.set('__kafkaTriggerMessage', JSON.stringify(msg));
+    const node = makeNode('kt1', 'kafkaTrigger', {
+      clusterId: 'c',
+      topic: 't1',
+      extractVariables: [
+        { name: 'orderId', jsonPath: '$.order.id' },
+        { name: 'amount', jsonPath: '$.order.amount' },
+      ],
+    });
+
+    await handleKafkaTriggerNode('kt1', node, hCtx);
+
+    expect(ctx.get('orderId')).toBe('ABC');
+    expect(ctx.get('amount')).toBe('50');
+  });
+
+  it('accepts a runtime message object (not a JSON string)', async () => {
+    const ctx = makeCtx();
+    const { callbacks, states } = makeCallbacks();
+    const hCtx = makeHandlerContext({ ctx, callbacks });
+    const msgObj = { topic: 'test', partition: 0, offset: '0', value: '{}', timestamp: '0' };
+    ctx.set('__kafkaTriggerMessage', msgObj);
+    const node = makeNode('kt1', 'kafkaTrigger', { clusterId: 'c', topic: 'test' });
+
+    await handleKafkaTriggerNode('kt1', node, hCtx);
+
+    expect(states['kt1']?.state).toBe('pass');
+    expect(ctx.get('kafka.trigger.topic')).toBe('test');
+  });
+
+  it('clears __kafkaTriggerMessage after use', async () => {
+    const ctx = makeCtx();
+    const { callbacks } = makeCallbacks();
+    const hCtx = makeHandlerContext({ ctx, callbacks });
+    const msg = { topic: 't', partition: 0, offset: '0', value: '{}', timestamp: '0' };
+    ctx.set('__kafkaTriggerMessage', JSON.stringify(msg));
+    const node = makeNode('kt1', 'kafkaTrigger', { clusterId: 'c', topic: 't' });
+
+    await handleKafkaTriggerNode('kt1', node, hCtx);
+
+    expect(ctx.get('__kafkaTriggerMessage')).toBeUndefined();
+  });
+
+  it('falls back to empty strings when no runtime message is present', async () => {
+    const ctx = makeCtx();
+    const { callbacks, states } = makeCallbacks();
+    const hCtx = makeHandlerContext({ ctx, callbacks });
+    // No __kafkaTriggerMessage in context (manual / design-time run)
+    const node = makeNode('kt1', 'kafkaTrigger', { clusterId: 'c', topic: 'fallback-topic' });
+
+    await handleKafkaTriggerNode('kt1', node, hCtx);
+
+    expect(states['kt1']?.state).toBe('pass');
+    // topic falls back to node config value
+    expect(ctx.get('kafka.trigger.topic')).toBe('fallback-topic');
+    // partition/offset/key/value are empty
+    expect(ctx.get('kafka.trigger.partition')).toBe('');
+    expect(ctx.get('kafka.trigger.offset')).toBe('');
+    expect(ctx.get('kafka.trigger.key')).toBe('');
+    expect(ctx.get('kafka.trigger.value')).toBe('');
+    expect(hCtx.visitOutgoing).toHaveBeenCalled();
+  });
+
+  it('falls back gracefully when __kafkaTriggerMessage is invalid JSON', async () => {
+    const ctx = makeCtx();
+    const { callbacks, states } = makeCallbacks();
+    const hCtx = makeHandlerContext({ ctx, callbacks });
+    ctx.set('__kafkaTriggerMessage', 'not-json');
+    const node = makeNode('kt1', 'kafkaTrigger', { clusterId: 'c', topic: 'my-topic' });
+
+    await handleKafkaTriggerNode('kt1', node, hCtx);
+
+    expect(states['kt1']?.state).toBe('pass');
+    expect(ctx.get('kafka.trigger.topic')).toBe('my-topic');
+    // __kafkaTriggerMessage is cleared even on parse failure
+    expect(ctx.get('__kafkaTriggerMessage')).toBeUndefined();
+  });
+
+  it('skips extractVariables when message body is not JSON', async () => {
+    const ctx = makeCtx();
+    const { callbacks, states } = makeCallbacks();
+    const hCtx = makeHandlerContext({ ctx, callbacks });
+    const msg = { topic: 't', partition: 0, offset: '0', value: 'plain text body', timestamp: '0' };
+    ctx.set('__kafkaTriggerMessage', JSON.stringify(msg));
+    const node = makeNode('kt1', 'kafkaTrigger', {
+      clusterId: 'c',
+      topic: 't',
+      extractVariables: [{ name: 'x', jsonPath: '$.x' }],
+    });
+
+    await handleKafkaTriggerNode('kt1', node, hCtx);
+
+    expect(states['kt1']?.state).toBe('pass');
+    expect(ctx.get('x')).toBeUndefined();
+  });
+});
+
+// ── matchesKafkaMessageFilters ──
+describe('matchesKafkaMessageFilters', () => {
+  const baseMsg = {
+    topic: 'orders',
+    partition: 0,
+    offset: '1',
+    timestamp: '0',
+    key: 'order-abc',
+    value: '{"status":"new","amount":100}',
+    headers: { 'X-Env': 'production' },
+  };
+
+  it('returns true when no filters are specified', () => {
+    expect(matchesKafkaMessageFilters(baseMsg)).toBe(true);
+  });
+
+  it('returns true when keyRegex matches', () => {
+    expect(matchesKafkaMessageFilters(baseMsg, '^order-')).toBe(true);
+  });
+
+  it('returns false when keyRegex does not match', () => {
+    expect(matchesKafkaMessageFilters(baseMsg, '^invoice-')).toBe(false);
+  });
+
+  it('skips an invalid keyRegex rather than throwing', () => {
+    expect(matchesKafkaMessageFilters(baseMsg, '[')).toBe(true);
+  });
+
+  it('returns true when header filter matches', () => {
+    const filters = [{ id: '1', key: 'X-Env', value: 'production', enabled: true }];
+    expect(matchesKafkaMessageFilters(baseMsg, undefined, filters)).toBe(true);
+  });
+
+  it('returns false when header value does not match', () => {
+    const filters = [{ id: '1', key: 'X-Env', value: 'staging', enabled: true }];
+    expect(matchesKafkaMessageFilters(baseMsg, undefined, filters)).toBe(false);
+  });
+
+  it('returns false when expected header is absent', () => {
+    const filters = [{ id: '1', key: 'X-Missing', value: 'anything', enabled: true }];
+    expect(matchesKafkaMessageFilters(baseMsg, undefined, filters)).toBe(false);
+  });
+
+  it('skips disabled header filters', () => {
+    const filters = [{ id: '1', key: 'X-Env', value: 'staging', enabled: false }];
+    expect(matchesKafkaMessageFilters(baseMsg, undefined, filters)).toBe(true);
+  });
+
+  it('returns true when jsonPath filter matches with expected value', () => {
+    const filters = [{ id: '1', jsonPath: '$.status', expectedValue: 'new', enabled: true }];
+    expect(matchesKafkaMessageFilters(baseMsg, undefined, undefined, filters)).toBe(true);
+  });
+
+  it('returns false when jsonPath resolves to wrong value', () => {
+    const filters = [{ id: '1', jsonPath: '$.status', expectedValue: 'fulfilled', enabled: true }];
+    expect(matchesKafkaMessageFilters(baseMsg, undefined, undefined, filters)).toBe(false);
+  });
+
+  it('returns false when jsonPath does not exist in body', () => {
+    const filters = [{ id: '1', jsonPath: '$.nonExistent', enabled: true }];
+    expect(matchesKafkaMessageFilters(baseMsg, undefined, undefined, filters)).toBe(false);
+  });
+
+  it('returns true when jsonPath exists and no expectedValue is set', () => {
+    const filters = [{ id: '1', jsonPath: '$.amount', enabled: true }];
+    expect(matchesKafkaMessageFilters(baseMsg, undefined, undefined, filters)).toBe(true);
+  });
+
+  it('returns false for jsonPath filter when message body is not JSON', () => {
+    const nonJsonMsg = { ...baseMsg, value: 'plain text' };
+    const filters = [{ id: '1', jsonPath: '$.status', expectedValue: 'new', enabled: true }];
+    expect(matchesKafkaMessageFilters(nonJsonMsg, undefined, undefined, filters)).toBe(false);
+  });
+
+  it('skips disabled jsonPath filters', () => {
+    const filters = [{ id: '1', jsonPath: '$.nonExistent', enabled: false }];
+    expect(matchesKafkaMessageFilters(baseMsg, undefined, undefined, filters)).toBe(true);
+  });
+
+  it('combines all filter types (all pass)', () => {
+    const headerFilters = [{ id: '1', key: 'X-Env', value: 'production', enabled: true }];
+    const jsonFilters = [{ id: '2', jsonPath: '$.status', expectedValue: 'new', enabled: true }];
+    expect(matchesKafkaMessageFilters(baseMsg, '^order-', headerFilters, jsonFilters)).toBe(true);
+  });
+
+  it('returns false when one filter in a combined set fails', () => {
+    const headerFilters = [{ id: '1', key: 'X-Env', value: 'production', enabled: true }];
+    const jsonFilters = [{ id: '2', jsonPath: '$.status', expectedValue: 'fulfilled', enabled: true }];
+    expect(matchesKafkaMessageFilters(baseMsg, '^order-', headerFilters, jsonFilters)).toBe(false);
+  });
+
+  it('handles missing message key gracefully in keyRegex check', () => {
+    const noKeyMsg = { ...baseMsg, key: undefined };
+    // regex matches empty string
+    expect(matchesKafkaMessageFilters(noKeyMsg, '^$')).toBe(true);
+    // regex does not match empty string
+    expect(matchesKafkaMessageFilters(noKeyMsg, '^order-')).toBe(false);
+  });
+
+  it('trims whitespace from header filter key before lookup', () => {
+    const filters = [{ id: '1', key: '  X-Env  ', value: 'production', enabled: true }];
+    expect(matchesKafkaMessageFilters(baseMsg, undefined, filters)).toBe(true);
+  });
+
+  it('trims whitespace from jsonPath before lookup', () => {
+    const filters = [{ id: '1', jsonPath: '  $.status  ', expectedValue: 'new', enabled: true }];
+    expect(matchesKafkaMessageFilters(baseMsg, undefined, undefined, filters)).toBe(true);
   });
 });

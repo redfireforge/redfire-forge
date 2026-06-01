@@ -423,3 +423,100 @@ describe('downloadReport', () => {
     expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:test-url');
   });
 });
+
+describe('Kafka results rendering', () => {
+  it('HTML report shows PRODUCE label for Kafka produce failures', () => {
+    const run = makeRun({
+      results: [
+        makeResult({
+          passed: false,
+          method: 'KAFKA',
+          transportType: 'kafkaProduce',
+          httpStatus: 0,
+          errorMessage: 'Broker unreachable',
+          kafkaResultMeta: { topic: 'orders', partition: 0, offset: 0 },
+        }),
+      ],
+    });
+    const html = generateReport(run, { format: 'html' });
+
+    expect(html).toContain('PRODUCE');
+    expect(html).not.toContain('<td>0</td>'); // status cell should not show raw httpStatus
+  });
+
+  it('HTML report shows CONSUME label for Kafka consume failures', () => {
+    const run = makeRun({
+      results: [
+        makeResult({
+          passed: false,
+          method: 'KAFKA',
+          transportType: 'kafkaConsume',
+          httpStatus: 0,
+          errorMessage: 'No messages received',
+          kafkaResultMeta: { topic: 'events', partition: 0, offset: 0 },
+        }),
+      ],
+    });
+    const html = generateReport(run, { format: 'html' });
+
+    expect(html).toContain('CONSUME');
+    expect(html).not.toContain('<td>0</td>'); // status cell should not show raw httpStatus
+  });
+
+  it('Markdown report shows PRODUCE label for Kafka produce failures', () => {
+    const run = makeRun({
+      results: [
+        makeResult({
+          passed: false,
+          method: 'KAFKA',
+          transportType: 'kafkaProduce',
+          httpStatus: 0,
+          errorMessage: 'Broker unreachable',
+          kafkaResultMeta: { topic: 'orders', partition: 0, offset: 0 },
+        }),
+      ],
+    });
+    const md = generateReport(run, { format: 'markdown' });
+
+    expect(md).toContain('| PRODUCE |');
+    expect(md).not.toContain('| 0 |');
+  });
+
+  it('Markdown report shows CONSUME label for Kafka consume failures', () => {
+    const run = makeRun({
+      results: [
+        makeResult({
+          passed: false,
+          method: 'KAFKA',
+          transportType: 'kafkaConsume',
+          httpStatus: 0,
+          errorMessage: 'No messages received',
+          kafkaResultMeta: { topic: 'events', partition: 0, offset: 0 },
+        }),
+      ],
+    });
+    const md = generateReport(run, { format: 'markdown' });
+
+    expect(md).toContain('| CONSUME |');
+    expect(md).not.toContain('| 0 |');
+  });
+
+  it('HTML passed-rows section shows PRODUCE label for passed Kafka produce results', () => {
+    const run = makeRun({
+      results: [
+        makeResult({
+          passed: true,
+          method: 'KAFKA',
+          transportType: 'kafkaProduce',
+          httpStatus: 200,
+          kafkaResultMeta: { topic: 'orders', partition: 0, offset: 5 },
+        }),
+      ],
+    });
+    const html = generateReport(run, { format: 'html', includePassedRows: true });
+
+    expect(html).toContain('PRODUCE');
+    // Raw numeric status 200 must NOT appear in a status cell for Kafka
+    expect(html).not.toContain('<td>200</td>');
+  });
+});

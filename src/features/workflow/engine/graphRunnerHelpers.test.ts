@@ -99,12 +99,21 @@ describe('applyTemplateLiteralsToScenario', () => {
 // ── findStartNodes ──
 
 describe('findStartNodes', () => {
-  it('finds start/webhook/schedule trigger nodes', () => {
+  it('finds start/webhook/schedule/kafkaTrigger trigger nodes', () => {
     const nodes: WorkflowNode[] = [
       { id: '1', type: 'start', position: { x: 0, y: 0 }, data: {} },
       { id: '2', type: 'http', position: { x: 0, y: 0 }, data: {} },
     ];
     expect(findStartNodes(nodes, []).map(n => n.id)).toEqual(['1']);
+  });
+
+  it('identifies kafkaTrigger node as a trigger start node', () => {
+    const nodes: WorkflowNode[] = [
+      { id: 'kt1', type: 'kafkaTrigger', position: { x: 0, y: 0 }, data: {} },
+      { id: 'h1', type: 'http', position: { x: 0, y: 0 }, data: {} },
+    ];
+    const edges: WorkflowEdge[] = [{ id: 'e1', source: 'kt1', target: 'h1' }];
+    expect(findStartNodes(nodes, edges).map(n => n.id)).toEqual(['kt1']);
   });
 
   it('falls back to root nodes when no trigger nodes', () => {

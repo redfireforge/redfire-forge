@@ -3,7 +3,7 @@
  *
  * Handlers are split across focused modules:
  *   graphRunnerHttpHandler          — HTTP
- *   graphRunnerTriggerHandlers      — Start, WebhookTrigger, ScheduleTrigger
+ *   graphRunnerTriggerHandlers      — Start, WebhookTrigger, ScheduleTrigger, KafkaTrigger
  *   graphRunnerControlFlowHandlers  — Condition, Delay, Fork, Join, Switch
  *   graphRunnerLoopHandlers         — Loop
  *   graphRunnerVariableScriptHandlers — SetVariable, Script, Aggregate
@@ -11,6 +11,7 @@
  *   graphRunnerCorrelationWaitHandler — CorrelationWait
  *   graphRunnerErrorHandler         — ErrorHandler
  *   graphRunnerSubWorkflowHandler   — SubWorkflow
+ *   graphRunnerKafkaNodeHandlers    — KafkaProduce, KafkaConsume
  *
  * All imports from this file continue to work unchanged via re-exports.
  */
@@ -20,6 +21,9 @@ export type {
   NodeHandlerContext,
   CorrelationWaitRunnerConfig,
   PassedFlag,
+  KafkaNodeOperations,
+  KafkaProduceResult,
+  KafkaConsumedMessage,
 } from './graphRunnerNodeHandlerContext';
 
 // ── HTTP ──────────────────────────────────────────────────────────────────────
@@ -30,7 +34,12 @@ export {
   handleStartNode,
   handleWebhookNode,
   handleScheduleNode,
+  handleKafkaTriggerNode,
+  matchesKafkaMessageFilters,
 } from './graphRunnerTriggerHandlers';
+
+// ── Kafka Wait node ───────────────────────────────────────────────────────────
+export { handleKafkaWaitNode } from './graphRunnerKafkaWaitHandler';
 
 // ── Control-flow nodes ────────────────────────────────────────────────────────
 export {
@@ -63,3 +72,6 @@ export { handleCorrelationWaitNode } from './graphRunnerCorrelationWaitHandler';
 // ── Error handler / SubWorkflow ───────────────────────────────────────────────
 export { handleErrorHandlerNode } from './graphRunnerErrorHandler';
 export { handleSubWorkflowNode } from './graphRunnerSubWorkflowHandler';
+
+// ── Kafka nodes ───────────────────────────────────────────────────────────────
+export { handleKafkaProduceNode, handleKafkaConsumeNode, classifyKafkaFailure, getKafkaSourceValue } from './graphRunnerKafkaNodeHandlers';

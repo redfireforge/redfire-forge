@@ -9,6 +9,7 @@ import {
 import { extractWebhookVariables } from './webhook-extractor.js';
 import { executeWorkflow, saveErrorResult } from './executeWorkflow.js';
 import { createCorrelationRouter } from './correlation-handler.js';
+import { createKafkaRouter } from './routes/kafka-routes.js';
 import type { WebhookTriggerNodeData } from '../src/features/workflow/types/workflow';
 import type { LogLine } from '../src/shared/types/server-api';
 import { generateExecutionId } from '../src/features/test-runner/utils/serverFormatters';
@@ -120,6 +121,9 @@ app.get('/api/webhook-deliveries', async (req: Request, res: Response) => {
 
 // Correlation webhook handler routes (must be before /webhooks/:workflowId/:triggerId)
 app.use(createCorrelationRouter());
+
+// Kafka transport routes
+app.use(createKafkaRouter({ onLog: broadcastLog }));
 
 // Webhook endpoint - handles all HTTP methods
 app.all('/webhooks/:workflowId/:triggerId', async (req: Request, res: Response) => {

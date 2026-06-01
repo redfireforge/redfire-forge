@@ -1,4 +1,4 @@
-export type Tab = 'environments' | 'preferences' | 'requests' | 'catalog' | 'workflow' | 'workflow-executions' | 'webhook-deliveries' | 'workflow-runner' | 'gallery' | 'training' | 'scenarios' | 'runner' | 'param-runner' | 'results';
+export type Tab = 'environments' | 'preferences' | 'kafka-settings' | 'requests' | 'catalog' | 'workflow' | 'workflow-executions' | 'webhook-deliveries' | 'workflow-runner' | 'gallery' | 'training' | 'scenarios' | 'runner' | 'param-runner' | 'results';
 
 export type Domain = 'api' | 'workflow' | 'testing' | 'gallery' | 'settings';
 
@@ -14,7 +14,7 @@ export const isGalleryTab = (t: Tab) => GALLERY_TABS.has(t);
 const API_TABS = new Set<Tab>(['requests', 'catalog']);
 export const isApiTab = (t: Tab) => API_TABS.has(t);
 
-const SETTINGS_TABS = new Set<Tab>(['environments', 'preferences']);
+const SETTINGS_TABS = new Set<Tab>(['environments', 'preferences', 'kafka-settings']);
 export const isSettingsTab = (t: Tab) => SETTINGS_TABS.has(t);
 
 /** Derive the active domain from the current tab. */
@@ -26,7 +26,7 @@ export function domainOf(tab: Tab): Domain {
   return 'settings';
 }
 
-const ALL_TABS = new Set<Tab>(['environments', 'preferences', 'requests', 'catalog', 'workflow', 'workflow-executions', 'webhook-deliveries', 'workflow-runner', 'gallery', 'training', 'scenarios', 'runner', 'param-runner', 'results']);
+const ALL_TABS = new Set<Tab>(['environments', 'preferences', 'kafka-settings', 'requests', 'catalog', 'workflow', 'workflow-executions', 'webhook-deliveries', 'workflow-runner', 'gallery', 'training', 'scenarios', 'runner', 'param-runner', 'results']);
 const TAB_QUERY = 'tab';
 const DEFAULT_TAB: Tab = 'requests';
 

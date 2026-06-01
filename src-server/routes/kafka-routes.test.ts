@@ -1,0 +1,343 @@
+/**
+ * @vitest-environment node
+ */
+import express from 'express';
+import request from 'supertest';
+import { describe, expect, it, vi } from 'vitest';
+import { createKafkaRouter } from './kafka-routes.js';
+import { createKafkaErrorEnvelope, createKafkaSuccessEnvelope } from '../kafka/contracts.js';
+
+function createMockService() {
+  return {
+    connect: vi.fn(async () => createKafkaSuccessEnvelope('connect', {
+      status: { state: 'connected', clusterId: 'local-dev', subscriptionCount: 0 },
+      reusedExistingConnection: false,
+    })),
+    disconnect: vi.fn(async () => createKafkaSuccessEnvelope('disconnect', {
+      status: { state: 'disconnected', subscriptionCount: 0 },
+      disconnected: true,
+      cleanedSubscriptions: 0,
+    })),
+    getStatus: vi.fn(() => createKafkaSuccessEnvelope('status', {
+      state: 'connected',
+      clusterId: 'local-dev',
+      subscriptionCount: 0,
+    })),
+    listTopics: vi.fn(async () => createKafkaSuccessEnvelope('topics', {
+      clusterId: 'local-dev',
+      topics: [{ name: 'orders.created', partitions: 3, isInternal: false }],
+    })),
+    produce: vi.fn(async () => createKafkaSuccessEnvelope('produce', {
+      clusterId: 'local-dev',
+      topic: 'orders.created',
+      sentCount: 1,
+      records: [{ partition: 0, offset: '1' }],
+    })),
+    consumeOnce: vi.fn(async () => createKafkaSuccessEnvelope('consume-once', {
+      messageCount: 1,
+      messages: [{
+        topic: 'orders.created',
+        partition: 0,
+        offset: '1',
+        value: '{"orderId":"o1"}',
+      }],
+      timedOut: false,
+    })),
+    subscribe: vi.fn(async () => createKafkaSuccessEnvelope('subscribe', {
+      clusterId: 'local-dev',
+      subscription: {
+        subscriptionId: 'sub-1',
+        topic: 'orders.created',
+        groupId: 'g-1',
+        createdAt: new Date().toISOString(),
+      },
+    })),
+    getSubscriptions: vi.fn(() => createKafkaSuccessEnvelope('subscriptions', {
+      clusterId: 'local-dev',
+      subscriptions: [],
+    })),
+    unsubscribe: vi.fn(async () => createKafkaSuccessEnvelope('unsubscribe', {
+      clusterId: 'local-dev',
+      subscriptionId: 'sub-1',
+      unsubscribed: true,
+    })),
+  };
+}
+
+function createApp(service: ReturnType<typeof createMockService>) {
+  const app = express();
+  app.use(express.json());
+  app.use(createKafkaRouter({ service: service as never }));
+  return app;
+}
+
+function createAppWithQueryOverride(
+  service: ReturnType<typeof createMockService>,
+  query: Record<string, unknown>,
+) {
+  const app = express();
+  app.use(express.json());
+  app.use((req, _res, next) => {
+    Object.defineProperty(req, 'query', {
+      value: query,
+      configurable: true,
+    });
+    next();
+  });
+  app.use(createKafkaRouter({ service: service as never }));
+  return app;
+}
+
+describe('kafka-routes', () => {
+  it('POST /api/kafka/disconnect delegates valid bodies to service', async () => {
+    const service = createMockService();
+    const app = createApp(service);
+
+    const res = await request(app).post('/api/kafka/disconnect').send({ clusterId: 'local-dev' });
+
+    expect(res.status).toBe(200);
+    expect(service.disconnect).toHaveBeenCalledWith({ clusterId: 'local-dev' });
+  });
+
+  it('POST /api/kafka/disconnect rejects array payloads', async () => {
+    const service = createMockService();
+    const app = createApp(service);
+
+    const res = await request(app).post('/api/kafka/disconnect').send([]);
+
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe('KAFKA_INVALID_REQUEST');
+    expect(service.disconnect).not.toHaveBeenCalled();
+  });
+
+  it('POST /api/kafka/connect delegates to service', async () => {
+    const service = createMockService();
+    const app = createApp(service);
+
+    const res = await request(app).post('/api/kafka/connect').send({
+      connection: {
+        clusterId: 'local-dev',
+        clientId: 'redfire',
+        brokers: ['127.0.0.1:9092'],
+      },
+    });
+
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(true);
+    expect(service.connect).toHaveBeenCalledTimes(1);
+  });
+
+  it('POST /api/kafka/connect rejects array payloads', async () => {
+    const service = createMockService();
+    const app = createApp(service);
+
+    const res = await request(app).post('/api/kafka/connect').send([]);
+
+    expect(res.status).toBe(400);
+    expect(res.body.ok).toBe(false);
+    expect(res.body.error.code).toBe('KAFKA_INVALID_REQUEST');
+    expect(service.connect).not.toHaveBeenCalled();
+  });
+
+  it('GET /api/kafka/topics validates includeInternal query', async () => {
+    const service = createMockService();
+    const app = createApp(service);
+
+    const res = await request(app).get('/api/kafka/topics?includeInternal=banana');
+
+    expect(res.status).toBe(400);
+    expect(res.body.ok).toBe(false);
+    expect(res.body.error.code).toBe('KAFKA_INVALID_REQUEST');
+    expect(service.listTopics).not.toHaveBeenCalled();
+  });
+
+  it('GET /api/kafka/status forwards clusterId query', async () => {
+    const service = createMockService();
+    const app = createApp(service);
+
+    const res = await request(app).get('/api/kafka/status?clusterId=cluster-a');
+
+    expect(res.status).toBe(200);
+    expect(service.getStatus).toHaveBeenCalledWith({ clusterId: 'cluster-a' });
+  });
+
+  it('GET /api/kafka/topics forwards valid boolean query values', async () => {
+    const service = createMockService();
+    const app = createApp(service);
+
+    const res = await request(app).get('/api/kafka/topics?clusterId=cluster-a&includeInternal=false');
+
+    expect(res.status).toBe(200);
+    expect(service.listTopics).toHaveBeenCalledWith({
+      clusterId: 'cluster-a',
+      includeInternal: false,
+    });
+  });
+
+  it('GET /api/kafka/topics accepts includeInternal=1', async () => {
+    const service = createMockService();
+    const app = createApp(service);
+
+    const res = await request(app).get('/api/kafka/topics?includeInternal=1');
+
+    expect(res.status).toBe(200);
+    expect(service.listTopics).toHaveBeenCalledWith({
+      clusterId: undefined,
+      includeInternal: true,
+    });
+  });
+
+  it('GET /api/kafka/topics accepts boolean query overrides from middleware', async () => {
+    const service = createMockService();
+    const app = createAppWithQueryOverride(service, { includeInternal: true, clusterId: 'cluster-b' });
+
+    const res = await request(app).get('/api/kafka/topics');
+
+    expect(res.status).toBe(200);
+    expect(service.listTopics).toHaveBeenCalledWith({
+      clusterId: 'cluster-b',
+      includeInternal: true,
+    });
+  });
+
+  it('POST /api/kafka/produce rejects non-object payloads', async () => {
+    const service = createMockService();
+    const app = createApp(service);
+
+    const res = await request(app).post('/api/kafka/produce').send([]);
+
+    expect(res.status).toBe(400);
+    expect(service.produce).not.toHaveBeenCalled();
+  });
+
+  it('POST /api/kafka/consume-once rejects non-object payloads', async () => {
+    const service = createMockService();
+    const app = createApp(service);
+
+    const res = await request(app).post('/api/kafka/consume-once').send([]);
+
+    expect(res.status).toBe(400);
+    expect(service.consumeOnce).not.toHaveBeenCalled();
+  });
+
+  it('POST /api/kafka/subscribe rejects non-object payloads', async () => {
+    const service = createMockService();
+    const app = createApp(service);
+
+    const res = await request(app).post('/api/kafka/subscribe').send([]);
+
+    expect(res.status).toBe(400);
+    expect(service.subscribe).not.toHaveBeenCalled();
+  });
+
+  it('POST /api/kafka/unsubscribe rejects non-object payloads', async () => {
+    const service = createMockService();
+    const app = createApp(service);
+
+    const res = await request(app).post('/api/kafka/unsubscribe').send([]);
+
+    expect(res.status).toBe(400);
+    expect(service.unsubscribe).not.toHaveBeenCalled();
+  });
+
+  it('maps KAFKA_INVALID_* errors to 400', async () => {
+    const service = createMockService();
+    service.produce.mockResolvedValueOnce(createKafkaErrorEnvelope('produce', {
+      code: 'KAFKA_INVALID_PRODUCE',
+      message: 'invalid',
+    }));
+    const app = createApp(service);
+
+    const res = await request(app).post('/api/kafka/produce').send({});
+
+    expect(res.status).toBe(400);
+    expect(res.body.ok).toBe(false);
+  });
+
+  it('maps KAFKA_NOT_CONNECTED errors to 503', async () => {
+    const service = createMockService();
+    service.consumeOnce.mockResolvedValueOnce(createKafkaErrorEnvelope('consume-once', {
+      code: 'KAFKA_NOT_CONNECTED',
+      message: 'not connected',
+    }));
+    const app = createApp(service);
+
+    const res = await request(app).post('/api/kafka/consume-once').send({ topic: 'orders.created' });
+
+    expect(res.status).toBe(503);
+    expect(res.body.ok).toBe(false);
+  });
+
+  it('maps NOT_FOUND errors to 404', async () => {
+    const service = createMockService();
+    service.unsubscribe.mockResolvedValueOnce(createKafkaErrorEnvelope('unsubscribe', {
+      code: 'KAFKA_SUBSCRIPTION_NOT_FOUND',
+      message: 'missing',
+    }));
+    const app = createApp(service);
+
+    const res = await request(app).post('/api/kafka/unsubscribe').send({ subscriptionId: 'missing' });
+
+    expect(res.status).toBe(404);
+  });
+
+  it('maps MISMATCH errors to 409', async () => {
+    const service = createMockService();
+    service.listTopics.mockResolvedValueOnce(createKafkaErrorEnvelope('topics', {
+      code: 'KAFKA_CLUSTER_MISMATCH',
+      message: 'wrong cluster',
+    }));
+    const app = createApp(service);
+
+    const res = await request(app).get('/api/kafka/topics?clusterId=wrong');
+
+    expect(res.status).toBe(409);
+  });
+
+  it('maps unknown server errors to 500', async () => {
+    const service = createMockService();
+    service.connect.mockResolvedValueOnce(createKafkaErrorEnvelope('connect', {
+      code: 'KAFKA_CONNECT_FAILED',
+      message: 'failed',
+    }));
+    const app = createApp(service);
+
+    const res = await request(app).post('/api/kafka/connect').send({
+      connection: { clusterId: 'local-dev', clientId: 'redfire', brokers: ['127.0.0.1:9092'] },
+    });
+
+    expect(res.status).toBe(500);
+  });
+
+  it('emits log lines for mutating Kafka routes', async () => {
+    const service = createMockService();
+    const onLog = vi.fn();
+    const app = express();
+    app.use(express.json());
+    app.use(createKafkaRouter({ service: service as never, onLog }));
+
+    await request(app).post('/api/kafka/connect').send({
+      connection: { clusterId: 'local-dev', clientId: 'redfire', brokers: ['127.0.0.1:9092'] },
+    });
+    await request(app).post('/api/kafka/produce').send({ topic: 'orders.created', messages: [{ value: '{}' }] });
+
+    expect(onLog).toHaveBeenCalledWith(expect.objectContaining({ text: '[Kafka] connect request' }));
+    expect(onLog).toHaveBeenCalledWith(expect.objectContaining({ text: '[Kafka] produce request' }));
+  });
+
+  it('supports subscribe/list/unsubscribe routes', async () => {
+    const service = createMockService();
+    const app = createApp(service);
+
+    const subscribe = await request(app).post('/api/kafka/subscribe').send({ topic: 'orders.created' });
+    const list = await request(app).get('/api/kafka/subscriptions');
+    const unsubscribe = await request(app).post('/api/kafka/unsubscribe').send({ subscriptionId: 'sub-1' });
+
+    expect(subscribe.status).toBe(200);
+    expect(list.status).toBe(200);
+    expect(unsubscribe.status).toBe(200);
+    expect(service.subscribe).toHaveBeenCalledTimes(1);
+    expect(service.getSubscriptions).toHaveBeenCalledTimes(1);
+    expect(service.unsubscribe).toHaveBeenCalledTimes(1);
+  });
+});

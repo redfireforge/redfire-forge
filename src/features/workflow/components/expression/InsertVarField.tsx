@@ -4,6 +4,7 @@ interface Props {
   children: ReactNode;
   onRequestVariableInsert?: (apply: (snippet: string) => void, shortRef?: boolean, initialSearch?: string) => void;
   onInsert: (snippet: string) => void;
+  shortRef?: boolean;
   /** Pre-populate the search box when the variable picker opens. */
   initialSearch?: string;
 }
@@ -15,7 +16,7 @@ interface Props {
  * When `onRequestVariableInsert` is provided, renders the field and button
  * side-by-side in a flex row. Otherwise renders the child alone.
  */
-export default function InsertVarField({ children, onRequestVariableInsert, onInsert, initialSearch }: Props) {
+export default function InsertVarField({ children, onRequestVariableInsert, onInsert, shortRef = false, initialSearch }: Props) {
   if (!onRequestVariableInsert) return <>{children}</>;
   return (
     <div className="wf-config-field-with-insert">
@@ -24,7 +25,7 @@ export default function InsertVarField({ children, onRequestVariableInsert, onIn
         type="button"
         className="btn btn-sm wf-config-insert-var-btn"
         title="Insert variable from workflow or upstream step"
-        onClick={() => onRequestVariableInsert(onInsert, false, initialSearch)}
+        onClick={() => onRequestVariableInsert(onInsert, shortRef, initialSearch)}
       >
         Insert…
       </button>

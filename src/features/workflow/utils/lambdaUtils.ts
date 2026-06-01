@@ -21,7 +21,7 @@ export function isLambda(v: unknown): v is LambdaValue {
   return v != null && typeof v === 'object' && (v as LambdaValue).__type === 'lambda';
 }
 
-function getNestedValue(obj: unknown, path: string): unknown {
+export function getNestedValue(obj: unknown, path: string): unknown {
   if (obj == null || !path) return obj;
   const parts = path.split('.');
   let current: unknown = obj;

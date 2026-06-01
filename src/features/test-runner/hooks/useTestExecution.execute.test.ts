@@ -134,6 +134,7 @@ describe('useTestExecution - Execute', () => {
       resolveSubWorkflow,
       undefined,
       undefined,
+      expect.objectContaining({ consume: expect.any(Function), produce: expect.any(Function) }),
     );
     expect(mockRunTestInWorker).not.toHaveBeenCalled();
   });
@@ -225,6 +226,7 @@ describe('useTestExecution - Execute', () => {
       undefined,
       undefined,
       undefined,
+      undefined,
     );
   });
 
@@ -257,6 +259,7 @@ describe('useTestExecution - Execute', () => {
       undefined,
       undefined,
       undefined,
+      expect.objectContaining({ consume: expect.any(Function), produce: expect.any(Function) }),
     );
   });
 

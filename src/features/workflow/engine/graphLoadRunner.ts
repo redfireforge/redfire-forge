@@ -7,6 +7,7 @@
 import type { Workflow, HttpNodeData } from '../types/workflow';
 import type { Scenario, RequestResult, WorkflowIterationTrace, WorkflowExecutionTrace, ExecutionTraceOptions } from '../../../shared/types';
 import { runGraph, resolveTraceLevel, type GraphRunCallbacks, type CorrelationWaitRunnerConfig } from './graphRunner';
+import type { KafkaNodeOperations } from './graphRunnerNodeHandlerContext';
 import { CircuitBreaker } from '../../../engine/circuitBreaker';
 import { toErrorMessage } from '../../../shared/utils/helpers';
 
@@ -75,6 +76,8 @@ export interface GraphLoadRunOpts {
   resolveHttpBaseUrl?: (data: HttpNodeData) => string | undefined;
   /** Per-HTTP-node auth resolver (service auth / workflow auth profiles). */
   resolveHttpAuth?: (data: HttpNodeData) => Scenario['auth'] | undefined;
+  /** Kafka client operations for produce/consume nodes. When omitted, Kafka nodes will fail. */
+  kafkaOperations?: KafkaNodeOperations;
 }
 
 /**
@@ -87,7 +90,7 @@ export async function runGraphLoad(
   workflow: Workflow,
   opts: GraphLoadRunOpts,
 ): Promise<{ results: RequestResult[]; trace: WorkflowExecutionTrace }> {
-  const { iterations, concurrency, initialVariables = {}, breaker, abortSignal, onProgress, correlationWaitConfig, maxConcurrentPolls, traceOptions, environmentLayer, resolveSubWorkflow, httpTimeoutMs, resolveHttpBaseUrl, resolveHttpAuth } = opts;
+  const { iterations, concurrency, initialVariables = {}, breaker, abortSignal, onProgress, correlationWaitConfig, maxConcurrentPolls, traceOptions, environmentLayer, resolveSubWorkflow, httpTimeoutMs, resolveHttpBaseUrl, resolveHttpAuth, kafkaOperations } = opts;
   
   const allResults: RequestResult[] = [];
   const allTraces: WorkflowIterationTrace[] = [];
@@ -185,6 +188,7 @@ export async function runGraphLoad(
         pollSemaphore, // Throttle concurrent polls across iterations
         traceOptions, // Trace capture options for Results Explorer
         httpTimeoutMs, // Per-request HTTP timeout (defaults to 30s inside runGraph)
+        kafkaOperations,
       );
 
       for (const r of results) {

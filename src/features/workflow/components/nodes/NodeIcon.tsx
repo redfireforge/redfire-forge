@@ -3,7 +3,7 @@
  * Each icon is a Lucide-style SVG rendered in a colored badge container.
  */
 
-type Category = 'trigger' | 'action' | 'logic' | 'data' | 'flow' | 'terminal';
+type Category = 'trigger' | 'action' | 'logic' | 'data' | 'flow' | 'terminal' | 'integration';
 
 interface NodeIconProps {
   type: string;
@@ -24,6 +24,46 @@ const ICON_MAP: Record<string, { category: Category; svg: React.ReactElement }> 
     svg: (
       <>
         <path d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.66 0 3-4.03 3-9s-1.34-9-3-9m0 18c-1.66 0-3-4.03-3-9s1.34-9 3-9" />
+      </>
+    ),
+  },
+  kafkaProduce: {
+    category: 'integration',
+    svg: (
+      <>
+        <rect x="4" y="5" width="14" height="14" rx="2" />
+        <path d="M14 9l4 3-4 3" />
+        <path d="M10 12h8" />
+      </>
+    ),
+  },
+  kafkaConsume: {
+    category: 'integration',
+    svg: (
+      <>
+        <rect x="6" y="5" width="14" height="14" rx="2" />
+        <path d="M10 9l-4 3 4 3" />
+        <path d="M6 12h8" />
+      </>
+    ),
+  },
+  kafkaTrigger: {
+    category: 'trigger',
+    svg: (
+      <>
+        {/* Lightning bolt (trigger) overlaid with Kafka-style arrow */}
+        <path d="M13 2L4.5 13H11L10 22L19.5 11H13L13 2Z" />
+      </>
+    ),
+  },
+  kafkaWait: {
+    category: 'integration',
+    svg: (
+      <>
+        {/* Pause bars inside a rounded rect — represents wait/correlation */}
+        <rect x="4" y="5" width="14" height="14" rx="2" />
+        <line x1="9"  y1="9" x2="9"  y2="15" strokeWidth="2" />
+        <line x1="13" y1="9" x2="13" y2="15" strokeWidth="2" />
       </>
     ),
   },
@@ -216,6 +256,7 @@ export function getNodeCategory(type: string): string {
     data: 'Data',
     flow: 'Flow',
     terminal: 'Terminal',
+    integration: 'Integration',
   };
   return labels[entry.category];
 }

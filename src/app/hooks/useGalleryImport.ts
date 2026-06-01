@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from 'react';
 import type { Node, Edge } from '@xyflow/react';
-import type { Environment, Microservice, FeatureGroup, Scenario, RequestCollection, RequestItem } from '../../shared/types';
+import type { Environment, Microservice, FeatureGroup, Scenario, RequestCollection, RequestItem, HttpMethod } from '../../shared/types';
 import type { GalleryEntry } from '../../data/galleries/types';
 import type { TestSampleEntry } from '../../data/galleries/tests/types';
 import { saveSharedDataSources, loadSharedDataSources } from '../../shared/utils/storage';
@@ -78,7 +78,7 @@ export function useGalleryImport(deps: UseGalleryImportDeps) {
     const reqId = wb.addRequest(colId);
     wb.updateRequest(colId, reqId, {
       name: entry.name,
-      method: scenario.method,
+      method: scenario.method as HttpMethod,
       url: scenario.url,
       headers: scenario.headers,
       body: scenario.body,
@@ -99,7 +99,7 @@ export function useGalleryImport(deps: UseGalleryImportDeps) {
     const previewReq: RequestItem = {
       id: '__preview_req__',
       name: entry.name,
-      method: scenario.method,
+      method: scenario.method as HttpMethod,
       url: scenario.url,
       headers: scenario.headers,
       body: scenario.body,

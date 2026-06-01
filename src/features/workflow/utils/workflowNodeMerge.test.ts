@@ -152,6 +152,88 @@ describe('mergeWorkflowNodeData', () => {
     expect(roundTrip.initialVariables).toEqual({ vin: '1GN1RK114R1079748' });
   });
 
+  it('cloneWorkflowNodeDataForStorage strips default Kafka node fields before persistence', () => {
+    const data = {
+      label: 'Kafka Produce',
+      clusterId: 'cluster-a',
+      topic: 'orders.created',
+      keyTemplate: '',
+      headers: [],
+      bodyTemplate: '',
+      ackMode: 'all',
+      timeoutMs: 10000,
+      outputBindings: [],
+    } as HttpNodeData & Record<string, unknown>;
+
+    const cloned = cloneWorkflowNodeDataForStorage(data) as Record<string, unknown>;
+
+    expect(cloned.keyTemplate).toBeUndefined();
+    expect(cloned.headers).toBeUndefined();
+    expect(cloned.bodyTemplate).toBeUndefined();
+    expect(cloned.ackMode).toBeUndefined();
+    expect(cloned.timeoutMs).toBeUndefined();
+    expect(cloned.outputBindings).toBeUndefined();
+    expect(cloned.clusterId).toBe('cluster-a');
+    expect(cloned.topic).toBe('orders.created');
+  });
+
+  it('cloneWorkflowNodeDataForStorage preserves a non-default produce timeout', () => {
+    const data = {
+      label: 'Kafka Produce',
+      clusterId: 'cluster-a',
+      topic: 'orders.created',
+      keyTemplate: '',
+      headers: [],
+      bodyTemplate: '',
+      ackMode: 'all',
+      timeoutMs: 30000,
+      outputBindings: [],
+    } as HttpNodeData & Record<string, unknown>;
+
+    const cloned = cloneWorkflowNodeDataForStorage(data) as Record<string, unknown>;
+
+    expect(cloned.timeoutMs).toBe(30000);
+  });
+
+  it('cloneWorkflowNodeDataForStorage strips the default consume timeout only when the node looks like consume', () => {
+    const data = {
+      label: 'Kafka Consume',
+      clusterId: 'cluster-a',
+      topic: 'orders.created',
+      keyRegex: '',
+      headerFilters: [],
+      jsonPathFilters: [],
+      timeoutMs: 30000,
+      maxMessages: 1,
+      startPosition: 'latest',
+      loadTestBehavior: { mode: 'wait-for-real' },
+      outputBindings: [],
+    } as HttpNodeData & Record<string, unknown>;
+
+    const cloned = cloneWorkflowNodeDataForStorage(data) as Record<string, unknown>;
+
+    expect(cloned.timeoutMs).toBeUndefined();
+    expect(cloned.maxMessages).toBeUndefined();
+    expect(cloned.startPosition).toBeUndefined();
+    expect(cloned.loadTestBehavior).toBeUndefined();
+    expect(cloned.keyRegex).toBeUndefined();
+  });
+
+  it('cloneWorkflowNodeDataForStorage preserves a non-empty keyRegex on a consume node', () => {
+    const data = {
+      label: 'Kafka Consume',
+      clusterId: 'cluster-a',
+      topic: 'orders.created',
+      keyRegex: 'order-\\d+',
+      headerFilters: [],
+      jsonPathFilters: [],
+    } as HttpNodeData & Record<string, unknown>;
+
+    const cloned = cloneWorkflowNodeDataForStorage(data) as Record<string, unknown>;
+
+    expect(cloned.keyRegex).toBe('order-\\d+');
+  });
+
   it('cloneWorkflowNodeDataForStorage returns cleaned data when JSON round-trip throws', () => {
     const data: HttpNodeData = {
       label: 'H',
