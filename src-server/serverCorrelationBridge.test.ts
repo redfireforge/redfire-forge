@@ -132,6 +132,31 @@ describe('ServerCorrelationBridge — basic operations', () => {
     await expect(pausePromise).resolves.toEqual(data);
   });
 
+  it('resume() on a no-timer entry (timeoutMs=0) resolves without calling clearTimeout', async () => {
+    const bridge = new ServerCorrelationBridge('exec-1', 'wf-1');
+    // timeoutMs=0 → no timer is created → entry.timer is undefined
+    const pausePromise = bridge.pause('ord-direct-notimer', 'orders', makeState(), 0);
+
+    const data = { topic: 'orders', key: 'ord-direct-notimer', value: 'ok', partition: 0, offset: '2', headers: {} };
+    // resume() with entry.timer === undefined exercises the if(entry.timer) false branch
+    const resumed = bridge.resume('ord-direct-notimer', data);
+
+    expect(resumed).toBe(true);
+    await expect(pausePromise).resolves.toEqual(data);
+  });
+
+  it('cancel() on a no-timer entry (timeoutMs=0) rejects without calling clearTimeout', async () => {
+    const bridge = new ServerCorrelationBridge('exec-1', 'wf-1');
+    // timeoutMs=0 → no timer → entry.timer is undefined
+    const pausePromise = bridge.pause('ord-cancel-notimer', 'orders', makeState(), 0);
+
+    // cancel() with entry.timer === undefined exercises the if(entry.timer) false branch
+    const cancelled = bridge.cancel('ord-cancel-notimer');
+
+    expect(cancelled).toBe(true);
+    await expect(pausePromise).rejects.toThrow(/cancelled/i);
+  });
+
   it('resume() on a non-existent correlationId returns false', () => {
     const bridge = new ServerCorrelationBridge('exec-1', 'wf-1');
     expect(bridge.resume('ord-ghost', {})).toBe(false);
