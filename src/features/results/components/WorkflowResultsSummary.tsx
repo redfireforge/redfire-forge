@@ -1,5 +1,6 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import type { RequestResult, TestRun } from '../../../shared/types';
+import { percentile } from '../../../shared/utils/percentiles';
 import {
   hasWorkflowData,
   computeWorkflowStepSummaries,
@@ -33,7 +34,7 @@ export function WorkflowIterationChart({ iterations, maxHeight = 200 }: Iteratio
       min: round1(times[0]),
       max: round1(times[times.length - 1]),
       avg: Math.round(sum / times.length),
-      p95: round1(times[Math.floor(times.length * 0.95)] ?? times[times.length - 1]),
+      p95: round1(percentile(times, 0.95)),
     };
   }, [iterations]);
 
