@@ -18,9 +18,10 @@
 ### Active Now
 
 - Current active phase: Phase 9 - Tauri-native Kafka Transport (not started)
-- Current active PR: feature/kafka-integration (phases 1–8C complete; Phase 8 broker validation pending)
-- Immediate objective: Phase 8 broker-level integration scenarios (13A-13G) are manual and require a live Kafka broker. Next code phase is Phase 9 (rdkafka Tauri-native transport).
+- Current active PR: feature/kafka-integration (phases 1–8C complete; all manual validations PASS 2026-06-02)
+- Immediate objective: All code phases 1–8 are complete and fully validated. Next code phase is Phase 9 (rdkafka Tauri-native transport).
 - Next gate to clear: merge feature/kafka-integration into develop (after PR review), then plan Phase 9 branch
+- Re-validation summary (2026-06-02): Phase 3 secure smoke 21/21 PASS · Phase 8C broker scenarios 41/41 PASS (plaintext + SASL/SCRAM-SHA-256 secure profile) · Phase 5 170 unit tests PASS · Phase 7 207 unit tests PASS · tsc: 0 errors
 
 Reference docs for current phase:
 
@@ -669,6 +670,11 @@ Re-evaluated all Phase 3 assets (docker-compose.yml, .bootstrap.yaml, smoke-test
 
 **Re-evaluation result:** 11/11 smoke PASS · 9/9 docker-asset tests PASS · `tsc --noEmit` 0 errors
 
+**Phase 3 Secure Docker Re-validation (2026-06-02):**
+- Re-ran smoke-test.sh against live secure broker (redfireforge-redpanda-secure, healthy): **21/21 PASS** (3 S1 + 3 S2 + 2 S3 + 1 S4 + 9 S5 + 3 S6).
+- Note: previous pass count was 11/11 (11 assertions); current run reports 21 because S5 expanded with additional produce/consume assertions that were present in the script. All scenarios pass.
+- Security review: SCRAM-SHA-256 without TLS is intentional for local dev (Redpanda allows SCRAM without TLS; SASL/PLAIN is explicitly rejected without TLS and is not used). Production deployments should use the `sasl-tls` or `tls-strict` connection preset.
+
 ---
 
 ## Phase 4 - Workflow Kafka Nodes
@@ -998,6 +1004,15 @@ Dependency: Phase 4
 		3. **`kafkaWait` timeout not exercised through `runGraph()`** — only unit-level handler tests existed. Added `'kafkaWait fails and sets __kwOutcome=timed_out when store.pause() rejects with timeout'` and `'kafkaWait seeds kafka.wait.correlationId variable via runGraph'` integration tests.
 		4. **Source bug: `onVariablesChange` not called in catch block** — `graphRunnerKafkaWaitHandler.ts` called `ctx.set('__kwOutcome', 'timed_out')` and `ctx.set('__kwOutcome', 'cancelled')` but never called `callbacks.onVariablesChange(ctx.snapshot())` in the error paths. Fixed: `onVariablesChange` now emitted in both catch branches before `onNodeStateChange`.
 	- Tests summary: **170 passing** across all 6 Phase 5 test files (46 trigger-handlers, 24 kafka-wait-handler, 17 correlation-wait-handler, 36 server correlation-handler, 36 server-bridge, 11 graphRunner integration). tsc: 0 errors.
+	- [x] **Phase 5 second re-evaluation (2026-06-02)**: Thorough re-evaluation of all Phase 5 trigger/wait race and resilience code. Reviewed all 7 source files and 7 test files. **No bugs found**. Validated:
+		1. **Abort-race pattern**: `waitPromise.catch(() => {})` correctly prevents unhandled rejection when abort wins Promise.race; catch block properly classifies abort vs timeout via `hCtx.abortSignal?.aborted`.
+		2. **Correlation store cleanup**: `ServerCorrelationBridge.cleanup()` safely iterates and deletes Map entries (spec-compliant); `matchKafkaCorrelation` stale-entry removal uses array snapshot from `listAll()` so concurrent modification is safe.
+		3. **Idempotency**: `dispatchKafkaResumeMessage` key format (`kafka:topic:partition:offset`) is deterministic; replay with active entry correctly bypasses cache via `!activeStore.find(match.correlationId)` guard.
+		4. **Double-reject prevention**: timeout callback has `if (!this.callbacks.has(correlationId)) return` guard; cancel/resume both clear timer and deregister waiter before rejecting/resolving.
+		5. **`extractCorrelationId` HTTP path**: `case 'key': return undefined` guard confirmed in place — prevents HTTP webhooks from accidentally matching key-sourced Kafka entries.
+		6. **Integration chain**: kafkaTrigger → kafkaWait → HTTP downstream passes end-to-end in both auto-resume and store-backed modes.
+		7. **Contract tests**: 17 additional contract tests for `deriveKafkaTriggerGroupId`, `isValidKafkaTriggerConfig`, `isValidKafkaWaitConfig`, context key prefixes all pass.
+	- Total: **187 tests passing** (170 race/resilience + 17 contracts). tsc: 0 errors. No Docker validation needed (Phase 5 is purely in-memory correlation store logic).
 
 ### Validation
 
@@ -1280,23 +1295,38 @@ Dependency: Phase 6
           - This means: block banner triggers whenever any `kafkaConsume` node has `wait-for-real`; info banner triggers whenever any node has `undefined` loadTestBehavior. No warn banner is needed in this component.
           - Kafka workflow fixtures (`wfKafkaWaitForReal`, `wfKafkaAutoResume`, `wfKafkaNoLoadBehavior`) added to `workflowRunnerTestHelpers.tsx` and included in `allWorkflowVariants`.
           - Banners placed just before the Run/Stop button section for maximum pre-run visibility.
-          - All 6 tests in `WorkflowRunner.part4.test.tsx` pass; TypeScript 0 errors; ESLint 0 warnings.
+          - All 7 tests in `WorkflowRunner.part4.test.tsx` pass (2 trace-sampling tests + 4 Kafka banner tests + 1 priority-rule test); TypeScript 0 errors; ESLint 0 warnings.
 ### Validation
 
 - [x] planner tests for each load mode (Phase 7A contract tests + Phase 7B policy guard tests)
-- [ ] deterministic load simulation tests
+- [x] deterministic load simulation tests (6 tests: auto-resume completion, undefined-mode fallback, synthetic-inject completion, bounded results, no cross-iteration leakage, monotonic progress)
 - [x] no regression in existing load profile behavior (all 611 graphRunner tests pass)
-- [ ] constant-arrival gating and progress-metric behavior tests
-- [ ] repeated-run variance checks for policy-constrained configs
+- [x] constant-arrival gating and progress-metric behavior tests (4 policy tests + 3 execution hook tests: sets total=-1, errors without Rust, tracks peak RPS/dropped)
+- [x] repeated-run variance checks for policy-constrained configs (4 tests: result count consistency, pass/fail ratio reproducibility, sequential/concurrent parity, full index coverage)
 
 ### Validation Gate Checklist (must pass before exit)
 
 - [x] unsupported mode combinations are blocked with actionable messages before execution (Phase 7B guard)
 - [x] Kafka load-policy warning banners render in `WorkflowRunner` for block/info outcomes (Phase 7C)
-- [ ] load-profile consume behavior remains bounded and completes deterministically
-- [ ] constant-arrival capability/gating behavior is explicit and test-covered
-- [ ] target/actual throughput and dropped-request visibility is consistent where supported
-- [ ] repeated runs with same config stay within accepted reproducibility thresholds
+- [x] load-profile consume behavior remains bounded and completes deterministically (bounded-results test + all-iterations-complete tests)
+- [x] constant-arrival capability/gating behavior is explicit and test-covered (4 gating tests + `useTestExecution.execute.test.ts` constant-arrival tests)
+- [x] target/actual throughput and dropped-request visibility is consistent where supported (peak RPS + dropped requests test in execution hook)
+- [x] repeated runs with same config stay within accepted reproducibility thresholds (3× repeated run tests with identical counts and ratios)
+
+**Phase 7 Advanced Validation Implementation (2026-06-02):**
+- Added 14 new tests in `graphLoadRunner.test.ts` organized into 3 describe blocks:
+  1. **Deterministic load simulation** (6 tests): verifies kafkaConsume nodes under `auto-resume` and `synthetic-inject` modes complete all iterations without hanging, produce bounded results, have no cross-iteration variable leakage, and report monotonically increasing progress.
+  2. **Constant-arrival gating** (4 tests): verifies policy function returns `warn` (not `block`) for `constant-arrival + wait-for-real` (enforcement is desktop-side), `allow` for `auto-resume`/`undefined`, and `workflow + wait-for-real` blocks before any iteration runs.
+  3. **Repeated-run variance checks** (4 tests): verifies identical configs produce the same result count across 3 runs, identical pass/fail ratios for deterministic workflows, sequential/concurrent parity (same total results regardless of concurrency level), and full iteration index coverage `[0, N-1]` in concurrent execution.
+- Fixed during implementation: tests using `mockResolvedValue` with mutable result objects failed in concurrent scenarios (shared reference → overwritten `iterationIndex`); fixed by using `mockImplementation(async () => [...])` to return fresh arrays per call.
+- Total: **207 tests passing** across 8 Phase 7 test files (57 graphLoadRunner, 12 kafkaLoadPolicy, 15 graphLoadRunner.part2, 31 kafkaNodeHandlers, 7 WorkflowRunner.part4, 27 useTestExecution.execute, 54 executor, 4 graphLoadRunner.initialVars). tsc: 0 errors.
+  - Note: tracker previously recorded incorrect counts for 3 files (22→15 part2; 17→7 WorkflowRunner.part4; 10→27 useTestExecution.execute); counts corrected 2026-06-02 after re-verification run.
+
+**Phase 7 Re-validation (2026-06-02):**
+- Re-ran all 207 Phase 7 unit tests → 207/207 PASS. tsc: 0 errors.
+- Code review of `kafkaLoadPolicy.ts`, `graphLoadRunner.ts`, `graphRunnerKafkaNodeHandlers.ts`, and `WorkflowRunner.tsx` — no bugs found.
+- Confirmed `onVariablesChange` bug pattern does NOT affect produce/consume handlers (their catch blocks do not set any ctx variables, so `captureKafkaDetails` writes only to the internal map — no variable-change emission gap).
+- Confirmed `__kwOutcome` onVariablesChange fix from Phase 5E re-evaluation applies only to kafkaWait handler (already fixed in commit a8e7c8e).
 
 ### Phase 7 Execution Matrix (owner/effort/dependency order)
 
@@ -1340,7 +1370,7 @@ Per-PR readiness checks:
 
 ### Exit Criteria
 
-- [ ] Load runs remain reproducible with Kafka consume in scope
+- [x] Load runs remain reproducible with Kafka consume in scope (verified 2026-06-02: repeated-run variance tests confirm identical counts/ratios across 3 runs; sequential/concurrent parity confirmed)
 
 ---
 
@@ -1405,6 +1435,7 @@ Dependency: Phase 6
 	  - Error classification alignment confirmed: server produces KAFKA_AUTH_FAILED/KAFKA_NOT_CONNECTED/KAFKA_CONNECT_TIMEOUT; client classifies correctly via `classifyKafkaUiError`
 	  - Non-fatal `wait_for_broker_ready()` design allows 13E to run independently when only secure broker is available
 	  - No race-boundary issues in the publish path (fire-and-forget pattern isolates run completion from broker availability)
+	- Re-validation (2026-06-02 re-run): All 41/41 broker scenarios PASS (both plaintext and secure profiles live). Phase 3 secure smoke 21/21 PASS. All 409 unit tests across Phase 5+7+8 pass. tsc: 0 errors.
 
 ### Validation
 
@@ -1776,7 +1807,7 @@ Per-PR readiness checks:
 
 - [x] Phase 6 complete
 - [x] Phase 7 complete
-- [ ] Phase 8 complete (unit tests complete; broker-level validation pending)
+- [x] Phase 8 complete (unit tests complete; broker-level validation 41/41 PASS 2026-06-02)
 
 ### Milestone D (Native Desktop)
 
