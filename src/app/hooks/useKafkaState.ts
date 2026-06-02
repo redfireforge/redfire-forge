@@ -128,6 +128,7 @@ export function useKafkaState(): UseKafkaStateReturn {
   const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const statusPollFailureStreakRef = useRef(0);
   const startupAutoConnectAttemptedRef = useRef(false);
+  const connectOperationInFlightRef = useRef(false);
 
   const clearPollTimer = useCallback(() => {
     if (pollTimerRef.current) {
@@ -156,6 +157,10 @@ export function useKafkaState(): UseKafkaStateReturn {
       updateFailureStreak(0);
       setConnection({ state: 'disconnected' });
       setLastErrorDetail(null);
+      return;
+    }
+
+    if (connectOperationInFlightRef.current && !options?.force) {
       return;
     }
 
@@ -438,15 +443,18 @@ export function useKafkaState(): UseKafkaStateReturn {
       return false;
     }
 
+    connectOperationInFlightRef.current = true;
     setConnection({ state: 'testing', clusterId: selectedCluster.clusterId });
 
     try {
       await dispatchKafkaOperation('connect', toConnectRequest(selectedCluster));
       updateFailureStreak(0);
       setLastErrorDetail(null);
+      connectOperationInFlightRef.current = false;
       await refreshConnectionStatus({ force: true });
       return true;
     } catch (error) {
+      connectOperationInFlightRef.current = false;
       const uiError = toKafkaUiSafeError(error, 'connect');
       setConnection({
         state: 'error',
@@ -470,8 +478,10 @@ export function useKafkaState(): UseKafkaStateReturn {
       return true;
     }
 
+    connectOperationInFlightRef.current = true;
     try {
       await dispatchKafkaOperation('disconnect', { clusterId: activeClusterId });
+      connectOperationInFlightRef.current = false;
       setConnection({ state: 'disconnected' });
       setLastError(null);
       setLastErrorDetail(null);
@@ -479,6 +489,7 @@ export function useKafkaState(): UseKafkaStateReturn {
       bumpRefreshNonce();
       return true;
     } catch (error) {
+      connectOperationInFlightRef.current = false;
       const uiError = toKafkaUiSafeError(error, 'disconnect');
       setConnection((prev) => ({
         ...prev,
