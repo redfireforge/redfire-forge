@@ -20,7 +20,9 @@ import {
   notifyResume,
   getPausedCount,
   findByCorrelationId,
+  dispatchKafkaResumeMessage,
   type QueuedResume,
+  type KafkaResumeMessage,
 } from './correlation-handler.js';
 import { InMemoryServerStore } from './correlation-store-memory.js';
 import { clearIdempotency } from './webhook-idempotency.js';
@@ -221,24 +223,44 @@ describe('ServerCorrelationBridge — state tracking', () => {
 // ── Cleanup ───────────────────────────────────────────────────────────────────
 
 describe('ServerCorrelationBridge — cleanup()', () => {
-  it('cleanup() removes and rejects expired entries', async () => {
+  it('internal timer rejects expired entries automatically (no manual cleanup needed)', async () => {
     const bridge = new ServerCorrelationBridge('exec-1', 'wf-1');
-    // timeoutMs=50 — entry expires in 50ms
-    const p = bridge.pause('ord-expired', 'orders', makeState(), 50);
+    const p = bridge.pause('ord-timer-expire', 'orders', makeState(), 50);
 
-    // Advance time to trigger expiry
+    // Advance fake timers to fire the internal setTimeout
     vi.advanceTimersByTime(100);
+    await expect(p).rejects.toThrow(/timeout/i);
 
-    // cleanup() should find it expired and reject it
-    // (Though the internal setTimeout already rejected it — cleanup is the manual fallback)
-    await p.catch(() => {}); // already rejected by the timer
-
-    // After rejection, cleanup has nothing to clean; size should be 0
+    // Entry cleaned up by the internal timer
     expect(bridge.size).toBe(0);
-    expect(bridge.isPaused('ord-expired')).toBe(false);
+    expect(bridge.isPaused('ord-timer-expire')).toBe(false);
+    expect(getPausedCount()).toBe(0);
   });
 
-  it('cleanup() returns 0 when all entries are still within their timeout window', async () => {
+  it('cleanup() manually removes and rejects expired entries when the system clock is advanced without firing timers', async () => {
+    const bridge = new ServerCorrelationBridge('exec-1', 'wf-1');
+    const p = bridge.pause('ord-manual-cleanup', 'orders', makeState(), 100);
+
+    // Advance system clock past timeout WITHOUT firing the internal setTimeout timer
+    vi.setSystemTime(Date.now() + 200);
+
+    // Bridge should still be paused (internal timer has not fired yet)
+    expect(bridge.isPaused('ord-manual-cleanup')).toBe(true);
+    expect(bridge.size).toBe(1);
+    expect(getPausedCount()).toBe(1);
+
+    // cleanup() finds the expired entry and rejects it
+    const removed = bridge.cleanup();
+    expect(removed).toBe(1);
+    expect(bridge.size).toBe(0);
+    expect(bridge.isPaused('ord-manual-cleanup')).toBe(false);
+    expect(getPausedCount()).toBe(0);
+
+    // Promise rejects with "expired" message
+    await expect(p).rejects.toThrow(/expired/i);
+  });
+
+  it('cleanup() returns 0 when no entries have expired yet', async () => {
     const bridge = new ServerCorrelationBridge('exec-1', 'wf-1');
     const p1 = bridge.pause('ord-fresh-1', 'orders', makeState(), 10_000);
     const p2 = bridge.pause('ord-fresh-2', 'orders', makeState(), 10_000);
@@ -253,6 +275,23 @@ describe('ServerCorrelationBridge — cleanup()', () => {
     bridge.cancel('ord-fresh-1');
     bridge.cancel('ord-fresh-2');
     await Promise.allSettled([p1, p2]);
+  });
+
+  it('cleanup() does not remove entries with timeoutMs=0 (no-timeout entries)', async () => {
+    const bridge = new ServerCorrelationBridge('exec-1', 'wf-1');
+    const p = bridge.pause('ord-no-timeout-cleanup', 'orders', makeState(), 0);
+
+    // Advance the clock far into the future
+    vi.setSystemTime(Date.now() + 1_000_000);
+
+    // cleanup() should NOT remove a no-timeout entry (timeoutAt === 0)
+    const removed = bridge.cleanup();
+    expect(removed).toBe(0);
+    expect(bridge.isPaused('ord-no-timeout-cleanup')).toBe(true);
+
+    // Clean up
+    notifyResume('ord-no-timeout-cleanup', makeResumeData());
+    await p;
   });
 });
 
@@ -473,5 +512,161 @@ describe('ServerCorrelationBridge — restart and disconnect resilience', () => 
     expect((results[0] as Record<string, unknown>).id).toBe('a');
     expect((results[1] as Record<string, unknown>).id).toBe('b');
     expect((results[2] as Record<string, unknown>).id).toBe('c');
+  });
+});
+
+// ── Kafka dispatch round-trip ─────────────────────────────────────────────────
+//
+// Tests the full production path: bridge.pause() registers both in the server
+// activeStore AND in resumeWaiters. dispatchKafkaResumeMessage() matches the
+// entry, removes it from the store, and calls notifyResume() which fires the
+// bridge's in-process waiter, resolving the Promise.
+
+function makeKafkaMsg(overrides: Partial<KafkaResumeMessage> = {}): KafkaResumeMessage {
+  return {
+    topic: 'orders',
+    partition: 0,
+    offset: '5',
+    key: 'ord-rt',
+    value: JSON.stringify({ orderId: 'ord-rt', status: 'shipped' }),
+    headers: {},
+    ...overrides,
+  };
+}
+
+describe('ServerCorrelationBridge — Kafka dispatch round-trip', () => {
+  it('bridge.pause() (body source) + dispatchKafkaResumeMessage() resolves the Promise with Kafka message data', async () => {
+    const bridge = new ServerCorrelationBridge('exec-rt', 'wf-1');
+    const pausePromise = bridge.pause('ord-rt', 'orders', makeState(), 5000, undefined, {
+      correlationSource: 'body',
+      correlationJsonPath: 'orderId',
+    });
+
+    // Verify entry is registered in the active store
+    expect(getPausedCount()).toBe(1);
+    expect(bridge.isPaused('ord-rt')).toBe(true);
+    const storedEntry = findByCorrelationId('ord-rt');
+    expect(storedEntry?.correlationSource).toBe('body');
+    expect(storedEntry?.correlationJsonPath).toBe('orderId');
+
+    // Dispatch a Kafka message matching the correlationId via JSON body
+    const outcome = dispatchKafkaResumeMessage(makeKafkaMsg());
+    expect(outcome.resumed).toBe(true);
+    if (!outcome.resumed) return;
+    expect(outcome.correlationId).toBe('ord-rt');
+    expect(outcome.executionId).toBe('exec-rt');
+
+    // Bridge's Promise resolves with the Kafka message fields
+    const result = await pausePromise;
+    expect(result).toMatchObject({
+      topic: 'orders',
+      partition: 0,
+      offset: '5',
+      key: 'ord-rt',
+    });
+    expect((result['value'] as string)).toContain('shipped');
+
+    // Active store entry is gone
+    expect(getPausedCount()).toBe(0);
+    expect(bridge.isPaused('ord-rt')).toBe(false);
+  });
+
+  it('bridge.pause() (key source) + dispatchKafkaResumeMessage() matches via Kafka message key', async () => {
+    const bridge = new ServerCorrelationBridge('exec-rt-key', 'wf-1');
+    const pausePromise = bridge.pause('my-key', 'orders', makeState(), 5000, undefined, {
+      correlationSource: 'key',
+    });
+
+    const outcome = dispatchKafkaResumeMessage(makeKafkaMsg({
+      key: 'my-key',
+      offset: '10',
+      headers: { 'x-trace': 'abc' },
+    }));
+
+    expect(outcome.resumed).toBe(true);
+
+    const result = await pausePromise;
+    expect(result['key']).toBe('my-key');
+    expect((result['headers'] as Record<string, string>)['x-trace']).toBe('abc');
+    expect(getPausedCount()).toBe(0);
+  });
+
+  it('bridge.pause() (header source) + dispatchKafkaResumeMessage() matches via header', async () => {
+    const bridge = new ServerCorrelationBridge('exec-rt-hdr', 'wf-1');
+    const pausePromise = bridge.pause('hdr-corr-val', 'orders', makeState(), 5000, undefined, {
+      correlationSource: 'header',
+      correlationHeader: 'x-correlation-id',
+    });
+
+    const outcome = dispatchKafkaResumeMessage(makeKafkaMsg({
+      headers: { 'x-correlation-id': 'hdr-corr-val' },
+    }));
+
+    expect(outcome.resumed).toBe(true);
+    const result = await pausePromise;
+    expect((result['headers'] as Record<string, string>)['x-correlation-id']).toBe('hdr-corr-val');
+    expect(getPausedCount()).toBe(0);
+  });
+
+  it('dispatchKafkaResumeMessage on wrong topic returns no-match; bridge remains paused', async () => {
+    const bridge = new ServerCorrelationBridge('exec-rt-nm', 'wf-1');
+    const pausePromise = bridge.pause('ord-nm', 'orders', makeState(), 5000, undefined, {
+      correlationSource: 'body',
+      correlationJsonPath: 'orderId',
+    });
+
+    const outcome = dispatchKafkaResumeMessage(makeKafkaMsg({ topic: 'payments' }));
+    expect(outcome.resumed).toBe(false);
+    if (outcome.resumed) return;
+    expect(outcome.reason).toBe('no-match');
+
+    // Bridge is still waiting
+    expect(bridge.isPaused('ord-nm')).toBe(true);
+    expect(getPausedCount()).toBe(1);
+
+    // Clean up
+    bridge.cancel('ord-nm');
+    await pausePromise.catch(() => {});
+    expect(getPausedCount()).toBe(0);
+  });
+
+  it('dispatchKafkaResumeMessage with mismatched correlationId returns no-match; bridge remains paused', async () => {
+    const bridge = new ServerCorrelationBridge('exec-rt-mm', 'wf-1');
+    const pausePromise = bridge.pause('ord-waiting', 'orders', makeState(), 5000, undefined, {
+      correlationSource: 'body',
+      correlationJsonPath: 'orderId',
+    });
+
+    // Message has orderId 'ord-other', not 'ord-waiting'
+    const outcome = dispatchKafkaResumeMessage(makeKafkaMsg({
+      value: JSON.stringify({ orderId: 'ord-other' }),
+    }));
+    expect(outcome.resumed).toBe(false);
+
+    expect(bridge.isPaused('ord-waiting')).toBe(true);
+
+    bridge.cancel('ord-waiting');
+    await pausePromise.catch(() => {});
+  });
+
+  it('idempotent replay after bridge resolves returns duplicate outcome', async () => {
+    const bridge = new ServerCorrelationBridge('exec-rt-idem', 'wf-1');
+    const pausePromise = bridge.pause('ord-idem', 'orders', makeState(), 5000, undefined, {
+      correlationSource: 'body',
+      correlationJsonPath: 'orderId',
+    });
+
+    const msg = makeKafkaMsg({ value: JSON.stringify({ orderId: 'ord-idem' }) });
+
+    // First dispatch: resumes bridge
+    const first = dispatchKafkaResumeMessage(msg);
+    expect(first.resumed).toBe(true);
+    await pausePromise; // resolved
+
+    // Second dispatch of same offset: no active match, idempotency store hit
+    const second = dispatchKafkaResumeMessage(msg);
+    expect(second.resumed).toBe(false);
+    if (second.resumed) return;
+    expect(second.reason).toBe('duplicate');
   });
 });
