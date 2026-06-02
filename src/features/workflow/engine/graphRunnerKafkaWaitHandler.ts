@@ -263,12 +263,14 @@ export async function handleKafkaWaitNode(
     if (isAbort) {
       hCtx.log({ prefix: '!', text: `[${label}] Kafka wait aborted` });
       hCtx.ctx.set('__kwOutcome', 'cancelled');
+      hCtx.callbacks.onVariablesChange(hCtx.ctx.snapshot());
       hCtx.callbacks.onNodeStateChange(nodeId, { state: 'fail', error: 'Aborted' });
       return;
     }
     passed.value = false;
     const msg = toErrorMessage(err);
     hCtx.ctx.set('__kwOutcome', 'timed_out');
+    hCtx.callbacks.onVariablesChange(hCtx.ctx.snapshot());
     hCtx.log({ prefix: '!', text: `[${label}] ${msg}` });
     hCtx.callbacks.onNodeStateChange(nodeId, { state: 'fail', error: msg });
   }

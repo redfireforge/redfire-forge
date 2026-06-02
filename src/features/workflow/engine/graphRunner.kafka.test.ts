@@ -351,6 +351,83 @@ describe('kafkaWait — integration (runGraph dispatch)', () => {
     const kw1State = stateChanges.findLast(([id]: [string]) => id === 'kw1');
     expect(kw1State?.[1]).toMatchObject({ state: 'fail' });
   });
+
+  it('kafkaWait fails and sets __kwOutcome=timed_out when store.pause() rejects with timeout', async () => {
+    const store = makeCorrelationStore({
+      pause: vi.fn().mockRejectedValue(
+        new Error('Correlation timeout: no webhook received within 5000ms for "ord-timeout"'),
+      ),
+      cancel: vi.fn().mockReturnValue(false),
+    });
+
+    const kw = kafkaWaitNode('kw1');
+    const nodes: WorkflowNode[] = [kw];
+    const edges: WorkflowEdge[] = [];
+
+    const capturedVars: Record<string, string> = {};
+    const cb = {
+      onNodeStateChange: vi.fn(),
+      onVariablesChange: vi.fn((v: Record<string, string>) => Object.assign(capturedVars, v)),
+      onComplete: vi.fn(),
+    };
+
+    await runGraph(
+      nodes, edges,
+      { orderId: 'ord-timeout' },
+      cb,
+      undefined, undefined, undefined, undefined, undefined, undefined,
+      undefined, // resolveSubWorkflow
+      store,     // correlationStore
+    );
+
+    const stateChanges = (cb.onNodeStateChange as ReturnType<typeof vi.fn>).mock.calls;
+    const kw1State = stateChanges.findLast(([id]: [string]) => id === 'kw1');
+    expect(kw1State?.[1]).toMatchObject({ state: 'fail' });
+    expect(kw1State?.[1].error).toContain('timeout');
+
+    // __kwOutcome should classify the failure as timed_out
+    expect(capturedVars['__kwOutcome']).toBe('timed_out');
+
+    // cancel() is called in the catch block even though store already removed the entry
+    expect(store.cancel).toHaveBeenCalledWith('ord-timeout');
+
+    // Downstream node should NOT have executed
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('kafkaWait seeds kafka.wait.correlationId variable via runGraph', async () => {
+    const kafkaResumeData = {
+      topic: 'orders', partition: 0, offset: '7', key: 'ord-cid',
+      value: '{"orderId":"ord-cid"}', headers: {},
+    };
+    const store = makeCorrelationStore({
+      pause: vi.fn().mockResolvedValue(kafkaResumeData),
+    });
+
+    const kw = kafkaWaitNode('kw1');
+    const nodes: WorkflowNode[] = [kw];
+    const edges: WorkflowEdge[] = [];
+
+    const capturedVars: Record<string, string> = {};
+    const cb = {
+      onNodeStateChange: vi.fn(),
+      onVariablesChange: vi.fn((v: Record<string, string>) => Object.assign(capturedVars, v)),
+      onComplete: vi.fn(),
+    };
+
+    await runGraph(
+      nodes, edges,
+      { orderId: 'ord-cid' },
+      cb,
+      undefined, undefined, undefined, undefined, undefined, undefined,
+      undefined, // resolveSubWorkflow
+      store,     // correlationStore
+    );
+
+    // kafka.wait.correlationId should be seeded with the resolved correlationId
+    expect(capturedVars['kafka.wait.correlationId']).toBe('ord-cid');
+    expect(capturedVars['kafka.wait.topic']).toBe('orders');
+  });
 });
 
 // ── kafkaTrigger → kafkaWait chain ────────────────────────────────────────────
