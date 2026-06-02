@@ -898,11 +898,11 @@ Dependency: Phase 4
 
 ### Work Items
 
-- [ ] Implement Kafka-triggered workflow start path
-- [ ] Implement KafkaWait wait/resume semantics
-- [ ] Implement matching filters (key/header/jsonpath)
-- [ ] Add timeout/cancel behavior and status transitions
-- [ ] Add idempotency guard to prevent duplicate resume
+- [x] Implement Kafka-triggered workflow start path
+- [x] Implement KafkaWait wait/resume semantics
+- [x] Implement matching filters (key/header/jsonpath)
+- [x] Add timeout/cancel behavior and status transitions
+- [x] Add idempotency guard to prevent duplicate resume
 
 ### Suggested File Targets (planning anchor)
 
@@ -988,12 +988,17 @@ Dependency: Phase 4
 	  - **`kafkaWaitDetails.outcome`** added to `ExecutionEventDetails` in `trace.ts`: `'matched' | 'timed_out' | 'cancelled'`.
 	  - **Stale-wait cleanup**: `matchKafkaCorrelation` removes expired entries during the scan (same pattern as `matchCorrelation`). Entries with no in-process waiter (orphaned after restart) can still be resumed via `dispatchKafkaResumeMessage`; if no waiter exists, `notifyResume()` queues the data in `queuedResumes` for long-poll pickup.
 	  - Tests: 36 new tests in `src-server/correlation-handler.kafka.test.ts` covering all new functions. All passing. tsc: 0 errors.
+- [x] Phase 5E - Race/resilience integration tests (Suggested PR label: `kafka-p5e-race-resilience-tests`)
+	- [x] `src-server/serverCorrelationBridge.test.ts` created (28 tests): covers basic pause/resume/cancel/timeout, duplicate correlationId guard, race conditions (timeout fires after waiter, late notifyResume after cancel/timeout), cleanup on cancel/timeout, orphaned entry resilience, sequential/concurrent pause cycles, and `activeStore` integration (correlationSource, correlationHeader).
+	- [x] `src/features/workflow/engine/graphRunner.kafka.test.ts` created (9 tests): end-to-end `runGraph()` dispatch tests for `kafkaTrigger` (variable seeding, downstream HTTP execution, missing-message fallback, `extractVariables`, node state pass) and `kafkaWait` (auto-resume pass, store-backed resume/variable seeding, no-store fail, chain `kafkaTrigger → kafkaWait → HTTP`).
+	- [x] **Root cause discovered and fixed during test authoring**: `runGraph()` positional parameter count was off-by-one in tests — 6 undefineds placed positions 5–10 but position 11 (`resolveSubWorkflow`) also required an explicit `undefined` before `correlationStore` at position 12. Passing `true` (loadTestMode) at position 12 made `correlationStore = true`, causing `true?.cancel(correlationId)` → "is not a function". Also `findLast` (not `find`) is required for terminal state lookups since `onNodeStateChange` emits `pending` first.
+	- Tests summary: 160 passing across all 6 Phase 5 test files (46 trigger-handlers, 24 kafka-wait-handler, 17 correlation-wait-handler, 36 server correlation-handler, 28 server-bridge, 9 graphRunner integration). tsc: 0 errors.
 
 ### Validation
 
-- [ ] trigger integration tests
-- [ ] wait/resume race and timeout tests
-- [ ] restart/disconnect resilience tests
+- [x] trigger integration tests
+- [x] wait/resume race and timeout tests
+- [x] restart/disconnect resilience tests
 - [x] duplicate callback idempotency tests
 - [x] stale correlation cleanup tests
 - [x] non-matching callback rejection tests
@@ -1387,6 +1392,14 @@ Dependency: Phase 6
 	- Implementation Notes (2026-06-01):
 	  - 20 unit tests in `kafkaResultsPublisher.test.ts` cover publish success, retry up to max, timeout exceeded, all `KafkaPublishOutcome` status paths, and error classification
 	  - Broker-level scenarios (13A-13G) and secure-profile parity require a real broker; deferred to integration/manual validation gate
+	- Re-evaluation Notes (2026-06-02):
+	  - Thorough code review of `kafkaResultsPublisher.ts`, `broker-scenarios-p8c.sh`, and all 3 test files — no bugs found
+	  - Manual end-to-end validation: 41/41 PASS (both plaintext + secure brokers live)
+	  - Retry logic correctness confirmed: MAX_RETRIES=3 → 4 total calls (1 initial + 3 retries), bounded by TOTAL_TIMEOUT_MS=10000ms
+	  - Secure-profile parity (13E) validates all 13 assertions matching plaintext 13D (schemaVersion, runId, timestamp, executionMode, 9 summary fields, projectName, envName, svcName)
+	  - Error classification alignment confirmed: server produces KAFKA_AUTH_FAILED/KAFKA_NOT_CONNECTED/KAFKA_CONNECT_TIMEOUT; client classifies correctly via `classifyKafkaUiError`
+	  - Non-fatal `wait_for_broker_ready()` design allows 13E to run independently when only secure broker is available
+	  - No race-boundary issues in the publish path (fire-and-forget pattern isolates run completion from broker availability)
 
 ### Validation
 
