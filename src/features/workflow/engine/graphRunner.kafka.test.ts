@@ -1,0 +1,405 @@
+/**
+ * Phase 5 — Trigger integration tests for kafkaTrigger and kafkaWait nodes
+ * running through the full graphRunner dispatch path.
+ *
+ * Covers:
+ *  - kafkaTrigger start node dispatched through runGraph with __kafkaTriggerMessage pre-set
+ *  - kafka.trigger.* context variables are seeded by graphRunner dispatch
+ *  - Downstream HTTP nodes execute after kafkaTrigger fires
+ *  - Fallback behavior when __kafkaTriggerMessage is absent (design-time run)
+ *  - kafkaWait node in auto-resume (load-test) mode runs through graphRunner correctly
+ *  - kafkaWait with a real ICorrelationStore mock resolves and downstream nodes execute
+ *  - kafkaTrigger → kafkaWait chain: both nodes in a single workflow graph
+ */
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import type { WorkflowNode, WorkflowEdge } from '../types/workflow';
+import type { ICorrelationStore } from './correlationStore';
+
+vi.mock('../../../shared/utils/httpClient', () => ({
+  httpFetch: vi.fn(),
+}));
+
+import { runGraph } from './graphRunner';
+import { httpFetch } from '../../../shared/utils/httpClient';
+
+const mockFetch = vi.mocked(httpFetch);
+
+// ── Test helpers ──────────────────────────────────────────────────────────────
+
+function kafkaTriggerNode(id: string): WorkflowNode {
+  return {
+    id,
+    type: 'kafkaTrigger',
+    position: { x: 0, y: 0 },
+    data: {
+      label: 'Kafka Trigger',
+      clusterId: 'cluster-1',
+      topic: 'orders',
+      groupId: '',
+      startPosition: 'latest',
+      maxConcurrentRuns: 10,
+      keyRegex: '',
+      headerFilters: [],
+      jsonPathFilters: [],
+    },
+  };
+}
+
+function kafkaWaitNode(id: string): WorkflowNode {
+  return {
+    id,
+    type: 'kafkaWait',
+    position: { x: 0, y: 0 },
+    data: {
+      label: 'Kafka Wait',
+      clusterId: 'cluster-1',
+      topic: 'orders',
+      correlationIdExpression: '{{orderId}}',
+      correlationSource: 'body',
+      correlationJsonPath: '$.orderId',
+      timeoutMs: 5000,
+      extractVariables: [],
+    },
+  };
+}
+
+function httpNode(id: string, label: string): WorkflowNode {
+  return {
+    id,
+    type: 'http',
+    position: { x: 0, y: 0 },
+    data: {
+      label,
+      scenario: {
+        id,
+        name: label,
+        url: `https://example.com/${id}`,
+        method: 'GET',
+        headers: [],
+        body: '',
+        auth: { type: 'none' },
+        validation: { mode: 'none' },
+      },
+    },
+  };
+}
+
+function makeCorrelationStore(overrides: Partial<ICorrelationStore> = {}): ICorrelationStore {
+  return {
+    pause: vi.fn(),
+    resume: vi.fn().mockReturnValue(true),
+    isPaused: vi.fn().mockReturnValue(false),
+    cancel: vi.fn().mockReturnValue(true),
+    get: vi.fn().mockReturnValue(undefined),
+    cleanup: vi.fn().mockReturnValue(0),
+    listPaused: vi.fn().mockReturnValue([]),
+    size: 0,
+    ...overrides,
+  };
+}
+
+const defaultCallbacks = () => ({
+  onNodeStateChange: vi.fn(),
+  onVariablesChange: vi.fn(),
+  onComplete: vi.fn(),
+});
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  mockFetch.mockResolvedValue({
+    status: 200,
+    statusText: 'OK',
+    headers: {},
+    body: '{}',
+  });
+});
+
+// ── kafkaTrigger: trigger integration tests ───────────────────────────────────
+
+describe('kafkaTrigger — trigger integration (runGraph dispatch)', () => {
+  it('graphRunner dispatches kafkaTrigger node and seeds kafka.trigger.* context vars', async () => {
+    const kt = kafkaTriggerNode('kt1');
+    const http = httpNode('h1', 'Downstream');
+    const nodes: WorkflowNode[] = [kt, http];
+    const edges: WorkflowEdge[] = [{ id: 'e1', source: 'kt1', target: 'h1' }];
+
+    const kafkaMsg = {
+      topic: 'orders',
+      partition: 2,
+      offset: '100',
+      key: 'order-abc',
+      value: JSON.stringify({ orderId: 'order-abc', amount: 99 }),
+      headers: { 'x-trace-id': 'trace-001' },
+    };
+
+    const cb = defaultCallbacks();
+    const onVariablesChange = vi.fn((vars: Record<string, string>) => {
+      Object.assign(capturedVars, vars);
+    });
+    const capturedVars: Record<string, string> = {};
+
+    await runGraph(nodes, edges, { __kafkaTriggerMessage: JSON.stringify(kafkaMsg) }, {
+      ...cb,
+      onVariablesChange,
+    });
+
+    // kafka.trigger.* keys should be seeded
+    expect(capturedVars['kafka.trigger.topic']).toBe('orders');
+    expect(capturedVars['kafka.trigger.partition']).toBe('2');
+    expect(capturedVars['kafka.trigger.offset']).toBe('100');
+    expect(capturedVars['kafka.trigger.key']).toBe('order-abc');
+    expect(capturedVars['kafka.trigger.value']).toContain('order-abc');
+    expect(capturedVars['kafka.trigger.header.x-trace-id']).toBe('trace-001');
+  });
+
+  it('downstream HTTP node executes after kafkaTrigger node passes', async () => {
+    const kt = kafkaTriggerNode('kt1');
+    const http = httpNode('h1', 'After Trigger');
+    const nodes: WorkflowNode[] = [kt, http];
+    const edges: WorkflowEdge[] = [{ id: 'e1', source: 'kt1', target: 'h1' }];
+
+    const kafkaMsg = {
+      topic: 'orders', partition: 0, offset: '1', key: 'ord-1',
+      value: '{"orderId":"ord-1"}', headers: {},
+    };
+
+    const cb = defaultCallbacks();
+    await runGraph(nodes, edges, { __kafkaTriggerMessage: JSON.stringify(kafkaMsg) }, cb);
+
+    // HTTP node should have executed
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    expect(mockFetch.mock.calls[0][0]).toContain('/h1');
+
+    // Both nodes should have passed
+    const passedIds = (cb.onNodeStateChange as ReturnType<typeof vi.fn>).mock.calls
+      .filter(([, s]: [string, { state: string }]) => s.state === 'pass')
+      .map(([id]: [string]) => id);
+    expect(passedIds).toContain('kt1');
+    expect(passedIds).toContain('h1');
+  });
+
+  it('kafkaTrigger falls back to empty seeds when __kafkaTriggerMessage is absent (design-time run)', async () => {
+    const kt = kafkaTriggerNode('kt1');
+    const nodes: WorkflowNode[] = [kt];
+    const edges: WorkflowEdge[] = [];
+
+    const capturedVars: Record<string, string> = {};
+    const cb = {
+      onNodeStateChange: vi.fn(),
+      onVariablesChange: vi.fn((v: Record<string, string>) => Object.assign(capturedVars, v)),
+      onComplete: vi.fn(),
+    };
+
+    await runGraph(nodes, edges, {}, cb);
+
+    // All kafka.trigger.* keys should fall back to empty string
+    expect(capturedVars['kafka.trigger.topic']).toBe('orders'); // uses node's topic as fallback
+    expect(capturedVars['kafka.trigger.key']).toBe('');
+    expect(capturedVars['kafka.trigger.value']).toBe('');
+    expect(capturedVars['kafka.trigger.partition']).toBe('');
+    expect(capturedVars['kafka.trigger.offset']).toBe('');
+  });
+
+  it('kafkaTrigger with extractVariables seeds user-defined variable from message body', async () => {
+    const kt: WorkflowNode = {
+      id: 'kt1',
+      type: 'kafkaTrigger',
+      position: { x: 0, y: 0 },
+      data: {
+        label: 'Kafka Trigger',
+        clusterId: 'c1',
+        topic: 'orders',
+        groupId: '',
+        startPosition: 'latest',
+        maxConcurrentRuns: 10,
+        keyRegex: '',
+        headerFilters: [],
+        jsonPathFilters: [],
+        extractVariables: [{ name: 'customerId', jsonPath: '$.customer.id' }],
+      },
+    };
+    const nodes: WorkflowNode[] = [kt];
+    const edges: WorkflowEdge[] = [];
+
+    const kafkaMsg = {
+      topic: 'orders', partition: 0, offset: '5', key: 'ord-x',
+      value: JSON.stringify({ orderId: 'ord-x', customer: { id: 'cust-99' } }),
+      headers: {},
+    };
+
+    const capturedVars: Record<string, string> = {};
+    await runGraph(nodes, edges, { __kafkaTriggerMessage: JSON.stringify(kafkaMsg) }, {
+      onNodeStateChange: vi.fn(),
+      onVariablesChange: vi.fn((v: Record<string, string>) => Object.assign(capturedVars, v)),
+      onComplete: vi.fn(),
+    });
+
+    expect(capturedVars['customerId']).toBe('cust-99');
+  });
+
+  it('kafkaTrigger node state is set to pass by graphRunner', async () => {
+    const kt = kafkaTriggerNode('kt1');
+    const nodes: WorkflowNode[] = [kt];
+    const edges: WorkflowEdge[] = [];
+
+    const cb = defaultCallbacks();
+    await runGraph(nodes, edges, {}, cb);
+
+    const calls = (cb.onNodeStateChange as ReturnType<typeof vi.fn>).mock.calls;
+    const kt1State = calls.findLast(([id]: [string]) => id === 'kt1');
+    expect(kt1State?.[1]).toMatchObject({ state: 'pass' });
+  });
+});
+
+// ── kafkaWait: trigger integration tests ─────────────────────────────────────
+
+describe('kafkaWait — integration (runGraph dispatch)', () => {
+  it('kafkaWait in auto-resume mode passes without blocking', async () => {
+    const http = httpNode('h1', 'Before Wait');
+    const kw = kafkaWaitNode('kw1');
+    const http2 = httpNode('h2', 'After Wait');
+    const nodes: WorkflowNode[] = [http, kw, http2];
+    const edges: WorkflowEdge[] = [
+      { id: 'e1', source: 'h1', target: 'kw1' },
+      { id: 'e2', source: 'kw1', target: 'h2' },
+    ];
+
+    const cb = defaultCallbacks();
+    await runGraph(
+      nodes, edges,
+      { orderId: 'ord-auto' },
+      cb,
+      undefined, // abortSignal
+      undefined, // environmentLayer
+      undefined, // resolveHttpBaseUrl
+      undefined, // resolveHttpAuth
+      undefined, // debugController
+      undefined, // errorConfig
+      undefined, // resolveSubWorkflow
+      undefined, // correlationStore
+      true,      // loadTestMode — enables auto-resume
+      { mode: 'auto-resume' }, // correlationWaitConfig
+    );
+
+    // Both HTTP nodes should have executed (kafkaWait didn't block)
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+
+    const stateChanges = (cb.onNodeStateChange as ReturnType<typeof vi.fn>).mock.calls;
+    const passedIds = stateChanges
+      .filter(([, s]: [string, { state: string }]) => s.state === 'pass')
+      .map(([id]: [string]) => id);
+    expect(passedIds).toContain('kw1');
+    expect(passedIds).toContain('h2');
+  });
+
+  it('kafkaWait with correlationStore resolves when store.pause() resolves', async () => {
+    const kafkaResumeData = {
+      topic: 'orders', partition: 0, offset: '42', key: 'ord-1',
+      value: '{"orderId":"ord-1","status":"shipped"}', headers: {},
+    };
+
+    const store = makeCorrelationStore({
+      pause: vi.fn().mockResolvedValue(kafkaResumeData),
+    });
+
+    const kw = kafkaWaitNode('kw1');
+    const http = httpNode('h1', 'After Wait');
+    const nodes: WorkflowNode[] = [kw, http];
+    const edges: WorkflowEdge[] = [{ id: 'e1', source: 'kw1', target: 'h1' }];
+
+    const capturedVars: Record<string, string> = {};
+    const cb = {
+      onNodeStateChange: vi.fn(),
+      onVariablesChange: vi.fn((v: Record<string, string>) => Object.assign(capturedVars, v)),
+      onComplete: vi.fn(),
+    };
+
+    await runGraph(
+      nodes, edges,
+      { orderId: 'ord-1' },
+      cb,
+      undefined, undefined, undefined, undefined, undefined, undefined,
+      undefined, // resolveSubWorkflow
+      store, // correlationStore
+    );
+
+    // kafkaWait node should have passed
+    const stateChanges = (cb.onNodeStateChange as ReturnType<typeof vi.fn>).mock.calls;
+    const kw1State = stateChanges.findLast(([id]: [string]) => id === 'kw1');
+    expect(kw1State?.[1]).toMatchObject({ state: 'pass' });
+
+    // Downstream HTTP node should have executed
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+
+    // kafka.wait.* context keys should be seeded
+    expect(capturedVars['kafka.wait.topic']).toBe('orders');
+    expect(capturedVars['kafka.wait.key']).toBe('ord-1');
+    expect(capturedVars['kafka.wait.offset']).toBe('42');
+    expect(capturedVars['__kwOutcome']).toBe('matched');
+  });
+
+  it('kafkaWait fails with no correlation store in normal mode', async () => {
+    const kw = kafkaWaitNode('kw1');
+    const nodes: WorkflowNode[] = [kw];
+    const edges: WorkflowEdge[] = [];
+
+    const cb = defaultCallbacks();
+    // No correlationStore provided → should fail the node
+    await runGraph(nodes, edges, { orderId: 'ord-1' }, cb);
+
+    const stateChanges = (cb.onNodeStateChange as ReturnType<typeof vi.fn>).mock.calls;
+    const kw1State = stateChanges.findLast(([id]: [string]) => id === 'kw1');
+    expect(kw1State?.[1]).toMatchObject({ state: 'fail' });
+  });
+});
+
+// ── kafkaTrigger → kafkaWait chain ────────────────────────────────────────────
+
+describe('kafkaTrigger → kafkaWait chain integration', () => {
+  it('full workflow: kafkaTrigger start → kafkaWait with auto-resume → HTTP downstream', async () => {
+    const kt = kafkaTriggerNode('kt1');
+    const kw = kafkaWaitNode('kw1');
+    const http = httpNode('h1', 'Final Step');
+    const nodes: WorkflowNode[] = [kt, kw, http];
+    const edges: WorkflowEdge[] = [
+      { id: 'e1', source: 'kt1', target: 'kw1' },
+      { id: 'e2', source: 'kw1', target: 'h1' },
+    ];
+
+    const kafkaMsg = {
+      topic: 'orders', partition: 0, offset: '10', key: 'ord-chain',
+      value: JSON.stringify({ orderId: 'ord-chain' }), headers: {},
+    };
+
+    const capturedVars: Record<string, string> = {};
+    const cb = {
+      onNodeStateChange: vi.fn(),
+      onVariablesChange: vi.fn((v: Record<string, string>) => Object.assign(capturedVars, v)),
+      onComplete: vi.fn(),
+    };
+
+    await runGraph(
+      nodes, edges,
+      { __kafkaTriggerMessage: JSON.stringify(kafkaMsg), orderId: 'ord-chain' },
+      cb,
+      undefined, undefined, undefined, undefined, undefined, undefined,
+      undefined, // resolveSubWorkflow
+      undefined, // correlationStore
+      true,      // loadTestMode
+      { mode: 'auto-resume' }, // correlationWaitConfig
+    );
+
+    // All three nodes should pass
+    const passedIds = (cb.onNodeStateChange as ReturnType<typeof vi.fn>).mock.calls
+      .filter(([, s]: [string, { state: string }]) => s.state === 'pass')
+      .map(([id]: [string]) => id);
+    expect(passedIds).toContain('kt1');
+    expect(passedIds).toContain('kw1');
+    expect(passedIds).toContain('h1');
+
+    // Trigger vars seeded
+    expect(capturedVars['kafka.trigger.topic']).toBe('orders');
+    // Wait vars seeded (auto-resume uses node's topic)
+    expect(capturedVars['kafka.wait.topic']).toBe('orders');
+  });
+});
