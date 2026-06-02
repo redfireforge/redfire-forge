@@ -248,7 +248,7 @@ export async function handleKafkaConsumeNode(
   if (resolvedTopic === null) return;
 
   // ── Load test mode: auto-resume ──
-  const ltb = data.loadTestBehavior ?? { mode: 'wait-for-real' as const };
+  const ltb = data.loadTestBehavior ?? { mode: 'auto-resume' as const };
   if (hCtx.loadTestMode && ltb.mode === 'auto-resume') {
     hCtx.log({ prefix: '*', text: `[${label}] Auto-resume mode — skipping consume` });
     writeKafkaBindings(data.outputBindings, undefined, hCtx.ctx, hCtx.log, label);

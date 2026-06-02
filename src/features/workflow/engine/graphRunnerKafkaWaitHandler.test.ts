@@ -557,5 +557,109 @@ describe('handleKafkaWaitNode', () => {
         expect.objectContaining({ correlationSource: 'key' }),
       );
     });
+
+    it('falls back to body correlationSource for unrecognized correlationSource values (default branch)', async () => {
+      // Tests the `default:` case in buildKafkaCorrelationConfig
+      const store = makeCorrelationStore({
+        pause: vi.fn().mockResolvedValue(makeMockKafkaMessage() as unknown as Record<string, unknown>),
+      });
+      const ctx = makeCtx({ someId: 'val-1' });
+      const { callbacks } = makeCallbacks();
+      const hCtx = makeHandlerContext({ callbacks, ctx, correlationStore: store });
+      const node = makeNode('kw1', 'kafkaWait', {
+        correlationIdExpression: 'val-1',
+        topic: 'orders',
+        clusterId: 'cluster-1',
+        timeoutMs: 5000,
+        correlationSource: 'unknown-source' as unknown as 'body',
+      });
+      await handleKafkaWaitNode('kw1', node, hCtx, makePassedFlag());
+      expect(store.pause).toHaveBeenCalledWith(
+        'val-1', 'orders', expect.any(Object), 5000, undefined,
+        expect.objectContaining({ correlationSource: 'body' }),
+      );
+    });
+  });
+
+  // ── injectKafkaWaitPayload — sparse message covers ?? '' null branches ────
+
+  describe('injectKafkaWaitPayload null-field branches', () => {
+    it('seeds kafka.wait.* to empty strings when resume message has no fields', async () => {
+      // Sends a message with all fields omitted to hit the `?? ''` branches in injectKafkaWaitPayload
+      const sparseMessage = {} as unknown as Record<string, unknown>;
+      const store = makeCorrelationStore({
+        pause: vi.fn().mockResolvedValue(sparseMessage),
+      });
+      const ctx = makeCtx({ orderId: 'order-sparse' });
+      const { callbacks } = makeCallbacks();
+      const hCtx = makeHandlerContext({ callbacks, ctx, correlationStore: store });
+      const node = makeNode('kw1', 'kafkaWait', {
+        correlationIdExpression: 'order-sparse',
+        topic: 'orders',
+        clusterId: 'cluster-1',
+        timeoutMs: 5000,
+        correlationSource: 'body',
+      });
+      await handleKafkaWaitNode('kw1', node, hCtx, makePassedFlag());
+
+      expect(ctx.get('kafka.wait.topic')).toBe('');
+      expect(ctx.get('kafka.wait.key')).toBe('');
+      expect(ctx.get('kafka.wait.value')).toBe('');
+      expect(ctx.get('kafka.wait.partition')).toBe('');
+      expect(ctx.get('kafka.wait.offset')).toBe('');
+    });
+
+    it('skips header seeding when resume message has no headers object', async () => {
+      // message.headers is undefined → the `if (message.headers && typeof message.headers === 'object')` branch is false
+      const messageNoHeaders = {
+        topic: 'orders',
+        partition: 0,
+        offset: '1',
+        key: 'k1',
+        value: '{"orderId":"k1"}',
+        // headers intentionally omitted
+      } as unknown as Record<string, unknown>;
+      const store = makeCorrelationStore({
+        pause: vi.fn().mockResolvedValue(messageNoHeaders),
+      });
+      const ctx = makeCtx({ orderId: 'k1' });
+      const { callbacks } = makeCallbacks();
+      const hCtx = makeHandlerContext({ callbacks, ctx, correlationStore: store });
+      const node = makeNode('kw1', 'kafkaWait', {
+        correlationIdExpression: 'k1',
+        topic: 'orders',
+        clusterId: 'cluster-1',
+        timeoutMs: 5000,
+        correlationSource: 'body',
+      });
+      await handleKafkaWaitNode('kw1', node, hCtx, makePassedFlag());
+
+      // No header keys should be set
+      expect(ctx.get('kafka.wait.header.X-Request-Id')).toBeUndefined();
+      expect(ctx.get('kafka.wait.topic')).toBe('orders');
+    });
+
+    it('buildMockKafkaMessage uses no-behavior path when no mock payloads are configured', async () => {
+      // auto-resume with no mockPayloads → buildMockKafkaMessage returns topic-seeded defaults
+      const ctx = makeCtx({ orderId: 'o-99' });
+      const { callbacks } = makeCallbacks();
+      const hCtx = makeHandlerContext({
+        callbacks,
+        ctx,
+        loadTestMode: true,
+        correlationWaitConfig: { mode: 'auto-resume', mockPayloads: undefined },
+      });
+      const node = makeNode('kw1', 'kafkaWait', {
+        correlationIdExpression: 'o-99',
+        topic: 'inventory.events',
+        clusterId: 'cluster-1',
+        timeoutMs: 0,
+        correlationSource: 'body',
+      });
+      await handleKafkaWaitNode('kw1', node, hCtx, makePassedFlag());
+
+      // topic should be seeded from the node's topic field
+      expect(ctx.get('kafka.wait.topic')).toBe('inventory.events');
+    });
   });
 });

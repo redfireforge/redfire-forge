@@ -233,4 +233,48 @@ describe('kafkaClient dispatcher', () => {
     expect(toKafkaUiSafeError(new KafkaClientError('status', 'mystery problem', { code: 'CUSTOM_FAILURE' }), 'status').kind).toBe('unknown');
     expect(toKafkaUiSafeError('   ', 'status').message).toBe('Kafka status failed');
   });
+
+  // ── Branch coverage: toQueryValue null/edge cases ─────────────────────────
+
+  it('toQueryValue: ignores number query values when they are not finite', async () => {
+    const overrideTransport = vi.fn().mockResolvedValue({ ok: true, op: 'status', data: {} });
+    setKafkaClientTransport(overrideTransport);
+
+    // NaN is not finite → should be dropped from query
+    await dispatchKafkaOperation('status', { clusterId: Number.NaN as unknown as string });
+    expect(overrideTransport).toHaveBeenLastCalledWith(expect.objectContaining({ query: {} }));
+  });
+
+  it('toQueryValue: includes numeric query value when finite', async () => {
+    // This exercises the `typeof value === 'number'` + `Number.isFinite(value)` true branch
+    // We use the override transport since the real HTTP transport isn't available in tests
+    const overrideTransport = vi.fn().mockResolvedValue({ ok: true, op: 'status', data: {} });
+    setKafkaClientTransport(overrideTransport);
+
+    await dispatchKafkaOperation('status', { clusterId: 42 as unknown as string });
+    expect(overrideTransport).toHaveBeenLastCalledWith(
+      expect.objectContaining({ query: { clusterId: '42' } }),
+    );
+  });
+
+  it('toKafkaUiSafeError classifies ENOTFOUND and GETADDRINFO as network errors', () => {
+    expect(toKafkaUiSafeError(new Error('getaddrinfo ENOTFOUND kafka.local'), 'connect').kind).toBe('network');
+    expect(toKafkaUiSafeError(new KafkaClientError('connect', 'ENOTFOUND', { code: 'KAFKA_PROXY_ERROR' }), 'connect').kind).toBe('network');
+  });
+
+  it('toKafkaUiSafeError classifies KAFKA_INVALID_XXX codes as validation', () => {
+    expect(toKafkaUiSafeError(new KafkaClientError('produce', 'bad request', { code: 'KAFKA_INVALID_PRODUCE' }), 'produce').kind).toBe('validation');
+  });
+
+  it('throws fallback error when failed envelope has empty code and no message', async () => {
+    httpFetchMock.mockResolvedValue({
+      status: 503,
+      statusText: 'Service Unavailable',
+      headers: {},
+      body: JSON.stringify({ ok: false, op: 'produce', error: { code: '  ', message: '' } }),
+    });
+
+    // Empty code and message → fallback `Kafka produce failed`
+    await expect(dispatchKafkaOperation('produce', {})).rejects.toThrow('Kafka produce failed');
+  });
 });

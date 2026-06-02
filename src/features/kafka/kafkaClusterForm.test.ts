@@ -179,4 +179,38 @@ describe('kafkaClusterForm helpers', () => {
     const errors = validateKafkaClusterDraft(draft, [], null);
     expect(errors.brokers).toContain('At least one broker');
   });
+
+  it('flags empty clusterId (line 118: Cluster ID is required)', () => {
+    // Covers the `if (!clusterId)` true branch — clusterId is blank after trim
+    const draft = defaultClusterDraft(99);
+    draft.clusterId = '   ';
+    const errors = validateKafkaClusterDraft(draft, [], null);
+    expect(errors.clusterId).toBe('Cluster ID is required');
+  });
+
+  it('draftFromCluster uses empty string defaults when cluster has no optional fields', () => {
+    // Covers the `?? ''` null branches in draftFromCluster for optional tls/auth fields
+    const minimalCluster = {
+      ...EXISTING_CLUSTER,
+      auth: { mode: 'none' as const },
+      tls: { enabled: false, rejectUnauthorized: true },
+      connectionTimeoutMs: undefined as unknown as number,
+      requestTimeoutMs: undefined as unknown as number,
+    };
+    const draft = draftFromCluster(minimalCluster);
+    expect(draft.connectionTimeoutMs).toBe('');
+    expect(draft.requestTimeoutMs).toBe('');
+    expect(draft.tlsServerName).toBe('');
+    expect(draft.tlsCaPem).toBe('');
+  });
+
+  it('validateKafkaClusterDraft deduplicates brokers silently', () => {
+    // Covers the `if (!normalizedBrokers.includes(trimmed))` false branch — duplicate brokers
+    const draft = defaultClusterDraft(99);
+    draft.brokers = ['127.0.0.1:9092', '127.0.0.1:9092'];
+    const errors = validateKafkaClusterDraft(draft, [], null);
+    // No error for duplicates (they're silently deduplicated) but draft is valid
+    expect(errors.brokers).toBeUndefined();
+    expect(errors.brokerRows).toBeUndefined();
+  });
 });

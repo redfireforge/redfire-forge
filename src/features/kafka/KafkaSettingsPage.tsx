@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useKafkaState } from '../../app/hooks/useKafkaState';
+import type { UseKafkaStateReturn } from '../../app/hooks/useKafkaState';
 import {
   clusterIdFromName,
   defaultClusterDraft,
@@ -21,7 +21,11 @@ import {
 
 const EMPTY_ERRORS: KafkaClusterDraftErrors = {};
 
-export default function KafkaSettingsPage() {
+interface KafkaSettingsPageProps {
+  kafkaState: UseKafkaStateReturn;
+}
+
+export default function KafkaSettingsPage({ kafkaState }: KafkaSettingsPageProps) {
   const {
     loaded,
     clusters,
@@ -46,7 +50,7 @@ export default function KafkaSettingsPage() {
     refreshConnectionStatus,
     refreshTopics,
     testSelectedClusterConnection,
-  } = useKafkaState();
+  } = kafkaState;
   const [editorMode, setEditorMode] = useState<'create' | 'edit' | null>(null);
   const [editingClusterId, setEditingClusterId] = useState<string | null>(null);
   const [isCreateClusterIdCustomized, setIsCreateClusterIdCustomized] = useState(false);

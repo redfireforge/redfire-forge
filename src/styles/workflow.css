@@ -8537,3 +8537,40 @@
 }
 
 
+
+/* ── Kafka Load Policy Banners (WorkflowRunner, Phase 7C) ── */
+.kafka-load-warning--block {
+  padding: 10px 14px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 6px;
+  color: #ef4444;
+  font-size: 0.85em;
+  margin: 8px 0;
+  line-height: 1.5;
+}
+.kafka-load-warning--block strong { color: #ef4444; font-weight: 600; }
+
+.kafka-load-warning--warn {
+  padding: 10px 14px;
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-radius: 6px;
+  color: #f59e0b;
+  font-size: 0.85em;
+  margin: 8px 0;
+  line-height: 1.5;
+}
+.kafka-load-warning--warn strong { color: #f59e0b; font-weight: 600; }
+
+.kafka-load-info {
+  padding: 10px 14px;
+  background: rgba(59, 130, 246, 0.08);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  border-radius: 6px;
+  color: #3b82f6;
+  font-size: 0.85em;
+  margin: 8px 0;
+  line-height: 1.5;
+}
+.kafka-load-info strong { color: #3b82f6; font-weight: 600; }

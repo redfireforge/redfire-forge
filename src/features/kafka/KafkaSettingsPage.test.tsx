@@ -2,17 +2,14 @@
  * @vitest-environment jsdom
  */
 import { describe, expect, it, vi } from 'vitest';
+import type { RenderResult } from '@testing-library/react';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
-vi.mock('../../app/hooks/useKafkaState', () => ({
-  useKafkaState: vi.fn(),
-}));
-
-import { useKafkaState } from '../../app/hooks/useKafkaState';
+import type { UseKafkaStateReturn } from '../../app/hooks/useKafkaState';
 import KafkaSettingsPage from './KafkaSettingsPage';
 
-type KafkaState = ReturnType<typeof useKafkaState>;
+type KafkaState = UseKafkaStateReturn;
 
 function makeState(overrides: Partial<KafkaState> = {}): KafkaState {
   return {
@@ -83,29 +80,33 @@ const SECURE_CLUSTER = {
   requestTimeoutMs: 9000,
 };
 
+function renderPage(state: KafkaState): RenderResult {
+  return render(<KafkaSettingsPage kafkaState={state} />);
+}
+
+function rerenderPage(rerender: RenderResult['rerender'], state: KafkaState) {
+  rerender(<KafkaSettingsPage kafkaState={state} />);
+}
+
 describe('KafkaSettingsPage', () => {
   it('renders loading shell when kafka state is not loaded', () => {
-    vi.mocked(useKafkaState).mockReturnValue(makeState({ loaded: false }));
-
-    render(<KafkaSettingsPage />);
+    renderPage(makeState({ loaded: false }));
 
     expect(screen.getByTestId('kafka-settings-loading')).toBeTruthy();
     expect(screen.getByText('Loading Kafka workspace state...')).toBeTruthy();
   });
 
   it('renders error shell when loading completed with error and no clusters', () => {
-    vi.mocked(useKafkaState).mockReturnValue(makeState({
+    renderPage(makeState({
       lastError: 'storage read failed',
     }));
-
-    render(<KafkaSettingsPage />);
 
     expect(screen.getByTestId('kafka-settings-error')).toBeTruthy();
     expect(screen.getByText('storage read failed')).toBeTruthy();
   });
 
   it('keeps runtime validation errors out of the startup error shell when no clusters exist', () => {
-    vi.mocked(useKafkaState).mockReturnValue(makeState({
+    renderPage(makeState({
       lastError: 'No Kafka cluster is selected',
       lastErrorDetail: {
         kind: 'validation',
@@ -115,17 +116,13 @@ describe('KafkaSettingsPage', () => {
       },
     }));
 
-    render(<KafkaSettingsPage />);
-
     expect(screen.queryByTestId('kafka-settings-error')).toBeNull();
     expect(screen.getByTestId('kafka-settings-empty')).toBeTruthy();
     expect(screen.getByTestId('kafka-diagnostic-banner').textContent).toContain('Configuration issue');
   });
 
   it('renders empty shell when there are no clusters and no error', () => {
-    vi.mocked(useKafkaState).mockReturnValue(makeState());
-
-    render(<KafkaSettingsPage />);
+    renderPage(makeState());
 
     expect(screen.getByTestId('kafka-settings-empty')).toBeTruthy();
     expect(screen.getByText('No clusters configured yet')).toBeTruthy();
@@ -135,9 +132,7 @@ describe('KafkaSettingsPage', () => {
   it('opens create editor from the empty shell call to action', async () => {
     const user = userEvent.setup();
 
-    vi.mocked(useKafkaState).mockReturnValue(makeState());
-
-    render(<KafkaSettingsPage />);
+    renderPage(makeState());
 
     await user.click(screen.getByTestId('kafka-empty-create-btn'));
 
@@ -148,7 +143,7 @@ describe('KafkaSettingsPage', () => {
     const user = userEvent.setup();
     const setSelectedClusterId = vi.fn();
 
-    vi.mocked(useKafkaState).mockReturnValue(makeState({
+    renderPage(makeState({
       clusters: [{
         ...CLUSTER_A,
         brokers: ['127.0.0.1:19092', '127.0.0.1:19093', '127.0.0.1:19094'],
@@ -165,8 +160,6 @@ describe('KafkaSettingsPage', () => {
       },
     }));
 
-    render(<KafkaSettingsPage />);
-
     expect(screen.getByTestId('kafka-settings-list')).toBeTruthy();
     expect(screen.getByText('Connected to cluster-a')).toBeTruthy();
     expect(screen.getByText('127.0.0.1:19092, 127.0.0.1:19093, +1 more')).toBeTruthy();
@@ -176,9 +169,7 @@ describe('KafkaSettingsPage', () => {
   });
 
   it('shows the topic-browser idle state when no cluster is selected', () => {
-    vi.mocked(useKafkaState).mockReturnValue(makeState());
-
-    render(<KafkaSettingsPage />);
+    renderPage(makeState());
 
     expect(screen.getByTestId('kafka-topic-browser')).toBeTruthy();
     expect(screen.getByTestId('kafka-topics-idle')).toBeTruthy();
@@ -190,7 +181,7 @@ describe('KafkaSettingsPage', () => {
     const setIncludeInternalTopics = vi.fn();
     const refreshTopics = vi.fn();
 
-    vi.mocked(useKafkaState).mockReturnValue(makeState({
+    renderPage(makeState({
       clusters: [CLUSTER_A],
       selectedClusterId: 'cluster-a',
       selectedCluster: CLUSTER_A,
@@ -205,8 +196,6 @@ describe('KafkaSettingsPage', () => {
         { name: '__consumer_offsets', partitions: 50, isInternal: true },
       ],
     }));
-
-    render(<KafkaSettingsPage />);
 
     expect(screen.getByTestId('kafka-topic-orders.created')).toBeTruthy();
     expect(screen.getByTestId('kafka-topic-__consumer_offsets')).toBeTruthy();
@@ -229,7 +218,7 @@ describe('KafkaSettingsPage', () => {
     const user = userEvent.setup();
     const setSelectedClusterId = vi.fn();
 
-    vi.mocked(useKafkaState).mockReturnValue(makeState({
+    renderPage(makeState({
       clusters: [CLUSTER_A, CLUSTER_B],
       selectedClusterId: 'cluster-a',
       selectedCluster: CLUSTER_A,
@@ -239,8 +228,6 @@ describe('KafkaSettingsPage', () => {
         { name: 'orders.created', partitions: 3, isInternal: false },
       ],
     }));
-
-    render(<KafkaSettingsPage />);
 
     const searchInput = screen.getByLabelText('Search Topics') as HTMLInputElement;
     await user.type(searchInput, 'orders');
@@ -255,54 +242,48 @@ describe('KafkaSettingsPage', () => {
   it('resets topic filter when selected cluster changes externally', async () => {
     const user = userEvent.setup();
 
-    vi.mocked(useKafkaState).mockReturnValue(makeState({
+    const { rerender } = renderPage(makeState({
       clusters: [CLUSTER_A, CLUSTER_B],
       selectedClusterId: 'cluster-a',
       selectedCluster: CLUSTER_A,
       connection: { state: 'connected', clusterId: 'cluster-a' },
       topics: [{ name: 'orders.created', partitions: 3, isInternal: false }],
     }));
-
-    const { rerender } = render(<KafkaSettingsPage />);
     const searchInput = screen.getByLabelText('Search Topics') as HTMLInputElement;
 
     await user.type(searchInput, 'orders');
     expect(searchInput.value).toBe('orders');
 
-    vi.mocked(useKafkaState).mockReturnValue(makeState({
+    rerenderPage(rerender, makeState({
       clusters: [CLUSTER_A, CLUSTER_B],
       selectedClusterId: 'cluster-b',
       selectedCluster: CLUSTER_B,
       connection: { state: 'connected', clusterId: 'cluster-b' },
       topics: [{ name: 'payments.authorized', partitions: 2, isInternal: false }],
     }));
-
-    rerender(<KafkaSettingsPage />);
     expect((screen.getByLabelText('Search Topics') as HTMLInputElement).value).toBe('');
   });
 
   it('shows topic-browser disconnected, loading, error, and empty states', () => {
-    const { rerender } = render(<KafkaSettingsPage />);
+    const { rerender } = renderPage(makeState());
 
-    vi.mocked(useKafkaState).mockReturnValue(makeState({
+    rerenderPage(rerender, makeState({
       clusters: [CLUSTER_A],
       selectedClusterId: 'cluster-a',
       selectedCluster: CLUSTER_A,
     }));
-    rerender(<KafkaSettingsPage />);
     expect(screen.getByTestId('kafka-topics-disconnected')).toBeTruthy();
 
-    vi.mocked(useKafkaState).mockReturnValue(makeState({
+    rerenderPage(rerender, makeState({
       clusters: [CLUSTER_A],
       selectedClusterId: 'cluster-a',
       selectedCluster: CLUSTER_A,
       connection: { state: 'connected', clusterId: 'cluster-a' },
       topicsLoading: true,
     }));
-    rerender(<KafkaSettingsPage />);
     expect(screen.getByTestId('kafka-topics-loading')).toBeTruthy();
 
-    vi.mocked(useKafkaState).mockReturnValue(makeState({
+    rerenderPage(rerender, makeState({
       clusters: [CLUSTER_A],
       selectedClusterId: 'cluster-a',
       selectedCluster: CLUSTER_A,
@@ -314,17 +295,15 @@ describe('KafkaSettingsPage', () => {
         retryable: true,
       },
     }));
-    rerender(<KafkaSettingsPage />);
     expect(screen.getByTestId('kafka-topics-error').textContent).toContain('topic metadata request failed');
 
-    vi.mocked(useKafkaState).mockReturnValue(makeState({
+    rerenderPage(rerender, makeState({
       clusters: [CLUSTER_A],
       selectedClusterId: 'cluster-a',
       selectedCluster: CLUSTER_A,
       connection: { state: 'connected', clusterId: 'cluster-a' },
       topics: [],
     }));
-    rerender(<KafkaSettingsPage />);
     expect(screen.getByTestId('kafka-topics-empty')).toBeTruthy();
   });
 
@@ -332,12 +311,10 @@ describe('KafkaSettingsPage', () => {
     const user = userEvent.setup();
     const upsertCluster = vi.fn();
 
-    vi.mocked(useKafkaState).mockReturnValue(makeState({
+    renderPage(makeState({
       clusters: [CLUSTER_A],
       upsertCluster,
     }));
-
-    render(<KafkaSettingsPage />);
 
     await user.click(screen.getByTestId('kafka-add-cluster-btn'));
     expect(screen.getByText('Create Cluster')).toBeTruthy();
@@ -353,11 +330,9 @@ describe('KafkaSettingsPage', () => {
   it('cancels the editor and returns to the helper state', async () => {
     const user = userEvent.setup();
 
-    vi.mocked(useKafkaState).mockReturnValue(makeState({
+    renderPage(makeState({
       clusters: [CLUSTER_A],
     }));
-
-    render(<KafkaSettingsPage />);
 
     await user.click(screen.getByTestId('kafka-add-cluster-btn'));
     expect(screen.getByText('Create Cluster')).toBeTruthy();
@@ -375,7 +350,7 @@ describe('KafkaSettingsPage', () => {
     const testSelectedClusterConnection = vi.fn();
     const refreshConnectionStatus = vi.fn().mockResolvedValue(undefined);
 
-    vi.mocked(useKafkaState).mockReturnValue(makeState({
+    const { rerender } = renderPage(makeState({
       clusters: [CLUSTER_A],
       selectedClusterId: 'cluster-a',
       selectedCluster: CLUSTER_A,
@@ -394,8 +369,6 @@ describe('KafkaSettingsPage', () => {
       testSelectedClusterConnection,
     }));
 
-    const { rerender } = render(<KafkaSettingsPage />);
-
   expect(screen.getByText('Connected to cluster-a')).toBeTruthy();
   expect(screen.getByTestId('kafka-selected-cluster-security').textContent).toContain('No authentication');
   expect(screen.getByTestId('kafka-diagnostic-banner').textContent).toContain('Network / broker reachability issue');
@@ -410,14 +383,12 @@ describe('KafkaSettingsPage', () => {
     expect(refreshConnectionStatus).toHaveBeenCalledWith({ force: true });
     expect(clearError).toHaveBeenCalledTimes(1);
 
-    vi.mocked(useKafkaState).mockReturnValue(makeState({
+    rerenderPage(rerender, makeState({
       clusters: [CLUSTER_A],
       selectedClusterId: 'cluster-a',
       selectedCluster: CLUSTER_A,
       connection: { state: 'testing', clusterId: 'cluster-a' },
     }));
-
-    rerender(<KafkaSettingsPage />);
     expect(screen.getByText('Testing connection...')).toBeTruthy();
   });
 
@@ -425,12 +396,10 @@ describe('KafkaSettingsPage', () => {
     const user = userEvent.setup();
     const upsertCluster = vi.fn();
 
-    vi.mocked(useKafkaState).mockReturnValue(makeState({
+    renderPage(makeState({
       clusters: [CLUSTER_A],
       upsertCluster,
     }));
-
-    render(<KafkaSettingsPage />);
 
     await user.click(screen.getByTestId('kafka-add-cluster-btn'));
     await user.clear(screen.getByLabelText('Cluster Name'));
@@ -474,13 +443,11 @@ describe('KafkaSettingsPage', () => {
   it('shows secure cluster fields when editing an existing secure profile', async () => {
     const user = userEvent.setup();
 
-    vi.mocked(useKafkaState).mockReturnValue(makeState({
+    renderPage(makeState({
       clusters: [SECURE_CLUSTER],
       selectedClusterId: 'secure-cluster',
       selectedCluster: SECURE_CLUSTER,
     }));
-
-    render(<KafkaSettingsPage />);
 
     expect(screen.getByTestId('kafka-selected-cluster-security').textContent).toContain('SCRAM-SHA-512');
     expect(screen.getByTestId('kafka-selected-cluster-security').textContent).toContain('TLS without cert verification');
@@ -497,14 +464,12 @@ describe('KafkaSettingsPage', () => {
     const user = userEvent.setup();
     const upsertCluster = vi.fn();
 
-    vi.mocked(useKafkaState).mockReturnValue(makeState({
+    renderPage(makeState({
       clusters: [SECURE_CLUSTER],
       selectedClusterId: 'secure-cluster',
       selectedCluster: SECURE_CLUSTER,
       upsertCluster,
     }));
-
-    render(<KafkaSettingsPage />);
 
     await user.click(screen.getByRole('button', { name: 'Edit' }));
     await user.click(screen.getByLabelText('Enable TLS'));
@@ -522,12 +487,10 @@ describe('KafkaSettingsPage', () => {
     const user = userEvent.setup();
     const upsertCluster = vi.fn();
 
-    vi.mocked(useKafkaState).mockReturnValue(makeState({
+    renderPage(makeState({
       clusters: [CLUSTER_A],
       upsertCluster,
     }));
-
-    render(<KafkaSettingsPage />);
 
     await user.click(screen.getByTestId('kafka-add-cluster-btn'));
     await user.selectOptions(screen.getByLabelText('Authentication'), 'plain');
@@ -555,13 +518,11 @@ describe('KafkaSettingsPage', () => {
     const upsertCluster = vi.fn();
     const setSelectedClusterId = vi.fn();
 
-    vi.mocked(useKafkaState).mockReturnValue(makeState({
+    renderPage(makeState({
       clusters: [CLUSTER_A],
       upsertCluster,
       setSelectedClusterId,
     }));
-
-    render(<KafkaSettingsPage />);
 
     await user.click(screen.getByTestId('kafka-add-cluster-btn'));
     await user.clear(screen.getByLabelText('Cluster Name'));
@@ -587,12 +548,10 @@ describe('KafkaSettingsPage', () => {
     const user = userEvent.setup();
     const upsertCluster = vi.fn();
 
-    vi.mocked(useKafkaState).mockReturnValue(makeState({
+    renderPage(makeState({
       clusters: [CLUSTER_A],
       upsertCluster,
     }));
-
-    render(<KafkaSettingsPage />);
 
     await user.click(screen.getByTestId('kafka-add-cluster-btn'));
 
@@ -617,14 +576,12 @@ describe('KafkaSettingsPage', () => {
     const user = userEvent.setup();
     const upsertCluster = vi.fn();
 
-    vi.mocked(useKafkaState).mockReturnValue(makeState({
+    renderPage(makeState({
       clusters: [CLUSTER_A],
       selectedClusterId: 'cluster-a',
       selectedCluster: CLUSTER_A,
       upsertCluster,
     }));
-
-    render(<KafkaSettingsPage />);
 
     await user.click(screen.getByRole('button', { name: 'Edit' }));
     expect(screen.getByText('Edit Cluster')).toBeTruthy();
@@ -645,14 +602,12 @@ describe('KafkaSettingsPage', () => {
     const user = userEvent.setup();
     const upsertCluster = vi.fn();
 
-    vi.mocked(useKafkaState).mockReturnValue(makeState({
+    renderPage(makeState({
       clusters: [CLUSTER_A],
       selectedClusterId: 'cluster-a',
       selectedCluster: CLUSTER_A,
       upsertCluster,
     }));
-
-    render(<KafkaSettingsPage />);
 
     await user.click(screen.getByRole('button', { name: 'Edit' }));
     const nameInput = screen.getByLabelText('Cluster Name');
@@ -673,15 +628,13 @@ describe('KafkaSettingsPage', () => {
     const upsertCluster = vi.fn();
     const removeCluster = vi.fn();
 
-    vi.mocked(useKafkaState).mockReturnValue(makeState({
+    renderPage(makeState({
       clusters: [CLUSTER_A],
       selectedClusterId: 'cluster-a',
       selectedCluster: CLUSTER_A,
       upsertCluster,
       removeCluster,
     }));
-
-    render(<KafkaSettingsPage />);
 
     await user.click(screen.getByRole('button', { name: 'Edit' }));
     const clusterIdInput = screen.getByLabelText('Cluster ID');
@@ -698,14 +651,12 @@ describe('KafkaSettingsPage', () => {
     const user = userEvent.setup();
     const removeCluster = vi.fn();
 
-    vi.mocked(useKafkaState).mockReturnValue(makeState({
+    renderPage(makeState({
       clusters: [CLUSTER_A],
       selectedClusterId: 'cluster-a',
       selectedCluster: CLUSTER_A,
       removeCluster,
     }));
-
-    render(<KafkaSettingsPage />);
 
     await user.click(screen.getByRole('button', { name: 'Edit' }));
     await user.click(screen.getByRole('button', { name: 'Delete Cluster' }));
@@ -719,14 +670,12 @@ describe('KafkaSettingsPage', () => {
     const user = userEvent.setup();
     const removeCluster = vi.fn();
 
-    vi.mocked(useKafkaState).mockReturnValue(makeState({
+    renderPage(makeState({
       clusters: [CLUSTER_A],
       selectedClusterId: 'cluster-a',
       selectedCluster: CLUSTER_A,
       removeCluster,
     }));
-
-    render(<KafkaSettingsPage />);
 
     await user.click(screen.getByRole('button', { name: 'Edit' }));
     await user.click(screen.getByRole('button', { name: 'Delete Cluster' }));

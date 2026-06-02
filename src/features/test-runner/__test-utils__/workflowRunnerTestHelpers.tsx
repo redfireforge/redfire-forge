@@ -176,6 +176,103 @@ export const wfPoll: Workflow = {
   ...TIMESTAMPS,
 };
 
+// ─── Kafka workflow fixtures (Phase 7C) ───────────────────────────────
+
+export const wfKafkaWaitForReal: Workflow = {
+  id: 'wf-kafka-wfr',
+  name: 'Kafka Wait-For-Real',
+  nodes: [
+    {
+      id: 'kc1',
+      type: 'kafkaConsume',
+      position: { x: 0, y: 0 },
+      data: {
+        label: 'Consume Orders',
+        clusterId: 'c1',
+        topic: 'orders',
+        loadTestBehavior: { mode: 'wait-for-real' },
+      },
+    },
+  ],
+  edges: [],
+  variables: {},
+  ...TIMESTAMPS,
+};
+
+export const wfKafkaAutoResume: Workflow = {
+  id: 'wf-kafka-ar',
+  name: 'Kafka Auto-Resume',
+  nodes: [
+    {
+      id: 'kc2',
+      type: 'kafkaConsume',
+      position: { x: 0, y: 0 },
+      data: {
+        label: 'Consume Events',
+        clusterId: 'c1',
+        topic: 'events',
+        loadTestBehavior: { mode: 'auto-resume' },
+      },
+    },
+  ],
+  edges: [],
+  variables: {},
+  ...TIMESTAMPS,
+};
+
+export const wfKafkaNoLoadBehavior: Workflow = {
+  id: 'wf-kafka-nlb',
+  name: 'Kafka No Load Behavior',
+  nodes: [
+    {
+      id: 'kc3',
+      type: 'kafkaConsume',
+      position: { x: 0, y: 0 },
+      data: {
+        label: 'Consume Signals',
+        clusterId: 'c1',
+        topic: 'signals',
+      },
+    },
+  ],
+  edges: [],
+  variables: {},
+  ...TIMESTAMPS,
+};
+
+/** Workflow with two kafkaConsume nodes: one wait-for-real (block) and one no-behavior (info).
+ *  Used to verify the Phase 7C priority rule: block banner suppresses the info advisory. */
+export const wfKafkaMixed: Workflow = {
+  id: 'wf-kafka-mixed',
+  name: 'Kafka Mixed Policies',
+  nodes: [
+    {
+      id: 'kc-wfr',
+      type: 'kafkaConsume',
+      position: { x: 0, y: 0 },
+      data: {
+        label: 'Block Node',
+        clusterId: 'c1',
+        topic: 'orders',
+        loadTestBehavior: { mode: 'wait-for-real' },
+      },
+    },
+    {
+      id: 'kc-nlb',
+      type: 'kafkaConsume',
+      position: { x: 200, y: 0 },
+      data: {
+        label: 'Info Node',
+        clusterId: 'c1',
+        topic: 'signals',
+      },
+    },
+  ],
+  edges: [],
+  variables: {},
+  ...TIMESTAMPS,
+};
+
 export const allWorkflowVariants: Workflow[] = [
   ...mockWorkflows,
   wfWebhookStart,
@@ -183,6 +280,10 @@ export const allWorkflowVariants: Workflow[] = [
   wfWebhookBranchingStart,
   wfCorr,
   wfPoll,
+  wfKafkaWaitForReal,
+  wfKafkaAutoResume,
+  wfKafkaNoLoadBehavior,
+  wfKafkaMixed,
 ];
 
 export const wfIdToName: Record<string, string> = Object.fromEntries(
