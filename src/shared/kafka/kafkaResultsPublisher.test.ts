@@ -308,26 +308,6 @@ describe('publishRunResults', () => {
     });
   });
 
-  // ── (j) Auth error from secure-profile broker ────────────────────────────
-
-  describe('auth error — secure-profile parity', () => {
-    it('returns failed with KAFKA_AUTH_FAILED code and no retry when broker rejects credentials', async () => {
-      mockDispatch.mockRejectedValue(
-        new KafkaClientError('produce', 'SASL authentication failed: Invalid credentials', {
-          code: 'KAFKA_AUTH_FAILED',
-          retryable: false,
-        }),
-      );
-
-      const outcome = await publishRunResults(makeTestRun(), enabledConfig);
-
-      expect(outcome.status).toBe('failed');
-      expect(outcome.retryCount).toBe(0);
-      expect(outcome.errorCode).toBe('KAFKA_AUTH_FAILED');
-      expect(mockDispatch).toHaveBeenCalledTimes(1); // no retry — auth failures are non-retryable
-    });
-  });
-
   // ── (i) Correct retryCount in partially-succeeded path ───────────────────
 
   describe('retryCount in outcome', () => {
@@ -360,6 +340,30 @@ describe('publishRunResults', () => {
       expect(outcome.status).toBe('published');
       expect(outcome.retryCount).toBe(2);
       expect(mockDispatch).toHaveBeenCalledTimes(3);
+    });
+  });
+
+  // ── (j) Auth error — secure-profile parity ────────────────────────────────
+  // Manual only — requires secure broker profile (SASL/SCRAM-SHA-256).
+  // Unit-level proxy: verifies that KAFKA_AUTH_FAILED with retryable:false
+  // causes publishRunResults to stop after one attempt (retryCount: 0), exactly
+  // matching the behaviour observed in the broker-level 13E scenario.
+
+  describe('auth error — secure-profile parity', () => {
+    it('returns failed with KAFKA_AUTH_FAILED code and no retry when broker rejects credentials', async () => {
+      mockDispatch.mockRejectedValue(
+        new KafkaClientError('produce', 'SASL authentication failed: Invalid credentials', {
+          code: 'KAFKA_AUTH_FAILED',
+          retryable: false,
+        }),
+      );
+
+      const outcome = await publishRunResults(makeTestRun(), enabledConfig);
+
+      expect(outcome.status).toBe('failed');
+      expect(outcome.retryCount).toBe(0);
+      expect(outcome.errorCode).toBe('KAFKA_AUTH_FAILED');
+      expect(mockDispatch).toHaveBeenCalledTimes(1); // no retry — auth failures are non-retryable
     });
   });
 });
