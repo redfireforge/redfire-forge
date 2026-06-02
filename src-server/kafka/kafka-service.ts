@@ -642,7 +642,7 @@ export class KafkaService {
       const message = this.toMessage(error);
 
       try {
-        await Promise.resolve(admin.disconnect());
+        await this.withTimeout(admin.disconnect(), DEFAULT_CLEANUP_TIMEOUT_MS, 'connect-cleanup');
       } catch {
         // Ignore disconnect failures while handling connect errors.
       }
@@ -659,7 +659,9 @@ export class KafkaService {
       };
 
       return createKafkaErrorEnvelope('connect', {
-        code: this.isTimeoutError(error) ? 'KAFKA_CONNECT_TIMEOUT' : 'KAFKA_CONNECT_FAILED',
+        code: this.isTimeoutError(error) ? 'KAFKA_CONNECT_TIMEOUT'
+          : this.isAuthError(error) ? 'KAFKA_AUTH_FAILED'
+          : 'KAFKA_CONNECT_FAILED',
         message,
         retryable: true,
       }, {
@@ -792,6 +794,15 @@ export class KafkaService {
   private isTimeoutError(error: unknown): boolean {
     const message = this.toMessage(error).toLowerCase();
     return message.includes('timed out') || message.includes('timeout');
+  }
+
+  private isAuthError(error: unknown): boolean {
+    const message = this.toMessage(error).toLowerCase();
+    return (
+      message.includes('sasl authentication failed') ||
+      message.includes('authentication failed') ||
+      message.includes('invalid credentials')
+    );
   }
 
   private toMessage(error: unknown): string {
