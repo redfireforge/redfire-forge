@@ -104,6 +104,14 @@ describe('publishRunResults', () => {
       expect(parsed.timestamp).toBe(1_700_000_000_000);
     });
 
+    it('message key is set to testRun.id for broker routing and log-compaction', async () => {
+      const testRun = makeTestRun({ id: 'run-key-check' });
+      await publishRunResults(testRun, enabledConfig);
+
+      const [, request] = mockDispatch.mock.calls[0];
+      expect(request.messages[0].key).toBe('run-key-check');
+    });
+
     it('envelope has correct executionMode from testRun.config', async () => {
       const testRun = makeTestRun({ config: { executionMode: 'batch', iterations: 5, concurrency: 2, skipValidation: false, skipAssertions: false, validationOverride: 'default', forceUnordered: 'default', hostMode: 'hardcoded', errorPolicy: 'continue', maxErrors: 0, maxErrorRate: 0, timeoutSec: 0, retryCount: 0, retryDelayMs: 1000 } });
       await publishRunResults(testRun, enabledConfig);

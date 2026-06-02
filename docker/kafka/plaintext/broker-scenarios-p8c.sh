@@ -58,9 +58,9 @@ CYAN='\033[0;36m'
 BOLD='\033[1m'
 RESET='\033[0m'
 
-pass() { echo -e "  ${GREEN}✓ PASS${RESET}  $1"; ((PASS_COUNT++)); }
-fail() { echo -e "  ${RED}✗ FAIL${RESET}  $1"; ((FAIL_COUNT++)); }
-skip() { echo -e "  ${YELLOW}⊘ SKIP${RESET}  $1"; ((SKIP_COUNT++)); }
+pass() { echo -e "  ${GREEN}✓ PASS${RESET}  $1"; ((PASS_COUNT++)) || true; }
+fail() { echo -e "  ${RED}✗ FAIL${RESET}  $1"; ((FAIL_COUNT++)) || true; }
+skip() { echo -e "  ${YELLOW}⊘ SKIP${RESET}  $1"; ((SKIP_COUNT++)) || true; }
 header() { echo -e "\n${BOLD}${CYAN}▶ $1${RESET}"; }
 
 # ── HTTP helper ────────────────────────────────────────────────────────────────
@@ -126,6 +126,42 @@ require_prerequisites() {
     echo "ERROR: Kafka API not available at $BASE_URL (HTTP $kafka_status)." >&2
     exit 1
   fi
+}
+
+# ── Broker readiness gate ─────────────────────────────────────────────────────
+# Retries a plaintext connect probe until the broker is ready (or 60 s elapses).
+# Without this, running immediately after `docker compose up -d` can hit the
+# window before the broker finishes its startup sequence and topic creation.
+
+wait_for_broker_ready() {
+  local max_retries=30
+  local delay=2
+  local attempt=0
+
+  echo -e "  ${CYAN}Waiting for plaintext broker readiness...${RESET}"
+
+  while [[ $attempt -lt $max_retries ]]; do
+    local probe_response
+    probe_response="$(request POST /api/kafka/connect \
+      "{\"connection\":{\"clusterId\":\"readiness-probe\",\"clientId\":\"redfireforge-probe\",\"brokers\":[\"127.0.0.1:19092\"],\"connectionTimeoutMs\":3000,\"requestTimeoutMs\":3000,\"auth\":{\"mode\":\"none\"},\"tls\":{\"enabled\":false}}}" \
+      2>/dev/null || echo '{}')"
+
+    local probe_ok
+    probe_ok="$(echo "$probe_response" | jq -r '.ok // false' 2>/dev/null || echo 'false')"
+
+    if [[ "$probe_ok" == "true" ]]; then
+      request POST /api/kafka/disconnect '{}' > /dev/null 2>&1 || true
+      echo -e "  ${GREEN}Broker ready.${RESET}"
+      return 0
+    fi
+
+    ((attempt++)) || true
+    sleep "$delay"
+  done
+
+  echo -e "  ${RED}Broker not ready after $((max_retries * delay))s.${RESET}" >&2
+  echo "  Check: docker compose -f docker/kafka/plaintext/docker-compose.yml logs redpanda" >&2
+  exit 1
 }
 
 # ── Broker lifecycle helpers ───────────────────────────────────────────────────
@@ -210,8 +246,17 @@ run_scenario_13a() {
   local consumed_count
   consumed_count="$(echo "$consume_response" | jq -r '.data.messages | length' 2>/dev/null || echo '0')"
 
+  # NOTE: same jq boolean-false safety fix as Phase 3 smoke test.
+  local timed_out
+  timed_out="$(echo "$consume_response" | jq -r 'if .data.timedOut == false then "false" else "true" end' 2>/dev/null || echo 'true')"
+
   if [[ "$consumed_count" -ge 1 ]]; then
     pass "Consumed message from $RESULTS_TOPIC — broker delivery confirmed"
+    if [[ "$timed_out" == "false" ]]; then
+      pass "Consume completed before timeout (timedOut=false)"
+    else
+      fail "Consume timed out before receiving message (timedOut=true)"
+    fi
   else
     fail "No message received from $RESULTS_TOPIC (response: $consume_response)"
   fi
@@ -348,10 +393,19 @@ run_scenario_13d() {
   local msg_count
   msg_count="$(echo "$consume_response" | jq -r '.data.messages | length' 2>/dev/null || echo '0')"
 
+  local timed_out_d
+  timed_out_d="$(echo "$consume_response" | jq -r 'if .data.timedOut == false then "false" else "true" end' 2>/dev/null || echo 'true')"
+
   if [[ "$msg_count" -lt 1 ]]; then
     fail "No message consumed from $RESULTS_TOPIC for 13D validation"
     disconnect_broker
     return
+  fi
+
+  if [[ "$timed_out_d" == "false" ]]; then
+    pass "13D consume completed before timeout (timedOut=false)"
+  else
+    fail "13D consume timed out before receiving message (timedOut=true)"
   fi
 
   # Parse the message value (it's a JSON string inside the messages array)
@@ -469,10 +523,11 @@ run_scenario_13e() {
   local secure_cluster_id="local-secure"
   local run_id="13e-$SCENARIO_RUN_ID"
 
-  # Connect using SASL/PLAIN credentials
+  # Connect using SASL/SCRAM-SHA-256 credentials
+  # NOTE: Redpanda requires TLS for SASL/PLAIN; always use scram-sha-256 here.
   local connect_response
   connect_response="$(request POST /api/kafka/connect \
-    "{\"connection\":{\"clusterId\":\"$secure_cluster_id\",\"clientId\":\"redfireforge-p8c-secure\",\"brokers\":[\"$secure_brokers\"],\"connectionTimeoutMs\":8000,\"requestTimeoutMs\":5000,\"auth\":{\"mode\":\"plain\",\"username\":\"$secure_user\",\"password\":\"$secure_pass\"},\"tls\":{\"enabled\":false}}}" \
+    "{\"connection\":{\"clusterId\":\"$secure_cluster_id\",\"clientId\":\"redfireforge-p8c-secure\",\"brokers\":[\"$secure_brokers\"],\"connectionTimeoutMs\":8000,\"requestTimeoutMs\":5000,\"auth\":{\"mode\":\"scram-sha-256\",\"username\":\"$secure_user\",\"password\":\"$secure_pass\"},\"tls\":{\"enabled\":false}}}" \
     2>/dev/null || echo '{}')"
 
   local connect_ok
@@ -482,7 +537,7 @@ run_scenario_13e() {
     fail "Could not connect to secure broker at $secure_brokers (check SASL credentials)"
     return
   fi
-  pass "Connected to secure broker with SASL/PLAIN auth"
+  pass "Connected to secure broker with SASL/SCRAM-SHA-256 auth"
 
   # Produce a summary envelope to the results topic
   local ts
@@ -512,8 +567,16 @@ run_scenario_13e() {
   local consumed_count
   consumed_count="$(echo "$consume_response" | jq -r '.data.messages | length' 2>/dev/null || echo '0')"
 
+  local timed_out_e
+  timed_out_e="$(echo "$consume_response" | jq -r 'if .data.timedOut == false then "false" else "true" end' 2>/dev/null || echo 'true')"
+
   if [[ "$consumed_count" -ge 1 ]]; then
     pass "Consumed message from secure broker — envelope semantics match plaintext profile"
+    if [[ "$timed_out_e" == "false" ]]; then
+      pass "Secure consume completed before timeout (timedOut=false)"
+    else
+      fail "Secure consume timed out before receiving message (timedOut=true)"
+    fi
   else
     fail "No message received from secure broker topic (may need fromBeginning offset or topic creation)"
   fi
@@ -568,6 +631,11 @@ run_scenario_13f() {
 
   local consumed_count
   consumed_count="$(echo "$consume_response" | jq -r '.data.messages | length' 2>/dev/null || echo '0')"
+
+  # NOTE: timedOut=true is expected here — we request maxMessages=5 to detect
+  # duplicates, but only 1 message was produced. The consumer scans the topic
+  # and finds 1 matching message, then times out waiting for 4 more. This is
+  # correct behaviour; the idempotency assertion is on consumed_count only.
 
   if [[ "$consumed_count" -eq 1 ]]; then
     pass "Exactly 1 message found for run-id $run_id — no duplicate publish (idempotency confirmed)"
@@ -630,6 +698,7 @@ echo "  Run ID   : $SCENARIO_RUN_ID"
 echo "  Time     : $(date)"
 
 require_prerequisites
+wait_for_broker_ready
 
 run_scenario_13a
 run_scenario_13b

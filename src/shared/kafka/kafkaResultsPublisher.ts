@@ -68,7 +68,9 @@ export async function publishRunResults(
       await dispatchKafkaOperation('produce', {
         clusterId: config.clusterId,
         topic: config.topic,
-        messages: [{ value: JSON.stringify(envelope) }],
+        // Use runId as the message key so consumers can filter by run, Kafka
+        // log-compaction can deduplicate by run, and partitioning is stable.
+        messages: [{ key: envelope.runId, value: JSON.stringify(envelope) }],
       });
 
       return { status: 'published', retryCount, durationMs: Date.now() - startMs };
