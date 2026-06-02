@@ -230,6 +230,17 @@ describe('executeKafkaAction — consume success', () => {
 
     expect(result.responseHeaders['x-correlation-id']).toBe('corr-123');
   });
+
+  it('succeeds and captures raw string responseBody when message value is not valid JSON', async () => {
+    const nonJsonMessage = { ...sampleMessage, value: 'plain-text-not-json' };
+    const ops = mockOps(undefined, [nonJsonMessage]);
+    // parseJsonSafe falls back to returning the raw string when JSON.parse throws —
+    // the result should not error out; the raw value is used for body assertions
+    const result = await executeKafkaAction(makeConsumeScenario(), ops);
+
+    expect(result.passed).toBe(true);
+    expect(result.responseBody).toBe('plain-text-not-json');
+  });
 });
 
 describe('executeKafkaAction — consume no match', () => {
@@ -630,5 +641,156 @@ describe('executeKafkaAction — unsupported actionType', () => {
 
     expect(result.passed).toBe(false);
     expect(result.errorMessage).toMatch(/unsupported/i);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Branch coverage — parameter edge cases
+// ---------------------------------------------------------------------------
+
+describe('executeKafkaAction — produce branch coverage', () => {
+  it('sends empty string value and undefined ackMode when value and acks are absent', async () => {
+    const ops = mockOps();
+    const scenario = makeProduceScenario({
+      kafkaProduceAction: {
+        clusterId: 'c1',
+        topic: 'orders',
+        // value and acks intentionally omitted to exercise ?? '' and ternary false branches
+      },
+    });
+    const result = await executeKafkaAction(scenario, ops);
+
+    expect(result.passed).toBe(true);
+    expect(ops.produce).toHaveBeenCalledWith(
+      expect.objectContaining({ value: '', ackMode: undefined }),
+    );
+    // responseBody is '' when cfg.value is absent → parseJsonSafe('') returns null (line 245 covered)
+    expect(result.responseBody).toBe('');
+  });
+
+  it('uses fallback timeout 5000ms when produce action has no timeoutMs', async () => {
+    const ops = mockOps();
+    const scenario = makeProduceScenario({
+      kafkaProduceAction: {
+        clusterId: 'c1',
+        topic: 'orders',
+        value: 'x',
+        // timeoutMs omitted — exercises ?? timeoutMs ?? 5_000 default chain
+      },
+    });
+    await executeKafkaAction(scenario, ops);
+
+    expect(ops.produce).toHaveBeenCalledWith(
+      expect.objectContaining({ timeoutMs: 5000 }),
+    );
+  });
+
+  it('passes ackMode as string when acks is explicitly set', async () => {
+    const ops = mockOps();
+    const scenario = makeProduceScenario({
+      kafkaProduceAction: {
+        clusterId: 'c1',
+        topic: 'orders',
+        value: 'msg',
+        acks: 1,
+      },
+    });
+    await executeKafkaAction(scenario, ops);
+
+    expect(ops.produce).toHaveBeenCalledWith(
+      expect.objectContaining({ ackMode: '1' }),
+    );
+  });
+});
+
+describe('executeKafkaAction — consume branch coverage', () => {
+  it('uses earliest startPosition when fromBeginning is true', async () => {
+    const ops = mockOps(undefined, []);
+    const scenario = makeConsumeScenario({
+      kafkaConsumeAction: {
+        clusterId: 'c1',
+        topic: 'orders',
+        maxMessages: 1,
+        timeoutMs: 1000,
+        fromBeginning: true,
+      },
+    });
+    await executeKafkaAction(scenario, ops);
+
+    expect(ops.consume).toHaveBeenCalledWith(
+      expect.objectContaining({ startPosition: 'earliest' }),
+    );
+  });
+
+  it('uses default maxMessages=1 and timeoutMs=10000 when absent from action config', async () => {
+    const ops = mockOps(undefined, []);
+    const scenario = makeConsumeScenario({
+      kafkaConsumeAction: {
+        clusterId: 'c1',
+        topic: 'orders',
+        // maxMessages and timeoutMs intentionally absent
+      },
+    });
+    await executeKafkaAction(scenario, ops);
+
+    expect(ops.consume).toHaveBeenCalledWith(
+      expect.objectContaining({ maxMessages: 1, timeoutMs: 10000 }),
+    );
+  });
+
+  it('passes keyRegex when filter.keyEquals is set', async () => {
+    const ops = mockOps(undefined, []);
+    const scenario = makeConsumeScenario({
+      kafkaConsumeAction: {
+        clusterId: 'c1',
+        topic: 'orders',
+        maxMessages: 1,
+        timeoutMs: 1000,
+        filter: { keyEquals: 'order-42' },
+      },
+    });
+    await executeKafkaAction(scenario, ops);
+
+    expect(ops.consume).toHaveBeenCalledWith(
+      expect.objectContaining({ keyRegex: '^order-42$' }),
+    );
+  });
+
+  it('passes headerFilters when filter.headersMatch is set', async () => {
+    const ops = mockOps(undefined, []);
+    const scenario = makeConsumeScenario({
+      kafkaConsumeAction: {
+        clusterId: 'c1',
+        topic: 'orders',
+        maxMessages: 1,
+        timeoutMs: 1000,
+        filter: { headersMatch: { 'x-env': 'prod' } },
+      },
+    });
+    await executeKafkaAction(scenario, ops);
+
+    expect(ops.consume).toHaveBeenCalledWith(
+      expect.objectContaining({
+        headerFilters: [{ key: 'x-env', value: 'prod' }],
+      }),
+    );
+  });
+
+  it('uses empty object for responseHeaders when consumed message has no headers', async () => {
+    const msgNoHeaders = {
+      topic: 'orders',
+      partition: 0,
+      offset: '1',
+      timestamp: '1000',
+      key: 'k',
+      value: '{"x":1}',
+      // headers intentionally absent
+    };
+    const ops = mockOps(undefined, [msgNoHeaders]);
+    const result = await executeKafkaAction(makeConsumeScenario(), ops);
+
+    expect(result.passed).toBe(true);
+    // msg.headers ?? {} → {} branch covered
+    expect(result.responseHeaders).toEqual({});
   });
 });
