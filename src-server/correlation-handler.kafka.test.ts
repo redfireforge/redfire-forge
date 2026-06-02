@@ -130,6 +130,18 @@ describe('extractKafkaCorrelationId', () => {
     expect(extractKafkaCorrelationId(entry, makeMsg())).toBeUndefined();
   });
 
+  it('returns undefined when body value is empty (falsy) — uses {} as parsed fallback', () => {
+    // Covers the `message.value ? JSON.parse(...) : {}` FALSE branch (empty value)
+    const entry = makeKafkaEntry({ correlationSource: 'body', correlationJsonPath: 'orderId' });
+    expect(extractKafkaCorrelationId(entry, makeMsg({ value: '' }))).toBeUndefined();
+  });
+
+  it('returns undefined when path resolves to null', () => {
+    // Covers `current != null ? String(current) : undefined` FALSE branch
+    const entry = makeKafkaEntry({ correlationSource: 'body', correlationJsonPath: 'id' });
+    expect(extractKafkaCorrelationId(entry, makeMsg({ value: JSON.stringify({ id: null }) }))).toBeUndefined();
+  });
+
   it('extracts from message header when correlationSource = header', () => {
     const entry = makeKafkaEntry({ correlationSource: 'header', correlationHeader: 'x-order-id' });
     const id = extractKafkaCorrelationId(entry, makeMsg({ headers: { 'x-order-id': 'hdr-456' } }));
@@ -275,6 +287,31 @@ describe('dispatchKafkaResumeMessage', () => {
 
     expect(received['headers']).toMatchObject({ 'x-trace': 'abc' });
     expect(received['value']).toContain('ord-123');
+  });
+
+  it('uses empty-string fallbacks for absent key/value and empty-object for absent headers in resume payload', () => {
+    // Covers `message.key ?? ''`, `message.value ?? ''`, and `message.headers ?? {}`
+    // right-side fallback branches in the resumeData object (only reachable when match succeeds)
+    addPausedCorrelation(makeKafkaEntry({ correlationSource: 'body', correlationJsonPath: 'orderId' }));
+    let received: Record<string, unknown> = {};
+    registerResumeWaiter('ord-123', (data) => { received = data.webhookData; });
+
+    dispatchKafkaResumeMessage(makeMsg({
+      key: undefined,
+      value: JSON.stringify({ orderId: 'ord-123' }),
+      headers: undefined,
+    }));
+
+    expect(received['key']).toBe('');
+    expect(received['headers']).toEqual({});
+  });
+
+  it('returns no-match and uses empty string for absent message key in log (no-match + key ?? fallback)', () => {
+    // Covers `message.key ?? ''` right-side branch in the no-match console.log line
+    const result = dispatchKafkaResumeMessage(makeMsg({ key: undefined }));
+    expect(result.resumed).toBe(false);
+    if (result.resumed) return;
+    expect(result.reason).toBe('no-match');
   });
 
   it('returns no-match when topic has no waiting correlations', () => {

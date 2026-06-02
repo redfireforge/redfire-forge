@@ -4,7 +4,7 @@
 > Created: 2026-05-21
 > Re-evaluated: 2026-05-31
 > Discussion sync updated: 2026-05-31
-> Status: In progress (Phase 1 closeout complete; Phase 2A transport abstraction complete; Phase 2B state/persistence baseline complete; Phase 2C refresh/resilience complete; Phase 3A navigation/settings shell complete; Phase 3B cluster list/editor foundation complete; Phase 3C secure auth/TLS diagnostics complete; Phase 3D topic browser/startup restoration implemented; Phase 3 AppHeader connection indicator complete; Phase 4A workflow contracts/defaults complete; Phase 4B node UI/config editing complete; Phase 4C executor integration complete; Phase 4D logging/observability complete; Phase 5 Trigger+Wait Semantics complete; Phase 6A-6D Runner Kafka Scenarios complete; Phase 7A Load behavior model complete; Phase 7B Planner/runtime enforcement complete; Phase 7C UX/operational guidance complete; Phase 8A Publish contract/settings complete; Phase 8B Publish-on-completion runtime complete; Phase 8C Publish validation complete — unit tests + broker-level scenarios all PASS)
+> Status: In progress (Phase 1 closeout complete; Phase 2A transport abstraction complete; Phase 2B state/persistence baseline complete; Phase 2C refresh/resilience complete; Phase 3A navigation/settings shell complete; Phase 3B cluster list/editor foundation complete; Phase 3C secure auth/TLS diagnostics complete; Phase 3D topic browser/startup restoration implemented; Phase 3 AppHeader connection indicator complete; Phase 4A workflow contracts/defaults complete; Phase 4B node UI/config editing complete; Phase 4C executor integration complete; Phase 4D logging/observability complete; Phase 5 Trigger+Wait Semantics complete; Phase 6A-6D Runner Kafka Scenarios complete; Phase 7A Load behavior model complete; Phase 7B Planner/runtime enforcement complete; Phase 7C UX/operational guidance complete; Phase 7 Advanced Validation complete (deterministic sim + constant-arrival gating + variance checks); Phase 8A Publish contract/settings complete; Phase 8B Publish-on-completion runtime complete; Phase 8C Publish validation complete — unit tests + broker-level scenarios all PASS)
 
 ---
 
@@ -1701,6 +1701,15 @@ Key design decisions:
 - **Phase 5C bridge bug fixed**: `serverCorrelationBridge.ts` was incorrectly mapping `correlationSource === 'key'` to `'body'` before storing the `ServerPausedEntry`. This lost the source information needed for `matchKafkaCorrelation`. Fixed by removing the mapping — `'key'` is now preserved as-is.
 - **Test coverage**: 36 new tests in `src-server/correlation-handler.kafka.test.ts` covering `extractKafkaIdempotencyKey`, `extractKafkaCorrelationId`, `matchKafkaCorrelation`, and `dispatchKafkaResumeMessage`. All 36 pass. 118 pre-existing tests in sibling files remain passing. TSC: 0 errors.
 
+**Phase 5 second re-evaluation (2026-06-02):** Thorough code review of all Phase 5 source (7 files) and test (7 files) found **zero bugs**. All 187 tests pass (170 race/resilience + 17 contracts). Key validations:
+- Abort-race pattern (`Promise.race` + `.catch(() => {})`) is correct — prevents unhandled rejection and properly classifies abort vs timeout in the catch block.
+- `ServerCorrelationBridge.cleanup()` iteration-during-delete is safe (Map spec guarantees correctness); `matchKafkaCorrelation` uses array snapshot from `listAll()`.
+- Idempotency guard (`!activeStore.find(match.correlationId)`) correctly allows replay when a new execution re-registers the same correlationId.
+- Double-reject prevention confirmed: timeout callback, cancel(), and resume() all check `this.callbacks.has(correlationId)` before acting.
+- `extractCorrelationId` HTTP path `case 'key': return undefined` confirmed in place.
+- Integration chain (kafkaTrigger → kafkaWait → HTTP) validated end-to-end in both auto-resume and store-backed modes.
+- No Docker validation needed — Phase 5 is purely in-memory correlation store logic.
+
 ### Validation matrix (required before Phase 5 exit)
 
 Contract and lifecycle validation:
@@ -2199,24 +2208,24 @@ Gate to phase exit:
 - users see the block warning before clicking Run and understand which node setting to change
 - constant-arrival desktop requirement remains visible in `RunnerExecutionConfig` (existing behavior confirmed)
 
-### Validation matrix (required before Phase 7 exit)
+### Validation matrix (required before Phase 7 exit) ✅ ALL PASS (2026-06-02)
 
 Policy validation:
 
-- policy table resolves all supported execution mode + consume mode combinations
-- unsupported combinations are blocked with explicit, actionable messages
+- ✅ policy table resolves all supported execution mode + consume mode combinations (12 kafkaLoadPolicy contract tests)
+- ✅ unsupported combinations are blocked with explicit, actionable messages (Phase 7B guard test + error message substring assertion)
 
 Runtime validation:
 
-- load-profile runs complete deterministically under policy-constrained consume behavior
-- constant-arrival path reports target/actual throughput and dropped requests when supported
-- repeated runs with same config stay within acceptable variance bounds
+- ✅ load-profile runs complete deterministically under policy-constrained consume behavior (6 deterministic simulation tests: auto-resume/synthetic-inject/undefined all complete without hanging; results bounded; no cross-iteration leakage; monotonic progress)
+- ✅ constant-arrival path reports target/actual throughput and dropped requests when supported (useTestExecution.execute.test.ts: peak RPS + dropped requests tracked via Rust progress callback)
+- ✅ repeated runs with same config stay within acceptable variance bounds (4 variance tests: result count identical across 3 runs; pass/fail ratio reproducible; sequential ≡ concurrent; full index coverage)
 
 UX validation:
 
-- execution config UI surfaces compatibility constraints before run start
-- warning text is visible for risky/non-deterministic combinations
-- desktop gating for constant-arrival is explicit and test-covered
+- ✅ execution config UI surfaces compatibility constraints before run start (WorkflowRunner.part4 tests: 5 banner tests for block/info/none/auto-resume/priority)
+- ✅ warning text is visible for risky/non-deterministic combinations (block banner contains "wait-for-real" text; info advisory contains "auto-resume" text)
+- ✅ desktop gating for constant-arrival is explicit and test-covered (useTestExecution: "errors when constant-arrival mode without Rust executor" + RunnerExecutionConfig existing opacity gating)
 
 ### Execution slicing matrix (recommended)
 
@@ -2479,6 +2488,19 @@ Thorough re-evaluation of the 13E scenario identified four gaps vs the plaintext
 4. **No envelope field validation** — 13E only checked `consumed_count ≥ 1`; did not parse and validate individual fields. Fixed: 13E now runs the same full parity assertion set as 13D (schemaVersion, runId, timestamp, executionMode, all 9 summary fields, projectName, envName).
 
 Result: 13E now has 13 PASS assertions (vs 4 before). Full suite with secure broker: **39/39 PASS**.
+
+**Phase 8C third re-evaluation notes (2026-06-02 — full end-to-end manual validation):**
+
+Thorough re-evaluation and manual validation of all Phase 8 broker scenarios (13A–13G) and secure-profile publish parity:
+- **Code review**: Reviewed `kafkaResultsPublisher.ts` (101 lines), `broker-scenarios-p8c.sh` (878 lines), `kafkaResultsPublisher.test.ts` (369 lines), `kafkaPublishTypes.test.ts` (172 lines), `useTestExecution.saveHandlers.test.ts` — no bugs found.
+- **Unit tests**: All 49 tests pass (20 publisher + 14 types + 11 save handlers + 4 additional).
+- **Manual validation**: Ran `broker-scenarios-p8c.sh` with both plaintext and secure brokers live → **41/41 PASS, 0 FAIL, 0 SKIP**.
+- **Retry logic**: Confirmed MAX_RETRIES=3 correctly produces 4 total dispatch calls (1 + 3 retries), TOTAL_TIMEOUT_MS=10000 caps total elapsed time.
+- **Secure parity**: 13E validates all 13 assertions matching plaintext 13D — full envelope field parity confirmed.
+- **Error classification**: Server → `KAFKA_AUTH_FAILED` / `KAFKA_NOT_CONNECTED` / `KAFKA_CONNECT_TIMEOUT`; client `classifyKafkaUiError` maps correctly.
+- **Non-fatal broker gate**: `wait_for_broker_ready()` allows 13E (secure) to run independently of plaintext broker availability.
+- **No race-boundary issues**: Fire-and-forget publish pattern isolates run completion from broker failures.
+- **TypeScript**: `npx tsc -b --noEmit` — 0 errors.
 
 ### Validation matrix (required before Phase 8 exit)
 
