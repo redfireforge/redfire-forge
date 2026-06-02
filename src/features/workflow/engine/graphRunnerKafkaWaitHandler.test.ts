@@ -206,7 +206,7 @@ describe('handleKafkaWaitNode', () => {
     it('fails if aborted during inline synthetic delay', async () => {
       vi.useFakeTimers();
       const controller = new AbortController();
-      const { callbacks, states } = makeCallbacks();
+      const { callbacks, states, variables } = makeCallbacks();
       const ctx = makeCtx({ orderId: 'order-123' });
       const hCtx = makeHandlerContext({
         callbacks,
@@ -229,6 +229,16 @@ describe('handleKafkaWaitNode', () => {
       expect(states['kw1']?.state).toBe('fail');
       expect(states['kw1']?.error).toBe('Aborted');
       expect(ctx.get('__kwOutcome')).toBe('cancelled');
+      // onVariablesChange must be called with __kwOutcome='cancelled' BEFORE onNodeStateChange
+      const varSnapshot = variables.find(v => v['__kwOutcome'] === 'cancelled');
+      expect(varSnapshot).toBeDefined();
+      const varCallOrder = (callbacks.onVariablesChange as ReturnType<typeof vi.fn>).mock.invocationCallOrder[0];
+      const stateCallOrder = (callbacks.onNodeStateChange as ReturnType<typeof vi.fn>).mock.invocationCallOrder[
+        (callbacks.onNodeStateChange as ReturnType<typeof vi.fn>).mock.calls.findIndex(
+          ([, s]) => (s as { state: string }).state === 'fail'
+        )
+      ];
+      expect(varCallOrder).toBeLessThan(stateCallOrder!);
       vi.useRealTimers();
     });
   });

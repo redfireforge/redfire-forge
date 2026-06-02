@@ -337,6 +337,16 @@ describe('WorkflowRunner', () => {
       expect(document.querySelector('.kafka-load-info')).toBeNull();
     });
 
+    it('renders no banner when kafkaConsume node has synthetic-inject mode', async () => {
+      render(<WorkflowRunner workflows={allWorkflowVariants} onComplete={vi.fn()} />);
+      selectWorkflowById('wf-kafka-si');
+
+      await waitFor(() => screen.getByText('▶ Run Workflow'));
+      expect(document.querySelector('.kafka-load-warning--block')).toBeNull();
+      expect(document.querySelector('.kafka-load-warning--warn')).toBeNull();
+      expect(document.querySelector('.kafka-load-info')).toBeNull();
+    });
+
     it('renders info advisory when kafkaConsume node has no loadTestBehavior', async () => {
       render(<WorkflowRunner workflows={allWorkflowVariants} onComplete={vi.fn()} />);
       selectWorkflowById('wf-kafka-nlb');
