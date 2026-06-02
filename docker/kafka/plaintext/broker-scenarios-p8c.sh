@@ -13,7 +13,10 @@
 #          produce call is made, so topic offset does not advance)
 #   13C  Broker unavailable / connection lost — non-blocking failure
 #   13D  Envelope field completeness (all 9 summary fields + schemaVersion)
-#   13E  Secure profile (SASL) — skipped unless KAFKA_SECURE_BROKERS is set
+#   13E  Secure profile (SASL/SCRAM-SHA-256) — Manual only — requires secure
+#          broker profile (docker/kafka/secure/); skipped unless
+#          KAFKA_SECURE_BROKERS / KAFKA_SECURE_USERNAME / KAFKA_SECURE_PASSWORD
+#          env vars are set
 #   13F  Retry / idempotency — first-success publish never re-attempted;
 #          validated by unit tests; broker-level proof: exactly one message
 #          per run-id appears on the topic after a successful publish
@@ -132,6 +135,13 @@ require_prerequisites() {
 # Retries a plaintext connect probe until the broker is ready (or 60 s elapses).
 # Without this, running immediately after `docker compose up -d` can hit the
 # window before the broker finishes its startup sequence and topic creation.
+#
+# IMPORTANT: this gate is non-fatal — if the plaintext broker is not available
+# (e.g. when running in secure-only mode via KAFKA_SECURE_BROKERS), the function
+# warns and returns rather than exiting. Each plaintext scenario (13A, 13B, 13D,
+# 13F) handles broker-unavailability with its own fail/skip guard so they will
+# self-report correctly. Scenario 13E (Manual only — requires secure broker
+# profile) is independent of the plaintext broker and will still run.
 
 wait_for_broker_ready() {
   local max_retries=30
@@ -151,7 +161,7 @@ wait_for_broker_ready() {
 
     if [[ "$probe_ok" == "true" ]]; then
       request POST /api/kafka/disconnect '{}' > /dev/null 2>&1 || true
-      echo -e "  ${GREEN}Broker ready.${RESET}"
+      echo -e "  ${GREEN}Plaintext broker ready.${RESET}"
       return 0
     fi
 
@@ -159,9 +169,10 @@ wait_for_broker_ready() {
     sleep "$delay"
   done
 
-  echo -e "  ${RED}Broker not ready after $((max_retries * delay))s.${RESET}" >&2
-  echo "  Check: docker compose -f docker/kafka/plaintext/docker-compose.yml logs redpanda" >&2
-  exit 1
+  # Non-fatal: warn but do not exit. Plaintext scenarios will fail/skip on their
+  # own. Scenario 13E (secure profile) is independent and will still run.
+  echo -e "  ${YELLOW}WARNING: plaintext broker not ready after $((max_retries * delay))s — plaintext scenarios (13A-13D, 13F) will fail/skip.${RESET}" >&2
+  echo "  To start the plaintext broker: docker compose -f docker/kafka/plaintext/docker-compose.yml up -d" >&2
 }
 
 # ── Broker lifecycle helpers ───────────────────────────────────────────────────
@@ -506,6 +517,7 @@ run_scenario_13d() {
 
 # =============================================================================
 # Scenario 13E — Secure profile (SCRAM-SHA-256) publish parity
+# Manual only — requires secure broker profile (docker/kafka/secure/)
 # =============================================================================
 # Validates that publishRunResults works correctly against a SASL/SCRAM-SHA-256
 # broker and produces an envelope that is semantically identical to the
@@ -543,7 +555,9 @@ run_scenario_13e() {
   local run_id="13e-$SCENARIO_RUN_ID"
 
   # ── Connect using SASL/SCRAM-SHA-256 credentials ─────────────────────────
-  # NOTE: Redpanda requires TLS for SASL/PLAIN; always use scram-sha-256 here.
+  # The secure Docker profile uses SCRAM-SHA-256 without TLS (Redpanda supports
+  # SASL/SCRAM without TLS). We use SCRAM (not SASL/PLAIN) because that is what
+  # the docker/kafka/secure/ init container provisions via the bootstrap.yaml.
   local connect_response
   connect_response="$(request POST /api/kafka/connect \
     "{\"connection\":{\"clusterId\":\"$secure_cluster_id\",\"clientId\":\"redfireforge-p8c-secure\",\"brokers\":[\"$secure_brokers\"],\"connectionTimeoutMs\":8000,\"requestTimeoutMs\":5000,\"auth\":{\"mode\":\"scram-sha-256\",\"username\":\"$secure_user\",\"password\":\"$secure_pass\"},\"tls\":{\"enabled\":false}}}" \
