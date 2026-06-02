@@ -24,6 +24,7 @@ export function createMockRuntimeAdapter(options?: {
   failAuthConnect?: boolean;
   failDisconnect?: boolean;
   failProduce?: boolean;
+  failProduceAuth?: boolean;
   failSubscribe?: boolean;
   failRun?: boolean;
   state?: Partial<MockAdminState>;
@@ -63,6 +64,9 @@ export function createMockRuntimeAdapter(options?: {
     send: vi.fn(async () => {
       if (options?.failProduce) {
         throw new Error('produce failed');
+      }
+      if (options?.failProduceAuth) {
+        throw new Error('SASL authentication failed: Invalid credentials');
       }
       return [{ partition: 0, offset: '1' }];
     }),

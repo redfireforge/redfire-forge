@@ -429,6 +429,24 @@ describe('KafkaService — Coverage: Untested Paths', () => {
     expect(result.error.code).toBe('KAFKA_PRODUCE_FAILED');
   });
 
+  // ── produce auth failure path (secure-profile parity) ────────────────────
+
+  it('produce returns KAFKA_AUTH_FAILED with retryable:false when SASL handshake fails during send', async () => {
+    const mock = createMockRuntimeAdapter({ failProduceAuth: true });
+    const service = new KafkaService(mock.runtimeAdapter);
+    await service.connect({ connection: makeConnection() });
+
+    const result = await service.produce({
+      clusterId: makeConnection().clusterId,
+      topic: 'orders.created',
+      messages: [{ value: '{"id":1}' }],
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error('expected error');
+    expect(result.error.code).toBe('KAFKA_AUTH_FAILED');
+    expect(result.error.retryable).toBe(false);
+  });
+
   // ── consumeOnce: filter mismatch return (line 404) ───────────────────────
 
   it('consumeOnce skips records that do not match the filter and times out', async () => {
