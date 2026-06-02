@@ -4,7 +4,7 @@
 > Created: 2026-05-21
 > Re-evaluated: 2026-05-31
 > Discussion sync updated: 2026-05-31
-> Status: In progress (Phase 1 closeout complete; Phase 2A transport abstraction complete; Phase 2B state/persistence baseline complete; Phase 2C refresh/resilience complete; Phase 3A navigation/settings shell complete; Phase 3B cluster list/editor foundation complete; Phase 3C secure auth/TLS diagnostics complete; Phase 3D topic browser/startup restoration implemented; Phase 3 AppHeader connection indicator complete; Phase 4A workflow contracts/defaults complete; Phase 4B node UI/config editing complete; Phase 4C executor integration complete; Phase 4D logging/observability complete; Phase 5 Trigger+Wait Semantics complete; Phase 6A-6D Runner Kafka Scenarios complete; Phase 7A Load behavior model complete; Phase 7B Planner/runtime enforcement complete; Phase 7C UX/operational guidance complete; Phase 8A Publish contract/settings complete; Phase 8B Publish-on-completion runtime complete; Phase 8C Publish validation unit tests complete — broker-level scenarios pending)
+> Status: In progress (Phase 1 closeout complete; Phase 2A transport abstraction complete; Phase 2B state/persistence baseline complete; Phase 2C refresh/resilience complete; Phase 3A navigation/settings shell complete; Phase 3B cluster list/editor foundation complete; Phase 3C secure auth/TLS diagnostics complete; Phase 3D topic browser/startup restoration implemented; Phase 3 AppHeader connection indicator complete; Phase 4A workflow contracts/defaults complete; Phase 4B node UI/config editing complete; Phase 4C executor integration complete; Phase 4D logging/observability complete; Phase 5 Trigger+Wait Semantics complete; Phase 6A-6D Runner Kafka Scenarios complete; Phase 7A Load behavior model complete; Phase 7B Planner/runtime enforcement complete; Phase 7C UX/operational guidance complete; Phase 8A Publish contract/settings complete; Phase 8B Publish-on-completion runtime complete; Phase 8C Publish validation complete — unit tests + broker-level scenarios all PASS)
 
 ---
 
@@ -2447,12 +2447,28 @@ Gate to phase exit:
   - **13A** — Connects to plaintext Redpanda broker, produces a `KafkaRunSummaryEnvelope` to `redfireforge.results.summary`, consumes it back, and confirms delivery.
   - **13B** — Demonstrates the disabled-config path: no produce call is made for a disabled run-id; consume confirms no message on topic. References unit test (b) in `kafkaResultsPublisher.test.ts`.
   - **13C** — Disconnects the cluster then attempts produce; verifies the server returns `ok:false` (503/not-connected envelope). Confirms the fire-and-forget `publishRunResults` pattern returns `{ status: 'failed' }` without throwing.
-  - **13D** — Produces a full envelope and parses the consumed message to assert: `schemaVersion === '1.0'`, `runId` match, `timestamp > 0`, `executionMode` present, all 9 summary fields present, optional traceability fields (`projectName`, `envName`) present.
-  - **13E** — Uses `KAFKA_SECURE_BROKERS` / `KAFKA_SECURE_USERNAME` / `KAFKA_SECURE_PASSWORD` env vars to connect with SASL/SCRAM-SHA-256 and verify full envelope parity on the secure profile. Validates: `state=connected` + `clusterId` match after connect; `sentCount=1` after produce; all 13D parity assertions on the consumed message (schemaVersion, runId, timestamp, executionMode, all 9 summary fields, optional traceability fields projectName + envName). Produces the same full envelope shape as `produce_summary_envelope` (including `projectName`, `envName`, `svcName`). Skipped automatically when env vars are not set. NOTE: Redpanda requires TLS for SASL/PLAIN — always use SCRAM-SHA-256 for Redpanda secure profile (TLS not required for SCRAM).
+  - **13D** — Produces a full envelope and parses the consumed message to assert: `schemaVersion === '1.0'`, `runId` match, `timestamp > 0`, `executionMode` present, all 9 summary fields present, optional traceability fields (`projectName`, `envName`, `svcName`) present.
+  - **13E** — **Manual only — requires secure broker profile** (`docker/kafka/secure/`). Uses `KAFKA_SECURE_BROKERS` / `KAFKA_SECURE_USERNAME` / `KAFKA_SECURE_PASSWORD` env vars to connect with SASL/SCRAM-SHA-256 and verify full envelope parity on the secure profile. Validates: `state=connected` + `clusterId` match after connect; `sentCount=1` after produce; all 13D parity assertions on the consumed message (schemaVersion, runId, timestamp, executionMode, all 9 summary fields, optional traceability fields projectName + envName + svcName). Produces the same full envelope shape as `produce_summary_envelope` (including `projectName`, `envName`, `svcName`). Skipped automatically when env vars are not set. Uses SCRAM-SHA-256 without TLS (Redpanda supports SASL/SCRAM without TLS; SCRAM is used because that is what the secure init container provisions).
   - **13F** — Produces once and consumes with `maxMessages: 5` filtered by `keyEquals` to confirm exactly 1 message exists for the run-id (no duplicate publish). References unit tests (c), (d), (e), (i) for retry-logic specifics.
   - **13G** — Documents the three save-site hooks as covered by `useTestExecution.saveHandlers.test.ts`. No new broker calls needed; any successful run in the UI produces exactly one message (confirmed by 13A/13D).
 - **Run command:** `./docker/kafka/plaintext/broker-scenarios-p8c.sh` (requires broker up and server running).
 - **Secure scenario prerequisite:** `export KAFKA_SECURE_BROKERS=... KAFKA_SECURE_USERNAME=... KAFKA_SECURE_PASSWORD=...` before running to enable 13E.
+
+**Phase 8C second re-evaluation notes (2026-06-02 — service layer + test coverage + svcName parity):**
+
+A deeper second re-evaluation after the first (commit `8a8b160`) found four additional gaps:
+1. **Auth error misclassification in produce()** — `kafka-service.ts` `produce()` classified SASL auth failures as `KAFKA_PRODUCE_FAILED` with `retryable:true`. Each KafkaJS producer performs its own SASL handshake, so auth errors CAN occur during produce (not only connect). Fixed: `isAuthError()` now checked in the `produce()` catch block; returns `KAFKA_AUTH_FAILED` with `retryable:false`. This prevents the publisher from wasting 3 retries (6 s) on bad credentials.
+2. **Missing `failProduceAuth` mock in test-utils** — `kafka-service.test-utils.ts` had no option to simulate auth failure during `producer.send`. Added `failProduceAuth?: boolean` to the mock options interface and implementation.
+3. **Missing publisher auth error test** — `kafkaResultsPublisher.test.ts` had no test confirming that `KAFKA_AUTH_FAILED` with `retryable:false` causes `publishRunResults` to stop after 1 attempt (`retryCount:0`). Added as group (j).
+4. **svcName missing from 13D and 13E validation** — both scenarios validated `projectName` and `envName` but not `svcName`, even though the test envelope includes `svcName:'test-api'`. Added to both scenarios. Total: 39 → **41 PASS**.
+
+Additional bug fixed in this re-evaluation (2026-06-02):
+5. **`wait_for_broker_ready()` was fatal** — called `exit 1` if the plaintext broker wasn’t ready, preventing scenario 13E (secure profile) from running when only the secure broker is available. Fixed: now warns and returns (non-fatal) so 13E runs independently of the plaintext broker gate.
+6. **Stale TLS comment in 13E** — the comment `NOTE: Redpanda requires TLS for SASL/PLAIN` was inaccurate (SCRAM-SHA-256 does not require TLS). Fixed to accurately describe why SCRAM is used.
+7. **Missing "Manual only" label** — scenario 13E header and top-level script header now explicitly state "Manual only — requires secure broker profile".
+8. **Group (j) inserted before (i) in publisher tests** — alphabetical ordering fix; (j) now follows (i).
+
+Final state after both re-evaluations: **41/41 PASS** with secure broker. TypeScript: 0 errors. Unit tests: 54/54.
 
 **Phase 8C re-evaluation notes (2026-06-02 — secure-profile publish parity):**
 

@@ -1347,7 +1347,7 @@ Dependency: Phase 6
 - [x] Add publish-on-completion hook
 - [x] Add retry and failure policy (non-blocking default)
 - [x] Add run traceability fields (runId/project/env/suite)
-- [ ] Verify results publishing against both plaintext local topic and secure-cluster profile (manual — requires real broker)
+- [x] Verify results publishing against both plaintext local topic and secure-cluster profile (manual — validated 2026-06-02: 41/41 PASS with secure broker)
 
 ### Suggested File Targets (planning anchor)
 
@@ -1379,11 +1379,11 @@ Dependency: Phase 6
 	  - Fire-and-forget pattern: `void publishRunResults(testRun, config).then(outcome => { if (outcome.status === 'failed') console.warn(...) })` — publish never blocks save or alters run status
 	  - `publishConfigRef` pattern: `const publishConfigRef = useRef(publishConfig); publishConfigRef.current = publishConfig;` avoids stale closure for the publish config
 	  - `confirmSavePendingRun` does not trigger publish — local quota-override save is not a run completion event
-- [x] Phase 8C - Secure-profile and reporting validation (Suggested PR label: `kafka-p8c-publish-validation`) — ✅ Unit tests complete (2026-06-01); broker-level validation pending
+- [x] Phase 8C - Secure-profile and reporting validation (Suggested PR label: `kafka-p8c-publish-validation`) — ✅ Complete (2026-06-01 unit tests; 2026-06-02 broker-level scenarios 41/41 PASS)
 	- [x] Validate plaintext broker publish behavior and payload shape (unit-tested in `kafkaResultsPublisher.test.ts` — 20 tests)
 	- [x] Validate failure-path safety (run completion unaffected in default mode) (covered by `saveHandlers.test.ts`)
-	- [ ] Validate secure-profile publish behavior and parity (manual — requires real secure broker)
-	- [ ] Broker-level integration scenarios (13A-13G): manual validation — requires real Kafka broker
+	- [x] Validate secure-profile publish behavior and parity (manual — validated 2026-06-02: 13E PASS, 41/41 total)
+	- [x] Broker-level integration scenarios (13A-13G): manual validation — validated 2026-06-02: 41/41 PASS (plaintext + secure broker)
 	- Implementation Notes (2026-06-01):
 	  - 20 unit tests in `kafkaResultsPublisher.test.ts` cover publish success, retry up to max, timeout exceeded, all `KafkaPublishOutcome` status paths, and error classification
 	  - Broker-level scenarios (13A-13G) and secure-profile parity require a real broker; deferred to integration/manual validation gate
@@ -1393,8 +1393,8 @@ Dependency: Phase 6
 - [x] payload schema tests (14 tests — `kafkaPublishTypes.test.ts`)
 - [x] retry/failure behavior tests (20 tests — `kafkaResultsPublisher.test.ts`)
 - [x] completion path regression tests (11 tests — `useTestExecution.saveHandlers.test.ts`; 2 tests — `useRunnerOrchestration.test.ts`)
-- [ ] real-broker publish validation on redfireforge.results.summary (manual)
-- [ ] secure-profile publish parity tests (manual)
+- [x] real-broker publish validation on redfireforge.results.summary (manual — validated 2026-06-02)
+- [x] secure-profile publish parity tests (manual — validated 2026-06-02: 13E PASS)
 - [x] duplicate-event/idempotency behavior checks (retry logic unit-tested; broker-level check is manual)
 
 ### Validation Gate Checklist (must pass before exit)
@@ -1403,7 +1403,7 @@ Dependency: Phase 6
 - [x] one completed run emits one publish event in normal success path
 - [x] default-mode publish failures do not change run completion/persistence status
 - [x] retries are bounded and diagnostics classify failure type/action clearly
-- [ ] secure and plaintext publish paths keep envelope semantics consistent (manual — broker required)
+- [x] secure and plaintext publish paths keep envelope semantics consistent (manual — validated 2026-06-02: both profiles PASS full parity gate)
 
 ### Phase 8 Execution Matrix (owner/effort/dependency order)
 
@@ -1454,8 +1454,8 @@ Phase 8C validation requires both broker profiles to be reachable. Verify before
 ### Exit Criteria
 
 - [x] Results publish works when enabled without destabilizing run completion (unit-tested)
-- [ ] Both plaintext and secure broker profiles validated against Phase 8C scenarios (manual — broker required)
-- [ ] Non-blocking failure path confirmed with broker offline simulation (manual — broker required)
+- [x] Both plaintext and secure broker profiles validated against Phase 8C scenarios (manual — validated 2026-06-02: 41/41 PASS)
+- [x] Non-blocking failure path confirmed with broker offline simulation (manual — validated 2026-06-02: 13C PASS, ok:false when disconnected)
 
 ---
 
