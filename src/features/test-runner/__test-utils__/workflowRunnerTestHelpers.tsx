@@ -240,6 +240,29 @@ export const wfKafkaNoLoadBehavior: Workflow = {
   ...TIMESTAMPS,
 };
 
+/** Workflow with a kafkaConsume node in synthetic-inject mode.
+ *  Explicit synthetic-inject is 'allow' with no fallbackMode → no banner should render. */
+export const wfKafkaSyntheticInject: Workflow = {
+  id: 'wf-kafka-si',
+  name: 'Kafka Synthetic Inject',
+  nodes: [
+    {
+      id: 'kc4',
+      type: 'kafkaConsume',
+      position: { x: 0, y: 0 },
+      data: {
+        label: 'Consume Synthetic',
+        clusterId: 'c1',
+        topic: 'events',
+        loadTestBehavior: { mode: 'synthetic-inject' },
+      },
+    },
+  ],
+  edges: [],
+  variables: {},
+  ...TIMESTAMPS,
+};
+
 /** Workflow with two kafkaConsume nodes: one wait-for-real (block) and one no-behavior (info).
  *  Used to verify the Phase 7C priority rule: block banner suppresses the info advisory. */
 export const wfKafkaMixed: Workflow = {
@@ -283,6 +306,7 @@ export const allWorkflowVariants: Workflow[] = [
   wfKafkaWaitForReal,
   wfKafkaAutoResume,
   wfKafkaNoLoadBehavior,
+  wfKafkaSyntheticInject,
   wfKafkaMixed,
 ];
 

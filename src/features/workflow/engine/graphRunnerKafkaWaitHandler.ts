@@ -189,6 +189,7 @@ export async function handleKafkaWaitNode(
     if (!completed) {
       hCtx.log({ prefix: '!', text: `[${label}] Synthetic inject aborted` });
       hCtx.ctx.set('__kwOutcome', 'cancelled');
+      hCtx.callbacks.onVariablesChange(hCtx.ctx.snapshot());
       hCtx.callbacks.onNodeStateChange(nodeId, { state: 'fail', error: 'Aborted' });
       return;
     }

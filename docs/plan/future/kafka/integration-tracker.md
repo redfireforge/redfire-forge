@@ -21,7 +21,7 @@
 - Current active PR: feature/kafka-integration (phases 1–8C complete; all manual validations PASS 2026-06-02)
 - Immediate objective: All code phases 1–8 are complete and fully validated. Next code phase is Phase 9 (rdkafka Tauri-native transport).
 - Next gate to clear: merge feature/kafka-integration into develop (after PR review), then plan Phase 9 branch
-- Re-validation summary (2026-06-02): Phase 3 secure smoke 21/21 PASS · Phase 8C broker scenarios 41/41 PASS (plaintext + SASL/SCRAM-SHA-256 secure profile) · Phase 5 170 unit tests PASS · Phase 7 207 unit tests PASS · tsc: 0 errors
+- Re-validation summary (2026-06-02): Phase 3 secure smoke 21/21 PASS · Phase 8C broker scenarios 41/41 PASS (plaintext + SASL/SCRAM-SHA-256 secure profile) · Phase 5 170 unit tests PASS · Phase 7 208 unit tests PASS · tsc: 0 errors
 
 Reference docs for current phase:
 
@@ -1319,14 +1319,21 @@ Dependency: Phase 6
   2. **Constant-arrival gating** (4 tests): verifies policy function returns `warn` (not `block`) for `constant-arrival + wait-for-real` (enforcement is desktop-side), `allow` for `auto-resume`/`undefined`, and `workflow + wait-for-real` blocks before any iteration runs.
   3. **Repeated-run variance checks** (4 tests): verifies identical configs produce the same result count across 3 runs, identical pass/fail ratios for deterministic workflows, sequential/concurrent parity (same total results regardless of concurrency level), and full iteration index coverage `[0, N-1]` in concurrent execution.
 - Fixed during implementation: tests using `mockResolvedValue` with mutable result objects failed in concurrent scenarios (shared reference → overwritten `iterationIndex`); fixed by using `mockImplementation(async () => [...])` to return fresh arrays per call.
-- Total: **207 tests passing** across 8 Phase 7 test files (57 graphLoadRunner, 12 kafkaLoadPolicy, 15 graphLoadRunner.part2, 31 kafkaNodeHandlers, 7 WorkflowRunner.part4, 27 useTestExecution.execute, 54 executor, 4 graphLoadRunner.initialVars). tsc: 0 errors.
-  - Note: tracker previously recorded incorrect counts for 3 files (22→15 part2; 17→7 WorkflowRunner.part4; 10→27 useTestExecution.execute); counts corrected 2026-06-02 after re-verification run.
+- Total: **208 tests passing** across 8 Phase 7 test files (57 graphLoadRunner, 12 kafkaLoadPolicy, 15 graphLoadRunner.part2, 31 kafkaNodeHandlers, 8 WorkflowRunner.part4, 27 useTestExecution.execute, 54 executor, 4 graphLoadRunner.initialVars). tsc: 0 errors.
+  - Note: tracker previously recorded incorrect counts for 3 files (22→15 part2; 17→7 WorkflowRunner.part4; 10→27 useTestExecution.execute); counts corrected 2026-06-02 after re-verification run. WorkflowRunner.part4 count updated again 2026-06-02 (7→8) after adding synthetic-inject banner test.
 
 **Phase 7 Re-validation (2026-06-02):**
 - Re-ran all 207 Phase 7 unit tests → 207/207 PASS. tsc: 0 errors.
 - Code review of `kafkaLoadPolicy.ts`, `graphLoadRunner.ts`, `graphRunnerKafkaNodeHandlers.ts`, and `WorkflowRunner.tsx` — no bugs found.
 - Confirmed `onVariablesChange` bug pattern does NOT affect produce/consume handlers (their catch blocks do not set any ctx variables, so `captureKafkaDetails` writes only to the internal map — no variable-change emission gap).
 - Confirmed `__kwOutcome` onVariablesChange fix from Phase 5E re-evaluation applies only to kafkaWait handler (already fixed in commit a8e7c8e).
+
+**Phase 7 Deep Re-evaluation (2026-06-02, second pass):**
+- **Bug found and fixed** in `graphRunnerKafkaWaitHandler.ts`: the synthetic-inject **inline abort path** (load test mode, no correlation store, abort during `waitWithAbort`) set `__kwOutcome = 'cancelled'` on the context but never called `callbacks.onVariablesChange(ctx.snapshot())` before `onNodeStateChange`. This is the same pattern as the Phase 5E catch-block bug (fix: commit `a8e7c8e`) — the fix was applied to the `catch` block but missed this early-return path. Fixed by adding `hCtx.callbacks.onVariablesChange(hCtx.ctx.snapshot())` in the inline abort return.
+- **Test strengthened**: `graphRunnerKafkaWaitHandler.test.ts` `'fails if aborted during inline synthetic delay'` now also asserts that `onVariablesChange` was called with `__kwOutcome='cancelled'` AND that `onVariablesChange` call order precedes the `onNodeStateChange('fail')` call order.
+- **Test added**: `wfKafkaSyntheticInject` fixture added to `workflowRunnerTestHelpers.tsx`; new test `'renders no banner when kafkaConsume node has synthetic-inject mode'` added to `WorkflowRunner.part4.test.tsx` — closes the gap for the `synthetic-inject → allow (no banner)` policy outcome.
+- **Manual broker re-validation**: Phase 3 secure smoke 21/21 PASS · Phase 8C broker scenarios 41/41 PASS (both plaintext + secure profiles live).
+- **Final counts**: Phase 7 test files now total **208 tests** (WorkflowRunner.part4: 7→8). All 279 tests across 11 Phase 7+5 test files pass. tsc: 0 errors.
 
 ### Phase 7 Execution Matrix (owner/effort/dependency order)
 
