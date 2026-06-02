@@ -308,6 +308,26 @@ describe('publishRunResults', () => {
     });
   });
 
+  // ── (j) Auth error from secure-profile broker ────────────────────────────
+
+  describe('auth error — secure-profile parity', () => {
+    it('returns failed with KAFKA_AUTH_FAILED code and no retry when broker rejects credentials', async () => {
+      mockDispatch.mockRejectedValue(
+        new KafkaClientError('produce', 'SASL authentication failed: Invalid credentials', {
+          code: 'KAFKA_AUTH_FAILED',
+          retryable: false,
+        }),
+      );
+
+      const outcome = await publishRunResults(makeTestRun(), enabledConfig);
+
+      expect(outcome.status).toBe('failed');
+      expect(outcome.retryCount).toBe(0);
+      expect(outcome.errorCode).toBe('KAFKA_AUTH_FAILED');
+      expect(mockDispatch).toHaveBeenCalledTimes(1); // no retry — auth failures are non-retryable
+    });
+  });
+
   // ── (i) Correct retryCount in partially-succeeded path ───────────────────
 
   describe('retryCount in outcome', () => {

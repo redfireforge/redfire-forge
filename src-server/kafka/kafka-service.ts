@@ -309,10 +309,11 @@ export class KafkaService {
         records,
       });
     } catch (error) {
+      const authFail = this.isAuthError(error);
       return createKafkaErrorEnvelope('produce', {
-        code: 'KAFKA_PRODUCE_FAILED',
+        code: authFail ? 'KAFKA_AUTH_FAILED' : 'KAFKA_PRODUCE_FAILED',
         message: this.toMessage(error),
-        retryable: true,
+        retryable: !authFail,
       });
     } finally {
       await this.safeDisconnectProducer(producer);

@@ -493,6 +493,14 @@ run_scenario_13d() {
     fail "envName missing (was included in test envelope)"
   fi
 
+  local svc_name
+  svc_name="$(echo "$envelope" | jq -r '.svcName // ""')"
+  if [[ -n "$svc_name" ]]; then
+    pass "svcName present ($svc_name)"
+  else
+    fail "svcName missing (was included in test envelope)"
+  fi
+
   disconnect_broker
 }
 
@@ -704,6 +712,14 @@ run_scenario_13e() {
     pass "envName present ($env_name) — optional field parity confirmed"
   else
     fail "envName missing from secure envelope (was included in test payload)"
+  fi
+
+  local svc_name
+  svc_name="$(echo "$envelope" | jq -r '.svcName // ""')"
+  if [[ -n "$svc_name" ]]; then
+    pass "svcName present ($svc_name) — optional field parity confirmed"
+  else
+    fail "svcName missing from secure envelope (was included in test payload)"
   fi
 
   request POST /api/kafka/disconnect '{}' > /dev/null 2>&1 || true
